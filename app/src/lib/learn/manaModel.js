@@ -489,6 +489,29 @@ function activatedManaCosts(oracle) {
  * wrong in the RESTRICTIVE direction — a safe FN, but a real fidelity loss on exactly the turn these cards
  * are meant to matter. Pinned in the test rather than left to a future reader's memory.
  */
+/**
+ * PAY-LIFE COST — parse "Pay N life" out of a mana ability's cost, or null.
+ *
+ * ⭐ THE SIM CAN PAY THIS. The compound-cost guard lumps pay-life in with the consumables it refuses
+ * (discard, remove-counter, exile, return-to-hand) because none of them were spendable — but LIFE is tracked
+ * state with a `loseLife` mutator, so the cost is payable in exactly the way tap-OTHER now is: gate the
+ * source on affordability at manaSources, and actually spend it at commit.
+ *
+ * ⛔ Fixed amounts only, and the REST of the cost must be {T} / mana symbols. A second consumable (Hazel of
+ * the Rootbloom pays life AND taps X tokens) leaves residue and refuses — this graduates ONE more cost kind,
+ * not the guard entirely.
+ */
+function parsePayLifeCost(oracle) {
+  const line = String(oracle || "").split(/\n+/).find((l) => /:/.test(l) && /\badd\b/i.test(l.split(":").slice(1).join(":")));
+  if (!line) return null;
+  const cost = line.split(":")[0] || "";
+  const m = cost.match(/\bpay (\d+) life\b/i);
+  if (!m) return null;
+  const rest = cost.replace(m[0], " ").replace(/\{[^}]*\}/g, " ").replace(/[\s,]/g, "");
+  if (rest !== "") return null;
+  return { amount: parseInt(m[1], 10) };
+}
+
 function parseTapOtherCost(oracle) {
   const line = String(oracle || "").split(/\n+/).find((l) => /\btap (?:an|two|three|a)\b[^:]*:/i.test(l) && /\badd\b/i.test(l));
   if (!line) return null;
@@ -1016,6 +1039,16 @@ function manaProductionImpl(card) {
     return { ...fromOracle, requiresTap: manaAbilityRequiresTap(oracleForAdd), extraTap: tapOther };
   }
 
+  // ===== PAY-LIFE COST =====================================================================
+  // "{T}, Pay 2 life: Add one mana of any color." (Staff of Compleation, Myr Convert, Standing Stones,
+  // Blightsoil Druid) and the tapless "Pay 1 life: Add …" (Lord of the Forsaken, Kozilek's Translator).
+  // Same graduation as tap-OTHER directly above: the cost is real state the sim can spend, so it is gated on
+  // affordability in manaSources and actually paid in commitManaTap.
+  const payLife = parsePayLifeCost(oracleForAdd);
+  if (fromOracle && payLife && !isLandCard) {
+    return { ...fromOracle, requiresTap: manaAbilityRequiresTap(oracleForAdd), payLife: payLife.amount };
+  }
+
   // A land we couldn't otherwise parse still taps for something — assume colorless so it can at least pay
   // generic. Never invents a color.
   //
@@ -1294,6 +1327,14 @@ export function manaSources(state, playerId) {
     // ⭐ SUMMONING SICKNESS IS DELIBERATELY NOT A FILTER (CR 302.6): sickness restricts the {T} symbol in a
     // creature's OWN cost, and this is a cost of the SOURCE's ability — a creature played this turn is a
     // legal payer. Ordering prefers sick payers precisely because they are the ones with nothing else to do.
+    // ⛔ PAY-LIFE AFFORDABILITY — the twin of the tap-OTHER gate below. A source whose life cost is never
+    // checked is the same phantom mana in a different currency.
+    //
+    // ⚠️ STRICTLY GREATER THAN, not >=. Paying life down to exactly 0 is LEGAL (CR 118.4) and then loses the
+    // game to a state-based action — so a >= gate lets the sim kill itself for one mana, which is a legal
+    // move no player would make and a corrupted training game. Declining that last point of life is a
+    // DELIBERATE narrowing (a safe FN on a line the sim should never want), not a rules claim.
+    if (prod.payLife != null && !((player.life ?? 0) > prod.payLife)) continue;
     let extraTaps = null;
     if (prod.extraTap) {
       // ⛔ THE SOURCE EXCLUDES ITSELF ONLY WHEN IT IS ALREADY TAPPING ITSELF. Springleaf Drum pays {T} as
@@ -1361,10 +1402,10 @@ export function manaSources(state, playerId) {
     if (prod.colorsFromImprint) {
       const imprintedColors = (perm.imprinted?.colors || []).filter((c) => MANA_COLORS.includes(c));
       if (!imprintedColors.length) continue;
-      sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}), ...(extraTaps ? { extraTaps } : {}) });
+      sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}) });
       continue;
     }
-    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}), ...(extraTaps ? { extraTaps } : {}) });
+    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}) });
   }
   return sources;
 }
@@ -1444,6 +1485,7 @@ export function planPayment(pool, sources, cost, spendContext = null) {
       // committer executes is the plan the planner priced — the same "affordable == actually paid" invariant
       // the fixed-bundle and painland fields exist to hold.
       extraTaps: Array.isArray(s.extraTaps) ? [...s.extraTaps] : null,
+      payLife: s.payLife ?? null,
       // PAINLAND: the colours that cost life, and how much. Carried so tapSource can stamp the tap.
       painColors: Array.isArray(s.painColors) ? s.painColors : null,
       painAmount: s.painAmount || 0,
@@ -1523,7 +1565,7 @@ export function planPayment(pool, sources, cost, spendContext = null) {
     // PAINLAND: stamp the life cost ONLY when the chosen colour is one of the painful ones — a tap for
     // the free {C} half costs nothing, exactly as printed.
     const painHit = s.painColors && s.painColors.includes(primaryColor) ? s.painAmount : 0;
-    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
+    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
     return wantColor && assigned ? wantColor : primaryColor;
   };
 
@@ -1678,6 +1720,10 @@ export function commitManaTap(state, playerId, tap) {
   // prevent, reintroduced one layer down. Done BEFORE the source's own tap/sacrifice so a failure here
   // cannot leave the source spent with the cost unpaid.
   for (const id of tap.extraTaps || []) next = tapPermanent(next, id);
+  // ⛔ PAY-LIFE: spend the printed cost. Named `payLifeCost` and NOT `painLife` on purpose — painlands
+  // already own that field, and folding the two would make a painland's colour choice and an ability's
+  // printed cost indistinguishable in the plan.
+  if (tap.payLifeCost) next = loseLife(next, { playerId, amount: tap.payLifeCost });
   if (tap.sacrifices) {
     const sacPerm = next.players[playerId]?.battlefield?.find(p => p.id === tap.permanentId); // capture pre-move (for the type)
     next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId });

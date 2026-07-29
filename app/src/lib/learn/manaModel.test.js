@@ -148,8 +148,17 @@ describe("manaProduction", () => {
     const um = permanent({ name: "Utopia Mycon", type: "Creature — Fungus", oracle: "Sacrifice a Saproling: Add one mana of any color." }, { id: "um" });
     expect(manaSources(bf([um]), "user")).toEqual([]);
   });
-  it("does NOT read a PAY-LIFE / DISCARD / REMOVE-COUNTER cost 'Add' as a standing source", () => {
-    expect(manaProduction({ name: "Treasonous Ogre", type: "Creature — Ogre Shaman", oracle: "Pay 3 life: Add {R}." })).toBeNull();
+  it("⭐⭐ RE-POINTED — PAY-LIFE graduated (the sim can spend life); DISCARD / REMOVE-COUNTER still cannot", () => {
+    // This assertion bundled three costs under one claim: "a resource the sim can't spend". That was true of
+    // all three, and is now true of only two. LIFE is tracked state with a mutator, so the cost is payable
+    // exactly the way tap-OTHER became payable — gated on affordability in manaSources, spent in
+    // commitManaTap. Treasonous Ogre therefore produces, and carries its cost on the product.
+    //
+    // ⛔ The bar for the other two is unchanged and is about SPENDABILITY, not difficulty: a DISCARD needs a
+    // hand the mana model does not consult, and a REMOVE-COUNTER draws on a FINITE pool the sim would
+    // mistreat as infinite free mana. Both still refuse, in this same test, so the principle stays visible
+    // next to its exception.
+    expect(manaProduction({ name: "Treasonous Ogre", type: "Creature — Ogre Shaman", oracle: "Pay 3 life: Add {R}." })).toMatchObject({ payLife: 3 });
     expect(manaProduction({ name: "Skirge Familiar", type: "Creature — Phyrexian Imp", oracle: "Flying\nDiscard a card: Add {B}." })).toBeNull();
     // Remove-counter: a FINITE counter pool the sim would mistreat as infinite free mana.
     expect(manaProduction({ name: "Cryptic Trilobite", type: "Creature — Trilobite", oracle: "This creature enters with X +1/+1 counters on it.\nRemove a +1/+1 counter from this creature: Add {C}{C}. Spend this mana only to activate abilities.\n{1}, {T}: Put a +1/+1 counter on this creature." })).toBeNull();

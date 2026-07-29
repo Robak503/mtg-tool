@@ -160,3 +160,45 @@ describe("⭐ the TAPLESS form — a cost with no {T} of its own", () => {
     expect(manaProduction({ name: "Forest", type: "Land — Forest", oracle: "" }).requiresTap).toBeUndefined();
   });
 });
+
+describe("⭐ PAY-LIFE costs — the same graduation, a different currency", () => {
+  const STAFF = { id: "st", name: "Staff of Compleation", type: "Artifact", oracle: "{T}, Pay 2 life: Add one mana of any color." };
+  const boardAt = (life) => {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    return { ...s, players: { ...s.players, user: { ...s.players.user, life, battlefield: [perm("st", "Artifact", STAFF)] } } };
+  };
+  const staffSource = (st) => manaSources(st, "user").find((x) => x.permanentId === "st");
+
+  it("⭐ the cost is parsed and carried", () => {
+    expect(manaProduction(STAFF)).toMatchObject({ requiresTap: true, payLife: 2 });
+  });
+
+  it("⛔ a second consumable in the same cost still refuses (Hazel taps X tokens too)", () => {
+    expect(manaProduction({ name: "Hazel", type: "Creature — Human", oracle: "{T}, Pay 2 life, Tap X untapped tokens you control: Add X mana of any one color." })).toBe(null);
+  });
+
+  it("⭐ affordable at 3 life", () => expect(staffSource(boardAt(3))).toBeDefined());
+
+  it("⛔⭐ NOT offered at exactly the cost — paying to 0 is legal but loses the game", () => {
+    // ⚠️ `>` not `>=`, deliberately. CR 118.4 permits paying life down to 0; a state-based action then ends
+    // the game. A `>=` gate lets the sim kill itself for one mana — a legal move no player would make, and a
+    // corrupted training game. Declining that last point is a documented narrowing, not a rules claim.
+    expect(staffSource(boardAt(2))).toBeUndefined();
+    expect(staffSource(boardAt(1))).toBeUndefined();
+  });
+
+  it("⛔⭐ RUNTIME — the life is actually spent", () => {
+    const st = boardAt(40);
+    const plan = planPayment(EMPTY_POOL, manaSources(st, "user"), cost({ generic: 1 }));
+    const after = commitPaymentPlan(st, "user", plan);
+    expect(after.players.user.life).toBe(38);
+    expect(after.players.user.battlefield.find((p) => p.id === "st").tapped).toBe(true);
+  });
+
+  it("⛔ DISCARD and REMOVE-COUNTER costs still refuse — spendability, not difficulty", () => {
+    // A discard needs a hand the mana model never consults; a remove-counter draws on a finite pool the sim
+    // would treat as infinite. Neither is state this seam can honestly spend.
+    expect(manaProduction({ name: "Skirge Familiar", type: "Creature — Imp", oracle: "Discard a card: Add {B}." })).toBe(null);
+    expect(manaProduction({ name: "Trilobite", type: "Creature — Trilobite", oracle: "Remove a +1/+1 counter from this creature: Add {C}{C}." })).toBe(null);
+  });
+});
