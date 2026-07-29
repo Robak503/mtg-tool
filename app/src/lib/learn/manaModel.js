@@ -32,7 +32,7 @@
 
 import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent } from "./gameState.js";
 import { checkSacrificeTriggers, checkLeavesTriggers } from "./triggers.js"; // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
-import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow } from "./layers.js";
+import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow, colorsOf } from "./layers.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock
 import { manaMultiplier } from "./replacementEffects.js"; // MANA-MULTIPLIER: ×N tap-for-mana replacement (Mana Reflection/Nyxbloom; leaf, no cycle)
@@ -220,6 +220,21 @@ function parseManaMetric(tail, card) {
 function parseAddClause(oracle, card) {
   if (!/\badd\b/i.test(oracle)) return null;
 
+  // ⭐ VIVID / BOARD-DERIVED BUNDLE (Bloom Tender, Faeburrow Elder) — "For each color among permanents you
+  // control, add one mana of THAT color." The same simultaneous one-of-each shape as the karoo family below,
+  // except the color set is read off the LIVE board at tap time rather than printed, so it is modeled as
+  // `fixedSpec` (resolved in manaSources) rather than a static `fixed`. `amount:0` is a placeholder the
+  // resolver replaces with the live tally — never a produced-zero.
+  //
+  // ⚠️ It CANNOT ride the existing amountSpec path: that yields N mana freely spendable across `colors`, so on
+  // a W/G board it would pay {G}{G} — the same forbidden false positive the karoo fix below removes.
+  //
+  // Checked FIRST because this clause carries NO mana symbols: every arm below either anchors on a {SYM} or
+  // bails at `symbols.length === 0`, so a later placement is dead code (measured — it returned null there).
+  if (/\bfor each color among permanents you control, add one mana of that color\b/i.test(oracle)) {
+    return { colors: ["W", "U", "B", "R", "G"], amount: 0, fixedSpec: { kind: "colorsAmongPermanents" } };
+  }
+
   // ===== MANA-VARIABLE — checked FIRST so the bigger variable ability wins over a small fixed/any-
   // color one on the SAME card (Arbor Adherent has a line-1 "Add one mana of any color" AND a line-2
   // variable "Add X mana …, where X is …"; the variable line is the modeled one). Each shape is
@@ -278,6 +293,21 @@ function parseAddClause(oracle, card) {
   // Plain concatenation ("{C}{C}") = produces all of them (amount = count).
   if (/\bor\b/i.test(clause)) {
     return { colors: unique, amount: 1 };
+  }
+  // ⭐ MIXED FIXED BUNDLE (the karoo / signet family — "Add {G}{W}", 51 corpus cards incl. every bounce land
+  // and every Signet). A plain concatenation of DIFFERENT colors produces ONE OF EACH, simultaneously — it is
+  // not a choice and not N-of-one-color. Without the per-color tally the planner's primary component picked a
+  // single color and credited `amount` of it, which was wrong in BOTH directions, measured on the real card:
+  // a Selesnya Signet REFUSED {G}{W} (the only thing it actually does — a false negative) and PAID {G}{G}
+  // (which it cannot — the forbidden false positive).
+  //
+  // `amount` is left as the total so every existing consumer (the multiplier, the 0-amount drop, the tap
+  // record) keeps reading the same field; `fixed` is the per-color breakdown the planner spends. Stamped ONLY
+  // when >1 distinct color, so every single-color source ("{C}{C}", "{G}") keeps its exact previous shape.
+  if (unique.length > 1) {
+    const fixed = {};
+    for (const s of symbols) fixed[s] = (fixed[s] || 0) + 1;
+    return { colors: unique, amount: symbols.length, fixed };
   }
   return { colors: unique, amount: symbols.length };
 }
@@ -916,7 +946,25 @@ export function manaSources(state, playerId) {
     // SNOW (SN-1, CR 107.4h): stamp sources produced by a snow permanent so planPayment can pay a {S} pip
     // with one mana from here (a {S} is NEVER paid from a non-snow source). The snow flag is the SOURCE
     // permanent's printed supertype — independent of what color/amount it makes.
-    sources.push({ permanentId: perm.id, colors: prod.colors, amount, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}) });
+    // MIXED FIXED BUNDLE (karoo / signet): carry the per-color tally, scaled by the SAME multiplier factor
+    // applied to `amount` above so a doubled Selesnya Signet makes {G}{G}{W}{W} — not four of one color, and
+    // not an unscaled single bundle. Absent on every single-color source, so the shape is unchanged there.
+    const scale = prod.requiresTap === false ? 1 : manaMult;
+    // VIVID (Bloom Tender / Faeburrow Elder): resolve the board-derived bundle LIVE (CR 608.2g) — one mana per
+    // DISTINCT color among the controller's permanents. An empty/colorless board yields no colors, which must
+    // stay a produce-nothing source rather than a fabricated mana (CREED); `amount` follows the same tally, so
+    // the 0-amount drop below removes it from the payable set exactly like any other zero producer.
+    const dynFixed = prod.fixedSpec?.kind === "colorsAmongPermanents"
+      ? Object.fromEntries([...new Set((player.battlefield || []).flatMap((p) => colorsOf(p.card)))].map((c) => [c, scale]))
+      : null;
+    const fixed = dynFixed || (prod.fixed ? Object.fromEntries(Object.entries(prod.fixed).map(([c, n]) => [c, n * scale])) : null);
+    // A bundle's TOTAL is its own tally — for the printed karoo family this equals `amount` exactly (two
+    // symbols × the multiplier), and for the board-derived VIVID form it is the live color count, replacing
+    // the parser's amount:0 placeholder. One rule covers both, so the two can never disagree. A bundle that
+    // resolves to no colors totals 0 and is dropped by the `amount > 0` filter in planPayment — the
+    // produce-nothing case, never a fabricated mana.
+    const bundleTotal = fixed ? Object.values(fixed).reduce((a, b) => a + b, 0) : amount;
+    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(fixed ? { fixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}) });
   }
   return sources;
 }
@@ -979,6 +1027,9 @@ export function planPayment(pool, sources, cost) {
       // PRIMARY's chosen color (the type this tap produced), never an independent pick (CREED, off-type FP).
       bonus: Array.isArray(s.bonus) ? s.bonus.map(b => ({ colors: b.colors.filter(c => COLOR_SET.has(c)), amount: b.amount, ...(b.sameAsProduced && { sameAsProduced: true }) })).filter(b => b.amount > 0 && b.colors.length) : [],
       snow: !!s.snow,   // SNOW (SN-1): a source produced by a snow permanent — the only kind that can pay a {S} pip
+      // MIXED FIXED BUNDLE (karoo / signet): a per-color tally this source produces SIMULTANEOUSLY. When
+      // present it REPLACES the primary component's "pick one color × amount" — see tapSource.
+      fixed: s.fixed && Object.keys(s.fixed).length > 1 ? { ...s.fixed } : null,
       used: false,
     }))
     .filter(s => s.amount > 0);
@@ -1014,6 +1065,16 @@ export function planPayment(pool, sources, cost) {
       return needed || comp.colors[0];
     };
     for (const comp of components) {
+      // MIXED FIXED BUNDLE (karoo / signet): the primary component is NOT a color choice — it produces its
+      // exact tally, all colors at once. Credit each and skip pickColor entirely. `primaryColor` is set to the
+      // bundle's first color purely so a sameAsProduced bonus (Mana Flare on a karoo) has a legal type this
+      // source genuinely produced to bind to — the bundle itself is never re-added through it.
+      if (comp.primary && s.fixed) {
+        for (const [c, n] of Object.entries(s.fixed)) working[c] += n;
+        if (wantColor && s.fixed[wantColor] > 0) assigned = true;
+        primaryColor = Object.keys(s.fixed)[0];
+        continue;
+      }
       // MANA FLARE (MF-1, CR 106.1b): a sameAsProduced bonus is "one mana of any type THAT LAND PRODUCED" — its
       // color IS the primary's chosen color (the primary component is first, so primaryColor is already set),
       // NEVER an independent pick: one Adarkar Wastes tap under Mana Flare makes WW or UU, never W+U (CREED).
@@ -1022,7 +1083,7 @@ export function planPayment(pool, sources, cost) {
       if (comp.primary) primaryColor = color;
       else bonusPicks.push({ color, amount: comp.amount });
     }
-    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.sacrifices && { sacrifices: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
+    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
     return wantColor && assigned ? wantColor : primaryColor;
   };
 
@@ -1121,6 +1182,14 @@ export function planPayment(pool, sources, cost) {
     const color = tapAny();
     if (color === null) return null;
     while (generic > 0 && working[color] > 0) { spendOne(color); generic -= 1; }
+    // MIXED FIXED BUNDLE (karoo / signet): a tap can produce SEVERAL colors at once, and `tapAny` reports only
+    // the primary. Draining just that one stranded the rest — a Selesnya Signet could not pay {2}, which it
+    // plainly does. Generic is paid LAST (snow → colored → here), so nothing colored is still owed and any
+    // color left in `working` is legitimately spendable on generic. A single-color tap leaves nothing extra
+    // here, so this is a no-op for every source that isn't a bundle. Surplus still floats.
+    for (const c of MANA_COLORS) {
+      while (generic > 0 && working[c] > 0) { spendOne(c); generic -= 1; }
+    }
   }
 
   return { taps, spend };
@@ -1149,7 +1218,13 @@ export function canAfford(pool, sources, cost) {
  * so the commit semantics can't drift.
  */
 export function commitManaTap(state, playerId, tap) {
-  let next = addMana(state, { playerId, color: tap.color, amount: tap.amount ?? 1 });
+  // MIXED FIXED BUNDLE (karoo / signet): the tap produces its exact per-color tally, so the commit adds each
+  // color rather than `amount` of the single recorded `color`. Reading the plan's OWN breakdown is what keeps
+  // "affordable per planPayment" == "actually paid" for these sources — the invariant this whole seam exists
+  // to hold. Absent on every other tap, which keeps the single-color path byte-identical.
+  let next = tap.fixed
+    ? Object.entries(tap.fixed).reduce((st, [color, amount]) => addMana(st, { playerId, color, amount }), state)
+    : addMana(state, { playerId, color: tap.color, amount: tap.amount ?? 1 });
   for (const b of tap.bonus || []) next = addMana(next, { playerId, color: b.color, amount: b.amount });
   if (tap.sacrifices) {
     const sacPerm = next.players[playerId]?.battlefield?.find(p => p.id === tap.permanentId); // capture pre-move (for the type)
