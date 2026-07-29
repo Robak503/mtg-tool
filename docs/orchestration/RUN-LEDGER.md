@@ -295,6 +295,39 @@ actually are, instead of leaving them parked.
 **Scope note before starting:** the source list is consumed by the payment planner in several places, so the
 condition must gate at `manaSources` (one chokepoint), never at each consumer.
 
+### 🔬 AMULET OF VIGOR #1301 — SCOPED, NOT BUILT. Four pieces, and the FOURTH is the one that matters.
+
+Applied last turn's rule ("re-read the machinery before believing the subsystem label") to the rest of Earth
+Bent. Amulet looked like the best candidate and **one piece IS a clean missing-family-member** — but it is
+not the piece that decides the card.
+
+**The enter-subject family is complete except one:**
+```
+an artifact you control enters     → permanentEnters/artifactYouControl   ✅
+an enchantment you control enters  → permanentEnters/enchantmentYouControl ✅
+a token you control enters         → permanentEnters/tokenYouControl      ✅
+a creature you control enters      → etb/creatureYouControl               ✅
+a land you control enters          → landfall/landYouControl              ✅
+a PERMANENT you control enters     → (none)                               ⛔  ← the gap
+```
+**Corpus reach is only 2 cards** (Amulet of Vigor #1301, Fire Lord Zuko #6200), so this is worth doing for
+the shelf, not for volume.
+
+**The four pieces:**
+1. the `permanentYouControl` subject above;
+2. an **"enters TAPPED"** filter on the entering permanent (the play path DOES tap before triggers fire —
+   `actionDispatcher` ~161 taps, ~202 fires — so the state is readable);
+3. an **"untap it"** referent atom bound to the triggering permanent;
+4. **⚠️ THE DECIDER — `checkPermanentEntersTriggers` DOES NOT FIRE ON THE PLAY-LAND PATH.** It is called from
+   exactly three sites (`tokens.js` ~68 mint, `zones.js` ~241 zone-enter, `resolvers.js` ~537 cast), and
+   `actionDispatcher`'s land drop calls only `checkEnterTriggers`. **Amulet's entire purpose is untapping
+   lands that entered tapped.** Building 1–3 without 4 produces a card that classifies native and never fires
+   on its signature use — a runtime-vacuous native, the FP class this run keeps closing.
+
+**So the build order is 4 FIRST** (wire the fire site, prove it on a board with a tapped land drop), then the
+subject, filter and referent. This is the same "10+ callers, wiring each is how a path silently misses the
+pass" trap the `diesBatch` note already records — and the reason it is scoped rather than started at depth.
+
 ### ✅ EARTH BENT **87%** — 3 from the bar (`8454dbe6` Planar Engineering). Shelf-wide it is still the closest.
 
 **⭐ "SUBSYSTEM" WAS TOO PESSIMISTIC ON ONE OF THEM — check the machinery before believing the label.** I had
