@@ -272,7 +272,11 @@ function applyCastSpell(state, action) {
       castBaseSources = castBaseSources.filter((s) => !(s.sacrifices && sacCountSet.has(s.permanentId)));
     }
     const castSources = sourcesExcludingOneShotVictim(castBaseSources, action.sacCreatureId);
-    const plan = planPayment(pool, castSources, action.cost);
+    // SPEND-RESTRICTED (CR 106.6): tell the planner what this payment is FOR, so a source printed
+    // "Spend this mana only to cast a creature spell" is offered here and nowhere else. Must MATCH the
+    // affordability context in legalChoices exactly — an offer the payment then refuses is a MANA_SHORT
+    // throw on a legal-looking action.
+    const plan = planPayment(pool, castSources, action.cost, { castCard, isCommander: action.fromZone === "command" });
     if (!plan) {
       throw new DispatcherError("Cannot pay the spell's mana cost", "MANA_SHORT");
     }

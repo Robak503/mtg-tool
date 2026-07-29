@@ -81,9 +81,14 @@ describe("⭐ the SPEND RESTRICTION no longer kills an unrestricted sibling", ()
       .toMatchObject({ colors: ["C"], amount: 1 });
   });
 
-  it("⛔ CREED — a source whose ONLY mana is restricted is STILL refused", () => {
-    // Herd Heirloom and Jeweled Lotus are the ledger's named deliberate refusals; they must not come back.
-    expect(card("Herd Heirloom", "Artifact", "{T}: Add one mana of any color. Spend this mana only to cast a creature spell.")).toBeNull();
-    expect(card("Jeweled Lotus", "Legendary Artifact", "{T}, Sacrifice this artifact: Add three mana of any one color. Spend this mana only to cast your commander.")).toBeNull();
+  it("⛔ CREED — a source whose ONLY mana is restricted still cannot be spent freely", () => {
+    // ⭐⭐ RE-POINTED 2026-07-29. These two were the ledger's named deliberate refusals and they have NOT
+    // come back as general mana — they come back CARRYING their restriction, which planPayment enforces
+    // (see spendRestrictedManaRuntime.test.js). The claim this file makes is per-LINE refusal behaviour;
+    // what changed is that a restricted line is now expressible rather than unreadable.
+    expect(card("Herd Heirloom", "Artifact", "{T}: Add one mana of any color. Spend this mana only to cast a creature spell.").restriction)
+      .toEqual({ castTypes: ["creature"] });
+    expect(card("Jeweled Lotus", "Legendary Artifact", "{T}, Sacrifice this artifact: Add three mana of any one color. Spend this mana only to cast your commander.").restriction)
+      .toEqual({ castTypes: ["@commander"] });
   });
 });

@@ -652,7 +652,7 @@ export function manaProduction(card) {
   if (!card) return null;
   if (typeof card === "object") {
     if (_prodMemo.has(card)) return _prodMemo.get(card);
-    let result = manaProductionImpl(card);
+    let result = manaProductionImpl(card) || restrictedManaProduction(card);
     // CONDITION-GATED source (CR 602.5): carry the gate ON the product so manaSources can evaluate it live
     // against the board.
     //
@@ -685,7 +685,108 @@ export function manaProduction(card) {
     _prodMemo.set(card, result);
     return result;
   }
-  return manaProductionImpl(card);
+  return manaProductionImpl(card) || restrictedManaProduction(card);
+}
+
+/**
+ * SPEND-RESTRICTED production — attempted ONLY when the unrestricted path already produced nothing.
+ *
+ * ⭐ THAT ORDERING IS THE WHOLE SAFETY ARGUMENT. This runs exclusively on cards `manaProductionImpl` has
+ * ALREADY refused (null), so no card that produces mana today can have its production changed, re-typed or
+ * re-scoped by this function. The blast radius is exactly "cards that made no mana at all", which is why the
+ * tier diff for this change can only ever GAIN.
+ *
+ * The restricted lines are stripped of their restriction SENTENCE and re-parsed, so the "Add" clause is read
+ * by the same parser as every other source — then the restriction rides back on the product as `restriction`,
+ * for manaSources to carry and planPayment to enforce.
+ */
+function restrictedManaProduction(card) {
+  // ⛔ QUOTED GRANTS ARE NOT THIS CARD'S MANA, and skipping this check was a live FP I shipped into the
+  // suite for one run. Battery Bearer ("Creatures you control have \"{T}: Add {C}. This mana can't be spent
+  // to cast a nonartifact spell.\"") and Inga and Esika grant a restricted ability to OTHER creatures; the
+  // granter taps for nothing at all. Stripping the restriction sentence and re-parsing credited the GRANTER
+  // with {C} — a fabricated source on a card that makes no mana, which is worse than the restriction bug
+  // this whole function exists to fix.
+  //
+  // So the restriction must be printed OUTSIDE any quoted span to count. A card whose only restriction lives
+  // inside a grant falls through to the unchanged refusal, and the granted spec keeps being read by
+  // layers.grantedManaSpecsFor on the HOST — where teaching it restrictions is a separate, unbuilt job.
+  const unquoted = oracleOf(card).replace(/"[^"]*"/g, " ");
+  if (!/\b(?:spend this mana only|can't be spent to)\b/i.test(unquoted)) return null;
+  const restriction = parseSpendRestriction(oracleOf(card));
+  if (!restriction) return null;
+  const stripped = oracleOf(card).replace(/\s*Spend this mana only[^.]*\./gi, "");
+  if (!/\badd\b/i.test(stripped)) return null;
+  const prod = manaProductionImpl({ ...card, oracle: stripped, oracle_text: stripped });
+  if (!prod) return null;
+  return { ...prod, restriction };
+}
+
+// ===== SPEND-RESTRICTED MANA (CR 106.6) — the CAST half ==============================================
+// "Spend this mana only to cast a creature spell." (Herd Heirloom) · "… only to cast artifact spells or
+// activate abilities of artifacts." (Dalakos) · "… only to cast your commander." (Jeweled Lotus).
+//
+// ⭐ THIS IS THE GRADUATION OF A CAPABILITY PIN, and the pin named its own condition: the guard above reads
+// "route the whole card out … UNTIL RESTRICTIONS ARE REAL". They are now real for the CAST half.
+//
+// ⛔ ONLY THE CAST HALF, AND THAT ASYMMETRY IS THE SAFETY. A card permitting "cast artifact spells OR
+// activate abilities of artifacts" is modeled as permitting only the CAST — the engine therefore uses the
+// source in a STRICT SUBSET of the situations the printed card allows. Under-using a permission is a safe
+// false negative; over-using one is the forbidden FP this whole guard exists for. So every "or activate …"
+// tail is deliberately ignored rather than approximated.
+//
+// Returns { castTypes: [...] } — a list of type-line words, ANY of which satisfies the restriction (the
+// printed "or"/"and/or" between spell types is a permission list, not a conjunction) — or null, which keeps
+// the card refused exactly as before. NULL IS THE DEFAULT for everything not explicitly recognised:
+// "to activate abilities", "to pay cumulative upkeep costs", "on costs that contain {X}", and every other
+// non-cast permission still routes the card to the Arbiter.
+const SPEND_CAST_TYPE_WORDS = new Set([
+  // card types (CR 205.2a) — matched as \b<word>\b against the spell's type line
+  "artifact", "creature", "enchantment", "instant", "sorcery", "planeswalker", "battle", "land",
+  // subtypes that appear in printed spend restrictions, each a real type-line word
+  "aura", "equipment", "dinosaur", "myr", "angel", "dwarf", "saga", "elemental", "vehicle",
+]);
+export function parseSpendRestriction(oracle) {
+  const text = String(oracle || "").toLowerCase();
+  const clauses = [...text.matchAll(/spend this mana only ([^.]*)\./g)].map((m) => m[1]);
+  if (!clauses.length) return null;
+  const types = new Set();
+  for (const clause of clauses) {
+    // COMMANDER (CR 903.3) — a designation, not a type-line word, so it gets its own token rather than
+    // riding SPEND_CAST_TYPE_WORDS where it could never match a printed line (the vacuous-filter failure).
+    if (/\bto cast your commander\b/.test(clause)) { types.add("@commander"); continue; }
+    // Take only the "cast …" spans; anything after "or activate"/"or to activate"/"or pay" is a permission
+    // this model deliberately declines to use.
+    // ⛔ THE LOOKAHEAD IS THE ANTI-LOSSY GUARD, and omitting it was a live over-delivery caught by an
+    // existing pin. Helga, Skittish Seer prints "Spend this mana only to cast creature spells WITH MANA
+    // VALUE 4 OR GREATER or creature spells with {X} in their mana costs" — a prefix match read that as
+    // "creature spells", modeling a restriction STRICTLY LOOSER than printed, which is the forbidden FP
+    // direction and precisely the lossy-clause-tail class probe-lossy-clause-tails.mjs exists to find.
+    // So "spell(s)" must be followed by the END of the permission or another permission — never by a
+    // qualifier ("with …", "that …", "of the chosen type", "with no abilities"). A qualified restriction
+    // yields no types and the card stays refused, exactly as before.
+    for (const cm of clause.matchAll(/\bcast ([a-z, /]*?)\s*spells?(?=$|[,.]|\s+(?:or|and)\b)/g)) {
+      for (const w of cm[1].split(/\s*(?:,|\/|\bor\b|\band\b)\s*/)) {
+        const word = w.trim().replace(/^(?:a|an|the)\s+/, "").trim();
+        if (!word) continue;
+        if (!SPEND_CAST_TYPE_WORDS.has(word)) return null;   // one unrecognised word → refuse the whole card
+        types.add(word);
+      }
+    }
+  }
+  return types.size ? { castTypes: [...types] } : null;
+}
+
+/** Does `card` satisfy a spend restriction? Used by the payment planner via its spend context. */
+export function spendRestrictionAllows(restriction, castCard, opts = {}) {
+  if (!restriction) return true;                       // unrestricted source
+  if (!castCard) return false;                         // ⛔ NO CONTEXT ⇒ REFUSE (see planPayment)
+  const typeLine = String(castCard.type || castCard.type_line || "").toLowerCase();
+  for (const t of restriction.castTypes || []) {
+    if (t === "@commander") { if (opts.isCommander) return true; continue; }
+    if (new RegExp(`\\b${t}\\b`).test(typeLine)) return true;
+  }
+  return false;
 }
 
 function manaProductionImpl(card) {
@@ -1157,10 +1258,10 @@ export function manaSources(state, playerId) {
     if (prod.colorsFromImprint) {
       const imprintedColors = (perm.imprinted?.colors || []).filter((c) => MANA_COLORS.includes(c));
       if (!imprintedColors.length) continue;
-      sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}) });
+      sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}) });
       continue;
     }
-    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}) });
+    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}) });
   }
   return sources;
 }
@@ -1200,7 +1301,17 @@ export function sourcesExcludingOneShotVictim(sources, victimId) {
  * Pathological multicolor costs
  * fall to "can't afford" (null) — never to fabricated mana.
  */
-export function planPayment(pool, sources, cost) {
+/**
+ * @param spendContext  what this payment is FOR — `{ castCard, isCommander }`. Used ONLY to admit
+ *   spend-restricted sources (CR 106.6).
+ *
+ * ⛔ DEFAULT-DENY, AND IT IS LOAD-BEARING FOR EVERY CALLER I DID NOT TOUCH. A restricted source is dropped
+ * unless a context is supplied AND satisfies it, so the ~9 existing call sites that pass no context keep
+ * behaving exactly as they did — they simply never see restricted mana. A new call site that forgets to
+ * thread context under-pays (a clean MANA_SHORT) instead of silently spending restricted mana on the wrong
+ * thing. The unsafe direction requires an explicit, wrong context; the safe direction is the default.
+ */
+export function planPayment(pool, sources, cost, spendContext = null) {
   const spend = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
   if (!cost) return { taps: [], spend };
 
@@ -1223,6 +1334,9 @@ export function planPayment(pool, sources, cost) {
       // PRIMARY's chosen color (the type this tap produced), never an independent pick (CREED, off-type FP).
       bonus: Array.isArray(s.bonus) ? s.bonus.map(b => ({ colors: b.colors.filter(c => COLOR_SET.has(c)), amount: b.amount, ...(b.sameAsProduced && { sameAsProduced: true }) })).filter(b => b.amount > 0 && b.colors.length) : [],
       snow: !!s.snow,   // SNOW (SN-1): a source produced by a snow permanent — the only kind that can pay a {S} pip
+      // SPEND-RESTRICTED (CR 106.6): the permission this source's mana carries. Filtered out entirely below
+      // unless the caller supplied a spend context that satisfies it — see the DEFAULT-DENY note.
+      restriction: s.restriction || null,
       // PAINLAND: the colours that cost life, and how much. Carried so tapSource can stamp the tap.
       painColors: Array.isArray(s.painColors) ? s.painColors : null,
       painAmount: s.painAmount || 0,
@@ -1231,7 +1345,24 @@ export function planPayment(pool, sources, cost) {
       fixed: s.fixed && Object.keys(s.fixed).length > 1 ? { ...s.fixed } : null,
       used: false,
     }))
-    .filter(s => s.amount > 0);
+    .filter(s => s.amount > 0)
+    // ⛔ SPEND-RESTRICTED FILTER (CR 106.6). Two conditions, both required:
+    //   1. the spend context satisfies the printed permission (default-deny — no context means no);
+    //   2. ⭐ the source's ENTIRE output is consumed by this cost.
+    // Condition 2 is the one that is easy to miss and fatal to omit. Surplus from an over-producing source
+    // FLOATS into the mana pool (documented at the tap loop below), and pool mana carries NO restriction tag —
+    // so a 3-mana restricted source spent on a 1-mana creature spell would leave 2 GENERAL-PURPOSE mana
+    // behind, laundering the restriction away in a single tap. Requiring full consumption makes that
+    // unreachable without teaching the pool about restrictions, which is a much larger change.
+    // The bound is the cost's total pip count: generic + colored + hybrid.
+    .filter(s => {
+      if (!s.restriction) return true;
+      if (!spendRestrictionAllows(s.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander })) return false;
+      const totalPips = (cost.generic || 0)
+        + MANA_COLORS.reduce((n, col) => n + (cost[col] || 0), 0)
+        + (Array.isArray(cost.hybrid) ? cost.hybrid.length : 0);
+      return s.amount <= totalPips;
+    });
   const taps = [];
   const spendOne = (color) => { working[color] -= 1; spend[color] += 1; };
 
@@ -1401,8 +1532,8 @@ export function planPayment(pool, sources, cost) {
  * Can `cost` be paid from `pool` plus tapping `sources`? Pure — no mutation.
  * legalChoices uses this for cast-spell legality.
  */
-export function canAfford(pool, sources, cost) {
-  return planPayment(pool, sources, cost) !== null;
+export function canAfford(pool, sources, cost, spendContext = null) {
+  return planPayment(pool, sources, cost, spendContext) !== null;
 }
 
 /**

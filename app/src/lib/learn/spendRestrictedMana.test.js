@@ -26,22 +26,41 @@ import { classifyCard } from "./coverage.js";
 const artifact = (oracle) => ({ name: "X", type: "Artifact", mana: "{2}", oracle });
 
 describe("a spend restriction routes the whole card out", () => {
-  it("⭐ THE LOAD-BEARING ONE — restricted mana produces NO source at all", () => {
-    expect(manaProduction(artifact("{T}: Add {C}. Spend this mana only to cast artifact spells."))).toBe(null);
+  it("⭐ THE LOAD-BEARING ONE — restricted mana is never GENERAL-PURPOSE mana", () => {
+  // ⭐⭐ RE-POINTED 2026-07-29 — THIS PIN GRADUATED. It asserted `null` because the payment planner had no
+  // restricted-mana concept, and this file's own header named the condition: *"until restrictions are real."*
+  // They are now real for the CAST half (parseSpendRestriction → source.restriction → planPayment's
+  // default-deny + no-surplus filter), so the pin moves from "produces NOTHING" to "produces a source that
+  // carries its restriction" — which is the same CREED claim, now expressible. A CAPABILITY pin graduates on
+  // runtime proof and is RE-POINTED, never deleted; the proof is spendRestrictedManaRuntime.test.js, which
+  // shows the source pays its printed cast, refuses every other, refuses a caller with no context, and
+  // refuses to launder surplus.
+    const prod = manaProduction(artifact("{T}: Add {C}. Spend this mana only to cast artifact spells."));
+    expect(prod.restriction).toEqual({ castTypes: ["artifact"] });
   });
 
   it("the \"can't be spent to\" phrasing is covered too", () => {
     expect(manaProduction(artifact("{T}: Add {C}. This mana can't be spent to cast a nonartifact spell."))).toBe(null);
   });
 
-  it("and the card does not classify native-mana", () => {
-    expect(classifyCard(artifact("{T}: Add {C}. Spend this mana only to cast artifact spells."))).not.toBe("native-mana");
+  it("and the card classifies native-mana ONLY because the restriction now rides with it", () => {
+    // ⭐⭐ RE-POINTED with its siblings. The tier flips to native-mana BECAUSE the restriction is now modeled,
+    // not because it was dropped — which is exactly the distinction this file exists to police. The assertion
+    // therefore pairs the tier with the tag: a native-mana tier on a restricted card is only honest while the
+    // restriction rides along, so asserting the tier ALONE would be the false positive.
+    const card = artifact("{T}: Add {C}. Spend this mana only to cast artifact spells.");
+    expect(classifyCard(card)).toBe("native-mana");
+    expect(manaProduction(card).restriction).toEqual({ castTypes: ["artifact"] });
   });
 
   it("⭐ Jeweled Lotus — three mana that are COMMANDER-ONLY are not general mana", () => {
     const lotus = { name: "Jeweled Lotus", type: "Legendary Artifact", mana: "{0}",
       oracle: "{T}, Sacrifice this artifact: Add three mana of any one color. Spend this mana only to cast your commander." };
-    expect(manaProduction(lotus)).toBe(null);
+    // Re-pointed with the rest — the claim is unchanged (three COMMANDER-ONLY mana are not general mana);
+    // only the mechanism moved from refusing the card to tagging the source. The runtime file proves the
+    // tag bites, including that these three cannot be tapped for a 1- or 2-mana commander cast (surplus
+    // would launder them into general mana).
+    expect(manaProduction(lotus).restriction).toEqual({ castTypes: ["@commander"] });
   });
 });
 

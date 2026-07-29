@@ -927,7 +927,12 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // Castable if the pool PLUS what untapped lands/rocks/dorks could produce
     // covers the cost — the dispatcher auto-taps to pay. (Pool-only would
     // never be castable since nothing pre-fills it.) A free-cast skips this (no mana paid).
-    const affordable = freeCast || canAfford(player.manaPool, manaSources(state, playerId), cost);
+    // SPEND-RESTRICTED (CR 106.6): the affordability half of the pair. This context MUST match the one the
+    // dispatcher passes to planPayment for the same cast, or the two halves disagree and the sim offers a
+    // cast whose payment then throws MANA_SHORT — a legal-looking action that cannot be taken. `fromZone` is
+    // this builder's own parameter, so commander casts are recognised here exactly as they are there.
+    const spendContext = { castCard: card, isCommander: fromZone === "command" };
+    const affordable = freeCast || canAfford(player.manaPool, manaSources(state, playerId), cost, spendContext);
     // EMERGE (CR 702.97): the whole POINT of emerge is casting the Eldrazi when the FULL printed cost is out
     // of reach — sacrificing a creature cuts the cost by its mana value. So when the normal cast is NOT
     // affordable, do NOT skip the card outright (the old `if (!affordable) continue`): an emerge cast may

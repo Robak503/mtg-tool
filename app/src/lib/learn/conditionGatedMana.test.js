@@ -83,8 +83,13 @@ describe("⭐ CREED — the gate is NARROW", () => {
     expect(manaProduction({ name: "X", type: "Artifact", mana: "{2}", oracle: "{T}: Add {C}. Activate only as a sorcery." })).toBeTruthy();
   });
 
-  it("SPEND-restricted mana is still refused outright — a different problem with no runtime answer", () => {
-    // The payment planner has no restricted-mana concept, so there is nothing to gate ON: the card must park.
-    expect(manaProduction({ name: "X", type: "Artifact", mana: "{2}", oracle: "{T}: Add {C}. Spend this mana only to cast artifact spells." })).toBe(null);
+  it("SPEND-restricted mana is a DIFFERENT axis from the activation gate — it tags, it does not park", () => {
+    // ⭐⭐ RE-POINTED 2026-07-29. The old wording was "refused outright — a different problem with no runtime
+    // answer", and that second clause was the capability condition: the planner now HAS a restricted-mana
+    // concept, so the card is tagged instead of parked. The point this file actually defends is unchanged and
+    // is asserted below: a spend RESTRICTION is not an activation CONDITION and must not stamp one.
+    const prod = manaProduction({ name: "X", type: "Artifact", mana: "{2}", oracle: "{T}: Add {C}. Spend this mana only to cast artifact spells." });
+    expect(prod.restriction).toEqual({ castTypes: ["artifact"] });
+    expect(prod.activationCondition).toBeUndefined();
   });
 });
