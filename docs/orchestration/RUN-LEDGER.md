@@ -228,6 +228,42 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — SPEND-RESTRICTED MANA enforced (`323791ab`, **+34**) · **the biggest slice of the run**
+
+Jeweled Lotus · Herd Heirloom · Dalakos · Ixalli's Lorekeeper · Vedalken Engineer · +29. GAINED 34 · LOST 0.
+**FOUR SHELF DECKS MOVED:** Captain America 68→70 · Wolverine 72→73 · Jurassic Ramp 75→77 · **Earth Bent
+90→91.** Six of sixteen decks now at/over the bar.
+
+⭐ **A CAPABILITY PIN GRADUATING, AND IT NAMED ITS OWN CONDITION.** The guard read *"route the whole card
+out … UNTIL RESTRICTIONS ARE REAL."* That phrasing is the tell: a CAPABILITY pin cites a missing capability
+as its reason, and graduates on runtime proof. Contrast the uncapped-tutor axis reverted hours earlier, whose
+pins said *"cheat"* and *"landmine"* — JUDGEMENT, which never graduates. **Same day, same shape, opposite
+correct answers, and the words in the pin are what tell them apart.** All 7 pins were RE-POINTED, never
+deleted.
+
+### THE FOUR PROPERTIES, both safety ones mutation-checked
+1. pays the cast it is printed for · 2. pays no other cast ·
+3. ⭐ **DEFAULT-DENY** — no spend context ⇒ not offered. This is what makes partial adoption sound: the ~9
+   payment call sites nobody threaded stay correct **by construction**, and a caller that forgets the context
+   under-pays. The unsafe direction requires an explicit, wrong context.
+4. ⭐ **NO LAUNDERING** — an over-producing restricted source may not pay a smaller cost. Surplus floats into
+   a pool with no restriction tag, so one such tap converts Jeweled Lotus's commander-only mana into general
+   mana **permanently.** This is the one that would have shipped silently.
+
+### ⚠️ TWO FALSE POSITIVES OF MINE, BOTH CAUGHT BY PINS RATHER THAN BY ME
+• **QUOTED GRANTS** — Battery Bearer grants a restricted ability to OTHER creatures and taps for nothing
+itself; my re-parse credited the GRANTER with {C}, a fabricated source on a card that makes no mana. Worse
+than the bug the feature fixes.
+• ⭐ **LOSSY QUALIFIERS** — Helga prints *"cast creature spells WITH MANA VALUE 4 OR GREATER"*; prefix-matching
+read "creature spells", modeling a restriction **LOOSER** than printed. **For a RESTRICTION the usual
+intuition inverts:** an unread tail normally means under-delivery (a safe FN), but on a restriction it means
+the restriction is WEAKER — an over-delivery. That inversion is why it slipped past me, and it generalises to
+every negative-space clause: can't-be-blocked-by, protection-from, activate-only-if.
+
+Blast radius bounded by ORDERING, not by care: the restricted path runs **only** on cards the existing code
+already returned null for, so nothing that makes mana today can change. **LOST 0 is a consequence of that
+ordering, not luck.**
+
 ## 🔧 SHIPPED — UNION list on ETB trigger subjects (`d0caded6`, +2) · **the SHELF moved**
 
 **April O'Neil, Live on the Scene — Halfshell heroes 63% → 64%**, the first shelf card since Biogenic Ooze.
