@@ -159,6 +159,31 @@ PLANNER to tap another creature, and phantom mana silently dirties self-play tra
 the same design call already banked as NEXT ACTIONS #2** ("decide this one while sharp"). Left for a waking
 session on purpose. Gene Pollinator ("tap an untapped PERMANENT") rides the same build.
 
+### ⭐ THE LEVERAGE HEAD, REGENERATED 2026-07-29 (unmodeled cards by DECK COUNT — start here)
+```
+×3  Wan Shi Tong, Librarian · Teferi's Protection · Mindbreak Trap · Level Up · Herd Heirloom
+×2  Veil of Summer · Valley Floodcaller · The Ozolith · The One Ring · The Cabbage Merchant
+    Thassa's Oracle · Tezzeret the Seeker · Strength of Will · Springleaf Drum · Rhythm of the Wild
+    Neyith of the Dire Hunt · Monster Manual · Mjölnir · Misdirection · Mana Drain · Lizard Blades
+    Jeska's Will
+```
+Regenerate any time with `node app/scripts/deck-gap.mjs` (no filter = every deck) piped through a
+name-frequency count. **Rhythm of the Wild's blocker is RIOT** (its "creature spells you control can't be
+countered" half is already native) — riot needs the keyword AND an enters-with-a-CHOICE replacement, so it
+is a small wave, not a one-liner.
+
+### ⛔ A VERIFIED DEAD END — **do not build the `nontoken` grant subject.** It flips ZERO cards.
+It looks like a perfect axis and it is not. The group keyword-grant selector already carries a token filter
+(`Creature tokens you control have haste` → `selector.token = true`) and its complement is simply unparsed —
+textbook "capability on one arm, absent on its neighbour". But **all 4 corpus carriers grant something the
+engine cannot model anyway**: Rhythm of the Wild + Uncivil Unrest grant *riot*, Cayth grants *fabricate 1*,
+Ghired grants a quoted activated ability. The subject was never the blocker on any of them.
+
+⚠️ **AND IT WOULD HAVE SILENTLY DONE NOTHING EVEN THEN**: layers.js:902 reads
+`if (selector.token && !candidate.card?.token) return false` — `token: false` is falsy, so a nontoken
+selector would be IGNORED and the grant would hit every creature. The over-fire direction, invisible to a
+descriptor probe. Whitelist drift's twin: emitting a field the reader doesn't check.
+
 ### 🔧 NEW TOOL — `app/scripts/deck-gap.mjs`
 ```
 MTG_APP_ROOT=<root> node app/scripts/deck-gap.mjs <deck-name-substring>
