@@ -2,7 +2,10 @@
  * islandhome.test.js — the SEA-MONSTER attack restriction (BLITZ SM-1, CR 508.1a): "This creature
  * can't attack unless defending player controls an Island." Enforced PER-DEFENDER at attack
  * declaration: actionsDeclareAttacker filters each restricted creature's target list through
- * defenderMeetsAttackLandRequirement (the landwalk board read), on BOTH the lone-target fast path
+ * attackDefenderRequirementOf + defenderMeetsAttackRequirement (the LIVE pair legalChoices actually
+ * calls — corrected 2026-07-29; this file previously exercised an older superseded pair that the
+ * engine never invoked, so the helper assertions were green without testing the shipped path), on
+ * BOTH the lone-target fast path
  * (no action at all when the lone defender fails) and the multi-target pod path (only the
  * Island-holding seats are offered). The metric credits the clause via isEnforcedEvasionClause,
  * so a keyword-only body carrying it is honestly native.
@@ -15,7 +18,7 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { createGameState, createPermanent, _resetIdsForTests } from "./gameState.js";
-import { attackDefenderLandRequirement, defenderMeetsAttackLandRequirement } from "./combatEvasion.js";
+import { attackDefenderRequirementOf, defenderMeetsAttackRequirement } from "./combatEvasion.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { classifyCard } from "./coverage.js";
 
@@ -30,9 +33,9 @@ const RONOM_STYLE = { id: "rs", name: "Ronom Serpent", type: "Snow Creature — 
 
 describe("the detector + the metric", () => {
   it("reads the requirement off the printed static (island / snow land); null when unrestricted", () => {
-    expect(attackDefenderLandRequirement(ARMORED_GALLEON)).toBe("island");
-    expect(attackDefenderLandRequirement(RONOM_STYLE)).toBe("snow land");
-    expect(attackDefenderLandRequirement({ oracle: "Flying" })).toBe(null);
+    expect(attackDefenderRequirementOf(ARMORED_GALLEON)).toEqual({ kind: "land", subtype: "island" });
+    expect(attackDefenderRequirementOf(RONOM_STYLE)).toEqual({ kind: "land", subtype: "snow land" });
+    expect(attackDefenderRequirementOf({ oracle: "Flying" })).toBe(null);
   });
   it("Armored Galleon (single-line) flips native; Sea Serpent's two-line sac frame ALSO flips now (2026-07-25)", () => {
     expect(classifyCard(ARMORED_GALLEON)).toBe("native-body");
@@ -85,8 +88,8 @@ describe("attack declaration — the per-defender gate", () => {
     let s = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
     const snowLand = createPermanent({ id: "sl", card: { name: "Snow-Covered Island", type: "Basic Snow Land — Island", oracle: "({T}: Add {U}.)" }, controller: "ai1", summoningSick: false });
     s = { ...s, players: { ...s.players, ai1: { ...s.players.ai1, battlefield: [snowLand] } } };
-    expect(defenderMeetsAttackLandRequirement(s, "ai1", "snow land")).toBe(true);
-    expect(defenderMeetsAttackLandRequirement(s, "ai2", "snow land")).toBe(false);
-    expect(defenderMeetsAttackLandRequirement(s, "ai1", "swamp")).toBe(false);
+    expect(defenderMeetsAttackRequirement(s, "ai1", { kind: "land", subtype: "snow land" })).toBe(true);
+    expect(defenderMeetsAttackRequirement(s, "ai2", { kind: "land", subtype: "snow land" })).toBe(false);
+    expect(defenderMeetsAttackRequirement(s, "ai1", { kind: "land", subtype: "swamp" })).toBe(false);
   });
 });

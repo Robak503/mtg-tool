@@ -34,7 +34,7 @@ import { classifyCard, isKeywordOnly } from "./coverage.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { pickAttackPlan, pickBlockPlan } from "./opponentAI.js";
 import { resolveCombatDamage } from "./combatResolution.js";
-import { maxBlocksOf, mustBeBlockedIfAble, lureFilterOf, attackControllerRequirementOf, attackDefenderRequirementOf, attackDefenderLandRequirement, mustAttackUnlessOf } from "./combatEvasion.js";
+import { maxBlocksOf, mustBeBlockedIfAble, lureFilterOf, attackControllerRequirementOf, attackDefenderRequirementOf, mustAttackUnlessOf } from "./combatEvasion.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -81,7 +81,7 @@ describe("CS-1 recognition — real oracle, whole-card law", () => {
     expect(classifyCard(seeker)).toBe("native-body");
     expect(attackDefenderRequirementOf(seeker)).toEqual({ kind: "poisoned" });
     // SM-1 compat: the land-only face still reads islandhome exactly.
-    expect(attackDefenderLandRequirement(card("Sea Serpent", "This creature can't attack unless defending player controls an Island."))).toBe("island");
+    expect(attackDefenderRequirementOf(card("Sea Serpent", "This creature can't attack unless defending player controls an Island."))).toEqual({ kind: "land", subtype: "island" });
   });
   it("MUST-ATTACK-UNLESS carriers flip; the unless-predicate parses", () => {
     const cohort = card("Reckless Cohort", "This creature attacks each combat if able unless you control another Ally.");

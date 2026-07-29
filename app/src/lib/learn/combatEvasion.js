@@ -490,14 +490,12 @@ export function attachedDamagePrevention(state, permId) {
   return { to, by };
 }
 
-/** ISLANDHOME (SM-1) — the land type the DEFENDING player must control for this creature to attack them
- * ("island" / "swamp" / … / "snow land"), or null when unrestricted. Read off the card (printed static).
- * Since BLITZ CS-1 this is the land-only FACE of the generalized attackDefenderRequirementOf below (same
- * parse, so the two can never drift); kept because tests and callers pin the land-string contract. */
-export function attackDefenderLandRequirement(card) {
-  const r = attackDefenderRequirementOf(card);
-  return r && r.kind === "land" ? r.subtype : null;
-}
+// ISLANDHOME (SM-1) — the land-only FACE of attackDefenderRequirementOf was REMOVED 2026-07-29. Its comment
+// claimed it was "kept because tests and callers pin the land-string contract", but an audit found NO engine
+// caller: legalChoices enforces the restriction through attackDefenderRequirementOf +
+// defenderMeetsAttackRequirement. Only tests referenced it — so islandhome.test.js's helper assertions were
+// green while never touching the shipped path, and would have stayed green if the live one broke.
+// The tests now call the live pair (verified identical on island / snow land / swamp before removal).
 
 // ── COMBAT STATICS (BLITZ CS-1) — block-count statics, block/attack requirements, attack-restriction
 // conditions. LOCKSTEP LAW (the EV-3 parseExceptBlockerFilters discipline): each family has ONE shared
@@ -714,12 +712,9 @@ const reAssignUnblocked = /(?:^|[\n.;])\s*you may have this creature assign its 
 export function mayAssignAsUnblocked(card) {
   return reAssignUnblocked.test(selfOracle(card));
 }
-/** Does `defenderId` control a land of the required type? (The exported face of the landwalk board read —
- * "snow land" matches the adjacent type-line words "Snow Land".) */
-export function defenderMeetsAttackLandRequirement(state, defenderId, requirement) {
-  if (!requirement) return true;
-  return defenderControlsLandType(state, defenderId, requirement);
-}
+// The land-only board read (defenderMeetsAttackLandRequirement) was REMOVED alongside its parser face —
+// same audit, same reason: no engine caller. defenderMeetsAttackRequirement is the live one, and
+// defenderControlsLandType (still used by it) does the actual "snow land" type-line match.
 
 export function isSelfUnblockable(card) { return reBareUnblockable.test(selfOracle(card)); }
 export function isSelfCantBlock(card) { return reCantBlock.test(selfOracle(card)); }
