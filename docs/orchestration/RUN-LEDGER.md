@@ -38,6 +38,43 @@
 > `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
 > after.** A green mutation run is only evidence if you know WHAT you broke.
 
+## 🔧 SHIPPED — the selfPower mana metric (`25f90a28`, +9 incl. **Marwyn, the Nurturer**)
+
+Nine mana dorks whose whole plan is *grow, then tap* produced **ZERO** mana at runtime: `parseManaMetric`
+knew permanentsYouControl / devotion / greatest-power-or-toughness-among-creatures-you-control and had no
+**SELF** metric. Two printed connectors, one metric — `"where X is this creature's power"` and
+`"Add an amount of {G} equal to Marwyn's power"`.
+
+**⛔ THE SELF-REFERENCE GATE IS THE WHOLE SAFETY ARGUMENT.** Printed text names the source three ways —
+"this creature", the full name, or the **pre-comma short name** ("Helga" for "Helga, Skittish Seer"). Every
+OTHER `"<x>'s power"` in the corpus is a referent to a **different object**: "that creature's" (Mercy
+Killing), "the sacrificed creature's" (Ghoulcaller Gisa), "the exiled card's" (Lobelia). Reading the
+source's power there fabricates an amount belonging to another permanent, so the name arm matches only this
+card's own name and refuses everything else.
+
+**Helga and Redshift print the identical metric behind "Spend this mana only to …"** and stay parked on the
+per-ability restriction refusal — pinned so they cannot ride in.
+
+**⭐ A CAPABILITY PIN GRADUATED.** `coverage.test.js` pinned "this creature's power" under `MUST_STAY_BODY`
+while the metric was absent — that pinned a **missing capability, not a decision**, so it MOVES to
+`MUST_FLIP` rather than being deleted. The two genuinely-unmodelled metrics beside it (battlefield-wide
+Elves, graveyard counts) stay, and a referent case joins them. *A capability pin outlives its truth
+silently; the suite is where you find out.*
+
+**⚠️ AND THE TRAP THAT NEARLY MIS-SCORED THIS SLICE AS CORPUS-NEUTRAL: MEASURE ON THE CENSUS CARD SHAPE.**
+Fed a **raw oracle-index record** (`oracle_text`/`type_line`) instead of the `{type, oracle, mana}` that
+`publicCard` hands the census, `classifyCard` reads an **empty oracle** and calls the card a vanilla
+`native-body` — **Sol Ring included**. My scratch probe did exactly that and reported all nine already
+native. Normalize before you classify, or the number is fiction.
+
+Tier diff **GAINED 9 · LOST 0 · RETIERED 0** (all `body-only → native-mana`). Five of the nine I did not
+predict — the mono-green connector form (Cradle Clearcutter, Topiary Lecturer, Rainveil Rejuvenator,
+Viridian Joiner, Marwyn). **The shelf does not move; none of the nine are on it.**
+
+Mutation-checked: **M71** drop the self-reference gate → killed by 2 · **M72** fall through to the
+board-wide max → killed by the bystander control · **M73** printed power instead of layer-aware → killed by
+the counters test.
+
 ## 🩸 THE VACUOUS SUBTYPE FILTER — a new FP class, found and closed (`57011a09`)
 
 **A filter the runtime can never satisfy is worse than a missing one.** `subtypeFilterMatches` enforces
@@ -1170,12 +1207,15 @@ That is the whole reason this target beats corpus %.
 
 ## IN FLIGHT
 
-- **Nothing mid-edit.** Corpus **35.8%** (12,271/34,245 — +223 this run, net of 7 FP retractions). Suite **909 files / 11,668 tests**,
-  lint 0, MUTANT sweep clean. FORTY-FIVE slices shipped on branch `claude/aura-enchant-noun-vocab` (NOT pushed;
-  the branch name is stale — it carries forty-five unrelated slices and wants a rename before any PR).
+- **Nothing mid-edit.** Corpus **35.9%** (12,287/34,245). Suite **941 files / 11,996 tests**,
+  lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
+  it carries dozens of unrelated slices and wants a rename before any PR).
 
-  **PLAY-WEIGHTED — the bar:** top-1000 **72.1%** 🎉 · top-2500 **54.2%** · top-5000 **43.0%** · top-10k **35.8%**.
+  **PLAY-WEIGHTED — the bar:** top-1000 **73.1%** 🎉 · top-2500 **55.0%** · top-5000 **43.5%** · top-10k **36.1%**.
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
+
+  **SHELF:** six decks at/above 90% — Slivers 100 · Vihaan 96 · Omnath 93 · Zaxara 92 · Mothman 90 ·
+  Earth Bent 90. Next real target **Did you say Dragons? 77%**. cdh 81% (capped ~82 — do not start).
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
 
