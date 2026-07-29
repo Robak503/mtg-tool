@@ -577,9 +577,33 @@ export function manaProduction(card) {
     if (_prodMemo.has(card)) return _prodMemo.get(card);
     let result = manaProductionImpl(card);
     // CONDITION-GATED source (CR 602.5): carry the gate ON the product so manaSources can evaluate it live
-    // against the board. manaProductionImpl has already refused any gate the evaluator cannot ANSWER, so a
-    // condition surviving to here is one interveningIf really decides — never a tag nothing reads.
-    const gate = result && oracleOf(card).match(/\bactivate (?:this ability )?only if ([^.]+)\./i);
+    // against the board.
+    //
+    // ⚠️ THE GATE MUST COME FROM A MANA LINE, AND BE ONE THE EVALUATOR CAN ANSWER. This used to take the
+    // first "activate only if …" ANYWHERE in the oracle, which was safe only while manaProductionImpl nulled
+    // the whole card on an inexpressible gate. Now that the refusal is per-LINE, two ways to mis-stamp open
+    // up, and both are wrong in the under-delivering direction (a source gated on something that isn't its
+    // gate simply stops producing):
+    //   • an INEXPRESSIBLE gate — its line was already dropped from what was parsed, so the modelled mana is
+    //     unconditional and must not inherit it (Bleachbone Verge's plain "{T}: Add {B}." beside a gated
+    //     "{T}: Add {W}. Activate only if you control a Plains or a Swamp");
+    //   • a gate on a NON-MANA ability — Madblind Mountain's gated ability is a SHUFFLE, and its mana is the
+    //     basic-land reminder "({T}: Add {R}.)".
+    // So: only a line that BOTH produces mana AND carries an answerable gate may stamp one. Mox Opal /
+    // Fanatic of Rhonas are unaffected (expressible gate on the mana line) and stay live-gated — pinned.
+    // Mirrors what the impl actually PARSES: drop inexpressibly-gated lines, then take the FIRST remaining
+    // line that produces mana — parseAddClause reads the first Add clause, so that is the modelled ability
+    // and only ITS gate may apply. A card with an unconditional mana line AND a separate gated one
+    // (Fanatic of Rhonas: plain "{T}: Add {G}." then a Ferocious-gated "{T}: Add {G}{G}{G}{G}.") therefore
+    // keeps its unconditional production ungated — the older any-match form wrongly gated the {G} on
+    // ferocious, which silently switched the dork off until a 4-power creature was out.
+    const modelledManaLine = result && oracleOf(card).split(/\n+/)
+      .filter((line) => {
+        const g = line.match(/\bactivate (?:this ability )?only if ([^.]+)\./i);
+        return !(g && !conditionIsExpressible(g[1]));
+      })
+      .find((line) => /\badd\b/i.test(line));
+    const gate = modelledManaLine && modelledManaLine.match(/\bactivate (?:this ability )?only if ([^.]+)\./i);
     if (gate) result = { ...result, activationCondition: gate[1].trim() };
     _prodMemo.set(card, result);
     return result;
@@ -603,7 +627,20 @@ function manaProductionImpl(card) {
   //
   // LANDS are unaffected in the metric (they are credited playable by BEING lands) but are routed here too,
   // so the runtime never mints unrestricted mana from a restricted land either.
-  if (/\b(?:spend this mana only|can't be spent to)\b/i.test(oracleOf(card))) return null;
+  // ⚠️ ALSO PER-LINE, same over-reach as the condition gate below. The restriction is real and the refusal
+  // stays — but killing the WHOLE CARD took UNRESTRICTED abilities down with it. Measured: the Village cycle
+  // (Oakhollow / Lilypad / Rockface / Mudflat / Lupinflower), Tournament Grounds and Castle Garenbrig each
+  // print a plain unrestricted mana line ("{T}: Add {C}." — Castle Garenbrig "{T}: Add {G}.") beside a
+  // restricted one, and produced NOTHING AT ALL.
+  //
+  // Keeping only the UNRESTRICTED line is exactly what the card can do with no strings attached: the
+  // restricted ability stays unmodeled (still refused, so the engine never gets general-purpose mana out of
+  // a restricted source — the FP this guard exists for), and the card gains only mana it genuinely makes
+  // freely. A card whose ONLY mana line is restricted still parses to nothing and returns null, unchanged.
+  const unrestrictedLines = oracleOf(card)
+    .split(/\n+/)
+    .filter((line) => !/\b(?:spend this mana only|can't be spent to)\b/i.test(line));
+  if (!/\badd\b/i.test(unrestrictedLines.join("\n")) && /\b(?:spend this mana only|can't be spent to)\b/i.test(oracleOf(card))) return null;
 
   // ⛔ CONDITION-GATED MANA (CR 602.5) — "Metalcraft — {T}: Add one mana of any color. Activate only if you
   // control three or more artifacts." (Mox Opal #241, Fanatic of Rhonas #418). manaSources has no concept of
@@ -618,8 +655,30 @@ function manaProductionImpl(card) {
   // TIMING rule handled elsewhere and is not swept up here, and neither is any additive rider — an ignored
   // tail that ADDS an effect merely under-delivers (a safe FN), which is why this guard targets conditions
   // rather than every unread word.
-  const gate = oracleOf(card).match(/\bactivate (?:this ability )?only if ([^.]+)\./i);
-  if (gate && !conditionIsExpressible(gate[1])) return null;
+  // ⚠️ PER-LINE, NOT PER-CARD. This guard used to match "activate only if …" ANYWHERE in the oracle and null
+  // the WHOLE card. An ability is per-line (CR 113.3), so a gated SECOND ability was killing an
+  // UNCONDITIONAL first one — measured: 30 corpus LANDS produced NO MANA AT ALL, including the entire Verge
+  // cycle (Bleachbone Verge prints a plain "{T}: Add {B}." and a separate conditional "{T}: Add {W}.
+  // Activate only if you control a Plains or a Swamp") and Madblind Mountain, whose gated ability is a
+  // SHUFFLE — not a mana ability at all. A land that taps for nothing is a soft-lock-grade playability bug,
+  // and lands are tier-blind so no coverage number ever showed it.
+  //
+  // Dropping the gated LINES and parsing what remains keeps the refusal exactly where it belongs: a card
+  // whose ONLY mana line is the gated one has nothing left to parse and still returns null (Mox Opal,
+  // Fanatic of Rhonas — pinned). Nothing that used to be modelled changes, because an unconditional line was
+  // always safe to read; this only stops the guard from taking innocent lines down with it.
+  // Starts from `unrestrictedLines` (spend-restricted lines already removed above), so the two per-line
+  // refusals compose: what survives both is text the card can do freely and unconditionally.
+  const gatedOracle = unrestrictedLines
+    .filter((line) => {
+      const g = line.match(/\bactivate (?:this ability )?only if ([^.]+)\./i);
+      return !(g && !conditionIsExpressible(g[1]));
+    })
+    .join("\n");
+  if (!/\badd\b/i.test(gatedOracle)) {
+    // Every Add clause lived on a gated line → the card's mana is genuinely condition-gated → refuse, as before.
+    if (/\badd\b/i.test(oracleOf(card))) return null;
+  }
 
   const name = String(card.name || "");
   const baseName = name.replace(/^Snow-Covered\s+/i, "").trim();
@@ -639,9 +698,13 @@ function manaProductionImpl(card) {
   // mana production must not be fabricated from the ability of a token it makes (Blisterpod is not a
   // sac-for-{C} source; its Eldrazi Spawn is). The minted TOKEN's own oracle (unquoted "Sacrifice this
   // token: Add {C}") has no create-token context, so it's untouched and still reads as a real source.
+  // `gatedOracle` (not the raw oracle) is the base: the condition-gate filter above already removed any LINE
+  // whose ability is gated on an inexpressible board condition, so what remains is only what the card can do
+  // unconditionally. Without threading it here the filter would be computed and never read — the
+  // captured-but-unread trap — and the gated line's Add clause could still be picked up.
   let oracleForAdd = isLandCard
-    ? oracleOf(card)
-    : stripCreatedTokenAbilities(stripReminder(oracleOf(card)));
+    ? gatedOracle
+    : stripCreatedTokenAbilities(stripReminder(gatedOracle));
   // AURA self-source guard (subsystem 1 / CREED): an Aura's quoted granted ability ("Enchanted creature
   // has \"{T}: Add one mana of any color.\"" — Multani's Harmony; "Enchanted land has \"{T}: Add …\"" —
   // Settlement) is conferred to the HOST (read at runtime via layers.grantedManaSpecsFor), NOT the Aura's
