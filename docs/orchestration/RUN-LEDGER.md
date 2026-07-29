@@ -2114,6 +2114,40 @@ started.
 
 **Caught BEFORE building, which is the first time in this run.** The probe rule above is why.
 
+## ✅ SHIPPED — Amulet of Vigor #1301, and the RUNTIME-VACUOUS trap it nearly walked into (`e0d15930`)
+
+Four pieces; **only three were visible to any static instrument.**
+
+1. `permanentYouControl` — the missing member of a subject family that already had artifact / enchantment /
+   token / creature / land. Every other subject there is a type-narrowed version of this one.
+2. `enteredTapped` — a live read on the entering permanent, gated in `scopeMatches` beside
+   nontokenFilter/tokenFilter, and carried EXPLICITLY through the descriptor build (an unlisted field there
+   is silently dropped → fires on every entry → over-fire).
+3. The "untap it" referent → sentinel `untap the triggering permanent` → `target:"thatPermanent"`. **NOT the
+   existing `thatCreature` referent**: that one is creature-only by design and Amulet normally untaps a
+   LAND, so reusing it returns `[]` and no-ops. New `triggeringPermanentTargets` rather than a flag on the
+   creature one — every existing caller of that is creature-scoped and its check is load-bearing.
+4. **THE FIRE SITE.** `checkPermanentEntersTriggers` was called from token mint, zone-enter and the
+   cast/resolve path, and NOWHERE ELSE. A land is PLAYED, not cast, so a land drop reached none of them.
+   Building 1–3 alone produces a card that classifies native and never fires on its signature use.
+
+⭐ **THE LESSON, restated because it will recur:** the per-card tier diff would have read `GAINED 1` for the
+broken version too. A subject/filter/referent can all be correct while the EVENT never reaches them, and no
+instrument keyed on classification can see that — the tier is not evidence about a board. **When a slice adds
+a subject to an event family, enumerate the event's fire sites before building anything else.** The order in
+the scoping was right and it is the reason this shipped working.
+
+Mutation-checked M39–M42, each seen to fail: fire site deleted → 4 runtime tests; `enteredTapped` deleted →
+the untapped-land no-fire test; `thatPermanent` dropped from the resolver's permanent branch → 4 (the
+creature-only fallback silently drops an entering land); controller scope made optional → the CREED refusal.
+
+Tier diff (34,189 cards): **GAINED 1 · LOST 0 · RETIERED 0.** Fire Lord Zuko, the only other corpus card on
+this subject, reads "enters FROM EXILE" — a different filter, still Arbiter.
+
+One stale pin updated (`subtypeScopedTriggers.test.js`): it asserted the permanent-wide subject was
+UNDETECTED, true only while the subject was unmodeled. Its real guarantee — never mis-read as a SUBTYPE — is
+what it asserts now, the same way that file's token line was updated when the token slice landed.
+
 ## NEXT ACTIONS
 
 1. **Bloom Tender / Faeburrow Elder** — "For each color among permanents you control, add one mana of that
@@ -2252,6 +2286,7 @@ emits a layer grant needs a RUNTIME assertion. The tier is not evidence about th
 
 ## COMPLETED TRAIL (newest first)
 
+- `e0d15930` — Amulet of Vigor: permanent-wide enters-tapped trigger + the missing land fire site (+1). Slice 57.
 - `d7148fa3` — v0.149.5: graveyard-ability composition (+14). Slice 56.
 - v0.149.4 — devour/amplify, fuse unpark, aftermath unpark (+22). Slices 53–55.
 - v0.149.3 — assist/casualty/provoke/ripple, training (+23). Slices 51–52.
