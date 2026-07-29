@@ -88,6 +88,17 @@ const PRECOMBAT_RIDER = /\.?\s*Activate (?:this ability )?only (?:during your tu
 const CONDITION_RIDER = /\.?\s*Activate (?:this ability )?only if ([^.]+)\.\s*$/i;
 const OPPONENT_TURN_RIDER = /Activate (?:this ability )?only during an opponent's turn/i;
 
+// CR 602.5i — "Activate only as a sorcery" means own main, priority, AND AN EMPTY STACK. The generic offer
+// gate covers own-turn + main step but NOT the empty-stack half, so the rider cannot simply be stripped as
+// "already enforced": the engine would offer the ability in response to a spell on the stack, which the card
+// forbids. Measured 2026-07-29 on a plain "{2}: Draw a card. Activate only as a sorcery." — correctly
+// withheld on an opponent's turn and in the controller's own combat, and WRONGLY offered with a non-empty
+// stack. Same literal as the strip below so the flag and the strip can never disagree about the phrase.
+const SORCERY_TIMING_RIDER = /\.?\s*Activate (?:this ability )?only as a sorcery\.?\s*$/i;
+export function abilityIsSorcerySpeedOnly(clause) {
+  return SORCERY_TIMING_RIDER.test(String(clause || ""));
+}
+
 function stripEnforcedTimingRider(clause) {
   return String(clause || "")
     .replace(/\.?\s*Activate (?:this ability )?only as a sorcery\.?\s*$/i, "")
@@ -795,7 +806,10 @@ export function parseActivatedAbilities(card) {
     const activationLimit = limitM ? (limitM[1] ? LIMIT_WORDS[limitM[1].toLowerCase()] ?? null : 1) : null;
     const preCombatOnly = PRECOMBAT_RIDER.test(afterCondition) && !OPPONENT_TURN_RIDER.test(afterCondition);
     const afterPrecombat = preCombatOnly ? afterCondition.replace(PRECOMBAT_RIDER, "").trim() : afterCondition;
-    const effectClause = stripEnforcedTimingRider(activationLimit ? afterPrecombat.replace(LIMIT_RIDER, "").trim() : afterPrecombat);
+    const beforeTimingStrip = activationLimit ? afterPrecombat.replace(LIMIT_RIDER, "").trim() : afterPrecombat;
+    // Read the flag off the PRE-strip text — after the strip the phrase is gone by construction.
+    const sorceryOnly = abilityIsSorcerySpeedOnly(beforeTimingStrip);
+    const effectClause = stripEnforcedTimingRider(beforeTimingStrip);
     if (!costStr || !effectClause) continue;
 
     // CC-3 — thread the card so a SELF-NAME remove-counter cost item ("Remove a charge counter from
@@ -863,6 +877,8 @@ export function parseActivatedAbilities(card) {
       effectClause,
       activationLimit: activationLimit ?? (isBoast ? 1 : null), // ONCE-1 — N activations per turn, or null (runtime-enforced frequency restriction)
       preCombatOnly, // "before attackers are declared" — legalChoices narrows the window to the PRECOMBAT main
+      sorceryOnly,   // CR 602.5i "Activate only as a sorcery" — legalChoices adds the EMPTY-STACK half the generic main-step gate does not cover
+
       boast: isBoast, // CR 702.135 — offer gate requires perm.attackedThisTurn (per-permanent, not per-seat)
       condition, // CR 602.5d "Activate only if <cond>" — legalChoices evaluates it; null when absent OR unreadable
       manaPips: cost?.manaPips ?? null,
