@@ -132,6 +132,22 @@ under-delivers (FN, safe); a tail that RESTRICTS over-delivers (FP, forbidden)*.
 shape, anchored to the printed sentence — **M143 turns it into a general trailing-sentence dropper and
 dies**, which is the guard that matters.
 
+### ⛔ AND THE AUDIT DOES **NOT** GENERALIZE OFF LANDS — measured, so nobody rebuilds it
+I ran the same audit over **non-land `native-activated` permanents, top-2000**: 4 candidates, and **all 4
+are HARNESS ARTIFACTS, not bugs.** Each was refused because my "generous board" failed the card's own
+precondition, and each works the moment it is satisfied:
+```
+Phyrexian Reclamation #940  needs a CREATURE card in the graveyard   → offered (1)
+Weathered Wayfarer   #1412  needs an opponent with MORE lands        → offered (1)
+Glen Elendra Archmage #1641 needs a noncreature spell ON THE STACK   → offered (1)
+Reassembling Skeleton #766  activates FROM THE GRAVEYARD, not play   → offered (activate-gy-recursion)
+```
+⭐ **WHY LANDS WERE THE EXCEPTION: they are precondition-FREE.** A land sits there and its ability is
+available; a non-land ability wants a zone, a stack object, a graveyard card, an opponent's board. A generic
+board cannot satisfy those, so the audit reports ghosts. **Do not promote this to a standing probe** — it
+would hand every future session four false alarms. The land-tier version stays valuable exactly because that
+tier is both blind (`tier:"land"` for everything) and precondition-free.
+
 ### 🔍 THE DEAD-LAND AUDIT (run once, worth re-running after any land-side change)
 Top-3000 lands with **no mana production AND an activated ability that yields zero actions** → **5**:
 Fabled Passage (fixed) · Maze of Ith · Dark Depths · Eye of Ugin (real mechanics, not one-liners) ·
