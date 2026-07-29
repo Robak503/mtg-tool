@@ -38,6 +38,40 @@
 > `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
 > after.** A green mutation run is only evidence if you know WHAT you broke.
 
+## 🔧 SHIPPED — the "if you cast it" ETB rider (`6b92fe37`, +5 · **Dragons 79 → 80%**)
+
+**38 corpus cards** print `When ~ enters, IF YOU CAST IT, <effect>` and none could be modelled — yet
+`detectTriggers` had been **capturing the condition all along** (`interveningIf: "you cast it"`); only the
+evaluator had no vocabulary for it. Sole blocker on **five**: Tiamat (shelf) · **Zacama, Primal Calamity**
+(rank 1786) · Geological Appraiser · Yathan Roadwatcher · Iridescent Tiger. The remaining 33 need their own
+payoffs and will collect this rider for free when they land.
+
+The rider separates CAST from PUT (reanimation, Show and Tell, blink, token copy), so it is a per-permanent
+fact about HOW the object arrived — modelled exactly like the `wasKicked` flag sitting one arm above it.
+**⛔ Fail-open would hand a free Tiamat tutor to every reanimation spell**, which is the abuse the printed
+rider exists to prevent; every uncertain path returns null or false.
+
+**⭐ BOTH OF TIAMAT'S SEARCH RIDERS ARE ENFORCED, NOT WAVED THROUGH AS VACUOUS.** "not named Tiamat" and
+"that each have different names" are *automatically satisfied by a singleton Commander library* — Tiamat is
+on the battlefield, every name unique. Ignoring them would have passed every realistic game and still been a
+search wider than the card allows. **The riders were cheap to honour; the argument for skipping them was the
+expensive part.**
+
+**⭐ A THIRD SURVIVED SABOTAGE CHECK OF THE SEAM KIND — and the second in two slices.** Removing
+`wasCast: true` from the PERMANENT_ETB resolver (so no real cast is ever stamped and the rider can never
+fire) left all twelve assertions green, because they call `enterPermanent` directly with the flag already
+set. Stamp mechanism: covered. Evaluator: covered. **The cast path actually setting it: not covered.** A
+section now casts through `legalChoices → dispatchAction → resolveTopOfStack` and reads the flag off the
+permanent that entered. *Two slices running, the survivor was the join between two well-tested halves. When
+a check survives, look at the seam first.*
+
+Tier diff **GAINED 5 · LOST 0 · RETIERED 0** — predicted and confirmed. Sixth capability pin graduated
+(`conniveSuspectKeywords` parked Geological Appraiser because this vocabulary "is unmodeled" — its own
+words); learn and incubate stay parked for their own still-valid reasons.
+
+Mutation-checked: **M85** fail open → killed by 3 · **M86** drop the name exclusion → killed ·
+**M87 SURVIVED** → seam section → **M87b** killed by 2.
+
 ## 🔧 SHIPPED — colored-PIP cost reduction (`1ba87fc5`, +3 · **Dragons 78 → 79%**)
 
 Every reducer before this returned a **scalar** the cast site subtracts from `generic`. Four cards reduce
@@ -1310,7 +1344,7 @@ killed by 2.
 which would have tripped `grep -rl MUTANT app/src/` on every future boot and trained the next session to
 ignore a real alarm. Reworded. **Never let that token appear outside a live sabotage check.**
 
-- **Nothing mid-edit.** Corpus **35.9%** (12,293/34,245). Suite **943 files / 12,037 tests**,
+- **Nothing mid-edit.** Corpus **35.9%** (12,298/34,245). Suite **944 files / 12,053 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
@@ -1318,7 +1352,7 @@ ignore a real alarm. Reworded. **Never let that token appear outside a live sabo
   (Session start: 69.6 / 51.8 / 41.5 / 34.7.)
 
   **SHELF:** six decks at/above 90% — Slivers 100 · Vihaan 96 · Omnath 93 · Zaxara 92 · Mothman 90 ·
-  Earth Bent 90. Next real target **Did you say Dragons? 79%**. cdh 81% (capped ~82 — do not start).
+  Earth Bent 90. Next real target **Did you say Dragons? 80%**. cdh 81% (capped ~82 — do not start).
 
   **⚠️ THE SHELF IS NOW WAVE-SHAPED, NOT SLICE-SHAPED — read this before hunting for another quick win.**
   Every deck below the bar needs 13+ cards across DISTINCT mechanics; the one-line-away list's repeated
@@ -1330,7 +1364,7 @@ ignore a real alarm. Reworded. **Never let that token appear outside a live sabo
   Klauth             TRIGGERED mana + spend-restricted — the over-claim class, likely a refusal
   Terror of the Peaks   a LIFE-cost tax on opponents' spells — Hexing Squelcher's class
   Morophon           ✅ SHIPPED (colored-pip cost reduction)
-  Tiamat · Sarkhan Soul Aflame · Betor · Call the Spirit Dragons · Scion of the Ur-Dragon · Lorehold  multi-piece
+  ✅ Tiamat SHIPPED · Sarkhan Soul Aflame · Betor · Call the Spirit Dragons · Scion of the Ur-Dragon · Lorehold  multi-piece
   ```
 
 ### Shipped this stretch — EVERY ONE was "the engine knew the EFFECT, not the PHRASING"
