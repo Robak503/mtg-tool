@@ -2189,6 +2189,37 @@ signature is `(pool, sources, cost)`. Every cost read as "nothing owed" and ever
 had written the words "51 staples over-deliver" before noticing. **A probe that reports what you expected is
 the one to re-check first.** The real seam then showed a worse bug than the imagined one.
 
+## 🔭 SCOPED, NOT BUILT — IMPRINT (29 corpus cards, 0 native today). Build in THIS order.
+
+Chrome Mox is a ×3 shelf card and the leverage head's next entry, but it is not a card-sized job: **imprint
+has zero engine support.** Measured: 29 corpus cards carry an `Imprint —` line, none classify native.
+
+**THE 29 SHARE ONLY THE STAMP.** The payoffs diverge hard, and lumping them is how this becomes a swamp:
+
+- **STATIC-CHARACTERISTIC payoffs (the contained subset — build these):** Chrome Mox (the exiled card's
+  COLORS → a mana source), Semblance Anvil (shares a card type → cost reduction), Extraplanar Lens (same-name
+  land taps → extra mana), Ugin's Labyrinth.
+- **COPY/CAST payoffs (a separate, much larger project — do NOT start here):** Isochron Scepter, Panoptic
+  Mirror, Soul Foundry, Spellbinder, Prototype Portal, Mimic Vat.
+- **TARGETED-EXILE-ON-ETB payoffs (a third family):** Duplicant, Phyrexian Ingester, Exclusion Ritual,
+  Invader Parasite, Mirror Golem.
+
+**PIECES, in build order — and the order is the whole point:**
+
+1. ⚠️ **THE STAMP AND ITS FIRE SITE, FIRST.** An optional "you may exile a card from your hand" ETB choice
+   that records the exiled card on the permanent. `setPendingHandDiscardChoice` (pendingChoice.js) is the
+   nearest sibling to copy. **Nothing may read the stamp until something SETS it at runtime.**
+2. The colors-from-imprint mana source for Chrome Mox — a `colors` set read off the stamp, `amount: 1` (a
+   CHOICE among the imprinted colors, which the existing `colors` array already expresses; no new shape).
+3. Only then the other static payoffs.
+
+⛔ **THE TRAP, NAMED IN ADVANCE** (this is Amulet's lesson and the mixed-bundle lesson, and imprint is where
+they meet): build 2 before 1 and Chrome Mox classifies `native-mana` while tapping for **nothing** — a
+runtime-vacuous native the tier diff reads as a WIN. And an empty Mox modeled as "any color" is worse than
+useless: it is a turn-one ritual out of a card that should be dead, the same forbidden shape as the
+condition-gated Mox Opal already refused elsewhere in this ledger. **An un-imprinted Mox must produce
+nothing.** Pin that on a board before pinning anything else.
+
 ## NEXT ACTIONS
 
 1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
@@ -2203,9 +2234,17 @@ the one to re-check first.** The real seam then showed a worse bug than the imag
    guess at depth. Decide this one while sharp.
 3. **Upkeep-only activation** (11) — still needs the offer window WIDENED, not narrowed. Riskier than
    anything above; take it EARLY in a run.
-4. Shelf grind: 321 unmodeled non-land deck cards across 360 slots. The leverage head (2+ decks) is
-   Wan Shi Tong ×3 · Chrome Mox ×3 · Mindbreak Trap ×3 · Bloom Tender ×3 · Teferi's Protection ×3 ·
-   High Score ×3 · Level Up ×3, then a long ×2 tail.
+4. Shelf grind: the leverage head (2+ decks), re-read 2026-07-28 after Bloom Tender closed:
+   - ✅ **Bloom Tender ×3** — DONE (`003e29d1`).
+   - **Chrome Mox ×3** — needs the IMPRINT mechanic; scoped above, build the stamp first.
+   - **High Score ×3** — already `native-mixed`; verify at runtime rather than rebuild.
+   - **Wan Shi Tong ×3** — ETB X-counters + "half X rounded down" draw, plus an
+     opponent-SEARCHES-their-library trigger the engine has no event for.
+   - **Level Up ×3** — an Aura granting a quoted attack trigger that DOUBLES counters, then a
+     power-threshold draw. Multi-piece.
+   - **Mindbreak Trap ×3 / Teferi's Protection ×3** — alternate cost + "exile any number of target spells",
+     and PHASING. Both are subsystems, not cards; neither is a grind item.
+   then a long ×2 tail.
 
 ## A3 IS DONE — verified, not built
 
