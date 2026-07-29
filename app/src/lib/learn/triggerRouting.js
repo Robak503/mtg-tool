@@ -99,7 +99,10 @@ export function combatDamageReferentSatisfied(program, event) {
     // clause would silently no-op (a dropped-clause FP) → not native there (a SAFE false-negative). The
     // sentinel phrase is emitted only by the eachPlayersUpkeep detectTriggers rewrite (never printed oracle),
     // so this is the event-side half of the same double gate the gyOwner referent uses.
-    if (a?.who === "upkeepPlayer" && event !== "upkeep") return false;
+    // Widened to the DRAW step (CR 504.1) in lockstep with checkStepTriggers' threading — the two are one
+    // double gate. The referent is threaded at BOTH step entries and nowhere else, so every other event
+    // still falls through to the safe false-negative.
+    if (a?.who === "upkeepPlayer" && event !== "upkeep" && event !== "draw") return false;
   }
   return true;
 }

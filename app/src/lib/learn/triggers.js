@@ -1419,6 +1419,23 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^the beginning of each player[’']s upkeep$/.test(c)) {
     return { event: "upkeep", scope: "you", whose: "any", eachPlayersUpkeep: true };
   }
+  // ===== EACH-PLAYER'S DRAW STEP (CR 504.1 + 603.2b) ===== "At the beginning of EACH PLAYER'S draw step,
+  // <effect>" (Rites of Flourishing #1524, Kami of the Crescent Moon #1817, Dictate of Kruphix #1907). The
+  // exact structural twin of the upkeep arm above, and it reuses that arm's machinery rather than growing a
+  // parallel set: `checkStepTriggers` fires the "draw" event once per draw-step ENTRY, so "once per player
+  // per turn cycle" is structural here for the same reason it is there, and the player whose draw step it is
+  // IS the active player (CR 504.1) — the same identity the upkeep referent relies on.
+  //
+  // ⚠️ THE FLAG IS SEPARATE, THE SENTINEL IS SHARED. `eachPlayersDrawStep` gates the same "that player" →
+  // "the upkeep player" rewrite, so all of the existing who:"upkeepPlayer" atoms bind correctly with no
+  // duplication. The ctx field and sentinel keep their historical UPKEEP names because renaming them means
+  // touching 47 call sites across 9 files for cosmetics; read them as "the player whose STEP it is". Both
+  // gates that pin the referent (checkStepTriggers' threading and triggerRouting's event check) are widened
+  // to the draw step in lockstep — leaving either one behind makes the clause silently no-op, which is the
+  // dropped-clause FP this double gate exists to prevent.
+  if (/^the beginning of each player[’']s draw step$/.test(c)) {
+    return { event: "draw", scope: "you", whose: "any", eachPlayersDrawStep: true };
+  }
   // ===== "THE END STEP" (BLITZ TR-3, CR 513.1/513.2 + 603.2b) ===== "At the beginning of THE end step, …"
   // (Ball Lightning, Impetuous Devils, Glitterfang, Underworld Breach) — the OLD unqualified end-step
   // templating. Per CR 513.2 (which quotes this exact wording) and the printed ruling (Glitterfang "triggers
@@ -3105,7 +3122,10 @@ export function detectTriggers(card) {
       // atoms; the triggerRouting referent gate additionally pins who:"upkeepPlayer" to the upkeep event.
       // Gated on the eachPlayersUpkeep flag (set ONLY by the anchored "each player's upkeep" condition) —
       // a "your upkeep" / bare "each upkeep" trigger's effect is byte-identical. The gyOwner precedent.
-      if (cls.eachPlayersUpkeep) {
+      // The DRAW-STEP twin shares this rewrite: at a draw-step entry the player whose step it is is likewise
+      // the active player (CR 504.1), so "that player" has the identical referent and the identical
+      // who:"upkeepPlayer" atoms bind it. Sharing the sentinel is what keeps the two arms from drifting.
+      if (cls.eachPlayersUpkeep || cls.eachPlayersDrawStep) {
         effectClause = effectClause.replace(/\bthat player\b/gi, "the upkeep player");
       }
       if (cls.scope === "self" && SELF_PUMP_IT_RE.test(effectClause)) {
@@ -3425,6 +3445,7 @@ export function detectTriggers(card) {
         milledFilter: cls.milledFilter,       // MILL-ON-EVENT: "nonland" | null (which milled cards count)
         functionsFromGraveyard: cls.functionsFromGraveyard, // GY-FUNCTIONING milled trigger (Radroach) — fired by checkMilledTriggers' graveyard scan, never the battlefield scan
         eachPlayersUpkeep: cls.eachPlayersUpkeep, // EACH-PLAYER'S UPKEEP (BLITZ TR-2): gates the "that player" → "the upkeep player" sentinel rewrite; whose:"any" carries the fire-on-every-upkeep semantics
+        eachPlayersDrawStep: cls.eachPlayersDrawStep, // EACH-PLAYER'S DRAW STEP (CR 504.1): the structural twin, sharing that sentinel and its atoms
         gyCardType: cls.gyCardType,           // GY-EVENT (SHELF S7): front-face type gate on the moved card ("Creature" | null = any)
         gyOwnerScope: cls.gyOwnerScope,       // GY-EVENT: whose graveyard — "you" | "opponent" | "any"
         excludeFromBattlefield: cls.excludeFromBattlefield, // GY-EVENT gyEnter only: skip from-battlefield entries (the dies clause covers those)
@@ -4919,7 +4940,13 @@ export function checkStepTriggers(state, event) {
   // "the upkeep player <effect>" atoms (who:"upkeepPlayer") bind the right player at resolution — pinned in
   // the context at ENQUEUE time, so a delayed resolution can never drift to another seat. Additive plain
   // data on every upkeep descriptor's context; every non-upkeepPlayer consumer ignores it.
-  const stepCtx = event === "upkeep" ? { upkeepPlayerId: state.activePlayer } : {};
+  // Widened to the DRAW step (CR 504.1): the player whose draw step it is is likewise the active player, so
+  // an "each player's draw step" trigger's rewritten "the upkeep player <effect>" atoms bind the same way.
+  // The field keeps its historical name — read it as "the player whose STEP it is". ⚠️ This threading and
+  // triggerRouting's who:"upkeepPlayer" event check are a DOUBLE GATE and must be widened together: thread
+  // without routing and the card is refused; route without threading and the referent is unset at
+  // resolution and the clause silently no-ops — the dropped-clause FP.
+  const stepCtx = (event === "upkeep" || event === "draw") ? { upkeepPlayerId: state.activePlayer } : {};
   for (const pid of Object.keys(state.players)) {
     for (const perm of triggerSourcesOf(state, pid)) {
       fired = fired.concat(triggersForEvent(state, { event, sourcePermanent: perm, triggeringContext: stepCtx }));

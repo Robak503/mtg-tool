@@ -472,6 +472,33 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
   const c = String(condition || "").toLowerCase().trim();
   if (!state?.players?.[controllerId]) return false; // controller gone → condition unmet
 
+  // ===== SELF TAP-STATE (CR 603.4 + 106.1) ===== "…, if this artifact is untapped, …" (Howling Mine #723,
+  // Blinkmoth Urn, Genesis Chamber) and its inverse "if this artifact is tapped" (Mana Vault #145). The
+  // source's own tap state is the most directly checkable condition there is — one boolean on the permanent
+  // — but the existing machinery only understood BOARD-COUNT conditions ("you control two or more untapped
+  // lands"), so every card in this family parked. 29 cards carry it across five wordings; "this creature"
+  // (14) and "this artifact" (5+1) are the bulk.
+  //
+  // Evaluated LIVE against the battlefield, which is exactly what CR 603.4 wants: an intervening-if is
+  // checked when the trigger would go on the stack AND again as it resolves, so a Mana Vault untapped in
+  // between correctly stops its own trigger. A missing source (it left the battlefield) returns null rather
+  // than false — "can't confirm" is FN-safe and matches the EVOLVE-COMPARE precedent below. The noun is
+  // restricted to permanent-type words: "this <type>" is always a self-reference (CR 109.2), and the list
+  // keeps a stray phrase from riding a lookup that would answer about the wrong object.
+  {
+    const tapM = c.match(/^this (?:artifact|creature|enchantment|land|permanent|planeswalker|battle|token|equipment|vehicle) is (un)?tapped$/);
+    if (tapM) {
+      const sourceId = context?.sourcePermanentId;
+      if (!sourceId) return null;                       // referent missing → can't confirm (FN-safe)
+      for (const pid of Object.keys(state.players || {})) {
+        for (const p of state.players[pid]?.battlefield || []) {
+          if (p.id === sourceId) return tapM[1] ? !p.tapped : !!p.tapped;
+        }
+      }
+      return null;                                      // left the battlefield → can't confirm (FN-safe)
+    }
+  }
+
   // EVOLVE-COMPARE (KW-EVOLVE) — layer-aware P/T of the entering creature vs the source, read live.
   if (EVOLVE_COMPARE_RE.test(c)) {
     const enteringId = context?.triggeringPermanentId;

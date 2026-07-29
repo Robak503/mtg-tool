@@ -308,7 +308,13 @@ export function drawEachPlayerClauseParser(clause) {
   // draw half, split off the drain by the parser's upkeep-player normalizer). Corpus-clean phrase (only the
   // event-gated rewrite produces it); who:"upkeepPlayer" reads ctx.upkeepPlayerId, and the triggerRouting
   // referent gate pins the atom to the upkeep event (any other event → referent unset → clean no-op).
-  m = t.match(/^the upkeep player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  // "ADDITIONAL" is descriptive, not mechanical (CR 121.1): the ability instructs a draw of N cards, and the
+  // word only relates them to the turn-based draw the step already provides — nothing about what resolves
+  // changes. Widened here and NOWHERE else because this is the only phrasing the corpus prints: "that player
+  // draws N additional cards" is on 12 cards (Kami of the Crescent Moon #1817, Rites of Flourishing #1524,
+  // Font of Mythos #2207, Howling Mine #723), while "each player draws N additional" and "target player
+  // draws an additional" appear ZERO times. Widening those siblings on symmetry alone would be speculative.
+  m = t.match(/^the upkeep player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) (?:additional )?cards?$/);
   if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "upkeepPlayer", targetType: null };
   return null;
 }
