@@ -2740,6 +2740,56 @@ live bug.
 ⭐ **RULE EARNED: "exported + tested" is not "wired."** Before trusting a green suite as evidence for a
 behaviour, check the function it calls has a NON-TEST caller. Cheap: `grep -rl <fn> src/ | grep -v test`.
 
+## 🔧 SHIPPED — `probe-dead-exports.mjs`: "exported + tested" is not "wired", mechanized (`c053e89b`)
+
+The islandhome find generalizes into a sweep: **a green suite is evidence only if the function it calls has a
+production caller.** Definitions from `src/lib/learn`, callers searched across ALL of `src/` and `scripts/`.
+
+⭐ **IT CARRIES ITS OWN CONTROL, and the control earned its place TWICE.**
+1. My first version printed **"0 dead exports" while completely blind** — a mangled `\b` escape made every
+   reference count wrong. A sweep that cannot see a dead export reports a comforting zero.
+2. After adding the control, it failed again on the real script for a DIFFERENT reason: `scripts/` is in the
+   caller set and the file mentions the control name as a literal, so the control counted as referenced.
+
+**Both bugs were invisible in the output. Both were caught by the control.** The probe now refuses to print a
+result unless the planted export is found.
+
+⚠️ **SCOPE CORRECTED:** a learn-only caller scan reported **37** rows, mostly false — engine functions are
+routinely consumed by API routes, components and hooks (`puzzleGoalLabel` ← `LearnView.jsx`).
+
+## ✅ TRIAGE OF THE 16 REAL ROWS — all benign (do not re-chase)
+
+| class | examples | verdict |
+|---|---|---|
+| test helpers by convention | `_resetComboCacheForTests` | hidden unless `--all` |
+| CONTRACT PINS | `serializeState` / `deserializeState` | trivial JSON wrappers; the file's own docstring says the round-trip test **is** the contract |
+| BACK-COMPAT SHIMS | `blockableOnlyBySubtypeOf` | documented as superseded by `groupBlockRestrictionOf` |
+| THIN WRAPPERS over a used fn | `opponentsEnterTappedOf`, `cantAttackOrBlockAlone` | guarantee live through the other name — verified |
+
+Every underlying guarantee is wired: menace via `attackerMinBlockers` (legalChoices:2903), the
+alone-restrictions via the `cantAttackAlone`/`cantBlockAlone` pair (both return true on the combined text).
+
+**So islandhome was the ONLY genuine instance, and it is already fixed.** A clean sweep is worth recording
+precisely because the next run would otherwise wonder.
+
+⚠️ **FIXTURE TRAP, logged in the probe header:** I briefly "found" that a Bear could block a
+can't-be-blocked-except-by-Walls attacker — using a wording **I invented**. Nearly all real
+"can't be blocked except by" text is REMINDER text for Menace / Flying / Fear, modelled as keywords. Test
+against the real card; this is the seventh time that rule has caught me this run.
+
+## 🧭 THE AUDIT PROGRAMME SO FAR — where the blind spots were, and were not
+
+| class | credited by | result |
+|---|---|---|
+| **lands** | TYPE (playable because they are lands) | ⭐ **3 real bugs** — karoo bundles, per-ability refusals, painlands |
+| **native-body** | ABSENCE of parsed abilities | ✅ clean — every high-frequency combat restriction implemented AND wired |
+| **exported+tested helpers** | a passing test | ⭐ **1 real hollow gate** (islandhome), now mechanized against |
+
+**Read:** the productive audits target things credited WITHOUT a parse. That vein is now swept. The next
+candidates would be `native-equipment` / `native-aura` / `native-clone` (grants credited from a parse but
+applied through a separate layer walk) — i.e. parse-credited but APPLICATION-unverified, a different shape
+worth its own pass.
+
 ## NEXT ACTIONS
 
 1. ✅ **DONE — Bloom Tender / Faeburrow Elder** (`003e29d1`). Shipped as the VIVID half of the mixed-bundle
@@ -2891,6 +2941,7 @@ emits a layer grant needs a RUNTIME assertion. The tier is not evidence about th
 
 ## COMPLETED TRAIL (newest first)
 
+- `c053e89b` — probe-dead-exports (self-controlled); 16 rows triaged benign. Slice 73.
 - `45b23547` — native-body audit (clean) + a green test that never touched the shipped path. Slice 72.
 - `aad5b36c` — painland cycle completed: 5 slow variants + 6 painless (FP). Slice 71.
 - `9b6441c0` — source-scoped atom conditions + sequenced "Then if" (+3). Slice 70.
