@@ -209,7 +209,12 @@ export function miscClauseParser(clause) {
   // different insertion point than end-of-combat — the queue would fire at the wrong moment, granting a
   // combat the card did not. Increment 3 gives the queue entry its own insertion point; until then a
   // safe FN. Full Throttle's "two additional combat phases" is out for the same reason plus its count.
-  if (/^after this phase, there is an additional combat phase(, followed by an additional main phase)?$/.test(t)
+  //
+  // "AFTER THIS COMBAT PHASE" is the SAME insertion point spelled out (Raphael, Tag Team Tough — the only
+  // corpus printing of it). Every carrier of this wording is a combat trigger, so "this phase" and "this
+  // combat phase" name the same phase; it is a synonym, not a second mechanism. Kept as its own alternative
+  // rather than an optional `(combat )?` group so the after-MAIN form can never be reached by widening.
+  if (/^after this (?:combat )?phase, there is an additional combat phase(, followed by an additional main phase)?$/.test(t)
       || /^there is an additional combat phase after this phase(, followed by an additional main phase)?$/.test(t)) {
     return { op: "extra-combat", targetType: null };
   }

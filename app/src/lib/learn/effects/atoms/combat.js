@@ -137,6 +137,17 @@ export function applyUntapLands(state, atom, ctx) {
     // board sees it, not as its printed line reads.
     if (atom?.scope === "creature") {
       if (!(/\bcreature\b/i.test(typeLineStr(perm.card)) || permanentIsCreature(state, perm.id))) continue;
+    } else if (atom?.scope === "attacking") {
+      // ATTACKING-ONLY (CR 506.3) — Karlach #1039, Hellkite Charger #2125, Scourge of the Throne #1277,
+      // Najeela. A strict SUBSET of the creature scope: the permanent must be in the live attacker set.
+      // Read from state.combat.attackers (entries are { permanentId, … }) rather than a flag on the
+      // permanent, so it is exactly the set the combat system is currently resolving.
+      //
+      // ⛔ OUTSIDE COMBAT THIS UNTAPS NOTHING. Every carrier is an attack trigger, so the set is non-empty
+      // when it fires; a stale or absent combat object yields an empty list and a clean no-op, never a
+      // fallback to "all creatures" — which would untap the whole board off a card that promised only the
+      // attackers.
+      if (!(state.combat?.attackers || []).some((a) => a?.permanentId === perm.id)) continue;
     } else if (!/\bland\b/i.test(typeLineStr(perm.card))) continue;
     ids.push(perm.id);
   }
@@ -1096,6 +1107,11 @@ export function combatKeywordClauseParser(clause) {
   // ⛔ "untap all creatures" WITHOUT "you control" is NOT this atom — that is a symmetric untap that also
   // untaps opponents' blockers, which is a different effect and a real downside. It falls through to LOW.
   if (/^(?:you )?untap (?:all|each) creatures? you control$/.test(t)) return { op: "untap-lands", all: true, scope: "creature", targetType: null };
+  // ATTACKING-ONLY mass untap (CR 506.3) — "untap all attacking creatures" (Karlach #1039, Hellkite
+  // Charger #2125, Scourge of the Throne #1277, Najeela, Take the Bait). The same resolver with a narrower
+  // scope: only permanents in the LIVE attacker set. Every carrier is an attack trigger, so the set is
+  // populated when it fires; outside combat it untaps nothing rather than falling back to the whole board.
+  if (/^untap all attacking creatures$/.test(t)) return { op: "untap-lands", all: true, scope: "attacking", targetType: null };
   // CANT-BE-BLOCKED SELF (BLITZ SC-1 — Sword Coast Sailor's granted trigger effect: "this creature can't
   // be blocked this turn"): the SOURCE as the fixed referent (atomTargets target:"self" → ctx.sourceId);
   // the same layer-6 endOfTurn unblockable grant as the targeted form. Whole-clause anchored.
