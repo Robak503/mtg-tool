@@ -98,6 +98,52 @@ function singularCreatureType(word) {
   return null;
 }
 
+/**
+ * A BATCHED trigger subject ("one or more <X>") → the equivalent SINGULAR subject phrase, or null.
+ *
+ *   "other Elves you control"        → "another elf you control"
+ *   "artifacts you control"          → "an artifact you control"
+ *   "tokens your opponents control"  → "a token your opponents control"
+ *   "nontoken creatures"             → "a nontoken creature"
+ *
+ * The point is to let a batch arm REUSE the singular matchers rather than grow a parallel set of them, so
+ * the batch form inherits the singular form's refusals as well as its capabilities. Callers must still
+ * apply the batch's own gate (the once-per-turn rider) — this function only rewrites the noun phrase.
+ *
+ * A trailing CONTROLLER phrase is preserved verbatim: it is not part of the noun being singularized, and
+ * "your opponents control" must not become "your opponent control".
+ *
+ * The head noun is de-pluralized through `singularCreatureType` (the closed-vocabulary singularizer) with a
+ * short list of common CARD-TYPE nouns handled first — those are plain English plurals of words the engine
+ * already names elsewhere (NON_SUBTYPE_FILTER_WORDS), not a guessed vocabulary. Anything whose head does not
+ * resolve returns null → the caller builds nothing → Arbiter (a SAFE false-negative). A subject carrying a
+ * LIST ("Humans and/or Warriors") returns null too: the singular matchers take one noun.
+ */
+const BATCH_HEAD_NOUNS = {
+  creatures: "creature", tokens: "token", permanents: "permanent", artifacts: "artifact",
+  enchantments: "enchantment", lands: "land", planeswalkers: "planeswalker", cards: "card",
+};
+function singularizeBatchSubject(subject) {
+  const raw = String(subject).trim();
+  // A subject LIST ("Humans and/or Warriors") — the singular matchers take one noun. ⚠️ MEASURED INERT:
+  // mutating this line away changes NOTHING, because the delegated singular clause is refused downstream
+  // anyway. Kept as an explicit early-out that states the intent at the point of rewriting, NOT sold as the
+  // guard — the containment comes from the delegation, and the pin for it belongs to the downstream refusal.
+  if (/\b(?:and|or)\b/.test(raw)) return null;
+  const ctrlM = raw.match(/( you control| your opponents control| an opponent controls| you don't control)$/);
+  const controller = ctrlM ? ctrlM[1] : "";
+  let head = ctrlM ? raw.slice(0, -controller.length).trim() : raw;
+  const other = /^other /.test(head);
+  if (other) head = head.slice("other ".length);
+  const words = head.split(/\s+/);
+  const lastLc = words[words.length - 1].toLowerCase();
+  const singularHead = BATCH_HEAD_NOUNS[lastLc] || singularCreatureType(lastLc);
+  if (!singularHead) return null;
+  const noun = [...words.slice(0, -1), singularHead].join(" ").toLowerCase();
+  const article = other ? "another" : (/^[aeiou]/.test(noun) ? "an" : "a");
+  return `${article} ${noun}${controller}`;
+}
+
 // Does a card's type line carry the subtype filter (single string OR any of a list)?
 function subtypeFilterMatches(card, filter) {
   if (!filter) return false;
@@ -891,6 +937,38 @@ function classifyCondition(condRaw, cardName, cardType) {
           event: "etb", scope: scopeF, whose: "any", requiresOncePerTurn: true,
           ...(ebf[2] === "power" ? { etbMaxPower: parseInt(ebf[3], 10) } : { etbMaxMv: parseInt(ebf[3], 10) }),
         };
+      }
+    }
+  }
+  // ===== BATCHED ETB, ANY SUBJECT THE SINGULAR ARM CAN ENFORCE (CR 603.1) ===== the general form of the
+  // power/mana-value arm directly above. Same licence, same rider requirement — the ONLY thing that differs
+  // is which subject filter is in play, so this must NOT grow a second subject parser.
+  //
+  // ⭐ IT DELEGATES. The plural subject is singularized and the resulting clause is handed straight back to
+  // classifyCondition, whose result is decorated with requiresOncePerTurn. That inherits every scope the
+  // SINGULAR etb path can enforce (subtypeYouControl / otherSubtypeYouControl / permanentEnters filters /
+  // nontokenFilter / tokenFilter) **and every refusal it makes** — an unenforceable subject returns null
+  // there and therefore null here, so the batch form can never be more permissive than the singular form it
+  // is built on. That containment IS the safety argument; duplicating the matchers would destroy it.
+  //
+  // ⚠️ VALID ONLY WITH THE RIDER, for the same reason as the arm above: mapping a batch onto the singular
+  // event fires once per ENTERING PERMANENT, and only the printed "this ability triggers only once each
+  // turn" collapses that back to once. requiresOncePerTurn carries the demand to the descriptor builder,
+  // which drops the descriptor when the rider is absent — so the over-firing case cannot be emitted.
+  // Excludes scope "self" (a source's own entry is not a batch of others) and any inner descriptor that
+  // already carries a once-per-turn demand of its own.
+  {
+    const oomEtb = c.match(/^one or more (.+) enter$/);
+    const singularSubject = oomEtb ? singularizeBatchSubject(oomEtb[1]) : null;
+    if (singularSubject) {
+      const inner = classifyCondition(`${singularSubject} enters`, cardName, cardType);
+      // BOTH entry events are admitted. The singular path splits "something entered" across two: `etb` for
+      // creature-shaped subjects and `permanentEnters` for the card-type ones ("an artifact you control" →
+      // artifactYouControl, "a token you control" → tokenYouControl). The rider argument is identical for
+      // both — per-entry firing, collapsed to once by the printed rider — and gating on `etb` alone silently
+      // dropped the artifact and token carriers, which are most of this family.
+      if (inner && (inner.event === "etb" || inner.event === "permanentEnters") && inner.scope !== "self" && !inner.requiresOncePerTurn) {
+        return { ...inner, requiresOncePerTurn: true };
       }
     }
   }
