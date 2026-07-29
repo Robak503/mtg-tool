@@ -228,6 +228,38 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — OUTLAST expanded (+8) · **second finished-mechanism-delivering-nothing in a row**
+
+Abzan Falconer · Abzan Battle Priest · Mer-Ek Nightblade · Ainok Bond-Kin · Tuskguard Captain · Longshot
+Squad · Salt Road Patrol · Disowned Ancestor. GAINED 8 · LOST 0.
+
+⭐ **NO NEW MACHINERY.** CR 702.107a: "Outlast [cost]" IS "[cost], {T}: Put a +1/+1 counter on this creature.
+Activate only as a sorcery." Writing that sentence out by hand already classified native-activated. The
+keyword needed only to be **said in words the parser knew** — so the keyword-vein probe has now paid twice in
+a row on the same shape.
+
+⭐ **THE EXPANDER IS EXPORTED AND SHARED** with coverage.js, whose `isActivatedAbilityLine` is documented as an
+exact mirror of the parser and keys on a COLON — which "Outlast {W}" has none of. Duplicating the regex would
+leave the mirror one edit from lying. Mutation-checked: letting it drift parks the cards while the parse still
+succeeds.
+
+### ⚠️ THE PIN DEMANDED AN END-TO-END OFFER AND MY FIRST CHECK OF IT WAS WRONG
+The refusal warned that crediting outlast "would claim a card plays natively while the engine never offers the
+ability at all." My first harness reported **NOT OFFERED** — because the state had phase "beginning" and
+`priorityHolder: null`, so `legalActionsForPlayer` returned **zero actions of any kind.** A positive control (a
+written-out ability that has always worked) exposed the harness rather than the engine; with a real priority
+window both forms are offered identically.
+
+⭐ **THIRD TIME THIS RUN RULE 1b SEPARATED A FINDING FROM A FICTION, AND ALWAYS THE SAME DIRECTION:** an
+absent signal that turned out to be my instrument, not the engine. The pattern is now reliable enough to
+state as a habit — *when a check says "the engine doesn't do X", first prove the check can see the engine
+doing anything at all.*
+
+Two pins re-pointed. Outlast was the standing example of a keyword that fails the untaken-option test AND has
+no enforcement; it now fails only the first half, so the example moves to RECONFIGURE and the rule is
+restated: **a keyword is never credited for being declinable, only for being genuinely modeled** — opposite
+routes, and conflating them is what that pin exists to prevent.
+
 ## 🔧 SHIPPED — the AFTERMATH keyword line (+7) · **a finished mechanism delivering nothing**
 
 Claim // Fame · Farm // Market · Spring // Mind · Destined // Lead · Consign // Oblivion · Mouth // Feed ·
