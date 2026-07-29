@@ -38,6 +38,52 @@
 > `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
 > after.** A green mutation run is only evidence if you know WHAT you broke.
 
+## 🌊 SCOPED WAVE (start here cold) — EXTRA COMBAT PHASES, CR 500.8. **51 cards, ALL non-native.**
+
+Named by the mass-untap slice: every big card on that clause list was blocked by this rider, not by the
+untap. **51 corpus cards carry "additional combat phase" and not one is native.** The first ten by rank:
+```
+699 Aggravated Assault · 820 Aurelia, the Warleader · 995 Moraug, Fury of Akoum · 1000 Combat Celebrant
+1039 Karlach, Fury of Avernus · 1118 Great Train Heist · 1229 Genji Glove · 1277 Scourge of the Throne
+1491 Full Throttle · 1543 Relentless Assault
+```
+**That is the densest top-1600 cluster left in the corpus.** No deliberate refusal exists — the only pin
+that mentions it is my own note in `massUntapOwnCreatures.test.js`.
+
+**⭐ THE PRECEDENT IS ALREADY IN THE ENGINE, and it is an exact structural twin.**
+```
+CR 500.7 extra TURNS  → state.extraTurns, a LIFO queue popped in advanceStep   ← BUILT (BLITZ XT-1)
+CR 500.8 extra PHASES → "added directly after the specified phase … the most
+                         recently created phase will occur first"              ← the SAME LIFO shape
+```
+`gameEngine.advanceStep` is the single step-transition chokepoint and **already does both moves this needs**:
+it consults per-state data to take an extra turn instead of rotating, and it JUMPS the sequence pointer
+(the CR 508.8 empty-combat skip to `end-of-combat`). An extra combat is the same jump backwards.
+
+**THE ONE STRUCTURAL OBSTACLE, named so nobody rediscovers it:** `TURN_SEQUENCE` is a **module-level
+constant** (`PHASES.flatMap(...)`, gameEngine.js:125) and `findSequenceIndex` searches it by (phase, step).
+A spliced phase cannot live in that array — it must be a **per-STATE queue** consulted at the transition,
+exactly like `extraTurns`.
+
+**Increment plan:**
+1. `state.extraPhases` — a LIFO queue of runs to splice. At the transition OUT of `end-of-combat`, pop one
+   and jump to `beginning-of-combat` instead of `postcombat-main`. Board assertion: the combat steps run a
+   second time and attackers can be declared again.
+2. ⛔ **CR 505.1a — the additional MAIN phase that follows is a POSTCOMBAT main**, not a precombat one.
+   Most of these cards read "an additional combat phase FOLLOWED BY an additional main phase", so the queue
+   entry is a two-phase run, and getting the main's identity wrong would mis-fire every precombat-main
+   trigger on the board.
+3. The parse arms: "After this main phase, there is an additional combat phase followed by an additional
+   main phase" (Aggravated Assault) · "untap all creatures you control. After this phase, …" (the untap is
+   ALREADY modelled as of `c5697dc8`, so these compose) · Aurelia/Moraug's attack-triggered form.
+
+⛔ **THE TRAP TO TEST FOR FIRST:** an extra combat that never terminates. `extraTurns` is popped exactly
+once per grant; the phase queue must be too, or a Relentless Assault loops the turn forever. **Assert the
+queue drains** — a combat count of exactly 2, and a third combat only from a second grant.
+
+⚠️ And expect the flip count to trail the 51: several pair the extra combat with their own riders (Moraug's
+landfall, Scourge's dethrone). Size with the tier diff, as always.
+
 ## 🔧 SHIPPED — mass untap of your OWN creatures (`c5697dc8`, +8) · **a THIRD kind of pin**
 
 The untap resolver always did a greedy mass untap with an `all`/up-to-N cap — scoped to LANDS by **one
