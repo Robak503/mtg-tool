@@ -228,6 +228,28 @@ that works.
 name normalization and silently corrupts quoted-grant classification. Cost several wrong readings before
 `"A"`, `"Ab"` and `"Zzz"` behaved differently from `"T"` and gave it away.
 
+## 🔧 SHIPPED — caster-subject gain-life rider (+5)
+
+Sever Soul · Divine Offering · Serene Offering · Terashi's Grasp · Exile. GAINED 5 · LOST 0.
+
+⭐ **THE SUBJECT IS THE OTHER ONE.** The fold already handled "ITS CONTROLLER <rider>"; this is the "YOU
+<rider>" sibling on the identical lead grammar. TOUGHNESS and MANA VALUE join POWER on the shared pre-removal
+capture. **Rode the creature-lead fallback from the previous slice** — so that hole did not have to be found
+twice, which is the point of fixing causes rather than instances.
+
+⛔ **THE BENEFICIARY IS THE ENTIRE RISK.** Swords to Plowshares pays the TARGET'S CONTROLLER; Sever Soul pays
+the CASTER. One word apart, same matcher family, same atom field — swap them and the card reads native,
+resolves cleanly, and **heals the player it was cast at.** The two are asserted TOGETHER, because each alone
+is satisfiable by an implementation that always pays one player.
+
+⭐ **POWER IS DELIBERATELY NOT WIRED** to the caster subject even though the capture holds it. Admitting it
+would be one word of regex and no corpus card prints it that way. **Widening a vocabulary to what the data
+structure could support, rather than to what the cards actually say, is how a parser starts inventing shapes.**
+
+⚠️ And one of my own refusals was WRONG: "you gain life equal to the number of Swamps you control" parses
+HIGH through a pre-existing count-source path — correctly, because a board count needs no capture. The
+assertion is inverted and kept, so nobody folds a working path into this rider thinking it is a gap.
+
 ## 🔧 SHIPPED — "Its controller loses N life" rider (+16) · **and the hole under the hole**
 
 16 cards, GAINED 16 · LOST 0. Hideous End · Sip of Hemlock · Certain Death · Undermine · Countersquall · +11.
