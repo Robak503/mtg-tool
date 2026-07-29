@@ -246,7 +246,33 @@ anchor silently failed to apply, and using `git checkout` to "restore" **discard
 The mutation round then measured a file that no longer had the feature in it. `git diff --stat` after every
 mutation round is the standing check — the marker sweep cannot see this class either.
 
-### 🔬 CHOSEN-TYPE ON CREATURES — INVESTIGATED, NOT STARTED. It is a subsystem, and here is the exact reason.
+### ✅ CHOSEN-TYPE ON CREATURES — BUILT (`665e45fa`, +1) and the scoping below held up exactly
+
+Built in the order the scoping demanded: **selector layer-awareness FIRST**, then the self-type-add, then the
+`"Other …"` cell. Building the parser arm first — the obvious order — would have credited these cards native
+while their printed self-type-add did nothing for any selector.
+
+**⛔ THE REAL FIND IS A PRE-EXISTING FALSE POSITIVE IT SURFACED, and its class is broad.** Morophon, the
+Boundless flipped to native-static with its **{W}{U}{B}{R}{G} cost reduction UNMODELED**. Cause: the residue
+builders stripped periods (`.replace(/[\s.]+/g, " ")`), **deleting the sentence boundaries `isKeywordOnly`
+splits on** — the exact guard its own comment describes (*"a trailing non-keyword sentence glued on by a
+strip is swallowed whole"*). A leading `"Changeling "` then absorbed the whole rider:
+```
+isKeywordOnly("Changeling Spells … cost {W}{U}{B}{R}{G} less to cast. This effect …")   → false  ✅
+isKeywordOnly(same text with periods stripped)                                          → TRUE   ⛔
+```
+**Any keyword line could have swallowed any unmodeled text behind it.** Fixed on the two residues that feed
+`isKeywordOnly`; the three siblings that merely test `length > 0` are unaffected and were left alone.
+`LOST 0` says nothing else was leaning on it — this was a loaded gun, not a load-bearing wall.
+
+**⭐ THE RULE: a residue that feeds `isKeywordOnly` MUST keep its periods.** Normalize whitespace with
+`/\s+/g`, never `/[\s.]+/g`.
+
+Still parked, with reasons: **Metallic Mimic #1055** (an enters-with-counters replacement), **Roaming Throne
+#133** (trigger doubling), **Realmwalker #607** (chosen-type cast-from-top — the one place the cast-from-top
+seam and this one meet).
+
+### 🔬 (original scoping, kept — it was accurate) CHOSEN-TYPE ON CREATURES
 
 The blocker probe ranked this cluster high (*"As this creature enters, choose a creature type"* ×5 plus
 *"This creature is the chosen type in addition to its other types"* ×3), and it holds real cards:
