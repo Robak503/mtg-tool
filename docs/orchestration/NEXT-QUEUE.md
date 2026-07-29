@@ -159,6 +159,21 @@ zero of them.
 MTG_APP_ROOT="/c/Users/colto/AppData/Roaming/com.colton.mtg-tool" node app/scripts/playability-sweep.mjs 200 beginner commander
 ```
 
+### D6. ⭐⭐ TEACH THE PLAYABILITY SWEEP TO ATTACK · ~1-2h · medium risk, HIGH value
+**The sweep never declares attackers.** Its driver is land → cast → non-activate → pass, with no attack
+handling at all, so the entire `attacks` event family — combat-damage triggers, attack-triggered loops,
+extra-combat grants — is unexercised on the user's side. Every "N games, zero wedges" figure this run cites
+therefore covers the NON-COMBAT human path only.
+
+**Proven, not suspected:** a loop-risk deck preset aimed at the sweep's existing `WEDGE:step-cap`
+non-termination detector reported 40/40 clean *even with Aurelia's once-per-turn latch deliberately
+re-broken* — i.e. with the exact turn-loop recreated. The preset was reverted rather than shipped.
+
+**Failure mode of the build:** an attacking driver that always alpha-strikes will end games far faster and
+change every existing baseline; it needs to attack *plausibly* (and the harness must still terminate). Do
+this one while sharp — it is a driver change, not a preset, and it invalidates prior sweep baselines by
+design, so re-baseline after.
+
 ### D5. ⭐ TRIGGER-TIER PARITY PROBE — ✅ **BUILT (`7013f236`)**, 324 measurable / 0 divergent
 `probe-classifier-runtime-parity` covers native-spell / activated / equipment and **skips native-trigger**,
 the largest tier and the one where both of this run's engine bugs lived. `triggerRoutesNatively` is a

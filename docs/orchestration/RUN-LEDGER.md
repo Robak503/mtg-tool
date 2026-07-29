@@ -119,6 +119,35 @@ queue drains** — a combat count of exactly 2, and a third combat only from a s
 ⚠️ And expect the flip count to trail the 51: several pair the extra combat with their own riders (Moraug's
 landfall, Scourge's dethrone). Size with the tier diff, as always.
 
+## ⚠️⚠️ CORRECTION TO MY OWN EVIDENCE — **THE PLAYABILITY SWEEP NEVER ATTACKS**
+
+I have been citing *"430 games across four configurations, zero wedges"* as the measured no-soft-lock floor.
+**That claim is narrower than I stated it, and the qualification is load-bearing.**
+
+`playability-sweep.mjs`'s driver picks **land → cast → any non-activate → pass**. It has **no attack
+handling whatsoever** — grep the file: no `declare-attackers`, no attacker selection, and the exercised
+decision-kind census is `ask` / `unresolved` / `game-over` / a few choice kinds, with **no combat decisions
+at any point**. Games still finish (turn 24–86) because opponents attack and libraries run out. So the sweep
+measures **the non-combat human path only**. Any soft-lock that needs the user to ATTACK is outside its
+reach, by construction.
+
+⭐ **PROVEN, NOT SUSPECTED — and it cost me a shipped instrument.** I built a "loop-risk" preset for the
+sweep (decks packed with extra-turn / extra-phase / mass-untap cards) to aim its existing `WEDGE:step-cap`
+non-termination detector at the Aurelia class. It reported 40/40 clean. Then the coverage witness: **I
+re-broke Aurelia's once-per-turn latch — recreating the exact turn-loop — and the preset STILL reported
+40/40 clean.** The instrument could not see the bug it was named for. **Reverted rather than shipped**: a
+detector that provably does not detect is worse than none, because the next session would trust it.
+
+**What a real detector needs, so nobody rebuilds the vacuous version:** the sweep driver must DECLARE
+ATTACKERS. Until it does, no attack-triggered anything — loops, combat-damage triggers, the whole
+`attacks` event family — is exercised on the user's side. That is a driver change, not a preset.
+
+⛔ **AND IT REFRAMES WHY AURELIA WAS FOUND BY READING A DESCRIPTOR.** Not luck, and not a gap the sweep
+happened to miss: **the sweep could never have caught it.** Omnath's C-gate note ("native coverage and
+playability are independent axes; no amount of coverage % finds the next Aurelia") is right, and this adds
+the sharper half — *the current playability instrument does not cover combat either*. Two axes, and one of
+them still has a hole.
+
 ## 🪦 SHIPPED — **THE LAND TIER HIDES DEAD CARDS** (`eb57c773`) · Fabled Passage #50, in 3 shelf decks
 
 ⛔ **`tier: "land"` is assigned to EVERY land regardless of what it does**, so a land whose only ability
