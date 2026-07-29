@@ -24,6 +24,90 @@
 > `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
 > after.** A green mutation run is only evidence if you know WHAT you broke.
 
+## 🩸 THE VACUOUS SUBTYPE FILTER — a new FP class, found and closed (`57011a09`)
+
+**A filter the runtime can never satisfy is worse than a missing one.** `subtypeFilterMatches` enforces
+`subtypeFilter` as a substring of the triggering permanent's TYPE LINE. Mint a string no card carries —
+"Commander", "Outlaw", "Allie" — and the card classifies **native**, the trigger fires **zero**, and
+**nothing in the static toolkit can see it**: the per-card tier diff shows no movement because the card was
+already native and stays native. This is the same lesson as the dropped layer grant, in a second location:
+**the tier is not evidence about the board.**
+
+**The instrument: `app/scripts/probe-vacuous-subtype-filters.mjs`.** It derives the real subtype vocabulary
+from printed type lines and reports any minted filter absent from it. **A finding here is always a defect** —
+there is no benign reason to gate on a subtype no printed card carries. Run it after touching ANY path that
+mints a `subtypeFilter`. It reads **0** today.
+
+**⚠️ AND THE PROBE WAS WRONG ON ITS FIRST RUN — 72 false findings.** It scoped the vocabulary to post-dash
+subtypes, but `subtypeFilterMatches` tests the WHOLE line, so "Artifact" legitimately matches
+"Artifact — Equipment". *The instrument was the problem, not the engine.* Fixed before trusting a single row.
+
+The three real classes, all now closed:
+```
+"Commander"  CR 903.3 DESIGNATION, not a type word   Norn's Choirmaster #3286 (etb+attacks) · Keleth #6637
+"Outlaw"     CR 203.4c UMBRELLA over five subtypes    Rakish Crew
+"Allie"      naive -s strip on the plural "Allies"    Invasion Tactics #13305
+```
+Commander now takes `commanderYouControl` (the scope Kediss already proved); outlaw expands to its five;
+singularization now **generates candidates and validates against `CR_CREATURE_TYPES`** — the closed 317-word
+set — instead of trusting a rule (Allies→Ally, Elves→Elf, Wolves→Wolf, Oxen→Ox; unresolvable → null →
+Arbiter, a safe FN). **Do not replace that with a hand-written plural dictionary — it would just relocate
+the fabrication.**
+
+**⭐ TWO FOLLOW-ONS THE DIFF CAUGHT AND REASONING DID NOT.** Both are the argument for running it every time:
+1. Moving commander triggers off the subtype path dropped **Keleth to body-only** — `NONSELF_TRIGGERING_SCOPES`
+   gates the "put a +1/+1 counter on IT" pronoun rewrite, and the new scope wasn't in it. Fixing only the
+   scope would have swapped a silent no-op for a silent park.
+2. Denying "commanders" to `parseSubtypeList` killed the BATCHED form outright — and the pin protecting it
+   was protecting an FP (its old output was itself vacuous). `batchCommander` makes the plural CORRECT
+   rather than absent. **New descriptor field → the whitelist, or it is silently dropped.**
+
+**Tier diff GAINED 0 · LOST 0 · RETIERED 0. Coverage does not move.** Three cards that claimed native and did
+nothing now work. That is the whole result, and it is worth more than a number.
+
+### 📋 NEXT OFF THIS SHELF — the 26 top-2500 "one or more" carriers still parked, DIAGNOSED
+
+**⚠️ FIRST, THE TRAP THAT COST ME A WRONG ANSWER: `publicCard()` STRIPS `edhrec_rank`.** An ad-hoc probe
+built on `publicCard` read every rank as the 999999 fallback and reported *"0 of the remaining carriers are
+in the top 2500"* — which would have retired this whole vein. `measure-coverage.mjs` reads `raw.edhrec_rank`
+off `allCards()` for exactly this reason. **Take the rank from the RAW card, the oracle from `publicCard`.**
+
+The real answer is 26, and detection status splits them cleanly (`detectTriggers` count in brackets):
+
+```
+DETECTION IS THE ONLY BLOCKER — the batch arm exists, the SUBJECT FILTER is the gap
+  1729 Elvish Warmaster   [0]  "one or more other ELVES you control enter" + rider   ← the subtype cross
+  1544 Losheel            [0]  "one or more ARTIFACT CREATURES you control enter" + rider
+   648 Caretaker's Talent [0]  "one or more TOKENS you control enter" + rider   ⚠️ any token, incl. Treasure
+  2459 General Kreat      [0]  "one or more GOBLINS you control attack"          ← maps onto youAttack
+  2500 Dollmaker's Shop   [0]  "one or more NON-TOY creatures you control attack a player"
+  1281 Duelist's Heritage [0]  "one or more creatures attack"  ⚠️ ANY player's — NOT youAttack
+  1591 The Skullspore Nexus [0] "one or more NONTOKEN creatures you control die"  ← diesBatch + nontoken
+  2356 Spiteful Banditry  [1]  "one or more creatures YOUR OPPONENTS CONTROL die" + rider
+
+DETECTED ALREADY — the EFFECT is the blocker, so these are spell-effect work, not trigger work
+  1903 Grazilaxx   combatDamageBatch ✓ … blocked by its OTHER line ("becomes blocked")
+  2484 Nature's Will combatDamageBatch ✓ … "tap all lands that player controls and untap all lands you control"
+  2438 Rev          combatDamageBatch ✓ … "look at the top card of that player's library" rider
+   897 The Gitrog Monster / 1290 Hedge Shredder / 1987 Colossal Grave-Reaver — gyEnterBatch ✓, effect gaps
+  1838 Teval's Judgment  gyLeaveBatch ✓ … modal "choose one that hasn't been chosen this turn"
+   914 Evolution Witness / 2085 Basking Broodscale / 1259 Simic Ascendancy — countersPut ✓, effect gaps
+```
+
+**The cheapest next slice is the ETB SUBJECT CROSS** (the first three rows): the batched-ETB arm shipped at
+`619b9513` handles *"with power/mana value N or less"*, and these are the same grid cell with a different
+filter — subtype, card-type, token-ness — all of which the SINGULAR etb path already enforces
+(`subtypeYouControl` / `otherSubtypeYouControl` / `tokenFilter` / `nontokenFilter`).
+
+**⭐ BUILD IT BY DELEGATION, NOT BY A SECOND PARSER.** De-pluralize the subject and hand the singular clause
+back to `classifyCondition`, then decorate the result with `requiresOncePerTurn: true`. That inherits every
+scope the singular arm can enforce **and every refusal it makes** — which is the whole safety argument, and
+the shape the `diesBatch` arm already documents. Use `singularCreatureType` for the subtype word; it is the
+validated singularizer built in `57011a09` precisely so "Elves" cannot become "Elve".
+
+**⚠️ Caretaker's Talent needs care: "tokens" is ANY token, including Treasures.** A creature-scoped gate
+would under-fire while claiming native — the FP direction. It needs a token-permanent scope or it parks.
+
 ## 🎯 THE OBJECTIVE — RETARGETED BY COLTON, 2026-07-28 (supersedes the shelf framing below)
 
 **The target is now the TOP 2500 MOST-PLAYED CARDS by `edhrec_rank`.** Colton, verbatim: *"lets focus now
@@ -289,7 +373,7 @@ signatures for the rest:
 | ~~`are put` (57)~~ | `checkGraveyardEventTriggers(state)` | drains `pendingGraveyardEvents` | ✅ **DONE** `e05c796b` |
 | ~~`attack` (46)~~ | `checkAttackTriggers(state)` | whole combat (all attackers at once) | ✅ **DONE** `eb701643` |
 | ~~`leave` (39)~~ | `checkGraveyardEventTriggers(state)` — the GY half | drains `pendingGraveyardEvents` | ✅ **DONE** `22e2293d` (+13) |
-| `enter` (28) | `checkEnterTriggers(state, enteredPerm)` | **ONE permanent** | ⛔ **BLOCKED** |
+| ~~`enter` (28)~~ | `checkEnterTriggers(state, enteredPerm)` | **ONE permanent** | ✅ **DONE** `619b9513` (+3) — via the rider, no batching |
 
 **⚡ `attack` cost ONE LINE and no machinery — check for this before building any arm.** "Whenever one or
 more creatures you control attack" is merely the OLDER TEMPLATING for "Whenever you attack" (CR 508.1);
