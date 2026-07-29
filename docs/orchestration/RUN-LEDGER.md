@@ -38,6 +38,37 @@
 > `spellFilter: "instantSorcery"`). **Anchor on something unique, or `grep -n` the line number before and
 > after.** A green mutation run is only evidence if you know WHAT you broke.
 
+## 🔧 SHIPPED — tutor-to-GRAVEYARD (`904d4304`, **+6** incl. **Entomb #328** and **Buried Alive #371**)
+
+**17 corpus cards, not one modelled, for a single reason:** the tutor had hand / battlefield / top
+destinations and **no graveyard**. The search itself was already right — this is a DESTINATION, not a
+mechanic. Parser arms mirror the fetch-to-hand ones; the settler runs the SAME `moveCardToZone` with a
+different `toZone`, so the CR 701.19e shuffle, the multi-pick chain and the auto-pick filter are untouched.
+
+GAINED **6** · LOST 0: Entomb (328) · Buried Alive (371) · Goblin Engineer (1172) · Vile Entomber (1887) ·
+Corpse Connoisseur · **Disciples of Gix** (unpredicted, verified as the same shape).
+
+**⚠️ THE DESTINATION HAD TO BE NAMED IN THREE SEPARATE WHITELISTS, AND MISSING ANY ONE FAILED SILENTLY INTO
+THE HAND.** The parser emitted `"graveyard"` correctly and the settler understood it — and the card still
+landed in the **hand**, because `applyTutor`'s ternary and `setPendingTutorChoice`'s `coerce()` each drop an
+unlisted destination to `"hand"`. **Every layer looked right in isolation.**
+```
+effects/atoms/library.js   the parser arm emits    destination: "graveyard"
+effects/atoms/library.js   applyTutor WHITELISTS it onto the pendingChoice   ← silently drops unlisted
+pendingChoice.js           coerce() re-whitelists it                          ← silently drops unlisted
+effects/runProgram.js      the settler picks the toZone
+```
+Same silently-dropped-field shape as the trigger descriptor whitelist from the Esper slice, in a different
+subsystem. **The parse test passed the whole time — the RUNTIME assertion is what caught it.** All three
+sites are now commented as a set that moves together, and each is separately mutation-checked (M97/M98/M99,
+all killed), so none is decorative.
+
+⛔ **Unmarked Grave stays PARKED** — its `"nonlegendary card"` filter is not in `parseTutorFilter`'s
+vocabulary. **A destination landing does not widen the search vocabulary**, and that pin is what proves it.
+
+*The auto-pick takes the highest mana value — correct here (a reanimator wants the fattest body) but only by
+coincidence with the fetch-to-hand heuristic, so it is asserted rather than assumed.*
+
 ## 🧭 LEAD SWEEP — EIGHT SIZED, EIGHT CLOSED. The cheap work is out in the TOP-1000 too, not just the shelf.
 
 This stretch shipped no slice, on purpose: I sized eight candidate levers and **none is slice-sized**. That
@@ -1434,7 +1465,7 @@ killed by 2.
 which would have tripped `grep -rl MUTANT app/src/` on every future boot and trained the next session to
 ignore a real alarm. Reworded. **Never let that token appear outside a live sabotage check.**
 
-- **Nothing mid-edit.** Corpus **35.9%** (12,300/34,245). Suite **947 files / 12,093 tests**,
+- **Nothing mid-edit.** Corpus **35.9%** (12,306/34,245). Suite **948 files / 12,104 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
