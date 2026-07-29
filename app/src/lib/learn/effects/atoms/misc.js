@@ -195,6 +195,24 @@ export function miscClauseParser(clause) {
   // extra turn" / "take two extra turns" / a skip-step rider never matches) → low → Arbiter (FN-safe —
   // an extra turn credited to the wrong player would be a catastrophic FP).
   if (/^take an extra turn after this one$/.test(t)) return { op: "extra-turn", targetType: null };
+  // EXTRA-COMBAT (CR 500.8 — Aurelia the Warleader #820, Karlach #1039, Genji Glove #1229, Great Train
+  // Heist #1118, Lightning Runner, Tifa). "After this phase, there is an additional combat phase" and its
+  // reversed word order. The resolver pushes a run onto state.extraPhases; gameEngine.advanceStep pops it
+  // when leaving end-of-combat and jumps BACK to beginning-of-combat (increment 1).
+  //
+  // The optional "followed by an additional main phase" tail is accepted but needs NO modelling: once the
+  // queue drains, the normal forward transition already lands on postcombat-main, and CR 505.1a says every
+  // main phase after the first IS a postcombat main. So the printed promise is kept by doing nothing.
+  //
+  // ⛔ THE "AFTER THIS MAIN PHASE" FORM IS NOT THIS ARM and parks deliberately (Aggravated Assault #699,
+  // Relentless Assault #1543, Seize the Day, Full Throttle). Those insert after a MAIN phase, which is a
+  // different insertion point than end-of-combat — the queue would fire at the wrong moment, granting a
+  // combat the card did not. Increment 3 gives the queue entry its own insertion point; until then a
+  // safe FN. Full Throttle's "two additional combat phases" is out for the same reason plus its count.
+  if (/^after this phase, there is an additional combat phase(, followed by an additional main phase)?$/.test(t)
+      || /^there is an additional combat phase after this phase(, followed by an additional main phase)?$/.test(t)) {
+    return { op: "extra-combat", targetType: null };
+  }
   // TAPPED-COUNT DRAW (BLITZ TD-1 — Theft of Dreams / Borrowing 100,000 Arrows): "Draw a card for each
   // tapped creature target opponent controls." The CONTROLLER draws; the chosen OPPONENT target only
   // supplies the count (countForSpec's tappedCreaturesOfTargetOpponent — layer-aware creature read at
@@ -492,6 +510,20 @@ export function applyExtraTurn(state, atom, ctx) {
 }
 
 /**
+ * EXTRA-COMBAT (CR 500.8) — push one combat run onto the extra-phase QUEUE. CR 500.8: extra phases are
+ * added directly after the specified phase, and when several are created after the same phase "the most
+ * recently created phase will occur first" — the same LIFO the extra-TURN stack above uses, and the reason
+ * advanceStep pops from the END.
+ *
+ * The queue is per-STATE (never the module-level TURN_SEQUENCE, which is shared by every game), and each
+ * run is popped as it is taken, so N grants give exactly N extra combats and the turn always terminates.
+ */
+export function applyExtraCombat(state, ctx) {
+  const next = { ...state, extraPhases: [...(state.extraPhases || []), { kind: "combat" }] };
+  return logEvent(next, { kind: "spell-effect", effect: "extra-combat", controller: ctx.controller, queued: next.extraPhases.length });
+}
+
+/**
  * THIS-TURN LURE (BLITZ LU-2, CR 509.1c) — stamp the turn-scoped lure marker on the chosen creature
  * (or the SOURCE for Mortipede's activated self form). state.lureThisTurn maps permanentId → the turn
  * stamped, and opponentAI.pickBlockers treats a marked attacker exactly like a printed-lure carrier
@@ -511,6 +543,7 @@ export function applyLureThisTurn(state, atom, ctx) {
 
 export const miscResolvers = {
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
+  "extra-combat": applyExtraCombat, // ===== EXTRA-COMBAT ===== (CR 500.8) — queue one additional combat phase; advanceStep pops it leaving end-of-combat
   "extra-turn": applyExtraTurn, // ===== EXTRA-TURN ===== (XT-1, CR 500.7) — "Take an extra turn after this one": a LIFO stack popped at advanceStep's end-of-turn branch
   "lure-this-turn": applyLureThisTurn, // ===== THIS-TURN LURE ===== (LU-2, CR 509.1c) — a turn-scoped block requirement marker, enforced in opponentAI.pickBlockers at the LU-1 bar
   "add-mana": applyAddMana, // RITUAL-MANA — "Add {C}{C}{C}" adds basic mana to the controller's pool
