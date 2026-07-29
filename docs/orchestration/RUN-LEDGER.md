@@ -119,6 +119,45 @@ queue drains** — a combat count of exactly 2, and a third combat only from a s
 ⚠️ And expect the flip count to trail the 51: several pair the extra combat with their own riders (Moraug's
 landfall, Scourge's dethrone). Size with the tier diff, as always.
 
+## 🧭 STATE OF THE INSTRUMENTS (swept 2026-07-29) — **the safe veins are DRY; stop hunting, go build**
+
+Four probes run back to back after the two soft-lock fixes. **All four now read clean**, which is the most
+useful thing this block says: a session that opens by hunting will spend itself confirming these.
+
+| Instrument | Result | Read |
+|---|---|---|
+| `playability-sweep` ×4 configs (430 games) | **100%, zero wedges** | beginner/intermediate × commander/standard + targeted. Paid once (`b903119f`), now clean. |
+| `probe-classifier-runtime-parity` | 0 divergent | covers native-spell / activated / equipment. ⚠️ **does NOT cover native-trigger.** |
+| `probe-ignored-restrictions` (732 cards, 13 phrases) | worked out | the one real find was `activate only as a sorcery` (`24349d75`). Spot-checked the rest as ENFORCED: menace + the whole `can't be blocked except by` family (combatEvasion EV-2/EV-3 with explicit safe-FN refusals) · `can't attack unless` both forms (CR 508.1c) · echo + cumulative upkeep · the activation limiter + condition riders. |
+| **ghost-event check** (new, ad hoc) | **0 dead events** | every `event:` string a descriptor can carry has a runtime producer. No repeat of the ghost-registry incident. |
+| `clause-frontier --min 6` | **only 2 families left** | both are quoted grants: `enchanted creature has "…"` (16) and `commander creatures you own have "…"` (15). **Neither is one slice** — Agent of the Iron Throne proves the GRANT already works, so all 31 are blocked by 15 different INNER abilities. |
+
+### 🎯 THE ONE INSTRUMENT GAP WORTH BUILDING — trigger-tier parity (scoped, not started)
+`probe-classifier-runtime-parity` covers native-spell / activated / equipment and **skips native-trigger,
+the largest tier — and the tier where BOTH of this run's engine bugs lived.** The gap is not cosmetic:
+`triggerRouting.triggerRoutesNatively` is a HAND-WRITTEN MIRROR of `gameEngine.buildTriggerStack`'s α1
+allowlist — its own comment says *"Mirror buildTriggerStack's α1 ALLOWLIST EXACTLY"*. **A mirror drifts.**
+This run hit five separate whitelist/mirror divergences, and a drift here means the metric claims a routing
+the runtime will not perform (FP) or refuses one it would (FN).
+
+**The probe to build:** for every card classified `native-trigger`, drive each descriptor through the RUNTIME
+path (`buildTriggerStack` on a synthetic board with the source in play) and compare the verdict against
+`triggerRoutesNatively`. Report every disagreement. ⚠️ **Do not call `triggerRoutesNatively` anywhere inside
+the probe** — reusing it is how this becomes circular and reports a clean sweep it never earned.
+Deliberately not started at the tail of this run: a half-right probe hands the next session false alarms,
+which is worse than a known gap.
+
+⭐ **WHAT THIS MEANS FOR THE NEXT SESSION.** The corpus tail is flat and the safe instruments are clean. The
+remaining levers are all things deliberately deferred **for freshness, not for lack of scope**:
+- **quoted-grant mana statics — 35 cards, fully designed and build-ready** ([[quoted-grant-statics-slice]]
+  in the vault: parser shape, runtime plan, four named FP risks, gates, and the `manaTierPins` tripwire that
+  already exists). Its own order defers it because it touches layers + mana model + legalChoices in one
+  motion. **That is a FIRST-HOUR job, and it is the biggest single lever left.**
+- **B1 layer-2 control** (28 cards) — high risk, early-or-never per the sequencing law.
+- the cEDH wave for cdh, which Omnath's correction already ruled optional and non-blocking.
+
+Do not open these at hour seven; do not spend hour one re-running the probes above.
+
 ## 🔒 SHIPPED — the EMPTY-STACK half of "Activate only as a sorcery" (`24349d75`) · 125 native cards
 
 An **ignored restriction over-delivers**, which is the forbidden direction. The rider was stripped as
