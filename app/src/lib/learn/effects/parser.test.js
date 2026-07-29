@@ -892,7 +892,7 @@ const MUST_DROP_TO_LOW = [
   // all-or-nothing card never fires the removal while silently dropping the rider).
   "Destroy target creature. Its controller discards a card.",                                         // RE-POINTED 2026-07-29: the lose-life rider is MODELED now, so the stand-in moved to a still-unmodeled rider (discard). What is pinned is the UNMODELED-RIDER refusal, not this rider.
   "Destroy target creature. It can't be regenerated. Its controller discards a card.", // RE-POINTED: Afterlife itself now parses — the creature-lead fallback resolves the lead THROUGH the can't-be-regenerated rider, which is a genuine gain, so the marker moves to an unmodeled rider on the same shape.
-  "Exile target nonland permanent. Its controller creates a 3/2 red and white Spirit creature token.", // MULTI-COLOR token (Reduce to Memory)
+  "Exile target nonland permanent. Its controller creates a 3/2 red, white, and blue Spirit creature token.", // RE-POINTED 2026-07-29: TWO-colour tokens are modeled now (the token builder always understood them — "and" is in TOKEN_COLOR_WORDS). Moved to a THREE-colour token, still unmodeled. The pin is the unmodeled-rider refusal, not the colour count.
   // SOFT-COUNTER-RIDER — soft-counter NOT hijacked, and delayed/conditional counter-riders stay low.
   "Counter target spell. Its controller may draw up to two cards at the beginning of the next turn's upkeep. You draw a card at the beginning of the next turn's upkeep.", // Arcane Denial (delayed draw)
   "Counter target enchantment, instant, or sorcery spell. Its controller creates a 2/2 blue Bird creature token with flying and you gain 2 life.", // a rider tail past the keyword → low

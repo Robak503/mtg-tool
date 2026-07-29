@@ -44,7 +44,7 @@ describe("parser — removal + 'its controller' rider (RIDER-REMOVAL)", () => {
     expect(isHigh("Destroy target creature. Its controller discards a card.")).toBe(false);                       // RE-POINTED 2026-07-29: the lose-life rider is MODELED now, so the stand-in moved to a still-unmodeled rider (discard). What is pinned is the UNMODELED-RIDER refusal, not this rider.
     expect(isHigh("Destroy target creature. Its controller discards a card.")).toBe(false);                       // discard rider (Assassin's Strike)
     expect(isHigh("Exile target creature with power 2 or less. Its controller gains 4 life.")).toBe(false);       // fixed gain-life (Last Breath) + MV filter
-    expect(isHigh("Exile target nonland permanent. Its controller creates a 3/2 red and white Spirit creature token.")).toBe(false); // MULTI-COLOR token (Reduce to Memory) — still unmodeled
+    expect(isHigh("Exile target nonland permanent. Its controller creates a 3/2 red, white, and blue Spirit creature token.")).toBe(false); // RE-POINTED 2026-07-29: TWO-colour tokens are modeled now (the token builder always understood them — "and" is in TOKEN_COLOR_WORDS). Moved to a THREE-colour token, still unmodeled. The pin is the unmodeled-rider refusal, not the colour count.
     // GRADUATED (census slice 15) — Geomancer's Gambit's "Draw a card." was pinned here as an unmodeled
     // "extra rider", but it was never a rider at all: an unqualified "Draw a card." is the SPELL's own
     // effect and the CASTER draws, not the target's controller. It was parked only because the matcher was

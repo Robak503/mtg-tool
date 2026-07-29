@@ -125,7 +125,13 @@ export function parseControllerRider(t) {
   // token[ with <KW…>]". A single color word + a single creature subtype; an optional " with <KW>" is parsed
   // by parseTokenKeywords (the enforced+layer-aware set), so an UNMODELED keyword (or a "with flying and you
   // gain 2 life" rider tail) → null → the whole card stays low → Arbiter.
-  let m = t.match(/^creates a (\d+)\/(\d+) (white|blue|black|red|green) ([a-z]+) creature token(?: with (.+))?$/);
+  // ⭐ THE COLOR PHRASE ACCEPTS A PAIR ("red and white", "white and black"), matching what the MAIN
+  // create-token path has always accepted and what the token builder has always understood — "and" is
+  // literally an entry in TOKEN_COLOR_WORDS, so tokenTypeLine strips a two-colour phrase exactly as it strips
+  // a one-colour one. Only this RIDER copy of the grammar was single-colour, so "Its controller creates a 3/2
+  // red and white Spirit creature token." (Reduce to Memory, Harsh Annotation) parked while the identical
+  // sentence as a card's own effect went native. Downstream built for it, one arm never handed it over.
+  let m = t.match(/^creates a (\d+)\/(\d+) ((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) ([a-z]+) creature token(?: with (.+))?$/);
   if (m) {
     const keywords = m[5] ? parseTokenKeywords(m[5]) : [];
     if (m[5] && !keywords) return null;                       // unmodeled token keyword → low → Arbiter

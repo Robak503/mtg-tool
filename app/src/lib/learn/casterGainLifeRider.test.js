@@ -17,6 +17,7 @@ import { parseEffectClause, programConfidence } from "./effects/parser.js";
 import { classifyCard } from "./coverage.js";
 import { applyControllerRider } from "./effects/atoms/removal.js";
 import { createGameState, _resetIdsForTests } from "./gameState.js";
+import { tokenTypeLine } from "./effects/atoms/tokens.js";
 
 const atomOf = (t) => parseEffectClause(t, "Instant")?.atoms?.[0];
 
@@ -107,5 +108,27 @@ describe("⛔⭐ RUNTIME — WHO gained, not just how much", () => {
   it("⛔ a zero metric is a clean no-op, never a negative", () => {
     const next = applyControllerRider(board(), { kind: "casterGainLife", metric: "toughness" }, { controller: "ai", toughness: 0 }, { controller: "user" });
     expect(next.players.user.life).toBe(40);
+  });
+});
+
+describe("⭐ TWO-COLOUR token rider — the rider grammar catches up with the token builder", () => {
+  it("⭐ a two-colour token parses, with the full colour phrase kept in the descriptor", () => {
+    const a = parseEffectClause("Exile target nonland permanent. Its controller creates a 3/2 red and white Spirit creature token.", "Sorcery")?.atoms?.[0];
+    expect(a.controllerRider).toEqual({ kind: "createToken", power: 3, toughness: 2, color: "red and white", subtype: "spirit" });
+  });
+
+  it("⛔ THREE colours stay unmodeled — the widening is to what the CARDS print, not to what parses", () => {
+    expect(programConfidence(parseEffectClause("Exile target nonland permanent. Its controller creates a 3/2 red, white, and blue Spirit creature token.", "Sorcery"))).toBe("low");
+  });
+
+  it("⛔ an unmodeled token KEYWORD still refuses, two colours or not", () => {
+    expect(programConfidence(parseEffectClause("Exile target nonland permanent. Its controller creates a 3/2 red and white Spirit creature token with annihilator 2.", "Sorcery"))).toBe("low");
+  });
+
+  it("⛔⭐ and the token BUILDER produces the same type line either way — colour was never in it", () => {
+    // The reason this widening is faithful rather than optimistic: `tokenTypeLine` strips colour words
+    // ("and" is itself in TOKEN_COLOR_WORDS), so a two-colour descriptor yields exactly what a one-colour
+    // descriptor yields. The parser was the only half that had not been told.
+    expect(tokenTypeLine("red and white spirit")).toEqual(tokenTypeLine("red spirit"));
   });
 });
