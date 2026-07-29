@@ -131,6 +131,12 @@ Genuinely long-tail now — 129 distinct blocking shapes across 362 unmodeled sl
 it is card-by-card, and Colton has explicitly said that rate is acceptable.
 
 ### D2. DEAD-CARD hunting — higher value than coverage, and invisible to the corpus number
+⭐ **PAID TWICE ON 2026-07-29** — and the second one names a whole blind spot: **`tier: "land"` is assigned
+to every land regardless of what it does**, so the metric can never see a dead land. Audit that works:
+*top-3000 lands with no mana production AND an activated ability yielding zero legal actions* → 5 dead,
+one of them (Fabled Passage #50) in three shelf decks. Re-run it after any land-side change.
+**And the chain that found it:** phantom mana → "fine, but do these lands do their REAL job?". After
+removing something an object was doing WRONGLY, ask what it should have been doing INSTEAD.
 The Mana Vault find (three premium ramp cards offered NO ability at all) was worth more than any coverage
 point, and the coverage metric could not see it. The productive method is NOT a broad "offers nothing"
 probe — that flagged 18 cards and all 18 were board defects. The method that worked: take the shelf's

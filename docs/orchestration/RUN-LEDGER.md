@@ -119,6 +119,28 @@ queue drains** — a combat count of exactly 2, and a third combat only from a s
 ⚠️ And expect the flip count to trail the 51: several pair the extra combat with their own riders (Moraug's
 landfall, Scourge's dethrone). Size with the tier diff, as always.
 
+## 🪦 SHIPPED — **THE LAND TIER HIDES DEAD CARDS** (`eb57c773`) · Fabled Passage #50, in 3 shelf decks
+
+⛔ **`tier: "land"` is assigned to EVERY land regardless of what it does**, so a land whose only ability
+never fires counts as fully modelled while being a blank card in play. **Coverage is structurally blind to
+this.** Fabled Passage offered NO action at all — its fetch is the Evolving Wilds shape and parses fine, but
+the bonus rider *"Then if you control four or more lands, untap that land."* killed the whole ability.
+
+Fixed by DROPPING the rider — a **deliberate under-delivery** (the fetched land now always stays tapped),
+which is the safe half of the asymmetry `probe-ignored-restrictions` is built on: *a tail that ADDS
+under-delivers (FN, safe); a tail that RESTRICTS over-delivers (FP, forbidden)*. Corpus-verified one-card
+shape, anchored to the printed sentence — **M143 turns it into a general trailing-sentence dropper and
+dies**, which is the guard that matters.
+
+### 🔍 THE DEAD-LAND AUDIT (run once, worth re-running after any land-side change)
+Top-3000 lands with **no mana production AND an activated ability that yields zero actions** → **5**:
+Fabled Passage (fixed) · Maze of Ith · Dark Depths · Eye of Ugin (real mechanics, not one-liners) ·
+Ancient Ziggurat (spend-restricted mana — a banked refusal). **Only Fabled Passage was on the shelf.**
+
+⭐ **THE CHAIN IS THE METHOD.** Phantom mana → *"fine, but do these lands do their REAL job?"* → a dead card
+in three decks. **After removing something an object was doing wrongly, ask what it should have been doing
+instead.** Neither find is visible to the corpus number.
+
 ## 🚨🚨 SHIPPED — **PHANTOM MANA: every fetchland was tapping for {C}** (`ac5c6595`) · 54 lands
 
 The single worst correctness bug found this run. manaModel's land fallback assumed *"a land we couldn't
