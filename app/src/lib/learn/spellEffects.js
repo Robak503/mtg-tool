@@ -745,6 +745,11 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     // is excluded and a non-land never matches. Symmetric with nonbasicLand above.
     basicLand: (tl) => /\bLand\b/.test(tl) && /\bBasic\b/.test(tl),
     artifactOrEnchantment: (tl) => /\bArtifact\b|\bEnchantment\b/.test(tl),
+    // THREE-WAY union — "destroy target artifact, enchantment, or land" (Acidic Slime, Creeping Mold,
+    // Reclaiming Vines, Dire-Strain Rampage, Hoodwink, World Breaker). A straight OR of the three printed
+    // types, exactly as the card reads: no narrowing, and deliberately NOT mapped to "permanent", which
+    // would also offer creatures and planeswalkers the card cannot touch.
+    artifactEnchantmentOrLand: (tl) => /\bArtifact\b|\bEnchantment\b|\bLand\b/.test(tl),
     // NONCREATURE ARTIFACT / ENCHANTMENT (Crush, Overwhelming Surge, Haywire Mite, Joven, Guerrilla Gorilla)
     // — the qualifier EXCLUDES artifact/enchantment CREATURES, so it is a genuine narrowing of the bare
     // types above, not a synonym. Modeling it as the bare type would let the engine destroy an artifact
