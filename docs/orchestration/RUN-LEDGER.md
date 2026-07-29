@@ -66,9 +66,15 @@ A spliced phase cannot live in that array — it must be a **per-STATE queue** c
 exactly like `extraTurns`.
 
 **Increment plan:**
-1. `state.extraPhases` — a LIFO queue of runs to splice. At the transition OUT of `end-of-combat`, pop one
-   and jump to `beginning-of-combat` instead of `postcombat-main`. Board assertion: the combat steps run a
-   second time and attackers can be declared again.
+1. ✅ **SHIPPED (`68d7287b`)** — the mechanism works. `state.extraPhases` is a lazy LIFO queue popped at the
+   `advanceStep` chokepoint; leaving `end-of-combat` with a run queued jumps BACK to `beginning-of-combat`.
+   **Tier diff GAINED 0 — correct for a turn-structure increment, and evidence it is behaviour-preserving
+   on every game that never queues a phase.** No card credited yet, deliberately.
+   ⭐ **The non-termination assertion is the headline:** the test walks a full extra combat and proves the
+   SECOND arrival at `end-of-combat` proceeds to the postcombat main. **M113** (never pop) is killed by 3.
+   ⛔ `combat: null` on the jump — a stale combat object would let the previous attackers count as attacking
+   again, dealing damage twice off one declaration (**M114**). A CONTROL pins that the no-queue path does
+   NOT clear combat, keeping the reset scoped to the splice branch.
 2. ⛔ **CR 505.1a — the additional MAIN phase that follows is a POSTCOMBAT main**, not a precombat one.
    Most of these cards read "an additional combat phase FOLLOWED BY an additional main phase", so the queue
    entry is a two-phase run, and getting the main's identity wrong would mis-fire every precombat-main
@@ -1743,7 +1749,7 @@ killed by 2.
 which would have tripped `grep -rl MUTANT app/src/` on every future boot and trained the next session to
 ignore a real alarm. Reworded. **Never let that token appear outside a live sabotage check.**
 
-- **Nothing mid-edit.** Corpus **36.1%** (12,343/34,245). Suite **954 files / 12,158 tests**,
+- **Nothing mid-edit.** Corpus **36.1%** (12,343/34,245). Suite **955 files / 12,166 tests**,
   lint 0, MUTANT sweep clean. Branch `claude/aura-enchant-noun-vocab` (NOT pushed; the name is stale —
   it carries dozens of unrelated slices and wants a rename before any PR).
 
