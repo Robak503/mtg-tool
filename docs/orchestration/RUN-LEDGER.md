@@ -119,6 +119,27 @@ queue drains** — a combat count of exactly 2, and a third combat only from a s
 ⚠️ And expect the flip count to trail the 51: several pair the extra combat with their own riders (Moraug's
 landfall, Scourge's dethrone). Size with the tier diff, as always.
 
+## 🔒 SHIPPED — the EMPTY-STACK half of "Activate only as a sorcery" (`24349d75`) · 125 native cards
+
+An **ignored restriction over-delivers**, which is the forbidden direction. The rider was stripped as
+"already enforced" and that was PARTLY true — the generic gate holds own-turn + main step — but CR 602.5i
+also demands an **empty stack**, so the engine offered sorcery-speed abilities **in response to a spell**.
+
+⚠️ **THE GATE EXISTED AND ITS FLAG WAS NEVER SET.** `legalChoices` has always read
+`ab.sorceryOnly && !canCastSorcerySpeed(...)`; `sorceryOnly` was only ever stamped by Level Up and one
+graveyard-exile rider. **A gate whose flag nobody sets is the whitelist-drift shape a fifth time this run.**
+When you find an unenforced restriction, grep for the flag before assuming the gate is missing — here the
+gate was fine and the producer was the hole.
+
+### ⚠️ AND THE CONTROL CORRECTED MY OWN WRITE-UP — worth more than the fix
+I claimed the "own combat" case proved sorcery enforcement. It does not: **the generic lane offers activated
+abilities ONLY at the main step, for EVERY ability**, restricted or not. That case was never evidence of
+anything; the empty-stack case is the only one that is. Consequence, now named in the test: the engine
+**under-offers instant-speed activations generally** (no pump in combat) — an FN, safe, out of scope, but
+recorded so a green file is not mistaken for "activation timing is modelled".
+
+Tier diff **GAINED 0 · LOST 0** — correct for a timing gate. Sweep 120/120.
+
 ## 🚨 SHIPPED — **SECOND SOFT-LOCK OF THE RUN: "a cost is not an effect"** (`b903119f`) · 34 spells
 
 ```
