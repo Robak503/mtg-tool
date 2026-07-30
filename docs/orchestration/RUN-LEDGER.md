@@ -471,6 +471,70 @@ self-exile matters and was dropped from my own summary. Read the printed line, n
 
 ---
 
+## ⛔⭐ BANKED 2026-07-30 — **BUILT A COMPOSITE, IT WORKED AT THE TIER LEVEL, AND I REVERTED IT.**
+## GAINED 0 — because the runtime test found a defect the classification could not see.
+
+### WHAT I WAS BUILDING
+**Level Up** (#5087) is the last card on Joe's shelf sitting in **3 decks**, so I chased it. The blocker
+turned out not to be its exotic body but a whole seam: an Aura that grants its host an ability
+("Enchanted creature has \"…\"") plus ANY other own clause. Each half is native ALONE; the pair parks,
+because every Aura lane in `classifyCard` is all-or-nothing and the lanes are disjoint.
+
+### THE MAP (kept — this is the reusable part)
+71 Auras grant a quoted ability · 45 non-native · **6** have both a modeled body AND a clean rest-of-card:
+
+| composite needed | cards |
+|---|---|
+| **grant + modeled STATIC bonus** | **Pillory of the Sleepless · Compulsory Rest · Utopia Vow** (all three print *"can't attack or block"*) |
+| grant + aura-own ACTIVATED | Ocular Halo |
+| grant + aura-own ETB | Nurturing Presence |
+| TWO grants + aura-own ETB | Nerd Rage |
+
+⚠️ **Level Up is NOT one of the six** — its inner body (*"double the number of +1/+1 counters on it"*) is
+unmodeled as a creature trigger too. *The shelf-gap probe's "one line-drop away" label meant one LINE, not
+one MECHANISM. Level Up needs the seam AND a counter-doubling effect — two builds, not one.*
+
+### ⛔ THE BUILD, AND WHY IT IS NOT IN THE TREE
+Wrote the composite on the EQ-2 (`nativeStaticGrantPlusActivated`) strip-then-revalidate pattern — split by
+line, hand each half to the gate it already had, loosen neither. **All three flipped. Flip-diff clean. Every
+classification test passed.** Then the runtime test failed, and the positive control made it readable:
+
+| harness | `cantAttack` on the host |
+|---|---|
+| pure-bonus Aura (native-aura today) | **TRUE** — the harness works |
+| the same bonus + a quoted grant line | **FALSE** — the static half is DEAD |
+
+⛔ **Adding the quoted grant line stops the Aura's own static bonus from reaching the host.** So the
+composite would have credited Pillory `native-trigger` while the creature it exists to pin down attacked
+freely. **Reverted.** The three cards stay parked.
+
+⭐ *THE ORDER OF WORK IS THE LESSON. The metric change was the easy half and it was ready first; the
+runtime was the real work and it was not done. A tier that claims what the engine does not do is worse than
+a parked card — it is the same trade the Springheart revert refused, and the same class the last four slices
+kept finding. The difference this time is that it was caught BEFORE the push, by a runtime assertion written
+alongside the tier assertion rather than after it.*
+
+⭐ *And the POSITIVE CONTROL is what made the failure actionable instead of dismissable. A bare `false` from
+a hand-built harness is noise — I had already mis-set `attachedTo` by hand and then called `attachPermanent`
+with the wrong signature, twice reading `false` for harness reasons. Only when the pure-bonus control read
+TRUE in the SAME harness did the composite's `false` become evidence.*
+
+### THE DELIVERABLE — a park-pin with the proof attached
+`auraGrantPlusStatic.test.js` (4 tests): the positive control, the proven defect, the three-card CREED park,
+and an assertion that each half really is native alone (which is what made the composite look free). It says
+in-file: **do not flip these by adding a classification composite; fix the LAYER half first, and change the
+expectations in the SAME commit as the fix.** The next attempt starts from the proof instead of the build.
+
+### ➡️ THE ACTUAL NEXT SLICE, NOW PRECISELY SCOPED
+Make the aura-bonus path tolerate a quoted-grant line so the bonus still reaches the host. Then the
+composite lane is ~15 lines on a pattern that already exists, and pays **3 cards** — with the other three
+composite shapes behind it.
+
+**Gates:** no engine change (the only engine edit was reverted — confirmed by `git checkout` + re-measuring
+all three back to `body-only`). Suite **1037 files / 13,132 green**, lint 0, MUTANT clean. **Batch: 2 cards.**
+
+---
+
 ## ✅ BANKED 2026-07-30 — **RIOT, GRANTED. GAINED 1 CARD — BUT +2 SHELF SLOTS AND JOE CROSSES 78%.**
 ## ⭐ THE DESIGN DECISION IS THE ENTRY: I REFUSED THE OBVIOUS IMPLEMENTATION.
 
