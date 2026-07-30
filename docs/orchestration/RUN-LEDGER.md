@@ -95,6 +95,71 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## 🗺 SHELF STRATEGY 2026-07-29 — **THE SHELF HAS NO CHEAP BUILD LEFT.** Every remaining shape, priced.
+
+Two turns of measurement produced one conclusion worth more than either turn's cards: **the ≥90% bar is now
+gated on expensive builds, not on finding the right cheap one.** Every shape below was probed, not guessed.
+
+**⛔ FIRST, A TOOL CORRECTION I HAD BEEN READING WRONG.** `shelf-gap-ledger.mjs` groups each blocker by how
+many **CORPUS** cards share it. That answers "is this a slice?" — NOT "does it move Colton's shelf." I aimed a
+whole slice at cdh off a `shared×2` row and shipped Pyrohemia, which lives in **Hulk Smash**. So there is now
+a second view: `scratchpad/shelf-blocker-shapes.mjs` groups blockers **across the shelf** and reports
+shelf-card count + how many DECKS each shape touches. Use that one for shelf targeting.
+
+**Standings (10 decks under the bar):** cdh 83%/7 · Dragons 80%/10 · Jurassic Ramp 77%/13 · Believe it! 75%/15
+· Kinnan 74%/16 · Wolverine 73%/17 · Hulk Smash 73%/17 · Kellan 72%/18 · Captain America 70%/20 · Halfshell 65%/25.
+
+**The highest-leverage shelf shapes, and what each actually costs:**
+| shape | shelf slots | verdict |
+|---|---|---|
+| **Level Up** (Aura) | 3 (3 decks) | `Enchanted creature has "<quoted attack trigger that doubles counters>"` — Aura quoted-grant of a compound trigger. Expensive. |
+| Valley Floodcaller | 2 | **`splitClauses` shreds the subject** — see the entry below. Splitter change, corpus-wide blast radius. |
+| Rhythm of the Wild | 2 | **TWO gaps**, one a hard refusal — see below. |
+| Chain of Vapor · Veil of Summer · Strength of Will | 2 each | `arbiter-spell`, multi-part effects (bounce + optional land-sac chain; conditional draw + uncounterable + hexproof grant; indestructible + a quoted damage trigger). Each a real build. |
+| The Cabbage Merchant | 2 | TWO gaps: the `to you` damage direction AND an unconditional typed self-sacrifice. |
+| Hexing Squelcher | 2 | **REFUSED** — ward grant carries generic mana only (below). |
+| Thassa's Oracle | 2 | ⚠️ my devotion hypothesis was WRONG: the **control failed too** — `look at the top three cards of your library` is itself `body-only`. The gap is the whole look/put effect, not devotion. |
+
+### ⛔ RHYTHM OF THE WILD — two gaps, and the riot half is an EXPLICIT documented refusal
+`Nontoken creatures you control have riot.` Probed both halves separately:
+- `Nontoken creatures you control have flying.` → **body-only**, while `Creatures you control have flying.` is
+  native-static. So **`nontoken` is a missing group-subject QUALIFIER** (see below).
+- `Creatures you control have riot.` → **body-only** too. Riot itself is fully modelled and ENFORCED
+  (`riotKeywordCount`, `riotPicksHaste` — a deterministic documented house auto-pick, CR 702.136a, applied at
+  `resolvers.js:366`), but **`coverage.js:2461` names Rhythm of the Wild explicitly** and says the
+  `…have riot` GRANT line "is NEVER stripped → those stay body-only (their grant is unmodeled)."
+  **CAPABILITY pin**: granting riot needs per-member enters-with-choice synthesis, not a vocabulary widening.
+
+### 📏 The `nontoken` qualifier — measured, priced, and OFF-TARGET (+22 corpus, **+0 shelf**)
+The qualifier set is otherwise rich: `other` / `attacking` / `tapped` / `legendary` / `red` / subtype all parse.
+`nontoken` and `token` do not — and the parser *deliberately* excludes them as non-subtype words
+(`staticAbilityParser.js:229, 554, 1357, 3268, 3357, 3447`), so there is a clear place to add support.
+
+**Gain predicted WITHOUT writing code** — strip the word and re-classify, which simulates a qualifier-only
+fix per card: **22 cards would flip**, 307 stay blocked by their effect. ⚠️ That is an UPPER BOUND and the
+strip is semantically WRONG (it lets tokens in); shipping it requires the runtime to actually exclude tokens
+or the credit is an FP. Grouped by PARSE SITE, the 22 are **not one fix**:
+```
+11  TRIGGER subject   — but mostly the GLOBAL form ("Whenever a nontoken creature dies", no "you control")
+                        plus count-sources ("X is the number of nontoken creatures you control").
+                        ⭐ "nontoken creature YOU CONTROL" as a trigger subject ALREADY WORKS.
+ 5  ACTIVATED ability — "Sacrifice a nontoken artifact:" costs (Thopter Foundry, Infernal Tribute, …)
+ 3  other/spell       — Incandescent Aria, Lorehold Charm, Rise of the Dread Marn
+ 2  GROUP-STATIC      — Always Watching, Thraben Watcher   <-- the cleanest single site, and Rhythm's half
+ 1  MASS-REMOVAL      — Hour of Reckoning
+```
+**NONE of the 22 is on Colton's shelf.** Under the standing target (shelf, not corpus %) this is explicitly
+off-target — banked so the next session can price it in one glance rather than re-measuring.
+
+**⭐ THE NEXT CHEAP-ISH BUILD, fully pre-measured:** the GROUP-STATIC `nontoken`/`token` qualifier (2 corpus
+cards, and it is one of Rhythm of the Wild's two gaps). Runtime already carries the token flag
+(`perm.token` / `card.token`, the same one `permMatchesFilter`'s `kind:"token"` and `SACRIFICE_POOLS`'
+`nontokenCreature` read), so the runtime half exists. **Deliberately NOT started at the bottom of a long
+session** — the quoted-grant order's own rule: an FP-sensitive touch across parser + layers + coverage tier
+does not get built while tired. Start there cold.
+
+---
+
 ## ✅ SHIPPED 2026-07-29 — GLOBAL board-empty intervening-if (CR 603.4 + 400.1). **GAINED 2, LOST 0.**
 
 Pyrohemia + Pestilence: *"At the beginning of the end step, if no creatures are on the battlefield, sacrifice
