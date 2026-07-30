@@ -11,6 +11,10 @@
 > per slice. **Only the TAG batches.** A tag makes an update banner appear in every running `.exe`, and one
 > banner per +21 is noise.
 >
+> - 🎯 **READ THE SHELF ENTRY BELOW BEFORE PICKING MORE CORPUS WORK.** Colton's shelf is at **93%** with
+>   exactly ONE deck under the >=90% bar (`cdh`, 83/100 — seven cards). Its full 17-slot gap is
+>   diagnosed per clause in the entry, with a recommended build order. That is the stated objective;
+>   corpus veins are the fallback, not the target.
 > - **BATCH IN FLIGHT: 20 cards since v0.149.19** (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5).
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
@@ -114,6 +118,59 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## 🎯 SHELF RE-MEASURED 2026-07-30 — **COLTON IS AT 93%. ONE DECK IS BELOW THE BAR. READ THIS BEFORE MORE CORPUS WORK.**
+
+The standing objective is **Colton's DECK SHELF at ≥90% native PER DECK**, not corpus %. That had not been
+measured since the batch-1 grind began, and ~110 cards have landed since. Measured now:
+
+```
+CORPUS:            37.1% native  (12,692 / 34,245)
+top 1000 played:   74%   ·  top 2500: 56%  ·  top 5000: 44.7%
+AGGREGATE shelf:   82%   (1302/1597 slots across 16 decks)
+
+  93%  COLTON   (463/499 across 5 decks)   ← below the bar: cdh 83%  ...and nothing else
+  76%  joe      (839/1098 across 11 decks) ← 9 decks below: 80/77/75/74/73/73/72/70/66%
+```
+
+**⭐ THE HEADLINE: four of Colton's five decks already clear the bar.** The whole remaining distance on his
+shelf is **ONE deck, `cdh`, at 83/100 — seven cards from ≥90%.** That is a bounded, nameable target, and it
+is a materially better use of the next slices than another corpus vein. Joe's shelf is the larger body of work
+but is not the stated objective.
+
+### THE `cdh` GAP — all 17 parked slots, diagnosed per clause (no re-derivation needed)
+
+**Tractable / next up**
+| card | the blocking clause | note |
+|---|---|---|
+| **Borne Upon a Wind** | "You may cast spells **this turn** as though they had flash" | its only other clause already parses → **flips outright**. ⭐ The STATIC form of this grant is fully modeled (Yeva, Vedalken Orrery — `staticAbilityParser.parseFlashCastFilter` + `legalChoices.flashPermissionSpecsFor`); the parser comment even names the gap: *"Anchored ^…$ so any rider variant ('… this turn') never matches."* The axis again: static modeled, turn-scoped spell form absent. **Corpus size: 4** (Complete the Circuit · Cherished Hatchling · Borne Upon a Wind · Ride the Avalanche) |
+| **Valley Floodcaller** | static "cast **noncreature** spells as though they had flash" | the filter qualifier is unmodeled. **Corpus size: 2** (+ Kianne, Corrupted Memory). ⚠️ Floodcaller has TWO more blockers: the splitter shatters "Birds, Frogs, Otters, and Rats you control get +1/+1" on its commas, and "Untap them" is unbound |
+| **Vexing Shusher** | "This spell can't be countered" + "{R/G}: Target spell can't be countered" | both clauses are the same mechanic — a counter-restriction. Also on Hexing Squelcher and Veil of Summer |
+| **Hidden Strings** | "You may tap **or** untap target permanent" ×2 | the modal tap-or-untap is tractable; **Cipher blocks the card anyway** (8 corpus carriers) |
+
+**Hard / different mechanisms — not vocabulary work**
+Chain of Vapor (sacrifice-then-copy-this-spell chain) · Deflecting Swat (alternative cost + change targets) ·
+Mindbreak Trap (alternative cost + "any number of target spells") · Springheart Nantuko (Bestow + landfall +
+copy-that-creature) · Wan Shi Tong (X counters + "draw half X, rounded down") ·
+**Invasion of Ikoria (the BATTLE card type — a whole type the engine lacks)** · The Cabbage Merchant (Food
+subsystem) · Ragavan (Treasure + "you may cast that card" exile permission + Dash) · Pact of Negation
+(delayed "pay or lose the game") · Hexing Squelcher (needs Ward as well) · Veil of Summer (splitter shatters
+"You and permanents you control gain hexproof from blue and from black"; plus hexproof-from-COLOR)
+
+**⛔ REFUSED, consistent with the standing pin:** **Vibrance** — both its ETB clauses are gated on
+`{R}{R}`/`{G}{G}` *having been spent to cast it*. Per-cast mana provenance is not recorded anywhere in the
+engine (the same refusal already pinned for the 7-card `{R} was spent to cast it` family). It cannot be built
+without that ledger, and guessing would be a confidently-wrong native.
+
+### RECOMMENDED ORDER FOR THE NEXT SLICES
+1. **Turn-scoped flash grant** (4 corpus cards, flips Borne Upon a Wind → cdh 84). Three touch points: a parse
+   arm for the "this turn" rider, a turn-scoped stamp on the player, and `flashPermissionSpecsFor` reading the
+   stamp alongside the statics.
+2. **`noncreature` flash qualifier** (2 cards; does NOT flip Floodcaller alone — see its other two blockers).
+3. **"can't be countered"** (Vexing Shusher outright; Veil of Summer and Hexing Squelcher need more).
+4. Then reassess: the rest of `cdh` is genuinely per-mechanism work, and **Battle** is a card type, not a slice.
 
 ---
 
