@@ -335,9 +335,59 @@ export function applyDiscardHandDrawSame(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "discard-hand-draw-same", controller: ctx.controller, amount: n });
 }
 
+/**
+ * ===== LOOK AT A HAND (CR 701.20e) ===== "Look at target player's hand." — Peek, Gitaxian Probe,
+ * Clairvoyance, Ingenious Thief, Glasses of Urza.
+ *
+ * ⭐ THE ONLY EFFECT IN THIS FAMILY WITH NO BOARD CONSEQUENCE. CR 701.20e: *"Some effects instruct a
+ * player to look at one or more cards. Looking at a card follows the same rules as revealing a card,
+ * except that the card is shown only to the specified player."* No zone changes, no state changes — the
+ * information IS the whole effect, so DELIVERING the information is the whole implementation.
+ *
+ * ⛔ WHICH IS EXACTLY WHY THIS COULD HAVE BEEN HOLLOW. A resolver that logged `effect:"look-at-hand"`
+ * and nothing else would let five cards classify native while conveying nothing — an empty gesture that
+ * every test asserting "an atom was produced" would happily pass. So the log entry carries the ACTUAL
+ * card names read off the target's hand, and the gates assert the logged list EQUALS that hand. If the
+ * contents could not be logged truthfully this arm would not be worth building.
+ *
+ * The log is a consumed surface, not a debug artifact — /api/why-you-lost, /api/self-play and /api/grind
+ * all read the game log, so a looked-at hand genuinely reaches a reader.
+ *
+ * `looker` is the ability's controller (the "specified player" of 701.20e), `player` the hand's owner.
+ * Those are DIFFERENT seats and the wrong-owner class of bug is the one this project keeps re-learning,
+ * so both are recorded and both are pinned in the gates.
+ */
+export function applyLookAtHand(state, atom, ctx) {
+  const seats = (ctx.targets || [])
+    .filter((t) => t.type === "player" && state.players?.[t.id])
+    .map((t) => t.id);
+  // No legal target (countered on resolution / an eliminated seat) → a clean no-op, never a fabricated peek.
+  if (seats.length === 0) return logEvent(state, { kind: "spell-effect", effect: "look-at-hand", looker: ctx.controller, player: null, cards: [] });
+  let next = state;
+  for (const pid of seats) {
+    const cards = (state.players[pid].hand || []).map((c) => c?.name).filter(Boolean);
+    next = logEvent(next, { kind: "spell-effect", effect: "look-at-hand", looker: ctx.controller, player: pid, cards });
+  }
+  return next;
+}
+
+/**
+ * "Look at target player's hand" — whole-clause anchored, so every richer shape in this vein keeps its
+ * tail and stays LOW → Arbiter (a SAFE FN, never a dropped clause). Those are real cards and they are
+ * deliberately NOT covered here: Agonizing Memories / Mind Warp / Extortion / Thrull Surgeon / Vendilion
+ * Clique / Oildeep Gearhulk all continue "…and choose N cards from it", which is a CHOICE plus a
+ * material consequence — a different build, not a longer regex.
+ */
+export function lookAtHandClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  if (/^look at target player's hand$/.test(t)) return { op: "look-at-hand", targetType: "player" };
+  return null;
+}
+
 export const handResolvers = {
   "discard-chosen": applyDiscardChosen,
   "imprint": applyImprint, // IMPRINT (CR 207.2c) — the ETB exile-from-hand that STAMPS the permanent
   "discard": applyDiscard, // ===== EACH-PLAYER ===== target/each player discards N — victim chooses (CR 701.8)
   "discard-hand-draw-same": applyDiscardHandDrawSame, // TW-1 — Tolarian Winds' whole-hand cycle
+  "look-at-hand": applyLookAtHand, // LOOK (CR 701.20e) — information only; the log carries the real contents
 };

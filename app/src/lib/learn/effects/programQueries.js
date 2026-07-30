@@ -135,6 +135,14 @@ export function atomTargetIntent(atom) {
       // program would have an ambiguous-intent atom → programTriggerTargetsResolvable false → the trigger
       // silently routes to the Arbiter (a forbidden no-op fabrication path) instead of firing natively.
       return "enemy";
+    case "look-at-hand":
+      // LOOK AT A HAND (CR 701.20e) — "look at target player's hand" is information you want about an
+      // OPPONENT; looking at your own hand tells you nothing you don't know. Same shape as cant-block
+      // below: enumeration stays legal-wide ("target player" really is any player), intent is enemy so
+      // the α1 chooser can place it. LOAD-BEARING for the trigger path exactly like the fight note above
+      // — Ingenious Thief's ETB is the whole reason this case exists; without it the HIGH-parsing program
+      // has an ambiguous atom and the trigger routes to the Arbiter instead of firing.
+      return "enemy";
     case "make-uncounterable":
       // GRANT UNCOUNTERABILITY (Vexing Shusher) -- you protect YOUR OWN spell with this. It can legally
       // target any spell on the stack, but no chooser would ever spend it shielding an opponent's, so the
