@@ -1990,10 +1990,31 @@ export function recordSpellCast(state, { playerId, spellCard = null }) {
  * count per game-turn for all seats — a stale off-turn count would false-fire. Called alongside the draw
  * reset at untap.
  */
+/**
+ * TURN-SCOPED FLASH GRANT (CR 601.3e) — "You may cast spells this turn as though they had flash."
+ * (Borne Upon a Wind, Complete the Circuit, Cherished Hatchling, Ride the Avalanche.)
+ *
+ * The STATIC form of this permission was already modeled (Yeva, Vedalken Orrery). The spec stored here is
+ * the SAME {any}|{qualifiers} shape staticAbilityParser produces, so legalChoices.flashPermissionSpecsFor
+ * reads statics and turn-grants from ONE list and there is no second matcher to drift.
+ *
+ * Appends rather than replaces — two such spells in a turn both apply (permissions accumulate).
+ */
+export function grantFlashThisTurn(state, playerId, spec) {
+  const player = state?.players?.[playerId];
+  if (!player || !spec) return state;
+  return { ...state, players: { ...state.players,
+    [playerId]: { ...player, flashGrantsThisTurn: [...(player.flashGrantsThisTurn || []), spec] } } };
+}
+
 export function resetSpellsCastAllPlayers(state) {
   const players = {};
   for (const id of Object.keys(state.players)) {
-    players[id] = { ...state.players[id], spellsCastThisTurn: 0, noncreatureSpellsCastThisTurn: 0 };
+    // `flashGrantsThisTurn` rides this same untap reset: a turn-scoped casting PERMISSION that outlived
+    // its turn would let the player cast at instant speed forever — an engine strictly MORE PERMISSIVE
+    // than the card, the forbidden direction. One reset site for per-turn player state means a new turn
+    // cannot half-clear it.
+    players[id] = { ...state.players[id], spellsCastThisTurn: 0, noncreatureSpellsCastThisTurn: 0, flashGrantsThisTurn: [] };
   }
   return { ...state, players };
 }

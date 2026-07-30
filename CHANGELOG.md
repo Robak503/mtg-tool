@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Borne Upon a Wind works.** Spells that let you cast at instant speed for the rest of the turn now
+  grant that permission properly, and it correctly expires at your next untap step.
 - **"Sacrifice a permanent" and its siblings now work.** Drinker of Sorrow, Perilous Research and
   Lorehold Command sacrifice the right kind of thing — previously only "sacrifice a creature" was
   understood when the card asked YOU to sacrifice.

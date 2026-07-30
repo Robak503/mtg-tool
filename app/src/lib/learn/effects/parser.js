@@ -343,7 +343,13 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
     // budget; CR 601.3e doesn't force the extra play). It's costless upside with no resolution-time decision,
     // so the atom is left UN-optional too — otherwise Explore ("…land this turn. Draw a card.") would become
     // optional-then-mandatory and fail the optionalsFormSuffix suffix rule, dropping a clean card to Arbiter.
-    return (inner.op === "free-cast" || inner.op === "play-extra-land-this-turn") ? inner : { ...inner, optional: true };
+    // TURN-SCOPED FLASH GRANT (CR 601.3e) — the THIRD member of this family, for the reason already
+    // written above: a casting PERMISSION is costless upside with no resolution-time decision. Its "may"
+    // is realized when the player chooses whether to cast at instant speed, exactly as the extra-land
+    // grant's is realized at the land-play step. Stamping `optional` would add a meaningless yes/no pause
+    // before a permission that costs nothing to hold.
+    return (inner.op === "free-cast" || inner.op === "play-extra-land-this-turn" || inner.op === "grant-flash-this-turn")
+      ? inner : { ...inner, optional: true };
   }
 
   // ===== CONDITIONAL SPELL RIDER (BLITZ CD-1, CR 608.2) ===== a leading "If <board-condition>, <effect>"

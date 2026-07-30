@@ -15,8 +15,8 @@
 >   exactly ONE deck under the >=90% bar (`cdh`, 83/100 — seven cards). Its full 17-slot gap is
 >   diagnosed per clause in the entry, with a recommended build order. That is the stated objective;
 >   corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 20 cards since v0.149.19** (planeswalker subtypes + `another <filter>` +11,
->   negated + conjoined filters +4, controller sac nouns + counter placement +5).
+> - **BATCH IN FLIGHT: 21 cards since v0.149.19** (planeswalker subtypes + `another <filter>` +11,
+>   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1).
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
 >   one-sided opponent sweep +4, mass-removal filter delegation +19, mass-bounce delegation +3,
@@ -118,6 +118,59 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 2) 2026-07-30 — **TURN-SCOPED FLASH GRANT. GAINED 1, LOST 0.** The third attempt, and the fix was one line.
+
+**Borne Upon a Wind** — and it is the **first card off the `cdh` shelf gap: 83 → 84 of 100.**
+
+**⭐⭐ THE WHOLE STORY IS "READ THE DISPATCH INSTEAD OF PROBING IT".** Two earlier attempts banked FOUR separate
+"gates", every one inferred from black-box probing of `parseEffectClause` / `parseEffectProgram` outputs:
+- **Gate 3 (a card-level gate rejecting the two-line card) NEVER EXISTED.** A control run — one unparseable
+  line plus one good one — produces the identical `low` + whole-oracle `unparsedTail`. That output is how
+  all-or-nothing failure is REPORTED. I had read a failure MESSAGE as a failure CAUSE.
+- **Gates 1 and 2 collapsed into ONE real cause.** The α2 "you may" peel does strip the prefix (Gate 1, a true
+  observation) and does stamp `optional: true` (Gate 2) — but the stamp was not a cosmetic wart, it was the
+  blocker, because an optional grant is rejected downstream.
+- Reading `parseClauseToAtom` end-to-end found the answer in minutes: the peel **already had a documented
+  NON-optional allowlist for exactly this situation**, with the reasoning written beside it —
+
+```js
+return (inner.op === "free-cast" || inner.op === "play-extra-land-this-turn") ? inner : { ...inner, optional: true };
+//  "…its optionality is realized at the ACTION layer … Stamping `optional` would double-prompt"
+//  "…costless upside with no resolution-time decision, so the atom is left UN-optional too"
+```
+
+A turn-scoped casting permission is the **third member of that family**. The fix was adding the op to that
+list. ⭐ **Two sessions of probing versus one bounded read of the dispatch — and the codebase had already
+written down the answer.**
+
+**THE THREE TOUCH POINTS** (each verified in isolation across the earlier attempts, all correct):
+- `gameState.grantFlashThisTurn` + `flashGrantsThisTurn`, cleared inside `resetSpellsCastAllPlayers` — the
+  SAME untap reset as the other per-turn player counters, so there is ONE reset site and a new turn cannot
+  half-clear it. ⛔ A permission that leaked would let the player cast at instant speed **forever**: strictly
+  MORE PERMISSIVE than the card, the forbidden direction, and it would never surface as a failing card — only
+  as an engine quietly allowing more than the rules do.
+- `legalChoices.flashPermissionSpecsFor` reading the turn stamp alongside the battlefield statics — ONE list.
+- `staticAbilityParser.parseFlashCastFilter` **exported and reused**, so the turn-scoped twin cannot drift from
+  the static form of the identical printed words.
+
+**Gates:** 10 new tests; **all three mutations seen to fail** — restoring the `optional` stamp (**4**),
+dropping the untap reset (1), dropping the collector (3). Reverts confirmed by `git diff`. Flip-diff
+**GAINED 1 / LOST 0**. Suite **1000 files / 12,740 green**, lint 0 unpiped, MUTANT clean, module graph loads.
+
+**⚠️ MIXED LINE ENDINGS BIT THE PATCH SCRIPT.** `gameState.js` is CRLF while `legalChoices.js`, `parser.js`,
+`misc.js` and `staticAbilityParser.js` are LF. A script assuming one newline style asserted out mid-run
+(correctly — the assert protected the tree, and the partial patch was reverted before retrying). **Patch
+scripts must detect the newline PER FILE.** Also the fifth shell-quoting incident of the run: rewriting that
+script through a shell heredoc mangled its escapes. Same banked rule, fifth failure to follow it — patch
+content goes through Write/Edit, never a shell.
+
+**The other three turn-scoped carriers do NOT flip** (Complete the Circuit · Cherished Hatchling · Ride the
+Avalanche) — each has separate blockers. The predicted 4 was a clause-level estimate; the measured answer is 1.
+
+**BATCH 2: 21 cards** since v0.149.19.
 
 ---
 
@@ -260,7 +313,8 @@ engine (the same refusal already pinned for the 7-card `{R} was spent to cast it
 without that ledger, and guessing would be a confidently-wrong native.
 
 ### RECOMMENDED ORDER FOR THE NEXT SLICES
-1. ~~**Turn-scoped flash grant**~~ — ⛔ **ATTEMPTED AND REVERTED 2026-07-30, see the entry below.** Three
+1. ✅ **Turn-scoped flash grant — DONE 2026-07-30** (Borne Upon a Wind; cdh 83 → 84). Took three attempts;
+   the fix was one line in the α2 peel's non-optional allowlist. Superseded note follows. Three
    gates deep (the α2 peel eats "You may "; the peel then stamps a wrong `optional: true`; and an
    UNLOCATED gate). ⚠️ **CORRECTED — see the DIAGNOSIS entry below: there is NO card-level gate.** The
    whole-oracle `unparsedTail` is just how all-or-nothing failure is reported, and the peel is not the

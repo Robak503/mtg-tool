@@ -393,6 +393,9 @@ export function flashPermissionSpecsFor(state, playerId) {
   for (const perm of player.battlefield || []) {
     for (const spec of flashCastPermissionsOf(perm.card)) specs.push(spec);
   }
+  // TURN-SCOPED grants (the spell form of the same permission — Borne Upon a Wind). Same spec shape as
+  // the statics above, cleared at untap with the other per-turn player state, so ONE list serves both.
+  for (const spec of player.flashGrantsThisTurn || []) specs.push(spec);
   return specs;
 }
 

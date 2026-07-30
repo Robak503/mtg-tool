@@ -3,7 +3,8 @@
  */
 
 import { applyDrawEffect } from "../../spellEffects.js";
-import { logEvent, addEmblem, addMana, holdMana, opponentsOf } from "../../gameState.js";
+import { logEvent, addEmblem, addMana, holdMana, opponentsOf, grantFlashThisTurn } from "../../gameState.js";
+import { parseFlashCastFilter } from "../../staticAbilityParser.js"; // the STATIC grant's own filter parser — reused so the turn-scoped twin cannot drift from it
 import { setPendingDivideChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, isCreatureCard } from "./shared.js";
 import { NUM_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 23 (NUM_WORD, each-player draw) + 26 (parseCountSource, for-each draw)
@@ -195,6 +196,23 @@ export function miscClauseParser(clause) {
   // extra turn" / "take two extra turns" / a skip-step rider never matches) → low → Arbiter (FN-safe —
   // an extra turn credited to the wrong player would be a catastrophic FP).
   if (/^take an extra turn after this one$/.test(t)) return { op: "extra-turn", targetType: null };
+  // TURN-SCOPED FLASH GRANT (CR 601.3e) — "You may cast [<FILTER>] spells this turn as though they had
+  // flash." The STATIC form is modeled in staticAbilityParser (Yeva, Vedalken Orrery) and its matcher
+  // comment names this very gap: "Anchored ^…$ so any rider variant ('… this turn') never matches."
+  // Same permission, same spec shape, different duration.
+  //
+  // The "you may " prefix is OPTIONAL in this anchor because the α2 peel strips it before the clause
+  // parsers run, so the peeled form must produce the identical atom. The op is listed in that peel's
+  // NON-optional allowlist (beside free-cast / play-extra-land-this-turn): a permission is costless
+  // upside with no resolution-time decision, so stamping `optional` would add a meaningless yes/no pause.
+  //
+  // The FILTER is parsed by the static's own parseFlashCastFilter; an unmodeled qualifier returns null
+  // there → this clause fails → low → Arbiter (all-or-nothing, CREED).
+  const fl = t.match(/^(?:you may )?cast (.*?)spells this turn as though they had flash$/);
+  if (fl) {
+    const spec = parseFlashCastFilter(fl[1].trim());
+    return spec ? { op: "grant-flash-this-turn", spec, targetType: null } : null;
+  }
   // EXTRA-COMBAT (CR 500.8 — Aurelia the Warleader #820, Karlach #1039, Genji Glove #1229, Great Train
   // Heist #1118, Lightning Runner, Tifa). "After this phase, there is an additional combat phase" and its
   // reversed word order. The resolver pushes a run onto state.extraPhases; gameEngine.advanceStep pops it
@@ -509,6 +527,16 @@ export function applyAddMana(state, atom, ctx) {
  * which is exactly the normally-scheduled turn — no bookkeeping of the "skipped" seat is needed. The
  * entry carries only the player id; the extra turn itself is a full normal turn (untap → cleanup).
  */
+/**
+ * TURN-SCOPED FLASH GRANT (CR 601.3e) — stamp the casting permission on the CONTROLLER for this turn.
+ * legalChoices.flashPermissionSpecsFor reads it alongside the battlefield statics;
+ * gameState.resetSpellsCastAllPlayers clears it at untap with the other per-turn player state.
+ */
+export function applyGrantFlashThisTurn(state, atom, ctx) {
+  const next = grantFlashThisTurn(state, ctx.controller, atom.spec);
+  return logEvent(next, { kind: "spell-effect", effect: "grant-flash-this-turn", controller: ctx.controller });
+}
+
 export function applyExtraTurn(state, atom, ctx) {
   const next = { ...state, extraTurns: [...(state.extraTurns || []), { player: ctx.controller }] };
   return logEvent(next, { kind: "spell-effect", effect: "extra-turn", controller: ctx.controller, queued: next.extraTurns.length });
@@ -549,6 +577,7 @@ export function applyLureThisTurn(state, atom, ctx) {
 export const miscResolvers = {
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
   "extra-combat": applyExtraCombat, // ===== EXTRA-COMBAT ===== (CR 500.8) — queue one additional combat phase; advanceStep pops it leaving end-of-combat
+  "grant-flash-this-turn": applyGrantFlashThisTurn, // CR 601.3e — the TURN-SCOPED twin of the static flash-cast permission
   "extra-turn": applyExtraTurn, // ===== EXTRA-TURN ===== (XT-1, CR 500.7) — "Take an extra turn after this one": a LIFO stack popped at advanceStep's end-of-turn branch
   "lure-this-turn": applyLureThisTurn, // ===== THIS-TURN LURE ===== (LU-2, CR 509.1c) — a turn-scoped block requirement marker, enforced in opponentAI.pickBlockers at the LU-1 bar
   "add-mana": applyAddMana, // RITUAL-MANA — "Add {C}{C}{C}" adds basic mana to the controller's pool

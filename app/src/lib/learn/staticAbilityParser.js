@@ -1453,7 +1453,10 @@ function parseFlashQualifier(phrase) {
  * filter is compound ("aura and equipment spells" → the inner "spells" from "aura spells and equipment"); strip
  * any "spells" token so "legendary spells and artifact" → ["legendary", "artifact"].
  */
-function parseFlashCastFilter(filter) {
+// EXPORTED so the TURN-SCOPED twin (effects/atoms/misc.js) builds its spec from the SAME parser. A second
+// filter parser would drift, and the drift would be invisible: the permission would apply to a different
+// set of spells than the identical printed words do on a permanent.
+export function parseFlashCastFilter(filter) {
   const f = String(filter).trim();
   if (f === "") return { any: true };
   // Split the "<q> and <q> …" list; drop a stray "spells" token that rides inside a compound filter.
