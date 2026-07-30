@@ -131,6 +131,55 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## 🎯 NEXT BUILD, SCOPED AND MEASURED 2026-07-30 — **REFERENT BINDING. Upper bound 113; scope A reaches 33.**
+
+**The biggest remaining vein by a wide margin, and the first thing in this whole session that is NOT a
+long-tail axis.** Found by asking why `Valley Floodcaller` needs *"Untap them"* — the parser **refuses
+unbound referents by design** (`parser.js`: `if (/^(?:it|they|that|those|this)\b/.test(reflexiveText)) return
+null; // primary-object referent`). It is a documented refusal, not a missing arm, and it recurs in several
+places in that file.
+
+**Measured:** **1,697** cards carry a sentence opening with a referent pronoun. **113** are cards where
+*everything else already parses* — i.e. the referent sentence is the last thing standing.
+
+⚠️ **113 IS AN UPPER BOUND, NOT AN ATTRIBUTION, AND THE DIFFERENCE MATTERS HERE.** The probe DELETES the
+referent sentence, which deletes real payload text. A flip therefore means *"everything else on this card
+parses"*, which is the most referent-binding could ever deliver — not what it will. The real number depends
+on how many referent PAYLOADS get modeled, which is why the scope table below exists.
+
+### The payload distribution (among the 113)
+Subjects: `it` **58** · `that` **38** · `those` **8** · `it's` **6** · `they` **5**.
+The dominant shape is overwhelmingly **a keyword grant to the previously-chosen object** — *"gains first
+strike / indestructible / haste / hexproof / menace / trample until end of turn"*.
+
+| scope | payload set | cards FULLY covered (every referent sentence on the card) |
+|---|---|---|
+| **A** | `<ref> gains <kw> until end of turn` | **33** |
+| **B** | A + `gets +N/+N until end of turn` | 34 |
+| **C** | B + `can't block this turn` / `must be blocked this turn if able` | **41** |
+
+**Scope A is the slice to build**: it is 33 of the 41 available (80% of the reachable set for the least
+machinery), and the payload — a keyword grant lasting until end of turn — is **already fully modeled for an
+EXPLICIT target**. Only the BINDING is new. B adds one card for a whole second payload family; C adds seven
+more and is the natural follow-up, not the first cut.
+
+### The build, in order
+1. **Bind the referent** to the immediately-preceding clause's chosen target(s) — the one genuinely new piece.
+2. **Route the payload through the existing until-end-of-turn keyword-grant path**, so a bound referent and an
+   explicit target resolve through identical code (no second implementation to drift).
+3. Gate hard: a referent with **no** resolvable antecedent must stay unparsed (CREED — a mis-bound "it" is a
+   confident wrong grant on the wrong permanent, the worst possible failure here).
+
+⚠️ **Do NOT let this widen into pronoun resolution in general.** The 1,697-card pool is the temptation; the
+113 is the reachable part; scope A is the profitable part. Everything else stays refused until measured.
+
+**Shelf note:** this does NOT flip `Valley Floodcaller` on its own — it needs the multi-subtype union in a
+TRIGGERED pump as well (verified: fixing either alone leaves it `body-only`; both → `native-mixed`). Note the
+union works in a STATIC anthem already (*"Birds and Rats you control get +1/+1"* is `native-static`), so that
+second gap is a trigger-path arm, not a new mechanic.
+
+---
+
 ## 🧭 REGIME CHANGE 2026-07-30 — **FOUR AXES MEASURED, ALL PAY ZERO. Read this before hunting another.**
 
 Four separate veins measured this session with verified controls. **Every one is a real axis. Every one
