@@ -28,6 +28,11 @@
 > - ✅ **v0.149.22 TAGGED 2026-07-30 with 84 cards** — EARLY TAG on the cadence rule's bug-fix
 >   exception (the permanent-card-put FP corrupts board state on a shelf deck's commander; the batch
 >   was at 84 so the cost was near zero). **Next batch starts from ZERO here.**
+> - ⏳ **NEXT RESUME: VERIFY v0.149.22 BY CONTENT.** Run 30579604476 was in_progress at 20:32Z
+>   (~20-25 min historically). Verify the way v0.149.19/.20 were: fetch
+>    and check it reports **version 0.149.22**, a URL pointing at
+>   the real installer, and a ~424-char minisign signature. **A green CI run is not the check** — the
+>   published manifest is.
 > - **BATCH IN FLIGHT: 0 cards since v0.149.22** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
