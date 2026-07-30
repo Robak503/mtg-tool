@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 31 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 36 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,53 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 4) 2026-07-30 — **"IF YOU DESCENDED THIS TURN" (CR 700.11). GAINED 5, LOST 0.**
+
+Child of the Volcano · Enterprising Scallywag · Deep Goblin Skulltaker · Canonized in Blood · Ruin-Lurker Bat.
+
+**CR 700.11** (verified, not recalled): a player descended iff a **PERMANENT CARD** was put into their
+graveyard from anywhere this turn. Tallied at `recordGraveyardEvents` — *the single graveyard-entry
+chokepoint every entry site already routes through* — reusing layers' existing permanent-card predicate
+rather than duplicating the regex, reset for every seat at untap beside its siblings. **Counted, not
+flagged**: The Mycotyrant reads *"the number of times you descended"*, so a boolean would need widening
+later and a count answers both questions.
+
+### ⛔ THE RISK WAS THE TALLY NEXT DOOR
+`gyEnteredThisTurn` already counts every CARD entering a graveyard. Descend is **strictly narrower**: an
+instant or sorcery raises that counter and is *not* a descend; a dying token is not a card at all
+(CR 111.7). Every carrier is an end-step rider meant to reward **losing permanents** — so binding the
+neighbouring counter would have fired all five off a cantrip. That substitution is one of the five
+mutations, and all five fail. ⭐ *When a new metric sits one field away from an existing one, the mutation
+that swaps them is the only test that matters.*
+
+### ✅ A DEAD GUARD REMOVED — and its COMMENT was the actual defect
+My first draft added a missing-seat check returning `null`. `evaluateSingleCondition`'s **opening guard
+already returns `false`** for a gone controller, so the line was unreachable — and worse, its comment
+documented a `null` return *this function never makes*. Caught because a test asserted `toBeNull()` and got
+`false`. ⭐ *Dead code is cheap; dead code carrying a confident wrong explanation is what the next reader
+believes.*
+
+### ⭐ TWO REFUSAL PINS RE-POINTED, NOT DELETED — and one of them was SCAFFOLDING
+Building this broke two pins from an earlier slice, in two different ways:
+
+| pin | why it broke | resolution |
+|---|---|---|
+| `conditionTurnEventReaders` still-parks list | a **BOUNDARY MARKER**: "not tracked yet" | descend **graduated** — the pin now asserts it IS readable |
+| `conditionDisjunction` unreadable-half | descend was its **STAND-IN** for an unreadable condition | stand-in **migrated** to `you created a token this turn` |
+
+⚠️ **The second is the one worth remembering.** That test guards disjunction handling; it merely BORROWED
+descend as an unreadable phrase. When descend graduated, the test did not fail about disjunctions — it
+failed about its own scaffolding, in a file with nothing to do with this slice. ⭐ *A stand-in phrase is a
+silent dependency on something staying unbuilt, and it always breaks somewhere unrelated. Note the
+migration in-file so the next person does not "fix" it by deleting the guard.*
+
+**Gates:** 13 tests, negatives leading (instant / sorcery / token / wrong seat / cross-turn leak). Five
+mutations seen to fail. Suite **1018 files / 12,959 green**, lint 0, MUTANT clean. Commit `2371cf58`.
+
+**Batch 4: 36 cards.**
 
 ---
 
