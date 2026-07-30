@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 18 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 25 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -131,6 +131,62 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## ✅ BANKED (batch 4) 2026-07-30 — **THE DISCARD EVENT. GAINED 7, LOST 0. A whole event that did not exist.**
+
+Tourach, Dread Cantor · Sangromancer · Abyssal Nocturnus · Geth's Grimoire (the event alone) ·
+Liliana's Caress · Raiders' Wake · Fell Specter (the event + the referent).
+
+### ⭐ THE CENSUS SAID 3. IT WAS MEASURING THE WRONG THING.
+The census phrase was a PAYOFF (*"that player loses N life"*). Swapping the **event** phrase instead —
+leaving every payoff intact — showed `detectTriggers` returned **nothing at all** for this line: the engine
+had no discard event. Four more cards were blocked purely by the missing event, with payoffs that already
+parsed. ⭐ **When a census phrase is a payoff, check whether the TRIGGER underneath it exists — the payoff
+count is a floor, not the size.**
+
+### SIX PARTS, AND THE ONE THAT SILENTLY ATE EVERYTHING
+detection arm · **`scopeMatches` case** · `checkDiscardTriggers` · sentinel rewrite · payoff + resolver ·
+referent pin.
+
+⚠️ **The scopeMatches case is the trap.** A discard has no triggering PERMANENT, so a scope with no
+explicit `case` falls to `default: return false` — detection, routing and classification were all green
+while **not one trigger ever fired**. Caught only because the first runtime test asserted a life total.
+The `opponentDraw` / `milled` / `lifeLost` scopes all carry the same carve-out; mine now sits beside them.
+
+### ELEVEN SITES, NO CHOKE POINT — wired all of them
+There is no `discardCard()` helper to hook. Every discard is its own `moveCardToZone(hand → graveyard)`:
+five COST payments in `actionDispatcher` (a discard paid as a cost is still a discard, CR 701.9a), the
+forced chain and the random pitch in `hand.js`, connive, the iterated edict, and **both pending-choice
+settles — where the discard happens at the SETTLE, not when the chain started.** One fire per card
+(CR 603.2): a two-card discard is two triggers, not one doubled one.
+
+### ⚠️ MY WIRING TEST PASSED WHILE THE CODE WAS BROKEN
+I added a structural test asserting every hand→graveyard site is accompanied by a fire — because nine of
+the eleven sites have no cheap behavioural driver and would rot in silence. It passed. **The build was
+still broken:** `runProgram.js` got both its fire calls and no IMPORT, so every discard through a pending
+choice threw `ReferenceError`. The structural test checks that a fire is WRITTEN, not that it RUNS.
+
+**The existing suite caught it — 24 failures across 9 files.** ⭐ *A structural invariant and a behavioural
+one fail in different directions, and neither substitutes for the other. The regression suite is not
+overhead; it is the only thing that read the code the way the runtime does.* Both are kept, with the
+limitation written into the test.
+
+### VERDICTS
+- ⛔ **Megrim deliberately left out** — its payoff is *damage* to that player, needing the same referent on
+  the damage atom. Pinned non-native so the gap is visible rather than assumed covered.
+- ⛔ A **filtered** variant (*"discards a nonland card"*) is not this event — pinned, SAFE FN.
+- ✅ **Fixed my own citation:** the previous entry said CR 701.8a for discard. **701.8 is Destroy; discard is
+  701.9a.** Corrected in-file. *A rule number recalled is not a rule number checked.*
+
+**Gates:** 15 tests — real discards driven down the forced-chain, random and self-discard paths, plus the
+structural wiring invariant. **Seven mutations seen to fail**, including one that deletes a single fire site.
+Suite **1016 files / 12,937 green**, lint 0, MUTANT clean. Commit `8d984df8`.
+
+**Batch 4: 25 cards.**
+
+---
+
+## ✅ DONE — superseded by the entry above (kept for the measurement trail)
+
 ## 📏 SCOPED, MEASURED, READY TO BUILD 2026-07-30 — **THE DISCARD EVENT (`whenever an opponent discards a card`) — worth ~8, and it is a SEVEN-SITE build**
 
 Measured but deliberately NOT started at the tail of a session: a partial build here produces **silently
@@ -154,7 +210,7 @@ Sizing the EVENT instead more than doubled it — *when a census phrase is a PAY
 TRIGGER underneath it exists at all; the payoff count is a floor, not the size.*
 
 ### WHY IT IS BIG: SEVEN DISCARD SITES, NO CHOKE POINT
-A discard trigger must fire from **every** way a card is discarded (CR 701.8a), and this engine has no
+A discard trigger must fire from **every** way a card is discarded (CR 701.9a), and this engine has no
 single `discardCard` helper to hook. Files performing discards today:
 
 `effects/atoms/hand.js` (the chain + random discard) · `effects/runProgram.js` · `learnSession.js`
