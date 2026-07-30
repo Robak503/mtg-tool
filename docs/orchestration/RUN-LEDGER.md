@@ -11,8 +11,9 @@
 > per slice. **Only the TAG batches.** A tag makes an update banner appear in every running `.exe`, and one
 > banner per +21 is noise.
 >
-> - **BATCH IN FLIGHT: 23 cards banked since v0.149.18** (condition-filter vocabulary +13, per-turn ledger
->   readers +10). Update this number at every slice boundary so a fresh session knows how much is unreleased.
+> - **BATCH IN FLIGHT: 45 cards banked since v0.149.18** (condition-filter vocabulary +13, per-turn ledger
+>   readers +10, metric/scope readers +22). Update this number at every slice boundary so a fresh session
+>   knows how much is unreleased.
 > - Write CHANGELOG entries under `## [Unreleased]` per slice; promote the whole block and bump both version
 >   files (`app/package.json` + `app/src-tauri/tauri.conf.json`) only at TAG time.
 > - Tag early ONLY for a real reason: a user-facing bug fix, a release-pipeline fix, or Colton asking.
@@ -107,6 +108,52 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## 🏦 BANKED (unreleased) 2026-07-30 — **METRIC + SCOPE READERS. GAINED 22, LOST 0.**
+
+Battle of Wits · Butterbur, Bree Innkeeper · Dust Stalker · Emperor Crocodile · Feudkiller's Verdict ·
+Glorious Enforcer · Gutwrencher Oni · Imaginary Pet · Ivory Crane Netsuke · Kezzerdrix · Lone Revenant ·
+Near-Death Experience · Painwracker Oni · Raving Oni-Slave · Scalding Tongs · Scourge of Numai ·
+Scroll of Origins · Survival Cache · Synod Centurion · Takenuma Bleeder · Thopter Assembly · Thumbscrews.
+
+**Third slice off the same census, and the fattest.** The T9 "other" bucket (71 cards) looked like an
+undifferentiated long tail. It wasn't — it held four coherent groups, every one of them **a zero-case that
+never got its threshold, or a scope that never got its inverse**:
+
+| already modeled | was missing |
+|---|---|
+| `you have no cards in hand` | the hand COUNT in all three directions — while `controllerMetric` has read `player.hand.length` since the opponent hand-compare shipped |
+| `you have N or less life` | `exactly N` (not expressible as a one-sided threshold) |
+| `you control no <filter>` | `no OTHER <filter>` · `no <filter> other than this <noun>` · `you don't control a <filter>` |
+| `an opponent has more life than you` | the INVERSE direction |
+| — | the library count (Battle of Wits) · `your opponents control no <filter>` · `colorless` as a filter |
+
+**⛔ THE THREE PLACES THIS COULD HAVE GONE WRONG, all pinned and all mutation-checked:**
+- **A · the source-excluding count must exclude the source, and FAIL CLOSED without a referent.** The
+  discriminating board is the one where the source IS the only match: without the exclusion the count is 1 and
+  the condition reads FALSE, suppressing an ability whose printed condition is TRUE. Placed ABOVE the incumbent
+  `no <filter>` arm on purpose — `parseFilter` strips "other" as filler, so a lower placement would have
+  silently dropped the exclusion entirely. That is the **same trap the mass-damage recipient delegation hit one
+  slice earlier**, and knowing it was there is why this arm was written source-first.
+- **B · `your opponents control no X` is UNIVERSAL over opponents, not existential.** `.some()` would read TRUE
+  on a table where one opponent is empty and another has a creature.
+- **C · `you have more life than an opponent` is NOT the negation of its sibling.** On a tie BOTH phrases are
+  false, so implementing either as `!other` answers wrongly. Each gets its own strict comparison.
+
+Also: **`colorless` is the ABSENCE of colour (CR 105.2c), not a sixth colour** — it needs an empty-`colors`
+predicate, and its fail-closed direction is the opposite of the colour gate's (an unresolvable read must not
+claim colourlessness).
+
+**Gates:** 16 new tests (both directions per reader); **all three mutations seen to fail** — dropping the
+source exclusion (3 tests), `.every()` → `.some()` (1), the life compare as a negation (2, incl. the tie).
+Reverts confirmed by `git diff`. Flip-diff **GAINED 22 / LOST 0**. Suite **990 files / 12,620 green**, lint 0
+unpiped, MUTANT clean, module graph loads. **No pin claimed these shapes stay low** — nothing to graduate.
+
+**STILL REFUSED, and now with a reason on the record:** the MANA-SPENT family (7 cards — `{R}/{U}/{G}/{B} was
+spent to cast it`, `mana from a Treasure was spent to cast it`) needs per-cast mana provenance, which nothing
+in the engine records. Pinned as refused so the gap is a decision rather than an oversight.
 
 ---
 

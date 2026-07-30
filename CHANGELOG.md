@@ -9,6 +9,13 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Abilities that check a count — your hand, your life, your library, an empty board — now work.**
+  Twenty-two cards, including Battle of Wits, Thumbscrews, Scalding Tongs, Emperor Crocodile,
+  Lone Revenant, Near-Death Experience, Thopter Assembly and Survival Cache. The engine already understood
+  "if you have no cards in hand"; it now also reads "if you have seven or more cards in hand", "if you have
+  three or fewer cards in hand", "if you have exactly 1 life", "if you have 200 or more cards in your
+  library", "if you control no other creatures", "if your opponents control no creatures" and "if you have
+  more life than an opponent".
 - **Abilities gated on what happened earlier in the turn now work.** Ten cards, including Nightpack Ambusher,
   Curious Obsession, Seeker of Insight and Mercadian Atlas. Conditions like "if you've cast a noncreature
   spell this turn", "if you didn't attack with a creature this turn", "if you didn't play a land this turn"

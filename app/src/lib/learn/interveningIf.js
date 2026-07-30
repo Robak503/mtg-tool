@@ -138,6 +138,12 @@ function permMatchesFilter(perm, filter, state) {
     const colors = permanentColors(state, perm.id);
     if (!Array.isArray(colors) || !colors.includes(filter.color)) return false;
   }
+  if (filter.colorless) {
+    // CR 105.2c — colourless is having NO colours at all, so an unresolvable read fails closed the OTHER way
+    // from the colour gate: if we cannot enumerate colours we must not claim the permanent is colourless.
+    const colors = permanentColors(state, perm.id);
+    if (!Array.isArray(colors) || colors.length > 0) return false;
+  }
   if (filter.kind === "all") return true;                  // "permanent(s)"
   if (filter.kind === "token") return !!(perm.token || perm.card?.token);
   // TYPE UNION vs TYPE CONJUNCTION, and the difference is load-bearing. `word` may be an array:
@@ -207,6 +213,14 @@ function parseFilter(phrase) {
   if (colM) {
     const inner = parseFilter(colM[2]);
     return inner ? { ...inner, state: inner.state ?? state, color: COLOR_LETTER[colM[1]] } : null;
+  }
+  // COLORLESS is the ABSENCE of colour (CR 105.2c), not a sixth colour — so it needs its own predicate
+  // (`colors` empty) rather than a letter membership test. Kept beside the colour arm because the phrasing is
+  // parallel and mis-filing it as a colour would make every colourless permanent fail to match.
+  const clM = p.match(/^colorless (.+)$/);
+  if (clM) {
+    const inner = parseFilter(clM[1]);
+    return inner ? { ...inner, state: inner.state ?? state, colorless: true } : null;
   }
   // TYPE UNION — "artifact or enchantment" (Sanctum Weaver / Hall of Heliod's Generosity class). BOTH sides
   // must be clean single-word TYPE filters with no state/rider of their own, so the union is exactly the two
@@ -299,6 +313,16 @@ const OPP_CONTROLS_N_RE = new RegExp(`^an opponent controls ${NUM_RE}(?: or more
 // every other board-count condition. CREED: a deterministic numeric compare, never fail-open — a malformed
 // or out-of-vocabulary life phrase falls through to the final `return null` → Arbiter (false-negative SAFE).
 const CTRL_LIFE_THRESHOLD_RE = /^you have (\d+) or (less|fewer|more) life$/;
+// ⭐ THE SAME THRESHOLD SHAPE, CROSSED WITH THE OTHER TWO METRICS controllerMetric ALREADY READS (2026-07-30).
+// "you have no cards in hand" was modeled and "you have N or less life" was modeled, but the HAND count had
+// only its zero case and the LIBRARY count had nothing — while `controllerMetric` has read `player.hand.length`
+// since the opponent hand-compare shipped. Both are single integers off live state, layer-irrelevant, so they
+// read identically at flush and at resolution like every sibling here.
+// "a card in hand" is the ≥1 form (NUM_RE already maps "a" → 1). An EXACT life total gets its own anchor
+// because "exactly N" is not expressible as a one-sided threshold.
+const CTRL_HAND_THRESHOLD_RE = new RegExp(`^you have ${NUM_RE}(?: or (less|fewer|more))? cards? in hand$`);
+const CTRL_LIBRARY_THRESHOLD_RE = new RegExp(`^you have ${NUM_RE} or (less|fewer|more) cards in your library$`);
+const CTRL_LIFE_EXACT_RE = /^you have exactly (\d+) life$/;
 
 function controllerMetric(state, controllerId, kind) {
   const player = state?.players?.[controllerId];
@@ -959,11 +983,44 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
   // matches "you control A creature with the greatest power among…", fails to parse the filter, and
   // returns null — swallowing this shape before it is ever reached. Anchored first, it wins its own
   // exact wording and the generic family is unchanged for everything else.
-  let m = c.match(/^you control no (.+)$/);
+  // ⭐ SOURCE-EXCLUDING "no <filter>" (CR 113.7 / 109.5) — "you control no OTHER creatures" (the Hermit /
+  // lone-creature payoffs), "you control no other colorless creatures", and the equivalent printed as a
+  // trailing exclusion: "you control no Thopters OTHER THAN this creature". The incumbent arm below already
+  // counts a filtered board to zero; the only new thing is dropping the ability's own source from the count.
+  //
+  // ⛔ FAIL-CLOSED WITHOUT A SOURCE, matching the `notSource` target-restriction precedent. If the referent is
+  // unknown we cannot exclude it, and answering from the unexcluded count would say FALSE on a board where the
+  // source is the only match — suppressing an ability whose printed condition is TRUE. So: null → Arbiter.
+  // Placed ABOVE the incumbent so "no other creatures" cannot be shaved to the filter "other creatures"
+  // (parseFilter strips "other" as filler, which would silently drop the exclusion entirely — the same trap
+  // the mass-damage recipient delegation hit one slice earlier).
+  let m = c.match(/^you control no other (.+)$/) || c.match(/^you control no (.+?) other than this [a-z]+$/);
+  if (m) {
+    const filter = parseFilter(m[1]);
+    if (!filter) return null;
+    const sourceId = context?.sourcePermanentId;
+    if (!sourceId) return null;
+    return controllerBoard(state, controllerId)
+      .filter((p) => p.id !== sourceId && permMatchesFilter(p, filter, state)).length === 0;
+  }
+
+  m = c.match(/^you control no (.+)$/) || c.match(/^you don't control (?:a|an|any) (.+)$/);
   if (m) {
     const filter = parseFilter(m[1]);
     if (!filter) return null;
     return controllerBoard(state, controllerId).filter((p) => permMatchesFilter(p, filter, state)).length === 0;
+  }
+
+  // OPPONENT-SCOPED zero (CR 104.3a) — "your opponents control no creatures". Universal across opponents, not
+  // existential: the phrase is only satisfied when EVERY opponent's board is empty of the filter, which is why
+  // this reads as a total over all opposing battlefields rather than a `.some()`.
+  m = c.match(/^your opponents control no (.+)$/);
+  if (m) {
+    const filter = parseFilter(m[1]);
+    if (!filter) return null;
+    return Object.keys(state.players || {})
+      .filter((pid) => pid !== controllerId)
+      .every((pid) => (state.players[pid]?.battlefield || []).filter((p) => permMatchesFilter(p, filter, state)).length === 0);
   }
 
   // "you control a/an/<N> or more <filter>"
@@ -1055,6 +1112,18 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     const mine = controllerMetric(state, controllerId, m[1]);
     return opponentIds(state, controllerId).some((oid) => controllerMetric(state, oid, m[1]) > mine);
   }
+
+  // ⭐ THE INVERSE DIRECTION of the compare directly above — "you have more life than an opponent". Existential
+  // over opponents (CR 104.3a): satisfied as soon as ONE opponent is below you.
+  //
+  // ⛔ NOT the negation of OPP_HAS_MORE, and that is worth stating because it looks like one. With a single
+  // opponent on equal life BOTH phrases are false, so implementing either as `!other` would answer wrongly on
+  // a tie. Each gets its own strict comparison in its own direction.
+  m = c.match(/^you have more (life|cards in hand) than an opponent$/);
+  if (m) {
+    const mine = controllerMetric(state, controllerId, m[1]);
+    return opponentIds(state, controllerId).some((oid) => mine > controllerMetric(state, oid, m[1]));
+  }
   // "an opponent controls a/an/<N> or more <filter>" — an ABSOLUTE per-opponent board threshold (Defense of
   // the Heart "an opponent controls three or more creatures"). Anchored AFTER OPP_CONTROLS_MORE so the
   // compare-vs-you form ("more … than you") wins its exact wording first; this matches the cardinal form. TRUE
@@ -1078,6 +1147,30 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     const threshold = parseInt(m[1], 10);
     const life = controllerMetric(state, controllerId, "life");
     return m[2] === "more" ? life >= threshold : life <= threshold;
+  }
+
+  // EXACT life total — "you have exactly 1 life". Not expressible as a one-sided threshold, so its own anchor.
+  m = c.match(CTRL_LIFE_EXACT_RE);
+  if (m) return controllerMetric(state, controllerId, "life") === parseInt(m[1], 10);
+
+  // HAND COUNT, all three directions. The bare form ("you have a card in hand", "you have three cards in hand")
+  // is the ≥N reading: a hand of five satisfies "you have a card in hand". "or fewer/less" flips it, and the
+  // ZERO case keeps its own exact anchor above this one, so that incumbent is untouched.
+  m = c.match(CTRL_HAND_THRESHOLD_RE);
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    const held = controllerMetric(state, controllerId, "cards in hand");
+    return (m[2] === "less" || m[2] === "fewer") ? held <= n : held >= n;
+  }
+
+  // LIBRARY COUNT — "you have 200 or more cards in your library" (Battle of Wits). One integer off live state.
+  m = c.match(CTRL_LIBRARY_THRESHOLD_RE);
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    const lib = (state?.players?.[controllerId]?.library || []).length;
+    return m[2] === "more" ? lib >= n : lib <= n;
   }
 
   // ===== TURN-EVENT HISTORY (CR 700.4) ===== "[a creature | N or more creatures] died this turn" — read off
