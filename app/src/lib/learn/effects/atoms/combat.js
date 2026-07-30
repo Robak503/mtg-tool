@@ -703,6 +703,31 @@ export function applyCantBlock(state, atom, ctx) {
  * layers.permanentProtectionColors already unions these with a PRINTED protection, so nothing downstream
  * needed changing — the read side has been waiting for a writer.
  */
+/**
+ * COLOUR CHANGE (CR 105.1 / 613.1c) — a layer-5 setColor continuous effect on each chosen creature, lasting
+ * until end of turn. Structurally identical to applyGrantProtection below except for the layer and the op,
+ * and deliberately so: both are "put a layer-N continuous effect on the targets for the turn".
+ *
+ * Layer 5 is the colour-changing layer and is where applyAnimateEffect already writes setColor, so the
+ * read side (layers.permanentColors / combatEvasion's colour checks) needs nothing new — a colour-changed
+ * creature is judged by its new colour everywhere that already asks.
+ */
+export function applyBecomeColor(state, atom, ctx) {
+  const targets = atomTargets(state, atom, ctx);
+  let next = state;
+  const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
+  const dur = { kind: "endOfTurn", turn: next.turn };
+  for (const target of targets) {
+    if (!findPermanent(next, target.id)) continue;   // target gone → clean no-op, never a fabricated change
+    next = addContinuousEffect(next, {
+      layer: 5, op: { layerOp: "setColor", colors: atom.colors || [] },
+      affects: { mode: "fixed", permanentIds: [target.id] },
+      duration: dur, source: src,
+    }).state;
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "become-color", colors: atom.colors || [], targets: targets.map((t) => t.id) });
+}
+
 export function applyGrantProtection(state, atom, ctx) {
   const targets = atomTargets(state, atom, ctx);
   let next = state;
@@ -1205,6 +1230,26 @@ export function combatKeywordClauseParser(clause) {
   // ONE colour only, anchored. "protection from everything" / "from all colors" / a dynamic quality
   // ("protection from the color of your choice") is a different mechanic — it stays unparsed rather than
   // being collapsed to a colour the card never named, which would be a confidently wrong grant.
+  // ⭐ COLOUR CHANGE (CR 105.1 / 613.1c layer 5) — "Target creature becomes blue until end of turn."
+  // (Metathran Transport, Fylamarid, Cerulean Wisps) and the REFERENT form "That creature becomes black
+  // …" (Singe, after its damage clause).
+  //
+  // `setColor` is emitted today ONLY from inside applyAnimateEffect — an animate carries a colour along
+  // with its P/T and types — so a PURE colour change had no writer. Same shape as the protection grant
+  // below: the layer op and its readers exist, nothing parsed to it.
+  //
+  // ⛔ SET, not ADD. "becomes blue" REPLACES the creature's colours (CR 105.1); "becomes blue IN ADDITION
+  // to its other colors" is the addColor op, which has no emitter and — measured — exactly ONE corpus
+  // carrier with 0 attributable, so it stays unwritten rather than being guessed at from this arm.
+  {
+    const cm = t.match(/^(target creature|that creature) becomes (white|blue|black|red|green) until end of turn$/);
+    if (cm) {
+      const color = { white: "W", blue: "U", black: "B", red: "R", green: "G" }[cm[2]];
+      return cm[1] === "that creature"
+        ? { op: "become-color", colors: [color], bindPreviousTargets: true }
+        : { op: "become-color", targetType: "creature", colors: [color] };
+    }
+  }
   {
     const pm = t.match(/^(target creature|this creature) gains protection from (white|blue|black|red|green) until end of turn$/);
     if (pm) {
@@ -2121,6 +2166,7 @@ export const combatResolvers = {
   "untap-lands": applyUntapLands, // UNTAP-UP-TO-N-LANDS (Finale of Revelation) — deterministic greedy untap of up to N of the controller's own tapped lands, condX-gated
   "untap-remove-from-combat": applyUntapRemoveFromCombat, // GUSTCLOAK ESCAPE (GC-1, CR 506.4/510.1c-d) — untap the trigger source + remove it from combat (flag + attacker-record drop; blockers stay in combat, deal nothing)
   "cant-block": applyCantBlock,
+  "become-color": applyBecomeColor,            // COLOUR CHANGE (CR 105.1) — setColor had only the animate writer
   "grant-protection": applyGrantProtection,   // PROTECTION-FROM-A-COLOUR (CR 702.16) — the layer op existed; nothing parsed to it // CANT-BLOCK — "target creature can't block this turn" → layer-6 endOfTurn cantBlock grant
   "cant-be-blocked": applyCantBeBlocked, // CANT-BE-BLOCKED — "target creature can't be blocked this turn" → layer-6 endOfTurn unblockable grant
   "mass-block-lock": applyMassBlockLock, // MASS-BLOCK-LOCK (FT-1) — "creatures [without flying] can't block this turn" → ONE dynamic-selector layer-6 endOfTurn cantBlock rule (CR 611.2c)
