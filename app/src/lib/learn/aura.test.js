@@ -208,11 +208,18 @@ describe("REVIEW FIX — granted keywords are honored at runtime (no partial app
 
 describe("cast legality + Arbiter routing", () => {
   it("a non-native Aura is offered but routes to the Arbiter seam at resolution (no do-nothing permanent)", () => {
-    // A still-non-native Aura. FIXTURE SWAPPED TWICE, and the pattern is the point: it was Bequeathal until
-    // the aura-own DIES detector landed, then Forced Adaptation until the target:'enchanted' counter referent
-    // landed (2026-07-29). Each time the card became native the test started passing for the wrong reason.
-    // Writ of Passage is the current shape with genuinely no route — an attack trigger with an intervening
-    // power check granting unblockable.
+    // A still-non-native Aura. FIXTURE SWAPPED THREE TIMES, and the pattern is the point: it was Bequeathal
+    // until the aura-own DIES detector landed, then Forced Adaptation until the target:'enchanted' counter
+    // referent landed, then Writ of Passage until the SELF P/T THRESHOLD intervening-if landed (2026-07-30,
+    // Role tokens phase 2 — Writ's "if its power is 2 or less" is exactly that condition). Each time the card
+    // became native the test started passing for the wrong reason.
+    //
+    // Ghostly Touch is the current shape with genuinely no route: the Aura DELIVERY is modelled (a quoted
+    // grant to the enchanted creature works), but the granted BODY — "you may tap or untap target permanent" —
+    // is not. ⚠️ So the next thing that un-parks this fixture is somebody modelling an optional
+    // tap-or-untap-any-permanent payoff. When that happens, swap again rather than deleting: the behaviour
+    // under test (a non-native Aura must route to the Arbiter, never enter as a do-nothing permanent) is
+    // permanent even though every example of it is temporary.
     //
     // ⚠️ KEEP THE FIXTURE CHEAP. The board under test has no mana, so an expensive Aura is never OFFERED and
     // `cast` comes back undefined — the assertion then dies on a TypeError instead of testing routing. Hit
@@ -221,7 +228,7 @@ describe("cast legality + Arbiter routing", () => {
     // The behavior under test is unchanged and is the point: a non-native Aura must still route to the
     // Arbiter seam at resolution, never enter as a do-nothing permanent. Expect to swap the fixture again;
     // assert against COMPLEX.name (below) so the swap can never pass vacuously.
-    const COMPLEX = { id: "c-cplx", name: "Writ of Passage", type: "Enchantment — Aura", mana: "{U}", oracle: "Enchant creature\nWhenever enchanted creature attacks, if its power is 2 or less, it can't be blocked this turn." };
+    const COMPLEX = { id: "c-cplx", name: "Ghostly Touch", type: "Enchantment — Aura", mana: "{1}{U}", oracle: "Enchant creature\nEnchanted creature has \"Whenever this creature attacks, you may tap or untap target permanent.\"" };
     // The default pool is colorless-only ({C:5}), which paid Forced Adaptation's generic {1} but cannot pay a
     // COLORED fixture — the cast is then never offered and `cast` is undefined.
     let s = boardState({ user: [createPermanent({ id: "bear", card: bearCard, controller: "user", summoningSick: false })], hand: [COMPLEX], pool: { C: 5, U: 1 } });

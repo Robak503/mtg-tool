@@ -12,8 +12,11 @@ summarizes the notable changes.
 - **Role tokens work.** Cards that hand a creature a Monster, Royal, Cursed, Sorcerer or Virtuous Role now
   actually create it and attach it, and the creature gets what the Role gives it. Seven cards play properly as
   a result, including Charmed Clothier, Living Lectern and Splashy Spellcaster. If there's no legal creature to
-  attach to, no Role is created — as the rules require. Wicked and Young Hero Roles are still set aside until
-  their abilities are modelled.
+  attach to, no Role is created — as the rules require. The Wicked Role is still set aside until its ability is
+  modelled.
+- **Young Hero Roles work too.** The creature grows only while its toughness is still 3 or less, exactly as
+  printed — once it's big enough, the Role stops feeding it. Cut In, Embereth Veteran and Protective Parents
+  play fully as a result.
 
 ## [0.149.15] — 2026-07-29
 

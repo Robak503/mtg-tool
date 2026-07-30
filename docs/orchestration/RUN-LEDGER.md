@@ -95,6 +95,47 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## ✅ SHIPPED — **ROLE TOKENS PHASE 2: YOUNG HERO. GAINED 3, LOST 0.** (Role project total: 10)
+
+Cut In · Embereth Veteran · Protective Parents.
+
+**What landed:** the self-P/T-threshold intervening-if (`its <power|toughness> is N or <less|greater>`), then
+Young Hero registered and added to the parse alternation.
+
+**⭐⭐ THE GATE DEMANDED THE PROMOTION — TWICE — WHICH IS THE WHOLE POINT OF PHASE 1'S DESIGN.** The moment the
+intervening-if arm landed, `verify-role-token-data.mjs` failed with **"Young Hero: its body is NOW EXECUTABLE —
+register it in NAMED_TOKENS and add its parse arm"**. Then it failed AGAIN because its own `KNOWN_UNMODELED`
+list still called Young Hero unmodeled. A refusal encoded as a live capability check, not a verdict — and the
+gate refusing to pass on its own stale bookkeeping is the strongest evidence it wasn't passing vacuously.
+
+**⭐ AND THE ARM IS THE SAME CODE I SHIPPED-AND-REVERTED EARLIER**, when its flip-diff was GAINED 0 because no
+corpus card PRINTS that condition — only the Young Hero token carries it. Reverting then and re-applying it
+here, with the Role that needs it, is exactly what the 0-flip rule is for: it kept an unverified widening out of
+the baseline and cost nothing but a re-paste.
+
+**⛔ LAYER-AWARE IS LOAD-BEARING, and it is pinned:** Young Hero pumps only while toughness ≤ 3, so the read
+must be live. Asserted at 1/1 → true, 3/3 (two counters) → still true, 4/4 (three counters) → **false**. A
+printed-P/T read would pump forever, which the printed Role forbids. Missing/vanished referent → `null`.
+
+**⚠️ A BOUNDARY PIN BROKE, AND IT PREDICTED ITSELF.** `aura.test.js`'s "a non-native Aura routes to the Arbiter"
+fixture was **Writ of Passage** — *"if its power is 2 or less"*, precisely the condition this arm made readable.
+Its own comment said **"FIXTURE SWAPPED TWICE… Expect to swap the fixture again."** Third swap done, to
+**Ghostly Touch**: the Aura DELIVERY is modelled, its granted body ("you may tap or untap target permanent") is
+not. Re-pointed, never deleted — the behaviour under test is permanent even though every example of it is
+temporary. The comment now names what will un-park it next.
+
+**⚠️ 3, not the predicted 5.** Merry Bards and Return Triumphant did not flip: Merry Bards wraps the creation in
+a reflexive "you may pay {1}. When you do, …", and Return Triumphant pairs it with a graveyard-return half.
+Both are second blockers, not Role problems.
+
+**Gates:** 15 hermetic tests + the corpus gate (exit 0); flip-diff **GAINED 3 / LOST 0**; suite **985 files /
+12,530 green**; lint 0 unpiped; MUTANT sweep clean.
+
+**REMAINING:** phase 3 = an Aura put-into-graveyard trigger → **Wicked (+6)**; phase 4 = the referent phrasings
+(`attached to that creature` / `it`, Gylwain's modes, the reflexive wrappers) → the rest.
+
+---
+
 ## ✅ SHIPPED — **ROLE TOKENS PHASE 1 (CR 303.4). GAINED 7, LOST 0.**
 
 Besotted Knight // Betroth the Beast · Charmed Clothier · Ferocious Werefox // Guard Change · Living Lectern ·

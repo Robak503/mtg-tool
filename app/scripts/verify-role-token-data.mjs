@@ -21,8 +21,12 @@ import { allCards, publicCard } from "../src/lib/server/cardIndex.js";
 import { classifyCard, isNativeTier } from "../src/lib/learn/coverage.js";
 import { NAMED_TOKENS } from "../src/lib/learn/effects/atoms/tokens.js";
 
-const REGISTERED = ["cursed", "monster", "royal", "sorcerer", "virtuous"];
-const KNOWN_UNMODELED = ["Wicked", "Young Hero"];          // in the data, body not executable yet
+// Young Hero joined in phase 2, once the self-P/T-threshold intervening-if made its granted trigger
+// executable. The gate DEMANDED the move — it failed with "its body is NOW EXECUTABLE — register it" both
+// before the registry entry existed AND again while this list still called it unmodeled. That is the gate
+// refusing to pass on stale bookkeeping, which is exactly what it is for.
+const REGISTERED = ["cursed", "monster", "royal", "sorcerer", "virtuous", "young hero"];
+const KNOWN_UNMODELED = ["Wicked"];                        // in the data, body not executable yet
 const NO_DEFINITION = ["Chef", "Questing", "Huntsman"];     // asked for by cards, absent from the data
 
 /** Every Role face in the bundled data, keyed by printed name. */

@@ -9,11 +9,15 @@
  * same token unattached → nothing). So phase 1 is a registry + a parse arm + an attach on mint, not new layers.
  *
  * ⛔ THE REFUSALS ARE HALF THE SLICE, and they are two DIFFERENT refusals:
- *   • Wicked / Young Hero — defined in the bundled data, but their bodies are unmodeled (both classify
- *     body-only as Auras). Minting them would hand the player a token whose ability silently does nothing —
- *     the phantom-mana mistake in a new costume, which is the bar NAMED_TOKENS sets for itself.
+ *   • Wicked — defined in the bundled data, but its body is unmodeled (its put-into-graveyard drain classifies
+ *     body-only). Minting it would hand the player a token whose ability silently does nothing — the
+ *     phantom-mana mistake in a new costume, which is the bar NAMED_TOKENS sets for itself.
  *   • Chef / Questing / Huntsman — cards ASK for them, but NO definition exists in the bundled data, so their
  *     text cannot be written at all (CLAUDE.md §1.2). Permanent refusal until the data carries them.
+ *
+ * ⭐ PHASE 2 added Young Hero, which had been refused on the FIRST ground until the self-P/T-threshold
+ * intervening-if made its granted trigger executable. The gate script demanded the promotion — proof the
+ * refusal was a live capability check and not a permanent verdict.
  */
 import { describe, it, expect, beforeEach } from "vitest";
 
@@ -21,6 +25,7 @@ import { classifyCard, isNativeTier } from "./coverage.js";
 import { NAMED_TOKENS, applyCreateNamedToken } from "./effects/atoms/tokens.js";
 import { createGameState, createPermanent, _resetIdsForTests, findPermanent } from "./gameState.js";
 import { deriveCharacteristics } from "./layers.js";
+import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -39,7 +44,7 @@ const tierOf = (oracle) => classifyCard({ ...SORCERY, mana: "{1}{G}", oracle });
  */
 
 describe("⭐ the registry's shape and executability (hermetic half)", () => {
-  const REGISTERED = ["cursed", "monster", "royal", "sorcerer", "virtuous"];
+  const REGISTERED = ["cursed", "monster", "royal", "sorcerer", "virtuous", "young hero"];
 
   it("every registered Role is an Aura token whose BODY the engine can execute", () => {
     // The registry's own bar: minting a token must hand over a permanent the engine actually drives.
@@ -51,21 +56,56 @@ describe("⭐ the registry's shape and executability (hermetic half)", () => {
     }
   });
 
-  it("⛔ the five UNREGISTERED Roles are absent, for two different reasons", () => {
-    // Wicked / Young Hero: defined in the data but their bodies are unmodeled (checked in the gate script).
+  it("⛔ the four UNREGISTERED Roles are absent, for two different reasons", () => {
+    // Wicked: defined in the data but its body is unmodeled (checked below and in the gate script).
     // Chef / Questing / Huntsman: no bundled definition exists at all, so their text cannot be written.
     const names = Object.values(NAMED_TOKENS).map((s) => s.name);
-    for (const n of ["Wicked", "Young Hero", "Chef", "Questing", "Huntsman"]) expect(names).not.toContain(n);
+    for (const n of ["Wicked", "Chef", "Questing", "Huntsman"]) expect(names).not.toContain(n);
   });
 
-  it("⛔ and their bodies really are non-native — asserted on the PRINTED text, not on absence alone", () => {
-    // Absence proves nothing on its own (ABSENCE ≠ VALUE). These two strings are the printed Role bodies; if a
-    // future slice models either one, THIS test fails and tells the next builder to register that Role.
+  it("⛔ Wicked's body really is non-native — asserted on the PRINTED text, not on absence alone", () => {
+    // Absence proves nothing on its own (ABSENCE ≠ VALUE). If a future slice models the put-into-graveyard
+    // drain, THIS test fails and tells the next builder to register Wicked — exactly how Young Hero arrived.
     const wicked = "Enchant creature\nEnchanted creature gets +1/+1.\nWhen this Aura is put into a graveyard from the battlefield, each opponent loses 1 life.";
-    const youngHero = 'Enchant creature\nEnchanted creature has "Whenever this creature attacks, if its toughness is 3 or less, put a +1/+1 counter on it."';
-    for (const [n, body] of [["Wicked", wicked], ["Young Hero", youngHero]]) {
-      expect(isNativeTier(classifyCard({ name: n, type: "Token Enchantment — Aura Role", mana: "", oracle: body })), `${n} body became native — register it`).toBe(false);
-    }
+    expect(isNativeTier(classifyCard({ name: "Wicked", type: "Token Enchantment — Aura Role", mana: "", oracle: wicked })), "Wicked's body became native — register it").toBe(false);
+  });
+
+  it("⭐ PHASE 2 — Young Hero IS registered, and its granted trigger is genuinely executable", () => {
+    // It arrived by the gate demanding it: verify-role-token-data.mjs failed with "its body is NOW EXECUTABLE
+    // — register it" the moment the self-P/T-threshold intervening-if landed. The registry follows the engine.
+    const spec = NAMED_TOKENS["young hero"];
+    expect(spec?.name).toBe("Young Hero");
+    expect(spec.aura).toBe(true);
+    expect(isNativeTier(classifyCard({ name: spec.name, type: spec.type, mana: "", oracle: spec.oracle }))).toBe(true);
+  });
+});
+
+describe("⭐ the self-P/T-threshold condition Young Hero needs (CR 603.4)", () => {
+  it("all four phrasings are readable, and the existing power sibling still is", () => {
+    expect(interveningIfParseable("it has power 3 or greater")).toBe(true);   // the pre-existing arm
+    expect(interveningIfParseable("its toughness is 3 or less")).toBe(true);
+    expect(interveningIfParseable("its toughness is 3 or greater")).toBe(true);
+    expect(interveningIfParseable("its power is 3 or less")).toBe(true);
+  });
+
+  it("⛔⭐ LAYER-AWARE — a creature already carrying counters stops qualifying (the self-limit)", () => {
+    // This is the whole point on Young Hero: it pumps only while toughness ≤ 3, so it must read the LIVE
+    // toughness. A printed-P/T read would keep pumping forever, which the printed Role forbids.
+    const board = (counters) => {
+      const s = createGameState({ userDeck: [], aiDeck: [] });
+      const p = createPermanent({ id: "hero", card: { id: "ch", name: "Hero", type: "Creature — Human", power: 1, toughness: 1 }, controller: "user" });
+      return { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [counters ? { ...p, counters } : p] } } };
+    };
+    const ask = (counters) => evaluateInterveningIf(board(counters), "its toughness is 3 or less", "user", { sourcePermanentId: "hero" });
+    expect(ask(null)).toBe(true);                 // 1/1 — qualifies
+    expect(ask({ "+1/+1": 2 })).toBe(true);       // 3/3 — still ≤ 3
+    expect(ask({ "+1/+1": 3 })).toBe(false);      // 4/4 — no longer qualifies
+  });
+
+  it("⛔ a missing or vanished referent returns null, never a confident false", () => {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    expect(evaluateInterveningIf(s, "its toughness is 3 or less", "user", {})).toBe(null);
+    expect(evaluateInterveningIf(s, "its toughness is 3 or less", "user", { sourcePermanentId: "gone" })).toBe(null);
   });
 });
 
@@ -78,7 +118,7 @@ describe("parse — only the MEASURED targeted phrasings", () => {
   });
 
   it("⛔ an UNREGISTERED Role never parses — it must not mint a do-nothing token", () => {
-    for (const role of ["Wicked", "Young Hero", "Chef", "Questing", "Huntsman"]) {
+    for (const role of ["Wicked", "Chef", "Questing", "Huntsman"]) {
       expect(isNativeTier(tierOf(`Create a ${role} Role token attached to target creature you control.`))).toBe(false);
     }
   });

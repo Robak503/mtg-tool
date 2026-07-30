@@ -510,6 +510,43 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
       return null;
     }
   }
+  // ===== SELF P/T THRESHOLD, "its <power|toughness> is N or <less|greater>" (CR 603.4) =============
+  // The Young Hero Role's granted trigger: "Whenever this creature attacks, if its toughness is 3 or less, put
+  // a +1/+1 counter on it." (Role tokens phase 2.)
+  //
+  // ⭐ AN AXIS FIX. The arm directly above already reads a self POWER threshold — but only in the
+  // "has power N or greater" phrasing and only upward. Everything else in the family was unparseable:
+  // "its power is N or less", "its toughness is N or less", "its toughness is N or greater". Same referent,
+  // same readers, same context field; only the wording and the direction differed.
+  //
+  // ⭐ LAYER-AWARE BY CONSTRUCTION, and that is the whole point on this Role. creaturePower /
+  // creatureToughness are the live layer-aware readers, so a creature that has ALREADY collected +1/+1
+  // counters correctly stops qualifying for "toughness 3 or less" — the self-limiting behaviour the printed
+  // Role is designed around. A printed-P/T read would pump it forever.
+  //
+  // "its" (CR 608.2c) binds to the object the ability is on — the source — so this reads
+  // context.sourcePermanentId exactly like its power sibling. That is also what makes it correct for the
+  // GRANTED copy: the Role grants the ability to the enchanted creature, so the source IS that creature.
+  // Missing referent, or a source that has left the battlefield → null ("can't confirm"), never false.
+  //
+  // ⚠️ SHIPPED ONCE BEFORE AND REVERTED: on its own this flipped ZERO cards, because no corpus card PRINTS
+  // this condition — only the Young Hero token carries it. It lands here, with the Role that needs it.
+  {
+    const ptM = c.match(/^its (power|toughness) is (\d+) or (less|fewer|greater|more)$/);
+    if (ptM) {
+      const sourceId = context?.sourcePermanentId;
+      if (!sourceId) return null;
+      for (const pid of Object.keys(state.players || {})) {
+        for (const p of state.players[pid]?.battlefield || []) {
+          if (p.id !== sourceId) continue;
+          const value = ptM[1] === "power" ? creaturePower(p, state) : creatureToughness(p, state);
+          const threshold = parseInt(ptM[2], 10);
+          return /^(?:less|fewer)$/.test(ptM[3]) ? value <= threshold : value >= threshold;
+        }
+      }
+      return null;
+    }
+  }
   {
     const tapM = c.match(/^this (?:artifact|creature|enchantment|land|permanent|planeswalker|battle|token|equipment|vehicle) is (un)?tapped$/);
     if (tapM) {

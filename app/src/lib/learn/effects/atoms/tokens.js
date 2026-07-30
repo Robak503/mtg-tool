@@ -248,6 +248,11 @@ export const NAMED_TOKENS = {
   royal: { name: "Royal", type: "Token Enchantment — Aura Role", aura: true, oracle: "Enchant creature\nEnchanted creature gets +1/+1 and has ward {1}. (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {1}.)" },
   sorcerer: { name: "Sorcerer", type: "Token Enchantment — Aura Role", aura: true, oracle: "Enchant creature\nEnchanted creature gets +1/+1 and has \"Whenever this creature attacks, scry 1.\"" },
   virtuous: { name: "Virtuous", type: "Token Enchantment — Aura Role", aura: true, oracle: "Enchant creature\nEnchanted creature gets +1/+1 for each enchantment you control." },
+  // ⭐ PHASE 2 — Young Hero joined once its granted trigger became executable (the self-P/T-threshold
+  // intervening-if, interveningIf.js). ⛔ AND THE GATE DEMANDED IT: verify-role-token-data.mjs failed with
+  // "Young Hero: its body is NOW EXECUTABLE — register it", which is the gate proving it wasn't passing
+  // vacuously. The registry never leads the engine here; it follows what the engine can execute.
+  "young hero": { name: "Young Hero", type: "Token Enchantment — Aura Role", aura: true, oracle: "Enchant creature\nEnchanted creature has \"Whenever this creature attacks, if its toughness is 3 or less, put a +1/+1 counter on it.\"" },
 };
 
 /**
@@ -559,7 +564,7 @@ export function createNamedTokenClauseParser(clause) {
   //
   // "up to one" makes the target OPTIONAL (a legal zero-target choice); the resolver's CR 303.4 guard then
   // creates nothing, which is correct rather than a silent unattached mint.
-  m = t.match(/^create a (cursed|monster|royal|sorcerer|virtuous) role token attached to (?:up to one )?(?:another |other )?target creature( you control)?$/);
+  m = t.match(/^create a (cursed|monster|royal|sorcerer|virtuous|young hero) role token attached to (?:up to one )?(?:another |other )?target creature( you control)?$/);
   if (m) {
     return { op: "create-named-token", token: m[1], count: 1, targetType: m[2] ? "creatureYouControl" : "creature" };
   }
