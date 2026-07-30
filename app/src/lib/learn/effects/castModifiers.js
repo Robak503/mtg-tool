@@ -44,7 +44,7 @@ const DISCARD_COUNT_COST_RE = /^discard (two|three|four|five) cards$/i; // AC-1 
 // false negative. A graveyard is a public zone and the choice is a free one, so legalChoices picks a victim
 // with the same least-valuable policy the discard cost already uses.
 const EXILE_GY_COST_RE = /^exile (?:a|an) (creature|artifact|land|instant or sorcery) card from your graveyard$/i;
-export const SUPPORTED_ADDITIONAL_COST_KINDS = new Set(["sacrifice", "payLife", "discard", "exileFromGraveyard"]);
+export const SUPPORTED_ADDITIONAL_COST_KINDS = new Set(["sacrifice", "payLife", "discard", "exileFromGraveyard", "choice"]);
 
 /**
  * Pull a modeled additional cost off a spell's oracle. Returns `{ costs, rest }`:
@@ -57,6 +57,44 @@ export const SUPPORTED_ADDITIONAL_COST_KINDS = new Set(["sacrifice", "payLife", 
  * CONSERVATIVE by construction: anything but a modeled cost form (a count, a compound, an "or pay {N}" alt,
  * an X-life, a multi-card discard) leaves the oracle untouched → Arbiter.
  */
+/**
+ * AC-OR (CR 601.2f) — "As an additional cost to cast this spell, <costA> OR <costB>." The caster CHOOSES
+ * which to pay (Demand Answers "sacrifice an artifact or discard a card"; Bitter Triumph "discard a card or
+ * pay 3 life"; Bone Shards; Souls of the Lost; Minion Missile).
+ *
+ * ⛔ BOTH SIDES MUST BE ALREADY-VETTED KINDS, and the split is tried ONLY after the whole phrase has failed
+ * every single-cost extractor. That ordering is load-bearing: **"sacrifice an artifact or creature" is ONE
+ * vetted cost that CONTAINS " or "** — splitting it first would shred a working card into two nonsense halves.
+ * One unvetted side → null → the whole card stays Arbiter (a safe FN), which keeps the vetted vocabulary the
+ * single source of truth for what the dispatcher can actually charge.
+ *
+ * ⛔⛔ THE FAILURE MODE THIS FAMILY IS WIRED TO CAUSE, in coverage.js's words: an ADDITIONAL cost makes the
+ * card MORE expensive, so skipping it is cheaper-than-printed — the forbidden direction. Credit without
+ * charging is a FREE SPELL. Hence: legalChoices emits one cast per PAYABLE option and stamps the chosen spec
+ * on the action; actionDispatcher charges exactly that spec. Never a house-pick of option A — "sacrifice a
+ * creature or pay 3 life" on an empty board must still be castable via the life half.
+ */
+function parseOneAdditionalCost(phrase) {
+  const p = String(phrase || "").trim();
+  const sac = SAC_COST_RE.exec(p);
+  if (sac) {
+    const raw = sac[1].toLowerCase();
+    const sacType = (raw === "artifact or creature" || raw === "creature or artifact") ? "artifactOrCreature" : raw;
+    return { cost: { kind: "sacrifice", sacType }, selfRef: /\bsacrificed\b/i };
+  }
+  const sacN = SAC_COUNT_COST_RE.exec(p);
+  if (sacN) return { cost: { kind: "sacrifice", sacType: sacN[2].toLowerCase().replace(/s$/, ""), count: SMALL_NUM[sacN[1].toLowerCase()] }, selfRef: /\bsacrificed\b/i };
+  const life = PAYLIFE_COST_RE.exec(p);
+  if (life) return { cost: { kind: "payLife", amount: parseInt(life[1], 10) }, selfRef: null };
+  const disc = DISCARD_COST_RE.exec(p);
+  if (disc) return { cost: { kind: "discard", count: 1 }, selfRef: /\bdiscarded\b/i };
+  const discN = DISCARD_COUNT_COST_RE.exec(p);
+  if (discN) return { cost: { kind: "discard", count: SMALL_NUM[discN[1].toLowerCase()] }, selfRef: /\bdiscarded\b/i };
+  const exGy = EXILE_GY_COST_RE.exec(p);
+  if (exGy) return { cost: { kind: "exileFromGraveyard", cardType: exGy[1].toLowerCase() }, selfRef: /\bexiled\b/i };
+  return null;
+}
+
 export function extractAdditionalCosts(oracle) {
   const m = ADDITIONAL_COST_RE.exec(oracle);
   if (!m) return { costs: null, rest: oracle };
@@ -88,7 +126,21 @@ export function extractAdditionalCosts(oracle) {
   // ADDCOST-3: the paid card is EXILED, so an effect reading it back ("the exiled card") can't be fed the
   // cost details — the selfRef guard below drops such a card to LOW exactly like the sacrifice/discard forms.
   else if (exGy) { cost = { kind: "exileFromGraveyard", cardType: exGy[1].toLowerCase() }; selfRef = /\bexiled\b/i; }
-  else return { costs: null, rest: oracle };                   // unmodeled cost-type / count / compound → LOW
+  else {
+    // AC-OR — tried ONLY here, after every single-cost extractor has failed on the WHOLE phrase, so a vetted
+    // cost that itself contains " or " ("sacrifice an artifact or creature") is never split. Exactly two
+    // sides, both vetted, else null → LOW → Arbiter.
+    const parts = phrase.split(/\s+or\s+/i);
+    if (parts.length !== 2) return { costs: null, rest: oracle };
+    const a = parseOneAdditionalCost(parts[0]);
+    const b = parseOneAdditionalCost(parts[1]);
+    if (!a || !b) return { costs: null, rest: oracle };         // one unvetted side → the whole card parks
+    cost = { kind: "choice", options: [a.cost, b.cost] };
+    // The self-reference guard must consider BOTH sides: whichever is paid, an effect that reads the paid
+    // object back ("the sacrificed creature's power") still cannot be fed the cost details.
+    const refs = [a.selfRef, b.selfRef].filter(Boolean);
+    selfRef = refs.length ? new RegExp(refs.map((r) => r.source).join("|"), "i") : null;
+  }
   const rest = (oracle.slice(0, m.index) + oracle.slice(m.index + m[0].length)).trim();
   // Self-reference guard: an effect that reads the paid-cost object ("…damage equal to the sacrificed
   // creature's power", "the sacrificed creature", "for each card discarded") can't be fed the cost details —

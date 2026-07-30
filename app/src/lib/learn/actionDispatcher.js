@@ -308,7 +308,23 @@ function applyCastSpell(state, action) {
   // "Convoke" line to LOW → pendingArbiter while the classifier calls the card native (the Harmonized Crescendo
   // mismatch, Omnath breakage #4). No-op for any card without a cost-only keyword line.
   const program = action.program || parseEffectProgram({ ...castCard, oracle: stripCostOnlyKeywordLines(castCard?.oracle || "") });
-  for (const ac of program?.additionalCosts || []) {
+  // AC-OR (CR 601.2f) — when the cost was an OR, legalChoices stamped the OPTION this cast chose onto the
+  // action. Charge THAT, never `additionalCosts[0]`: the alternative is billing a player for the artifact
+  // sacrifice when they chose to discard. A non-choice cost is unaffected (no stamp → the program's own
+  // list, byte-identical). ⛔ The stamp is only ever trusted when the program really carries a choice cost,
+  // so a forged/stale action field cannot swap in a cheaper cost than the card prints.
+  const programCosts = program?.additionalCosts || [];
+  const isChoiceCost = programCosts[0]?.kind === "choice";
+  const chosenSpec = isChoiceCost && action.addCostSpec
+    && programCosts[0].options.some((o) => o.kind === action.addCostSpec.kind
+      && o.sacType === action.addCostSpec.sacType && o.count === action.addCostSpec.count
+      && o.amount === action.addCostSpec.amount && o.cardType === action.addCostSpec.cardType)
+    ? [action.addCostSpec] : null;
+  if (isChoiceCost && !chosenSpec) {
+    // A choice cost reached the dispatcher without a valid stamp — refuse rather than cast it cost-free.
+    throw new DispatcherError("Spell has an OR additional cost but no valid option was chosen", "ADDCOST_UNPAID");
+  }
+  for (const ac of chosenSpec || programCosts) {
     if (ac.kind === "sacrifice" && (ac.count ?? 1) > 1) {
       // AC-1 (count-of-N, CR 701.21a) — sacrifice EACH of the N frozen victims (battlefield→graveyard + dies
       // triggers). legalChoices froze exactly N legal ids on `sacCountIds`; a short/missing list is an upstream

@@ -1015,10 +1015,20 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // is paid exactly as printed and the unmodeled EFFECT still routes to the Arbiter, which is where a LOW
     // program was always going. Suppressing instead would have traded a wedge for a dead card in hand —
     // the failure mode the dead-card hunt exists to find.
-    const addCost = (program?.additionalCosts || [])[0] || null;
-    if (addCost) {
+    const addCost0 = (program?.additionalCosts || [])[0] || null;
+    if (addCost0) {
       const combos = expandCastChoices(state, playerId, program, colorsOf(card));
       if (combos.length === 0) continue;                  // a required effect target has no legal pick
+      // AC-OR (CR 601.2f) — an OR cost expands into one WAY-TO-PAY per option, which is exactly what this
+      // block already does for each victim/hand-card within a single cost kind. So the choice needs no new
+      // machinery here: loop the options and run the SAME branches, stamping the chosen spec on every action
+      // so the dispatcher charges THAT option and not option[0].
+      // ⛔ THE `continue`s INSIDE THE BRANCHES NOW MEAN "this option is unpayable, try the next" — which is
+      // correct for the OR, AND still correct for a single cost (the loop simply ends). The terminal
+      // `continue` after the loop is what keeps a card with NO payable option from falling through to the
+      // plain-cast branches below — i.e. it is the line standing between this feature and a FREE SPELL.
+      const payWays = addCost0.kind === "choice" ? addCost0.options : [addCost0];
+      for (const addCost of payWays) {
       const emit = (ch, extra) => actions.push({
         ...base,
         targets: ch.targets,
@@ -1026,6 +1036,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         needsTargets: ch.targets.length > 0,
         targetName: ch.targets.map(t => t.name).filter(Boolean).join(", ") || undefined,
         modeName: ch.label || undefined,
+        addCostSpec: addCost,                             // ⭐ which option this cast pays (dispatcher reads it)
         ...extra,
       });
       if (addCost.kind === "sacrifice" && (addCost.count ?? 1) > 1) {
@@ -1121,6 +1132,11 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       } else {
         continue; // unknown cost kind — programConfidence already gates unsupported kinds to low (defensive)
       }
+      }
+      // ⛔ THE FREE-SPELL GUARD. Unconditional: a card whose additional cost had NO payable option emitted
+      // nothing above, and must NOT reach the X / modal / plain-cast branches below — those would offer it
+      // with no cost attached at all. Reached for every additional-cost card, payable or not, exactly as
+      // before the OR loop existed.
       continue;
     }
 

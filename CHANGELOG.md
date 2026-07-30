@@ -11,6 +11,9 @@ summarizes the notable changes.
 ### Added
 - **Tamiyo's Safekeeping works.** Targeting one of your own artifacts, enchantments or lands really does
   give it hexproof and indestructible for the turn — it now survives a Disenchant or a wrath.
+- **"Sacrifice an artifact **or** discard a card" spells work.** Demand Answers, Bitter Triumph and Bone
+  Shards now offer you each way to pay and charge exactly the one you pick — and stay uncastable when you
+  can afford neither.
 - **Topiary Stomper respects its own restriction.** It is not offered as an attacker or blocker until
   you actually control seven lands, and the seventh land frees it the moment you play it.
 - **Cards that grant convoke, improvise or prowl now play natively.** Chief Engineer, Inspiring Statuary,

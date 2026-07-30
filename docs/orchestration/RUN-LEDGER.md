@@ -34,7 +34,7 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **BATCH IN FLIGHT: 24 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 27 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -468,6 +468,66 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **AC-OR: the OR-form additional cost. GAINED 3. Runtime first, tier second.**
+## ⚠️ AND I CORRECTED MY OWN "22 CARDS" TO **5** BEFORE WRITING A LINE OF CODE.
+
+Demand Answers (#413) · Bitter Triumph (#885) · Bone Shards (#2711). *Souls of the Lost and Minion Missile
+carry the same cost but park on their EFFECTS — so the honest slice was 3, not 5.*
+
+### ⚠️⚠️ THE SIZING CORRECTION — my own banked number was wrong by 4x
+Last slice I banked **"22 cards"**. That measurement swapped the WHOLE cost sentence for a vetted one, so it
+measured *"is the EFFECT modelled?"* — **not** *"are both sides of the OR vetted COSTS?"* Re-measured properly:
+**5 cards have both sides vetted**, 17 have one side vetted, 28 neither.
+⭐ *An attribution swap is only as good as the thing it holds constant. Mine held the effect constant and
+varied the cost — which answers a different question than the one I then wrote down. Caught by re-deriving
+the number from the actual vetted regexes before building, which took one probe and saved a 4x overclaim.*
+
+✅ **The 22 is real, but it is TWO phases:** `pay {N}` **mana** is the dominant unvetted side (30 occurrences).
+Adding a `payMana` cost kind is Phase B and would convert most of the 17 one-sided forms. **Phase A (this
+slice) builds the choice plumbing Phase B rides on.**
+
+### THE BUILD — no new machinery, and that is the design
+The cast-offer block ALREADY emits one action per way-to-pay *within* a kind (one per sacrifice victim, one
+per discardable card). **An OR is just MORE ways.** So: loop the options, run the SAME branches, stamp
+`addCostSpec` on each action; the dispatcher charges THAT spec instead of `additionalCosts[0]`.
+⭐ *This is better than the deterministic house-pick I designed last slice — the player gets the real choice.
+The design in the ledger was the right shape but the wrong mechanism; the code showed me a cheaper one.*
+
+⛔ **THE ORDERING THAT SAVES DEADLY DISPUTE:** the split on " or " is tried ONLY after every single-cost
+extractor has failed on the WHOLE phrase — because **"sacrifice an artifact or creature" is ONE vetted cost
+containing " or "**. Splitting first would have shredded a working card into two nonsense halves. Pinned.
+
+⛔ **THE FREE-SPELL GUARD:** the `continue` after the options loop is unconditional. A card with NO payable
+option emits nothing and must not fall through to the plain-cast branches — that one line is what stands
+between this feature and casting spells for free. Asserted: neither option payable → **0 casts offered**.
+
+⛔ The dispatcher only trusts `addCostSpec` when the program really carries a choice cost AND the stamp
+matches one of its options; otherwise it THROWS rather than cast cost-free.
+
+### ⭐ RUNTIME PROVEN PER OPTION — the money actually moves
+discard option → **life 20 (untouched), the card leaves hand**. payLife option → **life 20→17, hand
+untouched**. Demand Answers' sacrifice option really removes the artifact. Offer gating is independent:
+empty hand → only payLife · 2 life → only discard · neither → uncastable.
+
+**Mutation-checked: both PRE-SPECIFIED mutations seen to fail** — M1 payment skipped entirely (the free-spell
+FP; 4 runtime tests) · M2 hard-pick option A (5 tests, incl. the empty-hand case that motivated refusing it).
+*Pre-specifying the mutations in the design entry meant the gates were written before the code.*
+
+### ⚠️ AND THE LAND-COLOUR HARNESS TRAP BIT AGAIN, ONE SLICE AFTER I BANKED IT
+First run of the test file put Bitter Triumph ({1}{B}) and Demand Answers ({1}{R}) on the same Swamp board —
+Demand Answers read "not offered", which looks exactly like a broken feature. **Same mistake as the policy
+probe last slice, whose caveat I had written myself.** The fixture now derives the land from the card's pips
+and says so in a comment. *Knowing a trap is not the same as having a guard against it.*
+
+**Gates:** flip-diff **GAINED 3 / LOST 0**, no other tier moved (12947 → 12950 / 34245). 15 tests, 9 runtime.
+Suite **1043 files / 13,208 green**, lint 0, module graph loads, MUTANT clean. **Batch: 27 cards.**
+
+### ➡️ PHASE B, scoped: add a `payMana` additional-cost kind → unlocks most of the 17 one-sided ORs.
+The plumbing is done; Phase B is a cost-kind + an affordability re-check (the extra mana must be folded into
+the cast's cost BEFORE `canAfford`, else we offer a cast we cannot complete).
 
 ---
 
