@@ -111,6 +111,60 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## ⛔ REFUSED + REVERTED 2026-07-30 — **STEP-WINDOW ACTIVATION. Built, measured GAINED 13, reverted anyway.**
+
+`Activate only during your upkeep.` (CR 602.5a) and its siblings — 22 corpus carriers, ~13 otherwise complete:
+Augur il-Vec · Augur of Skulls · Aven Augur · Black Carriage · Colossus of Sardia · Dwarven Weaponsmith ·
+Emberwilde Augur · Gate to Phyrexia · Hell's Caretaker · Life Chisel · Llanowar Augur · Svyelunite Priest ·
+Trade Caravan.
+
+**It worked. Flip-diff GAINED 13 / LOST 0. It still had to go back.**
+
+**⛔ WHY: THE OFFER LANE IS MAIN-STEP-ONLY, SO THE WINDOWS ARE DISJOINT.**
+`legalChoices.actionsActivateAbility` opens with `if (state.step !== "main") return []`. An ability gated to
+the upkeep can therefore never be offered, so crediting those cards would be a **METRIC-ONLY gain** — the
+classifier saying a card plays while the runtime can never activate it. Same divergence the
+classifier⇄runtime parity slices existed to kill, and the same call `precombatOnlyActivation.test.js` already
+made for the opponent's-turn form: *"the engine's window and the card's are DISJOINT — it could never legally
+be offered at all, so it stays parked rather than being credited into a window the card forbids."*
+
+**⭐ HOW IT WAS CAUGHT: A FAILED POSITIVE CONTROL.** The runtime test asserted the ability IS offered during
+the controller's own upkeep and got **zero**. Every parse-side test passed. Without that one positive case
+this ships 13 unplayable cards and the flip-diff congratulates you for it. **RULE 1b earns its keep on the
+turn you would rather not run it.**
+
+**✅ THE TURN MODEL IS NOT THE BLOCKER**, which is what makes this a scoped build rather than an impossibility:
+`gameEngine.NO_PRIORITY_STEPS` is exactly `{untap, cleanup}`, so a player genuinely holds priority in their
+upkeep. The main-step return is an **enumeration shortcut**, not a rules requirement.
+
+**⛔ THE PREREQUISITE, and it is why this is not a one-line widening.** Several shapes in that lane are
+sorcery-speed BY RULE and carry no flag — they free-ride on the blanket return. **EQUIP is the clearest
+(CR 702.6b): `isEquipAbility` has no timing gate anywhere in `actionsActivateAbility`.** Loosening the early
+return without first giving equip (and every other by-rule sorcery-speed shape there) an explicit gate would
+make the engine **more permissive than the rules** — the forbidden direction. Verified by reading the lane,
+and pinned in a test that asserts equip carries `isEquipAbility` with no `sorceryOnly`.
+
+**THE ORDER OF WORK, banked for whoever takes it:**
+1. Give the lane's by-rule sorcery-speed free-riders explicit timing gates (equip first; audit plot/crew/
+   level-up — level-up already has `sorceryOnly`).
+2. Replace the blanket `step !== "main"` return with a per-ability window decision, defaulting to
+   own-turn+main so an ungated ability is byte-identical.
+3. THEN land the step rider. The parse side is straightforward and was proven: a `STEP_RIDER` regex, an
+   ALLOWLIST of checkable windows (`your upkeep` · `an opponent's upkeep` · `the declare attackers step` ·
+   `the declare blockers step` · `your turn`), and — the part worth keeping — the compound forms
+   (`"…and only if <cond>"`, `"…and only once each turn"`) decompose by REWRITING the tail into a standalone
+   `Activate only ….` sentence, which the incumbent `CONDITION_RIDER` and `LIMIT_RIDER` peels already match.
+   No second condition parser, no second limit parser.
+
+**Left behind:** `stepWindowActivationRefused.test.js` — 5 tests pinning the refusal, the zero-offer
+measurement, the RULE 1b positive control that makes the zero meaningful, and the equip dependency. So the
+gap is a decision on the record, not an oversight, and nobody re-adds it naively.
+
+**Batch unchanged at 45 cards.** Suite **991 files / 12,625 green**, lint 0, MUTANT clean, working tree
+reverted and confirmed by `git diff` (empty), not by the marker sweep.
+
+---
+
 ## 🏦 BANKED (unreleased) 2026-07-30 — **METRIC + SCOPE READERS. GAINED 22, LOST 0.**
 
 Battle of Wits · Butterbur, Bree Innkeeper · Dust Stalker · Emperor Crocodile · Feudkiller's Verdict ·
