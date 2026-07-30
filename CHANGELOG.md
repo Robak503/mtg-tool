@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Cards that say "that creature" now follow through.** Seventeen of them, including Rile, Eutropia the
+  Twice-Favored, and eight Equipment that attach and then grant a keyword (Coral Sword, Squire's Lightblade,
+  Quick-Draw Dagger). The bonus lands on the creature the spell just acted on, and only that one.
 - **Hexing Squelcher and Hag of Mage's Doom now work.** The ward they hand out to your other creatures is
   real: an opponent targeting one of them pays 2 life or the spell is countered.
 

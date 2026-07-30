@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 2 cards since v0.149.20** (granted Ward—Pay-life +2) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 19 cards since v0.149.20** (granted Ward—Pay-life +2, bound-referent grants +17) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,56 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 3) 2026-07-30 — **BOUND-REFERENT KEYWORD GRANTS. GAINED 17, LOST 0.** The scoped build shipped.
+
+Rile · Justiciar's Portal · Battlefield Promotion · Arbor Armament · Assure // Assemble · Eutropia the
+Twice-Favored · Captain America · Foggy Nelson · and **eight Equipment** with an attach-then-grant ETB
+(Coral Sword, Squire's Lightblade, Quick-Draw Dagger, Twin Blades, Barbed Bloodletter, Bladed Battle-Fan,
+Hidden Footblade, Illvoi Light Jammer, Stolen Stark Tech).
+
+**Predicted ≤ 33 (scope A's upper bound), measured 17** — a 52% conversion, the safe direction for a bound to
+be wrong. Rile, Coral Sword and Eutropia audited by hand against bundled oracle text before the number was
+believed. Flip-diff **GAINED 17 / LOST 0**.
+
+**The design in one line:** the atom carries **no `targetType`**, so it never enumerates a target; at
+resolution it reads the PREVIOUS atom's target slice. The parser's long-standing refusal of unbound referents
+is preserved **structurally** rather than by refusal.
+
+### ⚠️ THREE MUTATIONS SURVIVED THE FIRST PASS — all three were real defects, none a nuisance
+| mutation | what it exposed |
+|---|---|
+| *delete the binding entirely* | **My runtime test passed UNTAGGED targets.** The real cast path tags each target with the atom that chose it (`targeting.expandCastChoices`); untagged, `targetsForAtom` hands EVERY atom ALL targets — so the referent atom got the creature for free and the entire feature could be deleted with the file still green. |
+| *bind to every target* | **Indistinguishable with ONE target on the stack.** Needed a three-atom case where a later atom targets independently. Without it, "bind to the previous atom" and "bind to everything" are the same test. |
+| *ignore the index-0 case* | The explicit `i === 0` guard was **dead** — `atoms[-1]` is undefined, so the predecessor check already covered it. One check now, not two. **Second dead-line find of the night** (see the ward slice). |
+
+### ⭐ AND THEN THE FULL SUITE CAUGHT WHAT THE TARGETED TESTS COULD NOT
+Five failures across three files. The important pair: `parser.test.js`'s merge gate asserts **"low confidence
+AND ZERO atoms"**, and my `programConfidence` check only lowered the confidence — **the atom was still there**.
+Moved the check to **assembly**, where an unbindable referent is treated as an unparsed clause and the whole
+program collapses to zero atoms, exactly as the `exile-if-dies` rider directly above it already did.
+*A gate that lowers a verdict is not the same as a gate that removes the evidence.*
+
+**Two CREED pins GRADUATED and were re-pointed, never deleted** (`equipAttach.test.js`) — their criterion was
+*"the UEOT-grant rider is unmodeled"*, which stopped being true. **Each keeps a live negative**: an unmodeled
+grant word (`protection from everything`), and a referent with no antecedent. ⚠️ One of them was carrying a
+**hand-typed approximation of Squire's Lightblade** (no Flash line, wrong P/T and equip cost) that classifies
+to a different tier than the real card — harmless while the assertion was `body-only`, wrong the moment the
+card flipped. Corrected to the bundled text.
+
+Also unescaped a literal `\u2014` that an earlier patch script wrote into seven JS comments (the one inside
+`staticAbilityParser`'s REGEX literal is correct JS and was deliberately left).
+
+**Gates:** 10 new tests; five mutations seen to fail. Suite **1006 files / 12,813 green**, lint 0, MUTANT clean.
+
+**Shelf: `cdh` unchanged at 86/100** — none of the 17 is a `cdh` card. This slice was corpus work taken because
+the scoped measurement said it was the best remaining vein, not shelf work. **Batch 3: 19 cards.**
+
+**Next in this family (measured, not guessed):** scope B adds `gets +N/+N until end of turn` for **+1** card;
+scope C adds `can't block this turn` / `must be blocked this turn if able` for **+7**. Scope C is the
+worthwhile follow-up; B alone is not.
 
 ---
 
