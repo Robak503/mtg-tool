@@ -33,6 +33,7 @@
  */
 
 import { moveCardToZone, findPermanent, logEvent } from "../../gameState.js";
+import { checkDiscardTriggers } from "../../triggers.js"; // TRIG-DISCARD (CR 701.9a) — a connive discard is a discard
 import { applyDrawEffect } from "../../spellEffects.js"; // THE shared draw path — fires the card-drawn/second-draw watchers (CR 121.2; the hand.js handCardMatches edge, cycle-safe)
 import { setPendingDiscardChoice } from "../../pendingChoice.js";
 import { isLandCard } from "./shared.js";
@@ -86,6 +87,7 @@ export function applyConnive(state, atom, ctx) {
     const c = hand[0];
     next = moveCardToZone(next, { playerId: controller, fromZone: "hand", toZone: "graveyard", cardId: c.id });
     next = logEvent(next, { kind: "spell-effect", effect: "discard", controller, discarded: 1, forced: true });
+    next = checkDiscardTriggers(next, controller, 1);
     if (!isLandCard(c)) next = applyConniveCounter(next, subjectId, controller);
     return next;
   }

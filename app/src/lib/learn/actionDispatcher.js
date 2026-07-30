@@ -67,7 +67,7 @@ import { landDropAllowance } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shar
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword, permanentIsCreature, addContinuousEffect } from "./layers.js";
 import { parseCrewCost } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch
-import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers } from "./triggers.js";
+import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers } from "./triggers.js";
 import { setPendingSoftCounterChoice } from "./pendingChoice.js";
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
 import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js";
@@ -357,6 +357,8 @@ function applyCastSpell(state, action) {
           throw new DispatcherError(`Discard card ${cid} not in hand`, "CARD_NOT_IN_HAND");
         }
         working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: cid });
+        // A discard paid as a COST is still a discard (CR 701.9a) — Liliana's Caress does not care why.
+        checkDiscardTriggers(working, action.playerId, 1);
       }
     } else if (ac.kind === "discard") {
       if (!action.discardCardId) throw new DispatcherError("Spell requires an additional discard cost but no card was chosen", "ADDCOST_UNPAID");
@@ -364,6 +366,7 @@ function applyCastSpell(state, action) {
         throw new DispatcherError(`Discard card ${action.discardCardId} not in hand`, "CARD_NOT_IN_HAND");
       }
       working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.discardCardId });
+      checkDiscardTriggers(working, action.playerId, 1);
     } else if (ac.kind === "exileFromGraveyard") {
       // ADDCOST-3 (CR 601.2h) — the chosen graveyard card is EXILED as the cost is paid. legalChoices froze
       // the id on the action; re-check membership here so a stale id can never exile something else.
@@ -812,6 +815,7 @@ function applyActivateGyRecursion(state, action) {
     const inHand = (working.players[action.playerId]?.hand || []).some((c) => c.id === did);
     if (!inHand) throw new DispatcherError(`Discard victim ${did} not in hand`, "COST_UNPAYABLE");
     working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: did });
+    checkDiscardTriggers(working, action.playerId, 1);
   }
   // GR-2 — the exile-from-graveyard cost rider. Same re-verification posture as the discard loop above:
   // the victim must still be in the graveyard at dispatch, and it must not be the card being returned.
@@ -1014,6 +1018,7 @@ function applyActivateAbility(state, action) {
     const inHand = (working.players[action.playerId]?.hand || []).some((c) => c.id === action.discardCardId);
     if (!inHand) throw new DispatcherError(`Discard-cost card ${action.discardCardId} not in hand`, "CARD_NOT_FOUND");
     working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.discardCardId });
+    checkDiscardTriggers(working, action.playerId, 1);
   }
   if (action.sacSelf) working = sacrificePermanentForCost(working, action.playerId, perm);
   if (action.sacCreatureId) {
@@ -1185,6 +1190,7 @@ function applyCycle(state, action) {
 
   // Pay the DISCARD part of the cost — the card itself, hand → graveyard.
   working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.cardId });
+  checkDiscardTriggers(working, action.playerId, 1);
 
   // Put "Draw a card" on the stack — resolves via the EffectProgram interpreter (a draw-1 atom).
   const program = { version: 1, source: "cycling", confidence: "high", structure: "sequence", atoms: [{ op: "draw", amount: 1, targetType: null }], modal: null, xSpell: false, unparsedTail: null };

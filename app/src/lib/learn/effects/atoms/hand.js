@@ -3,6 +3,7 @@
  */
 
 import { handCardMatches } from "../../spellEffects.js";
+import { checkDiscardTriggers } from "../../triggers.js"; // TRIG-DISCARD (CR 701.9a) — fired at every discard site
 import { logEvent, opponentsOf, moveCardToZone, drawCards } from "../../gameState.js";
 import { setPendingHandDiscardChoice, setPendingDiscardChoice, setPendingImprintChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount } from "./shared.js";
@@ -92,6 +93,7 @@ export function advanceDiscardChain(state, { queue, sourceName = null }) {
         next = moveCardToZone(next, { playerId: head.playerId, fromZone: "hand", toZone: "graveyard", cardId: c.id });
       }
       next = logEvent(next, { kind: "spell-effect", effect: "discard", controller: head.playerId, discarded: hand.length, forced: true });
+      next = checkDiscardTriggers(next, head.playerId, hand.length);   // one event per card (CR 603.2)
       q = q.slice(1);
       continue;
     }
@@ -132,6 +134,7 @@ function pitchRandomDiscard(state, { discarders, amount, sourceName = null }) {
       next = moveCardToZone(next, { playerId: pid, fromZone: "hand", toZone: "graveyard", cardId: chosen.id });
       // Log names ONLY the discarded card (public in the graveyard) — never the rest of the hand.
       next = logEvent(next, { kind: "spell-effect", effect: "discard", controller: pid, discarded: 1, atRandom: true, card: chosen.name, sourceName });
+      next = checkDiscardTriggers(next, pid, 1);   // a RANDOM discard is still a discard (CR 701.9b)
       remaining -= 1;
     }
   }

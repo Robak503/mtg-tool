@@ -1585,6 +1585,12 @@ function classifyCondition(condRaw, cardName, cardType) {
   // filtered variant leaves residue → null → Arbiter (SAFE false-negative). scope:"opponentDraw" matches in
   // scopeMatches like "milled"/"you" (returns true — the whose:"opponent" gate lives in the dedicated checker).
   if (/^an opponent draws a card$/.test(c)) return { event: "cardDrawn", scope: "opponentDraw", whose: "opponent" };
+  // ===== OPPONENT DISCARD (CR 701.9a) ===== "Whenever an opponent discards a card, …" — Liliana's Caress,
+  // Raiders' Wake, Fell Specter, Megrim, Sangromancer, Geth's Grimoire, Tourach, Abyssal Nocturnus. The
+  // structural twin of the opponentDraw arm directly above, and fired the same way: checkDiscardTriggers
+  // scans the DISCARDER's opponents' watchers, so the whose gate is the scan itself. Whole-clause anchored —
+  // a filtered variant ("an opponent discards a nonland card") leaves residue → null → Arbiter (SAFE FN).
+  if (/^an opponent discards a card$/.test(c)) return { event: "discarded", scope: "opponentDiscard", whose: "opponent" };
   // TRIG-DRAW2 — "draw your second card each turn" (the draw-doubler payoff). Anchored to the BARE
   // second-card form (each/this turn); a different ordinal ("first/third"), scaled, or rider variant stays
   // UNDETECTED → Arbiter. Same whose:"any" + scan-only-the-drawer as cardDrawn; fires ONCE when the draw
@@ -3583,6 +3589,18 @@ export function detectTriggers(card) {
         // clause (a SPELL anaphor / a non-enters trigger never reaches here), CREED-safe. All-or-nothing: any
         // clause the anchored patterns can't rewrite keeps its raw "it" → the parser fails HIGH → body-only.
         effectClause = rewriteEtbEnteringPronoun(effectClause);
+      } else if (cls.event === "discarded" && /\bthat player\b/i.test(effectClause)) {
+        // ===== DISCARDING-PLAYER SENTINEL ===== "Whenever an opponent discards a card, THAT PLAYER loses 2
+        // life" (Liliana's Caress, Raiders' Wake, Fell Specter). "That player" is the one who just discarded
+        // — ctx.discardingPlayerId, threaded by checkDiscardTriggers — and NOT the ability's controller, who
+        // is the discarder's opponent. Rewrite to the sentinel the life parser binds to who:"discardingPlayer",
+        // exactly as the upkeep-player arm does for Seizan's identically-worded clause.
+        //
+        // ⛔ The bare words "that player" are corpus-AMBIGUOUS — they mean the upkeep player, the damaged
+        // player, the milled player or the discarder depending entirely on the event overhead. That is why
+        // this is an event-gated rewrite and not a clause matcher, and why triggerRouting pins the resulting
+        // referent back to this same event.
+        effectClause = effectClause.replace(/\bthat player\b/gi, "the discarding player");
       } else if (cls.scope === "self" && ITS_POWER_LIFEGAIN_RE.test(effectClause)
                  && (cls.event === "dies" || cls.event === "etb")) {
         // ===== "ITS POWER" LIFEGAIN ===== "you gain life equal to its power" — four DIES carriers (Bottle
@@ -4442,6 +4460,13 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // is a library/hand object). The whose:"opponent" gate (the drawer must be an opponent of the source's
       // controller) is applied in checkCardDrawnTriggers, which scans the drawer's opponents' watchers directly.
       // Always matches here (like "milled"/"you"): the event already proved a draw happened.
+      return true;
+    case "opponentDiscard":
+      // TRIG-DISCARD (CR 701.9a) — a discard event has NO triggering PERMANENT (the discarded card is a
+      // hand/graveyard object), so there is nothing here to match against. The whose:"opponent" gate — the
+      // discarder must be an opponent of the source's controller — is applied in checkDiscardTriggers, which
+      // scans the DISCARDER's opponents' watchers directly. Always matches here, exactly like opponentDraw
+      // above: reaching this point already proves a discard happened.
       return true;
     case "lifeLost":
       // LIFE-LOSS-ON-EVENT (Mindcrank, SHELF M3) — a life-loss event has NO triggering permanent; the
@@ -6093,6 +6118,35 @@ export function checkCardDrawnTriggers(state, drawingPlayerId, count = 1) {
     for (const perm of triggerSourcesOf(state, oppId)) {
       for (let i = 0; i < count; i++) {
         fired = fired.concat(triggersForEvent(state, { event: "cardDrawn", sourcePermanent: perm, triggeringContext: { drawingPlayerId }, scopeFilter: (scope) => scope === "opponentDraw" }));
+      }
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * TRIG-DISCARD (CR 701.9a — "To discard a card, move it from its owner's hand to that player's graveyard").
+ * Enqueue "Whenever an opponent discards a card" watchers for the player who just discarded.
+ *
+ * Scans each OPPONENT-OF-THE-DISCARDER's sources — the opponent gate IS the scan, mirroring the Smothering
+ * Tithe opponentDraw path and checkMilledTriggers. The discarder's own permanents are never scanned (a player
+ * is not their own opponent), so a self-discard can't fire its own controller's watcher.
+ *
+ * ⚠️ ONE FIRE PER CARD (CR 603.2): discarding two cards is two events, so a two-card discard gives Liliana's
+ * Caress two separate triggers, not one doubled one. Callers pass the number of cards ACTUALLY discarded —
+ * never the number requested — so a discard that ran out of hand fires fewer.
+ *
+ * discardingPlayerId is the event-specific ctx key the who:"discardingPlayer" payoff reads; named distinctly
+ * (never a generic `player`) so triggerRouting's referent gate can pin it to THIS event.
+ */
+export function checkDiscardTriggers(state, discardingPlayerId, count = 1) {
+  if (!discardingPlayerId || !(count > 0) || !state.players?.[discardingPlayerId]) return state;
+  let fired = [];
+  for (const oppId of opponentsOf(state, discardingPlayerId)) {
+    for (const perm of triggerSourcesOf(state, oppId)) {
+      for (let i = 0; i < count; i++) {
+        fired = fired.concat(triggersForEvent(state, { event: "discarded", sourcePermanent: perm, triggeringContext: { discardingPlayerId } }));
       }
     }
   }

@@ -29,6 +29,7 @@ import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): t
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents } from "../gameState.js";
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
+import { checkDiscardTriggers } from "../triggers.js"; // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event
 import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the shared board-condition readers; runProgram → interveningIf → gameState is a leaf edge (no cycle)
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
 
@@ -414,6 +415,10 @@ export function resolveHandDiscardChoice(state, cardId) {
     next = moveCardToZone(next, { playerId: pc.victim, fromZone: "hand", toZone: "graveyard", cardId });
   }
   next = logEvent(next, { kind: "spell-effect", effect: "discard-chosen", controller: pc.controller, victim: pc.victim, discarded: !!inHand });
+  // TRIG-DISCARD across the PAUSE: the discard happens here, at the settle — not when the chain started —
+  // so this is where the event fires. Only when a card actually left the hand (a stale settle discards
+  // nothing and must fire nothing).
+  if (inHand) next = checkDiscardTriggers(next, pc.victim, 1);
   // The CASTER can be eliminated between the pause and the settle (CR 800.4a) — the riders that resume
   // are THEIRS (Thoughtseize "lose 2 life"), so bail without resuming if they're gone (mirrors the
   // resolveScryChoice / resolveOptionalChoice guard; the victim's discard above already applied). Belt-
@@ -787,6 +792,7 @@ export function resolveDiscardChoice(state, cardId) {
       next = moveCardToZone(next, { playerId: discarder, fromZone: "hand", toZone: "graveyard", cardId });
     }
     next = logEvent(next, { kind: "spell-effect", effect: "discard", controller: discarder, discarded: inHand ? 1 : 0 });
+    if (inHand) next = checkDiscardTriggers(next, discarder, 1);   // fires per settled card, across the pause
     // CONNIVE rider (BLITZ EK-1, CR 701.50a): a NONLAND card discarded this way puts a +1/+1 counter on
     // the conniving permanent — routed through applyConniveCounter (doublers CR 616 + counters-placed
     // watchers CR 122.6 compose; the permanent having left the battlefield is a clean no-op). A LAND

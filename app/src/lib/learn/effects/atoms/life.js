@@ -167,6 +167,14 @@ export function applyLoseLife(state, atom, ctx) {
     // no-op, never a fabricated loss or a wrong recipient. Mirrors the damagedPlayer referent resolvers.
     const pid = ctx.defenderId;
     if (pid && next.players[pid]) next = loseLife(next, { playerId: pid, amount });
+  } else if (atom.who === "discardingPlayer") {
+    // DISCARDING-PLAYER (CR 701.9a) — the player who just discarded, ctx.discardingPlayerId (threaded by
+    // triggers.checkDiscardTriggers for the DISCARDED event). Absent (a spell / non-discard trigger) → a
+    // clean no-op, never a fabricated loss or a wrong recipient. Mirrors the defendingPlayer/upkeepPlayer
+    // referent resolvers, and matters more than most: the recipient here is the ability controller's
+    // OPPONENT, so a fallback to ctx.controller would drain exactly the wrong seat.
+    const pid = ctx.discardingPlayerId;
+    if (pid && next.players[pid]) next = loseLife(next, { playerId: pid, amount });
   } else if (atom.who === "upkeepPlayer") {
     // UPKEEP-PLAYER (BLITZ TR-2 — Seizan, Perverter of Truth "that player loses 2 life …"): the player
     // whose upkeep it is, ctx.upkeepPlayerId (threaded by checkStepTriggers at every upkeep-step entry).
@@ -287,6 +295,13 @@ export function lifeClauseParser(clause) {
   // it); who:"upkeepPlayer" reads ctx.upkeepPlayerId, and the triggerRouting referent gate pins the atom to
   // the upkeep event (any other event leaves the referent unset → clean no-op). NON-targeted. FIXED-N only —
   // a scaled/half-life form ("loses half their life" — Havoc Festival) fails the `$` anchor → Arbiter.
+  // ===== DISCARDING-PLAYER LIFE LOSS (CR 701.9a) ===== "the discarding player loses N life" — the sentinel
+  // detectTriggers rewrites "that player loses N life" to on the `discarded` event (Liliana's Caress, Raiders'
+  // Wake, Fell Specter). Structural twin of the upkeep-player arm below; only the ctx key differs.
+  // who:"discardingPlayer" reads ctx.discardingPlayerId, and triggerRouting's referent gate pins the atom to
+  // the discarded event so no other event can read it absent (→ 0 → a silently dropped clause).
+  m = t.match(/^the discarding player loses (\d+) life$/);
+  if (m) return { op: "lose-life", who: "discardingPlayer", amount: parseInt(m[1], 10), targetType: null };
   m = t.match(/^the upkeep player loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "upkeepPlayer", targetType: null };
   return null;

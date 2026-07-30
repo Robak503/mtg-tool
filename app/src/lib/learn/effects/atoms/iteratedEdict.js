@@ -31,6 +31,7 @@
  */
 
 import { logEvent, opponentsOf, moveCardToZone } from "../../gameState.js";
+import { checkDiscardTriggers } from "../../triggers.js"; // TRIG-DISCARD (CR 701.9a) — an edict discard is a discard
 import { setPendingEdictModeChoice } from "../../pendingChoice.js";
 import { sacrificeCreatureEffect } from "./removal.js";
 import { isLandCard } from "./shared.js";
@@ -144,7 +145,7 @@ export function applyEdictMode(state, { playerId, mode, permId = null, cardId = 
     const inHand = cardId && (state.players[playerId].hand || []).some((c) => c.id === cardId);
     if (inHand) {
       const next = moveCardToZone(state, { playerId, fromZone: "hand", toZone: "graveyard", cardId });
-      return logEvent(next, { kind: "spell-effect", effect: "iterated-edict-discard", controller: playerId, discarded: 1 });
+      return checkDiscardTriggers(logEvent(next, { kind: "spell-effect", effect: "iterated-edict-discard", controller: playerId, discarded: 1 }), playerId, 1);
     }
     return edictLoseLife(state, playerId);
   }
