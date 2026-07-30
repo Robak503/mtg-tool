@@ -164,6 +164,35 @@ Predicted 7, measured 7. Flip-diff **GAINED 7 / LOST 0**. Suite **1004 files / 1
 
 ---
 
+## 🐛 FIXED 2026-07-30 (post-tag) — **THE LIFEGAIN TRIGGER READ THE OFFERED AMOUNT. My bug, two commits old.**
+
+**⭐ THE CODEBASE ALREADY CARRIED THE ANSWER AND I DIDN'T READ IT.**  has done this
+correctly for as long as counter-doubling has existed, with the rule written in its own comment: *"Mirror the
+ACTUAL placed amount for the watcher."* I wrote a new arm of the SAME family and skipped the step. The token
+arm is right too (it iterates the actually-minted ids). **Life gain was the only arm that got it wrong — so
+there is no wider bug**, which I verified rather than assumed.
+
+**What broke:** the replacement made  apply a different number than the caller asked for, and **nine
+call sites** hand  the amount the EFFECT OFFERED. Identical numbers until this morning.
+Under a Rhox Faithmender a *"whenever you gain life"* trigger saw **4** where the player gained **8**, so any
+*"for each 1 life you gained"* rider counted half. Direction was UNDER-report — FN-safe, nothing fabricated —
+but wrong.
+
+**Fixed centrally in , not at the nine sites**, so a call site that never learns about
+replacements stays correct and the fix cannot drift as sites are added. Reading the replacement off the
+POST-gain state is exact, not approximate:  moves no permanents, so the sources are identical either
+side of the gain it just applied.
+
+**⭐ HOW IT WAS FOUND, and the transferable part:** I went to confirm a claim **I had already written into a
+code comment and a commit message** — that lifelink routes through . It does ().
+**The line immediately next to the one I was verifying was the bug.** Verifying a claim you already made, and
+expect to be right about, is worth doing — the cost is one grep and it caught a shipped defect.
+
+⚠️ **It shipped in v0.149.20**, which was already tagged and building when I found it. Rides to the next
+release; a tag is not re-cut mid-build.
+
+---
+
 ## ⛔ REFUSED 2026-07-30 — **THE COLOSSUS GRAVEYARD-SHUFFLE. 4 attributable, but 15 chokepoints.**
 
 *"If ~ would be put into a graveyard from anywhere, reveal ~ and shuffle it into its owner's library instead"* —
