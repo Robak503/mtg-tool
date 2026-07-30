@@ -77,6 +77,31 @@ export function applyGainLife(state, atom, ctx) {
  * leaves residue, fails the `$`, and stays on the Arbiter — the same refusal every sibling player-payload
  * arm makes, and for the same reason: a recipient the engine can't restrict exactly is not a recipient.
  */
+/**
+ * INVESTIGATE for a NAMED player (CR 701.17a) — "Target player investigates." (Panther Pounce) and, via
+ * the bound-referent arm, "Its controller investigates." (Fateful Absence).
+ *
+ * ⚠️ THE RECIPIENT FIELD IS `whoCreates`, NOT `who`. The Clue mint reads `whoCreates:"target"` off
+ * ctx.targets (CR 111.2 — an effect may name a creator other than its controller). A first cut of this arm
+ * emitted `who`, which the mint does not read, so every Clue went to the CASTER — the card classified
+ * native while doing the wrong thing. The pre-existing actInvestigate pins caught it by name
+ * ("a 3rd-person (wrong-owner) investigate is NOT native"), which is what those pins are for.
+ *
+ * ⛔ ONLY the single-target forms. `whoCreates` supports "target" or the controller and nothing else, so
+ * "each opponent investigates" has no recipient the mint can honour and stays on the Arbiter — refusing is
+ * the only honest option when the runtime cannot express the printed recipient.
+ *
+ * ⛔ "<who> shuffles their library" is deliberately NOT here. applyShuffle ignores any recipient and always
+ * shuffles ctx.controller's library, so a target form would shuffle the CASTER's deck. That needs a
+ * resolver dispatch, not a parse arm; measured worth 2 cards (Soldier of Fortune, Boggart Forager).
+ */
+export function playerInvestigateClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[\u2019]/g, "'").replace(/\.$/, "").trim();
+  const m = t.match(/^(target player|target opponent) investigates$/);
+  if (!m) return null;
+  return { op: "create-named-token", token: "clue", count: 1, whoCreates: "target", targetType: m[1] === "target opponent" ? "opponent" : "player" };
+}
+
 export function poisonClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[\u2019]/g, "'").replace(/\.$/, "").trim();
   const m = t.match(/^(each opponent|each player|target player|target opponent|you) gets? (a|an|one|two|three|\d+) poison counters?$/);

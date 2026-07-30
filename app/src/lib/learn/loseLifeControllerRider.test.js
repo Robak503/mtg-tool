@@ -79,7 +79,7 @@ describe("⛔ CREED — the refusals that must survive", () => {
   });
 
   it("⛔ an UNMODELED rider on the same lead still refuses — the fold is not a licence", () => {
-    low("Destroy target creature. Its controller investigates."); // RE-POINTED 2026-07-30: the DISCARD rider is modeled now (player-referent slice), so the stand-in moved again — `investigates` is unmodeled even for an explicit "Target player investigates." The pin is the UNMODELED-RIDER refusal, not this rider.
+    low("Destroy target creature. Its controller reveals their hand."); // RE-POINTED 2026-07-30: the DISCARD rider is modeled now (player-referent slice), so the stand-in moved again — `investigates` is unmodeled even for an explicit "Target player investigates." The pin is the UNMODELED-RIDER refusal, not this rider. // RE-POINTED 2026-07-30 (final): `investigates` is modeled now, so the stand-in moved to `reveals their hand` — 126 corpus carriers but ZERO attributable, so nothing will ever flip by building it. A stand-in with no attribution is permanent.
     low("Counter target spell. Its controller sacrifices another creature.");
   });
 });

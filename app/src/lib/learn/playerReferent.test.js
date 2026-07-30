@@ -48,9 +48,10 @@ describe("player referent — parse", () => {
   });
 
   it("⛔ a payload unmodeled for an EXPLICIT target player is refused here too", () => {
-    // "Target player investigates." does not parse either, so inventing it for the referent would credit
-    // a card for an effect nothing resolves.
-    expect(classifyCard(sorcery("Destroy target creature. Its controller investigates."))).toBe("arbiter-spell");
+    // ⚠️ The example moved 2026-07-30: `investigates` became modeled (whoCreates), so it stopped being an
+    // unmodeled payload. `gets a rad counter` has no target-player form, which is what this pin is about —
+    // a payload unmodeled for an EXPLICIT target player must not be invented for the referent.
+    expect(classifyCard(sorcery("Destroy target creature. Its controller mills their library."))).toBe("arbiter-spell");
   });
 
   it("⛔ refuses a referent with no antecedent", () => {

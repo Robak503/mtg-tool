@@ -1349,17 +1349,21 @@ export function pumpClauseParser(clause) {
     // body-only. The ORDERING RULE says gate a widening behind the prior path's failure so "no regressions"
     // is STRUCTURAL; removing the overlapping alternative outright is the strongest form of that, because
     // then no ordering can reintroduce it. Only "its controller" \u2014 which no other parser claims \u2014 is read here.
-    const pr = t.match(/^(its controller) (?:(discards) a card|(loses|gains) (\d+) life|(draws) a card|(gets) a poison counter)$/);
+    const pr = t.match(/^(its controller) (?:(discards) a card|(loses|gains) (\d+) life|(draws) a card|(gets) a poison counter|(investigates))$/);
     if (pr) {
       const from = "controller";
-      const base = pr[2] ? { op: "discard", amount: 1 }
-        : pr[3] === "loses" ? { op: "lose-life", amount: parseInt(pr[4], 10) }
-        : pr[3] === "gains" ? { op: "gain-life", amount: parseInt(pr[4], 10) }
-        : pr[5] === "draws" ? { op: "draw", amount: 1 }
-        // POISON (Pistus Strike, CR 122) — the PROJECTED player gets the counter. applyAddPoison's
-        // who:"target" branch reads the same projected slice every other payload in this arm does, so the
-        // poison payload needed no runtime work beyond existing.
-        : { op: "add-poison", amount: 1 };
+      // ⚠️ EVERY branch tests its OWN capture group and the chain ends in null — no catch-all. An earlier
+      // draft let poison be the fallthrough, so when `investigates` was added as a new group the index
+      // shifted, its test read the WRONG group, and investigate silently resolved as a poison counter.
+      // A ternary chain whose last arm is a payload rather than null turns every future group into that bug.
+      const base = pr[2] ? { op: "discard", amount: 1 }                              // discards a card
+        : pr[3] === "loses" ? { op: "lose-life", amount: parseInt(pr[4], 10) }       // loses N life
+        : pr[3] === "gains" ? { op: "gain-life", amount: parseInt(pr[4], 10) }       // gains N life
+        : pr[5] ? { op: "draw", amount: 1 }                                          // draws a card
+        : pr[6] ? { op: "add-poison", amount: 1 }                                    // gets a poison counter
+        : pr[7] ? { op: "create-named-token", token: "clue", count: 1, whoCreates: "target" }  // investigates — whoCreates, not who: the mint reads THAT field off the projected player
+        : null;
+      if (!base) return null;
       return { ...base, who: "target", bindPreviousTargets: true, playerFrom: from };
     }
   }

@@ -1722,8 +1722,11 @@ describe("parseEffectProgram — Investigate keyword action (KWACT-INVEST)", () 
   it("MUST stay LOW: a variable count or a 3rd-person (wrong-owner) investigate → Arbiter", () => {
     const low = (o) => expect(programConfidence(parseEffectProgram(I(o)))).toBe("low");
     low("Investigate X times.");                 // variable count — deferred
-    low("Each player investigates.");            // wrong owner — the Clue isn't the controller's
-    low("Target opponent investigates.");        // wrong owner
+    low("Each player investigates.");            // STILL wrong owner: whoCreates has no "each player" form
+    // GRADUATED 2026-07-30 — "target opponent investigates" was refused because the mint could not express
+    // an owner other than the controller. It CAN (whoCreates:"target"), and a runtime test now asserts the
+    // Clue reaches the target and NOT the caster. The single-target form is the only one that graduated.
+    expect(programConfidence(parseEffectProgram(I("Target opponent investigates.")))).toBe("high");
   });
 });
 

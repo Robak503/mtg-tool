@@ -103,6 +103,6 @@ describe("DESTROY-TOKEN-RIDER — coverage", () => {
     // became modeled with the player-referent slice, so it moves to `investigates` — unmodeled even for an
     // explicit "Target player investigates." The principle pinned is the UNMODELED-RIDER refusal, never
     // this particular rider. Each re-point is one line because the pin was written to be re-pointed.
-    expect(classifyCard(C("Destroy target creature. It can't be regenerated. Its controller investigates.", "X"))).toBe("arbiter-spell");
+    expect(classifyCard(C("Destroy target creature. It can't be regenerated. Its controller reveals their hand.", "X"))).toBe("arbiter-spell"); // RE-POINTED 2026-07-30 (final): `investigates` is modeled now, so the stand-in moved to `reveals their hand` — 126 corpus carriers but ZERO attributable, so nothing will ever flip by building it. A stand-in with no attribution is permanent.
   });
 });
