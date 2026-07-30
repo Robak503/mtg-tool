@@ -14,12 +14,21 @@ beforeEach(() => _resetIdsForTests());
 describe("RAID — 'you attacked this turn' intervening-if (read side)", () => {
   it("interveningIfParseable: the exact shape is parseable; near-misses are NOT (stay Arbiter)", () => {
     expect(interveningIfParseable("you attacked this turn")).toBe(true);
+    // ⭐ TWO NEAR-MISSES GRADUATED 2026-07-30 — both read the SAME flag this pin already trusted.
+    // "with a creature" is not a narrowing at all: only creatures are ever declared as attackers (CR 508.1a),
+    // so the qualifier is flavour. And the negation is the exact inverse of one boolean — an unstamped seat
+    // has not attacked, which is what "didn't attack" means. Neither needed new tracking.
+    for (const now of ["you attacked with a creature this turn", "you didn't attack this turn",
+      "you didn't attack with a creature this turn", "you haven't attacked this turn"]) {
+      expect(interveningIfParseable(now), now).toBe(true);
+    }
+    // ⛔ THE BOUNDARY HOLDS where the SCOPE genuinely differs — a per-CREATURE or per-permanent subject asks
+    // about an object, not the seat, and the flag cannot answer that. Those still park.
     for (const near of [
-      "this creature attacked this turn",          // per-creature variant — NOT built
-      "you attacked with a creature this turn",     // qualifier
-      "a creature you control attacked this turn",   // scoped
-      "you didn't attack this turn",                 // negated
-    ]) expect(interveningIfParseable(near)).toBe(false);
+      "this creature attacked this turn",            // per-creature variant — a different referent
+      "a creature you control attacked this turn",   // scoped to an object, not the seat
+      "an opponent attacked this turn",              // opponent-scoped — a different seat's flag
+    ]) expect(interveningIfParseable(near), near).toBe(false);
   });
   it("evaluateInterveningIf reads the controller's flag: set→true, unset→false, missing→false", () => {
     const s = { players: { user: { attackedThisTurn: true }, ai: { attackedThisTurn: false } } };

@@ -19,8 +19,19 @@ describe("SPELLS-CAST-THIS-TURN intervening-if — Loan Shark", () => {
     expect(classifyCard(card)).toBe("native-trigger");
   });
 
-  it("CREED guard: a FILTERED spell-count ('noncreature spells') stays non-native — the anchor is unfiltered spells only", () => {
+  it("the FILTERED spell-count now flips (2026-07-30) — it reads its OWN counter, not the unfiltered one", () => {
+    // ⭐ This pin's title named the criterion: "the anchor is unfiltered spells only". A separate
+    // `noncreatureSpellsCastThisTurn` tally was already being maintained at the same cast chokepoint and had
+    // no reader — so the filtered form is now answered from its own counter rather than approximated.
     const card = C("Fake Shark", "When this creature enters, if you've cast two or more noncreature spells this turn, draw a card.", "Creature — Shark");
+    expect(classifyCard(card)).toMatch(/^native/);
+  });
+
+  it("⛔ CREED guard, RE-POINTED: a filter with NO counter behind it still stays non-native", () => {
+    // The guard's substance — never approximate a filtered tally with a coarser one — is intact and now aimed
+    // at a case that genuinely has no tally. "From your hand" is a ZONE qualifier; spellsCastThisTurn counts
+    // casts from any zone, so answering from it would suppress the ability for a graveyard-only caster.
+    const card = C("Fake Zone Shark", "When this creature enters, if you haven't cast a spell from your hand this turn, draw a card.", "Creature — Shark");
     expect(classifyCard(card)).not.toMatch(/^native/);
   });
 });

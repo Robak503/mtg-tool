@@ -75,9 +75,17 @@ describe("the probe family — three contexts, one vocabulary", () => {
 
   it("CREED — an unmodeled board query is refused rather than guessed", () => {
     expect(activationConditionParseable(REFUSED_COND)).toBe(false);
-    // The FILTERED spell count: the vocabulary reads a bare per-turn spell tally, and refusing the filtered
-    // form rather than approximating it with the unfiltered one is the whole point.
-    expect(activationConditionParseable("you've cast a noncreature spell this turn")).toBe(false);
+    // ⭐ GRADUATED 2026-07-30 — and this pin's own sentence was the criterion. It said refusing the filtered
+    // form "rather than approximating it with the unfiltered one is the whole point". Exactly right, and it is
+    // still the point: the reader added this slice does NOT approximate. gameState was already maintaining a
+    // separate `noncreatureSpellsCastThisTurn` counter that had no reader, so the filtered form is now read
+    // from its OWN tally. Seeker of Insight is one of the 10 cards that flipped.
+    expect(activationConditionParseable("you've cast a noncreature spell this turn")).toBe(true);
+    // ⛔ THE BOUNDARY, RE-POINTED to a phrase with no counter behind it at all. "From your hand" is a ZONE
+    // qualifier and `spellsCastThisTurn` is zone-blind, so approximating it would answer FALSE for a player
+    // who cast only from the graveyard — suppressing an ability whose condition is TRUE. That is the shape
+    // this pin has always been guarding, now aimed at a case that is genuinely still unreadable.
+    expect(activationConditionParseable("you haven't cast a spell from your hand this turn")).toBe(false);
     expect(activationConditionParseable("you control three or more creatures with different powers")).toBe(false);
   });
 });

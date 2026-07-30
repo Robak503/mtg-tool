@@ -1114,6 +1114,51 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     return (state?.players?.[controllerId]?.spellsCastThisTurn || 0) >= n;
   }
 
+  // ⭐ ===== THE PER-TURN LEDGER, CROSSED WITH THE COUNT-THRESHOLD SHAPE (2026-07-30) =====
+  // The two readers directly above each NAMED their own missing arm — "a FILTERED ('a noncreature spell')
+  // variant fails the anchor" and "a 'with a creature' qualifier, or a negated form fails the anchor". Both
+  // were capability statements, and in every case below the LEDGER FIELD ALREADY EXISTED and simply had no
+  // reader. gameState tracks noncreatureSpellsCastThisTurn, attackedThisTurn, landsPlayedThisTurn,
+  // spellsCastThisTurn, lifeGainedThisTurn and lifeLostThisTurn; nothing new is stamped by this slice.
+  //
+  // ⛔ AND ONE PRINTED PHRASE IS REFUSED ON PURPOSE, which is the honest half of the same census:
+  // "you haven't cast a spell FROM YOUR HAND this turn" (3 cards). `spellsCastThisTurn` counts casts from
+  // ANY zone — it cannot tell a hand cast from a flashback or an escape — so reading it here would answer
+  // FALSE for a player who has only cast from the graveyard, i.e. suppress an ability whose printed condition
+  // is TRUE. A confidently-wrong answer is forbidden (CREED), so the zone-qualified form stays on the Arbiter
+  // until casts are tracked per source zone.
+
+  // NONCREATURE spell count (CR 700.4) — Seeker of Insight / Bonecache Overseer class. The counter is bumped
+  // at the same cast chokepoint as spellsCastThisTurn and reset for all seats at untap.
+  m = c.match(new RegExp(`^you've cast ${NUM_RE}(?: or more)? noncreature spells? this turn$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    return (state?.players?.[controllerId]?.noncreatureSpellsCastThisTurn || 0) >= n;
+  }
+
+  // ATTACKED, with the "with a creature" qualifier and the NEGATED form (CR 508.1a — only creatures are ever
+  // declared as attackers, so "attacked" and "attacked with a creature" are the same event; the qualifier is
+  // flavour, not a narrowing). The negation reads the same flag: an unstamped seat has not attacked, which is
+  // exactly what "didn't attack" means at any point before their declare-attackers step.
+  if (/^you attacked with a creature this turn$/.test(c)) return state?.players?.[controllerId]?.attackedThisTurn === true;
+  if (/^you (?:didn't|did not) attack(?: with a creature)? this turn$/.test(c)) return state?.players?.[controllerId]?.attackedThisTurn !== true;
+  if (/^you haven't attacked this turn$/.test(c)) return state?.players?.[controllerId]?.attackedThisTurn !== true;
+
+  // NEGATED per-turn counters — "you didn't play a land this turn" (CR 305.2 land-play tracking) and
+  // "you didn't cast a spell this turn". Both are the zero case of a counter that already exists; the
+  // land-play counter is the same one the land-drop rule reads, so there is no second source of truth.
+  if (/^you (?:didn't|did not) play a land this turn$/.test(c)) return (state?.players?.[controllerId]?.landsPlayedThisTurn || 0) === 0;
+  if (/^you (?:didn't|did not) cast a spell this turn$/.test(c)) return (state?.players?.[controllerId]?.spellsCastThisTurn || 0) === 0;
+
+  // LIFE CHANGED EITHER WAY — "you gained or lost life this turn". A disjunction whose BOTH halves are already
+  // tracked separately, which is the only reason it is safe to read as one: either counter being non-zero
+  // satisfies it, and neither is inferred from the other.
+  if (/^you (?:gained or lost|lost or gained) life this turn$/.test(c)) {
+    const pl = state?.players?.[controllerId];
+    return (pl?.lifeGainedThisTurn || 0) > 0 || (pl?.lifeLostThisTurn || 0) > 0;
+  }
+
   // "you control another <Subtype>" — a curated creature subtype, OTHER THAN the entering permanent (CR 113.7)
   m = c.match(CTRL_ANOTHER_SUBTYPE_RE);
   if (m) {

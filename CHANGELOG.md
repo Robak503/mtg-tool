@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Abilities gated on what happened earlier in the turn now work.** Ten cards, including Nightpack Ambusher,
+  Curious Obsession, Seeker of Insight and Mercadian Atlas. Conditions like "if you've cast a noncreature
+  spell this turn", "if you didn't attack with a creature this turn", "if you didn't play a land this turn"
+  and "if you gained or lost life this turn" are read correctly now.
 - **Abilities that check what you control now understand more kinds of "what".** Thirteen cards work, including
   Heidar, Rimewind Master, Rimewind Cryomancer, Celestial Enforcer, Mirror-Sigil Sergeant and Parasitic Strix.
   Conditions like "if you control a creature with flying", "if you control a blue permanent", "if you control

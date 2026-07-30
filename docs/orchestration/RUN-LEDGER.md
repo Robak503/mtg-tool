@@ -11,8 +11,8 @@
 > per slice. **Only the TAG batches.** A tag makes an update banner appear in every running `.exe`, and one
 > banner per +21 is noise.
 >
-> - **BATCH IN FLIGHT: 13 cards banked since v0.149.18** (condition-filter vocabulary). Update this number at
->   every slice boundary so a fresh session knows how much is unreleased.
+> - **BATCH IN FLIGHT: 23 cards banked since v0.149.18** (condition-filter vocabulary +13, per-turn ledger
+>   readers +10). Update this number at every slice boundary so a fresh session knows how much is unreleased.
 > - Write CHANGELOG entries under `## [Unreleased]` per slice; promote the whole block and bump both version
 >   files (`app/package.json` + `app/src-tauri/tauri.conf.json`) only at TAG time.
 > - Tag early ONLY for a real reason: a user-facing bug fix, a release-pipeline fix, or Colton asking.
@@ -107,6 +107,52 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## 🏦 BANKED (unreleased) 2026-07-30 — **THE PER-TURN LEDGER, GIVEN READERS. GAINED 10, LOST 0.**
+
+Curious Obsession · Franklin Richards, Ascendant · H.E.R.B.I.E., Lovable Robot · Human Torch ·
+Mercadian Atlas · **Nightpack Ambusher** · See Red · Seeker of Insight · Starlit Soothsayer · Tapestry of the Ages.
+
+**⭐ NOTHING NEW IS TRACKED BY THIS SLICE — that is the whole finding.** Both incumbent readers NAMED their own
+missing arm: *"a FILTERED (a noncreature spell) variant fails the anchor"* and *"a with-a-creature qualifier, or
+a negated form, fails the anchor"*. In every case the LEDGER FIELD ALREADY EXISTED and simply had no reader —
+`noncreatureSpellsCastThisTurn`, `attackedThisTurn`, `landsPlayedThisTurn`, `spellsCastThisTurn`,
+`lifeGainedThisTurn`, `lifeLostThisTurn` were all being maintained every turn and never asked a question. Five
+readers added; zero new stamps at any fire site.
+
+- **noncreature spell count** (5 cards) — read from its OWN counter, never approximated from the total. A seat
+  that cast two CREATURE spells has a total of 2 and a noncreature count of 0; reading the total would fire
+  Seeker of Insight off a creature.
+- **`attacked with a creature` + the negations** — only creatures are ever declared as attackers (CR 508.1a),
+  so the qualifier is flavour, and `didn't attack` is the exact inverse of one boolean.
+- **the ZERO case of two existing counters** — `didn't play a land` / `didn't cast a spell`.
+- **`gained or lost life this turn`** — a disjunction of two independently tracked counters.
+
+**⛔ ONE PRINTED PHRASE REFUSED ON PURPOSE, and it is the honest half of the same census.** *"You haven't cast
+a spell FROM YOUR HAND this turn"* (3 cards) is NOT read: `spellsCastThisTurn` is zone-blind, so answering from
+it would return FALSE for a player who cast only from the graveyard — suppressing an ability whose printed
+condition is TRUE. It parks until casts are tracked per source zone, and there is now a pin saying so, so
+nobody "fixes" it by reusing the coarse counter.
+
+**Three pins moved, and all three had named their own criterion:**
+| pin | verdict |
+|---|---|
+| `activationCondition` "an unmodeled board query is refused rather than guessed" | Its own sentence was the criterion — refusing the filtered form *"rather than approximating it with the unfiltered one"*. Still the point: the new reader does not approximate. Graduated; boundary re-pointed to the zone-qualified phrase |
+| `attackedThisTurn` "near-misses are NOT parseable" | 2 of its 4 near-misses graduated (both read the flag it already trusted); the boundary now holds where the SCOPE genuinely differs — a per-creature or opponent-scoped subject asks about a different referent |
+| `spellCountAndCreatureBounce` "a FILTERED spell-count stays non-native — **the anchor is unfiltered spells only**" | Title named the criterion → graduated, plus a NEW sibling guard so the substance (never approximate a filtered tally with a coarser one) is kept, aimed at the zone case |
+
+**Gates:** 10 new tests, both directions per reader; **all three mutations seen to fail** — pointing the
+noncreature reader at the zone-blind total (2 tests), flipping the attack negation (1), turning
+`gained or lost` into an AND (1). Reverts confirmed by `git diff`. Flip-diff **GAINED 10 / LOST 0**.
+Suite **989 files / 12,604 green**, lint 0 unpiped, MUTANT clean, module graph loads.
+
+**STILL OPEN from the T1 census (needs NEW tracking, not a reader):** *you created a token this turn* (2) ·
+*you descended this turn* (5) · *you put a counter on a creature this turn* (2) · *you've discarded a card this
+turn* (2) · the *"X entered the battlefield under your control this turn"* family (7 — ⚠️ a battlefield scan on
+`enteredOnTurn` would UNDER-report a permanent that entered and then left, which is a confidently-wrong
+answer, so this one needs a real per-turn entered-ledger rather than a scan).
 
 ---
 
