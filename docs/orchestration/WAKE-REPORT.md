@@ -1,5 +1,44 @@
 # WAKE REPORT — live resume anchor
 
+## ☀️ 2026-07-30 — **v0.149.20 shipped (89 cards, ten slices, ONE tag)** — Colton shelf 93% · `cdh` 86/100 — suite **1005/12,802**
+
+> **Read [RUN-LEDGER.md](RUN-LEDGER.md) first if you are resuming after a crash** — it is rewritten at every
+> slice boundary. This entry is the summary; that file is the state.
+>
+> ⚠️ **This file had gone twelve releases stale** (its previous entry was v0.149.8 / suite 864). CLAUDE.md
+> §9 calls this the live resume anchor and the single source of truth for the suite count, so a fresh session
+> was booting on numbers that were badly wrong. Keep this entry current at each release, not each slice.
+>
+> **THE CADENCE CHANGED (Colton, 07-29): one tag per ~100 cards, not per slice.** Slices still land on master
+> individually with their full gates; only the TAG batches, because every tag raises an update banner in every
+> running `.exe`. v0.149.20 was the first full batch: **89 cards across ten slices**. Live counter at the top
+> of the run ledger.
+>
+> **Biggest slice: colour as a cast-trigger filter (+52)** — `castSpellFilter` already carved out `historic`
+> and `multicolored` as whole-object QUALITIES, and the `multicolored` comment had already written the CR
+> justification. Single colours were the same shape. The rest: planeswalker subtypes +11, cost-reducer filter
+> vocabulary +8, life-gain replacement +7, controller sac nouns +5, condition disjunction/negation +4, plus
+> three 1-card shelf slices.
+>
+> **⭐ THE STATE OF THE CORPUS HAS CHANGED, and this is the thing to read before planning work.** Four
+> separate axis veins were measured this session with verified controls and **all four attribute to ZERO**
+> (delayed triggers 157→4, combat-damage-to-you 7→0, opponent-scoped impulse 25→0, cast-vs-play 7→0). The
+> residue census's largest remaining cluster is **5 cards**, mostly Un-set mechanics. **The era where one
+> parse arm paid 52 is over.** What remains is narrow modeled forms surrounded by several independent gaps
+> each — the unit of work is now "a card's whole stack," not "a vein." Expect a few cards per session.
+>
+> **Shelf:** four of Colton's five decks clear the ≥90% bar. The whole remaining distance is `cdh` at
+> **86/100** — four cards, each a 2-to-4-mechanic build. The tractable half of that deck's gap is spent.
+>
+> **Two corrections worth not rediscovering:** the `noncreature` flash qualifier was queued as unmodeled and
+> is **already built** (do not build it); and 24 CR citations for countering pointed at the wrong rule across
+> nine files — `701.5a` is the CAST rule and `701.5e` does not exist; countering is **701.6a/701.6b**.
+>
+> ⚠️ **v0.149.20 carries one known defect**, fixed on master for the next release: lifegain triggers read the
+> OFFERED amount rather than the gained one, so a "whenever you gain life" rider under a Rhox Faithmender saw
+> half. Under-report only; nothing fabricated.
+
+
 ## ☀️ 2026-07-28 — v0.149.8 shipped — the ACTIVATION-RESTRICTION vocabulary — corpus 35% (11,993) — shelf 78%→79% — suite 864/11,167
 
 > **Read [RUN-LEDGER.md](RUN-LEDGER.md) first if you are resuming after a crash** — it is rewritten at every
