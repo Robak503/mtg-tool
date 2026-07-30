@@ -70,8 +70,12 @@ describe("AURA-MANA-GRANT (1a) — recognition", () => {
   });
 
   it("residue gate: a RIDER keeps the card non-native (all-or-nothing, CREED)", () => {
-    // restriction rider
-    expect(classifyCard(aura("Utopia Vow", 'Enchant creature\nEnchanted creature can\'t attack or block.\nEnchanted creature has "{T}: Add one mana of any color."'))).toBe("body-only");
+    // ⭐ GRADUATED 2026-07-30 — this IS Utopia Vow, native now via AU-GRANT+STATIC (a modeled granted mana
+    // ability + a modeled static bonus). The runtime half shipped first; the proof and its positive control
+    // live in auraGrantPlusStatic.test.js. The ETB / sacrifice riders below still hold the gate, and an
+    // unmodeled static rider is pinned here so both directions stay covered.
+    expect(classifyCard(aura("Utopia Vow", 'Enchant creature\nEnchanted creature can\'t attack or block.\nEnchanted creature has "{T}: Add one mana of any color."'))).toBe("native-mana-aura");
+    expect(classifyCard(aura("Fake Vow", 'Enchant creature\nWhenever a player consults an oracle, interpret its riddle however you like.\nEnchanted creature has "{T}: Add one mana of any color."'))).toBe("body-only");
     // ETB-trigger rider whose effect does NOT route natively (creature + land forms — the routable
     // draw/gain riders graduated in BLITZ LA-1: Karametra's Favor + Abundant Growth are pinned native
     // in landAuraEtbRider.test.js; unroutable ETBs hold the pin now)

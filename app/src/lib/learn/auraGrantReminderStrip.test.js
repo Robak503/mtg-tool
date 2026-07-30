@@ -56,7 +56,14 @@ describe("EC-1a — recognition: reminder text after a grant line no longer park
     expect(classifyCard(auraCard("Oracle's Insight", 'Enchant creature\nEnchanted creature has "{T}: Scry 1, then draw a card."'))).toBe("native-activated");
   });
   it("FN guard: a NON-reminder trailing clause is still residue → body-only (CREED whole-card)", () => {
-    expect(classifyCard(auraCard("Rider", 'Enchant creature\nEnchanted creature has "{T}: Scry 1, then draw a card."\nEnchanted creature gets +1/+0 and can\'t block.'))).toBe("body-only");
+    // ⭐ GRADUATED 2026-07-30 — the trailing clause here is a MODELED static bonus, so AU-GRANT+STATIC credits
+    // the pair. Verified at runtime rather than inferred: with the grant line present the host still reads
+    // power 3 and cantBlock true. (auraGrantPlusStatic.test.js pins the keyword case with a positive control;
+    // the P/T case was measured the same way before this pin was moved — a graduation should not rest on the
+    // assumption that a neighbouring case generalises.)
+    expect(classifyCard(auraCard("Rider", 'Enchant creature\nEnchanted creature has "{T}: Scry 1, then draw a card."\nEnchanted creature gets +1/+0 and can\'t block.'))).toBe("native-activated");
+    // ⛔ the FN guard this test exists for, re-aimed: an UNMODELED trailing clause is still residue.
+    expect(classifyCard(auraCard("Rider2", 'Enchant creature\nEnchanted creature has "{T}: Scry 1, then draw a card."\nWhenever a player consults an oracle, interpret its riddle however you like.'))).toBe("body-only");
   });
 });
 

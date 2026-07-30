@@ -11,6 +11,9 @@ summarizes the notable changes.
 ### Added
 - **Tamiyo's Safekeeping works.** Targeting one of your own artifacts, enchantments or lands really does
   give it hexproof and indestructible for the turn — it now survives a Disenchant or a wrath.
+- **Auras that both buff and grant now do both.** Pillory of the Sleepless, Compulsory Rest and Utopia
+  Vow were silently losing their "can't attack or block" half — the creature they were supposed to pin
+  down could attack freely. It applies now, alongside the ability they grant.
 - **Rhythm of the Wild grants riot for real.** Your nontoken creatures now enter with the +1/+1 counter or
   the haste, exactly as printed, instead of the enchantment sitting there doing nothing.
 

@@ -56,8 +56,14 @@ describe("GRANTED-ACTIVATED (1b) — recognition", () => {
     // ETB-trigger rider whose effect does NOT route natively (Dragon Mantle's routable draw graduated
     // in BLITZ LA-1 — pinned native in landAuraEtbRider.test.js; an unroutable ETB holds the pin now)
     expect(classifyCard(aura("Probe Mantle", 'Enchant creature\nWhen this Aura enters, untap all Islands you control and shuffle your hand into your library.\nEnchanted creature has "{R}: This creature gets +1/+0 until end of turn."'))).toBe("body-only");
-    // restriction rider (Compulsory Rest-style)
-    expect(classifyCard(aura("Restful", 'Enchant creature\nEnchanted creature can\'t attack or block.\nEnchanted creature has "{B}: This creature gets +1/+1 until end of turn."'))).toBe("body-only");
+    // ⭐ GRADUATED 2026-07-30 — the "restriction rider (Compulsory Rest-style)" case is native now. That
+    // composite (modeled granted ability + modeled static bonus) is built: AU-GRANT+STATIC. The RUNTIME half
+    // landed FIRST — auraGrantPlusStatic.test.js proves the bonus still reaches the host with a grant line
+    // present, and carries the positive control that made the original failure readable. The residue gate
+    // this test guards is re-aimed on the next line at a rider that is still genuinely unmodeled.
+    expect(classifyCard(aura("Restful", 'Enchant creature\nEnchanted creature can\'t attack or block.\nEnchanted creature has "{B}: This creature gets +1/+1 until end of turn."'))).toBe("native-activated");
+    // ⛔ an UNMODELED static rider still parks the whole card — both halves must pass their own gate.
+    expect(classifyCard(aura("Restless", 'Enchant creature\nWhenever a player consults an oracle, interpret its riddle however you like.\nEnchanted creature has "{B}: This creature gets +1/+1 until end of turn."'))).toBe("body-only");
     // return-to-hand rider (Hypervolt Grasp)
     expect(classifyCard(aura("Grasp", 'Enchant creature\nEnchanted creature has "{T}: This creature deals 1 damage to any target."\n{1}{U}: Return this Aura to its owner\'s hand.'))).toBe("body-only");
   });

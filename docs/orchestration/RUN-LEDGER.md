@@ -34,7 +34,7 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **BATCH IN FLIGHT: 2 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 5 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -468,6 +468,64 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **THE REVERTED SLICE, DONE RIGHT. GAINED 3 — AND A SILENT RUNTIME DEFECT FIXED.**
+## ⭐ THE ORDER WAS THE WHOLE DIFFERENCE: RUNTIME FIRST, TIER SECOND.
+
+Pillory of the Sleepless · Compulsory Rest · Utopia Vow. **This is the exact lane I reverted last slice.**
+
+### THE DEFECT THAT MADE THE FIRST ATTEMPT A FALSE POSITIVE
+`parseAttachedBonus` walks an Aura's clauses and every clause must either parse as a bonus or be explicitly
+SKIPPED. A granted quoted ability ("Enchanted creature has \"…\"") was deliberately not skipped — it returned
+null and **dropped the WHOLE bonus to `[]`**. So Pillory's *"can't attack or block"* stopped applying the
+moment the grant line existed, and the creature it exists to pin down attacked freely.
+
+**Fix:** skip that clause — but ONLY when a validator vouches for it, exactly as the file already does for a
+modeled aura-own trigger. The validator is registered from coverage.js through the SAME registry seam
+`_auraOwnEtbValidator` / `_auraOwnActivatedValidator` use (staticAbilityParser cannot import coverage — cycle),
+and it does **no new parsing**: it wraps the clause back into a minimal single-grant Aura and hands it to the
+three grant gates that already claim that shape. ⛔ **An UNMODELED grant still poisons the parse** — pinned
+both ways, and it is what keeps The Reaver Cleaver unchanged.
+
+### ⭐ TWO HARNESS ERRORS BEFORE THE REAL READING — worth recording, because they looked identical to a bug
+Debugging this, the runtime read `false` three times. Twice it was **me**: `attachedTo` set by hand instead
+of through the attach path, then `attachPermanent(s,'aura','bear')` when the signature is
+`(state, {equipId, targetId})`. The third `false` was real. ⭐ *Only the POSITIVE CONTROL separated them —
+a pure-bonus Aura reading TRUE in the SAME harness is what turned the composite's `false` from noise into
+evidence. A negative from an unvalidated harness is worth nothing.*
+
+⚠️ **And a third false alarm after the fix:** the runtime probe still read `false` because my script never
+imported coverage.js, so the validator was never registered. *The registry seam only exists once the module
+that registers it is loaded.* Checked that the real app does load it — `legalChoices.js` imports coverage.js —
+before believing the fix.
+
+### THE TIER, SECOND
+`nativeGrantPlusAuraStatic` — split by line, hand the remainder to `isNativeAura` and the Enchant+grant lines
+to the grant gate that already claimed that shape. Neither gate loosened; the EQ-2 strip-then-revalidate
+discipline, and precisely the composition EQ-2's GUARD-QUOTE refuses.
+
+### ✅ THREE RESIDUE-GATE PINS GRADUATED — and I checked each one instead of trusting the pattern
+`auraGrantedActivated` (*"restriction rider — Compulsory Rest-style"*) · `auraManaGrant` (*Utopia Vow* by
+name) · `auraGrantReminderStrip` (*a NON-reminder trailing clause*). The first two ARE this slice's cards.
+⭐ *The third's rider is a P/T bonus, not a keyword — so before moving it I MEASURED the P/T case at runtime
+(host reads power 3 and cantBlock true with the grant present) rather than assuming the keyword result
+generalised. A graduation that rests on "the neighbouring case works" is a guess wearing a checkmark.*
+All three re-aimed at an unmodeled rider rather than deleted.
+
+**Mutation-checked: 2 seen to fail** — M1 the runtime skip removed (the FIX test fails, the tier tests stay
+green: the original false positive, reproduced on demand) · M2 the validator made to vouch for everything
+(the CREED test fails: an unmodeled grant would buy the card its static half).
+
+**Gates:** flip-diff **GAINED 3 / LOST 0**, no other tier moved (12925 → 12928 / 34245). 7 tests in the
+rewritten file. Suite **1037 files / 13,135 green**, lint 0, module graph loads, MUTANT clean.
+**Batch: 5 cards.**
+
+### ➡️ THE THREE REMAINING COMPOSITE SHAPES (the map from last slice still stands)
+grant + aura-own ACTIVATED (**Ocular Halo**) · grant + aura-own ETB (**Nurturing Presence**) · TWO grants +
+aura-own ETB (**Nerd Rage**). Each is the same shape one lane over. ⚠️ **Level Up remains two builds away**
+(the seam AND a counter-doubling effect) — do not re-file it as "one away".
 
 ---
 

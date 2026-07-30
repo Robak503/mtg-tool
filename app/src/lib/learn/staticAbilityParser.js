@@ -4693,6 +4693,19 @@ export function parseAttachedBonus(card, subjectOverride) {
       // skip it so a compound aura keeps its P/T/keyword half (mirrors the residue admission).
       if (_auraOwnEtbValidator && _auraOwnEtbValidator(c)) continue;
     }
+    // ⭐ AU-GRANT+BONUS — a GRANTED QUOTED ABILITY ("Enchanted creature has \"At the beginning of your
+    // upkeep, …\"") is not a bonus clause either: the HOST gains it, and the runtime delivers it through the
+    // grant lane (triggersForEvent / grantedActivatedForHost / grantedManaSpecsFor) entirely independently of
+    // the layer engine. Before this it fell through to parseAttachedClause, returned null, and **dropped the
+    // WHOLE bonus to []** — so Pillory of the Sleepless's "can't attack or block" silently stopped applying
+    // the moment the grant line was present. That was measured, not theorised (auraGrantPlusStatic.test.js
+    // pins the before/after with a positive control), and it is why the classification composite built on top
+    // of it was reverted a slice ago rather than shipped.
+    // ⛔ GATED ON THE VALIDATOR, exactly like the aura-own trigger skip above: only a grant coverage.js can
+    // vouch for is skipped. An UNMODELED grant still poisons the parse → bonus [] → the card stays non-native
+    // (CREED — The Reaver Cleaver, whose granted body is unmodeled, is unchanged). AURAS ONLY: the equipment
+    // path keeps the note above it, since permanentEquipmentCovered gates equipment nativeness separately.
+    if (subject === "enchanted" && _auraGrantedAbilityValidator && _auraGrantedAbilityValidator(c)) continue;
     // PZ-1: the attached tap-lock line is enforced in gameState.untapAll, not as a layer bonus — skip it
     // (the AP-1 wall-skip pattern) so a compound aura keeps its other half.
     if (subject === "enchanted" && ATT_NO_UNTAP_CLAUSE_RE.test(c.trim())) continue;
@@ -5087,6 +5100,11 @@ export function impositionEntersTapped(state, card, controller) {
 // non-residue in auraResidueClauses — the runtime fires it through the enterPermanent chokepoint.
 let _auraOwnEtbValidator = null;
 export function registerAuraOwnEtbValidator(fn) { _auraOwnEtbValidator = fn; }
+// AU-GRANT+BONUS — the validator for a GRANTED QUOTED ABILITY clause ("Enchanted creature has \"…\"").
+// coverage.js registers it (it owns the grant gates); staticAbilityParser cannot import coverage (cycle), so
+// this is the same registry seam _auraOwnEtbValidator / _auraOwnActivatedValidator already use.
+let _auraGrantedAbilityValidator = null;
+export function registerAuraGrantedAbilityValidator(fn) { _auraGrantedAbilityValidator = fn; }
 // AURA-OWN-ACTIVATED validator (BLITZ AF-1 — the same injection pattern): whether a "{cost}: <effect>"
 // line PRINTED ON THE AURA is a fully-modeled ability whose program is exclusively enchanted-referent
 // atoms (tap/untap/pump target:"enchanted" — Armor of Faith's "{W}: Enchanted creature gets +0/+3 until

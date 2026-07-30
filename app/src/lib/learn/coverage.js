@@ -33,7 +33,7 @@ import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOK
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
 import { spellConditionParseable } from "./interveningIf.js"; // EW-1 — the metric⇄runtime shared gate for a conditional enters-with counter (the resolver evaluates the SAME vocabulary via evaluateInterveningIf); acyclic (interveningIf imports only gameState)
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
@@ -1789,6 +1789,43 @@ export function registerCoverageClassifier(fn) {
  *     Equipment, but the guard covers both; isNativeTriggerGrantAuraOrEquipment already owns the pure
  *     grant-line equipment, checked earlier in the dispatch, so nothing legitimate is lost here.)
  */
+/**
+ * AU-GRANT+STATIC — an Aura that BOTH grants its host a modeled ability AND carries a modeled static bonus.
+ * Returns the grant half's tier ("native-trigger" | "native-activated" | "native-mana-aura"), or null.
+ *
+ * ⭐ NEITHER GATE IS LOOSENED. The card is split by line and each half is handed to the gate it already had:
+ * the remainder must satisfy `isNativeAura`, the Enchant+grant lines must satisfy whichever grant gate
+ * already claimed that shape alone. So the composite can never credit what its halves would not have — the
+ * same strip-then-revalidate discipline as EQ-2 (nativeStaticGrantPlusActivated), and precisely the
+ * composition EQ-2's GUARD-QUOTE rejects. Those cards had nowhere to land; this is where they land.
+ *
+ * ⚠️ ORDER OF WORK: this lane was written once and REVERTED, because the runtime half was missing —
+ * parseAttachedBonus dropped the Aura's entire static bonus when a grant line was present, so the tier would
+ * have claimed an effect the engine had stopped applying. The validator skip (AU-GRANT+BONUS) landed first;
+ * only then did this become honest. auraGrantPlusStatic.test.js keeps the runtime proof AND its positive
+ * control, because a metric that runs ahead of its runtime is worse than a parked card.
+ */
+function nativeGrantPlusAuraStatic(card) {
+  if (!/\bAura\b/.test(String(card?.type || card?.type_line || ""))) return null;
+  const lines = String(card.oracle || card.oracle_text || "").split("\n");
+  const isGrant = (ln) => /^\s*enchanted \w+ has\s+["“]/i.test(stripReminder(ln));
+  const isEnchantLine = (ln) => /^\s*enchant\b/i.test(stripReminder(ln));
+  const grants = lines.filter(isGrant);
+  if (!grants.length) return null;
+  const rest = lines.filter((ln) => !isGrant(ln));
+  // ≥1 non-grant, non-Enchant clause — otherwise a lane ABOVE already owns the card and keeps priority
+  // (a pure-grant Aura is native-trigger/-activated there; a pure-bonus Aura is native-aura).
+  if (!rest.some((ln) => stripReminder(ln).trim() && !isEnchantLine(ln))) return null;
+  // HALF 1 — the card WITHOUT its grant lines must be a fully native Aura on its own terms.
+  if (!isNativeAura({ ...card, oracle: rest.join("\n") })) return null;
+  // HALF 2 — the Enchant line plus the grant lines must satisfy the grant gate that already claimed it.
+  const grantOnly = { ...card, oracle: [...lines.filter(isEnchantLine), ...grants].join("\n") };
+  if (isNativeTriggerGrantAuraOrEquipment(grantOnly)) return "native-trigger";
+  if (isNativeActivatedGrantAura(grantOnly)) return "native-activated";
+  if (isNativeManaGrantAura(grantOnly)) return "native-mana-aura";
+  return null; // an unmodeled grant → the whole card stays body-only (CREED, whole-card)
+}
+
 function nativeStaticGrantPlusActivated(card) {
   const ty = String(card?.type || card?.type_line || "");
   const isAura = /\bAura\b/.test(ty);
@@ -2390,6 +2427,20 @@ export function classifyCard(card) {
     // a modeled activated ability the plain native-aura residue walk rejects. Tiered native-activated so
     // grantAuraCastHostType's cast lane offers it (isNativeAura is FALSE on the full residue-carrying card).
     // Called HERE, before body-only, because the aura block returns before the registry seam.
+    // AU-GRANT+STATIC — the composite EQ-2's GUARD-QUOTE deliberately refuses: an Aura whose body is a
+    // modeled GRANTED ability PLUS a modeled static bonus (Pillory of the Sleepless, Compulsory Rest, Utopia
+    // Vow — all three print "Enchanted creature can't attack or block."). Each half is native ALONE and the
+    // pair fell out the bottom, because every Aura lane above is all-or-nothing and the lanes are disjoint.
+    // ⚠️ THIS LANE SHIPS ONLY BECAUSE THE RUNTIME HALF LANDED FIRST. Built once before and REVERTED: the
+    // grant line was dropping the Aura's whole static bonus in parseAttachedBonus, so the tier would have
+    // claimed a "can't attack or block" the engine no longer applied. The validator skip fixed that; the
+    // before/after and its positive control are pinned in auraGrantPlusStatic.test.js.
+    // ⭐ Neither gate is loosened: split by line, hand the remainder to isNativeAura and the Enchant+grant
+    // lines to the grant gate that already claimed that shape — the EQ-2 strip-then-revalidate discipline.
+    {
+      const t = nativeGrantPlusAuraStatic(card);
+      if (t) return t;
+    }
     {
       const t = nativeStaticGrantPlusActivated(card);
       if (t) return t;
@@ -2845,6 +2896,20 @@ registerGrantActivatedBodyValidator(isModeledGroupActivatedBody);
 // and bonus walk admit "When this Aura enters, <natively-routing effect>" lines (tap enchanted
 // creature / draw a card / you gain 3 life), fired at the enterPermanent chokepoint like any ETB.
 registerAuraOwnEtbValidator(isModeledAuraOwnEtbLine);
+
+// ⭐ AU-GRANT+BONUS — vouch for a GRANTED QUOTED ABILITY clause so parseAttachedBonus can skip it instead of
+// dropping the Aura's whole static bonus (the runtime defect proven in auraGrantPlusStatic.test.js).
+// ⛔ NO NEW PARSING. The clause is wrapped back into a minimal single-grant Aura and handed to the SAME three
+// gates that already claim that shape when it is a card's only body — so this can vouch for exactly what the
+// engine already delivers, and an unmodeled grant returns false and still poisons the bonus parse (CREED).
+// Anchored on the "<subject> has \"…\"" shape; a clause without a quoted ability never reaches the gates.
+function isModeledAuraGrantedAbilityLine(clause) {
+  const s = String(clause || "").trim();
+  if (!/^enchanted \w+ has\s+["“]/i.test(s)) return false;
+  const probe = { name: "GrantProbe", type: "Enchantment — Aura", oracle: `Enchant creature\n${s}` };
+  return !!(isNativeTriggerGrantAuraOrEquipment(probe) || isNativeActivatedGrantAura(probe) || isNativeManaGrantAura(probe));
+}
+registerAuraGrantedAbilityValidator(isModeledAuraGrantedAbilityLine);
 
 // AURA-OWN-ACTIVATED validator (BLITZ AF-1 — Armor of Faith / Stonehands / the Firebreathing kin):
 // a "{cost}: <effect>" line printed ON THE AURA is admitted (bonus-walk skip + strict-fn pass) only when
