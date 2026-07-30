@@ -95,9 +95,13 @@ describe("isNativeBestow / coverage — all-or-nothing native gate", () => {
     // grants mentor — mentor isn't a covered aura-grant keyword.
     expect(classifyCard({ name: "Nyxborn Unicorn", type: "Enchantment Creature — Unicorn", mana: "{1}{W}", power: 2, toughness: 2,
       oracle: "Bestow {3}{W} (reminder)\nMentor (reminder)\nEnchanted creature gets +2/+2 and has mentor." })).toBe("body-only");
-    // an upkeep-drain triggered ability on the creature body — trigger residue.
+    // ✅ GRADUATED 2026-07-30 — Herald of Torment used to sit here as "trigger residue". A creature-body
+    // TRIGGER is no longer residue when it ROUTES NATIVELY: the aura mode is untouched by it and the
+    // creature mode is exactly what triggerRoutesNatively validates, so the two modes compose
+    // (bestowWithTrigger.test.js). A BOUNDARY MARKER re-pointed, not deleted — the surrounding cases below
+    // still guard that an unmodeled aura bonus or a non-routing trigger parks the whole card.
     expect(classifyCard({ name: "Herald of Torment", type: "Enchantment Creature — Demon", mana: "{1}{B}{B}", power: 3, toughness: 3,
-      oracle: "Flying\nBestow {3}{B}{B} (reminder)\nAt the beginning of your upkeep, you lose 1 life.\nEnchanted creature gets +3/+3 and has flying." })).toBe("body-only");
+      oracle: "Flying\nBestow {3}{B}{B} (reminder)\nAt the beginning of your upkeep, you lose 1 life.\nEnchanted creature gets +3/+3 and has flying." })).toBe("native-aura");
     // an unmodeled aura bonus (loses-all-abilities / set base P/T).
     expect(classifyCard({ name: "Trickster's Elk", type: "Enchantment Creature — Elk", mana: "{2}{G}", power: 3, toughness: 3,
       oracle: "Bestow {1}{G} (reminder)\nEnchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3." })).toBe("body-only");

@@ -3883,7 +3883,34 @@ export function isNativeBestow(card) {
   const selfBody = equipmentAbilityClauses(noBestow)
     .filter((cl) => !/enchanted creature/i.test(cl))   // an enchanted-creature clause is aura-mode, not self
     .join(". ");
-  return isKeywordOnly(selfBody, card?.name);
+  if (isKeywordOnly(selfBody, card?.name)) return true;
+  // ===== BESTOW + A MODELED TRIGGER (2026-07-30) =====
+  // (3) originally demanded a KEYWORD-ONLY creature body, which parked every bestow card carrying a triggered
+  // ability — including ones whose trigger the engine already routes natively. Measured: 8 such cards
+  // (Springheart Nantuko, Herald of Torment, Crystalline Nautilus, Nyxborn Unicorn, Indebted Spirit,
+  // Spiteful Returned, Thassa's Emissary, …). The AURA mode is untouched by a self-body trigger, and the
+  // CREATURE mode is exactly what triggerRoutesNatively already validates, so the two modes compose.
+  //
+  // ⛔ STILL ALL-OR-NOTHING. Every detected trigger must route natively, AND the body with its trigger lines
+  // removed must be keyword-only. A bestow card with one routing trigger and one unmodeled non-keyword line
+  // fails the remainder check and stays parked — the widening admits triggers, never residue.
+  const trigs = detectTriggers(card) || [];
+  if (!trigs.length || !trigs.every((d) => triggerRoutesNatively(d))) return false;
+  // Strip whole LINES, not the descriptor's sourceText. `sourceText` is only the trigger's HEAD — it carries
+  // neither the ability-word label ("Landfall — ") nor any following sentence of the effect, so a substring
+  // strip leaves debris that is not keyword-only and the card parks for the wrong reason. A printed trigger
+  // occupies its own oracle line, so the line IS the unit. A trigger whose head cannot be located in any line
+  // returns false rather than guessing (FN-safe).
+  const lines = noBestow.split("\n").map((l) => l.trim()).filter(Boolean)
+    .filter((l) => !/enchanted creature/i.test(l));                 // aura-mode, validated in (2)
+  const remaining = [];
+  const heads = trigs.map((d) => String(d?.sourceText || "").trim()).filter(Boolean);
+  if (heads.length !== trigs.length) return false;
+  for (const line of lines) {
+    if (heads.some((h) => line.includes(h))) continue;              // this line IS a natively-routing trigger
+    remaining.push(line);
+  }
+  return isKeywordOnly(remaining.join("\n"), card?.name);
 }
 // Native tier: a bestow creature plays via the AURA attach machinery (its defining mode), so it shares the
 // "native-aura" tier — the metric counts EXACTLY the bestow cards the runtime attaches + plays natively.
