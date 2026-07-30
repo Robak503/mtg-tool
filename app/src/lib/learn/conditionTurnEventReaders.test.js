@@ -87,10 +87,15 @@ describe("⛔⭐ THE DELIBERATE REFUSAL — a ZONE-qualified cast is not readabl
     expect(interveningIfParseable("you haven't cast a spell from your hand this turn")).toBe(false);
   });
   it("⛔ and the other census phrases needing NEW tracking still park", () => {
-    for (const c of ["you created a token this turn", "you descended this turn",
+    // ✅ "you descended this turn" GRADUATED off this list (2026-07-30) — CR 700.11, built on a
+    // descendedThisTurn tally stamped at the graveyard-entry chokepoint. Re-pointed rather than deleted,
+    // per the pin discipline: a BOUNDARY-MARKER pin records "not tracked yet", so when the tracking lands
+    // the pin becomes the assertion that it did. Deleting it would erase the boundary instead of moving it.
+    for (const c of ["you created a token this turn",
       "you put a counter on a creature this turn", "you've discarded a card this turn"]) {
       expect(activationConditionParseable(c), c).toBe(false);
     }
+    expect(activationConditionParseable("you descended this turn")).toBe(true);
   });
 });
 

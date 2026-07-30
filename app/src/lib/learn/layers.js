@@ -268,7 +268,7 @@ const DELIRIUM_TYPE_RES = [
 // GATED-GY-EXT: "permanent card" (Descend 4, CR 700.3) = any card whose type line includes one
 // of the permanent card types (creature, artifact, enchantment, land, battle, planeswalker).
 // "Permanent" is NOT a type line word; we match by the presence of any permanent type instead.
-const PERMANENT_TYPE_RE = /\b(?:creature|artifact|enchantment|land|battle|planeswalker)\b/i;
+export const PERMANENT_TYPE_RE = /\b(?:creature|artifact|enchantment|land|battle|planeswalker)\b/i;
 function countGraveyardSpec(state, perm, spec) {
   // ALL-GRAVEYARDS (BLITZ CDP-1 — the Lhurgoyf / Tarmogoyf CDA family "…cards in all graveyards" / "card
   // types among cards in all graveyards"): the source card list is EVERY player's graveyard rather than

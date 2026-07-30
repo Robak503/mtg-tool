@@ -65,8 +65,14 @@ describe("⭐ the DISJUNCTION — either half is enough, and both must be readab
   });
 
   it("⛔ an UNREADABLE half makes the whole thing unreadable — never silently false", () => {
-    expect(activationConditionParseable("you control a desert or you descended this turn")).toBe(false);
-    expect(activationConditionParseable("you descended this turn or you control a desert")).toBe(false);
+    // ⚠️ STAND-IN MIGRATED (2026-07-30): this test used "you descended this turn" as its unreadable half
+    // until descend was built (CR 700.11), at which point the test's own premise quietly became false.
+    // Replaced with "you created a token this turn" — still unreadable, and it sits on the maintained
+    // still-parks list in conditionTurnEventReaders.test.js, so the two files move together.
+    // ⭐ A stand-in phrase is a DEPENDENCY on something staying unbuilt. When the stand-in graduates, the
+    // test does not fail loudly about the thing it was actually guarding — it fails about the scaffolding.
+    expect(activationConditionParseable("you control a desert or you created a token this turn")).toBe(false);
+    expect(activationConditionParseable("you created a token this turn or you control a desert")).toBe(false);
   });
 
   it("⛔ only a TWO-way split is attempted; a three-way chain refuses", () => {

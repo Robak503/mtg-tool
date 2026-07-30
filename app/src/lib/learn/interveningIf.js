@@ -928,6 +928,21 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // you had to hard-cast it. An unstamped permanent (reanimated / blinked / put in by an effect) reads
   // false, never true, so the sweep does not fire for free. Same fail-safe direction as wasCast, and it
   // matters more here: these are board wipes.
+  // DESCEND (CR 700.11) — "if you descended this turn": a PERMANENT CARD was put into your graveyard from
+  // anywhere this turn. Read off the per-player `descendedThisTurn` tally that recordGraveyardEvents stamps
+  // at the single graveyard-entry chokepoint, reset for every seat at untap alongside gyEnteredThisTurn.
+  //
+  // ⛔ NARROWER than the gyEnteredThisTurn tally sitting beside it: an instant or sorcery hitting the
+  // graveyard raises that counter and is NOT a descend, and a dying TOKEN is not a card at all (CR 111.7).
+  // Reading the wrong tally would fire every carrier off a cantrip — all of these are end-step riders on
+  // permanents that are meant to reward actually losing permanents.
+  //
+  // An absent tally (a seat that has not descended, or a state predating the stamp) reads 0 → false, never
+  // null: "has not descended" is a KNOWN answer, not an unconfirmable one, so the trigger correctly does
+  // not fire rather than parking on the Arbiter. A missing SEAT is already handled by this function's
+  // opening guard (controller gone → false, "condition unmet"), so there is no seat check here — an added
+  // one would be dead code, and its first draft documented a null return this function never makes.
+  if (/^you descended this turn$/.test(c)) return (state.players[controllerId].descendedThisTurn || 0) > 0;
   if (/^you cast (?:it|this creature|this permanent) from your hand$/.test(c)) {
     const triggeringId = context?.triggeringPermanentId;
     if (!triggeringId) return null;

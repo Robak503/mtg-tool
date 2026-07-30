@@ -27,7 +27,7 @@
  */
 
 import { printedPower, printedToughness, counterPtDelta } from "./ptPrimitive.js";
-import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes } from "./layers.js";
+import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, PERMANENT_TYPE_RE } from "./layers.js";
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
 import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
@@ -987,7 +987,19 @@ export function recordGraveyardEvents(state, events) {
   let players = state.players;
   for (const e of evs) {
     if (e.dir !== "enter" || !players[e.gyOwner]) continue;
-    players = { ...players, [e.gyOwner]: { ...players[e.gyOwner], gyEnteredThisTurn: (players[e.gyOwner].gyEnteredThisTurn || 0) + 1 } };
+    // DESCEND (CR 700.11) — "a player has DESCENDED this turn" means a PERMANENT CARD was put into that
+    // player's graveyard from anywhere this turn; "the number of times descended" counts each such card.
+    // A strictly narrower tally than gyEnteredThisTurn beside it: an instant or sorcery entering the
+    // graveyard raises that counter but is NOT a descend. Counted (not flagged) because The Mycotyrant
+    // reads the COUNT — a boolean would have to be widened later, and a count answers both questions.
+    // Tokens are already filtered out at the top of this fn, which is also correct here: a token is not a
+    // card (CR 111.7), so a dying token never descends.
+    const isPermanentCard = PERMANENT_TYPE_RE.test(String(e.card?.type || e.card?.type_line || ""));
+    players = { ...players, [e.gyOwner]: {
+      ...players[e.gyOwner],
+      gyEnteredThisTurn: (players[e.gyOwner].gyEnteredThisTurn || 0) + 1,
+      ...(isPermanentCard ? { descendedThisTurn: (players[e.gyOwner].descendedThisTurn || 0) + 1 } : {}),
+    } };
   }
   return { ...state, players, pendingGraveyardEvents: [...(state.pendingGraveyardEvents || []), ...evs] };
 }
@@ -2067,7 +2079,7 @@ export function resetCreatureDeathsAllPlayers(state) {
     // lifeLostThisTurn + lifeGainedThisTurn + gyEnteredThisTurn reset on the SAME per-game-turn cadence
     // (Bloodchief Ascension's end-step check / Regal Bloodlord's end-step "if you gained life this turn" /
     // Fraying Sanity's end-step mill — any can accrue on any player's turn, so all seats clear each turn).
-    players[id] = { ...state.players[id], creaturesDiedThisTurn: 0, lifeLostThisTurn: 0, lifeGainedThisTurn: 0, gyEnteredThisTurn: 0, damageTakenThisTurn: 0 };
+    players[id] = { ...state.players[id], creaturesDiedThisTurn: 0, lifeLostThisTurn: 0, lifeGainedThisTurn: 0, gyEnteredThisTurn: 0, descendedThisTurn: 0, damageTakenThisTurn: 0 };
   }
   return { ...state, players };
 }
