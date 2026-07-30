@@ -8,6 +8,11 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Hexing Squelcher and Hag of Mage's Doom now work.** The ward they hand out to your other creatures is
+  real: an opponent targeting one of them pays 2 life or the spell is countered.
+
+
 ## [0.149.20] - 2026-07-30
 
 ### Added

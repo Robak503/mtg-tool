@@ -18,14 +18,14 @@
 >   **Grep the source for a mechanic before believing it is unbuilt** — Ward, Treasure and Food all were.
 >   Full evidence in the METHOD CORRECTION entry below.
 > - 🎯 **READ THE SHELF ENTRY BELOW BEFORE PICKING MORE CORPUS WORK.** Colton's shelf is at **93%** with
->   exactly ONE deck under the >=90% bar (`cdh`, **85/100 — FIVE cards**, re-measured 2026-07-30 after
+>   exactly ONE deck under the >=90% bar (`cdh`, **86/100 — FOUR cards**, re-measured 2026-07-30 after
 >   Borne Upon a Wind + Vexing Shusher landed). Its full gap is diagnosed per clause in the entry.
 >   ⚠️ **The TRACTABLE half of that gap is now spent.** The 15 remaining slots are each a distinct
 >   bespoke mechanism (Battle card type · Cipher · Food · Treasure+Dash · Bestow+landfall · alt-cost
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 0 cards since v0.149.20** (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 2 cards since v0.149.20** (granted Ward—Pay-life +2) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,54 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 3) 2026-07-30 — **GROUP-GRANTED "WARD—PAY N LIFE". GAINED 2, LOST 0.** cdh 85 → 86.
+
+**Hexing Squelcher** (a `cdh` slot) · **Hag of Mage's Doom**.
+
+**⭐ NEITHER GAP WAS THE MECHANIC.** Granted ward has worked since Cathedral Acolyte — it just carried
+**generic mana only**, so a LIFE cost had nowhere to live. And the quoted-grant branch swallowed *every*
+`<selector> have "…"` clause on an assumption **written into its own closing comment**: that such a clause is
+never also a plain keyword grant. **Quoting is a printing convention, not a rules distinction** (CR 702.21 —
+a granted keyword ability is the same ability either way), which is why `have flying.` was `native-static`
+while `have "Flying."` was `body-only`. The quoted form now delegates to `parseAnthemHaveTail`, the SAME
+all-or-nothing oracle the unquoted path uses, so it can only accept bodies the unquoted path already did.
+
+**⚠️ A MUTATION KILLED A LINE I WROTE — and that is the entry worth reading.** I added a guard to reject
+unmodeled ward spans explicitly. Disabling it **failed nothing**: the grantable-keyword check downstream
+already rejects `ward—sacrifice a permanent` and `ward {2}` after punctuation-stripping. **Belt-and-braces
+that no mutation can kill is dead code justified by a hypothetical.** Removed; the comment in its place names
+the change that WOULD need it (adding `ward` to `GRANTABLE_KEYWORDS`). *A line no mutation can kill is either
+dead or untested — decide which, don't leave it.*
+
+**A test name was hollow too:** it claimed to *sum* a printed and granted ward while only asserting a selector
+miss. Split into the two things it should prove; the sum case (**printed 1 + granted 2 = 3**) now pins the
+addition itself.
+
+**Refusals asserted, not assumed:** `Ward—Sacrifice` (Mishra) and `Ward—Discard` have no payer-choice model,
+and the MANA form belongs to the existing `generic` channel — routing it here would price a `{2}` ward as
+**2 life**, a different cost.
+
+**Gates:** 11 new tests driving `ward.wardTaxForStackObject`, every enforcement claim paired with the same
+measurement without the granter. Five mutations seen to fail (the sixth is the dead line above). Predicted 2,
+measured 2. Flip-diff **GAINED 2 / LOST 0**. Suite **1005 files / 12,802 green**, lint 0, MUTANT clean.
+
+### ⚠️ TWO LEDGER CLAIMS THIS PROBE FALSIFIED — corrected here so the next resume isn't misled
+1. **`noncreature` flash qualifier is ALREADY BUILT.** It sat at **#2 on the recommended build order** as
+   unmodeled. Per-line probing shows Valley Floodcaller's *"You may cast noncreature spells as though they had
+   flash"* classifies **OK** today. **Do not build it.**
+2. **Valley Floodcaller has TWO blockers, not one.** Its only remaining failure is the pump line — and the
+   comma list is a red herring: *"Birds AND Rats you control get +1/+1"* fails too, so it is **any
+   multi-subtype union in an anthem target**, not the comma count. *"Untap them"* is a second, independent
+   blocker (it fails on its own with a single subtype). Two mechanics for one card.
+
+**⚠️ Also measured and REFUSED: "deals combat damage to YOU"** — the recipient-side twin of the fully-built
+dealer-side family (`deals combat damage to a player`). Textbook axis shape, and it still pays **0**: 7 cards
+carry it, **0 are attributable** (control verified `native-trigger` first). Every one has a second blocker —
+The Cabbage Merchant needs *"sacrifice a Food token"* as well. **An axis being real does not make it
+profitable; measure before building.**
 
 ---
 
