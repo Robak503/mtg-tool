@@ -1718,6 +1718,41 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ costReduction: { chosenType: true, pips: parseColorPips(pipChosenM[1]) } });
     return;
   }
+  // ⭐ TWO-SUBTYPE UNION (the Banneret cycle — "Elemental spells and Warrior spells you cast cost {1}
+  // less to cast": Brighthearth / Ballyrush / Frogtosser / Stonybrook / Bosk). A spell matching EITHER
+  // subtype is reduced, and the reduction applies ONCE (the runtime union below, not two stacked
+  // reducers — a Goblin Rogue must not get {2} off a card that says {1}).
+  //
+  // Placed BEFORE the single-word arm: its `[a-z]+` anchor cannot match this shape, but ordering it
+  // first keeps the intent explicit rather than relying on that.
+  const crUnionM = c.match(/^([a-z]+) spells and ([a-z]+) spells (?:you cast )?cost \{(\d+)\} less to cast$/);
+  if (crUnionM) {
+    const ok = (w) => COST_REDUCTION_CARDTYPE_WORDS.has(w)
+      || (!NON_SUBTYPE_ANTHEM_WORDS.has(w) && !COLOR_WORDS[w] && !NON_SUBTYPE_COST_FILTER_WORDS.has(w));
+    // BOTH words must be admissible — a union is only as safe as its weaker half, and a half that can
+    // never match would silently make the reducer narrower than printed.
+    if (ok(crUnionM[1]) && ok(crUnionM[2])) {
+      out.push({ costReduction: { subtypes: [normalizeSubtype(crUnionM[1]), normalizeSubtype(crUnionM[2])], amount: parseInt(crUnionM[3], 10) } });
+      return;
+    }
+    // ⛔ FALL THROUGH when the guard rejects — do NOT consume the clause. The first cut returned
+    // unconditionally and REGRESSED the Familiar cycle (Nightscape/Stormscape/Sunscape/Thornscape/
+    // Thunderscape: "Blue spells and red spells you cast cost {1} less"), whose words are COLOURS and are
+    // therefore rejected by ok() — but which a LATER arm already handles natively. A widening must be gated
+    // behind the prior paths' failure; swallowing the clause on rejection inverts that and silently narrows
+    // the engine. Caught by the flip-diff's LOST column, which is exactly what it is for.
+  }
+  // ⭐ NEGATED CARD TYPE — "Noncreature spells you cast cost {1} less to cast" (Longshot, Rebel Bowman;
+  // Valeria Richards; Iron Lad). `noncreature` sits in NON_SUBTYPE_COST_FILTER_WORDS, and that exclusion's
+  // own comment states the reason as a CAPABILITY gap, not a rules objection: "A word-bound type-line
+  // match for these would NEVER fire, so claiming the reducer native while it silently reduces nothing is
+  // a CREED false positive." Exactly right — so this emits a real NEGATION predicate (notCardType) rather
+  // than a word scan, and the word stays excluded from the scan-based arm below.
+  const crNegM = c.match(/^non(creature|artifact|enchantment|land) spells (?:you cast )?cost \{(\d+)\} less to cast$/);
+  if (crNegM) {
+    out.push({ costReduction: { notCardType: crNegM[1], amount: parseInt(crNegM[2], 10) } });
+    return;
+  }
   const crM = c.match(/^([a-z]+) spells (?:you cast )?cost \{(\d+)\} less to cast$/);
   if (crM) {
     const word = crM[1];
@@ -3852,6 +3887,31 @@ export function costReductionForSpell(reducers, spellCard) {
   for (const r of reducers) {
     // EMINENCE "OTHER <subtype> spells": never reduce the source card's own cast (The Ur-Dragon casting itself).
     if (r.excludeSelf && r.sourceName && spellName && r.sourceName === spellName) continue;
+    // ⭐ SUBTYPE UNION (the Banneret cycle — "Goblin spells and Rogue spells you cast cost {1} less"): the
+    // spell is reduced if it carries EITHER subtype, and reduced ONCE. Emitting two separate reducers instead
+    // would give a Goblin Rogue {2} off a card that says {1} — a cheaper spell than the card allows, which is
+    // the forbidden direction for a cost effect.
+    if (Array.isArray(r.subtypes)) {
+      if (!typeLine) continue;
+      const hit = r.subtypes.some((sub) => {
+        const esc = String(sub).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return esc && new RegExp(`\\b${esc}\\b`).test(typeLine);
+      });
+      if (!hit) continue;
+      total += r.amount || 0;
+      continue;
+    }
+    // ⭐ NEGATED CARD TYPE ("Noncreature spells you cast cost {1} less" — Longshot, Valeria Richards, Iron Lad).
+    // A real predicate rather than a word scan, which is exactly what NON_SUBTYPE_COST_FILTER_WORDS' own comment
+    // says was missing: "A word-bound type-line match for these would NEVER fire, so claiming the reducer native
+    // while it silently reduces nothing is a CREED false positive." FAIL-CLOSED on an unreadable type line — no
+    // reduction beats a wrong discount, since an over-applied reducer makes spells cheaper than the card allows.
+    if (r.notCardType) {
+      if (!typeLine) continue;
+      if (new RegExp(`\\b${r.notCardType}\\b`).test(typeLine)) continue;
+      total += r.amount || 0;
+      continue;
+    }
     if (r.subtype) {
       if (!typeLine) continue;
       const sub = String(r.subtype).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

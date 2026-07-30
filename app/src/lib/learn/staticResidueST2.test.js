@@ -195,11 +195,22 @@ describe("ST-2 C — compound card-type reducer: disjoint match (runtime pin)", 
 });
 
 describe("ST-2 C — compound card-type reducer: FN guards (CREED — over-reduction forbidden)", () => {
-  it("Brighthearth Banneret (compound SUBTYPE — itself an Elemental Warrior!) emits NO reducer → body-only", () => {
-    // Two subtype descriptors would double-reduce a dual-subtype spell (a second Brighthearth is an Elemental
-    // Warrior); the single-subtype enforcement can't OR two subtypes, so the compound stays unmodeled.
-    expect(parseStaticAbilities(BRIGHTHEARTH()).some((d) => d.costReduction)).toBe(false);
-    expect(classifyCard(BRIGHTHEARTH())).toBe("body-only");
+  it("Brighthearth Banneret now emits ONE union reducer (2026-07-30) — and still reduces a dual-subtype spell ONCE", () => {
+    // ⭐ THIS PIN'S OWN SENTENCE WAS THE CRITERION: "the single-subtype enforcement can't OR two subtypes, so
+    // the compound stays unmodeled." It can OR them now — ONE descriptor carrying `subtypes: [...]`, matched
+    // with .some() and added once. The hazard it named is the real one and is preserved, not dropped: the
+    // pin below asserts a spell matching BOTH halves (a second Brighthearth IS an Elemental Warrior) gets the
+    // discount exactly once. Two separate descriptors would have given it {2} off a card that says {1}.
+    const reducers = parseStaticAbilities(BRIGHTHEARTH()).filter((d) => d.costReduction).map((d) => d.costReduction);
+    expect(reducers).toEqual([{ subtypes: ["Elemental", "Warrior"], amount: 1 }]);
+    expect(classifyCard(BRIGHTHEARTH())).toMatch(/^native/);
+  });
+
+  it("⛔ THE HAZARD THE OLD PIN NAMED — a dual-subtype spell is reduced ONCE, never twice", () => {
+    const reducers = parseStaticAbilities(BRIGHTHEARTH()).filter((d) => d.costReduction).map((d) => d.costReduction);
+    expect(costReductionForSpell(reducers, { name: "S", type: "Creature — Elemental Warrior", mana: "{3}" })).toBe(1);
+    expect(costReductionForSpell(reducers, { name: "S", type: "Creature — Elemental", mana: "{3}" })).toBe(1);
+    expect(costReductionForSpell(reducers, { name: "S", type: "Creature — Goblin", mana: "{3}" })).toBe(0);
   });
   it("Starnheim Courser (Artifact and enchantment — a dual-permanent pair) emits NO reducer → body-only", () => {
     expect(parseStaticAbilities(STARNHEIM()).some((d) => d.costReduction)).toBe(false);

@@ -68,14 +68,20 @@ describe("STATIC-COST-REDUCTION — excluded subjects stay body-only (safe FN)",
   // reduce correctly (covered by the card-TYPE reducer block below). COLOR words (Red/Green) are ALSO no longer
   // excluded — they emit a COLOR reducer now (see the COLOR-COST-REDUCTION block below); only NON-color, NON-
   // type-line subjects stay excluded. "colorless" is NOT a WUBRG color, so it stays excluded here.
+  // ⭐ "noncreature" GRADUATED 2026-07-30 and moved OUT of this list. This block's own rationale was the
+  // criterion — "its word-bounded type-line match would never fire" — which described the IMPLEMENTATION, not
+  // the rules. It is now a real NEGATION predicate (`notCardType`), matched by asking whether the type line
+  // LACKS the word rather than contains it, so it fires correctly and reduces exactly the printed set.
+  // Its positive pins (both directions + fail-closed) live in costReducerFilterVocabulary.test.js.
   const cases = [
-    ["noncreature", "Noncreature spells you cast cost {1} less to cast."],
     ["supertype (Legendary — Kethis)", "Legendary spells you cast cost {1} less to cast."],
     ["colorless (Ugin) — not a WUBRG color", "Colorless spells you cast cost {2} less to cast."],
     ["over-broad 'permanent' (not a type-line token)", "Permanent spells you cast cost {1} less to cast."],
     // NOTE: the compound "Instant and sorcery spells …" is NO LONGER excluded — it is now MODELED (BLITZ ST-2:
-    // the disjoint-pair compound card-type reducer, tested in compoundCostReduction.test.js). A compound SUBTYPE
-    // pair ("Elemental spells and Warrior spells" — Banneret) stays excluded there (dual-subtype over-reduction).
+    // the disjoint-pair compound card-type reducer, tested in compoundCostReduction.test.js). The compound
+    // SUBTYPE pair ("Elemental spells and Warrior spells" — Banneret) is ALSO modeled now (2026-07-30) as a
+    // single union descriptor; the dual-subtype over-reduction it was guarding against is pinned directly in
+    // staticResidueST2.test.js (a spell matching BOTH halves is reduced ONCE).
     ["'{X} less' (non-numeric)", "Dragon spells you cast cost {X} less to cast."],
     ["a trailing rider breaks the anchor", "Dragon spells you cast cost {1} less to cast for each Mountain you control."],
   ];

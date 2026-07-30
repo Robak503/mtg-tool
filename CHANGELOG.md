@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Cost reducers with two-part filters now work.** The Banneret cycle (Brighthearth, Ballyrush,
+  Frogtosser, Stonybrook, Bosk) discounts both of the tribes it names — and a spell that is both gets
+  the discount once, not twice. "Noncreature spells you cast cost {1} less" works too (Longshot,
+  Iron Lad, Valeria Richards).
 - **Borne Upon a Wind works.** Spells that let you cast at instant speed for the rest of the turn now
   grant that permission properly, and it correctly expires at your next untap step.
 - **"Sacrifice a permanent" and its siblings now work.** Drinker of Sorrow, Perilous Research and

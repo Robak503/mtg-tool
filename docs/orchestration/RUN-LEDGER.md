@@ -21,8 +21,8 @@
 >   exactly ONE deck under the >=90% bar (`cdh`, 83/100 — seven cards). Its full 17-slot gap is
 >   diagnosed per clause in the entry, with a recommended build order. That is the stated objective;
 >   corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 21 cards since v0.149.19** (planeswalker subtypes + `another <filter>` +11,
->   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1).
+> - **BATCH IN FLIGHT: 29 cards since v0.149.19** (planeswalker subtypes + `another <filter>` +11,
+>   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8).
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
 >   one-sided opponent sweep +4, mass-removal filter delegation +19, mass-bounce delegation +3,
@@ -124,6 +124,54 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 2) 2026-07-30 — **COST-REDUCER FILTER VOCABULARY. GAINED 8, LOST 0** (first cut LOST 5).
+
+Ballyrush · Bosk · Brighthearth · Frogtosser · Stonybrook Banneret · Iron Lad, Young Avenger ·
+Longshot, Rebel Bowman · Valeria Richards, Precocious.
+
+**⭐ FOUND WITH THE CORRECTED METHOD, WHICH IS WHY THE NUMBER HELD.** The phrase-swap probe (see the METHOD
+CORRECTION entry) measured **14 attributable** cost-reducer filter cards, grouped by the failing token. 8 of
+those 14 sit in two shapes; the build took both and the flip-diff matched. Compare the containment/line-removal
+numbers that sent the previous turn chasing an already-built Treasure vein.
+
+The reducer's parse arm anchored on a SINGLE `[a-z]+` word, so every multi-word filter failed outright:
+- **two-SUBTYPE union** — "Goblin spells and Rogue spells you cast cost {1} less" (the Banneret cycle, 5)
+- **negated CARD TYPE** — "Noncreature spells you cast cost {1} less" (3)
+
+**⭐ THE NEGATION'S EXCLUSION WAS CAPABILITY LANGUAGE, and the source said so.** `noncreature` sat in
+`NON_SUBTYPE_COST_FILTER_WORDS` because *"a word-bound type-line match for these would NEVER fire, so claiming
+the reducer native while it silently reduces nothing is a CREED false positive."* Exactly right — about the
+IMPLEMENTATION. The fix is a real `notCardType` PREDICATE (does the type line LACK the word?) rather than a
+scan, so the word stays excluded from the scan-based arm and the reducer fires on exactly the printed set.
+
+**⛔⭐ THE FIRST CUT REGRESSED FIVE CARDS, AND THAT IS THE LESSON.** My union arm `return`ed unconditionally, so
+when its guard REJECTED a filter it still CONSUMED the clause — and the Familiar cycle (Nightscape /
+Stormscape / Sunscape / Thornscape / Thunderscape, *"Blue spells and red spells you cast cost {1} less"*,
+whose words are colours) stopped reaching the later arm that already handled it. **GAINED 8, LOST 5.**
+A widening must be gated behind the prior paths' FAILURE; swallowing the clause on rejection inverts the
+ordering rule and silently NARROWS the engine. Fixed by falling through instead of returning → **LOST 0**.
+Caught by the flip-diff's LOST column, which is precisely what it is for — no test would have flagged it,
+because the regressed cards had no failing assertion, only a quieter tier.
+
+**Two pins moved, both naming their own criterion:**
+| pin | verdict |
+|---|---|
+| `costReduction` "noncreature → no cost-reduction marker" | Its block's rationale — *"its word-bounded type-line match would never fire"* — described the implementation. Graduated and removed from the exclusion list; positive pins (both directions + fail-closed) live in the new file |
+| `staticResidueST2` "Brighthearth Banneret … emits NO reducer" | ⭐ Its sentence WAS the criterion: *"the single-subtype enforcement **can't OR two subtypes**, so the compound stays unmodeled."* It can now — ONE descriptor carrying `subtypes: [...]`. **The hazard it named is preserved, not dropped**: a new sibling pin asserts a spell matching BOTH halves (a second Brighthearth IS an Elemental Warrior) is reduced **ONCE**. Two descriptors would have given it {2} off a card that says {1} |
+
+**Gates:** 11 new tests + 1 new sibling pin; **all three mutations seen to fail** — consuming the clause on
+reject (2, the regression itself), double-counting the union (1), inverting the negation (1). Reverts confirmed
+by `git diff`. Flip-diff **GAINED 8 / LOST 0**. Suite **1001 files / 12,751 green**, lint 0 unpiped, MUTANT
+clean, module graph loads.
+
+**STILL PARKED from the measured 14** (each a distinct filter shape, 1 card apiece): `planeswalker` ·
+`aura and equipment` · `face-down creature` · `historic` (needs the CR definition: legendary OR artifact OR
+Saga) · `colorless` (not a WUBRG colour, so the colour arm correctly refuses it).
+
+**BATCH 2: 29 cards** since v0.149.19.
 
 ---
 
