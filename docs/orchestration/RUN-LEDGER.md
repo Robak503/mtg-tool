@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 26 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 31 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,55 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 4) 2026-07-30 — **"IF YOU CAST IT FROM YOUR HAND". GAINED 5, LOST 0.**
+
+Furnace Dragon · Reiver Demon · Angel of the Dire Hour · Wakening Sun's Avatar · Coal Stoker.
+
+### ⭐ THE PHRASE-SWAP EARNED ITS KEEP BEFORE A LINE WAS WRITTEN
+The census listed five intervening-if candidates. Swapping each condition for a known-good one:
+
+| candidate | census | **attributable** |
+|---|---|---|
+| `you cast it from your hand` | 15 | **5** ✅ built |
+| `you descended this turn` | 9 | **5** ⭐ next |
+| `this permanent is an enchantment` | 14 | **0** ⛔ |
+| `this card is in your graveyard` | 9 | **0** ⛔ |
+| `it had counters on it` | 7 | **0** ⛔ |
+
+**Three of five measure ZERO.** Building the top-of-census candidate would have bought nothing at all.
+*The census ranks CANDIDATES; only the swap ranks value — and the gap between the two is not a small
+correction, it is three out of five.*
+
+### THE BUILD — four one-line hops, no new context plumbing
+`action.fromZone` → `PERMANENT_ETB` params → `enterPermanent` opts → **stamped on the permanent beside
+`wasCast`**. The evaluator reads it off the entering permanent directly, so unlike the discard slice this
+needed **no trigger-context threading at all** — the `wasCast` arm had already proved that route.
+
+### ⛔ THE FAIL-SAFE DIRECTION IS THE ENTIRE POINT
+Every carrier is a **board wipe** whose printed cost is that you had to hard-cast it. Reiver Demon destroys
+all nonartifact nonblack creatures; Furnace Dragon exiles ALL artifacts. Three ways this could have gone
+wrong, all mutation-covered:
+- **stamp defaults to `"hand"`** → every reanimated copy fires the sweep for free
+- **evaluator ignores the zone** → a flashback/exile cast fires it
+- **evaluator fails open on an absent stamp** → tokens and blinks fire it
+
+Only the CAST branch of the dispatcher sets the value, so a permanent arriving any other way never reaches
+the line. **Five mutations, five seen to fail.**
+
+### ⚠️ I PARAPHRASED CARD TEXT FROM MEMORY AND THE SUITE CAUGHT ME
+The first draft of the fixtures had **Reiver Demon as *"non-Demon"* — the real text is *"nonblack"*** —
+plus three wrong mana costs. The corpus test failed immediately; the fixtures are now read out of the
+snapshot. ⭐ *The "never write card text from memory" rule is not about doctrine, it is about the fact
+that recall is CONFIDENT and wrong at the same time — and a paraphrase that happens to still classify
+native would have shipped silently.*
+
+**Gates:** 8 tests, negatives leading. Suite **1017 files / 12,946 green**, lint 0, MUTANT clean.
+Commit `6646e7e5`.
+
+**Batch 4: 31 cards. Next measured target: `you descended this turn` (5 attributable, swap-verified).**
 
 ---
 
