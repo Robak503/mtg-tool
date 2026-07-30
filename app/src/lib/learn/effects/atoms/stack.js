@@ -771,12 +771,41 @@ function applySourcePowerFanout(state, atom, ctx) {
  * suspends; resolveOptionalManaPaymentChoice settles it (PAY → payManaCost + run the payoff atoms; DECLINE →
  * nothing). The payoff atoms ride on the choice as plain JSON (serialize-safe). FIFO-guarded by the setter.
  */
+/**
+ * CONDITIONED PAYMENT (Springheart Nantuko) — "you may pay {1}{G} IF this permanent is attached to a creature
+ * you control". The condition gates whether the payment may be made at all, not what it does.
+ *
+ * ⭐ THE PAUSE STILL SURFACES WHEN THE CONDITION IS FALSE, carrying `available: false` — the exact pattern
+ * the reflexive-sac atom in this same file already uses ("a false-`available` pause still surfaces — the
+ * player/AI must decline since you can't sacrifice what you don't have"). Skipping the pause would mean this
+ * resolver had to run the ELSE atoms itself, duplicating the settler's WI-3 pause-chaining logic; routing
+ * every case through the settler keeps one implementation of that.
+ *
+ * Only ONE condition kind is modelled, and anything else returns false — an unknown condition must never
+ * read as satisfied (that would let the payment be made when the card forbids it).
+ */
+function optionalPaymentConditionMet(state, atom, ctx) {
+  if (!atom.payCondition) return true;                  // unconditional — every pre-existing carrier
+  if (atom.payCondition === "attachedToCreatureYouControl") {
+    const self = ctx.sourceId ? findPermanent(state, ctx.sourceId)?.permanent : null;
+    if (!self?.attachedTo) return false;
+    const host = findPermanent(state, self.attachedTo);
+    return !!host && host.permanent?.controller === ctx.controller && permanentIsCreature(state, self.attachedTo);
+  }
+  return false;                                          // unmodelled condition → never satisfied
+}
+
 function applyOptionalManaPayment(state, atom, ctx) {
   if (state.pendingChoice) return state; // FIFO — one choice at a time (belt-and-braces; setter re-guards)
   return setPendingOptionalManaPaymentChoice(state, {
     controller: ctx.controller,
     cost: atom.cost,
     effectAtoms: atom.effectAtoms || [],
+    // FALLBACK (Springheart) — run by the settler when the payment is NOT made, whether declined or
+    // impossible. Absent on every other carrier, so their decline path is byte-identical (an empty branch).
+    elseAtoms: atom.elseAtoms || [],
+    // CONDITION — false makes the payment unpayable; the pause still surfaces so the settler runs the else.
+    available: optionalPaymentConditionMet(state, atom, ctx),
     sourceName: ctx.cardName || null,
     // TARGETED PAYOFF: the target was chosen when the ability went on the stack (CR 603.3d), so it already sits
     // in ctx.targets. Carry it ACROSS the pay/decline suspend — the settler had `targets: []` hardcoded, which

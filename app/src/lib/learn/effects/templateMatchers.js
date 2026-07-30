@@ -1037,6 +1037,42 @@ export function matchSelfHitDamage(oracle) {
   return { atoms: [{ op: "deal-damage", amount: parseInt(m[2], 10), targetType: "any", selfDamage: parseInt(m[3], 10) }] };
 }
 
+/**
+ * ===== SPRINGHEART NANTUKO (the last card on Colton's shelf) ===== the landfall rider:
+ *   "you may pay {1}{G} if this permanent is attached to a creature you control. If you do, create a token
+ *    that's a copy of that creature. If you didn't create a token this way, create a 1/1 green Insect
+ *    creature token."
+ *
+ * ⛔ MATCHED AS ONE WHOLE CLAUSE, AND DELIBERATELY NOT GENERALISED. Three sentences that mean one thing, and
+ * every piece is ambiguous on its own:
+ *   - "that creature" is the ATTACHED host here; on almost every other card it means something else. A
+ *     general "that creature → attached" referent would mis-copy across the corpus, so the referent is only
+ *     reachable through this anchored shape.
+ *   - the fallback is not a third effect: it is the ELSE of the payment. Split off, a card could make BOTH
+ *     tokens.
+ * The clause splitter shatters all three, so it is collapsed here — the matchDiesGainDrawByPower pattern.
+ *
+ * The atom is the ordinary optional-mana-payment plus the two fields the settler understands: `condition`
+ * (unpayable unless attached to a creature you control) and `elseAtoms` (the Insect, run when the payment is
+ * not made — declined OR impossible). Exactly one token on every path.
+ */
+export function matchSpringheartLandfall(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  if (!/^you may pay \{1\}\{g\} if this permanent is attached to a creature you control\. if you do, create a token that's a copy of that creature\. if you didn't create a token this way, create a 1\/1 green insect creature token$/.test(s)) return null;
+  return { atom: {
+    op: "optional-mana-payment",
+    cost: { kind: "mana", mana: { generic: 1, W: 0, U: 0, B: 0, R: 0, G: 1, C: 0, hybrid: [] } },
+    // ⚠️ payCondition, NOT `condition`. runEffectProgram already owns `condition` on an atom: it is a SPELL
+    // RIDER board query run through evaluateInterveningIf, and an atom whose condition that reader cannot
+    // parse is SKIPPED ENTIRELY. Naming this field `condition` made the whole payment silently vanish —
+    // no pause, no tokens, no error, an empty log — and cost a revert on a misdiagnosis.
+    payCondition: "attachedToCreatureYouControl",
+    effectAtoms: [{ op: "create-token-copy", copySource: "attached", count: 1, targetType: null }],
+    elseAtoms: [{ op: "create-token", count: 1, power: 1, toughness: 1, descriptor: "green insect", targetType: null }],
+    targetType: null,
+  } };
+}
+
 export function matchCounterThenGrant(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   const m = t.match(/^put (a|two|three) \+1\/\+1 counters? on target creature( you control)?\. (?:then )?it gains (.+) until end of turn$/);

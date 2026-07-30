@@ -480,7 +480,7 @@ export function setPendingSoftCounterChoice(state, { controller, amount, cost = 
  * payManaCost never fabricates mana). The continuation rides on `pendingChoice.resume` (attached by runProgram).
  * FIFO: one choice at a time.
  */
-export function setPendingOptionalManaPaymentChoice(state, { controller, cost, effectAtoms = [], sourceName = null, targets = [] }) {
+export function setPendingOptionalManaPaymentChoice(state, { controller, cost, effectAtoms = [], sourceName = null, targets = [], elseAtoms = [], available = true }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "optional-mana-payment-pending", controller, amount: wardCostHeadline(cost), sourceName });
   return {
@@ -490,6 +490,12 @@ export function setPendingOptionalManaPaymentChoice(state, { controller, cost, e
       controller,
       cost,
       effectAtoms,
+      // FALLBACK + CONDITION (Springheart Nantuko). `elseAtoms` runs when the payment is NOT made — declined
+      // or impossible. `available: false` means the card's own condition forbids paying at all, so the pause
+      // surfaces only to be declined (the reflexive-sac pattern in the same family). Both default so every
+      // other carrier's choice object is byte-identical.
+      elseAtoms,
+      available,
       sourceName,
       // The chosen targets, locked at announcement (CR 603.3d) and replayed into the payoff on settle.
       targets,

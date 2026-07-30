@@ -420,6 +420,15 @@ function resolveCopySource(state, atom, ctx) {
     if (ctx.triggeringCard && !ctx.triggeringCard.token) return { card: ctx.triggeringCard };
     return null;
   }
+  // ATTACHED (Springheart Nantuko) — the creature this permanent is ATTACHED TO. A bestowed Aura's own
+  // `attachedTo` is the referent for its "create a token that's a copy of THAT creature": "that creature" is
+  // the one named by the payment condition ("if this permanent is attached to a creature you control"), never
+  // the source itself. Read LIVE at resolution — if the host left in response, there is nothing to copy and
+  // CR 111.12 gives a clean no-op rather than a fabricated body or a copy of the wrong creature.
+  if (atom.copySource === "attached") {
+    const self = ctx.sourceId ? findPermanent(state, ctx.sourceId)?.permanent : null;
+    return self?.attachedTo ? findPermanent(state, self.attachedTo)?.permanent || null : null;
+  }
   if (atom.copySource === "target") {
     const t = (ctx.targets || []).find((x) => x?.type === "creature") || (ctx.targets || [])[0];
     return t?.id ? findPermanent(state, t.id)?.permanent : null;

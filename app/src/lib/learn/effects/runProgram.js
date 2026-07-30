@@ -1098,11 +1098,15 @@ export function resolveOptionalManaPaymentChoice(state, pay) {
   let next = clearPendingChoice(state);
   if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → bail, no resume
   let paid = false;
-  if (pay && pc.cost?.kind === "mana") {
+  // CONDITIONED PAYMENT (Springheart Nantuko): `available: false` means the card's own condition was not met,
+  // so the payment CANNOT be made however the seat answers — the pause exists only so the settler can run the
+  // fallback. Every other carrier omits the field and defaults to true, so their path is unchanged.
+  const canPay = pc.available !== false;
+  if (canPay && pay && pc.cost?.kind === "mana") {
     const r = payManaCost(next, pc.controller, pc.cost.mana || {});
     next = r.state;
     paid = r.paid;
-  } else if (pay && pc.cost?.kind === "energy") {
+  } else if (canPay && pay && pc.cost?.kind === "energy") {
     // ENERGY (CR 122.1e): pay iff the controller actually has the energy — spendEnergy never drives it negative,
     // and an unaffordable "pay" runs NO payoff (mirrors payManaCost's no-fabrication guarantee, the CREED bar).
     if (hasEnergy(next, pc.controller, pc.cost.amount || 0)) {
@@ -1111,39 +1115,57 @@ export function resolveOptionalManaPaymentChoice(state, pay) {
     }
   }
   next = logEvent(next, { kind: "spell-effect", effect: "optional-mana-payment", controller: pc.controller, paid, sourceName: pc.sourceName || null });
-  if (paid) {
-    // Run the payoff atoms in printed order. Each is HIGH + non-modal (parser-validated). The parser admits at
-    // most ONE chosen target type, whose target was locked when the ability went on the stack (CR 603.3d) and
-    // rides the choice as `pc.targets` — replay it here. A targetless payoff carries [], as before.
-    const r = pc.resume || {};
-    const atoms = pc.effectAtoms || [];
-    for (let i = 0; i < atoms.length; i++) {
-      const ctx = { ...(r.context || {}), controller: pc.controller, targets: pc.targets || [], cardName: r.cardName ?? pc.sourceName ?? null, xValue: r.xValue ?? null, sourceId: r.sourceId ?? null };
-      const after = resolveAtom(next, atoms[i], ctx);
-      if (after == null) {
-        return markPendingArbiter(next, { source: { name: pc.sourceName }, payload: { params: r } }, `optional-mana-payment payoff atom "${atoms[i]?.op}" had no resolver`);
+  // PAID → the payoff atoms. DECLINED → the ELSE atoms, when the card prints a fallback (Springheart Nantuko:
+  // "If you didn't create a token this way, create a 1/1 green Insect creature token"). Both run through the
+  // SAME helper: the loop below carries real pause-chaining logic (WI-3), and two copies of it would drift.
+  const branch = paid ? (pc.effectAtoms || []) : (pc.elseAtoms || []);
+  const ran = runOptionalPaymentBranch(next, branch, pc, paid);
+  if (ran.halted) return ran.state;
+  next = ran.state;
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * Run one branch of an optional-payment settle (the paid payoff, or the declined fallback) in printed order.
+ * Each atom is HIGH + non-modal (parser-validated). The parser admits at most ONE chosen target type, whose
+ * target was locked when the ability went on the stack (CR 603.3d) and rides the choice as `pc.targets` —
+ * replayed here. A targetless branch carries [].
+ *
+ * Returns { state, halted }. `halted` means the caller must return `state` AS IS — the branch either routed
+ * to the Arbiter or chained a pause onto the program's resume, and in both cases resuming again would be
+ * wrong. Extracted from the paid path so the ELSE branch inherits the same WI-3 mid-branch-pause guard
+ * instead of a second copy of it.
+ */
+function runOptionalPaymentBranch(state, atoms, pc, paid) {
+  const r = pc.resume || {};
+  const label = paid ? "payoff" : "fallback";
+  let next = state;
+  for (let i = 0; i < atoms.length; i++) {
+    const ctx = { ...(r.context || {}), controller: pc.controller, targets: pc.targets || [], cardName: r.cardName ?? pc.sourceName ?? null, xValue: r.xValue ?? null, sourceId: r.sourceId ?? null };
+    const after = resolveAtom(next, atoms[i], ctx);
+    if (after == null) {
+      return { halted: true, state: markPendingArbiter(next, { source: { name: pc.sourceName }, payload: { params: r } }, `optional-mana-payment ${label} atom "${atoms[i]?.op}" had no resolver`) };
+    }
+    next = after;
+    // A branch atom set a resolution-time choice (scry/surveil) — chain its resume onto the program's, so the
+    // choice settles into the PROGRAM continuation (nextAtomIndex). That chain is only correct for the LAST
+    // atom: a mid-branch pause would drop atoms i+1.. (the chained resume skips the tail).
+    if (next.pendingChoice && !next.pendingChoice.resume) {
+      // WI-3 belt-and-braces: the parser gate (PAUSING_ATOM_OPS in matchOptionalManaPayment) makes a NON-LAST
+      // pausing atom unreachable for native programs — if one pauses anyway, NEVER drop the remaining atoms.
+      // Clear the inner choice and route to the Arbiter with an honest reason (CREED-safe FN: the card is
+      // handed off rather than half-resolved).
+      if (i < atoms.length - 1) {
+        return { halted: true, state: markPendingArbiter(
+          clearPendingChoice(next),
+          { source: { name: pc.sourceName }, payload: { params: r } },
+          `optional-mana-payment ${label} atom "${atoms[i]?.op}" paused mid-${label} — resuming would drop ${atoms.length - 1 - i} remaining atom(s)`,
+        ) };
       }
-      next = after;
-      // A payoff atom set a resolution-time choice (scry/surveil) — chain its resume onto the program's, so
-      // the choice settles into the PROGRAM continuation (nextAtomIndex). That chain is only correct for the
-      // LAST payoff atom: a mid-payoff pause would drop atoms i+1.. (the chained resume skips the payoff tail).
-      if (next.pendingChoice && !next.pendingChoice.resume) {
-        // WI-3 belt-and-braces: the parser gate (PAUSING_ATOM_OPS in matchOptionalManaPayment) makes a
-        // NON-LAST pausing payoff unreachable for native programs — if one pauses anyway, NEVER drop the
-        // remaining payoff atoms. Clear the inner choice and route to the Arbiter with an honest reason
-        // (CREED-safe FN: the card is handed off rather than half-resolved).
-        if (i < atoms.length - 1) {
-          return markPendingArbiter(
-            clearPendingChoice(next),
-            { source: { name: pc.sourceName }, payload: { params: r } },
-            `optional-mana-payment payoff atom "${atoms[i]?.op}" paused mid-payoff — resuming would drop ${atoms.length - 1 - i} remaining payoff atom(s)`,
-          );
-        }
-        return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
-      }
+      return { halted: true, state: { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } } };
     }
   }
-  return resumeAfterChoice(next, pc);
+  return { halted: false, state: next };
 }
 
 /**
