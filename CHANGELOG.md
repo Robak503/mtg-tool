@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Abilities that check what you control now understand more kinds of "what".** Thirteen cards work, including
+  Heidar, Rimewind Master, Rimewind Cryomancer, Celestial Enforcer, Mirror-Sigil Sergeant and Parasitic Strix.
+  Conditions like "if you control a creature with flying", "if you control a blue permanent", "if you control
+  an artifact or enchantment" and "if you control four or more snow permanents" are read correctly now — and
+  the same improvement applies whether the condition sits on a trigger, a spell, or an activated ability.
+
 ## [0.149.18] — 2026-07-30
 
 ### Added

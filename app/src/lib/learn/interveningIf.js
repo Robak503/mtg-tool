@@ -71,6 +71,12 @@
  */
 
 import { creaturePower, creatureToughness } from "./gameState.js"; // layer-aware P/T readers (counters + anthems) — one-way edge, no cycle
+// Layer-aware KEYWORD + COLOR readers for the "you control a <filter>" family (CR 613 — a granted keyword and
+// an effect-changed color are real characteristics). One-way edge: layers.js imports gameState / keywords /
+// staticAbilityParser / protection, none of which reach interveningIf.js, so this adds no cycle. Verified with
+// `node --input-type=module -e "import './src/lib/learn/legalChoices.js'"` per the RUN-LEDGER's mandate — a
+// green suite is NOT evidence the module graph still loads (vitest resolves in a different order than node).
+import { permanentHasKeyword, permanentColors } from "./layers.js";
 
 // ─── cardinal vocabulary ────────────────────────────────────────────────────────
 const NUM_WORD = {
@@ -120,11 +126,30 @@ function permMatchesFilter(perm, filter, state) {
   // POWER gate (layer-aware: counters + anthems count, read at flush AND resolution like the powerAtLeast
   // count-source). Only stamped on a creature filter (parseFilter requires kind:"type" word:"Creature").
   if (filter.powerAtLeast != null && !(creaturePower(perm, state) >= filter.powerAtLeast)) return false;
+  // KEYWORD gate — "creature with flying" (CR 702). LAYER-AWARE via permanentHasKeyword, so a granted or
+  // counter-conferred keyword counts, which is the only honest read for a condition checked live.
+  if (filter.keyword && !permanentHasKeyword(state, perm.id, filter.keyword)) return false;
+  // COLOR gate — "a blue permanent" (CR 105.2). LAYER-AWARE via permanentColors (layer 5), so a permanent
+  // turned blue by an effect IS a blue permanent. FAIL-CLOSED on unresolvable colors: undercounting parks the
+  // card, overcounting would fire an ability whose condition is false (a forbidden FP).
+  if (filter.color) {
+    // permanentColors returns an ARRAY (deriveCharacteristics spreads its Set before returning), so read it as
+    // one — an absent/empty result fails closed.
+    const colors = permanentColors(state, perm.id);
+    if (!Array.isArray(colors) || !colors.includes(filter.color)) return false;
+  }
   if (filter.kind === "all") return true;                  // "permanent(s)"
   if (filter.kind === "token") return !!(perm.token || perm.card?.token);
+  // TYPE UNION vs TYPE CONJUNCTION, and the difference is load-bearing. `word` may be an array:
+  //   • a UNION ("artifact or enchantment") matches a permanent carrying ANY listed word — `.some()`;
+  //   • a CONJUNCTION ("snow land" → ["Land","Snow"], flagged allWords) needs EVERY word — `.every()`.
+  // Using `.some()` for the conjunction would make "you control four or more snow permanents" count ordinary
+  // lands, i.e. fire an ability whose condition is false. A single word keeps its exact prior behaviour
+  // (a one-element array reduces to the same single test under either quantifier).
+  const words = Array.isArray(filter.word) ? filter.word : [filter.word];
   // type/subtype containment: whole-word, Title-cased singular ("creatures" → \bCreature\b)
-  const re = new RegExp(`\\b${filter.word}\\b`, "i");
-  return re.test(typeStr(perm.card));
+  const hit = (w) => new RegExp(`\\b${w}\\b`, "i").test(typeStr(perm.card));
+  return filter.allWords ? words.every(hit) : words.some(hit);
 }
 
 // Words that read as a "you control a <word>" filter but are NOT card types/subtypes — a DESIGNATION or
@@ -132,6 +157,17 @@ function permMatchesFilter(perm, filter, state) {
 // and mis-evaluate the condition (a forbidden FP — e.g. "you control a commander" is your commander, not a
 // "Commander"-typed permanent). Reject these → the condition stays unparseable → Arbiter (false-negative SAFE).
 const NON_TYPE_WORDS = new Set(["commander", "monarch", "creature's", "spell", "card", "blessing"]);
+
+// KEYWORDS admissible in a "you control a <noun> with <keyword>" filter. A CURATED set on purpose: an
+// unrecognised word must fall through to null (→ Arbiter) rather than become a keyword nobody grants, which
+// would evaluate the condition FALSE forever while the shape gate still reported "readable" — the same trap
+// the Plains-singularization note below documents, and a forbidden FP under the CREED.
+const FILTER_KEYWORDS = new Set([
+  "flying", "reach", "trample", "vigilance", "haste", "menace", "defender", "flash",
+  "deathtouch", "lifelink", "first", "double", "hexproof", "indestructible", "shroud",
+  "fear", "intimidate", "shadow", "horsemanship", "changeling", "infect", "wither", "banding",
+]);
+const COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
 
 // Parse a filter phrase ("artifacts", "tapped creatures", "tokens", "permanents", "untapped lands",
 // "Gates") into { kind, word, state } — or null if it isn't a clean single-word type/subtype filter.
@@ -146,6 +182,55 @@ function parseFilter(phrase) {
   // read LAYER-AWARE at evaluation (permMatchesFilter → creaturePower). Combinable with a tapped/untapped state.
   const pm = p.match(/^creatures? with power (\d+) or (?:greater|more)$/);
   if (pm) return { kind: "type", word: "Creature", state, powerAtLeast: parseInt(pm[1], 10) };
+  // ⭐ THE VOCABULARY WIDENINGS BELOW ARE ONE AXIS FIX, and each one reaches ALL THREE LANES at once —
+  // interveningIfParseable (triggers), spellConditionParseable (spells) and activationConditionParseable
+  // (activated abilities) are three probes over this ONE grammar, exactly as conditionVocabularyReaders.test.js
+  // states. A census of the parked corpus put 45 cards on "you control <filter>" phrases this parser could not
+  // read, while permMatchesFilter's own gates (tapped state, layer-aware power) showed the machinery was there.
+  // Each arm is whole-anchored: anything it cannot read falls through to null → Arbiter (false-negative SAFE).
+  //
+  // KEYWORD-QUALIFIED filter — "creature with flying" / "creature with a mana value" no. Only a KEYWORD, and
+  // only the curated combat/evasion set, so a mis-read word can never silently count 0 (which would evaluate
+  // the condition FALSE forever while the shape gate still said "readable" — the Plains-singularization trap
+  // documented below, and a forbidden FP). Read LAYER-AWARE at evaluation.
+  // The base noun is routed back through parseFilter rather than hand-built, so NON_TYPE_WORDS still applies
+  // ("a spell with flying" must NOT become a "Spell"-typed filter) and "permanent" still means kind:"all".
+  const km = p.match(/^(.+?) with ([a-z]+)$/);
+  if (km && FILTER_KEYWORDS.has(km[2])) {
+    const inner = parseFilter(km[1]);
+    return inner && !inner.keyword ? { ...inner, state: inner.state ?? state, keyword: km[2] } : null;
+  }
+  // COLOR-QUALIFIED filter — "a blue permanent" (Ephara's Enlightenment class), "a white creature". The colour
+  // word is stripped and rides as `color`; the remaining noun goes through the normal type path below, so
+  // "blue permanent" → {kind:"all", color:"U"} and "white creature" → {kind:"type", word:"Creature"}.
+  const colM = p.match(/^(white|blue|black|red|green) (.+)$/);
+  if (colM) {
+    const inner = parseFilter(colM[2]);
+    return inner ? { ...inner, state: inner.state ?? state, color: COLOR_LETTER[colM[1]] } : null;
+  }
+  // TYPE UNION — "artifact or enchantment" (Sanctum Weaver / Hall of Heliod's Generosity class). BOTH sides
+  // must be clean single-word TYPE filters with no state/rider of their own, so the union is exactly the two
+  // type-line words and nothing is silently dropped. A union involving "permanent"/"token" (whose match isn't
+  // a type-line word) or any qualified side → null → Arbiter.
+  const um = p.match(/^([a-z]+) or (?:an? )?([a-z]+)$/);
+  if (um) {
+    const a = parseFilter(um[1]), b = parseFilter(um[2]);
+    if (a && b && a.kind === "type" && b.kind === "type" && !a.state && !b.state && !a.powerAtLeast && !b.powerAtLeast
+        && !a.keyword && !b.keyword && !a.color && !b.color) {
+      return { kind: "type", word: [a.word, b.word], state };
+    }
+    return null;
+  }
+  // SNOW supertype (CR 205.4h) — "snow permanents" / "snow lands". "Snow" IS printed in the type line's
+  // supertype slot, so it reads through the same word-anchored path as a card type; it just isn't a word the
+  // singular/Title-case path would reach on its own because it always PREFIXES another type word.
+  const snowM = p.match(/^snow (.+)$/);
+  if (snowM) {
+    const inner = parseFilter(snowM[1]);
+    if (!inner) return null;
+    const words = inner.kind === "all" ? ["Snow"] : [...(Array.isArray(inner.word) ? inner.word : [inner.word]), "Snow"];
+    return { kind: "type", word: words, state: inner.state ?? state, allWords: true };
+  }
   // must be a single word now (no riders like "you control", "named ...", or an unmodeled power/toughness rider)
   if (!/^[a-z]+$/.test(p)) return null;
   // INVARIANT BASIC-LAND TYPES (CR 205.3i): "Plains" is spelled the same singular and plural — a naive

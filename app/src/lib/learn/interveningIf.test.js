@@ -95,7 +95,14 @@ describe("evaluateInterveningIf — strict null for unmodeled conditions (CREED)
     expect(evaluateInterveningIf(withBoard([]), "you control a creature with toughness 4 or greater", "user")).toBe(null);
     // a DESIGNATION read as a type would silently count 0 → must be rejected as unparseable
     expect(evaluateInterveningIf(withBoard([]), "you control a commander", "user")).toBe(null);
-    expect(evaluateInterveningIf(withBoard([]), "you control a blue permanent", "user")).toBe(null);
+    // ⚠️ "you control a blue permanent" MOVED OUT 2026-07-30, because this bucket's stated reason never
+    // actually applied to it. The reason above is "a DESIGNATION read as a type would silently count 0" —
+    // true of commander / monarch / the city's blessing, which are designations with no characteristic at all.
+    // A COLOUR is a real characteristic (CR 105.2) and is now read LAYER-AWARE via permanentColors rather than
+    // scanned for on the type line, so it never counts 0 by mistake. It is READABLE now and correctly FALSE on
+    // an empty board; both directions plus the colour⇄type composition are pinned in
+    // conditionFilterVocabulary.test.js. The mis-grouping is the finding: colour was filed under designations.
+    expect(evaluateInterveningIf(withBoard([]), "you control a blue permanent", "user")).toBe(false);
     // a MALFORMED life phrase (no number, or a per-opponent variant) stays null (only "you have N or less/more
     // life" is modeled — a "that player has N … life" / bare "you have life" is out of vocabulary, CREED)
     expect(evaluateInterveningIf(withBoard([]), "you have life", "user")).toBe(null);
@@ -114,10 +121,20 @@ describe("interveningIfParseable — shape gate", () => {
       "you have 5 or less life", "you have 10 or less life", "you have 25 or more life"]) {
       expect(interveningIfParseable(c)).toBe(true);
     }
-    for (const c of ["you control a commander", "you control a blue permanent",
+    // ⭐ 2026-07-30 — four filter kinds joined the READABLE list (KEYWORD / COLOR / TYPE UNION / SNOW). One
+    // reader added to this grammar reaches all three lanes, so these also unlocked activation riders.
+    for (const c of ["you control a creature with flying", "you control a blue permanent",
+      "you control an artifact or enchantment", "you control four or more snow permanents"]) {
+      expect(interveningIfParseable(c), c).toBe(true);
+    }
+    for (const c of ["you control a commander",
       "you control a creature with power 4 or less", "you control a creature with toughness 4 or greater",
-      "a Zubera died this turn", "your team gained life this turn", "that player has no cards in hand"]) {
-      expect(interveningIfParseable(c)).toBe(false);
+      "a Zubera died this turn", "your team gained life this turn", "that player has no cards in hand",
+      // ⛔ THE BOUNDARY, RE-POINTED: the widenings each refuse anything outside their own vocabulary — an
+      // uncurated keyword word, a union with a non-type side, and a designation riding the keyword arm.
+      "you control a creature with gobbledygook", "you control an artifact or permanent",
+      "you control a spell with flying"]) {
+      expect(interveningIfParseable(c), c).toBe(false);
     }
     // BLITZ IF-1: monarch-status, opponent-lost-life (bare ≥1), no-cards-in-hand, and controller-scoped death;
     // BLITZ LG-1: controller-scoped life-gained (bare ≥1 + cardinal) — all now parseable shapes.

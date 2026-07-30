@@ -11,8 +11,8 @@
 > per slice. **Only the TAG batches.** A tag makes an update banner appear in every running `.exe`, and one
 > banner per +21 is noise.
 >
-> - **BATCH IN FLIGHT: 0 cards banked since v0.149.18.** Update this number at every slice boundary so a
->   fresh session knows how much is unreleased.
+> - **BATCH IN FLIGHT: 13 cards banked since v0.149.18** (condition-filter vocabulary). Update this number at
+>   every slice boundary so a fresh session knows how much is unreleased.
 > - Write CHANGELOG entries under `## [Unreleased]` per slice; promote the whole block and bump both version
 >   files (`app/package.json` + `app/src-tauri/tauri.conf.json`) only at TAG time.
 > - Tag early ONLY for a real reason: a user-facing bug fix, a release-pipeline fix, or Colton asking.
@@ -110,7 +110,68 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## ✅ SHIPPED 2026-07-30 — **MASS-DAMAGE RECIPIENT DELEGATION. GAINED 25, LOST 0.** New biggest slice.
+## 🏦 BANKED (unreleased) 2026-07-30 — **CONDITION-FILTER VOCABULARY. GAINED 13, LOST 0.**
+
+Bloodhall Ooze · Celestial Enforcer · Gangrenous Zombies · Goblin Bird-Grabber · Heidar, Rimewind Master ·
+Mirror-Sigil Sergeant · Moonlit Scavengers · Parasitic Strix · Rhox Meditant · Rimewind Cryomancer ·
+Ronom Serpent · Sedraxis Alchemist · Stone Haven Pilgrim.
+
+**⭐ THE MULTIPLIER, AND THE ENGINE STATES IT ITSELF.** `evaluateInterveningIf` is ONE grammar behind three
+probes — `interveningIfParseable` (triggers), `spellConditionParseable` (spells) and
+`activationConditionParseable` (activated abilities, CR 602.5d) — and `conditionVocabularyReaders.test.js`
+says so: *"a single reader added here reaches all three."* So the unit of work is a READER, not a card.
+
+**How it was found.** `probe-trailing-tail-vein` reports **1058 parked cards are ONE trailing sentence from
+native**; the head was `"activate only if…"` (44) + `"activate only during…"` (22). The activation-rider
+machinery turned out to be fully built already — `abilities.js` attaches the condition only when
+`activationConditionParseable` says yes — so the cards park on the CONDITION VOCABULARY, not the rider. A
+three-lane census then measured **189 cards whose condition is the SOLE blocker**, bucketed by mechanism:
+T1 turn-event history 49 · T2 "you control &lt;filter&gt;" 45 · T9 long tail 71 · the rest small. This slice took T2.
+
+**⛔ RULE 1b KILLED THE FIRST DESIGN BEFORE A LINE WAS WRITTEN.** The single biggest exact phrase was
+`"you control a desert or there is a desert card in your graveyard"` (6 cards), which reads as a plain
+disjunction — so the obvious build was a top-level `or` splitter. Probing the halves first showed
+`"there is a desert card in your graveyard"` is ALSO unreadable, so the splitter would have gained **zero**
+there; and `"you control an artifact or enchantment"` needs SUBJECT PROPAGATION, not a bare split (half B is
+`"enchantment"`). The real misses were all in `parseFilter`'s vocabulary, so that is what got widened.
+
+**Four filter kinds added, each whole-anchored, each refusing outside its own vocabulary:**
+KEYWORD (`a creature with flying`, layer-aware via `permanentHasKeyword`, curated word list) · COLOR
+(`a blue permanent`, layer-aware via `permanentColors`, CR 105.2) · TYPE UNION (`an artifact or enchantment`,
+both sides must be clean single-word type filters) · SNOW supertype (CR 205.4h).
+
+**⭐ THE SHARPEST HAZARD — UNION vs CONJUNCTION.** `filter.word` may be an array, and the quantifier differs:
+`artifact or enchantment` is a UNION (`.some()`) while `snow land` → `["Land","Snow"]` is a CONJUNCTION
+(`.every()`, flagged `allWords`). Quantifying both with `.some()` would let *"you control four or more snow
+permanents"* count ordinary lands — Heidar and Rimewind Cryomancer activating off an untapped Island, i.e. an
+ability firing on a printed condition that is false. Pinned in both directions and mutation-checked.
+
+**One pin moved — and the finding is that its EXAMPLE was mis-filed, not that its rule was wrong:**
+`interveningIf.test.js` listed `"you control a blue permanent"` beside `"you control a commander"` under
+*"a DESIGNATION read as a type would silently count 0 → must be rejected."* That reason is exactly right for
+commander / monarch / the city's blessing — designations with no characteristic at all — but a COLOUR is a
+real characteristic (CR 105.2), and it is now read from layer 5 rather than scanned for on the type line, so
+it can never count 0 by mistake. Graduated in both of its lists (the value pin now asserts `false` on an empty
+board, which is the correct answer, not `null`); the shape-gate list gained a re-pointed boundary trio — an
+uncurated keyword word, a union with a non-type side, and a designation riding the keyword arm.
+
+**Gates:** 16 new tests (every filter asserted in BOTH directions — a condition that reads but evaluates wrong
+is worse than one that parks); **all three mutations seen to fail** — collapsing the conjunction to `.some()`,
+opening the keyword allowlist, opening the colour gate. Reverts confirmed by `git diff`. Flip-diff
+**GAINED 13 / LOST 0**. Suite **988 files / 12,593 green**, lint 0 unpiped, MUTANT clean, module graph loads
+(a NEW import edge `interveningIf → layers` was added; verified one-way — layers reaches gameState / keywords /
+staticAbilityParser / protection, none of which reach interveningIf).
+
+**NEXT FROM THIS CENSUS:** T1 turn-event history (49) — the per-turn ledger exists (`a creature died this
+turn`, `you've gained life this turn` are readable) but its event vocabulary is narrow: *you created a token* ·
+*you attacked* · *you've cast a noncreature spell* · *a planeswalker/artifact/creature entered under your
+control* · *you put a counter on a creature* · *you descended* · *you've sacrificed an artifact*. Then T2's
+remainder (`another <filter>` with a rider, `no <X> other than this creature`, opponent-side queries) and the
+graveyard-card-type reader that the desert cycle needs.
+
+---
+
+## ✅ SHIPPED 2026-07-30 — **MASS-DAMAGE RECIPIENT DELEGATION. GAINED 25, LOST 0.**
 
 Blockbuster · Calamity of Cinders · Cinder Giant · Claws of Wirewood · Cloudthresher · Delete · **Earthquake** ·
 Fang Dragon // Forktail Sweep · Fault Line · Fire Ants · Hammerfist Giant · Harbinger of the Hunt · Howling Gale ·
