@@ -23,6 +23,8 @@ summarizes the notable changes.
 - **"Gets +1/+1 for each Equipment/Gate/Goblin you control" now counts.** Swordsman's Steel, Militant
   Inquisitor, Gatebreaker Ram, Adelbert Steiner and Raised by Wolves size themselves off the board and
   grow or shrink live, instead of sitting at their printed stats.
+- **Regenerating an artifact works.** Welding Jar, Metallurgeon, Loxodon Mender, Pteron Ghost and Reknit
+  — the shield really saves the artifact from a Disenchant or a board wipe, once, exactly as printed.
 
 
 ## [0.149.21] - 2026-07-30

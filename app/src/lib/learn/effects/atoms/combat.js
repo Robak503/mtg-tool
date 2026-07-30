@@ -210,7 +210,12 @@ export function applyRegenerate(state, atom, ctx) {
   let next = state;
   const targets = atomTargets(state, atom, ctx);
   for (const t of targets) {
-    if (t.type === "creature" && findPermanent(next, t.id)) next = addRegenShield(next, t.id);
+    // ANY LIVE PERMANENT, not only a creature (CR 701.19a — "regenerates a permanent"). The old
+    // `t.type === "creature"` guard would have silently dropped an artifact/permanent target while the card
+    // classified native — the same "classifies native but does nothing" trap the tap/untap resolver above
+    // carries a note about. `findPermanent` remains the real guard: a target that has left the battlefield
+    // (or a non-permanent target type) gets nothing, so no shield is ever fabricated.
+    if (findPermanent(next, t.id)) next = addRegenShield(next, t.id);
   }
   return logEvent(next, { kind: "spell-effect", effect: "regenerate", targets: targets.map(t => t.id) });
 }
@@ -1320,6 +1325,14 @@ export function combatKeywordClauseParser(clause) {
   if (/^each creature deals damage to itself equal to its power$/.test(t)) return { op: "damage-self-power", targetType: "eachCreature" };
   if (/^regenerate (?:this creature|this permanent)$/.test(t)) return { op: "regenerate", target: "self" };
   if (/^regenerate target creature$/.test(t)) return { op: "regenerate", targetType: "creature" };
+  // NON-CREATURE REGEN (Welding Jar "Sacrifice this artifact: Regenerate target artifact." · Metallurgeon ·
+  // Loxodon Mender · Pteron Ghost · Reknit "Regenerate target permanent."). ⭐ CR 701.19a says "regenerates a
+  // PERMANENT", not a creature — verified in cr_current.json — and the destruction site already agrees:
+  // spellEffects.applyDestroyEffect consults `regenShields` on ANY permanent it is about to destroy, with no
+  // creature gate. So the shield has always been honoured for an artifact; nothing produced one.
+  // The SUBTYPE arm below stays creature-only: its restriction rides creatureSatisfiesRestrictions.
+  const rtM = t.match(/^regenerate target (artifact|permanent)$/);
+  if (rtM) return { op: "regenerate", targetType: rtM[1] };
   // MASS-OWN-BOARD REGEN (CR 701.19 — Golgari Charm, EDHREC #1603): a regeneration shield on EVERY creature
   // the controller has. applyRegenerate already routes through atomTargets and shields whatever it returns,
   // so this is the parser half only — the mass scope does the rest. Scoped by targetType rather than by a

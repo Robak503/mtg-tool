@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 75 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 80 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -459,6 +459,53 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **REGENERATE REACHES NON-CREATURE PERMANENTS. GAINED 5.**
+## ⚠️ CORPUS-ONLY — **ZERO SHELF MOVEMENT.** Joe stays at 847/1098. Say it plainly rather than round up.
+
+Welding Jar · Metallurgeon · Loxodon Mender · Pteron Ghost · Reknit. Off the noun-swap queue.
+
+### THE MECHANISM — the rule and the destroy site already agreed
+**CR 701.19a** (read out of `cr_current.json`, not from memory): *"If the effect of a resolving spell or
+ability regenerates a **PERMANENT**…"* — not a creature. And `spellEffects.applyDestroyEffect` consults
+`regenShields` on **any** permanent it is about to destroy, with no creature gate. **The shield has always
+been honoured for an artifact; nothing ever produced one**, because both the parse arm and `applyRegenerate`
+stopped at "creature". Two lines, and a rules-correct effect became reachable.
+
+⛔ The SUBTYPE arm ("regenerate target Sliver") stays creature-only — its restriction rides
+`creatureSatisfiesRestrictions`, which has no non-creature path. Widening it would be a wrong target pool.
+
+### ⭐ THE HARNESS WAS WRONG, NOT THE CODE — and the CONTROL is what proved it
+I wrote the runtime targets as `{ type: "artifact" }`. Three tests failed — **including the no-shield control
+that asserts the artifact DIES.** That control failing is the tell: if my change were broken, the control
+would still have passed. The cast path tags every non-creature target **`type: "permanent"`** (verified in
+breakageWave2's expandCastChoices note), and `applyDestroyEffect` accepts exactly creature | permanent |
+planeswalker.
+
+⭐ *A negative control that fails alongside the positive is not noise — it is the harness raising its hand.
+It also sharpened the slice: the old `t.type === "creature"` gate would drop a "permanent"-tagged target just
+as surely as an "artifact" one, so the resolver half was needed for the REAL shape, not a hypothetical.*
+
+### ✅ A FIFTH BOUNDARY-MARKER PIN GRADUATED
+`trunkRegenerate.test.js` listed `regenerate target artifact` and `regenerate target permanent` under
+*"does NOT recognize filtered / off-type regenerate"*. Both moved to a MUST_EMIT assertion; the guard
+survives aimed at what IS unmodeled — a control rider, a mass form, a colour qualifier, an uncurated noun.
+
+**Mutation-checked: 3 seen to fail** — M1 parse arm disabled · **M2 resolver reverted ALONE: classification
+stays green and only the runtime test fails**, which is this slice's whole argument · M3 noun set opened to
+`[a-z]+`, caught by the uncurated-noun guard. Reverts confirmed by `git diff --stat`.
+
+**Gates:** flip-diff **GAINED 5 / LOST 0**, no other tier moved (12914 → 12919 / 34245). 9 tests, five of
+them runtime including two CREED controls (no shield → it dies; the shield is one-shot). Suite **1031 files
+/ 13,068 green**, lint 0, module graph loads, MUTANT clean. **Batch 4: 80 cards.**
+
+### ➡️ COURSE CORRECTION FOR THE NEXT SLICE
+Three slices in a row have come off the corpus-wide noun-swap queue, and this one paid the shelf **nothing**.
+The queue is good at finding cheap correct wins, but the standing objective is the SHELF. **Next pick should
+be filtered through `shelfgap.json` first** — intersect the noun-swap candidates with the 97 one-away shelf
+cards, and only fall back to corpus-only work when that intersection is empty.
 
 ---
 

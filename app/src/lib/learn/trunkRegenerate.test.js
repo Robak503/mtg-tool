@@ -38,13 +38,23 @@ describe("REGEN — parser (bare anchored forms only)", () => {
     expect(parseEffectClause("regenerate target treefolk").atoms).toEqual([{ op: "regenerate", targetType: "creature", restrictions: [{ kind: "subtype", subtype: "treefolk" }] }]);
     expect(parseEffectClause("regenerate target beast").atoms).toEqual([{ op: "regenerate", targetType: "creature", restrictions: [{ kind: "subtype", subtype: "beast" }] }]);
   });
+  // ⭐ BOUNDARY-MARKER GRADUATED 2026-07-30 — "artifact" and "permanent" moved OUT of this list. They were
+  // pinned as "off-type", but CR 701.19a reads "regenerates a PERMANENT", and applyDestroyEffect has always
+  // consulted regenShields on any permanent it destroys. The shield was honoured; nothing produced one.
+  // Both halves shipped together (the parse arm AND applyRegenerate's creature-only type gate) — see
+  // regenerateNonCreature.test.js, which destroys a real artifact rather than asserting a tier.
+  // The guard survives, still aimed at what IS unmodeled: a CONTROL rider, a mass form, a COLOR qualifier,
+  // and an uncurated noun.
   it("does NOT recognize filtered / off-type regenerate (→ Arbiter, CREED-safe)", () => {
     expect(parseEffectClause("regenerate target creature you control").atoms).toEqual([]);
-    expect(parseEffectClause("regenerate target artifact").atoms).toEqual([]);
     expect(parseEffectClause("regenerate all creatures you control").atoms).toEqual([]);
     // a COLOR-qualified target ("green creature") and an un-curated noun are NOT a subtype → stay Arbiter.
     expect(parseEffectClause("regenerate target green creature").atoms).toEqual([]);
-    expect(parseEffectClause("regenerate target permanent").atoms).toEqual([]);
+    expect(parseEffectClause("regenerate target widget").atoms).toEqual([]);
+  });
+  it("MUST_EMIT — the two non-creature card-type nouns now parse (CR 701.19a is permanent-wide)", () => {
+    expect(parseEffectClause("regenerate target artifact").atoms).toEqual([{ op: "regenerate", targetType: "artifact" }]);
+    expect(parseEffectClause("regenerate target permanent").atoms).toEqual([{ op: "regenerate", targetType: "permanent" }]);
   });
 });
 
