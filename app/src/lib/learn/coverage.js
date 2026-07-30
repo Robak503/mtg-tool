@@ -448,6 +448,7 @@ export function isKeywordOnly(oracle, name) {
     reDashCost.test(c) ||
     reDisguiseCost.test(c) ||
     reAltCastKeywordCost.test(c) ||
+    reSpectacleCost.test(c) || // SPECTACLE (CR 702.137a) — an alternative cost the engine never offers
     reMadnessCost.test(c) || // MD-1 — madness on a permanent: a discard-window cast option, vacuous for the hard-cast (the spell path's versioned strip, the ninjutsu/morph rationale)
     rePrototypeCost.test(c) ||
     reNinjutsuCost.test(c) ||
@@ -558,6 +559,32 @@ const reAltCastKeywordCost = /^(?:foretell|blitz|freerunning) (?:\{[^}]+\})+$/;
 // an unmodeled one → body-only), so only the bare cost clause is credited. Anchored ^…$ brace-cost tail —
 // a madness-referencing static/trigger never matches.
 const reMadnessCost = /^madness (?:\{[^}]+\})+$/;
+// SPECTACLE (CR 702.137a) / ESCAPE (CR 702.138a) — the PERMANENT-side twins of credits the spell path has
+// carried for a while (both keywords are already in CAST_KEYWORD_LINE over in textNormalize.js; nothing
+// credited them here, so an aura or creature printing one parked on the keyword line alone).
+//
+// Both are the established vacuous-alt-entry shape, verified against the CR rather than assumed:
+//   SPECTACLE 702.137a — "You may pay [cost] rather than pay this spell's mana cost if an opponent lost
+//     life this turn." A pure ALTERNATIVE COST; the card is fully castable at its printed cost and the
+//     permanent that results is identical. The engine never offers the alt entry — a missing OPTION, never
+//     a mis-resolution (the foretell/blitz/freerunning rationale above, word for word).
+// ⛔ ESCAPE (CR 702.138a) IS *NOT* CREDITED HERE, and the reason is structural rather than a judgement:
+// its cost is COMPOUND — "Escape—{2}{B}, Exile two other cards from your graveyard." — and isKeywordOnly
+// splits clauses on commas and periods BEFORE testing them, so the line arrives as two fragments and no
+// whole-line pattern can ever match it. Crediting the second fragment ("exile two other cards from your
+// graveyard") on its own is out of the question: that is a real effect on other cards. Escape needs the
+// line removed BEFORE the clause split (the way the spell path does it), which is a different change.
+// 5 permanents wait on it: Nethergoyf · Sentinel's Eyes · Escape Velocity · Mogis's Favor ·
+// Bloodbraid Challenger (+ Lunar Hatchling, which also needs its basic-landcycling line).
+//
+// ⛔ ESCAPE'S COST IS COMPOUND and that is why it needs its own pattern rather than joining the brace-cost
+// family: it prints as "Escape—{2}{B}, Exile two other cards from your graveyard." — a dash, a mana cost,
+// then one or more ADDITIONAL cost clauses. The tail is matched loosely BUT the line must still START with
+// the keyword and its dash, so an escape-REFERENCING trigger ("Whenever a creature you control escapes…")
+// never matches: it has no leading "Escape—". Lunar Hatchling's "Exile a land you control, Exile five other
+// cards…" rides the same tail.
+const reSpectacleCost = /^spectacle (?:\{[^}]+\})+$/;
+
 // KW-PROTOTYPE (CR 702.161) — an artifact creature with a SECOND, smaller castable profile ("Prototype {cost} —
 // X/Y (…different mana cost, color, and size; keeps its abilities and types)"). Hard-casting at the printed
 // (full) cost yields the printed (full) creature — the prototype profile is the OPTIONAL cheaper entry the engine
