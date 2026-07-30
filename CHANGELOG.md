@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"That creature can't block this turn" now works.** Mugging, Blindblast, Duel Tactics, Wrap in Flames
+  and Sparkmage's Gambit — including the ones that hit several creatures at once, where every creature the
+  spell damaged is the one that can't block.
 - **Cards that say "that creature" now follow through.** Seventeen of them, including Rile, Eutropia the
   Twice-Favored, and eight Equipment that attach and then grant a keyword (Coral Sword, Squire's Lightblade,
   Quick-Draw Dagger). The bonus lands on the creature the spell just acted on, and only that one.

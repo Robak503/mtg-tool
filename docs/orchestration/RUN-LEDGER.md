@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 19 cards since v0.149.20** (granted Ward—Pay-life +2, bound-referent grants +17) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 25 cards since v0.149.20** (granted Ward—Pay-life +2, bound-referent grants +17, referent can't-block/pump +6) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,47 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 3) 2026-07-30 — **REFERENT SCOPE C: can't-block + P/T. GAINED 6, LOST 0.**
+
+Mugging · Blindblast · Duel Tactics · Wrap in Flames · Sparkmage's Gambit · Merciless Javelineer.
+
+**The plan said +7; the measurement corrected it to 6 BEFORE any code was written.** *"Must be blocked this
+turn if able"* is unmodelled **even for an EXPLICIT target** — so it is a separate mechanic, not a referent
+arm. Including it would have credited cards whose payload nothing can resolve. **Check that the payload
+exists for the SIMPLE case before adding the hard case's plumbing.**
+
+**Plural referents needed no plural path.** Two of the six read *"each of up to N target creatures … those
+creatures can't block"*; the previous atom's slice is a list either way. It DID need a test that separates a
+per-permanent grant from a board-wide one — paired with a single-target vacuity control, because the plural
+assertion alone would pass on a board-wide grant.
+
+### ⚠️ I DELETED AN ARM I HAD JUST WRITTEN — third dead-code removal tonight, all three found by mutation
+The compound `gets +N/+N and gains <kw>` form **never reaches the referent arm**: `splitClauses` breaks that
+conjunction, so the clause arrives in halves. A mutation proved its all-or-nothing guard **untestable**. The
+one printed card needing it (**Moment of Valor**) is MODAL and does not flip on this alone. Removed rather
+than kept. *An arm that cannot be exercised is an arm that cannot be trusted.*
+
+**Two more CREED pins GRADUATED, re-pointed with live negatives:**
+| pin | why it graduated |
+|---|---|
+| `untapThenPump` — *"a draw rider past the anchor stays LOW"* | that matcher only ever handled its exact TWO-clause collapse. The general referent path parses the same text **compositionally**: `[untap target] → [bound pump] → [draw]`. Live negative kept: a referent with no antecedent. |
+| `multiCountTarget` — *"Sparkmage's Gambit: can't-block rider unmodeled → zero atoms"* | that is exactly what this slice built. Live negative kept: a rider whose PAYLOAD is unmodelled (`must be blocked`) still drops the whole card to zero atoms. |
+
+### ⚠️ PROCESS INCIDENT — a crashed mutation harness left a LIVE MUTANT in the tree
+Running the mutation loop through a **Python subprocess** died on a Windows `cp1252` decode error mid-run,
+leaving `return null; // MUTANT` in `combat.js`. **Caught immediately by the residue grep**, restored, and
+re-run through bash instead. This is the exact scenario the auto-resume protocol's `grep -rl MUTANT` step
+exists for, and it is the first time it has actually fired. **Run mutation loops through bash, not a Python
+subprocess** — vitest's output is not cp1252-decodable and the wrapper dies mid-mutation.
+
+**Gates:** 6 new tests; three mutations seen to fail. Suite **1006 files / 12,819 green**, lint 0, MUTANT
+clean. Flip-diff **GAINED 6 / LOST 0**.
+
+**Batch 3: 25 cards.** `cdh` unchanged at 86/100 — the referent family is corpus work, taken because the
+scoped measurement said it was the best remaining vein.
 
 ---
 
