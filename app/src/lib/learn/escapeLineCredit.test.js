@@ -43,6 +43,29 @@ describe("⭐ the escape LINE is removed, and the body classifies", () => {
   });
 });
 
+describe("⭐ the AURA path needed its own filter — same keyword, different tokenizer", () => {
+  // ⭐ ONE CLAUSE HERE, A WHOLE LINE THERE. abilityClauses (the aura residue path) keeps
+  // "Escape—{W}, Exile two other cards…" INTACT — it does not split that comma — so one clause pattern
+  // suffices. isKeywordOnly DOES split on commas and needed the whole line removed before its split.
+  // The same keyword required two different shapes because the two residue paths tokenize differently,
+  // which is why fixing the creature side did not carry the auras and they had to be measured separately.
+  const SENTINELS_EYES = { name: "Sentinel's Eyes", type: "Enchantment — Aura", mana: "{W}",
+    oracle: "Enchant creature\nEnchanted creature gets +1/+1 and has vigilance.\nEscape—{W}, Exile two other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)" };
+  const MOGISS_FAVOR = { name: "Mogis's Favor", type: "Enchantment — Aura", mana: "{B}",
+    oracle: "Enchant creature\nEnchanted creature gets +2/-1.\nEscape—{2}{B}, Exile two other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)" };
+
+  it("escape auras flip", () => {
+    expect(classifyCard(SENTINELS_EYES)).toBe("native-aura");
+    expect(classifyCard(MOGISS_FAVOR)).toBe("native-aura");
+  });
+
+  it("⛔ an aura with an unmodeled line still parks", () => {
+    const residue = { ...SENTINELS_EYES, name: "Fake Eyes",
+      oracle: "Enchant creature\nEnchanted creature gets +1/+1 and has vigilance.\nWhenever a player consults an oracle, interpret its riddle however you like.\nEscape—{W}, Exile two other cards from your graveyard." };
+    expect(classifyCard(residue)).not.toMatch(/^native/);
+  });
+});
+
 describe("⛔ SUSPEND stays refused — the card has no other way to be played", () => {
   it("a suspend line is NOT credited", () => {
     expect(isKeywordOnly("Suspend 3—{1}{U}")).toBe(false);

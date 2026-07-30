@@ -4813,6 +4813,21 @@ function auraResidueClauses(card) {
     // FN-safe alternative-entry simplification, never a wrong resolution; see commit 6b23d689 for the full
     // ninjutsu/morph rationale). Cost-pips-only anchor: a madness-REFERENCING static/trigger never matches.
     if (/^madness (?:\{[^}]+\})+$/.test(c)) continue;
+    // ESCAPE (CR 702.138a) — the aura-side twin of the credit coverage.isKeywordOnly carries for creatures.
+    // A GRAVEYARD re-cast window the runtime never offers, so the from-hand cast puts the identical Aura
+    // onto the battlefield; the line is vacuous residue for the only cast the engine performs. Every aura
+    // carrier has a real printed mana cost (Sentinel's Eyes {W}, Escape Velocity {R}, Mogis's Favor {B}) —
+    // checked, because the vacuity argument collapses on a card that can ONLY be cast via the keyword (the
+    // suspend-only artifacts are refused for exactly that reason).
+    //
+    // ⭐ ONE CLAUSE HERE, A WHOLE LINE THERE. abilityClauses keeps "Escape—{W}, Exile two other cards…"
+    // INTACT (it does not split that comma), so a single clause pattern is enough — whereas isKeywordOnly
+    // splits on commas and needed the line removed before its split. Same keyword, two different shapes,
+    // because the two residue paths tokenize differently.
+    //
+    // The dash is load-bearing: a clause beginning with the card NAME "Escape Velocity …" has no dash after
+    // the keyword and can never match.
+    if (/^escape\s*[—–-]/.test(c)) continue;
     // An aura-own TRIGGER sentence starting with When/Whenever/At "touches" the enchanted creature but is NOT
     // a static bonus clause; admit it as non-residue ONLY when it is the modeled aura-own trigger (the runtime
     // fires it), else it stays residue → non-native (CREED). Checked BEFORE the generic touchesAttachedCreature
