@@ -223,13 +223,23 @@ function usesRevealedCardMV(atom) {
  */
 const UNFILTERED_MASS_PUMP_KEYS = new Set(["op", "scope", "ptDelta", "grantKeywords"]);
 const UNFILTERED_MASS_UNTAP_KEYS = new Set(["op", "all", "scope", "targetType"]);
+// "Put a +1/+1 counter on each creature you control. THOSE CREATURES gain vigilance …" (Felidar Retreat).
+// The same unfiltered you-control set as the pump, reached by a different verb.
+const UNFILTERED_MASS_COUNTER_KEYS = new Set(["op", "counterType", "amount", "scope"]);
 
 function massAntecedentKind(prev) {
   if (!prev) return null;
   if (prev.op === "pump" && prev.scope === "youControl"
     && Object.keys(prev).every((k) => UNFILTERED_MASS_PUMP_KEYS.has(k))) return "creaturesYouControl";
+  if (prev.op === "add-counter" && prev.scope === "youControl"
+    && Object.keys(prev).every((k) => UNFILTERED_MASS_COUNTER_KEYS.has(k))) return "creaturesYouControl";
   if (prev.op === "untap-lands" && prev.all === true && prev.scope === "creature"
     && Object.keys(prev).every((k) => UNFILTERED_MASS_UNTAP_KEYS.has(k))) return "creaturesYouControl";
+  // ⛔ create-token is NOT here and must not be. "Create two 1/1 Warrior tokens. THEY gain first strike"
+  // (Mardu Charm) means the NEW TOKENS ONLY — rewriting it to a creaturesYouControl group grant would
+  // buff every creature on the board, which is a strictly wrong answer rather than an incomplete one.
+  // Binding to freshly-minted ids is a genuine runtime mechanism (the mint path already threads them for
+  // token-enter triggers) and wants its own slice; until then these cards stay on the Arbiter.
   return null;
 }
 

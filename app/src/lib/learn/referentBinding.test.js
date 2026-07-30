@@ -255,6 +255,27 @@ describe("MASS antecedent — the referent rewrites into the equivalent mass ato
     expect(classifyCard(spell("Draw a card. They gain flying until end of turn."))).toBe("arbiter-spell");
   });
 
+  it("a mass ADD-COUNTER is an antecedent too (Felidar Retreat, Domri's -8)", () => {
+    // Same unfiltered you-control set as the pump, reached by a different verb.
+    expect(classifyCard(spell("Put a +1/+1 counter on each creature you control. Those creatures gain vigilance until end of turn."))).toBe("native-spell");
+    expect(classifyCard(spell("Put a +1/+1 counter on each creature you control. Untap them."))).toBe("native-spell");
+  });
+
+  it("⛔ a FILTERED add-counter antecedent is refused, same as the filtered pump", () => {
+    // "each BIRD you control" keeps scope:"youControl" and adds subtypeFilter. Without the allowlist this
+    // would grant vigilance to every creature, not just the Birds. A mutation dropping the key check
+    // survived until this pin existed — the arm was tested, the GUARD on it was not.
+    expect(classifyCard(spell("Put a +1/+1 counter on each Bird you control. Those creatures gain vigilance until end of turn."))).toBe("arbiter-spell");
+  });
+
+  it("⛔⛔ CREATE-TOKEN is NOT an antecedent, and this is the sharpest refusal in the family", () => {
+    // "Create two 1/1 Warrior tokens. THEY gain first strike" means the NEW TOKENS ONLY. Rewriting it to
+    // a creaturesYouControl group grant would buff every creature on the board — a strictly WRONG answer
+    // rather than an incomplete one, which is the difference between a false positive and a false
+    // negative. Binding to freshly-minted ids is a real runtime mechanism and wants its own slice.
+    expect(classifyCard(spell("Create two 1/1 white Warrior creature tokens. They gain first strike until end of turn."))).toBe("arbiter-spell");
+  });
+
   it("⭐ ENFORCED: the rewritten mass untap untaps every creature you control", () => {
     const s = twoCreatures();
     const tapped = { ...s, players: { ...s.players, user: { ...s.players.user,

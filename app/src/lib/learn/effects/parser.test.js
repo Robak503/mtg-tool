@@ -1071,7 +1071,6 @@ const MUST_DROP_TO_LOW = [
   "Put a +1/+1 counter on each creature target opponent controls.",         // target-OPPONENT wording — not the modeled "target player" anchor
   "Put a -1/-1 counter on each Zombie creature target player controls.",    // subtype-filtered subset of the modeled shape
   "Put a -1/-1 counter on each creature.",                                  // Soul Snuffers — ALL creatures (not "you control"); not this slice
-  "Put a +1/+1 counter on each creature you control. Those creatures gain vigilance until end of turn.", // Felidar Retreat mode — rider clause unmodeled → whole drops (no silent partial)
   // ===== COUNTERS ===== OPTIONAL single target ("…on up to one target creature") — the bare form AND the
   // "you control" own-side form are now modeled (addCounterClauseParser); a creature-SUBTYPE filter OR the
   // OPPONENT-controlled form OR the multi-target "each of up to two" / "distribute" forms leave trailing text
@@ -1129,6 +1128,11 @@ describe("parseEffectProgram — MUST drop to low (the CI merge gate)", () => {
 // The other side of the gate — oracles the P2.5 adversarial review CONFIRMED are
 // legitimately HIGH. Pinned so a future tightening can't over-correct and drop them.
 const MUST_STAY_HIGH = [
+  // GRADUATED 2026-07-30 out of MUST_DROP_TO_LOW — the Felidar Retreat mode. Its rider was pinned as
+  // "unmodeled → whole drops (no silent partial)"; referent binding (CR 608.2) models it, with "those
+  // creatures" resolving to the same unfiltered you-control set the counters went on. Moved here rather
+  // than deleted so the pin now protects the FLIP instead of the refusal.
+  "Put a +1/+1 counter on each creature you control. Those creatures gain vigilance until end of turn.",
   "Pyroclasm deals 2 damage to each creature.",                                 // BARE "each creature" IS modeled
   "Strangle deals 3 damage to target creature or planeswalker.",                // PW-6: planeswalkers are now damageable targets (loyalty removal)
   // ── β-1 — creature-target restrictions the engine now ENFORCES at enumeration: combat state +
