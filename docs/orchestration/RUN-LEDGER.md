@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 60 cards since v0.149.20** (granted Ward—Pay-life +2, **REFERENT FAMILY +58 across SIX slices**) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 61 cards since v0.149.20** (granted Ward—Pay-life +2, **REFERENT FAMILY +58 across SIX slices**, named-token sac trigger +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,42 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 3) 2026-07-30 — **NAMED-TOKEN SACRIFICE TRIGGER. GAINED 1, LOST 0.**
+
+**Gluttonous Guest** — *"Whenever you sacrifice a Blood **token**, you gain 1 life."*
+
+**The mechanic was already built.** `sacSubtype` matches the sacrificed permanent's TYPE LINE word-bounded,
+and a Blood token's line is *"Token Artifact — Blood"*, so Captain Lannery Storm's *"sacrifice a Treasure"*
+has worked for ages. **Only the PARSE rejected the printed trailing word** — the arm was `$`-anchored, and
+**its own comment named "a creature token" as a casualty of that anchor**. One optional group. The existing
+`NON_SUBTYPE_ETB_WORDS` guard still runs, which is what keeps *"a CREATURE token"* refused (creature is a
+card TYPE with its own matcher and its own predicate; admitting it here would duplicate that matcher with the
+wrong one). Reusing the guard rather than adding an allowlist means the two spellings **cannot drift apart**.
+
+### ⚠️ I BUILT AND THEN REVERTED THE EFFECT-SIDE TWIN — the reason is worth more than the code
+*"Sacrifice a Food token."* as an EFFECT produces no atom today, so I built the pool for it. **Flip-diff:
+GAINED 0.** My own rule is that 0-flip changes do not ship, so it was reverted.
+
+**Why it measured zero is the finding.** My attribution probe matched `sacrifice a <named> token` **anywhere
+in the oracle** and I read the hit as an EFFECT clause — but Gluttonous Guest's is a **TRIGGER**
+(*"WHENEVER YOU sacrifice a Blood token"*). The number was real and pointed at **a different mechanic than
+the one I built**. ⭐ **A regex that finds the words does not tell you which CLAUSE they are in.** Same family
+as containment-vs-attribution: the probe was right about the text and wrong about the mechanism. *Attribution
+probes must distinguish trigger clauses from effect clauses — they are different parsers, different tests, and
+different flip counts.*
+
+**⛔ The effect arm is banked, not built.** Corpus: 7 carriers, 6 non-native, **0 attributable**. It is
+genuinely needed later — it is **half of The Cabbage Merchant** (a `cdh` card), whose other half is the
+unmodelled **combat-damage-to-YOU** trigger (7 carriers, 0 attributable alone; the two together flip exactly
+that one card). Rebuilding it is minutes of work from this note.
+
+**Gates:** 4 new tests; 2 mutations seen to fail (dropping the suffix, dropping the card-TYPE guard). Suite
+**1007 files / 12,841 green**, lint 0, MUTANT clean.
+
+**Batch 3: 61 cards.**
 
 ---
 

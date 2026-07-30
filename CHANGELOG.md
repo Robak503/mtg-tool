@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Gluttonous Guest now works.** Its "whenever you sacrifice a Blood token" trigger fires as printed.
 - **Creatures that pump themselves and then gain a keyword now work.** Ten more, including Bristling Hydra,
   Fearless Fledgling, Bloodsky Berserker and Syndicate Trafficker — the "it" gets applied to the creature
   itself, as printed.
