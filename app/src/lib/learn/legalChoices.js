@@ -1186,6 +1186,28 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         for (const gc of candidates) for (const ch of combos) {
           emit(ch, { exileGyCardId: gc.id, exileGyCardName: gc.name ?? null, exileGyName: gc.name ? `exile ${gc.name}` : undefined });
         }
+      } else if (addCost.kind === "returnToHand") {
+        // AC-BOUNCE (CR 601.2f) — return a permanent you control to its owner's hand. Every permanent of the
+        // right type is an equally legal pick, so one cast per candidate, exactly like the branches above.
+        // ⛔ THE SPELL ITSELF IS NOT A CANDIDATE — it is on the stack, not the battlefield (CR 601.2a); the
+        // filter is over the battlefield, so that is structural rather than an exclusion I have to remember.
+        // No candidate → uncastable. Deprive with no land in play is genuinely uncastable, not a free counter.
+        if (!affordable) continue; // R1.5 — same printed-cost re-check as the branches above
+        // Reuses sacTypeMatches — the SAME type vocabulary the sacrifice cost enumerates with, so the two
+        // lanes cannot drift on what "a permanent you control" means.
+        // ⛔ Same fail-safe as γ1b and the return-land activation cost: a permanent whose OWN leave-trigger
+        // the engine cannot fire is excluded, so paying the cost never silently drops printed text.
+        const bounceable = (player.battlefield || [])
+          .filter((p) => sacTypeMatches(p.card, addCost.permType))
+          .filter((p) => !sacrificeDropsTrigger(p));
+        // ⚠️ NOT LOAD-BEARING, and said out loud rather than left to look like a gate: a mutation deleting
+        // this line SURVIVES the suite (verified). The loop below emits nothing for an empty list and the
+        // terminal `continue` still blocks the plain-cast fall-through, so uncastability is enforced there,
+        // not here. Kept only for symmetry with the sibling cost branches. The real gate is that `continue`.
+        if (bounceable.length === 0) continue;
+        for (const bp of bounceable) for (const ch of combos) {
+          emit(ch, { returnPermId: bp.id, returnPermName: bp.card?.name ?? null, returnName: bp.card?.name ? `return ${bp.card.name}` : undefined });
+        }
       } else {
         continue; // unknown cost kind — programConfidence already gates unsupported kinds to low (defensive)
       }

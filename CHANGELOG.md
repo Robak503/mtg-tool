@@ -11,6 +11,9 @@ summarizes the notable changes.
 ### Added
 - **Tamiyo's Safekeeping works.** Targeting one of your own artifacts, enchantments or lands really does
   give it hexproof and indestructible for the turn — it now survives a Disenchant or a wrath.
+- **"Return a land you control" counterspells work.** Deprive, Disappearing Act, Familiar's Ruse,
+  Devour in Flames and Fear of Isolation let you pick which permanent goes back to your hand — and stay
+  uncastable when you have nothing to return.
 - **Spells whose extra cost the engine cannot model are no longer castable for free.** Goblin Grenade,
   Fire Covenant, Firestorm and ~150 others were being cast without paying their additional cost at all.
   They now sit in hand until the engine learns that cost. Costs you *may* decline are unaffected.

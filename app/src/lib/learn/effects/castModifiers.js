@@ -44,7 +44,12 @@ const DISCARD_COUNT_COST_RE = /^discard (two|three|four|five) cards$/i; // AC-1 
 // false negative. A graveyard is a public zone and the choice is a free one, so legalChoices picks a victim
 // with the same least-valuable policy the discard cost already uses.
 const EXILE_GY_COST_RE = /^exile (?:a|an) (creature|artifact|land|instant or sorcery) card from your graveyard$/i;
-export const SUPPORTED_ADDITIONAL_COST_KINDS = new Set(["sacrifice", "payLife", "discard", "exileFromGraveyard", "choice"]);
+// AC-BOUNCE (CR 601.2f) — "return a <type> you control to its owner's hand" (Deprive, Disappearing Act,
+// Familiar's Ruse, Devour in Flames, Fear of Isolation). The paid object goes to a PRIVATE zone the caster
+// owns, so unlike the sacrifice lane there is no dies-trigger to fire and no LKI to capture — the permanent
+// simply leaves. SINGULAR ONLY, the same way the sacrifice and exile lanes started; no count-N form prints.
+const RETURN_HAND_COST_RE = /^return (?:a|an) (permanent|creature|land|artifact|enchantment) you control to its owner's hand$/i;
+export const SUPPORTED_ADDITIONAL_COST_KINDS = new Set(["sacrifice", "payLife", "discard", "exileFromGraveyard", "returnToHand", "choice"]);
 
 /**
  * Pull a modeled additional cost off a spell's oracle. Returns `{ costs, rest }`:
@@ -92,6 +97,8 @@ function parseOneAdditionalCost(phrase) {
   if (discN) return { cost: { kind: "discard", count: SMALL_NUM[discN[1].toLowerCase()] }, selfRef: /\bdiscarded\b/i };
   const exGy = EXILE_GY_COST_RE.exec(p);
   if (exGy) return { cost: { kind: "exileFromGraveyard", cardType: exGy[1].toLowerCase() }, selfRef: /\bexiled\b/i };
+  const ret = RETURN_HAND_COST_RE.exec(p);
+  if (ret) return { cost: { kind: "returnToHand", permType: ret[1].toLowerCase() }, selfRef: /\breturned\b/i };
   return null;
 }
 
@@ -126,6 +133,12 @@ export function extractAdditionalCosts(oracle) {
   // ADDCOST-3: the paid card is EXILED, so an effect reading it back ("the exiled card") can't be fed the
   // cost details — the selfRef guard below drops such a card to LOW exactly like the sacrifice/discard forms.
   else if (exGy) { cost = { kind: "exileFromGraveyard", cardType: exGy[1].toLowerCase() }; selfRef = /\bexiled\b/i; }
+  // AC-BOUNCE — the returned permanent goes to its owner's HAND, a hidden zone, so an effect that reads the
+  // paid object back ("the returned creature") can't be fed it; the selfRef guard below parks such a card.
+  else if (RETURN_HAND_COST_RE.test(phrase)) {
+    cost = { kind: "returnToHand", permType: RETURN_HAND_COST_RE.exec(phrase)[1].toLowerCase() };
+    selfRef = /\breturned\b/i;
+  }
   else {
     // AC-OR — tried ONLY here, after every single-cost extractor has failed on the WHOLE phrase, so a vetted
     // cost that itself contains " or " ("sacrifice an artifact or creature") is never split. Exactly two

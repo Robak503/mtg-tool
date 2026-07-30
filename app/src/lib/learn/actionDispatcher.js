@@ -398,6 +398,17 @@ function applyCastSpell(state, action) {
         throw new DispatcherError(`Exile-cost card ${action.exileGyCardId} not in graveyard`, "CARD_NOT_IN_GRAVEYARD");
       }
       working = moveCardToZone(working, { playerId: action.playerId, fromZone: "graveyard", toZone: "exile", cardId: action.exileGyCardId });
+    } else if (ac.kind === "returnToHand") {
+      // AC-BOUNCE (CR 601.2f/h) — the chosen permanent is returned to its owner's hand as the cost is paid.
+      // legalChoices froze the id; re-check membership against the LIVE battlefield so a stale id can never
+      // bounce something else. Mirrors the return-land ACTIVATION cost below, including draining the leave
+      // event (checkLeavesTriggers) so a modeled "leaves the battlefield" watcher stacks above the spell
+      // (CR 603.3b) — the offer gate already excluded a permanent whose leave trigger we cannot fire.
+      if (!action.returnPermId) throw new DispatcherError("Spell requires an additional return-to-hand cost but no permanent was chosen", "ADDCOST_UNPAID");
+      const retPerm = working.players[action.playerId]?.battlefield.find((p) => p.id === action.returnPermId);
+      if (!retPerm) throw new DispatcherError(`Return-cost permanent ${action.returnPermId} not on battlefield`, "PERM_NOT_FOUND");
+      working = moveCardToZone(working, { playerId: action.playerId, fromZone: "battlefield", toZone: "hand", cardId: action.returnPermId });
+      working = checkLeavesTriggers(working);
     } else {
       throw new DispatcherError(`Unsupported additional cost kind: ${ac.kind}`, "ADDCOST_UNSUPPORTED");
     }

@@ -34,7 +34,7 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **BATCH IN FLIGHT: 38 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 43 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -468,6 +468,55 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **AC-BOUNCE: the `returnToHand` cost kind. GAINED 5, and 5 cards come BACK from dead-in-hand.**
+## ⚠️ A PRE-SPECIFIED MUTATION **SURVIVED** — the line it deleted was never a gate. Recorded, not buried.
+
+Deprive · Disappearing Act · Familiar's Ruse · Devour in Flames · Fear of Isolation. All five were in the
+dead-in-hand set the unvetted-cost guard created one slice earlier — **this is what that guard was for: it
+converts silent free casts into a visible, rankable work queue, and vetting a cost kind empties it.**
+
+### THE PICK WAS MEASURED, NOT CHOSEN BY FEEL
+Ranked every unvetted mandatory cost shape by *would-flip* (swap the cost for a vetted one, hold the effect
+constant): **bounce 5/5** · tap-N 2/4 · sacrifice-a-SUBTYPE 1/9 · exile-from-gy 1/3 · **pay X life 0/7 ·
+discard X cards 0/11**. ⭐ *The two biggest shapes by card count flip NOTHING — they are all X-spells, and
+X + additional-cost is a deferred compound. Sorting by frequency would have picked the worst option on the
+board.* `payMana` (Phase B, 5 cards) is now below every one of these; it was sized before this vein existed.
+
+### THE BUILD — all four seams reuse something that already exists
+Parser: one regex + a kind. Offer: one branch shaped exactly like the exile-from-graveyard branch, filtering
+with **`sacTypeMatches` — the SAME type vocabulary the sacrifice cost enumerates with**, so the two lanes
+cannot drift on what "a permanent you control" means. Charge: mirrors the return-land ACTIVATION cost that
+already existed, `checkLeavesTriggers` and all. Offer excludes a permanent whose own leave-trigger the engine
+cannot fire (`sacrificeDropsTrigger`), so paying never silently drops printed text.
+✅ The spell itself is never a bounce candidate because it is on the STACK, not the battlefield (CR 601.2a) —
+structural, not an exclusion anyone has to remember.
+✅ The returned permanent goes to a HIDDEN zone, so there is no LKI to read back: a card reading "the returned
+creature's power" is parked by the selfRef guard, and a test pins that.
+
+### ⚠️⚠️ THE MUTATION THAT SURVIVED — and why saying so is the whole point
+I pre-specified three. M6 (charge skipped) and M7 (type filter dropped) both failed correctly.
+**M8 — deleting `if (bounceable.length === 0) continue;` — SURVIVED, 9/9 green.**
+Diagnosis: the line is **redundant**. The loop beneath it emits nothing for an empty list, and the terminal
+`continue` (the free-spell guard from AC-OR) blocks the plain-cast fall-through. Uncastability is enforced
+THERE, not here. The line is now annotated in place as not load-bearing, naming the real gate.
+⭐ *A surviving mutation is a RESULT, not a failed step. The temptation is to quietly swap in a mutation that
+does fail and report three-for-three — which would have left a line in the tree that reads like a safety gate
+and isn't. The hollow-gate law cuts both ways: prove your gates fail, and admit the ones that can't.*
+
+### ⚠️ AND MY FIRST TWO TEST ASSERTIONS WERE WRONG — the CODE was right both times
+Asserted "4 lands → 4 casts", got 8. The cast block crosses each way-to-pay with every legal TARGET combo, and
+Devour in Flames had two damage targets. Counting actions was asserting the target enumerator, not this cost;
+the tests now assert the DISTINCT set of bounce victims. *Second time this run a red test was my harness.*
+
+**Gates:** flip-diff **GAINED 5 / LOST 0**, nothing else moved. 9 tests, 2 runtime. Suite **1045 files /
+13,230 green**, lint 0, MUTANT clean. **Batch: 43 cards.**
+
+### ➡️ NEXT, in measured order: `tap N untapped <type> you control` (2 flips) · `sacrifice a <SUBTYPE>`
+(Goblin Grenade; needs the subtype vocabulary sacTypeMatches already has a `subtype` param for) · then the
+X + additional-cost COMPOUND, which is worth ~18 cards across pay-X-life and discard-X and unlocks Reshape.
 
 ---
 
