@@ -30,7 +30,7 @@ import { printedPower, printedToughness, counterPtDelta } from "./ptPrimitive.js
 import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes } from "./layers.js";
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
-import { applyCounterDoubling, millMultiplier, playerCounterAdditive } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
+import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
 import { auraHasTotemArmor } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.116) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
 import { applyControlAuraAttach, revertControlAura } from "./controlAura.js"; // CR 613.1b control Auras — a ZERO-IMPORT leaf, so this lowest-layer module can call it without a cycle
 
@@ -1571,9 +1571,15 @@ export function gainLife(state, { playerId, amount }) {
   // TOTAL gained (cumulative, not a single event), reset for all seats at untap alongside lifeLostThisTurn /
   // creaturesDiedThisTurn (resetCreatureDeathsAllPlayers). Absence of a tally IS "no life gained" (fail-closed).
   // Read by the "if you('ve) gained [N or more] life this turn" intervening-if (interveningIf.js, CR 603.4).
+  // LIFE-GAIN REPLACEMENT (CR 614.1) — Rhox Faithmender / Boon Reflection double it; Angel of Vitality and
+  // its siblings add. Applied HERE, at the same single chokepoint the ledger comment above relies on, so a
+  // doubled gain is doubled once no matter which path asked for it. With no such permanent in play the helper
+  // returns `amount` unchanged, so the common case is byte-identical. The LEDGER records the REPLACED amount:
+  // "you gained life this turn" must see what the player actually gained, not what the effect first offered.
+  const gained = applyLifeGainReplacement(state, playerId, amount);
   return withPlayer(state, playerId, p => ({
-    ...p, life: p.life + amount,
-    ...(amount > 0 && { lifeGainedThisTurn: (p.lifeGainedThisTurn || 0) + amount }),
+    ...p, life: p.life + gained,
+    ...(gained > 0 && { lifeGainedThisTurn: (p.lifeGainedThisTurn || 0) + gained }),
   }));
 }
 

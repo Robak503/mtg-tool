@@ -79,6 +79,7 @@ export function doublerProfile(card) {
   let token = null;
   let tokenAdd = null;
   let mill = null;
+  let life = null;
   let halvesOpponents = false;
   let playerCounterAdd = null;
   for (const raw of o.split(".")) {
@@ -94,6 +95,26 @@ export function doublerProfile(card) {
     // Token-creation clause — ACTIVE ("[would] create one or more tokens", Doubling Season / Parallel Lives /
     // Anointed Procession) and PASSIVE ("one or more tokens would be created", Primal Vigor / Mondrak).
     const tokenCreate = /(?:create|creates) one or more tokens?/.test(s) || /one or more tokens? would be created/.test(s);
+    // LIFE-GAIN REPLACEMENT (CR 614.1) — "If you would gain life, you gain twice that much life instead"
+    // (Rhox Faithmender / Boon Reflection / The Wind Crystal) and its ADDITIVE arm "…that much life plus N
+    // instead" (Angel of Vitality / Heron of Hope / Honor Troll / Knight of Dawn's Light). The last missing
+    // member of this module's family: counters, tokens, mill and mana each already have a multiplier and an
+    // additive; life gain had neither.
+    // SCOPE is intrinsic to the template and is the reason no scope field is needed — every printed card
+    // reads "If YOU would gain life", so the effect belongs to its controller and applies only to THEIR
+    // gains. "an opponent would gain life" prints on no card in the bundle; if one is ever printed it falls
+    // through unmatched rather than being treated as a you-scope effect (CREED: FN over a wrong scope).
+    // NOT ^-anchored, unlike the mill arm below: doublerProfile splits the oracle on ".", so a preceding
+    // keyword line with no period of its own ("Flying\nIf you would gain life…") or a reminder-text tail
+    // (") \nIf you would…" on Rhox Faithmender) rides at the head of the same fragment. Anchoring cost 5 of
+    // the 7 real cards. The phrase is its own template and matches nothing else in the corpus.
+    const lifeM = /if you would gain life, you gain (?:(twice) that much life|that much life plus (\d+)) instead/.exec(
+      s.toLowerCase().replace(/[\u2019]/g, "'"),
+    );
+    if (lifeM) {
+      life = lifeM[1] ? { factor: 2 } : { additive: parseInt(lifeM[2], 10) };
+      continue;
+    }
     if (counterPut) {
       // Vorinclex's opponent clause HALVES (round down) counters put on an opponent's permanent/player.
       if (/(an opponent would put|an opponent controls)/.test(s) && /half that many/.test(s)) {
@@ -170,8 +191,8 @@ export function doublerProfile(card) {
       playerCounterAdd = { additive: 1 };
     }
   }
-  if (!counter && !token && !tokenAdd && !mill && !halvesOpponents && !playerCounterAdd) return null;
-  return { counter, token, tokenAdd, mill, halvesOpponents, playerCounterAdd };
+  if (!counter && !token && !tokenAdd && !mill && !life && !halvesOpponents && !playerCounterAdd) return null;
+  return { counter, token, tokenAdd, mill, life, halvesOpponents, playerCounterAdd };
 }
 
 /**
@@ -229,6 +250,10 @@ export function isModeledDoublerSentence(s, shortName = null) {
   if (/if you would create one or more treasure tokens?,? instead create those tokens plus an additional treasure token/.test(s)) return true;
   // MILL-DOUBLER (Bruvac, SHELF M2) — the exact opponent-mill doubling the runtime applies (millMultiplier).
   if (/^if an opponent would mill one or more cards, they mill twice that many cards instead\.?$/.test(s)) return true;
+  // LIFE-GAIN REPLACEMENT — the exact two templates applyLifeGainReplacement honours, and nothing wider.
+  // A different multiplier word ("three times"), an opponent scope, or a non-numeric bonus stays residue and
+  // keeps its card off the native tier, which is the point of matching the runtime exactly rather than loosely.
+  if (/^if you would gain life, you gain (?:twice that much life|that much life plus \d+) instead\.?$/.test(s)) return true;
   // PLAYER-COUNTER ADDITIVE (Winding Constrictor clause 2) — the exact owner-scoped "+1 of each kind you
   // get" the runtime applies (playerCounterAdditive at the four gameState adder chokepoints).
   if (/^if you would get one or more counters, you get that many plus one of each of those kinds of counters instead\.?$/.test(s)) return true;
@@ -385,6 +410,37 @@ export function millMultiplier(state, milledPlayerId) {
     if (m && m.scope === "opponent" && ownerId !== milledPlayerId) mult *= m.factor;
   }
   return mult;
+}
+
+/**
+ * LIFE-GAIN REPLACEMENT (CR 614.1) — the life `playerId` ACTUALLY gains when an effect would give them
+ * `baseAmount`. Applied at gameState.gainLife, which the module's own comment establishes as the single
+ * verified life-gain chokepoint ("no direct p.life += elsewhere"), so every path — a "you gain N life"
+ * spell, a drain's gain half, lifelink combat damage, the radiation replacement — is covered by one call.
+ *
+ * ORDER IS `(base + additive) * multiplier`, byte-identical to applyCounterDoubling above and deliberately
+ * so. CR 616.1 gives the choice to the AFFECTED PLAYER when several replacements compete, and this order is
+ * the one they would pick: with an Angel of Vitality (+1) and a Rhox Faithmender (x2) out, gaining 2 yields
+ * (2+1)*2 = 6 rather than 2*2+1 = 5. Following the house convention costs nothing and keeps one rule in the
+ * file instead of two.
+ *
+ * A ZERO gain stays zero and returns early: CR 119.3 treats a 0-amount gain as no life-gain event at all, so
+ * an additive must not manufacture life out of an effect that gained none (Angel of Vitality does not turn
+ * "gain 0 life" into 1). That early return is what keeps the additive from fabricating a life-gain event.
+ * Pure leaf; a gained life point is never itself a replacement source, so this cannot recurse.
+ */
+export function applyLifeGainReplacement(state, playerId, baseAmount) {
+  const base = Math.max(0, Number(baseAmount) || 0);
+  if (base === 0) return 0;
+  let additive = 0;
+  let multiplier = 1;
+  for (const { ownerId, profile } of allDoublers(state)) {
+    const l = profile.life;
+    if (!l || ownerId !== playerId) continue;   // "If YOU would gain life" — controller-scoped, never an opponent's
+    if (l.factor) multiplier *= l.factor;
+    else additive += l.additive;
+  }
+  return Math.max(0, (base + additive) * multiplier);
 }
 
 export function tokenAdditive(state, recipientControllerId, tokenName) {
