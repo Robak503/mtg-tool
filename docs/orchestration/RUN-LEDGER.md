@@ -34,7 +34,7 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **BATCH IN FLIGHT: 14 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 19 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -468,6 +468,47 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **SELF-TUCK. GAINED 5. SHELF +1 (Kellan 72 → 73%). Joe 854/1098.**
+
+**Sensei's Divining Top (#226)** · Thalakos Mistfolk · Fencer Clique · Wayward Soul · Soaring Hope.
+**Three shelf slices running.**
+
+### ⭐ A MISSING CELL IN A TWO-BY-TWO GRID WHOSE OTHER THREE WERE BUILT
+| | chosen TARGET | SELF |
+|---|---|---|
+| **bounce** → hand | ✅ built | ✅ built |
+| **tuck** → library top | ✅ built | ❌ — **six cards parked here** |
+
+One parser arm, written directly beneath its self-bounce sibling in the same file, with the same noun
+alternation (the atom moves the SOURCE, so the printed noun is pure templating). *This is the cheapest shape
+of find there is: not a missing capability, a missing COMBINATION of two capabilities that already ship.
+Worth looking for deliberately — three of the last five slices were exactly this.*
+
+### ⛔ NO RESOLVER CHANGE — CHECKED, NOT HOPED
+`applyZoneMove` already accepts the `{type:"permanent"}` entry `selfTargets` returns for a non-creature
+source (the path the regenerate slice verified). So the parser arm is the whole build — but the runtime test
+still proves it end to end, because a tier assertion cannot see WHERE a card went: the permanent leaves the
+battlefield **and is the first card of the library**, not the last.
+
+⛔ **TOP ONLY.** Every corpus carrier prints *"on top of"*; a bottom-of-library self form is not a printed
+shape and was not invented — asserted to park. M1 flips top→bottom and the runtime test catches it.
+
+**Mutation-checked: 2 seen to fail** — M1 `where:"top"` → `"bottom"` · M2 the self referent replaced by a
+chosen targetType (both take the parser AND the runtime test with them).
+
+**Gates:** flip-diff **GAINED 5 / LOST 0**, no other tier moved (12937 → 12942 / 34245). 9 tests, two runtime
+including the CREED no-source case (a spell context moves nothing). Suite **1040 files / 13,167 green**,
+lint 0, module graph loads, MUTANT clean. **Batch: 19 cards.** Corpus 37.792%.
+
+### ⚠️ TWO CARRIERS STILL PARK, AND THAT IS CORRECT
+Argothian Wurm and Shivan Wumpus carry the self-tuck inside a *"unless that player sacrifices a land"*-style
+opponent-choice rider that is genuinely unmodeled. Named here so the gap is not re-measured as a near-miss.
+
+### ➡️ SHELF QUEUE: Topiary Stomper · Terror of the Peaks · Hunting Velociraptor (all Mainboard, each its
+own mechanism). Batch is at 19 of the ~100 target.
 
 ---
 

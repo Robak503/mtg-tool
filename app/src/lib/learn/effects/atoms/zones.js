@@ -727,6 +727,16 @@ export function bounceClauseParser(clause) {
   // (Shackles / Cage of Hands' "{W}: Return this Aura to its owner's hand") purely because the alternation
   // was creature|permanent — the atom, the resolver and the bounce path all already handled it.
   if (/^return this (?:creature|permanent|aura|enchantment|artifact|equipment|land) to its owner's hand$/.test(t)) return { op: "bounce", target: "self" };
+  // ⭐ SELF-TUCK — "put this <self-noun> on top of its owner's library" (Sensei's Divining Top #226, Argothian
+  // Wurm, Shivan Wumpus, Thalakos Mistfolk, Fencer Clique, Wayward Soul). The EXACT sibling of the self-bounce
+  // directly above: same self referent, same zone-move resolver, one zone over. `tuck` already had a chosen-
+  // TARGET form (line ~310) and `bounce` already had a SELF form — the one combination nobody had written was
+  // tuck+self, so six cards sat parked on a cell of a two-by-two grid whose other three cells were built.
+  // The noun is pure templating (the atom moves the SOURCE), so the alternation mirrors self-bounce's exactly.
+  // ⛔ TOP ONLY: every corpus carrier says "on top of"; a bottom-of-library self form is not a printed shape
+  // here, so it is not invented. applyZoneMove already accepts the {type:"permanent"} entry selfTargets hands
+  // back for a non-creature source (the same path the regenerate slice verified), so no resolver change.
+  if (/^put this (?:creature|permanent|aura|enchantment|artifact|equipment|land) on top of its owner's library$/.test(t)) return { op: "tuck", target: "self", where: "top" };
   if (/^return the triggering creature to its owner's hand$/.test(t)) return { op: "bounce", target: "thatCreature" };
   // SUBTYPE-CREATURE-BOUNCE (CR 205.3m) — "return target <Subtype> you control to its owner's hand" (Kogla,
   // the Titan Ape's activated ability "{1}{G}, …: Return target Human you control to its owner's hand"). The

@@ -11,6 +11,8 @@ summarizes the notable changes.
 ### Added
 - **Tamiyo's Safekeeping works.** Targeting one of your own artifacts, enchantments or lands really does
   give it hexproof and indestructible for the turn — it now survives a Disenchant or a wrath.
+- **Sensei's Divining Top works.** Tapping it draws a card and puts the Top back on top of your library,
+  the way it actually plays. Thalakos Mistfolk, Fencer Clique, Wayward Soul and Soaring Hope came with it.
 - **Shadowspear works.** Its {1} ability really does strip hexproof and indestructible off your
   opponents' permanents for the turn — so the creature you could not touch becomes targetable and
   killable. Bonds of Mortality does the same for creatures.
