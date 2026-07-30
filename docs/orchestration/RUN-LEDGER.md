@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 13 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 18 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,52 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 4) 2026-07-30 — **LOOK AT TARGET PLAYER'S HAND (CR 701.20e). GAINED 5, LOST 0.**
+
+Peek · Gitaxian Probe · Clairvoyance · Ingenious Thief · Glasses of Urza.
+
+### ⭐ THE FIRST EFFECT IN THE CORPUS WITH NO BOARD CONSEQUENCE — and the easiest kind to fake
+CR 701.20e: *"Some effects instruct a player to look at one or more cards. Looking at a card follows the
+same rules as revealing a card, except that the card is shown only to the specified player."* No zone
+change, no state change. **The information IS the effect**, so delivering it is the entire implementation.
+
+⛔ **Which is exactly why this could have shipped hollow.** A resolver logging a bare
+`effect:"look-at-hand"` marker would flip five cards to native while conveying *nothing* — and every test
+that asserts only *"an atom was produced"* passes on it. So the bar was set BEFORE building: **the log
+entry carries the real card names, and the deciding gate asserts that list EQUALS the target's hand.**
+If that could not be asserted truthfully, the arm was not worth having. *A no-op is only honest when the
+effect itself is a no-op — an information effect that delivers no information is a fabrication.*
+
+✅ **First checked that the log is a CONSUMED surface, not a debug artifact** — `/api/why-you-lost`,
+`/api/self-play` and `/api/grind` all read it. Had it been write-only, this vein would have been refused.
+
+### THE +5th CARD CAME FROM A TARGETING INTENT, NOT A PARSE
+The flip-diff paid **4** on the first run: Ingenious Thief's ETB parsed HIGH and still would not route.
+`atomTargetIntent` had no case for the new op → `"ambiguous"` → `programTriggerTargetsResolvable` false →
+**the trigger silently routes to the Arbiter.** Adding `enemy` (you want an OPPONENT's hand; looking at
+your own tells you nothing) flipped it to 5/5 against the census. ⭐ *A new op is not finished when it
+parses and resolves — the TRIGGER path asks a third question, and it fails closed and silently.* The
+fight/cant-block cases carry the same warning in-file; this is the third card that gate has caught.
+
+### ⚠️ M5: A GUARD THAT DID NOTHING, AND MY STATED REASON FOR IT WAS WRONG
+Loosening the `^…$` anchor to a prefix match **broke no test**. Investigated instead of shrugged: the
+look-and-choose cards are not protected by my anchor at all — the clause SPLITS on `" and "`, and it is the
+**second fragment** (`choose two cards from it`) failing that sinks the program. The file said otherwise.
+⭐ *A mutation does not only test the code — it tests the STORY you wrote about the code, and this one
+caught a false explanation sitting in a comment.*
+
+Resolution: the anchor stays (a rider on a conjunction the splitter does not break on would silently drop
+its tail), but it is now asserted **directly against the clause parser**, where it is observable, instead
+of through a program-level path where the split hides it. Both mechanisms are now on record. **Six of six
+mutations fail.**
+
+**Gates:** 13 tests, led by the logged-contents equality. Suite **1015 files / 12,922 green**, lint 0,
+MUTANT clean. Commit `c89ccb37`.
+
+**Batch 4: 18 cards.**
 
 ---
 
