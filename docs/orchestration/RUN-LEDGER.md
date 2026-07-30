@@ -11,8 +11,8 @@
 > per slice. **Only the TAG batches.** A tag makes an update banner appear in every running `.exe`, and one
 > banner per +21 is noise.
 >
-> - **BATCH IN FLIGHT: 58 cards banked since v0.149.18** (condition-filter vocabulary +13, per-turn ledger
->   readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13). Update this number at
+> - **BATCH IN FLIGHT: 62 cards banked since v0.149.18** (condition-filter vocabulary +13, per-turn ledger
+>   readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13, one-sided opponent sweep +4). Update this number at
 >   every slice boundary so a fresh session knows how much is unreleased.
 > - Write CHANGELOG entries under `## [Unreleased]` per slice; promote the whole block and bump both version
 >   files (`app/package.json` + `app/src-tauri/tauri.conf.json`) only at TAG time.
@@ -108,6 +108,54 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## 🏦 BANKED (unreleased) 2026-07-30 — **THE ONE-SIDED OPPONENT SWEEP. GAINED 4, LOST 0.**
+
+**Goblin Chainwhirler** · End the Festivities · Tectonic Hazard · Wildfire Cerberus.
+Predicted 4 from the census, got exactly 4.
+
+**⭐ THE DEFINING PROPERTY IS ONE-SIDEDNESS, and it is why these cards are good.** "…deals N damage to each
+opponent **and each creature they control**": the caster's seat and the caster's board are never touched. A
+symmetric implementation would not be a slightly-wrong Chainwhirler — it would be Pyroclasm plus a Shock to
+yourself, a different card credited under this one's name. The runtime enforces it **structurally** by
+iterating `opponentsOf(controller)` rather than every seat, so there is no filter to get wrong: the caster is
+never in the loop at all.
+
+**⛔ `they control` IS INSIDE THE ANCHOR, not filler.** It is the phrase that scopes the creatures to the
+opponents' boards. `each opponent and each creature` (no tail) is refused.
+
+**TWO SCOPES, NOT A FLAG** — third time this run the same call has come up, and the reason is unchanged:
+damage to a planeswalker is LOYALTY removal (CR 120.3c), a different effect on a different object. Chainwhirler
+and End the Festivities say "and planeswalker"; Tectonic Hazard and Wildfire Cerberus do not and must leave
+walkers alone. The loyalty path is the single-target one, reused for the third time rather than reimplemented.
+
+**⭐ THE SPLITTER, FOR THE FOURTH TIME.** This shape carries TWO internal " and "s. Without a keep-whole guard
+the sentence broke into a first half that **parses HIGH on its own** — `"…deals 1 damage to each opponent"` is
+a modeled scope — beside an unbindable `"each creature they control"`. A confident half plus a dropped half is
+the dropped-effect shape, so keeping it whole is again the conservative direction. The subject-prefix guard is
+carried over unchanged, and is pinned: `"You gain 5 life and <name> deals …"` must still split, or the life
+gain is silently swallowed.
+
+**Gates:** 11 new tests; **all three mutations seen to fail** — iterating every seat instead of the opponents
+(2 tests), letting the non-walker scope hit walkers (1), collapsing the two scopes at the parse site (1).
+Reverts confirmed by `git diff`. Flip-diff **GAINED 4 / LOST 0**. Suite **993 files / 12,653 green**, lint 0
+unpiped, MUTANT clean, module graph loads. No pin claimed these shapes stay low.
+
+**THE MASS-DAMAGE CENSUS IS NOW EXHAUSTED except for two deliberate refusals:** multi-target damage division
+(10 cards — `each of two targets`, `each of X targets`; a genuinely different mechanism) and the per-card
+one-offs (`each creature blocking it`, `each creature for each aura attached to that creature`,
+`each creature except for creatures you control with flying`).
+
+**NEXT BIG MEASURED VEIN:** mass DESTROY / EXILE / BOUNCE filter delegation (~17 attributable, measured
+2026-07-30). Those verbs hand-roll a parallel filter implementation — `subtypeFilter`/`subtypeNegate`,
+`powerCmp`, `mvCmp`, `landSubtype` on bespoke atom fields, resolved by `massCreatureTargets` — while the damage
+side reads the 16-kind shared grammar. Unifying them needs `creatureSatisfiesRestrictions` extracted from
+`spellEffects.js` into a leaf module (`atoms/shared.js` is a strict leaf and cannot import spellEffects).
+Its deps are only gameState + layers readers, both of which shared.js already imports, so the extraction is
+mechanical — but it touches a 16-branch function and both call sites, so it wants a slice of its own with the
+module-graph load check run at every step.
 
 ---
 

@@ -42,6 +42,15 @@ export const NON_WIPE_MASS_SCOPES = new Set([
   //                               EXCEPT the source (ctx.sourceId); non-chosen, so the trigger flush routes it
   //                               on confidence (no target pick) exactly like eachCreature.
   "eachCreatureAndPlayer",      // SYMBURN-1 — symmetric burn (every creature AND every player)
+  "eachOpponentAndTheirCreatures",   // SYMBURN-4 (2026-07-30) — "deals N damage to each opponent and each
+  //                               creature they control" (Tectonic Hazard, Wildfire Cerberus). ONE-SIDED, and
+  //                               that is the whole point: the caster and the caster's board are untouched, so
+  //                               this is NOT a wipe the AI should hold like Pyroclasm — it is a Chainwhirler.
+  "eachOpponentAndTheirCreaturesPW", // SYMBURN-4b — the same sweep with "and planeswalker" in the noun
+  //                               (Goblin Chainwhirler, End the Festivities). Split from its sibling for the
+  //                               same reason eachCreatureAndPlaneswalker is split from eachCreatureAndPlayer:
+  //                               damage to a walker is LOYALTY removal (CR 120.3c), a different effect on a
+  //                               different object, and a flag would hide that.
   "eachCreatureAndPlaneswalker", // SYMBURN-3 (2026-07-30) — "deals N damage to each creature and each
   //                               planeswalker" (Star of Extinction, Storm's Wrath, Dragonback Assault) and
   //                               its filtered twin (Magmaquake's "each creature without flying and each

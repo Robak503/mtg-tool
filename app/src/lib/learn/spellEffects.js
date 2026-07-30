@@ -1216,6 +1216,31 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
       for (const pid of Object.keys(next.players)) {
         if (next.players[pid]) next = hitPlayer(next, pid);
       }
+    } else if (targetType === "eachOpponentAndTheirCreatures" || targetType === "eachOpponentAndTheirCreaturesPW") {
+      // SYMBURN-4 (Goblin Chainwhirler, End the Festivities, Tectonic Hazard, Wildfire Cerberus) — every
+      // OPPONENT takes the damage, and so does every creature (and, in the PW variant, every planeswalker)
+      // THEY control. Strictly one-sided: the caster's seat and the caster's board are never touched, which is
+      // exactly what makes these cards good and what would make a symmetric implementation a different card.
+      //
+      // Iterating opponentsOf(controller) rather than every seat is what enforces the one-sidedness — there is
+      // no filter to get wrong, because the caster is never in the loop at all.
+      const walkersToo = targetType === "eachOpponentAndTheirCreaturesPW";
+      for (const oid of opponentsOf(next, controller)) {
+        if (!next.players[oid]) continue;
+        next = hitPlayer(next, oid);
+        for (const perm of [...next.players[oid].battlefield]) {
+          if (isCreature(perm.card)) { next = hitCreature(next, perm.id); continue; }
+          if (!walkersToo) continue;
+          if (!/\bPlaneswalker\b/i.test(String(perm.card?.type || perm.card?.type_line || ""))) continue;
+          // The single-target loyalty path, reused: damage replacement → prevention shields → loyalty removal.
+          let dealt = dmgConsult(amount, "planeswalker", perm.id);
+          if (dealt > 0) {
+            const pv = consumePreventionShields(next, { targetKind: "planeswalker", targetId: perm.id, amount: dealt });
+            next = pv.state; dealt = pv.amount;
+          }
+          if (dealt > 0) { next = adjustLoyalty(next, { permanentId: perm.id, delta: -dealt }); sourceDealtTotal += dealt; }
+        }
+      }
     } else if (targetType === "eachCreatureAndPlaneswalker") {
       // SYMBURN-3 (Star of Extinction, Storm's Wrath, Dragonback Assault; Magmaquake's filtered twin) — every
       // creature on every battlefield AND every planeswalker. PLAYERS ARE NOT HIT: the text says "each

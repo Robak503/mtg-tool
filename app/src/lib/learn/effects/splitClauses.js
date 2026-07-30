@@ -409,6 +409,14 @@ export function splitClauses(oracle) {
     // clarity about why. It stays out until its scope exists.
     const symBurn = sentence.match(/^(.*?)\bdeals? (?:\d+|x) damage to each [a-z' -]*creature[a-z' -]* and each (?:player|planeswalker)$/i);
     if (symBurn && !/\band\b/i.test(symBurn[1])) { clauses.push(sentence); continue; }
+    // SYMBURN-4 keep-whole — "deals N damage to each opponent and each creature[ and planeswalker] they
+    // control". This shape carries TWO internal " and "s, both inside the one recipient, and the split was
+    // producing a first half that parses HIGH on its own ("…to each opponent" is a modeled scope!) beside an
+    // unbindable "each creature they control". A confident half plus a dropped half is the dropped-effect
+    // shape, so keeping it whole is the conservative direction here exactly as it was for SYMBURN-1/3. Same
+    // subject-prefix guard: no top-level " and " before the verb, so a leading effect can never be swallowed.
+    const oppBurn = sentence.match(/^(.*?)\bdeals? (?:\d+|x) damage to each opponent and each creature(?: and planeswalker)? they control$/i);
+    if (oppBurn && !/\band\b/i.test(oppBurn[1])) { clauses.push(sentence); continue; }
     // MASS-NC — "destroy all artifacts and enchantments": the " and " joins two permanent TYPES inside
     // one mass-destroy target, not a top-level effect boundary. Keep the whole sentence so the recognizer
     // binds the combined eachArtifactOrEnchantment scope. Anchored to the exact bare form.

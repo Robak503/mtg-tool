@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **One-sided sweeps now work.** Goblin Chainwhirler, End the Festivities, Tectonic Hazard and Wildfire
+  Cerberus hit each opponent and everything they control — and correctly leave you and your board alone.
 - **Board wipes that also hit planeswalkers now work.** Star of Extinction, Storm's Wrath, Magmaquake and
   Dragonback Assault deal their damage to every creature and remove that much loyalty from every
   planeswalker — and correctly leave players alone.

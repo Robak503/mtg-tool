@@ -518,6 +518,18 @@ export function massFilteredDamageClauseParser(clause) {
   // and silently strips it, so handing it "each other creature you control" would come back clean with only a
   // controller restriction — and the source would then damage ITSELF (CR 113.7). The peel below reads "other"
   // off the front and picks the source-excluding scope explicitly, so the exclusion can never be lost.
+  // SYMBURN-4 — "deals N damage to each opponent AND each creature[ and planeswalker] THEY CONTROL" (Goblin
+  // Chainwhirler, End the Festivities, Tectonic Hazard, Wildfire Cerberus). Anchored BEFORE the general arm
+  // because its recipient phrase begins "each opponent …", which the general arm would hand to the creature
+  // grammar and correctly reject as residue — so without this it simply parks.
+  //
+  // The trailing "they control" is load-bearing, not filler: it is what scopes the creatures to the OPPONENTS'
+  // boards. A form without it would be a different (symmetric) card, so it is inside the anchor.
+  const opp = t.match(/^.+? deals? (\d+) damage to each opponent and each creature( and planeswalker)? they control$/);
+  if (opp) {
+    return { op: "deal-damage", amount: parseInt(opp[1], 10),
+      targetType: opp[2] ? "eachOpponentAndTheirCreaturesPW" : "eachOpponentAndTheirCreatures" };
+  }
   const gen = t.match(/^.+? deals? (\d+) damage to (each .+?)( and each (?:player|planeswalker))?$/);
   if (gen) {
     const amount = parseInt(gen[1], 10);
