@@ -18,11 +18,15 @@
 >   **Grep the source for a mechanic before believing it is unbuilt** — Ward, Treasure and Food all were.
 >   Full evidence in the METHOD CORRECTION entry below.
 > - 🎯 **READ THE SHELF ENTRY BELOW BEFORE PICKING MORE CORPUS WORK.** Colton's shelf is at **93%** with
->   exactly ONE deck under the >=90% bar (`cdh`, 83/100 — seven cards). Its full 17-slot gap is
->   diagnosed per clause in the entry, with a recommended build order. That is the stated objective;
->   corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 81 cards since v0.149.19** (planeswalker subtypes + `another <filter>` +11,
->   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52).
+>   exactly ONE deck under the >=90% bar (`cdh`, **85/100 — FIVE cards**, re-measured 2026-07-30 after
+>   Borne Upon a Wind + Vexing Shusher landed). Its full gap is diagnosed per clause in the entry.
+>   ⚠️ **The TRACTABLE half of that gap is now spent.** The 15 remaining slots are each a distinct
+>   bespoke mechanism (Battle card type · Cipher · Food · Treasure+Dash · Bestow+landfall · alt-cost
+>   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
+>   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
+>   That is still the stated objective; corpus veins are the fallback, not the target.
+> - **BATCH IN FLIGHT: 82 cards since v0.149.19** (planeswalker subtypes + `another <filter>` +11,
+>   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1).
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
 >   one-sided opponent sweep +4, mass-removal filter delegation +19, mass-bounce delegation +3,
@@ -124,6 +128,82 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 2) 2026-07-30 — **GRANTED UNCOUNTERABILITY + 24 WRONG CR CITATIONS. GAINED 1, LOST 0.**
+
+**Vexing Shusher** — `{R/G}: Target spell can't be countered.` **cdh 84 → 85 of 100** (verified by re-running
+`deck-gap.mjs`, not assumed from the flip).
+
+**⭐ THE MISSING ARM OF A MECHANIC THAT WAS OTHERWISE COMPLETE — and the source had named the gap.**
+`spellEffects.js` carried the sentence *"granted / external 'can't be countered' isn't modeled"* for as long as
+the gap existed. Four uncounterability paths already worked and **all four are STATIC or ON-CARD**: the printed
+self-reference, the subtype board static (Root Sliver), the controller static (Chimil), the type-filtered
+controller static (Prowling Serpopard). Every one answers *"is this spell uncounterable?"* by **re-deriving it
+from the board**. A one-shot grant leaves nothing on the board to re-derive from — so it needed a **mark on the
+stack object**, not a fifth derivation. That is the entire design; the rest is plumbing.
+
+**The mark rides the stack OBJECT, not the card.** Two copies of one spell on the stack are separate objects and
+only the targeted one is protected; a spell that resolves and is re-cast is a new object with no mark. A test
+asserts the *neighbouring* spell stays counterable — the only thing separating this from Chimil, and nothing
+else in the file would have caught a leak.
+
+**`grantNotCounter` is the Double Major precedent read a second way.** A copy and a grant both target a spell
+*without trying to counter it*, so neither may have the uncounterability exclusions applied to its own target
+enumeration. Targeting an already-protected spell with the grant is legal if pointless (CR 601.2c); excluding it
+would be a false negative on legality. The counter path sets neither flag and is byte-identical.
+
+**⭐ POSITIVE CONTROL RUN BEFORE THE BUILD, NOT AFTER.** Line 1 alone → `native-static`; line 1 + a known-good
+activated ability → `native-mixed`; line 2 alone → `body-only`. The harness could demonstrably produce a native
+in that slot, so the whole card's `body-only` was attributable to line 2 **and nothing else**. Predicted 1,
+measured 1 — the wording is a corpus of exactly one card. Flip-diff **GAINED 1 / LOST 0** against a baseline
+regenerated from a clean tree (diff saved, `git checkout`, measure, re-apply — never `git stash`, per the
+shared-worktree hazard).
+
+**Gates:** 9 new tests, **every exclusion paired with the same assertion in the grant's absence** so an empty
+target list can never pass for a working gate. **All five mutations seen to fail** — disabling the read-site
+exclusion (2), making the mark global (2), dropping the parse registration (1), dropping the not-a-counter carve
+(1), letting the fizzle path mark the wrong object (1). Reverts confirmed by a clean `MUTANT` grep. Suite **1003
+files / 12,777 green**, lint 0.
+
+### 🚨 SEPARATE COMMIT — **24 CR CITATIONS FOR COUNTERING POINTED AT THE WRONG RULE** (9 files)
+Every `CR 701.5a` and `CR 701.5e` in the counter/uncounterable code was wrong. In the current bundle **701.5a is
+the CAST rule** — *"To cast a spell is to take it from the zone it's in…"* — nothing to do with countering. **701.5e
+does not exist at any point in the bundle.** The counter keyword action is **701.6**, with exactly two subrules:
+**701.6a** (what countering is, where the card goes) and **701.6b** (no refund of costs paid).
+
+The CR renumbered the keyword-action section out from under these comments and nothing re-checked them. **Found
+only because I verified a citation before writing a new one into a comment of my own** — the code was correct the
+whole time and no test could ever have caught it. This is precisely the rot the never-fabricate rule exists for.
+⚠️ **"Can't be countered" has NO subrule of its own** — it is a continuous effect preventing the 701.6a action.
+Eleven comments implied otherwise. The load-bearing site now says so and **names the dead number**, so the next
+reader doesn't re-search the bundle for a 701.5e. Comment-only; zero behavior change, verified by diffing for any
+non-comment line.
+
+---
+
+## ⛔ REFUSED 2026-07-30 — **SPELL-SIDE DELAYED TRIGGERS. Containment said 157; attribution says 4.**
+
+Chased because `Pact of Negation` (a `cdh` slot) is blocked by *"At the beginning of your next upkeep, pay
+{3}{U}{U}. If you don't, you lose the game"*, and the Pact cycle is a clean bounded six (Guild · Slaughter ·
+Summoner's · Intervention · of the Titan · of Negation, all `{0}`).
+
+**The phrase-swap killed it in one step, and the first control I wrote was itself hollow.** Swapping the pact
+rider for *"At the beginning of your next upkeep, draw a card."* left **all six still `arbiter-spell`** — so the
+rider was never the blocker. Isolating one variable at a time proved the `{0}` cost is irrelevant (the payload
+alone is `native-spell` at `{0}`, at `{2}{B}`, and at an EMPTY cost) and that **any second-line delayed trigger
+flips an instant to arbiter** — including my supposedly-known-good control. ⚠️ **A control is not a control until
+you have checked that IT is modeled.** I asserted a positive without verifying the positive existed.
+
+Widening to the whole family: **191** instants/sorceries carry a *"at the beginning of the next …"* delayed
+trigger and **34 are already native** (Ephemerate, Staggershock, Profound Journey, Terramorph) — the scheduler
+itself works. Of the **157** non-native, phrase-swap attributes **exactly 4** to the delayed clause (Mangara's
+Blessing · Synthetic Destiny · Quenchable Fire · Liberate), and **of those 4, ZERO have an inner payload that
+already parses inline** — so the buildable subset is smaller than 4. The 157 are carrying other blockers.
+
+**Containment 157 → attribution 4 → buildable <4.** The single sharpest demonstration yet of why the sizing rule
+is written the way it is. Not built; the number is banked so nobody re-measures it.
 
 ---
 

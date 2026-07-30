@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Vexing Shusher now works.** Its "{R/G}: Target spell can't be countered" ability actually protects
+  the spell you point it at — the engine already understood printed and board-wide uncounterability, but
+  not a one-shot grant.
 - **"Whenever you cast a red spell" and its colour siblings now work.** Fifty-two cards, including the
   Talisman / Horn / Tooth / Sphere artifact cycles, Aragorn the Uniter, Warmth, Kor Firewalker,
   Sol'kanar the Swamp King, Nettle Sentinel and Balefire Liege. Colourless spells are handled too, and
