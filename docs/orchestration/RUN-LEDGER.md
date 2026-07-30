@@ -95,6 +95,71 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## 🔬 DIAGNOSED + REVERTED 2026-07-29 — the subtype-list pump axis: **the blocker is `splitClauses`, not the matcher**
+
+**⛔ NOTHING SHIPPED. A matcher-level fix flipped ZERO of 34,210 cards, and the flip-diff is the only reason
+I know that.** Written up in full because the diagnosis is the value, and because the next session would
+otherwise repeat the same two hours.
+
+**The axis is real** (verified both arms, same subject):
+```
+static  : "Birds, Frogs, Otters, and Rats you control get +1/+1."                     -> native-static  ✅
+trigger : "Whenever you cast a noncreature spell, <same subject> … until end of turn." -> body-only      ⛔
+control : "…, creatures you control get +1/+1 until end of turn."                      -> native-trigger ✅
+```
+So the anchor is fine and the SUBJECT vocabulary is the gap. Blocks **Valley Floodcaller** (cdh).
+
+**⭐ AND BOTH HALVES OF THE OBVIOUS FIX ALREADY EXISTED**, which is what made it look cheap:
+`controllerCreatureTargets` already accepts an **ARRAY** `subtypeFilter` (the mass-counter atom passes one —
+`counters.js:667-672`, "ANY listed subtype matches, word-bounded"), and the pump arm at
+`atoms/combat.js:1448` passes a single word. Same gatherer, two callers, one of them narrower.
+
+**⛔ THE ACTUAL BLOCKER IS UPSTREAM OF ALL OF THAT.** `splitClauses` splits on `and` / `, and`, so the
+subject never arrives intact — measured:
+```
+"Birds, Frogs, Otters, and Rats you control get +1/+1 until end of turn."
+   -> "Birds, Frogs, Otters,"  +  "Rats you control get +1/+1 until end of turn"        (2 clauses)
+"Bats and Rats you control get +1/+1 and gain flying until end of turn."
+   -> "Bats" + "Rats you control get +1/+1" + "gain flying until end of turn"           (3 clauses)
+"Bats or Rats you control get +1/+1 until end of turn."                                  (1 clause — "or" is NOT split)
+```
+**That is why a two-member `or` list passed my probe and the real card did not.** The list regex matches all
+four subjects perfectly in isolation — I verified that before suspecting the splitter, which is the only
+reason I didn't spend the night widening a regex that was already correct.
+
+**What I tried, and the measured verdict:** added `frog/otter/bat/raccoon` to `COUNT_SUBTYPE` + a
+subtype-LIST arm below the single-word arm (ordering-rule safe: the list regex requires an `and`/`or`, so it
+is unreachable for anything the single-word arm matches). Synthetic cases went native. **Full tier
+flip-diff over 34,210 cards: ZERO flips, GAINED 0, LOST 0.** Every real card printing the list subject is
+shredded by the splitter first, so the matcher widening is unreachable in practice. **Reverted both files** —
+a 0-flip change is not a slice, and leaving it would fold unverified widening into the next diff's baseline.
+
+**⭐ THE LESSON, worth more than the cards: A FIX DOWNSTREAM OF A SPLITTER BUG FLIPS NOTHING.** Synthetic
+probes went green on every arm I added; only the corpus-wide flip-diff showed it bought nothing. When a
+capability exists on one arm and not its neighbour, **check what the text looks like when it ARRIVES at the
+neighbour** before widening the neighbour — the two arms may not be reading the same string at all. (Statics
+never go through `splitClauses`; that asymmetry IS the axis here.)
+
+**The real slice, when someone takes it (do BOTH halves together, or it flips nothing):**
+1. `splitClauses` must not split an `and` inside a subject list — narrowly, e.g. suppress the split when the
+   right-hand side continues `… you control get ±N/±N`. **Splitter changes are corpus-wide; gate it behind a
+   lookahead so it is reachable only where the current split produces an unparseable fragment.**
+2. Then the `COUNT_SUBTYPE` additions + the list arm (both re-derivable from this entry).
+3. **Curation evidence, already measured** against `COUNT_SUBTYPE`'s own criterion (all occurrences in the
+   subtype position, ZERO left of the em dash): **Frog 93 · Bat 59 · Otter 32 · Raccoon 32**, control
+   **Elf 721 / 0-left**. ⚠️ The first run of that probe reported **0 for all four** — a shell-mangled
+   backslash, caught only because Valley Floodcaller is *itself* an Otter. RULE 1b paid again.
+4. **Ceiling: 6 cards in 6 constructions** (attributed by removal) — Valley Floodcaller · Regal Sliver ·
+   Brambleguard Veteran · Gale, Storm Conduit · Captain Vargus Wrath · Moonstone Harbinger. Each of the
+   other five ALSO has its own unsupported anchor (expend N, "perpetually gains", "for each time",
+   gain-or-lose-life), so **realistically this slice is +1 to +2, not +6.** Size it before starting it.
+
+**⚠️ THIRD SHELL-MANGLED-BACKSLASH INCIDENT THIS SESSION.** `\\b` through a `node -e` double-quoted shell
+string became a literal backslash-b and silently matched nothing. **Write probes to a FILE.** The two that
+went through `Write` were correct first time; all three that went through `node -e` were not.
+
+---
+
 ## 📏 MEASURED 2026-07-29 — the "as though it had flash" vein, and why 74 was really 36 (then 5)
 
 Chased because **Borne Upon a Wind** blocks cdh and its neighbour clause classifies fine: Valley Floodcaller's
