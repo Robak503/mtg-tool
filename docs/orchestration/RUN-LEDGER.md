@@ -95,6 +95,60 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## 📏 MEASURED 2026-07-29 — the "as though it had flash" vein, and why 74 was really 36 (then 5)
+
+Chased because **Borne Upon a Wind** blocks cdh and its neighbour clause classifies fine: Valley Floodcaller's
+`You may cast noncreature spells as though they had flash` is **native-static**, so the capability plainly
+exists on one arm. Containment count: **92 cards carry an as-though-had-flash clause, 74 non-native.** That
+looked like the biggest vein in weeks.
+
+**⛔ IT WASN'T, AND THE ERROR WAS ATTRIBUTION BY PROXY AGAIN — third instance this run.** Counting cards that
+*contain* a clause is not counting cards *blocked* by it. Re-attributed by REMOVAL (delete the flash-bearing
+line, does the whole card flip?):
+
+| bucket | n | meaning |
+|---|---|---|
+| genuinely flash-blocked | **36** in **28** constructions | a flash fix could flip these |
+| flash clause is NOT the blocker | **10** | Valley Floodcaller, Najal, Sally Sparrow, Gandalf, Liberator, Heliod… |
+| COMPOSITE (flash **and** something else) | **28** | Asinine Antics, Vivien, A-Teferi, Savage Summoning, **Borne Upon a Wind** |
+
+**28 constructions for 36 cards** — a singleton tail, not a slice. The only real clusters:
+```
+5  "You may cast this spell as though it had flash"            Spider Climb · Lightning Reflexes · Mystic Veil · Parapet · Soar
+4  ...same + "if you pay {N} more to cast it"                   Saproling Symbiosis · Ghitu Fire · Rout · Mystical Tether
+2  "If you cast a spell this way, you may cast it as though…"    Primal Prayers · Elsha of the Infinite
+```
+
+**⛔ AND THE SLICE IS 5, NOT 9. THE CREED CUTS THE SURCHARGE FOUR.** "…if you pay {N} more to cast it" is a
+*conditional* timing permission; the engine never pays optional additional costs, so crediting those four
+would let it cast at instant speed WITHOUT the surcharge — offering the player something the card does not
+allow. That is the forbidden direction. They stay parked, faithfully.
+
+**The 5-card build, when someone wants it (cheap, tight, does NOT move the shelf):** the machinery is all
+present — `flashCastPermissionsOf` / `spellMatchesFlashFilter` / `flashPermissionSpecsFor`
+(`legalChoices.js:389`, sorcery-speed decided at `:294`) — but it gathers specs from PERMANENTS the player
+controls. `"You may cast **this spell** as though it had flash"` is a property of the card being cast, so it
+needs a per-card check at the timing gate, not a permanent scan. Effectively: treat it as the card having
+flash (CR 601.3e / 702.8).
+
+**⚠️ Borne Upon a Wind is COMPOSITE — the flash slice would not flip it, so cdh gains nothing here.**
+
+### cdh sizing (the shelf target, 83%, needs 7) — 17 blockers, and only ONE is shared
+`Pact of Negation` shared×2 · 11 one-card · 6 composite (Deflecting Swat, Wan Shi Tong, Hidden Strings,
+Invasion of Ikoria, Vibrance, Mindbreak Trap). Per-line diagnosis is banked; the tractable one-card starts,
+cheapest first, are **The Cabbage Merchant** (a `combat damage to you` anchor variant — the unified
+combat-damage anchor already exists) and **Hexing Squelcher** (`Other creatures you control have "Ward—Pay 2
+life."` — a group quoted grant of a keyword the engine already models on the card itself; the anthem filter
+grammar it needs is already built). Corpus reach of each, measured: **1 card apiece.** No slice hides here —
+cdh's remaining 7 are seven individual builds, which is the honest cost Colton already accepted.
+
+**⚠️ The stale order:** `[[quoted-grant-statics-slice]]` still headlines "35 cards, mana-ability first". Its
+own 07-29 warning is correct — that half is BUILT. What remains is Joiner Adept's `Lands you control have
+"{T}: Add…"`, `Artifacts you control`, bare `Tokens you control`, and the 44-card quoted-TRIGGER slice.
+Hexing Squelcher's keyword-grant shape is in neither. Re-census before building to that file.
+
+---
+
 ## 🌊 SCOPED WAVE (start here cold) — EXTRA COMBAT PHASES, CR 500.8. **51 cards, ALL non-native.**
 
 Named by the mass-untap slice: every big card on that clause list was blocked by this rider, not by the
