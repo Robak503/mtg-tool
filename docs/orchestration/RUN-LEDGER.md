@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 49 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 53 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -131,7 +131,51 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 ## ✅ BANKED 2026-07-30 — **THE SELF-EXILE RETRY MUST LOOK PAST A CAST-KEYWORD LINE. GAINED 3.**
+## 🎯 ## ✅ BANKED 2026-07-30 — **SPECTACLE CREDITED ON THE PERMANENT SIDE. GAINED 4.**
+
+Blade Juggler · Hackrobat · Spawn of Mayhem · Spikewheel Acrobat.
+
+**CR 702.137a** (verified): *"You may pay [cost] rather than pay this spell's mana cost if an opponent lost
+life this turn."* A pure ALTERNATIVE COST — the card is fully castable at its printed cost and the
+resulting permanent is identical, so the unoffered alt entry is a missing OPTION, never a mis-resolution.
+The same rationale `coverage.js` already applies to foretell / blitz / freerunning / madness / ninjutsu.
+
+⭐ **HANDLED-OVER-THERE IS NOT HANDLED-HERE.** Spectacle was already in `CAST_KEYWORD_LINE`
+(`textNormalize.js`, the SPELL side). Nothing credited it on the PERMANENT side, so ordinary creatures
+parked on the keyword line alone while their bodies were fully modelled. **Second time in two slices that
+the bug was a keyword handled in one module and absent from its sibling** — worth checking the other
+CAST_KEYWORD_LINE entries against `isKeywordOnly` as a pair, rather than one card at a time.
+
+### ⛔ ESCAPE REFUSED — and it is STRUCTURAL, not a judgement
+Escape (CR 702.138a) is the same vacuous shape and would pay **5 more permanents** (Nethergoyf · Sentinel's
+Eyes · Escape Velocity · Mogis's Favor · Bloodbraid Challenger). It cannot be credited the same way:
+
+> `Escape—{2}{B}, Exile two other cards from your graveyard.`
+
+`isKeywordOnly` **splits clauses on commas BEFORE testing them**, so the line arrives as two fragments and
+no whole-line pattern can ever match. Crediting the second fragment (*"exile two other cards from your
+graveyard"*) is out of the question — that is a real effect on other cards. Escape needs the LINE removed
+before the split, the way the spell path does it. Documented in-file at the refusal site.
+
+⚠️ **A first pass added a `reEscapeCost` pattern that matched nothing.** It was removed rather than left
+sitting there with a comment claiming it worked — dead code carrying a confident wrong explanation is the
+thing the next reader believes.
+
+### ⚠️ THIRD FIXTURE-FROM-MEMORY FAILURE THIS SESSION
+Typed all three fixtures from recall and got **three of three wrong**: Spawn of Mayhem's rider is *"if YOU
+have 10 or less life"* (not an opponent), Hackrobat's second ability is **+2/-2** (not trample), Blade
+Juggler costs **{4}{B}**. The corpus test caught it, as it did the previous two times. *Recall produces
+card text that is confidently, specifically wrong — and it fails tests for reasons that look like engine
+bugs.* Noted in-file.
+
+**Gates:** 5 tests, including that a spectacle-REFERENCING clause is NOT credited and that escape still
+is not. Suite **1025 files / 13,019 green**, lint 0, MUTANT clean. Commit `390ddd8c`.
+
+**Batch 4: 53 cards.**
+
+---
+
+## ✅ BANKED 2026-07-30 — **THE SELF-EXILE RETRY MUST LOOK PAST A CAST-KEYWORD LINE. GAINED 3.**
 ## ⚠️ AND I BANKED TWO WRONG ROOT CAUSES BEFORE FINDING IT — both corrected below.
 
 Temporal Mastery (miracle) · Part the Waterveil (awaken) · Alrund's Epiphany (foretell).
