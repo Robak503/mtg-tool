@@ -34,7 +34,7 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **BATCH IN FLIGHT: 19 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 23 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -468,6 +468,52 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **GRANTED COST-ONLY KEYWORDS. GAINED 4. SHELF +1 (Jurassic Ramp 79 → 80%).**
+
+Chief Engineer (#7075) · Inspiring Statuary (#963) · Ironheart, Clever Champion · **Hunting Velociraptor
+(#3790)**. Joe **855/1098**. Four shelf slices out of the last five.
+
+### THE ARGUMENT — the grant is vacuous IFF the print is
+`COST_ONLY_KEYWORD_LINE` already credits convoke / improvise / delve **on a spell** because *"the runtime
+hard-casts at full printed cost, so an option it never takes cannot change what resolves"*, and
+`reVacuousAltCastCost` credits prowl the same way. **Granting one of those keywords to a class of spells adds
+the SAME never-taken option to other cards** — so the two credits stand or fall together, and if the engine
+ever learns to USE these costs both must be revisited. Benign marker, no layer op, no runtime.
+
+### ⛔⛔ THE ALLOWLIST IS THE WHOLE GUARD, AND THE CORPUS MADE THAT VIVID
+The identical sentence shape grants **ten other keywords**, and not one may be credited — each changes what
+HAPPENS rather than offering a cheaper route:
+
+| granted | why it must park |
+|---|---|
+| cascade (The First Sliver #4152) | free spells off the top |
+| storm (Ral ×3, Prismari) | copies |
+| demonstrate (×3) | copy + an opponent draws |
+| **flash** (Chea) | ⚠️ changes **TIMING** — the easiest of the ten to wave through |
+| sticker · freerunning · affinity(bare) · madness · escape · riot | each a real effect or an incomplete phrase |
+
+**A generic `\w+` in that slot would have credited all ten.** All ten are pinned in the test file. *I only
+knew the list because I enumerated what the corpus actually grants through that sentence BEFORE writing the
+anchor — the shape looked like "one keyword family" and is in fact two, split down the middle.*
+
+### ⭐ MY OWN COST PATTERN BIT ME, AND THE FLIP-DIFF CAUGHT IT
+First anchor: `prowl(?: \{[^}]+\})+` — a space required before EVERY brace group. It matches `prowl {2}` but
+**NOT `prowl {2}{R}`**, so **Hunting Velociraptor — the entire reason for the slice — stayed parked while
+three other cards flipped and the diff still read a tidy GAINED 3.** A multi-pip cost is ONE space then N
+ADJACENT groups. *A green-looking flip-diff is not evidence the card you were aiming at moved; check the
+named target by name.* Both forms are now pinned.
+
+**Mutation-checked: 2 seen to fail** — M1 marker not emitted · M2 allowlist opened to `[a-z]+` (trips all ten
+forbidden keywords at once).
+
+**Gates:** flip-diff **GAINED 4 / LOST 0**, no other tier moved (12942 → 12946 / 34245). 16 tests. Suite
+**1041 files / 13,183 green**, lint 0, module graph loads, MUTANT clean. **Batch: 23 cards.** Corpus 37.804%.
+
+### ➡️ SHELF QUEUE: Topiary Stomper · Terror of the Peaks (its "spells that target this creature cost an
+additional 3 life" tax is a **1-carrier** family — sized, so expect exactly 1). Both Mainboard.
 
 ---
 

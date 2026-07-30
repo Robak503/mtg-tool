@@ -1986,6 +1986,25 @@ function parseClause(clause, out, selfName, selfType) {
   // not exist — a wrong PRICE waiting to happen — so it stays a marker with no affects/op.
   // ⚠️ THE TWO CREDITS ARE COUPLED: if ninjutsu is ever offered, this marker and reNinjutsuCost must BOTH be
   // revisited, because both die on the same premise. Anchored ^…$ so only this exact printed sentence matches.
+  // GRANTED COST-ONLY KEYWORD (Chief Engineer "Artifact spells you cast have convoke" · Inspiring Statuary
+  // "Nonartifact spells you cast have improvise" · Hunting Velociraptor "Dinosaur spells you cast have
+  // prowl {2}{R}"). ⭐ VACUOUS ON EXACTLY THE PREMISE THAT ALREADY CREDITS THE PRINTED FORM: parseHelpers'
+  // COST_ONLY_KEYWORD_LINE credits convoke / improvise / delve ON A SPELL because "the runtime hard-casts at
+  // full printed cost, so an option it never takes cannot change what resolves", and coverage's
+  // reVacuousAltCastCost credits prowl for the same reason. GRANTING one of those keywords to a class of
+  // spells adds the SAME never-taken option to other cards — so the grant is vacuous iff the print is, and
+  // the two credits stand or fall together. Benign marker, no layer op, no runtime.
+  //
+  // ⛔ THE ALLOWLIST IS THE WHOLE GUARD, AND IT IS SHORT ON PURPOSE. The corpus grants ten other keywords
+  // through this exact sentence shape and NONE of them may be credited — each changes what happens rather
+  // than offering a cheaper route: cascade (The First Sliver — free spells off the top) · storm (Ral,
+  // Prismari — copies) · demonstrate (copy + an opponent draws) · sticker · and ⚠️ FLASH (Chea, Friend to
+  // Maybe Too Many), which changes TIMING and is the easiest of the ten to wave through by accident.
+  // A generic "\w+" here would credit all ten. Verified against the corpus before writing the list.
+  if (/^[a-z]+ spells you cast have (?:convoke|improvise|delve|prowl (?:\{[^}]+\})+)$/.test(c)) {
+    out.push({ grantedCostOnlyKeywordNoop: true });
+    return;
+  }
   if (/^ninjutsu abilities you activate cost \{\d+\} less to activate$/.test(c)) {
     out.push({ ninjutsuCostReductionNoop: true });
     return;
