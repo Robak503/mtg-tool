@@ -34,7 +34,7 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **BATCH IN FLIGHT: 8 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 12 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -468,6 +468,57 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **"DURING YOUR TURN, <GROUP> YOU CONTROL HAVE <KW>". GAINED 4. SHELF +1.**
+
+Anara, Wolvid Familiar (#4156, **Hulk Smash 75 → 76%**) · Bedrock Tortoise (#3554) · Bayek of Siwa ·
+Sokka's Charge. Joe **852/1098**. *Back on the shelf after three corpus-only slices — the fresh shelf-gap
+pass was the point.*
+
+### ⭐ BOTH HALVES EXISTED AND HAD NEVER MET
+The group grant emits a `dynamic` selector descriptor. `gate:{kind:"yourTurn"}` has existed since BLITZ ST-2
+for the SELF forms (*"During your turn, this creature has first strike"*), and `layers.gateMet` +
+`permanentHasKeyword` + `keywordSet` all honour `op.gate` already. **Only the combination was unreachable.**
+So the arm does NO new parsing and invents NO new gate: strip the time prefix, run the clause through the
+EXISTING group-grant parser, stamp the EXISTING gate on what comes back. One test asserts the gated
+descriptor is byte-identical to the ungated one apart from the gate.
+
+### ⭐ THE RUNTIME WAS MEASURED IN ALL FOUR QUADRANTS, NOT INFERRED FROM THE SELF FORM
+A gate proven on `affects:{mode:"self"}` says **nothing** about a `dynamic` group selector — the gate has to
+resolve the right CONTROLLER for permanents that are not the source. So:
+
+| | my turn | their turn |
+|---|---|---|
+| my creatures | **have it** | **lose it** |
+| opponent's creatures | never | never |
+
+Plus the source is inside its own group. *This is the check the last four slices keep earning: "same gate,
+one scope over" is exactly the reasoning that produced a false positive two slices ago.*
+
+### ⚠️ M2 DID NOT FAIL, AND I FIXED THE TEST THAT PRETENDED IT DID
+The arm's all-or-nothing `every(... addKeyword && !gate)` check is **unexercisable today**: the anchor
+already requires *"have|has"*, and every parseable *"…you control have &lt;X&gt;"* clause currently yields
+addKeyword (a *"get +N/+N"* buff is a different lane the anchor never admits; *"have base power and toughness
+5/5"* and a quoted-ability grant both parse to `[]`). Removing the type check moves nothing.
+
+⭐ *My test comment had claimed the P/T case proved that guard. It does not — that clause never reaches the
+arm. Both the code comment and the test now say what each actually pins: the P/T case shows the arm keeps its
+hands off a neighbouring lane; the `inner.length` half IS live; the type half is defensive, kept because the
+inner parser is shared and free to grow a new descriptor kind. **Second slice running that a mutation came
+back green and the honest fix was to correct my own claim rather than the code.***
+
+**Mutation-checked: 1 of 2 seen to fail** — M1 the gate not stamped (4 tests, parser AND runtime). M2 as above.
+
+**Gates:** flip-diff **GAINED 4 / LOST 0**, no other tier moved (12931 → 12935 / 34245). 10 tests, four of
+them the runtime quadrants. Suite **1038 files / 13,149 green**, lint 0, module graph loads, MUTANT clean.
+**Batch: 12 cards.** Corpus 37.772%.
+
+### ➡️ THE SHELF-GAP PASS ALSO SURFACED, all one-away and each its own mechanism:
+Topiary Stomper (*"can't attack or block unless you control seven or more lands"* — ⚠️ note the PLAIN self
+*"can't attack or block"* is ALSO unmodeled, only the Aura-bonus form is) · Sensei's Divining Top ·
+Hunting Velociraptor (*"Dinosaur spells you cast have prowl"*) · Terror of the Peaks · Shadowspear.
 
 ---
 

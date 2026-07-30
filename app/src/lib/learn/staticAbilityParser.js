@@ -2722,6 +2722,32 @@ function parseClause(clause, out, selfName, selfType) {
     // clause stays residue → body-only. A P/T-set rider ("…has base power and toughness 5/2" — Snowmelt Stag)
     // or any non-keyword tail fails the allowlist → safe FN, never a fabricated grant. Whole-clause anchored;
     // a trailing "…, and <unmodeled>" splits into a non-grantable segment and drops the whole clause (CREED).
+    // ── YOUR-TURN GATED **GROUP** KEYWORD GRANT (Anara, Wolvid Familiar "During your turn, commanders you
+    // control have indestructible"; Bedrock Tortoise "During your turn, creatures you control have hexproof").
+    // ⭐ BOTH HALVES ALREADY EXISTED AND HAD NEVER MET: the group grant emits a `dynamic` selector descriptor,
+    // and `gate:{kind:"yourTurn"}` is the same gate the SELF arms right below have used since BLITZ ST-2
+    // (layers.gateMet reads state.activePlayer === controller; permanentHasKeyword / keywordSet both honour
+    // op.gate). Only the combination was unreachable. So this does NO new parsing and invents NO new gate — it
+    // strips the time prefix, runs the clause through the EXISTING group-grant parser, and stamps the EXISTING
+    // gate onto whatever that parser produced.
+    // ⛔ ALL-OR-NOTHING (CREED): the inner parse must yield ≥1 descriptor and EVERY one must be an ungated
+    // layer-6 addKeyword, else NOTHING is emitted → residue → body-only.
+    // ⚠️ THE `every(...)` HALF IS DEFENSIVE AND UNEXERCISABLE TODAY — say so rather than let a green mutation
+    // imply otherwise. The anchor already requires "have|has", and EVERY "…you control have <X>" clause that
+    // parses at all currently yields addKeyword descriptors (a "get +N/+N" buff is a different lane the anchor
+    // never admits; "have base power and toughness 5/5" and a quoted-ability grant both parse to []). So
+    // removing the type check moves nothing and its mutation does not fail. It is kept because the inner
+    // parser is shared and free to grow a new descriptor kind — at which point this is the line that stops it
+    // being silently mis-gated. The `inner.length` half IS live (an unparseable inner clause emits nothing).
+    const dtg = c.match(/^during your turn, .+ you control (?:have|has) .+$/);
+    if (dtg) {
+      const inner = [];
+      parseClause(clause.replace(/^\s*during your turn,\s*/i, ""), inner, selfName, selfType);
+      if (inner.length && inner.every((d) => d?.layer === 6 && d?.op?.layerOp === "addKeyword" && !d.op.gate)) {
+        for (const d of inner) out.push({ ...d, op: { ...d.op, gate: { kind: "yourTurn" } } });
+      }
+      return; // handled, or intentionally dropped to body-only on a non-keyword inner parse
+    }
     const dtk = c.match(/^during your turn, (?:this creature|it) (?:has|have) (.+)$/);
     if (dtk) {
       const segs = dtk[1].split(/,|\band\b/).map((s) => s.trim().replace(/[^a-z ]/g, "").trim()).filter(Boolean);

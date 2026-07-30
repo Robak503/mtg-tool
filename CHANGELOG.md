@@ -11,6 +11,9 @@ summarizes the notable changes.
 ### Added
 - **Tamiyo's Safekeeping works.** Targeting one of your own artifacts, enchantments or lands really does
   give it hexproof and indestructible for the turn — it now survives a Disenchant or a wrath.
+- **"During your turn" team buffs now switch on and off correctly.** Anara, Wolvid Familiar, Bedrock
+  Tortoise, Bayek of Siwa and Sokka's Charge — your creatures gain the keyword on your turn and lose it
+  on everyone else's, exactly as printed.
 - **More Auras that do two things now do both.** Ocular Halo, Nurturing Presence and Weirding Wood — the
   Aura's own ability and the one it grants your creature both work at the same time.
 - **Auras that both buff and grant now do both.** Pillory of the Sleepless, Compulsory Rest and Utopia
