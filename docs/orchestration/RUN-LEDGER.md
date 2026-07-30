@@ -471,6 +471,50 @@ self-exile matters and was dropped from my own summary. Read the printed line, n
 
 ---
 
+## 🧭 BANKED 2026-07-30 — **RECON: the shelf's last two cards are BOTH multi-mechanism. Mapped, not started.**
+## GAINED 0 — deliberately. Three findings that each prevent a wasted slice.
+
+Fresh shelf-gap pass: **209 non-native / 86 one-away** across Joe's nine sub-bar decks.
+
+### ⛔ FINDING 1 — the biggest-looking cluster is NOT a lever
+The clustering flags **9 cards sharing "…deals combat damage to a player"**, four of them on Equipment
+(The Key to the Vault · Sword of Hearth and Home · Buster Sword · The Reaver Cleaver). **Tested: the
+equipped-creature combat-damage TRIGGER is already fully modeled** — draw, gain-life and create-Treasure
+payloads all classify native through it. Every one of the four is blocked by its own PAYLOAD (look-N +
+free-cast · exile-own + fetch-basic · free-cast by MV · a granted quoted trigger), and they share nothing.
+⭐ *A cluster of identical TRIGGER text is not a cluster of work when the payloads differ — the shelf-gap
+grouping key flatters this shape and will keep doing so. Test the trigger before believing the count.*
+
+### ⛔ FINDING 2 — **TERROR OF THE PEAKS (#517) REFUSED**, with the reason
+*"Spells your opponents cast that target this creature cost an additional 3 life to cast."* The generic tax
+IS built and enforced (`costTax` → `costTaxForSpell` at the legalChoices cast path), but Terror needs **two**
+things that seam does not have: the tax is **TARGET-scoped** (`costTaxForSpell` takes the CARD, not its
+chosen targets) and it is **paid in LIFE, not mana**. Two real mechanisms for one card, and a half-build
+would credit a tax the engine never charges. **Banked as refused unless it is bundled with other work.**
+
+### ✅ FINDING 3 — TOPIARY STOMPER is buildable, and the path is mapped
+*"This creature can't attack or block unless you control seven or more lands."*
+- ✅ **`can't block` is genuinely ENFORCED, not a hollow credit** — checked, because it classifies native
+  while `hasKeyword(card,'cantBlock')` is FALSE, which is exactly what a false positive looks like. It is
+  real: `combatEvasion.isSelfCantBlock` → consumed in `canBlockAttacker` (combatEvasion.js:919).
+- ❌ the ATTACK side has no equivalent — `cantAttackAlone` exists, a plain self `can't attack` does not, and
+  a card printing it correctly parks (a safe FN, no FP).
+- **The build:** an `isSelfCantAttack` mirror + one filter line in the legalChoices attacker chain (beside
+  the existing `cantAttackAlone` filter, ~line 2791) + the board-count gate (`controllerMeetsBoardPredicate`
+  is already imported there) + the coverage credit.
+- ⚠️ **SIZED HONESTLY: ~4 corpus cards and the bare/combined forms bring NO shelf movement** — only the
+  GATED form reaches Topiary. Do the gate in the same slice or the shelf number does not move.
+
+**Gates:** no engine change. Suite **1041 files / 13,183 green**, lint 0, MUTANT clean. **Batch: 23 cards.**
+
+### ➡️ THE HONEST SHELF PICTURE
+Joe **855/1098 (78%)**, nine decks below the bar, none within 10 points of 90. The cheap veins are spent —
+the last five slices paid 4, 2, 5, 4 and 0. From here it is 1–4 cards per slice with real mechanism work
+behind each, and the shelf-gap probe's "one-away" label means one LINE, not one mechanism (Level Up and
+Terror of the Peaks are both two builds deep). Plan slices accordingly.
+
+---
+
 ## ✅ BANKED 2026-07-30 — **GRANTED COST-ONLY KEYWORDS. GAINED 4. SHELF +1 (Jurassic Ramp 79 → 80%).**
 
 Chief Engineer (#7075) · Inspiring Statuary (#963) · Ironheart, Clever Champion · **Hunting Velociraptor
