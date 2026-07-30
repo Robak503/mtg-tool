@@ -121,6 +121,57 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## 🔍 DIAGNOSIS 2026-07-30 — **"GATE 3" WAS A MISDIAGNOSIS. The real blocker is the clause-parser DISPATCH.**
+
+Follow-up to the reverted turn-scoped flash grant. No code shipped; the point is that the map from last turn
+was **wrong in a way that would have cost the next attempt a whole session**, and it is corrected here.
+
+**⛔ WHAT I GOT WRONG.** I recorded a "card-level gate that rejects the two-line card whole", inferred from
+`parseEffectProgram` returning `low` with the **entire oracle** as `unparsedTail`. A control run kills that
+reading:
+
+```
+high  atoms=2  tail=null                      << two lines, both parseable
+low   atoms=0  tail="<THE WHOLE ORACLE>"      << one UNPARSEABLE line + one good one   ← the control
+low   atoms=0  tail="<THE WHOLE ORACLE>"      << the target card
+```
+
+**The whole-oracle tail is simply how all-or-nothing failure is REPORTED.** Any card with one unparseable
+clause looks exactly like this. There is no card-level gate, there is nothing special about two lines, and
+nothing about "as though" or "you may cast" is denylisted. **I read a failure MESSAGE as a failure CAUSE.**
+
+**⭐ AND THE REAL BLOCKER IS NARROWER AND MORE INTERESTING.** With a probe arm applied,
+`miscClauseParser` returns the correct atom for **all three** forms called directly —
+
+```
+{"op":"grant-flash-this-turn",...}  <- "You may cast spells this turn as though they had flash"
+{"op":"grant-flash-this-turn",...}  <- "you may cast spells this turn as though they had flash"
+{"op":"grant-flash-this-turn",...}  <- "cast spells this turn as though they had flash"   (the peeled form)
+```
+
+— while `parseEffectClause` on the very same string returns **low with zero atoms**. The clause parser is
+correct AND reachable in isolation; the registry path never returns its result. **So the blocker is in the
+CLAUSE-PARSER DISPATCH, not in the clause, not in the α2 peel, and not in any card-level gate.**
+
+That also collapses last turn's Gate 1 and Gate 2. The peel *does* strip "You may ", but since the peeled form
+is equally rejected by `parseEffectClause`, the peel was never the blocker either — it was a real observation
+attached to the wrong conclusion.
+
+**⚠️ THE LESSON, and it generalises past this card:** three of the four "gates" I banked last turn were
+inferred from black-box probing of `parseEffectClause` / `parseEffectProgram` outputs. Two were wrong.
+**Where a dispatch is involved, read the dispatch** — the next attempt should open `parser.js`'s
+`CLAUSE_PARSERS` registration and `parseClauseToAtom` end-to-end and find why a registered parser's non-null
+return does not survive, rather than probing from outside and inferring. That is a bounded read, and it is
+almost certainly worth more than the 4 cards that prompted it: **anything that silently discards a registered
+parser's result affects every clause family, not this one.**
+
+**STATUS: still not built, still 4 corpus cards + 1 cdh slot. Batch 2 unchanged at 20.** The three touch
+points from the first attempt (turn-scoped grant on the player cleared at untap · the offer-gate collector
+reading it alongside the statics · the static's own filter parser exported and reused) were each verified in
+isolation and remain the right design.
+
+---
+
 ## ⛔ ATTEMPTED + REVERTED 2026-07-30 — **TURN-SCOPED FLASH GRANT.** Three gates deep, stopped on the fail-fast rule.
 
 Shelf item 1 (`Borne Upon a Wind`, + Complete the Circuit · Cherished Hatchling · Ride the Avalanche).
@@ -211,8 +262,12 @@ without that ledger, and guessing would be a confidently-wrong native.
 ### RECOMMENDED ORDER FOR THE NEXT SLICES
 1. ~~**Turn-scoped flash grant**~~ — ⛔ **ATTEMPTED AND REVERTED 2026-07-30, see the entry below.** Three
    gates deep (the α2 peel eats "You may "; the peel then stamps a wrong `optional: true`; and an
-   UNLOCATED card-level gate rejects the two-line card whole). The three touch points were each built and
-   verified in isolation. **Find the card-level gate FIRST.** Original note follows: a parse
+   UNLOCATED gate). ⚠️ **CORRECTED — see the DIAGNOSIS entry below: there is NO card-level gate.** The
+   whole-oracle `unparsedTail` is just how all-or-nothing failure is reported, and the peel is not the
+   blocker either. The real blocker is the CLAUSE-PARSER DISPATCH: `miscClauseParser` returns the right
+   atom for every form when called directly, while `parseEffectClause` on the same string returns low.
+   **Read `parser.js`'s CLAUSE_PARSERS registration + parseClauseToAtom end-to-end FIRST** — do not probe
+   from outside. The three touch points were each built and verified in isolation. Original note: a parse
    arm for the "this turn" rider, a turn-scoped stamp on the player, and `flashPermissionSpecsFor` reading the
    stamp alongside the statics.
 2. **`noncreature` flash qualifier** (2 cards; does NOT flip Floodcaller alone — see its other two blockers).
