@@ -95,6 +95,35 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## ⚠️ PHASE 4 RE-SCOPED (2026-07-30) — **"attached to it" is NOT one 5-card form. "it" binds to 3 different things.**
+
+Correcting my own census one entry down. I grouped 5 cards under `attached to it` and called it phase 4's
+biggest form. Reading the printed text, the pronoun resolves differently on each, so it is **~1 card per
+referent kind** — a singleton tail, not a form:
+```
+ETB SELF ("it" = the entering creature = the source)
+  Cursed Courtier    "When this creature enters, create a Cursed Role token attached to it."     ← CLEAN, 1 card
+  Faunsbane Troll    same form, but ALSO blocked by its fight/exile activated ability
+  Unassuming Sage    same form, wrapped in "you may pay {2}. If you do, …" (reflexive)
+
+SPELL TARGET ("it" = a creature targeted EARLIER in the same spell — a cross-clause referent)
+  Monstrous Rage     "Target creature gets +2/+0 until end of turn. Create a … token attached to it."
+  Return Triumphant  "it" = a creature RETURNED FROM A GRAVEYARD — not even a targeted battlefield object
+  Become Brutes      "For each of those creatures, … attached to it" — a PLURAL per-creature loop
+
+INSIDE A QUOTED GRANT
+  Not Dead After All  the "it" sits inside a granted quoted trigger that itself creates a Role. Nested.
+```
+**So phase 4 is per-card work at roughly one card per referent mechanism**, and the cheapest single build is the
+ETB-self case → **Cursed Courtier alone (+1)**. Not started: a 1-card build on a referent thread is not worth a
+slice while cheaper work exists elsewhere, and the correct scoping is now recorded so nobody re-derives it.
+
+**⭐ THE LESSON, and it is the third instance this session:** grouping by a SURFACE STRING (`attached to it`)
+is not grouping by MECHANISM. It produced a phantom 5-card form exactly as "Enchant creature ×496" and the
+74-card flash vein did. **Group by what the engine must DO, not by what the card says.**
+
+---
+
 ## ⛔ LEAD DISSOLVED (2026-07-30) — **the "7-card composition bug" is 3+ unrelated narrow interactions. DO NOT BUILD.**
 
 The entry below said: *"do not call this a bug until the refusal is checked for a documented reason."* Checked.
