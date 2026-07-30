@@ -170,9 +170,19 @@ Predicted 7, measured 7. Flip-diff **GAINED 7 / LOST 0**. Suite **1004 files / 1
 **Darksteel Colossus · Progenitus · Legacy Weapon · Blightsteel Colossus** (Nexus of Fate carries another
 blocker). Phrase-swap says **4**, and the census ranked it the biggest shelf-relevant cluster left.
 
-**Not built, and the reason is structural, not size.** `grep` finds **15 distinct graveyard write sites** and no
-shared `putIntoGraveyard` helper — destroy, discard, mill, counter, sacrifice, state-based death and the rest
-each write the zone themselves. There are only two ways to ship this today and **both are forbidden**: a
+**Not built tonight — but ⚠️ MY FIRST STATED REASON WAS WRONG BY 3x, corrected below before anyone inherits it.**
+
+I wrote "15 distinct graveyard write sites" off a grep for `graveyard:`. **The real number is 5 writes**, and
+a general zone mover (`gameState.moveCardToZone`, :648) already exists and carries the battlefield-to-graveyard
+death path. The other four are `placeCounteredCard` (stack.js:101, already a named helper), runProgram.js:109,
+and three bulk moves in gameState (surveil :864 / reveal :890 / mill :910). **The 15 was initializations
+(`graveyard: []` in fresh player state and test probes) and READS counted as writes** — the third time this
+session a COUNTING METHOD produced a confidently wrong number (see also the non-global `.replace` and
+containment-vs-attribution). Grep the shape you actually mean: `graveyard: [...` not `graveyard:`.
+
+**The honest reason to defer is scope-at-this-hour, not structure.** It is a real refactor with real blast
+radius (every zone change in the engine) and it wants a session with a clean tree in front of it, not the tail
+of a ten-slice batch. There are only two ways to ship this today and **both are forbidden**: a
 coverage marker with no runtime enforcement (the hollow-gate law — ABSENCE ≠ VALUE), or partial enforcement
 that is silently wrong on every path I didn't touch (a **confident false positive** — the card reads native
 while still hitting the graveyard from an unpatched site).
