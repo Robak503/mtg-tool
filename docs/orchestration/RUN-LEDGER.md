@@ -142,13 +142,59 @@ class the guard exists to prevent. **Corpus carriers of that subject shape: 0 fo
 latent hole, not a live false positive. Recorded rather than fixed; if a future set prints one, it becomes
 real and this entry is the map.
 
-### ⭐ NEXT PRE-MEASURED BUILD: the `modified` qualifier (7 carriers) — same graduation criterion
-`modified` (**7 carriers**, all body-only: Temperamental Oozewagg, Towashi, Artillery Enthusiast, Envoy of the
-Ancestors …) and `enchanted` (**3**: Syr Armont, A Tale for the Ages, Greater Auramancy) are parked quality
-words — and **`modified` has a genuine backing field already**: CR 701.48 defines it as a creature with
-counters on it, an Aura you control, or Equipment attached, and the engine tracks all three (`perm.counters`,
-`perm.attachments`). That is the identical "carrier-backed field" test `nontoken` just met, at 3.5× the
-carriers. Verify carriers and the runtime read before crediting, exactly as here.
+### ✅ SHIPPED — the `modified` qualifier (CR 700.9). **GAINED 1, LOST 0.** Predicted 5–6; audited the gap.
+`modified` was a parked quality word with three genuine backing fields, so it met the same graduation test
+`nontoken` had just passed. Built: a `modified` selector emitted by the parser (both spellings, above the
+determiner arms) and `layers.isModifiedPermanent` implementing all three CR 700.9 clauses in ONE place.
+
+**⛔ THE CONTROLLER SCOPE ON THE AURA CLAUSE IS THE FP TRAP, and it is now the load-bearing test.** An Aura
+counts only when the permanent's OWN controller controls it — an opponent's Pacifism must NOT make your
+creature modified. Equipment has no such clause (CR 301.5b). Verified live across all six cases; a
+counters map holding only **zero** is correctly NOT modified (the value is read, not the key — a permanent
+that once held a counter keeps the key forever).
+
+**⭐ PREDICT-THEN-AUDIT PAID OFF. I predicted 5–6 flips and got 1.** The anthem LINE went `native-static` on
+**all 7** carriers — the build works, printed reminder and all — but six are blocked by an INDEPENDENT second
+line, so only **Envoy of the Ancestors** (outlast + the anthem, both native) flipped. Every miss named, and
+this is the cheapest-remaining map for these cards:
+```
+Temperamental Oozewagg   Adapt 2 activated ability
+Artillery Enthusiast     "you may discard a card … seek a card" ETB
+Invigorating Hot Spring  remove-a-counter activated ability
+Kodama of the West Tree  "Whenever a modified creature you control deals combat damage → search for a basic land"
+Red XIII, Proud Warrior  Cosmo Memory ETB (return an Aura/Equipment from your graveyard)
+Towashi                  a QUOTED-trigger grant + "whenever chaos ensues" (a Plane card)
+```
+**That is the real value beyond the one card: six carriers are now exactly ONE blocker each from native.**
+
+**Gates.** 9 new tests; **both mutations seen to fail** — the Aura controller comparison dropped (caught by
+the FP-trap test alone) and counter key-presence instead of value (caught by the zero-counter test). Diff
+additive only. **Tier flip-diff over 34,210 cards: GAINED 1 / LOST 0**, matching the audited expectation.
+Suite **983 files / 12,505 green**, lint 0. **+1 corpus, +0 shelf** — stated plainly.
+
+**Still open, same family:** `enchanted` (**3** carriers: Syr Armont, A Tale for the Ages, Greater Auramancy)
+is the remaining parked quality word with a plausible backing read (an Aura attached, CR 303.4 — a strict
+subset of what `isModifiedPermanent` already walks).
+
+**⛔ CITATION CORRECTED — I FABRICATED A RULE NUMBER.** The commit that shipped the nontoken anthem, and this
+entry as first written, cited *"CR 701.48"* for `modified`. **CR 701.48 is "Learn".** The real rule is:
+
+> **CR 700.9** — "Some cards refer to modified permanents. A permanent is modified if it has one or more
+> counters on it (see rule 122), if it is equipped (see rule 301.5), or if it is enchanted by an Aura that is
+> **controlled by that permanent's controller** (see rule 303.4)."
+
+Verified against `knowledge/mtg-judge/data/cr/cr_current.json`. Two lessons, both cheap and both mine:
+- **Never write a rule number from memory** (CLAUDE.md §1.2 / §8.5). It cost nothing to check and the check
+  is one script; the number was wrong on the first try.
+- **⚠️ AND THE FIRST CHECK "CONFIRMED" IT BY RETURNING NOTHING.** The CR file is a FLAT map keyed by rule
+  number (`{"100.1": {...}}`); my first reader looked for a nested collection, found none, and printed an
+  empty result — which reads exactly like "no such rule" instead of "broken reader". Only the RULE 1b positive
+  controls (111.1 / 400.1 / 603.4 — rules I had already cited and verified) exposed it. **A CR lookup must
+  assert a known-good rule before any negative is believed.**
+
+The Aura clause matters for the build: an Aura enchanting the permanent counts only when **that permanent's
+controller** controls the Aura, so an opponent's Aura does NOT make it modified. Verify carriers and the
+runtime read before crediting, exactly as with `nontoken`.
 
 ---
 

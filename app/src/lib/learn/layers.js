@@ -815,6 +815,36 @@ const _withKeywordInProgress = new Set(); // WD-1 — the withKeyword selector's
 // too). Mirrors _ptPredicateInProgress exactly; terminates at depth 2 by construction.
 const _selectorColorInProgress = new Set();
 
+/**
+ * MODIFIED (CR 700.9) — "A permanent is modified if it has one or more counters on it (see rule 122), if it
+ * is equipped (see rule 301.5), or if it is enchanted by an Aura that is controlled by that permanent's
+ * controller (see rule 303.4)."
+ *
+ * All three clauses are read LIVE off non-layered state (a counters map and the `attachedTo` back-pointers
+ * every attachment carries — the SAME representation gateMet's `isEquipped` walks), so this is
+ * recursion-free: no deriveCharacteristics, no permanentColors, no guard needed. Re-evaluated per collection,
+ * so a creature becomes modified the instant a counter lands or an Equipment attaches, and stops being
+ * modified when the last one leaves (CR 611.2c continuous).
+ *
+ * ⛔ THE AURA CLAUSE IS CONTROLLER-SCOPED AND THAT IS NOT A DETAIL. CR 700.9 counts an Aura only when the
+ * PERMANENT'S OWN CONTROLLER controls it — an opponent's Pacifism does NOT make your creature modified. A
+ * naive "any Aura attached" read would hand the anthem to creatures the printed card excludes, the forbidden
+ * direction. Equipment carries no such clause (CR 301.5b — equipped is equipped, whoever owns the Equipment).
+ */
+function isModifiedPermanent(state, perm) {
+  if (!perm) return false;
+  for (const n of Object.values(perm.counters || {})) if ((n || 0) > 0) return true;
+  for (const pid of Object.keys(state?.players || {})) {
+    for (const p of state.players[pid]?.battlefield || []) {
+      if (p.attachedTo !== perm.id) continue;
+      const t = String(p.card?.type || p.card?.type_line || "");
+      if (/\bequipment\b/i.test(t)) return true;                              // equipped — any controller
+      if (/\baura\b/i.test(t) && p.controller === perm.controller) return true; // Aura ITS controller controls
+    }
+  }
+  return false;
+}
+
 function matchesSelector(selector, candidate, sourcePerm, state) {
   if (!selector) return false;
   const srcController = sourcePerm?.controller;
@@ -907,6 +937,9 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
   // live. This is the half the corpus needed: the token direction shipped with Teysa Karlov and the negated
   // direction had no gate at all, so every "nontoken creatures you control …" anthem parked.
   if (selector.nontoken && candidate.card?.token) return false;
+  // MODIFIED gate (CR 700.9 — Kodama of the West Tree, Artillery Enthusiast, Invigorating Hot Spring …).
+  // Delegates to isModifiedPermanent above so the three-clause definition lives in exactly one place.
+  if (selector.modified && !isModifiedPermanent(state, candidate)) return false;
   // TAP-STATE gates (BLITZ SF-1 — Builder's Blessing / Castle "Untapped creatures you control get +0/+2";
   // Saryth "Other untapped creatures you control have hexproof" / "Other tapped creatures you control have
   // deathtouch"; Adept Watershaper "Other tapped creatures you control have indestructible"). Reads the LIVE

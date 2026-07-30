@@ -3239,6 +3239,30 @@ function parseCreatureSelector(c) {
     };
   }
 
+  // ===== MODIFIED anthem (CR 700.9) ==============================================================
+  // "[Other] modified creatures you control have <keywords>" — Kodama of the West Tree, Artillery Enthusiast,
+  // Envoy of the Ancestors, Invigorating Hot Spring, Temperamental Oozewagg, Red XIII ("Other …"), Towashi.
+  // Every carrier prints the reminder "(Equipment, Auras you control, and counters are modifications.)", which
+  // is exactly CR 700.9's three clauses and has no rules meaning of its own (CR 207.2).
+  //
+  // ⭐ SAME GRADUATION TEST `nontoken` JUST PASSED: a quality word earns a selector once it has a live,
+  // carrier-backed field. `modified` has three, all already tracked — the counters map, and the `attachedTo`
+  // back-pointers that gateMet's `isEquipped` walk already reads for Equipment and Auras.
+  //
+  // ⛔ THE CONTROLLER SCOPE ON THE AURA CLAUSE IS LOAD-BEARING: CR 700.9 counts an Aura only when the
+  // permanent's OWN controller controls it, so an opponent's Aura must NOT make your creature modified.
+  // Enforced in layers.isModifiedPermanent, which owns the whole definition in one place.
+  //
+  // Placed with its nontoken sibling ABOVE the determiner arms for the same reason: that arm matches
+  // "OTHER modified creatures you control …" with word="modified", hits the exclusion set, and returns null.
+  const modAnthem = c.match(/^(other\s+)?modified\s+creatures?\s+you control\s+(?:gets?|gains?|has|have)\b/);
+  if (modAnthem) {
+    return {
+      mode: "dynamic",
+      selector: { controllerScope: "you", cardTypes: ["Creature"], modified: true, ...(modAnthem[1] ? { excludeSelf: true } : {}) },
+    };
+  }
+
   // Determiner anthem with a LIST subject: "(all|other|each) <A> and <B> [creatures] [you control] get…"
   // (Warg Rider — "Other Orcs and Goblins you control have menace"). Sits before its one-word sibling for
   // legibility only; the two cannot collide, because the sibling's `[a-z]+` is followed by "and" rather than

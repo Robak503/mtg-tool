@@ -15,6 +15,10 @@ summarizes the notable changes.
 - **Anthems that skip your tokens work correctly.** Always Watching and Thraben Watcher buff your real
   creatures and leave your token creatures alone, exactly as printed — the game previously couldn't read
   "nontoken" at all and set both cards aside.
+- **"Modified creatures you control…" is understood.** The game now knows a creature is modified when it has
+  a counter on it, is equipped, or is enchanted by one of *your* Auras — an opponent's Aura doesn't count, as
+  the rules require. Envoy of the Ancestors plays fully, and six other cards carrying the same line (Kodama of
+  the West Tree, Artillery Enthusiast, Invigorating Hot Spring and others) now only need one remaining piece.
 
 ## [0.149.14] — 2026-07-29
 
