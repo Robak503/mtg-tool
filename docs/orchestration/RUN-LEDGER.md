@@ -131,7 +131,50 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 ## 🔍 DIAGNOSED, NOT STARTED — **THE LAST TWO `cdh` CARDS, both now reduced to ONE mechanism each**
+## 🎯 ## ⛔ STARTED, THEN REVERTED 2026-07-30 — **RAGAVAN: the parse was the easy 80%, and the last 20% is CAST-PATH plumbing**
+
+Built four of the six pieces, hit the real blocker, and **reverted rather than ship a hollow native.**
+Recorded in full so the next attempt starts from the wall, not from the parser.
+
+### WHAT WAS BUILT AND WORKED
+| piece | done |
+|---|---|
+| the `create a Treasure token AND <impulse form>` compound → an ATOM PAIR | ✅ |
+| library owner `that player's` → `libraryOwner:"damagedPlayer"` | ✅ |
+| verb `cast` alongside `play` | ✅ |
+| referent gate pinning the owner to combat-damage events | ✅ |
+| resolver splitting OWNER (whose deck is exiled) from CONTROLLER (who may cast) | ✅ |
+
+### ⛔ THE WALL: THE CARD SITS IN THE OPPONENT'S EXILE AND NOTHING CAN CAST IT
+`actionsPlayImpulseFromExile` scans **`state.players[playerId].exile`** — the acting player's OWN zone — and
+`actionDispatcher`'s splice is likewise hardcoded to `action.playerId`'s zone. A card exiled off an
+opponent's library correctly lands in **their** exile, where the controller's action layer cannot see it.
+Making Ragavan real therefore needs an OWNER threaded through the cast path and the zone splice —
+correctness-critical plumbing that deserves its own slice.
+
+### ⭐ THE THREE ENDINGS, AND WHY ONLY ONE IS HONEST
+- **Put the card in the CONTROLLER's exile.** Casting would work today. But the container IS the ownership
+  model here, so the card would resolve into the wrong player's graveyard afterwards — the wrong-owner class
+  of bug this run has caught four times.
+- **Exile correctly, never offer the cast.** Declining an optional *"you may"* is a legal line, so nothing
+  would be rules-illegal — and that is exactly what makes it dangerous. `classifyCard` would say **native**
+  while the entire reason the card is played never fires. Same hollow shape the look-at-hand slice was built
+  to avoid, and Ragavan's impulse cast is not a rider, it is the card.
+- ✅ **Revert, and write down where the wall is.** Taken.
+
+⭐ *A parse that lands four of six pieces is not "nearly done" — the remaining pieces are the ones that
+decide whether the flip is real. The flip-diff would have shown GAINED 1 either way.*
+
+### FOR THE NEXT ATTEMPT
+The build order is: **cast-path owner threading FIRST** (`actionsPlayImpulseFromExile` scanning other seats'
+exiles for a `_impulseCaster` stamp + the dispatcher splicing from the stamped owner's zone), and only then
+the parse work above, which is straightforward and now specified line by line. Corpus reach stays **1** —
+Grenzo, Havoc Raiser prints the same exile line inside a modal `choose one —` with a spend-mana-as-though
+rider and is a separate build.
+
+---
+
+## 🔍 DIAGNOSED, NOT STARTED — **THE LAST TWO `cdh` CARDS, both now reduced to ONE mechanism each**
 
 `cdh` is at **88%** and needs **2**. Every remaining candidate was diagnosed by DROPPING each printed line
 and re-classifying — which is how you learn what already works, and both answers were a pleasant surprise.
