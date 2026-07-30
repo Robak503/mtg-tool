@@ -131,7 +131,49 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 ## 🎯 TARGET MOVED TO **JOE'S SHELF** (Colton, 2026-07-30) — reconnaissance done, two leads sized
+## 🎯 ## 🔍 DIAGNOSED, NOT STARTED — **MIRACLE IS ALREADY DECLARED VACUOUS AND IS STILL PARKING CARDS**
+
+Chased lead ① (Miracle) to the seam. It is **not** a missing keyword — it is a path that does not run.
+
+### THE PRECEDENT READS ACROSS (checked, per the banked instruction)
+`CAST_KEYWORD_LINE` in `effects/textNormalize.js` **already lists `miracle\s*\{`**, alongside
+foretell / blitz / freerunning / flashback / buyback / entwine / conspire / mayhem. The rationale on that
+const is exactly right for miracle, and **CR 702.94a confirms the shape**: *"You may reveal this card from
+your hand as you draw it if it's the first card you've drawn this turn"* — an OPTIONAL alternative cast on
+a card that also has a normal mana cost. The engine hard-casts it and the body resolves identically; the
+only unmodelled part is an option the player is never offered (a SAFE FN, the madness/ninjutsu rationale).
+
+### ⚠️ BUT THE STRIP IS NEVER REACHED ON THE CLASSIFY PATH
+Measured on Temporal Mastery (printed: *"Take an extra turn after this one. Exile Temporal Mastery."* +
+the Miracle line):
+
+| input | tier |
+|---|---|
+| the full printed oracle | `arbiter-spell` |
+| **the output of `stripCastKeywordLines(oracle)`** | **`native-spell`** |
+| the miracle line deleted by hand | `native-spell` |
+| miracle line with its reminder text removed | `arbiter-spell` |
+
+So the strip PRODUCES a natively-classifying string and the classifier still parks the card — i.e.
+**`classifyCard`'s residue path does not apply `stripCastKeywordLines`.** The fix is to run the existing
+strip where residue is computed, not to add a keyword.
+
+⭐ *A keyword can be "handled" in one module and still park every card, because handled-here and
+reached-from-there are different claims. The strip list was not wrong; nothing called it.*
+
+### SIZE — small, and honestly measured
+Only **2** non-native miracle carriers are blocked SOLELY by the miracle line: **Temporal Mastery**
+(a Yuriko-deck shelf card) and **Zephyrim**. The other 17 have their own blockers. So this is a 2-card fix
+— worth doing for the consistency more than the count, and worth checking whether the same
+never-reached-strip explains other keyword families before assuming it is miracle-specific.
+
+⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
+after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
+self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## 🎯 TARGET MOVED TO **JOE'S SHELF** (Colton, 2026-07-30) — reconnaissance done, two leads sized
 
 > *"yup moving to joes shelf the same way — kinnan and yuriko are both cdh decks so be prepped for slow
 > hard work there"*
