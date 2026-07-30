@@ -167,7 +167,31 @@ made the shelf number a lie.
 ⭐ *The flip-diff and the shelf metric BOTH said done. Neither can see whether the effect happens. That is
 the entire lesson of this session, and it applied hardest to the card I most wanted to finish.*
 
-### ⭐ THE LEAD FOR THE NEXT ATTEMPT — copy the harness that already works
+### ✅ CAUSE FOUND (2026-07-30, after the revert) — IT WAS NOT THE HARNESS
+
+Tested both harness shapes against an EXISTING optional-payment clause, no rebuild needed:
+
+| harness | pendingChoice surfaced? |
+|---|---|
+| the working file's shape (duel state, land with `{T}: Add {G}.`, return used directly) | ✅ yes |
+| MY shape (commander state, bare basic land, `out?.state ?? out`) | ✅ **also yes** |
+
+So the board shape and the unwrapping were both fine — which means the SPRINGHEART PROGRAM was empty when
+it ran. The suspect is concrete: I built it with **`const PROGRAM = parseEffectClause(...)` at MODULE SCOPE**,
+which executes at import time — potentially *before* `parser.js`'s `registerClauseParser` calls at the
+bottom of that module have run. The codebase already warns about this initialisation-order hazard
+("an atoms module must not import parser.js, TDZ hazard").
+
+⭐ **Next attempt: build the program INSIDE the test body, never at module scope.** That turns the blocker
+into a one-line change. Re-apply the build exactly as specified two entries above, then assert LIFE-LEVEL
+runtime facts (one token, the right token, on all four paths) before believing any flip.
+
+⚠️ *I spent the tail of a session concluding "the runtime is unproven" when the actual fault was a test
+file's module-scope initialisation. The revert was still correct — an unproven runtime must not ship — but
+the DIAGNOSIS was wrong, and a wrong diagnosis banked as fact is how the next attempt starts in the wrong
+place. It is corrected here rather than left standing.*
+
+### ⭐ THE ORIGINAL (SUPERSEDED) LEAD — copy the harness that already works
 `src/lib/learn/optionalManaPayment.test.js` drives this exact atom successfully. Two divergences in my
 version, either of which could be the whole problem:
 1. it uses **`runEffectProgram(...)`'s return value DIRECTLY as the state** (`paused.pendingChoice`), where
