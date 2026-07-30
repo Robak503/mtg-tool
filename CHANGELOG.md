@@ -12,6 +12,9 @@ summarizes the notable changes.
 - **Pyrohemia and Pestilence now play themselves.** Both sacrifice themselves at end of turn once the board
   is empty of creatures, and the game now checks that properly — across *everyone's* creatures, not just
   yours, so neither one leaves early while an opponent still has something out.
+- **Anthems that skip your tokens work correctly.** Always Watching and Thraben Watcher buff your real
+  creatures and leave your token creatures alone, exactly as printed — the game previously couldn't read
+  "nontoken" at all and set both cards aside.
 
 ## [0.149.14] — 2026-07-29
 

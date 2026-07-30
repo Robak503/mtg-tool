@@ -900,6 +900,13 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
   // nontoken creature is skipped, so the anthem confers vigilance/lifelink to exactly the controller's
   // creature tokens. Re-read each collection, so a token entering/leaving updates the grant live.
   if (selector.token && !candidate.card?.token) return false;
+  // NONTOKEN gate (Always Watching — "Nontoken creatures you control get +1/+1 and have vigilance";
+  // Thraben Watcher — the "Other …" spelling). The EXACT inverse of the token gate directly above, reading
+  // the same `card.token` stamp (CR 111.1), so the two can never disagree about what a token is. Re-read per
+  // collection like its twin, so a token entering or a nontoken creature becoming a copy updates the grant
+  // live. This is the half the corpus needed: the token direction shipped with Teysa Karlov and the negated
+  // direction had no gate at all, so every "nontoken creatures you control …" anthem parked.
+  if (selector.nontoken && candidate.card?.token) return false;
   // TAP-STATE gates (BLITZ SF-1 — Builder's Blessing / Castle "Untapped creatures you control get +0/+2";
   // Saryth "Other untapped creatures you control have hexproof" / "Other tapped creatures you control have
   // deathtouch"; Adept Watershaper "Other tapped creatures you control have indestructible"). Reads the LIVE

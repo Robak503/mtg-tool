@@ -95,6 +95,63 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## ✅ SHIPPED 2026-07-29 — NONTOKEN group anthem (CR 111.1). **GAINED 2, LOST 0.** Two pins GRADUATED.
+
+Always Watching + Thraben Watcher: *"[Other] nontoken creatures you control get +1/+1 and have vigilance."*
+
+**⭐ THE MISSING HALF OF A PAIR.** The TOKEN direction shipped with Teysa Karlov (`token: true` selector,
+enforced in `layers.matchesSelector`); `nontoken` existed ONLY as an exclusion in
+`NON_SUBTYPE_ANTHEM_WORDS` — rightly barred from the tribal-lord path (a "Nontoken"-SUBTYPE grant selects
+zero creatures, a CREED FP) but never given a path of its own. Its mirror image was native; it parked.
+
+**⛔ THE RUNTIME GATE IS PART OF THE SLICE, NOT A FOLLOW-UP.** Parsing alone would pump the tokens the card
+explicitly excludes — the forbidden direction. So `matchesSelector` gained a `nontoken` gate: the exact
+inverse of its token twin, reading the SAME `card.token` stamp so the two can never disagree. Verified
+through the real layer pipeline: nontoken Bear → **3/3 + vigilance**, token Soldier → **1/1, no vigilance**.
+
+**⚠️ POSITION WAS LOAD-BEARING, AND ONLY A PROBE FOUND IT.** Placed beside its token twin, only the BARE
+spelling worked. The determiner arm (`^(all|other|each)\s+([a-z]+)\s+(?:creatures?\s+)?…`) matches
+"**Other** nontoken creatures you control …" with `word="nontoken"`, hits the exclusion set, and **returns
+null** — pre-empting everything below it. Thraben Watcher stayed body-only with a green targeted test on the
+other spelling. The arm now sits ABOVE the determiner arms; its regex demands the literal word before
+"creatures you control", so it cannot shadow anything either way. **Both spellings are asserted as a PAIR**
+so a future re-order can't silently re-break one.
+
+**⭐⭐ TWO EXISTING PINS GRADUATED — AND EACH ONE NAMED ITS OWN CRITERION.**
+`staticAbilities.test.js` carried *"`nontoken` has no carrier-backed field **yet**, so it stays parked"* in two
+places, listing how `tapped` / `colorless` had graduated before it. `card.token` (CR 111.1) is exactly that
+field. **The second pin names Thraben Watcher by name** — it was a placeholder awaiting this work.
+**⛔ Both were RE-POINTED, never deleted:** the graduated assertions now check the real selector shape
+(including `excludeSelf` for the "other" form, CR 113.7), and the CREED guard moved to **`monocolored`** — a
+genuine quality word still in the same exclusion list with no backing field — so "an un-added word must grant
+to NOBODY" is still enforced by a live assertion.
+
+**Gates.** 8 new tests + 2 graduated; **both mutations seen to fail** — the runtime gate removed (caught by
+the token test alone) and `excludeSelf` dropped (caught by the CR 113.7 test). Diff additive only (+41, zero
+deletions). **Tier flip-diff over 34,210 cards: exactly the predicted GAINED 2 / LOST 0.**
+
+**⚠️ HONEST ACCOUNTING: +2 corpus, +0 shelf.** Neither card is on Colton's shelf — this was the pre-measured
+"cheapest remaining" item from the strategy entry below, and it is corpus work. Stated plainly rather than
+dressed up as shelf progress.
+
+### 📎 Found in passing — a LATENT hole with ZERO carriers (noted, deliberately not chased)
+`historic` / `world` / `basic` / `nonbasic` / `snow` are NOT in `NON_SUBTYPE_ANTHEM_WORDS`, so
+"Historic creatures you control have flying" falls through to the single-word SUBTYPE arm and emits
+`subtypes:["Historic"]` — a zero-selecting subtype grant that would still flip a card native, precisely the FP
+class the guard exists to prevent. **Corpus carriers of that subject shape: 0 for all five.** So it is a
+latent hole, not a live false positive. Recorded rather than fixed; if a future set prints one, it becomes
+real and this entry is the map.
+
+### ⭐ NEXT PRE-MEASURED BUILD: the `modified` qualifier (7 carriers) — same graduation criterion
+`modified` (**7 carriers**, all body-only: Temperamental Oozewagg, Towashi, Artillery Enthusiast, Envoy of the
+Ancestors …) and `enchanted` (**3**: Syr Armont, A Tale for the Ages, Greater Auramancy) are parked quality
+words — and **`modified` has a genuine backing field already**: CR 701.48 defines it as a creature with
+counters on it, an Aura you control, or Equipment attached, and the engine tracks all three (`perm.counters`,
+`perm.attachments`). That is the identical "carrier-backed field" test `nontoken` just met, at 3.5× the
+carriers. Verify carriers and the runtime read before crediting, exactly as here.
+
+---
+
 ## 🗺 SHELF STRATEGY 2026-07-29 — **THE SHELF HAS NO CHEAP BUILD LEFT.** Every remaining shape, priced.
 
 Two turns of measurement produced one conclusion worth more than either turn's cards: **the ≥90% bar is now

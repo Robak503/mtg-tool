@@ -3205,6 +3205,40 @@ function parseCreatureSelector(c) {
     return { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], withKeyword: withKwM[2], excludeSelf: withKwM[1] === "other" } };
   }
 
+  // ===== NONTOKEN anthem (Always Watching, Thraben Watcher) — CR 111.1 ==========================
+  // "Nontoken creatures you control get +1/+1 and have vigilance" and the "OTHER nontoken …" spelling.
+  //
+  // ⭐ THE MISSING HALF OF A PAIR. The TOKEN direction has shipped since Teysa Karlov ("Creature tokens you
+  // control have vigilance and lifelink" → a `token: true` selector, enforced in layers.matchesSelector),
+  // while `nontoken` existed ONLY as an EXCLUSION in NON_SUBTYPE_ANTHEM_WORDS — correctly blocked from the
+  // tribal-lord path (a "Nontoken"-SUBTYPE grant selects zero creatures, a CREED FP) but never given a path
+  // of its own. So both spellings parked while their mirror image was native.
+  //
+  // ⛔ THE EXCLUSION IS RIGHT AND STAYS. This does not relax NON_SUBTYPE_ANTHEM_WORDS; it matches the word
+  // EXPLICITLY and emits a real `nontoken` selector predicate. The word is honoured as a FILTER, never
+  // smuggled through as a fake subtype.
+  //
+  // ⛔ AND IT MUST FILTER AT RUNTIME, NOT MERELY PARSE. Crediting the card without the gate would pump the
+  // tokens it explicitly excludes — the forbidden direction — so `matchesSelector`'s `nontoken` gate
+  // (layers.js, the exact inverse of its token twin, same `card.token` stamp) ships in the same slice.
+  //
+  // ⛔ POSITION IS LOAD-BEARING, AND THIS IS WHY IT SITS *HERE* RATHER THAN BESIDE THE TOKEN ANTHEM BELOW:
+  // the determiner arm just below ("(all|other|each) <word> [creatures] you control …") matches
+  // "OTHER nontoken creatures you control …" with word="nontoken", hits the exclusion set, and RETURNS NULL —
+  // pre-empting anything later. Placed beside its token twin, only the bare spelling worked and Thraben
+  // Watcher stayed body-only. Verified by probe, not assumed. The regex demands the literal word "nontoken"
+  // immediately before "creatures you control", so it cannot shadow any arm above or below it.
+  //
+  // Only "you control" is modeled — a symmetric "nontoken creatures have …" (none in the corpus) falls
+  // through to null, a SAFE false-negative.
+  const ntAnthem = c.match(/^(other\s+)?nontoken\s+creatures?\s+you control\s+(?:gets?|gains?|has|have)\b/);
+  if (ntAnthem) {
+    return {
+      mode: "dynamic",
+      selector: { controllerScope: "you", cardTypes: ["Creature"], nontoken: true, ...(ntAnthem[1] ? { excludeSelf: true } : {}) },
+    };
+  }
+
   // Determiner anthem with a LIST subject: "(all|other|each) <A> and <B> [creatures] [you control] get…"
   // (Warg Rider — "Other Orcs and Goblins you control have menace"). Sits before its one-word sibling for
   // legibility only; the two cannot collide, because the sibling's `[a-z]+` is followed by "and" rather than

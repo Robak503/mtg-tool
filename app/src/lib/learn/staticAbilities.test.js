@@ -226,14 +226,23 @@ describe("parseStaticAbilities — NO-DETERMINER tribal anthem ('<Subtype> creat
   // SF-1 graduated tapped/colorless (and legendary/multicolored/non<color>/untapped) from parked to REAL
   // selectors — tapped via the live candidate.tapped flag, colorless via layer-aware permanentColors. `nontoken`
   // has no carrier-backed field yet, so it stays parked (no grant): the CREED guard still holds for un-added words.
-  it("SF-1: tapped/colorless emit their exact selector; nontoken stays parked", () => {
+  it("SF-1: tapped/colorless emit their exact selector; monocolored stays parked (nontoken GRADUATED)", () => {
     const tap = parseStaticAbilities(card("A", "Tapped creatures you control have vigilance.", "Enchantment"));
     expect(tap).toHaveLength(1);
     expect(tap[0].affects.selector).toMatchObject({ cardTypes: ["Creature"], tapped: true });
     const col = parseStaticAbilities(card("C", "Colorless creatures you control get +1/+1.", "Enchantment"));
     expect(col).toHaveLength(1);
     expect(col[0].affects.selector).toMatchObject({ cardTypes: ["Creature"], colorless: true });
-    expect(parseStaticAbilities(card("B", "Nontoken creatures you control have riot.", "Enchantment"))).toHaveLength(0);
+    // ⭐ `nontoken` GRADUATED 2026-07-29 on the criterion this pin itself named ("no carrier-backed field
+    // YET"): it now rides card.token (CR 111.1) — the SAME stamp Teysa Karlov's `token` selector reads —
+    // enforced by matchesSelector's nontoken gate. Always Watching + Thraben Watcher went native.
+    const nt = parseStaticAbilities(card("B", "Nontoken creatures you control get +1/+1.", "Enchantment"));
+    expect(nt).toHaveLength(1);
+    expect(nt[0].affects.selector).toMatchObject({ cardTypes: ["Creature"], nontoken: true });
+    // ⛔ THE CREED GUARD IS RE-POINTED, NEVER DELETED. `monocolored` is still excluded with no backing
+    // field, so an un-added quality word must still grant to NOBODY rather than fabricate an empty-set
+    // subtype anthem. Losing this assertion is how the next quality word slips through unenforced.
+    expect(parseStaticAbilities(card("D", "Monocolored creatures you control have flying.", "Enchantment"))).toHaveLength(0);
   });
   // CARD-TYPE words read on the LEFT of the em-dash → a card-TYPE filter, NOT a subtype. The modeled card
   // types (Artifact/Enchantment/Land) now emit a cardTypes:["Creature", X] selector (AND-semantics in
@@ -271,8 +280,17 @@ describe("determiner anthem hardening — colors enforce, non-subtype words don'
     const col = parseStaticAbilities(card("Tide Drifter", "Other colorless creatures you control get +0/+1.", "Creature"));
     expect(col).toHaveLength(1);
     expect(col[0].affects.selector).toMatchObject({ cardTypes: ["Creature"], colorless: true, excludeSelf: true });
-    // `nontoken` has no selector field yet → still no grant (CREED: never fabricate an unmodeled quality anthem).
-    expect(parseStaticAbilities(card("Thraben Watcher", "Other nontoken creatures you control get +1/+1.", "Creature"))).toHaveLength(0);
+    // ⭐ nontoken GRADUATED 2026-07-29 — and this pin named the very card that proved it. "Other nontoken
+    // creatures you control …" now emits the real selector WITH excludeSelf (CR 113.7), so Thraben Watcher
+    // buffs its neighbours and not itself, and no token on either side is touched.
+    // ⚠️ The "other" spelling needed the arm placed ABOVE the determiner arm: that arm matches
+    // "other <word> creatures you control" with word="nontoken", hits the exclusion set and returns null,
+    // which silently kept THIS card parked while the bare spelling worked. Ordering is load-bearing.
+    const nt = parseStaticAbilities(card("Thraben Watcher", "Other nontoken creatures you control get +1/+1.", "Creature"));
+    expect(nt).toHaveLength(1);
+    expect(nt[0].affects.selector).toMatchObject({ cardTypes: ["Creature"], nontoken: true, excludeSelf: true });
+    // ⛔ CREED guard RE-POINTED, not dropped — an un-added quality word still grants to nobody.
+    expect(parseStaticAbilities(card("X", "Other monocolored creatures you control get +1/+1.", "Creature"))).toHaveLength(0);
   });
   it("irregular plural subtypes normalize to the real type ('Other Elves' → Elf, 'Allies' → Ally)", () => {
     const elf = parseStaticAbilities(card("Elf Lord", "Other Elves you control get +1/+1.", "Creature — Elf"));
