@@ -166,30 +166,43 @@ Predicted 7, measured 7. Flip-diff **GAINED 7 / LOST 0**. Suite **1004 files / 1
 
 ## 🐛 FIXED 2026-07-30 (post-tag) — **THE LIFEGAIN TRIGGER READ THE OFFERED AMOUNT. My bug, two commits old.**
 
-**⭐ THE CODEBASE ALREADY CARRIED THE ANSWER AND I DIDN'T READ IT.**  has done this
+**⭐ THE CODEBASE ALREADY CARRIED THE ANSWER AND I DIDN'T READ IT.** `atoms/counters.js:156` has done this
 correctly for as long as counter-doubling has existed, with the rule written in its own comment: *"Mirror the
 ACTUAL placed amount for the watcher."* I wrote a new arm of the SAME family and skipped the step. The token
 arm is right too (it iterates the actually-minted ids). **Life gain was the only arm that got it wrong — so
 there is no wider bug**, which I verified rather than assumed.
 
-**What broke:** the replacement made  apply a different number than the caller asked for, and **nine
-call sites** hand  the amount the EFFECT OFFERED. Identical numbers until this morning.
+**What broke:** the replacement made `gainLife` apply a different number than the caller asked for, and **nine
+call sites** hand `checkLifegainTriggers` the amount the EFFECT OFFERED. Identical numbers until this morning.
 Under a Rhox Faithmender a *"whenever you gain life"* trigger saw **4** where the player gained **8**, so any
 *"for each 1 life you gained"* rider counted half. Direction was UNDER-report — FN-safe, nothing fabricated —
 but wrong.
 
-**Fixed centrally in , not at the nine sites**, so a call site that never learns about
+**Fixed centrally in `checkLifegainTriggers`, not at the nine sites**, so a call site that never learns about
 replacements stays correct and the fix cannot drift as sites are added. Reading the replacement off the
-POST-gain state is exact, not approximate:  moves no permanents, so the sources are identical either
+POST-gain state is exact, not approximate: `gainLife` moves no permanents, so the sources are identical either
 side of the gain it just applied.
 
 **⭐ HOW IT WAS FOUND, and the transferable part:** I went to confirm a claim **I had already written into a
-code comment and a commit message** — that lifelink routes through . It does ().
+code comment and a commit message** — that lifelink routes through `gainLife`. It does (`combatResolution:584`).
 **The line immediately next to the one I was verifying was the bug.** Verifying a claim you already made, and
 expect to be right about, is worth doing — the cost is one grep and it caught a shipped defect.
 
 ⚠️ **It shipped in v0.149.20**, which was already tagged and building when I found it. Rides to the next
 release; a tag is not re-cut mid-build.
+
+### ⚠️ AND THE ENTRY ABOVE HAD TO BE WRITTEN TWICE — shell-quoting ate it, for the SIXTH time this run
+The first attempt went through `python -c "..."` from bash. **Every backticked identifier in it was read by
+bash as command substitution and replaced with the empty string** before Python ever saw the source — the
+entry committed with `gainLife`, `checkLifegainTriggers` and the file:line citation simply *missing*, which
+reads as a sentence with a hole in it rather than as an error. Bash even printed
+`atoms/counters.js:156: No such file or directory` and I had already moved on.
+
+**The banked rule is one line and I keep breaking it: write patch scripts with the Write tool, never through
+shell quoting.** Five incidents earlier this run (heredocs eating backslashes, a `\n` becoming a real
+newline); this is six. The failure mode is always the same shape — **the shell silently edits the payload and
+the result still looks plausible.** Treat any `python -c` / `node -e` containing backticks, `$`, or
+backslashes as already broken.
 
 ---
 
