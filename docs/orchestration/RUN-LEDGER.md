@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 59 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 62 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -131,7 +131,45 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 ## ✅ BANKED 2026-07-30 — **ESCAPE CREDITED BY WHOLE-LINE REMOVAL. GAINED 3.**
+## 🎯 ## ✅ BANKED 2026-07-30 — **ESCAPE ON THE AURA PATH. GAINED 3. The escape family is now complete (6/6).**
+
+Sentinel's Eyes · Escape Velocity · Mogis's Favor.
+
+### ⭐ ONE CLAUSE HERE, A WHOLE LINE THERE — the same keyword needed TWO shapes
+| path | tokenizer | what the fix had to be |
+|---|---|---|
+| `coverage.isKeywordOnly` (creatures) | splits clauses on **commas** | remove the whole LINE **before** `stripReminder` |
+| `staticAbilityParser.auraResidueClauses` (auras) | `abilityClauses` keeps `Escape—{W}, Exile two other cards…` **INTACT** | a single clause pattern in the existing allowlist |
+
+⭐ *This is exactly why the creature fix did not carry the auras, and why the previous entry recorded
+"predicted 6, paid 3" instead of assuming the rest would follow. Two residue paths for the same card text,
+tokenizing differently — a keyword is not "handled" until every path that can park a card has been checked
+against it. That is the parity lesson one level down from the sweep.*
+
+The CR rationale is unchanged (**702.138a** — a graveyard re-cast the runtime never offers, so the from-hand
+cast puts the identical Aura on the battlefield), and the mana-cost check was repeated for the aura
+carriers: Sentinel's Eyes {W} · Escape Velocity {R} · Mogis's Favor {B} — all castable without the keyword.
+The dash guard is carried over: a clause beginning with the CARD NAME *"Escape Velocity …"* has no dash
+after the keyword and cannot match.
+
+**Gates:** the escape file now runs 8 tests across both paths. Suite **1027 files / 13,033 green**, lint 0,
+MUTANT clean. Commit `168f56f3`. **Batch 4: 62 cards.**
+
+### ➡️ WHERE THE KEYWORD-PARITY THREAD STANDS
+Started as *"miracle is 2 cards"*; it has paid **16** across five slices (self-exile ordering 3 · spectacle
+4 · parity credits 3 · escape creatures 3 · escape auras 3). Remaining from the sweep:
+- ⛔ **suspend** (3) — REFUSED, and permanently unless the engine learns to PLAY a suspend-only card:
+  Lotus Bloom / Sol Talisman / Mox Tantalite print no mana cost.
+- ⛔ **awaken** — no real carrier; the one hit was my own regex matching the name "Awakened Amalgam".
+- The remaining one-sided keywords (splice onto arcane · harmonize · overload · entwine · conspire ·
+  jump-start · retrace · recover · buyback) have **no permanent carriers that the credit alone would flip** —
+  the sweep said so up front, which is the other half of its value.
+
+**The parity vein is spent.** Next work should go back to the Joe shelf-gap list card by card.
+
+---
+
+## ✅ BANKED 2026-07-30 — **ESCAPE CREDITED BY WHOLE-LINE REMOVAL. GAINED 3.**
 ## ⭐ AND SUSPEND REFUSED FOR A REASON THAT ONLY A MANA-COST CHECK COULD FIND.
 
 Nethergoyf · Bloodbraid Challenger · Lunar Hatchling.
