@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 58 cards since v0.149.20** (granted Ward—Pay-life +2, **REFERENT FAMILY +56 across FIVE slices**) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 60 cards since v0.149.20** (granted Ward—Pay-life +2, **REFERENT FAMILY +58 across SIX slices**) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,52 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 3) 2026-07-30 — **MASS ADD-COUNTER ANTECEDENT. GAINED 2, LOST 0.** Family **58**.
+
+**Felidar Retreat** · **Domri, City Smasher** (its −8). *"Put a +1/+1 counter on each creature you control.
+**Those creatures** gain vigilance until end of turn."* — the same unfiltered you-control set the mass pump
+already qualified as, reached by a different verb.
+
+**⭐ FOUND BY APPLYING LAST SLICE'S OWN LESSON, DELIBERATELY.** I re-ran the family's remaining-work probe
+**filtered for shapes I believe are already built** — six rows came back. **The named cards were mostly MODAL,
+which looked like a modal-path bug and was not:** each mode runs through `parseEffectClauseImpl`, the FULL
+clause machinery, so the gate was applied correctly the whole time. The six rows were **two further antecedent
+kinds** hiding behind one symptom. *Checking the suspicious list is now a repeatable step, not a lucky catch.*
+
+### ⛔ THE OTHER KIND IS REFUSED, AND THE DISTINCTION IS THE POINT
+*"Create two 1/1 Warrior tokens. **They** gain first strike"* (Mardu Charm) means **the NEW TOKENS ONLY**.
+Rewriting it to a `creaturesYouControl` group grant would buff **every creature on the board** — a **strictly
+WRONG** answer rather than an incomplete one. That is the whole difference between a false positive and a
+false negative, and it is why `create-token` is explicitly NOT in the antecedent allowlist with a comment
+saying so. Binding to freshly-minted ids is a real runtime mechanism (the mint path already threads them for
+token-enter triggers) and **wants its own slice**.
+
+### ⚠️ A MUTATION SHOWED THE ARM WAS TESTED BUT ITS GUARD WAS NOT
+Dropping the allowlist key check **survived the entire file** — because nothing exercised a **FILTERED**
+add-counter. *"Put a +1/+1 counter on each **Bird** you control"* keeps `scope:"youControl"` and adds
+`subtypeFilter`; without the check it would have granted vigilance to **every** creature. **Testing the happy
+path of a guarded arm is not testing the guard.** Pinned; the mutation now fails.
+
+**A merge-gate pin GRADUATED and was MOVED, not deleted** — out of `MUST_DROP_TO_LOW` and into
+`MUST_STAY_HIGH` (the same Felidar Retreat text, previously pinned *"rider unmodeled → whole drops"*). **A
+graduated pin belongs in the opposite list, where it protects the flip instead of the refusal.**
+
+**Gates:** 3 new tests; 2 mutations seen to fail. Suite **1006 files / 12,837 green**, lint 0, MUTANT clean.
+
+### 📊 THE REFERENT FAMILY, SIX SLICES IN — 58 CARDS
+| antecedent kind | how bound | status |
+|---|---|---|
+| a CHOSEN TARGET | read the previous atom's target slice | ✅ built |
+| an UNFILTERED MASS SET (pump / untap / **add-counter**) | rewrite to the equivalent mass atom | ✅ built |
+| the SOURCE PERMANENT (`this creature`) | rewrite to `target:"self"` | ✅ built |
+| **FRESHLY-CREATED TOKENS** | needs runtime minted-id binding | ⛔ **refused — own slice** |
+
+Remaining upper bound ~80, but **no cluster larger than 3** — the family is down to its long tail
+(*"it deals damage equal to its power to…"* ·3, *"it must be blocked this turn if able"* ·3 — the latter
+unmodelled even for an explicit target). **Batch 3: 60 cards.**
 
 ---
 
