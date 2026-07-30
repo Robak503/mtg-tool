@@ -697,6 +697,29 @@ export function applyCantBlock(state, atom, ctx) {
 }
 
 /**
+ * PROTECTION-FROM-A-COLOUR grant (CR 702.16) — a layer-6 addProtection continuous effect on each chosen
+ * creature, lasting until end of turn. Structurally identical to applyCantBlock above, and deliberately so:
+ * both are "grant a layer-6 quality to the targets for the turn", and the only difference is the op.
+ * layers.permanentProtectionColors already unions these with a PRINTED protection, so nothing downstream
+ * needed changing — the read side has been waiting for a writer.
+ */
+export function applyGrantProtection(state, atom, ctx) {
+  const targets = atomTargets(state, atom, ctx);
+  let next = state;
+  const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
+  const dur = { kind: "endOfTurn", turn: next.turn };
+  for (const target of targets) {
+    if (!findPermanent(next, target.id)) continue;   // target gone → clean no-op, never a fabricated grant
+    next = addContinuousEffect(next, {
+      layer: 6, op: { layerOp: "addProtection", colors: atom.colors || [] },
+      affects: { mode: "fixed", permanentIds: [target.id] },
+      duration: dur, source: src,
+    }).state;
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "grant-protection", colors: atom.colors || [], targets: targets.map((t) => t.id) });
+}
+
+/**
  * CANT-BE-BLOCKED — "target creature can't be blocked this turn" (Infiltrate, Artful Dodge, Trailblazer,
  * Slip Through Space). The MIRROR of CANT-BLOCK: a layer-6 endOfTurn grant of the "unblockable" keyword.
  * combatEvasion.canBlockAttacker already refuses EVERY block of a creature with a granted "unblockable"
@@ -1170,6 +1193,27 @@ export function combatKeywordClauseParser(clause) {
   // the same layer-6 endOfTurn unblockable grant as the targeted form. Whole-clause anchored.
   if (/^(?:this creature|it) can't be blocked this turn$/.test(t)) return { op: "cant-be-blocked", target: "self", targetType: null };
   if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
+  // ⭐ PROTECTION-FROM-A-COLOUR grant (CR 702.16) — "Target creature gains protection from black until end
+  // of turn." (Obsidian Acolyte, Crimson Acolyte) and the SELF form "This creature gains protection from red
+  // …" (Keeper of Kookus).
+  //
+  // The layer op already exists: the static anthem path emits `addProtection` and layers.js reads it via
+  // permanentProtectionColors. Nothing PARSED to it for a targeted, turn-scoped grant — the same shape as
+  // the poison slice (a runtime primitive with no clause reaching it). The resolver below mirrors
+  // applyCantBlock exactly: one layer-6 continuous effect per target, endOfTurn duration.
+  //
+  // ONE colour only, anchored. "protection from everything" / "from all colors" / a dynamic quality
+  // ("protection from the color of your choice") is a different mechanic — it stays unparsed rather than
+  // being collapsed to a colour the card never named, which would be a confidently wrong grant.
+  {
+    const pm = t.match(/^(target creature|this creature) gains protection from (white|blue|black|red|green) until end of turn$/);
+    if (pm) {
+      const color = { white: "W", blue: "U", black: "B", red: "R", green: "G" }[pm[2]];
+      return pm[1] === "this creature"
+        ? { op: "grant-protection", target: "self", colors: [color] }
+        : { op: "grant-protection", targetType: "creature", colors: [color] };
+    }
+  }
   // CANT-BLOCK with the printed "an opponent controls" restriction (Clamor Shaman / Plasma Jockey / Smelt-Ward
   // Minotaur) — the same offensive layer-6 cantBlock grant, but the restriction narrows the legal targets to
   // opponents' creatures (matching the print, and aligning with cant-block's existing enemy intent so the
@@ -2076,7 +2120,8 @@ export const combatResolvers = {
   "untap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, false),
   "untap-lands": applyUntapLands, // UNTAP-UP-TO-N-LANDS (Finale of Revelation) — deterministic greedy untap of up to N of the controller's own tapped lands, condX-gated
   "untap-remove-from-combat": applyUntapRemoveFromCombat, // GUSTCLOAK ESCAPE (GC-1, CR 506.4/510.1c-d) — untap the trigger source + remove it from combat (flag + attacker-record drop; blockers stay in combat, deal nothing)
-  "cant-block": applyCantBlock, // CANT-BLOCK — "target creature can't block this turn" → layer-6 endOfTurn cantBlock grant
+  "cant-block": applyCantBlock,
+  "grant-protection": applyGrantProtection,   // PROTECTION-FROM-A-COLOUR (CR 702.16) — the layer op existed; nothing parsed to it // CANT-BLOCK — "target creature can't block this turn" → layer-6 endOfTurn cantBlock grant
   "cant-be-blocked": applyCantBeBlocked, // CANT-BE-BLOCKED — "target creature can't be blocked this turn" → layer-6 endOfTurn unblockable grant
   "mass-block-lock": applyMassBlockLock, // MASS-BLOCK-LOCK (FT-1) — "creatures [without flying] can't block this turn" → ONE dynamic-selector layer-6 endOfTurn cantBlock rule (CR 611.2c)
   "switch-pt": applySwitchPT, // SWITCH-PT — "switch ~ power and toughness until end of turn" → layer-7 sublayer-7d endOfTurn swap
