@@ -131,6 +131,38 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## 🧪 AUDIT 2026-07-30 — **THE WRITER-COUNT SWEEP, RUN ACROSS THREE SURFACES. One real gap, and it is built.**
+
+The *"does anything actually PARSE to this primitive?"* question paid three times in two batches (poison,
+protection, colour change), so I ran it **mechanically over every registry I could enumerate** rather than
+card-by-card. Recorded here as a COMPLETED audit so nobody re-runs it.
+
+| surface | population | produced-but-never-consumed | consumed-but-never-produced |
+|---|---|---|---|
+| **layer ops** (`layers.js`) | 13 | — | **`addColor` (0 writers)** — measured **1 carrier / 0 attributable**, deliberately left unwritten |
+| **trigger events** | 48 produced / 60 matched | **none** | none |
+| **atom resolver ops** | 145 registered / 165 emitted | **none** | none |
+
+✅ **The one real find was NOT the zero-writer op.** `setColor` had exactly ONE writer — buried inside
+`applyAnimateEffect` — so a *pure* colour change had none. That paid **4 cards**. `addColor`, the op with
+literally zero writers, pays **nothing**. ⭐ *A dead read-side capability is only worth a writer if cards
+actually need it — measure before building, even when the structural signal looks perfect.*
+
+### ⚠️ TWO FALSE ALARMS, and why the grep lied both times
+| candidate | why it looked dead | why it is not |
+|---|---|---|
+| `gyLeaveBatch` | never appeared as a literal `event: "…"` at a fire site | fired through a **loop variable** — `for (const [dir, evName] of [["leave","gyLeaveBatch"], …])` |
+| `dealtBy` | same | `checkDealtByTriggers` **builds the descriptor inline** and is called from BOTH damage paths; it never goes through `triggersForEvent` |
+
+⭐ **A grep for literal call shapes under-reports every dynamic dispatch.** Both candidates had to be traced
+by hand before either could be called dead — and both were alive. *When a structural sweep flags something,
+the flag is a QUESTION, not a finding.*
+
+**Net: the engine has no dead resolvers and no dead trigger events.** The layer surface has exactly one
+unwritten op, measured worthless, left alone on purpose.
+
+---
+
 ## ✅ BANKED (batch 4) 2026-07-30 — **COLOUR CHANGE AS A TARGETED GRANT. GAINED 4, LOST 0.**
 
 Cerulean Wisps · Singe · Fylamarid · Metathran Transport.
