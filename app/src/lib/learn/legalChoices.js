@@ -35,7 +35,7 @@ import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: reso
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
 import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
-import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksOf, cantAttackAlone, cantBlockAlone } from "./combatEvasion.js";
+import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksOf, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
@@ -2794,6 +2794,11 @@ function actionsDeclareAttacker(state, playerId) {
     // declared). cantAttackAlone matches BOTH the bare "can't attack alone" and the combined "attack or block
     // alone" form — the block-only "can't block alone" (Craven Hulk) is NOT gated here (it may attack alone).
     .filter(p => !cantAttackAlone(p.card) || declared.size > 0)
+    // SELF CAN'T-ATTACK[-OR-BLOCK], optionally LAND-GATED (CR 508.1c — Topiary Stomper "can't attack or block
+    // unless you control seven or more lands"; the ungated "This creature can't attack." too). Read LIVE each
+    // enumeration, so playing the seventh land frees it mid-turn. The BLOCK half of the same printed clause is
+    // gated at the blocker chain below, not here — a "can't block"-only card may still attack.
+    .filter(p => !selfCantAttackNow(state, p))
     // CANT-ATTACK-UNLESS-YOU (BLITZ CS-1, CR 508.1c — Desperate Castaways / War Falcon / Steelclad
     // Serpent / Warden of the Chained): "can't attack unless you control <predicate>" is a hard attack
     // RESTRICTION — the creature is not offered as an attacker while its controller's board fails the
@@ -2928,7 +2933,12 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
     // only once ANOTHER blocker is already declared this combat (sequential declaration — the exact mirror of
     // the attack gate). cantBlockAlone matches BOTH the bare "can't block alone" and the combined form — the
     // attack-only "can't attack alone" (Raging Kronch) is NOT gated here (it may block alone).
-    .filter(p => !cantBlockAlone(p.card) || assigned.size > 0);
+    .filter(p => !cantBlockAlone(p.card) || assigned.size > 0)
+    // The BLOCK half of the land-gated self restriction (Topiary Stomper). The bare "can't block" is enforced
+    // downstream in canBlockAttacker (isSelfCantBlock); this gate is what adds the LAND WINDOW, read live so
+    // the seventh land frees it. Both halves of one printed clause, each enforced at the declaration site
+    // that owns it.
+    .filter(p => !selfCantBlockNow(state, p));
 
   // Evasion runs through ONE chokepoint (combatEvasion.canBlockAttacker), read layer-aware so a
   // GRANTED keyword counts: flying/reach, unblockable, basic landwalk (gated by THIS defender's

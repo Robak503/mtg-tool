@@ -11,6 +11,8 @@ summarizes the notable changes.
 ### Added
 - **Tamiyo's Safekeeping works.** Targeting one of your own artifacts, enchantments or lands really does
   give it hexproof and indestructible for the turn — it now survives a Disenchant or a wrath.
+- **Topiary Stomper respects its own restriction.** It is not offered as an attacker or blocker until
+  you actually control seven lands, and the seventh land frees it the moment you play it.
 - **Cards that grant convoke, improvise or prowl now play natively.** Chief Engineer, Inspiring Statuary,
   Ironheart, Clever Champion and Hunting Velociraptor — the engine still hard-casts at full price, so the
   grant only ever added a cheaper option it never takes.

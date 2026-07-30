@@ -718,6 +718,51 @@ export function mayAssignAsUnblocked(card) {
 
 export function isSelfUnblockable(card) { return reBareUnblockable.test(selfOracle(card)); }
 export function isSelfCantBlock(card) { return reCantBlock.test(selfOracle(card)); }
+
+/**
+ * SELF CAN'T-ATTACK[-OR-BLOCK], optionally LAND-GATED (CR 506.4 / 509.1a). Topiary Stomper: "This creature
+ * can't attack or block unless you control seven or more lands." Also the ungated pair ("This creature can't
+ * attack." / "…can't attack or block.").
+ *
+ * ⭐ THE BLOCK HALF ALREADY EXISTED AND WAS ALREADY ENFORCED — `isSelfCantBlock` above is read by
+ * canBlockAttacker. The ATTACK half had no reader at all, so a card printing it parked (a safe FN, never a
+ * false positive). This is the attack mirror plus the "unless you control N lands" window both halves share.
+ *
+ * Returns null (no restriction) or `{ attack, block, minLands }` — `minLands` 0 means unconditional.
+ * ⛔ WHOLE-CLAUSE ANCHORED and LAND-ONLY: the gate the corpus prints on this shape is a land count. Any other
+ * "unless …" tail fails the anchor → null → the clause stays residue → the card parks (CREED, FN-safe).
+ */
+const reSelfCantAtkBlk = /(?:^|[\n.;])\s*this (?:creature|token) can't (attack or block|attack|block)(?: unless you control (one|two|three|four|five|six|seven|eight|nine|ten|\d+) or more lands)?\s*(?:\.|$)/i;
+const LAND_NUMWORD = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+export function selfCantAttackBlockGate(card) {
+  const m = reSelfCantAtkBlk.exec(selfOracle(card));
+  if (!m) return null;
+  // "can't block alone" / "can't attack alone" are a DIFFERENT restriction with their own readers above; the
+  // anchor's `(?:\.|$)` tail already excludes them (the word "alone" follows), so they can never land here.
+  const what = m[1].toLowerCase();
+  const minLands = m[2] ? (LAND_NUMWORD[m[2].toLowerCase()] ?? parseInt(m[2], 10)) : 0;
+  return { attack: what !== "block", block: what !== "attack", minLands };
+}
+
+/** True iff this permanent may NOT be declared as an attacker right now (the gate's land window is read LIVE). */
+export function selfCantAttackNow(state, perm) {
+  const g = selfCantAttackBlockGate(perm?.card);
+  if (!g || !g.attack) return false;
+  if (!g.minLands) return true;                                   // unconditional
+  const bf = state?.players?.[perm.controller]?.battlefield || [];
+  const lands = bf.filter((p) => (permanentTypes(state, p.id)?.types || []).some((t) => String(t).toLowerCase() === "land")).length;
+  return lands < g.minLands;                                      // restricted only while BELOW the threshold
+}
+
+/** The block-side twin of selfCantAttackNow. */
+export function selfCantBlockNow(state, perm) {
+  const g = selfCantAttackBlockGate(perm?.card);
+  if (!g || !g.block) return false;
+  if (!g.minLands) return true;
+  const bf = state?.players?.[perm.controller]?.battlefield || [];
+  const lands = bf.filter((p) => (permanentTypes(state, p.id)?.types || []).some((t) => String(t).toLowerCase() === "land")).length;
+  return lands < g.minLands;
+}
 export function isCanBlockOnlyFlyers(card) { return reBlockOnlyFlying.test(selfOracle(card)); }
 /**
  * SELF-POWER BLOCK GATE — "less" | "greater" | null: the comparison under which a creature may NOT block
@@ -777,6 +822,12 @@ export function isEnforcedEvasionClause(clause) {
   if (reLandwalkWord.test(c)) return true;
   if (/^(?:this creature |it )?can't be blocked$/.test(c)) return true;
   if (/^(?:this creature |it )?can't block$/.test(c)) return true;
+  // SELF CAN'T-ATTACK[-OR-BLOCK], optionally LAND-GATED (Topiary Stomper). Credited through the SAME reader
+  // the two declaration gates use (selfCantAttackBlockGate → selfCantAttackNow / selfCantBlockNow in
+  // legalChoices), so recognition and enforcement cannot drift — the discipline this whole file runs on.
+  // ⛔ The bare "can't attack" was previously UNcredited and UNenforced (a safe FN); it becomes credited only
+  // now that the attacker gate exists, which is the order that keeps it honest.
+  if (selfCantAttackBlockGate({ oracle: c.endsWith(".") ? c : `${c}.` })) return true;
   if (/^(?:this creature |it )?can block only creatures with flying$/.test(c)) return true;
   // SELF-POWER BLOCK GATE (CR 509.1b) — the classifier mirror of selfPowerBlockGateOf; canBlockAttacker
   // enforces the comparison live, so a body whose only non-keyword text is this static is honestly native.

@@ -34,7 +34,7 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **BATCH IN FLIGHT: 23 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 24 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -468,6 +468,57 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **TOPIARY STOMPER: the land-gated self restriction. GAINED 1. Jurassic Ramp 80 → 81%.**
+## ⚠️⚠️ AND COLTON ASKED THE QUESTION THAT MATTERS MORE THAN THE CARD — READ THAT FIRST.
+
+### ⚠️⚠️ **"are we at all testing this with the player personas at the table?"** — HONEST ANSWER: **NO.**
+**I had not run a single game this entire run.** Newest self-play data on disk: **2026-07-25**, five days
+before today. Every slice was verified with unit + RUNTIME assertions on synthetic two-or-three permanent
+boards, plus the flip-diff. That catches a lot — it is how three "classifies native, does nothing" false
+positives were caught — **but it cannot catch**: the card never being OFFERED in a real game, the AI never
+CHOOSING it, a wedge deep in a full game loop, or interactions with a real 100-card board.
+
+**Ran it immediately — 6 games, all completed, 3 breakage entries, NONE from a card this run flipped**
+(Mithril Coat · Meltstrider's Resolve · Sarkhan, Fireblood — the last already on the shelf-gap list).
+
+⭐ **But that is weaker evidence than it looks, and the distinction is the point: the report lists cards that
+BROKE, not cards that were PLAYED.** It cannot tell me Sensei's Divining Top was ever drawn. I have
+absence-of-breakage, not confirmation-of-play.
+
+✅ **STANDING CADENCE CHANGE, effective now:** run `app/scripts/self-play.mjs` after every batch of slices,
+AND cross-check the flipped cards against `build-grind-card-evidence.mjs`, which already produces exactly the
+missing signal (per-card `gamesCast` / `castsTotal` off the grind store). **A card credited native that is
+never cast in N games is a LEAD, not a win.**
+
+### THE SLICE
+*"This creature can't attack or block unless you control seven or more lands."* The BLOCK half was already
+enforced (`isSelfCantBlock` → canBlockAttacker); the ATTACK half had **no reader at all**, so the card parked
+(a safe FN, never an FP). Added the attack mirror + the shared land window at the two declaration sites, and
+credited via `isEnforcedEvasionClause` calling **the same reader the gates use** — recognition and enforcement
+cannot drift.
+
+⛔ **Dangerous near-miss, pinned:** *"can't attack ALONE"* is a DIFFERENT restriction. A leaking anchor would
+make Mogg Flunkies **permanently** unable to attack instead of conditionally — worse than the bug being fixed.
+Asserted null, and asserted still handled by its own readers.
+
+**Runtime measured live:** lands 0 → barred · **6 → barred** · **7 → offered** · 8 → offered, plus a CONTROL
+(same creature, no restriction, attacks on zero lands) so "not offered" cannot mean "the harness never offers".
+
+### ⛔⛔ I DESTROYED A FILE MID-SLICE — recorded because the recovery is the lesson
+A python one-liner did `io.open(p,'w').write(io.open(p).read().replace(...))`. **The `'w'` truncates BEFORE
+the nested read runs**, so it wrote an empty string: `legalChoices.js`, **3195 lines, gone.** Caught by
+`git diff --stat` showing **-3195** on a slice that should have been +12. Restored with `git checkout --`
+(tree was clean at slice start), edits redone with the Edit tool.
+⭐ *Same law the ledger already carries for mutation reverts — CONFIRM WITH `git diff`, not a green test — and
+this is why it earns its line. Never nest a read inside an open-for-write of the same path; use Edit for
+source files. (A heredoc parse failure ate the first bank attempt in the same slice: use Write, not heredocs.)*
+
+**Mutation-checked: 2 seen to fail** — M1 attacker gate removed · M2 land window ignored.
+**Gates:** flip-diff **GAINED 1 / LOST 0**, no other tier moved (12946 → 12947 / 34245). 10 tests, five
+runtime. Suite **1042 files / 13,193 green**, lint 0, module graph loads, MUTANT clean. **Batch: 24 cards.**
 
 ---
 
