@@ -11,6 +11,8 @@ summarizes the notable changes.
 ### Added
 - **Tamiyo's Safekeeping works.** Targeting one of your own artifacts, enchantments or lands really does
   give it hexproof and indestructible for the turn — it now survives a Disenchant or a wrath.
+- **Abhorrent Oculus works.** "Exile six cards from your graveyard" is now paid properly — exactly six,
+  and the card stays uncastable with five or fewer in the yard.
 - **"Return a land you control" counterspells work.** Deprive, Disappearing Act, Familiar's Ruse,
   Devour in Flames and Fear of Isolation let you pick which permanent goes back to your hand — and stay
   uncastable when you have nothing to return.

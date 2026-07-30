@@ -23,7 +23,7 @@
  * kind sets — they feed programConfidence's LOW-until-vetted cost gates, so the
  * vetted-kind vocabulary and its extractors stay in one file.
  */
-import { SMALL_NUM } from "./parseHelpers.js";
+import { SMALL_NUM, NUM_WORD } from "./parseHelpers.js";
 
 const ADDITIONAL_COST_RE = /\bas an additional cost to cast this spell,\s*([^.]+)\.\s*/i;
 // ADDCOST-1 sac victims — single types PLUS the "artifact or creature" UNION (Deadly Dispute, Deadly
@@ -49,6 +49,10 @@ const EXILE_GY_COST_RE = /^exile (?:a|an) (creature|artifact|land|instant or sor
 // owns, so unlike the sacrifice lane there is no dies-trigger to fire and no LKI to capture — the permanent
 // simply leaves. SINGULAR ONLY, the same way the sacrifice and exile lanes started; no count-N form prints.
 const RETURN_HAND_COST_RE = /^return (?:a|an) (permanent|creature|land|artifact|enchantment) you control to its owner's hand$/i;
+// ADDCOST-3b (count-of-N, UNTYPED) — "exile six cards from your graveyard" (Abhorrent Oculus, a card on
+// Colton's shelf). NUM_WORD not SMALL_NUM: SMALL_NUM stops at five and the printed cost is SIX, so the
+// smaller table would have silently failed to match the one card this shape exists for.
+const EXILE_GY_COUNT_COST_RE = /^exile (a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards? from your graveyard$/i;
 export const SUPPORTED_ADDITIONAL_COST_KINDS = new Set(["sacrifice", "payLife", "discard", "exileFromGraveyard", "returnToHand", "choice"]);
 
 /**
@@ -97,6 +101,8 @@ function parseOneAdditionalCost(phrase) {
   if (discN) return { cost: { kind: "discard", count: SMALL_NUM[discN[1].toLowerCase()] }, selfRef: /\bdiscarded\b/i };
   const exGy = EXILE_GY_COST_RE.exec(p);
   if (exGy) return { cost: { kind: "exileFromGraveyard", cardType: exGy[1].toLowerCase() }, selfRef: /\bexiled\b/i };
+  const exGyN = EXILE_GY_COUNT_COST_RE.exec(p);
+  if (exGyN) return { cost: { kind: "exileFromGraveyard", cardType: "any", count: NUM_WORD[exGyN[1].toLowerCase()] }, selfRef: /\bexiled\b/i };
   const ret = RETURN_HAND_COST_RE.exec(p);
   if (ret) return { cost: { kind: "returnToHand", permType: ret[1].toLowerCase() }, selfRef: /\breturned\b/i };
   return null;
@@ -133,6 +139,12 @@ export function extractAdditionalCosts(oracle) {
   // ADDCOST-3: the paid card is EXILED, so an effect reading it back ("the exiled card") can't be fed the
   // cost details — the selfRef guard below drops such a card to LOW exactly like the sacrifice/discard forms.
   else if (exGy) { cost = { kind: "exileFromGraveyard", cardType: exGy[1].toLowerCase() }; selfRef = /\bexiled\b/i; }
+  // ADDCOST-3b — "exile <N> cards from your graveyard", untyped. cardType "any" so cardMatchesAddCostType
+  // is never consulted; every graveyard card is an equally legal pick.
+  else if (EXILE_GY_COUNT_COST_RE.test(phrase)) {
+    cost = { kind: "exileFromGraveyard", cardType: "any", count: NUM_WORD[EXILE_GY_COUNT_COST_RE.exec(phrase)[1].toLowerCase()] };
+    selfRef = /\bexiled\b/i;
+  }
   // AC-BOUNCE — the returned permanent goes to its owner's HAND, a hidden zone, so an effect that reads the
   // paid object back ("the returned creature") can't be fed it; the selfRef guard below parks such a card.
   else if (RETURN_HAND_COST_RE.test(phrase)) {

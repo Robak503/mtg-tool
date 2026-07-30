@@ -1181,10 +1181,20 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // is the whole point of the gate: without it the engine would cast the spell for free.
         if (!affordable) continue; // R1.5 — same printed-cost re-check as the branches above
         const gy = player.graveyard || [];
-        const candidates = gy.filter((g) => cardMatchesAddCostType(g, addCost.cardType));
-        if (candidates.length === 0) continue;
-        for (const gc of candidates) for (const ch of combos) {
-          emit(ch, { exileGyCardId: gc.id, exileGyCardName: gc.name ?? null, exileGyName: gc.name ? `exile ${gc.name}` : undefined });
+        // ADDCOST-3b — cardType "any" is the UNTYPED count-of-N form ("exile six cards from your graveyard",
+        // Abhorrent Oculus); every graveyard card is a legal pick, so the type filter is skipped entirely
+        // rather than taught a fake "any" type it would have to keep in sync.
+        const candidates = addCost.cardType === "any" ? gy : gy.filter((g) => cardMatchesAddCostType(g, addCost.cardType));
+        if (candidates.length < (addCost.count ?? 1)) continue;   // fewer than N → genuinely uncastable
+        if ((addCost.count ?? 1) > 1) {
+          // Count-of-N: no combinatorial enumeration — reuse the least-valuable policy the discard cost uses
+          // to pick EXACTLY N and freeze the ids, exactly like the discard/sacrifice count-N branches.
+          const chosen = [...candidates].sort(leastValuableCardCmp).slice(0, addCost.count);
+          for (const ch of combos) emit(ch, { exileGyCardIds: chosen.map((c) => c.id), exileGyName: `exile ${chosen.length} cards` });
+        } else {
+          for (const gc of candidates) for (const ch of combos) {
+            emit(ch, { exileGyCardId: gc.id, exileGyCardName: gc.name ?? null, exileGyName: gc.name ? `exile ${gc.name}` : undefined });
+          }
         }
       } else if (addCost.kind === "returnToHand") {
         // AC-BOUNCE (CR 601.2f) — return a permanent you control to its owner's hand. Every permanent of the

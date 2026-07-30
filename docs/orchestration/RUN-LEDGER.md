@@ -34,7 +34,7 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **BATCH IN FLIGHT: 43 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 44 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -468,6 +468,49 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **ADDCOST-3b: the count-of-N graveyard exile. GAINED 1 — and it is a SHELF card.**
+## ⚠️ A SAFETY GUARD SHIPPED **SILENTLY DEAD** AND THE WHOLE SUITE STAYED GREEN. Lint caught it, not me.
+
+**Abhorrent Oculus** — one of the three cards on Colton's + Joe's real decks that the unvetted-cost guard had
+left dead in hand. One card, but **the target is the SHELF, not corpus %**, so a shelf card outranks a
+five-card corpus vein. Uncastable at 5 cards in the yard · castable at 6 · exiles **exactly** 6 (8 in the
+yard → 2 remain).
+
+### ⛔ THE NUMBER WORD WAS THE WHOLE TRAP
+The lane's existing count-of-N forms use `SMALL_NUM`, **which stops at five**. The printed cost is **six**.
+Reaching for the table already in the file would have compiled, linted, passed, and matched NOTHING — a slice
+that reads green while doing nothing at all. `NUM_WORD` (up to twenty) is the right table, and a test asserts
+two/five/**six**/ten specifically so the ceiling can never creep back.
+✅ Deliberately NOT widened: the TYPED count ("exile two creature cards") and every X form stay unmodeled.
+Vetting one shape must not quietly annex its neighbour — pinned by test.
+
+### ⚠️⚠️ THE HOLLOW GATE I SHIPPED, IN THE SAME SLICE THAT NAMES THE LAW
+A tooling slip turned both `\b` in the new selfRef regex `/\bexiled\b/i` into **literal BACKSPACE bytes**
+(0x08). The guard — the one that parks a card whose effect reads the exiled cards back — could not match
+anything. **All 9 tests passed. The full 13,230-test suite passed.** It was caught by an ESLint rule
+(`no-control-regex`), not by a single assertion I had written.
+⭐ *The lesson is not "be careful with heredocs". It is that I wrote a safety check and then never wrote the
+witness that it fires — so a DEAD guard and a guard that simply never had to fire were indistinguishable.
+That is the hollow-gate law in its purest form, and I walked into it while quoting it.* A test now exercises
+the guard directly, and the same question ("what proves this fires?") is owed to every selfRef I have added.
+
+**Mutation-checked: four pre-specified, all seen to fail** — M9 off-by-one (exile N-1, a discount) · M10 the
+"fewer than N → uncastable" gate weakened to "any candidate" · M11 `SMALL_NUM` instead of `NUM_WORD` (the
+ceiling trap, 4 tests) · M12 dispatcher exiles nothing (the free cast).
+
+**Gates:** flip-diff **GAINED 1 / LOST 0**, nothing else moved. 10 tests, 4 runtime. Suite **1046 files /
+13,240 green**, lint 0, MUTANT clean. **Batch: 44 cards.**
+
+### ➡️ SHELF STATE after this run's four cost slices
+Of the 3 shelf cards the guard parked: **Abhorrent Oculus fixed.** *Thunderherd Migration* needs
+reveal-from-hand + payMana together (an OR with two new kinds). *Savage Order* parks on its EFFECT even with
+the cost vetted — a restricted sacrifice ("a creature with power 4 or greater") that is NOT worth building
+for tier alone. Then: `tap N untapped <type>` (2 flips) · `sacrifice a <SUBTYPE>` (9 cards back from dead,
+1 flip; sacTypeMatches already carries a `subtype` param) · the **X + additional-cost COMPOUND** (~18 cards,
+unlocks Reshape and every pay-X-life / discard-X carrier — the largest remaining piece of this family).
 
 ---
 

@@ -390,6 +390,18 @@ function applyCastSpell(state, action) {
       }
       working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.discardCardId });
       checkDiscardTriggers(working, action.playerId, 1);
+    } else if (ac.kind === "exileFromGraveyard" && (ac.count ?? 1) > 1) {
+      // ADDCOST-3b (count-of-N) — exile EACH of the N frozen graveyard cards. A short or missing list is an
+      // upstream bug: THROW rather than cast having exiled fewer than N (paying N-1 is the cardinal FP).
+      if (!Array.isArray(action.exileGyCardIds) || action.exileGyCardIds.length < ac.count) {
+        throw new DispatcherError(`Spell requires exiling ${ac.count} graveyard cards but ${action.exileGyCardIds?.length || 0} were chosen`, "ADDCOST_UNPAID");
+      }
+      for (const gid of action.exileGyCardIds) {
+        if (!working.players[action.playerId]?.graveyard.some((c) => c.id === gid)) {
+          throw new DispatcherError(`Exile-cost card ${gid} not in graveyard`, "CARD_NOT_IN_GRAVEYARD");
+        }
+        working = moveCardToZone(working, { playerId: action.playerId, fromZone: "graveyard", toZone: "exile", cardId: gid });
+      }
     } else if (ac.kind === "exileFromGraveyard") {
       // ADDCOST-3 (CR 601.2h) — the chosen graveyard card is EXILED as the cost is paid. legalChoices froze
       // the id on the action; re-check membership here so a stale id can never exile something else.
