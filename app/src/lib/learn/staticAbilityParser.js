@@ -2543,6 +2543,36 @@ function parseClause(clause, out, selfName, selfType) {
             affects: selector,
             duration: { kind: "permanent" },
           });
+        } else {
+          // ⭐ QUOTED **KEYWORD** GRANT — 'Other creatures you control have "Ward—Pay 2 life."'
+          // (Hexing Squelcher, Hag of Mage's Doom) and the same shape for a plain keyword ("Flying.").
+          //
+          // The closing comment below used to assert that a `have "…"` clause is never ALSO a plain
+          // keyword/anthem grant. That is false: quoting is a printing convention, not a rules distinction
+          // (CR 702.21 — a granted keyword ability is the same ability quoted or not), and the corpus prints
+          // it both ways. The unquoted twin has always worked; the quoted one died here, which is why
+          // 'have "Flying."' was body-only while 'have flying.' was native-static.
+          //
+          // Delegated to parseAnthemHaveTail — the SAME all-or-nothing oracle the unquoted path uses — so a
+          // quoted body that is anything other than a fully-modeled keyword / protection / ward-pay-life list
+          // returns null and NOTHING is emitted, exactly as before. This can only widen to bodies the
+          // unquoted path would already have accepted.
+          // LOWERCASED before delegating: the unquoted path receives an already-lowercased clause, and
+          // parseAnthemHaveTail's keyword loop strips every non-[a-z ] character — so a printed-case body
+          // ("Flying.") would be scrubbed to "lying" and rejected. Cost the quoted keyword grant entirely
+          // until this line existed; the ward arm only survived because its own regex is case-insensitive.
+          const quotedTail = creatureSelector ? parseAnthemHaveTail(quoted.toLowerCase()) : null;
+          if (quotedTail) {
+            for (const kw of quotedTail.keywords) {
+              out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: kw }, affects: creatureSelector, duration: { kind: "permanent" } });
+            }
+            if (quotedTail.protColors.length) {
+              out.push({ layer: 6, op: { layerOp: "addProtection", colors: quotedTail.protColors }, affects: creatureSelector, duration: { kind: "permanent" } });
+            }
+            if (quotedTail.wardLife) {
+              out.push({ layer: 6, op: { layerOp: "addWard", life: quotedTail.wardLife }, affects: creatureSelector, duration: { kind: "permanent" } });
+            }
+          }
         }
       }
       // A quoted-ability grant we matched the SHAPE of but can't fully model (no selector, or a non-mana /
@@ -3145,6 +3175,12 @@ function parseClause(clause, out, selfName, selfType) {
       if (anthemGrant.protColors.length) {
         out.push({ layer: 6, op: { layerOp: "addProtection", colors: anthemGrant.protColors }, affects, duration: { kind: "permanent" } });
       }
+      // GRANTED WARD (CR 702.21) — the SAME layer-6 addWard op the counter-gated grant (Cathedral Acolyte)
+      // and the Equipment rider (Lavaspur Boots) already emit, carrying a LIFE cost instead of generic pips.
+      // ward.js unions it with any printed ward at the tax site, so this is ENFORCED, not parse-only.
+      if (anthemGrant.wardLife) {
+        out.push({ layer: 6, op: { layerOp: "addWard", life: anthemGrant.wardLife }, affects, duration: { kind: "permanent" } });
+      }
     }
   }
 }
@@ -3167,6 +3203,34 @@ function parseClause(clause, out, selfName, selfType) {
 function parseAnthemHaveTail(tail) {
   let s = String(tail).trim();
   let protColors = [];
+  // ── GRANTED WARD-PAY-LIFE (Hexing Squelcher, Hag of Mage's Doom — CR 702.21) ───────────────
+  // '<selector> have "Ward—Pay N life."' Peeled here, BEFORE the keyword list, for the same reason
+  // the protection span is: the segment splitter would hand "ward—pay 2 life" to the grantable-keyword
+  // check as one word-ish blob, fail it, and null the WHOLE tail. The comment above this function already
+  // named a ward have-tail (Giant Ankheg) as a deliberate rejection — this graduates the LIFE form only.
+  //
+  // The printed quotes are optional in the match but meaningless to the rules (CR 702.21 — a granted
+  // keyword ability is the same ability whether or not the grant quotes it), so both spellings parse.
+  // ONLY "pay N life" is modeled, mirroring ward.parseWardCost exactly: a granted Ward—Sacrifice
+  // (Mishra, Tamer of Mak Fawa) or Ward—Discard has no payer-choice model, so it must stay unparsed and
+  // null the tail rather than be silently dropped from a card that still gets credited. Mana-cost ward
+  // grants keep their own `generic` channel (Cathedral Acolyte) and are not routed through here.
+  let wardLife = 0;
+  {
+    const wm = s.match(/"?\bward\s*[\u2014-]\s*pay\s+(\d+)\s+life\.?"?/i);
+    if (wm) {
+      wardLife = parseInt(wm[1], 10);
+      s = (s.slice(0, wm.index) + s.slice(wm.index + wm[0].length))
+        .replace(/\s*,\s*and\s*/gi, ", ").replace(/^[,\s]+|[,\s]+$/g, "").replace(/\s+and$/i, "").trim();
+    }
+    // NOTE: no explicit "reject any other ward span" guard here. I wrote one, and a mutation proved it
+    // dead — the keyword loop below already rejects "ward—sacrifice a permanent" / "ward {2}" (it strips
+    // to a non-grantable word), so the line could be disabled without a single test noticing. Belt-and-
+    // braces that no mutation can kill is dead code justified by a hypothetical; the refusal is pinned by
+    // the grantable-keyword check instead, and grantedWardLife.test.js asserts it for sacrifice, discard
+    // and the mana form. If "ward" is ever ADDED to GRANTABLE_KEYWORDS, re-read this: a bare "Ward." would
+    // then parse as a costless keyword grant, and that is the change that needs the guard, not this one.
+  }
   const pm = s.match(/\bprotection from\b/i);
   if (pm) {
     // Everything from "protection from" onward is the protection span (it runs to the clause end). Validate
@@ -3190,8 +3254,8 @@ function parseAnthemHaveTail(tail) {
     if (!GRANTABLE_KEYWORDS.has(word)) return null;
     keywords.push(canonicalKeyword(word));
   }
-  if (keywords.length === 0 && protColors.length === 0) return null; // nothing recognized
-  return { keywords, protColors };
+  if (keywords.length === 0 && protColors.length === 0 && !wardLife) return null; // nothing recognized
+  return { keywords, protColors, ...(wardLife > 0 && { wardLife }) };
 }
 
 const canonicalKeyword = canonicalCombatKeyword;

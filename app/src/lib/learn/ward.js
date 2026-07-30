@@ -125,7 +125,18 @@ export function wardTaxForStackObject(state, stackObj) {
   // fall back to the printed cost alone (an under-tax, FN-safe — never a fabricated combined cost).
   const granted = permanentGrantedWardCosts(state, wardTargets[0].id);
   const grantedGeneric = granted.reduce((s, g) => s + (g.generic || 0), 0);
+  const grantedLife = granted.reduce((s, g) => s + (g.life || 0), 0);
   let cost = printed;
+  // GRANTED LIFE WARD (CR 702.21c — each ward instance triggers separately; for costs of a SINGLE kind,
+  // "pay each or the spell is countered" is outcome-identical to one combined tax, which is the same
+  // argument the generic-mana branch below already makes). Handled BEFORE the mana branch so a
+  // mixed board falls through to it and keeps today's behaviour exactly.
+  if (grantedLife > 0 && grantedGeneric === 0) {
+    if (!printed) cost = { kind: "life", life: grantedLife };
+    else if (printed.kind === "life") cost = { kind: "life", life: printed.life + grantedLife };
+    // printed MANA + a granted LIFE ward cannot become one binary choice → keep the printed cost alone
+    // (an under-tax, FN-safe — never a fabricated combined cost). Mirrors the documented case below.
+  }
   if (grantedGeneric > 0) {
     if (!printed) cost = { kind: "mana", mana: { generic: grantedGeneric, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } };
     else if (printed.kind === "mana") cost = { kind: "mana", mana: { ...printed.mana, generic: (printed.mana.generic || 0) + grantedGeneric } };

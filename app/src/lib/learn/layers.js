@@ -1125,6 +1125,10 @@ export function permanentGrantedWardCosts(state, permanentId) {
   for (const e of l6IndexOf(state).ward) {
     if (!effectAffects(e, perm, state)) continue;
     if (typeof e.op.generic === "number") out.push({ generic: e.op.generic });
+    // LIFE-cost ward grants (Hexing Squelcher / Hag of Mage's Doom). A separate key rather than a second
+    // number on the same one: the tax site can SUM two mana grants into one payment but cannot combine a
+    // mana cost with a life cost into a single binary choice, so the two kinds must stay distinguishable.
+    else if (typeof e.op.life === "number") out.push({ life: e.op.life });
   }
   return out;
 }
