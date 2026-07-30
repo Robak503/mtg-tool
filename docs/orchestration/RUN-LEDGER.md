@@ -131,6 +131,68 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## 🎯 SHELF RE-MEASURED 2026-07-30 — **COLTON IS AT 94%. ONE DECK, THREE CARDS FROM THE BAR.**
+
+Re-ran `measure-coverage.mjs` against the live AppData decks after 38 cards of engine work. The objective
+is the SHELF, not corpus %, and it has moved:
+
+| owner | shelf | below the bar |
+|---|---|---|
+| **colton** | **94%** (467/499, 5 decks) | **`cdh` 87% — needs 3 cards** |
+| joe | 77% (842/1098, 11 decks) | 9 decks |
+
+Slivers 100% · Vihaan 96% · Omnath 93% · Zaxara 92% · Earth Bent 91% · Mothman 90%. Corpus is 37.6%;
+top-1000-played is 74.5%.
+
+**⭐ THREE CARDS PUT COLTON'S ENTIRE SHELF OVER THE 1.0 BAR.** That is the cheapest remaining objective on
+the board and it should be picked up before any more corpus work.
+
+### THE `cdh` GAP, PER CARD (from `shelf-gap-ledger.mjs`)
+`Pact of Negation` · `Springheart Nantuko` · `Valley Floodcaller` ⛔ · `Chain of Vapor` ·
+`Biomancer's Familiar` · `Veil of Summer` ⛔ · `Ragavan` · + 6 composites (Deflecting Swat, Wan Shi Tong,
+Hidden Strings, Invasion of Ikoria, Vibrance ⛔, Mindbreak Trap). The ⛔ marks are already on the refusal list.
+
+---
+
+## 🔍 DIAGNOSED, NOT STARTED — **THE PACT CYCLE: ceiling 4, and it needs THREE mechanisms**
+
+Pact of Negation is the shelf card, and the shelf ledger flagged its blocker as `shared×2` — the delayed
+rider. **The swap says otherwise**, and the difference is the whole lesson of this entry.
+
+### ⚠️ THE LEDGER'S BLOCKER ATTRIBUTION DISAGREED WITH THE SWAP
+Replacing the rider with a known-good delayed trigger (`At the beginning of your next upkeep, draw a card.`)
+flipped **0 of 6** Pacts. The ledger attributes blockers by REMOVAL; the swap keeps the card whole. *Removal
+says "this line is involved"; only a swap says "this line is sufficient".* On this card they disagree.
+
+### ⭐ THE FIND: A DELAYED RIDER CANNOT COMPOSE WITH ANY PRECEDING CLAUSE
+Verified synthetically — each of these is `low`, atoms `[]`:
+
+  `Draw a card.` + a delayed rider · `Create a 4/4 red Giant creature token.` + a delayed rider ·
+  `Counter target spell.` + a delayed rider
+
+…while the delayed rider **alone** parses `high` → `schedule-delayed`. `schedule-delayed` is a WHOLE-CLAUSE
+parse; it cannot be one sentence among several.
+
+⛔ **And measured across the corpus, fixing composition ALONE pays ZERO**: of 120 non-native instants and
+sorceries carrying a delayed rider, there is **not one** where the rest is native and the rider parses. So
+this is a PREREQUISITE, never a slice of its own.
+
+### THE PACT BUILD, SIZED
+| | |
+|---|---|
+| **ceiling** | **4 cards** — Pact of Negation, Slaughter Pact, Pact of the Titan, Summoner's Pact |
+| verified | all four first clauses ALREADY classify `native-spell` standalone |
+| out of scope | Intervention Pact (damage-prevention shield) · Guild Pact (choose-two-colours mana) — both `arbiter-spell` on their first clause alone |
+| needs | ① delayed-rider **composition** ① a **pay-or-lose** delayed effect ③ the AI/human **payment decision** |
+| exists already | the delayed-trigger scheduler; a `lose-game` effect in `atoms/winGame.js` |
+
+⚠️ **Three mechanisms, one of which is a real DECISION** (pay the cost or lose the game outright) — and a
+wrong default there does not misprice a card, it ends the game. Deliberately left for a cold start rather
+than begun at the tail of a session; the discard event was banked the same way and went smoothly next
+morning.
+
+---
+
 ## 📉 THE INTERVENING-IF TAIL, SWEPT END TO END — **and the honest answer is that it is spent**
 
 Before building anything I swap-measured **every** unparseable intervening-if shape in the corpus (replace
