@@ -38,7 +38,7 @@ function deckCards() {
   try {
     dirs = fs.readdirSync(profilesDir).filter((d) => d.startsWith("prof_"));
   } catch (error) {
-    throw new Error(`--decks: no profiles at ${profilesDir} (${error.code || error.message}). Set MTG_APP_ROOT to an install's app-data root.`);
+    throw new Error(`--decks: no profiles at ${profilesDir} (${error.code || error.message}). Set MTG_APP_ROOT to an install's app-data root.`, { cause: error });
   }
   if (!dirs.length) throw new Error(`--decks: ${profilesDir} contains no prof_* directories — refusing to report an empty frontier as a clean one.`);
   for (const dir of dirs) {
