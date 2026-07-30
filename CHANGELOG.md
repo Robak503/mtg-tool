@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Creatures that pump themselves and then gain a keyword now work.** Ten more, including Bristling Hydra,
+  Fearless Fledgling, Bloodsky Berserker and Syndicate Trafficker — the "it" gets applied to the creature
+  itself, as printed.
 - **"Untap them" now works too.** Rallying Roar, War Flare, Rally to Battle, Join Shields and Flying Crane
   Technique — the team-wide versions that buff your creatures and then untap the same ones.
 - **"Untap it" now works.** Fourteen more cards where a spell buffs a creature and then untaps that same

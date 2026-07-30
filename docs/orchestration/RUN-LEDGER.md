@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 48 cards since v0.149.20** (granted Ward—Pay-life +2, REFERENT FAMILY +46 across four slices) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 58 cards since v0.149.20** (granted Ward—Pay-life +2, **REFERENT FAMILY +56 across FIVE slices**) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,56 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 3) 2026-07-30 — **SELF-ANTECEDENT REFERENTS. GAINED 10, LOST 0.** Family total **56**.
+
+Bloodsky Berserker · Undercity Necrolisk · Bristling Hydra · Fearless Fledgling · Syndicate Trafficker ·
+Mushroom Watchdogs · Agent of the Shadow Thieves · Blistercoil Weird · Infernal Pet · Sabertooth Mauler.
+
+**⭐ THE THIRD ANTECEDENT KIND — and the family now has a complete taxonomy:**
+| antecedent | binding | slices |
+|---|---|---|
+| a CHOSEN TARGET | read the previous atom's target slice | scope A, scope C, untap |
+| an UNFILTERED MASS SET | **rewrite** into the equivalent mass atom | mass |
+| the SOURCE PERMANENT (`this creature`) | **rewrite** to `target:"self"` | this one |
+
+**Two of the three are rewrites, and that is the durable lesson:** *when a referent can be rewritten into an
+atom the engine already resolves, do that instead of teaching the runtime a new kind of recipient.* Both
+rewrites are pinned by asserting the rewritten atom **equals the explicit wording's atom**. Self is the safest
+of the three — no set to compute, no target to choose.
+
+**⭐ FOUND BY RE-MEASURING, NOT BY GUESSING.** After four slices I re-ran the family's upper-bound probe purely
+to decide whether to keep mining it. The remaining list still showed *"it gains haste / menace until end of
+turn"* — shapes **scope A should already have covered**. That contradiction was the thread; pulling it exposed
+an entire antecedent kind. **A remaining-work list that still contains shapes you believe you built is a bug
+report about your own build.**
+
+**Predicted 11, measured 10, and 3 of the 10 were NOT in the predicted set** — all audited: Blistercoil Weird's
+referent sentence starts with *"Untap"*, not a pronoun; Infernal Pet and Sabertooth Mauler print the
+conjunction in ONE sentence (*"… on this creature **and** it gains flying …"*), which `splitClauses` breaks
+anyway. The probe was subject-first and required a sentence boundary, so it saw none of them. **Third slice
+running where the probe under-counted** — the safe direction.
+
+**Two more CREED pins graduated**, both on the same text (*"untap this creature and it gains flying until end
+of turn"*). ⭐ **`coverage.test.js` had PREDICTED its own graduation in a comment** — *"the example events keep
+graduating as the engine grows"* — so its example was swapped for a still-undetected event, which is what that
+comment was asking a future author to do.
+
+### ⚠️ ONE MUTATION SURVIVED AND IS RECORDED, NOT PAPERED OVER
+The op allowlist in `rebindToSelfAntecedent` (only `pump` / `untap` rewrite) **cannot be distinguished by any
+`classifyCard` test**: a `cant-block` atom with a self recipient is refused **downstream as well**, so two
+independent refusals mask each other. The test now asserts **only the outcome and says so in the body**. The
+allowlist is **kept** — unlike the three dead lines removed earlier tonight, this one has a real future failure
+mode: an op that later becomes self-resolvable would otherwise be rewritten silently. *Distinguish "redundant
+today, dangerous tomorrow" from "dead" — the first is kept with a note, the second is deleted.*
+
+**Gates:** 3 new tests; 2 of 3 mutations seen to fail (third documented above). Suite **1006 files / 12,834
+green**, lint 0, MUTANT clean.
+
+**Batch 3: 58 cards.** `cdh` still 86/100 — Valley Floodcaller's remaining blocker is unchanged (a
+multi-subtype union as a mass-pump selector).
 
 ---
 
