@@ -2760,6 +2760,9 @@ const NONSELF_TRIGGERING_SCOPES = new Set(["creatureYouControl", "subtypeYouCont
 // toughness" (Pantlaza — handled natively by its OWN library.js exact-match parser that reads the RAW phrase)
 // must be left untouched, so the rewrite is anchored to the deal-damage / gain-life verbs that precede the stat.
 const STAT_PAYOFF_REF_RE = /\bdeals? damage equal to that creature's (?:power|toughness)\b|\bgain life equal to that creature's (?:power|toughness)\b/i;
+// ===== "ITS POWER" LIFEGAIN ===== the SELF-referential sibling of STAT_PAYOFF_REF_RE above. Whole-clause
+// anchored: any rider leaves residue → no rewrite → body-only (a SAFE FN), exactly like the sentinels below.
+const ITS_POWER_LIFEGAIN_RE = /^you gain life equal to its power$/i;
 const ETB_ENTERING_CREATURE_SCOPES = new Set([
   "creatureYouControl", "otherCreatureYouControl", "subtypeYouControl",
   "eachCreature", "eachOtherCreature", "creatureOpponentControls",
@@ -3580,6 +3583,32 @@ export function detectTriggers(card) {
         // clause (a SPELL anaphor / a non-enters trigger never reaches here), CREED-safe. All-or-nothing: any
         // clause the anchored patterns can't rewrite keeps its raw "it" → the parser fails HIGH → body-only.
         effectClause = rewriteEtbEnteringPronoun(effectClause);
+      } else if (cls.scope === "self" && ITS_POWER_LIFEGAIN_RE.test(effectClause)
+                 && (cls.event === "dies" || cls.event === "etb")) {
+        // ===== "ITS POWER" LIFEGAIN ===== "you gain life equal to its power" — four DIES carriers (Bottle
+        // Golems, Willow Geist, Conclave Mentor, Packsong Pup) and the ETB pair (Boulderbranch Golem,
+        // Sunscourge Champion). The clause text is BYTE-IDENTICAL across both, but "its" resolves to a
+        // different object with a different READ PATH, so the event picks the sentinel:
+        //
+        //   dies → the creature is GONE by resolution. Its power must come from the CR 603.6e look-back
+        //          (ctx.dyingPower, stamped by checkDiesTriggers). A live-board read returns 0 here.
+        //   etb  → the creature is ON the battlefield as its own ETB resolves, so the existing triggering-
+        //          creature sentinel (→ ctx.triggeringPermanentId, layer-aware) is exactly right.
+        //
+        // ⛔ THE WHOLE POINT OF THE EVENT GATE: binding one context-free "its power" arm would silently
+        // resolve the OTHER half to 0 — the precise forbidden FP templateMatchers.matchDiesGainDrawByPower
+        // documents. Five more corpus carriers sit on shapes with yet other referents (Chastise / Infernal
+        // Reckoning / Rashida Scalebane = the SPELL's destroyed-or-exiled TARGET; Syr Ginger = the permanent
+        // sacrificed to pay a cost; Captain Marvel = an exiled-creature watcher). None reach this rewrite —
+        // a spell never carries a trigger descriptor, and the other two fail the event gate — so they stay
+        // body-only (SAFE FNs), never mis-bound.
+        //
+        // scope:"self" is required on BOTH arms: only a trigger about the SOURCE ITSELF makes "its"
+        // unambiguous. A hypothetical watcher ("whenever a creature dies, you gain life equal to its power")
+        // has no carrier today and stays body-only rather than being guessed at.
+        effectClause = cls.event === "dies"
+          ? "you gain life equal to the dying creature's power"
+          : "you gain life equal to the triggering creature's power";
       } else if (cls.event === "etb" && ETB_ENTERING_CREATURE_SCOPES.has(cls.scope) && STAT_PAYOFF_REF_RE.test(effectClause)) {
         // ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== an ETB trigger paying off "that creature's
         // power/toughness" — the ENTERING creature's stat (Terror of the Peaks damage, Verdant Sun's Avatar

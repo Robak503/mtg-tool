@@ -205,6 +205,18 @@ export function lifeClauseParser(clause) {
   // (read off ctx.triggeringPermanentId); resolveScaledAmount computes it (× per:1). who:"controller" (you gain).
   const sst = t.match(/^(?:you )?gain life equal to the triggering creature's (toughness|power)$/);
   if (sst) return { op: "gain-life", amountCount: { kind: sst[1] === "toughness" ? "triggeringToughness" : "triggeringPower", per: 1 }, targetType: null };
+  // DYING REFERENT (CR 603.6e last-known information) — the DEATH-side sibling of the triggering-creature
+  // arm above. "the dying creature's power" is the sentinel detectTriggers rewrites "its power" to on a
+  // dies trigger; the ETB half of that same clause text rewrites to the TRIGGERING sentinel instead, because
+  // only one of the two objects is still on the battlefield when the ability resolves.
+  //
+  // ⛔ countContext, NOT amountCount. The triggering/sacrificed arms read a live-or-stamped permanent
+  // through countForSpec; the dying creature has LEFT, so its power exists only as the number checkDiesTriggers
+  // captured on the death look-back (ctx.dyingPower). That is the SAME magnitude Lifeblood Hydra's collapsed
+  // template and Feral Ghoul's rad payoff already read — one context key, three carriers, and now pinned to
+  // the dies event by triggerRouting's referent gate so no other event can read it absent (→ a silent 0).
+  const dyL = t.match(/^(?:you )?gain life equal to the dying creature's power$/);
+  if (dyL) return { op: "gain-life", countContext: "dyingPower", targetType: null };
   // SACRIFICED REFERENT (CR 608.2h + 603.6e LKI) — the exact sibling of the triggering-creature arm above,
   // for the permanent sacrificed to pay this spell's ADDITIONAL COST: "you gain life equal to the sacrificed
   // creature's toughness" (Reckoner's Bargain #3671, Morbid Curiosity class). Same gain-life atom, same

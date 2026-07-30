@@ -79,6 +79,11 @@ export function combatDamageReferentSatisfied(program, event) {
     // ONLY by checkLifegainTriggers' lifegain event. Any other event leaves the referent unset (a silent
     // 0-counter → dropped clause, a forbidden FP) → not native there (a SAFE FN).
     if (a?.countContext === "lifegainAmount" && event !== "lifegain") return false;
+    // DYING POWER (CR 603.6e LKI): the dead creature's last-known power, stamped ONLY by checkDiesTriggers.
+    // Covers all three carriers of this context key — the "its power" lifegain arm, Lifeblood Hydra's
+    // collapsed gain+draw template, and Feral Ghoul's rad payoff — so none of them can route off an event
+    // that never sets it (an absent referent reads 0, i.e. a silently dropped clause: a forbidden FP).
+    if (a?.countContext === "dyingPower" && event !== "dies") return false;
     // DEALER-BRANCH (Marcus, SHELF S7): the branch reads the combat-damage DEALER — cdmg events only.
     if (a?.op === "draw-or-counter-triggering" && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
     // UNTAPPED-CONTROLLER (Mesmeric Orb, SHELF S6): the mill's referent is the just-untapped permanent's
