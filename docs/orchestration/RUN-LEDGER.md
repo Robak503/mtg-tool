@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 56 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 59 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -131,7 +131,57 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 ## ✅ BANKED 2026-07-30 — **THE PARITY SWEEP: 16 keywords handled on ONE side only. GAINED 3 so far.**
+## 🎯 ## ✅ BANKED 2026-07-30 — **ESCAPE CREDITED BY WHOLE-LINE REMOVAL. GAINED 3.**
+## ⭐ AND SUSPEND REFUSED FOR A REASON THAT ONLY A MANA-COST CHECK COULD FIND.
+
+Nethergoyf · Bloodbraid Challenger · Lunar Hatchling.
+
+### THE MECHANISM
+Escape's cost is COMPOUND — *"Escape—{2}{B}, Exile two other cards from your graveyard."* — and
+`isKeywordOnly` splits clauses on commas, so no clause-level pattern can reach it. Crediting the bare
+*"exile two other cards from your graveyard"* fragment is out of the question: that is a real effect
+elsewhere. **The LINE is the only safe unit**, removed BEFORE `stripReminder` collapses the newlines,
+because that is the only point where line structure still exists.
+
+Vacuous on flashback's basis (**CR 702.138a** — a graveyard re-cast the runtime never offers). The dash is
+load-bearing and pinned: escape must be followed by its cost dash, so a line beginning *"Escape Velocity
+…"* (the CARD NAME) can never match.
+
+### ⛔ SUSPEND REFUSED — **the vacuity argument does not survive a card with no mana cost**
+Suspend looked like the identical compound-cost shape and would have paid **3 more cards**. Then the
+printed costs:
+
+| card | printed mana cost |
+|---|---|
+| Lotus Bloom · Sol Talisman · Mox Tantalite | **`""` — none at all** |
+| every escape carrier | {B} · {W} · {R} · {B} · {3}{R}{G} · {4}{G}{U} |
+
+**Suspend is the ONLY way to play those three.** Crediting the line would mark a card native that the
+engine cannot play by ANY route — a false positive, not a missing option. ⭐ *Every vacuous-keyword credit
+in this file rests on "the card is castable WITHOUT the keyword." That premise is usually so obviously true
+that it goes unchecked — and on a suspend-only card it is simply false. CHECK THE PRINTED MANA COST before
+crediting any alt-cast keyword.*
+
+### ⛔ AWAKEN dropped — my own scan lied
+Its lone "carrier" was a false match: `^awaken` matched the card NAME **"Awakened Amalgam"**. *A
+keyword-prefix regex will always collect cards whose NAME starts with that keyword; anchor on the cost, not
+the word.*
+
+### ✅ FIFTH BOUNDARY-MARKER PIN GRADUATED THIS SESSION
+`cdaCountVocabulary.test.js` listed Nethergoyf as *"a CDA with an unmodeled escape rider"*. Re-pointed to
+`native-static`; the surrounding cases still park CDAs carrying a genuinely unmodeled rider.
+
+### ⚠️ PREDICTED 6, PAID 3 — the three escape AURAS did not flip
+Sentinel's Eyes · Escape Velocity · Mogis's Favor. The AURA classifier has its own residue path that does
+not go through `isKeywordOnly`, and they are **not claimed**. That path is the next thing to look at, and
+it is the same parity question one level down.
+
+**Gates:** 6 tests, including the dash guard and the Lotus Bloom refusal. Suite **1027 files / 13,031
+green**, lint 0, MUTANT clean. Commit `4c7eb5ae`. **Batch 4: 59 cards.**
+
+---
+
+## ✅ BANKED 2026-07-30 — **THE PARITY SWEEP: 16 keywords handled on ONE side only. GAINED 3 so far.**
 
 Jwar Isle Avenger · Goblin Freerunner (surge) · Zephyrim (miracle).
 
