@@ -943,6 +943,32 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // opening guard (controller gone → false, "condition unmet"), so there is no seat check here — an added
   // one would be dead code, and its first draft documented a null return this function never makes.
   if (/^you descended this turn$/.test(c)) return (state.players[controllerId].descendedThisTurn || 0) > 0;
+  // ===== ELIDED-SUBJECT CONJUNCTION ===== "if you control an artifact and an enchantment" (Naomi, Pillar of
+  // Order; Kami of Terrible Secrets). The printed English drops the repeated subject: it means "you control
+  // an artifact AND you control an enchantment", so the second half is the bare noun "an enchantment" and is
+  // NOT a condition on its own.
+  //
+  // ⛔ THAT IS WHY THIS IS NOT A GENERIC " and " SPLITTER. Measured across the corpus: all 18 AND-shaped
+  // unparseable conditions have a half that does not read standalone, so a generic splitter is worth
+  // exactly ZERO — and it would be actively dangerous, because several conditions carry an " and " that is
+  // INTERNAL and must never be split ("your devotion to white and black is seven or greater", "you gained
+  // and lost life this turn", "three or more instant and sorcery spells"). Splitting those would evaluate
+  // nonsense halves and answer confidently.
+  //
+  // So: whole-clause anchored on the ONE shape that elides a "you control" subject, with each half rebuilt
+  // into a full condition and handed back to this same evaluator — which re-gates the noun against the
+  // curated type/subtype vocabulary (a designation like "a commander" is refused there, not here). Either
+  // half unreadable → null, never a silent false.
+  {
+    const conj = c.match(/^you control (an? [a-z]+) and (an? [a-z]+)$/);
+    if (conj) {
+      const left = evaluateSingleCondition(state, `you control ${conj[1]}`, controllerId, context);
+      if (left === null) return null;
+      const right = evaluateSingleCondition(state, `you control ${conj[2]}`, controllerId, context);
+      if (right === null) return null;
+      return left && right;
+    }
+  }
   if (/^you cast (?:it|this creature|this permanent) from your hand$/.test(c)) {
     const triggeringId = context?.triggeringPermanentId;
     if (!triggeringId) return null;
