@@ -131,6 +131,25 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## 🚀 SHIPPED 2026-07-30 — **v0.149.21 PUBLISHED AND VERIFIED BY CONTENT.**
+
+| check | result |
+|---|---|
+| `latest.json` version | **0.149.21** |
+| installer URL | resolves to a real asset **in this release** |
+| signature | **424 chars**, decodes to `untrusted comment: signature from...` |
+| installer size | **129,865,324 bytes** — not a stub |
+| release state | published; **not** draft, **not** prerelease |
+| tag ↔ tree | tag == master == the bump commit; **both** version files read 0.149.21 |
+
+Verified by CONTENT, never by filename — the standing law since the v0.149.13 incident, where a pushed tag
+rendered a release-looking page that had shipped nothing. The tag/tree check ran BEFORE the push.
+
+✅ **Carries no known defects.** The lifegain under-report that shipped in v0.149.20 was fixed on master and
+is included here.
+
+---
+
 ## 🚀 SHIPPED 2026-07-30 — **v0.149.21. 79 cards across twelve slices — and a coverage AUDIT of the whole batch.**
 
 **The referent family is the story: 67 of the 79**, across seven slices, all from one structural question
