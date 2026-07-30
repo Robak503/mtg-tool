@@ -95,8 +95,43 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🔍 NEW LEAD (2026-07-30, found chasing a phase-4 anomaly) — **SPELL-LINE COMPOSITION. 7 cards.**
-### ⚠️ CAUSE NOT ESTABLISHED. Do not call this a bug until the refusal is checked for a documented reason.
+## ⛔ LEAD DISSOLVED (2026-07-30) — **the "7-card composition bug" is 3+ unrelated narrow interactions. DO NOT BUILD.**
+
+The entry below said: *"do not call this a bug until the refusal is checked for a documented reason."* Checked.
+It is not one bug, one of its causes is an explicit refusal, and the rest are 1–2 cards each. **No vein here.**
+
+**(a) DELIBERATE, DOCUMENTED REFUSAL — Witch's Mark · Incinerating Blast.** `matchOptionalDiscardPayment`
+(`parser.js:1226`) rejects any payoff where `programNeedsChosenTarget(payoff)`, and its CREED guard list at
+:1201 states **`targetless`** outright. The reason is its PAUSE MODEL: it runs `[cost-discard, …payoff]` as one
+program through a resume cursor, and that is proven safe only for a **last-position pausing atom**. A chosen
+target is a different kind of choice, outside the proven-safe family. **CAPABILITY pin** — graduates only when
+the pause chain is proven safe for a chosen-target payoff, which is a real piece of work, not a widening.
+
+**(b) IMPULSE-EXILE SECOND LINES — Inspired Tinkering · Blazing Crescendo · Mjölnir's Might.** All three pair
+something with "Exile the top card…. Until the end of your next turn, you may play that card." Cause not
+chased (each is 1 card); presumably its own guard.
+
+**(c) TWO GENUINELY NARROW COMPOSITION GAPS, measured:**
+```
+Orcish Cannonade   "…deals 2 damage to any target and 3 damage to you."  ALONE          -> native ✅
+                   "…deals 2 damage to any target."  +  "Draw a card."                  -> native ✅
+                   the SELF-DAMAGE RIDER  +  "Draw a card."                             -> ARBITER ⛔
+Verdant Rebirth    the until-EOT quoted grant  ALONE                                     -> native ✅
+                   that  +  "Draw a card."                                               -> ARBITER ⛔
+```
+**⚠️ AND MY ORDER HYPOTHESIS WAS WRONG.** I guessed targeted-then-plain was the failing direction, since my
+earlier passing case was plain-then-targeted. Tested both ways plus same-line: **all native.** Order is not the
+variable at all — it is these two specific clause shapes refusing to compose with anything after them.
+
+**⭐ THE POINT OF THIS ENTRY IS THE NEGATIVE RESULT.** "Every line native ⇒ the card should be native" is not a
+law in this engine, and treating it as one would have sent someone building a general composition fix for
+a phantom 7-card vein that is really 2 cards of real gap behind one principled refusal and three unexamined
+singletons. The ledger's own caution — *don't call it a bug until you check* — is what saved the work.
+
+---
+
+## 🔍 THE ORIGINAL LEAD (superseded by the verdict above) — spell-line composition, 7 cards
+### ⚠️ CAUSE NOT ESTABLISHED at the time of writing.
 
 **v0.149.16 published and verified by content** (`version 0.149.16`, real installer URL, 424-char signature,
 full 5-asset chain) — 18 cards live.
