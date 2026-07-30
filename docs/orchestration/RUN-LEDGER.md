@@ -84,8 +84,14 @@ shape as every hollow gate this run has caught in the engine, except this one si
 
 **Gate:** full suite **980 files / 12,477 green** (+21, one new file), lint 0, MUTANT sweep clean.
 **Shipped as v0.149.14** — v0.149.13 was *not* re-tagged; no force operations on a published tag.
-**⚠️ NEXT SESSION: confirm v0.149.14 actually published** — `api.github.com/repos/Robak503/mtg-tool/releases/latest`
-must report `v0.149.14` with 5 assets. A pushed tag is not a release; this run learned that the expensive way.
+**✅ v0.149.14 PUBLISHED AND VERIFIED** (run `30500810492`, 28.5 min tag→publish). 5 assets, full updater chain:
+`latest.json` + `MTG-Tool-Setup.exe` + `.exe.sig` + the versioned installer + its `.sig`. Verified **by content,
+not by filename** — `releases/latest/download/latest.json` reports `version 0.149.14`, `windows-x86_64`, a URL
+pointing at the real v0.149.14 installer, and a 424-char minisign signature. Running `.exe`s will see it.
+
+**⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
+check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
+tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
 
 ---
 
