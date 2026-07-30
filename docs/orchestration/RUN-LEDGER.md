@@ -121,6 +121,50 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## ⛔ ATTEMPTED + REVERTED 2026-07-30 — **TURN-SCOPED FLASH GRANT.** Three gates deep, stopped on the fail-fast rule.
+
+Shelf item 1 (`Borne Upon a Wind`, + Complete the Circuit · Cherished Hatchling · Ride the Avalanche).
+**Nothing shipped. Batch 2 stays at 20.** What follows is the map, so the next attempt starts three obstacles
+ahead instead of rediscovering them.
+
+**THE PLAN WAS SOUND AND MOST OF IT WORKED.** Three touch points, all built and all correct in isolation:
+- `gameState.grantFlashThisTurn` + `flashGrantsThisTurn` cleared inside `resetSpellsCastAllPlayers` — one
+  reset site for per-turn player state, so a new turn cannot half-clear it.
+- `legalChoices.flashPermissionSpecsFor` reading the turn stamp alongside the battlefield statics, ONE list.
+- `staticAbilityParser.parseFlashCastFilter` **exported and reused** rather than re-implemented, so the
+  turn-scoped twin cannot drift from the static form of the identical printed words.
+
+**⛔ GATE 1 — THE α2 OPTIONAL-EFFECT PEEL EATS "You may ".** The arm anchored on the full printed wording was
+never reached, while calling `miscClauseParser` directly returned the right atom. The peel strips the prefix
+before the registered clause parsers run. Fixed by accepting `^(?:you may )?cast …`.
+
+**⛔ GATE 2 — AND THE PEEL THEN STAMPS `optional: true`, WHICH IS WRONG HERE.** "You may cast" is part of the
+PERMISSION's wording (CR 601.3e), not an optional effect to accept or decline; there is no choice on
+resolution. Shipping it would have added a meaningless yes/no prompt. Not fixable from inside the arm — the
+peel wraps the result — so it needs either a pre-peel matcher or an op-level opt-out.
+
+**⛔ GATE 3 — A CARD-LEVEL GATE, NOT LOCATED.** With the clause parsing HIGH on its own, `parseEffectProgram`
+on the two-line card still returned `low` with the **entire oracle** as `unparsedTail` — it did not even split
+the lines. So something rejects the card before clause splitting. `isCleanClause`'s `UNMODELED_MARKERS`
+contains `may`, which is suggestive but is a legacy-path gate, not this one. **Find that gate first next time**
+— it is upstream of everything else and would have invalidated the other two fixes anyway.
+
+**⭐ WHY I STOPPED RATHER THAN PUSHED A THIRD FIX.** The standing rule is two failed attempts then re-approach.
+Payoff here is 4 corpus cards and one cdh slot; cost was already a full slice with a new obstacle at each
+layer. Continuing would have meant a third speculative fix on a mechanism whose real blocker I still had not
+found — the exact shape of the "retrying the same broken approach" failure mode.
+
+**⚠️ AND NOTE WHAT THIS SAYS ABOUT THE SHELF LIST.** The shelf entry ranked this the MOST tractable cdh item
+("its only other clause already parses → flips outright"). That ranking was made from a clause-level probe,
+which cannot see card-level gates. **Treat the rest of that ranking as a lead, not a size estimate** — the
+same lesson the corpus veins taught (containment ≠ attribution), one layer up.
+
+**IF PICKED UP AGAIN, IN THIS ORDER:** (1) find the card-level gate that rejects the two-line card whole;
+(2) decide the pre-peel-vs-opt-out question for `optional`; (3) then re-apply the three touch points above,
+which were all verified individually.
+
+---
+
 ## 🎯 SHELF RE-MEASURED 2026-07-30 — **COLTON IS AT 93%. ONE DECK IS BELOW THE BAR. READ THIS BEFORE MORE CORPUS WORK.**
 
 The standing objective is **Colton's DECK SHELF at ≥90% native PER DECK**, not corpus %. That had not been
@@ -165,7 +209,10 @@ engine (the same refusal already pinned for the 7-card `{R} was spent to cast it
 without that ledger, and guessing would be a confidently-wrong native.
 
 ### RECOMMENDED ORDER FOR THE NEXT SLICES
-1. **Turn-scoped flash grant** (4 corpus cards, flips Borne Upon a Wind → cdh 84). Three touch points: a parse
+1. ~~**Turn-scoped flash grant**~~ — ⛔ **ATTEMPTED AND REVERTED 2026-07-30, see the entry below.** Three
+   gates deep (the α2 peel eats "You may "; the peel then stamps a wrong `optional: true`; and an
+   UNLOCATED card-level gate rejects the two-line card whole). The three touch points were each built and
+   verified in isolation. **Find the card-level gate FIRST.** Original note follows: a parse
    arm for the "this turn" rider, a turn-scoped stamp on the player, and `flashPermissionSpecsFor` reading the
    stamp alongside the statics.
 2. **`noncreature` flash qualifier** (2 cards; does NOT flip Floodcaller alone — see its other two blockers).
