@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.16] — 2026-07-30
+
 ### Added
 - **Role tokens work.** Cards that hand a creature a Monster, Royal, Cursed, Sorcerer or Virtuous Role now
   actually create it and attach it, and the creature gets what the Role gives it. Seven cards play properly as
