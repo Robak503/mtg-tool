@@ -54,11 +54,20 @@ describe("parser — mass effects are HIGH, filtered wipes route to Arbiter", ()
     expect(parseEffectProgram(EXILE_ALL).atoms).toEqual([{ op: "exile", targetType: "eachCreature" }]);
     expect(parseEffectProgram(INFEST).atoms).toEqual([{ op: "pump", targetType: "eachCreature", ptDelta: { p: -2, t: -2 } }]);
   });
-  it("a FILTERED wipe is low (the unfiltered eachX scope would hit the wrong set)", () => {
-    const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle }))).toBe("low");
-    low("Destroy all creatures with flying.");
-    low("Destroy all nonblack creatures.");
-    low("Exile all creatures you don't control.");
+  it("a CREATURE wipe with a MODELED filter now parses (2026-07-30); a NON-CREATURE filtered wipe still parks", () => {
+    // ⭐ THIS PIN'S OWN PARENTHESIS WAS THE CRITERION: "the unfiltered eachX scope would hit the wrong set".
+    // That was exactly right, and it is why the fix had to be a real one rather than a strip — the scope is
+    // FILTERED now. massCreatureTargets reads the same 16-kind restriction grammar the damage side has always
+    // used (the satisfier was extracted to a leaf so this path could reach it), so the resolved set is the
+    // printed set. 19 cards graduated, incl. Plague Wind, Cleanse, Perish, Whirlwind, Sunblast Angel.
+    const high = (oracle) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle })), oracle).toBe("high");
+    high("Destroy all creatures with flying.");
+    high("Destroy all nonblack creatures.");
+    high("Exile all creatures you don't control.");
+    const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle })), oracle).toBe("low");
+    // ⛔ THE BOUNDARY, RE-POINTED — the delegation is CREATURE-only. A filtered ARTIFACT/LAND wipe has no
+    // equivalent grammar behind it (eachArtifact ≠ this subset), so those still park, exactly as the original
+    // parenthesis demanded. That half of the pin is untouched.
     // MASS-NC: the UNFILTERED non-creature wipes ("Destroy all artifacts/enchantments/lands") are now
     // modeled (high) — but a FILTERED non-creature wipe still drops to low (eachArtifact ≠ this subset).
     low("Destroy all nonbasic lands.");
@@ -72,7 +81,10 @@ describe("coverage — clean wipes are native-spell", () => {
     expect(classifyCard(WRATH)).toBe("native-spell");
     expect(classifyCard(EXILE_ALL)).toBe("native-spell");
     expect(classifyCard(INFEST)).toBe("native-spell");
-    expect(classifyCard({ type: SORCERY, oracle: "Destroy all creatures with flying.", name: "X" })).toBe("arbiter-spell");
+    // ⭐ GRADUATED with its parser sibling above — a modeled creature filter now resolves the printed set.
+    expect(classifyCard({ type: SORCERY, oracle: "Destroy all creatures with flying.", name: "X" })).toBe("native-spell");
+    // ⛔ and the boundary that still holds: a filtered NON-creature wipe.
+    expect(classifyCard({ type: SORCERY, oracle: "Destroy all artifacts you control.", name: "Y" })).toBe("arbiter-spell");
   });
 });
 

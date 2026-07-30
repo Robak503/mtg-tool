@@ -240,9 +240,17 @@ describe("PW-1 FN guards — rider variants stay LOW (safe false-negatives)", ()
     // include the SAME strict-"greater than" refusal kept below. It was a scope marker for what the POWER
     // slice didn't build, not a safety pin — the same graduation gyExile.test.js records for Scarab Feast.)
     for (const c of [
-      "Destroy all creatures with power greater than 4.", // strict — not the "N or greater" shape
-      "Destroy all creatures with toughness 4 or greater.", // toughness, still unmodeled — a real refusal
-    ]) expect(programConfidence(parseEffectClause(c, "Instant"))).toBe("low");
+      "Destroy all creatures with power greater than 4.",     // strict — not the "N or greater" shape
+      "Destroy all creatures with toughness greater than 2.",  // strict on the toughness axis too
+    ]) expect(programConfidence(parseEffectClause(c, "Instant")), c).toBe("low");
+    // ⭐ THE TOUGHNESS BOUND GRADUATED 2026-07-30, and the two halves of this pin were never the same claim.
+    // Its note said "toughness, still unmodeled — a real refusal": true when written, and it was a CAPABILITY
+    // statement, not a rules objection. The shared restriction grammar has always carried a layer-aware
+    // `toughness` restriction on the SAME "N or greater/less" anchor; mass removal simply could not reach it
+    // until massCreatureTargets began reading that grammar. STRICT "greater than" is the real refusal and it
+    // is untouched above — "power greater than 4" is not "power 4 or greater", and treating them as one would
+    // destroy a 4-power creature the card spares.
+    expect(programConfidence(parseEffectClause("Destroy all creatures with toughness 4 or greater.", "Instant"))).toBe("high");
   });
 });
 

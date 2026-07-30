@@ -917,9 +917,15 @@ const MUST_DROP_TO_LOW = [
   "Destroy target legendary creature.",                         // unmodeled "legendary" supertype → MUST drop
   // FILTERED board wipes — `eachCreature` would wrongly hit the UNFILTERED set, so the exact
   // "all creatures" anchor must reject any qualifier (color/type/keyword/controller).
-  "Destroy all creatures with flying.",                         // keyword filter → not all creatures
-  "Destroy all nonblack creatures.",                            // color filter
-  "Exile all creatures you don't control.",                     // controller filter
+  // ⚠️ RE-POINTED 2026-07-30. These three held the CREATURE-filter forms, annotated "keyword filter → not all
+  // creatures" / "color filter" / "controller filter". Every one of those annotations is a description of a
+  // MISSING CAPABILITY, and the capability landed: massCreatureTargets now reads the same 16-kind restriction
+  // grammar the damage side has always used, so the resolved set IS the printed set (19 cards, incl. Plague
+  // Wind, Cleanse, Perish, Whirlwind). Their positive pins live in massRemovalFilterDelegation.test.js.
+  // The slot is re-pointed to filters that are genuinely still unreachable, so this gate keeps its teeth:
+  "Destroy all creatures that dealt damage to you this turn.",  // an EVENT-history filter — no such reader
+  "Destroy all creatures with power greater than 4.",           // STRICT "greater than" ≠ "4 or greater"
+  "Destroy all artifacts you control.",                         // a filtered NON-creature wipe (eachArtifact ≠ this subset)
   "Destroy all nonbasic lands.",                                // MASS-NC: unfiltered NC wipes are modeled now; a FILTERED one stays low
   "All creatures get -1/-1 until end of turn and can't block.", // pump rider (can't block) — keyword effect dropped
   // Combat-trick keyword grants must drop when the granted keyword isn't enforced (a fake

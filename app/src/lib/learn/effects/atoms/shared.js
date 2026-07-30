@@ -9,6 +9,7 @@
 import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
 import { MASS_WIPE_SCOPES } from "../../targetTypes.js"; // leaf module (pure strings) — no cycle; feeds the atomTargets drift guard below
 import { permanentIsCreature } from "../../layers.js"; // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import)
+import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the SHARED 16-kind restriction satisfier (leaf: gameState + layers + keywords only — every one of those edges already exists above, so no cycle)
 import { evaluateInterveningIf } from "../../interveningIf.js"; // INSTEAD-AMOUNT (BLITZ INST-1) — the shared board-condition readers for a condition-gated amountUpgrade; interveningIf → gameState is a leaf edge (gameState imports neither shared.js nor interveningIf), so no cycle
 
 export const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
@@ -90,6 +91,17 @@ export function massCreatureTargets(state, opts = {}) {
         const mv = perm.card?.cmc ?? 0;
         if (opts.mvCmp === ">=" ? mv < opts.mvVal : mv > opts.mvVal) continue;
       }
+      // ⭐ THE SHARED 16-KIND GRAMMAR (2026-07-30) — the bespoke gates above stay exactly as they were, and
+      // this runs AFTER them, so every incumbent wipe is byte-identical (an atom with no `restrictions` passes
+      // an empty array, and the satisfier over [] is true). What it adds is everything the destroy/exile/bounce
+      // verbs could never say while the damage verb could: colour, colorNeg, typeNeg, cardType, tapped,
+      // combat state, toughness, enteredThisTurn — all already implemented, just unreachable from here.
+      //
+      // opts.casterId is the ability's controller (needed by the controller/defendingPlayer/damagedPlayer
+      // restrictions). When it is absent the satisfier still runs, and a controller-scoped restriction simply
+      // cannot be satisfied — an under-inclusive sweep, which is the safe direction.
+      if (opts.restrictions?.length
+          && !creatureSatisfiesRestrictions(state, perm, pid, opts.casterId, opts.restrictions, opts.ctx || null)) continue;
       out.push({ type: "creature", id: perm.id, controller: pid });
     }
   }
@@ -238,7 +250,9 @@ for (const tt of MASS_WIPE_SCOPES) {
 export const atomTargets = (state, atom, ctx) => {
   // CRUX — a subtype-filtered mass set ("destroy all Dragon creatures" / "all non-Dragon creatures"). The bare
   // "destroy all creatures" wipe carries no subtypeFilter, so it passes EVERY creature (unchanged byte-for-byte).
-  if (atom.targetType === "eachCreature") return massCreatureTargets(state, { subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate, powerCmp: atom.powerCmp, powerVal: atom.powerVal, mvCmp: atom.mvCmp, mvVal: atom.mvVal });
+  // `restrictions` is the SHARED grammar (2026-07-30) — the same array the damage side has always carried,
+  // now readable here too, so a destroy/exile/bounce can say every filter a burn spell could.
+  if (atom.targetType === "eachCreature") return massCreatureTargets(state, { subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate, powerCmp: atom.powerCmp, powerVal: atom.powerVal, mvCmp: atom.mvCmp, mvVal: atom.mvVal, restrictions: atom.restrictions, casterId: ctx?.controller, ctx });
   if (atom.targetType === "eachArtifact") return massPermanentTargets(state, isArtifactCard);
   if (atom.targetType === "eachEnchantment") return massPermanentTargets(state, isEnchantmentCard);
   if (atom.targetType === "eachLand") return massPermanentTargets(state, atom.landSubtype

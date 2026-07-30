@@ -9,6 +9,11 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Board wipes that only hit some creatures now work.** Nineteen cards, including Plague Wind, Cleanse,
+  Perish, Whirlwind, Sunblast Angel, Extinguish All Hope, Mass Calcify and Planar Outburst. "Destroy all
+  creatures you don't control", "destroy all black creatures", "destroy all tapped creatures" and
+  "destroy all creatures with flying" now destroy exactly what the card says — previously only
+  unfiltered wipes and a few specific filters were understood.
 - **One-sided sweeps now work.** Goblin Chainwhirler, End the Festivities, Tectonic Hazard and Wildfire
   Cerberus hit each opponent and everything they control — and correctly leave you and your board alone.
 - **Board wipes that also hit planeswalkers now work.** Star of Extinction, Storm's Wrath, Magmaquake and

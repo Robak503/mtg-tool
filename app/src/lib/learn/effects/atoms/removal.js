@@ -774,6 +774,37 @@ export function destroyExileClauseParser(clause) {
   // staple sat on the Arbiter. Exact `$` anchor: a rider or "greater than" (strict) fails → low (CREED).
   const mmv = t.match(/^destroy all creatures with mana value (\d+) or (greater|less)$/);
   if (mmv) return { op: "destroy", targetType: "eachCreature", mvCmp: mmv[2] === "greater" ? ">=" : "<=", mvVal: parseInt(mmv[1], 10) };
+
+  // ⭐ THE GENERAL ARM — delegate the recipient phrase to the SHARED restriction grammar, exactly as the
+  // mass-DAMAGE arm does. Placed LAST so every exact matcher above stays byte-identical (the ordering rule).
+  //
+  // THE AXIS THIS CLOSES. The matchers above hand-roll four filters onto bespoke atom fields — subtypeFilter
+  // (+negate), powerCmp, mvCmp, landSubtype — while `creatureSatisfiesRestrictions` has sixteen kinds, and the
+  // damage verb has been able to say all of them since the recipient delegation. Same printed filter, sayable
+  // to one verb and not its neighbour. Now `massCreatureTargets` reads that grammar too (the satisfier was
+  // extracted to a leaf so this file's target enumerator could reach it), so a destroy/exile/bounce can say
+  // "all tapped creatures", "all nonartifact creatures", "all green creatures", "all attacking creatures".
+  //
+  // ⛔ "ALL" IS PEELED AND THE NOUN IS SINGULARIZED HERE, NOT DELEGATED — two separate reasons, both measured.
+  // (a) parseCreatureTargetRestrictions' filler list contains "each" but NOT "all", so "all" would survive as
+  //     residue and refuse every card in the vein.
+  // (b) The mass-DESTROY forms are PLURAL ("destroy all creatureS") while that grammar's entry gate is
+  //     `\bcreature\b`, which does not match "creatures". Left plural, the probe returned
+  //     `{restrictions: [], clean: true}` for every card — clean because nothing was examined, which is the
+  //     quietest possible failure and looked exactly like "no filters found". Caught only because the first
+  //     run refused all six known carriers instead of the expected zero.
+  //
+  // ⛔ `clean` IS THE CREED GATE, same as on the damage side: any unmodeled qualifier survives the strip and
+  // the whole clause parks rather than wiping the wrong set — and a wrong mass DESTROY is unrecoverable in a
+  // way a wrong mass damage often is not.
+  const gen = t.match(/^(destroy|exile) all (.+)$/);
+  if (gen && /\bcreature/.test(gen[2])) {
+    const phrase = gen[2].replace(/^all /, "").replace(/\bcreatures\b/, "creature");
+    const { restrictions, clean } = parseCreatureTargetRestrictions({ oracle: `~ deals 1 damage to each ${phrase}` });
+    if (clean && restrictions.length) {
+      return { op: gen[1] === "destroy" ? "destroy" : "exile", targetType: "eachCreature", restrictions };
+    }
+  }
   return null;
 }
 

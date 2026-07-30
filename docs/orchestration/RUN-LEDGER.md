@@ -11,8 +11,8 @@
 > per slice. **Only the TAG batches.** A tag makes an update banner appear in every running `.exe`, and one
 > banner per +21 is noise.
 >
-> - **BATCH IN FLIGHT: 62 cards banked since v0.149.18** (condition-filter vocabulary +13, per-turn ledger
->   readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13, one-sided opponent sweep +4). Update this number at
+> - **BATCH IN FLIGHT: 81 cards banked since v0.149.18** (condition-filter vocabulary +13, per-turn ledger
+>   readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13, one-sided opponent sweep +4, mass-removal filter delegation +19). Update this number at
 >   every slice boundary so a fresh session knows how much is unreleased.
 > - Write CHANGELOG entries under `## [Unreleased]` per slice; promote the whole block and bump both version
 >   files (`app/package.json` + `app/src-tauri/tauri.conf.json`) only at TAG time.
@@ -108,6 +108,53 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## 🏦 BANKED (unreleased) 2026-07-30 — **MASS-REMOVAL FILTER DELEGATION. GAINED 19, LOST 0.** (predicted 17)
+
+Aligned Hedron Network · Citywide Bust · **Cleanse** · Crystalline Entity · Extinguish All Hope ·
+Guan Yu's 1,000-Li March · Mass Calcify · Nature's Ruin · Organic Extinction · **Perish** · **Plague Wind** ·
+Planar Outburst · Realm-Cloaked Giant // Cast Off · Split Up · **Sunblast Angel** · Their Name Is Death ·
+Vault 75: Middle School · Virtue's Ruin · **Whirlwind**.
+
+**⭐ THE AXIS, ONE LAYER UP FROM A VOCABULARY.** Two subsystems filtered creature SETS and had drifted: the
+damage side carried a 16-kind `restrictions` array evaluated by `creatureSatisfiesRestrictions`, while mass
+destroy/exile/bounce hand-rolled a parallel, narrower one on bespoke atom fields (`subtypeFilter`/
+`subtypeNegate`, `powerCmp`, `mvCmp`, `landSubtype`) inside `massCreatureTargets`. Same printed filter,
+sayable to one verb and not its neighbour — but this time the asymmetry was between two IMPLEMENTATIONS, not
+two regexes.
+
+**THE EXTRACTION.** It could not simply be imported: `effects/atoms/shared.js` is a STRICT LEAF and
+`spellEffects.js` is not. So the satisfier moved to its own leaf, **`creatureRestrictions.js`**, which both
+sides import. Its only edges are gameState + layers + keywords — every one of which `atoms/shared.js` already
+had — so the move adds no cycle in either direction. **The body was copied VERBATIM by script, never retyped**,
+so the move alone cannot change behaviour; the damage-side suites passing unchanged is the witness.
+
+**⛔ TWO PEELS AT THE CALL SITE, AND THE SECOND ONE FAILED SILENTLY.**
+- `all` — the grammar's filler list has `each` but not `all`, so it would survive as residue.
+- **THE PLURAL NOUN.** Mass removal says "destroy all creature**s**" while the grammar's entry gate is
+  `\bcreature\b`, which does not match "creatures". Left plural, the probe returned
+  `{restrictions: [], clean: true}` for **every** card — *clean because nothing was ever examined*. That is
+  the quietest failure shape there is: indistinguishable from "this card has no filters". It was caught only
+  because the first run refused all six known carriers instead of the expected zero — i.e. by having a
+  predicted set to check against, not by any assertion.
+
+**Four pins moved across three files, every one CAPABILITY language:**
+| pin | verdict |
+|---|---|
+| `mass` "a FILTERED wipe is low **(the unfiltered eachX scope would hit the wrong set)**" | The parenthesis WAS the criterion, and it is why the fix had to be real rather than a strip — the scope is filtered now. Graduated; boundary re-pointed to filtered NON-creature wipes, which have no equivalent grammar |
+| `mass` coverage "filtered → arbiter-spell" | Graduated with its parser sibling, plus a re-pointed negative |
+| `planeswalkerLoyaltyCompletion` "rejects strict 'greater than' **and a toughness bound**" | ⭐ Two halves, never the same claim. The toughness note said "still unmodeled — a real refusal": true when written, capability language. The shared grammar has always had a layer-aware `toughness` on the SAME "N or greater/less" anchor. **STRICT "greater than" is the real refusal and is untouched** — "power greater than 4" is not "power 4 or greater", and conflating them destroys a 4-power creature the card spares |
+| `parser` MUST_DROP_TO_LOW ×3 (keyword / colour / controller filters) | All three annotations described a missing capability. Graduated; the slots re-pointed to an EVENT-history filter, the strict bound, and a filtered non-creature wipe |
+
+**Gates:** 19 new tests; **all three mutations seen to fail** — dropping the `restrictions` pass-through in
+`atomTargets` (2 tests: without it Cleanse becomes Wrath of God), dropping the plural peel (**11 tests**),
+dropping the `clean` gate (3). Reverts confirmed by `git diff`. Flip-diff **GAINED 19 / LOST 0**.
+Suite **994 files / 12,672 green**, lint 0 unpiped, MUTANT clean, module graph loads (checked at each step of
+the extraction, not just at the end).
+
+**BATCH NOW 81 CARDS** since v0.149.18 — approaching the ~100 tag threshold.
 
 ---
 
