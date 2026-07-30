@@ -103,6 +103,38 @@ describe("⛔ THE ROUTING PIN — the permanent must still ENTER THE BATTLEFIELD
   });
 });
 
+describe("⛔⛔ THE UNVETTED-COST GUARD — we cannot pay what we cannot model, so we must not cast it", () => {
+  const GRENADE = { name: "Goblin Grenade", type: "Sorcery", mana: "{R}",
+    oracle: "As an additional cost to cast this spell, sacrifice a Goblin.\nGoblin Grenade deals 5 damage to any target." };
+  const SURGE = { name: "Voltage Surge", type: "Instant", mana: "{R}",
+    oracle: "As an additional cost to cast this spell, you may sacrifice an artifact.\nVoltage Surge deals 2 damage to target creature or planeswalker. If this spell's additional cost was paid, Voltage Surge deals 4 damage instead." };
+
+  it("a MANDATORY cost the parser cannot vet → the spell is NOT OFFERED (it used to cast for free)", () => {
+    // "sacrifice a Goblin" is a creature-SUBTYPE sacrifice; the vetted vocabulary covers card types only.
+    // 151 corpus cards are in this class (Fire Covenant, Firestorm, Deprive, "waterbend {5}", "behold a
+    // Goblin and exile it") and every one of them was being cast without paying anything.
+    expect(castsOf(board({ fodder: 1 }, GRENADE), "Goblin Grenade")).toHaveLength(0);
+  });
+
+  it("⭐ an OPTIONAL cost is still offered — declining it is legal, and casting at full price is correct", () => {
+    // CR 601.2b. 53 corpus cards say "you may" (casualty, Silumgar's Scorn, "sacrifice any number of").
+    // Suppressing these would be an invented restriction, not a fix. This is the guard's positive control.
+    const s = board({ fodder: 1 }, SURGE);
+    expect(castsOf(s, "Voltage Surge").length).toBeGreaterThan(0);
+  });
+
+  it("⛔ the guard reads REMINDER-STRIPPED text — a parenthetical mention must not make a card uncastable", () => {
+    const c = { name: "Reminder Only", type: "Creature — Human", mana: "{1}{R}", power: "2", toughness: "2",
+      oracle: "Haste (As an additional cost to cast this spell, do a thing.)" };
+    expect(castsOf(board({ fodder: 1 }, c), "Reminder Only").length).toBeGreaterThan(0);
+  });
+
+  it("a card with NO additional cost at all is untouched", () => {
+    const c = { name: "Plain Beast", type: "Creature — Beast", mana: "{1}{R}", power: "3", toughness: "3", oracle: "Trample" };
+    expect(castsOf(board({ fodder: 1 }, c), "Plain Beast").length).toBeGreaterThan(0);
+  });
+});
+
 describe("the metric credits exactly what the runtime charges", () => {
   it("vetted-cost carriers flip", () => {
     expect(classifyCard(DEMON)).toBe("native-body");

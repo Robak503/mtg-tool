@@ -107,6 +107,30 @@ function permanentAdditionalCosts(card) {
   return extractAdditionalCosts(String(card?.oracle ?? card?.oracle_text ?? "")).costs || null;
 }
 
+/**
+ * ⛔ THE UNVETTED-COST GUARD (CR 601.2f) — a MANDATORY additional cost the parser cannot model.
+ *
+ * We cannot pay what we cannot model, so we must not cast it. Offering it anyway is what the engine did:
+ * 151 corpus cards (Goblin Grenade, Fire Covenant, Firestorm, Deprive, "waterbend {5}", "behold a Goblin
+ * and exile it") were cast WITHOUT paying their cost — cheaper than printed, the cardinal false positive.
+ * Suppressing the offer is a false NEGATIVE: a dead card in hand. Safe direction, and the honest one until
+ * the cost kind is vetted. Measured before shipping: only THREE cards on Colton's + Joe's 16 real decks are
+ * affected (Abhorrent Oculus, Savage Order, Thunderherd Migration), so the playability price is ~nil.
+ *
+ * ⛔ "YOU MAY" IS NOT THIS. An OPTIONAL additional cost (CR 601.2b — casualty, "you may sacrifice any
+ * number of creatures", Silumgar's Scorn) is legal to DECLINE: casting at the full printed price is then
+ * correct, an under-offer at worst. 53 corpus cards are in that class and this guard must never touch them.
+ * ⛔ READ REMINDER-STRIPPED TEXT. The phrase appears in the reminder text of several keywords on cards that
+ * print no such cost; testing the raw oracle would make 16 permanents uncastable for a cost they don't have.
+ */
+function hasUnvettedMandatoryAdditionalCost(card) {
+  const oracle = String(card?.oracle ?? card?.oracle_text ?? "").replace(/\([^)]*\)/g, " ");
+  const m = /as an additional cost to cast this spell,\s*([^.]+)\./i.exec(oracle);
+  if (!m) return false;
+  if (/^you may\b/i.test(m[1].trim())) return false;              // optional — declining is legal
+  return true;
+}
+
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
 const SINGLE_COLORS = new Set(["W", "U", "B", "R", "G"]);
@@ -1043,6 +1067,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // AC-PERMANENT: a permanent spell carries its vetted cost BESIDE the (null) program — see the helper.
     const permAddCosts = program ? null : permanentAdditionalCosts(card);
     const addCost0 = (program?.additionalCosts || permAddCosts || [])[0] || null;
+    // ⛔ No vetted cost, but the card PRINTS a mandatory one → do not offer the cast at all. See the helper:
+    // casting it is casting cheaper than printed. This must sit BEFORE every remaining cast branch.
+    if (!addCost0 && hasUnvettedMandatoryAdditionalCost(card)) continue;
     if (addCost0) {
       // A permanent has no effect atoms to enumerate, so it has exactly ONE (empty) target combo. Asking
       // expandCastChoices for it would return [] (it early-returns on a null program) and the `continue`

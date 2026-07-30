@@ -471,6 +471,57 @@ self-exile matters and was dropped from my own summary. Read the printed line, n
 
 ---
 
+## 🚨 BANKED 2026-07-30 — **THE UNVETTED-COST GUARD: 151 spells stop being cast for free. NO tier gain, and that is fine.**
+## ⚠️ I ALSO CORRECTED THE "235" I HAD BANKED **AND PUSHED** ONE COMMIT EARLIER. The honest number is 151.
+
+Zero cards flip. This slice **removes** capability on purpose — the CREED's direction of travel: a card that
+sits dead in hand is a false negative (SAFE); a card cast without paying its cost is a false positive
+(FORBIDDEN). Goblin Grenade, Fire Covenant, Firestorm, Deprive, Soulblast, every "waterbend {N}" — all of
+them were being cast for their bare mana cost.
+
+### ⚠️⚠️ THE CORRECTION, AND IT IS THE MOST IMPORTANT LINE HERE
+The AC-PERMANENT entry (and its commit message, already pushed) says **"235 more are still cast for free."**
+**That is wrong.** Splitting the remainder properly:
+* **151 MANDATORY and uncharged** — genuine free casts. Fixed here.
+* **53 OPTIONAL** ("As an additional cost … **you may** sacrifice …", casualty, Silumgar's Scorn) — CR 601.2b
+  makes declining LEGAL, so casting at the full printed price is CORRECT. **Not a bug. Never was.**
+* the rest were reminder-text matches carrying no real cost.
+⭐ *I wrote "235 free casts" without asking whether "you may" changes the answer — and it changes it for a
+fifth of the set. The check that caught it was writing the remedy: suppressing a cost you are ALLOWED to
+decline would have invented a restriction the cards do not print. **The build design audited the finding, not
+the other way round.** The commit is public and stays; the correction lives here.*
+
+### THE RULE
+`hasUnvettedMandatoryAdditionalCost` — the card prints an additional cost, the phrase does NOT start with
+"you may", and no vetted cost came back → **do not offer the cast at all**. Placed before every remaining cast
+branch. Reads REMINDER-STRIPPED text (the phrase lives in several keywords' reminder text on cards that print
+no such cost — testing the raw oracle would make 16 permanents uncastable for a cost they don't have).
+
+### ⭐ THE PLAYABILITY PRICE WAS MEASURED BEFORE SHIPPING, NOT ASSUMED
+151 cards uncastable sounds severe, so I measured the SHELF: **3 cards across Colton's + Joe's 16 real decks**
+(Abhorrent Oculus, Savage Order, Thunderherd Migration). Mainboard-filtered — the sideboard trap from earlier
+this run. *A number this cheap turns an agonising trade-off into an obvious call; without it I would have been
+guessing about the thing that actually matters.*
+
+**Mutation-checked: both pre-specified, both seen to fail** — M4 guard removed (the free cast returns) ·
+M5 guard fires on OPTIONAL costs too (Voltage Surge, the positive control, goes uncastable).
+⚠️ M5's first application **silently did not match** (shell escaping ate the `\b`) and the suite came back
+green — which would have read as "mutation survived → gate is hollow" OR been miscounted as a pass. Re-applied
+from a FILE with an assert on the match count. *A mutation that fails to apply looks exactly like a test
+suite that is fine. Always assert the patch landed.*
+
+**Gates:** no tier movement by design. 13 tests in the AC-PERMANENT file (4 new for the guard). Suite
+**1044 files / 13,221 green**, lint 0, MUTANT clean. **Batch: 38 cards** (unchanged — this slice gains none).
+
+### ➡️ THE FOLLOW-ON IS OBVIOUS AND WELL-SHAPED
+Every cost kind vetted from here converts cards OUT of the dead-in-hand set and INTO charged casts, tier gain
+included. Ranked by corpus frequency: `sacrifice a <SUBTYPE>` (Goblin Grenade) · `pay X life` (Fire Covenant)
+· `discard X cards` (Firestorm) · `return a <permanent> you control to its owner's hand` (Deprive) · `tap N
+untapped <type>s you control` · `exile X cards from your graveyard`. **`payMana` (Phase B, 5 cards) is now
+LOWER value than any of these** — it was sized before this vein was known.
+
+---
+
 ## 🚨 BANKED 2026-07-30 — **AC-PERMANENT: 16 spells were being CAST FOR FREE. This is a BUG FIX, not a feature.**
 ## ⚠️ AND 235 MORE STILL ARE — measured, listed, NOT fixed. Read the scope line before claiming this vein.
 

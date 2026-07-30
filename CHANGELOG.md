@@ -11,6 +11,9 @@ summarizes the notable changes.
 ### Added
 - **Tamiyo's Safekeeping works.** Targeting one of your own artifacts, enchantments or lands really does
   give it hexproof and indestructible for the turn — it now survives a Disenchant or a wrath.
+- **Spells whose extra cost the engine cannot model are no longer castable for free.** Goblin Grenade,
+  Fire Covenant, Firestorm and ~150 others were being cast without paying their additional cost at all.
+  They now sit in hand until the engine learns that cost. Costs you *may* decline are unaffected.
 - **Creatures with "as an additional cost, sacrifice a creature" no longer cast for free.** Demon of
   Catastrophes, Makeshift Mauler, Stitched Drake and 12 more were being cast without paying their
   additional cost at all. They now charge it, and are not offered when you have no way to pay.
