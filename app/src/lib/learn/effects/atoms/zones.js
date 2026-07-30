@@ -7,7 +7,7 @@ import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recor
 import { impositionEntersTapped } from "../../staticAbilityParser.js"; // KM-1 (CR 614.1c) — Kismet taxes non-cast entries too (leaf-safe: staticAbilityParser imports only keywords.js)
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
-import { parseGraveyardFilter } from "../../spellEffects.js"; // seam batch 16: graveyard card-type filter (leaf-safe, same as stack.js's spellEffects import) for graveyardReturnClauseParser
+import { parseGraveyardFilter, parseCreatureTargetRestrictions } from "../../spellEffects.js"; // seam batch 16: graveyard card-type filter (leaf-safe, same as stack.js's spellEffects import) for graveyardReturnClauseParser
 import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // MULTI-COUNT: number-word → int for "up to N target … cards"; parseCountSource: MASS-OPPONENT-BOUNCE toughness-threshold count (leaf, cycle-free)
 import { shuffleControllerLibrary } from "./library.js"; // GS-1 — the deterministic rngSeed shuffle (works for any player id); library.js never imports zones.js → cycle-free sibling edge
 
@@ -761,6 +761,22 @@ export function bounceClauseParser(clause) {
   if (me) {
     const subs = parseExceptSubtypes(me[1]);
     if (subs) return { op: "bounce", targetType: "eachCreature", subtypeFilter: subs, subtypeNegate: true };
+  }
+  // ⭐ FILTERED MASS BOUNCE, delegated — the third verb onto the shared 16-kind restriction grammar, after
+  // damage and destroy/exile. Inundate ("all nonblue creatures"), Aetherize ("all attacking creatures"),
+  // Part the Veil ("all creatures you control"). Placed AFTER the two exact matchers so both stay
+  // byte-identical, and it peels "all" + singularizes for the same two reasons the removal arm documents —
+  // the grammar's filler list has "each" but not "all", and its entry gate is `\bcreature\b`, which a plural
+  // noun silently fails in a way that looks exactly like "this card has no filters".
+  // ⚠️ BOTH POSSESSIVE FORMS. The bundled oracle prints the FILTERED mass bounces with the SINGULAR
+  // "to their owner's hand" (Aetherize, Part the Veil) while the bare wipe above uses the plural
+  // "their owners' hands". Anchoring on the plural alone measured ONE flip against a prediction of three,
+  // and the two misses turned out to differ from the anchor by an apostrophe — not by a mechanism.
+  const bf = t.match(/^return all (.+?) to (?:their owners' hands|their owner's hand|its owner's hand)$/);
+  if (bf && /\bcreature/.test(bf[1])) {
+    const phrase = bf[1].replace(/^all /, "").replace(/\bcreatures\b/, "creature");
+    const { restrictions, clean } = parseCreatureTargetRestrictions({ oracle: `~ deals 1 damage to each ${phrase}` });
+    if (clean && restrictions.length) return { op: "bounce", targetType: "eachCreature", restrictions };
   }
   // MASS-OPPONENT-BOUNCE (Scourge of Fleets) — "return each creature your opponents control[ with toughness X or
   // less] to its owner's hand[, where X is <board count>]". A NON-targeted mass bounce scoped to the OPPONENTS'

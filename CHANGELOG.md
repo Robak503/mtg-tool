@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Mass bounce with a filter now works.** Aetherize, Inundate and Part the Veil return exactly the
+  creatures the card names — all attacking creatures, all nonblue creatures, all creatures you control.
 - **Board wipes that only hit some creatures now work.** Nineteen cards, including Plague Wind, Cleanse,
   Perish, Whirlwind, Sunblast Angel, Extinguish All Hope, Mass Calcify and Planar Outburst. "Destroy all
   creatures you don't control", "destroy all black creatures", "destroy all tapped creatures" and

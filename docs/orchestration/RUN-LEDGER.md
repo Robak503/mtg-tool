@@ -11,8 +11,8 @@
 > per slice. **Only the TAG batches.** A tag makes an update banner appear in every running `.exe`, and one
 > banner per +21 is noise.
 >
-> - **BATCH IN FLIGHT: 81 cards banked since v0.149.18** (condition-filter vocabulary +13, per-turn ledger
->   readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13, one-sided opponent sweep +4, mass-removal filter delegation +19). Update this number at
+> - **BATCH IN FLIGHT: 84 cards banked since v0.149.18** (condition-filter vocabulary +13, per-turn ledger
+>   readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13, one-sided opponent sweep +4, mass-removal filter delegation +19, mass-bounce delegation +3). Update this number at
 >   every slice boundary so a fresh session knows how much is unreleased.
 > - Write CHANGELOG entries under `## [Unreleased]` per slice; promote the whole block and bump both version
 >   files (`app/package.json` + `app/src-tauri/tauri.conf.json`) only at TAG time.
@@ -108,6 +108,51 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## 🏦 BANKED (unreleased) 2026-07-30 — **MASS BOUNCE JOINS THE SHARED GRAMMAR. GAINED 3, LOST 0.**
+### (predicted 6 · the mass-PUMP half shipped 0 and was REVERTED)
+
+Aetherize · Inundate · Part the Veil.
+
+Third verb onto the 16-kind restriction grammar, after damage and destroy/exile. The mechanics are the same
+as the removal delegation — peel "all", singularize the noun, probe, refuse on residue — so the slice is
+mostly interesting for the two things it got wrong first, both of which only surfaced because the prediction
+was written down.
+
+**⚠️⭐ 1 · AN APOSTROPHE, NOT A MECHANISM.** The first build anchored on the plural `to their ownerS' handS`,
+copying the bare wipe above it, and measured **1 flip against a prediction of 3**. Auditing the two misses
+showed the bundle prints the FILTERED bounces with the SINGULAR `to their owner's hand` (Aetherize, Part the
+Veil). Nothing structural was blocking them — they differed from the anchor by **one character**. Both forms
+are accepted now, and a mutation back to plural-only fails 4 tests. **A prediction that comes in low is a
+lead, not a rounding error** — the same discipline that caught the two EXTRA cards in the mass-damage slice
+caught two missing ones here, in the opposite direction.
+
+**⛔⭐ 2 · THE MASS-PUMP HALF SHIPPED ZERO AND WAS REVERTED.** The identical delegation was written for
+`all <filtered> creatures get +N/+N`, and three corpus filters read cleanly — Noxious Ghoul (non-Zombie),
+Tidal Influence (blue), Tori D'Avenant (other attacking you control). It gained **0 cards**: every one sits on
+a card blocked elsewhere (Ghoul's trigger SUBJECT "this creature or another Zombie"; Tidal Influence's
+counter-gated static; Tori's three unmodeled clauses). Per the standing rule a 0-flip widening does not enter
+the baseline, so it was reverted rather than kept as "already done". **Reading a filter is not flipping a
+card** — the probe measured the former and I had let it stand for the latter.
+
+⛔ Worth noting for the pump case specifically: it is the one verb where a wrong filter cuts BOTH ways. A
+too-wide destroy kills extra creatures; a too-wide `-N/-N` does the same; but a too-wide `+N/+N` hands the
+OPPONENT a team pump. If it is ever built, the `clean` gate matters at least as much as it does on removal.
+
+**Gates:** 8 new tests; **all three mutations seen to fail** — plural-only anchor (4), dropping the
+singularize peel (4), dropping the `clean` gate (1). Reverts confirmed by `git diff`; `combat.js` reverted to
+pristine and confirmed with an EMPTY diff. Flip-diff **GAINED 3 / LOST 0**. Suite **995 files / 12,680 green**,
+lint 0 unpiped, MUTANT clean, module graph loads.
+
+**⚠️ AND A PROCESS FAILURE WORTH THE LINE: the third backslash-through-a-shell incident of this run.** The
+mutation script was written with a heredoc; the heredoc ate the backslash in `\bcreatures\b`, Python then read
+`\b` as a BACKSPACE escape, and the anchor matched zero times — which reads like a moved target rather than a
+quoting bug. The banked rule already covers it (**write patch scripts to a FILE, never through shell
+quoting**); I did not follow my own rule and it cost a cycle. Re-written with the Write tool and raw strings.
+
+**BATCH NOW 84 CARDS** since v0.149.18.
 
 ---
 
