@@ -25,8 +25,8 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 82 cards since v0.149.19** (planeswalker subtypes + `another <filter>` +11,
->   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1).
+> - **BATCH IN FLIGHT: 0 cards since v0.149.20** (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+>   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
 >   one-sided opponent sweep +4, mass-removal filter delegation +19, mass-bounce delegation +3,
@@ -128,6 +128,60 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 2) 2026-07-30 — **LIFE-GAIN REPLACEMENT, BOTH ARMS. GAINED 7, LOST 0.**
+
+Rhox Faithmender · Boon Reflection · The Wind Crystal (**×2**) · Angel of Vitality · Heron of Hope ·
+Honor Troll · Knight of Dawn's Light (**+1**).
+
+**⭐ THE LAST MISSING MEMBER OF A FAMILY.** `replacementEffects.js` already carried **counters, tokens, mill
+and mana — each with BOTH a multiplier and an additive arm.** Life gain had neither, and it is the same shape
+as the four that worked. The axis pattern again, this time *inside a module whose other four arms were already
+built* and could be copied almost line for line. **When a module has N parallel arms, enumerate them and check
+for the missing one** — that is now three finds this run from the same question.
+
+**Order is `(base + additive) × multiplier`**, byte-identical to `applyCounterDoubling`. CR 616.1 hands the
+choice to the AFFECTED PLAYER when replacements compete, and that is the order they'd pick — an Angel of
+Vitality plus a Rhox Faithmender turns a gain of 2 into **6, not 5**. Applied at `gameState.gainLife`, whose own
+comment establishes it as **the single verified life-gain chokepoint** ("no direct `p.life +=` elsewhere") — so
+spell, drain-half, lifelink combat damage and the radiation replacement are all covered by one call site. The
+this-turn ledger records the **REPLACED** amount (*"you gained life this turn"* must see what the player
+actually gained).
+
+**⚠️ TWO BUGS OF MY OWN, both caught before the flip-diff:**
+| bug | why it mattered |
+|---|---|
+| the profile's **null guard didn't list the new field** | a card whose ONLY ability is the replacement — **Boon Reflection, the purest case** — had its whole profile dropped |
+| the parse was **`^`-anchored** | cost **5 of the 7 cards**. `doublerProfile` splits the oracle on `"."`, so a preceding keyword line with no period of its own (`"Flying\nIf you would gain life…"`) or a reminder-text tail rides at the head of the same fragment. **The other arms in this file are unanchored for exactly that reason.** I anchored on the assumption that a sentence split yields sentences. It does not. |
+
+**Gates:** 12 new tests, every enforcement claim paired with the same measurement in the effect's absence.
+**All six mutations seen to fail** — dropping the controller gate (1), flipping the order to `base*mult+add`
+(1), letting a 0 gain fabricate life (1), making the chokepoint ignore the replacement (5), recording the
+offered amount in the ledger (1), collapsing the additive arm into the factor arm (5). Clean `MUTANT` grep.
+Predicted 7, measured 7. Flip-diff **GAINED 7 / LOST 0**. Suite **1004 files / 12,789 green**, lint 0.
+
+---
+
+## ⛔ REFUSED 2026-07-30 — **THE COLOSSUS GRAVEYARD-SHUFFLE. 4 attributable, but 15 chokepoints.**
+
+*"If ~ would be put into a graveyard from anywhere, reveal ~ and shuffle it into its owner's library instead"* —
+**Darksteel Colossus · Progenitus · Legacy Weapon · Blightsteel Colossus** (Nexus of Fate carries another
+blocker). Phrase-swap says **4**, and the census ranked it the biggest shelf-relevant cluster left.
+
+**Not built, and the reason is structural, not size.** `grep` finds **15 distinct graveyard write sites** and no
+shared `putIntoGraveyard` helper — destroy, discard, mill, counter, sacrifice, state-based death and the rest
+each write the zone themselves. There are only two ways to ship this today and **both are forbidden**: a
+coverage marker with no runtime enforcement (the hollow-gate law — ABSENCE ≠ VALUE), or partial enforcement
+that is silently wrong on every path I didn't touch (a **confident false positive** — the card reads native
+while still hitting the graveyard from an unpatched site).
+
+**The prerequisite is a refactor, and it is a good one on its own merits:** funnel the 15 sites through one
+`putIntoGraveyard(state, card, {from})` chokepoint, the way `gainLife` already is for life and `counterSpellById`
+is for the stack. **Every replacement in this family has needed exactly one chokepoint to be correct** — that is
+the pattern the module is built on. Do the refactor first; this card family, and any future graveyard
+replacement, then costs one arm each. **Queued, not abandoned.**
 
 ---
 

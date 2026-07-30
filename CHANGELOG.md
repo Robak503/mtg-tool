@@ -8,7 +8,12 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.20] - 2026-07-30
+
 ### Added
+- **Life gain that doubles or adds now works.** Rhox Faithmender, Boon Reflection and The Wind Crystal
+  double every life you gain; Angel of Vitality, Heron of Hope, Honor Troll and Knight of Dawn's Light add
+  one. With both out, the two combine the way they should.
 - **Vexing Shusher now works.** Its "{R/G}: Target spell can't be countered" ability actually protects
   the spell you point it at — the engine already understood printed and board-wide uncounterability, but
   not a one-shot grant.
