@@ -233,6 +233,31 @@ function massAntecedentKind(prev) {
   return null;
 }
 
+/**
+ * SELF-ANTECEDENT REFERENT (CR 608.2) — "Put a +1/+1 counter on THIS CREATURE. **It** gains menace until
+ * end of turn." (Bloodsky Berserker, Undercity Necrolisk, Bristling Hydra, Fearless Fledgling).
+ *
+ * The third antecedent kind, after "a chosen target" and "an unfiltered mass set". Here the pronoun refers
+ * to the SOURCE permanent, which the engine already addresses as `target:"self"` — so, exactly like the mass
+ * case, the referent is REWRITTEN into the atom the explicit wording would have produced
+ * ("This creature gains menace until end of turn." parses to `{op:"pump", target:"self", …}`) and nothing
+ * new executes.
+ *
+ * This is the SAFEST of the three bindings: `self` needs no set computed and no target chosen — it is the
+ * source permanent or nothing. Only `pump` and `untap` are rewritten, because those are the two ops whose
+ * `target:"self"` form is verified to resolve; any other referent op stays unparsed rather than being handed
+ * a recipient shape its resolver may not read.
+ */
+function rebindToSelfAntecedent(atom, prev) {
+  if (prev?.target !== "self") return null;
+  if (atom.op === "pump") {
+    const { bindPreviousTargets: _drop, ...rest } = atom;
+    return { ...rest, target: "self" };
+  }
+  if (atom.op === "untap") return { op: "untap", target: "self" };
+  return null;
+}
+
 /** The referent atom rewritten as a mass atom over `prev`'s set, or null if that shape isn't modelled. */
 function rebindToMassAntecedent(atom, prev) {
   if (!massAntecedentKind(prev)) return null;
@@ -2089,7 +2114,8 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       // No chosen targets to bind to — but the antecedent may be an UNFILTERED mass atom, in which case
       // the referent rewrites into the equivalent mass atom (see rebindToMassAntecedent). A filtered or
       // unrecognised antecedent returns null and the whole spell drops to Arbiter, as before.
-      const rebound = rebindToMassAntecedent(atom, atoms[atoms.length - 1]);
+      const prevAtom = atoms[atoms.length - 1];
+      const rebound = rebindToMassAntecedent(atom, prevAtom) || rebindToSelfAntecedent(atom, prevAtom);
       if (!rebound) { allParsed = false; break; }
       atoms.push(rebound);
       continue;

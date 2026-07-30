@@ -290,6 +290,39 @@ describe("MASS antecedent — the referent rewrites into the equivalent mass ato
   });
 });
 
+describe("SELF antecedent — the pronoun refers to the source permanent", () => {
+  const creature = (o, type = "Creature — Zombie Lizard") => ({ name: "C", type, mana: "{2}{B}", oracle: o });
+
+  it("rewrites to exactly the atom the explicit wording produces", () => {
+    const bound = parseEffectClause("Put a +1/+1 counter on this creature. It gains menace until end of turn.", "Creature")?.atoms;
+    const explicit = parseEffectClause("Put a +1/+1 counter on this creature. This creature gains menace until end of turn.", "Creature")?.atoms;
+    expect(bound).toHaveLength(2);
+    expect(bound[1].target).toBe("self");
+    expect(bound[1].bindPreviousTargets).toBeUndefined();   // the flag must not survive the rewrite
+    // Same content as the explicit form — nothing new executes.
+    expect({ ...bound[1] }).toEqual({ ...explicit[1] });
+  });
+
+  it("flips the real cards", () => {
+    // Oracle text from the bundled snapshot.
+    expect(classifyCard(creature("Whenever you cast your second spell each turn, put two +1/+1 counters on this creature. It gains menace until end of turn.", "Creature — Human Berserker"))).toBe("native-trigger");
+    expect(classifyCard(creature("Landfall — Whenever a land you control enters, put a +1/+1 counter on this creature. It gains flying until end of turn.", "Creature — Bird"))).toBe("native-trigger");
+    // The conjunction forms my probe could not see — splitClauses breaks them, so they work anyway.
+    expect(classifyCard(creature("Whenever you cast your second spell each turn, put a +1/+1 counter on this creature and it gains flying until end of turn.", "Creature — Imp"))).toBe("native-trigger");
+    expect(classifyCard(creature("Whenever you cast an instant or sorcery spell, this creature gets +1/+1 until end of turn. Untap it.", "Creature — Weird"))).toBe("native-trigger");
+  });
+
+  it("a referent op outside pump/untap does not flip the card", () => {
+    // ⚠️ HONEST SCOPE: this asserts the OUTCOME, not the guard. A mutation that lets ANY op rewrite to
+    // target:"self" still leaves this card body-only, because a cant-block atom with a self recipient is
+    // refused downstream as well — two independent refusals, so no classifyCard test can separate them.
+    // The op allowlist in rebindToSelfAntecedent is therefore defence-in-depth rather than the active
+    // gate here, and it is kept deliberately: if a future op becomes self-resolvable, the permissive
+    // version would start rewriting it silently. Recorded rather than dressed up as a passing guard test.
+    expect(classifyCard(creature("Put a +1/+1 counter on this creature. It can't block this turn."))).toBe("body-only");
+  });
+});
+
 describe("the real cards", () => {
   // Oracle text read from the bundled Scryfall snapshot.
   it("Rile — damage then a bound trample grant", () => {

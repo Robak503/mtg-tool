@@ -300,7 +300,10 @@ describe("classifyCard — tiers", () => {
     // The guard's current examples: an UNDETECTED "you discard this card" event beside a modeled ETB,
     // and the detected-but-UNROUTABLE rider'd untap from UT-1.)
     expect(classifyCard(C("Creature — Cleric", "When this creature enters, draw a card.\nWhen you discard this card, each opponent loses 1 life."))).toBe("body-only");
-    expect(classifyCard(C("Creature — Wizard", "{T}: This creature deals 1 damage to any target.\nWhenever you cast an instant or sorcery spell, untap this creature and it gains flying until end of turn."))).toBe("body-only");
+    // The rider'd untap example GRADUATED 2026-07-30 (referent binding to a self antecedent — CR 608.2),
+    // exactly as this test's own comment predicted would keep happening. Replaced with a trigger whose
+    // EVENT is still undetected, so the guard keeps measuring what it was written to measure.
+    expect(classifyCard(C("Creature — Wizard", "{T}: This creature deals 1 damage to any target.\nWhenever you cast an instant or sorcery spell, untap this creature and it glorbulates until end of turn."))).toBe("body-only");
   });
 
   // ENTERS-TAPPED credit — actionDispatcher handles unconditional "enters tapped" in the engine;

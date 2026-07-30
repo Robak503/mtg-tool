@@ -138,7 +138,13 @@ const HORSESHOE_CRAB = { id: "hc", name: "Horseshoe Crab", type: "Creature — C
 describe("UT-1 — parse + classify", () => {
   it("the bare self-untap parses; a rider'd form stays LOW (safe FN)", () => {
     expect(parseEffectClause("untap this creature").atoms).toEqual([{ op: "untap", target: "self" }]);
-    expect(parseEffectClause("untap this creature and it gains flying until end of turn").confidence).toBe("low");
+    // GRADUATED 2026-07-30 — the rider'd form is HIGH now. splitClauses breaks the " and ", and the
+    // referent "it" binds to the SELF antecedent the untap just acted on (CR 608.2), rewriting to the
+    // same {target:"self"} atom the explicit "this creature gains flying …" wording produces. The pin's
+    // criterion was "the rider is unmodeled"; it no longer is. Re-pointed, not deleted.
+    expect(parseEffectClause("untap this creature and it gains flying until end of turn").confidence).toBe("high");
+    // Live negative: a rider whose KEYWORD is unmodeled still drops the whole clause (all-or-nothing).
+    expect(parseEffectClause("untap this creature and it gains glorbulate until end of turn").confidence).toBe("low");
   });
   it("the escape-valve grant + printed untappers flip; Immobilizing Ink returns via DC-1's discard cost", () => {
     expect(classifyCard(SINGING_BELL_STRIKE)).toBe("native-activated");
