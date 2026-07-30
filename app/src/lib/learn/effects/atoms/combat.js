@@ -997,6 +997,19 @@ export function combatKeywordClauseParser(clause) {
     return { op: "tap", targetType: "creature", restrictions };
   }
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
+  // BOUND REFERENT, OBJECT-FIRST — "Untap it." / "Untap them." (Savage Surge, Veteran's Reflexes,
+  // Stony Strength, Vault Skyward). The referent arms in the pump family are SUBJECT-first ("It gains
+  // …"); this one is the same binding with the pronoun as the verb's OBJECT, which is why it lives
+  // beside the untap forms rather than with them.
+  //
+  // ⚠️ Only reaches a TARGETED antecedent. Eight printed cards read "Creatures you control get +1/+1
+  // until end of turn. Untap them." — a MASS antecedent with no chosen targets, where binding would have
+  // to read the previous atom's AFFECTED SET rather than its target list. That is a different mechanism
+  // and is deliberately not attempted here: the assembly gate rejects those (a mass atom has no
+  // targetType), so they stay on the Arbiter rather than silently untapping nothing.
+  if (/^untap (?:it|them|that creature|those creatures)$/.test(t)) {
+    return { op: "untap", bindPreviousTargets: true };
+  }
   // UNTAP-ANOTHER-TARGET-PERMANENT (Formidable Speaker "{1}, {T}: Untap another target permanent.") — a single
   // chosen permanent of ANY type, OTHER than the source (CR 109.5, "another" = not this permanent). The
   // `permanent` targetType routes through PERMANENT_PREDICATES.permanent (any permanent on any battlefield is

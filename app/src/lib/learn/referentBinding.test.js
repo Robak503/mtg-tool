@@ -178,6 +178,50 @@ describe("scope C — the can't-block and pump payloads", () => {
   });
 });
 
+describe("object-first referent — 'Untap it.' / 'Untap them.'", () => {
+  it("parses to an untap atom bound to the previous target, with no targetType of its own", () => {
+    const prog = parseEffectClause("Target creature gets +2/+2 until end of turn. Untap it.", "Instant");
+    const bound = (prog?.atoms || []).filter((a) => a.bindPreviousTargets);
+    expect(bound).toHaveLength(1);
+    expect(bound[0].op).toBe("untap");
+    expect(bound[0].targetType).toBeUndefined();
+  });
+
+  it("also catches the one-sentence conjunction (Burst of Strength, Dragonscale Boon)", () => {
+    // "Put a +1/+1 counter on target creature AND untap it." — splitClauses breaks the conjunction, so
+    // the referent arrives as its own clause. These two beat my upper-bound probe, which only looked
+    // for ". Untap"; auditing them is how the surplus was explained rather than assumed.
+    expect(classifyCard(spell("Put a +1/+1 counter on target creature and untap it."))).toBe("native-spell");
+  });
+
+  it("⛔ a MASS antecedent stays refused — there are no chosen targets to bind to", () => {
+    // Eight printed cards read "Creatures you control get +1/+1 until end of turn. Untap them." Binding
+    // there would need the previous atom's AFFECTED SET, not its target list — a different mechanism.
+    // They must stay on the Arbiter rather than silently untapping nothing. Valley Floodcaller is one.
+    expect(classifyCard(spell("Creatures you control get +1/+1 until end of turn. Untap them."))).toBe("arbiter-spell");
+    expect(classifyCard(spell("Draw a card. Untap it."))).toBe("arbiter-spell");
+  });
+
+  it("⭐ ENFORCED: untaps the bound creature and leaves its neighbour tapped", () => {
+    const s = twoCreatures();
+    const tapped = {
+      ...s,
+      players: { ...s.players, user: { ...s.players.user,
+        battlefield: s.players.user.battlefield.map((p) => ({ ...p, tapped: true })) } },
+    };
+    const program = parseEffectClause("Target creature gets +2/+2 until end of turn. Untap it.", "Instant");
+    const out = runEffectProgram(tapped, {
+      source: { name: "C" },
+      payload: { params: { program, controller: "user", sourceId: "src", context: {},
+        targets: [{ type: "creature", id: "alpha", atomIndex: 0 }] } },
+    });
+    const st = out?.state ?? out;
+    const bf = st.players.user.battlefield;
+    expect(bf.find((p) => p.id === "alpha").tapped).toBe(false);
+    expect(bf.find((p) => p.id === "beta").tapped).toBe(true);   // the discriminating half
+  });
+});
+
 describe("the real cards", () => {
   // Oracle text read from the bundled Scryfall snapshot.
   it("Rile — damage then a bound trample grant", () => {
