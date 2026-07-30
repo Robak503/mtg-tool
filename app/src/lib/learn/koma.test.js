@@ -90,7 +90,7 @@ describe("KOMA — classification", () => {
 });
 
 // ─── 2. can't-be-countered ─────────────────────────────────────────────────────────────────────
-describe("KOMA — this spell can't be countered (CR 701.5e)", () => {
+describe("KOMA — this spell can't be countered (CR 701.6a)", () => {
   it("enumerateTargets never offers Koma on the stack as a counter target", () => {
     let s = mainState();
     // Koma is on the stack as a creature spell (CR 405 — a cast spell is a stack object of kind "spell").

@@ -436,7 +436,7 @@ export function setPendingDiscardChoice(state, { controller, remaining, candidat
 
 /**
  * ===== SOFT-CNT ===== — flag a "soft" counter (Force Spike / Mana Leak / Mana Tithe / Spell Pierce /
- * …) awaiting the TARGETED SPELL'S CONTROLLER's pay-or-be-countered decision (CR 701.5a + the spell's
+ * …) awaiting the TARGETED SPELL'S CONTROLLER's pay-or-be-countered decision (CR 701.6a + the spell's
  * "unless its controller pays {N}" clause). When the counter resolves, instead of countering outright
  * it flags this: `controller` is the controller of the spell on the stack (an opponent in 4P — NOT the
  * counter's caster), so the driver's `pause = pc.controller === "user"` rule pauses for a human whose

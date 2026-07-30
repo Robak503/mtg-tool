@@ -1,5 +1,5 @@
 /**
- * counterStackAbility.test.js — STIFLE-CLASS (CR 701.5a): "Counter target activated or triggered ability."
+ * counterStackAbility.test.js — STIFLE-CLASS (CR 701.6a): "Counter target activated or triggered ability."
  *
  * 0 native / 21 parked before this slice. The counter family is spell-shaped from end to end — it looks up
  * `o.kind === "spell"`, re-checks a spellFilter against a CARD, and routes the countered object to a

@@ -478,12 +478,15 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   };
   // P3.1 counter: legal targets are SPELLS on the stack (kind "spell"; abilities are
   // not spells), filtered by the counter's spellFilter (any/noncreature/creature).
-  // An on-card uncounterable spell (CR 701.5e) is excluded — conservative: granted/
+  // ⚠️ "Can't be countered" has NO subrule of its own — CR 701.6 (Counter) is only 701.6a/701.6b.
+  // It is a continuous effect that prevents the counter action 701.6a defines. Do not go looking
+  // for a 701.5e; it does not exist (this file cited it 3× until 2026-07-30).
+  // An on-card uncounterable spell (CR 701.6a) is excluded — conservative: granted/
   // external "can't be countered" isn't modeled, but the on-card case is never wrong.
   // CANT-BE-COUNTERED (Root Sliver) — the subtypes whose spells a battlefield static makes uncounterable
   // ("Sliver spells can't be countered"), gathered once across every player's battlefield. A stack spell
   // whose TYPE LINE carries one of these subtypes is excluded as a counter target below. Empty in the common
-  // case (no such static in play) → zero behavior change. CR 701.5e: the spell simply can't be countered.
+  // case (no such static in play) → zero behavior change. CR 701.6a: the spell simply can't be countered.
   const uncounterableSubs = (() => {
     const cards = [];
     for (const pid of Object.keys(state.players || {})) {
@@ -492,9 +495,9 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     return uncounterableSubtypesOnBattlefield(cards);
   })();
   // CANT-BE-COUNTERED — CONTROLLER scope (Chimil "Spells you control can't be countered"): the set of players
-  // ALL of whose stack spells are uncounterable. Empty in the common case → zero behavior change (CR 701.5e).
+  // ALL of whose stack spells are uncounterable. Empty in the common case → zero behavior change (CR 701.6a).
   const uncounterablePlayers = uncounterablePlayersOnBattlefield(state);
-  // STIFLE-CLASS (CR 701.5a) — abilities WAITING ON THE STACK are legal targets for "counter target
+  // STIFLE-CLASS (CR 701.6a) — abilities WAITING ON THE STACK are legal targets for "counter target
   // activated or triggered ability" (Stifle, Trickbind, Sublime Epiphany, Bind). They are stack objects but
   // NOT spells, which is why the counter family could never reach them.
   //
@@ -772,7 +775,7 @@ export function handCardMatches(card, hf) {
 }
 
 /**
- * Does a spell on the stack match a counter's spellFilter (CR 701.5a)? `atom` carries the MV / color
+ * Does a spell on the stack match a counter's spellFilter (CR 701.6a)? `atom` carries the MV / color
  * restrictions (exactMv / minMv / maxMv / colorFilter). MIRRORS counterFilterMatches in atoms/stack.js EXACTLY
  * — the two are kept in lockstep by hand (not delegated) to avoid a spellEffects ↔ atoms/stack import cycle; any
  * filter added in one MUST be added here. spellEffects is the ENUMERATION side ("is this a legal target to

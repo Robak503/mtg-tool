@@ -108,7 +108,7 @@ describe("expandCastChoices — counter target spell (P3.1, spell targets on the
     expect(choices.map(c => c.targets[0].id)).toEqual(["s1"]);
   });
 
-  it("excludes an on-card uncounterable spell (CR 701.5e)", () => {
+  it("excludes an on-card uncounterable spell (CR 701.6a)", () => {
     const state = freshState({ stack: [spell("safe", "Abrupt Decay", "Instant", "This spell can't be countered.")] });
     expect(expandCastChoices(state, "user", parseEffectProgram(I("Counter target spell.")))).toEqual([]);
   });

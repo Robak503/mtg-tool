@@ -1,6 +1,6 @@
 /**
  * spellsYouControlUncounterable.test.js — the CONTROLLER-scope "Spells you control can't be countered" static
- * (Chimil, the Inner Sun; CR 701.5e). Emitted as a cantBeCountered.scope:"youControl" marker by
+ * (Chimil, the Inner Sun; CR 701.6a). Emitted as a cantBeCountered.scope:"youControl" marker by
  * staticAbilityParser and ENFORCED in spellEffects.enumerateTargets: a spell cast by a player who controls
  * such a permanent is excluded from every counter's legal targets. Chimil's other ability (end-step discover 5)
  * already parses HIGH, so it flips native-mixed. Enforcement is real (not a bare marker) — verified below.

@@ -1,5 +1,5 @@
 /**
- * typedUncounterable.test.js — "CREATURE spells you control can't be countered" (CR 701.5e):
+ * typedUncounterable.test.js — "CREATURE spells you control can't be countered" (CR 701.6a):
  * Prowling Serpopard #3581 · Surrak Dragonclaw #3186.
  *
  * An AND of the two axes the cantBeCountered family already had separately — a card TYPE and a

@@ -15,7 +15,7 @@ import { snapshotCopiedCard } from "../../cloneCopy.js"; // COPY-A-CREATURE-SPEL
 import { checkCopyTriggers } from "../../triggers.js"; // MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10): fire "cast or copy" watchers at the copy-creation site. Cycle-safe — triggers.js's import closure (targeting→spellEffects→triggers, layers, keywords, saga, triggerScheduler) never reaches atoms/stack.js, so this edge adds no cycle; checkCopyTriggers is called only at runtime.
 
 /**
- * P3.1 counter (CR 701.5a) — counter the target spell(s) on the stack. The targeted
+ * P3.1 counter (CR 701.6a) — counter the target spell(s) on the stack. The targeted
  * spell is removed from the stack and put into its controller's graveyard WITHOUT
  * resolving: no atoms run, no permanent enters, no effect, no triggers. This is the
  * stack-removal mechanic — the FIRST atom that mutates the stack rather than the
@@ -25,7 +25,7 @@ import { checkCopyTriggers } from "../../triggers.js"; // MAGECRAFT COPY HALF (B
  * higher counter got it first), the counter fizzles for that target — a logged no-op,
  * never an error, never a fabricated effect. A defensive re-check of the SPELL-TYPE
  * filter (creature/noncreature) runs here (it held at cast time + a spell's type can't
- * change on the stack). The on-card "can't be countered" exclusion (CR 701.5e) is
+ * change on the stack). The on-card "can't be countered" exclusion (CR 701.6a) is
  * enforced at ENUMERATION only (spellEffects.enumerateTargets) — sufficient because the
  * engine models no effect that grants uncounterability after a target is chosen, and
  * on-card text is immutable, so an uncounterable spell can never reach this atom.
@@ -87,7 +87,7 @@ export function counterFilterMatches(card, filter, atom = null) {
   if (filter === "artifactCreaturePlaneswalker") return /\b(?:Artifact|Creature|Planeswalker)\b/.test(type);
   return true; // "any"
 }
-// CNT-ZONE-REDIRECT (CROSS-COUNTER) — the zone a countered SPELL is put into (CR 701.5a + the card's "instead
+// CNT-ZONE-REDIRECT (CROSS-COUNTER) — the zone a countered SPELL is put into (CR 701.6a + the card's "instead
 // of into its owner's graveyard" rider). Default "graveyard"; "exile" (Deny Existence), "hand" (Remand —
 // returned to its owner's hand), "library-top" (Memory Lapse — put on top of its owner's library). Append for
 // graveyard/exile/hand; PREPEND for library-top (index 0 = the TOP of the library, where drawCards slices from).
@@ -103,11 +103,11 @@ function placeCounteredCard(player, card, dest) {
 }
 
 /**
- * Counter the spell — or ABILITY — with id `spellId` on the stack (CR 701.5a): remove it from the stack,
+ * Counter the spell — or ABILITY — with id `spellId` on the stack (CR 701.6a): remove it from the stack,
  * logging the counter (an optional `via` tag, e.g. "soft-counter", records HOW). A SPELL goes to its
  * controller's graveyard by default, or to the zone named by `counterDest` ("exile"/"hand"/"library-top" —
  * the CNT-ZONE-REDIRECT riders: Deny Existence / Remand / Memory Lapse); a countered ACTIVATED/TRIGGERED
- * ABILITY is not a card and goes to no zone — it simply leaves the stack and ceases to exist (CR 701.5a). An
+ * ABILITY is not a card and goes to no zone — it simply leaves the stack and ceases to exist (CR 701.6a). An
  * object no longer on the stack (left mid-resolution) is a logged fizzle, never an error. Shared by the hard
  * counter (applyCounter) AND the SOFT-CNT pay-decline path (runProgram.resolveSoftCounterChoice — KW-WARD-PR2
  * also routes a warded ABILITY here) so the paths can't drift. `exileInstead` is kept as a back-compat alias
@@ -139,7 +139,7 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
       : state.players,
   };
   // GY-EVENT (SHELF S7): a countered SPELL whose disposition is the default graveyard enters it from the
-  // stack (CR 701.5a). A redirected disposition (exile / hand / library-top) never touches a graveyard.
+  // stack (CR 701.6a). A redirected disposition (exile / hand / library-top) never touches a graveyard.
   if (isSpell && player && dest === "graveyard" && card) {
     next = recordGraveyardEvents(next, [{ dir: "enter", card, gyOwner: controller, zone: "stack" }]);
   }
@@ -391,7 +391,7 @@ export function dealDamageScaledClauseParser(clause) {
 }
 
 /**
- * COUNTER clause parser (CR 701.5a) — co-extracted from parseExtendedAtom (seam batch 28 / Wave C, RIDER-FOLDING).
+ * COUNTER clause parser (CR 701.6a) — co-extracted from parseExtendedAtom (seam batch 28 / Wave C, RIDER-FOLDING).
  * The full counter-target-spell family, original first-match order:
  *   bare hard counters: "counter target spell" (any) / noncreature / creature / "enchantment, instant, or
  *     sorcery" (Swan Song) / "artifact, creature, or planeswalker" (Strix Serenade lead)
@@ -406,10 +406,10 @@ export function dealDamageScaledClauseParser(clause) {
  */
 export function counterClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
-  // STIFLE-CLASS (CR 701.5a) — countering an ABILITY on the stack, not a spell (Stifle, Trickbind, Bind,
+  // STIFLE-CLASS (CR 701.6a) — countering an ABILITY on the stack, not a spell (Stifle, Trickbind, Bind,
   // Sublime Epiphany #1709). A separate op because the counter applier is spell-shaped throughout: it looks
   // up `o.kind === "spell"`, re-checks a spellFilter against a CARD, and routes the countered object to a
-  // graveyard. An ability is none of those — it has no card and simply ceases to exist (CR 701.5a).
+  // graveyard. An ability is none of those — it has no card and simply ceases to exist (CR 701.6a).
   //
   // Mana abilities are unreachable by construction (CR 605.3a — they never use the stack), which is the
   // printed reminder text on Stifle rather than a limitation of this slice.
@@ -1382,7 +1382,7 @@ export const stackResolvers = {
     return next;
   },
   "counter": applyCounter,
-  // STIFLE-CLASS (CR 701.5a) — countering an ABILITY removes it from the stack and it simply does not
+  // STIFLE-CLASS (CR 701.6a) — countering an ABILITY removes it from the stack and it simply does not
   // resolve. Unlike a countered SPELL there is no card and therefore no graveyard move: an ability is not
   // an object that exists anywhere else, so removing the stack entry IS the whole effect.
   // The kind is re-verified at resolution (CR 608.2b): the targeted ability may have already resolved or

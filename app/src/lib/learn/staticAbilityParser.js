@@ -2037,7 +2037,7 @@ function parseClause(clause, out, selfName, selfType) {
   }
 
   // ── CANT-BE-COUNTERED (Root Sliver; Dosan the Falling Leaf-style) ──────────────────────────────────────
-  // Two STATIC uncounterability shapes (CR 701.5e), emitted as coverage MARKERS ({ cantBeCountered } with NO
+  // Two STATIC uncounterability shapes (CR 701.6a), emitted as coverage MARKERS ({ cantBeCountered } with NO
   // `affects`/`op`, so the layer engine ignores them — effectAffects bails on a missing `affects`); the
   // counter-target enumeration (spellEffects.enumerateTargets) reads them at the stack so a protected spell is
   // never offered as a counter target.
@@ -2070,7 +2070,7 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
   // CONTROLLER-SCOPE (Chimil, the Inner Sun — "Spells you control can't be countered"): a board static that
-  // protects EVERY spell its controller casts (CR 701.5e), not filtered by subtype. Emitted as a coverage +
+  // protects EVERY spell its controller casts (CR 701.6a), not filtered by subtype. Emitted as a coverage +
   // enforcement marker; spellEffects.addStackSpells excludes such a controller's stack spells from counter
   // targets (mirrors the subtype exclusion). The cbcM regex below requires a single subtype word before
   // "spells", so this "spells you control …" form has to be its own branch.
@@ -4119,7 +4119,7 @@ export function uncounterableSubtypesOnBattlefield(permanentCards) {
  * CANT-BE-COUNTERED — the CONTROLLER-scope uncounterability (Chimil, the Inner Sun — "Spells you control can't
  * be countered", cantBeCountered.scope==="youControl"). Returns a Set of player-ids that control at least one
  * such battlefield permanent, so ALL of that player's stack spells are excluded from counter targets (CR
- * 701.5e). Empty when no such static is in play → zero behavior change. Pure; hoisted once per enumeration.
+ * 701.6a). Empty when no such static is in play → zero behavior change. Pure; hoisted once per enumeration.
  */
 export function uncounterablePlayersOnBattlefield(state) {
   // A MAP now, not a Set: the controller-scoped static comes in two breadths and they must not collapse.
