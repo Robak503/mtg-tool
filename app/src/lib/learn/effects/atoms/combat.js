@@ -1349,13 +1349,17 @@ export function pumpClauseParser(clause) {
     // body-only. The ORDERING RULE says gate a widening behind the prior path's failure so "no regressions"
     // is STRUCTURAL; removing the overlapping alternative outright is the strongest form of that, because
     // then no ordering can reintroduce it. Only "its controller" \u2014 which no other parser claims \u2014 is read here.
-    const pr = t.match(/^(its controller) (?:(discards) a card|(loses|gains) (\d+) life|(draws) a card)$/);
+    const pr = t.match(/^(its controller) (?:(discards) a card|(loses|gains) (\d+) life|(draws) a card|(gets) a poison counter)$/);
     if (pr) {
       const from = "controller";
       const base = pr[2] ? { op: "discard", amount: 1 }
         : pr[3] === "loses" ? { op: "lose-life", amount: parseInt(pr[4], 10) }
         : pr[3] === "gains" ? { op: "gain-life", amount: parseInt(pr[4], 10) }
-        : { op: "draw", amount: 1 };
+        : pr[5] === "draws" ? { op: "draw", amount: 1 }
+        // POISON (Pistus Strike, CR 122) — the PROJECTED player gets the counter. applyAddPoison's
+        // who:"target" branch reads the same projected slice every other payload in this arm does, so the
+        // poison payload needed no runtime work beyond existing.
+        : { op: "add-poison", amount: 1 };
       return { ...base, who: "target", bindPreviousTargets: true, playerFrom: from };
     }
   }

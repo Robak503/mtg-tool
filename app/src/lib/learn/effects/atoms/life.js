@@ -2,7 +2,7 @@
  * effects/atoms/life.js — life-total atoms (gain-life, lose-life).
  */
 
-import { logEvent, gainLife, loseLife, opponentsOf } from "../../gameState.js";
+import { addPoison, logEvent, gainLife, loseLife, opponentsOf } from "../../gameState.js";
 import { checkLifegainTriggers } from "../../triggers.js";
 import { resolveScaledAmount } from "./shared.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 17: shared count-source parser (leaf, cycle-free) for the scaled life clauses
@@ -56,6 +56,65 @@ export function applyGainLife(state, atom, ctx) {
 
 /** "You lose N life" / "Each opponent loses N life" / "Each player loses N life" (CR 119.3). Non-targeted.
  *  FOR-EACH: the amount may be a board count × per (resolveScaledAmount). */
+/**
+ * POISON COUNTERS (CR 122 / 704.5c) — "Each opponent gets a poison counter." (Prologue to Phyresis,
+ * Infectious Inquiry, Infectious Bite) and "Its controller gets a poison counter." (Pistus Strike).
+ *
+ * The poison TRACK has existed on player state since KW-POISON (gameState.addPoison, ten counters = loss),
+ * and infect/toxic combat damage already feeds it — but no clause ever PARSED to it, so every card that
+ * hands out poison outside combat was unmodelled. This is the parse+resolve pair, not a new subsystem.
+ *
+ * The `who` dispatch is a deliberate mirror of applyLoseLife below: same four recipients, same order, same
+ * eliminated-player handling. Keeping them structurally identical is what stops the two drifting as new
+ * recipient kinds are added — poison is a player resource like life, and it should read like one.
+ */
+/**
+ * POISON clause parser (CR 122) — "<who> gets N poison counters."
+ *   each opponent / each player  → non-targeted, who:"eachOpponent" | "eachPlayer"
+ *   target player / target opponent → who:"target" + the matching targetType
+ *   you                          → who:"controller"
+ * Anchored whole-sentence. A qualified subject ("each opponent who attacked", "target player with …")
+ * leaves residue, fails the `$`, and stays on the Arbiter — the same refusal every sibling player-payload
+ * arm makes, and for the same reason: a recipient the engine can't restrict exactly is not a recipient.
+ */
+export function poisonClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[\u2019]/g, "'").replace(/\.$/, "").trim();
+  const m = t.match(/^(each opponent|each player|target player|target opponent|you) gets? (a|an|one|two|three|\d+) poison counters?$/);
+  if (!m) return null;
+  const amount = /^\d+$/.test(m[2]) ? parseInt(m[2], 10) : { a: 1, an: 1, one: 1, two: 2, three: 3 }[m[2]];
+  if (!amount) return null;
+  const who = m[1] === "you" ? "controller"
+    : m[1] === "each player" ? "eachPlayer"
+    : m[1] === "each opponent" ? "eachOpponent"
+    : "target";
+  const targetType = who !== "target" ? null : (m[1] === "target opponent" ? "opponent" : "player");
+  return { op: "add-poison", amount, who, targetType };
+}
+
+export function applyAddPoison(state, atom, ctx) {
+  let next = state;
+  const amount = Math.max(0, resolveScaledAmount(state, atom, ctx) || 0);
+  if (amount === 0) return next;
+  if (atom.who === "eachPlayer") {
+    for (const pid of Object.keys(next.players)) {
+      if (next.players[pid]) next = addPoison(next, { playerId: pid, amount });
+    }
+  } else if (atom.who === "eachOpponent") {
+    for (const opp of opponentsOf(next, ctx.controller)) {
+      if (next.players[opp]) next = addPoison(next, { playerId: opp, amount });
+    }
+  } else if (atom.who === "target") {
+    // The chosen player travels in ctx.targets — and for the bound-referent form ("its controller") that
+    // slice is the PROJECTED player, so this branch serves both without knowing which it got.
+    for (const t of ctx.targets || []) {
+      if (t.type === "player" && next.players[t.id]) next = addPoison(next, { playerId: t.id, amount });
+    }
+  } else if (atom.who === "controller" && next.players[ctx.controller]) {
+    next = addPoison(next, { playerId: ctx.controller, amount });
+  }
+  return next;
+}
+
 export function applyLoseLife(state, atom, ctx) {
   let next = state;
   const amount = Math.max(0, resolveScaledAmount(state, atom, ctx) || 0);
@@ -247,6 +306,7 @@ export function applyGyOwnerDrain(state, atom, ctx) {
 export const lifeResolvers = {
   "gain-life": applyGainLife,
   "lose-life": applyLoseLife,
+  "add-poison": applyAddPoison,   // POISON (CR 122) — the parse+resolve pair for a track that already existed
   "drain-each-opponent": applyDrainEachOpponent, // DRAIN-X (Exsanguinate) — each opp loses X, you gain the total drained
   "gy-owner-drain": applyGyOwnerDrain, // GY-OWNER-DRAIN (Bloodchief Ascension) — the graveyard's owner loses N, you gain N2
 };

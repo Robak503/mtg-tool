@@ -74,6 +74,7 @@ import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbility
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
 import { parseKickerCost } from "../kicker.js"; // KICKED-SPELL-EFFECT — a clean single-mana Kicker cost (no multikicker / and-or / {X}); kicker.js → parseHelpers.js → keywords.js is acyclic (parser already imports parseHelpers)
 import { spellConditionParseable, activationConditionParseable, evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the spell-side shape gate (a board condition a resolving spell can read); interveningIf → gameState is a leaf edge, no cycle (parser is not imported by either)
+import { poisonClauseParser } from "./atoms/life.js"; // POISON (CR 122) — "<who> gets N poison counters"
 
 /**
  * The atom ops the interpreter can resolve natively — DERIVED from the resolver
@@ -2358,6 +2359,7 @@ registerClauseParser(fightClauseParser);
 registerClauseParser(dealDamageScaledClauseParser);
 registerClauseParser(massFilteredDamageClauseParser); // MASS-FILTERED-DAMAGE — "deals N damage to each creature with/without flying"
 registerClauseParser(cdmgMassToDamagedPlayerClauseParser); // CDMG-MASS-TO-DAMAGED-PLAYER (Balefire Dragon) — combat-damage trigger: "deals that much damage to each creature that player controls"
+registerClauseParser(poisonClauseParser); // POISON (CR 122) — the track existed since KW-POISON; no clause ever parsed to it
 registerClauseParser(grantUncounterableClauseParser); // GRANT UNCOUNTERABILITY (Vexing Shusher) -- "target spell can't be countered"
 registerClauseParser(copySpellClauseParser); // STORM (CR 702.40) — the synthesized "copy this spell for each spell cast before it this turn" clause
 registerClauseParser(copyCreatureSpellClauseParser); // COPY-A-CREATURE-SPELL (Double Major, CR 707.10) — "copy target creature spell you control[, except it isn't legendary…]"
