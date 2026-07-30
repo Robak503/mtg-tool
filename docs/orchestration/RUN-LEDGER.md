@@ -171,8 +171,15 @@ overhead; it is the only thing that read the code the way the runtime does.* Bot
 limitation written into the test.
 
 ### VERDICTS
-- ⛔ **Megrim deliberately left out** — its payoff is *damage* to that player, needing the same referent on
-  the damage atom. Pinned non-native so the gap is visible rather than assumed covered.
+- ⛔ **Megrim deliberately left out — and the diagnosis is DONE, so it is a minutes-long job next time.**
+  Its payoff is *damage* to that player. **Verified, not assumed:** `this enchantment deals 2 damage to
+  target player` parses fine → `{op:"deal-damage", amount:2, targetType:"player"}`, so the subject and the
+  fixed-damage shape are both already handled. **The recipient phrase is the ONLY blocker** — the sentinel
+  rewrite turns Megrim's clause into *"… to the discarding player"*, which the damage recipient vocabulary
+  does not know. The work: add that phrase beside `"that player": "damagedPlayer"` in `atoms/stack.js`'s
+  TT map (or the fixed-damage equivalent) + synthesize the player target from `ctx.discardingPlayerId` the
+  way damagedPlayer does. The triggerRouting pin **already covers `who:"discardingPlayer"`**, so that half
+  is done. Pinned non-native meanwhile so the gap stays visible rather than assumed covered.
 - ⛔ A **filtered** variant (*"discards a nonland card"*) is not this event — pinned, SAFE FN.
 - ✅ **Fixed my own citation:** the previous entry said CR 701.8a for discard. **701.8 is Destroy; discard is
   701.9a.** Corrected in-file. *A rule number recalled is not a rule number checked.*
