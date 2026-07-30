@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"Its controller" spells now work.** Vapor Snag, Nature's Claim, Last Breath, Assassin's Strike and
+  five more — the life loss, life gain or discard lands on whoever controlled the thing you targeted, even
+  when that thing is already gone.
 - **The Cabbage Merchant now works.** It makes Food off your opponents' spells and loses one when a creature connects with you, as printed.
 - **Gluttonous Guest now works.** Its "whenever you sacrifice a Blood token" trigger fires as printed.
 - **Creatures that pump themselves and then gain a keyword now work.** Ten more, including Bristling Hydra,

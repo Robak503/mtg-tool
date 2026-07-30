@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 62 cards since v0.149.20** (granted Ward—Pay-life +2, **REFERENT FAMILY +58 across SIX slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 71 cards since v0.149.20** (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,52 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 3) 2026-07-30 — **PLAYER REFERENTS: "ITS CONTROLLER …". GAINED 9, LOST 0.**
+
+Vapor Snag · Nature's Claim · Last Breath · Assassin's Strike · Clutch of the Undercity · Dismal Failure ·
+Desecrated Earth · Call to Heel · Ajani, Inspiring Leader. **Referent family: 67 across seven slices.**
+
+**A fourth referent shape, found by asking the same structural question a second time.** The permanent family
+BINDS to the previous atom's target; this one **PROJECTS** off it — the recipient is the target's CONTROLLER.
+Projecting **once at the bind site** means every player-payload resolver keeps seeing an ordinary
+`{type:"player"}` target and **needed no change at all**.
+
+**⚠️ Reading the controller off the TARGET OBJECT rather than the board is load-bearing.** The canonical
+carrier is *"**DESTROY** target creature. Its controller …"* — the permanent is **already gone** when the
+second atom resolves, so a board lookup finds nothing. Enumerated targets carry `controller`, so the
+projection **survives its own antecedent**. That is exactly what the runtime test asserts.
+
+### ⚠️ I SHIPPED A REGRESSION INTO THE FLIP-DIFF AND IT CAUGHT IT: **GAINED 15 / LOST 17**
+The first cut also matched **"that player"** — which `atoms/cdmgDiscard.js` already owns as the COMBAT-DAMAGE
+referent (`who:"damagedPlayer"`). Every *"deals combat damage to a player, that player discards a card"*
+**specter in the corpus went body-only**. The **ORDERING RULE** says gate a widening behind the prior path's
+failure so *"no regressions"* is STRUCTURAL — and **removing the overlapping alternative outright is the
+strongest form of that**, because then no ordering can reintroduce it. Net **9** instead of **−2**, plus a
+regression-guard test asserting the specter shape stays native. *The flip-diff is the only reason this was a
+ten-minute detour instead of a shipped defect.*
+
+### 📌 TEN CREED PINS RE-POINTED ACROSS SEVEN FILES — none deleted
+Most use *"its controller discards a card"* as a **STAND-IN** for an unmodeled rider **and say so in the
+line**. One had **already been re-pointed on 07-29** when the lose-life rider graduated, and its comment
+explains the convention — so this was the second (and for `destroyTokenRider`, the **third**) move of the same
+line. Stand-in now `investigates`, unmodeled even for an explicit *"Target player investigates."*
+**Two were NOT stand-ins but the real cards** (Nature's Claim, Last Breath) and now assert the flip. Three
+merge-gate entries moved `MUST_DROP_TO_LOW` → `MUST_STAY_HIGH`.
+⭐ *A pin written to be re-pointed costs one line each time it graduates. A pin written as a bare assertion
+costs an investigation. These cost one line.*
+
+**⚠️ Two of MY OWN tests were over-specified and the engine was right both times:** one asserted WHICH parser
+wins a payload that the pre-existing `controllerRider` fold already owns after a `destroy`; the other asserted
+an immediate discard when a discard raises a **pending choice**. Both now assert the OUTCOME — and the
+replacement is *stronger*: **who the choice is addressed to** is the thing that proves the projection.
+
+**Gates:** 7 new tests; **three mutations seen to fail**, including widening back to *"that player"*. Suite
+**1009 files / 12,856 green**, lint 0, MUTANT clean.
+
+**Batch 3: 71 cards.** — approaching the ~100 tag threshold.
 
 ---
 
