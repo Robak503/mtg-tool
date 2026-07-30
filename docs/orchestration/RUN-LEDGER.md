@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 36 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 38 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,61 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## 📉 THE INTERVENING-IF TAIL, SWEPT END TO END — **and the honest answer is that it is spent**
+
+Before building anything I swap-measured **every** unparseable intervening-if shape in the corpus (replace
+the condition with a known-good one, keep the card otherwise intact). The result is the strategic finding
+of this session:
+
+> **105 attributable cards, spread across 87 distinct shapes, out of 387 shapes total.**
+> **The largest single shape is 5 — and it is already REFUSED.**
+
+| attr | shape | verdict |
+|---|---|---|
+| **5** | `{M} was spent to cast it` | ⛔ **REFUSED** — per-cast mana provenance, pinned twice already |
+| 3 | `you haven't cast a spell from your hand this turn` | needs per-turn cast-BY-ZONE tracking (pinned, see below) |
+| 3 | `your team controls another warrior` | team/2HG semantics |
+| **3→2** | `you control an artifact and an enchantment` | ✅ **BUILT** (the sweep counts INSTANCES; Naomi's *enters-or-attacks* is two) |
+| 2 each | 8 further shapes | … then a 1-card tail, 70+ shapes deep |
+
+⭐ **Two-thirds of the tail's shapes are worth ONE card.** At a slice apiece — each needing its own reader,
+its own gates, its own mutations — this surface is no longer a lever. Recorded so nobody re-derives it.
+
+⚠️ **And note the sweep counts trigger INSTANCES, not cards.** The conjunction measured 3 and paid 2,
+because a card whose trigger reads *"enters or attacks"* contributes two descriptors. *An instance count is
+an upper bound on cards; only the flip-diff is the card count.*
+
+---
+
+## ✅ BANKED (batch 4) 2026-07-30 — **ELIDED-SUBJECT "YOU CONTROL X AND Y". GAINED 2, LOST 0.**
+
+Naomi, Pillar of Order · Kami of Terrible Secrets.
+
+*"if you control an artifact and an enchantment"* drops the repeated subject — it means *you control an
+artifact AND you control an enchantment*, so the right half is the bare noun `an enchantment`, which is not
+a condition at all. Each half is rebuilt into a full condition and handed back to the same evaluator, which
+**re-gates the noun against the curated vocabulary** (a DESIGNATION like *"a commander"* is refused there,
+so the conjunction inherits the refusal instead of answering false).
+
+### ⛔ WHY THIS IS NOT A GENERIC " and " SPLITTER — measured, then refused
+The disjunction splitter already exists, so the symmetric build was the obvious move. It is worth **zero**:
+**all 18** AND-shaped unparseable conditions have a half that does not read standalone. And it would be
+actively dangerous — several conditions carry an **internal** " and " that must never be split:
+
+`your devotion to white and black is seven or greater` · `you gained and lost life this turn` ·
+`you've cast three or more instant and sorcery spells this turn`
+
+Splitting those hands the evaluator nonsense halves and gets a confident answer back. All pinned; the
+loosened-anchor mutation that would split them **fails**. ⭐ *The existence of a symmetric mechanism is not
+evidence that its mirror is worth building — measure the mirror separately.*
+
+**Gates:** 11 tests. Five mutations seen to fail. Suite **1019 files / 12,970 green**, lint 0, MUTANT clean.
+Commit `117f4f9c`.
+
+**Batch 4: 38 cards.**
 
 ---
 
