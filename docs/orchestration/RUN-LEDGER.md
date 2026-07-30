@@ -11,6 +11,12 @@
 > per slice. **Only the TAG batches.** A tag makes an update banner appear in every running `.exe`, and one
 > banner per +21 is noise.
 >
+> - 🔬 **SIZING RULE (2026-07-30): use PHRASE-SWAP attribution, never containment or line-removal.**
+>   Swap the mechanic's PHRASE for a known-good payload of the same shape, leaving triggers/costs/
+>   conditions intact. Line-removal deletes the TRIGGER along with its payload and over-counts badly
+>   (Treasure measured 35 that way; the true number is **0**, and Treasure is already fully built).
+>   **Grep the source for a mechanic before believing it is unbuilt** — Ward, Treasure and Food all were.
+>   Full evidence in the METHOD CORRECTION entry below.
 > - 🎯 **READ THE SHELF ENTRY BELOW BEFORE PICKING MORE CORPUS WORK.** Colton's shelf is at **93%** with
 >   exactly ONE deck under the >=90% bar (`cdh`, 83/100 — seven cards). Its full 17-slot gap is
 >   diagnosed per clause in the entry, with a recommended build order. That is the stated objective;
@@ -118,6 +124,57 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## 🔬 METHOD CORRECTION 2026-07-30 — **LINE-REMOVAL ATTRIBUTION IS WRONG. Use PHRASE-SWAP.** Read before sizing any vein.
+
+No code shipped. This invalidates a sizing method used repeatedly in this run and explains several
+under-predictions, so it outranks the slice it interrupted.
+
+**THE THREE MEASUREMENTS OF THE SAME MECHANICS, WORST TO BEST:**
+
+| method | Ward | Treasure | "you may cast that card" | Food |
+|---|---|---|---|---|
+| **containment** (oracle contains the marker) | 155 | 280 | 90 | 150 |
+| **line-removal** (delete the whole line, re-classify) | 8 | **35** | **33** | 8 |
+| **⭐ phrase-swap** (swap the PHRASE for a known-good payload) | — | **0** | **0** | **2** |
+
+**⛔ WHY LINE-REMOVAL LIES, and it is subtle enough that it passed as rigour.** Deleting the LINE containing a
+mechanic also deletes whatever else lives on that line — and for a triggered ability that is **the trigger
+itself**. Removing *"Whenever Ragavan deals combat damage to a player, create a Treasure token"* flips the card
+because the TRIGGER vanished, not because Treasure was the blocker. The measurement answers "is this line a
+problem?" while the question is "is this MECHANIC the problem?".
+
+**✅ PHRASE-SWAP IS THE HONEST TEST:** replace only the mechanic's phrase with a known-good payload of the same
+grammatical shape (`create a Treasure token` → `draw a card`), leaving every trigger, cost, condition and
+sibling clause intact. Only a card that flips is genuinely blocked by the mechanic. **Removal attribution only
+works when you remove the MINIMAL thing under test** — the whole-line version silently widens the removal.
+
+**⭐ WHAT THIS COST, AND WHAT IT EXPLAINS.** Acting on the 35 would have meant building a Treasure vein that is
+**already fully built** (`NAMED_TOKENS.treasure` plus ~8 parse arms). The 35 head cards are each blocked by
+something else entirely — a replacement effect (Hullbreacher), a remove-counter activation cost (Fain), a
+combat-damage trigger (Ragavan), an end-step intervening-if (Relic Retriever), an exile-then-conditional chain
+(Bonehoard Dracosaur). It also retroactively explains this batch's misses: **mass bounce predicted 6 / got 3**,
+**turn-scoped flash predicted 4 / got 1**. Those predictions came from clause-level or line-level probes that
+could not see the rest of the card.
+
+**AND THE CONTAINMENT TRAP FIRED AGAIN IN THE SAME HOUR.** Ward measured "53 parked / 3 native" by containment
+and looked like the biggest unbuilt mechanic on the board — **Ward is already implemented** (actionDispatcher's
+`KW-WARD` block, CR 702.21a, verified in `cr_current.json`: *"Ward is a triggered ability… counter that spell
+or ability unless that player pays [cost]"*). I wrote "a LEAD, not an attribution" in that probe's own header
+and then let it drive the decision anyway. **Writing the caveat is not the same as honouring it.**
+
+**THE RULE, for every future vein:**
+1. Containment answers nothing. It is a candidate list, never a size.
+2. Line-removal over-counts whenever the mechanic shares a line with a trigger/cost/condition — i.e. usually.
+3. **Phrase-swap, then audit the head by hand.** If a group's members each fail for a different reason, the
+   group is an artifact of the probe, not a vein.
+4. Before building any "unbuilt" mechanic, **grep for it in the source first** — Ward, Treasure and Food were
+   all already implemented.
+
+**STATUS: batch 2 unchanged at 21.** The cdh gap's remaining items are still bespoke per-card mechanisms; the
+mechanism-reach ranking that motivated this detour is withdrawn.
 
 ---
 
