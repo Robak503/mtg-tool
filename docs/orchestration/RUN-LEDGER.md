@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 38 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 42 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -131,7 +131,57 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 SHELF RE-MEASURED 2026-07-30 — **COLTON IS AT 94%. ONE DECK, THREE CARDS FROM THE BAR.**
+## 🎯 ## ✅ BANKED (batch 4) 2026-07-30 — **THE PACT CYCLE. GAINED 4, LOST 0. ⭐ `cdh` 87% → 88% — TWO CARDS LEFT.**
+
+Pact of Negation *(the shelf card)* · Slaughter Pact · Summoner's Pact · Pact of the Titan.
+
+### ⚠️ THE SHELF LEDGER'S BLOCKER ATTRIBUTION WAS WRONG, AND THE SWAP CAUGHT IT
+The ledger flagged Pact of Negation as `shared×2` on the rider line. Replacing the rider with a known-good
+delayed trigger flipped **0 of 6**. **Two** gaps had to close together — removal-attribution names ONE line
+and stops. *Removal says "this line is involved"; only a swap says "this line is sufficient".*
+
+| gap | reach |
+|---|---|
+| **LEAD-form composition** | 46 non-native instants/sorceries carry the shape — **unlocks 0 alone** |
+| **the pay-or-lose rider** | the Pact cycle |
+
+`matchDelayedTrigger`'s TRAIL branch already accepted leading sentences; only the **LEAD** word order was
+anchored to the whole clause, so every *"&lt;effect&gt;. At the beginning of your next upkeep, &lt;rider&gt;"*
+card fell through. ⭐ *A prerequisite that measures 0 on its own is still worth building — but only
+alongside the thing it unblocks, and the ledger should say so or someone will build it as a slice.*
+
+### ⛔ THE FAILURE BRANCH IS THE CARD
+Paying when able is **not** a policy guess — the alternative is losing outright, so there is exactly one
+rational line. What earns the gates is the other branch: **an unpayable Pact sets `lostGame`**, which is the
+entire reason these cost `{0}`. Mutations that fail-open on an unpayable Pact, or price an unmodelled cost
+as free, both **fail**.
+
+The cost reader is deliberately **narrower** than `legalChoices.parseManaCost` — which cannot be imported
+into an atom without closing a cycle (legalChoices → atoms/shared). Plain generic + coloured pips only;
+`{X}`, hybrid, Phyrexian and Guild Pact's *"one mana of each of the chosen colors"* are refused, so those
+cards stay on the Arbiter rather than being **underpaid**. Intervention Pact and Guild Pact correctly did
+not follow the other four in.
+
+### ⚠️ THE BUG THAT HID BEHIND A PERFECT REGEX — and the shell trap that hid the measurement
+1. The clause parser lowercases before matching, so pips arrived as `{u}`. `pipsToCost` tested `[WUBRGC]`
+   **uppercase only** → null → the whole cycle stayed on the Arbiter **while the regex matched perfectly**.
+   An isolation probe of the regex PASSED and proved nothing, because it stopped one step short of the
+   failure. ⭐ *Probe the whole path to the value you care about, not the step you suspect.*
+2. ⚠️ **A constructed `new RegExp("\s+")` loses its backslashes in this environment's shell heredocs.**
+   That silently turned an earlier run of the composition measurement into a **false zero** — I nearly
+   recorded "no carriers" as a finding. Verified by printing `regex.source`: `^(.+.)s+…`. **Measurement
+   scripts now use regex LITERALS and are written with the Write tool, never a heredoc.** Same trap has now
+   cost four separate anchors this run.
+
+**Gates:** 13 tests, the death branch leading. Five mutations seen to fail. Suite **1020 files / 12,983
+green**, lint 0, MUTANT clean. Commit `ea990601`.
+
+**Batch 4: 42 cards. ⭐ Colton's shelf: `cdh` 88% — TWO cards from the 1.0 bar; every other deck of his is
+already over it.**
+
+---
+
+SHELF RE-MEASURED 2026-07-30 — **COLTON IS AT 94%. ONE DECK, THREE CARDS FROM THE BAR.**
 
 Re-ran `measure-coverage.mjs` against the live AppData decks after 38 cards of engine work. The objective
 is the SHELF, not corpus %, and it has moved:
