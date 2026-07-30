@@ -42,8 +42,13 @@ describe("GRANTED-TRIGGERED (1c) — recognition", () => {
   it("FN boundary — an UNMODELED granted effect or a rider keeps the card Arbiter", () => {
     // unmodeled effect (tap/untap target permanent) → Arbiter
     expect(classifyCard(aura("Ghostly Touch", 'Enchant creature\nEnchanted creature has "Whenever this creature attacks, you may tap or untap target permanent."'))).toBe("body-only");
-    // ETB-trigger rider on the aura itself → residue → Arbiter
-    expect(classifyCard(aura("Ridered", 'Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature has "Whenever this creature deals combat damage to a player, you may draw a card."'))).toBe("body-only");
+    // ⭐ GRADUATED 2026-07-30 — this is the Nurturing Presence shape (a MODELED aura-own ETB beside a modeled
+    // granted trigger) and AU-GRANT+STATIC credits it now. Runtime-proven before the lane was widened: the
+    // Aura's own ETB still fires with a grant line present (the token is created either way), measured rather
+    // than inferred from the static-bonus case that shipped first.
+    expect(classifyCard(aura("Ridered", 'Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature has "Whenever this creature deals combat damage to a player, you may draw a card."'))).toBe("native-trigger");
+    // ⛔ the rider direction this line was guarding, re-aimed: an UNMODELED aura-own rider still parks it.
+    expect(classifyCard(aura("Ridered2", 'Enchant creature\nWhenever a player consults an oracle, interpret its riddle however you like.\nEnchanted creature has "Whenever this creature deals combat damage to a player, you may draw a card."'))).toBe("body-only");
   });
 });
 

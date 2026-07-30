@@ -11,6 +11,8 @@ summarizes the notable changes.
 ### Added
 - **Tamiyo's Safekeeping works.** Targeting one of your own artifacts, enchantments or lands really does
   give it hexproof and indestructible for the turn — it now survives a Disenchant or a wrath.
+- **More Auras that do two things now do both.** Ocular Halo, Nurturing Presence and Weirding Wood — the
+  Aura's own ability and the one it grants your creature both work at the same time.
 - **Auras that both buff and grant now do both.** Pillory of the Sleepless, Compulsory Rest and Utopia
   Vow were silently losing their "can't attack or block" half — the creature they were supposed to pin
   down could attack freely. It applies now, alongside the ability they grant.

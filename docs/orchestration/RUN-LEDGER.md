@@ -34,7 +34,7 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **BATCH IN FLIGHT: 5 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 8 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -468,6 +468,54 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **THE AU-GRANT COMPOSITE WIDENED TO ALL THREE AURA-OWN LANES. GAINED 3.**
+
+Ocular Halo · Nurturing Presence · **Weirding Wood** (the sweep found the third; I only predicted two).
+
+### THE CHANGE IS ONE LINE — THE DISCIPLINE IS WHY IT WAS SAFE
+HALF 1 of `nativeGrantPlusAuraStatic` required the grant-stripped remainder to satisfy `isNativeAura`. Now it
+accepts **any** aura-own lane: the static bonus (shipped last slice), the Aura's OWN activated ability
+(Ocular Halo), or its OWN triggered/ETB ability (Nurturing Presence).
+
+⭐ **EACH REMAINDER KIND WAS MEASURED AT RUNTIME BEFORE BEING ADMITTED — not after, and not by analogy.**
+*"It's the same shape one lane over"* is precisely the reasoning that made the first attempt at this composite
+a false positive two slices ago, so it was not reused:
+
+| shape | runtime check | result |
+|---|---|---|
+| grant + aura-own ACTIVATED | `legalActionsForPlayer` with both present | **both** enumerate — the grant on the HOST, the own ability on the AURA |
+| grant + aura-own ETB | `enterPermanent` + flush | the token is still created |
+| grant + static bonus (last slice) | layer read | needed the `parseAttachedBonus` fix first |
+
+Two of the three needed no engine work at all — but that was a FINDING, not an assumption. Controls included:
+each half alone enumerates exactly ONE of the two actions.
+
+### ⛔ NERD RAGE STILL PARKS, AND THE REASON IS PINNED
+Its grant line carries **TWO quoted abilities joined by "and"** on one line — a shape no grant gate claims.
+Asserted as parked so the next reader does not mistake it for a near-miss.
+
+### ⭐ M4 DID NOT FAIL, AND THE COMMENT NOW SAYS SO
+Mutating the composite's "≥1 non-grant clause" priority guard changed nothing: a card with no non-grant
+clause returns from a lane ABOVE before reaching this one, so the line is **unreachable today**. It is kept
+as insurance against a lane reorder, and labelled in-code as defensive-and-unmutable rather than left to look
+like a live gate. *A guard that cannot fail is not a guard; the honest move is to say which one it is.*
+
+**Mutation-checked: 1 of 2 seen to fail** — M3 the widening reverted (the two new shapes park again). M4 as
+above, recorded rather than dressed up.
+
+### ✅ A FOURTH RESIDUE PIN GRADUATED
+`auraGrantedTriggered` — *"ETB-trigger rider on the aura itself → residue → Arbiter"*. That is the Nurturing
+Presence shape, runtime-proven this slice; re-aimed at an UNMODELED aura-own rider.
+
+**Gates:** flip-diff **GAINED 3 / LOST 0**, no other tier moved (12928 → 12931 / 34245). 11 tests in the file
+(4 runtime + 2 new runtime controls). Suite **1037 files / 13,139 green**, lint 0, module graph loads,
+MUTANT clean. **Batch: 8 cards.** Corpus 37.760%.
+
+### ➡️ The Aura-grant seam is now SPENT except Nerd Rage's two-grants-on-one-line shape. Next pick needs a
+fresh shelf-gap pass — and note Joe held at 851/1098, so these three were corpus-only.
 
 ---
 

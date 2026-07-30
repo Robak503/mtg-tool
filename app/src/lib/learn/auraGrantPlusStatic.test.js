@@ -21,6 +21,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { classifyCard } from "./coverage.js";
 import { _resetIdsForTests, createGameState, createPermanent, attachPermanent } from "./gameState.js";
 import { permanentHasKeyword } from "./layers.js";
+import { legalActionsForPlayer } from "./legalChoices.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -31,6 +32,12 @@ const COMPULSORY_REST = { name: "Compulsory Rest", type: "Enchantment — Aura",
   oracle: "Enchant creature\nEnchanted creature can't attack or block.\nEnchanted creature has \"{2}, Sacrifice this creature: You gain 2 life.\"" };
 const UTOPIA_VOW = { name: "Utopia Vow", type: "Enchantment — Aura", mana: "{1}{G}",
   oracle: "Enchant creature\nEnchanted creature can't attack or block.\nEnchanted creature has \"{T}: Add one mana of any color.\"" };
+const OCULAR_HALO = { name: "Ocular Halo", type: "Enchantment — Aura", mana: "{2}{W}",
+  oracle: "Enchant creature\nEnchanted creature has \"{T}: Draw a card.\"\n{W}: Enchanted creature gains vigilance until end of turn." };
+const NURTURING = { name: "Nurturing Presence", type: "Enchantment — Aura", mana: "{1}{W}",
+  oracle: "Enchant creature\nEnchanted creature has \"Whenever a creature you control enters, this creature gets +1/+1 until end of turn.\"\nWhen this Aura enters, create a 1/1 white Spirit creature token with flying." };
+const NERD_RAGE = { name: "Nerd Rage", type: "Enchantment — Aura", mana: "{1}{U}",
+  oracle: "Enchant creature\nWhen this Aura enters, draw two cards.\nEnchanted creature has \"You have no maximum hand size\" and \"Whenever this creature attacks, if you have ten or more cards in hand, it gets +10/+10 until end of turn.\"" };
 const UNMODELED_GRANT = "Enchanted creature has \"Whenever a player consults an oracle, interpret its riddle however you like.\"";
 
 /** Attach a fresh Aura to a bear through the REAL attach path and report the host's restriction. */
@@ -60,11 +67,48 @@ describe("⭐ RUNTIME — the static bonus survives alongside a granted ability"
   });
 });
 
-describe("classification — the three carriers flip to their GRANT half's tier", () => {
+describe("⭐ RUNTIME — the OTHER two aura-own halves also survive a grant line", () => {
+  // ⭐ MEASURED BEFORE THE LANE WAS WIDENED, not after. "It's the same shape one lane over" is exactly the
+  // reasoning that made the first attempt at this composite a false positive, so each remainder kind was
+  // checked against the runtime it actually rides before being admitted to HALF 1.
+  function actionsOn(auraOracle) {
+    const s0 = createGameState({ userDeck: [], aiDeck: [] });
+    const bear = createPermanent({ id: "bear", card: { id: "c-bear", name: "Bear", type: "Creature — Bear", power: "2", toughness: "2", oracle: "" }, controller: "user" });
+    bear.summoningSick = false;
+    const aura = createPermanent({ id: "aura", card: { id: "c-aura", name: "A", type: "Enchantment — Aura", oracle: auraOracle }, controller: "user" });
+    const plains = createPermanent({ id: "F", card: { id: "c-F", name: "Plains", type: "Basic Land — Plains", oracle: "{T}: Add {W}." }, controller: "user" });
+    let s = { ...s0, activePlayer: "user", priorityHolder: "user", phase: "precombat-main", step: "main",
+      players: { ...s0.players, user: { ...s0.players.user, battlefield: [bear, aura, plains] } } };
+    s = attachPermanent(s, { equipId: "aura", targetId: "bear" });
+    return (legalActionsForPlayer(s, "user") || []).filter((a) => a.permanentId === "aura" || a.permanentId === "bear");
+  }
+
+  it("OCULAR HALO shape — the Aura's OWN activated ability AND the granted one both enumerate", () => {
+    const both = actionsOn("Enchant creature\nEnchanted creature has \"{T}: Draw a card.\"\n{W}: Enchanted creature gains vigilance until end of turn.");
+    expect(both.some((a) => a.permanentId === "bear")).toBe(true);  // the GRANT, on the host
+    expect(both.some((a) => a.permanentId === "aura")).toBe(true);  // the Aura's own ability
+  });
+
+  it("⛔ CONTROL — each half alone enumerates exactly one of the two", () => {
+    expect(actionsOn("Enchant creature\nEnchanted creature has \"{T}: Draw a card.\"").map((a) => a.permanentId)).toEqual(["bear"]);
+    expect(actionsOn("Enchant creature\n{W}: Enchanted creature gains vigilance until end of turn.").map((a) => a.permanentId)).toEqual(["aura"]);
+  });
+});
+
+describe("classification — the carriers flip to their GRANT half's tier", () => {
   it("each lands on the tier its grant would have had alone", () => {
     expect(classifyCard(PILLORY)).toBe("native-trigger");
     expect(classifyCard(COMPULSORY_REST)).toBe("native-activated");
     expect(classifyCard(UTOPIA_VOW)).toBe("native-mana-aura");
+  });
+
+  it("the other two aura-own remainders compose too (Ocular Halo, Nurturing Presence)", () => {
+    expect(classifyCard(OCULAR_HALO)).toBe("native-activated");   // remainder = the Aura's OWN activated
+    expect(classifyCard(NURTURING)).toBe("native-trigger");       // remainder = the Aura's OWN ETB
+  });
+
+  it("⛔ Nerd Rage stays parked — TWO quoted grants joined by \"and\" on one line is a shape no gate claims", () => {
+    expect(classifyCard(NERD_RAGE)).not.toMatch(/^native/);
   });
 
   it("⛔ an UNMODELED grant parks the whole card even beside a perfectly modeled bonus", () => {

@@ -1815,9 +1815,21 @@ function nativeGrantPlusAuraStatic(card) {
   const rest = lines.filter((ln) => !isGrant(ln));
   // ≥1 non-grant, non-Enchant clause — otherwise a lane ABOVE already owns the card and keeps priority
   // (a pure-grant Aura is native-trigger/-activated there; a pure-bonus Aura is native-aura).
+  // ⚠️ DEFENSIVE, AND UNREACHABLE TODAY — say so rather than imply a check that isn't there. A card with no
+  // non-grant clause returns from a lane above before ever arriving here, so deleting this line moves NOTHING
+  // and its mutation does not fail (verified, not assumed). It is kept as insurance against a future lane
+  // reorder, not as a live gate; the "priority preserved" test pins the lanes above, not this line.
   if (!rest.some((ln) => stripReminder(ln).trim() && !isEnchantLine(ln))) return null;
-  // HALF 1 — the card WITHOUT its grant lines must be a fully native Aura on its own terms.
-  if (!isNativeAura({ ...card, oracle: rest.join("\n") })) return null;
+  // HALF 1 — the card WITHOUT its grant lines must be a natively-played Aura on its own terms. ANY of the
+  // three aura-own lanes counts, not just the static-bonus one: a modeled static bonus (Pillory, Compulsory
+  // Rest, Utopia Vow), the Aura's OWN activated ability (Ocular Halo), or its OWN triggered/ETB ability
+  // (Nurturing Presence). ⭐ Each of those three runtime paths was MEASURED to still work with a grant line
+  // present before being admitted here — the own-activated ability still enumerates on the Aura, the own ETB
+  // still fires, and the static bonus needed the parseAttachedBonus fix that shipped with this lane's first
+  // three cards. Widening on "it's the same shape" without that check is how the first attempt became a
+  // false positive.
+  const remainder = { ...card, oracle: rest.join("\n") };
+  if (!isNativeAura(remainder) && !isNativeOwnActivatedAura(remainder) && !isNativeOwnTriggeredAura(remainder)) return null;
   // HALF 2 — the Enchant line plus the grant lines must satisfy the grant gate that already claimed it.
   const grantOnly = { ...card, oracle: [...lines.filter(isEnchantLine), ...grants].join("\n") };
   if (isNativeTriggerGrantAuraOrEquipment(grantOnly)) return "native-trigger";
