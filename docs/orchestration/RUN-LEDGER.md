@@ -131,6 +131,51 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## 📏 SCOPED, MEASURED, READY TO BUILD 2026-07-30 — **THE DISCARD EVENT (`whenever an opponent discards a card`) — worth ~8, and it is a SEVEN-SITE build**
+
+Measured but deliberately NOT started at the tail of a session: a partial build here produces **silently
+missing triggers**, which is the worst failure shape in the engine (no error, no FP, just an ability that
+never fires). Everything the next session needs is below — pick it up cold.
+
+### THE MEASUREMENT (phrase-swap, per the sizing rule)
+`detectTriggers` returns **NOTHING** for this event — it is not a missing payoff clause, **the whole event
+is undetected**. Swapping ONLY the event phrase (`whenever an opponent discards a card` →
+`whenever you gain life`) and leaving every payoff intact:
+
+| | count | cards |
+|---|---|---|
+| non-native carriers | 13 | |
+| **flip on the EVENT alone** | **4** | Tourach, Dread Cantor · Sangromancer · Abyssal Nocturnus · Geth's Grimoire |
+| **+ need a `discardingPlayer` referent** | **3** | Liliana's Caress · Raiders' Wake · Fell Specter (*"that player loses 2 life"*) |
+| + the same referent, damage form | 1 | Megrim (*"deals 2 damage to that player"*) |
+
+⭐ **The original census called this vein "3".** It counted only the `that player loses N life` payoff.
+Sizing the EVENT instead more than doubled it — *when a census phrase is a PAYOFF, check whether the
+TRIGGER underneath it exists at all; the payoff count is a floor, not the size.*
+
+### WHY IT IS BIG: SEVEN DISCARD SITES, NO CHOKE POINT
+A discard trigger must fire from **every** way a card is discarded (CR 701.8a), and this engine has no
+single `discardCard` helper to hook. Files performing discards today:
+
+`effects/atoms/hand.js` (the chain + random discard) · `effects/runProgram.js` · `learnSession.js`
+(the CR 514.1 cleanup hand-size discard) · `effects/castModifiers.js` (discard as a COST) ·
+`effects/atoms/connive.js` · `effects/atoms/iteratedEdict.js` · `pendingChoice.js`
+
+⚠️ **And the main chain PAUSES for human choice** (`pendingChoice` carries five discard kinds:
+`hand-discard`, `discard`, `optional-draw-discard`, `optional-discard-payment`, `cleanup-discard`). Each
+discard is its own event (CR 603.2), so the fire point has to be correct ACROSS the pause — not once at
+the end of the chain. That is the whole risk of this slice.
+
+### THE SHAPE
+1. `detectTriggers` arm → `{ event: "discarded", whose: "opponent" }`.
+2. A `checkDiscardTriggers` called from **all seven** sites, one fire per card discarded.
+3. Context stamp `discardingPlayerId` + a `who:"discardingPlayer"` referent for the lose-life / damage payoffs.
+4. **Pin the referent to the event in `triggerRouting`'s referent gate** — the same discipline the
+   `dyingPower` pin got this run, and non-optional here: an absent referent reads as a dropped clause.
+5. Gates must drive a REAL discard through the pausing chain, not just assert the descriptor.
+
+---
+
 ## ✅ BANKED (batch 4) 2026-07-30 — **LOOK AT TARGET PLAYER'S HAND (CR 701.20e). GAINED 5, LOST 0.**
 
 Peek · Gitaxian Probe · Clairvoyance · Ingenious Thief · Glasses of Urza.
