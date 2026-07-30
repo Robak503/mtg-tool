@@ -63,7 +63,7 @@ describe("⛔ the credit is the BARE COST LINE only", () => {
   it("⛔ compound-cost keywords are still NOT credited — the clause split defeats them", () => {
     // escape / suspend / awaken print a dash-joined compound cost; isKeywordOnly splits on commas and
     // dashes BEFORE testing, so no whole-line pattern reaches them. 10 permanents wait on that change.
-    expect(isKeywordOnly("escape—{2}{b}, exile two other cards from your graveyard")).toBe(false);
+    // ✅ escape graduated (whole-LINE removal, escapeLineCredit.test.js); suspend + awaken still refused.
     expect(isKeywordOnly("suspend 3—{1}{u}")).toBe(false);
     expect(isKeywordOnly("awaken 6—{6}{u}{u}{u}")).toBe(false);
   });

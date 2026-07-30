@@ -410,8 +410,33 @@ export function stripModeledSelfNoUntap(oracle, name) {
   return out.replace(/^\s+/, "");
 }
 
+// ESCAPE's printed line, matched WHOLE (see the note inside isKeywordOnly). The dash is load-bearing: the
+// keyword must be followed by its cost dash, so a line beginning with the CARD NAME "Escape Velocity …"
+// can never match.
+const ESCAPE_LINE = /^[ \t]*escape\s*[—–-][^\n]*$/gim;
+
 export function isKeywordOnly(oracle, name) {
-  let t = stripReminder(oracle).toLowerCase().replace(/[’']/g, "'");
+  // ESCAPE (CR 702.138a) — removed as a whole LINE, here, BEFORE stripReminder collapses the newlines.
+  // Its cost is COMPOUND ("Escape—{2}{B}, Exile two other cards from your graveyard.") and the clause split
+  // below breaks on commas, so no clause-level pattern can ever reach it; crediting the bare
+  // "exile two other cards from your graveyard" fragment is out of the question — that is a real effect
+  // elsewhere. The LINE is the only safe unit, and line structure exists only at this point.
+  //
+  // Vacuous for the from-hand cast on the same basis flashback carries: escape is a GRAVEYARD re-cast window
+  // ("You may cast this card from your graveyard by paying [cost]"), the runtime never offers it, and every
+  // carrier has a real printed mana cost — VERIFIED, not assumed: Nethergoyf {B}, Sentinel's Eyes {W},
+  // Escape Velocity {R}, Mogis's Favor {B}, Bloodbraid Challenger {3}{R}{G}, Lunar Hatchling {4}{G}{U}.
+  //
+  // ⛔ SUSPEND IS DELIBERATELY NOT HERE, and this is why the check mattered: Lotus Bloom, Sol Talisman and
+  // Mox Tantalite print NO mana cost at all. Suspend is the ONLY way to play them, so crediting the line
+  // would mark a card native that the engine cannot play by any route — a false positive, not a missing
+  // option. The vacuity argument is about a card that is castable WITHOUT the keyword; it does not survive
+  // on a card that is not.
+  //
+  // The dash is load-bearing: "escape" must be followed by the cost dash, so a line beginning with the CARD
+  // NAME "Escape Velocity ..." can never match.
+  const deLined = String(oracle || "").replace(ESCAPE_LINE, " ");
+  let t = stripReminder(deLined).toLowerCase().replace(/[’']/g, "'");
   // MULTI-INSTANCE CASCADE (CR 702.85) — "Cascade, cascade[, …]" is now MODELED (detectTriggers emits N cascade
   // triggers, each an independent dig; see cascadeInstanceCount). After stripReminder it splits into N covered
   // "cascade" clauses on the comma, each matching the "cascade" COVERED_KEYWORD, so a keyword-only body like Apex

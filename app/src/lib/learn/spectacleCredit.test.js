@@ -57,7 +57,9 @@ describe("⛔ the credit is the COST LINE only", () => {
     expect(classifyCard(residue)).not.toMatch(/^native/);
   });
 
-  it("⛔ ESCAPE is still NOT credited — its compound cost defeats the clause split", () => {
-    expect(isKeywordOnly("escape—{2}{b}, exile two other cards from your graveyard")).toBe(false);
+  it("✅ ESCAPE graduated — credited by whole-LINE removal (escapeLineCredit.test.js)", () => {
+    // A BOUNDARY MARKER re-pointed, not deleted: this file recorded "the clause split defeats it", which was
+    // true of a CLAUSE-level pattern. The fix removes the LINE before the split, so the marker moves.
+    expect(isKeywordOnly("escape—{2}{b}, exile two other cards from your graveyard")).toBe(true);
   });
 });

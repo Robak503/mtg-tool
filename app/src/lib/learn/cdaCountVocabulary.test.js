@@ -288,12 +288,17 @@ describe("CDA-COUNT-VOCABULARY CREED anti-FP (parks stay body-only)", () => {
     };
     expect(classifyCard(soulless)).not.toBe("native-static");
   });
-  it("a GOYF-form CDA with an unmodeled escape rider (Nethergoyf) stays body-only", () => {
+  it("✅ a GOYF-form CDA whose escape rider is now MODELED (Nethergoyf) is native-static", () => {
+    // GRADUATED 2026-07-30. This pin recorded "escape is an unmodeled rider" — a BOUNDARY MARKER, not a
+    // claim that the CDA half was wrong. Escape is now credited by whole-line removal (CR 702.138a: the
+    // graveyard re-cast the runtime never offers, and Nethergoyf has a printed {B} cost so the from-hand
+    // cast resolves the same body). The CDA half this file actually guards is unchanged — the surrounding
+    // cases still park a CDA carrying a genuinely unmodeled rider.
     const nether = {
       name: "Nethergoyf", type: "Creature — Lhurgoyf", power: "*", toughness: "1+*",
       oracle: "Nethergoyf's power is equal to the number of card types among cards in your graveyard and its toughness is equal to that number plus 1.\nEscape—{2}{B}, Exile any number of other cards from your graveyard with four or more card types among them.",
     };
-    expect(classifyCard(nether)).not.toBe("native-static");
+    expect(classifyCard(nether)).toBe("native-static");
   });
   it("a symmetric all-graveyards CDA with an unmodeled regenerate rider (Mortivore) stays body-only", () => {
     const morti = {
