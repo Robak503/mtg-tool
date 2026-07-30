@@ -932,6 +932,44 @@ export function applyGrantKeywordsGroup(state, atom, ctx) {
 }
 
 /**
+ * LOSE-KEYWORDS-GROUP (CR 611.2 — Shadowspear #325, Bonds of Mortality, and the Fire Nation Drill family):
+ * "(Creatures|Permanents) your opponents control lose <keywords> until end of turn."
+ *
+ * ⭐ THE MIRROR OF applyGrantKeywordsGroup ABOVE, AND IT REUSES ITS RUNTIME WHOLESALE. `removeKeyword` is
+ * already a layer-6 op the keyword readers honour — layers.keywordSet does `set.delete(kw)` for it and the
+ * "loses menace" note there records that removal wins last — so nothing new is enforced here; the only thing
+ * missing was a parser that could ever emit it over an opponent-scoped group.
+ *
+ * ⛔ OPPONENT-SCOPED, which is the half that must not drift: the set is frozen at resolution (CR 611.2c) from
+ * every LIVE opponent's battlefield, never the controller's own, and the effect wears off at cleanup with the
+ * same endOfTurn duration the grant side uses. Removing hexproof/indestructible is what makes the card work
+ * (the targeting + destruction gates read the layer engine), so the group being right is the whole card.
+ */
+export function applyLoseKeywordsGroup(state, atom, ctx) {
+  const ctrl = ctx.controller;
+  const ids = [];
+  for (const [pid, pl] of Object.entries(state?.players || {})) {
+    if (pid === ctrl) continue;                                       // "your opponents control" — never your own
+    for (const p of pl.battlefield || []) {
+      if (atom.subject === "creature" && !permanentIsCreature(state, p.id)) continue;
+      ids.push(p.id);
+    }
+  }
+  let next = state;
+  const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
+  const dur = { kind: "endOfTurn", turn: next.turn };
+  for (const kw of atom.loseKeywords || []) {
+    if (!ids.length) break;
+    next = addContinuousEffect(next, {
+      layer: 6, op: { layerOp: "removeKeyword", keyword: kw },
+      affects: { mode: "fixed", permanentIds: ids },
+      duration: dur, source: src,
+    }).state;
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "lose-keywords-group", controller: ctrl, keywords: atom.loseKeywords, targets: ids });
+}
+
+/**
  * EARTHBEND clause parser (WALT, Toph) — migrated from parser.js parseExtendedAtom (seam batch 5).
  * "earthbend N" — a keyword action: permanently animate a land you control into a 0/0 Elemental with haste
  * (still a land) + N +1/+1 counters (applyEarthbend). Two forms: Literal-N ("earthbend 2" → atom.count) and
@@ -1856,6 +1894,27 @@ export function groupGrantClauseParser(clause) {
 }
 
 /**
+ * LOSE-KEYWORDS-GROUP clause parser — "(Creatures|Permanents) your opponents control lose <keywords> until
+ * end of turn" (Shadowspear #325, Bonds of Mortality). The exact mirror of groupGrantClauseParser above, and
+ * it reuses that parser's OWN keyword allowlist (parseGroupGrantKeywords) so the two sides can never drift:
+ * a keyword the grant side would refuse to hand out is a keyword this side refuses to take away.
+ *
+ * ⛔ ALL-OR-NOTHING (CREED): every segment after "lose" must be in that allowlist, else null → the clause
+ * stays low → Arbiter. That is what keeps Shay Cormac's four-keyword line (which includes "protection", whose
+ * removal the layer readers do NOT model the same way) from being half-applied.
+ * Whole-clause anchored; a rider ("…if {G} was spent to cast this spell" — Invert the Skies) fails the `$`.
+ * Registered via registerClauseParser in parser.js, like every sibling here. Pure (no parser.js import).
+ */
+export function groupLoseKeywordsClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const m = t.match(/^(creatures|permanents) your opponents control lose (.+) until end of turn$/);
+  if (!m) return null;
+  const kws = parseGroupGrantKeywords(m[2]);
+  if (!kws) return null;
+  return { op: "lose-keywords-group", subject: m[1] === "permanents" ? "permanent" : "creature", loseKeywords: kws };
+}
+
+/**
  * ANIMATE clause parser (WALT-ANIMATE) — migrated from parser.js parseExtendedAtom (seam batch 14 / Wave C),
  * verbatim. TWO adjacent blocks, order preserved:
  *   anm — "[until end of turn,] target land becomes a N/N [subtype] creature [with KW[ and KW]]" (Animate
@@ -2219,7 +2278,8 @@ export const combatResolvers = {
   "cant-be-blocked": applyCantBeBlocked, // CANT-BE-BLOCKED — "target creature can't be blocked this turn" → layer-6 endOfTurn unblockable grant
   "mass-block-lock": applyMassBlockLock, // MASS-BLOCK-LOCK (FT-1) — "creatures [without flying] can't block this turn" → ONE dynamic-selector layer-6 endOfTurn cantBlock rule (CR 611.2c)
   "switch-pt": applySwitchPT, // SWITCH-PT — "switch ~ power and toughness until end of turn" → layer-7 sublayer-7d endOfTurn swap
-  "grant-keywords-group": applyGrantKeywordsGroup, // GROUP-KEYWORD-GRANT — "(creatures|permanents) you control gain KW until end of turn"
+  "grant-keywords-group": applyGrantKeywordsGroup,
+  "lose-keywords-group": applyLoseKeywordsGroup, // LOSE-KEYWORDS-GROUP — "(creatures|permanents) your opponents control lose KW until end of turn" (Shadowspear) // GROUP-KEYWORD-GRANT — "(creatures|permanents) you control gain KW until end of turn"
   "damage-self-power": applyDamageSelfPower, // SELF-DAMAGE-BY-POWER — "target/each creature deals damage to itself equal to its power"
   "fight-pair": applyFightPair, // FIGHT-PAIR (CR 701.12) — two CHOSEN creatures (fighter + target) deal damage = power to each other, simultaneously
   "damage-target-power": applyDamageTargetPower, // DAMAGE-TARGET-POWER (CR 119) — one-way: only the chosen fighter deals damage = its power to the chosen target

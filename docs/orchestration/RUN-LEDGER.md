@@ -34,7 +34,7 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **BATCH IN FLIGHT: 12 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 14 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -468,6 +468,54 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **OPPONENT-SCOPED KEYWORD REMOVAL. GAINED 2. SHELF +1 (Wolverine 74 → 75%).**
+
+**Shadowspear (#325)** · Bonds of Mortality. Joe **853/1098**. Two shelf slices running.
+
+### THE MIRROR THAT WAS NEVER BUILT
+`removeKeyword` has always been a layer-6 op the keyword readers honour — `layers.keywordSet` does
+`set.delete(kw)` for it, and the "loses menace" note there already records that removal wins last. **Nothing
+new is enforced by this slice.** The only thing missing was a parser that could ever emit it over an
+opponent-scoped group, so the whole build is `groupLoseKeywordsClauseParser` + `applyLoseKeywordsGroup`,
+written as the line-for-line mirror of the grant pair directly above them in the same file.
+
+⭐ The clause parser reuses the GRANT side's own keyword allowlist (`parseGroupGrantKeywords`), so the two
+sides **cannot drift**: a keyword the grant side refuses to hand out is one this side refuses to take away.
+That is what keeps Shay Cormac's four-keyword line (it includes *protection*, whose removal the layer readers
+do not model the same way) from being half-applied — asserted parked.
+
+### ⭐⚠️ THE SPLITTER ATE IT. **SECOND TIME THIS RUN, IDENTICAL SIGNATURE.**
+The clause parser returned the CORRECT atom when called directly and `parseEffectClause` returned nothing —
+`splitClauses` shattered *"…lose hexproof **and** indestructible until end of turn"* on the internal " and ".
+**Tamiyo's Safekeeping failed the same way for the same reason** two slices ago: a keep-whole rule anchored to
+one subject while its sibling subject fell through. Here the grant rule
+(`^(?:creatures|permanents) you control gains?…`) sat four lines above the gap it did not cover.
+
+⭐ **BANKED AS A STANDING CHECK: when adding a parser whose clause contains an internal " and ", look at the
+SPLITTER FIRST.** It runs upstream of everything, and the direct-vs-driver comparison finds it in a minute.
+Written into the test file so the next reader gets it before they lose the hour.
+
+### ⛔ CREED
+The set is frozen at resolution from every LIVE opponent's battlefield and **never the controller's own** —
+mutation M2 removes that exclusion and the own-board test fails. The permanent-vs-creature subject split is
+asserted both ways (an opponent's ARTIFACT loses indestructible under the permanent form, keeps it under the
+creature form).
+
+**Mutation-checked: 2 seen to fail** — M1 splitter keep-rule removed (6 of 9 tests, parser AND runtime) ·
+M2 own-board exclusion removed (the CREED test).
+
+**Gates:** flip-diff **GAINED 2 / LOST 0**, no other tier moved (12935 → 12937 / 34245). 9 tests, four runtime.
+Suite **1039 files / 13,158 green**, lint 0, module graph loads, MUTANT clean. **Batch: 14 cards.**
+
+### ➡️ STILL ON THE SHELF LIST (each its own mechanism, all verified Mainboard)
+Sensei's Divining Top (the missing half is the SELF-TUCK — *"put this artifact on top of its owner's
+library"*; the draw already works) · Topiary Stomper · Terror of the Peaks · Hunting Velociraptor.
+⚠️ **Measured and NOT worth a slice:** the self *"can't attack"* restriction family — 22 carriers but only
+**3** attributable, none on the shelf, because the corpus forms are nearly all gated (*"unless you control
+seven or more lands"*) rather than bare.
 
 ---
 

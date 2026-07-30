@@ -323,6 +323,15 @@ export function splitClauses(oracle) {
     // groupGrantClauseParser sees the full keyword list. All-or-nothing anchored downstream (an un-grantable
     // word → null → low → Arbiter), so keeping too much together can only fail to match, never a wrong partial.
     if (/^(?:creatures|permanents) you control gains?\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ⭐ THE OPPONENT-SCOPED MIRROR — "(Creatures|Permanents) your opponents control LOSE <kw> and <kw> until
+    // end of turn" (Shadowspear #325, Bonds of Mortality). Identical reasoning to the grant rule directly
+    // above: the " and " joins a KEYWORD LIST inside one instruction, not a top-level boundary.
+    // ⚠️ SECOND TIME THIS EXACT TRAP HAS BEEN HIT IN THIS RUN. Tamiyo's Safekeeping shattered the same way,
+    // because a keep-whole rule was anchored to one subject ("^target creature") and its sibling subject fell
+    // through. The tell is identical both times: the clause parser returns the CORRECT atom when called
+    // directly and parseEffectClause returns nothing. **When adding a parser whose clause contains an
+    // internal " and ", check the splitter FIRST — it is upstream of everything else.**
+    if (/^(?:creatures|permanents) your opponents control lose\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // SWITCH-PT — "switch <referent> power and toughness until end of turn": the " and " in "power and
     // toughness" is INTERNAL to the one swap instruction, NOT a top-level effect boundary. Keep it whole so
     // combatKeywordClauseParser binds the layer-7d swap (else it shatters into "…power" + "toughness…" → low).

@@ -11,6 +11,9 @@ summarizes the notable changes.
 ### Added
 - **Tamiyo's Safekeeping works.** Targeting one of your own artifacts, enchantments or lands really does
   give it hexproof and indestructible for the turn — it now survives a Disenchant or a wrath.
+- **Shadowspear works.** Its {1} ability really does strip hexproof and indestructible off your
+  opponents' permanents for the turn — so the creature you could not touch becomes targetable and
+  killable. Bonds of Mortality does the same for creatures.
 - **"During your turn" team buffs now switch on and off correctly.** Anara, Wolvid Familiar, Bedrock
   Tortoise, Bayek of Siwa and Sokka's Charge — your creatures gain the keyword on your turn and lose it
   on everyone else's, exactly as printed.
