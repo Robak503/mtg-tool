@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 46 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 49 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -131,7 +131,57 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 ## 🔍 ROOT CAUSE FOUND — **`stripReminder` EATS THE NEWLINE, SO `CAST_KEYWORD_LINE` CAN NEVER MATCH. ~25 cards.**
+## 🎯 ## ✅ BANKED 2026-07-30 — **THE SELF-EXILE RETRY MUST LOOK PAST A CAST-KEYWORD LINE. GAINED 3.**
+## ⚠️ AND I BANKED TWO WRONG ROOT CAUSES BEFORE FINDING IT — both corrected below.
+
+Temporal Mastery (miracle) · Part the Waterveil (awaken) · Alrund's Epiphany (foretell).
+
+### THE ACTUAL CAUSE
+`stripSelfExileSentence` requires *"Exile &lt;this&gt;."* to be the **TRAILING** sentence. On these cards a
+vacuous cast-keyword line prints AFTER the body:
+
+```
+Take an extra turn after this one. Exile Temporal Mastery.
+Miracle {1}{U} (…)
+```
+
+…so the exile sentence is no longer last, the retry finds nothing, and the card parks with a body the
+engine can otherwise resolve. Stripping the already-vacuous keyword line **before** the retry looks restores
+the shape it was written for.
+
+✅ **Safe by construction:** the retry runs ONLY when the direct parse came back LOW, so nothing that
+parses today can change — and it is the SAME strip `parseEffectClauseImpl` already applies downstream. An
+ORDERING fix, not a new permission. The `selfExile` stamp is preserved and asserted (GY-1 must EXILE these
+spells, not graveyard them — gaining the parse while losing the stamp would be a silent rules error).
+
+### ⛔ CORRECTIONS — two wrong causes I banked on this same thread
+| I banked | why it was wrong |
+|---|---|
+| *"the strip is never reached on the classify path"* | it IS reached — `parseEffectClauseImpl:1493`, downstream |
+| *"`stripReminder` eats the newline, so `CAST_KEYWORD_LINE`'s per-line anchor can't match"* | `stripReminder` really does collapse newlines, but `parseEffectClauseImpl` receives the **raw multi-line** oracle — a red herring built out of a true fact |
+
+⭐ **What finally settled it was ordering the SAME oracle two ways** — keyword line last vs keyword line
+first — and seeing only the trailing-exile arrangement parse. *Two plausible causes, each supported by a
+true observation, and both wrong. A mechanism is not identified until you can make the symptom appear and
+disappear on demand.*
+
+### ⚠️ AND THE SIZE WAS OVER-CLAIMED: **3, not 25**
+The earlier measurement ("25 cards a fully-applied strip would flip") pre-stripped the WHOLE oracle and
+re-classified — which exercises more paths than this one retry. This ordering fix pays **3**. The other
+**22 are NOT claimed** and still carry a different blocker; the escape (5) and spectacle (5) clusters are
+the next things to diagnose, and they should be diagnosed, not assumed to be the same bug.
+
+*A measurement that pre-applies a fix measures the CEILING of every path that fix could touch — not the
+reach of the specific change you then make.*
+
+**Gates:** 6 tests, including an order-independence case and the preserved `selfExile` stamp. Suite
+**1024 files / 13,014 green**, lint 0, MUTANT clean. Commit `c2d0ae04`. **Batch 4: 49 cards.**
+
+---
+
+## ⛔ SUPERSEDED (wrong cause — kept for the trail)
+
+## 🔍 ROOT CAUSE FOUND — **`stripReminder` EATS THE NEWLINE, SO `CAST_KEYWORD_LINE` CAN NEVER MATCH. ~25 cards.**
 
 Followed the miracle thread to the bottom. It is not miracle-specific and it is not a missing keyword —
 **it is one collapsed line break**, and it silently disarms an entire strip list.
