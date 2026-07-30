@@ -131,7 +131,50 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 ## ✅ BANKED (batch 4) 2026-07-30 — **THE PACT CYCLE. GAINED 4, LOST 0. ⭐ `cdh` 87% → 88% — TWO CARDS LEFT.**
+## 🎯 ## 🔍 DIAGNOSED, NOT STARTED — **THE LAST TWO `cdh` CARDS, both now reduced to ONE mechanism each**
+
+`cdh` is at **88%** and needs **2**. Every remaining candidate was diagnosed by DROPPING each printed line
+and re-classifying — which is how you learn what already works, and both answers were a pleasant surprise.
+
+### ✅ RAGAVAN, NIMBLE PILFERER — **Dash already works**
+Dropping the combat-damage trigger line leaves **`native-body`**. So the keyword is fine and the card has
+exactly ONE blocker: the trigger payoff *"create a Treasure token and exile the top card of that player's
+library. Until end of turn, you may cast that card."*
+
+| piece | state |
+|---|---|
+| `create a Treasure token` | ✅ parses |
+| `exile the top card of YOUR library. Until end of turn, you may play that card` | ✅ parses → `impulse-exile` |
+| **`that player's`** library (the damaged player) | ⛔ the owner referent is unmodelled |
+| **`cast`** rather than `play` | ⛔ the matcher is anchored on `play` |
+| **the compound** — `create a Treasure token AND <impulse form>` | ⛔ shatters; `low`, atoms `[]` |
+
+⚠️ **FOUR pieces for TWO cards.** The impulse resolver reads `players[controller].library` directly, so the
+source library must be parameterised while the play permission stays with the CONTROLLER — and the owner
+referent then needs pinning to combat-damage events, the `damagedPlayer` discipline already in the file.
+Corpus reach: the exact wording is **2** (Ragavan + Grenzo, Havoc Raiser); the looser family is 15 carriers
+/ 9 non-native, but those are separate shapes.
+
+### ✅ BIOMANCER'S FAMILIAR — **the cost-reduction static already works**
+Dropping the activated ability leaves **`native-static`**, so *"Activated abilities of creatures you control
+cost {2} less to activate"* is modelled. The single blocker is the other line: *"{T}: The next time target
+creature adapts this turn, it adapts as though it had no +1/+1 counters on it."* — an adapt-REPLACEMENT,
+one of the most niche shapes on the shelf, and worth checking whether adapt itself is modelled before
+costing it.
+
+### ⛔ STILL REFUSED, do not re-pick
+`Valley Floodcaller` (3 blockers) · `Veil of Summer` (3 mechanics, all 0-attributable) · `Vibrance`
+(mana provenance). `Springheart Nantuko` (bestow + landfall + optional pay + copy-token + fallback token)
+and `Chain of Vapor` (bounce + opponent-sacrifices-a-land + SPELL COPYING) are each larger than the Pact
+cycle was.
+
+⭐ **The line-drop diagnostic is the cheap half of every one of these.** Two cards that read as intimidating
+multi-ability builds turned out to have one working half apiece — and knowing WHICH half works is most of
+the estimate.
+
+---
+
+## ✅ BANKED (batch 4) 2026-07-30 — **THE PACT CYCLE. GAINED 4, LOST 0. ⭐ `cdh` 87% → 88% — TWO CARDS LEFT.**
 
 Pact of Negation *(the shelf card)* · Slaughter Pact · Summoner's Pact · Pact of the Titan.
 
