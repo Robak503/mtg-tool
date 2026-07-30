@@ -41,9 +41,11 @@ describe("parser — removal + 'its controller' rider (RIDER-REMOVAL)", () => {
   });
 
   it("CREED: an UNMODELED rider keeps the whole card LOW → Arbiter (never fires the removal alone)", () => {
-    expect(isHigh("Destroy target creature. Its controller discards a card.")).toBe(false);                       // RE-POINTED 2026-07-29: the lose-life rider is MODELED now, so the stand-in moved to a still-unmodeled rider (discard). What is pinned is the UNMODELED-RIDER refusal, not this rider.
-    expect(isHigh("Destroy target creature. Its controller discards a card.")).toBe(false);                       // discard rider (Assassin's Strike)
-    expect(isHigh("Exile target creature with power 2 or less. Its controller gains 4 life.")).toBe(false);       // fixed gain-life (Last Breath) + MV filter
+    expect(isHigh("Destroy target creature. Its controller investigates.")).toBe(false);                       // RE-POINTED 2026-07-29: the lose-life rider is MODELED now, so the stand-in moved to a still-unmodeled rider (discard). What is pinned is the UNMODELED-RIDER refusal, not this rider. // RE-POINTED 2026-07-30: the DISCARD rider is modeled now (player-referent slice), so the stand-in moved again — `investigates` is unmodeled even for an explicit "Target player investigates." The pin is the UNMODELED-RIDER refusal, not this rider.
+    expect(isHigh("Destroy target creature. Its controller investigates.")).toBe(false);                       // discard rider (Assassin's Strike) // RE-POINTED 2026-07-30: the DISCARD rider is modeled now (player-referent slice), so the stand-in moved again — `investigates` is unmodeled even for an explicit "Target player investigates." The pin is the UNMODELED-RIDER refusal, not this rider.
+    // GRADUATED 2026-07-30 — Last Breath. The fixed gain-life rider is modeled now (player-referent
+    // slice), and the MV filter it rides alongside was already fine. Re-pointed to assert the flip.
+    expect(isHigh("Exile target creature with power 2 or less. Its controller gains 4 life.")).toBe(true);
     expect(isHigh("Exile target nonland permanent. Its controller creates a 3/2 red, white, and blue Spirit creature token.")).toBe(false); // RE-POINTED 2026-07-29: TWO-colour tokens are modeled now (the token builder always understood them — "and" is in TOKEN_COLOR_WORDS). Moved to a THREE-colour token, still unmodeled. The pin is the unmodeled-rider refusal, not the colour count.
     // GRADUATED (census slice 15) — Geomancer's Gambit's "Draw a card." was pinned here as an unmodeled
     // "extra rider", but it was never a rider at all: an unqualified "Draw a card." is the SPELL's own
@@ -132,13 +134,15 @@ describe("coverage — RIDER-REMOVAL staples flip native; the unmodeled riders b
   });
 
   it("CREED: unmodeled-rider removal stays Arbiter-routed", () => {
-    expect(classifyCard(C("Instant", "Destroy target creature. Its controller discards a card.", "Stand-In"))).toBe("arbiter-spell"); // RE-POINTED 2026-07-29: the lose-life rider is MODELED now, so the stand-in moved to a still-unmodeled rider (discard). What is pinned is the UNMODELED-RIDER refusal, not this rider.
+    expect(classifyCard(C("Instant", "Destroy target creature. Its controller investigates.", "Stand-In"))).toBe("arbiter-spell"); // RE-POINTED 2026-07-29: the lose-life rider is MODELED now, so the stand-in moved to a still-unmodeled rider (discard). What is pinned is the UNMODELED-RIDER refusal, not this rider. // RE-POINTED 2026-07-30: the DISCARD rider is modeled now (player-referent slice), so the stand-in moved again — `investigates` is unmodeled even for an explicit "Target player investigates." The pin is the UNMODELED-RIDER refusal, not this rider.
     // Pongify / Rapid Hybridization (destroy creature + can't-be-regenerated + that controller makes a token)
     // are now NATIVE via DESTROY-TOKEN-RIDER (effects/atoms/destroyTokenRider.js) — the can't-be-regenerated
     // sentence is carried as cannotRegenerate (applyDestroyEffect honors it), so the flip is correct, not an FP.
     // See destroyTokenRider.test.js for the parser + end-to-end runtime + CREED pins.
     expect(classifyCard(C("Sorcery", "Destroy target creature. It can't be regenerated. Its controller creates a 3/3 green Ape creature token.", "Pongify"))).toBe("native-spell");
-    expect(classifyCard(C("Instant", "Destroy target creature. Its controller discards a card.", "Assassin's Strike"))).toBe("arbiter-spell"); // discard rider
-    expect(classifyCard(C("Sorcery", "Destroy target artifact or enchantment. Its controller gains 4 life.", "Nature's Claim"))).toBe("arbiter-spell"); // fixed gain-life (not "equal to its power")
+    expect(classifyCard(C("Instant", "Destroy target creature. Its controller investigates.", "Assassin's Strike"))).toBe("arbiter-spell"); // discard rider // RE-POINTED 2026-07-30: the DISCARD rider is modeled now (player-referent slice), so the stand-in moved again — `investigates` is unmodeled even for an explicit "Target player investigates." The pin is the UNMODELED-RIDER refusal, not this rider.
+    // GRADUATED 2026-07-30 — Nature's Claim is native now (player-referent slice). Re-pointed rather than
+    // deleted; the unmodeled-rider refusal it was standing for is pinned above with `investigates`.
+    expect(classifyCard(C("Sorcery", "Destroy target artifact or enchantment. Its controller gains 4 life.", "Nature's Claim"))).toBe("native-spell");
   });
 });

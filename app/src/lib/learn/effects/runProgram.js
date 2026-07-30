@@ -197,7 +197,15 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
     // targetType, so the cast-time enumerator never allocated it one). programConfidence has already
     // guaranteed a targeting atom sits at i-1; if its target is gone by now the slice is empty and the
     // grant is a clean no-op rather than a fabricated grant on some other permanent.
-    const atomTargets = atoms[i]?.bindPreviousTargets ? targetsForAtom(targets, i - 1) : targetsForAtom(targets, i);
+    let atomTargets = atoms[i]?.bindPreviousTargets ? targetsForAtom(targets, i - 1) : targetsForAtom(targets, i);
+    // PLAYER PROJECTION (CR 608.2) — "… ITS CONTROLLER discards a card." The bound slice holds the PERMANENT
+    // the previous atom targeted; the payload wants a PLAYER. Projecting HERE, once, means every player
+    // payload resolver keeps seeing an ordinary {type:"player"} target and needs no change at all.
+    // `t.controller` comes off the enumerated target object, so this still works when the previous atom
+    // destroyed the permanent — which is the canonical carrier ("Destroy target creature. Its controller…").
+    if (atoms[i]?.playerFrom === "controller") {
+      atomTargets = atomTargets.map((t) => (t?.controller ? { type: "player", id: t.controller } : null)).filter(Boolean);
+    }
     const ctx = { ...context, controller, targets: atomTargets, cardName, xValue, sourceId };
     const after = resolveAtom(next, atom, ctx);
     if (after == null) {

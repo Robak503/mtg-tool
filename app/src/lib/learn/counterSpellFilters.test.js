@@ -68,7 +68,7 @@ describe("CROSS-COUNTER parser — new spell-filters parse HIGH to a counter ato
     expect(isHigh("Counter target spell with mana value 4 or greater unless its controller pays {1}.")).toBe(false); // soft rider on the MV-cmp filter
     // NOTE: "Its controller draws a card" IS now a modeled counter-rider (Dream Fracture, COUNTER-RIDER slice);
     // keep the CREED probe on a still-unmodeled controller rider (discard) so the guard stays meaningful.
-    expect(isHigh("Counter target blue spell. Its controller discards a card.")).toBe(false); // controller rider unmodeled here
+    expect(isHigh("Counter target blue spell. Its controller investigates.")).toBe(false); // controller rider unmodeled here // RE-POINTED 2026-07-30: the DISCARD rider is modeled now (player-referent slice), so the stand-in moved again — `investigates` is unmodeled even for an explicit "Target player investigates." The pin is the UNMODELED-RIDER refusal, not this rider.
     expect(isHigh("Counter target instant or sorcery spell that targets you.")).toBe(false); // Psychic Rebuttal extra restriction
   });
 });
@@ -91,8 +91,8 @@ describe("CROSS-COUNTER native coverage — the clean cards flip native-spell, r
   });
   it("CREED — counters with an UNMODELED rider/filter in these families stay arbiter-spell", () => {
     expect(I("Counter target instant or sorcery spell.")).toBe("native-spell");               // Quash-class union — MODELED now (SHELF Phase 2)
-    expect(I("Counter target instant spell. Its controller discards a card.")).toBe("arbiter-spell"); // RE-POINTED 2026-07-29: the lose-life rider became MODELED, so this stand-in moved to a still-unmodeled one (discard). The principle pinned is the UNMODELED-RIDER refusal, never this particular rider.
-    expect(I("Counter target blue spell. Its controller discards a card.")).toBe("arbiter-spell"); // controller-rider unmodeled (draw IS modeled — Dream Fracture)
+    expect(I("Counter target instant spell. Its controller investigates.")).toBe("arbiter-spell"); // RE-POINTED 2026-07-29: the lose-life rider became MODELED, so this stand-in moved to a still-unmodeled one (discard). The principle pinned is the UNMODELED-RIDER refusal, never this particular rider. // RE-POINTED 2026-07-30: the DISCARD rider is modeled now (player-referent slice), so the stand-in moved again — `investigates` is unmodeled even for an explicit "Target player investigates." The pin is the UNMODELED-RIDER refusal, not this rider.
+    expect(I("Counter target blue spell. Its controller investigates.")).toBe("arbiter-spell"); // controller-rider unmodeled (draw IS modeled — Dream Fracture) // RE-POINTED 2026-07-30: the DISCARD rider is modeled now (player-referent slice), so the stand-in moved again — `investigates` is unmodeled even for an explicit "Target player investigates." The pin is the UNMODELED-RIDER refusal, not this rider.
     // NOTE: "Counter target spell with mana value 4 or greater. Draw a card." is correctly native-spell — BOTH
     // the counter and the draw are fully modeled (the multi-clause parser composes them). That is not an FP; it's
     // an honestly-playable card, so it is intentionally NOT asserted parked here.

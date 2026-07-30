@@ -48,7 +48,7 @@ describe("parser — targeted non-creature permanent removal", () => {
   it("an UNMODELED rider or a multi-type / qualified shape drops the whole program to low (no partial)", () => {
     // NOTE: Beast Within ("Its controller creates a 3/3 green Beast creature token") now flips NATIVE via
     // RIDER-REMOVAL (riderRemoval.test.js) — its rider is modeled. An UNMODELED controller-rider still drops:
-    expect(programConfidence(parseEffectProgram(I("Destroy target permanent. Its controller discards a card.")))).toBe("low"); // RE-POINTED 2026-07-29: the lose-life rider is MODELED now, so the stand-in moved to a still-unmodeled rider (discard). What is pinned is the UNMODELED-RIDER refusal, not this rider.
+    expect(programConfidence(parseEffectProgram(I("Destroy target permanent. Its controller investigates.")))).toBe("low"); // RE-POINTED 2026-07-29: the lose-life rider is MODELED now, so the stand-in moved to a still-unmodeled rider (discard). What is pinned is the UNMODELED-RIDER refusal, not this rider. // RE-POINTED 2026-07-30: the DISCARD rider is modeled now (player-referent slice), so the stand-in moved again — `investigates` is unmodeled even for an explicit "Target player investigates." The pin is the UNMODELED-RIDER refusal, not this rider.
     expect(programConfidence(parseEffectProgram(I("Destroy target artifact, creature, enchantment, or land.")))).toBe("low"); // four-type list
     // NONBASIC-LAND / NONCREATURE-PERMANENT are NOW modeled (see their describe block below). A damage-to-the-
     // target's-controller rider is ALSO modeled now (DESTROY-DAMAGE-RIDER, atoms/destroyDamageRider.test.js), so a

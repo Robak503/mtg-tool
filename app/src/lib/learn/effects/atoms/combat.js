@@ -1327,6 +1327,38 @@ export function pumpClauseParser(clause) {
   if (pg) {
     return { op: "pump", ptDelta: { p: parseInt(pg[1], 10), t: parseInt(pg[2], 10) }, grantKeywords: [], bindPreviousTargets: true };
   }
+  // ⭐ BOUND REFERENT, PLAYER form — "Destroy target creature. ITS CONTROLLER discards a card." (Nature's
+  // Claim, Assassin's Strike) and "… THAT PLAYER loses 2 life." The permanent-referent arms above bind to
+  // the previous atom's target; these two PROJECT off it — `that player` IS the target, `its controller` is
+  // the target's controller.
+  //
+  // ⚠️ Reading the controller off the TARGET OBJECT rather than the board is load-bearing, not a shortcut:
+  // the canonical carrier is "DESTROY target creature. Its controller …", so by the time this atom resolves
+  // the permanent is gone and a board lookup would find nothing. Enumerated targets carry `controller`
+  // (spellEffects.enumerateTargets), so the projection survives its own antecedent.
+  //
+  // Only the four player payloads that ALREADY parse for an explicit "target player" are modeled here; the
+  // atom emitted is the same one that wording produces, minus its targetType. A payload outside that set
+  // ("gets a poison counter", "investigates") is unmodeled for an explicit target too, so it stays
+  // unparsed rather than being invented (CREED).
+  {
+    // \u26a0\ufe0f "THAT PLAYER" IS DELIBERATELY NOT HERE. atoms/cdmgDiscard.js already owns
+    // "that player discards a card" as the COMBAT-DAMAGE referent (who:"damagedPlayer", resolved from
+    // ctx.damagedPlayerId). My first cut matched it too and stole it from that parser: flip-diff GAINED 15
+    // but LOST 17 \u2014 every "deals combat damage to a player, that player discards a card" specter went
+    // body-only. The ORDERING RULE says gate a widening behind the prior path's failure so "no regressions"
+    // is STRUCTURAL; removing the overlapping alternative outright is the strongest form of that, because
+    // then no ordering can reintroduce it. Only "its controller" \u2014 which no other parser claims \u2014 is read here.
+    const pr = t.match(/^(its controller) (?:(discards) a card|(loses|gains) (\d+) life|(draws) a card)$/);
+    if (pr) {
+      const from = "controller";
+      const base = pr[2] ? { op: "discard", amount: 1 }
+        : pr[3] === "loses" ? { op: "lose-life", amount: parseInt(pr[4], 10) }
+        : pr[3] === "gains" ? { op: "gain-life", amount: parseInt(pr[4], 10) }
+        : { op: "draw", amount: 1 };
+      return { ...base, who: "target", bindPreviousTargets: true, playerFrom: from };
+    }
+  }
   // BOUND REFERENT, CANT-BLOCK form — "It can't block this turn." (Sparkmage's Gambit, Merciless
   // Javelineer). The `cant-block` op is unchanged; only the recipient is bound rather than chosen.
   // ⚠️ "must be blocked this turn if able" is deliberately NOT here: it is unmodeled even for an EXPLICIT

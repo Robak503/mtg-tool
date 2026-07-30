@@ -99,6 +99,10 @@ describe("DESTROY-TOKEN-RIDER — coverage", () => {
     expect(classifyCard(C(RAPID, "Rapid Hybridization"))).toBe("native-spell");
   });
   it("CREED — an unmodeled rider on the same lead shape stays Arbiter", () => {
-    expect(classifyCard(C("Destroy target creature. It can't be regenerated. Its controller discards a card.", "X"))).toBe("arbiter-spell"); // RE-POINTED 2026-07-29: the lose-life rider became MODELED, so this stand-in moved to a still-unmodeled one (discard). The principle pinned is the UNMODELED-RIDER refusal, never this particular rider.
+    // RE-POINTED 2026-07-30 (third time for this line, and the file predicted it): the DISCARD stand-in
+    // became modeled with the player-referent slice, so it moves to `investigates` — unmodeled even for an
+    // explicit "Target player investigates." The principle pinned is the UNMODELED-RIDER refusal, never
+    // this particular rider. Each re-point is one line because the pin was written to be re-pointed.
+    expect(classifyCard(C("Destroy target creature. It can't be regenerated. Its controller investigates.", "X"))).toBe("arbiter-spell");
   });
 });

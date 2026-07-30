@@ -866,7 +866,6 @@ const MUST_DROP_TO_LOW = [
   // ── P3.1 corpus-confirmed riders (REAL Scryfall cards the sweep verified stay LOW) ──
   // (Annul "artifact or enchantment" is now HIGH — CNT-TYPE, pinned in counterSpellFilters.test.js)
   // (Countermand's "Its controller mills four cards." is now HIGH — CNT-MILL-RIDER, BLITZ CS-1, pinned in counterSoftRiders.test.js)
-  "Counter target noncreature spell. Its controller discards a card.", // RE-POINTED 2026-07-29: the lose-life rider became MODELED, so this stand-in moved to a still-unmodeled one (discard). The principle pinned is the UNMODELED-RIDER refusal, never this particular rider.
   "Choose up to two —\n• Draw a card.\n• You gain 3 life.",            // MODAL-2 models "choose two"/"one or both"; "up to N" count stays low
   "Choose two —\n• Draw a card.\n• Untap all lands you control, then add {G} for each.", // a choose-two with an UNMODELED mode → whole card low (all-or-nothing across modes)
   "Counter target spell you don't control.",                           // Counterflux — "you don't control" unmodeled
@@ -890,8 +889,6 @@ const MUST_DROP_TO_LOW = [
   "Search your library for up to three basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.",  // RAMP-SPLIT is two-only; "up to three" split stays low
   // RIDER-REMOVAL — the UNMODELED controller-riders that must stay LOW (the lead removal is modeled, but an
   // all-or-nothing card never fires the removal while silently dropping the rider).
-  "Destroy target creature. Its controller discards a card.",                                         // RE-POINTED 2026-07-29: the lose-life rider is MODELED now, so the stand-in moved to a still-unmodeled rider (discard). What is pinned is the UNMODELED-RIDER refusal, not this rider.
-  "Destroy target creature. It can't be regenerated. Its controller discards a card.", // RE-POINTED: Afterlife itself now parses — the creature-lead fallback resolves the lead THROUGH the can't-be-regenerated rider, which is a genuine gain, so the marker moves to an unmodeled rider on the same shape.
   "Exile target nonland permanent. Its controller creates a 3/2 red, white, and blue Spirit creature token.", // RE-POINTED 2026-07-29: TWO-colour tokens are modeled now (the token builder always understood them — "and" is in TOKEN_COLOR_WORDS). Moved to a THREE-colour token, still unmodeled. The pin is the unmodeled-rider refusal, not the colour count.
   // SOFT-COUNTER-RIDER — soft-counter NOT hijacked, and delayed/conditional counter-riders stay low.
   "Counter target spell. Its controller may draw up to two cards at the beginning of the next turn's upkeep. You draw a card at the beginning of the next turn's upkeep.", // Arcane Denial (delayed draw)
@@ -1128,6 +1125,11 @@ describe("parseEffectProgram — MUST drop to low (the CI merge gate)", () => {
 // The other side of the gate — oracles the P2.5 adversarial review CONFIRMED are
 // legitimately HIGH. Pinned so a future tightening can't over-correct and drop them.
 const MUST_STAY_HIGH = [
+  // GRADUATED 2026-07-30 out of MUST_DROP_TO_LOW — "its controller <payload>" is modeled now (the
+  // player-referent slice: the recipient is the target's CONTROLLER, projected at the bind site). Moved
+  // here rather than deleted so the pin protects the FLIP instead of the refusal.
+  "Destroy target creature. Its controller discards a card.",
+  "Counter target noncreature spell. Its controller discards a card.",
   // GRADUATED 2026-07-30 out of MUST_DROP_TO_LOW — the Felidar Retreat mode. Its rider was pinned as
   // "unmodeled → whole drops (no silent partial)"; referent binding (CR 608.2) models it, with "those
   // creatures" resolving to the same unfiltered you-control set the counters went on. Moved here rather
