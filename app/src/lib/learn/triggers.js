@@ -1644,7 +1644,15 @@ function classifyCondition(condRaw, cardName, cardType) {
   // null → Arbiter. NON_SUBTYPE_ETB_WORDS rejects a meta/supertype/color word (those are card-TYPE or
   // un-type-line-checkable; "creature"/"permanent"/"artifact" are handled by the card-TYPE matcher above), so
   // a subject the type-line scan can't faithfully restrict stays on the Arbiter (CREED FP guard).
-  const sacSubM = c.match(/^you sacrifice (a|an|another) ([a-z]{3,})$/);
+  // NAMED-TOKEN SUFFIX (Gluttonous Guest — "Whenever you sacrifice a Blood TOKEN"). The optional trailing
+  // " token" is the same subject as the bare form: a Blood token's type line is "Token Artifact — Blood",
+  // so the existing sacSubtype word-bounded scan already matches it — only the `$` anchor was rejecting the
+  // extra word (this arm's own comment named "a creature token" as a casualty of that anchor).
+  // ⚠️ The SAME NON_SUBTYPE_ETB_WORDS guard still runs, which is what keeps "a CREATURE token" refused:
+  // "creature" is a card TYPE, and admitting it here would silently duplicate the card-TYPE matcher above
+  // with a different (and wrong) predicate. No new allowlist — reusing the existing guard means the two
+  // spellings cannot drift apart.
+  const sacSubM = c.match(/^you sacrifice (a|an|another) ([a-z]{3,})(?: token)?$/);
   if (sacSubM && !NON_SUBTYPE_ETB_WORDS.has(sacSubM[2])) {
     return { event: "sacrifice", scope: "you", whose: "any", sacSubtype: sacSubM[2].charAt(0).toUpperCase() + sacSubM[2].slice(1), sacAnother: sacSubM[1] === "another" };
   }
