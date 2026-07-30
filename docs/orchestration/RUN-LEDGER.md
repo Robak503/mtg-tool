@@ -131,7 +131,65 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 ## 🔍 DIAGNOSED, NOT STARTED — **MIRACLE IS ALREADY DECLARED VACUOUS AND IS STILL PARKING CARDS**
+## 🎯 ## 🔍 ROOT CAUSE FOUND — **`stripReminder` EATS THE NEWLINE, SO `CAST_KEYWORD_LINE` CAN NEVER MATCH. ~25 cards.**
+
+Followed the miracle thread to the bottom. It is not miracle-specific and it is not a missing keyword —
+**it is one collapsed line break**, and it silently disarms an entire strip list.
+
+### THE CHAIN, EACH HOP MEASURED
+| hop | result |
+|---|---|
+| `CAST_KEYWORD_LINE` lists `miracle\s*\{` | ✅ already there, with foretell/blitz/flashback/buyback/… |
+| `stripCastKeywordLines(oracle)` called directly | ✅ removes the line; the remainder classifies **native-spell** |
+| `parseEffectClauseImpl` calls that strip (parser.js:1493) | ✅ it does |
+| `parseEffectProgram(card)` on the same card | ⛔ **LOW**, atoms `[]` |
+
+The contradiction resolves one hop earlier:
+
+```
+stripReminder("…Exile Temporal Mastery.\nMiracle {1}{U} (reminder…)")
+  → "…Exile Temporal Mastery. Miracle {1}{U}"        ← THE NEWLINE IS GONE
+```
+
+`CAST_KEYWORD_LINE` is `^[ \t]*(?:…)[^\n]*$` with the `m` flag — **per-LINE anchors**. Once the reminder
+strip has joined the keyword line onto the body line, `^` can never sit before `miracle`, so the strip runs,
+matches nothing, and the keyword survives as residue that drags the whole spell to LOW.
+
+⭐ *Two correct components composed into a broken whole. The strip list is right, the strip function is
+right, and the call site is right — the ORDER is wrong. Nothing in either file is falsifiable on its own,
+which is why it survived this long.*
+
+### SIZE — measured across the corpus, not guessed
+**25 non-native cards** would flip if the existing strip actually reached them, across **11 keyword
+families**:
+
+| n | keyword | e.g. |
+|---|---|---|
+| 5 | escape | Nethergoyf · Sentinel's Eyes · Escape Velocity |
+| 5 | spectacle | Drill Bit · Blade Juggler · Hackrobat · Spawn of Mayhem |
+| 3 | suspend | Lotus Bloom · Sol Talisman · Mox Tantalite |
+| 3 | surge | Jwar Isle Avenger · Goblin Freerunner |
+| 2 | **miracle** | **Temporal Mastery** (Yuriko shelf card) · Zephyrim |
+| 2 | basic landcycling | Lunar Hatchling · World-Weary |
+| 1 each | awaken · buyback · foretell · dredge · prowl | Part the Waterveil · Alrund's Epiphany · … |
+
+### THE FIX — and the trap inside it
+Strip the cast-keyword lines **BEFORE** reminder text is removed (or make the strip newline-agnostic for the
+keyword+cost shape). ⚠️ **Order the two carefully:** `MADNESS_LINE` and `SPLIT_SECOND_LINE` deliberately
+allow an optional trailing reminder paren, so they are written to run either way — but
+`CAST_KEYWORD_LINE`'s `[^\n]*$` tail depends on the reminder still being present to consume. Changing the
+order without re-reading both consts risks turning a vacuous-line strip into a body-eating one.
+
+⛔ **Do NOT widen the regex to match mid-line.** A `miracle {`-anywhere match would strip real text out of
+a sentence that merely mentions the word. The line break is the safety property; restore it, do not remove
+the reliance on it.
+
+**Verify with a full flip-diff** — the prediction is GAINED 25 / LOST 0, and any LOSS means the reordering
+ate a body.
+
+---
+
+## 🔍 DIAGNOSED, NOT STARTED — **MIRACLE IS ALREADY DECLARED VACUOUS AND IS STILL PARKING CARDS**
 
 Chased lead ① (Miracle) to the seam. It is **not** a missing keyword — it is a path that does not run.
 
