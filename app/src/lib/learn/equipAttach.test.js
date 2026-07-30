@@ -37,8 +37,19 @@ describe("parser — self-attach atom", () => {
   it("self-attach is OWN-side intent (so the trigger-flush chooser picks a creature you control)", () => {
     expect(atomTargetIntent({ op: "self-attach", targetType: "creature" })).toBe("own");
   });
-  it("CREED: a UEOT-grant rider on the attach clause stays LOW", () => {
-    expect(isHigh("attach it to target creature you control. that creature gains first strike until end of turn")).toBe(false);
+  it("GRADUATED 2026-07-30 — a UEOT-grant rider on the attach clause is now HIGH (referent binding)", () => {
+    // This pin used to assert LOW. Its criterion was "the rider is unmodeled", and that is no longer
+    // true: "that creature" now binds to the attach atom's target (CR 608.2, referentBinding.test.js),
+    // so the clause is fully modeled rather than silently dropped. Re-pointed, not deleted.
+    expect(isHigh("attach it to target creature you control. that creature gains first strike until end of turn")).toBe(true);
+  });
+  it("CREED: a rider whose GRANT is still unmodeled keeps the whole clause LOW", () => {
+    // The all-or-nothing guarantee the pin above was protecting, re-aimed at something still unmodeled:
+    // the referent binds fine, but "protection from everything" is not a grantable keyword, so the
+    // clause must drop rather than credit the attach and discard the grant.
+    expect(isHigh("attach it to target creature you control. that creature gains protection from everything until end of turn")).toBe(false);
+    // And a referent with NO antecedent is still refused outright.
+    expect(isHigh("draw a card. that creature gains first strike until end of turn")).toBe(false);
   });
 });
 
@@ -69,8 +80,14 @@ describe("coverage — auto-attach equipment is native-equipment", () => {
   it("a trigger-LESS equipment is unchanged (no regression)", () => {
     expect(classifyCard(C("Bonesplitter", "Equipped creature gets +2/+0.\nEquip {1}"))).toBe("native-equipment");
   });
-  it("CREED: a UEOT-grant rider (Squire's Lightblade) stays body-only; a NON-routing trigger stays body-only", () => {
-    expect(classifyCard(C("Squire's Lightblade", "When this Equipment enters, attach it to target creature you control. That creature gains first strike until end of turn.\nEquipped creature gets +1/+1.\nEquip {2}"))).toBe("body-only");
+  it("GRADUATED 2026-07-30 — Squire's Lightblade is now native-equipment; a NON-routing trigger still stays body-only", () => {
+    // Was pinned body-only because its "That creature gains first strike" rider was unmodeled. Referent
+    // binding (CR 608.2) models it: "that creature" resolves to the creature the Equipment just attached
+    // to. Re-pointed rather than deleted — the second half below is the live negative.
+    // Oracle corrected to the BUNDLED text 2026-07-30 — the pin had been carrying a hand-typed
+    // approximation (no Flash line, +1/+1, Equip {2}) which classifies to a different tier than the real
+    // card. It never mattered while the assertion was body-only; it does the moment the card flips.
+    expect(classifyCard(C("Squire's Lightblade", "Flash\nWhen this Equipment enters, attach it to target creature you control. That creature gains first strike until end of turn.\nEquipped creature gets +1/+0.\nEquip {3}"))).toBe("native-equipment");
     // an equipment whose equipped-creature trigger is a MULTI-CLAUSE rider that doesn't fully model
     // doesn't route → stays body-only (WAVE 4: the equippedCreature scope is now DETECTED, so the
     // non-routing gate is the all-or-nothing effect parse, not the old undetected-event accident). The

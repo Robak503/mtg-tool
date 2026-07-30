@@ -192,7 +192,13 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
         },
       };
     }
-    const ctx = { ...context, controller, targets: targetsForAtom(targets, i), cardName, xValue, sourceId };
+    // REFERENT BINDING (CR 608.2) — "It gains flying until end of turn" acts on whatever the PREVIOUS
+    // atom targeted, so it reads that atom's slice instead of its own (it has none: the parse arm emits no
+    // targetType, so the cast-time enumerator never allocated it one). programConfidence has already
+    // guaranteed a targeting atom sits at i-1; if its target is gone by now the slice is empty and the
+    // grant is a clean no-op rather than a fabricated grant on some other permanent.
+    const atomTargets = atoms[i]?.bindPreviousTargets ? targetsForAtom(targets, i - 1) : targetsForAtom(targets, i);
+    const ctx = { ...context, controller, targets: atomTargets, cardName, xValue, sourceId };
     const after = resolveAtom(next, atom, ctx);
     if (after == null) {
       // Belt-and-braces: an atom with no resolver. programConfidence should have

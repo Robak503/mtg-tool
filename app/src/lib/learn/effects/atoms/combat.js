@@ -1285,6 +1285,24 @@ export function pumpClauseParser(clause) {
     const kws = parseGrantedKeywords(pg[1]);
     return kws ? { op: "pump", targetType: "creature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
+  // ⭐ BOUND REFERENT keyword grant — "It gains flying until end of turn." / "That creature gains
+  // indestructible until end of turn." The SAME grant as the targeted arm directly above, except the
+  // recipient is not chosen here: it is whatever the PRECEDING clause already targeted (CR 608.2 — the
+  // pronoun refers to the object the spell has already acted on).
+  //
+  // The parser has refused unbound referents everywhere until now, on the correct instinct that a
+  // mis-bound "it" is a confident wrong grant on the wrong permanent. That instinct is preserved by
+  // structure rather than by refusal: this atom carries NO targetType, so it never enumerates a target of
+  // its own, and `referentBindingOk` (parser.js) forces the WHOLE program LOW unless the atom immediately
+  // before it actually chose one. The binding itself happens at resolution in runProgram.
+  //
+  // "them"/"those creatures" bind to a PLURAL antecedent and resolve through the identical path — the
+  // previous atom's target list is a list either way, so no separate plural handling exists or is needed.
+  pg = t.match(/^(?:it|they|them|that creature|those creatures) gains? (.+) until end of turn$/);
+  if (pg) {
+    const kws = parseGrantedKeywords(pg[1]);
+    return kws ? { op: "pump", ptDelta: { p: 0, t: 0 }, grantKeywords: kws, bindPreviousTargets: true } : null;
+  }
   // ENCHANTED-SUBJECT keyword grant (census slice 36) — "Enchanted creature gains hexproof until end of
   // turn", the effect of an Aura's own ETB trigger (Starlit Mantle, Accelerated Evolution). Identical to the
   // targeted form above except the referent: no target is CHOSEN, it is the Aura's host, resolved at

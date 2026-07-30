@@ -193,6 +193,28 @@ function diceRollSequenceOk(atoms) {
 function usesRevealedCardMV(atom) {
   return atom?.countFor?.kind === "revealedCardMV" || atom?.amountCount?.kind === "revealedCardMV";
 }
+/**
+ * REFERENT BINDING (CR 608.2) — an atom that binds to the PREVIOUS atom's targets ("It gains flying until
+ * end of turn") is only meaningful when that previous atom actually chose some. Mirrors
+ * revealTopSequenceOk exactly: a payoff with no preceding stamp drops the whole program to LOW.
+ *
+ * This is the CREED gate for the whole referent feature, and it is deliberately structural rather than
+ * textual. Without it a card whose referent has no antecedent would parse, classify NATIVE, and then
+ * resolve to nothing — credited for an effect it never applies, which is worse than staying on the
+ * Arbiter. An atom at index 0 can have no antecedent at all and so always fails.
+ */
+function referentBindingOk(atoms) {
+  for (let i = 0; i < atoms.length; i++) {
+    if (!atoms[i]?.bindPreviousTargets) continue;
+    // ONE check, not two. An explicit `i === 0` guard reads well but a mutation proved it dead: at index 0
+    // `atoms[-1]` is undefined, so the predecessor check below already returns false. Both cases — no atom
+    // before it, and an atom before it that targets nothing — are the same question, and asking it once
+    // means there is no line here that no test can kill.
+    if (!atoms[i - 1]?.targetType) return false;
+  }
+  return true;
+}
+
 function revealTopSequenceOk(atoms) {
   let revealed = false;
   for (const a of atoms) {
@@ -1975,7 +1997,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // parses fully (all-or-nothing across modes).
   const modal = parseModal(cardType, oracle, hasX);
   if (modal) {
-    if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms))) {
+    if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms) && referentBindingOk(mode.atoms))) {
       const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX || a.targetCountX || a.ptX || a.filter?.mvCapX || a.mvCapX));
       return makeProgram({ confidence: "high", structure: "modal", atoms: [], modal, xSpell, unparsedTail: null });
     }
@@ -2013,6 +2035,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       }
       allParsed = false; break;
     }
+    // REFERENT BINDING (CR 608.2) — "It gains flying until end of turn" acts on whatever the PREVIOUS
+    // clause targeted, so it is only meaningful directly after a targeting atom. Enforced HERE, at
+    // assembly, for the same reason the exile-if-dies rider above is: the merge gate's contract is
+    // "low confidence AND ZERO atoms", and a check that only lowered confidence would leave the atom
+    // behind. An unbindable referent is an unparsed clause — the whole spell drops to Arbiter.
+    if (atom.bindPreviousTargets && !atoms[atoms.length - 1]?.targetType) { allParsed = false; break; }
     atoms.push(atom);
   }
   // α2 forward guard: an `optional` atom ("you may <effect>") scopes ONLY its own clause. The hazard is an
@@ -2103,7 +2131,7 @@ export function programConfidence(program) {
   if (program.structure === "modal") {
     const modes = program.modal?.modes;
     if (!Array.isArray(modes) || modes.length < 2) return "low";
-    return modes.every(mode => Array.isArray(mode.atoms) && mode.atoms.length > 0 && mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms))
+    return modes.every(mode => Array.isArray(mode.atoms) && mode.atoms.length > 0 && mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms) && referentBindingOk(mode.atoms))
       ? "high" : "low";
   }
   if (!Array.isArray(program.atoms) || program.atoms.length === 0) return "low";
