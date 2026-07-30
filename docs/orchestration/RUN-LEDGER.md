@@ -131,6 +131,62 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## 🧭 FRESH CENSUS 2026-07-30 — **THE NEXT-TARGET MAP, and a correction to how I was reading censuses**
+
+⚠️ **These are CANDIDATE counts, not attributable ones.** Every number below is "instances where THIS is
+*a* blocker" — a card may have others. Per the sizing rule, phrase-swap each before believing it. Recorded
+so the next session starts from measurement instead of a guess.
+
+### ⭐ FIRST FINDING: CLUSTERING BY TRIGGER LEAD IS USELESS
+The obvious census — group non-native cards by trigger line — returns *"when this creature enters"* (1542),
+*"at the beginning of your upkeep"* (633). **All already-detected events.** The lead phrase is not the
+blocker; it is just the commonest English in Magic. The useful census asks a narrower question: *for
+triggers the engine DOES detect, which payoff will not route?* ⭐ *Census the thing that FAILS, not the
+thing that is common.*
+
+### THE PAYOFFS THAT WILL NOT ROUTE (detected triggers only)
+| n | effect clause | example |
+|---|---|---|
+| 30 | `remove a time counter` | Lotus Bloom |
+| **25** | **`draw a card`** | Zegana, Utopian Speaker |
+| **23** | **`put a +N/+N counter on this creature`** | Hulkling, Burgeoning Bruiser |
+| 22 | `venture into the dungeon` | Zombie Ogre |
+| 19 | `you take the initiative` | Ravenloft Adventurer |
+| 17 | `open an attraction` · 17 `return this card from your graveyard` | Complaints Clerk · Fear of Infinity |
+| 15 | `the ring tempts you` | Uruk-hai Berserker |
+| 14 | `incubate N` · 14 `return a land you control to its owner's hand` | Phyrexian Awakening · Selesnya Sanctuary |
+
+### ⭐ SECOND FINDING: ROWS 2 AND 3 ARE NOT PAYOFF PROBLEMS AT ALL
+`draw a card` and `put a +1/+1 counter on this creature` are the two simplest clauses in Magic and both
+parse perfectly. **They fail on the INTERVENING-IF condition** (CR 603.4):
+
+- Zegana — *"if you control another creature with a +1/+1 counter on it"*
+- Hulkling — *"if it has greater power or toughness than Hulkling"*
+
+⭐ *A payoff appearing in a failure census does not mean the payoff is the problem — 48 rows here are one
+gate further up.* Same shape as the discard vein, where the census phrase was a payoff and the missing
+piece was the event.
+
+### THE INTERVENING-IF SURFACE, MEASURED
+**569 unparseable instances across 389 DISTINCT shapes** — the largest single shape is **15**. This is a
+true long tail, not a vein: no single build moves it much.
+
+| n | condition | example |
+|---|---|---|
+| 15 | `you cast it from your hand` | Soulhunter Rakshasa |
+| 14 | `this permanent is an enchantment` | Veiled Sentry |
+| 10 | `{M}{M} was spent to cast it` | Vibrance *(already REFUSED — see the refusal list)* |
+| 9 | `this card is in your graveyard` · 9 `it was kicked with its {M}{M} kicker` · 9 `you descended this turn` | Ghastly Remains · Stormscape Battlemage · Child of the Volcano |
+| 7 | `it was bargained` · 7 `it had counters on it` | Troublemaker Ouphe · Buzzard-Wasp Colony |
+| 5 | `you have a full party` · 5 `you have the initiative` · 5 `this card is suspended` | Squad Commander · Imoen · Deep-Sea Kraken |
+
+**Reading:** the tractable-vein era is over on the corpus side too, exactly as it already was on `cdh`.
+Expect single-digit slices. The honest next targets are `you cast it from your hand` (15) and
+`this permanent is an enchantment` (14) — **phrase-swap both before building**; several mana-provenance
+shapes below them are already on the REFUSED list and must not be re-picked.
+
+---
+
 ## ✅ BANKED (batch 4) 2026-07-30 — **MEGRIM: the DAMAGE form of the discarding-player referent. GAINED 1, LOST 0. The discard vein is closed.**
 
 ### THE BANKED DIAGNOSIS HELD — and that is the point of banking one
