@@ -471,6 +471,50 @@ self-exile matters and was dropped from my own summary. Read the printed line, n
 
 ---
 
+## ✅ BANKED 2026-07-30 — **THE REFERENT GRID: an instrument for the shape that paid three slices this run.**
+## GAINED 0 cards — and its own POSITIVE CONTROL caught it lying TWICE before I trusted a single number.
+
+### THE IDEA, WHICH WAS MY OWN BANKED NOTE FROM LAST SLICE
+Self-tuck (+5), regenerate-on-permanents (+5) and self-untap (+5) were all the same find: **not a missing
+capability, a missing COMBINATION of two that already ship.** Last slice's entry said to hunt these
+deliberately instead of card-by-card. So: for every atom op the parser emits anywhere in the corpus, record
+WHICH referent kinds it is ever emitted with — chosen target · `target:"self"` · Aura host · triggering
+permanent. **An op with one and not another is a candidate empty cell.**
+
+### ⭐⛔ IT LIED TWICE, AND THE CONTROL IS THE ONLY REASON I KNOW
+| version | reported | why it was wrong |
+|---|---|---|
+| 1 | `tuck/self = 0` | walked only SPELL bodies — self referents live on activated abilities and triggers |
+| 2 | `tuck/self = 0` | walked abilities, but AFTER `if (!prog) continue` — and a permanent whose text is all activated abilities has NO spell program, so Sensei's Divining Top was skipped before it was read |
+
+**Both produced a confident, wrong zero ONE SLICE AFTER tuck/self shipped** — i.e. against a fact I had
+personally verified the turn before. ⭐ *Neither was found by reading the code. Both were found because the
+probe asserts `tuck/self > 0` and `pump/self > 0` before printing anything and exits non-zero when blind.
+A grid of empty cells is worthless unless the probe can be SHOWN to see a filled one — this is the Planar
+Bridge lesson wired into the tool instead of remembered.* The control is now part of the shipped script.
+
+### THE FIRST REAL READING, AND WHAT IT SAYS
+`pump` self=619 · `regenerate` self=154 · `add-counter` self=90 · `bounce` self=53 · `untap` self=27 — the
+ops with both forms. The candidates it flagged: **exile/self** and **destroy/self**.
+
+⛔ **Both checked and both are CORRECT empty cells** — ZERO corpus carriers of *"Exile this creature."* or
+*"Destroy this creature."* as standalone sentences. The corpus prints *"Sacrifice this creature"* instead,
+which is already built (`sacrifice/self`). *The grid's value showed up exactly here: three candidates cleared
+in ONE probe instead of three card-by-card investigations.*
+
+### THE DELIVERABLE
+`app/scripts/sweep-referent-grid.mjs` — `npm run sweep:referent-grid`. Joins the other two instruments
+(`sweep:noncreature-gates`, the shelf-gap probe). It states in-file that **an empty cell is a CANDIDATE, not
+a gap**, and names exile/self + destroy/self as verified-correct empties so nobody re-runs that check.
+
+**Gates:** no engine change — nothing to flip-diff. Suite **1040 files / 13,167 green**, lint 0, MUTANT clean.
+**Batch unchanged at 19 cards.**
+
+### ➡️ SHELF QUEUE UNCHANGED: Topiary Stomper · Terror of the Peaks · Hunting Velociraptor (all Mainboard,
+each its own mechanism). The referent grid is now the cheap first question to ask of any new atom.
+
+---
+
 ## ✅ BANKED 2026-07-30 — **SELF-TUCK. GAINED 5. SHELF +1 (Kellan 72 → 73%). Joe 854/1098.**
 
 **Sensei's Divining Top (#226)** · Thalakos Mistfolk · Fencer Clique · Wayward Soul · Soaring Hope.
