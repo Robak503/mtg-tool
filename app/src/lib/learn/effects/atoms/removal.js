@@ -13,6 +13,7 @@ import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandC
 import { applyCreateToken, applyCreateNamedToken } from "./tokens.js";
 import { applyTutor, millOnePlayer } from "./library.js";
 import { applyZoneMove, applyExileUntilLeaves } from "./zones.js";
+import { NAMED_TOKENS } from "./tokens.js"; // NAMED-TOKEN sacrifice pool — same registry the mint side uses, so a pool can never name a token the engine cannot create
 
 // MULTI-COUNT "any number of target" upper bound (CR 601.2c) — the count is unbounded on the card, so use a
 // sentinel large enough that targeting.targetSubsets always clamps it to the ACTUAL eligible-target count
@@ -201,7 +202,19 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
  * only ever emits the five known values, so this is never reached at runtime). Pure type-line read (leaf).
  */
 const SACRIFICE_POOLS = new Set(["creature", "permanent", "land", "artifact", "enchantment", "artifactOrEnchantment", "artifactCreatureOrLand", "nonbasicLand", "nontokenCreature", "creatureToken", "planeswalker"]);
+// NAMED-TOKEN pool (CR 701.16) — "Sacrifice a Food token." The generic nouns above have always worked; the
+// named-token nouns had no pool, so the clause produced no atom at all. Carried as a `token:<name>` string
+// rather than one enum entry per kind, validated against NAMED_TOKENS — the SAME registry the mint side
+// uses — so a name the engine cannot mint can never become a pool that is silently empty at resolution.
+const isNamedTokenPool = (what) => typeof what === "string" && what.startsWith("token:")
+  && Object.prototype.hasOwnProperty.call(NAMED_TOKENS, what.slice(6));
 function sacrificePoolMatch(what, card) {
+  // NAMED TOKEN — must be a TOKEN (CR 111.1) whose name is the printed one. Both halves matter: without
+  // the token check a real Food ARTIFACT card would qualify; without the name check any token would.
+  if (isNamedTokenPool(what)) {
+    const want = NAMED_TOKENS[what.slice(6)]?.name;
+    return !!card?.token && !!want && String(card?.name || "").toLowerCase() === want.toLowerCase();
+  }
   switch (what) {
     case "permanent": return true;
     // TOKEN-SPLIT EDICTS (Sheoldred's Edict #1154, Accursed Marauder #464, Gaius van Baelsar): the printed
@@ -334,7 +347,7 @@ function applySacrifice(state, atom, ctx) {
   // Thread `atom.what` onto each queue head so advanceSacrificeChain builds the right victim pool, and a re-entry
   // from resolveSacrificeChoice (queue.slice(1)) preserves it per-sacrificer. The known pools pass through
   // (sacrificePoolMatch interprets them); anything else falls back to "creature" (the byte-stable default).
-  const what = SACRIFICE_POOLS.has(atom.what) ? atom.what : "creature";
+  const what = (SACRIFICE_POOLS.has(atom.what) || isNamedTokenPool(atom.what)) ? atom.what : "creature";
   return advanceSacrificeChain(state, { queue: sacrificers.map((pid) => ({ playerId: pid, what })), sourceName: ctx.cardName });
 }
 
@@ -396,6 +409,12 @@ export function sacrificeEdictClauseParser(clause) {
       "nontoken creature": "nontokenCreature", "creature token": "creatureToken", planeswalker: "planeswalker",
       "artifact or enchantment": "artifactOrEnchantment" };
     return { op: "sacrifice", who: "controller", what: POOL[csac[1]] };
+  }
+  // NAMED-TOKEN victim (The Cabbage Merchant) — "Sacrifice a Food token." Validated against NAMED_TOKENS,
+  // the same registry the mint side uses. The trailing "token" is optional: both spellings are printed.
+  const tokSac = t.match(/^sacrifice an? ([a-z]+)(?: token)?$/);
+  if (tokSac && Object.prototype.hasOwnProperty.call(NAMED_TOKENS, tokSac[1])) {
+    return { op: "sacrifice", who: "controller", what: `token:${tokSac[1]}` };
   }
   // The victim NOUN. "creature" is the legacy bare form and stays byte-identical; the three filtered nouns
   // are the token-split / planeswalker pools above. Ordered LONGEST-FIRST so "creature token" can never be

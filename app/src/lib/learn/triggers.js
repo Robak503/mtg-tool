@@ -1916,6 +1916,20 @@ function classifyCondition(condRaw, cardName, cardType) {
   // only — END-anchored on "a player" so a qualified variant ("…to a player or planeswalker", "…to a
   // creature", "one or more creatures you control deal…", or any trailing rider) stays UNDETECTED →
   // Arbiter (a SAFE false-negative). combatResolution fires it off the real per-attacker player-damage.
+  // COMBAT-DAMAGE-TO-YOU (CR 510.2) — the RECIPIENT-side twin of the whole to-a-player family below.
+  // "Whenever a creature deals combat damage to you, <effect>" (The Cabbage Merchant, Hixus, Palace
+  // Sentinel). Every arm below is written from the DEALER's side; this one belongs to the player being
+  // hit, so the watcher is controlled by the DAMAGED player and the triggering permanent is the attacker.
+  // Bare form only, END-anchored: a qualified variant ("… to you or a planeswalker you control") stays
+  // undetected → Arbiter (a SAFE false-negative, never an over-fire on a scope the engine can't check).
+  if (/^a creature deals combat damage to you$/.test(c)) {
+    // scope "eachCreature" — ANY creature dealing the damage, which is what the card says. I first wrote
+    // scope:"any", which is not a scope scopeMatches knows: the switch fails closed on an unknown scope, so
+    // the descriptor was detected, the trigger never fired, and only the POSITIVE runtime test caught it.
+    // The negative half ("does not fire for the attacker's controller") passed the whole time on nothing
+    // firing at all — a paired positive is the only reason that was visible.
+    return { event: "combatDamageToYou", scope: "eachCreature", whose: "any" };
+  }
   if (/\bdeals combat damage to a player$/.test(c)) {
     if (selfRef) return { event: "combatDamageToPlayer", scope: "self", whose: "any" };
     // TOKEN-FILTERED (Curiosity Crafter #1734) — checked BEFORE the bare creature form, whose /a creature
@@ -5685,6 +5699,14 @@ export function checkCombatDamageTriggers(state, playerEvents) {
     const context = { damagedPlayerId: ev.defender, combatDamageAmount: ev.amount };
     // self ("this creature deals combat damage to a player")
     fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: attackerPerm, triggeringPermanent: attackerPerm, triggeringContext: context, scopeFilter: notGlobal }));
+    // RECIPIENT SIDE (CR 510.2) — "Whenever a creature deals combat damage to YOU". Scanned off the
+    // DAMAGED player's permanents, which is the only difference from every dealer-side scan in this
+    // function: same event, same attacker as the triggering permanent, opposite watcher owner. Fires once
+    // per damage event, so two attackers connecting fire it twice (CR 510.2 resolves damage simultaneously
+    // but each source's damage is its own event — matching how the dealer-side paths already count).
+    for (const watcher of triggerSourcesOf(state, ev.defender)) {
+      fired = fired.concat(triggersForEvent(state, { event: "combatDamageToYou", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context }));
+    }
     // the attacking player's "a creature you control deals combat damage to a player" watchers
     for (const watcher of triggerSourcesOf(state, ev.attackingPlayer)) {
       if (watcher.id === attackerPerm.id) continue;
