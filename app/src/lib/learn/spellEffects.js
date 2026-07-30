@@ -1204,10 +1204,23 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
       // SYMBURN-1 (Inferno / Fire Tempest / Evincar's Justice): symmetric burn hits EVERY creature on
       // every battlefield AND EVERY player INCLUDING the caster ("each player" is all players, not just
       // opponents). Planeswalkers are NOT hit (the text says "each player", not "or planeswalker").
+      //
+      // ⭐ THE CREATURE HALF NOW HONOURS `restrictions`, the same way the eachCreature and eachOtherCreature
+      // branches above do. Hurricane hits only flyers and every player; Earthquake only non-flyers and every
+      // player. This was NOT an oversight left in the runtime — until this slice no parse arm could produce a
+      // FILTERED combined sweep, so the loop had nothing to filter by. Shipping the parse arm without this
+      // line would burn every creature on the board for Hurricane, which is the forbidden direction.
+      //
+      // ⛔ THE PLAYER HALF IS DELIBERATELY UNFILTERED. A creature restriction says nothing about who takes
+      // damage — "each creature with flying and each player" hits EVERY player regardless of what they
+      // control. Filtering seats by a creature predicate would be a rules error in the other direction.
+      //
+      // An UNRESTRICTED combined sweep (Inferno, restrictions=[]) passes every creature —
+      // creatureSatisfiesRestrictions over [] is true — so the incumbent cards are byte-identical.
       for (const pid of Object.keys(next.players)) {
         if (next.players[pid]) next = hitPlayer(next, pid);
         for (const perm of next.players[pid].battlefield) {
-          if (isCreature(perm.card)) next = hitCreature(next, perm.id);
+          if (isCreature(perm.card) && creatureSatisfiesRestrictions(next, perm, pid, controller, restrictions)) next = hitCreature(next, perm.id);
         }
       }
     } else {

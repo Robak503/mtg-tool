@@ -8,6 +8,20 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.18] — 2026-07-30
+
+### Added
+- **Sweeping damage spells that only hit *some* creatures now work.** Twenty-five cards play properly, including
+  **Hurricane**, **Earthquake**, **Squall Line**, **Fault Line**, **Cloudthresher** and **Whipflare**. Previously
+  the engine only understood a handful of specific phrasings ("each creature with flying", "each creature your
+  opponents control"); it now reads the same filters it already understood for single-target removal, so
+  "each nonartifact creature", "each attacking creature", "each untapped creature", "each Human creature",
+  "each nonwhite creature" and combinations like "each attacking creature without flying" all resolve.
+- Cards that damage every creature **and** every player at once — Hurricane and Earthquake being the famous ones
+  — now correctly spare the creatures the card says to spare, while still hitting every player including you.
+- Dragons like **Scourge of Kher Ridges** and **Harbinger of the Hunt**, whose ability wipes every *other*
+  creature of a given kind, no longer risk hitting themselves.
+
 ## [0.149.17] — 2026-07-30
 
 ### Added

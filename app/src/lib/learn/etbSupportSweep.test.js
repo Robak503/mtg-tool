@@ -135,11 +135,27 @@ describe("SOURCE-EXCLUDING BOARD SWEEP — recognition (real oracle)", () => {
     expect(classifyCard({ name: "Crater Hellion", type: "Creature — Hellion Beast", oracle: "Echo {4}{R}{R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters, it deals 4 damage to each other creature." })).toBe("native-trigger");
   });
 
-  it("FN guard: a FILTERED / extended each-other-creature sweep stays LOW (deliberately parked)", () => {
-    expect(conf("it deals 1 damage to each other creature with flying")).toBe("low");       // Harbinger of the Hunt (filtered)
-    expect(conf("it deals 2 damage to each other creature you control")).toBe("low");         // Cinder Giant (own-only)
-    expect(conf("it deals 3 damage to each other creature and each opponent")).toBe("low");   // Archangel Avacyn (extra scope)
-    expect(conf("it deals 1 damage to each other creature and each player")).toBe("low");      // Conductor of Cacophony
+  it("a FILTERED each-other-creature sweep now PARSES (2026-07-30 graduation); an EXTRA SCOPE still parks", () => {
+    // ⭐ THE FILTERED HALF GRADUATED. This pin said "deliberately parked" — capability language, not a rules
+    // objection — and the capability landed: massFilteredDamageClauseParser delegates its recipient phrase to
+    // the shared parseCreatureTargetRestrictions grammar, so a filter on a source-excluding sweep is sayable.
+    // Harbinger of the Hunt and Cinder Giant are two of the 25 cards that flipped.
+    expect(conf("it deals 1 damage to each other creature with flying")).toBe("high");   // Harbinger of the Hunt
+    expect(conf("it deals 2 damage to each other creature you control")).toBe("high");   // Cinder Giant
+    // ⛔ THE BOUNDARY, RE-POINTED RATHER THAN DELETED — an EXTRA RECIPIENT SCOPE beside the creature sweep.
+    // There is no combined source-excluding targetType, and inventing one to reach two cards would risk either
+    // the source exclusion or the second half. Both still park on the Arbiter (a SAFE FN).
+    expect(conf("it deals 3 damage to each other creature and each opponent")).toBe("low");  // Archangel Avacyn
+    expect(conf("it deals 1 damage to each other creature and each player")).toBe("low");    // Conductor of Cacophony
+  });
+
+  it("⛔ and the source is still EXCLUDED once a filter is in play (the graduation's real risk)", () => {
+    // The filter and the source-exclusion are independent properties, and the delegation could have lost the
+    // second while gaining the first (parseCreatureTargetRestrictions strips "other" as filler). Pinned at the
+    // atom: a filtered other-sweep must still carry eachOtherCreature, never eachCreature.
+    // Full guard incl. the runtime: massDamageRecipientDelegation.test.js.
+    const p = parseEffectClause("it deals 1 damage to each other creature with flying", "Instant");
+    expect(p.atoms[0]).toMatchObject({ op: "deal-damage", targetType: "eachOtherCreature", restrictions: [{ kind: "hasKeyword", keyword: "flying", negate: false }] });
   });
 });
 

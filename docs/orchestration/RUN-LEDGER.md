@@ -95,7 +95,100 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## ✅ SHIPPED 2026-07-30 — **TARGETED OPTIONAL-PAYMENT PAYOFFS. GAINED 21, LOST 0.** Biggest slice of the run.
+## ✅ SHIPPED 2026-07-30 — **MASS-DAMAGE RECIPIENT DELEGATION. GAINED 25, LOST 0.** New biggest slice.
+
+Blockbuster · Calamity of Cinders · Cinder Giant · Claws of Wirewood · Cloudthresher · Delete · **Earthquake** ·
+Fang Dragon // Forktail Sweep · Fault Line · Fire Ants · Hammerfist Giant · Harbinger of the Hunt · Howling Gale ·
+**Hurricane** · Leonin Bladetrap · Marrow Shards · Oros, the Avenger · Rain of Blades · Rockcaster Platoon ·
+Sandstorm · Scorch the Fields · Scourge of Kher Ridges · **Squall Line** · Volcanic Spray · Whipflare.
+
+**How it was found: `probe-vocabulary-asymmetry.mjs`, and the first two leads it gave were both nearly empty.**
+The probe reported 21 asymmetric rows. Triage by REMOVAL, not containment, killed the first two: the
+controller-subject sacrifice noun (136 cards CONTAIN it, **3** attributable) and named-counter-on-target (78
+contain, **3**). The third row — sweeping-damage recipients — measured **65 attributable**, and that was the vein.
+The two small ones are banked below, not lost.
+
+**⭐ THE AXIS: the mass arm hand-rolled 2 of the 16 restriction kinds its own runtime already enforced.**
+`massFilteredDamageClauseParser` had one regex per printed phrase — `with|without flying` and
+`you control|your opponents control` — while `creatureSatisfiesRestrictions` already implemented typeNeg,
+colorNeg, subtype, tapped, combat, power, toughness, manaValue, cardType, enteredThisTurn and more, **on this
+very sweep**. Single-target removal reaches all of them by delegating its recipient phrase to the shared
+`parseCreatureTargetRestrictions` grammar. The mass arm now delegates too, so the vocabulary arrives whole
+instead of one printed phrase at a time — and two restrictions can finally COMPOSE (Leonin Bladetrap:
+`each attacking creature without flying`, which one-regex-per-phrase structurally cannot express).
+
+**THREE GATES had to open, in the order a clause meets them. Finding gate 1 was the whole slice.**
+1. **`splitClauses.js` — the SYMBURN-1 keep-whole guard.** Anchored on `\d+` and the BARE form, so it
+   **shattered** every filtered and every X-amount "…and each player" sentence. Hurricane split into
+   `deals X damage to each creature with flying` — which parsed **HIGH on its own** — plus an unbindable
+   `each player`. I had theorised the atom parser was the gate; probing the REAL bundled oracle showed the
+   sentence never reached it intact. ⭐ **Widening a keep-whole guard is the SAFE direction**: keeping a
+   sentence whole can only fail to match (→ low → Arbiter), while SPLITTING is what drops halves. Both
+   original anchors survive (the tail `$`, and the subject-prefix guard against a dropped leading effect).
+2. **`stack.js` — the delegating arm**, placed LAST so the four exact matchers above stay byte-identical
+   (the ordering rule: a widening gated behind the prior paths' failure cannot regress them).
+3. **`spellEffects.js` — the `eachCreatureAndPlayer` runtime**, which never filtered its creature half because
+   no parse arm could hand it a restriction. Shipping gate 2 without gate 3 would make Hurricane burn the whole
+   board. The PLAYER half stays deliberately unfiltered — a creature predicate says nothing about which seats
+   take damage, and "each player" includes the caster.
+
+**⛔ THE TWO GUARDS THAT CARRY THE FP RISK:**
+- **"other" is PEELED, never delegated.** `parseCreatureTargetRestrictions` treats "other" as filler and
+  silently strips it, so delegating `each other creature you control` would return clean with only a controller
+  restriction — and the source would damage **itself** (CR 113.7). Harbinger of the Hunt and Scourge of Kher
+  Ridges are flying Dragons whose second ability hits "each other creature with flying"; losing the peel makes
+  each Dragon nuke itself.
+- **`clean === false` refuses.** The shared parser returns whatever it could not model; any residue parks the
+  card. That gate is why this shipped 25 and not 65 — `each creature dealt damage this turn`, `each creature
+  blocking it`, `each creature except for creatures you control with flying`, `each creature target opponent
+  controls` all still route to the Arbiter, correctly.
+
+**PREDICT-THEN-AUDIT: predicted 23, got 25 — and the two extras were MY probe's fault, not the model's.**
+Harbinger of the Hunt and Scourge of Kher Ridges each carry TWO sweeping-damage abilities, and my attribution
+probe used a non-global `String.replace`, which swaps only the FIRST occurrence — so clause 2 still blocked and
+both cards were excluded from the 65. **Same banked lesson as the `perl`-without-`/g` incident, in a different
+language.** Both audited by hand afterwards: correct, and the `eachOtherCreature` scope held on the second
+ability of each.
+
+**Two pins moved, each with a stated verdict:**
+| pin | verdict |
+|---|---|
+| `etbSupportSweep` "a FILTERED / extended each-other-creature sweep stays LOW (**deliberately parked**)" | CAPABILITY — 2 of its 4 probes graduated (Harbinger, Cinder Giant); the boundary was RE-POINTED to the two that still park (an extra recipient scope: Avacyn's `and each opponent`, Conductor's `and each player`), and a new atom-level pin asserts the source is still excluded once a filter is in play |
+| `parser.test` MUST_DROP_TO_LOW `"…each creature an opponent controls"` | ⭐ BOUNDARY — its note said "only bare `each creature` is modeled", capability language. **Checked the phrase against the corpus instead of reasoning about it:** its only 3 printed carriers are acorn cards (Ol' Buzzbark, Slaying Mantis, Unhinged Beast Hunt), each with a further physical qualifier, all still body-only — and the 35-card `each creature your opponents control` family already maps to the SAME `{controller:"opponent"}` restriction. So HIGH is not wrong. Re-pointed to `each creature **target** opponent controls` (Simoon), which IS still dangerous: it must hit ONE opponent's creatures and `controller:"opponent"` would hit ALL of them — a multiplayer FP |
+
+**Gates:** 30 new tests + 2 re-pointed pins; **all three mutations seen to fail** — dropping the runtime filter
+(2 tests), forcing `isOther = false` (1), disabling the `clean` gate (2). ⚠️ The mutation anchors had to be
+UNIQUE SPANS, not lines: the `eachCreature` branch holds a **byte-identical** `creatureSatisfiesRestrictions`
+line, so a line-anchored replace would have sabotaged the wrong branch and "proven" a test that never covered
+the change. Reverts confirmed by `git diff --stat`, not the marker sweep. Flip-diff **GAINED 25 / LOST 0**,
+zero within-native shifts. Suite **987 files / 12,577 green**, lint 0 unpiped, MUTANT clean, module graph loads.
+
+**⚠️ AND THE MUTATION RUN CORRECTED ONE OF MY OWN TEST COMMENTS.** I had written that the runtime self-damage
+test was "THE test for guard A" and that "no parser-level assertion would catch it". Forcing `isOther = false`
+failed exactly ONE test — the *parser* one. The runtime test hand-builds its atom, so it cannot see a parse-side
+regression. Guard A is a two-link chain and each test pins one link; the comment now says so exactly.
+
+**BANKED, MEASURED, NOT BUILT** (two small axes from the same probe run, both real, both ~3 cards):
+- **Controller-subject sacrifice nouns** (`removal.js:378` is the single string `/^sacrifice a creature$/`, while
+  its four sibling subjects — target player / each player / each opponent / the upkeep player — each carry
+  EDICT_NOUN + permanent + TYPED, and `sacrificePoolMatch` already handles all 11 pools for any subject).
+  Attributable: Drinker of Sorrow, Perilous Research (`a permanent`). +1 more (Korozda Guildmage,
+  `nontoken creature`) sits on the ACTIVATED-COST noun list at `abilities.js:411`, which needs a `nontoken`
+  flag honoured at the legalChoices victim filter or it offers a token to pay a cost that forbids one.
+- **Named-counter placement on a target**: `shieldCounterClauseParser` is exact string equality, so
+  `put a shield counter on target creature **you control**` (Brokers Veteran) fails; and there is no
+  keyword-counter placement op at all, though `_ENFORCED_KEYWORD_COUNTER_KINDS` + `permanentHasKeyword` already
+  grant flying/exalted from a counter (Recycla-bird, Emissary of Soulfire).
+
+**STILL REFUSED from the 65, by mechanism:** multi-target damage division (10 — `each of two targets`,
+`each of X targets`); `and each planeswalker` (4 — needs a new combined scope + loyalty removal, Star of
+Extinction / Storm's Wrath / Magmaquake); `opponent and each creature they control` (4 — Goblin Chainwhirler,
+Tectonic Hazard); negated SUBTYPE sweeps (4 — non-Dragon / non-Pirate / non-Vampire / nontoken; the grammar has
+`subtype` but not its negation); horsemanship (2); combat-referent forms (`each creature blocking it`).
+
+---
+
+## ✅ SHIPPED 2026-07-30 — **TARGETED OPTIONAL-PAYMENT PAYOFFS. GAINED 21, LOST 0.**
 
 Bearer of Silence · Conduit Goblin · Drainpipe Vermin · Embersmith · Equilibrium · Eternal Taskmaster ·
 Frenzied Goblin · Furnace Celebration · Genesis · Haazda Snare Squad · Insidious Bookworms · Jubilant Mascot ·
@@ -139,6 +232,10 @@ thing parking Surgespanner was the wrapper's blanket refusal. Verified before ed
 **Gates:** 12 new tests + 5 graduated; **both mutations seen to fail** — reverting the settler to `targets: []`
 (caught by the PAY test alone) and collapsing `"ambiguous"` into a guess (caught by both safety tests).
 Flip-diff **GAINED 21 / LOST 0**. Suite **986 files / 12,546 green**, lint 0 unpiped, MUTANT clean.
+
+**✅ v0.149.17 PUBLISHED AND VERIFIED BY CONTENT** — `releases/latest/download/latest.json` reports
+`version 0.149.17`, a URL pointing at the real `MTG.Tool_0.149.17_x64-setup.exe`, and a 424-char minisign
+signature. 5 assets, full updater chain. Master at `c00cafe3`.
 
 **STILL REFUSED, deliberately:** the 12 `"When you do"` variants (an optional primary with a reflexive tail would
 fire even when the player DECLINES) and the 13 whose payoff intent is unplaceable.

@@ -379,7 +379,27 @@ export function splitClauses(oracle) {
     // would otherwise be kept whole and silently DROP the leading effect — the only allowed " and " is
     // the one inside the target. A rejected sentence falls through to the split → low → Arbiter (safe),
     // never a dropped half.
-    const symBurn = sentence.match(/^(.*?)\bdeals? \d+ damage to each creature and each player$/i);
+    // ⭐ WIDENED: the creature half may carry a FILTER ("each creature with flying and each player" — Hurricane,
+    // Squall Line, Cloudthresher; "each creature without flying and each player" — Earthquake, Fault Line;
+    // "each tapped creature and each player" — Blockbuster). The " and " is still INTERNAL to the one recipient.
+    //
+    // ⭐ WHY WIDENING *THIS* GUARD IS THE SAFE DIRECTION, and it is worth being explicit. Keeping a sentence
+    // WHOLE can only cause a failure to match downstream (all-or-nothing → low → Arbiter). SPLITTING is the
+    // dangerous operation: it shattered "Earthquake deals X damage to each creature without flying and each
+    // player" into a half that parsed HIGH on its own plus an unbindable "each player" — one clause parsing
+    // confidently while its sibling is dropped is exactly the shape a dropped-effect FP takes. So a loose
+    // keep-whole guard is conservative, and a tight one is not.
+    //
+    // The filter is left unconstrained here BECAUSE the atom parser is the real gate: massFilteredDamageClauseParser
+    // delegates the phrase to parseCreatureTargetRestrictions and refuses on any residue. Both anchors stay:
+    // the tail ($) still excludes a qualifier on the PLAYER half ("…each player that doesn't control a Mountain"),
+    // and the subject-prefix guard still excludes a LEADING effect joined by " and " ("You gain 5 life and <name>
+    // deals N …") that would be kept whole and silently drop the leading effect.
+    // The amount may be a literal X — the splitter runs BEFORE parser.js's X→sentinel rewrite, so the
+    // sentence still reads "deals X damage" here. Half this family is X spells (Hurricane, Earthquake, Squall
+    // Line, Fault Line, Delete), and the \d+-only guard shattered every one of them. The X path itself already
+    // carries `restrictions` through rewriteAmountX, so nothing downstream needs to change for X.
+    const symBurn = sentence.match(/^(.*?)\bdeals? (?:\d+|x) damage to each [a-z' -]*creature[a-z' -]* and each player$/i);
     if (symBurn && !/\band\b/i.test(symBurn[1])) { clauses.push(sentence); continue; }
     // MASS-NC — "destroy all artifacts and enchantments": the " and " joins two permanent TYPES inside
     // one mass-destroy target, not a top-level effect boundary. Keep the whole sentence so the recognizer

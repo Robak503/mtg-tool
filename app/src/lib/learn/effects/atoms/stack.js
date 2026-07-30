@@ -3,7 +3,7 @@
  * Imports applyControllerRider from removal.js (DAG: removal <- stack) for the soft-counter rider.
  */
 
-import { applyDamageEffect } from "../../spellEffects.js";
+import { applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js"; // the SHARED creature-restriction grammar — massFilteredDamageClauseParser's general arm delegates its recipient phrase to it (no new module edge: applyDamageEffect already came from here)
 import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
@@ -499,6 +499,50 @@ export function massFilteredDamageClauseParser(clause) {
   // stays LOW → Arbiter (FN-safe; those variants are DELIBERATELY unmodeled here).
   const om = t.match(/^.+? deals? (\d+) damage to each other creature$/);
   if (om) return { op: "deal-damage", amount: parseInt(om[1], 10), targetType: "eachOtherCreature" };
+  // ⭐ MASS-DAMAGE RECIPIENT DELEGATION — the general arm, placed LAST so the four exact matchers above stay
+  // byte-identical (the ordering rule: a widening gated behind the prior paths' failure can't regress them).
+  //
+  // THE AXIS THIS CLOSES. The three filtered matchers above hand-roll `with|without flying` and
+  // `you control|your opponents control` — two of the SIXTEEN restriction kinds
+  // `creatureSatisfiesRestrictions` already enforces on this very sweep (typeNeg, colorNeg, subtype, tapped,
+  // combat, power, toughness, manaValue, cardType, …). Single-target removal reaches all of them by
+  // delegating its recipient phrase to the shared `parseCreatureTargetRestrictions` grammar; the mass arm
+  // never did. So delegate here too and the vocabulary arrives whole rather than one printed phrase at a time.
+  //
+  // ⛔ `clean` IS THE CREED GATE. The shared parser strips the phrases it models and returns whatever is left;
+  // `clean === false` means an unmodeled qualifier survived ("each creature dealt damage this turn", "each
+  // creature blocking it", "each creature except for creatures you control with flying") → null → low →
+  // Arbiter. A partially-modeled mass sweep would damage the WRONG creatures, which is the forbidden direction.
+  //
+  // ⛔ AND "OTHER" IS PEELED HERE, NOT DELEGATED. `parseCreatureTargetRestrictions` treats "other" as filler
+  // and silently strips it, so handing it "each other creature you control" would come back clean with only a
+  // controller restriction — and the source would then damage ITSELF (CR 113.7). The peel below reads "other"
+  // off the front and picks the source-excluding scope explicitly, so the exclusion can never be lost.
+  const gen = t.match(/^.+? deals? (\d+) damage to (each .+?)( and each player)?$/);
+  if (gen) {
+    const amount = parseInt(gen[1], 10);
+    // "and each player" (CR — every player INCLUDING the caster, never just opponents) selects the combined
+    // scope. "and each planeswalker" / "and each opponent" are NOT peeled: they are different recipient sets
+    // with no combined targetType yet, and they fail the `$` anchor here → low → Arbiter (a SAFE FN).
+    const withPlayers = !!gen[3];
+    let half = gen[2].replace(/^each /, "");
+    const isOther = /^other creature\b/.test(half);
+    if (isOther) {
+      // A source-excluding sweep that ALSO hits players has no modeled scope (one printed card, Conductor of
+      // Cacophony) — refuse rather than invent a fourth combined targetType.
+      if (withPlayers) return null;
+      half = half.replace(/^other /, "");
+    }
+    if (!/\bcreature\b/.test(half)) return null;   // a non-creature mass recipient is a different mechanism
+    // Probe the recipient phrase through the SHARED grammar. The synthetic "deals 1 damage to …" carrier is
+    // what that parser anchors on (its own regex expects a damage/destroy/exile clause), and the amount in the
+    // carrier is irrelevant — only the recipient phrase is being classified.
+    const { restrictions, clean } = parseCreatureTargetRestrictions({ oracle: `~ deals 1 damage to each ${half}` });
+    if (!clean) return null;
+    if (!restrictions.length) return null;         // the BARE forms belong to the exact matchers above
+    const targetType = withPlayers ? "eachCreatureAndPlayer" : isOther ? "eachOtherCreature" : "eachCreature";
+    return { op: "deal-damage", amount, targetType, restrictions };
+  }
   // TRIG-PRONOUN damage (BLITZ IE-1 — Inferno Elemental / Ornery Goblin / Ashmouth Hound: "…this creature
   // deals N damage to THAT CREATURE", the blocked/blocking pair partner). detectTriggers rewrites the
   // non-self pronoun to this sentinel (the Toxin-Sliver destroy precedent); the referent is the trigger's

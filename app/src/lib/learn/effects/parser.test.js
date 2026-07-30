@@ -1008,7 +1008,16 @@ const MUST_DROP_TO_LOW = [
   "Volley deals 1 damage to each creature with first strike.",                  // a non-modeled mass filter (you/opponents-control + with/without flying ARE modeled)
   "Simoon deals 1 damage to each creature target opponent controls.",           // qualified — must NOT mis-route to "target player"
   "Shadowstorm deals 2 damage to each creature with shadow.",                   // qualified mass damage
-  "Pyroclasm deals 3 damage to each creature an opponent controls.",            // qualified — only bare "each creature" is modeled
+  // ⚠️ RE-POINTED 2026-07-30. This slot held "…deals 3 damage to each creature an opponent controls." with the
+  // note "qualified — only bare 'each creature' is modeled" — CAPABILITY language, and the capability landed
+  // (the mass arm now delegates to the shared restriction grammar). Before graduating it I checked the phrase
+  // against the corpus rather than reasoning about it: its only three printed carriers are acorn cards
+  // (Ol' Buzzbark, Slaying Mantis, Unhinged Beast Hunt), each with a further physical qualifier ("that die is
+  // touching"), all still body-only. And the reading is already settled elsewhere in the engine — the 35-card
+  // "each creature your opponents control" family maps to the SAME {controller:"opponent"} restriction, i.e.
+  // every creature the caster doesn't control. So HIGH is not wrong there. The slot is re-pointed to the form
+  // that IS still dangerous and still refused, so this gate keeps its teeth:
+  "Simoon deals 2 damage to each creature target opponent controls.",           // TARGET-scoped mass sweep — must hit ONE opponent's creatures, and {controller:"opponent"} would hit ALL of them (a multiplayer FP)
   // NOTE: "Target creature gets +X/+Y. Another target creature gets -A/-B." now parses HIGH (TWO-TARGET PUMP/
   // DEBUFF → one pump-pair atom); positive pin in twoTargetPump.test.js. A MASS "each other creature" 2nd clause still drops.
   "Target creature gets +2/+2 until end of turn. Up to one other target creature gets +1/+1 until end of turn.", // "up to" + "other"
