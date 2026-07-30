@@ -20,6 +20,9 @@ summarizes the notable changes.
 - **Artifacts that untap themselves now really untap.** Mana Vault, Staff of Domination, Retrofitter
   Foundry, Summoning Station and Blasting Station — paying the cost actually untaps the artifact, so Mana
   Vault's pay-{4} upkeep escape works and the Station engines can loop.
+- **"Gets +1/+1 for each Equipment/Gate/Goblin you control" now counts.** Swordsman's Steel, Militant
+  Inquisitor, Gatebreaker Ram, Adelbert Steiner and Raised by Wolves size themselves off the board and
+  grow or shrink live, instead of sitting at their printed stats.
 
 
 ## [0.149.21] - 2026-07-30

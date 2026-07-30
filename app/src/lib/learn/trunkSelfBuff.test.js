@@ -71,10 +71,19 @@ describe("TRUNK-SELFBUFF — coverage classification + descriptor shape", () => 
 
 describe("TRUNK-SELFBUFF — MUST_DROP_TO_LOW (no fabricated buff)", () => {
   const noDescriptor = (oracle) => expect(parseStaticAbilities({ name: "X", type: "Creature", oracle })).toHaveLength(0);
-  it("rejects an unmodeled count source — subtype, graveyard, hand, 'other'", () => {
-    noDescriptor("This creature gets +1/+1 for each Goblin you control.");        // subtype not in the dup-free allowlist
-    noDescriptor("This creature gets +1/+1 for each card in your graveyard.");    // graveyard count (follow-up)
+  it("rejects an unmodeled count source — graveyard, 'other', and an UNCURATED subtype", () => {
+    // ⭐ BOUNDARY-MARKER GRADUATED 2026-07-30. This pin used to reject "for each Goblin you control" with the
+    // reason "subtype not in the dup-free allowlist". That allowlist (COUNT_SUBTYPE) is now consulted here, so
+    // the stated reason is closed and the curated case moved to the MUST_EMIT block below. The GUARD survives
+    // intact, aimed at what is still genuinely unmodeled: an uncurated word, a graveyard count, and "other".
+    noDescriptor("This creature gets +1/+1 for each widget you control.");         // not a curated subtype
+    noDescriptor("This creature gets +1/+1 for each card in your graveyard.");     // graveyard count (follow-up)
     noDescriptor("This creature gets +1/+1 for each other artifact you control."); // "other" / excludeSelf (follow-up)
+  });
+  it("MUST_EMIT — a CURATED subtype now produces the same permanentsYouControl spec the basics always did", () => {
+    const d = parseStaticAbilities({ name: "X", type: "Creature", oracle: "This creature gets +1/+1 for each Goblin you control." });
+    expect(d).toHaveLength(1);
+    expect(d[0].op).toMatchObject({ layerOp: "ptModifyDynamicCount", perPower: 1, perToughness: 1, countSpec: { kind: "permanentsYouControl", subtype: "Goblin" } });
   });
   it("rejects an OPPONENT-scoped count (would buff the wrong way)", () => {
     noDescriptor("This creature gets +1/+1 for each artifact an opponent controls.");

@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 70 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 75 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -459,6 +459,70 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **THE LAYER-7c SELF-BUFF LEARNS SUBTYPE COUNTS. GAINED 5.**
+## ⭐ THE EVALUATOR ALREADY EXISTED — ONLY THE VOCABULARY REFUSED TO REACH IT.
+
+Swordsman's Steel · Militant Inquisitor · Gatebreaker Ram · Adelbert Steiner · Raised by Wolves.
+Third slice off the Joe shelf. **Captain America Shoot your Shot 70 → 71%**; Joe **847/1098**.
+
+### ⭐ THE PROBE THAT FOUND IT — NOUN-SWAP ATTRIBUTION, a new instrument
+Generalising last slice's untap-noun find: swap a permanent noun (`artifact` / `permanent` / `enchantment` /
+`Equipment` / `land` / `planeswalker`) for **creature** — the best-modeled noun — across every non-native
+card, leaving triggers, costs and structure intact, and see who flips. **60 corpus cards are attributable to
+a missing noun somewhere.** Clustering those by their blocking SENTENCE is what named this slice's template.
+
+| swap | attributable |
+|---|---|
+| artifact → creature | 18 |
+| land → creature | 14 |
+| Equipment → creature | 11 |
+| permanent → creature | 9 |
+| enchantment → creature | 7 |
+| planeswalker → creature | 1 |
+
+⭐ *Keep this probe. It converts "which noun is missing" from a hunch into a ranked list, and the 55 cards it
+found beyond this slice are the next several slices' queue — no more hunting card by card.*
+
+### THE MECHANISM — a count the runtime already computed exactly
+`layers.countSelfSpecOnBoard`'s `permanentsYouControl` branch reads **`spec.cardType || spec.subtype`** and
+does a word-bounded type-line scan — the identical wire the basic-land arm (Squelching Leeches, *"the number
+of Swamps you control"*) has used since it shipped. Card types worked; `Equipment`, `Gate` and every tribe
+did not. **Only `parseSelfCountSource` refused to produce the spec.** One arm, gated on `COUNT_SUBTYPE` — the
+same curated allowlist `parseCountSource` and the team-pump scope already share — and the count was reachable.
+
+⛔ **CREED:** that allowlist's own criterion is corpus-verified — every entry appears ONLY in the subtype
+position of a type line, so `\b<Subtype>\b` can never mis-match a card type. An uncurated word returns null
+and the card parks. The arm sits AFTER the card-type arm so creature/artifact/land/enchantment keep their
+`cardType` wire byte-for-byte (flip-diff: **no other tier moved**).
+
+### ⚠️ A NEW IMPORT EDGE — checked, not assumed
+`staticAbilityParser` had no edge to `parseHelpers`. Added one for `COUNT_SUBTYPE` rather than duplicating a
+120-entry list that would drift. Safe because parseHelpers imports **only** `keywords.js`, a zero-import leaf
+this file already imports — and confirmed with the mandatory
+`node -e "import './src/lib/learn/legalChoices.js'"` graph check, which exists precisely because a green
+suite is not evidence the module graph still loads.
+
+### ✅ A FOURTH BOUNDARY-MARKER PIN GRADUATED
+`trunkSelfBuff.test.js` rejected *"for each Goblin you control"* with the reason **"subtype not in the
+dup-free allowlist"**. That reason is now closed, so the case moved to a MUST_EMIT assertion on the descriptor
+shape; the guard survives intact aimed at what IS still unmodeled — an uncurated word, a graveyard count, and
+the `other` / excludeSelf form.
+
+### ⭐ WHAT M2 TAUGHT ME ABOUT MY OWN GUARD
+I wrote the qualified-count test as *"the `^…$` anchor keeps 'tapped Equipment you control' out."* **Wrong:**
+the anchor's character class allows spaces, so that phrase matches the pattern fine — it is the ALLOWLIST
+LOOKUP that rejects it. Mutation M2 (allowlist replaced by a bare capitalize) failed that test and named the
+real guard. *Corrected in the test comment rather than left as a plausible-sounding explanation.*
+
+**Mutation-checked: 2 seen to fail** — M1 the arm disabled (3 tests, classification AND runtime) · M2 the
+allowlist gate replaced by a capitalize (both CREED guards). Reverts confirmed by `git diff --stat`.
+
+**Gates:** flip-diff **GAINED 5 / LOST 0**, no other tier moved (12909 → 12914 / 34245). 7 tests, four of them
+live layer reads (grow, shrink, opponent's Equipment not counted, a Bear is not an Equipment). Suite
+**1030 files / 13,058 green**, lint 0, module graph loads, MUTANT clean. **Batch 4: 75 cards.**
 
 ---
 

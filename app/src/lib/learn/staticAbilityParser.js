@@ -25,6 +25,11 @@ import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword, hasKeyword } from ".
 import { isLevelerFrame } from "./leveler.js"; // LV-1 — the leveler frame detector (leaf module, no cycle)
 import { isAttackTaxClause, parseAttackTax } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — a pure leaf, shared with the runtime so metric and game agree
 import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // the closed creature-subtype vocabulary, imported from the LEAF (never through targeting.js — that edge crashes module init; see creatureTypes.js)
+// COUNT_SUBTYPE — the ONE curated, collision-free permanent-subtype allowlist (parseCountSource and the
+// team-pump scope already share it). Imported straight from parseHelpers, which imports only keywords.js —
+// a zero-import leaf this file ALREADY imports — so the edge adds no new module-init ordering (verified with
+// the mandatory `node -e "import './src/lib/learn/legalChoices.js'"` graph check, per the run ledger).
+import { COUNT_SUBTYPE } from "./effects/parseHelpers.js";
 
 // The closed vocabulary a "cast <X> spells from the top of your library" filter word must belong to. Card
 // types (CR 205.2a) plus every printed creature type; anything else parks the clause. Built LAZILY on first
@@ -393,6 +398,18 @@ function parseSelfCountSource(phrase) {
   let m;
   if ((m = p.match(/^(creatures?|artifacts?|lands?|enchantments?) you control$/))) return { kind: "permanentsYouControl", cardType: SELF_COUNT_CARDTYPE[m[1]] };
   if ((m = p.match(/^(plains|islands?|swamps?|mountains?|forests?) you control$/))) return { kind: "permanentsYouControl", subtype: SELF_COUNT_BASIC[m[1]] };
+  // NON-BASIC SUBTYPE you control — "+1/+1 for each Equipment you control" (Swordsman's Steel, Improvised
+  // Arsenal), "for each Gate you control", "for each Goblin you control". ⭐ THE EVALUATOR ALREADY EXISTED:
+  // layers.countSelfSpecOnBoard's permanentsYouControl branch reads `spec.cardType || spec.subtype` and does a
+  // word-bounded type-line scan — the SAME wire the basic-land arm one line up has always used. Only this
+  // vocabulary refused to produce the spec, so a count the runtime computes exactly was unreachable.
+  // CREED: gated on COUNT_SUBTYPE, the curated allowlist whose own criterion is corpus-verified — every entry
+  // is a real MTG subtype appearing ONLY in the subtype position of a type line, so `\b<Subtype>\b` can never
+  // mis-match a card type. An UNCURATED word ("for each token you control") returns null → the card parks.
+  // Placed AFTER the card-type arm so creature/artifact/land/enchantment keep their cardType wire byte-for-byte.
+  if ((m = p.match(/^([a-z][a-z' -]*[a-z]) you control$/)) && COUNT_SUBTYPE[m[1]]) {
+    return { kind: "permanentsYouControl", subtype: COUNT_SUBTYPE[m[1]] };
+  }
   // COUNTERS ON A GROUP — "+1/+1 counters on lands you control" (Toph, the Blind Bandit). Only the +1/+1 kind
   // and only the card-type groups above, because layers.countSelfSpecOnBoard sums EXACTLY that; any other
   // counter kind or a qualified group has no evaluator → null → the card parks (safe FN).
