@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Role tokens work.** Cards that hand a creature a Monster, Royal, Cursed, Sorcerer or Virtuous Role now
+  actually create it and attach it, and the creature gets what the Role gives it. Seven cards play properly as
+  a result, including Charmed Clothier, Living Lectern and Splashy Spellcaster. If there's no legal creature to
+  attach to, no Role is created — as the rules require. Wicked and Young Hero Roles are still set aside until
+  their abilities are modelled.
+
 ## [0.149.15] — 2026-07-29
 
 ### Added

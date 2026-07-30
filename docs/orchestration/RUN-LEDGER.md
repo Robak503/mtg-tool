@@ -95,7 +95,60 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🔧 ROLE TOKENS — PHASE 1 IMPLEMENTATION SPEC (everything measured; next turn is mechanical)
+## ✅ SHIPPED — **ROLE TOKENS PHASE 1 (CR 303.4). GAINED 7, LOST 0.**
+
+Besotted Knight // Betroth the Beast · Charmed Clothier · Ferocious Werefox // Guard Change · Living Lectern ·
+Redtooth Genealogist · Spiteful Hexmage · Splashy Spellcaster.
+
+**What landed:** five Roles registered in `NAMED_TOKENS` (`aura: true`), an attach path in
+`applyCreateNamedToken`, and a parse arm for the measured TARGETED phrasings. `NAMED_TOKENS` previously held
+only free-standing artifact tokens; a Role is an **Aura that enters attached**, and that attachment is where its
+entire effect comes from.
+
+**⛔ THE TWO GUARDS THAT MATTER, both mutation-verified:**
+- **Attachment goes through `attachPermanent`, never a hand-stamped `attachedTo`.** That helper maintains BOTH
+  sides — `attachedTo` on the Aura AND `attachments[]` on the host — and is the single chokepoint where a
+  control-Aura's control change applies. ⚠️ **Under the half-link mutation the buff STILL WORKED** (the layer
+  Aura path reads `attachedTo`), so only the explicit `host.attachments` assertion caught it. A one-sided link
+  would have been invisible to every reader that walks the host — the ATTACHED-watcher scan in
+  `checkCombatDamageTriggers`, for one.
+- **No legal object to enchant → the token is NOT created (CR 303.4).** Minting it unattached would put a
+  permanent on the battlefield the rules say shouldn't exist, buffing nobody. Covers the legal zero-target
+  choice on "up to one target creature" AND a target that left before resolution. Caught by 2 tests.
+
+**⛔ THE REFUSALS ARE HALF THE SLICE — and they are two different refusals, both tested:**
+- **Wicked · Young Hero** — defined in bundled data, bodies unmodeled (`body-only` as Auras). Registering them
+  would mint a token whose ability silently does nothing: the phantom-mana mistake in a new costume, which is
+  the bar `NAMED_TOKENS` sets for itself.
+- **Chef · Questing · Huntsman** — cards ASK for them; **no definition exists in the bundled data**, so their
+  text cannot be written at all (CLAUDE.md §1.2). Permanent refusal until the data carries them.
+
+**⭐ THE DATA-PINNING GATE, and why it is a SCRIPT not a unit test.** `scripts/verify-role-token-data.mjs`
+re-reads the bundled Role token objects and asserts each registry string matches byte-for-byte, that every
+registered body is executable, that the two unmodeled Roles are STILL unmodeled (if one becomes native the gate
+fails and says "register it"), and that the three undefined ones are still undefined.
+**It caught a real omission on its first run** — Royal's bundled text carries its ward reminder inline and the
+registry had dropped it. ⚠️ It is a script because **the vitest suite is HERMETIC: `allCards()` THROWS in it**
+(verified). A unit test that silently skipped when the corpus is absent would be a hollow gate — green because
+it checked nothing. Run it with `MTG_APP_ROOT` as part of any Role work.
+
+**Gates:** 11 hermetic tests + the corpus gate (exit 0); **both mutations seen to fail** (CR 303.4 guard removed
+→ 2 tests; half-link → the both-sides test alone). Diff additive only (+76, zero deletions). **Tier flip-diff
+over 34,210 cards: GAINED 7 / LOST 0**, every row audited. Suite **985 files / 12,526 green**, lint 0 (checked
+unpiped).
+
+**⚠️ 7, not the 13 I estimated — and the gap is by CHOICE, not by surprise:** the REFERENT phrasings
+(`attached to that creature` / `attached to it`, Gylwain's modes, Cursed Courtier, Unassuming Sage) are
+deliberately unmatched because they need a saga/ETB self-reference; Questing Cosplayer's reversed
+"create … and attach it to" word order likewise; and the Wicked / Young Hero cards await phases 2–3.
+
+**REMAINING PHASES:** (2) the self-P/T-threshold intervening-if → Young Hero, **+5**; (3) an Aura
+put-into-graveyard trigger → Wicked, **+6**; (4) the referent phrasings → the rest. Phase 2's exact patch is
+recorded two entries down.
+
+---
+
+## 🔧 ROLE TOKENS — PHASE 1 IMPLEMENTATION SPEC (as planned; kept as the record)
 
 Runtime and data both verified this session. **Phase 1 must land as ONE unit** (registry + attach + parse arm):
 the registry alone flips nothing, and a 0-flip change does not ship (the subtype-pump / self-P-T precedents).

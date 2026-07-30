@@ -216,6 +216,38 @@ export const NAMED_TOKENS = {
   lander: { name: "Lander", type: "Token Artifact — Lander", oracle: "{2}, {T}, Sacrifice this token: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle." },
   mutagen: { name: "Mutagen", type: "Token Artifact — Mutagen", oracle: "{1}, {T}, Sacrifice this token: Put a +1/+1 counter on target creature. Activate only as a sorcery." },
   junk: { name: "Junk", type: "Token Artifact — Junk", oracle: "{T}, Sacrifice this token: Exile the top card of your library. You may play that card this turn. Activate only as a sorcery." },
+  // ── ROLE TOKENS (Wilds of Eldraine; CR 303.4 Auras). ⛔ NOT artifacts like every entry above: a Role is an
+  // AURA token that enters ATTACHED to a creature, which is why applyCreateNamedToken grew an attach path and
+  // why these carry `aura: true`.
+  //
+  // ⭐ EVERY ORACLE STRING BELOW IS COPIED OUT OF THE BUNDLED DATA, never written from memory (CLAUDE.md §1.2).
+  // The Roles ship as DFC token objects whose type line is "Token Enchantment — Aura Role";
+  // roleTokenData.test.js re-reads those objects and asserts each string here matches them, so this table
+  // cannot drift from its source.
+  //
+  // ⛔ ONLY THE FIVE WHOSE BODY THE ENGINE CAN ACTUALLY EXECUTE ARE REGISTERED — the same bar the artifact
+  // tokens above set for themselves. Verified per Role by classifying its body as an Aura card: Cursed
+  // native-aura · Monster native-aura · Royal native-aura · Sorcerer native-trigger · Virtuous native-aura.
+  // And the runtime was proven before any of this: an attached Aura TOKEN derives correctly on its host
+  // (Monster → 3/3 + trample; Cursed → base 1/1; the same token unattached → nothing).
+  //
+  // ⛔ DELIBERATELY ABSENT, for two different reasons, both pinned as refusal tests:
+  //   • Wicked     — "When this Aura is put into a graveyard from the battlefield, each opponent loses 1 life."
+  //                  is unmodeled (the Role body classifies body-only). Arrives with that trigger.
+  //   • Young Hero — its quoted "…if its toughness is 3 or less…" trigger is unmodeled (body-only). Arrives
+  //                  with the self-P/T-threshold intervening-if.
+  //   • Chef / Questing / Huntsman — cards ASK for these, but NO definition exists in the bundled data, so
+  //                  their text cannot be written at all. Permanent refusal until the data carries them.
+  // Registering any of those would mint a token whose ability silently does nothing — the phantom-mana
+  // mistake in a new costume, which is exactly what this registry's own standard forbids.
+  cursed: { name: "Cursed", type: "Token Enchantment — Aura Role", aura: true, oracle: "Enchant creature\nEnchanted creature has base power and toughness 1/1." },
+  monster: { name: "Monster", type: "Token Enchantment — Aura Role", aura: true, oracle: "Enchant creature\nEnchanted creature gets +1/+1 and has trample." },
+  // Royal keeps its printed ward REMINDER because the bundled object carries it inline on the ability line
+  // (reminder text has no rules meaning — CR 207.2 — and the body classifies native-aura with it present).
+  // The data-pinning test compares byte-for-byte, and it caught this omission on its first run.
+  royal: { name: "Royal", type: "Token Enchantment — Aura Role", aura: true, oracle: "Enchant creature\nEnchanted creature gets +1/+1 and has ward {1}. (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {1}.)" },
+  sorcerer: { name: "Sorcerer", type: "Token Enchantment — Aura Role", aura: true, oracle: "Enchant creature\nEnchanted creature gets +1/+1 and has \"Whenever this creature attacks, scry 1.\"" },
+  virtuous: { name: "Virtuous", type: "Token Enchantment — Aura Role", aura: true, oracle: "Enchant creature\nEnchanted creature gets +1/+1 for each enchantment you control." },
 };
 
 /**
@@ -243,6 +275,22 @@ export function applyCreateNamedToken(state, atom, ctx) {
     ? (ctx.targets?.find((t) => t.type === "player")?.id ?? null)
     : ctx.controller;
   if (creatorId == null || !next.players?.[creatorId]) return next;
+  // ===== ROLE / AURA-TOKEN ATTACHMENT (CR 303.4) =====================================================
+  // A Role is an AURA token: it enters ATTACHED to the chosen creature, and its whole effect flows from the
+  // attachment (layers reads `attachedTo` and applies the Aura's bonus — proven on a minted token before this
+  // was written). Every OTHER entry in NAMED_TOKENS is a free-standing artifact, so this branch is gated on
+  // `spec.aura` and the artifact path stays byte-identical.
+  //
+  // ⛔ NO LEGAL OBJECT TO ENCHANT → THE TOKEN IS NOT CREATED AT ALL (CR 303.4). Minting it unattached would
+  // be worse than doing nothing: a permanent on the battlefield that the rules say shouldn't exist, and whose
+  // buff silently applies to no one. This also covers the "up to one target creature" forms with zero targets
+  // chosen (a legal choice) and a target that left the battlefield before resolution.
+  const attachTargetId = spec.aura
+    ? (ctx.targets?.find((tg) => tg?.type === "creature" && findPermanent(next, tg.id))?.id ?? null)
+    : null;
+  if (spec.aura && !attachTargetId) {
+    return logEvent(next, { kind: "spell-effect", effect: "create-named-token", token: atom.token, count: 0, note: "no legal object to enchant", controller: creatorId });
+  }
   // ===== TREASURE-MAKER ===== the count, mirroring applyCreateToken (the typed-token resolver). DYNAMIC
   // forms resolve AT RESOLUTION (CR 608.2h — a count-derived value is locked as the effect resolves, not at
   // cast/flush): `countFor` is a board count (countForSpec — Dockside "X = artifacts+enchantments your
@@ -286,6 +334,13 @@ export function applyCreateNamedToken(state, atom, ctx) {
     const perm = createPermanent({ id: minted.id, card, controller: creatorId, tapped: !!atom.tapped });
     const player = next.players[creatorId];
     next = { ...next, players: { ...next.players, [creatorId]: { ...player, battlefield: [...player.battlefield, perm] } } };
+    // An Aura token enters ALREADY ATTACHED (CR 303.4b). ⛔ Routed through attachPermanent rather than stamping
+    // `attachedTo` by hand: that helper maintains BOTH sides of the link — `attachedTo` on the Aura AND the
+    // host's `attachments` array — and a half-link would be invisible to every reader that walks the host
+    // (the ATTACHED-watcher scan in checkCombatDamageTriggers, for one) while looking correct to the readers
+    // that walk the Aura. It is also the single chokepoint where a control-Aura's control change is applied,
+    // so using it keeps Role attachment on the same path as every printed Aura.
+    if (attachTargetId) next = attachPermanent(next, { equipId: minted.id, targetId: attachTargetId });
     mintedIds.push(minted.id);
   }
   // ETB (CR 603.6a) — each named artifact token fires artifact-ETB watchers (see fireTokenEnterTriggers).
@@ -487,6 +542,27 @@ export function createNamedTokenClauseParser(clause) {
   // and whoCreates:"target" tells applyCreateNamedToken to put the token on the CHOSEN player's battlefield
   // (ctx.targets), not the controller's. Single fixed token only (a/an/one); a dynamic/count form on this
   // rarer shape isn't printed → stays unmatched → Arbiter (CREED — never a partial). "tapped" rider preserved.
+  // ===== ROLE TOKENS (CR 303.4) — "Create a <Role> Role token attached to <target creature>" ============
+  // The anchor states what was measured, per this file's standard. All 38 printed Role-creation clauses were
+  // censused; the TARGETED family is built here:
+  //   "attached to target creature you control"                 "attached to another target creature you control"
+  //   "attached to up to one target creature you control"        "attached to up to one other target creature you control"
+  //   "attached to up to one target creature"                    "attached to another target creature"
+  // The REFERENT forms ("attached to that creature", "attached to it") need a saga/ETB self-reference and are
+  // NOT matched here → Arbiter (a safe FN); likewise Questing Cosplayer's reversed "create a … token and attach
+  // it to target creature" word order.
+  //
+  // ⛔ THE ROLE ALTERNATION IS THE FIVE REGISTERED ROLES, SPELLED OUT — not derived from Object.keys. Wicked
+  // and Young Hero are absent because their bodies are unmodeled, and Chef / Questing / Huntsman because no
+  // definition exists in the bundled data. A card naming any of those falls through unmatched → Arbiter, which
+  // is the whole point: an unregistered Role must never mint a do-nothing token.
+  //
+  // "up to one" makes the target OPTIONAL (a legal zero-target choice); the resolver's CR 303.4 guard then
+  // creates nothing, which is correct rather than a silent unattached mint.
+  m = t.match(/^create a (cursed|monster|royal|sorcerer|virtuous) role token attached to (?:up to one )?(?:another |other )?target creature( you control)?$/);
+  if (m) {
+    return { op: "create-named-token", token: m[1], count: 1, targetType: m[2] ? "creatureYouControl" : "creature" };
+  }
   m = t.match(/^target opponent creates? (?:a|an|one) (tapped )?(treasure|clue|food|gold|blood) token$/);
   if (m) {
     const atom = { op: "create-named-token", token: m[2], count: 1, targetType: "opponent", whoCreates: "target" };
