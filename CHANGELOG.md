@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"Untap them" now works too.** Rallying Roar, War Flare, Rally to Battle, Join Shields and Flying Crane
+  Technique — the team-wide versions that buff your creatures and then untap the same ones.
 - **"Untap it" now works.** Fourteen more cards where a spell buffs a creature and then untaps that same
   creature — Savage Surge, Stony Strength, Vault Skyward, Veteran's Reflexes and friends.
 - **"That creature can't block this turn" now works.** Mugging, Blindblast, Duel Tactics, Wrap in Flames

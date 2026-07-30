@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 39 cards since v0.149.20** (granted Ward—Pay-life +2, bound-referent grants +17, referent can't-block/pump +6, referent untap +14) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 48 cards since v0.149.20** (granted Ward—Pay-life +2, REFERENT FAMILY +46 across four slices) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,55 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 3) 2026-07-30 — **MASS-ANTECEDENT REFERENTS + MULTI-KEYWORD KEEP-WHOLE. GAINED 9, LOST 0.**
+
+Rallying Roar · War Flare · Rally to Battle · Tenacity · Gleam of Resistance · Jeskai Ascendancy · Join
+Shields · Flying Crane Technique · Celestial Armor. **Referent family total: 46 across four slices.**
+
+**⭐ THE PREVIOUS ENTRY'S WARNING PAID OFF, AND THE ANSWER WAS BETTER THAN THE ONE IT WARNED AGAINST.** Last
+slice I wrote *"do NOT fold this into `bindPreviousTargets` — a mass atom's recipients are computed at
+resolution, not chosen at cast."* Correct, and the resolution is not a second binding mechanism at all: the
+referent is **REWRITTEN AT ASSEMBLY into the equivalent mass atom the engine already resolves.** The atom that
+runs is **byte-identical** to the one the explicit wording produces (asserted in a test), so **there is no
+runtime change whatsoever.** *When a referent can be rewritten into an existing atom, do that instead of
+teaching the runtime a new kind of recipient.*
+
+Both directions work off one helper:
+| printed shape | rewritten to |
+|---|---|
+| `Creatures you control get +1/+1 UEOT. **Untap them**.` | `{op:"untap-lands", all:true, scope:"creature"}` |
+| `Untap all creatures you control. **They gain** flying UEOT.` | `{op:"grant-keywords-group", scope:"creaturesYouControl"}` |
+
+**⛔ THE FILTER IS THE ENTIRE DANGER — guarded by an ALLOWLIST, not a denylist.** *"Birds you control get
++1/+1"* parses to the **SAME** `scope:"youControl"` **plus a `subtypeFilter`**. Rewriting that would untap
+**every creature the card never mentioned** — a confident false positive. An antecedent qualifies only when
+its **key set is EXACTLY the unfiltered shape**, so a filter field added later **disqualifies it
+automatically** rather than needing this guard updated. Opponent-scoped antecedents are refused the same way.
+Both pinned.
+
+### ⚠️ A SILENT MISS IN MY OWN EARLIER SLICES, found by an unexplained flip
+**Celestial Armor** flipped and was NOT in the predicted set. It is a *targeted* antecedent with a **TWO-keyword**
+grant — so it flipped on the **clause-splitter keep-whole guard**, not the mass rewrite. *"They gain flying
+**and** double strike until end of turn"* was shattering into `they gain flying` + `double strike until end of
+turn`. **The referent arms had been shipping correct for ONE keyword and silently missing two since the first
+slice.** A single-keyword grant has no internal `" and "`, which is exactly why nothing caught it — every test
+I wrote used one keyword. Widening a keep-whole guard is the SAFE direction (keeping a sentence whole can only
+fail to match; SPLITTING drops halves), and this is the second time that rule has paid this run.
+
+**One of my OWN pins from the previous slice graduated within the same session** — it asserted a mass antecedent
+stays refused. Re-pointed, with the FILTERED case kept as the live negative, since that is the hazard it was
+really protecting.
+
+**Gates:** 8 new tests including a runtime *untap-them* paired with a vacuity control, and an assertion that
+the rewritten atom equals the explicit wording's atom. **Five mutations seen to fail.** Suite **1006 files /
+12,831 green**, lint 0, MUTANT clean.
+
+**Batch 3: 48 cards.** ⚠️ `cdh` still 86/100 — **Valley Floodcaller remains parked**: its mass antecedent is
+SUBTYPE-FILTERED (*"Birds, Frogs, Otters, and Rats you control"*), which is precisely the case the allowlist
+refuses. Its remaining blocker is now exactly one thing: **a multi-subtype union as a mass-pump selector.**
 
 ---
 
