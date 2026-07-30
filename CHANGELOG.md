@@ -11,6 +11,8 @@ summarizes the notable changes.
 ### Added
 - **Tamiyo's Safekeeping works.** Targeting one of your own artifacts, enchantments or lands really does
   give it hexproof and indestructible for the turn — it now survives a Disenchant or a wrath.
+- **Rhythm of the Wild grants riot for real.** Your nontoken creatures now enter with the +1/+1 counter or
+  the haste, exactly as printed, instead of the enchantment sitting there doing nothing.
 
 
 ## [0.149.22] - 2026-07-30

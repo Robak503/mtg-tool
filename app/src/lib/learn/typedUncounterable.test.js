@@ -103,8 +103,16 @@ describe("classification — the staples this unblocks", () => {
     expect(classifyCard(SURRAK)).toMatch(/^native/);
   });
 
-  it("Rhythm of the Wild #211 stays PARKED — riot is unmodeled (whole-card law)", () => {
+  // ⭐ BOUNDARY-MARKER GRADUATED 2026-07-30 — this pin said "riot is unmodeled (whole-card law)". The granted
+  // form is modeled now, runtime included (grantedRiot.test.js), so the stated reason is closed and the card
+  // flips. The whole-card law it was really guarding is re-aimed below at a clause that IS still unmodeled.
+  it("Rhythm of the Wild #211 flips now — the typed-uncounterable half plus a modeled riot grant", () => {
     expect(classifyCard({ name: "Rhythm of the Wild", type: "Enchantment", mana: "{1}{R}{G}", keywords: [],
-      oracle: "Creature spells you control can't be countered.\nNontoken creatures you control have riot." })).toBe("body-only");
+      oracle: "Creature spells you control can't be countered.\nNontoken creatures you control have riot." })).toBe("native-static");
+  });
+
+  it("⛔ whole-card law — the same typed-uncounterable line beside an UNMODELED clause still parks", () => {
+    expect(classifyCard({ name: "Fake Rhythm", type: "Enchantment", mana: "{1}{R}{G}", keywords: [],
+      oracle: "Creature spells you control can't be countered.\nWhenever a player consults an oracle, interpret its riddle however you like." })).toBe("body-only");
   });
 });

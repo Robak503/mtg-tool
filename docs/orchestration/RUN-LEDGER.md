@@ -28,12 +28,13 @@
 > - ✅ **v0.149.22 TAGGED 2026-07-30 with 84 cards** — EARLY TAG on the cadence rule's bug-fix
 >   exception (the permanent-card-put FP corrupts board state on a shelf deck's commander; the batch
 >   was at 84 so the cost was near zero). **Next batch starts from ZERO here.**
-> - ⏳ **NEXT RESUME: VERIFY v0.149.22 BY CONTENT.** Run 30579604476 was in_progress at 20:32Z
->   (~20-25 min historically). Verify the way v0.149.19/.20 were: fetch
->    and check it reports **version 0.149.22**, a URL pointing at
->   the real installer, and a ~424-char minisign signature. **A green CI run is not the check** — the
->   published manifest is.
-> - **BATCH IN FLIGHT: 1 card since v0.149.22** (targeted permanent keyword grant +1) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - ✅ **v0.149.22 PUBLISHED AND VERIFIED BY CONTENT** (2026-07-30) — the published `latest.json`
+>   reports **version 0.149.22**, `pub_date 2026-07-30T20:59:29Z`, a URL pointing at the real
+>   installer, and a **424-char** minisign signature. **5 assets**, full updater chain. Job
+>   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
+>   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
+>   rule: check the artifact, not the status line.
+> - **BATCH IN FLIGHT: 2 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -467,6 +468,58 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **RIOT, GRANTED. GAINED 1 CARD — BUT +2 SHELF SLOTS AND JOE CROSSES 78%.**
+## ⭐ THE DESIGN DECISION IS THE ENTRY: I REFUSED THE OBVIOUS IMPLEMENTATION.
+
+**Rhythm of the Wild (#211)** — the highest-value single card left on Joe's shelf, in **two** decks.
+Jurassic Ramp **78 → 79%** · Wolverine **73 → 74%**. Joe **851/1098 (77% → 78%)**.
+
+### ⛔⭐ WHY IT IS NOT A GRANTED KEYWORD — the trap I had just built a guard for
+**CR 702.136a** (read from `cr_current.json`): *"Riot is a static ability. 'Riot' means 'You may have this
+permanent enter with an additional +1/+1 counter on it. If you don't, it gains haste.'"*
+
+The obvious build is one line: add `riot` to `GRANTABLE_STATIC_KEYWORDS` and let the existing group-grant
+parser emit a layer-6 `addKeyword`. **It would have been a false positive.** Riot is an **AS-ENTERS**
+replacement, and a layer-6 keyword only exists once the permanent is ON the battlefield — *after* the entry
+it is supposed to modify. The keyword would sit there visible and meaningless, the card would read
+`native-static`, and no creature would ever get a counter or haste.
+
+⭐ *That is the "classifies native, does nothing" class the non-creature-target drift guard was built for
+ONE SLICE AGO. Having just spent a slice naming the pattern, I recognised it in a design I had not written
+yet — which is the entire return on that work. The guard's value was never the 12 cases; it was the shape.*
+
+### THE BUILD — an ENTRY-TIME battlefield scan, on an existing precedent
+`resolvers.grantedRiotCount(state, controller, card)` scans the controller's battlefield at entry, exactly as
+**`applyCounterDoubling`** already reads printed doubler text off the battlefield at the moment counters are
+placed — same problem, same shape, so no new convention was invented. CR 702.136b (multiple instances work
+separately) falls out for free; two grants give two counters, asserted.
+
+⛔ **Three CREED gates, each seen to fail:** the entering card must be a **nontoken CREATURE** (the printed
+grant says *"Nontoken creatures"*), the granting permanent must be controlled by the **same player**, and the
+clause is matched by the **same anchored predicate the classifier credits** — so metric and runtime cannot
+drift apart. ⛔ Spider-Punk's *"Other **Spiders** you control have riot"* is subtype-scoped, deliberately NOT
+matched, and asserted to stay parked.
+
+### ✅ TWO MORE BOUNDARY-MARKER PINS GRADUATED (seventh and eighth this run)
+`riot.test.js` — *"a GRANT-only enchantment is NEVER credited/stripped"* · `typedUncounterable.test.js` —
+*"Rhythm of the Wild #211 stays PARKED — riot is unmodeled"*. Both stated reasons are closed. **Each guard
+was re-aimed rather than deleted**: the first now pins the subtype-scoped grant that IS still unmodeled, the
+second pins the same typed-uncounterable line beside genuinely unmodeled text.
+
+**Mutation-checked: 3 seen to fail** — M1 runtime scan unwired (the 3 runtime tests fail, coverage stays
+green — the FP this slice exists to avoid, demonstrated) · M2 token+creature gates dropped (a token and an
+artifact wrongly get riot) · M3 coverage marker not emitted (the tier).
+
+**Gates:** flip-diff **GAINED 1 / LOST 0**, no other tier moved (12924 → 12925 / 34245). 11 new tests, eight
+runtime. Suite **1036 files / 13,128 green**, lint 0, module graph loads, MUTANT clean. **Batch: 2 cards.**
+
+### ➡️ SHELF-GAP LIST REFRESHED (section-filtered): **214 non-native, 91 one-away.** Only TWO cards sit in
+2+ decks and both are now spent (Rhythm here; "Level Up" — a real Aura, #5087, in **3 decks** — is the other,
+blocker = *"Enchanted creature has \"Whenever this creature attacks, double the number of +1/+1 counters on
+it…\""*, i.e. a granted-triggered-ability-on-an-Aura. **That is the single highest-value card left.**
 
 ---
 

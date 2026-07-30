@@ -2005,6 +2005,21 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ radiationLifeGain: true });
     return;
   }
+  // GRANTED RIOT (CR 702.136a — Rhythm of the Wild #211, Uncivil Unrest). "Riot" is an AS-ENTERS replacement:
+  // *"You may have this permanent enter with an additional +1/+1 counter on it. If you don't, it gains haste."*
+  // ⭐⛔ SO IT IS DELIBERATELY **NOT** ADDED TO GRANTABLE_STATIC_KEYWORDS. A layer-6 addKeyword lands on a
+  // permanent that is ALREADY on the battlefield — after its own entry replacement has been and gone — so the
+  // keyword would sit there meaning nothing while the card read native: exactly the "classifies native, does
+  // nothing" trap the non-creature-target drift guard was just built for.
+  // The runtime hook is an ENTRY-TIME BATTLEFIELD SCAN instead (resolvers.grantedRiotCount), mirroring
+  // applyCounterDoubling — which reads printed doubler text off the battlefield at the moment counters are
+  // placed, for the same reason. This marker only tells coverage the clause is modeled; it carries no layer op.
+  // ⛔ THIS EXACT CLAUSE ONLY. Spider-Punk's "Other Spiders you control have riot" is subtype-scoped and does
+  // NOT match — it stays unmodeled (a safe FN) rather than being over-credited by a looser anchor.
+  if (/^nontoken creatures you control have riot$/.test(c)) {
+    out.push({ grantedRiotNontokenYouControl: true });
+    return;
+  }
 
   // ── OPPONENTS-CANT-ACT (Grand Abolisher; Voice of Victory; Conqueror's Flail rider) ────────────────────
   // "Your opponents can't cast spells during your turn." / "During your turn, your opponents can't cast

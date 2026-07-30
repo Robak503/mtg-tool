@@ -137,8 +137,19 @@ describe("KW-RIOT — coverage: whole-card gating parks carriers with unmodeled 
     expect(classifyCard({ type: "Legendary Creature — Spider Human Hero", name: "Spider-Punk", mana: "{1}{R}{G}",
       oracle: `${RIOT}\nOther Spiders you control have riot.\nSpells and abilities can't be countered.\nDamage can't be prevented.`, keywords: ["Riot"] })).toBe("body-only");
   });
-  it("a GRANT-only enchantment (…have riot) is NEVER credited/stripped — stays body-only (Rhythm of the Wild)", () => {
+  // ⭐ BOUNDARY-MARKER GRADUATED 2026-07-30 — this pin read "a GRANT-only enchantment (…have riot) is NEVER
+  // credited/stripped". Its reason was that a granted riot had no runtime. It has one now: an ENTRY-TIME
+  // battlefield scan (resolvers.grantedRiotCount), not a granted keyword — riot is an as-enters replacement,
+  // so a layer-6 addKeyword would land after the entry it is supposed to modify. grantedRiot.test.js asserts
+  // the creature really enters with the counter or the haste, and that a token / non-creature / opponent's
+  // copy grant nothing. The whole-card law the pin protects is untouched: the two cases above still park.
+  it("a GRANT-only enchantment (…have riot) is credited NOW — the runtime honours it (Rhythm of the Wild)", () => {
     expect(classifyCard({ type: "Enchantment", name: "Rhythm of the Wild", mana: "{1}{R}{G}",
-      oracle: `Creature spells you control can't be countered.\nNontoken creatures you control have riot. (They enter with your choice of a +1/+1 counter or haste.)` })).toBe("body-only");
+      oracle: `Creature spells you control can't be countered.\nNontoken creatures you control have riot. (They enter with your choice of a +1/+1 counter or haste.)` })).toBe("native-static");
+  });
+
+  it("⛔ but the SUBTYPE-scoped grant is still unmodeled — Spider-Punk's clause is not the credited one", () => {
+    expect(classifyCard({ type: "Enchantment", name: "Fake Grantor", mana: "{1}{R}{G}",
+      oracle: "Other Spiders you control have riot." })).toBe("body-only");
   });
 });

@@ -162,6 +162,36 @@ function autoPickManaColor(state, controller) {
   return best || "G";
 }
 
+// GRANTED RIOT (CR 702.136a) — how many battlefield sources give the ENTERING card riot. Rhythm of the Wild
+// (#211) and Uncivil Unrest print "Nontoken creatures you control have riot."
+//
+// ⭐ WHY A BATTLEFIELD SCAN AND NOT A GRANTED KEYWORD. Riot is an AS-ENTERS replacement, so it has to be known
+// BEFORE the permanent is on the battlefield — and a layer-6 addKeyword only exists AFTER. Granting it as a
+// keyword would leave it sitting on the permanent meaning nothing, with the card reading native: the
+// "classifies native, does nothing" trap. So this mirrors applyCounterDoubling instead, which reads printed
+// doubler text off the battlefield at the moment counters are placed, for exactly the same reason.
+//
+// ⛔ CREED gates, all three load-bearing:
+//   • the ENTERING card must be a nontoken CREATURE — the printed grant says "Nontoken creatures", and a
+//     token or a non-creature permanent must not be handed riot's counter/haste,
+//   • the granting permanent must be controlled by the SAME player (the grant reads "you control"),
+//   • the clause is matched by the SAME anchored predicate the classifier credits, so metric and runtime
+//     cannot drift apart — a card whose text this scan does not recognise is not credited either.
+// CR 702.136b (multiple instances work separately) falls out for free: each grant counts once.
+function grantedRiotCount(state, controller, card) {
+  if (!card || card.token) return 0;
+  const tl = String(card.type || card.type_line || "");
+  if (!/\bCreature\b/i.test(tl)) return 0;
+  let n = 0;
+  for (const p of state?.players?.[controller]?.battlefield || []) {
+    const oracle = String(p?.card?.oracle || p?.card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+    for (const line of oracle.split("\n")) {
+      if (/^\s*nontoken creatures you control have riot\s*\.?\s*$/i.test(line)) n++;
+    }
+  }
+  return n;
+}
+
 // KW-RIOT (CR 702.136a) — the DETERMINISTIC, DOCUMENTED house auto-pick for riot's enters-with choice
 // ("an additional +1/+1 counter" vs "gains haste"). The controller chooses AS the permanent enters
 // (CR 702.136a — its controller chooses), so the pick is decided here against the PRE-entry state.
@@ -378,7 +408,7 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // (CR 616 — Doubling Season doubles riot's entry counter too). CR 702.136b: multiple riot instances each
   // work separately, so N instances add N counters. The HASTE branch is a durable layer-6 addKeyword grant
   // applied AFTER the permanent is on the battlefield (below). A non-riot permanent leaves both untouched.
-  const riotCount = riotKeywordCount(card);
+  const riotCount = riotKeywordCount(card) + grantedRiotCount(state, controller, card);
   const riotHaste = riotCount > 0 && riotPicksHaste(state, controller);
   if (riotCount > 0 && !riotHaste) {
     perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", riotCount) };
