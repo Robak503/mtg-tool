@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 77 cards since v0.149.20** (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 79 cards since v0.149.20** (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,54 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 3) 2026-07-30 — **INVESTIGATE FOR A NAMED PLAYER. GAINED 2, LOST 0.**
+### ⚠️⚠️ AND THE MOST IMPORTANT ENTRY OF THE RUN: **I NEARLY SHIPPED TWO WRONG-OWNER FALSE POSITIVES.**
+
+Panther Pounce · Fateful Absence. Two cards — and the slice is mostly a report on how it nearly went wrong.
+
+**What I did:** bundled *"‹player› investigates"* with *"‹player› shuffles their library"* and emitted a `who`
+field on both atoms. **Neither resolver reads that field.**
+| half | what actually happened |
+|---|---|
+| **investigate** | the Clue mint's recipient is **`whoCreates`** — so every Clue went to the **CASTER** |
+| **shuffle** | `applyShuffle` has **no recipient at all** and always shuffles `ctx.controller`'s library — Soldier of Fortune would have shuffled **the caster's deck** |
+
+⭐ **THE FLIP-DIFF READ `GAINED 4 / LOST 0` THE ENTIRE TIME.** *A card that resolves the WRONG effect still
+classifies native.* The flip-diff measures whether a card parses, **not whether it does the right thing** —
+which is the sharpest limit of that instrument found this run, and it had been carrying every slice tonight.
+
+**✅ The pre-existing `actInvestigate` pins caught the investigate half BY NAME** — *"a 3rd-person
+(wrong-owner) investigate is NOT native"* — which is precisely the failure they were written for. Someone
+wrote that pin specifically so a future author could not do what I just did.
+
+**⛔ NOTHING caught the shuffle half.** No pin existed, and **my own tests asserted ATOM SHAPES rather than
+driving the resolver.** Every other slice tonight had a runtime test; this one did not, and that is exactly
+where the bug lived. ⭐ **ASSERTING THE ATOM IS NOT ASSERTING THE EFFECT.** The new test file leads with a
+runtime check of **who received the token**.
+
+**Resolution:** investigate is fixable because the plumbing exists (`whoCreates:"target"`, now verified at
+runtime — Clue to the target, zero to the caster). **Shuffle is DROPPED** — it needs a resolver dispatch, not
+a parse arm — and is banked as **worth 2 cards** (Soldier of Fortune, Boggart Forager). *"Each opponent
+investigates"* stays refused: `whoCreates` has no such form, and **refusing is the only honest option when the
+runtime cannot express the printed recipient.**
+
+### ⚠️ A SECOND BUG FROM THE SAME CUT — the ternary catch-all
+The bound-referent payload chain **ended in a payload rather than `null`**, making poison an implicit
+catch-all. Adding `investigates` as a new capture group **shifted the indices**, its test read the wrong
+group, and *"Its controller investigates"* **silently resolved as a poison counter**. Every branch now tests
+its own group and the chain ends in `null`. ⭐ *A ternary chain whose last arm is a payload turns every future
+capture group into that bug.*
+
+**Three pins re-pointed with reasons intact**, including one KWACT-INVEST line whose refusal existed **only**
+because the mint could not name a different owner — it can now.
+
+**Gates:** 11 tests, led by the runtime owner check that was missing. Three mutations seen to fail (including
+re-introducing the index bug). Suite **1011 files / 12,876 green**, lint 0, MUTANT clean.
+
+**Batch 3: 79 cards.**
 
 ---
 

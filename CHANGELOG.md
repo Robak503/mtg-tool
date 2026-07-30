@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Panther Pounce and Fateful Absence now work.** The Clue goes to the player the card names, not to you.
 - **Poison-counter spells now work.** Prologue to Phyresis, Infectious Inquiry, Infectious Bite, Pistus
   Strike and Ichor Rats — the counters land on the right players and count toward the ten that lose the game.
 - **"Its controller" spells now work.** Vapor Snag, Nature's Claim, Last Breath, Assassin's Strike and
