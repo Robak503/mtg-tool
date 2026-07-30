@@ -11,9 +11,10 @@
 > per slice. **Only the TAG batches.** A tag makes an update banner appear in every running `.exe`, and one
 > banner per +21 is noise.
 >
-> - **BATCH IN FLIGHT: 92 cards banked since v0.149.18** (condition-filter vocabulary +13, per-turn ledger
->   readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13, one-sided opponent sweep +4, mass-removal filter delegation +19, mass-bounce delegation +3, condition disjunction + singular graveyard reader +8). Update this number at
->   every slice boundary so a fresh session knows how much is unreleased.
+> - **BATCH IN FLIGHT: 0 cards — v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
+>   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
+>   one-sided opponent sweep +4, mass-removal filter delegation +19, mass-bounce delegation +3,
+>   condition disjunction + singular graveyard reader +8). Start the next batch's count here.
 > - Write CHANGELOG entries under `## [Unreleased]` per slice; promote the whole block and bump both version
 >   files (`app/package.json` + `app/src-tauri/tauri.conf.json`) only at TAG time.
 > - Tag early ONLY for a real reason: a user-facing bug fix, a release-pipeline fix, or Colton asking.

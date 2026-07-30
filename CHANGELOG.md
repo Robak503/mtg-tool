@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.19] — 2026-07-30
+
+**92 more cards play natively.** This release batches eight engine slices rather than shipping one per
+change. The through-line: wherever two parts of the engine described the same thing in different words,
+they now share one vocabulary — board wipes, burn, bounce and removal all read the same creature filters,
+and trigger, spell and activated-ability conditions all read the same board questions.
+
 ### Added
 - **The Desert cycle works.** Sand Strangler, Wretched Camel, Gilded Cerodon, Desert's Hold and four more
   correctly check whether you control a Desert OR have one in your graveyard — the engine now understands
