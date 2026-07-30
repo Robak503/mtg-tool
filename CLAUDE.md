@@ -420,8 +420,15 @@ as gates. If reviews pass with confidence, keep moving.
 - Permission to refactor, delete, rename — you have that authority
 - Permission to run gstack commands — you have that authority
 - Permission to ship a release — `git tag vX.Y.Z && git push origin
-  vX.Y.Z` is the entire flow; cut releases freely when work is
-  shippable
+  vX.Y.Z` is the entire flow; you never need to ask
+  - **But BATCH them (Colton, 2026-07-29).** Accumulate roughly 100+
+    cards of engine gains, then cut ONE release. Slices still land on
+    `master` individually with their full gates; only the tag batches.
+    A tag raises an update banner in every running `.exe`, and one
+    banner per +21 is noise. Tag early only for a user-facing bug fix,
+    a release-pipeline fix, or when Colton asks. The running batch
+    count lives at the top of
+    [docs/orchestration/RUN-LEDGER.md](docs/orchestration/RUN-LEDGER.md).
 
 ### 7.3 Verification workflow (using gstack)
 

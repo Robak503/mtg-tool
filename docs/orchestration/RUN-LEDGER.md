@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🚦 RELEASE CADENCE — BATCH, DO NOT TAG PER SLICE (Colton, 2026-07-29)
+> *"you cutting to many releases put more work in before each cut do 100 plus slices or something close."*
+>
+> **Accumulate ~100+ cards of native gains, then cut ONE release.** The slice discipline does not change —
+> flip-diff, mutation checks, pin verdicts, a ledger entry at every slice boundary, and a push to `master`
+> per slice. **Only the TAG batches.** A tag makes an update banner appear in every running `.exe`, and one
+> banner per +21 is noise.
+>
+> - **BATCH IN FLIGHT: 0 cards banked since v0.149.18.** Update this number at every slice boundary so a
+>   fresh session knows how much is unreleased.
+> - Write CHANGELOG entries under `## [Unreleased]` per slice; promote the whole block and bump both version
+>   files (`app/package.json` + `app/src-tauri/tauri.conf.json`) only at TAG time.
+> - Tag early ONLY for a real reason: a user-facing bug fix, a release-pipeline fix, or Colton asking.
+> - This supersedes CLAUDE.md §7.2's "cut releases freely when work is shippable" for the engine grind.
+
 > **If you are a fresh session picking this up after a crash, timeout, or context loss: READ THIS FILE
 > FIRST, then `docs/orchestration/WAKE-REPORT.md`.** This file is rewritten at every slice boundary and is
 > the single source of truth for what is in flight. Everything above the `---` is current; everything below
