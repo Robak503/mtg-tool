@@ -15,6 +15,9 @@
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
 >   one-sided opponent sweep +4, mass-removal filter delegation +19, mass-bounce delegation +3,
 >   condition disjunction + singular graveyard reader +8). Start the next batch's count here.
+> - **✅ v0.149.19 PUBLISHED AND VERIFIED BY CONTENT** — `releases/latest/download/latest.json` reports
+>   `version 0.149.19`, a URL pointing at the real installer, and a 424-char minisign signature. 5 assets,
+>   full updater chain. Master at `0778f0a7`.
 > - Write CHANGELOG entries under `## [Unreleased]` per slice; promote the whole block and bump both version
 >   files (`app/package.json` + `app/src-tauri/tauri.conf.json`) only at TAG time.
 > - Tag early ONLY for a real reason: a user-facing bug fix, a release-pipeline fix, or Colton asking.
