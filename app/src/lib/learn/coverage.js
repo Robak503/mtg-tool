@@ -448,6 +448,7 @@ export function isKeywordOnly(oracle, name) {
     reDashCost.test(c) ||
     reDisguiseCost.test(c) ||
     reAltCastKeywordCost.test(c) ||
+    reVacuousAltCastCost.test(c) || // miracle / prowl / surge / flashback — parity with the spell-side strip
     reSpectacleCost.test(c) || // SPECTACLE (CR 702.137a) — an alternative cost the engine never offers
     reMadnessCost.test(c) || // MD-1 — madness on a permanent: a discard-window cast option, vacuous for the hard-cast (the spell path's versioned strip, the ninjutsu/morph rationale)
     rePrototypeCost.test(c) ||
@@ -584,6 +585,30 @@ const reMadnessCost = /^madness (?:\{[^}]+\})+$/;
 // never matches: it has no leading "Escape—". Lunar Hatchling's "Exile a land you control, Exile five other
 // cards…" rides the same tail.
 const reSpectacleCost = /^spectacle (?:\{[^}]+\})+$/;
+// ===== SPELL/PERMANENT KEYWORD PARITY (sweep 2026-07-30) =====
+// A PARITY SWEEP of every cost-carrying entry in CAST_KEYWORD_LINE (the SPELL-side vacuous-line strip)
+// against this credit list found SIXTEEN keywords handled on one side and absent from the other. Spectacle
+// above was the first one fixed card-by-card; these are the rest of the simple `KEYWORD {cost}` shape that
+// actually have permanent carriers. Each is the same vacuous-alt-entry rationale, and each was checked
+// against the CR rather than assumed:
+//   MIRACLE   702.94a  — "You may reveal this card from your hand as you draw it … cast it for its miracle cost"
+//   PROWL     702.76a  — "You may pay [cost] rather than pay this spell's mana cost if a player was dealt combat damage…"
+//   SURGE     702.117a — "You may pay [cost] rather than pay this spell's mana cost as you cast it…"
+//   FLASHBACK          — the GRAVEYARD re-cast window; credited on the basis the spell path already states
+//                        in CAST_KEYWORD_LINE (the runtime never offers the graveyard cast, so the from-hand
+//                        cast resolves the printed body identically — a SAFE false-negative).
+// In every case the card is fully castable at its printed cost and the resulting permanent is identical, so
+// the unoffered alt entry is a missing OPTION, never a mis-resolution.
+//
+// ⛔ ANCHORED ^…$ ON THE BARE COST LINE, which is what keeps this safe: a keyword-REFERENCING static
+// ("Spells with buyback cost {2} less to cast") has more words and can never match, so a card that CARES
+// about the keyword is never credited for merely mentioning it.
+//
+// ⛔ NOT INCLUDED — escape / suspend / awaken. Their costs are COMPOUND ("Escape—{2}{B}, Exile two other
+// cards…", "Suspend 3—{1}{U}"), and isKeywordOnly splits clauses on commas and dashes BEFORE testing, so no
+// whole-line pattern can reach them. They need the LINE removed before the split, which is a different
+// change; 10 permanents wait on it (escape 6 · suspend 3 · awaken 1).
+const reVacuousAltCastCost = /^(?:miracle|prowl|surge|flashback) (?:\{[^}]+\})+$/;
 
 // KW-PROTOTYPE (CR 702.161) — an artifact creature with a SECOND, smaller castable profile ("Prototype {cost} —
 // X/Y (…different mana cost, color, and size; keeps its abilities and types)"). Hard-casting at the printed
