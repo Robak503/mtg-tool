@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 7 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 13 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,79 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 4) 2026-07-30 — **"ITS POWER" LIFEGAIN: THE EVENT PICKS THE REFERENT. GAINED 6, LOST 0.**
+
+Bottle Golems · Willow Geist · Conclave Mentor · Packsong Pup (dies) · Boulderbranch Golem ·
+Sunscourge Champion token (etb).
+
+### ⭐ ONE CLAUSE, FIVE ANTECEDENTS — the census counted 7 and the corpus disagreed usefully
+`you gain life equal to its power` is **byte-identical on all 13 corpus rows**, but *"its"* names a
+different object — **with a different READ PATH** — depending on the ability it hangs off:
+
+| shape | "its" = | how its power is readable | built? |
+|---|---|---|---|
+| **dies** (4) | the dying creature | **GONE at resolution** → only the CR 603.6e look-back (`ctx.dyingPower`) | ✅ |
+| **etb** (2) | the entering creature | **LIVE on the battlefield** → the existing triggering sentinel | ✅ |
+| **spell** (3) | the destroyed/exiled TARGET | Chastise · Infernal Reckoning · Rashida Scalebane | ⛔ refused |
+| **cost** (1) | the permanent sacrificed to pay | Syr Ginger | ⛔ refused |
+| **watcher** (1) | an exiled creature | Captain Marvel | ⛔ refused |
+
+**A context-free arm would bind ONE of those and silently resolve the other four to 0** — the forbidden
+dropped-clause FP. The engine already *documented* this trap: `matchDiesGainDrawByPower` carries a comment
+explaining why Lifeblood Hydra's payoff was matched as a whole collapsed template instead of a generic
+"equal to its power" clause. **The warning was written by an earlier slice and it was exactly right.**
+
+⭐ **The existing two `dyingPower` carriers both DODGED the ambiguity via corpus-uniqueness** (Lifeblood's
+compound and Feral Ghoul's rad clause are each unique to a dies trigger). Mine is unique to nothing, so the
+dodge was unavailable — which forced the real fix rather than a fourth special case.
+
+### THE MECHANISM — the repo's own event-gated SENTINEL REWRITE, not a new seam
+`parseEffectClause` is context-free by construction, so the referent is resolved **one layer up**, in
+`detectTriggers`, where the event is known — the same precedent `"it" → "the triggering creature"` and the
+milled/counters-placed/lifegain sentinels already use. `dies` → a new *dying-creature* sentinel; `etb` → the
+sentinel that **already existed and already parsed**. Threading a `triggerEvent` opt through
+`parseClauseToAtom`'s six call sites was the alternative; it would have added a second mechanism for a job
+the first one does.
+
+✅ **A gate widened for free:** `countContext:"dyingPower"` is now pinned to the dies event in
+`triggerRouting`'s referent gate — which retroactively protects **Lifeblood Hydra and Feral Ghoul**, both of
+which had been emitting that key ungated.
+
+### ⚠️ THE FLIP-DIFF CALLED THE ETB HALF A WIN AND IT GAINED **ZERO LIFE**
+GAINED 6 / LOST 0, no surplus — and **four of the fifteen gates still failed on the first run.** The two ETB
+cards classified `native-trigger` while gaining nothing at all. ⭐ *This is the third slice this run where
+"the atom is right" and "the effect is right" came apart, and the only thing that caught it was leading
+with a LIFE TOTAL instead of an atom shape.*
+
+Both failures were mine, not the engine's — `createPermanent` hardcodes `counters:{}` and ignores extra
+props, and `checkEnterTriggers` takes ONE permanent rather than an array. **The `powerAtDeath` control
+caught the first one**, exactly as the colour slice's vacuity control did. *A control earns its line the
+first time the harness lies to you.*
+
+⚠️ **Nothing in the suite had ever driven `dyingPower` → gain-life end to end.** Lifeblood Hydra's payoff
+was classification-tested only. That path is now runtime-covered.
+
+### ⭐ M6: A GATE THAT COULD NOT FAIL (CLAUSE D, again)
+Five of six mutations failed on the first battery. **M6 — dropping the `scope:"self"` requirement —
+PASSED**, i.e. the gate was decoration. Investigated rather than deleted: watchers *do* reach the arm with
+non-self scopes, and for them the referent is a DIFFERENT object from the trigger's source whose per-fire
+stamp this slice has **not** runtime-verified. So the gate stays, deliberately tighter than the semantics
+strictly require, and now has a test proving it blocks both watcher shapes. **Six of six fail.**
+*Unverified → body-only is a SAFE FN; unverified → routed is how a false positive ships.*
+
+### BANKED FINDINGS
+- **Chastise is the 7th attributable card and is deliberately unbuilt** — its "its" is a SPELL's destroyed
+  target, needing target-LKI. A separate mechanism; the census's 7 minus my 6 is fully accounted for.
+- **The non-token Sunscourge Champion is blocked by ETERNALIZE alone** — verified by removing the keyword
+  (`body-only` → `native-trigger`), not inferred. One card sits behind that keyword.
+
+**Gates:** 16 tests, every enforcement one asserting a real life total. Six mutations seen to fail. Suite
+**1014 files / 12,909 green**, lint 0, MUTANT clean. Commit `b8e1b6fe`.
+
+**Batch 4: 13 cards.**
 
 ---
 
