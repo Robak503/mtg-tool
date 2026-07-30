@@ -9,6 +9,12 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Board wipes that also hit planeswalkers now work.** Star of Extinction, Storm's Wrath, Magmaquake and
+  Dragonback Assault deal their damage to every creature and remove that much loyalty from every
+  planeswalker — and correctly leave players alone.
+- **"Non-<type>" removal and sweeps now work.** Thirteen cards in total, including Fiery Cannonade,
+  Breath Weapon, Vampires' Vengeance, Walk the Plank, Eyeblight's Ending and Rend Flesh. "Each non-Pirate
+  creature" and "target non-Merfolk creature" spare exactly the named type, as printed.
 - **Abilities that check a count — your hand, your life, your library, an empty board — now work.**
   Twenty-two cards, including Battle of Wits, Thumbscrews, Scalding Tongs, Emperor Crocodile,
   Lone Revenant, Near-Death Experience, Thopter Assembly and Survival Cache. The engine already understood

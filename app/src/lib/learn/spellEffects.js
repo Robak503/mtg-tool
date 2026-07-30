@@ -384,6 +384,18 @@ export function parseCreatureTargetRestrictions(card) {
   // front-face match), so removal offers + destroys ONLY the subtyped creatures — never an arbitrary creature
   // (THE CREED). Only ONE subtype is taken (a multi-subtype "Goblin Wizard creature" target — none in corpus —
   // would leave the second word as residue → unclean, safe). Matched here (lowercased oracle) word-bounded.
+  // ⭐ NEGATED SUBTYPE (2026-07-30) — "each non-Dragon creature" (Breath Weapon), "each non-Pirate creature"
+  // (Fiery Cannonade), "each non-Vampire creature" (Vampires' Vengeance). A PARITY GAP, not a new capability:
+  // the mass-DESTROY path has carried `subtypeNegate` since the Crux of Fate slice ("destroy all non-Dragon
+  // creatures"), and `massCreatureTargets` implements it — but this shared grammar, which the damage side
+  // reads, only ever emitted the POSITIVE subtype. The same printed filter was sayable to one verb and not
+  // its neighbour. Tried BEFORE the positive loop so "non-dragon" is consumed whole; the same curated
+  // TARGET_SUBTYPES allowlist gates it, so a non-subtype word after "non-" stays residue → unclean → Arbiter.
+  const negSub = t.match(/\bnon-?([a-z]+)\b/);
+  if (negSub && TARGET_SUBTYPES.has(negSub[1])) {
+    restrictions.push({ kind: "subtype", subtype: negSub[1], negate: true });
+    t = t.replace(new RegExp(`\\bnon-?${negSub[1]}\\b`, "g"), " ");
+  }
   for (const word of t.split(/\s+/)) {
     if (TARGET_SUBTYPES.has(word)) {
       restrictions.push({ kind: "subtype", subtype: word });
@@ -537,7 +549,11 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // creature-subtype word, so this never mis-matches a color/card-type word. Front-face only (CR 712.4a):
       // a DFC's combined "Front // Back" line would wrongly match a back-face subtype.
       const tl = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0];
-      if (!new RegExp(`\\b${r.subtype}\\b`, "i").test(tl)) return false;
+      // `negate` flips it to "every creature that is NOT that subtype" (Breath Weapon's "each non-Dragon
+      // creature"), mirroring massCreatureTargets' subtypeNegate so the same printed filter means the same
+      // set on the damage side as on the destroy side.
+      const hasSub = new RegExp(`\\b${r.subtype}\\b`, "i").test(tl);
+      if (r.negate ? hasSub : !hasSub) return false;
     } else if (r.kind === "supertype") {
       // SUPERTYPE-TARGET (CR 205.4) — "target legendary creature you control" (Mithril Coat / Mjölnir ETB
       // auto-attach; "Equip legendary" also gates on legendary, checked inline in legalChoices). A supertype
@@ -1199,6 +1215,34 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
       // the point of these cards (Flame Rift), not an oversight.
       for (const pid of Object.keys(next.players)) {
         if (next.players[pid]) next = hitPlayer(next, pid);
+      }
+    } else if (targetType === "eachCreatureAndPlaneswalker") {
+      // SYMBURN-3 (Star of Extinction, Storm's Wrath, Dragonback Assault; Magmaquake's filtered twin) — every
+      // creature on every battlefield AND every planeswalker. PLAYERS ARE NOT HIT: the text says "each
+      // planeswalker", not "each player", and conflating the two would drain life the card never touches.
+      //
+      // The creature half honours `restrictions` exactly like the eachCreature branch, so the filtered form
+      // works. The planeswalker half deliberately does NOT: a creature predicate ("without flying") says
+      // nothing about a planeswalker, and Magmaquake hits every walker regardless.
+      //
+      // ⭐ THE LOYALTY PATH IS THE SINGLE-TARGET ONE, REUSED RATHER THAN REIMPLEMENTED — damage replacement
+      // (dmgConsult), then prevention shields (CR 615), then loyalty removal (CR 120.3c). Writing a second
+      // loyalty path here is how the two would drift.
+      for (const pid of Object.keys(next.players)) {
+        for (const perm of next.players[pid].battlefield) {
+          if (isCreature(perm.card) && creatureSatisfiesRestrictions(next, perm, pid, controller, restrictions)) next = hitCreature(next, perm.id);
+        }
+      }
+      for (const pid of Object.keys(next.players)) {
+        for (const perm of [...next.players[pid].battlefield]) {
+          if (!/\bPlaneswalker\b/i.test(String(perm.card?.type || perm.card?.type_line || ""))) continue;
+          let dealt = dmgConsult(amount, "planeswalker", perm.id);
+          if (dealt > 0) {
+            const pv = consumePreventionShields(next, { targetKind: "planeswalker", targetId: perm.id, amount: dealt });
+            next = pv.state; dealt = pv.amount;
+          }
+          if (dealt > 0) { next = adjustLoyalty(next, { permanentId: perm.id, delta: -dealt }); sourceDealtTotal += dealt; }
+        }
       }
     } else if (targetType === "eachCreatureAndPlayer") {
       // SYMBURN-1 (Inferno / Fire Tempest / Evincar's Justice): symmetric burn hits EVERY creature on

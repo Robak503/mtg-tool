@@ -11,9 +11,9 @@
 > per slice. **Only the TAG batches.** A tag makes an update banner appear in every running `.exe`, and one
 > banner per +21 is noise.
 >
-> - **BATCH IN FLIGHT: 45 cards banked since v0.149.18** (condition-filter vocabulary +13, per-turn ledger
->   readers +10, metric/scope readers +22). Update this number at every slice boundary so a fresh session
->   knows how much is unreleased.
+> - **BATCH IN FLIGHT: 58 cards banked since v0.149.18** (condition-filter vocabulary +13, per-turn ledger
+>   readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13). Update this number at
+>   every slice boundary so a fresh session knows how much is unreleased.
 > - Write CHANGELOG entries under `## [Unreleased]` per slice; promote the whole block and bump both version
 >   files (`app/package.json` + `app/src-tauri/tauri.conf.json`) only at TAG time.
 > - Tag early ONLY for a real reason: a user-facing bug fix, a release-pipeline fix, or Colton asking.
@@ -108,6 +108,58 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## 🏦 BANKED (unreleased) 2026-07-30 — **PLANESWALKER SWEEP SCOPE + NEGATED SUBTYPE. GAINED 13, LOST 0.**
+
+Breath Weapon · Consuming Bonfire · Deathmark Prelate · Dragonback Assault · Electric Seaweed ·
+Eyeblight's Ending · Fiery Cannonade · **Magmaquake** · Rend Flesh · **Star of Extinction** · **Storm's Wrath** ·
+Vampires' Vengeance · **Walk the Plank**.
+
+Two independent pieces, both finishing work the run had already started and measured.
+
+**⭐ 1 · `and each PLANESWALKER` is its OWN recipient set, not a variant of the player scope.** The players are
+untouched, and damage to a planeswalker removes that much **LOYALTY** (CR 120.3c) rather than life — a
+different effect on a different object. So `eachCreatureAndPlaneswalker` is a new scope rather than a flag on
+the existing one. The loyalty path REUSES the single-target one (damage replacement → prevention shields →
+loyalty removal) instead of being reimplemented, because a second loyalty path is how the two drift.
+Third instance of the splitter gate: the SYMBURN keep-whole guard had to learn the walker tail too, or the
+sentence shattered into a half that parsed HIGH beside an unbindable `each planeswalker`.
+
+**⭐ 2 · NEGATED SUBTYPE was a PARITY GAP, and it paid twice.** The mass-DESTROY path has carried
+`subtypeNegate` since Crux of Fate and `massCreatureTargets` implements it — but the SHARED restriction
+grammar that the damage side reads only ever emitted the POSITIVE subtype. Same printed filter, sayable to one
+verb and not its neighbour. Fixing it in the shared grammar flipped the mass sweeps (Breath Weapon, Fiery
+Cannonade, Vampires' Vengeance) **and** single-target removal (Eyeblight's Ending, Rend Flesh, Walk the Plank,
+Consuming Bonfire) in the same change — 6 of the 13 were the single-target side, which was not the target of
+the work and came along because the grammar is shared.
+
+**⛔⭐ A MUTATION CAUGHT A HOLLOW GATE IN MY OWN TEST, and this is the part worth keeping.** HAZARD B says the
+walker half must NOT be narrowed by a creature restriction (Magmaquake hits every walker even though its
+creature half is non-flyers only). I wrote that test with the card's own restriction — `without flying` — and
+applying the filter to the walker loop left **all 16 tests green**. Because "without flying" is a predicate a
+planeswalker PASSES, so filtering the walkers by it changes nothing. The test was asserting the right claim
+with an input that could not discriminate. Fixed by adding the case a walker FAILS (`hasKeyword flying`
+positive, which no walker has): under the mutation both walkers are skipped and their loyalty is untouched.
+**Generalised lesson: a "this filter must not apply here" test is only a gate if the filter would actually
+CHANGE the outcome — pick an input the wrong code path rejects.**
+
+**Gates:** 17 new tests; **all three mutations seen to fail** — the walker sweep draining players (1), the
+walker half being filtered (1, only after the test was strengthened), the subtype negate flip dropped (1).
+Reverts confirmed by `git diff`. Flip-diff **GAINED 13 / LOST 0**. Suite **992 files / 12,642 green**, lint 0
+unpiped, MUTANT clean, module graph loads. No pin claimed these shapes stay low.
+
+**⚠️ ALSO BANKED, a mechanical trap that cost one failed run:** a mutation anchor must never span a line
+break. These sources are CRLF, so a multi-line anchor written with `\n` matches zero times and the script
+reports "anchor count 0" — which reads like a moved target rather than a quoting bug. **Single-line anchors
+only**, and read the file with `newline=""` so the existing line endings survive the rewrite.
+
+**STILL REFUSED from the mass-damage census:** `and each opponent` (an opponents-only sweep beside the
+creature set — no combined targetType, and the splitter deliberately does NOT keep it whole) · multi-target
+damage division (10 — `each of two targets`, `each of X targets`) · `opponent and each creature they control`
+(4 — Goblin Chainwhirler, Tectonic Hazard) · `nontoken`-style non-subtype negations, which the curated
+allowlist correctly refuses rather than turning into a type-line scan that silently matches nothing.
 
 ---
 

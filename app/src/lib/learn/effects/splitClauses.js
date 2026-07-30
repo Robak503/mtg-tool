@@ -399,7 +399,15 @@ export function splitClauses(oracle) {
     // sentence still reads "deals X damage" here. Half this family is X spells (Hurricane, Earthquake, Squall
     // Line, Fault Line, Delete), and the \d+-only guard shattered every one of them. The X path itself already
     // carries `restrictions` through rewriteAmountX, so nothing downstream needs to change for X.
-    const symBurn = sentence.match(/^(.*?)\bdeals? (?:\d+|x) damage to each [a-z' -]*creature[a-z' -]* and each player$/i);
+    // ⭐ AND THE PLANESWALKER TAIL (SYMBURN-3, 2026-07-30) — "each creature and each planeswalker" (Star of
+    // Extinction, Storm's Wrath, Dragonback Assault) and its filtered twin (Magmaquake). Same internal " and ",
+    // same reasoning: the tail is part of ONE recipient, and the split was leaving a half that parsed HIGH on
+    // its own beside an unbindable "each planeswalker".
+    //
+    // ⛔ "and each OPPONENT" is deliberately NOT added. There is no combined targetType for an opponents-only
+    // sweep, so keeping it whole would only produce a LOW parse — the same outcome as splitting, with less
+    // clarity about why. It stays out until its scope exists.
+    const symBurn = sentence.match(/^(.*?)\bdeals? (?:\d+|x) damage to each [a-z' -]*creature[a-z' -]* and each (?:player|planeswalker)$/i);
     if (symBurn && !/\band\b/i.test(symBurn[1])) { clauses.push(sentence); continue; }
     // MASS-NC — "destroy all artifacts and enchantments": the " and " joins two permanent TYPES inside
     // one mass-destroy target, not a top-level effect boundary. Keep the whole sentence so the recognizer

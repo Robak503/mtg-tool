@@ -42,6 +42,13 @@ export const NON_WIPE_MASS_SCOPES = new Set([
   //                               EXCEPT the source (ctx.sourceId); non-chosen, so the trigger flush routes it
   //                               on confidence (no target pick) exactly like eachCreature.
   "eachCreatureAndPlayer",      // SYMBURN-1 — symmetric burn (every creature AND every player)
+  "eachCreatureAndPlaneswalker", // SYMBURN-3 (2026-07-30) — "deals N damage to each creature and each
+  //                               planeswalker" (Star of Extinction, Storm's Wrath, Dragonback Assault) and
+  //                               its filtered twin (Magmaquake's "each creature without flying and each
+  //                               planeswalker"). NOT the same recipient set as eachCreatureAndPlayer: the
+  //                               PLAYERS are untouched here, and damage to a planeswalker removes that much
+  //                               LOYALTY (CR 120.3c) rather than life — a different effect on a different
+  //                               object, which is why it needs its own scope rather than a flag.
   "eachPlayer",                 // SYMBURN-2 — the PLAYERS-ONLY half of the same symmetric burn (Flame Rift,
   //                               Slagstorm's second mode, Mana Clash). "each player" is ALL players
   //                               INCLUDING the caster — the same all-seat scope eachCreatureAndPlayer

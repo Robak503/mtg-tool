@@ -518,19 +518,23 @@ export function massFilteredDamageClauseParser(clause) {
   // and silently strips it, so handing it "each other creature you control" would come back clean with only a
   // controller restriction — and the source would then damage ITSELF (CR 113.7). The peel below reads "other"
   // off the front and picks the source-excluding scope explicitly, so the exclusion can never be lost.
-  const gen = t.match(/^.+? deals? (\d+) damage to (each .+?)( and each player)?$/);
+  const gen = t.match(/^.+? deals? (\d+) damage to (each .+?)( and each (?:player|planeswalker))?$/);
   if (gen) {
     const amount = parseInt(gen[1], 10);
-    // "and each player" (CR — every player INCLUDING the caster, never just opponents) selects the combined
-    // scope. "and each planeswalker" / "and each opponent" are NOT peeled: they are different recipient sets
-    // with no combined targetType yet, and they fail the `$` anchor here → low → Arbiter (a SAFE FN).
-    const withPlayers = !!gen[3];
+    // The trailing sweep selects the combined scope. Two are modeled, and they are NOT interchangeable:
+    //   "and each player"       → every player INCLUDING the caster, no planeswalkers (CR — "each player")
+    //   "and each planeswalker" → every planeswalker, NO players; damage becomes loyalty removal (CR 120.3c)
+    // "and each opponent" is still NOT peeled — an opponents-only sweep is a third recipient set with no
+    // combined targetType, so it fails the `$` anchor here → low → Arbiter (a SAFE FN).
+    const tail = (gen[3] || "").trim();
+    const withPlayers = tail === "and each player";
+    const withWalkers = tail === "and each planeswalker";
     let half = gen[2].replace(/^each /, "");
     const isOther = /^other creature\b/.test(half);
     if (isOther) {
-      // A source-excluding sweep that ALSO hits players has no modeled scope (one printed card, Conductor of
-      // Cacophony) — refuse rather than invent a fourth combined targetType.
-      if (withPlayers) return null;
+      // A source-excluding sweep that ALSO hits a second recipient set has no modeled scope (Conductor of
+      // Cacophony) — refuse rather than invent another combined targetType.
+      if (withPlayers || withWalkers) return null;
       half = half.replace(/^other /, "");
     }
     if (!/\bcreature\b/.test(half)) return null;   // a non-creature mass recipient is a different mechanism
@@ -539,8 +543,13 @@ export function massFilteredDamageClauseParser(clause) {
     // carrier is irrelevant — only the recipient phrase is being classified.
     const { restrictions, clean } = parseCreatureTargetRestrictions({ oracle: `~ deals 1 damage to each ${half}` });
     if (!clean) return null;
-    if (!restrictions.length) return null;         // the BARE forms belong to the exact matchers above
-    const targetType = withPlayers ? "eachCreatureAndPlayer" : isOther ? "eachOtherCreature" : "eachCreature";
+    // A BARE creature sweep with a combined tail is NEW here (Star of Extinction's "each creature and each
+    // planeswalker" has no filter at all), so the no-restrictions bail applies only to the plain scopes whose
+    // bare forms the exact matchers above already own.
+    if (!restrictions.length && !withWalkers) return null;
+    const targetType = withWalkers ? "eachCreatureAndPlaneswalker"
+      : withPlayers ? "eachCreatureAndPlayer"
+        : isOther ? "eachOtherCreature" : "eachCreature";
     return { op: "deal-damage", amount, targetType, restrictions };
   }
   // TRIG-PRONOUN damage (BLITZ IE-1 — Inferno Elemental / Ornery Goblin / Ashmouth Hound: "…this creature
