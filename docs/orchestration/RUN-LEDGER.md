@@ -95,7 +95,56 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 THE NEXT MAJOR PROJECT (measured 2026-07-30) — **QUOTED-ABILITY GRANTS, ~37 cards, 3 carrier shapes**
+## ⛔ CORRECTION (same night) — **THE "QUOTED-GRANT PROJECT" BELOW IS WRONG. DELIVERY IS ALREADY BUILT.**
+
+I committed the target below (`f7854846`) on a false premise and disproved it an hour later. Read this first.
+
+**THE DISPROOF — one clean test, same modeled body, five carriers:**
+```
+"Whenever this creature attacks, draw a card."   printed on a creature  -> native-trigger    ✅
+Creatures you control have "<body>"              GROUP static           -> native-static     ✅
+Other creatures you control have "<body>"        GROUP static           -> native-static     ✅
+Enchant creature / Enchanted creature has "…"    AURA carrier           -> native-trigger    ✅
+Equipped creature has "…" / Equip {2}            EQUIPMENT carrier      -> native-trigger    ✅
+Commander creatures you own have "…"             COMMANDER carrier      -> native-static     ✅
+```
+Identical result for an ACTIVATED body (`{T}: Draw a card.`) on all five. **Every carrier already delivers a
+quoted ability.** `grantUntilEot.js` documents the vehicle outright — a layer-6 `addAbility` continuous effect
+(`op.grant {kind, quoted}`) "the GROUP-GRANT statics already use", with collectors
+(`grantedTriggeredQuotedFor` → `grantedTriggersForGroup`; `grantedActivatedQuotedFor` → legalChoices) and the
+CREED validators (`isModeledGroupTriggeredBody` / `isModeledGroupActivatedBody`) all already wired.
+
+**WHY I GOT IT WRONG — attribution by proxy, FOURTH instance this session.** The frontier's "unparsed tail" is
+RESIDUE, not the blocker. I read `enchanted creature has "…"` at the top of the tail ranking and concluded the
+grant was unbuilt. Then I compounded it: I tested whether each quoted BODY parses printed-direct and called the
+passes "delivery-only", which measures a property of a fragment and infers a cause. **A tail is not a blocker;
+a fragment's tier is not a card's blocker.** Same error as the "Enchant creature ×496" ghost cluster, the flash
+vein (74→36), and the nontoken 22.
+
+**WHAT IS ACTUALLY TRUE, attributed BY REMOVAL over the 81 non-native quoted-grant carriers:**
+```
+32  the GRANT LINE is the blocker      -> the quoted BODY is not in the modeled vocabulary
+11  blocked by ANOTHER single line     -> 11 distinct shapes, a singleton tail
+38  COMPOSITE (no single line)         -> the most expensive kind
+```
+So the real work is **widening the modeled-BODY vocabulary**, and those 32 bodies are heterogeneous — sac-for-
+value activated abilities, damage with die-roll riders, toughness-conditional attack triggers, untap-for-a-cost.
+Sampled: Compulsory Rest, Sorcerer's Wand, Rock, Sisay's Ingenuity, Trusty Boomerang, Umbral Mantle, Blinding
+Powder, Lobe Lobber, Sinking Feeling, Embereth Veteran, Merry Bards, Level Up.
+**⚠️ It is NOT one 37-card mechanism. It is ~32 per-card content builds behind a shared, already-working gate.**
+
+**⚠️ I also ran a follow-up bucketing probe whose two buckets conflated distinct conditions** (a card could land
+in "needs new content" either because its body failed OR because the minimal carrier succeeded). Its numbers are
+NOT reportable and are deliberately omitted here. The three counts above come from removal attribution and stand.
+
+**So: no months-long quoted-grant project.** The banked target below is retained only as the record of the
+mistake. The honest position is the one two entries down — **the shelf is gated on expensive per-card work** —
+and the next mover should re-derive from `shelf-blocker-shapes.mjs` / `shelf-gap-ledger.mjs`, not from a
+frontier TAIL ranking. **⭐ Use the frontier to find candidates; use REMOVAL to decide what to build.**
+
+---
+
+## 🎯 ~~THE NEXT MAJOR PROJECT~~ (SUPERSEDED — see the correction above) — quoted-ability grants
 
 Colton, 2026-07-30: *"just keep grinding we're gonna be going for months so just keep going."* So this entry
 picks the target with data instead of one-card opportunism.
