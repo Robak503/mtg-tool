@@ -95,7 +95,63 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 NEXT BUILD, FULLY SCOPED — **ROLE TOKENS (CR 113.x token / 303 Aura). 24 cards, 3 phases.**
+## 🔧 ROLE TOKENS — PHASE 1 IMPLEMENTATION SPEC (everything measured; next turn is mechanical)
+
+Runtime and data both verified this session. **Phase 1 must land as ONE unit** (registry + attach + parse arm):
+the registry alone flips nothing, and a 0-flip change does not ship (the subtype-pump / self-P-T precedents).
+
+**✅ RUNTIME PROVEN — an attached Aura TOKEN is fully honoured by the layer engine.** Minted a token with
+`attachedTo` + `card.token` and derived the host: Monster → **3/3 + trample**, Cursed → **base 1/1**, a printed
+non-token Aura with the same text → identical, and the SAME token left unattached → **2/2, nothing**. So
+minting an attached Role hands the player a permanent the engine actually drives. (Royal's ward does not appear
+in the keyword list because ward rides `permanentGrantedWardCosts`, a separate path — probe artifact, not a bug.)
+
+**✅ DEFINITIONS COME FROM BUNDLED DATA.** The Roles are DFC token objects, type line
+`Token Enchantment — Aura Role`; 7 faces present. Copy the text from there and **pin it with a test that
+re-reads the bundled objects**, so the registry cannot drift from the source (CLAUDE.md §1.2).
+
+**REGISTER ONLY THESE FIVE — the ones whose body the engine can actually execute:**
+```
+Cursed    native-aura      Enchanted creature has base power and toughness 1/1.
+Monster   native-aura      Enchanted creature gets +1/+1 and has trample.
+Royal     native-aura      Enchanted creature gets +1/+1 and has ward {1}.
+Sorcerer  native-trigger   … gets +1/+1 and has "Whenever this creature attacks, scry 1."
+Virtuous  native-aura      … gets +1/+1 for each enchantment you control.
+```
+**⛔ REFUSE (and TEST the refusal), for two different reasons:**
+- **Wicked** (body-only: its put-into-graveyard drain) and **Young Hero** (body-only: its quoted toughness
+  trigger) — defined in data but their bodies are unmodeled. Minting them would hand over a token whose
+  ability silently does nothing: *the phantom-mana mistake in a new costume*, which is the bar
+  `NAMED_TOKENS` already states for itself. They arrive in phases 2 and 3.
+- **Chef · Questing · Huntsman** — cards ask for them but **no definition exists in the bundled data**, so
+  their text cannot be written at all. Permanent refusal until the data carries them.
+
+**Cards ask for:** Cursed 4 · Wicked 4 · Monster 4 · Sorcerer 3 · Young Hero 2 · Royal 2 · Chef/Questing/
+Virtuous/Huntsman 1 each. Phase-1 ceiling is the five registered Roles; the flip-diff is the real number.
+
+**THE PARSE ARM — build to the MEASURED phrasings only.** `tokens.js` states its own standard: *"this file's
+standard is that an anchor states what was measured"*, and it deliberately does NOT derive its alternation
+from `Object.keys(NAMED_TOKENS)`. Measured Role-creation clause forms (38 shapes, all 0 native), core clause
+`Create a <ROLE> Role token attached to <TARGET>`, with TARGET being:
+```
+target creature you control            (3)   up to one target creature you control   (2)
+that creature                          (3)   another target creature you control     (2)
+it                                     (2)   up to one other target creature you control
+up to one target creature              (1)   another target creature                 (1)
+"create a <ROLE> Role token and attach it to target creature"   (1 — Questing Cosplayer, different word order)
+```
+Start with the **targeted** forms (`[up to one] [other] target creature [you control]`); `that creature` / `it`
+need a referent (a saga/ETB self-reference) and can follow.
+
+**THE NEW CAPABILITY IS ATTACHMENT.** `applyCreateNamedToken` mints a free-standing permanent and has no
+attach path; every existing entry is a non-creature ARTIFACT. Phase 1 must mint with `attachedTo: <targetId>`
+(the same field `gateMet`'s `isEquipped` walk and `isModifiedPermanent` already read) and set the Aura type
+line. ⚠️ Attaching to an ILLEGAL target, or minting unattached when the target is gone, are both FP paths —
+CR 303.4: an Aura entering with no legal object to enchant simply is not created/attached. Test both.
+
+---
+
+## 🎯 ROLE TOKENS — WHY (the census that picked this target). **24 cards, 3 phases.**
 
 The biggest attributed vein found this run, and unusually well-conditioned: **5 of the 7 Role bodies are
 ALREADY native**, so most of the work is one effect (create-a-token-ATTACHED) rather than seven mechanics.
