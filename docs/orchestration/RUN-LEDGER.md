@@ -471,6 +471,59 @@ self-exile matters and was dropped from my own summary. Read the printed line, n
 
 ---
 
+## 🎯 BANKED 2026-07-30 — **THE BIGGEST REMAINING VEIN, SIZED AND DESIGNED: the OR-FORM ADDITIONAL COST. 22 cards.**
+## GAINED 0 — a DELIBERATE stop-point. The design is settled; the build is one clean slice, not a half one.
+
+### THE FAMILY
+`As an additional cost to cast this spell, <costA> **or** <costB>.` — the caster CHOOSES which to pay.
+**61 non-native carriers · 22 flip on the COST ALONE** (their effects already model), including
+**Thunderherd Migration #5317 — a Jurassic Ramp SHELF card** · Spark Harvest · Bitter Triumph ·
+Demand Answers · Heartfire · Final Flare · Bogslither's Embrace.
+
+**22 is the largest single opportunity left anywhere on the board** — for comparison the last ten slices paid
+1–5 each.
+
+### THE ARCHITECTURE (read before building — it is already 80% there)
+`effects/castModifiers.js` parses a **VETTED** cost vocabulary (`sacrifice a/an <type>` · `sacrifice N <type>s`
+· `pay N life` · `discard a card` · `discard N cards` · `exile a <type> card from your graveyard`) →
+`program.additionalCosts` → frozen by `legalChoices.actionsCastSpell` → **genuinely PAID** in
+`actionDispatcher` (~line 311). **63 cards are already native through it.** The 249 non-native are costs
+OUTSIDE that vocabulary, not a missing mechanism.
+
+⛔⛔ **THE FP THIS FAMILY IS WIRED TO CAUSE, in coverage.js's own words:** *"An ADDITIONAL cost makes the
+card MORE expensive, so skipping it is cheaper-than-printed — the forbidden direction."* **Credit without
+charging = a free spell.** So the runtime lands FIRST, then the tier. Non-negotiable on this one.
+
+### THE DESIGN (settled — do not re-derive it)
+1. **castModifiers**: split on ` or `, parse BOTH sides with the EXISTING extractors, and emit
+   `{ kind:"choice", options:[specA, specB] }` **only if BOTH sides are already-vetted kinds**. One unvetted
+   side → null → the whole card stays Arbiter (a safe FN, and it keeps the vetted vocabulary the single
+   source of truth).
+2. **Payment policy — a DETERMINISTIC DOCUMENTED HOUSE PICK among the PAYABLE options**, exactly the
+   `riotPicksHaste` / `sacCount` precedent this codebase already runs on. No new picker UI.
+   ⚠️ *Do NOT hard-pick option A: "sacrifice a creature or pay {3}" with an empty board would make the card
+   UNCASTABLE when it is legally castable for {3} — an under-offer, safe but wrong at the table.*
+3. **legalChoices**: castable iff ≥1 option is payable. **actionDispatcher**: charge the picked one.
+4. **Gates that must be seen to fail:** a mutation that skips payment entirely (the free-spell FP), and one
+   that hard-picks option A (the uncastable-with-empty-board case).
+
+### ⛔ THE OTHER SUB-FAMILIES, MEASURED AND NOT WORTH A SLICE
+`pay X life` (Toxic Deluge #67) — 7 carriers, **0 cost-attributable** · `exile N cards from your graveyard`
+(Abhorrent Oculus) — 1 carrier, 0 attributable · colour-qualified sac (Natural Order #1594) — 2, 0
+attributable. **In every case the EFFECT is the real blocker, not the cost** — so building the cost
+vocabulary for them buys nothing. *Measured, so nobody re-opens them.*
+
+### ⚠️ WHY I STOPPED HERE INSTEAD OF STARTING
+The build touches three files including the two that decide whether a spell is castable and what it charges,
+and its failure mode is a FREE SPELL. Starting it with the turn's budget mostly spent is how a half-build
+ships. **The design above is the expensive part and it is done** — the next resume opens on step 1 with the
+FP named and the mutations pre-specified.
+
+**Gates:** no engine change. Suite unchanged (**1042 files / 13,193 green**), lint 0, MUTANT clean.
+**Batch: 24 cards.**
+
+---
+
 ## ⭐⭐ BANKED 2026-07-30 — **THE LEAD LIST IS A *POLICY* SIGNAL, NOT A MODELLING ONE. Chased and diagnosed.**
 ## GAINED 0 cards — and it closed a false lead that would have cost several engine slices.
 
