@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 25 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 26 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,49 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 4) 2026-07-30 — **MEGRIM: the DAMAGE form of the discarding-player referent. GAINED 1, LOST 0. The discard vein is closed.**
+
+### THE BANKED DIAGNOSIS HELD — and that is the point of banking one
+Last entry recorded: *the recipient phrase is the ONLY blocker; `deals 2 damage to target player` already
+parses.* Correct on both counts. The follow-up took one build instead of a fresh investigation. ⭐ *A
+diagnosis banked at the moment of understanding is worth more than the card it was blocking.*
+
+### ⚠️ BUT THREE SEPARATE PLACES HAD TO KNOW BEFORE ONE POINT OF DAMAGE LANDED
+Adding the recipient vocabulary made Megrim classify **native-trigger** immediately. It dealt **zero
+damage** — twice, for two different reasons:
+
+| fix | symptom before it |
+|---|---|
+| recipient vocabulary (`spellEffects`) | did not parse at all |
+| resolver synthesis off `ctx.discardingPlayerId` | — |
+| **`NON_WIPE_MASS_SCOPES` registration** | **`trigger-removed-no-target` at flush** — native by the metric, silently dropped by the runtime |
+
+⭐ **The third one is the trap, and the file WARNS about it four lines above the entry I added.** The
+`eachOpponentCreature` comment says in as many words: *"'needs a chosen target?' checks treated it as
+targeted and the live trigger flush silently DROPPED the effect while the classifier credited native — the
+documented drift trap made real."* It caught me the first time I added a new referent targetType. *A
+warning written in the file is only worth something if you read it BEFORE you need it — register a new
+non-chosen targetType in the same commit that creates it.*
+
+**Every one of these was invisible to classification and to the atom shape.** Only a life-total assertion
+saw them. Third slice running where that is the finding.
+
+### ⚠️ AND ONE ARM I ADDED IS NOT LOAD-BEARING — said so rather than implying otherwise
+The damage-normalization arm (`discardingPlayer → "player"`) **passed its mutation**: an unrecognized
+targetType already falls through `applyDamageEffect`'s switch to the same per-target path. So Megrim works
+**by accident**, not by declaration. Kept — the moment that switch grows a case or its default changes,
+this would silently deal 0 — with the non-load-bearing status written into the code. *A guard whose
+mutation passes is either dead or a bet on the future; say WHICH, in the file, or the next reader has to
+re-derive it.*
+
+**Gates:** the discard file now runs 16 tests. Five mutations run, four seen to fail, the fifth documented.
+Suite **1016 files / 12,938 green**, lint 0, MUTANT clean. Commit `5a201953`.
+
+**Batch 4: 26 cards. The discard vein (13 carriers) is now fully mined — 8 native, the rest are filtered
+variants and Station/Tinybones shapes that are their own builds.**
 
 ---
 
