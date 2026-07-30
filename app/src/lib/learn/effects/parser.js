@@ -1003,7 +1003,17 @@ export function parseEffectProgram(card) {
 function parseEffectProgramWithSelfExileRetry(card) {
   const direct = parseEffectProgramInner(card);
   if (direct && programConfidence(direct) === "high") return direct;
-  const { body, selfExile } = stripSelfExileSentence(card, oracleOf(card));
+  // ⭐ STRIP VACUOUS CAST-KEYWORD LINES BEFORE LOOKING FOR THE TRAILING "Exile <this>." SENTENCE.
+  // stripSelfExileSentence requires that sentence to be TRAILING. A printed cast-keyword line sits AFTER the
+  // body on most carriers (Temporal Mastery: "…Exile Temporal Mastery.\nMiracle {1}{U} (…)"), so the exile
+  // sentence is no longer last and the retry finds nothing — the card parks with a body the engine can
+  // otherwise resolve. The keyword line is already declared vacuous for a normal cast (CAST_KEYWORD_LINE);
+  // removing it here just lets the retry see the shape it was written for.
+  //
+  // ⛔ SAFE BY CONSTRUCTION: this path runs ONLY when the direct parse came back LOW, so no card that parses
+  // today can change. The strip is the SAME function parseEffectClauseImpl already applies downstream — this
+  // is an ordering fix, not a new permission.
+  const { body, selfExile } = stripSelfExileSentence(card, stripCastKeywordLines(oracleOf(card)));
   if (!selfExile) return direct;
   const retried = parseEffectProgramInner({ ...card, oracle: body, oracle_text: body });
   if (!retried || programConfidence(retried) !== "high") return direct;
