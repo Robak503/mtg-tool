@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 0 cards since v0.149.21** (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 3 cards since v0.149.21** (protection-from-a-colour grant +3) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,49 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 4) 2026-07-30 — **PROTECTION-FROM-A-COLOUR GRANT. GAINED 3, LOST 0.**
+
+Obsidian Acolyte · Crimson Acolyte · Keeper of Kookus.
+
+**⭐ THE "DOES ANYTHING PARSE TO IT?" QUESTION HAS NOW PAID TWICE.** Same shape as the poison slice: the
+**layer op already existed** — the static anthem path emits `addProtection` and `layers.permanentProtectionColors`
+reads it — but **nothing parsed to it** for a targeted, turn-scoped grant. *The read side had been waiting for
+a writer.* That is a different question from *"is the mechanic built"*, and it is now a repeatable move:
+**enumerate the runtime primitives, then check which have no clause reaching them.**
+
+The resolver is a deliberate **mirror of `applyCantBlock`** — both are *"grant a layer-6 quality to the
+targets for the turn"*, only the op differs. Keeping them structurally identical is what stops them drifting.
+
+**⛔ ONE COLOUR ONLY, anchored.** *"protection from everything"* / *"from all colors"* / *"from the colour of
+your choice"* are **different mechanics**; collapsing them to a colour the card never named would be a
+**confidently wrong grant** rather than a missing one. All three pinned refused; the mutation opening the
+quality group fails.
+
+### 🧭 HOW THIS SLICE WAS CHOSEN — by measurement, not by proximity
+`cdh` sits at **87/100** with **13 slots left, every one multi-mechanism**. I probed the nearest one,
+**Veil of Summer**, clause by clause:
+| its three mechanics | pool | attributable |
+|---|---|---|
+| hexproof FROM a colour | 8 | **0** |
+| turn-scoped "spells you control can't be countered" | 1 | **0** |
+| conditional draw on an opponent's cast | 6 | **0** |
+
+⛔ **Veil of Summer REFUSED** — three mechanics, none of which pays on its own. The same probe surfaced
+*protection from a colour (grant)* at **12 pool / 3 attributable**, which is **not a `cdh` card at all** — it
+is simply the one nearby vein that pays. *Probing a shelf card's neighbourhood is worth doing even when the
+shelf card itself is refused: the measurement covers the whole area, not just the target.*
+
+**Gates:** 7 tests, **led by a runtime assertion** per batch 3's wrong-owner lesson (*asserting the atom is
+not asserting the effect*). **Four mutations seen to fail**, including granting to every creature rather than
+the target. Suite **1012 files / 12,885 green**, lint 0, MUTANT clean.
+
+⚠️ Lint caught an unused test helper on the first pass — the `--max-warnings 0` gate doing its job before
+the commit rather than after.
+
+**Batch 4: 3 cards.**
 
 ---
 

@@ -8,6 +8,11 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Protection-granting creatures now work.** Obsidian Acolyte, Crimson Acolyte and Keeper of Kookus — the
+  creature you point them at really does gain protection from that colour for the turn.
+
+
 ## [0.149.21] - 2026-07-30
 
 ### Added
