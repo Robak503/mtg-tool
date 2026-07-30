@@ -952,12 +952,53 @@ export function applyMonstrosity(state, atom, ctx) {
  * The already-adapted branch is a logged no-op, never a silent one: the activation legally happened and paid
  * its cost, it just did nothing (CR 701.46a).
  */
+/**
+ * ===== ADAPT-IGNORES-COUNTERS (Biomancer's Familiar, CR 701.46a) ===== "{T}: The next time target creature
+ * adapts this turn, it adapts as though it had no +1/+1 counters on it."
+ *
+ * CR 701.46a defines adapt N as *"If this permanent has no +1/+1 counters on it, put N +1/+1 counters on
+ * it."* — so this effect suppresses that gate ONCE, for ONE creature, for THIS turn. It is the only card in
+ * the corpus printing the phrase, and applyAdapt's own comment already named it as the reason adapt is
+ * re-readable rather than a latch: the seam was anticipated, this fills it.
+ *
+ * ONE-SHOT AND TURN-SCOPED, both enforced by the same stamp: `_adaptIgnoreTurn` records the turn it was
+ * granted, applyAdapt honours it only when the turn still matches, and CONSUMES it on use. So a second
+ * adapt the same turn gets the normal gate back ("the NEXT time"), and a stamp left over from an earlier
+ * turn is inert without needing a cleanup hook.
+ */
+export function applyAdaptIgnoreCounters(state, atom, ctx) {
+  const targets = (ctx.targets || []).filter((t) => t?.type === "creature" && findPermanent(state, t.id));
+  if (!targets.length) {
+    // No legal target at resolution (it died in response) — a clean logged no-op, never a stamp on nobody.
+    return logEvent(state, { kind: "spell-effect", effect: "adapt-ignore-counters", applied: false });
+  }
+  let next = state;
+  for (const t of targets) next = updatePermanentSafe(next, t.id, (p) => ({ ...p, _adaptIgnoreTurn: next.turn }));
+  return logEvent(next, { kind: "spell-effect", effect: "adapt-ignore-counters", applied: true, targets: targets.map((t) => t.id) });
+}
+
+/** The one printed wording (Biomancer's Familiar). Whole-clause anchored — any rider leaves residue → Arbiter. */
+export function adaptIgnoreCountersClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[\u2019]/g, "'").trim().replace(/\.$/, "");
+  if (/^the next time target creature adapts this turn, it adapts as though it had no \+1\/\+1 counters on it$/.test(t)) {
+    return { op: "adapt-ignore-counters", targetType: "creature" };
+  }
+  return null;
+}
+
 export function applyAdapt(state, atom, ctx) {
   const lk = findPermanent(state, ctx.sourceId);
   if (!lk) return state;
-  if ((lk.permanent.counters?.["+1/+1"] || 0) > 0) {
+  // ADAPT-IGNORES-COUNTERS (Biomancer's Familiar): a stamp granted THIS turn suppresses the CR 701.46a gate
+  // once. Consumed here whether or not counters were actually present — "the NEXT time it adapts" is spent
+  // by the adapt happening, not by the gate having mattered.
+  const ignoring = lk.permanent._adaptIgnoreTurn === state.turn;
+  let s0 = state;
+  if (ignoring) s0 = updatePermanentSafe(state, ctx.sourceId, (p) => ({ ...p, _adaptIgnoreTurn: null }));
+  if (!ignoring && (lk.permanent.counters?.["+1/+1"] || 0) > 0) {
     return logEvent(state, { kind: "spell-effect", effect: "adapt", note: "already has +1/+1 counters", permanentId: ctx.sourceId });
   }
+  state = s0;
   const next = addCounter(state, { permanentId: ctx.sourceId, type: "+1/+1", amount: atom.amount || 1 });
   return logEvent(next, { kind: "spell-effect", effect: "adapt", permanentId: ctx.sourceId, amount: atom.amount || 1 });
 }
@@ -1081,7 +1122,8 @@ export const counterResolvers = {
   "renown": applyRenown, // KW-RENOWN (CR 702.111) — latching flag + N +1/+1 counters via the standard addCounter chokepoint (the monstrosity template)
   "draw-or-counter-triggering": applyDrawOrCounterTriggering, // Marcus branch (SHELF S7) — draw if the dealer has a +1/+1, else counter it
   "monstrosity": applyMonstrosity, // MONSTROSITY (CR 701.32) — activated "Monstrosity N": N +1/+1 counters + set monstrous, once
-  "adapt": applyAdapt,             // ADAPT (CR 701.46a) — activated "Adapt N": N +1/+1 counters ONLY if it has none (no latch)
+  "adapt": applyAdapt,
+  "adapt-ignore-counters": applyAdaptIgnoreCounters, // Biomancer's Familiar (CR 701.46a) — suppress the gate once             // ADAPT (CR 701.46a) — activated "Adapt N": N +1/+1 counters ONLY if it has none (no latch)
 
   "shield-counter": applyShieldCounter, // SHIELD COUNTER (CR 122.1c) — a protective counter; consumed at the damage/destruction sites in gameState
   "add-named-counter-self": applyAddNamedCounterSelf, // CHOSEN-TYPE cast trigger (Door of Destinies): named counter on the source artifact

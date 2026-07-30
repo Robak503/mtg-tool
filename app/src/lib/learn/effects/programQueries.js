@@ -135,6 +135,11 @@ export function atomTargetIntent(atom) {
       // program would have an ambiguous-intent atom → programTriggerTargetsResolvable false → the trigger
       // silently routes to the Arbiter (a forbidden no-op fabrication path) instead of firing natively.
       return "enemy";
+    case "adapt-ignore-counters":
+      // ADAPT-IGNORES-COUNTERS (Biomancer's Familiar) — you spend this on YOUR OWN creature, to let it adapt
+      // a second time. Legality stays wider than intent ("target creature" really is any creature); intent is
+      // "own" so a chooser never spends the tap enabling an opponent's adapt.
+      return "own";
     case "look-at-hand":
       // LOOK AT A HAND (CR 701.20e) — "look at target player's hand" is information you want about an
       // OPPONENT; looking at your own hand tells you nothing you don't know. Same shape as cant-block

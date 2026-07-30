@@ -135,9 +135,13 @@ describe("ACTIVATED-COST-REDUCTION — classifyCard", () => {
   it("Training Grounds flips to native-static", () => {
     expect(classifyCard(TRAINING_GROUNDS())).toBe("native-static");
   });
-  it("Biomancer's Familiar stays body-only (unmodeled {T} adapt-modifier — CREED safe FN)", () => {
+  it("Biomancer's Familiar is native-MIXED — the reducer plus its now-modelled adapt-modifier", () => {
+    // ✅ GRADUATED 2026-07-30. This pin recorded "body-only, because the {T} adapt-modifier is unmodelled" —
+    // a BOUNDARY MARKER, not a judgement that the card should never flip. The modifier is now built
+    // (adapt-ignore-counters, CR 701.46a), so the marker moves rather than being deleted: the reducer alone
+    // is still NOT enough to make it native-static, and that half is what this file guards.
     expect(classifyCard(BIOMANCERS_FAMILIAR())).not.toBe("native-static");
-    expect(classifyCard(BIOMANCERS_FAMILIAR())).toBe("body-only");
+    expect(classifyCard(BIOMANCERS_FAMILIAR())).toBe("native-mixed");
   });
   it("Heartstone stays body-only (symmetric all-players reducer unmodeled — safe FN)", () => {
     expect(classifyCard(HEARTSTONE())).toBe("body-only");
