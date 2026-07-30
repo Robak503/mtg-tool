@@ -25,6 +25,8 @@ summarizes the notable changes.
   grow or shrink live, instead of sitting at their printed stats.
 - **Regenerating an artifact works.** Welding Jar, Metallurgeon, Loxodon Mender, Pteron Ghost and Reknit
   — the shield really saves the artifact from a Disenchant or a board wipe, once, exactly as printed.
+- **Whir of Invention works.** The X-capped search now fetches an artifact card onto the battlefield, the
+  same way it already did for creature and permanent fetches.
 
 
 ## [0.149.21] - 2026-07-30

@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 80 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 81 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -459,6 +459,57 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **THE X-CAPPED TUTOR TAKES ITS OWN ALLOWLIST. GAINED 1 (Whir of Invention).**
+## ⛔⭐ AND THE SHELF PROBE WAS COUNTING **SIDEBOARD** CARDS. A whole slice was aimed at a card that
+## cannot move the number. **Probe fixed; read this before trusting any shelf-gap list.**
+
+### ⛔ THE PROBE DEFECT, FIRST — it is worth more than the card
+Last slice I banked a course correction: *filter picks through `shelfgap.json` before building.* I did.
+The probe returned three shelf cards; I picked Whir of Invention, built it, and **Joe's total did not move
+— 847 before, 847 after.**
+
+**Whir is in Kinnan's SIDEBOARD.** `measure-coverage` counts Mainboard + Commander only; my walker pushed
+every `{name}` object it found, section be damned. Verified against the real profile data: **1442 Mainboard
+/ 17 Commander / 32 Sideboard** entries — so ~2% of what the probe called "shelf cards" can never count.
+
+⭐ *A probe that reads the same FILE as the metric is not the same as a probe that reads the same SET. The
+section field was right there in every entry and I never looked at it, because the card names all looked
+plausible. The tell was cheap and I had it: the deck total is an ABSOLUTE count, so "flip-diff GAINED 1" and
+"deck total unchanged" cannot both be right unless the card was never in the denominator.*
+**Fixed in `shelfnoun.mjs` — section must be Mainboard or Commander. Re-run says the real list is TWO:**
+**Stoneforge Mystic** (Captain America, Mainboard) and **Tamiyo's Safekeeping** (Hulk Smash, Mainboard).
+
+### THE BUILD ITSELF IS STILL RIGHT — an inconsistency, not a guard
+`bfx` (X-capped search → battlefield) was hard-limited to the two literal words `creature|permanent`. Its
+FIXED-cap twin **`bfn`, ten lines below in the same file**, has always taken any `parseTutorFilter` phrase —
+artifact, enchantment, Equipment, "Rebel permanent". Both arms carry the identical safety argument, and bfn's
+own comment states it: **the MV cap is what makes an uncapped fetch impossible.** X-bound-at-cast
+(CR 202.3b) is exactly as real a cap as a printed N.
+
+So Soul of Mirrodin's artifact fetch at a fixed cap worked while Whir's at an X cap parked, for a reason
+neither comment ever gave. bfx now peels `permanent` / `<subtype> permanent` and runs the allowlist, mirroring
+bfn line for line. The colour prefix is still admitted ONLY on "creature".
+
+**Mutation-checked: 3 seen to fail** — M1 word set narrowed back (5 tests) · M2 colour guard dropped (the
+green-artifact park) · M3 `permanentOnly` gate dropped (the byte-identical check on the two old forms).
+⚠️ M1's first attempt inserted a `/* comment */` INSIDE the regex literal and vitest reported
+**"no tests"** rather than a failure — *a mutation that breaks the file proves nothing; re-run it as a real
+edit.*
+
+**Gates:** flip-diff **GAINED 1 / LOST 0**, no other tier moved (12919 → 12920 / 34245). 10 tests, four
+runtime including two CREED caps (X=0 caps at 0; a missing xValue is 0, never uncapped). Suite **1032 files /
+13,078 green**, lint 0, module graph loads, MUTANT clean. **Batch 4: 81 cards.**
+
+### ➡️ NEXT TWO, BOTH VERIFIED MAINBOARD
+1. **Stoneforge Mystic** — blocker is the SECOND line, *"{1}{W}, {T}: You may put an Equipment card from your
+   hand onto the battlefield."* (the tutor-to-hand line already parses for every noun including Equipment).
+2. **Tamiyo's Safekeeping** — *"Target permanent you control gains hexproof and indestructible"*. The grant
+   maps to a `pump` atom with `targetType:"creature"`; a targeted non-creature grant is a real build, but
+   note `groupGrantClauseParser` ALREADY carries a `permanentsYouControl` scope — the MASS form exists, only
+   the single-target one does not.
 
 ---
 

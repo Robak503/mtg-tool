@@ -1575,25 +1575,39 @@ export function tutorClauseParser(clause, ctx = {}) {
     // color-gating a typeless permanent is out of scope) — a "<color> permanent" won't match the anchor. CREED:
     // the color is NEVER dropped — a green-creature fetch that silently ignored "green" would over-fetch (a
     // forbidden FP); the gate makes the color as load-bearing as the MV cap.
-    const bfx = t.match(/^search your library for an? (?:(white|blue|black|red|green|nonwhite|nonblue|nonblack|nonred|nongreen) )?(creature|permanent) cards? with mana value x or less,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+    // ⭐ THE PHRASE RUNS THE SAME ALLOWLIST bfn ALREADY USES. This arm was hard-limited to the two literal
+    // words creature|permanent while its FIXED-cap twin (bfn, ten lines below) has always taken any
+    // parseTutorFilter phrase — artifact, enchantment, Equipment, "Rebel permanent". The two arms carry the
+    // IDENTICAL safety argument, and bfn's own comment states it: the MV cap is what makes an uncapped fetch
+    // impossible, and X-bound-at-cast (CR 202.3b) is exactly as real a cap as a printed N. So the narrower
+    // word set was an inconsistency, not a guard — it parked Whir of Invention ("an artifact card with mana
+    // value X or less") while Soul of Mirrodin's identical fetch at a fixed cap worked.
+    // The allowlist stays the gate: an unmodeled word (a color on a non-creature, "nonland") → null → Arbiter.
+    const bfx = t.match(/^search your library for an? (?:(white|blue|black|red|green|nonwhite|nonblue|nonblack|nonred|nongreen) )?([a-z][a-z ]*?) cards? with mana value x or less,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
     if (bfx) {
       const colorWord = bfx[1]; // undefined when no color prefix
-      const phrase = bfx[2];
+      let phrase = bfx[2];
       // A color prefix is only modeled on "creature" (a "green permanent" filter is out of scope — see above).
       if (colorWord && phrase !== "creature") return null;
       if (colorWord && !TUTOR_COLOR_WORD.has(colorWord)) return null; // defensive (regex already constrains)
-      // "creature" → a type-group filter (matches `\bcreature\b` in the type line). "permanent" → no type
-      // group (every type matches) PLUS the permanentOnly gate (front-face must be a permanent type, never an
-      // instant/sorcery) — "permanent" is intentionally NOT in TUTOR_FILTER_WORDS because `\bpermanent\b`
-      // never appears in a real type line, so a group match would be vacuous; the permanentOnly gate is correct.
-      const base = phrase === "permanent" ? { groups: [], permanentOnly: true } : parseTutorFilter(phrase);
-      if (!base) return null; // defensive (the regex already constrains to the two allowed words)
+      // "creature"/"artifact"/… → a type-group filter (matches `\bcreature\b` in the type line). "permanent" →
+      // no type group (every type matches) PLUS the permanentOnly gate (front-face must be a permanent type,
+      // never an instant/sorcery) — "permanent" is intentionally NOT in TUTOR_FILTER_WORDS because
+      // `\bpermanent\b` never appears in a real type line, so a group match would be vacuous. A trailing
+      // "<subtype> permanent" carries BOTH gates, mirroring bfn exactly.
+      let permanentOnly = false;
+      if (phrase === "permanent") { permanentOnly = true; phrase = null; }
+      else if (phrase.endsWith(" permanent")) { permanentOnly = true; phrase = phrase.slice(0, -" permanent".length); }
+      const base = phrase === null ? { groups: [] } : parseTutorFilter(phrase);
+      if (!base) return null; // unmodeled filter word → LOW → Arbiter (never an over-fetch)
+      if (permanentOnly) base.permanentOnly = true;
       const filter = { ...base, mvCapX: true }; // mv resolved to { max: ctx.xValue } in applyTutor (CR 202.3b)
       if (colorWord) filter.colors = [colorWord]; // color gate enforced upstream by cardMatchesTutorFilter
       return {
         op: "tutor",
         filter,
-        filterLabel: `${colorWord ? `${colorWord} ` : ""}${phrase} card with mana value X or less`,
+        // The ORIGINAL captured phrase, not the peeled one — `phrase` is null for the bare "permanent" form.
+        filterLabel: `${colorWord ? `${colorWord} ` : ""}${bfx[2]} card with mana value X or less`,
         destination: "battlefield",
         entersTapped: !!bfx[3],
         targetType: null,
