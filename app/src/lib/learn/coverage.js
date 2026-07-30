@@ -521,6 +521,19 @@ export function isKeywordOnly(oracle, name) {
 // ability" trigger, or Monet's "if Monet was ninjutsu'd" conditional (none end in a brace cost right after
 // "ninjutsu ").
 const reNinjutsuCost = /^(?:commander |library )?ninjutsu (?:\{[^}]+\})+$/;
+// LINE-level twin of reNinjutsuCost, for the CLONE pre-strip further down. Same anchored shape and the same
+// three exclusions, but it must tolerate the printed reminder parenthetical: the clone path strips whole
+// LINES off the RAW oracle, whereas isKeywordOnly tests clauses that have already had reminders removed.
+// ⭐ ONE CLAUSE HERE, A WHOLE LINE THERE — the escape slice's lesson, and the reason a keyword credited in
+// one residue path does not automatically reach another.
+const NINJUTSU_COST_LINE = /^[ \t]*(?:commander |library )?ninjutsu (?:\{[^}]+\})+[ \t]*(?:\([^)]*\))?[ \t]*$/i;
+/** Drop bare "Ninjutsu {cost}" lines (reminder included) — never Silver-Fur's cost-reducer or Satoru's grant. */
+function stripNinjutsuCostLines(oracle) {
+  const raw = String(oracle || "");
+  const lines = raw.split("\n");
+  const kept = lines.filter((ln) => !NINJUTSU_COST_LINE.test(ln));
+  return kept.length === lines.length ? raw : kept.join("\n").trim();
+}
 
 // KW-MORPH / KW-MEGAMORPH (CR 702.37 / 702.109) — credit a clause ONLY when it's the bare "morph {cost}" /
 // "megamorph {cost}" line (keyword + one or more brace mana symbols), mirroring the cycling/ninjutsu gate's
@@ -2390,13 +2403,19 @@ export function classifyCard(card) {
   // Convoke/Affinity line makes parseCloneSpec require the whole oracle be the copy clause and return null →
   // body-only. Those are cost-only keywords the runtime hard-casts at full cost (CREED-safe, the Ninjutsu/
   // Convoke precedent), so stripping them for the copy-SHAPE detection can never over-claim a non-clone.
+  // ⭐ NINJUTSU joins that pre-strip on its OWN precedent rather than by widening the cost-only list (it is
+  // an alternative ENTRY, not a cost reduction). isKeywordOnly has credited the bare "Ninjutsu {cost}" line
+  // since KW-NINJUTSU above, but nothing called that credit from HERE — so Sakashima's Student, whose clone
+  // half parses perfectly, parked at body-only with the keyword line still sitting in front of the copy
+  // clause. Handled-over-there is not handled-here. Dropped only in this copy-SHAPE view; the card's real
+  // residue is still validated all-or-nothing by parseCloneSpec's own `$`-anchor and own-ability tail.
   const cloneCard = {
     ...card,
-    oracle: stripCostOnlyKeywordLines(
+    oracle: stripNinjutsuCostLines(stripCostOnlyKeywordLines(
       parsePlotCost(card)
         ? String(card.oracle || "").replace(/(?:^|\n)[^\n]*\bplot\s+(?:\{[^}]+\})+[^\n]*(?=\n|$)/i, "\n")
         : String(card.oracle || ""),
-    ),
+    )),
   };
   if (isCloneCard(cloneCard)) return "native-clone";
   // Permanent (creature / artifact / enchantment / battle): the body always works.

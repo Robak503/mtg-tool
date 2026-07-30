@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 62 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 65 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -459,6 +459,76 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **NINJUTSU REACHES THE TWO PATHS THAT NEVER CALLED IT. GAINED 3.**
+## ⭐ AND THE FIRST SIZING OF THIS SLICE WAS WRONG BY 200% — CAUGHT BY THE LEDGER'S OWN RULE.
+
+Sakashima's Student · Silver-Fur Master · A-Silver-Fur Master. **First slice off the Joe shelf-gap list**
+(lead ② in the recon entry below). Shelf effect: **2 real deck slots, both in *Believe it!***; the Alchemy
+rebalance is corpus-only. Joe now measures **845/1098 (77%)**, *Believe it!* **78%**.
+
+### ⛔ THE SIZING TRAP, FIRST — a line-drop probe anchored on `/^ninjutsu\b/` reported THREE flips
+Two of them were Silver-Fur Master, whose SECOND line also begins with the word *"Ninjutsu"*:
+
+```
+Ninjutsu {U}{B} (…)                                        ← the keyword line
+Ninjutsu abilities you activate cost {1} less to activate. ← A REAL STATIC ABILITY
+Other Ninja and Rogue creatures you control get +1/+1.
+```
+
+The probe was **deleting a real ability along with the keyword and crediting the card for text it had
+removed** — the exact over-count the batch header's phrase-swap rule warns about, in a new disguise: not a
+trigger swallowed by its payload this time, but *a second ability that happens to start with the same word.*
+Re-anchored on the brace cost, the true count for the keyword line is **ONE**. ⭐ *A keyword-prefix anchor
+collects every line that merely STARTS with the keyword, not only the cost line — the same family of error as
+`^awaken` matching "Awakened Amalgam" two slices ago, and it cost a 3x over-estimate before a single edit.*
+
+### ① THE CLONE PATH — handled-over-there is not handled-here, again
+`isKeywordOnly` has credited the bare `Ninjutsu {cost}` line since the KW-NINJUTSU gate shipped. Sakashima's
+Student parked at `body-only` anyway: `parseCloneSpec` requires the WHOLE oracle to be the copy clause, and
+**nothing stripped the keyword line before it looked**. coverage.js already pre-strips plot / convoke /
+affinity for exactly this reason — ninjutsu was simply never added.
+
+Fixed with `stripNinjutsuCostLines` in that same pre-strip. Ninjutsu joins on its OWN precedent rather than
+by widening `COST_ONLY_KEYWORD_LINE`: **it is an alternative ENTRY, not a cost reduction**, and that list's
+whole argument is *"the runtime hard-casts at full cost."* Same outcome, honest reason.
+
+### ② THE COST-REDUCER — a BENIGN MARKER, deliberately not a reducer
+*"Ninjutsu abilities you activate cost {1} less to activate"* (Silver-Fur Master + its Alchemy twin — the
+**only two cards in the index** with the clause) can discount exactly one thing: a ninjutsu activation. The
+engine **has no ninjutsu lane at all** — grepped before building, per the header rule: no `legalChoices`
+offer, no apply site, only comments citing the rationale. A price cut on an ability that can never be
+activated cannot change any price.
+
+So the clause is vacuous on the **IDENTICAL premise** that credits the keyword line itself, and it emits
+`ninjutsuCostReductionNoop` beside `activatedCostReductionFloor` rather than a real `activatedCostReduction`
+descriptor. ⭐ *Emitting a reducer would have fabricated a runtime hook for an ability that does not exist —
+a wrong PRICE waiting to happen, which is worse than a missing effect. The equip-only variant one line above
+is a real reducer because equip abilities are real.* **The two credits are COUPLED and the file says so: if
+ninjutsu is ever offered, both die together and both must be revisited.**
+
+### ✅ A HOLLOW ASSERTION CAUGHT BY ITS OWN MUTATION — the law working as designed
+The Monet guard was written first as *"the real Monet card stays parked"*. **Mutation M3 loosened the start
+anchor to `/^(?:[a-z]+ )?(?:commander |library )?ninjutsu …/` and all 8 tests stayed GREEN** — because Monet
+parks for its OWN reasons (its ETB reads *"If Monet was ninjutsu'd"*), whether the anchor holds or not.
+⭐ *A negative assertion on a card that would fail the assertion anyway proves nothing.* Rewritten to put
+Monet's real printed line — `Fixed commander ninjutsu {3}{B}{G}`, a THIRD prefix the anchor does not know —
+**in front of a body that WOULD flip**, so a loosened anchor now shows up as a wrong credit. M3 re-run: fails.
+
+**Mutation-checked: 5 seen to fail** — M1 pre-strip removed · M2 reminder tolerance dropped · M3 start anchor
+loosened (after the guard was made real) · M4 reducer `$` anchor dropped · M5 marker not emitted. Every revert
+confirmed by `git diff --stat`, not by the marker sweep.
+
+**Gates:** flip-diff **GAINED 3 / LOST 0**, and no other tier moved at all (12901 → 12904 / 34245). 8 tests.
+Suite **1028 files / 13,041 green**, lint 0, module graph loads, MUTANT clean. **Batch 4: 65 cards.**
+
+### ➡️ WHAT THE JOE SHELF LOOKS LIKE AFTER ONE SLICE
+Both recon leads are now spent — ① miracle went with the self-exile ordering fix, ② ninjutsu here. The
+recon's own finding stands: **no shared lever remains**, so the rest is nine separate grinds. Next pick
+should come off the line-drop table in the recon entry (Moon-Circuit Hacker · Thousand-Faced Shadow ·
+Orcish Bowmasters · Ingenious Prodigy · Satoru · Roaming Throne — one trigger each).
 
 ---
 

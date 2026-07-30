@@ -1959,6 +1959,20 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ activatedCostReduction: { amount: parseInt(eqcrM[1], 10), equipOnly: true } });
     return;
   }
+  // NINJUTSU-ONLY variant (Silver-Fur Master + its Alchemy rebalance A-Silver-Fur Master — the ONLY two cards
+  // in the index with this clause). ⭐ It gets a BENIGN MARKER, not an activatedCostReduction descriptor, and
+  // the distinction is the whole point: this discount can only ever apply to a ninjutsu ACTIVATION, and the
+  // engine has no ninjutsu lane at all (grepped — legalChoices offers none, no apply site exists). A price cut
+  // on an ability that can never be activated cannot change any price, so recognizing the clause is exactly as
+  // vacuous as crediting the bare "Ninjutsu {cost}" line itself (coverage.js KW-NINJUTSU), and rests on the
+  // IDENTICAL premise. Emitting a real reducer instead would fabricate a runtime hook for an ability that does
+  // not exist — a wrong PRICE waiting to happen — so it stays a marker with no affects/op.
+  // ⚠️ THE TWO CREDITS ARE COUPLED: if ninjutsu is ever offered, this marker and reNinjutsuCost must BOTH be
+  // revisited, because both die on the same premise. Anchored ^…$ so only this exact printed sentence matches.
+  if (/^ninjutsu abilities you activate cost \{\d+\} less to activate$/.test(c)) {
+    out.push({ ninjutsuCostReductionNoop: true });
+    return;
+  }
   // The floor rider that accompanies every activated-ability cost-reducer in this family — a modeled no-op
   // (the one-mana floor is inherent to activatedCostReductionForCost). Recognized so it doesn't read as
   // unmodeled residue on Training Grounds / Biomancer's Familiar. Emits a benign marker; carries no runtime.

@@ -14,6 +14,9 @@ summarizes the notable changes.
   abilities those cards are built around.
 - **Protection-granting creatures now work.** Obsidian Acolyte, Crimson Acolyte and Keeper of Kookus — the
   creature you point them at really does gain protection from that colour for the turn.
+- **Ninjas with a second ability now play natively.** Sakashima's Student enters as a copy of a creature
+  through the engine's own clone path, and Silver-Fur Master's Ninja/Rogue anthem applies, instead of both
+  cards handing off to the Arbiter.
 
 
 ## [0.149.21] - 2026-07-30
