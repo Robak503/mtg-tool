@@ -480,7 +480,7 @@ export function setPendingSoftCounterChoice(state, { controller, amount, cost = 
  * payManaCost never fabricates mana). The continuation rides on `pendingChoice.resume` (attached by runProgram).
  * FIFO: one choice at a time.
  */
-export function setPendingOptionalManaPaymentChoice(state, { controller, cost, effectAtoms = [], sourceName = null }) {
+export function setPendingOptionalManaPaymentChoice(state, { controller, cost, effectAtoms = [], sourceName = null, targets = [] }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "optional-mana-payment-pending", controller, amount: wardCostHeadline(cost), sourceName });
   return {
@@ -491,6 +491,8 @@ export function setPendingOptionalManaPaymentChoice(state, { controller, cost, e
       cost,
       effectAtoms,
       sourceName,
+      // The chosen targets, locked at announcement (CR 603.3d) and replayed into the payoff on settle.
+      targets,
     },
   };
 }

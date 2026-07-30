@@ -101,6 +101,19 @@ export function atomTargetIntent(atom) {
   const tt = atom.targetType;
   if (!tt || isNonChosenTargetType(tt)) return null;
   switch (atom.op) {
+    case "optional-mana-payment": {
+      // OPTIONAL-MANA-PAYMENT (CR 603.7c) — the wrapper does NO targeting of its own. Its `targetType` is
+      // copied up from the single chosen target type of its PAYOFF atoms (parser.matchOptionalManaPayment), and
+      // the payoff is what actually targets. So the wrapper's intent IS the payoff's intent — DELEGATE rather
+      // than classify a second time, which is what keeps the two from drifting as payoff ops are added.
+      //
+      // ⛔ DISAGREEMENT OR EMPTINESS → "ambiguous", the refusing direction. Two payoff atoms wanting opposite
+      // sides cannot be expressed by one intent (the same reason fight-pair reports ambiguous below), and an
+      // empty inner list means we could not read an intent at all. Either way the trigger flush declines to
+      // auto-target and hands the card to the Arbiter instead of risking a wrong target (CREED).
+      const inner = [...new Set((atom.effectAtoms || []).map((a) => atomTargetIntent(a)).filter((v) => v != null))];
+      return inner.length === 1 ? inner[0] : "ambiguous";
+    }
     case "fight-pair":
     case "damage-target-power":
     case "pump-pair":

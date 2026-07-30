@@ -51,10 +51,16 @@ describe("parser — optional-mana-payment atom (you may pay {cost}. If you do, 
     expect(isHigh("you may pay {2}")).toBe(false);                                           // bare optional cost, no payoff
   });
 
-  it("a chosen-TARGET payoff stays LOW (target wiring through the pay-choice is unbuilt) — Frenzied Goblin", () => {
-    // "you may pay {R}. If you do, target creature can't block this turn." (Frenzied Goblin) — the payoff needs
-    // a chosen target threaded through the pay-choice this slice does not build → LOW → Arbiter (a SAFE FN).
-    expect(isHigh("you may pay {R}. If you do, target creature can't block this turn")).toBe(false);
+  it("a chosen-TARGET payoff is now HIGH (2026-07-30 graduation — the pay-choice threads the target)", () => {
+    // ⭐ This pin's own title named its criterion: "target wiring through the pay-choice is unbuilt". It is
+    // built now — the chosen target rides the suspend as pendingChoice.targets and the settler replays it into
+    // the payoff (optionalPaymentTargetedPayoff.test.js pins pay/decline end-to-end). 21 cards graduated.
+    // Legal ordering: the target is chosen when the ability goes on the stack (CR 603.3d) and the payment on
+    // resolution, so a pay/decline can never change an already-locked target.
+    expect(isHigh("you may pay {R}. If you do, target creature can't block this turn")).toBe(true);
+    // ⛔ THE NEW BOUNDARY: two DISTINCT chosen target types still refuse — one `targetType` on the wrapper
+    // cannot express two, and guessing which to declare would target the wrong object.
+    expect(isHigh("you may pay {1}. If you do, this creature deals 2 damage to target creature and target player loses 1 life")).toBe(false);
   });
 
   it("WI-3 CREED — a NON-LAST pausing payoff atom stays LOW; a LAST-position pause is fine", () => {
@@ -173,7 +179,10 @@ describe("coverage — Lifecrafter's Bestiary / Inheritance flip native; CREED a
     // Saheeli, the Sun's Brilliance-style unmodeled payoff: a "you may pay {X}. If you do, …" / a payoff with a
     // chosen target / a non-mana cost keeps the trigger LOW → the permanent classifies body-only, never native.
     expect(classifyCard({ name: "Fake X Payoff", type: "Enchantment", oracle: "Whenever you cast a spell, you may pay {X}. If you do, draw X cards." })).toBe("body-only");
-    expect(classifyCard({ name: "Fake Targeted Payoff", type: "Enchantment", oracle: "Whenever you cast a spell, you may pay {R}. If you do, target creature can't block this turn." })).toBe("body-only");
+    // ⚠️ FIXTURE RE-POINTED 2026-07-30: this used a TARGETED payoff as its example of "unmodeled", and targeted
+    // payoffs graduated. Swapped to one that is genuinely still unmodeled — a FILTERED sacrifice victim, the
+    // same boundary §1 uses — so the CREED guard keeps its teeth.
+    expect(classifyCard({ name: "Fake Filtered Sac Payoff", type: "Enchantment", oracle: "Whenever you cast a spell, you may pay {R}. If you do, sacrifice a creature with flying." })).toBe("body-only");
   });
 });
 

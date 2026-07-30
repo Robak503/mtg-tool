@@ -683,6 +683,10 @@ function applyOptionalManaPayment(state, atom, ctx) {
     cost: atom.cost,
     effectAtoms: atom.effectAtoms || [],
     sourceName: ctx.cardName || null,
+    // TARGETED PAYOFF: the target was chosen when the ability went on the stack (CR 603.3d), so it already sits
+    // in ctx.targets. Carry it ACROSS the pay/decline suspend — the settler had `targets: []` hardcoded, which
+    // was correct only while every admitted payoff was targetless. Empty for a targetless payoff (unchanged).
+    targets: ctx.targets || [],
   });
 }
 

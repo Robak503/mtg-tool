@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.17] — 2026-07-30
+
+### Added
+- **"You may pay {1}. If you do, [do something to a target]" works now.** Twenty-one cards that ask you to pay a
+  small optional cost and then hit a target play properly: Surgespanner, Equilibrium, Genesis, Kalastria
+  Highborn, Shu Yun, Serene Steward, Frenzied Goblin, Embersmith and more. The target is chosen when the ability
+  goes on the stack, as the rules require, and declining the payment simply does nothing.
+
+
 ## [0.149.16] — 2026-07-30
 
 ### Added

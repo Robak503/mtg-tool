@@ -1094,9 +1094,23 @@ function matchOptionalManaPayment(oracle, cardType) {
   if (!payoff || programConfidence(payoff) !== "high" || payoff.structure === "modal" || payoff.xSpell) return null;
   const inner = payoff.atoms || [];
   if (inner.length === 0 || !inner.every((a) => KNOWN.has(a.op))) return null;
-  // SELF-CONTAINED gate (CREED): a chosen-target payoff would need its target threaded through the pay-choice
-  // (unbuilt) → keep it LOW. The draw-family payoffs are targetless (programNeedsChosenTarget false).
-  if (programNeedsChosenTarget(payoff)) return null;
+  // ===== TARGETED PAYOFF (2026-07-30) — the gate this gate used to be =========================================
+  // This ONCE read `if (programNeedsChosenTarget(payoff)) return null;`, with the note "a chosen-target payoff
+  // would need its target threaded through the pay-choice (unbuilt)". That thread is now built (the choice
+  // carries `targets` through the suspend and the settler passes them to the payoff), so a targeted payoff is
+  // admitted — but ONLY under the narrow shape the thread actually supports.
+  //
+  // ⭐ RULES ORDERING IS WHY THIS IS SAFE. The target is chosen when the ability is PUT ON THE STACK
+  // (CR 603.3d); the optional payment is made as it RESOLVES. So declaring the payoff's target type on this
+  // wrapper atom makes the trigger enumerate + lock its target at flush, exactly on time, and the pay/decline
+  // decision later cannot change it. Declining simply runs nothing — the target was legally chosen either way.
+  //
+  // ⛔ EXACTLY ONE chosen target type, or refuse. A payoff with TWO distinct chosen target types ("…deals 2
+  // damage to target creature and target player loses 1 life") cannot be expressed by one `targetType` on the
+  // wrapper, and guessing which to declare would target the wrong object — so it stays LOW → Arbiter (FN-safe).
+  const chosen = [...new Set(inner.map((a) => a.targetType).filter((tt) => tt && !isNonChosenTargetType(tt)))];
+  if (chosen.length > 1) return null;
+  const payoffTargetType = chosen.length === 1 ? chosen[0] : null;
   // WI-3 PAYOFF-PAUSE gate (CREED): a NON-LAST payoff atom whose resolver can itself pause (set
   // pendingChoice — PAUSING_ATOM_OPS, declared beside ATOM_RESOLVERS) would DROP every payoff atom
   // after it at settle time: the settler (runProgram.resolveOptionalManaPaymentChoice) chains a mid-
@@ -1104,7 +1118,9 @@ function matchOptionalManaPayment(oracle, cardType) {
   // then draw a card" would scry but never draw — a dropped-atom FP. Reject → LOW → Arbiter (SAFE
   // FN). A LAST-position pausing payoff is fine (nothing follows to drop).
   if (inner.slice(0, -1).some((a) => PAUSING_ATOM_OPS.has(a.op))) return null;
-  return { atom: { op: "optional-mana-payment", cost, effectAtoms: inner, targetType: null } };
+  // `targetType` was hardcoded null while only targetless payoffs were admitted; it now carries the payoff's
+  // single chosen target type so the trigger enumerates it at flush (null keeps every pre-existing card byte-identical).
+  return { atom: { op: "optional-mana-payment", cost, effectAtoms: inner, targetType: payoffTargetType } };
 }
 
 // REFLEXIVE-SAC-BY-SUBTYPE — the artifact/blood TOKEN subtypes a "you may sacrifice a <X>. If you do, …" gate

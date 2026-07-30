@@ -57,9 +57,16 @@ describe("CREED — the allowlist refuses every ambiguous pronoun", () => {
     expect(r.confidence).not.toBe("high");
   });
 
-  it("a CHOSEN target payoff is not rewritten", () => {
+  it("a CHOSEN target payoff is not rewritten to SELF (the proxy changed; the claim did not)", () => {
+    // ⚠️ This asserted `confidence !== "high"` as a PROXY for "the pronoun allowlist did not rewrite this".
+    // Targeted payoffs are HIGH now, so the proxy is invalid — but the real claim still matters and is asserted
+    // DIRECTLY: the payoff must still target the CHOSEN creature and never be rewritten to the source. A
+    // pronoun rewrite here would silently tap your OWN creature.
     const r = parseEffectClause("you may pay {W}. If you do, tap target creature an opponent controls", "Creature");
-    expect(r.confidence).not.toBe("high");
+    expect(r.confidence).toBe("high");
+    const inner = r.atoms[0].effectAtoms[0];
+    expect(inner.target).not.toBe("self");
+    expect(inner.targetType).toBeTruthy();
   });
 
   it("the EXPLICIT self wording was already high — this slice added the pronoun path, not the lane", () => {

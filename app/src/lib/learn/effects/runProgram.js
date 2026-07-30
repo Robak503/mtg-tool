@@ -1092,12 +1092,13 @@ export function resolveOptionalManaPaymentChoice(state, pay) {
   }
   next = logEvent(next, { kind: "spell-effect", effect: "optional-mana-payment", controller: pc.controller, paid, sourceName: pc.sourceName || null });
   if (paid) {
-    // Run the payoff atoms in printed order. Each is HIGH + targetless (parser-validated), so an empty
-    // targets list is correct; thread the resume's context/sourceId so a context-dependent payoff resolves.
+    // Run the payoff atoms in printed order. Each is HIGH + non-modal (parser-validated). The parser admits at
+    // most ONE chosen target type, whose target was locked when the ability went on the stack (CR 603.3d) and
+    // rides the choice as `pc.targets` — replay it here. A targetless payoff carries [], as before.
     const r = pc.resume || {};
     const atoms = pc.effectAtoms || [];
     for (let i = 0; i < atoms.length; i++) {
-      const ctx = { ...(r.context || {}), controller: pc.controller, targets: [], cardName: r.cardName ?? pc.sourceName ?? null, xValue: r.xValue ?? null, sourceId: r.sourceId ?? null };
+      const ctx = { ...(r.context || {}), controller: pc.controller, targets: pc.targets || [], cardName: r.cardName ?? pc.sourceName ?? null, xValue: r.xValue ?? null, sourceId: r.sourceId ?? null };
       const after = resolveAtom(next, atoms[i], ctx);
       if (after == null) {
         return markPendingArbiter(next, { source: { name: pc.sourceName }, payload: { params: r } }, `optional-mana-payment payoff atom "${atoms[i]?.op}" had no resolver`);
@@ -1158,7 +1159,7 @@ export function resolveOptionalSacChoice(state, doSac) {
     const r = pc.resume || {};
     const atoms = pc.effectAtoms || [];
     for (let i = 0; i < atoms.length; i++) {
-      const ctx = { ...(r.context || {}), controller: pc.controller, targets: [], cardName: r.cardName ?? pc.sourceName ?? null, xValue: r.xValue ?? null, sourceId: r.sourceId ?? null };
+      const ctx = { ...(r.context || {}), controller: pc.controller, targets: pc.targets || [], cardName: r.cardName ?? pc.sourceName ?? null, xValue: r.xValue ?? null, sourceId: r.sourceId ?? null };
       const after = resolveAtom(next, atoms[i], ctx);
       if (after == null) {
         return markPendingArbiter(next, { source: { name: pc.sourceName }, payload: { params: r } }, `optional-sac-payment payoff atom "${atoms[i]?.op}" had no resolver`);
@@ -1234,7 +1235,7 @@ export function resolveOptionalDrawDiscardChoice(state, doDraw) {
     const r = pc.resume || {};
     const atoms = pc.effectAtoms || [];
     for (let i = 0; i < atoms.length; i++) {
-      const ctx = { ...(r.context || {}), controller: pc.controller, targets: [], cardName: r.cardName ?? pc.sourceName ?? null, xValue: r.xValue ?? null, sourceId: r.sourceId ?? null };
+      const ctx = { ...(r.context || {}), controller: pc.controller, targets: pc.targets || [], cardName: r.cardName ?? pc.sourceName ?? null, xValue: r.xValue ?? null, sourceId: r.sourceId ?? null };
       const after = resolveAtom(next, atoms[i], ctx);
       if (after == null) {
         return markPendingArbiter(next, { source: { name: pc.sourceName }, payload: { params: r } }, `optional-draw-discard payoff atom "${atoms[i]?.op}" had no resolver`);

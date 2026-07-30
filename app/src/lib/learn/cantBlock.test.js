@@ -95,8 +95,11 @@ describe("cant-block — CREED: non-qualifying forms stay non-native", () => {
     // machinery always modeled it — only its "Discard a card" COST was unpayable. γ1h pays it now.)
     expect(classifyCard(C("Bola Warrior", "{R}, {T}, Discard a card: Target creature can't block this turn.", "Creature — Human Warrior"))).toBe("native-activated");
   });
-  it("an optional 'pay then' rider stays body-only", () => {
-    expect(classifyCard(C("Frenzied Goblin", "Whenever this creature attacks, you may pay {R}. If you do, target creature can't block this turn."))).not.toMatch(/^native/);
+  it("an optional 'pay then' rider now FLIPS (2026-07-30 — the pay-choice threads the chosen target)", () => {
+    // Sat here as a CREED guard while a targeted payoff could not be threaded through the optional-payment
+    // pay/decline suspend. It can be now, and cant-block is ENEMY-intent so the trigger-flush chooser places it
+    // on a provably correct side. Frenzied Goblin was one of the 21 cards that graduated.
+    expect(classifyCard(C("Frenzied Goblin", "Whenever this creature attacks, you may pay {R}. If you do, target creature can't block this turn."))).toMatch(/^native/);
   });
   it("a mass 'creatures without flying can't block' ETB now flips (FT-1's mass-block-lock atom)", () => {
     // Sat here as a CREED guard while the mass form was unmodeled; FT-1 models it as a no-target

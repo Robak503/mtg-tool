@@ -95,7 +95,57 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 THE BEST SINGLE-MECHANISM VEIN FOUND THIS RUN — **34 cards, and the engine NAMES what is unbuilt.**
+## ✅ SHIPPED 2026-07-30 — **TARGETED OPTIONAL-PAYMENT PAYOFFS. GAINED 21, LOST 0.** Biggest slice of the run.
+
+Bearer of Silence · Conduit Goblin · Drainpipe Vermin · Embersmith · Equilibrium · Eternal Taskmaster ·
+Frenzied Goblin · Furnace Celebration · Genesis · Haazda Snare Squad · Insidious Bookworms · Jubilant Mascot ·
+Kalastria Highborn · Leyline of Lightning · Maulfist Doorbuster · Quiet Contemplation · Searing Meditation ·
+Serene Steward · Shu Yun the Silent Tempest · Surgespanner · Veinwitch Coven.
+
+**The gap the engine had already named:** `matchOptionalManaPayment` rejected any payoff needing a chosen target,
+with the note *"would need its target threaded through the pay-choice **(unbuilt)**"*. Built it — a four-point
+thread: the parser lifts the payoff's single chosen target type onto the wrapper, the suspend captures
+`ctx.targets`, the pending choice carries them, the settler replays them instead of the hardcoded `targets: []`.
+
+**⭐ WHY THE ORDERING IS LEGAL (and why this isn't a hack):** the target is chosen when the ability is PUT ON THE
+STACK (CR 603.3d); the optional payment happens as it RESOLVES. Declaring the payoff's target type on the wrapper
+makes the trigger lock its target at flush — exactly on time — and the later pay/decline cannot change it.
+Declining runs nothing, and the target was still legally chosen.
+
+**⛔ THE FIFTH TOUCH-POINT WAS THE SAFETY ONE, and it was not obvious.** After all four wiring changes the cards
+STILL parked: `triggerRoutesNatively` refused them, because the trigger-flush auto-chooser only fires when it can
+place a target on a **provably correct side** (`atomTargetIntent`), and my new wrapper op was unknown to that
+classifier → ambiguous → refused. The fix is DELEGATION: a wrapper does no targeting of its own, so its intent IS
+its payoff's intent. Disagreement or unreadability → `"ambiguous"`, the refusing direction. **That gate is why
+this shipped 21 and not 34** — the other 13 have payoffs whose side the engine cannot place, and they correctly
+stay parked.
+
+**⚠️ ONE FAILURE I HAD TO TREAT AS A POSSIBLE FALSE POSITIVE, and it is the most useful thing here.**
+`becomesTapped.test.js` pinned Surgespanner body-only with the comment *"the ambiguous-target bounce fails
+triggerRoutesNatively"* — and Surgespanner was in my flip list. If my delegation had invented a side for a bounce,
+that pin would have been reporting a real FP. Checked it directly: **a `bounce` atom reports ENEMY intent**, and
+had been graduated from ambiguous at some earlier slice — **the pin's comment was stale**, not my code. The only
+thing parking Surgespanner was the wrapper's blanket refusal. Verified before editing the test, not after.
+
+**Five pins moved, each for a stated reason (never deleted):**
+| pin | verdict |
+|---|---|
+| `optionalManaPayment` "chosen-TARGET stays LOW **(target wiring … is unbuilt)**" | CAPABILITY — its title named the criterion → graduated, + a new boundary (two distinct target types still refuse) |
+| `optionalManaPayment` "an UNMODELED payoff stays body-only" | BOUNDARY — it used a *targeted* payoff as its "unmodeled" example → re-pointed to a filtered-sacrifice victim |
+| `cantBlock` "an optional 'pay then' rider stays body-only" | BOUNDARY → graduated (Frenzied Goblin is one of the 21) |
+| `becomesTapped` Surgespanner | premise stale (see above) → graduated + comment corrected |
+| `optionalPaymentSelfPronoun` "a CHOSEN target payoff is not rewritten" | ⭐ its `confidence !== high` was a PROXY for "no pronoun rewrite". The proxy died; the CLAIM did not — now asserted directly (`inner.target !== "self"`), which is stronger than what it replaced |
+
+**Gates:** 12 new tests + 5 graduated; **both mutations seen to fail** — reverting the settler to `targets: []`
+(caught by the PAY test alone) and collapsing `"ambiguous"` into a guess (caught by both safety tests).
+Flip-diff **GAINED 21 / LOST 0**. Suite **986 files / 12,546 green**, lint 0 unpiped, MUTANT clean.
+
+**STILL REFUSED, deliberately:** the 12 `"When you do"` variants (an optional primary with a reflexive tail would
+fire even when the player DECLINES) and the 13 whose payoff intent is unplaceable.
+
+---
+
+## 🎯 THE VEIN AS FIRST MEASURED — 34 cards, and the engine NAMES what is unbuilt.
 ### `you may pay {N}. If you do, <TARGETED effect>` — target threading through the pay-choice. START HERE COLD.
 
 **How it was found:** chasing why the reflexive-wrapper Role cards park. The controls failed too, which pointed

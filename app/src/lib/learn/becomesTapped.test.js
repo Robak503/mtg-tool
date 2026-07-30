@@ -68,12 +68,16 @@ describe("detection + classify", () => {
     expect(classifyCard(verityCircle())).toBe("body-only");
   });
 
-  it("FN — a self carrier whose payoff isn't modeled stays body-only (Surgespanner: optional-pay bounce)", () => {
-    // Detection is correct (self scope), but the ambiguous-target bounce fails triggerRoutesNatively → parked.
+  it("Surgespanner now ROUTES (2026-07-30 — the optional-pay choice threads its chosen target)", () => {
+    // ⚠️ THIS PIN'S OLD COMMENT WAS STALE, and checking it was the point. It said "the ambiguous-target bounce
+    // fails triggerRoutesNatively" — but a `bounce` atom reports ENEMY intent (verified directly), so it had been
+    // graduated from ambiguous at some earlier slice. The only thing parking Surgespanner was the optional-payment
+    // wrapper refusing targeted payoffs outright. That refusal is lifted, so the pre-existing enemy
+    // classification applies and the flush chooser can place the bounce on the opponent's side.
     const [d] = detectTriggers(surgespanner()).filter((t) => t.event === "becomesTapped");
     expect(d).toMatchObject({ event: "becomesTapped", scope: "self" });
-    expect(triggerRoutesNatively(d)).toBe(false);
-    expect(classifyCard(surgespanner())).toBe("body-only");
+    expect(triggerRoutesNatively(d)).toBe(true);
+    expect(classifyCard(surgespanner())).toMatch(/^native/);
   });
 
   it("FN — a compound 'attacks or becomes tapped' parks (both halves undetected, CR 603.1 compound guard)", () => {
