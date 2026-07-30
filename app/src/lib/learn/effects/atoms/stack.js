@@ -634,6 +634,36 @@ export function cdmgMassToDamagedPlayerClauseParser(clause) {
  * via the α1 non-targeted path); the runtime count + spell snapshot ride on ctx (threaded at cast). A different
  * shape never matches → no atom → the card stays on the Arbiter (CREED FN-safe). Pure. Registered in parser.js.
  */
+/**
+ * ===== GRANT UNCOUNTERABILITY (Vexing Shusher) ===== "Target spell can't be countered."
+ *
+ * The MISSING ARM of a mechanic that is otherwise fully built. Four uncounterability paths already
+ * exist and all four are STATIC or ON-CARD: the printed "this spell can't be countered" (read off the
+ * stack object's own oracle), the subtype board static (Root Sliver), the controller static (Chimil),
+ * and the type-filtered controller static (Prowling Serpopard). spellEffects.js named this gap in a
+ * comment for as long as it has existed -- "granted / external 'can't be countered' isn't modeled" --
+ * because every existing path answers "is this spell uncounterable?" by RE-DERIVING it from the board,
+ * and a one-shot grant leaves nothing on the board to re-derive from. It needs a mark instead.
+ *
+ * CR 701.6a defines countering; a "can't be countered" effect is a continuous effect that prevents that
+ * action, and has no subrule of its own (see the note in spellEffects.js). The grant lasts as long as
+ * the spell is on the stack, which is exactly the lifetime of the stack object carrying the mark -- when
+ * the spell resolves or leaves, the object goes with it and the mark cannot outlive its subject.
+ *
+ * `grantNotCounter:true` is the Double-Major precedent read a second way: an atom that TARGETS a spell
+ * without trying to counter it must not have the uncounterability exclusions applied to its own target
+ * enumeration. Targeting an already-uncounterable spell with this is legal (if pointless) -- CR 601.2c
+ * cares only that the target is a spell -- and excluding those would be a false negative on legality.
+ * A different wording never matches -> no atom -> the card stays on the Arbiter (CREED FN-safe). Pure.
+ */
+export function grantUncounterableClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[\u2019]/g, "'").replace(/\.$/, "").trim();
+  if (t === "target spell can't be countered") {
+    return { op: "make-uncounterable", targetType: "spell", spellFilter: "any", grantNotCounter: true };
+  }
+  return null;
+}
+
 export function copySpellClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "").trim();
   if (t === "copy this spell for each spell cast before it this turn") {
@@ -1382,6 +1412,31 @@ export const stackResolvers = {
     return next;
   },
   "counter": applyCounter,
+  // GRANT UNCOUNTERABILITY (Vexing Shusher) -- stamp the targeted stack object so the counter-target
+  // enumerator skips it. The mark rides the STACK OBJECT, not the card: two copies of the same spell on
+  // the stack are separate objects and only the targeted one is protected, and a card that resolves and
+  // is later re-cast is a new object with no mark (CR 701.6a is about the object on the stack).
+  // The kind is re-verified here (CR 608.2b): the targeted spell may have already resolved or been
+  // countered in response, in which case this fizzles rather than marking some unrelated stack object.
+  "make-uncounterable": (state, atom, ctx) => {
+    let next = state;
+    for (const t of ctx.targets || []) {
+      if (t.type !== "spell") continue;
+      const idx = (next.stack || []).findIndex((o) => o.id === t.id && o.kind === "spell");
+      if (idx === -1) {
+        next = logEvent(next, { kind: "spell-effect", effect: "make-uncounterable-fizzle", targetId: t.id });
+        continue;
+      }
+      const obj = next.stack[idx];
+      if (obj.uncounterable) continue;   // already marked -> idempotent, and no duplicate log line
+      next = {
+        ...next,
+        stack: [...next.stack.slice(0, idx), { ...obj, uncounterable: true }, ...next.stack.slice(idx + 1)],
+      };
+      next = logEvent(next, { kind: "spell-effect", effect: "make-uncounterable", targetId: t.id, cardName: obj.source?.name });
+    }
+    return next;
+  },
   // STIFLE-CLASS (CR 701.6a) — countering an ABILITY removes it from the stack and it simply does not
   // resolve. Unlike a countered SPELL there is no card and therefore no graveyard move: an ability is not
   // an object that exists anywhere else, so removing the stack entry IS the whole effect.

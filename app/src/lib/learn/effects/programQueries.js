@@ -135,6 +135,12 @@ export function atomTargetIntent(atom) {
       // program would have an ambiguous-intent atom → programTriggerTargetsResolvable false → the trigger
       // silently routes to the Arbiter (a forbidden no-op fabrication path) instead of firing natively.
       return "enemy";
+    case "make-uncounterable":
+      // GRANT UNCOUNTERABILITY (Vexing Shusher) -- you protect YOUR OWN spell with this. It can legally
+      // target any spell on the stack, but no chooser would ever spend it shielding an opponent's, so the
+      // trigger-flush / AI side is "own". Legality (enumeration) stays wider than intent (choice) on
+      // purpose: narrowing enumeration to own-side would be a false negative on a legal target.
+      return "own";
     case "cant-block":
       // CANT-BLOCK — "target creature can't block this turn" disables an OPPONENT's blocker so your
       // attacker connects (offensive). The trigger-flush chooser picks an opponent's creature; you'd never

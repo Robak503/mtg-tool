@@ -192,6 +192,10 @@ function atomTargetSpec(atom) {
     // Only the copy-creature-spell atom sets these; every counter atom leaves them undefined (byte-identical).
     ...(atom.spellController != null && { spellController: atom.spellController }),
     ...(atom.copyNotCounter && { copyNotCounter: true }),
+    // GRANT UNCOUNTERABILITY (Vexing Shusher) -- the same not-a-counter carve as copyNotCounter above,
+    // for the same reason: a grant targets a spell without trying to counter it, so an already-
+    // uncounterable spell is still a legal (if pointless) target. Only the grant atom sets it.
+    ...(atom.grantNotCounter && { grantNotCounter: true }),
   };
   // Graveyard recursion: a graveyard-card target carries the cardFilter (creature/any) so
   // enumerateTargets surfaces only the matching graveyard cards. anyGraveyard (Reanimate / Hymn of

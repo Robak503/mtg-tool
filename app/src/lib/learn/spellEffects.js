@@ -517,8 +517,15 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       // it, so the uncounterability exclusions (an on-card "can't be countered", or a Root-Sliver board static)
       // do NOT restrict a copy's legal targets. effect.copyNotCounter (set only by the copy-creature-spell atom's
       // target spec) skips those two gates. The counter path (copyNotCounter falsy) keeps them exactly as before.
-      if (!effect.copyNotCounter) {
+      // NOT-A-COUNTER: a copy (Double Major) and an uncounterability GRANT (Vexing Shusher) both target a
+      // spell without trying to counter it, so the uncounterability exclusions must not narrow THEIR legal
+      // targets. Every counter atom leaves both flags undefined -> the counter path is byte-identical.
+      if (!effect.copyNotCounter && !effect.grantNotCounter) {
         if (/can't be countered/i.test(String(obj.source?.oracle || obj.source?.oracle_text || ""))) continue;
+        // GRANTED uncounterability (Vexing Shusher's "{R/G}: Target spell can't be countered") -- the one
+        // path that cannot be re-derived from the board, so it rides the stack object as a mark set at
+        // resolution. This is the gap the comment at the top of this block named for as long as it existed.
+        if (obj.uncounterable) continue;
         // CANT-BE-COUNTERED (Root Sliver): a board static "<Subtype> spells can't be countered" protects any
         // stack spell whose type line carries that subtype (word-bounded, like the cost-reduction match — every
         // card's type line starts with its type, and a subtype follows the em-dash). Off-type spells unaffected.
