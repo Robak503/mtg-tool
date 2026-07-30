@@ -11,7 +11,8 @@
 > per slice. **Only the TAG batches.** A tag makes an update banner appear in every running `.exe`, and one
 > banner per +21 is noise.
 >
-> - **BATCH IN FLIGHT: 0 cards — v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
+> - **BATCH IN FLIGHT: 11 cards since v0.149.19** (planeswalker subtypes + `another <filter>` +11).
+> - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
 >   one-sided opponent sweep +4, mass-removal filter delegation +19, mass-bounce delegation +3,
 >   condition disjunction + singular graveyard reader +8). Start the next batch's count here.
@@ -112,6 +113,54 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## 🏦 BANKED (batch 2, unreleased) 2026-07-30 — **PLANESWALKER SUBTYPES + `another <filter>`. GAINED 11, LOST 0.**
+
+Adherent of Hope · Ajani's Comrade · Companion of the Trials · Desiccated Naga · Historian of Zhalfir ·
+Jace's Triumph · Karplusan Hound · Nessian Hornbeetle · Sacred White Deer · Turret Ogre · Vraska's Conquistador.
+
+**⭐ `you control a Teferi planeswalker` (CR 205.3j) IS A CONJUNCTION** — structurally identical to the snow
+filter, so `allWords` is set and the quantifier is `.every()`. A union would make "a Teferi planeswalker" true
+for ANY planeswalker, and the Superfriends payoffs would fire off the wrong walker.
+
+**⭐ THE NAME LIST WAS DERIVED FROM THE BUNDLE BY SCRIPT.** 93 words, every one taken from a real
+`Planeswalker — X` type line in the shipped snapshot. Card characteristics never come from recall here, and an
+invented name would be a filter that matches nothing and reads FALSE forever while the shape gate says
+"readable". Because the filter is a conjunction with "Planeswalker", an unusual entry can only fail to match.
+
+**⛔ `another <filter>` WIDENED THE FILTER ONLY — the referent rule was left alone ON PURPOSE.**
+`activationCondition.test.js` pins that an activated ability may not answer "another": *"a trigger can supply
+the triggering permanent; an activated ability cannot. If this ever returns true, the activation probe is
+claiming a context it does not have."* A source-relative reading is arguable — the activation lane genuinely
+has `sourcePermanentId` — but that is a **JUDGEMENT pin about referent semantics, not a capability marker**,
+and a vocabulary slice is not the place to overturn it. The mutation that relaxes it is one of the three below,
+so the decision is now enforced rather than merely intended.
+
+**⚠️⭐ I BROKE THE PROJECT'S FIRST RULE IN MY OWN TEST, and the suite caught it.** The carrier block was
+written from RECALL — wrong creature types, wrong P/T, wrong abilities on both cards — and Vraska's
+Conquistador failed even though the corpus flip-diff had just shown it flipping. **Card text comes from the
+bundle, never from memory**, and the failure mode is exactly why: a plausible paraphrase tests nothing about
+the real card, and had it happened to pass it would have been a green test asserting fiction. Replaced with
+the bundled strings and a comment saying so.
+
+**⚠️ AND THE FOURTH SHELL-QUOTING INCIDENT OF THE RUN** — a `\n` inside a JS string literal became a real
+newline when the patch went through a heredoc, breaking the file into a syntax error. Same banked rule
+(**write patch content with the Write/Edit tools, never through shell quoting**), same failure to follow it.
+Fixed with Edit, no shell in the path.
+
+**Gates:** 9 new tests; **all three mutations seen to fail** — the conjunction collapsed to a union, the
+derived name list opened, and the "another" referent relaxed to the source. Reverts confirmed by `git diff`.
+Flip-diff **GAINED 11 / LOST 0**. Suite **997 files / 12,703 green**, lint 0 unpiped, MUTANT clean.
+
+**STILL PARKED in this bucket, needing `parseFilter` widenings this slice did not make:** a TYPE CONJUNCTION
+(`another artifact creature` — "Artifact AND Creature"; `parseFilter`'s union arm only reads " or ") and
+NEGATION (`another non-Human creature`, `another nonland permanent`). Note the shared *target* grammar
+(`parseCreatureTargetRestrictions`) has both — `typeNeg` and negated `subtype` — so this is the same
+two-grammars-drifting axis one more time, and the next obvious slice in this file.
+
+**BATCH 2: 11 cards** since v0.149.19.
 
 ---
 

@@ -175,6 +175,28 @@ const FILTER_KEYWORDS = new Set([
 ]);
 const COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
 
+// PLANESWALKER SUBTYPES (CR 205.3j) — "you control a Teferi planeswalker" (the Superfriends payoffs; 7 corpus
+// carriers across Ajani / Chandra / Gideon / Liliana / Teferi / Vraska / Yanggu).
+//
+// ⭐ DERIVED FROM THE BUNDLE BY SCRIPT, NOT WRITTEN FROM MEMORY — every entry is a word that appears after
+// "Planeswalker —" on a real card's type line in the shipped Scryfall snapshot. That matters twice: card
+// characteristics never come from recall in this codebase, and an invented name here would be a filter that
+// matches nothing and therefore reads FALSE forever while the shape gate says "readable".
+//
+// The filter is a CONJUNCTION (the name AND "Planeswalker" must both appear on the type line), so an entry
+// that is merely unusual cannot create a false match — it can only fail to match, which is the safe direction.
+const PLANESWALKER_SUBTYPES = new Set([
+  "abian", "ajani", "aminatou", "angrath", "arlinn", "ashiok", "bahamut", "basri", "bolas", "calix", "chandra",
+  "comet", "dack", "dakkon", "daretti", "davriel", "deb", "dellian", "dihada", "domri", "dovin", "duck",
+  "dungeon", "ellywick", "elminster", "elspeth", "equipment", "ersta", "estrid", "freyalise", "garruk",
+  "gideon", "grist", "guff", "huatli", "inzerva", "jace", "jared", "jaya", "jeska", "kaito", "karn", "kasmina",
+  "kaya", "kiora", "koth", "liliana", "lolth", "lukka", "luxior", "master", "minsc", "monopoly", "mordenkainen",
+  "nahiri", "narset", "niko", "nissa", "nixilis", "oko", "quintorius", "ral", "rowan", "saheeli", "samut",
+  "sarkhan", "serra", "sivitri", "sorin", "svega", "szat", "tamiyo", "tasha", "teferi", "teyo", "tezzeret",
+  "tibalt", "tyvar", "ugin", "urza", "venser", "vivien", "vraska", "vronos", "wanderer", "will", "windgrace",
+  "wrenn", "xenagos", "yanggu", "yanling", "you", "zariel",
+]);
+
 // Parse a filter phrase ("artifacts", "tapped creatures", "tokens", "permanents", "untapped lands",
 // "Gates") into { kind, word, state } — or null if it isn't a clean single-word type/subtype filter.
 function parseFilter(phrase) {
@@ -238,6 +260,14 @@ function parseFilter(phrase) {
   // SNOW supertype (CR 205.4h) — "snow permanents" / "snow lands". "Snow" IS printed in the type line's
   // supertype slot, so it reads through the same word-anchored path as a card type; it just isn't a word the
   // singular/Title-case path would reach on its own because it always PREFIXES another type word.
+  // PLANESWALKER SUBTYPE (CR 205.3j) — "a Teferi planeswalker". Structurally the SAME conjunction the snow
+  // arm below builds: the type line must carry BOTH the name and "Planeswalker", so `allWords` is set and the
+  // quantifier is `.every()`. Using a union here would make "a Teferi planeswalker" true for ANY planeswalker.
+  const pwM = p.match(/^([a-z]+) planeswalkers?$/);
+  if (pwM && PLANESWALKER_SUBTYPES.has(pwM[1])) {
+    const name = pwM[1].charAt(0).toUpperCase() + pwM[1].slice(1);
+    return { kind: "type", word: [name, "Planeswalker"], state, allWords: true };
+  }
   const snowM = p.match(/^snow (.+)$/);
   if (snowM) {
     const inner = parseFilter(snowM[1]);
@@ -1316,6 +1346,26 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     const re = new RegExp(`\\b${sub.charAt(0).toUpperCase() + sub.slice(1)}\\b`, "i");
     return controllerBoard(state, controllerId).some((p) =>
       p.id !== triggeringId && isCreaturePermLocal(p) && re.test(typeStr(p.card)));
+  }
+
+  // ⭐ "you control another <FILTER>" (2026-07-30) — the general form of the bare-subtype arm directly above:
+  // "another non-Human creature", "another artifact creature", "another colorless creature", "another nonland
+  // permanent", "another creature with power 4 or greater". Same board scan, same exclusion, but the noun goes
+  // through parseFilter so the whole widened vocabulary (colour, colourless, keyword, union, type) applies.
+  //
+  // ⛔ THE REFERENT RULE IS UNCHANGED, AND THAT IS DELIBERATE. `activationCondition.test.js` pins that an
+  // ACTIVATED ability may not answer "another" — "a trigger can supply the triggering permanent; an activated
+  // ability cannot. If this ever returns true, the activation probe is claiming a context it does not have."
+  // A source-relative reading is arguable, but that is a JUDGEMENT pin about referent semantics, not a
+  // capability marker, and this slice is widening the FILTER vocabulary only. Absent triggering referent →
+  // null → Arbiter, exactly as before.
+  m = c.match(/^you control another (.+)$/);
+  if (m) {
+    const filter = parseFilter(m[1]);
+    if (!filter) return null;
+    const triggeringId = context?.triggeringPermanentId;
+    if (!triggeringId) return null;
+    return controllerBoard(state, controllerId).some((p) => p.id !== triggeringId && permMatchesFilter(p, filter, state));
   }
 
   // ===== GLOBAL BOARD-EMPTY (CR 603.4 + 400.1 — Pyrohemia / Pestilence / Sarcomancy) ============

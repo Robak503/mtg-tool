@@ -8,6 +8,12 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Planeswalker-specific payoffs work.** Ajani's Comrade, Vraska's Conquistador, Jace's Triumph and
+  eight more correctly check whether you control a planeswalker of the RIGHT name — an Ajani card no
+  longer counts a Teferi.
+
+
 ## [0.149.19] — 2026-07-30
 
 **92 more cards play natively.** This release batches eight engine slices rather than shipping one per
