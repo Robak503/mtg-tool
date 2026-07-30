@@ -557,6 +557,13 @@ function applyCastSpell(state, action) {
     // mana was already folded into action.cost and paid by the mana plan above — this only records that it
     // was paid. Omitted (undefined) on a normal cast, so the base body enters with no extra counters.
     if (action.kicked) params.kicked = true;
+    // CAST-FROM-ZONE (CR 601.2 / 400.7): record WHICH zone this spell was cast from so an
+    // "if you cast it from your hand" ETB rider can read it (resolvers.enterPermanent stamps it onto the
+    // permanent beside wasCast). Same `action.fromZone || "hand"` default the cast-trigger thread above
+    // uses — safe HERE for the same reason: this branch only runs for an actual CAST, and a cast always
+    // has a source zone. A permanent that arrives any other way never reaches this line at all, so it
+    // stays unstamped and the rider reads false.
+    params.castFromZone = action.fromZone || "hand";
     payload = { resolver: RESOLVER_KEYS.PERMANENT_ETB, params };
   } else {
     payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: castCard.name, reason: "instant-or-sorcery (no recognized effect)" } };

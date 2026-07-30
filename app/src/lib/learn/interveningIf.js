@@ -919,6 +919,23 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     if (!entering) return null;      // already gone → can't confirm (FN-safe)
     return entering.wasCast === true;
   }
+  // CAST-FROM-HAND (CR 601.2 / 400.7) — "if you cast it from your hand" (Furnace Dragon, Reiver Demon,
+  // Angel of the Dire Hour, Wakening Sun's Avatar, Coal Stoker). The same per-permanent fact as the bare
+  // "you cast it" arm above, narrowed by the ZONE the spell was cast from (resolvers.enterPermanent stamps
+  // castFromZone from the cast resolvers only).
+  //
+  // ⛔ The zone is what these riders are FOR — every carrier is a heavy sweep whose printed cost is that
+  // you had to hard-cast it. An unstamped permanent (reanimated / blinked / put in by an effect) reads
+  // false, never true, so the sweep does not fire for free. Same fail-safe direction as wasCast, and it
+  // matters more here: these are board wipes.
+  if (/^you cast (?:it|this creature|this permanent) from your hand$/.test(c)) {
+    const triggeringId = context?.triggeringPermanentId;
+    if (!triggeringId) return null;
+    const board = controllerBoard(state, controllerId);
+    const entering = board.find((p) => p.id === triggeringId);
+    if (!entering) return null;
+    return entering.wasCast === true && entering.castFromZone === "hand";
+  }
 
   // X-VALUE THRESHOLD (CR 608.2h) — "x is N or more": read the paid {X} threaded into THIS trigger's
   // context (ctx.xValue, stamped by checkEnterTriggers from enteredPerm.xValue). A definite number for the

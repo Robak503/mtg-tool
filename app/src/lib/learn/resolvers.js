@@ -221,6 +221,15 @@ export function enterPermanent(state, card, controller, opts = {}) {
     // unset, so the condition reads false and the trigger correctly does not fire. Mirrors `wasKicked`
     // exactly: a per-permanent fact about the cast, durable on the object, JSON-serializable.
     ...(opts.wasCast ? { wasCast: true } : {}),
+    // CAST-FROM-ZONE (CR 601.2 / 400.7) — WHICH zone this permanent's spell was cast from, for the
+    // "if you cast it from your hand" ETB rider (Furnace Dragon, Reiver Demon, Angel of the Dire Hour,
+    // Wakening Sun's Avatar, Coal Stoker). A per-PERMANENT fact about HOW the object arrived, so it lives
+    // beside wasCast for exactly the same reason.
+    // ⛔ STAMPED ONLY BY THE CAST RESOLVERS. A permanent put onto the battlefield any other way —
+    // reanimated, blinked, cheated in with Show and Tell — never gets it, so the rider reads false and the
+    // trigger correctly does not fire. Defaulting an absent value to "hand" would hand every reanimation
+    // effect the payoff the printed rider exists to deny.
+    ...(opts.castFromZone ? { castFromZone: opts.castFromZone } : {}),
   };
   // A planeswalker enters with its starting loyalty as loyalty counters (CR 306.5b). Stored under
   // the generic counters map (`counters.loyalty`) so the 0-loyalty SBA + loyalty costs read it the
@@ -692,7 +701,7 @@ function resolveManual(state, obj) {
 export const RESOLVERS = Object.freeze({
 
   [RESOLVER_KEYS.PERMANENT_ETB]: (state, obj) => {
-    const { card, controller, xValue, kicked } = obj.payload?.params || {};
+    const { card, controller, xValue, kicked, castFromZone } = obj.payload?.params || {};
     if (!card || !controller) return resolveManual(state, obj);
     // Clone (CR 707.9): the permanent enters AS A COPY of a creature chosen as it enters. Suspend
     // on a resolution-time choice (the player picks which creature; Expert/AI auto-pick) — the
@@ -724,7 +733,7 @@ export const RESOLVERS = Object.freeze({
       const lethal = destroyLethalCreatures(entered);
       return checkDiesTriggers(lethal.state, lethal.dead);
     }
-    return enterPermanent(state, card, controller, { xValue, kicked, wasCast: true });
+    return enterPermanent(state, card, controller, { xValue, kicked, wasCast: true, castFromZone });
   },
 
   // Aura spell resolving (CR 303.4f): the Aura enters the battlefield attached to the
