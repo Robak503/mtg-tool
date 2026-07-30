@@ -131,7 +131,53 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 ## ⛔ STARTED, THEN REVERTED 2026-07-30 — **RAGAVAN: the parse was the easy 80%, and the last 20% is CAST-PATH plumbing**
+## 🎯 ## ⛔ FOUNDATIONAL GAP FOUND 2026-07-30 — **CROSS-SEAT ZONE TRANSFER DOES NOT EXIST. Ragavan and 22 others sit behind it.**
+
+Followed my own banked build order (cast-path plumbing FIRST) and found the wall is one level deeper than
+the revert note said. **Stopping the Ragavan line here** — this is an engine capability, not a shelf slice.
+
+### THE DISTINCTION THAT MATTERS
+| operation | supported? | example |
+|---|---|---|
+| writing to **another seat's own** zones | ✅ yes | milling an opponent — `moveCardToZone({playerId: opp, library → graveyard})` |
+| **transferring** a card from seat A's zone to seat B's | ⛔ **no** | casting a card out of an OPPONENT's exile |
+
+`moveCardToZone(state, { playerId, fromZone, toZone, cardId })` takes **one** `playerId` — source and
+destination are always the same seat. There is no cross-seat transfer primitive anywhere in the engine, and
+`actionsPlayImpulseFromExile` / the dispatcher's splice are both hardcoded to the acting player's own zone.
+
+So Ragavan's two halves are wildly different in cost:
+- **exile the top card of THAT PLAYER's library** → easy, already expressible (a same-seat write on their zones)
+- **"until end of turn, you may CAST that card"** → needs a cross-seat transfer, plus an owner threaded
+  through the cast path, the zone splice, and the action layer
+
+⭐ *"Write to another player's zone" and "move a card between players' zones" look like the same capability
+and are not. The first is everywhere in this engine; the second is nowhere.*
+
+### THE REACH — measured, and it is why this is worth doing properly later
+**23 corpus carriers, ALL non-native**, print a foreign-library impulse: Brainstealer Dragon · Vaan, Street
+Thief · Daxos of Meletis · Stolen Strategy · Court of Locthwain · Circu, Dimir Lobotomist · Grenzo ·
+Ramirez DePietro · Rashmi and Ragavan · Mindleecher · Predators' Hour · Rogue Class … plus Ragavan.
+
+Like the LEAD-form composition, **the primitive alone flips 0** — each carrier still needs its own parse
+work. But unlike a parse arm, this one is load-bearing: `moveCardToZone` is the most-used function in the
+engine, and widening it deserves its own slice with its own gates, not a corner of a shelf push.
+
+### ⚠️ CONSEQUENCE FOR THE SHELF — `cdh`'s last two cards are NOT cheap
+With Ragavan parked, the remaining `cdh` candidates are:
+- **Biomancer's Familiar** — one blocker, an adapt-REPLACEMENT (*"the next time target creature adapts this
+  turn, it adapts as though it had no +1/+1 counters"*). Check whether adapt itself is modelled first.
+- **Springheart Nantuko** (bestow + landfall + optional pay + copy-token + fallback) · **Chain of Vapor**
+  (bounce + opponent-sacrifices-a-land + SPELL COPYING) · 6 composites.
+- ⛔ refused: Valley Floodcaller · Veil of Summer · Vibrance.
+
+**So `cdh` 88% → 90% is two real mechanism builds, not two slices.** Colton's other four decks are already
+over the bar; this one deck is the whole remaining 1.0 gap on his shelf, and it should be planned as such
+rather than picked at.
+
+---
+
+## ⛔ STARTED, THEN REVERTED 2026-07-30 — **RAGAVAN: the parse was the easy 80%, and the last 20% is CAST-PATH plumbing**
 
 Built four of the six pieces, hit the real blocker, and **reverted rather than ship a hollow native.**
 Recorded in full so the next attempt starts from the wall, not from the parser.
