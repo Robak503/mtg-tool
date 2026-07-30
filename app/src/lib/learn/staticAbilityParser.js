@@ -729,13 +729,16 @@ const _INERT_ENTER_COUNTER_KINDS = new Set([
 // CR 122.1b legal keyword-counter kinds ∩ runtime-enforced (see keywords.js GRANTABLE_STATIC_KEYWORDS +
 // permanentHasKeyword). Two-word kinds ("first strike", "double strike") are reachable only via the CHOICE
 // parser below (the single-word named regex can't match them) but are listed here so both seams share ONE set.
-const _ENFORCED_KEYWORD_COUNTER_KINDS = new Set([
+// EXPORTED 2026-07-30 so the counter-PLACEMENT parser (effects/atoms/counters.js) gates on the SAME set
+// the grant reads. A duplicated list would drift, and the failure mode is silent: a counter placed for a
+// keyword nobody enforces looks correct on the board and does nothing.
+export const ENFORCED_KEYWORD_COUNTER_KINDS = new Set([
   "flying", "first strike", "double strike", "deathtouch", "haste", "hexproof", "indestructible",
   "lifelink", "menace", "reach", "shadow", "trample", "vigilance",
 ]);
 export function isHonestEnterCounterKind(kind) {
   const k = String(kind || "").toLowerCase();
-  return _INERT_ENTER_COUNTER_KINDS.has(k) || k === "shield" || k === "stun" || _ENFORCED_KEYWORD_COUNTER_KINDS.has(k);
+  return _INERT_ENTER_COUNTER_KINDS.has(k) || k === "shield" || k === "stun" || ENFORCED_KEYWORD_COUNTER_KINDS.has(k);
 }
 
 /**
@@ -780,7 +783,7 @@ export function entersWithConditionalCounters(card) {
  *   "~ enters with your choice of a <kw> counter or a <kw> counter on it."          (pick 1 of 2 — Boot Nipper)
  *   "~ enters with your choice of two different counters on it from among <a>, <b>, and <c>."  (pick 2 of 3 — Grimdancer)
  * Returns { pick, options } | null — options in PRINTED order. EVERY option must be an ENFORCED keyword-counter
- * kind (_ENFORCED_KEYWORD_COUNTER_KINDS — the CR 122.1b legal list ∩ what permanentHasKeyword's counter read
+ * kind (ENFORCED_KEYWORD_COUNTER_KINDS — the CR 122.1b legal list ∩ what permanentHasKeyword's counter read
  * actually honors); ONE unenforced option means the auto-pick could owe a keyword the runtime ignores, so the
  * WHOLE clause fails closed → null → park (CREED). A "+1/+1" option (Denry Klin's three-way comma form) or a
  * quoted-grant wrapper (Champions of Tyr) fails the anchors → null. WHOLE-SENTENCE ANCHORED. Leaf (no engine
@@ -794,12 +797,12 @@ export function entersWithChoiceCounters(card) {
     let m = s.match(/^[^.]*?\benters with your choice of an? ([a-z][a-z ]*?) counter or an? ([a-z][a-z ]*?) counter on it\.?$/i);
     if (m) {
       const options = [m[1].toLowerCase(), m[2].toLowerCase()];
-      return options.every((k) => _ENFORCED_KEYWORD_COUNTER_KINDS.has(k)) ? { pick: 1, options } : null;
+      return options.every((k) => ENFORCED_KEYWORD_COUNTER_KINDS.has(k)) ? { pick: 1, options } : null;
     }
     m = s.match(/^[^.]*?\benters with your choice of two different counters on it from among ([a-z][a-z ]*?), ([a-z][a-z ]*?), and ([a-z][a-z ]*?)\.?$/i);
     if (m) {
       const options = [m[1].toLowerCase(), m[2].toLowerCase(), m[3].toLowerCase()];
-      return options.every((k) => _ENFORCED_KEYWORD_COUNTER_KINDS.has(k)) ? { pick: 2, options } : null;
+      return options.every((k) => ENFORCED_KEYWORD_COUNTER_KINDS.has(k)) ? { pick: 2, options } : null;
     }
   }
   return null;

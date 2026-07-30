@@ -376,6 +376,27 @@ export function sacrificeEdictClauseParser(clause) {
   // "a creature with flying", "a creature or land") fails the exact anchor → low → Arbiter (a wrong-victim
   // sac is a forbidden FP, CREED). Placed before the target-player edicts (disjoint anchors regardless).
   if (/^sacrifice a creature$/.test(t)) return { op: "sacrifice", who: "controller", what: "creature" };
+  // ⭐ THE CONTROLLER'S VICTIM VOCABULARY (2026-07-30) — measured early in the run and carried until now.
+  // The line directly above was the ENTIRE controller-subject arm: one string. Its four sibling SUBJECTS
+  // (target player / each player / each opponent / the upkeep player, all below) each carry EDICT_NOUN +
+  // permanent + TYPED, and every one of them resolves through the SAME advanceSacrificeChain — which threads
+  // `atom.what` onto the queue head regardless of `who` and narrows the pool via sacrificePoolMatch. So the
+  // RUNTIME has supported all eleven pools for any subject since it was written; only this parse arm was
+  // narrow. Textbook axis: capability on four arms of a function, absent on the fifth.
+  //
+  // ⛔ SCOPED TO THE POOLS THE RUNTIME ACTUALLY NARROWS ON, nothing else. A count ("two creatures"), a
+  // characteristic filter ("a creature with flying"), or a conjoined victim fails the anchor → low → Arbiter,
+  // exactly as the comment above demands — a wrong-victim sacrifice is a forbidden FP.
+  //
+  // "a land" is deliberately absent: sacLand.js already owns the controller's land sacrifice (including the
+  // counted forms), and duplicating it here would give one printed phrase two parsers.
+  const csac = t.match(/^sacrifice an? (permanent|artifact|enchantment|nontoken creature|creature token|planeswalker|artifact or enchantment)$/);
+  if (csac) {
+    const POOL = { permanent: "permanent", artifact: "artifact", enchantment: "enchantment",
+      "nontoken creature": "nontokenCreature", "creature token": "creatureToken", planeswalker: "planeswalker",
+      "artifact or enchantment": "artifactOrEnchantment" };
+    return { op: "sacrifice", who: "controller", what: POOL[csac[1]] };
+  }
   // The victim NOUN. "creature" is the legacy bare form and stays byte-identical; the three filtered nouns
   // are the token-split / planeswalker pools above. Ordered LONGEST-FIRST so "creature token" can never be
   // shaved to "creature" with a dangling " token" (JS would backtrack into the right branch anyway — the

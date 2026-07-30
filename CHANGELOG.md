@@ -9,6 +9,12 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"Sacrifice a permanent" and its siblings now work.** Drinker of Sorrow, Perilous Research and
+  Lorehold Command sacrifice the right kind of thing — previously only "sacrifice a creature" was
+  understood when the card asked YOU to sacrifice.
+- **Keyword counters can be placed.** Recycla-bird's flying counter works. A counter for a keyword the
+  engine cannot actually grant is refused rather than placed, so a card never looks played while doing
+  nothing.
 - **Conditions that exclude a type now work.** Wildwood Tracker, Fathom Fleet Captain, Reclusive Wight
   and Iron Man read "another non-Human creature", "a nonland permanent" and "an artifact creature"
   correctly — and "nonblue" correctly includes colorless permanents.

@@ -82,7 +82,11 @@ describe("EC-1c parser — the bare controller edict is HIGH; everything wider s
     low("Sacrifice two creatures.");                       // a count
     low("Sacrifice a creature with flying.");              // filtered victim
     low("Sacrifice a creature or land.");                  // a type union
-    low("Sacrifice a nontoken creature.");                 // nontoken qualifier (token-status not honored)
+    // ⭐ "Sacrifice a nontoken creature." GRADUATED 2026-07-30, and this list's own annotation for it was the
+    // criterion: "token-status not honored". It IS honored — `sacrificePoolMatch`'s `nontokenCreature` arm
+    // (`isCreatureCard(card) && !card.token`) has been implemented the whole time; it was simply unreachable
+    // from the CONTROLLER subject, whose parse arm was a single string while its four sibling subjects carried
+    // the full noun vocabulary. Positive pin: controllerSacAndCounterPlacement.test.js.
     low("Sacrifice a creature an opponent controls.");     // controller filter (not even a legal sac — CR 701.21a)
     low("Sacrifice a Goblin.");                            // subtype pool — NOT a modeled pool
   });

@@ -11,8 +11,8 @@
 > per slice. **Only the TAG batches.** A tag makes an update banner appear in every running `.exe`, and one
 > banner per +21 is noise.
 >
-> - **BATCH IN FLIGHT: 15 cards since v0.149.19** (planeswalker subtypes + `another <filter>` +11,
->   negated + conjoined filters +4).
+> - **BATCH IN FLIGHT: 20 cards since v0.149.19** (planeswalker subtypes + `another <filter>` +11,
+>   negated + conjoined filters +4, controller sac nouns + counter placement +5).
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
 >   one-sided opponent sweep +4, mass-removal filter delegation +19, mass-bounce delegation +3,
@@ -114,6 +114,50 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## 🏦 BANKED (batch 2, unreleased) 2026-07-30 — **CONTROLLER SAC NOUNS + COUNTER PLACEMENT. GAINED 5, LOST 0.**
+
+Drinker of Sorrow · Lorehold Command · Perilous Research · Recycla-bird · Selfcraft Mechan.
+
+**Two small axes measured EARLY in the run and carried unbuilt until now.** Leaving measured work on the shelf
+is its own kind of debt — the census cost was already paid, and the build was two parse arms.
+
+**⭐ 1 · THE CONTROLLER'S SACRIFICE VICTIM.** `sacrificeEdictClauseParser`'s controller arm was ONE string,
+`/^sacrifice a creature$/`, while its four sibling SUBJECTS (target player / each player / each opponent / the
+upkeep player) each carried EDICT_NOUN + permanent + TYPED. All five resolve through the same
+`advanceSacrificeChain`, which threads `atom.what` onto the queue head **regardless of `who`** and narrows via
+`sacrificePoolMatch` — so the runtime has supported all eleven pools for any subject since it was written.
+Capability on four arms of a function, absent on the fifth.
+⛔ Scoped to the pools the runtime actually narrows on; a count / characteristic filter / conjoined victim
+still parks. And "a land" is deliberately absent — `sacLand.js` already owns it, and two parsers for one
+printed phrase is how they drift.
+
+**⭐ 2 · COUNTER PLACEMENT.** `shieldCounterClauseParser` was exact string equality, so
+"…on target creature **you control**" refused a card whose effect is identical to one it already accepted. And
+there was no arm to PLACE a keyword counter at all, though `permanentHasKeyword` has read them off the counter
+pile since the enters-with static shipped.
+
+**⛔⭐ THE GATE THAT MATTERS, and it produced a refusal as well as a gain.** The keyword arm is bounded by
+`ENFORCED_KEYWORD_COUNTER_KINDS` — **exported from the module that does the granting rather than copied**, so
+the two cannot drift. A counter placed for a keyword nobody enforces would sit on the board looking correct
+and do NOTHING: a silent wrong-behaviour FP, worse than parking. That is exactly why **Emissary of Soulfire
+("an exalted counter") is REFUSED** — exalted is not in the enforced set. Recycla-bird's flying counter is,
+so it flips.
+
+**One pin moved, and its own annotation was the criterion:** `controllerSacrificeUpkeep`'s ANTI-FP list held
+`"Sacrifice a nontoken creature."` annotated *"token-status not honored"*. It **is** honored —
+`sacrificePoolMatch`'s `nontokenCreature` arm (`isCreatureCard(card) && !card.token`) has been implemented the
+whole time and was merely unreachable from the controller subject. Graduated; the other five probes (count,
+filtered, type union, controller filter, subtype pool) all still park and are untouched.
+
+**Gates:** 17 new tests; **all three mutations seen to fail** — opening the enforced-keyword gate (1),
+collapsing every sacrifice pool to "creature" (**7**), dropping the controller restriction from the shield
+form (1). Reverts confirmed by `git diff`. Flip-diff **GAINED 5 / LOST 0**. Suite **999 files / 12,730 green**,
+lint 0 unpiped, MUTANT clean, module graph loads (a new edge `atoms/counters → staticAbilityParser`, verified).
+
+**BATCH 2: 20 cards** since v0.149.19.
 
 ---
 

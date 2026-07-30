@@ -3,6 +3,7 @@
  */
 
 import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters, updatePermanentSafe, drawCards, creaturePower, gainLife } from "../../gameState.js";
+import { ENFORCED_KEYWORD_COUNTER_KINDS } from "../../staticAbilityParser.js"; // gate the keyword-counter PLACEMENT on the same set the grant reads (no duplicated list to drift)
 import { addContinuousEffect, permanentIsCreature } from "../../layers.js"; // COUNTER-THEN-GRANT rider (Snakeskin Veil) — layer-6 keyword grant, same seam combat.js pumps use
 import { checkDiesTriggers, checkCounterPlacedTriggers, checkEvolvesTriggers, checkBecomesMonstrousTriggers } from "../../triggers.js";
 import { applyCreateNamedToken, applyCreateToken } from "./tokens.js"; // TREASURE-IF-SELF rider (The Ghoul) — the shared named-token resolver; applyCreateToken — ENDURE mode B (N/N white Spirit token when the source has left)
@@ -893,6 +894,27 @@ export function shieldCounterClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").trim();
   if (t === "put a shield counter on a creature you control") return { op: "shield-counter", scope: "oneYouControl" };
   if (t === "put a shield counter on target creature") return { op: "shield-counter", targetType: "creature" };
+  // ⭐ THE CONTROLLER-SCOPED TARGET (2026-07-30) — "put a shield counter on target creature YOU CONTROL"
+  // (Brokers Veteran). The two lines above are exact string equality, so a single extra qualifier refused the
+  // card even though the effect is identical: one shield counter on one chosen creature. The restriction is a
+  // TARGETING one — enforced where targets are chosen, not here — so the atom is the same shape as its
+  // sibling plus the controller restriction the shared grammar already models.
+  if (t === "put a shield counter on target creature you control") {
+    return { op: "shield-counter", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
+  }
+  // ⭐ KEYWORD-COUNTER PLACEMENT (CR 122.1 / 702) — "put a flying counter on target creature you control"
+  // (Recycla-bird). There was no placement arm for a keyword counter at all, though `permanentHasKeyword`
+  // has read them off the counter pile since the enters-with static shipped.
+  //
+  // ⛔ GATED ON THE SET THE GRANT ACTUALLY ENFORCES, imported rather than copied. A counter placed for a
+  // keyword nobody enforces would sit on the board looking correct and do NOTHING — a silent wrong-behaviour
+  // FP, worse than parking. This is why Emissary of Soulfire ("exalted counter") is REFUSED: exalted is not in
+  // the enforced set, so the engine would place a counter that grants nothing.
+  const kw = t.match(/^put a ([a-z ]+?) counter on target creature(?: you control)?$/);
+  if (kw && ENFORCED_KEYWORD_COUNTER_KINDS.has(kw[1])) {
+    const restrictions = / you control$/.test(t) ? [{ kind: "controller", who: "you" }] : [];
+    return { op: "add-counter", counterType: kw[1], amount: 1, targetType: "creature", ...(restrictions.length ? { restrictions } : {}) };
+  }
   return null;
 }
 
