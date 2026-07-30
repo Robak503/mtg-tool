@@ -25,6 +25,7 @@ import {
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, colorsOf } from "./layers.js";
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
+import { applyLifeGainReplacement } from "./replacementEffects.js"; // LIFE-GAIN replacement (CR 614.1) — read by checkLifegainTriggers so a trigger sees the life ACTUALLY gained. replacementEffects imports nothing at all, so this edge is one-way and cycle-free.
 import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
 import { CR_CREATURE_TYPES } from "./effects/targeting.js"; // BC-1: closed creature-subtype vocabulary for the NEGATED-SUBTYPE batch filter (read ONLY inside parseBatchSubjectFilter — a function — so the triggers→targeting→spellEffects→triggers cycle stays init-safe: CR_CREATURE_TYPES is never referenced at module-init time)
 
@@ -5951,7 +5952,17 @@ export function checkBatchCombatDamageTriggers(state, playerEvents) {
  * No-op on a non-positive amount or unknown player. Pure — appends to pendingTriggers (flushed at the next
  * priority point, like the combat-damage triggers). The amount rides the context for any amount-aware effect.
  */
-export function checkLifegainTriggers(state, gainingPlayerId, amount = 0) {
+export function checkLifegainTriggers(state, gainingPlayerId, offeredAmount = 0) {
+  // ⚠️ CALLER CONTRACT: every call site passes the amount the EFFECT OFFERED, not the amount gained.
+  // Those were the same number until the life-gain replacement landed (CR 614.1 — Rhox Faithmender doubles,
+  // Angel of Vitality adds), and nine call sites would each have had to learn the difference. Converting
+  // HERE fixes all nine at once and cannot drift: a site that forgets is still correct.
+  //
+  // Reading the replacement off the POST-gain state is exact, not an approximation — gainLife moves no
+  // permanents, so the replacement sources on the battlefield are identical before and after the gain it
+  // just applied. CR 119.3: a "whenever you gain life" trigger sees the life actually gained, so a
+  // "for each 1 life you gained" rider must count 8 under a Faithmender, not the 4 the spell said.
+  const amount = applyLifeGainReplacement(state, gainingPlayerId, offeredAmount);
   if (!gainingPlayerId || !(amount > 0) || !state.players?.[gainingPlayerId]) return state;
   let fired = [];
   for (const perm of triggerSourcesOf(state, gainingPlayerId)) {

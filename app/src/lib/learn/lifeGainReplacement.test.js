@@ -16,6 +16,10 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { classifyCard } from "./coverage.js";
 import { createGameState, createPermanent, gainLife, _resetIdsForTests } from "./gameState.js";
 import { doublerProfile, applyLifeGainReplacement } from "./replacementEffects.js";
+import { checkLifegainTriggers } from "./triggers.js";
+
+// A plain "whenever you gain life" watcher, used to prove the TRIGGER sees the replaced amount.
+const WATCHER = { name: "Watcher", type: "Enchantment", mana: "{2}{W}", oracle: "Whenever you gain life, draw a card." };
 
 beforeEach(() => _resetIdsForTests());
 
@@ -103,5 +107,24 @@ describe("ENFORCEMENT — gainLife actually applies it", () => {
     // "You've gained life this turn" thresholds must see what the player actually gained.
     const after = gainLife(stateWith([DOUBLER]), { playerId: "user", amount: 4 });
     expect(after.players.user.lifeGainedThisTurn).toBe(8);
+  });
+
+  it("a 'whenever you gain life' trigger sees the REPLACED amount (CR 119.3)", () => {
+    // The bug this catches: nine call sites pass the amount the EFFECT OFFERED. Those were the same
+    // number until the replacement existed, so adding it silently made every lifegain trigger
+    // under-report — a "for each 1 life you gained" rider would count 4 under a Faithmender, not 8.
+    // checkLifegainTriggers converts centrally, so a call site that passes the offered amount is right.
+    const s = stateWith([DOUBLER, WATCHER]);
+    const fired = checkLifegainTriggers(s, "user", 4).pendingTriggers || [];
+    expect(fired.length).toBeGreaterThan(0);
+    const amounts = fired.map((t) => t.context?.lifegainAmount);
+    expect(amounts).toContain(8);
+    expect(amounts).not.toContain(4);
+  });
+
+  it("VACUITY CONTROL: with no replacement out, that same trigger sees the plain amount", () => {
+    const fired = checkLifegainTriggers(stateWith([WATCHER]), "user", 4).pendingTriggers || [];
+    expect(fired.length).toBeGreaterThan(0);
+    expect(fired.map((t) => t.context?.lifegainAmount)).toContain(4);
   });
 });
