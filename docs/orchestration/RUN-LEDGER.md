@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 53 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 56 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -131,7 +131,56 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 ## ✅ BANKED 2026-07-30 — **SPECTACLE CREDITED ON THE PERMANENT SIDE. GAINED 4.**
+## 🎯 ## ✅ BANKED 2026-07-30 — **THE PARITY SWEEP: 16 keywords handled on ONE side only. GAINED 3 so far.**
+
+Jwar Isle Avenger · Goblin Freerunner (surge) · Zephyrim (miracle).
+
+### ⭐ THE INSTRUMENT IS THE POINT — a SET comparison, not a card hunt
+Spectacle was found card-by-card. That was the wrong altitude. Testing **every cost-carrying entry of
+`CAST_KEYWORD_LINE`** (the SPELL-side vacuous-line strip) against **`isKeywordOnly`** (the PERMANENT-side
+credit) found **SIXTEEN** keywords handled on one side and absent from the other:
+
+> flashback · splice onto arcane · recover · harmonize · prowl · surge · miracle · overload · buyback ·
+> entwine · conspire · jump-start · retrace · escape · suspend · awaken
+
+⭐ *Two lists that should agree, in two modules, with no test comparing them. The same shape as the
+writer-count sweep: enumerate BOTH sides of a contract and diff them, instead of waiting for a card to
+expose each gap one at a time.* Most of those sixteen have no permanent carriers at all (splice / harmonize
+/ overload / entwine / conspire / jump-start / retrace are instant-sorcery keywords) — the sweep says so
+immediately, which is the other half of its value.
+
+### WHAT SHIPPED — the simple `KEYWORD {cost}` shape, CR-checked
+`surge` **702.117a** · `prowl` **702.76a** (both *"You may pay [cost] rather than pay this spell's mana
+cost…"*) · `miracle` **702.94a** · `flashback` (on the graveyard-re-cast basis `CAST_KEYWORD_LINE` already
+states). Card castable at its printed cost, resulting permanent identical → the unoffered alt entry is a
+missing OPTION, never a mis-resolution.
+
+✅ **THE ANCHOR IS THE SAFETY PROPERTY, and a real card proves it.** `Catalyst Stone` prints
+*"Flashback costs you pay cost {2} less."* — a keyword-REFERENCING static. It has more words, cannot match
+`^flashback {cost}$`, and the card correctly stays parked. *A card that CARES about a keyword must never be
+credited for merely mentioning it* — pinned in the gates.
+
+### ⚠️ PREDICTED 6, PAID 3 — said so rather than rounding up
+The flashback and prowl carriers (Catalyst Stone, Thieves' Fortune) have OTHER blockers and are not
+claimed. Thieves' Fortune is a Kindred **Instant** — it never touches the permanent-side credit at all.
+
+### ⛔ STILL REFUSED — escape · suspend · awaken (10 permanents)
+Compound dash-joined costs (`Escape—{2}{B}, Exile two other cards…`, `Suspend 3—{1}{U}`). `isKeywordOnly`
+splits on commas AND dashes before testing, so no whole-line pattern can reach them; they need the LINE
+removed before the split. escape 6 · suspend 3 · awaken 1.
+
+### ⚠️ A FIXTURE TRAP WORTH REMEMBERING
+`cards.find(name)` is NOT safe for fixtures: **"Zephyrim" has a TOKEN row** (*"Flying, vigilance"*, no
+miracle line) ahead of the real card. Pulling by name alone grabbed the token and would have tested
+nothing while looking green. Match on name AND type line.
+
+**Gates:** 6 tests. Suite **1026 files / 13,025 green**, lint 0, MUTANT clean. Commit `c63f6a68`.
+
+**Batch 4: 56 cards.**
+
+---
+
+## ✅ BANKED 2026-07-30 — **SPECTACLE CREDITED ON THE PERMANENT SIDE. GAINED 4.**
 
 Blade Juggler · Hackrobat · Spawn of Mayhem · Spikewheel Acrobat.
 
