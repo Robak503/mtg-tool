@@ -138,6 +138,18 @@ function permMatchesFilter(perm, filter, state) {
     const colors = permanentColors(state, perm.id);
     if (!Array.isArray(colors) || !colors.includes(filter.color)) return false;
   }
+  if (filter.colorNeg) {
+    // CR 105.2 — "nonblue" means NOT blue, which a colourless permanent satisfies. Fail-closed on an
+    // unresolvable read: if the colours cannot be enumerated we must not claim the permanent lacks one.
+    const colors = permanentColors(state, perm.id);
+    if (!Array.isArray(colors) || colors.includes(filter.colorNeg)) return false;
+  }
+  if (filter.notWords) {
+    // A type/supertype/subtype EXCLUSION — the permanent must carry NONE of these words on its front face
+    // (CR 712.4a), mirroring the positive scan directly below.
+    const face = typeStr(perm.card).split(" // ")[0];
+    if (filter.notWords.some((w) => new RegExp(`\\b${w}\\b`, "i").test(face))) return false;
+  }
   if (filter.colorless) {
     // CR 105.2c — colourless is having NO colours at all, so an unresolvable read fails closed the OTHER way
     // from the colour gate: if we cannot enumerate colours we must not claim the permanent is colourless.
@@ -174,6 +186,11 @@ const FILTER_KEYWORDS = new Set([
   "fear", "intimidate", "shadow", "horsemanship", "changeling", "infect", "wither", "banding",
 ]);
 const COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+// Words admissible on the NEGATED side of a filter ("nonland permanent", "nonartifact creature"). Card types
+// plus the two supertypes that are printed in the type line and therefore word-scannable. A curated set on
+// purpose: an unrecognised negated word would exclude NOTHING, i.e. quietly widen the filter to everything —
+// the dangerous direction, and the mirror of the positive case where an unknown word matches nothing.
+const NEGATABLE_TYPE_WORDS = new Set(["artifact", "creature", "enchantment", "land", "planeswalker", "token", "basic", "legendary", "snow"]);
 
 // PLANESWALKER SUBTYPES (CR 205.3j) — "you control a Teferi planeswalker" (the Superfriends payoffs; 7 corpus
 // carriers across Ajani / Chandra / Gideon / Liliana / Teferi / Vraska / Yanggu).
@@ -210,6 +227,38 @@ function parseFilter(phrase) {
   // read LAYER-AWARE at evaluation (permMatchesFilter → creaturePower). Combinable with a tapped/untapped state.
   const pm = p.match(/^creatures? with power (\d+) or (?:greater|more)$/);
   if (pm) return { kind: "type", word: "Creature", state, powerAtLeast: parseInt(pm[1], 10) };
+  // ⭐ NEGATION (2026-07-30) — "non-Human creature", "nonland permanent", "nonartifact creature", "nonblue
+  // creature". THE SAME AXIS ONE MORE TIME: the shared TARGET grammar (parseCreatureTargetRestrictions) has
+  // carried `typeNeg`, `colorNeg` and a negated `subtype` for a while, and this CONDITION grammar had none of
+  // them — so the same printed filter was readable when a spell targeted with it and unreadable when a trigger
+  // asked about it.
+  //
+  // Colour negation rides `colorNeg`; a type/subtype negation rides `notWords`, which permMatchesFilter
+  // requires the permanent to carry NONE of. The remaining noun goes through parseFilter normally, so
+  // "non-Human creature" is {Creature} minus {Human} and "nonland permanent" is {all} minus {Land}.
+  //
+  // ⛔ The negated word must be a colour, a card type, or a curated creature subtype — otherwise it would
+  // become a type-line scan that matches nothing, which reads as "everything qualifies" on the NEGATED side
+  // (the dangerous direction here, unlike the positive case where it reads as "nothing qualifies").
+  const negM = p.match(/^non-?([a-z]+) (.+)$/);
+  if (negM) {
+    const word = negM[1];
+    const inner = parseFilter(negM[2]);
+    if (!inner || inner.notWords || inner.colorNeg) return null;
+    if (COLOR_LETTER[word]) return { ...inner, state: inner.state ?? state, colorNeg: COLOR_LETTER[word] };
+    if (NEGATABLE_TYPE_WORDS.has(word) || CONTROL_SUBTYPE_ALLOW.has(word)) {
+      return { ...inner, state: inner.state ?? state, notWords: [word.charAt(0).toUpperCase() + word.slice(1)] };
+    }
+    return null;
+  }
+  // ⭐ TYPE CONJUNCTION — "artifact creature" (CR 205.2b, a permanent with BOTH card types). Distinct from the
+  // " or " union arm below: this one needs EVERY word, so it sets allWords. Both sides must be clean
+  // single-word CARD TYPES — a subtype pairing ("Goblin creature") is the positive-subtype path, not this.
+  const conjM = p.match(/^(artifact|enchantment|land|creature|planeswalker) (artifact|enchantment|land|creature|planeswalker)s?$/);
+  if (conjM && conjM[1] !== conjM[2]) {
+    const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+    return { kind: "type", word: [cap(conjM[1]), cap(conjM[2])], state, allWords: true };
+  }
   // ⭐ THE VOCABULARY WIDENINGS BELOW ARE ONE AXIS FIX, and each one reaches ALL THREE LANES at once —
   // interveningIfParseable (triggers), spellConditionParseable (spells) and activationConditionParseable
   // (activated abilities) are three probes over this ONE grammar, exactly as conditionVocabularyReaders.test.js

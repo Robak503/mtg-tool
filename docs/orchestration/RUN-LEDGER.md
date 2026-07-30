@@ -11,7 +11,8 @@
 > per slice. **Only the TAG batches.** A tag makes an update banner appear in every running `.exe`, and one
 > banner per +21 is noise.
 >
-> - **BATCH IN FLIGHT: 11 cards since v0.149.19** (planeswalker subtypes + `another <filter>` +11).
+> - **BATCH IN FLIGHT: 15 cards since v0.149.19** (planeswalker subtypes + `another <filter>` +11,
+>   negated + conjoined filters +4).
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
 >   one-sided opponent sweep +4, mass-removal filter delegation +19, mass-bounce delegation +3,
@@ -113,6 +114,46 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## 🏦 BANKED (batch 2, unreleased) 2026-07-30 — **NEGATED + CONJOINED FILTERS. GAINED 4, LOST 0.**
+
+Fathom Fleet Captain · Iron Man, Modern Marvel · Reclusive Wight · Wildwood Tracker.
+
+**⭐ THE SAME AXIS ONE MORE TIME — and it is now a pattern, not an incident.** The shared TARGET grammar
+(`parseCreatureTargetRestrictions`) has carried `typeNeg`, `colorNeg` and a negated `subtype` for a while;
+this CONDITION grammar had none of them. The identical printed filter was readable when a spell TARGETED with
+it and unreadable when a trigger ASKED about it. Two grammars, one vocabulary, drifted apart — the fifth
+instance this run, after the mass-damage recipient, mass removal, mass bounce and the subtype negation itself.
+
+**⛔⭐ NEGATION FAILS THE OPPOSITE WAY FROM EVERYTHING ELSE IN THIS FILE, which is why it needed its own
+allowlist.** On the POSITIVE side an unrecognised word becomes a type-line scan that matches nothing — the
+filter reads "no permanent qualifies", a safe false negative. On the NEGATED side an unrecognised word
+excludes nothing — the filter silently widens to **EVERY permanent**. Same typo, opposite blast radius. Hence
+`NEGATABLE_TYPE_WORDS`, and a mutation that opens it fails immediately.
+
+**⭐ "nonblue" INCLUDES COLOURLESS (CR 105.2)** — it means NOT blue, not "is some other colour". Reading it the
+other way would wrongly exclude every artifact.
+
+**TYPE CONJUNCTION** — "artifact creature" needs BOTH words (`allWords`), distinct from the " or " union arm
+directly beside it. Under a union either half alone would satisfy it.
+
+**⚠️ I PARAPHRASED A CARD FROM MEMORY AGAIN — second time in two slices.** The carrier fixture had Wildwood
+Tracker as an *Elf Scout* that triggers on *attacks*; the bundle says **Elf Warrior**, triggering on **attacks
+or blocks**. Corrected from the bundle. Twice in a row is not a slip, it is a habit to watch: when writing a
+fixture for a real card, READ IT FIRST — the flip-diff already names the card, so the text is one query away.
+
+**Gates:** 10 new tests; **all three mutations seen to fail** — opening the negation allowlist (1), collapsing
+the conjunction to a union (1), ignoring `notWords` (2). Reverts confirmed by `git diff`. Flip-diff
+**GAINED 4 / LOST 0**. Suite **998 files / 12,713 green**, lint 0 unpiped, MUTANT clean, module graph loads.
+
+**⚠️ A NEW MUTATION-ANCHOR TRAP, worth the line because it is not the same as the previous three:** the target
+line lives inside a JS **template literal**, where `\\b` is what produces a literal `\b` for the RegExp
+constructor. A single-backslash anchor matched zero times. The rule is now: **anchor against the bytes on
+disk** (`repr()` the line) rather than against how the regex reads.
+
+**BATCH 2: 15 cards** since v0.149.19.
 
 ---
 

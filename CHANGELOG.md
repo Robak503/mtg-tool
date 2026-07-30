@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Conditions that exclude a type now work.** Wildwood Tracker, Fathom Fleet Captain, Reclusive Wight
+  and Iron Man read "another non-Human creature", "a nonland permanent" and "an artifact creature"
+  correctly — and "nonblue" correctly includes colorless permanents.
 - **Planeswalker-specific payoffs work.** Ajani's Comrade, Vraska's Conquistador, Jace's Triumph and
   eight more correctly check whether you control a planeswalker of the RIGHT name — an Ajani card no
   longer counts a Teferi.
