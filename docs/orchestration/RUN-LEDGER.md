@@ -131,7 +131,57 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 ## 🏁 **COLTON'S SHELF IS CLOSED** 2026-07-30 — `cdh` 90/100, **"below the bar: none — every deck is at 90%+"**
+## 🎯 ## 🎯 TARGET MOVED TO **JOE'S SHELF** (Colton, 2026-07-30) — reconnaissance done, two leads sized
+
+> *"yup moving to joes shelf the same way — kinnan and yuriko are both cdh decks so be prepped for slow
+> hard work there"*
+
+Colton's shelf is closed; the standing objective is now **Joe's 9 sub-90 decks** (77%, 842/1098 across 11).
+He is right that two of them are cEDH. The reconnaissance below says the work is single-card, but **not as
+grim as "slow hard work" implies**.
+
+### ⚠️ SHARED BLOCKERS ACROSS THE WHOLE SHELF: essentially NONE
+Scanned every sub-90 deck for a blocker shared by 2+ cards. The maximum is **×2**, twice:
+`Silver-Fur Master` (ninjutsu cost reduction) and `Temporal Mastery` (Miracle). Everything else is
+one-card. **There is no vein left on the shelf** — confirming Colton's read, and worth knowing before
+anyone goes hunting for one.
+
+### ⭐ BUT THE LINE-DROP DIAGNOSTIC SAYS 9 OF 12 ARE **ONE MECHANISM AWAY**
+Run across the Yuriko deck (*"Believe it!"*, 75%, needs 15 — identified by its Doomsday / Thassa's Oracle /
+Demonic Consultation / Tainted Pact shell):
+
+| card | drop one line → | the single blocker |
+|---|---|---|
+| **Sakashima's Student** | `native-clone` | **the Ninjutsu line** — the clone half already works |
+| **Temporal Mastery** | `native-spell` | **the Miracle line** |
+| Moon-Circuit Hacker · Thousand-Faced Shadow · Orcish Bowmasters · Ingenious Prodigy · Satoru · Roaming Throne | `native-*` | one trigger each |
+| Brainstorm · Tainted Pact · Thassa's Oracle | — | single-line cards, nothing to drop |
+
+⭐ *The gap ledger's "ONE-CARD" label describes the SHARING, not the difficulty. Nine of these are a single
+mechanism from flipping, which the label does not say and the line-drop does.*
+
+### THE TWO LEADS, SIZED — pick these up first
+**① MIRACLE — 23 carriers, only 4 native, 19 NON-native.** `miracle` does not appear in `coverage.js` at
+all, so it is pure residue: Temporal Mastery drops it and becomes `native-spell`. ⭐ **There is an
+established precedent for crediting an alt-cast keyword** — `coverage.js:451` credits MADNESS as *"a
+discard-window cast option, vacuous for the hard-cast"*. Miracle is the same shape: the card is fully
+playable at its printed cost, and the miracle option is a MISSING OPTION, not a wrong play. **Verify that
+rationale reads across before crediting it** — if it does, this is the biggest single item left on the
+shelf.
+
+**② NINJUTSU × CLONE composition — 50 carriers, 20 native, 30 NON-native.** Ninjutsu IS credited
+(`coverage.js:480`, bare `ninjutsu {cost}` lines only) — yet Sakashima's Student goes `native-clone` the
+moment the ninjutsu line is removed. So the keyword is credited in one classifier and not composed in
+another. **This is the SAME shape as the bestow+trigger widening banked above** (a tier that demanded a
+keyword-only body). Check which classifier rejects it before assuming a new mechanism is needed.
+
+⚠️ **And the gap ledger's blocker attribution is suspect here as it was on Pact of Negation** — it names
+`Ninjutsu {1}{U}` for Sakashima's Student, which the line-drop confirms, but it named the rider for Pact of
+Negation and was wrong. **Always line-drop before building.**
+
+---
+
+## 🏁 **COLTON'S SHELF IS CLOSED** 2026-07-30 — `cdh` 90/100, **"below the bar: none — every deck is at 90%+"**
 
 Springheart Nantuko landed and the objective this whole run was pointed at is **met**:
 
