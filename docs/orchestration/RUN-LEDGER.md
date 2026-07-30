@@ -95,7 +95,68 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## ⛔ CORRECTION (same night) — **THE "QUOTED-GRANT PROJECT" BELOW IS WRONG. DELIVERY IS ALREADY BUILT.**
+## 🎯 NEXT BUILD, FULLY SCOPED — **ROLE TOKENS (CR 113.x token / 303 Aura). 24 cards, 3 phases.**
+
+The biggest attributed vein found this run, and unusually well-conditioned: **5 of the 7 Role bodies are
+ALREADY native**, so most of the work is one effect (create-a-token-ATTACHED) rather than seven mechanics.
+
+**Attributed BY REMOVAL — 24 cards where the Role line IS the blocker** (0 already native, 18 composite):
+```
+6  Wicked      Witch's Mark · Eriette's Whisper · Not Dead After All · Twisted Sewer-Witch ·
+               Charming Scoundrel · Shatter the Oath
+5  Young Hero  Embereth Veteran · Merry Bards · Cut In · Return Triumphant · Protective Parents
+4  Sorcerer    Living Lectern · Unassuming Sage · Splashy Spellcaster · Spellbook Vendor
+4  Monster     Monstrous Rage · Curse of the Werefox · Giant Inheritance · Become Brutes
+3  Royal       Charmed Clothier · Redtooth Genealogist · Royal Treatment
+2  Cursed      Cursed Courtier · Spiteful Hexmage
+```
+**The gap is the ATTACHED token creation.** Plain token creation is native (`Create a 1/1 white Soldier
+creature token.` → native-spell); `Create a Young Hero Role token attached to …` is `arbiter-spell`.
+
+**⭐ THE ROLE DEFINITIONS ARE IN BUNDLED DATA — read them, never write them from memory** (CLAUDE.md §1.2).
+They are DFC token objects whose type line is `Token Enchantment — Aura Role`; 7 faces, real printed text.
+Tested each face as an Aura card:
+```
+✅ Cursed     native-aura      Enchanted creature has base power and toughness 1/1.
+✅ Monster    native-aura      Enchanted creature gets +1/+1 and has trample.
+✅ Royal      native-aura      Enchanted creature gets +1/+1 and has ward {1}.
+✅ Sorcerer   native-trigger   … gets +1/+1 and has "Whenever this creature attacks, scry 1."
+✅ Virtuous   native-aura      … gets +1/+1 for each enchantment you control.
+⛔ Wicked     body-only        blocker: "When this Aura is put into a graveyard from the battlefield, each opponent loses 1 life."
+⛔ Young Hero body-only        blocker: the quoted "…if its toughness is 3 or less…" trigger
+```
+
+**PHASES (each independently shippable, each with its own flip-diff):**
+1. **Create-a-Role-token-ATTACHED** — mint the token from the bundled definition (look it up; do NOT hardcode
+   the text) and attach it. Unlocks **Sorcerer 4 + Monster 4 + Royal 3 + Cursed 2 = 13 cards** immediately.
+2. **+ the self P/T threshold arm** → Young Hero, **+5**.
+3. **+ an Aura put-into-graveyard trigger** → Wicked, **+6**. Total **24**.
+
+### ⚠️ PHASE 2's CODE IS ALREADY WRITTEN, VERIFIED, AND DELIBERATELY REVERTED
+I built the self P/T threshold arm this session, proved it correct, and reverted it because **its flip-diff was
+GAINED 0** — no corpus card prints that condition directly; only the Young Hero TOKEN carries it. Consistent
+with the subtype-list-pump precedent (a 0-flip change is not a slice and must not enter the next baseline).
+**Re-apply it WITH phase 2, where it becomes load-bearing.** It goes in `interveningIf.js` beside the existing
+self-power arm, and it must stay LAYER-AWARE (`creaturePower` / `creatureToughness`) — that is the point on this
+cycle: a creature that has already collected +1/+1 counters correctly stops qualifying for "toughness 3 or less",
+which is the self-limiting behaviour the printed card is designed around.
+```js
+const ptM = c.match(/^its (power|toughness) is (\d+) or (less|fewer|greater|more)$/);
+// referent = context.sourcePermanentId (CR 608.2c "its" = the object the ability is on — correct for a
+// GRANTED copy too, since the grant binds the ability to the recipient). Missing/vanished → null (FN-safe).
+// value = power ? creaturePower(p, state) : creatureToughness(p, state);  less|fewer → <= , else >=
+```
+Verified while applied: all four phrasings became parseable, the trigger printed direct went native-trigger,
+and the Aura GRANT of the Young Hero body went native-trigger.
+
+**⚠️ AND A PREDICTION I GOT FLATLY WRONG, recorded so it isn't repeated:** I predicted that arm would flip 11
+cards (Iron-Shield Elf, Embereth Veteran, Pitiless Vizier …). **It flipped 0.** Those cards never print the
+condition — they CREATE a Role token, and my census regex matched the Role's text quoted in their reminder.
+Attribution by removal on the CARD, not a regex over its full oracle text, is what caught it.
+
+---
+
+## ⛔ CORRECTION (earlier the same night) — **THE "QUOTED-GRANT PROJECT" BELOW IS WRONG. DELIVERY IS ALREADY BUILT.**
 
 I committed the target below (`f7854846`) on a false premise and disproved it an hour later. Read this first.
 
