@@ -122,6 +122,16 @@ describe("⭐ ENFORCEMENT — a real discard fires the trigger and drains the RI
     expect(s.players.ai1.life).toBe(before.players.ai1.life - 2);
   });
 
+  it("⭐ MEGRIM — the DAMAGE form lands on the discarder, not the controller", () => {
+    // The damage referent is synthesized from ctx.discardingPlayerId, never chosen. Without the synthesis
+    // the atom resolves with NO target and deals 0 — silent, and indistinguishable from "nothing happened"
+    // unless a life total is asserted. So it is.
+    const before = board(MEGRIM, 1);
+    const s = discardVia(before, "Target player discards a card.", TARGET_AI1);
+    expect(s.players.ai1.life).toBe(before.players.ai1.life - 2);
+    expect(s.players.user.life).toBe(before.players.user.life);      // the wrong-seat half
+  });
+
   it("the checker itself fires per card and enqueues nothing when there is no watcher", () => {
     const s = board(CARESS, 1);
     expect((checkDiscardTriggers(s, "ai1", 3).pendingTriggers || []).length).toBe(3);   // one per card
@@ -197,9 +207,10 @@ describe("the corpus rows", () => {
     expect(classifyCard(FELL_SPECTER)).toMatch(/^native/);
   });
 
-  it("⛔ Megrim stays non-native — its payoff is DAMAGE to that player, a referent this slice did not build", () => {
-    // Deliberately out of scope: the damage form needs the same referent on the damage atom. Recorded as a
-    // known next step rather than half-built, so the gap is visible instead of silently assumed covered.
-    expect(classifyCard(MEGRIM)).not.toMatch(/^native/);
+  it("Megrim too — the DAMAGE form of the same referent", () => {
+    // Landed as a follow-up once the diagnosis showed the recipient PHRASE was the only blocker: the
+    // subject and the fixed-damage shape already parsed, so only "the discarding player" needed adding to
+    // the damage recipient vocabulary plus the ctx synthesis.
+    expect(classifyCard(MEGRIM)).toMatch(/^native/);
   });
 });

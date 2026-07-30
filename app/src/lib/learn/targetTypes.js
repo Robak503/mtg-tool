@@ -72,6 +72,12 @@ export const NON_WIPE_MASS_SCOPES = new Set([
   //                               native — the documented drift trap made real.
   "defendingPlayer",            // ATTACKS-DAMAGE — the attacked player (ctx.defenderId), NOT a chosen target
   "damagedPlayer",              // CDMG-DAMAGE — the just-damaged player (ctx.damagedPlayerId), NOT a chosen target
+  "discardingPlayer",           // TRIG-DISCARD (Megrim, CR 701.9a) — the player who just discarded
+  //                               (ctx.discardingPlayerId), NOT a chosen target. Registered here the moment
+  //                               the recipient was added: without it the flush logged
+  //                               `trigger-removed-no-target` and dealt nothing while classifyCard said
+  //                               native-trigger — the SAME drift trap eachOpponentCreature documents four
+  //                               lines up, hit again the first time a new referent targetType was added.
 ]);
 
 export const NON_CHOSEN_TARGET_TYPES = new Set([...MASS_WIPE_SCOPES, ...NON_WIPE_MASS_SCOPES]);

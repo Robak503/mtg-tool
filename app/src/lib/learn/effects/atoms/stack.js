@@ -1396,12 +1396,22 @@ export const stackResolvers = {
             ? (ctx.defenderId && state.players?.[ctx.defenderId] ? [{ type: "player", id: ctx.defenderId }] : [])
             : atom.targetType === "damagedPlayer"
               ? (ctx.damagedPlayerId && state.players?.[ctx.damagedPlayerId] ? [{ type: "player", id: ctx.damagedPlayerId }] : [])
-              : ctx.targets;
+              // DISCARDING-PLAYER (Megrim, CR 701.9a): same synthesis off ctx.discardingPlayerId (set by
+              // checkDiscardTriggers) — absent id (any non-discard event) → no target → 0 dealt (a clean
+              // no-op; the referent gate keeps the atom off those events anyway).
+              : atom.targetType === "discardingPlayer"
+                ? (ctx.discardingPlayerId && state.players?.[ctx.discardingPlayerId] ? [{ type: "player", id: ctx.discardingPlayerId }] : [])
+                : ctx.targets;
     // defendingPlayer/damagedPlayer/thatCreature/you/upkeepPlayer resolve via `targets`, not the special targetType
     // switch in applyDamageEffect — pass a bare targetType so each takes the per-target hitPlayer/hitCreature path.
     const targetType = atom.target === "thatCreature" ? "creature"
       : (atom.target === "you" || atom.target === "upkeepPlayer") ? "player"
-      : (atom.targetType === "defendingPlayer" || atom.targetType === "damagedPlayer") ? "player" : atom.targetType;
+      // ⚠️ discardingPlayer is NOT load-bearing here today — mutation-verified: removing it breaks nothing,
+      // because an unrecognized targetType already falls through applyDamageEffect's switch to the same
+      // per-target path. It stays because that is correctness by ACCIDENT: the moment the switch grows a
+      // case for an unknown type, or its default changes, Megrim would silently deal 0. Declared beside its
+      // siblings, this arm is correct by construction instead.
+      : (atom.targetType === "defendingPlayer" || atom.targetType === "damagedPlayer" || atom.targetType === "discardingPlayer") ? "player" : atom.targetType;
     let next = applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, targets, source: { id: ctx.sourceId }, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie });
     // SELF-HIT (BLITZ OA-1 — Orcish Artillery "and M damage to you"): the printed self-hit lands on the
     // CONTROLLER through the same primitive, after the target damage (one sentence, resolved in print

@@ -87,7 +87,7 @@ export function combatDamageReferentSatisfied(program, event) {
     // DISCARDING-PLAYER (CR 701.9a): the just-discarded player, set ONLY by checkDiscardTriggers. On any
     // other event the referent is unset — and this one fails LOUDLY wrong rather than quietly: the recipient
     // is the controller's OPPONENT, so an unbound "that player loses 2 life" would drain nobody at all.
-    if (a?.who === "discardingPlayer" && event !== "discarded") return false;
+    if ((a?.who === "discardingPlayer" || a?.targetType === "discardingPlayer") && event !== "discarded") return false;
     // DEALER-BRANCH (Marcus, SHELF S7): the branch reads the combat-damage DEALER — cdmg events only.
     if (a?.op === "draw-or-counter-triggering" && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
     // UNTAPPED-CONTROLLER (Mesmeric Orb, SHELF S6): the mill's referent is the just-untapped permanent's

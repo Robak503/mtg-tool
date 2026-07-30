@@ -189,6 +189,14 @@ export function parseSpellEffect(card) {
     if (/target creature or planeswalker\b/.test(tgt)) return { kind: "damage", amount, targetType: "creatureOrPlaneswalker" };
     if (/target player or planeswalker\b/.test(tgt)) return { kind: "damage", amount, targetType: "playerOrPlaneswalker" };
     if (/target planeswalker\b/.test(tgt)) return { kind: "damage", amount, targetType: "planeswalker" };
+    // DISCARDING-PLAYER (CR 701.9a) — "this enchantment deals 2 damage to the discarding player" (Megrim).
+    // "the discarding player" is the SENTINEL detectTriggers rewrites "that player" to on the `discarded`
+    // event, so a spell's anaphoric "that player" never reaches this branch. NOT a chosen target: the
+    // recipient is ctx.discardingPlayerId, synthesized in the deal-damage resolver exactly like the
+    // defendingPlayer / damagedPlayer referents. Placed BEFORE the generic target-player branch — it does
+    // not contain the word "target", so order is not load-bearing here, but keeping the referent forms
+    // together with their siblings is.
+    if (/^the discarding player$/.test(tgt)) return { kind: "damage", amount, targetType: "discardingPlayer" };
     if (/target (player|opponent)/.test(tgt)) return { kind: "damage", amount, targetType: "player" };
     if (/target[^,]*creature/.test(tgt)) return { kind: "damage", amount, targetType: "creature" };
     return null; // unrecognized damage target
