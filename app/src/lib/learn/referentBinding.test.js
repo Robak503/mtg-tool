@@ -194,11 +194,18 @@ describe("object-first referent — 'Untap it.' / 'Untap them.'", () => {
     expect(classifyCard(spell("Put a +1/+1 counter on target creature and untap it."))).toBe("native-spell");
   });
 
-  it("⛔ a MASS antecedent stays refused — there are no chosen targets to bind to", () => {
-    // Eight printed cards read "Creatures you control get +1/+1 until end of turn. Untap them." Binding
-    // there would need the previous atom's AFFECTED SET, not its target list — a different mechanism.
-    // They must stay on the Arbiter rather than silently untapping nothing. Valley Floodcaller is one.
-    expect(classifyCard(spell("Creatures you control get +1/+1 until end of turn. Untap them."))).toBe("arbiter-spell");
+  it("GRADUATED — an UNFILTERED mass antecedent is now handled by rewrite, not by target-binding", () => {
+    // This pin asserted arbiter-spell when the untap arm shipped, because binding to a mass atom needs
+    // its AFFECTED SET rather than its target list. That is now handled by rewriting the referent into
+    // the equivalent mass atom (see the MASS-antecedent describe below), so the refusal has graduated.
+    // Re-pointed the same session it was written; the live negatives are kept in the next test.
+    expect(classifyCard(spell("Creatures you control get +1/+1 until end of turn. Untap them."))).toBe("native-spell");
+  });
+
+  it("⛔ but a FILTERED mass antecedent and a bare referent are still refused", () => {
+    // The filtered case is the actual hazard the original pin was protecting against — rewriting
+    // "Birds you control get +1/+1" would untap every creature, not just the Birds.
+    expect(classifyCard(spell("Birds you control get +1/+1 until end of turn. Untap them."))).toBe("arbiter-spell");
     expect(classifyCard(spell("Draw a card. Untap it."))).toBe("arbiter-spell");
   });
 
@@ -219,6 +226,67 @@ describe("object-first referent — 'Untap it.' / 'Untap them.'", () => {
     const bf = st.players.user.battlefield;
     expect(bf.find((p) => p.id === "alpha").tapped).toBe(false);
     expect(bf.find((p) => p.id === "beta").tapped).toBe(true);   // the discriminating half
+  });
+});
+
+describe("MASS antecedent — the referent rewrites into the equivalent mass atom", () => {
+  it("pump-then-untap becomes the mass untap the engine already has", () => {
+    const atoms = parseEffectClause("Creatures you control get +1/+1 until end of turn. Untap them.", "Instant")?.atoms;
+    expect(atoms).toHaveLength(2);
+    expect(atoms[1]).toEqual({ op: "untap-lands", all: true, scope: "creature", targetType: null });
+    // Nothing new executes — the rewritten atom is byte-identical to the explicit wording's atom.
+    expect(parseEffectClause("Untap all creatures you control.", "Instant").atoms[0]).toEqual(atoms[1]);
+  });
+
+  it("untap-then-grant becomes the group keyword grant", () => {
+    const atoms = parseEffectClause("Untap all creatures you control. They gain flying until end of turn.", "Instant")?.atoms;
+    expect(atoms[1]).toEqual({ op: "grant-keywords-group", scope: "creaturesYouControl", grantKeywords: ["Flying"] });
+  });
+
+  it("⛔ THE FALSE-POSITIVE GUARD: a FILTERED antecedent must NOT rewrite", () => {
+    // "Birds you control get +1/+1" carries the SAME scope:"youControl" plus a subtypeFilter. Rewriting
+    // it into "untap all creatures you control" would untap every creature the card never mentioned.
+    // Guarded by an ALLOWLIST of permitted keys, so a filter field added later disqualifies automatically.
+    expect(classifyCard(spell("Birds you control get +1/+1 until end of turn. Untap them."))).toBe("arbiter-spell");
+    expect(classifyCard(spell("Creatures your opponents control get -1/-1 until end of turn. Untap them."))).toBe("arbiter-spell");
+  });
+
+  it("⛔ still refuses a referent with no antecedent at all", () => {
+    expect(classifyCard(spell("Draw a card. They gain flying until end of turn."))).toBe("arbiter-spell");
+  });
+
+  it("⭐ ENFORCED: the rewritten mass untap untaps every creature you control", () => {
+    const s = twoCreatures();
+    const tapped = { ...s, players: { ...s.players, user: { ...s.players.user,
+      battlefield: s.players.user.battlefield.map((p) => ({ ...p, tapped: true })) } } };
+    const program = parseEffectClause("Creatures you control get +1/+1 until end of turn. Untap them.", "Instant");
+    const out = runEffectProgram(tapped, {
+      source: { name: "C" },
+      payload: { params: { program, controller: "user", targets: [], sourceId: "src", context: {} } },
+    });
+    const bf = (out?.state ?? out).players.user.battlefield;
+    expect(bf.every((p) => p.tapped === false)).toBe(true);
+  });
+
+  it("VACUITY CONTROL: without the referent clause they stay tapped", () => {
+    const s = twoCreatures();
+    const tapped = { ...s, players: { ...s.players, user: { ...s.players.user,
+      battlefield: s.players.user.battlefield.map((p) => ({ ...p, tapped: true })) } } };
+    const program = parseEffectClause("Creatures you control get +1/+1 until end of turn.", "Instant");
+    const out = runEffectProgram(tapped, {
+      source: { name: "C" },
+      payload: { params: { program, controller: "user", targets: [], sourceId: "src", context: {} } },
+    });
+    const bf = (out?.state ?? out).players.user.battlefield;
+    expect(bf.every((p) => p.tapped === true)).toBe(true);
+  });
+
+  it("a MULTI-keyword referent grant survives the clause splitter (keep-whole guard)", () => {
+    // "They gain flying AND double strike until end of turn" shattered into "they gain flying" +
+    // "double strike until end of turn" before the guard existed. A SINGLE-keyword grant never needed
+    // it, which is why the referent arms shipped working for one keyword and silently missed two.
+    expect(classifyCard(spell("Untap all creatures you control. They gain flying and double strike until end of turn."))).toBe("native-spell");
+    expect(classifyCard(spell("Target creature gets +2/+2 until end of turn. It gains flying and trample until end of turn."))).toBe("native-spell");
   });
 });
 

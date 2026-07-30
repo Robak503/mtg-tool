@@ -248,6 +248,15 @@ export function splitClauses(oracle) {
     // subject, so the sentence would shatter on " and " and never reach the anotherPt pump matcher. Keep it whole
     // so the pump + grant bind to the SAME excluded-source own target. POSITIVE deltas only (matches the matcher).
     if (/^another target creature you control gets \+\d+\/\+\d+ and gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // BOUND-REFERENT keyword grant (CR 608.2) — "They gain flying and double strike until end of turn."
+    // (Flying Crane Technique), "They gain hexproof and indestructible …" (Join Shields). Same internal
+    // " and " binding as the two rules above, with a PRONOUN subject the "^target creature" anchor cannot
+    // reach — so without this the sentence shatters into "they gain flying" + "double strike until end of
+    // turn" and neither half parses. A single-keyword referent grant never needed it (no internal " and "),
+    // which is why the arm shipped working for one keyword and silently missed two.
+    // Widening a keep-whole guard is the SAFE direction: keeping a sentence whole can only fail to match,
+    // while SPLITTING is what drops halves on the floor.
+    if (/^(?:it|they|them|that creature|those creatures) gains?\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // SAME-NAME MASS PUMP (BLITZ BB-1, CR 611.2c — Bile Blight / Echoing Decay / Echoing Courage) — "Target
     // creature and all other creatures with the same name as that creature get ±N/±N until end of turn". The
     // internal " and " (between the ONE chosen target and its same-name fanout set) is NOT a top-level effect

@@ -203,6 +203,51 @@ function usesRevealedCardMV(atom) {
  * resolve to nothing — credited for an effect it never applies, which is worse than staying on the
  * Arbiter. An atom at index 0 can have no antecedent at all and so always fails.
  */
+/**
+ * MASS-ANTECEDENT REFERENT (CR 608.2) — "Creatures you control get +1/+1 until end of turn. UNTAP THEM."
+ * (Rallying Roar, War Flare, Rally to Battle) and the mirror "Untap all creatures you control. THEY GAIN
+ * flying …" (Join Shields, Flying Crane Technique).
+ *
+ * A mass atom has no chosen targets, so the ordinary `bindPreviousTargets` binding — which reads the
+ * previous atom's TARGET LIST — finds nothing and the assembly gate rejects it. Rather than invent a
+ * second binding mechanism that resolves an affected set at runtime, this REWRITES the referent into the
+ * equivalent MASS atom the engine already resolves. Nothing new executes; the atom that runs is
+ * byte-identical to the one the explicit wording would have produced.
+ *
+ * ⚠️ THE FILTER IS THE WHOLE DANGER, and it is guarded by an ALLOWLIST rather than a denylist.
+ * "Birds you control get +1/+1" parses to the SAME `scope:"youControl"` with an extra `subtypeFilter`.
+ * Rewriting that into "untap all creatures you control" would untap every creature the card never
+ * mentioned — a confident false positive. So an antecedent qualifies only when its key set is EXACTLY the
+ * unfiltered shape; any additional field (a subtype, colour, or combat-state filter added later)
+ * disqualifies it automatically instead of needing this list to be updated.
+ */
+const UNFILTERED_MASS_PUMP_KEYS = new Set(["op", "scope", "ptDelta", "grantKeywords"]);
+const UNFILTERED_MASS_UNTAP_KEYS = new Set(["op", "all", "scope", "targetType"]);
+
+function massAntecedentKind(prev) {
+  if (!prev) return null;
+  if (prev.op === "pump" && prev.scope === "youControl"
+    && Object.keys(prev).every((k) => UNFILTERED_MASS_PUMP_KEYS.has(k))) return "creaturesYouControl";
+  if (prev.op === "untap-lands" && prev.all === true && prev.scope === "creature"
+    && Object.keys(prev).every((k) => UNFILTERED_MASS_UNTAP_KEYS.has(k))) return "creaturesYouControl";
+  return null;
+}
+
+/** The referent atom rewritten as a mass atom over `prev`'s set, or null if that shape isn't modelled. */
+function rebindToMassAntecedent(atom, prev) {
+  if (!massAntecedentKind(prev)) return null;
+  // "Untap them." after a mass pump → the mass untap the engine already has.
+  if (atom.op === "untap") return { op: "untap-lands", all: true, scope: "creature", targetType: null };
+  // "They gain <kw> until end of turn." after a mass untap → the group keyword grant.
+  // Only the pure keyword form: a P/T delta on a mass referent has no printed carrier in the corpus, so
+  // it stays unmodelled rather than being invented (CREED).
+  if (atom.op === "pump" && atom.grantKeywords?.length
+    && atom.ptDelta?.p === 0 && atom.ptDelta?.t === 0) {
+    return { op: "grant-keywords-group", scope: "creaturesYouControl", grantKeywords: atom.grantKeywords };
+  }
+  return null;
+}
+
 function referentBindingOk(atoms) {
   for (let i = 0; i < atoms.length; i++) {
     if (!atoms[i]?.bindPreviousTargets) continue;
@@ -2040,7 +2085,15 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
     // assembly, for the same reason the exile-if-dies rider above is: the merge gate's contract is
     // "low confidence AND ZERO atoms", and a check that only lowered confidence would leave the atom
     // behind. An unbindable referent is an unparsed clause — the whole spell drops to Arbiter.
-    if (atom.bindPreviousTargets && !atoms[atoms.length - 1]?.targetType) { allParsed = false; break; }
+    if (atom.bindPreviousTargets && !atoms[atoms.length - 1]?.targetType) {
+      // No chosen targets to bind to — but the antecedent may be an UNFILTERED mass atom, in which case
+      // the referent rewrites into the equivalent mass atom (see rebindToMassAntecedent). A filtered or
+      // unrecognised antecedent returns null and the whole spell drops to Arbiter, as before.
+      const rebound = rebindToMassAntecedent(atom, atoms[atoms.length - 1]);
+      if (!rebound) { allParsed = false; break; }
+      atoms.push(rebound);
+      continue;
+    }
     atoms.push(atom);
   }
   // α2 forward guard: an `optional` atom ("you may <effect>") scopes ONLY its own clause. The hazard is an
