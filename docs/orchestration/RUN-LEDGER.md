@@ -95,6 +95,61 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## 🔍 NEW LEAD (2026-07-30, found chasing a phase-4 anomaly) — **SPELL-LINE COMPOSITION. 7 cards.**
+### ⚠️ CAUSE NOT ESTABLISHED. Do not call this a bug until the refusal is checked for a documented reason.
+
+**v0.149.16 published and verified by content** (`version 0.149.16`, real installer URL, 424-char signature,
+full 5-asset chain) — 18 cards live.
+
+**How this surfaced:** phase 4's census listed **Witch's Mark** under "TARGETED (already built)" yet still
+non-native, which should have been impossible. Chasing the anomaly instead of shrugging at it:
+```
+"You may discard a card. If you do, draw two cards."                    -> native-spell  ✅
+"Create a Wicked Role token attached to up to one target creature …"    -> native-spell  ✅
+the WHOLE CARD                                                          -> arbiter-spell ⛔
+```
+Both lines native, card not. So this is a COMPOSITION failure, not a Role gap.
+
+**The matrix, measured** (A = "Draw a card.", B = "Create a Treasure token.",
+C = "You may discard a card. If you do, draw two cards.", D = the targeted Role line):
+```
+A + B      plain + plain              -> native     ✅
+A + D      plain + targeted           -> native     ✅
+C + B      reflexive + plain          -> native     ✅
+C + D      reflexive + targeted       -> ARBITER    ⛔   <-- Witch's Mark's shape
+A + B + C  three lines                -> ARBITER    ⛔
+C then D on ONE line (two sentences)  -> ARBITER    ⛔   (so it is not a line-splitting artifact)
+```
+It is **not a simple clause count** — `C + B` is three clauses and native, `C + D` is three and parks. The
+suspicious pair is a REFLEXIVE optional ("you may … if you do …") composed with a TARGETED clause.
+
+**Corpus reach — spells where EVERY line classifies native but the card does not: 7.**
+Witch's Mark · Inspired Tinkering · Incinerating Blast · Blazing Crescendo · Mjölnir's Might ·
+Orcish Cannonade · Verdant Rebirth.
+
+**⛔ WHY THIS IS A LEAD AND NOT A FINDING.** "Every line native ⇒ the card should be native" is NOT a law in
+this engine — the whole-card rule deliberately parks combinations it cannot sequence faithfully (ordering,
+target dependencies between clauses). Some or all of these 7 may be correct refusals. **Before building:
+find whether a reflexive+targeted composition is deliberately declined and why** (grep the reflexive/optional
+machinery and parser.js for a documented guard). Only then decide. Treat the 7 as an upper bound.
+
+### Phase 4 scope, measured (for whenever it is taken)
+Counting ONLY cards whose Role is registered and whose Role line is the sole blocker:
+```
+5  "attached to it"   (self/ETB referent)  Cursed Courtier · Monstrous Rage · Become Brutes ·
+                                            Return Triumphant · Not Dead After All
+4  reflexive wrapper  ("you may pay {1}. When you do, …" / "When you do, that creature fights …")
+                                            Spellbook Vendor · Curse of the Werefox · Merry Bards · Witch's Mark
+1  "that creature"                          Royal Treatment
+2  other                                    Giant Inheritance (granted attack trigger) · Twisted Sewer-Witch
+1  ⛔ unregistered Role — no gain possible   Questing Cosplayer (Questing has no bundled definition)
+```
+**Biggest single form is `attached to it` (5).** "it" binds to the entering/targeted creature, so it needs a
+referent thread — `ctx.triggeringPermanentId` for the ETB cases, the chosen target for the spell cases.
+⚠️ Witch's Mark appears in BOTH lists: it is the reflexive-composition case above, not a phrasing gap.
+
+---
+
 ## ✅ SHIPPED — **ROLE TOKENS PHASE 3: WICKED + the Aura-PiG generalisation. GAINED 8, LOST 0.**
 ### Role project total: **18 cards** (7 + 3 + 8). All SEVEN data-defined Roles now registered.
 
