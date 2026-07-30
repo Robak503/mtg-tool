@@ -30,6 +30,7 @@
 
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
+import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — the metric gates on the SAME vetting the runtime charges on
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
@@ -2648,7 +2649,18 @@ export function classifyCard(card) {
   //   all (Wasteland Raider, Ruthless Radrat, Securitron Squadron …). Testing the raw oracle would park
   //   those for a cost they don't have. Latent rather than live today — all 16 are body-only for other
   //   reasons — but it is the same loaded gun as the "your NEXT untap step" credit, so it is closed here.
-  if (/\bas an additional cost to cast this spell,/i.test(String(oracle || "").replace(/\([^)]*\)/g, " "))) return "body-only";
+  //
+  // ⭐ THE PIN GRADUATED (2026-07-30) — its premise above is now FALSE for a VETTED cost. legalChoices
+  // derives a permanent's additional cost beside its (null) program and offers one cast per legal way to
+  // pay, and actionDispatcher charges it; Demon of Catastrophes' sacrifice victim really does leave the
+  // battlefield now. So the park NARROWS to exactly what is still unenforced: a cost the parser does not
+  // vet. That gate is `extractAdditionalCosts` — the SAME call the runtime gates on, so the metric cannot
+  // claim a cost the runtime does not charge. Vetted → the cost is handled, so judge the REST of the card.
+  if (/\bas an additional cost to cast this spell,/i.test(String(oracle || "").replace(/\([^)]*\)/g, " "))) {
+    const { costs: acCosts, rest: acRest } = extractAdditionalCosts(String(oracle || ""));
+    if (!acCosts) return "body-only";                    // unvetted → still cast for free → park (unchanged)
+    return classifyCard({ ...card, oracle: acRest });     // acRest has the AC sentence removed — no recursion
+  }
   if (isKeywordOnly(stripModeledNoMaxHandSize(stripModeledSelfNoUntap(etOracle, card?.name)), card?.name)) return "native-body";
   // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana trigger text is modeled
   // too (else it falls through to the all-or-nothing trigger/activated/mixed gates → body-only/Arbiter).

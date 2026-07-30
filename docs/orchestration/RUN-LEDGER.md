@@ -34,7 +34,7 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **BATCH IN FLIGHT: 27 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 38 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -468,6 +468,73 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## 🚨 BANKED 2026-07-30 — **AC-PERMANENT: 16 spells were being CAST FOR FREE. This is a BUG FIX, not a feature.**
+## ⚠️ AND 235 MORE STILL ARE — measured, listed, NOT fixed. Read the scope line before claiming this vein.
+
+GAINED 11 / LOST 0. But the tier is the *smaller* half of this slice: the runtime was letting a player cast
+Demon of Catastrophes **without sacrificing anything**.
+
+### ⛔⛔ THE FIND — and it came from following a park-pin's own premise, not from a census
+Phase B sizing (below) turned up 12 `body-only` creatures that stayed body-only even with their cost fully
+vetted. That is a strange shape, so I drove it: **cast Demon of Catastrophes on a board with one Rat — the
+Rat was still there afterwards.** Root cause: the cast-path additional-cost block reads
+`program.additionalCosts`, and **a permanent has no effect program at all** (parseEffectClause finds no atom
+in "Flying, trample", so parseEffectProgram returns null and the cost sentence goes with it). Cheaper than
+printed, the forbidden direction, live in the shipped runtime.
+⭐ *The park pin at coverage.js:2633 — which I wrote — had diagnosed this EXACTLY ("castable for its bare
+mana cost — strictly cheaper than printed") and then parked the CARDS. Parking the metric was right; I never
+went back for the runtime. A pin that names a live bug is a bug report, not a resolution.*
+
+### ⛔ THE TRAP THAT WOULD HAVE EATEN THE CARD
+The obvious fix — attach the costs to a synthesised program — **destroys the creature.** The dispatcher's
+resolution chain tests `else if (program)` BEFORE `else if (isPermanentSpell(castCard))`: a cost-carrying
+program routes a creature to EFFECT_PROGRAM, so the cost gets paid and NOTHING enters the battlefield.
+✅ So the costs travel **beside** the program, never inside it: `permanentAdditionalCosts(card)` in
+legalChoices, the same re-derivation in the dispatcher, and `program` stays null so the routing is untouched.
+A test asserts the Demon really reaches the battlefield — that assertion IS the pin on this trap.
+
+### ⭐ RUNTIME FIRST, TIER SECOND — in that order, and the metric gates on the runtime's own vetting
+Runtime landed first (sacrifice victim leaves the battlefield; Mauler's exile really empties the graveyard;
+**no legal way to pay → the spell is NOT OFFERED**). Only then did the coverage pin narrow — and it narrows to
+`extractAdditionalCosts`, **the same call the runtime charges on**, so the metric structurally cannot claim a
+cost the runtime skips.
+
+**Mutation-checked: three PRE-SPECIFIED mutations, all seen to fail** — M1 dispatcher never charges (the free
+cast; 2 tests) · M2 no empty-combo fallback (`expandCastChoices` returns [] on a null program → every one of
+these cards DEAD IN HAND; 5 tests) · M3 metric credits unvetted costs too (1 test).
+
+### ⚠️⚠️ SCOPE, STATED BEFORE ANYONE CAN MISREAD THE GREEN NUMBER
+**251 corpus cards carry an additional cost the runtime never charged. This slice fixes 16 — the ones whose
+cost the parser VETS. The other 235 are still cast for free** (Torgaar's "sacrifice any number of creatures",
+"behold an X", "reveal an Elf card"). They are parked and a test pins them parked, so no future widening can
+quietly claim them. The remedy — suppress the offer, since a cost we cannot model is a cost we cannot pay —
+is a large behavioural change (235 cards become dead in hand) and deserves its own slice, its own shelf-impact
+measurement, and its own gates. **NEXT SLICE, top of the queue.**
+
+### ⚠️ AND MY PHASE-B NUMBER WAS WRONG TWICE IN ONE HOUR — both times the HARNESS, not the card
+Banked last slice: "payMana would convert most of the 17 one-sided ORs." Honest answer: **5.**
+Worse, the first re-measurement returned a confident **0** — because `allCards()` yields RAW Scryfall rows
+(`oracle_text`) and `classifyCard` reads `.oracle`, so every corpus card looked blank.
+⭐⭐ **AND MY POSITIVE CONTROL PASSED ANYWAY** — because I built it from a hand-written `{oracle: "..."}`
+fixture. **A synthetic control proves the CLASSIFIER can say yes; it proves nothing about the rows being fed
+to it.** THE CONTROL MUST RIDE THE SAME PATH AS THE DATA — it is now a real corpus row (Bitter Triumph).
+*This is the strongest lesson of the session: the positive-control law I have been leaning on had a hole in
+it, and the hole passed green.*
+⭐ The land-colour trap bit a **third** time (all-Swamp board → "Makeshift Mauler: not offered"). The test
+fixture now derives the basic from the card's own pips.
+
+**Gates:** flip-diff **GAINED 11 / LOST 0**, no other tier moved. 9 tests, 5 runtime. Suite **1044 files /
+13,217 green**, lint 0, MUTANT clean. **Batch: 38 cards.**
+*(The ad-hoc flip census walks all 35,575 corpus names — a WIDER denominator than the canonical 34,245, so
+the delta is comparable but the absolute is not. Don't blend them into a percentage.)*
+
+### ✅ ONE TEST WAS DEFENDING THE OLD PREMISE, and inverting it was the honest move
+`exileGraveyardAddCost.test.js` asserted Makeshift Mauler stays `body-only`, commented "the permanent cast
+path never consults additionalCosts" — true when written, false now. Inverted WITH the reason recorded in
+place, and the unvetted half (Soulbright Seeker) left exactly as it was.
 
 ---
 

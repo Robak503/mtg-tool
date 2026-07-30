@@ -81,6 +81,31 @@ import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): cho
 import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
 import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activate only if <cond>" — the offer gate reads the SAME vocabulary as the trigger + spell lanes
+import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — see permanentAdditionalCosts below
+import { isPermanentSpell } from "./resolvers.js";
+
+/**
+ * AC-PERMANENT (CR 601.2f) — the additional cost of a spell that resolves as a PERMANENT.
+ *
+ * ⛔ THIS EXISTS BECAUSE THOSE COSTS WERE NEVER CHARGED. The cast-path additional-cost block below reads
+ * `program.additionalCosts`, and a permanent has no EFFECT program at all: parseEffectClause has no atom for
+ * "Flying, trample", so parseEffectProgram returns null and the cost sentence goes with it. Demon of
+ * Catastrophes ("sacrifice a creature") was offered, cast, and the sacrifice victim was still on the
+ * battlefield afterwards — a spell cast CHEAPER THAN PRINTED, the forbidden direction, live in the runtime.
+ *
+ * ⛔ THE PROGRAM MUST STAY NULL. The dispatcher's resolution chain tests `else if (program)` BEFORE
+ * `else if (isPermanentSpell(castCard))`, so synthesising a cost-carrying program for a creature would route
+ * it to EFFECT_PROGRAM — cost paid, nothing enters the battlefield, the card is eaten. So the costs travel
+ * beside the program, never inside it, and the routing is untouched.
+ *
+ * Vetted costs only (extractAdditionalCosts returns null otherwise). An UNVETTED permanent cost is still a
+ * free cast today — 67 of them; that is a separate slice with its own decision to make (suppress the offer
+ * vs route it), and this helper deliberately does NOT paper over it.
+ */
+function permanentAdditionalCosts(card) {
+  if (!isPermanentSpell(card)) return null;
+  return extractAdditionalCosts(String(card?.oracle ?? card?.oracle_text ?? "")).costs || null;
+}
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
@@ -1015,9 +1040,14 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // is paid exactly as printed and the unmodeled EFFECT still routes to the Arbiter, which is where a LOW
     // program was always going. Suppressing instead would have traded a wedge for a dead card in hand —
     // the failure mode the dead-card hunt exists to find.
-    const addCost0 = (program?.additionalCosts || [])[0] || null;
+    // AC-PERMANENT: a permanent spell carries its vetted cost BESIDE the (null) program — see the helper.
+    const permAddCosts = program ? null : permanentAdditionalCosts(card);
+    const addCost0 = (program?.additionalCosts || permAddCosts || [])[0] || null;
     if (addCost0) {
-      const combos = expandCastChoices(state, playerId, program, colorsOf(card));
+      // A permanent has no effect atoms to enumerate, so it has exactly ONE (empty) target combo. Asking
+      // expandCastChoices for it would return [] (it early-returns on a null program) and the `continue`
+      // below would make every one of these cards uncastable — a dead card in hand instead of a paid cast.
+      const combos = program ? expandCastChoices(state, playerId, program, colorsOf(card)) : [{ targets: [] }];
       if (combos.length === 0) continue;                  // a required effect target has no legal pick
       // AC-OR (CR 601.2f) — an OR cost expands into one WAY-TO-PAY per option, which is exactly what this
       // block already does for each victim/hand-card within a single cost kind. So the choice needs no new

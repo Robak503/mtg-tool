@@ -77,16 +77,22 @@ describe("RUNTIME — the cost is genuinely charged, and gates castability", () 
   });
 });
 
-describe("CREED — a PERMANENT's additional cost is NOT enforced, so it must not be credited", () => {
+describe("CREED — a PERMANENT's additional cost is credited only once it is CHARGED", () => {
   it("Soulbright Seeker stays parked (behold an Elemental or pay {2})", () => {
+    // UNVETTED cost: the parser cannot model "behold an Elemental", so the runtime still cannot charge it
+    // and this card is STILL cast for free. 235 corpus cards are in this class. Parked, not fixed.
     expect(classifyCard({ name: "Soulbright Seeker", type: "Creature — Elemental Sorcerer", mana: "{R}", power: 1, toughness: 1,
       oracle: "As an additional cost to cast this spell, behold an Elemental or pay {2}.\n{R}: Target creature you control gains trample until end of turn." })).toBe("body-only");
   });
-  it("…and so does a permanent whose cost the lane CAN parse — parsing it is not charging it", () => {
-    // The point: even a cost shape the spell path models must not credit a PERMANENT, because the permanent
-    // cast path never consults additionalCosts. Cheaper-than-printed is the forbidden direction.
+  it("⭐ a permanent whose cost the lane CAN parse now flips — because the runtime CHARGES it (2026-07-30)", () => {
+    // ⚠️ THIS ASSERTION WAS INVERTED, AND THE INVERSION IS THE POINT. It used to read body-only with the
+    // comment "the permanent cast path never consults additionalCosts" — true when written, false now:
+    // legalChoices derives a permanent's vetted cost beside its (null) program and offers one cast per legal
+    // way to pay, and actionDispatcher charges it. The park was a boundary marker on a real gap, and the gap
+    // is closed; see additionalCostPermanent.test.js, which drives the sacrifice/exile end-to-end. The tier
+    // is credited HERE only because the charge is proven THERE — never the other way round.
     expect(classifyCard({ name: "Makeshift Mauler", type: "Creature — Zombie Horror", mana: "{3}{U}", power: 3, toughness: 3,
-      oracle: COST })).toBe("body-only");
+      oracle: COST })).toBe("native-body");
   });
 });
 

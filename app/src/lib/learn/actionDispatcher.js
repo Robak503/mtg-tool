@@ -75,6 +75,7 @@ import { applyKiraTargetCounter } from "./kiraTargetCounter.js";
 import { entersWithFadeCounters } from "./fading.js";
 import { applyXCastTokenTriggers } from "./xCastToken.js";
 import { applyElseLandFromHand } from "./effects/atoms/freeCast.js"; // KELLAN else-arm: decline the free cast → the optional land put (CR 601.2b "If you don't, …")
+import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — a permanent's cost lives beside its (null) program
 
 export class DispatcherError extends Error {
   constructor(message, code) {
@@ -313,7 +314,13 @@ function applyCastSpell(state, action) {
   // sacrifice when they chose to discard. A non-choice cost is unaffected (no stamp → the program's own
   // list, byte-identical). ⛔ The stamp is only ever trusted when the program really carries a choice cost,
   // so a forged/stale action field cannot swap in a cheaper cost than the card prints.
-  const programCosts = program?.additionalCosts || [];
+  // AC-PERMANENT (CR 601.2f) — a permanent spell has NO effect program (a creature body yields no atom), so
+  // `program` is null here and this list was empty: the cost was silently skipped and the spell cast for free.
+  // The vetted cost is re-derived from the card, exactly as legalChoices derived it when it offered the cast,
+  // so the offer and the charge read the same source. Non-permanents are untouched (their program is truthy
+  // even at LOW confidence, so this fallback never fires for them).
+  const programCosts = program?.additionalCosts
+    || (isPermanentSpell(castCard) ? (extractAdditionalCosts(String(castCard?.oracle ?? "")).costs || []) : []);
   const isChoiceCost = programCosts[0]?.kind === "choice";
   const chosenSpec = isChoiceCost && action.addCostSpec
     && programCosts[0].options.some((o) => o.kind === action.addCostSpec.kind

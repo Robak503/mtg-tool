@@ -11,6 +11,9 @@ summarizes the notable changes.
 ### Added
 - **Tamiyo's Safekeeping works.** Targeting one of your own artifacts, enchantments or lands really does
   give it hexproof and indestructible for the turn — it now survives a Disenchant or a wrath.
+- **Creatures with "as an additional cost, sacrifice a creature" no longer cast for free.** Demon of
+  Catastrophes, Makeshift Mauler, Stitched Drake and 12 more were being cast without paying their
+  additional cost at all. They now charge it, and are not offered when you have no way to pay.
 - **"Sacrifice an artifact **or** discard a card" spells work.** Demand Answers, Bitter Triumph and Bone
   Shards now offer you each way to pay and charge exactly the one you pick — and stay uncastable when you
   can afford neither.
