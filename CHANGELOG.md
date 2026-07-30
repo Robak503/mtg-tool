@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Colour-changing spells now work.** Cerulean Wisps, Singe, Fylamarid and Metathran Transport — the
+  creature really does turn that colour for the turn, which matters for the "can't be blocked by blue"
+  abilities those cards are built around.
 - **Protection-granting creatures now work.** Obsidian Acolyte, Crimson Acolyte and Keeper of Kookus — the
   creature you point them at really does gain protection from that colour for the turn.
 

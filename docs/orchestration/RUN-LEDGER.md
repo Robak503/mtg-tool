@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 3 cards since v0.149.21** (protection-from-a-colour grant +3) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 7 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,48 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 4) 2026-07-30 — **COLOUR CHANGE AS A TARGETED GRANT. GAINED 4, LOST 0.**
+
+Cerulean Wisps · Singe · Fylamarid · Metathran Transport.
+
+### ⭐ THE SWEEP THAT FOUND IT — now a standing technique, third hit in two batches
+**Enumerate every layer op; count its WRITERS.** Poison and protection were found by asking the question
+card-by-card; this time it was mechanical:
+
+| layer op | writers |
+|---|---|
+| **`addColor`** | **0** ← looked like the prize |
+| `addWard` · `ptModifyDynamic` · `removeKeyword` · `setColor` · `setCreatureSubtypes` … | 1 each |
+| `addKeyword` | 4 |
+
+**`setColor` had exactly ONE writer — inside `applyAnimateEffect`**, where an animate carries a colour along
+with its P/T and types. So a **pure** colour change had no writer at all. The layer op and its readers
+existed; nothing parsed to it.
+
+**⛔ AND THE ZERO-WRITER OP WAS NOT THE PRIZE.** `addColor` measured **1 corpus carrier, 0 attributable** —
+it stays unwritten. *A dead read-side capability is only worth a writer if cards actually need it, and that
+is a MEASUREMENT, not an inference.* The op with 1 writer paid 4; the op with 0 paid nothing.
+
+**SET, not ADD** (CR 105.1): *"becomes blue"* REPLACES the creature's colours. Both the in-addition form and
+*"becomes colorless"* are pinned refused, and the mutation swapping `setColor` → `addColor` fails.
+
+**Two of the four ride referent arms built earlier this run** — Cerulean Wisps uses *"Untap that creature"*
+and Singe uses *"That creature becomes black"*. **Fourth slice in a row where the referent work paid again
+without being the subject of the slice.**
+
+### ⚠️ THE VACUITY CONTROL EARNED ITS PLACE, LITERALLY
+My first draft called `colorsOf(state, id)` — but `colorsOf` takes a **CARD**, so it returned `[]` for
+everything. The **vacuity control caught it on the first run.** Without it, the *"SETS rather than ADDS"*
+assertion (`not.toContain("G")`) would have **PASSED on an empty array**. ⭐ *A negative assertion proves
+nothing until some positive assertion has shown the reader works at all.* Written into the file.
+
+**Gates:** 8 tests, led by runtime assertions. **Four mutations seen to fail**, including the `addColor` swap
+and granting to every creature. Suite **1013 files / 12,893 green**, lint 0, MUTANT clean.
+
+**Batch 4: 7 cards.**
 
 ---
 
