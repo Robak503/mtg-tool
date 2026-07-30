@@ -18,14 +18,14 @@
 >   **Grep the source for a mechanic before believing it is unbuilt** — Ward, Treasure and Food all were.
 >   Full evidence in the METHOD CORRECTION entry below.
 > - 🎯 **READ THE SHELF ENTRY BELOW BEFORE PICKING MORE CORPUS WORK.** Colton's shelf is at **93%** with
->   exactly ONE deck under the >=90% bar (`cdh`, **86/100 — FOUR cards, each a MULTI-mechanism build**, re-measured 2026-07-30 after
+>   exactly ONE deck under the >=90% bar (`cdh`, **87/100 — THREE cards, each a MULTI-mechanism build**, re-measured 2026-07-30 after
 >   Borne Upon a Wind + Vexing Shusher landed). Its full gap is diagnosed per clause in the entry.
 >   ⚠️ **The TRACTABLE half of that gap is now spent.** The 15 remaining slots are each a distinct
 >   bespoke mechanism (Battle card type · Cipher · Food · Treasure+Dash · Bestow+landfall · alt-cost
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 61 cards since v0.149.20** (granted Ward—Pay-life +2, **REFERENT FAMILY +58 across SIX slices**, named-token sac trigger +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 62 cards since v0.149.20** (granted Ward—Pay-life +2, **REFERENT FAMILY +58 across SIX slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,42 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 3) 2026-07-30 — **COMBAT DAMAGE TO *YOU* + NAMED-TOKEN SACRIFICE. GAINED 1, LOST 0.**
+### 🎯 **`cdh` 86 → 87 of 100** — a SHELF card, re-measured with `deck-gap`.
+
+**The Cabbage Merchant.** Two mechanics, **each measured 0-attributable on its own** in earlier slices — the
+recipient-side combat-damage trigger (7 carriers) and the named-token sacrifice effect (7 carriers).
+**Together they flip exactly one card, and it is a shelf card**, which is why they ship as a PAIR rather than
+as two zero-flip slices. *A mechanic that pays nothing alone is not automatically worthless — check what it
+pays in combination with the other thing that card needs.*
+
+**⭐ THE PAIRED POSITIVE IS WHY THIS WORKS AT ALL — and it caught my bug.** Every other arm in
+`checkCombatDamageTriggers` is written from the DEALER's side; the only difference here is **which player's
+permanents get scanned**. So the load-bearing test is *"the watcher belongs to the DAMAGED player and does
+NOT fire for the attacker's controller."*
+
+I first wrote the descriptor with `scope:"any"` — **not a scope `scopeMatches` knows.** The switch **fails
+closed** on an unknown scope, so the descriptor was detected, `detectTriggers` reported it perfectly, and the
+trigger **silently never fired**. ⚠️ **The NEGATIVE half of the pair passed the entire time — on nothing
+firing at all.** Only the paired POSITIVE assertion made it visible. *This is the concrete case for pairing
+every exclusion with the same measurement in the affirmative: a fail-closed switch turns a broken feature into
+a passing negative test.* Corrected to `scope:"eachCreature"` and the reason written into the source.
+
+**The sacrifice pool is validated against `NAMED_TOKENS`** — the same registry the mint side uses — so a name
+the engine cannot mint can never become a pool that is **empty at resolution**, i.e. a card credited for a
+sacrifice that never happens. Pinned with a Wombat token; the mutation dropping the check fails.
+
+♻️ **This is the effect arm I REVERTED last slice as 0-flip.** It ships now because the card that needs it
+does. The ledger note from that revert made rebuilding it a two-minute job — which is the whole point of
+banking a measurement instead of the code.
+
+**Gates:** 9 new tests; **three mutations seen to fail**, including *scanning the attacking player instead of
+the defender*. Suite **1008 files / 12,850 green**, lint 0, MUTANT clean.
+
+**Batch 3: 62 cards.** `cdh` now needs **3** more, all multi-mechanism.
 
 ---
 
