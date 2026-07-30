@@ -627,6 +627,14 @@ export function addCounterClauseParser(clause) {
   // (an over-count). Whole-clause anchored; reminder text is stripped upstream before the clause split.
   m = t.match(/^monstrosity (\d+)$/);
   if (m) return { op: "monstrosity", amount: parseInt(m[1], 10), target: "self" };
+  // ADAPT (CR 701.46a) — "'Adapt N' means 'If this permanent has no +1/+1 counters on it, put N +1/+1
+  // counters on it.'" Monstrosity's sibling and parsed right beside it, but ⛔ NOT a latch: adapt gates on
+  // the LIVE +1/+1 counter count, so a creature whose counters have been removed can adapt again, while a
+  // monstrous creature is monstrous forever. Modelling adapt as a plain self add-counter would let an
+  // already-adapted creature stack more counters every activation — doing something the card forbids, which
+  // is why it needs its own atom rather than reusing the unconditional counter effect that already parses.
+  m = t.match(/^adapt (\d+)$/);
+  if (m) return { op: "adapt", amount: parseInt(m[1], 10), target: "self" };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on up to one target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature", optionalTarget: true };
   // OPTIONAL own-side (CR 115.1b + 109.5): "on up to one target creature you control" (Essence Capture) — the
@@ -908,6 +916,31 @@ export function applyMonstrosity(state, atom, ctx) {
 }
 
 /**
+ * ADAPT (CR 701.46a) — resolve "Adapt N": ONLY if the source has no +1/+1 counters on it, put N +1/+1
+ * counters on it. Self-scoped like monstrosity (the activating permanent is ctx.sourceId).
+ *
+ * ⛔ NOT A LATCH, AND THAT IS THE WHOLE DIFFERENCE FROM MONSTROSITY. Monstrosity sets a `monstrous` flag that
+ * never clears, so it can never fire twice. Adapt re-reads the LIVE +1/+1 count every activation: a creature
+ * whose counters were removed (proliferate gone wrong, a -1/-1 wipe, Biomancer's Familiar) is legally able to
+ * adapt again. Storing a flag here would be a rules error in the restrictive direction; reading the count and
+ * skipping the gate entirely would be one in the FORBIDDEN direction (stacking counters on every activation).
+ *
+ * ⛔ THE GATE IS SPECIFICALLY +1/+1 COUNTERS, not "any counter". A creature carrying only a shield/loyalty/
+ * flying counter has no +1/+1 counters and CAN adapt — so this reads the "+1/+1" key, never the map's size.
+ * The already-adapted branch is a logged no-op, never a silent one: the activation legally happened and paid
+ * its cost, it just did nothing (CR 701.46a).
+ */
+export function applyAdapt(state, atom, ctx) {
+  const lk = findPermanent(state, ctx.sourceId);
+  if (!lk) return state;
+  if ((lk.permanent.counters?.["+1/+1"] || 0) > 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "adapt", note: "already has +1/+1 counters", permanentId: ctx.sourceId });
+  }
+  const next = addCounter(state, { permanentId: ctx.sourceId, type: "+1/+1", amount: atom.amount || 1 });
+  return logEvent(next, { kind: "spell-effect", effect: "adapt", permanentId: ctx.sourceId, amount: atom.amount || 1 });
+}
+
+/**
  * DRAW-OR-COUNTER-TRIGGERING (Marcus, Mutant Mayor — SHELF S7): "draw a card if that creature has a
  * +1/+1 counter on it. If it doesn't, put a +1/+1 counter on it." A resolution-time branch on the
  * TRIGGERING creature (the combat-damage dealer, ctx.triggeringPermanentId — set by the batch cdmg
@@ -1026,6 +1059,7 @@ export const counterResolvers = {
   "renown": applyRenown, // KW-RENOWN (CR 702.111) — latching flag + N +1/+1 counters via the standard addCounter chokepoint (the monstrosity template)
   "draw-or-counter-triggering": applyDrawOrCounterTriggering, // Marcus branch (SHELF S7) — draw if the dealer has a +1/+1, else counter it
   "monstrosity": applyMonstrosity, // MONSTROSITY (CR 701.32) — activated "Monstrosity N": N +1/+1 counters + set monstrous, once
+  "adapt": applyAdapt,             // ADAPT (CR 701.46a) — activated "Adapt N": N +1/+1 counters ONLY if it has none (no latch)
 
   "shield-counter": applyShieldCounter, // SHIELD COUNTER (CR 122.1c) — a protective counter; consumed at the damage/destruction sites in gameState
   "add-named-counter-self": applyAddNamedCounterSelf, // CHOSEN-TYPE cast trigger (Door of Destinies): named counter on the source artifact

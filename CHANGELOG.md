@@ -8,7 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.15] — 2026-07-29
+
 ### Added
+- **Adapt creatures play properly — ten of them.** Aeromunculus, Sharktocrab, Skitter Eel, Trollbred Guardian,
+  Temperamental Oozewagg, Evolution Witness, Skatewing Spy, Dreamdrinker Vampire, Knighted Myr and Sauroform
+  Hybrid can all adapt now. The game respects the catch, too: a creature that already has a +1/+1 counter gains
+  nothing when you pay again, and one whose counters have been removed can adapt a second time.
 - **Pyrohemia and Pestilence now play themselves.** Both sacrifice themselves at end of turn once the board
   is empty of creatures, and the game now checks that properly — across *everyone's* creatures, not just
   yours, so neither one leaves early while an opponent still has something out.

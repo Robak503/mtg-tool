@@ -95,6 +95,53 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## ✅ SHIPPED 2026-07-29 — **ADAPT (CR 701.46a). GAINED 10, LOST 0.** The biggest slice in many turns.
+
+> **CR 701.46a** — "'Adapt N' means 'If this permanent has no +1/+1 counters on it, put N +1/+1 counters on
+> it.'" (verified against `cr_current.json`, reader positive-controlled).
+
+**⚠️ FOUND ONLY BECAUSE A CENSUS ZERO WAS DISBELIEVED.** My first adapt census used
+`/(?:^|\n)\s*adapt \d+/` and returned **0 blocked** — I nearly moved on to a 2-card slice. The printed line is
+`{2}{G}: Adapt 2.`, so adapt is an activated-ability EFFECT and is **never line-initial**. Re-measured with
+`/\badapt \d+\b/`: **12 blocked in 6 constructions.** RULE 1b again — *a zero from a census is a claim about
+the probe until a positive control says otherwise.* That single re-measure is the whole slice.
+
+**The isolation, before writing anything:**
+```
+{2}{G}: Put two +1/+1 counters on this creature.                       -> native-activated ✅  (shell + effect exist)
+{2}{G}: If this creature has no +1/+1 counters on it, put two …        -> body-only       ⛔  (the CONDITION)
+{2}{G}: Adapt 2.                                                        -> body-only       ⛔
+```
+So the shell and the counter effect were both already native and **only the condition was missing** — which is
+exactly why adapt could not be modelled as a plain self add-counter: that would let an already-adapted creature
+stack N more counters on every activation, doing what the printed card forbids.
+
+**Built on the MONSTROSITY template** (`applyMonstrosity`, CR 701.32 — its older sibling, parsed two lines
+away): a dedicated `adapt` op + `applyAdapt`, wired into the same op table.
+
+**⛔ THE ONE REAL DIFFERENCE, AND IT IS PINNED: ADAPT IS NOT A LATCH.** Monstrosity sets a `monstrous` flag
+that never clears. Adapt re-reads the LIVE +1/+1 count, so a creature whose counters were removed can legally
+adapt again. A flag-based implementation would pass every other assertion in the file, so the test asserts the
+CONTRAST directly — monstrosity refusing at zero counters while adapt succeeds on the same cleared board.
+Also pinned: the gate is **+1/+1 specifically** (a shield counter does not block adapting), and a `+1/+1` key
+sitting at **zero** still adapts (the value is read, never the key).
+
+**Gates.** 10 new tests; **both mutations seen to fail** — the gate removed (caught by 3, including the
+no-latch contrast) and the gate widened to "any counter" (caught by the shield test alone). Diff additive
+only (+34, zero deletions). **Tier flip-diff over 34,210 cards: GAINED 10 / LOST 0, every row audited** —
+Aeromunculus · Dreamdrinker Vampire · Evolution Witness · Knighted Myr · Sauroform Hybrid · Sharktocrab ·
+Skatewing Spy · Skitter Eel · Temperamental Oozewagg · Trollbred Guardian. Suite **984 files / 12,515 green**,
+lint 0.
+
+**The 2 that correctly did NOT flip:** Pteramander and Etherium Pteramander carry a cost-reduction rider
+("this ability costs {1} less to activate for each …"), which the census had already separated into its own
+construction. Faithful refusal, not a miss.
+
+**⭐ Temperamental Oozewagg is now native — it was one of the six "one blocker away" cards** the modified-anthem
+entry listed. That list is working as a map.
+
+---
+
 ## ✅ SHIPPED 2026-07-29 — NONTOKEN group anthem (CR 111.1). **GAINED 2, LOST 0.** Two pins GRADUATED.
 
 Always Watching + Thraben Watcher: *"[Other] nontoken creatures you control get +1/+1 and have vigilance."*
