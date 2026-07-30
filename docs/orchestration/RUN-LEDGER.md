@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 45 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 46 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -131,7 +131,63 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 ## ✅ BANKED (batch 4) 2026-07-30 — **BESTOW MAY CARRY A NATIVELY-ROUTING TRIGGER. GAINED 2.**
+## 🎯 ## 🏁 **COLTON'S SHELF IS CLOSED** 2026-07-30 — `cdh` 90/100, **"below the bar: none — every deck is at 90%+"**
+
+Springheart Nantuko landed and the objective this whole run was pointed at is **met**:
+
+| deck | |
+|---|---|
+| Slivers 100% · Vihaan 96% · Omnath 93% · Zaxara 92% · Earth Bent 91% · Mothman 90% · **cdh 90%** | ✅ all ≥ 90 |
+
+**colton: 94% (470/499 across 5 decks) — below the bar: NONE.**
+
+### ⚠️ THE BUG THAT COST A REVERT AND HALF A SESSION — A FIELD-NAME COLLISION
+The conditioned payment first carried its gate as **`condition`**. `runEffectProgram` **already owns that
+field name** on an atom: it is a SPELL-RIDER board query run through `evaluateInterveningIf`, and
+
+```js
+if (atom.condition && evaluateInterveningIf(...) !== true) continue;   // SKIP THE ATOM
+```
+
+so an atom whose `condition` that reader cannot parse is **skipped entirely**. The payment therefore
+vanished: **no pause, no tokens, no error, an empty log.** Renamed to `payCondition`; the collision is
+documented at both ends.
+
+⭐ **AND THE FAILURE MODE LIED ABOUT ITS OWN CAUSE.** A silently-skipped atom looks exactly like a broken
+test harness — so I diagnosed "unproven runtime", reverted a build that was 95% correct, and banked a
+WRONG cause. It took a direct `resolveAtom` probe (which worked) against `runEffectProgram` (which did not)
+to localise it. *When a resolver works in isolation but not through its driver, the driver is doing
+something to the atom — read the driver's loop before blaming the harness.*
+
+✅ **The revert was still right.** An unproven runtime must not ship, and the metric said 90% both times.
+What was wrong was the DIAGNOSIS, not the decision — and correcting it in the ledger is what made this
+rebuild take one pass.
+
+### THE BUILD
+`copySource:"attached"` (reads the source's `attachedTo` live at resolution) · `payCondition` on the
+optional payment · `elseAtoms` carried into the pending choice · the settler's payoff loop **extracted into
+a shared branch helper** so the fallback inherits the same WI-3 mid-branch-pause guard instead of a second
+copy that would drift.
+
+Matched as ONE clause before the splitter: *"that creature"* is the attached host — a referent reachable
+only through this anchored shape, since a general rewrite would mis-copy across the corpus — and the Insect
+is the payment's ELSE, not a third effect. **Exactly one token on every path**, all four asserted.
+
+**Gates:** 8 tests, every one a runtime fact (which token, how many, whose mana). **Six mutations seen to
+fail**, including *copies Springheart not the host*, *declining makes no token*, and *both branches run →
+two tokens*. Suite **1023 files / 13,008 green**, lint 0, MUTANT clean. Commit `985c15a7`.
+
+**Batch 4: 46 cards.**
+
+### ➡️ WHAT THE TARGET IS NOW
+Colton's shelf is done, so the standing objective needs a new pointer. The obvious candidate is **Joe's
+shelf: 77% across 11 decks, 9 below the bar** (Dragons 80% · Jurassic Ramp 78% · Believe it! 75% · Kinnan
+75% · Hulk Smash 74% · Wolverine 73% · Kellan 72% · Captain America 70% · Halfshell 66%). **That is
+Colton's call, not mine** — flagged here rather than assumed.
+
+---
+
+## ✅ BANKED (batch 4) 2026-07-30 — **BESTOW MAY CARRY A NATIVELY-ROUTING TRIGGER. GAINED 2.**
 ## ⛔ AND SPRINGHEART WAS BUILT, MEASURED AT **cdh 90%**, THEN REVERTED — read this before rebuilding it.
 
 Herald of Torment · Crystalline Nautilus.
