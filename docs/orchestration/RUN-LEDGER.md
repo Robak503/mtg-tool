@@ -95,6 +95,55 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## 🎯 THE NEXT MAJOR PROJECT (measured 2026-07-30) — **QUOTED-ABILITY GRANTS, ~37 cards, 3 carrier shapes**
+
+Colton, 2026-07-30: *"just keep grinding we're gonna be going for months so just keep going."* So this entry
+picks the target with data instead of one-card opportunism.
+
+**⛔ FIRST: `clause-frontier.mjs --decks` WAS REPORTING FICTION. Two silent bugs, both now fixed** (commits
+`fa5368b2` + `2940c5f5`). It read a RELATIVE `data/profiles` (threw from a worktree → catch → `[]` → printed
+"non-native=0", i.e. "the shelf is perfect"), and it rebuilt each deck card as `{type, oracle, name}`,
+**dropping mana/power/toughness** — so every `{X}` card (the cost IS the X value) and every creature was
+mis-classified. It claimed 300 non-native deck cards; **32 of those are already native** (Gelatinous Genesis,
+Mistcutter Hydra, Steelbane Hydra, Stonecoil Serpent, Biomass Mutation, Braingeyser, Pull from Tomorrow,
+Nature's Rhythm). Its apparent "X-value cluster" was an artifact of the stripped object.
+**⭐ X IS NOT A GAP** — X draw / X tokens X/X / X damage / X-or-less tutor / team base P/T X/X / enters-with-X
+counters ALL classify native in isolation. Post-fix the deck frontier reads **268 non-native, 35
+one-clause-from-native**, which cross-checks `shelf-gap-ledger.mjs`'s independent ~260. Two instruments agree.
+
+**THE CORPUS FRONTIER'S TOP CLUSTERS (`--min 6`, single-sentence tails — the "one clause from native" trunk):**
+```
+16  enchant creature / enchanted creature has "…"     Ghostly Touch · Mark of Sakiko · Splinter Twin ·
+                                                       Elemental Mastery · Dual Casting · Instill Furor
+15  commander creatures you own have "…"              Dungeon Delver · Scion of Halaster · Acolyte of Bahamut ·
+                                                       Passionate Archaeologist · Veteran Soldier · Tavern Brawler
+ 6  equipped creature has "…"  (+ equip {N})          the Equipment carriers
+ 7  banding                                            (a real mechanism, separate project)
+ 6  soulbond                                           (ditto)
+```
+**⭐ THE TOP THREE ARE ONE MECHANISM: GRANTING A QUOTED ABILITY. ~37 cards.** Aura carriers, Background/
+commander carriers, Equipment carriers — three printed shapes over the same machinery.
+
+**⛔ AND IT IS THE FAMILY THIS RUN HAS ALREADY REFUSED TWICE, for good reasons that now become the spec:**
+- **Hexing Squelcher** — `Other creatures you control have "Ward—Pay 2 life."` refused because
+  `permanentGrantedWardCosts` reads **generic mana only** (`staticAbilityParser.js:4363`).
+- **Rhythm of the Wild** — `Nontoken creatures you control have riot.` refused because
+  `coverage.js:2461` states the grant is unmodeled; riot needs per-member enters-with-choice synthesis.
+- The clone family draws the same line explicitly: `cloneCopy.js` admits artifact/Equipment scopes because the
+  runtime proved them, and **PARKS enchantment / nonland-permanent** (Copy Enchantment, Clever Impersonator).
+
+**So the project is: make a GRANTED quoted ability a first-class thing the runtime honours** — per-member
+trigger synthesis, granted activated abilities with real costs, and granted keywords whose cost is not generic
+mana. Every existing refusal in this family graduates off that one capability, which is why it is worth months
+rather than another 2-card widening.
+
+**⚠️ NOT STARTED DELIBERATELY.** It touches layers + trigger synthesis + coverage tier in one motion — the
+exact FP-sensitive shape `[[quoted-grant-statics-slice]]` says must not be built at the bottom of a long
+session. **Start it COLD, on the 16-card Aura shape first** (the biggest single carrier, and Auras already have
+`isNativeAura` / `parseAuraBonus` / `auraEnchantSubject` machinery to hang it on).
+
+---
+
 ## ✅ SHIPPED 2026-07-29 — **ADAPT (CR 701.46a). GAINED 10, LOST 0.** The biggest slice in many turns.
 
 > **CR 701.46a** — "'Adapt N' means 'If this permanent has no +1/+1 counters on it, put N +1/+1 counters on
