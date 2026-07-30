@@ -15,6 +15,7 @@
     "sync:scryfall-bulk": "node scripts/sync-scryfall-bulk.cjs",
     "sync:local-data": "npm run sync:oracle && npm run generate:token-names",
     "generate:token-names": "node scripts/generate-token-names.cjs",
+    "sweep:noncreature-gates": "node scripts/sweep-noncreature-target-gates.mjs",
     "coverage": "node scripts/measure-coverage.mjs",
     "check:decks": "node scripts/check-deck-library.cjs",
     "check:oracle": "node scripts/check-local-oracle.cjs",

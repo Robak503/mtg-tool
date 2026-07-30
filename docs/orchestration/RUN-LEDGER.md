@@ -470,6 +470,53 @@ self-exile matters and was dropped from my own summary. Read the printed line, n
 
 ---
 
+## ✅ BANKED 2026-07-30 — **THE OWED SWEEP, RUN. RESULT: CLEAN — AND POSITIVE-CONTROLLED BEFORE BELIEVED.**
+## ⭐ Zero cards. The deliverable is an INSTRUMENT: a discovery script + a CI drift guard.
+
+The previous entry banked a debt: *"34 `t.type === creature` gates across ten atom modules — audit them
+before the next noun slice."* Paid.
+
+### THE METHOD — don't read 34 gates, ask which ones can ever be WRONG
+A creature-only effect SHOULD gate on creatures; the gate is a bug only where the PARSER can hand that
+resolver a non-creature target. So the sweep enumerates every **(op, targetType) pair the parser emits with a
+non-creature permanent targetType** across the whole corpus — **25 pairs, 8 distinct ops**: destroy · bounce ·
+exile · tuck · animate · untap · regenerate · pump. Then each is RESOLVED against a permanent-tagged target
+and asked the only question that matters: **did anything happen?**
+
+**All 12 representative cases act.** The three found this run (untap-self · regenerate · pump) were the three
+that existed; the other 31 gates sit on ops the parser never hands a non-creature target.
+
+### ⭐ THE ZERO WAS POSITIVE-CONTROLLED, AND THAT IS THE POINT OF THE ENTRY
+A clean sweep is worth nothing until the probe is shown capable of failing — the lesson the Planar Bridge
+*"0 of 36,068 cards affected"* incident paid for with a shipped regression. **Reverted the pump gate and
+re-ran: `pump/permanent *** NO-OP ***`.** So the zero is a MEASUREMENT. Restored, verified by `git diff`.
+
+### THE DELIVERABLE — an instrument, not a card count
+| artifact | role |
+|---|---|
+| `app/scripts/sweep-noncreature-target-gates.mjs` (`npm run sweep:noncreature-gates`) | **discovery** — re-run after teaching a parser any new non-creature noun; anything it prints the guard does not cover needs a case |
+| `nonCreatureTargetResolvers.test.js` (14 tests) | **ratchet** — CI-safe (index-free), asserts every listed op ACTS on a permanent-tagged target |
+
+⚠️ **The guard states its own limit in-file:** the case list is a SNAPSHOT, so a brand-new pair is not
+auto-covered — the script is how you find one. Saying so beats implying coverage it does not have.
+
+⭐ **And the guard carries its own non-vacuity checks**, because a green drift guard is exactly the thing
+that could be hollow: one asserts the "did anything happen" helper returns *null* for an untouched state
+(otherwise every case above it passes for free), and one asserts a CREATURE-scoped atom handed a
+permanent-tagged target STILL no-ops — proving the three fixes opened their gates for permanent-SCOPED atoms
+only, not universally.
+
+**Gates:** no engine change, so no flip-diff (nothing could move). Suite **1035 files / 13,115 green**,
+lint 0, module graph loads, MUTANT clean. **Batch unchanged at 1 card since v0.149.22.**
+
+### ⏳ v0.149.22 at 16m27s (run 30579604476) — v0.149.21 took 21m46s, so still on schedule.
+**Verify by the published manifest**, not by a green run.
+
+### ➡️ NEXT: the noun-gap shelf queue is EMPTY. Run a fresh shelf-gap pass (the probe is section-filtered
+now) or go back to the 97-entry one-away list and pick by adjacency to something already modeled.
+
+---
+
 ## ✅ BANKED 2026-07-30 — **A TARGETED KEYWORD GRANT ON A NON-CREATURE PERMANENT. GAINED 1.**
 ## ⭐ THREE THINGS HAD TO LINE UP AND TWO WERE INVISIBLE FROM THE CARD TEXT.
 
