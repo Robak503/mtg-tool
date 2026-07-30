@@ -18,7 +18,7 @@
 >   **Grep the source for a mechanic before believing it is unbuilt** — Ward, Treasure and Food all were.
 >   Full evidence in the METHOD CORRECTION entry below.
 > - 🎯 **READ THE SHELF ENTRY BELOW BEFORE PICKING MORE CORPUS WORK.** Colton's shelf is at **93%** with
->   exactly ONE deck under the >=90% bar (`cdh`, **86/100 — FOUR cards**, re-measured 2026-07-30 after
+>   exactly ONE deck under the >=90% bar (`cdh`, **86/100 — FOUR cards, each a MULTI-mechanism build**, re-measured 2026-07-30 after
 >   Borne Upon a Wind + Vexing Shusher landed). Its full gap is diagnosed per clause in the entry.
 >   ⚠️ **The TRACTABLE half of that gap is now spent.** The 15 remaining slots are each a distinct
 >   bespoke mechanism (Battle card type · Cipher · Food · Treasure+Dash · Bestow+landfall · alt-cost
@@ -170,6 +170,23 @@ graduated pin belongs in the opposite list, where it protects the flip instead o
 | an UNFILTERED MASS SET (pump / untap / **add-counter**) | rewrite to the equivalent mass atom | ✅ built |
 | the SOURCE PERMANENT (`this creature`) | rewrite to `target:"self"` | ✅ built |
 | **FRESHLY-CREATED TOKENS** | needs runtime minted-id binding | ⛔ **refused — own slice** |
+
+### ⚠️ CORRECTION — I SAID VALLEY FLOODCALLER WAS "DOWN TO EXACTLY ONE BLOCKER". IT IS THREE.
+Written twice in the last two entries and **wrong both times**. Measured directly: simulating the union as a
+single subtype leaves it **still `body-only`**, because a **subtype-FILTERED** pump does not qualify as a mass
+antecedent either — only the fully unfiltered set does. Floodcaller actually needs **(1)** a multi-subtype
+union as a mass-pump selector, **(2)** the antecedent allowlist widened to accept a filtered set, and **(3)** a
+subtype-filtered mass UNTAP atom to rewrite into, which does not exist. **Three mechanisms for one card.**
+⛔ **REFUSED** — and the corpus agrees: the subtype-union subject pool is 28 cards, 22 non-native, and
+**0 attributable to the union alone**. *I compounded this by repeating the "one blocker" line in a second
+entry without re-measuring — a claim restated is not a claim rechecked.*
+
+### ⛔ REFUSED 2026-07-30 — **TOKEN-ANTECEDENT REFERENTS. Upper bound 5, and one is an Un-set card.**
+*"Create two 1/1 Warrior tokens. **They** gain first strike"* — 266 cards carry the shape, **5** are cards where
+everything else parses, and one of those five is *Handy Dandy Clone Machine* (*"it must be represented by a
+unique hand…"*), which is not a real payload. **~4 cards for a genuine runtime minted-id binding.** The
+alternative — rewriting to a `creaturesYouControl` group grant — stays **forbidden**: it would buff every
+creature on the board, a strictly wrong answer. Number banked so nobody re-measures it.
 
 Remaining upper bound ~80, but **no cluster larger than 3** — the family is down to its long tail
 (*"it deals damage equal to its power to…"* ·3, *"it must be blocked this turn if able"* ·3 — the latter
