@@ -29,6 +29,13 @@ describe("named-token sacrifice trigger", () => {
     })).toBe("native-trigger");
   });
 
+  // ⚠️ WHY THIS FILE HAS NO RUNTIME ASSERTION, stated rather than left as an omission (audited 2026-07-30
+  // after the wrong-owner near-miss, when every slice in the batch was checked for parse-only coverage):
+  // this change is PARSE-ONLY BY CONSTRUCTION. It produces a descriptor byte-identical to the bare
+  // "sacrifice a Treasure" spelling, and THAT descriptor's runtime is already pinned in
+  // treasureEconomy.test.js — a Treasure fires the watcher, a Trinket does not. The equivalence assertion
+  // below is the load-bearing one: it is what makes the existing runtime pin cover this spelling too.
+  // If that equivalence ever breaks, this file must grow a runtime test of its own.
   it("parses the trailing 'token' to the SAME descriptor as the bare spelling", () => {
     const withToken = descriptorsOf("Whenever you sacrifice a Blood token, you gain 1 life.");
     const bare = descriptorsOf("Whenever you sacrifice a Blood, you gain 1 life.");

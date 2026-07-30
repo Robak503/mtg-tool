@@ -13,6 +13,7 @@ import { classifyCard } from "./coverage.js";
 import { createGameState, createPermanent, _resetIdsForTests } from "./gameState.js";
 import { checkCombatDamageTriggers } from "./triggers.js";
 import { parseEffectClause } from "./effects/parser.js";
+import { runEffectProgram } from "./effects/runProgram.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -90,6 +91,40 @@ describe("named-token sacrifice payload", () => {
       .toEqual([{ op: "sacrifice", who: "controller", what: "creature" }]);
     expect(parseEffectClause("Sacrifice an artifact.", "Creature")?.atoms)
       .toEqual([{ op: "sacrifice", who: "controller", what: "artifact" }]);
+  });
+
+  // ⚠️ ADDED 2026-07-30 after the investigate/shuffle near-miss: this payload had been PARSE-ONLY tested,
+  // which is exactly the gap that let a `who` field no resolver reads reach the flip-diff as GAINED. The
+  // atom shape was right there too — but "the atom is right" and "the effect is right" are different
+  // claims, and only the second one matters. Driving the resolver confirmed the pool is honoured.
+  const boardWith = (perms) => {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    return { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: perms } } };
+  };
+  const perm = (id, name, type, token = false) =>
+    createPermanent({ id, card: { name, type, oracle: "", id: `c${id}`, ...(token && { token: true }) }, controller: "user" });
+  const sacrifice = (state) => {
+    const out = runEffectProgram(state, {
+      source: { name: "C" },
+      payload: { params: { program: parseEffectClause("Sacrifice a Food token.", "Creature"), controller: "user", sourceId: "src", context: {}, targets: [] } },
+    });
+    return (out?.state ?? out).players.user.battlefield.map((p) => p.id);
+  };
+
+  it("⭐ ENFORCED: sacrifices the FOOD and nothing else", () => {
+    const left = sacrifice(boardWith([
+      perm("food", "Food", "Token Artifact — Food", true),
+      perm("bear", "Bear", "Creature — Bear"),
+      perm("relic", "Relic", "Artifact"),          // a generic artifact must NOT satisfy a Food pool
+    ]));
+    expect(left).toEqual(["bear", "relic"]);
+  });
+
+  it("⭐ with no Food out, nothing is sacrificed — the pool does not fall back", () => {
+    // The discriminating half. A pool that silently degraded to "any artifact" would eat the Relic here,
+    // and the card would still have looked native the whole time.
+    const left = sacrifice(boardWith([perm("bear", "Bear", "Creature — Bear"), perm("relic", "Relic", "Artifact")]));
+    expect(left).toEqual(["bear", "relic"]);
   });
 });
 
