@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.149.21] - 2026-07-30
+
 ### Added
 - **Panther Pounce and Fateful Absence now work.** The Clue goes to the player the card names, not to you.
 - **Poison-counter spells now work.** Prologue to Phyresis, Infectious Inquiry, Infectious Bite, Pistus

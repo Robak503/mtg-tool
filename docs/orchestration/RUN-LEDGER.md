@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 79 cards since v0.149.20** (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 0 cards since v0.149.21** (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,56 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## 🚀 SHIPPED 2026-07-30 — **v0.149.21. 79 cards across twelve slices — and a coverage AUDIT of the whole batch.**
+
+**The referent family is the story: 67 of the 79**, across seven slices, all from one structural question
+asked repeatedly — *"what does the parser explicitly refuse, and what is the antecedent?"*
+
+| slice | cards |
+|---|---|
+| bound-referent keyword grants | 17 |
+| object-first referent untap | 14 |
+| self-antecedent referents | 10 |
+| player referents (`its controller …`) | 9 |
+| mass-antecedent referents + multi-keyword keep-whole | 9 |
+| referent can't-block / P/T | 6 |
+| poison counters as a clause | 6 |
+| mass add-counter antecedent | 2 |
+| granted Ward—Pay-life | 2 |
+| investigate for a named player | 2 |
+| combat damage to YOU + named-token sacrifice | 1 (a `cdh` shelf card) |
+| named-token sacrifice trigger | 1 |
+
+**Shelf: `cdh` 85 → 87 of 100.** Colton's other four decks remain ≥ 90%.
+
+### ⭐ THE BATCH'S MOST VALUABLE OUTPUT IS NOT A CARD — IT IS A LIMIT ON THE INSTRUMENT
+The investigate/shuffle near-miss proved that **the flip-diff measures whether a card PARSES, not whether it
+does the right thing.** Two atoms carried a `who` field their resolvers never read; the flip-diff read
+`GAINED 4 / LOST 0` while the Clue went to the caster and a shuffle would have hit the caster's own deck.
+Every slice tonight had leaned on that instrument.
+
+**So the whole batch was audited for the same gap.** Nine test files, eight already driving a resolver. The
+ninth (named-token sacrifice pool) was parse-only — driven end-to-end it proved correct, so the finding was a
+missing PROOF rather than a defect, and both assertions now exist. One file stays parse-only **by
+construction** and now says so: its descriptor is byte-identical to an already-runtime-pinned spelling, and
+the equivalence assertion is what makes that pin cover it. ⭐ **"The atom is right" and "the effect is right"
+are different claims, and only the second one ships.**
+
+### 🧪 Discipline notes worth keeping from this batch
+- **A fail-closed switch turns a broken feature into a passing NEGATIVE test.** `scope:"any"` was not a scope
+  `scopeMatches` knows; the trigger never fired and *"does not fire for the attacker"* passed on nothing
+  firing. Only the paired POSITIVE caught it.
+- **A ternary payload chain ending in a payload** makes every future capture group a silent mis-route —
+  investigate resolved as a poison counter for exactly that reason. End the chain in `null`.
+- **A pin written to be re-pointed costs one line** when it graduates; ten of them moved this batch for one
+  line each. A bare assertion would have cost an investigation apiece.
+- **Choose a CREED stand-in with ZERO attribution** (`reveals their hand`, 126 carriers / 0 attributable) so
+  it never graduates out from under the pins that use it.
+- **Three dead lines removed**, each found by a mutation that could not fail — and one KEPT with a note,
+  because *redundant-today-dangerous-tomorrow* is not the same as *dead*.
 
 ---
 
