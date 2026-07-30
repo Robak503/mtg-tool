@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 43 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 45 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -131,7 +131,63 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 ## 🎯 THE LAST CARD ON COLTON'S SHELF — **SPRINGHEART NANTUKO, fully specified, ready to execute**
+## 🎯 ## ✅ BANKED (batch 4) 2026-07-30 — **BESTOW MAY CARRY A NATIVELY-ROUTING TRIGGER. GAINED 2.**
+## ⛔ AND SPRINGHEART WAS BUILT, MEASURED AT **cdh 90%**, THEN REVERTED — read this before rebuilding it.
+
+Herald of Torment · Crystalline Nautilus.
+
+### THE WIDENING (kept)
+`isNativeBestow` condition (3) demanded a **keyword-only** creature-mode body, parking every bestow card
+with a triggered ability — even ones the engine already routes. The aura mode is untouched by a self-body
+trigger and the creature mode is exactly what `triggerRoutesNatively` validates, so the modes compose.
+Still all-or-nothing: every trigger must route AND the body with its trigger LINES removed must be
+keyword-only.
+
+⭐ **Whole LINES, not `sourceText`.** A descriptor's `sourceText` is only the trigger's HEAD — it carries
+neither the ability-word label (*"Landfall — "*) nor any later sentence of the effect. A substring strip
+leaves debris that is not keyword-only, so the card parks **for the wrong reason**. A printed trigger owns
+its line; the line is the unit.
+
+✅ **Fourth BOUNDARY-MARKER pin graduated this session** — `bestow.test.js` listed Herald of Torment as
+"trigger residue". Re-pointed; the neighbouring cases still guard unmodeled aura bonuses and non-routing
+triggers.
+
+---
+
+### ⛔ SPRINGHEART: THE SHELF WAS CLOSED, AND I BACKED IT OUT
+The build worked. `measure-coverage` printed **`cdh 90/100`** and **"below the bar: none — every deck is at
+90%+"**. It is reverted anyway, and the reason is the only one that matters:
+
+**I could not prove the RUNTIME.** The test harness never got the payment choice to surface, so nothing
+demonstrated that the token is created, that it copies the ATTACHED creature rather than Springheart, or
+that exactly ONE token appears instead of two or none. A card that classifies native but does not play is
+the precise failure this whole run exists to prevent — shipping a 90% on an unverified runtime would have
+made the shelf number a lie.
+
+⭐ *The flip-diff and the shelf metric BOTH said done. Neither can see whether the effect happens. That is
+the entire lesson of this session, and it applied hardest to the card I most wanted to finish.*
+
+### ⭐ THE LEAD FOR THE NEXT ATTEMPT — copy the harness that already works
+`src/lib/learn/optionalManaPayment.test.js` drives this exact atom successfully. Two divergences in my
+version, either of which could be the whole problem:
+1. it uses **`runEffectProgram(...)`'s return value DIRECTLY as the state** (`paused.pendingChoice`), where
+   mine unwrapped it as `out?.state ?? out`;
+2. its lands carry an **explicit `{T}: Add {G}.` oracle** (`{ name: "Forest", type: "Land", oracle: "{T}: Add {G}." }`),
+   where mine were bare basics with no mana ability.
+Its `ompObject` helper is the canonical stack-object shape. **Start by making a Springheart test that is a
+copy of that file's harness**, and only then re-apply the build (matcher + `copySource:"attached"` +
+`condition` + `elseAtoms` + the settler branch helper — all specified in the entry above this one).
+
+⚠️ The settler reads `ctx.sourceId` off `pendingChoice.resume`, which ONLY the program path sets — a bare
+`resolveAtom` leaves it null and the paid branch silently makes no token. That is a real property of the
+code, not a test artifact, and any harness must go through `runEffectProgram`.
+
+**Suite 1022 files / 13,000 green**, lint 0, MUTANT clean. Commit `20578e4f`. **Batch 4: 45 cards.**
+**`cdh` 89% — one card out, and that card is Springheart.**
+
+---
+
+## 🎯 THE LAST CARD ON COLTON'S SHELF — **SPRINGHEART NANTUKO, fully specified, ready to execute**
 
 `cdh` is **89/100**. This ONE card closes Colton's entire shelf (every other deck of his is already over the
 1.0 bar). Diagnosed to the seam; not started, because the last piece is a refactor of the pause SETTLER and
