@@ -11,6 +11,18 @@
  *   CONFIRMED   — credited native AND seen in a real game log
  *   UNSEEN      — credited native, IS in a played deck, never appeared  → the lead list (draw variance first)
  *   UNOBSERVABLE— credited native but in no saved deck → this harness cannot speak to it at all
+ *
+ * ⚠️⚠️ WHAT "UNSEEN" ACTUALLY MEANS — measured, and NARROWER than it first reads. **The game log has NO draw
+ * entry** (kinds are step / play-land / cast-spell / permanent-enters / spell-effect / combat-… — there is no
+ * "drew a card"). So UNSEEN means **NEVER CAST OR PLAYED**, and it CANNOT distinguish:
+ *     (a) never drawn        — pure shuffle variance, no defect,
+ *     (b) drawn, never cast  — an AI POLICY gap, not an engine gap,
+ *     (c) drawn, uncastable  — the only one that would be an engine gap.
+ * ⭐ (c) was CHECKED for the top of the first lead list and RULED OUT: legalChoices offers Finale of
+ * Devastation 6 ways on 8 Forests, Beast Within 6 ways, Swords to Plowshares 1 — the engine offers them fine.
+ * With a 7/7 on the opponent's board, `pickAction` still returned pass-priority for all three. Finale is a
+ * SORCERY, so "holding it for instant speed" cannot explain that one. **The lead list is therefore mostly a
+ * POLICY signal, not a modelling signal** — do not spend engine slices on it without re-checking (c) per card.
  * The UNOBSERVABLE bucket is the corpus majority and stays explicitly out of the pass/fail line. Closing it
  * needs generated decks (a separate project), not a bigger number here.
  *

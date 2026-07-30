@@ -471,6 +471,57 @@ self-exile matters and was dropped from my own summary. Read the printed line, n
 
 ---
 
+## ⭐⭐ BANKED 2026-07-30 — **THE LEAD LIST IS A *POLICY* SIGNAL, NOT A MODELLING ONE. Chased and diagnosed.**
+## GAINED 0 cards — and it closed a false lead that would have cost several engine slices.
+
+Previous entry banked the next step: chase **Finale of Devastation** (4 decks, 0 appearances in 48 games) and
+find WHICH failure it is — never drawn, never offered, or never chosen. Done.
+
+### ✅ (b) "NEVER OFFERED" IS RULED OUT — the engine is fine
+`legalChoices` offers Finale **6 ways on 8 Forests**, scaling honestly with mana (0 at two Forests, 1 at
+three, 3 at five, 6 at eight — exactly right for `{X}{G}{G}`). Beast Within: 6. Swords to Plowshares: 1.
+**Not a modelling gap.**
+
+### ⚠️⚠️ AND THE INSTRUMENT I SHIPPED LAST SLICE MEANT LESS THAN IT LOOKED LIKE
+**The game log has NO DRAW ENTRY.** Kinds are step · play-land · cast-spell · permanent-enters · spell-effect ·
+combat-… — nothing records drawing a card. So **UNSEEN means NEVER CAST**, and it cannot separate:
+(a) never drawn (variance, no defect) · (b) drawn but never chosen (POLICY) · (c) drawn but uncastable (the
+only ENGINE defect). *I published "109 leads" without knowing which of three things a zero meant. The header
+now says so in the script itself.*
+
+### ⭐ (c) RULED OUT TOO — which leaves POLICY
+With a **7/7 threat on the opponent's board** and full mana, `pickAction` returned **pass-priority** for
+Finale of Devastation, Beast Within AND Swords to Plowshares. Two of those are instants, so "holding removal
+for instant speed" is a fair defence — **but Finale is a SORCERY**, and passing on a 6-option board-wipe-tier
+X spell with a 7/7 staring at you is not a timing decision.
+
+⛔ **Stated at its true strength, not higher:** this is ONE controlled state and a single `pickAction` call,
+not a season of games. It is enough to say the lead list is **mostly not an engine problem** and to stop
+anyone spending modelling slices on it. It is NOT enough to say the AI is broken.
+
+### ⭐ THE REFRAME THAT MATTERS
+**79% of native cards in played decks are confirmed exercised. The 109 "unseen" are now known to be
+predominantly a PLAY-POLICY question, not a coverage question.** That splits the project's quality problem in
+two, with different owners and different fixes — and the corpus native % keeps meaning what it always meant
+(the engine CAN play the card), never more. *A number is only as good as the question it answers; this slice
+found out which question it was answering.*
+
+### ⚠️ HARNESS CAVEAT worth keeping
+My first policy probe used an all-Forest board and reported "Swords to Plowshares offered: 0" — which was my
+harness (a white spell, no white mana), not a finding. Re-run per-card with the RIGHT lands before believing
+any "offered: 0". Assassin's Trophy still reads 0 for exactly that reason ({B}{G} on an all-Swamp board).
+
+**Gates:** no engine change. Lint 0. Suite unchanged (**1042 files / 13,193 green**). **Batch: 24 cards.**
+
+### ➡️ NEXT — two separable tracks, and the shelf one is still the standing objective
+1. **ENGINE (the objective):** back to the shelf-gap list. Remaining Mainboard one-away cards are individual
+   mechanisms; expect 1–4 per slice.
+2. **POLICY (new, and NOT mine to assume):** why the AI passes on castable removal. `play-quality-probe.mjs`
+   already exists as the A/B instrument for opponent-AI changes — that is where such work belongs, measured,
+   not guessed. **Flag for Colton rather than self-directing into an AI rewrite.**
+
+---
+
 ## ⭐⭐ BANKED 2026-07-30 — **CONFIRMATION-OF-PLAY, CORPUS-WIDE. Colton's call, and it changes the metric's meaning.**
 ## **423 of 532 native cards in played decks are DEMONSTRABLY EXERCISED in real games. 109 are not.**
 
