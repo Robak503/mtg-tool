@@ -41,8 +41,13 @@ describe("untap-then-pump — parser (anaphoric 'It' collapses to one pump atom 
   it("CREED guards — an unmodeled granted keyword and a symmetric/second-target rider stay non-native", () => {
     // "gains flying" isn't in this matcher's grant set (only reach) → the exact anchor rejects it → LOW.
     expect(programConfidence(parseEffectProgram(I("Fake", "Untap target creature. It gets +2/+4 and gains flying until end of turn.")))).toBe("low");
-    // A second effect past the anchor (untap ALL, or a draw rider) is not this shape → LOW.
-    expect(programConfidence(parseEffectProgram(I("Fake2", "Untap target creature. It gets +2/+4 until end of turn. Draw a card.")))).toBe("low");
+    // GRADUATED 2026-07-30 — a draw rider past the anchor is now HIGH. This matcher only ever handled the
+    // exact two-clause collapse, so anything longer was refused. Referent binding (CR 608.2) parses the
+    // same text COMPOSITIONALLY instead: [untap target creature] → [bound pump] → [draw]. The card is
+    // fully modelled, which is the outcome the refusal was standing in for. Re-pointed, not deleted.
+    expect(programConfidence(parseEffectProgram(I("Fake2", "Untap target creature. It gets +2/+4 until end of turn. Draw a card.")))).toBe("high");
+    // Still LOW, and the live negative for this pin: a referent with NO antecedent to bind to.
+    expect(programConfidence(parseEffectProgram(I("Fake3", "Draw a card. It gets +2/+4 until end of turn.")))).toBe("low");
   });
 });
 

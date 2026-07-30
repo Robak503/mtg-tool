@@ -1303,6 +1303,25 @@ export function pumpClauseParser(clause) {
     const kws = parseGrantedKeywords(pg[1]);
     return kws ? { op: "pump", ptDelta: { p: 0, t: 0 }, grantKeywords: kws, bindPreviousTargets: true } : null;
   }
+  // BOUND REFERENT, P/T form — "It gets +2/+0 until end of turn." / "… gets +1/+1 and gains trample …"
+  // (Duel Tactics, Mugging, Blindblast, Moment of Valor). Same binding as the grant arm above; the payload
+  // is the ordinary pump the explicit-target twin already emits, so nothing new resolves.
+  // NO "and gains <kw>" alternative here, deliberately: splitClauses breaks that conjunction, so the
+  // compound form never reaches this arm through the sequence path, and a mutation proved its guard
+  // untestable. The one printed card needing it (Moment of Valor) is MODAL and does not flip on this
+  // alone. Bare P/T only — an arm that cannot be exercised is an arm that cannot be trusted.
+  pg = t.match(/^(?:it|they|them|that creature|those creatures) gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
+  if (pg) {
+    return { op: "pump", ptDelta: { p: parseInt(pg[1], 10), t: parseInt(pg[2], 10) }, grantKeywords: [], bindPreviousTargets: true };
+  }
+  // BOUND REFERENT, CANT-BLOCK form — "It can't block this turn." (Sparkmage's Gambit, Merciless
+  // Javelineer). The `cant-block` op is unchanged; only the recipient is bound rather than chosen.
+  // ⚠️ "must be blocked this turn if able" is deliberately NOT here: it is unmodeled even for an EXPLICIT
+  // target, so it is a separate mechanic rather than a referent arm. Adding it would credit cards whose
+  // payload nothing can resolve — the exact false positive the binding gate exists to prevent.
+  if (/^(?:it|they|them|that creature|those creatures) can't block this turn$/.test(t)) {
+    return { op: "cant-block", bindPreviousTargets: true };
+  }
   // ENCHANTED-SUBJECT keyword grant (census slice 36) — "Enchanted creature gains hexproof until end of
   // turn", the effect of an Aura's own ETB trigger (Starlit Mantle, Accelerated Evolution). Identical to the
   // targeted form above except the referent: no target is CHOSEN, it is the Aura's host, resolved at

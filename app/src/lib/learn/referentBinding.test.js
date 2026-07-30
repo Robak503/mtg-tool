@@ -118,6 +118,66 @@ describe("ENFORCEMENT — the grant lands on the bound creature", () => {
   });
 });
 
+describe("scope C — the can't-block and pump payloads", () => {
+  it("binds a can't-block referent (Mugging, Blindblast, Duel Tactics)", () => {
+    const prog = parseEffectClause("C deals 2 damage to target creature. That creature can't block this turn.", "Instant");
+    const bound = (prog?.atoms || []).filter((a) => a.bindPreviousTargets);
+    expect(bound).toHaveLength(1);
+    expect(bound[0].op).toBe("cant-block");
+    expect(bound[0].targetType).toBeUndefined();
+  });
+
+  it("binds a P/T referent", () => {
+    const prog = parseEffectClause("C deals 2 damage to target creature. It gets +1/+0 until end of turn.", "Instant");
+    const bound = (prog?.atoms || []).filter((a) => a.bindPreviousTargets);
+    expect(bound[0].ptDelta).toEqual({ p: 1, t: 0 });
+  });
+
+  it("⛔ 'must be blocked this turn if able' stays refused — unmodeled even for an explicit target", () => {
+    // Including it would credit a card whose payload nothing can resolve. Verified: the EXPLICIT-target
+    // form is unmodeled too, so this is a missing mechanic rather than a missing referent arm.
+    expect(classifyCard(spell("C deals 1 damage to target creature. It must be blocked this turn if able."))).toBe("arbiter-spell");
+    expect(classifyCard(spell("Target creature must be blocked this turn if able."))).toBe("arbiter-spell");
+  });
+
+  it("⛔ the compound 'gets +N/+N AND gains <kw>' form is NOT modelled here", () => {
+    // splitClauses breaks that conjunction, so the compound never reaches the referent arm through the
+    // sequence path. A first draft handled it anyway; a mutation showed the guard for it was untestable,
+    // so the alternative was removed rather than kept as code no test can exercise. The one printed card
+    // that needs it (Moment of Valor) is modal and does not flip on this alone.
+    expect(classifyCard(spell("C deals 1 damage to target creature. It gets +1/+0 and gains trample until end of turn."))).toBe("arbiter-spell");
+  });
+
+  it("binds a PLURAL referent to every target the previous atom took (Wrap in Flames)", () => {
+    // "deals 1 damage to each of up to three target creatures. THOSE CREATURES can't block this turn."
+    // The previous atom's slice is a list either way, which is why no separate plural path exists.
+    const program = parseEffectClause("C deals 1 damage to each of up to three target creatures. Those creatures can't block this turn.", "Instant");
+    const out = runEffectProgram(twoCreatures(), {
+      source: { name: "C" },
+      payload: { params: { program, controller: "user", sourceId: "src", context: {},
+        targets: [{ type: "creature", id: "alpha", atomIndex: 0 }, { type: "creature", id: "beta", atomIndex: 0 }] } },
+    });
+    const st = out?.state ?? out;
+    // The exact keyword applyCantBlock grants (layer 6, "cantBlock"). An `A || B` assertion with a loose
+    // property fallback was the first draft here and could have passed on either half being undefined.
+    expect(permanentHasKeyword(st, "alpha", "cantBlock")).toBe(true);
+    expect(permanentHasKeyword(st, "beta", "cantBlock")).toBe(true);
+  });
+
+  it("VACUITY CONTROL: only ONE target on the previous atom leaves the other creature able to block", () => {
+    // Proves the plural case above is reading a real per-permanent grant rather than a board-wide one.
+    const program = parseEffectClause("C deals 1 damage to each of up to three target creatures. Those creatures can't block this turn.", "Instant");
+    const out = runEffectProgram(twoCreatures(), {
+      source: { name: "C" },
+      payload: { params: { program, controller: "user", sourceId: "src", context: {},
+        targets: [{ type: "creature", id: "alpha", atomIndex: 0 }] } },
+    });
+    const st = out?.state ?? out;
+    expect(permanentHasKeyword(st, "alpha", "cantBlock")).toBe(true);
+    expect(permanentHasKeyword(st, "beta", "cantBlock")).toBe(false);
+  });
+});
+
 describe("the real cards", () => {
   // Oracle text read from the bundled Scryfall snapshot.
   it("Rile — damage then a bound trample grant", () => {

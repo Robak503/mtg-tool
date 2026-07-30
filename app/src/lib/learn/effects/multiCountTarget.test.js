@@ -171,8 +171,17 @@ describe("multi-count — deal-damage (N to each of up to K target creatures)", 
 
   it("single-target damage is untouched; a trailing rider stays LOW (whole-clause anchor)", () => {
     expect(parseEffectProgram({ type: "Instant", name: "Shock", oracle: "Shock deals 2 damage to target creature." }).atoms[0].maxTargets).toBeUndefined();
+    // GRADUATED 2026-07-30 — the "can't block" rider is now modelled: "those creatures" binds to the
+    // multi-target damage atom's chosen creatures (CR 608.2, referentBinding.test.js), so the plural
+    // referent reaches every target the damage did. The pin's own reason — "rider unmodeled" — no longer
+    // holds. Re-pointed rather than deleted; the live negative follows.
     const rider = parseEffectProgram({ type: "Sorcery", name: "Sparkmage's Gambit", oracle: "Sparkmage's Gambit deals 1 damage to each of up to two target creatures. Those creatures can't block this turn." });
-    expect(rider.atoms).toHaveLength(0); // "can't block" rider unmodeled → whole card LOW
+    expect(rider.atoms).toHaveLength(2);
+    expect(rider.atoms[1].bindPreviousTargets).toBe(true);
+    // Still LOW — a rider whose PAYLOAD is unmodelled must drop the whole card, which is the invariant
+    // this pin exists to protect.
+    const unmodelled = parseEffectProgram({ type: "Sorcery", name: "Fake", oracle: "Fake deals 1 damage to each of up to two target creatures. Those creatures must be blocked this turn if able." });
+    expect(unmodelled.atoms).toHaveLength(0);
   });
 
   it("resolving two chosen targets deals the FULL amount to EACH (not divided)", () => {
