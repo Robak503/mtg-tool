@@ -27,6 +27,7 @@
  */
 
 import { logEvent } from "../../gameState.js";
+import { payManaCost } from "../../manaModel.js"; // PACT rider: the shared plan-and-commit payment (manaModel -> atoms/shared only, no cycle back here)
 
 // Spelled cardinals that appear in win-threshold conditions (ten Treasures, thirty artifacts, fifty
 // life, one hundred tower counters). A win condition NEVER fires on a number the evaluator can't read
@@ -157,9 +158,79 @@ export function applyWinGame(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "win-game", controller: ctx.controller, applied: true });
 }
 
+/**
+ * ===== PAY-OR-LOSE (the Pact cycle, CR 603.7 + 104.3a) ===== the delayed upkeep rider on Pact of Negation,
+ * Slaughter Pact, Summoner's Pact and Pact of the Titan: *"At the beginning of your next upkeep, pay {cost}.
+ * If you don't, you lose the game."*
+ *
+ * The rider is scheduled as a delayed trigger; THIS is what fires. Attempt the payment through the shared
+ * payManaCost (which plans against the pool + untapped sources and commits, or reports failure); an
+ * unpayable cost sets `lostGame` on the controller, the same flag the "target player loses the game"
+ * branch above writes.
+ *
+ * ⭐ PAYING WHENEVER ABLE IS NOT A POLICY GUESS. CR makes this a choice, but the alternative is losing the
+ * game outright — there is exactly one rational line, so an auto-pay is the correct play rather than a
+ * stand-in for a decision the engine ducked. (A player who WANTS to lose is not a case worth modelling.)
+ * The interesting half is the failure: a Pact you cannot pay kills you, which is the entire reason the
+ * cards are costed at {0}, and the gates below assert that death.
+ */
+export function applyPayOrLose(state, atom, ctx) {
+  const controller = ctx.controller;
+  if (!state.players?.[controller]) return state; // eliminated mid-resolution → clean no-op (CR 800.4a)
+  const { state: afterPay, paid } = payManaCost(state, controller, atom.manaCost || {});
+  if (paid) {
+    return logEvent(afterPay, { kind: "spell-effect", effect: "pay-or-lose", controller, paid: true });
+  }
+  const next = {
+    ...state,
+    players: { ...state.players, [controller]: { ...state.players[controller], lostGame: true } },
+  };
+  return logEvent(next, { kind: "spell-effect", effect: "pay-or-lose", controller, paid: false, lost: true });
+}
+
 export const winGameResolvers = {
   "win-game": applyWinGame,
+  "pay-or-lose": applyPayOrLose, // PACT rider (CR 603.7) — pay at upkeep or lose the game
 };
+
+/**
+ * Mana pips → the cost shape payManaCost wants. DELIBERATELY NARROW: plain generic + coloured/colourless
+ * pips only. An {X}, a hybrid, a Phyrexian or a snow pip returns null, so the clause fails to parse and the
+ * whole card stays LOW → Arbiter rather than being paid with a cost this reader guessed at.
+ *
+ * ⛔ Why not import legalChoices.parseManaCost: legalChoices imports atoms/shared.js, so an atoms module
+ * importing it back would close a cycle. This reader is narrower than that one ON PURPOSE — it is not a
+ * second general parser, it is a gate that admits only the shapes the Pact cycle actually prints.
+ */
+function pipsToCost(pips) {
+  const cost = { generic: 0, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+  const tokens = String(pips || "").match(/\{[^}]+\}/g);
+  if (!tokens || !tokens.length) return null;
+  for (const t of tokens) {
+    // ⚠️ UPPERCASED on the way in. The clause parser lowercases the whole line before matching, so the
+    // pips arrive as "{u}" — an uppercase-only test silently returned null here and the entire Pact cycle
+    // stayed on the Arbiter with a regex that matched perfectly. The colour keys on the cost object are
+    // uppercase (MANA_COLORS), so the case has to be restored, not merely tolerated.
+    const body = t.slice(1, -1).toUpperCase();
+    if (/^\d+$/.test(body)) { cost.generic += parseInt(body, 10); continue; }
+    if (/^[WUBRGC]$/.test(body)) { cost[body] += 1; continue; }
+    return null; // {X}, {2/U}, {U/P}, {S} … → unmodeled here, refuse the whole clause
+  }
+  return cost;
+}
+
+/**
+ * "pay {cost}. if you don't, you lose the game" — the Pact rider, as it reaches the delayed-trigger drain.
+ * Whole-clause anchored; the cost must be plain pips (see pipsToCost) or this returns null and the card
+ * routes to the Arbiter. Emits the cost OBJECT so the resolver never re-parses text at resolution.
+ */
+export function payOrLoseClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").trim().replace(/\.$/, "");
+  const m = t.match(/^pay ((?:\{[^}]+\})+)\. if you don't, you lose the game$/);
+  if (!m) return null;
+  const manaCost = pipsToCost(m[1]);
+  return manaCost ? { op: "pay-or-lose", manaCost, targetType: null } : null;
+}
 
 /**
  * PURE clause parser (registered into parser.js's registerClauseParser seam at the bottom of parser.js,

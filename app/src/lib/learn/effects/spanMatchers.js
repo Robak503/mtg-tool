@@ -548,12 +548,23 @@ function delayedTimingSpec(raw) {
 }
 export function matchDelayedTrigger(oracle) {
   const text = String(oracle).trim();
-  // LEAD form — "At the beginning of <timing>, <effect>." The WHOLE clause is the delayed ability.
-  let m = text.match(new RegExp(`^at the beginning of ${DELAYED_TIMING},\\s+(.+?)\\.?\\s*$`, "i"));
+  // LEAD form — "[<immediate sentences>. ]At the beginning of <timing>, <effect>."
+  //
+  // The leading half is OPTIONAL and was originally absent: the branch was anchored so the whole clause
+  // had to be the delayed ability, which is why every "<spell effect>. At the beginning of your next
+  // upkeep, <rider>" card (the Pact cycle) fell through to the Arbiter. The TRAIL branch below already
+  // supported leading sentences; only the LEAD word order did not. 46 non-native instants/sorceries carry
+  // this shape.
+  //
+  // The timing is captured explicitly now rather than sliced back out of m[0] — with an optional leading
+  // group, m[0] no longer starts at "at the beginning of", so the old positional slice would have read
+  // the wrong text. Greedy `(.*\.)` prefers the LONGEST immediate half, so on a card carrying more than
+  // one "at the beginning of" it splits at the LAST one, keeping the delayed half whole.
+  let m = text.match(new RegExp(`^(?:(.*\\.)\\s+)?at the beginning of (${DELAYED_TIMING}),\\s+(.+?)\\.?\\s*$`, "i"));
   if (m) {
-    const spec = delayedTimingSpec(m[0].slice("at the beginning of ".length).split(",")[0]);
+    const spec = delayedTimingSpec(m[2]);
     if (!spec) return null;
-    return { immediateClause: null, delayedClause: m[1].trim(), ...spec };
+    return { immediateClause: m[1] ? m[1].trim() : null, delayedClause: m[3].trim(), ...spec };
   }
   // TRAIL form — "[<immediate sentences>. ]<final effect> at the beginning of <timing>."
   // ONLY THE FINAL SENTENCE IS DELAYED. Everything before it is part of the spell's own resolution

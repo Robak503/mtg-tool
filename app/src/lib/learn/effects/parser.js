@@ -62,6 +62,7 @@ import { earthbendClauseParser, combatKeywordClauseParser, massBlockLockClausePa
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
 import { discardClauseParser, lookAtHandClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family) + the look-at-hand info clause
+import { payOrLoseClauseParser } from "./atoms/winGame.js"; // PACT rider (CR 603.7) — fires from the delayed-trigger drain
 import { conniveClauseParser } from "./atoms/connive.js"; // CONNIVE (BLITZ EK-1, CR 701.50a) — draw 1 → chosen discard → +1/+1 if nonland
 import { suspectClauseParser } from "./atoms/suspect.js"; // SUSPECT (BLITZ EK-1, CR 701.60) — the suspected designation (menace + can't block)
 import { grantUncounterableClauseParser, attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser, copyCreatureSpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell) + COPY-A-CREATURE-SPELL (Double Major)
@@ -1634,6 +1635,14 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // itself parses HIGH — a scheduled ability must never fire an effect the engine can't model, so an
   // unreadable inner clause leaves the whole card LOW → Arbiter (a safe FN). The inner parse runs on
   // the same "Instant" lane every trigger payoff uses.
+  // PAY-OR-LOSE (the Pact cycle, CR 603.7) — "pay {cost}. If you don't, you lose the game." Matched on the
+  // WHOLE clause, BEFORE the sentence splitter: the rider is two printed sentences that mean one thing, and
+  // split apart neither half is a modelable effect ("pay {3}{U}{U}" alone is not an action, and "if you
+  // don't, you lose the game" has lost its antecedent). Same reason matchDiesGainDrawByPower collapses its
+  // compound up front. This clause only ever arrives here from the delayed-trigger drain re-parsing the
+  // scheduled effect text.
+  const payOrLose = payOrLoseClauseParser(oracle);
+  if (payOrLose) return makeProgram({ confidence: "high", atoms: [payOrLose], xSpell: false, unparsedTail: null });
   const dly = matchDelayedTrigger(oracle);
   if (dly) {
     const inner = parseEffectClause(dly.delayedClause, "Instant");
