@@ -11,8 +11,8 @@
 > per slice. **Only the TAG batches.** A tag makes an update banner appear in every running `.exe`, and one
 > banner per +21 is noise.
 >
-> - **BATCH IN FLIGHT: 84 cards banked since v0.149.18** (condition-filter vocabulary +13, per-turn ledger
->   readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13, one-sided opponent sweep +4, mass-removal filter delegation +19, mass-bounce delegation +3). Update this number at
+> - **BATCH IN FLIGHT: 92 cards banked since v0.149.18** (condition-filter vocabulary +13, per-turn ledger
+>   readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13, one-sided opponent sweep +4, mass-removal filter delegation +19, mass-bounce delegation +3, condition disjunction + singular graveyard reader +8). Update this number at
 >   every slice boundary so a fresh session knows how much is unreleased.
 > - Write CHANGELOG entries under `## [Unreleased]` per slice; promote the whole block and bump both version
 >   files (`app/package.json` + `app/src-tauri/tauri.conf.json`) only at TAG time.
@@ -108,6 +108,53 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## 🏦 BANKED (unreleased) 2026-07-30 — **CONDITION DISJUNCTION + THE SINGULAR GRAVEYARD READER. GAINED 8, LOST 0.**
+
+Dawnhand Eulogist · Desert's Hold · Gilded Cerodon · Sand Strangler · Unquenchable Thirst ·
+Wall of Forgotten Pharaohs · Walltop Sentries · Wretched Camel — the whole Desert cycle, plus two.
+
+**⭐ THE SEQUENCING IS THE STORY, AND IT WAS DECIDED BY A PROBE TWO SLICES AGO.** A top-level `or` splitter was
+the obvious build then: the single biggest phrase in the three-lane census was *"you control a Desert OR there
+is a Desert card in your graveyard"* (6 cards), which reads as a plain disjunction. **RULE 1b said probe the
+HALVES first** — and the graveyard half was ALSO unreadable, so the splitter would have gained exactly ZERO.
+It was not written. It is written now because the singular graveyard reader made that half readable. *The probe
+did not just size the work; it ordered it.*
+
+**THE SINGULAR GRAVEYARD READER** — `there is / there's a <X> card in your graveyard`, the ≥1 case of two
+counters that had only ever been reachable through the "N or more" wording. The typed scan is word-anchored
+against the whole type line, so SUBTYPES come free: "desert card" matches `Land — Desert`, "lesson card"
+matches `Sorcery — Lesson`. ⚠️ It inherits its sibling's exposure **deliberately and in writing** — an
+unrecognised word becomes a scan that matches nothing and reads FALSE forever while the shape gate says
+"readable". The typed COUNT reader has carried that since it shipped; diverging here would mean the same
+phrase answered differently depending on whether it said "a" or "one or more".
+
+**⛔ THE WHOLE CONDITION IS ALWAYS TRIED FIRST — the entire safety argument in one line.** Many single
+conditions legitimately contain " or ": *power 4 or greater* · *N or more* · *5 or less life* · *gained or
+lost life this turn* · *seven or more cards in hand*. Splitting eagerly shatters a READABLE condition into two
+unreadable halves and regresses every card carrying one. Gating the split behind the whole form's failure makes
+"no regressions" **structural** rather than something to re-verify — and the mutation that removes that
+ordering fails **9 of 14 tests**.
+
+**⛔ BOTH HALVES MUST BE INDEPENDENTLY READABLE.** If either is null the disjunction is null; an unreadable
+half must never be treated as FALSE, which would answer a definite "no" to a question the engine cannot
+evaluate. Only a two-way split is attempted — a three-way chain refuses.
+
+**Gates:** 14 new tests; **all three mutations seen to fail** — splitting eagerly (9), treating an unreadable
+half as false (1), dropping the singular reader (5). Reverts confirmed by `git diff`. Flip-diff
+**GAINED 8 / LOST 0**. Suite **996 files / 12,694 green**, lint 0 unpiped, MUTANT clean, module graph loads
+(`evaluateInterveningIf` is now a wrapper; the original body is `evaluateSingleCondition`, and the three
+probe functions call the wrapper so disjunctions are readable on all three lanes).
+
+**Census re-measured after the batch's three condition slices: 189 → 160 attributable.** Remaining head:
+T9 other 60 · T1 turn-event history 44 (needs real tracking, not readers) · T2 you-control 37.
+Next-biggest single phrases: `you cast it from your hand` (5, needs cast-zone tracking) ·
+`you descended this turn` (5) · `you haven't cast a spell from your hand this turn` (3, deliberately refused —
+`spellsCastThisTurn` is zone-blind).
+
+**BATCH NOW 92 CARDS** since v0.149.18 — at the tag threshold.
 
 ---
 

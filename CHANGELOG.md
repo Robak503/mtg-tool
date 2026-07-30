@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **The Desert cycle works.** Sand Strangler, Wretched Camel, Gilded Cerodon, Desert's Hold and four more
+  correctly check whether you control a Desert OR have one in your graveyard — the engine now understands
+  conditions joined by "or", and "there is a <kind> card in your graveyard".
 - **Mass bounce with a filter now works.** Aetherize, Inundate and Part the Veil return exactly the
   creatures the card names — all attacking creatures, all nonblue creatures, all creatures you control.
 - **Board wipes that only hit some creatures now work.** Nineteen cards, including Plague Wind, Cleanse,

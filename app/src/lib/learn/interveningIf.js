@@ -577,7 +577,41 @@ function isCreaturePermLocal(perm) {
  * entering permanent for an ETB trigger — needed by per-permanent conditions (the SAME-NAME ETB shape).
  * Pure board-count conditions ignore it, so existing callers (which omit it) are unaffected.
  */
+/**
+ * ⭐ TOP-LEVEL DISJUNCTION (2026-07-30) — "you control a Desert OR there is a Desert card in your graveyard"
+ * (the 6-card Desert cycle), "you gained or lost life this turn"-style compounds, and the "…or if …" frame.
+ *
+ * ⛔ THE WHOLE CONDITION IS ALWAYS TRIED FIRST, and that ordering is the entire safety argument. Many single
+ * conditions legitimately contain " or " — "power 4 or greater", "N or more", "attacking or blocking",
+ * "gained or lost life this turn". Splitting eagerly would shatter a READABLE condition into two unreadable
+ * halves and REGRESS every card carrying one. Gating the split behind the whole form's failure makes "no
+ * regressions" structural rather than something to be re-verified.
+ *
+ * ⛔ AND BOTH HALVES MUST BE INDEPENDENTLY READABLE. If either returns null the disjunction returns null, so
+ * an unreadable half can never be treated as false — which would answer a definite "no" to a question the
+ * engine cannot actually evaluate.
+ *
+ * ⚠️ WHY THIS WAS NOT BUILT WHEN IT WAS FIRST PROPOSED: a probe of the Desert cycle's two halves showed the
+ * graveyard half was ALSO unreadable, so a splitter would have gained exactly zero. It is built now because
+ * the singular graveyard reader above made that half readable — the sequencing was the point, and RULE 1b is
+ * what stopped a useless version of this from shipping two slices ago.
+ */
 export function evaluateInterveningIf(state, condition, controllerId, context = null) {
+  const whole = evaluateSingleCondition(state, condition, controllerId, context);
+  if (whole !== null) return whole;
+  const c = String(condition || "").toLowerCase().trim();
+  // The printed compound frames: "<A> or <B>" and "<A> or if <B>" (the latter appears inside activation
+  // riders — "…this turn or if you've sacrificed a Food this turn").
+  const parts = c.split(/\s+or(?:\s+if)?\s+/);
+  if (parts.length !== 2) return null;
+  const left = evaluateSingleCondition(state, parts[0].trim(), controllerId, context);
+  if (left === null) return null;
+  const right = evaluateSingleCondition(state, parts[1].trim(), controllerId, context);
+  if (right === null) return null;
+  return left || right;
+}
+
+function evaluateSingleCondition(state, condition, controllerId, context = null) {
   const c = String(condition || "").toLowerCase().trim();
   if (!state?.players?.[controllerId]) return false; // controller gone → condition unmet
 
@@ -1087,6 +1121,26 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     if (n == null) return null;
     return (state.players[controllerId].graveyard || []).length >= n;
   }
+
+  // ⭐ THE SINGULAR FORM — "there is|there's a <type> card in your graveyard" (2026-07-30). The ≥1 case of the
+  // two counters directly above and below, which had only ever been reachable through the "N or more" wording.
+  // The typed scan is word-anchored against the whole type line, so a SUBTYPE comes along for free: "desert
+  // card" matches "Land — Desert", "lesson card" matches "Sorcery — Lesson".
+  //
+  // ⚠️ IT INHERITS ITS SIBLING'S EXPOSURE, DELIBERATELY AND NOT SILENTLY: an unrecognised word becomes a
+  // type-line scan that matches nothing and therefore reads FALSE forever while the shape gate says
+  // "readable". The typed COUNT reader below has carried exactly that exposure since it shipped. Mirroring it
+  // keeps one behaviour instead of two; diverging here (a curated allowlist on the singular arm only) would
+  // mean the same phrase answered differently depending on whether it said "a" or "one or more".
+  m = c.match(/^(?:there is|there's|there are) an? ([a-z]+) card in your graveyard$/);
+  if (m) {
+    const singularWord = m[1].replace(/s$/, "");
+    const w = singularWord.charAt(0).toUpperCase() + singularWord.slice(1);
+    const re = new RegExp(`\\b${w}\\b`, "i");
+    return (state.players[controllerId].graveyard || []).some((card) => re.test(typeStr(card)));
+  }
+  m = c.match(/^(?:there is|there's) a card in your graveyard$/);
+  if (m) return (state.players[controllerId].graveyard || []).length >= 1;
 
   // "[there are|you have] <N> or more <type> cards in your graveyard"
   m = c.match(new RegExp(`^(?:there are|you have) ${NUM_RE} or more ([a-z]+) cards? in your graveyard$`));
