@@ -131,6 +131,40 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## 🚀 SHIPPED 2026-07-30 — **v0.149.20 PUBLISHED AND VERIFIED BY CONTENT. 89 cards, ten slices, one tag.**
+
+**The first full batch under the new cadence** (Colton, 07-29: *"you cutting to many releases put more work in
+before each cut"*). Ten slices landed on master individually with their own gates; **one** update banner.
+
+| check | result |
+|---|---|
+| `latest.json` version | **0.149.20** |
+| installer URL | resolves to a real asset **in this release** |
+| signature | **424 chars**, decodes to `untrusted comment: signature from...` |
+| installer size | **129,882,641 bytes** — not a stub |
+| release state | published; **not** draft, **not** prerelease |
+| tag ↔ tree | tag == master == the bump commit; **both** version files read 0.149.20 |
+
+**Verified by CONTENT, never by filename** — the standing law after the v0.149.13 incident, where a pushed tag
+rendered a release-looking page that had shipped nothing. The tag/tree check was run BEFORE the push, which is
+the cheap half: tagging ahead of the version-bump commit is the easiest way to publish a correct-looking
+release of the wrong tree.
+
+**Slice roll-up:** colour cast-trigger filter **52** · planeswalker subtypes + `another <filter>` **11** ·
+cost-reducer filter vocabulary **8** · life-gain replacement **7** · controller sac nouns + counter placement
+**5** · condition disjunction/negation **4** · turn-scoped flash grant **1** · granted uncounterability **1**.
+Plus the 24-citation CR correction (comment-only) and two refusals banked with their numbers.
+
+⚠️ **Carries one known defect**, found after the tag was already building and fixed on master for the next
+release: the lifegain trigger read the OFFERED amount (entry below). Under-report only, nothing fabricated.
+
+**BATCH 3 STARTS AT 0.** The next tag wants ~100 cards again — but see the shelf pointer at the top: the
+tractable veins are spent on both `cdh` and the corpus census, so batch 3 will fill from **bespoke mechanisms
+at roughly 1–7 cards each**, not from another 52-card find. Budget the batch accordingly rather than reading
+the slow fill as a problem.
+
+---
+
 ## ✅ BANKED (batch 2) 2026-07-30 — **LIFE-GAIN REPLACEMENT, BOTH ARMS. GAINED 7, LOST 0.**
 
 Rhox Faithmender · Boon Reflection · The Wind Crystal (**×2**) · Angel of Vitality · Heron of Hope ·
