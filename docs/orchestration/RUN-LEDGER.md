@@ -95,6 +95,52 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## 🎯 THE BEST SINGLE-MECHANISM VEIN FOUND THIS RUN — **34 cards, and the engine NAMES what is unbuilt.**
+### `you may pay {N}. If you do, <TARGETED effect>` — target threading through the pay-choice. START HERE COLD.
+
+**How it was found:** chasing why the reflexive-wrapper Role cards park. The controls failed too, which pointed
+at a mechanism rather than a phrasing. Then the population split three ways by WHICH documented guard stops it —
+and only one third is a single buildable mechanism.
+
+**⛔ THE MATCHER NAMES THE MISSING PIECE ITSELF** (`parser.js` `matchOptionalManaPayment`, line ~1099):
+> "SELF-CONTAINED gate (CREED): a chosen-target payoff would need its target threaded through the pay-choice
+> **(unbuilt)** → keep it LOW. The draw-family payoffs are targetless (programNeedsChosenTarget false)."
+
+So this is a **CAPABILITY pin with its graduation criterion written down**: thread the chosen target through
+the optional-mana-payment pay/decline suspend, and 34 cards graduate at once.
+
+**THE THREE-WAY SPLIT (attributed by removal; payoff verified to parse on a known-good anchor):**
+```
+⭐ (B) 34  "If you do" + a TARGETED payoff   -> ONE capability pin. THE VEIN.
+   (A) 12  "When you do" instead of "If you do" -> DELIBERATE refusal, do not touch: an optional primary with a
+                                                   reflexive tail would fire even when the player DECLINES the
+                                                   "may" (parser.js:1046-1048, pinned LOW by diceRoll.test.js).
+   (C) 34  "If you do" + targetless, still parked -> NOT one gap. 34 DIFFERENT unmodeled TRIGGER EVENTS.
+```
+**The 34 in (B), all one shape:** Ruthless Sniper · Smolder Initiate · Malachite/Hematite/Onyx/Nacre/Lapis
+Lazuli Talisman (×5) · Conduit Goblin · Genesis · Drowner Initiate · Intimidator Initiate · Haazda Snare Squad ·
+Surgespanner · Lightning Cloud · Serene Steward · Frenzied Goblin · Maulfist Doorbuster · Kalastria Highborn ·
+Nurturer Initiate · Shu Yun · Searing Meditation · Eternal Taskmaster · Veinwitch Coven · Lightning Rift ·
+Furnace Celebration · Drainpipe Vermin · Leyline of Lightning · Equilibrium · Bearer of Silence · Embersmith ·
+Knowledge and Power · Quiet Contemplation · Sludge Strider · Insidious Bookworms.
+
+**⚠️ (C) IS A TRAP AND I NEARLY FELL IN IT.** It looked like 34 more cards of the same vein — the wrapper shape
+matches, the payoff parses, and `parser.js`'s own docstring even NAMES Symmetry Matrix and Pedantic Learning as
+cards it handles. But the wrapper is fine on those cards; their TRIGGER LEAD is the blocker, and every lead is
+different (filtered-ETB "power equal to its toughness", library-PiG, bounce-watcher, colored-spell-cast,
+PiG-with-intervening-if). Proven by holding the payoff constant and varying only the lead: upkeep / ETB /
+attacks / dies all go native, `whenever you cycle or discard a card` parks. **Same surface string, different
+mechanism — the fourth time this session.**
+
+**BUILD NOTES for whoever takes it:** the pay-choice already suspends and resumes
+(`runProgram.resolveOptionalManaPaymentChoice`; pay → `payManaCost` + run the payoff, decline → nothing). What
+is missing is carrying the chosen target across that suspend. ⚠️ Respect the sibling guard while you are in
+there: a NON-LAST payoff atom that can itself pause must still be rejected (`PAUSING_ATOM_OPS`), because the
+settler chains a mid-payoff pause onto the program continuation and would DROP the atoms after it. And the
+`targetType: null` on the emitted atom is currently load-bearing — it will need to become the real target type.
+
+---
+
 ## ⚠️ PHASE 4 RE-SCOPED (2026-07-30) — **"attached to it" is NOT one 5-card form. "it" binds to 3 different things.**
 
 Correcting my own census one entry down. I grouped 5 cards under `attached to it` and called it phase 4's
