@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 71 cards since v0.149.20** (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 77 cards since v0.149.20** (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,61 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 3) 2026-07-30 — **POISON COUNTERS AS A CLAUSE. GAINED 6, LOST 0.**
+
+Prologue to Phyresis · Infectious Inquiry · Infectious Bite · Pistus Strike · Ichor Rats · Phyrexian Vatmother.
+
+**⭐ THE TRACK EXISTED; NO CLAUSE EVER PARSED TO IT.** `gameState.addPoison` has been there since KW-POISON
+(ten counters lose the game), and infect/toxic combat damage already fed it — but **every card handing out
+poison OUTSIDE combat was unmodelled** because nothing turned the sentence into an atom. Six cards fell out of
+one small arm. *When a runtime primitive exists and pays nothing, check whether anything actually PARSES to
+it — that is a different question from "is the mechanic built".*
+
+`applyAddPoison` is a deliberate **structural mirror of `applyLoseLife`** — same four recipients, same order,
+same eliminated-player handling. Poison is a player resource like life and should read like one; keeping them
+identical is what stops them drifting as recipient kinds are added.
+
+**⭐ TWO SLICES COMPOSED WITHOUT EITHER KNOWING ABOUT THE OTHER.** Pistus Strike (*"Destroy target creature
+with flying. **Its controller** gets a poison counter."*) rides the **player-referent projection** built in the
+PREVIOUS slice. The poison payload needed **no runtime work beyond existing**, because `applyAddPoison`'s
+`who:"target"` branch reads the same projected slice every other payload in that arm does. *That is the payoff
+for putting the projection at the BIND SITE instead of in each resolver — a new payload joins for free.*
+
+**Predicted 5, measured 6, both surprises audited:** Ichor Rats uses *"each player"* and Phyrexian Vatmother
+uses *"you"* — arms I included on purpose but my probe's regex never searched for. **The build was wider than
+the probe**, which is the safe direction (fourth slice running that the probe under-counted).
+
+**⚠️ One mutation was a DUD and was replaced rather than counted.** Unanchoring the FRONT of the subject regex
+changed nothing — `" gets"` still has to follow the subject immediately, so *"each opponent who attacked gets
+…"* never matched either way. The real hazard is an **open-ended subject group** (`[a-z ]+`), which would let
+any qualified subject through and silently fall back to `who:"target"`. That is what the replacement mutates,
+and it fails. *A mutation that does not change behaviour is not evidence — check that your sabotage actually
+sabotages.*
+
+**Gates:** 10 new tests, **each recipient paired with a check that the WRONG player was not poisoned**. Four
+mutations seen to fail. Suite **1010 files / 12,866 green**, lint 0, MUTANT clean.
+
+### 📊 THE PLAYER-PAYLOAD VOCABULARY — measured, for whoever picks this up next
+`target player <payload>` parses for **6** payloads (discard · draw · lose life · gain life · mill · sacrifice)
+and **not** for 8 others. Attribution per missing payload:
+| payload | pool | attributable |
+|---|---|---|
+| **gets a poison counter** | 11 | **5** ✅ built (paid 6) |
+| exiles a card from their graveyard | 5 | **3** — needs a card CHOICE |
+| shuffles their library | 2 | **2** |
+| investigates | 2 | **2** ⚠️ see below |
+| creates a Treasure token | 4 | 0 |
+| reveals their hand | 126 | **0** |
+
+⚠️ **`investigates` is currently the STAND-IN in ten CREED pins** (re-pointed there this run when the discard
+rider graduated). Building it means re-pointing them an eleventh time. If you do, move the stand-in to
+**`reveals their hand`** — pool 126 but **0 attributable**, so nobody will ever have a reason to build it.
+*Choosing a stand-in with zero attribution makes it permanent.*
+
+**Batch 3: 77 cards.**
 
 ---
 
