@@ -131,7 +131,54 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 ## ✅ BANKED (batch 4) 2026-07-30 — **ADAPT-IGNORES-COUNTERS. GAINED 1. ⭐ `cdh` 88% → 89% — ONE CARD LEFT.**
+## 🎯 ## 🎯 THE LAST CARD ON COLTON'S SHELF — **SPRINGHEART NANTUKO, fully specified, ready to execute**
+
+`cdh` is **89/100**. This ONE card closes Colton's entire shelf (every other deck of his is already over the
+1.0 bar). Diagnosed to the seam; not started, because the last piece is a refactor of the pause SETTLER and
+a half-refactored settler is worse than an unbuilt card.
+
+### WHAT ALREADY WORKS — verified, not assumed
+Dropping the landfall line leaves **`native-aura`**: bestow and *"Enchanted creature gets +1/+1"* are done.
+The whole remaining gap on the shelf is **one printed line**:
+
+> *Landfall — Whenever a land you control enters, you may pay {1}{G} if this permanent is attached to a
+> creature you control. If you do, create a token that's a copy of that creature. If you didn't create a
+> token this way, create a 1/1 green Insect creature token.*
+
+| piece | state |
+|---|---|
+| the landfall trigger | ✅ detected (`ev=landfall`, `scope=landYouControl`) |
+| `you may pay {1}{G}. If you do, <effect>` | ✅ `optional-mana-payment` exists |
+| `create a 1/1 green Insect creature token` | ✅ `create-token` |
+| `create a token that's a copy of …` | ✅ `create-token-copy` exists — **45 native carriers** |
+| **the ATTACHED referent** (`that creature`) | ⛔ `copySource` has self / triggering / target, not attached |
+| **the payment CONDITION** (`if this permanent is attached…`) | ⛔ the atom has no condition field |
+| **the FALLBACK** (`if you didn't create a token this way…`) | ⛔ the atom has no else-branch |
+
+### THE BUILD, IN ORDER — and the design decision is already made
+1. **A WHOLE-CLAUSE template matcher** for this exact printed line (the Lifeblood Hydra pattern). ⛔ Do NOT
+   add a general `that creature → attached` referent: *"that creature"* means something different on almost
+   every other card, and a general arm would mis-copy. Anchored to the one printed shape.
+2. `copySource: "attached"` in `atoms/tokenCopy.js` — resolve via the source permanent's `attachedTo`.
+3. ⭐ **ALWAYS PAUSE; carry `available`.** Do not skip the offer when unattached — the **reflexive-sac atom in
+   the same file already establishes this exact pattern** (*"a false-`available` pause still surfaces — the
+   player/AI must decline since you can't sacrifice what you don't have"*). `available` = attached AND
+   affordable. This keeps the resolver from having to run sub-atoms itself.
+4. `elseAtoms` carried into the pending choice.
+5. **The settler (`resolveOptionalManaPaymentChoice`, runProgram ~1114).** Its payoff loop carries real
+   pause-chaining logic (a mid-payoff pause must not drop the tail — WI-3). **Extract that loop into a helper
+   and call it for `effectAtoms` on paid / `elseAtoms` on decline** rather than duplicating it; two copies of
+   that logic WILL drift.
+
+### GATES THE BUILD MUST CARRY
+- attached + pay → a token copy of the **attached** creature (not of Springheart, not of a random creature)
+- attached + decline → the 1/1 Insect, and **exactly one** token — never both
+- **not** attached → the Insect, and the payment must not be payable
+- the copy is of the creature it is attached to at RESOLUTION, not at trigger time
+
+---
+
+## ✅ BANKED (batch 4) 2026-07-30 — **ADAPT-IGNORES-COUNTERS. GAINED 1. ⭐ `cdh` 88% → 89% — ONE CARD LEFT.**
 
 Biomancer's Familiar. *"{T}: The next time target creature adapts this turn, it adapts as though it had no
 +1/+1 counters on it."* (CR 701.46a, verified.)
