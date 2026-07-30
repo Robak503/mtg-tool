@@ -26,10 +26,21 @@ const MIN = (() => { const i = args.indexOf("--min"); return i >= 0 ? parseInt(a
 // Deck-card source (mirrors measure-coverage loadDecks/enrich): every distinct card across saved profile decks,
 // with which deck names use it — so the frontier can rank clauses by DECK-card leverage.
 function deckCards() {
-  const profilesDir = path.join("data", "profiles");
+  // ⛔ 2026-07-30: this read a RELATIVE "data/profiles", so from a worktree (where profiles live only in the
+  // install's AppData root) readdirSync threw, the catch returned [], and --decks reported
+  // "non-native=0, with-unparsed-tail=0" — which reads as "the shelf is perfect" instead of "I found no
+  // decks". Same class as the Scryfall sync that synced nothing and exited 0: absence presented as a result.
+  // Now honours MTG_APP_ROOT (like shelf-gap-ledger.mjs) and FAILS LOUD rather than returning an empty list.
+  const appRoot = (process.env.MTG_APP_ROOT || "").trim() || process.cwd();
+  const profilesDir = path.join(appRoot, "data", "profiles");
   const byName = new Map(); // name -> { type, oracle, name, decks:Set }
   let dirs;
-  try { dirs = fs.readdirSync(profilesDir).filter((d) => d.startsWith("prof_")); } catch { return []; }
+  try {
+    dirs = fs.readdirSync(profilesDir).filter((d) => d.startsWith("prof_"));
+  } catch (error) {
+    throw new Error(`--decks: no profiles at ${profilesDir} (${error.code || error.message}). Set MTG_APP_ROOT to an install's app-data root.`);
+  }
+  if (!dirs.length) throw new Error(`--decks: ${profilesDir} contains no prof_* directories — refusing to report an empty frontier as a clean one.`);
   for (const dir of dirs) {
     const file = path.join(profilesDir, dir, "decks.local.json");
     if (!fs.existsSync(file)) continue;
@@ -41,7 +52,14 @@ function deckCards() {
         const found = lookupCard(entry.name); if (!found) continue;
         const c = publicCard(found);
         let e = byName.get(c.name);
-        if (!e) { e = { type: c.type, oracle: c.oracle, name: c.name, decks: new Set() }; byName.set(c.name, e); }
+        // ⛔ 2026-07-30: this used to rebuild the card as { type, oracle, name } — DROPPING mana, power and
+        // toughness. classifyCard reads all three, so every {X} card (the cost IS the X value) and every
+        // creature was mis-classified, and --decks reported 300 "non-native" deck cards that are in fact
+        // native: Gelatinous Genesis, Mistcutter Hydra, Steelbane Hydra, Stonecoil Serpent, Biomass Mutation,
+        // Braingeyser, Pull from Tomorrow, Nature's Rhythm … all already native, all listed as blocked.
+        // The frontier's "X-value cluster" was an artifact of the stripped object, nothing more.
+        // Carry the WHOLE publicCard; only `decks` is ours to add.
+        if (!e) { e = { ...c, decks: new Set() }; byName.set(c.name, e); }
         if (dk.name) e.decks.add(dk.name);
       }
     }
