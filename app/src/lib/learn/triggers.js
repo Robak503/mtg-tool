@@ -1413,9 +1413,26 @@ function classifyCondition(condRaw, cardName, cardType) {
     // NOT a modeled atom on this event → triggerRoutesNatively false → the card stays body-only → Arbiter (a
     // SAFE false-negative, whole-card law). A creature form fires via "ltb" (checkLeavesTriggers), NOT "dies"
     // (checkDiesTriggers) — one descriptor, one event, so a spelled-out creature self-PiG never double-fires.
-    if (/^this (?:artifact|creature|enchantment|permanent)$/.test(pigSubj)
+    // ⭐ "this aura" JOINED THE ALTERNATION (Role tokens phase 3 — the Wicked Role's
+    // "…, each opponent loses 1 life."). It was excluded because classifyCondition has priority over the
+    // selfReturn.js registry, so matching it here USED to strip the `selfReturnKind` rewrite that Rancor's bare
+    // "return it to its owner's hand" needs. The fix is to carry that marker rather than avoid the subject:
+    // this branch now returns the SAME descriptor the registry returned for an Aura, so Rancor is
+    // byte-identical, while every OTHER payoff finally reaches the normal effect pipeline.
+    //
+    // ⛔ THE DISCRIMINATION LIVES WHERE THE EFFECT IS IN SCOPE, WHICH IS NOT HERE. classifyCondition sees only
+    // the condition, so it cannot tell Rancor from Wicked. It doesn't have to: the caller already gates the
+    // rewrite on `cls.selfReturnKind && SELF_RETURN_IT_RE.test(effectClause)`. Rancor's effect matches and gets
+    // the rewrite; Wicked's does not and routes normally. Marking the aura subject is therefore free.
+    //
+    // ⚠️ The marker is set ONLY for the aura subject. Setting it for artifact/creature/enchantment/permanent
+    // would newly hand the rewrite to their bare self-returns (Spine of Ish Sah), which is an unmeasured
+    // widening — those stay exactly as they were.
+    if (/^this (?:artifact|creature|enchantment|permanent|aura)$/.test(pigSubj)
         || (selfRef && nameL && (pigSubj === nameL || (shortName && pigSubj === shortName)))) {
-      return { event: "ltb", scope: "self", whose: "any" };
+      return pigSubj === "this aura"
+        ? { event: "ltb", scope: "self", whose: "any", selfReturnKind: "self" }
+        : { event: "ltb", scope: "self", whose: "any" };
     }
     // Marionette Apprentice — "another creature or artifact you control" (the "another" excludes the source).
     if (pigSubj === "another creature or artifact you control")

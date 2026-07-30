@@ -56,18 +56,19 @@ describe("⭐ the registry's shape and executability (hermetic half)", () => {
     }
   });
 
-  it("⛔ the four UNREGISTERED Roles are absent, for two different reasons", () => {
-    // Wicked: defined in the data but its body is unmodeled (checked below and in the gate script).
-    // Chef / Questing / Huntsman: no bundled definition exists at all, so their text cannot be written.
+  it("⛔ only the three Roles with NO bundled definition remain unregistered", () => {
+    // Chef / Questing / Huntsman: cards ask for them, but no definition exists in the data, so their text
+    // cannot be written at all. This is the ONE refusal ground left — every Role the data defines is in.
     const names = Object.values(NAMED_TOKENS).map((s) => s.name);
-    for (const n of ["Wicked", "Chef", "Questing", "Huntsman"]) expect(names).not.toContain(n);
+    for (const n of ["Chef", "Questing", "Huntsman"]) expect(names).not.toContain(n);
   });
 
-  it("⛔ Wicked's body really is non-native — asserted on the PRINTED text, not on absence alone", () => {
-    // Absence proves nothing on its own (ABSENCE ≠ VALUE). If a future slice models the put-into-graveyard
-    // drain, THIS test fails and tells the next builder to register Wicked — exactly how Young Hero arrived.
-    const wicked = "Enchant creature\nEnchanted creature gets +1/+1.\nWhen this Aura is put into a graveyard from the battlefield, each opponent loses 1 life.";
-    expect(isNativeTier(classifyCard({ name: "Wicked", type: "Token Enchantment — Aura Role", mana: "", oracle: wicked })), "Wicked's body became native — register it").toBe(false);
+  it("⭐ PHASE 3 — Wicked IS registered; its put-into-graveyard drain is executable", () => {
+    // Arrived the same way Young Hero did: the gate failed with "its body is NOW EXECUTABLE — register it"
+    // once the Aura-own PiG trigger stopped being hardcoded to a single payoff.
+    const spec = NAMED_TOKENS.wicked;
+    expect(spec?.name).toBe("Wicked");
+    expect(isNativeTier(classifyCard({ name: spec.name, type: spec.type, mana: "", oracle: spec.oracle }))).toBe(true);
   });
 
   it("⭐ PHASE 2 — Young Hero IS registered, and its granted trigger is genuinely executable", () => {
@@ -118,9 +119,39 @@ describe("parse — only the MEASURED targeted phrasings", () => {
   });
 
   it("⛔ an UNREGISTERED Role never parses — it must not mint a do-nothing token", () => {
-    for (const role of ["Wicked", "Chef", "Questing", "Huntsman"]) {
+    for (const role of ["Chef", "Questing", "Huntsman"]) {
       expect(isNativeTier(tierOf(`Create a ${role} Role token attached to target creature you control.`))).toBe(false);
     }
+  });
+
+  it("⭐ all seven data-defined Roles parse", () => {
+    for (const role of ["Cursed", "Monster", "Royal", "Sorcerer", "Virtuous", "Young Hero", "Wicked"]) {
+      expect(isNativeTier(tierOf(`Create a ${role} Role token attached to target creature you control.`)), role).toBe(true);
+    }
+  });
+});
+
+describe("⛔⭐ the Aura-own PiG trigger generalised — and RANCOR must not break", () => {
+  const AURA = { name: "Probe", type: "Enchantment — Aura", mana: "{1}{B}" };
+  const aur = (oracle) => classifyCard({ ...AURA, oracle });
+
+  it("⛔⭐ RANCOR's bare self-return still works — the path this change had to preserve", () => {
+    // THE regression pin. "this aura" was deliberately EXCLUDED from the general SELF-PiG alternation because
+    // classifyCondition has priority over the selfReturn.js registry, so matching it there used to strip the
+    // `selfReturnKind` rewrite that "return it to its owner's hand" depends on. The fix carries the marker
+    // instead of avoiding the subject; if a future edit drops it, THIS is what fails.
+    expect(isNativeTier(aur("Enchant creature\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand."))).toBe(true);
+  });
+
+  it("⭐ and every OTHER payoff now reaches the normal effect pipeline", () => {
+    for (const payoff of ["each opponent loses 1 life.", "draw a card.", "you gain 2 life."]) {
+      expect(isNativeTier(aur(`Enchant creature\nWhen this Aura is put into a graveyard from the battlefield, ${payoff}`)), payoff).toBe(true);
+    }
+  });
+
+  it("⛔ an UNMODELED payoff still parks — the widening is not a blank cheque", () => {
+    // The effect pipeline remains the gate: a payoff it cannot execute leaves the Aura body-only.
+    expect(isNativeTier(aur("Enchant creature\nWhen this Aura is put into a graveyard from the battlefield, you may pay {2}. If you do, scry 2, then draw a card."))).toBe(false);
   });
 
   it("⛔ the REFERENT forms stay unmatched (they need a self-reference) — a safe false negative", () => {

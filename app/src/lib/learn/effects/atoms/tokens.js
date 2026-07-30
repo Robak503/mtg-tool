@@ -253,6 +253,12 @@ export const NAMED_TOKENS = {
   // "Young Hero: its body is NOW EXECUTABLE — register it", which is the gate proving it wasn't passing
   // vacuously. The registry never leads the engine here; it follows what the engine can execute.
   "young hero": { name: "Young Hero", type: "Token Enchantment — Aura Role", aura: true, oracle: "Enchant creature\nEnchanted creature has \"Whenever this creature attacks, if its toughness is 3 or less, put a +1/+1 counter on it.\"" },
+  // ⭐ PHASE 3 — Wicked joined once the Aura-own put-into-graveyard trigger stopped being hardcoded to a single
+  // payoff (triggers.js: "this aura" now rides the general SELF-PiG arm). The gate demanded this promotion too,
+  // for the third time: "Wicked: its body is NOW EXECUTABLE — register it". With Wicked in, all SEVEN Roles
+  // that exist in the bundled data are registered, and the only remaining refusals are the three with no
+  // definition at all.
+  wicked: { name: "Wicked", type: "Token Enchantment — Aura Role", aura: true, oracle: "Enchant creature\nEnchanted creature gets +1/+1.\nWhen this Aura is put into a graveyard from the battlefield, each opponent loses 1 life." },
 };
 
 /**
@@ -564,7 +570,7 @@ export function createNamedTokenClauseParser(clause) {
   //
   // "up to one" makes the target OPTIONAL (a legal zero-target choice); the resolver's CR 303.4 guard then
   // creates nothing, which is correct rather than a silent unattached mint.
-  m = t.match(/^create a (cursed|monster|royal|sorcerer|virtuous|young hero) role token attached to (?:up to one )?(?:another |other )?target creature( you control)?$/);
+  m = t.match(/^create a (cursed|monster|royal|sorcerer|virtuous|young hero|wicked) role token attached to (?:up to one )?(?:another |other )?target creature( you control)?$/);
   if (m) {
     return { op: "create-named-token", token: m[1], count: 1, targetType: m[2] ? "creatureYouControl" : "creature" };
   }

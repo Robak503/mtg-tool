@@ -95,6 +95,51 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## ✅ SHIPPED — **ROLE TOKENS PHASE 3: WICKED + the Aura-PiG generalisation. GAINED 8, LOST 0.**
+### Role project total: **18 cards** (7 + 3 + 8). All SEVEN data-defined Roles now registered.
+
+Wicked Roles: Charming Scoundrel · Conceited Witch // Price of Beauty · Eriette's Whisper · Shatter the Oath.
+**And four MORE that were never Role cards at all:** Audacity · Chime of Night · Mantle of the Wolf ·
+Reach for the Sky — freed by the same generalisation. The slice paid twice.
+
+**THE REAL FIX WAS A HARDCODED PAYOFF.** The Aura-own put-into-graveyard trigger existed and routed — but only
+for ONE payoff:
+```
+"…is put into a graveyard from the battlefield, return it to its owner's hand."  -> native  ✅ (18 cards)
+"…, each opponent loses 1 life."                                                 -> 0 triggers ⛔
+"…, draw a card."                                                                -> 0 triggers ⛔
+"When this creature DIES, each opponent loses 1 life."                           -> native  ✅ (same effect!)
+```
+The effect vocabulary was never the problem — the same payoffs parse fine on a *dies* anchor. `"this aura"`
+was **deliberately excluded** from the general SELF-PiG alternation (`triggers.js`), with a documented reason:
+`classifyCondition` has priority over the `selfReturn.js` registry, so matching it there stripped the
+`selfReturnKind` rewrite that Rancor's bare "return it to its owner's hand" depends on.
+
+**⭐ THE FIX WAS TO CARRY THE MARKER, NOT AVOID THE SUBJECT.** `"this aura"` now rides the general arm and
+returns the SAME descriptor the registry returned (`selfReturnKind: "self"`), so Rancor is byte-identical while
+every other payoff reaches the normal pipeline. **The discrimination already lived where the EFFECT is in
+scope** — the caller gates the rewrite on `cls.selfReturnKind && SELF_RETURN_IT_RE.test(effectClause)`. Rancor's
+effect matches and keeps its rewrite; Wicked's does not and routes normally. `classifyCondition` never needed to
+see the payoff at all.
+⚠️ The marker is set ONLY for the aura subject — setting it for artifact/creature/enchantment/permanent would
+newly hand the rewrite to their bare self-returns (Spine of Ish Sah), an unmeasured widening.
+
+**⭐⭐ THE GATE DEMANDED THIS PROMOTION TOO — THE THIRD TIME.** `verify-role-token-data.mjs` failed with
+**"Wicked: its body is NOW EXECUTABLE — register it"** the moment the trigger generalised. Its
+`KNOWN_UNMODELED` list is now EMPTY: every Role the bundled data defines is registered, and the only refusals
+left are Chef / Questing / Huntsman, which have no definition to copy.
+
+**Gates:** 19 hermetic tests + the corpus gate (exit 0); **the mutation seen to fail** — dropping the
+`selfReturnKind` marker breaks Rancor and nothing else, caught by the named regression pin. Also pinned: an
+UNMODELED payoff still parks (the widening is not a blank cheque — the effect pipeline is still the gate).
+Flip-diff **GAINED 8 / LOST 0**, every row audited. Suite **985 files / 12,534 green**, lint 0, MUTANT clean.
+
+**REMAINING:** phase 4 = the referent phrasings (`attached to that creature` / `it`, Gylwain's modes, the
+reflexive "you may pay {1}. When you do, …" wrappers) — Merry Bards, Return Triumphant, Cursed Courtier,
+Unassuming Sage, Gylwain, Asinine Antics, Ratatwotwo, Questing Cosplayer.
+
+---
+
 ## ✅ SHIPPED — **ROLE TOKENS PHASE 2: YOUNG HERO. GAINED 3, LOST 0.** (Role project total: 10)
 
 Cut In · Embereth Veteran · Protective Parents.

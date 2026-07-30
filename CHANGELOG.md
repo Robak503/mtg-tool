@@ -17,6 +17,10 @@ summarizes the notable changes.
 - **Young Hero Roles work too.** The creature grows only while its toughness is still 3 or less, exactly as
   printed — once it's big enough, the Role stops feeding it. Cut In, Embereth Veteran and Protective Parents
   play fully as a result.
+- **Wicked Roles work, and so do Auras that do something when they hit the graveyard.** All seven Roles the
+  game knows about are now playable. Fixing the underlying trigger also freed four unrelated Auras that pay
+  off as they die — Audacity, Chime of Night, Mantle of the Wolf and Reach for the Sky — plus Charming
+  Scoundrel, Eriette's Whisper and Shatter the Oath. Eighteen cards across the whole Role feature.
 
 ## [0.149.15] — 2026-07-29
 
