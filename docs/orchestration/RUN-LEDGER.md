@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 42 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 43 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -131,7 +131,48 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
-## 🎯 ## ⛔ FOUNDATIONAL GAP FOUND 2026-07-30 — **CROSS-SEAT ZONE TRANSFER DOES NOT EXIST. Ragavan and 22 others sit behind it.**
+## 🎯 ## ✅ BANKED (batch 4) 2026-07-30 — **ADAPT-IGNORES-COUNTERS. GAINED 1. ⭐ `cdh` 88% → 89% — ONE CARD LEFT.**
+
+Biomancer's Familiar. *"{T}: The next time target creature adapts this turn, it adapts as though it had no
++1/+1 counters on it."* (CR 701.46a, verified.)
+
+### ⭐ THE LINE-DROP DIAGNOSTIC PICKED THE TARGET, AND IT WAS NOT THE OBVIOUS ONE
+Running it across all six `cdh` "composites" found **two cards with exactly ONE blocker each** — and `cdh`
+needs exactly two:
+
+| card | drop a line → | remaining blocker |
+|---|---|---|
+| **Biomancer's Familiar** | `native-static` | the adapt-modifier ✅ **BUILT** |
+| **Springheart Nantuko** | `native-aura` | the landfall line — **bestow already works** |
+| Deflecting Swat · Wan Shi Tong · Hidden Strings · Mindbreak Trap | still blocked either way | 2+ mechanisms each |
+
+⭐ *"Composite" in the gap ledger means "more than one line is involved", NOT "more than one line is
+missing". Two of six were one build away and the label hid it.*
+
+### THE SEAM WAS ALREADY WAITING
+`applyAdapt`'s own comment explained that adapt re-reads the LIVE +1/+1 count rather than latching — and
+**named Biomancer's Familiar as the reason**. The build fills the seam the earlier slice described.
+
+One stamp enforces both halves: `_adaptIgnoreTurn` records the turn granted; `applyAdapt` honours it only
+while the turn matches and **consumes it on use**. So *"the NEXT time"* is real (a second adapt the same
+turn gets the gate back) and a stale stamp is inert without a cleanup hook. Mutations for **fires-forever**
+(the CR-forbidden direction the comment warns about) and **stale-stamp-still-works** both fail; 5 of 5 do.
+
+### ✅ A THIRD BOUNDARY-MARKER PIN GRADUATED
+`activatedCostReduction.test.js` pinned this card `body-only` **because** the adapt-modifier was unmodelled.
+Re-pointed to `native-mixed`, still guarding that the reducer ALONE is not enough for `native-static`.
+That is three pins this session that recorded "not built yet" and correctly became assertions that it is.
+*A boundary marker is a promise to come back, not a verdict.*
+
+**Gates:** 11 tests. Suite **1021 files / 12,994 green**, lint 0, MUTANT clean. Commit `fc5b1838`.
+
+**Batch 4: 43 cards. ⭐ `cdh` 89% — ONE card from the 1.0 bar, and it is SPRINGHEART NANTUKO: bestow and the
++1/+1 line already work, so the whole remaining gap on Colton's shelf is one landfall line
+(optional pay + attached-check + copy-token + fallback token).**
+
+---
+
+## ⛔ FOUNDATIONAL GAP FOUND 2026-07-30 — **CROSS-SEAT ZONE TRANSFER DOES NOT EXIST. Ragavan and 22 others sit behind it.**
 
 Followed my own banked build order (cast-path plumbing FIRST) and found the wall is one level deeper than
 the revert note said. **Stopping the Ragavan line here** — this is an engine capability, not a shelf slice.
