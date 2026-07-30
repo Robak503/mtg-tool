@@ -36,7 +36,7 @@
  * `putFromHandClauseParser` is a PURE function; the integrator wires registerClauseParser at parser.js-bottom.
  */
 
-import { TUTOR_COLOR_WORD } from "../parseHelpers.js"; // shared color-qualified-filter allowlist (cycle-free leaf)
+import { TUTOR_COLOR_WORD, COUNT_SUBTYPE } from "../parseHelpers.js"; // shared color-qualified-filter allowlist + the ONE curated permanent-subtype allowlist (cycle-free leaf)
 
 // Count words for "up to <N>" / a bare mandatory "<N>" (matches the tutor seam's UP_TO_N_WORD vocabulary).
 const COUNT_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
@@ -55,13 +55,50 @@ const COLOR_WORD = TUTOR_COLOR_WORD;
 // line by cardMatchesTutorFilter). LAND is intentionally absent (owned by the land-from-hand path).
 const TYPE_FILTER = {
   "creature": { groups: [["creature"]] },
-  "permanent": { groups: [] }, // every card type — a "permanent card" is any permanent (CR 110.4)
+  // ⛔ FIXED 2026-07-30 — `permanentOnly` WAS MISSING AND THAT WAS A LIVE CREED FALSE POSITIVE. An empty
+  // `groups` means "every card type" to cardMatchesTutorFilter (`groups.length === 0 → return true`), so a
+  // bare "permanent card from your hand" offered INSTANTS AND SORCERIES as legal picks. Measured, not
+  // theorised: the resolver handed back ["Lightning Bolt", "Grizzly Bears"] from a two-card hand.
+  // ⚠️ AND IT WAS REACHABLE IN A REAL GAME — The Ur-Dragon classifies native-mixed and prints this exact
+  // clause, and it is the COMMANDER of a deck on the shelf. `permanentOnly` is the positive front-face gate
+  // the library-side tutor has always carried for the same word (CR 110.4a); this is the same word meaning
+  // the same thing, so it gets the same gate.
+  "permanent": { groups: [], permanentOnly: true },
   "artifact": { groups: [["artifact"]] },
   "enchantment": { groups: [["enchantment"]] },
   "artifact creature": { groups: [["artifact", "creature"]] },
   "artifact or creature": { groups: [["artifact"], ["creature"]] },
   "creature or artifact": { groups: [["creature"], ["artifact"]] },
 };
+
+/**
+ * SUBTYPE put-from-hand filters — "an Equipment card" (Stoneforge Mystic), "a Goblin permanent card" (Goblin
+ * Lackey), "a Goblin creature card" (Warren Instigator), "a Minotaur permanent card" (Didgeridoo). Three
+ * printed shapes: the bare subtype, and the subtype qualified by "permanent" or "creature".
+ *
+ * ⛔ CREED — the gate is COUNT_SUBTYPE, the one curated allowlist parseCountSource / the team-pump scope /
+ * the layer-7c count already share. Its criterion is corpus-verified: every entry is a real MTG subtype that
+ * appears ONLY in the subtype position of a type line, so the word-bounded `\b<subtype>\b` group match hits
+ * exactly the subtyped cards and never a card TYPE. An uncurated word returns null → the clause stays low →
+ * Arbiter (a safe false negative). This is the SAME peel the library-side `bfn` arm performs for a "Rebel
+ * permanent card" fetch, so the two sides of "put onto the battlefield" now read the same grammar.
+ *
+ * The "<X> permanent" form also carries `permanentOnly` — belt and braces, since a subtype word cannot appear
+ * on an instant anyway, but the printed word means the front face must be a permanent (CR 110.4a) and the
+ * gate should say so rather than rely on the subtype's incidental exclusivity.
+ * Group words are LOWERCASED: cardMatchesTutorFilter matches against a lowercased type line.
+ */
+function parsePutSubtypeFilter(typePhrase) {
+  let phrase = typePhrase;
+  let permanentOnly = false;
+  let alsoCreature = false;
+  if (phrase.endsWith(" permanent")) { permanentOnly = true; phrase = phrase.slice(0, -" permanent".length); }
+  else if (phrase.endsWith(" creature")) { alsoCreature = true; phrase = phrase.slice(0, -" creature".length); }
+  const canonical = COUNT_SUBTYPE[phrase];
+  if (!canonical) return null;
+  const group = alsoCreature ? [canonical.toLowerCase(), "creature"] : [canonical.toLowerCase()];
+  return { groups: [group], ...(permanentOnly ? { permanentOnly: true } : {}) };
+}
 
 /**
  * Parse a put-from-hand filter phrase (the words between "put a/up to N/any number of" and "card(s) from your
@@ -81,8 +118,8 @@ function parsePutFilter(phrase) {
     if (words.length === 0) return null; // "a green card" (no type) — not a modeled shape here
   }
   const typePhrase = words.join(" ");
-  const base = TYPE_FILTER[typePhrase];
-  if (!base) return null; // an unmodeled type phrase (a subtype, a union we don't list) → low → Arbiter
+  const base = TYPE_FILTER[typePhrase] ?? parsePutSubtypeFilter(typePhrase);
+  if (!base) return null; // an unmodeled type phrase (a union we don't list, a colour union) → low → Arbiter
   if (colors && base.groups.length === 0) return null; // a colored "permanent" — out of scope, stay low
   return colors ? { ...base, colors } : { ...base };
 }

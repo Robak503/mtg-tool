@@ -8,6 +8,12 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **You could put an instant onto the battlefield.** Cards reading "put a permanent card from your hand
+  onto the battlefield" — The Ur-Dragon's attack trigger, Flood of Tears, Selvala's Stampede, Kona, Rescue
+  Beastie — were offering every card in hand, instants and sorceries included. They now offer only real
+  permanents.
+
 ### Added
 - **Colour-changing spells now work.** Cerulean Wisps, Singe, Fylamarid and Metathran Transport — the
   creature really does turn that colour for the turn, which matters for the "can't be blocked by blue"
@@ -27,6 +33,8 @@ summarizes the notable changes.
   — the shield really saves the artifact from a Disenchant or a board wipe, once, exactly as printed.
 - **Whir of Invention works.** The X-capped search now fetches an artifact card onto the battlefield, the
   same way it already did for creature and permanent fetches.
+- **Stoneforge Mystic, Goblin Lackey and Warren Instigator now play natively.** Putting a named-subtype card
+  from your hand onto the battlefield — an Equipment, a Goblin permanent, a Goblin creature — works.
 
 
 ## [0.149.21] - 2026-07-30

@@ -50,10 +50,18 @@ describe("parser — put-from-hand emits a tutor atom (sourceZone:hand → battl
     expect(atomsOf("Put a creature card from your hand onto the battlefield.")).toEqual([PUT_CREATURE]);
   });
 
-  it("'you may' (α2) stamps optional; ' tapped' sets entersTapped; 'permanent' = an empty (all-type) filter", () => {
+  // ⛔⭐ THE THIRD LINE HERE USED TO ASSERT THE BUG. It read "'permanent' = an empty (all-type) filter" and
+  // expected `{ groups: [] }` with no permanentOnly — which is exactly what let a bare "permanent card" put
+  // offer INSTANTS AND SORCERIES (cardMatchesTutorFilter treats an empty `groups` as "every card type").
+  // Measured 2026-07-30: the resolver returned ["Lightning Bolt", "Grizzly Bears"] from a two-card hand, and
+  // The Ur-Dragon — native-mixed, prints this clause, commander of a shelf deck — made it reachable in a real
+  // game. This is NOT a boundary marker graduating; it is a WRONG ASSERTION corrected. A test that pins the
+  // current behaviour without asking whether the behaviour is right will defend a bug as loyally as a feature.
+  // Regression coverage lives in putFromHandSubtype.test.js.
+  it("'you may' (α2) stamps optional; ' tapped' sets entersTapped; 'permanent' carries the permanentOnly gate", () => {
     expect(atomsOf("You may put a creature card from your hand onto the battlefield.")).toEqual([{ ...PUT_CREATURE, optional: true }]);
     expect(atomsOf("Put a creature card from your hand onto the battlefield tapped.")).toEqual([{ ...PUT_CREATURE, entersTapped: true }]);
-    expect(atomsOf("Put a permanent card from your hand onto the battlefield.")).toEqual([{ ...PUT_CREATURE, filter: { groups: [] }, filterLabel: "permanent card from your hand" }]);
+    expect(atomsOf("Put a permanent card from your hand onto the battlefield.")).toEqual([{ ...PUT_CREATURE, filter: { groups: [], permanentOnly: true }, filterLabel: "permanent card from your hand" }]);
   });
 
   it("a COLOR filter ('green creature' / 'nonwhite creature') rides filter.colors", () => {
@@ -73,9 +81,13 @@ describe("parser — put-from-hand emits a tutor atom (sourceZone:hand → battl
     // haste + sacrifice rider (Through the Breach / Sneak Attack) — the put alone is modeled, but the
     // trailing clauses aren't, so the whole program stays low (no half-resolved put).
     expect(isHigh("You may put a creature card from your hand onto the battlefield. That creature gains haste. Sacrifice that creature at the beginning of the next end step.", "Instant")).toBe(false);
-    // a subtype filter (no "Dragon"-from-hand modeled here) → low, empty atoms (no partial put).
-    expect(isHigh("Put a Dragon creature card from your hand onto the battlefield.")).toBe(false);
-    expect(atomsOf("Put a Dragon creature card from your hand onto the battlefield.")).toEqual([]);
+    // ⭐ BOUNDARY-MARKER GRADUATED 2026-07-30 — this line pinned "a subtype filter (no 'Dragon'-from-hand
+    // modeled here)". Curated subtypes ARE modeled now (Stoneforge Mystic's Equipment, Goblin Lackey's
+    // "Goblin permanent", Warren Instigator's "Goblin creature"), gated on the shared COUNT_SUBTYPE
+    // allowlist. The guard is re-aimed at an UNCURATED word, which is what it was really protecting:
+    // a filter phrase the engine cannot enforce must never produce a partial atom.
+    expect(isHigh("Put a widget creature card from your hand onto the battlefield.")).toBe(false);
+    expect(atomsOf("Put a widget creature card from your hand onto the battlefield.")).toEqual([]);
     // an MV-constrained put (Mind into Matter / Emergency Powers) → low.
     expect(isHigh("Put a permanent card with mana value 7 or less from your hand onto the battlefield.")).toBe(false);
     // LAND is the land-from-hand path's job — this parser must NOT claim it (it emits the SAME atom shape,

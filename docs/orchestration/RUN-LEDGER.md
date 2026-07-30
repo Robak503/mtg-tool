@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 81 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 84 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -459,6 +459,60 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ⛔⭐ BANKED 2026-07-30 — **A LIVE CREED FALSE POSITIVE, FOUND WHILE SIZING A ROUTINE SLICE.**
+## Plus put-from-hand subtype filters, GAINED 3 (Stoneforge Mystic is a shelf card). Joe **848/1098**.
+
+### ⛔ THE BUG — "put a permanent card from your hand onto the battlefield" OFFERED INSTANTS
+`putFromHand.TYPE_FILTER.permanent` was `{ groups: [] }` with **no `permanentOnly` gate**. An empty `groups`
+means *"every card type"* to `cardMatchesTutorFilter` (`groups.length === 0 → return true`). Measured, not
+theorised — the resolver returned **`["Lightning Bolt", "Grizzly Bears"]`** from a two-card hand.
+
+⚠️ **REACHABLE IN A REAL GAME, ON THE SHELF.** **The Ur-Dragon** classifies `native-mixed`, prints this exact
+clause on its attack trigger, and is the **COMMANDER of Joe's "Did you say Dragons?"**. Seven more carriers:
+Flood of Tears · Selvala's Stampede · Kona, Rescue Beastie · The Golden City of Orazca · Redshift ·
+The Majestic Duo · A-Kona. The library-side tutor has ALWAYS carried `permanentOnly` for the same printed
+word (CR 110.4a). Same word, same meaning — the hand-side copy just never got the gate.
+
+### ⭐⛔ AND A TEST WAS DEFENDING IT
+`putFromHand.test.js` asserted, in as many words, *"'permanent' = an empty (all-type) filter"* — and expected
+`{ groups: [] }`. **The suite was green because the bug was pinned as intended behaviour.**
+
+⭐ *This is NOT a boundary marker graduating; it is a WRONG ASSERTION corrected, and the two must not be
+confused in the ledger. A pin that records the CURRENT behaviour without ever asking whether the behaviour is
+RIGHT will defend a defect as loyally as a feature — and it will do it silently, forever, in a green suite.
+Every gate I have written this run assumes the pins encode intent. This one encoded an accident.*
+
+**How it surfaced:** not by a probe or a gate, but by READING `TYPE_FILTER` while sizing an unrelated
+widening, and noticing the one entry with no filter in it. The flip-diff would never have caught it (it is a
+runtime pool, not a tier), and the suite actively vouched for it.
+
+### THE ORDINARY HALF — subtype put-from-hand, GAINED 3
+Three printed shapes, gated on **COUNT_SUBTYPE** (the one curated allowlist now shared by four readers):
+bare subtype (**Stoneforge Mystic** — "an Equipment card"), `<Subtype> permanent` (**Goblin Lackey**),
+`<Subtype> creature` (**Warren Instigator**). Same peel the library-side `bfn` does for "Rebel permanent".
+
+⛔ **Didgeridoo stays parked deliberately.** Its "Minotaur permanent card" would flip if Minotaur joined the
+allowlist, and Minotaur would almost certainly qualify. *Not added: that allowlist is curated per-need with
+corpus verification and is shared by four readers — bumping it for one obscure card (#17717) trades a shared
+invariant for a number.* A safe FN is the right answer.
+
+**Mutation-checked: 3 seen to fail** — M1 `permanentOnly` removed (the 3 FP tests, including the live
+regression) · M2 allowlist gate removed (both uncurated-word guards) · M3 the `creature` AND dropped from the
+group (parser + the runtime Goblin-land case). Reverts confirmed by `git diff --stat`.
+
+**Gates:** flip-diff **GAINED 3 / LOST 0**, no other tier moved (12920 → 12923 / 34245). 12 new tests, six
+runtime including a full card-type sweep (instant/sorcery out; artifact/creature/enchantment/land/
+planeswalker/battle in). Suite **1033 files / 13,090 green**, lint 0, module graph loads, MUTANT clean.
+**Batch 4: 84 cards.**
+
+### ⚖️ TAG JUDGEMENT — asked out loud, per the cadence rule
+The batch rule's test: *under-report only → batch; misleads a decision, wedges a game, or corrupts stored
+state → early tag.* An instant sitting on the battlefield is a **corrupted board state a player acts on**,
+on a shelf deck's COMMANDER. **That qualifies for the early tag** — and the batch is at 84, so the cost of
+tagging now is near zero anyway. Cutting **v0.149.22**.
 
 ---
 
