@@ -131,6 +131,44 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## 🧭 REGIME CHANGE 2026-07-30 — **FOUR AXES MEASURED, ALL PAY ZERO. Read this before hunting another.**
+
+Four separate veins measured this session with verified controls. **Every one is a real axis. Every one
+attributes to ZERO.** That is not four unlucky picks — it is a description of what the corpus has become.
+
+| vein | carriers | attributable | why it pays nothing |
+|---|---|---|---|
+| spell-side delayed triggers | 157 non-native | **4** | and 0 of those 4 have a modeled inner payload |
+| `deals combat damage to YOU` | 7 | **0** | dealer side fully built; every carrier has a 2nd blocker |
+| opponent-scoped impulse exile | 25 | **0** | `your library` impulse IS native; scope is never the only gap |
+| `you may CAST that card` vs `play` | 7 | **0** | a ONE-WORD gap, and still not the only one on any card |
+
+**⭐ THE SHAPE OF THE REMAINING CORPUS.** Take the impulse family, which is the clearest specimen. Exactly
+ONE form is modeled: *"exile the top card of YOUR library. Until end of turn, you may PLAY that card."* Around
+that single sentence sit **four independent gaps**, each verified separately:
+- the opponent scope (`that player's` / `each opponent's` / `target opponent's`)
+- the verb (`cast` instead of `play`)
+- the free-cast rider (`without paying its mana cost`)
+- the compound trigger (`create a Treasure token AND exile…`)
+
+**Ragavan needs three of the four.** No single widening flips him, or anyone else. Earlier in this run one
+parse arm paid **52 cards**; that regime is over. **The remaining corpus is narrow modeled forms surrounded by
+several independent gaps each**, so the unit of work is now "a card's whole stack," not "a vein."
+
+**What this means for the shelf, stated plainly rather than discovered again in three sessions:**
+`cdh` sits at **86/100** and needs **4**. Every remaining card is a 2-to-4-mechanic build. That is perfectly
+doable — it is just **~4 multi-mechanic slices, not 4 vocabulary slices**, and the honest forecast is a few
+cards per session rather than tens.
+
+**⚠️ THE METHOD LESSON, since it fired four times:** an axis being REAL is not evidence it is PROFITABLE.
+*Dealer-side built + recipient-side absent* looked identical in all four cases to the shapes that paid 52 and
+7 earlier today. **The only thing that separated them was the measurement.** Cost of measuring: one probe,
+about two minutes. Cost of building unmeasured: a slice that flips nothing and must be reverted. **Always
+phrase-swap first, always print the control** (clause D — two of these four probes had a bad control on the
+first attempt and would have reported a false zero for the wrong reason).
+
+---
+
 ## ✅ BANKED (batch 3) 2026-07-30 — **GROUP-GRANTED "WARD—PAY N LIFE". GAINED 2, LOST 0.** cdh 85 → 86.
 
 **Hexing Squelcher** (a `cdh` slot) · **Hag of Mage's Doom**.
