@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"Untap it" now works.** Fourteen more cards where a spell buffs a creature and then untaps that same
+  creature — Savage Surge, Stony Strength, Vault Skyward, Veteran's Reflexes and friends.
 - **"That creature can't block this turn" now works.** Mugging, Blindblast, Duel Tactics, Wrap in Flames
   and Sparkmage's Gambit — including the ones that hit several creatures at once, where every creature the
   spell damaged is the one that can't block.

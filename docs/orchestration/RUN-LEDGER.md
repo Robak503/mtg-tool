@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 25 cards since v0.149.20** (granted Ward—Pay-life +2, bound-referent grants +17, referent can't-block/pump +6) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 39 cards since v0.149.20** (granted Ward—Pay-life +2, bound-referent grants +17, referent can't-block/pump +6, referent untap +14) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -128,6 +128,49 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 3) 2026-07-30 — **OBJECT-FIRST REFERENT UNTAP. GAINED 14, LOST 0.** Best single slice since the colour filter.
+
+Savage Surge · Veteran's Reflexes · Stony Strength · Vault Skyward · Soldier On · Refuse to Yield · Leo's
+Guidance · Seedcradle Witch · Super Suit · Galadhrim Bow · Guac & Marshmallow Pizza · Burst of Strength ·
+Dragonscale Boon · Silverflame Squire // On Alert.
+
+**The referent family keeps paying because the BINDING is reusable and only the payload changes.** This arm
+is the same mechanism with the pronoun as the verb's **OBJECT** (*"Untap it."*) rather than its subject
+(*"It gains flying."*) — one regex and one atom, no new machinery. **Referent-family total so far: 37 cards
+across three slices.**
+
+**⭐ PREDICTED 11, MEASURED 14 — and every surplus row was audited, not assumed.**
+| surprise | why the probe missed it |
+|---|---|
+| Burst of Strength · Dragonscale Boon | print the conjunction in ONE sentence — *"Put a +1/+1 counter on target creature **AND** untap it"* — which `splitClauses` breaks into two clauses anyway. My probe only looked for `". Untap"`. |
+| Silverflame Squire // On Alert | an **adventure** card: the creature face has empty `oracle_text` and the real text lives on the *On Alert* face. A flip on a card whose `oracle_text` is `''` is exactly the kind of thing to distrust until explained — it explained. |
+
+Same direction as the colour slice: **the sizing method UNDER-counted**, which is the safe way for it to be
+wrong.
+
+**⚠️ DELIBERATELY LIMITED TO A TARGETED ANTECEDENT.** Eight printed cards read *"Creatures you control get
++1/+1 until end of turn. **Untap them**."* — a **MASS** antecedent with no chosen targets. Binding there needs
+the previous atom's **AFFECTED SET**, not its target list: a different mechanism. The assembly gate rejects
+them (a mass atom has no `targetType`), so they stay on the Arbiter rather than **silently untapping
+nothing**. Pinned in the tests.
+
+⚠️ **`Valley Floodcaller` is one of those eight** — which is why this slice does NOT move `cdh`. Its two
+blockers are now precisely: (1) the multi-subtype union in a TRIGGERED pump, and (2) a **mass-antecedent**
+referent untap. Both are known, both are scoped, neither is built.
+
+**Gates:** 4 new tests including a runtime one that untaps the bound creature and asserts its neighbour stays
+tapped. Two mutations seen to fail. Suite **1006 files / 12,823 green**, lint 0, MUTANT clean.
+
+### 📌 THE MASS-ANTECEDENT ARM IS THE NEXT MEASURED ITEM IN THIS FAMILY
+Binding a referent to a mass atom's affected set would reach the 8 untap cards above **plus** whatever the
+`gains <kw>` / `can't block` payloads add on mass antecedents (unmeasured). It is a genuinely different
+binding — *affected set* rather than *target list* — so it wants its own measurement and its own gate before
+any code. **Do not fold it into the existing `bindPreviousTargets` flag**; a mass atom's recipients are
+computed at resolution, not chosen at cast, and conflating the two is how a referent starts granting to the
+wrong permanents.
 
 ---
 
