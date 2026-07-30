@@ -8,6 +8,9 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+
+## [0.149.22] - 2026-07-30
+
 ### Fixed
 - **You could put an instant onto the battlefield.** Cards reading "put a permanent card from your hand
   onto the battlefield" — The Ur-Dragon's attack trigger, Flood of Tears, Selvala's Stampede, Kona, Rescue
