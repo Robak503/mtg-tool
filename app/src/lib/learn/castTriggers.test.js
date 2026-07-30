@@ -27,7 +27,10 @@ describe("cast-trigger detection", () => {
   it("does NOT detect an unmodeled filter (color / kicked / permanent / legendary — denylisted non-subtypes)", () => {
     // CAST-SUBTYPE denylist: these words are NOT type-line subtypes, so a subtype match would never fire →
     // staying undetected avoids a never-firing native (CREED). Caught by the corpus flip-diff.
-    expect(castDescriptors("Whenever you cast a red spell, it deals 1 damage to each opponent.")).toHaveLength(0);
+    // ⭐ COLOUR GRADUATED 2026-07-30 and moved to castColorFilter.test.js. This annotation was the criterion:
+    // the objection was to a SUBTYPE SCAN that could never fire, not to the filter itself. Colour is now read
+    // as a whole-object quality via colorsOf — the same treatment `multicolored` and `historic` already had.
+    // `kicked` / `permanent` / `legendary` below are untouched: they have no such reader and still stay out.
     expect(castDescriptors("Whenever you cast a kicked spell, scry 2.")).toHaveLength(0);
     expect(castDescriptors("Whenever you cast a permanent spell, draw a card.")).toHaveLength(0);
     // "legendary" alone is NOT a modeled quality filter (only "historic" = legendary ∨ artifact ∨ Saga is —
@@ -150,9 +153,10 @@ describe("CAST-SUBTYPE — subtype filter matching + classification", () => {
     expect((checkCastTriggers(s, { spellCard: { name: "Elvish Mystic", type: "Creature — Elf Druid" }, casterId: "ai" }).pendingTriggers || [])).toHaveLength(0); // opponent's Elf → "you" watcher silent
   });
 
-  it("a clean Elf-cast payoff classifies native-trigger; a color/kicked cast-trigger stays body-only (CREED)", () => {
+  it("a clean Elf-cast payoff classifies native-trigger; a KICKED cast-trigger stays body-only (CREED)", () => {
     expect(classifyCard({ type: "Creature — Elf Warrior", name: "Lys Alana Huntmaster", oracle: "Whenever you cast an Elf spell, you may create a 1/1 green Elf Warrior creature token." })).toBe("native-trigger");
-    expect(classifyCard({ type: "Creature — Wizard", name: "ColorWard", oracle: "Whenever you cast a red spell, you gain 1 life." })).toBe("body-only");
+    // ⭐ The COLOUR case graduated 2026-07-30 — a colour is a quality read from colorsOf, not a subtype scan.
+    expect(classifyCard({ type: "Creature — Wizard", name: "ColorWard", oracle: "Whenever you cast a red spell, you gain 1 life." })).toMatch(/^native/);
     expect(classifyCard({ type: "Creature — Merfolk Wizard", name: "Falconer", oracle: "Flying\nWhenever you cast a kicked spell, scry 2." })).toBe("body-only");
   });
 });

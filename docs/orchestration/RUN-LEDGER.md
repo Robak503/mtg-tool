@@ -21,8 +21,8 @@
 >   exactly ONE deck under the >=90% bar (`cdh`, 83/100 — seven cards). Its full 17-slot gap is
 >   diagnosed per clause in the entry, with a recommended build order. That is the stated objective;
 >   corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 29 cards since v0.149.19** (planeswalker subtypes + `another <filter>` +11,
->   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8).
+> - **BATCH IN FLIGHT: 81 cards since v0.149.19** (planeswalker subtypes + `another <filter>` +11,
+>   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52).
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
 >   one-sided opponent sweep +4, mass-removal filter delegation +19, mass-bounce delegation +3,
@@ -124,6 +124,59 @@ pointing at the real v0.149.14 installer, and a 424-char minisign signature. Run
 **⭐ THE STANDING RULE THIS COST US: A PUSHED TAG IS NOT A RELEASE.** After every `git push origin vX.Y.Z`,
 check `api.github.com/repos/Robak503/mtg-tool/releases/latest` (public read, no `gh` needed) and confirm the
 tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody looked.
+
+---
+
+## ✅ BANKED (batch 2) 2026-07-30 — **COLOUR AS A CAST-TRIGGER FILTER. GAINED 52, LOST 0.** Biggest slice since v0.149.19.
+
+The Talisman / Horn / Tooth / Sphere / Rod / Cup artifact cycles · **Aragorn, the Uniter** · Warmth ·
+Kor Firewalker · Sol'kanar the Swamp King · Nettle Sentinel · Kozilek's Sentinel · Molten Nursery ·
+Cinder Pyromancer · Iron Man, Tony Stark · Zuko, Avatar Hunter · Drowned Secrets · Balefire Liege · the Duo
+and Initiate cycles.
+
+**⭐ THE MISSING SIBLING OF A FILTER THAT WAS ALREADY THERE.** `castSpellFilter` had already carved out
+`historic` and `multicolored` as whole-object QUALITIES — precisely because a quality is not a type-line token,
+so the subtype denylist rejects it and it must be handled explicitly. Single colours are the same shape, and
+the `multicolored` comment had **already written the CR justification**: *"the color of a spell is fixed by its
+mana cost / color indicator at cast, so the printed colorsOf reading is CR-faithful for the cast event."*
+Nothing about a single colour differs. Two arms and one matcher branch.
+
+**⛔ COLORLESS IS THE ABSENCE OF COLOUR, NOT A SIXTH COLOUR (CR 105.2c)** — its own filter with an empty-set
+test. Folding it in would make every colourless spell match every colour filter. **This is the THIRD place in
+the engine that distinction has had to be made explicitly** (the condition grammar and the mass-damage grammar
+are the others) — a recurring shape worth recognising on sight.
+
+**⭐ PREDICTED 13, MEASURED 52 — and the surplus was real.** The phrase-swap probe scanned only the
+`whenever YOU cast` wording, while `castSpellFilter` serves **all four cast subjects** (you / an opponent /
+a player / each player). The artifact cycles all read *"whenever a PLAYER casts a <colour> spell"* and were
+invisible to the probe while being fixed by the same line. **Audited by hand against bundled oracle text
+before being believed** — Wurm's Tooth (`whose:any`), Warmth (`whose:opponent`), Kozilek's Sentinel
+(`colorless`, devoid), and Aragorn emitting FOUR separate colour triggers were each checked. Note the
+direction: this is the sizing method under-counting, which is the safe way for it to be wrong.
+
+**Five pins moved across four files, every one the SAME capability sentence:** *"these words are NOT type-line
+subtypes, so a subtype match would never fire → staying undetected avoids a never-firing native."* That
+objection was to a SUBTYPE SCAN, not to the filter — and colour is no longer a scan.
+| pin | verdict |
+|---|---|
+| `castTriggers` "does NOT detect an unmodeled filter (color / kicked / permanent / legendary)" | colour graduated; **`kicked` / `permanent` / `legendary` / `alliterative` untouched** — they still have no reader |
+| `castTriggers` "a color/kicked cast-trigger stays body-only" | colour graduated, kicked kept |
+| `castTriggerForms` "'from your graveyard' rider / color filter stay undetected" | colour graduated, the rider guard kept |
+| `anthemProtection` "Balefire Liege — the cast-trigger riders are unmodeled residue" | its own reason was the criterion; the anthems were always fine, only the riders parked it |
+| `murkfiendUntap` "Balefire Liege … stays body-only" | same card, same verdict |
+
+**Gates:** 17 new tests including a **RUNTIME fire test** (the matcher is module-private, so it drives
+`checkCastTriggers` and counts what enqueued — a red watcher fires on red, not on green, not on colourless,
+and does fire on a multicoloured spell containing red, CR 105.2b). **All three mutations seen to fail** —
+folding colourless into the colour list (1), making the colour match any colour (1), dropping the parse arm
+(**12**). Reverts confirmed by `git diff`. Flip-diff **GAINED 52 / LOST 0**. Suite **1002 files / 12,768
+green**, lint 0 unpiped, MUTANT clean.
+
+⚠️ One test in the first draft was HOLLOW — a "matcher" block that dynamically imported a non-existent export
+and asserted `typeof x === "function" || x === undefined`, which is true either way. Replaced with the runtime
+fire test above before running the mutations.
+
+**BATCH 2: 81 cards** since v0.149.19 — at the ~100 threshold soon.
 
 ---
 

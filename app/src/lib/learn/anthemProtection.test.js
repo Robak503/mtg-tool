@@ -216,9 +216,11 @@ describe("coverage — anthem protection flips vs pinned false-negatives", () =>
   });
 
   it("PINNED FNs: a rider / unmodeled keyword / non-color protection keeps the card body-only", () => {
-    // Balefire Liege — two color anthems, but the cast-trigger riders are unmodeled residue → non-native.
+    // ⭐ Balefire Liege GRADUATED 2026-07-30. This line's own reason — "the cast-trigger riders are unmodeled
+    // residue" — was the criterion, and colour cast-filters are modeled now (castColorFilter.test.js). The
+    // anthems were always fine; only the riders parked the card.
     // (Murkfiend Liege's untap-rider IS now modeled — see murkfiendUntap.test.js; it flips native-static.)
-    expect(classifyCard({ name: "Balefire Liege", type: "Creature — Spirit Horror", oracle: "Other red creatures you control get +1/+1.\nOther white creatures you control get +1/+1.\nWhenever you cast a red spell, this creature deals 3 damage to target player or planeswalker.\nWhenever you cast a white spell, you gain 3 life." })).toBe("body-only");
+    expect(classifyCard({ name: "Balefire Liege", type: "Creature — Spirit Horror", oracle: "Other red creatures you control get +1/+1.\nOther white creatures you control get +1/+1.\nWhenever you cast a red spell, this creature deals 3 damage to target player or planeswalker.\nWhenever you cast a white spell, you gain 3 life." })).toMatch(/^native/);
     // Cyberman Patrol — afflict IS now modeled as a group-triggered grant (afflict.test.js) → native-static.
     expect(classifyCard({ name: "Cyberman Patrol", type: "Artifact Creature — Cyberman", oracle: "Artifact creatures you control have afflict 3. (Whenever a creature with afflict 3 becomes blocked, defending player loses 3 life.)" })).toBe("native-static");
     // A non-color anthem protection quality stays body-only (model both colors or neither).

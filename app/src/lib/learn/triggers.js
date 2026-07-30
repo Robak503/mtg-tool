@@ -2222,6 +2222,10 @@ const NON_SUBTYPE_ETB_WORDS = new Set([
 ]);
 
 /** Map the words between "cast a[n]" and "spell" to a MODELED spell filter, or null. */
+// Colour words admissible as a CAST-SPELL quality filter (CR 105.1). Kept beside castSpellFilter rather than
+// imported so the cast lane's vocabulary stays readable in one place; the letters match colorsOf()'s output.
+const SPELL_COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+
 function castSpellFilter(text) {
   const f = String(text).trim();
   if (f === "") return "any";                                  // "casts a spell"
@@ -2243,6 +2247,19 @@ function castSpellFilter(text) {
   // the multicolor-matters payoffs. The color of a spell is fixed by its mana cost / color indicator at cast
   // (CR 105.2b + 500.4-agnostic), so the printed colorsOf reading is CR-faithful for the cast event.
   if (f === "multicolored") return "multicolored";
+  // ⭐ SINGLE COLOUR + COLORLESS (CR 105.2 / 105.2c) — the missing siblings of `multicolored` directly above,
+  // and its rationale applies verbatim: a colour is a whole-object QUALITY, not a type-line token, so the
+  // subtype denylist below rejects it and it must be carved out here. That comment already establishes the
+  // CR-faithfulness of the reading — "the color of a spell is fixed by its mana cost / color indicator at
+  // cast, so the printed colorsOf reading is CR-faithful for the cast event" — and nothing about single
+  // colours differs. 13 corpus carriers: red (Cinder Pyromancer, Iron Man), colorless (Kozilek's Sentinel,
+  // Molten Nursery, Nettle Drone), green, blue, white.
+  //
+  // ⛔ COLORLESS IS THE ABSENCE OF COLOUR, NOT A SIXTH COLOUR (CR 105.2c) — a separate filter with an
+  // empty-colors test, exactly as the condition grammar and the mass-damage grammar both model it. Folding it
+  // into the colour list would make every colourless spell match every colour.
+  if (SPELL_COLOR_LETTER[f]) return `color:${SPELL_COLOR_LETTER[f]}`;
+  if (f === "colorless") return "colorless";
   // CAST-SUBTYPE — a single bare word that's a real subtype (not in the denylist) → match the cast spell's
   // type line (Elf/Dog/Dragon/Adventure/Aura spells; tribal cast payoffs). A multi-word phrase, color, or
   // denylisted word → null → undetected → Arbiter (a SAFE false-negative). Serialized as "subtype:Name".
@@ -6612,7 +6629,17 @@ function spellMatchesFilter(filter, spellCard) {
     // MULTICOLORED (BLITZ TR-3, CR 105.2b) — two or more of the five colors, read from the cast spell's colors
     // (colorsOf: Scryfall's baked colors array, or a mana-cost pip derivation; devoid → colorless, never multi).
     case "multicolored": return colorsOf(spellCard).length >= 2;
-    default: return false;
+    // ⭐ COLORLESS (CR 105.2c) — the ABSENCE of colour, so an empty colour set. Not a sixth colour: folding it
+    // into the colour test below would make every colourless spell match every colour filter. `colorsOf`
+    // returns [] for a devoid spell, which is exactly right here (Kozilek's Sentinel, Molten Nursery).
+    case "colorless": return colorsOf(spellCard).length === 0;
+    default:
+      // ⭐ SINGLE COLOUR — "color:R" etc. Read from the same colorsOf() the multicolored branch trusts, so a
+      // devoid spell (no colours) correctly matches NO colour filter.
+      if (typeof filter === "string" && filter.startsWith("color:")) {
+        return colorsOf(spellCard).includes(filter.slice(6));
+      }
+      return false;
   }
 }
 

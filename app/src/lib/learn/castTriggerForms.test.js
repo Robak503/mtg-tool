@@ -72,9 +72,13 @@ describe("Nth-spell-per-turn detection (generalized castSecond)", () => {
 // ─── CREED guards (no over-fire / no false flip) ─────────────────────────────────
 
 describe("CREED guards — riders / unmodeled filters stay UNDETECTED", () => {
-  it("'from your graveyard' rider / color filter stay undetected", () => {
+  it("'from your graveyard' rider stays undetected; the COLOR filter graduated 2026-07-30", () => {
     expect(castDescriptors("Whenever you cast a Dragon creature spell from your graveyard, it gains haste.")).toHaveLength(0);
-    expect(castDescriptors("Whenever you cast a red spell, draw a card.")).toHaveLength(0);
+    // ⭐ A colour is a whole-object QUALITY (CR 105.2), read from colorsOf — exactly like the `multicolored`
+    // filter beside it, whose comment already established the CR-faithfulness of that reading at the cast
+    // event. It was denylisted only because a SUBTYPE scan for "red" would never fire; it is not a subtype
+    // scan now. 52 cards graduated. Positive + runtime pins: castColorFilter.test.js.
+    expect(castDescriptors("Whenever you cast a red spell, draw a card.")[0]).toMatchObject({ spellFilter: "color:R" });
   });
   it("CHOSEN-TYPE cast (Door of Destinies) IS now detected with a chosenType filter", () => {
     // The "of the chosen type" filter is resolved against the WATCHER's stored chosenType in checkCastTriggers

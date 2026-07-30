@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"Whenever you cast a red spell" and its colour siblings now work.** Fifty-two cards, including the
+  Talisman / Horn / Tooth / Sphere artifact cycles, Aragorn the Uniter, Warmth, Kor Firewalker,
+  Sol'kanar the Swamp King, Nettle Sentinel and Balefire Liege. Colourless spells are handled too, and
+  correctly do NOT set off a coloured trigger.
 - **Cost reducers with two-part filters now work.** The Banneret cycle (Brighthearth, Ballyrush,
   Frogtosser, Stonybrook, Bosk) discounts both of the tribes it names — and a spell that is both gets
   the discount once, not twice. "Noncreature spells you cast cost {1} less" works too (Longshot,

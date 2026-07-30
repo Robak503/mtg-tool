@@ -58,7 +58,7 @@ describe("MURKFIEND-UNTAP — classification (CREED whole-card)", () => {
         "Other white creatures you control get +1/+1.\n" +
         "Whenever you cast a red spell, this creature deals 3 damage to target player or planeswalker.\n" +
         "Whenever you cast a white spell, you gain 3 life.",
-    })).toBe("body-only");
+    })).toMatch(/^native/);
   });
 
   it("GRADUATED — Prophet of Kruphix still isn't MURKFIEND's, but a sibling hook claims it now", () => {
