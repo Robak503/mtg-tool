@@ -471,6 +471,69 @@ self-exile matters and was dropped from my own summary. Read the printed line, n
 
 ---
 
+## ⭐⭐ BANKED 2026-07-30 — **CONFIRMATION-OF-PLAY, CORPUS-WIDE. Colton's call, and it changes the metric's meaning.**
+## **423 of 532 native cards in played decks are DEMONSTRABLY EXERCISED in real games. 109 are not.**
+
+### THE ASK
+Colton, mid-turn: *"are we at all testing this with the player personas at the table?"* → answered NO (see the
+Topiary entry). Then: *"this may be something we wanna run of the corpus thus far … probably something we
+should be doing."* **He is right, and there was no instrument for it.**
+
+### THE QUESTION NOTHING WAS ASKING
+The self-play runner reports which cards **BROKE**. Nothing asked the question underneath: **of the cards the
+metric credits NATIVE, which are ever actually EXERCISED in a game?** Until something looks, the native % is
+a claim about a PARSER, not about play. That is the gap between 13,193 green tests and "the deck works".
+
+### FIRST READING — 48 games, 16 decks
+| | |
+|---|---|
+| native non-land cards in played decks | **532** |
+| ✅ CONFIRMED in a real game log | **423 (79%)** |
+| ⚠️ UNSEEN — the lead list | **109** |
+
+⚠️ **The top of the lead list is the part worth chasing**, because sample size cannot explain it:
+**Finale of Devastation (in 4 decks)** · **Swords to Plowshares (3)** · **Assassin's Trophy (3)** · Last March
+of the Ents · Overwhelming Stampede · Anguished Unmaking · Beast Within · Kindred Discovery (2 each). A
+4-deck card across 48 games that never once appears in a log is **not** draw variance.
+
+⭐ **AND THE LIKELY SPLIT IS ITSELF THE FINDING: most of the lead list is `native-spell`.** That points at
+"the AI never CHOOSES to cast it" at least as much as "the engine can't". **Those are different defects with
+different owners** — a modelling gap vs a policy gap — and this instrument is the first thing that can tell
+them apart. Do not assume either one before looking.
+
+### ⛔ WHAT THE INSTRUMENT REFUSES TO CLAIM (the honesty is the design)
+Three buckets, never conflated: **CONFIRMED** · **UNSEEN** (in a played deck, so the zero is meaningful) ·
+**UNOBSERVABLE** (credited native but in NO saved deck — the corpus MAJORITY, ~12,400 cards). The
+unobservable bucket is explicitly outside the pass/fail line: *a card can only be observed if somebody plays
+it.* Closing it needs GENERATED decks, which is a separate project and is not pretended at here.
+
+⚠️ **Sample-size guard printed in the report itself:** a 100-card singleton shows ~20% of itself per game, so
+below ~20 games a zero is noise. **My own first run was 4 games and showed 1/11 — which I nearly wrote up
+before noticing the sample made every zero meaningless.** At 48 games it read 9/11. The warning line exists
+so the next reader does not repeat that.
+
+### DELIVERABLE
+`app/scripts/sweep-play-confirmation.mjs` — `npm run sweep:play-confirmation [gamesPer] [--out=path]`.
+Fourth instrument alongside `sweep:noncreature-gates`, `sweep:referent-grid` and the shelf-gap probe.
+
+✅ **CADENCE (correcting the entry I banked one slice ago):** I said to cross-check flips against
+`build-grind-card-evidence.mjs`. **That was wrong — it reads the GRIND store, which `self-play.mjs` does not
+populate (manifest: 0 games).** The correct check is this new script. Run it after every batch.
+
+### THE 27 CARDS THIS RUN FLIPPED, MEASURED
+11 are in a played deck; **9 CONFIRMED in a real log** (Mana Vault 23 log hits · Silver-Fur Master 17 ·
+Sensei's Divining Top 12 · Hunting Velociraptor 10 · Topiary Stomper 7 · Shadowspear 6 · Rhythm of the Wild 4
+· Sakashima's Student 3 · Anara 2). **2 unseen: Swordsman's Steel, Tamiyo's Safekeeping** — leads, single
+copies, not verdicts. The other 16 are corpus-only flips in nobody's deck.
+
+**Gates:** no engine change. Lint 0. Suite unchanged (**1042 files / 13,193 green**). **Batch: 24 cards.**
+
+### ➡️ NEXT: chase the top of the lead list — start with Finale of Devastation (4 decks, 0 appearances) and
+determine WHICH failure it is: never drawn, never castable (legalChoices never offers it), or never chosen
+(AI policy). That answer decides whether the next slices are engine work or policy work.
+
+---
+
 ## ✅ BANKED 2026-07-30 — **TOPIARY STOMPER: the land-gated self restriction. GAINED 1. Jurassic Ramp 80 → 81%.**
 ## ⚠️⚠️ AND COLTON ASKED THE QUESTION THAT MATTERS MORE THAN THE CARD — READ THAT FIRST.
 
