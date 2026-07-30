@@ -285,7 +285,13 @@ export function applyPumpEffect(state, atom, ctx) {
     // THROWS "Permanent <id> not found" on a departed target of any pump-untap / untap-then-pump combat trick
     // (Vines of the Recluse, Ornamental Courage, …). Mirrors the findPermanent(next,…) guard every sibling
     // resolver in this file already carries (tap / regenerate / fight).
-    if (target.type !== "creature" || !findPermanent(next, target.id)) continue;
+    // ⭐ THIRD `t.type === "creature"` RESOLVER GATE FOUND THIS RUN (after untap-self and regenerate), and the
+    // lesson is the same each time: a parser noun is only half the job, because the cast path tags a chosen
+    // NON-creature target `type:"permanent"` and this line drops it — the card would classify native and grant
+    // NOTHING. Opened ONLY for a permanent-scoped atom, so every existing creature pump is byte-identical
+    // (a stray "permanent"-tagged target on a creature-scoped pump is still dropped). `findPermanent` stays
+    // the real guard: a target that left the battlefield gets nothing (CR 608.2b fizzle).
+    if ((atom?.targetType !== "permanent" && target.type !== "creature") || !findPermanent(next, target.id)) continue;
     // DOUBLE-P/T (Unnatural Growth / Reckless Amplimancer / Tifa Lockhart) — "double the power [and toughness]"
     // is a PER-TARGET one-shot doubling (CR 701.10b — the bonus modifies, doesn't set; X = the creature's power/
     // toughness as the effect resolves): snapshot THIS target's current layer-aware P/T at resolution and add
@@ -1516,6 +1522,19 @@ export function pumpClauseParser(clause) {
     const who = pctrl[1] === "you control" ? "you" : "opponent";
     const kws = parseGrantedKeywords(pctrl[2]);
     return kws ? { op: "pump", targetType: "creature", restrictions: [{ kind: "controller", who }], ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
+  // TARGET-PERMANENT-YOU-CONTROL keyword grant (Tamiyo's Safekeeping — "Target permanent you control gains
+  // hexproof and indestructible until end of turn."). Both keywords are already layer-6 grants the runtime
+  // reads on ANY permanent — the group form `groupGrantClauseParser` has carried a `permanentsYouControl`
+  // scope for exactly this, and applyDestroyEffect's `isIndestructible` check reads the layer engine (that is
+  // how Darksteel Forge's granted indestructible works on artifacts). Only the SINGLE-TARGET shape was missing.
+  // ⛔ YOU-CONTROL ONLY, and deliberately: "target permanent an opponent controls gains …" is not a printed
+  // shape for this family, and a permanent-wide opponent-scoped grant is not something to invent from symmetry.
+  // ⛔ NO P/T FORM either — "target permanent you control gets +2/+2" would need the animate question answered.
+  const permKw = t.match(/^target permanent you control gains (.+) until end of turn$/);
+  if (permKw) {
+    const kws = parseGrantedKeywords(permKw[1]);
+    return kws ? { op: "pump", targetType: "permanent", restrictions: [{ kind: "controller", who: "you" }], ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
   // ANOTHER-TARGET-YOU-CONTROL keyword grant (CR 109.5) — "another target creature you control gains KW until
   // end of turn" (Flesh Burrower / Starling / Trained Condor / Heavenly Qilin attack/etc. triggers). The chosen

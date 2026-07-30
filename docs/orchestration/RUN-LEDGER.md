@@ -33,7 +33,7 @@
 >    and check it reports **version 0.149.22**, a URL pointing at
 >   the real installer, and a ~424-char minisign signature. **A green CI run is not the check** — the
 >   published manifest is.
-> - **BATCH IN FLIGHT: 0 cards since v0.149.22** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 1 card since v0.149.22** (targeted permanent keyword grant +1) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -467,6 +467,60 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **A TARGETED KEYWORD GRANT ON A NON-CREATURE PERMANENT. GAINED 1.**
+## ⭐ THREE THINGS HAD TO LINE UP AND TWO WERE INVISIBLE FROM THE CARD TEXT.
+
+**Tamiyo's Safekeeping** (#484 EDHREC, Hulk Smash **74 → 75%**). Joe **849/1098**. The last card on the
+noun-gap shelf list — **that queue is now empty**; the next resume needs a fresh shelf-gap pass.
+
+### THE THREE LAYERS
+| # | layer | what was wrong |
+|---|---|---|
+| 1 | the parser arm | no "target permanent you control gains …" beside the existing creature arm |
+| 2 | `applyPumpEffect`'s loop | `target.type !== "creature" → continue` dropped the permanent-tagged target |
+| 3 | ⭐ **`splitClauses`** | the keep-whole rule is anchored `^target creature`, so the sentence **SHATTERED on its internal " and "** into *"…gains hexproof"* + *"indestructible until end of turn"* |
+
+### ⭐ (3) IS THE ONE WORTH KEEPING — the parser was right and the driver ate the input
+`pumpClauseParser` returned the **correct atom** when called directly, and `parseEffectClause` returned
+**nothing at all**. Same signature as the Springheart field-name collision earlier this run — *when a parser
+works in isolation but not through its driver, the driver is doing something to the input.* There it was
+`runEffectProgram` skipping an atom on a colliding field name; here it was the SPLITTER, one stage EARLIER
+than the parser I was staring at. **Read the driver, don't re-read the parser.** Cost: minutes, because the
+direct-vs-driver comparison was the first thing tried instead of the fifth.
+
+### ⚠️ **THIRD `t.type === "creature"` RESOLVER GATE THIS RUN** — this is now a KNOWN VEIN
+untap-self · regenerate · pump/keyword-grant. Every one had the same shape: a parser noun widened, a card
+classifying native, and **the runtime silently doing nothing** because the cast path tags a chosen
+non-creature target `type:"permanent"` and the loop guard drops it.
+
+➡️ **A SWEEP IS OWED: `grep -rn 'type !== "creature"\|type === "creature"' src/lib/learn/effects/` returns
+34 hits across ten atom modules.** Most are correct (a creature-only effect SHOULD gate), but each one is a
+place where widening a parser noun without touching the resolver produces a false positive that no
+classification test can see. **Audit them against their atom's noun vocabulary before the next noun slice** —
+that is a better use of a slice than one more card.
+
+### THE SCOPE HELD
+⛔ You-control only, and ⛔ no P/T form — *"target permanent an opponent controls gains …"* and
+*"target permanent you control gets +2/+2"* are not printed shapes for this family, and inventing either from
+symmetry would be a guess. Both are asserted to park. The gate opened for `targetType === "permanent"` ONLY,
+so a stray permanent-tagged target on a creature-scoped pump is still dropped (asserted).
+
+The runtime was already permanent-wide: both keywords are layer-6 grants, `groupGrantClauseParser` has
+carried a `permanentsYouControl` scope for the MASS form, and `applyDestroyEffect`'s indestructible check
+reads the layer engine (how Darksteel Forge protects artifacts). Only the single-target path was missing.
+
+**Mutation-checked: 2 seen to fail** — M1 splitter keep-rule removed (5 tests) · **M2 resolver gate restored:
+every PARSE test stays green and only the two RUNTIME tests fail**, which is the third demonstration this run
+that a tier assertion cannot see a dead resolver.
+
+**Gates:** flip-diff **GAINED 1 / LOST 0**, no other tier moved (12923 → 12924 / 34245). 11 tests, six runtime
+including the CREED control (without the grant the same destroy kills the artifact). Suite **1034 files /
+13,101 green**, lint 0, module graph loads, MUTANT clean.
+
+### ⏳ v0.149.22 STILL BUILDING at 10m13s (run 30579604476). **Verify by the published manifest.**
 
 ---
 

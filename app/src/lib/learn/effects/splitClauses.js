@@ -242,6 +242,13 @@ export function splitClauses(oracle) {
     // joins its parts with " and " — NOT a top-level effect boundary. Keep the whole sentence
     // as one clause so the clause parse binds the pump + grant to the SAME target.
     if (/^target creature (?:(?:you control|an opponent controls) )?(?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn(?: and untap it)?$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ⭐ THE SAME BINDING FOR A PERMANENT SUBJECT (Tamiyo's Safekeeping — "Target permanent you control gains
+    // hexproof and indestructible until end of turn."). The anchor above is nailed to "target creature", so a
+    // permanent-subject grant SHATTERED on the internal " and " into "…gains hexproof" + "indestructible until
+    // end of turn" and never reached the matcher. Found the hard way: the clause parser returned the right atom
+    // when called DIRECTLY and nothing at all through parseEffectClause — when a parser works in isolation but
+    // not through its driver, the driver is doing something to the input. Here the driver was the SPLITTER.
+    if (/^target permanent you control gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ANOTHER-TARGET pump + keyword grant ("another target creature you control gets +2/+2 and gains trample
     // until end of turn" — Gladiolus Amicitia's landfall, Hardened Escort). Same internal-" and " binding as the
     // "target creature …" rule above, but the "^target creature" anchor there doesn't reach the "another …"
