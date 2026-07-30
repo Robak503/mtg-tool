@@ -8,6 +8,11 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Pyrohemia and Pestilence now play themselves.** Both sacrifice themselves at end of turn once the board
+  is empty of creatures, and the game now checks that properly — across *everyone's* creatures, not just
+  yours, so neither one leaves early while an opponent still has something out.
+
 ## [0.149.14] — 2026-07-29
 
 ### Fixed

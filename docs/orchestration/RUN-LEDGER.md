@@ -95,6 +95,57 @@ tag name AND the asset set. v0.149.13 sat "shipped" for a day because nobody loo
 
 ---
 
+## ✅ SHIPPED 2026-07-29 — GLOBAL board-empty intervening-if (CR 603.4 + 400.1). **GAINED 2, LOST 0.**
+
+Pyrohemia + Pestilence: *"At the beginning of the end step, if no creatures are on the battlefield, sacrifice
+this enchantment."* One of the four remaining SHARED blockers on the shelf.
+
+**⭐ AN AXIS FIX, PROBED BEFORE A LINE WAS WRITTEN.** Every other component already worked:
+```
+end-step trigger + plain effect                          -> native-trigger ✅
+end-step + self-sacrifice, NO condition                  -> native-trigger ✅
+end-step + "if YOU CONTROL no creatures" + self-sac       -> native-trigger ✅   <-- the sibling
+end-step + "if no creatures are ON THE BATTLEFIELD"       -> body-only      ⛔   <-- the whole gap
+```
+The controller-scoped predicate existed; the GLOBAL one did not. One arm in `interveningIf.js`, reusing the
+existing `parseFilter` / `permMatchesFilter` vocabulary. **No `triggers.js` change was needed** — the
+intervening-if peel → `interveningIfParseable` → route chain is generic, which is exactly why the sibling
+already worked. And `interveningIfParseable` derives from `evaluateInterveningIf` against a probe board, so a
+new arm is admitted automatically: **no second allowlist to drift.**
+
+**⛔ THE SCOPE WAS THE ENTIRE RISK.** The battlefield is a SHARED zone (CR 400.1) — "no creatures are on the
+battlefield" asks about EVERY seat. A `controllerBoard` read would sacrifice Pyrohemia while an opponent's
+creature is still out: doing something the card forbids, the forbidden direction. So the cross-seat scan is
+the load-bearing assertion, not a nicety.
+
+**Gates.** 11 new tests; **both mutations seen to fail** — controller-only scope (caught by the 2 cross-seat
+tests, including the named FP-trap one) and ignore-the-board-entirely (caught by 4). Restore confirmed with
+`git diff`, not the marker sweep (+31 insertions only, per the deletion-mutation lesson). **Tier flip-diff
+over 34,210 cards: exactly the predicted GAINED 2 / LOST 0**, nothing to audit.
+
+**⚠️ HONEST SHELF ACCOUNTING: Pyrohemia is in HULK SMASH (72%), not cdh.** cdh's shared blocker is Pact of
+Negation. So this is **+2 corpus, +1 shelf card on Hulk Smash (still needs 17), no deck crossed 90.** The
+"shared×2" rows in the gap ledger are corpus-wide counts and are NOT all on the same deck — read the deck
+header before assuming a shared fix moves the deck you were aiming at.
+
+### The other three shared blockers, triaged and priced (do not re-derive)
+| blocker | verdict |
+|---|---|
+| **Pact of Negation** (cdh) | The whole *"pay {cost}. If you don't, <consequence>"* delayed-payment shape is missing — even `pay {3}. If you don't, sacrifice this creature` is `arbiter-spell`. A real build, not a widening. |
+| **Ninjutsu cost reduction** (Silver-Fur Master) | **Its generic control fails too**: `Activated abilities you activate cost {1} less to activate` is `body-only`. Two gaps (the generic activated-class reduction, then the ninjutsu class). Ninjutsu itself IS native-body. |
+| **Miracle** (Temporal Mastery) | Whole keyword absent (`arbiter-spell`). Alternative-cost + first-draw-this-turn tracking + a reveal window. Biggest of the four. |
+
+### ⛔ HEXING SQUELCHER — CORRECTLY REFUSED, do not "fix" it
+`Other creatures you control have "Ward—Pay 2 life."` needs two things, and the second is a hard runtime wall.
+Quotes break the group-grant parser (`have "Flying."` is body-only where `have flying.` is native-static) —
+but more importantly **`permanentGrantedWardCosts` reads `generic` mana ONLY**, stated outright at
+`staticAbilityParser.js:4363`: "A colored / {X} / life / discard ward grant falls" through. Ward IS genuinely
+enforced (`ward.js` + `actionDispatcher.js:622`, CR 702.21, mana-or-life structured cost), and GRANTED ward is
+enforced too — but only as generic mana. Parsing this card would credit it native while the runtime taxes
+**zero**. **CAPABILITY pin**: it graduates when `addWard` / `permanentGrantedWardCosts` learn a life cost.
+
+---
+
 ## 🔬 DIAGNOSED + REVERTED 2026-07-29 — the subtype-list pump axis: **the blocker is `splitClauses`, not the matcher**
 
 **⛔ NOTHING SHIPPED. A matcher-level fix flipped ZERO of 34,210 cards, and the flip-diff is the only reason

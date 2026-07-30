@@ -1004,6 +1004,37 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
       p.id !== triggeringId && isCreaturePermLocal(p) && re.test(typeStr(p.card)));
   }
 
+  // ===== GLOBAL BOARD-EMPTY (CR 603.4 + 400.1 — Pyrohemia / Pestilence / Sarcomancy) ============
+  // "no <filter> are on the battlefield" (Pyrohemia, Pestilence: "At the beginning of the end step, if no
+  // creatures are on the battlefield, sacrifice this enchantment.") and the "there are no <filter> on the
+  // battlefield" spelling (Sarcomancy's upkeep self-damage).
+  //
+  // ⭐ THE CONTROLLER-SCOPED SIBLING ALREADY EXISTED — "you control no <filter>" reads natively, and a probe
+  // confirmed the identical trigger with that condition classifies native-trigger while this one parked. The
+  // ONLY missing piece was the GLOBAL scope, so this is a scope widening over the same parseFilter /
+  // permMatchesFilter vocabulary, not new machinery.
+  //
+  // ⛔ THE SCOPE IS THE WHOLE POINT, AND GETTING IT WRONG WOULD BE A FORBIDDEN FP. The battlefield is a
+  // SHARED zone (CR 400.1) — "no creatures are on the battlefield" asks about EVERY seat's permanents, not
+  // the controller's. Reading only controllerBoard would sacrifice Pyrohemia while an opponent's creature is
+  // still out, which is a confident wrong answer rather than a safe refusal. So this scans every player.
+  //
+  // Layer-irrelevant board count → identical at flush AND resolution (CR 603.4's two checks). An
+  // un-parseable filter word → null → Arbiter (false-negative SAFE), exactly like every sibling above.
+  {
+    const m = c.match(/^(?:there are )?no ([a-z]+) (?:are )?on the battlefield$/);
+    if (m) {
+      const filter = parseFilter(m[1]);
+      if (!filter) return null;                        // not a clean type/subtype word → can't confirm (FN-safe)
+      for (const pid of Object.keys(state.players || {})) {
+        for (const perm of state.players[pid]?.battlefield || []) {
+          if (permMatchesFilter(perm, filter, state)) return false;   // one match → the condition is false
+        }
+      }
+      return true;                                     // nothing anywhere matches → "no <filter>" holds
+    }
+  }
+
   return null; // outside the modeled vocabulary → not native / not fired (never fail-open)
 }
 
