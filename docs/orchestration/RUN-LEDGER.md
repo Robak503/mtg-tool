@@ -25,7 +25,7 @@
 >   +change-targets · hexproof-from-COLOR · per-cast mana provenance [REFUSED]) — there is no
 >   vocabulary work left on this deck. Expect ~1 card per slice from here, not a cycle.
 >   That is still the stated objective; corpus veins are the fallback, not the target.
-> - **BATCH IN FLIGHT: 65 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 70 cards since v0.149.21** (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -459,6 +459,66 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **SELF-UNTAP LEARNS ITS NON-CREATURE NOUNS. GAINED 5 — ALL STAPLES.**
+## ⭐ AND THE PARSER HALF ALONE WOULD HAVE BEEN A FALSE POSITIVE.
+
+**Mana Vault** · **Staff of Domination** · **Retrofitter Foundry** · Summoning Station · Blasting Station.
+Second slice off the Joe shelf. Mana Vault is in **Kinnan Mana Overload** (75 → 76%); Joe **846/1098**.
+
+### HOW IT WAS FOUND — the shelf-gap probe, not a hunch
+Ran a line-drop over **all 231 non-native cards across Joe's nine sub-bar decks**: 97 are one line from
+flipping, and clustering their blockers confirmed the recon's verdict — **no shared mechanism**, the biggest
+cluster is a trigger SHAPE whose payloads all differ. But the listing put *Mana Vault* next to *Brass Man*,
+which already works, and the two lines are the same sentence with one word changed.
+
+| corpus form | count | parsed before |
+|---|---|---|
+| `untap this creature` | 94 | ✅ since BLITZ UP-1 |
+| `untap this artifact` | 15 | ❌ |
+| `untap this land` / `untap this permanent` | 1 + 1 | ❌ |
+
+⭐ *The referent is IDENTICAL in every case — `target:"self"` is `ctx.sourceId`, and `selfTargets` has handed
+back a `{type:"permanent"}` entry for a non-creature source since census slice 22. **The noun is descriptive,
+not a filter**: a card's own text always names its own type, and this referent can only ever be the source.*
+
+### ⭐⛔ THE HALF THAT WOULD HAVE SHIPPED A LIE
+`applyTapEffect` ends its type check with `t.type === "creature"`. **With only the parse arm, Mana Vault
+classifies `native-mana` and the runtime untaps NOTHING** — the "classifies native but does nothing" trap
+that combat.js's own `thatPermanent` note, two lines above the edit, was written about (an entering LAND
+dropped by the same fallback). So the resolver's gate is widened by the atom's own `selfPermanent` flag —
+set only by the new parse arm, so **no existing tap/untap atom's type check moves at all**.
+
+**Mutation M1 reverts ONLY the resolver half: the runtime test fails while every tier assertion stays
+green.** That is the pair the hollow-gate law asks for — a classification assertion could not have caught it,
+and the runtime assertion is the reason this slice is honest rather than a +5 on paper.
+
+### ✅ THREE BOUNDARY-MARKER PINS GRADUATED — all three named Mana Vault, none deleted
+| pin | its stated reason | now |
+|---|---|---|
+| `selfUntapTax` coverage pin | *"draw-step self-damage + {T}:Add unmodeled; 'untap this artifact' is LOW anyway"* | last clause closed → `native-mana` |
+| `selfUntapTax` parser pin | *"'untap this artifact' is NOT (why Mana Vault parks)"* | both nouns HIGH |
+| `manaTierPins` MUST_NOT_OVER-CLAIM | mana ability + unmodeled residue | **moved UP to MUST_STAY_HIGH** |
+
+⭐ *The third is the careful one: that block is a CREED guard against inflating coverage, so Mana Vault was
+MOVED to the must-stay-native list rather than dropped — the guard keeps seven cards across the same distinct
+residue shapes. A pin graduates when its reason is closed; it is never deleted for going green.*
+
+**Mutation-checked: 3 seen to fail** — M1 resolver half reverted (runtime only) · M2 parse arm removed
+(4 tests across two files) · M3 whole-clause anchors dropped, which credits *"you may choose not to untap
+this artifact during your untap step"* — **16 corpus cards print that untap RESTRICTION**, and a containment
+match would have turned every one into a free untap. Reverts confirmed by `git diff --stat`.
+
+**Gates:** flip-diff **GAINED 5 / LOST 0**, no other tier moved (12904 → 12909 / 34245). 9 new tests, four of
+them runtime. Suite **1029 files / 13,050 green**, lint 0, module graph loads, MUTANT clean.
+**Batch 4: 70 cards.**
+
+### ➡️ THE SHELF-GAP PROBE IS THE NEXT SLICE'S QUEUE
+A scratch `shelfgap.mjs` dumps every non-native Joe card with its single blocking line; the **97 one-away**
+entries are the working list. The clusters are still all single-mechanism, so keep expecting 1–5 a slice —
+and keep picking blockers that sit NEXT TO something already modeled. That adjacency is what found this one.
 
 ---
 

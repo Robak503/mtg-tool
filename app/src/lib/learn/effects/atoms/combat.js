@@ -47,7 +47,12 @@ export function applyTapEffect(state, atom, ctx, tap) {
   // atomTargets hands back exactly the one entering permanent, whatever its type — so it joins the
   // any-live-permanent branch. Without this the `t.type === "creature"` fallback would drop an entering LAND
   // and the untap would no-op while the card read native.
-  const wantsPermanent = atom?.targetType === "permanent" || atom?.targetType === "nonlandPermanent" || atom?.target === "thatPermanent";
+  // SELF-UNTAP on a NON-CREATURE source ("untap this artifact" — Mana Vault). selfTargets returns
+  // {type:"permanent"} for a non-creature source, so the `t.type === "creature"` fallback below would drop it
+  // and the untap would silently no-op while the card classified native — the exact FP class this file's
+  // thatPermanent note two lines up was written about. Gated on the atom's own `selfPermanent` flag (set only
+  // by the non-creature self-untap parse arm), so no existing tap/untap atom's type check moves at all.
+  const wantsPermanent = atom?.targetType === "permanent" || atom?.targetType === "nonlandPermanent" || atom?.target === "thatPermanent" || (atom?.target === "self" && atom?.selfPermanent === true);
   const wantsBasicSubtype = BASIC_SUBTYPE_TARGET.has(atom?.targetType);
   // AURA-OWN-ENCHANTED (Freed from the Real "{U}: Tap/Untap enchanted creature.") — a FIXED referent, not a
   // chosen target: atomTargets resolves target:"enchanted" to the Aura's host (ctx.sourceId→attachedTo) at
@@ -1104,6 +1109,17 @@ export function combatKeywordClauseParser(clause) {
   // ctx.sourceId at resolution (live creature verified; gone → [] no-op). Whole-clause anchored ($) so
   // any rider stays LOW → Arbiter (a safe FN).
   if (/^untap this creature$/.test(t)) return { op: "untap", target: "self" };
+  // SELF-UNTAP, NON-CREATURE NOUN (Mana Vault "you may pay {4}. If you do, untap this artifact." · Staff of
+  // Domination · Retrofitter Foundry · Summoning Station · Blasting Station). The referent is IDENTICAL to the
+  // creature form above — `target:"self"` is ctx.sourceId, and selfTargets already hands back a
+  // {type:"permanent"} entry for a non-creature source (census slice 22). Only the printed NOUN differed, so
+  // 15 artifacts, a land and a permanent form sat unparsed next to 94 working creature lines.
+  // ⭐ THE NOUN IS DESCRIPTIVE, NOT A FILTER: a card's own text always names its own type, and this referent
+  // can only ever be the source. `selfPermanent` is carried so the RESOLVER can widen its creature-only type
+  // check for exactly these atoms — without that half the card would classify native and untap NOTHING.
+  // Whole-clause anchored, so "you may choose not to untap this artifact during your untap step" (16 corpus
+  // cards — a static untap RESTRICTION, not an untap effect) can never reach here.
+  if (/^untap this (?:artifact|permanent|enchantment|land)$/.test(t)) return { op: "untap", target: "self", selfPermanent: true };
   // AMULET-UNTAP (#1301) — "untap the triggering permanent", the SENTINEL detectTriggers rewrites a
   // permanentEnters trigger's bare "untap IT" into. The sentinel appears in ZERO printed oracle text, so a
   // SPELL reading "untap it" can never reach this arm (the same guarantee the "the triggering creature"

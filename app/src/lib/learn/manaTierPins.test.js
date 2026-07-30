@@ -31,6 +31,7 @@ describe("MUST_STAY_HIGH — clean mana sources keep the native-mana tier", () =
     ["Thought Vessel", "Artifact", "You have no maximum hand size.\n{T}: Add {C}.", "mana + a MODELED static"],
     ["Mind Stone", "Artifact", "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.", "mana + a modeled sac-to-draw activated ability"],
     ["Commander's Sphere", "Artifact", "{T}: Add one mana of any color in your commander's color identity.\nSacrifice this artifact: Draw a card.", "mana + modeled sacrifice rider"],
+    ["Mana Vault", "Artifact", "This artifact doesn't untap during your untap step.\nAt the beginning of your upkeep, you may pay {4}. If you do, untap this artifact.\nAt the beginning of your draw step, if this artifact is tapped, it deals 1 damage to you.\n{T}: Add {C}{C}{C}.", "graduated 2026-07-30 — a self-untap lock, its pay-to-untap escape and a draw-step self-damage trigger, all three modeled"],
   ];
 
   for (const [name, type, oracle, why] of CASES) {
@@ -40,13 +41,18 @@ describe("MUST_STAY_HIGH — clean mana sources keep the native-mana tier", () =
   }
 });
 
+// BOUNDARY-MARKER GRADUATED 2026-07-30 — MANA VAULT moved from MUST_NOT_OVER-CLAIM up to MUST_STAY_HIGH.
+// It was pinned below for three residue clauses: the self-untap lock, its pay-to-untap escape, and the
+// draw-step self-damage trigger. All three are now modeled — the last one ("untap this artifact") closed by
+// teaching the self-untap parse arm its non-creature nouns AND widening applyTapEffect's creature-only type
+// check so the artifact is really untapped (selfUntapNonCreature.test.js asserts the RUNTIME, not the tier).
+// The guard this block exists for is untouched: seven cards with genuinely unmodeled residue remain, still
+// spread across the distinct residue shapes. A pin graduates when its stated reason is closed — it is never
+// deleted for going green.
 describe("MUST_NOT_OVER-CLAIM — a mana ability plus UNMODELED residue stays parked", () => {
   // Every card here taps for mana, so ONLY the residue gate keeps it honest. If one of these ever reports
   // native-mana, the runtime is ignoring the rest of the card while the metric counts it fully modeled.
   const CASES = [
-    ["Mana Vault", "Artifact",
-      "This artifact doesn't untap during your untap step.\nAt the beginning of your upkeep, you may pay {4}. If you do, untap this artifact.\nAt the beginning of your draw step, if this artifact is tapped, it deals 1 damage to you.\n{T}: Add {C}{C}{C}.",
-      "doesn't-untap + optional untap payment + upkeep self-damage"],
     ["Midnight Clock", "Artifact",
       "{T}: Add {U}.\n{2}{U}: Put an hour counter on this artifact.\nAt the beginning of each upkeep, put an hour counter on this artifact.\nWhen the twelfth hour counter is put on this artifact, shuffle your hand and graveyard into your library, then draw seven cards. Exile this artifact.",
       "hour counters + a threshold shuffle-and-draw trigger"],

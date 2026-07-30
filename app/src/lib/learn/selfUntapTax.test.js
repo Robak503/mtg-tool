@@ -77,9 +77,14 @@ describe("UP-1 parser — the upkeep pay-to-untap escape is one HIGH optional-ma
         effectAtoms: [{ op: "untap", target: "self" }], targetType: null },
     ]);
   });
-  it("the bare 'untap this creature' payoff is a modeled untap-self atom; 'untap this artifact' is NOT (why Mana Vault parks)", () => {
+  it("both self nouns are modeled untap-self atoms now — 'untap this artifact' graduated 2026-07-30", () => {
+    // This pin read "…'untap this artifact' is NOT (why Mana Vault parks)". The noun was the only difference:
+    // the referent (target:"self" → ctx.sourceId) is identical, and selfTargets already returned a
+    // {type:"permanent"} entry for a non-creature source. Both halves shipped together — the parse arm AND
+    // applyTapEffect's creature-only type check — because the parse arm alone would have credited Mana Vault
+    // native while untapping nothing. Runtime proof lives in selfUntapNonCreature.test.js.
     expect(programConfidence(parseEffectClause("untap this creature", "Artifact"))).toBe("high");
-    expect(programConfidence(parseEffectClause("untap this artifact", "Artifact"))).toBe("low");
+    expect(programConfidence(parseEffectClause("untap this artifact", "Artifact"))).toBe("high");
   });
 });
 
@@ -152,8 +157,13 @@ describe("UP-1 coverage — the self-untap tax family flips native-trigger; extr
   it("the triggered-untap sibling flips too (Famished Paladin) — same self-lock, a modeled untap-this-creature trigger", () => {
     expect(classifyCard(FAMISHED_PALADIN)).toBe("native-trigger");
   });
-  it("CREED PARK — Mana Vault stays body-only (draw-step self-damage trigger + {T}:Add are unmodeled; 'untap this artifact' is LOW anyway)", () => {
-    expect(classifyCard(MANA_VAULT)).toBe("body-only");
+  it("Mana Vault FLIPS now — the last of this pin's three stated blockers is modeled (2026-07-30)", () => {
+    // BOUNDARY-MARKER GRADUATED. The pin named three blockers: the draw-step self-damage trigger and the
+    // {T}:Add (both since built) and "'untap this artifact' is LOW anyway" — the last one, closed this slice
+    // by teaching the self-untap parse arm its non-creature nouns AND widening applyTapEffect's creature-only
+    // type check so the artifact is actually untapped (selfUntapNonCreature.test.js proves the runtime).
+    // The self-untap tax this file guards is untouched; only its companion clauses became modeled.
+    expect(classifyCard(MANA_VAULT)).toBe("native-mana");
   });
   it("Island Fish Jasconius FLIPS now — both lines this pin named as blockers are modeled (2026-07-25)", () => {
     // NOTE: the two stated blockers were islandhome ("can't attack unless defending player controls an

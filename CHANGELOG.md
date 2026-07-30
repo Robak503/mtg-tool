@@ -17,6 +17,9 @@ summarizes the notable changes.
 - **Ninjas with a second ability now play natively.** Sakashima's Student enters as a copy of a creature
   through the engine's own clone path, and Silver-Fur Master's Ninja/Rogue anthem applies, instead of both
   cards handing off to the Arbiter.
+- **Artifacts that untap themselves now really untap.** Mana Vault, Staff of Domination, Retrofitter
+  Foundry, Summoning Station and Blasting Station — paying the cost actually untaps the artifact, so Mana
+  Vault's pay-{4} upkeep escape works and the Station engines can loop.
 
 
 ## [0.149.21] - 2026-07-30
