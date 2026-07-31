@@ -202,9 +202,22 @@ describe("GATED-GY-EXTENDED — FP regressions", () => {
     expect(tier("Sidewinder Naga", NAGA)).toBe("body-only");
   });
 
-  it("intervening-if ETB with delirium stays body-only (Omnivorous Flytrap)", () => {
+  it("⭐ intervening-if ETB with delirium now flips — the LABEL was the blocker (2026-07-30)", () => {
+    // ⚠️ INVERTED. "Delirium" is a CR 207.2c ability word and is now stripped with landfall/enrage/imprint,
+    // so the boundary-anchored trigger regex finally sees "Whenever this creature enters or attacks".
+    // Verified before crediting: the compound splits into BOTH triggers (etb + attacks) and the
+    // intervening-if condition rides EACH of them — a half-handled compound would have been an over-claim.
     const FLYTRAP = "Delirium — Whenever this creature enters or attacks, if there are four or more card types among cards in your graveyard, put a +1/+1 counter on this creature.";
-    expect(tier("Omnivorous Flytrap", FLYTRAP)).toBe("body-only");
+    expect(tier("Omnivorous Flytrap", FLYTRAP)).toBe("native-trigger");
+  });
+
+  it("⛔ …and the REAL Omnivorous Flytrap still parks — this fixture is a simplification", () => {
+    // The printed card says "DISTRIBUTE two +1/+1 counters among one or two target creatures", which is not
+    // modelled. So the pin's protective intent still holds for the actual card; only the simplified shape
+    // above changed. Worth stating, because "the pin's card flipped" and "the pin's FIXTURE flipped" are
+    // very different claims and the fixture is the one that moved.
+    const REAL = "Delirium — Whenever this creature enters or attacks, if there are four or more card types among cards in your graveyard, distribute two +1/+1 counters among one or two target creatures.";
+    expect(tier("Omnivorous Flytrap", REAL)).toBe("body-only");
   });
 
   it("hand-count gate flips native (park LIFTED by BLITZ CA-2's cardsInHand atLeast band)", () => {

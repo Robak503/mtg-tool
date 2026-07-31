@@ -396,7 +396,17 @@ export function stripTriggerAbilityLabel(oracle) {
     // sat between the line start and "When", so the boundary-anchored trigger regex never matched and ALL 29
     // corpus imprint cards had their ETB invisible — measured: even "Imprint — When this artifact enters,
     // draw a card." detected nothing. Same FN-safe + FP-closing basis as its siblings.
-    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant|imprint|valiant)(?:\s*\([^)]*\))?\s*[—–-]\s*/gim, "")
+    // ALLIANCE · DELIRIUM · METALCRAFT · THRESHOLD (added 2026-07-30) — the same CR 207.2c basis as every
+    // sibling above, verified by reading the rule out of knowledge/mtg-judge/data/cr/cr_current.json rather
+    // than from memory: 207.2c names them explicitly and states ability words "have no special rules meaning".
+    //
+    // ⛔ THE CONDITION IS ALWAYS WRITTEN OUT, WHICH IS WHY THIS IS LOSSLESS — checked on the carriers, not
+    // assumed from the rule: "Delirium — IF THERE ARE FOUR OR MORE CARD TYPES among cards in your graveyard,
+    // …" · "Metalcraft — When this creature enters, IF YOU CONTROL THREE OR MORE ARTIFACTS, …" · "Threshold —
+    // IF THERE ARE SEVEN OR MORE CARDS in your graveyard, …". A label that CARRIED its condition would be
+    // dropped by this strip and the effect would apply unconditionally — an over-claim. None do.
+    // "corrupted" is deliberately ABSENT: it is not in 207.2c in the bundled CR, so it is not claimed.
+    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant|imprint|valiant|alliance|delirium|metalcraft|threshold)(?:\s*\([^)]*\))?\s*[—–-]\s*/gim, "")
     .replace(FLAVOR_LABEL_RE, "");
 }
 

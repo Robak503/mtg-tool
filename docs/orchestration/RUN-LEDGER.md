@@ -34,7 +34,7 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **BATCH IN FLIGHT: 68 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 89 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -468,6 +468,67 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **ABILITY-WORD LABELS: alliance · delirium · metalcraft · threshold. GAINED 21 FROM ONE REGEX.**
+## ⚠️ AND I BUILT AN INSTRUMENT, WATCHED IT FAIL ITS OWN CONTROL, AND THREW IT AWAY BEFORE USING IT.
+
+Four words added to the CR 207.2c strip landfall/enrage/raid/imprint/valiant already use. The label sat
+between the line start and "When", so the boundary-anchored trigger regex never matched and **the ability was
+invisible** — the identical failure imprint had (all 29 of its ETBs unseen).
+
+### ⛔⛔ THE INSTRUMENT I DISCARDED — the most useful thing in this slice
+Last slice I promised a *flip-tested* shelf column for the keyword-gap tool. I built it: for each keyword,
+replace the LINE carrying it with a known-good line ("Flying") and count flips. It ranked **Treasure at 94
+would-flip**. **Treasure is fully built** — the ledger's own METHOD CORRECTION says so, and says line-removal
+once scored it 35 when the truth is 0. So I drove one case: The Reaver Cleaver's swap turned
+*"Equipped creature gets +1/+1 and has trample and \"Whenever this creature deals combat damage…\""* into
+**"Flying"** — a different card entirely. Of course it flipped.
+⭐ *I reproduced the exact bug class this project already has a law about, in a tool built to avoid it. The
+control caught it before a single line of code was written on its recommendation.* **Conclusion recorded: the
+keyword-gap tool is a CANDIDATE FINDER only; sizing must be a hand-built, keyword-specific phrase swap** —
+which is what reconfigure, power-up and this slice all used.
+
+### THE RULE WAS READ, NOT REMEMBERED
+CR 207.2c was pulled out of `knowledge/mtg-judge/data/cr/cr_current.json` and read: it names alliance,
+delirium, metalcraft, threshold, adamant explicitly and states ability words *"have no special rules
+meaning"*. **"corrupted" is NOT in that list, so it is not claimed** — and a test pins it staying hidden, so
+this list cannot grow on vibes later.
+
+### ⛔ LOSSLESSNESS CHECKED ON THE CARDS, NOT INFERRED FROM THE RULE
+If a label CARRIED its condition, stripping it would make the effect unconditional — a false positive. Every
+carrier writes it out: *"Delirium — IF THERE ARE FOUR OR MORE CARD TYPES among cards in your graveyard…"*,
+*"Metalcraft — …IF YOU CONTROL THREE OR MORE ARTIFACTS…"*. Pinned by runtime: Crypt Feaster's threshold pump
+fires at 7 cards in the yard and **does NOT fire at 3**.
+
+**Mutation-checked: M27 the four labels removed (3 tests) · M29 a non-CR label sneaks in (1 test).**
+⚠️ **M27/M29's FIRST application broke the regex's parentheses**, and vitest reported **"no tests"** — which
+reads exactly like a clean run. Re-applied from a script that runs `node --check` and prints whether the
+syntax survived. *This is the second cousin of the escaping failure I banked earlier: a mutation that does not
+COMPILE lies the same way a mutation that does not APPLY does.*
+⚠️ **M28 (making the em-dash optional) SURVIVED** — no corpus card starts a line with one of these four words
+without a dash, so nothing distinguishes the two regexes. The narrower rule is kept and **annotated as
+untested**.
+
+### ✅ AND I DELETED A VACUOUS ASSERTION OF MY OWN
+My first draft "proved" the strip never eats rules text with `expect(c.oracle).toContain("Alliance of Arms")`
+— which reads the FIXTURE I had just written, not anything the code did. A safety check that cannot fail.
+Removed, with the real (weaker) state of things stated in its place.
+
+### ✅ ONE PIN GRADUATED, WITH A DISTINCTION THAT MATTERS
+`gatedGYExtended.test.js` asserted Omnivorous Flytrap stays body-only. Its FIXTURE flips — but **the REAL
+printed card still parks**, because it says *"DISTRIBUTE two +1/+1 counters"*, which is unmodelled. Both are
+now pinned separately. *"The pin's card flipped" and "the pin's FIXTURE flipped" are different claims and
+only the second is true here.* Before crediting, verified the compound splits into BOTH triggers (etb +
+attacks) with the intervening-if riding each — a half-handled compound would have been an over-claim.
+
+**Gates:** flip-diff **GAINED 21 / LOST 0**, nothing else moved. 7 tests, 2 runtime. Suite **1051 files /
+13,287 green**, lint 0, MUTANT clean. **Batch: 89 cards — the ~100 release threshold is one slice away.**
+
+### ➡️ The remaining CR 207.2c list is long (morbid, revolt, coven, ferocious, spell mastery, undergrowth …)
+and each is a candidate for the SAME one-line treatment — but **hand-size each with a label-strip swap first**:
+adamant measured 0 and Flurry/Valiant were already stripped, so carrier counts predict nothing.
 
 ---
 

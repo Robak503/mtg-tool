@@ -11,6 +11,8 @@ summarizes the notable changes.
 ### Added
 - **Tamiyo's Safekeeping works.** Targeting one of your own artifacts, enchantments or lands really does
   give it hexproof and indestructible for the turn — it now survives a Disenchant or a wrath.
+- **Alliance, Delirium, Metalcraft and Threshold cards work.** Twenty-one cards whose ability was
+  invisible to the engine — the flavour label in front of it hid the trigger — now play as printed.
 - **Power-up abilities work.** Fourteen Marvel creatures can now use their power-up — once per game,
   as printed, not once every turn.
 - **Reconfigure Equipment works.** Lizard Blades, Rabbit Battery and six more can attach to your
