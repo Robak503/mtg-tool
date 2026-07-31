@@ -1696,10 +1696,17 @@ export function permanentEquipmentCovered(card) {
   // it just isn't shaped like an "Equip {cost}" line, so without this the residue loop rejects the whole card.
   // Anchored to the exact modeled wording + a mana-only cost, so it can only admit the form the parser models.
   const modeledAttachAbility = /^(?:\{[^}]+\})+:\s*attach this equipment to target creature you control\.?$/i;
+  // RECONFIGURE (CR 702.151) — the ATTACH half is the modeled equip lane (parseActivatedAbilities returns it
+  // as isEquipAbility, so the all-abilities gate above already required it modeled), and the half that makes
+  // it safe to credit is the layer-4 removeCardType emitted while attached (CR 702.151b — an attached
+  // reconfigure Equipment is NOT a creature). Without that layer effect this whitelist would be an
+  // over-claim: the card would attach AND keep attacking. Anchored to the keyword + a mana-only cost, so an
+  // unmodeled variant stays residue.
+  const modeledReconfigureLine = /^reconfigure\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i;
   for (const clause of equipmentAbilityClauses(stripReminder(noTrig.oracle || ""))) {
     const c = clause.toLowerCase().trim();
     if (!c) continue;
-    if (modeledEquipLine.test(c) || modeledAttachAbility.test(c)) continue;
+    if (modeledEquipLine.test(c) || modeledAttachAbility.test(c) || modeledReconfigureLine.test(c)) continue;
     // A leftover trigger-shaped clause (When/Whenever/At) is an UNCOUNTED trigger and must NOT be whitelisted
     // by the "equipped creature" clause below. When two triggers share a line (Novel Nunchaku: "When this
     // Equipment enters, attach it … . When you do, equipped creature fights …"), the noTrig strip's regex

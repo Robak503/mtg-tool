@@ -749,6 +749,30 @@ export function parseActivatedAbilities(card) {
       });
       continue;
     }
+    // "Reconfigure {cost}" (CR 702.151) — an Equipment that is ALSO a creature. The ATTACH half is
+    // mechanically identical to Equip (attach to a creature you control, sorcery speed), so it carries
+    // isEquipAbility and rides the SAME attach resolver, legality path and target enumeration — no new
+    // runtime lane. The reminder parenthetical is tolerated because these lines print with it.
+    //
+    // ⛔ THE HALF THAT IS NOT EQUIP IS THE TYPE CHANGE, and it is the whole reason this is CREED-safe:
+    // CR 702.151b says that while attached the Equipment is NOT a creature. layers.js emits a layer-4
+    // removeCardType for exactly that (mirroring bestow, the same shape) — WITHOUT it, attaching would leave
+    // a creature that can still attack and block, i.e. strictly better than printed.
+    //
+    // ⚠️ UNATTACH IS NOT OFFERED. Reconfigure can also pay the cost to unattach; the engine only offers the
+    // attach direction, so a player can never take that line. That is an UNDER-offer — a safe false negative,
+    // the same argument the plain-activated-attach branch below makes about instant-speed re-equipping.
+    const rcm = !line.includes(":") && line.match(/^reconfigure\s*(?:[—–-])?\s*((?:\{[^}]+\})+)(?:\s*\(.*\))?$/i);
+    if (rcm) {
+      const cost = parseAbilityCost(rcm[1]);
+      out.push({
+        index: index++, raw: line, costStr: line, effectClause: "",
+        manaPips: cost?.manaPips ?? null, tapSelf: false, costModeled: !!cost,
+        isManaEffect: false, program: null, modeled: !!cost, needsTarget: true, isEquipAbility: true,
+        isReconfigure: true,
+      });
+      continue;
+    }
     // "Equip [quality] {cost}" — a RESTRICTED equip variant (CR 702.6c). Identical to a plain Equip EXCEPT its
     // legal targets are narrowed to a creature you control that HAS the stated quality (legalChoices enforces it
     // via `equipQuality`). Two qualities are modeled — the ones the runtime can evaluate from state:

@@ -34,7 +34,7 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **BATCH IN FLIGHT: 46 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 54 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -468,6 +468,61 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **RECONFIGURE (CR 702.151). GAINED 8 — an entire keyword that was 0-for-20.**
+## ⚠️ AND THE HALF THAT MATTERS IS THE TYPE STRIP, NOT THE ATTACH. Without it this slice ships 8 FPs.
+
+20 corpus carriers, **zero native** before this. 8 flip; **Lizard Blades sits on two below-bar shelf decks**
+(Captain America Shoot your Shot · Wolverine, claws out!).
+
+### ⭐ HOW IT WAS FOUND — the multi-deck probe came back EMPTY, and that was the useful result
+Level Up cleared the only x3 shelf card, so I probed the twelve cards appearing in 2+ below-bar decks:
+**every one is multi-blocker** (Teferi's Protection, Jeska's Will, The One Ring, Thassa's Oracle …). No cheap
+multi-deck wins left — which matches the sole-blocker census exactly. *So I stopped looking for cards and
+looked for a KEYWORD instead*, and reconfigure was 0-for-20 with a shelf card inside it.
+
+### ⛔⛔ THE TRAP, AND IT IS THE WHOLE SLICE
+The attach half is **just equip** — parseActivatedAbilities returns the line as `isEquipAbility`, so it rides
+the existing attach resolver, legality path and target enumeration. **Crediting only that would have been an
+8-card false positive**: an attached Lizard Blades would still be a creature, free to attack and block WHILE
+granting its host double strike. Strictly better than printed.
+✅ **CR 702.151b** (the card's own reminder text says it: *"While attached, this isn't a creature."*) is a
+layer-4 `removeCardType` emitted while `attachedTo` is set.
+
+### ⭐ AND THAT LAYER OP ALREADY EXISTED — BESTOW BUILT IT
+`removeCardType` was added for bestow, which is the identical shape: a creature when unattached, not a
+creature when attached. **Reconfigure needed no new layer machinery at all**, only the recognition that
+bestow had already solved the same problem.
+⚠️ *A comment right above `permanentIsCreature` still asserts "the type layer only ADDS types (it never
+strips them)" — **that comment is stale**; bestow has been stripping since it shipped. I nearly took it at
+face value and concluded the slice needed an architectural change. Reading the code under the comment is what
+saved it.*
+
+**Mutation-checked: three pre-specified, all seen to fail** — M19 the CR 702.151b strip removed (**the
+free-creature FP**; the two `permanentIsCreature` assertions are the only thing that catches it —
+classification cannot) · M21 the coverage whitelist removed · M22 `isEquipAbility` dropped.
+
+⚠️ **UNATTACH IS NOT OFFERED, stated rather than hidden.** Reconfigure can also pay to unattach; only the
+attach direction is offered, so a player cannot take that line — an UNDER-offer, a safe FN.
+
+### ✅ TWO MORE BOUNDARY-MARKER PINS GRADUATED — and one of them was installed YESTERDAY
+`outlastKeyword.test.js` ("an activated-ability keyword with NO enforcement is still refused (reconfigure)")
+and `optionalModeKeywords.test.js`, where reconfigure had been made the standing example **one day earlier**
+when outlast graduated. Both inverted; **the rule is untouched and only the example moved** — the marker is
+now aimed at TRANSFIGURE.
+⚠️ I checked candidates before re-aiming: transmute and scavenge read native, but that is the documented
+**ZONE-OPTIONS** precedent (usable only from hand/graveyard, so battlefield playability is unaffected), NOT
+an over-claim. *A marker aimed at a card that is native for a good reason fails instantly and teaches the
+next reader the wrong lesson.*
+
+**Gates:** flip-diff **GAINED 8 / LOST 0**, nothing else moved. 11 tests, 7 runtime. Suite **1049 files /
+13,271 green**, lint 0, MUTANT clean. **Batch: 54 cards.**
+
+### ➡️ 12 reconfigure carriers still park on OTHER text (Lion Sash, The Reality Chip, Blade of the Oni …) —
+each a separate mechanism, not this keyword. The shelf remains one-card-at-a-time: 203 unmodeled cards across
+the nine below-bar Joe decks, 83 multi-blocker, and every 2+-deck card now confirmed multi-blocker too.
 
 ---
 

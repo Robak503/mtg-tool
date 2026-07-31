@@ -90,11 +90,20 @@ describe("⛔⭐ RUNTIME — the engine genuinely OFFERS it, which is what the p
 });
 
 describe("⛔ CREED — the family boundary outlast used to mark", () => {
-  it("⛔ an activated-ability keyword with NO enforcement is still refused (reconfigure)", () => {
-    // Outlast was the standing example of "fails the untaken-option test AND has no enforcement". It now
-    // fails only the first half, so the standing example moved here. Crediting a keyword for being
-    // declinable remains forbidden; crediting one because it is genuinely MODELED is the other route.
-    expect(classifyCard({ name: "R", type: "Artifact Creature — Equipment Construct", mana: "{2}", power: 2, toughness: 2, oracle: "Reconfigure {2} ({2}: Attach to target creature you control. Reconfigure only as a sorcery.)" })).not.toMatch(/^native/);
+  it("⭐ reconfigure took the OTHER route out (2026-07-30) — it is ENFORCED now, so it is credited", () => {
+    // ⚠️ INVERTED, and the old title said exactly what would have to change: "an activated-ability keyword
+    // with NO enforcement is still refused". The enforcement now exists — the attach half rides the equip
+    // lane, and CR 702.151b (while attached it is NOT a creature) is a layer-4 removeCardType, the same
+    // shape bestow already used. This test's own comment named both routes: "crediting a keyword for being
+    // declinable remains forbidden; crediting one because it is genuinely MODELED is the other route."
+    // Reconfigure took the second. Runtime proof: reconfigureKeyword.test.js.
+    expect(classifyCard({ name: "R", type: "Artifact Creature — Equipment Construct", mana: "{2}", power: 2, toughness: 2, oracle: "Reconfigure {2} ({2}: Attach to target creature you control. Reconfigure only as a sorcery.)" })).toBe("native-equipment");
+  });
+
+  it("⛔ and the boundary itself still holds — a keyword with no enforcement is refused", () => {
+    // The marker this describe exists for is re-aimed at something still unmodeled, never deleted: a
+    // made-up activated-ability keyword the engine neither offers nor enforces must stay parked.
+    expect(classifyCard({ name: "Q", type: "Artifact Creature — Equipment Construct", mana: "{2}", power: 2, toughness: 2, oracle: "Glorbulate {2} ({2}: Attach to target creature you control. Glorbulate only as a sorcery.)" })).not.toMatch(/^native/);
   });
 
   it("⛔ an unmodeled sibling clause still parks an outlast card (whole-card CREED)", () => {

@@ -135,9 +135,18 @@ describe("UNLEASH — refused by THIS family, then admitted by ENFORCEMENT inste
     // says it is, offered by legalChoices, and resolvable. The two routes are opposites, and conflating them
     // is exactly what this assertion exists to prevent, so the example moves rather than the rule.
     //
-    // RECONFIGURE is the replacement standing example: an activated ability (so it fails the untaken-option
+    // ⭐⭐ RE-POINTED AGAIN 2026-07-30 — RECONFIGURE has now graduated by the SAME second route, one day
+    // after being installed here as outlast's replacement. That is twice this marker has moved without the
+    // rule moving, which is the marker working as designed: the membership test is a permanent statement,
+    // and the example is only ever the nearest thing that has not yet been enforced.
+    //
+    // TRANSFIGURE is the replacement standing example: an activated ability (so it fails the untaken-option
     // test) with no enforcement behind it (so it is not credited either). Verified body-only.
-    expect(classifyCard({ ...CREATURE, name: "Reconfigurer", type: "Artifact Creature — Equipment Construct", oracle: "Reconfigure {2} ({2}: Attach to target creature you control. Reconfigure only as a sorcery.)" })).not.toMatch(/^native/);
+    // ⚠️ Deliberately NOT transmute or scavenge, which read native — those are the documented ZONE-OPTIONS
+    // precedent (an ability usable only from hand/graveyard, so it cannot affect the battlefield card's
+    // playability). Checked before picking, because a marker aimed at a card that is native for a good
+    // reason would fail immediately and teach the next reader the wrong lesson.
+    expect(classifyCard({ ...CREATURE, name: "Transfigurer", oracle: "Transfigure {2}{B} ({2}{B}, Sacrifice this creature: Search your library for a creature card with the same mana value as this creature, put it onto the battlefield, then shuffle. Transfigure only as a sorcery.)" })).not.toMatch(/^native/);
   });
 });
 

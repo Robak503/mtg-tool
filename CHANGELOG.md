@@ -11,6 +11,9 @@ summarizes the notable changes.
 ### Added
 - **Tamiyo's Safekeeping works.** Targeting one of your own artifacts, enchantments or lands really does
   give it hexproof and indestructible for the turn — it now survives a Disenchant or a wrath.
+- **Reconfigure Equipment works.** Lizard Blades, Rabbit Battery and six more can attach to your
+  creatures — and correctly stop being creatures themselves while attached, so they no longer attack
+  and equip at the same time.
 - **Level Up works.** The enchanted creature's +1/+1 counters really double when it attacks, and the
   bonus card is drawn only when its power actually reaches 10 after that doubling.
 - **Byrke, Long Ear of the Law works.** When a creature with a +1/+1 counter attacks, its counters really

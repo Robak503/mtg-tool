@@ -625,6 +625,22 @@ export function staticEffectsOf(state, permanent) {
         duration: { kind: "permanent" },
       });
     }
+    // RECONFIGURE (CR 702.151b): while attached, a reconfigure Equipment is NOT a creature — the SAME shape
+    // as bestow directly above, reached by paying the reconfigure cost instead of by casting for bestow.
+    // ⛔ THIS IS THE LOAD-BEARING HALF OF THE RECONFIGURE SLICE. The attach half rides the equip lane, which
+    // on its own would leave an attached Lizard Blades still a creature — free to attack and block while ALSO
+    // pumping its host. Strictly better than printed, the forbidden direction. Emitted only while attachedTo
+    // is set, so unattaching makes it a creature again with no extra bookkeeping (CR 702.151c).
+    // Read off the printed oracle rather than a stamped flag: unlike bestow (a cast-time choice the flag
+    // records) reconfigure is a property of the CARD, so there is nothing to stamp and nothing to lose.
+    if (/^reconfigure\b/im.test(String(card?.oracle ?? card?.oracle_text ?? ""))) {
+      partials.push({
+        layer: 4,
+        op: { layerOp: "removeCardType", removeType: "Creature" },
+        affects: { mode: "self" },
+        duration: { kind: "permanent" },
+      });
+    }
     // GRANTED-MANA-ABILITY AURA (creature host): "Enchanted creature has \"{T}: Add …\"" (Multani's Harmony)
     // grants the enchanted creature a fully-modeled tap-for-mana ability. Emit it as a layer-6 addAbility
     // grant FIXED to the host so grantedManaSpecsFor → manaSources offers the host the tap (the same runtime
