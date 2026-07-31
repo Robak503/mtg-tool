@@ -84,9 +84,20 @@ describe("the SELF doubling pronoun", () => {
     expect(c).not.toBe("double the number of +1/+1 counters on this creature");
   });
 
-  it("⛔ CREED — Level Up's COMPOUND body stays unrewritten → the card parks", () => {
+  it("⭐ Level Up's COMPOUND body IS rewritten now (2026-07-30) — only the FIRST sentence's pronoun", () => {
+    // ⚠️ INVERTED. This asserted the compound stays unrewritten and the card parks — correct while the
+    // rewrite was whole-clause anchored. The anchor was RELOCATED (first sentence only, rest byte-identical),
+    // because every other piece of this card was already modelled, including the "then if <cond>, <effect>"
+    // peel. Runtime proof lives in levelUpGrantedDouble.test.js; the whole-card guard is the next test down.
     const c = triggerClause("Whenever this creature attacks, double the number of +1/+1 counters on it. Then if it has power 10 or greater, draw a card.");
-    expect(clause(c).confidence).toBe("low");
-    expect(classifyCard({ name: "Level Up", type: "Enchantment — Aura", mana: "{1}{G}", oracle: 'Enchant creature\nWhen this Aura enters, put a +1/+1 counter on enchanted creature.\nEnchanted creature has "Whenever this creature attacks, double the number of +1/+1 counters on it. Then if it has power 10 or greater, draw a card."' })).toBe("body-only");
+    expect(c).toMatch(/^double the number of \+1\/\+1 counters on this creature\./);
+    expect(c).toMatch(/then if it has power 10 or greater, draw a card\.?$/i);  // the rider is untouched
+    expect(classifyCard({ name: "Level Up", type: "Enchantment — Aura", mana: "{1}{G}", oracle: 'Enchant creature\nWhen this Aura enters, put a +1/+1 counter on enchanted creature.\nEnchanted creature has "Whenever this creature attacks, double the number of +1/+1 counters on it. Then if it has power 10 or greater, draw a card."' })).toBe("native-trigger");
+  });
+
+  it("⛔ CREED — an UNMODELLED rider after the doubling still parks the whole card", () => {
+    // The guard that used to be provided by refusing to rewrite is now provided by the parser: the rewritten
+    // first sentence buys nothing if the remainder cannot parse.
+    expect(clause(triggerClause("Whenever this creature attacks, double the number of +1/+1 counters on it. Then flurgle the wumpus.")).confidence).toBe("low");
   });
 });

@@ -70,11 +70,22 @@ describe("the sequenced 'Then if' form", () => {
   });
 });
 
-describe("⚠️ LEVEL UP is still parked, and the reason is a CREED anchor, not a gap", () => {
-  it("the compound keeps the 'on it' pronoun, so the card stays body-only", () => {
-    // The SELF_DOUBLE_IT rewrite is whole-clause anchored so a rider can never be silently dropped. Level
-    // Up's body is "…on it. Then if…", which does not match — deliberately. Completing this card means
-    // deciding whether that anchor may fire per-sentence, which is a separate call.
-    expect(classifyCard({ name: "Level Up", type: "Enchantment — Aura", mana: "{1}{G}", oracle: 'Enchant creature\nWhen this Aura enters, put a +1/+1 counter on enchanted creature.\nEnchanted creature has "Whenever this creature attacks, double the number of +1/+1 counters on it. Then if it has power 10 or greater, draw a card."' })).toBe("body-only");
+describe("✅ LEVEL UP — the CREED anchor question this file raised, answered (2026-07-30)", () => {
+  // ⚠️ THIS DESCRIBE WAS TITLED "LEVEL UP is still parked", and it ended by naming the open question exactly:
+  // "Completing this card means deciding whether that anchor may fire per-sentence, which is a SEPARATE CALL."
+  //
+  // THE CALL, made here so it lives where the question was asked: the anchor MAY fire per-sentence, because
+  // the property it was protecting is not lost by doing so. The anchor existed to stop a rider being silently
+  // dropped — but the rewrite only ever touched a PRONOUN, and the rider still has to parse afterwards for the
+  // card to read native. So the guarantee moves from "refuse to look at a compound" to "the remainder must
+  // parse on its own merits", which is the same whole-card law enforced one layer down instead of one layer up.
+  // The witness that it really is enforced is the unmodelled-rider test below — without it this would be an
+  // assertion about intent rather than behaviour.
+  it("the compound's FIRST sentence is rewritten and the card flips", () => {
+    expect(classifyCard({ name: "Level Up", type: "Enchantment — Aura", mana: "{1}{G}", oracle: 'Enchant creature\nWhen this Aura enters, put a +1/+1 counter on enchanted creature.\nEnchanted creature has "Whenever this creature attacks, double the number of +1/+1 counters on it. Then if it has power 10 or greater, draw a card."' })).toBe("native-trigger");
+  });
+
+  it("⛔ and an UNMODELLED rider still parks the whole card — the guard moved, it did not vanish", () => {
+    expect(classifyCard({ name: "Level Up", type: "Enchantment — Aura", mana: "{1}{G}", oracle: 'Enchant creature\nWhen this Aura enters, put a +1/+1 counter on enchanted creature.\nEnchanted creature has "Whenever this creature attacks, double the number of +1/+1 counters on it. Then flurgle the wumpus."' })).toBe("body-only");
   });
 });

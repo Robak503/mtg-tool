@@ -2657,6 +2657,20 @@ const SELF_COUNTER_IT_RE = /^put (?:a|an|one|two|three|four|five|\d+|that many) 
 // half is modelled: a safe FN, never a partial fire).
 const SELF_DOUBLE_IT_RE = /^double the number of [+-]1\/[+-]1 counters on it$/i;
 
+// IT-DOUBLE, LEADING form — the same clause as the SENTENCE that OPENS a compound: Level Up's granted body
+// is "Whenever this creature attacks, double the number of +1/+1 counters on it. THEN IF it has power 10 or
+// greater, draw a card." The comment above used to say that compound "keeps routing to the Arbiter until the
+// threshold half is modelled" — but the threshold half IS modelled (parser.js's CD-1 "then if <cond>, <effect>"
+// peel reads "it has power N or greater" in a self-scoped trigger). ONLY the whole-clause anchor was in the
+// way: it refused to rewrite the pronoun when anything followed the sentence.
+//
+// ⛔ THE ANCHOR IS NOT WEAKENED, IT IS RELOCATED. This rewrites ONLY the pronoun inside the FIRST sentence and
+// leaves every following sentence byte-identical, so the remainder must still parse on its own merits — an
+// unmodelled rider ("…on it. Then flurgle the wumpus.") still parks the whole card. Whole-card safety is
+// preserved by the parser, not by refusing to look. Self-scope gate unchanged (for a NON-self trigger "it" is
+// the OTHER triggering creature, which the thatCreature lane owns).
+const SELF_DOUBLE_IT_LEAD_RE = /^double the number of [+-]1\/[+-]1 counters on it\.\s+\S/i;
+
 // SELF-SAC-IT (BECOMES-TARGET, the Phantasmal Illusion family) — a SELF-scope trigger sacrifices its OWN
 // source with the pronoun "it": "When this creature becomes the target of a spell or ability, sacrifice it."
 // For a self-scope trigger "it" is the SOURCE (CR 608.2c — the object the ability triggered on = the targeted
@@ -3414,6 +3428,15 @@ export function detectTriggers(card) {
         // IT-DOUBLE: "double the number of +1/+1 counters on IT" — same self-scope + whole-clause rules as
         // the counter rewrite directly above; the parser's countersOnSource atom models the rewritten form.
         effectClause = effectClause.replace(/ on it$/i, " on this creature");
+      } else if (cls.scope === "self" && SELF_DOUBLE_IT_LEAD_RE.test(effectClause)) {
+        // IT-DOUBLE, LEADING (Level Up's granted body) — rewrite the pronoun in the FIRST sentence only and
+        // leave the rest untouched for the parser's "then if <cond>, <effect>" peel. `else if` so the
+        // whole-clause form above still wins when there is no rider (byte-identical for every existing card).
+        // ⚠️ A mutation replacing this with a GLOBAL `/ on it/gi` rewrite SURVIVES the suite (verified): no
+        // printed card in this family carries a second " on it" in the rider, so nothing distinguishes them
+        // today. The anchored form is kept deliberately as the narrower change — it cannot touch a sentence
+        // it was never reasoned about — but the gate here is honest about being untested, not silently strong.
+        effectClause = effectClause.replace(/^(double the number of [+-]1\/[+-]1 counters) on it\./i, "$1 on this creature.");
       }
       if (cls.event === "becomesTarget" && cls.scope === "self" && SELF_SAC_IT_RE.test(effectClause)) {
         // SELF-SAC-IT (BECOMES-TARGET, the Phantasmal Illusion family) — "…sacrifice it" where "it" is the

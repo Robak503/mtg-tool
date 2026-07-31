@@ -34,7 +34,7 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **BATCH IN FLIGHT: 45 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 46 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -468,6 +468,59 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## 🎯 BANKED 2026-07-30 — **LEVEL UP. GAINED 1 CARD = 3 SHELF SLOTS — the biggest single shelf item on the board.**
+## ⭐ EVERY PIECE WAS ALREADY BUILT. The blocker was an ANCHOR, and a test had already said so in its own title.
+
+Wolverine, claws out! · Hulk Smash · Halfshell heroes — all three below-bar Joe decks run it.
+
+### ⭐ THE FIND: THREE OF MY OWN PINS HAD ALREADY DIAGNOSED THIS, AND ONE NAMED THE DECISION
+`sourceScopedCondition.test.js` carried a describe titled **"LEVEL UP is still parked, and the reason is a
+CREED anchor, not a gap"**, ending: *"Completing this card means deciding whether that anchor may fire
+per-sentence, which is a **separate call**."* A comment in triggers.js predicted the card would park "until
+the threshold half is modelled" — **but the threshold half was already modelled** (parser.js's CD-1
+"then if <cond>, <effect>" peel reads "it has power N or greater" at self scope; verified by probe first).
+⭐ *The work was not building a mechanism. It was reading three notes I had left myself, noticing one of them
+was out of date, and making the call the third one had explicitly deferred.*
+
+### THE CALL, and why it does not weaken the CREED
+The `"on it" → "on this creature"` pronoun rewrite was WHOLE-CLAUSE anchored, so it refused to fire the
+moment a second sentence followed. **The anchor was RELOCATED, not removed:** the rewrite now touches the
+pronoun in the FIRST sentence only and leaves every following sentence byte-identical. The property being
+protected — never silently drop a rider — is unchanged, because the rewrite only ever moved a PRONOUN and the
+remainder must still parse for the card to read native. **The guard moved from "refuse to look at a compound"
+to "the remainder must parse on its own merits"** — the same whole-card law, one layer down.
+✅ The witness that it really is enforced: an unmodelled rider ("…on it. Then flurgle the wumpus.") still
+parks the whole card. Without that test this would be an assertion about intent rather than behaviour.
+
+### ⭐ THE RUNTIME PROVES THE CONDITIONAL READS **POST**-DOUBLING POWER (CR 608.2, written order)
+Aura on a 2/2 with 3 counters → doubles to 6 → power 8 → **no card drawn.** With 5 counters → doubles to 10 →
+power 12 → **card drawn.** That ordering is the whole card; a version that checked power before the doubling
+would pass a classification test and be wrong in play.
+
+**Mutation-checked: M16 lead branch off (5 tests) · M17 self-scope gate dropped (the non-self "it" mis-bind).**
+⚠️ **M18 SURVIVED** — replacing the anchored rewrite with a global `/ on it/gi` passes everything, because no
+printed card in this family carries a second " on it" in its rider. Nothing distinguishes them today. The
+narrow form is KEPT deliberately (it cannot touch a sentence it was never reasoned about) and is **annotated
+in place as untested rather than left looking strong**. *Second surviving mutation this run, second time
+recorded rather than swapped for one that fails.*
+
+### ✅ TWO MORE PINS GRADUATED — both named Level Up in their own assertions
+`enchantedCounterReferent.test.js` ("the COMPOUND body stays unrewritten") and the sourceScopedCondition
+describe above. Both inverted with the reason recorded in place, and each gained a companion test pinning
+the unmodelled-rider park — so the thing the old assertion was really protecting is still asserted.
+⭐ *That is four inverted park-pins today. A pin naming a specific card is a DATED claim; the discipline is to
+invert it loudly and re-pin the underlying property, never to delete it and move on.*
+
+**Gates:** flip-diff **GAINED 1 / LOST 0**, nothing else moved. 9 tests, 5 runtime. Suite **1048 files /
+13,259 green**, lint 0, MUTANT clean. **Batch: 46 cards.**
+
+### ➡️ SHELF NEXT: the three decks Level Up touches move by 1 each. Remaining doubling siblings are the AURA
+referent (Hydra's Growth, Seismic Tutelage — "on enchanted creature", a different path from the trigger
+sentinel; 2 corpus cards, 0 shelf). After that the shelf census says one-card-at-a-time: 203 unmodeled cards
+across the nine below-bar Joe decks, 83 of them multi-blocker.
 
 ---
 
