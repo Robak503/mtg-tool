@@ -37,7 +37,8 @@
 > - **🚢 v0.149.23 TAGGED + PUSHED 2026-07-31 01:22Z — 130 cards, thirteen slices. CI RUN 30596155328.**
 >   ⚠️ **NOT YET VERIFIED. On the next resume: check the run, then VERIFY BY CONTENT** (manifest reports
 >   0.149.23, a real installer URL, a non-empty signature, 5 assets) — a green checkmark is not a release.
->   [[feedback_local_green_is_not_ci_green]]. **BATCH RESETS TO ZERO from this tag.** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+>   [[feedback_local_green_is_not_ci_green]]. **BATCH RESETS TO ZERO from this tag.**
+> - **BATCH IN FLIGHT: 17 cards since v0.149.23** (ability-word SPELL path +17) (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -471,6 +472,56 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-31 — **THE ABILITY-WORD STRIP REACHES THE SPELL PATH. GAINED 17.**
+## ⚠️⚠️ AND IT FIRST COST 9 SHIPPED CARDS. Only the flip-diff's LOST column saw it — every test I had passed.
+
+The follow-on I scoped last slice. Measured properly it was **20 cards, not the 8** my 49-vs-41 arithmetic
+implied — that subtraction only covered the 13 labels added that slice, while the real residue spans the whole
+list. 17 land here; 3 remain behind a STATIC / ACTIVATED / AURA seam (Squawkroaster, Reaper of Flight
+Moonsilver, Aboshan's Desire), each its own mechanism.
+
+### ⛔⛔ THE REGRESSION I CAUSED, AND WHAT IT TEACHES
+Stripping the label on the spell path unconditionally took **9 shipped cards from native-spell to
+arbiter-spell** — Brimstone Volley, Galvanic Blast, Hunger of the Howlpack, Tragic Slip, Feed the Clan …
+`matchInsteadAmountUpgrade` matches *"<X> deals N damage. <WORD> — <X> deals M damage instead if <cond>"* and
+uses that **WORD as a KEY** into `INSTEAD_ABILITY_WORD_CONDITION`, requiring the printed condition to equal
+the word's canonical board query. It is a deliberate guard against mis-reading a condition. **Remove the
+word, remove the guard's input, park the card.**
+⭐⭐ **THE LESSON, and it corrects a check I ran twice and trusted:** I verified losslessness by confirming
+every carrier WRITES ITS CONDITION OUT. That is card-level losslessness. It does not imply **engine-level**
+losslessness — something in the CODE was reading the label as data. *"The card doesn't need the label" and
+"nothing in the engine needs the label" are different claims, and I had only checked the first.*
+✅ Fixed with the family's own signature (` instead if `), so those 9 keep their label. **Flip-diff re-run:
+GAINED 17 / LOST 0.** A mutation removing the exemption is pinned.
+
+### ✅ ARCHITECTURE: the CR 207.2c list now has EXACTLY ONE COPY
+It moved into `effects/textNormalize.js` — a **zero-import leaf**, so both triggers.js and parser.js share it
+with no cycle. The alternative was a second hand-maintained copy of a CR-derived list on the spell side, which
+is precisely how a metric and a runtime drift apart on this project. The move was verified behaviour-neutral
+for the trigger path before the spell path was touched.
+
+**Mutation-checked: M32 the spell-path strip removed · M33 the instead-family exemption removed (the
+9-card regression).** Both syntax-verified via `node --check`.
+
+### ✅ TWO MORE PINS GRADUATED — both only HALF-inverted, deliberately
+`massBlockLock` and `lureThisTurn` both parked their carrier for a **mechanical** reason ("the conditional
+prefix survives and the ^ anchor rejects it") — the label was stopping the sentence from being seen at all.
+Before crediting, I checked the CONDITION actually rides the gated atom rather than being dropped:
+`atoms = [deal-damage(none), mass-block-lock(cond: "you control a creature with power 4 or greater")]`. An
+unconditional lock is exactly the FP those tests exist to prevent.
+⛔ **Each test's OTHER half still parks and stays asserted** — Demoralize (threshold's graveyard count is not
+a readable query) and Declare Dominance (the it-anaphor). *Half-inverting is the honest shape when a pin
+covered two cases and only one moved.*
+
+**Gates:** flip-diff **GAINED 17 / LOST 0**. 11 tests. Suite **1051 files / 13,291 green**, lint 0, MUTANT
+clean. **Batch: 17 since v0.149.23.**
+
+### ➡️ NEXT: the 3 remaining label carriers sit behind the STATIC / ACTIVATED / AURA parsers — three separate
+seams for three cards, so the rate is back to one-at-a-time. **⚠️ AND EVERY ONE OF THEM NEEDS THE
+ENGINE-LEVEL LOSSLESSNESS CHECK ABOVE**: grep for the label being read as data before stripping it there.
 
 ---
 

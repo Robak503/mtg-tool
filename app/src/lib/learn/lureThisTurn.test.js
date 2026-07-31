@@ -51,8 +51,13 @@ describe("parse + classify", () => {
     // The it-anaphor (needs the pump fold) and the Ferocious rider stay off the anchors.
     expect(classifyCard({ id: "dd", name: "Declare Dominance", type: "Sorcery", mana: "{3}{G}",
       oracle: "Target creature gets +3/+3 until end of turn. All creatures able to block it this turn do so." })).toBe("arbiter-spell");
+    // ⭐ Roar of Challenge INVERTED (2026-07-30): the "Ferocious — " label is stripped on the spell path now
+    // (CR 207.2c), so the CD-2 TRAILING "<effect> if <cond>" peel sees the sentence. Verified before
+    // crediting that the condition rides the gated atom rather than being dropped:
+    //   atoms = [lure-this-turn(no cond), pump(cond: "you control a creature with power 4 or greater")].
+    // The it-anaphor form directly above is untouched and still parks, so this test's other half stands.
     expect(classifyCard({ id: "rc", name: "Roar of Challenge", type: "Sorcery", mana: "{2}{G}",
-      oracle: "All creatures able to block target creature this turn do so.\nFerocious — That creature gains indestructible until end of turn if you control a creature with power 4 or greater." })).toBe("arbiter-spell");
+      oracle: "All creatures able to block target creature this turn do so.\nFerocious — That creature gains indestructible until end of turn if you control a creature with power 4 or greater." })).toBe("native-spell");
   });
 });
 

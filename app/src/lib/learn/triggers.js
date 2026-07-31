@@ -27,6 +27,7 @@ import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, p
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 import { applyLifeGainReplacement } from "./replacementEffects.js"; // LIFE-GAIN replacement (CR 614.1) — read by checkLifegainTriggers so a trigger sees the life ACTUALLY gained. replacementEffects imports nothing at all, so this edge is one-way and cycle-free.
 import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
+import { ABILITY_WORD_LABEL_RE } from "./effects/textNormalize.js"; // CR 207.2c label list — the SINGLE copy, shared with the spell path (textNormalize is a zero-import leaf, so no cycle)
 import { CR_CREATURE_TYPES } from "./effects/targeting.js"; // BC-1: closed creature-subtype vocabulary for the NEGATED-SUBTYPE batch filter (read ONLY inside parseBatchSubjectFilter — a function — so the triggers→targeting→spellEffects→triggers cycle stays init-safe: CR_CREATURE_TYPES is never referenced at module-init time)
 
 function oracleOf(card) {
@@ -415,7 +416,7 @@ export function stripTriggerAbilityLabel(oracle) {
     // ⛔ ONLY LABELS WITH MEASURED FLIPS WERE ADDED. 32 more 207.2c words are in the corpus and measured ZERO
     // (adamant, battalion, channel, coven, domain, converge …). Adding them would be FN-safe but UNTESTED —
     // untested additions to a strip that can only ever loosen are how a list grows past what anyone checked.
-    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant|imprint|valiant|alliance|delirium|metalcraft|threshold|rally|morbid|ferocious|survival|descend 4|formidable|paradox|fateful hour|hellbent|undergrowth|infusion|vivid|void)(?:\s*\([^)]*\))?\s*[—–-]\s*/gim, "")
+    .replace(ABILITY_WORD_LABEL_RE, "")  // ⭐ THE SHARED CR 207.2c list (effects/textNormalize.js) — one copy, so the trigger path and the spell path cannot drift
     .replace(FLAVOR_LABEL_RE, "");
 }
 

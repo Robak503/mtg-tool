@@ -8,6 +8,11 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Ability-word SPELLS work too.** Seventeen more cards — Kirtar's Wrath, Descend upon the Sinful,
+  Traverse the Ulvenwald, Shamanic Revelation and others — whose flavour label hid the spell itself.
+
+
 ## [0.149.23] - 2026-07-30
 
 ### Added

@@ -66,11 +66,17 @@ describe("mass-block-lock — CREED: only the two evidenced whole clauses parse"
     low("Creatures can't block this combat.");
     low("Creatures can't attack this turn.");
   });
-  it("conditional carriers arrive as ONE un-split sentence and fail the anchor (the FP hazard)", () => {
-    // Ferocious/Threshold riders end in "…, creatures can't block this turn" — the sentence splitter
-    // cuts only on periods/semicolons, so the conditional prefix survives and the ^ anchor rejects it.
+  it("⭐ the ability-word carrier now parses — and its condition RIDES the gated atom (2026-07-30)", () => {
+    // ⚠️ HALF-INVERTED. The old reason was mechanical, not semantic: "the conditional prefix survives and
+    // the ^ anchor rejects it" — because the "Ferocious — " label kept the sentence from being seen at all.
+    // The label is now stripped on the spell path (CR 207.2c), so the CD-1 "if <cond>, <effect>" peel reads
+    // it and attaches the condition to the mass-block-lock atom. Verified before crediting:
+    //   atoms = [deal-damage(no cond), mass-block-lock(cond: "you control a creature with power 4 or greater")]
+    // An unconditional lock would have been the FP this test was built to prevent; the condition is there.
     const C = (name, oracle, type) => ({ name, oracle, type, keywords: [], mana: "" });
-    expect(classifyCard(C("Barrage of Boulders", "Barrage of Boulders deals 1 damage to each creature you don't control.\nFerocious — If you control a creature with power 4 or greater, creatures can't block this turn.", "Sorcery"))).not.toMatch(/^native/);
+    expect(classifyCard(C("Barrage of Boulders", "Barrage of Boulders deals 1 damage to each creature you don't control.\nFerocious — If you control a creature with power 4 or greater, creatures can't block this turn.", "Sorcery"))).toMatch(/^native/);
+    // ⛔ AND THE OTHER HALF STILL PARKS, so the FP hazard remains pinned: Demoralize's threshold condition
+    // ("seven or more cards in your graveyard") is not a query the resolver can read, so it stays LOW.
     expect(classifyCard(C("Demoralize", "All creatures gain menace until end of turn. (They can't be blocked except by two or more creatures.)\nThreshold — If there are seven or more cards in your graveyard, creatures can't block this turn.", "Instant"))).not.toMatch(/^native/);
   });
 });

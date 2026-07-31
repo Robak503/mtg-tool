@@ -19,6 +19,28 @@
  * parseEffectClause wrapper re-detects the regen rider to stamp `cannotRegenerate`.
  */
 
+/**
+ * ABILITY-WORD LABELS (CR 207.2c) — "Landfall — Whenever …", "Morbid — …if a creature died this turn…".
+ * The rule (read out of knowledge/mtg-judge/data/cr/cr_current.json) states ability words "have no special
+ * rules meaning", and every carrier writes its own gate into the text, so removing the label is LOSSLESS.
+ *
+ * ⛔ IT LIVES IN THIS LEAF SO THERE IS EXACTLY ONE COPY. triggers.js strips it before trigger detection and
+ * parser.js strips it before the spell parse; two copies of a CR-derived list is precisely how a metric and
+ * a runtime drift apart on this project. Anchored to line-start + label + dash, so it can only ever consume
+ * label-then-dash and never rules text.
+ *
+ * ⛔ ONLY LABELS WITH MEASURED FLIPS ARE LISTED. ~32 more 207.2c words appear in the corpus and measured
+ * ZERO (adamant, battalion, channel, coven, domain, converge …). They are safe to add but UNTESTED, and an
+ * untested entry in a list that can only loosen is how it grows past what anyone checked.
+ */
+export const ABILITY_WORD_LABEL_RE =
+  /^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant|imprint|valiant|alliance|delirium|metalcraft|threshold|rally|morbid|ferocious|survival|descend 4|formidable|paradox|fateful hour|hellbent|undergrowth|infusion|vivid|void)(?:\s*\([^)]*\))?\s*[—–-]\s*/gim;
+
+/** Remove a leading CR 207.2c ability-word label from every line that carries one. */
+export function stripAbilityWordLabel(oracle) {
+  return String(oracle || "").replace(ABILITY_WORD_LABEL_RE, "");
+}
+
 export function typeOf(card) {
   return String(card?.type || card?.type_line || "");
 }

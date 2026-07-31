@@ -29,7 +29,7 @@
 import { parseSpellEffect, parseCreatureTargetRestrictions } from "../spellEffects.js"; // parseGraveyardFilter moved to atoms/zones.graveyardReturnClauseParser (seam batch 16)
 import { isNonChosenTargetType } from "../targetTypes.js"; // MASS_WIPE_SCOPES (the centralized wipe partition) now consumed by ./programQueries.js (slice 3), not here
 import { ATOM_RESOLVERS, PAUSING_ATOM_OPS } from "./effectAtoms.js"; // PAUSING_ATOM_OPS (WI-3) — ops whose resolver can set pendingChoice; gates optional-payment payoffs
-import { typeOf, isInstantOrSorcery, oracleOf, hasXCost, stripReminder, stripRegenerationRider, stripUncounterableRider, stripNoMaxHandSizeRider, stripCastKeywordLines, rewriteAmountX, CANT_REGEN_TEST } from "./textNormalize.js"; // oracle-text normalization + card-field leaf (parser decomposition slice 1) — pure String|card→String|bool, no cycle
+import { typeOf, isInstantOrSorcery, oracleOf, stripAbilityWordLabel, hasXCost, stripReminder, stripRegenerationRider, stripUncounterableRider, stripNoMaxHandSizeRider, stripCastKeywordLines, rewriteAmountX, CANT_REGEN_TEST } from "./textNormalize.js"; // oracle-text normalization + card-field leaf (parser decomposition slice 1) — pure String|card→String|bool, no cycle
 import { splitClauses } from "./splitClauses.js"; // oracle → clause[] sentence splitter (parser decomposition slice 2) — leaf; sole caller is parser.js
 import { programNeedsChosenTarget } from "./programQueries.js"; // program-shape query leaf (slice 3) — imported for the assembly-time call sites; the full family is re-exported at the bottom of this file
 import { matchImprint, matchHandDisruption, matchRemovalControllerRider, matchRemovalCasterGainLife, matchRemovalDamageRider, matchCounterControllerRider, matchCounterExileInstead, matchCounterZoneRedirect, matchImpulseDig, matchReorderTop, matchDigLandToBattlefield, matchLookTopTake, matchChooseTypeDraw, matchChosenTypeRevealToHand, matchDelayedTrigger } from "./spanMatchers.js"; // up-front multi-sentence span matchers (slice 4) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below (parseControllerRider now consumed by templateMatchers.js directly)
@@ -1023,7 +1023,27 @@ function parseEffectProgramWithSelfExileRetry(card) {
 
 function parseEffectProgramInner(card) {
   if (!isInstantOrSorcery(card) || !oracleOf(card)) return null;
-  const rawOracle = stripDevoidLine(stripStormKeywordLine(stripSelfCostReduction(oracleOf(card))));
+  // ⭐ ABILITY-WORD LABEL (CR 207.2c) — strip it HERE too, not only on the trigger path. The label sits at the
+  // start of the line, so a spell reading "Morbid — Destroy target creature." never matched any effect
+  // matcher and parked, exactly as the same label hid triggers before it was stripped there. Measured: 20
+  // corpus cards were parking on nothing but the label, on the SPELL/STATIC side of the same mechanism.
+  // ⛔ Uses the SHARED list in this same leaf, so the trigger path and the spell path cannot drift on which
+  // labels are claimed — two hand-maintained copies of a CR-derived list is a drift bug waiting to happen.
+  //
+  // ⛔⛔ EXCEPT FOR THE "INSTEAD IF" FAMILY, WHERE THE LABEL IS LOAD-BEARING BY DESIGN. Stripping
+  // unconditionally REGRESSED 9 shipped cards (Brimstone Volley, Galvanic Blast, Hunger of the Howlpack,
+  // Tragic Slip …) from native-spell to arbiter-spell. matchInsteadAmountUpgrade matches
+  // "<X> deals N damage. <WORD> — <X> deals M damage instead if <cond>" and uses that WORD as a KEY into
+  // INSTEAD_ABILITY_WORD_CONDITION, requiring the printed condition to equal the word's canonical board
+  // query. That cross-check is a deliberate guard against a mis-read condition — removing the word removes
+  // the guard's input and the whole card parks.
+  // ⭐ THE LESSON, WRITTEN WHERE IT BIT: "the card writes its condition out" (which I verified) is NOT the
+  // same as "nothing in the ENGINE reads this label". Card-level losslessness does not imply engine-level
+  // losslessness. The narrow " instead if " hint is the family's own signature and leaves those 9 untouched.
+  const INSTEAD_UPGRADE_HINT = / instead if /i;
+  const labeled = oracleOf(card);
+  const rawOracle = stripDevoidLine(stripStormKeywordLine(stripSelfCostReduction(
+    INSTEAD_UPGRADE_HINT.test(labeled) ? labeled : stripAbilityWordLabel(labeled))));
   // SELF-SHUFFLE DISPOSITION (Green Sun's Zenith + the Sun's Zenith / Beacon family) — peel a trailing "Shuffle
   // <this> into its owner's library." sentence up front so the BODY parses through the normal pipeline, and stamp
   // the resulting program `selfShuffle` (runEffectProgram's GY-1 then tucks the spell into the library instead of

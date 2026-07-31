@@ -138,6 +138,32 @@ describe("second pass — rally · morbid · ferocious · survival · hellbent",
   // moment the strip list grows to include it (verified by mutation), which is the real guard.
 });
 
+describe("⭐ the SPELL path strips the label too — and the 'instead if' family is exempt", () => {
+  // The strip lived only in the TRIGGER normalizer, so a spell reading "Morbid — Destroy target creature."
+  // never matched an effect matcher and parked on nothing but its label. 17 corpus spells were in that state.
+  it("a spell whose label precedes its effect now parses", () => {
+    expect(classifyCard({ name: "Spell Snuff", type: "Instant", mana: "{2}{U}",
+      oracle: "Counter target spell.\nFateful hour — If you have 5 or less life, draw a card." })).toBe("native-spell");
+    expect(classifyCard({ name: "Break of Day", type: "Instant", mana: "{1}{W}",
+      oracle: "Creatures you control get +1/+1 until end of turn.\nFateful hour — If you have 5 or less life, those creatures gain indestructible until end of turn." })).toBe("native-spell");
+  });
+
+  it("⛔⛔ the 'INSTEAD IF' family keeps its label — the ENGINE reads that word as a KEY", () => {
+    // ⚠️ THIS IS A REGRESSION I CAUSED AND THEN CAUGHT. Stripping unconditionally took 9 shipped cards from
+    // native-spell to arbiter-spell, because matchInsteadAmountUpgrade keys on the ability WORD to look up
+    // INSTEAD_ABILITY_WORD_CONDITION and require the printed condition to equal that word's canonical query
+    // — a deliberate guard against mis-reading the condition. Remove the word, remove the guard's input.
+    //
+    // ⭐ THE LESSON: "the card writes its condition out" is NOT "nothing in the engine reads this label".
+    // Card-level losslessness does not imply engine-level losslessness, and only the flip-diff's LOST column
+    // said so — every test I had written still passed.
+    expect(classifyCard({ name: "Brimstone Volley", type: "Instant", mana: "{1}{R}{R}",
+      oracle: "Brimstone Volley deals 3 damage to any target.\nMorbid — Brimstone Volley deals 5 damage instead if a creature died this turn." })).toBe("native-spell");
+    expect(classifyCard({ name: "Hunger of the Howlpack", type: "Instant", mana: "{G}",
+      oracle: "Put a +1/+1 counter on target creature.\nMorbid — Put three +1/+1 counters on that creature instead if a creature died this turn." })).toBe("native-spell");
+  });
+});
+
 describe("CREED — crediting the label never force-flips the rest of the card", () => {
   it("an unmodeled sibling clause still parks each of the four", () => {
     for (const c of [SQUAD, DRAKE, FEASTER, WURM]) {
