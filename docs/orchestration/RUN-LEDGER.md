@@ -3,6 +3,60 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🧭 METHOD CORRECTIONS — EARNED THIS RUN (2026-07-30/31). READ BEFORE THE FIRST SLICE.
+> *Every line below cost a real mistake. They are here so the next seat inherits the judgment instead of
+> re-buying it a slice at a time. None of them are visible from the code.*
+>
+> **1. SIZE WITH A HAND-BUILT, KEYWORD-SPECIFIC PHRASE SWAP. Never an automated one.**
+> Swap ONLY the mechanic's phrase for a known-good payload of the same shape; leave every other character.
+> ⛔ An automated "replace the LINE carrying the keyword" instrument scored **fully-built Treasure at 94**
+> would-flip (truth: 0) because it replaced an entire quoted granted-trigger clause with "Flying".
+> Line-REMOVAL is worse still — it deletes the trigger along with its payload.
+> ✅ The keyword-gap tool (rank by carriers/native/parked) is a **CANDIDATE FINDER ONLY**. Sizing is by hand.
+>
+> **2. A POSITIVE CONTROL MUST RIDE THE SAME PATH AS THE DATA.**
+> A synthetic `{oracle: "..."}` fixture PASSED while every corpus row read blank — `allCards()` returns raw
+> Scryfall (`oracle_text`) and `classifyCard` reads `.oracle`. The control proved the CLASSIFIER could say
+> yes; it proved nothing about the rows being fed to it. Use a real corpus row known to be native.
+>
+> **3. CARD-LEVEL LOSSLESSNESS ≠ ENGINE-LEVEL LOSSLESSNESS.**
+> Before stripping any label/phrase: **grep the engine for that token being read as DATA.** Verifying the
+> CARD writes its condition out is not enough. Stripping CR 207.2c ability words regressed **9 shipped
+> cards** because `matchInsteadAmountUpgrade` uses the ability WORD as a lookup key. Only the flip-diff's
+> LOST column caught it — every test passed.
+>
+> **4. A MUTATION THAT DOESN'T APPLY, OR DOESN'T COMPILE, LIES EXACTLY LIKE A CLEAN RUN.**
+> Assert the patch matched (`s.count(old) == 1`) AND run `node --check` after. A broken regex made vitest
+> report **"no tests"**, which reads identical to green. Two separate incidents this run.
+>
+> **5. A SURVIVING MUTATION IS A RESULT, NOT A FAILED STEP.**
+> Three survived. Each was handled honestly: annotate the line as not-load-bearing (naming the real gate),
+> or DELETE it when it was dead code that merely looked like a safety gate. **Never quietly swap in a
+> mutation that does fail and report three-for-three.**
+>
+> **6. A TEST THAT READS ITS OWN FIXTURE CANNOT FAIL.** Two vacuous assertions of mine were caught by
+> MUTATING, not by re-reading them. Writing the mutation is what audits the test; the test does not audit
+> itself.
+>
+> **7. RUNTIME FIRST, TIER SECOND — and the runtime assertion is usually the ONLY thing that can tell a
+> correct build from an over-claim.** Classification cannot distinguish "doubles the attacker's counters"
+> from "doubles the watcher's"; both flip the card. Write the money-actually-moves test before the mutations.
+>
+> **8. HARNESS TRAPS THAT COST REAL SLICES** (each bit at least once, and reads as a broken feature):
+> derive land colour from the CARD'S OWN PIPS (an all-Swamp board → "not offered" ×3) · use LAYER-AWARE
+> readers (`permanentPower`, not `card.power + counters` — until-EOT pumps are layer-7c) · filter to
+> MAINBOARD (a sideboard card can't move the shelf) · `dispatchAction` returns the state itself · assert on
+> the DISTINCT way-to-pay set, not the raw action count (the cast block crosses pay-ways × target combos) ·
+> compute elapsed time in ONE clock (a datetime-kind mix reported **438 min** on a 25-min job).
+>
+> **9. A PARK-PIN NAMING A CARD IS A DATED CLAIM.** ~10 graduated this run. Invert it LOUDLY with the reason
+> in place, re-pin the underlying property, and **half-invert** when the pin covered two cases and only one
+> moved. Never delete one silently. And distinguish "the pin's CARD flipped" from "the pin's FIXTURE
+> flipped" — Omnivorous Flytrap's fixture moved while the printed card still parks.
+>
+> **10. VERIFY A RELEASE BY CONTENT, NOT BY CHECKMARK.** Manifest `version`, an installer URL that actually
+> resolves, a NON-EMPTY signature, the asset count. A green run is not a shipped release.
+
 > ## 🚦 RELEASE CADENCE — BATCH, DO NOT TAG PER SLICE (Colton, 2026-07-29)
 > *"you cutting to many releases put more work in before each cut do 100 plus slices or something close."*
 >
