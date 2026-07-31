@@ -95,6 +95,49 @@ describe("⭐⭐ RUNTIME — the trigger fires, and its CONDITION still gates it
   });
 });
 
+// ─── SECOND PASS (same day): the rest of the measured 207.2c list ────────────────────────────────────
+const BEAR = { name: "Ulvenwald Bear", type: "Creature — Bear", mana: "{2}{G}", power: "2", toughness: "2",
+  oracle: "Morbid — When this creature enters, if a creature died this turn, put two +1/+1 counters on target creature." };
+const MAGE = { name: "Firemantle Mage", type: "Creature — Human Shaman Ally", mana: "{2}{R}", power: "2", toughness: "2",
+  oracle: "Rally — Whenever this creature or another Ally you control enters, creatures you control gain menace until end of turn. (A creature with menace can't be blocked except by two or more creatures.)" };
+const SURVIVOR = { name: "Cautious Survivor", type: "Creature — Elf Survivor", mana: "{3}{G}", power: "4", toughness: "4",
+  oracle: "Survival — At the beginning of your second main phase, if this creature is tapped, you gain 2 life." };
+const BOUNCER = { name: "Slaughterhouse Bouncer", type: "Creature — Ogre Warrior", mana: "{4}{B}", power: "3", toughness: "3",
+  oracle: "Hellbent — When this creature dies, if you have no cards in hand, target creature gets -3/-3 until end of turn." };
+const HEIR = { name: "Heir of the Wilds", type: "Creature — Human Warrior", mana: "{1}{G}", power: "2", toughness: "2",
+  oracle: "Deathtouch\nFerocious — Whenever this creature attacks, if you control a creature with power 4 or greater, this creature gets +1/+1 until end of turn." };
+
+describe("second pass — rally · morbid · ferocious · survival · hellbent", () => {
+  it("each is detected and classifies native", () => {
+    for (const c of [BEAR, MAGE, SURVIVOR, BOUNCER, HEIR]) {
+      expect(detectTriggers(c).length, c.name).toBeGreaterThan(0);
+      expect(classifyCard(c), c.name).toBe("native-trigger");
+    }
+  });
+
+  it("⛔ each still carries its own gate — the label was decorative, the CONDITION is in the text", () => {
+    // The whole risk of this strip is turning a gated ability into an unconditional one. Every carrier's
+    // intervening-if must survive: morbid's "if a creature died this turn", hellbent's "if you have no cards
+    // in hand", survival's "if this creature is tapped", ferocious's power gate.
+    for (const [c, cond] of [[BEAR, /died this turn/i], [BOUNCER, /no cards in hand/i],
+      [SURVIVOR, /is tapped/i], [HEIR, /power 4 or greater/i]]) {
+      const t = detectTriggers(c)[0];
+      expect(String(t.condition || t.interveningIf || ""), c.name).toMatch(cond);
+    }
+  });
+
+  // ⚠️ THERE IS NO TEST HERE FOR "the zero-flip 207.2c labels stayed out", AND THAT IS DELIBERATE.
+  // I wrote one — `detectTriggers("Battalion — Whenever this creature and at least two other creatures
+  // attack, …")` expecting 0 — and the mutation that ADDS battalion to the strip SURVIVED it. The reason is
+  // that battalion's trigger shape is unmodeled either way, so detection returns 0 whether the label is
+  // stripped or not: the assertion cannot distinguish the two worlds and was a safety check that could not
+  // fail. Removed rather than left in looking meaningful.
+  //
+  // The property IS still pinned, by the test in the first describe that uses "corrupted" — a word that is
+  // NOT in CR 207.2c at all, sitting in front of a trigger shape the engine DOES model. That one fails the
+  // moment the strip list grows to include it (verified by mutation), which is the real guard.
+});
+
 describe("CREED — crediting the label never force-flips the rest of the card", () => {
   it("an unmodeled sibling clause still parks each of the four", () => {
     for (const c of [SQUAD, DRAKE, FEASTER, WURM]) {

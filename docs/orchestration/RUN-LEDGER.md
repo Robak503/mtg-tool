@@ -34,7 +34,7 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **BATCH IN FLIGHT: 89 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 130 cards since v0.149.22 — PAST THE ~100 THRESHOLD, TAG NEXT** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -468,6 +468,52 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **CR 207.2c PASS 2: thirteen more ability words. GAINED 41.**
+## ⚠️ MY ESTIMATE SAID 49. THE TRUTH WAS 41, AND I CHASED THE 8 UNTIL I KNEW WHY.
+
+rally · morbid · ferocious · survival · descend 4 · formidable · paradox · fateful hour · hellbent ·
+undergrowth · infusion · vivid · void — all added to the same one-line strip.
+
+### ⚠️⚠️ THE 49-vs-41 GAP, RUN TO GROUND INSTEAD OF ROUNDED AWAY
+The per-label swap predicted 49; the flip-diff gave 41. First hypothesis — double-counting a card carrying two
+labels — was **WRONG**: the 49 are 49 DISTINCT names, zero overlap. The real cause, verified on the cards:
+**the 8 missing ones carry their label in front of a STATIC or SPELL line, not a trigger** (Squawkroaster
+"Vivid — <static P/T>", Temporal Intervention "Void — <cost reduction>", Withering Curse / Break of Day /
+Barrage of Boulders — spell effects). **The strip lives in the TRIGGER normalizer, so those paths never see
+the stripped text.** Exactly the leftover I noticed on delirium/metalcraft/threshold last slice and did not
+chase; now it has a name.
+⭐ *The estimate wasn't wrong about the cards — it was wrong about WHERE the strip reaches. Two different
+bugs, and only running it down told them apart.* ➡️ **Follow-on, well-scoped: apply the same CR 207.2c strip
+on the spell/static normalization path — 8 cards already identified by name.**
+
+### ✅ THE CREED CHECK, REPEATED CARD-BY-CARD RATHER THAN INHERITED FROM PASS 1
+Every one of the thirteen writes its own gate out: *"Morbid — …IF A CREATURE DIED THIS TURN…"* · *"Hellbent —
+…IF YOU HAVE NO CARDS IN HAND…"* · *"Fateful hour — IF YOU HAVE 5 OR LESS LIFE…"* · *"Survival — …IF THIS
+CREATURE IS TAPPED…"*. A test asserts the parsed trigger still CARRIES that condition for four of them — the
+failure this strip could cause is a gated ability becoming unconditional, and that is what would catch it.
+⛔ **Only labels with MEASURED flips were added.** 32 more 207.2c words sit in the corpus at zero
+(adamant, battalion, channel, coven, domain, converge …). Safe to add, but untested — and an untested
+addition to a strip that can only loosen is how a list grows past what anyone checked.
+
+**Mutation-checked: M30 the thirteen removed (2 tests), syntax-verified via `node --check` per the lesson
+banked one slice ago.**
+
+### ⚠️ AND I DELETED A SECOND VACUOUS TEST OF MY OWN, ONE SLICE AFTER DELETING THE FIRST
+I wrote a pin that the zero-flip labels stayed OUT: `detectTriggers("Battalion — …")` expecting 0.
+**M31 (adding battalion to the strip) SURVIVED it.** Because battalion's trigger shape is unmodeled either
+way, detection returns 0 in both worlds — the assertion could not fail. Removed, with the reason written
+where it stood. *The property is still pinned, by the pass-1 "corrupted" test: a word NOT in 207.2c in front
+of a trigger the engine DOES model, which M29 proved fails the moment the list grows.*
+⭐ *Two hollow assertions of mine in two slices, both caught by mutating rather than by reading. Writing the
+mutation is what audits the test; the test does not audit itself.*
+
+**Gates:** flip-diff **GAINED 41 / LOST 0**, nothing else moved. 10 tests. Suite **1051 files / 13,289
+green**, lint 0, MUTANT clean.
+
+### 🚢 **BATCH: 130 CARDS — PAST COLTON'S ~100 THRESHOLD. CUT v0.149.23 NEXT ACTION.**
 
 ---
 

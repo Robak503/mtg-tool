@@ -11,6 +11,8 @@ summarizes the notable changes.
 ### Added
 - **Tamiyo's Safekeeping works.** Targeting one of your own artifacts, enchantments or lands really does
   give it hexproof and indestructible for the turn — it now survives a Disenchant or a wrath.
+- **Rally, Morbid, Ferocious, Survival, Hellbent and eight more label styles work.** Another 41 cards
+  whose ability the engine could not see — the flavour word in front of it hid the trigger.
 - **Alliance, Delirium, Metalcraft and Threshold cards work.** Twenty-one cards whose ability was
   invisible to the engine — the flavour label in front of it hid the trigger — now play as printed.
 - **Power-up abilities work.** Fourteen Marvel creatures can now use their power-up — once per game,

@@ -406,7 +406,16 @@ export function stripTriggerAbilityLabel(oracle) {
     // IF THERE ARE SEVEN OR MORE CARDS in your graveyard, …". A label that CARRIED its condition would be
     // dropped by this strip and the effect would apply unconditionally — an over-claim. None do.
     // "corrupted" is deliberately ABSENT: it is not in 207.2c in the bundled CR, so it is not claimed.
-    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant|imprint|valiant|alliance|delirium|metalcraft|threshold)(?:\s*\([^)]*\))?\s*[—–-]\s*/gim, "")
+    //
+    // ⭐ SECOND PASS (same day) — rally · morbid · ferocious · survival · descend 4 · formidable · paradox ·
+    // fateful hour · hellbent · undergrowth · infusion · vivid · void. Same 207.2c basis, same check applied
+    // card-by-card rather than assumed: every carrier writes its own gate out ("Morbid — …IF A CREATURE DIED
+    // THIS TURN…", "Hellbent — …IF YOU HAVE NO CARDS IN HAND…", "Fateful hour — IF YOU HAVE 5 OR LESS LIFE…",
+    // "Rally — WHENEVER this creature or another Ally you control ENTERS…"), so the label carries nothing.
+    // ⛔ ONLY LABELS WITH MEASURED FLIPS WERE ADDED. 32 more 207.2c words are in the corpus and measured ZERO
+    // (adamant, battalion, channel, coven, domain, converge …). Adding them would be FN-safe but UNTESTED —
+    // untested additions to a strip that can only ever loosen are how a list grows past what anyone checked.
+    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant|imprint|valiant|alliance|delirium|metalcraft|threshold|rally|morbid|ferocious|survival|descend 4|formidable|paradox|fateful hour|hellbent|undergrowth|infusion|vivid|void)(?:\s*\([^)]*\))?\s*[—–-]\s*/gim, "")
     .replace(FLAVOR_LABEL_RE, "");
 }
 
