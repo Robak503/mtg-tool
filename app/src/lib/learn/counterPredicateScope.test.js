@@ -146,8 +146,15 @@ describe("recognition — real cards flip to the intended native tier; near-miss
     expect(classifyCard({ name: "Skyclave Shadowcat", type: "Creature — Cat", oracle: "{1}{B}, Sacrifice another creature: Put a +1/+1 counter on this creature.\nWhenever a creature you control with a +1/+1 counter on it dies, draw a card." })).toBe("native-mixed");
     expect(classifyCard({ name: "Elite Scaleguard", type: "Creature — Human Soldier", oracle: "When this creature enters, bolster 2. (Choose a creature with the least toughness among creatures you control and put two +1/+1 counters on it.)\nWhenever a creature you control with a +1/+1 counter on it attacks, tap target creature defending player controls." })).toBe("native-trigger");
   });
-  it("CREED — a counter-predicate trigger with an UNMODELED rider stays body-only (Byrke — 'double the number of +1/+1 counters on it')", () => {
-    expect(classifyCard({ name: "Byrke, Long Ear of the Law", type: "Legendary Creature — Rabbit Warrior", oracle: "Vigilance\nWhen Byrke enters, put a +1/+1 counter on each of up to two target creatures.\nWhenever a creature you control with a +1/+1 counter on it attacks, double the number of +1/+1 counters on it." })).toBe("body-only");
+  it("⭐ Byrke's doubling rider is MODELED now (2026-07-30) — the park was a boundary marker, and it moved", () => {
+    // ⚠️ THIS ASSERTION WAS INVERTED. It read body-only, calling "double the number of +1/+1 counters on it"
+    // an unmodeled rider — true when written. Both halves shipped separately since: counter-doubling
+    // (Primordial/Kalonian Hydra) and the "on it" → "the triggering creature" sentinel rewrite (Railway
+    // Brawler). They had never met only because the rewrite gate was written around the verb "put".
+    // The tier is credited here because the RUNTIME is proven in doubleCountersTriggering.test.js — the
+    // attacker's counters double and Byrke's own are untouched, which is what distinguishes the correct
+    // binding from the countersOnSource one that would have classified native and done nothing.
+    expect(classifyCard({ name: "Byrke, Long Ear of the Law", type: "Legendary Creature — Rabbit Warrior", oracle: "Vigilance\nWhen Byrke enters, put a +1/+1 counter on each of up to two target creatures.\nWhenever a creature you control with a +1/+1 counter on it attacks, double the number of +1/+1 counters on it." })).toBe("native-trigger");
   });
   it("CREED — an 'another' self-exclusion payoff referencing 'that creature' stays body-only (Rage Forger)", () => {
     expect(classifyCard({ name: "Rage Forger", type: "Creature — Dwarf Shaman", oracle: "When this creature enters, put a +1/+1 counter on each other Shaman creature you control.\nWhenever a creature you control with a +1/+1 counter on it attacks, you may have that creature deal 1 damage to target player or planeswalker." })).toBe("body-only");

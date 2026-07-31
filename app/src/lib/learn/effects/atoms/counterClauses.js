@@ -82,6 +82,19 @@ const DOUBLE_COUNTERS_SELF = /^double the number of (\+1\/\+1) counters on this 
 // mirroring the rest of this file). Anchored start-to-end: any rider leaves residue → null → LOW → Arbiter.
 const DOUBLE_COUNTERS_EACH = /^double the number of (\+1\/\+1) counters on each creature you control$/;
 
+// DOUBLE-COUNTERS-TRIGGERING (CR 121) — "Whenever a creature you control with a +1/+1 counter on it attacks,
+// double the number of +1/+1 counters ON IT" (Byrke; Seismic Tutelage's enchanted-creature attack trigger).
+// ⛔ THE SUBJECT IS THE TRIGGERING CREATURE, NOT THE SOURCE. Reusing DOUBLE_COUNTERS_SELF's shape here would
+// have read the count off — and added it to — Byrke itself, doubling the wrong creature's counters on a card
+// whose whole point is pumping the attacker. So this binds target:"thatCreature" and uses `perTargetDouble`
+// (the field the board-wide form already carries): applyAddCounter computes the amount PER RECIPIENT off that
+// recipient's own pre-mutation counter bag, which is exactly a double of the right permanent. countersOnSource
+// would have been wrong for the same reason — it reads ctx.sourceId.
+// Only the sentinel phrase detectTriggers writes ("on it" → "on the triggering creature", a string in ZERO
+// printed oracle text), never a raw spell anaphor — the same CREED gate the sibling clauses above use.
+// +1/+1 only (the enforced kind); anchored ^…$ so a rider leaves residue → null → LOW → Arbiter.
+const DOUBLE_COUNTERS_TRIGGERING = /^double the number of (\+1\/\+1) counters on the triggering creature$/;
+
 /**
  * Pure clause parser for the WAVE 3b non-self triggering-permanent counter referent. `clause` arrives
  * reminder-stripped from parseClauseToAtom; we lowercase + normalize the curly apostrophe for robustness.
@@ -130,6 +143,17 @@ export function counterClausesParser(clause) {
       counterType: dm[1],
       target: "self",
       countFor: { kind: "countersOnSource", counterType: dm[1] },
+    };
+  }
+  // DOUBLE-COUNTERS-TRIGGERING — net-double the TRIGGERING creature's own +1/+1 counters. perTargetDouble
+  // (not countFor:countersOnSource) so the amount is read off the RECIPIENT, which here is not the source.
+  const dtm = t.match(DOUBLE_COUNTERS_TRIGGERING);
+  if (dtm) {
+    return {
+      op: "add-counter",
+      counterType: dtm[1],
+      target: "thatCreature",
+      perTargetDouble: dtm[1],
     };
   }
   // DOUBLE-COUNTERS-EACH — board-wide: net-double EVERY creature-you-control's OWN +1/+1 counters. The

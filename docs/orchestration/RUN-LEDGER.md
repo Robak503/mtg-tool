@@ -34,7 +34,7 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **BATCH IN FLIGHT: 44 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 45 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -468,6 +468,65 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **DOUBLE-COUNTERS ON THE TRIGGERING CREATURE. GAINED 1. Both halves shipped; the gate's VERB kept them apart.**
+## ⭐ FIRST: THE SHELF WAS RE-MEASURED, AND **COLTON'S HALF IS DONE — 94%, every deck ≥ 90%.**
+
+### ⭐⭐ SHELF STATE (fresh `npm run coverage`, 2026-07-30) — read this before picking work
+* **colton 94% (470/499, 5 decks) — BELOW THE BAR: NONE.** `cdh` reached **90%**; the ledger's standing note
+  above ("87/100, one deck under") is now **stale and superseded by this line**.
+* **joe 78% (857/1098, 11 decks)** — nine decks under: Jurassic Ramp 81 · Dragons 80 · Believe it! 78 ·
+  Kinnan 76 · Hulk Smash 76 · Wolverine 75 · Kellan 74 · Captain America 72 · **Halfshell heroes 66**.
+* Corpus 37.9% (12,967/34,245) · top-1000 played **75.5%**.
+
+**The remaining shelf work is JOE's decks**, and [[feedback_joe_deck_flips_are_wins]] already says a Joe flip
+is worth more than a corpus flip.
+
+### ⚠️ I RAN THE SHELF-SCOPED SOLE-BLOCKER CENSUS, AND THE ANSWER WAS "NO VEIN LEFT"
+203 distinct unmodeled cards across the nine below-bar decks. **83 have no single line that unblocks them.**
+Of the clusters that do, **every one is `cards=1` except Level Up.** Ranked by deck-slots unlocked, the whole
+board is ones. *This is the ledger's own "~1 card per slice from here" prediction, confirmed with an
+instrument rather than assumed — and it means the honest expectation for shelf work is now a card at a time.*
+⭐ Two candidate veins were **sized and rejected before building**: clone-noun widening (**2** cards, and Copy
+Enchantment doesn't even flip — the clone path wants a creature card) and counter-doubling generally (53
+carriers, but **phrase-swap says only 3 flip**; line-removal would have screamed 51).
+
+### THE BUILD — both halves shipped months apart and had never met
+Counter-doubling is modeled (Primordial Hydra "on this creature", Kalonian Hydra "on each creature you
+control"). The `"on it" → "the triggering creature"` sentinel rewrite is modeled (Railway Brawler). Byrke
+needed exactly their intersection — and **the rewrite gate's regex was written around the verb `put`**, so a
+DOUBLE clause never reached the sentinel and arrived at the clause parser carrying a raw `on it` that parser
+is forbidden by CREED to bind. One widened gate + one clause branch.
+
+### ⛔⛔ THE WRONG REUSE WOULD HAVE CLASSIFIED NATIVE AND DONE NOTHING
+The obvious move is DOUBLE_COUNTERS_SELF's `countFor:{kind:"countersOnSource"}`. **That reads `ctx.sourceId`
+— the WATCHER.** On Byrke it would double *Byrke's* counters (usually zero → a silent no-op) while the
+attacker got nothing: native tier, dead card. Instead the atom carries **`perTargetDouble`**, the field the
+board-wide form already uses, which applyAddCounter resolves against each RECIPIENT's own pre-mutation bag.
+⭐ *Classification cannot tell those two apart — both flip the card. Only the runtime assertion can, so the
+test that matters is "attacker 3→6 AND Byrke's own 5 stays 5". Written before the mutations, and it is
+exactly what killed M13.*
+
+**Mutation-checked: three pre-specified, all seen to fail** — M13 `countersOnSource` (the wrong-referent FP,
+3 tests) · M14 recipient becomes the source · M15 gate un-widened (recognition + runtime, 4 tests).
+
+### ✅ A SECOND TEST WAS DEFENDING THE OLD PREMISE — and it named Byrke in its own title
+`counterPredicateScope.test.js` asserted Byrke stays body-only, titled "a counter-predicate trigger with an
+UNMODELED rider". True when written; the rider is modeled now. Inverted with the reason in place. *That is
+the second such inversion today — a park-pin that names a specific card is a dated claim, and when the date
+passes the honest move is to invert it loudly, not to quietly delete it.*
+
+**Gates:** flip-diff **GAINED 1 / LOST 0**, nothing else moved. 8 tests, 4 runtime. Suite **1047 files /
+13,248 green**, lint 0, MUTANT clean. **Batch: 45 cards.**
+
+### ➡️ THE REST OF THIS FAMILY, scoped
+`double … on ENCHANTED CREATURE` (Hydra's Growth) and Seismic Tutelage's Aura-trigger "it" need the AURA
+referent, a different path from the trigger sentinel — 2 cards. **Level Up (3 SHELF slots — Wolverine, Hulk
+Smash, Halfshell heroes; the single biggest shelf item on the board)** additionally needs its quoted-grant
+payload's `"Then if it has power 10 or greater, draw a card"` — a power-threshold conditional printed on
+**exactly one card in the corpus**. Bespoke, but 3 shelf slots is the best rate available.
 
 ---
 

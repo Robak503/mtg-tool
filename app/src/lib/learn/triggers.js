@@ -2739,6 +2739,12 @@ const SELF_RETURN_BF_ENCHANTMENT_RE = /^return it to the battlefield under its o
 // countContext:"combatDamageAmount" (the count is the combat damage that creature dealt). CR 608.2c: "it" = the
 // triggering permanent, not the source — so this MUST route through the thatCreature lane, never the self path.
 const NONSELF_COUNTER_REF_RE = /^put (?:a|an|one|two|three|four|five|\d+|that many) [+-]1\/[+-]1 counters? on (?:it|that creature)$/i;
+// DOUBLE-COUNTERS on the same referent (Byrke, Long Ear of the Law — "Whenever a creature you control with a
+// +1/+1 counter on it attacks, DOUBLE the number of +1/+1 counters on it"). Identical referent question as
+// the PUT form above — "it" is the TRIGGERING creature (CR 608.2c) — and it takes the identical sentinel
+// rewrite; only the verb differs. It lived outside the gate purely because the gate was written around "put",
+// so the doubling clause reached the clause parser with a raw "on it" it is forbidden to bind and parked.
+const NONSELF_DOUBLE_COUNTER_REF_RE = /^double the number of [+-]1\/[+-]1 counters? on (?:it|that creature)$/i;
 // The NON-self scopes for which a bare "it"/"that creature" referent is the TRIGGERING permanent: the
 // "a creature you control" / "a <Subtype> you control" attack + combat-damage watchers (Sphere Grid family).
 // otherCreatureYouControl (Railway Brawler — "Whenever ANOTHER creature you control enters, put X +1/+1
@@ -3490,7 +3496,8 @@ export function detectTriggers(card) {
         // Scope-gated to permanentYouControl and whole-clause anchored: no other trigger family reaches this
         // branch, and any rider on the clause stays unrewritten → LOW → Arbiter (a safe FN).
         effectClause = "untap the triggering permanent";
-      } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && NONSELF_COUNTER_REF_RE.test(effectClause)) {
+      } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope)
+        && (NONSELF_COUNTER_REF_RE.test(effectClause) || NONSELF_DOUBLE_COUNTER_REF_RE.test(effectClause))) {
         // WAVE 3b COUNTERS-ON-EVENT: a NON-self attack/combat-damage trigger's "…put a +1/+1 counter on IT
         // / on THAT CREATURE" — the referent is the TRIGGERING permanent (CR 608.2c), not the source.
         // Normalize → the sentinel "the triggering creature" so the WAVE-3b clause parser binds it to

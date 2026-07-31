@@ -11,6 +11,8 @@ summarizes the notable changes.
 ### Added
 - **Tamiyo's Safekeeping works.** Targeting one of your own artifacts, enchantments or lands really does
   give it hexproof and indestructible for the turn — it now survives a Disenchant or a wrath.
+- **Byrke, Long Ear of the Law works.** When a creature with a +1/+1 counter attacks, its counters really
+  double — the attacker's, not Byrke's.
 - **Abhorrent Oculus works.** "Exile six cards from your graveyard" is now paid properly — exactly six,
   and the card stays uncastable with five or fewer in the yard.
 - **"Return a land you control" counterspells work.** Deprive, Disappearing Act, Familiar's Ruse,
