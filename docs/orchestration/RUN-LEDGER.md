@@ -4,6 +4,10 @@
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
 > ## ✅ CLEAN HANDOFF POINT — 2026-07-31, after v0.149.23 verified
+> ⚠️ **THE AUTO-RESUME CRON WAS KILLED AT SHUTDOWN (job 73d3c8c6, the 5-minute backstop).** Nothing is
+> waking this worktree any more. If the new seat wants the crash backstop, RE-ARM IT THERE — and never
+> point two seats at this checkout at once: interleaved edits, plus one seat's revert wiping the other's
+> in-flight slice, goes green while it corrupts.
 > Nothing is in flight. Tree clean, MUTANT clean, suite **1051 files / 13,291 green**, lint 0, release
 > **verified by content**. Batch **17** since the tag. This is the cheapest possible moment to start a new
 > session: `/cindy` reads this file off origin and lands on the queue item below.
