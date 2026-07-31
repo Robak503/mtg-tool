@@ -34,10 +34,14 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **🚢 v0.149.23 TAGGED + PUSHED 2026-07-31 01:22Z — 130 cards, thirteen slices. CI RUN 30596155328.**
->   ⚠️ **NOT YET VERIFIED. On the next resume: check the run, then VERIFY BY CONTENT** (manifest reports
->   0.149.23, a real installer URL, a non-empty signature, 5 assets) — a green checkmark is not a release.
->   [[feedback_local_green_is_not_ci_green]]. **BATCH RESETS TO ZERO from this tag.**
+> - **✅ v0.149.23 SHIPPED + VERIFIED BY CONTENT 2026-07-31 01:48Z — 130 cards, thirteen slices.**
+>   Run 30596155328 success (26m). **Checked by CONTENT, not by checkmark:** manifest `version` = **0.149.23** ·
+>   url = the real v0.149.23 asset and it resolves **HTTP 200** · signature **424 chars, non-empty** ·
+>   **5 assets** · not draft, not prerelease. Running `.exe`s see it on their next 24h check.
+>   ⚠️ *A false alarm on the way: a status probe reported 438 min elapsed on a ~25 min job and I began 
+>   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
+>   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
+>   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
 > - **BATCH IN FLIGHT: 17 cards since v0.149.23** (ability-word SPELL path +17)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · **Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**
