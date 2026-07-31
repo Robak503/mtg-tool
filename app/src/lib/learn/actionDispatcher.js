@@ -1152,6 +1152,13 @@ function applyActivateAbility(state, action) {
   // serialized game-state field would break saved self-play trajectories for no behavioral gain.)
   if (action.oncePerTurnKey) {
     const prev = next.activatedOncePerTurn?.[action.oncePerTurnKey];
+    // ⚠️ POWER-UP (game-scoped limits) NEEDS NOTHING HERE, and I verified that rather than assuming it. I
+    // first made this line accumulate across turns for `action.oncePerGame` — and the mutation reverting it
+    // SURVIVED the whole suite. The reason is that every game-scoped limit in the corpus is exactly 1: the
+    // OFFER GATE blocks the second activation, so this stamp is only ever written once and the turn-reset it
+    // performs is unreachable. Dead code that looks load-bearing is worse than no code, so it is gone.
+    // ⛔ If a game-scoped limit ABOVE 1 is ever added ("activate only twice per game"), this line must
+    // accumulate for it — the gate would let a second activation through and this would reset the count.
     const n = (prev && prev.turn === next.turn ? prev.n : 0) + 1;
     next = { ...next, activatedOncePerTurn: { ...(next.activatedOncePerTurn || {}), [action.oncePerTurnKey]: { turn: next.turn, n } } };
   }

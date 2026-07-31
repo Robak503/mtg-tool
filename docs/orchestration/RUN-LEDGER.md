@@ -34,7 +34,7 @@
 >   completed in **27m7s**. ⚠️ `gh run list` still read `in_progress` after the job had finished —
 >   the JOB view (`gh run view --job=`) was the honest reading. Another instance of the standing
 >   rule: check the artifact, not the status line.
-> - **BATCH IN FLIGHT: 54 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
+> - **BATCH IN FLIGHT: 68 cards since v0.149.22** (targeted permanent keyword grant +1, granted RIOT +1, AU-GRANT+STATIC +3 **+ A SILENT RUNTIME DEFECT FIXED**, AU-GRANT composite widened +3, your-turn GROUP grant +4, opponent-scoped keyword REMOVAL +2, SELF-TUCK +5, granted cost-only keywords +4) (protection-from-a-colour grant +3, colour change +4, "its power" lifegain +6, look-at-hand +5, THE DISCARD EVENT +7, Megrim +1, cast-from-hand rider +5, descend +5, control-conjunction +2, THE PACT CYCLE +4, adapt-ignores-counters +1, bestow+trigger widening +2, SPRINGHEART +1 — **SHELF CLOSED**, self-exile-after-keyword +3, spectacle credit +4, keyword parity +3, escape line-credit +3, escape on auras +3, ninjutsu x clone/reducer +3, self-untap non-creature nouns +5, layer-7c subtype counts +5, regenerate non-creature +5, X-capped tutor allowlist +1, put-from-hand subtypes +3 **+ A LIVE CREED FP FIXED**) (v0.149.21 shipped **79 cards across twelve slices**) (granted Ward—Pay-life +2, **REFERENT FAMILY +67 across SEVEN slices**, named-token sac trigger +1, combat-dmg-to-YOU pair +1) (v0.149.20 shipped 89 cards across ten slices) (planeswalker subtypes + `another <filter>` +11,
 >   negated + conjoined filters +4, controller sac nouns + counter placement +5, turn-scoped flash grant +1, cost-reducer filter vocabulary +8, colour cast-trigger filter +52, granted uncounterability +1, life-gain replacement +7). **ALL SHIPPED IN v0.149.20.**
 > - **v0.149.19 SHIPPED 2026-07-30 with 92 cards** (condition-filter vocabulary
 >   +13, per-turn ledger readers +10, metric/scope readers +22, planeswalker sweep + negated subtype +13,
@@ -468,6 +468,63 @@ never-reached-strip explains other keyword families before assuming it is miracl
 ⚠️ **Also corrected here:** my earlier line-drop note called Temporal Mastery's body *"Take an extra turn
 after this one"*. The printed line is *"Take an extra turn after this one. Exile Temporal Mastery."* — the
 self-exile matters and was dropped from my own summary. Read the printed line, not the paraphrase.
+
+---
+
+## ✅ BANKED 2026-07-30 — **POWER-UP. GAINED 14 — the largest single flip of the run. And I DELETED code a mutation exposed.**
+## ⭐ THE KEYWORD-GAP INSTRUMENT IS NOW A STANDING TOOL — reconfigure was luck; this was a query.
+
+37 corpus carriers, **zero native**. 14 flip.
+
+### ⭐ THE INSTRUMENT: rank every Scryfall keyword by carriers / native / SHELF-parked
+Reconfigure was found by a hunch last slice. This slice made that search repeatable: group the corpus by the
+`keywords[]` field, count native vs parked per keyword, and cross-reference the below-bar Joe decks. It
+immediately surfaced a shelf of 0-for-N keywords — **Power-up 0/37 · Teamwork 0/17 · Airbend 0/13 · Partner
+with 0/54 · Waterbend 0/28 · Alliance 0/27 · Behold 0/22** — which is the next several slices, pre-sized.
+
+### ⚠️ AND THE INSTRUMENT'S FIRST ANSWER WAS MISLEADING, WHICH IS WORTH MORE THAN THE 14
+It ranked Power-up top partly on **3 SHELF-parked carriers** (Hulk Gamma Goliath, Abomination, She-Hulk Jade
+Defender). Every one of those three is in the **park-anyway** column of the phrase-swap: they carry power-up
+but park on OTHER text, so this slice moves them **zero**. **Keyword PRESENCE on the shelf is not a shelf
+FLIP**, and my own column header invited that conflation. The sizing swap caught it before a line was written.
+**Honest score: 14 corpus, 0 shelf.** The instrument now needs a flip-tested shelf column, noted for next use.
+
+### THE BUILD — BOAST is the precedent, followed exactly
+Power-up is an ABILITY WORD (CR 207.2c): the label has no rules meaning and the entire restriction lives in
+the reminder — *"(Activate each power-up ability only once. Reduce the cost by its mana cost if it entered
+this turn.)"* So the label is stripped for the cost parse and the limit is carried as an ENFORCED fact.
+
+### ⛔⛔ "ONLY ONCE" IS PER **GAME**, AND THAT ONE WORD IS THE WHOLE SAFETY PROPERTY
+The existing ONCE-1 ledger is deliberately self-expiring — its own comment reads *"a record from an earlier
+turn counts as ZERO uses."* Correct for every existing carrier, and **exactly wrong here: reusing it unchanged
+hands out one free activation EVERY TURN**, an engine strictly more permissive than the card. Hence
+`activationLimitScope:"game"`, read by the offer gate. The *"still refused on a LATER TURN"* test is the only
+assertion that can tell the two scopes apart — same-turn refusal passes under both.
+✅ A companion test pins that a plain once-each-TURN ability still **re-arms** next turn, so this cannot
+silently tighten the 56 existing carriers.
+
+### ⭐⭐ A SURVIVING MUTATION MADE ME DELETE CODE — the right outcome, and a first this run
+I also made the dispatcher stamp accumulate across turns for game scope. **M24 (reverting it) SURVIVED.**
+Diagnosis: every game-scoped limit in the corpus is exactly **1**, so the OFFER GATE blocks the second
+activation and the stamp is only ever written once — the turn-reset it performed was **unreachable**.
+*The previous two survivors this run were annotated and kept. This one was DEAD CODE THAT LOOKED
+LOAD-BEARING, so the honest fix was to remove it, drop the now-unused action flag from three call sites, and
+leave a note saying a game-scoped limit ABOVE 1 would need it back.* Re-ran M23 afterwards to confirm the
+offer gate is now the sole enforcement and still fails under mutation — removing code must not quietly
+remove the gate too.
+
+**Mutation-checked: M23 gate ignores game scope (the free-activation-every-turn FP) · M25 limit dropped
+entirely · M26 scope never stamped.** All seen to fail, M23 re-verified after the deletion.
+
+⚠️ **NOT modelled, stated plainly:** the reminder's cost-reduction clause. Not applying a discount makes the
+ability cost MORE — an under-offer, the safe direction.
+
+**Gates:** flip-diff **GAINED 14 / LOST 0**, nothing else moved. 8 tests, 5 runtime. Suite **1050 files /
+13,279 green**, lint 0, MUTANT clean. **Batch: 68 cards.**
+
+### ➡️ NEXT, pre-sized by the instrument: Partner with (0/54) · Waterbend (0/28) · Alliance (0/27) · Behold
+(0/22) · Teamwork (0/17) · Airbend (0/13). **Phrase-swap each before building** — Power-up's ceiling was 14 of
+37, so a raw carrier count overstates every one of these.
 
 ---
 

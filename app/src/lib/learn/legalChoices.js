@@ -1845,7 +1845,11 @@ function actionsActivateAbility(state, playerId) {
       // activation, i.e. an engine more permissive than the card, which is the forbidden direction.
       if (ab.activationLimit) {
         const rec = state.activatedOncePerTurn?.[`${perm.id}:${ab.raw}`];
-        const used = rec && rec.turn === state.turn ? rec.n : 0;
+        // POWER-UP (CR 207.2c ability word, "Activate each power-up ability only once"): a GAME-scoped
+        // limit ignores the turn stamp, so a record from an earlier turn still counts. The per-turn
+        // reading below is what makes the ledger self-expiring — correct for every other carrier, and
+        // exactly wrong here: it would re-arm a once-per-GAME ability every upkeep.
+        const used = ab.activationLimitScope === "game" ? (rec?.n || 0) : (rec && rec.turn === state.turn ? rec.n : 0);
         if (used >= ab.activationLimit) continue;
       }
       // LEVEL-BAND gate (BLITZ LV-1, CR 711.2a/b): a leveler band's activated ability exists ONLY while

@@ -11,6 +11,8 @@ summarizes the notable changes.
 ### Added
 - **Tamiyo's Safekeeping works.** Targeting one of your own artifacts, enchantments or lands really does
   give it hexproof and indestructible for the turn — it now survives a Disenchant or a wrath.
+- **Power-up abilities work.** Fourteen Marvel creatures can now use their power-up — once per game,
+  as printed, not once every turn.
 - **Reconfigure Equipment works.** Lizard Blades, Rabbit Battery and six more can attach to your
   creatures — and correctly stop being creatures themselves while attached, so they no longer attack
   and equip at the same time.
