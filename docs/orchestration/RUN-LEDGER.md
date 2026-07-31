@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ✅ CLEAN HANDOFF POINT — 2026-07-31, after v0.149.23 verified
+> Nothing is in flight. Tree clean, MUTANT clean, suite **1051 files / 13,291 green**, lint 0, release
+> **verified by content**. Batch **17** since the tag. This is the cheapest possible moment to start a new
+> session: `/cindy` reads this file off origin and lands on the queue item below.
+>
+> ⚠️ **THE NEXT TWO ITEMS WERE DECLINED AT DEPTH, NOT FORGOTTEN — take them FIRST while sharp:**
+> · **Partner with (16 cards, the largest available).** Needs a NAME filter on the tutor atom: the filter
+>   predicate in `effects/atoms/library.js` matches type-line word `groups` only, so `search your library
+>   for a card named <X>` has no representation. Then the keyword ETB — optional, targets a PLAYER, tutors
+>   the named card from THAT player's library to hand. The partner-COMMANDER legality half is deck
+>   construction, not battlefield, and is out of the tier's scope — say so rather than silently skipping it.
+> · **The 3 leftover ability-word carriers** (Squawkroaster/static · Reaper of Flight Moonsilver/activated ·
+>   Aboshan's Desire/aura). Three separate parser seams for THREE cards, and doing only the static path buys
+>   +1 without even buying consistency. Low value; do it only as a fill-in.
+>   ✅ Their engine-level losslessness check is ALREADY DONE and clean (rule 3 below): grepped every label
+>   for being read as data, and only the `instead if` family does it.
+>
+> *Why they were left: the sequencing law in NEXT-QUEUE.md puts risky/novel work early and mechanical work
+> late, and rule 7 below exists because judgment degrades before mechanics do. Starting a new-machinery
+> slice at the end of a very long window to avoid looking idle is the exact instinct that law forbids.*
+
 > ## 🧭 METHOD CORRECTIONS — EARNED THIS RUN (2026-07-30/31). READ BEFORE THE FIRST SLICE.
 > *Every line below cost a real mistake. They are here so the next seat inherits the judgment instead of
 > re-buying it a slice at a time. None of them are visible from the code.*
