@@ -250,7 +250,7 @@ export function splitClauses(oracle) {
     // filter phrase, not two effects, so severing it leaves "return all artifact" + an orphan fragment and
     // neither half parses. Same keep-whole reasoning as the tutor anchor above — and the third time this
     // splitter has bitten a filter that happened to contain a separator word.
-    if (/^return all [a-z][a-z ]*cards? from your graveyard to the battlefield\b/i.test(sentence)) { clauses.push(sentence); continue; }
+    if (/^return all [a-z][a-z ]*cards? from your graveyard to (?:the battlefield|your hand)\b/i.test(sentence)) { clauses.push(sentence); continue; }
     // A combat trick that pumps AND grants a keyword ("Target creature gets +2/+2 and gains
     // trample until end of turn"), or grants several keywords ("gains flying and vigilance"),
     // joins its parts with " and " — NOT a top-level effect boundary. Keep the whole sentence

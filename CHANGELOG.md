@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Graveyard sweeps work.** Wisdom of Ages and Crystal Chimes return every matching card from your graveyard to your hand.
 - **Mass graveyard recursion works.** Splendid Reclamation, Replenish, Resurgent Belief, World Shaper,
   Will of the Sultai, Aftermath Analyst and Lumra all return every matching card from your graveyard to the
   battlefield, tapped when the card says tapped. Auras with nothing to enchant stay in the graveyard, exactly

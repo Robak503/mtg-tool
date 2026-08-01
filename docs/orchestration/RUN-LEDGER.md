@@ -3,6 +3,40 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ✅ SLICE DONE — 2026-08-01 — **MASS RETURN TO HAND, +2** (the destination mirror) · **shelf: 0**
+> Suite **1053 / 13,336 green**, lint 0. Flip-diff **+2 / 0 LOST** (Wisdom of Ages, Crystal Chimes). Two
+> mutations, two kills. Batch **44**. ⚠️ **Zero shelf impact — neither card is in any deck.** Corpus only.
+>
+> The hand mirror of mass-reanimate, and **its gate is deliberately LOOSER, which is the point worth keeping:**
+> no permanent-type gate (only a permanent can be put onto the BATTLEFIELD; any card can go to a HAND, so
+> "all instant and sorcery cards" is legal here and forbidden there) and no Aura skip (CR 303.4f/g govern an
+> Aura ENTERING THE BATTLEFIELD; a hand move has no attachment to choose). Both differences are pinned by
+> tests that assert the battlefield arm still refuses what the hand arm accepts.
+> "legendary creature" (Lychguard) still parks — `legendary` is a SUPERTYPE, not filter vocabulary.
+>
+> ## 🔭 STRATEGIC FINDING — 2026-08-01 — **THE SHELF HAS NO VEINS LEFT. Read this before hunting for one.**
+> A full sweep of all **254 parked shelf cards**: **107 unblock by dropping ONE line, and clustering those
+> lines finds NO repeated mechanism.** The apparent clusters are shape-only — "whenever equipped creature
+> deals combat damage" appears 4× and the trigger is ALREADY modeled; all four payloads differ. Likewise the
+> single biggest phrase, `"without paying its mana cost"` (**21 cards, 7 decks**), is not a vein: it is the
+> reminder text of cipher, rebound, cascade, plot and discover, which are five different subsystems.
+>
+> **Both remaining ONE-CARD-FROM-THE-BAR decks were costed and are expensive**, so nobody re-hopes at them:
+> · **Omnath (89.4%)** — Old One Eye needs a GRAVEYARD-ZONE trigger (no such subsystem exists); Selvala needs
+>   TWO builds (an "its controller" draw referent AND a per-object greatest-power condition, which
+>   interveningIf's own comment says it has no referent thread for); Thunderfoot needs THREE (static
+>   commander condition + a self static pump + the compound self/others sentence). Verified by bisecting the
+>   real corpus rows, not synthetics — see the warning below.
+> · **Mothman (89.1%)** — all five candidates are subsystem-sized (damage-prevention replacement, granting
+>   scavenge to graveyard cards, a nested delayed trigger, milled-this-turn tracking, dies-into-Aura).
+>
+> ⚠️ **AND AN INSTRUMENT WARNING THAT COST ME A WRONG ANSWER MID-RUN.** I first bisected these cards with
+> SYNTHETIC `{name,type,oracle,mana}` fixtures and got a result that CONTRADICTED the corpus probe — Old One
+> Eye read parked with its blocking line removed. The synthetics were missing fields `classifyCard` reads.
+> **A vanilla-card positive control PASSED anyway**, because it did not exercise those fields. This is
+> METHOD CORRECTION 2 in a new costume: **bisect by loading the REAL index row and overriding `.oracle`,
+> never by hand-building a card object** — and a control only proves what it actually touches.
+
 > ## ✅ SLICE DONE — 2026-08-01 — **gy-return " AND "-UNION, +2** (the follow-up named one slice earlier)
 > Suite **1053 files / 13,332 green**, lint 0. Flip-diff **+2 GAINED / 0 LOST** (Brilliant Restoration,
 > Redress Fate). Two mutations, two kills. Batch **42**.
@@ -295,7 +329,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 42 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**)
+> - **BATCH IN FLIGHT: 44 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher

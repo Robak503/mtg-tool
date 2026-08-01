@@ -182,6 +182,40 @@ describe("real carriers flip to a native tier", () => {
   }
 });
 
+// ───────────────────────── the HAND-destination mirror ─────────────────────────
+
+describe("mass return to HAND — the mirror, and why its gate is deliberately looser", () => {
+  it("accepts a NON-PERMANENT filter, which the battlefield arm must refuse (Wisdom of Ages)", () => {
+    // The whole reason the two arms have different gates: only a permanent card can be put onto the
+    // battlefield, but any card can be put into a hand. This exact filter is refused by the battlefield arm.
+    expect(atomFor("Return all instant and sorcery cards from your graveyard to your hand.")).toMatchObject({
+      op: "mass-return-hand", cardFilter: "instant|sorcery",
+    });
+    expect(atomFor("Return all instant and sorcery cards from your graveyard to the battlefield.")).toBeUndefined();
+  });
+
+  it("parks a SUPERTYPE filter — 'legendary' is not filter vocabulary (Lychguard)", () => {
+    expect(atomFor("Return all legendary creature cards from your graveyard to your hand.")).toBeUndefined();
+  });
+
+  it("moves every matching card to hand and leaves the rest in the graveyard", () => {
+    const s = cast(stateWithGraveyard([
+      gy("g1", "Ancestral Recall", "Instant"),
+      gy("g2", "Demonic Tutor", "Sorcery"),
+      gy("g3", "Grizzly Bears", "Creature — Bear"),
+    ]), "Return all instant and sorcery cards from your graveyard to your hand.");
+    expect((s.players.user.hand || []).map((c) => c.name).sort()).toEqual(["Ancestral Recall", "Demonic Tutor"]);
+    expect(gyNames(s)).toEqual(["Grizzly Bears"]);
+    expect((s.players.user.battlefield || []).length).toBe(0); // never the battlefield
+  });
+
+  it("an AURA goes to hand normally — CR 303.4f/g govern ENTERING THE BATTLEFIELD, not a hand move", () => {
+    const s = cast(stateWithGraveyard([gy("g1", "Pacifism", "Enchantment — Aura")]),
+      "Return all enchantment cards from your graveyard to your hand.");
+    expect((s.players.user.hand || []).map((c) => c.name)).toEqual(["Pacifism"]);
+  });
+});
+
 describe("the narrower filters stay parked — a real, distinct reason, not this arm over-claiming", () => {
   it("Knights' Charge (subtype filter) stays parked", () => {
     expect(NATIVE).not.toContain(classifyCard(C("Knights' Charge", "Enchantment",

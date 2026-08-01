@@ -312,6 +312,35 @@ export function applyReanimate(state, atom, ctx) {
  * which the creed permits) and is exactly correct when none did. Replenish's own printed reminder says the
  * quiet part out loud: "(Auras with nothing to enchant remain in your graveyard.)"
  */
+/**
+ * MASS RETURN TO HAND (CR 608) — "Return ALL <type> cards from your graveyard to your hand" (Wisdom of Ages,
+ * Crystal Chimes). The hand-destination mirror of applyMassReanimate below, and a DELIBERATE mirror in the
+ * same sense `tgm` mirrors `tm` in the tutor family: same selection, different destination zone.
+ *
+ * TWO THINGS ARE DELIBERATELY LOOSER HERE THAN ON THE BATTLEFIELD ARM, and both follow from the destination:
+ *  · NO permanent-type gate. `isPermanentReanimateFilter` exists because only a permanent card can be put onto
+ *    the battlefield; a card can be put into a HAND regardless of type, so "all instant and sorcery cards"
+ *    (Wisdom of Ages) is legal here and would be a forbidden fetch there.
+ *  · NO Aura skip. CR 303.4f/g govern an Aura ENTERING THE BATTLEFIELD with nothing to enchant; an Aura going
+ *    to hand is an ordinary zone change with no attachment to choose.
+ * An unfiltered "all cards" is admitted for the same reason — moving a whole graveyard to hand fabricates
+ * nothing, unlike the battlefield arm where it would be the one shape that could cheat a sorcery into play.
+ */
+export function applyMassReturnToHand(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players[controller];
+  if (!player) return state;
+  // Snapshot ids BEFORE moving: each move rewrites the graveyard, so a live re-read mid-loop would skip cards.
+  const ids = (player.graveyard || [])
+    .filter((c) => cardMatchesGraveyardFilter(c, atom.cardFilter))
+    .map((c) => c.id);
+  let next = state;
+  for (const id of ids) {
+    next = moveCardToZone(next, { playerId: controller, fromZone: "graveyard", toZone: "hand", cardId: id });
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "mass-return-hand", controller, targets: ids });
+}
+
 export function applyMassReanimate(state, atom, ctx) {
   const controller = ctx.controller;
   const player = state.players[controller];
@@ -465,6 +494,20 @@ export function graveyardReturnClauseParser(clause) {
   // A subtype / union-of-subtype filter ("Knight creature", "Zombie creature", "Nightstalker permanent",
   // "Mount and Vehicle") returns null from parseGraveyardFilter and parks the whole clause — a safe FN, and
   // the reason this arm sizes at 11 flips rather than 25.
+  // ===== MASS RETURN TO HAND — "return ALL <type> cards from your graveyard to your hand" ==================
+  // Wisdom of Ages ("all instant and sorcery cards"), Crystal Chimes ("all enchantment cards"). The hand
+  // mirror of the battlefield arm below; see applyMassReturnToHand for why the permanent gate and the Aura
+  // skip do NOT apply to a hand destination. Tried FIRST only because its anchor is disjoint — the two
+  // destinations can never both match.
+  //
+  // "legendary creature" (Lychguard) still parks: "legendary" is a SUPERTYPE and not in the filter
+  // vocabulary, so parseGraveyardFilter returns null. A safe FN, and the reason this arm is 2 cards not 3.
+  const rhandM = /^return all (.*?)cards? from your graveyard to your hand$/.exec(t);
+  if (rhandM) {
+    const cardFilter = parseGraveyardFilter(rhandM[1].trim().replace(/\s+and\s+/g, " or "));
+    if (cardFilter) return { op: "mass-return-hand", cardFilter, targetType: null };
+    return null; // an unmodeled filter word → the whole clause parks
+  }
   const rallM = /^return all (.*?)cards? from your graveyard to the battlefield( tapped)?$/.exec(t);
   if (rallM) {
     const word = rallM[1].trim();
@@ -1055,6 +1098,7 @@ export const zoneResolvers = {
   "exile-from-graveyard": applyExileFromGraveyard,
   "exile-graveyard": applyExileGraveyard,   // WHOLE-ZONE graveyard hate (Bojuka Bog / Farewell / Rakdos Charm)
   "mass-reanimate": applyMassReanimate,     // "return ALL <type> cards from your graveyard to the battlefield[ tapped]"
+  "mass-return-hand": applyMassReturnToHand, // the hand-destination mirror of the above
   "blink": applyBlink,                      // BLINK/FLICKER (CR 400.7) — Cloudshift / Ephemerate / Essence Flux
   "earthbend-return": applyEarthbendReturn, // EARTHBEND-RETURN (CR 603.7) — the animated land's dies/exile delayed return, tapped
   "detain-return": applyDetainReturn, // DETAIN-RETURN (DT-1, CR 610.3a) — the linked exiles return when the detainer leaves
