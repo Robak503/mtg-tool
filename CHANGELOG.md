@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Mass graveyard recursion works.** Splendid Reclamation, Replenish, Resurgent Belief, World Shaper,
+  Will of the Sultai, Aftermath Analyst and Lumra all return every matching card from your graveyard to the
+  battlefield, tapped when the card says tapped. Auras with nothing to enchant stay in the graveyard, exactly
+  as Replenish's own reminder text promises. **This takes the Earth Bent deck across the 90% mark.**
 - **"Partner with" creatures fetch their partner.** Sixteen cards — Lore Weaver, Ley Weaver, Silvar and
   Trynn, Pir, Cazur, Jenny Flint and the rest — now do what their keyword promises when they enter: the
   targeted player may search their library for the named partner and put it into their hand. The search

@@ -196,16 +196,24 @@ describe("CDA stacks correctly with counters + anthems (layer 7a set → 7c modi
 // CREED anti-FP — a ridered count-CDA card stays LOW; an unmodeled count source never flips
 // ══════════════════════════════════════════════════════════════════════════════════════════
 describe("CDA-SELF-P/T-BY-COUNT CREED anti-FP", () => {
-  it("Lumra (CDA + an unmodeled ETB mill/reanimate) stays body-only", () => {
-    // "When Lumra enters, mill four cards. Then return all land cards from your graveyard …" does not route.
+  // ✅ INVERTED 2026-08-01 — "Lumra (CDA + an unmodeled ETB mill/reanimate) stays body-only" lived here.
+  // The pin was right when written and the reason has since expired: its ETB is "mill four cards. Then
+  // return all land cards from your graveyard to the battlefield tapped", and the mass graveyard→battlefield
+  // return is now BUILT (CR 608 — see effects/atoms/massReanimate.test.js). Lumra is native-mixed, and it is
+  // the card that takes the Earth Bent deck across the 90% shelf bar.
+  //
+  // ⛔ WHAT THIS BLOCK IS REALLY GUARDING IS UNCHANGED and is still covered by the two cases below: a CDA
+  // card with a genuinely unmodeled rider must not flip on the CDA alone. Ashaya (the "are Forest lands"
+  // type static) and Toph (a different count metric + earthbend) both still park, so the anti-FP property
+  // keeps a live witness — which is why no replacement fixture is invented for Lumra's slot.
+  it("Lumra now flips — its CDA was never the blocker; the ETB mass reanimate was", () => {
     const lumra = {
       name: "Lumra, Bellow of the Woods",
       type: "Legendary Creature — Elemental Bear",
       power: "*", toughness: "*", mana: "{4}{G}{G}",
       oracle: "Vigilance, reach\nLumra's power and toughness are each equal to the number of lands you control.\nWhen Lumra enters, mill four cards. Then return all land cards from your graveyard to the battlefield tapped.",
     };
-    expect(classifyCard(lumra)).not.toBe("native-static");
-    expect(isNativeTier(classifyCard(lumra))).toBe(false);
+    expect(isNativeTier(classifyCard(lumra))).toBe(true);
   });
 
   it("Ashaya (CDA + an unmodeled 'are Forest lands' type static) stays body-only", () => {

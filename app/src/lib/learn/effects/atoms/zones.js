@@ -7,7 +7,7 @@ import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recor
 import { impositionEntersTapped } from "../../staticAbilityParser.js"; // KM-1 (CR 614.1c) — Kismet taxes non-cast entries too (leaf-safe: staticAbilityParser imports only keywords.js)
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
-import { parseGraveyardFilter, parseCreatureTargetRestrictions } from "../../spellEffects.js"; // seam batch 16: graveyard card-type filter (leaf-safe, same as stack.js's spellEffects import) for graveyardReturnClauseParser
+import { parseGraveyardFilter, cardMatchesGraveyardFilter, parseCreatureTargetRestrictions } from "../../spellEffects.js"; // seam batch 16: graveyard card-type filter (leaf-safe, same as stack.js's spellEffects import) for graveyardReturnClauseParser. cardMatchesGraveyardFilter joins it for MASS-REANIMATE, which selects at RESOLUTION (no enumerated targets) — same import edge, no new module dependency.
 import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // MULTI-COUNT: number-word → int for "up to N target … cards"; parseCountSource: MASS-OPPONENT-BOUNCE toughness-threshold count (leaf, cycle-free)
 import { shuffleControllerLibrary } from "./library.js"; // GS-1 — the deterministic rngSeed shuffle (works for any player id); library.js never imports zones.js → cycle-free sibling edge
 
@@ -291,6 +291,48 @@ export function applyReanimate(state, atom, ctx) {
 }
 
 /**
+ * MASS REANIMATE (CR 608) — "Return ALL <type> cards from your graveyard to the battlefield[ tapped]"
+ * (Splendid Reclamation, Replenish, World Shaper, Lumra's ETB, …). The mass sibling of applyReanimate above.
+ *
+ * NON-TARGETED by construction, which is the whole difference: applyReanimate walks `ctx.targets` chosen at
+ * cast time, and this walks the CONTROLLER'S OWN graveyard at RESOLUTION. That is why it needs the shared
+ * `cardMatchesGraveyardFilter` — the same chokepoint the targeted arms use for enumeration — rather than a
+ * private predicate that could drift from the filter the parser emitted.
+ *
+ * Each card enters via the SAME `enterCardFromZone` every reanimate and library-ramp path uses, so ETB /
+ * landfall / permanent-enters triggers all fire per card exactly as they do for a single reanimate. A card
+ * that fails to enter is simply skipped (entered:false), never counted.
+ *
+ * ⛔ AURA CARDS ARE SKIPPED, and this is a deliberate, CR-grounded false negative — the one real hazard in
+ * this atom. CR 303.4f: when an effect puts an Aura onto the battlefield without specifying what it enchants,
+ * its controller CHOOSES a legal object as it enters. CR 303.4g: if there is no legal object, "the Aura
+ * remains in its current zone". This engine has no attach-choice for a non-targeted mass return, so entering
+ * an Aura here would put it onto the battlefield attached to NOTHING — an illegal state that CR 704.5m would
+ * immediately bin, i.e. a fabricated permanent. Skipping under-delivers when a legal object existed (an FN,
+ * which the creed permits) and is exactly correct when none did. Replenish's own printed reminder says the
+ * quiet part out loud: "(Auras with nothing to enchant remain in your graveyard.)"
+ */
+export function applyMassReanimate(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players[controller];
+  if (!player) return state;
+  // Snapshot the matching ids BEFORE entering anything: entries mutate the graveyard as they go, and a live
+  // re-read mid-loop would skip cards (or, with a return-to-graveyard trigger, re-enter one).
+  const ids = (player.graveyard || [])
+    .filter((c) => cardMatchesGraveyardFilter(c, atom.cardFilter))
+    .filter((c) => !/\bAura\b/.test(String(c?.type || c?.type_line || "").split(" // ")[0])) // CR 303.4f/g — see above
+    .map((c) => c.id);
+  let next = state;
+  const entered = [];
+  for (const id of ids) {
+    const r = enterCardFromZone(next, { playerId: controller, cardId: id, fromZone: "graveyard", tapped: !!atom.entersTapped });
+    next = r.state;
+    if (r.entered) entered.push(id);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "mass-reanimate", controller, targets: entered });
+}
+
+/**
  * TUCK clause parser (migrated from parseExtendedAtom, seam batch 10 / Wave A5).
  * "put target <creature|permanent|nonland permanent|creature or land|artifact or creature|land> on (top|the
  * bottom) of its owner's library" → tuck atom (applyZoneMove → library, top/bottom). A creature restriction,
@@ -407,6 +449,31 @@ export function graveyardReturnClauseParser(clause) {
   // parseGraveyardFilter also returns null for a subtype / color / negation / intersection ("Rebel
   // permanent", "nonland permanent", "Aura or Equipment"), so those still park — a safe FN, and the reason
   // the phrase counts below are smaller than the raw corpus tally.
+  // ===== MASS REANIMATE — "return ALL <type> cards from your graveyard to the battlefield[ tapped]" ========
+  // Splendid Reclamation, Replenish, Resurgent Belief, World Shaper, Aftermath Analyst, Will of the Sultai,
+  // Brilliant Restoration, Redress Fate, Primevals' Glorious Rebirth, Knights' Charge, Lumra's ETB.
+  // 25 corpus carriers and not one modeled before — no mass-reanimate resolver existed at all.
+  //
+  // A DELIBERATE MIRROR of the targeted `rbM` arm directly below: the SAME parseGraveyardFilter vocabulary and
+  // the SAME isPermanentReanimateFilter guard, differing only in being non-targeted (targetType null — the
+  // graveyard is walked at resolution) and in accepting the optional " tapped".
+  //
+  // ⛔ isPermanentReanimateFilter STAYS LOAD-BEARING HERE and matters MORE than on the targeted arm: a mass
+  // return has no cast-time enumeration to reject a bad card, so the filter is the only gate between this and
+  // putting a sorcery onto the battlefield. An unfiltered "all cards" ("any") is refused for the same reason.
+  //
+  // A subtype / union-of-subtype filter ("Knight creature", "Zombie creature", "Nightstalker permanent",
+  // "Mount and Vehicle") returns null from parseGraveyardFilter and parks the whole clause — a safe FN, and
+  // the reason this arm sizes at 11 flips rather than 25.
+  const rallM = /^return all (.*?)cards? from your graveyard to the battlefield( tapped)?$/.exec(t);
+  if (rallM) {
+    const word = rallM[1].trim();
+    const typeFilter = parseGraveyardFilter(word);
+    if (typeFilter && typeFilter !== "any" && isPermanentReanimateFilter(typeFilter)) {
+      return { op: "mass-reanimate", cardFilter: typeFilter, entersTapped: !!rallM[2], targetType: null };
+    }
+    return null; // unmodeled / non-permanent / unfiltered → the whole clause parks (never a mis-reanimate)
+  }
   const rbM = /^return target (.*?)card from your graveyard to the battlefield$/.exec(t);
   if (rbM) {
     const word = rbM[1].trim();
@@ -972,6 +1039,7 @@ export const zoneResolvers = {
   "reanimate": applyReanimate,
   "exile-from-graveyard": applyExileFromGraveyard,
   "exile-graveyard": applyExileGraveyard,   // WHOLE-ZONE graveyard hate (Bojuka Bog / Farewell / Rakdos Charm)
+  "mass-reanimate": applyMassReanimate,     // "return ALL <type> cards from your graveyard to the battlefield[ tapped]"
   "blink": applyBlink,                      // BLINK/FLICKER (CR 400.7) — Cloudshift / Ephemerate / Essence Flux
   "earthbend-return": applyEarthbendReturn, // EARTHBEND-RETURN (CR 603.7) — the animated land's dies/exile delayed return, tapped
   "detain-return": applyDetainReturn, // DETAIN-RETURN (DT-1, CR 610.3a) — the linked exiles return when the detainer leaves

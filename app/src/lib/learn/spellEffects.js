@@ -105,7 +105,7 @@ function matchesGyTypeToken(front, token) {
   if (token === "permanent") return /\b(?:Creature|Artifact|Enchantment|Land|Planeswalker|Battle)\b/.test(front);
   return token.split("|").some((tok) => GY_TYPE_WORD[tok] && front.includes(GY_TYPE_WORD[tok]));
 }
-function cardMatchesGraveyardFilter(card, cardFilter) {
+export function cardMatchesGraveyardFilter(card, cardFilter) {
   if (!cardFilter || cardFilter === "any") return true;
   const front = String(card?.type || card?.type_line || "").split(" // ")[0];
   // STRUCTURED subtype+MV filter (BLITZ SS-1 — the soulshift recursion "target Spirit card with mana

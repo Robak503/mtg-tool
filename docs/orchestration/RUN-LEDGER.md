@@ -3,6 +3,49 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ✅ SLICE DONE — 2026-08-01 — **MASS GRAVEYARD REANIMATE, +7** — ⭐ **A DECK CROSSED THE BAR**
+> Tree clean, MUTANT clean, suite **1053 files / 13,329 green** (was 1052 / 13,314), lint 0. Flip-diff
+> **+7 GAINED / 0 LOST** against a content-verified revert. Five pre-specified mutations, **five kills, no
+> survivors** (Aura skip · permanent-only guard · entersTapped · the filter itself · whose graveyard).
+>
+> ⭐ **EARTH BENT 88.9% → 90.1% — the first shelf deck to cross the bar in this run.** Lumra was its blocker,
+> and Lumra's CDA was never the problem; its ETB mass return was. Board is now **5 of 16 decks at/above 90%**.
+>
+> **Built:** `mass-reanimate` — "return all `<type>` cards from your graveyard to the battlefield[ tapped]".
+> 25 corpus carriers, ALL 25 parked, **no mass-reanimate resolver existed at all**. Non-targeted by
+> construction: the targeted `reanimate` arm walks `ctx.targets` chosen at cast time, this walks the
+> controller's graveyard at RESOLUTION — which is why it reuses the shared `cardMatchesGraveyardFilter`
+> chokepoint rather than a private predicate that could drift from the filter the parser emitted.
+> (`cardMatchesGraveyardFilter` was already in spellEffects.js and merely unexported; zones.js ALREADY
+> imported from that module, so this added **no new module edge** — graph re-checked anyway.)
+>
+> ⛔ **THE AURA GUARD IS THE LOAD-BEARING PART.** CR 303.4f: an Aura put onto the battlefield without a
+> specified object has its controller CHOOSE one as it enters. CR 303.4g: with no legal object, "the Aura
+> remains in its current zone". There is no attach-choice for a non-targeted mass return, so entering one
+> would put an Aura onto the battlefield attached to NOTHING — a state CR 704.5m bins instantly, i.e. a
+> fabricated permanent. Auras are skipped: correct when nothing was legal, an under-delivery when something
+> was. Replenish's printed reminder says it out loud — *"Auras with nothing to enchant remain in your
+> graveyard."*
+>
+> ⚠️ **THE SIZING WAS 11 AND THE BUILD DELIVERED 7 — record the reason, not just the number.** The hand
+> phrase-swap measured *"cards blocked SOLELY by this phrase"*; the build's gate is `parseGraveyardFilter`,
+> which is narrower than the phrase. Four sized cards park on filter vocabulary: `legendary permanent`
+> (Primevals' Glorious Rebirth), `Knight creature` (Knights' Charge), and **`artifact and enchantment`**
+> (Brilliant Restoration, Redress Fate). **A phrase-swap sizes the PHRASE; it does not size the FILTER the
+> build will actually accept.** Next seat: apply the swap to the *gate* you intend to ship, not the sentence.
+>
+> 🔬 **NAMED FOLLOW-UP, +2, small and local:** `"artifact and enchantment"` is a UNION in print (all artifact
+> cards AND all enchantment cards) but `parseGraveyardFilter` only splits on `" or "`, so it returns null.
+> Handle the `" and "`-union **locally in the mass arm** — do NOT widen the shared helper, which the targeted
+> reanimate/return-to-hand arms also read (that would need its own flip-diff).
+>
+> **THREE PARK PINS INVERTED, none deleted** (rule 9): `cdaSelfPtByCount` (Lumra — its anti-FP siblings
+> Ashaya and Toph still park, so the property keeps a live witness and no fixture was invented for the empty
+> slot) · `parser.test.js` ×2 — ⚠️ **these were the CI merge gate ("MUST drop to low")**, and they were not
+> guarding this arm: they used *"return all creature cards from your graveyard"* as their STAND-IN for an
+> unmodeled body. Body swapped to the **UNFILTERED** form, which this arm refuses permanently as a CREED
+> guard, so it cannot drift back to high the way a filtered body just did.
+
 > ## 📊 FRESH SHELF CENSUS — 2026-08-01 (measured, not carried forward) + the NEXT SLICE, pre-sized
 >
 > **Method, stated so the number can be audited:** `measure-coverage.mjs` reads decks via `MTG_APP_ROOT`,
@@ -234,7 +277,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 33 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**)
+> - **BATCH IN FLIGHT: 40 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher

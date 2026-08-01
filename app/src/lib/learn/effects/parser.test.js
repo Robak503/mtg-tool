@@ -842,8 +842,15 @@ const MUST_DROP_TO_LOW = [
   // nothing). (Rebound is now modeled FAITHFULLY — exile-on-resolution via selfExile, recast declined — so a
   // rebound spell with a MODELED body is HIGH; pinned in effects/rebound.test.js + the KWSTRIP describe below.) ──
   "Target player discards a card.\nCipher",                                     // cipher — NOT vacuous (encodes) → not stripped → low
-  "Suspend 4—{1}{R}\nReturn all creature cards from your graveyard to the battlefield.", // Living-End-ish — suspend stripped, the MASS-reanimation body is unmodeled → low (the wheel body is now native: WHEEL)
-  "Foretell {3}{B}{B}\nReturn all creature cards from your graveyard to the battlefield.", // foretell stripped, but the MASS-reanimation body is unmodeled → low
+  // ⚠️ BODY SWAPPED 2026-08-01. These two used the FILTERED "return all creature cards…" as their
+  // stand-in for an unmodeled body; mass reanimate is now BUILT (see atoms/massReanimate.test.js), so that
+  // body reads high and the fixtures stopped testing what they were written to test. The property is
+  // unchanged — a vacuous cast-keyword line is stripped, and an unmodeled BODY still keeps the card low —
+  // so the body is replaced rather than the pin deleted. The UNFILTERED form is the durable choice: the
+  // mass-reanimate arm refuses it permanently as a CREED guard (nothing would gate a sorcery out of an
+  // unfiltered "all cards" onto the battlefield), so it cannot drift back to high the way a filtered body did.
+  "Suspend 4—{1}{R}\nReturn all cards from your graveyard to the battlefield.", // Living-End-ish — suspend stripped, the unfiltered mass body is unmodeled → low
+  "Foretell {3}{B}{B}\nReturn all cards from your graveyard to the battlefield.", // foretell stripped, but the unfiltered mass body is unmodeled → low
   // ── P3.1 counter target spell — the riders that must STAY low (the modeled shapes
   // are pinned HIGH in MUST_STAY_HIGH + the dedicated describe block below). The
   // anchored allowlist drops anything that isn't EXACTLY a bare "Counter target
@@ -1359,7 +1366,10 @@ describe("parseEffectProgram — KWSTRIP-1 (vacuous cast-keyword line strip)", (
       .toEqual([{ op: "draw", amount: 1, targetType: null }]);                         // Evermind
   });
   it("strips ONLY the keyword line — a suspend body's own unmodeled text keeps the card low", () => {
-    expect(programConfidence(parseEffectProgram(I("Suspend 4—{1}{R}\nReturn all creature cards from your graveyard to the battlefield.")))).toBe("low"); // suspend stripped, MASS-reanimation body unmodeled → low
+    // Body swapped 2026-08-01 for the same reason as the two entries in the drop-to-low list above: the
+    // FILTERED mass reanimation is now modeled, so it no longer demonstrates "unmodeled body". The UNFILTERED
+    // form is refused permanently by that arm's CREED guard, which makes it a stable stand-in.
+    expect(programConfidence(parseEffectProgram(I("Suspend 4—{1}{R}\nReturn all cards from your graveyard to the battlefield.")))).toBe("low"); // suspend stripped, unfiltered mass body unmodeled → low
   });
   it("does NOT text-strip a non-vacuous keyword (cipher) — the card stays low → Arbiter", () => {
     // Cipher (encode the spell onto a creature) changes the card's disposition in a way the engine doesn't
