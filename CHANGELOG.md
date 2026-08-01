@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Aura death triggers work.** Bequeathal and Dying Wail now actually do their thing when the enchanted creature dies — they were silently doing nothing.
 - **Graveyard sweeps work.** Wisdom of Ages and Crystal Chimes return every matching card from your graveyard to your hand.
 - **Mass graveyard recursion works.** Splendid Reclamation, Replenish, Resurgent Belief, World Shaper,
   Will of the Sultai, Aftermath Analyst and Lumra all return every matching card from your graveyard to the

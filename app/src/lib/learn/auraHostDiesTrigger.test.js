@@ -1,12 +1,12 @@
 /**
  * auraHostDiesTrigger.test.js — "When enchanted creature dies, <effect>" (Bequeathal, Dying Wail).
  *
- * A DETECTOR ARM, NOT A MECHANISM — which is the whole point of the slice. The `equippedCreature`
- * attached-linkage scope already resolves the death case correctly: on the host's death the Aura is already
- * detached (`attachedTo` is null by the time checkDiesTriggers runs), so scopeMatches reads the linkage from
- * the dead creature's CR-603.10a look-back `attachments`, captured before the detach. Auras and Equipment
- * attach through the identical fields, and the sibling arms ("enchanted creature attacks", "…deals combat
- * damage") already route through that same scope. So this is one line plus its justification.
+ * ⚠️ THE ORIGINAL HEADER CLAIMED THIS WAS "a detector arm, not a mechanism" — that the equippedCreature
+ * scope "already resolves the death case correctly", so the slice was "one line plus its justification".
+ * The SCOPE part was true and the CONCLUSION was not: scopeMatches did resolve the linkage from the dead
+ * creature's CR-603.10a look-back, but the orphaned Aura was never OFFERED as a trigger source, because it
+ * is binned to the graveyard before checkDiesTriggers runs and the watcher sweep is battlefield-only. The
+ * card drew zero. The mechanism half landed 2026-08-01 (see the block comment in the RUNTIME describe).
  *
  * WHY IT IS NOT GATED ON THE EFFECT, unlike the SELF-LTB "equipped creature dies → return it to its owner's
  * hand" detector. That one needs a narrow gate because its effect NAMES THE DEAD OBJECT ("it", CR 608.2c) and
@@ -24,7 +24,7 @@ import { describe, expect, it } from "vitest";
 
 import { classifyCard } from "./coverage.js";
 import { detectTriggers } from "./triggers.js";
-import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
+import { _resetIdsForTests, createGameState, createPermanent, destroyLethalCreatures, attachPermanent } from "./gameState.js";
 import { checkDiesTriggers } from "./triggers.js";
 import { flushTriggers, resolveTopOfStack, chooseTriggerTargets } from "./gameEngine.js";
 
@@ -44,24 +44,31 @@ describe("detection — the aura host-death arm reuses the attached-linkage scop
 });
 
 describe("RUNTIME — the trigger fires off the HOST's death, read from the look-back", () => {
-  /** An Aura attached to a host, then the host dies. */
-  // `auraAlsoLeaves` reproduces what the engine actually does on a host death (CR 704.5n — the orphaned
-  // Aura is binned by detachPermanentFromAll before checkDiesTriggers runs). Default false keeps every
-  // pre-existing assertion byte-identical.
-  function hostDies({ attach = true, auraAlsoLeaves = false } = {}) {
+  /**
+   * An Aura attached to a host, then the host DIES THROUGH THE ENGINE'S OWN PATH.
+   *
+   * ⭐ REWRITTEN 2026-08-01, and the rewrite is the point. The original harness hand-built the post-death
+   * board: it filtered the host out of `battlefield` and called checkDiesTriggers with a hand-made `dead`
+   * entry. That board is one the engine never produces — it left the orphaned Aura sitting on the
+   * battlefield and recorded no leave event — so the file proved the SCOPE MATCH and nothing else, while
+   * the card drew zero in a real game. Driving `damageMarked` through destroyLethalCreatures instead means
+   * the fixture cannot drift from the engine: the detach, the CR 704.5n binning of the orphaned Aura, and
+   * the CR 603.10a look-back all happen for real.
+   */
+  function hostDies({ attach = true } = {}) {
     _resetIdsForTests();
     const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
-    const host = createPermanent({ id: "host", card: { id: "ch", name: "Bear", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }, controller: "user", summoningSick: false });
+    const host = createPermanent({ id: "host", card: { id: "ch", name: "Grizzly Bears", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }, controller: "user", summoningSick: false });
     const av = createPermanent({ id: "aura", card: { id: "ca", ...aura(BEQUEATHAL) }, controller: "user" });
-    if (attach) { av.attachedTo = "host"; host.attachments = ["aura"]; }
     let s = {
       ...s0, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", turn: 5,
       players: { ...s0.players, user: { ...s0.players.user, battlefield: [host, av], hand: [], library: Array.from({ length: 9 }, (_, i) => ({ id: `l${i}`, name: `C${i}`, type: "Sorcery" })) } },
     };
-    // the host dies: gone from the battlefield, with the CR-603.10a look-back carrying its attachments
-    const gone = auraAlsoLeaves ? ["host", "aura"] : ["host"];
-    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: s.players.user.battlefield.filter((p) => !gone.includes(p.id)) } } };
-    s = checkDiesTriggers(s, [{ controller: "user", id: "host", name: "Bear", card: host.card, counters: {}, attachments: attach ? ["aura"] : [] }]);
+    if (attach) s = attachPermanent(s, { equipId: "aura", targetId: "host" });
+    // Lethal damage, then the engine's own SBA sweep does the killing, detaching and binning.
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: s.players.user.battlefield.map((p) => (p.id === "host" ? { ...p, damageMarked: 99 } : p)) } } };
+    const r = destroyLethalCreatures(s);
+    s = checkDiesTriggers(r.state, r.dead);
     let g = 0;
     s = flushTriggers(s, { chooseTargets: chooseTriggerTargets });
     while ((s.stack || []).length && g++ < 20) s = resolveTopOfStack(s);
@@ -79,27 +86,62 @@ describe("RUNTIME — the trigger fires off the HOST's death, read from the look
   });
 
   // ══════════════════════════════════════════════════════════════════════════════════════════════
-  // 🚨 THE FIXTURE ABOVE IS A HOLLOW GATE, and this block exists to say so in executable form.
+  // 🚨 THIS FILE SHIPPED A HOLLOW GATE, AND THE RECORD STAYS.
   //
-  // `hostDies` removes only the HOST from the battlefield and LEAVES THE AURA ON IT. The engine never
-  // produces that board: detachPermanentFromAll is the single battlefield-exit chokepoint and bins an
-  // orphaned Aura immediately (CR 704.5n), and checkDiesTriggers runs AFTER
-  // destroyLethalCreatures → moveCardToZone → detach. So by the time the dies-triggers are looked for,
-  // the Aura is in the graveyard — and triggerSourcesOf scans the BATTLEFIELD ONLY.
+  // Until 2026-08-01 `hostDies` hand-built the post-death board: it filtered the host out of `battlefield`
+  // and called checkDiesTriggers with a hand-made `dead` entry. That left the orphaned Aura sitting on the
+  // battlefield and recorded no leave event — a board the engine never produces, because
+  // detachPermanentFromAll bins an orphaned Aura at the battlefield-exit chokepoint (CR 704.5n) BEFORE
+  // dies-triggers are looked for, and triggerSourcesOf scans the battlefield only.
   //
-  // The tests above therefore prove the SCOPE MATCH resolves, never that the card works. Run end-to-end
-  // through the real death path, Bequeathal draws ZERO. It is credited native-trigger regardless.
+  // So the file proved the SCOPE MATCH and nothing else, while Bequeathal drew ZERO in a real game and was
+  // credited native-trigger regardless. The park comment inside isNativeOwnTriggeredAura said as much in
+  // writing and was contradicted by this file's own header; the park comment was right.
   //
-  // ⛔ THIS PIN ASSERTS THE DEFECT ON PURPOSE. It is not an endorsement — it stops the hollow fixture from
-  // being cited as proof a third time (its header and the park comment inside isNativeOwnTriggeredAura
-  // contradicted each other in writing; the park comment was right). WHEN THE FIX LANDS — consult the dead
-  // creature's look-back `attachments` for auras no longer on the battlefield, CR 603.10a — this assertion
-  // INVERTS to 2 and the file goes back to describing a working card. See the run ledger for the scoped
-  // two-part fix and why its halves must land together.
+  // ✅ BOTH are fixed now: the harness above drives the engine's real death path, and checkDiesTriggers
+  // captures the binned Auras from `pendingLeaveEvents` (before checkLeavesTriggers clears them) and offers
+  // them as trigger sources. `scopeMatches` already resolved the linkage from the dead creature's look-back
+  // `attachments`, so nothing about the MATCH changed — the orphaned Aura simply had to be offered.
   // ══════════════════════════════════════════════════════════════════════════════════════════════
-  it("🚨 KNOWN DEFECT — with the Aura also gone (the REAL sequence), the trigger does not fire", () => {
-    const s = hostDies({ auraAlsoLeaves: true });
-    expect(s.players.user.hand).toHaveLength(0); // ⛔ should be 2 — see the block comment above
+  it("⭐ THE REAL SEQUENCE — with the Aura also gone, the trigger STILL fires (CR 603.10a)", () => {
+    // This is the assertion the original fixture could not make. It is the one that proves the CARD works;
+    // the fixture above only ever proved the scope matched.
+    expect(hostDies().players.user.hand).toHaveLength(2);
+  });
+
+  it("⛔ CREED — with TWO hosts dying at once, each aura fires ONLY off its own host", () => {
+    // ⭐ THIS TEST EXISTS BECAUSE A MUTATION SURVIVED. Deleting the `attachments` membership check in
+    // checkDiesTriggers changed nothing, because the only negative case here was an UNATTACHED aura — which
+    // is never orphaned, never binned, and so never reaches the orphan loop at all. The check's real job is
+    // this: a simultaneous death puts BOTH auras in the orphan list, and every orphan is offered as a source
+    // for EVERY death in the batch. Without the membership test each aura fires twice — four cards drawn off
+    // two deaths — which is a materially different board.
+    _resetIdsForTests();
+    const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const mk = (id, name) => createPermanent({ id, card: { id: `c-${id}`, name, type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }, controller: "user", summoningSick: false });
+    const h1 = mk("h1", "Grizzly Bears"); const h2 = mk("h2", "Runeclaw Bear");
+    const a1 = createPermanent({ id: "a1", card: { id: "ca1", ...aura(BEQUEATHAL) }, controller: "user" });
+    const a2 = createPermanent({ id: "a2", card: { id: "ca2", ...aura(BEQUEATHAL) }, controller: "user" });
+    let s = {
+      ...s0, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", turn: 5,
+      players: { ...s0.players, user: { ...s0.players.user, battlefield: [h1, h2, a1, a2], hand: [], library: Array.from({ length: 12 }, (_, i) => ({ id: `l${i}`, name: `C${i}`, type: "Sorcery" })) } },
+    };
+    s = attachPermanent(s, { equipId: "a1", targetId: "h1" });
+    s = attachPermanent(s, { equipId: "a2", targetId: "h2" });
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: s.players.user.battlefield.map((p) => (["h1", "h2"].includes(p.id) ? { ...p, damageMarked: 99 } : p)) } } };
+    const r = destroyLethalCreatures(s);
+    let out = checkDiesTriggers(r.state, r.dead);
+    out = flushTriggers(out, { chooseTargets: chooseTriggerTargets });
+    let g = 0;
+    while ((out.stack || []).length && g++ < 20) out = resolveTopOfStack(out);
+    expect(out.players.user.hand).toHaveLength(4); // 2 auras × 2 cards — NOT 8
+  });
+
+  it("⛔ CREED — an orphaned aura still does NOT fire off an unrelated creature's death", () => {
+    // The look-back membership test is what scopes it: the aura is offered as a source for EVERY death in
+    // the batch, so without the `attachments` check it would fire off any of them. Here the dead creature
+    // never carried this aura, so nothing may happen.
+    expect(hostDies({ attach: false }).players.user.hand).toHaveLength(0);
   });
 });
 

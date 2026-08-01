@@ -3,6 +3,41 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ✅ FIXED — 2026-08-01 — **THE AURA HOST-DIES TRIGGER NOW FIRES** (half 1 of 2) · **+0 cards, 2 made REAL**
+> Suite **1054 / 13,343 green**, lint 0. Flip-diff **0 GAINED / 0 LOST — and that is the correct result:**
+> this is a pure RUNTIME fix. Bequeathal and Dying Wail were already (wrongly) counted; they now actually
+> work. **A slice whose value is entirely invisible to the coverage metric.**
+>
+> `checkDiesTriggers` now captures the Auras binned on the way in — from `state.pendingLeaveEvents`, BEFORE
+> `checkLeavesTriggers` clears the queue, which is the only moment the binned Aura still exists as data — and
+> offers them as trigger sources beside the battlefield watchers. `scopeMatches` already resolved the linkage
+> from the dead creature's look-back `attachments`, so nothing about the MATCH changed: **the orphaned Aura
+> simply had to be OFFERED.** Scoped to Auras on a graveyard exit; an Equipment stays on the battlefield when
+> its host dies and is already in the watcher sweep, so it must not be double-fired from here.
+>
+> **The old test harness was rewritten to drive `destroyLethalCreatures` instead of hand-building the
+> post-death board.** That is the actual fix to the hollow gate: a fixture that cannot construct an
+> impossible board cannot drift from the engine again.
+>
+> ⚠️⚠️ **A FIXTURE NAMED ITS CARD "A" AND SILENTLY BROKE THE DETECTOR — this cost a full diagnostic cycle.**
+> With `name: "A"`, `detectTriggers` returned scope **`self`** instead of `equippedCreature` (self-reference
+> normalisation eats a one-letter name), so my post-fix probe read 0 and I believed the fix had failed. Same
+> card, same oracle, `name: "Bequeathal"` → scope `equippedCreature`, 2 cards drawn. **METHOD CORRECTION 2 in
+> a third costume: name your fixtures like real cards.** Placeholder names are not neutral.
+>
+> 🔬 **A SURVIVING MUTATION, REPORTED NOT REDONE (rule 5).** Deleting the `attachments` membership test in the
+> new loop changed nothing — even against a two-hosts-dying-simultaneously test written specifically to catch
+> an over-fire. `scopeMatches` enforces the identical membership itself. The line is annotated in place as a
+> **cheap pre-filter, NOT a safety gate**, naming the real gate. The two-host test was kept anyway: it pins
+> the BEHAVIOUR regardless of which gate delivers it.
+>
+> ➡️ **HALF 2 STILL OPEN and still must not ship alone** — `parseAttachedBonus` drops an Aura's whole static
+> bonus when the card carries its own non-ETB trigger (Elephant Guide's host reads 2/2 vs a 5/5 control). The
+> `parseAuraBonus` guard in `isNativeOwnTriggeredAura` still correctly parks those ~10 composition cards,
+> because their BONUS is still dropped even though their trigger now fires. Fix via
+> `registerAuraOwnTriggerValidator` on the seam `_auraOwnEtbValidator` already uses; then the guard is
+> satisfied on its own and the cards flip honestly.
+
 > ## 🧪 STANDING ORDER — **QA PASS EVERY 1–2 HOURS: DO THE CARDS ACTUALLY PLAY?** (Colton, 2026-08-01)
 > *"do a QA pass and bug test for the work your doing to make sure the cards you make actually play."*
 >

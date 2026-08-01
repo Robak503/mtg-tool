@@ -5145,6 +5145,24 @@ export function checkDiesTriggers(state, dead) {
   // SELF-LTB (Wave 4): drain any "leaves the battlefield" events queued by gameState.detachPermanentFromAll
   // FIRST (every death path runs destroyLethalCreatures → moveCardToZone → detach, then checkDiesTriggers),
   // so an orphaned Aura's PiG-return trigger (Rancor) is enqueued alongside the creature's dies triggers.
+  // ⭐ ORPHANED-AURA LOOK-BACK (CR 603.10a) — captured HERE because checkLeavesTriggers below CLEARS the
+  // queue, and this is the only place the binned Aura still exists as data.
+  //
+  // THE DEFECT THIS CLOSES: when a creature dies, detachPermanentFromAll (the single battlefield-exit
+  // chokepoint) puts every Aura on it straight into the graveyard (CR 704.5n) — BEFORE this function runs.
+  // The watcher sweep below iterates triggerSourcesOf, which is BATTLEFIELD ONLY, so an Aura's own
+  // "When enchanted creature dies, …" was never looked for at all. Measured end-to-end: Bequeathal drew
+  // ZERO cards while being credited native-trigger. CR 603.10a is explicit that an ability that triggers on
+  // the event which caused its source to leave still triggers — the game looks back in time.
+  //
+  // ⛔ SCOPED TO AURAS, and to graveyard exits, on purpose. An EQUIPMENT stays on the battlefield when its
+  // host dies (it merely unattaches), so it is already in the watcher sweep and must NOT be double-fired
+  // from here. A bounce/exile exit is not this case either. Each candidate is still matched to the specific
+  // dead creature by its look-back `attachments` at the fire site, so an Aura that fell off some OTHER
+  // creature in the same batch of deaths can never fire off this one.
+  const orphanedAuras = (state.pendingLeaveEvents || [])
+    .filter((e) => e?.card && e.toGraveyard && /\bAura\b/.test(String(e.card.type || e.card.type_line || "")))
+    .map((e) => ({ id: e.id, controller: e.controller, card: e.card, attachedTo: null }));
   let state2 = checkLeavesTriggers(state);
   if (!dead || !dead.length) return state2;
   // DEATHS-THIS-TURN (CR 700.4): bump each dying creature's controller's per-turn death tally BEFORE firing
@@ -5218,6 +5236,21 @@ export function checkDiesTriggers(state, dead) {
       for (const watcher of triggerSourcesOf(state2, pid)) {
         fired = fired.concat(triggersForEvent(state2, { event: "dies", sourcePermanent: watcher, triggeringPermanent: lookBack, triggeringContext: diesCtx }));
       }
+    }
+    // ⭐ …and the Auras that fell off THIS creature as it died (CR 603.10a — see the capture at the top).
+    // `scopeMatches`'s equippedCreature branch ALREADY resolves this linkage from the dead creature's
+    // look-back `attachments`, which is why nothing about the match needed changing: these sources simply
+    // had to be OFFERED.
+    //
+    // ⚠️ THE LINE BELOW IS A CHEAP PRE-FILTER, NOT A SAFETY GATE — said plainly because it looks like one.
+    // A mutation deleting it SURVIVED, including against a two-hosts-dying-at-once test written specifically
+    // to catch an over-fire: scopeMatches enforces the identical `attachments` membership itself, so
+    // correctness does not depend on this line. It stays only to skip the obviously-unrelated orphans on a
+    // wide board (every orphan is otherwise offered against every death in the batch). The real gate is
+    // scopeMatches; if that branch is ever loosened, this line will NOT save you.
+    for (const orphan of orphanedAuras) {
+      if (!(d.attachments || []).includes(orphan.id)) continue;
+      fired = fired.concat(triggersForEvent(state2, { event: "dies", sourcePermanent: orphan, triggeringPermanent: lookBack, triggeringContext: diesCtx }));
     }
   }
   // The no-singular-trigger fast path must STILL run the batch pass: a board can hold ONLY batch watchers
