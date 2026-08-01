@@ -41,6 +41,10 @@
 >   bonus applies (5/5) AND the upkeep counter really lands (6/6, `{+1/+1: 1}`).** The guard's PROPERTY is
 >   re-pinned with a trigger the engine genuinely cannot route, so the CREED line still bites.
 >
+> 📉 **SHELF: 0.** None of the 11 appears in any saved deck — corpus only. Board unchanged at **5 of 16**
+> at/above the bar; Omnath (89.4%) and Mothman (89.1%) are still the two one-card decks, both costed as
+> subsystem-sized in the strategic finding below.
+>
 > ⚠️ A rewrite of the composition file broke its syntax and vitest reported **"no tests"** — which reads
 > exactly like green (METHOD CORRECTION 4). Caught by `node --check`. Run it after any scripted test-file edit.
 
