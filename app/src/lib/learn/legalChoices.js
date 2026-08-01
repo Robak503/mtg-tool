@@ -53,7 +53,7 @@ function parseCastProgram(card) {
 }
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { counterClauseParser } from "./effects/atoms/stack.js";
-import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost, parseCyclingLifeCost, parsePlotCost, parseCrewCost, isModeledGroupActivatedBody, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, castOnlyWhenAttacked, hasBeenAttackedThisStep, parseCyclingCost, parseCyclingLifeCost, parsePlotCost, parseCrewCost, isModeledGroupActivatedBody, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
 // PLOT (CR 702.171): the runtime offers a card the plot special action ONLY when its NON-plot text is
 // fully native — i.e. classifyCard (which strips the plot line internally) returns a native tier. Reusing
 // the metric's OWN authority means the runtime and the coverage metric can never disagree about which plot
@@ -1002,6 +1002,13 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       ? computeAltCastSpec(state, playerId, card)
       : null;
     if (altSpec) altSpecs.set(card.id, { ...altSpec, affordable });
+    // CAST-RESTRICTION (the Fallen Empires combat-trick cycle): "Cast this spell only during the declare
+    // attackers step and only if you've been attacked this step." A TIMING + STATE gate printed as a whole
+    // sentence. Enforced HERE, at the single cast-offer chokepoint, so the card simply is not offered outside
+    // its window — and that enforcement is what lets the classifier credit the sentence. An unenforced cast
+    // restriction credited as modeled would hand the engine a combat trick playable at any time, which is a
+    // materially stronger card than the printed one.
+    if (castOnlyWhenAttacked(card) && !hasBeenAttackedThisStep(state, playerId)) continue;
     if (!affordable && !emergeSpec && !altSpec) continue;
 
     const effect = parseSpellEffect(card);

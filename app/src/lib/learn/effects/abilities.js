@@ -526,6 +526,39 @@ function effectIsDoubleManaPool(clause) {
  * worded that way (Brood of Cockroaches, the God-Eternal cycle…) would have its death trigger silently
  * dropped on sacrifice. Conservative by design — route the whole card to the Arbiter.
  */
+/**
+ * CAST-RESTRICTION: "Cast this spell only during the declare attackers step and only if you've been attacked
+ * this step." (Defiant Stand, Rally the Troops, Scorching Winds, Assassin's Blade and 10 more — the Fallen
+ * Empires / Alliances combat-trick cycle.)
+ *
+ * A TIMING + STATE gate on the cast itself, printed as a whole sentence rather than a keyword. It is
+ * enforced in legalChoices' cast loop (the card is simply not offered outside the window), which is why the
+ * classifier is allowed to credit the sentence — the restriction is really imposed, not stripped as vacuous.
+ * The distinction matters: crediting an UNENFORCED cast restriction would let the engine play a combat trick
+ * at any time, which is a materially stronger card than the one printed.
+ *
+ * ⛔ THE WHOLE SENTENCE IS ANCHORED, both halves together. A card printing only the step half ("only during
+ * the declare attackers step") without the been-attacked condition is a DIFFERENT restriction and stays
+ * unmodeled — the gate below would under-restrict it. Exact-match or nothing (CREED).
+ */
+const CAST_ONLY_WHEN_ATTACKED_RE =
+  /(?:^|[\n.;]\s*)cast this spell only during the declare attackers step and only if you(?:'|’)ve been attacked this step\s*(?:\.|$)/i;
+/** Does this card carry the declare-attackers-and-attacked cast restriction? */
+export function castOnlyWhenAttacked(card) {
+  return CAST_ONLY_WHEN_ATTACKED_RE.test(String(card?.oracle ?? card?.oracle_text ?? ""));
+}
+/**
+ * Is `playerId` in the window that restriction names — the declare-attackers step, with at least one
+ * attacker declared AGAINST them? `defender` on each attacker entry is the defending PLAYER id (a
+ * planeswalker attack still names its controller there), so a player attacked only via their planeswalker
+ * still counts as attacked, which is correct: CR 508.1 declares attackers against a player, planeswalker or
+ * battle they control.
+ */
+export function hasBeenAttackedThisStep(state, playerId) {
+  if (state?.step !== "declare-attackers") return false;
+  return (state?.combat?.attackers || []).some((a) => a?.defender === playerId);
+}
+
 export function sacrificeDropsTrigger(oracle) {
   // Match each trigger CLAUSE wherever it starts — not anchored to the start of a line/sentence — so an
   // ability-word prefix ("Praesidium Protectiva — When this creature is put into your graveyard…") or

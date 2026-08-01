@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Eight old combat tricks work.** Defiant Stand, Rally the Troops, Scorching Winds, Assassin's Blade and four more can finally be cast — and only when the card allows it: during declare attackers, and only if you were the one attacked.
 - **Training, Dethrone, Firebending and Soulshift creatures work alongside their other abilities.** Eleven cards — Parish-Blade Trainee, Rural Recruit, Marchesa's Infiltrator, Tundra Tank, Azula and more — were being held back by a counting mistake, not a missing rule. Three others that were quietly credited while carrying an ability the engine cannot perform have been corrected.
 - **Auras with a bonus AND a trigger work.** Elephant Guide, Griffin Guide, Most Wanted, Failed Conversion, Sleeper's Robe, Elder Mastery and five more now do BOTH halves — the buff really applies to the creature, and the trigger really fires. They were doing neither.
 - **Aura death triggers work.** Bequeathal and Dying Wail now actually do their thing when the enchanted creature dies — they were silently doing nothing.

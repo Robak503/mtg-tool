@@ -3,6 +3,41 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-01 - **DECLARE-ATTACKERS CAST RESTRICTION, +8** - shelf 0
+> Suite **1058 / 13,382 green**, lint 0. Flip-diff **+8 GAINED / 0 LOST**. Three mutations, three kills.
+> Batch **74**. Gained: Defiant Stand, Warrior's Stand, Just Fate, Rally the Troops, Assassin's Blade,
+> Eightfold Maze, Scorching Winds, Treetop Defense (the Fallen Empires / Alliances combat-trick cycle).
+>
+> "Cast this spell only during the declare attackers step and only if you've been attacked this step." - a
+> TIMING + STATE gate printed as a whole SENTENCE rather than a keyword, carrying no atom of its own, so it
+> parked eight bodies that were already fully modeled.
+>
+> **ENFORCEMENT FIRST, CREDIT SECOND - and the order is the whole slice.** legalChoices' cast-offer
+> chokepoint now refuses the card unless hasBeenAttackedThisStep (the declare-attackers step AND an attacker
+> declared against THIS player, read off combat.attackers[].defender). Only after that was proven on a board
+> does stripCastKeywordLines remove the sentence so the body parses. Crediting an UNENFORCED cast restriction
+> would hand the engine a combat trick playable at any time - strictly stronger than the printed card. Same
+> basis as the SPLIT SECOND strip sitting directly beside it in textNormalize.js.
+>
+> **Runtime, before any classifier change:** offered during declare-attackers when attacked; NOT offered when
+> the attack is aimed at another player; NOT offered in the wrong step. All three are mutation-pinned -
+> deleting the gate, ignoring the step, or ignoring WHO was attacked each kills tests.
+>
+> **BOTH HALVES OF THE SENTENCE ARE ANCHORED TOGETHER.** A card printing only the step half without the
+> been-attacked condition is a DIFFERENT restriction the gate would under-enforce, and is deliberately not
+> matched (pinned).
+>
+> **SHELF: 0.** None of the eight is in a saved deck. Board unchanged at 5 of 16.
+>
+> **STRATEGY NOTE:** this followed three low-yield turns (+2, 0, 0) of composition archaeology that produced
+> four fixture errors and two retractions. Switching from "why does this tier not compose" to "build a
+> mechanic the corpus actually prints" returned +8 in one pass. When the census clusters stop paying, take a
+> printed mechanic off the sole-blocker ranking instead of digging further into tier plumbing.
+>
+> **FILE-SAFETY, THIRD OCCURRENCE:** the heredoc writing this entry crashed on a non-ASCII escape twice more.
+> The temp-file + os.replace pattern absorbed both with zero damage. Rule is now unconditional: write ledger
+> prose as PLAIN ASCII in a python raw string; no backslash-u escapes in a heredoc, ever.
+>
 > ## ❌❌ RETRACTED — 2026-08-01 — **THE "47-CARD FP" BELOW DOES NOT EXIST. I WAS WRONG.**
 > **Aeolipile and Barbarian Lunatic deal their full damage.** Re-tested on real corpus rows through the real
 > cast path: both kill a 2/2, zero resolve errors. There is no bug, no 47-card class, nothing to fix. The
@@ -733,7 +768,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 66 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**)
+> - **BATCH IN FLIGHT: 74 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher

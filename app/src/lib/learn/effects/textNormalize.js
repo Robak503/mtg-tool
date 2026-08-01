@@ -193,8 +193,28 @@ const MADNESS_LINE = /^[ \t]*madness\s*(?:\{[^}]*\})+[ \t]*(?:\([^\n]*\))?[ \t]*
 // activations for every player while such a spell is on the stack. This strip only stops the printed keyword
 // LINE from parking the spell body, exactly as dredge needed when it hit this same permanent/spell split.
 const SPLIT_SECOND_LINE = /^[ \t]*split second[ \t]*(?:\([^\n]*\))?[ \t]*$/gim;
+// DECLARE-ATTACKERS CAST WINDOW (the Fallen Empires / Alliances combat-trick cycle — Defiant Stand, Rally
+// the Troops, Scorching Winds, Assassin's Blade, Eightfold Maze, Just Fate, Treetop Defense, Warrior's
+// Stand): "Cast this spell only during the declare attackers step and only if you've been attacked this
+// step." A whole SENTENCE rather than a keyword, carrying no atom of its own, so it parked every body
+// behind it.
+//
+// ⭐ SAME BASIS AS SPLIT SECOND DIRECTLY ABOVE, and that basis is the whole argument: the restriction is
+// REALLY ENFORCED — legalChoices' cast-offer chokepoint refuses the card unless `hasBeenAttackedThisStep`
+// (declare-attackers step AND an attacker declared against this player). This strip only stops the printed
+// line from parking the body. Crediting an UNENFORCED cast restriction would hand the engine a combat trick
+// playable at any time, which is a strictly stronger card than the printed one.
+//
+// ⛔ BOTH HALVES ANCHORED TOGETHER. A card printing only the step half without the been-attacked condition
+// is a DIFFERENT restriction that the gate would under-enforce, so it must not match here (CREED).
+const CAST_ONLY_DECLARE_ATTACKERS_LINE =
+  /(?:^|[\n.;])[ \t]*cast this spell only during the declare attackers step and only if you(?:'|’)ve been attacked this step[ \t]*\.?[ \t]*$/gim;
 export function stripCastKeywordLines(text) {
-  return String(text || "").replace(CAST_KEYWORD_LINE, " ").replace(MADNESS_LINE, " ").replace(SPLIT_SECOND_LINE, " ");
+  return String(text || "")
+    .replace(CAST_KEYWORD_LINE, " ")
+    .replace(MADNESS_LINE, " ")
+    .replace(SPLIT_SECOND_LINE, " ")
+    .replace(CAST_ONLY_DECLARE_ATTACKERS_LINE, " ");
 }
 
 /**
