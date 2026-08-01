@@ -3,6 +3,57 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🚨 LIVE FALSE POSITIVE ON MASTER + THE SLICE THAT FIXES IT — 2026-08-01 — **AURA HOST-DIES NEVER FIRES**
+> *No code shipped for this yet. It is written up first because a verified FP outranks the +2 below, and
+> because the fix unlocks ~10 more cards. **Take this FIRST in a fresh window — it is death-path work and the
+> sequencing law says risky/novel goes early.***
+>
+> **Bequeathal and Dying Wail are credited `native-trigger` today and their trigger does NOTHING.**
+> Verified end-to-end through the engine's own death path, not a hand-built sequence:
+> ```
+> host (2/2) enchanted by Bequeathal · damageMarked 99 · destroyLethalCreatures → checkDiesTriggers → flush
+>   dead: host, look-back attachments: ["aura"]     ← the look-back is CORRECT
+>   battlefield after SBA: (empty)                  ← both left
+>   graveyard: Bear, A                              ← the Aura is already binned
+>   CARDS DRAWN: 0                                  ← "you draw two cards" never happened
+> ```
+> **WHY:** `detachPermanentFromAll` is the single battlefield-exit chokepoint and it moves an orphaned Aura
+> to the graveyard IMMEDIATELY (CR 704.5n). `checkDiesTriggers` runs after `destroyLethalCreatures →
+> moveCardToZone → detach` and scans `triggerSourcesOf`, which is **battlefield only** — so the Aura is gone
+> before its own trigger is looked for. CR 603.10a says it should still trigger; the look-back data is
+> already there and simply is not consulted for the orphaned Aura.
+>
+> ⚠️ **AND THE TEST THAT SHOULD HAVE CAUGHT IT IS A HOLLOW GATE.** `auraHostDiesTrigger.test.js` passes
+> because its fixture removes ONLY the host from the battlefield and **leaves the Aura on it** — a board the
+> engine never produces. Same fixture with the Aura also gone: 0 cards. The file's own header claims "the
+> equippedCreature attached-linkage scope already resolves the death case correctly"; it resolves the SCOPE
+> MATCH, never the card. ⭐ **A fixture that constructs a board the engine cannot reach proves the matcher,
+> not the mechanism** — and it contradicted, in writing, the park comment inside
+> `isNativeOwnTriggeredAura` that says this never enqueues. **The park comment was right.**
+>
+> 🔬 **THE FIX, SCOPED — it is two halves and BOTH are required; landing either alone is worse than neither:**
+> 1. **Make it fire.** In `checkDiesTriggers`, for each dead creature also consult the auras named in its
+>    look-back `attachments` that are no longer on the battlefield, and evaluate their printed triggers under
+>    the existing `equippedCreature` scope. The look-back already carries the ids; nothing new is captured.
+> 2. **Stop the bonus being dropped.** `parseAttachedBonus` drops an Aura's ENTIRE static bonus when the card
+>    carries its own non-ETB trigger — measured: Elephant Guide's host reads **2/2**, a pure-bonus control in
+>    the same harness reads **5/5**. Fix via the SAME validator seam `_auraOwnEtbValidator` and
+>    `_auraGrantedAbilityValidator` already use: add `registerAuraOwnTriggerValidator`, vouched from
+>    coverage.js by handing the clause to the gate that already claims that shape (no new parsing).
+>    *(Prototyped this run, then REVERTED — see the warning below.)*
+>
+> ⛔ **DO NOT LAND HALF 2 ALONE. I built it, and reverting it was the right call.** `isNativeOwnTriggeredAura`
+> ends with `if (parseAuraBonus(card).length === 0) return false;` — a deliberate guard whose ONLY job is to
+> park these cards while the runtime does nothing. Fixing the bonus drop flips that guard from true to false
+> and **silently re-opens the exact FP a previous seat closed**, crediting ~10 cards (Elephant Guide, Griffin
+> Guide, Most Wanted, A-Most Wanted, Failed Conversion, Sleeper's Robe, Elder Mastery, Glistening Oil, Biting
+> Tether, Mark of the Oni) whose triggers still never fire. That guard is load-bearing; it must come out in
+> the SAME commit that makes the trigger fire, never before.
+>
+> 📈 **PAYOFF WHEN BOTH LAND:** the 2 currently-fake cards become real, plus ~10 composition cards flip
+> honestly — and `isNativeOwnTriggeredAura` ALREADY contains the composition branch, written from this same
+> census signature and correctly parked on the runtime. The tier work is done; only the runtime is missing.
+
 > ## ✅ SLICE DONE — 2026-08-01 — **MASS RETURN TO HAND, +2** (the destination mirror) · **shelf: 0**
 > Suite **1053 / 13,336 green**, lint 0. Flip-diff **+2 / 0 LOST** (Wisdom of Ages, Crystal Chimes). Two
 > mutations, two kills. Batch **44**. ⚠️ **Zero shelf impact — neither card is in any deck.** Corpus only.
