@@ -3,6 +3,58 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 📊 FRESH SHELF CENSUS — 2026-08-01 (measured, not carried forward) + the NEXT SLICE, pre-sized
+>
+> **Method, stated so the number can be audited:** `measure-coverage.mjs` reads decks via `MTG_APP_ROOT`,
+> which must point at the main tree for the oracle index — so it cannot see the AppData decks at the same
+> time and reports "No saved decks match". Census taken instead by classifying each deck's card list from
+> `AppData/.../profiles/prof_bdb11b3e/decks.local.json` through the SAME `classifyCard`, positive control
+> (Llanowar Elves native) riding the same path. Counts are per deck ENTRY, 0 oracle-misses on all 16.
+>
+> ```
+>   Slivers                 90/90  100.0%      Did you say Dragons?   80/100  80.0%
+>   Vihaan, Goldwaker       87/91   95.6%      Jurassic Ramp          70/89   78.7%
+>   Zaxara kinda X'ish      78/86   90.7%      Believe it!            76/98   77.6%
+>   cdh                    90/100   90.0%      Kinnan Mana Overload   89/121  73.6%
+> ⚠ Omnath, Locus of Mana   59/66   89.4%      Hulk Smash             77/105  73.3%
+> ⚠ Mothman Cometh          82/92   89.1%      Captain America        73/100  73.0%
+> ⚠ Earth Bent              72/81   88.9%      Wolverine, claws out!  62/85   72.9%
+>                                              Kellan of the west     68/94   72.3%
+>                                              Halfshell heroes       61/93   65.6%
+> ```
+> **4 of 16 at/above the bar · 12 below · 255 distinct parked cards across the shelf.**
+>
+> ⚠️ **TWO CORRECTIONS TO THE STALE SHELF LINE BELOW.** It says `cdh` is the only Colton deck under the bar
+> at 87/100 — by this measurement **`cdh` has CROSSED (90/100)** and **`Omnath, Locus of Mana` is now the one
+> below at 89.4%**. Treat both as this-method numbers until the official script can see AppData decks;
+> the *ranking* is what matters and it is unambiguous.
+>
+> ⭐ **THREE DECKS ARE EXACTLY ONE CARD FROM THE BAR** — Omnath (Colton's own), Mothman Cometh, Earth Bent.
+> That is the cheapest shelf movement available anywhere on the board.
+>
+> ❌ **A VEIN I MEASURED AND REJECTED, so nobody re-sizes it:** the STATIC "as long as you control your
+> commander" (the Lieutenant cycle's non-trigger half). The commander-control predicate ALREADY exists —
+> `interveningIf.js` `YOU_CONTROL_YOUR_COMMANDER_RE`, built for the trigger form — and "lieutenant" is
+> already a stripped ability word, so it looked like machinery-present/vocabulary-absent. **7 carriers,
+> 7 parked, and a hand phrase-swap flips ZERO**: every one has independent other blockers (Thunderfoot
+> Baloth's other half is a compound self-pump + others-anthem + keyword-grant in one sentence). Confirms the
+> era note below — the unit of work is a card's whole stack, not a vein.
+>
+> 🔬 **NEXT SLICE, PRE-SIZED AND UNBLOCKED: mass graveyard→battlefield return — 11 flips.**
+> `"return all <type> cards from your graveyard to the battlefield[ tapped]"`. **25 carriers, ALL 25 parked
+> — the atom does not exist at all** (grep-verified: no mass-reanimate resolver anywhere). Hand phrase-swap
+> (the phrase → `draw a card`, everything else untouched) flips **11**: Splendid Reclamation · Replenish ·
+> Resurgent Belief · Aftermath Analyst · World Shaper · Will of the Sultai · Brilliant Restoration ·
+> Redress Fate · Primevals' Glorious Rebirth · Knights' Charge · **Lumra, Bellow of the Woods**.
+> ⭐ **Lumra is in Earth Bent, which is ONE card from the bar — this slice crosses a deck.**
+> **Traps named up front:** the filter vocabulary is not uniform (land 8 · enchantment 4 · creature 4 ·
+> artifact 1 · plus `artifact and enchantment`, `legendary permanent`, `Knight creature`, `Human creature`,
+> `Zombie creature`, `Nightstalker permanent`, `Mount and Vehicle` — the narrow ones are in the 14 that stay
+> parked for OTHER reasons, so the slice only needs the simple type words) · Replenish's own reminder says
+> **"Auras with nothing to enchant remain in your graveyard"** (CR 303.4 — an Aura returned with no legal
+> object does NOT enter; model it or the enchantment arm fabricates permanents) · `tapped` is on some forms
+> and not others · these are MASS, non-targeted returns, so check the non-chosen-targetType partition rules.
+
 > ## ✅ SLICE DONE — 2026-08-01 — **PARTNER WITH, +16** (the largest item that was pre-sized and declined)
 > Tree clean, MUTANT clean, suite **1052 files / 13,314 green** (was 1051 / 13,291), lint 0. Flip-diff
 > **+16 GAINED / 0 LOST** against a content-verified revert. Five pre-specified mutations, **five kills, no
