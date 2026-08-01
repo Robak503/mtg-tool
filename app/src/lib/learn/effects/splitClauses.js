@@ -186,6 +186,29 @@ export function splitClauses(oracle) {
     );
   for (let sentence of normalized.split(/(?:\.\s+|;\s*)/)) {
     sentence = sentence.replace(/\.\s*$/, "").trim();
+    // ⭐ TWO-SENTENCE FOLD (2026-08-01) — re-join a sentence pair whose MATCHER spans both sentences.
+    //
+    // THE BUG THIS FIXES, stated exactly because it is counter-intuitive: matchOptionalDiscardPayment and
+    // the impulse-exile template are anchored `^…\. …$` ACROSS a sentence boundary. So the pair parsed fine
+    // when it WAS the whole card — the matcher saw the undivided string — and shattered the moment any other
+    // line preceded it, because then the splitter ran first and handed each half over separately. Neither
+    // half parses alone ("If you do, draw a card" / "Until the end of your next turn, you may play that
+    // card"), so the WHOLE program went low and the card parked. Seven corpus spells, every LINE of which
+    // parses high on its own — a pure composition failure, not a missing mechanic.
+    //
+    // ⛔ FOLDS ONLY ONTO A MATCHING LEAD, never on the continuation alone. A bare "If you do, …" with no
+    // "You may …" before it is still an orphan and must still drop the card (it means the card printed a
+    // conditional whose antecedent this splitter did not model). Both halves are anchored, so this can only
+    // reassemble the exact strings the existing matchers already claim — it cannot admit a new shape.
+    const prev = clauses.length ? clauses[clauses.length - 1] : null;
+    if (prev && (
+      (/^if you do,/i.test(sentence) && /^you may (?:discard a card|pay \{|sacrifice (?:a|an) )/i.test(prev))
+      || (/^(?:until the end of your next turn, you may play|you may play (?:that card|it|them|those cards) until the end of your next turn)/i.test(sentence)
+          && /^exile the top (?:card|two cards|three cards|four cards|five cards) of your library$/i.test(prev))
+    )) {
+      clauses[clauses.length - 1] = `${prev}. ${sentence}`;
+      continue;
+    }
     // SEQUENCING "Then" (S6/Plan-the-Heist): a sentence-leading "Then " is pure ordering
     // (CR 608.2c — instructions resolve in written sequence), which the program's atom order
     // already encodes — strip it so "Then draw three cards" parses as "Draw three cards".

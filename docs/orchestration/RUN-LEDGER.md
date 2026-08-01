@@ -3,6 +3,36 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ✅ SLICE DONE — 2026-08-01 — **TWO-SENTENCE FOLD, +1** (targeted 7) · shelf 0 · **the miss is the value**
+> Suite **1056 / 13,361 green**, lint 0. Flip-diff **+1 GAINED / 0 LOST** (Kuldotha Flamefiend). Two
+> mutations, two kills. Batch **64**.
+>
+> `matchOptionalDiscardPayment`, its sacrifice/pay siblings, and the impulse-exile template are all anchored
+> `^…\. …$` **across a sentence boundary**. So the pair parsed when it WAS the whole text — the matcher saw
+> the undivided string — and shattered the moment anything preceded it, because splitClauses ran first and
+> handed each half over separately. Neither half parses alone. splitClauses now folds the continuation back
+> onto a MATCHING lead; both halves are anchored, so it can only reassemble strings the existing matchers
+> already claim.
+>
+> ⚠️ **SIZED 7, DELIVERED 1 — and the reason is worth more than the card.** The fold does what it was built
+> to do: all seven two-sentence spells now have clauses that parse. Six still park because their PROGRAM is
+> refused **further downstream** — an optional/pausing atom composed with another atom is deliberately
+> rejected (the α2 optional-scope invariant). **That is an intentional CREED guard and was NOT loosened**;
+> touching it late in a long run, to buy six cards, is exactly the trade the sequencing law forbids. The one
+> card that flipped reaches the fold through the TRIGGER path, where the pair is the whole effectClause.
+>
+> 🔬 **NAMED FOR A FRESH WINDOW:** decide whether the optional-scope invariant can be narrowed to "an optional
+> atom followed by a MANDATORY one" (its stated rationale) rather than refusing any composition involving a
+> pausing atom. If it can, six spells follow: Witch's Mark · Inspired Tinkering · Incinerating Blast ·
+> Blazing Crescendo · Mjölnir's Might · Orcish Cannonade. **Runtime first** — a paused atom resuming
+> mid-program is precisely where a half-resolved spell would hide.
+>
+> ⚠️ ALSO FOUND, NOT FIXED: Verdant Rebirth's quoted-grant clause **SWALLOWS the following sentence**
+> ("…owner's hand.\" Draw a card" arrives as ONE clause). A distinct splitter bug from the fold above; one
+> card; left alone rather than stacked onto a splitter change in the same slice.
+>
+> 📉 **SHELF: 0.** Kuldotha Flamefiend is not in a saved deck.
+>
 > ## ✅ SLICE DONE — 2026-08-01 — **KEYWORD-TRIGGER COUNT RECONCILIATION, +11 / −3 FP** · net **+8** · shelf 0
 > Suite **1055 / 13,353 green**, lint 0. Flip-diff **+11 GAINED / 3 LOST**. Three mutations, three kills.
 > Batch **63**.
@@ -511,7 +541,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 63 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**)
+> - **BATCH IN FLIGHT: 64 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher
