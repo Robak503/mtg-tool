@@ -3,6 +3,29 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🧪 STANDING ORDER — **QA PASS EVERY 1–2 HOURS: DO THE CARDS ACTUALLY PLAY?** (Colton, 2026-08-01)
+> *"do a QA pass and bug test for the work your doing to make sure the cards you make actually play."*
+>
+> **The gap this closes, stated exactly, because a slice test can look complete and still miss it:** a
+> per-slice runtime test calls `runEffectProgram` DIRECTLY. That proves the effect resolves once handed a
+> program. It does NOT prove the card can be **cast** — that `legalActionsForPlayer` offers it, that
+> `dispatchAction` accepts it, that the stack resolves it. The MASS-NC slice shipped cards that classified
+> native and were **uncastable** (the cast flow treated a mass effect as targeted, found no target, dropped
+> the action) and every classification test stayed green.
+>
+> **The pass:** for a representative card of each slice in the batch, go the whole way —
+> `legalActionsForPlayer → dispatchAction → resolveTopOfStack` — then assert the BOARD changed. For a
+> trigger card, drive it past the pending choice to the card actually moving; "reaches a decision" is not
+> "plays". Live file: `app/src/lib/learn/qaShippedSlices.test.js`.
+>
+> ✅ **First pass done 2026-08-01 — all four slices in the current batch verified castable and effective:**
+> Splendid Reclamation (lands return TAPPED) · Brilliant Restoration (both union types, creature stays) ·
+> Wisdom of Ages (to hand, never the battlefield) · Lore Weaver (cast → ETB → may → search → Ley Weaver in
+> hand, only the named card ever offered). Mutation-checked: stubbing the resolver to a no-op leaves the
+> cards CASTABLE and inert, and the QA file catches it — which is the whole failure class it exists for.
+> ⚠️ Note the two initial failures were the TEST's fault, not the engine's: CR 608.2m puts the spell itself
+> into the graveyard as the last step of its own resolution, so graveyard assertions must exclude it.
+
 > ## 🚨 LIVE FALSE POSITIVE ON MASTER + THE SLICE THAT FIXES IT — 2026-08-01 — **AURA HOST-DIES NEVER FIRES**
 > *No code shipped for this yet. It is written up first because a verified FP outranks the +2 below, and
 > because the fix unlocks ~10 more cards. **Take this FIRST in a fresh window — it is death-path work and the
