@@ -3,6 +3,44 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SCOPED, NOT BUILT — 2026-08-01 — **`sacrificeDropsTrigger`'s LTB clause is STALE for NON-CREATURES**
+> *Runtime-proven, fully scoped, deliberately left for a fresh window. No code changed.*
+>
+> **The finding.** `sacrificeDropsTrigger` (effects/abilities.js) marks a self-sacrifice activated ability
+> UNMODELED whenever the card prints a "leaves the battlefield" trigger, on the stated grounds that the
+> cost-sacrifice fires only the *dies* path so the LTB trigger would be silently dropped. That is a real CREED
+> guard and it was right when written. **It is now stale for NON-CREATURE permanents.**
+>
+> `actionDispatcher.sacrificePermanentForCost` has a non-creature branch that calls `moveCardToZone` and then
+> `checkLeavesTriggers` explicitly (the LEAVE-DRAIN comment, CR 603.3b). **Proven on a board, not by reading:**
+> an artifact printing "When this artifact enters or leaves the battlefield, create a Robot token", moved to
+> the graveyard and drained exactly the way that branch does it — **the token IS created**. Robots 0 -> 1.
+>
+> **Bisected to the exact interaction** (each cell measured, not reasoned):
+> ```
+> activated ability          alone    + plain ETB trigger   + "enters OR leaves" trigger
+> {4}{R}, Sac this: draw     modeled  modeled               NOT modeled
+> {4}{R}, Sac this: damage   modeled  modeled               NOT modeled
+> {4}{R}: damage (no sac)    modeled  modeled               modeled
+> ```
+> So it is the SELF-SACRIFICE COST x LTB TRIGGER pair, nothing else. Not the "It" referent — the named-self
+> and "This artifact" wordings fail identically.
+>
+> **The narrowing to make, and its danger.** The guard's own neighbouring clause was already narrowed once
+> for the "is put into a graveyard from the battlefield" SELF wording, with the same runtime justification
+> ("Probed end to end on Implement of Examination before narrowing this"). The blanket
+> `leaves the battlefield` clause wants the same treatment for the SELF, NON-CREATURE case only.
+> ⛔ **CREATURES MUST STAY FLAGGED**: the creature branch goes through `checkDiesTriggers`, and a creature
+> whose trigger keys on "leaves the battlefield" rather than "dies" is exactly the silent drop the guard
+> exists to prevent. Narrow on permanent TYPE and on SELF-subject; anything wider re-opens the hole.
+>
+> **Payoff:** Mouser Foundry, Experimental Synthesizer, Vat of Rebirth and neighbours — the artifact half of
+> the activated+trigger census cluster.
+>
+> **Why it was not built now:** it is a CREED guard, and this turn had already lost the run ledger to a
+> careless write. Narrowing a false-positive guard is precisely the work that should not follow an incident
+> in the same window. The sequencing law says risky work goes early; this is late.
+>
 > ## INCIDENT — 2026-08-01 — **I DELETED THIS FILE ON MASTER AND PUSHED IT.** Restored; read the cause.
 > Commit `83c267ad` removed **all 11,847 lines** of RUN-LEDGER.md. Restored byte-identical from `77c3de03`
 > and verified with `git diff --stat` against the pre-loss blob before re-applying the entry.
