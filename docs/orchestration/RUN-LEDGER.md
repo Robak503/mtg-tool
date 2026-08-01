@@ -3,6 +3,50 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🚨 LIVE FP CLASS — 2026-08-01 — **A SELF-SACRIFICE DAMAGE ABILITY DEALS NOTHING. 47 cards.**
+> *Runtime-proven with a working control. No code changed — the fix is scoped below and belongs early in a
+> fresh window.*
+>
+> **The defect.** An activated ability whose COST sacrifices its own source, and whose effect deals damage
+> ("{1}, {T}, Sacrifice this artifact: It deals 2 damage to any target"), **resolves for ZERO damage**. The
+> ability is offered, the cost is paid, the permanent is sacrificed, the stack resolves — and the target is
+> untouched. **47 corpus cards are credited native on this shape today**, among them Aeolipile, Barbarian
+> Lunatic, Festering Evil, Blockbuster, Divebomber Griffin, Vial of Dragonfire, Fireforger's Puzzleknot.
+>
+> CR 608.2 resolves such an ability off the source's LAST KNOWN INFORMATION — the damage still happens. So
+> this is an engine bug, not a rules subtlety.
+>
+> **Bisected on REAL corpus rows, with a control that passes:**
+> ```
+> Prodigal Pyromancer  {T}: This creature deals 1 damage        CONTROL   dmg = 1  works
+> Monoskelion          {1}, Remove a counter: It deals 1 damage  no sac    dmg = 1  works
+> Spitting Hydra       {1}{R}, Remove a counter: It deals 1      no sac    dmg = 1  works
+> Aeolipile            {1}, {T}, SACRIFICE: It deals 2 damage    self-sac  dmg = 0  BROKEN
+> Barbarian Lunatic    {2}{R}, SACRIFICE: It deals 2 damage      self-sac  dmg = 0  BROKEN
+> ```
+> **It is the SELF-SACRIFICE COST, not the "It" referent** — the referent works fine whenever the source
+> survives the cost. Almost certainly the resolver loses its source permanent and no LKI stands in for it.
+>
+> ⚠️⚠️ **AND THE ROAD TO THIS FINDING IS ITSELF THE LESSON — SYNTHETIC FIXTURES LIED TWICE.**
+> 1. My first probe took `legalActionsForPlayer(...)[0]`. An "any target" ability enumerates one action PER
+>    target, so index 0 aimed at a PLAYER and the creature read 0 damage. **Select the action whose `targets`
+>    contain the intended id — never index 0.**
+> 2. With that fixed, hand-built synthetic cards STILL read 0 for shapes real cards handle — including the
+>    exact wording Prodigal Pyromancer plays correctly. Minimal `{name,type,oracle}` objects do not ride the
+>    same path as enriched index rows. **Every claim above uses REAL corpus rows only.**
+>    Without the control (a card known to work, in the same harness) I would have reported a 54-card false
+>    positive that does not exist.
+>
+> 🔬 **THE FIX:** make the damage resolver fall back to the sacrificed source's last-known information
+> (CR 608.2 / 603.6e), the way the dies-trigger look-back already carries `power`/`counters`. **Runtime
+> first**, then re-check the tier — and only THEN revisit the guard below, whose narrowing is blocked by
+> exactly this.
+>
+> ❌ **AND THIS BLOCKED THE SLICE ABOVE.** Narrowing `sacrificeDropsTrigger` was built, flip-diffed clean
+> (+2 / 0 lost: Mouser Foundry, Experimental Synthesizer) and then **REVERTED** — because Mouser Foundry's
+> whole activated ability is this exact broken shape, so crediting it would have ADDED a 48th inert card.
+> The narrowing itself is correct and stays scoped below; it is gated on this bug, not on doubt about it.
+>
 > ## SCOPED, NOT BUILT — 2026-08-01 — **`sacrificeDropsTrigger`'s LTB clause is STALE for NON-CREATURES**
 > *Runtime-proven, fully scoped, deliberately left for a fresh window. No code changed.*
 >
