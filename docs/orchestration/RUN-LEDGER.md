@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🧪 QA PASS #2 — 2026-08-01 — **the arithmetic credit holds up on a board** · +0 cards
+> Suite **1056 / 13,362 green**, lint 0. No engine change.
+>
+> **Why this card and not another:** the kw-reconciliation slice credited 11 cards by fixing an ARITHMETIC
+> error (the shaped-vs-detected trigger count). That proves the two counts AGREE — it cannot tell you a
+> keyword trigger and a printed trigger both actually fire. And that same slice's sibling finding was three
+> cards credited by two counting errors CANCELLING. So a counting fix is precisely the kind of credit that
+> owes a board check.
+>
+> **Parish-Blade Trainee driven end-to-end, both abilities in sequence:** attacks beside a bigger creature →
+> Training really places the +1/+1 counter; then killed through `destroyLethalCreatures` → the printed dies
+> trigger really MOVES that counter onto Serra Angel (it does not evaporate with the body). Pinned in
+> `qaShippedSlices.test.js`. All 11 credited cards were also confirmed to route BOTH descriptors to HIGH
+> programs — the cheap check — before the expensive one was spent on the representative card.
+>
+> ✅ Verdict: the +11 is honest.
+>
 > ## ✅ SLICE DONE — 2026-08-01 — **TWO-SENTENCE FOLD, +1** (targeted 7) · shelf 0 · **the miss is the value**
 > Suite **1056 / 13,361 green**, lint 0. Flip-diff **+1 GAINED / 0 LOST** (Kuldotha Flamefiend). Two
 > mutations, two kills. Batch **64**.

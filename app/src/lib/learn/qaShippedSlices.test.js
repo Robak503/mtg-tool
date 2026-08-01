@@ -16,7 +16,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { dispatchAction } from "./actionDispatcher.js";
 import { flushTriggers, chooseTriggerTargets, resolveTopOfStack } from "./gameEngine.js";
-import { checkDiesTriggers } from "./triggers.js";
+import { checkAttackTriggers, checkDiesTriggers } from "./triggers.js";
 import { permanentPower, permanentToughness } from "./layers.js";
 import { _resetIdsForTests, createGameState, createPermanent, attachPermanent, destroyLethalCreatures } from "./gameState.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
@@ -98,6 +98,44 @@ describe("QA — Wisdom of Ages is castable and actually fills the hand", () => 
     expect(after.players.user.hand.map((c) => c.name).sort()).toEqual(["Ancestral Recall", "Demonic Tutor"]);
     expect(gyNamesExcept(after, "Wisdom of Ages")).toEqual(["Grizzly Bears"]);
     expect(after.players.user.battlefield.length).toBe(0); // hand, never the battlefield
+  });
+});
+
+// ─────────────────────── KEYWORD-TRIGGER RECONCILIATION (+11) ───────────────────────
+
+describe("QA — Parish-Blade Trainee: BOTH of its triggers fire, in sequence, on one board", () => {
+  it("Training puts the counter on when it attacks beside a bigger creature, and the dies trigger MOVES it", () => {
+    // ⭐ THIS IS THE ONE THAT MOST NEEDED CHECKING. Those 11 cards were credited by fixing an ARITHMETIC
+    // error — the shaped-vs-detected trigger count — which proves the two counts agree and nothing else.
+    // A counting fix cannot tell you a keyword trigger and a printed trigger both actually fire on a board,
+    // and this slice's own sibling finding was three cards credited by two counting errors CANCELLING.
+    // So: drive both abilities, in order, and assert the counter exists and then moves.
+    const TRAINEE = "Training (Whenever this creature attacks with another creature with greater power, put a +1/+1 counter on this creature.)\nWhen this creature dies, put its counters on target creature you control.";
+    const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const mk = (id, name, type, power, toughness, oracle) => createPermanent({ id, card: { id: `c-${id}`, name, type, power, toughness, oracle }, controller: "user", summoningSick: false });
+    const trainee = mk("tr", "Parish-Blade Trainee", "Creature — Human Soldier", 1, 2, TRAINEE);
+    const bigger = mk("big", "Serra Angel", "Creature — Angel", 4, 4, "");
+    const bystander = mk("keep", "Grizzly Bears", "Creature — Bear", 2, 2, "");
+    let s = {
+      ...s0, phase: "combat", step: "declare-attackers", activePlayer: "user", priorityHolder: "user", turn: 5,
+      players: { ...s0.players, user: { ...s0.players.user, battlefield: [trainee, bigger, bystander] } },
+      combat: { attackers: [{ permanentId: "tr", attackingPlayer: "user", defender: "ai" }, { permanentId: "big", attackingPlayer: "user", defender: "ai" }] },
+    };
+
+    // TRIGGER 1 — the KEYWORD half (Training, whose ability lives entirely in reminder parens).
+    s = flushTriggers(checkAttackTriggers(s), { chooseTargets: chooseTriggerTargets });
+    let g = 0;
+    while ((s.stack || []).length && g++ < 20) s = resolveTopOfStack(s);
+    expect(s.players.user.battlefield.find((p) => p.id === "tr").counters).toEqual({ "+1/+1": 1 });
+
+    // TRIGGER 2 — the PRINTED half, through the engine's real death path.
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: s.players.user.battlefield.map((p) => (p.id === "tr" ? { ...p, damageMarked: 99 } : p)) } } };
+    const r = destroyLethalCreatures(s);
+    let out = flushTriggers(checkDiesTriggers(r.state, r.dead), { chooseTargets: chooseTriggerTargets });
+    g = 0;
+    while ((out.stack || []).length && g++ < 20) out = resolveTopOfStack(out);
+    const counterHolders = out.players.user.battlefield.filter((p) => (p.counters?.["+1/+1"] || 0) > 0).map((p) => p.card.name);
+    expect(counterHolders).toEqual(["Serra Angel"]); // the counter MOVED — it did not evaporate with the body
   });
 });
 
