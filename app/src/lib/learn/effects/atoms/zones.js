@@ -468,7 +468,22 @@ export function graveyardReturnClauseParser(clause) {
   const rallM = /^return all (.*?)cards? from your graveyard to the battlefield( tapped)?$/.exec(t);
   if (rallM) {
     const word = rallM[1].trim();
-    const typeFilter = parseGraveyardFilter(word);
+    // " AND "-UNION, normalized LOCALLY (Brilliant Restoration / Redress Fate: "all artifact and enchantment
+    // cards"). In this slot the printed "and" is a UNION over the card set — every artifact card AND every
+    // enchantment card — not an intersection, because a MASS return names the groups it sweeps rather than
+    // narrowing one object. parseGraveyardFilter only splits on " or ", so the phrase returned null and both
+    // cards parked despite being sized as flips.
+    //
+    // ⛔ NORMALIZED HERE AND NOT IN parseGraveyardFilter, deliberately. That helper is shared with the
+    // TARGETED reanimate and return-to-hand arms, where "target artifact and enchantment card" would mean a
+    // SINGLE object that is both — an intersection, the opposite reading. Widening the shared helper would
+    // silently change those arms' semantics; the union reading is only sound for this mass slot.
+    //
+    // SAFE BY CONSTRUCTION: every member still has to be a basic permanent type to survive
+    // parseGraveyardFilter + isPermanentReanimateFilter below, so a subtype pair ("Mount and Vehicle") is
+    // rejected exactly as before — this can only admit unions of already-legal type words.
+    const unionWord = word.replace(/\s+and\s+/g, " or ");
+    const typeFilter = parseGraveyardFilter(unionWord);
     if (typeFilter && typeFilter !== "any" && isPermanentReanimateFilter(typeFilter)) {
       return { op: "mass-reanimate", cardFilter: typeFilter, entersTapped: !!rallM[2], targetType: null };
     }

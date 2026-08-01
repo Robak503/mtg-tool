@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ✅ SLICE DONE — 2026-08-01 — **gy-return " AND "-UNION, +2** (the follow-up named one slice earlier)
+> Suite **1053 files / 13,332 green**, lint 0. Flip-diff **+2 GAINED / 0 LOST** (Brilliant Restoration,
+> Redress Fate). Two mutations, two kills. Batch **42**.
+>
+> `"return all artifact and enchantment cards…"` — the printed "and" is a UNION over the card SET in a mass
+> slot (every artifact card and every enchantment card), so `" and "` is normalized to `" or "` **locally in
+> the mass arm**. ⛔ NOT in `parseGraveyardFilter`: that helper is shared with the TARGETED reanimate and
+> return-to-hand arms, where "target artifact and enchantment card" means a SINGLE object that is BOTH — the
+> opposite reading. Widening the shared helper would silently invert those arms' semantics. Every member still
+> has to clear `isPermanentReanimateFilter`, so a subtype pair ("Mount and Vehicle") is refused exactly as before.
+>
+> ⚠️ **THE SPLITTER BIT FOR THE THIRD TIME THIS RUN, and the pattern is now worth stating as a rule.**
+> `splitClauses` severs on top-level `" and "`, so "Return all artifact **and** enchantment cards…" became
+> "return all artifact" + an orphan. **A FILTER PHRASE THAT CONTAINS A SEPARATOR WORD IS THE RECURRING TRAP** —
+> partner-with lost its trailing shuffle to the same splitter, and the file's own comment records an earlier
+> instance. **Before building any arm whose match text contains " and ", ", then", or a sentence break, run
+> `splitClauses` on the literal string FIRST.** It is one command and it would have saved three round-trips.
+>
 > ## ✅ SLICE DONE — 2026-08-01 — **MASS GRAVEYARD REANIMATE, +7** — ⭐ **A DECK CROSSED THE BAR**
 > Tree clean, MUTANT clean, suite **1053 files / 13,329 green** (was 1052 / 13,314), lint 0. Flip-diff
 > **+7 GAINED / 0 LOST** against a content-verified revert. Five pre-specified mutations, **five kills, no
@@ -277,7 +295,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 40 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**)
+> - **BATCH IN FLIGHT: 42 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher

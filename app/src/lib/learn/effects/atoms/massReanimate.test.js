@@ -61,9 +61,33 @@ describe("the filter gate — what this arm accepts and what it refuses", () => 
   it("refuses a subtype / compound filter (a safe FN — these park)", () => {
     expect(atomFor("Return all Knight creature cards from your graveyard to the battlefield.")).toBeUndefined();
     expect(atomFor("Return all legendary permanent cards from your graveyard to the battlefield.")).toBeUndefined();
-    // "artifact and enchantment" is a UNION in print, but parseGraveyardFilter only splits on " or ",
-    // so it parks. Named here because it is the known +2 follow-up, not an oversight.
-    expect(atomFor("Return all artifact and enchantment cards from your graveyard to the battlefield.")).toBeUndefined();
+  });
+
+  // ✅ INVERTED 2026-08-01 (same day it was written). This block's third case asserted that
+  // "artifact and enchantment" PARKED, with a comment naming it as the known +2 follow-up. The follow-up
+  // landed: the " and "-union is normalized locally in this arm.
+  it("accepts an ' and '-UNION of permanent types (Brilliant Restoration / Redress Fate)", () => {
+    // The printed "and" is a union over the CARD SET here — every artifact card and every enchantment card.
+    expect(atomFor("Return all artifact and enchantment cards from your graveyard to the battlefield.")).toMatchObject({
+      op: "mass-reanimate", cardFilter: "artifact|enchantment",
+    });
+  });
+
+  it("⛔ the union normalization cannot smuggle a non-type past the gate", () => {
+    // The whole safety argument for normalizing " and " → " or " locally: every member still has to survive
+    // parseGraveyardFilter + isPermanentReanimateFilter, so a SUBTYPE pair is rejected exactly as before.
+    expect(atomFor("Return all Mount and Vehicle cards from your graveyard to the battlefield.")).toBeUndefined();
+    expect(atomFor("Return all instant and sorcery cards from your graveyard to the battlefield.")).toBeUndefined();
+  });
+
+  it("both union members actually come back at runtime, and nothing else does", () => {
+    const s = cast(stateWithGraveyard([
+      gy("g1", "Sol Ring", "Artifact"),
+      gy("g2", "Ghostly Prison", "Enchantment"),
+      gy("g3", "Grizzly Bears", "Creature — Bear"),
+    ]), "Return all artifact and enchantment cards from your graveyard to the battlefield.");
+    expect(bfNames(s)).toEqual(["Ghostly Prison", "Sol Ring"]);
+    expect(gyNames(s)).toEqual(["Grizzly Bears"]);
   });
 });
 
