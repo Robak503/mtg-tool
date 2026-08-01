@@ -16,7 +16,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { dispatchAction } from "./actionDispatcher.js";
 import { flushTriggers, chooseTriggerTargets, resolveTopOfStack } from "./gameEngine.js";
-import { _resetIdsForTests, createGameState } from "./gameState.js";
+import { checkDiesTriggers } from "./triggers.js";
+import { permanentPower, permanentToughness } from "./layers.js";
+import { _resetIdsForTests, createGameState, createPermanent, attachPermanent, destroyLethalCreatures } from "./gameState.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { resolveOptionalChoice, resolveTutorChoice } from "./effects/runProgram.js";
 
@@ -96,6 +98,40 @@ describe("QA — Wisdom of Ages is castable and actually fills the hand", () => 
     expect(after.players.user.hand.map((c) => c.name).sort()).toEqual(["Ancestral Recall", "Demonic Tutor"]);
     expect(gyNamesExcept(after, "Wisdom of Ages")).toEqual(["Grizzly Bears"]);
     expect(after.players.user.battlefield.length).toBe(0); // hand, never the battlefield
+  });
+});
+
+// ─────────────────────── AURA BONUS + OWN TRIGGER (+11) ───────────────────────
+
+describe("QA — Elephant Guide does BOTH its jobs, on a real board", () => {
+  it("the +3/+3 applies while the host lives, AND the token is created when it dies", () => {
+    // The whole point of this composition: each half was modeled and the CARD did neither. The bonus was
+    // dropped by parseAttachedBonus the moment the trigger line existed, and the trigger never fired because
+    // the orphaned Aura is binned before checkDiesTriggers looks for it. Both halves are asserted here in one
+    // sequence, because crediting the card requires both.
+    _resetIdsForTests();
+    const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const host = createPermanent({ id: "host", card: { id: "ch", name: "Grizzly Bears", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }, controller: "user", summoningSick: false });
+    const aura = createPermanent({ id: "aura", card: { id: "ca", name: "Elephant Guide", type: "Enchantment — Aura", mana: "{2}{G}",
+      oracle: "Enchant creature\nEnchanted creature gets +3/+3.\nWhen enchanted creature dies, create a 3/3 green Elephant creature token." }, controller: "user" });
+    let s = { ...s0, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", turn: 5,
+      players: { ...s0.players, user: { ...s0.players.user, battlefield: [host, aura], hand: [], library: [] } } };
+    s = attachPermanent(s, { equipId: "aura", targetId: "host" });
+
+    // HALF 1 — the bonus is really on the host (2/2 + 3/3 = 5/5), read through the layer engine.
+    expect(permanentPower(s, "host")).toBe(5);
+    expect(permanentToughness(s, "host")).toBe(5);
+
+    // HALF 2 — kill it through the engine's own SBA sweep and the Elephant shows up.
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: s.players.user.battlefield.map((p) => (p.id === "host" ? { ...p, damageMarked: 99 } : p)) } } };
+    const r = destroyLethalCreatures(s);
+    let out = checkDiesTriggers(r.state, r.dead);
+    out = flushTriggers(out, { chooseTargets: chooseTriggerTargets });
+    let g = 0;
+    while ((out.stack || []).length && g++ < 20) out = resolveTopOfStack(out);
+    const tokens = (out.players.user.battlefield || []).filter((p) => /Elephant/.test(p.card?.name || ""));
+    expect(tokens).toHaveLength(1);
+    expect(permanentPower(out, tokens[0].id)).toBe(3);
   });
 });
 

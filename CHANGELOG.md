@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Auras with a bonus AND a trigger work.** Elephant Guide, Griffin Guide, Most Wanted, Failed Conversion, Sleeper's Robe, Elder Mastery and five more now do BOTH halves — the buff really applies to the creature, and the trigger really fires. They were doing neither.
 - **Aura death triggers work.** Bequeathal and Dying Wail now actually do their thing when the enchanted creature dies — they were silently doing nothing.
 - **Graveyard sweeps work.** Wisdom of Ages and Crystal Chimes return every matching card from your graveyard to your hand.
 - **Mass graveyard recursion works.** Splendid Reclamation, Replenish, Resurgent Belief, World Shaper,

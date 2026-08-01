@@ -85,17 +85,15 @@ describe("coverage — native-aura tier", () => {
   });
   it("a complex / restricted Aura stays body-only (routed to Arbiter at cast, never over-claimed)", () => {
     expect(classifyCard({ type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature gets +1/+1 and can't be blocked.", name: "X" })).toBe("body-only");
-    // GRADUATED 2026-07-28 — this exact shape is the STATIC+TRIGGER COMPOSITION. Both halves were always
-    // modeled on their own ("+1/+1" -> native-aura; "dies, draw a card" -> native-trigger, routing); only
-    // the combination was refused, because each tier's residue walk saw the other's line as leftover text.
-    // The bar this line enforces (never over-claim an Aura) is unchanged — its siblings hold it for the
-    // shapes that genuinely are unmodeled.
-    // ⛔ UN-GRADUATED 2026-07-28, the same day: the composition it was graduated for is a FALSE POSITIVE.
-    // Checked on a BOARD, not in the tier — the aura-own trigger line poisons the all-or-nothing
-    // parseAuraBonus, so the "+1/+1" never reaches the host (stays 2/2), and checkDiesTriggers never
-    // enqueues an aura-own dies trigger (the Aura leaves with its host and is not scanned), so the draw
-    // never happens either. The card was credited native while doing NEITHER thing.
-    expect(classifyCard({ type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature gets +1/+1.\nWhenever enchanted creature dies, draw a card.", name: "Y" })).toBe("body-only");
+    // ✅ RE-GRADUATED 2026-08-01, and this line has now flipped three times — so the REASON matters more
+    // than the verdict. It was credited on "both halves classify alone", un-credited the same day because
+    // the runtime delivered neither, and is credited again only now that BOTH engine halves exist:
+    // parseAttachedBonus skips a validator-approved aura-own trigger (the +1/+1 reaches the host), and
+    // checkDiesTriggers consults the orphaned-Aura look-back (CR 603.10a, so the draw happens). Proven on a
+    // board in qaShippedSlices.test.js, not through the tier.
+    // The bar this test enforces — never over-claim an Aura — is unchanged; the first assertion above and
+    // the Enchant-land one below still hold it for shapes that genuinely are unmodeled.
+    expect(classifyCard({ type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature gets +1/+1.\nWhenever enchanted creature dies, draw a card.", name: "Y" })).toMatch(/^native/);
     expect(classifyCard({ type: "Enchantment — Aura", oracle: "Enchant land\nEnchanted land has '{T}: Add {C}{C}.'", name: "Z" })).toBe("body-only");
   });
 });

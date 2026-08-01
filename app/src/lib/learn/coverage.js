@@ -34,7 +34,7 @@ import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMA
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, registerAuraOwnTriggerValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
 import { spellConditionParseable } from "./interveningIf.js"; // EW-1 — the metric⇄runtime shared gate for a conditional enters-with counter (the resolver evaluates the SAME vocabulary via evaluateInterveningIf); acyclic (interveningIf imports only gameState)
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
@@ -2974,6 +2974,32 @@ function isModeledAuraGrantedAbilityLine(clause) {
   return !!(isNativeTriggerGrantAuraOrEquipment(probe) || isNativeActivatedGrantAura(probe) || isNativeManaGrantAura(probe));
 }
 registerAuraGrantedAbilityValidator(isModeledAuraGrantedAbilityLine);
+
+// ⭐ AU-TRIG+BONUS — vouch for the AURA'S OWN NON-ETB TRIGGER so parseAttachedBonus can skip it instead of
+// dropping the Aura's whole static bonus. Same defect and same shape as AU-GRANT+BONUS above; the runtime
+// half (the trigger actually firing on the host's death, CR 603.10a) landed FIRST — see
+// auraHostDiesTrigger.test.js — because a metric that runs ahead of its runtime is worse than a parked card.
+//
+// ⛔ CALLS permanentTriggersCovered DIRECTLY, NOT isNativeOwnTriggeredAura, and that is deliberate rather
+// than a shortcut: isNativeOwnTriggeredAura consults isNativeAura, which calls parseAttachedBonus, which
+// calls THIS — a load-order recursion straight back into the parse we are being asked about. The probe is a
+// single-trigger Aura, so permanentTriggersCovered is exactly the gate that would claim it anyway (it is
+// that function's own first branch). No new parsing: an aura-own trigger the engine cannot route returns
+// false, still poisons the bonus parse, and keeps the whole card non-native.
+//
+// The ETB form is left to registerAuraOwnEtbValidator — one shape must not have two vouchers that can disagree.
+function isModeledAuraOwnTriggerLine(clause) {
+  const s = String(clause || "").trim();
+  if (!/^(?:when|whenever|at)\b/i.test(s)) return false;
+  if (/^when this aura enters\b/i.test(s)) return false; // owned by the ETB validator
+  // ⚠️ THE TRAILING PERIOD IS LOAD-BEARING. abilityClauses hands parseAttachedBonus clauses with sentence
+  // punctuation already stripped, and the trigger-sentence counter behind permanentTriggersCovered is
+  // sentence-anchored — so the bare clause scores 0 detected sentences and the gate says false for a trigger
+  // it would otherwise claim. Cost a full diagnostic cycle: the identical string WITH a period returned true.
+  const sentence = /[.!?]$/.test(s) ? s : `${s}.`;
+  return !!permanentTriggersCovered({ name: "AuraTriggerProbe", type: "Enchantment — Aura", oracle: sentence });
+}
+registerAuraOwnTriggerValidator(isModeledAuraOwnTriggerLine);
 
 // AURA-OWN-ACTIVATED validator (BLITZ AF-1 — Armor of Faith / Stonehands / the Firebreathing kin):
 // a "{cost}: <effect>" line printed ON THE AURA is admitted (bonus-walk skip + strict-fn pass) only when

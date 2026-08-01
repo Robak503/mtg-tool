@@ -4737,6 +4737,13 @@ export function parseAttachedBonus(card, subjectOverride) {
       // PZ-1/LA-1: a validator-approved aura-own ETB (fires at enterPermanent) isn't a bonus clause —
       // skip it so a compound aura keeps its P/T/keyword half (mirrors the residue admission).
       if (_auraOwnEtbValidator && _auraOwnEtbValidator(c)) continue;
+      // ⭐ AU-TRIG+BONUS — a validator-approved aura-own NON-ETB trigger is not a bonus clause either: the
+      // Aura is the trigger SOURCE (CR 603.2) and the trigger system fires it off triggerSourcesOf (plus the
+      // orphaned-aura look-back for the host-dies case, CR 603.10a), entirely independently of the layer
+      // engine that applies the P/T/keyword bonus. Before this it fell through and dropped the WHOLE bonus.
+      // Same validator gating as every skip above: an UNMODELED aura trigger is not vouched for, still
+      // poisons the parse, and keeps the card off native (CREED).
+      if (_auraOwnTriggerValidator && _auraOwnTriggerValidator(c)) continue;
     }
     // ⭐ AU-GRANT+BONUS — a GRANTED QUOTED ABILITY ("Enchanted creature has \"At the beginning of your
     // upkeep, …\"") is not a bonus clause either: the HOST gains it, and the runtime delivers it through the
@@ -5150,6 +5157,17 @@ export function registerAuraOwnEtbValidator(fn) { _auraOwnEtbValidator = fn; }
 // this is the same registry seam _auraOwnEtbValidator / _auraOwnActivatedValidator already use.
 let _auraGrantedAbilityValidator = null;
 export function registerAuraGrantedAbilityValidator(fn) { _auraGrantedAbilityValidator = fn; }
+// ⭐ AU-TRIG+BONUS — the validator for the AURA'S OWN NON-ETB TRIGGER ("When enchanted creature dies, …",
+// "At the beginning of your upkeep, …"). The sibling of _auraOwnEtbValidator above, registered from
+// coverage.js for the same reason: coverage owns the trigger-routing gates and this module cannot import it.
+//
+// ⛔ WHY A VALIDATOR AND NOT A WIDER REGEX. AURA_OWN_MODELED_TRIGGER_RE hard-codes exactly TWO printed
+// shapes, so every other aura-own trigger poisoned the bonus parse and dropped the Aura's ENTIRE static
+// bonus — measured, not theorised: Elephant Guide's host reads 2/2 where a pure-bonus control reads 5/5.
+// Widening the regex would re-state which triggers route natively, i.e. duplicate the gate; asking the gate
+// means the two cannot drift.
+let _auraOwnTriggerValidator = null;
+export function registerAuraOwnTriggerValidator(fn) { _auraOwnTriggerValidator = fn; }
 // AURA-OWN-ACTIVATED validator (BLITZ AF-1 — the same injection pattern): whether a "{cost}: <effect>"
 // line PRINTED ON THE AURA is a fully-modeled ability whose program is exclusively enchanted-referent
 // atoms (tap/untap/pump target:"enchanted" — Armor of Faith's "{W}: Enchanted creature gets +0/+3 until

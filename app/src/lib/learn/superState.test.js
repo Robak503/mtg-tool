@@ -138,17 +138,13 @@ describe("Super State — engine-first: the trigger fires + relays the combat da
 
 describe("Super State — CREED near-misses stay body-only", () => {
   const t = (o) => ({ name: "X", type: "Enchantment — Aura", oracle: o });
-  it("GRADUATED — this aura-own trigger IS modeled; only the COMPOSITION was missing", () => {
-    // The label was already stale before it fired: that trigger is DETECTED and ROUTES, and the static half
-    // ("base power and toughness 9/9 and has flying") classifies native-aura on its own. The card was
-    // body-only purely because no tier composed a modeled static with a modeled trigger. Verified both
-    // halves independently before changing this. The sibling below still holds the CREED line for a
-    // genuinely unmodeled shape (the qualified "a player or planeswalker" object).
-    // ⛔ UN-GRADUATED 2026-07-28, the same day. "Verified both halves independently" was exactly the
-    // mistake: each half passes on text the COMPOSITION INVENTED, while the printed card delivers neither —
-    // the aura-own trigger poisons parseAuraBonus (no 9/9, no flying on the host) and the trigger does not
-    // fire from an Aura source. Verified on a board this time, not through the tier.
-    expect(classifyCard(t("Enchant creature you control\nEnchanted creature has base power and toughness 9/9 and has flying.\nWhenever enchanted creature deals combat damage to an opponent, you may draw a card."))).toBe("body-only");
+  it("✅ RE-GRADUATED — the composition is real now that BOTH engine halves exist", () => {
+    // Flipped three times, so the reason is the record: credited on "both halves classify alone",
+    // un-credited the same day because the printed card delivered neither, and credited again only after
+    // the ENGINE changed — parseAttachedBonus now skips a validator-approved aura-own trigger (so the 9/9
+    // and flying reach the host) and the aura fires as a trigger source. The sibling cases below still hold
+    // the CREED line for genuinely unmodeled shapes.
+    expect(classifyCard(t("Enchant creature you control\nEnchanted creature has base power and toughness 9/9 and has flying.\nWhenever enchanted creature deals combat damage to an opponent, you may draw a card."))).toMatch(/^native/);
   });
   it('a qualified object "a player or planeswalker" → body-only', () => {
     expect(classifyCard(t("Enchant creature you control\nEnchanted creature has flying.\nWhenever enchanted creature deals combat damage to a player or planeswalker, it deals that much damage to each other opponent."))).toBe("body-only");

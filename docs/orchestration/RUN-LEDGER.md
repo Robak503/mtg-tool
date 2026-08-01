@@ -3,6 +3,47 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ✅ SLICE DONE — 2026-08-01 — **AURA STATIC+TRIGGER COMPOSITION, +11** (half 2 — the pair now complete)
+> Suite **1054 / 13,344 green**, lint 0. Flip-diff **+11 GAINED / 0 LOST**. Four mutations, four kills.
+> Batch **55**. Gained: Elephant Guide · Griffin Guide · Most Wanted · A-Most Wanted · Failed Conversion ·
+> Sleeper's Robe · Elder Mastery · Glistening Oil · **+3 unpredicted** (Heliod's Emissary, Thassa's Emissary,
+> Spiteful Returned — bestow bodies with the same shape).
+>
+> `parseAttachedBonus` now skips a VALIDATOR-APPROVED aura-own non-ETB trigger instead of dropping the Aura's
+> whole static bonus, on the same registry seam `_auraOwnEtbValidator` / `_auraGrantedAbilityValidator`
+> already use. **The runtime half shipped FIRST** (previous entry) — that ordering is the entire reason this
+> is a credit and not a repeat of the reverted attempt.
+>
+> ⚠️⚠️ **TWO TRAPS IN THE VALIDATOR, both of which returned a SILENT false and cost cycles:**
+> 1. **The probe must be given a SENTENCE.** `abilityClauses` hands `parseAttachedBonus` clauses with
+>    punctuation stripped, and the gate behind `permanentTriggersCovered` is sentence-anchored — so the bare
+>    clause scores 0 detected trigger sentences and the gate says false for a trigger it would otherwise
+>    claim. The identical string WITH a trailing `.` returned true. The validator appends one.
+> 2. **Call `permanentTriggersCovered`, NOT `isNativeOwnTriggeredAura`.** The latter consults `isNativeAura`,
+>    which calls `parseAttachedBonus`, which calls the validator — a load-order recursion straight back into
+>    the parse being asked about. The narrow gate is also the exact one that would claim the probe anyway.
+> 3. And a third that is not the validator's fault: **a probe whose card was `name: "A"`** made `detectTriggers`
+>    return scope `self` instead of `equippedCreature` (one-letter names get eaten by self-reference
+>    normalisation), so an earlier verification read 0 and looked like the fix had failed.
+>
+> **SIX PARK PINS INVERTED, none deleted** — and one of them was NOT a dated pin, which is why they were
+> checked one at a time rather than swept:
+> · `auraStaticTriggerComposition.test.js` — the file that RECORDED the earlier revert, and it had written
+>   its own acceptance criteria: *"parseAuraBonus has to skip a modeled aura-own host trigger, AND
+>   checkDiesTriggers has to scan auras attached to a dying creature."* Both now exist, so the refusal
+>   inverts on its own stated terms rather than on a fresh argument.
+> · `aura.test.js` and `superState.test.js` — both had ALREADY flipped twice (credited, un-credited same
+>   day). Now credited a third time, with the reason recorded in place so the history reads as a sequence
+>   rather than as churn.
+> · ⛔ **`Forced Adaptation` was a CREED guard, not a dated pin, and got a runtime check before being
+>   touched.** Its comment claimed the counter atom rejects `target:'enchanted'` so the trigger never routes.
+>   That claim had gone STALE — the atom gained the support and nobody re-checked. **Verified on a board:
+>   bonus applies (5/5) AND the upkeep counter really lands (6/6, `{+1/+1: 1}`).** The guard's PROPERTY is
+>   re-pinned with a trigger the engine genuinely cannot route, so the CREED line still bites.
+>
+> ⚠️ A rewrite of the composition file broke its syntax and vitest reported **"no tests"** — which reads
+> exactly like green (METHOD CORRECTION 4). Caught by `node --check`. Run it after any scripted test-file edit.
+
 > ## ✅ FIXED — 2026-08-01 — **THE AURA HOST-DIES TRIGGER NOW FIRES** (half 1 of 2) · **+0 cards, 2 made REAL**
 > Suite **1054 / 13,343 green**, lint 0. Flip-diff **0 GAINED / 0 LOST — and that is the correct result:**
 > this is a pure RUNTIME fix. Bequeathal and Dying Wail were already (wrongly) counted; they now actually
@@ -438,7 +479,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 44 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**)
+> - **BATCH IN FLIGHT: 55 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher
