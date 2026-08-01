@@ -1641,7 +1641,24 @@ export function permanentFullyCovered(card) {
     // gate above already vouched the whole trigger effect is modeled, so stripping its "when/if you do" tail can
     // only reveal the keyword/activated body — never hide a genuinely unmodeled sentence.
     .replace(/\bwhen you do(?:\s+this|\s+so)?,?\s+[^.]*\.?\s*/gi, " ")
-    .replace(/\bif you do,?\s+[^.]*\.?\s*/gi, " ");
+    .replace(/\bif you do,?\s+[^.]*\.?\s*/gi, " ")
+    // ⭐ FREQUENCY RIDERS — "Do this only once each turn." / "This ability triggers only once each turn."
+    // MIRRORED FROM permanentTriggersCovered, which has stripped both for a while. This chain did not, so a
+    // card whose trigger carries the rider composed fine with NOTHING and parked the moment it also had an
+    // activated ability: the trigger-sentence strip above stops at the first period, the rider survived as
+    // apparent residue, and the composite gate read it as unmodeled text. Elvish Warmaster and five siblings
+    // sat here — each half classifying alone, neither composing.
+    //
+    // ⛔ HONEST ONLY BECAUSE THE RUNTIME ENFORCES IT, which is the sibling strip's own stated condition and
+    // is unchanged here: detectTriggers consumes the wording (descriptor.oncePerTurnTrigger) and the flush
+    // chokepoint keys a per-source per-turn ledger (state.onceTriggersFiredThisTurn, cleared each untap) that
+    // DROPS a second same-turn firing. An unenforced frequency rider stripped here would credit a trigger
+    // that fires every time.
+    //
+    // ⚠️ THE REAL LESSON IS THE DUPLICATION: these two residue chains are supposed to mirror each other and
+    // drifted. Anything added to one belongs in the other, or a card composes in one tier and parks in the next.
+    .replace(/\bDo this only once each turn\b\.?\s*/gi, " ")
+    .replace(/\bThis ability triggers only once each turn\b\.?\s*/gi, " ");
   // …and then the GENERAL case the three hand-written tails above are each a special case of: every
   // remaining sentence of a modeled trigger's own effect. Runs LAST so those anchored strips keep the
   // exact text they were written against.
