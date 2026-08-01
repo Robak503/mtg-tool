@@ -18,8 +18,10 @@ import { dispatchAction } from "./actionDispatcher.js";
 import { flushTriggers, chooseTriggerTargets, resolveTopOfStack } from "./gameEngine.js";
 import { checkAttackTriggers, checkDiesTriggers } from "./triggers.js";
 import { permanentPower, permanentToughness } from "./layers.js";
-import { _resetIdsForTests, createGameState, createPermanent, attachPermanent, destroyLethalCreatures } from "./gameState.js";
+import { _resetIdsForTests, createGameState, createPermanent, attachPermanent, destroyLethalCreatures, moveCardToZone } from "./gameState.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
+import { checkLeavesTriggers } from "./triggers.js";
+import { sacrificeDropsTrigger } from "./effects/abilities.js";
 import { resolveOptionalChoice, resolveTutorChoice } from "./effects/runProgram.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -98,6 +100,44 @@ describe("QA — Wisdom of Ages is castable and actually fills the hand", () => 
     expect(after.players.user.hand.map((c) => c.name).sort()).toEqual(["Ancestral Recall", "Demonic Tutor"]);
     expect(gyNamesExcept(after, "Wisdom of Ages")).toEqual(["Grizzly Bears"]);
     expect(after.players.user.battlefield.length).toBe(0); // hand, never the battlefield
+  });
+});
+
+// ─────────────── EVIDENCE: a cost-sacrifice DOES fire the source's own leave trigger ───────────────
+
+describe("a self-sacrifice COST fires the source's leaves-trigger (CR 603.10a)", () => {
+  // ⭐ THIS PINS EVIDENCE, NOT A SHIPPED CARD. `sacrificeDropsTrigger` still refuses a self-sac ability on a
+  // card with a leaves-trigger, on the premise that the cost-sacrifice fires only the dies path so the leave
+  // trigger would be silently dropped. That premise is FALSE for the sacrifice path, which is what this test
+  // records — sacrificePermanentForCost calls moveCardToZone (queuing the leave event) and then
+  // checkLeavesTriggers for a non-creature, or checkDiesTriggers for a creature whose FIRST LINE drains the
+  // same queue.
+  //
+  // ⛔ THE GUARD WAS NOT NARROWED, and the reason belongs beside the evidence: it is consulted by at least
+  // four DIFFERENT cost paths — self-sacrifice, exile-self, remove-counter, and the choice of another
+  // permanent as a sacrifice VICTIM — and only the sacrifice path was verified here. The predicate takes an
+  // oracle string and cannot tell which path is asking, so exempting a wording exempts it EVERYWHERE. A
+  // narrowing must first give the predicate the COST KIND. See the run ledger.
+  const LTB = "When this artifact enters or leaves the battlefield, create a 1/1 colorless Robot artifact creature token.";
+
+  it("a non-creature sacrificed as a cost still makes its token", () => {
+    const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const art = createPermanent({ id: "art", card: { id: "ca", name: "Mouser Foundry", type: "Artifact", oracle: LTB }, controller: "user" });
+    let s = {
+      ...s0, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", turn: 5,
+      players: { ...s0.players, user: { ...s0.players.user, battlefield: [art] } },
+    };
+    // exactly the non-creature branch of sacrificePermanentForCost
+    s = checkLeavesTriggers(moveCardToZone(s, { playerId: "user", fromZone: "battlefield", toZone: "graveyard", cardId: "art" }));
+    s = flushTriggers(s, { chooseTargets: chooseTriggerTargets });
+    let g = 0;
+    while ((s.stack || []).length && g++ < 20) s = resolveTopOfStack(s);
+    expect((s.players.user.battlefield || []).filter((p) => /Robot/.test(p.card?.name || ""))).toHaveLength(1);
+  });
+
+  it("and the guard still refuses the card TODAY — the premise is stale, the fix is not made", () => {
+    expect(sacrificeDropsTrigger(`${LTB}
+{4}{R}, Sacrifice this artifact: It deals 3 damage to target creature.`)).toBe(true);
   });
 });
 

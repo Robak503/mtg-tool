@@ -3,6 +3,44 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ❌❌ RETRACTED — 2026-08-01 — **THE "47-CARD FP" BELOW DOES NOT EXIST. I WAS WRONG.**
+> **Aeolipile and Barbarian Lunatic deal their full damage.** Re-tested on real corpus rows through the real
+> cast path: both kill a 2/2, zero resolve errors. There is no bug, no 47-card class, nothing to fix. The
+> entry below is left in place because deleting a wrong claim teaches nothing, but **its conclusion is void**.
+>
+> **WHAT ACTUALLY HAPPENED — a FOURTH fixture error in one session, and the most expensive.** My harness put
+> the victim creature under `players.ai`. **Commander mode has no player called `ai`** — its opponents are
+> `ai1`, `ai2`, `ai3`. Spreading a non-existent player produced an object with NO zone arrays, so the moment
+> a creature DIED, `destroyLethalCreatures` threw `state.players[destPid][toZone] is not iterable` inside the
+> resolver. gameEngine catches that, logs `stack-resolve-error`, and returns the state unchanged — so the
+> whole ability silently did nothing and read exactly like a broken card.
+>
+> ⚠️ **AND MY "CONTROL" PASSED ANYWAY**, which is why I believed it. Prodigal Pyromancer deals 1 damage —
+> not lethal to a 2/2 — so nothing ever died in the control and the crash never fired. **A control only
+> proves the path it actually exercises.** The control must reach the same code as the case: if the case
+> kills a creature, the control has to kill one too.
+>
+> ✅ **CHEAP DETECTOR I SHOULD HAVE USED FIRST:** assert `log.filter(l => l.kind === "stack-resolve-error")`
+> is EMPTY in every runtime probe. The engine was reporting the crash the entire time and I was reading only
+> the board. That assertion is now in qaShippedSlices.test.js and costs one line.
+>
+> ✅ **STILL TRUE, and now pinned as evidence:** a cost-sacrifice DOES fire the source's own leaves-trigger.
+>
+> ❌ **BUT THE `sacrificeDropsTrigger` NARROWING WAS BUILT, FLIP-DIFFED CLEAN (+2/0), AND REVERTED AGAIN —
+> for a NEW and better reason.** The full suite caught six park pins, and they showed the change was TOO
+> BROAD: that predicate is consulted by at least FOUR different cost paths — self-sacrifice, exile-self,
+> remove-counter, and choosing another permanent as a sacrifice VICTIM — and I had verified exactly ONE.
+> It takes an oracle STRING and cannot tell which path is asking, so exempting a wording exempts it
+> everywhere. A remove-counter cost does not even remove the source, so those pins are guarding something I
+> do not yet understand.
+>
+> 🔬 **THE REAL PREREQUISITE, now named:** `sacrificeDropsTrigger` needs the COST KIND, not just the oracle.
+> Give it that, exempt the self-LTB form for the SACRIFICE path only, and re-run the six pins. Until then
+> the guard stays exactly as it is.
+>
+> **NET FOR THIS TURN: zero cards, two retractions, and three method rules.** The suite is green at
+> 1057 / 13,370 and master is unchanged apart from the evidence test.
+>
 > ## 🚨 LIVE FP CLASS — 2026-08-01 — **A SELF-SACRIFICE DAMAGE ABILITY DEALS NOTHING. 47 cards.**
 > *Runtime-proven with a working control. No code changed — the fix is scoped below and belongs early in a
 > fresh window.*
