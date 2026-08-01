@@ -2479,6 +2479,18 @@ export function hasDethrone(oracle) {
  * Unlike the optional-mode family, training is a MANDATORY trigger with a real condition, so it is credited
  * by being modeled (synthesized descriptor + intervening-if), never by being declined.
  */
+/**
+ * KW-SOULSHIFT (CR 702.46) — how many soulshift descriptors detectTriggers will synthesize from this card.
+ *
+ * Exists so coverage.js's shaped/detected reconciliation counts soulshift the SAME way the synthesis does,
+ * rather than restating the pattern. Uses the identical reminder-strip + matchAll as the synthesis site, so a
+ * DOUBLE soulshift (Forked-Branch Garami, "Soulshift 4, soulshift 4" — CR 702.46b, two separate dies
+ * triggers) counts 2 in both places and cannot drift.
+ */
+export function soulshiftKeywordCount(oracle) {
+  return [...String(oracle || "").replace(/\([^)]*\)/g, " ").matchAll(/\bsoulshift\s+(\d+)\b/gi)].length;
+}
+
 export function hasTraining(oracle) {
   const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
   for (const line of stripped.split("\n")) {

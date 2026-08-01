@@ -3,6 +3,34 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ✅ SLICE DONE — 2026-08-01 — **KEYWORD-TRIGGER COUNT RECONCILIATION, +11 / −3 FP** · net **+8** · shelf 0
+> Suite **1055 / 13,353 green**, lint 0. Flip-diff **+11 GAINED / 3 LOST**. Three mutations, three kills.
+> Batch **63**.
+>
+> DETHRONE, TRAINING, FIREBENDING and SOULSHIFT are all synthesized as descriptors by `detectTriggers` but
+> were **missing from `kwTrigShaped`**. So `detected` counted them and `shaped` did not, and the two only
+> balanced while the keyword was the card's ONLY trigger. Put ANY printed trigger beside one and the whole
+> card parked — on arithmetic, not on a missing mechanic. Each new term uses the SAME recognizer the
+> synthesis uses (soulshift counts INSTANCES — CR 702.46b, a double soulshift is two dies triggers).
+>
+> 🚨 **THE THREE "LOST" CARDS ARE FALSE POSITIVES BEING RETRACTED, NOT A REGRESSION — and this is the find.**
+> Jenny Flint, Cloaked Cadet and Ran and Shaw were credited native because **TWO COUNTING ERRORS CANCELLED**:
+> an unrecognised printed trigger was counted as SHAPED (it looks like a trigger sentence) while the keyword
+> was DETECTED but not shaped. +1 and −1 balanced, the gate passed, and each card carried a trigger the
+> engine cannot fire. Confirmed with a positive control: each printed sentence alone on a bare creature gives
+> `detected: 0` / body-only, against a known-modeled trigger that detects and flips.
+>
+> ⭐⭐ **`shaped === detected` PASSING IS NOT EVIDENCE THAT EVERY TRIGGER ON A CARD IS MODELED.** It is evidence
+> the two counts AGREE — and they can agree while both are wrong. Any future work that adds to either side of
+> that sum should expect to expose cancellations on the other side, and should read a LOST column as
+> "retraction or regression?" rather than assuming regression. This is the generalisation of the gate; it
+> belongs beside the hollow-gate law.
+>
+> ⚠️ **Jenny Flint was one of MY OWN partner-with 16 from earlier today**, so that slice's honest number is
+> **+15**, and its test now pins the retraction with the reason rather than quietly dropping the card.
+>
+> 📉 **SHELF: 0.** None of the 11 is in a saved deck. Board unchanged at 5 of 16.
+
 > ## ✅ SLICE DONE — 2026-08-01 — **AURA STATIC+TRIGGER COMPOSITION, +11** (half 2 — the pair now complete)
 > Suite **1054 / 13,344 green**, lint 0. Flip-diff **+11 GAINED / 0 LOST**. Four mutations, four kills.
 > Batch **55**. Gained: Elephant Guide · Griffin Guide · Most Wanted · A-Most Wanted · Failed Conversion ·
@@ -483,7 +511,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 55 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**)
+> - **BATCH IN FLIGHT: 63 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher

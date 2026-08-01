@@ -229,9 +229,22 @@ describe("runtime — the search happens in the TARGET's library and the card la
 // ───────────────────────── classification ─────────────────────────
 
 describe("real carriers flip to a native tier", () => {
-  for (const card of [LORE_WEAVER, SILVAR, TRYNN, JENNY_FLINT, PIR]) {
+  for (const card of [LORE_WEAVER, SILVAR, TRYNN, PIR]) {
     it(`${card.name}`, () => expect(NATIVE).toContain(classifyCard(card)));
   }
+
+  // ⛔ JENNY FLINT WAS IN THIS LIST AND WAS RETRACTED THE SAME DAY — a false positive, not a regression.
+  // It carries "Whenever you sacrifice a Clue or Food, …", which detectTriggers does not recognise at all
+  // (verified alone on a bare creature: 0 detected, body-only, against a control that detects and flips).
+  // It read native only because TWO counting errors cancelled: the unrecognised sentence was counted as a
+  // SHAPED trigger while its Training keyword was DETECTED but not shaped. Fixing the keyword side of that
+  // sum exposed the other, which is the honest outcome — the card has an unmodeled trigger and must park.
+  //
+  // ⚠️ THE GENERAL LESSON, worth more than the card: shaped === detected can BALANCE ON TWO ERRORS. A card
+  // passing that gate is not evidence every one of its triggers is modeled; it is evidence the counts agree.
+  it("⛔ Jenny Flint stays parked — its sacrifice trigger is genuinely unmodeled", () => {
+    expect(NATIVE).not.toContain(classifyCard(JENNY_FLINT));
+  });
 });
 
 describe("the boundary stays put", () => {

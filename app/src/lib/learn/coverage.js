@@ -31,7 +31,7 @@
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — the metric gates on the SAME vetting the runtime charges on
-import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues } from "./triggers.js";
+import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, hasDethrone, hasTraining, firebendingKeywordValue, soulshiftKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, registerAuraOwnTriggerValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
@@ -1108,6 +1108,22 @@ function allTriggerSentencesModeled(card, oracle) {
   // (Mothers Yamazaki) returns null from the SAME recognizer detectTriggers uses, so it contributes 0 to
   // BOTH counts and cannot desynchronize them.
   const partnerWithShaped = partnerWithName(oracle) ? 1 : 0;
+  // ⭐ KW-TRIGGER RECONCILIATION GAP (residue census "TWO-FLIP SIGNATURE") — DETHRONE, TRAINING, FIREBENDING
+  // and SOULSHIFT are all synthesized as descriptors by detectTriggers, but were missing from this sum. So
+  // `detected` counted them and `shaped` did not, and the two only balanced while the keyword was the card's
+  // ONLY trigger — which is why a keyword-alone card classified fine and the same keyword beside ANY printed
+  // trigger sentence parked the whole card. Ten cards were failing on arithmetic, not on a missing mechanic:
+  // Parish-Blade Trainee, Rural Recruit, Marchesa's Infiltrator, Park Heights Maverick, Tundra Tank, Azula,
+  // Zhao, Kami of the Honored Dead, Kami of the Tended Garden, Thief of Hope.
+  //
+  // ⛔ EACH USES THE SAME RECOGNIZER detectTriggers USES, never a re-stated pattern — the invariant every
+  // other member of this sum keeps, and the only thing that stops shaped and detected drifting apart again.
+  // Soulshift counts INSTANCES (CR 702.46b — a double soulshift synthesizes two dies triggers); the other
+  // three synthesize exactly one descriptor each.
+  const dethroneShaped = hasDethrone(oracle) ? 1 : 0;
+  const trainingShaped = hasTraining(oracle) ? 1 : 0;
+  const firebendingShaped = firebendingKeywordValue(oracle) > 0 ? 1 : 0;
+  const soulshiftShaped = soulshiftKeywordCount(oracle);
   // FLANKING (BLITZ FL-1) — one synthesized descriptor PER printed instance (CR 702.25b); bump by the
   // structural count so multiples reconcile (grants and "without flanking" phrases contribute 0).
   const flankingShaped = flankingKeywordCount(oracle);
@@ -1130,7 +1146,7 @@ function allTriggerSentencesModeled(card, oracle) {
   const modularShaped = modularKeywordValues(oracle).length;
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
     + (/(?<!\bhave\s)(?<!\bhas\s)\bafflict \d/i.test(stripReminder(oracle)) ? 1 : 0)
-    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + renownShaped + mobilizeShaped + backupShaped + partnerWithShaped + flankingShaped + persistShaped + battleCryShaped + afterlifeShaped + mentorShaped + modularShaped;
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + renownShaped + mobilizeShaped + backupShaped + partnerWithShaped + dethroneShaped + trainingShaped + firebendingShaped + soulshiftShaped + flankingShaped + persistShaped + battleCryShaped + afterlifeShaped + mentorShaped + modularShaped;
   // COMPOUND TRIGGER (CR 603.1): "When A and whenever B, <effect>" is counted as ONE shaped sentence by TRIGGER_SENTENCE_RE
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped
   // count by the number of compounds so `shaped === detected` holds for a successfully-split compound; if a half is
