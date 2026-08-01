@@ -182,10 +182,27 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
     // atom then resumes. Mirror the tutor/scry pause — plain JSON, serialize-safe; never resolve a
     // "may" as mandatory (that would be a forbidden mis-apply).
     if (atom.optional) {
+      // TARGET-FACING "MAY" (`optionalDeciderIsTarget`, CR 702.124j) — almost every printed optional reads
+      // "YOU may", so the controller decides and the plain `controller` below is right. Partner-with reads
+      // "TARGET PLAYER may search their library…", and the choice is that player's, not the caster's.
+      //
+      // Overriding ONLY pendingChoice.controller is what makes this safe: `resume.controller` (a separate
+      // field, set just below) still carries the effect's real controller, and resolveOptionalChoice reads
+      // the resume for the atom's context and its logging. The one other thing pc.controller drives there is
+      // the eliminated-player bail-out — which under this flag correctly asks whether the DECIDER is still in
+      // the game, since a departed target means the ability does nothing.
+      //
+      // No legal player target → skip the atom outright rather than fall back to the controller: asking the
+      // caster a question the card addressed to someone else would let them take an effect that was never
+      // theirs to take.
+      const decider = atom.optionalDeciderIsTarget
+        ? (targetsForAtom(targets, i).find((tg) => tg.type === "player" && next.players?.[tg.id])?.id ?? null)
+        : controller;
+      if (decider == null) continue;
       return {
         ...next,
         pendingChoice: {
-          kind: "optional-effect", controller, atomIndex: i, effectOp: atom.op, cardName,
+          kind: "optional-effect", controller: decider, atomIndex: i, effectOp: atom.op, cardName,
           // `context` MUST ride along — a context-dependent atom (discover X = the triggering creature's
           // toughness, via ctx.triggeringPermanentId) loses its trigger context on resume otherwise → X=0.
           // `kicked` rides along so a kicked spell whose BASE atom paused (scry/tutor) still runs its kickedOnly tail on resume.

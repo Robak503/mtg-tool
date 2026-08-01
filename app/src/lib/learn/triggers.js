@@ -2500,6 +2500,51 @@ export function backupKeywordValue(oracle) {
   return 0;
 }
 
+/**
+ * KW-PARTNER-WITH (CR 702.124j) — the NAME a "Partner with [name]" line points at, or null.
+ *
+ * CR 702.124j: "'Partner with [name]' represents TWO abilities. It means 'You may designate two legendary
+ * cards as your commander rather than one if each has a "partner with [name]" ability with the other's name'
+ * AND 'When this permanent enters, target player may search their library for a card named [name], reveal it,
+ * put it into their hand, then shuffle.'"
+ *
+ * ⚠️ THE PRINTED REMINDER TEXT UNDERSTATES THE ABILITY, so it is not the source of truth here. The card's own
+ * parens say "put [name] into their hand from their library" — no "search", no "reveal". The CR says both. The
+ * SEARCH wording is what makes the existing tutor machinery the honest model rather than a bare zone move.
+ *
+ * ⚠️ AND THE REMINDER USES A SHORT NAME while the keyword line uses the FULL one — Silvar prints "Partner with
+ * Trynn, Champion of Freedom" but reminds "put Trynn into their hand". The library holds the FULL printed name,
+ * so the name is taken from the KEYWORD LINE only. Reading the reminder would search for a card that does not
+ * exist and silently find nothing forever.
+ *
+ * ⛔ "PARTNER WITH ITSELF" IS REFUSED (Mothers Yamazaki). Its line names no other card — the searched name is
+ * the card's OWN — and it carries a second deck-construction clause besides. Returning "itself" here would hand
+ * the tutor a search for a card literally named "itself": zero candidates, forever, with every test green and
+ * the tier reading native. A false negative (the card parks) is the creed-safe direction; it parks on other
+ * clauses today regardless.
+ *
+ * WHOLE-LINE anchored (not the comma-segment convention the neighbours use) for two reasons: partner names
+ * routinely CONTAIN commas ("Trynn, Champion of Freedom" — 28 of the 54 corpus lines), so segmenting would
+ * truncate the name; and a whole-line anchor means a QUOTED grant ('… have "Partner with X"') never
+ * self-synthesizes, the same guarantee undying/evolve get from their structural match.
+ *
+ * ⛔ NOT MODELED — THE DECK-CONSTRUCTION HALF. The first of 702.124j's two abilities (designating two
+ * commanders) "function[s] before the game begins" per CR 702.124a; it is a deck-construction rule with no
+ * battlefield surface, and this engine models battlefield play. It is DECLARED unmodeled here rather than
+ * skipped silently: a card credited by this synthesis is credited for its ETB half ONLY.
+ */
+export function partnerWithName(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  for (const line of stripped.split("\n")) {
+    const m = line.trim().match(/^partner with (.+)$/i);
+    if (!m) continue;
+    const name = m[1].trim();
+    if (!name || /^itself$/i.test(name)) return null; // see the Mothers Yamazaki note above
+    return name;
+  }
+  return null;
+}
+
 export function undyingKeywordCount(oracle) {
   const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
   for (const line of stripped.split("\n")) {
@@ -4245,6 +4290,26 @@ export function detectTriggers(card) {
         effectClause: `put ${backupN} +1/+1 counters on this creature`,
         interveningIf: null,
         optional: false, sourceText: `Backup ${backupN}`,
+      });
+    }
+  }
+  // KW-PARTNER-WITH (CR 702.124j) — synthesized from the printed keyword like backup above, with an ORDINARY
+  // modeled effectClause rather than a kind-tagged sentinel: the clause is the CR's own wording, and the arm
+  // that recognizes it (atoms/library.js `ptm`) is a general named-card tutor, so a card that ever PRINTS this
+  // sentence in full gets the same correct model instead of a second private path.
+  //
+  // The "may" is REAL and belongs to the TARGET, not the controller (702.124j: "target player MAY search"),
+  // which is why the atom carries optionalDeciderIsTarget — see the note on that flag in effects/runProgram.js.
+  // scope "self" on the etb event; the target is allocated by the ordinary targetType:"player" machinery.
+  {
+    const partnerName = partnerWithName(oracle);
+    if (partnerName) {
+      out.push({
+        event: "etb", scope: "self", whose: "any",
+        effect: null,
+        effectClause: `target player may search their library for a card named ${partnerName}, reveal it, put it into their hand, then shuffle`,
+        interveningIf: null,
+        optional: false, sourceText: `Partner with ${partnerName}`,
       });
     }
   }

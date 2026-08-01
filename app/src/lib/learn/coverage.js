@@ -31,7 +31,7 @@
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — the metric gates on the SAME vetting the runtime charges on
-import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues } from "./triggers.js";
+import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
@@ -334,8 +334,15 @@ export const COVERED_KEYWORDS = [
   // static "Cycling abilities you activate cost {2} less to activate"), so cycling is gated to the
   // exact "cycling {cost}" activated-ability shape the engine actually enforces (parseCyclingCost).
   // KW-PARTNER is NOT a generic startsWith keyword either — see rePartnerBare in isKeywordOnly. The generic
-  // `startsWith("partner ")` rule would mis-credit "Partner with <name>" (CR 702.124f), which carries a real
-  // LINKED partner-tutor ETB the engine does NOT model, so partner is gated to the EXACT bare-word form.
+  // `startsWith("partner ")` rule would ALSO swallow "Partner with <name>", which is a different ability with
+  // a real ETB (CR 702.124j), so bare partner stays gated to the EXACT bare-word form.
+  //
+  // ⚠️ UPDATED: "Partner with <name>" IS now modeled — its ETB is synthesized in detectTriggers
+  // (partnerWithName) and its line is removed by stripPartnerWithLine before the clause split, NOT credited
+  // as a keyword here. That distinction is the whole point: bare partner is credited because it is VACUOUS at
+  // runtime (deck construction only), while partner-with is credited because its ability is BUILT. The one
+  // form still not modeled is "Partner with itself" (Mothers Yamazaki) — the recognizer refuses it, so neither
+  // path credits it. Keeping both out of this list means neither can be credited by accident.
 ];
 
 const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
@@ -415,6 +422,26 @@ export function stripModeledSelfNoUntap(oracle, name) {
 // keyword must be followed by its cost dash, so a line beginning with the CARD NAME "Escape Velocity …"
 // can never match.
 const ESCAPE_LINE = /^[ \t]*escape\s*[—–-][^\n]*$/gim;
+// KW-PARTNER-WITH (CR 702.124j) — drop the whole "Partner with <name>" LINE before the clause split below.
+// A LINE strip, not a clause credit, and that is the point: partner names routinely contain commas ("Trynn,
+// Champion of Freedom" — 28 of the 54 corpus lines), and isKeywordOnly splits its text on commas, so a clause
+// acceptor would have shattered those names into "partner with trynn" + "champion of freedom" and rejected
+// them. Stripping the line first sidesteps the split entirely. (The escape/ninjutsu strips right here are the
+// same shape — ⭐ "ONE CLAUSE HERE, A WHOLE LINE THERE", per the note above stripNinjutsuCostLines.)
+//
+// ⛔ GATED ON partnerWithName — THE SAME RECOGNIZER detectTriggers USES, not a second private regex, so the
+// strip and the synthesis can never disagree about which lines are modeled. That equivalence is load-bearing
+// for "Partner with itself" (Mothers Yamazaki): the recognizer refuses it, so nothing is stripped, so the line
+// survives as residue and the card stays body-only. Stripping a line whose ability is NOT modeled is exactly
+// how a card gets credited for something the engine never does.
+const PARTNER_WITH_LINE = /^[ \t]*partner with .+$/i;
+function stripPartnerWithLine(oracle) {
+  if (!partnerWithName(oracle)) return oracle; // absent, or the unmodeled "partner with itself" — strip nothing
+  const raw = String(oracle || "");
+  const lines = raw.split("\n");
+  const kept = lines.filter((ln) => !PARTNER_WITH_LINE.test(ln));
+  return kept.length === lines.length ? raw : kept.join("\n").trim();
+}
 
 export function isKeywordOnly(oracle, name) {
   // ESCAPE (CR 702.138a) — removed as a whole LINE, here, BEFORE stripReminder collapses the newlines.
@@ -436,7 +463,7 @@ export function isKeywordOnly(oracle, name) {
   //
   // The dash is load-bearing: "escape" must be followed by the cost dash, so a line beginning with the CARD
   // NAME "Escape Velocity ..." can never match.
-  const deLined = String(oracle || "").replace(ESCAPE_LINE, " ");
+  const deLined = stripPartnerWithLine(String(oracle || "").replace(ESCAPE_LINE, " "));
   let t = stripReminder(deLined).toLowerCase().replace(/[’']/g, "'");
   // MULTI-INSTANCE CASCADE (CR 702.85) — "Cascade, cascade[, …]" is now MODELED (detectTriggers emits N cascade
   // triggers, each an independent dig; see cascadeInstanceCount). After stripReminder it splits into N covered
@@ -1075,6 +1102,12 @@ function allTriggerSentencesModeled(card, oracle) {
   const mobilizeShaped = mobilizeKeywordValue(oracle) > 0 ? 1 : 0;
   // KW-BACKUP — same reminder-text synthesis; bump by 1 when a printed "Backup N" is present.
   const backupShaped = backupKeywordValue(oracle) > 0 ? 1 : 0;
+  // KW-PARTNER-WITH (CR 702.124j) — same reminder-parens synthesis: the ETB half lives entirely inside the
+  // stripped reminder, so it contributes no When/Whenever/At sentence, while detectTriggers synthesizes one
+  // descriptor from the printed keyword. Bump by 1 so shaped === detected holds. "Partner with itself"
+  // (Mothers Yamazaki) returns null from the SAME recognizer detectTriggers uses, so it contributes 0 to
+  // BOTH counts and cannot desynchronize them.
+  const partnerWithShaped = partnerWithName(oracle) ? 1 : 0;
   // FLANKING (BLITZ FL-1) — one synthesized descriptor PER printed instance (CR 702.25b); bump by the
   // structural count so multiples reconcile (grants and "without flanking" phrases contribute 0).
   const flankingShaped = flankingKeywordCount(oracle);
@@ -1097,7 +1130,7 @@ function allTriggerSentencesModeled(card, oracle) {
   const modularShaped = modularKeywordValues(oracle).length;
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
     + (/(?<!\bhave\s)(?<!\bhas\s)\bafflict \d/i.test(stripReminder(oracle)) ? 1 : 0)
-    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + renownShaped + mobilizeShaped + backupShaped + flankingShaped + persistShaped + battleCryShaped + afterlifeShaped + mentorShaped + modularShaped;
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + renownShaped + mobilizeShaped + backupShaped + partnerWithShaped + flankingShaped + persistShaped + battleCryShaped + afterlifeShaped + mentorShaped + modularShaped;
   // COMPOUND TRIGGER (CR 603.1): "When A and whenever B, <effect>" is counted as ONE shaped sentence by TRIGGER_SENTENCE_RE
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped
   // count by the number of compounds so `shaped === detected` holds for a successfully-split compound; if a half is

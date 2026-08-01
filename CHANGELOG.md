@@ -9,6 +9,12 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"Partner with" creatures fetch their partner.** Sixteen cards — Lore Weaver, Ley Weaver, Silvar and
+  Trynn, Pir, Cazur, Jenny Flint and the rest — now do what their keyword promises when they enter: the
+  targeted player may search their library for the named partner and put it into their hand. The search
+  happens in that player's library, and declining to search, or searching and taking nothing, are both
+  allowed. (Using a partner pair as two commanders is a deck-building rule, not something that happens on
+  the battlefield, so it is unchanged.)
 - **Ability-word SPELLS work too.** Seventeen more cards — Kirtar's Wrath, Descend upon the Sinful,
   Traverse the Ulvenwald, Shamanic Revelation and others — whose flavour label hid the spell itself.
 

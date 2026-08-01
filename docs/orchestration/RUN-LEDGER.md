@@ -3,6 +3,67 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ✅ SLICE DONE — 2026-08-01 — **PARTNER WITH, +16** (the largest item that was pre-sized and declined)
+> Tree clean, MUTANT clean, suite **1052 files / 13,314 green** (was 1051 / 13,291), lint 0. Flip-diff
+> **+16 GAINED / 0 LOST** against a content-verified revert. Five pre-specified mutations, **five kills, no
+> survivors** (name gate · targeted searcher · target-facing may · the itself-refusal · the splitter guard).
+>
+> **CR 702.124j is the whole slice, and the printed reminder text is not.** The card says "put [name] into
+> their hand from their library"; the rule says "**search** their library … **reveal it**, put it into their
+> hand, then shuffle". Reading the rule is what made the existing tutor machinery the honest model instead of
+> a bare zone-move. Revealing is accepted-and-ignored — a pre-existing limit of the whole tutor family (no
+> tutor in the engine publishes the found card), an FN, not something this slice introduced.
+>
+> **What was actually new machinery, three things, all small once located:** a positive `filter.name` gate in
+> `cardMatchesTutorFilter` (the mirror of the existing `excludeName`, and placed BEFORE the `groups.length===0`
+> early-return that would otherwise turn a named search into "search for ANY card"); `searcherIsTarget` on the
+> tutor atom, because 702.124j has the TARGET search THEIR OWN library — binding it once at the top of
+> `applyTutor` carries the fetch, the shuffle, the chain and the find-nothing path, since `resolveTutorChoice`
+> already keys off `pendingChoice.controller`; and `optionalDeciderIsTarget`, because the "may" is the
+> target's, not the caster's (only `pendingChoice.controller` is overridden — `resume.controller` still holds
+> the real controller).
+>
+> ⚠️ **THE THING THAT COST THE MOST TIME, AND IT IS ALREADY WRITTEN IN THIS REPO.** The clause parser returned
+> the right atom when called DIRECTLY and nothing at all through `parseEffectClause`. That is verbatim the
+> lesson in `splitClauses.js` three rules below the one I had to add: **when a parser works in isolation but
+> not through its driver, the driver is doing something to the input.** The keep-whole guard there is anchored
+> on `^search your library`; mine says "search THEIR library", so the sentence was severed before its trailing
+> shuffle. Widening a keep-whole guard is the safe direction — it can only fail to match, while splitting
+> drops halves on the floor.
+>
+> ⚠️ **AND THE COVERAGE CREDIT IS A LINE STRIP, NOT A KEYWORD CREDIT — deliberately.** `isKeywordOnly` splits
+> its text on COMMAS, and 28 of the 54 partner names contain one ("Trynn, Champion of Freedom"), so a clause
+> acceptor would have shattered them. `stripPartnerWithLine` removes the whole line, and is **gated on
+> `partnerWithName` — the same recognizer `detectTriggers` uses**, so the strip and the synthesis can never
+> disagree about which lines are modeled.
+>
+> ⛔ **"PARTNER WITH ITSELF" (Mothers Yamazaki) IS REFUSED, and this was one regex away from being a silent
+> liar.** Its line names no other card; returning "itself" would search for a card literally named "itself" —
+> zero candidates forever, every test green, tier reading native. It parks on other clauses today anyway, so
+> the refusal costs nothing and is the successor pin for three inverted park-pins.
+>
+> ⛔ **DECK CONSTRUCTION IS OUT OF SCOPE AND SAID SO OUT LOUD**, per the order. 702.124j is TWO abilities;
+> the two-commanders half "function[s] before the game begins" (702.124a) and has no battlefield surface.
+> Cards are credited for their ETB half only.
+>
+> **THREE PARK PINS INVERTED, none deleted** (rule 9): `commanderPairingKeywords` (the whole refusal block —
+> re-pinned onto the itself-form), `castFlurrySecondSpell` (Alphinaud moved to the native block with a
+> tombstone), `animateYouControl` (Bruse Tarl flipped + itself-form added). Each says WHY in place, and each
+> kept the property that is still true: the inert pairing siblings are credited for doing NOTHING during play,
+> partner-with for its ability being BUILT. Different warrants — never collapse them.
+>
+> 📉 **SHELF: +1 card, and that is the honest number.** Only ONE of the 16 appears in any saved deck —
+> Rocksteady, Mutant Marauder in **Halfshell heroes, 64.5% → 65.6%** (60→61 of 93). The other 15 are corpus
+> gains. ⚠️ My first shelf probe reported ZERO and was WRONG: I read its output through `tail -12`, which
+> truncated the hit. **A truncated probe reads exactly like a clean one** — the same shape as rule 4. Caught
+> by re-checking the deck file directly, with a positive control (Sol Ring, 15 hits) proving the scan read.
+>
+> ⚠️ **FOOTING GAP FOR THE NEXT SEAT — the four-command recipe below is INCOMPLETE on a fresh worktree.**
+> `npm test` came back RED with 4 failures in `src/app/api/rules-retrieval/route.test.js` (500 where 200
+> belonged). Not a regression: `app/data/rules-index.json` is a GITIGNORED build artifact that a new worktree
+> has never built. **`npm run build:rules-index` (3,138 rules, ~5s) is a required footing step** and is now
+> named here so nobody diagnoses it twice.
+
 > ## ✅ CLEAN HANDOFF POINT — 2026-07-31, after v0.149.23 verified
 > ⚠️ **THE AUTO-RESUME CRON WAS KILLED AT SHUTDOWN (job 73d3c8c6, the 5-minute backstop).** Nothing is
 > waking this worktree any more. If the new seat wants the crash backstop, RE-ARM IT THERE — and never
@@ -121,12 +182,11 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 17 cards since v0.149.23** (ability-word SPELL path +17)
+> - **BATCH IN FLIGHT: 33 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
->   · **Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**
->     (`search your library for a card named <X>`). Its keyword ETB is a real effect, so crediting it
->     without modelling would be the same over-claim the outlast/unleash boundary forbids. Build the
->     tutor atom first.
+>   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
+>     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher
+>     and the target-facing "may". See the SLICE DONE entry at the top of this file for the three traps.
 >   · **Waterbend — 8 flips.** A COST keyword with its own payment rules ("Waterbend {2}: <effect>" and
 >     "as an additional cost, waterbend {N}"); needs the cost semantics read before any strip.
 >   · **Behold 0 · Airbend 0 · Teamwork 0** — measured, NOT worth a slice. Carrier counts said 23/14/20.

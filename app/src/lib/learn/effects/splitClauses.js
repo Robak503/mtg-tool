@@ -237,6 +237,14 @@ export function splitClauses(oracle) {
     // failure, P3.2 review catch). The tutor anchor + the α2 "you may" peel still drop anything they can't
     // model in the whole sentence to low.
     if (/^(?:you may )?search your library\b/i.test(sentence)) { clauses.push(sentence); continue; }
+    // THE SAME KEEP-WHOLE FOR A TARGETED SEARCHER (CR 702.124j, the partner-with ETB) — "target player may
+    // search THEIR library for a card named X, reveal it, put it into their hand, then shuffle". The anchor
+    // above is nailed to "search your library", so this sentence fell through and got severed before its
+    // trailing shuffle, leaving a head the tutor arm no longer matched. Exactly the failure the comment three
+    // rules below describes: the clause parser returned the right atom when called DIRECTLY and nothing at all
+    // through parseEffectClause, because the driver — the SPLITTER — had already taken the sentence apart.
+    // Anchored to the full leading phrase, so it can only ever hold this one shape together.
+    if (/^target player may search their library\b/i.test(sentence)) { clauses.push(sentence); continue; }
     // A combat trick that pumps AND grants a keyword ("Target creature gets +2/+2 and gains
     // trample until end of turn"), or grants several keywords ("gains flying and vigilance"),
     // joins its parts with " and " — NOT a top-level effect boundary. Keep the whole sentence

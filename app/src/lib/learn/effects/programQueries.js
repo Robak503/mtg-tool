@@ -350,6 +350,23 @@ export function atomTargetIntent(atom) {
       // "Regenerate target creature" (Horizon Seed: cast Spirit/Arcane → regenerate target creature) —
       // protective, own-side: you regenerate your own creatures.
       return "own";
+    case "tutor":
+      // PARTNER-WITH NAMED TUTOR (CR 702.124j) — "target player may search their library for a card named X".
+      // Own-side: you play the creature to fetch YOUR OWN partner, and no chooser would ever hand the search
+      // to an opponent (it would fetch a card into THEIR hand — the searcher is the target, see applyTutor).
+      // Legality deliberately stays wider than intent, the make-uncounterable / adapt-ignore-counters pattern:
+      // "target player" really is any player, so a human keeps the full legal choice; only the automatic
+      // chooser is pointed at the obvious side.
+      //
+      // ⚠️ LOAD-BEARING FOR THE TRIGGER PATH, which is the only path this shape has. Partner-with is an ETB
+      // trigger, so without a decided intent the atom reads "ambiguous" → programTriggerTargetsResolvable
+      // false → the trigger routes to the Arbiter instead of firing, and the card never plays natively.
+      //
+      // NARROWLY GATED ON PURPOSE. Every other tutor in the corpus is untargeted (targetType null, caught by
+      // the `!tt` guard at the top), so this case is reached only by the targeted named form. A future
+      // targeted tutor of some other shape must decide its own side rather than inherit this one.
+      if (tt === "player" && atom.searcherIsTarget) return "own";
+      return "ambiguous";
     case "create-named-token":
       // TARGET-OPPONENT-CREATES — "target opponent creates a tapped Treasure token" (Generous Plunderer's
       // reflexive). The targetType is "opponent" (whoCreates:"target"), so the ONLY legal targets are the

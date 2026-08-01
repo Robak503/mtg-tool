@@ -106,6 +106,8 @@ describe("classifyCard — the four Flurry flips are native-trigger", () => {
     ["Devoted Duelist", DUELIST],
     ["Monk of the Open Hand", MONK],
     ["Wingblade Disciple", WINGBLADE],
+    // Moved up from the FN-guard block below when its Partner-with residue was modeled (2026-08-01).
+    ["Alphinaud Leveilleur", ALPHINAUD],
   ])("%s → native-trigger", (_name, card) => {
     expect(classifyCard(card)).toBe("native-trigger");
   });
@@ -118,9 +120,13 @@ describe("classifyCard — CREED FN guards: unmodeled payoff/rider stays body-on
   it("Dragonblood Twins (Double team keyword + base-P/T set) stays body-only", () => {
     expect(classifyCard(DRAGONBLOOD)).toBe("body-only");
   });
-  it("Alphinaud Leveilleur (Partner-with residue) stays body-only", () => {
-    expect(classifyCard(ALPHINAUD)).toBe("body-only");
-  });
+  // ✅ INVERTED 2026-08-01 — "Alphinaud Leveilleur (Partner-with residue) stays body-only" lived here and no
+  // longer holds. The pin was correct when written: its Eukrasia trigger parsed, and the card parked only on
+  // the unmodeled "Partner with Alisaie Leveilleur" line. That line's ETB is now built (CR 702.124j — see
+  // partnerWith.test.js), so the residue is gone and the card is native. The pin is not deleted, it is MOVED:
+  // the assertion now lives in the native block above, so this file still watches the same card.
+  // ⛔ What this block was really guarding — a Flurry/Eukrasia card with a genuinely unmodeled sibling clause
+  // staying body-only — is still guarded by the two cases above, which is why no replacement guard is added.
 });
 
 // ─── runtime pin: castSecond fires on exactly the 2nd cast, label present ────────

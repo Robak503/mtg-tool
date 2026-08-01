@@ -98,6 +98,17 @@ export function cardMatchesTutorFilter(card, filter) {
   // in the common case" is not the same as correct, and a legal fetch of a second copy is a search wider
   // than the card allows. Compared case-insensitively on the exact printed name.
   if (filter.excludeName && String(card?.name || "").toLowerCase() === String(filter.excludeName).toLowerCase()) return false;
+  // NAME (CR 702.124j's partner-with tutor: "a card NAMED [name]") — the positive mirror of excludeName above,
+  // and deliberately the same case-insensitive exact-name comparison so the two can never disagree about what
+  // "the same name" means. A named search is a search WITH a stated quality, so it may legally fail to find
+  // (CR 701.23b) — applyTutor derives mayFailToFind from the presence of a filter, and this IS one, so the
+  // searching player keeps their right to decline without any extra plumbing.
+  //
+  // ⛔ AN UNMATCHED NAME MUST YIELD ZERO CANDIDATES, NEVER "unfiltered". This gate runs BEFORE the
+  // `groups.length === 0` early-return below, which is the line that treats a type-less filter as "matches
+  // everything" — reaching that return with a name filter attached would turn "search for a card named X"
+  // into "search for ANY card", the single worst failure this atom could produce.
+  if (filter.name && String(card?.name || "").toLowerCase() !== String(filter.name).toLowerCase()) return false;
   // MV gate first (cheap, and applies even when there are no type groups). tutorManaValue reads the
   // card's cmc/mana_value/mana_cost — the same MV the discover/auto-pick paths use, so it's consistent.
   if (filter.mv) {
@@ -174,8 +185,25 @@ export function shuffleControllerLibrary(state, controller) {
  * Hidden-info safe: the candidate list is the searcher's OWN library (names are theirs to see).
  */
 export function applyTutor(state, atom, ctx) {
-  const controller = ctx.controller;
-  const player = state.players[controller];
+  // SEARCHER (`searcherIsTarget`) — normally the source's controller, but CR 702.124j's partner-with tutor
+  // reads "TARGET PLAYER may search THEIR library": the player who searches, the library searched, the hand
+  // the card lands in, and the library shuffled afterwards are ALL the target's — none of them the controller's.
+  //
+  // Naming the searcher HERE is the entire change, because every line below keys off `controller` and
+  // resolveTutorChoice keys off `pendingChoice.controller`: the candidate gather, the fetch, the CR 701.19e
+  // shuffle, the chained-pick path and the find-nothing path all follow this one binding automatically.
+  //
+  // HIDDEN INFO STAYS SAFE PRECISELY BECAUSE THE SEARCHER IS THE CHOICE'S CONTROLLER. The candidate list is
+  // whoever-searches' OWN library, and the driver surfaces a picker only for the human seat (auto-picking for
+  // everyone else) — so aiming this at an opponent lets THEM search, and never shows their library to the caster.
+  //
+  // A missing/eliminated target is a clean no-op. It must NEVER fall back to ctx.controller: that would search
+  // the caster's own library on a card that authorized no such search — a fabricated tutor, the forbidden
+  // direction. (An un-targeted tutor is unaffected: `searcherIsTarget` is absent and this reads ctx.controller.)
+  const controller = atom.searcherIsTarget
+    ? ((ctx.targets || []).find((t) => t.type === "player" && state.players[t.id])?.id ?? null)
+    : ctx.controller;
+  const player = controller ? state.players[controller] : null;
   if (!player) return state;
   // LAND-FROM-HAND — `sourceZone:"hand"` gathers candidates from the HAND instead of the library (Growth
   // Spiral); every other tutor searches the library (the default). The choice/picker/auto-pick are identical.
@@ -1644,6 +1672,44 @@ export function tutorClauseParser(clause, ctx = {}) {
       destination: "battlefield",
       entersTapped: !!bfn[3],
       targetType: null,
+    };
+  }
+  // ===== ptm — NAMED-CARD tutor, searched by a TARGETED PLAYER (CR 702.124j, the partner-with ETB) ==========
+  // "target player may search their library for a card named <X>, reveal it, put it into their hand, then
+  // shuffle." Three things make this arm different from every tutor above it, and all three are deliberate:
+  //
+  //  1. THE FILTER IS A NAME, not a type group. `filter.name` is the positive mirror of the existing
+  //     excludeName gate and is enforced in the SAME shared matcher, so the candidate pool and the auto-pick's
+  //     defensive re-application cannot disagree.
+  //  2. THE SEARCHER IS THE TARGET (`searcherIsTarget`), not the controller — "search THEIR library", into
+  //     THEIR hand, shuffling THEIR library. See the binding note at the top of applyTutor.
+  //  3. THE "MAY" IS THE TARGET'S (`optionalDeciderIsTarget`), not the controller's. The generic α2 wrapper
+  //     peels only a LEADING "you may" and asks the controller; this clause says "target player MAY", so the
+  //     decision is routed to the targeted player instead. Both of the target's choices are therefore theirs:
+  //     whether to search at all, and — a named search being a search with a stated quality (CR 701.23b) —
+  //     whether to find the card once searching.
+  //
+  // ⛔ REVEALING IS ACCEPTED AND NOT MODELED, which is a pre-existing limit of this whole tutor family rather
+  // than something this arm introduces: every arm above optionally swallows "reveal it" the same way and no
+  // tutor in the engine publishes the found card. It costs opponents information they are owed; it never grants
+  // the searcher anything the card didn't, so it is a false negative and stays inside the creed.
+  // The trailing shuffle is OPTIONAL in the anchor for the same reason it is on every arm above: splitClauses
+  // detaches ", then shuffle" into its own clause, so this arm only ever sees the head. The shuffle is not lost
+  // — resolveTutorChoice runs it unconditionally per CR 701.19e — and accepting it inline keeps the anchor
+  // correct if a card ever prints the sentence unsplit.
+  const ptm = t.match(/^target player may search their library for a card named (.+?),?(?: reveal (?:it|that card),?)? put (?:it|that card) into their hand(?:,? (?:then |and )?shuffle(?: their library)?)?\.?$/);
+  if (ptm) {
+    const named = ptm[1].trim();
+    if (!named) return null;
+    return {
+      op: "tutor",
+      filter: { name: named },
+      filterLabel: `card named ${named}`,
+      destination: "hand",
+      searcherIsTarget: true,
+      optional: true,
+      optionalDeciderIsTarget: true,
+      targetType: "player",
     };
   }
   // tm — fetch-to-HAND single card.

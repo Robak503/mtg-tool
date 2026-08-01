@@ -10,12 +10,12 @@
  * KW-PARTNER — the same slice credits the bare "Partner" keyword (CR 702.124a) as keyword-only. Partner is a
  * DECKBUILDING keyword fully modeled at the command zone (cmdPartner seats BOTH partners); on the battlefield
  * it is a no-op with no clause to drop. This is what lets Kamahl's WHOLE card (combat-trigger + this activated
- * ability + Partner) read native. "Partner with <name>" (a LINKED partner-tutor ETB the engine does NOT model)
- * is EXACT-anchored out and stays body-only.
+ * ability + Partner) read native. "Partner with <name>" was EXACT-anchored out and stayed body-only —
+ * ✅ INVERTED 2026-08-01, once its linked ETB tutor (CR 702.124j) was actually built.
  *
  * CREED: only the cleanly-modelable subset flips. An opponent's land is never offered (illegal target); a
- * permanent animate / color-set / un-grantable keyword still routes to the Arbiter; "Partner with X" and
- * "Friends forever" stay non-native.
+ * permanent animate / color-set / un-grantable keyword still routes to the Arbiter; "Partner with itself"
+ * (which names no other card) stays non-native.
  */
 
 import { describe, it, expect } from "vitest";
@@ -134,10 +134,17 @@ describe("KAMAHL — KW-PARTNER keyword-only gating", () => {
     expect(isKeywordOnly("Partner—Character select", "X")).toBe(true);
     expect(isKeywordOnly("Friends forever", "X")).toBe(true);
     expect(isKeywordOnly("Choose a Background", "X")).toBe(true);
-    // ⛔ THE ONE THAT STAYS REFUSED — a LINKED partner-tutor ETB (CR 702.124f) the engine does not model.
-    // Its reminder is a real effect: "When this creature enters, target player may put <name> into their
-    // hand from their library…". Crediting it would drop that.
-    expect(isKeywordOnly("Partner with Bruse Tarl", "X")).toBe(false);
+    // ✅ INVERTED 2026-08-01. This asserted `isKeywordOnly("Partner with Bruse Tarl") === false`, because its
+    // linked ETB tutor (CR 702.124j) was unmodeled and crediting it would have dropped a real effect. That
+    // ETB is now BUILT — the named tutor searches the TARGETED player's library (see partnerWith.test.js) —
+    // so the line is stripped and the form reads keyword-only. The warrant is different from the inert
+    // siblings above and that difference is the thing worth keeping: they are credited for doing NOTHING
+    // during play, this one for its ability being IMPLEMENTED.
+    expect(isKeywordOnly("Partner with Bruse Tarl", "X")).toBe(true);
+    // ⛔ THE ONE THAT STAYS REFUSED, and the successor to the assertion above: "Partner with itself"
+    // (Mothers Yamazaki) names no other card and is not modeled. It is also the guard that keeps the
+    // bare-"Partner" credit from ever widening to swallow the whole with-form by vacuity.
+    expect(isKeywordOnly("Partner with itself", "X")).toBe(false);
   });
 });
 
