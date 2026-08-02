@@ -473,7 +473,12 @@ function stripShuffleInsteadLine(oracle) {
 function discardCostAbilityModeled(card) {
   const ab = parseDiscardCostAbility(card);
   if (!ab) return null;
-  const program = parseEffectClause(ab.effectText);
+  // ⚠️ PARSED UNDER A LITERAL "Instant", NOT the card's own type — the SAME correction
+  // matchOptionalDiscardPayment already carries. Several atoms (pump, deal-damage) are
+  // type-gated to Instant/Sorcery and return LOW for a Creature, so passing the card's real
+  // type refused abilities that are perfectly modeled (Harvester of Misery, Mjolnir).
+  // The atoms resolve type-agnostically, so this is behaviour-identical and correct.
+  const program = parseEffectClause(ab.effectText, "Instant");
   // Mirrors legalChoices exactly — including the confidence check, which is measured-redundant there (see
   // the note at that call site). Kept in lockstep so the two predicates cannot drift even where one arm is
   // currently doing no work.

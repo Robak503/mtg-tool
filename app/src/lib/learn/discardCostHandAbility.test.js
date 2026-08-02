@@ -27,7 +27,7 @@ import { dispatchAction } from "./actionDispatcher.js";
 import { parseDiscardCostAbility } from "./effects/abilities.js";
 import { resolveImpulseDigChoice } from "./effects/runProgram.js";
 import { resolveTopOfStack } from "./gameEngine.js";
-import { _resetIdsForTests, createGameState } from "./gameState.js";
+import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -101,6 +101,39 @@ describe("⛔ the gates — refuse rather than resolve wrongly", () => {
   it("an ability whose effect does not parse is not offered", () => {
     const junk = { ...ULTIMO, oracle: "Flying\n{2}{B}, Discard this card: Each opponent glorbulates at dawn." };
     expect(activate(junk).offered).toBe(false);
+  });
+});
+
+describe("⚠️ THE EFFECT IS PARSED UNDER A LITERAL \"Instant\", NOT the card's own type", () => {
+  // Shipped wrong for an hour: the gate called parseEffectClause with NO type, and several atoms
+  // (pump, deal-damage) are type-gated to Instant/Sorcery — so a CREATURE's perfectly-modeled ability
+  // parsed LOW and was refused. An over-refusal, safe but wrong, and invisible because the affected cards
+  // were parked for other reasons too. matchOptionalDiscardPayment already carried this exact correction;
+  // I did not copy it. The atoms resolve type-agnostically, so "Instant" is behaviour-identical.
+  const BEAST = { id: "cq", name: "Probe Beast", type: "Creature — Beast", mana: "{4}{R}", power: 4, toughness: 4,
+    oracle: "Trample\n{2}{R}, Discard this card: It deals 2 damage to each creature." };
+
+  it("a CREATURE with a type-gated ability effect is offered and credited", () => {
+    expect(classifyCard(BEAST)).toMatch(/^native/);
+    expect(activate(BEAST).offered).toBe(true);
+  });
+
+  it("⭐ and it really resolves — the damage lands", () => {
+    const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const bear = createPermanent({ id: "b", card: { id: "cb", name: "Grizzly Bears", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }, controller: "ai1", summoningSick: false });
+    let s = {
+      ...s0, turn: 6, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user",
+      players: { ...s0.players,
+        user: { ...s0.players.user, hand: [{ ...BEAST, id: "SUBJ" }], manaPool: { W: 5, U: 5, B: 5, R: 5, G: 5, C: 5 }, life: 40 },
+        ai1: { ...s0.players.ai1, battlefield: [bear], life: 40 } },
+    };
+    const act = legalActionsForPlayer(s, "user").find((a) => a.kind === "discard-ability" && a.cardId === "SUBJ");
+    expect(act).toBeTruthy();
+    s = dispatchAction(s, act);
+    let guard = 0;
+    while ((s.stack || []).length && !s.pendingChoice && guard++ < 10) s = resolveTopOfStack(s);
+    expect(s.players.ai1.battlefield.some((p) => p.id === "b")).toBe(false);   // a 2/2 taking 2 dies
+    expect((s.log || []).filter((l) => l.kind === "stack-resolve-error")).toHaveLength(0);
   });
 });
 

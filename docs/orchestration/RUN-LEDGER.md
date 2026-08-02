@@ -3,6 +3,31 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔧 FOLLOW-UP FIX - 2026-08-01 - **the discard-ability gate was parsing with NO CARD TYPE** - +0, shelf 0
+> Suite **1068 / 13,522 green**, lint 0. Isolated flip-diff **0 GAINED / 0 LOST / 0 churn** — a latent
+> correctness repair, not a card-gainer. Found by following up on my OWN slice from an hour earlier rather
+> than moving on to the next one.
+>
+> **THE BUG:** all three gate sites called `parseEffectClause(ab.effectText)` with **no card type**. Several
+> atoms (pump, deal-damage) are TYPE-GATED to Instant/Sorcery and return LOW otherwise — so a CREATURE's
+> perfectly-modeled ability parsed low and was silently refused. Harvester of Misery and Mjölnir were being
+> turned away for a reason that had nothing to do with their text.
+>
+> ⚠️ **matchOptionalDiscardPayment ALREADY CARRIED THIS EXACT CORRECTION**, with a comment calling it
+> LOAD-BEARING and explaining that 30 of its 32 flips depended on it. I mirrored that function's structure
+> when building this lane and did not copy the one line that its comment flagged as the trap.
+> **Reading a precedent's SHAPE is not the same as reading its WARNINGS.**
+>
+> An over-refusal is FN-safe, which is exactly why it was invisible: every affected card was parked for other
+> reasons too, so the coverage number never moved and no test failed. Only a follow-up sizing probe — asking
+> "why is Harvester LOW when that clause obviously parses?" — surfaced it. **The isolated flip-diff being 0/0/0
+> is the point: a bug that costs nothing today is still a bug, and it would have paid out wrongly the moment
+> one of those cards' other text got modeled.**
+>
+> Fixed at all three sites in lockstep (offer, dispatch, metric), pinned with a synthetic CREATURE whose
+> ability effect is type-gated — offered, credited, and the damage really lands — and the mutation reverting
+> the type argument kills two tests.
+
 > ## SLICE DONE - 2026-08-01 - **DISCARD-COST HAND ABILITY (cycling generalized), +3** - shelf 0
 > Suite **1068 / 13,520 green**, lint 0. Flip-diff **+3 GAINED / 0 LOST / 0 churn**. Five mutations — four
 > killed, one survived and was measured (below). Batch **33**. Gained: Ultimo Civilization's End,

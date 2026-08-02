@@ -1285,7 +1285,12 @@ function applyDiscardAbility(state, action) {
   if (!card) throw new DispatcherError("Card is not in hand", "NOT_IN_HAND");
   const ab = parseDiscardCostAbility(card);
   if (!ab) throw new DispatcherError("Card has no discard-cost ability", "NO_ABILITY");
-  const program = parseEffectClause(ab.effectText);
+  // ⚠️ PARSED UNDER A LITERAL "Instant", NOT the card's own type — the SAME correction
+  // matchOptionalDiscardPayment already carries. Several atoms (pump, deal-damage) are
+  // type-gated to Instant/Sorcery and return LOW for a Creature, so passing the card's real
+  // type refused abilities that are perfectly modeled (Harvester of Misery, Mjolnir).
+  // The atoms resolve type-agnostically, so this is behaviour-identical and correct.
+  const program = parseEffectClause(ab.effectText, "Instant");
   if (!program || programConfidence(program) !== "high") throw new DispatcherError("Ability effect is not modeled", "UNMODELED_EFFECT");
 
   const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);

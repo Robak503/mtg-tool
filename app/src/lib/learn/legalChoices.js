@@ -2402,7 +2402,12 @@ function actionsDiscardAbilityFromHand(state, playerId) {
     const cost = parseManaCost(ab.cost);
     if (cost.hasX) continue;                       // an X cost needs the X-choice expansion
     if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
-    const program = parseEffectClause(ab.effectText);
+    // ⚠️ PARSED UNDER A LITERAL "Instant", NOT the card's own type — the SAME correction
+    // matchOptionalDiscardPayment already carries. Several atoms (pump, deal-damage) are
+    // type-gated to Instant/Sorcery and return LOW for a Creature, so passing the card's real
+    // type refused abilities that are perfectly modeled (Harvester of Misery, Mjolnir).
+    // The atoms resolve type-agnostically, so this is behaviour-identical and correct.
+    const program = parseEffectClause(ab.effectText, "Instant");
     // ⚠️ THE CONFIDENCE CHECK IS REDUNDANT WITH THE ATOMS CHECK TODAY, and that was MEASURED, not assumed:
     // a mutation deleting it survived, because parseEffectClause never returns a LOW program that still
     // carries atoms — every low parse yields []. Verified across all 17 real carriers AND on synthetic
