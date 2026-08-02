@@ -24,7 +24,7 @@
  */
 
 import { markPendingArbiter } from "../pendingArbiter.js";
-import { clearPendingChoice, setPendingTutorChoice } from "../pendingChoice.js";
+import { clearPendingChoice, setPendingTutorChoice, setPendingImpulseDigChoice } from "../pendingChoice.js";
 import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents } from "../gameState.js";
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter } from "./effectAtoms.js";
@@ -498,8 +498,24 @@ export function resolveImpulseDigChoice(state, cardId) {
   let next = clearPendingChoice(state);
   if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → clean no-op
   const chosenId = (pc.candidates || []).some((c) => c.id === cardId) ? cardId : null;
-  next = applyImpulseDig(next, { playerId: pc.controller, n: (pc.candidates || []).length, chosenId, restTo: pc.restTo });
-  next = logEvent(next, { kind: "spell-effect", effect: "impulse-dig", controller: pc.controller, kept: !!chosenId, restTo: pc.restTo });
+  const keep = pc.keep ?? 1;
+  const picked = [...(pc.chosenIds || []), ...(chosenId ? [chosenId] : [])];
+  const lookedAt = pc.lookedAt ?? (pc.candidates || []).length;
+  // MULTI-KEEP: RE-RAISE until `keep` cards are picked (or the pool runs dry). Doing it as repeated
+  // single-picks rather than a multi-select means every driver that already settles an impulse-dig in a
+  // loop — learnSession, the tests, the UI — handles it unchanged; nothing downstream had to learn a new
+  // choice shape. A DECLINE (chosenId null) ends the picking immediately: the player kept what they kept.
+  const remaining = (pc.candidates || []).filter((c) => c.id !== chosenId);
+  if (chosenId && picked.length < keep && remaining.length) {
+    return setPendingImpulseDigChoice(next, {
+      controller: pc.controller, candidates: remaining, restTo: pc.restTo,
+      sourceName: pc.sourceName, keep, chosenIds: picked, lookedAt,
+    });
+  }
+  // ⚠️ `n` is the ORIGINAL look size, never the shrunken candidate list — the disposal must cover every card
+  // looked at, including the ones already moved to hand on earlier passes.
+  next = applyImpulseDig(next, { playerId: pc.controller, n: lookedAt, chosenIds: picked, restTo: pc.restTo });
+  next = logEvent(next, { kind: "spell-effect", effect: "impulse-dig", controller: pc.controller, kept: picked.length, restTo: pc.restTo });
   return resumeAfterChoice(next, pc);
 }
 

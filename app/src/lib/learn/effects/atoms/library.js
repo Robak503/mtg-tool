@@ -371,7 +371,8 @@ export function applyImpulseDigAtom(state, atom, ctx) {
     return logEvent(next, { kind: "spell-effect", effect: "impulse-dig", controller: ctx.controller, count: n, kept: 0 });
   }
   const cards = pool.map((c) => ({ id: c.id, name: c.name }));
-  return setPendingImpulseDigChoice(state, { controller: ctx.controller, candidates: cards, restTo: atom.restTo || "bottom", sourceName: ctx.cardName || null });
+  // `keep` defaults to 1, so every single-keep dig behaves exactly as before.
+  return setPendingImpulseDigChoice(state, { controller: ctx.controller, candidates: cards, restTo: atom.restTo || "bottom", sourceName: ctx.cardName || null, keep: Math.max(1, atom.keep || 1), lookedAt: n });
 }
 
 /**

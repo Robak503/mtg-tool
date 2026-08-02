@@ -179,9 +179,18 @@ describe("CREED anti-FP — a modal with an unmodeled multi-sentence mode stays 
     // Mode 1's "Starting with you, each player votes …" is not modeled — all-or-nothing → low.
     low("Choose one —\n• Draw a card.\n• Starting with you, each player votes for an artifact or a creature. Destroy each permanent with the most votes or tied for most votes.");
   });
-  it("an unmodeled impulse-dig variant (multi-pick) inside a mode drops the whole modal to low", () => {
-    // "Put TWO of them into your hand" is outside the modeled single-keep impulse-dig allowlist → low.
-    low("Choose one —\n• Look at the top four cards of your library. Put two of them into your hand and the rest into your graveyard.\n• You gain 3 life.");
+  // ⛔ PIN INVERTED 2026-08-01 — this case used "Put TWO of them into your hand" as its unmodeled variant.
+  // The multi-keep slice modeled the printed keep count, so that oracle now goes HIGH and the old assertion
+  // was testing the opposite of the truth. The PROPERTY it guarded is real and stays pinned: an impulse-dig
+  // variant the parser does NOT model must sink the whole modal, because the per-mode executor has no access
+  // to the up-front multi-sentence matchers and a partially-modeled mode is a silent FP waiting to happen.
+  // So the case keeps its job with a variant that is STILL unmodeled — Telling Time's 3-way split — and the
+  // multi-keep oracle moves to the positive assertion below so the flip itself is on the record.
+  it("an unmodeled impulse-dig variant (3-way split) inside a mode drops the whole modal to low", () => {
+    low("Choose one —\n• Look at the top three cards of your library. Put one of them into your hand, one on top of your library, and one on the bottom of your library.\n• You gain 3 life.");
+  });
+  it("⭐ INVERTED — a keep-two dig mode is modeled now, so the modal rides high", () => {
+    expect(programConfidence(prog("Choose one —\n• Look at the top four cards of your library. Put two of them into your hand and the rest into your graveyard.\n• You gain 3 life."))).toBe("high");
   });
   it("a nested modal mode is rejected (the per-mode executor doesn't model nested modes) → low", () => {
     low("Choose one —\n• Choose one — • Draw a card. • You gain 2 life.\n• Each opponent loses 2 life.");

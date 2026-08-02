@@ -1067,7 +1067,11 @@ const MUST_DROP_TO_LOW = [
   "Target opponent reveals their hand. You choose a nonland card from it. That player discards that card. Create a 2/2 zombie.", // an unmodeled rider after a modeled template (no silent partial)
   // ── δ-2 impulse-dig — shapes OUTSIDE the exact "keep one, rest → bottom/graveyard" template ──
   "Look at the top three cards of your library. Put one of them into your hand, one on top of your library, and one on the bottom of your library.", // Telling Time — 3-way split
-  "Look at the top three cards of your library. Put two of them into your hand and the rest on the bottom of your library in any order.", // multi-pick
+  // ⛔ PIN INVERTED 2026-08-01 — "Put TWO of them into your hand" MOVED to MUST_STAY_HIGH. The multi-keep
+  // slice widened the allowlist from a literal "put one of them" to a keep COUNT, so this line is now a
+  // modeled shape (Stock Up, Dig Through Time, Ancestral Memories, +6). The shapes around it below still
+  // park, and that is what keeps the "exact template" property pinned — the allowlist grew by one axis,
+  // it did not dissolve.
   "Reveal the top three cards of your library. Put one of them into your hand and the rest into your graveyard.", // reveal, not look
   "Look at the top X cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order.", // variable X count
   // ===== COUNTERS ===== TEAM distribution ("…on each creature you control") — only the EXACT unfiltered
@@ -1324,6 +1328,9 @@ const MUST_STAY_HIGH = [
   "Look at the top three cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order.", // Anticipate
   "Look at the top three cards of your library. Put one of them into your hand and the rest into your graveyard.", // Strategic Planning
   "Look at the top four cards of your library. Put one of them into your hand and the rest into your graveyard. Draw a card.", // dig + draw rider
+  // ⭐ MULTI-KEEP (2026-08-01) — arrived here from MUST_DROP_TO_LOW when the keep count was modeled.
+  "Look at the top three cards of your library. Put two of them into your hand and the rest on the bottom of your library in any order.", // keep-two — Stock Up's template
+  "Look at the top seven cards of your library. Put two of them into your hand and the rest into your graveyard.", // Ancestral Memories — keep-two, rest → graveyard
   // ===== COUNTERS ===== the EXACT team-distribution forms — counters on the controller's whole team.
   "Put a +1/+1 counter on each creature you control.",                          // Titania's Boon / Basri's Solidarity
   "Put two +1/+1 counters on each creature you control.",                       // Strength of the Pack (N=2)

@@ -7,8 +7,9 @@
  * pause→resume seam as tutor / scry / clone / hand-discard. The driver surfaces a picker for the human
  * or auto-keeps the highest-mv card for the AI / Expert.
  *
- * Pins: the exact-template ALLOWLIST (a 3-way split / filtered / multi-pick / "you may" / reveal variant
- * stays low → Arbiter), both rest-destinations, the resolution-time reveal + keep, rider resume
+ * Pins: the exact-template ALLOWLIST (a 3-way split / filtered / open-ended "any number" / reveal-not-look
+ * / X-count variant stays low → Arbiter), both rest-destinations, the resolution-time reveal + keep, rider
+ * resume
  * ("…then draw"), the empty-library no-op, the eliminated-controller guard, and the driver/picker paths.
  */
 import { describe, it, expect, beforeEach } from "vitest";
@@ -49,8 +50,10 @@ function castAndAutoResolve(s, cardId) {
 
 describe("parser — the dig template is HIGH with amount + restTo; other shapes → Arbiter", () => {
   it("rest→bottom and rest→graveyard both parse to one impulse-dig atom", () => {
-    expect(parseEffectProgram(DIG_BOTTOM).atoms).toEqual([{ op: "impulse-dig", amount: 3, restTo: "bottom" }]);
-    expect(parseEffectProgram(DIG_GY).atoms).toEqual([{ op: "impulse-dig", amount: 3, restTo: "graveyard" }]);
+    // `keep: 1` is explicit (not incidental): the multi-keep slice made the keep count a real field, and
+    // pinning it at 1 here is what proves a single-keep dig did not quietly inherit a wider keep.
+    expect(parseEffectProgram(DIG_BOTTOM).atoms).toEqual([{ op: "impulse-dig", amount: 3, keep: 1, restTo: "bottom" }]);
+    expect(parseEffectProgram(DIG_GY).atoms).toEqual([{ op: "impulse-dig", amount: 3, keep: 1, restTo: "graveyard" }]);
   });
   it("a 'then draw' rider composes via the multi-atom gate", () => {
     const p = parseEffectProgram(DIG_GY_DRAW);
@@ -61,10 +64,24 @@ describe("parser — the dig template is HIGH with amount + restTo; other shapes
     const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle }))).toBe("low");
     low("Look at the top three cards of your library. Put one of them into your hand, one on top of your library, and one on the bottom of your library."); // Telling Time — 3-way
     low("Look at the top five cards of your library. You may reveal a Dinosaur card from among them and put it into your hand. Put the rest on the bottom of your library in a random order."); // Commune with Dinosaurs — TRIBAL filter (unlisted word) → Arbiter
-    low("Look at the top three cards of your library. You may reveal any number of artifact cards from among them and put the revealed cards into your hand. Put the rest on the bottom of your library."); // Forging the Anchor — multi-keep ("the revealed cards")
-    low("Look at the top three cards of your library. Put two of them into your hand and the rest on the bottom of your library in any order."); // keep-two (multi-pick)
+    low("Look at the top three cards of your library. You may reveal any number of artifact cards from among them and put the revealed cards into your hand. Put the rest on the bottom of your library."); // Forging the Anchor — OPEN-ENDED multi-keep ("any number" / "the revealed cards") is still unmodeled
     low("Reveal the top three cards of your library. Put one of them into your hand and the rest into your graveyard."); // reveal, not look
     low("Look at the top X cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order."); // variable X count
+  });
+
+  // ⛔ PIN INVERTED 2026-08-01 — "Put TWO of them into your hand" used to sit in the `low` list directly
+  // above as "keep-two (multi-pick)". The multi-keep slice widened the allowlist from a literal "put ONE of
+  // them" to a printed keep COUNT, so the shape is modeled now and the old pin asserted the opposite of the
+  // truth. Inverting it rather than deleting it: the property the old line was really guarding — that the
+  // allowlist stays EXACT — is re-pinned by the two boundary cases below, and by the fact that the
+  // open-ended "any number" form above did NOT come with it. The allowlist grew along one axis only.
+  it("⭐ INVERTED — a printed keep-two is now modeled, and the boundaries around it still park", () => {
+    const p = parseEffectProgram({ type: SORCERY, oracle: "Look at the top three cards of your library. Put two of them into your hand and the rest on the bottom of your library in any order." });
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms).toEqual([{ op: "impulse-dig", amount: 3, keep: 2, restTo: "bottom" }]);
+    const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle }))).toBe("low");
+    low("Look at the top two cards of your library. Put two of them into your hand and the rest on the bottom of your library."); // keep == look: not a dig, it's a draw-2
+    low("Look at the top three cards of your library. Put four of them into your hand and the rest on the bottom of your library."); // keep > look: nonsense text → Arbiter, never a guess
   });
 });
 
@@ -83,7 +100,7 @@ describe("coverage — clean dig is native-spell", () => {
 describe("DIG-1 parser/coverage — 'the other' phrasing + the filtered reveal-dig", () => {
   it("the N=2 'and the other on the bottom' parses to a plain keep-one dig (Sleight of Hand)", () => {
     expect(parseEffectProgram({ type: SORCERY, oracle: "Look at the top two cards of your library. Put one of them into your hand and the other on the bottom of your library." }).atoms)
-      .toEqual([{ op: "impulse-dig", amount: 2, restTo: "bottom" }]);
+      .toEqual([{ op: "impulse-dig", amount: 2, keep: 1, restTo: "bottom" }]);
   });
   it("the filtered reveal-dig parses with a tutor-style filter (creature / instant-or-sorcery / union)", () => {
     expect(parseEffectProgram({ type: SORCERY, oracle: "Look at the top five cards of your library. You may reveal a creature card from among them and put it into your hand. Put the rest on the bottom of your library in a random order." }).atoms)

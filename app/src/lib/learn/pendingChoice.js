@@ -265,9 +265,9 @@ export function setPendingImprintChoice(state, { controller, candidates, sourceI
  * tutor/scry, `runProgram` records the suspended-program continuation onto `pendingChoice.resume` when
  * it detects the pause. FIFO: one choice at a time.
  */
-export function setPendingImpulseDigChoice(state, { controller, candidates, restTo, sourceName = null }) {
+export function setPendingImpulseDigChoice(state, { controller, candidates, restTo, sourceName = null, keep = 1, chosenIds = [], lookedAt = null }) {
   if (state.pendingChoice) return state;
-  const next = logEvent(state, { kind: "impulse-dig-pending", controller, count: candidates.length, restTo, sourceName });
+  const next = logEvent(state, { kind: "impulse-dig-pending", controller, count: candidates.length, restTo, sourceName, keep });
   return {
     ...next,
     pendingChoice: {
@@ -276,6 +276,13 @@ export function setPendingImpulseDigChoice(state, { controller, candidates, rest
       candidates,
       restTo,
       sourceName,
+      // MULTI-KEEP: `keep` is how many cards go to hand in total, `chosenIds` those picked so far, and
+      // `lookedAt` the ORIGINAL top-N size. The choice RE-RAISES until enough are picked, which is why
+      // lookedAt must be carried: the final applyImpulseDig has to dispose the whole original set, not
+      // just what is left in the shrinking candidate list. keep=1 leaves every existing caller unchanged.
+      keep,
+      chosenIds,
+      lookedAt: lookedAt ?? candidates.length,
     },
   };
 }

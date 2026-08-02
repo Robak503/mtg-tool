@@ -364,13 +364,19 @@ const DIG_NUM = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8
 export function matchImpulseDig(oracle) {
   // (1) Plain keep-one dig — "put one of them into your hand and the rest|the other on the bottom|graveyard".
   const m = String(oracle).match(
-    /^look at the top (\w+) cards? of your library\. put one of (?:them|those cards|these cards) into your hand and (?:put )?(?:the rest|the other) (on the bottom of your library(?: in (?:any|a random) order)?|into your graveyard)\.?/i,
+    /^look at the top (\w+) cards? of your library\. put (one|two|three) of (?:them|those cards|these cards) into your hand and (?:put )?(?:the rest|the other) (on the bottom of your library(?: in (?:any|a random) order)?|into your graveyard)\.?/i,
   );
   if (m) {
     const amount = DIG_NUM[m[1].toLowerCase()];
     if (!amount) return null;                                   // "the top X cards" (variable) / unspelled → Arbiter
-    const restTo = /graveyard/i.test(m[2]) ? "graveyard" : "bottom";
-    return { atom: { op: "impulse-dig", amount, restTo }, rest: oracle.slice(m[0].length).trim() };
+    // MULTI-KEEP (Stock Up, Dig Through Time, Ancestral Memories …): the allowlist above used to admit ONLY
+    // "put ONE of them", so every "put two/three" card fell to the Arbiter. The keep count now rides on the
+    // atom and the choice RE-RAISES until that many are picked. Still an allowlist — "any number", a 3-way
+    // split (Telling Time) and a variable/X count all still fail the anchor.
+    const keep = { one: 1, two: 2, three: 3 }[m[2].toLowerCase()];
+    if (!keep || keep >= amount) return null;                   // keep-all is not a dig; keep>look is nonsense → Arbiter
+    const restTo = /graveyard/i.test(m[3]) ? "graveyard" : "bottom";
+    return { atom: { op: "impulse-dig", amount, keep, restTo }, rest: oracle.slice(m[0].length).trim() };
   }
   // (2) FILTERED reveal-dig — "look at top N. you may reveal a <type> card from among them and put it into
   // your hand. Put the rest on the bottom." Only TYPE-MATCHING cards are keepable to hand; the rest (incl.

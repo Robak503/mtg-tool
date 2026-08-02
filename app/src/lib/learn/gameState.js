@@ -948,16 +948,20 @@ export function applyScrySurveil(state, { playerId, n, keepIdsOrdered, mode }) {
  * puts nothing in hand and still disposes the rest — no card duplicated or lost. Mirrors
  * applyScrySurveil's eliminated-controller guard + immutable withPlayer shape.
  */
-export function applyImpulseDig(state, { playerId, n, chosenId, restTo }) {
+export function applyImpulseDig(state, { playerId, n, chosenId, chosenIds, restTo }) {
   assertPlayer(playerId);
   if (!state.players[playerId]) return state; // controller eliminated mid-resolution → clean no-op
+  // MULTI-KEEP (Stock Up "put TWO of them into your hand", Dig Through Time): the picks arrive as a SET.
+  // `chosenId` stays supported so every single-keep caller is byte-identical; a null/absent pick still means
+  // "kept nothing", which is the clean reveal-nothing path the filtered dig relies on.
+  const keepSet = new Set((chosenIds && chosenIds.length ? chosenIds : [chosenId]).filter((x) => x != null));
   let discarded = []; // the non-chosen cards a graveyard-disposing dig puts into the GY — GY-EVENT (SHELF S7)
   const next = withPlayer(state, playerId, player => {
     const top = player.library.slice(0, n);
     const rest = player.library.slice(n);
-    const chosen = top.find(c => c.id === chosenId);
-    const others = top.filter(c => c.id !== chosenId); // every non-chosen looked-at card → bottom / graveyard
-    const hand = chosen ? [...player.hand, chosen] : player.hand;
+    const chosen = top.filter(c => keepSet.has(c.id));
+    const others = top.filter(c => !keepSet.has(c.id)); // every non-chosen looked-at card → bottom / graveyard
+    const hand = chosen.length ? [...player.hand, ...chosen] : player.hand;
     if (restTo === "graveyard") discarded = others;
     return restTo === "graveyard"
       ? { ...player, hand, library: [...rest], graveyard: [...player.graveyard, ...others] }
