@@ -22,6 +22,32 @@ Judgment degrades before mechanics do. So:
 
 ## A — UNBLOCKED NOW (do these first, in this order)
 
+### A0b. ⚠️ TRAP BANKED — "that player" on a SPELL is mis-bound to `damagedPlayer` · 4 cards · READ BEFORE BUILDING
+Found 2026-08-01 by asking "which spells parse HIGH but still classify non-native?" — a probe for
+over-refusals. Exactly four: **Recoil · Ozai's Cruelty · Compelling Deterrence · Frightful Delusion**.
+All four end in a `discard` atom carrying `who: "damagedPlayer"`.
+
+**They are correctly refused today**, by the `who === "damagedPlayer"` guards in coverage.js: that referent is
+stamped ONLY by combat-damage triggers (`ctx.damagedPlayerId`, set by checkCombatDamageTriggers), never by a
+spell, so the atom could not bind at resolution.
+
+⛔ **THE TRAP: the obvious "fix" is to thread a spell-side damagedPlayer referent, and that would create a
+REAL false positive.** The binding is wrong on three of the four — "that player" does not mean the damaged
+player there:
+> · **Recoil** — "Return target permanent to its owner's hand. Then THAT PLAYER discards a card." → the
+>   bounced permanent's OWNER. No damage is dealt at all.
+> · **Compelling Deterrence** — same bounce-owner referent, AND its condition ("…discards a card **if you
+>   control a Zombie**") is DROPPED from the atom list entirely. Crediting it would discard unconditionally.
+> · **Frightful Delusion** — "Counter target spell unless its controller pays {1}. THAT PLAYER discards…" →
+>   the countered spell's CONTROLLER.
+> · **Ozai's Cruelty** — "deals 2 damage to target player. That player discards two cards." → the only one
+>   where damagedPlayer is genuinely the right referent.
+
+So the honest build is: bind "that player" to the PRECEDING ATOM'S subject (bounce → owner, counter →
+spell's controller, damage → damaged player), then thread it at spell resolution — and leave Compelling
+Deterrence parked until its intervening condition is modeled too. **Yield ~3 cards for a referent-binding
+slice; the gate that looks like the blocker is actually the thing keeping this correct.**
+
 ### A0. 🐞 MOXFIELD IMPORT IS BROKEN IN THE PACKAGED APP · size UNKNOWN until the cause is confirmed · USER-FACING
 Found 2026-08-01 while importing four test decks Colton supplied. **Every Moxfield URL 403s through
 `/api/decks/import-url` in the running .exe.** Archidekt untested.
