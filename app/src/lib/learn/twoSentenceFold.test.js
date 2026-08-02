@@ -63,13 +63,36 @@ describe("the card this actually freed", () => {
     })).toMatch(/^native/);
   });
 
-  it("⚠️ and the six that still park — the program guard, not the splitter", () => {
-    // Their clauses now all parse; the PROGRAM is still refused because an optional/pausing atom composed
-    // with another atom is deliberately rejected. Pinned so the distinction survives: if these ever flip,
-    // that guard moved and needs its own proof.
+  // ⚠️ PARK PIN INVERTED 2026-08-01 — this assertion used to read `.not.toMatch(/^native/)`.
+  // Its own note set the terms: "if these ever flip, that guard moved and needs its own proof." The guard
+  // DID move, and the proof was built with it — optionalDiscardLeadingSentence.test.js drives Tweeze through
+  // a real cast in BOTH directions (taking the discard and declining it) and shows the mandatory damage
+  // lands either way, which is the whole safety argument for allowing the composition.
+  //
+  // What moved, precisely: the rummage fold ("you may discard a card. If you do, <payoff>") had to run before
+  // the clause splitter and was anchored to the START of the oracle, so ONE leading sentence lost the card.
+  // It now also folds from the TAIL when the head parses cleanly. Optional-as-SUFFIX only.
+  it("Incinerating Blast now flips — the fold reads a leading sentence (was pinned parked)", () => {
     expect(classifyCard({
       name: "Incinerating Blast", type: "Sorcery", mana: "{4}{R}",
       oracle: "Incinerating Blast deals 6 damage to target creature.\nYou may discard a card. If you do, draw a card.",
+    })).toMatch(/^native/);
+  });
+
+  it("⛔ THE PROPERTY THE OLD PIN GUARDED, re-pinned: a mandatory atom AFTER the optional still parks", () => {
+    // This is the half that stayed refused, and it is the dangerous half. Folding it needs the payoff text
+    // split at its first sentence; a mis-split binds the trailing mandatory effect to the optional, so it
+    // silently vanishes when the player declines. Witch's Mark is the live carrier.
+    expect(classifyCard({
+      name: "Witch's Mark", type: "Sorcery", mana: "{2}{R}",
+      oracle: "You may discard a card. If you do, draw two cards.\nCreate a Wicked Role token attached to up to one target creature you control.",
+    })).not.toMatch(/^native/);
+  });
+
+  it("⛔ …and a PAUSING atom in the head still parks — that composition is unproven", () => {
+    expect(classifyCard({
+      name: "Scry Rummage", type: "Sorcery", mana: "{1}{U}",
+      oracle: "Scry 2. You may discard a card. If you do, draw a card.",
     })).not.toMatch(/^native/);
   });
 });

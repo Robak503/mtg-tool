@@ -3,6 +3,49 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-01 - **RUMMAGE PAIR WITH A LEADING SENTENCE, +3** - shelf 0
+> Suite **1066 / 13,497 green**, lint 0. Flip-diff **+3 GAINED / 0 LOST / 0 churn**, both sides on the SAME
+> `MTG_APP_ROOT` this time. Batch **29**. Gained: Tweeze, Incinerating Blast, Pursue the Past.
+> **Shelf 0 — none of the three is in any deck on the shelf, checked before building, not after.**
+>
+> "You may discard a card. If you do, <payoff>." already folded to one optional-discard-payment atom — but
+> ONLY when it was the entire card. The fold must run BEFORE the clause splitter (its two sentences would
+> shatter) and was anchored to the START of the oracle, so a single leading sentence lost the whole card.
+> It now also folds from the TAIL when the head parses cleanly: `[mandatory…, optional]`.
+>
+> **THE SAFETY ARGUMENT IS THE ORDER, and it is asserted on a real cast in BOTH directions.** Optional-as-
+> SUFFIX cannot be misread: cast Tweeze, decline the discard, and the 3 damage still kills the Bear; take it,
+> and a card is discarded and one drawn. If declining could cancel the mandatory half this fold would be as
+> ambiguous as the arrangement the α2 invariant forbids.
+>
+> ### ⚠️⚠️ ALL FOUR PRE-SPECIFIED MUTATIONS SURVIVED ON THE FIRST PASS — the real result of this slice
+> Four guards, four survivors, and the file looked thoroughly tested. What each turned out to be:
+> · **M4 (head-clause refusal) — REAL, and the dangerous one.** Removed, a head of "You gain 2 life. Each
+>   opponent glorbulates at dawn." composes the lifegain and SILENTLY DROPS the unmodeled sentence, crediting
+>   the card native. My CREED test passed anyway because its head was pure junk → zero atoms → a LENGTH check
+>   caught it, not the refusal. **A guard tested only through a case that another guard also catches is
+>   untested.** Now pinned with a head that has one good clause AND one bad.
+> · **M3 (pausing-head refusal) — REAL.** Removed, "Scry 2. You may discard…" composes a pause-before-pause
+>   the resume cursor has never been run through. Now pinned.
+> · **M2 (optionalsFormSuffix) — INERT, measured.** It keys on an `optional` flag; the
+>   optional-discard-payment atom does not carry one (keys: op/effectAtoms/targetType) — its optionality
+>   lives in the pause it raises. Kept, with a comment saying plainly it is not the gate today and naming
+>   what would make it load-bearing. Second time this run a guard I wrote turned out to be documentation.
+> · **M1 (`cut > 0`) — INERT.** A pair-only card already returned from the earlier whole-oracle match.
+>
+> ### PARK PIN INVERTED (not deleted): twoSentenceFold.test.js
+> It pinned Incinerating Blast as parked and its note set the terms itself: *"if these ever flip, that guard
+> moved and needs its own proof."* The guard moved, the proof was built alongside it, so the assertion was
+> flipped **and the property re-pinned in two halves** — Witch's Mark (a mandatory atom AFTER the optional)
+> and a pausing head both still park, right where the distinction was originally made.
+>
+> ### ⛔ WITCH'S MARK LEFT PARKED ON PURPOSE
+> Its shape is the reverse — pair first, then a mandatory Role-token sentence — which needs the PAYOFF text
+> split at its first sentence boundary. A mis-split binds the token creation to the optional, so it vanishes
+> when the player declines: a false positive. Parked is the correct answer until that split is built with its
+> own runtime proof. Same for "you may discard TWO cards" (Thrilling Discovery) and the conditional-prefix
+> form (Take Out the Trash) — 3 of the 6 measured flips deliberately left on the table.
+
 > ## ⛔ SLICE REJECTED - 2026-08-01 - **LIEUTENANT / "as long as you control your commander" — the gate is not the blocker**
 > No code change. **Omnath, Locus of Mana's last card is genuinely expensive** — this is the third
 > investigation to confirm it, and the reasons are now written down so it is not priced a fourth time.
@@ -1316,7 +1359,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 26 cards since v0.150.0** (**named-card tutor to hand +8**, **gy-functioning cast trigger +5**, **aura self-attach return +6**, **counter-shield prevention +7 ⭐ SHELF +1**) — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
+> - **BATCH IN FLIGHT: 29 cards since v0.150.0** (**named-card tutor to hand +8**, **gy-functioning cast trigger +5**, **aura self-attach return +6**, **counter-shield prevention +7 ⭐ SHELF +1**, **rummage leading-sentence +3**) — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher

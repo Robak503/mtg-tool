@@ -2071,6 +2071,57 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   if (odp && KNOWN.has(odp.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [odp.atom], xSpell: false, unparsedTail: null });
   }
+  // LEADING-SENTENCE FORM (Tweeze, Incinerating Blast, Pursue the Past) - the SAME rummage pair, but with a
+  // modeled sentence in front of it: "<this> deals 3 damage to any target. You may discard a card. If you do,
+  // draw a card." The matcher above is anchored to the START of the oracle because the pair must be folded
+  // BEFORE the clause splitter shatters its two sentences - which also means one leading sentence was enough
+  // to lose the whole card. So: peel the leading sentences, fold the pair from the tail, and compose.
+  //
+  // ⛔ THE OPTIONAL LANDS LAST, WHICH IS THE ONLY ARRANGEMENT THE alpha-2 INVARIANT ALLOWS and the only one
+  // that is unambiguous: mandatory-then-optional means declining the discard cannot retroactively cancel the
+  // damage. The reverse (a mandatory atom AFTER the pair - Witch's Mark's Role token) is deliberately NOT
+  // handled here: it needs the PAYOFF text split at its first sentence, and a mis-split would silently bind
+  // the trailing effect to the optional, making it vanish when the player declines. That is a false positive,
+  // so it stays parked (FN-safe) until it can be built with its own runtime proof.
+  {
+    const sFull = stripReminder(oracle).trim().replace(/[’]/g, "'");
+    const cut = sFull.search(/(?:^|(?<=\.)\s+)you may discard a card\.\s*if you do,/i);
+    if (cut > 0) {
+      const head = sFull.slice(0, cut).trim();
+      const tail = sFull.slice(cut).trim();
+      const odpTail = matchOptionalDiscardPayment(tail);
+      if (odpTail && KNOWN.has(odpTail.atom.op) && head) {
+        const headAtoms = [];
+        let headOk = true;
+        for (const clause of splitClauses(head)) {
+          const a = parseClauseToAtom(cardType, clause, hasX, sourceScoped);
+          if (!a || !KNOWN.has(a.op)) { headOk = false; break; }
+          // A PAUSING head atom would suspend the program before the pair is reached; the resume cursor
+          // chains sequential pauses, but that composition is unproven for this fold, so refuse it (FN-safe).
+          if (PAUSING_ATOM_OPS.has(a.op)) { headOk = false; break; }
+          headAtoms.push(a);
+        }
+        // ⚠️ `headAtoms.length` IS THE GUARD THAT ACTUALLY FIRES for a head of pure junk (zero atoms parsed);
+        // the headOk refusal above is what catches the DANGEROUS case - a head with one good clause and one
+        // unmodeled one, where skipping instead of refusing would compose the good half and silently DROP a
+        // printed sentence. Both are mutation-pinned (a head of "You gain 2 life. Each opponent glorbulates
+        // at dawn." must park). `cut > 0` is belt-and-braces only: a pair-only card already returned above.
+        if (headOk && headAtoms.length) {
+          const atoms = [...headAtoms, odpTail.atom];
+          // ⚠️ THIS INVARIANT IS INERT ON THIS COMPOSITION AND THAT WAS MEASURED, not assumed: a mutation
+          // replacing it with `true` survived the whole file. optionalsFormSuffix keys on an `optional` flag,
+          // and the optional-discard-payment atom does not carry one (its keys are op/effectAtoms/targetType)
+          // - its optionality lives INSIDE the atom, in the pause it raises. The call stays because the atom
+          // order it asserts is genuinely the safety argument here (mandatory-then-optional, so declining
+          // cannot cancel the mandatory half) and because it BECOMES load-bearing the moment that atom, or a
+          // future sibling folded into this path, carries `optional: true`. Do not read it as the gate today.
+          if (optionalsFormSuffix(atoms)) {
+            return makeProgram({ confidence: "high", atoms, xSpell: false, unparsedTail: null });
+          }
+        }
+      }
+    }
+  }
   // DESTROY-TOKEN-RIDER — "Destroy target creature. [It can't be regenerated.] (Its|That creature's) controller
   // creates a N/N <color> <subtype> creature token." (Pongify, Rapid Hybridization). A creature-destroy lead +
   // an intervening can't-be-regenerated sentence + a multi-word-subtype token rider — three shapes the shared
