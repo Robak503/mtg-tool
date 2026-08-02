@@ -3,6 +3,51 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔬 NEXT SLICE PRE-SIZED - **AURA SELF-RETURN attached to the triggering creature, 6 cards**
+> Reconnaissance done and CODE-VERIFIED (every claim below was read in the file, not remembered). Banked
+> rather than started because it is a FOUR-seam build and this seat had already shipped five slices plus a
+> release - a half-finished engine change is worth less than a precise handoff.
+>
+> **The cards (8 carriers, all parked, all flip on this line alone):**
+> · Dragon Fangs / Scales / Breath / Wings / Shadow - "When a creature with mana value 6 or greater enters,
+>   you may return this card from your graveyard to the battlefield attached to that creature."
+> · Smoke Shroud - same, but "When a Ninja you control enters".
+> · ⛔ NOT in this slice, and each for its own reason: **Reins of the Vinesteed** ("when enchanted creature
+>   dies … attached to a creature that shares a creature type with that creature" - a dies-trigger plus a
+>   type-matching host CHOICE) and **Gryff's Boon** ("{3}{W}: Return this card from your graveyard … Activate
+>   only as a sorcery" - an ACTIVATED ability from the graveyard, a different seam entirely).
+>
+> **⭐ WHY THIS ONE IS TRACTABLE WHERE MASS-REANIMATE'S AURA SKIP IS NOT.** applyMassReanimate deliberately
+> skips Auras (CR 303.4f/g - an Aura entering with nothing to enchant would be attached to NOTHING, a
+> fabricated permanent CR 704.5m would immediately bin). That reasoning does NOT apply here: these cards NAME
+> their host - "attached to THAT CREATURE", the one that just entered. There is no choice to make, so there
+> is no missing choice mechanism. If the host is gone at resolution, CR 303.4g is satisfied by leaving the
+> Aura in the graveyard.
+>
+> **The four seams, in dependency order:**
+> 1. `enterCardFromZone` (effects/atoms/zones.js:181) returns `{state, entered}` and NOT the new permanent's
+>    id - but it has `permId` internally. Add `permanentId` to the return; additive, every existing caller
+>    ignores it.
+> 2. A new ETB scope for "a creature with mana value N or greater enters". **VERIFIED ABSENT** by probe:
+>    detectTriggers returns [] for it today. The SUBTYPE scope Smoke Shroud needs ALREADY EXISTS
+>    (`subtypeYouControl`, probe returned it cleanly) - so Smoke Shroud may flip on seams 1+3+4 alone.
+> 3. A GRAVEYARD SCAN in checkEnterTriggers, mirroring the one just added to checkCastTriggers for the
+>    Eidolons - same `functionsFromGraveyard` stamp, same `sourceCardId` on the context, and the battlefield
+>    loop must exclude the flag the same way. **Read that slice's entry below before writing this one**,
+>    including the surviving-mutation note: the battlefield exclusion is a PRE-FILTER, not the safety gate.
+> 4. A new sentinel + resolver (`[gy-self-attach-return]`), sibling of applyGySelfReturnHand:
+>    `ctx.sourceCardId` = the Aura in the graveyard (stamped by seam 3); **`ctx.triggeringPermanentId` = the
+>    entering creature - VERIFIED to exist already** (interveningIf.js keys several gates on it).
+>    Host missing at resolution -> return state unchanged (CR 303.4g). `attachPermanent` (gameState.js:1018)
+>    is bidirectional, no-ops if either side is missing, and already routes control-Auras - so the attach
+>    itself needs nothing new.
+>
+> **The negatives this slice will need** (they are the slice, same as the Eidolon's): a creature entering that
+> does NOT meet the mana-value bar must not return it; an OPPONENT'S creature entering must not (read the
+> printed scope carefully - the Dragons say "a creature", Smoke Shroud says "a Ninja YOU CONTROL", and those
+> are different gates); the Aura on the BATTLEFIELD must do nothing; and the Aura must stay in the graveyard
+> when the host has left before resolution.
+
 > ## QA PASS - 2026-08-01 (2nd) - **95 cards across 10 mechanics - 0 problems**
 > Standing order. Three new groups added since the last pass (dealt-damage-by-me dies 6, named tutor to hand
 > 9, gy-functioning cast 5); the seven older groups re-run and stayed clean. No harness faults this time -
