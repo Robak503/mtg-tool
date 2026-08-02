@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🏷 RELEASE CUT - 2026-08-01 - **v0.150.0**, 99 cards since v0.149.23
+> Tag pushed at the batch threshold per the release-cadence rule (slices land on master individually; the
+> TAG batches ~100 cards so a running install sees one update banner, not eleven). CHANGELOG's [Unreleased]
+> became [0.150.0]; app/package.json and src-tauri/tauri.conf.json bumped together.
+>
+> **MINOR, not patch** — this batch adds engine CAPABILITY (per-permanent damage-source tracking, the
+> declare-attackers cast window, the CR 614 shuffle-into-library replacement), not only fixes. The prior
+> 0.149.x run was patch-on-patch; this is the first bump that earned the middle digit.
+>
+> ⚠️ `app/src-tauri/Cargo.toml` (0.99.0) and `app/package-lock.json` (0.144.0) do NOT track the release
+> version and never have — verified against the tag history rather than assumed, and deliberately left
+> alone. tauri.conf.json is the authority for the bundle. Don't "fix" them without checking why.
+>
+> Contents: ability-word SPELL path +17 · partner with +16 · self-flash permission +14 · aura
+> static+trigger composition +11 · kw-trigger reconciliation +11/−3 FP · declare-attackers cast window +8 ·
+> mass GY reanimate +7 · dealt-damage-by-me dies +6 · shuffle-instead-of-graveyard +5 · gy-return AND-union
+> +2 · mass return-to-hand +2 · frequency-rider mirror +2 · two-sentence fold +1.
+
 > ## SLICE DONE - 2026-08-01 - **DEALT-DAMAGE-BY-ME DIES (Sengir Vampire family), +6** - shelf 0
 > Suite **1061 / 13,425 green**, lint 0. Flip-diff **+6 GAINED / 0 LOST / 0 churn**. Five mutations, five
 > kills. Batch **99**. Gained: Sengir Vampire, Sengir Bats, Vampiric Dragon, Vampiric Sliver, Predator Ooze,
@@ -948,7 +966,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 99 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
+> - **BATCH IN FLIGHT: 0 cards since v0.150.0** — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher
