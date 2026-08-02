@@ -3,6 +3,41 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-01 - **NAMED-CARD TUTOR to your own hand, +8** - shelf 0
+> Suite **1062 / 13,436 green**, lint 0. Flip-diff **+8 GAINED / 0 LOST / 0 churn**. Four mutations, four
+> kills. Batch **8** (first slice after v0.150.0). Gained: Screaming Seahawk, Avarax, Daru Cavalier,
+> Embermage Goblin, Welkin Hawk, Growth-Chamber Guardian, Wretched Throng, Trustworthy Scout.
+>
+> "Search your library for a card named <X>, reveal it, put it into your hand, then shuffle." — the
+> fetch-your-twin family. **Cheap because a PREVIOUS slice paid for it**: partner-with built `filter.name`
+> and the matcher that enforces it, so this needed one new parse arm and nothing else. Worth noticing as a
+> pattern — the engine seams bought earlier make later slices smaller, which is an argument for building
+> mechanisms rather than special cases.
+>
+> **KEPT AS ITS OWN ARM RATHER THAN WIDENING THE PARTNER-WITH ONE.** That arm's whole shape is that the
+> SEARCHER and the DECIDER are a targeted player (searcherIsTarget / optionalDeciderIsTarget / targetType
+> "player"); none of that is true of an untargeted self-search. Folding two actors into one regex is how a
+> tutor ends up searching the wrong library. The name gate — the part they genuinely share — is shared.
+>
+> **THE TEST THAT MATTERS IS THE CANDIDATE POOL, NOT THE FETCH.** A tutor that offers the whole library and
+> happens to pick the right card is indistinguishable from a correct one on a two-card fixture. So the
+> fixture library carries decoys — another Bird, and a card sharing a WORD with the name ("Screaming Fury")
+> — and the assertion is that the pool is EXACTLY ["Screaming Seahawk"]. M3 (drop the name gate) kills it.
+>
+> ### A SECOND DELIBERATE GATE RETIRED, BY THE FILE'S OWN DOCUMENTED PROCEDURE
+> parser.test.js keeps a MUST-DROP-TO-LOW list, and "…for a card named Lightning Bolt…" was on it with the
+> one-word reason `// by-name` — i.e. the matcher had no way to express a NAME filter. It does now. The file
+> already documents how to retire such an entry (the 2026-07-24 RAMP-MULTI-TO-HAND note: move it out, state
+> why, and name a POSITIVE PIN test), so that procedure was followed rather than invented — and the entry was
+> REPLACED, not deleted, by the disjunctive form ("named Halvar, God of Battle **or an Equipment card**"),
+> which is still refused because admitting it would silently drop half of a choice. **Two slices running, the
+> blocker has been a deliberate old gate whose stated reason had expired. Read the why; if it still holds,
+> leave it; if it does not, retire it the way the file says to — and leave the narrower guard behind.**
+>
+> Two of the eight were NOT in my hand-sized list (Wretched Throng, Trustworthy Scout) — same printed
+> sentence, different hosts (a dies-trigger and a graveyard-activated ability). Both verified by reading the
+> real oracle rather than assumed from the count. Sizing under-counted here for once, rather than over.
+
 > ## 🏷 RELEASE CUT - 2026-08-01 - **v0.150.0**, 99 cards since v0.149.23
 > Tag pushed at the batch threshold per the release-cadence rule (slices land on master individually; the
 > TAG batches ~100 cards so a running install sees one update banner, not eleven). CHANGELOG's [Unreleased]
@@ -966,7 +1001,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 0 cards since v0.150.0** — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
+> - **BATCH IN FLIGHT: 8 cards since v0.150.0** (**named-card tutor to hand +8**) — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher

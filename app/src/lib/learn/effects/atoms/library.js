@@ -1702,6 +1702,42 @@ export function tutorClauseParser(clause, ctx = {}) {
       targetType: "player",
     };
   }
+  // ===== tnm — NAMED-CARD tutor to YOUR OWN hand (Screaming Seahawk, Avarax, Daru Cavalier, Embermage
+  // Goblin, Welkin Hawk, Growth-Chamber Guardian — the "fetch your twin" family) ==========================
+  // "search your library for a card named <X>, reveal it, put it into your hand, then shuffle."
+  //
+  // The CONTROLLER'S mirror of the ptm arm directly above, and deliberately kept as its own arm rather than
+  // widened out of that one: ptm's whole shape is that the SEARCHER and the DECIDER are the targeted player
+  // (searcherIsTarget / optionalDeciderIsTarget / targetType "player"). None of that is true here — this is
+  // an untargeted self-search — and folding two different actors into one regex is how a tutor ends up
+  // searching the wrong library. Everything they legitimately share is shared: the SAME `filter.name`
+  // positive gate, enforced in the SAME matcher the candidate pool and the auto-pick both read.
+  //
+  // ⛔ `optional` IS NOT SET HERE, and that is not an omission. Every carrier prints "you MAY search", and
+  // the generic leading-"you may" wrapper peels that before this matcher ever sees the text, then asks the
+  // CONTROLLER — which is the right decider for a self-search. Setting optional here as well would ask
+  // twice. The other half of the choice — declining to find once searching, since a named search is a search
+  // with a stated quality (CR 701.23b/d) — rides the shared tutor path, same as every arm here.
+  //
+  // The trailing shuffle is optional in the anchor for the reason it is optional on every arm above:
+  // splitClauses usually detaches ", then shuffle" into its own clause, so this only ever sees the head, and
+  // resolveTutorChoice shuffles unconditionally per CR 701.19e.
+  const tnm = t.match(/^search your library for a card named (.+?),?(?: reveal (?:it|that card),?)? put (?:it|that card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  if (tnm) {
+    const named = tnm[1].trim();
+    // ⛔ A DISJUNCTIVE NAME IS REFUSED (Forging the Tyrite Sword — "a card named Halvar, God of Battle OR an
+    // Equipment card"): the name gate matches ONE exact name, so admitting this would silently drop the
+    // second half of the choice. Falls to the Arbiter, FN-safe. Anchored on " or " so a comma'd legendary
+    // name ("Halvar, God of Battle") on its own still passes.
+    if (!named || / or /i.test(named)) return null;
+    return {
+      op: "tutor",
+      filter: { name: named },
+      filterLabel: `card named ${named}`,
+      destination: "hand",
+      targetType: null,
+    };
+  }
   // tm — fetch-to-HAND single card.
   const tm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?(?: with mana value (\d+(?: or less)?))?,?(?: reveal (?:it|that card|the card),?)?(?: and)? put (?:it|that card|the card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (tm) {

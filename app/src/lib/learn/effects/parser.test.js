@@ -906,7 +906,18 @@ const MUST_DROP_TO_LOW = [
   // mfh RAMP-MULTI-TO-HAND matcher (16 real corpus cards, incl. Land Tax; 9 flip to a native tier
   // once their other clauses are also modeled). Its positive pin: rampMultiToHand.test.js.
   "Search your library for a nonland card, put it into your hand, then shuffle.",                   // "nonland" not in any type line
-  "Search your library for a card named Lightning Bolt, put it into your hand, then shuffle.",      // by-name
+  // NOTE (2026-08-01): "Search your library for a card named <X>[, reveal it], put it into your hand[, then
+  // shuffle]" moved OUT of this drop-to-low gate, on the same terms as the RAMP-MULTI-TO-HAND note above.
+  // Its old reason here was the bare word "by-name" — the matcher had no way to express a NAME filter. It
+  // does now: `filter.name` was built for the partner-with tutor and is enforced in the SAME shared matcher
+  // the candidate pool and the auto-pick both read, so a named search offers exactly the named card and
+  // nothing else. 8 real corpus cards flip (Screaming Seahawk, Avarax, Daru Cavalier, Embermage Goblin,
+  // Welkin Hawk, Growth-Chamber Guardian, Wretched Throng, Trustworthy Scout).
+  // Its positive pin: namedCardTutor.test.js — including the decoy-library case, which is what proves the
+  // pool is the named card rather than the whole library.
+  // A DISJUNCTIVE name ("a card named Halvar, God of Battle or an Equipment card") is still refused and
+  // still drops to low — pinned below.
+  "Search your library for a card named Halvar, God of Battle or an Equipment card, reveal it, put it into your hand, then shuffle.", // by-name DISJUNCTION — admitting it would drop half the choice
   "Draw a card and search your library for a creature card and put it into your hand.",             // leading-effect leak (review catch) — must NOT parse HIGH as [draw]
   "Destroy target creature unless its controller pays {2}.",   // legacy over-matches → MUST drop
   // NOTE: the BARE MV-filtered removal "Destroy/Exile target <type> with mana value N or greater/less" is NOW native
