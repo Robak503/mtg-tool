@@ -22,6 +22,37 @@ Judgment degrades before mechanics do. So:
 
 ## A — UNBLOCKED NOW (do these first, in this order)
 
+### A0. 🐞 MOXFIELD IMPORT IS BROKEN IN THE PACKAGED APP · size UNKNOWN until the cause is confirmed · USER-FACING
+Found 2026-08-01 while importing four test decks Colton supplied. **Every Moxfield URL 403s through
+`/api/decks/import-url` in the running .exe.** Archidekt untested.
+
+**PROVEN (each measured, not inferred):**
+- 4 URLs failed, plus a single retry minutes later — not a rate-limit burst.
+- The links are PUBLIC and fine: the same deck ids fetch 200 by curl.
+- **NOT the User-Agent.** The app's actual UA string returns **200** by curl and by a plain `node:https`
+  request with byte-identical headers. (I wrongly blamed the UA first — my grep captured an empty string
+  from a multi-line `const`, so the "app UA" probe was really an empty-UA probe. Read the constant.)
+- **NOT stale code.** `git diff v0.149.23 HEAD -- app/src/lib/server/deckUrlFetch.js` is EMPTY; the
+  installed build has the same fetch path as master, including the documented `node:https` Cloudflare
+  workaround that has been there since the feature shipped (3cd62776, 2026-05-30).
+- So: the packaged server gets 403 at the same moment a plain Node process on the same machine, with the
+  same headers, gets 200.
+
+**HYPOTHESIS, NOT PROVEN — do not write this into a fix without testing it:** the BUNDLED Node
+(`resources/node/node.exe`) presents a different TLS fingerprint than the system Node, and Cloudflare
+blocks it. I could not locate the bundled binary to test it (install path not found under Program Files or
+AppData\Local\Programs). **First step for whoever takes this: find the bundled node and run the same
+`node:https` request through it.** That single test confirms or kills the theory.
+
+**SECOND DEFECT, INDEPENDENT OF THE CAUSE:** the error message reads "Check the link is public." The links
+WERE public. That sentence sent this investigation down the wrong path first and would do the same to a
+user. A fetch failure should not assert a cause it has not established.
+
+**Workaround used meanwhile (not a fix):** fetch the deck JSON outside the app, then run it through the
+app's OWN `normalizeMoxfieldDeck` + the import route's OWN `resolveCard`, and commit via `POST /api/decks`.
+Only the network hop is swapped, so the stored deck shape is exactly what the importer would have written.
+Script: `scratchpad/import-test-decks.mjs`.
+
 ### A1. Tibalt gremlin mode · ~1h · low risk
 Omnath's design landed 2026-07-27 ~23:05 (COMMS [O2]): trigger policy, frequency cap, bubble register.
 Per-profile setting, default OFF, Colton's ON. **Failure mode:** an unprompted interjection firing for a
