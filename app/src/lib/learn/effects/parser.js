@@ -29,7 +29,7 @@
 import { parseSpellEffect, parseCreatureTargetRestrictions } from "../spellEffects.js"; // parseGraveyardFilter moved to atoms/zones.graveyardReturnClauseParser (seam batch 16)
 import { isNonChosenTargetType } from "../targetTypes.js"; // MASS_WIPE_SCOPES (the centralized wipe partition) now consumed by ./programQueries.js (slice 3), not here
 import { ATOM_RESOLVERS, PAUSING_ATOM_OPS } from "./effectAtoms.js"; // PAUSING_ATOM_OPS (WI-3) — ops whose resolver can set pendingChoice; gates optional-payment payoffs
-import { typeOf, isInstantOrSorcery, oracleOf, stripAbilityWordLabel, hasXCost, stripReminder, stripRegenerationRider, stripUncounterableRider, stripNoMaxHandSizeRider, stripCastKeywordLines, rewriteAmountX, CANT_REGEN_TEST } from "./textNormalize.js"; // oracle-text normalization + card-field leaf (parser decomposition slice 1) — pure String|card→String|bool, no cycle
+import { typeOf, isInstantOrSorcery, oracleOf, stripAbilityWordLabel, hasXCost, stripReminder, stripRegenerationRider, stripUncounterableRider, stripNoMaxHandSizeRider, stripCastKeywordLines, rewriteAmountX, CANT_REGEN_TEST, DISCARD_COST_ABILITY_LINE } from "./textNormalize.js"; // oracle-text normalization + card-field leaf (parser decomposition slice 1) — pure String|card→String|bool, no cycle
 import { splitClauses } from "./splitClauses.js"; // oracle → clause[] sentence splitter (parser decomposition slice 2) — leaf; sole caller is parser.js
 import { programNeedsChosenTarget } from "./programQueries.js"; // program-shape query leaf (slice 3) — imported for the assembly-time call sites; the full family is re-exported at the bottom of this file
 import { matchImprint, matchHandDisruption, matchRemovalControllerRider, matchRemovalCasterGainLife, matchRemovalDamageRider, matchCounterControllerRider, matchCounterExileInstead, matchCounterZoneRedirect, matchImpulseDig, matchReorderTop, matchDigLandToBattlefield, matchLookTopTake, matchChooseTypeDraw, matchChosenTypeRevealToHand, matchDelayedTrigger } from "./spanMatchers.js"; // up-front multi-sentence span matchers (slice 4) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below (parseControllerRider now consumed by templateMatchers.js directly)
@@ -977,9 +977,36 @@ function matchKickedMagnitudeReplacement(baseProgram, kickedEffect) {
   return null;
 }
 
+/**
+ * A spell that ALSO carries a "<mana>, Discard this card: <effect>" hand ability (Visionary's Dance,
+ * Elemental Masterpiece) must be parsed on its CAST text alone - the ability is a separate activated
+ * ability, not part of what the spell does on resolution.
+ *
+ * GATED, NOT BLIND: the line is removed only when its own effect parses HIGH and needs no chosen target -
+ * the SAME two conditions legalChoices offers the ability on. A targeted or unmodeled ability keeps its line,
+ * so the card stays low and parked rather than being credited for a spell half while its ability does
+ * nothing. (parser.js cannot import abilities.js - abilities imports parser - so the shared LINE regex lives
+ * in the leaf textNormalize and the gate is recomputed here from the parser's own primitives.)
+ */
+function stripDiscardCostAbilityForCast(oracle) {
+  const lines = String(oracle || "").split("\n");
+  const kept = lines.filter((ln) => {
+    const t = ln.trim();
+    if (!DISCARD_COST_ABILITY_LINE.test(t)) return true;
+    const effectText = t.replace(DISCARD_COST_ABILITY_LINE, "").trim();
+    const prog = parseEffectClause(effectText);
+    const modeled = prog && programConfidence(prog) === "high"
+      && (prog.atoms || []).length && !programNeedsChosenTarget(prog);
+    return !modeled;                      // unmodeled ability -> keep the line -> the card stays parked
+  });
+  return kept.length === lines.length ? String(oracle || "") : kept.join("\n").trim();
+}
+
 export function parseEffectProgram(card) {
   if (!isInstantOrSorcery(card) || !oracleOf(card)) return null;
-  return parseEffectProgramWithSelfExileRetry(card) ?? null;
+  const stripped = stripDiscardCostAbilityForCast(oracleOf(card));
+  const subject = stripped === oracleOf(card) ? card : { ...card, oracle: stripped, oracle_text: stripped };
+  return parseEffectProgramWithSelfExileRetry(subject) ?? null;
 }
 
 /**

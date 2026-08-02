@@ -3,6 +3,46 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-01 - **DISCARD-COST HAND ABILITY (cycling generalized), +3** - shelf 0
+> Suite **1068 / 13,520 green**, lint 0. Flip-diff **+3 GAINED / 0 LOST / 0 churn**. Five mutations — four
+> killed, one survived and was measured (below). Batch **33**. Gained: Ultimo Civilization's End,
+> Visionary's Dance, Elemental Masterpiece. **Shelf 0 — checked before building.**
+>
+> "<mana>, Discard this card: <effect>" — an activated ability played from HAND. **This is CYCLING
+> GENERALIZED**: cycling is the special case where the effect is hard-coded "draw a card", so the offer site
+> mirrors actionsCycleFromHand and the dispatcher mirrors applyCycle almost line for line. 17 corpus
+> carriers, 8 would flip on the line alone, **3 built** — the other 5 need target-selection or a hand-zone
+> "It" referent, both refused.
+>
+> **THE SAME TWO GATES IN THREE PLACES** (offer, dispatch, metric): the effect program must be HIGH and need
+> NO CHOSEN TARGET. Target selection at ACTIVATION time is the casting path's machinery and is not wired into
+> this lane, so Steel Wrecking Ball ("destroy target artifact") and Trumpeting Carnosaur are refused rather
+> than resolved with no target — and the metric reads the same predicate, so it cannot credit a card the
+> engine will not offer. Both halves pinned.
+>
+> ### THE SPELL PATH NEEDED ITS OWN STRIP, AND IT HAD TO BE GATED
+> A SORCERY can carry both a cast effect and this ability (Visionary's Dance, Elemental Masterpiece), so
+> parseEffectProgram now parses the cast text with the ability line removed. ⛔ Removed only when the ability
+> is MODELED — an unmodeled/targeted one keeps its line and the card stays parked, because stripping blindly
+> would credit the spell half while the ability silently did nothing. ⚠️ parser.js CANNOT import abilities.js
+> (abilities imports parser), so the shared LINE regex lives in the leaf textNormalize and both sides read it.
+>
+> ### ⚠️ A SURVIVING MUTATION, MEASURED RATHER THAN PATCHED — and it is rule 12 again
+> Deleting the HIGH-confidence gate at the offer site survived. Cause: my "unmodeled effect" test uses text
+> that parses to ZERO ATOMS, so the atoms check catches it and the confidence check never runs. I then went
+> looking for an effect that parses LOW *with* atoms — **across all 17 real carriers and on synthetic
+> part-parseable text there is none; a low parse always yields []**. So the gate is genuinely redundant in
+> this lane. Annotated at BOTH call sites as measured-redundant, with the change that would make it
+> load-bearing named (a parser that returns partial results). Not deleted — it states the contract, and the
+> two predicates are kept in lockstep so they cannot drift.
+>
+> ### A TRIPWIRE FIRED CORRECTLY — discardTrigger.test.js's site count
+> That test asserts the NUMBER of hand→graveyard move sites in the engine (11) and that every one fires
+> checkDiscardTriggers. Adding this dispatcher made it 12 and the test failed by design: *"if this changes, a
+> discard site was added or removed — read the diff."* Read it, confirmed the new site IS wired (absent from
+> `unwired`), bumped the count with the reason in place. ⚠️ Bumping that number without checking `unwired`
+> would defeat the entire test — noted there.
+
 > ## SLICE DONE - 2026-08-01 - **OLD ONE EYE, +1 · ⭐⭐ SHELF +1 — COLTON'S SHELF IS NOW 5/5**
 > Suite **1067 / 13,507 green**, lint 0. Flip-diff **+1 GAINED / 0 LOST / 0 churn**. Five mutations — four
 > killed, one survived and was resolved (below). Batch **30**.
@@ -1501,7 +1541,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 30 cards since v0.150.0** (**named-card tutor to hand +8**, **gy-functioning cast trigger +5**, **aura self-attach return +6**, **counter-shield prevention +7 ⭐ SHELF +1**, **rummage leading-sentence +3**, **Old One Eye +1 ⭐ SHELF +1**) — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
+> - **BATCH IN FLIGHT: 33 cards since v0.150.0** (**named-card tutor to hand +8**, **gy-functioning cast trigger +5**, **aura self-attach return +6**, **counter-shield prevention +7 ⭐ SHELF +1**, **rummage leading-sentence +3**, **Old One Eye +1 ⭐ SHELF +1**, **discard-cost hand ability +3**) — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher

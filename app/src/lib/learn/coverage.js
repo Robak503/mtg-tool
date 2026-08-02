@@ -34,7 +34,7 @@ import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOK
 import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — the metric gates on the SAME vetting the runtime charges on
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, hasDethrone, hasTraining, firebendingKeywordValue, soulshiftKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues } from "./triggers.js";
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
-import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
+import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler, parseDiscardCostAbility } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, registerAuraOwnTriggerValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
 import { spellConditionParseable } from "./interveningIf.js"; // EW-1 — the metric⇄runtime shared gate for a conditional enters-with counter (the resolver evaluates the SAME vocabulary via evaluateInterveningIf); acyclic (interveningIf imports only gameState)
 import { isCloneCard } from "./cloneCopy.js";
@@ -465,6 +465,31 @@ function stripShuffleInsteadLine(oracle) {
 //
 // The rest of each carrier rides the normal paths: "enters with N +1/+1 counters" is already modeled, as is
 // Phantom Nantuko's "{T}: Put a +1/+1 counter on this creature".
+// DISCARD-COST HAND ABILITY ("<mana>, Discard this card: <effect>") — the general form of cycling. Credited
+// ONLY under the SAME three conditions legalChoices.actionsDiscardAbilityFromHand offers it on: the line
+// parses, its effect program is HIGH, and the program needs NO chosen target. Written as one predicate used
+// by both strip paths so the metric cannot out-run the runtime — a targeted ability (Steel Wrecking Ball,
+// Trumpeting Carnosaur) is refused by the engine and must stay parked here too.
+function discardCostAbilityModeled(card) {
+  const ab = parseDiscardCostAbility(card);
+  if (!ab) return null;
+  const program = parseEffectClause(ab.effectText);
+  // Mirrors legalChoices exactly — including the confidence check, which is measured-redundant there (see
+  // the note at that call site). Kept in lockstep so the two predicates cannot drift even where one arm is
+  // currently doing no work.
+  if (!program || programConfidence(program) !== "high") return null;
+  if (!(program.atoms || []).length || programNeedsChosenTarget(program)) return null;
+  return ab;
+}
+/** Drop the whole "<mana>, Discard this card: <effect>" LINE when the engine really offers it. */
+function stripDiscardCostAbilityLine(oracle, card) {
+  const ab = discardCostAbilityModeled({ ...(card || {}), oracle });
+  if (!ab) return oracle;
+  const raw = String(oracle || "");
+  const lines = raw.split("\n");
+  const kept = lines.filter((ln) => !/^(?:\{[^}]+\})+, Discard this card: /i.test(ln.trim()));
+  return kept.length === lines.length ? raw : kept.join("\n").trim();
+}
 function stripCounterShieldLine(oracle) {
   if (!counterShieldPrevention({ oracle })) return oracle;
   const raw = String(oracle || "");
@@ -505,9 +530,9 @@ export function isKeywordOnly(oracle, name) {
   // the 14 carriers are Auras/enchantments (Spider Climb, Mystic Veil, Soar, Timely Ward, Mystical Tether...)
   // and never reach parseEffectProgram at all. One regex, two callers, so they cannot drift apart. See the
   // note on FLASH_PERMISSION_LINE in textNormalize.js for the runtime evidence that it is vacuous here.
-  const deLined = stripCounterShieldLine(stripFlashPermissionLine(
+  const deLined = stripDiscardCostAbilityLine(stripCounterShieldLine(stripFlashPermissionLine(
     stripShuffleInsteadLine(stripPartnerWithLine(String(oracle || "").replace(ESCAPE_LINE, " "))),
-  ));
+  )), { name });
   let t = stripReminder(deLined).toLowerCase().replace(/[’']/g, "'");
   // MULTI-INSTANCE CASCADE (CR 702.85) — "Cascade, cascade[, …]" is now MODELED (detectTriggers emits N cascade
   // triggers, each an independent dig; see cascadeInstanceCount). After stripReminder it splits into N covered

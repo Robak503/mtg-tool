@@ -229,6 +229,10 @@ const SPLIT_SECOND_LINE = /^[ \t]*split second[ \t]*(?:\([^\n]*\))?[ \t]*$/gim;
 // cast creature spells as though they had flash") is never touched. Exported because the PERMANENT side
 // needs the identical strip - 8 of the 14 carriers are Auras/enchantments that never reach the spell parser
 // - and one shared regex is the only way the metric and the parser cannot drift.
+// DISCARD-COST HAND ABILITY line - "<mana>, Discard this card: <effect>" (cycling generalized).
+// ONE regex, three readers (abilities.parseDiscardCostAbility, the spell-path strip in parser.js, and the
+// residue strip in coverage.js) so the runtime gate and the metric cannot drift apart.
+export const DISCARD_COST_ABILITY_LINE = /^(?:\{[^}]+\})+, Discard this card: /i;
 export const FLASH_PERMISSION_LINE = /^[ \t]*you may cast this spell as though it had flash[^\n]*$/gim;
 /** Drop the self-flash permission line (with any rider) - see the note above for why it is vacuous here. */
 export function stripFlashPermissionLine(text) {

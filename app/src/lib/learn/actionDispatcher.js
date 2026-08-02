@@ -56,7 +56,7 @@ import {
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
 import { manaSources, planPayment, sourcesExcludingOneShotVictim, commitPaymentPlan, commitManaTap, payManaCost } from "./manaModel.js";
 import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half
-import { parseEffectProgram } from "./effects/parser.js";
+import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
 import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped, impositionEntersTapped } from "./staticAbilityParser.js";
@@ -66,7 +66,7 @@ import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { landDropAllowance } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword, permanentIsCreature, addContinuousEffect } from "./layers.js";
-import { parseCrewCost } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch
+import { parseCrewCost, parseDiscardCostAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch
 import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers } from "./triggers.js";
 import { setPendingSoftCounterChoice } from "./pendingChoice.js";
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
@@ -1268,6 +1268,46 @@ function applyCycle(state, action) {
 }
 
 /**
+ * DISCARD-COST HAND ABILITY — "<mana>, Discard this card: <effect>". Cycling with an arbitrary effect, so
+ * this is applyCycle's body with ONE difference: the program comes from the card's own parsed effect text
+ * instead of a hard-coded draw. Everything else is deliberately identical — pay the mana, move the card
+ * hand -> graveyard as the rest of the cost, fire discard triggers, push an effect-program stack object,
+ * retain priority (CR 117.3c, an activated ability like any other).
+ *
+ * ⛔ THE COST IS PAID BEFORE THE ABILITY GOES ON THE STACK (CR 601.2h/602.2b), which is why the discard
+ * happens here and not in the resolver: the card is in the graveyard while the ability resolves, exactly as
+ * printed. legalChoices already refused anything whose program is low-confidence or needs a chosen target,
+ * so by this point the program is known-resolvable with no targets.
+ */
+function applyDiscardAbility(state, action) {
+  const player = state.players[action.playerId];
+  const card = (player?.hand || []).find((c) => c.id === action.cardId);
+  if (!card) throw new DispatcherError("Card is not in hand", "NOT_IN_HAND");
+  const ab = parseDiscardCostAbility(card);
+  if (!ab) throw new DispatcherError("Card has no discard-cost ability", "NO_ABILITY");
+  const program = parseEffectClause(ab.effectText);
+  if (!program || programConfidence(program) !== "high") throw new DispatcherError("Ability effect is not modeled", "UNMODELED_EFFECT");
+
+  const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
+  if (!plan) throw new DispatcherError("Cannot pay the ability cost", "MANA_SHORT");
+  let working = commitPaymentPlan(state, action.playerId, plan);
+
+  working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.cardId });
+  checkDiscardTriggers(working, action.playerId, 1);
+
+  const { id: stkId, state: working2 } = mintId(working, "stk");
+  const stackObject = createStackObject({
+    id: stkId, kind: "activated-ability",
+    source: { name: card.name, oracle: "" },
+    controller: action.playerId, targets: [], cost: action.cost,
+    payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program, controller: action.playerId, targets: [] } },
+  });
+  let next = { ...working2, stack: [...working2.stack, stackObject] };
+  next = logEvent(next, { kind: "discard-ability", playerId: action.playerId, cardName: card.name });
+  return { ...next, priorityHolder: action.playerId, consecutivePasses: 0 };
+}
+
+/**
  * Activate a loyalty ability (`[+N]/[−N]/[0]: effect`, CR 606) — PW-1. The cost is a loyalty
  * adjustment, paid by changing the planeswalker's loyalty counters BEFORE the ability goes on the
  * stack (CR 602.2b), and the controller is marked as having used a loyalty ability of this walker
@@ -1632,6 +1672,7 @@ const HANDLERS = {
   "activate-gy-exile": applyActivateGyExile, // GY-2 (CR 602.2): "<mana>, Exile this card from your graveyard: <effect>"
   "crew-vehicle": applyCrewVehicle, // CREW (VH-1, CR 702.121c): tap creatures totaling power ≥ N → the Vehicle animates until EOT
   "cycle": applyCycle, // KW-CYCLING: discard a hand card to draw
+  "discard-ability": applyDiscardAbility, // "<mana>, Discard this card: <effect>" — cycling generalized
   "plot": applyPlot,   // PLOT (CR 702.171a): exile a hand card face-up for the plot cost (special action)
   "activate-loyalty": applyActivateLoyalty,
   "declare-attacker": applyDeclareAttacker,

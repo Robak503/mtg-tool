@@ -163,7 +163,11 @@ describe("⭐ WIRING COMPLETENESS — the invariant behavioural tests cannot rea
         if (!src.slice(i, i + 10).join("\n").includes("checkDiscardTriggers")) unwired.push(`${rel}:${i + 1}`);
       });
     }
-    expect(sites).toBe(11);      // if this changes, a discard site was added or removed — read the diff
+    // 11 → 12 on 2026-08-01: actionDispatcher.applyDiscardAbility, the "<mana>, Discard this card: <effect>"
+    // hand ability (cycling generalized). The tripwire fired exactly as designed — the diff was read, the new
+    // site DOES fire checkDiscardTriggers (it is not in `unwired` below), so the count moves rather than the
+    // invariant. Bumping this number without checking `unwired` would defeat the whole test.
+    expect(sites).toBe(12);      // if this changes, a discard site was added or removed — read the diff
     expect(unwired).toEqual([]);
   });
 });

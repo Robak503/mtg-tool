@@ -603,6 +603,29 @@ export function parseCyclingCost(card) {
 }
 
 /**
+ * DISCARD-COST HAND ABILITY (Waker of Waves, Ultimo, Visionary's Dance, Elemental Masterpiece and 13 more):
+ * "<mana>, Discard this card: <effect>" — an activated ability played from HAND, exactly cycling's shape
+ * with an arbitrary effect where cycling hard-codes "draw a card". Returns { cost, effectText } | null.
+ *
+ * ⛔ THE SAME CYCLE/DISCARD-TRIGGER GATE cycling carries, and for the same CREED reason: a card whose
+ * discard would ALSO fire an unmodeled "when you discard" trigger must not be offered here, or activating it
+ * silently drops that trigger. Broad on purpose — a false negative is safe.
+ *
+ * ⛔ ANCHORED TO A WHOLE LINE with a leading mana cost. "Discard this card" appearing as part of a larger
+ * cost, or inside a permanent's ability, never matches. The EFFECT is returned as raw text and is gated by
+ * the CALLER (legalChoices requires a HIGH, NON-TARGETED program) — this parser makes no claim about it.
+ */
+export function parseDiscardCostAbility(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  if (/\b(?:when|whenever)\b[^.]*\b(?:cycle|discard)/i.test(oracle)) return null;
+  for (const line of oracle.split("\n")) {
+    const m = line.trim().match(/^((?:\{[^}]+\})+), Discard this card: (.+)$/i);
+    if (m) return { cost: m[1], effectText: m[2].trim() };
+  }
+  return null;
+}
+
+/**
  * LIFE-COST CYCLING (Street Wraith — "Cycling—Pay 2 life.", SHELF S7): the cycling cost is a LIFE
  * payment instead of mana. Returns the integer life cost, or null. Same cycle-trigger gate as the
  * mana form (an unmodeled cycle trigger parks the whole card). Paying life IS losing life

@@ -38,7 +38,7 @@ import { collectCostReducers, playLandFromGraveyardPermission, costReductionForS
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksOf, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
-import { parseEffectProgram, programConfidence } from "./effects/parser.js";
+import { parseEffectProgram, programConfidence, parseEffectClause, programNeedsChosenTarget } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
 import { expandCastChoices } from "./effects/targeting.js";
 import { tutorManaValue } from "./effects/atoms/library.js"; // AC-1 — the least-valuable ranking the edict/discard auto-pick uses (library.js is a leaf, cycle-safe)
@@ -53,7 +53,7 @@ function parseCastProgram(card) {
 }
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { counterClauseParser } from "./effects/atoms/stack.js";
-import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, castOnlyWhenAttacked, hasBeenAttackedThisStep, parseCyclingCost, parseCyclingLifeCost, parsePlotCost, parseCrewCost, isModeledGroupActivatedBody, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, castOnlyWhenAttacked, hasBeenAttackedThisStep, parseCyclingCost, parseCyclingLifeCost, parseDiscardCostAbility, parsePlotCost, parseCrewCost, isModeledGroupActivatedBody, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
 // PLOT (CR 702.171): the runtime offers a card the plot special action ONLY when its NON-plot text is
 // fully native — i.e. classifyCard (which strips the plot line internally) returns a native tier. Reusing
 // the metric's OWN authority means the runtime and the coverage metric can never disagree about which plot
@@ -2377,6 +2377,45 @@ function actionsCycleFromHand(state, playerId) {
 }
 
 /**
+ * DISCARD-COST HAND ABILITY — "<mana>, Discard this card: <effect>" (Waker of Waves, Ultimo, Visionary's
+ * Dance, Elemental Masterpiece …). Structurally IDENTICAL to cycling directly above: an activated ability
+ * whose cost is mana plus discarding the card itself, played from hand. Cycling is the special case where
+ * the effect is hard-coded "draw a card"; this is the general one.
+ *
+ * ⛔ TWO CREED GATES, both narrowing on purpose:
+ *  · the effect program must be HIGH — a low parse would resolve to nothing while the card was still
+ *    discarded and the mana still spent, which is strictly worse for the player than not offering it;
+ *  · the program must need NO CHOSEN TARGET. Target selection at ACTIVATION time is the casting path's
+ *    machinery and is not wired here, so a targeted ability (Steel Wrecking Ball's "destroy target
+ *    artifact", Trumpeting Carnosaur's damage) is REFUSED rather than resolved with no target. That is a
+ *    false negative and the correct answer until targeting is built for this lane.
+ */
+function actionsDiscardAbilityFromHand(state, playerId) {
+  if (state.activePlayer !== playerId) return [];
+  if (state.priorityHolder !== playerId) return [];
+  if (state.step !== "main") return [];
+  const player = state.players[playerId];
+  const actions = [];
+  for (const card of player.hand) {
+    const ab = parseDiscardCostAbility(card);
+    if (!ab) continue;
+    const cost = parseManaCost(ab.cost);
+    if (cost.hasX) continue;                       // an X cost needs the X-choice expansion
+    if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
+    const program = parseEffectClause(ab.effectText);
+    // ⚠️ THE CONFIDENCE CHECK IS REDUNDANT WITH THE ATOMS CHECK TODAY, and that was MEASURED, not assumed:
+    // a mutation deleting it survived, because parseEffectClause never returns a LOW program that still
+    // carries atoms — every low parse yields []. Verified across all 17 real carriers AND on synthetic
+    // part-parseable text. It stays because it states the intended contract and BECOMES load-bearing the
+    // moment the parser gains partial results (atoms present, confidence low). Do not read it as the gate.
+    if (!program || programConfidence(program) !== "high") continue;
+    if (!(program.atoms || []).length || programNeedsChosenTarget(program)) continue;
+    actions.push({ kind: "discard-ability", playerId, cardId: card.id, name: card.name, cost, cmc: totalCmc(cost) });
+  }
+  return actions;
+}
+
+/**
  * PLOT (CR 702.171) — `plotPlayable` is the runtime CREED gate: a card may use the plot special action
  * (and later be cast free from exile) ONLY when (a) it has a clean modeled plot cost (parsePlotCost) AND
  * (b) its NON-plot text is fully native — classifyCard strips the plot line internally, so a native tier
@@ -3273,6 +3312,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsActivateAbility(state, playerId));
     actions.push(...actionsCrewVehicle(state, playerId)); // CREW (VH-1, CR 702.121c): tap creatures totaling power ≥ N → the Vehicle animates until EOT
     actions.push(...actionsCycleFromHand(state, playerId)); // KW-CYCLING: discard a hand card to draw
+    actions.push(...actionsDiscardAbilityFromHand(state, playerId)); // the GENERAL form: "<mana>, Discard this card: <effect>"
     actions.push(...actionsActivateLoyalty(state, playerId));
   }
 
