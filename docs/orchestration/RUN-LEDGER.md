@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## QA PASS - 2026-08-01 (3rd) - **112 cards across 13 mechanics - 0 problems**
+> Standing order. Three groups added since the 2nd pass (aura self-attach return 6, counter-shield 7,
+> rummage-with-leading-sentence 4); the ten older groups re-run and stayed clean. No engine faults, and no
+> harness faults this time either.
+>
+> ⚠️ **ONE SELECTOR WAS UNDER-COVERING AND IT WAS CAUGHT BY COUNTING, NOT BY THE GREEN.** The rummage group
+> reported 2 cards when the slice had gained 3 — the anchor required a full stop before "You may discard",
+> and Incinerating Blast separates its sentences with a NEWLINE. Widened to `[.\n]`; the group now covers 4.
+> A group whose count is lower than the slice that created it is under-covering, and it reports "all clean"
+> exactly as loudly as full coverage does. **Check a new group's count against the flip count that produced
+> it** — the ZERO-MATCH guard only catches the total-miss case, not the partial one.
+>
+> Unchanged limit, restated: this sweep is a PLAYABILITY check (offer -> dispatch -> resolve, nothing
+> throws). It does not exercise triggered abilities; the per-mechanic test files own those.
+
 > ## SLICE DONE - 2026-08-01 - **RUMMAGE PAIR WITH A LEADING SENTENCE, +3** - shelf 0
 > Suite **1066 / 13,497 green**, lint 0. Flip-diff **+3 GAINED / 0 LOST / 0 churn**, both sides on the SAME
 > `MTG_APP_ROOT` this time. Batch **29**. Gained: Tweeze, Incinerating Blast, Pursue the Past.
