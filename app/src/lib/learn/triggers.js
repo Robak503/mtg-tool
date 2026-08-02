@@ -416,6 +416,27 @@ export function stripTriggerAbilityLabel(oracle) {
     // ⛔ ONLY LABELS WITH MEASURED FLIPS WERE ADDED. 32 more 207.2c words are in the corpus and measured ZERO
     // (adamant, battalion, channel, coven, domain, converge …). Adding them would be FN-safe but UNTESTED —
     // untested additions to a strip that can only ever loosen are how a list grows past what anyone checked.
+    //
+    // ⭐ RE-MEASURED 2026-08-01 AND THE ZERO HELD. Every remaining CR 207.2c label that reaches a trigger word
+    // in this corpus, with its carrier count: Domain 64 · Converge 28 · Battalion 22 · Coven 20 · Inspired 19
+    // · Revolt 18 · Adamant 18 · Repartee 14 · Celebration 12 · Kinship 12 · Will of the council 12 ·
+    // Addendum 10 · Chroma 9 · Council's dilemma 9 · Disappear 9 · Eminence 9 · Parley 9 · Pack tactics 8 ·
+    // Tempting offer 8 · Fathomless descent 7 · Join forces 5 · Secret council 5. **TOTAL FLIPS: 0.**
+    //
+    // ⚠️ THE TRAP THAT ALMOST TURNED THIS INTO A SLICE, written down because the headline number is seductive:
+    // 469 parked cards sit behind an unstripped label, and that figure means nothing by itself. Stripping a
+    // label only REVEALS a trigger to the counter; a revealed trigger whose event or effect is unmodeled
+    // leaves the card exactly as parked as it was. PARKED-BEHIND-A-LABEL IS NOT WOULD-FLIP-IF-STRIPPED.
+    // Measure the flip, never the carrier count.
+    //
+    // The label vein is therefore EXHAUSTED for gains — these cards are parked on their TRIGGERS, not their
+    // labels. A future slice that models one of those trigger families should add the matching label in the
+    // SAME slice, with its flips measured there.
+    //
+    // ⛔ AND THE REJECTS ARE NOT CANDIDATES, they are hazards: "Max speed", "Solved", "Corrupted" and Saga
+    // chapter markers ("III —") all LOOK like ability-word labels and all carry REAL rules meaning. None
+    // appear in 207.2c. Stripping one would apply a gated effect unconditionally — a forbidden false
+    // positive. The rule list in the bundled CR is the gate; a label that looks flavourful is not enough.
     .replace(ABILITY_WORD_LABEL_RE, "")  // ⭐ THE SHARED CR 207.2c list (effects/textNormalize.js) — one copy, so the trigger path and the spell path cannot drift
     .replace(FLAVOR_LABEL_RE, "");
 }

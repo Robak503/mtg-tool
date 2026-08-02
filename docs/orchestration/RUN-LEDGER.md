@@ -3,6 +3,40 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⛔ SLICE REJECTED - 2026-08-01 - **CR 207.2c ability-word labels: 22 labels, 469 parked cards, ZERO FLIPS**
+> No code change beyond a comment. Reporting it because a negative result that cost a measurement is worth
+> exactly as much as a slice, and because the headline number will tempt the next seat the same way.
+>
+> **THE SEDUCTIVE NUMBER: 469 parked cards sit behind an ability-word label the trigger stripper does not
+> remove.** Domain 64 carriers · Converge 28 · Battalion 22 · Coven 20 · Inspired 19 · Revolt 18 · Adamant 18
+> · Repartee 14 · and fourteen more, all verified present in the bundled CR 207.2c list, all genuinely
+> flavour, all safe to strip. It reads like a 100+ card slice.
+>
+> **IT IS ZERO.** Measured per label, hand-anchored, positive control on the same path: **total flips 0.**
+>
+> ### ⭐ THE DISTINCTION THAT MAKES IT ZERO — parked-behind-a-label ≠ would-flip-if-stripped
+> Stripping a label only REVEALS the trigger to the shaped-sentence counter. A revealed trigger whose EVENT
+> or EFFECT is unmodeled leaves the card exactly as parked as it was. These 469 cards are parked on their
+> TRIGGERS, not on their labels. I measured the carrier count first and got excited by it; the flip count is
+> the only number that was ever going to matter.
+>
+> ### THE FILE ALREADY SAID SO, AND IT WAS RIGHT
+> triggers.js carried a note from a previous seat: "32 more 207.2c words are in the corpus and measured ZERO
+> … untested additions to a strip that can only ever loosen are how a list grows past what anyone checked."
+> I re-measured rather than trusting it — correct process, and the prior judgment held. The note is now
+> extended with all 22 labels and their carrier counts so the third seat does not measure this a third time.
+>
+> ### ⛔ AND THE REJECT BUCKET IS A HAZARD, NOT A BACKLOG
+> 277 further labels reach a trigger word and are NOT in 207.2c. Several look exactly like ability words and
+> carry REAL rules meaning: **"Max speed"** (Aetherdrift — the ability functions only at max speed),
+> **"Solved"** (Case cards — only once solved), **"Corrupted"** (only while an opponent has three poison),
+> and Saga chapter markers (**"III —"**). Stripping any of them would apply a GATED effect unconditionally —
+> a forbidden false positive. The bundled CR list is the gate; "it looks like flavour" is not.
+>
+> A parse bug nearly cost 6 cards on the way in: splitting 207.2c's prose list on commas left the final entry
+> as "and will of the council", so that word silently failed the membership test. Caught by noticing it in the
+> REJECT bucket when the rule text plainly lists it. Reading the rule is not the same as parsing it correctly.
+
 > ## SLICE DONE - 2026-08-01 - **COUNTER-SHIELD prevention, +7 · ⭐⭐ SHELF +1 — MOTHMAN COMETH CROSSED**
 > Suite **1065 / 13,482 green**, lint 0. Flip-diff **+7 GAINED / 0 LOST / 0 churn**. Six mutations - five
 > killed on the first pass, **one SURVIVED and exposed a test passing for the wrong reason** (below).
