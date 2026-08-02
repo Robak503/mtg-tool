@@ -3,6 +3,36 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## QA PASS - 2026-08-01 - **75 batch cards driven through a real cast - 0 engine bugs**
+> Standing order: "every hour or 2 do a QA pass and bug test to make sure the cards you make actually play."
+> Selection is by the batch's signature ORACLE PHRASES against the live index rather than a typed list, so it
+> stays honest as the corpus moves. Each match: real board, card in hand, mana up, ask the real cast-offer
+> chokepoint, dispatch the real action, resolve off the stack, assert no `stack-resolve-error`.
+>
+> partner with 15 - self-flash 14 - shuffle-instead 5 - declare-attackers 8 - soulshift 23 - dethrone 6 -
+> training 4. **All clean.** Both apparent failures were MY HARNESS, and both were run to ground rather than
+> waved off: Human Soldier is a TOKEN (never in hand, so "not offered" is meaningless), and Assassin's Blade
+> failed only because the fixture attacker carried NO COLOR DATA - "destroy target nonblack attacking
+> creature" cannot be evaluated against a creature of unknown color. Proven with a real index row: red
+> attacker offered, black attacker correctly refused, and a genuinely colorless Thopter Assembly offered,
+> because colorless IS nonblack. The card is right; the fixture was wrong. That is the third time this run a
+> fixture defect has impersonated an engine bug.
+>
+> ### ⭐ METHOD - A SELECTOR THAT MATCHES NOTHING REPORTS EXACTLY LIKE "NOTHING TO FIND"
+> Four of the nine sweep groups covered ZERO cards, and the sweep's first run printed a tidy "all clean" for
+> the rest without mentioning it. Cause: a `\b` written through a Python heredoc landed in the file as a
+> literal **backspace byte (0x08)**, so `/^Dethrone\b/` was really `/^Dethrone␈/` and could never match - yet
+> a direct check outside the sweep found 9 carriers, 6 of them native. The only reason this surfaced was an
+> explicit **ZERO-MATCH guard** added minutes earlier on the no-silent-caps principle; it earned its keep on
+> its first run. **The rule, and it generalises past this sweep: any harness that selects its own inputs must
+> ASSERT IT SELECTED SOMETHING.** An empty selector and a clean subject produce byte-identical reports. This
+> is the hollow-gate law pointed at sweeps instead of tests - and the escaping half is the same heredoc
+> hazard already recorded twice (non-ASCII and escape sequences must be BYTE-VERIFIED after writing, never
+> assumed from the source).
+>
+> Token rows (492) are now excluded by the sweep on purpose, and the count is PRINTED - a sweep that quietly
+> narrows its own scope is how a clean report stops meaning anything.
+
 > ## SLICE DONE - 2026-08-01 - **SELF-FLASH PERMISSION (printed sentence, not the keyword), +14** - shelf 0
 > Suite **1060 / 13,410 green**, lint 0. Flip-diff **+14 GAINED / 0 LOST / 0 churn**. Five mutations, five
 > kills, no survivors. Batch **93**. Gained: Spider Climb, Lightning Reflexes, Mystic Veil, Soar, Timely
