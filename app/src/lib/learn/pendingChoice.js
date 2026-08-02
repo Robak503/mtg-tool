@@ -550,12 +550,14 @@ export function setPendingOptionalDrawDiscardChoice(state, { controller, effectA
  * which-card choice); `effectAtoms` is the NON-pausing payoff, run by resolveOptionalDiscardPaymentChoice ONLY after
  * a real discard settles. `available` = the controller holds ≥1 non-token card to pitch. FIFO.
  */
-export function setPendingOptionalDiscardPaymentChoice(state, { controller, available, effectAtoms = [], sourceName = null }) {
+export function setPendingOptionalDiscardPaymentChoice(state, { controller, available, effectAtoms = [], sourceName = null, discardCount = 1 }) {
   if (state.pendingChoice) return state;
-  const next = logEvent(state, { kind: "optional-discard-payment-pending", controller, available, sourceName });
+  const next = logEvent(state, { kind: "optional-discard-payment-pending", controller, available, sourceName, discardCount });
   return {
     ...next,
-    pendingChoice: { kind: "optional-discard-payment", controller, available, effectAtoms, sourceName },
+    // discardCount defaults to 1, so every existing caller is byte-identical; only the cost-bearing
+    // graveyard self-return (Old One Eye, two cards) passes anything else.
+    pendingChoice: { kind: "optional-discard-payment", controller, available, effectAtoms, sourceName, discardCount },
   };
 }
 

@@ -3,6 +3,44 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-01 - **OLD ONE EYE, +1 · ⭐⭐ SHELF +1 — COLTON'S SHELF IS NOW 5/5**
+> Suite **1067 / 13,507 green**, lint 0. Flip-diff **+1 GAINED / 0 LOST / 0 churn**. Five mutations — four
+> killed, one survived and was resolved (below). Batch **30**.
+>
+> ### ⭐⭐ OMNATH, LOCUS OF MANA CROSSED: 89.4% -> 90.9%. Shelf **6/16 -> 7/16**, and **Colton 5/5 — every
+> deck he owns is now at or above the bar.** Joe stays 2/11 (144 cards).
+>
+> A ONE-CARD slice, built because it was the only +1-shelf move on the board. "Fast Healing — At the
+> beginning of your first main phase, you may discard two cards. If you do, return this card from your
+> graveyard to your hand." Third member of the graveyard-functioning family (milled -> Radroach, cast ->
+> Eidolons, now a STEP event) and the first that CHARGES for itself. Built exactly to the four-seam pre-size.
+>
+> **EVERY SEAM WAS AN EXISTING PATTERN, WHICH IS THE ARGUMENT FOR BUILDING MECHANISMS OVER SPECIAL CASES:**
+> the flavour-label strip took one word; the firstMain graveyard scan is the third copy of one shape; the
+> sentinel becomes an `optional-discard-payment` atom whose payoff is the ordinary `gy-self-return-hand`, so
+> the pause-chaining and the card movement are both code that already existed and was already proven. Four
+> slices' worth of earlier infrastructure collapsed this into a small build.
+>
+> ### ⛔⛔ THE BUG THIS SLICE FOUND — a payoff running for a cost that was NOT paid
+> With ONE card in hand the TWO-card cost "succeeded": the offer site counted correctly, but
+> `resolveOptionalDiscardPaymentChoice` carried its OWN independent check that only required a NON-EMPTY hand
+> (`.some(c => !c.token)`). So the program pitched the one card it had and the creature came back anyway.
+> **A fabricated effect — the exact FP class the creed forbids — and it was caught by a runtime probe, not by
+> reading the code I had just written.** Both gates now count. ⚠️ The old `.some()` is byte-equivalent to
+> `>= 1`, so every pre-existing singular carrier is unchanged; the bug was only reachable once a cost above
+> one existed. **A cost check written for N=1 is not a cost check.**
+>
+> ### A SURVIVING MUTATION, RESOLVED: the two gates are not equals
+> Loosening the OFFER-site availability survived — the resolver's cost check refuses regardless. So the offer
+> gate is a PRE-FILTER (it stops an unpayable choice being presented at all, which is a real UI difference)
+> and the RULES safety lives in the resolver. Pinned as what it actually is, with the distinction written
+> into the test. Fourth time this run a guard turned out to be documentation rather than enforcement.
+>
+> ### THE SENTINEL MUST STAY COMMA-FREE
+> First draft read "…discard two cards, THEN return it…" and parsed to NOTHING: `splitClauses` shattered the
+> sentinel in half before the matcher saw it. The whole reason these folds run before the splitter. Pinned
+> with a negative test so it is not "tidied" back.
+
 > ## 🗺 STATE OF THE CORPUS - 2026-08-01 - **the cheap veins are gone; here is the map, priced**
 > Written after a full re-survey rather than asserted. Six sizings this tick, every one measured with the
 > ENABLER-ALONE swap (rule 11) instead of the whole-line drop that inflated the last two rejections.
@@ -1463,7 +1501,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 29 cards since v0.150.0** (**named-card tutor to hand +8**, **gy-functioning cast trigger +5**, **aura self-attach return +6**, **counter-shield prevention +7 ⭐ SHELF +1**, **rummage leading-sentence +3**) — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
+> - **BATCH IN FLIGHT: 30 cards since v0.150.0** (**named-card tutor to hand +8**, **gy-functioning cast trigger +5**, **aura self-attach return +6**, **counter-shield prevention +7 ⭐ SHELF +1**, **rummage leading-sentence +3**, **Old One Eye +1 ⭐ SHELF +1**) — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher

@@ -3882,6 +3882,21 @@ export function detectTriggers(card) {
         // Vinesteed's type-matching choice) falls through unmatched → Arbiter, FN-safe.
         effectClause = "[gy-self-attach-return] return it to the battlefield attached to that creature";
         cls.functionsFromGraveyard = true;
+      } else if (cls.event === "firstMain"
+        && /^you may discard (a|one|two|three|four) cards?\. if you do, return this card from your graveyard to your hand$/i.test(effectClause.trim())) {
+        // ===== GRAVEYARD-FUNCTIONING SELF-RETURN WITH A COST (Old One Eye, "Fast Healing") =====
+        // "At the beginning of your first main phase, you may discard two cards. If you do, return this card
+        // from your graveyard to your hand." Third member of the family after the milled (Radroach) and cast
+        // (Eidolon) forms, and the first one that CHARGES for the return.
+        //
+        // The zone statement is in the effect ("from your graveyard"), same as the Eidolon form, so the same
+        // stamp applies. The sentinel carries the COUNT so the cost is charged as printed; downstream it
+        // becomes an optional-discard-payment atom whose payoff is the ordinary gy-self-return-hand, which
+        // means the pause chaining and the actual move are both code that already existed.
+        const n = effectClause.trim().match(/discard (a|one|two|three|four) cards?/i)[1].toLowerCase();
+        const count = { a: 1, one: 1, two: 2, three: 3, four: 4 }[n];
+        effectClause = `[gy-self-return:hand-discard${count}] discard ${n} cards then return it to your hand`;
+        cls.functionsFromGraveyard = true;
       } else if (cls.event === "cast"
         && /^you may return this card from your graveyard to your hand$/i.test(effectClause.trim())) {
         // ===== GRAVEYARD-FUNCTIONING cast trigger (the Eidolon cycle — Enigma / Aurora / Sandstorm /
@@ -5605,7 +5620,20 @@ export function checkStepTriggers(state, event) {
   const stepCtx = (event === "upkeep" || event === "draw") ? { upkeepPlayerId: state.activePlayer } : {};
   for (const pid of Object.keys(state.players)) {
     for (const perm of triggerSourcesOf(state, pid)) {
-      fired = fired.concat(triggersForEvent(state, { event, sourcePermanent: perm, triggeringContext: stepCtx }));
+      // A GY-FUNCTIONING descriptor never fires from the battlefield - its own text says where it works
+      // (CR 603.3d). Excluded here, fired only by the graveyard scan below. Third instance of this shape
+      // (checkMilledTriggers, checkCastTriggers); see the Eidolon note that the exclusion is a PRE-FILTER,
+      // not the safety gate - the effect keys on a sourceCardId only the graveyard scan stamps.
+      fired = fired.concat(triggersForEvent(state, { event, sourcePermanent: perm, triggeringContext: stepCtx, descriptorFilter: (d) => !d.functionsFromGraveyard }));
+    }
+    // ===== GY-FUNCTIONING step triggers (Old One Eye's first-main return, CR 603.3d) =====
+    for (const gyCard of state.players[pid]?.graveyard || []) {
+      fired = fired.concat(triggersForEvent(state, {
+        event,
+        sourcePermanent: { id: `gy-${gyCard.id}`, controller: pid, card: gyCard },
+        triggeringContext: { ...stepCtx, sourceCardId: gyCard.id },
+        descriptorFilter: (d) => !!d.functionsFromGraveyard,
+      }));
     }
   }
   if (!fired.length) return state;

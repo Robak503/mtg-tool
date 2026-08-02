@@ -1328,14 +1328,22 @@ export function resolveOptionalDiscardPaymentChoice(state, doDiscard) {
   if (!pc || pc.kind !== "optional-discard-payment") return state;
   let next = clearPendingChoice(state);
   if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → bail, no resume
-  const canPay = !!doDiscard && (next.players[pc.controller].hand || []).some((c) => !c.token);
+  // ⚠️ THE COST IS COUNTED, NOT MERELY TESTED NON-EMPTY. This check is INDEPENDENT of the availability gate
+  // at the offer site (stack.js), and a `.some()` here let a two-card cost be "paid" with one card in hand:
+  // the program pitched what it could and the payoff ran anyway — a fabricated effect for an unpaid cost.
+  // Caught by a runtime probe, not by reading. For the singular cards (discardCount 1) `>= 1` is exactly
+  // equivalent to the old `.some()`, so their behaviour is unchanged.
+  const owed = pc.discardCount ?? 1;
+  const canPay = !!doDiscard && (next.players[pc.controller].hand || []).filter((c) => !c.token).length >= owed;
   next = logEvent(next, { kind: "spell-effect", effect: "optional-discard-payment", controller: pc.controller, discarded: canPay, sourceName: pc.sourceName || null });
   if (canPay) {
     const r = pc.resume || {};
     // [cost-discard, ...payoff] as ONE program: the discard pauses (which-card), the payoff runs on resume. The
     // discard atom is the canonical controller-discard shape (hand.js discardClauseParser). Availability was gated
     // above, so the discard ALWAYS pitches exactly one card → the payoff runs iff (and only iff) the cost was paid.
-    const program = { atoms: [{ op: "discard", amount: 1, who: "controller", targetType: null }, ...(pc.effectAtoms || [])] };
+    // amount = pc.discardCount (default 1). Availability was gated on the SAME number upstream, so the
+    // discard always pitches exactly the printed cost and the payoff runs iff the full cost was paid.
+    const program = { atoms: [{ op: "discard", amount: pc.discardCount ?? 1, who: "controller", targetType: null }, ...(pc.effectAtoms || [])] };
     const obj = {
       source: { name: pc.sourceName ?? null },
       payload: { params: {

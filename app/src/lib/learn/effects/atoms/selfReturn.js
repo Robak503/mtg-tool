@@ -166,6 +166,16 @@ export function selfReturnClauseParser(clause) {
   if (/^\[gy-self-attach-return\] return it to the battlefield attached to that creature$/i.test(t)) {
     return { op: "gy-self-attach-return" };
   }
+  // GY-FUNCTIONING SELF-RETURN WITH A DISCARD COST (Old One Eye's "Fast Healing"). The sentinel carries the
+  // COUNT because the cost is two cards, not one. It reuses the EXISTING optional-discard-payment machinery
+  // rather than growing a third pausing resolver: that atom already runs [cost-discard, ...payoff] as one
+  // program and chains their pauses through the resume cursor, which is exactly this card's shape
+  // (pick two cards to pitch, then the return happens). The payoff is the ordinary gy-self-return-hand atom,
+  // so the actual move is the same code the Radroach and Eidolon families already use.
+  const gsd = t.match(/^\[gy-self-return:hand-discard(\d+)\] discard \w+ cards? then return it to your hand$/i);
+  if (gsd) {
+    return { op: "optional-discard-payment", discardCount: parseInt(gsd[1], 10), effectAtoms: [{ op: "gy-self-return-hand" }], targetType: null };
+  }
   // DIES-RETURN-TO-BATTLEFIELD (BLITZ TG-1 — the Feign Death frame): the dies/self sentinel
   // detectTriggers produces for "return it to the battlefield [tapped] under its owner's control
   // [with a +1/+1 counter on it]" — undying's zone mechanics with the tapped/counter knobs

@@ -859,10 +859,16 @@ function applyOptionalDrawDiscard(state, atom, ctx) {
 function applyOptionalDiscardPayment(state, atom, ctx) {
   if (state.pendingChoice) return state; // FIFO — one choice at a time
   const player = state.players?.[ctx.controller];
-  const available = !!(player?.hand || []).some((c) => !c.token);
+  // ⚠️ THE COST CAN BE MORE THAN ONE CARD (Old One Eye discards TWO), so availability must count the hand,
+  // not merely test it non-empty. A player holding one card cannot pay a two-card cost — offering the choice
+  // anyway would let the payoff run for a price that was never paid, which is a fabricated effect.
+  const discardCount = Math.max(1, atom.discardCount || 1);
+  const payable = (player?.hand || []).filter((c) => !c.token).length;
+  const available = payable >= discardCount;
   return setPendingOptionalDiscardPaymentChoice(state, {
     controller: ctx.controller,
     available,
+    discardCount,
     effectAtoms: atom.effectAtoms || [],
     sourceName: ctx.cardName || null,
   });
