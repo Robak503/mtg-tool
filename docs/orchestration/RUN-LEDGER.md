@@ -3,7 +3,48 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
-> ## 🔬 NEXT SLICE PRE-SIZED - **AURA SELF-RETURN attached to the triggering creature, 6 cards**
+> ## SLICE DONE - 2026-08-01 - **AURA SELF-RETURN attached to the triggering creature, +6** - shelf 0
+> Suite **1064 / 13,465 green**, lint 0. Flip-diff **+6 GAINED / 0 LOST / 0 churn**. Five mutations, five
+> kills. Batch **19**. Gained: Dragon Fangs, Dragon Scales, Dragon Breath, Dragon Wings, Dragon Shadow,
+> Smoke Shroud. Built exactly to the four-seam pre-size below; the pre-size held with no surprises, which is
+> the first time this run that reconnaissance predicted a build cleanly.
+>
+> **THE AURA-RETURN CASE THAT IS ACTUALLY SAFE.** applyMassReanimate skips Auras on purpose (CR 303.4f - the
+> controller must choose a host as it enters, a non-targeted mass return has no choice mechanism, and an Aura
+> attached to nothing is a permanent CR 704.5m bins instantly). These cards NAME their host - "attached to
+> THAT CREATURE", the one that just entered - so nothing is chosen and nothing is missing. Host gone at
+> resolution -> the Aura stays in the graveyard, which is what CR 303.4g says to do, and is a test.
+>
+> Seams: enterCardFromZone now returns `permanentId` (additive; scanning the battlefield afterwards would
+> pick the wrong copy when two are in play) · `etbMinMv`, the mirror of the existing mana-value cap ·
+> a graveyard scan in checkEnterTriggers, third instance of the same shape · the [gy-self-attach-return]
+> sentinel + resolver.
+>
+> ### ⚠️ THE `?? 0` DEFAULT FLIPS SAFETY BETWEEN THE CAP AND THE FLOOR - the one real trap in this slice
+> `(card?.cmc ?? 0) <= max` is permissive for an unknown mana value: it reads 0 and PASSES a "3 or less"
+> gate. The identical expression on a FLOOR - `(card?.cmc ?? 0) >= min` - reads 0 and FAILS, which is the
+> direction the creed wants, because firing on a creature whose mana value cannot be read would be a guess.
+> Same expression, opposite safety. That is why the floor is its own line rather than a shared helper, and
+> why "an unknown mana value returns nothing" is pinned as its own test rather than assumed.
+>
+> ### PARK PIN INVERTED (not deleted): auraOwnPump.test.js
+> That file pinned `classifyCard(Dragon Breath) === "body-only"`. It was never a claim that Dragon Breath is
+> unmodelable - it was pinning the all-or-nothing CREED property using whichever unmodeled clause was handy,
+> and the clause it used was the graveyard trigger this slice just built. So the assertion was flipped to
+> `toMatch(/^native/)` **with the reason written in place**, and the property it was really guarding was
+> RE-PINNED immediately below against a genuinely unmodeled clause. Retiring the pin without re-pinning the
+> property would have quietly retired the guarantee too - which is the whole point of the never-delete rule.
+>
+> ### SHELF - still 5 of 16, and JOE'S ELEVEN priced on the spot (Colton asked mid-slice)
+> ⚠️ This box holds all 16 decks under ONE profile (prof_bdb11b3e), so the Colton/Joe split is inferred from
+> deck identity, not read from a profile field. Said plainly because the vault records a two-profile setup
+> that does not exist here. **Joe: 1 of 11 at the bar** - Earth Bent 90.1% (crossed earlier on Lumra /
+> mass-graveyard recursion). Then Mothman 89.1% (1 card), Dragons 80.0% (10), Jurassic Ramp 78.7% (11),
+> Believe it! 77.6% (13), Kinnan 73.6% (20), Hulk Smash 73.3% (18), Captain America 73.0% (17), Wolverine
+> 72.9% (15), Kellan 72.3% (17), Halfshell heroes 65.6% (23). **145 cards to put all eleven over.**
+> Every card shipped this session was corpus, not shelf - old-border commons and cycles, none in Joe's decks.
+
+> ## 🔬 NEXT SLICE PRE-SIZED (BUILT - see the entry above) - **AURA SELF-RETURN attached to the triggering creature, 6 cards**
 > Reconnaissance done and CODE-VERIFIED (every claim below was read in the file, not remembered). Banked
 > rather than started because it is a FOUR-seam build and this seat had already shipped five slices plus a
 > release - a half-finished engine change is worth less than a precise handoff.
@@ -1109,7 +1150,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 13 cards since v0.150.0** (**named-card tutor to hand +8**, **gy-functioning cast trigger +5**) — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
+> - **BATCH IN FLIGHT: 19 cards since v0.150.0** (**named-card tutor to hand +8**, **gy-functioning cast trigger +5**, **aura self-attach return +6**) — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher

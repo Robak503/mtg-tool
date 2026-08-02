@@ -37,7 +37,7 @@
  * atoms module could race a direct `import triggers` + detectTriggers call and miss the WeakMap-cached card).
  */
 
-import { addCounter, logEvent, moveCardToZone, destroyLethalCreatures } from "../../gameState.js";
+import { addCounter, logEvent, moveCardToZone, destroyLethalCreatures, attachPermanent, findPermanent } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js"; // PS-1: a 1/1 persister returns 0/0 → the immediate lethal SBA (CR 704.5f) — cycle-safe (triggers doesn't import atoms/selfReturn)
 import { enterCardFromZone } from "./zones.js";
 
@@ -157,6 +157,14 @@ export function selfReturnClauseParser(clause) {
   // move). The optional "may" is auto-taken — returning your own card is pure upside.
   if (/^\[gy-self-return:hand\] return it to your hand$/i.test(t)) {
     return { op: "gy-self-return-hand" };
+  }
+  // GY-FUNCTIONING AURA SELF-RETURN (Dragon Fangs cycle / Smoke Shroud) — the battlefield-and-ATTACHED
+  // sibling of the hand form directly above. Same sentinel discipline: detectTriggers produces the marker
+  // for "you may return this card from your graveyard to the battlefield attached to that creature", and
+  // this atom is only the move + attach. The "may" is auto-taken — returning your own Aura onto a creature
+  // you just watched enter is pure upside, the same reasoning the hand form uses.
+  if (/^\[gy-self-attach-return\] return it to the battlefield attached to that creature$/i.test(t)) {
+    return { op: "gy-self-attach-return" };
   }
   // DIES-RETURN-TO-BATTLEFIELD (BLITZ TG-1 — the Feign Death frame): the dies/self sentinel
   // detectTriggers produces for "return it to the battlefield [tapped] under its owner's control
@@ -303,6 +311,36 @@ export function applyGySelfReturnHand(state, atom, ctx) {
 }
 
 /**
+ * applyGySelfAttachReturn - GY-FUNCTIONING AURA self-return (Dragon Fangs cycle, CR 603.3d): move THE SOURCE
+ * CARD (ctx.sourceCardId - the Aura in the graveyard, threaded by checkEnterTriggers' graveyard scan) onto
+ * the battlefield ATTACHED to the creature that just entered (ctx.triggeringPermanentId).
+ *
+ * THREE WAYS THIS DECLINES TO ACT, and each is a real rule rather than defensive padding:
+ *  - the Aura is no longer in the graveyard (CR 608.2b - it left between trigger and resolution);
+ *  - the HOST is no longer on the battlefield. CR 303.4g: an Aura put onto the battlefield with nothing
+ *    legal to enchant "remains in its current zone". Entering it anyway would attach it to nothing, which
+ *    CR 704.5m bins instantly - a permanent that existed for zero time and a fabricated ETB along the way.
+ *  - enterCardFromZone reports it did not enter.
+ * All three log a no-op rather than half-acting, so an Aura is never left on the battlefield unattached.
+ *
+ * The attach itself needs nothing new: attachPermanent is bidirectional, no-ops if either side is missing,
+ * and already routes control-Auras (CR 613.1b), so this composes with everything downstream.
+ */
+export function applyGySelfAttachReturn(state, atom, ctx) {
+  const owner = ctx.controller;
+  const cardId = ctx.sourceCardId;
+  const hostId = ctx.triggeringPermanentId;
+  const noop = (why) => logEvent(state, { kind: "spell-effect", effect: "gy-self-attach-return", returned: false, why, controller: owner });
+  if (!owner || !cardId || !state.players?.[owner]) return state;
+  if (!(state.players[owner].graveyard || []).some((c) => c.id === cardId)) return noop("card-left-graveyard");
+  if (!hostId || !findPermanent(state, hostId)) return noop("no-legal-host");   // CR 303.4g
+  const r = enterCardFromZone(state, { playerId: owner, cardId, fromZone: "graveyard" });
+  if (!r.entered || !r.permanentId) return noop("did-not-enter");
+  const next = attachPermanent(r.state, { equipId: r.permanentId, targetId: hostId });
+  return logEvent(next, { kind: "spell-effect", effect: "gy-self-attach-return", returned: true, controller: owner, host: hostId });
+}
+
+/**
  * applyPersistReturn — KW-PERSIST (CR 702.79a): undying's -1/-1 mirror, byte-for-byte the same zone
  * mechanics (the "it had no -1/-1 counters on it" intervening-if enforced upstream at flush + resolution;
  * CR 608.2b gone-card no-op; CR 111.7 token guard) with the returned body carrying one -1/-1 counter
@@ -369,5 +407,6 @@ export const selfReturnResolvers = {
   "undying-return": applyUndyingReturn,
   "persist-return": applyPersistReturn, // KW-PERSIST (PS-1, CR 702.79a) — undying's -1/-1 mirror
   "gy-self-return-hand": applyGySelfReturnHand,
+  "gy-self-attach-return": applyGySelfAttachReturn,
   "dies-return-bf": applyDiesReturnBattlefield, // TG-1 — the Feign Death frame (granted dies-return)
 };

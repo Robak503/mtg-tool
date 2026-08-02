@@ -28,13 +28,30 @@ const DRAGON_BREATH = { id: "db", name: "Dragon Breath", type: "Enchantment — 
   oracle: "Enchant creature\nEnchanted creature has haste.\n{R}: Enchanted creature gets +1/+0 until end of turn.\nWhen a creature with mana value 6 or greater enters, you may return this card from your graveyard to the battlefield attached to that creature." };
 
 describe("parse + classify", () => {
-  it("the aura-own pump parses to the enchanted referent; carriers flip; Dragon Breath's gy trigger parks it", () => {
+  it("the aura-own pump parses to the enchanted referent; carriers flip", () => {
     expect(parseEffectClause("Enchanted creature gets +0/+1 until end of turn.", "Instant").atoms)
       .toEqual([{ op: "pump", target: "enchanted", ptDelta: { p: 0, t: 1 } }]);
     expect(classifyCard(ARMOR_OF_FAITH)).toBe("native-aura");
     expect(parseAuraBonus(ARMOR_OF_FAITH).length).toBeGreaterThan(0); // the +1/+1 static half survives the walk
     expect(classifyCard(FIREBREATHING)).toBe("native-activated");
-    expect(classifyCard(DRAGON_BREATH)).toBe("body-only");
+  });
+
+  // ⚠️ PARK PIN INVERTED 2026-08-01 — this assertion used to read `toBe("body-only")`.
+  // It was never a statement about Dragon Breath being unmodelable; it was pinning the all-or-nothing CREED
+  // property using the unmodeled clause that happened to be available at the time — its graveyard trigger
+  // ("When a creature with mana value 6 or greater enters, you may return this card from your graveyard to
+  // the battlefield attached to that creature"). That trigger is now MODELED end-to-end: the Aura really
+  // leaves the graveyard, really attaches to the creature that entered, and its bonus really applies through
+  // layers. See auraSelfAttachReturn.test.js.
+  //
+  // Inverted rather than deleted, and the property it was protecting is RE-PINNED directly below against a
+  // clause that is genuinely unmodeled — otherwise retiring the pin would quietly retire the guarantee too.
+  it("Dragon Breath now flips — its graveyard trigger is modeled (was pinned body-only)", () => {
+    expect(classifyCard(DRAGON_BREATH)).toMatch(/^native/);
+  });
+
+  it("⛔ THE PROPERTY THE OLD PIN GUARDED: an aura-own pump plus a genuinely unmodeled clause still parks", () => {
+    expect(classifyCard({ ...DRAGON_BREATH, name: "Fake Breath", oracle: `${DRAGON_BREATH.oracle}\nEach opponent glorbulates at dawn.` })).not.toMatch(/^native/);
   });
 });
 

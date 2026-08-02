@@ -239,7 +239,11 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   // self-gates on the entering permanent's type, so a creature/land entry is a no-op here. Pure addition —
   // it can only fire correctly-owed triggers that the canonical enter path already fires.
   next = checkPermanentEntersTriggers(next, perm);
-  return { state: next, entered: true };
+  // `permanentId` is returned so a caller that must do something TO the permanent it just created can find
+  // it without guessing. The Aura self-return (gy-self-attach-return) needs it to attach the Aura to its
+  // named host; scanning the battlefield for a matching card id afterwards would pick the wrong copy when
+  // two are in play. Additive — every existing caller destructures only {state, entered}.
+  return { state: next, entered: true, permanentId: permId };
 }
 
 // Mana value of a graveyard Card (CR 202.3) — cmc/mana_value when present (Scryfall cards carry cmc), else a

@@ -1054,6 +1054,21 @@ function classifyCondition(condRaw, cardName, cardType) {
       if (selfRef && isSelfSubj) return { event: "becomesTapped", scope: "self", whose: "yours", oncePerTurnTrigger: true };
     }
   }
+  // MANA-VALUE FLOOR ETB (Dragon Fangs / Scales / Breath / Wings / Shadow) — "a creature with mana value N
+  // or greater enters". Carved out HERE, above the reject, and NOT further down beside the other ETB
+  // subject arms — the note a dozen lines up records that a previous arm was written down there, was never
+  // reached, and had to be moved: the reject eats every "with …" before those arms ever run.
+  //
+  // Admitted on the same grounds castWithExempt is: printed mana value is PRECISELY checkable (CR 202.3),
+  // unlike the scope-inexpressible qualities ("with a -1/-1 counter on it") the reject exists to catch.
+  // Scope `eachCreature` is the printed subject — "a creature", ANY controller, which is what these Auras
+  // say. (Smoke Shroud's "a Ninja YOU CONTROL" is a different sentence, already served by the subtype arm
+  // below; do not conflate them.) The floor rides as etbMinMv, enforced in scopeMatches, where an unknown
+  // mana value deliberately FAILS the gate rather than passing it.
+  {
+    const etbMvM = c.match(/^a creature with mana value (\d+) or greater enters$/);
+    if (etbMvM) return { event: "etb", scope: "eachCreature", whose: "any", etbMinMv: parseInt(etbMvM[1], 10) };
+  }
   const castWithExempt = /^(?:you|an opponent|a player|each player) casts? an? spell with (?:\{x\} in its mana cost|mana value \d+ or (?:greater|more|less|fewer))$/.test(c);
   if (!castWithExempt && /\b(?:with|while|during|named)\b/.test(c)) return null;
 
@@ -3826,6 +3841,26 @@ export function detectTriggers(card) {
         // already gated to milled; a rider on the return / a different zone wording → unmatched → Arbiter).
         effectClause = "[gy-self-return:hand] return it to your hand";
         cls.functionsFromGraveyard = true;
+      } else if (cls.event === "etb"
+        && /^you may return this card from your graveyard to the battlefield attached to that creature$/i.test(effectClause.trim())) {
+        // ===== GRAVEYARD-FUNCTIONING AURA SELF-RETURN (Dragon Fangs / Scales / Breath / Wings / Shadow, and
+        // Smoke Shroud on the subtype scope) ===== "When a creature with mana value 6 or greater enters, you
+        // may return this card from your graveyard to the battlefield attached to that creature."
+        //
+        // ⭐ THIS IS THE AURA-RETURN CASE THAT IS ACTUALLY SAFE, and the distinction is the whole slice.
+        // applyMassReanimate deliberately SKIPS Auras because CR 303.4f makes their controller choose a host
+        // as they enter, and a non-targeted mass return has no choice mechanism — an Aura entering attached
+        // to nothing is a fabricated permanent CR 704.5m would immediately bin. These cards NAME their host:
+        // "attached to THAT CREATURE", the one that just entered. Nothing is chosen, so nothing is missing.
+        // If the host is gone by resolution the Aura simply stays in the graveyard, which is exactly what
+        // CR 303.4g says to do.
+        //
+        // The rewritten effect carries ctx.sourceCardId (the Aura, stamped by the graveyard scan) and reads
+        // ctx.triggeringPermanentId (the entering creature) — both already threaded; see applyGySelfAttachReturn.
+        // EXACT anchor: a different destination, a rider, or a host that is not "that creature" (Reins of the
+        // Vinesteed's type-matching choice) falls through unmatched → Arbiter, FN-safe.
+        effectClause = "[gy-self-attach-return] return it to the battlefield attached to that creature";
+        cls.functionsFromGraveyard = true;
       } else if (cls.event === "cast"
         && /^you may return this card from your graveyard to your hand$/i.test(effectClause.trim())) {
         // ===== GRAVEYARD-FUNCTIONING cast trigger (the Eidolon cycle — Enigma / Aurora / Sandstorm /
@@ -3929,6 +3964,7 @@ export function detectTriggers(card) {
         gyFromZone: cls.gyFromZone,           // GY-ENTER-BATCH: the ORIGIN zone the printed trigger names ("library" — Sidisi's mill payoff; absent = "from anywhere"). MUST be listed here or it is silently dropped and the trigger fires on EVERY origin — a live over-fire, not a missed one.
         etbMaxPower: cls.etbMaxPower,         // BATCHED-ETB FILTER: printed power cap ("with power 2 or less" — Welcoming Vampire). Same warning as gyFromZone: unlisted here = silently dropped = the filter never applies.
         etbMaxMv: cls.etbMaxMv,               // BATCHED-ETB FILTER: printed mana-value cap ("with mana value 3 or less" — Tocasia's Welcome).
+        etbMinMv: cls.etbMinMv,               // ETB FILTER: printed mana-value FLOOR ("with mana value 6 or greater" — Dragon Fangs). ⚠️ Unlisted here = dropped = the Aura returns on ANY creature entering, which is the whole restriction gone while the trigger still looks correctly detected.
         tokenFilter: cls.tokenFilter,         // "a CREATURE TOKEN you control …" (Curiosity Crafter, Anointer Priest). Unlisted here = silently dropped = the trigger fires on every creature, token or not.
         etbExcludeSelf: cls.etbExcludeSelf,   // "ANOTHER creature you control with power N or greater" (Garruk's Packleader). Unlisted here = silently dropped = the source fires on its OWN entry — a fabricated draw, the over-fire direction.
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
@@ -4586,6 +4622,13 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   // big creature, and invisible in the tier because the card would still classify native.
   if (descriptor.etbMaxPower != null && !(Number(triggeringPermanent?.card?.power ?? 0) <= descriptor.etbMaxPower)) return false;
   if (descriptor.etbMaxMv != null && !((triggeringPermanent?.card?.cmc ?? 0) <= descriptor.etbMaxMv)) return false;
+  // The MIRROR of the cap directly above — "a creature with mana value N OR GREATER enters" (the Dragon
+  // Fangs cycle). ⚠️ THE `?? 0` DEFAULT FLIPS MEANING BETWEEN THE TWO: on the cap it is safe (an unknown MV
+  // reads 0 and passes a "3 or less" gate, which is the permissive direction for a card that has no cmc),
+  // but on a FLOOR an unknown MV reading 0 FAILS the gate — which is the direction the creed wants, since
+  // firing on a creature whose mana value we cannot read would be a guess. Same expression, opposite
+  // safety, and that asymmetry is the reason this is a separate line rather than a shared helper.
+  if (descriptor.etbMinMv != null && !((triggeringPermanent?.card?.cmc ?? 0) >= descriptor.etbMinMv)) return false;
   // ATTACHED-ONLY gate (Reyav — "a creature you control that's enchanted or equipped attacks"): the
   // triggering creature must carry ≥1 attachment (attachments are only ever Auras/Equipment here, so the
   // or-form reduces to a length check). Runs BEFORE the scope switch so it composes with the scope the
@@ -5103,12 +5146,38 @@ export function checkEnterTriggers(state, enteredPerm) {
   for (const pid of Object.keys(s.players)) {
     for (const watcher of triggerSourcesOf(s, pid)) {
       const selfCtx = watcher.id === enteredPerm.id ? etbSelfContext : {};
-      fired = fired.concat(triggersForEvent(s, { event: "etb", sourcePermanent: watcher, triggeringPermanent: enteredPerm, triggeringContext: selfCtx }));
+      // A GY-FUNCTIONING descriptor is excluded from the BATTLEFIELD fire: its own text says it works from
+      // the graveyard (CR 603.3d), so a Dragon Fangs already on the battlefield must not re-return itself.
+      // Fired only by the graveyard scan below — same flag-routes-the-scan shape as checkMilledTriggers and
+      // checkCastTriggers. (On the cast path the equivalent line turned out to be a PRE-FILTER rather than
+      // the safety gate — a mutation deleting it survived, because the effect keys on a sourceCardId only
+      // the graveyard scan stamps. Expect the same here, and pin what it actually buys: no phantom trigger.)
+      fired = fired.concat(triggersForEvent(s, { event: "etb", sourcePermanent: watcher, triggeringPermanent: enteredPerm, triggeringContext: selfCtx, descriptorFilter: (d) => !d.functionsFromGraveyard }));
       // CHOSEN-TYPE (Kindred Discovery) — the "enters" half of its "of the chosen type enters or attacks"
       // trigger. The entering permanent is the triggering creature; the chosenTypeYouControl scope gates on
       // the watcher's stored chosenType + the entering creature's subtype/changeling. Same ETB chokepoint
       // as the etb fire, so it shares the single-fire guarantee (CR 603.6a). A no-op for any non-watcher.
       fired = fired.concat(triggersForEvent(s, { event: "chosenTypeEntersOrAttacks", sourcePermanent: watcher, triggeringPermanent: enteredPerm }));
+    }
+    // ===== GY-FUNCTIONING ETB triggers (the Dragon Fangs cycle + Smoke Shroud, CR 603.3d) ===== scan this
+    // player's GRAVEYARD for Auras whose ETB-watcher functions from there. The source is the graveyard CARD
+    // (the checkMilledTriggers / checkCastTriggers precedent), and sourceCardId rides the context so
+    // applyGySelfAttachReturn moves the exact card rather than one matched by name. triggeringPermanent is
+    // the entering creature, which makePendingTrigger turns into ctx.triggeringPermanentId — the host the
+    // Aura attaches to.
+    //
+    // ⚠️ THE SCOPE GATES STILL APPLY, and they differ across this small family: the Dragons say "a creature"
+    // (any controller, plus a mana-value floor), Smoke Shroud says "a Ninja YOU CONTROL". Both run through
+    // triggersForEvent, so scopeMatches enforces each card's own printed subject rather than this loop
+    // assuming one shape for all six.
+    for (const gyCard of s.players[pid]?.graveyard || []) {
+      fired = fired.concat(triggersForEvent(s, {
+        event: "etb",
+        sourcePermanent: { id: `gy-${gyCard.id}`, controller: pid, card: gyCard },
+        triggeringPermanent: enteredPerm,
+        triggeringContext: { sourceCardId: gyCard.id },
+        descriptorFilter: (d) => !!d.functionsFromGraveyard,
+      }));
     }
   }
   if (!fired.length) return s;
