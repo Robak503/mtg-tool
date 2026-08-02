@@ -3,38 +3,49 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
-> ## 🔬 NEXT SLICE PRE-SIZED - **MULTI-KEEP IMPULSE DIG ("put TWO of them into your hand"), 8 cards**
-> Correctly sized with the ENABLER-ALONE swap (rule 11): rewrite ONLY `put two|three of them into your hand`
-> to `put one of them`, change nothing else. **15 carriers, 15 parked, 8 FLIP.**
-> Gained would be: **Stock Up** (⭐ in Colton's new Veyran deck) · **Dig Through Time** (a real staple) ·
-> Drawn from Dreams · Blood Price · Ancestral Memories · Rakshasa's Bargain · A-Demon's Due · Bitter Revelation.
+> ## SLICE DONE - 2026-08-01 - **MULTI-KEEP IMPULSE DIG, +9** - shelf 0 decks, 229 -> 226 cards
+> Suite **1070 / 13,535 green**, lint 0. Flip-diff vs a content-verified revert: **+9 / 0 lost / 0 churn**.
+> Pre-sized at 8; landed 9 — the extra is **Dig Through Time**, which the hand-swap missed because its keep
+> count reads "two" inside a delve shell. Sized by hand with the enabler-alone swap (rule 11), as pinned.
 >
-> ### THE BLOCKER IS THE COUNT, AND IT WAS EXCLUDED ON PURPOSE
-> `matchImpulseDig` (effects/spanMatchers.js:~363) already handles the whole template — "Look at the top N
-> cards of your library. Put ONE of them into your hand and the rest on the bottom/into your graveyard" — and
-> **11 corpus carriers are already native on it.** Its own comment states the exclusion: *"ALL-OR-NOTHING
-> ALLOWLIST: EXACTLY 'put one … into your hand' + rest → bottom or graveyard. A multi-pick ('put two', 'put
-> any number') … fail the anchor → low → Arbiter."* So this is a deliberate narrowing being widened, not a
-> gap being discovered — read that comment before touching the regex.
+> Gained: **Stock Up** (Colton's Veyran) · **Dig Through Time** · Drawn from Dreams · Scattered Thoughts ·
+> Blood Price · Ancestral Memories · Rakshasa's Bargain · A-Demon's Due · Bitter Revelation.
 >
-> ### FOUR TOUCH POINTS, and the fourth is the real work
-> 1. `matchImpulseDig` regex — accept `one|two|three` and emit `keep: N` on the atom (defaulting to 1 so
->    every existing carrier is byte-identical).
-> 2. The `impulse-dig` atom carries `keep`.
-> 3. `setPendingImpulseDigChoice` carries `keep` so the driver knows how many to take.
-> 4. ⚠️ **`resolveImpulseDigChoice(state, cardId)` takes ONE id** and calls applyImpulseDig with a singular
->    `chosenId`. Multi-keep needs either an array settler or a repeated pause. The resume cursor already
->    chains sequential pauses (proven by the optional-discard-payment lane), so REPEATED PAUSE is the lower-
->    risk shape — but the learnSession driver's auto-pick must be widened with it or the AI will keep one
->    card and silently drop the rest. **Thread the count through all four or the card lies.**
+> ### THE DESIGN CHOICE: RE-RAISE, DO NOT MULTI-SELECT
+> The keep choice re-raises — pick one, the remainder is re-offered, until `keep` are taken. Every driver
+> that already settles an impulse-dig in a loop (learnSession, the UI, the tests) handles that with zero
+> change. A multi-select would have required each driver's auto-pick to widen in lockstep, and the failure
+> mode if they ever drifted is the worst kind this project has: the AI keeps ONE card and silently drops the
+> rest, on a card that reads native. Costs nothing to avoid, so avoid it.
 >
-> ⛔ **Flow State is NOT in the 8 and must stay parked**: it prints the one-card form PLUS a conditional
-> "…If there is an instant card and a sorcery card in your graveyard, INSTEAD put two of them into your
-> hand." That is a second, condition-gated mode; widening the count alone would credit it while the
-> condition silently vanished. Same class as Compelling Deterrence in A0b.
+> ### ⭐ THE MUTATION THAT SURVIVED, AND WHY IT MATTERED
+> Four mutations pre-specified. M1 (drop the `keep >= amount` guard), M3 (never re-raise) and M4 (ignore
+> `chosenIds`) killed on the first pass. **M2 — dispose the SHRUNKEN candidate list instead of the original
+> `lookedAt` — survived**, and it is a real bug: Stock Up leaves the library as `E,F,G,C,D` instead of
+> `F,G,C,D,E`. A looked-at card sits on TOP instead of going to the bottom. Same five cards either way, so
+> the count assertion I had written could not see it. Rewrote the assertion to the library ORDER; M2 kills
+> now. This is method correction 17 and it is the same shape as 14 — **an over-determined assertion is not an
+> assertion.** The pre-size had explicitly flagged `lookedAt` as the risky thread, and the check I wrote for
+> it still wasn't sharp enough to catch it. Naming the risk is not the same as testing it.
 >
-> ⭐ SHELF: Stock Up is one of the 8 cards Veyran Cantrips needs (84.0%, 8 short) — this does not cross it
-> alone, but it is the first slice in a while that touches a deck on the shelf.
+> ### THREE PARK PINS INVERTED, NONE DELETED
+> The suite went red in five places on first run; three were mechanical (the atom gained a `keep` field), and
+> **three were real pins asserting multi-keep must park.** All inverted in place with the reason:
+> - `effects/parser.test.js` — moved MUST_DROP_TO_LOW → MUST_STAY_HIGH, plus a keep-two rest-to-graveyard case.
+> - `impulseDig.test.js` — the old "keep-two (multi-pick)" low line becomes an explicit flip assertion, and
+>   the boundary is re-pinned: `keep == look` (that's a draw-2, not a dig) and `keep > look` (nonsense text)
+>   both still park.
+> - `modalMultiSentenceMode.test.js` — the CREED anti-FP case KEEPS ITS JOB by swapping in a variant that is
+>   still unmodeled (Telling Time's 3-way split). Deleting it would have quietly retired the guard that an
+>   unmodeled mode sinks the whole modal, which is the exact property that file exists to protect.
+>
+> Open-ended multi-keep — "any number of them" / "the revealed cards" (Forging the Anchor) — is untouched and
+> still parks. The allowlist grew along ONE axis. It did not dissolve.
+>
+> ### SHELF, HONESTLY
+> Zero decks crossed. 229 → 226 cards to the bar (Veyran 8 → 7, test decks 77 → 75). Eight of the nine cards
+> live outside the shelf entirely. Real engine gain, near-zero shelf gain — worth logging plainly, because
+> the state-of-the-corpus map already warned that the cheap veins are gone and this is what that looks like.
 
 > ## 🛡 BUG-CLASS AUDIT + INVARIANT - 2026-08-01 - **parseEffectClause with no card type** - +0, shelf 0
 > Suite **1069 / 13,523 green**, lint 0. Isolated flip-diff **0 / 0 / 0** again. No cards; the deliverable is
@@ -1495,7 +1506,7 @@
 > late, and rule 7 below exists because judgment degrades before mechanics do. Starting a new-machinery
 > slice at the end of a very long window to avoid looking idle is the exact instinct that law forbids.*
 
-> ## 🧭 METHOD CORRECTIONS — EARNED 2026-07-30 → 08-01. READ BEFORE THE FIRST SLICE. (16 rules)
+> ## 🧭 METHOD CORRECTIONS — EARNED 2026-07-30 → 08-01. READ BEFORE THE FIRST SLICE. (17 rules)
 > *Every line below cost a real mistake. They are here so the next seat inherits the judgment instead of
 > re-buying it a slice at a time. None of them are visible from the code.*
 >
@@ -1591,6 +1602,17 @@
 > ⚠️ Also: a QA/sweep GROUP whose card count is lower than the flip count of the slice that created it is
 > UNDER-covering, and prints "all clean" just as loudly as full coverage. Check new groups against their
 > slice's number — the zero-match guard only catches a total miss, never a partial one.
+>
+> **17. NAMING THE RISK IN THE PRE-SIZE IS NOT TESTING IT — ASSERT THE MECHANISM, NOT THE TALLY.** The
+> multi-keep pre-size flagged `lookedAt` (the original top-N, threaded through each re-raise) as the one
+> risky thread, in bold, with the failure mode spelled out. I then wrote a COUNT assertion for it and the
+> mutation sailed straight through: disposing the shrunken candidate list leaves exactly as many cards in
+> the library as disposing the right one, just in the wrong ORDER, with a looked-at card left sitting on
+> top. The assertion has to name the thing the mutation changes. A count, a length, a "not null", a "it
+> died" — any assertion satisfied by more than one behaviour is satisfied by the bug too. This is rule 14
+> (over-determined fixtures) arriving from the opposite direction: there the OUTCOME was over-determined by
+> the fixture, here the ASSERTION was too coarse for the outcome. Same cure both times — assert the
+> mechanism.
 
 > ## 🚦 RELEASE CADENCE — BATCH, DO NOT TAG PER SLICE (Colton, 2026-07-29)
 > *"you cutting to many releases put more work in before each cut do 100 plus slices or something close."*
@@ -1631,8 +1653,8 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **SHELF NOW 21 DECKS** (Veyran Cantrips imported 2026-08-01, Colton; the four Bracket-3 TEST decks COUNT per Colton). colton 5/6 (8 cards) · joe 2/11 (144) · test 0/4 (77) — **229 to clear the shelf**.
-> - **BATCH IN FLIGHT: 33 cards since v0.150.0** (**named-card tutor to hand +8**, **gy-functioning cast trigger +5**, **aura self-attach return +6**, **counter-shield prevention +7 ⭐ SHELF +1**, **rummage leading-sentence +3**, **Old One Eye +1 ⭐ SHELF +1**, **discard-cost hand ability +3**) — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
+> - **SHELF NOW 21 DECKS** (Veyran Cantrips imported 2026-08-01, Colton; the four Bracket-3 TEST decks COUNT per Colton). colton 5/6 (7 cards) · joe 2/11 (144) · test 0/4 (75) — **226 to clear the shelf**.
+> - **BATCH IN FLIGHT: 42 cards since v0.150.0** (**multi-keep impulse dig +9**, **named-card tutor to hand +8**, **gy-functioning cast trigger +5**, **aura self-attach return +6**, **counter-shield prevention +7 ⭐ SHELF +1**, **rummage leading-sentence +3**, **Old One Eye +1 ⭐ SHELF +1**, **discard-cost hand ability +3**) — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher
