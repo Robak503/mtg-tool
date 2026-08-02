@@ -3,6 +3,39 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔬 NEXT SLICE PRE-SIZED - **MULTI-KEEP IMPULSE DIG ("put TWO of them into your hand"), 8 cards**
+> Correctly sized with the ENABLER-ALONE swap (rule 11): rewrite ONLY `put two|three of them into your hand`
+> to `put one of them`, change nothing else. **15 carriers, 15 parked, 8 FLIP.**
+> Gained would be: **Stock Up** (⭐ in Colton's new Veyran deck) · **Dig Through Time** (a real staple) ·
+> Drawn from Dreams · Blood Price · Ancestral Memories · Rakshasa's Bargain · A-Demon's Due · Bitter Revelation.
+>
+> ### THE BLOCKER IS THE COUNT, AND IT WAS EXCLUDED ON PURPOSE
+> `matchImpulseDig` (effects/spanMatchers.js:~363) already handles the whole template — "Look at the top N
+> cards of your library. Put ONE of them into your hand and the rest on the bottom/into your graveyard" — and
+> **11 corpus carriers are already native on it.** Its own comment states the exclusion: *"ALL-OR-NOTHING
+> ALLOWLIST: EXACTLY 'put one … into your hand' + rest → bottom or graveyard. A multi-pick ('put two', 'put
+> any number') … fail the anchor → low → Arbiter."* So this is a deliberate narrowing being widened, not a
+> gap being discovered — read that comment before touching the regex.
+>
+> ### FOUR TOUCH POINTS, and the fourth is the real work
+> 1. `matchImpulseDig` regex — accept `one|two|three` and emit `keep: N` on the atom (defaulting to 1 so
+>    every existing carrier is byte-identical).
+> 2. The `impulse-dig` atom carries `keep`.
+> 3. `setPendingImpulseDigChoice` carries `keep` so the driver knows how many to take.
+> 4. ⚠️ **`resolveImpulseDigChoice(state, cardId)` takes ONE id** and calls applyImpulseDig with a singular
+>    `chosenId`. Multi-keep needs either an array settler or a repeated pause. The resume cursor already
+>    chains sequential pauses (proven by the optional-discard-payment lane), so REPEATED PAUSE is the lower-
+>    risk shape — but the learnSession driver's auto-pick must be widened with it or the AI will keep one
+>    card and silently drop the rest. **Thread the count through all four or the card lies.**
+>
+> ⛔ **Flow State is NOT in the 8 and must stay parked**: it prints the one-card form PLUS a conditional
+> "…If there is an instant card and a sorcery card in your graveyard, INSTEAD put two of them into your
+> hand." That is a second, condition-gated mode; widening the count alone would credit it while the
+> condition silently vanished. Same class as Compelling Deterrence in A0b.
+>
+> ⭐ SHELF: Stock Up is one of the 8 cards Veyran Cantrips needs (84.0%, 8 short) — this does not cross it
+> alone, but it is the first slice in a while that touches a deck on the shelf.
+
 > ## 🛡 BUG-CLASS AUDIT + INVARIANT - 2026-08-01 - **parseEffectClause with no card type** - +0, shelf 0
 > Suite **1069 / 13,523 green**, lint 0. Isolated flip-diff **0 / 0 / 0** again. No cards; the deliverable is
 > that a whole bug CLASS is closed and can no longer come back silently.
@@ -1598,6 +1631,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
+> - **SHELF NOW 21 DECKS** (Veyran Cantrips imported 2026-08-01, Colton; the four Bracket-3 TEST decks COUNT per Colton). colton 5/6 (8 cards) · joe 2/11 (144) · test 0/4 (77) — **229 to clear the shelf**.
 > - **BATCH IN FLIGHT: 33 cards since v0.150.0** (**named-card tutor to hand +8**, **gy-functioning cast trigger +5**, **aura self-attach return +6**, **counter-shield prevention +7 ⭐ SHELF +1**, **rummage leading-sentence +3**, **Old One Eye +1 ⭐ SHELF +1**, **discard-cost hand ability +3**) — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
