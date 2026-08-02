@@ -3,6 +3,54 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-01 - **SELF-FLASH PERMISSION (printed sentence, not the keyword), +14** - shelf 0
+> Suite **1060 / 13,410 green**, lint 0. Flip-diff **+14 GAINED / 0 LOST / 0 churn**. Five mutations, five
+> kills, no survivors. Batch **93**. Gained: Spider Climb, Lightning Reflexes, Mystic Veil, Soar, Timely
+> Ward, Parapet, Illusion Spinners, Mystical Tether, Rout, Ghitu Fire, Silver Scrutiny, Molten Exhale,
+> Saproling Symbiosis, Tegwyll's Scouring.
+>
+> "You may cast this spell as though it had flash." printed as a SENTENCE rather than the keyword, in two
+> shapes - with the sacrifice rider ("If you cast it any time a sorcery couldn't have been cast, the
+> controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.") and with
+> a condition ("...if X is 3 or less", "...if it targets a commander").
+>
+> **THE CLAIM WAS VACUITY, SO VACUITY GOT MEASURED ON A BOARD BEFORE ANY CODE WAS WRITTEN.** Stripping this
+> line is only honest if the engine never takes the flash permission - a card cast at instant speed WOULD owe
+> the sacrifice rider, and dropping a drawback that can apply is the exact over-claim the creed forbids. So
+> the first thing built was the probe, not the strip: carriers in hand, mana up, ask legalActionsForPlayer in
+> three windows. Result - main 1, upkeep 0, declare-blockers 0; CONTROL (a real instant) 5/5/5. The flash
+> permission is unimplemented, the rider is unreachable, the line is vacuous for the cast the engine makes.
+> Same footing as the morph / ninjutsu / madness strips, and as the bare "Flash" keyword ALREADY admitted
+> twelve lines below the change in auraResidueClauses - this is that keyword's sentence form.
+>
+> **THE HAND-SIZING SAID 14 AND THE FIRST BUILD DELIVERED 8 - and the gap was the finding, not an error to
+> paper over.** Hand-sizing strips the line off the oracle string and reclassifies; the real strip has to
+> live wherever the classifier reads. It took THREE sites, not one: stripCastKeywordLines got the six
+> sorceries, selfNormalizeOracle got Parapet + Illusion Spinners, and auraResidueClauses - a THIRD residue
+> chain I had not counted - got the five true Auras. 8 -> 9 -> 14, each step measured. When a phrase-swap
+> estimate overshoots the build, the missing cards are telling you which reader you haven't found yet.
+>
+> **One regex, four callers.** FLASH_PERMISSION_LINE is exported from textNormalize.js (a true leaf - zero
+> imports, so no cycle) and every site reads it, because eight of the fourteen carriers are Auras or
+> enchantments that never touch the spell parser. Metric and parser cannot drift into disagreeing about
+> which cards the strip covers.
+>
+> The cards were then made to actually PLAY, per the standing QA order: Spider Climb dispatched through the
+> real cast action, resolved off the stack, attached to the Bear, and the toughness read 5 through the layers
+> engine - not off the fixture. Offered is not the same as works.
+>
+> ### METHOD CORRECTION - `git checkout --` IS NOT A MUTATION REVERT
+> Mid-mutation I reverted a mutated file with `git checkout -- <file>` and **destroyed the uncommitted slice
+> in it** - the file went back to HEAD, which predates the whole change. Caught immediately (the next
+> mutation's anchor matched 0 times and the helper REFUSED, which is exactly why that helper asserts an
+> occurrence count), and re-applied from the write-up. The rule: while a slice is uncommitted, mutation
+> revert restores from a **backup copy taken before the first mutation**, never from git. This is the second
+> time an in-place "restore" has eaten uncommitted work in this run; the first was the ledger truncation.
+>
+> ### SHELF - unchanged, and this slice was never going to move it
+> Still **5 of 16 at/above 90%**. All fourteen gains are old-border commons and one Commander uncommon; none
+> sit in Joe's nine. Corpus work, honestly labelled as corpus work.
+
 > ## SLICE DONE - 2026-08-01 - **SHUFFLE-INSTEAD-OF-GRAVEYARD (CR 614), +5** - shelf 0
 > Suite **1059 / 13,393 green**, lint 0. Flip-diff **+5 GAINED / 0 LOST**. Three mutations, three kills.
 > Batch **79**. Gained: Darksteel Colossus, Blightsteel Colossus, Progenitus, Nexus of Fate, Legacy Weapon.
@@ -804,7 +852,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 79 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**)
+> - **BATCH IN FLIGHT: 93 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher

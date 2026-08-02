@@ -212,6 +212,28 @@ const SPLIT_SECOND_LINE = /^[ \t]*split second[ \t]*(?:\([^\n]*\))?[ \t]*$/gim;
 // replacement as the permanents, but an instant needs the sentence off its BODY so the extra-turn effect
 // parses. Enforced at gameState.moveCardToZone, which redirects any graveyard-bound move for such a card -
 // so this strip only stops the printed line from parking the body, exactly like SPLIT SECOND above.
+// SELF-FLASH PERMISSION (a printed permission, not the CR 702.8 keyword) - "You may cast this spell as
+// though it had flash[ if X is 3 or less]." Sometimes with a rider: "If you cast it any time a sorcery
+// couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the
+// next cleanup step." (Spider Climb, Lightning Reflexes, Mystic Veil, Soar, Rout, Ghitu Fire and 8 more.)
+//
+// VACUOUS FOR THE CAST THIS ENGINE MAKES, and that was VERIFIED on a board rather than assumed: these cards
+// are offered ONLY in a main phase, while a real instant in the same hand is offered in upkeep and
+// declare-blockers too. The engine never takes the flash permission, so the permission changes nothing AND
+// its drawback can never trigger - the rider is conditioned on casting "any time a sorcery couldn't have
+// been cast", which never happens here. Same basis as the morph / ninjutsu / madness strips, and as the bare
+// "Flash" keyword already admitted in auraResidueClauses: an alternative way to play the card that the
+// runtime does not offer. FN-safe - the engine plays a strictly weaker, rules-correct card.
+//
+// ANCHORED TO A LINE THAT STARTS WITH THE PERMISSION, so a card granting flash to something ELSE ("You may
+// cast creature spells as though they had flash") is never touched. Exported because the PERMANENT side
+// needs the identical strip - 8 of the 14 carriers are Auras/enchantments that never reach the spell parser
+// - and one shared regex is the only way the metric and the parser cannot drift.
+export const FLASH_PERMISSION_LINE = /^[ \t]*you may cast this spell as though it had flash[^\n]*$/gim;
+/** Drop the self-flash permission line (with any rider) - see the note above for why it is vacuous here. */
+export function stripFlashPermissionLine(text) {
+  return String(text || "").replace(FLASH_PERMISSION_LINE, " ");
+}
 const SHUFFLE_INSTEAD_OF_GY_LINE =
   /(?:^|[\n.;])[ \t]*if [^\n]* would be put into a graveyard from anywhere,[^\n]*instead[ \t]*\.?[ \t]*$/gim;
 const CAST_ONLY_DECLARE_ATTACKERS_LINE =
@@ -222,7 +244,8 @@ export function stripCastKeywordLines(text) {
     .replace(MADNESS_LINE, " ")
     .replace(SPLIT_SECOND_LINE, " ")
     .replace(CAST_ONLY_DECLARE_ATTACKERS_LINE, " ")
-    .replace(SHUFFLE_INSTEAD_OF_GY_LINE, " ");
+    .replace(SHUFFLE_INSTEAD_OF_GY_LINE, " ")
+    .replace(FLASH_PERMISSION_LINE, " ");
 }
 
 /**

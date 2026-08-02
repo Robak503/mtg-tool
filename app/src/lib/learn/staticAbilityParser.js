@@ -21,6 +21,7 @@
  * Pure; imports only the keyword vocabulary. Returns plain JSON descriptors.
  */
 
+import { stripFlashPermissionLine } from "./effects/textNormalize.js"; // leaf module, no cycle — shared self-flash strip
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword, hasKeyword } from "./keywords.js";
 import { isLevelerFrame } from "./leveler.js"; // LV-1 — the leveler frame detector (leaf module, no cycle)
 import { isAttackTaxClause, parseAttackTax } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — a pure leaf, shared with the runtime so metric and game agree
@@ -635,7 +636,13 @@ export function selfNormalizeOracle(oracle, name, type) {
   // (They deal both first-strike and regular combat damage.)"). Removing it changes NO behavior — the
   // runtime parser already ignores it (it matches at clause starts) — it only lets the coverage check
   // (staticAbilitiesCoverCard) see that the card's real text is fully modeled. Scoped to static parsing.
-  let o = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  let o = stripFlashPermissionLine(String(oracle || "")).replace(/\([^)]*\)/g, " ");
+  // SELF-FLASH PERMISSION dropped on the way in, from the SAME regex the spell path and the residue walk use.
+  // This is the permanent side's chokepoint: parseGroupBlockRestriction, parseStaticAbilities and
+  // staticAbilitiesCoverCard all normalize through here, and the line parked six Auras plus Parapet by
+  // sitting in front of an otherwise fully-modeled body. It contributes no static ability, so removing it
+  // changes nothing the runtime reads - see FLASH_PERMISSION_LINE in textNormalize.js for the board-verified
+  // reason it is vacuous (the engine only ever offers these at sorcery speed).
   if (!name) return o;
   // Candidate self-name forms, longest first so the full name is consumed before any short prefix.
   const forms = [name];
@@ -4894,7 +4901,12 @@ export function auraChoosesColorOnEnter(card) {
  * bonus would SILENTLY drop that text. Used to keep `isNativeAura` all-or-nothing.
  */
 function auraResidueClauses(card) {
-  const oracle = String(card?.oracle || card?.oracle_text || "");
+  // SELF-FLASH PERMISSION removed before the split — the SENTENCE form of the bare "Flash" keyword already
+  // admitted a dozen lines below, on the identical argument: the engine hard-casts at the main-phase window
+  // and the flash speed simply goes unused. Board-verified rather than assumed (see FLASH_PERMISSION_LINE in
+  // textNormalize.js). It must go as a LINE, not a clause: the sacrifice rider is a second sentence with its
+  // own commas, so abilityClauses would shred it into fragments that no clause pattern could ever admit.
+  const oracle = stripFlashPermissionLine(String(card?.oracle || card?.oracle_text || ""));
   const out = [];
   for (const clause of abilityClauses(oracle)) {
     const c = clause.toLowerCase().trim();

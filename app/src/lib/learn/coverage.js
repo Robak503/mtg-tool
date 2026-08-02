@@ -29,6 +29,7 @@
  */
 
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
+import { stripFlashPermissionLine } from "./effects/textNormalize.js"; // self-flash permission — shared with the spell path so metric and parser read ONE regex
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — the metric gates on the SAME vetting the runtime charges on
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, hasDethrone, hasTraining, firebendingKeywordValue, soulshiftKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues } from "./triggers.js";
@@ -480,7 +481,14 @@ export function isKeywordOnly(oracle, name) {
   //
   // The dash is load-bearing: "escape" must be followed by the cost dash, so a line beginning with the CARD
   // NAME "Escape Velocity ..." can never match.
-  const deLined = stripShuffleInsteadLine(stripPartnerWithLine(String(oracle || "").replace(ESCAPE_LINE, " ")));
+  //
+  // SELF-FLASH PERMISSION - stripped here too, via the SAME exported helper the spell path uses, because 8 of
+  // the 14 carriers are Auras/enchantments (Spider Climb, Mystic Veil, Soar, Timely Ward, Mystical Tether...)
+  // and never reach parseEffectProgram at all. One regex, two callers, so they cannot drift apart. See the
+  // note on FLASH_PERMISSION_LINE in textNormalize.js for the runtime evidence that it is vacuous here.
+  const deLined = stripFlashPermissionLine(
+    stripShuffleInsteadLine(stripPartnerWithLine(String(oracle || "").replace(ESCAPE_LINE, " "))),
+  );
   let t = stripReminder(deLined).toLowerCase().replace(/[’']/g, "'");
   // MULTI-INSTANCE CASCADE (CR 702.85) — "Cascade, cascade[, …]" is now MODELED (detectTriggers emits N cascade
   // triggers, each an independent dig; see cascadeInstanceCount). After stripReminder it splits into N covered
