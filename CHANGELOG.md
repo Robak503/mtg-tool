@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.150.0] - 2026-08-01
+
 ### Added
 - **The Colossus cycle works.** Darksteel Colossus, Blightsteel Colossus, Progenitus, Legacy Weapon and Nexus of Fate now shuffle themselves back into your library instead of going to the graveyard — and because they never actually die, cards like Blood Artist correctly see nothing.
 - **Eight old combat tricks work.** Defiant Stand, Rally the Troops, Scorching Winds, Assassin's Blade and four more can finally be cast — and only when the card allows it: during declare attackers, and only if you were the one attacked.
@@ -27,6 +29,18 @@ summarizes the notable changes.
   the battlefield, so it is unchanged.)
 - **Ability-word SPELLS work too.** Seventeen more cards — Kirtar's Wrath, Descend upon the Sinful,
   Traverse the Ulvenwald, Shamanic Revelation and others — whose flavour label hid the spell itself.
+- **Cards that can be cast "as though they had flash" work.** Fourteen cards — Rout, Ghitu Fire, Spider
+  Climb, Mystic Veil, Soar, Timely Ward, Parapet and more — were held back by a line offering a faster
+  way to cast them. The engine plays them at normal speed, which is exactly what it was already doing,
+  so the rest of each card now works as printed.
+- **Sengir Vampire and friends grow again.** Six creatures — Sengir Vampire, Sengir Bats, Vampiric
+  Dragon, Vampiric Sliver, Predator Ooze and Blood Cultist — now remember which creatures they damaged,
+  so when one of those creatures dies they get their counter. The memory lasts exactly one turn, as
+  printed, and a creature that dies without being damaged by them gives them nothing.
+- **Graveyard returns that name two card types work.** Cards returning, say, creature *and* land cards
+  from your graveyard now bring back both, instead of only the first kind named.
+- **Mass returns to hand work.** Spells returning every matching card from your graveyard to your hand
+  now do so.
 
 
 ## [0.149.23] - 2026-07-30
