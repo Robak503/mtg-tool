@@ -3,7 +3,51 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
-> ## 🔬 NEXT SLICE PRE-SIZED - **COUNTER-SHIELD damage prevention (Phantom cycle + Bloatfly Swarm), +7 · ⭐ SHELF +1**
+> ## SLICE DONE - 2026-08-01 - **COUNTER-SHIELD prevention, +7 · ⭐⭐ SHELF +1 — MOTHMAN COMETH CROSSED**
+> Suite **1065 / 13,482 green**, lint 0. Flip-diff **+7 GAINED / 0 LOST / 0 churn**. Six mutations - five
+> killed on the first pass, **one SURVIVED and exposed a test passing for the wrong reason** (below).
+> Batch **26**. Gained: Phantom Nantuko, Tiger, Centaur, Wurm, Flock, Nomad + Bloatfly Swarm.
+>
+> ### ⭐⭐ THE FIRST SHELF MOVEMENT OF THE RUN
+> **Mothman Cometh 89.1% -> 90.2%.** Shelf 5/16 -> **6/16**; Joe 1/11 -> **2/11**. Bloatfly Swarm was that
+> deck's single remaining card and this slice bought it. Eleven slices this run moved corpus; this is the
+> first that moved the thing we are actually measured on. Built to the pre-size with no surprises.
+>
+> "If damage would be dealt to this creature, prevent that damage. Remove a +1/+1 counter." (Phantom cycle)
+> and Bloatfly's "...while it has a +1/+1 counter on it, prevent that damage, remove THAT MANY, then give each
+> player a rad counter for each removed."
+>
+> ### ⭐ WHY THE COUNTER PAYMENT *IS* THE SLICE - every carrier has printed TOUGHNESS 0
+> Phantom Tiger 1/0, Nantuko 0/0, Centaur 2/0, Bloatfly 0/0. **The counters ARE the toughness.** So crediting
+> the prevention WITHOUT the removal does not merely overstate these cards - it yields a creature that
+> prevents every point of damage forever and never sheds the counters keeping it alive. Unkillable. The
+> metric strips the line ONLY because both damage paths genuinely spend the counters (combatResolution's
+> funnel records and pays after its loops, since `state` there is the frozen pre-step board; applyDamageEffect
+> owns mutable state and pays inline). Same reader, `counterShieldPrevention`, on both sides - metric and
+> runtime cannot disagree.
+>
+> ### THE TWO FORMS ARE OPPOSITE AT ZERO COUNTERS - never one predicate
+> PHANTOM prevention is UNCONDITIONAL (at 0 counters it still prevents; it dies to the toughness-0 SBA,
+> CR 704.5f, not to the damage). BLOATFLY prevention is CONDITIONAL (at 0 counters the damage goes through).
+> Collapse them and you get a killable Phantom (FN) or an immortal Bloatfly (a forbidden FP).
+>
+> ### ⚠️ A SURVIVING MUTATION, AND THE SAME TRAP TWICE IN ONE FILE
+> M2 deleted Bloatfly's zero-counter gate and the suite stayed GREEN. Cause: the test asserted the creature
+> DIED at 0 counters - but Bloatfly is printed 0/0, so it dies to the toughness-0 SBA whether or not damage
+> was prevented. **The assertion could not see the behaviour it was named for.** I had already caught exactly
+> this for the Phantom case one test earlier and still wrote it wrong for Bloatfly. Fixed by giving the
+> fixture a REAL toughness and asserting the damage MARK rather than death; M2 kills now.
+> **The portable rule: when a fixture's death is over-determined, assert the mechanism (the mark, the
+> counter), never the outcome (it died).** Third death-masking fixture this session.
+>
+> ### METHOD - A FLIP-DIFF ACROSS TWO DIFFERENT `MTG_APP_ROOT`s IS NOT A FLIP-DIFF
+> The first attempt reported +7 / 0 LOST / **2242 churn**. The churn was entirely mine: the BEFORE census had
+> been taken with `MTG_APP_ROOT` pointed at the dev tree and the AFTER with it pointed at the install, so the
+> two sides read different card indexes and 2242 double-faced rows existed on one side only. Re-run with both
+> sides on the same root: **0 churn.** The "positive control must ride the same path as the data" rule applies
+> to the two sides of a diff as much as to a control.
+
+> ## 🔬 PRE-SIZE (BUILT — see the entry above) - **COUNTER-SHIELD damage prevention (Phantom cycle + Bloatfly Swarm), +7 · ⭐ SHELF +1**
 > **The first shelf-moving slice available.** Bloatfly Swarm is Mothman Cometh's single remaining card
 > (89.1%, needs 1) — building this takes a JOE deck over the 90% bar for the first time this run. Everything
 > below is code-verified; banked rather than started because this is the DAMAGE PATH and NEXT-QUEUE's own
@@ -1193,7 +1237,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 19 cards since v0.150.0** (**named-card tutor to hand +8**, **gy-functioning cast trigger +5**, **aura self-attach return +6**) — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
+> - **BATCH IN FLIGHT: 26 cards since v0.150.0** (**named-card tutor to hand +8**, **gy-functioning cast trigger +5**, **aura self-attach return +6**, **counter-shield prevention +7 ⭐ SHELF +1**) — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher

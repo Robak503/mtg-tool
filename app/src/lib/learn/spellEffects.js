@@ -41,6 +41,8 @@ import {
   destroyZeroLoyaltyPlaneswalkers,
   isPlaneswalker,
   addCounter,
+  removeCounter,
+  addRadCounters,
   addPoison,
 } from "./gameState.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
@@ -49,7 +51,7 @@ import { permanentHasKeyword, permanentProtectionColors, permanentIsCreature } f
 import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
-import { selfDamagePrevention, attachedDamagePrevention } from "./combatEvasion.js"; // FOG-1/AP-1 — the printed self + attached prevent-all walls (leaf-safe: combatEvasion never imports this module)
+import { selfDamagePrevention, attachedDamagePrevention, counterShieldPrevention } from "./combatEvasion.js"; // FOG-1/AP-1 — the printed self + attached prevent-all walls (leaf-safe: combatEvasion never imports this module)
 import { armDamageToCreatureFlag } from "./wolverine.js";
 import { creatureSatisfiesRestrictions } from "./creatureRestrictions.js"; // the shared 16-kind restriction satisfier (leaf) — also read by effects/atoms/shared.massCreatureTargets
 import { TARGET_SUBTYPES } from "./effects/parseHelpers.js"; // SUBTYPE-TARGET — curated creature-subtype allowlist (leaf, cycle-safe)
@@ -1037,6 +1039,32 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
     // non-combat damage too (Dawn Elemental shrugs off a Bolt); the combat-only form does NOT (Gomazoa
     // takes the Bolt), handled at the combat funnel instead.
     if (lk && selfDamagePrevention(lk.permanent.card) === "all") return s;
+    // COUNTER-SHIELD (Phantom cycle / Bloatfly Swarm, CR 615) — the same wall the combat funnel enforces,
+    // applied to NON-COMBAT damage: a Phantom shrugs off a Bolt exactly as it shrugs off a blocker. Unlike
+    // the combat path (which must record and pay after its loops, because `state` there is the frozen
+    // pre-step board) this site owns mutable state, so the counters are spent inline.
+    //
+    // ⛔ BRANCH ON THE MODE, NEVER ON TRUTHINESS — the zero-counter behaviour is OPPOSITE between the two:
+    // a Phantom still prevents with nothing left to shed, while Bloatfly stops preventing entirely and must
+    // FALL THROUGH to take the damage. Collapsing them makes one immortal or the other paper.
+    if (lk) {
+      const csMode = counterShieldPrevention(lk.permanent.card);
+      if (csMode === "phantom") {
+        const have = (lk.permanent.counters?.["+1/+1"]) || 0;
+        return have > 0 ? removeCounter(s, { permanentId: permId, type: "+1/+1", amount: 1 }) : s;
+      }
+      if (csMode === "bloatfly") {
+        const have = (lk.permanent.counters?.["+1/+1"]) || 0;
+        if (have > 0) {
+          const removed = Math.min(have, dealt);
+          let out = removeCounter(s, { permanentId: permId, type: "+1/+1", amount: removed });
+          // "give EACH PLAYER a rad counter for each +1/+1 counter removed this way" (CR 728).
+          for (const pid of Object.keys(out.players)) out = addRadCounters(out, { playerId: pid, amount: removed });
+          return out;
+        }
+        // no counter → NOT prevented; fall through and take it.
+      }
+    }
     // AP-1 (Inviolability / Heart of Light): an attached "…dealt TO enchanted creature" ALL wall blocks
     // non-combat damage too; the combat-only forms (Gaseous Form) bind only at the combat funnel.
     if (lk && attachedDamagePrevention(s, permId).to === "all") return s;

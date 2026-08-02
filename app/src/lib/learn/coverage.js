@@ -46,7 +46,7 @@ import { triggerRoutesNatively, isModeledGroupTriggeredBody, programCombatRefere
 import { registerGrantTriggeredBodyValidator, registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant body gates
 import { isNativeGroupWard } from "./groupWard.js";
 import { isNativeKira } from "./kiraTargetCounter.js";
-import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy } from "./combatEvasion.js";
+import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy, counterShieldPrevention } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
 // OMNATH — ground the classifier on the two RUNTIME registries the engine actually consults (never a
 // name-only credit): staticEffectsOf reads layers.STATIC_REGISTRY (the layer-7c dynamic +1/+1-per-green
@@ -453,6 +453,25 @@ function stripShuffleInsteadLine(oracle) {
   const kept = lines.filter((ln) => !SHUFFLE_INSTEAD_LINE.test(ln));
   return kept.length === lines.length ? raw : kept.join("\n").trim();
 }
+// COUNTER-SHIELD (Phantom cycle / Bloatfly Swarm, CR 615) — the prevention wall that pays out of +1/+1
+// counters. A LINE strip, for the same reason partner-with and shuffle-instead needed one: the Phantom form
+// is TWO sentences on one line ("…prevent that damage. Remove a +1/+1 counter…") and the Bloatfly form is a
+// single sentence full of commas, so any clause-level split shreds both into fragments no pattern can admit.
+//
+// ⛔ GATED ON counterShieldPrevention — the SAME reader the two damage paths consult (combatResolution's
+// funnel and applyDamageEffect). The metric and the runtime therefore cannot disagree about which cards are
+// handled, and crediting this line is only honest because BOTH the prevention AND the counter payment are
+// enforced. A creature credited for the prevention alone would be unkillable by damage.
+//
+// The rest of each carrier rides the normal paths: "enters with N +1/+1 counters" is already modeled, as is
+// Phantom Nantuko's "{T}: Put a +1/+1 counter on this creature".
+function stripCounterShieldLine(oracle) {
+  if (!counterShieldPrevention({ oracle })) return oracle;
+  const raw = String(oracle || "");
+  const lines = raw.split("\n");
+  const kept = lines.filter((ln) => !counterShieldPrevention({ oracle: ln }));
+  return kept.length === lines.length ? raw : kept.join("\n").trim();
+}
 function stripPartnerWithLine(oracle) {
   if (!partnerWithName(oracle)) return oracle; // absent, or the unmodeled "partner with itself" — strip nothing
   const raw = String(oracle || "");
@@ -486,9 +505,9 @@ export function isKeywordOnly(oracle, name) {
   // the 14 carriers are Auras/enchantments (Spider Climb, Mystic Veil, Soar, Timely Ward, Mystical Tether...)
   // and never reach parseEffectProgram at all. One regex, two callers, so they cannot drift apart. See the
   // note on FLASH_PERMISSION_LINE in textNormalize.js for the runtime evidence that it is vacuous here.
-  const deLined = stripFlashPermissionLine(
+  const deLined = stripCounterShieldLine(stripFlashPermissionLine(
     stripShuffleInsteadLine(stripPartnerWithLine(String(oracle || "").replace(ESCAPE_LINE, " "))),
-  );
+  ));
   let t = stripReminder(deLined).toLowerCase().replace(/[’']/g, "'");
   // MULTI-INSTANCE CASCADE (CR 702.85) — "Cascade, cascade[, …]" is now MODELED (detectTriggers emits N cascade
   // triggers, each an independent dig; see cascadeInstanceCount). After stripReminder it splits into N covered

@@ -454,6 +454,49 @@ export function selfDamagePrevention(card) {
   return null;
 }
 
+// ─── COUNTER-SHIELD prevention (CR 615) — the Phantom cycle + Bloatfly Swarm ────────────────────────────
+// A prevention wall that PAYS FOR ITSELF out of +1/+1 counters, which is what separates it from the flat
+// walls above: those prevent forever and cost nothing, these shed counters every time they fire.
+//
+// ⛔ THE TWO PRINTED FORMS ARE NOT THE SAME EFFECT AND MUST NOT SHARE A PREDICATE:
+//
+//  PHANTOM  "If damage would be dealt to this creature, prevent that damage. Remove a +1/+1 counter from
+//           this creature."  (Phantom Nantuko / Tiger / Centaur / Wurm / Flock / Nomad)
+//           → prevention is UNCONDITIONAL. At zero counters it STILL prevents — a Phantom with no counters
+//             is damage-proof and simply has nothing left to shed. Removes exactly ONE counter per event.
+//
+//  BLOATFLY "If damage would be dealt to this creature WHILE IT HAS A +1/+1 COUNTER ON IT, prevent that
+//           damage, remove that many +1/+1 counters from it, then give each player a rad counter for each
+//           +1/+1 counter removed this way."  (Bloatfly Swarm)
+//           → prevention is CONDITIONAL on holding a counter. At zero counters the damage GOES THROUGH and
+//             the creature dies normally. Removes THAT MANY (= the damage amount, capped by what it has),
+//             then hands out rad counters (CR 728, already modeled) equal to the number actually removed.
+//
+// Collapsing these into one "has a counter?" gate would make Phantoms killable at zero counters (wrong, and
+// a false NEGATIVE) or Bloatfly immortal at zero counters (wrong, and a forbidden false POSITIVE).
+//
+// ⚠️ CREDITING THE PREVENTION WITHOUT THE COUNTER REMOVAL WOULD BE THE WORST FALSE POSITIVE THIS ENGINE CAN
+// PRODUCE: a creature that prevents all damage forever and never pays. The removal is enforced at the deal
+// sites (combatResolution's shieldConsumed pattern, and applyDamageEffect for noncombat), and the metric
+// credits these cards ONLY because that enforcement exists — read counterShieldPrevention's callers before
+// trusting the tier.
+const reCounterShieldPhantom =
+  /(?:^|[\n.;])\s*if damage would be dealt to (?:this creature|it), prevent that damage\.\s*remove a \+1\/\+1 counter from (?:this creature|it)\s*(?:\.|$)/i;
+const reCounterShieldBloatfly =
+  /(?:^|[\n.;])\s*if damage would be dealt to (?:this creature|it) while it has a \+1\/\+1 counter on it, prevent that damage, remove that many \+1\/\+1 counters from it, then give each player a rad counter for each \+1\/\+1 counter removed this way\s*(?:\.|$)/i;
+
+/**
+ * "phantom" | "bloatfly" | null — the printed counter-shield wall on this card.
+ * See the block above for why the two modes are kept distinct; callers MUST branch on the value, never on
+ * mere truthiness, because the zero-counter behaviour is opposite between them.
+ */
+export function counterShieldPrevention(card) {
+  const o = selfOracle(card);
+  if (reCounterShieldPhantom.test(o)) return "phantom";
+  if (reCounterShieldBloatfly.test(o)) return "bloatfly";
+  return null;
+}
+
 // BY direction (PV-1): the DEALER's own printed wall — Fog Bank deals no combat damage. Matches both the
 // compound "…dealt to and dealt by this creature" (Fog Bank's BY half) and a bare "…dealt by this creature"
 // self form. "combat" binds at the combat funnel only; "all" would additionally silence noncombat damage

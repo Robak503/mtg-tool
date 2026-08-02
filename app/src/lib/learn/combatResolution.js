@@ -39,6 +39,8 @@ import {
   creatureToughness,
   markCombatDamage,
   recordDamageSource,
+  removeCounter,
+  addRadCounters,
   destroyLethalCreatures,
   isPlaneswalker,
   adjustLoyalty,
@@ -53,7 +55,7 @@ import {
 import { permanentHasKeyword, permanentColors, permanentProtectionColors, assignsCombatDamageWithToughness } from "./layers.js";
 import { applyDestroyEffect } from "./spellEffects.js"; // DG-1 — the shared destroy primitive (indestructible/shield/regen/totem + dies-triggers); spellEffects never imports this module (cycle-safe)
 import { protectionApplies } from "./protection.js";
-import { selfDamagePrevention, selfDamagePreventionBy, attachedDamagePrevention, mayAssignAsUnblocked, attackerMinBlockers } from "./combatEvasion.js";
+import { selfDamagePrevention, selfDamagePreventionBy, attachedDamagePrevention, mayAssignAsUnblocked, attackerMinBlockers, counterShieldPrevention } from "./combatEvasion.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 import { armDamageToCreatureFlag, marksDamageToCreature } from "./wolverine.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCombatDamageTriggers, checkCombatDamageToCreatureTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
@@ -194,6 +196,48 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   const shieldPrevents = (id) => { const lk = findPermanent(state, id); return !!(lk && hasShieldCounter(lk.permanent)); };
   const shieldConsumed = new Set();
 
+  // COUNTER-SHIELD (Phantom cycle / Bloatfly Swarm, CR 615) — a prevention wall that PAYS OUT OF +1/+1
+  // COUNTERS. Same record-at-the-deal-site shape as shieldConsumed directly above, but a MAP (id -> counters
+  // owed) rather than a Set, because Bloatfly sheds "that many" rather than one.
+  //
+  // ⭐ THE LOCAL BUDGET IS LOAD-BEARING. `state` is the frozen pre-step board, so several hits in one step
+  // would each read the SAME starting counter total and could between them promise to remove more counters
+  // than the creature owns - handing out phantom rad counters and a negative counter bag. csBudget tracks
+  // what is left as the step is walked, so the total removed can never exceed what it actually had.
+  const csRemovals = new Map();   // permanentId -> +1/+1 counters to remove after the loops
+  const csRad = { n: 0 };         // Bloatfly: rad counters owed to EACH player, = counters actually removed
+  const csBudget = new Map();     // permanentId -> counters still available this step
+  const csCountersLeft = (id) => {
+    if (!csBudget.has(id)) {
+      const lk = findPermanent(state, id);
+      csBudget.set(id, (lk?.permanent?.counters?.["+1/+1"]) || 0);
+    }
+    return csBudget.get(id);
+  };
+  /** Decide the counter-shield for one hit. Returns true when the damage is PREVENTED. */
+  const counterShieldPrevents = (targetId, amount) => {
+    const lk = findPermanent(state, targetId);
+    const mode = lk && counterShieldPrevention(lk.permanent.card);
+    if (!mode) return false;
+    const have = csCountersLeft(targetId);
+    if (mode === "phantom") {
+      // Prevention is UNCONDITIONAL - a Phantom with no counters left is still damage-proof, it just has
+      // nothing to shed. Removes exactly one, when there is one.
+      if (have > 0) {
+        csBudget.set(targetId, have - 1);
+        csRemovals.set(targetId, (csRemovals.get(targetId) || 0) + 1);
+      }
+      return true;
+    }
+    // BLOATFLY - conditional. No counter, no prevention: the damage goes through and it can die.
+    if (have <= 0) return false;
+    const removed = Math.min(have, amount);
+    csBudget.set(targetId, have - removed);
+    csRemovals.set(targetId, (csRemovals.get(targetId) || 0) + removed);
+    csRad.n += removed;                       // "a rad counter for each +1/+1 counter removed this way"
+    return true;
+  };
+
   // ASSIGNS-DAMAGE-BY-TOUGHNESS (BLITZ DN-1, CR 510.1a — Doran / Belligerent Brontodon / Ancient Lumberknot):
   // the AMOUNT of combat damage a creature assigns. CR 510.1a assigns combat damage equal to POWER; a live
   // "assigns combat damage equal to its toughness rather than its power" static replaces that with the
@@ -296,6 +340,10 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     if (amt > 0 && targetKind === "creature") {
       const lk = findPermanent(state, targetId);
       if (lk && selfDamagePrevention(lk.permanent.card)) return 0;
+      // COUNTER-SHIELD: prevents like the flat walls above, but bills itself in +1/+1 counters (recorded
+      // here, applied after the loops). Sits AFTER the flat walls so a creature carrying both is prevented
+      // by the free one and never charged a counter it did not need to spend.
+      if (counterShieldPrevents(targetId, amt)) return 0;
       // AP-1 (Gaseous Form / Sandskin): an attached "…dealt TO enchanted creature" wall zeroes the deal.
       if (lk && attachedDamagePrevention(state, targetId).to) return 0;
     }
@@ -534,6 +582,21 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
   // CR 122.1c — remove one shield counter from each creature whose combat damage this step was prevented by its
   // shield (recorded at the deal sites). Done BEFORE marking so the log reflects the post-prevention board.
   for (const id of shieldConsumed) if (findPermanent(next, id)) next = consumeShieldCounter(next, id);
+  // COUNTER-SHIELD payout (CR 615) — spend the +1/+1 counters the prevention was billed to, then hand out
+  // Bloatfly's rad. Also before marking, for the same reason the shield line above is: the log should show
+  // the board AFTER the wall has paid for itself.
+  //
+  // ⛔ THIS LOOP IS THE HALF THAT MAKES THE CREDIT HONEST. Prevention without it is a creature that blocks
+  // all damage forever and never pays - unkillable by damage, strictly better than every printed card here.
+  // If this is ever removed, counterShieldPrevention must stop being credited in coverage on the same day.
+  for (const [id, n] of csRemovals) {
+    if (n > 0 && findPermanent(next, id)) next = removeCounter(next, { permanentId: id, type: "+1/+1", amount: n });
+  }
+  // "…give EACH PLAYER a rad counter for each +1/+1 counter removed this way" - every player, not just
+  // opponents (CR 728; the rad subsystem itself is already modeled and mills/drains at each precombat main).
+  if (csRad.n > 0) {
+    for (const pid of Object.keys(next.players)) next = addRadCounters(next, { playerId: pid, amount: csRad.n });
+  }
   // PV-1 (CR 615): write the surviving prevention shields back (the local pool decremented at the deal
   // sites). Only when a live pool existed — an empty pool leaves state untouched (byte-identical).
   if (pvPool.length) next = { ...next, preventionShields: pvPool.filter((s) => s.amount > 0) };
