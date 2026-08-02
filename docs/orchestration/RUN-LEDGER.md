@@ -3,6 +3,52 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🗺 STATE OF THE CORPUS - 2026-08-01 - **the cheap veins are gone; here is the map, priced**
+> Written after a full re-survey rather than asserted. Six sizings this tick, every one measured with the
+> ENABLER-ALONE swap (rule 11) instead of the whole-line drop that inflated the last two rejections.
+> **Every remaining lead prices at 1-3 cards.** That is the finding; the map below is so nobody re-surveys it.
+>
+> ### THE ONE +1-SHELF MOVE ON THE BOARD — Old One Eye (Omnath 89.4% -> 90.9%, shelf 6/16 -> 7/16)
+> FULLY DIAGNOSED, four seams, each with a precedent already in the tree:
+> 1. **"Fast Healing —" label strip.** NOT in CR 207.2c (Warhammer 40K flavour), but the trigger is written
+>    out in full after it, so it strips on the SAME corpus-verified basis as treasure hunter / flurry of
+>    blows / eukrasia. ⚠️ And it is the label that blocks detection — with it removed the trigger detects
+>    cleanly as `{event:"firstMain", scope:"you"}`. Verified by probe.
+> 2. **A firstMain GRAVEYARD SCAN.** Third instance of a pattern already built twice this run
+>    (checkMilledTriggers, checkCastTriggers). Copy the shape, including the battlefield exclusion — and read
+>    the note that the exclusion is a PRE-FILTER, not the safety gate.
+> 3. **The discard COST.** `optional-discard-payment` folds "you may discard A CARD. If you do, <payoff>" —
+>    singular only; Old One Eye discards TWO. Measured: widening the count alone flips 0 (the two "two cards"
+>    carriers are blocked by other things), so the widen is only worth doing AS PART OF this card.
+> 4. **The payoff.** `[gy-self-return:hand]` + applyGySelfReturnHand exist from the Eidolon slice — but they
+>    are a TRIGGER-DESCRIPTOR REWRITE, not a spell atom, so the rummage fold cannot reach them. This is the
+>    awkward seam: the stamp must recognise the whole "you may discard two cards. If you do, return this card
+>    from your graveyard to your hand" shape and emit a cost-bearing variant of the sentinel.
+> ⛔ Selvala and Thunderfoot were both re-priced and are worse (see the two rejections below).
+>
+> ### JOE'S DECKS — 16 cards blocked by ONE SHORT SENTENCE, and they are 16 DIFFERENT sentences
+> No two share a mechanism, so each is a one-card slice. Joe needs 144 cards across nine decks and no deck is
+> within ten of the bar, so **no single slice can move Joe's shelf now.** The list, for card-by-card grinding:
+> Terror of the Peaks · Trumpeting Carnosaur · Thunderherd Migration · Triceraton Commander · Reshape ·
+> Hulk Gamma Goliath · Puresteel Paladin · Aettir and Priwen · Panther Habit · Conqueror's Flail ·
+> Captain America Super-Soldier · Brotherhood Regalia · Sakashima's Protege · Arcade Cabinet ·
+> Raphael the Muscle · Ray Fillet Wave Warrior.
+>
+> ### SIZED AND FOUND TOO SMALL THIS TICK (all enabler-alone, all honest)
+> · **prevent-damage-and-ADD-counters** (Panther Habit) — the inverse of the counter-shield just built, and
+>   the infrastructure would transfer. **1 carrier in the whole corpus.** Not a vein.
+> · **"Double all damage that X would deal"** — 3 carriers, **2 flips** (Raphael, Collective Inferno).
+>   `parseDamageReplacements` returns [] for all three: the doubler machinery exists, the SCOPES do not
+>   ("creatures you control WITH COUNTERS ON THEM", "sources you control of the CHOSEN TYPE", "CREATURE
+>   sources you control"). A real slice, just a 2-card one.
+> · **rummage count widening** ("discard TWO cards") — 2 carriers, **0 flips**. Thrilling Discovery is
+>   blocked by a "Then" connector and Take Out the Trash by a conditional prefix, not by the count.
+>
+> ### THE HONEST READ
+> Eleven slices this run moved corpus; one moved the shelf. What remains is subsystem-sized or one-card-at-a-
+> time. NEXT-QUEUE's own sequencing law puts risky subsystem work EARLY in a run — so the right next move is
+> a FRESH seat opening on Old One Eye (or a Joe card-by-card grind), not another slice at the tail of this one.
+
 > ## QA PASS - 2026-08-01 (3rd) - **112 cards across 13 mechanics - 0 problems**
 > Standing order. Three groups added since the 2nd pass (aura self-attach return 6, counter-shield 7,
 > rummage-with-leading-sentence 4); the ten older groups re-run and stayed clean. No engine faults, and no
