@@ -1,9 +1,35 @@
 # WAKE REPORT — live resume anchor
 
-## ☀️ 2026-08-01 — **the shelf is 21 decks now** · batch 42 since v0.150.0 · suite **1070 / 13,535** · **the next call is the ARBITER VERDICT SOURCE**
+> **THE ANCHOR'S OWN RULE (2026-08-01, Colton).** A new chat boots off this file, so the heading and the
+> first section after the state line always name **runnable work**. Anything blocked on Colton, or on
+> another seat, goes BELOW, under a ⏸ heading that says so in its title. A seat booting on this file must
+> be able to start inside a minute without asking a question first. The 08-01 entry originally led with a
+> decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
+> bottom. Do not lead with a question again.
 
-> Master is at `14bd2e34`, tree clean, nothing in flight. **Do not tag** — 42 cards banked toward the ~100
-> batch. `RUN-LEDGER.md` is the state; this is the summary.
+## ☀️ 2026-08-01 — **the shelf is 21 decks now** · batch 42 since v0.150.0 · suite **1070 / 13,535** · **next slice: the "that player" referent binding (A0b)**
+
+> Last CODE commit `2054a2ce` (docs commits land on top of it), tree clean, nothing in flight. **Do not
+> tag** — 42 cards banked toward the ~100 batch. `RUN-LEDGER.md` is the state; this is the summary.
+>
+> ### ▶ START HERE — the next slice: "that player" referent binding (`NEXT-QUEUE.md` A0b)
+> **~3 cards, spec already written, trap already named.** Four spells parse HIGH but classify non-native —
+> **Recoil · Ozai's Cruelty · Compelling Deterrence · Frightful Delusion** — all ending in a `discard` atom
+> carrying `who: "damagedPlayer"`. That referent is stamped ONLY by combat-damage triggers, never by a
+> spell, so all four are **correctly refused today**.
+> ⛔ **The obvious fix — threading a spell-side `damagedPlayer` — is a REAL false positive.** "That player"
+> only means the damaged player on Ozai's Cruelty. It is the bounced permanent's OWNER on Recoil and
+> Compelling Deterrence, and the countered spell's CONTROLLER on Frightful Delusion. The honest build binds
+> "that player" to the PRECEDING ATOM'S SUBJECT. Leave Compelling Deterrence parked regardless: its
+> intervening condition ("if you control a Zombie") is dropped from the atom list entirely, so crediting it
+> would discard unconditionally.
+>
+> **If the user-facing bug outranks 3 cards, take A0 instead** — Moxfield import 403s in the packaged
+> `.exe`. Proven NOT the user-agent and NOT stale code; bundled-Node TLS is a hypothesis and is labelled
+> untested. First step is one measurement, not a fix: find `resources/node/node.exe` and run the same
+> `node:https` request through it. Second, independent defect in that path — the error message asserts
+> "Check the link is public" when the links were public, which sent this investigation the wrong way first
+> and would do the same to a user.
 >
 > ### WHAT CHANGED STRUCTURALLY: the shelf tripled, and the metric was wrong for an hour
 > Colton split the app into real profiles — **Colton** (6 decks) · **Joe** (11) · **Omnath** (4 Bracket-3 test
@@ -15,7 +41,7 @@
 >
 > **Shelf: 21 decks · 7 at the ≥90% bar · 226 cards to clear** — colton 5/6 (7) · joe 2/11 (144) · test 0/4 (75).
 >
-> ### ⭐ THE DECISION WAITING FOR THE NEXT SESSION — read this before picking up a slice
+> ### ⏸ BLOCKED ON COLTON — the Arbiter verdict source (context for the era, not a work item)
 > The parser era is closing. Four axis veins measured to ZERO on 07-30; this session's ten slices ran
 > +14/+9/+8/+7/+6/+5/+3/+3/+1, and the last one paid **+9 engine but only −3 shelf**. Meanwhile the shelf's
 > parked set is **357 distinct cards, and 321 of them appear in exactly ONE deck.** A per-card tail that
@@ -31,16 +57,12 @@
 > like the Scryfall snapshot), never runtime. That keeps §1.1 intact. It still needs Colton's yes.
 > ⚠️ And the persona does NOT protect this: the runner path consumes structured atoms and no-ops on malformed
 > ones — it never reads Arbiter prose. What prevents a bad verdict is the CREED gate on the verdict set.
+> **Until that yes lands, this section is background. Do not open a session on it; work the queue above.**
 >
 > ### METHOD: 17 corrections now (RUN-LEDGER, read before the first slice)
 > Newest: **17 — naming the risk in the pre-size is not testing it.** The multi-keep pre-size flagged the
 > exact thread that broke, in bold; the assertion written for it was a COUNT, and the mutation walked through
 > it because both branches leave the same number of cards in a different order. Assert the mechanism.
->
-> ### OPEN, BANKED IN NEXT-QUEUE.md
-> **A0** — Moxfield import 403s in the packaged `.exe` (proven NOT user-agent, NOT stale code; bundled-Node
-> TLS is a hypothesis and is labelled untested). Second defect in the same path: the error message blames the
-> user's link. **A0b** — "that player" on a spell mis-binds to `damagedPlayer`; 4 cards, correctly refused.
 >
 > ### HOUSEKEEPING FOR COLTON
 > Reload the app window before touching the deck library (the client holds pre-split state). The 608 MB
