@@ -370,7 +370,7 @@ describe("byte-identical negative (the CREED proof)", () => {
     expect(out.log.some((e) => /wolverine|double|replace/i.test(String(e.kind)))).toBe(false);
   });
 
-  it("a blocked attacker: full player-state byte-identical except the blocker's marked damage", () => {
+  it("a blocked attacker: full player-state byte-identical except the blocker's marked damage and its source", () => {
     const att = vanilla("Grizzly", 4, 4, "user");
     const blk = vanilla("Wall", 0, 5, "ai");
     const s = makeState({ userBf: [att], aiBf: [blk] }, {
@@ -383,6 +383,10 @@ describe("byte-identical negative (the CREED proof)", () => {
     // 4 dmg < 5 toughness → Wall survives marked 4 (un-doubled); attacker takes 0 back; no life lost.
     const expected = structuredClone(before.players);
     expected.ai.battlefield[0].damageMarked = 4;
+    // DAMAGED-BY: combat also records WHO dealt each hit, for the "whenever a creature dealt damage by ~
+    // this turn dies" family. That is a real, intended second delta on the damaged permanent — so it is
+    // asserted here rather than relaxing the strict compare, which is what makes this test worth having.
+    expected.ai.battlefield[0].damagedBy = [att.id];
     expect(out.players).toStrictEqual(expected);
     expect(out.log.some((e) => /wolverine|double|replace/i.test(String(e.kind)))).toBe(false);
   });

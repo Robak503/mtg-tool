@@ -1775,11 +1775,41 @@ export function applyRadiation(state, { playerId }) {
   return next;
 }
 
-/** Mark combat (or other) damage on a permanent. */
-export function markCombatDamage(state, { permanentId, amount }) {
+/** Mark combat (or other) damage on a permanent.
+ *
+ * `sourceId` records WHO dealt it, in a per-permanent `damagedBy` list. The scalar damageMarked cannot answer
+ * "was this creature dealt damage by Sengir Vampire this turn?" — the payoff family (Sengir Vampire, Zurgo
+ * Helmsmasher, Abattoir Ghoul, Predator Ooze and a dozen more) needs the SOURCE, not the amount, and it needs
+ * it to survive the creature's death. It is deliberately OPTIONAL: a call site that cannot name its source
+ * simply records nothing, and the trigger then does not fire — a false NEGATIVE, which the creed permits,
+ * where guessing a source would be a false positive, which it does not.
+ *
+ * The list is de-duplicated (being damaged twice by the same creature is still one "dealt damage by" fact)
+ * and cleared at cleanup by clearCombatDamage, CR 514.2 — damage is removed and "this turn" effects end. */
+export function markCombatDamage(state, { permanentId, amount, sourceId }) {
   if (!Number.isInteger(amount) || amount < 0) throw new Error("markCombatDamage: amount must be a non-negative integer");
-  if (amount === 0) return state;
-  return updatePermanent(state, permanentId, p => ({ ...p, damageMarked: (p.damageMarked || 0) + amount }));
+  if (amount === 0) return state;   // CR 120.8 — 0 damage is not dealt at all, so it marks no source either
+  return updatePermanent(state, permanentId, p => ({
+    ...p,
+    damageMarked: (p.damageMarked || 0) + amount,
+    damagedBy: sourceId && !(p.damagedBy || []).includes(sourceId)
+      ? [...(p.damagedBy || []), sourceId]
+      : p.damagedBy,
+  }));
+}
+
+/** Record that `sourceId` dealt damage to `permanentId` this turn, without touching the damage total.
+ *
+ * The combat path needs this separately from markCombatDamage: combat aggregates every hit on a creature
+ * into ONE total before marking (CR 510.2 — all combat damage in a step is dealt simultaneously), so by the
+ * time the mark happens the individual sources are gone. It also covers the infect/wither case, where the
+ * damage becomes -1/-1 counters and never reaches damageMarked at all — but is still damage DEALT, so
+ * "dealt damage by ~ this turn" is still true of it. */
+export function recordDamageSource(state, { permanentId, sourceId }) {
+  if (!sourceId || permanentId == null) return state;
+  return updatePermanent(state, permanentId, p => (
+    (p.damagedBy || []).includes(sourceId) ? p : { ...p, damagedBy: [...(p.damagedBy || []), sourceId] }
+  ));
 }
 
 // EXILE-IF-DIES (subsystem 3) — flag a creature so the lethal SBA (destroyLethalCreatures) sends it to
@@ -1798,7 +1828,11 @@ export function markExileIfDies(state, { permanentId, turn }) {
 export function clearCombatDamage(state) {
   let changed = false;
   const players = {};
-  const dirty = (p) => (p.damageMarked || 0) !== 0 || (p.regenShields || 0) !== 0;
+  // damagedBy is cleared here too, and by the SAME rule that clears the damage: CR 514.2 removes all marked
+  // damage and ends all "this turn" effects together. "Dealt damage by ~ THIS TURN" is exactly such a fact,
+  // so leaving it behind would let a Sengir Vampire keep collecting counters off a creature it damaged on
+  // some earlier turn.
+  const dirty = (p) => (p.damageMarked || 0) !== 0 || (p.regenShields || 0) !== 0 || (p.damagedBy || []).length !== 0;
   for (const [pid, player] of Object.entries(state.players)) {
     if (!player.battlefield.some(dirty)) {
       players[pid] = player;
@@ -1807,7 +1841,7 @@ export function clearCombatDamage(state) {
     changed = true;
     players[pid] = {
       ...player,
-      battlefield: player.battlefield.map(p => (dirty(p) ? { ...p, damageMarked: 0, regenShields: 0 } : p)),
+      battlefield: player.battlefield.map(p => (dirty(p) ? { ...p, damageMarked: 0, regenShields: 0, damagedBy: [] } : p)),
     };
   }
   return changed ? { ...state, players } : state;
@@ -1855,6 +1889,11 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
       name: perm.card?.name || "creature",
       card: perm.card,
       attachments: [...(perm.attachments || [])],
+      // DAMAGED-BY LOOK-BACK: who dealt damage to this creature this turn, snapshotted while the permanent
+      // still exists. checkDiesTriggers runs AFTER the battlefield exit, so without carrying it here the
+      // "whenever a creature dealt damage by ~ this turn dies" payoff could never see it - the same
+      // look-back shape CR 603.6 requires of any leaves-the-battlefield trigger.
+      damagedBy: [...(perm.damagedBy || [])],
       power: Number.isFinite(pw) ? pw : null,
       basePower: Number.isFinite(bpw) ? bpw : null,
       // KW-UNDYING (CR 702.92a + 603.6e): snapshot the dying permanent's counters BEFORE the move loop —
@@ -1971,6 +2010,11 @@ export function applyLegendRule(state) {
             name: perm.card?.name || "creature",
             card: perm.card,
             attachments: [...(perm.attachments || [])],
+      // DAMAGED-BY LOOK-BACK: who dealt damage to this creature this turn, snapshotted while the permanent
+      // still exists. checkDiesTriggers runs AFTER the battlefield exit, so without carrying it here the
+      // "whenever a creature dealt damage by ~ this turn dies" payoff could never see it - the same
+      // look-back shape CR 603.6 requires of any leaves-the-battlefield trigger.
+      damagedBy: [...(perm.damagedBy || [])],
             power: Number.isFinite(pw) ? pw : null,
             basePower: Number.isFinite(bpw) ? bpw : null,
             counters: { ...(perm.counters || {}) },

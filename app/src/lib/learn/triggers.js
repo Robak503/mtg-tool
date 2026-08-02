@@ -885,7 +885,25 @@ function classifyCondition(condRaw, cardName, cardType) {
   //    you-control + bare enters/dies/attacks/blocks, upkeep/end/draw step, cast-a-spell) carry NONE of
   //    these tokens, so this is purely additive (confirmed collateral-free by the corpus A/B sweep).
   if (/\bor another\b/.test(c)) return null;
-  if (/\bdealt damage by\b/.test(c)) return null;
+  // DEALT-DAMAGE-BY-ME CARVE-OUT (Sengir Vampire, Zurgo Helmsmasher, Abattoir Ghoul, Predator Ooze, Blood
+  // Cultist, Soul Collector, Vampiric Dragon, Wight and more) — "Whenever a creature dealt damage by ~ this
+  // turn dies, <effect>". Placed AHEAD of the reject directly below, on the exact precedent the CNT-1
+  // "+1/+1 counter on it" carve-out set: that reject exists because the restriction USED to be
+  // scope-inexpressible, and it no longer is. gameState now records the SOURCE of every hit in a
+  // per-permanent `damagedBy` list (markCombatDamage / recordDamageSource) and the death constructors
+  // snapshot it onto the CR 603.6e look-back — without that snapshot the dead creature is gone before the
+  // watcher sweep runs and the condition genuinely cannot be answered, which is what the reject was for.
+  //
+  // Scope `eachCreature` is the printed subject: "a creature", any controller, gated by requiresDamagedBySource
+  // in scopeMatches (a pre-switch filter, mirroring requiresCounter). ⛔ ANCHORED to "by this creature" — the
+  // self-normalized form of the card's own name — so a card watching for damage dealt by something ELSE
+  // falls through to the reject below and on to the Arbiter (CREED FN-safe). "this turn" needs no separate
+  // modeling: CR 514.2 clears damagedBy at cleanup along with the damage, so the list only ever holds THIS
+  // turn's sources.
+  if (/^a creature dealt damage by this creature this turn dies$/.test(c)) {
+    return { event: "dies", scope: "eachCreature", whose: "any", requiresDamagedBySource: true };
+  }
+  if (/\bdealt damage by\b/.test(c)) return null;   // <- everything the carve-out above did not admit
   if (/\bthe player with\b/.test(c)) return null;
   // The "with …" rejection guards scope-INEXPRESSIBLE restrictions ("with a +1/+1 counter on it"). Two cast
   // shapes use "with" but are PRECISELY checkable on the cast spell itself — "cast a spell with {X} in its
@@ -3868,6 +3886,7 @@ export function detectTriggers(card) {
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
         targeterIsController: cls.targeterIsController, // VALIANT becomesTarget only — "…a spell or ability YOU CONTROL"; checkBecomesTargetTriggers drops the trigger when the targeting stack object's controller isn't the targeted permanent's. ⚠️ Unlisted here = dropped = fires off an OPPONENT'S removal spell too, an over-fire, with the trigger looking correctly detected the whole time.
         requiresCounter: cls.requiresCounter, // COUNTER-PREDICATE dies/attacks scope only (BLITZ CNT-1 — "with a +1/+1 counter on it") — scopeMatches gate reads the triggering creature's live counter bag
+        requiresDamagedBySource: cls.requiresDamagedBySource, // DEALT-DAMAGE-BY-ME dies scope only (Sengir Vampire) — scopeMatches gate reads the dead creature's damagedBy look-back. ⚠️ Unlisted here = dropped = the trigger fires on EVERY creature death anywhere, the widest possible over-fire, while still looking correctly detected.
         counterType: cls.counterType,         // COUNTERS-PUT-ON (CR 122.6) — the counter KIND the watcher listens for; checkCounterTriggers fires only on a matching placement
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
         keywordFilter: cls.keywordFilter,     // KEYWORD-FILTER ETB only (lowercase keyword for "with <kw>" — Dragon Tempest "flying")
@@ -4559,6 +4578,12 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   // the creatureYouControl controller scope (mirrors nontokenFilter/attachedOnly). A triggering permanent
   // with 0 of the counter must NOT fire (the restriction the reject would otherwise drop).
   if (descriptor.requiresCounter && !((triggeringPermanent?.counters?.[descriptor.requiresCounter] || 0) > 0)) return false;
+  // DEALT-DAMAGE-BY-ME gate — the dying creature must carry THIS source's id in its damagedBy look-back.
+  // Fails CLOSED: a look-back with no snapshot (an unmodeled death path) reads [] and the trigger drops,
+  // which is a false negative and permitted. Firing on an unproven "it probably hit that one" would be a
+  // false positive, which is not — and on this family the payoff is a permanent +1/+1 counter, so a wrong
+  // fire would compound for the rest of the game rather than wash out.
+  if (descriptor.requiresDamagedBySource && !(triggeringPermanent?.damagedBy || []).includes(sourcePermanent?.id)) return false;
   switch (descriptor.scope) {
     case "self":
       return !triggeringPermanent || triggeringPermanent.id === sourcePermanent.id;
@@ -5212,7 +5237,13 @@ export function checkDiesTriggers(state, dead) {
     // control WITH A +1/+1 COUNTER ON IT dies" — Meltstrider Eulogist) reads its last-known counter bag. The
     // undying/persist intervening-if already relies on d.counters being captured by every death constructor;
     // this exposes the same snapshot on the triggering permanent (mirrors `attachments`). Absent → {} (0 of any).
-    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {} };
+    // DAMAGED-BY (CR 603.6e last-known-info): the ids of everything that dealt damage to this creature this
+    // turn, snapshotted by the death constructors while the permanent still existed. The Sengir Vampire
+    // family ("whenever a creature dealt damage by ~ this turn dies") is a WATCHER trigger whose condition is
+    // a fact about the DEAD creature, so it can only be answered from the look-back - the permanent is gone
+    // by the time the watcher sweep below runs. Added to the SINGULAR path only; the batch path
+    // ("whenever one or more creatures die") has no member of this family.
+    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [], counters: d.counters || {}, damagedBy: d.damagedBy || [] };
     // SELF-DIES "if it was a creature" (CR 603.4 + 603.6e last-known-info) — the "Enduring"/Glimmer dies-return
     // intervening-if reads whether the DYING object was a creature. Captured from the death look-back's card
     // type line (the object's last-known characteristics, fixed once it left the battlefield), so

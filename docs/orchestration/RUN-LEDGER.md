@@ -3,6 +3,72 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-01 - **DEALT-DAMAGE-BY-ME DIES (Sengir Vampire family), +6** - shelf 0
+> Suite **1061 / 13,425 green**, lint 0. Flip-diff **+6 GAINED / 0 LOST / 0 churn**. Five mutations, five
+> kills. Batch **99**. Gained: Sengir Vampire, Sengir Bats, Vampiric Dragon, Vampiric Sliver, Predator Ooze,
+> Blood Cultist.
+>
+> "Whenever a creature dealt damage by ~ this turn dies, <effect>." **This one needed ENGINE work, not a
+> parser rule** - the engine tracked damage as a bare scalar (damageMarked), which can say how MUCH a
+> creature was dealt but never BY WHOM, and this family asks only the second question. Three seams, all
+> required, all mutation-proven: gameState keeps a per-permanent `damagedBy` list (markCombatDamage gained an
+> optional sourceId; recordDamageSource covers the combat path, which aggregates per victim before marking
+> and has thrown the sources away by then); the death constructors snapshot it onto the CR 603.6e look-back;
+> scopeMatches gates the watcher on it. Miss any one and the trigger is silently unanswerable, because the
+> dead creature is gone before the watcher sweep runs.
+>
+> **THE SOURCE LIST IS TAKEN FROM creatureDamagePairs, NOT A NEW COLLECTION.** That ungated per-hit list
+> already existed for the Toxin Sliver trigger and covers both directions (attacker->blocker, blocker->
+> attacker) plus infect/wither, where the damage becomes -1/-1 counters and never enters dmgToPermanent at
+> all yet is still damage DEALT. One list, two readers, no drift - the same reasoning as the shared
+> flash regex two slices back.
+>
+> ### A DELIBERATE REJECT HAD TO BE MOVED, AND THE FILE HAD ALREADY EXPLAINED WHEN THAT IS ALLOWED
+> `if (/\bdealt damage by\b/.test(c)) return null;` names Sengir Vampire in its own comment. Its stated
+> reason: the restriction was scope-INEXPRESSIBLE, so the branches below would drop it and fire on the wrong
+> event. That reason expired the moment damagedBy existed, and the same comment names the precedent for
+> retiring it - the CNT-1 "+1/+1 counter on it" carve-out, placed AHEAD of the reject for exactly this
+> reason. So the carve-out went ahead of the reject, and the reject still catches everything it does not
+> admit. **A reject is a statement about capability, not a verdict for all time; re-read WHY before routing
+> around it, and if the why still holds, leave it alone.**
+>
+> ### THE DESCRIPTOR-REBUILD DROP TRAP - the file warns about it in-line, in a comment, and it is real
+> Descriptor flags are copied field-by-field into a rebuilt object. The `targeterIsController` line right
+> above mine says it outright: "Unlisted here = dropped = fires off an OPPONENT'S removal spell too, an
+> over-fire, with the trigger looking correctly detected the whole time." Mine would have been worse -
+> a dropped requiresDamagedBySource fires on EVERY creature death anywhere. Listed, and M2 proves it.
+>
+> ### DEBUGGING NOTE - checkDiesTriggers ENQUEUES; flushTriggers puts it on the stack
+> Cost three probes. The mechanism was working the whole time and my isolation harness was reading
+> `state.stack` straight after checkDiesTriggers, which is always empty there. Two of the "failures" in the
+> family sweep were the same class of thing: a 1/1 source trading with its 1/1 blocker (so the source was
+> dead and could not receive its own counter), and Abattoir Ghoul having FIRST STRIKE, which my harness never
+> ran. **Three fixture defects impersonating engine bugs in one session; the tell is always that the card
+> reads fine and the board does not.**
+>
+> ### SIZING OVERSHOT AGAIN, THE SAME WAY, AND THE REASON IS STRUCTURAL
+> Hand swap said 10, build delivered 6. The swap DELETES the sentence, which deletes its PAYOFF along with
+> its condition; modeling it requires the payoff to be modeled too. The four that stayed parked: Wight
+> (token + "exile that card"), Soul Collector (reanimate + morph), Abattoir Ghoul (lifegain equal to the dead
+> creature's toughness), and **Zurgo Helmsmasher, which prints the short name "Zurgo" while the card is named
+> "Zurgo Helmsmasher"** - self-normalization derives a short form only from a comma'd legendary name, so
+> "Zurgo" never resolves to "this creature". A NAMED FOLLOW-UP, and probably not a lone card.
+>
+> One existing test needed updating: damageReplacements' full-player-state `toStrictEqual` byte-identity
+> check. Recording the damage source is a real second delta on the damaged permanent, so the EXPECTATION
+> gained `damagedBy` rather than the compare being relaxed - a strict compare is worth keeping strict.
+>
+> ### SHELF - still 5 of 16, and the two near-bar decks were checked FIRST
+> Omnath (89.4%) and Mothman (89.1%) each need exactly ONE card, so both were priced before this slice was
+> chosen. Omnath's cheapest is Thunderfoot Baloth, and a bisect showed it has TWO blockers, not one - the
+> "as long as you control your commander" condition AND a two-subject compound static ("this creature gets
+> +2/+2 and other creatures you control get +2/+2 and have trample"). The condition family is 7 cards, ALL
+> with other blockers; the compound is 2 cards. Neither is a vein. Mothman's ten are mostly rad counters -
+> and rad is ALREADY fully modeled (CR 728, applyRadiation at precombat main, 16 carriers native), so its
+> three stragglers are blocked by a damage-prevention replacement and a delayed conditional trigger, both
+> subsystem-sized. **Both near-bar decks are one expensive card away, not one cheap card away.** Written down
+> so the next seat prices them once and moves on.
+
 > ## QA PASS - 2026-08-01 - **75 batch cards driven through a real cast - 0 engine bugs**
 > Standing order: "every hour or 2 do a QA pass and bug test to make sure the cards you make actually play."
 > Selection is by the batch's signature ORACLE PHRASES against the live index rather than a typed list, so it
@@ -882,7 +948,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 93 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**)
+> - **BATCH IN FLIGHT: 99 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher

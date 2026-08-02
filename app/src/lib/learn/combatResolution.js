@@ -38,6 +38,7 @@ import {
   creaturePower,
   creatureToughness,
   markCombatDamage,
+  recordDamageSource,
   destroyLethalCreatures,
   isPlaneswalker,
   adjustLoyalty,
@@ -538,6 +539,17 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
   if (pvPool.length) next = { ...next, preventionShields: pvPool.filter((s) => s.amount > 0) };
   for (const [id, amount] of Object.entries(dmgToPermanent)) {
     if (findPermanent(next, id)) next = markCombatDamage(next, { permanentId: id, amount });
+  }
+  // DAMAGED-BY (the Sengir Vampire family — "whenever a creature dealt damage by ~ this turn dies"): the
+  // marking loop above works off dmgToPermanent, which is aggregated per victim and has therefore already
+  // thrown away WHO dealt each hit. creatureDamagePairs still has it — the same ungated per-hit list the
+  // Toxin Sliver trigger reads — so the source record is taken from there rather than from a second,
+  // parallel collection that could drift out of step with it. It also covers infect/wither, where the damage
+  // became -1/-1 counters and never entered dmgToPermanent at all but was still damage DEALT.
+  for (const pair of creatureDamagePairs) {
+    if (findPermanent(next, pair.damagedCreatureId)) {
+      next = recordDamageSource(next, { permanentId: pair.damagedCreatureId, sourceId: pair.dealerId });
+    }
   }
   for (const [pid, amount] of Object.entries(lifeLoss)) {
     if (amount > 0) next = loseLife(next, { playerId: pid, amount, combatDamage: true });
