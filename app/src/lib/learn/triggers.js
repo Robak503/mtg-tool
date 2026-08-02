@@ -3826,6 +3826,27 @@ export function detectTriggers(card) {
         // already gated to milled; a rider on the return / a different zone wording → unmatched → Arbiter).
         effectClause = "[gy-self-return:hand] return it to your hand";
         cls.functionsFromGraveyard = true;
+      } else if (cls.event === "cast"
+        && /^you may return this card from your graveyard to your hand$/i.test(effectClause.trim())) {
+        // ===== GRAVEYARD-FUNCTIONING cast trigger (the Eidolon cycle — Enigma / Aurora / Sandstorm /
+        // Verdant / Sunscape Eidolon) ===== "Whenever you cast a multicolored spell, you may return this
+        // card from your graveyard to your hand."
+        //
+        // ⭐ THE ZONE STATEMENT IS IN THE EFFECT HERE, NOT IN AN INTERVENING-IF, which is the one real
+        // difference from the Radroach branch directly above — "return THIS CARD FROM YOUR GRAVEYARD" says
+        // where the ability functions (CR 603.3d) just as plainly as Radroach's "if this creature is in your
+        // graveyard" does. Same conclusion, different sentence position, so the same stamp applies and
+        // checkCastTriggers' GRAVEYARD scan fires it with the graveyard card as source.
+        //
+        // The zone RE-CHECK is not lost by having no intervening-if to carry it: applyGySelfReturnHand keys
+        // on the exact sourceCardId and no-ops when the card is no longer there (CR 608.2b), so a card that
+        // left the graveyard between trigger and resolution returns nothing rather than reappearing from
+        // wherever it went.
+        //
+        // EXACT anchor. A rider on the return, a different destination, or "return it" without the zone
+        // (which would NOT state where the ability functions) all fall through unmatched → Arbiter, FN-safe.
+        effectClause = "[gy-self-return:hand] return it to your hand";
+        cls.functionsFromGraveyard = true;
       }
       } // end if (modalBlock === null) — modal blocks skip the leading-sentence referent rewrites
       // ONCE-PER-TURN TRIGGER ("This ability triggers only once each turn." — Mirelurk Queen, SHELF M1a):
@@ -6996,7 +7017,19 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
   let fired = [];
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {
-      const descriptors = detectTriggers(watcher.card).filter(d => d.event === "cast");
+      // A GY-FUNCTIONING descriptor must not fire from the BATTLEFIELD: its own text says it functions from
+      // the graveyard (CR 603.3d), so an Eidolon on the battlefield watching you cast a multicolored spell
+      // does nothing. Excluded here; the graveyard scan below is what fires it. Same detectTriggers cache
+      // serves both scans, and the flag routes them — the checkMilledTriggers precedent.
+      //
+      // ⚠️ THIS EXCLUSION IS NOT THE SAFETY GATE, and that was MEASURED, not assumed: a mutation deleting it
+      // SURVIVED the whole test file. The reason is that the rewritten effect ([gy-self-return:hand]) keys on
+      // ctx.sourceCardId, which only the graveyard scan stamps — so a battlefield fire resolves to nothing
+      // regardless. What this line actually buys is that no phantom trigger is put on the stack at all, which
+      // is a real difference (a visible trigger that does nothing is a bug report waiting to happen) and is
+      // what the battlefield test now pins. If the gy-self-return atom is ever changed to fall back to a
+      // by-name lookup, THIS LINE BECOMES LOAD-BEARING — and nothing here will warn you.
+      const descriptors = detectTriggers(watcher.card).filter(d => d.event === "cast" && !d.functionsFromGraveyard);
       for (const d of descriptors) {
         if (d.whose === "you" && casterId !== watcher.controller) continue;
         if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(casterId)) continue;
@@ -7026,6 +7059,24 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
           continue;
         }
         fired.push(makePendingTrigger(d, watcher, null, context));
+      }
+    }
+    // ===== GY-FUNCTIONING cast triggers (the Eidolon cycle, CR 603.3d) ===== scan this player's GRAVEYARD
+    // for cards whose cast-trigger functions from there. The source is the graveyard CARD, not a battlefield
+    // permanent (the makePendingTrigger look-back precedent set by checkMilledTriggers), and sourceCardId
+    // rides the context so the gy-self-return atom keys on the exact card rather than on a name.
+    //
+    // ⚠️ `pid` IS THE WATCHER'S SEAT, NOT THE CASTER'S — the graveyard scanned belongs to the player whose
+    // card is watching, and d.whose is then checked against the CASTER. Getting this backwards would let
+    // your Eidolon return itself when an OPPONENT cast the multicolored spell, which "whenever YOU cast"
+    // does not say. Both directions are pinned in the test.
+    for (const gyCard of state.players[pid]?.graveyard || []) {
+      for (const d of detectTriggers(gyCard).filter(x => x.event === "cast" && x.functionsFromGraveyard)) {
+        if (d.whose === "you" && casterId !== pid) continue;
+        if (d.whose === "opponent" && !opponentsOf(state, pid).includes(casterId)) continue;
+        if (!spellMatchesFilter(d.spellFilter, spellCard)) continue;
+        const source = { id: `gy-${gyCard.id}`, controller: pid, card: gyCard };
+        fired.push(makePendingTrigger(d, source, null, { ...context, sourceCardId: gyCard.id }));
       }
     }
   }

@@ -3,6 +3,43 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-01 - **GRAVEYARD-FUNCTIONING CAST TRIGGER (Eidolon cycle), +5** - shelf 0
+> Suite **1063 / 13,449 green**, lint 0. Flip-diff **+5 GAINED / 0 LOST / 0 churn**. Four mutations - three
+> killed immediately, **one SURVIVED and is the most useful thing in this slice** (below). Batch **13**.
+> Gained: Enigma, Aurora, Sandstorm, Verdant and Entropic Eidolon.
+>
+> "Whenever you cast a multicolored spell, you may return this card from your graveyard to your hand."
+> The CAST-event sibling of the milled-event graveyard-functioning trigger Infesting Radroach already had.
+> Nearly everything was already built - the functionsFromGraveyard stamp, the [gy-self-return:hand] sentinel,
+> applyGySelfReturnHand, and even the `multicolored` cast filter (CR 105.2b). Only the cast path lacked a
+> GRAVEYARD SCAN. Second slice running where the cost was low because earlier slices bought the mechanism.
+>
+> **The zone statement sits in the EFFECT here, not in an intervening-if** - Radroach says "…if this creature
+> is in your graveyard, you may return it to your hand"; the Eidolon says "…return THIS CARD FROM YOUR
+> GRAVEYARD to your hand". Both state where the ability functions (CR 603.3d); only the sentence position
+> differs. Nothing is lost by having no intervening-if to re-check the zone, because applyGySelfReturnHand
+> keys on the exact sourceCardId and no-ops when the card is gone (CR 608.2b).
+>
+> ### ⭐ A MUTATION SURVIVED, AND THE COMMENT I HAD WRITTEN WAS WRONG
+> M2 deleted the battlefield loop's `&& !d.functionsFromGraveyard` exclusion - the line that stops an Eidolon
+> on the BATTLEFIELD from firing - and the whole file stayed green. My comment above it claimed it was the
+> thing preventing a wrong fire. **It is not.** Measured on a board rather than argued: without the exclusion
+> the battlefield copy DOES create a pending trigger; it just resolves to nothing, because the rewritten
+> effect keys on ctx.sourceCardId and only the graveyard scan stamps that. The real gate is downstream.
+>
+> Fixed both halves rather than either one alone: the comment now says plainly that the line is a
+> pre-filter, names the measurement, and warns that it BECOMES load-bearing if the gy-self-return atom ever
+> gains a by-name fallback - and a new test pins what the line actually buys (no phantom trigger reaches the
+> stack at all, which is a real difference: a visible trigger that does nothing is a bug report waiting to
+> happen). M2 kills now. **The rule this is the third instance of: when a mutation survives, the code is
+> usually fine and the COMMENT is the thing that was lying.** Same shape as the orphaned-aura pre-filter
+> already documented in checkDiesTriggers - which is where I got the phrasing.
+>
+> ⚠️ The graveyard scan walks `state.players[pid].graveyard` where **pid is the WATCHER'S seat**, while
+> `d.whose` is checked against the CASTER. Reversing those two reads gives an Eidolon that returns itself
+> whenever an OPPONENT casts a multicolored spell - which "whenever YOU cast" does not say, and which no
+> happy-path test can see. Pinned by its own negative (M1 kills it).
+
 > ## SLICE DONE - 2026-08-01 - **NAMED-CARD TUTOR to your own hand, +8** - shelf 0
 > Suite **1062 / 13,436 green**, lint 0. Flip-diff **+8 GAINED / 0 LOST / 0 churn**. Four mutations, four
 > kills. Batch **8** (first slice after v0.150.0). Gained: Screaming Seahawk, Avarax, Daru Cavalier,
@@ -1001,7 +1038,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 8 cards since v0.150.0** (**named-card tutor to hand +8**) — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
+> - **BATCH IN FLIGHT: 13 cards since v0.150.0** (**named-card tutor to hand +8**, **gy-functioning cast trigger +5**) — shipped 2026-08-01; the 99-card batch below went out in that tag. Previous contents: (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**, **self-flash permission +14**, **dealt-damage-by-me dies +6**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher
