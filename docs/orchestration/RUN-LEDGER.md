@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## QA PASS - 2026-08-01 (2nd) - **95 cards across 10 mechanics - 0 problems**
+> Standing order. Three new groups added since the last pass (dealt-damage-by-me dies 6, named tutor to hand
+> 9, gy-functioning cast 5); the seven older groups re-run and stayed clean. No harness faults this time -
+> the token exclusion and the coloured attacker fixture from the first pass held.
+>
+> ⚠️ **WHAT THIS SWEEP DOES NOT PROVE, said plainly so the green number is not read as more than it is:** it
+> drives each card through *legalActionsForPlayer -> dispatchAction -> resolveTopOfStack* and asserts nothing
+> throws. That is a PLAYABILITY check. It does NOT exercise a card's triggered abilities - a
+> graveyard-functioning Eidolon cast from HAND never fires its graveyard trigger at all here. Those are
+> covered by the per-mechanic test files, each with its own negatives. Two different questions, and the sweep
+> only answers the first one.
+
 > ## SLICE DONE - 2026-08-01 - **GRAVEYARD-FUNCTIONING CAST TRIGGER (Eidolon cycle), +5** - shelf 0
 > Suite **1063 / 13,449 green**, lint 0. Flip-diff **+5 GAINED / 0 LOST / 0 churn**. Four mutations - three
 > killed immediately, **one SURVIVED and is the most useful thing in this slice** (below). Batch **13**.
