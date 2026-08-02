@@ -3,6 +3,51 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⛔ SLICE REJECTED - 2026-08-01 - **LIEUTENANT / "as long as you control your commander" — the gate is not the blocker**
+> No code change. **Omnath, Locus of Mana's last card is genuinely expensive** — this is the third
+> investigation to confirm it, and the reasons are now written down so it is not priced a fourth time.
+>
+> **THE MEASUREMENT THAT LOOKED LIKE A SLICE:** "as long as you control your commander" — 7 carriers, 7
+> parked, and **6 WOULD FLIP if the whole line were modeled**, one of them Thunderfoot Baloth, which is the
+> single card that puts Omnath over 90%. Shelf +1 for six cards read like the best slice on the board.
+>
+> **THEN THE PARSE PATH SAID OTHERWISE, and the diagnosis is worth keeping:**
+> · Conditional statics ALREADY EXIST and work — `As long as you control a Forest, this creature gets +2/+2`
+>   parses to a `ptModifyGated` layer-7c static with `gate.countSpec {permanentsYouControl, subtype:Forest}`
+>   and classifies native. Verified by probe, not assumed.
+> · The commander form parses to NOTHING purely because `parseControlGateSource` reads a TYPE COUNT and
+>   "your commander" is a DESIGNATION, not a type. Two small edits would fix that (a new countSpec kind plus
+>   its evaluator in layers.countSelfSpecOnBoard).
+> · **And it would flip ZERO cards.** `emitGatedEffect` is strict by design (CREED): the payload must reduce
+>   EXACTLY to a self P/T buff and/or grantable keywords, or the whole clause emits nothing. Checked all
+>   seven payloads against that rule — **not one qualifies**: Demon of Wailing Agonies, Tyrant's Familiar and
+>   Stormsurge Kraken each carry a QUOTED TRIGGERED ABILITY; Angelic Field Marshal and Skyhunter Strike Force
+>   carry GROUP grants ("creatures you control have vigilance", "other creatures … have melee"); Convergence
+>   of Dominion is an activated-ability COST REDUCER; Thunderfoot Baloth is the two-subject compound
+>   ("this creature gets +2/+2 AND other creatures you control get +2/+2 and have trample", measured
+>   separately at 2 corpus carriers — not a vein).
+>
+> **So the line is not one mechanism, it is six**, sharing only a gate. "Would flip if the whole line were
+> modeled" is a true statement that says nothing about cost when the line contains six different mechanisms.
+>
+> ### ⭐ THE SAME MISTAKE SHAPE TWICE IN ONE TICK
+> The ability-word label rejection immediately above and this one are the identical error: I measured the
+> ENABLING piece (a label strip, a gate vocabulary) and read its carrier count as a slice size, when the
+> actual blocker was downstream every time (unmodeled triggers there, unmodeled payloads here).
+> **The portable rule: before sizing an enabler, check what the thing it enables still has to do.** A
+> whole-line drop measures the line, not the enabler — size the enabler by flipping the enabler alone.
+>
+> ### Omnath's three sole-blockers, all priced, all expensive
+> · **Thunderfoot Baloth** — the above: commander gate + two-subject compound static.
+> · **Selvala, Heart of the Wilds** — needs TWO mechanisms, measured: dropping the trailing condition
+>   ("if its power is greater than each other creature's power") alone flips NOTHING, so the
+>   its-controller-may-draw effect is unmodeled as well as the board-wide power comparison.
+> · **Old One Eye** — a non-CR ability-word label ("Fast Healing", flavour, the trigger is written out in
+>   full after it, so the treasure-hunter/eukrasia precedent would cover the strip) PLUS a first-main
+>   graveyard-functioning trigger with a discard-two COST. The [gy-self-return:hand] sentinel and resolver
+>   already exist from the Eidolon slice; the phase-event graveyard scan and the conditional cost do not.
+> Of the three, Old One Eye is the closest to buildable because most of its machinery was bought earlier.
+
 > ## ⛔ SLICE REJECTED - 2026-08-01 - **CR 207.2c ability-word labels: 22 labels, 469 parked cards, ZERO FLIPS**
 > No code change beyond a comment. Reporting it because a negative result that cost a measurement is worth
 > exactly as much as a slice, and because the headline number will tempt the next seat the same way.
