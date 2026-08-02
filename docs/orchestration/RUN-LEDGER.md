@@ -3,6 +3,38 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🛡 BUG-CLASS AUDIT + INVARIANT - 2026-08-01 - **parseEffectClause with no card type** - +0, shelf 0
+> Suite **1069 / 13,523 green**, lint 0. Isolated flip-diff **0 / 0 / 0** again. No cards; the deliverable is
+> that a whole bug CLASS is closed and can no longer come back silently.
+>
+> **THE AUDIT.** Having fixed three sites in the previous entry, I did not assume I had them all — I listed
+> EVERY `parseEffectClause(` call in the engine and checked each for a type argument. 22 call sites; **21
+> correct, 1 wrong — and the wrong one was the FOURTH site of my own lane** (parser.js's spell-path strip),
+> which I had missed an hour earlier while fixing its three siblings. Fixed; isolated diff 0/0/0, another
+> latent repair.
+>
+> ### ⭐ THE REAL DELIVERABLE: A STRUCTURAL INVARIANT — parseClauseTypeArgument.test.js
+> This bug is INVISIBLE TO THE SUITE by construction. `parseEffectClause(text)` with no type downgrades
+> type-gated atoms (pump, deal-damage) to LOW, so a gate built on it refuses an ability that is modeled
+> perfectly well. That is a false NEGATIVE: no coverage number moves, nothing throws, no behavioural test
+> fails, and the affected cards are usually parked for other reasons anyway. **It shipped twice in one
+> evening and neither time did anything go red.**
+>
+> So the guard is structural, not behavioural: scan every non-test file under lib/learn, find each
+> parseEffectClause call, and require a top-level comma before its closing paren. Verified by RE-INTRODUCING
+> the bug — the test fails and names `effects/parser.js:1002`. It also carries a sanity floor (>10 calls
+> found) so a scan that silently stops matching cannot pass as clean, the same hollow-gate lesson as the
+> ZERO-MATCH guard on the QA sweep.
+>
+> ⚠️ The correct argument is usually the LITERAL "Instant", NOT the card's own type — the atoms resolve
+> type-agnostically and matchOptionalDiscardPayment's note records that 30 of its 32 flips depend on this.
+> Passing `card.type` would re-introduce the bug while looking more correct. The invariant bans passing
+> NOTHING; forwarding a cardType variable (the spell paths inside parser.js) is legitimate and allowed.
+>
+> **The portable lesson: when a bug is FN-safe, the suite is not going to find it for you.** Two ways it can
+> surface — auditing every call site of the primitive, or noticing an oddity in a sizing probe ("why is that
+> LOW when the clause obviously parses?"). Both happened here; neither was the test suite.
+
 > ## 🔧 FOLLOW-UP FIX - 2026-08-01 - **the discard-ability gate was parsing with NO CARD TYPE** - +0, shelf 0
 > Suite **1068 / 13,522 green**, lint 0. Isolated flip-diff **0 GAINED / 0 LOST / 0 churn** — a latent
 > correctness repair, not a card-gainer. Found by following up on my OWN slice from an hour earlier rather

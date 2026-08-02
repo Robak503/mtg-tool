@@ -994,7 +994,12 @@ function stripDiscardCostAbilityForCast(oracle) {
     const t = ln.trim();
     if (!DISCARD_COST_ABILITY_LINE.test(t)) return true;
     const effectText = t.replace(DISCARD_COST_ABILITY_LINE, "").trim();
-    const prog = parseEffectClause(effectText);
+    // ⚠️ LITERAL "Instant", matching the other three gate sites (legalChoices, actionDispatcher, coverage).
+    // Passing nothing lets type-gated atoms (pump, deal-damage) read LOW, which would keep the line and park
+    // the card for a reason unrelated to its text. This was the FOURTH site of the same bug and the one I
+    // missed when fixing the other three — found by auditing every parseEffectClause call rather than
+    // trusting that I had got them all.
+    const prog = parseEffectClause(effectText, "Instant");
     const modeled = prog && programConfidence(prog) === "high"
       && (prog.atoms || []).length && !programNeedsChosenTarget(prog);
     return !modeled;                      // unmodeled ability -> keep the line -> the card stays parked
