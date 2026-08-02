@@ -1,5 +1,52 @@
 # WAKE REPORT — live resume anchor
 
+## ☀️ 2026-08-01 — **the shelf is 21 decks now** · batch 42 since v0.150.0 · suite **1070 / 13,535** · **the next call is the ARBITER VERDICT SOURCE**
+
+> Master is at `14bd2e34`, tree clean, nothing in flight. **Do not tag** — 42 cards banked toward the ~100
+> batch. `RUN-LEDGER.md` is the state; this is the summary.
+>
+> ### WHAT CHANGED STRUCTURALLY: the shelf tripled, and the metric was wrong for an hour
+> Colton split the app into real profiles — **Colton** (6 decks) · **Joe** (11) · **Omnath** (4 Bracket-3 test
+> decks, imported 2026-08-01) — and imported **Veyran Cantrips** from Archidekt. The shelf census used to read
+> ONE hardcoded profile path; after the split it would have reported a healthy 5-deck shelf and lost two
+> thirds of its subject without a word. It walks every profile now.
+> ⛔ **The four TEST decks COUNT.** I excluded them as a junk sandbox; Colton overruled it — *"those need to be
+> done just as much as me and Joe's decks."* Do not restore the exclusion.
+>
+> **Shelf: 21 decks · 7 at the ≥90% bar · 226 cards to clear** — colton 5/6 (7) · joe 2/11 (144) · test 0/4 (75).
+>
+> ### ⭐ THE DECISION WAITING FOR THE NEXT SESSION — read this before picking up a slice
+> The parser era is closing. Four axis veins measured to ZERO on 07-30; this session's ten slices ran
+> +14/+9/+8/+7/+6/+5/+3/+3/+1, and the last one paid **+9 engine but only −3 shelf**. Meanwhile the shelf's
+> parked set is **357 distinct cards, and 321 of them appear in exactly ONE deck.** A per-card tail that
+> large is not reachable by a matcher — no phrase swap flips a card that exists once.
+>
+> That is what makes `ARBITER-IN-RUNNER-SPEC.md` the live question rather than a backlog item. Steps 1–4 are
+> BUILT (store · applier · default-off `resolveArbiter` hook · `warmArbiterCache`). **The flag is not the
+> blocker — flipping it changes nothing, because `warmArbiterCache` throws without a `resolve` function and
+> there is no verdict source.** ON with an empty cache is the same no-op with more machinery in the path.
+> The spec's own note is the real constraint: *a small local model can't emit valid MTG-Tool atoms.*
+> The open call is **where verdicts come from**, and the recommendation on the desk is: author them
+> BUILD-TIME (offline, committed as data, shipped in the bundle — the model in the authoring path, exactly
+> like the Scryfall snapshot), never runtime. That keeps §1.1 intact. It still needs Colton's yes.
+> ⚠️ And the persona does NOT protect this: the runner path consumes structured atoms and no-ops on malformed
+> ones — it never reads Arbiter prose. What prevents a bad verdict is the CREED gate on the verdict set.
+>
+> ### METHOD: 17 corrections now (RUN-LEDGER, read before the first slice)
+> Newest: **17 — naming the risk in the pre-size is not testing it.** The multi-keep pre-size flagged the
+> exact thread that broke, in bold; the assertion written for it was a COUNT, and the mutation walked through
+> it because both branches leave the same number of cards in a different order. Assert the mechanism.
+>
+> ### OPEN, BANKED IN NEXT-QUEUE.md
+> **A0** — Moxfield import 403s in the packaged `.exe` (proven NOT user-agent, NOT stale code; bundled-Node
+> TLS is a hypothesis and is labelled untested). Second defect in the same path: the error message blames the
+> user's link. **A0b** — "that player" on a spell mis-binds to `damagedPlayer`; 4 cards, correctly refused.
+>
+> ### HOUSEKEEPING FOR COLTON
+> Reload the app window before touching the deck library (the client holds pre-split state). The 608 MB
+> profile backup at `scratchpad/profile-backup-20260801-183934` is still on disk and can go once you've
+> clicked through the three profiles.
+
 ## ☀️ 2026-07-30 — **v0.149.20 shipped (89 cards, ten slices, ONE tag)** — Colton shelf 93% · `cdh` 86/100 — suite **1005/12,802**
 
 > **Read [RUN-LEDGER.md](RUN-LEDGER.md) first if you are resuming after a crash** — it is rewritten at every
