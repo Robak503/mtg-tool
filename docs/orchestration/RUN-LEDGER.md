@@ -1281,7 +1281,7 @@
 > late, and rule 7 below exists because judgment degrades before mechanics do. Starting a new-machinery
 > slice at the end of a very long window to avoid looking idle is the exact instinct that law forbids.*
 
-> ## 🧭 METHOD CORRECTIONS — EARNED THIS RUN (2026-07-30/31). READ BEFORE THE FIRST SLICE.
+> ## 🧭 METHOD CORRECTIONS — EARNED 2026-07-30 → 08-01. READ BEFORE THE FIRST SLICE. (16 rules)
 > *Every line below cost a real mistake. They are here so the next seat inherits the judgment instead of
 > re-buying it a slice at a time. None of them are visible from the code.*
 >
@@ -1334,6 +1334,49 @@
 >
 > **10. VERIFY A RELEASE BY CONTENT, NOT BY CHECKMARK.** Manifest `version`, an installer URL that actually
 > resolves, a NON-EMPTY signature, the asset count. A green run is not a shipped release.
+>
+> ---
+> *Rules 11-16 earned 2026-08-01, same terms: each cost a real mistake in THIS run, none visible from code.*
+>
+> **11. ⭐ PARKED-BEHIND-AN-ENABLER IS NOT WOULD-FLIP-IF-ENABLED. SIZE THE ENABLER ALONE.**
+> The single most expensive error of the run, made TWICE in one tick. Ability-word labels: 469 parked cards
+> behind 22 CR-verified words → **0 flips** (stripping a label only REVEALS a trigger; a revealed but
+> unmodeled trigger leaves the card exactly as parked). Lieutenant gate: 7 carriers, "6 would flip if the
+> whole line were modeled" → **0**, because the LINE was six different mechanisms sharing a gate.
+> ⛔ Dropping a whole LINE sizes the line. To size an ENABLER, remove ONLY the enabler and leave everything
+> else standing — if the card does not flip, the blocker was always downstream. Carrier counts are not slice
+> sizes. (The one time this was done right — the rummage wrapper, stripped alone — it predicted +3 exactly.)
+>
+> **12. ⭐ A GUARD TESTED ONLY THROUGH A CASE ANOTHER GUARD ALSO CATCHES IS UNTESTED.**
+> Four pre-specified mutations survived on the rummage slice. The CREED test *passed* with the head-clause
+> refusal deleted — because its head was pure junk, parsed to zero atoms, and a LENGTH check caught it
+> instead. The dangerous case (a head with one GOOD clause and one unmodeled one, where removal silently
+> drops a printed sentence and credits the card) was never exercised. Write the fixture that reaches the
+> guard and nothing else.
+>
+> **13. WHEN A MUTATION SURVIVES, THE CODE IS USUALLY FINE AND THE COMMENT IS LYING.** Three instances this
+> run (the Eidolon battlefield exclusion, `optionalsFormSuffix` on an atom with no `optional` flag, `cut > 0`
+> already shielded by an earlier return). Do NOT delete the line and do NOT invent a test to justify it:
+> measure what it actually does, rewrite the comment to say that plainly, and name the change that would make
+> it load-bearing. Then pin whatever it really buys.
+>
+> **14. WHEN A FIXTURE'S OUTCOME IS OVER-DETERMINED, ASSERT THE MECHANISM, NOT THE OUTCOME.**
+> "Bloatfly with no counters DIES" passed with its zero-counter gate deleted — Bloatfly is printed 0/0, so it
+> dies to the toughness-0 SBA either way. Every Phantom is toughness 0 too. Give the fixture a real toughness
+> and assert the damage MARK. Same shape as asserting "it died" when the fixture would die anyway.
+>
+> **15. A FLIP-DIFF ACROSS TWO DIFFERENT `MTG_APP_ROOT`s IS NOT A FLIP-DIFF.** One census taken against the
+> dev tree and the other against the install produced **2242 phantom churn rows** (different card indexes,
+> double-faced rows on one side only). Rule 2 applies to the two SIDES of a diff, not just to a control.
+> ⚠️ And the printing index lives with the INSTALL, not the dev tree — point `MTG_APP_ROOT` there.
+>
+> **16. MUTATION REVERT RESTORES FROM A BACKUP COPY, NEVER FROM GIT.** `git checkout -- <file>` on an
+> UNCOMMITTED slice reverts to HEAD and destroys the work. Copy the files aside before the first mutation and
+> `cp` them back. (Caught only because the next mutation's anchor then matched 0 times and the helper
+> REFUSED — which is exactly why that helper asserts an occurrence count.)
+> ⚠️ Also: a QA/sweep GROUP whose card count is lower than the flip count of the slice that created it is
+> UNDER-covering, and prints "all clean" just as loudly as full coverage. Check new groups against their
+> slice's number — the zero-match guard only catches a total miss, never a partial one.
 
 > ## 🚦 RELEASE CADENCE — BATCH, DO NOT TAG PER SLICE (Colton, 2026-07-29)
 > *"you cutting to many releases put more work in before each cut do 100 plus slices or something close."*
