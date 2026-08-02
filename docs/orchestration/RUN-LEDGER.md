@@ -87,6 +87,20 @@
 > sentence, different hosts (a dies-trigger and a graveyard-activated ability). Both verified by reading the
 > real oracle rather than assumed from the count. Sizing under-counted here for once, rather than over.
 
+> ## ✅ v0.150.0 VERIFIED BY CONTENT - 2026-08-01
+> CI run 30725845165 **completed / success** in ~27 min (the documented 20-30 window). Checked the RUN, not
+> just the push - local green is not CI green, and a tag that builds is not the same as a release that
+> updates anyone.
+>
+> Published assets: `latest.json` · `MTG-Tool-Setup.exe` + `.sig` · `MTG.Tool_0.150.0_x64-setup.exe` + `.sig`
+> (130,113,550 bytes each; the two .exe names are the same artifact, stable-named and versioned).
+>
+> **`latest.json` READ, not assumed** - it is the file every running install polls, and a wrong version or a
+> dead URL there breaks auto-update silently for everyone:
+> · `version` = `0.150.0` (matches the tag and both bumped manifests)
+> · `signature` present and non-empty
+> · `url` = the v0.150.0 versioned installer, which is one of the published assets above.
+
 > ## 🏷 RELEASE CUT - 2026-08-01 - **v0.150.0**, 99 cards since v0.149.23
 > Tag pushed at the batch threshold per the release-cadence rule (slices land on master individually; the
 > TAG batches ~100 cards so a running install sees one update banner, not eleven). CHANGELOG's [Unreleased]
