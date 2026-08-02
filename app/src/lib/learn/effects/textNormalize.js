@@ -207,6 +207,13 @@ const SPLIT_SECOND_LINE = /^[ \t]*split second[ \t]*(?:\([^\n]*\))?[ \t]*$/gim;
 //
 // ⛔ BOTH HALVES ANCHORED TOGETHER. A card printing only the step half without the been-attacked condition
 // is a DIFFERENT restriction that the gate would under-enforce, so it must not match here (CREED).
+// SHUFFLE-INSTEAD-OF-GRAVEYARD (CR 614) on the SPELL side - Nexus of Fate. "If Nexus of Fate would be put
+// into a graveyard from anywhere, reveal it and shuffle it into its owner's library instead." Same
+// replacement as the permanents, but an instant needs the sentence off its BODY so the extra-turn effect
+// parses. Enforced at gameState.moveCardToZone, which redirects any graveyard-bound move for such a card -
+// so this strip only stops the printed line from parking the body, exactly like SPLIT SECOND above.
+const SHUFFLE_INSTEAD_OF_GY_LINE =
+  /(?:^|[\n.;])[ \t]*if [^\n]* would be put into a graveyard from anywhere,[^\n]*instead[ \t]*\.?[ \t]*$/gim;
 const CAST_ONLY_DECLARE_ATTACKERS_LINE =
   /(?:^|[\n.;])[ \t]*cast this spell only during the declare attackers step and only if you(?:'|’)ve been attacked this step[ \t]*\.?[ \t]*$/gim;
 export function stripCastKeywordLines(text) {
@@ -214,7 +221,8 @@ export function stripCastKeywordLines(text) {
     .replace(CAST_KEYWORD_LINE, " ")
     .replace(MADNESS_LINE, " ")
     .replace(SPLIT_SECOND_LINE, " ")
-    .replace(CAST_ONLY_DECLARE_ATTACKERS_LINE, " ");
+    .replace(CAST_ONLY_DECLARE_ATTACKERS_LINE, " ")
+    .replace(SHUFFLE_INSTEAD_OF_GY_LINE, " ");
 }
 
 /**

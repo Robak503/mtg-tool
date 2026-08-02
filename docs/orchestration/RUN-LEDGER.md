@@ -3,6 +3,42 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-01 - **SHUFFLE-INSTEAD-OF-GRAVEYARD (CR 614), +5** - shelf 0
+> Suite **1059 / 13,393 green**, lint 0. Flip-diff **+5 GAINED / 0 LOST**. Three mutations, three kills.
+> Batch **79**. Gained: Darksteel Colossus, Blightsteel Colossus, Progenitus, Nexus of Fate, Legacy Weapon.
+>
+> "If <this> would be put into a graveyard from anywhere, reveal <this> and shuffle it into its owner's
+> library instead." Built at the gameState.moveCardToZone chokepoint, ahead of the move.
+>
+> **IT HAD TO BE A REPLACEMENT, NOT A CLEAN-UP, and a test proved that rather than a comment.** The card is
+> never put into a graveyard, so it never DIES (CR 700.4). My first pass redirected the zone move correctly
+> and a Blood Artist STILL DRAINED - because destroyLethalCreatures builds its dead list BEFORE the move, so
+> every dies-trigger and the deaths-this-turn tally saw a death that never happened. Fixed with a
+> shuffledInstead flag on the dead entry, mirroring the exileInstead flag that sits directly beside it and
+> exists for exactly the same reason. Caught by the Blood Artist assertion, not by reading the code.
+>
+> **Enforcement first, credit second.** Both the classifier strip and the runtime read the SAME predicate
+> (shufflesIntoLibraryInsteadOfGraveyard), so they cannot disagree about which cards are handled. Crediting
+> the sentence without the replacement would mark these five native while they still rotted in the graveyard
+> - which for a Colossus IS the card.
+>
+> **A refactor rode along, deliberately, to avoid duplicating determinism.** The chokepoint needed a seeded
+> shuffle, and the only one lived in atoms/library.js - which imports gameState, so the reverse edge would
+> cycle. deterministicRng / advanceRngSeed / shuffleSeededLibrary moved DOWN into gameState and library.js's
+> shuffleControllerLibrary now delegates. One seeded-shuffle implementation, not two.
+>
+> WARNING FROM THAT REFACTOR: removing the local deterministicRng broke FOUR other call sites in library.js
+> and turned the suite red at 39 failures. Lint named it instantly ("'deterministicRng' is not defined").
+> **Run lint before the suite when a refactor moves a symbol - it localises in seconds what 39 red tests do
+> not.**
+>
+> **SHELF: 0.** None of the five is in a saved deck - though these are heavily played cards in the wider
+> format, so the play-quality win is real even where the shelf metric cannot see it.
+>
+> NOTE ON MUTATION S3: its anchor spanned a newline and the file is CRLF, so the literal matcher found zero
+> occurrences and REFUSED. Re-run with a CRLF-aware anchor, it killed 4 tests. A non-matching anchor is a
+> refusal, never a pass - the mutate helper asserting the count is what makes that visible.
+>
 > ## SLICE DONE - 2026-08-01 - **DECLARE-ATTACKERS CAST RESTRICTION, +8** - shelf 0
 > Suite **1058 / 13,382 green**, lint 0. Flip-diff **+8 GAINED / 0 LOST**. Three mutations, three kills.
 > Batch **74**. Gained: Defiant Stand, Warrior's Stand, Just Fate, Rally the Troops, Assassin's Blade,
@@ -768,7 +804,7 @@
 >   diagnosing a hang. The number was a PowerShell datetime-kind bug — the 'duration' was the machine's 
 >   UTC offset. Caught by cross-checking a LATER CI run that was still queued, which is impossible if 7h 
 >   had passed. **Nothing was cancelled.** Compute elapsed time in ONE clock or not at all.*
-> - **BATCH IN FLIGHT: 74 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**)
+> - **BATCH IN FLIGHT: 79 cards since v0.149.23** (ability-word SPELL path +17, **PARTNER WITH +16**, **MASS GY REANIMATE +7**, **gy-return AND-union +2**, **mass return-to-HAND +2**, **AURA static+trigger composition +11**, **kw-trigger reconciliation +11/−3 FP**, **two-sentence fold +1**, **frequency-rider mirror +2**, **declare-attackers cast restriction +8**, **shuffle-instead-of-graveyard +5**)
 > - 🔬 **NEXT SLICE IS PRE-SIZED (2026-07-31), and each is blocked on a NAMED prerequisite:**
 >   · ~~**Partner with — 16 flips, the largest available. BLOCKED: the engine has NO named-card tutor**~~
 >     ✅ **DONE 2026-08-01, +16.** The named tutor (`filter.name`) was built, along with the targeted searcher

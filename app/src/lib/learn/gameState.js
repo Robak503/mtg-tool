@@ -645,10 +645,57 @@ export function nextInTurnOrder(state, playerId) {
  *     object travels. Counters, attachments, etc. are discarded.
  *   - If `cardId` is not found in the source zone, throws.
  */
+/**
+ * SHUFFLE-INSTEAD-OF-GRAVEYARD (CR 614 replacement) — "If <this> would be put into a graveyard from
+ * anywhere, reveal <this> and shuffle it into its owner's library instead." Darksteel Colossus,
+ * Blightsteel Colossus, Progenitus, Nexus of Fate, Legacy Weapon.
+ *
+ * ⛔ IT MUST BE A REPLACEMENT, NOT A POST-HOC CORRECTION, and that is why it lives at the zone chokepoint
+ * rather than after the move. The card is NEVER put into a graveyard, so it never "dies" (CR 700.4 defines
+ * dying as being put into a graveyard from the battlefield). Moving it and then fixing it up would fire every
+ * dies-trigger and graveyard watcher on the way through — the board would see a death that did not happen.
+ *
+ * Anchored on the printed sentence with a SELF subject (the card's own name or "this permanent"/"it"). A
+ * card that shuffles something ELSE away is a different ability and never matches.
+ */
+const SHUFFLE_INSTEAD_OF_GY_RE =
+  /\bif\s+(?:[^\n.]{1,40}?)\s+would be put into a graveyard from anywhere,\s*reveal\s+(?:[^\n.]{1,40}?)\s+and shuffle (?:it|that card) into its owner['’]s library instead\b/i;
+/** Does this card replace a graveyard-bound move with a shuffle into its owner's library? */
+export function shufflesIntoLibraryInsteadOfGraveyard(card) {
+  return SHUFFLE_INSTEAD_OF_GY_RE.test(String(card?.oracle ?? card?.oracle_text ?? ""));
+}
+/** The card object a pending move would actually move, without mutating anything (for the check above). */
+function peekMovingCard(state, playerId, fromZone, cardId) {
+  const list = state.players?.[playerId]?.[fromZone];
+  if (!Array.isArray(list)) return null;
+  if (fromZone === "battlefield") {
+    const perm = list.find((p) => p.id === cardId);
+    if (!perm) return null;
+    return (perm.faceDown && perm.faceUpCard) ? perm.faceUpCard : (perm.printedCard || perm.card);
+  }
+  return list.find((c) => c.id === cardId) || null;
+}
+
 export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, becomePermanent = false, toTop = false }) {
   assertPlayer(playerId);
   assertZone(fromZone);
   assertZone(toZone);
+
+  // CR 614 replacement, applied BEFORE the move so the graveyard is never touched (see the note above).
+  // Recursing with toZone "library" reuses every bit of this function's owner-routing and unwrapping rather
+  // than duplicating it; the guard on toZone prevents any further recursion.
+  if (toZone === "graveyard") {
+    const moving = peekMovingCard(state, playerId, fromZone, cardId);
+    if (moving && shufflesIntoLibraryInsteadOfGraveyard(moving)) {
+      const tucked = moveCardToZone(state, { playerId, fromZone, toZone: "library", cardId });
+      // Shuffle the OWNER's library — the same destination routing the move just used, so a stolen
+      // permanent shuffles into the library it actually went to.
+      const ownerPid = (fromZone === "battlefield"
+        && state.players[playerId]?.battlefield?.find((p) => p.id === cardId)?.owner) || playerId;
+      const shuffled = shuffleSeededLibrary(tucked, state.players[ownerPid] ? ownerPid : playerId);
+      return logEvent(shuffled, { kind: "shuffle-instead-of-graveyard", playerId: ownerPid, cardName: moving?.name || null });
+    }
+  }
 
   const player = state.players[playerId];
   const sourceList = player[fromZone];
@@ -795,6 +842,32 @@ export function drawCards(state, { playerId, count }) {
  * first time a caller forgot the seeded stream. The sole caller (effects/atoms/library.js)
  * passes deterministicRng.
  */
+/** A deterministic PRNG (mulberry32) so a shuffle is serialize-stable (never Math.random).
+ *  MOVED HERE from atoms/library.js so the zone chokepoint below can shuffle without importing that module
+ *  (library.js imports gameState — the reverse edge would be a cycle). library.js now imports these two. */
+export function deterministicRng(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+/** Advance the threaded shuffle seed (an LCG step) so successive shuffles differ AND a serialized game
+ *  restores to byte-identical future shuffles. */
+export function advanceRngSeed(seed) {
+  return (Math.imul((seed ?? 0) >>> 0, 1664525) + 1013904223) >>> 0;
+}
+/** Shuffle `playerId`'s library with the seed threaded through state, returning the advanced seed with it.
+ *  The single seeded-shuffle helper — atoms/library.js's shuffleControllerLibrary delegates to this. */
+export function shuffleSeededLibrary(state, playerId) {
+  if (!state.players[playerId]) return state;
+  const seed = (state.rngSeed ?? 0) >>> 0;
+  const shuffled = shuffleLibrary(state, { playerId, rng: deterministicRng(seed) });
+  return { ...shuffled, rngSeed: advanceRngSeed(seed) };
+}
+
 export function shuffleLibrary(state, { playerId, rng }) {
   assertPlayer(playerId);
   if (typeof rng !== "function") {
@@ -1791,6 +1864,12 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
       // to EXILE instead of the graveyard — but ONLY this turn (the flag stores the turn it applies to, so
       // it self-expires; a stale flag from a prior turn is ignored).
       exileInstead: perm.exileIfDiesTurn === state.turn,
+      // SHUFFLE-INSTEAD (CR 614) - the same "it never actually died" flag as exileInstead directly above.
+      // moveCardToZone redirects the graveyard-bound move to a library shuffle, but the DEAD LIST is built
+      // before that move, so without this every dies-trigger and the deaths-this-turn tally would still see a
+      // death that never happened (caught by a Blood Artist test, not by reading). CR 700.4: dying means
+      // being put into a graveyard from the battlefield - this permanent never is.
+      shuffledInstead: shufflesIntoLibraryInsteadOfGraveyard(perm.printedCard || perm.card),
     });
   };
   for (const [pid, player] of Object.entries(state.players)) {
@@ -1898,6 +1977,12 @@ export function applyLegendRule(state) {
             // EXILE-IF-DIES: "if it would die this turn, exile it instead" applies to ANY death,
             // legend-rule included (CR 700.4 — this IS a death).
             exileInstead: perm.exileIfDiesTurn === state.turn,
+      // SHUFFLE-INSTEAD (CR 614) - the same "it never actually died" flag as exileInstead directly above.
+      // moveCardToZone redirects the graveyard-bound move to a library shuffle, but the DEAD LIST is built
+      // before that move, so without this every dies-trigger and the deaths-this-turn tally would still see a
+      // death that never happened (caught by a Blood Artist test, not by reading). CR 700.4: dying means
+      // being put into a graveyard from the battlefield - this permanent never is.
+      shuffledInstead: shufflesIntoLibraryInsteadOfGraveyard(perm.printedCard || perm.card),
           });
         } else {
           moves.push({ controller: pid, id: perm.id });
@@ -2059,7 +2144,7 @@ export function recordCreatureDeaths(state, dead) {
   if (!Array.isArray(dead) || dead.length === 0) return state;
   let next = state;
   for (const d of dead) {
-    if (!d || d.exileInstead || !d.controller || !state.players[d.controller]) continue;
+    if (!d || d.exileInstead || d.shuffledInstead || !d.controller || !state.players[d.controller]) continue;
     if (!/\bCreature\b/.test(String(d.card?.type || d.card?.type_line || ""))) continue; // only creatures count (CR 700.4)
     next = withPlayer(next, d.controller, (p) => ({ ...p, creaturesDiedThisTurn: (p.creaturesDiedThisTurn || 0) + 1 }));
   }

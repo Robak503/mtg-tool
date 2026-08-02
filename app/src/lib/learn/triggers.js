@@ -5192,6 +5192,10 @@ export function checkDiesTriggers(state, dead) {
     // 2026-07-09). Leaves-the-battlefield triggers still fired above via checkLeavesTriggers — exile IS
     // an LTB event, it just isn't a death.
     if (d.exileInstead) continue;
+    // SHUFFLE-INSTEAD (CR 614) - the sibling of exileInstead above. A permanent replaced into its owner's
+    // library was never put into a graveyard, so it never DIED (CR 700.4) and fires no dies-trigger, its own
+    // or any watcher's. Without this a Blood Artist drained off a death that did not happen.
+    if (d.shuffledInstead) continue;
     // SELF-LTB (Wave 4): carry the dead creature's former `attachments` ids on the look-back so the
     // equippedCreature scope (Sword of the Realms) can match its watcher (CR 603.10a look-back).
     // DIES-TRIGGER-RESOURCE-PAYOFFS (Wave 3b): also carry the dying creature's last-known POWER (CR 603.6e),

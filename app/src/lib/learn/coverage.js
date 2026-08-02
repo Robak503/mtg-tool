@@ -38,7 +38,7 @@ import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevel
 import { spellConditionParseable } from "./interveningIf.js"; // EW-1 — the metric⇄runtime shared gate for a conditional enters-with counter (the resolver evaluates the SAME vocabulary via evaluateInterveningIf); acyclic (interveningIf imports only gameState)
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
+import { castsAsPlaneswalker, isPlaneswalker, shufflesIntoLibraryInsteadOfGraveyard } from "./gameState.js";
 // triggerRoutesNatively (+ the group-triggered-grant validator) extracted to triggerRouting.js — its
 // transitive deps (parseEffectClause / program* / winConditionParseable / interveningIfParseable) live there.
 import { triggerRoutesNatively, isModeledGroupTriggeredBody, programCombatReferentAtoms } from "./triggerRouting.js";
@@ -435,6 +435,23 @@ const ESCAPE_LINE = /^[ \t]*escape\s*[—–-][^\n]*$/gim;
 // survives as residue and the card stays body-only. Stripping a line whose ability is NOT modeled is exactly
 // how a card gets credited for something the engine never does.
 const PARTNER_WITH_LINE = /^[ \t]*partner with .+$/i;
+// SHUFFLE-INSTEAD-OF-GRAVEYARD (CR 614) - "If <this> would be put into a graveyard from anywhere, reveal
+// <this> and shuffle it into its owner's library instead." (Darksteel Colossus, Blightsteel Colossus,
+// Progenitus, Legacy Weapon.) A LINE strip, not a clause credit, for the same reason partner-with needed one:
+// the sentence contains commas AND a top-level " and ", so isKeywordOnly's clause split would shred it.
+//
+// GATED ON THE RUNTIME READER shufflesIntoLibraryInsteadOfGraveyard - the SAME predicate moveCardToZone
+// consults to actually perform the replacement - so the strip and the enforcement cannot disagree about
+// which cards are handled. Crediting this sentence without the replacement would mark a card native while it
+// still rotted in the graveyard, which for these five IS the card.
+const SHUFFLE_INSTEAD_LINE = /^[ \t]*if .+ would be put into a graveyard from anywhere,.*instead\.?[ \t]*$/i;
+function stripShuffleInsteadLine(oracle) {
+  if (!shufflesIntoLibraryInsteadOfGraveyard({ oracle })) return oracle;
+  const raw = String(oracle || "");
+  const lines = raw.split("\n");
+  const kept = lines.filter((ln) => !SHUFFLE_INSTEAD_LINE.test(ln));
+  return kept.length === lines.length ? raw : kept.join("\n").trim();
+}
 function stripPartnerWithLine(oracle) {
   if (!partnerWithName(oracle)) return oracle; // absent, or the unmodeled "partner with itself" — strip nothing
   const raw = String(oracle || "");
@@ -463,7 +480,7 @@ export function isKeywordOnly(oracle, name) {
   //
   // The dash is load-bearing: "escape" must be followed by the cost dash, so a line beginning with the CARD
   // NAME "Escape Velocity ..." can never match.
-  const deLined = stripPartnerWithLine(String(oracle || "").replace(ESCAPE_LINE, " "));
+  const deLined = stripShuffleInsteadLine(stripPartnerWithLine(String(oracle || "").replace(ESCAPE_LINE, " ")));
   let t = stripReminder(deLined).toLowerCase().replace(/[’']/g, "'");
   // MULTI-INSTANCE CASCADE (CR 702.85) — "Cascade, cascade[, …]" is now MODELED (detectTriggers emits N cascade
   // triggers, each an independent dig; see cascadeInstanceCount). After stripReminder it splits into N covered

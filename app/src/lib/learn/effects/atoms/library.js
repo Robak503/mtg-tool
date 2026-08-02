@@ -3,7 +3,7 @@
  * discover, mill).
  */
 
-import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
+import { logEvent, opponentsOf, findPermanent, deterministicRng, shuffleSeededLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
 import { permanentIsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW
 import { hasKeyword } from "../../keywords.js"; // LK-1 chosen-type impulse-dig membership (keywords.js is a zero-import leaf — cycle-safe)
 import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice, setPendingLookTopTakeChoice } from "../../pendingChoice.js";
@@ -154,16 +154,7 @@ export function cardMatchesTutorFilter(card, filter) {
   const type = String(card?.type || card?.type_line || "").toLowerCase().split(" // ")[0];
   return groups.some((group) => group.every((w) => new RegExp(`\\b${w}\\b`).test(type)));
 }
-/** A deterministic PRNG (mulberry32) so the shuffle is serialize-stable (no Math.random). */
-function deterministicRng(seed) {
-  let a = seed >>> 0;
-  return function () {
-    a |= 0; a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+// deterministicRng MOVED to gameState.js (the zone chokepoint needs it and cannot import this module).
 /**
  * Shuffle a player's library deterministically (CR 701.19e / 103.2) using the seed
  * THREADED through state (`state.rngSeed`), then advance it (an LCG step) so the next
@@ -171,10 +162,9 @@ function deterministicRng(seed) {
  * Math.random anywhere in game-state mutation.
  */
 export function shuffleControllerLibrary(state, controller) {
-  if (!state.players[controller]) return state;
-  const seed = (state.rngSeed ?? 0) >>> 0;
-  const shuffled = shuffleLibrary(state, { playerId: controller, rng: deterministicRng(seed) });
-  return { ...shuffled, rngSeed: ((Math.imul(seed, 1664525) + 1013904223) >>> 0) };
+  // DELEGATES to gameState.shuffleSeededLibrary — one seeded-shuffle implementation, so the zone chokepoint
+  // (which replaces a graveyard move with a library shuffle) and every tutor cannot drift on determinism.
+  return shuffleSeededLibrary(state, controller);
 }
 /**
  * Tutor (CR 701.19) — flag a resolution-time CHOICE rather than auto-picking. Gathers the
