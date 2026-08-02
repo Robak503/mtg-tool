@@ -3,6 +3,49 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔬 NEXT SLICE PRE-SIZED - **COUNTER-SHIELD damage prevention (Phantom cycle + Bloatfly Swarm), +7 · ⭐ SHELF +1**
+> **The first shelf-moving slice available.** Bloatfly Swarm is Mothman Cometh's single remaining card
+> (89.1%, needs 1) — building this takes a JOE deck over the 90% bar for the first time this run. Everything
+> below is code-verified; banked rather than started because this is the DAMAGE PATH and NEXT-QUEUE's own
+> sequencing law puts risky subsystem work early in a run, not deep into one. The failure mode here is
+> creatures that cannot be killed, which is the worst class of bug a sim can have.
+>
+> **HAND-SIZED (keyword-specific anchors, whole-sentence swap):**
+> · Phantom form — "If damage would be dealt to this creature, prevent that damage. Remove a +1/+1 counter
+>   from this creature." **7 carriers, 6 would flip** (Phantom Nantuko/Tiger/Centaur/Wurm/Flock/Nomad).
+> · Bloatfly form — "…while it has a +1/+1 counter on it, prevent that damage, remove THAT MANY +1/+1
+>   counters from it, then give each player a rad counter for each…" **1 carrier, 1 flips — Bloatfly Swarm.**
+> ⚠️ An earlier probe scored this family "7 carriers / 0 flip" and nearly buried it. That regex was wrong;
+> the hand-anchored swap gives 6. **Re-measure with a printed-sentence anchor before believing any zero.**
+>
+> **THE TWO FORMS DIFFER IN A WAY THAT MATTERS — do not collapse them into one predicate:**
+> · Phantom prevention is UNCONDITIONAL. At zero counters it STILL prevents (that is the printed card —
+>   Phantoms are damage-proof and shed a counter per damage event).
+> · Bloatfly prevention is CONDITIONAL on having a +1/+1 counter. At zero counters damage GOES THROUGH.
+> · Phantom removes exactly ONE counter per event; Bloatfly removes THAT MANY (= the damage amount), then
+>   gives each player rad counters equal to the number removed. Rad is already fully modeled (CR 728).
+>
+> **THE SEAM IS ALREADY BUILT — follow `shieldConsumed`, do not invent a mechanism:**
+> 1. `combatResolution.consultCombat` (~line 290) is the per-hit prevention chokepoint; returning 0 prevents.
+>    Its creature branch already consults `selfDamagePrevention` and `attachedDamagePrevention` the same way.
+> 2. `shieldConsumed` (declared ~line 195, applied ~line 536) is the exact precedent for a SIDE EFFECT decided
+>    at the deal site and applied when `next` is built. Counter removals ride the same shape — a map of
+>    id -> count rather than a Set, since Bloatfly removes N.
+> 3. `damageReplacements.js` is PURE and must stay pure (its header says so and explains why: a hook on
+>    loseLife would also double life PAYMENTS). Do NOT put counter removal in there — its `{op:"prevent"}`
+>    is listed as a future op for AMOUNT changes only.
+> 4. Noncombat damage has its own site: `spellEffects.js:1039` already checks `selfDamagePrevention(...)==="all"`.
+>    A Phantom must survive a Lightning Bolt too, so this half is not optional.
+>
+> **VERIFIED ABSENT:** `selfDamagePrevention()` returns **null** for all five carriers — the existing reader's
+> anchors do not match this wording, so a new reader is genuinely needed (checked, not assumed).
+>
+> **THE OVER-CLAIM TO AVOID, stated plainly:** crediting the prevention WITHOUT the counter removal gives the
+> engine a creature that prevents all damage forever — strictly better than the printed card, and unkillable
+> by damage. Prevention and removal must land together or the slice does not ship. The runtime assertion is
+> therefore: deal 3 damage to a 2-counter Phantom → damage prevented AND exactly one counter gone; repeat
+> until counters are 0 → still prevented; Bloatfly at 0 counters → damage GOES THROUGH and it dies.
+
 > ## SLICE DONE - 2026-08-01 - **AURA SELF-RETURN attached to the triggering creature, +6** - shelf 0
 > Suite **1064 / 13,465 green**, lint 0. Flip-diff **+6 GAINED / 0 LOST / 0 churn**. Five mutations, five
 > kills. Batch **19**. Gained: Dragon Fangs, Dragon Scales, Dragon Breath, Dragon Wings, Dragon Shadow,
