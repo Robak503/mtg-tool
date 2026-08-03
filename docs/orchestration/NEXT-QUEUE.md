@@ -126,11 +126,12 @@ defined`. The project bans jsdom/RTL, so there is no cheap harness.
 **What that means:** a 1,700-line refactor with no render net and no live QA is the same shape as C1, and
 it should be treated the same way. Do NOT do the full decomp solo at hour seven.
 
-**The safe subset, if you want progress here:** the three BANNERS (app-update, first-launch import, Ollama
-health — roughly lines 1091–1351) are purely presentational, touch no `area` state, and take explicit
-props. Extract those into their own module AS PURE COMPONENTS, and fingerprint the extracted components
-directly — they do not touch `window`. That shrinks the god-component ~260 lines with a real net over the
-moved code. The residual risk is only the call-site wiring, which the full suite and lint do cover.
+**The safe subset — ✅ DONE 2026-08-02:** the three banners live in `ShellBanners.jsx` as pure
+components (JSX verbatim; closures became props), with `ShellBanners.test.jsx` pinning every state
+of each (12 SSR gates incl. the pulse ban) — the direct fingerprint the extraction was gated on.
+The god-component shed ~250 lines; visibility conditions stayed at the call sites. Dev-boot
+verified. **The FULL decomp below remains REFUSED solo** — nothing about the safe subset changed
+that arithmetic.
 
 **Original note, still true:** 11 hardcoded `setArea("agents")` sites; leave the `area` state machine
 alone — re-homing and decomposing in one step is how you get an unreviewable diff.

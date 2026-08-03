@@ -69,6 +69,7 @@ import CardInspector from "./mtg/CardInspector";
 import CommandPalette from "./mtg/CommandPalette";
 import DeckMenu from "./mtg/DeckMenu";
 import TibaltGremlinBubble from "./mtg/TibaltGremlinBubble";
+import { AppUpdateBanner, FirstLaunchImportBanner, OllamaHealthBanner } from "./mtg/ShellBanners";
 import { setGremlinContext, reportGremlinReaction } from "../lib/tibaltGremlinClient";
 
 export default function MTGAssistant() {
@@ -1118,266 +1119,44 @@ export default function MTGAssistant() {
         fontFamily={F}
       />
 
-      {/* App-update banner — three states:
-            installing (default, zero-touch flow): "Installing v0.X.Y, restarting…"
-            installFailed: "Install failed, see details to retry"
-            available (banner-opt-in only): "v0.X.Y available — See details" */}
-      {appUpdateInfo && (
-        <div
-          role="status"
-          style={{
-            padding: "10px 16px",
-            background: appUpdateInfo.installFailed ? "var(--ley-red-dim)" : "var(--ley-green-dim)",
-            borderBottom: `1px solid ${appUpdateInfo.installFailed ? "rgba(248,113,113,0.4)" : "var(--ley-line-bright)"}`,
-            color: appUpdateInfo.installFailed ? "var(--ley-red)" : "var(--ley-green-text)",
-            fontSize: 12,
-            fontFamily: F,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 12,
-          }}
-        >
-          <span style={{ flex: 1 }}>
-            {appUpdateInfo.installing ? (
-              <>
-                <strong style={{ marginRight: 8 }}>⟳ Installing MTG Tool v{appUpdateInfo.version}…</strong>
-                The app will relaunch when it's done. Keep this window open.
-              </>
-            ) : appUpdateInfo.installFailed ? (
-              <>
-                <strong style={{ marginRight: 8 }}>⚠ Auto-install of v{appUpdateInfo.version} failed</strong>
-                Try again from the Updates panel.
-              </>
-            ) : (
-              <>
-                <strong style={{ marginRight: 8 }}>↑ MTG Tool v{appUpdateInfo.version} is available</strong>
-                (you have v{appUpdateInfo.current}){appUpdateInfo.body ? " — " + appUpdateInfo.body.slice(0, 120) : ""}
-              </>
-            )}
-          </span>
-          <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {!appUpdateInfo.installing && (
-              <button
-                onClick={() => setShowUpdates(true)}
-                style={{
-                  background: appUpdateInfo.installFailed ? "var(--ley-red-dim)" : "var(--ley-green-dim)",
-                  border: `1px solid ${appUpdateInfo.installFailed ? "rgba(248,113,113,0.5)" : "var(--ley-line-bright)"}`,
-                  color: "var(--ley-text)", cursor: "pointer",
-                  fontSize: 11, padding: "4px 12px", borderRadius: 4, fontFamily: F,
-                }}
-              >
-                See details
-              </button>
-            )}
-            {!appUpdateInfo.installing && (
-              <button
-                onClick={() => setAppUpdateInfo(null)}
-                aria-label="Dismiss update notification"
-                title="Hide until next launch"
-                style={{
-                  background: "none", border: "none", color: "inherit",
-                  cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 4px",
-                }}
-              >×</button>
-            )}
-          </span>
-        </div>
-      )}
+      {/* App-update banner — extracted to ShellBanners.jsx (A2 safe subset); states pinned there. */}
+      <AppUpdateBanner
+        info={appUpdateInfo}
+        onSeeDetails={() => setShowUpdates(true)}
+        onDismiss={() => setAppUpdateInfo(null)}
+        fontFamily={F}
+      />
 
-      {/* First-launch data import — legacy banner, now superseded by the
-          OnboardingWizard below. Kept as a fallback only if the wizard was
-          dismissed via the X while bootstrap is still needed (rare). */}
+      {/* First-launch data import — legacy fallback (the OnboardingWizard supersedes it);
+          extracted to ShellBanners.jsx (A2 safe subset). The visibility condition stays here. */}
       {firstLaunch?.needsBootstrap && onboardingClosed && (
-        <div
-          role="status"
-          style={{
-            padding: "10px 16px",
-            background: "var(--ley-surface-1)",
-            borderBottom: "1px solid var(--ley-line)",
-            color: "var(--ley-text-dim)",
-            fontSize: 12,
-            fontFamily: F,
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-            <span>
-              <strong style={{ marginRight: 8 }}>👋 Welcome to MTG Tool</strong>
-              No saved data here yet. Import your decks, chats, and feedback from an existing install?
-            </span>
-            <button
-              onClick={dismissBootstrap}
-              aria-label="Dismiss welcome banner"
-              title="Don't ask again this session"
-              style={{
-                background: "none", border: "none", color: "inherit",
-                cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 4px",
-              }}
-            >×</button>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input
-              type="text"
-              value={bootstrapSourcePath}
-              onChange={(e) => setBootstrapSourcePath(e.target.value)}
-              placeholder="C:\path\to\MTG-TOOL\app\data"
-              disabled={bootstrapBusy}
-              style={{
-                flex: 1, padding: "6px 10px", borderRadius: 5,
-                border: "1px solid var(--ley-line)", background: "var(--ley-surface-0)",
-                color: "var(--ley-text)", fontFamily: F, fontSize: 12,
-              }}
-            />
-            <button
-              onClick={runBootstrapImport}
-              disabled={bootstrapBusy || !bootstrapSourcePath.trim()}
-              style={{
-                padding: "6px 14px", borderRadius: 5,
-                border: "1px solid var(--ley-green)",
-                background: bootstrapBusy ? "var(--ley-surface-1)" : "var(--ley-line)",
-                color: "var(--ley-text)", fontFamily: F, fontSize: 12,
-                cursor: bootstrapBusy ? "default" : "pointer",
-              }}
-            >
-              {bootstrapBusy ? "Importing…" : "Import"}
-            </button>
-          </div>
-          {bootstrapResult && (
-            <div
-              style={{
-                fontSize: 11,
-                color: bootstrapResult.ok ? "var(--ley-green-text)" : "var(--ley-red)",
-                padding: "4px 0",
-              }}
-            >
-              {bootstrapResult.ok ? (
-                <>
-                  ✓ Imported{" "}
-                  {bootstrapResult.copied?.length ? bootstrapResult.copied.join(", ") : "(no files)"}
-                  {bootstrapResult.copied?.length > 0 && " — reloading…"}
-                </>
-              ) : (
-                <>✗ {bootstrapResult.error || "Import failed"}</>
-              )}
-            </div>
-          )}
-        </div>
+        <FirstLaunchImportBanner
+          sourcePath={bootstrapSourcePath}
+          onSourcePathChange={setBootstrapSourcePath}
+          busy={bootstrapBusy}
+          result={bootstrapResult}
+          onImport={runBootstrapImport}
+          onDismiss={dismissBootstrap}
+          fontFamily={F}
+        />
       )}
 
-      {/* Ollama startup health banner — three states:
-            not-installed → "Install Ollama" via winget
-            server-down   → tell user to start ollama serve
-            model-missing → "Pull <model>" via ollama pull (streamed) */}
-      {ollamaHealth && !ollamaHealth.ok && !ollamaHealthDismissed && (() => {
-        const palette = ollamaHealth.status === "not-installed"
-          ? { bg: "var(--ley-surface-1)", border: "var(--ley-line)", text: "var(--ley-text-dim)", accent: "var(--ley-line)", accentBorder: "var(--ley-green)" }
-          : ollamaHealth.status === "server-down"
-          ? { bg: "var(--ley-red-dim)", border: "rgba(248,113,113,0.4)", text: "var(--ley-red)", accent: "var(--ley-red-dim)", accentBorder: "rgba(248,113,113,0.4)" }
-          : { bg: "var(--ley-gold-dim)", border: "rgba(245,176,75,0.4)", text: "var(--ley-gold)", accent: "var(--ley-gold-dim)", accentBorder: "rgba(245,176,75,0.4)" };
-        const title =
-          ollamaHealth.status === "not-installed" ? "👋 Ollama not installed" :
-          ollamaHealth.status === "server-down" ? "⚠ Ollama not running" :
-          "⚠ Ollama model missing";
-        const primaryModel = ollamaHealth.missing?.[0] || "qwen2.5:14b";
-        // While Ollama is installing or a model is downloading, the user doesn't
-        // have to wait — they can chat right now via the API (C2 fast path).
-        const setupBusy = ollamaInstallBusy || ollamaPullBusy;
-        return (
-          <div
-            role="status"
-            style={{
-              padding: "8px 16px",
-              background: palette.bg,
-              borderBottom: `1px solid ${palette.border}`,
-              color: palette.text,
-              fontSize: 12,
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-              fontFamily: F,
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-              <span style={{ flex: 1 }}>
-                <strong style={{ marginRight: 8 }}>{title}</strong>
-                {ollamaHealth.message}
-                {setupBusy && (
-                  <span style={{ display: "block", marginTop: 3, color: palette.text, opacity: 0.85 }}>
-                    No need to wait — you can chat now via the API while this finishes, then switch back to Local.
-                  </span>
-                )}
-              </span>
-              <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                {ollamaHealth.status === "not-installed" && ollamaHealth.canAutoInstall && (
-                  <button
-                    onClick={runOllamaInstall}
-                    disabled={ollamaInstallBusy}
-                    title="Run `winget install Ollama.Ollama` — Windows will ask for permission"
-                    style={{
-                      background: palette.accent, border: `1px solid ${palette.accentBorder}`,
-                      color: "inherit", cursor: ollamaInstallBusy ? "default" : "pointer",
-                      fontSize: 11, padding: "3px 10px", borderRadius: 5, fontFamily: F,
-                    }}
-                  >
-                    {ollamaInstallBusy ? "Installing…" : "Install Ollama"}
-                  </button>
-                )}
-                {ollamaHealth.status === "model-missing" && (
-                  <button
-                    onClick={() => runModelPull(primaryModel)}
-                    disabled={ollamaPullBusy}
-                    title={`Run: ollama pull ${primaryModel}`}
-                    style={{
-                      background: palette.accent, border: `1px solid ${palette.accentBorder}`,
-                      color: "inherit", cursor: ollamaPullBusy ? "default" : "pointer",
-                      fontSize: 11, padding: "3px 10px", borderRadius: 5, fontFamily: F,
-                    }}
-                  >
-                    {ollamaPullBusy ? "Pulling…" : `Pull ${primaryModel}`}
-                  </button>
-                )}
-                <button
-                  onClick={() => setModelProvider("anthropic")}
-                  title="Switch to the Anthropic API so you can chat right now"
-                  style={{
-                    background: setupBusy ? palette.accent : "transparent", border: `1px solid ${setupBusy ? palette.accentBorder : palette.border}`,
-                    color: "inherit", cursor: "pointer",
-                    fontSize: 11, padding: "3px 10px", borderRadius: 5, fontFamily: F,
-                  }}
-                >
-                  {setupBusy ? "Chat now via API" : "Use Anthropic instead"}
-                </button>
-                <button
-                  onClick={() => setOllamaHealthDismissed(true)}
-                  aria-label="Dismiss banner"
-                  title="Dismiss this banner (will not show again this session)"
-                  style={{
-                    background: "none", border: "none", color: "inherit",
-                    cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 4px",
-                  }}
-                >×</button>
-              </span>
-            </div>
-            {ollamaInstallLog && (
-              <pre style={{
-                margin: 0, padding: "6px 8px", borderRadius: 4,
-                background: "rgba(0,0,0,0.25)", color: palette.text, fontSize: 11,
-                whiteSpace: "pre-wrap", maxHeight: 120, overflowY: "auto",
-              }}>{ollamaInstallLog}</pre>
-            )}
-            {ollamaPullProgress && (
-              <pre style={{
-                margin: 0, padding: "6px 8px", borderRadius: 4,
-                background: "rgba(0,0,0,0.25)", color: palette.text, fontSize: 11,
-                whiteSpace: "pre-wrap", maxHeight: 150, overflowY: "auto",
-              }}>{ollamaPullProgress}</pre>
-            )}
-          </div>
-        );
-      })()}
+      {/* Ollama startup health banner — extracted to ShellBanners.jsx (A2 safe subset);
+          the session-dismissal condition stays here. */}
+      {!ollamaHealthDismissed && (
+        <OllamaHealthBanner
+          health={ollamaHealth}
+          installBusy={ollamaInstallBusy}
+          pullBusy={ollamaPullBusy}
+          installLog={ollamaInstallLog}
+          pullProgress={ollamaPullProgress}
+          onInstall={runOllamaInstall}
+          onPull={runModelPull}
+          onUseAnthropic={() => setModelProvider("anthropic")}
+          onDismiss={() => setOllamaHealthDismissed(true)}
+          fontFamily={F}
+        />
+      )}
 
       {/* Body */}
       <div ref={bodyRef} style={{flex:1,display:"flex",overflow:"hidden",position:"relative"}}>

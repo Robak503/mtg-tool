@@ -3,6 +3,14 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-02 - **A2 SAFE SUBSET: the three banners extracted** - refactor, +0 cards
+> Suite green + lint 0 at gate (counts in the commit). App-update / first-launch-import / Ollama-health
+> banners moved VERBATIM from MTGAssistant.jsx into `ShellBanners.jsx` as pure components (closures →
+> explicit props; visibility conditions kept at the call sites). The net the queue demanded exists now:
+> 12 SSR state gates in `ShellBanners.test.jsx` including the pulse ban. God-component ~250 lines
+> lighter (1704 → ~1460). Dev-boot verified at :3000. Full decomp stays REFUSED solo, unchanged.
+> Block 3 is now CLEARED: A1 gremlin · A3 commitments · A2 safe subset, all on master.
+
 > ## SLICE DONE - 2026-08-02 - **CROSS-DECK COMMITMENTS (A3)** - feature, +0 cards
 > Suite green + lint 0 at gate (counts in the commit). The zero-consumer `/api/collection/ownership`
 > route now has its first consumer: `excludeDeckId` added (inDecks = OTHER decks), pure renderer in
