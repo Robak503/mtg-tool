@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **Moxfield deck import works again.** Moxfield's edge (Cloudflare) began refusing the app's bundled
+  Node runtime by its TLS handshake, so every Moxfield URL failed with a 403 in the packaged app while
+  the same links worked everywhere else. The bundled runtime is upgraded (Node v22.12.0 → v22.23.2,
+  current LTS), which restores imports. Archidekt imports were never affected (verified).
+- **Import errors stop guessing.** A failed deck fetch no longer tells you to "check the link is
+  public" regardless of what actually happened. A 404 points at the link (private, deleted, or
+  mistyped); a 403 says plainly that the provider refused the app — and that the link is probably fine.
+
 ## [0.150.0] - 2026-08-01
 
 ### Added

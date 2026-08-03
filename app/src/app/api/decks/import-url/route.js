@@ -62,8 +62,19 @@ export async function POST(request) {
   } catch (error) {
     const status = error.status === 404 ? 404 : 502;
     const where = ref.type === "moxfield" ? "Moxfield" : "Archidekt";
+    // Only assert a cause the status actually establishes. A 404 is the one
+    // case where the link itself is the likely problem; a 403 is the provider's
+    // edge refusing this client (2026-08-02: Cloudflare 403'd the outdated
+    // bundled Node's TLS handshake while the links were public and fine —
+    // "check the link is public" sent that investigation the wrong way first).
+    let hint = "";
+    if (error.status === 404) {
+      hint = " Check the link — the deck may be private, deleted, or the URL mistyped.";
+    } else if (error.status === 403) {
+      hint = ` The link is probably fine — ${where} refused the app's request, which usually means this app version is being blocked. Check for an MTG Tool update.`;
+    }
     return Response.json(
-      { error: `Couldn't fetch the ${where} deck (${error.message}). Check the link is public.` },
+      { error: `Couldn't fetch the ${where} deck (${error.message}).${hint}` },
       { status },
     );
   }
