@@ -32,6 +32,7 @@ export const PENDING_CHOICE_KINDS = [
   "optional-effect",
   "commander-return",
   "hand-discard",
+  "hand-to-library-top",
   "imprint-exile",
   "impulse-dig",
   "look-top-take",
@@ -421,6 +422,23 @@ export function setPendingDistributeChoice(state, { controller, amount, counterT
  * forward across the chain). Only flagged when a REAL choice exists (hand > remaining); a hand ≤ remaining
  * is the forced whole-hand discard, resolved inline with no pause. FIFO: one pick at a time.
  */
+/**
+ * ===== HAND→LIBRARY-TOP ===== — flag the Brainstorm-class put-back ("put two cards from your hand
+ * on top of your library in any order"): the controller picks ONE card per settle; the chain
+ * re-raises until `remaining` are placed. Each settled card goes on TOP at that moment, so later
+ * picks stack above earlier ones — the player controls the final order pick by pick, which is what
+ * "in any order" grants (CR 401.4 — library order is the owner's choice when an effect says so).
+ * NOT a discard: no graveyard, no discard triggers. Plain JSON — serialize-safe.
+ */
+export function setPendingHandToLibraryTopChoice(state, { controller, remaining, candidates, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "hand-to-library-top-pending", controller, remaining, count: candidates.length, sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "hand-to-library-top", controller, remaining, candidates, sourceName },
+  };
+}
+
 export function setPendingDiscardChoice(state, { controller, remaining, candidates, queue, sourceName = null, connive = null }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "discard-pending", controller, remaining, count: candidates.length, sourceName });

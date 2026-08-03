@@ -27,7 +27,7 @@ import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice, setPendingImpulseDigChoice } from "../pendingChoice.js";
 import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents } from "../gameState.js";
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 import { checkDiscardTriggers } from "../triggers.js"; // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event
 import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the shared board-condition readers; runProgram → interveningIf → gameState is a leaf edge (no cycle)
@@ -856,6 +856,56 @@ export function resolveDiscardChoice(state, cardId) {
   const casterId = pc.resume?.controller;
   if (casterId && !r.players?.[casterId]) return r; // caster eliminated mid-pause → no resume
   return resumeAfterChoice(r, pc);
+}
+
+/**
+ * ===== HAND→LIBRARY-TOP ===== (the Brainstorm put-back) — settle one pick of the chain: place the
+ * chosen card on TOP of the chooser's library (later picks stack above it — the player controls the
+ * final order pick by pick), decrement, re-raise until `remaining` are placed, then resume the
+ * suspended program. NOT a discard: no graveyard, no discard triggers. Mirrors resolveDiscardChoice's
+ * chain-resume discipline exactly (the carried caster-resume; the eliminated-chooser guard).
+ */
+export function resolveHandToLibraryTopChoice(state, cardId) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "hand-to-library-top") return state;
+  let next = clearPendingChoice(state);
+  const owner = pc.controller;
+  let placed = false;
+  if (next.players?.[owner]) {
+    const inHand = cardId && (next.players[owner].hand || []).some((c) => c.id === cardId);
+    if (inHand) {
+      next = moveCardToZone(next, { playerId: owner, fromZone: "hand", toZone: "library", cardId, toTop: true });
+      placed = true;
+    }
+    next = logEvent(next, { kind: "spell-effect", effect: "hand-to-library-top", controller: owner, placed: placed ? 1 : 0 });
+  }
+  const remaining = (pc.remaining || 1) - 1;
+  const r = advanceHandToLibraryTopChain(next, { playerId: owner, remaining, sourceName: pc.sourceName });
+  if (r.pendingChoice) {
+    return r.pendingChoice.resume || !pc.resume
+      ? r
+      : { ...r, pendingChoice: { ...r.pendingChoice, resume: pc.resume } };
+  }
+  const casterId = pc.resume?.controller;
+  if (casterId && !r.players?.[casterId]) return r; // caster eliminated mid-pause → no resume
+  return resumeAfterChoice(r, pc);
+}
+
+/**
+ * Auto-pick for the put-back (Expert autopilot / an AI seat): return the HIGHEST-mana-value card —
+ * keeps the hand castable now; deterministic (mv desc, then name, then id — the shared tie-break).
+ */
+export function autoPickHandToLibraryTopCandidate(state, pendingChoice) {
+  const hand = state.players?.[pendingChoice.controller]?.hand || [];
+  const byId = new Map(hand.map((c) => [c.id, c]));
+  const cards = (pendingChoice.candidates || []).map((c) => byId.get(c.id)).filter(Boolean);
+  if (cards.length === 0) return null;
+  const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  return [...cards].sort((a, b) =>
+    tutorManaValue(b) - tutorManaValue(a) ||
+    cmp(String(a.name || ""), String(b.name || "")) ||
+    cmp(String(a.id || ""), String(b.id || "")),
+  )[0].id;
 }
 
 /**

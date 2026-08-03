@@ -76,6 +76,8 @@ import {
   resolveSacrificeChoice,
   autoPickDiscardCandidate,
   resolveDiscardChoice,
+  autoPickHandToLibraryTopCandidate,
+  resolveHandToLibraryTopChoice,
   autoPickDivideDistribution,
   resolveDivideChoice,
   autoPickDistributeCounters,
@@ -1047,6 +1049,12 @@ function settleDiscardChoice(state, cardId) {
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
+/** HAND→LIBRARY-TOP (the Brainstorm put-back) — same settle shape as the discard chain. */
+function settleHandToLibraryTopChoice(state, cardId) {
+  const next = resolveHandToLibraryTopChoice(state, cardId);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
 // ─── Pluggable decision-maker (Learn-to-Play item #3 — the pilot seam) ──────────
 //
 // THE KEYSTONE: the self-play loop enumerates a set of `legalActions` at every real
@@ -1908,6 +1916,29 @@ export function advanceUntilDecision(
           },
         });
         current = { ...current, state: settleDiscardChoice(current.state, picked.candidateId) };
+        continue;
+      }
+      // ===== HAND→LIBRARY-TOP ===== (the Brainstorm put-back): the chooser owns the hand, so a human
+      // seat gets the picker and an AI/Expert returns its HIGHEST-mana-value card (keeps the hand
+      // castable now). Same chain settle shape as the discard branch above.
+      if (pc.kind === "hand-to-library-top") {
+        if (pause) {
+          return { session: current, decision: { kind: "hand-to-library-top", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
+          buildOffered: () => pendingPickActions(pc),
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            candidateId: autoPickHandToLibraryTopCandidate(current.state, pc),
+          },
+        });
+        current = { ...current, state: settleHandToLibraryTopChoice(current.state, picked.candidateId) };
         continue;
       }
       // ===== DIVIDE ===== (MT-1) — divide-damage / distribute-counters. pc.controller is the CASTER (the
@@ -3593,6 +3624,48 @@ export function applySacrificeChoice(session, choice, opts = {}) {
  * is the chosen hand card id. A null/illegal pick re-surfaces the picker (a discard always pitches one when
  * a real choice exists — no decline). Returns { session, decision } like the others.
  */
+/** HAND→LIBRARY-TOP (the Brainstorm put-back) — the applyDiscardChoice shape over the put-back chain. */
+export function applyHandToLibraryTopChoice(session, choice, opts = {}) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "hand-to-library-top") {
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
+  }
+  const cardId = choice?.cardId ?? null;
+  if (cardId === null || !pc.candidates.some((c) => c.id === cardId)) {
+    return advanceUntilDecision(session, opts); // illegal/stale pick → re-surface the same picker.
+  }
+  let newState;
+  try {
+    newState = settleHandToLibraryTopChoice(session.state, cardId);
+  } catch (error) {
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "hand-to-library-top-choice" },
+    auto: false,
+    reasoning: "user-chose-putback-own",
+  };
+  return advanceUntilDecision(
+    {
+      ...session,
+      state: newState,
+      decisionLog: [...session.decisionLog, logEntry],
+    },
+    opts,
+  );
+}
+
 export function applyDiscardChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
@@ -3671,6 +3744,7 @@ export function applyPendingChoice(session, choice, opts = {}) {
   if (kind === "dig-land-to-battlefield") return applyDigLandChoice(session, choice, opts);
   if (kind === "sacrifice-choice") return applySacrificeChoice(session, choice, opts);
   if (kind === "discard") return applyDiscardChoice(session, choice, opts);
+  if (kind === "hand-to-library-top") return applyHandToLibraryTopChoice(session, choice, opts);
   if (kind === "divide-damage") return applyDivideChoice(session, choice, opts);
   if (kind === "distribute-counters") return applyDistributeChoice(session, choice, opts);
   if (kind === "soft-counter") return applySoftCounterChoice(session, choice, opts);

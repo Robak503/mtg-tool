@@ -1849,6 +1849,36 @@ export function SacrificeChoicePanel({ decision, onChoose }) {
  * whole with no panel), so there's no decline.
  */
 export function DiscardChoicePanel({ decision, onChoose }) {
+  return (
+    <HandPickPanel
+      decision={decision}
+      onChoose={onChoose}
+      title="🃏 Discard"
+      promptLine={(remaining) => `Choose a card from your hand to discard${remaining > 1 ? ` (${remaining} more to discard)` : ""}.`}
+      submitLabel="Discard"
+    />
+  );
+}
+
+/**
+ * HAND→LIBRARY-TOP (the Brainstorm put-back — "put two cards from your hand on top of your
+ * library in any order"): the same pick-a-card-from-your-hand surface with put-back copy. Each
+ * settled pick goes on TOP at that moment, so later picks stack above earlier ones — the panel
+ * says so, because that IS how the player controls the final order.
+ */
+export function HandToLibraryTopPanel({ decision, onChoose }) {
+  return (
+    <HandPickPanel
+      decision={decision}
+      onChoose={onChoose}
+      title="📚 Put back on library"
+      promptLine={(remaining) => `Choose a card to put on top of your library${remaining > 1 ? ` (${remaining} to place — later picks go above earlier ones)` : ""}.`}
+      submitLabel="Put on top"
+    />
+  );
+}
+
+function HandPickPanel({ decision, onChoose, title, promptLine, submitLabel }) {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const candidates = decision.candidates || [];
@@ -1880,11 +1910,10 @@ export function DiscardChoicePanel({ decision, onChoose }) {
         }}
       >
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
-          🃏 Discard{decision.sourceName ? ` — ${decision.sourceName}` : ""}
+          {title}{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
-          Choose a card from your hand to discard
-          {remaining > 1 ? ` (${remaining} more to discard)` : ""}.
+          {promptLine(remaining)}
         </div>
       </div>
 
@@ -1952,7 +1981,7 @@ export function DiscardChoicePanel({ decision, onChoose }) {
         onClick={() => submit(selected)}
         disabled={!selected || submitting}
       >
-        {submitting ? "…" : "Discard"}
+        {submitting ? "…" : submitLabel}
       </button>
     </div>
   );

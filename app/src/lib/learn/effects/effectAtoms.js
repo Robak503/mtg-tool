@@ -53,7 +53,7 @@ export { applyProliferate } from "./atoms/counters.js";
 export { applyEarthbend } from "./atoms/combat.js";
 export { counterSpellById, controllerSacSubtypeMatch } from "./atoms/stack.js";
 export { tutorManaValue, cardMatchesTutorFilter, shuffleControllerLibrary, bottomLibraryCardsByIds } from "./atoms/library.js";
-export { advanceDiscardChain } from "./atoms/hand.js";
+export { advanceDiscardChain, advanceHandToLibraryTopChain } from "./atoms/hand.js";
 export { applyConniveCounter } from "./atoms/connive.js"; // CONNIVE (CR 701.50a) — the settle-side nonland→counter step (runProgram.resolveDiscardChoice)
 export { applyDivideDamage } from "./atoms/misc.js";
 export { advanceEdictChain, applyEdictMode, edictLegalModes, edictLoseLife, EDICT_LIFE_LOSS } from "./atoms/iteratedEdict.js";

@@ -1127,6 +1127,58 @@ export default function useLearnSession() {
     [state.sessionId],
   );
 
+  /**
+   * HAND→LIBRARY-TOP (the Brainstorm put-back): the human picks which hand card goes on top of
+   * their library; the chain re-raises until the printed count is placed. Same transport shape as
+   * applyDiscardChoice with the put-back kind.
+   */
+  const applyHandToLibraryTopChoice = useCallback(
+    async (cardId) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "hand-to-library-top", cardId: cardId ?? null },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
+        return null;
+      } finally {
+        inFlightRef.current = false;
+      }
+    },
+    [state.sessionId],
+  );
+
   /** Resolve an "optional-effect" decision ("you may <effect>", α2): take it (true) or decline. */
   const applyOptionalChoice = useCallback(
     async (take) => {
@@ -1404,6 +1456,7 @@ export default function useLearnSession() {
     applyLookTopTakeChoice,
     applySacrificeChoice,
     applyDiscardChoice,
+    applyHandToLibraryTopChoice,
     applyDivideChoice,
     applySoftCounterChoice,
     applyOptionalManaPaymentChoice,

@@ -50,6 +50,7 @@ import {
   OptionalSacPanel,
   SacrificeChoicePanel,
   DiscardChoicePanel,
+  HandToLibraryTopPanel,
   OptionalChoicePanel,
   CommanderReturnPanel,
   CloneCopyPanel,
@@ -734,6 +735,7 @@ export default function LearnView({
               onLookTopTakeChoose={session.applyLookTopTakeChoice}
               onSacrificeChoose={session.applySacrificeChoice}
               onDiscardChoose={session.applyDiscardChoice}
+              onHandToLibraryTopChoose={session.applyHandToLibraryTopChoice}
               onDivideChoose={session.applyDivideChoice}
               onSoftCounterChoose={session.applySoftCounterChoice}
               onOptionalManaPaymentChoose={session.applyOptionalManaPaymentChoice}
@@ -899,6 +901,13 @@ export default function LearnView({
       {session.board && decision?.kind === "discard" && (
         <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
           <DiscardChoicePanel decision={decision} onChoose={session.applyDiscardChoice} />
+        </div>
+      )}
+      {/* HAND→LIBRARY-TOP (Brainstorm's put-back) — pick which hand card goes on top of your library;
+          re-surfaces per card until the printed count is placed. Same side-sheet. */}
+      {session.board && decision?.kind === "hand-to-library-top" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <HandToLibraryTopPanel decision={decision} onChoose={session.applyHandToLibraryTopChoice} />
         </div>
       )}
       {/* DIVIDE (MT-1) — divide-damage division → the human caster assigns the spell's full damage among
@@ -1341,6 +1350,7 @@ function DecisionPrompt({
   onLookTopTakeChoose,
   onSacrificeChoose,
   onDiscardChoose,
+  onHandToLibraryTopChoose,
   onDivideChoose,
   onSoftCounterChoose,
   onOptionalManaPaymentChoose,
@@ -1409,6 +1419,9 @@ function DecisionPrompt({
   }
   if (decision.kind === "discard") {
     return <DiscardChoicePanel decision={decision} onChoose={onDiscardChoose} />;
+  }
+  if (decision.kind === "hand-to-library-top") {
+    return <HandToLibraryTopPanel decision={decision} onChoose={onHandToLibraryTopChoose} />;
   }
   if (decision.kind === "divide-damage") {
     return <DivideDamagePanel decision={decision} onChoose={onDivideChoose} />;

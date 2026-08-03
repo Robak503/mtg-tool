@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-02 - **BRAINSTORM PUT-BACK (hand→library-top chain), +6** - batch 26 since v0.150.1
+> Suite green + lint 0 at gate (counts in the commit). Flip-diff (file-copy): **+6 / 0 / 0** — Brainstorm
+> · Brainsurge · Riverwise Augur (ETB) · Conch Horn · Brainstone (activated sac) · Survivor of the
+> Unseen (cum-upkeep frame) — all audited whole-card, the identical clause behind proven frames.
+> **A NEW pendingChoice kind end to end** ("hand-to-library-top"): atom + chain in hand.js (forced when
+> hand ≤ N; later picks stack ABOVE earlier — the player controls final order pick by pick, CR 401.4) ·
+> resolve/auto-pick in runProgram (highest-MV back; the discard chain's carried-resume discipline) ·
+> learnSession driver + apply + dispatch · useLearnSession transport · LearnView panel (DiscardChoicePanel
+> refactored over a shared HandPickPanel — put-back copy says what the picks DO). The WI-4 contract test
+> (pendingChoiceKinds) caught the missing fixture immediately — the registry works as designed. NOT a
+> discard is the load-bearing pin: graveyard stays empty, no discard triggers. Mutations: destination→
+> graveyard (1 red) · toTop dropped (1 red), both restored clean 5/5. Veyran Cantrips: 88% by flip
+> arithmetic (85 measured + Wisps + Pym + Brainstorm, all three in its list) — RE-MEASURE at the next
+> boundary before claiming the bar distance as fact.
+
 > ## SLICE DONE - 2026-08-02 - **VEYRAN COMPOUND GRANTS (Wisps/Pym), +2** - batch 20 since v0.150.1
 > Suite green + lint 0 at gate (counts in the commit). Flip-diff (file-copy): **+2 / 0 / 0** — Crimson
 > Wisps + Pym Particles, both in Colton's Veyran Cantrips (85% → toward the bar). The top-level " and "

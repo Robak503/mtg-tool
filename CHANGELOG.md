@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Brainstorm works.** The iconic draw-three-put-two-back — and its whole family (Brainsurge,
+  Riverwise Augur, Conch Horn, Brainstone, Survivor of the Unseen) — now plays for real: you pick
+  which cards go back, one at a time, with later picks landing on top so you control the final
+  order. The put-back is not a discard: nothing touches your graveyard and no discard triggers fire.
 - **Two-in-one combat tricks work.** Crimson Wisps ("becomes red AND gains haste") and Pym Particles
   ("gains vigilance AND can't be blocked") now apply BOTH halves to the target — they were being
   refused because the shared "until end of turn" got lost between the two effects.

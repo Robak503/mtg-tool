@@ -5,7 +5,7 @@
 import { handCardMatches } from "../../spellEffects.js";
 import { checkDiscardTriggers } from "../../triggers.js"; // TRIG-DISCARD (CR 701.9a) — fired at every discard site
 import { logEvent, opponentsOf, moveCardToZone, drawCards } from "../../gameState.js";
-import { setPendingHandDiscardChoice, setPendingDiscardChoice, setPendingImprintChoice } from "../../pendingChoice.js";
+import { setPendingHandDiscardChoice, setPendingDiscardChoice, setPendingImprintChoice, setPendingHandToLibraryTopChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount } from "./shared.js";
 import { NUM_WORD } from "../parseHelpers.js"; // seam batch 23: shared number-word map (leaf, cycle-free) for the discard family
 import { nextRandomInt } from "../../seedMath.js"; // RD-1: THE canonical seeded uniform draw for random discard (leaf; no cycle)
@@ -234,8 +234,51 @@ export function applyDiscard(state, atom, ctx) {
  * (the victim chooses, CR 701.8 — the resolver walks the discard chain). Pure; uses the NUM_WORD leaf. Registered
  * via registerClauseParser in parser.js.
  */
+/**
+ * ===== HAND→LIBRARY-TOP ===== (the Brainstorm put-back — "Draw three cards, then put two cards
+ * from your hand on top of your library in any order."): the controller returns N chosen cards
+ * from hand to the TOP of their library. NOT a discard (no graveyard, no discard triggers). A
+ * hand of ≤ N is forced (every card goes back, no decision); otherwise the chain pauses for one
+ * pick per settle (kind "hand-to-library-top"), each settled card placed on top at that moment —
+ * later picks stack above earlier ones, so the player controls the final order pick by pick.
+ */
+export function applyHandToLibraryTop(state, atom, ctx) {
+  const amount = atom.amount || 0;
+  const pid = ctx.controller;
+  const player = state.players?.[pid];
+  if (!player || amount <= 0) return state;
+  return advanceHandToLibraryTopChain(state, { playerId: pid, remaining: amount, sourceName: ctx.cardName || null });
+}
+
+/** One implementation drives the inline (forced) and interactive paths — the discard-chain shape. */
+export function advanceHandToLibraryTopChain(state, { playerId, remaining, sourceName = null }) {
+  let next = state;
+  const player = next.players?.[playerId];
+  if (!player) return next; // owner left the game (CR 800.4a) — nothing to place
+  const hand = (player.hand || []).filter((c) => !c.token);
+  if (remaining <= 0 || hand.length === 0) return next;
+  if (hand.length <= remaining) {
+    // Forced — the whole hand goes back (no card left to keep, so no decision). Top placement in
+    // hand order: each successive card goes on top, so the LAST hand card ends up topmost.
+    for (const c of hand) {
+      next = moveCardToZone(next, { playerId, fromZone: "hand", toZone: "library", cardId: c.id, toTop: true });
+    }
+    return logEvent(next, { kind: "spell-effect", effect: "hand-to-library-top", controller: playerId, placed: hand.length, forced: true, sourceName });
+  }
+  const candidates = hand.map((c) => ({ id: c.id, name: c.name }));
+  return setPendingHandToLibraryTopChoice(next, { controller: playerId, remaining, candidates, sourceName });
+}
+
 export function discardClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // ===== HAND→LIBRARY-TOP ===== "put N cards from your hand on top of your library[ in any order]"
+  // (Brainstorm's second sentence; the leading "then" is peeled by the connective handling upstream
+  // or matched here). `$`-anchored: a different destination ("on the bottom"), another owner's hand,
+  // or any rider fails → low → Arbiter (safe FN).
+  {
+    const pm = t.match(/^(?:then )?put (a|one|two|three|four|five) cards? from your hand on top of your library(?: in any order)?$/);
+    if (pm) return { op: "hand-to-library-top", amount: NUM_WORD[pm[1]] ?? parseInt(pm[1], 10), targetType: null };
+  }
   // ===== RANDOM DISCARD (RD-1, CR 701.9b) ===== — the SAME who-scoped family, but "at random" removes the
   // chooser: the resolver picks uniformly via the seeded primitive (atom.atRandom), no pause. Whole-clause
   // anchored, FIXED numeric/spelled N only — an "X cards at random" (Mind Twist / Mind Shatter) or any rider
@@ -389,6 +432,8 @@ export function lookAtHandClauseParser(clause) {
 
 export const handResolvers = {
   "discard-chosen": applyDiscardChosen,
+  "hand-to-library-top": applyHandToLibraryTop, // Brainstorm put-back — top placement, NOT a discard
+
   "imprint": applyImprint, // IMPRINT (CR 207.2c) — the ETB exile-from-hand that STAMPS the permanent
   "discard": applyDiscard, // ===== EACH-PLAYER ===== target/each player discards N — victim chooses (CR 701.8)
   "discard-hand-draw-same": applyDiscardHandDrawSame, // TW-1 — Tolarian Winds' whole-hand cycle
