@@ -7,6 +7,21 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ☀️ 2026-08-02 (late) — **RUN IN FLIGHT: v0.150.1 SHIPPED · +26 cards · 3 features** — suite **1079 / 13,626** · batch 26 since v0.150.1
+
+> Mid-session anchor for the 24h/100-card run (the plan below is the map; RUN-LEDGER is the state).
+> **▶ NEXT: Block 4 continues** — the shelf ETB vein (80 slots) or the next census bug-signature;
+> Veyran Cantrips is MEASURED 88% with its last 2 all medium-parks (Arcane Denial's "up to two"
+> opponent choice · Thunderdrum's two unbuilt pieces · the rest named in RUN-LEDGER's triage).
+> **Shipped this run:** v0.150.1 (Moxfield TLS fix, published + verified) · A0b that-player +5 ·
+> Tibalt gremlin live (default OFF — Colton's toggle awaits him in Settings→Models) · cross-deck
+> commitments in Karn's context · 3 shell banners extracted w/ render gates · another-return +7 ·
+> START YOUR ENGINES speed subsystem +6 (2 live FPs closed) · Wisps/Pym compounds +2 · Brainstorm
+> put-back chain +6 (new pendingChoice kind, family of 6).
+> ⚠️ **Method correction 19 (read before your first gate): the gate is the EXIT CODE, never a piped
+> summary** — a `| tail` gate pushed a red suite to master this session (fixed forward a03f65e6, CI
+> green re-confirmed). `vitest run > gate.log 2>&1; echo EXIT:$?`.
+
 ## ☀️ 2026-08-02 — **SESSION PLAN LIVE: 24h or +100 cards** — full sweep re-measured · suite **1070 / 13,535** · batch 42
 
 > Colton ordered a full sweep + a bounded session plan. Both done; **the plan is
