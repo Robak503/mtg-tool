@@ -21,7 +21,7 @@ import {
   shouldUseDeckScopedContext,
   shouldUseEngineContext,
 } from "../lib/deck/deckContextBuilder";
-import { fetchCollectionContextBlock } from "../lib/collectionContextBuilder";
+import { fetchCollectionContextBlock, fetchCrossDeckCommitmentsBlock } from "../lib/collectionContextBuilder";
 import { swapBehaviorTagIds } from "./useColorTags";
 import { serializeDeck, serializeDeckMemory } from "../lib/deck/deckMemory";
 import {
@@ -559,6 +559,14 @@ export default function useChatSessions({
               if (data.block) systemPrompt += `\n\n${data.block}`;
             }
           } catch { /* owned-pool hint is advisory; never block the send */ }
+          // A3 — CROSS-DECK COMMITMENTS: per-card "already running this elsewhere" counts for the
+          // locked deck's own cards (/api/collection/ownership with the locked deck excluded from
+          // the join). Complements deck-overlap's aggregate: overlap says what you OWN, this says
+          // what you've already SPENT. Advisory; "" on any failure.
+          try {
+            const commitBlock = await fetchCrossDeckCommitmentsBlock(overlapNames, deckLock?.id || null);
+            if (commitBlock) systemPrompt += `\n\n${commitBlock}`;
+          } catch { /* advisory; never block the send */ }
         }
       }
 

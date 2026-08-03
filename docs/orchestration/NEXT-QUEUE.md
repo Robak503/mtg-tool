@@ -137,14 +137,15 @@ alone — re-homing and decomposing in one step is how you get an unreviewable d
 
 **Failure mode:** a nav regression nobody notices until a room stops opening.
 
-### A3. Forge wiring — ownership into the bench context · ~1h · low risk
-Scoped in the triage ledger. `/api/collection/ownership` is built and has **zero consumers**; the
-COLLECTION SUMMARY Karn already gets is aggregate-only (no per-card status, no `inDecks`).
-**The decision that must come first, and it is mine to make with a stated assumption:** ownership of WHICH
-names? The locked deck's cards are known up front (context injection); Karn's SUGGESTED cards are not
-known until he answers (post-hoc UI enrichment). **Assumption to build on: do the deck's cards now** — it
-is the half that is a clean context injection, it answers "what have I already committed elsewhere", and
-it does not block the other half later.
+### A3. ✅ **SHIPPED 2026-08-02** — cross-deck commitments into Karn's context
+The stated assumption held (the deck's cards now; suggested-card enrichment stays open for later).
+What shipped: `/api/collection/ownership` gains `excludeDeckId` (so `inDecks` means OTHER decks —
+without it every card in a saved locked deck reads as committed once, by itself) · pure
+`buildCrossDeckCommitmentsBlock` renderer (owned + inDecks≥1, contention-sorted, cap 15, "" when
+empty — no noise blocks) · wired in useChatSessions AFTER deck-overlap (overlap = what you OWN,
+this = what you've already SPENT). Functional test seeds a 3-deck contention and pins 3→2 under
+exclusion — the pair is its own mutation witness. **Still open (the other half):** post-hoc
+ownership enrichment of Karn's SUGGESTED cards in the reply UI.
 
 ---
 

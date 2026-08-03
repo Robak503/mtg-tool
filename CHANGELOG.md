@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Karn knows what you've already committed.** When a deck is locked to a Karn chat, he now sees
+  which of its cards you already run in your OTHER saved decks ("Sol Ring — in 4 other decks"), so
+  his cut/keep advice can weigh real physical contention, not just what you own.
 - **Tibalt's gremlin mode (opt-in, off by default).** When enabled in Settings → Models, Tibalt may
   drop ONE uninvited jab after a deck save or import — and only when the deck's real numbers back the
   criticism (low lands, thin draw, weak ramp…). Hard limits: once per session, six hours between jabs,

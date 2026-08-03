@@ -3,6 +3,15 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-02 - **CROSS-DECK COMMITMENTS (A3)** - feature, +0 cards
+> Suite green + lint 0 at gate (counts in the commit). The zero-consumer `/api/collection/ownership`
+> route now has its first consumer: `excludeDeckId` added (inDecks = OTHER decks), pure renderer in
+> collectionContextBuilder (contention-sorted, cap 15, "" when empty), wired into Karn's locked-deck
+> context AFTER deck-overlap — overlap says what you OWN, this says what you've SPENT. Functional
+> test seeds 3-deck contention, pins 3→2 under exclusion (its own mutation witness). Open half
+> stays open honestly: post-hoc enrichment of Karn's SUGGESTED cards.
+> Session tally so far: v0.150.1 released · +5 cards (batch 5) · gremlin live · commitments live.
+
 > ## SLICE DONE - 2026-08-02 - **TIBALT GREMLIN MODE WIRED (A1)** - feature, +0 cards
 > Suite green + lint 0 at gate (counts in the commit). The policy module already existed UNWIRED
 > (`lib/tibaltGremlin.js`, tests, zero consumers — the scout found it; fourth "already half-built"

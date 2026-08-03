@@ -59,12 +59,18 @@ export async function POST(request) {
   if (!names) {
     return Response.json({ error: "Request must include a `names` array" }, { status: 400 });
   }
+  // A3 (cross-deck commitments): when the caller asks on behalf of a specific deck, exclude that
+  // deck from the join so `inDecks` means "OTHER decks already running this card" — the number
+  // Karn needs for "what have I already committed elsewhere". Without it, every card in a saved
+  // locked deck reads as committed at least once, by itself.
+  const excludeDeckId = typeof body?.excludeDeckId === "string" ? body.excludeDeckId : null;
 
   try {
     const { collection } = await loadCollection();
     let decks = [];
     try {
       decks = enrichDecks(await loadDecks());
+      if (excludeDeckId) decks = decks.filter((d) => d.id !== excludeDeckId);
     } catch {
       // Deck join is best-effort; ownership status still resolves without it.
     }

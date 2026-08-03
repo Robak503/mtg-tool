@@ -221,3 +221,49 @@ export async function fetchCollectionContextBlock(targetAgent, prompt, swapTagId
     return "";
   }
 }
+
+/**
+ * CROSS-DECK COMMITMENTS (A3) — pure renderer over /api/collection/ownership statuses
+ * (fetched with excludeDeckId = the locked deck, so inDecks counts OTHER decks only).
+ *
+ * Answers Karn's "what has this player already committed elsewhere": a card that already
+ * anchors four other decks is a real cost to keep here (or a candidate to standardize on).
+ * Returns "" when nothing is committed elsewhere — an empty block is noise, not context.
+ * Capped at 15 rows, highest contention first, ties by name for stable output.
+ */
+export function buildCrossDeckCommitmentsBlock(statuses) {
+  if (!statuses || typeof statuses !== "object") return "";
+  const rows = Object.entries(statuses)
+    .filter(([, s]) => s?.status === "owned" && (s.inDecks || 0) >= 1)
+    .sort((a, b) => (b[1].inDecks - a[1].inDecks) || a[0].localeCompare(b[0]))
+    .slice(0, 15);
+  if (!rows.length) return "";
+  const lines = rows.map(([name, s]) => `- ${name} — in ${s.inDecks} other deck${s.inDecks === 1 ? "" : "s"}`);
+  return [
+    "## CROSS-DECK COMMITMENTS",
+    "Cards in this deck the user ALREADY RUNS in other saved decks (physical copies are contended):",
+    ...lines,
+    "Use this when weighing cuts/keeps — a card carrying several other decks is expensive to keep here.",
+  ].join("\n");
+}
+
+/**
+ * Fetch + render the cross-deck commitments block for a locked deck (Karn-only caller).
+ * Best-effort: any failure returns "" — context is advisory and never blocks a send.
+ */
+export async function fetchCrossDeckCommitmentsBlock(deckNames, excludeDeckId = null) {
+  const names = (deckNames || []).filter((n) => typeof n === "string" && n);
+  if (!names.length) return "";
+  try {
+    const resp = await fetch("/api/collection/ownership", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ names, excludeDeckId }),
+    });
+    if (!resp.ok) return "";
+    const data = await resp.json();
+    return buildCrossDeckCommitmentsBlock(data?.statuses);
+  } catch {
+    return "";
+  }
+}

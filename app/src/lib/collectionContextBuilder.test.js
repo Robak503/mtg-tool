@@ -257,3 +257,38 @@ describe("buildOwnedListBlock", () => {
     expect(block).not.toMatch(/Wish Card/);
   });
 });
+
+// ── A3: CROSS-DECK COMMITMENTS renderer (pure — statuses in, block or "" out) ──────────────────
+import { buildCrossDeckCommitmentsBlock } from "./collectionContextBuilder";
+
+describe("buildCrossDeckCommitmentsBlock (A3)", () => {
+  it("renders owned cards committed elsewhere, highest contention first, singular/plural correct", () => {
+    const block = buildCrossDeckCommitmentsBlock({
+      "Sol Ring": { status: "owned", inDecks: 4 },
+      "Arcane Signet": { status: "owned", inDecks: 1 },
+      "Counterspell": { status: "owned", inDecks: 2 },
+    });
+    expect(block).toMatch(/CROSS-DECK COMMITMENTS/);
+    const lines = block.split("\n").filter(l => l.startsWith("- "));
+    expect(lines[0]).toBe("- Sol Ring — in 4 other decks");
+    expect(lines[1]).toBe("- Counterspell — in 2 other decks");
+    expect(lines[2]).toBe("- Arcane Signet — in 1 other deck");
+  });
+
+  it("returns EMPTY for nothing-committed (inDecks 0), wishlist, missing, or garbage — never a noise block", () => {
+    expect(buildCrossDeckCommitmentsBlock({
+      "Fresh Card": { status: "owned", inDecks: 0 },
+      "Wish Card": { status: "wishlist", inDecks: 0 },
+      "Unknown Card": { status: "missing", inDecks: 0 },
+    })).toBe("");
+    expect(buildCrossDeckCommitmentsBlock(null)).toBe("");
+    expect(buildCrossDeckCommitmentsBlock("nope")).toBe("");
+  });
+
+  it("caps at 15 rows", () => {
+    const statuses = {};
+    for (let i = 0; i < 40; i++) statuses[`Card-${String(i).padStart(2, "0")}`] = { status: "owned", inDecks: 1 + (i % 5) };
+    const block = buildCrossDeckCommitmentsBlock(statuses);
+    expect(block.split("\n").filter(l => l.startsWith("- "))).toHaveLength(15);
+  });
+});

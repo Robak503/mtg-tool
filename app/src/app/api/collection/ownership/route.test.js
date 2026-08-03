@@ -34,3 +34,37 @@ describe("/api/collection/ownership — module load and request handling", () =>
     }
   }, 30000);
 });
+
+// ── A3: the excludeDeckId join (cross-deck commitments) — functional, tmpdir-seeded ────────────
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+describe("/api/collection/ownership — excludeDeckId (A3)", () => {
+  it("inDecks counts OTHER decks when the asking deck is excluded", async () => {
+    const originalCwd = process.cwd();
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mtg-ownership-"));
+    try {
+      process.chdir(tmpDir);
+      fs.mkdirSync(path.join(tmpDir, "data"), { recursive: true });
+      // One owned card (oracleId o-solring) used by three saved decks, including the asker (d1).
+      fs.writeFileSync(path.join(tmpDir, "data", "collection.json"), JSON.stringify({
+        cards: [{ name: "Sol Ring", oracleId: "o-solring", wishlist: false, stacks: [{ finish: "nonfoil", quantity: 3 }] }],
+      }));
+      const deck = (id) => ({ id, name: id, cards: [{ name: "Sol Ring", oracleId: "o-solring", qty: 1, section: "Mainboard" }] });
+      fs.writeFileSync(path.join(tmpDir, "data", "decks.local.json"), JSON.stringify([deck("d1"), deck("d2"), deck("d3")]));
+
+      const mod = await import("./route.js");
+      const ask = (body) => mod.POST({ json: async () => body });
+
+      const all = await (await ask({ names: ["Sol Ring"] })).json();
+      expect(all.statuses["Sol Ring"]).toMatchObject({ status: "owned", inDecks: 3 });
+
+      const excluded = await (await ask({ names: ["Sol Ring"], excludeDeckId: "d1" })).json();
+      expect(excluded.statuses["Sol Ring"]).toMatchObject({ status: "owned", inDecks: 2 });
+    } finally {
+      process.chdir(originalCwd);
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }, 30000);
+});
