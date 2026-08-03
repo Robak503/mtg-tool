@@ -119,8 +119,18 @@ describe("parseActivatedAbilities — cost parsing (mana + {T} allowlist)", () =
     expect(sac.costModeled).toBe(true);   // the COST parses…
     expect(sac.modeled).toBe(false);      // …but offering it would drop the sacrifice token-trigger
   });
-  it("does NOT model a self-sac whose card has an 'enters or leaves the battlefield' trigger (Mouser Foundry)", () => {
+  it("DOES model a self-sac beside a SELF 'enters or leaves the battlefield' trigger (INVERTED 2026-08-02 — the sac path provably fires it)", () => {
+    // The refusal this pin carried was right until the runtime was PROBED: the sacrifice path fires a
+    // SELF-LTB on both branches (non-creature → checkLeavesTriggers; creature → checkDiesTriggers,
+    // which drains the same leave queue) — 1 pending trigger, token minted, each time
+    // (selfLtbCostSac.test.js). The exception is scoped to a PURE sacrifice-self cost; the exile-self
+    // and remove-counter paths were NOT probed and keep the blanket refusal (their pins are untouched,
+    // and the two directly below still pass).
     const abilities = one("When this artifact enters or leaves the battlefield, create a 1/1 colorless Robot artifact creature token.\n{4}{R}, Sacrifice this artifact: It deals 3 damage to target creature.", { type: "Artifact" });
+    expect(abilities.find((a) => a.sacSelf).modeled).toBe(true);
+  });
+  it("CREED — a NON-SELF leaves-the-battlefield watcher still blocks the self-sac (unprobed shape)", () => {
+    const abilities = one("Whenever another permanent you control leaves the battlefield, create a 1/1 colorless Robot artifact creature token.\n{4}{R}, Sacrifice this artifact: It deals 3 damage to target creature.", { type: "Artifact" });
     expect(abilities.find((a) => a.sacSelf).modeled).toBe(false);
   });
   it("STILL models a self-sac whose only trigger is a normal dies trigger (the dies path fires it)", () => {

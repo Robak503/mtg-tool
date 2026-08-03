@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Sacrifice-yourself artifacts with a leave trigger work.** Experimental Synthesizer and Mouser
+  Foundry can now be played fully: cracking them for their ability also fires their "when this leaves
+  the battlefield" trigger, so you get both halves — exactly as printed.
 - **Suspend works for the free artifacts.** Lotus Bloom, Sol Talisman and Mox Tantalite — cards with
   no mana cost at all — can finally be played the only way they ever could: suspend them, tick down a
   time counter at each of your upkeeps, and cast them free when the last one goes.

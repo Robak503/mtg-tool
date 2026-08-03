@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-02 - **SELF-LTB EXCEPTION, SAC-SCOPED, +2** - batch 31 since v0.150.1
+> Suite green + lint 0 BY EXIT CODE (counts in the commit). Flip-diff (file-copy): **+2 / 0 / 0** —
+> Experimental Synthesizer · Mouser Foundry, from the census's TWO-FLIP composition list.
+> **Not a missing mechanic — a fail-safe wider than the runtime.** `sacrificeDropsTrigger` flags every
+> "leaves the battlefield" clause, so a sac-as-cost ability beside a SELF-LTB trigger read unmodeled and
+> the card parked with each half native alone. **Probed at the runtime, not by reading** (the discipline
+> the put-into-a-graveyard sibling was narrowed with on 07-25): non-creature (moveCardToZone →
+> checkLeavesTriggers) and creature (→ checkDiesTriggers, which drains the same leave queue) BOTH fire
+> it — 1 pending trigger, token minted, each time.
+> ⭐ **THE GATE CAUGHT MY FIRST CUT, AND IT WAS RIGHT TO.** I narrowed the card-level guard, took a clean
+> +2/0/0 flip-diff, and the suite went RED in 5 files / 7 tests: that guard is SHARED by three cost
+> shapes (sacrifice-self · exile-self · remove-counter) and I had probed only ONE. A tier diff cannot see
+> that — the other two paths would have been credited on evidence that does not exist for them. Rebuilt
+> as `sacrificeDropsTriggerIgnoringSelfLtb`, applied ONLY to a PURE sacrifice-self cost; the blanket
+> guard is untouched and every pin for the unprobed paths passes unchanged. **Same flip-diff, honest
+> scope.** One pin genuinely inverted (Mouser Foundry's self-sac) + a new non-self CREED pin beside it.
+> ⚠️ Also: `qaShippedSlices.test.js` ALREADY carried this finding as a known-stale premise ("the runtime
+> fires it; the guard still refuses; the fix is not made") — the repo knew, and the fix is now made.
+> ⚠️ Method: two string-replace mutations silently NO-OPPED before I checked. **A mutation that doesn't
+> apply proves nothing** — verify the edit landed, then read the result (line surgery did: 2 red / 1 red).
+
 > ## SLICE DONE - 2026-08-02 - **KW-SUSPEND, the no-cost trio, +3** - batch 29 since v0.150.1
 > Suite green + lint 0 at gate BY EXIT CODE (counts in the commit). Flip-diff (file-copy): **+3 / 0 / 0**
 > — Lotus Bloom · Sol Talisman · Mox Tantalite, the census's sole-blocked no-mana-cost suspend cards.

@@ -578,7 +578,7 @@ export function sacrificeDropsTrigger(oracle) {
   const clauses = String(oracle).match(/(?:When|Whenever|At)\b[^.]*/gi) || [];
   for (const s of clauses) {
     if (/\b(?:and|or)\s+when(?:ever)?\b/i.test(s)) return true;       // a second embedded when-clause
-    if (/\bleaves the battlefield\b/i.test(s)) return true;           // LTB — the dies path won't fire it
+    if (/\bleaves the battlefield\b/i.test(s)) return true;           // LTB — see the SAC-scoped exception below
     if (/\bwhen(?:ever)? you sacrifice\b/i.test(s)) return true;      // a sacrifice trigger
     // CR 700.4 dies-equiv / zone-LTB. EXCEPTION (verified 2026-07-25, runtime not by reading): the SELF form
     // — "When this <artifact|creature|enchantment|permanent|land|aura> is put into a graveyard from the
@@ -592,6 +592,30 @@ export function sacrificeDropsTrigger(oracle) {
         && !/\bthis (?:artifact|creature|enchantment|permanent|land|aura) is put into a graveyard from the battlefield\b/i.test(s)) return true;
   }
   return false;
+}
+
+/**
+ * SELF-LTB EXCEPTION, SCOPED TO THE SACRIFICE COST (verified 2026-08-02 by RUNTIME probe, not by
+ * reading — the discipline the put-into-a-graveyard narrowing was earned with).
+ *
+ * `sacrificeDropsTrigger` is a CARD-level fail-safe reused by three different cost shapes
+ * (sacrifice-self, exile-self, remove-counter). Its blanket LTB arm is right for two of them and
+ * wrong for one: the SAC path DOES fire a SELF "leaves the battlefield" trigger, on both branches —
+ *   non-creature → moveCardToZone (queues the leave event) + checkLeavesTriggers
+ *   creature     → moveCardToZone + checkDiesTriggers, whose first line drains that same queue
+ * — probed end to end (1 pending trigger, token actually minted, each time; selfLtbCostSac.test.js).
+ *
+ * ⛔ THE SCOPE IS THE SAFETY ARGUMENT. The EXILE-SELF and REMOVE-COUNTER paths were NOT probed, so
+ * they keep the blanket refusal — widening on an unverified path is exactly the forbidden direction,
+ * and the existing pins for those two shapes stay true by construction. This helper answers ONE
+ * narrower question: "ignoring a SELF-LTB clause, would a sacrifice still drop something?"
+ */
+export function sacrificeDropsTriggerIgnoringSelfLtb(oracle) {
+  const withoutSelfLtb = String(oracle || "").replace(
+    /(?:When|Whenever)\b[^.]*\bthis (?:artifact|creature|enchantment|permanent|land|aura|equipment|vehicle) (?:enters or )?leaves the battlefield\b[^.]*\.?/gi,
+    " ",
+  );
+  return sacrificeDropsTrigger(withoutSelfLtb);
 }
 
 /**
@@ -809,6 +833,8 @@ export function parseActivatedAbilities(card) {
   // Card-level: would a self-sac drop a trigger? Use the RAW oracle (reminder included) so a death
   // keyword whose trigger lives in reminder text (Recover…) is caught, matching the victim path.
   const sacUnsafe = sacrificeDropsTrigger(card?.oracle || card?.oracle_text || "");
+  // The SAC-scoped variant (self-LTB ignored). Used ONLY for a pure sacrifice-self cost below.
+  const sacUnsafeIgnoringSelfLtb = sacrificeDropsTriggerIgnoringSelfLtb(card?.oracle || card?.oracle_text || "");
   const out = [];
   let index = 0;
   for (const line of foldModalBulletLines(oracle)) {
@@ -1069,7 +1095,12 @@ export function parseActivatedAbilities(card) {
       // removal drops derived toughness, so the source dies) — leaving won't silently drop one of the
       // card's own triggers (the shared γ1 fail-safe; a normal "When this dies" still fires via the dies
       // path, so it's not flagged and not over-restricted).
-      modeled: !!cost && !isManaEffect && effectHigh && !((cost.sacSelf || cost.exileSelf || cost.removeCounter) && sacUnsafe),
+      // SELF-LTB EXCEPTION, sacrifice-only (see sacrificeDropsTriggerIgnoringSelfLtb): a PURE
+      // sacrifice-self cost may ignore a SELF-LTB clause, because that path provably fires it. A cost
+      // that ALSO exiles-self or removes a counter keeps the blanket refusal — those paths are unprobed.
+      modeled: !!cost && !isManaEffect && effectHigh
+        && !((cost.sacSelf || cost.exileSelf || cost.removeCounter)
+          && (cost.sacSelf && !cost.exileSelf && !cost.removeCounter ? sacUnsafeIgnoringSelfLtb : sacUnsafe)),
       needsTarget: effectHigh && !!program && programNeedsChosenTarget(program),
     });
   }
