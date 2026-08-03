@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-02 - **ANOTHER-RETURN (dies trio), +7** - batch 12 since v0.150.1
+> Suite green + lint 0 at gate (counts in the commit). Flip-diff by the file-copy method: **+7 / 0 / 0**
+> — pre-sized 3 (Myr Retriever · Junk Diver · Workshop Assistant), landed 7 (+ Dutiful Attendant ·
+> Carrion Thrash · Deadwood Treefolk · Corpse Hauler — the same clause behind other frames).
+> **The build:** "return ANOTHER target <X> card from your graveyard to your hand" — parse arm carries
+> `excludeTriggeringCard`; enumeration drops the card matching ctx.triggeringCardId (the dies-path
+> stamp). Base form byte-identical.
+> ⭐ **THE AUDIT PAID — the runtime-invisible FP class, caught by reading the gained rows:** the first
+> cut hard-excluded EVERYTHING when the referent was absent ("FN-safe", I thought). **Corpse Hauler is
+> ACTIVATED** — no triggeringCardId on that path — so the rule credited a card whose ability could
+> never have a legal target. No fingerprint can see that (law 6). CR reads the fix cleanly: targets
+> are chosen BEFORE the sacrifice cost (601.2b), a resolving spell's card is never in a graveyard yet
+> (608.2m) — in every real absent-referent path the source card CANNOT be in the pool, so the
+> exclusion no-ops instead. Proven live: the hauler's ability activates, returns the OTHER card, stays
+> dead itself. 3 mutations killed (exclusion dropped ×, parse flag dropped ×, hard-exclude
+> reintroduced × — the third IS the audit's bug, now pinned). 10 tests.
+
 > ## SLICE DONE - 2026-08-02 - **A2 SAFE SUBSET: the three banners extracted** - refactor, +0 cards
 > Suite green + lint 0 at gate (counts in the commit). App-update / first-launch-import / Ollama-health
 > banners moved VERBATIM from MTGAssistant.jsx into `ShellBanners.jsx` as pure components (closures →

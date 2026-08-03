@@ -592,6 +592,18 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     for (const pid of pids) {
       for (const card of state.players[pid]?.graveyard || []) {
         if (card.token) continue; // a token is not a "card" (CR 111 / 608.2b) — never a legal target
+        // ANOTHER-RETURN (CR 109.5) — "return ANOTHER target … card": the source card is never a
+        // legal target for its own ability. The DANGEROUS case — the source card sitting in this
+        // very graveyard — is exactly the dies-trigger, and that path always carries
+        // ctx.triggeringCardId (makePendingTrigger). When the referent is ABSENT the exclusion is
+        // a deliberate NO-OP, not an exclude-everything: on the ACTIVATED path (Corpse Hauler —
+        // targets are chosen BEFORE the sacrifice cost is paid, CR 601.2b/601.2g) and the ETB half
+        // of an enters-or-leaves trigger, the source is still ON the battlefield, and a resolving
+        // spell's own card is not yet in any graveyard (CR 608.2m) — in every real path the source
+        // card cannot be in this pool, so there is nothing to exclude. (A hard-exclude here was
+        // caught in the flip audit: it credited Corpse Hauler while making its ability unable to
+        // ever have a legal target — the runtime-invisible FP class.)
+        if (effect.excludeTriggeringCard && ctx?.triggeringCardId && card.id === ctx.triggeringCardId) continue;
         if (!cardMatchesGraveyardFilter(card, effect.cardFilter)) continue;
         // MILLED-THIS-TURN restriction (Tato Farmer — "target land card in a graveyard that was milled
         // this turn"): the card must appear in the millCards ledger stamped with the CURRENT turn (stale

@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"Return another…" recursion works.** Myr Retriever, Junk Diver, Workshop Assistant, Dutiful
+  Attendant, Carrion Thrash, Deadwood Treefolk and Corpse Hauler now correctly return ANOTHER card
+  from your graveyard — never themselves. A retriever dying into an empty graveyard simply gets no
+  target, exactly as the card reads.
 - **Karn knows what you've already committed.** When a deck is locked to a Karn chat, he now sees
   which of its cards you already run in your OTHER saved decks ("Sol Ring — in 4 other decks"), so
   his cut/keep advice can weigh real physical contention, not just what you own.

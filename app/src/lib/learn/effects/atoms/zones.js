@@ -464,6 +464,20 @@ export function graveyardReturnClauseParser(clause) {
     if (typeFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: { typeFilter, mvMax } };
     return null; // an unmodeled filter word → the whole clause stays unmodeled (never a mis-match)
   }
+  // ANOTHER-RETURN (CR 109.5) — "return ANOTHER target <X> card from your graveyard to your hand":
+  // the Myr Retriever / Junk Diver / Workshop Assistant dies-trigger (and the same clause on
+  // Corpse Hauler's activated sac, Deadwood Treefolk's enters-or-leaves, Carrion Thrash's
+  // pay-{2} rider). "Another" excludes the SOURCE CARD — on a dies trigger it is in that same
+  // graveyard by resolution time and must never be offered as its own target.
+  // `excludeTriggeringCard` rides the spec into enumeration, which drops the card matching
+  // ctx.triggeringCardId (stamped by makePendingTrigger); with the referent ABSENT (the activated
+  // path — targets chosen before the sacrifice is paid, CR 601.2b — or the ETB half) the source
+  // card cannot be in the pool, so the exclusion deliberately no-ops (see the enumeration note).
+  const anotherM = /^return another target (.*?)card from your graveyard to your hand$/.exec(t);
+  if (anotherM) {
+    const cardFilter = parseGraveyardFilter(anotherM[1]);
+    if (cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter, excludeTriggeringCard: true };
+  }
   const gm = /^return target (.*?)card from your graveyard to your hand$/.exec(t);
   if (gm) {
     const cardFilter = parseGraveyardFilter(gm[1]);
