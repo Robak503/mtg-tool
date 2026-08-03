@@ -7,7 +7,43 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-02 (late) — **RUN IN FLIGHT: v0.150.1 SHIPPED · +26 cards · 3 features** — suite **1079 / 13,626** · batch 26 since v0.150.1
+## ☀️ 2026-08-02 (session end) — **v0.150.1 SHIPPED · +33 cards · 3 features** — suite **1081 / 13,640** · batch **33** since v0.150.1
+
+> **▶ START HERE — the next slice: the AURA/EQUIPMENT two-flip composition lane (~4-5 cards, probed,
+> not built).** Line-deletion probe (2026-08-02) on the census's two-flip list found ONE shape behind
+> four of five: a permanent with a TRIGGER **plus** a second ability, where the composite gate composes
+> Equipment but not the trigger-first case. Each half classifies native ALONE and the pair parks:
+> · **Verdant Haven** — drop the ETB → native-mana-aura; drop the mana-boost trigger → native-trigger
+> · **Fiery Mantle** — drop the activated → native-trigger; drop the PiG-return trigger → native-activated
+> · **Candlestick** — drop the bonus → native-trigger; drop the sac ability → native-equipment
+> · **Vat of Rebirth** — drop the trigger → native-activated; drop the activated → native-trigger
+> There IS already an aura/equipment + ACTIVATED composition lane (coverage.js ~1915); the gap is the
+> TRIGGER-carrying case. ⛔ Scope it and re-probe before building — the same guard-sharing trap that
+> caught me tonight (below) lives in this neighbourhood too. **Witch's Mark is a DIFFERENT shape** (two
+> spell clauses, arbiter-spell) — don't fold it in.
+>
+> **State:** last commit `c8d0c1c7`, tree clean, nothing in flight. **Do not tag** — 33 of ~100 banked.
+> Shelf **21 decks · 82% aggregate (1715/2097) · 7 at the ≥90% bar**; corpus **38.6% native**
+> (13,225/34,245). Colton 93% (Veyran 88 the only miss, its last 2 are honest parks) · joe 79% · test 72%.
+> 200-game playability sweep: **200/200 complete, ZERO wedges**.
+>
+> **Shipped this run:** v0.150.1 (Moxfield TLS fix — published, verified by content) · A0b that-player +5 ·
+> Tibalt gremlin live (**default OFF — Colton's toggle is in Settings → Models**) · cross-deck commitments
+> in Karn's context · 3 shell banners extracted with render gates · another-return +7 · START YOUR ENGINES
+> speed subsystem +6 (two live FPs closed) · Wisps/Pym compounds +2 · Brainstorm put-back +6 (new
+> pendingChoice kind) · suspend no-cost trio +3 · sac-scoped self-LTB +2.
+>
+> ### ⚠️ READ BEFORE YOUR FIRST GATE — two method corrections earned tonight
+> **19 — THE GATE IS THE EXIT CODE, never a piped summary.** `vitest run | tail` reports the PIPE's exit,
+> so the chain cannot stop on failure; eleven gates passed through that hole and the twelfth pushed a RED
+> suite to master (fixed forward `a03f65e6`). Run bare: `vitest run > gate.log 2>&1; echo EXIT:$?`.
+> **20 — A CLEAN FLIP-DIFF DOES NOT MEAN A SAFE CHANGE.** The self-LTB narrowing took a perfect +2/0/0
+> tier diff and turned the suite red in 5 files: the guard I widened is SHARED by three cost paths and I
+> had probed ONE. A tier diff cannot see a path credited on evidence that doesn't exist for it. Ask what
+> ELSE reads the thing you are loosening. (Also: a mutation that silently fails to apply proves nothing —
+> verify the edit landed before reading the result.)
+
+## ☀️ 2026-08-02 (mid-run) — v0.150.1 shipped · +26 cards · suite 1079 / 13,626 · batch 26
 
 > Mid-session anchor for the 24h/100-card run (the plan below is the map; RUN-LEDGER is the state).
 > **▶ NEXT: Block 4 continues** — the shelf ETB vein (80 slots) or the next census bug-signature;
