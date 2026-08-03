@@ -139,14 +139,27 @@ describe("CDMG-DISCARD — coverage classification", () => {
       oracle: "Whenever a creature you control deals combat damage to a player, that player discards a card." })).toBe("native-trigger");
   });
 
-  it("CREED SPELL GUARD — Frightful Delusion (counter back-reference) stays arbiter-spell, NOT native", () => {
+  // ⚠️ INVERTED 2026-08-02 (A0b, thatPlayerReferent.test.js). These two pins guarded the spell-side
+  // "that player" against binding to the combat referent — and that guard's JOB survives: the parser's
+  // assembly loop now rebinds these spells to the PRECEDING ATOM'S subject (counter → the spell's
+  // controller; damage → the targeted player), never to damagedPlayer. The refusal these pins enforced
+  // is re-pinned below on the shapes that must STILL refuse (no antecedent / out-of-allowlist / that-many).
+  it("Frightful Delusion now classifies native-spell (bound to the countered spell's CONTROLLER)", () => {
     expect(classifyCard({ name: "Frightful Delusion", type: "Instant", mana: "{1}{B}",
-      oracle: "Counter target spell unless its controller pays {1}. That player discards a card." })).toBe("arbiter-spell");
+      oracle: "Counter target spell unless its controller pays {1}. That player discards a card." })).toBe("native-spell");
   });
 
-  it("CREED SPELL GUARD — Ozai's Cruelty (damage-target back-reference) stays arbiter-spell, NOT native", () => {
+  it("Ozai's Cruelty now classifies native-spell (bound to the damaged TARGET player)", () => {
     expect(classifyCard({ name: "Ozai's Cruelty", type: "Sorcery — Lesson", mana: "{2}{B}",
-      oracle: "Ozai's Cruelty deals 2 damage to target player. That player discards two cards." })).toBe("arbiter-spell");
+      oracle: "Ozai's Cruelty deals 2 damage to target player. That player discards two cards." })).toBe("native-spell");
+  });
+
+  it("CREED SPELL GUARD — a spell-side 'that player' with NO player antecedent still refuses", () => {
+    // The destroy clause mentions no player, so "that player" stays who:"damagedPlayer" (out of the
+    // rebind allowlist) and the coverage guard keeps the spell off the native tiers — the exact
+    // refusal the two inverted pins above used to carry.
+    expect(classifyCard({ name: "SYNTH", type: "Instant", mana: "{1}{B}",
+      oracle: "Destroy target creature. That player discards a card." })).not.toBe("native-spell");
   });
 });
 

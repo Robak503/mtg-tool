@@ -127,3 +127,23 @@ pipeline or the Rust shell.
 - **`git rev-parse --show-toplevel` before any branch op**: an empty/swept worktree silently
   falls through to the MAIN repo, and a checkout there moves the main tree's branch pointer.
   Never trust a worktree directory you didn't just list.
+
+## Runtime & install hazards (added 2026-08-02)
+
+- **The installed app lives at `%LOCALAPPDATA%\MTG Tool` — WITH the space.** Searches for
+  `mtg-tool`/`Programs` miss it (cost a whole investigation on 08-01). Authoritative lookup:
+  the registry uninstall key (`HKCU\...\Uninstall` → DisplayName "MTG Tool" → InstallLocation).
+- **The registry `DisplayVersion` STALES.** The NSIS auto-updater replaces binaries but does not
+  rewrite the uninstall key, so the registry can claim an old version while the app is current.
+  Never assert the installed version from the registry; read the binary or the app's own UI.
+- **Bundled third-party runtimes ROT — and the failure lands far from the cause.** The pinned
+  portable Node (download-portable-node.cjs) aged two years and Cloudflare began 403'ing its TLS
+  ClientHello: every Moxfield import failed inside the .exe while identical requests succeeded
+  everywhere else. Keep the pin at CURRENT LTS at every release; diagnose suspected repeats with
+  `app/scripts/probe-deck-fetch.mjs` run through BOTH the system and the bundled `node.exe` —
+  a status that differs between binaries with identical headers is the runtime's fingerprint.
+- **Restoring a mutation-check with `git checkout -- <file>` DESTROYS uncommitted work** — it
+  restores HEAD, not your pre-mutation state. On uncommitted slices, restore by the inverse
+  edit or from a file copy taken before the mutation (same for tier-snapshot before/after:
+  copy the touched files aside, `git show HEAD:<path> >` for BEFORE, copy back for AFTER —
+  never stash, never checkout).

@@ -200,8 +200,11 @@ describe("CONDITIONAL SPELL RIDER (trailing) runtime — Scalestorm makes a toke
 
 // ══ 4. CREED anti-FP — deferred trailing shapes stay Arbiter / body-only (never a mis-scoped native) ═══════
 describe("CONDITIONAL SPELL RIDER (trailing) CREED anti-FP — deferred shapes stay parked", () => {
-  it("a BACK-REFERENCE gated effect ('that player discards …') stays arbiter-spell (Compelling Deterrence)", () => {
-    expect(classifyCard(COMPELLING_DETERRENCE)).toBe("arbiter-spell");
+  it("Compelling Deterrence now flips native-spell — the back-reference is BOUND, its condition enforced (INVERTED 2026-08-02, A0b)", () => {
+    // The refusal this pin carried ("a gated back-reference must not silently drop its condition")
+    // is now enforced POSITIVELY: the condition rides the rebound atom and gates the discard at
+    // resolution (both branches proven at runtime in thatPlayerReferent.test.js).
+    expect(classifyCard(COMPELLING_DETERRENCE)).toBe("native-spell");
   });
   it("a BACK-REFERENCE 'it' gated pump stays arbiter-spell (Might of the Meek 'It also gets +1/+0 … if …')", () => {
     expect(classifyCard(MIGHT_OF_THE_MEEK)).toBe("arbiter-spell");

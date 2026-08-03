@@ -2258,6 +2258,32 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       atoms.push(rebound);
       continue;
     }
+    // THAT-PLAYER SPELL REBIND (CR 608.2 — "that player" = the most recently mentioned player).
+    // atoms/cdmgDiscard.js owns the CLAUSE "that player discards N cards" as the combat-damage referent
+    // (who:"damagedPlayer"), and a clause-level match here once cost 17 specters (see the ⚠️ note in
+    // atoms/combat.js). Rebinding at ASSEMBLY instead is structurally overlap-free: a trigger payload
+    // parses the discard as its FIRST atom (no antecedent → untouched), while a spell carries the
+    // antecedent clause in the SAME program. The antecedent is an ALLOWLIST of the three shapes whose
+    // "most recently mentioned player" is verifiably recorded on the enumerated target:
+    //   · deal-damage → target player   — "…deals N damage to TARGET PLAYER. That player…" (the target)
+    //   · bounce (chosen target)        — "…to ITS OWNER'S hand. Then that player…" (playerFrom:"owner")
+    //   · counter → target spell        — "…unless ITS CONTROLLER pays… That player…" (playerFrom:"controller")
+    // Anything else (including countContext forms — "that many cards" has no spell-side amount referent)
+    // keeps who:"damagedPlayer" and stays refused by the coverage guards: the safe false-negative.
+    // An atom `condition` rides through untouched (Compelling Deterrence's "if you control a Zombie" —
+    // evaluated at resolution by the conditional-rider gate in runProgram).
+    if (atom.op === "discard" && atom.who === "damagedPlayer" && !atom.countContext && atoms.length > 0) {
+      const prevAtom = atoms[atoms.length - 1];
+      const projection = (prevAtom.op === "deal-damage" && prevAtom.targetType === "player") ? {}
+        : (prevAtom.op === "bounce" && prevAtom.targetType) ? { playerFrom: "owner" }
+        : (prevAtom.op === "counter" && prevAtom.targetType === "spell") ? { playerFrom: "controller" }
+        : null;
+      if (projection) {
+        const { who: _dropWho, ...rest } = atom;
+        atoms.push({ ...rest, who: "target", bindPreviousTargets: true, ...projection });
+        continue;
+      }
+    }
     atoms.push(atom);
   }
   // α2 forward guard: an `optional` atom ("you may <effect>") scopes ONLY its own clause. The hazard is an

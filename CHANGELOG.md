@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **"That player" spells work.** Five cards — Recoil, Ozai's Cruelty, Compelling Deterrence,
+  Frightful Delusion and Dinrova Horror — now correctly figure out who "that player" is: the owner
+  of the bounced permanent, the controller of the countered spell, or the player who was just dealt
+  damage. Compelling Deterrence's "if you control a Zombie" condition is honored (no Zombie, no
+  discard), and a stolen permanent goes home to its real owner, who does the discarding.
+
+## [0.150.1] - 2026-08-02
+
 ### Fixed
 - **Moxfield deck import works again.** Moxfield's edge (Cloudflare) began refusing the app's bundled
   Node runtime by its TLS handshake, so every Moxfield URL failed with a 403 in the packaged app while
@@ -16,6 +25,9 @@ summarizes the notable changes.
 - **Import errors stop guessing.** A failed deck fetch no longer tells you to "check the link is
   public" regardless of what actually happened. A 404 points at the link (private, deleted, or
   mistyped); a 403 says plainly that the provider refused the app — and that the link is probably fine.
+
+Also ships the 42 engine cards banked since v0.150.0 (multi-keep impulse digs, the parseEffectClause
+bug-class closure, and the slices recorded in the run ledger).
 
 ## [0.150.0] - 2026-08-01
 

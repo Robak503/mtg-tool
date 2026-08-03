@@ -183,13 +183,12 @@ describe("coverage — clean soft counters are native-spell; variable/rider stay
     expect(classifyCard({ name: "Clash of Wills", type: "Instant", oracle: "Counter target spell unless its controller pays {X}." })).toBe("native-spell");
     expect(classifyCard({ name: "Rune Snag", type: "Instant", oracle: "Counter target spell unless its controller pays {2} plus an additional {2} for each card named Rune Snag in each graveyard." })).not.toBe("native-spell");
   });
-  // CREED — Frightful Delusion's "That player discards a card" is a back-reference to the COUNTERED SPELL'S
-  // controller, not the combat-damage referent the discard atom binds (who:"damagedPlayer"). The program now
-  // parses HIGH (counter + discard both modeled), but a SPELL never supplies ctx.damagedPlayerId, so the discard
-  // would silently drop at resolution — the spellIsNative combat-referent guard keeps the whole card on the
-  // Arbiter (a SAFE false-negative; the CDMG-discard slice flips the combat-TRIGGER cards, never this spell).
-  it("CREED — Frightful Delusion (counter + 'that player discards' spell back-reference) stays arbiter-spell", () => {
-    expect(classifyCard({ name: "Frightful Delusion", type: "Instant", mana: "{1}{B}", oracle: "Counter target spell unless its controller pays {1}. That player discards a card." })).toBe("arbiter-spell");
+  // ⚠️ INVERTED 2026-08-02 (A0b). The back-reference this pin refused is now BOUND, not dropped: the
+  // assembly-loop rebind maps "that player" to the countered spell's CONTROLLER (playerFrom:"controller",
+  // read off the enumerated spell target), so the discard resolves instead of silently dropping — the
+  // exact hazard this pin guarded. Full parser/runtime/guard coverage: thatPlayerReferent.test.js.
+  it("Frightful Delusion (counter + 'that player discards' back-reference) now classifies native-spell", () => {
+    expect(classifyCard({ name: "Frightful Delusion", type: "Instant", mana: "{1}{B}", oracle: "Counter target spell unless its controller pays {1}. That player discards a card." })).toBe("native-spell");
   });
 });
 

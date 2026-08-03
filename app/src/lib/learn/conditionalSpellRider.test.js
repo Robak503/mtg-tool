@@ -138,8 +138,13 @@ describe("CONDITIONAL SPELL RIDER CREED anti-FP — deferred shapes stay arbiter
     expect(classifyCard({ name: "Ambitious Assault", type: "Instant", mana: "{2}{R}", oracle: "Creatures you control get +2/+0 until end of turn. If you control a modified creature, draw a card." })).toBe("arbiter-spell");
     expect(classifyCard({ name: "Unagi's Spray", type: "Instant", mana: "{1}{U}", oracle: "Target creature gets -4/-0 until end of turn. If you control a Fish, Octopus, Otter, Seal, Serpent, or Whale, draw a card." })).toBe("arbiter-spell");
   });
-  it("a back-reference condition / trailing form stays arbiter-spell (Compelling Deterrence 'if you control a Zombie' trails; Might of the Meek 'if you control a Mouse' trails with 'It')", () => {
-    expect(classifyCard({ name: "Compelling Deterrence", type: "Instant", mana: "{1}{U}", oracle: "Return target nonland permanent to its owner's hand. Then that player discards a card if you control a Zombie." })).toBe("arbiter-spell");
+  it("a back-reference 'It' trailing form stays arbiter-spell (Might of the Meek); Compelling Deterrence's 'that player' is now BOUND and flips", () => {
+    // ⚠️ Compelling Deterrence INVERTED 2026-08-02 (A0b): its "that player" back-reference now rebinds
+    // to the bounce's OWNER at assembly, and its trailing condition rides the bound atom through the
+    // conditional-rider gate (no Zombie → no discard, proven at runtime in thatPlayerReferent.test.js).
+    expect(classifyCard({ name: "Compelling Deterrence", type: "Instant", mana: "{1}{U}", oracle: "Return target nonland permanent to its owner's hand. Then that player discards a card if you control a Zombie." })).toBe("native-spell");
+    // Might of the Meek keeps this test's guard-job: an 'It' back-reference pump gated on a condition
+    // is still out of scope and must stay parked.
     expect(classifyCard({ name: "Might of the Meek", type: "Instant", mana: "{G}", oracle: "Target creature gains trample until end of turn. It also gets +1/+0 until end of turn if you control a Mouse. Draw a card." })).toBe("arbiter-spell");
   });
   it("a TARGETED / OPTIONAL gated effect stays arbiter-spell (Clear the Stage 'you may return … target creature card')", () => {

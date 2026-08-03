@@ -3,6 +3,30 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-02 - **THAT-PLAYER REFERENT BINDING (A0b), +5** - batch 5 since v0.150.1
+> Suite **1071 / 13,558 green** (+1 file / +20 tests), lint 0. Tier diff (tier-snapshot.mjs, by the new
+> FILE-COPY method): **GAINED 5 / LOST 0 / RETIERED 0** — Recoil · Ozai's Cruelty · Compelling
+> Deterrence · Frightful Delusion · **Dinrova Horror** (unplanned but audited: the same bounce+discard
+> payload on an ETB trigger, runtime-proven live). Pre-sized 3, landed 5.
+> **The build:** assembly-loop rebind in parser.js — "that player discards" (who:"damagedPlayer" from the
+> cdmg clause parser) rebinds to the PRECEDING atom's subject on a three-shape allowlist: deal-damage→
+> the targeted player · bounce→the OWNER (`playerFrom:"owner"`; enumerated targets now record `owner`,
+> falling back to controller exactly like moveCardToZone's routing) · counter→the spell's CONTROLLER
+> (spell targets now record `controller`). Trigger payloads parse the discard at atom 0 (no antecedent)
+> so the 17-specter overlap of the old clause-level attempt is structurally impossible.
+> **Mutations: 4 pre-specified, 4 killed** (owner→controller swap ×2 sites, allowlist dropped,
+> countContext guard dropped: 3/9/11/11 failures). **Five stale pins inverted in place** across
+> cdmgDiscard / softCounter / conditionalSpellRider ×2 — each file's guard-job re-pinned on shapes that
+> must STILL refuse (no-antecedent, out-of-allowlist destroy, that-many).
+> ⭐ **METHOD CORRECTION 18 — a `git checkout --` "restore" after a mutation run DELETES uncommitted
+> work.** It restores HEAD, not the pre-mutation slice; caught only because the post-restore clean run
+> went red. Restore mutations by inverse edit or pre-mutation file copy; same for tier-snapshot
+> before/after (runbook §5.2 rewritten; gotchas.md entry added).
+> ⭐ **QUEUE-TRAP STALENESS:** A0b's banked note said Compelling Deterrence's condition "is dropped from
+> the atom list" — the conditional-rider slice had since made it a carried `condition`. One parse probe
+> falsified the note and turned a park into a ship. Re-verify a banked trap's load-bearing claim before
+> building around it.
+
 > ## SLICE DONE - 2026-08-02 - **MOXFIELD 403 FIXED (A0) + honest import errors** - +0 cards, USER-FACING
 > Suite **1070 / 13,538 green** (+3 pins), lint 0. Commit `00a8db6e`. Session plan Block 1 complete.
 > **The cause was measured, not guessed:** the install lives at `C:\Users\colto\AppData\Local\MTG Tool`

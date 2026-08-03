@@ -224,6 +224,14 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
     if (atoms[i]?.playerFrom === "controller") {
       atomTargets = atomTargets.map((t) => (t?.controller ? { type: "player", id: t.controller } : null)).filter(Boolean);
     }
+    // OWNER PROJECTION — the that-player rebind's bounce arm ("Return target permanent to ITS
+    // OWNER'S hand. Then THAT PLAYER discards" — Recoil). `owner` is recorded on the enumerated
+    // target (spellEffects.enumerateTargets) for the same left-the-battlefield reason as
+    // `controller`; a target enumerated before the owner field existed falls back to controller,
+    // which is the owner everywhere except a stolen/reanimated permanent (those stamp `owner`).
+    else if (atoms[i]?.playerFrom === "owner") {
+      atomTargets = atomTargets.map((t) => { const pid = t?.owner || t?.controller; return pid ? { type: "player", id: pid } : null; }).filter(Boolean);
+    }
     const ctx = { ...context, controller, targets: atomTargets, cardName, xValue, sourceId };
     const after = resolveAtom(next, atom, ctx);
     if (after == null) {

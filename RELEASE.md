@@ -56,6 +56,12 @@ but everything else does — fine for iterating UI.
 
 ## Cutting an actual release
 
+0. Check the bundled-Node pin is still CURRENT LTS (`NODE_VERSION` in
+   `app/scripts/download-portable-node.cjs` vs https://nodejs.org/dist/index.json).
+   A stale pin is a live user-facing hazard, not hygiene: Cloudflare fingerprints
+   the TLS handshake, and the two-year-old pin broke every Moxfield import inside
+   the packaged app (2026-08-02, fixed in v0.150.1). Bumping it is a one-line
+   change; the script re-downloads and SHA-verifies automatically.
 1. Make sure `master` is green and you're on it: `git switch master && git pull`
 2. Bump the `version` field in `app/src-tauri/tauri.conf.json` (or
    leave it alone — the tag drives the release name; the embedded

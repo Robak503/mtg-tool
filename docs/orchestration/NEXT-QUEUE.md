@@ -22,7 +22,18 @@ Judgment degrades before mechanics do. So:
 
 ## A — UNBLOCKED NOW (do these first, in this order)
 
-### A0b. ⚠️ TRAP BANKED — "that player" on a SPELL is mis-bound to `damagedPlayer` · 4 cards · READ BEFORE BUILDING
+### A0b. ✅ **SHIPPED 2026-08-02 — +5, not 3** ("that player" bound to the preceding atom's subject)
+Assembly-loop rebind (parser.js): bounce→OWNER (`playerFrom:"owner"`, the enumerated target now
+records `owner`), counter→spell's CONTROLLER, damage→the targeted player. All four cards flipped
+PLUS **Dinrova Horror** (the same payload on an ETB trigger — assembly-level fixes fan out wider
+than the clause-level census count predicts). **Compelling Deterrence shipped too**: the trap note
+below said its condition "is dropped from the atom list" — that was STALE; the conditional-rider
+slice now carries it as `condition` and the runtime gates on it (both branches runtime-proven).
+⭐ Queue-hygiene lesson: a banked trap is a snapshot — re-verify its load-bearing claim with one
+parse probe before building around it. Tests: `thatPlayerReferent.test.js` (19). Original entry
+below kept for the trap history.
+
+### A0b-history. ⚠️ TRAP BANKED — "that player" on a SPELL is mis-bound to `damagedPlayer` · 4 cards · READ BEFORE BUILDING
 Found 2026-08-01 by asking "which spells parse HIGH but still classify non-native?" — a probe for
 over-refusals. Exactly four: **Recoil · Ozai's Cruelty · Compelling Deterrence · Frightful Delusion**.
 All four end in a `discard` atom carrying `who: "damagedPlayer"`.
@@ -48,7 +59,16 @@ spell's controller, damage → damaged player), then thread it at spell resoluti
 Deterrence parked until its intervening condition is modeled too. **Yield ~3 cards for a referent-binding
 slice; the gate that looks like the blocker is actually the thing keeping this correct.**
 
-### A0. 🐞 MOXFIELD IMPORT IS BROKEN IN THE PACKAGED APP · size UNKNOWN until the cause is confirmed · USER-FACING
+### A0. ✅ **FIXED 2026-08-02, SHIPPED in v0.150.1** — the hypothesis was RIGHT
+The bundled Node v22.12.0's TLS ClientHello is what Cloudflare 403'd: a byte-identical `node:https`
+request through the bundled binary → 403 challenge page; through v22.23.x → 200. Same machine, same
+headers, same TLS 1.3 cipher. Fix: portable-Node pin → v22.23.2 (current LTS); the ship artifact
+itself probed 200. Archidekt probed through both binaries — never affected. The error-message defect
+is fixed too (status-honest hints, mutation-checked). The install dir is `%LOCALAPPDATA%\MTG Tool`
+(the space is why the 08-01 search missed it). Reusable measurement: `scripts/probe-deck-fetch.mjs`.
+Original entry kept below for the investigation record.
+
+### A0-history. 🐞 MOXFIELD IMPORT IS BROKEN IN THE PACKAGED APP · size UNKNOWN until the cause is confirmed · USER-FACING
 Found 2026-08-01 while importing four test decks Colton supplied. **Every Moxfield URL 403s through
 `/api/decks/import-url` in the running .exe.** Archidekt untested.
 

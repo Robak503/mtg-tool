@@ -155,14 +155,19 @@ Take the top un-attempted cluster. Then, IN ORDER:
    are FLUSHED ONTO THE STACK by `runStepActions`; asserting `pendingTriggers` alone passes
    vacuously on negatives and false-fails on positives (instance: the firstMain runtime test's
    first draft). When a negative test passes, ask what would make it pass vacuously.
-2. **Whole-corpus tier fingerprint**, stash-dance:
+2. **Whole-corpus tier fingerprint**, by FILE COPY — never stash, never checkout (2026-08-02:
+   a `git checkout -- <file>` "restore" after a mutation run silently DELETED the uncommitted
+   slice it was meant to restore; stash has its own cross-worktree hazard on this repo):
    ```bash
-   git stash push -m tmp -- <changed files>
-   MTG_APP_ROOT=... node scripts/tier-fingerprint.mjs > before.tsv
-   git stash pop
-   MTG_APP_ROOT=... node scripts/tier-fingerprint.mjs > after.tsv
-   diff before.tsv after.tsv
+   for f in <changed files>; do cp "$f" /tmp/mine-$(basename $f); git show "HEAD:app/$f" > "$f"; done
+   MTG_APP_ROOT=... node scripts/tier-snapshot.mjs --out=before.json
+   for f in <changed files>; do cp /tmp/mine-$(basename $f) "$f"; done   # restore YOUR versions
+   MTG_APP_ROOT=... node scripts/tier-snapshot.mjs --out=after.json
+   node scripts/tier-snapshot.mjs --diff=before.json,after.json
    ```
+   The same rule governs MUTATION restores: on uncommitted work, un-mutate by the inverse edit
+   or from the pre-mutation copy — a `git checkout` restores HEAD, which is not your slice.
+   After any restore, re-run the targeted file and confirm the CLEAN count before proceeding.
    Audit EVERY line. Gained: each must be an expected carrier (pull its text if you didn't already).
    Lost: each must be a deliberate FP-removal, else STOP. Unexpected extra flips = your regex is
    wider than your scope check said.
