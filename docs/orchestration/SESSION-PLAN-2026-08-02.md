@@ -96,9 +96,12 @@ fine; the order is "whichever is first," and the stop condition is the boundary,
 
 ## STANDING DISCIPLINE (unchanged, restated so the plan is self-contained)
 
-Full suite + lint 0 before every push · mutation-check load-bearing changes (`Mutation-checked:`
-line) · flip-diff GAINED=intended / LOST=0, per-flip audit >~10 cards · runtime evidence for any
-resolver/enumerator slice (law 6 — a green fingerprint proves nothing there) · two failed fixes =
-stop and investigate · RUN-LEDGER rewritten at every slice boundary · tokens-per-slice logged (grind
-token diet) · COMMS swept at boundaries (post ABOVE the first `### ` header) · WAKE-REPORT updated
-at the release and at session end · CONTINUITY + COMMS handoff at wind-down.
+Full suite + lint 0 before every push — **and the gate is the EXIT CODE, never a piped summary**
+(`vitest run > gate.log 2>&1; echo EXIT:$?` — a `| tail` gate reports the pipe's exit and cannot
+stop on failure; method correction 19, learned in this session the hard way) · mutation-check
+load-bearing changes (`Mutation-checked:` line) · flip-diff GAINED=intended / LOST=0, per-flip
+audit >~10 cards · runtime evidence for any resolver/enumerator slice (law 6 — a green fingerprint
+proves nothing there) · two failed fixes = stop and investigate · RUN-LEDGER rewritten at every
+slice boundary · tokens-per-slice logged (grind token diet) · COMMS swept at boundaries (post ABOVE
+the first `### ` header) · WAKE-REPORT updated at the release and at session end · CONTINUITY +
+COMMS handoff at wind-down.

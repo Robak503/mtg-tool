@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔴 INCIDENT + FIX - 2026-08-02 - **PUSHED ON A RED SUITE (2d22adc5)** - method correction 19
+> The Brainstorm slice's gate reported GATE_DONE with **1 test failing** and I pushed it to master.
+> **The commit message's "Suite 1082 files / 13,656 tests green" was FALSE twice** — the real run was
+> 13,626 with 1 red. Root cause, method not luck: every gate this session ran as
+> `npx vitest run | tail -4 && lint && echo GATE_DONE` — **the pipe reports TAIL's exit code, so the
+> chain structurally could not stop on a suite failure.** Eleven gates "passed" through a hole; the
+> twelfth had a real failure and sailed through it. CI on 2d22adc5 went red as designed.
+> **⭐ METHOD CORRECTION 19: the gate command must never be piped.** Run it bare to a log file and
+> read the EXIT CODE (`> gate.log 2>&1; echo EXIT:$?`); the summary line is for humans, the exit code
+> is the gate. (Same genus as correction 17 — an over-determined assertion isn't an assertion; a
+> masked exit code isn't a gate.)
+> **The failure itself:** actionDispatcher.test.js's cast→low→Arbiter ordering pin used BRAINSTORM'S
+> ORACLE as its "genuinely-unmodeled instant" — the slice modeled it out from under the pin. Fixture
+> rotated to Expressive Iteration's three-way split (deliberately unmodeled, verified arbiter-spell
+> same-day); the pin's job is unchanged. Suite + lint re-gated by exit code before the fix push.
+
 > ## SLICE DONE - 2026-08-02 - **BRAINSTORM PUT-BACK (hand→library-top chain), +6** - batch 26 since v0.150.1
 > Suite green + lint 0 at gate (counts in the commit). Flip-diff (file-copy): **+6 / 0 / 0** — Brainstorm
 > · Brainsurge · Riverwise Augur (ETB) · Conch Horn · Brainstone (activated sac) · Survivor of the

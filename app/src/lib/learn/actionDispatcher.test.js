@@ -234,18 +234,19 @@ describe("cast-spell", () => {
   });
 
   it("an instant with real-but-unmodeled oracle emits a LOW effect-program that routes to the Arbiter seam (P2.2 cast-path ordering)", () => {
-    // Brainstorm parses (it IS an instant with text) but its "put two cards on top of your
-    // library in any order" reorder isn't modeled → the whole all-or-nothing program is
-    // low-confidence (NOT spell.noop). This pins the dispatcher's payload-selection ordering so
-    // the cast→low→Arbiter fail-safe can't regress. (Not a soft counter — those are modeled now
-    // via SOFT-CNT; this needs a genuinely-unmodeled oracle.)
-    const brainstorm = { ...card("Brainstorm", "Instant", "{U}"), oracle: "Draw three cards, then put two cards from your hand on top of your library in any order." };
-    let state = withHand(stateWith(), [brainstorm]);
-    state = withMana(state, { U: 1 });
+    // ⚠️ FIXTURE ROTATED 2026-08-02: this pin lived on Brainstorm's oracle for as long as the
+    // put-back was unmodeled — the hand→library-top chain flipped it HIGH and the pin went red
+    // (caught late: the gate's exit code was masked by a pipe — method correction 19). The pin's
+    // JOB is the cast→low→Arbiter payload ordering and it needs a GENUINELY-unmodeled oracle;
+    // Expressive Iteration's three-way top-3 split (hand/bottom/exile-play) is deliberately
+    // unmodeled (the Telling Time class) and verified arbiter-spell the same day.
+    const unmodeled = { ...card("Expressive Iteration", "Sorcery", "{U}{R}"), oracle: "Look at the top three cards of your library. Put one of them into your hand, put one of them on the bottom of your library, and exile one of them. You may play the exiled card this turn." };
+    let state = withHand(stateWith(), [unmodeled]);
+    state = withMana(state, { U: 1, R: 1 });
 
     state = dispatchAction(state, {
-      kind: "cast-spell", playerId: "user", cardId: brainstorm.id, name: "Brainstorm",
-      cost: parseManaCost("{U}"), cmc: 1,
+      kind: "cast-spell", playerId: "user", cardId: unmodeled.id, name: "Expressive Iteration",
+      cost: parseManaCost("{U}{R}"), cmc: 2,
     });
     expect(state.stack[0].payload.resolver).toBe(RESOLVER_KEYS.EFFECT_PROGRAM);
     expect(state.stack[0].payload.params.program.confidence).toBe("low");
@@ -253,7 +254,7 @@ describe("cast-spell", () => {
 
     const resolved = resolveTopOfStack(state);
     expect(resolved.stack).toHaveLength(0);
-    expect(resolved.pendingArbiter).toMatchObject({ cardName: "Brainstorm", controller: "user" });
+    expect(resolved.pendingArbiter).toMatchObject({ cardName: "Expressive Iteration", controller: "user" });
     expect(resolved.log.some(e => e.kind === "spell-unresolved")).toBe(true);
   });
 
