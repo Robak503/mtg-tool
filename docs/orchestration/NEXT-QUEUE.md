@@ -99,11 +99,18 @@ app's OWN `normalizeMoxfieldDeck` + the import route's OWN `resolveCard`, and co
 Only the network hop is swapped, so the stored deck shape is exactly what the importer would have written.
 Script: `scratchpad/import-test-decks.mjs`.
 
-### A1. Tibalt gremlin mode · ~1h · low risk
-Omnath's design landed 2026-07-27 ~23:05 (COMMS [O2]): trigger policy, frequency cap, bubble register.
-Per-profile setting, default OFF, Colton's ON. **Failure mode:** an unprompted interjection firing for a
-guest profile, or a jab with no real criticism behind it — both violate standing law. Build the cap and
-the profile gate before the copy.
+### A1. ✅ **SHIPPED 2026-08-02** — Tibalt gremlin mode, wired end to end
+The policy module (`lib/tibaltGremlin.js`) already existed with tests and ZERO consumers — this was
+a wiring job: per-profile `gremlin.json` store (session cap resets via a boot marker) · keyed
+findings in `powerRanker.landAssessment` (issues now DERIVED from them — can't drift) ·
+`/api/tibalt/interject` (GET/PUT toggle · POST policy+model · PATCH reaction) · emits at
+useDeckStore's save/import sites (card-LIST changes only — a game note is not deck work) · the
+red bubble (ley-rise one-shot, registry tokens, art-crop avatar, pulse-ban test) · Settings→Models
+toggle. **Live-fired end to end**: real deck → `lands-low` finding → policy → real Ollama → jab →
+fire recorded. Both standing-law failure modes are pinned by test: default OFF (guests never
+jabbed), and Omnath's mutation check (no finding → NO bubble; empty model answer → no bubble AND
+no suppression burned). Reaction ledger lives in `gremlin.json` `log[]` — Omnath's to consume.
+Not built: `bench.statCrossedThreshold` (no producer exists; the event allowlist keeps the slot).
 
 ### A2. `MTGAssistant.jsx` decomp · ~2h · **RISK RE-RATED UPWARD — the safety net does not exist**
 

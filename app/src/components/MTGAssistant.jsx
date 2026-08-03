@@ -68,6 +68,8 @@ import LibraryView from "./mtg/LibraryView";
 import CardInspector from "./mtg/CardInspector";
 import CommandPalette from "./mtg/CommandPalette";
 import DeckMenu from "./mtg/DeckMenu";
+import TibaltGremlinBubble from "./mtg/TibaltGremlinBubble";
+import { setGremlinContext, reportGremlinReaction } from "../lib/tibaltGremlinClient";
 
 export default function MTGAssistant() {
   const [agent, setAgent]   = useState("omnath");
@@ -82,6 +84,7 @@ export default function MTGAssistant() {
   const [rightOpen, setRightOpen] = useState(true);
 
   const [tooltip, setTooltip] = useState(null);
+  const [gremlinBubble, setGremlinBubble] = useState(null);
   const [goldfishResult, setGoldfishResult] = useState(null);
   const [goldfishRunning, setGoldfishRunning] = useState(false);
   const [mobileTab, setMobileTab] = useState("chat");
@@ -278,6 +281,33 @@ export default function MTGAssistant() {
   } = useCardSearch();
 
   useEffect(()=>{ const h=()=>setMobile(window.innerWidth<660); window.addEventListener("resize",h); return()=>window.removeEventListener("resize",h); },[]);
+  // Tibalt gremlin — register how to read the CURRENT surface at fire time (the policy's hard
+  // blocks veto by surface: someone learning, a rules answer, the front hall) and where a granted
+  // bubble lands. Re-registered whenever the surface inputs change so the fire-time read is live.
+  useEffect(() => {
+    setGremlinContext({
+      getSurface: () => ({
+        surface: area === "home" ? "keeper"
+          : area === "academy" ? "academy"
+          : (area === "agents" && (agent === "jace" || agent === "arbiter")) ? "rules"
+          : area,
+        // Karn's room open with a deck locked → his analysis may be on screen; the policy
+        // treats a matching deck as already-on-screen (an echo is not a gremlin).
+        karnDeckId: agent === "karn" ? (currentSession?.lockedDeck?.id || null) : null,
+      }),
+      onBubble: setGremlinBubble,
+    });
+  }, [area, agent, currentSession?.lockedDeck?.id]);
+  // An unreacted bubble auto-expires as IGNORED — the reaction that drives the policy's
+  // ignore-decay (he reads the room and spaces himself out when jokes stop landing).
+  useEffect(() => {
+    if (!gremlinBubble?.id) return;
+    const t = setTimeout(() => {
+      reportGremlinReaction(gremlinBubble.id, "ignored");
+      setGremlinBubble(null);
+    }, 45_000);
+    return () => clearTimeout(t);
+  }, [gremlinBubble?.id]);
   // Opening / switching a chat jumps to the latest message.
   useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:"auto"}); },[currentSession?.id]);
   // While a message streams in, only follow the bottom if the user is already
@@ -1698,6 +1728,16 @@ export default function MTGAssistant() {
         colors={{BG2, BG3, LINE, TEXT, MUTED, GOLD}}
         fontFamily={F}
         mobile={mobile}
+      />
+
+      {/* Tibalt's gremlin bubble — server-side policy already allowed it by the time it exists.
+          Dismissal is DATA (feeds the reaction ledger); an unreacted bubble expires as ignored. */}
+      <TibaltGremlinBubble
+        bubble={gremlinBubble}
+        onDismiss={() => {
+          if (gremlinBubble?.id) reportGremlinReaction(gremlinBubble.id, "dismissed");
+          setGremlinBubble(null);
+        }}
       />
     </div>
   );

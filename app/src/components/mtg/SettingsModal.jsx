@@ -13,7 +13,7 @@
  * Model tier mirrors the header control (both write the same `modelProvider`).
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useEscapeClose from "../../hooks/useEscapeClose";
 
 const REPO_URL = "https://github.com/Robak503/mtg-tool";
@@ -46,6 +46,26 @@ export default function SettingsModal({
 }) {
   useEscapeClose(onClose);
   const [section, setSection] = useState("models");
+  // Tibalt gremlin toggle — per-profile, server-persisted (gremlin.json). null = still loading.
+  const [gremlinEnabled, setGremlinEnabled] = useState(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    let alive = true;
+    fetch("/api/tibalt/interject")
+      .then((r) => r.json())
+      .then((d) => { if (alive) setGremlinEnabled(d?.enabled === true); })
+      .catch(() => { if (alive) setGremlinEnabled(false); });
+    return () => { alive = false; };
+  }, [open]);
+  const toggleGremlin = () => {
+    const next = !gremlinEnabled;
+    setGremlinEnabled(next);
+    fetch("/api/tibalt/interject", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: next }),
+    }).catch(() => setGremlinEnabled(!next)); // revert on failure — the shown state stays honest
+  };
   if (!open) return null;
 
   const { BG, BG3, LINE, TEXT, MUTED, GOLD } = colors;
@@ -142,6 +162,29 @@ export default function SettingsModal({
                       );
                     })}
                   </div>
+                </div>
+                <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${LINE}` }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Tibalt&apos;s gremlin mode</div>
+                  <P muted={MUTED}>
+                    Off by default. When on, Tibalt may drop ONE uninvited jab after a deck save or
+                    import — only when the deck data actually supports the criticism, never in the
+                    Academy, never on a rules answer, never at a first deck, and at most once per
+                    session. This profile only.
+                  </P>
+                  <button
+                    onClick={toggleGremlin}
+                    className="btn btn-sm"
+                    disabled={gremlinEnabled === null}
+                    style={{
+                      marginTop: 8,
+                      background: gremlinEnabled ? "rgba(255,180,171,0.12)" : "transparent",
+                      border: `1px solid ${gremlinEnabled ? "rgba(255,180,171,0.42)" : LINE}`,
+                      color: gremlinEnabled ? "#ffb4ab" : MUTED,
+                      fontWeight: gremlinEnabled ? 700 : 400,
+                    }}
+                  >
+                    {gremlinEnabled === null ? "…" : gremlinEnabled ? "Gremlin ON — he may interject" : "Gremlin OFF"}
+                  </button>
                 </div>
               </Section>
             )}

@@ -850,31 +850,35 @@ function scoreAxes(counts, spellbook, commanderColors = []) {
 }
 
 function landAssessment(counts, vlc, commanderColors = []) {
-  const issues = [];
   const strengths = [];
   const sourceTarget = commanderColors.length >= 4 ? 9 : commanderColors.length === 3 ? 10 : 11;
   const shortColors = commanderColors.filter(color => (counts.colorSources?.[color] || 0) < sourceTarget);
 
-  if (counts.lands < 34) issues.push(`${counts.lands} lands is dangerously low for Commander unless the curve is tiny and ramp is extreme.`);
-  else if (counts.lands <= 35 && counts.ramp < 10) issues.push(`${counts.lands} lands with ${counts.ramp} ramp pieces is likely to stumble.`);
+  // KEYED findings — { key, text, value } — so a consumer can suppress per finding and detect
+  // "the underlying stat actually changed" (the Tibalt gremlin's per-finding suppression). The
+  // legacy `issues` string array is DERIVED from these below, so the two can never drift.
+  const findings = [];
+
+  if (counts.lands < 34) findings.push({ key: "lands-low", value: counts.lands, text: `${counts.lands} lands is dangerously low for Commander unless the curve is tiny and ramp is extreme.` });
+  else if (counts.lands <= 35 && counts.ramp < 10) findings.push({ key: "lands-ramp-thin", value: `${counts.lands}/${counts.ramp}`, text: `${counts.lands} lands with ${counts.ramp} ramp pieces is likely to stumble.` });
   else if (counts.lands >= 36 && counts.lands <= 38) strengths.push(`${counts.lands} lands is in the normal Commander band.`);
   else if (counts.lands >= 39) strengths.push(`${counts.lands} lands supports landfall, high curves, or expensive commanders.`);
 
-  if (counts.averageManaValue > 3.4 && counts.lands < 37) issues.push(`Average mana value ${counts.averageManaValue} wants more lands or cheaper ramp.`);
-  if (counts.ramp < 8) issues.push(`${counts.ramp} ramp pieces is below the usual functional floor.`);
-  if (counts.draw < 8) issues.push(`${counts.draw} draw pieces is below the safe floor; the deck may run out of gas.`);
-  if (counts.slowLandWeight >= 8) issues.push(`Slow-land weight ${counts.slowLandWeight} will slow early development.`);
-  else if (counts.slowLandWeight >= 5) issues.push(`Slow-land weight ${counts.slowLandWeight} is noticeable but not fatal.`);
+  if (counts.averageManaValue > 3.4 && counts.lands < 37) findings.push({ key: "curve-heavy", value: `${counts.averageManaValue}/${counts.lands}`, text: `Average mana value ${counts.averageManaValue} wants more lands or cheaper ramp.` });
+  if (counts.ramp < 8) findings.push({ key: "ramp-low", value: counts.ramp, text: `${counts.ramp} ramp pieces is below the usual functional floor.` });
+  if (counts.draw < 8) findings.push({ key: "draw-count-low", value: counts.draw, text: `${counts.draw} draw pieces is below the safe floor; the deck may run out of gas.` });
+  if (counts.slowLandWeight >= 8) findings.push({ key: "slow-lands-heavy", value: counts.slowLandWeight, text: `Slow-land weight ${counts.slowLandWeight} will slow early development.` });
+  else if (counts.slowLandWeight >= 5) findings.push({ key: "slow-lands-notable", value: counts.slowLandWeight, text: `Slow-land weight ${counts.slowLandWeight} is noticeable but not fatal.` });
   if (vlc >= 43 && vlc <= 49) strengths.push(`Virtual land count ${vlc} is in a functional range.`);
-  if (vlc < 42) issues.push(`Virtual land count ${vlc} is lean; opening hands may be fragile.`);
-  if (vlc > 52 && counts.averageManaValue < 3.2) issues.push(`Virtual land count ${vlc} may flood for a low-curve deck.`);
+  if (vlc < 42) findings.push({ key: "vlc-lean", value: vlc, text: `Virtual land count ${vlc} is lean; opening hands may be fragile.` });
+  if (vlc > 52 && counts.averageManaValue < 3.2) findings.push({ key: "vlc-flood", value: vlc, text: `Virtual land count ${vlc} may flood for a low-curve deck.` });
   if (shortColors.length) {
-    issues.push(`Color-source shortfall on ${shortColors.join("/")}: target ${sourceTarget}+ sources per commander color.`);
+    findings.push({ key: "color-sources-short", value: shortColors.join("/"), text: `Color-source shortfall on ${shortColors.join("/")}: target ${sourceTarget}+ sources per commander color.` });
   } else if (commanderColors.length) {
     strengths.push(`Color sources meet the rough ${sourceTarget}+ source target for ${commanderColors.join("/")}.`);
   }
 
-  return { strengths, issues };
+  return { strengths, issues: findings.map((f) => f.text), findings };
 }
 
 function attributeRatings(counts, comboAnalysis, land, commanderColors = []) {

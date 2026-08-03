@@ -9,6 +9,12 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Tibalt's gremlin mode (opt-in, off by default).** When enabled in Settings → Models, Tibalt may
+  drop ONE uninvited jab after a deck save or import — and only when the deck's real numbers back the
+  criticism (low lands, thin draw, weak ramp…). Hard limits: once per session, six hours between jabs,
+  three per week, never the same complaint twice until the stat actually changes, never in the
+  Academy, never on a rules answer, never at anyone's first deck, and dismissable with one click. He
+  reads the room: ignored jokes make him space himself out further on his own.
 - **"That player" spells work.** Five cards — Recoil, Ozai's Cruelty, Compelling Deterrence,
   Frightful Delusion and Dinrova Horror — now correctly figure out who "that player" is: the owner
   of the bounced permanent, the controller of the countered spell, or the player who was just dealt

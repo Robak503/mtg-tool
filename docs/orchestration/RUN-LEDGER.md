@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-02 - **TIBALT GREMLIN MODE WIRED (A1)** - feature, +0 cards
+> Suite green + lint 0 at gate (counts in the commit). The policy module already existed UNWIRED
+> (`lib/tibaltGremlin.js`, tests, zero consumers — the scout found it; fourth "already half-built"
+> discovery this session). Wired: per-profile `gremlin.json` (boot-marker session reset) ·
+> `landAssessment` findings KEYED with `issues` derived from them (single source, cannot drift) ·
+> `/api/tibalt/interject` GET/PUT/POST/PATCH · useDeckStore emits on card-LIST changes only (a
+> memory patch keeps the same cards reference — that identity check is the discriminator) · the
+> red bubble (pulse-ban render test) · Settings toggle. **Live-fired end to end on this box**
+> (real oracle root + qwen2.5:14b): finding `lands-low` → policy pass → real jab → fire recorded →
+> artifacts cleaned. Route mutations: no-finding guard dropped = 5 red · empty-jab fire recorded =
+> 1 red; restored clean 11/11 BY INVERSE EDIT (correction 18 applied, not repeated).
+> ⚠️ For Omnath's ledger: the 14b's live jab carried an EMOJI — register tuning is his lane; the
+> reaction log he consumes is `gremlin.json` `log[]` per profile. Colton's profile still needs the
+> toggle flipped ON in Settings → Models (default OFF is the law).
+
 > ## SLICE DONE - 2026-08-02 - **THAT-PLAYER REFERENT BINDING (A0b), +5** - batch 5 since v0.150.1
 > Suite **1071 / 13,558 green** (+1 file / +20 tests), lint 0. Tier diff (tier-snapshot.mjs, by the new
 > FILE-COPY method): **GAINED 5 / LOST 0 / RETIERED 0** — Recoil · Ozai's Cruelty · Compelling

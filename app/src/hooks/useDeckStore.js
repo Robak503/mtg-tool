@@ -22,6 +22,7 @@ import {
 } from "../lib/deck/deckPersistence";
 import { fetchDeckData } from "../lib/scryfall";
 import { loadJson, saveJson } from "../lib/storage";
+import { emitGremlinEvent } from "../lib/tibaltGremlinClient";
 
 export default function useDeckStore(activeProfileName) {
   const [savedDecks, setSavedDecks] = useState([]);
@@ -249,10 +250,22 @@ export default function useDeckStore(activeProfileName) {
 
   const updateActiveDeck = (updater) => {
     if (!activeDeckId) return;
-    const updated = savedDecks.map(deck =>
-      deck.id === activeDeckId ? normalizeDeck(updater(normalizeDeck(deck))) : deck
-    );
+    let cardsChanged = false;
+    let nextDeck = null;
+    const updated = savedDecks.map(deck => {
+      if (deck.id !== activeDeckId) return deck;
+      const prev = normalizeDeck(deck);
+      nextDeck = normalizeDeck(updater(prev));
+      // Memory-only patches spread `...deck` and keep the same cards array reference; a real
+      // list edit builds a new one. Only a LIST change is a "deck saved" gremlin event —
+      // logging a game note is not deck work and must not invite a jab.
+      cardsChanged = nextDeck.cards !== prev.cards;
+      return nextDeck;
+    });
     persistDecks(updated);
+    if (cardsChanged && nextDeck) {
+      emitGremlinEvent("deck.saved", nextDeck, { isFirstDeck: updated.length === 1 });
+    }
   };
 
   // Mutate a deck by id (not necessarily the active one) — used by "Karn applies
@@ -261,13 +274,17 @@ export default function useDeckStore(activeProfileName) {
   const updateDeckById = (id, updater, options = {}) => {
     if (!id) return null;
     let next = null;
+    let cardsChanged = false;
     const updated = savedDecks.map(deck => {
       if (deck.id !== id) return deck;
-      next = normalizeDeck(updater(normalizeDeck(deck)));
+      const prev = normalizeDeck(deck);
+      next = normalizeDeck(updater(prev));
+      cardsChanged = next.cards !== prev.cards;
       return next;
     });
     if (!next) return null;
     persistDecks(updated, options);
+    if (cardsChanged) emitGremlinEvent("deck.saved", next, { isFirstDeck: updated.length === 1 });
     return next;
   };
 
@@ -342,6 +359,7 @@ export default function useDeckStore(activeProfileName) {
     setDeckRaw("");
     setDeckName("My Deck");
     autoRatePower(deck);
+    emitGremlinEvent("deck.imported", deck, { isFirstDeck: savedDecks.length === 0, isFirstImport: true });
 
     return deck;
   };
@@ -373,6 +391,7 @@ export default function useDeckStore(activeProfileName) {
     setActiveDeckId(deck.id);
     setDeckData({});
     autoRatePower(deck);
+    emitGremlinEvent("deck.imported", deck, { isFirstDeck: savedDecks.length === 0, isFirstImport: true });
     return deck;
   };
 
