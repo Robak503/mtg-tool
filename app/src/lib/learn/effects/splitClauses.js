@@ -64,6 +64,16 @@ export function splitClauses(oracle) {
     // Folded to a form carrying NO period, so the top-level sentence split cannot shatter it again (the
     // lesson from the slice-10 fold that measured zero flips because " and " re-split it).
     .replace(/(add (?:\{[wubrgc]\})+)\.\s+this mana lasts until end of combat\.?/gi, "$1 lasting until end of combat")
+    // COLOR+KEYWORD compound (Crimson Wisps — "Target creature becomes red and gains haste until end
+    // of turn."): the top-level " and " split would shatter it into a duration-less "becomes red" and
+    // an orphaned "gains haste …", losing the shared until-EOT that governs BOTH halves. Fold to an
+    // and-free spelling ONLY the compound arm in atoms/combat.js reads (the held-mana fold's lesson:
+    // a fold must leave nothing the later splits can re-shatter). Anchored to the exact printed shape.
+    .replace(/\b(becomes (?:white|blue|black|red|green)) and (gains [a-z ]+? until end of turn)\b/gi, "$1 also-$2")
+    // KEYWORD+UNBLOCKABLE compound (Pym Particles — "Target creature gains vigilance until end of
+    // turn and can't be blocked this turn."): same shatter, same fold discipline; the arm in
+    // atoms/combat.js reads the folded spelling and emits one two-grant atom.
+    .replace(/\b(gains [a-z ]+? until end of turn) and (can't be blocked this turn)\b/gi, "$1 also-$2")
     // TAP-PERMANENT-LOCK — fold Koma's separate "Its activated abilities can't be activated this turn."
     // sentence that follows "Tap target permanent." into the tap sentence as " and its activated abilities
     // …", so combatKeywordClauseParser binds the activated-ability LOCK to the SAME single target ("Its" =

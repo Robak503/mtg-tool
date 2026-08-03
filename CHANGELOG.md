@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Two-in-one combat tricks work.** Crimson Wisps ("becomes red AND gains haste") and Pym Particles
+  ("gains vigilance AND can't be blocked") now apply BOTH halves to the target — they were being
+  refused because the shared "until end of turn" got lost between the two effects.
 - **Start your engines! works.** The Aetherdrift speed mechanic is real: an engines permanent
   entering gives you speed 1, your speed climbs once on each of your turns when an opponent loses
   life (max 4), and "Max speed —" abilities — mana, battlefield, and graveyard — only switch on at

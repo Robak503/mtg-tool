@@ -740,8 +740,17 @@ export function applyBecomeColor(state, atom, ctx) {
       affects: { mode: "fixed", permanentIds: [target.id] },
       duration: dur, source: src,
     }).state;
+    // COLOR+KEYWORD compound (Crimson Wisps) — the same clause also grants a keyword until end of
+    // turn; a separate layer-6 effect on the same target, applied only when the parse carried it.
+    for (const kw of atom.grantKeywords || []) {
+      next = addContinuousEffect(next, {
+        layer: 6, op: { layerOp: "addKeyword", keyword: kw },
+        affects: { mode: "fixed", permanentIds: [target.id] },
+        duration: dur, source: src,
+      }).state;
+    }
   }
-  return logEvent(next, { kind: "spell-effect", effect: "become-color", colors: atom.colors || [], targets: targets.map((t) => t.id) });
+  return logEvent(next, { kind: "spell-effect", effect: "become-color", colors: atom.colors || [], grantKeywords: atom.grantKeywords || [], targets: targets.map((t) => t.id) });
 }
 
 export function applyGrantProtection(state, atom, ctx) {
@@ -779,8 +788,17 @@ export function applyCantBeBlocked(state, atom, ctx) {
       affects: { mode: "fixed", permanentIds: [target.id] },
       duration: dur, source: src,
     }).state;
+    // KEYWORD+UNBLOCKABLE compound (Pym Particles) — the same clause also grants a real keyword
+    // until end of turn; applied only when the parse carried it (the become-color compound pattern).
+    for (const kw of atom.grantKeywords || []) {
+      next = addContinuousEffect(next, {
+        layer: 6, op: { layerOp: "addKeyword", keyword: kw },
+        affects: { mode: "fixed", permanentIds: [target.id] },
+        duration: dur, source: src,
+      }).state;
+    }
   }
-  return logEvent(next, { kind: "spell-effect", effect: "cant-be-blocked", targets: targets.map(t => t.id) });
+  return logEvent(next, { kind: "spell-effect", effect: "cant-be-blocked", grantKeywords: atom.grantKeywords || [], targets: targets.map(t => t.id) });
 }
 
 /**
@@ -1307,6 +1325,18 @@ export function combatKeywordClauseParser(clause) {
   // to its other colors" is the addColor op, which has no emitter and — measured — exactly ONE corpus
   // carrier with 0 attributable, so it stays unwritten rather than being guessed at from this arm.
   {
+    // COLOR+KEYWORD compound (the Wisps cycle — Crimson Wisps "becomes red and gains haste until end
+    // of turn", Cerulean Wisps' blue/untap sibling stays unmodeled): ONE clause, two layered effects
+    // on the same chosen target. Both halves were already modeled alone (become-color layer 5,
+    // keyword grant layer 6); the atom carries `grantKeywords` and applyBecomeColor applies both.
+    // (The clause arrives in splitClauses' folded and-free spelling — "becomes red also-gains haste
+    // until end of turn" — so the top-level " and " split cannot shatter the shared duration.)
+    const cw = t.match(/^target creature becomes (white|blue|black|red|green) also-gains (haste|vigilance|flying|first strike|trample|lifelink|deathtouch|reach|menace) until end of turn$/);
+    if (cw) {
+      const color = { white: "W", blue: "U", black: "B", red: "R", green: "G" }[cw[1]];
+      const kw = cw[2].replace(/\b[a-z]/g, (ch) => ch.toUpperCase());
+      return { op: "become-color", targetType: "creature", colors: [color], grantKeywords: [kw] };
+    }
     const cm = t.match(/^(target creature|that creature) becomes (white|blue|black|red|green) until end of turn$/);
     if (cm) {
       const color = { white: "W", blue: "U", black: "B", red: "R", green: "G" }[cm[2]];
@@ -1353,6 +1383,17 @@ export function combatKeywordClauseParser(clause) {
   // BEFORE the bare form (more specific first); the `$` anchor still rejects "…except by <X>" riders.
   const cbbP = t.match(/^target creature with power (\d+) or less can't be blocked this turn$/);
   if (cbbP) return { op: "cant-be-blocked", targetType: "creature", restrictions: [{ kind: "power", op: "<=", value: parseInt(cbbP[1], 10) }] };
+  // KEYWORD+UNBLOCKABLE compound (Pym Particles — "gains vigilance until end of turn and can't be
+  // blocked this turn"): ONE clause, one chosen target, two layered grants both already modeled
+  // alone. The atom carries `grantKeywords`; applyCantBeBlocked applies both (the become-color
+  // compound's exact pattern). Tried before the bare form (more specific first); `$`-anchored.
+  // (Arrives in splitClauses' folded and-free spelling — "gains vigilance until end of turn
+  // also-can't be blocked this turn".)
+  const cbbK = t.match(/^target creature gains (haste|vigilance|flying|first strike|trample|lifelink|deathtouch|reach|menace) until end of turn also-can't be blocked this turn$/);
+  if (cbbK) {
+    const kw = cbbK[1].replace(/\b[a-z]/g, (ch) => ch.toUpperCase());
+    return { op: "cant-be-blocked", targetType: "creature", grantKeywords: [kw] };
+  }
   // CANT-BE-BLOCKED — "target creature[ you control] can't be blocked this turn" (Infiltrate, Artful Dodge).
   // The `$` anchor rejects a qualified "…except by <X>" / conditional form (those stay Arbiter, FN-safe).
   const cbb = t.match(/^target creature( you control)? can't be blocked this turn$/);

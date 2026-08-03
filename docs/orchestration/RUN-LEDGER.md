@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-02 - **VEYRAN COMPOUND GRANTS (Wisps/Pym), +2** - batch 20 since v0.150.1
+> Suite green + lint 0 at gate (counts in the commit). Flip-diff (file-copy): **+2 / 0 / 0** — Crimson
+> Wisps + Pym Particles, both in Colton's Veyran Cantrips (85% → toward the bar). The top-level " and "
+> split was shattering one-clause/two-grant compounds and LOSING the shared until-EOT duration.
+> splitClauses gains two anchored FOLDS to and-free spellings ("also-gains" / "also-can't") that only
+> the matching compound arms read (the held-mana fold discipline); `become-color` and `cant-be-blocked`
+> atoms carry `grantKeywords`, applied as a second layer-6 effect on the same target. 5 tests (runtime:
+> the bear IS red AND hasted; vigilant AND unblockable). 2 mutations killed (fold dropped: 2 red ·
+> grant application dropped: 1 red). Veyran triage note: next cheapest are Brainstorm (hand→library-top
+> put-back), Arcane Denial (delayed both-sides draws — delayedTrigger atoms exist), Thunderdrum
+> (mana-spent escalation — the conditional ifTrue/ifFalse atom exists); Flame of Anor / Mizzix's /
+> Vivi's Persistence / Flow State / Fiery Inscription (the Ring) / DRC (delirium) are honest parks.
+
 > ## SLICE DONE - 2026-08-02 - **START YOUR ENGINES! (speed subsystem), +6** - batch 18 since v0.150.1
 > Suite green + lint 0 at gate (counts in the commit). Flip-diff (file-copy): **+6 / 0 / 0** — the
 > census's exact 6-sole cluster (Goblin/Loxodon/Leonin/Glitch Ghost/Mutant Surveyor · Hour of Victory).
