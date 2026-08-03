@@ -9,18 +9,26 @@
 
 ## ☀️ 2026-08-02 (session end) — **v0.150.1 SHIPPED · +33 cards · 3 features** — suite **1081 / 13,640** · batch **33** since v0.150.1
 
-> **▶ START HERE — the next slice: the AURA/EQUIPMENT two-flip composition lane (~4-5 cards, probed,
-> not built).** Line-deletion probe (2026-08-02) on the census's two-flip list found ONE shape behind
-> four of five: a permanent with a TRIGGER **plus** a second ability, where the composite gate composes
-> Equipment but not the trigger-first case. Each half classifies native ALONE and the pair parks:
-> · **Verdant Haven** — drop the ETB → native-mana-aura; drop the mana-boost trigger → native-trigger
-> · **Fiery Mantle** — drop the activated → native-trigger; drop the PiG-return trigger → native-activated
-> · **Candlestick** — drop the bonus → native-trigger; drop the sac ability → native-equipment
-> · **Vat of Rebirth** — drop the trigger → native-activated; drop the activated → native-trigger
-> There IS already an aura/equipment + ACTIVATED composition lane (coverage.js ~1915); the gap is the
-> TRIGGER-carrying case. ⛔ Scope it and re-probe before building — the same guard-sharing trap that
-> caught me tonight (below) lives in this neighbourhood too. **Witch's Mark is a DIFFERENT shape** (two
-> spell clauses, arbiter-spell) — don't fold it in.
+> **▶ START HERE — four two-flip cards, and they are FOUR SEPARATE SLICES, not one.**
+> ⚠️ **My own first read was WRONG and is corrected here — do not trust the version of this paragraph in
+> the git history.** A line-deletion probe made them look like one shape ("trigger + second ability");
+> the follow-up probe (detectTriggers / parseActivatedAbilities / the bonus parsers, per card) found a
+> DIFFERENT cause behind each. This is correction 20 biting a second time in one session: *a probe that
+> groups cards by SYMPTOM is not evidence of a shared CAUSE.* Diagnosed causes, each its own scoping job:
+> · **Verdant Haven** — only 1 trigger detected (the ETB). Its second line, *"Whenever enchanted land is
+>   tapped for mana, its controller adds an additional…"*, is an AURA-OWN trigger shape detectTriggers
+>   does not recognise → it survives as residue. **Cause: an undetected trigger shape**, not composition.
+> · **Candlestick** — `parseEquipmentBonus` returns `[]` because the bonus carries a QUOTED GRANTED
+>   TRIGGER (*has "Whenever this creature attacks, surveil 2."*). **Cause: the bonus parser rejects a
+>   quoted-trigger grant.** Both its activated abilities already model true.
+> · **Vat of Rebirth** — its activated ability models FALSE: the **remove-counter** arm of
+>   `sacrificeDropsTrigger`, which tonight's slice deliberately left blanket-refused (unprobed). Worth
+>   noting the shape: removing a counter does NOT remove the permanent, so an LTB trigger cannot be
+>   dropped at all — but **probe it, don't assume**; that arm may exist for a vanishing-style reason.
+> · **Fiery Mantle** — trigger detected+modeled, activated modeled, `parseAuraBonus` empty (its "{R}:
+>   Enchanted creature gets +1/+0" is an ACTIVATED, not a static bonus) and `permanentFullyCovered` still
+>   false. **Cause NOT yet isolated — this one needs the dig before any build.**
+> **Witch's Mark is a fifth, different shape** (two spell clauses, arbiter-spell) — don't fold it in.
 >
 > **State:** last commit `c8d0c1c7`, tree clean, nothing in flight. **Do not tag** — 33 of ~100 banked.
 > Shelf **21 decks · 82% aggregate (1715/2097) · 7 at the ≥90% bar**; corpus **38.6% native**

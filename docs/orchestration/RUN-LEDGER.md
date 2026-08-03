@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔍 SCOPING ONLY (no build) - 2026-08-02 - **the two-flip four are FOUR causes, not one**
+> Ran the next slice's scoping pass and STOPPED there, because the premise failed. The line-deletion probe
+> had grouped Verdant Haven / Fiery Mantle / Candlestick / Vat of Rebirth as one shape ("a trigger plus a
+> second ability the composite gate won't compose"). Probing each card's actual pipeline —
+> detectTriggers · parseActivatedAbilities · parseAuraBonus/parseEquipmentBonus · permanentFullyCovered —
+> found **four different causes** (written out per card in WAKE-REPORT's START HERE):
+> undetected aura-own trigger shape · a bonus parser rejecting a quoted-trigger grant · the remove-counter
+> arm of the sac guard · and one not yet isolated. **⭐ CORRECTION 20, SECOND INSTANCE, SAME NIGHT: a probe
+> that groups cards by SYMPTOM is not evidence of a shared CAUSE.** Deletion probes answer "what unblocks
+> this card", never "why" — and a batched build on that premise would have been four guesses wearing one
+> commit. No code touched; the four leads are scoped separately for the next seat. The WAKE-REPORT
+> paragraph claiming one shared shape is corrected in place (its git-history version is wrong).
+
 > ## SLICE DONE - 2026-08-02 - **SELF-LTB EXCEPTION, SAC-SCOPED, +2** - batch 31 since v0.150.1
 > Suite green + lint 0 BY EXIT CODE (counts in the commit). Flip-diff (file-copy): **+2 / 0 / 0** —
 > Experimental Synthesizer · Mouser Foundry, from the census's TWO-FLIP composition list.
