@@ -71,10 +71,17 @@ describe("⛔ SUSPEND stays refused — the card has no other way to be played",
     expect(isKeywordOnly("Suspend 3—{1}{U}")).toBe(false);
   });
 
-  it("Lotus Bloom stays parked (printed mana cost is empty — suspend is its only route)", () => {
+  it("Lotus Bloom now flips (INVERTED 2026-08-02 — suspend for no-cost noncreatures is BUILT); a creature carrier still parks", () => {
+    // The refusal this pin carried ("crediting suspend claims a card the engine cannot play") is now
+    // enforced POSITIVELY: the suspend special action → owner-upkeep tick → zero-counter free cast
+    // exists end to end (suspendNoCost.test.js), and the classifier reads the SAME
+    // parseSuspendNoCost gate the runtime offers through. The guard's JOB continues on the shape
+    // that is still unplayable: a costless CREATURE (needs the suspend haste grant) stays parked.
     const LOTUS_BLOOM = { name: "Lotus Bloom", type: "Artifact", mana: "",
       oracle: "Suspend 3—{0} (Rather than cast this card from your hand, you may pay {0} and exile it with three time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)\n{T}, Sacrifice this artifact: Add three mana of any one color." };
-    expect(classifyCard(LOTUS_BLOOM)).not.toMatch(/^native/);
+    expect(classifyCard(LOTUS_BLOOM)).toBe("native-mana");
+    expect(classifyCard({ name: "Costless Beast", type: "Creature — Beast", mana: "", power: "5", toughness: "5",
+      oracle: "Suspend 5—{G}" })).not.toMatch(/^native/);
   });
 });
 

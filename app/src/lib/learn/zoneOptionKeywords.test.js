@@ -118,11 +118,16 @@ describe("CREED guards — what this family deliberately does NOT credit", () =>
     expect(classifyCard(C("Lazotep Archway", "Land",
       "Lazotep Archway enters the battlefield tapped.\n{T}: Add {W} or {B}.\nEternalize {3}{W}{B}", ""))).toMatch(/^(native|land)/);
   });
-  it("SUSPEND is deliberately EXCLUDED — a no-mana-cost suspend card cannot be hard-cast at all", () => {
-    // Lotus Bloom: crediting suspend would mark a card native that the engine literally cannot play.
+  it("no-cost SUSPEND now credits (INVERTED 2026-08-02 — the runtime route exists); a creature carrier keeps the exclusion", () => {
+    // This family's guard was "never credit a zone-option the engine can't take". The no-cost suspend
+    // route is BUILT (suspend action → upkeep tick → free cast; suspendNoCost.test.js), so Lotus
+    // Bloom's credit is honest — and the exclusion continues to hold exactly where the route still
+    // doesn't exist (a costless creature needs the suspend haste grant; parseSuspendNoCost nulls it).
     const bloom = C("Lotus Bloom", "Artifact",
       "Suspend 3—{0} (Rather than cast this card from your hand, pay {0} and exile it with three time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)\n{T}, Sacrifice this artifact: Add three mana of any one color.", "");
-    expect(classifyCard(bloom)).not.toMatch(/^native/);
+    expect(classifyCard(bloom)).toBe("native-mana");
+    const costlessCreature = C("Costless Beast", "Creature — Beast", "Suspend 5—{G}", "");
+    expect(classifyCard({ ...costlessCreature, power: "5", toughness: "5" })).not.toMatch(/^native/);
   });
   it("a keyword-REFERENCING static never matches the anchored cost shapes", () => {
     // "kicker" mid-sentence / a cost-reducer static — the ^…$ anchors reject anything past the bare cost line.

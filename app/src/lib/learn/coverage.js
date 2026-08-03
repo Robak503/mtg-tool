@@ -33,6 +33,7 @@ import { stripFlashPermissionLine } from "./effects/textNormalize.js"; // self-f
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — the metric gates on the SAME vetting the runtime charges on
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, hasDethrone, hasTraining, firebendingKeywordValue, soulshiftKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues, startYourEnginesKeywordCount } from "./triggers.js";
+import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND no-cost credit — the same gate the runtime offers through (fading→triggers→… is already a loaded edge; no cycle)
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler, parseDiscardCostAbility } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, registerAuraOwnTriggerValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
@@ -2463,6 +2464,16 @@ export function classifyCard(card) {
   // keep the line as honest residue.
   if (String(card?.mana ?? card?.mana_cost ?? "").trim() && /^[ \t]*suspend \d+\s*[—–-]/im.test(card?.oracle || "")) {
     card = { ...card, oracle: String(card.oracle).replace(/^[ \t]*suspend \d+\s*[—–-][^\n]*$/gim, "").replace(/\n{2,}/g, "\n").trim() };
+  }
+  // KW-SUSPEND, the NO-COST half (2026-08-02): the gate above stayed honest for exactly as long as
+  // the engine couldn't suspend — that route EXISTS now (legalChoices actionsSuspendFromHand →
+  // dispatcher `suspend` → fading.applySuspendUpkeep tick → the zero-counter free cast through the
+  // real cast machinery). The credit reads THE SAME parseSuspendNoCost gate the runtime offers
+  // through (noncreature, nonland, no printed cost, fixed suspend cost) — metric⇄runtime by
+  // construction. A creature carrier (needs the suspend haste grant) or an X-cost suspend returns
+  // null there and keeps its line as honest residue, exactly as before.
+  if (!String(card?.mana ?? card?.mana_cost ?? "").trim() && parseSuspendNoCost(card)) {
+    card = { ...card, oracle: String(card.oracle || card.oracle_text || "").replace(/^[ \t]*suspend \d+\s*[—–-][^\n]*$/gim, "").replace(/\n{2,}/g, "\n").trim() };
   }
   const type = String(card?.type || "").toLowerCase();
   const oracle = card?.oracle || "";

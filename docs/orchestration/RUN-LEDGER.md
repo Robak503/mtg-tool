@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-02 - **KW-SUSPEND, the no-cost trio, +3** - batch 29 since v0.150.1
+> Suite green + lint 0 at gate BY EXIT CODE (counts in the commit). Flip-diff (file-copy): **+3 / 0 / 0**
+> — Lotus Bloom · Sol Talisman · Mox Tantalite, the census's sole-blocked no-mana-cost suspend cards.
+> **Assembly, not invention:** the suspend SPECIAL ACTION (plot's exile-stamp pattern, `_suspendCounters`)
+> · the owner-upkeep tick in fading.js beside fade/vanish · the zero-counter FREE cast offered from exile
+> through the REAL cast machinery (castActionsFromZone freeCast — cast watchers fire like a hand cast).
+> `parseSuspendNoCost` is the ONE gate offer/dispatch/tick/classifier all read (noncreature, nonland, no
+> printed cost, fixed suspend cost — a creature carrier needs the haste grant and stays parked; Hypergenesis
+> stays parked on its unmodeled effect, whole-card law). Two documented FN-safe simplifications in the test
+> header: the mandatory cast is OFFERED; the window is priority-once-ready. Runtime-proven both frames:
+> Lotus Bloom (0-cost, 3 ticks, battlefield, live mana source) + Ancestral Vision (sorcery, target, draws 3).
+> 3 mutations killed (always-user tick 1 red · creature gate dropped 2 red · early-offer 1 red). The reminder-
+> on-the-same-line anchor bite (the trio parse failed until `\\(…\\)` tolerated) is pinned in the parse test.
+
 > ## 🔴 INCIDENT + FIX - 2026-08-02 - **PUSHED ON A RED SUITE (2d22adc5)** - method correction 19
 > The Brainstorm slice's gate reported GATE_DONE with **1 test failing** and I pushed it to master.
 > **The commit message's "Suite 1082 files / 13,656 tests green" was FALSE twice** — the real run was

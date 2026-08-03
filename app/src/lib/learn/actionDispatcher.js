@@ -1666,8 +1666,35 @@ function applyPlot(state, action) {
   return { ...next, priorityHolder: action.playerId, consecutivePasses: 0 };
 }
 
+// KW-SUSPEND (CR 702.62a) — the suspend SPECIAL ACTION for the no-mana-cost trio: pay the suspend
+// cost, exile the card face-up from hand with N time counters (`_suspendCounters`, the plot stamp
+// pattern). Does not use the stack, does not pass priority (CR 116.2g). The countdown lives in
+// fading.applySuspendUpkeep; the zero-counter free cast is offered by legalChoices through the real
+// cast machinery.
+function applySuspend(state, action) {
+  const player = state.players[action.playerId];
+  if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
+  const card = player.hand.find(c => c.id === action.cardId);
+  if (!card) throw new DispatcherError(`Suspend card ${action.cardId} not in hand`, "CARD_NOT_IN_HAND");
+
+  const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
+  if (!plan) throw new DispatcherError("Cannot pay the suspend cost", "MANA_SHORT");
+  let working = commitPaymentPlan(state, action.playerId, plan);
+
+  working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "exile", cardId: action.cardId });
+  const exile = working.players[action.playerId].exile;
+  const idx = exile.findIndex(c => c.id === action.cardId);
+  const flaggedExile = [...exile];
+  flaggedExile[idx] = { ...exile[idx], _suspendCounters: action.suspendCounters };
+  working = { ...working, players: { ...working.players, [action.playerId]: { ...working.players[action.playerId], exile: flaggedExile } } };
+
+  let next = logEvent(working, { kind: "suspend", playerId: action.playerId, cardName: card.name, counters: action.suspendCounters, cost: action.cost });
+  return { ...next, priorityHolder: action.playerId, consecutivePasses: 0 };
+}
+
 const HANDLERS = {
   "pass-priority": applyPassPriority,
+  "suspend": applySuspend, // KW-SUSPEND (CR 702.62a) — exile with time counters; ticked at fading.applySuspendUpkeep
   "play-land": applyPlayLand,
   "cast-spell": applyCastSpellMaybeDiscover, // DISCOVER: clears pendingDiscover after a free-cast from exile
   "tap-for-mana": applyTapForMana,

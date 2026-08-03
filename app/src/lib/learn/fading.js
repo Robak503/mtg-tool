@@ -84,3 +84,65 @@ export function applyFadeVanishUpkeep(state) {
   }
   return next;
 }
+
+// ─── KW-SUSPEND (CR 702.62) — the NO-MANA-COST trio's only cast path ─────────────────────────────
+//
+// "Suspend N—{cost}" on a card with NO printed mana cost (Lotus Bloom / Sol Talisman / Mox
+// Tantalite): suspending is the ONLY way to cast it, so the keyword cannot be pre-stripped as a
+// vacuous alt-cast (the with-mana-cost carriers' path). Modeled here because suspend IS the time-
+// counter mechanic this module owns:
+//   - the SUSPEND special action (legalChoices/actionDispatcher): pay {cost}, exile the card with
+//     `_suspendCounters: N` (the plot stamp pattern — exile zone + plain-JSON flags);
+//   - the OWNER's upkeep (applySuspendUpkeep, wired beside applyFadeVanishUpkeep): remove one time
+//     counter; at ZERO the card is stamped `_suspendReady` and legalChoices offers the FREE cast
+//     through the REAL cast path (castActionsFromZone freeCast — the plot machinery), so cast
+//     triggers/watchers fire exactly as a hand cast's would (CR 702.62e — the card IS cast).
+//
+// TWO DOCUMENTED SIMPLIFICATIONS, both FN-safe by direction and pinned in suspendNoCost.test.js:
+//   - CR makes the zero-counter cast MANDATORY; the engine OFFERS it (an offer can never fire
+//     wrongly; a declined Bloom under-uses the card, never mis-plays it).
+//   - the cast window is "whenever the owner has priority once ready" rather than exactly the
+//     upkeep trigger's resolution — for the three scoped ARTIFACTS the battlefield result is
+//     identical; a CREATURE carrier (which would also need the suspend haste grant) is NOT scoped
+//     and stays parked (the classifier credit below matches this gate exactly).
+
+// The bare suspend line, whole-line anchored; only meaningful when the card has no mana cost.
+// The printed line carries its reminder on the SAME line ("Suspend 3—{0} (Rather than cast…)"),
+// so a trailing paren block is tolerated — but nothing else may follow (a rider fails the anchor).
+const SUSPEND_LINE = /(?:^|\n)suspend\s+(\d+)\s*[—–-]\s*((?:\{[^}]+\})+)\s*(?:\([^)]*\))?\s*(?:\n|$)/i;
+
+/** { n, costPips } for a NO-mana-cost suspend card the runtime can play; null otherwise. */
+export function parseSuspendNoCost(card) {
+  const mana = String(card?.mana ?? card?.mana_cost ?? "").trim();
+  if (mana) return null; // a with-cost carrier hard-casts; its suspend line is the vacuous-alt-cast strip's job
+  const type = String(card?.type ?? card?.type_line ?? "");
+  if (/\bCreature\b/i.test(type)) return null; // creature suspend needs the haste grant — not scoped, parked
+  if (/\bLand\b/i.test(type)) return null;     // lands cannot be cast at all
+  const m = String(card?.oracle ?? card?.oracle_text ?? "").match(SUSPEND_LINE);
+  if (!m) return null;
+  return { n: parseInt(m[1], 10), costPips: m[2] };
+}
+
+/**
+ * The OWNER's upkeep half (CR 702.62d): remove one time counter from each of the active player's
+ * suspended exile cards; a card reaching ZERO is stamped `_suspendReady` (the free cast is offered
+ * from legalChoices through the real cast machinery). Wired in gameEngine beside the fade/vanish
+ * upkeep. Pure.
+ */
+export function applySuspendUpkeep(state) {
+  const pid = state.activePlayer;
+  const player = state.players?.[pid];
+  if (!player) return state;
+  const exile = player.exile || [];
+  if (!exile.some((c) => c && c._suspendCounters > 0)) return state;
+  let next = state;
+  const updated = exile.map((c) => {
+    if (!c || !(c._suspendCounters > 0)) return c;
+    const left = c._suspendCounters - 1;
+    next = logEvent(next, { kind: "suspend-tick", playerId: pid, cardName: c.name, countersLeft: left });
+    return left === 0
+      ? { ...c, _suspendCounters: 0, _suspendReady: true }
+      : { ...c, _suspendCounters: left };
+  });
+  return { ...next, players: { ...next.players, [pid]: { ...next.players[pid], exile: updated } } };
+}

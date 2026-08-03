@@ -83,6 +83,7 @@ import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR
 import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activate only if <cond>" — the offer gate reads the SAME vocabulary as the trigger + spell lanes
 import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — see permanentAdditionalCosts below
 import { isPermanentSpell } from "./resolvers.js";
+import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND — the one gate offer/dispatch/classifier all read
 
 /**
  * AC-PERMANENT (CR 601.2f) — the additional cost of a spell that resolves as a PERMANENT.
@@ -2478,6 +2479,42 @@ function actionsCastPlottedFromExile(state, playerId) {
 }
 
 /**
+ * KW-SUSPEND step 1 (CR 702.62a) — the SUSPEND special action for the NO-mana-cost trio (Lotus
+ * Bloom / Sol Talisman / Mox Tantalite): pay the suspend cost, exile the card from hand with N
+ * time counters (fading.parseSuspendNoCost is the ONE gate the dispatcher, the upkeep tick and the
+ * coverage classifier all read — metric⇄runtime). Sorcery-window offer ("any time you could cast
+ * this card" — the scoped carriers are artifacts). The dispatcher stamps `_suspendCounters`.
+ */
+function actionsSuspendFromHand(state, playerId) {
+  if (!canCastSorcerySpeed(state, playerId)) return [];
+  const player = state.players[playerId];
+  const actions = [];
+  for (const card of player.hand) {
+    const sus = parseSuspendNoCost(card);
+    if (!sus) continue;
+    const cost = parseManaCost(sus.costPips);
+    if (cost.hasX) continue; // an X suspend cost (Jhoira-class) is out of the scoped shape
+    if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
+    actions.push({ kind: "suspend", playerId, cardId: card.id, name: card.name, cost, cmc: totalCmc(cost), suspendCounters: sus.n });
+  }
+  return actions;
+}
+
+/**
+ * KW-SUSPEND step 2 (CR 702.62e) — a suspended card whose last time counter was removed
+ * (`_suspendReady`, stamped by fading.applySuspendUpkeep) is castable FREE from exile through the
+ * real cast machinery, so cast triggers/watchers fire exactly as a hand cast's would. The CR makes
+ * this cast mandatory; the engine OFFERS it (documented simplification in suspendNoCost.test.js —
+ * an offer can never fire wrongly).
+ */
+function actionsCastSuspendReadyFromExile(state, playerId) {
+  const player = state.players[playerId];
+  const ready = (player.exile || []).filter(c => c && c._suspendReady);
+  if (ready.length === 0) return [];
+  return castActionsFromZone(state, playerId, ready, "exile", null, true);
+}
+
+/**
  * IMPULSE-EXILE step 2 — PLAY a card impulse-exiled THIS TURN, at FULL COST (CR 118.10 permission — "you may
  * play that card this turn"). The `impulse-exile` atom stamped `_impulse: true` + `_impulseTurn` when it exiled
  * the top card; here we offer to play it FROM EXILE this turn only (the turn stamp gates it, exactly like PLOT's
@@ -3297,6 +3334,8 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsCastSpell(state, playerId));
     actions.push(...actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
     actions.push(...actionsCastPlottedFromExile(state, playerId)); // PLOT step 2 (CR 702.171b): cast a plotted card free
+    actions.push(...actionsSuspendFromHand(state, playerId)); // KW-SUSPEND step 1 (CR 702.62a): exile the no-cost trio with time counters
+    actions.push(...actionsCastSuspendReadyFromExile(state, playerId)); // KW-SUSPEND step 2 (CR 702.62e): cast free at zero counters
     actions.push(...actionsPlayImpulseFromExile(state, playerId)); // IMPULSE-EXILE step 2 (CR 118.10): play an impulse-exiled card THIS TURN at full cost (nonland cast / land play from exile)
     actions.push(...actionsPlayFromTopOfLibrary(state, playerId)); // PLAY-FROM-TOP (Future Sight, CR 118.6): cast/play the top library card while the permission static is active
     actions.push(...actionsCastMilledFromGraveyard(state, playerId)); // MILLED-GY CAST (Raul): once per your turn, cast a nonland milled this turn from your graveyard

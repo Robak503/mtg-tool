@@ -45,11 +45,13 @@ describe("WITH a mana cost — the line is vacuous and the card flips", () => {
 describe("WITHOUT a mana cost — suspend is the ONLY way to play the card, so it stays residue", () => {
   const costless = (type, oracle) => ({ name: "Lotus Bloom", type, mana: "", oracle });
 
-  it("Lotus Bloom is NOT credited (an artifact whose only entry is suspend)", () => {
-    // Oracle text VERBATIM from the bundled index. An abbreviated reminder is NOT equivalent here: the first
-    // cut of this test shortened it and the card read native-mana, which would have looked like a false
-    // positive in my own change. Real card text, always.
-    expect(classifyCard(costless("Artifact", "Suspend 3—{0} (Rather than cast this card from your hand, pay {0} and exile it with three time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)\n{T}, Sacrifice this artifact: Add three mana of any one color."))).not.toMatch(/^native/);
+  it("Lotus Bloom IS credited now (INVERTED 2026-08-02 — the no-cost suspend route is BUILT end to end)", () => {
+    // Oracle text VERBATIM from the bundled index (the abbreviated-reminder lesson stands). This pin
+    // refused the credit while the engine had no way to play the card; the suspend special action /
+    // upkeep tick / free cast now exist (suspendNoCost.test.js) and the classifier reads the SAME
+    // parseSuspendNoCost gate — so the credit is honest. The file's guard-job continues below on the
+    // costless CREATURE, which is still out of scope (haste grant) and still refused.
+    expect(classifyCard(costless("Artifact", "Suspend 3—{0} (Rather than cast this card from your hand, pay {0} and exile it with three time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)\n{T}, Sacrifice this artifact: Add three mana of any one color."))).toBe("native-mana");
   });
 
   it("neither is a costless creature carrying nothing but suspend", () => {

@@ -77,7 +77,7 @@ import {
 } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
 import { applyMonarchEndStepDraw } from "./effects/atoms/monarch.js";
-import { applyFadeVanishUpkeep } from "./fading.js";
+import { applyFadeVanishUpkeep, applySuspendUpkeep } from "./fading.js";
 import { applyUrDragonAttackTriggers } from "./urDragonAttack.js";
 import { applyAnnihilatorTriggers } from "./annihilator.js";
 import { applyVihaanCombatAnimate } from "./vihaanAnimate.js";
@@ -594,6 +594,9 @@ export function runStepActions(state) {
     }
   }
   if (next.step === "upkeep") next = applyFadeVanishUpkeep(next);
+  // KW-SUSPEND (CR 702.62d) — tick the active player's suspended exile cards beside the other
+  // time-counter upkeep; a card reaching zero becomes castable FREE via legalChoices (the real path).
+  if (next.step === "upkeep") next = applySuspendUpkeep(next);
   if (next.step === "upkeep") next = checkStepTriggers(next, "upkeep");
   else if (next.step === "draw") next = checkStepTriggers(next, "draw");
   else if (next.step === "end") {

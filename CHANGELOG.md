@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Suspend works for the free artifacts.** Lotus Bloom, Sol Talisman and Mox Tantalite — cards with
+  no mana cost at all — can finally be played the only way they ever could: suspend them, tick down a
+  time counter at each of your upkeeps, and cast them free when the last one goes.
 - **Brainstorm works.** The iconic draw-three-put-two-back — and its whole family (Brainsurge,
   Riverwise Augur, Conch Horn, Brainstone, Survivor of the Unseen) — now plays for real: you pick
   which cards go back, one at a time, with later picks landing on top so you control the final
