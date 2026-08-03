@@ -736,11 +736,39 @@ export function stripNonSelfQuotedGrants(text, typeLine) {
 // CPU). Results are shared + treated read-only by every caller (verified: records copy or spread
 // before any modification). WeakMap — GCs with the card.
 const _prodMemo = new WeakMap();
+// KW-ENGINES (CR 702.179): "Max speed — <ability>" is live only while its controller's speed is 4.
+const MAX_SPEED_PREFIX = /^\s*max speed\s*[—–-]\s*/i;
+
 export function manaProduction(card) {
   if (!card) return null;
   if (typeof card === "object") {
     if (_prodMemo.has(card)) return _prodMemo.get(card);
-    let result = manaProductionImpl(card) || restrictedManaProduction(card);
+    // KW-ENGINES "Max speed —" split (CR 702.179): the generic Add matcher below reads "Add" ANYWHERE
+    // in the oracle, so a "Max speed — {T}: Add {R}{R}." line was offered UNGATED — free double-red at
+    // speed zero, measured live (Endrider Catalyzer). Split per line, the condition-gate discipline:
+    // parse the PLAIN lines first (a card with an ungated source keeps it and the gated extra stays a
+    // safe under-offer); a card whose ONLY production is max-speed-prefixed parses those lines with the
+    // prefix stripped and carries `requiresMaxSpeed` — manaSources gates it on live speed.
+    let result;
+    // `gateOracle` feeds the activation-gate detection below: for a max-speed card it is the text the
+    // modelled production actually came from, so a gate can never mis-bind across the split.
+    let gateOracle = null;
+    const rawOracle = String(card.oracle ?? card.oracle_text ?? "");
+    if (rawOracle.split("\n").some((l) => MAX_SPEED_PREFIX.test(l))) {
+      const plain = rawOracle.split("\n").filter((l) => !MAX_SPEED_PREFIX.test(l)).join("\n");
+      const plainCard = { ...card, oracle: plain, oracle_text: plain };
+      result = manaProductionImpl(plainCard) || restrictedManaProduction(plainCard);
+      gateOracle = plain;
+      if (!result) {
+        const gated = rawOracle.split("\n").filter((l) => MAX_SPEED_PREFIX.test(l)).map((l) => l.replace(MAX_SPEED_PREFIX, "")).join("\n");
+        const gatedCard = { ...card, oracle: gated, oracle_text: gated };
+        const gatedProd = manaProductionImpl(gatedCard) || restrictedManaProduction(gatedCard);
+        if (gatedProd) result = { ...gatedProd, requiresMaxSpeed: true };
+        gateOracle = gated;
+      }
+    } else {
+      result = manaProductionImpl(card) || restrictedManaProduction(card);
+    }
     // CONDITION-GATED source (CR 602.5): carry the gate ON the product so manaSources can evaluate it live
     // against the board.
     //
@@ -762,7 +790,7 @@ export function manaProduction(card) {
     // (Fanatic of Rhonas: plain "{T}: Add {G}." then a Ferocious-gated "{T}: Add {G}{G}{G}{G}.") therefore
     // keeps its unconditional production ungated — the older any-match form wrongly gated the {G} on
     // ferocious, which silently switched the dork off until a 4-power creature was out.
-    const modelledManaLine = result && oracleOf(card).split(/\n+/)
+    const modelledManaLine = result && (gateOracle ?? oracleOf(card)).split(/\n+/)
       .filter((line) => {
         const g = line.match(/\bactivate (?:this ability )?only if ([^.]+)\./i);
         return !(g && !conditionIsExpressible(g[1]));
@@ -1302,6 +1330,12 @@ export function manaSources(state, playerId) {
     // comparison legalChoices uses for activated abilities.
     if (prod.activationCondition
       && evaluateInterveningIf(state, prod.activationCondition, playerId, { sourcePermanentId: perm.id }) !== true) continue;
+    // KW-ENGINES (CR 702.179) — a "Max speed —" mana ability is live ONLY while its controller's speed
+    // is 4. Gated here at the same single chokepoint as the activation condition, for the same reason:
+    // every affordability/payment consumer reads sources from here, so a below-max source is never
+    // counted affordable and never tapped. (Before the speed subsystem existed this line was offered
+    // UNGATED — free {R}{R} at speed zero, measured live on Endrider Catalyzer.)
+    if (prod.requiresMaxSpeed && (player.speed || 0) < 4) continue;
     const isCreature = /Creature/.test(typeLineOf(perm.card));
     // GRANTED Haste counts (read through the layer engine), not just printed — a mana dork
     // enchanted/anthemed with Haste can tap the turn it enters. Falls back to the printed

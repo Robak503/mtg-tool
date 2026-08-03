@@ -2619,6 +2619,20 @@ export function undyingKeywordCount(oracle) {
   return 0;
 }
 
+/**
+ * KW-ENGINES structural counter (CR 702.179) — a whole line (reminder stripped) that IS
+ * "start your engines!". Structural like undying/afterlife: a grant ("… gains start your
+ * engines!") or a mid-sentence mention never counts, so only the printed keyword self-
+ * synthesizes (CREED — a granted copy stays unmodeled, a safe FN).
+ */
+export function startYourEnginesKeywordCount(oracle) {
+  const stripped = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  for (const line of stripped.split("\n")) {
+    if (line.trim().toLowerCase() === "start your engines!") return 1;
+  }
+  return 0;
+}
+
 /** AFTERLIFE (BLITZ AF-2, CR 702.135b) — the printed keyword's N values, one entry per printed instance
  * (CR 702.135b — multiples each trigger separately). STRUCTURAL like undyingKeywordCount: a whole
  * comma-segment of a line must be EXACTLY "afterlife N", so a GRANT ("creatures you control gain
@@ -4300,6 +4314,21 @@ export function detectTriggers(card) {
       effectClause: "[undying] return it to the battlefield under its owner's control with a +1/+1 counter on it",
       interveningIf: "it had no +1/+1 counters on it",
       optional: false, sourceText: "Undying",
+    });
+  }
+  // KW-ENGINES (Aetherdrift, CR 702.179b) — "Start your engines!" synthesizes the self-ETB descriptor
+  // that gives its controller speed 1 if they have none (the undying/afterlife synthesis pattern; the
+  // [start-your-engines] sentinel is read ONLY by atoms/speed.startEnginesClauseParser). The rest of
+  // the keyword — the once-per-your-turn increase on opponent life loss, the max of 4 — is a PLAYER
+  // property handled at gameState.loseLife; the "Max speed —" ability gate lives in manaModel.
+  // Structural counter: a grant never self-synthesizes (safe FN).
+  if (startYourEnginesKeywordCount(oracle) > 0) {
+    out.push({
+      event: "etb", scope: "self", whose: "any",
+      effect: null,
+      effectClause: "[start-your-engines] if you have no speed, your speed becomes 1",
+      interveningIf: null,
+      optional: false, sourceText: "Start your engines!",
     });
   }
   // KW-PERSIST (BLITZ PS-1, CR 702.79a) — undying's -1/-1 MIRROR, synthesized identically: the SELF-DIES

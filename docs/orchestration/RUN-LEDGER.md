@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-02 - **START YOUR ENGINES! (speed subsystem), +6** - batch 18 since v0.150.1
+> Suite green + lint 0 at gate (counts in the commit). Flip-diff (file-copy): **+6 / 0 / 0** — the
+> census's exact 6-sole cluster (Goblin/Loxodon/Leonin/Glitch Ghost/Mutant Surveyor · Hour of Victory).
+> **The vein was NOT "partially built" — the 8 "native" carriers were mana-TIER BLINDNESS** ("Max speed
+> — {T}: Add {R}{R}" credited as a plain rock, gate ignored) and the runtime was offering that mana at
+> speed ZERO, measured live. Built the real subsystem: `player.speed` + engines self-ETB (synthesized
+> descriptor, the undying/afterlife pattern, [start-your-engines] sentinel → atoms/speed.js) ·
+> once-per-your-turn increase at the loseLife chokepoint (sibling-ledger re-arm at untap; immediate
+> state bump, the documented stack-trigger simplification) · "Max speed —" gates at BOTH ability
+> chokepoints (manaModel: prefix-split production stamped requiresMaxSpeed; abilities.js: the prefix
+> REWRITES into the existing "Activate only if your speed is 4" rider machinery — one condition, two
+> entry paths, and interveningIf learned the speed shape) · GY-exile lane gated too.
+> **TWO live FPs closed:** the ungated max-speed mana, and parseActivatedAbilities' generic label
+> strip silently EATING the "Max speed —" prefix (an ungated view of a gated ability — the credited-
+> but-wrong class again, same day as the Corpse Hauler catch). 12 tests · 4 mutations killed
+> (once-guard, mana gate, ETB overwrite, grant-matching counter).
+
 > ## SLICE DONE - 2026-08-02 - **ANOTHER-RETURN (dies trio), +7** - batch 12 since v0.150.1
 > Suite green + lint 0 at gate (counts in the commit). Flip-diff by the file-copy method: **+7 / 0 / 0**
 > — pre-sized 3 (Myr Retriever · Junk Diver · Workshop Assistant), landed 7 (+ Dutiful Attendant ·

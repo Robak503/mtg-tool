@@ -2556,6 +2556,8 @@ function actionsActivateGraveyardExile(state, playerId) {
     const rec = parseGraveyardExileAbility(card);
     if (!rec) continue;
     if (rec.sorceryOnly && !canCastSorcerySpeed(state, playerId)) continue;
+    // KW-ENGINES (CR 702.179d) — a "Max speed —" graveyard ability is live only at speed 4.
+    if (rec.maxSpeed && (player.speed || 0) < 4) continue;
     const cost = parseManaCost(rec.manaPips);
     if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
     out.push({

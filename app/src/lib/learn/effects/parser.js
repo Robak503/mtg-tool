@@ -44,6 +44,7 @@ import { matchDiesGainDrawByPower, matchDrainEachOpponentX, matchIteratedEdict, 
 import { manifestClauseParser } from "./atoms/manifest.js";
 import { amassClauseParser } from "./atoms/amass.js";
 import { selfReturnClauseParser, selfReturnTriggerDetector } from "./atoms/selfReturn.js";
+import { startEnginesClauseParser } from "./atoms/speed.js";
 import { winGameClauseParser } from "./atoms/winGame.js";
 import { rollDieClauseParser, resultScaledPayoffClauseParser } from "./atoms/roll.js"; // DICE-ROLL (CR 726) — roll a d20 + result-scaled token/draw payoff (Ancient Dragons)
 import { freeCastClauseParser } from "./atoms/freeCast.js"; // FREE-CAST (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle)
@@ -2418,6 +2419,7 @@ registerClauseParser(manifestClauseParser);
 registerClauseParser(amassClauseParser);
 registerClauseParser(monarchClauseParser);
 registerClauseParser(selfReturnClauseParser);
+registerClauseParser(startEnginesClauseParser); // KW-ENGINES (CR 702.179b) — the [start-your-engines] sentinel detectTriggers synthesizes off the printed keyword
 registerClauseParser(earthbendReturnClauseParser); // EARTHBEND-RETURN (CR 603.7) — the [earthbend-return:zone] marker checkLeavesTriggers synthesizes for the animated land's dies/exile return
 registerClauseParser(detainReturnClauseParser); // DETAIN-RETURN (DT-1, CR 610.3a) — the [detain-return] marker checkLeavesTriggers synthesizes when a detainer leaves
 // SELF-LTB (Wave 4) — the self-return trigger detector rides the SAME parser.js wiring point as the clause

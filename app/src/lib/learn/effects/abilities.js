@@ -147,17 +147,28 @@ const LIMIT_RIDER = new RegExp(
 );
 export function parseGraveyardExileAbility(card) {
   const oracle = stripReminder(String(card?.oracle || card?.oracle_text || ""));
-  for (const line of oracle.split("\n")) {
+  for (const rawLine of oracle.split("\n")) {
+    // KW-ENGINES (CR 702.179d) — "Max speed — {3}, Exile this card from your graveyard: …" (the
+    // Aetherdrift Surveyor cycle). The prefix gates the ability on speed 4; peel it and carry
+    // `maxSpeed` so the offer site withholds below max — never an ungated view of a gated ability.
+    const ms = rawLine.trim().match(/^max speed\s*[—–]\s*/i);
+    const line = ms ? rawLine.trim().slice(ms[0].length) : rawLine;
     const m = line.trim().match(/^((?:\{[^}]+\})+), exile this card from your graveyard: (.+)$/i);
     if (!m) continue;
     let eff = m[2].trim();
+    // The SAME gate in its rider spelling — parseActivatedAbilities rewrites "Max speed —" into
+    // "Activate only if your speed is 4." (one condition, two entry paths), so this parser must
+    // read both and stamp the same flag.
+    const msRider = /\.?\s*activate only if your speed is 4\.?\s*$/i.test(eff);
+    if (msRider) eff = eff.replace(/\.?\s*activate only if your speed is 4\.?\s*$/i, "").trim();
+    const gated = !!ms || msRider;
     const sorceryOnly = GY_EXILE_SORC_RIDER.test(eff);
     if (sorceryOnly) eff = eff.replace(GY_EXILE_SORC_RIDER, "").trim();
     const program = parseEffectClause(normalizeSelfName(eff, card), "Instant");
     if (!program || programConfidence(program) !== "high") return null;
     if (program.modal || program.xSpell) return null;                    // v1 — the plain shape only
     if ((program.atoms || []).some((a) => !!a.targetType)) return null;  // v1 — non-targeted only (GY-3 adds enumeration)
-    return { manaPips: m[1], program, effectClause: eff, sorceryOnly, raw: line.trim() };
+    return { manaPips: m[1], program, effectClause: eff, sorceryOnly, raw: rawLine.trim(), ...(gated && { maxSpeed: true }) };
   }
   return null;
 }
@@ -760,9 +771,20 @@ export function parseActivatedAbilities(card) {
   // free-activation FP). A future dash-keyword with an activation restriction prints the same reminder, so
   // the gate holds without a name list.
   const rawOracle = String(card?.oracle || card?.oracle_text || "");
-  const labelStripped = rawOracle.split("\n").map((ln) =>
-    /\([^)]*activate/i.test(ln) ? ln : ln.replace(/^[A-Za-z][A-Za-z'\- ]{0,40}\s[—–]\s*(?=\{)/, "")
-  ).join("\n");
+  const labelStripped = rawOracle.split("\n").map((ln) => {
+    // KW-ENGINES "Max speed —" (CR 702.179d) is RULES-BEARING, not a flavor label — the ability is
+    // live only at speed 4. The generic label strip below was silently eating it (an ungated view of
+    // a gated ability — the credited-but-wrong class). Rewrite it into the "Activate only if" rider
+    // idiom instead, so the EXISTING condition machinery (CONDITION_RIDER → activationCondition-
+    // Parseable → the offer gate's evaluateInterveningIf) parses, attaches, and enforces it — the
+    // metric and the runtime key off the same parse by construction.
+    const ms = ln.match(/^max speed\s*[—–]\s*/i);
+    if (ms) {
+      const body = ln.slice(ms[0].length).trim().replace(/\.?\s*$/, "");
+      return `${body}. Activate only if your speed is 4.`;
+    }
+    return /\([^)]*activate/i.test(ln) ? ln : ln.replace(/^[A-Za-z][A-Za-z'\- ]{0,40}\s[—–]\s*(?=\{)/, "");
+  }).join("\n");
   // ===== OUTLAST (CR 702.107a) — expand the keyword into the ability it IS ==========================
   // "Outlast [cost]" means "[cost], {T}: Put a +1/+1 counter on this creature. Activate only as a sorcery."
   // That expansion is ALREADY FULLY MODELED here: the counter atom, the {T}, and the sorcery-timing gate are

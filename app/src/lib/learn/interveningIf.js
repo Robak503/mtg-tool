@@ -1344,6 +1344,11 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   m = c.match(CTRL_LIFE_EXACT_RE);
   if (m) return controllerMetric(state, controllerId, "life") === parseInt(m[1], 10);
 
+  // KW-ENGINES MAX SPEED (CR 702.179d) — "your speed is 4": the condition the "Max speed —" ability
+  // prefix rewrites into (effects/abilities.js). Reads the live player speed; a player with no speed
+  // has 0 and fails. Exact anchor — no printed card words a speed threshold any other way.
+  if (/^your speed is 4$/.test(c)) return (state.players?.[controllerId]?.speed || 0) >= 4;
+
   // HAND COUNT, all three directions. The bare form ("you have a card in hand", "you have three cards in hand")
   // is the ≥N reading: a hand of five satisfies "you have a card in hand". "or fewer/less" flips it, and the
   // ZERO case keeps its own exact anchor above this one, so that incumbent is untouched.

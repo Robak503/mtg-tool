@@ -9,6 +9,12 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Start your engines! works.** The Aetherdrift speed mechanic is real: an engines permanent
+  entering gives you speed 1, your speed climbs once on each of your turns when an opponent loses
+  life (max 4), and "Max speed —" abilities — mana, battlefield, and graveyard — only switch on at
+  speed 4. Six cards (the Surveyor cycle, Hour of Victory) become fully playable, and a real bug
+  dies with it: Endrider Catalyzer and friends were handing out their max-speed mana with no speed
+  at all.
 - **"Return another…" recursion works.** Myr Retriever, Junk Diver, Workshop Assistant, Dutiful
   Attendant, Carrion Thrash, Deadwood Treefolk and Corpse Hauler now correctly return ANOTHER card
   from your graveyard — never themselves. A retriever dying into an empty graveyard simply gets no

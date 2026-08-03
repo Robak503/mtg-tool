@@ -1629,7 +1629,7 @@ export function loseLife(state, { playerId, amount, combatDamage }) {
   // is the killing blow (newLife <= 0) and it came from damage, so removePlayerFromGame can split the
   // "damage" win-con into combat / burn. Stamping only on the lethal blow means it can never go stale (a
   // player at <=0 is removed by the very next SBA) and a drain/pay-life finish never mislabels as either.
-  const next = withPlayer(state, playerId, p => {
+  let next = withPlayer(state, playerId, p => {
     const newLife = p.life - amount;
     return {
       ...p, life: newLife,
@@ -1645,6 +1645,21 @@ export function loseLife(state, { playerId, amount, combatDamage }) {
       ...(combatDamage !== undefined && amount > 0 && newLife <= 0 && { lethalDamageCombat: combatDamage }),
     };
   });
+  // KW-ENGINES SPEED INCREASE (CR 702.179c) — "It increases once on each of your turns when an
+  // opponent loses life. Max speed is 4." The ACTIVE player's speed bumps when a DIFFERENT player
+  // (any non-active seat is the active player's opponent) loses life during the active player's
+  // turn — once per turn, only while the active player has speed at all, capped at 4. Inline at
+  // this single life-loss chokepoint (gameState is a leaf; zero imports), the lifeLostThisTurn
+  // pattern. Modeled as an immediate state bump rather than a stack trigger — the ability is
+  // mandatory, untargeted, and nothing in the engine responds to it; noted in
+  // startYourEngines.test.js as the deliberate simplification.
+  const active = next.activePlayer;
+  if (amount > 0 && active && active !== playerId && next.players[active]) {
+    const ap = next.players[active];
+    if ((ap.speed || 0) >= 1 && (ap.speed || 0) < 4 && !ap.speedIncreasedThisTurn) {
+      next = withPlayer(next, active, (p) => ({ ...p, speed: (p.speed || 0) + 1, speedIncreasedThisTurn: true }));
+    }
+  }
   return _lifeLossWatcher && amount > 0 ? _lifeLossWatcher(next, { playerId, amount }) : next;
 }
 
@@ -2212,7 +2227,10 @@ export function resetCreatureDeathsAllPlayers(state) {
     // lifeLostThisTurn + lifeGainedThisTurn + gyEnteredThisTurn reset on the SAME per-game-turn cadence
     // (Bloodchief Ascension's end-step check / Regal Bloodlord's end-step "if you gained life this turn" /
     // Fraying Sanity's end-step mill — any can accrue on any player's turn, so all seats clear each turn).
-    players[id] = { ...state.players[id], creaturesDiedThisTurn: 0, lifeLostThisTurn: 0, lifeGainedThisTurn: 0, gyEnteredThisTurn: 0, descendedThisTurn: 0, damageTakenThisTurn: 0 };
+    // speedIncreasedThisTurn (KW-ENGINES, CR 702.179): the once-per-turn speed bump re-arms on the
+    // same cadence as its sibling ledgers. `speed` itself PERSISTS — it is a player property, not a
+    // this-turn tally.
+    players[id] = { ...state.players[id], creaturesDiedThisTurn: 0, lifeLostThisTurn: 0, lifeGainedThisTurn: 0, gyEnteredThisTurn: 0, descendedThisTurn: 0, damageTakenThisTurn: 0, speedIncreasedThisTurn: false };
   }
   return { ...state, players };
 }
