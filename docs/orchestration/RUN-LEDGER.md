@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-02 - **MOXFIELD 403 FIXED (A0) + honest import errors** - +0 cards, USER-FACING
+> Suite **1070 / 13,538 green** (+3 pins), lint 0. Commit `00a8db6e`. Session plan Block 1 complete.
+> **The cause was measured, not guessed:** the install lives at `C:\Users\colto\AppData\Local\MTG Tool`
+> (the space in the dir name is why the 08-01 search missed it). A byte-identical `node:https` request
+> through the bundled v22.12.0 → **403** (Cloudflare challenge HTML); through v22.23.x → **200**, same
+> machine, same headers, same TLS 1.3 cipher. Cloudflare fingerprints the ClientHello; the old runtime's
+> handshake is on the blocklist. Fix = portable-Node pin → **v22.23.2** (current LTS); the downloaded ship
+> artifact itself probed 200. **Archidekt probed through BOTH binaries: never affected.** Error hints are
+> now status-honest (404 → check the link; 403 → provider refused the app, check for update; else no
+> asserted cause) — mutation-checked (403 branch disabled = red).
+> ⚠️ **The fix reaches installs ONLY via a release** (the runtime ships inside the .exe), so this takes
+> the early-tag exception: **v0.150.1 cut this session, carrying the 42-card batch** — the batch counter
+> RESETS at that tag; the next ~100 banner counts from zero after it. Deferred, not forgotten: the
+> registry's DisplayVersion still reads 0.147.0 (NSIS updater doesn't rewrite the uninstall key) —
+> cosmetic, but it will mislead the next person who checks installed-version by registry.
+
 > ## SLICE DONE - 2026-08-01 - **MULTI-KEEP IMPULSE DIG, +9** - shelf 0 decks, 229 -> 226 cards
 > Suite **1070 / 13,535 green**, lint 0. Flip-diff vs a content-verified revert: **+9 / 0 lost / 0 churn**.
 > Pre-sized at 8; landed 9 — the extra is **Dig Through Time**, which the hand-swap missed because its keep
