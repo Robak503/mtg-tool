@@ -7,6 +7,22 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ☀️ 2026-08-02 — **SESSION PLAN LIVE: 24h or +100 cards** — full sweep re-measured · suite **1070 / 13,535** · batch 42
+
+> Colton ordered a full sweep + a bounded session plan. Both done; **the plan is
+> [SESSION-PLAN-2026-08-02.md](SESSION-PLAN-2026-08-02.md) — boot there, take Block 1 (A0 Moxfield
+> 403), and work the blocks in order.** Stop at 24 elapsed hours or +100 session cards, whichever
+> first; the v0.151.0 tag fires mid-session at +58 (batch crosses ~100).
+>
+> Sweep results (2026-08-02, box AppData, this worktree): suite 1070/13,535 green · lint 0 · shelf
+> **21 decks, aggregate 82% (1710/2097), 7 at the ≥90% bar, 226 cards to clear** — colton 93%
+> (Veyran 85 the only miss) · joe 79% (nine below) · test 72% (all four below, Shalai and Hallar 64
+> the floor). Fresh census (34,245 scanned): 21,066 non-native, 11,403 sole-blocker, **largest
+> cluster = 6** — subsystem vein dry, third confirmation. Live ore = bug signatures (`start your
+> engines!` 8/6 · suspend 15/3 · `you control enchanted` 7/4 = B1b credit · doesn't-untap 25/2 ·
+> dies-return-artifact 3/3) + 29 two-flip composition failures + the shelf mechanism table (ETB 80 ·
+> attacks 40 · upkeep 35 — all in the plan).
+
 ## ☀️ 2026-08-01 — **the shelf is 21 decks now** · batch 42 since v0.150.0 · suite **1070 / 13,535** · **next slice: the "that player" referent binding (A0b)**
 
 > Last CODE commit `2054a2ce` (docs commits land on top of it), tree clean, nothing in flight. **Do not
