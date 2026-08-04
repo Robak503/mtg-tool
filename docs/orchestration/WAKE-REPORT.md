@@ -7,16 +7,21 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-03 — **+8 this sitting · batch 41** — suite **1085 / 13,680** green by exit code · master green, CI success
+## ☀️ 2026-08-03 — **+10 this sitting · batch 43** — suite **1086 / 13,688** green by exit code · master green, CI success
 
 > **▶ START HERE — the Block-4 grind off a FRESH census (34,245 scanned, ran 2026-08-03).**
 > The subsystem vein is DRY for a 4th consecutive time (largest sole-blocker cluster = 6, all unrelated
 > mechanics), so the live ore is BUG SIGNATURES — shapes that block some cards while classifying native on
 > others. Ranked leads, straight off that census, each with its own scoping job:
-> · **`enchanted creature doesn't untap during its controller's untap step`** — 25 native / **2 sole**
->   (Ray of Frost · Controlled Instincts). Named in the session plan as "+~2"; not yet probed.
-> · **`you control enchanted creature`** — 7 native / **4 sole** (Biting Tether · Krovikan Whispers).
->   This is NEXT-QUEUE's **B1b** credit half; two of its carriers are also on the two-flip list.
+> · **`enchanted creature doesn't untap during its controller's untap step`** — 25 native / **2 sole**.
+>   ⚠️ **PROBED, AND THE CENSUS'S `examples` ARE NOT THE SOLE-BLOCKERS** — they are carriers of the SHAPE.
+>   Controlled Instincts, Ice Over and Coma Veil are each blocked by a **restricted/compound ENCHANT
+>   SUBJECT** ("red or green creature", "artifact or creature"), not by the untap line: deleting that line
+>   leaves them body-only. Real remaining candidates are **Ray of Frost** (multi-line, incl. "loses all
+>   abilities") and **Bubble Snare** (a kicked-conditional ETB). The compound-enchant-subject cluster is
+>   the bigger, unscoped prize here — it needs cast-lane targeting work, so size it before committing.
+> · ~~**`you control enchanted creature`** — 7 native / 4 sole~~ ✅ **BUILT (`21a0ea19`, +2)**. Its other
+>   two carriers are honest parks (Krovikan Whispers = cumulative upkeep; Hypnotic Siren = bestow).
 > · **`{C}{C}: return this card from your graveyard to your hand`** — 6 native / **3 sole**.
 > · **`reinforce N—{C}{C}`** — 5 native / **3 sole**.
 > · **The two-flip list still holds 22 cards** — the four scoped on 08-02 are all BUILT (below); the rest

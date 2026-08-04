@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-03 - **CONTROL auras compose with their own triggers, +2** - batch 43 since v0.150.1
+> Suite 1086 files / 13,688 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+2 / 0 / 0** —
+> Biting Tether + Mark of the Oni. Census signature "you control enchanted creature" (7 native / 4 sole).
+> Shared cause proven by combination first: control-static alone native-aura, each trigger alone
+> native-trigger, only the pair parks. **RIGHT QUESTION, WRONG INSTRUMENT** — the static×trigger
+> composition's delivery guard asks `parseAuraBonus(card).length === 0`, and a control Aura has no
+> P/T/keyword bonus by construction, so it could never pass. Its real deliverer is `isControlAura`, which
+> reads the PRINTED line and is immune to a sibling trigger line — the exact property parseAuraBonus lacks.
+> Runtime on the full printed oracle: control moves ai1→user, the upkeep trigger lands its −1/−1, and Mark
+> of the Oni's self-sacrifice sends the stolen creature HOME (the half most likely to be wrong).
+> ⚠️ **TWO STALE PREMISES CORRECTED, BOTH MEASURED:** ① the guard's own doc names Elephant Guide as its
+> victim — that card is NATIVE today (AU-TRIG+BONUS fixed the drop at the source); pinned as a positive so
+> the premise isn't re-inherited. ② **Deleting the guard entirely moves ZERO cards corpus-wide** — it is
+> DEFENSIVE, not live. Said out loud in code + test instead of pinned: a gate that guards nothing cannot
+> be pinned, and pretending otherwise is precisely the hollow-gate failure.
+
 > ## SLICE DONE - 2026-08-03 - **NO-MAX-HAND strip ate a sentence boundary, +2** - batch 41 since v0.150.1
 > Suite 1085 files / 13,680 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+2 / 0 / 0** —
 > Tishana, Voice of Thunder + Body of Knowledge, both audited whole-card. First slice off the FRESH census
