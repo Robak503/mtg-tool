@@ -7,7 +7,17 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-04 — **+20 this sitting · batch 53** — suite **1089 / 13,715** green by exit code · master green, CI success
+## ☀️ 2026-08-04 — **+21 this sitting · batch 54** — suite **1090 / 13,722** green by exit code · master green, CI success
+
+> ### ⭐ THE VEIN THAT PAID OUT MOST TODAY — read this before picking a card
+> **A NON-BATTLEFIELD-ZONE ability reads as residue to every battlefield-oriented gate.** An ability
+> played from the GRAVEYARD or from HAND is modeled by its own lane, so `parseActivatedAbilities` calls
+> it unmodeled and the residue walks treat its line as leftover text. Three slices today, +5 cards:
+> Aura graveyard self-recursion (AU-GY) · no-maximum-hand-size · the discard-cost hand ability. **If a
+> card pairs a modeled static/bonus with a hand- or graveyard-zone ability and parks, check this first.**
+> The fix each time was ONE shared source (a `classifyCard` pre-strip or a strip-then-revalidate lane),
+> never a patch on whichever gate happened to bite. Cycling / plot / warp are the same zone family and
+> have NOT been swept for this.
 
 > **▶ START HERE — the Block-4 grind off a FRESH census (34,245 scanned, ran 2026-08-03).**
 > The subsystem vein is DRY for a 4th consecutive time (largest sole-blocker cluster = 6, all unrelated

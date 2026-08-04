@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-04 - **Discard-cost hand ability stripped for EVERY lane, +1** - batch 54
+> Suite 1090 files / 13,722 tests green + lint 0 BY EXIT CODE. Flip-diff: **+1 / 0 / 0** — Waker of Waves.
+> ⭐ **THIRD INSTANCE OF ONE PATTERN THIS SESSION, now worth naming: an ability played from a NON-
+> BATTLEFIELD zone (graveyard · hand) is modeled by its own lane, so every battlefield-oriented residue
+> gate reads its line as leftover text.** Aura graveyard-recursion (AU-GY), no-max-hand-size, and now the
+> discard-cost hand ability. **If a card pairs a modeled static/bonus with a hand- or graveyard-zone
+> ability and parks, this is the first thing to check.**
+> `stripDiscardCostAbilityLine` existed and was right — it just lived inside `isKeywordOnly`, so
+> native-BODY saw a clean card and `staticAbilitiesCoverCard` (raw-clause walk) did not. Moved to a
+> `classifyCard` PRE-STRIP beside the others: ONE shared source, not a second call site.
+> ⛔ Gated on the RUNTIME'S OWN predicate (`discardCostAbilityModeled` = the one
+> `actionsDiscardAbilityFromHand` offers on), so a TARGETED discard ability — which the engine refuses —
+> is not stripped and still parks. Pinned in BOTH directions: the classification park AND the runtime
+> refusal to offer it. Mutations: pre-strip disabled → 1 red · gate forced always-strip → 1 red.
+
 > ## SLICE DONE - 2026-08-04 - **IMPULSE-EXILE matchable as a CLAUSE, +4** - batch 53 since v0.150.1
 > Suite 1089 files / 13,715 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+4 / 0 / 0** —
 > Blazing Crescendo · Mjölnir's Might · Inspired Tinkering · **Molly Hayes, Runaway** (same shape inside
