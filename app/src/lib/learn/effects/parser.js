@@ -428,6 +428,23 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
   const s = stripReminder(clause);
   if (!s) return null;
 
+  // ⭐ IMPULSE-EXILE AS A CLAUSE (2026-08-03) — "Exile the top N cards of your library. Until the end of
+  // your next turn, you may play <them>." The whole-oracle collapse in parseEffectClauseImpl owns this
+  // shape and returns a program of exactly ONE atom, so it only ever fired when the impulse WAS the whole
+  // card: Reckless Impulse and Light Up the Stage parsed, while the same clause beside ANY second clause
+  // dropped the entire spell to Arbiter (Blazing Crescendo, Mjölnir's Might, Inspired Tinkering — each of
+  // whose other clause parses HIGH alone; measured in both orders, so it was never about sequence).
+  //
+  // ⛔ THE COLLAPSE'S OWN REASON IS STALE, which is why this is safe rather than a second copy: it says
+  // "each half is individually unmatchable, so it's collapsed up front" — true when written, and no
+  // longer true since the 2026-08-01 two-sentence FOLD in splitClauses re-joins "Until the end of your
+  // next turn, you may play …" onto "Exile the top N cards of your library". The splitter now hands this
+  // clause over WHOLE, so the same matcher that owns the collapsed form matches it here unchanged. No new
+  // grammar, no widened anchor — the identical matcher, reached by the path that already delivers the
+  // text it wants. The collapse stays first and keeps its cards byte-identical.
+  const impulseClause = matchImpulseExilePlay(s);
+  if (impulseClause && KNOWN.has(impulseClause.atom.op)) return impulseClause.atom;
+
   // α2 — "you may <effect>": an OPTIONAL effect the controller chooses to take (or not). Peel the
   // "you may" wrapper and parse the inner clause on its own merits; if it reduces to a fully-modeled
   // atom, stamp optional:true so the resolver offers a real yes/no (player) / auto-decides (AI),
