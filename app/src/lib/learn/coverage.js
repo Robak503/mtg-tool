@@ -2603,6 +2603,27 @@ export function classifyCard(card) {
     const deLined = stripDiscardCostAbilityLine(String(card?.oracle || ""), card);
     if (deLined !== String(card?.oracle || "")) card = { ...card, oracle: deLined };
   }
+  // PLOT pre-strip for PERMANENTS (2026-08-03) — the same zone-ability drift as the two strips above.
+  // The plot line is already stripped on the SPELL path (parseEffectProgram) and inside the clone view,
+  // but a PERMANENT that isn't a clone never met either: the Aura block returns long before both. Demonic
+  // Ruckus is the carrier — bonus + a modeled LTB trigger is native-trigger, and adding "Plot {R}" parked
+  // the whole card.
+  //
+  // ⭐ WHY STRIPPING IS HONEST HERE, and it is the SUSPEND test applied unchanged: plot is an ALTERNATIVE
+  // way to cast a card that has a real printed mana cost, so the hard cast resolves byte-identically and
+  // not offering plot would be a safe false negative. (Contrast the no-mana-cost suspend cards, which can
+  // ONLY be played via the keyword — those keep their line.) `parsePlotCost` returns null for a
+  // plot-TRIGGER or plot-GRANTING card, so only a clean modeled cost is ever removed.
+  //
+  // ⛔ AND THE CREDIT WAS DRIVEN, not assumed, because stripping makes the RUNTIME offer plot
+  // (plotPlayable gates on isNativeTier(classifyCard)). The whole flow works for an Aura: plot is
+  // offered, the card moves hand → exile, and on a later turn the free cast comes back as a real AURA
+  // spell targeting a legal host. A plotted card that could not be cast from exile would be a dead end,
+  // which is exactly the FP this check exists to rule out (plotAuraFromExile.test.js).
+  if (parsePlotCost(card) && !/instant|sorcery/i.test(String(card?.type || ""))) {
+    const noPlot = String(card.oracle || "").replace(/(?:^|\n)[^\n]*\bplot\s+(?:\{[^}]+\})+[^\n]*(?=\n|$)/i, "\n").trim();
+    if (noPlot !== String(card.oracle || "").trim()) card = { ...card, oracle: noPlot };
+  }
   // KW-SUSPEND, the NO-COST half (2026-08-02): the gate above stayed honest for exactly as long as
   // the engine couldn't suspend — that route EXISTS now (legalChoices actionsSuspendFromHand →
   // dispatcher `suspend` → fading.applySuspendUpkeep tick → the zero-counter free cast through the
