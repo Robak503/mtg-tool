@@ -605,10 +605,11 @@ export function sacrificeDropsTrigger(oracle) {
  *   creature     → moveCardToZone + checkDiesTriggers, whose first line drains that same queue
  * — probed end to end (1 pending trigger, token actually minted, each time; selfLtbCostSac.test.js).
  *
- * ⛔ THE SCOPE IS THE SAFETY ARGUMENT. The EXILE-SELF and REMOVE-COUNTER paths were NOT probed, so
- * they keep the blanket refusal — widening on an unverified path is exactly the forbidden direction,
- * and the existing pins for those two shapes stay true by construction. This helper answers ONE
- * narrower question: "ignoring a SELF-LTB clause, would a sacrifice still drop something?"
+ * ⛔ THE SCOPE IS THE SAFETY ARGUMENT. The EXILE-SELF path was NOT probed, so it keeps the blanket
+ * refusal — widening on an unverified path is exactly the forbidden direction, and the existing pin
+ * for that shape stays true by construction. (The REMOVE-COUNTER path got its own probed, narrower
+ * answer on 2026-08-03 — see removeCounterCostCannotLeave below.) This helper answers ONE narrower
+ * question: "ignoring a SELF-LTB clause, would a sacrifice still drop something?"
  */
 export function sacrificeDropsTriggerIgnoringSelfLtb(oracle) {
   const withoutSelfLtb = String(oracle || "").replace(
@@ -616,6 +617,28 @@ export function sacrificeDropsTriggerIgnoringSelfLtb(oracle) {
     " ",
   );
   return sacrificeDropsTrigger(withoutSelfLtb);
+}
+
+/**
+ * REMOVE-COUNTER, NON-LEAVING (verified 2026-08-03 by RUNTIME probe — vatOfRebirth.test.js — the same
+ * discipline the sac-scoped and put-into-a-graveyard narrowings were earned with).
+ *
+ * The shared γ1 fail-safe exists because a COST that removes the SOURCE from the battlefield would
+ * silently drop trigger shapes the leave paths don't fire. Paying a remove-counter cost moves NOTHING
+ * off the battlefield — the source stays put and every watcher printed on it keeps firing (probed:
+ * Vat of Rebirth's put-into-a-graveyard watcher still enqueues after the ability is activated) — so
+ * the fail-safe is vacuous for that cost shape, EXCEPT when the counter removal itself can make the
+ * source leave:
+ *   • a P/T counter ("+1/+1": lethal removal drops derived toughness → SBA 704.5f kills the source)
+ *     keeps the blanket refusal;
+ *   • "time" / "fade" (vanishing, CR 702.63c, sacrifices on the last time counter's removal; fading
+ *     kept in the same bucket as cheap paranoia) keep the blanket refusal.
+ * Any other NAMED counter type (oil, charge, spore, …) cannot move the source. Applies ONLY to a
+ * PURE remove-counter cost — a compound cost that also sacs/exiles keeps the blanket refusal on its
+ * other item, exactly as before (that path stays unprobed).
+ */
+export function removeCounterCostCannotLeave(rc) {
+  return !!rc && !/^[+-]/.test(rc.type) && rc.type !== "time" && rc.type !== "fade";
 }
 
 /**
@@ -1097,10 +1120,16 @@ export function parseActivatedAbilities(card) {
       // path, so it's not flagged and not over-restricted).
       // SELF-LTB EXCEPTION, sacrifice-only (see sacrificeDropsTriggerIgnoringSelfLtb): a PURE
       // sacrifice-self cost may ignore a SELF-LTB clause, because that path provably fires it. A cost
-      // that ALSO exiles-self or removes a counter keeps the blanket refusal — those paths are unprobed.
+      // that ALSO exiles-self keeps the blanket refusal — that path is unprobed.
+      // REMOVE-COUNTER EXCEPTION (see removeCounterCostCannotLeave): a PURE remove-counter cost whose
+      // counter type cannot make the source leave (named, non-P/T, non-time/fade) skips the fail-safe
+      // entirely — nothing leaves the battlefield when it is paid, so no trigger can be dropped
+      // (runtime-probed on Vat of Rebirth). A lethal (+1/+1) or vanishing (time) removal keeps it.
       modeled: !!cost && !isManaEffect && effectHigh
         && !((cost.sacSelf || cost.exileSelf || cost.removeCounter)
-          && (cost.sacSelf && !cost.exileSelf && !cost.removeCounter ? sacUnsafeIgnoringSelfLtb : sacUnsafe)),
+          && (cost.sacSelf && !cost.exileSelf && !cost.removeCounter ? sacUnsafeIgnoringSelfLtb
+            : !cost.sacSelf && !cost.exileSelf && removeCounterCostCannotLeave(cost.removeCounter) ? false
+            : sacUnsafe)),
       needsTarget: effectHigh && !!program && programNeedsChosenTarget(program),
     });
   }
