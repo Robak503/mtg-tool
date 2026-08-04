@@ -76,9 +76,15 @@ describe("AURA-OWN-REGEN — recognition (classifyCard) on real oracle", () => {
       oracle: "Enchant creature\nEnchanted creature has vigilance.\nSacrifice this Aura: Regenerate enchanted creature." })).toBe("body-only");
   });
   it("CREED (all-or-nothing): an unmodeled co-ability / rider keeps the whole card Arbiter", () => {
-    // an ETB trigger with no static half fails the aura-own-activated gate (Strands of Undeath shape)
+    // ⭐ PIN INVERTED (AU-ACT+TRIG, 2026-08-03): Strands of Undeath composes now — its aura-own ETB is
+    // modeled and ROUTES (probed through the engine's own target chooser: it targets an opponent and
+    // engages the discard), and the regenerate ability was always modeled. Runtime battery in
+    // auraOwnActivatedPlusTrigger.test.js. The all-or-nothing intent is re-pinned below it.
     expect(classifyCard({ name: "Strands of Undeath", type: "Enchantment — Aura", mana: "{3}{B}",
-      oracle: "Enchant creature\nWhen this Aura enters, target player discards two cards.\n{B}: Regenerate enchanted creature." })).toBe("body-only");
+      oracle: "Enchant creature\nWhen this Aura enters, target player discards two cards.\n{B}: Regenerate enchanted creature." })).toBe("native-activated");
+    // an UNROUTED aura-own trigger beside the same modeled regenerate still parks the whole card
+    expect(classifyCard({ name: "Strands Probe", type: "Enchantment — Aura", mana: "{3}{B}",
+      oracle: "Enchant creature\nWhen this Aura enters, interpret the omens however you like.\n{B}: Regenerate enchanted creature." })).toBe("body-only");
     // a mass regen mode is a different, unmodeled atom — never flips on the strength of the enchanted form
     expect(classifyCard({ name: "X-Mass", type: "Enchantment — Aura", mana: "{G}",
       oracle: "Enchant creature\n{G}: Regenerate all creatures you control." })).toBe("body-only");

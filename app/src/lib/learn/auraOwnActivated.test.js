@@ -64,7 +64,12 @@ describe("AURA-OWN-ACTIVATED — recognition (classifyCard)", () => {
     // activated validator — both halves are genuinely modeled now: the static via parseAttachedClause,
     // the tap enumerated on the Aura and resolved on the host. Pinned POSITIVELY below; the rider intent
     // lives on via the ETB-without-static form and a genuinely-unmodeled restriction.)
-    expect(classifyCard(aura("Enchant creature\nWhen this Aura enters, draw a card.\n{U}: Tap enchanted creature."))).toBe("body-only"); // no static half → the activated-only gate rejects the extra ETB
+    // ⭐ PIN INVERTED (AU-ACT+TRIG, 2026-08-03): a MODELED aura-own trigger beside a modeled aura-own
+    // activated is a composition now (Fiery Mantle, Strands of Undeath — auraOwnActivatedPlusTrigger.test.js
+    // carries the runtime battery for both halves on the printed card). The guard's REAL job — an
+    // UNMODELED trigger still parks the whole card — is re-pinned on the line below, where it belongs.
+    expect(classifyCard(aura("Enchant creature\nWhen this Aura enters, draw a card.\n{U}: Tap enchanted creature."))).toBe("native-activated");
+    expect(classifyCard(aura("Enchant creature\nWhen this Aura enters, interpret the omens however you like.\n{U}: Tap enchanted creature."))).toBe("body-only"); // an UNROUTED trigger rider still parks
     expect(classifyCard(aura("Enchant creature\nEnchanted creature can't attack.\n{U}: Tap enchanted creature."))).toBe("native-aura");
     expect(classifyCard(aura("Enchant creature\nEnchanted creature gets +1/+1.\n{U}: Tap enchanted creature."))).toBe("native-aura");
     expect(classifyCard(aura("Enchant creature\nEnchanted creature can't have counters put on it.\n{U}: Tap enchanted creature."))).toBe("body-only"); // an unmodeled restriction still parks

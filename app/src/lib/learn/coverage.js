@@ -2264,6 +2264,43 @@ function isNativeOwnActivatedAura(card) {
   return sawActivated === activatedLineCount;
 }
 
+// AU-ACT+TRIG (2026-08-03, the census two-flip list — Fiery Mantle) — an Aura whose body is its OWN modeled
+// activated ability/abilities PLUS its OWN modeled triggered ability/abilities. Fiery Mantle is Firebreathing
+// (native-activated) plus one line — "When this Aura is put into a graveyard from the battlefield, return it
+// to its owner's hand." — and that line made the whole card body-only: the activated lane's residue walk sees
+// the trigger as leftover text, and the aura-own TRIGGERED composition one lane over pairs a trigger with a
+// STATIC bonus (isNativeAura), which Fiery Mantle has none of. Each gate correct alone; neither knew the
+// other's half was covered. A tier COMPOSITION failure, not a missing mechanic.
+//
+// COMPOSED, NOT LOOSENED — the same strip-then-revalidate discipline as AU-GRANT+STATIC and EQ-2. The card is
+// split by line and each half is handed to the gate that ALREADY claimed that shape alone: the non-trigger
+// half (Enchant line + activated lines) must pass isNativeOwnActivatedAura, the trigger half must pass
+// permanentTriggersCovered. An unmodeled ability, an unrouted trigger, or any third kind of line still fails
+// whichever half owns it → the card stays on the Arbiter (THE CREED, all-or-nothing by construction).
+//
+// ⭐ BOTH RUNTIME HALVES WERE DRIVEN ON THE PRINTED CARD BEFORE THIS SHIPPED — the AU-GRANT+STATIC lane was
+// once built, credited, and REVERTED for exactly this omission (both halves verified on text the composition
+// invented, neither on the card). Measured on the real oracle, not the split: the {R} pump IS offered on the
+// Aura and takes the host 2/2 → 3/2, and the LTB self-return DOES fire and move the card graveyard → hand.
+// Pinned in auraOwnActivatedPlusTrigger.test.js.
+function isNativeOwnActivatedPlusTriggeredAura(card) {
+  if (!isAuraCard(card)) return false;
+  if (isPlayerAuraCard(card)) return false;              // player-enchant Auras keep their own lane
+  const raw = String(card.oracle || card.oracle_text || "");
+  const enchantLine = raw.match(/(?:^|\n)\s*(Enchant [^\n]*)/i)?.[1];
+  if (!enchantLine) return false;
+  const stripped = raw.replace(/(?:^|\n)\s*Enchant [^\n]*(?=\n|$)/i, "\n");
+  const lines = stripped.split("\n").map((l) => l.trim()).filter(Boolean);
+  const isTrigger = (l) => /^(?:when|whenever|at)\b/i.test(stripReminder(l));
+  const trigLines = lines.filter(isTrigger);
+  const restLines = lines.filter((l) => !isTrigger(l));
+  // Both halves must be non-empty — a pure-activated or pure-trigger Aura is already owned by its own lane
+  // above, and stealing those tiers is the documented hazard the AU-3 composition names.
+  if (!trigLines.length || !restLines.length) return false;
+  if (!isNativeOwnActivatedAura({ ...card, oracle: [enchantLine, ...restLines].join("\n") })) return false;
+  return permanentTriggersCovered({ ...card, oracle: trigLines.join("\n") });
+}
+
 // AURA-OWN-TRIGGERED (BLITZ AU-3) — an Aura whose ONLY body (the Enchant keyword line aside) is one-or-more
 // TRIGGERED abilities PRINTED ON THE AURA that fire off a modeled event with a natively-routed effect
 // (Curiosity "Whenever enchanted creature deals damage to an opponent, you may draw a card"; Sigil of Sleep;
@@ -2612,6 +2649,10 @@ export function classifyCard(card) {
     // player-Aura lane (which owns "Enchant player") and BEFORE isNativeAura (a card with any static bonus fails
     // the residue walk, so the two lanes are disjoint — a pure own-trigger Aura has no bonus for isNativeAura).
     if (isNativeOwnTriggeredAura(card)) return "native-trigger";
+    // AU-ACT+TRIG (Fiery Mantle): the aura-own ACTIVATED + aura-own TRIGGERED composition. Tiered
+    // native-activated to match its pure sibling (Firebreathing), which is what the card mostly is — the
+    // trigger is a rider. Placed after the pure lanes so neither tier is stolen (see the fn's doc).
+    if (isNativeOwnActivatedPlusTriggeredAura(card)) return "native-activated";
     // isNativeAura keeps PRIORITY: an Aura already fully native (its whole body a modeled creature bonus + an
     // aura-own activated pump/tap it already handles — Shiv's Embrace, Armor of Faith) stays native-aura and
     // keeps its own cast lane (legalChoices' isNativeAura branch). The EQ-2 composite runs ONLY on the residue-
