@@ -2738,6 +2738,35 @@ export function classifyCard(card) {
       const t = nativeStaticGrantPlusActivated(card);
       if (t) return t;
     }
+    // AU-GY (2026-08-03, census signature "{2}{R}: Return this card from your graveyard to your hand" —
+    // 6 native carriers / 3 sole blockers): an Aura whose body is a modeled creature bonus PLUS the
+    // GRAVEYARD self-recursion ability (Bestial Bloodline, Talons of Wildwood, Convenient Target). That
+    // ability is modeled — by its OWN lane, from the graveyard — so `parseActivatedAbilities` reports it
+    // unmodeled (it is not a battlefield activation) and isNativeAura's residue walk rejected the line,
+    // parking cards whose every clause the engine plays. Exactly the shape permanentFullyCovered already
+    // composes for non-Auras (census slice 56); Auras never reached it because this block returns first.
+    //
+    // Strip-then-revalidate, same discipline as EQ-2 above: the remainder must satisfy isNativeAura ON ITS
+    // OWN and the stripped line must be a modeled graveyard ability ON ITS OWN. Neither gate is loosened.
+    // Tiered native-activated so grantAuraCastHostType's lane offers the CAST — isNativeAura is false on
+    // the full residue-carrying card, so tiering it native-aura would credit an Aura the engine never
+    // offers (the FP that tier choice exists to avoid).
+    //
+    // ⭐ RUNTIME MEASURED FIRST, on an AURA rather than the creature carriers the lane was built for:
+    // the ability is offered off the graveyard, goes on the stack, resolves, and the Aura actually moves
+    // graveyard → hand — identical to the Sanitarium Skeleton control. (The first probe read as a no-op
+    // because it stopped at dispatch; the ability uses the stack, so it needed resolveTopOfStack. Assert
+    // after resolution or an activated ability always looks dead.)
+    {
+      const gyLines = [];
+      const rest = String(card.oracle || card.oracle_text || "").split("\n").filter((line) => {
+        const one = { ...card, oracle: stripReminder(line).trim() };
+        if (!one.oracle) return false;
+        if (parseGraveyardSelfRecursion(one) || parseGraveyardExileAbility(one)) { gyLines.push(line); return false; }
+        return true;
+      });
+      if (gyLines.length && isNativeAura({ ...card, oracle: rest.join("\n") })) return "native-activated";
+    }
     return "body-only";
   }
   // A clone (CR 707) — a creature whose WHOLE text is "enters as a copy of a creature" — now
