@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-04 - **A covered KEYWORD LINE isn't residue to the aura lane, +2** - batch 61
+> Suite 1096 files / 13,761 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Blessing of Leeches ·
+> Jolrael's Favor, both audited whole-card. Census two-flip; **shared cause proven by combination** (each
+> is native the moment the word "Flash" is gone). Same drift as the strips: `isKeywordOnly` /
+> COVERED_KEYWORDS already credit flash (a vanilla Flash creature is native-body; Ambush Viper is
+> native-body) but `isNativeOwnActivatedAura`'s residue walk allowed only the Enchant line and activated
+> lines. ⚠️ **Policy propagated, not invented — and it isn't free:** the runtime does NOT enforce flash
+> timing (`legalChoices.isSorcerySpeed` says so in its own comment), so a flash permanent is sorcery-speed
+> only — strictly WEAKER than printed, which is why the project already calls it a safe FN. Said out loud
+> in code + test rather than left implicit. Boundary pinned both ways: an UNCOVERED keyword (Annihilator)
+> still parks; an unmodeled SENTENCE is still residue. Mutations: allowance removed → flips red · widened
+> to any colon-free line → both boundary pins red.
+>
+> 📌 **Still open from this vein:** Stunt Double (Flash + clone) flips the same way but through the
+> CLONE lane's residue check — a DIFFERENT function, deliberately not batched in. Same one-line shape.
+
 > ## 🔴 BUILT · MEASURED · REVERTED - 2026-08-04 - **Witch's Mark was a FALSE POSITIVE, and a previous
 > author's pin caught me.** The most useful hour of the night, and it shipped nothing.
 > I extended the per-clause matcher trick that worked for impulse-exile to the optional-discard pair, and
