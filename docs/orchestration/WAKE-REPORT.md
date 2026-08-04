@@ -16,11 +16,26 @@
 > SHELF list, not the census.** The two are diverging and the shelf is its own roadmap: Spell effect
 > (other) 127 · **ETB trigger 80** (Solitude · Rosie Cotton · Skyclave Apparition · Staff of the
 > Storyteller) · Attacks/blocks 40 · Upkeep/phase 35.
-> **▶ THE HIGHEST-VALUE TARGET, named exactly:** Veyran Cantrips' remainder is **12, not 2** (an earlier
-> note claiming "its last 2 are honest parks" was WRONG — corrected here). Veyran himself is ✅ BUILT
-> (`4fb4fef0`); the other **11 put Colton's whole profile at the ≥90% bar**: Fiery Inscription ·
-> Thunderdrum Soloist · Vivi Ornitier · Dragon's Rage Channeler · Aria of Flame · Vivi's Persistence ·
-> Arcane Denial · Expressive Iteration · Flame of Anor · Flow State · Mizzix's Mastery.
+> **▶ VEYRAN CANTRIPS — remainder is 12, not 2** (an earlier note claiming "its last 2 are honest parks"
+> was WRONG — corrected here). Veyran himself is ✅ BUILT (`4fb4fef0`). **The other 11 were each probed
+> tonight, and every one is a REAL BUILD — none is a cheap composition win.** Triage, so nobody re-probes:
+> · **Dragon's Rage Channeler** — closest of the eleven. Its surveil trigger routes and the delirium GATE
+>   machinery exists (`cardTypesInGraveyard`); the blocker is the third segment of the gated compound,
+>   *"and attacks each combat if able"*. `emitGatedEffect` consumes only `gets +X/+Y [and has <kw>]`, and
+>   must-attack is modeled as a CARD-LEVEL text check enforced in `opponentAI.pickAttackPlan`, not as a
+>   gated layer effect. **Needs a GATED must-attack** — crediting the ungated one would force attacks
+>   without delirium, a forbidden FP. New mechanism, touches the AI attack planner.
+> · **Aria of Flame** (ETB "each opponent gains 10 life" + verse-counter scaling damage — both unrouted) ·
+>   **Fiery Inscription** (the Ring tempts you — a whole subsystem) · **Thunderdrum Soloist** (mana-spent
+>   escalation) · **Vivi Ornitier** ({0}: add X = its own power, once per turn).
+> · The five SPELLS, all parsing LOW with zero atoms, each needing distinct machinery: **Expressive
+>   Iteration** (three-way library split, three different destinations) · **Arcane Denial** (delayed
+>   both-sides upkeep draws) · **Mizzix's Mastery** (exile-and-copy-and-cast-free) · **Vivi's Persistence**
+>   (token carrying a quoted trigger + a commander watcher) · **Flame of Anor** (modal choose-two gated on
+>   controlling a Wizard as you cast).
+> **So the "+11 puts Colton at the bar" framing is honest about the GOAL and misleading about the COST.**
+> Joe's tail or the shelf ETB vein (80 slots, cards like Rosie Cotton / Skyclave Apparition) is likely the
+> better next spend per card.
 
 > ### ⭐ THE VEIN THAT PAID OUT MOST TODAY — and it is now MEASURED AND NEARLY DRY
 > **A NON-BATTLEFIELD-ZONE ability reads as residue to every battlefield-oriented gate.** An ability
