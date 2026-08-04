@@ -3,6 +3,33 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-04 - **CAST-trigger multiplier — VEYRAN, Colton's commander, +1** - batch 56
+> Suite 1092 files / 13,736 tests green + lint 0 BY EXIT CODE. Flip-diff: **+1 / 0 / 0** — Veyran, Voice
+> of Duality. ⭐ **FIRST SHELF-FACING SLICE OF THE RUN** (see the shelf note below): Veyran Cantrips is the
+> ONLY deck holding Colton's profile off the ≥90% bar, and this is its COMMANDER.
+> The 4th member of the multiplier family (Teysa=dies · Isshin=attacking · Panharmonicon=entering):
+> self-affecting continuous effect, inert in P/T+keyword layers, new `castTriggerMultiplierCount`
+> mirroring its siblings, applied by the SAME `multiplyTriggers` at the cast enqueue site. Assembly.
+> ⛔ **THE ONE REAL DIFFERENCE, and it had to be measured:** the enqueue SITE is not sufficient scope here.
+> `checkCastTriggers` fires for EVERY cast (creatures included) while Veyran's line says "instant or
+> sorcery" — the ETB/attack siblings can lean on their site because that site IS the event; this one needs
+> an explicit spell-type guard or it doubles a creature-cast watcher Veyran doesn't affect. **Found only
+> because the fixture was an ANY-SPELL watcher — a magecraft-style watcher filters instants itself and
+> would have passed either way.** Runtime: instant→2/1 · sorcery→2 · creature→1 · artifact→1.
+> Mutations: guard removed → the creature+artifact pins red · multiply call removed → the doubling pins red.
+
+> ## 📊 SHELF RE-MEASURED - 2026-08-04 - **+22 corpus cards moved the shelf by ZERO**
+> Corpus 38.6% → **38.7%** (13,247/34,245). Shelf **unchanged at 82% (1715/2097), 21 decks** — colton 93%
+> (Veyran Cantrips 88% the only miss) · joe 79% (9 below) · test 73% (all 4 below). **Said plainly because
+> it is the honest read: a night of strong corpus work touched none of Colton's decks.** The shelf gap is
+> its own roadmap — Spell effect (other) **127** · ETB trigger **80** (Solitude · Rosie Cotton · Skyclave
+> Apparition · Staff of the Storyteller) · Attacks/blocks **40** · Upkeep/phase **35**.
+> **Veyran Cantrips' real remainder is 12, not 2** — an earlier note said "its last 2 are honest parks"
+> and that was WRONG. The list: Veyran (✅ BUILT above) · Fiery Inscription · Thunderdrum Soloist · Vivi
+> Ornitier · Dragon's Rage Channeler · Aria of Flame · Vivi's Persistence · Arcane Denial · Expressive
+> Iteration · Flame of Anor · Flow State · Mizzix's Mastery. **Take these next — 11 cards puts Colton's
+> whole profile at the bar.**
+
 > ## 🔴 BUILT · MEASURED · REVERTED - 2026-08-04 - **SELF-NO-UNTAP composition (+3) blocked by an FP**
 > The slice works and measures **+3 / 0 / 0** (Elaborate Firecannon · Goblin Sharpshooter · Time Vault):
 > `stripModeledSelfNoUntap` runs in the native-BODY and native-TRIGGER lanes but NOT in the COMPOSITE

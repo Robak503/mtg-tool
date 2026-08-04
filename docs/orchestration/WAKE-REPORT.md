@@ -7,7 +7,20 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-04 — **+22 this sitting · batch 55** — suite **1091 / 13,728** green by exit code · master green, CI success
+## ☀️ 2026-08-04 — **+23 this sitting · batch 56** — suite **1092 / 13,736** green by exit code · master green, CI success
+
+> ### 📊 THE SHELF WAS RE-MEASURED, AND THE HONEST READ IS: **+22 corpus cards moved it by ZERO**
+> Corpus 38.6% → **38.7%**. Shelf **unchanged at 82% (1715/2097) across 21 decks** — colton 93% (Veyran
+> Cantrips 88% the only miss) · joe 79% (9 below the bar) · test 73% (all 4 below). A night of strong
+> corpus work touched none of Colton's decks. **If the next seat wants Colton-facing value, work the
+> SHELF list, not the census.** The two are diverging and the shelf is its own roadmap: Spell effect
+> (other) 127 · **ETB trigger 80** (Solitude · Rosie Cotton · Skyclave Apparition · Staff of the
+> Storyteller) · Attacks/blocks 40 · Upkeep/phase 35.
+> **▶ THE HIGHEST-VALUE TARGET, named exactly:** Veyran Cantrips' remainder is **12, not 2** (an earlier
+> note claiming "its last 2 are honest parks" was WRONG — corrected here). Veyran himself is ✅ BUILT
+> (`4fb4fef0`); the other **11 put Colton's whole profile at the ≥90% bar**: Fiery Inscription ·
+> Thunderdrum Soloist · Vivi Ornitier · Dragon's Rage Channeler · Aria of Flame · Vivi's Persistence ·
+> Arcane Denial · Expressive Iteration · Flame of Anor · Flow State · Mizzix's Mastery.
 
 > ### ⭐ THE VEIN THAT PAID OUT MOST TODAY — and it is now MEASURED AND NEARLY DRY
 > **A NON-BATTLEFIELD-ZONE ability reads as residue to every battlefield-oriented gate.** An ability
