@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-04 - **Counter-scaled mana (Gyre Sage) — a SHELF card, +1** - batch 59
+> Suite 1095 files / 13,756 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Gyre Sage, the only
+> corpus carrier of the shape. Assembly: Shape A of the Add-clause parser already handles
+> "Add {SYM} for each <metric>"; this adds the counter metric beside the existing self-power twin plus its
+> resolver arm. Self-reference gate copied from selfPower (a "that creature"/"target creature" referent is
+> refused — reading the SOURCE's counters for another object's value would fabricate an amount).
+> **LAW 6 mattered:** mana production is an ENUMERATOR path. Driven at several counter counts — 0 → NOTHING
+> (never a fabricated 1), 1→1, 3→3, 5→5, read live so evolve growth counts. **Mutation B is the lesson: the
+> resolver forced to 0 left the CLASSIFICATION pin green and only the runtime pins red.**
+
+> ## 📐 SHELF STRUCTURE MEASURED - 2026-08-04 - **the shelf has NO cheap wins left, and here's the proof**
+> Ran the line-deletion probe over every unmodeled card in all 21 shelf decks. **ZERO two-flip composition
+> failures. 139 single-blocker cards** — i.e. 139 distinct missing mechanics. **This explains why a night
+> of strong corpus work moved the shelf by zero:** the corpus still had cheap composition bugs to harvest;
+> the shelf does not. Shelf progress is per-card mechanic work by construction.
+> Blocker clusters are SHAPE-level only and do NOT share a cause — checked, not assumed: the "landfall"
+> cluster (Scythecat Cub · Bloodghast · Earthbender Ascension) has three different unrouted effects (a
+> resolution-count conditional · a graveyard self-return · a reflexive trigger). **Declined to batch them.**
+> Most-repeated unmodeled shelf cards (max 3 decks each): Endurance · Veil of Summer · Mana Drain ·
+> Teferi's Protection · Mindbreak Trap · Wan Shi Tong. No cluster worth a subsystem.
+
 > ## 🛡 HARDENING - 2026-08-04 - **2nd latent newline-crossing FP, found by SWEEPING for the class**
 > Suite 1094 files / 13,750 green + lint 0 BY EXIT CODE. Flip-diff **0 / 0 / 0** — and that is the point.
 > After fixing the `if you do` newline bug I swept coverage.js for the whole CLASS instead of waiting to

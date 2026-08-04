@@ -7,8 +7,17 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-04 — **+25 this sitting · batch 58** — suite **1093 / 13,744** green by exit code · master green, CI success
+## ☀️ 2026-08-04 — **+26 this sitting · batch 59** — suite **1095 / 13,756** green by exit code · master green, CI success
 
+> ### 📐 AND THE SHELF'S STRUCTURE IS NOW MEASURED: **no cheap wins left on it**
+> Line-deletion probe over every unmodeled card in all 21 decks: **ZERO two-flip composition failures,
+> 139 single-blocker cards** — 139 distinct missing mechanics. **That is the explanation for the line
+> below.** The corpus still had cheap composition bugs to harvest all night; the shelf does not, so shelf
+> progress is per-card mechanic work by construction. Blocker "clusters" are SHAPE-level only and do NOT
+> share a cause — checked: the landfall trio (Scythecat Cub · Bloodghast · Earthbender Ascension) has
+> three different unrouted effects. **Don't batch them.** One such card was built tonight (Gyre Sage,
+> counter-scaled mana, `ce642ada`) as the reference for what that work looks like.
+>
 > ### 📊 THE SHELF WAS RE-MEASURED, AND THE HONEST READ IS: **+22 corpus cards moved it by ZERO**
 > Corpus 38.6% → **38.7%**. Shelf **unchanged at 82% (1715/2097) across 21 decks** — colton 93% (Veyran
 > Cantrips 88% the only miss) · joe 79% (9 below the bar) · test 73% (all 4 below). A night of strong
