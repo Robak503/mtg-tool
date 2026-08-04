@@ -47,6 +47,7 @@ import { triggerRoutesNatively, isModeledGroupTriggeredBody, programCombatRefere
 import { registerGrantTriggeredBodyValidator, registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant body gates
 import { isNativeGroupWard } from "./groupWard.js";
 import { isControlAura } from "./controlAura.js"; // the control-Aura delivery check, shared with the runtime attach/revert (controlAura imports only controlMove, a zero-import leaf, so this edge is acyclic)
+import { auraEnchantRestrictions } from "./staticAbilityParser.js"; // the qualified-subject host filter, shared with legalChoices' cast lane so offer + metric read ONE source
 import { isNativeKira } from "./kiraTargetCounter.js";
 import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy, counterShieldPrevention } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
@@ -2230,10 +2231,21 @@ export function grantAuraCastHostType(card) {
   if (isNativeAura(card) || isNativeOrdealAura(card) || isNativeManaAura(card) || isPlayerAuraCard(card)) return null;
   if (isSagaCard(card)) return null;
   const m = String(auraEnchantSubject(card) || "").match(/^(creature|land)( you control)?$/);
-  if (!m) return null;
+  // QUALIFIED CREATURE SUBJECT (2026-08-03): a subject auraEnchantRestrictions can express — "tapped
+  // creature", "creature without flying", "creature with power N or less", and now nonblack / green /
+  // "mana value N or less" — is a CREATURE host whose filter rides in the restriction list. Before this,
+  // the plain-subject regex was the only thing keeping this lane honest: a qualified-subject Aura in a
+  // GRANT/composite family (Wurmweaver Coil, once its subject became expressible) reached a native tier
+  // while this returned null, so no aura cast was offered and the card fell to the no-target push — a
+  // card credited native that the engine could not attach. The lane's caller now passes the SAME
+  // restrictions to enumerateTargets, so offer and metric stand on one source. An INEXPRESSIBLE subject
+  // still returns null here (auraEnchantRestrictions is null for it) and keeps the whole card on the
+  // Arbiter, which is why widening the tier without this would have been the forbidden direction.
+  const qualified = !m && auraEnchantRestrictions(card) ? { host: "creature", ownOnly: false } : null;
+  if (!m && !qualified) return null;
   const tier = classifyCard(card);
   if (tier !== "native-activated" && tier !== "native-mana-aura" && tier !== "native-trigger") return null;
-  return { host: m[1], ownOnly: !!m[2] || m[1] === "land" };
+  return m ? { host: m[1], ownOnly: !!m[2] || m[1] === "land" } : qualified;
 }
 
 // AURA-OWN-ACTIVATED — an Aura whose ONLY body is the Enchant line + one-or-more activated abilities PRINTED

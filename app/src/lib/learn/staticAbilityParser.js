@@ -5306,14 +5306,37 @@ export function auraEnchantRestrictions(card) {
   // forbidden one" — and it already applies to the shipped "creature you control" subject. Followed here
   // rather than reversed: widening the sweep would trade a safe miss for the forbidden failure mode.
   //
-  // Everything else still returns null → the Aura is NOT native (Arbiter): positive COLOR subjects ("green
-  // creature") have no positive-color restriction kind, type unions ("creature or vehicle") can't be
-  // expressed against a fixed targetType:"creature", and the exotic subjects ("modified creature",
-  // "creature with another Aura attached to it") have no predicate at all.
+  // Everything else still returns null → the Aura is NOT native (Arbiter): type unions ("creature or
+  // vehicle") can't be expressed against a fixed targetType:"creature", and the exotic subjects
+  // ("modified creature", "creature with another Aura attached to it") have no predicate at all.
+  // (Positive COLOUR subjects were once listed here too; they gained a restriction kind — see below.)
   if (subject === "tapped creature") return [{ kind: "tapped", value: true }];
   if (subject === "creature without flying") return [{ kind: "hasKeyword", keyword: "flying", negate: true }];
   const pw = subject && subject.match(/^creature with power (\d+) or less$/);
   if (pw) return [{ kind: "power", op: "<=", value: parseInt(pw[1], 10) }];
+  // ⭐ THREE MORE ON THE SAME TERMS (2026-08-03) — each maps EXACTLY onto a restriction
+  // creatureSatisfiesRestrictions ALREADY enforces, so this stays wiring and cannot mint a wrongly-legal
+  // target. Measured rather than assumed: a substitution probe over every non-native Aura (swap the
+  // Enchant line for "Enchant creature", keep every other line byte-identical) found 16 cards blocked
+  // SOLELY by their subject — not the 120 that merely carry a qualified one, which is why the count came
+  // from the probe and not from grouping.
+  //   "nonblack creature"                  → colorNeg   (Armor of Thorns)
+  //   "green creature"                     → color      (Wurmweaver Coil)
+  //   "creature with mana value N or less" → manaValue  (Threads of Disloyalty)
+  // ⚠️ THE PARAGRAPH BELOW USED TO SAY POSITIVE COLOUR SUBJECTS HAVE NO RESTRICTION KIND. That was true
+  // when it was written and is not true now: creatureRestrictions grew a layer-aware `color` branch
+  // (CR 105.2 — it reads permanentColors, so a creature turned green IS a legal host and a printed-green
+  // one turned white is not). Corrected in place rather than left to mislead the next reader.
+  const nonColor = subject && subject.match(/^non(white|blue|black|red|green) creature$/);
+  if (nonColor) return [{ kind: "colorNeg", color: COLOR_WORDS[nonColor[1]] }];
+  const posColor = subject && subject.match(/^(white|blue|black|red|green) creature$/);
+  if (posColor) return [{ kind: "color", color: COLOR_WORDS[posColor[1]] }];
+  const mv = subject && subject.match(/^creature with mana value (\d+) or less$/);
+  if (mv) return [{ kind: "manaValue", op: "<=", value: parseInt(mv[1], 10) }];
+  // Everything else still returns null → Arbiter. A colour DISJUNCTION ("red or green creature" —
+  // Controlled Instincts, Encase in Ice) is deliberately NOT here: restrictions are ANDed, so it needs a
+  // new disjunctive kind rather than wiring, and this slice does not invent one. Type unions
+  // ("artifact or creature") need a targetType that isn't fixed to "creature" — a bigger job, banked.
   return null;
 }
 

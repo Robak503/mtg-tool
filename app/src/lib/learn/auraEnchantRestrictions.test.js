@@ -51,11 +51,21 @@ describe("the subject maps onto an already-enforced restriction", () => {
   });
 
   it("CREED — an inexpressible subject still returns null (Aura parks, never a fabricated target set)", () => {
-    // No positive-colour restriction kind; no way to express a type union against targetType "creature";
-    // no predicate at all for "modified" or "with another Aura attached to it".
-    for (const subject of ["green creature", "red or green creature", "creature or Vehicle", "modified creature", "creature with another Aura attached to it"]) {
+    // ⭐ "green creature" MOVED OUT of this list on 2026-08-03: creatureRestrictions has a layer-aware
+    // positive `color` kind (CR 105.2), so the subject became expressible and is pinned as a POSITIVE
+    // below. What remains here is genuinely inexpressible: a colour DISJUNCTION (restrictions are ANDed,
+    // so it needs a new disjunctive kind), a type UNION against a fixed targetType "creature", and the
+    // exotic subjects with no predicate at all.
+    for (const subject of ["red or green creature", "creature or Vehicle", "modified creature", "creature with another Aura attached to it"]) {
       expect(auraEnchantRestrictions({ name: "X", type: "Enchantment — Aura", oracle: `Enchant ${subject}\nEnchanted creature gets +1/+1.` })).toBeNull();
     }
+  });
+
+  it("the three subjects added 2026-08-03 map onto existing restriction kinds (see auraQualifiedSubjects.test.js)", () => {
+    const mk = (subject) => ({ name: "X", type: "Enchantment — Aura", oracle: `Enchant ${subject}\nEnchanted creature gets +1/+1.` });
+    expect(auraEnchantRestrictions(mk("green creature"))).toEqual([{ kind: "color", color: "G" }]);
+    expect(auraEnchantRestrictions(mk("nonblack creature"))).toEqual([{ kind: "colorNeg", color: "B" }]);
+    expect(auraEnchantRestrictions(mk("creature with mana value 2 or less"))).toEqual([{ kind: "manaValue", op: "<=", value: 2 }]);
   });
 });
 

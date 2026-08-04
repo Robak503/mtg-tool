@@ -104,8 +104,18 @@ describe("EQ-2 — CREED FP guards: near-misses stay body-only", () => {
   it("an unmodeled triggered rider parks — Lead Pipe ('Whenever equipped creature dies …')", () => {
     expect(classifyCard(LEAD_PIPE)).toBe("body-only");
   });
-  it("a restricted enchant subject parks — Wurmweaver Coil ('Enchant green creature')", () => {
-    expect(classifyCard(WURMWEAVER_COIL)).toBe("body-only");
+  // ⭐ PIN INVERTED (2026-08-03): "Enchant green creature" became an EXPRESSIBLE subject (the layer-aware
+  // `color` restriction kind), so this composite now composes AND its cast lane offers only green hosts —
+  // both halves pinned in auraQualifiedSubjects.test.js. The guard's real job (an INEXPRESSIBLE subject
+  // parks the whole card) is re-pinned on the line below it.
+  it("an EXPRESSIBLE restricted subject now composes — Wurmweaver Coil ('Enchant green creature')", () => {
+    expect(classifyCard(WURMWEAVER_COIL)).toBe("native-activated");
+  });
+  it("⛔ an INEXPRESSIBLE restricted subject still parks the whole composite (the original guard's job)", () => {
+    // A colour DISJUNCTION has no restriction kind (restrictions are ANDed), so auraEnchantRestrictions
+    // returns null, the cast lane could not filter hosts, and the card must stay on the Arbiter.
+    expect(classifyCard({ ...WURMWEAVER_COIL, name: "Wurmweaver Probe",
+      oracle: WURMWEAVER_COIL.oracle.replace("Enchant green creature", "Enchant red or green creature") })).toBe("body-only");
   });
   it("a self-sac that would DROP an LTB trigger parks — Krovod Haunch ('put into a graveyard …')", () => {
     // sacrificeDropsTrigger flags the LTB trigger → the self-sac ability is unmodeled → the whole card parks.

@@ -1471,7 +1471,14 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     {
       const grantHost = grantAuraCastHostType(card);
       if (grantHost) {
-        const restrictions = grantHost.ownOnly ? [{ kind: "controller", who: "you" }] : [];
+        // QUALIFIED SUBJECT (2026-08-03): read the host filter from auraEnchantRestrictions — the SAME
+        // function the tier gate stands on — so a qualified creature subject ("nonblack creature",
+        // "creature with mana value 2 or less") enumerates only LEGAL hosts. It already returns
+        // [{controller:"you"}] for "creature you control", so it subsumes ownOnly for creature hosts;
+        // LAND hosts keep the ownOnly path (that function only speaks about creature subjects).
+        const restrictions = grantHost.host === "creature"
+          ? (auraEnchantRestrictions(card) || [])
+          : (grantHost.ownOnly ? [{ kind: "controller", who: "you" }] : []);
         const targets = enumerateTargets(state, playerId, { targetType: grantHost.host, restrictions }, colorsOf(card));
         if (targets.length === 0) continue;         // no legal host → can't cast (CR 303.4a)
         for (const t of targets) {
