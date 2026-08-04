@@ -7,17 +7,21 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-04 — **+21 this sitting · batch 54** — suite **1090 / 13,722** green by exit code · master green, CI success
+## ☀️ 2026-08-04 — **+22 this sitting · batch 55** — suite **1091 / 13,728** green by exit code · master green, CI success
 
-> ### ⭐ THE VEIN THAT PAID OUT MOST TODAY — read this before picking a card
+> ### ⭐ THE VEIN THAT PAID OUT MOST TODAY — and it is now MEASURED AND NEARLY DRY
 > **A NON-BATTLEFIELD-ZONE ability reads as residue to every battlefield-oriented gate.** An ability
-> played from the GRAVEYARD or from HAND is modeled by its own lane, so `parseActivatedAbilities` calls
-> it unmodeled and the residue walks treat its line as leftover text. Three slices today, +5 cards:
-> Aura graveyard self-recursion (AU-GY) · no-maximum-hand-size · the discard-cost hand ability. **If a
-> card pairs a modeled static/bonus with a hand- or graveyard-zone ability and parks, check this first.**
-> The fix each time was ONE shared source (a `classifyCard` pre-strip or a strip-then-revalidate lane),
-> never a patch on whichever gate happened to bite. Cycling / plot / warp are the same zone family and
-> have NOT been swept for this.
+> played from the GRAVEYARD, from HAND, or from EXILE is modeled by its own lane, so
+> `parseActivatedAbilities` calls it unmodeled and the residue walks treat its line as leftover text.
+> **Four slices today, +6 cards:** Aura graveyard self-recursion (AU-GY) · no-maximum-hand-size · the
+> discard-cost hand ability · the plot line on permanents. The fix each time was ONE shared source (a
+> `classifyCard` pre-strip, or strip-then-revalidate), never a patch on whichever gate happened to bite.
+> **Swept to exhaustion at the end:** cycling **0** · plot **1** (built) · warp **0** (my first sweep
+> reported 2, both FALSE — "Warp Vortex —" / "Warp Blast —" are ability-word LABELS, not the keyword; the
+> regex over-matched). **Consider this vein closed** unless a new zone keyword ships.
+> ⚠️ Two of the four needed a RUNTIME drive before the credit was honest, not just a tier diff — the
+> graveyard one because GY-1 was built for creatures, and plot because a card plotted into exile that
+> could never be cast back would be a dead end, strictly worse than parking it.
 
 > **▶ START HERE — the Block-4 grind off a FRESH census (34,245 scanned, ran 2026-08-03).**
 > The subsystem vein is DRY for a 4th consecutive time (largest sole-blocker cluster = 6, all unrelated

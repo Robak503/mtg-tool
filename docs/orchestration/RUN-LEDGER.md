@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-04 - **PLOT stripped for permanents, driven from exile, +1** - batch 55
+> Suite 1091 files / 13,728 tests green + lint 0 BY EXIT CODE. Flip-diff: **+1 / 0 / 0** — Demonic Ruckus.
+> **Fourth non-battlefield-zone instance.** Plot is stripped on the SPELL path and in the clone view; a
+> PERMANENT that isn't a clone meets neither (the Aura block returns first). Honest by the SUSPEND test:
+> plot is an ALTERNATIVE cast for a card with a real printed cost, so the hard cast is byte-identical and
+> not offering plot is a safe FN — unlike the no-mana-cost suspend cards, which keep their line.
+> ⛔ **A TIER DIFF WAS NOT ENOUGH HERE:** stripping makes the ENGINE offer plot (`plotPlayable` gates on
+> `isNativeTier`), so a card plotted into exile that could never be cast back would be a **DEAD END —
+> strictly worse than parking it.** Drove it: plot offered → hand→exile → LATER turn the free cast returns
+> as a real AURA spell with a legal host; the same-turn refusal (CR 702.171b) pinned too.
+> Mutations: pre-strip disabled → 4 red. The permanent-only type guard removed → **full suite green**
+> (instants/sorceries already stripped upstream) — recorded as REDUNDANT-but-honest, not pinned.
+> **🔎 VEIN NOW MEASURED AND NEARLY DRY:** swept cycling (**0**), plot (**1**, this), warp (**2 — both
+> FALSE, "Warp Vortex —"/"Warp Blast —" are ability-word LABELS, not the keyword; my regex over-matched**).
+
 > ## SLICE DONE - 2026-08-04 - **Discard-cost hand ability stripped for EVERY lane, +1** - batch 54
 > Suite 1090 files / 13,722 tests green + lint 0 BY EXIT CODE. Flip-diff: **+1 / 0 / 0** — Waker of Waves.
 > ⭐ **THIRD INSTANCE OF ONE PATTERN THIS SESSION, now worth naming: an ability played from a NON-
