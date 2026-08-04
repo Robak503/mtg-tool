@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔴 BUILT · MEASURED · REVERTED - 2026-08-04 - **Witch's Mark was a FALSE POSITIVE, and a previous
+> author's pin caught me.** The most useful hour of the night, and it shipped nothing.
+> I extended the per-clause matcher trick that worked for impulse-exile to the optional-discard pair, and
+> Witch's Mark flipped arbiter-spell → native-spell on a clean **+1 / 0 / 0** whole-corpus diff, with the
+> program carrying BOTH atoms (`optional-discard-payment`, `create-named-token`). Looked perfect.
+> **The full suite went red on four pins in `optionalDiscardLeadingSentence.test.js` — pins a previous
+> author wrote SPECIFICALLY to stop this**, with the reason stated in the file header: Witch's Mark's shape
+> is pair-FIRST-then-mandatory, and "a mis-split would bind the token creation to the optional, so it would
+> silently vanish when the player declines."
+> **They were right, and my version was wrong in an even worse way than they feared.** Driving the FULL
+> program on a board: the Role token is **NEVER created — on EITHER answer.** The α2 invariant
+> (`optionalsFormSuffix`) requires optionals to be LAST; with the optional FIRST, the mandatory atom after
+> it never runs at all. So the card would have been credited native while half of it did nothing.
+> ⛔ **REVERTED.** What would actually be needed, for whoever takes it: split the payoff at its first
+> sentence boundary so the token sentence is provably NOT part of the optional's payoff, AND make the
+> program run a trailing mandatory atom after the optional settles (or resolve the α2 ordering properly).
+> **Do not "complete" this fold without both.** *Two lessons: the deliberate-park pins are load-bearing —
+> read the header before assuming a park is stale; and driving ONE atom in isolation proved nothing, it
+> was driving the WHOLE program that exposed it.*
+
 > ## SLICE DONE - 2026-08-04 - **Counter-scaled mana (Gyre Sage) — a SHELF card, +1** - batch 59
 > Suite 1095 files / 13,756 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Gyre Sage, the only
 > corpus carrier of the shape. Assembly: Shape A of the Add-clause parser already handles

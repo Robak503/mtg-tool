@@ -150,6 +150,17 @@
 > flipped ZERO cards on its own; Time Vault was accidentally shielded by residue that an unrelated,
 > perfectly good slice was about to remove. **A "0 gained / 0 lost" correctness fix can be the most
 > load-bearing commit of the day** — and the order (fix, then compose) is the whole safety argument.
+> **29 — A DELIBERATE PARK'S PINS ARE LOAD-BEARING. READ THE HEADER BEFORE ASSUMING IT'S STALE.** I
+> extended a trick that had just worked (the per-clause matcher, +4 on impulse-exile) to the
+> optional-discard pair; Witch's Mark flipped on a clean **+1/0/0** with both atoms present. The full
+> suite then went red on FOUR pins a previous author wrote specifically to stop it, reason stated in the
+> file header. **They were right and my version was worse than they feared:** driving the FULL program
+> showed the Role token is **never created on EITHER answer** — the α2 invariant (`optionalsFormSuffix`)
+> needs optionals LAST, and with the optional first the mandatory atom after it never runs. Reverted.
+> ⚠️ **And the sharper half: I had already "driven the runtime" — but only the FIRST ATOM in isolation,
+> which passed.** Only running the WHOLE program exposed it. *Driving one atom is not driving the card.*
+> (Correction 21 says a banked cause goes stale; **this is its counterweight — a banked REFUSAL usually
+> has not.** Check which kind you're looking at.)
 > **28 — WHEN YOU FIND A BUG CLASS, SWEEP THE FILE FOR IT BEFORE MOVING ON.** One `\s`-eats-a-newline
 > bug became two: sweeping coverage.js for the class immediately afterward turned up the
 > enters-with-counters strips leading with `[^.]*`, **and `[^.]` matches a newline too** (only `.`
