@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-04 — **+16 this sitting · batch 49** — suite **1088 / 13,707** green by exit code · master green, CI success
+## ☀️ 2026-08-04 — **+20 this sitting · batch 53** — suite **1089 / 13,715** green by exit code · master green, CI success
 
 > **▶ START HERE — the Block-4 grind off a FRESH census (34,245 scanned, ran 2026-08-03).**
 > The subsystem vein is DRY for a 4th consecutive time (largest sole-blocker cluster = 6, all unrelated
@@ -35,8 +35,12 @@
 >   ANDed today); TYPE UNIONS ("artifact or creature" ×4, "creature or vehicle" ×2, +3 singletons) need a
 >   targetType not fixed to "creature"; and "modified" / "with another Aura attached" / "nonland permanent"
 >   have no predicate at all. The 3 that mapped onto existing kinds are BUILT (`765d80d4`).
-> · **The two-flip list still holds 22 cards** — the four scoped on 08-02 are all BUILT (below); the rest
->   are unscoped. Witch's Mark remains the named exception (two spell clauses, arbiter-spell).
+> · **The two-flip list** — 8 of its 22 are now BUILT. Remaining unscoped, with what's known:
+>   **Waker of Waves · Glorious Sunrise · Elaborate Firecannon · Artisan of Kozilek** (annihilator — an
+>   unmodeled keyword, likely an honest park) **· Witch's Mark** (the named exception: two spell clauses).
+>   ⭐ **The pattern that has paid out five times running: a two-flip card is a COMPOSITION failure, so
+>   find the lane that owns each half and ask why they don't compose — the mechanic is almost never
+>   missing.** Prove the shared cause by COMBINATION (parse each subset) before batching any of them.
 > ⚠️ **PROVE THE SHARED CAUSE BEFORE BATCHING** — probe each candidate's line combinations, don't group by
 > symptom. That rule earned +8 today and would have cost a bad commit without it.
 >

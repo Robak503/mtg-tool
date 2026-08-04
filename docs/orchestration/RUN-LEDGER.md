@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-04 - **IMPULSE-EXILE matchable as a CLAUSE, +4** - batch 53 since v0.150.1
+> Suite 1089 files / 13,715 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+4 / 0 / 0** —
+> Blazing Crescendo · Mjölnir's Might · Inspired Tinkering · **Molly Hayes, Runaway** (same shape inside
+> one activated ability; audited whole-card — her once-per-GAME power-up limit lives only in reminder text,
+> is still parsed, and is pinned so a composed effect can't hide an unenforced limit).
+> **Cause isolated by COMBINATION:** each half HIGH alone; the pair LOW with ZERO atoms; failed in BOTH
+> orders (never sequence) and a pump+draw control was HIGH (multi-clause spells were never the problem).
+> The shape is owned by a WHOLE-ORACLE collapse returning a one-atom program, so it only ever fired when
+> the impulse WAS the entire effect.
+> ⛔ **The collapse's own stated reason is STALE** — "each half is individually unmatchable, so it's
+> collapsed up front" stopped being true when the 2026-08-01 two-sentence FOLD landed in splitClauses. The
+> splitter hands the clause over WHOLE, so the SAME matcher matches per-clause: no new grammar, no widened
+> anchor, collapse still first. **The splitter premise is PINNED by test rather than trusted** — that's
+> the whole safety argument. **Fifth stale-premise find this run.**
+> Mutation: per-clause matcher removed → 4 red, and both collapse-owned single-clause carriers stay green.
+
 > ## SLICE DONE - 2026-08-04 - **Three more QUALIFIED enchant subjects, +3** - batch 49 since v0.150.1
 > Suite 1088 files / 13,707 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+3 / 0 / 0** —
 > Armor of Thorns (nonblack→colorNeg) · Wurmweaver Coil (green→color) · Threads of Disloyalty (MV≤2→
