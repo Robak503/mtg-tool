@@ -772,6 +772,19 @@ export function countForSpec(state, ctx, spec) {
     const lk = sourceId == null ? null : findPermanent(state, sourceId);
     return lk ? Math.max(0, creaturePower(lk.permanent, state)) : 0;
   }
+  // ===== MANA-VARIABLE ===== the SOURCE's own +1/+1 counters — "{T}: Add {G} for each +1/+1 counter on
+  // this creature" (Gyre Sage). The counter twin of selfPower directly above, and resolved the same way:
+  // the source is read from ctx.sourceId ?? ctx.source?.id (the mana path threads the latter), a source
+  // that has left the battlefield reads 0 rather than throwing, and the caller's Math.max floors it.
+  //
+  // Reads the LIVE counter map, not a printed value, so evolve/adapt/proliferate growth counts — which is
+  // the entire plan on every card in this shape. Counters are stored under their printed key ("+1/+1"),
+  // the same key addCounter/removeCounter use, so there is one spelling on both sides.
+  if (spec.kind === "selfCounters") {
+    const sourceId = ctx?.sourceId ?? ctx?.source?.id ?? null;
+    const lk = sourceId == null ? null : findPermanent(state, sourceId);
+    return lk ? Math.max(0, lk.permanent.counters?.[spec.counter || "+1/+1"] || 0) : 0;
+  }
   // ===== MANA-VARIABLE / DRAW-METRIC ===== the single greatest layer-resolved TOUGHNESS among the controller's
   // creatures (Arbor Adherent mana "among OTHER creatures" → excludeSelf; DRAW-METRIC greatest-toughness draw).
   // Mirrors greatestPowerYouControl through the same exclude-aware helper.

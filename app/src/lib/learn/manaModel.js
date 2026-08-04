@@ -200,6 +200,24 @@ function parseManaMetric(tail, card) {
   // power for a value that belongs to another permanent — a fabricated amount. So the name arm matches only
   // against THIS card's own name and refuses everything else (an unmodelled metric → null → the card parks,
   // the safe direction).
+  // ⭐ SELF-COUNTERS ("{T}: Add {G} for each +1/+1 counter on this creature" — Gyre Sage). The counter twin
+  // of the self-power metric below, and it carries the SAME self-reference gate for the same reason: every
+  // other "counter on <X>" on a real card is a referent to a DIFFERENT object ("that creature", "target
+  // creature"), and reading the source's counters for a value belonging elsewhere would fabricate an amount.
+  // So only the source's own three spellings are accepted — "this creature", the full name, or the pre-comma
+  // short name — and anything else returns null → the card parks (the safe direction).
+  {
+    const cm = t.match(/^\+1\/\+1 counter on (.+)$/);
+    if (cm) {
+      const subj = cm[1].trim();
+      const own = String(card?.name || "").toLowerCase();
+      const short = own.split(",")[0].trim();
+      if (subj === "this creature" || subj === "it" || (own && (subj === own || (short && subj === short)))) {
+        return { kind: "selfCounters", counter: "+1/+1" };
+      }
+      return null; // a referent to another object — never read the source's counters for it
+    }
+  }
   if (/^this creature's power$/.test(t)) return { kind: "selfPower" };
   m = t.match(/^(.+)'s power$/);
   if (m) {
