@@ -445,6 +445,17 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
   const impulseClause = matchImpulseExilePlay(s);
   if (impulseClause && KNOWN.has(impulseClause.atom.op)) return impulseClause.atom;
 
+  // ⭐ SELF-HIT DAMAGE AS A CLAUSE (2026-08-04) — "<source> deals N damage to any target and M damage to
+  // you." THE THIRD instance today of one shape: a WHOLE-ORACLE matcher that only fires when its sentence
+  // IS the entire card. The splitter now keeps this sentence whole (its own new guard), so without this
+  // the clause reaches the ordinary damage parser, which matches the leading half and SILENTLY DROPS the
+  // rider — the card would classify native while dealing no damage to its controller, strictly better
+  // than printed. Reaching matchSelfHitDamage per-clause keeps the `selfDamage` field on the atom, which
+  // stack.js then applies. No new grammar: the same matcher, reached by the path that now delivers the
+  // text it wants. The whole-oracle collapse still runs first and keeps its cards byte-identical.
+  const selfHit = matchSelfHitDamage(s);
+  if (selfHit && selfHit.atoms?.length === 1 && KNOWN.has(selfHit.atoms[0].op)) return selfHit.atoms[0];
+
   // α2 — "you may <effect>": an OPTIONAL effect the controller chooses to take (or not). Peel the
   // "you may" wrapper and parse the inner clause on its own merits; if it reduces to a fully-modeled
   // atom, stamp optional:true so the resolver offers a real yes/no (player) / auto-decides (AI),

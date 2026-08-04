@@ -318,6 +318,26 @@ export function splitClauses(oracle) {
     // the ±N/±N pump tail so a damage/exile fanout ("…deals 4 damage to target creature and each other creature
     // with the same name…") never captures here (that's a different, un-modeled shape → stays on the Arbiter).
     if (/^target creature and all other creatures with the same name as that creature get [+-]\d+\/[+-]\d+ until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ⭐ SELF-DAMAGE RIDER (2026-08-04 — Orcish Cannonade) — "<source> deals N damage to any target AND M
+    // damage to you." The internal " and " joins two RECIPIENTS of one damage instruction, not two
+    // effects; severing it leaves the orphan "M damage to you", which parses as nothing and dropped the
+    // whole spell. Found by SIBLING ASYMMETRY: 20 corpus carriers and ELEVEN already native — all the
+    // ACTIVATED ones, whose sentence reaches the clause parser intact and never meets this splitter. The
+    // same words, modeled on one path and not the other, so this was never a missing mechanic.
+    //
+    // ⛔ "TO YOU" ONLY, and that exclusion is the CREED call. The parser carries the rider as
+    // `selfDamage`, which stack.js applies to the CONTROLLER — right for "you", wrong for "itself"
+    // (CR 119.3: the creature damages ITSELF). Measured: the "itself" form parses with NO selfDamage
+    // field at all, so keeping those sentences whole credited Psionic Entity / Reckless Embermage /
+    // Psionic Sliver as native while their self-damage did nothing — strictly BETTER than printed, a
+    // forbidden FP. They stay parked until the source-directed form gets a real resolver.
+    // ⛔ AND ANCHORED TO "ANY TARGET", which is narrower than the sentence shape and deliberately so: it is
+    // exactly what matchSelfHitDamage can consume. Keeping a WIDER sentence whole is not free — the clause
+    // then reaches the ordinary damage parser, which matches the leading half and silently drops the
+    // rider. Measured on Fire and Brimstone ("…to target player who attacked this turn and 4 damage to
+    // you"): kept whole it classified native-spell with NO selfDamage at all, i.e. credited while dealing
+    // nothing to its controller. It splits and parks instead, until that target restriction is modeled.
+    if (/\bdeals \d+ damage to any target and \d+ damage to you\.?$/i.test(sentence)) { clauses.push(sentence); continue; }
     // GUSTCLOAK ESCAPE (BLITZ GC-1, CR 506.4) — "[you may ]untap (it|this creature) and remove (it|this
     // creature) from combat" (the becomes-blocked escape's effect — Gustcloak Runner/Sentinel/Harrier/
     // Skirmisher/Cavalier). The " and " joins the untap to the combat removal within ONE instruction on the
