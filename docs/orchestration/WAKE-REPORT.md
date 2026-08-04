@@ -67,6 +67,35 @@
 > triggered (+2, Strands of Undeath rode along) · the no-max-hand-size sentence-boundary fix (+2).
 > **All four of 08-02's two-flip leads are CLOSED.**
 >
+> ### 🔴 A LIVE FALSE POSITIVE, FOUND AND **NOT** SHIPPED AROUND — fix this before the +3 behind it
+> **`permanentFullyCovered` silently drops an unmodeled "If you do, …" sentence, and with it the
+> REPLACEMENT-EFFECT sentence in front of it.** Reproduce at HEAD, no changes needed:
+> ```
+> classifyCard({name:"Time Vault", type:"Artifact", mana:"{2}", oracle:
+>   "If you would begin your turn while this artifact is tapped, you may skip that turn instead. If you do, untap this artifact.\n{T}: Take an extra turn after this one."})
+> // → "native-mixed"   ⛔ should be body-only
+> ```
+> That skip-turn replacement is **entirely unmodeled** — grep finds no implementation of "would begin your
+> turn" / "skip that turn" anywhere — and it is Time Vault's whole drawback. The line ALONE parks
+> correctly (`body-only`); it is only dropped once a modeled activated ability is beside it. Measured
+> narrowing: **any** "If you do, …" tail after it causes BOTH sentences to vanish (residue instrumented to
+> `""`); with a plain "Untap this artifact." instead, the card correctly parks. The strip's own comment
+> claims it is FN-safe because "the HIGH gate above already vouched the whole trigger effect is modeled" —
+> **true only when the tail follows a VOUCHED TRIGGER. Time Vault's follows a replacement effect that no
+> gate ever vetted, and the strip is unanchored.**
+>
+> ### ⏸ BLOCKED ON THAT FIX — the SELF-NO-UNTAP composition, +3 measured and ready
+> `stripModeledSelfNoUntap` is applied in the native-BODY and native-TRIGGER lanes but NOT in
+> `permanentFullyCovered` (the composite), so a no-untap static beside a modeled activated + trigger
+> parks. **Elaborate Firecannon is the cleanest possible tell: every PAIR of its three lines is native
+> (no-untap+act → native-activated · act+upkeep → native-mixed · no-untap+upkeep → native-trigger) and
+> only all three together park.** A `classifyCard` pre-strip (beside the others) measures **+3 / 0 / 0 —
+> Elaborate Firecannon · Goblin Sharpshooter · Time Vault** — and the first two audit clean whole-card.
+> ⛔ **It was BUILT, MEASURED, AND REVERTED rather than shipped, because the third row is Time Vault and
+> crediting it would ship the FP above on a real card.** Fix the strip first (require a vouched
+> antecedent), re-run the flip-diff, and the +3 lands honestly — Time Vault included, since its skip
+> clause would then correctly park it and the other two still flip. Do not ship the pre-strip alone.
+>
 > ### ⚠️ READ BEFORE YOUR FIRST GATE — the corrections still standing, plus three earned today
 > **19 — THE GATE IS THE EXIT CODE** and **20 — A CLEAN FLIP-DIFF IS NOT A SAFE CHANGE** (both below).
 > **21 — A BANKED CAUSE IS A HYPOTHESIS WITH A TIMESTAMP.** Three of the four two-flip causes written down

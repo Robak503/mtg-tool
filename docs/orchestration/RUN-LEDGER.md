@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔴 BUILT · MEASURED · REVERTED - 2026-08-04 - **SELF-NO-UNTAP composition (+3) blocked by an FP**
+> The slice works and measures **+3 / 0 / 0** (Elaborate Firecannon · Goblin Sharpshooter · Time Vault):
+> `stripModeledSelfNoUntap` runs in the native-BODY and native-TRIGGER lanes but NOT in the COMPOSITE
+> (`permanentFullyCovered`), so a no-untap static beside a modeled activated + trigger parks. Elaborate
+> Firecannon is the cleanest tell this project has produced — **every PAIR of its three lines is native
+> and only all three together park.**
+> ⛔ **NOT SHIPPED, and that is the point.** The third gained row is **Time Vault**, and crediting it
+> would ship a **pre-existing FALSE POSITIVE**: `permanentFullyCovered` drops an unmodeled "If you do, …"
+> sentence AND the replacement-effect sentence in front of it, so Time Vault's skip-your-turn clause —
+> unmodeled, no implementation anywhere in the repo — vanishes. Reproducible at HEAD with no changes
+> (recipe in WAKE-REPORT). Instrumented the residue to `""` to prove it, and narrowed it: the clause
+> parks correctly ALONE, any "If you do, …" tail makes both sentences vanish, a plain "Untap this
+> artifact." tail parks correctly. The strip's FN-safety comment assumes the tail follows a VOUCHED
+> TRIGGER; Time Vault's follows a replacement effect no gate ever vetted, and the strip is unanchored.
+> **Fix the strip first (require a vouched antecedent), then the +3 lands honestly** — Time Vault
+> included, because its skip clause would then correctly park it while the other two still flip.
+> *The whole-card audit is what caught this: the tier diff was a clean +3/0/0.*
+
 > ## SLICE DONE - 2026-08-04 - **PLOT stripped for permanents, driven from exile, +1** - batch 55
 > Suite 1091 files / 13,728 tests green + lint 0 BY EXIT CODE. Flip-diff: **+1 / 0 / 0** — Demonic Ruckus.
 > **Fourth non-battlefield-zone instance.** Plot is stripped on the SPELL path and in the clone view; a
