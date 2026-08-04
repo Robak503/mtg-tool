@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-03 - **NO-MAX-HAND strip ate a sentence boundary, +2** - batch 41 since v0.150.1
+> Suite 1085 files / 13,680 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+2 / 0 / 0** —
+> Tishana, Voice of Thunder + Body of Knowledge, both audited whole-card. First slice off the FRESH census
+> (34,245 scanned; largest cluster 6 — subsystem vein dry, 4th confirmation; the live ore is bug signatures).
+> **Shared cause PROVEN before building** (the discipline the two-flip four taught): every other pair of
+> their three lines composes, only CDA + no-max-hand parks — and both cards carry the identical pair.
+> **TWO defects on one card, each masking the other.** ① `NO_MAX_HAND_METRIC_RE` leads with a DELIMITER
+> `(?:^|[\n.;])` and replaced the WHOLE match with a space → a MID-oracle line ate the previous sentence's
+> period and glued its neighbours into an unparseable pseudo-sentence. Invisible for every carrier that
+> prints the line FIRST (Reliquary Tower/Spellbook/Thought Vessel, all `^`) — i.e. every already-native
+> one. **The runbook's "fold that eats its own sentence boundary", including why it hid: the tell is a
+> card whose tier does NOT change, which no fingerprint diff can show.** ② THREE residue lanes judge this
+> sentence; only two ever stripped it. Fixed as ONE shared source — delimiter re-emitted, strip moved to a
+> `classifyCard` PRE-STRIP beside Leyline/Suspend — not a third call site (runbook: point them at one
+> helper, never patch the copy that bit). Runtime measured on a CREATURE carrier for the first time: 10
+> cards → 0 discards vs 3 without; the CDA tracks the live hand.
+> ⚠️ **MUTATION HONESTY:** reverting the replacement alone gave only 1 red — tightening `\s*`→`[ \t]*`
+> independently fixes the newline case, so the fix has TWO load-bearing halves. The true revert (both) = 3
+> red; pre-strip alone = 1 red. Written up as it behaved, not as a clean kill.
+
 > ## SLICE DONE - 2026-08-03 - **AU-ACT+TRIG: aura-own activated × aura-own triggered, +2** - batch 39 since v0.150.1
 > Suite 1084 files / 13,670 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+2 / 0 / 0** —
 > Fiery Mantle + Strands of Undeath, both audited whole-card. **The FOURTH two-flip lead — the one banked

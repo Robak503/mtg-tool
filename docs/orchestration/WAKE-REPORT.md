@@ -7,6 +7,50 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ☀️ 2026-08-03 — **+8 this sitting · batch 41** — suite **1085 / 13,680** green by exit code · master green, CI success
+
+> **▶ START HERE — the Block-4 grind off a FRESH census (34,245 scanned, ran 2026-08-03).**
+> The subsystem vein is DRY for a 4th consecutive time (largest sole-blocker cluster = 6, all unrelated
+> mechanics), so the live ore is BUG SIGNATURES — shapes that block some cards while classifying native on
+> others. Ranked leads, straight off that census, each with its own scoping job:
+> · **`enchanted creature doesn't untap during its controller's untap step`** — 25 native / **2 sole**
+>   (Ray of Frost · Controlled Instincts). Named in the session plan as "+~2"; not yet probed.
+> · **`you control enchanted creature`** — 7 native / **4 sole** (Biting Tether · Krovikan Whispers).
+>   This is NEXT-QUEUE's **B1b** credit half; two of its carriers are also on the two-flip list.
+> · **`{C}{C}: return this card from your graveyard to your hand`** — 6 native / **3 sole**.
+> · **`reinforce N—{C}{C}`** — 5 native / **3 sole**.
+> · **The two-flip list still holds 22 cards** — the four scoped on 08-02 are all BUILT (below); the rest
+>   are unscoped. Witch's Mark remains the named exception (two spell clauses, arbiter-spell).
+> ⚠️ **PROVE THE SHARED CAUSE BEFORE BATCHING** — probe each candidate's line combinations, don't group by
+> symptom. That rule earned +8 today and would have cost a bad commit without it.
+>
+> **State:** last commit `e61fba34`, tree clean, nothing in flight. **Do not tag** — 41 of ~100 banked.
+> Shelf/corpus numbers below are from 08-02 and are now STALE by +8 cards — re-measure before quoting them.
+>
+> **Shipped this sitting (+8, five slices, each pushed to master with its own full gate):**
+> EQ-3 Candlestick quoted-grant composite (+1) · LA-2 Verdant Haven ETB rider on the boost aura (+1) ·
+> the remove-counter fail-safe narrowing (+2, Charforger rode along) · AU-ACT+TRIG aura-own activated ×
+> triggered (+2, Strands of Undeath rode along) · the no-max-hand-size sentence-boundary fix (+2).
+> **All four of 08-02's two-flip leads are CLOSED.**
+>
+> ### ⚠️ READ BEFORE YOUR FIRST GATE — the corrections still standing, plus three earned today
+> **19 — THE GATE IS THE EXIT CODE** and **20 — A CLEAN FLIP-DIFF IS NOT A SAFE CHANGE** (both below).
+> **21 — A BANKED CAUSE IS A HYPOTHESIS WITH A TIMESTAMP.** Three of the four two-flip causes written down
+> on 08-02 were stale or wrong by the time they were built — and the split that produced them was itself
+> the right call. Re-probe a banked claim before building on it; all three were CHEAPER than their notes said.
+> **22 — A MUTATION THAT HITS THE WRONG LINE IS WORTH NOTHING.** A `string.replace` matched the tail of a
+> *different* line carrying the same needle and ran GREEN. Verify the aim landed, not merely that something
+> changed — and re-check the surviving occurrence count.
+> **23 — ASSERT THROUGH THE PATH THE ENGINE ACTUALLY USES.** A bare `flushTriggers(state)` takes the FIRST
+> LEGAL target, so a "target player discards" probe picked its own controller and read as a dead effect;
+> the engine's real path passes `{ chooseTargets: chooseTriggerTargets }`. Same family as law 6.
+>
+> ### 🧰 WORKTREE NOTE (cost 4 red tests at baseline)
+> A reused worktree may lack `app/data/rules-index.json` → 4 pre-existing rules-retrieval failures that are
+> NOT your slice. Rebuild with `npm run build:rules-index` (gitignored artifact). And **run suite gates
+> env-clean**: under vitest a real-install `MTG_APP_ROOT` is REFUSED by design (the ghost-registry guard).
+> Env-point only the non-vitest tools — the census and `tier-snapshot.mjs`.
+
 ## ☀️ 2026-08-02 (session end) — **v0.150.1 SHIPPED · +33 cards · 3 features** — suite **1081 / 13,640** · batch **33** since v0.150.1
 
 > **▶ START HERE — four two-flip cards, and they are FOUR SEPARATE SLICES, not one.**
