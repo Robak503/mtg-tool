@@ -2935,11 +2935,11 @@ export function classifyCard(card) {
   // keyword — so no printed-form strip is needed or wanted here (CREED — never leave a partial fragment).
   const isRavenous = /\bravenous\b\s*\(this creature enters with x \+1\/\+1 counters? on it\b/i.test(oracle);
   const baseOracle = entersWithPlusCounters(card) > 0
-    ? plotStrippedOracle.replace(/[^.]*enters (?:the battlefield )?with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it[^.]*\.?/i, " ")
+    ? plotStrippedOracle.replace(/[^.\n]*enters (?:the battlefield )?with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it[^.\n]*\.?/i, " ")
     : entersWithXCounters(card) && xPipCount >= 1 && !isRavenous
-      ? plotStrippedOracle.replace(/[^.]*enters (?:the battlefield )?with x \+1\/\+1 counters? on it[^.]*\.?/i, " ")
+      ? plotStrippedOracle.replace(/[^.\n]*enters (?:the battlefield )?with x \+1\/\+1 counters? on it[^.\n]*\.?/i, " ")
       : entersWithMetricCounters(card)
-        ? plotStrippedOracle.replace(/[^.]*enters (?:the battlefield )?with [^.]*\+1\/\+1 counters?[^.]*\.?/i, " ")
+        ? plotStrippedOracle.replace(/[^.\n]*enters (?:the battlefield )?with [^.\n]*\+1\/\+1 counters?[^.\n]*\.?/i, " ")
         : plotStrippedOracle;
   // ENTERS-WITH extensions (BLITZ EW-1; CR 614.1c + 122.6a) — three more modeled enters-with-counter shapes,
   // each stripped ONLY when its parser (the SAME helper the resolver reads — single source of truth) confirms
