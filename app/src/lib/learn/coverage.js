@@ -1940,12 +1940,13 @@ export function registerCoverageClassifier(fn) {
  *     creature gets +3/+3 until end of turn." → a pump target:"enchanted" the runtime drops) parks. Effects
  *     on a CHOSEN / any target (draw, create a token, "It deals N damage to any target") are unaffected — the
  *     target is picked at activation and survives the source's departure.
- *   • GUARD-QUOTE: parseEquipmentBonus is NOT all-or-nothing over a QUOTED granted ability (Candlestick
- *     "Equipped creature gets +1/+1 and has \"Whenever this creature attacks, surveil 2.\"" → it captures only
- *     the +1/+1 and SILENTLY DROPS the granted trigger). A double-quote in the stripped remainder signals a
- *     granted ability the bonus parser drops → reject. (parseAuraBonus IS all-or-nothing so this only bites
- *     Equipment, but the guard covers both; isNativeTriggerGrantAuraOrEquipment already owns the pure
- *     grant-line equipment, checked earlier in the dispatch, so nothing legitimate is lost here.)
+ *   • GUARD-QUOTE (EQ-3 composition): a double-quote in the stripped remainder signals a GRANTED quoted
+ *     ability. For an AURA it still rejects outright (that composition lives in nativeGrantPlusAuraStatic).
+ *     For EQUIPMENT the remainder is handed to isNativeTriggerGrantAuraOrEquipment — the gate that owns the
+ *     pure grant shape (runtime: grantedTriggersForHost fires the quoted trigger; parseAttachedBonus's
+ *     validator-gated quoted-tail folds apply the static half) — plus a real-vs-stripped bonus-parse
+ *     agreement guard, since the layer engine reads the FULL oracle and an activated line naming the host
+ *     poisons it. An unvalidated quote still rejects (CREED). Candlestick is the reference carrier.
  */
 /**
  * AU-GRANT+STATIC — an Aura that BOTH grants its host a modeled ability AND carries a modeled static bonus.
@@ -2021,8 +2022,22 @@ function nativeStaticGrantPlusActivated(card) {
     return !(isActivatedAbilityLine(s, card) && !/^equip\b/i.test(s));
   });
   const stripped = { ...card, oracle: kept.join("\n") };
-  // GUARD-QUOTE (see doc): a granted quoted ability in the remainder's bonus is silently dropped → reject.
-  if (/["“”]/.test(stripReminder(stripped.oracle))) return null;
+  // GUARD-QUOTE → EQ-3 composition (Candlestick): a quoted grant in the remainder is admissible ONLY for
+  // Equipment and ONLY through isNativeTriggerGrantAuraOrEquipment — the gate that already owns the pure
+  // grant shape, whose runtime is real on BOTH halves: grantedTriggersForHost fires the quoted trigger off
+  // the attachment's own line-anchored parse (unaffected by the activated lines stripped here), and the
+  // layer engine applies any static half via parseAttachedBonus's validator-gated quoted-tail folds. The
+  // gate re-runs its own count / static-half / residue guards on the remainder, so an unmodeled or
+  // non-triggered co-grant still parks (CREED).
+  // DRIFT GUARD: the layer engine parses the REAL oracle, not the remainder — an activated line that
+  // mentions the host ("{1}: Equipped creature gains …") poisons the full-card bonus parse to [] while the
+  // remainder's still succeeds; crediting on the remainder would claim a buff the runtime dropped, so the
+  // two parses must agree. Auras keep the blanket reject (their composite lane is nativeGrantPlusAuraStatic).
+  if (/["“”]/.test(stripReminder(stripped.oracle))) {
+    if (isAura || !isNativeTriggerGrantAuraOrEquipment(stripped)) return null;
+    if (parseEquipmentBonus(card).length !== parseEquipmentBonus(stripped).length) return null;
+    return "native-equipment";
+  }
   if (isAura) return isNativeAura(stripped) ? "native-activated" : null;
   return permanentEquipmentCovered(stripped) ? "native-equipment" : null;
 }

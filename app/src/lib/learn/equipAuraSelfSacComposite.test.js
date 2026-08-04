@@ -16,8 +16,9 @@
  * CREED guards (a false negative is SAFE; a dropped rider / mis-bound referent is FORBIDDEN):
  *   • GUARD-LEAVE — a self-sac cost removes the source (and its attachment) BEFORE the effect resolves, so an
  *     effect referencing the detached host ("Enchanted creature gets +3/+3" — Briar Shield) can't bind → park.
- *   • GUARD-QUOTE — parseEquipmentBonus silently drops a QUOTED granted ability ("…and has \"Whenever this
- *     creature attacks, surveil 2.\"" — Candlestick) → a quote in the bonus parks the card.
+ *   • GUARD-QUOTE (re-scoped 2026-08-03, EQ-3) — a quote in the stripped remainder parks an AURA outright;
+ *     an EQUIPMENT remainder is handed to isNativeTriggerGrantAuraOrEquipment (Candlestick composes now —
+ *     see equipGrantPlusActivated.test.js; an unvalidated quote still parks).
  *
  * Real oracle fixtures (bundled Scryfall, probed 2026-07-17).
  */
@@ -92,8 +93,13 @@ describe("EQ-2 — CREED FP guards: near-misses stay body-only", () => {
     // The self-sac removes the Aura BEFORE the effect resolves, so target:'enchanted' can't bind → drop → park.
     expect(classifyCard(BRIAR_SHIELD)).toBe("body-only");
   });
-  it("GUARD-QUOTE — Candlestick (granted 'surveil 2' the bonus parser silently drops) parks", () => {
-    expect(classifyCard(CANDLESTICK)).toBe("body-only");
+  it("GUARD-QUOTE → EQ-3 (2026-08-03): Candlestick composes now — the quoted grant is validated, not dropped", () => {
+    // ⭐ PIN INVERTED — this test pinned body-only while the quote reject was a blanket guard. The grant
+    // half was never actually dropped (grantedTriggersForHost fires it; the Bear Umbra fold applies the
+    // +1/+1), so EQ-2 now hands a quote-carrying EQUIPMENT remainder to isNativeTriggerGrantAuraOrEquipment
+    // and credits the composition. The park boundary lives on in equipGrantPlusActivated.test.js (unmodeled
+    // body / activated co-grant / aura twin all still park).
+    expect(classifyCard(CANDLESTICK)).toBe("native-equipment");
   });
   it("an unmodeled triggered rider parks — Lead Pipe ('Whenever equipped creature dies …')", () => {
     expect(classifyCard(LEAD_PIPE)).toBe("body-only");
