@@ -1439,7 +1439,7 @@ export function permanentTriggersCovered(card) {
     // reflexive (Faebloom-style permanent triggers). FN-safe: the HIGH gate above already vouched the whole
     // trigger effect is modeled, so stripping its reflexive tail can only reveal the keyword-only body — it can
     // never hide a genuinely unmodeled sentence (those are not "When you do"-led and fail the gate first).
-    .replace(/\bwhen you do(?:\s+this|\s+so)?,?\s+[^.]*\.?\s*/gi, " ")
+    .replace(/\bwhen you do(?:\s+this|\s+so)?,?[ \t]+[^.\n]*\.?[ \t]*/gi, " ")
     // OPTIONAL-MANA-PAYMENT (CR 603.7c) — "you may pay {cost}. If you do, <effect>." is ONE trigger effect:
     // detectTriggers appends the "If you do, <effect>" sentence to the effectClause, and the whole thing parses
     // HIGH in allTriggerSentencesModeled above (proven before this residue check runs — an unmodeled payoff /
@@ -1448,7 +1448,7 @@ export function permanentTriggersCovered(card) {
     // keyword-only (Lifecrafter's Bestiary, Inheritance, Mind's Eye, Horizon/Origin/Panic Spellbomb, Urza's
     // Miter, Symmetry Matrix, Pedantic Learning). Anchored to the "if you do" lead so it can only consume a true
     // optional-payment tail — FN-safe (the HIGH gate above already vouched the whole trigger effect is modeled).
-    .replace(/\bif you do,?\s+[^.]*\.?\s*/gi, " ")
+    .replace(/\bif you do,?[ \t]+[^.\n]*\.?[ \t]*/gi, " ")
     // OPPONENT-PAYS-TO-DENY (taxed-treasure, Smothering Tithe) — "that player may pay {N}. If the player doesn't,
     // you create a Treasure token." is ONE trigger effect: detectTriggers appends the "If the player doesn't, …"
     // sentence to the effectClause, and the whole thing parses HIGH in allTriggerSentencesModeled above (proven
@@ -1741,8 +1741,8 @@ export function permanentFullyCovered(card) {
     // card…" + a {1}{T} untap ability) doesn't falsely read body-only in the COMPOSITE gate. FN-safe: the HIGH
     // gate above already vouched the whole trigger effect is modeled, so stripping its "when/if you do" tail can
     // only reveal the keyword/activated body — never hide a genuinely unmodeled sentence.
-    .replace(/\bwhen you do(?:\s+this|\s+so)?,?\s+[^.]*\.?\s*/gi, " ")
-    .replace(/\bif you do,?\s+[^.]*\.?\s*/gi, " ")
+    .replace(/\bwhen you do(?:\s+this|\s+so)?,?[ \t]+[^.\n]*\.?[ \t]*/gi, " ")
+    .replace(/\bif you do,?[ \t]+[^.\n]*\.?[ \t]*/gi, " ")
     // ⭐ FREQUENCY RIDERS — "Do this only once each turn." / "This ability triggers only once each turn."
     // MIRRORED FROM permanentTriggersCovered, which has stripped both for a while. This chain did not, so a
     // card whose trigger carries the rider composed fine with NOTHING and parked the moment it also had an
@@ -2602,6 +2602,29 @@ export function classifyCard(card) {
   {
     const deLined = stripDiscardCostAbilityLine(String(card?.oracle || ""), card);
     if (deLined !== String(card?.oracle || "")) card = { ...card, oracle: deLined };
+  }
+  // SELF-NO-UNTAP pre-strip (2026-08-04) — the same "one lane strips, another doesn't" drift, on a
+  // BATTLEFIELD static this time. "This artifact doesn't untap during your untap step." is enforced by the
+  // runtime independently of any classification (gameState.untapAll consults cardSelfPreventsUntap, which
+  // reads the card's own oracle), and stripModeledSelfNoUntap is its deliberate metric mirror — but it ran
+  // only in the native-BODY and native-TRIGGER lanes. permanentFullyCovered, the COMPOSITE lane, walks the
+  // raw clauses and has no static descriptor for it (clauseProducesStatic is false), so the line read as
+  // residue there.
+  //
+  // Elaborate Firecannon is the tell, and an unusually clean one: EVERY PAIR of its three lines is native
+  // (no-untap + activated → native-activated; activated + upkeep → native-mixed; no-untap + upkeep →
+  // native-trigger) and only all three together parked. A three-way composition failure is not a missing
+  // mechanic by definition — every piece is demonstrably understood.
+  //
+  // ⛔ THIS SHIPS ONLY BECAUSE THE NEWLINE-EATING FP WAS FIXED FIRST, and the order was not optional. On
+  // its own this strip ALSO credited Time Vault, whose skip-your-turn replacement effect was being
+  // silently swallowed by the "if you do" strip's newline-eating `\s*` — so it would have put a real FP on
+  // a real card. Built, measured at a clean +3/0/0, and REVERTED for exactly that reason; the strip fix
+  // landed, and now Time Vault correctly parks on its own unmodeled clause while the other two flip.
+  // (The strip stays END-ANCHORED — its own doc explains why a CONDITIONAL variant must not match.)
+  {
+    const noUntapStripped = stripModeledSelfNoUntap(String(card?.oracle || ""), card?.name);
+    if (noUntapStripped !== String(card?.oracle || "")) card = { ...card, oracle: noUntapStripped.trim() };
   }
   // PLOT pre-strip for PERMANENTS (2026-08-03) — the same zone-ability drift as the two strips above.
   // The plot line is already stripped on the SPELL path (parseEffectProgram) and inside the clone view,
