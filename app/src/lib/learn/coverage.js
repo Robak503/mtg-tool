@@ -2876,7 +2876,16 @@ export function classifyCard(card) {
         : String(card.oracle || ""),
     )),
   };
-  if (isCloneCard(cloneCard)) return "native-clone";
+  // COVERED KEYWORD LINE (2026-08-04) — the SAME allowance the aura-own activated lane just got, for the
+  // same reason and on the same evidence: `parseCloneSpec` treats a bare keyword line as residue, so
+  // Stunt Double ("Flash" + a fully modeled copy clause) parked on the one word this project already
+  // credits everywhere else (a vanilla Flash creature is native-body). Dropped only from THIS clone-shape
+  // VIEW, exactly like the ninjutsu/cost-only strips it sits inside — the card's real residue is still
+  // validated by parseCloneSpec's own anchors. An UNCOVERED keyword line fails isKeywordOnly, survives
+  // the strip, and still parks the card.
+  const cloneNoKeywordLines = String(cloneCard.oracle || "").split("\n")
+    .filter((ln) => ln.trim() && !isKeywordOnly(ln.trim(), card?.name)).join("\n");
+  if (isCloneCard(cloneCard) || isCloneCard({ ...cloneCard, oracle: cloneNoKeywordLines })) return "native-clone";
   // Permanent (creature / artifact / enchantment / battle): the body always works.
   // TRUNK-ENTERSCOUNTERS: the modeled "enters with N +1/+1 counters" replacement (CR 614.1c + 122.6a) is covered — the
   // resolver adds the counters on enter. Strip that one sentence from the residue (derived from the SAME

@@ -63,3 +63,29 @@ describe("recognition", () => {
       oracle: "Flash\nDeathtouch" })).toBe("native-body");
   });
 });
+
+describe("the SIBLING lane: the same allowance in the clone-shape view", () => {
+  // Stunt Double is the same one-word blocker through a DIFFERENT function (parseCloneSpec's residue
+  // check), so it was deliberately not batched with the aura fix and is pinned here beside it.
+  const STUNT_DOUBLE = { id: "c-sd", name: "Stunt Double", type: "Creature — Shapeshifter", mana: "{3}{U}", power: "0", toughness: "0",
+    oracle: "Flash\nYou may have this creature enter as a copy of any creature on the battlefield." };
+
+  it("Stunt Double flips to native-clone", () => {
+    expect(classifyCard(STUNT_DOUBLE)).toBe("native-clone");
+  });
+
+  it("the keyword line was the ONLY blocker", () => {
+    expect(classifyCard({ ...STUNT_DOUBLE, id: "c-sd2",
+      oracle: "You may have this creature enter as a copy of any creature on the battlefield." })).toBe("native-clone");
+  });
+
+  it("⛔ an UNCOVERED keyword line still parks the clone", () => {
+    expect(classifyCard({ ...STUNT_DOUBLE, id: "c-sd3", name: "Odd Double",
+      oracle: "Annihilator 2\nYou may have this creature enter as a copy of any creature on the battlefield." })).toBe("body-only");
+  });
+
+  it("⛔ an unmodeled SENTENCE still parks the clone (bare keyword lines only)", () => {
+    expect(classifyCard({ ...STUNT_DOUBLE, id: "c-sd4", name: "Riddle Double",
+      oracle: "Flash\nWhenever a player consults an oracle, interpret its riddle however you like.\nYou may have this creature enter as a copy of any creature on the battlefield." })).toBe("body-only");
+  });
+});
