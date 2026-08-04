@@ -2464,6 +2464,17 @@ function isNativeActivatedGrantEquipment(card) {
     if (!t) continue;
     if (/^equip\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i.test(t)) { sawEquip = true; continue; }    // a modeled Equip cost
     if (grantLineRe.test(t)) continue;                                                       // a granted-ability line
+    // EQ-GRANT+TRIGGER (2026-08-04 — Mask of Immolation) — an Equipment's OWN triggered ability line is
+    // not residue when it is fully covered on its own. Vouched by permanentTriggersCovered on the trigger
+    // lines ALONE (the strip-then-revalidate discipline used by every composite in this file), so an
+    // unmodeled or unrouted trigger still fails and still parks the card. The two halves are delivered by
+    // independent runtimes: the trigger fires at the shared enterPermanent chokepoint, the granted ability
+    // is enumerated on the host by legalChoices.grantedActivatedForHost.
+    //
+    // ⭐ DRIVEN ON A BOARD FIRST, because this card's ETB does something the classifier cannot see: "create
+    // a 1/1 red Elemental token, THEN ATTACH THIS EQUIPMENT TO IT." Measured — the token is minted and the
+    // Equipment really ends up attached to it. A routing check alone would not have proven that.
+    if (/^(?:when|whenever|at)\b/i.test(t) && permanentTriggersCovered({ ...card, oracle: t })) continue;
     return false;                                                                            // any other clause = residue
   }
   return sawEquip;                                                                            // must actually be equippable
