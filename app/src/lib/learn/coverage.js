@@ -46,6 +46,7 @@ import { castsAsPlaneswalker, isPlaneswalker, shufflesIntoLibraryInsteadOfGravey
 import { triggerRoutesNatively, isModeledGroupTriggeredBody, programCombatReferentAtoms } from "./triggerRouting.js";
 import { registerGrantTriggeredBodyValidator, registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant body gates
 import { isNativeGroupWard } from "./groupWard.js";
+import { isControlAura } from "./controlAura.js"; // the control-Aura delivery check, shared with the runtime attach/revert (controlAura imports only controlMove, a zero-import leaf, so this edge is acyclic)
 import { isNativeKira } from "./kiraTargetCounter.js";
 import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy, counterShieldPrevention } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
@@ -2392,7 +2393,25 @@ function isNativeOwnTriggeredAura(card) {
   // Requiring the printed card's bonus to survive parks exactly those. It is the same rule the equipment
   // composite needed and the same one the aura-own-activated path needed: **a classifier that credits a
   // card on transformed text owes a check that the untransformed card still produces the effect.**
-  if (parseAuraBonus(card).length === 0) return false;
+  //
+  // CONTROL AURAS ASK THE SAME QUESTION OF A DIFFERENT MECHANISM (2026-08-03, census: "you control
+  // enchanted creature" — 7 native carriers / 4 sole blockers). A control Aura has NO P/T-or-keyword
+  // bonus by construction, so parseAuraBonus is empty for it no matter what, and the guard refused a
+  // composition whose runtime is fine. The guard's real question is "does the PRINTED card still deliver
+  // its static?", and for this family the deliverer is controlAura.isControlAura — which tests the printed
+  // line directly and is therefore unaffected by a sibling trigger line, the exact property parseAuraBonus
+  // lacks. Verified on a board rather than argued: with the FULL printed oracle, Biting Tether moves its
+  // host ai1 -> user AND its upkeep trigger fires and lands the -1/-1 counter (controlAuraPlusTrigger.test.js).
+  // Still a delivery CHECK, not a bypass — an Aura with neither a surviving bonus nor a control line fails.
+  //
+  // ⚠️ AND THE HONEST STATE OF THIS GUARD, MEASURED THE SAME DAY: deleting it outright moves ZERO cards
+  // across all 34,245. Every card it was written to park has since been fixed AT THE SOURCE by the
+  // AU-TRIG+BONUS validator skip — the aura-own trigger line no longer poisons parseAuraBonus, so those
+  // bonuses survive and the cards are legitimately native. It is kept because the invariant is still
+  // right (credit on transformed text owes a check on the untransformed card) and one parser change
+  // could make it load-bearing again, but it is DEFENSIVE, not live, and its own doc above still names
+  // Elephant Guide as a victim it no longer has. Said out loud so the next reader doesn't inherit that.
+  if (parseAuraBonus(card).length === 0 && !isControlAura(card)) return false;
   return true;
 }
 
