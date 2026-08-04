@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔴 BUILT · MEASURED · REVERTED - 2026-08-04 - **the self-damage rider: +5, then +2, then ZERO**
+> The clause splitter severs "<source> deals N damage to <target> AND M damage to you" at its internal
+> " and ", leaving an orphan fragment that parses as nothing. Found by SIBLING ASYMMETRY — 20 corpus
+> carriers, **11 already native**, and the native ones are the ACTIVATED carriers whose sentence never
+> meets the splitter. Added the keep-whole guard (the pattern this splitter already uses a dozen times).
+> **+5 / 0 / 0. Clean. And wrong twice over — both caught by the per-row whole-card audit, neither
+> visible to the tier diff.**
+> ① Three of the five say "and N damage to **ITSELF**", and the parser emits **no `selfDamage` field at
+> all** for that form — the half is silently dropped, and `selfDamage` is applied by stack.js to the
+> CONTROLLER anyway, which is wrong for "itself" (CR 119.3). Narrowed the guard to "to you". **+2.**
+> ② Then the remaining two ALSO drop it: `matchSelfHitDamage` is a WHOLE-ORACLE matcher, so the rider
+> survives only when that sentence is the entire card. Orcish Cannonade (a second clause follows) and
+> Fire and Brimstone (its "target player who attacked this turn" restriction is a different shape the
+> matcher can't take) both parsed to a bare `deal-damage` with **no rider** — i.e. native, and strictly
+> BETTER than printed. **REVERTED to zero.**
+> ✅ **The recipe, for whoever takes it:** the keep-whole guard is right and necessary, but it must land
+> WITH a per-clause `matchSelfHitDamage` (the impulse-exile / optional-discard fix pattern, twice-proven
+> today), and Fire and Brimstone additionally needs its attacked-this-turn target restriction. The
+> "itself" carriers need a real resolver change (damage the SOURCE permanent, not its controller).
+> *Third FP the whole-card audit caught tonight. The tier diff was clean every single time.*
+
 > ## SLICE DONE - 2026-08-04 - **A covered KEYWORD LINE isn't residue to the aura lane, +2** - batch 61
 > Suite 1096 files / 13,761 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Blessing of Leeches ·
 > Jolrael's Favor, both audited whole-card. Census two-flip; **shared cause proven by combination** (each
