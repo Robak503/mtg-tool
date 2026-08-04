@@ -386,10 +386,25 @@ const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
  * ("Your maximum hand size is four" — Cursed Rack) does NOT match: cleanupDiscardExcess deliberately
  * SUSPENDS enforcement for everyone when it sees such text rather than guess, so crediting those would
  * claim a number the engine never applies. Left as residue → Arbiter (FN-safe).
+ *
+ * ⚠️ THE STRIP MUST GIVE BACK THE BOUNDARY IT MATCHED ON (fixed 2026-08-03). The leading `[\n.;]` is a
+ * DELIMITER, not part of the sentence being removed, and replacing the whole match with a space DELETED
+ * the previous sentence's period — "…equal to the number of cards in your hand.\nYou have no maximum hand
+ * size.\nWhen Tishana enters, …" collapsed to "…in your hand When Tishana enters, …", one glued
+ * pseudo-sentence that parses as nothing. Invisible for a card that prints the line FIRST (Reliquary
+ * Tower, Spellbook, Thought Vessel — all matched via `^`, no boundary to eat), which is why it survived:
+ * every carrier that would have exposed it was already parked for what looked like a different reason.
+ * Tishana, Voice of Thunder and Body of Knowledge are the mid-oracle carriers, and they were the tell.
+ * This is the runbook's "a fold that eats its own sentence boundary" trap, and the diagnostic it names —
+ * a card whose tier does NOT change — is exactly how it stayed hidden.
  */
-const NO_MAX_HAND_METRIC_RE = /(?:^|[\n.;])\s*you have no maximum hand size\s*(?:\.|$)\s*/gi;
+const NO_MAX_HAND_METRIC_RE = /(?:^|([\n.;]))[ \t]*you have no maximum hand size[ \t]*(?:\.|$)\s*/gi;
 export function stripModeledNoMaxHandSize(oracle) {
-  return String(oracle || "").replace(NO_MAX_HAND_METRIC_RE, " ").replace(/^\s+/, "");
+  return String(oracle || "")
+    // Re-emit the matched delimiter (plus a newline so the neighbours stay separate clauses); a match at
+    // the very start captures nothing and yields "", trimmed by the leading-whitespace strip below.
+    .replace(NO_MAX_HAND_METRIC_RE, (_m, lead) => (lead ? `${lead}\n` : ""))
+    .replace(/^\s+/, "");
 }
 
 const SELF_NO_UNTAP_NOUNS_METRIC = "creature|artifact|permanent|land|enchantment|equipment|vehicle";
@@ -2516,6 +2531,29 @@ export function classifyCard(card) {
   // keep the line as honest residue.
   if (String(card?.mana ?? card?.mana_cost ?? "").trim() && /^[ \t]*suspend \d+\s*[—–-]/im.test(card?.oracle || "")) {
     card = { ...card, oracle: String(card.oracle).replace(/^[ \t]*suspend \d+\s*[—–-][^\n]*$/gim, "").replace(/\n{2,}/g, "\n").trim() };
+  }
+  // NO-MAX-HAND pre-strip (2026-08-03) — the same shape as the two pre-strips above, and it lands HERE
+  // for a reason. "You have no maximum hand size." is MODELED and genuinely ENFORCED: cleanupDiscardExcess
+  // suspends the cleanup discard for a player controlling such a permanent. Measured on a CREATURE carrier
+  // before this shipped (10 cards in hand → 0 required discards; the identical board without the line → 3).
+  // The runtime reads the line off the permanent's own oracle at cleanup, so stripping it here changes
+  // classification only — never behavior — and, like every strip, can let a card reach native but never
+  // demote one.
+  //
+  // ⛔ IT IS A PRE-STRIP RATHER THAN A FOURTH CALL SITE, and that is the whole point. THREE residue lanes
+  // judge this sentence independently — the native-body gate, permanentTriggersCovered, and (via
+  // staticAbilitiesCoverCard / permanentFullyCovered) the static and composite lanes — and only the first
+  // two ever stripped it. So a card pairing the line with a modeled STATIC parked while each half alone
+  // classified native: Tishana, Voice of Thunder and Body of Knowledge, both carrying the identical
+  // P/T-equals-hand-size CDA. Textbook "a judgement implemented in two places will drift, and the drift
+  // only shows on inputs that need BOTH" — the runbook's fix for that is one shared source, not a patch on
+  // the copy that happened to bite. Stripping once here means every lane below sees the same text.
+  // (The two pre-existing call sites stay: those functions are exported and called directly elsewhere.)
+  // A card that MODIFIES the maximum instead of removing it ("Your maximum hand size is four" — Cursed
+  // Rack) does NOT match the anchored sentence and correctly stays residue → Arbiter.
+  if (/\byou have no maximum hand size\b/i.test(card?.oracle || "")) {
+    const stripped = stripModeledNoMaxHandSize(String(card.oracle)).trim();
+    if (stripped !== String(card.oracle).trim()) card = { ...card, oracle: stripped };
   }
   // KW-SUSPEND, the NO-COST half (2026-08-02): the gate above stayed honest for exactly as long as
   // the engine couldn't suspend — that route EXISTS now (legalChoices actionsSuspendFromHand →
