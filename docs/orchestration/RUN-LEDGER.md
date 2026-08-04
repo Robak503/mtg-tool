@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-03 - **REMOVE-COUNTER costs can't drop a trigger, +2** - batch 37 since v0.150.1
+> Suite 1083 files / 13,662 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+2 / 0 / 0** —
+> Vat of Rebirth + Charforger (audited whole-card: ETB token + the same PiG watcher + impulse-exile).
+> Third two-flip lead, and **the probe the last slice asked for instead of the assumption it warned
+> against.** `sacrificeDropsTrigger`'s reason is a cost that makes the SOURCE LEAVE; paying a
+> remove-counter cost moves nothing — measured, not read: after activate+resolve the source is still on
+> the battlefield, counters spent, and its put-into-a-graveyard watcher STILL FIRES on a later death.
+> Narrowed as a SEPARATE predicate (`removeCounterCostCannotLeave`) on a PURE remove-counter cost only;
+> P/T counters (lethal removal → SBA 704.5f) and time/fade (vanishing, CR 702.63c) keep the blanket
+> refusal, as do compound costs and the still-unprobed exile-self path. `sacrificeDropsTrigger` is
+> byte-unchanged and pinned as such.
+> ⭐ **HOLLOW-GATE CATCH IN MY OWN TEST:** the compound-cost park survived ALL THREE predicate mutations
+> — what holds it is the CALL-SITE purity guard, not the predicate. Found by running the mutation I'd
+> claimed in the header, seeing the wrong test list, and aiming a fourth mutation at the call site (1
+> red). The header now states which mutation each park answers to instead of implying broader coverage.
+
 > ## SLICE DONE - 2026-08-03 - **LA-2: Verdant Haven ETB rider on the boost aura, +1** - batch 35 since v0.150.1
 > Suite 1082 files / 13,650 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+1 / 0 / 0** —
 > Verdant Haven body-only → native-mana-aura. Second two-flip lead; a SIBLING ASYMMETRY (byte-identical to

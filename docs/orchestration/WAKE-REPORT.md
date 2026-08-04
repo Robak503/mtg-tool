@@ -23,10 +23,10 @@
 > · **Candlestick** — ✅ **BUILT 2026-08-03 (`19b5600d`, +1)**. The cause line here was STALE against the
 >   tree (the parser captures the +1/+1 and the runtime delivered both halves all along — the park was
 >   pure tier composition, EQ-2's GUARD-QUOTE). Receipt in RUN-LEDGER's top entry.
-> · **Vat of Rebirth** — its activated ability models FALSE: the **remove-counter** arm of
->   `sacrificeDropsTrigger`, which tonight's slice deliberately left blanket-refused (unprobed). Worth
->   noting the shape: removing a counter does NOT remove the permanent, so an LTB trigger cannot be
->   dropped at all — but **probe it, don't assume**; that arm may exist for a vanishing-style reason.
+> · **Vat of Rebirth** — ✅ **BUILT 2026-08-03 (`49758ef1`, +2 — Charforger rode along)**. Probed, not
+>   assumed, exactly as this note asked: the source provably stays and keeps watching. And the
+>   vanishing caveat this note raised was REAL — time/fade and P/T counters keep the blanket refusal.
+>   Receipt in RUN-LEDGER.
 > · **Fiery Mantle** — trigger detected+modeled, activated modeled, `parseAuraBonus` empty (its "{R}:
 >   Enchanted creature gets +1/+0" is an ACTIVATED, not a static bonus) and `permanentFullyCovered` still
 >   false. **Cause NOT yet isolated — this one needs the dig before any build.**
