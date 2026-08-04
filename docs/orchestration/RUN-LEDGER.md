@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-04 - **Three more QUALIFIED enchant subjects, +3** - batch 49 since v0.150.1
+> Suite 1088 files / 13,707 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+3 / 0 / 0** —
+> Armor of Thorns (nonblack→colorNeg) · Wurmweaver Coil (green→color) · Threads of Disloyalty (MV≤2→
+> manaValue). Pure wiring onto restriction kinds `creatureSatisfiesRestrictions` already enforces — the
+> same terms the shipped three (tapped / without-flying / power≤N) were admitted on.
+> **SIZE BY SUBSTITUTION, NOT GROUPING:** 120 non-native auras carry a non-plain subject; swapping the
+> Enchant line for "Enchant creature" and re-classifying found only **16** blocked SOLELY by the subject.
+> Parks named: colour DISJUNCTION (needs a new disjunctive kind — restrictions are ANDed) · TYPE UNION
+> (needs a targetType not fixed to "creature") · "modified" / "with another Aura attached" (no predicate).
+> ⚠️ **STALE COMMENT CORRECTED:** the function's own doc said positive colour subjects have no restriction
+> kind. False since `creatureRestrictions` grew a layer-aware `color` branch. Reading the comment instead
+> of the code would have parked Wurmweaver Coil for nothing. **Fourth stale-premise find this run.**
+> ⭐ **THE FP THIS NEARLY SHIPPED — correction 20 paying out again.** The tier diff was a clean +3/0/0
+> while Wurmweaver Coil was **UNCASTABLE**: it tiers native-activated via EQ-2, whose cast runs through
+> `grantAuraCastHostType` — a DIFFERENT lane that read only `ownOnly`, its plain-subject regex the only
+> thing keeping it honest. **A classification diff cannot see a card the cast lane refuses to attach.**
+> Both lanes now read `auraEnchantRestrictions`; the runtime pin drives the cast.
+> ⚠️ **I HIT THE `git checkout` RESTORE TRAP** the runbook names: restoring a file after a mutation run
+> with `git checkout` silently DISCARDED the uncommitted legalChoices change. The full-suite gate caught
+> it (4 red) and the file copy restored it. **On uncommitted work, restore by FILE COPY, never by git.**
+> Two stale pins inverted in place, each with its guard job re-pinned.
+
 > ## SLICE DONE - 2026-08-03 - **AU-GY: Auras × graveyard self-recursion, +3** - batch 46 since v0.150.1
 > Suite 1087 files / 13,695 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+3 / 0 / 0** —
 > Bestial Bloodline · Talons of Wildwood · **Vineweft** (rode along, audited whole-card). Census signature

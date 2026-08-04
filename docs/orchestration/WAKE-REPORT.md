@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-03 — **+13 this sitting · batch 46** — suite **1087 / 13,695** green by exit code · master green, CI success
+## ☀️ 2026-08-04 — **+16 this sitting · batch 49** — suite **1088 / 13,707** green by exit code · master green, CI success
 
 > **▶ START HERE — the Block-4 grind off a FRESH census (34,245 scanned, ran 2026-08-03).**
 > The subsystem vein is DRY for a 4th consecutive time (largest sole-blocker cluster = 6, all unrelated
@@ -24,10 +24,17 @@
 >   two carriers are honest parks (Krovikan Whispers = cumulative upkeep; Hypnotic Siren = bestow).
 > · ~~**`{C}{C}: return this card from your graveyard to your hand`** — 6 native / 3 sole~~ ✅ **BUILT
 >   (`d28e3b30`, +3)**. Convenient Target / The Sound of Drums stay parked on other unmodeled clauses.
-> · **`reinforce N—{C}{C}`** — 5 native / **3 sole** (Fowl Strike · Hunting Triad · Earthbrawn). All three
->   are INSTANTS/SORCERIES currently `arbiter-spell` — reinforce is a hand-activated discard ability
->   (CR 702.77), so this is the spell-side sibling of the graveyard/cycling hand-zone lanes, NOT an
->   aura/permanent job. Unprobed; size the hand-activation seam before committing.
+> · ⏸ **`reinforce N—{C}{C}`** — 5 native / 3 sole — **PROBED AND PARKED, with the reason measured.**
+>   Reinforce is a hand-activated discard ability (CR 702.77) whose effect is "put N +1/+1 counters on
+>   TARGET creature". The DC-1 hand-activation lane exists but explicitly skips targeted programs
+>   (`programNeedsChosenTarget(program)` → `continue`, and it returns TRUE here — measured). So this needs
+>   per-target offer expansion plus dispatcher threading in the hand-activation seam: a NEW mechanism, not
+>   assembly. Park stands until that seam is built; +3 cards waiting behind it.
+> · ⏸ **The qualified-enchant-subject remainder — 13 of the measured 16**, in three named families:
+>   colour DISJUNCTION ("red or green creature" ×2) needs a disjunctive restriction kind (restrictions are
+>   ANDed today); TYPE UNIONS ("artifact or creature" ×4, "creature or vehicle" ×2, +3 singletons) need a
+>   targetType not fixed to "creature"; and "modified" / "with another Aura attached" / "nonland permanent"
+>   have no predicate at all. The 3 that mapped onto existing kinds are BUILT (`765d80d4`).
 > · **The two-flip list still holds 22 cards** — the four scoped on 08-02 are all BUILT (below); the rest
 >   are unscoped. Witch's Mark remains the named exception (two spell clauses, arbiter-spell).
 > ⚠️ **PROVE THE SHARED CAUSE BEFORE BATCHING** — probe each candidate's line combinations, don't group by
@@ -52,7 +59,17 @@
 > changed — and re-check the surviving occurrence count.
 > **23 — ASSERT THROUGH THE PATH THE ENGINE ACTUALLY USES.** A bare `flushTriggers(state)` takes the FIRST
 > LEGAL target, so a "target player discards" probe picked its own controller and read as a dead effect;
-> the engine's real path passes `{ chooseTargets: chooseTriggerTargets }`. Same family as law 6.
+> the engine's real path passes `{ chooseTargets: chooseTriggerTargets }`. Same family as law 6. Second
+> instance the same night: an activated-ability probe asserted right after `dispatchAction` and read as a
+> no-op because the ability uses the STACK — assert after `resolveTopOfStack`.
+> **24 — A TIER DIFF CANNOT SEE AN UNCASTABLE CARD.** The qualified-subject slice took a clean +3/0/0
+> while one of its three was UNCASTABLE: it reaches its tier through a composite whose cast is offered by
+> a DIFFERENT lane, and that lane didn't read the filter being widened. **When you widen something a tier
+> stands on, find every LANE that offers the card, not just every gate that classifies it.** (Correction
+> 20's sibling, one level out: 20 asks what else READS the guard; 24 asks what else has to ACT on it.)
+> **25 — RESTORE BY FILE COPY, NEVER BY `git checkout`, ON UNCOMMITTED WORK.** A `git checkout` used to
+> undo a mutation silently discarded an uncommitted slice file. The runbook already names this; it still
+> bit. The full-suite gate caught it — which is the argument for running the gate bare, every time.
 >
 > ### 🧰 WORKTREE NOTE (cost 4 red tests at baseline)
 > A reused worktree may lack `app/data/rules-index.json` → 4 pre-existing rules-retrieval failures that are
