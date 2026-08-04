@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-03 - **EQ-3: Candlestick quoted-grant composite, +1** - batch 34 since v0.150.1
+> Suite 1082 files / 13,648 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+1 / 0 / 0** —
+> Candlestick body-only → native-equipment, the first of the four two-flip leads.
+> ⚠️ **The scoping note's cause was STALE against the tree** — it claimed `parseEquipmentBonus` returns
+> `[]`; probed, it returns the +1/+1 and defers the quoted trigger via the validator-gated Bear Umbra
+> fold, and the runtime already delivered BOTH halves (grantedTriggersForHost fires the granted attack
+> trigger on the host — probed, routes natively). The park was pure TIER COMPOSITION: the 1c gate rejects
+> the sac-draw line as residue; EQ-2's GUARD-QUOTE blanket-rejected any quote in the stripped remainder.
+> Fix: EQ-2 hands a quote-carrying EQUIPMENT remainder to isNativeTriggerGrantAuraOrEquipment (all its
+> guards intact) + a real-vs-stripped bonus-agreement drift guard; auras keep the blanket reject.
+> 3 mutations (each verified applied): aura-reject dropped → 1 red · 1c forced true → 2 red · drift guard
+> deleted → green (defensive, unreachable today — honest receipt in equipGrantPlusActivated.test.js).
+> Stale pin inverted in place (equipAuraSelfSacComposite.test.js). Runtime pins: +1/+1 off the FULL
+> oracle · granted trigger programs surveil 2 on the host's attack · no-equipment control fires nothing.
+> ⚠️ Worktree env: this REUSED worktree lacked `app/data/rules-index.json` → 4 pre-existing
+> rules-retrieval failures at HEAD; rebuilt (`npm run build:rules-index`, gitignored). Also: under
+> vitest a real-install MTG_APP_ROOT is REFUSED by design (ghost-registry guard) — run suite gates
+> env-clean; env-pointed runs are for non-vitest tools (census/tier-snapshot) only.
+
 > ## 🔍 SCOPING ONLY (no build) - 2026-08-02 - **the two-flip four are FOUR causes, not one**
 > Ran the next slice's scoping pass and STOPPED there, because the premise failed. The line-deletion probe
 > had grouped Verdant Haven / Fiery Mantle / Candlestick / Vat of Rebirth as one shape ("a trigger plus a

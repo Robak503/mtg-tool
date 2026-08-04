@@ -18,9 +18,9 @@
 > · **Verdant Haven** — only 1 trigger detected (the ETB). Its second line, *"Whenever enchanted land is
 >   tapped for mana, its controller adds an additional…"*, is an AURA-OWN trigger shape detectTriggers
 >   does not recognise → it survives as residue. **Cause: an undetected trigger shape**, not composition.
-> · **Candlestick** — `parseEquipmentBonus` returns `[]` because the bonus carries a QUOTED GRANTED
->   TRIGGER (*has "Whenever this creature attacks, surveil 2."*). **Cause: the bonus parser rejects a
->   quoted-trigger grant.** Both its activated abilities already model true.
+> · **Candlestick** — ✅ **BUILT 2026-08-03 (`19b5600d`, +1)**. The cause line here was STALE against the
+>   tree (the parser captures the +1/+1 and the runtime delivered both halves all along — the park was
+>   pure tier composition, EQ-2's GUARD-QUOTE). Receipt in RUN-LEDGER's top entry.
 > · **Vat of Rebirth** — its activated ability models FALSE: the **remove-counter** arm of
 >   `sacrificeDropsTrigger`, which tonight's slice deliberately left blanket-refused (unprobed). Worth
 >   noting the shape: removing a counter does NOT remove the permanent, so an LTB trigger cannot be
