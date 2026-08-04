@@ -3,6 +3,16 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-04 - **EQ-GRANT+TRIGGER (Mask of Immolation), +1** - batch 64 since v0.150.1
+> Suite 1098 files / 13,777 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0**. Census two-flip; both
+> halves already native alone ("ETB + Equip" and "granted ability + Equip"), only the pair parked — the
+> equipment granted-activated gate's residue walk allowed the Equip line and grant lines and nothing else.
+> Same composition shape as AU-ACT+TRIG / AU-GRANT+STATIC / EQ-3; trigger half revalidated by
+> `permanentTriggersCovered` alone, so an unrouted trigger still parks.
+> ⭐ **The runtime drive earned its keep here:** the ETB reads "create a 1/1 Elemental token, THEN ATTACH
+> THIS EQUIPMENT TO IT" — a routing check says the effect parses, it cannot say the Equipment ends up
+> attached. Measured: token minted, Equipment attached, link two-way. Three parks pinned.
+
 > ## SLICE DONE - 2026-08-04 - **The self-damage rider, RETRIED to its own recipe, +1** - batch 63
 > Suite 1097 files / 13,771 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Orcish Cannonade.
 > The entry directly below is the FIRST attempt, reverted an hour earlier; this is that entry's written
