@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-04 — **+23 this sitting · batch 56** — suite **1092 / 13,736** green by exit code · master green, CI success
+## ☀️ 2026-08-04 — **+25 this sitting · batch 58** — suite **1093 / 13,744** green by exit code · master green, CI success
 
 > ### 📊 THE SHELF WAS RE-MEASURED, AND THE HONEST READ IS: **+22 corpus cards moved it by ZERO**
 > Corpus 38.6% → **38.7%**. Shelf **unchanged at 82% (1715/2097) across 21 decks** — colton 93% (Veyran
@@ -95,35 +95,22 @@
 > triggered (+2, Strands of Undeath rode along) · the no-max-hand-size sentence-boundary fix (+2).
 > **All four of 08-02's two-flip leads are CLOSED.**
 >
-> ### 🔴 A LIVE FALSE POSITIVE, FOUND AND **NOT** SHIPPED AROUND — fix this before the +3 behind it
-> **`permanentFullyCovered` silently drops an unmodeled "If you do, …" sentence, and with it the
-> REPLACEMENT-EFFECT sentence in front of it.** Reproduce at HEAD, no changes needed:
-> ```
-> classifyCard({name:"Time Vault", type:"Artifact", mana:"{2}", oracle:
->   "If you would begin your turn while this artifact is tapped, you may skip that turn instead. If you do, untap this artifact.\n{T}: Take an extra turn after this one."})
-> // → "native-mixed"   ⛔ should be body-only
-> ```
-> That skip-turn replacement is **entirely unmodeled** — grep finds no implementation of "would begin your
-> turn" / "skip that turn" anywhere — and it is Time Vault's whole drawback. The line ALONE parks
-> correctly (`body-only`); it is only dropped once a modeled activated ability is beside it. Measured
-> narrowing: **any** "If you do, …" tail after it causes BOTH sentences to vanish (residue instrumented to
-> `""`); with a plain "Untap this artifact." instead, the card correctly parks. The strip's own comment
-> claims it is FN-safe because "the HIGH gate above already vouched the whole trigger effect is modeled" —
-> **true only when the tail follows a VOUCHED TRIGGER. Time Vault's follows a replacement effect that no
-> gate ever vetted, and the strip is unanchored.**
->
-> ### ⏸ BLOCKED ON THAT FIX — the SELF-NO-UNTAP composition, +3 measured and ready
-> `stripModeledSelfNoUntap` is applied in the native-BODY and native-TRIGGER lanes but NOT in
-> `permanentFullyCovered` (the composite), so a no-untap static beside a modeled activated + trigger
-> parks. **Elaborate Firecannon is the cleanest possible tell: every PAIR of its three lines is native
-> (no-untap+act → native-activated · act+upkeep → native-mixed · no-untap+upkeep → native-trigger) and
-> only all three together park.** A `classifyCard` pre-strip (beside the others) measures **+3 / 0 / 0 —
-> Elaborate Firecannon · Goblin Sharpshooter · Time Vault** — and the first two audit clean whole-card.
-> ⛔ **It was BUILT, MEASURED, AND REVERTED rather than shipped, because the third row is Time Vault and
-> crediting it would ship the FP above on a real card.** Fix the strip first (require a vouched
-> antecedent), re-run the flip-diff, and the +3 lands honestly — Time Vault included, since its skip
-> clause would then correctly park it and the other two still flip. Do not ship the pre-strip alone.
->
+> ### ✅ THE FALSE POSITIVE IS FIXED, AND THE +2 IT BLOCKED HAS SHIPPED (`d617074d`)
+> Banked last night, closed this morning. **Root cause:** the `if you do` / `when you do` residue strips
+> ended in `\s*`, and **`\s` matches a NEWLINE** — so the strip ate the line break, WELDED the next oracle
+> line onto the stripped one, and the line-based activated filter dropped the whole welded line, carrying a
+> genuinely unmodeled sentence with it. Time Vault's skip-your-turn replacement effect vanished that way.
+> **The identical hazard is documented eight lines away** in `stripTriggerEffectTails` ("NO `\s` ANYWHERE
+> — it matches a NEWLINE, and this file has already shipped that exact false positive once"); these two
+> chains never got the treatment. Fixed at all four sites to horizontal-whitespace-only, with the
+> sentence body barred from crossing a newline either.
+> **Found by instrumenting each residue stage, not by reading regexes** — three rounds of reasoning about
+> the pattern got it wrong; one print of the intermediate text got it right.
+> ⚠️ **The order mattered and is worth remembering:** the composition slice ALONE measured a clean
+> **+3**/0/0 whose third row was Time Vault; with the FP fixed it measures **+2** and Time Vault correctly
+> parks. **A tier diff cannot tell those two situations apart.** The FP fix by itself flips 0 cards — it
+> was LATENT until the composition exposed it.
+
 > ### ⚠️ READ BEFORE YOUR FIRST GATE — the corrections still standing, plus three earned today
 > **19 — THE GATE IS THE EXIT CODE** and **20 — A CLEAN FLIP-DIFF IS NOT A SAFE CHANGE** (both below).
 > **21 — A BANKED CAUSE IS A HYPOTHESIS WITH A TIMESTAMP.** Three of the four two-flip causes written down
@@ -145,6 +132,15 @@
 > **25 — RESTORE BY FILE COPY, NEVER BY `git checkout`, ON UNCOMMITTED WORK.** A `git checkout` used to
 > undo a mutation silently discarded an uncommitted slice file. The runbook already names this; it still
 > bit. The full-suite gate caught it — which is the argument for running the gate bare, every time.
+> **26 — INSTRUMENT THE INTERMEDIATE TEXT; DON'T REASON ABOUT THE REGEX.** Three rounds of careful
+> reading got the "If you do" root cause WRONG (I twice concluded the strip couldn't reach the earlier
+> sentence). One `console.log` of the residue at each chain stage got it right in a minute: the strip's
+> trailing `\s*` was eating the NEWLINE and welding the next line on. **When a strip's effect surprises
+> you, print what it produced — a regex you are confident about is exactly the one worth printing.**
+> **27 — A LATENT FP IS STILL AN FP, AND IT SHIPS THE DAY SOMETHING ELSE UNCOVERS IT.** The newline bug
+> flipped ZERO cards on its own; Time Vault was accidentally shielded by residue that an unrelated,
+> perfectly good slice was about to remove. **A "0 gained / 0 lost" correctness fix can be the most
+> load-bearing commit of the day** — and the order (fix, then compose) is the whole safety argument.
 >
 > ### 🧰 WORKTREE NOTE (cost 4 red tests at baseline)
 > A reused worktree may lack `app/data/rules-index.json` → 4 pre-existing rules-retrieval failures that are

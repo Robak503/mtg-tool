@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-04 - **FP FIXED, then the blocked +2 landed** - batch 58 since v0.150.1
+> Suite 1093 files / 13,744 tests green + lint 0 BY EXIT CODE. **The FP banked last night is CLOSED and
+> the slice it blocked has shipped.** Two changes, one commit, one non-optional order:
+> **① THE FP.** Root cause found by instrumenting each residue stage instead of reading regexes: the
+> `if you do` / `when you do` strips end in `\s*`, **`\s` MATCHES A NEWLINE**, so the strip ate the line
+> break, WELDED the next oracle line onto the stripped one, and the line-based activated filter then
+> dropped the whole welded line — carrying a genuinely unmodeled sentence with it. **This exact hazard is
+> documented EIGHT LINES AWAY** in `stripTriggerEffectTails` ("NO `\s` ANYWHERE — it matches a NEWLINE,
+> and this file has already shipped that exact false positive once"). The warning was right; these two
+> chains never got the treatment. Fixed to `[ \t]` + `[^.\n]*` at all four sites. **Flip-diff of ① ALONE:
+> 0 / 0 / 0 — the FP was LATENT**, because Time Vault was held at body-only by the very residue ② removes.
+> **② THE COMPOSITION, +2** — Elaborate Firecannon · Goblin Sharpshooter. `stripModeledSelfNoUntap` ran in
+> the native-BODY and native-TRIGGER lanes but not in the COMPOSITE. Elaborate Firecannon: **every PAIR of
+> its three lines was already native; only all three together parked.**
+> ⛔ **THE ORDER IS THE POINT:** ② alone measured a clean **+3**/0/0 with Time Vault as its third row.
+> With ① in place it measures **+2** and Time Vault correctly parks on its own unmodeled clause. **A tier
+> diff cannot tell those two apart.** Mutations: `[ \t]`→`\s` → 3 FP pins red · pre-strip off → 2 red.
+
 > ## SLICE DONE - 2026-08-04 - **CAST-trigger multiplier — VEYRAN, Colton's commander, +1** - batch 56
 > Suite 1092 files / 13,736 tests green + lint 0 BY EXIT CODE. Flip-diff: **+1 / 0 / 0** — Veyran, Voice
 > of Duality. ⭐ **FIRST SHELF-FACING SLICE OF THE RUN** (see the shelf note below): Veyran Cantrips is the
