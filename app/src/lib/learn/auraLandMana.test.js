@@ -6,10 +6,10 @@
  * read-sites (auto-pay planPayment + the explicit tap-for-mana action) through one shared helper so
  * they can't drift, and the Aura is NEVER tapped/consumed (the LAND taps; the Aura fires every time).
  *
- * CREED all-or-nothing: only a clean land-mana Aura flips native. An Aura carrying ANY residue —
- * an ETB trigger (Verdant Haven), a sac ability (Wolfwillow Haven), an extra land-static (Trace of
- * Abundance), or an unmodeled boost grammar (Market Festival "in any combination") — STAYS body-only
- * (a safe false-negative). (Utopia Sprawl's Forest-subtype + as-enters chosen-color boost is now a
+ * CREED all-or-nothing: only a clean land-mana Aura flips native. An Aura carrying residue —
+ * a sac ability (Wolfwillow Haven), an extra land-static (Trace of Abundance), or an unmodeled boost
+ * grammar (Market Festival "in any combination") — STAYS body-only (a safe false-negative). A
+ * MODELED aura-own ETB rider is admitted since LA-2 (Verdant Haven — landAuraEtbRider.test.js). (Utopia Sprawl's Forest-subtype + as-enters chosen-color boost is now a
  * MODELED slice — see utopiaSprawl.test.js.) Bear Umbra is a CREATURE-enchant Aura (not a land-mana
  * aura) so it is NOT native-mana-aura — parseAuraLandManaBonus/isNativeManaAura correctly reject it here.
  * Its OWN nativeness (buff + granted untap-all-lands trigger + totem armor) is now MODELED via the creature-
@@ -84,7 +84,10 @@ describe("isNativeManaAura — all-or-nothing native gate", () => {
   });
   it("residue / unmodeled-grammar / deferred auras are NOT native (safe FN)", () => {
     expect(isNativeManaAura(WOLFWILLOW)).toBe(false);     // sac activated ability residue
-    expect(isNativeManaAura(VERDANT_HAVEN)).toBe(false);  // ETB trigger residue
+    // ⭐ PIN INVERTED (LA-2, 2026-08-03): the ETB rider is validator-admitted now — Verdant Haven's
+    // "you gain 2 life" fires at the shared enterPermanent chokepoint (landAuraEtbRider.test.js LA-2
+    // carries the runtime battery). An UNROUTABLE ETB rider still parks (pinned there).
+    expect(isNativeManaAura(VERDANT_HAVEN)).toBe(true);
     expect(isNativeManaAura(TRACE)).toBe(false);          // extra land-static ("has shroud") residue
     expect(isNativeManaAura(MARKET_FESTIVAL)).toBe(false); // unmodeled boost grammar
     expect(isNativeManaAura(BEAR_UMBRA)).toBe(false);     // enchants a creature (Sub-slice B, deferred)
@@ -104,7 +107,8 @@ describe("coverage — native-mana-aura tier", () => {
     expect(classifyCard(OVERGROWTH)).toBe("native-mana-aura");
     expect(classifyCard(FERTILE_GROUND)).toBe("native-mana-aura");
     expect(classifyCard(WOLFWILLOW)).toBe("body-only");
-    expect(classifyCard(VERDANT_HAVEN)).toBe("body-only");
+    // ⭐ PIN INVERTED (LA-2, 2026-08-03) — see the isNativeManaAura note above.
+    expect(classifyCard(VERDANT_HAVEN)).toBe("native-mana-aura");
     expect(classifyCard(TRACE)).toBe("body-only");
     expect(classifyCard(MARKET_FESTIVAL)).toBe("body-only");
     // Bear Umbra is NOT a land-mana aura (it enchants a creature); its own creature-aura nativeness

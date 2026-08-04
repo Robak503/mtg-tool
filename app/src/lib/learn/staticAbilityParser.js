@@ -5403,6 +5403,13 @@ function manaAuraResidueClauses(card) {
     if (/^enchant\b/.test(c)) continue;                                   // the Enchant keyword line
     if (/^whenever enchanted (?:land|forest) is tapped for mana,/.test(c)) continue; // the modeled boost line
     if (AURA_CHOOSE_COLOR_ETB_RE.test(c)) continue;                       // CHOSEN-COLOR: the modeled cast-time color choice (Utopia Sprawl)
+    // LA-2 (Verdant Haven): a validator-approved AURA-OWN ETB line ("When this Aura enters, you gain 2
+    // life") is modeled end-to-end — an Aura enters through the same enterPermanent chokepoint every
+    // permanent uses (LA-1's runtime proof, landAuraEtbRider.test.js), entirely independent of the
+    // mana-boost read site. Same validator gating as the mana-GRANT frame one lane over
+    // (isNativeManaGrantAuraWithEtb): an UNMODELED/unroutable ETB is not vouched for and stays residue
+    // → the card stays non-native (CREED; Wolfwillow's sac line and Trace's "has shroud" never match).
+    if (_auraOwnEtbValidator && _auraOwnEtbValidator(c)) continue;
     out.push(clause);
   }
   return out;
