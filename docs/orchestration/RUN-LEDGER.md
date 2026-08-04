@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-03 - **LA-2: Verdant Haven ETB rider on the boost aura, +1** - batch 35 since v0.150.1
+> Suite 1082 files / 13,650 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+1 / 0 / 0** —
+> Verdant Haven body-only → native-mana-aura. Second two-flip lead; a SIBLING ASYMMETRY (byte-identical to
+> Fertile Ground plus the "you gain 2 life" ETB line, which manaAuraResidueClauses rejected as residue).
+> Fix: admit a `_auraOwnEtbValidator`-approved aura-own ETB line — the SAME injected validator the
+> mana-GRANT frame (isNativeManaGrantAuraWithEtb) already uses; the ETB chokepoint (LA-1 runtime) and the
+> boost read site (landAuraManaBonus) are independent paths. Unroutable ETB still parks (Probe Haven pin);
+> Wolfwillow/Trace/Market Festival unchanged. The flip ARMS THE CAST LANE (isNativeManaAura is read by
+> legalChoices + actionDispatcher + resolvers) → law-6 runtime battery: cast targeting an own land →
+> attach + ETB flushes onto the STACK (the wrong-assertion-layer trap bit the first draft — pendingTriggers
+> is drained post-resolve) → life +2 → tap floats land G + any-color bonus. Two stale pins inverted in place.
+> ⚠️ MUTATION AIM: the first mutation run came back GREEN because string.replace hit the tail of the OTHER
+> `_auraOwnEtbValidator` skip (6-space line in parseAttachedBonus contains the 4-space needle). Re-aimed
+> with a context anchor + verified the surviving occurrence count → exactly the 4 predicted reds. **When a
+> mutation runs green, first prove it mutated the right line.** CI on 1e9c16a4: completed+success.
+
 > ## SLICE DONE - 2026-08-03 - **EQ-3: Candlestick quoted-grant composite, +1** - batch 34 since v0.150.1
 > Suite 1082 files / 13,648 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+1 / 0 / 0** —
 > Candlestick body-only → native-equipment, the first of the four two-flip leads.

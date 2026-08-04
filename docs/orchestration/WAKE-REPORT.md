@@ -15,9 +15,11 @@
 > the follow-up probe (detectTriggers / parseActivatedAbilities / the bonus parsers, per card) found a
 > DIFFERENT cause behind each. This is correction 20 biting a second time in one session: *a probe that
 > groups cards by SYMPTOM is not evidence of a shared CAUSE.* Diagnosed causes, each its own scoping job:
-> · **Verdant Haven** — only 1 trigger detected (the ETB). Its second line, *"Whenever enchanted land is
->   tapped for mana, its controller adds an additional…"*, is an AURA-OWN trigger shape detectTriggers
->   does not recognise → it survives as residue. **Cause: an undetected trigger shape**, not composition.
+> · **Verdant Haven** — ✅ **BUILT 2026-08-03 (`cd8d30d6`, +1)**. The cause line here was HALF-STALE: the
+>   tapped-for-mana line is not an undetected trigger shape — it is the fully-built native-mana-aura BOOST
+>   subsystem (Fertile Ground is byte-identical and native; CR 605.1b, it never goes near detectTriggers).
+>   The real blocker was the ETB line as residue in manaAuraResidueClauses — composition after all.
+>   Receipt in RUN-LEDGER.
 > · **Candlestick** — ✅ **BUILT 2026-08-03 (`19b5600d`, +1)**. The cause line here was STALE against the
 >   tree (the parser captures the +1/+1 and the runtime delivered both halves all along — the park was
 >   pure tier composition, EQ-2's GUARD-QUOTE). Receipt in RUN-LEDGER's top entry.
