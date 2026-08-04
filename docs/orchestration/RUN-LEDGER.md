@@ -16,8 +16,8 @@
 > still parks; an unmodeled SENTENCE is still residue. Mutations: allowance removed → flips red · widened
 > to any colon-free line → both boundary pins red.
 >
-> 📌 **Still open from this vein:** Stunt Double (Flash + clone) flips the same way but through the
-> CLONE lane's residue check — a DIFFERENT function, deliberately not batched in. Same one-line shape.
+> ✅ **The sibling shipped right after** (`+1`, Stunt Double): same allowance in the clone-shape VIEW
+> classifyCard already builds, so `cloneCopy.js` stays untouched. Boundary pinned on that lane too.
 
 > ## 🔴 BUILT · MEASURED · REVERTED - 2026-08-04 - **Witch's Mark was a FALSE POSITIVE, and a previous
 > author's pin caught me.** The most useful hour of the night, and it shipped nothing.
