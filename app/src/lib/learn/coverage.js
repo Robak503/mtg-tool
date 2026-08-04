@@ -2285,6 +2285,19 @@ function isNativeOwnActivatedAura(card) {
     const t = rawLine.trim();
     if (!t) continue;
     if (/^enchant\b/i.test(t)) continue;                                    // the Enchant keyword line
+    // COVERED KEYWORD LINE (2026-08-04) — a bare keyword line the project ALREADY treats as covered
+    // (COVERED_KEYWORDS via isKeywordOnly) is not residue here either. This lane rejected it, so
+    // Blessing of Leeches ("Flash" + Enchant + an upkeep trigger + a modeled aura-own regenerate) parked
+    // on the one line every other lane credits: a vanilla Flash creature is native-body, and Ambush Viper
+    // (Flash + Deathtouch) is native-body. Same drift as the strips fixed earlier today — one lane
+    // accepts a line, another calls it leftover text.
+    //
+    // ⛔ THIS PROPAGATES AN EXISTING POLICY, IT DOES NOT MAKE ONE. Whether flash-as-covered is right
+    // (the runtime does NOT enforce flash timing — legalChoices.isSorcerySpeed says so in its own
+    // comment, and a flash permanent is castable only at sorcery speed, i.e. strictly WEAKER than
+    // printed) is settled elsewhere, by COVERED_KEYWORDS, and is the same call every keyword-only card
+    // already rides on. An UNCOVERED keyword line still fails isKeywordOnly and still parks the card.
+    if (isKeywordOnly(t, card?.name)) continue;
     // An activated-ability line: "{cost}: effect." with a colon (mirrors parseActivatedAbilities' detection).
     if (/^[^:]*\{[^}]+\}[^:]*:/.test(t)) { sawActivated++; continue; }
     return false;                                                           // any other clause = residue → Arbiter
