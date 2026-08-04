@@ -2586,6 +2586,23 @@ export function classifyCard(card) {
     const stripped = stripModeledNoMaxHandSize(String(card.oracle)).trim();
     if (stripped !== String(card.oracle).trim()) card = { ...card, oracle: stripped };
   }
+  // DISCARD-COST HAND ABILITY pre-strip (2026-08-03) — the SAME drift, one lane over. A
+  // "<mana>, Discard this card: <effect>" ability is played from HAND, so no battlefield-oriented gate
+  // can model it and every one of them reads the line as residue. `stripDiscardCostAbilityLine` already
+  // removes it — but only inside `isKeywordOnly`, so the native-BODY lane saw a clean card while the
+  // native-STATIC lane (staticAbilitiesCoverCard, which walks the raw clauses) saw leftover text. Waker
+  // of Waves is the tell: its opponent anthem alone is native-static, its discard ability alone leaves a
+  // native-body vanilla, and together they parked.
+  //
+  // Gated on the SAME `discardCostAbilityModeled` predicate `legalChoices.actionsDiscardAbilityFromHand`
+  // offers on (line parses · effect HIGH · needs no chosen target), so a targeted ability the engine
+  // REFUSES to offer — Steel Wrecking Ball, Trumpeting Carnosaur — is not stripped and still parks the
+  // card. Stripping once here means every lane below sees one text; the in-`isKeywordOnly` call stays,
+  // since that function is exported and called directly elsewhere.
+  {
+    const deLined = stripDiscardCostAbilityLine(String(card?.oracle || ""), card);
+    if (deLined !== String(card?.oracle || "")) card = { ...card, oracle: deLined };
+  }
   // KW-SUSPEND, the NO-COST half (2026-08-02): the gate above stayed honest for exactly as long as
   // the engine couldn't suspend — that route EXISTS now (legalChoices actionsSuspendFromHand →
   // dispatcher `suspend` → fading.applySuspendUpkeep tick → the zero-counter free cast through the
