@@ -27,10 +27,14 @@
 >   assumed, exactly as this note asked: the source provably stays and keeps watching. And the
 >   vanishing caveat this note raised was REAL — time/fade and P/T counters keep the blanket refusal.
 >   Receipt in RUN-LEDGER.
-> · **Fiery Mantle** — trigger detected+modeled, activated modeled, `parseAuraBonus` empty (its "{R}:
->   Enchanted creature gets +1/+0" is an ACTIVATED, not a static bonus) and `permanentFullyCovered` still
->   false. **Cause NOT yet isolated — this one needs the dig before any build.**
+> · **Fiery Mantle** — ✅ **BUILT 2026-08-03 (`04c2a6da`, +2 — Strands of Undeath rode along)**. The dig
+>   this note asked for found a SIBLING ASYMMETRY: the card is Firebreathing plus one modeled LTB line,
+>   and no lane composed aura-own ACTIVATED with aura-own TRIGGERED. Receipt in RUN-LEDGER.
 > **Witch's Mark is a fifth, different shape** (two spell clauses, arbiter-spell) — don't fold it in.
+>
+> ✅ **ALL FOUR TWO-FLIP LEADS ARE CLOSED (2026-08-03, +6 total).** Next work is the Block-4 grind:
+> the shelf ETB vein (80 slots), the remaining bug signatures (doesn't-untap residue ~+2), and the rest
+> of the census's two-flip list beyond these four. Re-census at the slice boundary, per the runbook.
 >
 > **State:** last commit `c8d0c1c7`, tree clean, nothing in flight. **Do not tag** — 33 of ~100 banked.
 > Shelf **21 decks · 82% aggregate (1715/2097) · 7 at the ≥90% bar**; corpus **38.6% native**

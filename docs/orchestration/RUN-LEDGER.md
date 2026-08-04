@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-03 - **AU-ACT+TRIG: aura-own activated × aura-own triggered, +2** - batch 39 since v0.150.1
+> Suite 1084 files / 13,670 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+2 / 0 / 0** —
+> Fiery Mantle + Strands of Undeath, both audited whole-card. **The FOURTH two-flip lead — the one banked
+> with NO isolated cause — and it is a SIBLING ASYMMETRY:** Fiery Mantle is Firebreathing plus one modeled
+> LTB self-return line. Composed (not loosened) exactly like AU-GRANT+STATIC/EQ-2: each half revalidated by
+> the gate that already owned it; placed after both pure lanes so no tier is stolen (tier-priority pinned).
+> ⭐ **BOTH RUNTIME HALVES DRIVEN ON THE PRINTED CARD** — this is the lane whose sibling was once credited
+> and REVERTED for verifying halves on text the composition invented. Measured: the pump IS offered on the
+> Aura (host 2/2→3/2); the self-return DOES move the card graveyard→hand.
+> ⚠️ **PROBE TRAP WORTH KEEPING:** a bare `flushTriggers(state)` takes the FIRST LEGAL target, so Strands'
+> "target player discards two cards" picked its own controller and read as a dead effect. The engine's real
+> path passes `{ chooseTargets: chooseTriggerTargets }` (intent-aware → targets an opponent). **Assert
+> through the chooser the engine uses, or the probe proves the wrong thing.**
+> Two stale pins inverted in place (auraOwnActivated · auraOwnRegenerate), each with its guard job re-pinned
+> beside it. Mutations: activated-half forced true → 2 red · trigger-half forced true → 1 red · the
+> non-empty guard dropped → GREEN, recorded honestly as defensive-and-unreachable (lanes above claim those).
+
 > ## SLICE DONE - 2026-08-03 - **REMOVE-COUNTER costs can't drop a trigger, +2** - batch 37 since v0.150.1
 > Suite 1083 files / 13,662 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+2 / 0 / 0** —
 > Vat of Rebirth + Charforger (audited whole-card: ETB token + the same PiG watcher + impulse-exile).
