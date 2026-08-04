@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🛡 HARDENING - 2026-08-04 - **2nd latent newline-crossing FP, found by SWEEPING for the class**
+> Suite 1094 files / 13,750 green + lint 0 BY EXIT CODE. Flip-diff **0 / 0 / 0** — and that is the point.
+> After fixing the `if you do` newline bug I swept coverage.js for the whole CLASS instead of waiting to
+> trip over another card. **Five candidate strips: one real hazard, two safe by their own anchors, two
+> named-but-unexamined** (the die-roll `create a number of …` tail and its sibling — both trailing `\s*`).
+> **The real one:** the three enters-with-counters strips lead with `[^.]*`, and **in JS `[^.]` matches a
+> NEWLINE** (only `.` excludes it), so the pattern could start on the PREVIOUS line and eat through into
+> the counters sentence, deleting both. Harmless when the previous line ends in a period — **but KEYWORD
+> LINES DON'T END IN PERIODS.** `"Champion a Goblin"` + an enters-with-counters line classified
+> **native-body**, i.e. a champion creature played without its exile-and-return cost. Champion alone
+> correctly parks, so the pin is genuinely about the WELD.
+> ⚠️ **Zero cards move today** — no printed card carries the pair. Banked as LATENT, exactly like the
+> Time Vault bug was: *that* one also flipped nothing until an unrelated good slice removed the residue
+> accidentally shielding it. **A latent FP is still an FP.** Fixed to `[^.\n]*` at all three sites.
+
 > ## SLICE DONE - 2026-08-04 - **FP FIXED, then the blocked +2 landed** - batch 58 since v0.150.1
 > Suite 1093 files / 13,744 tests green + lint 0 BY EXIT CODE. **The FP banked last night is CLOSED and
 > the slice it blocked has shipped.** Two changes, one commit, one non-optional order:

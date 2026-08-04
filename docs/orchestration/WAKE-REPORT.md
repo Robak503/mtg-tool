@@ -141,6 +141,14 @@
 > flipped ZERO cards on its own; Time Vault was accidentally shielded by residue that an unrelated,
 > perfectly good slice was about to remove. **A "0 gained / 0 lost" correctness fix can be the most
 > load-bearing commit of the day** — and the order (fix, then compose) is the whole safety argument.
+> **28 — WHEN YOU FIND A BUG CLASS, SWEEP THE FILE FOR IT BEFORE MOVING ON.** One `\s`-eats-a-newline
+> bug became two: sweeping coverage.js for the class immediately afterward turned up the
+> enters-with-counters strips leading with `[^.]*`, **and `[^.]` matches a newline too** (only `.`
+> excludes it). It could eat the line ABOVE it — harmless after a period, dangerous after a KEYWORD LINE,
+> which has none: `"Champion a Goblin"` + an enters-with-counters line read native-body. Also latent,
+> also fixed (`7ca82bbd`). **Five strips examined, one real, two safe-by-anchor, two still unexamined**
+> (the die-roll `create a number of …` tail and its sibling) — named here so the sweep can be finished
+> rather than silently assumed complete.
 >
 > ### 🧰 WORKTREE NOTE (cost 4 red tests at baseline)
 > A reused worktree may lack `app/data/rules-index.json` → 4 pre-existing rules-retrieval failures that are
