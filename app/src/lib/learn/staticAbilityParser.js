@@ -1642,6 +1642,30 @@ function parseClause(clause, out, selfName, selfType) {
   // ("a Wizard you control" — Naban; "a land or Bird you control" — Traveling Chocobo) is NOT claimed:
   // those need a controller/subtype read this filter set doesn't carry, and doubling on the wrong entry
   // is a forbidden FP. They stay body-only.
+  // ── CAST-TRIGGER MULTIPLIER (Veyran, Voice of Duality #1487) ──────────────────────────────────────
+  // "If you casting or copying an instant or sorcery spell causes a triggered ability of a permanent you
+  // control to trigger, that ability triggers an additional time." The FOURTH member of the multiplier
+  // family and one word apart from Isshin's on the card ("a creature attacking" → "you casting or copying
+  // an instant or sorcery spell"): same rule-modifying shape, same self-affecting continuous effect, same
+  // inertness in the P/T + keyword layers, counted by layers.castTriggerMultiplierCount and applied at
+  // the CAST-trigger enqueue site.
+  //
+  // ⛔ THE SCOPE IS THE SITE, exactly as it is for the other three. This op is consulted ONLY where cast
+  // triggers are enqueued (checkCastTriggers), so it can never double a dies / attack / ETB trigger — the
+  // card's "causes a triggered ability … to trigger" is scoped by WHAT CAUSED IT, and the enqueue site is
+  // precisely that fact. Whole-sentence anchored: the subject must be the exact printed one, so a
+  // narrower or wider variant stays unclaimed rather than doubling the wrong event (a doubled trigger the
+  // card doesn't grant is a forbidden FP, and it is invisible to a P/T-shaped gate).
+  if (/^if you casting or copying an instant or sorcery spell causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time$/.test(c)) {
+    out.push({
+      layer: 6,
+      op: { layerOp: "castTriggerMultiplier" },
+      affects: { mode: "self" },
+      duration: { kind: "permanent" },
+    });
+    return; // handled — a modeled rule-modifying static
+  }
+
   const etbMultM = c.match(/^if (a permanent|an artifact or creature|a creature|an artifact|a land) entering(?: the battlefield)? causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time$/);
   if (etbMultM) {
     out.push({

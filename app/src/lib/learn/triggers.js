@@ -23,7 +23,7 @@ import {
   registerLifeLossWatcher, // LIFE-LOSS-ON-EVENT (SHELF M3) — the loseLife chokepoint's registry seam
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, colorsOf } from "./layers.js";
+import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, colorsOf } from "./layers.js";
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 import { applyLifeGainReplacement } from "./replacementEffects.js"; // LIFE-GAIN replacement (CR 614.1) — read by checkLifegainTriggers so a trigger sees the life ACTUALLY gained. replacementEffects imports nothing at all, so this edge is one-way and cycle-free.
 import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
@@ -7342,6 +7342,20 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
     fired.push(makePendingTrigger(d, selfCastSource, null, { ...context, xValue, ...extra }));
   }
   if (!fired.length) return state;
+  // CAST-TRIGGER MULTIPLIER (Veyran, Voice of Duality) — the fourth member of the multiplier family,
+  // applied at the same point in its enqueue site as the dies / attack / ETB ones: after the full fired
+  // list is built, so every watcher that legitimately fired gets its extra instance and nothing else
+  // does. multiplyTriggers keys on each pending trigger's CONTROLLER (the ability's controller, per the
+  // card's "a triggered ability of a permanent you control"), never on the caster.
+  //
+  // ⚠️ ONLY instant/sorcery casts reach the multiplier, and that is enforced by the guard below rather
+  // than by the site: checkCastTriggers fires for EVERY cast (a creature spell included), while Veyran's
+  // line is scoped to "an instant or sorcery spell". Reading the site alone as sufficient — the argument
+  // that holds for the ETB and attack siblings — would double a creature-cast watcher Veyran does not
+  // affect. Measured before this line existed, on a board with a creature cast.
+  if (/\b(instant|sorcery)\b/i.test(typeStr(spellCard))) {
+    fired = multiplyTriggers(state, fired, (st, ctrl) => castTriggerMultiplierCount(st, ctrl));
+  }
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 

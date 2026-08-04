@@ -1812,6 +1812,21 @@ export function attackTriggerMultiplierCount(state, controllerId) {
 }
 
 /**
+ * CAST-TRIGGER MULTIPLIER (Veyran, Voice of Duality — CR 603.x): how many EXTRA times a triggered ability
+ * of `controllerId`'s fires when THEY cast or copied an instant or sorcery. Teysa's and Isshin's twin,
+ * one subject apart on the card and one layerOp apart here.
+ *
+ * Unfiltered, like the dies and attack counters: the printed subject ("you casting or copying an instant
+ * or sorcery spell") is fully determined by the enqueue SITE — checkCastTriggers already fires only for a
+ * cast, and its `whose` handling already scopes each watcher to the right caster — so there is nothing
+ * left to test on the object here. The ENTERS counter is the odd one out precisely because its card can
+ * name a filter (Panharmonicon's artifact-or-creature); no printed cast-multiplier does.
+ */
+export function castTriggerMultiplierCount(state, controllerId) {
+  return triggerMultiplierCount(state, controllerId, "castTriggerMultiplier");
+}
+
+/**
  * ENTERS-TRIGGER MULTIPLIER (Panharmonicon, Yarok, Ancient Greenwarden — CR 603.x): how many EXTRA times
  * an ability of `controllerId`'s fires when `enteringCard` entered. Unlike its two siblings this one is
  * FILTERED — Panharmonicon doubles only for an artifact or creature, Greenwarden only for a land — so the
