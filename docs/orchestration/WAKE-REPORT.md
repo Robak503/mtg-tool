@@ -146,9 +146,14 @@
 > enters-with-counters strips leading with `[^.]*`, **and `[^.]` matches a newline too** (only `.`
 > excludes it). It could eat the line ABOVE it — harmless after a period, dangerous after a KEYWORD LINE,
 > which has none: `"Champion a Goblin"` + an enters-with-counters line read native-body. Also latent,
-> also fixed (`7ca82bbd`). **Five strips examined, one real, two safe-by-anchor, two still unexamined**
-> (the die-roll `create a number of …` tail and its sibling) — named here so the sweep can be finished
-> rather than silently assumed complete.
+> also fixed (`7ca82bbd`). **The sweep is now COMPLETE, and the result is mixed on purpose:** of five
+> candidate strips, **one was a real hazard (fixed)**, two are safe by their own anchors, and the last two
+> — the die-roll `create a number of … equal to the result` tail and the `no maximum hand size for the
+> rest of the game` tail — **DO provably eat the newline (measured), but no FP could be constructed from
+> either**: the welded remnant still carries the unmodeled text and the card still parks in every shape I
+> could build. **Left unchanged deliberately** — changing a strip with no failing test is the same
+> widening-on-a-hunch this project keeps getting burned by. Recorded so the next seat has the measurement
+> instead of re-deriving it, and knows exactly where to look if one ever does bite.
 >
 > ### 🧰 WORKTREE NOTE (cost 4 red tests at baseline)
 > A reused worktree may lack `app/data/rules-index.json` → 4 pre-existing rules-retrieval failures that are
