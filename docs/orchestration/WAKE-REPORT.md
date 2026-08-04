@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-03 — **+10 this sitting · batch 43** — suite **1086 / 13,688** green by exit code · master green, CI success
+## ☀️ 2026-08-03 — **+13 this sitting · batch 46** — suite **1087 / 13,695** green by exit code · master green, CI success
 
 > **▶ START HERE — the Block-4 grind off a FRESH census (34,245 scanned, ran 2026-08-03).**
 > The subsystem vein is DRY for a 4th consecutive time (largest sole-blocker cluster = 6, all unrelated
@@ -22,8 +22,12 @@
 >   the bigger, unscoped prize here — it needs cast-lane targeting work, so size it before committing.
 > · ~~**`you control enchanted creature`** — 7 native / 4 sole~~ ✅ **BUILT (`21a0ea19`, +2)**. Its other
 >   two carriers are honest parks (Krovikan Whispers = cumulative upkeep; Hypnotic Siren = bestow).
-> · **`{C}{C}: return this card from your graveyard to your hand`** — 6 native / **3 sole**.
-> · **`reinforce N—{C}{C}`** — 5 native / **3 sole**.
+> · ~~**`{C}{C}: return this card from your graveyard to your hand`** — 6 native / 3 sole~~ ✅ **BUILT
+>   (`d28e3b30`, +3)**. Convenient Target / The Sound of Drums stay parked on other unmodeled clauses.
+> · **`reinforce N—{C}{C}`** — 5 native / **3 sole** (Fowl Strike · Hunting Triad · Earthbrawn). All three
+>   are INSTANTS/SORCERIES currently `arbiter-spell` — reinforce is a hand-activated discard ability
+>   (CR 702.77), so this is the spell-side sibling of the graveyard/cycling hand-zone lanes, NOT an
+>   aura/permanent job. Unprobed; size the hand-activation seam before committing.
 > · **The two-flip list still holds 22 cards** — the four scoped on 08-02 are all BUILT (below); the rest
 >   are unscoped. Witch's Mark remains the named exception (two spell clauses, arbiter-spell).
 > ⚠️ **PROVE THE SHARED CAUSE BEFORE BATCHING** — probe each candidate's line combinations, don't group by

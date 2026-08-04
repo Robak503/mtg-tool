@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-03 - **AU-GY: Auras × graveyard self-recursion, +3** - batch 46 since v0.150.1
+> Suite 1087 files / 13,695 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+3 / 0 / 0** —
+> Bestial Bloodline · Talons of Wildwood · **Vineweft** (rode along, audited whole-card). Census signature
+> "{2}{R}: Return this card from your graveyard to your hand" (6 native / 3 sole). **Why they parked:** the
+> GY ability is modeled by its OWN lane, which offers it FROM THE GRAVEYARD — so `parseActivatedAbilities`
+> calls it unmodeled (it isn't a battlefield activation) and isNativeAura's residue walk rejected the line.
+> `permanentFullyCovered` already composes this for non-Auras (slice 56); Auras return before reaching it.
+> Strip-then-revalidate per EQ-2. **The TIER is load-bearing:** native-activated, so
+> `grantAuraCastHostType` offers the CAST — native-aura would credit an Aura the engine never offers
+> (pinned as its own assertion). Runtime measured ON AN AURA (GY-1 was built for creatures): offered off
+> the graveyard → stack → resolves → graveyard→hand; not offered without the mana.
+> ⚠️ **First probe read as a silent no-op** because it asserted right after `dispatchAction` — the ability
+> uses the STACK. Assert after `resolveTopOfStack` or every activated ability looks dead.
+> Mutations: remainder revalidation forced true → 1 red. The `gyLines.length` arm → GREEN, recorded as
+> REDUNDANT (no gy line ⇒ remainder = full card, already rejected a lane above), not dressed as coverage.
+
 > ## SLICE DONE - 2026-08-03 - **CONTROL auras compose with their own triggers, +2** - batch 43 since v0.150.1
 > Suite 1086 files / 13,688 tests green + lint 0 BY EXIT CODE. Flip-diff (file-copy): **+2 / 0 / 0** —
 > Biting Tether + Mark of the Oni. Census signature "you control enchanted creature" (7 native / 4 sole).
