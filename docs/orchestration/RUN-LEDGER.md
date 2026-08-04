@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-04 - **The self-damage rider, RETRIED to its own recipe, +1** - batch 63
+> Suite 1097 files / 13,771 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Orcish Cannonade.
+> The entry directly below is the FIRST attempt, reverted an hour earlier; this is that entry's written
+> recipe, executed. **Landing at +1 instead of the +5 that looked available is the whole result.**
+> Both halves shipped together: ① the splitter keeps the sentence whole; ② `matchSelfHitDamage` is
+> reachable PER-CLAUSE — without ②, keeping it whole only moves the problem (the ordinary damage parser
+> matches the leading half and silently drops the rider). **Third instance today** of a whole-oracle
+> matcher that only fires when its sentence is the entire card.
+> ⛔ **Both anchors are narrower than the English, and both narrowings are measured FP refusals:**
+> "to you" not "to ITSELF" (no rider atom at all, and `selfDamage` hits the CONTROLLER — wrong per
+> CR 119.3), and "to ANY TARGET" not a restricted one (Fire and Brimstone read native with the rider
+> dropped). Runtime driven: 3 to its own controller, 2 to the target.
+> ⚠️ **METHOD SCAR:** patching a JS regex from a python heredoc turned `` into a literal BACKSPACE
+> (char 8), so the guard read `/^Hdeals …/` and silently never matched — I chased "the guard doesn't
+> fire" for several rounds. **Patch source files with the editor, not with escape-prone shell/python
+> string surgery; and `cat -A` the line when a regex "should" match and doesn't.**
+
 > ## 🔴 BUILT · MEASURED · REVERTED - 2026-08-04 - **the self-damage rider: +5, then +2, then ZERO**
 > The clause splitter severs "<source> deals N damage to <target> AND M damage to you" at its internal
 > " and ", leaving an orphan fragment that parses as nothing. Found by SIBLING ASYMMETRY — 20 corpus
