@@ -7,7 +7,18 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+375 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 87** — suite **1150 / 14,143** green by exit code
+## ☀️ 2026-08-05 — **+381 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 93** — suite **1151 / 14,151** green by exit code
+
+> ### ⚠️⚠️ A PRINTED WITNESS TOLD A BROKEN **HARNESS** FROM A BROKEN **FIX** — read the values, not the verdict
+> The self-prevent pin failed with `shields: []` — identical to the bug it was written to catch. The fix was
+> fine; my harness called `runEffectProgram(state, program, ctx)` when it takes a STACK OBJECT with the
+> program in `payload.params`, so confidence read `undefined` and nothing ran. **A boolean pass/fail would
+> have sent me to rewrite working code.** When a Law-6 pin fails, check the harness signature BEFORE the fix.
+
+> ### ⏭ NEXT, ALREADY SIZED: **DAMAGE REDIRECTION IS AN ABSENT MECHANIC** (8 carriers, 0 native)
+> "The next N damage that would be dealt to X this turn is dealt to <Y> instead" — the en-Kor cycle (6),
+> Carom, Ward of Piety. PREVENTION is built (~48 native, shields + both consumption paths); REDIRECTION is
+> not modelled at all (CR 615.x). This is a mechanic build, not a wording cell — size it before starting.
 
 > ### ⭐⭐ THE RICHEST SHAPE ISN'T A WORDING GAP — IT IS A **MISSING QUESTION**
 > +12 in one slice, the biggest of the run. Every counter filter the engine had asked about the target

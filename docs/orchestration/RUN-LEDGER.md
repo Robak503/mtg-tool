@@ -3,6 +3,31 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **PREVENT TARGET VOCABULARY — two cells, two different fixes, +6** - batch 93
+> Suite 1151 / 14,151 green + lint 0 BY EXIT CODE. Flip-diff **+6 / 0 / 0** — Revered Elder, Ordruun
+> Commando, Ethereal Champion, Ursine Fylgja, Argivian Blacksmith, Abuna Acolyte. All audited whole-card.
+> ⭐ The prevent-next-N family is native on ~48 carriers across "any target" / "target creature" / "you";
+> **"this creature" and "target ARTIFACT creature" were native on ZERO.** The `pvc` arm's own comment records
+> the previous instance of this same split — a vocabulary being filled one word at a time.
+> ⛔⛔ **THE TWO ARMS LOOKED IDENTICAL FROM THE PARSER AND WERE NOT.** The type-filtered arm needed nothing at
+> runtime (`cardType` already exists; its comment even names "target artifact creature"). **The SELF arm
+> needed a RESOLVER FIX:** applyPreventNextDamage read `ctx.targets` DIRECTLY — correct for a chosen target,
+> silently wrong for a fixed referent, whose ctx.targets is empty. Those four cards would have classified
+> native and shielded NOTHING. **Invisible to a flip-diff — the card flips either way.** Only the runtime pin
+> separates them, which is why it drives a real damage event instead of asserting the atom.
+> ⚠️⚠️ **AND MY OWN FIRST HARNESS REPRODUCED THE BUG BY ACCIDENT.** `runEffectProgram(state, program, ctx)` is
+> the wrong signature — it takes a STACK OBJECT with the program in `payload.params`. Passing the program
+> directly made programConfidence read `undefined`, log "low confidence", and return an unchanged state; the
+> witness printed `shields: []`, which is EXACTLY what the real bug looks like. **A printed-value witness is
+> what let me tell a broken harness from a broken fix** — a boolean pass/fail would have sent me to rewrite
+> working code. (Hollow-gate law, instance N+1.)
+> ℹ Mutants: atomTargets routing reverted → `shields: []`, full damage lands; cardType dropped → a NON-artifact
+> creature is offered to Argivian Blacksmith.
+> ℹ Rock Hydra carries the self line and still parks, on its damage-REPLACEMENT clause. Pinned.
+> ⏭ **STILL OPEN AND NOW SIZED: DAMAGE REDIRECTION** ("the next N damage … is dealt to <X> instead") is
+> 0-native on **8** carriers — the en-Kor cycle (6), Carom, Ward of Piety. Prevention is built; REDIRECTION is
+> a genuinely absent mechanic (CR 615.x), not a wording cell.
+
 > ## SLICE DONE - 2026-08-05 - **COUNTER-THAT-TARGETS — a capability, not a wording, +12** - batch 87
 > Suite 1150 / 14,143 green + lint 0 BY EXIT CODE. Flip-diff **+12 / 0 / 0** — Turn Aside, Keep Safe, Rebuff
 > the Wicked, Intervene, Confound, Hindering Light, Dawn Charm, Outwit, Cerulean Drake, Hydromorph Gull,

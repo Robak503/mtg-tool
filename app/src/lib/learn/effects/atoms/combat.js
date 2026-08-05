@@ -1438,6 +1438,21 @@ export function combatKeywordClauseParser(clause) {
   if (pvc) return { op: "prevent-next-damage", amount: NUM_WORD[pvc[1]] ?? parseInt(pvc[1], 10), targetType: "creature" };
   const pvy = t.match(/^prevent the next (\d+|one|two|three|four|five|six|seven|eight|nine|ten) damage that would be dealt to you this turn$/);
   if (pvy) return { op: "prevent-next-damage", amount: NUM_WORD[pvy[1]] ?? parseInt(pvy[1], 10), who: "you", targetType: null };
+  // ⭐ …and the two remaining cells of the SAME target vocabulary, found by tier-splitting the phrase again.
+  // The family is native on ~48 carriers across "any target" / "target creature" / "you"; these two wordings
+  // were native on ZERO.
+  //   SELF — "…dealt to THIS CREATURE this turn" (Rock Hydra, Revered Elder, Ordruun Commando). A FIXED
+  //     referent, not a chosen target, so it carries `target:"self"` and NO targetType.
+  //   TYPE-FILTERED — "…dealt to target ARTIFACT CREATURE this turn" (Argivian Blacksmith, Abuna Acolyte).
+  //     The `cardType` restriction already exists and its own comment names this exact wording.
+  // ⛔ THE SELF ARM NEEDED A RESOLVER FIX AND THE TYPE ARM DID NOT — worth stating, because they looked
+  // identical from the parser. applyPreventNextDamage read `ctx.targets` DIRECTLY, so a fixed referent would
+  // have handed it an empty list: the card would classify native and shield NOTHING. It now routes fixed
+  // referents through atomTargets, the same seam applyTapEffect uses.
+  const pvSelf = t.match(/^prevent the next (\d+|one|two|three|four|five|six|seven|eight|nine|ten) damage that would be dealt to this creature this turn$/);
+  if (pvSelf) return { op: "prevent-next-damage", amount: NUM_WORD[pvSelf[1]] ?? parseInt(pvSelf[1], 10), target: "self" };
+  const pvType = t.match(/^prevent the next (\d+|one|two|three|four|five|six|seven|eight|nine|ten) damage that would be dealt to target (artifact) creature this turn$/);
+  if (pvType) return { op: "prevent-next-damage", amount: NUM_WORD[pvType[1]] ?? parseInt(pvType[1], 10), targetType: "creature", restrictions: [{ kind: "cardType", type: pvType[2] }] };
   // PLAYERS-ONLY FOG (BLITZ FOG-1b — Defend the Hearth / Commencement of Festivities): "prevent all
   // combat damage that would be dealt to players this turn". Rides the incumbent "fog" op (misc.applyFog
   // owns the family — so programContainsFog + the AI-F5 fog hold policy cover this form automatically)
@@ -2339,7 +2354,13 @@ function applyPreventNextDamage(state, atom, ctx) {
   if (atom.who === "you") {
     if (next.players?.[ctx.controller]) entries.push({ targetKind: "player", targetId: ctx.controller });
   } else {
-    for (const t of ctx.targets || []) {
+    // ⛔ FIXED REFERENTS MUST GO THROUGH atomTargets. This loop used to read ctx.targets unconditionally,
+    // which is right for a CHOSEN target but silently wrong for `target:"self"` (Rock Hydra's "prevent the
+    // next N damage that would be dealt to THIS CREATURE"): ctx.targets is empty for a fixed referent, so the
+    // card would classify native and shield NOTHING. Same seam and same guard shape applyTapEffect uses for
+    // its enchanted/self/mass referents. Chosen-target atoms carry no `target`, so their path is unchanged.
+    const list = atom.target ? atomTargets(next, atom, ctx) : (ctx.targets || []);
+    for (const t of list) {
       if (t.type === "player" && next.players?.[t.id]) entries.push({ targetKind: "player", targetId: t.id });
       else if ((t.type === "creature" || t.type === "planeswalker") && findPermanent(next, t.id)) entries.push({ targetKind: t.type, targetId: t.id });
     }

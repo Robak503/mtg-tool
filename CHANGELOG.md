@@ -30,6 +30,9 @@ summarizes the notable changes.
   empty the spell is countered.
 
 ### Added
+- **Self-shielding and artifact-shielding creatures work.** Revered Elder, Ordruun Commando, Ethereal
+  Champion and Ursine Fylgja prevent damage to *themselves*; Argivian Blacksmith and Abuna Acolyte protect
+  artifact creatures specifically. Neither wording was understood before.
 - **Protective counterspells work.** Turn Aside, Keep Safe, Rebuff the Wicked, Hindering Light, Intervene,
   Confound, Dawn Charm, Outwit, Cerulean Drake, Hydromorph Gull, Hydromorph Guardian and Vigilant Martyr all
   read "counter target spell that targets …" — the simulator could ask what a spell *was*, but never what it
