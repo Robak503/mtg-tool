@@ -9,6 +9,28 @@
 
 ## ☀️ 2026-08-04 — **+92 this sitting · v0.151.0 SHIPPED · post-tag batch 25** — suite **1108 / 13,876** green by exit code
 
+> ### 🔬 NEXT SLICE, DIAGNOSED AND READY: **the Glimmer dies-trigger needs a KEYWORD LINE to be credited**
+> A real classifier bug, isolated to a 5-line repro. Paste this and watch it contradict itself:
+> ```
+> DIES = "When ~ dies, if it was a creature, return it to the battlefield under its owner's control. It's an enchantment."
+> dies alone                 -> body-only      ❌
+> Vigilance + dies           -> native-trigger ✅
+> lifegain trigger + dies    -> body-only      ❌
+> Vigilance + lifegain + dies-> native-trigger ✅
+> lifegain alone             -> native-trigger ✅
+> ```
+> **The presence of "Vigilance" cannot have any bearing on whether a dies-trigger is modeled**, so the
+> keyword dependency is spurious. `detectTriggers` + `triggerRoutesNatively` BOTH already return
+> **native=true** for that dies line on the parked cards — this is a classifier-vs-router divergence
+> (the [ghost-registry] / [engine⇄UI wiring] family), not a missing mechanic.
+> **The corpus split is the confirmation:** identical dies line, byte-for-byte. NATIVE — Enduring Vitality ·
+> Enduring Curiosity · Enduring Innocence (each has a leading keyword: Vigilance / Flash / Lifelink).
+> PARKED — **Enduring Tenacity · Enduring Courage** (no keyword line). Worth **+2**, and the fix is in
+> `classifyCard`'s line accounting, NOT in triggers.js (which is correct already).
+> ⛔ Enduring Friendship is NOT part of this — its cast trigger routes **false**, a genuinely different
+> blocker. Old-Growth Troll and Harold and Bob return as an *Aura* ("It's an Aura enchantment with enchant
+> …"), also a different shape. **Three causes here, not one — do not batch them** (gate 20).
+
 > ### 🎯 THE HIGHEST-YIELD PROBE OF THE WHOLE RUN, and it costs one command: **SPLIT A SHAPE BY TIER**
 > Take a phrase, tally its carriers native-vs-parked, and normalize the surrounding line. When the same
 > shape is native on many and parked on some, the diff between the two wordings IS the bug — no theory
