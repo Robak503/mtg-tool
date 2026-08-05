@@ -34,6 +34,20 @@
 > per-descriptor where the type is known, or teach the one matcher — never rename globally.** Full
 > post-mortem + the real fix in the run ledger.
 
+> ### 🛠 THE MODE HAS CHANGED: IGNITION IS EXHAUSTED, WHAT'S LEFT IS SUBSYSTEM BUILDING
+> Probed each top census candidate for existing machinery. **None of them is ignition.** Every one needs a
+> mechanism that does not exist yet, and each is worth only 4-6 cards:
+> · **sunburst** (6) — needs mana-SPENT-BY-COLOUR tracking · **take the initiative** (6) / **open an
+> attraction** (6) — whole subgame states · **double team** (6) — needs conjure · **specialize** (5) — a
+> whole mechanic · **"a +1/+1 counter for each time it was kicked"** (5) — kicker is tracked as a BOOLEAN,
+> multikicker has no count · **damage-prevention shields** (5) — damage redirection · **mana batteries** (5)
+> — an X-cost mana ability · **player hexproof** (4) — player-TARGETING legality, which does not exist ·
+> **escape-with-a-counter** (4) — needs escape.
+> ✅ **Plan accordingly:** budget a subsystem per slice and expect 4-6, or pick the two with the widest
+> downstream reach (**player-targeting legality** unlocks more than its 4; **multikicker counting** is
+> narrow). The cheap "the mechanism exists, wire it up" era is over — four slices today were ignition and
+> that vein is now dry.
+
 > ### 📉 THE EASY VEINS ARE GONE — fresh census, top cluster is SIX
 > `build-residue-census` (2026-08-05): 34,245 scanned · 20,739 non-native · **11,252 sole-blocker cards**,
 > and the largest single shape is worth **6**. Expect 2-6 per slice now, not 9-13. Ranked candidates with
