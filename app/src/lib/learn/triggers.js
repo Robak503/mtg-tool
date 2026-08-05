@@ -4249,6 +4249,26 @@ export function detectTriggers(card) {
       optional: false, sourceText: `Afflict ${n}`,
     });
   }
+  // ⭐ INGEST (CR 702.114a) — KEYWORD→TRIGGER synthesis, the same shape as afflict directly above:
+  // "Ingest (Whenever this creature deals combat damage to a player, that player exiles the top card of
+  // their library.)" The keyword line carries no rules text of its own, so without this the whole Battle
+  // for Zendikar processor shell sits on the Arbiter.
+  //
+  // The synthesized effectClause is the CANONICAL ingest sentence, which the normal grammar now parses to
+  // the `exile-top-of-library` atom (who:"damagedPlayer" — the same non-targeted referent the CDMG-MILL
+  // twin uses, threaded by checkCombatDamageTriggers).
+  //
+  // ⛔ REMINDER TEXT IS STRIPPED FIRST, for the reason afflict documents: ingest's reminder REPEATS the
+  // canonical sentence, so an unstripped match would synthesize the descriptor AND let the grammar detect
+  // the reminder as a second, real trigger — a double fire. `oracle` here is already reminder-stripped by
+  // the caller, and the word-boundary anchor keeps "ingest" from matching inside other text.
+  if (/\bingest\b/i.test(oracle)) {
+    out.push({
+      event: "combatDamageToPlayer", scope: "self", whose: "any",
+      effect: null, effectClause: "that player exiles the top card of their library",
+      optional: false, sourceText: "Ingest",
+    });
+  }
   // RAMPAGE (subsystem 2) — KEYWORD→TRIGGER synthesis (CR 702.23a — "Whenever this creature becomes blocked,
   // it gets +N/+N until end of turn for each creature blocking it beyond the first."). This descriptor is for
   // COVERAGE/recognition only — a REPRESENTATIVE +N/+N pump that routes natively; the RUNTIME amount is

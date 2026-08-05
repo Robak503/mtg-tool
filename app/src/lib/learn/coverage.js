@@ -188,6 +188,14 @@ export const COVERED_KEYWORDS = [
   // afflict creature (Khenra Eternal — "Afflict 1") read keyword-only after its synthesized trigger sentence
   // is stripped, exactly like bushido.
   "afflict",
+  // INGEST (CR 702.114a) — ENFORCED end-to-end, exactly like afflict directly above: detectTriggers
+  // synthesizes the combat-damage descriptor from the printed keyword, allTriggerSentencesModeled bumps the
+  // shaped count for it, and the effect ("that player exiles the top card of their library") parses to the
+  // exile-top-of-library atom, which the normal combat-damage flush fires with the damaged player threaded
+  // as the referent. Crediting the bare "Ingest" line here is the LAST of the three pieces — the descriptor
+  // routed natively and the counts balanced while the card still parked, because the keyword's own printed
+  // line survived the trigger-sentence strip as residue.
+  "ingest",
   // AFTERLIFE (BLITZ AF-2, CR 702.135a) — ENFORCED end-to-end: detectTriggers synthesizes the self-dies
   // create-token trigger from the printed keyword (afterlifeKeywordValues — structural comma-segment match, so
   // grants like Afterlife Insurance's "gain afterlife 1" / Indebted Spirit's "has afterlife 1" never self-
@@ -1245,9 +1253,15 @@ function allTriggerSentencesModeled(card, oracle) {
   // none); the printed line is a keyword, never a When/Whenever/At sentence, so bump by the SAME
   // structural recognizer detectTriggers uses (a grant contributes 0 to both counts).
   const enginesShaped = startYourEnginesKeywordCount(oracle);
+  // KW-INGEST (CR 702.114a) — the keyword synthesizes ONE combat-damage descriptor in detectTriggers, and
+  // its printed line is a KEYWORD rather than a When/Whenever sentence, so TRIGGER_SENTENCE_RE counts zero
+  // for it. The shaped count must be bumped to keep `shaped === detected` — exactly what bushido, afflict
+  // and rampage do below. Without this the descriptor detects and routes natively while the card still
+  // classifies parked, which is the standing tell for this invariant.
+  const ingestShaped = /\bingest\b/i.test(stripReminder(oracle)) ? 1 : 0;
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
     + (/(?<!\bhave\s)(?<!\bhas\s)\bafflict \d/i.test(stripReminder(oracle)) ? 1 : 0)
-    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + renownShaped + mobilizeShaped + backupShaped + partnerWithShaped + dethroneShaped + trainingShaped + firebendingShaped + soulshiftShaped + flankingShaped + persistShaped + battleCryShaped + afterlifeShaped + mentorShaped + modularShaped + enginesShaped;
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + renownShaped + mobilizeShaped + backupShaped + partnerWithShaped + dethroneShaped + trainingShaped + firebendingShaped + soulshiftShaped + flankingShaped + persistShaped + battleCryShaped + afterlifeShaped + mentorShaped + modularShaped + enginesShaped + ingestShaped;
   // COMPOUND TRIGGER (CR 603.1): "When A and whenever B, <effect>" is counted as ONE shaped sentence by TRIGGER_SENTENCE_RE
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped
   // count by the number of compounds so `shaped === detected` holds for a successfully-split compound; if a half is

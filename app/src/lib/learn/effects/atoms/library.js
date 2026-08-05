@@ -751,6 +751,52 @@ export function millOnePlayer(state, playerId, count) {
   return checkMilledTriggers(next, { milledByPlayer: playerId, milledCards });
 }
 
+/**
+ * ⭐ EXILE-TOP-OF-LIBRARY (CR 701.19a) — INGEST (Ruination Guide, Dominator Drone, Benthic Infiltrator and
+ * the Battle for Zendikar processor shell): "Whenever this creature deals combat damage to a player, that
+ * player exiles the top card of their library."
+ *
+ * ⛔ THIS IS **NOT** AN ALIAS FOR MILL, and the difference is the whole reason it needs its own atom. A
+ * milled card lands in the GRAVEYARD, where recursion, delve, threshold, escape and every graveyard count
+ * can still reach it; an ingested card is gone. Routing ingest through `mill` would be strictly more
+ * generous than the printed card to the ingested player, which is the forbidden direction.
+ *
+ * It IS the mill lane in every other respect, deliberately: the same `who` vocabulary, the same
+ * absent/eliminated-referent guard (→ exile nobody, a clean no-op rather than a fabrication), and the same
+ * top-N-bounded-by-library-size read. Only the destination zone differs.
+ *
+ * ⛔ NO MILLED-TRIGGER BIND, and that is correct rather than an omission: `checkMilledTriggers` fires on
+ * cards entering a GRAVEYARD (CR 701.13a). Nothing entered one here, so binding it would fire mill payoffs
+ * off an exile — a fabricated trigger.
+ */
+function exileTopOnePlayer(state, playerId, count) {
+  const player = state.players[playerId];
+  if (!player) return state;
+  const n = Math.min(Math.max(0, count || 0), (player.library || []).length);
+  if (n === 0) return state;
+  let next = state;
+  for (const card of player.library.slice(0, n)) {
+    next = moveCardToZone(next, { playerId, cardId: card.id, fromZone: "library", toZone: "exile" });
+  }
+  return next;
+}
+
+export function applyExileTopOfLibrary(state, atom, ctx) {
+  const amount = Math.max(0, atom.amount || 0);
+  let next = state;
+  if (atom.who === "damagedPlayer") {
+    // INGEST — the player the creature just dealt combat damage to (ctx.damagedPlayerId, carried by
+    // checkCombatDamageTriggers). Absent / eliminated referent → exile nobody, mirroring applyMill's guard.
+    const pid = ctx.damagedPlayerId;
+    if (pid && next.players?.[pid]) next = exileTopOnePlayer(next, pid, amount);
+  } else if (atom.who === "eachOpponent") {
+    for (const opp of opponentsOf(next, ctx.controller)) next = exileTopOnePlayer(next, opp, amount);
+  } else {
+    next = exileTopOnePlayer(next, ctx.controller, amount);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "exile-top-of-library", who: atom.who || "controller", amount });
+}
+
 /** Mill (CR 701.13) — "you mill N cards" (the controller), "each opponent mills N cards", or
  * "each player mills N cards" (EP-3). Top N of each milled player's library → their graveyard. Non-targeted.
  * Each player's mill is its OWN event (CR 701.13a), so millOnePlayer fires the milled trigger bind per seat. */
@@ -1484,6 +1530,15 @@ export function millClauseParser(clause) {
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   m = t.match(/^(?:that player|they) mills? (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "damagedPlayer", targetType: null };
+  // ⭐ INGEST (CR 701.19a) — "that player exiles the top card of their library." The EXILE twin of the
+  // CDMG-MILL arm directly above: same non-targeted damagedPlayer referent, same fixed-N discipline, same
+  // clean no-op when the referent is absent. ⛔ It emits its OWN op and NOT `mill`, because a milled card
+  // lands in the GRAVEYARD where recursion / delve / threshold can still reach it while an ingested card is
+  // gone — aliasing would be strictly more generous to the ingested player than the printed card.
+  // The count word is OPTIONAL because the printed wording omits it entirely — "exiles the TOP CARD of
+  // their library", not "the top one card". An absent count is exactly one (CR 701.19a).
+  m = t.match(/^(?:that player|they) exiles? the top (?:(\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) )?cards? of their library$/);
+  if (m) return { op: "exile-top-of-library", amount: m[1] ? (NUM_WORD[m[1]] ?? parseInt(m[1], 10)) : 1, who: "damagedPlayer", targetType: null };
   // ===== UPKEEP-PLAYER MILL (BLITZ TR-2, CR 503.1a / 701.17) ===== "the upkeep player mills N cards" — the
   // SENTINEL detectTriggers emits for an "each player's upkeep" trigger's "that player mills …" (Worry
   // Beads). Corpus-clean phrase (only the event-gated rewrite produces it); who:"upkeepPlayer" reads
@@ -2067,6 +2122,7 @@ export const libraryResolvers = {
   "discover": applyDiscoverAtom, // ===== DISCOVER ===== exile-top-until-nonland-MV<=N → park for cast-free/hand (action layer). Pantlaza + Primordial Gnawer flip native-trigger (PR #325 + PANTLAZA PR2).
   "cascade": applyCascadeAtom, // ===== CASCADE (CR 702.85) ===== exile-top-until-nonland-MV<spell-MV → park for cast-free/decline (action layer). The Cascade keyword (Bloodbraid Elf, Shardless Agent, …) flips native via the synthesized selfCast trigger.
   "mill": applyMill,
+  "exile-top-of-library": applyExileTopOfLibrary, // ===== INGEST (CR 701.19a) ===== the EXILE twin of mill; a separate op because an ingested card leaves the graveyard unreachable
   "timetwister-wheel": applyTimetwisterWheel, // TIMETWISTER WHEEL (Echo of Eons) — hand+GY fold into library, shuffle, draw 7, per player
   "explore": applyExplore, // ===== EXPLORE ===== (CR 701.44) reveal top: land→hand, else +1/+1 + keep-on-top. Ixalan ETB family flips native-trigger.
   "reveal-top-to-hand": applyRevealTopToHand, // ===== REVEAL-TOP-TO-HAND (Yuriko) ===== reveal top → hand + stamp its MV (state.revealedCardMV) for a following drain.
