@@ -4960,6 +4960,19 @@ function auraResidueClauses(card) {
     // FN-safe alternative-entry simplification, never a wrong resolution; see commit 6b23d689 for the full
     // ninjutsu/morph rationale). Cost-pips-only anchor: a madness-REFERENCING static/trigger never matches.
     if (/^madness (?:\{[^}]+\})+$/.test(c)) continue;
+    // DREDGE N (CR 702.52 — Moldervine Cloak) — the aura-side twin of the credit coverage.isKeywordOnly
+    // already carries (`reDredgeCost`), on that gate's own recorded argument: dredge is a REPLACEMENT
+    // OPTION on a draw while the card is in the GRAVEYARD, the engine never offers it, so every draw stays
+    // a normal draw and the resolution is faithful. Nothing about the Aura's battlefield behaviour changes.
+    // Verified rather than assumed: `isKeywordOnly("Dredge 2")` is true and a vanilla dredge creature is
+    // already native-body, so this lane was simply disagreeing with a call the project had settled.
+    //
+    // ⛔ ADDED AS ITS OWN ANCHORED LINE, not by admitting every covered keyword wholesale. Each entry in
+    // this list carries a SEPARATE vacuity argument (flash = timing unused, cycling = a hand-zone action
+    // the runtime does offer, madness = an alternative entry, escape = a recast window) and a blanket
+    // isKeywordOnly admission here would credit keywords whose aura-side behaviour nobody has checked.
+    // DIGIT tail, matching coverage's own anchor — a dredge-REFERENCING static or trigger never matches.
+    if (/^dredge \d+$/.test(c)) continue;
     // ESCAPE (CR 702.138a) — the aura-side twin of the credit coverage.isKeywordOnly carries for creatures.
     // A GRAVEYARD re-cast window the runtime never offers, so the from-hand cast puts the identical Aura
     // onto the battlefield; the line is vacuous residue for the only cast the engine performs. Every aura
