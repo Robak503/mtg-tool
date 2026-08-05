@@ -212,6 +212,16 @@ export const COVERED_KEYWORDS = [
   // ⛔ FN-SAFE: the player loses access to the encode mode, never gains anything. The spell's own printed
   // effect is untouched — which is why every carrier here was already native once this line was removed.
   "cipher",
+  // UNDAUNTED (CR 702.150a) — a pure COST REDUCTION and therefore DELVE's exact twin, which this list
+  // already credits on "not delving = paying full cost". Not applying undaunted is likewise paying full
+  // price: STRICTLY HARDER than the card allows, the safe direction, and nothing about the resolution
+  // changes. Crediting delve while refusing its twin was the inconsistency.
+  "undaunted",
+  // BARGAIN (CR 702.166a) — an optional ADDITIONAL cost, the replicate/buyback class already in this list:
+  // declining leaves the spell simply not bargained, a real and complete play. The carriers' separate
+  // "…costs {N} less to cast if it's bargained" sentence is handled on its own, so declining costs only
+  // mana. ⛔ Cannot match the "if it's bargained" references — no word boundary between "bargain" and "ed".
+  "bargain",
   "ingest",
   // CHAMPION (CR 702.71a) — ENFORCED end-to-end, the ingest pattern exactly: detectTriggers synthesizes the
   // ENTERS descriptor from the printed keyword (one only — the leaves half rides the detain link),

@@ -89,3 +89,51 @@ describe("⛔ the line it sits beside — CHAMPION — stays on the OTHER side o
       .toBe("native-body");
   });
 });
+
+/**
+ * ⭐ THE SAME LENS, TWO MORE KEYWORDS (2026-08-05) — undaunted and bargain, found by asking which OTHER
+ * keyword lines are still sole blockers and testing each against this family's criterion.
+ *
+ * UNDAUNTED (CR 702.150a) — "This spell costs {1} less to cast for each opponent." A pure COST REDUCTION,
+ * which makes it DELVE's exact twin; delve is already credited on "not delving = paying full cost". Not
+ * applying undaunted is likewise paying full price — STRICTLY HARDER than the card allows, the safe
+ * direction, and nothing about the resolution changes. Crediting delve while refusing its twin was the
+ * inconsistency, the same shape as the cipher/buyback one above.
+ *
+ * BARGAIN (CR 702.166a) — "You may sacrifice an artifact, enchantment, or token as you cast this spell." An
+ * optional ADDITIONAL cost, the replicate/buyback class. Declining leaves the spell simply not bargained,
+ * which is a real complete play. Its carriers print a SEPARATE "…costs {N} less to cast if it's bargained"
+ * sentence that is handled on its own, so declining costs only mana — pinned below on the real cards.
+ *
+ * ⛔ `bargain\b` cannot match the "if it's bargained" references (no word boundary between "bargain" and
+ * "ed"), and both anchors are line-leading. Pinned.
+ *
+ * Mutation-checked (2026-08-05, grep-verified as applied AND verified on the case under test): each entry
+ * removed from the cast-keyword strip -> that keyword's flip pins go red while the other stays green.
+ */
+describe("undaunted and bargain — the same criterion, two more keywords", () => {
+  const SEEDS = { id: "c-sr", name: "Seeds of Renewal", type: "Sorcery", mana: "{4}{G}",
+    oracle: "Undaunted (This spell costs {1} less to cast for each opponent.)\nReturn up to two target cards from your graveyard to your hand. Exile Seeds of Renewal." };
+  const SUBLIME = { id: "c-se", name: "Sublime Exhalation", type: "Sorcery", mana: "{5}{W}",
+    oracle: "Undaunted (This spell costs {1} less to cast for each opponent.)\nDestroy all creatures." };
+  const ICE_OUT = { id: "c-io", name: "Ice Out", type: "Instant", mana: "{3}{U}",
+    oracle: "Bargain (You may sacrifice an artifact, enchantment, or token as you cast this spell.)\nThis spell costs {1} less to cast if it's bargained.\nCounter target spell." };
+
+  it("both keywords' carriers flip, keeping their printed body", () => {
+    expect(classifyCard(SEEDS)).toBe("native-spell");
+    expect(classifyCard(SUBLIME)).toBe("native-spell");
+    expect(classifyCard(ICE_OUT)).toBe("native-spell");
+  });
+
+  it("the keyword-only credit covers the permanent-residue side for both", () => {
+    expect(isKeywordOnly("Undaunted")).toBe(true);
+    expect(isKeywordOnly("Bargain")).toBe(true);
+  });
+
+  it("⛔ an UNMODELED body behind either keyword still parks (the strip adds no permission)", () => {
+    expect(classifyCard({ ...SEEDS, id: "c-x1", name: "Odd Seeds",
+      oracle: "Undaunted (This spell costs {1} less to cast for each opponent.)\nInterpret the omens however you like." })).toBe("arbiter-spell");
+    expect(classifyCard({ ...ICE_OUT, id: "c-x2", name: "Odd Ice",
+      oracle: "Bargain (You may sacrifice an artifact, enchantment, or token as you cast this spell.)\nInterpret the omens however you like." })).toBe("arbiter-spell");
+  });
+});
