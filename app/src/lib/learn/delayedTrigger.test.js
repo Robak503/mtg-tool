@@ -78,8 +78,12 @@ describe("parse — the timing vocabulary + the CREED inner-clause gate", () => 
   });
   it("a pure delayed-draw spell classifies native; a carrier whose OTHER half is unmodeled still parks (whole-card law)", () => {
     expect(classifyCard({ name: "SynthDraw", type: "Sorcery", mana: "{1}{U}", oracle: "Draw a card at the beginning of the next turn's upkeep." })).toBe("native-spell");
-    // Bone Harvest's graveyard-to-top-of-library half is unmodeled → the whole card correctly parks.
-    expect(classifyCard({ name: "Bone Harvest", type: "Sorcery", mana: "{2}{B}", oracle: "Put up to three target creature cards from your graveyard on top of your library.\nDraw a card at the beginning of the next turn's upkeep." })).not.toMatch(/^native/);
+    // ⚠️ FIXTURE CORRECTED 2026-08-05. This line used to read "put up to THREE target creature cards…",
+    // which is not what Bone Harvest prints — the real card says "ANY NUMBER OF target creature cards"
+    // (Instant, not Sorcery). The up-to-N wording became modelled (GY-TO-TOP multi-count) and this pin went
+    // red, which is how the fabricated text was caught. The REAL oracle is still unmodelled — "any number of"
+    // needs an unbounded target subset — so the pin keeps its exact meaning and is now also true.
+    expect(classifyCard({ name: "Bone Harvest", type: "Instant", mana: "{2}{B}", oracle: "Put any number of target creature cards from your graveyard on top of your library.\nDraw a card at the beginning of the next turn's upkeep." })).not.toMatch(/^native/);
   });
 });
 

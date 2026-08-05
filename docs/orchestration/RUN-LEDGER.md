@@ -3,6 +3,29 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **GY-TO-TOP MULTI-COUNT — the count was the whole gate, +4** - batch 58
+> Suite 1146 / 14,111 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Meldweb Curator, Biblioplex
+> Assistant, Treason of Isengard, Reinforcements. All audited whole-card.
+> ⭐ **TIER-SPLIT THE DESTINATION PHRASE.** The SINGLE-target "put target X card from your graveyard on top of
+> your library" has been native for ages; the up-to-N wording was native on ZERO. Nothing new at runtime —
+> `applyReturnFromGraveyard` already loops every target and `targeting.expandAtoms` already admits the
+> maxTargets/minTargets:0 subset (the up-to-N return-TO-HAND arm in the same parser is the identical
+> mechanism against a different destination). **This arm only says the wording out loud.**
+> ⛔⛔ **"ANY NUMBER OF TARGET …" IS REFUSED ON PURPOSE — measured, not squeamish.** Footbottom Feast /
+> Bone Harvest / Forever Young / Gravepurge need an UNBOUNDED subset: `targetSubsets` enumerates 2^n over the
+> graveyard and its `MAX_CAST_EXPANSIONS` backstop fills from the **SMALLEST k upward** — so "put them ALL
+> back", the option those four cards exist for, is the FIRST thing silently dropped. Widening the regex
+> produces four cards that read native and play wrong. **Needs a descending/all-first enumeration; that is
+> its own slice.** Pinned so a future "obvious" generalization has to argue with the note.
+> ⛔ **AND THE SUITE CAUGHT A FABRICATED FIXTURE.** delayedTrigger.test.js used "Bone Harvest … put up to
+> THREE target creature cards" as its stand-in for an unmodelled half. The real card says **ANY NUMBER**, and
+> it is an Instant, not a Sorcery — card text written from memory, the thing §1.2 forbids. Modelling the
+> up-to-N form turned that pin red, which is the only reason it surfaced. Fixture replaced with the real
+> oracle; the pin keeps its exact meaning and is now also TRUE.
+> ℹ Mutants: `toLibraryTop` dropped → the witness shows the card landing in HAND (behavioural kill);
+> `minTargets:0` dropped → killed by the atom-SHAPE assertions, NOT by observed behaviour, and the test header
+> says so rather than dressing it up.
+
 > ## SLICE DONE - 2026-08-05 - **SELF NEXT-UNTAP LOCK ON ATTACK — family complete, +2** - batch 54
 > Suite 1145 / 14,104 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Lead Golem, Apes of Rath.
 > ⭐ **THE THIRD AND LAST REFERENT, completing the family in one session:** a CHOSEN target (Barl's Cage), the

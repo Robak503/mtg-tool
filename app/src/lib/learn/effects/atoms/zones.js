@@ -630,6 +630,25 @@ export function graveyardReturnClauseParser(clause) {
     const cf = parseGraveyardFilter(topM[1]);
     if (cf) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: cf, toLibraryTop: true };
   }
+  // ⭐ GY-TO-TOP, MULTI-COUNT (CR 601.2c "up to N") — "put up to <N> target <filter> card(s) from your
+  // graveyard on top of your library" (Meldweb Curator, Biblioplex Assistant, Monastery Messenger, Runo
+  // Stromkirk, Treason of Isengard, Boseiju Reaches Skyward). Found by tier-splitting the destination phrase:
+  // the SINGLE-target top form directly above is native on 3+ carriers while the up-to-N wording was native
+  // on ZERO — the count was the entire difference, exactly as the return-TO-HAND family already handles it.
+  // ⭐ NOTHING NEW AT RUNTIME: applyReturnFromGraveyard already loops every ctx.target, and
+  // targeting.expandAtoms already admits the maxTargets/minTargets:0 subset shape (the up-to-N return-to-hand
+  // arm at the top of this parser is the same mechanism). This arm only says the wording out loud.
+  // ⛔ SMALL COUNTS ONLY, and deliberately so: "any number of target creature cards" (Footbottom Feast /
+  // Bone Harvest / Forever Young / Gravepurge) is NOT admitted here. An unbounded subset would need
+  // targetSubsets to enumerate 2^n over the graveyard, and its MAX_CAST_EXPANSIONS backstop fills from the
+  // SMALLEST k upward — so the "put them ALL back" option, the one those cards exist for, would be the first
+  // thing silently dropped. That needs a descending/all-first enumeration, not a wider regex.
+  const topMultiM = /^put up to (one|two|three|four|five) target (.*?)cards? from your graveyard on top of your library$/.exec(t);
+  if (topMultiM) {
+    const n = SMALL_NUM[topMultiM[1]];
+    const cf = parseGraveyardFilter(topMultiM[2]);
+    if (n >= 1 && cf) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: cf, toLibraryTop: true, maxTargets: n, minTargets: 0 };
+  }
   // GY-TO-BOTTOM (BLITZ AR-1 — Cogwork Archivist / Jade-Cast Sentinel / Phyrexian Archivist / Junktroller /
   // Reito Lantern class, 14 corpus carriers): "put target card from a graveyard on the bottom of its owner's
   // library". ANY player's graveyard (anyGraveyard — the GY-EXILE scope), destination = the BOTTOM of the

@@ -30,6 +30,8 @@ summarizes the notable changes.
   empty the spell is countered.
 
 ### Added
+- **"Put up to N cards from your graveyard on top of your library" works.** Meldweb Curator, Biblioplex
+  Assistant, Reinforcements and Treason of Isengard only understood the single-card wording before.
 - **Lead Golem and Apes of Rath stay down after attacking.** Their drawback — not untapping on your next
   turn after they attack — was never applied, so both were playing better than printed.
 - **The Kamigawa Snake Warriors work.** Kashi-Tribe Warriors, Kashi-Tribe Reaver, Orochi Ranger and

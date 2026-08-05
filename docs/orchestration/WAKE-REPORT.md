@@ -7,7 +7,20 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+342 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 54** — suite **1145 / 14,104** green by exit code
+## ☀️ 2026-08-05 — **+346 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 58** — suite **1146 / 14,111** green by exit code
+
+> ### ⏭ NEXT SLICE, ALREADY SCOPED: **"any number of target …" needs an ALL-FIRST target enumeration**
+> Footbottom Feast, Bone Harvest, Forever Young, Gravepurge (+4) are one regex away — and that regex would be
+> WRONG today. `targetSubsets` enumerates 2^n and its `MAX_CAST_EXPANSIONS` backstop fills from the SMALLEST
+> subset upward, so "put them ALL back" — the option those cards exist for — is the first casualty. Fix the
+> enumeration order (descending, or seed the full set first), THEN widen the regex. Refusal is pinned in
+> `graveyardToTopMulti.test.js` so nobody generalizes past it by accident.
+
+> ### ⚠️ A FIXTURE WRITTEN FROM MEMORY SURVIVED IN THE SUITE UNTIL A SLICE MADE IT GO RED
+> `delayedTrigger.test.js` used "Bone Harvest … put up to THREE target creature cards" — the real card says
+> **ANY NUMBER**, and it is an Instant. It only surfaced because modelling the up-to-N wording turned the pin
+> red. **A green suite does not certify its fixtures.** When a pin uses a named real card, the oracle must
+> come from the corpus, not from recall (§1.2).
 
 > ### ⭐⭐ A SURVIVING MUTANT MEANS **THE PIN IS WRONG**, NOT THAT THE GUARD IS UNNECESSARY
 > Removing a scope gate broke nothing, because the pin I'd written tested the PARSER rather than the gate.
