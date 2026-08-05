@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 NEXT VEIN, SCOPED NOT STARTED - **WARD — DISCARD A CARD** (12 carriers, 0 native)
+> The sign/scope-twin lens found it, and the split is clean:
+> · **"ward — pay N life"** → **5 native** / 17 parked — modelled (`parseWardCost` returns `{kind:"life"}`)
+> · **"ward — discard a card"** → **0 native** / **12 parked** ← the target
+> · sacrifice / collect-evidence / poison ward costs → 1-3 carriers each, leave for later
+> ⛔ **NOT started, and the file's own refusal is still HALF true.** `ward.js` says: *"Discard / sacrifice
+> ward — recognized but UNENFORCED (needs a payer choice). Return null = safe FN."* The blocker is real:
+> paying a mana or life ward is a single yes/no, but paying a DISCARD needs a SECOND choice (which card),
+> chained inside the soft-counter settlement.
+> ✅ **WHAT ALREADY EXISTS** (so the next session doesn't re-derive it):
+> · `setPendingSoftCounterChoice` already carries a **STRUCTURED cost descriptor** (`{kind:"mana"|"life"}`)
+>   and `resolveSoftCounterChoice` branches on it — adding `{kind:"discard", n}` is the natural extension.
+> · **Two-stage discard payment is proven elsewhere**: `resolveOptionalDiscardPaymentChoice` →
+>   `resolveDiscardChoice` is exactly this chain in the effect path (see formidableSpeaker.test.js).
+> ⚠️ **THE CARE POINTS:** the payer is the OPPONENT (not the ward controller), the AI needs an auto-picker
+> on that branch, and an empty hand must resolve as **can't pay → countered**, not as a free pass.
+> ℹ Deliberately deferred rather than half-built: this is a change to a PAYMENT flow, and today's two
+> reverts both came from opening a flow before mapping it.
+
 > ## SLICE DONE - 2026-08-05 - **ENTERS WITH −1/−1 COUNTERS (sign split), +4** - batch 33 (post-v0.153.0)
 > Suite 1135 / 14,039 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Bloodied Ghost, Wickerbough
 > Elder, Deity of Scars, Etched Monstrosity.

@@ -39,6 +39,12 @@
 > per-descriptor where the type is known, or teach the one matcher — never rename globally.** Full
 > post-mortem + the real fix in the run ledger.
 
+> ### ▶️ START HERE: **WARD — DISCARD A CARD** (12 carriers, 0 native; ward—pay-life is 5 native)
+> Scoped in full in the run ledger, not started. The structured ward-cost descriptor and the two-stage
+> discard-payment chain BOTH already exist; the work is joining them inside the soft-counter settlement.
+> Care points named there: the payer is the OPPONENT, the AI needs an auto-picker, and an empty hand must
+> resolve as **can't pay → countered** rather than a free pass.
+
 > ### ⭐ THE SHARPEST LENS RIGHT NOW: **compare a shape against its SIGN/SCOPE TWIN**
 > Two slices in a row came from it. `+1/+1` enters-with was native on 28 and `−1/−1` on **ZERO** (one character).
 > "from A graveyard → its owner's library" was native on 10 while "from YOUR graveyard → YOUR library" was
