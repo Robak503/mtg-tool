@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Threshold creatures that give something up now actually give it up.** Childhood Horror, Putrid Imp,
+  Dirty Wererat and Frightcrawler get their bonus once you have seven cards in the graveyard *and* stop
+  being able to block, exactly as printed. On the other side, Vortex Runner, Nightwhorl Hermit, Jace's
+  Sentinel, Cephalid Inkmage and Ichor Synthesizer become unblockable when their condition is met.
 - **Graft creatures enter at the right size.** Vigean Hydropon and Simic Initiate are printed 0/0 — the
   graft counters *are* their body — so they now arrive with those counters on them instead of dying the
   moment they hit the battlefield.

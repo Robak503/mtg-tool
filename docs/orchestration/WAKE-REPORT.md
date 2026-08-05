@@ -7,7 +7,18 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+232 this sitting · v0.152.0 PUBLISHED · post-tag batch 35** — suite **1121 / 13,981** green by exit code
+## ☀️ 2026-08-05 — **+241 this sitting · v0.152.0 PUBLISHED · post-tag batch 44** — suite **1122 / 13,986** green by exit code
+
+> ### ⛔ A CORRECTION TO THIS FILE — it queued 38 cards behind a cause that does not exist
+> This report said threshold + spell mastery + lieutenant "share ONE cause". **They share an ability WORD.**
+> Censused: **91 parked across 82 distinct effect shapes.** Gate 20 exactly — grouped by symptom — and I
+> wrote the claim here myself, so it read as settled to every seat that booted on it. **Do not queue those
+> 82 as one job.** What works: **re-cut the census by RIDER**, not by ability word. That produced the +9
+> can't-block / can't-be-blocked cluster in one pass, and the next one is already scoped:
+> **"can attack as though it didn't have defender" — 8 carriers, 0 native.** ⛔ That one is NOT ignition:
+> an as-though effect (CR 609.4b) is not a keyword removal, so `removeKeyword:defender` would be observably
+> wrong to everything else that reads defender. It needs its own pseudo-keyword honored at BOTH
+> attack-declaration enumeration sites.
 
 > ### 🧭 THE SWEEP IS AT ZERO — and that is the point, not a footnote
 > `phantomParenSweep.test.js` holds the last two (champion, fading-"seven"), both at **+0 flips**, both

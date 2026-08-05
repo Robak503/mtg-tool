@@ -6,6 +6,34 @@
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
+> ## SLICE DONE - 2026-08-05 - **GATED COMBAT-RESTRICTION RIDERS, +9** - batch 44 (post-v0.152.0)
+> Suite 1122 / 13,986 green + lint 0 BY EXIT CODE. `aa47ed25`. Flip-diff **+9 / 0 / 0**.
+> ⛔ **FIRST, A CORRECTION TO THIS FILE'S OWN QUEUE.** The wake report claimed threshold + spell mastery +
+> lieutenant "share ONE cause — `emitGatedEffect` consumes only `gets +X/+Y [and has <kw>]`" — **38 cards
+> behind one gate.** Censused: **91 parked across 82 DISTINCT effect shapes.** They share an ability WORD,
+> not a cause. **That is gate 20 exactly** — grouped by symptom, and I wrote the claim myself. Re-cutting
+> the census **by RIDER** instead of by ability word is what produced a real cluster. Don't queue the other
+> 82 as one job.
+> ⭐ **BUILT ENGINE, NO IGNITION (6th time this lens has paid).** `cantBlock` and `unblockable` are already
+> modelled and enforced layer-aware at `combatEvasion.canBlockAttacker`; emitGatedEffect already hangs gates
+> on addKeyword (Excavating Anurid proves it). The rider just had no entry point, so the WHOLE clause fell
+> to the unconsumed-rider return.
+> ⛔ **THE `$` ANCHOR IS THE ENTIRE SAFETY ARGUMENT** — "can't be blocked **except by** artifact creatures"
+> (fear) and "can't be blocked **by** creatures with flying" are FILTERED evasion; mapping either onto bare
+> `unblockable` makes the creature unblockable by EVERYTHING. **Frightcrawler prints fear on line 1 and
+> would have tripped it.** Both negatives pinned. Never relax it to a prefix match.
+> ⓘ **Two gains beyond prediction, both audited correct:** Cephalid Inkmage uses a **TRAILING** gate
+> ("can't be blocked *as long as* …"), Ichor Synthesizer gates on its **own oil counters**.
+> Law 6 drove both sides of the block check with printed witness rows (6 cards → 2/2 blocks; 7 → 4/4 can't).
+> **Stale guard inverted in place, job preserved:** "can't block" was `trunkGatedGraveyard`'s specimen
+> *unknown* rider; it now pins the real emission, and no-silent-partial is re-armed with two riders that
+> genuinely remain unconsumed.
+> ⏭ **NEXT, SCOPED:** *"can attack as though it didn't have defender"* — **8 carriers, 0 native.** ⛔ NOT
+> ignition: an as-though effect (CR 609.4b) is **not** a keyword removal, so `removeKeyword:defender` would
+> be observably wrong to everything else reading defender ("creatures with defender you control get …",
+> Wall tribal). Needs its own pseudo-keyword honored at BOTH attack-declaration enumeration sites
+> (legalChoices.actionsDeclareAttacker + opponentAI's attacker scan).
+
 > ## SLICE DONE - 2026-08-05 - **PHANTOM-PAREN SWEEP TO ZERO, +0** - batch 35 (unchanged)
 > Suite 1121 / 13,981 green + lint 0 BY EXIT CODE. `04b6a950`. Flip-diff **0 / 0 / 0** — and it shipped
 > anyway, for a reason worth reading before the next +0 decision.
