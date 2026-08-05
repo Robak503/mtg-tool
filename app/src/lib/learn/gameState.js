@@ -27,7 +27,7 @@
  */
 
 import { printedPower, printedToughness, counterPtDelta } from "./ptPrimitive.js";
-import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, PERMANENT_TYPE_RE } from "./layers.js";
+import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, playerCantGainLife, PERMANENT_TYPE_RE } from "./layers.js";
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
 import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
@@ -1681,7 +1681,11 @@ export function gainLife(state, { playerId, amount }) {
   // doubled gain is doubled once no matter which path asked for it. With no such permanent in play the helper
   // returns `amount` unchanged, so the common case is byte-identical. The LEDGER records the REPLACED amount:
   // "you gained life this turn" must see what the player actually gained, not what the effect first offered.
-  const gained = applyLifeGainReplacement(state, playerId, amount);
+  // ⛔ CAN'T-GAIN-LIFE (CR 614) IS CHECKED BEFORE THE DOUBLERS. A prevented gain is prevented however many
+  // Rhox Faithmenders are out; doubling zero would give the same answer by luck, and an ADDITIVE replacement
+  // (Angel of Vitality) would break that luck immediately. The `gained > 0` guard below then correctly
+  // records NO life gained this turn.
+  const gained = playerCantGainLife(state, playerId) ? 0 : applyLifeGainReplacement(state, playerId, amount);
   return withPlayer(state, playerId, p => ({
     ...p, life: p.life + gained,
     ...(gained > 0 && { lifeGainedThisTurn: (p.lifeGainedThisTurn || 0) + gained }),

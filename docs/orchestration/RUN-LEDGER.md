@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **CAN'T-GAIN-LIFE (CR 614) — second player-scoped static, +3** - batch 25
+> Suite 1133 / 14,031 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Erebos God of the Dead,
+> Knight of Dusk's Shadow, Giant Cindermaw. (17 carriers; the other 14 park on unrelated lines.)
+> ⭐ **THE PLAYER-STATIC PATTERN PAID TWICE IN A ROW.** Same shape as player hexproof: an INERT layer-6 op
+> the layer engine skips, ONE consumer, no new affects-scope. Both printed scopes ride the SAME op via
+> `op.scope` so a later edit can't conflate them.
+> ⛔ **THE SYMMETRIC FORM IS SYMMETRIC ON PURPOSE — the half that's tempting to get wrong.** "PLAYERS can't
+> gain life" stops the **CONTROLLER too**. An opponents-only reading hands its controller a one-sided prison
+> the card doesn't print — **a false positive in the player's favour is still a false positive.** Driven:
+> with Giant Cindermaw out, its own controller gains **0**.
+> ⛔ **CHECKED BEFORE THE DOUBLERS, and the ordering is not luck.** Prevention beats Rhox Faithmender;
+> zeroing AFTER would give the same answer here but breaks the instant an ADDITIVE replacement (Angel of
+> Vitality) is out, since 0 + 1 ≠ 0. Pinned with a doubler on the board.
+> ⚠️ **ARCHITECTURE NOTE — the tidy home was the wrong one.** `replacementEffects.applyLifeGainReplacement`
+> is where this belongs by shape, but that module **imports NOTHING by design** (a documented cycle-safety
+> property triggers.js relies on) and reaching into layers.js from there would break it. Landed in
+> `gameState.gainLife`, which already imports layers and IS the single life-gain chokepoint.
+> ⭐ Two more stale refusal pins inverted — **eight today.** Both used "can't gain life" as their specimen
+> UNMODELED ability (godDevotion's Erebos; warpOverloadCoverage's warp-strip guard). Erebos became a
+> positive pin; the warp guard's specimen was **swapped for one that genuinely still parks**, so its job
+> (a warp strip must EXPOSE an unmodeled body, never hide it) is intact.
+
 > ## SLICE DONE - 2026-08-05 - **PLAYER HEXPROOF (CR 702.11d) — first player-scoped static, +4** - batch 22
 > Suite 1132 / 14,026 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Aegis of the Gods, Leyline of
 > Sanctity, Spirit of the Hearth, Metropolis Reformer. **A SUBSYSTEM, not ignition** — the first one built

@@ -124,9 +124,13 @@ describe("GOD-DEVOTION — classification (whole-card CREED)", () => {
   });
 
   it("CREED anti-FP: a God with an unmodeled ability stays body-only despite the modeled gate", () => {
-    // Erebos's "Your opponents can't gain life" static + the draw activated ability are not modeled, so the
-    // whole card must NOT flip — the gate alone is never enough.
-    expect(classifyCard(EREBOS_DEAD)).toBe("body-only");
+    // ⭐ UPDATED 2026-08-05: Erebos used to sit here as the specimen. Its "Your opponents can't gain life"
+    // static IS modeled now (the cantGainLife player-scoped op — see cantGainLife.test.js), and its
+    // pay-life draw was already modeled, so the whole card is native. It stays as a POSITIVE pin rather than
+    // being deleted, so this file records that the boundary MOVED instead of quietly losing the case.
+    expect(classifyCard(EREBOS_DEAD)).toBe("native-mixed");
+    // ⛔ THE GUARD'S JOB IS UNCHANGED and is carried by the rows below: the devotion gate ALONE is never
+    // enough — a God whose other ability is genuinely unmodeled must still park.
     // The mill-grant Gods (Phenax) + the complex coin-counter / exile-return Gods stay body-only too.
     expect(classifyCard({
       name: "Phenax, God of Deception", type: "Legendary Enchantment Creature — God", mana: "{3}{U}{B}",

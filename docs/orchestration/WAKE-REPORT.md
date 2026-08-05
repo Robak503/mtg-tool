@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+310 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 22** — suite **1132 / 14,026** green by exit code
+## ☀️ 2026-08-05 — **+313 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 25** — suite **1133 / 14,031** green by exit code
 
 > ### ⚠️⚠️ AURA PROBES ARE MEMO-POISONED — classify in a FRESH PROCESS
 > `parseAttachedBonus` memoises into a slot, which makes **`isNativeAura` ORDER-DEPENDENT**: the same card in
@@ -38,6 +38,13 @@
 > other produced "this permanent" for a Creature and dropped 29 epithet legendaries. **Normalise
 > per-descriptor where the type is known, or teach the one matcher — never rename globally.** Full
 > post-mortem + the real fix in the run ledger.
+
+> ### ✅ THE PLAYER-STATIC PATTERN — two subsystems, two slices, +7
+> **player hexproof (+4)** then **can't-gain-life (+3)**, both on one shape: an **INERT layer-6 op the layer
+> engine skips, with exactly ONE consumer**. No new affects-scope, no collector had to learn anything.
+> **Reach for this for every remaining player-scoped static** — "you have no maximum hand size" (22 carriers)
+> and "you may play an additional land" (14) are next, and `landDropAllowance` already exists for the latter.
+> ⛔ Watch the SCOPE: a symmetric "players can't …" must bind its own controller too.
 
 > ### ✅ FIRST SUBSYSTEM OF THE NEW MODE SHIPPED: **player hexproof** (+4)
 > Proof the subsystem mode works at the expected size. The pattern that made it cheap: **an INERT layer-6 op

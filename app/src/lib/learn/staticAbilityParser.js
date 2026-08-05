@@ -1861,6 +1861,21 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ layer: 6, op: { layerOp: "playerHexproof" }, affects: { mode: "self" }, duration: { kind: "permanent" } });
     return;
   }
+  // ⭐ CAN'T-GAIN-LIFE (CR 614 prevention) — the second player-scoped static, same inert-op shape.
+  // ⛔ THE SYMMETRIC FORM IS SYMMETRIC ON PURPOSE. "Players can't gain life" stops the CONTROLLER too
+  // (Rampaging Ferocidon, Forsaken Wastes, Havoc Festival); reading it as opponents-only would hand its
+  // controller a one-sided prison the card does not print — a false positive in the player's favour, which
+  // is still a false positive. The two printed scopes are captured explicitly rather than conflated.
+  // ⓘ Enforced in replacementEffects.applyLifeGainReplacement, which gameState.gainLife applies at the
+  // single life-gain chokepoint — so spell, trigger, lifelink and drain are all covered by one check.
+  {
+    const cgl = c.match(/^(players|each player|your opponents|each opponent|opponents) can't gain life$/);
+    if (cgl) {
+      const scope = /player/.test(cgl[1]) ? "all" : "opponents";
+      out.push({ layer: 6, op: { layerOp: "cantGainLife", scope }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+      return;
+    }
+  }
   {
     const TAIL = "assigns? combat damage equal to (?:its|their) toughness rather than (?:its|their) power";
     if (new RegExp(`^each creature ${TAIL}$`).test(c)) {

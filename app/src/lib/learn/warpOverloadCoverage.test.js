@@ -91,8 +91,10 @@ describe("warp-strip — the permanent body flips native once the warp line is s
 // ─── CREED: the strips can NEVER whitewash an unmodeled body (FP-FORBIDDEN) ───
 describe("warp/overload CREED — an unmodeled body stays on the Arbiter even after the alt-cast line is stripped", () => {
   it("a WARP body with an unmodeled static stays body-only (the warp strip reveals it, never hides it)", () => {
-    // "Players can't gain life." is an unmodeled static — the warp strip exposes it; it must NOT flip native.
-    expect(classifyCard(C("Test Warp Static", "Players can't gain life." + WARP("{1}{B}"), "Creature — Horror", "{4}{B}"))).toBe("body-only");
+    // ⭐ SPECIMEN SWAPPED 2026-08-05: this used "Players can't gain life.", which IS modeled now (the
+    // cantGainLife player-scoped op). The GUARD'S JOB is what matters — a warp strip must EXPOSE an
+    // unmodeled body, never hide it — so it is re-armed on a static that genuinely still parks.
+    expect(classifyCard(C("Test Warp Static", "Each player's maximum hand size is four." + WARP("{1}{B}"), "Creature — Horror", "{4}{B}"))).toBe("body-only");
   });
 
   it("an OVERLOAD spell whose printed single-target effect is unmodeled stays arbiter-spell", () => {

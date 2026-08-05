@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Lifegain hate works.** Giant Cindermaw, Rampaging Ferocidon and Forsaken Wastes stop *everyone* gaining
+  life — including you, as printed — while Erebos and Knight of Dusk's Shadow stop only your opponents. It
+  beats life-doublers too.
 - **Leyline of Sanctity actually protects you.** Leyline of Sanctity, Aegis of the Gods, Spirit of the
   Hearth and Metropolis Reformer stop opponents targeting you with spells and abilities — while you can
   still target yourself, exactly as printed.

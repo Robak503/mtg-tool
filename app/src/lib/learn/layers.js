@@ -2071,6 +2071,39 @@ export function playerHasHexproof(state, playerId) {
 }
 
 /**
+ * ⭐ CAN'T-GAIN-LIFE (CR 614 prevention): "Players can't gain life." (Rampaging Ferocidon, Forsaken Wastes,
+ * Havoc Festival, Sunspine Lynx, Everlasting Torment, Giant Cindermaw …) and its opponent-scoped twin
+ * "Your opponents can't gain life." (Archfiend of Despair, Quakebringer, Gríma Wormtongue, Knight of Dusk's
+ * Shadow …).
+ *
+ * The second player-scoped static, on the same INERT-op pattern as playerHasHexproof above — one op, one
+ * consumer, the layer engine untouched. The two printed scopes ride the SAME op via `op.scope`:
+ *   · "all"       — every player, INCLUDING the controller. These cards are symmetric and that is the point;
+ *                   scoping them to opponents would hand their controller a one-sided prison they don't print.
+ *   · "opponents" — every player EXCEPT the source permanent's controller.
+ *
+ * ⓘ Read from gameState.gainLife, the SINGLE life-gain chokepoint — so spell, trigger, lifelink and drain
+ * are all covered by one check, and the "you gained life this turn" ledger correctly records ZERO for a
+ * prevented gain (its `gained > 0` guard).
+ * ⛔ NOT read from replacementEffects.applyLifeGainReplacement, which would have been the tidier home:
+ * that module imports NOTHING by design (a documented cycle-safety property — triggers.js relies on it), and
+ * reaching into layers.js from there would break it. gainLife already imports layers, so the check lands
+ * there instead, immediately BEFORE the doublers: a prevented gain is prevented however many Rhox
+ * Faithmenders are out, and zeroing after the fact would be the right answer by luck rather than by rule.
+ */
+export function playerCantGainLife(state, playerId) {
+  if (!playerId || !state?.players?.[playerId]) return false;
+  const board = collectContinuousEffects(state);
+  for (const e of board) {
+    if (e.op?.layerOp !== "cantGainLife") continue;
+    if (e.op.scope === "all") return true;
+    const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
+    if (src?.controller && src.controller !== playerId) return true;   // "your opponents can't gain life"
+  }
+  return false;
+}
+
+/**
  * Convenience used by tests/explain: the ordered effects that apply to a
  * permanent (layer asc, then CDA-first, then timestamp). Pure.
  */
