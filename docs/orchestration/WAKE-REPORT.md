@@ -7,7 +7,46 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-04 — **+38 this sitting · batch 71** — suite **1102 / 13,798** green by exit code · master green, CI success
+## ☀️ 2026-08-04 — **+49 this sitting · batch 82** — suite **1103 / 13,820** green by exit code · master green
+
+> ### ⛔ CORRECTION 29 — **A CLEAN FLIP-DIFF HID TWO WRONG CARDS. The whole-card audit is what caught them.**
+> The attached-permanent count slice (`3a868e43`) first measured **GAINED 7 · LOST 0 · RETIERED 0** and
+> **two of those seven were FALSE POSITIVES.** Nothing in the diff said so. Reading each gained row's whole
+> card did.
+> **The shape, because it will recur.** The count evaluator reads the **AFFECTED** permanent — which is
+> exactly what makes an Equipment's *"EQUIPPED CREATURE gets +1/+0 for each Equipment attached to IT"*
+> resolve against the host. In a self-buff the affected **is** the source, so it's exact. But a **GROUP
+> ANTHEM names its source explicitly**, and the card name is normalized to `"this creature"` upstream — so
+> *"Other Kor creatures you control get +2/+2 for each Equipment attached to **this creature**"* (Armament
+> Master; Kellan, the Fae-Blooded) **arrives looking self-referential.** There source ≠ affected, and
+> counting the affected **inverts the card**. Measured wrong in BOTH directions:
+> two Equipment on the MASTER → the Kor read **2/2, correct 6/6**; two on the KOR → read **6/6, correct 2/2**.
+> **The rule to carry forward: when a count phrase can name either the source or the affected permanent,
+> the pronoun is load-bearing.** Accept `"attached to it"` only; `"this creature"` is a source reference in
+> disguise. Cost of the fix: zero — every genuine carrier prints "it".
+> ⚠️ The Aura arm pushed one commit earlier (`325c8cfd`) carried the **same latent phrasing**. It admitted
+> no group anthem in practice — re-measuring without it showed **LOST 0** against that build, which is the
+> proof nothing wrong reached master — but the hazard was live. Closed before the siblings fired it.
+
+> ### 🧩 THE LANE THAT PAID THIS BLOCK: **an evaluator existed as a BOOLEAN; the count twin was one arm away**
+> `layers.gateMet`'s `isEnchanted` gate has always asked *"is ANY Aura, on ANY battlefield, attached to
+> perm.id?"* — a plain `attachedTo` back-pointer read. `countSelfSpecOnBoard` now asks the identical
+> question and **tallies instead of short-circuiting**; `isEquipped` is the same twin for Equipment. That
+> single arm, plus three vocabulary entries, turned **+10 cards** (`325c8cfd` +5, `3a868e43` +5) including
+> **Uril, the Miststalker** and **Kor Spiritdancer** — the Voltron statics.
+> **The generalizable move: when a card wants a COUNT, look for an existing BOOLEAN predicate over the same
+> state.** Admission is free there — the exactness argument is already made and already shipped.
+> Also this block: **RIPPLE N** on an Aura's own line (`dfef06e9`, Surging Might) — the dredge admission's
+> twin. ✅ **That vein is now SWEPT TO EXHAUSTION:** a corpus-wide probe for *any* parked Aura whose entire
+> residue is covered-keyword lines returns **0**. Dredge and ripple were the whole set. Don't re-walk it.
+
+> ### ⚠️ THE HARNESS LIED FIRST, AGAIN — and the fix is now a standing pin
+> The law-6 board drive for the attached-count slice initially read **0/0 on every row, including the bare
+> printed 2/3** — because `permanentPower` takes a **permanent ID** and was handed the permanent **object**.
+> A broken harness returns a *uniform* answer that reads exactly like a clean negative. **Every board-drive
+> pin in that file now opens with a bare-printed-P/T witness row**, so the harness has to prove itself
+> before any other row counts as evidence. Third harness-scar of this run; treat the witness row as the
+> default shape for board drives.
 
 > ### 📐 AND THE SHELF'S STRUCTURE IS NOW MEASURED: **no cheap wins left on it**
 > Line-deletion probe over every unmodeled card in all 21 decks: **ZERO two-flip composition failures,

@@ -3,6 +3,52 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-04 - **Equipment + combined attached-counts, +5 — and a MEASURED FP** - batch 82
+> Suite 1103 files / 13,820 green + lint 0 BY EXIT CODE. `3a868e43`. Flip-diff **+5 / 0 / 0** after the
+> fix — Golem-Skin Gauntlets · Myr Adapter · Goblin Gaveleer · Champion of the Flame · Loxodon Punisher.
+> ⛔ **THE FIRST BUILD MEASURED +7 / 0 / 0 AND TWO WERE WRONG.** The phrase regex accepted *"attached to
+> **this creature**"*, and the card name is normalized to that upstream — so a GROUP ANTHEM naming its own
+> source (Armament Master; Kellan, the Fae-Blooded) arrived looking self-referential. The evaluator reads
+> the **AFFECTED** permanent (correct, and what makes the equip lane resolve against the host), but a group
+> anthem's source ≠ its affected, so the count **inverted the card**: two Equipment on the MASTER → the Kor
+> read **2/2 (correct 6/6)**; two on the KOR → **6/6 (correct 2/2)**. Wrong in both directions.
+> **The diff was clean. The whole-card audit is the only thing that caught it.** Fix: accept `"it"` only —
+> costs nothing, every real carrier prints it. Both FP cards now pinned parked, plus a runtime pin asserting
+> the buffed creature keeps its printed P/T.
+> Law 6 driven throughout: Gaveleer 1/1 → 3/1 → 5/1; Champion 1/1 → 3/3 on *either* an Aura or an Equipment
+> → 5/5 on both (proving ONE widened scan, not two summed counts); Gauntlets 3/2 counting **itself** on the
+> host, 2/2 while attached to nobody.
+> Mutations (grep-verified applied): re-admit "this creature" on the combined arm → FP classify pin red; on
+> both arms → the runtime inversion pin red too.
+
+> ## SLICE DONE - 2026-08-04 - **"+N/+N for each Aura attached to it", +5** - batch 77
+> Suite 1103 / 13,814 green + lint 0 BY EXIT CODE. `325c8cfd`. Flip-diff **+5 / 0 / 0** — Kor Spiritdancer ·
+> Graceblade Artisan · Gatherer of Graces · **Uril, the Miststalker** · Rabid Wombat. The layer-7c
+> self-"for each" lane already worked; only its COUNT VOCABULARY refused the phrase.
+> ⭐ **The evaluator is a COUNT TWIN of a BOOLEAN that already shipped** — `gateMet`'s `isEnchanted` has
+> always asked "is any Aura on any battlefield attached to perm.id"; the new arm asks the same and tallies.
+> No new state, nothing inferred. **Generalizable: when a card wants a count, look for an existing boolean
+> predicate over the same state — the exactness argument is already made.**
+> ALL PLAYERS deliberately (CR 303.4 — "attached to it", not "you control"): an opponent's Aura counts.
+> ⚠️ **The harness lied first** — read 0/0 on every row *including the bare printed 2/3*, because
+> `permanentPower` takes an ID and got the object. A broken harness returns a uniform answer that looks
+> like a clean negative. Every board-drive pin in that file now opens with a bare-printed witness row.
+> Both mixed carriers' second halves were DRIVEN, not trusted to the label (Kor Spiritdancer's Aura-cast
+> trigger routes natively; Gatherer's sac-an-Aura regenerate is cost- and program-modeled).
+> Mutations (grep-verified): vocabulary disabled → 7 red · all-players → controller-only → exactly the
+> opponent's-Aura row red · Aura type test dropped → exactly the Equipment row red.
+
+> ## SLICE DONE - 2026-08-04 - **RIPPLE N on an Aura's own line, +1** - batch 72
+> Suite 1102 / 13,801 green + lint 0 BY EXIT CODE. `dfef06e9`. Flip-diff **+1 / 0 / 0** — Surging Might.
+> The dredge admission's twin, one line apart: `isKeywordOnly("Ripple 4")` was already true and a vanilla
+> ripple creature already native-body, so this lane was disagreeing with a settled call. Ripple is a
+> CAST-time bonus the engine never offers → FN-safe, never a wrong resolution.
+> ✅ **VEIN SWEPT TO EXHAUSTION:** a corpus-wide probe for any parked Aura whose entire residue is
+> covered-keyword lines returns **0**. Dredge + ripple were the whole set — don't re-walk it.
+> ⚠️ **The first mutation attempt applied NOTHING** (shell escaping ate the pattern) and stayed green,
+> which reads exactly like an unkillable line. **The occurrence count is the check, not the diff** — both
+> mutants re-run with a grep confirming the mutated line before believing the result.
+
 > ## SLICE DONE - 2026-08-04 - **A vacuous CAST-KEYWORD line hid a modeled body, +2** - batch 71
 > Suite 1102 files / 13,798 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Drill Bit ·
 > Thieves' Fortune, both audited whole-card. **FOURTH instance of the newline-eating class**, and the
