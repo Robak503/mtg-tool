@@ -192,7 +192,15 @@ describe("CREED — crediting the keyword never force-flips the rest of the card
     // The refusal that mattered is intact: a cost-shaped keyword is NOT credited for being declinable, and
     // the second assertion below is the live example of that.
     expect(classifyCard({ ...CREATURE, name: "Abzan Battle Priest", type: "Creature — Human Cleric", oracle: "Outlast {W} ({W}, {T}: Put a +1/+1 counter on this creature. Activate only as a sorcery.)" })).toMatch(/^native/);
-    expect(classifyCard({ ...CREATURE, name: "Championer", type: "Creature — Sliver", oracle: "Champion a Sliver (When this creature enters, sacrifice it unless you exile another Sliver you control.)" })).not.toMatch(/^native/);
+    // ⭐ CHAMPION MOVED ACROSS THIS LINE 2026-08-05, and it moved for exactly the reason the line states.
+    // It used to sit here as the live example of "not credited for being declinable". It is credited NOW —
+    // not because anything about that principle changed, but because it is ENFORCED: the resolver really
+    // exiles another creature you control (weakest eligible, nontoken, never itself) and really sacrifices
+    // the champion when there is no legal offering, with the return riding the detain link. That is the same
+    // bar the outlast half above was re-pointed to. See champion.test.js.
+    expect(classifyCard({ ...CREATURE, name: "Championer", type: "Creature — Sliver", oracle: "Champion a Sliver (When this creature enters, sacrifice it unless you exile another Sliver you control.)" })).toMatch(/^native/);
+    // …and the refusal this pin exists for is intact, on a cost-shaped keyword that is still NOT enforced:
+    expect(classifyCard({ ...CREATURE, name: "Specializer", type: "Creature — Human", oracle: "Specialize {3}" })).not.toMatch(/^native/);
   });
 
   // NOT A COUNTER-EXAMPLE, and worth writing down so nobody re-derives it: suspend on a SPELL is already

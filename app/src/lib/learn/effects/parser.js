@@ -2782,3 +2782,21 @@ export function populateClauseParser(clause) {
   return { op: "create-token-copy", copySource: "creatureTokenYouControl", count: 1, targetType: null };
 }
 registerClauseParser(populateClauseParser);
+
+/**
+ * CHAMPION (CR 702.71a) — the sentinel detectTriggers emits for the printed keyword, carrying the named
+ * creature type: `[champion:kithkin] champion a kithkin`.
+ *
+ * A SENTINEL rather than printed text, deliberately: the card's real wording is "sacrifice it unless you
+ * exile another Kithkin you control", which is a CHOICE resolved at resolution (pick the weakest eligible
+ * creature, else sacrifice the champion) — not something any clause grammar models. The tag carries the one
+ * thing the resolver needs and nothing else, exactly like the `[self-return-bf:enchantment]` marker.
+ *
+ * The tag prefix appears in zero printed oracle text, so no real card can reach this by accident.
+ */
+export function championClauseParser(clause) {
+  const m = String(clause || "").trim().match(/^\[champion:([a-z' -]+)\]/i);
+  if (!m) return null;
+  return { op: "champion", subtype: m[1].trim(), targetType: null };
+}
+registerClauseParser(championClauseParser);

@@ -4262,6 +4262,27 @@ export function detectTriggers(card) {
   // canonical sentence, so an unstripped match would synthesize the descriptor AND let the grammar detect
   // the reminder as a second, real trigger — a double fire. `oracle` here is already reminder-stripped by
   // the caller, and the word-boundary anchor keeps "ingest" from matching inside other text.
+  // ⭐ CHAMPION (CR 702.71a) — KEYWORD→TRIGGER synthesis, the ingest/afflict shape. "Champion a Kithkin
+  // (When this enters, sacrifice it unless you exile another Kithkin you control. When this leaves the
+  // battlefield, that card returns to the battlefield.)"
+  //
+  // ⛔ ONE descriptor, the ENTERS half only. The leaves half is NOT synthesized because
+  // applyExileUntilLeaves' `detainedExile` link already makes checkLeavesTriggers return the card on any
+  // exit (CR 610.3a) — that IS champion's second sentence. A second descriptor here would return it TWICE,
+  // the same trap the two-trigger detain fold documents.
+  //
+  // The effectClause is a SENTINEL the champion clause parser owns; the printed "sacrifice it unless you
+  // exile…" wording is a CHOICE the resolver makes at resolution (pick the weakest eligible, else
+  // sacrifice), which no clause grammar models.
+  const championKw = oracle.match(/\bchampion an? ([A-Za-z][A-Za-z' -]*?)(?:\s*\(|$|\n)/i);
+  if (championKw) {
+    const subtype = championKw[1].trim();
+    out.push({
+      event: "etb", scope: "self", whose: "any",
+      effect: null, effectClause: `[champion:${subtype.toLowerCase()}] champion a ${subtype.toLowerCase()}`,
+      optional: false, sourceText: `Champion a ${subtype}`,
+    });
+  }
   if (/\bingest\b/i.test(oracle)) {
     out.push({
       event: "combatDamageToPlayer", scope: "self", whose: "any",

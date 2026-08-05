@@ -196,6 +196,14 @@ export const COVERED_KEYWORDS = [
   // routed natively and the counts balanced while the card still parked, because the keyword's own printed
   // line survived the trigger-sentence strip as residue.
   "ingest",
+  // CHAMPION (CR 702.71a) — ENFORCED end-to-end, the ingest pattern exactly: detectTriggers synthesizes the
+  // ENTERS descriptor from the printed keyword (one only — the leaves half rides the detain link),
+  // allTriggerSentencesModeled bumps the shaped count, and the sentinel effect resolves through
+  // removal.applyChampion. Crediting the bare "Champion a <Type>" line here is the third of the three
+  // pieces: the descriptor routed natively and the counts balanced while the card still parked, because the
+  // keyword's own printed line survived the trigger-sentence strip as residue. Prefix match ("champion a"),
+  // so the named type rides along whatever it is.
+  "champion a",
   // AFTERLIFE (BLITZ AF-2, CR 702.135a) — ENFORCED end-to-end: detectTriggers synthesizes the self-dies
   // create-token trigger from the printed keyword (afterlifeKeywordValues — structural comma-segment match, so
   // grants like Afterlife Insurance's "gain afterlife 1" / Indebted Spirit's "has afterlife 1" never self-
@@ -1259,9 +1267,13 @@ function allTriggerSentencesModeled(card, oracle) {
   // and rampage do below. Without this the descriptor detects and routes natively while the card still
   // classifies parked, which is the standing tell for this invariant.
   const ingestShaped = /\bingest\b/i.test(stripReminder(oracle)) ? 1 : 0;
+  // KW-CHAMPION (CR 702.71a) — same reason as ingest directly above: the keyword synthesizes ONE enters
+  // descriptor and its printed line is a keyword, not a When/Whenever sentence. Only the ENTERS half is
+  // synthesized (the leaves half rides the detain link), so this bumps by exactly 1.
+  const championShaped = /\bchampion an? [a-z]/i.test(stripReminder(oracle)) ? 1 : 0;
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
     + (/(?<!\bhave\s)(?<!\bhas\s)\bafflict \d/i.test(stripReminder(oracle)) ? 1 : 0)
-    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + renownShaped + mobilizeShaped + backupShaped + partnerWithShaped + dethroneShaped + trainingShaped + firebendingShaped + soulshiftShaped + flankingShaped + persistShaped + battleCryShaped + afterlifeShaped + mentorShaped + modularShaped + enginesShaped + ingestShaped;
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw + cumUpkeepShaped + echoShaped + ravenousShaped + undyingShaped + evolveShaped + renownShaped + mobilizeShaped + backupShaped + partnerWithShaped + dethroneShaped + trainingShaped + firebendingShaped + soulshiftShaped + flankingShaped + persistShaped + battleCryShaped + afterlifeShaped + mentorShaped + modularShaped + enginesShaped + ingestShaped + championShaped;
   // COMPOUND TRIGGER (CR 603.1): "When A and whenever B, <effect>" is counted as ONE shaped sentence by TRIGGER_SENTENCE_RE
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped
   // count by the number of compounds so `shaped === detected` holds for a successfully-split compound; if a half is

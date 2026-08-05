@@ -174,6 +174,61 @@ export function applyControllerRider(state, rider, cap, ctx) {
  * dispatch's stack-resolution finalizer flushes them above the rest (CR 603.3b). A stale id (the creature
  * already left) is a logged no-op via the findPermanent guard + moveCardToZone's own guard.
  */
+/**
+ * ⭐ CHAMPION (CR 702.71a) — "Champion a Kithkin (When this enters, sacrifice it unless you exile another
+ * Kithkin you control. When this leaves the battlefield, that card returns to the battlefield.)"
+ * Thoughtweft Trio, Changeling Berserker, Nova Chaser, Mistbind Clique and five more.
+ *
+ * ⭐ THE RETURN HALF IS FREE AND MUST NOT BE REBUILT. `applyExileUntilLeaves` stamps
+ * `detainedExile: [{cardId, ownerId}]` on the SOURCE permanent, and checkLeavesTriggers synthesizes the
+ * return on ANY exit (CR 610.3a) — which IS champion's "when this leaves the battlefield, that card
+ * returns". So this resolver produces the exile and the link and nothing else. ⛔ Synthesizing a second,
+ * LTB trigger would return the card TWICE — the same trap the two-trigger detain fold documents.
+ *
+ * TWO THINGS ARE GENUINELY NEW HERE:
+ *  ① The exiled permanent is the controller's OWN and is CHOSEN, not targeted — champion never prints
+ *     "target" — so it is picked at RESOLUTION, exactly like populate's `creatureTokenYouControl` source.
+ *     The pick is DETERMINISTIC AND STATED so self-play traces reproduce: the WEAKEST eligible body
+ *     (power+toughness, ties by permanent id). Keeping the champion body is the obvious play, and any legal
+ *     pick is faithful because the rules constrain only the creature's TYPE.
+ *  ② The SACRIFICE FALLBACK is mandatory, not optional: "sacrifice it UNLESS you exile…" means a player
+ *     with no eligible creature MUST sacrifice the champion. That is the printed downside, and skipping it
+ *     would leave a creature on the battlefield the card says should be gone.
+ *
+ * ⛔ SELF IS EXCLUDED FROM THE POOL ("ANOTHER Kithkin"). Without that the card exiles ITSELF, its own
+ * leave-trigger then fires off an already-gone source, and the creature never comes back.
+ *
+ * ⛔ TOKENS ARE EXCLUDED, and that is CR 111.7 rather than a simplification: a token that leaves the
+ * battlefield ceases to exist, so exiling one would destroy it permanently while the card promises a
+ * return. applyExileUntilLeaves already refuses to LINK a token; excluding it from the pool means the
+ * engine never makes that un-returnable choice in the first place.
+ */
+export function applyChampion(state, atom, ctx) {
+  const controller = ctx.controller;
+  const srcLk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  if (!srcLk) return logEvent(state, { kind: "spell-effect", effect: "champion", controller, reason: "source-left" });
+  const want = String(atom.subtype || "").toLowerCase();
+  const bf = state.players?.[controller]?.battlefield || [];
+  const eligible = bf.filter((p) => {
+    if (p.id === ctx.sourceId) return false;                     // "ANOTHER" — never itself
+    if (p.card?.token) return false;                             // CR 111.7 — a token would not come back
+    if (!isCreatureCard(p.card)) return false;
+    if (!want || want === "creature") return true;               // "Champion a creature"
+    return new RegExp(`\\b${want}\\b`, "i").test(String(p.card.type || ""));
+  });
+  if (!eligible.length) {
+    // No legal offering ⇒ the printed downside, not a skip.
+    return sacrificeCreatureEffect(state, controller, ctx.sourceId);
+  }
+  const score = (p) => (Number(p.card.power) || 0) + (Number(p.card.toughness) || 0);
+  const victim = eligible.slice().sort((a, b) => score(a) - score(b) || String(a.id).localeCompare(String(b.id)))[0];
+  // Route the exile through the SHARED detain resolver so the link, the owner routing and the return are
+  // the ones already proven — this passes the chosen permanent as the atom's target rather than
+  // reimplementing any of it.
+  const next = applyExileUntilLeaves(state, { op: "exile", untilSourceLeaves: true }, { ...ctx, targets: [{ type: "creature", id: victim.id }] });
+  return logEvent(next, { kind: "spell-effect", effect: "champion", controller, championed: victim.id, subtype: atom.subtype || null });
+}
+
 export function sacrificeCreatureEffect(state, playerId, permId) {
   const lk = findPermanent(state, permId);
   if (!lk) return logEvent(state, { kind: "spell-effect", effect: "sacrifice", controller: playerId, sacrificed: null });
@@ -907,6 +962,7 @@ function applyDestroyAtEndOfCombat(state, atom, ctx) {
 }
 
 export const removalResolvers = {
+  "champion": applyChampion, // ===== CHAMPION (CR 702.71a) ===== exile ANOTHER own nontoken creature of the named type, linked to the source via the shared detain resolver (so the return is the one already proven); sacrifice the source when no legal offering exists
   "mass-destroy-treasure-per-nontoken": applyMassDestroyTreasurePerNontoken, // BLOOD-MONEY — destroy all creatures + a tapped Treasure per nontoken creature destroyed
   "destroy-at-end-of-combat": applyDestroyAtEndOfCombat, // BASILISK TOUCH (DG-1, CR 511) — enqueue a turn-stamped delayed destroy; combatResolution drains it
   "destroy": (state, atom, ctx) =>

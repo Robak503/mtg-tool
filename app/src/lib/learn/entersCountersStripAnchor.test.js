@@ -36,17 +36,27 @@ const ETB_X = "This creature enters with X +1/+1 counters on it.";
 const creature = (oracle, over = {}) => ({ id: "c-p", name: "Probe", type: "Creature — Eldrazi", mana: "{7}", power: "5", toughness: "5", oracle, ...over });
 
 describe("the strip must not eat the line before it", () => {
+  // ⭐ FIXTURE SWAPPED 2026-08-05, guard job unchanged. These three pins are about the STRIP'S ANCHOR — an
+  // unmodeled NO-PERIOD keyword line sitting before the counters sentence must not be eaten by it. The
+  // fixture was "Champion a Goblin", chosen only because champion happened to be unmodeled; champion is now
+  // modeled (CR 702.71a — see champion.test.js), so it no longer demonstrates anything. Re-aimed at
+  // "Sunburst", which is still genuinely unmodeled and has the same no-period single-line shape. Champion's
+  // new answer is re-pinned below so the flip is recorded rather than lost.
   it("⛔ an unmodeled NO-PERIOD keyword line before the counters sentence still parks the card", () => {
-    // Champion is unmodeled; crediting this card would play it without its exile-and-return cost.
-    expect(classifyCard(creature(`Champion a Goblin\n${ETB_COUNTERS}`))).toBe("body-only");
+    // Sunburst is unmodeled; crediting this card would play it without its colors-spent counters.
+    expect(classifyCard(creature(`Sunburst\n${ETB_COUNTERS}`))).toBe("body-only");
   });
 
   it("⛔ the X-counters strip has the same anchor and the same guard", () => {
-    expect(classifyCard(creature(`Champion a Goblin\n${ETB_X}`, { mana: "{X}{G}", power: "0", toughness: "0" }))).toBe("body-only");
+    expect(classifyCard(creature(`Sunburst\n${ETB_X}`, { mana: "{X}{G}", power: "0", toughness: "0" }))).toBe("body-only");
   });
 
-  it("the keyword line alone parks (so the pin above is really about the WELD, not about champion)", () => {
-    expect(classifyCard(creature("Champion a Goblin"))).toBe("body-only");
+  it("the keyword line alone parks (so the pin above is really about the WELD, not about the keyword)", () => {
+    expect(classifyCard(creature("Sunburst"))).toBe("body-only");
+  });
+
+  it("ⓘ champion, the former fixture, is now MODELED and welds cleanly — recorded, not deleted", () => {
+    expect(classifyCard(creature("Champion a Goblin"))).toBe("native-body");
   });
 
   it("the counters sentence ALONE is still credited — the legitimate strip is untouched", () => {
