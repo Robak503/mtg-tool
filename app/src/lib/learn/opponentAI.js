@@ -28,7 +28,7 @@
 import { detectArchetype } from "../goldfish.js";
 import { filterActions } from "./legalChoices.js";
 import { opponentsOf, findPermanent } from "./gameState.js";
-import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature } from "./layers.js";
+import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, goaderControllersOf } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction } from "./manaModel.js";
 import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAble, mustAttackUnlessOf, controllerMeetsBoardPredicate } from "./combatEvasion.js";
@@ -1681,11 +1681,24 @@ export function pickAttackPlan(state, aiPlayerId, attackerActions, { policy = nu
 
   const plan = [];
   for (const opts of byPermanent.values()) {
+    // ⭐ GOAD, SECOND HALF (CR 701.38): "attacks a player other than YOU if able" — YOU being the GOADER,
+    // which is normally NOT this creature's controller. The must-attack half rides the shared `mustAttack`
+    // keyword and is already handled above; this is the defender restriction.
+    // ⛔ "IF ABLE", NOT "NEVER" — the trap this whole feature turns on. If the goader is the ONLY player
+    // this creature can attack, it MUST still attack them. Filtering the goader out unconditionally would
+    // produce a creature that attacks nobody while carrying a must-attack requirement: an illegal board
+    // state, and a false positive rather than a safe miss. So the filter is applied ONLY when it leaves at
+    // least one option, and the unfiltered list is used otherwise.
+    // ⓘ Vacuous in two-player (the sole opponent IS the goader, and hasDefenderChoice is false there
+    // anyway) — this branch is multiplayer-only, which is exactly where goad is printed to matter.
+    const goaders = goaderControllersOf(state, opts[0].permanentId);
+    const legal = goaders.size ? opts.filter(o => !goaders.has(o.defenderId)) : opts;
+    const pool = legal.length ? legal : opts;
     if (walkerTarget) {
-      const atWalker = opts.find(o => o.defenderPlaneswalkerId === walkerTarget.walkerId);
+      const atWalker = pool.find(o => o.defenderPlaneswalkerId === walkerTarget.walkerId);
       if (atWalker) { plan.push(atWalker); continue; }
     }
-    plan.push((target && opts.find(o => o.defenderId === target && !o.defenderPlaneswalkerId)) || opts[0]);
+    plan.push((target && pool.find(o => o.defenderId === target && !o.defenderPlaneswalkerId)) || pool[0]);
   }
   return plan;
 }

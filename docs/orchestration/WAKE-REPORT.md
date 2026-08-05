@@ -7,9 +7,14 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+260 this sitting · v0.152.0 PUBLISHED · post-tag batch 63** — suite **1124 / 13,996** green by exit code
+## ☀️ 2026-08-05 — **+262 this sitting · v0.152.0 PUBLISHED · post-tag batch 65** — suite **1125 / 14,000** green by exit code
 
-> ### ▶️ START HERE: **GOAD (CR 701.38)** — ~15 carriers, scoped in full in the run ledger, not started
+> ### ✅ GOAD SHIPPED (+2) — both halves, driven on a 4-player board. Next: see the run ledger.
+> ⚠️ **NEW TRAP WORTH THE READ: a card name can resolve to a TOKEN entry.** "Mark of the Rani" does —
+> it classifies and flips, but `tier-snapshot` correctly excludes it, so pins built on it prove a gain the
+> instrument will never count. **Check fixture provenance, not just that `lookupCard` returned something.**
+
+> ### ⏮️ (superseded) GOAD scoping — ~15 carriers
 > A **subsystem, not a slice**, so it was left clean rather than half-built. Half of it already exists: the
 > `mustAttack` pseudo-keyword shipped today is goad's first half. The second half — *"attacks a player
 > other than you if able"* — has nothing. **Two named traps, both in the ledger entry:** "if able" means the

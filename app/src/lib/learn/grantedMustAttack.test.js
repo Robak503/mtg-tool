@@ -15,10 +15,13 @@
  * subsystem 4 — so the granted form makes no broader claim than the printed one. Saying so out loud matters
  * because "native" has to mean the same thing for both, or the tier is lying about one of them.
  *
- * ⛔ GOAD IS NOT THIS, and folding it in would be an over-claim. "Enchanted creature gets +1/+1 and is
- * goaded" (Psychic Impetus and 7 more) is CR 701.38: attacks each combat if able AND *attacks a player
- * other than you if able*. That second half is a DEFENDER restriction the planner would have to honor
- * before the credit is honest. Those 8 stay parked, deliberately.
+ * ⭐ GOAD WAS THIS SLICE'S REFUSAL AND HAS SINCE BEEN BUILT (goad.test.js). It was held back because
+ * CR 701.38 is TWO rules — attacks each combat if able AND *attacks a player other than you if able* — and
+ * this slice only had the first. Crediting it here would have been a half-credit: a creature forced to
+ * attack but free to pick its victim isn't goaded. The second half now exists
+ * (layers.goaderControllersOf + the planner's defender filter), and goad REUSES the `mustAttack` keyword
+ * built here for its first half. The refusal boundary moved; it did not disappear — the inverted pin below
+ * re-arms it on Eye of Nidhogg, which bolts goad onto a type-change this parser still can't model.
  *
  * ⓘ The "unless" release (Reckless Cohort's conditional requirement) is deliberately not consulted for the
  * granted form: no Aura in the corpus grants a CONDITIONAL requirement, and mustAttackUnlessOf reads
@@ -37,6 +40,7 @@ import { pickAttackPlan } from "./opponentAI.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 import { permanentHasKeyword, permanentPower } from "./layers.js";
+import { parseAuraBonus } from "./staticAbilityParser.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -59,8 +63,19 @@ describe("the carriers flip, and goad deliberately does not", () => {
     expect(classifyCard(TORMENTORS_TRIDENT)).toBe("native-equipment");
   });
 
-  it("⛔ GOAD STAYS PARKED — it carries a defender restriction this slice does not model", () => {
-    expect(classifyCard(PSYCHIC_IMPETUS)).toBe("body-only");
+  it("⭐ GOAD WAS THE REFUSAL AND IS NOW BUILT — inverted in place, guard job intact", () => {
+    // This pin was the refusal boundary for the must-attack slice: goad carries a SECOND rule ("attacks a
+    // player other than you if able") that the planner did not honor, so crediting it would have been a
+    // half-credit. That second half now exists (layers.goaderControllersOf + the planner's defender
+    // filter), so the boundary moved rather than vanished — see goad.test.js for both halves driven.
+    expect((parseAuraBonus(PSYCHIC_IMPETUS) || []).map((e) => e.op?.keyword || e.op?.layerOp))
+      .toContain("goaded");
+    // ⛔ THE GUARD'S JOB, RE-ARMED on what genuinely still isn't modelled: Eye of Nidhogg bolts goad onto a
+    // type-change + base-P/T set. All-or-nothing must still drop the WHOLE bonus rather than grant goad to
+    // a creature that never becomes the 4/2 flying deathtouch Dragon the card promises.
+    expect(classifyCard({ id: "c-en", name: "Eye of Nidhogg", type: "Enchantment — Aura", mana: "{3}{B}",
+      oracle: "Enchant creature\nEnchanted creature is a black Dragon with base power and toughness 4/2, has flying and deathtouch, and is goaded." }))
+      .toBe("body-only");
   });
 });
 

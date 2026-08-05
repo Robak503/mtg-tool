@@ -6,6 +6,30 @@
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
+> ## SLICE DONE - 2026-08-05 - **GOAD (CR 701.38) — the subsystem, +2** - batch 65 (post-v0.152.0)
+> Suite 1125 / 14,000 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Shiny Impetus, Coercive Impetus.
+> ⭐ **BOTH HALVES OR NEITHER.** Goad is two rules, and shipping one is worse than shipping none: a creature
+> forced to attack but free to pick its victim **isn't goaded, it's just angry**, and the card gets credit
+> for a political effect it doesn't have. · half 1 = the `mustAttack` keyword from the last slice, **reused
+> wholesale** · half 2 = `goaded` + `layers.goaderControllersOf` + a defender filter in the planner.
+> ⛔ **"YOU" IS THE GOADER, NOT THE CONTROLLER** — the asymmetry IS the mechanic, and no plain keyword read
+> can express it. Each live grant resolves back to the **controller of the effect's SOURCE**, through the
+> same gate-aware layer-6 index `permanentHasKeyword` walks. Returns a **SET**: two opponents can goad the
+> same creature and it must dodge both if it can.
+> ⛔⛔ **"IF ABLE", NOT "NEVER" — the trap the whole feature turns on.** Goaded by EVERY opponent, the filtered
+> pool is empty; an unconditional filter leaves a must-attack creature **attacking nobody** — an illegal
+> board and a FALSE POSITIVE, not a safe miss. Fallback pinned and driven.
+> ⚠️ **THE FIXTURE TRAP, and it nearly cost a bogus claim:** the obvious fixture, **Mark of the Rani**,
+> resolves in this corpus to a **TOKEN entry** (`layout=token`, commander `not_legal`). It classifies fine
+> and flips — but `tier-snapshot`'s `isRealCard` correctly excludes it, so pins built on it would have
+> "proven" a flip **the instrument refuses to count**. **Check a fixture's provenance, not just that
+> `lookupCard` returns something.**
+> ℹ **+2 is the honest number.** The other twelve carriers are blocked by lines with nothing to do with
+> goad (Psychic Impetus's scry trigger, Bloodthirsty Blade's attach ability, Eye of Nidhogg's type-change).
+> The **subsystem** is what shipped; those arrive as their own blockers fall.
+> ⭐ **Stale refusal pin inverted in place, guard job intact:** goad was the must-attack slice's documented
+> refusal. The boundary **moved rather than vanished** — re-armed on Eye of Nidhogg.
+
 > ## 🎯 NEXT VEIN, SCOPED NOT STARTED - **GOAD (CR 701.38)** — ~15 carriers, ZERO infrastructure
 > Deliberately not begun at the tail of a long run: this is a **subsystem, not a slice**, and half-building
 > it would leave the planner enforcing one of goad's two halves — the exact partial-fire the CREED forbids.

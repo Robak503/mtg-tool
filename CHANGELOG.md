@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Goad works.** Shiny Impetus and Coercive Impetus now do what they say: the enchanted creature has to
+  attack every combat, and it has to attack somebody *other than you* — unless you're the only target left,
+  in which case it comes for you after all.
 - **Auras and Equipment that force a creature to attack now do.** Bloodshed Fever, Furor of the
   Bitten, Guise of Fire, Uncontrollable Anger, Mogis's Warhound and Tormentor's Trident all make the
   creature they're attached to swing every combat — and it stops the moment they come off.

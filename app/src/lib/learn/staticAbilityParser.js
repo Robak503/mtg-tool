@@ -4628,7 +4628,43 @@ function parseAttachedProtectionColors(tail) {
  *   - EQUIP-LOSES-KW    "gets +N/+N and loses <combat keyword>" (Colossus Hammer → layer-6 removeKeyword);
  *   - EQUIP-PROTECTION  "has protection from <color>…" (Captain America Swords → layer-6 addProtection).
  */
+/**
+ * ⭐ GOAD TAIL (CR 701.38) — a WRAPPER, not a ninth regex. "Enchanted creature is goaded" appears bolted
+ * onto almost every other attached shape in the corpus: bare, "+2/+2 and is goaded" (Psychic Impetus),
+ * "has indestructible and is goaded" (Redemption Arc), "+1/+1, has deathtouch, and is goaded" (Ghoulish
+ * Impetus). Matching each of those separately would fork the parser eight ways and drift from the plain
+ * forms. Instead the tail is stripped, the HEAD goes through the ordinary reducer unchanged, and the goad
+ * grants are appended to whatever it produced.
+ *
+ * Goad is TWO grants because it is two rules:
+ *   · `mustAttack` — "attacks each combat if able". The SAME pseudo-keyword the granted-must-attack slice
+ *     shipped, already enforced layer-aware in the AI's attack planner. Nothing new.
+ *   · `goaded`     — "and attacks a player other than YOU if able", where YOU is the GOADER. Carried as its
+ *     own keyword so the planner can resolve the goader from the effect's SOURCE controller.
+ *
+ * ⛔ ALL-OR-NOTHING IS PRESERVED: if the head carries anything the reducer can't model, it returns null and
+ * the WHOLE bonus drops (Eye of Nidhogg's type-change, The Sound of Drums' damage redirection). Appending
+ * goad to a half-parsed head would be exactly the silent partial this file refuses everywhere else.
+ */
 function parseAttachedClause(c, subject, noun = "creature") {
+  const gm = String(c).match(/^(.*?)(?:,?\s+and)?\s+is goaded\.?$/i);
+  if (gm) {
+    const head = gm[1].trim().replace(/,$/, "");
+    const goad = [
+      { layer: 6, op: { layerOp: "addKeyword", keyword: "mustAttack" }, duration: { kind: "permanent" } },
+      { layer: 6, op: { layerOp: "addKeyword", keyword: "goaded" }, duration: { kind: "permanent" } },
+    ];
+    // The bare form ("Enchanted creature is goaded.") leaves no head to reduce.
+    if (new RegExp(`^${subject} ${noun}$`, "i").test(head)) return goad;
+    // ⛔ NO trailing period re-added: clauses reach here already stripped, and the reducer's tail checks
+    // treat a lone "." as unmodeled residue and drop the whole bonus.
+    const inner = parseAttachedClauseCore(head, subject, noun);
+    return inner === null ? null : [...inner, ...goad];
+  }
+  return parseAttachedClauseCore(c, subject, noun);
+}
+
+function parseAttachedClauseCore(c, subject, noun = "creature") {
   let rest = c.replace(new RegExp(`^${subject} ${noun}\\s+`), "").trim();
   const out = [];
 

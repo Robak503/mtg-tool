@@ -1592,6 +1592,37 @@ export function permanentBasePower(state, permanentId) {
  * effects, short-circuits to the printed seed (+ counter) so the combat hot path
  * pays ≈ the old cost.
  */
+/**
+ * GOAD (CR 701.38) — which players GOADED this permanent right now.
+ *
+ * Goad's second half is "attacks a player other than YOU if able", and **YOU is the GOADER, not the
+ * creature's controller** — that asymmetry is the entire mechanic. A plain keyword read can't express it,
+ * so this resolves each live `goaded` grant back to the CONTROLLER OF THE EFFECT'S SOURCE (the Aura or
+ * Equipment). Returns a Set of player ids, empty when the permanent isn't goaded.
+ *
+ * Reads the SAME gate-aware layer-6 index permanentHasKeyword walks, so a goad grant can never be live for
+ * the must-attack half and stale for the defender half. The set is a SET because two opponents can each
+ * goad the same creature — it must then avoid BOTH if it can.
+ */
+export function goaderControllersOf(state, permanentId) {
+  const perm = findPerm(state, permanentId);
+  const out = new Set();
+  if (!perm) return out;
+  const grants = l6IndexOf(state).byKeyword.get("goaded");
+  if (!grants || grants.length === 0) return out;
+  for (const e of grants) {
+    if (!effectAffects(e, perm, state)) continue;
+    if (e.op.gate) {
+      const gp = gatePermForEffect(state, e, perm);
+      if (!gp || !gateMet(state, gp, e.op.gate)) continue;
+    }
+    if (e.op.layerOp !== "addKeyword") continue;
+    const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
+    if (src?.controller) out.add(src.controller);
+  }
+  return out;
+}
+
 export function permanentHasKeyword(state, permanentId, keyword) {
   if (!keyword) return false;
   const perm = findPerm(state, permanentId);
