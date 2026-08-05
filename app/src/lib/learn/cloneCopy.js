@@ -112,11 +112,16 @@ export function parseCloneRider(clause) {
   let cl = String(clause || "").toLowerCase().trim().replace(/^and\s+/, "").replace(/\.$/, "").trim();
   if (!cl) return null;
 
-  // "it isn't legendary" (Spark Double) — a NO-OP rider (the legend rule is unenforced by the engine), so it
-  // carries no atom field but IS recognized (returning a no-op kind) so the all-or-nothing rider gate doesn't
-  // park the whole clone over an unenforced-but-harmless modification. Mirrors the tokenCopy isn't-legendary
-  // no-op exactly.
-  if (/^it (?:isn'?t|is not) legendary$|^it'?s not legendary$/.test(cl)) return { kind: "noop" };
+  // ⭐ "it isn't legendary" (Spark Double) — a REAL type-line modification (CR 707.9a), no longer a no-op.
+  // ⛔⛔ THIS COMMENT USED TO SAY "a NO-OP rider (the legend rule is unenforced by the engine)". That was
+  // true when it was written and IS NO LONGER: sba.js implements CR 704.5j (applyLegendRule) and kills the
+  // older duplicate. So the no-op had quietly become a LIVE FALSE POSITIVE — a Spark Double copying your
+  // commander kept "Legendary" on its type line and the engine destroyed one of them, which is precisely
+  // the outcome the printed card exempts it from. Found by sweeping RUNTIME files for stale
+  // "unenforced" notes, the same sweep that found ward—discard.
+  // Stripping the supertype is the faithful model: every legend-rule read goes through the type line, and
+  // "isn't legendary" means exactly that the copy lacks the supertype.
+  if (/^it (?:isn'?t|is not) legendary$|^it'?s not legendary$/.test(cl)) return { kind: "stripLegendary" };
 
   // ===== PRONOUN GENERALITY (CR 707.9a) — a rider names the copy with whatever pronoun the card's flavour
   // uses. "his name is Impossible Man", "he's 4/4", "he has flying" are the SAME riders as the "it" forms
@@ -579,6 +584,15 @@ export function snapshotCopiedCard(sourcePerm, cloneCard, riders = []) {
       // matters triggers). NOT a subtype append.
       card = { ...card, type: addCardTypeToLine(card.type || card.type_line, r.cardType) };
       if (card.type_line) card.type_line = addCardTypeToLine(card.type_line, r.cardType);
+    } else if (r.kind === "stripLegendary") {
+      // ⭐ "it isn't legendary" (Spark Double, CR 707.9a) — REMOVE the supertype from the copy's type line.
+      // ⛔ THIS IS WHAT KEEPS THE COPY ALIVE. sba.js's applyLegendRule (CR 704.5j) groups a player's
+      // legendary permanents BY NAME off the type line and destroys all but the newest; a copy that kept
+      // "Legendary" would be destroyed alongside the original, which is the exact outcome the card exempts
+      // it from. Both `type` and `type_line` are edited because different readers use different fields.
+      const stripLegend = (t) => String(t || "").replace(/\bLegendary\s+/i, "").trim();
+      card = { ...card, type: stripLegend(card.type || card.type_line) };
+      if (card.type_line) card.type_line = stripLegend(card.type_line);
     } else if (r.kind === "addKeyword") {
       const have = Array.isArray(card.keywords) ? card.keywords.map((k) => String(k).toLowerCase()) : [];
       const add = r.keywords.filter((k) => !have.includes(k));

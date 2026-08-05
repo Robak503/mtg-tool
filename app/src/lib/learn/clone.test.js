@@ -196,12 +196,15 @@ describe("rider parser (parseCloneRider) — exact modeled atoms only", () => {
     expect(parseCloneRider("it has flying")).toEqual({ kind: "addKeyword", keywords: ["flying"] });
     expect(parseCloneRider("it has flying and vigilance")).toEqual({ kind: "addKeyword", keywords: ["flying", "vigilance"] });
   });
-  it("recognizes the conditional enters-with-counter rider + the isn't-legendary no-op (Spark Double)", () => {
-    // The legend rule is unenforced, so isn't-legendary is a recognized NO-OP (a {kind:"noop"} rider) — it must
+  it("recognizes the conditional enters-with-counter rider + the isn't-legendary STRIP (Spark Double)", () => {
+    // ⭐ UPDATED 2026-08-05: this used to read "the legend rule is unenforced, so isn't-legendary is a
+    // recognized NO-OP". sba.js implements CR 704.5j now, so the no-op had become a LIVE FALSE POSITIVE —
+    // the copy kept "Legendary" and the SBA destroyed one of the pair. It is a real type-line strip now
+    // (see cloneNotLegendary.test.js for the drive). The rider must still be RECOGNIZED — it must
     // NOT park the whole clone (the all-or-nothing gate accepts a no-op). The two conditional counter riders
     // each gate on the copy's resulting type (resolved at resolution by resolveCloneChoice).
-    expect(parseCloneRider("it isn't legendary")).toEqual({ kind: "noop" });
-    expect(parseCloneRider("it's not legendary")).toEqual({ kind: "noop" });
+    expect(parseCloneRider("it isn't legendary")).toEqual({ kind: "stripLegendary" });
+    expect(parseCloneRider("it's not legendary")).toEqual({ kind: "stripLegendary" });
     expect(parseCloneRider("it enters with an additional +1/+1 counter on it if it's a creature"))
       .toEqual({ kind: "entersWithCounterIf", counterType: "+1/+1", n: 1, ifType: "creature" });
     expect(parseCloneRider("it enters with an additional loyalty counter on it if it's a planeswalker"))
@@ -418,7 +421,7 @@ describe("Spark Double — classifier + scope + the conditional counter rider", 
       riders: [
         { kind: "entersWithCounterIf", counterType: "+1/+1", n: 1, ifType: "creature" },
         { kind: "entersWithCounterIf", counterType: "loyalty", n: 1, ifType: "planeswalker" },
-        { kind: "noop" },
+        { kind: "stripLegendary" },
       ],
     });
   });

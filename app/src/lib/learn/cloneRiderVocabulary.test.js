@@ -94,7 +94,10 @@ describe("⛔ LEGENDARY IN ADDITION stays PARKED — a pin I was wrong to try to
 
 describe("⛔ the existing vocabulary is unchanged", () => {
   it("the arms that already worked still return exactly what they did", () => {
-    expect(parseCloneRider("it isn't legendary")).toEqual({ kind: "noop" });
+    // ⭐ Was { kind: "noop" } — now a real type-line strip (CR 704.5j is enforced; see
+    // cloneNotLegendary.test.js). The point of THIS pin is unchanged: the arm still RECOGNIZES the rider,
+    // so the all-or-nothing gate never parks a clone over it.
+    expect(parseCloneRider("it isn't legendary")).toEqual({ kind: "stripLegendary" });
     expect(parseCloneRider("it's 1/4")).toEqual({ kind: "setPT", power: 1, toughness: 4 });
     expect(parseCloneRider("it has flying")).toEqual({ kind: "addKeyword", keywords: ["flying"] });
     expect(parseCloneRider("it has ~'s other abilities")).toEqual({ kind: "retainOwnAbilities" });

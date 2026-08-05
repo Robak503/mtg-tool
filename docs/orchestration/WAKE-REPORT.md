@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+321 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 33** — suite **1136 / 14,045** green by exit code
+## ☀️ 2026-08-05 — **+321 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 33** — suite **1137 / 14,049** green by exit code
 
 > ### ⚠️⚠️ AURA PROBES ARE MEMO-POISONED — classify in a FRESH PROCESS
 > `parseAttachedBonus` memoises into a slot, which makes **`isNativeAura` ORDER-DEPENDENT**: the same card in
@@ -38,6 +38,15 @@
 > other produced "this permanent" for a Creature and dropped 29 epithet legendaries. **Normalise
 > per-descriptor where the type is known, or teach the one matcher — never rename globally.** Full
 > post-mortem + the real fix in the run ledger.
+
+> ### ▶️ START HERE: **tokenCopy's "isn't legendary"** — same stale note, WORSE bug (Miirym does NOTHING)
+> Its twin in `cloneCopy.js` shipped today: the no-op justified by *"the legend rule is unenforced"* had
+> become a live FP that **destroyed the player's commander**. `tokenCopy.js` still swallows the same rider
+> inside `TOKEN_COPY_RE`. Fix shape is in the run ledger (carry a `notLegendary` flag on the atom, pass the
+> `stripLegendary` rider to `snapshotCopiedCard`).
+> ⭐ **THE INSTRUMENT THAT FOUND BOTH:** grep RUNTIME files for "unenforced" / "not enforced" / "not modeled"
+> and re-check each note against today's engine. **A refusal comment is a claim with a timestamp** — two
+> live bugs in two slices came from expired ones.
 
 > ### ✅ WARD—DISCARD SHIPPED — +0 coverage, REAL rules gap closed
 > ⚠️ **The lesson to carry:** ward is enforced at the TARGETING chokepoint, which is **tier-independent**, so

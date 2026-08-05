@@ -3,6 +3,32 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **CLONE "isn't legendary" — a LIVE FP a stale comment created** - batch 33
+> Suite 1137 / 14,049 green + lint 0 BY EXIT CODE. Flip-diff **0 / 0 / 0** — and it fixes a bug that was
+> **destroying the player's commander.**
+> ⛔⛔ **THE COMMENT WAS TRUE WHEN WRITTEN AND HAD SINCE EXPIRED.** `cloneCopy.js` parsed Spark Double's
+> "it isn't legendary" as a **`noop`**, justified as *"the legend rule is unenforced by the engine"*. But
+> `sba.js` implements **CR 704.5j** (`applyLegendRule`) — it groups a player's legendary permanents BY NAME
+> off the type line and destroys all but the newest. So the copy kept **Legendary**, and the engine
+> **destroyed one of the pair** — exactly what the printed card exempts it from. **A Spark Double on your
+> own commander was killing your commander.**
+> ⭐ **FOUND BY POINTING THE REFUSAL SWEEP AT RUNTIME FILES**, not the classifier — the same instrument that
+> found ward—discard one slice earlier. `grep -rn "unenforced\|not enforced" src/lib/learn/*.js`, then check
+> each note against what the engine can do TODAY. **A refusal comment is a claim with a timestamp.**
+> ℹ **+0 and invisible to the flip-diff by construction:** Spark Double was ALREADY native-clone, because
+> the rider was RECOGNIZED (as a no-op) and passed the all-or-nothing gate. The bug was never in
+> classification — it was in what the copy BECAME. Only the law-6 drive can see it.
+> ⚠️ I typed the Spark Double fixture from memory first ("Shapeshifter", a trailing "if that permanent is
+> legendary"); it classified **body-only** and would have made the pin meaningless. **Card text comes from
+> the corpus, never recollection** (CLAUDE.md §1.2) — caught because the pin went red.
+> ⏭ **THE TWIN IS OPEN AND IS WORSE — `effects/atoms/tokenCopy.js`.** It swallows ", except the token isn't
+> legendary" INSIDE its match regex (`TOKEN_COPY_RE`) with the SAME stale justification, so the flag never
+> becomes an atom. **Miirym, Sentinel Wyrm** mints a token copy of each legendary Dragon you cast — a
+> LEGENDARY token, which dies to the rule instantly, so **the card currently does nothing at all**.
+> The fix has a clear shape: capture the tail (the regex already has the optional group), carry a
+> `notLegendary` flag on the `create-token-copy` atom beside the existing `addCardTypes`, and pass the same
+> `stripLegendary` rider into `snapshotCopiedCard` — which already accepts riders.
+
 > ## SLICE DONE - 2026-08-05 - **WARD — DISCARD A CARD, +0 coverage / REAL rules gap closed** - batch 33
 > Suite 1136 / 14,045 green + lint 0 BY EXIT CODE. Flip-diff **0 / 0 / 0** — and it **ships**, for a reason
 > worth reading before the next +0 decision.

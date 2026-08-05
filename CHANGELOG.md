@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Spark Double no longer kills what it copies.** Copying your own commander (or any legend) was
+  destroying one of the pair to the legend rule — the exact thing the card says doesn't happen. The copy is
+  correctly not legendary now.
 - **Ward—Discard a card is no longer free.** Graveyard Trespasser, Mighty Servant of Leuk-o, Tragedy
   Feaster and nine others were being targeted at no cost; now you're asked to discard, and if your hand is
   empty the spell is countered.
