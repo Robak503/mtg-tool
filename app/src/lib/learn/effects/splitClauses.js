@@ -13,7 +13,7 @@
  * (both leaves; neither imports parser.js), so no cycle. parser.js imports
  * splitClauses back; it stays the sole caller (19 sites, all in parser.js).
  */
-import { stripReminder } from "./textNormalize.js";
+import { stripReminder, stripCastKeywordLines } from "./textNormalize.js";
 import { spellConditionParseable } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the board-readable shape gate for the intervening-if keep-whole guards
 /**
  * Split an oracle into clauses on sentence boundaries (". "), semicolons, and
@@ -34,7 +34,20 @@ export function splitClauses(oracle) {
   // lives in parseTokenManaAbility, the curated-trigger GATE in parseTokenTriggeredAbility — a non-modeled
   // ability still drops the whole clause to low). The merge can only PROMOTE a card that was already low (the
   // orphan clause), never regress a HIGH one.
-  const normalized = stripReminder(oracle)
+  // ⭐ CAST-KEYWORD LINES GO FIRST, AND THE ORDER IS THE WHOLE FIX (2026-08-04). A keyword line
+  // ("Spectacle {B}", "Flashback {3}{R}") carries no trailing period, and `stripReminder` deliberately
+  // COLLAPSES whitespace — newlines included — so once it runs, that line has no identity left and is
+  // welded onto the first body sentence. Drill Bit split to "Spectacle {B} Target player reveals their
+  // hand", which matches nothing, and the whole spell parsed LOW. Cards whose body happens to be claimed
+  // by a whole-oracle COLLAPSE survived it (Light Up the Stage welds identically and is native anyway),
+  // which is why the bug read as card-specific rather than structural.
+  //
+  // ⛔ STRIPPED FROM THE RAW MULTI-LINE TEXT, BEFORE the collapse — its anchors are `^…$` per line and
+  // only work while the lines still exist. Doing it the other way round (stripReminder first) makes the
+  // line-anchored pattern match the ENTIRE collapsed oracle and delete the card's whole body; that was
+  // measured, not imagined, and is why the order is called out here.
+  // These lines are already declared vacuous for the normal cast by the same helper the spell path uses.
+  const normalized = stripReminder(stripCastKeywordLines(oracle))
     // FINALE-SHUFFLE-REMINDER — strip the vacuous "If you search your library this way, shuffle." sentence
     // (Finale of Devastation). Its "and/or graveyard" tutor (bfxg) ALWAYS searches the library, so the CR-
     // 701.19e shuffle the tutor's own resolver runs already covers this conditional exactly — stripping it

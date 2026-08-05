@@ -1103,8 +1103,20 @@ function parseEffectProgramInner(card) {
   // losslessness. The narrow " instead if " hint is the family's own signature and leaves those 9 untouched.
   const INSTEAD_UPGRADE_HINT = / instead if /i;
   const labeled = oracleOf(card);
-  const rawOracle = stripDevoidLine(stripStormKeywordLine(stripSelfCostReduction(
-    INSTEAD_UPGRADE_HINT.test(labeled) ? labeled : stripAbilityWordLabel(labeled))));
+  // ⭐ CAST-KEYWORD LINES (2026-08-04) — join the strip chain that already peels devoid / storm /
+  // self-cost-reduction here, and for the same reason: they are vacuous for the cast the engine performs
+  // (that is CAST_KEYWORD_LINE's whole premise, and the spell path's LOW-retry already leans on it), but
+  // while they are still present every WHOLE-ORACLE matcher below is looking at text that does not match.
+  // Drill Bit's body is a clean `discard-chosen` shape and parsed HIGH on its own; with "Spectacle {B}"
+  // in front, the collapse matched nothing and the spell parked. Stripping here can only ever let a
+  // matcher see the body it was written for — it never adds a permission.
+  //
+  // ⛔ AND THE LEADING BLANK LINE HAS TO GO WITH IT. stripCastKeywordLines blanks the line rather than
+  // removing it, so the body arrives as "\nTarget player reveals…" — and every whole-oracle matcher below
+  // is `^`-anchored, so it matched nothing and the strip bought exactly zero. Measured: identical text
+  // parses HIGH once the leading blank is gone. Half a fix here is worth nothing at all.
+  const rawOracle = stripCastKeywordLines(stripDevoidLine(stripStormKeywordLine(stripSelfCostReduction(
+    INSTEAD_UPGRADE_HINT.test(labeled) ? labeled : stripAbilityWordLabel(labeled))))).replace(/^\s*\n/, "").trim();
   // SELF-SHUFFLE DISPOSITION (Green Sun's Zenith + the Sun's Zenith / Beacon family) — peel a trailing "Shuffle
   // <this> into its owner's library." sentence up front so the BODY parses through the normal pipeline, and stamp
   // the resulting program `selfShuffle` (runEffectProgram's GY-1 then tucks the spell into the library instead of
