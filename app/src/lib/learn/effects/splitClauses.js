@@ -53,7 +53,13 @@ export function splitClauses(oracle) {
     // 701.19e shuffle the tutor's own resolver runs already covers this conditional exactly — stripping it
     // just prevents the sentence from orphaning into an unparsed clause (→ low). Anchored to the exact
     // wording, so it can only PROMOTE this already-low library-and/or-graveyard shape; no other card prints it.
-    .replace(/\s*If you search your library this way,?\s+shuffle\.?/gi, "")
+    // ⭐ BOTH TENSES (2026-08-05): the cycle prints "If you SEARCH your library this way" (Finale, Niambi)
+    // and "If you SEARCHED your library this way" (Sun-Blessed Mount, Huatli's kin). The past-tense
+    // printing was missing, so that sentence orphaned into its own unparsed clause and dropped the whole
+    // card — while the tutor clause beside it matched perfectly. Measured: the tutor clause tested TRUE
+    // against its matcher and the card still classified body-only, which is the tell that the failure was a
+    // SIBLING clause rather than the one being worked on.
+    .replace(/\s*If you search(?:ed)? your library this way,?\s+shuffle\.?/gi, "")
     // ===== WALT-ANIMATE ===== strip the vacuous "it's/that's still a land" reminder. A land that
     // "becomes a creature" is additive BY DEFAULT (it stays a land — that's why it still taps; 0
     // non-additive land-animates in the corpus), so this clause never changes resolution. Stripping it

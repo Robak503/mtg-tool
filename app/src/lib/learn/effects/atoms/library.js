@@ -1723,6 +1723,40 @@ export function tutorClauseParser(clause, ctx = {}) {
   // The trailing shuffle is optional in the anchor for the reason it is optional on every arm above:
   // splitClauses usually detaches ", then shuffle" into its own clause, so this only ever sees the head, and
   // resolveTutorChoice shuffles unconditionally per CR 701.19e.
+  // ⭐ THE LIBRARY-AND/OR-GRAVEYARD TWIN (Dominaria's legendary-partner cycle — Niambi Faithful Healer,
+  // Ashiok's Forerunner, Sun-Blessed Mount and ~17 more): "search your library AND/OR GRAVEYARD for a card
+  // named <X>, reveal it, and put it into your hand. If you search your library this way, shuffle."
+  //
+  // ⛔ THE MULTI-ZONE RUNTIME WAS ALREADY BUILT and this arm only ignites it: the tutor resolver's
+  // `sourceZones` union (added for Finale of Devastation's identical "library and/or graveyard" search)
+  // gathers candidates across both zones and returns each pick to the right one. There is no new search, no
+  // new pool and no new auto-pick — the `bfxg` arm above already proves the wire works, for the
+  // to-BATTLEFIELD destination. This is the same wire with destination "hand" and a name filter.
+  //
+  // Everything else is shared with the library-only `tnm` arm below verbatim: the same `filter.name`
+  // positive gate, the same "you may" handling (peeled by the leading-optional wrapper, so `optional` is
+  // deliberately NOT set here — setting it would ask twice), and the same disjunctive-name refusal.
+  //
+  // The trailing "If you search your library this way, shuffle." is conditional on WHICH zone was searched,
+  // which the shuffle-unconditionally path (CR 701.19e) already satisfies: shuffling a library that was not
+  // searched is a no-op on a randomized zone, never an observable difference.
+  // The connective before "put" is printed BOTH ways across the cycle — "reveal it, AND put it into your
+  // hand" (Niambi) and "reveal it, THEN put it into your hand" (Sun-Blessed Mount) — as is the tense of the
+  // conditional shuffle ("if you search" / "if you searched"). Both alternations are spelled out rather than
+  // loosened to `.*`, so the anchor still refuses any rider it has not been shown.
+  const tnmg = t.match(/^search your library and\/or graveyard for a card named (.+?),?(?: reveal (?:it|that card),?)?(?: (?:and|then))? put (?:it|that card) into your hand(?:,? (?:then |and )?(?:if you search(?:ed)? your library this way,? )?shuffle(?: your library)?)?\.?$/);
+  if (tnmg) {
+    const namedG = tnmg[1].trim();
+    if (!namedG || / or /i.test(namedG)) return null;
+    return {
+      op: "tutor",
+      filter: { name: namedG },
+      filterLabel: `card named ${namedG}`,
+      destination: "hand",
+      sourceZones: ["library", "graveyard"],
+      targetType: null,
+    };
+  }
   const tnm = t.match(/^search your library for a card named (.+?),?(?: reveal (?:it|that card),?)? put (?:it|that card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (tnm) {
     const named = tnm[1].trim();
