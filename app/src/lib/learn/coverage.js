@@ -1376,6 +1376,27 @@ export function permanentTriggersCovered(card) {
     // log line. An unenforced frequency rider stripped here would credit a trigger that fires every time —
     // the same over-credit shape the activation-limit rider is careful about.
     .replace(/\bThis ability triggers only once each turn\b\.?\s*/gi, " ")
+    // GLIMMER SELF-RETURN TYPE DIRECTIVE (the "Enduring" cycle — Enduring Tenacity / Enduring Courage) — the
+    // sentence "It's an enchantment." trailing "When ~ dies, if it was a creature, return it to the
+    // battlefield under its owner's control." It is NOT residue: triggers.js rewrites that whole effect to
+    // the `[self-return-bf:enchantment]` marker precisely BECAUSE the type change is part of the modeled
+    // effect, and says so at the rewrite site — "the 'It's an enchantment' semantics are captured by the
+    // marker tag itself (the resolver strips the creature type)". The trigger-sentence strip stops at the
+    // first period after "…owner's control.", leaving the directive behind as apparent residue.
+    //
+    // ⭐ THE BUG THIS FIXES LOOKED LIKE A KEYWORD DEPENDENCY, which is why it went unnoticed: the directive
+    // only decided the outcome when it was the card's ONLY leftover text. Measured —
+    //     dies line ALONE                    -> body-only      ❌
+    //     "Vigilance" + the same dies line   -> native-trigger ✅
+    // and a keyword line cannot possibly bear on whether a dies-trigger is modeled. That is what makes the
+    // three natives (Enduring Vitality/Curiosity/Innocence — each led by Vigilance/Flash/Lifelink) and the
+    // two parked (Tenacity/Courage — no keyword line) split on a BYTE-IDENTICAL dies sentence.
+    //
+    // FN-safe and narrow: anchored to the exact directive, and reachable only after
+    // allTriggerSentencesModeled has already vouched the trigger HIGH — the same licence every strip in this
+    // chain rides. A card printing "It's an enchantment." with NO modeled self-return trigger never gets
+    // here, because it fails that gate first.
+    .replace(/\bit['’]s an enchantment\b\.?\s*/gi, " ")
     .replace(/\b(?:they|it|that creature|those creatures) can'?t be regenerated\b\.?\s*/gi, " ")
     // NO-UNTAP LOCKDOWN (Junk Winder) — the follow-up sentence "It doesn't untap during its controller's next
     // untap step." is part of the SAME token-enters trigger's effect: detectTriggers keeps it in the effectClause,

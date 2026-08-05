@@ -174,3 +174,60 @@ describe("CREED false-negative guards (a partial / mis-shaped variant stays non-
     expect(evaluateInterveningIf(s, "it was a creature", "user", { triggeringWasCreature: false })).toBe(false);
   });
 });
+
+/**
+ * ⛔ THE TYPE DIRECTIVE WAS RESIDUE, AND IT LOOKED LIKE A KEYWORD DEPENDENCY (2026-08-04).
+ *
+ * "It's an enchantment." trails the dies sentence, and the trigger-sentence strip stops at the first period
+ * after "…owner's control." — so the directive survived as apparent residue and failed isKeywordOnly.
+ *
+ * It is NOT residue. triggers.js rewrites the whole effect to the `[self-return-bf:enchantment]` marker
+ * precisely BECAUSE the type change is part of the modeled effect, and says so at the rewrite site: "the
+ * 'It's an enchantment' semantics are captured by the marker tag itself (the resolver strips the creature
+ * type)". The classifier was double-counting text the atom already owns.
+ *
+ * ⭐ WHY IT HID FOR SO LONG — the directive only decided the outcome when it was the card's ONLY leftover
+ * text, so the bug presented as "this dies-trigger needs a keyword line to be credited", which is absurd on
+ * its face and is what made it findable. The corpus split is on a BYTE-IDENTICAL dies sentence:
+ *   NATIVE  Enduring Vitality / Curiosity / Innocence — each led by Vigilance / Flash / Lifelink
+ *   PARKED  Enduring Tenacity / Courage              — no keyword line
+ * `detectTriggers` and `triggerRoutesNatively` BOTH already returned native=true on the parked pair: a
+ * classifier-vs-router divergence, not a missing mechanic.
+ *
+ * ⛔ NOT THE SAME CAUSE, deliberately left parked (gate 20 — three causes, not one):
+ *   · Enduring Friendship — its CAST trigger routes false, a genuinely different blocker;
+ *   · Old-Growth Troll / Harold and Bob — return as an AURA ("It's an Aura enchantment with enchant …"),
+ *     a different shape the marker does not cover.
+ *
+ * Mutation-checked (2026-08-04, grep-verified applied AND verified on the case under test — classifyCard was
+ * called on the bare dies-line fixture under the mutant and returned body-only before the suite was read):
+ * the strip removed -> both flip pins red.
+ */
+describe("the trailing type directive is part of the modeled effect, not residue", () => {
+  const mk = (oracle, name = "Test Glimmer") => ({ id: "tg", name,
+    type: "Enchantment Creature — Snake Glimmer", power: 2, toughness: 2, mana: "{2}{B}",
+    oracle: oracle.replace(/~/g, name) });
+  const DIES = "When ~ dies, if it was a creature, return it to the battlefield under its owner's control. It's an enchantment.";
+
+  it("⭐ the dies line ALONE is now credited — no keyword line required", () => {
+    expect(classifyCard(mk(DIES))).toBe("native-trigger");
+  });
+
+  it("the real carriers flip", () => {
+    expect(classifyCard(mk("Whenever you gain life, target opponent loses that much life.\n" + DIES, "Enduring Tenacity"))).toBe("native-trigger");
+    expect(classifyCard(mk("Whenever another creature you control enters, it gets +2/+0 and gains haste until end of turn.\n" + DIES, "Enduring Courage"))).toBe("native-trigger");
+  });
+
+  it("the cards that ALREADY worked are unchanged — they were only ever rescued by their keyword line", () => {
+    expect(classifyCard(mk("Vigilance\n" + DIES, "Enduring Vitality"))).toBe("native-trigger");
+    expect(classifyCard(mk("Flash\n" + DIES, "Enduring Curiosity"))).toBe("native-trigger");
+  });
+
+  it("⛔ an UNMODELED sibling line still parks the card (the strip adds no permission)", () => {
+    expect(classifyCard(mk("Interpret the omens however you like.\n" + DIES))).toBe("body-only");
+  });
+
+  it("⛔ the AURA-returning variant is a different shape and stays parked", () => {
+    expect(classifyCard(mk("When ~ dies, if it was a creature, return it to the battlefield. It's an Aura enchantment with enchant creature.", "Troll"))).toBe("body-only");
+  });
+});
