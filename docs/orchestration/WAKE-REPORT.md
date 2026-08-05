@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+301 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 13** — suite **1130 / 14,017** green by exit code
+## ☀️ 2026-08-05 — **+306 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 18** — suite **1131 / 14,021** green by exit code
 
 > ### ⚠️⚠️ AURA PROBES ARE MEMO-POISONED — classify in a FRESH PROCESS
 > `parseAttachedBonus` memoises into a slot, which makes **`isNativeAura` ORDER-DEPENDENT**: the same card in
@@ -27,7 +27,12 @@
 > "we can't do this" note converts a gap into a decision nobody re-examines.** When a census shows a big
 > zero-native cluster, **check whether the refusal still holds.**
 
-> ### ⛔ DON'T GLOBALLY REWRITE TEXT AT A SHARED SEAM — two attempts, −25 and −29
+> ### ✅ RESOLVED: when a file is an ALLOWLIST, extend the allowlist
+> The Elder Dragons landed **+5 / 0 / 0** from ONE anchored arm after two "more general" rewrites of the same
+> seam measured −25 and −29. `rewriteSelfNameToThisCreature` is a list of exact grammars by design; the
+> general fix wasn't the smaller change, it was the one that moved 30 cards the wrong way. Post-mortem below.
+
+> ### ⛔ THE FAILED ATTEMPTS — two global rewrites, −25 and −29
 > The Elder Dragons park because the trigger EFFECT CLAUSE keeps the printed name while the SUBJECT matchers
 > understand it. Both fixes looked surgical; one stripped the reminders storm/cascade are read from, the
 > other produced "this permanent" for a Creature and dropped 29 epithet legendaries. **Normalise

@@ -3183,6 +3183,22 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
     // double-or-reset-counters collapse matcher) anyway.
     if (new RegExp(`^double the number of \\+1\\/\\+1 counters on ${esc} if its power is \\d+ or less\\.\\s*otherwise, remove all but one \\+1\\/\\+1 counter from it, then you gain 1 life for each \\+1\\/\\+1 counter removed this way$`, "i").test(eff))
       return eff.replace(new RegExp(`\\b${esc}\\b`, "i"), "this creature");
+    // ⭐ SACRIFICE-SELF-UNLESS-PAY (the Elder Dragons — Palladia-Mors, Chromium, Vaevictis Asmadi, Arcades
+    // Sabboth, Nicol Bolas, Piru, Eldest Dragon Highlander; plus Kuro, Pitlord). The self-name sits MID-
+    // clause, right after the verb: "sacrifice <Name> unless you pay {R}{G}{W}."
+    // ⛔ THE SUBSYSTEM WAS ALREADY BUILT AND SIMPLY UNREACHABLE. `sac-unless-pay` exists and the byte-
+    // identical "sacrifice THIS CREATURE unless you pay {R}{G}{W}" has parsed HIGH for ages — only the
+    // printed proper noun stood between these cards and a finished mechanism.
+    // ⛔ WHY THIS IS ONE MORE ANCHORED ARM AND NOT A GLOBAL RENAME: rewriting the self-name across the whole
+    // trigger oracle was tried TWICE (2026-08-05) and measured −25 then −29. The first pass stripped the
+    // reminder text storm and cascade are read from; the second produced the wrong noun on paths where the
+    // type wasn't in hand, dropping 29 epithet legendaries. This file's design is an ALLOWLIST of exact
+    // grammars for exactly that reason, and the arm below keeps it: whole-clause anchored, mana-cost-only
+    // tail, and the parser re-gates the rewritten form anyway.
+    // ⓘ "this creature" is right for every carrier — all 8 in the corpus are Legendary Creatures (censused
+    // 2026-08-05), so the noun cannot be wrong here the way it was in the global attempt.
+    if (new RegExp(`^sacrifice ${esc} unless you pay (?:\\{[^}]+\\})+\\.?$`, "i").test(eff))
+      return eff.replace(new RegExp(`\\b${esc}\\b`, "i"), "this creature");
   }
   return effectClause;
 }

@@ -155,12 +155,16 @@ describe("SF-1 park → CA-1 pickup: the not-attacking conditional is exactly ga
     // SF-1 parked this clause ("untapped != untapped AND not attacking" — a vigilant attacker would be a
     // forbidden FP under a bare untapped anthem). CA-1 models the conditional exactly: the untapped selector
     // PLUS a per-candidate {kind:"notAttacking"} gate layers.gateMet re-evaluates every derive (the vigilant-
-    // attacker case is pinned in conditionGatedAnthem.test.js). The CARD still classifies body-only — its
-    // "sacrifice … unless you pay {G}{W}{U}" upkeep clause is unmodeled — but the anthem descriptor is exact.
+    // attacker case is pinned in conditionGatedAnthem.test.js).
+    // ⭐ UPDATED 2026-08-05: this used to add "the CARD still classifies body-only — its
+    // 'sacrifice … unless you pay {G}{W}{U}' upkeep clause is unmodeled". That clause IS modeled now (the
+    // self-name arm in rewriteSelfNameToThisCreature; see elderDragonUpkeep.test.js), so the card is native.
+    // THIS PIN'S JOB IS UNCHANGED and is asserted below either way: the anthem descriptor must be EXACT —
+    // the untapped selector plus a per-candidate notAttacking gate, never a bare untapped anthem.
     const specs = parseStaticAbilities(ARCADES_SABBOTH).filter(s => s.affects?.mode === "dynamic");
     expect(specs).toHaveLength(1);
     expect(specs[0].op).toMatchObject({ layerOp: "ptModifyGated", power: 0, toughness: 2, gate: { kind: "notAttacking" } });
     expect(specs[0].affects.selector).toMatchObject({ controllerScope: "you", cardTypes: ["Creature"], untapped: true });
-    expect(classifyCard(ARCADES_SABBOTH)).toBe("body-only");
+    expect(classifyCard(ARCADES_SABBOTH)).toBe("native-mixed");
   });
 });

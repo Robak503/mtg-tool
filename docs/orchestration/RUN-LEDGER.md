@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **ELDER DRAGON UPKEEP (self-name arm), +5** - batch 18 (post-v0.153.0)
+> Suite 1131 / 14,021 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Palladia-Mors, Chromium,
+> Vaevictis Asmadi, Arcades Sabboth, Kuro Pitlord. **This is the entry directly below, finally done RIGHT.**
+> ⭐ **THE FIX THAT WORKED WAS ONE ANCHORED ARM.** Same target the two global rewrites failed at (−25, then
+> −29). `rewriteSelfNameToThisCreature` is an **ALLOWLIST of exact grammars**, each whole-clause anchored
+> and re-gated by the parser — the file's own design, which both failed attempts ignored. Adding one more
+> arm for `^sacrifice <Name> unless you pay {cost}$` cost four lines and lost NOTHING.
+> ✅ **THE GENERAL LESSON, now paid for three times over:** when a file is built as an allowlist, EXTEND THE
+> ALLOWLIST. A "more general" rewrite at the same seam is not the smaller change — it is the one that moves
+> 25-30 cards the wrong way.
+> ℹ `sac-unless-pay` had existed all along; "sacrifice THIS CREATURE unless you pay {R}{G}{W}" parsed HIGH.
+> A printed proper noun was the whole blocker. Kuro flips via the **SHORT** name (CR 201.2b).
+> ⚠️ **MUTATION DIDN'T APPLY THE FIRST TIME AND THE GREP CAUGHT IT** (`occ: 0`) — the "mutant" run was the
+> UNMUTATED code and read green. **Correction 22 earning its keep.** Re-applied via Edit; it then killed 3 of 4.
+> ⚠️ Harness trap: the sac-unless-pay contract is **pay-AND-AFFORD**. With an empty pool the pay branch is
+> unreachable and the Dragon dies anyway — correct behaviour that reads exactly like a broken choice. The
+> witness now asserts the pool DRAINS ({R}{G}{W} → 000), so "kept for free" can't pass either.
+> ⭐ Sixth stale refusal pin inverted (anthemSubjectFilter's comment literally named this clause as
+> unmodeled); its real job — the anthem descriptor being exact — is untouched.
+
 > ## ⛔ NOT BUILT - 2026-08-05 - **SELF-NAME IN THE TRIGGER EFFECT CLAUSE** — two attempts, both NET NEGATIVE
 > The Elder Dragons (Palladia-Mors, Chromium, Vaevictis Asmadi, Arcades Sabboth) park on a subsystem that is
 > **fully built**: `sac-unless-pay` exists, and `"sacrifice this creature unless you pay {R}{G}{W}"` parses

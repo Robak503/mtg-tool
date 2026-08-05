@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **The Elder Dragons keep their upkeep bargain.** Palladia-Mors, Chromium, Vaevictis Asmadi, Arcades
+  Sabboth and Kuro, Pitlord ask you to pay at upkeep — pay and they stay and the mana is spent, decline and
+  they're sacrificed.
 - **Squadron Hawk fetches its friends.** Squadron Hawk, Nesting Wurm, Skyshroud Sentinel and Howling Wolf
   search up to three more copies of themselves into your hand, and correctly stop at three.
 - **Walls that can buy their way into an attack now can.** Mirror Wall, Returned Phalanx, Wall of One
