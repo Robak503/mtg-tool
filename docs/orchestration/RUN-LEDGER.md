@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **DURING-YOUR-TURN EQUIPMENT — a gate that had never met the lane, +7** - post-v0.154.0 batch 7
+> Suite 1153 / 14,161 green + lint 0 BY EXIT CODE. Flip-diff **+7 / 0 / 0** — Javelin of Lightning,
+> Quick-Draw Katana, Hook Swords, Knife, Hookblade, Jousting Lance, Hexgold Halberd. All audited whole-card.
+> ⭐ Eleven carriers, ZERO native: the attachment-bonus parser had no lane for a TIME gate, while the SELF
+> (DT-1) and GROUP (ST-2) forms of the identical `{kind:"yourTurn"}` gate have shipped for ages. **Both halves
+> existed and had never met — the third time that exact sentence was the whole diagnosis today.** Built the
+> same way the GROUP arm was: strip the prefix, reuse the existing parser, stamp the existing gate.
+> ⛔⛔ **THE P/T OP HAD TO BE SWAPPED, NOT STAMPED, AND THAT IS THE TRAP.** `ptModify` has no gate lane;
+> the gated twin is a different op (`ptModifyGated`). Stamping a gate on `ptModify` yields a descriptor the
+> layer engine applies UNCONDITIONALLY — the buff live on every player's turn, strictly better than printed,
+> **and the card still reads native-equipment.** The MUTAA witness shows `opponentsTurn: power 4` where the
+> keyword correctly dropped off. **No flip-diff could ever see it.**
+> ⚠️⚠️ **MEMO POISONING BIT ME TWICE IN ONE SLICE, AND ALMOST GOT A WRONG PIN SHIPPED.** A multi-card probe
+> reported the base-P/T-SET wording as native AND correctly gated, so I started writing a pin asserting it
+> WORKS. Both readings were `parseAttachedBonus`'s slot cache reading a neighbour's bonus. One card per
+> process, the truth inverts: 7b base-P/T has no `layerOp`, the every() guard REFUSES it, the card parks —
+> which is correct, because a gate stamped there would not be honoured. **The wake report's Aura warning
+> applies to EQUIPMENT probes too, and to test harnesses that swap `card` on a live permanent.**
+> ⭐ That inversion turned a would-be "defensive and unexercisable" guard into a **live, mutation-killed** one.
+> ℹ Dragoon's Lance (type-adding rider) and Bilbo's Ring (can't-be-blocked in a keyword list) park honestly.
+
 > ## SLICE DONE - 2026-08-05 - **ESCAPE-WITH-COUNTERS — vacuous, re-verified not inherited, +8** - batch 101
 > Suite 1152 / 14,156 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Phoenix of Ash, Ox of Agonas,
 > Underworld Charger, Woe Strider, Tizerus Charger, Underworld Rage-Hound, Voracious Typhon, Loathsome

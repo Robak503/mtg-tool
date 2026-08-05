@@ -7,11 +7,18 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+389 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 101 → 🏷 TAG DUE** — suite **1152 / 14,156** green by exit code
+## ☀️ 2026-08-05 — **+396 this sitting · 🏷 v0.154.0 TAGGED (101 cards) · post-tag batch 7** — suite **1153 / 14,161** green by exit code
 
-> ### 🏷 BATCH 101 — **THE RELEASE THRESHOLD IS MET.** Cut the tag at the next clean slice boundary.
-> Colton's cadence is one tag per ~100 cards, not per slice ([release-cadence memory]). Everything since
-> v0.153.0 is on master and CI-green. `git tag v0.154.0 -a -m "..." && git push origin v0.154.0`.
+> ### ⚠️⚠️ MEMO POISONING ISN'T JUST AN AURA PROBE HAZARD — it nearly shipped a WRONG PIN
+> `parseAttachedBonus` caches into a slot on the permanent. Probing several EQUIPMENT cards in one process
+> read a neighbour's bonus and told me a base-P/T-set wording was native AND correctly gated; I began writing
+> a pin asserting it works. One card per process, the truth inverts — it parks, correctly, because that
+> descriptor has no `layerOp` for a gate to ride. **Two rules: probe attachments ONE CARD PER PROCESS, and
+> never swap `card` on a live permanent in a harness** (the slot is already warm — that cost a false failure
+> in the same hour).
+> ⭐ Silver lining worth copying: chasing the contradiction turned a guard I was about to label "defensive and
+> unexercisable" into a live, mutation-killed one. **When a guard looks unexercisable, probe harder before
+> you document it as dead.**
 
 > ### ⭐ VACUITY IS NOT TRANSITIVE — re-verify the precondition for each new line you strip
 > "Escapes with N +1/+1 counters" is inert for the same reason the escape COST line is: the runtime never

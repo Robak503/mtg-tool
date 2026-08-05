@@ -5196,6 +5196,42 @@ export function parseAttachedBonus(card, subjectOverride) {
     // not as a layer bonus — skip it so a compound aura (Ghostly Possession's flying + wall) keeps its
     // keyword half instead of dropping the whole bonus.
     if (subject === "enchanted" && ATT_PREV_CLAUSE_RE.test(c.trim())) continue;
+    // ⭐⭐ DURING-YOUR-TURN ATTACHMENT BONUS (Javelin of Lightning, Hook Swords, Knife, Quick-Draw Katana,
+    // Hookblade, Dragoon's Lance, Jousting Lance, Hexgold Halberd, Bilbo's Ring): "During your turn, equipped
+    // creature gets +2/+0 and has first strike." ELEVEN carriers, ZERO native — the attachment-bonus parser
+    // had no lane for a time gate at all.
+    // ⭐ BOTH HALVES ALREADY EXISTED AND HAD NEVER MET — the same shape as the your-turn GROUP grant a few
+    // hundred lines up, and this arm is deliberately built the same way: strip the time prefix, run the
+    // clause through the EXISTING attached-clause parser, and stamp the EXISTING `{kind:"yourTurn"}` gate
+    // (layers.gateMet reads state.activePlayer === controller, re-evaluated every derive pass) onto whatever
+    // that parser produced. No new parsing, no new gate.
+    // ⛔ THE P/T OP MUST BE SWAPPED, NOT JUST STAMPED. `ptModify` has no gate lane — the gated twin is a
+    // DIFFERENT op (`ptModifyGated`), which is exactly what the self arm emits. Stamping a gate onto
+    // `ptModify` would produce a descriptor the layer engine applies UNCONDITIONALLY: the bonus would be
+    // live on every player's turn, strictly better than printed. Keyword grants take the gate directly.
+    // ⛔ ALL-OR-NOTHING (CREED): every inner descriptor must be one of those two known shapes, else NOTHING
+    // is emitted and the clause stays residue → body-only. A form this can't gate honestly must not be
+    // silently ungated.
+    const dtAttached = /^during your turn, /i.test(c) ? c.replace(/^during your turn,\s*/i, "") : null;
+    if (dtAttached && dtAttached.startsWith(`${subject} ${noun}`)) {
+      const inner = parseAttachedClause(dtAttached, subject, noun);
+      const gateable = inner && inner.length && inner.every((d) =>
+        (d?.layer === 6 && d?.op?.layerOp === "addKeyword" && !d.op.gate)
+        || (d?.layer === 7 && d?.op?.layerOp === "ptModify"));
+      // ⭐ THE `every(...)` HALF IS LIVE, unlike the your-turn GROUP arm's equivalent — and the case is a
+      // base-P/T SET ("During your turn, equipped creature has base power and toughness 5/5"). That descriptor
+      // is layer-7b with NO `layerOp`, so a stamped gate would not be honoured and the set would apply on
+      // every turn. Refusing it is the only honest answer, and the mutation that drops this check flips that
+      // wording to native-equipment. Pinned in duringYourTurnEquipment.test.js.
+      if (!gateable) { if (slot) slot[slotKey] = []; return []; }
+      for (const d of inner) {
+        out.push(d.op.layerOp === "ptModify"
+          ? { ...d, op: { layerOp: "ptModifyGated", power: d.op.power, toughness: d.op.toughness, gate: { kind: "yourTurn" } } }
+          : { ...d, op: { ...d.op, gate: { kind: "yourTurn" } } });
+      }
+      saw = true;
+      continue;
+    }
     const parsed = c.startsWith(`${subject} ${noun}`) ? parseAttachedClause(c, subject, noun) : null;
     if (!parsed) { if (slot) slot[slotKey] = []; return []; }     // a creature clause we can't fully model
     out.push(...parsed);

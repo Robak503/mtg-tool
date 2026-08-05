@@ -8,6 +8,11 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **"During your turn" equipment works.** Javelin of Lightning, Quick-Draw Katana, Hook Swords, Knife,
+  Hookblade, Jousting Lance and Hexgold Halberd grant their bonus only on your own turn — the simulator
+  didn't understand the timing clause at all, so none of them did anything.
+
 ## [0.154.0] - 2026-08-05
 
 ### Fixed
