@@ -6,6 +6,24 @@
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
+> ## SLICE DONE - 2026-08-05 - **CHAMPION, +6** - batch 14 (post-v0.152.0)
+> Suite 1118 / 13,957 green + lint 0 BY EXIT CODE. `c0f3fb30`. Flip-diff **+6 / 0 / 0** — Thoughtweft Trio,
+> Changeling Berserker/Titan/Hero, Lightning Crafter, Boggart Mob.
+> ⭐ **THE RETURN HALF WAS ALREADY FREE.** `applyExileUntilLeaves` stamps `detainedExile` on the source and
+> checkLeavesTriggers returns it on ANY exit (CR 610.3a) — that IS champion's second sentence. So ONE
+> descriptor is synthesized (enters only) and the exile routes through the shared detain resolver.
+> ⛔ A second LTB descriptor would return the card TWICE. **The link count is pinned at 1** for that reason.
+> **Two things were genuinely new:** the exiled permanent is OWN + CHOSEN (not targeted) so it picks at
+> resolution like populate; and the **sacrifice fallback is MANDATORY** — "sacrifice it UNLESS" means no
+> legal offering forces the sacrifice.
+> ⛔ SELF excluded ("another") or it exiles itself and never returns · ⛔ TOKENS excluded (CR 111.7 — a
+> token that leaves ceases to exist, so exiling one destroys it while the card promises a return).
+> **The three-piece keyword pattern held again** (atom → synthesis+shaped bump → keyword credit); the card
+> only flipped on the third.
+> **4 STALE PINS INVERTED** — three used "Champion a Goblin" as a no-period unmodeled keyword for a
+> strip-anchor test (re-aimed at sunburst); the fourth used it as "not credited for being declinable", and
+> champion crossed that line for the reason the line states — **it is credited because it is ENFORCED.**
+
 > ## SLICE DONE - 2026-08-05 - **INGEST, +8** - batch 8 (post-v0.152.0)
 > Suite 1117 / 13,949 green + lint 0 BY EXIT CODE. `74b69e8c`. Flip-diff **+8 / 0 / 0** — the BFZ processor
 > shell (Benthic Infiltrator, Ruination Guide, Dominator Drone, Culling Drone …).

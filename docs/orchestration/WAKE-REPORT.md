@@ -7,9 +7,9 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+205 this sitting · v0.152.0 PUBLISHED · post-tag batch 8** — suite **1117 / 13,949** green by exit code
+## ☀️ 2026-08-05 — **+211 this sitting · v0.152.0 PUBLISHED · post-tag batch 14** — suite **1118 / 13,957** green by exit code
 
-> ### 🏗 CHAMPION (9 cards) — **DESIGN DONE, seams named. Execute, don't re-derive.**
+> ### ✅ CHAMPION — **SHIPPED (`c0f3fb30`, +6).** Design kept below; it held exactly as written.
 > "Champion a Kithkin *(When this enters, sacrifice it unless you exile another Kithkin you control. When
 > this leaves the battlefield, that card returns to the battlefield.)*" — Thoughtweft Trio, Changeling
 > Berserker, Nova Chaser, Mistbind Clique et al.
