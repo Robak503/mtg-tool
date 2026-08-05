@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.155.0] - 2026-08-05
+
 ### Fixed
 - **"Whenever you discard a card" triggers fire.** Grisly Survivor, Hekma Sentinels, Flameblade Adept,
   Drake Haven, Faith of the Devoted, Curator of Mysteries, Lazotep Chancellor and nine more only ever
