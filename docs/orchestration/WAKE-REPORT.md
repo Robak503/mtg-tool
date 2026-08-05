@@ -7,7 +7,15 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+211 this sitting · v0.152.0 PUBLISHED · post-tag batch 14** — suite **1118 / 13,957** green by exit code
+## ☀️ 2026-08-05 — **+219 this sitting · v0.152.0 PUBLISHED · post-tag batch 22** — suite **1119 / 13,962** green by exit code
+
+> ### ⭐ THE CHECK THAT PAID TWICE TODAY: **when a pin refuses something, test its REASON against the
+> list the pin lives in.** Cipher was refused for "changing the card's disposition" while BUYBACK — same
+> disposition change, same optionality — sat stripped three entries away. The refusal was the
+> inconsistency. Champion crossed the *opposite* line the same day and for the opposite reason (credited
+> because ENFORCED, never for being declinable). **Both calls are now pinned as a PAIR in cipher.test.js**
+> so the next declinability claim has something concrete to test against.
+
 
 > ### ✅ CHAMPION — **SHIPPED (`c0f3fb30`, +6).** Design kept below; it held exactly as written.
 > "Champion a Kithkin *(When this enters, sacrifice it unless you exile another Kithkin you control. When
@@ -43,7 +51,9 @@
 >   every COMPOUND gated effect parks. Largest sub-shape is a **gated QUOTED-ability grant (17)** — but
 >   ⛔ the UNGATED form (`This creature has "<quoted>"`) does not parse either, so that is a BASE gap, not a
 >   gating one. Fix the ungated self quoted-grant first; the gate is already waiting.
-> · Untouched, each a real build: clash (9) · champion (9) · cipher (8) · take the initiative (8, drags in
+> · ✅ champion SHIPPED · ✅ cipher SHIPPED · ⛔ **clash (9) is NOT one cause** — measured: its nine
+>   "if you win" bonuses are nine DIFFERENT unmodeled effects, so modelling clash alone flips nothing.
+> · Untouched, each a real build: take the initiative (8, drags in
 >   the Undercity dungeon) · specialize (6) · double team (5) · sunburst (5) · mana batteries (5).
 
 > ### ✅ **COLTON'S +100-EXTRA ORDER IS COMPLETE at +103** (94 → 197 this sitting).

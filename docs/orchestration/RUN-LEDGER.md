@@ -6,6 +6,26 @@
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
+> ## SLICE DONE - 2026-08-05 - **CIPHER, +8** - batch 22 (post-v0.152.0)
+> Suite 1119 / 13,962 green + lint 0 BY EXIT CODE. `de35235e`. Flip-diff **+8 / 0 / 0** — Paranoid
+> Delusions, Last Thoughts, Midnight Recovery, Whispering Madness, Shadow Slice …
+> ⭐ **CREDITED ON THE UNTAKEN-OPTION CRITERION, CLAUSE BY CLAUSE** (optionalModeKeywords' own words):
+> declining leaves a complete legal play · the unpaid state changes NOTHING on the board · the reminder
+> hides no mandatory rider (**verified** — detectTriggers returns ZERO, so no phantom descriptor) · the
+> carriers have real mana costs, the exact point SUSPEND was refused on.
+> ⛔ **OVERTURNS 3 PRIOR PINS, and only because they contradicted a precedent in their OWN list.** They
+> refused cipher for "changing the card's disposition" — true, and equally true of **BUYBACK** ("to your
+> hand instead of the graveyard"), stripped all along because the engine never PAYS it. Measured both:
+> **buyback HIGH, cipher HIGH, identical reasoning.** The inconsistency was the refusal, not the fix.
+> ⓘ That same comment block still named `conspire` and `learn` as unstripped; both have since been
+> modeled — **the note had drifted twice before I touched it.**
+> **TWO HALVES, one alone bought NOTHING:** the coverage keyword credit measured **GAINED 0** by itself
+> (every carrier is an instant/sorcery → effect-program path); the CAST_KEYWORD_LINE strip is what flips
+> them. Both kept — the credit covers the permanent-residue side.
+> ⭐ cipher.test.js pins **CHAMPION on the OTHER side of this criterion** — both are "you may", credited
+> for OPPOSITE reasons (champion's unpaid state SACRIFICES). A future declinability claim has a concrete
+> pair to test against.
+
 > ## SLICE DONE - 2026-08-05 - **CHAMPION, +6** - batch 14 (post-v0.152.0)
 > Suite 1118 / 13,957 green + lint 0 BY EXIT CODE. `c0f3fb30`. Flip-diff **+6 / 0 / 0** — Thoughtweft Trio,
 > Changeling Berserker/Titan/Hero, Lightning Crafter, Boggart Mob.
