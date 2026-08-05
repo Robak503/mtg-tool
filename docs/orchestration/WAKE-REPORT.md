@@ -9,6 +9,23 @@
 
 ## ☀️ 2026-08-04 — **+94 this sitting · v0.151.0 SHIPPED · post-tag batch 27** — suite **1108 / 13,881** green by exit code
 
+> ### 🛑 MEASURED: **THE CORPUS'S CHEAP VEINS ARE EXHAUSTED.** Three scoping probes, three decisive zeros.
+> Run these before proposing any "big family" build — each one killed a build that looked obviously worth it:
+> · **Composition failures across every parked instant/sorcery: `1`.** Scanned 4,782 arbiter-spells for the
+>   shape that paid all night (every clause parses ALONE, whole program empty). The single hit is **Witch's
+>   Mark — the card already built, measured and REVERTED today**. The parser-assembly vein is *provably*
+>   dry; there is no second referent-chain waiting.
+> · **Class enchantments (38 parked, 0 native): payoff `0`.** Modeling the whole level-up mechanic flips
+>   NOTHING — every one of the 38 has band abilities that are *also* unmodeled. The payoff sits behind a
+>   second wall.
+> · **"That player shuffles" (63 carriers): sole-blocked `0`.** Every carrier is also blocked by its
+>   opponent-library search/exile.
+> **What this means for the next seat:** remaining parked cards are each blocked by their OWN mechanic, and
+> the census confirms the shape — ~11.3k sole-blocked cards spread so thin that the LARGEST single signature
+> is **4 cards**. Corpus grinding is now ≈1–4 cards per real build, not per slice.
+> **The honest recommendation, unchanged from the 08-04 shelf measurement above: work the SHELF, not the
+> census.** Corpus work has been measured moving Colton's decks by ZERO.
+
 > ### ✅ SHIPPED (`fd7392db`, +2): **the Glimmer dies-trigger "needed a keyword line"** — a classifier bug
 > Kept in full because the DIAGNOSTIC PATTERN is the reusable part, not the card fact. The repro that
 > exposed it, which contradicts itself on its face:
