@@ -421,6 +421,13 @@ function parseSelfCountSource(phrase) {
   // controller's battlefield (Conqueror's Flail "+1/+1 for each color among permanents you control",
   // CR — a colorless permanent contributes no color). layers.countSelfSpecOnBoard evaluates the Set size.
   if (/^colors? among permanents you control$/.test(p)) return { kind: "colorsAmongPermanents" };
+  // AURAS ATTACHED TO THIS CREATURE (Kor Spiritdancer, Graceblade Artisan). ⭐ THE EVALUATOR IS THE COUNT
+  // TWIN OF A PREDICATE THAT ALREADY SHIPPED: layers.gateMet's `isEnchanted` gate has always asked "is any
+  // Aura on any battlefield attached to perm.id"; countSelfSpecOnBoard's new arm asks the same question and
+  // tallies instead of short-circuiting. So this reads live `attachedTo` back-pointer state the runtime
+  // already maintains — exact, never inferred, and a creature wearing nothing counts the printed 0.
+  // Self-referential, hence the layer-7c "for each" lane rather than a CDA: it ADDS to the printed body.
+  if (/^aura attached to (?:it|this creature)$/.test(p)) return { kind: "aurasAttachedToSelf" };
   // SUBTYPE on the battlefield (ALL controllers, no "you control") — "(other )?<Subtype> on the battlefield"
   // (Sliver Legion "for each other Sliver on the battlefield"). "other" → excludeSelf (each counter excludes
   // itself). A LIVE board count (never zero-by-default) — so it's non-hollow, unlike a "counter on this

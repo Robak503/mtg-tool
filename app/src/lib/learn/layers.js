@@ -189,6 +189,21 @@ function countSelfSpecOnBoard(state, perm, spec) {
     }
     return n;
   }
+  // AURAS ATTACHED TO THE COUNTING PERMANENT (Kor Spiritdancer / Graceblade Artisan "gets +2/+2 for each
+  // Aura attached to it"). The COUNT twin of the `isEnchanted` gate above — literally the same predicate
+  // (`attachedTo === perm.id` plus an Aura type-line test, over EVERY player's battlefield) with `some`
+  // swapped for a tally. All players, because an opponent's Aura attached to my creature still counts: the
+  // clause says "attached to it", not "you control". An EXACT read of live back-pointer state, so a creature
+  // wearing nothing contributes the printed 0 and never a fabricated number.
+  if (spec.kind === "aurasAttachedToSelf") {
+    let n = 0;
+    for (const pid of Object.keys(state?.players || {})) {
+      for (const p of state.players[pid]?.battlefield || []) {
+        if (p.attachedTo === perm.id && /\baura\b/i.test(p.card?.type || "")) n += 1;
+      }
+    }
+    return n;
+  }
   if (spec.kind === "subtypeOnBattlefield") {
     const needle = spec.subtype;
     if (!needle) return 0;
