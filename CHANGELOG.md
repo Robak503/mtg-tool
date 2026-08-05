@@ -46,6 +46,24 @@ summarizes the notable changes.
   of the bounced permanent, the controller of the countered spell, or the player who was just dealt
   damage. Compelling Deterrence's "if you control a Zombie" condition is honored (no Zombie, no
   discard), and a stolen permanent goes home to its real owner, who does the discarding.
+- **Voltron creatures know how big they are.** Any creature that grows with what's attached to it now
+  plays at its real size — Uril the Miststalker, Kor Spiritdancer, Champion of the Flame, Goblin
+  Gaveleer, Loxodon Punisher, Myr Adapter, Rabid Wombat, Graceblade Artisan, Gatherer of Graces and
+  Golem-Skin Gauntlets. Auras an opponent put on your creature count too, exactly as the card reads.
+- **Creatures that scale off your hand and graveyard work.** Empyrial Armor, Empyrial Plate, All That
+  Glitters, Liliana's Elite, Wight of the Reliquary, Salvage Slasher, Madame Hydra, Nettlecyst and
+  Benalish Honor Guard now read the right pile — and so do the drawback creatures that get SMALLER as
+  your hand fills (Dread Slag, Grim Strider, Stingerback Terror, Geralf's Masterpiece).
+- **The Phyrexian oil creatures come down alive.** Necrosquito, Trawler Drake, Evolving Adaptive and
+  Exuberant Fuseling are printed 0/0s whose whole body is their oil counters. They now enter at the
+  right size and grow as counters land.
+
+### Fixed
+- **Auras you put on an OPPONENT's creature now count YOUR permanents.** "For each Swamp you control"
+  on an Aura meant the enchanted creature's controller, not yours — so Quag Sickness, the removal Aura
+  you play on someone else's creature, was counting THEIR Swamps and doing nothing at all. Same bug on
+  Blanchwood Armor, Sigil of the Nayan Gods, Raised by Wolves, Cranial Plating, Pennon Blade and
+  Blackblade Reforged. Auras and Equipment on your own creatures were never affected.
 
 ## [0.150.1] - 2026-08-02
 

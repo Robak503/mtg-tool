@@ -3,6 +3,59 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🏷 BATCH CLOSED AT 100 - 2026-08-04 — **tagging v0.151.0**
+> Colton's cadence rule (batch ~100 engine cards, then ONE tag) is met: **batch 71 → 100** across six
+> slices this block. CHANGELOG updated with the four user-facing entries (Voltron sizes · hand/graveyard
+> scalers · the oil cycle · the opponent's-Aura fix). Version syncs from the tag at build time — no source
+> bump needed, same as v0.150.1.
+
+> ## SLICE DONE - 2026-08-04 - **Counters-on-self counts, +5** - batch 100
+> Suite 1106 / 13,847 green + lint 0 BY EXIT CODE. `64b87002`. Flip-diff **+5 / 0 / 0** — the Phyrexian
+> oil cycle (Necrosquito · Trawler Drake · Evolving Adaptive · Exuberant Fuseling) + Earthen Goo. These are
+> printed **0/0 bodies** whose whole size is the counter line.
+> ⚠️ Reads the **AFFECTED** permanent, NOT `countersOnSource` — the same distinction that produced today's
+> FP. On a granted buff ("Enchanted creature gets +1/+1 for each oil counter on IT") "it" is the HOST.
+> ⭐ **No counter-kind allowlist, and that is the whole-card law doing its job, not an omission:** if the
+> line that PLACES the counters is unmodeled it is residue and the card parks anyway. Driven through the
+> REAL `enterPermanent`: Necrosquito lands `{oil: 2}` → derives 2/2.
+> ⛔ +1/+1 / -1/-1 excluded — `counterPtDelta` already applies them. **Measured** under a true mutant: a 0/0
+> with three +1/+1 counters derived **6/6** where CR gives 3/3.
+> ⚠️ **THE FIRST MUTANT WAS HOLLOW AND PASSED.** It widened the class to allow a leading sign but left `+`
+> out of the MIDDLE, so "+1/+1" never matched and the pin stayed green — reading as "not load-bearing".
+> **Confirming a mutation APPLIED is not enough; confirm it applied TO THE CASE UNDER TEST.**
+> ⓘ Earthen Goo rides a PRE-EXISTING keyword simplification (cumulative upkeep is already `isKeywordOnly`;
+> a plain cumulative-upkeep vanilla is ALREADY native-body). Flagged, not quietly booked — its second line
+> does nothing.
+
+> ## SLICE DONE - 2026-08-04 - **Multi-needle type-line counts, +3** - batch 95
+> Suite 1105 / 13,839 green + lint 0 BY EXIT CODE. `beecae32`. Flip-diff **+3 / 0 / 0** — Nettlecyst ·
+> Benalish Honor Guard · All That Glitters. The scan took exactly ONE needle, so a supertype qualifier
+> ("legendary creature") and a union ("artifact and/or enchantment") were both inexpressible.
+> **Benalish Honor Guard is named in `parseSelfCountSource`'s OWN doc comment** as a shape that lane was
+> written for — and it had been parking the whole time.
+> ⭐ Each permanent counts **at most once**: an artifact-enchantment contributes 1, not 2. Summing two
+> counts is the plausible wrong build, so it has its own driven row.
+> Mutation: AND join weakened to `some` → both half-match guards red.
+
+> ## SLICE DONE - 2026-08-04 - **Zone counts + the controller-perspective fix, +10** - batch 92
+> Suite 1104 / 13,830 green + lint 0 BY EXIT CODE. `7ed833ed`. Flip-diff **+10 / 0 / 0**.
+> **Half one — two vocabularies and two evaluators that should have been one pair.** `countForSpec` owns
+> the ZONE kinds and delegates everything else to `countSelfSpecOnBoard`; the CDA lane called the
+> dispatcher, the self-buff lane called the DELEGATE — a strict subset. Exact evaluators that already
+> shipped were unreachable no matter what the vocabulary said. Admitted on the **CDA allowlist's own
+> evidence, a STRICTLY STRONGER bar** (a CDA *sets* base P/T; a 7c buff only adds).
+> **Half two — ⛔ "YOUR" IS THE SOURCE'S CONTROLLER (CR 109.5), AND IT WASN'T.** The count read the BUFFED
+> creature's controller. On a self-buff those are one permanent, so nothing ever looked wrong. On an
+> Aura/Equipment they diverge — and **QUAG SICKNESS**, a removal Aura whose entire purpose is to sit on an
+> OPPONENT'S creature, was counting the opponent's Swamps and doing nothing.
+> ⚠️ **THIS BUG WAS ALREADY ON MASTER on a dozen-plus cards** (Blanchwood Armor, Sigil of the Nayan Gods,
+> Raised by Wolves, Cranial Plating, Pennon Blade, Blackblade Reforged). It surfaced only because Empyrial
+> Armor joined them and got DRIVEN. **Fixed before the new cards shipped**, rather than adding a
+> thirteenth carrier of a known-wrong branch and booking it as a gain.
+> ⭐ **TWO STALE PINS INVERTED IN PLACE, guard job preserved** — both used Geralf's Masterpiece as their
+> "unmodeled sibling" fixture *because* its hand-scaled static was unmodeled. Re-aimed at a still-unmodeled
+> static, Geralf's re-pinned at its new answer. **The full-suite gate is what caught them.**
+
 > ## SLICE DONE - 2026-08-04 - **Equipment + combined attached-counts, +5 — and a MEASURED FP** - batch 82
 > Suite 1103 files / 13,820 green + lint 0 BY EXIT CODE. `3a868e43`. Flip-diff **+5 / 0 / 0** after the
 > fix — Golem-Skin Gauntlets · Myr Adapter · Goblin Gaveleer · Champion of the Flame · Loxodon Punisher.

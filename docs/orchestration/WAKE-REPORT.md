@@ -7,7 +7,56 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-04 — **+49 this sitting · batch 82** — suite **1103 / 13,820** green by exit code · master green
+## ☀️ 2026-08-04 — **+67 this sitting · BATCH 100 → TAGGED v0.151.0** — suite **1106 / 13,847** green by exit code
+
+> ### 🏷 THE BATCH RULE FIRED. Colton's cadence (≈100 engine cards, then ONE tag) is met — batch 71 → 100.
+> Six slices this block, all on the **count-source seam**: ripple · Aura attached-count · Equipment and
+> combined siblings · zone (hand/graveyard) counts · multi-needle type-line counts · counters-on-self.
+> CHANGELOG carries four user-facing entries. Version syncs from the tag at build time; no source bump.
+
+> ### ⛔ CORRECTION 30 — **A MUTANT CAN PASS BECAUSE IT NEVER TOUCHED THE CASE UNDER TEST**
+> The double-count guard on counters-on-self was mutated and the suite **stayed green**, which reads as
+> "this line isn't load-bearing — delete it". It was load-bearing. The mutant widened a character class to
+> allow a leading `+` but left `+` out of the MIDDLE of the class, so `"+1/+1"` still failed to match and
+> the guarded case never ran. Re-run with a mutant that genuinely admits it, the card flips to
+> native-static and the pin goes red — and the underlying bug is real: a printed 0/0 carrying three +1/+1
+> counters derives **6/6** where CR gives **3/3**.
+> **This extends correction 22, it does not repeat it.** 22 says *confirm the mutation APPLIED*. 30 says
+> *confirm it applied TO THE CASE UNDER TEST* — grep proving the line changed is necessary and NOT
+> sufficient. Cheapest check: assert the mutant's own behaviour once (here, `classifyCard(...)` under the
+> mutant) before reading the suite result. Twice today a mutation silently applied nothing at all
+> (shell escaping); this is the third variant of the same family and the subtlest.
+
+> ### ⛔ CORRECTION 29 — **A CLEAN FLIP-DIFF HID TWO WRONG CARDS. The whole-card audit is what caught them.**
+> The attached-permanent count slice (`3a868e43`) first measured **GAINED 7 · LOST 0 · RETIERED 0** and
+> **two of those seven were FALSE POSITIVES.** Nothing in the diff said so. Reading each gained row's whole
+> card did.
+> **The shape, because it will recur.** The count evaluator reads the **AFFECTED** permanent — which is
+> exactly what makes an Equipment's *"EQUIPPED CREATURE gets +1/+0 for each Equipment attached to IT"*
+> resolve against the host. In a self-buff the affected **is** the source, so it's exact. But a **GROUP
+> ANTHEM names its source explicitly**, and the card name is normalized to `"this creature"` upstream — so
+> *"Other Kor creatures you control get +2/+2 for each Equipment attached to **this creature**"* (Armament
+> Master; Kellan, the Fae-Blooded) **arrives looking self-referential.** There source ≠ affected, and
+> counting the affected **inverts the card**. Measured wrong in BOTH directions:
+> two Equipment on the MASTER → the Kor read **2/2, correct 6/6**; two on the KOR → read **6/6, correct 2/2**.
+> **The rule to carry forward: when a count phrase can name either the source or the affected permanent,
+> the pronoun is load-bearing.** Accept `"attached to it"` only; `"this creature"` is a source reference in
+> disguise. Cost of the fix: zero — every genuine carrier prints "it".
+> ⚠️ The Aura arm pushed one commit earlier (`325c8cfd`) carried the **same latent phrasing**. It admitted
+> no group anthem in practice — re-measuring without it showed **LOST 0** against that build, which is the
+> proof nothing wrong reached master — but the hazard was live. Closed before the siblings fired it.
+
+> ### 🐞 A REAL BUG THAT HAD BEEN ON MASTER FOR A LONG TIME, found only by driving a NEW card
+> **"For each X you control" on an Aura/Equipment read the HOST's controller, not the granter's** (CR
+> 109.5). Invisible on your own creatures — and **QUAG SICKNESS is a removal Aura whose entire purpose is
+> to sit on an OPPONENT'S creature.** It was counting the opponent's Swamps and doing nothing at all.
+> A dozen-plus carriers (Blanchwood Armor, Sigil of the Nayan Gods, Raised by Wolves, Cranial Plating,
+> Pennon Blade, Blackblade Reforged). It surfaced ONLY because Empyrial Armor joined the family and got a
+> law-6 drive. **Fixed BEFORE the new cards were allowed to ship**, rather than booking a thirteenth
+> carrier of a known-wrong branch as a gain.
+> **The transferable lesson: a bug that is invisible in the common case is found by driving the UNCOMMON
+> one.** The same-controller rows were green throughout and stayed green after the fix — which is exactly
+> why nobody had caught it. When a granted effect says "you", drive it cross-controller.
 
 > ### ⛔ CORRECTION 29 — **A CLEAN FLIP-DIFF HID TWO WRONG CARDS. The whole-card audit is what caught them.**
 > The attached-permanent count slice (`3a868e43`) first measured **GAINED 7 · LOST 0 · RETIERED 0** and
