@@ -1062,13 +1062,24 @@ export function applyChosenTypeRevealToHand(state, atom, ctx) {
   if (revealed.length === 0) {
     return logEvent(state, { kind: "spell-effect", effect: "chosen-type-reveal-to-hand", controller, count: 0, chosenType: null, put: 0, rest: 0 });
   }
-  const counts = new Map();
-  for (const c of revealed) {
-    if (hasKeyword(c, "changeling")) continue; // counted implicitly by cardHasChosenType below for every type; don't double-weight one type over another
-    for (const t of creatureSubtypesOfCard(c)) counts.set(t, (counts.get(t) || 0) + 1);
+  // ⭐ FIXED-TYPE VARIANT (Goblin Ringleader, Grave Defiler, Kavu Howler — "…put all GOBLIN cards revealed
+  // this way into your hand and the rest on the bottom of your library in any order"). The card NAMES the
+  // type instead of choosing one, so there is no pick to make: everything below — the reveal, the
+  // eligibility test, the move-to-hand, the bottom-the-rest — is identical, and `cardHasChosenType` is the
+  // same changeling-aware test either way. Only the SOURCE of the type differs, which is why this rides the
+  // existing resolver rather than duplicating it.
+  let chosenType = null;
+  if (atom.fixedType) {
+    chosenType = String(atom.fixedType);
+  } else {
+    const counts = new Map();
+    for (const c of revealed) {
+      if (hasKeyword(c, "changeling")) continue; // counted implicitly by cardHasChosenType below for every type; don't double-weight one type over another
+      for (const t of creatureSubtypesOfCard(c)) counts.set(t, (counts.get(t) || 0) + 1);
+    }
+    let best = 0;
+    for (const [t, ct] of counts) if (ct > best) { chosenType = t; best = ct; }
   }
-  let chosenType = null, best = 0;
-  for (const [t, ct] of counts) if (ct > best) { chosenType = t; best = ct; }
   const eligibleIds = new Set(revealed.filter((c) => cardHasChosenType(c, chosenType)).map((c) => c.id));
   let next = state;
   let put = 0;

@@ -616,6 +616,43 @@ export function matchChosenTypeRevealToHand(oracle) {
 }
 
 /**
+ * ⭐ FIXED-TYPE REVEAL TO HAND (Goblin Ringleader, Grave Defiler, Kavu Howler, Bloodline Pretender's kin):
+ * "Reveal the top four cards of your library. Put all Goblin cards revealed this way into your hand and the
+ * rest on the bottom of your library in any order."
+ *
+ * The NAMED-TYPE twin of matchChosenTypeRevealToHand directly above — and it rides that resolver rather
+ * than a new one, because the card names the type instead of choosing it. Everything the resolver does is
+ * identical (reveal the top N, move every match to hand, bottom the rest); only the SOURCE of the type
+ * differs, so the atom carries `fixedType` and the resolver skips its maximizing pick. `cardHasChosenType`
+ * is the same changeling-aware eligibility test either way, so a Changeling in the revealed cards is taken
+ * for any named type — which is correct (CR 702.73a).
+ *
+ * ⛔ "IN ANY ORDER" IS RESOLVED AS THE RANDOM BOTTOMING THE RESOLVER ALREADY DOES, and that is faithful
+ * rather than a shortcut: the rest go to the BOTTOM of the library either way, and the controller's choice
+ * of order among cards they cannot see again before drawing them is not an observable difference. The
+ * chosen-type twin prints "in a random order" and shares the same path.
+ *
+ * Whole-string anchored (optional trailing period) so any rider or variant leaves residue and the normal
+ * pipeline drops it to LOW → Arbiter, never a partial.
+ */
+export function matchFixedTypeRevealToHand(oracle) {
+  const m = String(oracle).match(
+    /^reveal the top (\w+) cards of your library\. put all ([a-z][a-z' -]*?) cards revealed this way into your hand and the rest on the bottom of your library in (?:any|a random) order\.?\s*/i,
+  );
+  if (!m) return null;
+  const n = NUM_WORD[m[1].toLowerCase()] ?? parseInt(m[1], 10);
+  if (!Number.isFinite(n)) return null; // an un-parseable count word → safe FN, never a fabricated amount
+  const type = m[2].trim();
+  if (!type) return null;
+  // Capitalized to match the subtype casing creatureSubtypesOfCard / cardHasChosenType read off a type line.
+  const fixedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+  return {
+    atom: { op: "chosen-type-reveal-to-hand", amount: n, fixedType, targetType: null },
+    rest: oracle.slice(m[0].length).trim(),
+  };
+}
+
+/**
  * Parse a card into an EffectProgram, or null.
  *
  * Returns null ONLY when the card is NOT an instant/sorcery with oracle text
