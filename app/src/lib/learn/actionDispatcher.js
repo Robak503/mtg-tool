@@ -381,7 +381,14 @@ function applyCastSpell(state, action) {
         }
         working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: cid });
         // A discard paid as a COST is still a discard (CR 701.9a) — Liliana's Caress does not care why.
-        checkDiscardTriggers(working, action.playerId, 1);
+        // ⛔⛔ THE ASSIGNMENT IS THE WHOLE POINT, AND IT WAS MISSING AT ALL SIX DISPATCHER SITES UNTIL
+        // 2026-08-05. checkDiscardTriggers is PURE — it returns a new state with the fired triggers appended
+        // to pendingTriggers. Called as a bare statement, its result was thrown away, so **every discard that
+        // goes through the dispatcher fired nothing**: both additional-cost discards, the activated-ability
+        // discard cost, cycling, and the alt-cost path. Liliana's Caress / Megrim / Raiders' Wake read native
+        // and did nothing on the most common discard routes in the game. Every OTHER call site in the
+        // codebase already assigned the result, which is what made the omission invisible.
+        working = checkDiscardTriggers(working, action.playerId, 1);
       }
     } else if (ac.kind === "discard") {
       if (!action.discardCardId) throw new DispatcherError("Spell requires an additional discard cost but no card was chosen", "ADDCOST_UNPAID");
@@ -389,7 +396,7 @@ function applyCastSpell(state, action) {
         throw new DispatcherError(`Discard card ${action.discardCardId} not in hand`, "CARD_NOT_IN_HAND");
       }
       working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.discardCardId });
-      checkDiscardTriggers(working, action.playerId, 1);
+      working = checkDiscardTriggers(working, action.playerId, 1);
     } else if (ac.kind === "exileFromGraveyard" && (ac.count ?? 1) > 1) {
       // ADDCOST-3b (count-of-N) — exile EACH of the N frozen graveyard cards. A short or missing list is an
       // upstream bug: THROW rather than cast having exiled fewer than N (paying N-1 is the cardinal FP).
@@ -868,7 +875,7 @@ function applyActivateGyRecursion(state, action) {
     const inHand = (working.players[action.playerId]?.hand || []).some((c) => c.id === did);
     if (!inHand) throw new DispatcherError(`Discard victim ${did} not in hand`, "COST_UNPAYABLE");
     working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: did });
-    checkDiscardTriggers(working, action.playerId, 1);
+    working = checkDiscardTriggers(working, action.playerId, 1);
   }
   // GR-2 — the exile-from-graveyard cost rider. Same re-verification posture as the discard loop above:
   // the victim must still be in the graveyard at dispatch, and it must not be the card being returned.
@@ -1071,7 +1078,7 @@ function applyActivateAbility(state, action) {
     const inHand = (working.players[action.playerId]?.hand || []).some((c) => c.id === action.discardCardId);
     if (!inHand) throw new DispatcherError(`Discard-cost card ${action.discardCardId} not in hand`, "CARD_NOT_FOUND");
     working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.discardCardId });
-    checkDiscardTriggers(working, action.playerId, 1);
+    working = checkDiscardTriggers(working, action.playerId, 1);
   }
   if (action.sacSelf) working = sacrificePermanentForCost(working, action.playerId, perm);
   if (action.sacCreatureId) {
@@ -1250,7 +1257,7 @@ function applyCycle(state, action) {
 
   // Pay the DISCARD part of the cost — the card itself, hand → graveyard.
   working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.cardId });
-  checkDiscardTriggers(working, action.playerId, 1);
+  working = checkDiscardTriggers(working, action.playerId, 1);
 
   // Put "Draw a card" on the stack — resolves via the EffectProgram interpreter (a draw-1 atom).
   const program = { version: 1, source: "cycling", confidence: "high", structure: "sequence", atoms: [{ op: "draw", amount: 1, targetType: null }], modal: null, xSpell: false, unparsedTail: null };
@@ -1298,7 +1305,7 @@ function applyDiscardAbility(state, action) {
   let working = commitPaymentPlan(state, action.playerId, plan);
 
   working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.cardId });
-  checkDiscardTriggers(working, action.playerId, 1);
+  working = checkDiscardTriggers(working, action.playerId, 1);
 
   const { id: stkId, state: working2 } = mintId(working, "stk");
   const stackObject = createStackObject({

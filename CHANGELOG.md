@@ -8,6 +8,12 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **Discard triggers fire on cycling and on discards paid as a cost.** Liliana's Caress, Megrim, Raiders'
+  Wake and every "whenever you/an opponent discards a card" card were silently doing nothing whenever the
+  discard came from cycling, an additional cost, or an ability's cost — the most common ways cards get
+  discarded. They now fire as printed.
+
 ## [0.155.0] - 2026-08-05
 
 ### Fixed

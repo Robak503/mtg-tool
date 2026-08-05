@@ -9,7 +9,19 @@
 
 ## ☀️ 2026-08-05 — **+489 this sitting · 🏷 v0.154.0 PUBLISHED · post-tag batch 100 → 🏷 TAG DUE** — suite **1156 / 14,181** green by exit code
 
-> ### 🏷 BATCH 100 — cut v0.155.0 at the next clean slice boundary. All of it is on master and CI-green.
+> ### ⛔⛔ THE FIND OF THE DAY: **a PURE function called as a STATEMENT is a silent no-op**
+> `checkDiscardTriggers` returns a new state with the fired triggers appended. All six DISPATCHER call sites
+> invoked it bare and dropped the result, so every additional-cost discard, the activated-ability discard
+> cost, **cycling**, and the alt-cost path fired **nothing** — Liliana's Caress and the whole
+> opponent-discard family read native and did nothing on the commonest discard routes in the game.
+> Every OTHER caller in the codebase already assigned it, which is precisely what hid it.
+> **Grep for bare `check*Triggers(` / any pure helper called as a statement.** (Swept: none left.)
+> ⚠️ **AND THE SEAM HAD NO TEST.** Trigger machinery green, dispatcher green, nobody drove one through the
+> other. Its signature — `total: 0` with `cardInGraveyard: true` — is what a dropped return looks like from
+> outside: the state change lands, the consequence doesn't. **When two subsystems are each well-tested, test
+> the CALL between them.**
+
+> ### 🏷 v0.155.0 TAGGED (batch 100) — release workflow running; verify assets before claiming it shipped.
 
 > ### ⚠️⚠️ I SIZED THE DISCARD BUILD WRONG — **read the fire site before you size the build**
 > The entry below called it a 12-site plumbing job needing a new chokepoint, and I nearly deferred it as a

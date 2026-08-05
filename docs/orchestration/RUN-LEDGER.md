@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **⛔⛔ LIVE BUG: EVERY DISPATCHER DISCARD FIRED NOTHING** - +0 coverage, real gap closed
+> Suite 1157 / 14,182 green + lint 0 BY EXIT CODE. Flip-diff **0 / 0 / 0** — and it makes the whole discard
+> family actually work.
+> ⛔⛔ **`checkDiscardTriggers` IS PURE, AND ALL SIX DISPATCHER SITES CALLED IT AS A BARE STATEMENT.** The
+> returned state — the one carrying the fired triggers — was thrown away. So the additional-cost discard
+> (single and N-card loop), the activated-ability discard cost, **CYCLING**, and the alt-cost path all moved
+> the card to the graveyard and fired **NOTHING**. Liliana's Caress, Megrim, Raiders' Wake, Fell Specter and
+> every "whenever an opponent discards" card read native and did nothing on the most common discard routes in
+> the game — **and the +16 self-discard slice I shipped an hour earlier inherited the same deadness.**
+> ⭐ **EVERY OTHER CALL SITE ALREADY ASSIGNED THE RESULT** (connive, both hand atoms, the iterated edict,
+> both runProgram paths). That is exactly what hid it: the function was right, most callers were right, and
+> the six that weren't looked identical to the ones that were. **A pure function called as a statement is a
+> silent no-op.** Swept the codebase for other bare `check*Triggers(` calls — none.
+> ⛔ **NOTHING IN THE SUITE COVERED THE SEAM.** The trigger machinery has its own tests, the dispatcher has
+> its own tests, and nobody drove a dispatcher-driven discard END TO END. A 6-site omission survived because
+> both sides were independently green. **The new pin drives `dispatchAction({kind:"cycle"})` and reads
+> pendingTriggers.**
+> ⚠️ **THE BUG'S SIGNATURE IS `total: 0` WITH `cardInGraveyard: true`** — the zone change was always correct,
+> which is why no existing assertion noticed. The MUTJJ mutant reproduces exactly that row.
+> ⓘ Found while SIZING the next slice, not by a failing test. Reading the fire site before building is what
+> surfaced it — the same habit that corrected yesterday's 12-site mis-sizing.
+
 > ## SLICE DONE - 2026-08-05 - **SELF-DISCARD TRIGGER — one word in a loop header, +16** - post-v0.154.0 batch 100
 > Suite 1156 / 14,181 green + lint 0 BY EXIT CODE. Flip-diff **+16 / 0 / 0** — Grisly Survivor, Hekma
 > Sentinels, Ruthless Sniper, Curator of Mysteries, Drake Haven, Faith of the Devoted, Flameblade Adept,
