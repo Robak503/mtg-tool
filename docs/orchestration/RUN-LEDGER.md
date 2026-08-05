@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🚫 NOT BUILT - 2026-08-05 - **"ANY NUMBER of target cards from your graveyard"** — the cap makes it an FP
+> Footbottom Feast, Bone Harvest, Forever Young, Gravepurge, Frantic Salvage — **5 carriers, 0 native.**
+> Probed properly rather than assumed, and it is a REFUSAL with arithmetic behind it:
+> ✅ The atom shape EXISTS (`maxTargets`/`minTargets`), and `targetSubsets` clamps `hi = min(maxTargets, n)`
+> — so unlike the Squadron Hawk library-search refusal, "any number" IS expressible here: the graveyard is a
+> PUBLIC, FINITE zone, so the bound is derivable rather than fabricated. That part is fine.
+> ⛔ **THE BLOCKER IS `MAX_CAST_EXPANSIONS = 64`.** Choosing "any number" from a graveyard enumerates the
+> POWER SET: **2ⁿ subsets. Seven matching cards = 128 options — already double the cap**, and seven creature
+> cards in a Commander graveyard is an ordinary turn-six board. Past the cap the option list is TRUNCATED, so
+> the player silently cannot choose some legal subsets while the metric calls the card fully modelled.
+> **That is an over-claim, not a safe FN** — the runtime would be quietly worse than the card.
+> ℹ The existing multi-target atoms tolerate this cap because they are bounded ("up to 3" → at most a handful
+> of combos). **"Any number" is qualitatively different: it blows the cap in normal play, by design.**
+> ⏭ **TO BUILD IT HONESTLY** the chooser needs a non-enumerating path for unbounded subsets (pick-N-then-stop,
+> or a per-card toggle) rather than materialising the power set. Then all 5 land at once.
+
 > ## SLICE DONE - 2026-08-05 - **GY → OWN LIBRARY BOTTOM (wording split), +4** - batch 29 (post-v0.153.0)
 > Suite 1134 / 14,035 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Barkform Harvester, Epitaph
 > Golem, Tomb Trawler, Transplant Theorist.
