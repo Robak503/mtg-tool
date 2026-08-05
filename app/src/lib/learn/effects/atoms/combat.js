@@ -79,7 +79,11 @@ export function applyTapEffect(state, atom, ctx, tap) {
       : wantsBasicLand ? (isLand && /\bbasic\b/i.test(tl))
       : wantsLand ? isLand : wantsPermanent ? true : t.type === "creature";
     if (!ok) continue;
-    next = tap ? tapPermanent(next, t.id) : untapPermanent(next, t.id);
+    // ⭐ LOCK-ONLY (Barl's Cage / Elvish Hunter / House Guildmage — "Target creature doesn't untap during its
+    // controller's next untap step", no tap): the atom rides the tap op for its targeting and side-choosing,
+    // but must NOT change the target's tapped state. Skipping the mutation here leaves the riders below —
+    // which is the entire effect — to run on their own.
+    if (!atom?.lockOnly) next = tap ? tapPermanent(next, t.id) : untapPermanent(next, t.id);
     if (tap && atom?.lockActivated) {
       next = addContinuousEffect(next, {
         layer: 6,
@@ -1073,6 +1077,26 @@ export function combatKeywordClauseParser(clause) {
   const tapLockM = t.match(/^tap target creature(?:\s+(an opponent controls|you don't control|defending player controls))? and it doesn't untap during its controller's next untap step$/);
   if (tapLockM) {
     return { op: "tap", targetType: "creature", restrictions: tapLockM[1] ? [{ kind: "controller", who: "opponent" }] : [], noUntapNext: true };
+  }
+  // ⭐ BARE NO-UNTAP LOCKDOWN (CR 302.6) — "Target creature|permanent doesn't untap during its controller's
+  // next untap step." with NO tap of its own: Elvish Hunter, Barl's Cage, Sleeper Dart, House Guildmage,
+  // Fifty Feet of Rope, Ajani Vengeant's +1.
+  // ⛔ BUILT ENGINE, NO IGNITION. `noUntapNext` and its runtime (setDoesNotUntapNext → untapAll skips exactly
+  // one untap step and self-clears) have been live since Junk Winder — but ONLY ever as a rider folded onto a
+  // tap atom, and the two matchers above REQUIRE the tap ("The rider is REQUIRED ($ anchor)"). The standalone
+  // sentence had no atom at all, so a card whose whole ability is this line parked with the mechanism it
+  // needed already working two lines away.
+  // ⭐ `lockOnly` reuses the tap atom rather than minting an op: the targeting, the enemy-side chooser
+  // (programQueries/stack "tap" → enemy), the live target-type verification, and the restriction set are all
+  // exactly right for this clause. A new op would have to re-derive every one of them.
+  // ⛔ IT DOES NOT TAP, and that is the whole point of the flag — these cards lock an UNTAPPED creature down
+  // (Barl's Cage is a repeatable soft-Pacifism, not a tapper). applyTapEffect skips the tap/untap mutation on
+  // `lockOnly` and applies the lockdown rider alone.
+  // ⛔ WHOLE-CLAUSE ANCHORED ($) like its two siblings: a conditional or "up to one target" variant falls
+  // through → low → Arbiter (CREED). Restrictions stay empty — no corpus carrier of the bare form prints one.
+  const bareLockM = t.match(/^target (creature|permanent) doesn't untap during its controller's next untap step$/);
+  if (bareLockM) {
+    return { op: "tap", targetType: bareLockM[1], restrictions: [], noUntapNext: true, lockOnly: true };
   }
   // STUN (CR 122.1c) — "tap target creature [an opponent controls] and put a stun counter on it" (Gilded
   // Scuttler, Grappling Kraken, Frostfist Strider) / "tap up to N target creature and put a stun counter on

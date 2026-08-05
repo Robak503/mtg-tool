@@ -3,6 +3,35 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **BARE NO-UNTAP LOCK — the purest no-ignition yet, +4** - batch 45
+> Suite 1142 / 14,078 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Elvish Hunter, Barl's Cage,
+> House Guildmage, Sleeper Dart. All four audited whole-card (House Guildmage's second ability, Surveil 2,
+> confirmed independently native — it isn't riding an unread line).
+> ⭐⭐ **BUILT ENGINE, NO IGNITION, IN ITS PUREST FORM.** Every runtime piece has been live since Junk Winder:
+> `setDoesNotUntapNext` flags a permanent, `untapAll` skips it for exactly one untap step and clears the flag
+> as it skips. What was missing was a way IN — `noUntapNext` was only ever produced as a rider FOLDED ONTO A
+> TAP ATOM, and both matchers anchor the tap. **Barl's Cage sat parked beside a mechanism doing its job two
+> lines away.**
+> ⛔ **`lockOnly` EXISTS BECAUSE THE CARD MUST NOT TAP.** These lock a creature that is usually UNTAPPED —
+> Barl's Cage is a repeatable soft-Pacifism, not a tapper. **And a fabricated tap would still LOOK correct**,
+> because the creature would stay tapped for a turn either way; only a witness row that prints `tapped`
+> separately from `flagged` can tell the two apart. Both mutants land on exactly that cell.
+> ⭐ **REUSED THE TAP ATOM RATHER THAN MINTING AN OP** — targeting, the enemy-side chooser (programQueries
+> AND stack both map `"tap"` → enemy), live target re-verification and restrictions are already right for
+> this clause. A new op re-derives all four in four files.
+> ℹ **THE METHOD THAT FOUND IT:** split the shape by tier. `doesn't untap during its controller's next untap
+> step` is 33 native / 63 parked, and the native side is ENTIRELY "tap … and it doesn't untap". The wording
+> diff — whether a tap shares the sentence — was the bug.
+> ⚠️ **AN HONEST LIMIT, WRITTEN DOWN RATHER THAN PINNED AROUND:** the creature branch of applyTapEffect tests
+> the ENUMERATOR-supplied `t.type`, not the live type line (only the land branches re-verify). Pre-existing
+> and shared by every tap atom here; this slice neither widens nor narrows it. A pin that "proved" a live-type
+> guard would have been hollow — the first cut of that test asserted exactly that and failed for the right reason.
+> ⏭ **THE VEIN IS NOT EMPTY.** Still parked in the same family, and NOT one shared cause: the combat-event
+> referent (`whenever this creature blocks a creature, THAT creature doesn't untap…` — Wall of Frost,
+> Labyrinth Minotaur, Illusion; `whenever this creature deals combat damage to a creature, tap that creature
+> and it…` — Kashi-Tribe Warriors, Matsu-Tribe Birdstalker, Orochi Ranger) and the self form (`whenever this
+> creature attacks, IT doesn't untap…` — Lead Golem, Stitcher's Graft). Prove the cause before batching those.
+
 > ## SLICE DONE - 2026-08-05 - **CAN'T-LOSE / CAN'T-WIN — PLATINUM ANGEL WAS A 4/4 FLIER, +3** - batch 41
 > Suite 1141 / 14,070 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Herald of Eternal Dawn,
 > Abyssal Persecutor, Platinum Angel. All three audited whole-card in fresh processes.

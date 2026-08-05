@@ -30,6 +30,9 @@ summarizes the notable changes.
   empty the spell is countered.
 
 ### Added
+- **Tap-down locks that don't tap now work.** Barl's Cage, Elvish Hunter, House Guildmage and Sleeper Dart
+  say a creature doesn't untap next turn *without* tapping it — the simulator only understood the version
+  that taps first, so these did nothing. They keep a creature down without touching it, as printed.
 - **Creatures that come in damaged now do.** Bloodied Ghost, Wickerbough Elder, Deity of Scars and Etched
   Monstrosity enter with their −1/−1 counters, so they show up at the size the card actually prints.
 - **The graveyard recyclers work.** Barkform Harvester, Epitaph Golem, Tomb Trawler and Transplant

@@ -7,7 +7,14 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+329 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 41** — suite **1141 / 14,070** green by exit code
+## ☀️ 2026-08-05 — **+333 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 45** — suite **1142 / 14,078** green by exit code
+
+> ### ⭐⭐ THE HIGHEST-YIELD INSTRUMENT RIGHT NOW: **split a shape by tier, then ask WHY the native side is native**
+> `doesn't untap during its controller's next untap step` — 33 native / 63 parked, and every native carrier
+> shares one wording: the lock rides a tap in the SAME sentence. The runtime never needed the tap; only the
+> MATCHER did. **When a shape's native side is unanimous about some incidental wording, that wording is the
+> gate.** Fresh census (2026-08-05) shows the shelf is thin — top clusters are 4-6 cards — so these
+> wording-gate finds, not new subsystems, are where the remaining cards live.
 
 > ### ⚠️⚠️ A WITNESS YOU CAN'T SEE IS A HOLLOW GATE — **vitest 4 swallows `console.log`**
 > Law-6 witness rows print NOTHING under a plain `vitest run`; the pass reads clean and the row you were
