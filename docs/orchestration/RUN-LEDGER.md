@@ -3,6 +3,40 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 BLOCK: **THE KEYWORD-MECHANIC LENS, +51** - batch 78 (post-tag)
+> Five slices, one lens: **a mechanic whose RUNTIME already exists but whose DETECTOR or LABEL is missing.**
+> Found by tallying keyword mechanics by *sole-blocked carriers* rather than by census clause. That probe is
+> the reusable artefact — it beat the census, which caps at 4 per signature.
+>
+> **BATTALION +14** (`cfc4ecb7`) — 22 carriers, 0 native. TWO gaps, each hiding the other: `battalion`
+> missing from the shared CR 207.2c label list (proven by measuring a `Landfall —` prefix detecting fine on
+> the identical sentence), AND no way to express "and at least two other creatures attack". Rides the
+> once-per-combat `youAttack` lane — the per-attacker lane would fire once per attacker.
+> ⛔ **THE FIELD WHITELIST BIT, AND THAT FILE'S OWN COMMENTS PREDICTED IT.** An unlisted descriptor field is
+> silently dropped; `minAttackers` decayed to a bare "whenever you attack" — detection looked perfect while
+> the card would fire off ONE attacker. Four comments in that whitelist warn about this exact shape.
+>
+> **ATTACK-COUNT TWIN +7** (`7cca4120`) — blocked by **MATCHER ORDER, not by its anchor**. A broad guard
+> rejects any condition containing "with", so the arm was never reached. Proven by dumping the condition at
+> two points: it printed at the top of classifyCondition and never at the matcher. **"My regex is wrong" and
+> "my regex never ran" look identical until you probe both ends.**
+>
+> **INSPIRED +13** (`6eedffaf`) — the `untapped` event, its firing site and the self-scope gate ALL shipped
+> with Mesmeric Orb. Only the detector was missing. ⛔ **The label list is not a free-for-all:** ~20 unlisted
+> labels exist and MOST must stay out — adamant/revolt/coven/corrupted put the CONDITION in the label, so
+> stripping it deletes the gate. `inspired` is decorative, like landfall and battalion.
+>
+> **LEARN +14** (`ee4aea57`) — overturns a **deliberate prior abstention**, and only because CR 701.48a in
+> the bundled rules settles what that author could not: *"Learn" means "You may discard a card. If you do,
+> draw a card. If you didn't discard a card, you may reveal a Lesson…"*. Both branches "may" (declining both
+> IS legal), the Lesson branch is a conditional FALLBACK, and the first sentence is **word-for-word** the
+> wording that already produces `optional-discard-payment`. **Read the rule, not the reminder text.**
+>
+> **SELF-DEALER DESTROY +3** (`3dc89899`) — ⛔ **a DEAD TRIGGER behind a clean +5 diff.** Reusing
+> `scope:"self"` was wrong: the triggering permanent is the DAMAGED creature, the dealer is the watcher, so
+> the ids are never equal — native-trigger, fired ZERO times. Then the effect PREFIX anchor credited "destroy
+> that creature AT END OF COMBAT" as immediate (Ohran Viper, Serpentine Basilisk). Correct answer: **3**.
+
 > ## SLICE DONE - 2026-08-04 - **Glimmer type directive isn't residue, +2** - batch 27 (post-tag)
 > Suite 1108 / 13,881 green + lint 0 BY EXIT CODE. `fd7392db`. Flip-diff **+2 / 0 / 0** — Enduring Tenacity ·
 > Enduring Courage. A **classifier-vs-router divergence**: `detectTriggers` and `triggerRoutesNatively` BOTH

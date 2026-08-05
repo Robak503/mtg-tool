@@ -7,7 +7,27 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-04 — **+94 this sitting · v0.151.0 SHIPPED · post-tag batch 27** — suite **1108 / 13,881** green by exit code
+## ☀️ 2026-08-04 — **+145 this sitting · v0.151.0 SHIPPED · post-tag batch 78** — suite **1112 / 13,913** green by exit code
+
+> ### 🎯 THE LENS THAT REOPENED THE CORPUS AFTER IT MEASURED "EXHAUSTED": **sole-blocked BY MECHANIC**
+> The exhaustion finding below is still true *for the census*, which groups by exact clause and caps at 4.
+> Tallying **keyword MECHANICS** by sole-blocked carriers instead found **+51 in five slices**, because one
+> implementation covers every carrier of a mechanic. Battalion alone was 22 carriers / 0 native.
+> **The shape to look for: a mechanic whose RUNTIME already exists but whose DETECTOR or LABEL is missing.**
+> Inspired's event, firing site and scope gate had all shipped with Mesmeric Orb; only the detector was
+> absent. Self-dealer destroy's whole pipeline existed for the Toxin Sliver twin. Look for a built engine
+> with no ignition before writing anything new.
+
+> ### ⛔ CORRECTION 32 — **A CLEAN FLIP-DIFF CANNOT SEE A DEAD TRIGGER**
+> The self-dealer destroy slice measured **GAINED 5 / LOST 0** with a trigger that fired **ZERO times**.
+> Reusing `scope:"self"` was the error: that scope asks *triggeringPermanent === sourcePermanent*, but the
+> triggering permanent is deliberately the DAMAGED creature (it is the destroy target, threaded so "that
+> creature" binds) while the dealer is the watcher — never equal. Five cards would have shipped native with
+> an ability that can never happen.
+> **Rule: for any TRIGGER slice, a flip-diff proves recognition and NOTHING about firing.** Drive the
+> firing site. Same slice also caught a PREFIX effect-anchor crediting "destroy that creature AT END OF
+> COMBAT" as immediate — anchor the WHOLE effect, or a delayed payoff resolves early.
+
 
 > ### 🛑 MEASURED: **THE CORPUS'S CHEAP VEINS ARE EXHAUSTED.** Three scoping probes, three decisive zeros.
 > Run these before proposing any "big family" build — each one killed a build that looked obviously worth it:
