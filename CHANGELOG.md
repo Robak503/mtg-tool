@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.153.0] - 2026-08-05
+
 ### Added
 - **The Cohort and Scarecrow cycles work.** Ballynock, Briarberry, Crabapple, Mudbrawler and Ashenmoor
   Cohort get their bonus when you control *another* creature of the right colour — and correctly don't
