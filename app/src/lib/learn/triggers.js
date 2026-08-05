@@ -3524,6 +3524,19 @@ export function detectTriggers(card) {
       // as an untaken alternative cast mode), so there is no real trigger to lose. Anchored to the exact
       // reminder shape — an impending-REFERENCING sentence in rules text is untouched.
       .replace(/\(if you cast this spell for its impending cost[^)]*\)/gi, "")
+      // ⭐ GRAFT REMINDER STRIP (CR 702.57a) — the FIFTH instance of this exact failure, and it was found by
+      // sweeping for the signature the previous four left behind rather than by tripping over a card: a
+      // descriptor whose effectClause carries an unbalanced ')'.
+      // "Graft 2 (This creature enters with two +1/+1 counters on it. Whenever another creature enters, you
+      // may move a +1/+1 counter from this creature onto it.)" — that second sentence starts with "Whenever"
+      // at a sentence boundary INSIDE the paren, so the trigger anchor caught it and all 12 graft carriers
+      // grew a phantom descriptor reading "you may move a +1/+1 counter from this creature onto it. )".
+      // It routed UNNATIVELY (0 of 12), which is what parked them.
+      // ⛔ THE MOVE ABILITY IS A GENUINE OPTIONAL: "you MAY move a +1/+1 counter". Declining leaves the
+      // counters where they are — a real, complete, legal play — so nothing is lost by not offering it. The
+      // MANDATORY half of graft (entering with N +1/+1 counters) is NOT dropped: entersWithPlusCounters now
+      // reads the count off the keyword, because these carriers are 0/0 and would otherwise die on arrival.
+      .replace(/\(this (?:creature|permanent) enters (?:the battlefield )?with [^)]*\+1\/\+1 counters? on it\. whenever another creature enters[^)]*\)/gi, "")
       .replace(/\(as an additional cost to cast this spell, you may pay [^)]*any number of times\.[^)]*\)/gi, ""),
   )), card);
   const out = [];

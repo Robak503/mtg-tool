@@ -750,6 +750,17 @@ const _ENTER_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
  * these cards — so the metric can never over-claim a card the engine plays wrong. Leaf (no engine import).
  */
 export function entersWithPlusCounters(card) {
+  // ⭐ GRAFT N (CR 702.57a) — the count lives ONLY in the KEYWORD, never in a rules sentence: "Graft 2 (This
+  // creature enters with two +1/+1 counters on it. Whenever another creature enters, you may move…)". The
+  // reminder strip on the very next line removes that sentence, so the generic matcher below can never see
+  // it and every graft creature read 0.
+  // ⛔ THAT ZERO IS NOT A HARMLESS MISS — every graft carrier is printed 0/0, so its whole body IS these
+  // counters. Reading 0 puts a 0/0 on the battlefield that dies to the SBA immediately, which is a wrong
+  // board state rather than a missed option. Same hazard the Phyrexian oil 0/0s had, and it is driven on a
+  // real enter path in graft.test.js rather than assumed.
+  // Digit- or word-anchored on the keyword itself, so graft-REFERENCING prose can never supply a count.
+  const graft = String(card?.oracle || card?.oracle_text || "").match(/^graft (a|an|one|two|three|four|five|six|\d+)\b/im);
+  if (graft) return _ENTER_NUM[graft[1].toLowerCase()] ?? (parseInt(graft[1], 10) || 0);
   const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
   for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
     const m = sentence.match(/enters (?:the battlefield )?with (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it/i);

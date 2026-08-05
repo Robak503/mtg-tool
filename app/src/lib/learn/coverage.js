@@ -216,6 +216,15 @@ export const COVERED_KEYWORDS = [
   // already credits on "not delving = paying full cost". Not applying undaunted is likewise paying full
   // price: STRICTLY HARDER than the card allows, the safe direction, and nothing about the resolution
   // changes. Crediting delve while refusing its twin was the inconsistency.
+  // GRAFT N (CR 702.57a) — ENFORCED on its mandatory half and declined on its optional one, which is what
+  // makes the credit honest rather than an untaken-option shortcut:
+  //   · MANDATORY: "enters with N +1/+1 counters" — entersWithPlusCounters now reads N off the KEYWORD (the
+  //     count exists nowhere else on the card), so a 0/0 graft creature actually lands at N/N. Driven on the
+  //     real enter path in graft.test.js; without it these twelve cards die to the SBA on arrival.
+  //   · OPTIONAL: "you MAY move a +1/+1 counter from this creature onto it" — declining leaves the counters
+  //     where they are, a real complete play, so not offering it loses nothing.
+  // Prefix match ("graft"), so the printed count rides along whatever it is.
+  "graft",
   "undaunted",
   // WEB-SLINGING — a pure ALTERNATIVE COST ("you may cast this for {2}{G} if you also return a tapped
   // creature you control to its owner's hand"), the prowl / spectacle / surge class this list already
@@ -3064,7 +3073,19 @@ export function classifyCard(card) {
   // downstream residue gate (permanentTriggersCovered / isKeywordOnly), leaving the bare covered "ravenous"
   // keyword — so no printed-form strip is needed or wanted here (CREED — never leave a partial fragment).
   const isRavenous = /\bravenous\b\s*\(this creature enters with x \+1\/\+1 counters? on it\b/i.test(oracle);
-  const baseOracle = entersWithPlusCounters(card) > 0
+  // ⭐ GRAFT takes the RAVENOUS exemption, for the identical reason spelled out directly above. Graft's
+  // enters-with sentence lives ONLY inside the keyword's reminder parens ("Graft 2 (This creature enters
+  // with two +1/+1 counters on it. Whenever another creature enters, …)"). The strip below is not
+  // paren-aware, so it cuts at "…on it." INSIDE the paren and leaves the mangled
+  // "Graft 2 ( Whenever another creature enters, …)" behind as orphan residue with an unbalanced paren —
+  // which parks the card.
+  // ⛔ THIS ONLY BIT ONCE entersWithPlusCounters STARTED READING THE GRAFT COUNT off the keyword: before
+  // that it returned 0 and this branch was never taken. A fix in one file walked the card into a landmine
+  // in another, and the symptom was indistinguishable from "the keyword still isn't credited".
+  // Skipping the strip is safe and is what Ravenous already does: stripReminder removes the WHOLE reminder
+  // in every downstream residue gate, leaving the bare covered "graft N" keyword — never a partial fragment.
+  const isGraft = /^graft \d/im.test(oracle) || /^graft (?:a|an|one|two|three|four|five|six)\b/im.test(oracle);
+  const baseOracle = entersWithPlusCounters(card) > 0 && !isGraft
     ? plotStrippedOracle.replace(/[^.\n]*enters (?:the battlefield )?with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it[^.\n]*\.?/i, " ")
     : entersWithXCounters(card) && xPipCount >= 1 && !isRavenous
       ? plotStrippedOracle.replace(/[^.\n]*enters (?:the battlefield )?with x \+1\/\+1 counters? on it[^.\n]*\.?/i, " ")
