@@ -29,6 +29,23 @@
 > would classify native-spell and **silently drop its haste grant**: clean flip-diff, green suite, wrong
 > board. The runtime walk was written FIRST for exactly that reason.
 
+> ### ⛔ BUILT · MEASURED · REVERTED — **leading-duration normalization (−17 net). DO NOT REBUILD AS-IS.**
+> The theory looked airtight and had a clean probe behind it: `"Until end of turn, target creature gains
+> haste."` → `[]` while the trailing twin → `[pump]`. Rewriting the leading form into the trailing one
+> measured **GAINED 6 · LOST 17**.
+> **WHY, and this is the part worth keeping:** the leading form is **NOT** universally unsupported. There is
+> already a matcher built FOR it, covering the **quoted-ability grant** — *"Until end of turn, target
+> creature gains \"When this creature dies, return it…\""* (Feign Death · Supernatural Stamina · Undying
+> Malice · Banishing Knack · Abnormal Endurance · 12 more). Moving the duration to the very end pushes it
+> **past the closing quote** and breaks exactly those.
+> **The general trap: a probe showing "shape X never parses" is evidence about the CLAUSE YOU PROBED, not
+> about the shape.** One counter-example family was already relying on it.
+> ⓘ A safe version exists — rewrite ONLY when the un-rewritten clause fails to parse (strictly additive) —
+> but "try both, take whichever parses" is a heuristic that can silently pick a WRONG parse, so it wants its
+> own slice with its own evidence, not a tail-of-session bolt-on. **Traitorous Instinct still needs a THIRD
+> thing regardless** (the referent pump+keyword form `"It gets +2/+0 and gains haste until end of turn"`
+> fails even TRAILING), so this was never the whole story for the cards that motivated it.
+
 > ### ⛔ CORRECTION 31 — **AN UNTAGGED TARGET LIST MAKES A TARGET-BINDING PIN HOLLOW**
 > `targetsForAtom` returns the **whole** target list when no target carries an `atomIndex`:
 > `const tagged = targets.some(t => typeof t?.atomIndex === "number"); return tagged ? filter… : targets;`
