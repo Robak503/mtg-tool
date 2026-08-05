@@ -1638,6 +1638,15 @@ export function pickAttackPlan(state, aiPlayerId, attackerActions, { policy = nu
   // requirement the moment the controller's board satisfies the unless.
   const selfMustAttackNow = (permanent) => {
     const card = permanent?.card;
+    // ⭐ GRANTED must-attack (CR 508.1a) — an AURA can hand the requirement to a creature whose own card
+    // says nothing ("Enchanted creature attacks each combat if able" — Bloodshed Fever, Furor of the
+    // Bitten, Infectious Bloodlust). selfMustAttack reads the CARD's printed text, so it structurally
+    // cannot see those; the layer-6 `mustAttack` pseudo-keyword is the granted twin, read layer-aware
+    // here so the requirement lifts the instant the Aura leaves.
+    // ⓘ The "unless" release below is deliberately NOT consulted for the granted form: no Aura in the
+    // corpus grants a CONDITIONAL requirement, and mustAttackUnlessOf reads printed text anyway. If one
+    // ever prints, the parser must carry the predicate onto the grant rather than this line assuming none.
+    if (permanent && permanentHasKeyword(state, permanent.id, "mustAttack")) return true;
     if (!selfMustAttack(card)) return false;
     const unless = mustAttackUnlessOf(card);
     if (unless && controllerMeetsBoardPredicate(state, aiPlayerId, permanent.id, unless)) return false;

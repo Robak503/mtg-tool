@@ -6,6 +6,36 @@
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
+> ## SLICE DONE - 2026-08-05 - **GRANTED MUST-ATTACK (aura/equipment), +6** - batch 63 (post-v0.152.0)
+> Suite 1124 / 13,996 green + lint 0 BY EXIT CODE. `HEAD`. Flip-diff **+6 / 0 / 0** — Bloodshed Fever,
+> Furor of the Bitten, Guise of Fire, Uncontrollable Anger, Tormentor's Trident (Equipment), Mogis's
+> Warhound (bestow — printed self-mode AND the aura mode).
+> ⛔ **THE EXISTING READER COULD NOT BE WIDENED.** `opponentAI.selfMustAttack` matches the CARD's PRINTED
+> oracle; the enchanted creature's text says nothing about attacking, so **no regex change would ever see a
+> granted requirement.** New layer-6 `mustAttack` pseudo-keyword, read layer-aware beside it — which also
+> makes the requirement **lift when the Aura leaves** (pinned).
+> ⓘ **ENFORCEMENT PARITY, SAID OUT LOUD:** honored in the AI attack planner only — **exactly where the
+> PRINTED form is** (Juggernaut, native since subsystem 4). The grant claims nothing broader. State this
+> whenever a tier is extended through a new grant path, or "native" quietly means two different things.
+> ⛔ **GOAD REFUSED, 8 carriers left parked.** CR 701.38 adds *"attacks a player other than you if able"* —
+> a DEFENDER restriction the planner doesn't honor. Crediting it here would over-claim.
+> ⚠️ **TWO HARNESS TRAPS, both caught by a red run rather than by luck:**
+> · `createPermanent` **ignores `attachedTo`** and the layer engine walks the HOST's `attachments` — the
+>   aura attached to NOTHING and every row read as a clean, consistent negative (power stayed 1 under a
+>   +2/+2). **Set both sides after construction.**
+> · **THE FUROR ROW DOESN'T DISCRIMINATE** and is now labelled so in-file: +2/+2 makes the attack
+>   profitable, so the racer swings **even under the mutant**. Only the Bloodshed Fever row proves
+>   enforcement — under the mutant it reads `mustAttack:true, declared:FALSE`, the hollow credit exactly,
+>   **while the parser pins stay green.** A witness row that can't fail is decoration.
+
+> ## ⚙️ PROCESS CORRECTION - 2026-08-05 - **PUSHING DOCS RIGHT AFTER CODE CANCELS THE CODE'S CI RUN**
+> My own loop (push code → push docs a minute later) makes the concurrency group **cancel** the code run.
+> Four runs in a row read `cancelled`, which is NOT a failure but is also NOT evidence. **Nothing shipped
+> unverified** — master is linear, so the newest run tests the whole tree and `9b190f6f completed success`
+> covers graft + the sweep + all three defender/rider slices — but the rule to work by is:
+> **only the LAST push's run counts; read THAT `conclusion` and wait for it.** Reading the code push's own
+> run and finding `cancelled` proves nothing either way. Better: **bundle code + docs into one push.**
+
 > ## SLICE DONE - 2026-08-05 - **GROUP as-though defender escape, +3** - batch 57 (post-v0.152.0)
 > Suite 1123 / 13,992 green + lint 0 BY EXIT CODE. `25fa356a`. Flip-diff **+3 / 0 / 0** — High Alert,
 > Rolling Stones, Guardians of Oboro. Same "gets/have only" limitation, now on the GROUP lanes.

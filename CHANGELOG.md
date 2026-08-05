@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Auras and Equipment that force a creature to attack now do.** Bloodshed Fever, Furor of the
+  Bitten, Guise of Fire, Uncontrollable Anger, Mogis's Warhound and Tormentor's Trident all make the
+  creature they're attached to swing every combat — and it stops the moment they come off.
 - **High Alert, Rolling Stones and Guardians of Oboro turn your Walls loose**, and they keep defender for
   everything else — High Alert still hands them its toughness-for-power damage. Rolling Stones unlocks
   *every* Wall on the table, including your opponents', exactly as it's printed.

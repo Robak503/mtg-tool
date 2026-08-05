@@ -4654,6 +4654,29 @@ function parseAttachedClause(c, subject, noun = "creature") {
     if (cantM[2]) out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: "activatedAbilitiesLocked" }, duration: { kind: "permanent" } });
     return out;
   }
+  // ⭐ GRANTED MUST-ATTACK (CR 508.1a) — "Enchanted creature attacks each combat if able" (Bloodshed Fever,
+  // Lust for War, Skin Invasion) and the combined "gets +N/+N and attacks each combat if able" (Furor of
+  // the Bitten, Guise of Fire, Uncontrollable Anger). The pacifism twin: a layer-6 grant of the `mustAttack`
+  // pseudo-keyword, scoped to the host by staticEffectsOf exactly like cantAttack/cantBlock, so the
+  // requirement lifts the instant the Aura leaves.
+  // ⛔ WHY A PSEUDO-KEYWORD AND NOT THE EXISTING READER: opponentAI.selfMustAttack matches the CARD's
+  // PRINTED oracle, so it structurally cannot see a granted requirement — the enchanted creature's own text
+  // says nothing. The grant is read layer-aware beside it at the force-declare site.
+  // ⓘ ENFORCEMENT PARITY, stated plainly rather than implied: this requirement is enforced in the AI's
+  // attack planner only, which is exactly where the PRINTED form (Juggernaut, native today) is enforced.
+  // The granted form makes no broader claim than the printed one already does.
+  // ⛔ GOAD IS NOT THIS (CR 701.38) and must not be folded in — "is goaded" adds "and attacks a player
+  // other than you if able", a DEFENDER restriction the planner would also have to honor. 8 aura carriers
+  // wait on that; crediting them here would over-claim.
+  {
+    const ptThen = rest.match(/^gets ([+-]\d+)\/([+-]\d+) and attacks each (?:combat|turn) if able\.?$/);
+    const bare = /^attacks each (?:combat|turn) if able\.?$/.test(rest);
+    if (ptThen || bare) {
+      if (ptThen) out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModify", power: signed(ptThen[1]), toughness: signed(ptThen[2]) }, duration: { kind: "permanent" } });
+      out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: "mustAttack" }, duration: { kind: "permanent" } });
+      return out;
+    }
+  }
   // ARREST POSSESSIVE (BLITZ AU-2 — Stupefying Touch / Detainment Spell): the bare "<subject> creature's
   // activated abilities can't be activated" form. Matched on the ORIGINAL clause `c` because the possessive
   // "'s" defeats the `${subject} creature ` subject-strip above (no whitespace after "creature"), so `rest`
