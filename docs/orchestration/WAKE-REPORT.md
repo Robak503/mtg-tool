@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-04 — **+36 this sitting · batch 69** — suite **1101 / 13,793** green by exit code · master green, CI success
+## ☀️ 2026-08-04 — **+38 this sitting · batch 71** — suite **1102 / 13,798** green by exit code · master green, CI success
 
 > ### 📐 AND THE SHELF'S STRUCTURE IS NOW MEASURED: **no cheap wins left on it**
 > Line-deletion probe over every unmodeled card in all 21 decks: **ZERO two-flip composition failures,
@@ -177,6 +177,9 @@
 > enters-with-counters strips leading with `[^.]*`, **and `[^.]` matches a newline too** (only `.`
 > excludes it). It could eat the line ABOVE it — harmless after a period, dangerous after a KEYWORD LINE,
 > which has none: `"Champion a Goblin"` + an enters-with-counters line read native-body. Also latent,
+> ⭐ **A FOURTH instance turned up later the same day** and it is the one to remember: `stripReminder`
+> COLLAPSES newlines BY DESIGN, so a period-less KEYWORD LINE loses its identity and welds onto the body
+> (`e8e4918b`, +2). The class is bigger than the two strips originally swept.
 > also fixed (`7ca82bbd`). **The sweep is now COMPLETE, and the result is mixed on purpose:** of five
 > candidate strips, **one was a real hazard (fixed)**, two are safe by their own anchors, and the last two
 > — the die-roll `create a number of … equal to the result` tail and the `no maximum hand size for the

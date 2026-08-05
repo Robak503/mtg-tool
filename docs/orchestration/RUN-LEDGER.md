@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-04 - **A vacuous CAST-KEYWORD line hid a modeled body, +2** - batch 71
+> Suite 1102 files / 13,798 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Drill Bit ·
+> Thieves' Fortune, both audited whole-card. **FOURTH instance of the newline-eating class**, and the
+> nastiest: a keyword line has no trailing period, `stripReminder` COLLAPSES whitespace *by design*, so
+> the line loses its identity and welds onto the first body sentence — then the `^`-anchored whole-oracle
+> collapses never match either. Cards rescued by a collapse survived (Light Up the Stage welds identically
+> and is native), which is why it read card-specific instead of structural.
+> An ORDERING fix in two places, **each worthless alone**: strip keyword lines from the RAW multi-line
+> text before the collapse, and join them to the parser's existing strip chain.
+> ⛔ **TWO MEASURED WRONG TURNS, both of which looked right:** ① the other order makes the LINE-anchored
+> pattern match the ENTIRE collapsed oracle and **delete the card's whole body** (splitClauses returned
+> `[]`) — and it measured **0/0/0**, because every affected card was already parked. *A clean diff can
+> also mean you broke only things that were already broken.* ② the strip BLANKS the line rather than
+> removing it, so the `^` anchors still saw nothing until the leading blank went too.
+> Mutations: parser strip removed → red · leading-blank trim removed → red. Neither half acts alone.
+
 > ## SLICE DONE - 2026-08-04 - **An Aura's own DREDGE line isn't residue, +1** - batch 69
 > Suite 1101 files / 13,793 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Moldervine Cloak.
 > The static-bonus aura walk hand-lists individually-argued keywords (flash · cycling · shroud · madness ·
