@@ -497,6 +497,14 @@ describe("CA-2 — scope pins: a self-gated card emits SELF descriptors only; th
 
 // ── FN guards — no exact evaluator (or an unconsumed effect rider) → NOTHING emitted ────────────────────
 describe("CA-2 — a guard that GRADUATED: monstrous is modelled now", () => {
+  it("⭐ Briarberry Cohort graduated — and its 'another' is what needed the care", () => {
+    // Guard note said "a derived-characteristic color count". The colour read is PRINTED, not derived
+    // (the documented colour-OR precedent), which is what makes it recursion-safe inside a gate eval.
+    // The real hazard was "ANOTHER": the Cohort is itself blue, so without excludeSelf it satisfies its
+    // own gate alone on the battlefield. Driven in colorControlGate.test.js.
+    expect(parseStaticAbilities(BRIARBERRY_COHORT)[0].op.gate.countSpec.excludeSelf).toBe(true);
+  });
+
   it("⭐ Messenger Hawk graduated too — and its guard note was FACTUALLY WRONG, not merely stale", () => {
     // It read "no drawn-cards-this-turn ledger exists". gameState has carried `cardsDrawnThisTurn` all
     // along — one increment chokepoint, reset for every seat at untap. The note turned a gap into a
@@ -517,7 +525,6 @@ describe("CA-2 — a guard that GRADUATED: monstrous is modelled now", () => {
 describe("CA-2 — FN guards: unevaluable conditions / unconsumed riders emit NOTHING", () => {
   const parked = [
     ["Skymarcher Aspirant (city's blessing — subgame state unmodeled)", SKYMARCHER_ASPIRANT],
-    ["Briarberry Cohort ('another blue creature' — a derived-characteristic color count)", BRIARBERRY_COHORT],
     ["Iymrith ('ward {4}' is not a grantable keyword)", IYMRITH],
     ["Slippery Scoundrel (city's blessing + a can't-be-blocked rider)", SLIPPERY_SCOUNDREL],
     ["Havi ('historic cards' — a defined characteristic no type-line test evaluates)", HAVI],

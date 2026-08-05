@@ -30,8 +30,14 @@ describe("GATED-KEYWORD — coverage flips (both forms)", () => {
   it("the prefix P/T form (which #301's suffix matcher missed) now also flips native", () => {
     expect(classifyCard({ type: "Creature — Construct", name: "Aerial Engineer", mana: "{4}", oracle: "As long as you control an artifact, this creature gets +2/+2." })).toMatch(/^native/);
   });
-  it("a color gate or a compound (P/T+keyword) effect stays body-only (CREED)", () => {
-    expect(classifyCard({ type: "Creature — Soldier", name: "Color Gate", mana: "{2}{W}", oracle: "This creature has first strike as long as you control a white creature." })).toBe("body-only");
+  it("⭐ the COLOUR gate graduated (2026-08-05); the compound effect still parks", () => {
+    // The colour gate was an FN here for exactly one reason — no evaluator. One exists now
+    // (colorPermanentsYouControl narrowed by cardType; see colorControlGate.test.js for the drive), so
+    // the refusal no longer applies. Kept as a POSITIVE pin rather than deleted, so this file still
+    // records where the boundary is instead of quietly losing the case.
+    expect(classifyCard({ type: "Creature — Soldier", name: "Color Gate", mana: "{2}{W}", oracle: "This creature has first strike as long as you control a white creature." })).toMatch(/^native/);
+    // ⛔ THE GUARD'S JOB, INTACT: a compound "has X and gets +N/+N" effect is still not consumed by the
+    // keyword lane, so the whole clause drops. That is the half this pin was really protecting.
     expect(classifyCard({ type: "Creature — Beast", name: "Mixed Effect", mana: "{2}{G}", oracle: "This creature has trample and gets +1/+1 as long as you control a Forest." })).toBe("body-only");
   });
 });

@@ -259,11 +259,23 @@ function countSelfSpecOnBoard(state, perm, spec) {
   // deriveCharacteristics inside this gate eval; a color-CHANGED permanent is the vanishing corner the
   // precedent accepts (over-counts only under a rare color-REMOVAL, under-counts a color-ADD = FN-safe). Used
   // only as a presence test (the gate carries atLeast:1), so the exact tally past 1 is immaterial.
+  // ⭐ TWO OPTIONAL NARROWERS, added for the Cohort / Scarecrow cycles ("as long as you control ANOTHER
+  // blue CREATURE" — Briarberry Cohort; "as long as you control a white creature" — Watchwing Scarecrow).
+  // Both DEFAULT OFF, so the Runemark callers that predate them are byte-identical: `cardType` narrows the
+  // scan to a type line (Creature), `excludeSelf` drops the gate subject itself.
+  // ⛔ "ANOTHER" IS NOT DECORATION. Ballynock Cohort is itself a white creature, so without excludeSelf it
+  // would satisfy its own gate on an empty board and buff itself forever — a permanent, unconditional
+  // +1/+1 on a card that prints a conditional one. That is a false positive, not a rounding error.
   if (spec.kind === "colorPermanentsYouControl") {
     const want = new Set(spec.colors || []);
     if (want.size === 0) return 0;
+    const typeRe = spec.cardType ? new RegExp(`\\b${spec.cardType}\\b`, "i") : null;
     let cn = 0;
-    for (const p of player.battlefield || []) if (colorsOf(p.card).some((c) => want.has(c))) cn += 1;
+    for (const p of player.battlefield || []) {
+      if (spec.excludeSelf && p.id === perm.id) continue;
+      if (typeRe && !typeRe.test(typeLineOf(p.card))) continue;
+      if (colorsOf(p.card).some((c) => want.has(c))) cn += 1;
+    }
     return cn;
   }
   // MULTI-NEEDLE type-line count — the SAME word-bounded scan as the single-needle branch below, with more

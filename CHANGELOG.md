@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **The Cohort and Scarecrow cycles work.** Ballynock, Briarberry, Crabapple, Mudbrawler and Ashenmoor
+  Cohort get their bonus when you control *another* creature of the right colour — and correctly don't
+  count themselves. Watchwing, Blazethorn and Thornwatch Scarecrow, Gearsmith Guardian, Minotaur Tactician,
+  Toxic Iguanar, Abzan Kin-Guard and Cliffrunner Behemoth all switch on the same way.
 - **The draw-two payoffs work.** Trench Stalker, Spinehorn Minotaur, Eyekite, Tome Anima, Gnarled Sage,
   Foggy Swamp Hunters, Messenger Hawk, Evangel of Synthesis and June the Bounty Hunter all switch on once
   you've drawn your second card of the turn — and switch back off next turn.

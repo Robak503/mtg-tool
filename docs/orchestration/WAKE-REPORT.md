@@ -7,7 +7,13 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+275 this sitting · v0.152.0 PUBLISHED · post-tag batch 78** — suite **1127 / 14,006** green by exit code
+## ☀️ 2026-08-05 — **+288 this sitting · v0.152.0 PUBLISHED · post-tag batch 91** — suite **1128 / 14,010** green by exit code
+
+> ### ⚠️⚠️ A FEATURE CAN BE BUILT, PINNED, AND STILL UNREACHABLE — test REACHABILITY
+> The colour-OR gate arm shipped long ago and was **dead** in one clause position: the control-gate arms
+> above it matched on a `(.+)` type group and `return`ed even when no gate parsed, swallowing the clause.
+> Two cards flipped from that fix with **no new gate at all**. When a feature "exists" but a census shows
+> zero natives, **check that the code path is reachable from that position** before building anything.
 
 > ### ⚠️⚠️ DON'T TRUST A REFUSAL COMMENT — +9 sat behind one that had stopped being true
 > The gate parser said *"you've drawn N or more cards this turn" has NO ledger*, and an FN-guard pin

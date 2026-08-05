@@ -6,6 +6,29 @@
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
+> ## SLICE DONE - 2026-08-05 - **COLOUR CONTROL GATE + a DEAD-CODE PATH, +13** - batch 91 (post-v0.152.0)
+> Suite 1128 / 14,010 green + lint 0 BY EXIT CODE. Flip-diff **+13 / 0 / 0** — the Cohort cycle, the
+> Scarecrow cycle, Gearsmith Guardian, Minotaur Tactician, Toxic Iguanar, Abzan Kin-Guard, Cliffrunner
+> Behemoth.
+> ⚠️⚠️ **THE NEW GATE ALONE MEASURED ZERO. The real bug was a DEAD PATH, and it is the finding of the day.**
+> The control-gate arms above the general lane match with a `(.+)` type group — i.e. **anything** — and then
+> `return`ed **UNCONDITIONALLY even when `parseControlGateSource` had failed to produce a gate**. The clause
+> was swallowed before the fuller parser ever saw it. Fixed at **four sites**: return only when a gate
+> actually parsed; a clause nothing can read still fails closed.
+> ⛔ **IT WAS KILLING AN ALREADY-SHIPPED FEATURE.** The colour-OR Runemark arm has been in the parser for
+> ages and was **dead in this clause position**. Abzan Kin-Guard and Cliffrunner Behemoth flipped from the
+> fall-through fix alone, **with no new gate involved.** ⭐ **A feature can be fully built, fully pinned in
+> isolation, and still unreachable from the position that matters. Test reachability, not just behaviour.**
+> ⛔ **"ANOTHER" IS A FALSE-POSITIVE RISK, not a nicety:** Ballynock Cohort IS a white creature, so without
+> `excludeSelf` it satisfies its own gate on an empty board and buffs itself forever — a printed
+> CONDITIONAL +1/+1 silently becoming unconditional. Driven with a control that differs by ONE WORD.
+> ℹ Colour read is **PRINTED** (`colorsOf`), the documented colour-OR precedent — a layer-aware read would
+> re-enter `deriveCharacteristics` inside a gate eval. Trade stated there; gate is only a presence test.
+> ⭐ **THREE more stale refusal pins inverted, all kept as positive pins with guards re-armed** — that is
+> **five today**. `trunkGatedSelfbuff`'s guard now sits on `"another multicolored permanent"` (5 real
+> carriers, genuinely no evaluator). **The refusal-comment sweep is the highest-yield instrument this
+> sitting: +9 and +13 both came out of claims that had quietly stopped being true.**
+
 > ## SLICE DONE - 2026-08-05 - **CARDS-DRAWN-THIS-TURN GATE, +9** - batch 78 (post-v0.152.0)
 > Suite 1127 / 14,006 green + lint 0 BY EXIT CODE. Flip-diff **+9 / 0 / 0** — Trench Stalker, Spinehorn
 > Minotaur, Eyekite, Tome Anima, Gnarled Sage, Foggy Swamp Hunters, Messenger Hawk, Evangel of Synthesis,

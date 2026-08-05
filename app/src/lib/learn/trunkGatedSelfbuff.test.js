@@ -27,8 +27,14 @@ describe("GATED-SELFBUFF — coverage flips", () => {
     expect(classifyCard({ type: "Creature — Cat", name: "Loam Lion", mana: "{W}", oracle: "This creature gets +1/+2 as long as you control a Forest." })).toMatch(/^native/);
     expect(classifyCard({ type: "Creature — Construct", name: "Foundry Screecher", mana: "{4}{B}", oracle: "Flying\nThis creature gets +1/+0 as long as you control an artifact." })).toMatch(/^native/);
   });
-  it("a color / compound / negated gate stays body-only (LOW → Arbiter)", () => {
-    expect(classifyCard({ type: "Creature — Cleric", name: "Gearsmith Guardian", mana: "{4}{U}", oracle: "This creature gets +2/+0 as long as you control a blue creature." })).toBe("body-only");
+  it("⭐ the COLOUR gate graduated (2026-08-05); an unevaluable gate still parks", () => {
+    // Gearsmith Guardian was the specimen "no colour evaluator" fixture. There is one now
+    // (colorPermanentsYouControl + cardType), so it flips — and the same fix made the ALREADY-SHIPPED
+    // colour-OR arm reachable from this clause position, which is the finding worth keeping.
+    expect(classifyCard({ type: "Creature — Cleric", name: "Gearsmith Guardian", mana: "{4}{U}", oracle: "This creature gets +2/+0 as long as you control a blue creature." })).toMatch(/^native/);
+    // ⛔ GUARD RE-ARMED on a gate that genuinely has no evaluator: "multicolored" is not a colour word
+    // and no count spec reads it, so the clause must still drop whole (5 real carriers wait on it).
+    expect(classifyCard({ type: "Creature — Soldier", name: "Grixis Grimblade", mana: "{1}{U}", oracle: "This creature gets +1/+1 as long as you control another multicolored permanent." })).toBe("body-only");
   });
   it("the no-untapped-lands zero band flips native (park LIFTED by BLITZ CA-2's untappedOnly count)", () => {
     expect(classifyCard({ type: "Creature — Beast", name: "Scoria Cat", mana: "{3}{R}", oracle: "This creature gets +3/+3 as long as you control no untapped lands." })).toMatch(/^native/);

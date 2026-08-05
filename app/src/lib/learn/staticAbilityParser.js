@@ -1325,6 +1325,22 @@ function parseAsLongAsGate(condText) {
     const cA = COLOR_WORDS[m[1]], cB = COLOR_WORDS[m[2]];
     return cA && cB ? { countSpec: { kind: "colorPermanentsYouControl", colors: [cA, cB] }, atLeast: 1, gateOn: "source" } : null;
   }
+  // ⭐ SINGLE-COLOR control gate — the Cohort and Scarecrow cycles ("as long as you control ANOTHER blue
+  // creature" — Briarberry Cohort; "as long as you control a white creature" — Watchwing Scarecrow;
+  // "as long as you control a green permanent" — Toxic Iguanar). The single-colour sibling of the
+  // colour-OR Runemark arm directly above, on the SAME countSelfSpecOnBoard branch and the same
+  // presence test (atLeast 1), so the colour vocabulary can't fork.
+  // ⛔ "ANOTHER" MUST CARRY excludeSelf. Ballynock Cohort IS a white creature; without it the card would
+  // satisfy its own gate on an empty board and buff itself permanently — turning a conditional +1/+1 into
+  // an unconditional one. A false positive, and the reason "a" and "another" are captured separately.
+  m = t.match(/^you control (a|an|another) (white|blue|black|red|green) (creature|permanent)$/);
+  if (m) {
+    const col = COLOR_WORDS[m[2]];
+    if (!col) return null;
+    return { countSpec: { kind: "colorPermanentsYouControl", colors: [col],
+      ...(m[3] === "creature" ? { cardType: "Creature" } : {}),
+      ...(m[1] === "another" ? { excludeSelf: true } : {}) }, atLeast: 1, gateOn: "source" };
+  }
   // Graveyard-count gate — reuse parseGraveyardGate and require it to consume the WHOLE condition.
   const gy = parseGraveyardGate(`as long as ${t}`);
   if (gy) return gy.match === `as long as ${t}` ? { ...gy.gate, gateOn: "source" } : null;
@@ -2955,7 +2971,13 @@ function parseClause(clause, out, selfName, selfType) {
           duration: { kind: "permanent" },
         });
       }
-      return; // an as-long-as self-gate — handled (or dropped to LOW on an unmodeled gate type)
+      // ⛔ FALL THROUGH when parseControlGateSource couldn't read the condition. This used to `return`
+      // unconditionally, which SWALLOWED the clause before the fuller parseAsLongAsGate lane below ever saw
+      // it — so "you control a blue creature" and even the already-shipped colour-OR form ("a black or
+      // green permanent") died here, because this arm's type group is `(.+)` and matches anything while
+      // parseControlGateSource only reads a single-word type. The clause still fails closed if nothing
+      // downstream parses it; the only change is that something downstream now gets the chance.
+      if (gate) return;
     }
     // ── GATED-SELFBUFF (prefix form) + GATED-KEYWORD (both forms) ─────────────────────────────────────────
     // Same control-threshold gate as the suffix P/T above, but (a) the "as long as" can LEAD the clause ("As
@@ -2966,13 +2988,16 @@ function parseClause(clause, out, selfName, selfType) {
     let gm = c.match(new RegExp(`^as long as ${GATE}, (?:this creature|it) gets ([+-]\\d+)\\/([+-]\\d+)$`));
     if (gm) {
       const gate = parseControlGateSource(gm[1], gm[2]);
-      if (gate) out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModifyGated", power: signed(gm[3]), toughness: signed(gm[4]), gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });
-      return;
+      if (gate) {
+        out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModifyGated", power: signed(gm[3]), toughness: signed(gm[4]), gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+        return;
+      }
+      // else: fall through to the general lane (see the note on the suffix arm above)
     }
     gm = c.match(new RegExp(`^(?:this creature|it) has (.+?) as long as ${GATE}$`));
-    if (gm) { emitGatedKeywords(out, gm[1], gm[2], gm[3]); return; }
+    if (gm) { const before = out.length; emitGatedKeywords(out, gm[1], gm[2], gm[3]); if (out.length > before || parseControlGateSource(gm[2], gm[3])) return; }
     gm = c.match(new RegExp(`^as long as ${GATE}, (?:this creature|it) has (.+)$`));
-    if (gm) { emitGatedKeywords(out, gm[3], gm[1], gm[2]); return; }
+    if (gm) { const before = out.length; emitGatedKeywords(out, gm[3], gm[1], gm[2]); if (out.length > before || parseControlGateSource(gm[1], gm[2])) return; }
     // ── GATED-ARTIFACT / COMBINED: "gets P/T and has kw as long as you control …" ─────────────────────────
     // The PURE-P/T and PURE-KEYWORD forms above fall through to here on the COMBINED clause (they each
     // demand either "gets" OR "has" alone). emitGatedEffect handles the P/T-THEN-keyword parsing and
