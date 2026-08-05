@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
+> 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
+
+> ## SLICE DONE - 2026-08-05 - **INGEST, +8** - batch 8 (post-v0.152.0)
+> Suite 1117 / 13,949 green + lint 0 BY EXIT CODE. `74b69e8c`. Flip-diff **+8 / 0 / 0** — the BFZ processor
+> shell (Benthic Infiltrator, Ruination Guide, Dominator Drone, Culling Drone …).
+> ⛔ **NOT AN ALIAS FOR MILL, and that is the whole point.** A milled card lands in the GRAVEYARD where
+> recursion/delve/threshold/escape still reach it; an ingested card is gone. Aliasing would be strictly
+> MORE generous to the ingested player than the printed card. The drive asserts **graveyard EMPTY** so the
+> shortcut can never creep back.
+> ⭐ **THREE PIECES, AND EACH ONE LOOKED LIKE THE FINISH LINE:** ① atom + matcher (clause parsed, cards
+> still parked) → ② keyword→trigger synthesis + shaped-count bump (descriptor detected AND routed
+> natively, cards STILL parked — the `shaped === detected` tell) → ③ crediting the bare "Ingest" line as
+> keyword-only (its printed line was surviving the trigger strip as residue).
+> **A keyword whose rules text lives only in REMINDER TEXT needs all three; any two buy nothing.**
+
 > ## 🎯 BLOCK: **THE SAME LENS, +35 MORE** - batch 130 (post-tag) — **TARGET MET**
 > Two slices, both "built engine, no ignition". Colton's +100-extra order is complete at **+103**.
 >

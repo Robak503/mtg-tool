@@ -7,11 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+197 this sitting · post-tag batch 130 → TAGGING v0.152.0** — suite **1116 / 13,943** green by exit code
+## ☀️ 2026-08-05 — **+205 this sitting · v0.152.0 PUBLISHED · post-tag batch 8** — suite **1117 / 13,949** green by exit code
 
 > ### 🔭 NEXT SLICES, ALREADY SCOPED — start here, the probing is done
 > Fresh sole-blocking-line rank (re-run after the +103, so these are current):
-> · **INGEST (7)** — *the warmest one.* Its effect is *"that player exiles the top card of their library"*.
+> · ✅ **INGEST — SHIPPED (`74b69e8c`, +8).** Was: Its effect is *"that player exiles the top card of their library"*.
 >   The MILL twin is already native with the exact same shape: `{op:"mill", who:"damagedPlayer", amount:N}`.
 >   Needs a parallel `exile-top-of-library` atom + resolver, with `applyMill`/`millOnePlayer` as the
 >   template. ⛔ **It cannot be ALIASED to mill** — milled cards land in the graveyard where recursion can
