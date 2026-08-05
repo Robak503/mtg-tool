@@ -6,6 +6,27 @@
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
+> ## SLICE DONE - 2026-08-05 - **PHANTOM-PAREN SWEEP TO ZERO, +0** - batch 35 (unchanged)
+> Suite 1121 / 13,981 green + lint 0 BY EXIT CODE. `04b6a950`. Flip-diff **0 / 0 / 0** — and it shipped
+> anyway, for a reason worth reading before the next +0 decision.
+> Re-ran the graft sweep to exhaustion. Three hits left: **Wren's Run Packmaster** (champion reminder),
+> **Saproling Burst** (fading — "seven" and "twelve" were missing from the number-word alternation), and
+> **Xerex Squire** (an acorn joke reminder, left alone on purpose). First two fixed; **the sweep is at zero.**
+> ⭐ **WHY +0 STILL SHIPS:** a phantom is a WRONG DATA SHAPE, not a missing feature. Graft proved the cost —
+> there the phantom sat as a **hidden SECOND blocker** behind the real one, and would have produced a bogus
+> trigger the moment the first cleared. And an instrument only reads true at zero: leaving two known hits in
+> means the next sweep's output has to be triaged by hand.
+> ⛔ **THE ORDERING TRAP, AND IT IS GATE 20 VERBATIM.** Champion's phantom showed on **1 of 9** carriers.
+> Not because eight were clean — because **Scryfall re-worded** most champion reminders from "When this
+> creature leaves" to "When this leaves", and the short form matches NO anchor. The other eight were
+> **INVISIBLE, not absent.** The obvious "fix" (widen the anchor) would have MANUFACTURED the phantom on
+> Thoughtweft Trio, Nova Chaser and Mistbind Clique and **LOST** them. Strip at the source first.
+> ⛔ **BUILT, MEASURED, WITHHELD — the anchor widening.** Swept the corpus with every parenthetical removed:
+> **ZERO cards** print the re-worded self form as real rules text. So the code would be unexercisable, and
+> the miss it guards is a **safe false-negative**, which the CREED tolerates. Reverted; the exact patch is
+> recorded beside both anchors in `triggers.js` and pinned in `phantomParenSweep.test.js`.
+> **Re-run this sweep after any bulk Scryfall refresh** — 121 long-form carriers migrate as sets re-print.
+
 > ## SLICE DONE - 2026-08-05 - **GRAFT, +2** - batch 35 (post-v0.152.0)
 > Suite 1120 / 13,976 green + lint 0 BY EXIT CODE. `130c8b99`. Flip-diff **+2 / 0 / 0** — Vigean Hydropon,
 > Simic Initiate.

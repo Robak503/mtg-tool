@@ -7,10 +7,20 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+232 this sitting · v0.152.0 PUBLISHED · post-tag batch 35** — suite **1120 / 13,976** green by exit code
+## ☀️ 2026-08-05 — **+232 this sitting · v0.152.0 PUBLISHED · post-tag batch 35** — suite **1121 / 13,981** green by exit code
 
-> ### 🔎 THE PHANTOM-TRIGGER TELL — seen FIVE times, and the fifth was **HUNTED, not stumbled into**
-> (fading · vanishing · squad · impending · **graft**)
+> ### 🧭 THE SWEEP IS AT ZERO — and that is the point, not a footnote
+> `phantomParenSweep.test.js` holds the last two (champion, fading-"seven"), both at **+0 flips**, both
+> shipped. **A phantom is a wrong DATA SHAPE, not a missing feature** — on graft it sat as a *hidden second
+> blocker* and would have fired a bogus trigger the moment the first cleared. An instrument only reads true
+> at zero. **Re-run the sweep after any reminder-strip work or bulk Scryfall refresh.**
+> ⛔ **AND ONE THING WAS BUILT, MEASURED, AND WITHHELD** — the "obvious" widening to accept Scryfall's
+> re-worded self form ("When this **leaves** …", noun dropped). Sweeping with every parenthetical removed
+> found **ZERO real carriers**: unexercisable code, guarding a *safe* false-negative. Patch recorded beside
+> both anchors. **121 long-form carriers will migrate as sets re-print — that is when it ships.**
+
+> ### 🔎 THE PHANTOM-TRIGGER TELL — seen SIX times, and the last two were **HUNTED, not stumbled into**
+> (fading · vanishing · squad · impending · **graft** · **champion**)
 > A keyword's REMINDER TEXT can contain a real trigger sentence ("At the beginning of your end step, …",
 > "Whenever another creature enters, …"), and the trigger anchor catches it INSIDE the parens. The
 > descriptor routes UNNATIVELY and parks the card.
