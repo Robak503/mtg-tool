@@ -4973,6 +4973,14 @@ function auraResidueClauses(card) {
     // isKeywordOnly admission here would credit keywords whose aura-side behaviour nobody has checked.
     // DIGIT tail, matching coverage's own anchor — a dredge-REFERENCING static or trigger never matches.
     if (/^dredge \d+$/.test(c)) continue;
+    // RIPPLE N (CR 702.19 — Surging Might) — the same admission as dredge directly above, on the same
+    // settled call: `isKeywordOnly("Ripple 4")` is true and a vanilla ripple creature is already
+    // native-body. Ripple is a CAST-time bonus ("when you cast this spell, you may reveal the top N and
+    // cast free copies") that the engine never offers, so the spell simply resolves as printed — an
+    // FN-safe alternative-value simplification, never a wrong resolution, exactly like madness/escape.
+    // The Aura's battlefield behaviour is untouched either way. Digit-anchored so ripple-REFERENCING text
+    // never matches. Added as its own line, for the reason spelled out on the dredge entry above.
+    if (/^ripple \d+$/.test(c)) continue;
     // ESCAPE (CR 702.138a) — the aura-side twin of the credit coverage.isKeywordOnly carries for creatures.
     // A GRAVEYARD re-cast window the runtime never offers, so the from-hand cast puts the identical Aura
     // onto the battlefield; the line is vacuous residue for the only cast the engine performs. Every aura

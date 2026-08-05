@@ -14,8 +14,12 @@
  * window) — and a wholesale isKeywordOnly admission would credit keywords whose aura-side behaviour
  * nobody has checked. Widening the safe way costs one line per keyword and buys an argument per keyword.
  *
- * Mutation-checked (2026-08-04, verified applied): the dredge line removed -> the flip pin goes red; the
- * digit anchor loosened to a bare `^dredge` -> the dredge-REFERENCING-text park goes red.
+ * Mutation-checked (2026-08-04, each verified applied by grepping the mutated line before running):
+ * dredge line removed -> its flip pin red; digit anchor loosened to bare `^dredge` -> the reference-text
+ * park red; ripple line disabled -> its flip pin red; ripple anchor loosened to bare `^ripple` -> the
+ * ripple reference-text park red. (The first attempt at the ripple mutants silently applied NOTHING —
+ * shell escaping ate the pattern and the suite stayed green, which would have read as an unkillable line.
+ * The occurrence count is the check, not the diff.)
  *
  * Real oracle fixture (bundled Scryfall, probed 2026-08-04).
  */
@@ -52,5 +56,27 @@ describe("recognition", () => {
   it("⛔ an unmodeled bonus beside the dredge line still parks it (the other half's gate holds)", () => {
     expect(classifyCard({ ...MOLDERVINE_CLOAK, id: "c-y", name: "Riddle Cloak",
       oracle: "Enchant creature\nEnchanted creature gets +3/+3 as long as you have interpreted the omens.\nDredge 2" })).toBe("body-only");
+  });
+});
+
+describe("the sibling admission: RIPPLE N, on the same settled call", () => {
+  // Added the same day, one line apart, for the same reason — kept beside dredge so the pair reads as
+  // one policy rather than two ad-hoc exceptions.
+  const SURGING_MIGHT = { id: "c-sm", name: "Surging Might", type: "Enchantment — Aura", mana: "{1}{G}",
+    oracle: "Enchant creature\nEnchanted creature gets +2/+2.\nRipple 4" };
+
+  it("Surging Might flips to native-aura", () => {
+    expect(classifyCard(SURGING_MIGHT)).toBe("native-aura");
+  });
+
+  it("the call it rides on was already settled", () => {
+    expect(isKeywordOnly("Ripple 4")).toBe(true);
+    expect(classifyCard({ id: "c-rv", name: "Rippler", type: "Creature — Merfolk", mana: "{2}{U}", power: "2", toughness: "2",
+      oracle: "Ripple 4" })).toBe("native-body");
+  });
+
+  it("⛔ ripple-REFERENCING text is not the keyword line and still parks", () => {
+    expect(classifyCard({ ...SURGING_MIGHT, id: "c-rx", name: "Odd Might",
+      oracle: "Enchant creature\nEnchanted creature gets +2/+2.\nRipple cards you own have flying." })).toBe("body-only");
   });
 });
