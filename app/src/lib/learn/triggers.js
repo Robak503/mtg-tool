@@ -4026,6 +4026,21 @@ export function detectTriggers(card) {
         // normalize the leading third-person "gains" → "gain" in the same rewrite (anchored to the exact
         // Essence-shape lead so no other clause is touched).
         effectClause = effectClause.replace(/^its controller gains /i, "you gain ").replace(/^its controller /i, "you ");
+      } else if (cls.event === "attacks" && cls.scope === "self"
+        && /^(?:it|this creature) doesn't untap during (?:its controller's|your) next untap step$/i.test(effectClause)) {
+        // ⭐ SELF NEXT-UNTAP LOCK on attack (CR 302.6) — "Whenever this creature attacks, IT doesn't untap
+        // during its controller's next untap step" (Lead Golem, Apes of Rath; Spectral Force / Spectral Bears
+        // carry the same line behind an intervening-if and still park). "It" is the SOURCE — a self-scoped
+        // attacks trigger has exactly one referent.
+        // ⛔ SENTINEL-GATED RATHER THAN MATCHED DIRECTLY, and the reason is a real FP: a bare "it doesn't
+        // untap during its controller's next untap step" clause reaching the parser from a SPELL would be an
+        // anaphor for the spell's target, and a self-target atom would silently lock the SOURCE instead. The
+        // folded tap-and-lock spells are joined by splitClauses so they never arrive bare — but an unfolded
+        // wording (a future "Tap target artifact. It doesn't untap…") would, so the gate is the scope, not
+        // the sentence. "the source creature" appears in ZERO printed oracle text.
+        // ⓘ "your next untap step" is accepted alongside "its controller's": on a SELF attacks trigger the
+        // controller IS "you", so the two wordings name the same untap step.
+        effectClause = "the source creature doesn't untap during its controller's next untap step";
       } else if (cls.event === "combatDamageToCreature" && cls.tapLockThatCreature) {
         // ⭐ SELF combat-damage TAP-AND-LOCK — the destroy twin's sibling rewrite, and identical in shape:
         // "that creature" is the DAMAGED creature, threaded by checkCombatDamageToCreatureTriggers as the

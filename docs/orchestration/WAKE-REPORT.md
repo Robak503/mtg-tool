@@ -7,7 +7,19 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+340 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 52** — suite **1144 / 14,096** green by exit code
+## ☀️ 2026-08-05 — **+342 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 54** — suite **1145 / 14,104** green by exit code
+
+> ### ⭐⭐ A SURVIVING MUTANT MEANS **THE PIN IS WRONG**, NOT THAT THE GUARD IS UNNECESSARY
+> Removing a scope gate broke nothing, because the pin I'd written tested the PARSER rather than the gate.
+> The tempting read — "the guard is dead code, delete it" — was wrong: the case that fails is a NON-SELF
+> watcher, which without the gate classifies native and locks the WRONG permanent. **Go find the case the
+> guard protects and pin THAT.** Verify it live before writing the pin.
+
+> ### ⚠️ CI `cancelled` IS NOT `success` — back-to-back pushes cancel the older run
+> Pushing slices in quick succession cancels the in-flight run for the earlier SHA (concurrency group). The
+> content is still covered by the newer run on a linear history, but **`conclusion: "cancelled"` must never be
+> read as a pass.** Check the newest SHA's conclusion, and if a specific commit needs its own green, space
+> the pushes or re-run it.
 
 > ### ⛔⛔ A SENTINEL CONTAINING " and " NEEDS ITS KEEP-WHOLE GUARD IN THE SAME EDIT — twice burned now
 > Detector ✅, rewrite ✅, atom matcher ✅, each verified in isolation, and every carrier still parked:

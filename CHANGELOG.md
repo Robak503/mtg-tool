@@ -30,6 +30,8 @@ summarizes the notable changes.
   empty the spell is countered.
 
 ### Added
+- **Lead Golem and Apes of Rath stay down after attacking.** Their drawback — not untapping on your next
+  turn after they attack — was never applied, so both were playing better than printed.
 - **The Kamigawa Snake Warriors work.** Kashi-Tribe Warriors, Kashi-Tribe Reaver, Orochi Ranger and
   Matsu-Tribe Birdstalker tap what they damage in combat and keep it down for a turn — that trigger was
   never firing. Frostwalk Bastion's version fires now too.

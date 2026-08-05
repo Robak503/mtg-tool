@@ -1116,6 +1116,14 @@ export function combatKeywordClauseParser(clause) {
   if (/^tap the triggering creature and it doesn't untap during its controller's next untap step$/.test(t)) {
     return { op: "tap", target: "thatCreature", noUntapNext: true };
   }
+  // ⭐ SELF NEXT-UNTAP LOCK (Lead Golem / Apes of Rath — "Whenever this creature attacks, it doesn't untap
+  // during its controller's next untap step"). triggers.js rewrites the pronoun to this sentinel ONLY for a
+  // self-scoped attacks trigger, so a spell's anaphoric "it" can never reach here and bind to the source.
+  // ⛔ lockOnly, and it matters on a VIGILANT attacker: the card says the creature doesn't untap, not that it
+  // taps. Tapping a vigilant attacker here would be strictly stronger than printed.
+  if (/^the source creature doesn't untap during its controller's next untap step$/.test(t)) {
+    return { op: "tap", target: "self", noUntapNext: true, lockOnly: true };
+  }
   // STUN (CR 122.1c) — "tap target creature [an opponent controls] and put a stun counter on it" (Gilded
   // Scuttler, Grappling Kraken, Frostfist Strider) / "tap up to N target creature and put a stun counter on
   // it" (Splash Lasher, Utrom Scientists). The stun rider FOLDS onto the SAME tap atom (splitClauses joins the

@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **SELF NEXT-UNTAP LOCK ON ATTACK — family complete, +2** - batch 54
+> Suite 1145 / 14,104 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Lead Golem, Apes of Rath.
+> ⭐ **THE THIRD AND LAST REFERENT, completing the family in one session:** a CHOSEN target (Barl's Cage), the
+> TRIGGERING permanent (Wall of Frost, Kashi-Tribe), and now the SOURCE. One runtime, three bindings.
+> ⛔ **lockOnly, AND IT ONLY SHOWS ON A VIGILANT ATTACKER.** The card says the creature doesn't untap, not
+> that it taps — and attacking taps it anyway, so a fabricated tap is INVISIBLE on an ordinary creature. The
+> witness drives the vigilance case for exactly that reason.
+> ⭐⭐ **THE FIRST MUTANT SURVIVED, AND THAT IS THE ENTRY WORTH READING.** Removing the `scope === "self"` gate
+> from the rewrite broke nothing — the FP pin I'd written tests the PARSER, not the gate. The case that
+> actually fails is a NON-SELF watcher ("Whenever a creature you control attacks, IT doesn't untap…"), where
+> "it" is the ATTACKING creature (CR 608.2c): with the gate gone it classifies **native-trigger and locks the
+> wrong permanent.** Verified live before pinning. **A surviving mutant means the PIN is wrong, not that the
+> guard is unnecessary — go find the case, don't delete the guard.**
+> ℹ Spectral Force / Spectral Bears / Stitcher's Graft still park on separate causes (intervening-if
+> predicate; the unattach-sacrifice trigger). Pinned as FN guards.
+
 > ## SLICE DONE - 2026-08-05 - **KASHI-TRIBE TAP-AND-LOCK — three green parts, zero cards, +4** - batch 52
 > Suite 1144 / 14,096 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Kashi-Tribe Warriors,
 > Kashi-Tribe Reaver, Orochi Ranger, Matsu-Tribe Birdstalker. All audited whole-card.
