@@ -7,10 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-04 — **+92 this sitting · v0.151.0 SHIPPED · post-tag batch 25** — suite **1108 / 13,876** green by exit code
+## ☀️ 2026-08-04 — **+94 this sitting · v0.151.0 SHIPPED · post-tag batch 27** — suite **1108 / 13,881** green by exit code
 
-> ### 🔬 NEXT SLICE, DIAGNOSED AND READY: **the Glimmer dies-trigger needs a KEYWORD LINE to be credited**
-> A real classifier bug, isolated to a 5-line repro. Paste this and watch it contradict itself:
+> ### ✅ SHIPPED (`fd7392db`, +2): **the Glimmer dies-trigger "needed a keyword line"** — a classifier bug
+> Kept in full because the DIAGNOSTIC PATTERN is the reusable part, not the card fact. The repro that
+> exposed it, which contradicts itself on its face:
 > ```
 > DIES = "When ~ dies, if it was a creature, return it to the battlefield under its owner's control. It's an enchantment."
 > dies alone                 -> body-only      ❌
@@ -23,10 +24,16 @@
 > keyword dependency is spurious. `detectTriggers` + `triggerRoutesNatively` BOTH already return
 > **native=true** for that dies line on the parked cards — this is a classifier-vs-router divergence
 > (the [ghost-registry] / [engine⇄UI wiring] family), not a missing mechanic.
-> **The corpus split is the confirmation:** identical dies line, byte-for-byte. NATIVE — Enduring Vitality ·
-> Enduring Curiosity · Enduring Innocence (each has a leading keyword: Vigilance / Flash / Lifelink).
-> PARKED — **Enduring Tenacity · Enduring Courage** (no keyword line). Worth **+2**, and the fix is in
-> `classifyCard`'s line accounting, NOT in triggers.js (which is correct already).
+> **The corpus split confirmed it:** identical dies line, byte-for-byte. NATIVE — Enduring Vitality ·
+> Curiosity · Innocence (each led by Vigilance / Flash / Lifelink). PARKED — **Tenacity · Courage** (no
+> keyword line). **The cause:** the trailing sentence *"It's an enchantment."* survived the trigger-sentence
+> strip and failed `isKeywordOnly` — but it is NOT residue. triggers.js rewrites the whole effect to the
+> `[self-return-bf:enchantment]` marker *because* the type change is part of the modeled effect, and says so
+> at the rewrite site. **The classifier was double-counting text the atom already owns.** Fixed in
+> `classifyCard`'s strip chain; triggers.js was correct throughout.
+> ⭐ **THE REUSABLE PATTERN: when a card's verdict depends on something that CANNOT bear on it (a keyword
+> line deciding whether a dies-trigger is modeled), the real cause is a leftover fragment that only becomes
+> decisive when it is the last one standing.** Look for a trailing sentence the effect already owns.
 > ⛔ Enduring Friendship is NOT part of this — its cast trigger routes **false**, a genuinely different
 > blocker. Old-Growth Troll and Harold and Bob return as an *Aura* ("It's an Aura enchantment with enchant
 > …"), also a different shape. **Three causes here, not one — do not batch them** (gate 20).

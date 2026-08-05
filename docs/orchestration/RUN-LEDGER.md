@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-04 - **Glimmer type directive isn't residue, +2** - batch 27 (post-tag)
+> Suite 1108 / 13,881 green + lint 0 BY EXIT CODE. `fd7392db`. Flip-diff **+2 / 0 / 0** — Enduring Tenacity ·
+> Enduring Courage. A **classifier-vs-router divergence**: `detectTriggers` and `triggerRoutesNatively` BOTH
+> already returned native=true; only `classifyCard`'s line accounting disagreed.
+> The trailing *"It's an enchantment."* survived the trigger-sentence strip and failed `isKeywordOnly` — but
+> triggers.js rewrites the whole effect to `[self-return-bf:enchantment]` **because** the type change is part
+> of the modeled effect, and says so at the rewrite site. **The classifier was double-counting text the atom
+> already owns.**
+> ⭐ **The pattern worth reusing:** the bug presented as *"this dies-trigger needs a keyword line"* — absurd
+> on its face, which is what made it findable. **When a verdict depends on something that cannot bear on it,
+> look for a leftover fragment that only becomes decisive when it's the last one standing.**
+> ⛔ **Three causes, not one** — Enduring Friendship's CAST trigger routes false; Old-Growth Troll / Harold
+> and Bob return as an AURA. Both pinned still-parked, not batched.
+
 > ## SLICE DONE - 2026-08-04 - **prevent-the-next-N on a CREATURE target, +8** - batch 25 (post-tag)
 > Suite 1108 / 13,876 green + lint 0 BY EXIT CODE. `ab76ebb5`. Flip-diff **+8 / 0 / 0** — Squee's Toy ·
 > Kei Takahashi · Field Surgeon · Martyrs' Tomb · Anoint · Recuperate · Abuna's Chant · Stand // Deliver.
