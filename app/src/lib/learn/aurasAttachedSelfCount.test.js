@@ -142,9 +142,100 @@ describe("⛔ the vocabulary stays narrow — an unmodeled count source still pa
       oracle: "This creature gets +2/+2 for each omen you have interpreted." })).toBe("body-only");
   });
 
-  it("⛔ 'Equipment attached to it' is NOT admitted by this entry", () => {
-    // The sibling phrase is a separate vocabulary decision with its own evidence; it has not been made.
-    expect(classifyCard({ ...GRACEBLADE, id: "c-z", name: "Steel Blade",
-      oracle: "This creature gets +2/+2 for each Equipment attached to it." })).toBe("body-only");
+});
+
+/**
+ * ⛔ THE SIBLINGS, AND THE FALSE POSITIVE THEY EXPOSED.
+ *
+ * Extending the same scan to "for each Equipment attached to it" and the combined "Aura and Equipment"
+ * gained five more carriers — and TWO CARDS THAT MUST NOT HAVE FLIPPED. The phrase regex accepted
+ * "attached to this creature" alongside "attached to it", and the card name is normalized to "this creature"
+ * upstream, so a GROUP ANTHEM that names its own source arrived looking self-referential.
+ *
+ * The evaluator counts against the AFFECTED permanent — which is precisely what makes the Equipment lane
+ * read the host correctly. In a self-buff the affected IS the source, so "it" is exact. In a group anthem
+ * the source and the affected are DIFFERENT permanents, and counting the affected inverts the card. Measured
+ * on Armament Master, both directions wrong:
+ *     two Equipment on the MASTER, none on the Kor  -> Kor read 2/2, correct is 6/6
+ *     none on the MASTER, two on the KOR            -> Kor read 6/6, correct is 2/2
+ *
+ * A CLEAN FLIP-DIFF DID NOT MEAN A SAFE CHANGE: the diff was GAINED 7 / LOST 0 / RETIERED 0. Two of those
+ * seven were wrong, and nothing in the diff said so — only reading each gained row's whole card did. The
+ * fix costs nothing, because every genuine carrier of this lane prints "attached to it".
+ *
+ * The Aura arm shipped one commit earlier carrying the same latent phrasing. It admitted no group anthem in
+ * practice (re-measuring with "this creature" removed showed LOST 0 against that build, which is the proof),
+ * so nothing wrong reached master — but the hazard was live and is closed here before it could fire.
+ */
+describe("the Equipment siblings", () => {
+  const MYR_ADAPTER = { id: "c-ma", name: "Myr Adapter", type: "Artifact Creature — Myr", mana: "{3}",
+    power: 1, toughness: 1, oracle: "This creature gets +1/+1 for each Equipment attached to it." };
+  const GOBLIN_GAVELEER = { id: "c-gv", name: "Goblin Gaveleer", type: "Creature — Goblin Warrior", mana: "{2}{R}",
+    power: 1, toughness: 1, oracle: "Trample\nThis creature gets +2/+0 for each Equipment attached to it." };
+  const CHAMPION = { id: "c-cf", name: "Champion of the Flame", type: "Creature — Human Warrior", mana: "{1}{R}",
+    power: 1, toughness: 1, oracle: "Trample\nThis creature gets +2/+2 for each Aura and Equipment attached to it." };
+  const GAUNTLETS = { id: "c-gg2", name: "Golem-Skin Gauntlets", type: "Artifact — Equipment", mana: "{2}",
+    oracle: "Equipped creature gets +1/+0 for each Equipment attached to it.\nEquip {2}" };
+
+  const bear = perm({ name: "Grizzly Bears", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }, "bear");
+  const gear = (id, attachedTo) => perm({ name: "Leather Armor", type: "Artifact — Equipment", oracle: "Equip {1}" }, id, { attachedTo });
+
+  it("all four carriers flip", () => {
+    expect(classifyCard(MYR_ADAPTER)).toBe("native-static");
+    expect(classifyCard(GOBLIN_GAVELEER)).toBe("native-static");
+    expect(classifyCard(CHAMPION)).toBe("native-static");
+    expect(classifyCard(GAUNTLETS)).toBe("native-equipment");
+  });
+
+  it("the Equipment count is exact on a real board", () => {
+    const gv = perm(GOBLIN_GAVELEER, "gv");
+    expect(pt(boardWith([gv]), "gv")).toBe("1/1");
+    expect(pt(boardWith([gv, gear("e1", "gv")]), "gv")).toBe("3/1");
+    expect(pt(boardWith([gv, gear("e1", "gv"), gear("e2", "gv")]), "gv")).toBe("5/1");
+    expect(pt(boardWith([gv, gear("e1", "other")]), "gv")).toBe("1/1");
+  });
+
+  it("the combined count is ONE widened scan, not two counts summed", () => {
+    const ch = perm(CHAMPION, "ch");
+    expect(pt(boardWith([ch]), "ch")).toBe("1/1");
+    expect(pt(boardWith([ch, aura("a1", "ch")]), "ch")).toBe("3/3");
+    expect(pt(boardWith([ch, gear("e1", "ch")]), "ch")).toBe("3/3");
+    expect(pt(boardWith([ch, aura("a1", "ch"), gear("e1", "ch")]), "ch")).toBe("5/5");
+  });
+
+  it("⭐ on an EQUIPMENT, 'it' is the HOST — the count follows the affected permanent, not the source", () => {
+    // Golem-Skin Gauntlets counts ITSELF, because it is an Equipment attached to the host (correct per the
+    // printed card). Counting against the SOURCE would tally Equipment attached to the Gauntlets: always 0.
+    const g = perm(GAUNTLETS, "g1", { attachedTo: "bear" });
+    expect(pt(boardWith([bear, g]), "bear")).toBe("3/2");
+    expect(pt(boardWith([bear, g, gear("p1", "bear")]), "bear")).toBe("4/2");
+    expect(pt(boardWith([bear, g, gear("p1", "other")]), "bear")).toBe("3/2");
+    expect(pt(boardWith([bear, perm(GAUNTLETS, "g1", { attachedTo: null })]), "bear")).toBe("2/2");
+  });
+});
+
+describe("⛔ THE MEASURED FALSE POSITIVE — a group anthem naming its own source must NOT be admitted", () => {
+  const ARMAMENT_MASTER = { id: "c-am", name: "Armament Master", type: "Creature — Kor Soldier", mana: "{1}{W}{W}",
+    power: 2, toughness: 2, oracle: "Other Kor creatures you control get +2/+2 for each Equipment attached to this creature." };
+  const KELLAN = { id: "c-ke", name: "Kellan, the Fae-Blooded", type: "Legendary Creature — Human Faerie", mana: "{2}{R}",
+    power: 2, toughness: 2, oracle: "Double strike\nOther creatures you control get +1/+0 for each Aura and Equipment attached to this creature." };
+
+  it("both park — 'this creature' names the SOURCE, and the evaluator reads the AFFECTED", () => {
+    expect(classifyCard(ARMAMENT_MASTER)).toBe("body-only");
+    expect(classifyCard(KELLAN)).toBe("body-only");
+  });
+
+  it("the buffed creature keeps its PRINTED P/T — no inverted count reaches the board", () => {
+    // The exact board that measured 2/2-where-6/6 and 6/6-where-2/2 while the phrase was admitted.
+    const master = perm(ARMAMENT_MASTER, "master");
+    const kor = perm({ name: "Kor Hookmaster", type: "Creature — Kor Soldier", power: 2, toughness: 2, oracle: "" }, "kor");
+    const gear = (id, attachedTo) => perm({ name: "Leather Armor", type: "Artifact — Equipment", oracle: "Equip {1}" }, id, { attachedTo });
+    expect(pt(boardWith([master, kor, gear("e1", "master"), gear("e2", "master")]), "kor")).toBe("2/2");
+    expect(pt(boardWith([master, kor, gear("e1", "kor"), gear("e2", "kor")]), "kor")).toBe("2/2");
+  });
+
+  it("the SELF phrasing of the very same count source still works (the fix is narrow)", () => {
+    expect(classifyCard({ ...ARMAMENT_MASTER, id: "c-am2", name: "Lone Master",
+      oracle: "This creature gets +2/+2 for each Equipment attached to it." })).toBe("native-static");
   });
 });

@@ -427,7 +427,22 @@ function parseSelfCountSource(phrase) {
   // tallies instead of short-circuiting. So this reads live `attachedTo` back-pointer state the runtime
   // already maintains — exact, never inferred, and a creature wearing nothing counts the printed 0.
   // Self-referential, hence the layer-7c "for each" lane rather than a CDA: it ADDS to the printed body.
-  if (/^aura attached to (?:it|this creature)$/.test(p)) return { kind: "aurasAttachedToSelf" };
+  // ⛔ "IT" ONLY — "attached to THIS CREATURE" is deliberately NOT accepted, and this is a MEASURED FALSE
+  // POSITIVE, not caution. The evaluator counts against the AFFECTED permanent (which is what makes the
+  // Equipment lane read the host correctly). In a self-buff the affected IS the source, so "it" is exact.
+  // But a GROUP anthem names its source explicitly — Armament Master, "Other Kor creatures you control get
+  // +2/+2 for each Equipment attached to THIS CREATURE" (the card name is normalized to "this creature"
+  // upstream, so the phrase arrives looking self-referential). There the count source is the MASTER while
+  // the buff lands on the OTHER Kor, and counting against the affected inverts the card exactly: measured
+  // 2/2 where the Kor should read 6/6 (two Equipment on the Master), and 6/6 where it should read 2/2 (two
+  // on the Kor itself). Both wrong, in both directions. Kellan, the Fae-Blooded is the same shape.
+  // Costs nothing: every real carrier of the self lane prints "attached to it". Pinned both ways.
+  if (/^aura attached to it$/.test(p)) return { kind: "aurasAttachedToSelf" };
+  // The two siblings, admitted on the same evidence: `isEquipped` is the boolean twin of the Equipment count
+  // exactly as `isEnchanted` is of the Aura count, so all three read the same live `attachedTo` back-pointer
+  // the runtime maintains. The combined phrase is one scan with a wider type test, not two counts summed.
+  if (/^equipment attached to it$/.test(p)) return { kind: "equipmentAttachedToSelf" };
+  if (/^aura and equipment attached to it$/.test(p)) return { kind: "aurasAndEquipmentAttachedToSelf" };
   // SUBTYPE on the battlefield (ALL controllers, no "you control") — "(other )?<Subtype> on the battlefield"
   // (Sliver Legion "for each other Sliver on the battlefield"). "other" → excludeSelf (each counter excludes
   // itself). A LIVE board count (never zero-by-default) — so it's non-hollow, unlike a "counter on this

@@ -195,11 +195,24 @@ function countSelfSpecOnBoard(state, perm, spec) {
   // swapped for a tally. All players, because an opponent's Aura attached to my creature still counts: the
   // clause says "attached to it", not "you control". An EXACT read of live back-pointer state, so a creature
   // wearing nothing contributes the printed 0 and never a fabricated number.
-  if (spec.kind === "aurasAttachedToSelf") {
+  // …and its two siblings, which are the SAME scan with a wider type test: "for each Equipment attached to
+  // it" (Goblin Gaveleer, Myr Adapter) and the combined "for each Aura and Equipment attached to it"
+  // (Champion of the Flame). `isEquipped` is the boolean twin of the Equipment arm exactly as `isEnchanted`
+  // is of the Aura arm, so all three read the same already-maintained back-pointer.
+  //
+  // ⚠️ `perm` HERE IS THE AFFECTED PERMANENT, NOT THE EFFECT'S SOURCE — that is what makes the phrase mean
+  // the right thing on an Equipment (Golem-Skin Gauntlets: "EQUIPPED CREATURE gets +1/+0 for each Equipment
+  // attached to IT"). The equip lane fixes `affects` to the host, so by the time this runs the host's P/T is
+  // what is being derived and `perm.id` is the host's. Counting against the SOURCE would tally Equipment
+  // attached to the Gauntlets — always zero. Measured on a real board, not reasoned about; pinned.
+  if (spec.kind === "aurasAttachedToSelf" || spec.kind === "equipmentAttachedToSelf" || spec.kind === "aurasAndEquipmentAttachedToSelf") {
+    const attachRe = spec.kind === "aurasAttachedToSelf" ? /\baura\b/i
+      : spec.kind === "equipmentAttachedToSelf" ? /\bequipment\b/i
+        : /\b(?:aura|equipment)\b/i;
     let n = 0;
     for (const pid of Object.keys(state?.players || {})) {
       for (const p of state.players[pid]?.battlefield || []) {
-        if (p.attachedTo === perm.id && /\baura\b/i.test(p.card?.type || "")) n += 1;
+        if (p.attachedTo === perm.id && attachRe.test(p.card?.type || "")) n += 1;
       }
     }
     return n;
