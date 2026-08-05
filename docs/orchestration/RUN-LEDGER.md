@@ -6,6 +6,29 @@
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
+> ## SLICE DONE - 2026-08-05 - **GRAFT, +2** - batch 35 (post-v0.152.0)
+> Suite 1120 / 13,976 green + lint 0 BY EXIT CODE. `130c8b99`. Flip-diff **+2 / 0 / 0** — Vigean Hydropon,
+> Simic Initiate.
+> ⭐ **FOUND BY SWEEPING FOR THE SIGNATURE, NOT BY TRIPPING OVER A CARD.** Four bugs now share one
+> fingerprint (fading, vanishing, squad, impending): an effectClause carrying an **unbalanced `)`** it
+> inherited from the reminder paren it was cut out of. A corpus sweep for exactly that turned up graft —
+> 12 carriers, all parked, all showing `"you may move a +1/+1 counter from this creature onto it. )"`,
+> 0/12 routing. **Keep running this sweep after any reminder-strip work; it is now 5-for-5.**
+> Graft splits clean: the **move** half is optional (declining leaves the counters put), the **enters with
+> N +1/+1 counters** half is ⛔ NOT — every carrier is printed **0/0**, so those counters ARE the body and
+> reading zero puts a creature on the battlefield that dies to the SBA on arrival. The count lives ONLY in
+> the keyword line (the sentence is inside the stripped reminder), so `entersWithPlusCounters` parses
+> "Graft N". Law 6 on the real `enterPermanent`: 0/0 → `{+1/+1: 5}` → **5/5**; 0/0 → 1 → **1/1**.
+> ⛔ **THE THIRD PIECE WAS A LANDMINE MY OWN FIX ARMED** — worth the lesson: once the counter read went
+> non-zero, coverage's enters-with strip started firing, and that strip is **not paren-aware**. It cut at
+> "…on it." INSIDE the reminder and left orphan residue with an unbalanced paren, so the card stayed parked
+> and looked exactly like "the keyword still isn't credited." Graft now takes the **Ravenous exemption**
+> sitting three lines above it. **When you teach a helper to see a new shape, check who ELSE consumes it**
+> (gate 20's cousin).
+> ⓘ Only 2 of 12 flip and that is the honest number — the other ten carry real second abilities
+> (Sporeback Troll's regenerate, Cytoplast Manipulator's gain-control) as separate blockers. The phantom
+> fix and the counter read are infrastructure for them: when those land, their carriers won't enter dying.
+
 > ## SLICE DONE - 2026-08-05 - **WEB-SLINGING + IMPENDING, +7** - batch 33 (post-v0.152.0)
 > Suite 1119 / 13,970 green + lint 0 BY EXIT CODE. `df772808`. Flip-diff **+7 / 0 / 0** — four Spider-Man
 > cards + the three Overlords.

@@ -7,13 +7,22 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+230 this sitting · v0.152.0 PUBLISHED · post-tag batch 33** — suite **1119 / 13,970** green by exit code
+## ☀️ 2026-08-05 — **+232 this sitting · v0.152.0 PUBLISHED · post-tag batch 35** — suite **1120 / 13,976** green by exit code
 
-> ### 🔎 THE PHANTOM-TRIGGER TELL, now seen FOUR times (fading · vanishing · squad · impending)
-> A keyword's REMINDER TEXT can contain a real trigger sentence ("At the beginning of your end step, …"),
-> and the trigger anchor catches it INSIDE the parens. The descriptor routes UNNATIVELY and parks the card.
+> ### 🔎 THE PHANTOM-TRIGGER TELL — seen FIVE times, and the fifth was **HUNTED, not stumbled into**
+> (fading · vanishing · squad · impending · **graft**)
+> A keyword's REMINDER TEXT can contain a real trigger sentence ("At the beginning of your end step, …",
+> "Whenever another creature enters, …"), and the trigger anchor catches it INSIDE the parens. The
+> descriptor routes UNNATIVELY and parks the card.
 > **The signature is unmistakable once you know it: the effectClause ends with a STRAY `)`.** If a keyword
 > is credited and its carriers still park, dump the descriptors and look for the paren before anything else.
+> ⭐ **AND NOW IT IS A SWEEP, NOT A HUNCH.** After the fourth instance I stopped waiting for the next card
+> to trip me and scanned the whole corpus for descriptors with an unbalanced `)` — that found graft cold
+> (12 carriers, 0/12 routing). **Re-run that sweep after any reminder-strip work.** It is 5-for-5.
+> ⛔ Graft's second lesson, gate 20's cousin: teaching `entersWithPlusCounters` a new shape made
+> **coverage's** enters-with strip start firing on cards it had never seen, and that strip is not
+> paren-aware — it cut inside the reminder and left orphan residue. **When you widen a helper, check who
+> else consumes it.** Fix was the existing Ravenous exemption, three lines up.
 
 
 > ### ⭐ THE CHECK THAT PAID TWICE TODAY: **when a pin refuses something, test its REASON against the

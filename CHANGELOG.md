@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Graft creatures enter at the right size.** Vigean Hydropon and Simic Initiate are printed 0/0 — the
+  graft counters *are* their body — so they now arrive with those counters on them instead of dying the
+  moment they hit the battlefield.
 - **Act of Treason and every "steal a creature for the turn" card work.** Seventeen of them — Act of
   Treason, Turn Against, Traitorous Blood, Bloody Betrayal, Limits of Solidarity, Portent of Betrayal,
   Sarkhan Vol's −2 and more. You take the creature untapped and hasty, swing with it, and it goes home at
