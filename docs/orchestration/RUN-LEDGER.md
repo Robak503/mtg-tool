@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔎 CENSUS BANKED - 2026-08-05 - **SELF-NAME IN TRIGGER CLAUSES: 451 parked cards, 395 shapes**
+> Ran the obvious follow-up to the Elder Dragon arm — every PARKED card whose trigger effectClause still
+> carries its own name. **451 cards. But the tractable ones are gone**; what's left needs subsystems, and
+> the census is banked so nobody re-derives it:
+> · **"you may pay {C}. if you do, transform ~" (13)** — ⛔ probed: **transform-self parses LOW**, i.e. it
+>   isn't modelled at all. Needs the TRANSFORM subsystem, not a name fix.
+> · **"draft a card from ~'s spellbook" (9)** — an Alchemy/digital mechanic; no engine concept.
+> · **"put a loyalty counter on ~" (5)** — ⛔ **REFUSED, and the file already says why.** The trailing-name
+>   allowlist is scoped to "remove … from" ON PURPOSE: a broader "put … on &lt;Name&gt;" rewrite lets a card whose
+>   own mana ability is mis-modelled slip the leaky mana gate — **Famous Museum, named in that comment, is
+>   exactly what my failed global rewrite admitted.** The warning is live. Do not broaden it.
+> · **"untap ~" (4)** — an arm would be honest, but every carrier (Chandra Fire of Kaladesh, Hydro-Man,
+>   Ragost) is blocked by transform / becomes-a-land text as well. Expected yield ~0-1. Not worth the churn.
+> · "~ becomes prepared" (3), "any number of cards named ~" (3) — both already-recorded refusals.
+> ✅ **CONCLUSION: the self-name vein is worked out at +5.** The remaining 451 are gated on transform,
+> spellbook, prepared, and a documented FP refusal — not on the name.
+
 > ## SLICE DONE - 2026-08-05 - **ELDER DRAGON UPKEEP (self-name arm), +5** - batch 18 (post-v0.153.0)
 > Suite 1131 / 14,021 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Palladia-Mors, Chromium,
 > Vaevictis Asmadi, Arcades Sabboth, Kuro Pitlord. **This is the entry directly below, finally done RIGHT.**
