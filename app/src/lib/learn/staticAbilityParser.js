@@ -1273,7 +1273,10 @@ function emitGatedEffect(out, effRaw, gate) {
   // needs its own pseudo-keyword honored at the attack gates; a separate slice, 8 carriers.
   if (e !== "") {
     const restriction = e.replace(/[‘’']/g, "'");
-    const RIDERS = { "can't block": ["cantBlock"], "can't attack": ["cantAttack"], "can't be blocked": ["unblockable"], "can't attack or block": ["cantAttack", "cantBlock"] };
+    const RIDERS = { "can't block": ["cantBlock"], "can't attack": ["cantAttack"], "can't be blocked": ["unblockable"], "can't attack or block": ["cantAttack", "cantBlock"],
+      // The as-though defender escape (CR 609.4b) — its own pseudo-keyword, honored ONLY at the two
+      // attack-declaration enumeration sites, so the creature keeps defender for every other reader.
+      "can attack as though it didn't have defender": ["attacksIgnoringDefender"] };
     if (Object.hasOwn(RIDERS, restriction)) { for (const k of RIDERS[restriction]) kws.push(k); e = ""; }
   }
   if (e !== "" || (!pt && kws.length === 0)) return; // unconsumed rider, or nothing recognized → LOW (Arbiter)
@@ -3044,20 +3047,30 @@ function parseClause(clause, out, selfName, selfType) {
   // nothing unless the effect reduces COMPLETELY to a P/T delta and/or grantable keywords, which no
   // "until end of turn" / triggered / activated text can survive.
   if (!/^(?:when|whenever|at)\b/.test(c) && !/\bwhenever\b/.test(c) && !c.includes(":")) {
-    let sm = c.match(/^(?:this creature|it) ((?:gets|has) .+?) as long as (.+)$/);
+    // ⭐ THE EFFECT SIDE IS `.+`, NOT `(?:gets|has) .+`, AND THAT WAS A REAL BUG. Every gated lane in this
+    // file — this one and the three control-gate arms above — demanded the effect open with "gets" or
+    // "has", so a gate carrying a BARE permission or restriction ("As long as you control a Gate, this
+    // creature CAN ATTACK as though it didn't have defender" — Ogre Jailbreaker; "As long as you control
+    // another creature, ~ CAN'T ATTACK OR BLOCK" — Ethrimik) matched NO lane and parked. emitGatedEffect
+    // knows those riders; nothing routed them to it. A pure path accident, and it cost ~10 cards.
+    // ⛔ THE RETURN IS CONDITIONAL NOW, and the asymmetry is deliberate. For a "gets"/"has" effect the
+    // return stays UNCONDITIONAL — that is this lane's documented contract (an unconsumed rider parks the
+    // whole clause here, a safe FN) and later branches never handled those shapes anyway. For the newly
+    // admitted shapes it returns ONLY on a real emission, because the widened regex now matches clauses
+    // this lane has never owned, and swallowing them on a no-match would silently starve the branches
+    // below. emitGatedEffect stays the CREED guard either way: an unrecognized rider emits nothing.
+    const consumed = (eff, gate) => {
+      const { gateOn: _gOn, ...selfGate } = gate;
+      const before = out.length;
+      emitGatedEffect(out, eff, selfGate);
+      return out.length > before || /^(?:gets|has)\b/.test(eff);
+    };
+    let sm = c.match(/^(?:this creature|it) (.+?) as long as (.+)$/);
     let sg = sm && parseAsLongAsGate(sm[2]);
-    if (sm && sg) {
-      const { gateOn: _gOn, ...selfGate } = sg;
-      emitGatedEffect(out, sm[1], selfGate);
-      return; // handled — or the effect had an unmodeled rider and NOTHING was emitted (body-only, CREED)
-    }
-    sm = c.match(/^as long as (.+?), (?:this creature|it) ((?:gets|has) .+)$/);
+    if (sm && sg && consumed(sm[1], sg)) return;
+    sm = c.match(/^as long as (.+?), (?:this creature|it) (.+)$/);
     sg = sm && parseAsLongAsGate(sm[1]);
-    if (sm && sg) {
-      const { gateOn: _gOn, ...selfGate } = sg;
-      emitGatedEffect(out, sm[2], selfGate);
-      return; // handled — or parked whole on an unconsumed rider (safe FN)
-    }
+    if (sm && sg && consumed(sm[2], sg)) return;
   }
 
   // ── CHOSEN-TYPE COUNT-ANTHEM (layer 7c dynamic) — Banner of Kinship / Door of Destinies ──────────────

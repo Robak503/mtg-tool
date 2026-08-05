@@ -459,7 +459,9 @@ function wouldBeAttackerIds(state, aiPlayerId) {
       try {
         return permanentIsCreature(state, p.id)
           && !p.tapped
-          && !permanentHasKeyword(state, p.id, "Defender")
+          // The as-though escape must be honored HERE too or the AI would never swing with a creature the
+          // rules let it attack with — legalChoices' twin site carries the full rationale.
+          && (!permanentHasKeyword(state, p.id, "Defender") || permanentHasKeyword(state, p.id, "attacksIgnoringDefender"))
           && (!p.summoningSick || permanentHasKeyword(state, p.id, "Haste"));
       } catch { return false; }
     })

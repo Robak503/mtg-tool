@@ -2994,7 +2994,13 @@ function actionsDeclareAttacker(state, playerId) {
     .filter(p => !p.tapped)
     .filter(p => !declared.has(p.id))
     // Defender (CR 702.3b) can't attack — layer-aware so a granted/removed Defender counts (EVADE).
-    .filter(p => !permanentHasKeyword(state, p.id, "Defender"))
+    // ⭐ THE AS-THOUGH ESCAPE (CR 609.4b) — "can attack as though it didn't have defender" (Ogre Jailbreaker,
+    // Skyclave Sentinel, Bristlepack Sentry, ~50 carriers). It does NOT remove defender, and modelling it as
+    // removeKeyword would be observably wrong to everything ELSE that reads defender ("each creature you
+    // control WITH DEFENDER assigns combat damage equal to its toughness" — Arcades/High Alert; Wall tribal).
+    // So it rides its own pseudo-keyword that is honored HERE and at opponentAI's mirror scan, and nowhere
+    // else: the creature keeps defender for every other purpose and merely stops being barred from attacking.
+    .filter(p => !permanentHasKeyword(state, p.id, "Defender") || permanentHasKeyword(state, p.id, "attacksIgnoringDefender"))
     // PACIFISM CLASS (BLITZ PA-1): the cantAttack pseudo-keyword (an attached "can't attack [or block]"
     // aura grant) — layer-aware, so the restriction lifts the moment the aura leaves.
     .filter(p => !permanentHasKeyword(state, p.id, "cantAttack"))
