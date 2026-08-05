@@ -1098,6 +1098,17 @@ export function combatKeywordClauseParser(clause) {
   if (bareLockM) {
     return { op: "tap", targetType: bareLockM[1], restrictions: [], noUntapNext: true, lockOnly: true };
   }
+  // ⭐ TRIGGERING-REFERENT NO-UNTAP LOCK — the same lockOnly effect aimed at a FIXED referent instead of a
+  // chosen target: Wall of Frost / Labyrinth Minotaur / Illusion / Cleric of Chill Depths, "Whenever this
+  // creature blocks a creature, THAT CREATURE doesn't untap during its controller's next untap step."
+  // triggers.js rewrites that pronoun to the shared "the triggering creature" sentinel — a phrase in ZERO
+  // printed oracle text — so this can never fire off a spell's anaphoric "that creature".
+  // ⛔ NOT A TARGET. These triggers don't target (no "target" in the printed line), so the atom carries
+  // `target: "thatCreature"` (→ triggeringTargets → ctx.triggeringPermanentId) and NO targetType, and the
+  // blocked attacker is locked whether or not it could have been targeted.
+  if (/^the triggering creature doesn't untap during its controller's next untap step$/.test(t)) {
+    return { op: "tap", target: "thatCreature", noUntapNext: true, lockOnly: true };
+  }
   // STUN (CR 122.1c) — "tap target creature [an opponent controls] and put a stun counter on it" (Gilded
   // Scuttler, Grappling Kraken, Frostfist Strider) / "tap up to N target creature and put a stun counter on
   // it" (Splash Lasher, Utrom Scientists). The stun rider FOLDS onto the SAME tap atom (splitClauses joins the

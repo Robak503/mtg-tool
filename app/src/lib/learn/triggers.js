@@ -2018,6 +2018,19 @@ function classifyCondition(condRaw, cardName, cardType) {
     if (selfRef && /\bbecomes blocked\s*$/.test(c.trim()) && !/\bblocks\b/.test(c)) return { event: "becomesBlocked", scope: "self", whose: "any" };
     return null;
   }
+  // ⭐ BLOCKS-A-CREATURE (CR 509.1a) — "Whenever this creature blocks A CREATURE, …" (Wall of Frost,
+  // Labyrinth Minotaur, Illusion, Cleric of Chill Depths, Wall of Tears, Aether Membrane, …). NOT the same
+  // event as the bare "blocks" branch below, and the difference is load-bearing in TWO ways:
+  //   · MULTIPLICITY — the bare wording is once per combat (CR 509.3c); "a creature" fires ONCE PER CREATURE
+  //     blocked, exactly like the becomesBlockedByCreature sibling (CR 509.3d).
+  //   · REFERENT — it binds "that creature" to the BLOCKED ATTACKER, so source ≠ triggering permanent. That
+  //     is why this carries its own scope rather than riding scope:"self", whose contract is source ===
+  //     triggering; the fire site pairs blocker (source) with blocked attacker (triggering).
+  // ⛔ WHY THIS WAS 0-NATIVE ACROSS 14 CARDS: the guard below rejects anything not ending on "blocks", so the
+  // trailing " a creature" alone sent the whole family to Arbiter. Measured before building: swapping the
+  // event for the modelled per-creature sibling flipped ZERO cards, so the event is necessary but NOT
+  // sufficient — each card also needs its effect. Only the no-untap effect is modelled today.
+  if (/^(?:this creature|it) blocks a creature$/.test(c.trim()) && selfRef) return { event: "blocksCreature", scope: "blocksCreature", whose: "any" };
   if (/\bblocks\b/.test(c) && selfRef && !/\bblocks\s*$/.test(c.trim())) return null;
   if (/\bblocks\b/.test(c) && selfRef) return { event: "blocks", scope: "self", whose: "any" };
 
@@ -3888,6 +3901,17 @@ export function detectTriggers(card) {
         // (target:"thatCreature" + countFor triggeringCreaturePower — X read live at resolution,
         // CR 608.2h). Whole-clause anchored; a rider → unrewritten → LOW → Arbiter.
         effectClause = "put x +1/+1 counters on the triggering creature, where x is its power";
+      } else if (cls.event === "blocksCreature" && /^that creature doesn't untap during its controller's next untap step$/i.test(effectClause)) {
+        // ⭐ BLOCKS-A-CREATURE REFERENT (CR 608.2c) — "that creature" is the BLOCKED ATTACKER, which the
+        // blocksCreature fire site threads as the triggering permanent. Rewrite to the shared "the triggering
+        // creature" sentinel so the existing target:"thatCreature" lane binds it — no new referent kind, and
+        // no other family's binding moves.
+        // ⛔ EVENT-GATED, not scope-gated like its neighbours, because this event has exactly one scope and
+        // the gate must be the narrower of the two. Whole-clause anchored: Vertigo Spawn's two-sentence
+        // "tap that creature. That creature doesn't untap…" leaves residue → unrewritten → LOW → Arbiter
+        // (a safe FN), and every other "that creature" effect in this family (destroy, bounce-at-end-of-
+        // combat, can't-attack-next-turn) is untouched and still parks.
+        effectClause = "the triggering creature doesn't untap during its controller's next untap step";
       } else if (cls.scope === "permanentYouControl" && /^untap it$/i.test(effectClause)) {
         // AMULET-UNTAP (#1301) — "Whenever a permanent you control enters tapped, untap IT". "It" is the
         // ENTERING permanent (CR 608.2c), which is usually a LAND, so this cannot ride the creature-only
@@ -4997,6 +5021,14 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   switch (descriptor.scope) {
     case "self":
       return !triggeringPermanent || triggeringPermanent.id === sourcePermanent.id;
+    // ⭐ BLOCKS-A-CREATURE — the ONE scope where source and triggering permanent are deliberately DIFFERENT
+    // objects: the source is the blocker whose card prints the ability, the triggering permanent is the
+    // attacker it blocked (the "that creature" referent, CR 608.2c). The pairing is established by the fire
+    // site (checkBlockTriggers walks real block pairs), so the only thing to assert here is that a triggering
+    // permanent was threaded at all — a bare fire with none would otherwise bind the referent to nothing and
+    // the effect would silently no-op while the card read native.
+    case "blocksCreature":
+      return !!triggeringPermanent;
     case "equippedCreature":
       // EQUIP (WAVE 4) — the source is the EQUIPMENT; the trigger fires ONLY when the triggering permanent IS
       // this equipment's host. TWO linkages, unified (both Wave-4 equippedCreature descriptors share this scope):
@@ -6188,6 +6220,13 @@ export function checkBlockTriggers(state) {
     const blk = findPermanent(state, b.blockerId);
     if (!att || !blk) continue;
     fired = fired.concat(triggersForEvent(state, { event: "becomesBlockedByCreature", sourcePermanent: att.permanent, triggeringPermanent: att.permanent, triggeringContext: {} }));
+    // ⭐ BLOCKS-A-CREATURE (CR 509.1a/509.3d) — the BLOCKER's mirror of the line above, in the same per-pair
+    // loop with the same NO-DEDUP contract: a creature blocking two attackers fires twice, once per blocked
+    // creature, which is what "blocks a creature" means (the bare "blocks" wording above is deduped instead).
+    // ⛔ SOURCE AND TRIGGERING PERMANENT ARE DIFFERENT HERE — source is the blocker (its card prints the
+    // ability, so "this creature" binds to it), triggering is the attacker it blocked (so "that creature"
+    // binds to THAT). Every other block event in this function passes the same permanent twice.
+    fired = fired.concat(triggersForEvent(state, { event: "blocksCreature", sourcePermanent: blk.permanent, triggeringPermanent: att.permanent, triggeringContext: {} }));
   }
   // BUSHIDO (subsystem 2) — the combined "blocks OR becomes blocked" event fires for a creature in EITHER
   // role: each blocker AND each blocked attacker. Deduped across both roles so a creature that somehow

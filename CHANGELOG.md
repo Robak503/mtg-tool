@@ -30,6 +30,10 @@ summarizes the notable changes.
   empty the spell is countered.
 
 ### Added
+- **Wall of Frost actually freezes things now.** "Whenever this creature blocks a creature, that creature
+  doesn't untap during its controller's next untap step" was never firing — the simulator only knew the
+  plain "whenever this creature blocks" wording, so Wall of Frost was a vanilla 0/7. Labyrinth Minotaur and
+  Cleric of Chill Depths work too, and blocking two attackers freezes both.
 - **Tap-down locks that don't tap now work.** Barl's Cage, Elvish Hunter, House Guildmage and Sleeper Dart
   say a creature doesn't untap next turn *without* tapping it — the simulator only understood the version
   that taps first, so these did nothing. They keep a creature down without touching it, as printed.

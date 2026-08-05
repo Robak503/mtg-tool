@@ -3,6 +3,32 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **BLOCKS-A-CREATURE — a whole EVENT was missing, +3** - batch 48
+> Suite 1143 / 14,086 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Wall of Frost, Labyrinth
+> Minotaur, Cleric of Chill Depths (the Illusion TOKEN flips too; tokens aren't counted). All audited
+> whole-card.
+> ⛔⛔ **0 NATIVE ACROSS 14 CARDS, AND THE GATE WAS TWO WORDS.** The bare "Whenever this creature blocks"
+> event has been modelled for ages; the guard beside it rejects anything not ending on "blocks", so the
+> trailing " a creature" sent the whole family to Arbiter. **Wall of Frost — the card that DEFINES this
+> effect — was a 0/7 Defender.**
+> ⭐ **THE TWO WORDS ARE NOT COSMETIC**, which is why this is a new event, not a widened regex. (a)
+> MULTIPLICITY: the bare wording fires once per combat (CR 509.3c), "a creature" fires ONCE PER CREATURE
+> blocked (509.3d) — a Wall blocking two attackers locks both. (b) REFERENT: "that creature" is the BLOCKED
+> ATTACKER, so source ≠ triggering permanent. **Every other block event in checkBlockTriggers passes the same
+> permanent twice**, which is why this one needed its own scope — `scope:"self"` contracts source ===
+> triggering and rejects the pairing outright.
+> ⭐⭐ **THE MEASUREMENT CHANGED THE SCOPE, and this is the transferable part.** Before building, I swapped the
+> unmodelled event for the already-modelled per-creature sibling and re-classified: **ZERO of the 14 flipped.**
+> The event is NECESSARY BUT NOT SUFFICIENT — every card also needs its effect. So the slice claims 3, not 14,
+> and the other ten stay parked on destroy / bounce-at-end-of-combat / can't-attack-next-turn. **Probe the
+> prize by neutralizing the suspected cause BEFORE building it.**
+> ℹ Referent rides the SHIPPED "the triggering creature" sentinel → `target:"thatCreature"`. No new referent
+> kind, so no other family's binding moves. Event-gated + whole-clause anchored: Vertigo Spawn's
+> two-sentence form leaves residue → Arbiter.
+> ℹ The MUTE mutant is the instructive one — pointing the referent at the blocker prints
+> `wallFlagged:true, attackerFlagged:false`: the Wall locking ITSELF. A pin that only counted triggers would
+> have passed it.
+
 > ## SLICE DONE - 2026-08-05 - **BARE NO-UNTAP LOCK — the purest no-ignition yet, +4** - batch 45
 > Suite 1142 / 14,078 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Elvish Hunter, Barl's Cage,
 > House Guildmage, Sleeper Dart. All four audited whole-card (House Guildmage's second ability, Surveil 2,

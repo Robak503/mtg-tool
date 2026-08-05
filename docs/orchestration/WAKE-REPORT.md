@@ -7,7 +7,14 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+333 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 45** — suite **1142 / 14,078** green by exit code
+## ☀️ 2026-08-05 — **+336 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 48** — suite **1143 / 14,086** green by exit code
+
+> ### ⭐⭐ PROBE THE PRIZE BY NEUTRALIZING THE CAUSE **BEFORE** BUILDING IT
+> "Whenever this creature blocks a creature" was 0-native across 14 cards — a whole missing EVENT, and it
+> looked like a 14-card slice. Before writing anything I swapped the unmodelled event for the already-modelled
+> per-creature sibling and re-classified: **ZERO flipped.** Every one of the 14 is ALSO blocked by its effect,
+> so the honest prize was 3. **A sole-blocker count tells you a line blocks a card; it does NOT tell you the
+> line is the ONLY thing blocking it.** The swap costs one probe and re-scopes the slice before the build.
 
 > ### ⭐⭐ THE HIGHEST-YIELD INSTRUMENT RIGHT NOW: **split a shape by tier, then ask WHY the native side is native**
 > `doesn't untap during its controller's next untap step` — 33 native / 63 parked, and every native carrier
