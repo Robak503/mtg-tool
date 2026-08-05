@@ -3,6 +3,31 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **SCOPED TUCK — one missing restriction group, two families, +8** - batch 71
+> Suite 1148 / 14,127 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Nightscape Apprentice,
+> Sunscape Apprentice, Civic Guildmage, Shadow Guildmage, Warrant // Warden, Whisk Away, Aethertow, Azorius
+> Charm. All eight audited whole-card.
+> ⭐ **BIGGEST SINGLE-CAUSE SLICE OF THE DAY, AND THE CHEAPEST.** `tuckClauseParser` was ONE anchored regex
+> with no restriction lane — its own comment named the gap ("a scoped ('you control') … variant fails the
+> exact anchor"). Tier-split: the bare tuck native on 7, "…you control" native on **ZERO**, "attacking or
+> blocking" native on **ZERO**.
+> ⭐⭐ **GATE 20, SATISFIED PROPERLY.** Four Guildmage-shaped creatures sharing a symptom is NOT evidence of a
+> shared cause — they could share a Guildmage problem. The attacking-or-blocking SPELLS are the cards
+> OUTSIDE that family with the same symptom, and they fall out of the same missing group. **That is what
+> made it one slice instead of two guesses**, and it is why the +8 came in one edit.
+> ⭐ **NOTHING NEW AT RUNTIME:** `controller/you` and `combat/either` already ship and are enforced
+> layer-aware by creatureSatisfiesRestrictions; atomTargetSpec's generic branch already forwards
+> `atom.restrictions`. The slice only lets the wording produce them.
+> ⛔ **PINS DRIVE ENUMERATION, not resolution** — that is where a restriction does its work and where a wrong
+> one would offer an ILLEGAL TARGET (the cardinal CREED sin). Mutants: controller dropped → the witness
+> offers the OPPONENT'S creature; combat dropped → `noCombat: ["mine","theirs"]`, i.e. Whisk Away targeting
+> creatures sitting at home.
+> ⛔ Bare "attacking"/"blocking" REFUSED — same restriction kind, enforces fine, but every corpus carrier has
+> a rider that parks the card anyway, so admitting them would claim coverage nothing can use.
+> ⚠️ **THIRD REFUSAL-PIN LIFT TODAY.** landTuck.test.js listed "target land you control" as an FN guard;
+> that refusal is now obsolete and the pin was rewritten to assert the modelled atom, with the reason. **When
+> a slice lifts an old refusal, REWRITE the pin to assert the new truth — never delete it.**
+
 > ## SLICE DONE - 2026-08-05 - **ANY-NUMBER TARGETS — the fix was the ENUMERATION ORDER, +5** - batch 63
 > Suite 1147 / 14,118 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Footbottom Feast, Bone Harvest,
 > Forever Young, Gravepurge, Frantic Salvage.

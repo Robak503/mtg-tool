@@ -30,6 +30,10 @@ summarizes the notable changes.
   empty the spell is countered.
 
 ### Added
+- **Scoped "put on top of library" effects work.** Whisk Away, Aethertow, Azorius Charm and Warrant now hit
+  attacking or blocking creatures, and Nightscape Apprentice, Sunscape Apprentice, Civic Guildmage and
+  Shadow Guildmage can bounce a creature you control back onto your library — both wordings were previously
+  unreadable, and each now offers only the creatures the card actually allows.
 - **"Put any number of cards from your graveyard on top of your library" works.** Footbottom Feast, Bone
   Harvest, Forever Young, Gravepurge and Frantic Salvage now resolve, and the "take all of them" option is
   always offered — the option list used to fill up with small selections and crowd it out.

@@ -36,12 +36,22 @@ describe("LT-1 parser — the land tuck is HIGH; scoped/subtype variants stay LO
     expect(programConfidence(p)).toBe("high");
     expect(p.atoms).toEqual([{ op: "tuck", targetType: "land", where: "top" }]);
   });
-  it("FN guards: a controller scope / subtype / 'another' / different-owner phrasing stays LOW", () => {
+  it("FN guards: a subtype / 'another' / different-owner phrasing stays LOW", () => {
     const low = (clause) => expect(programConfidence(parseEffectClause(clause, "Sorcery"))).toBe("low");
-    low("Put target land you control on top of its owner's library.");
     low("Put target Forest on top of its owner's library.");
     low("Put another target land on top of its owner's library.");
     low("Put target land on top of your library.");
+  });
+  it("⭐ the CONTROLLER scope is now MODELLED (was an FN guard here until 2026-08-05)", () => {
+    // The scoped-tuck slice gave tuckClauseParser a restriction lane, driven by "…creature you control"
+    // (Nightscape Apprentice class) and "…attacking or blocking creature" (Whisk Away class). The noun
+    // alternation is shared with the bare form deliberately, so the two lists cannot drift — which means the
+    // LAND wording is admitted too even though no corpus card prints it. That costs nothing and claims
+    // nothing: `controller/you` is enforced layer-aware at enumeration, so the atom is correct if a carrier
+    // ever appears. scopedTuck.test.js owns the enforcement pins.
+    const p = parseEffectClause("Put target land you control on top of its owner's library.", "Sorcery");
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms).toEqual([{ op: "tuck", targetType: "land", where: "top", restrictions: [{ kind: "controller", who: "you" }] }]);
   });
   it("classify: Fallow Earth + Uproot flip native-spell; Rootrunner (sac-self cost + soulshift) flips native-activated", () => {
     expect(classifyCard(FALLOW_EARTH)).toBe("native-spell");

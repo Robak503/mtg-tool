@@ -379,10 +379,31 @@ export function applyMassReanimate(state, atom, ctx) {
  */
 export function tuckClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const TT = { "creature": "creature", "permanent": "permanent", "nonland permanent": "nonlandPermanent", "creature or land": "creatureOrLand", "artifact or creature": "creatureOrArtifact", "land": "land" };
   const tk = t.match(/^put target (creature or land|artifact or creature|nonland permanent|creature|permanent|land) on (top|the bottom) of its owner's library$/);
   if (tk) {
-    const TT = { "creature": "creature", "permanent": "permanent", "nonland permanent": "nonlandPermanent", "creature or land": "creatureOrLand", "artifact or creature": "creatureOrArtifact", "land": "land" };
     return { op: "tuck", targetType: TT[tk[1]], where: tk[2] === "top" ? "top" : "bottom" };
+  }
+  // ⭐ SCOPED TUCK — the SAME atom with a target RESTRICTION, which this parser simply had no lane for. Found
+  // by tier-splitting the phrase: the bare form is native on 7 carriers while "…you control" was native on
+  // ZERO (Nightscape Apprentice, Sunscape Apprentice, Civic Guildmage, Shadow Guildmage) and "attacking or
+  // blocking" on ZERO (Warrant // Warden, Whisk Away, Aethertow). **One missing restriction group, two
+  // families** — the attacking/blocking cards are the out-of-family confirmation that the cause is the
+  // parser's shape and not something particular to Guildmages.
+  // ⭐ NOTHING NEW AT RUNTIME. Both restriction kinds already ship and are enforced layer-aware by
+  // creatureSatisfiesRestrictions: `controller/you` and `combat/either`. atomTargetSpec's generic branch
+  // already forwards `atom.restrictions`. This arm only lets the wording produce them.
+  // ⛔ ONLY THE TWO EVIDENCED FORMS. Bare "attacking" / "blocking" (Condemn's family) would enforce fine —
+  // the restriction kind is the same one — but every corpus carrier of those carries a rider that parks the
+  // card anyway, so admitting them would claim coverage nothing can currently use. One regex away when a
+  // clean carrier appears.
+  const scoped = t.match(/^put target (creature or land|artifact or creature|nonland permanent|creature|permanent|land) you control on (top|the bottom) of its owner's library$/);
+  if (scoped) {
+    return { op: "tuck", targetType: TT[scoped[1]], where: scoped[2] === "top" ? "top" : "bottom", restrictions: [{ kind: "controller", who: "you" }] };
+  }
+  const combat = t.match(/^put target attacking or blocking creature on (top|the bottom) of its owner's library$/);
+  if (combat) {
+    return { op: "tuck", targetType: "creature", where: combat[1] === "top" ? "top" : "bottom", restrictions: [{ kind: "combat", value: "either" }] };
   }
   return null;
 }

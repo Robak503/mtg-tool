@@ -7,7 +7,19 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+351 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 63** — suite **1147 / 14,118** green by exit code
+## ☀️ 2026-08-05 — **+359 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 71** — suite **1148 / 14,127** green by exit code
+
+> ### ⭐⭐ THE CHEAPEST BIG SLICE OF THE DAY: **a parser that has NO RESTRICTION LANE**
+> `tuckClauseParser` was one anchored regex. Bare "put target creature on top of its owner's library" native
+> on 7; "…you control" native on ZERO; "attacking or blocking" native on ZERO. **+8 in one edit**, with
+> nothing new at runtime — both restriction kinds already ship and the target spec already forwards them.
+> **Go look for other single-regex clause parsers whose comments say a scoped variant "fails the anchor".**
+> That phrase is a coverage vein, and grep finds it.
+
+> ### ⭐ AND IT IS THE CLEANEST GATE-20 EXAMPLE I HAVE
+> Four Guildmage-shaped creatures sharing a symptom proves nothing — they could share a Guildmage problem.
+> The attacking-or-blocking SPELLS are the cards OUTSIDE that family with the same symptom. Finding them is
+> what turned two guesses into one slice. **Always go find the out-of-family carrier before batching.**
 
 > ### ⭐⭐ THE MOVE OF THE DAY: **REFUSE, WRITE DOWN WHY, THEN EARN IT NEXT SLICE**
 > "Any number of target …" was one regex from +5 — and that regex would have been WRONG. `targetSubsets`
