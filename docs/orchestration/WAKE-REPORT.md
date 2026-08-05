@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+288 this sitting · v0.152.0 PUBLISHED · post-tag batch 91** — suite **1128 / 14,010** green by exit code
+## ☀️ 2026-08-05 — **+288 this sitting · 🏷 v0.153.0 TAGGED · post-tag batch 0** — suite **1128 / 14,010** green by exit code
 
 > ### ⚠️⚠️ AURA PROBES ARE MEMO-POISONED — classify in a FRESH PROCESS
 > `parseAttachedBonus` memoises into a slot, which makes **`isNativeAura` ORDER-DEPENDENT**: the same card in

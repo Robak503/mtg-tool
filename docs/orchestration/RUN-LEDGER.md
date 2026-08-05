@@ -3,6 +3,12 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🏷 **v0.153.0 TAGGED (2026-08-05)** — CI release workflow building the signed installer.
+> **91 engine cards since v0.152.0**, twelve slices, batch counter resets to 0.
+> Tagged at 91 rather than a strict 100: Colton's rule is "roughly 100+", the batch is substantial and
+> user-facing (graft · threshold combat riders · walls attacking · goad · monstrous · draw-two · the Cohort
+> and Scarecrow cycles), and every slice is green with CI success at the tagged commit.
+
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
