@@ -1719,6 +1719,23 @@ function classifyCondition(condRaw, cardName, cardType) {
   // scans the DISCARDER's opponents' watchers, so the whose gate is the scan itself. Whole-clause anchored —
   // a filtered variant ("an opponent discards a nonland card") leaves residue → null → Arbiter (SAFE FN).
   if (/^an opponent discards a card$/.test(c)) return { event: "discarded", scope: "opponentDiscard", whose: "opponent" };
+  // ⭐⭐ SELF DISCARD (CR 701.9a) — "Whenever you discard a card, …" / "Whenever you cycle or discard [an]other
+  // card, …" (Grisly Survivor, Hekma Sentinels, Ruthless Sniper, Curator of Mysteries, Archfiend of Ifnir,
+  // Drannith Healer, Pitiless Vizier, …). **The event and its fire sites have shipped all along** — the
+  // dispatcher already calls checkDiscardTriggers from every discard path, cost sites included (CR 701.9a:
+  // "a discard paid as a COST is still a discard"). What was missing is that the checker only ever scanned
+  // the discarder's OPPONENTS, so a self-scoped watcher could not exist. Both halves built, never met.
+  // ⭐ "CYCLE OR DISCARD" COLLAPSES TO THE DISCARD EVENT HERE, and that is CR-correct rather than a
+  // shortcut: cycling discards the card (CR 702.29a), and the dispatcher's cycling path already calls
+  // checkDiscardTriggers. One cycle = one discard = one fire, so the compound wording needs no second event.
+  // ⛔ A CYCLE-ONLY FORM IS REFUSED ("whenever you cycle a card" — and the "a player cycles" variants,
+  // Stoic Champion / Warped Researcher). Routing those through the discard event would fire them on an
+  // ordinary discard, which is strictly more than printed. They stay UNDETECTED → Arbiter (safe FN) until
+  // there is a real cycling event to hang them on.
+  // ⓘ "ANOTHER card" (Archfiend of Ifnir, Curator of Mysteries) is admitted: the watcher is a permanent on
+  // the battlefield and the discarded card is in hand, so "another" is satisfied by construction — there is
+  // no case where the source could be the discarded card.
+  if (/^you (?:cycle or discard|discard) (?:a|another) card$/.test(c)) return { event: "discarded", scope: "youDiscard", whose: "any" };
   // TRIG-DRAW2 — "draw your second card each turn" (the draw-doubler payoff). Anchored to the BARE
   // second-card form (each/this turn); a different ordinal ("first/third"), scaled, or rider variant stays
   // UNDETECTED → Arbiter. Same whose:"any" + scan-only-the-drawer as cardDrawn; fires ONCE when the draw
@@ -5112,6 +5129,11 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // controller) is applied in checkCardDrawnTriggers, which scans the drawer's opponents' watchers directly.
       // Always matches here (like "milled"/"you"): the event already proved a draw happened.
       return true;
+    case "youDiscard":
+      // ⭐ SELF DISCARD — same contract as opponentDiscard directly below: a discard event has no triggering
+      // PERMANENT to match against, and the "you" gate is the SCAN (checkDiscardTriggers consults the
+      // discarding player's own sources for this scope only). Reaching here already proves a discard happened.
+      return true;
     case "opponentDiscard":
       // TRIG-DISCARD (CR 701.9a) — a discard event has NO triggering PERMANENT (the discarded card is a
       // hand/graveyard object), so there is nothing here to match against. The whose:"opponent" gate — the
@@ -6923,8 +6945,21 @@ export function checkDiscardTriggers(state, discardingPlayerId, count = 1) {
   for (const oppId of opponentsOf(state, discardingPlayerId)) {
     for (const perm of triggerSourcesOf(state, oppId)) {
       for (let i = 0; i < count; i++) {
-        fired = fired.concat(triggersForEvent(state, { event: "discarded", sourcePermanent: perm, triggeringContext: { discardingPlayerId } }));
+        fired = fired.concat(triggersForEvent(state, { event: "discarded", sourcePermanent: perm, triggeringContext: { discardingPlayerId },
+          scopeFilter: (s) => s === "opponentDiscard" }));
       }
+    }
+  }
+  // ⭐⭐ SELF DISCARD — the DISCARDING player's OWN watchers ("Whenever you discard a card, …"). This scan is
+  // the entire "you" gate, exactly as the opponent scan above is the "opponent" gate; nothing downstream
+  // distinguishes them, which is why each scan is scopeFilter-ed to its own scope.
+  // ⛔ THE FILTERS ARE LOAD-BEARING IN BOTH DIRECTIONS. Without them a self-scoped watcher would ALSO fire
+  // off an opponent's discard (it is on the board during that scan too) and an opponent-scoped watcher would
+  // fire off its own controller's discard — two over-fires, in opposite directions, from one omission.
+  for (const perm of triggerSourcesOf(state, discardingPlayerId)) {
+    for (let i = 0; i < count; i++) {
+      fired = fired.concat(triggersForEvent(state, { event: "discarded", sourcePermanent: perm, triggeringContext: { discardingPlayerId },
+        scopeFilter: (s) => s === "youDiscard" }));
     }
   }
   if (!fired.length) return state;

@@ -3,6 +3,30 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **SELF-DISCARD TRIGGER — one word in a loop header, +16** - post-v0.154.0 batch 100
+> Suite 1156 / 14,181 green + lint 0 BY EXIT CODE. Flip-diff **+16 / 0 / 0** — Grisly Survivor, Hekma
+> Sentinels, Ruthless Sniper, Curator of Mysteries, Drake Haven, Faith of the Devoted, Flameblade Adept,
+> Lazotep Chancellor, Shadowstorm Vizier, Zenith Seeker, Ominous Sphinx, Pitiless Vizier, Horror of the
+> Broken Lands, Feast of Sanity, Mystic Redaction, Hobgoblin. All sixteen audited whole-card.
+> ⭐⭐ **BOTH HALVES BUILT, NEVER MET — AND I SIZED THIS WRONG YESTERDAY.** The wake report called it a
+> 12-site plumbing job needing a new chokepoint. It needed none: `checkDiscardTriggers` ALREADY exists and is
+> ALREADY called from every discard path including the COST sites (its own comment cites CR 701.9a). The
+> checker just scanned `opponentsOf(discardingPlayerId)` and stopped — **the discarding player's own
+> permanents were never consulted.** The fix is a second scan. **Read the fire site before sizing the build:
+> I nearly deferred a +16 as a subsystem.**
+> ⛔⛔ **THE SCOPE FILTERS ARE LOAD-BEARING IN BOTH DIRECTIONS** — one omission, two opposite over-fires. The
+> mutants prove each: drop the self scan's filter → the user's self-watcher fires off the AI's discard
+> (`aiDiscards.self: 1`); drop the opponent scan's filter → an opponent-watcher fires off its own
+> controller's discard. Neither is visible in a tier diff.
+> ⭐ **"CYCLE OR DISCARD" COLLAPSES TO THE DISCARD EVENT, CR-correctly:** cycling discards the card
+> (CR 702.29a) and the dispatcher's cycling path already calls checkDiscardTriggers. One cycle = one fire.
+> ⛔ **CYCLE-ONLY FORMS REFUSED** (Stoic Champion, Warped Researcher — "whenever a player cycles a card").
+> Routing them through the discard event would fire them on an ordinary discard. Arbiter until there is a
+> real cycling event. Pinned.
+> ⏭ Still open in this family: the count-scaled forms ("whenever you discard TWO OR MORE cards" — Scrounging
+> Skyray, Cryptcaller Chariot) and the filtered ones ("discard an ARTIFACT card" — Urza/Mishra). Different
+> arms, same event now that the scan exists.
+
 > ## SLICE DONE - 2026-08-05 - **TURNED-FACE-UP IS VACUOUS — +75, the biggest of the run** - post-v0.154.0 batch 84
 > Suite 1155 / 14,175 green + lint 0 BY EXIT CODE. Flip-diff **+75 / 0 / 0**.
 > ⭐⭐ **AN INCONSISTENCY, NOT A GAP.** The codebase ALREADY strips `morph {cost}` as vacuous, with the

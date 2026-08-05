@@ -7,7 +7,17 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+473 this sitting · 🏷 v0.154.0 PUBLISHED · post-tag batch 84 → 🏷 TAG DUE SOON** — suite **1155 / 14,175** green by exit code
+## ☀️ 2026-08-05 — **+489 this sitting · 🏷 v0.154.0 PUBLISHED · post-tag batch 100 → 🏷 TAG DUE** — suite **1156 / 14,181** green by exit code
+
+> ### 🏷 BATCH 100 — cut v0.155.0 at the next clean slice boundary. All of it is on master and CI-green.
+
+> ### ⚠️⚠️ I SIZED THE DISCARD BUILD WRONG — **read the fire site before you size the build**
+> The entry below called it a 12-site plumbing job needing a new chokepoint, and I nearly deferred it as a
+> subsystem. It needed none of that: `checkDiscardTriggers` already existed and was already called from every
+> discard path, COST sites included. It simply scanned `opponentsOf(discarder)` and stopped — the discarding
+> player's own permanents were never consulted. **The entire build was a second loop.** +16.
+> Counting call sites priced the plumbing of an event that was already plumbed. **Open the checker before
+> counting the callers.**
 
 > ### ⭐⭐ THE RICHEST INSTRUMENT FOUND ALL DAY: **a mechanic half-declared vacuous is a vein**
 > +75 in one strip — the biggest slice of the run — and it was an INCONSISTENCY, not a gap. The codebase
@@ -16,18 +26,16 @@
 > 75 cards parked.** Grep the comments that justify a strip and check whether a SIBLING clause of the same
 > mechanic was left behind. Then re-verify the preconditions yourself — vacuity is not transitive.
 
-> ### ⏭ THE NEXT BUILD, FULLY SIZED: **the DISCARD / CYCLE trigger event — 87 carriers, 33 flip on the event alone**
-> `Whenever you cycle or discard a card, …` is **completely undetected** (detectTriggers returns [] on a
-> minimal card). 85 census clusters, 61 sole-blockers, and the prize-probe — swap the condition for a
-> known-modelled event — says **33 cards flip on the EVENT alone**, their effects already parsing.
-> ⛔ **IT IS NOT ONE CHOKEPOINT.** `fromZone:"hand", toZone:"graveyard"` appears at **12 sites**
-> (actionDispatcher ×6, connive, hand atoms, and others). CR 701.8 counts a discard paid as a COST too, so
-> the event must fire from the cost sites as well as the effect ones. **Miss a site and the trigger silently
-> never fires for that path — a card that reads native and does nothing**, which is the failure this whole
-> session has been hunting. Add ONE chokepoint helper and route all 12 through it, then drive each path with
-> its own runtime witness. This is a subsystem slice, not a parser arm — budget it accordingly.
-> ⓘ The 33 is optimistic by an unknown margin: the prize-probe also stripped referents ("that card", "that
-> many"), so effects that read the discarded card may not survive. Flip-diff will say.
+> ### ✅ DONE (+16): the SELF-DISCARD trigger — and what's left of that family
+> `Whenever you [cycle or] discard a card` now detects on the shipped `discarded` event via a new `youDiscard`
+> scope, with `checkDiscardTriggers` gaining a scan of the DISCARDING player's own sources. The prize-probe
+> predicted 33; the honest flip-diff is **16** — the probe was optimistic because it also stripped referents
+> ("that card", "that many"), so effects reading the discarded card don't survive.
+> ⏭ **Still open, same event, different arms:** the COUNT-scaled forms ("whenever you discard TWO OR MORE
+> cards" — Scrounging Skyray, Cryptcaller Chariot) and the FILTERED ones ("discard an ARTIFACT card" —
+> Urza/Mishra). The scan exists now, so these are parser arms rather than plumbing.
+> ⛔ CYCLE-ONLY forms stay refused (Stoic Champion, Warped Researcher): routing them through the discard
+> event would fire them on an ordinary discard. They need a real cycling event.
 
 > ### ⛔ WHERE THE VACUITY INSTRUMENT STOPS — attractions, contraptions, stickers (96 sole-blockers) DON'T qualify
 > Tempting after the +75, and wrong. Morph is vacuous because the EVENT never occurs — the engine has no way

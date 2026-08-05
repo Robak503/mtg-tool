@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **"Whenever you discard a card" triggers fire.** Grisly Survivor, Hekma Sentinels, Flameblade Adept,
+  Drake Haven, Faith of the Devoted, Curator of Mysteries, Lazotep Chancellor and nine more only ever
+  watched *opponents'* discards — your own did nothing. Cycling counts as a discard, as it should, and
+  discards paid as a cost count too.
 - **Morph and disguise creatures are playable.** 75 of them — Willbender, Brine Elemental, Stormwing Dragon,
   Echo Tracer, Nantuko Vigilante and the rest — were held back by their "when turned face up" ability. The
   simulator has no way to play a creature face down, so that ability can never fire; these now play normally
