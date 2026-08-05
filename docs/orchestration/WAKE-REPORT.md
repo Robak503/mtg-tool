@@ -9,6 +9,21 @@
 
 ## ☀️ 2026-08-05 — **+489 this sitting · 🏷 v0.154.0 PUBLISHED · post-tag batch 100 → 🏷 TAG DUE** — suite **1156 / 14,181** green by exit code
 
+> ### ⏭ NEXT BUILD, MEASURED AND SEAM-MAPPED: **"how many COLOURS did you spend?" — sunburst + converge, +10**
+> 50 real carriers; the causation probe (swap the colour-count for a fixed count) says **10 flip**. One
+> missing QUESTION behind both keywords, and **the answer already exists at payment time and is thrown away**:
+> `commitPaymentPlan(state, playerId, plan)` receives `plan.spend`, a per-colour map. Nothing records it.
+> **The seam, in order:**
+> ① `applyCastSpell` (actionDispatcher) — after `commitPaymentPlan`, derive the distinct coloured keys of
+>    `plan.spend` and put the count in `params`, exactly beside the existing `params.castFromZone`.
+> ② the permanent stamp — `resolvers.enterPermanent` already stamps `wasCast` / `castFromZone`; add this the
+>    same way, so an ETB rider can read it off the entering permanent.
+> ③ parse arms — sunburst (CR 702.43) and converge. The dynamic-count enters-with machinery already exists
+>    (`entersWithXCounters` reads a variable count), so this is a new count SOURCE, not a new lane.
+> ⛔ VERIFY THROUGH THE REAL CAST PATH, not by hand-stamping the permanent — the whole point is that the
+> number survives from payment to ETB, and a hand-stamped fixture would prove nothing about the wiring.
+> ⓘ The other 40 carriers park on their effects; the colour count is not what holds them.
+
 > ### ⭐ THE KEYWORD-TWIN INSTRUMENT: **a new ability WORD is usually an old one wearing a new label**
 > EXHAUST (+10) was POWER-UP with a different prefix — same once-per-GAME activation limit, and
 > `activationLimitScope:"game"` already shipped, already read by the offer gate, already stamped by the
