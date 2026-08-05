@@ -16,6 +16,26 @@
 > 75 cards parked.** Grep the comments that justify a strip and check whether a SIBLING clause of the same
 > mechanic was left behind. Then re-verify the preconditions yourself — vacuity is not transitive.
 
+> ### ⏭ THE NEXT BUILD, FULLY SIZED: **the DISCARD / CYCLE trigger event — 87 carriers, 33 flip on the event alone**
+> `Whenever you cycle or discard a card, …` is **completely undetected** (detectTriggers returns [] on a
+> minimal card). 85 census clusters, 61 sole-blockers, and the prize-probe — swap the condition for a
+> known-modelled event — says **33 cards flip on the EVENT alone**, their effects already parsing.
+> ⛔ **IT IS NOT ONE CHOKEPOINT.** `fromZone:"hand", toZone:"graveyard"` appears at **12 sites**
+> (actionDispatcher ×6, connive, hand atoms, and others). CR 701.8 counts a discard paid as a COST too, so
+> the event must fire from the cost sites as well as the effect ones. **Miss a site and the trigger silently
+> never fires for that path — a card that reads native and does nothing**, which is the failure this whole
+> session has been hunting. Add ONE chokepoint helper and route all 12 through it, then drive each path with
+> its own runtime witness. This is a subsystem slice, not a parser arm — budget it accordingly.
+> ⓘ The 33 is optimistic by an unknown margin: the prize-probe also stripped referents ("that card", "that
+> many"), so effects that read the discarded card may not survive. Flip-diff will say.
+
+> ### ⛔ WHERE THE VACUITY INSTRUMENT STOPS — attractions, contraptions, stickers (96 sole-blockers) DON'T qualify
+> Tempting after the +75, and wrong. Morph is vacuous because the EVENT never occurs — the engine has no way
+> to turn anything face up. "When this creature enters, open an Attraction" is different: **the ETB genuinely
+> fires**, and only the EFFECT is unimplemented. Stripping it would credit a card whose trigger does nothing —
+> the exact FP class the strip instrument is supposed to avoid. **The test is whether the EVENT is
+> unreachable, not whether the effect is unbuilt.**
+
 > ### ⚠️⚠️ A SURVIVING MUTANT MEANT A BAD PIN — for the THIRD time today
 > Dropping the strip's leading anchor changed no outcome in any pin I'd written. The case that changes is a
 > compound "enters or is turned face up" carrier whose ETB effect is UNMODELLED: with the anchor it parks,
