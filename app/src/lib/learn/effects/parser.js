@@ -2723,3 +2723,38 @@ registerClauseParser(freeCastClauseParser);
 registerClauseParser(gainControlClauseParser);
 registerClauseParser(becomeCopyClauseParser); // BECOME-COPY (CR 613.1a/707.9) — riders reuse parseCloneRider; unmodelled rider -> null -> Arbiter
 registerClauseParser(grantUntilEotClauseParser); // UNTIL-EOT QUOTED GRANT (TG-1) — body-validated via the injected grant validators
+
+/**
+ * LEARN — "Learn." as its own sentence, on Igneous Inspiration, Professor of Symbology, Eyetwitch,
+ * Poet's Quill and ten more whose OTHER text already parses HIGH.
+ *
+ * ⭐ CR 701.48a, READ FROM THE BUNDLED RULES RATHER THAN FROM MEMORY, and it is more favourable than the
+ * reminder text suggests:
+ *     "Learn" means "You may discard a card. If you do, draw a card. If you didn't discard a card, you may
+ *      reveal a Lesson card you own from outside the game and put it into your hand."
+ *
+ * So the rule's FIRST sentence is WORD-FOR-WORD the wording that already produces the
+ * `optional-discard-payment` atom. This is not an approximation of learn — it is the rule's own primary
+ * clause, and the atom shape is COPIED from parsing that sentence rather than hand-built (pinned against it
+ * in learnClause.test.js so the two can never drift).
+ *
+ * ⛔ THIS OVERTURNS A DELIBERATE EARLIER ABSTENTION, and only because the rules text settles what that
+ * author could not settle. optionalModeKeywords.test.js parked learn saying: "I could not establish from
+ * the printed line alone that declining BOTH options is legal." CR 701.48a makes both branches "may", so
+ * declining both IS legal — and the Lesson branch is explicitly gated on NOT having discarded, so it is a
+ * FALLBACK rather than a co-equal mode. The abstention was right on the evidence available; the bundled CR
+ * is the evidence that resolves it.
+ *
+ * FN-SAFE BY CONSTRUCTION: this engine has no outside-the-game zone, so the fallback is a branch no player
+ * here can reach — exactly as if they had brought no Lessons, a legal way to play the card. The option set
+ * is REDUCED, never widened, and the primary branch stays optional so declining is still allowed.
+ *
+ * ⛔ Whole-clause anchored on the bare word. "Learn" appearing inside other text ("Lesson", "learned")
+ * cannot match, and the reminder text is stripped upstream.
+ */
+export function learnClauseParser(clause) {
+  const t = String(clause || "").trim().toLowerCase().replace(/\.$/, "").trim();
+  if (t !== "learn") return null;
+  return { op: "optional-discard-payment", effectAtoms: [{ op: "draw", amount: 1, targetType: null }], targetType: null };
+}
+registerClauseParser(learnClauseParser);

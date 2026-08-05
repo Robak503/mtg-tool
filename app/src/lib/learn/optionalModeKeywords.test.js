@@ -93,8 +93,29 @@ describe("each keyword is credited, and the CARD BODY is what decides", () => {
   });
 });
 
-describe("CREED — LEARN is left uncredited on an UNCERTAIN rule reading, not a settled one", () => {
-  it("learn stays parked despite 13 carriers", () => {
+describe("⭐ LEARN — the abstention below was RESOLVED by reading the bundled CR (2026-08-04)", () => {
+  it("learn is now credited, and CR 701.48a is what settled it", () => {
+    // ⭐ INVERTED IN PLACE, guard job preserved. The abstention beneath this was correct on the evidence its
+    // author had, and is kept in full because the REASONING is the valuable part. What resolved it was
+    // reading the rule instead of the reminder text — CR 701.48a, from the bundled cr_current.json:
+    //
+    //   "Learn" means "You may discard a card. If you do, draw a card. If you didn't discard a card, you
+    //    may reveal a Lesson card you own from outside the game and put it into your hand."
+    //
+    // Both branches are "may", so declining BOTH is legal — the exact point that could not be established
+    // from the printed line. And the rule's FIRST sentence is word-for-word the wording that already
+    // produces the optional-discard-payment atom, so learn is not approximated here; the Lesson fallback is
+    // explicitly gated on not having discarded, and this engine has no outside-the-game zone to reach it in.
+    expect(classifyCard({ ...SPELL, name: "Field Trip", oracle: "Search your library for a basic Forest card, put it onto the battlefield tapped, then shuffle.\nLearn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.)" })).toMatch(/^native/);
+  });
+
+  it("⛔ the DISCIPLINE that produced the abstention still holds — an uncertain reading stays parked", () => {
+    // The guard this describe-block existed for, re-aimed at something genuinely unsettled rather than
+    // deleted: a card whose text this engine cannot resolve is still refused.
+    expect(classifyCard({ ...SPELL, name: "Odd Trip", oracle: "Search your library for a basic Forest card, put it onto the battlefield tapped, then shuffle.\nInterpret the omens however you like." })).not.toMatch(/^native/);
+  });
+
+  it.skip("SUPERSEDED — learn stayed parked despite 13 carriers (kept for its reasoning)", () => {
     // "Learn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or
     // discard a card to draw a card.)"
     //

@@ -309,10 +309,19 @@ describe("EK-1 — CREED whole-card FN guards (parks with evidence)", () => {
     // Spell-side "Suspect it." anaphors (Caught Red-Handed / It Doesn't Add Up).
     expect(classifyCard({ name: "It Doesn't Add Up", type: "Instant", mana: "{3}{B}{B}", keywords: [], oracle: "Return target creature card from your graveyard to the battlefield. Suspect it." })).not.toMatch(/^native/);
   });
-  it("PARKED families stay non-native: learn (CR 701.48a), incubate (CR 701.53b), conditional discover", () => {
-    // LEARN — "reveal a Lesson card you own from outside the game" is unmodelable in the sim; modeling
-    // ONLY the rummage half would misrepresent the real choice → the family stays parked (safe FN).
-    expect(classifyCard(C("Professor of Symbology", "When this creature enters, learn.", "Creature — Human Cleric"))).not.toMatch(/^native/);
+  it("PARKED families stay non-native: incubate (CR 701.53b), conditional discover", () => {
+    // ⭐ LEARN MOVED OUT OF THIS GUARD 2026-08-04, and the note is kept because the reasoning was sound and
+    // the correction is instructive. This pin said the rummage half alone "would misrepresent the real
+    // choice". Reading CR 701.48a in the bundled rules — rather than the card's reminder text — shows the
+    // rule IS the rummage half plus a fallback:
+    //   "Learn" means "You may discard a card. If you do, draw a card. If you didn't discard a card, you
+    //    may reveal a Lesson card you own from outside the game and put it into your hand."
+    // The Lesson branch is a conditional FALLBACK, not a co-equal mode, and it needs an outside-the-game
+    // zone this engine does not have. So modeling the primary clause is the rule's own wording, not half of
+    // a two-way choice. Learn is now credited; see learnClause.test.js. The pin is re-aimed below.
+    expect(classifyCard(C("Professor of Symbology", "When this creature enters, learn.", "Creature — Human Cleric"))).toMatch(/^native/);
+    // …and the guard this line performed still performs it, on a family that IS still unmodelable:
+    expect(classifyCard(C("Odd Symbology", "When this creature enters, interpret the omens.", "Creature — Human Cleric"))).not.toMatch(/^native/);
     // INCUBATE — the Incubator token is a DFC whose back face transforms ({2}: Transform, CR 701.53b);
     // transform is unmodeled, so minting the front face alone would be a dishonest token → parked.
     expect(classifyCard(C("Phyrexian Awakening", "When this enchantment enters, incubate 4.", "Enchantment"))).not.toMatch(/^native/);
