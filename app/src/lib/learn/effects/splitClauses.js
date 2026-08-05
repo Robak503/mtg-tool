@@ -194,7 +194,12 @@ export function splitClauses(oracle) {
       /^(sacrifice this (?:creature|permanent|token|land|artifact|enchantment|aura|equipment|vehicle)), (search your library)/i,
       "$1. $2",
     );
-  for (let sentence of normalized.split(/(?:\.\s+|;\s*)/)) {
+  // QUOTE-CLOSING SENTENCE BOUNDARY (2026-08-04) — a sentence whose final period sits INSIDE a quoted
+  // ability ("… gains \"When this creature dies, return it to its owner's hand.\"") is followed by `."`,
+  // not by `. `, so the `\.\s+` boundary never fired and the NEXT sentence was welded onto it (Verdant
+  // Rebirth's "Draw a card." rode along inside the grant clause and the whole spell parsed LOW).
+  // Purely ADDITIVE: `."` + whitespace is not a boundary today, so this can only ever ADD a split point.
+  for (let sentence of normalized.split(/(?:\.\s+|;\s*|(?<=\.")\s+)/)) {
     sentence = sentence.replace(/\.\s*$/, "").trim();
     // ⭐ TWO-SENTENCE FOLD (2026-08-01) — re-join a sentence pair whose MATCHER spans both sentences.
     //
