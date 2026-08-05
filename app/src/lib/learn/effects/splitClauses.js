@@ -588,6 +588,14 @@ export function splitClauses(oracle) {
     // which is exactly what the lockdown rider needs to avoid — the " and " here is INTERNAL to one tap
     // instruction ("it" = the just-tapped creature), not an effect boundary.
     if (/^tap target creature(?: an opponent controls| you don't control| defending player controls)? and it doesn't untap during its controller's next untap step$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ⭐ The SENTINEL sibling of the guard directly above (the Kashi-Tribe combat-damage family): triggers.js
+    // rewrites "tap THAT CREATURE and it doesn't untap…" to "tap THE TRIGGERING CREATURE and it doesn't
+    // untap…" so the referent binds to ctx.triggeringPermanentId. That " and " is INTERNAL to one tap
+    // instruction, exactly as in the chosen-target form, so it needs the same keep-whole exemption.
+    // ⛔ THIS GUARD IS THE WHOLE SLICE. Without it the split shatters the sentinel into "tap the triggering
+    // creature" + an unbindable "it doesn't untap…" and the program drops to LOW — the detector, the rewrite
+    // and the atom matcher ALL looked correct while every carrier stayed parked. Measured, not assumed.
+    if (/^tap the triggering creature and it doesn't untap during its controller's next untap step$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ATTACH-TO-CREATED-TOKEN (Ancestral Blade / Hook Swords / Foot Chopper class) — "create a <token>, then
     // attach this Equipment to it." The ", then" is INTERNAL to a single instruction ("it" = the token this
     // very clause mints), not a top-level effect boundary, so the split would strand "attach this Equipment

@@ -30,6 +30,9 @@ summarizes the notable changes.
   empty the spell is countered.
 
 ### Added
+- **The Kamigawa Snake Warriors work.** Kashi-Tribe Warriors, Kashi-Tribe Reaver, Orochi Ranger and
+  Matsu-Tribe Birdstalker tap what they damage in combat and keep it down for a turn — that trigger was
+  never firing. Frostwalk Bastion's version fires now too.
 - **Wall of Frost actually freezes things now.** "Whenever this creature blocks a creature, that creature
   doesn't untap during its controller's next untap step" was never firing — the simulator only knew the
   plain "whenever this creature blocks" wording, so Wall of Frost was a vanilla 0/7. Labyrinth Minotaur and

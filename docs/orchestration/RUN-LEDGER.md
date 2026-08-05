@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **KASHI-TRIBE TAP-AND-LOCK — three green parts, zero cards, +4** - batch 52
+> Suite 1144 / 14,096 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Kashi-Tribe Warriors,
+> Kashi-Tribe Reaver, Orochi Ranger, Matsu-Tribe Birdstalker. All audited whole-card.
+> ⭐ **BUILT ENGINE, NO IGNITION (third this session).** The `combatDamageToCreature` event, the
+> `selfDealerToCreature` scope, the fire site threading the DAMAGED creature as the referent, and the
+> tap+noUntapNext atom ALL shipped for Voracious Cobra. The sibling detector is anchored to the DESTROY
+> effect, so a second payoff shape on the same event/scope/fire site had no way in.
+> ⛔⛔ **AND THE LAST MILE WAS A CLAUSE SPLIT — THE LESSON OF THE SLICE.** Detector ✅, rewrite ✅, atom
+> matcher ✅, each verified in isolation — and every carrier still parked. `splitClauses` shattered the
+> sentinel on its internal " and " into "tap the triggering creature" + an unbindable "it doesn't untap…" and
+> the program dropped to LOW. **THREE GREEN COMPONENTS AND A CARD THAT STILL DOES NOTHING.** Its
+> chosen-target sibling records the identical failure in its own header — **the same trap, the second time.**
+> ⭐ **WHEN A SENTINEL CONTAINS " and ", ADD THE KEEP-WHOLE GUARD IN THE SAME EDIT.** That is now a rule, not
+> an observation. The guard is pinned FIRST in the test file for the same reason.
+> ℹ "this land" is admitted as a self subject (Frostwalk Bastion animates itself and connects) — the destroy
+> twin refuses it. Buys runtime correctness, not coverage: it reads native through the land tier either way.
+> ℹ Mutants: keep-whole guard broken → 4 pins die; `tapLockThatCreature` dropped from the descriptor
+> pass-through → the rewrite never fires; `noUntapNext` dropped from the atom → the witness shows the damaged
+> creature untapping normally at step 1.
+> ⏭ Still parked in this family: Matsu-Tribe Decoy (its must-block activated) and Kashi-Tribe Elite (a
+> legendary-Snakes shroud static). Different causes, not this one.
+
 > ## SLICE DONE - 2026-08-05 - **BLOCKS-A-CREATURE — a whole EVENT was missing, +3** - batch 48
 > Suite 1143 / 14,086 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Wall of Frost, Labyrinth
 > Minotaur, Cleric of Chill Depths (the Illusion TOKEN flips too; tokens aren't counted). All audited

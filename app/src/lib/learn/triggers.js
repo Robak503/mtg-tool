@@ -3311,6 +3311,41 @@ function detectSelfCombatDamageToCreatureDestroy(condRaw, cardName, _typeLine, e
   return { event: "combatDamageToCreature", scope: "selfDealerToCreature", whose: "any", destroyThatCreature: true };
 }
 
+/**
+ * ⭐ SELF combat-damage-to-a-creature TAP-AND-LOCK (CR 510.2 / 302.6) — "Whenever this creature deals combat
+ * damage to a creature, tap that creature and it doesn't untap during its controller's next untap step."
+ * The Kashi-Tribe / Orochi Snake Warrior family (Kashi-Tribe Warriors, Kashi-Tribe Reaver, Kashi-Tribe Elite,
+ * Orochi Ranger, Matsu-Tribe Birdstalker, Matsu-Tribe Decoy) plus Frostwalk Bastion.
+ *
+ * ⭐ BUILT ENGINE, NO IGNITION — every piece was already here. The `combatDamageToCreature` event, the
+ * `selfDealerToCreature` scope, the fire site that threads the DAMAGED creature as the triggering permanent,
+ * and the tap+noUntapNext atom all ship today. The ONLY thing gating this family was that the sibling
+ * detector is anchored to the DESTROY effect, so a second payoff shape had no way in. This adds exactly that
+ * shape and nothing else: same event, same scope, same fire site, same referent.
+ *
+ * ⛔ WHOLE-EFFECT ANCHORED for the same reason the destroy twin is: a prefix match would also admit a delayed
+ * or conditional variant and resolve it immediately — strictly stronger than printed.
+ *
+ * ⓘ "this land" IS admitted alongside "this creature", unlike the destroy twin. Frostwalk Bastion animates
+ * itself and deals combat damage as a land; refusing the subject would leave its printed trigger silently
+ * dead at runtime. It costs no coverage either way (it already reads native through the land tier), so this
+ * is a runtime-correctness admission, not a metric one.
+ */
+function detectSelfCombatDamageToCreatureTapLock(condRaw, cardName, _typeLine, effectRaw) {
+  const c = String(condRaw || "").toLowerCase().trim();
+  const eff = String(effectRaw || "").toLowerCase().trim();
+  if (!/^tap that creature and it doesn't untap during its controller's next untap step\.?$/.test(eff)) return null;
+  const m = c.match(/^(.+) deals combat damage to a creature$/);
+  if (!m) return null;
+  if (/\byou control\b/.test(c)) return null; // a you-control watcher is a different scope, not modeled here
+  const subj = m[1].trim();
+  const nm = String(cardName || "").toLowerCase();
+  const isSelf = subj === "this creature" || subj === "this permanent" || subj === "this land"
+    || (nm && subj === nm) || (nm && subj === nm.split(",")[0].trim());
+  if (!isSelf) return null;
+  return { event: "combatDamageToCreature", scope: "selfDealerToCreature", whose: "any", tapLockThatCreature: true };
+}
+
 // GLOBAL SUBTYPE damage → controller-lifegain (Essence Sliver) — "Whenever a <Subtype> deals damage, ITS
 // CONTROLLER gains that much life." A Sliver-wide TRIGGERED grant: every Sliver on the battlefield (any
 // controller) has a damage→lifegain trigger, and the LIFE goes to the DEALING creature's controller, scaled to
@@ -3991,6 +4026,12 @@ export function detectTriggers(card) {
         // normalize the leading third-person "gains" → "gain" in the same rewrite (anchored to the exact
         // Essence-shape lead so no other clause is touched).
         effectClause = effectClause.replace(/^its controller gains /i, "you gain ").replace(/^its controller /i, "you ");
+      } else if (cls.event === "combatDamageToCreature" && cls.tapLockThatCreature) {
+        // ⭐ SELF combat-damage TAP-AND-LOCK — the destroy twin's sibling rewrite, and identical in shape:
+        // "that creature" is the DAMAGED creature, threaded by checkCombatDamageToCreatureTriggers as the
+        // triggering permanent, so the shared "the triggering creature" sentinel binds it. The detector gates
+        // on the exact whole-effect text, so no other clause can reach this branch.
+        effectClause = "tap the triggering creature and it doesn't untap during its controller's next untap step";
       } else if (cls.event === "combatDamageToCreature" && cls.destroyThatCreature) {
         // Widened from `scope === "subtypeGlobalToCreature"` to the EVENT + flag pair so the SELF twin
         // (Voracious Cobra) shares this rewrite verbatim. "that creature" is the DAMAGED creature in BOTH
@@ -4253,6 +4294,7 @@ export function detectTriggers(card) {
         requireSelfAttacking: cls.requireSelfAttacking, // BATTALION only — "THIS CREATURE and at least two others attack", so the source must be among the declared attackers. Unlisted = dropped = a battalion creature sitting at home triggers off three OTHER attackers, strictly better than printed.
         itsController: cls.itsController,      // GLOBAL SUBTYPE combat-damage only ("its controller may …") — beneficiary = dealer's controller
         destroyThatCreature: cls.destroyThatCreature, // GLOBAL SUBTYPE combat-damage-to-CREATURE only (Toxin) — "destroy that creature"
+        tapLockThatCreature: cls.tapLockThatCreature, // SELF combat-damage-to-CREATURE tap-and-lock (Kashi-Tribe family) — "tap that creature and it doesn't untap…". ⚠️ Unlisted here = dropped = the rewrite below never fires, the clause stays an unbindable "tap that creature and…" → LOW, and the card silently parks while the detector looks correct.
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
         targeterIsController: cls.targeterIsController, // VALIANT becomesTarget only — "…a spell or ability YOU CONTROL"; checkBecomesTargetTriggers drops the trigger when the targeting stack object's controller isn't the targeted permanent's. ⚠️ Unlisted here = dropped = fires off an OPPONENT'S removal spell too, an over-fire, with the trigger looking correctly detected the whole time.
         requiresCounter: cls.requiresCounter, // COUNTER-PREDICATE dies/attacks scope only (BLITZ CNT-1 — "with a +1/+1 counter on it") — scopeMatches gate reads the triggering creature's live counter bag
@@ -7900,6 +7942,7 @@ registerTriggerDetector(detectSubtypeGlobalCombatDamage);
 // so this is purely additive (no existing classification changes).
 registerTriggerDetector(detectSubtypeGlobalCombatDamageToCreature);
 registerTriggerDetector(detectSelfCombatDamageToCreatureDestroy); // the SELF twin (Voracious Cobra) — same event, same rewrite, same firing site; only the scope differs
+registerTriggerDetector(detectSelfCombatDamageToCreatureTapLock); // ⭐ the SECOND payoff shape on that same event/scope/fire site (Kashi-Tribe family) — tap-and-lock instead of destroy
 // GLOBAL SUBTYPE damage → controller-lifegain ("a <Subtype> deals damage, its controller gains that much life"
 // — Essence Sliver). Registered here (defined above, no import) so every importer — runtime AND the coverage
 // metric — sees it. Consulted only after the inline classifyCondition returns falsy, which it does for the bare

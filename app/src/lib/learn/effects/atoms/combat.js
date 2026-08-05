@@ -1109,6 +1109,13 @@ export function combatKeywordClauseParser(clause) {
   if (/^the triggering creature doesn't untap during its controller's next untap step$/.test(t)) {
     return { op: "tap", target: "thatCreature", noUntapNext: true, lockOnly: true };
   }
+  // ⭐ TRIGGERING-REFERENT TAP-AND-LOCK — the same referent WITH the tap (the Kashi-Tribe Snake Warriors,
+  // "Whenever this creature deals combat damage to a creature, tap that creature and it doesn't untap during
+  // its controller's next untap step"). NO lockOnly: this family genuinely taps, which is why it is a
+  // separate arm from the lockOnly sibling directly above rather than a shared regex with an optional verb.
+  if (/^tap the triggering creature and it doesn't untap during its controller's next untap step$/.test(t)) {
+    return { op: "tap", target: "thatCreature", noUntapNext: true };
+  }
   // STUN (CR 122.1c) — "tap target creature [an opponent controls] and put a stun counter on it" (Gilded
   // Scuttler, Grappling Kraken, Frostfist Strider) / "tap up to N target creature and put a stun counter on
   // it" (Splash Lasher, Utrom Scientists). The stun rider FOLDS onto the SAME tap atom (splitClauses joins the

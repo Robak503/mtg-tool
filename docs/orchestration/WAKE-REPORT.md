@@ -7,7 +7,14 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+336 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 48** — suite **1143 / 14,086** green by exit code
+## ☀️ 2026-08-05 — **+340 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 52** — suite **1144 / 14,096** green by exit code
+
+> ### ⛔⛔ A SENTINEL CONTAINING " and " NEEDS ITS KEEP-WHOLE GUARD IN THE SAME EDIT — twice burned now
+> Detector ✅, rewrite ✅, atom matcher ✅, each verified in isolation, and every carrier still parked:
+> `splitClauses` shatters a sentinel on its internal " and " and the program silently drops to LOW.
+> **Three green components and a card that still does nothing.** The tap-creature-lockdown slice recorded
+> this exact failure in its own header; the Kashi-Tribe slice hit it again anyway. If you write a sentinel
+> with " and " in it, add the `splitClauses` keep-whole line before you measure.
 
 > ### ⭐⭐ PROBE THE PRIZE BY NEUTRALIZING THE CAUSE **BEFORE** BUILDING IT
 > "Whenever this creature blocks a creature" was 0-native across 14 cards — a whole missing EVENT, and it
