@@ -1823,6 +1823,30 @@ export function tutorClauseParser(clause, ctx = {}) {
       targetType: null,
     };
   }
+  // ⭐ PLURAL SELF-NAMED TUTOR ("up to three cards named ~" — Squadron Hawk, Nesting Wurm, Skyshroud
+  // Sentinel, Howling Wolf). The singular `tnm` arm below with a COUNT: the multi-fetch wire already exists
+  // — `remaining` is what resolveTutorChoice chains on, the same field the RAMP-MULTI lands tutor uses — so
+  // this is a cardinality on a proven path, not a new fetch mode.
+  // ⛔ THE COUNT MUST BE A PRINTED LITERAL. "ANY NUMBER OF cards named ~" (Legion Conquistador, Gathering
+  // Throng, Battalion Foot Soldier) is deliberately NOT matched: `remaining` is a hard cap, so admitting it
+  // would mean inventing a bound. Picking 4 would be a fabricated number and would silently UNDER-fetch a
+  // deck built to abuse it (Relentless Rats / Persistent Petitioners explicitly allow more), and the CREED
+  // has no room for a magnitude the card doesn't print. Those three park until the wire can express "all".
+  const tnmMulti = t.match(/^search your library for up to (\w+) cards named (.+?),? reveal them,? put them into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  if (tnmMulti) {
+    const n = NUM_WORD[tnmMulti[1]] ?? (/^\d+$/.test(tnmMulti[1]) ? parseInt(tnmMulti[1], 10) : NaN);
+    const namedM = tnmMulti[2].trim();
+    if (!Number.isInteger(n) || n < 1 || !namedM || / or /i.test(namedM)) return null;
+    return {
+      op: "tutor",
+      filter: { name: namedM },
+      filterLabel: `card named ${namedM}`,
+      destination: "hand",
+      sourceZones: ["library"],
+      remaining: n,
+      targetType: null,
+    };
+  }
   const tnm = t.match(/^search your library for a card named (.+?),?(?: reveal (?:it|that card),?)? put (?:it|that card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (tnm) {
     const named = tnm[1].trim();

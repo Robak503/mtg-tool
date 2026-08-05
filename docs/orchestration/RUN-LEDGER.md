@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **PLURAL SELF-NAMED TUTOR, +4** - batch 13 (post-v0.153.0)
+> Suite 1130 / 14,017 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Squadron Hawk, Nesting Wurm,
+> Skyshroud Sentinel, Howling Wolf. **A cardinality on a proven path**, not a new fetch mode: the singular
+> named tutor existed, and `remaining` (what `resolveTutorChoice` chains on, shared with the RAMP-MULTI
+> lands tutor) existed. Only the plural matcher was missing.
+> ⛔ **"ANY NUMBER OF cards named ~" REFUSED** (Legion Conquistador, Gathering Throng, Battalion Foot
+> Soldier — 3 cards left parked ON PURPOSE). `remaining` is a HARD CAP, so admitting that wording means
+> **inventing a bound**. Four is the obvious guess and it is a fabricated number — it silently UNDER-fetches
+> exactly the decks the wording exists for (Relentless Rats / Persistent Petitioners print "a deck can have
+> any number of cards named ~"). **A magnitude the card doesn't print cannot be guessed.**
+> ✅ **THE CENSUS IS THE INSTRUMENT NOW.** Fresh `build-residue-census` run: 34,245 scanned, 20,739
+> non-native, **11,252 SOLE-BLOCKER cards** — and the top cluster is only **6**. The easy veins are gone;
+> what's left is a long tail where each shape is worth 2-6. Ranked candidates with 0 native carriers:
+> sunburst (6) · take-the-initiative ETB (6) · double team (6) · open-an-attraction ETB (6) · specialize (5)
+> · kicked-counter ETB (5) · damage-prevention shields (5) · mana batteries (5) · player hexproof (4) ·
+> escape-with-a-counter (4) · upkeep sacrifice-unless-you-pay (4, the Elder Dragons).
+> ⚠️ Trap: reaching for `SMALL_NUM` (not imported here) crashed classifyCard outright rather than missing a
+> parse — `NUM_WORD` was already imported and covers a wider range.
+
 > ## SLICE DONE - 2026-08-05 - **ACTIVATED + TRIGGERED DEFENDER ESCAPE, +9** - batch 9 (post-v0.153.0)
 > Suite 1129 / 14,014 green + lint 0 BY EXIT CODE. Flip-diff **+9 / 0 / 0** — Mirror Wall, Returned Phalanx,
 > Wall of One Thousand Cuts, Krotiq Nestguard, Glade Watcher, Hightide Hermit, Skyclave Squid, Steelclad

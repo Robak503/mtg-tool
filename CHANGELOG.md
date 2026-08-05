@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Squadron Hawk fetches its friends.** Squadron Hawk, Nesting Wurm, Skyshroud Sentinel and Howling Wolf
+  search up to three more copies of themselves into your hand, and correctly stop at three.
 - **Walls that can buy their way into an attack now can.** Mirror Wall, Returned Phalanx, Wall of One
   Thousand Cuts, Krotiq Nestguard, Glade Watcher and Hightide Hermit can pay to attack for the turn, and
   Skyclave Squid, Steelclad Spirit and Prismari Pledgemage get the same off their triggers. It lasts the

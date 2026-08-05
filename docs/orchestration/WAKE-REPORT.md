@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+297 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 9** — suite **1129 / 14,014** green by exit code
+## ☀️ 2026-08-05 — **+301 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 13** — suite **1130 / 14,017** green by exit code
 
 > ### ⚠️⚠️ AURA PROBES ARE MEMO-POISONED — classify in a FRESH PROCESS
 > `parseAttachedBonus` memoises into a slot, which makes **`isNativeAura` ORDER-DEPENDENT**: the same card in
@@ -26,6 +26,12 @@
 > repeated it, so it looked VERIFIED. `cardsDrawnThisTurn` had been in gameState the whole time. **A stale
 > "we can't do this" note converts a gap into a decision nobody re-examines.** When a census shows a big
 > zero-native cluster, **check whether the refusal still holds.**
+
+> ### 📉 THE EASY VEINS ARE GONE — fresh census, top cluster is SIX
+> `build-residue-census` (2026-08-05): 34,245 scanned · 20,739 non-native · **11,252 sole-blocker cards**,
+> and the largest single shape is worth **6**. Expect 2-6 per slice now, not 9-13. Ranked candidates with
+> ZERO native carriers are listed in the run ledger — sunburst, take-the-initiative, double team, specialize,
+> mana batteries, player hexproof, the Elder Dragon upkeep sacrifice.
 
 > ### ⚠️⚠️ MAKE THE RUNTIME DRIVE CONSUME THE PARSER'S OUTPUT
 > A slice with a parse half and a runtime half can have BOTH green and still be broken. My drive passed a
