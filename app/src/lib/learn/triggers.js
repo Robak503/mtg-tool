@@ -1090,6 +1090,24 @@ function classifyCondition(condRaw, cardName, cardType) {
     const etbMvM = c.match(/^a creature with mana value (\d+) or greater enters$/);
     if (etbMvM) return { event: "etb", scope: "eachCreature", whose: "any", etbMinMv: parseInt(etbMvM[1], 10) };
   }
+  // ATTACK-COUNT (Military Intelligence — "Whenever you attack with N or more creatures, …"). Placed ABOVE
+  // the qualifier guard below, and the ORDER is the whole point: that guard rejects ANY condition containing
+  // "with", so this form was never reached no matter how it was anchored. The battalion twin (further down,
+  // near the other youAttack arms) needs no such move — its wording carries no "with".
+  //
+  // Whole-string anchored, so moving it earlier cannot widen anything: it claims exactly this sentence and
+  // nothing else, and every other "with" condition still hits the guard unchanged. Same once-per-combat
+  // `youAttack` lane and the same `minAttackers` gate as battalion; NO requireSelfAttacking, because this
+  // wording never names the source as an attacker (an enchantment carries it — Military Intelligence is not
+  // a creature and cannot attack at all).
+  {
+    const atkCountEarly = c.match(/^you attack with (\d+|one|two|three|four|five|six) or more creatures$/);
+    if (atkCountEarly) {
+      const words = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 };
+      const n = words[atkCountEarly[1]] ?? parseInt(atkCountEarly[1], 10);
+      if (Number.isFinite(n)) return { event: "youAttack", scope: "you", whose: "any", minAttackers: n };
+    }
+  }
   const castWithExempt = /^(?:you|an opponent|a player|each player) casts? an? spell with (?:\{x\} in its mana cost|mana value \d+ or (?:greater|more|less|fewer))$/.test(c);
   if (!castWithExempt && /\b(?:with|while|during|named)\b/.test(c)) return null;
 
@@ -1814,11 +1832,10 @@ function classifyCondition(condRaw, cardName, cardType) {
     const other = ATTACK_COUNT_WORDS[battalion[1]] ?? parseInt(battalion[1], 10);
     if (Number.isFinite(other)) return { event: "youAttack", scope: "you", whose: "any", minAttackers: other + 1, requireSelfAttacking: true };
   }
-  const atkCount = c.match(/^you attack with (\d+|one|two|three|four|five|six) or more creatures$/);
-  if (atkCount) {
-    const n = ATTACK_COUNT_WORDS[atkCount[1]] ?? parseInt(atkCount[1], 10);
-    if (Number.isFinite(n)) return { event: "youAttack", scope: "you", whose: "any", minAttackers: n };
-  }
+  // ⓘ The "you attack with N or more creatures" twin lives EARLIER in this function, above the qualifier
+  // guard that rejects every condition containing "with" — a copy here would be dead code, because that
+  // guard returns before this point. Measured, not assumed: a debug dump showed this line was never
+  // reached for Military Intelligence's condition.
   // ===== EACH-PLAYER (compound-combat-trigger guard) ===== A condition that names BOTH "attacks" and
   // "blocks" is a COMPOUND combat event. The STANDARD "attacks or blocks" form is now SPLIT upstream
   // (DISJUNCTION_BLOCKS_SRC, BLITZ OR-1) into two single-verb sentences before this detector runs, so it

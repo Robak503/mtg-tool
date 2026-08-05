@@ -121,3 +121,50 @@ describe("⭐ LAW 6 — the firing gate on a real declared batch", () => {
     expect(triggersFired(plain, ["b1"])).toBe(1);
   });
 });
+
+/**
+ * ⭐ THE UNLABELLED TWIN — "Whenever you attack with N or more creatures" (Military Intelligence,
+ * Overwhelming Instinct, Meddling Youths, Armasaur Guide, Seasoned Consultant, Escarpment Fortress,
+ * Chivalric Alliance). Same once-per-combat lane, same `minAttackers` gate, NO self requirement — this
+ * wording never names the source as an attacker, and an enchantment carries it (Military Intelligence
+ * cannot attack at all).
+ *
+ * ⛔ IT WAS BLOCKED BY MATCHER ORDER, NOT BY ITS ANCHOR, and no amount of rewriting the regex would have
+ * found that. A broad qualifier guard rejects ANY condition containing "with" — so the arm placed beside
+ * the other youAttack matchers was NEVER REACHED. Proven by dumping the condition at two points: it
+ * printed at the top of classifyCondition and never at the matcher. The arm now sits ABOVE that guard,
+ * whole-string anchored so moving it earlier cannot widen anything; every other "with" condition still
+ * hits the guard unchanged. The battalion twin needs no move — its wording carries no "with".
+ */
+describe("the unlabelled attack-count twin", () => {
+  const MILITARY_INTELLIGENCE = { id: "c-mi", name: "Military Intelligence", type: "Enchantment", mana: "{1}{U}",
+    oracle: "Whenever you attack with two or more creatures, draw a card." };
+  const OVERWHELMING_INSTINCT = { id: "c-oi", name: "Overwhelming Instinct", type: "Enchantment", mana: "{2}{G}",
+    oracle: "Whenever you attack with three or more creatures, draw a card." };
+
+  it("detects with the count gate and NO self requirement", () => {
+    const [t] = detectTriggers(MILITARY_INTELLIGENCE);
+    expect(t).toMatchObject({ event: "youAttack", minAttackers: 2 });
+    expect(t.requireSelfAttacking).toBeUndefined();
+    expect(detectTriggers(OVERWHELMING_INSTINCT)[0]).toMatchObject({ event: "youAttack", minAttackers: 3 });
+  });
+
+  it("the carriers flip", () => {
+    expect(classifyCard(MILITARY_INTELLIGENCE)).toBe("native-trigger");
+    expect(classifyCard(OVERWHELMING_INSTINCT)).toBe("native-trigger");
+  });
+
+  it("⭐ LAW 6 — fires at the threshold, not below, and the SOURCE need not attack", () => {
+    // The enchantment is never an attacker, so a self requirement here would make it dead. Two bears
+    // attacking is enough; one is not.
+    expect(triggersFired(MILITARY_INTELLIGENCE, ["b1", "b2"])).toBe(1);
+    expect(triggersFired(MILITARY_INTELLIGENCE, ["b1"])).toBe(0);
+    expect(triggersFired(OVERWHELMING_INSTINCT, ["b1", "b2"])).toBe(0);
+    expect(triggersFired(OVERWHELMING_INSTINCT, ["b1", "b2", "b3"])).toBe(1);
+  });
+
+  it("⛔ every OTHER 'with' condition still hits the qualifier guard (the move widened nothing)", () => {
+    expect(detectTriggers({ id: "c-x", name: "Odd Watcher", type: "Enchantment", mana: "{1}{U}",
+      oracle: "Whenever you attack with a creature named Bob, draw a card." })).toEqual([]);
+  });
+});
