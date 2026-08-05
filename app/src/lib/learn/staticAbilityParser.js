@@ -462,6 +462,20 @@ function parseSelfCountSource(phrase) {
   if ((m = p.match(/^(creature|land|artifact|enchantment|instant|sorcery|planeswalker) cards? in all graveyards$/))) return { kind: "cardsInAllGraveyards", cardType: m[1] };
   if (/^cards? in your hand$/.test(p)) return { kind: "cardsInHand" };
   if (/^cards? in all players' hands$/.test(p)) return { kind: "cardsInAllHands" };
+  // ── MULTI-NEEDLE TYPE-LINE COUNTS — the same word-bounded scan the single-needle arm above has always
+  // used, with an explicit join. Benalish Honor Guard ("for each LEGENDARY CREATURE you control") is named
+  // in this function's own doc comment as a shape the lane was written for, and it has been parking all
+  // along because one needle could not express a supertype qualifier. All That Glitters and Nettlecyst want
+  // the OR form. Each permanent counts at most ONCE — a card that is both an artifact and an enchantment
+  // contributes 1, which is what the printed card means.
+  // ⛔ Deliberately narrow: only the supertype+cardtype AND-form and the artifact/enchantment OR-form. An
+  // arbitrary qualifier ("nonlegendary", "tapped artifact") has no evaluator here and still parks.
+  if ((m = p.match(/^legendary (creatures?|artifacts?|lands?|enchantments?) you control$/))) {
+    return { kind: "permanentsYouControlMulti", allOf: ["Legendary", SELF_COUNT_CARDTYPE[m[1]]] };
+  }
+  if (/^artifacts? and\/or enchantments? you control$/.test(p)) {
+    return { kind: "permanentsYouControlMulti", anyOf: ["Artifact", "Enchantment"] };
+  }
   // SUBTYPE on the battlefield (ALL controllers, no "you control") — "(other )?<Subtype> on the battlefield"
   // (Sliver Legion "for each other Sliver on the battlefield"). "other" → excludeSelf (each counter excludes
   // itself). A LIVE board count (never zero-by-default) — so it's non-hollow, unlike a "counter on this

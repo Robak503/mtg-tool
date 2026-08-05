@@ -266,6 +266,24 @@ function countSelfSpecOnBoard(state, perm, spec) {
     for (const p of player.battlefield || []) if (colorsOf(p.card).some((c) => want.has(c))) cn += 1;
     return cn;
   }
+  // MULTI-NEEDLE type-line count — the SAME word-bounded scan as the single-needle branch below, with more
+  // than one needle and an explicit join. "for each LEGENDARY CREATURE you control" (Benalish Honor Guard —
+  // named in parseSelfCountSource's own doc comment as the shape that lane was written for) needs ALL of
+  // {Legendary, Creature} on one type line; "for each ARTIFACT AND/OR ENCHANTMENT you control" (All That
+  // Glitters, Nettlecyst) needs ANY of {Artifact, Enchantment}. The single-needle branch could express
+  // neither, so both parked.
+  // Each permanent is counted at most ONCE — that is the whole point of the "and/or" form: a card that is
+  // BOTH an artifact and an enchantment contributes 1, not 2, which is what the printed card means.
+  if (spec.kind === "permanentsYouControlMulti") {
+    const needles = spec.allOf || spec.anyOf || [];
+    if (!needles.length) return 0;
+    const res = needles.map((n) => new RegExp(`\\b${n}\\b`));
+    const joinAll = !!spec.allOf;
+    return (player.battlefield || []).filter((p) => {
+      const line = typeLineOf(p.card);
+      return joinAll ? res.every((r) => r.test(line)) : res.some((r) => r.test(line));
+    }).length;
+  }
   if (spec.kind !== "permanentsYouControl") return 0;
   const needle = spec.cardType || spec.subtype;
   if (!needle) return 0;
