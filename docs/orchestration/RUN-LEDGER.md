@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **ANY-NUMBER TARGETS — the fix was the ENUMERATION ORDER, +5** - batch 63
+> Suite 1147 / 14,118 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Footbottom Feast, Bone Harvest,
+> Forever Young, Gravepurge, Frantic Salvage.
+> ⭐⭐ **THE SLICE IS NOT THE REGEX — IT IS THE ORDER.** The previous slice REFUSED this wording and wrote
+> down why; this one earns it. `targetSubsets` filled from the SMALLEST k upward against a 64-option cap, so
+> on a 10-card graveyard the largest offered subset was **THREE**. "Put them ALL back" — the option all five
+> cards exist for — was not on the menu. **The mutant reproduces that exactly: witness `largest: 3` vs the
+> shipped `largest: 10`.** Widening the regex a slice earlier would have shipped five cards that read native
+> and played wrong, with nothing in any flip-diff to show it.
+> ⛔ **THE EMPTY SUBSET IS SEEDED EXPLICITLY** — a descending fill never reaches k=0 on a large graveyard, and
+> "choose zero" is a legal cast (CR 601.2c). Its mutant shows `smallest: 7`. Both extremes guaranteed; only
+> middle-sized subsets can be capped.
+> ⓘ `maxTargets: 999`, not Infinity: `Math.min(maxK, n)` makes anything ≥ the graveyard size identical, and a
+> finite number stays JSON-serializable (Infinity stringifies to null → a silent single-target atom on any
+> round-trip). Pinned with a JSON round-trip assertion.
+> ⭐ **REFUSE-THEN-EARN IS THE TRANSFERABLE MOVE.** Two slices, in that order, with the refusal's reasoning
+> carried forward as the second slice's spec. The first slice's pin is now rewritten to point AT the second.
+> ⚠️ **AND THE FIXTURE LESSON GOT SHARPER: an "unmodelled half" fixture is a MOVING TARGET.** delayedTrigger's
+> Bone Harvest pin went red TWICE today — first exposing invented card text, then because the corrected real
+> oracle became fully native. Replaced with Gravebind (its "can't be regenerated this turn" half is still
+> unmodelled) plus a note: when it reddens again, re-probe the corpus, never invent a card.
+
 > ## SLICE DONE - 2026-08-05 - **GY-TO-TOP MULTI-COUNT — the count was the whole gate, +4** - batch 58
 > Suite 1146 / 14,111 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Meldweb Curator, Biblioplex
 > Assistant, Treason of Isengard, Reinforcements. All audited whole-card.

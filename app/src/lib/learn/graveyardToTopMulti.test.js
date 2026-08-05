@@ -12,13 +12,13 @@
  * arm in the same parser is the identical mechanism against a different destination. This arm only says the
  * wording out loud.
  *
- * ⛔⛔ "ANY NUMBER OF TARGET …" IS DELIBERATELY REFUSED, and the reason is not squeamishness. Footbottom
- * Feast / Bone Harvest / Forever Young / Gravepurge all print "put ANY NUMBER of target creature cards…",
- * which needs an UNBOUNDED subset: targetSubsets would enumerate 2^n over the graveyard, and its
- * MAX_CAST_EXPANSIONS backstop fills from the SMALLEST k upward — so "put them ALL back", the option those
- * cards exist for, is the first thing silently dropped. Widening the regex would produce four cards that read
- * native and play wrong. That needs a descending/all-first enumeration, which is its own slice. Pinned below
- * so the refusal survives a future "obvious" generalization.
+ * ⭐⭐ "ANY NUMBER OF TARGET …" WAS REFUSED HERE ON MEASUREMENT, AND SHIPPED ONE SLICE LATER — in that order,
+ * deliberately. Footbottom Feast / Bone Harvest / Forever Young / Gravepurge / Frantic Salvage need an
+ * UNBOUNDED subset, and targetSubsets used to fill from the SMALLEST k upward against a 64-option cap: on a
+ * 10-card graveyard the largest offered subset was THREE. "Put them ALL back" — the option those cards exist
+ * for — was simply not on the menu. Widening the regex first would have shipped five cards that read native
+ * and played wrong. The follow-up slice fixed the enumeration order, THEN the wording; anyNumberTargets.test.js
+ * owns those pins, including the mutant that reproduces the old largest=3 behaviour exactly.
  *
  * Mutation-checked (2026-08-05, each grep-verified as applied): `toLibraryTop` dropped -> the runtime witness
  * shows the card landing in HAND instead of on the library — a behavioural kill. `minTargets:0` dropped ->
@@ -59,13 +59,18 @@ describe("the count wording finally reaches the atom", () => {
     ]);
   });
 
-  it("⛔⛔ 'ANY NUMBER OF' STAYS REFUSED — an unbounded subset would drop the all-back option", () => {
-    // ⛔ If this ever starts parsing, check that targetSubsets can offer the FULL graveyard first. Its cap
-    // fills from the smallest subset upward, so the largest — the one Footbottom Feast is played for — is the
-    // first casualty. Four cards would read native and play wrong.
-    expect(parse("put any number of target creature cards from your graveyard on top of your library").atoms).toEqual([]);
+  it("⭐ 'ANY NUMBER OF' WAS REFUSED HERE, AND IS NOW SHIPPED — with the enumeration fixed FIRST", () => {
+    // ⭐ THE ORDER OF THOSE TWO SLICES IS THE POINT. This arm refused the wording on measurement, not
+    // squeamishness: `targetSubsets` filled from the SMALLEST k upward against a 64-option cap, so on a
+    // 10-card graveyard the largest offered subset was THREE — "put them all back", the option Footbottom
+    // Feast exists for, was unavailable. Admitting the regex alone would have shipped five cards that read
+    // native and played wrong. The follow-up slice flipped the fill to largest-first and THEN widened the
+    // regex; anyNumberTargets.test.js owns those pins, including the mutant that reproduces the old
+    // largest=3 behaviour exactly.
+    expect(parse("put any number of target creature cards from your graveyard on top of your library").atoms)
+      .toEqual([{ op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "creature", toLibraryTop: true, maxTargets: 999, minTargets: 0, anyNumber: true }]);
     expect(classifyCard({ name: "Footbottom Feast", type: "Instant", mana: "{2}{B}",
-      oracle: "Put any number of target creature cards from your graveyard on top of your library.\nDraw a card." })).not.toMatch(/^native/);
+      oracle: "Put any number of target creature cards from your graveyard on top of your library.\nDraw a card." })).toBe("native-spell");
   });
 });
 

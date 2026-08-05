@@ -153,12 +153,31 @@ function kMultisets(n, k, limit = Infinity) {
 // legal "up to" cast, CR 601.2c). Bounded by MAX_CAST_EXPANSIONS so a large graveyard/board can't DoS the cast list
 // (a subset of the legal combos is still offered — never a dropped clause, only fewer target-choices). Returns null
 // iff no subset of the required minimum size exists (n < minK → the spell is uncastable, e.g. an exact "N target").
-function targetSubsets(tagged, minK, maxK) {
+function targetSubsets(tagged, minK, maxK, { largestFirst = false } = {}) {
   const n = tagged.length;
   const lo = Math.max(0, minK);
   const hi = Math.min(maxK, n);
   if (n < lo) return null; // can't meet the required minimum
   const out = [];
+  // ⭐⭐ ANY-NUMBER (largestFirst) — fill from the LARGEST k DOWNWARD. The ascending fill below is correct for
+  // a bounded "up to three", where every subset fits inside MAX_CAST_EXPANSIONS anyway. It is WRONG for an
+  // unbounded "any number of target …": 2^n subsets never fit, the cap fills with the SMALLEST ones, and
+  // "choose ALL of them" — the option Footbottom Feast / Bone Harvest / Forever Young / Gravepurge exist for
+  // — is the FIRST thing silently dropped. The card would read native and play wrong, which is exactly why
+  // the matcher refused the wording until this order existed.
+  // ⛔ THE EMPTY SUBSET IS SEEDED FIRST when lo is 0, because descending fill would otherwise never reach
+  // k=0 on a large graveyard and "choose zero" is a LEGAL cast (CR 601.2c). Both extremes are guaranteed
+  // present; the cap only ever eats middle-sized subsets.
+  if (largestFirst) {
+    if (lo === 0) out.push([]);
+    for (let k = hi; k >= Math.max(lo, 1); k--) {
+      for (const combo of kCombinations(n, k, MAX_CAST_EXPANSIONS - out.length)) {
+        out.push(combo.map((ix) => tagged[ix]));
+        if (out.length >= MAX_CAST_EXPANSIONS) return out;
+      }
+    }
+    return out.length ? out : null;
+  }
   for (let k = lo; k <= hi; k++) {
     if (k === 0) { out.push([]); continue; } // choose zero — a legal "up to" cast
     // Thread the REMAINING capacity into the enumerator so it never materializes more than the cap needs
@@ -292,7 +311,9 @@ function expandAtoms(state, controllerId, atoms, sourceColors = [], ctx = null) 
     // (maxTargets:1 + minTargets:0 = the "up to ONE target" form — same subset path, subsets [t] or [].
     // A plain single-target atom carries NO maxTargets, so the unchanged path below still serves it.)
     if (atom.maxTargets > 1 || (atom.maxTargets === 1 && (atom.minTargets ?? 1) === 0)) {
-      let subsets = targetSubsets(tagged, atom.minTargets ?? 0, atom.maxTargets);
+      // `anyNumber` (CR 601.2c "any number of target …") flips the fill order so the cap keeps the LARGEST
+      // subsets — see targetSubsets. Inert for every bounded up-to-N atom, which carries no such flag.
+      let subsets = targetSubsets(tagged, atom.minTargets ?? 0, atom.maxTargets, { largestFirst: !!atom.anyNumber });
       if (subsets === null) return null;      // a required minimum can't be met → uncastable
       // COLLECTIVE-X-MV restriction (CR 601.2c — "with total mana value X or less"): keep ONLY subsets whose
       // chosen permanents' mana values SUM to ≤ the paid {X} (ctx.xValue, threaded from the ETB self-trigger).

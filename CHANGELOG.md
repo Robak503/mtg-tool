@@ -30,6 +30,9 @@ summarizes the notable changes.
   empty the spell is countered.
 
 ### Added
+- **"Put any number of cards from your graveyard on top of your library" works.** Footbottom Feast, Bone
+  Harvest, Forever Young, Gravepurge and Frantic Salvage now resolve, and the "take all of them" option is
+  always offered — the option list used to fill up with small selections and crowd it out.
 - **"Put up to N cards from your graveyard on top of your library" works.** Meldweb Curator, Biblioplex
   Assistant, Reinforcements and Treason of Isengard only understood the single-card wording before.
 - **Lead Golem and Apes of Rath stay down after attacking.** Their drawback — not untapping on your next

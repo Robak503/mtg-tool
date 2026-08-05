@@ -78,12 +78,15 @@ describe("parse — the timing vocabulary + the CREED inner-clause gate", () => 
   });
   it("a pure delayed-draw spell classifies native; a carrier whose OTHER half is unmodeled still parks (whole-card law)", () => {
     expect(classifyCard({ name: "SynthDraw", type: "Sorcery", mana: "{1}{U}", oracle: "Draw a card at the beginning of the next turn's upkeep." })).toBe("native-spell");
-    // ⚠️ FIXTURE CORRECTED 2026-08-05. This line used to read "put up to THREE target creature cards…",
-    // which is not what Bone Harvest prints — the real card says "ANY NUMBER OF target creature cards"
-    // (Instant, not Sorcery). The up-to-N wording became modelled (GY-TO-TOP multi-count) and this pin went
-    // red, which is how the fabricated text was caught. The REAL oracle is still unmodelled — "any number of"
-    // needs an unbounded target subset — so the pin keeps its exact meaning and is now also true.
-    expect(classifyCard({ name: "Bone Harvest", type: "Instant", mana: "{2}{B}", oracle: "Put any number of target creature cards from your graveyard on top of your library.\nDraw a card at the beginning of the next turn's upkeep." })).not.toMatch(/^native/);
+    // ⚠️ FIXTURE REPLACED TWICE ON 2026-08-05, and the history is the point. It first read "Bone Harvest …
+    // put up to THREE target creature cards", which is not what that card prints — the real one says "ANY
+    // NUMBER OF", and it's an Instant. Modelling the up-to-N wording turned the pin red and exposed the
+    // invented text; modelling "any number of" an hour later turned the corrected fixture red too, because
+    // Bone Harvest is now fully native. **A card used as an "unmodelled half" fixture is a MOVING TARGET —
+    // the grind's whole job is to model it.** Gravebind is the current stand-in (its "can't be regenerated
+    // this turn" half is unmodelled); when this goes red again, that is the grind working, and the fix is to
+    // re-probe the corpus for a card that still parks — never to invent one.
+    expect(classifyCard({ name: "Gravebind", type: "Instant", mana: "{B}", oracle: "Target creature can't be regenerated this turn.\nDraw a card at the beginning of the next turn's upkeep." })).not.toMatch(/^native/);
   });
 });
 

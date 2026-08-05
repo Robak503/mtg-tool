@@ -638,16 +638,27 @@ export function graveyardReturnClauseParser(clause) {
   // ⭐ NOTHING NEW AT RUNTIME: applyReturnFromGraveyard already loops every ctx.target, and
   // targeting.expandAtoms already admits the maxTargets/minTargets:0 subset shape (the up-to-N return-to-hand
   // arm at the top of this parser is the same mechanism). This arm only says the wording out loud.
-  // ⛔ SMALL COUNTS ONLY, and deliberately so: "any number of target creature cards" (Footbottom Feast /
-  // Bone Harvest / Forever Young / Gravepurge) is NOT admitted here. An unbounded subset would need
-  // targetSubsets to enumerate 2^n over the graveyard, and its MAX_CAST_EXPANSIONS backstop fills from the
-  // SMALLEST k upward — so the "put them ALL back" option, the one those cards exist for, would be the first
-  // thing silently dropped. That needs a descending/all-first enumeration, not a wider regex.
   const topMultiM = /^put up to (one|two|three|four|five) target (.*?)cards? from your graveyard on top of your library$/.exec(t);
   if (topMultiM) {
     const n = SMALL_NUM[topMultiM[1]];
     const cf = parseGraveyardFilter(topMultiM[2]);
     if (n >= 1 && cf) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: cf, toLibraryTop: true, maxTargets: n, minTargets: 0 };
+  }
+  // ⭐⭐ GY-TO-TOP, ANY NUMBER (CR 601.2c) — "put ANY NUMBER of target <filter> cards from your graveyard on
+  // top of your library" (Footbottom Feast, Bone Harvest, Forever Young, Gravepurge).
+  // ⛔ THIS WORDING WAS REFUSED UNTIL THE ENUMERATION ORDER EXISTED, and the refusal was the right call.
+  // `targetSubsets` used to fill from the SMALLEST k upward against a MAX_CAST_EXPANSIONS cap, so on any real
+  // graveyard "choose ALL of them" — the option these four cards exist for — was the first subset dropped.
+  // Admitting the regex alone would have produced four cards that read native and played wrong. The
+  // `anyNumber` flag flips the fill to largest-first (and seeds the legal empty subset), so both extremes are
+  // guaranteed and only middle-sized subsets can be capped.
+  // ⓘ `maxTargets: 999` rather than Infinity: targetSubsets clamps with Math.min(maxK, n) so any number ≥ the
+  // graveyard size behaves identically, and a finite number stays JSON-serializable (Infinity stringifies to
+  // null, which would silently become a single-target atom if a program is ever round-tripped).
+  const topAnyM = /^put any number of target (.*?)cards from your graveyard on top of your library$/.exec(t);
+  if (topAnyM) {
+    const cf = parseGraveyardFilter(topAnyM[1]);
+    if (cf) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: cf, toLibraryTop: true, maxTargets: 999, minTargets: 0, anyNumber: true };
   }
   // GY-TO-BOTTOM (BLITZ AR-1 — Cogwork Archivist / Jade-Cast Sentinel / Phyrexian Archivist / Junktroller /
   // Reito Lantern class, 14 corpus carriers): "put target card from a graveyard on the bottom of its owner's

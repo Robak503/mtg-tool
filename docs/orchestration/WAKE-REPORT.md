@@ -7,14 +7,15 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+346 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 58** — suite **1146 / 14,111** green by exit code
+## ☀️ 2026-08-05 — **+351 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 63** — suite **1147 / 14,118** green by exit code
 
-> ### ⏭ NEXT SLICE, ALREADY SCOPED: **"any number of target …" needs an ALL-FIRST target enumeration**
-> Footbottom Feast, Bone Harvest, Forever Young, Gravepurge (+4) are one regex away — and that regex would be
-> WRONG today. `targetSubsets` enumerates 2^n and its `MAX_CAST_EXPANSIONS` backstop fills from the SMALLEST
-> subset upward, so "put them ALL back" — the option those cards exist for — is the first casualty. Fix the
-> enumeration order (descending, or seed the full set first), THEN widen the regex. Refusal is pinned in
-> `graveyardToTopMulti.test.js` so nobody generalizes past it by accident.
+> ### ⭐⭐ THE MOVE OF THE DAY: **REFUSE, WRITE DOWN WHY, THEN EARN IT NEXT SLICE**
+> "Any number of target …" was one regex from +5 — and that regex would have been WRONG. `targetSubsets`
+> filled from the SMALLEST subset upward against a 64-option cap, so on a 10-card graveyard the largest
+> option offered was THREE: "put them ALL back", the whole point of those cards, was unavailable. Slice one
+> refused the wording and recorded the measurement as a spec. Slice two fixed the enumeration order and
+> earned it. **A refusal with its reasoning attached is a scoped next slice, not a dead end** — and the mutant
+> now reproduces the old `largest: 3` so the reason can't rot.
 
 > ### ⚠️ A FIXTURE WRITTEN FROM MEMORY SURVIVED IN THE SUITE UNTIL A SLICE MADE IT GO RED
 > `delayedTrigger.test.js` used "Bone Harvest … put up to THREE target creature cards" — the real card says
