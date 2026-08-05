@@ -217,6 +217,14 @@ export const COVERED_KEYWORDS = [
   // price: STRICTLY HARDER than the card allows, the safe direction, and nothing about the resolution
   // changes. Crediting delve while refusing its twin was the inconsistency.
   "undaunted",
+  // WEB-SLINGING — a pure ALTERNATIVE COST ("you may cast this for {2}{G} if you also return a tapped
+  // creature you control to its owner's hand"), the prowl / spectacle / surge class this list already
+  // credits: declining means casting for the printed mana cost, which is what the engine does anyway.
+  "web-slinging",
+  // IMPENDING N—{cost} — an alternative CAST MODE. Declining is the normal cast: the permanent enters as an
+  // ordinary creature, a real complete play and the one the engine takes. The time-counter / not-a-creature
+  // half exists ONLY inside the mode that was not chosen, so nothing is dropped by declining.
+  "impending",
   // BARGAIN (CR 702.166a) — an optional ADDITIONAL cost, the replicate/buyback class already in this list:
   // declining leaves the spell simply not bargained, a real and complete play. The carriers' separate
   // "…costs {N} less to cast if it's bargained" sentence is handled on its own, so declining costs only

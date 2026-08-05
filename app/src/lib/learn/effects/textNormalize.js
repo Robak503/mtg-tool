@@ -173,6 +173,19 @@ export function stripNoMaxHandSizeRider(text) {
 // a "whenever you cast a spell with conspire" trigger is never line-leading and stays untouched.
 // MAYHEM (Duskmourn) — a discarded-this-turn GRAVEYARD cast window: the flashback twin exactly
 // (cast from GY for the mayhem cost; vacuous for the from-hand cast), joining on flashback's basis.
+// WEB-SLINGING — "You may cast this spell for {2}{G} if you also return a tapped creature you control to
+// its owner's hand." A pure ALTERNATIVE COST, the prowl / spectacle / surge class already in this list:
+// declining means casting for the printed mana cost, which is what the engine does anyway.
+// IMPENDING N—{cost} — "If you cast this spell for its impending cost, it enters with N time counters and
+// isn't a creature until the last is removed." An alternative CAST MODE. Declining means the normal cast:
+// the permanent enters as an ordinary creature, which is a real complete play (and the one the engine
+// already takes). The time-counter half exists ONLY in the mode that was not chosen.
+// ⛔ NOT ADMITTED, and recorded so the refusals are not re-litigated:
+//   · POISON TOLERANCE +N ("it takes N additional poison counters for you to lose the game") is MANDATORY
+//     and raises a real loss threshold — gameState models losing at ten or more, so ignoring the line would
+//     make a player lose when the card says they survive. That is a WRONG game state, not a missed option.
+//   · PARADIGM exiles the spell UNCONDITIONALLY ("Then exile this spell"), so ignoring it graveyards a card
+//     that should be in exile — a board difference with no unpaid state to hide behind.
 // UNDAUNTED (CR 702.150a) — "This spell costs {1} less to cast for each opponent." A pure COST REDUCTION,
 // which is DELVE's exact twin: delve is already credited on "not delving = paying full cost", and not
 // applying undaunted is likewise paying full cost. The engine casts at the printed price, which is STRICTLY
@@ -190,7 +203,7 @@ export function stripNoMaxHandSizeRider(text) {
 // not assumed: detectTriggers returns ZERO for a cipher carrier, so nothing leaks in as a phantom descriptor.
 // Bare keyword after reminder-strip (no brace cost), so it anchors on the word alone, exactly like conspire.
 // The keyword-only credit in coverage.js carries the matching rationale for the PERMANENT-residue side.
-const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|freerunning\s*\{|suspend\s+\d+\s*[—–-]|splice onto arcane\s*\{|recover\s*\{|harmonize\s*\{|basic landcycling\s*\{|cycling\s*\{|flashback\s*(?:\{|[—–-])|jump-start\b|retrace\b|escape\s*[—–-]|spectacle\s*\{|prowl\s*\{|surge\s*\{|miracle\s*\{|overload\s*\{|awaken\s+\d+\s*[—–-]|buyback\s*\{|entwine\s*\{|conspire\b|cipher\b|undaunted\b|bargain\b|mayhem\s*\{|dredge\s+\d)[^\n]*$/gim;
+const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|freerunning\s*\{|suspend\s+\d+\s*[—–-]|splice onto arcane\s*\{|recover\s*\{|harmonize\s*\{|basic landcycling\s*\{|cycling\s*\{|flashback\s*(?:\{|[—–-])|jump-start\b|retrace\b|escape\s*[—–-]|spectacle\s*\{|prowl\s*\{|surge\s*\{|miracle\s*\{|overload\s*\{|awaken\s+\d+\s*[—–-]|buyback\s*\{|entwine\s*\{|conspire\b|cipher\b|undaunted\b|bargain\b|web-slinging\s*\{|impending\s+\d+\s*[—–-]|mayhem\s*\{|dredge\s+\d)[^\n]*$/gim;
 // MADNESS_LINE needs a TIGHTER anchor than the others: a madness line can be COMPOUND
 // ("Madness {R}, cycling {1}{R}, kicker {2}{R}, buyback {4}{R}" — Blast from the Past), and buyback's
 // kept "return to hand as it resolves" effect lives ONLY on that line. A greedy `[^\n]*$` strip would drop

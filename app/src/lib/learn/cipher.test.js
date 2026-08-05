@@ -40,6 +40,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { classifyCard, isKeywordOnly } from "./coverage.js";
 import { detectTriggers } from "./triggers.js";
+import { triggerRoutesNatively } from "./triggerRouting.js";
 import { parseEffectProgram } from "./effects/parser.js";
 import { _resetIdsForTests } from "./gameState.js";
 
@@ -135,5 +136,70 @@ describe("undaunted and bargain — the same criterion, two more keywords", () =
       oracle: "Undaunted (This spell costs {1} less to cast for each opponent.)\nInterpret the omens however you like." })).toBe("arbiter-spell");
     expect(classifyCard({ ...ICE_OUT, id: "c-x2", name: "Odd Ice",
       oracle: "Bargain (You may sacrifice an artifact, enchantment, or token as you cast this spell.)\nInterpret the omens however you like." })).toBe("arbiter-spell");
+  });
+});
+
+/**
+ * ⭐ THE LENS AGAIN — WEB-SLINGING + IMPENDING (2026-08-05), and the REFUSALS that came with them.
+ *
+ * WEB-SLINGING — "You may cast this spell for {2}{G} if you also return a tapped creature you control to
+ * its owner's hand." A pure ALTERNATIVE COST, the prowl / spectacle / surge class: declining means casting
+ * for the printed mana cost, which is what the engine does anyway.
+ *
+ * IMPENDING N—{cost} — an alternative CAST MODE. Declining is the normal cast: the permanent enters as an
+ * ordinary creature. The time-counter / not-a-creature half exists ONLY in the mode that was not chosen.
+ *
+ * ⛔ IMPENDING NEEDED A SECOND FIX, and the keyword credit alone bought ZERO. Its reminder contains "At the
+ * beginning of your end step, remove a time counter from it.", which starts with "At" at a sentence
+ * boundary INSIDE the paren — so the trigger anchor caught it and every Overlord grew a PHANTOM endStep
+ * descriptor that routed UNNATIVELY. It announced itself exactly the way the squad bug did: the
+ * effectClause came out as "remove a time counter from it. )" — STRAY PAREN INCLUDED, which is the tell
+ * that reminder text is being read as rules text. The reminder strip joins the fading/vanishing/squad ones.
+ *
+ * ⛔ TWO KEYWORDS FROM THE SAME SWEEP WERE REFUSED, recorded so the calls are not re-litigated:
+ *   · POISON TOLERANCE +N — "It takes N additional poison counters for you to lose the game to poison."
+ *     MANDATORY, and it raises a REAL loss threshold: gameState models losing at ten or more poison
+ *     counters. Ignoring the line would make a player lose when the card says they survive — a WRONG game
+ *     state, not a missed option. This is the criterion's "unpaid state still changes the board" clause.
+ *   · PARADIGM — "Then exile this spell…" is UNCONDITIONAL, so ignoring it graveyards a card that belongs
+ *     in exile. There is no unpaid state to hide behind.
+ *
+ * Mutation-checked (2026-08-05, grep-verified as applied AND verified on the case under test): the
+ * impending reminder strip removed -> the Overlord pins go red and the phantom endStep descriptor returns.
+ */
+describe("web-slinging and impending — alternative costs, plus a phantom-trigger fix", () => {
+  const SPIDER = { id: "c-sm", name: "Spider-Man, Web-Slinger", type: "Legendary Creature — Spider Human Hero", mana: "{2}{W}",
+    power: 2, toughness: 2, oracle: "Web-slinging {W} (You may cast this spell for {W} if you also return a tapped creature you control to its owner's hand.)\nFlying" };
+  const OVERLORD = { id: "c-of", name: "Overlord of the Floodpits", type: "Enchantment Creature — Avatar Horror", mana: "{4}{U}{U}",
+    power: 5, toughness: 5, oracle: "Impending 4—{1}{U}{U} (If you cast this spell for its impending cost, it enters with four time counters and isn't a creature until the last is removed. At the beginning of your end step, remove a time counter from it.)\nFlying\nWhenever this permanent enters or attacks, draw two cards, then discard a card." };
+
+  it("both carriers flip", () => {
+    expect(classifyCard(SPIDER)).toBe("native-body");
+    expect(classifyCard(OVERLORD)).toBe("native-trigger");
+  });
+
+  it("⭐ ⛔ the impending reminder leaks NO phantom trigger — only the card's two real ones", () => {
+    // The Overlord's printed triggers are enters and attacks. A third, endStep descriptor would be the
+    // reminder being read as rules text (and it routes unnatively, which is what parked the card).
+    const d = detectTriggers(OVERLORD);
+    expect(d.map((t) => t.event).sort()).toEqual(["attacks", "etb"]);
+    expect(d.every((t) => triggerRoutesNatively(t, OVERLORD))).toBe(true);
+  });
+
+  it("the keyword-only credit covers the permanent-residue side for both", () => {
+    expect(isKeywordOnly("Web-slinging {2}{G}")).toBe(true);
+    expect(isKeywordOnly("Impending 4—{1}{U}{U}")).toBe(true);
+  });
+
+  it("⛔ POISON TOLERANCE is refused — mandatory, and it raises a REAL loss threshold", () => {
+    // Not an untaken option: the engine models losing at ten or more poison counters, so ignoring this line
+    // kills a player the card says survives.
+    expect(classifyCard({ id: "c-pt", name: "Drake with Set's Mechanic", type: "Creature — Drake", mana: "{3}{U}",
+      power: 2, toughness: 2, oracle: "Flying\nPoison Tolerance +2 (It takes two additional poison counters for you to lose the game to poison.)" })).toBe("body-only");
+  });
+
+  it("⛔ PARADIGM is refused — its exile is UNCONDITIONAL, so ignoring it uses the wrong zone", () => {
+    expect(classifyCard({ id: "c-pd", name: "Germination Practicum", type: "Sorcery — Lesson", mana: "{3}{G}",
+      oracle: "Put two +1/+1 counters on each creature you control.\nParadigm (Then exile this spell. After you first resolve a spell with this name, you may cast a copy of it from exile without paying its mana cost.)" })).toBe("arbiter-spell");
   });
 });

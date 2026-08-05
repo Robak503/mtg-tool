@@ -3511,6 +3511,19 @@ export function detectTriggers(card) {
   const oracle = foldTwoTriggerDetain(splitCompoundTriggerSentences(stripTriggerAbilityLabel(
     String(oracleOf(card) || "")
       .replace(/\((?:this (?:creature|permanent|enchantment|artifact|aura|land) enters (?:the battlefield )?with (?:a|one|two|three|four|five|\d+) (?:time|fade) counters? on it\.[^)]*)\)/gi, "")
+      // ⭐ IMPENDING REMINDER STRIP — the SAME failure mode as the fading/vanishing strip directly above and
+      // the squad one below, and it announced itself the same way: the descriptor came out as an unroutable
+      // endStep whose effectClause was "remove a time counter from it. )" — STRAY PAREN INCLUDED, which is
+      // the tell that reminder text is being read as rules text.
+      // "Impending 4—{1}{U}{U} (If you cast this spell for its impending cost, it enters with four time
+      // counters and isn't a creature until the last is removed. At the beginning of your end step, remove a
+      // time counter from it.)" — that second sentence starts with "At" at a sentence boundary INSIDE the
+      // paren, so the trigger anchor caught it and every impending card grew a phantom upkeep-shaped
+      // descriptor that routes UNNATIVELY, parking the card.
+      // ⛔ It belongs ONLY to the impending CAST MODE, which the engine never takes (the keyword is credited
+      // as an untaken alternative cast mode), so there is no real trigger to lose. Anchored to the exact
+      // reminder shape — an impending-REFERENCING sentence in rules text is untouched.
+      .replace(/\(if you cast this spell for its impending cost[^)]*\)/gi, "")
       .replace(/\(as an additional cost to cast this spell, you may pay [^)]*any number of times\.[^)]*\)/gi, ""),
   )), card);
   const out = [];
