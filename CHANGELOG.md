@@ -13,6 +13,23 @@ summarizes the notable changes.
   Treason, Turn Against, Traitorous Blood, Bloody Betrayal, Limits of Solidarity, Portent of Betrayal,
   Sarkhan Vol's −2 and more. You take the creature untapped and hasty, swing with it, and it goes home at
   end of turn exactly as printed.
+- **The planeswalker-partner tutors work.** Twenty-six cards — Niambi, Ashiok's Forerunner, Sorin's Guide,
+  Visage of Bolas, Angrath's Fury, Tower Winder and the rest — search your library **and your graveyard**
+  for the card they name, exactly as printed. Searching only the library would have missed half the card.
+- **Goblin Ringleader and friends work.** Reveal the top four, take every Goblin (or Elf, or Zombie, or
+  Kavu), bottom the rest — Sylvan Messenger, Grave Defiler, Enlistment Officer, Merfolk Wayfinder and more.
+  A Changeling counts as the named type, as it should.
+- **Battalion works.** Fourteen cards — Legion Loyalist, Firemane Avenger, Tajic, Daring Skyjek, Haazda
+  Marshal — trigger when they attack alongside two others, and correctly do *not* trigger when they stay
+  home or bring too few friends. "Whenever you attack with N or more creatures" works too.
+- **Inspired works.** King Macar, Pain Seer, Servant of Tymaret and ten more trigger when they untap.
+- **Populate works.** Trostani, Growing Ranks, Wayfaring Temple, Sundering Growth and nine more copy one of
+  your creature tokens.
+- **Learn works.** Fourteen Strixhaven cards can now discard a card to draw one, as the rule allows.
+- **Journey to Nowhere and Oblivion Ring work**, along with Faceless Butcher — the creature comes back when
+  the enchantment leaves, exactly once.
+- **Deathtouch-style fighters work.** Voracious Cobra, Stinkweed Imp and Dripping Dead destroy what they
+  damage in combat.
 - **Damage-prevention on a creature works.** Squee's Toy, Kei Takahashi, Field Surgeon, Martyrs' Tomb,
   Anoint, Recuperate, Abuna's Chant and Stand // Deliver all say "prevent the next N damage that would be
   dealt to target creature" — the wording the engine didn't take, even though the "any target" version has

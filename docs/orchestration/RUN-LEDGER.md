@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 BLOCK: **THE SAME LENS, +35 MORE** - batch 130 (post-tag) — **TARGET MET**
+> Two slices, both "built engine, no ignition". Colton's +100-extra order is complete at **+103**.
+>
+> **NAMED TUTOR, LIBRARY AND/OR GRAVEYARD +26** (`7a838adb`) — the biggest single slice of the run.
+> Dominaria's legendary-partner cycle. The tutor resolver's `sourceZones` union already existed (built for
+> Finale of Devastation); the `bfxg` arm already proved the wire for the to-BATTLEFIELD destination. This
+> is the SAME wire with destination "hand" and a name filter.
+> ⛔ **TWO GAPS, AND THE SECOND WAS IN A SIBLING CLAUSE.** The arm alone got 25/26. Sun-Blessed Mount's
+> tutor clause tested TRUE against the new matcher while the CARD still classified body-only — **that pair
+> is the tell that the failure is a NEIGHBOURING clause.** The cycle prints the conditional shuffle in both
+> tenses ("if you SEARCH" / "if you SEARCHED") and splitClauses' vacuous-shuffle strip knew only one.
+>
+> **FIXED-TYPE REVEAL TO HAND +9** (`9ea3b1eb`) — Goblin Ringleader cycle. The CHOOSE-a-type resolver
+> already did the whole job; the card NAMES the type instead of choosing it, so the atom carries
+> `fixedType` and the resolver skips its maximizing pick.
+> ⭐ **CHANGELING FALLS OUT FOR FREE** (CR 702.73a) — riding the shared `cardHasChosenType` gets the rule
+> right; a hand-rolled subtype filter would have missed it. The mutant proves the cost: with `fixedType`
+> disabled the maximizing pick hands back BEARS instead of Goblins.
+
 > ## 🎯 BLOCK: **BUILT ENGINE, NO IGNITION — +17 more** - batch 95 (post-tag)
 > Two slices, same shape as the +51 block: a mechanism that ALREADY EXISTS, missing only its entry point.
 >
