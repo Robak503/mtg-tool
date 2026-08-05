@@ -9,6 +9,22 @@
 
 ## ☀️ 2026-08-05 — **+197 this sitting · post-tag batch 130 → TAGGING v0.152.0** — suite **1116 / 13,943** green by exit code
 
+> ### 🔭 NEXT SLICES, ALREADY SCOPED — start here, the probing is done
+> Fresh sole-blocking-line rank (re-run after the +103, so these are current):
+> · **INGEST (7)** — *the warmest one.* Its effect is *"that player exiles the top card of their library"*.
+>   The MILL twin is already native with the exact same shape: `{op:"mill", who:"damagedPlayer", amount:N}`.
+>   Needs a parallel `exile-top-of-library` atom + resolver, with `applyMill`/`millOnePlayer` as the
+>   template. ⛔ **It cannot be ALIASED to mill** — milled cards land in the graveyard where recursion can
+>   reach them, exiled ones don't. A real destination, not a rename.
+> · **THRESHOLD (21) + SPELL MASTERY (12) + LIEUTENANT (5) share ONE cause** — and it is NOT the gate.
+>   Measured: the gates all parse (Nimble Mongoose is native; the graveyard-count and the leading/trailing
+>   orders both work). The blocker is that `emitGatedEffect` consumes only `gets +X/+Y [and has <kw>]`, so
+>   every COMPOUND gated effect parks. Largest sub-shape is a **gated QUOTED-ability grant (17)** — but
+>   ⛔ the UNGATED form (`This creature has "<quoted>"`) does not parse either, so that is a BASE gap, not a
+>   gating one. Fix the ungated self quoted-grant first; the gate is already waiting.
+> · Untouched, each a real build: clash (9) · champion (9) · cipher (8) · take the initiative (8, drags in
+>   the Undercity dungeon) · specialize (6) · double team (5) · sunburst (5) · mana batteries (5).
+
 > ### ✅ **COLTON'S +100-EXTRA ORDER IS COMPLETE at +103** (94 → 197 this sitting).
 > Eight slices, ONE lens, and it is the lens worth keeping: **find the built engine with no ignition.**
 > Every one of these was a mechanism someone had already finished, missing only its entry point —
