@@ -992,6 +992,19 @@ export function parseActivatedAbilities(card) {
     // modelled: not applying a discount makes the ability cost MORE, an under-offer — the safe direction.
     const isPowerUp = /^power-up\s*[—–-]\s*/i.test(costStr);
     if (isPowerUp) costStr = costStr.replace(/^power-up\s*[—–-]\s*/i, "").trim();
+    // ⭐ EXHAUST (CR 702.180a) — "Exhaust — {cost}: <effect>. (Activate each exhaust ability only once.)"
+    // Structurally identical to POWER-UP directly above: an ability-word label with no rules meaning, whose
+    // entire restriction is a ONCE-PER-GAME activation limit. Strip the label so parseAbilityCost sees the
+    // real cost, and carry the limit as an ENFORCED fact through the SAME `activationLimitScope:"game"`
+    // ledger POWER-UP already uses — both the offer gate (legalChoices reads the scope) and the dispatcher
+    // stamp ship today.
+    // ⛔⛔ STRIPPING THE LABEL WITHOUT THE LIMIT WOULD BE THE FORBIDDEN DIRECTION, and it is the whole reason
+    // this arm carries a scope rather than just deleting the prefix. The per-turn ONCE-1 ledger is
+    // self-expiring by design ("a record from an earlier turn counts as ZERO uses"), so reusing it would
+    // hand out one free activation EVERY TURN — an engine strictly more permissive than the card, on 39
+    // carriers. Never strip a restriction the runtime doesn't enforce.
+    const isExhaust = /^exhaust\s*[—–-]\s*/i.test(costStr);
+    if (isExhaust) costStr = costStr.replace(/^exhaust\s*[—–-]\s*/i, "").trim();
     // Strip a trailing "Activate only as a sorcery" timing rider (CR 602.5i) — a WHEN restriction the runtime
     // already enforces (activated abilities are offered only at main / sorcery speed), never a WHAT, so the
     // effect parses on its real payload instead of being dragged LOW by the trailing sentence.
@@ -1087,8 +1100,8 @@ export function parseActivatedAbilities(card) {
       raw: line,
       costStr,
       effectClause,
-      activationLimit: activationLimit ?? (isBoast || isPowerUp ? 1 : null), // ONCE-1 — N activations per turn, or null (runtime-enforced frequency restriction)
-      ...(isPowerUp ? { activationLimitScope: "game" } : {}), // POWER-UP — "only once", never re-armed by a new turn
+      activationLimit: activationLimit ?? (isBoast || isPowerUp || isExhaust ? 1 : null), // ONCE-1 — N activations per turn, or null (runtime-enforced frequency restriction)
+      ...(isPowerUp || isExhaust ? { activationLimitScope: "game" } : {}), // POWER-UP / EXHAUST — "only once", never re-armed by a new turn
       preCombatOnly, // "before attackers are declared" — legalChoices narrows the window to the PRECOMBAT main
       sorceryOnly,   // CR 602.5i "Activate only as a sorcery" — legalChoices adds the EMPTY-STACK half the generic main-step gate does not cover
 

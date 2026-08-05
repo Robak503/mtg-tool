@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Exhaust abilities work, and only once.** Pacesetter Paragon, Greenbelt Guardian, Skystreak Engineer,
+  Prowcatcher Specialist, Keen Buccaneer and five more were unreadable. Their once-per-game restriction is
+  enforced, so the ability is offered a single time and never comes back on a later turn.
 - **Discard triggers fire on cycling and on discards paid as a cost.** Liliana's Caress, Megrim, Raiders'
   Wake and every "whenever you/an opponent discards a card" card were silently doing nothing whenever the
   discard came from cycling, an additional cost, or an ability's cost — the most common ways cards get

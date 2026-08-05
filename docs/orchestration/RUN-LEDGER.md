@@ -3,6 +3,33 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **EXHAUST (CR 702.180a) — POWER-UP's twin, +10** - post-v0.155.0 batch 10
+> Suite 1158 / 14,186 green + lint 0 BY EXIT CODE. Flip-diff **+10 / 0 / 0** — Pacesetter Paragon, Greenbelt
+> Guardian, Skystreak Engineer, Rough Rhino Cavalry, Prowcatcher Specialist, Rebellious Captives, Hazard of
+> the Dunes, Stampeding Scurryfoot, Keen Buccaneer, Camera Launcher. All ten audited whole-card, each with
+> its parsed `{limit:1, scope:"game"}` printed alongside.
+> ⭐ **BUILT ENGINE, NO IGNITION — POWER-UP shipped the hard part.** Exhaust is an ability WORD (CR 207.2c)
+> whose entire restriction is a once-per-GAME activation limit. `activationLimitScope:"game"` already exists,
+> is already read by the offer gate, and is already stamped by the dispatcher. **The missing piece was the
+> label.**
+> ⛔⛔ **STRIPPING THE LABEL WITHOUT THE LIMIT IS THE FORBIDDEN DIRECTION.** The default ONCE-1 ledger is
+> SELF-EXPIRING ("a record from an earlier turn counts as ZERO uses"), so a per-turn scope re-arms every
+> exhaust ability each turn — **one free activation per turn, forever, on 39 carriers.** The MUTKK mutant
+> shows exactly that: `laterTurn: 1`. Every other assertion in the file passes under it; only the
+> turn-boundary row catches it.
+> ⛔ **THE LIMIT IS PER ABILITY, NOT PER CARD** — Greenbelt Guardian's plain "{G}: trample" ability stays
+> repeatable beside its exhaust one. A card-level flag would have been the easy wrong shape; pinned.
+> ⚠️ **HARNESS BEFORE FIX, AGAIN (fourth time today).** The witness printed `fresh: 0` and I nearly went
+> looking at the offer gate — the action kind is `activate-ability`, not `activate`. **An empty offer list
+> means nothing until you have seen a NON-empty one from the same query.**
+> ℹ 39 carriers print exhaust; 10 flip. The rest park on their EFFECTS — the keyword no longer holds them.
+
+> ## SWEEP DONE - 2026-08-05 - **bare pure-helper calls: ZERO remaining**
+> Generalised yesterday's discard find into a sweep over 25 pure state helpers (moveCardToZone, addCounter,
+> gainLife, untapAll, every `check*Triggers`…) looking for bare-statement calls whose returned state is
+> dropped. **Result: none.** The dispatcher discard fix was the only instance of that bug class in
+> src/lib/learn. Banked so nobody re-runs it.
+
 > ## SLICE DONE - 2026-08-05 - **⛔⛔ LIVE BUG: EVERY DISPATCHER DISCARD FIRED NOTHING** - +0 coverage, real gap closed
 > Suite 1157 / 14,182 green + lint 0 BY EXIT CODE. Flip-diff **0 / 0 / 0** — and it makes the whole discard
 > family actually work.

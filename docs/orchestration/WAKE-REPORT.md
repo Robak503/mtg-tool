@@ -9,6 +9,17 @@
 
 ## ☀️ 2026-08-05 — **+489 this sitting · 🏷 v0.154.0 PUBLISHED · post-tag batch 100 → 🏷 TAG DUE** — suite **1156 / 14,181** green by exit code
 
+> ### ⭐ THE KEYWORD-TWIN INSTRUMENT: **a new ability WORD is usually an old one wearing a new label**
+> EXHAUST (+10) was POWER-UP with a different prefix — same once-per-GAME activation limit, and
+> `activationLimitScope:"game"` already shipped, already read by the offer gate, already stamped by the
+> dispatcher. **The missing piece was the label.** When a modern keyword parks a cluster, find the OLDEST
+> keyword with the same rules text and check whether its machinery is already general.
+> ⛔ But never strip a label without carrying its restriction: the default ledger self-expires, so a per-turn
+> scope would have re-armed every exhaust ability each turn — one free activation per turn on 39 carriers.
+
+> ### ✅ SWEPT AND EMPTY: bare pure-helper calls (25 helpers, whole of src/lib/learn) — **zero remaining**
+> The dispatcher discard fix was the only instance of that bug class. Don't re-run it.
+
 > ### ⛔⛔ THE FIND OF THE DAY: **a PURE function called as a STATEMENT is a silent no-op**
 > `checkDiscardTriggers` returns a new state with the fired triggers appended. All six DISPATCHER call sites
 > invoked it bare and dropped the result, so every additional-cost discard, the activated-ability discard
