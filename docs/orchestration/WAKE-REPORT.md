@@ -23,6 +23,20 @@
 
 > ### 🏷 v0.155.0 TAGGED (batch 100) — release workflow running; verify assets before claiming it shipped.
 
+> ### ⏭ THE REST OF THE DISCARD FAMILY IS **MORE EXPENSIVE THAN IT LOOKS** — sized, not built
+> Two arms remain, and neither is a parser arm despite appearances:
+> · **FILTERED** ("whenever you discard a CREATURE card" — Hashaton; "an ARTIFACT card" — Urza, Mishra).
+>   `checkDiscardTriggers(state, playerId, count)` never receives the discarded CARD, so there is nothing to
+>   filter on. Threading it is a signature change across **12 call sites** — and this time that count is
+>   real, unlike the one I mis-derived for the event itself.
+> · **COUNT-SCALED** ("whenever you discard TWO OR MORE cards" — Scrounging Skyray, Cryptcaller Chariot).
+>   The checker takes a count, so a batch descriptor could fire once at `count >= N` — but **11 of the 12
+>   call sites pass a literal 1** (only the discard-your-hand atom passes a real total). A per-card loop can
+>   never satisfy a two-or-more batch, so the arm would be a permanent false negative until the cost paths
+>   batch their discards. Safe, but worth ~0 cards today.
+> ⭐ Both are honest FNs right now. Build the CARD-threading first: it unlocks the filtered arm AND is what a
+> correct batch count would ride on.
+
 > ### ⚠️⚠️ I SIZED THE DISCARD BUILD WRONG — **read the fire site before you size the build**
 > The entry below called it a 12-site plumbing job needing a new chokepoint, and I nearly deferred it as a
 > subsystem. It needed none of that: `checkDiscardTriggers` already existed and was already called from every
