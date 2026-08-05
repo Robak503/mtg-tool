@@ -9,6 +9,14 @@
 
 ## ☀️ 2026-08-05 — **+260 this sitting · v0.152.0 PUBLISHED · post-tag batch 63** — suite **1124 / 13,996** green by exit code
 
+> ### ▶️ START HERE: **GOAD (CR 701.38)** — ~15 carriers, scoped in full in the run ledger, not started
+> A **subsystem, not a slice**, so it was left clean rather than half-built. Half of it already exists: the
+> `mustAttack` pseudo-keyword shipped today is goad's first half. The second half — *"attacks a player
+> other than you if able"* — has nothing. **Two named traps, both in the ledger entry:** "if able" means the
+> creature MUST still attack the goader when they're the only legal defender (a naive defender filter makes
+> it attack nobody — an illegal board, a false positive), and **"you" is the GOADER, not the controller**.
+> Start with the 8 AURA statics; the triggered forms need an until-your-next-turn duration on top.
+
 > ### ⚠️ A FIX THAT MEASURED RIGHT AND WAS STILL WRONG — the flip-diff could not have caught it
 > Widening a gated lane, I first added a **generic arm in the MIDDLE** of the control-gate block. It
 > intercepted clauses the SPECIFIC equipped/counter/graveyard lanes owned and handed them the wrong gate

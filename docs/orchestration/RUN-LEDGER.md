@@ -6,6 +6,30 @@
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
+> ## 🎯 NEXT VEIN, SCOPED NOT STARTED - **GOAD (CR 701.38)** — ~15 carriers, ZERO infrastructure
+> Deliberately not begun at the tail of a long run: this is a **subsystem, not a slice**, and half-building
+> it would leave the planner enforcing one of goad's two halves — the exact partial-fire the CREED forbids.
+> **What exists to build on:** the `mustAttack` pseudo-keyword shipped today IS goad's first half, already
+> enforced layer-aware in the planner. **What does NOT exist:** anything at all for the second half.
+> **The two halves:** ① attacks each combat if able → **reuse `mustAttack`**. ② *"and attacks a player
+> other than you if able"* → a **DEFENDER restriction** the planner's defender selection must honor.
+> ⛔ **THE TRAP THAT MAKES ② HARD, and it is "if able", not "never":** if the goader is the ONLY legal
+> defender, the creature **must still attack them**. A naive filter that drops the goader from the defender
+> list produces a creature that attacks nobody — an illegal board state, and a false positive, not a safe FN.
+> ⛔ **"YOU" IS THE GOADER, NOT THE CONTROLLER.** For the aura form the goader is the AURA's controller,
+> which is usually NOT the creature's controller (that's the whole point). The restriction has to resolve
+> through the effect's SOURCE, the way `gatePermForEffect` already does for gated statics.
+> **Entry point:** the 8 AURA statics ("Enchanted creature gets +N/+N and is goaded" — Psychic Impetus,
+> Incriminating Impetus, Ghoulish Impetus, Acquired Mutation …) are continuous and have a fixed goader, so
+> they are far cleaner than the ~7 triggered/activated "goad target creature" carriers (Goblin Racketeer,
+> Coveted Peacock, Jeering Homunculus, Bothersome Quasit, Maeve), which need an **until-your-next-turn**
+> duration on top. **Do the auras first; the duration is a separate problem.**
+> ⓘ Commander-relevant well beyond the card count — goad is a staple of multiplayer politics.
+> ⓘ Probed and cleared while scoping: `selfMustAttack` correctly refuses GATED forms (Otarian Juggernaut,
+> Dragon's Rage Channeler read `false`), so there is **no** unconditional over-enforcement bug there.
+> The gated must-attack forms are only ~1-2 cards and would cost `trunkGatedGraveyard`'s unconsumed-rider
+> specimen a third replacement — **not worth a slice.**
+
 > ## SLICE DONE - 2026-08-05 - **GRANTED MUST-ATTACK (aura/equipment), +6** - batch 63 (post-v0.152.0)
 > Suite 1124 / 13,996 green + lint 0 BY EXIT CODE. `HEAD`. Flip-diff **+6 / 0 / 0** — Bloodshed Fever,
 > Furor of the Bitten, Guise of Fire, Uncontrollable Anger, Tormentor's Trident (Equipment), Mogis's
