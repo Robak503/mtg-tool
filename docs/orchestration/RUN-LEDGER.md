@@ -6,6 +6,22 @@
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
+> ## SLICE DONE - 2026-08-05 - **GROUP as-though defender escape, +3** - batch 57 (post-v0.152.0)
+> Suite 1123 / 13,992 green + lint 0 BY EXIT CODE. `25fa356a`. Flip-diff **+3 / 0 / 0** — High Alert,
+> Rolling Stones, Guardians of Oboro. Same "gets/have only" limitation, now on the GROUP lanes.
+> ⛔ **LANE ORDER IS LOAD-BEARING AND THE RISK IS VERIFIED, NOT ASSUMED.** The clause **ends in "…didn't
+> have DEFENDER"**, and the have-tail anthem lane matches `have (.+)$`. Probed it directly: *"Creatures you
+> control have defender."* really does emit a **defender grant** there. Reaching it would make **High Alert
+> GRANT defender to every creature you control** — the exact opposite of the card. It emits nothing today
+> only because the selector parse fails on the trailing text: **placement luck, not a guard.** New lane sits
+> ABOVE it, pinned.
+> ⓘ **Selectors read from the card, not assumed:** Rolling Stones says *"Wall creatures"*, **not** "…you
+> control" → `controllerScope:"each"`, so it unlocks EVERY Wall including opponents'. Scoping it to "you"
+> would have been a quiet rules change that no flip-diff would show.
+> ⚠️ **I wrote a HOLLOW ASSERTION and caught it in the same pass** — the anti-FP pin tested
+> `not.toContain("Defender")` while the grant lane emits lowercase `"defender"`, so it could never fire.
+> Now case-insensitive. **Keyword-case mismatches are a live hollow-pin vector in this file.**
+
 > ## SLICE DONE - 2026-08-05 - **attacksIgnoringDefender + GATED BARE EFFECTS, +10** - batch 54 (post-v0.152.0)
 > Suite 1123 / 13,990 green + lint 0 BY EXIT CODE. `4ef7fcf8`. Flip-diff **+10 / 0 / 0**.
 > ⛔ **THE MODELLING CALL IS THE SLICE.** "Can attack as though it didn't have defender" (~50 carriers, **0

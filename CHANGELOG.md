@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **High Alert, Rolling Stones and Guardians of Oboro turn your Walls loose**, and they keep defender for
+  everything else — High Alert still hands them its toughness-for-power damage. Rolling Stones unlocks
+  *every* Wall on the table, including your opponents', exactly as it's printed.
 - **Walls that are allowed to attack can finally attack.** Ogre Jailbreaker with a Gate out, Skyclave
   Sentinel with a +1/+1 counter, Spire Serpent with three artifacts, Slithering Shade with an empty hand,
   and Geist of the Lonely Vigil, Platypus-Bear, Scuttlegator and Pillar of War when their condition is met.
