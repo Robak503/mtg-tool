@@ -7,7 +7,20 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+359 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 71** — suite **1148 / 14,127** green by exit code
+## ☀️ 2026-08-05 — **+363 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 75** — suite **1149 / 14,134** green by exit code
+
+> ### ⏭ THE OPEN VEIN, ALREADY MEASURED — **0-native SCOPED shapes**
+> Probe: tally every "target <noun> you control" line native-vs-parked; keep the shapes that are 0-native
+> with 3+ parked carriers. Five came back; two are shipped (tuck +8, untap +4). **Still open:** en-Kor damage
+> redirection (6 carriers), "target creature you control fights target creature an opponent controls" (5),
+> ETB "put two −1/−1 counters on target creature you control" (3), "counter target spell that targets a
+> permanent you control" (3). Each needs its own cause proven — they are different parsers.
+
+> ### ⚠️ FOUR REFUSAL-PIN LIFTS IN ONE DAY — **a refusal list is a TODO list with the reasons pre-written**
+> landTuck, graveyardToTopMulti, delayedTrigger, formidableSpeaker all had FN-guard lines that this run's
+> slices made obsolete. Every one was REWRITTEN to assert the new truth with the history attached, never
+> deleted. When a slice turns an old refusal red, that is the refusal being EARNED, not a regression — but
+> read it carefully first, because a genuine regression looks identical from the exit code alone.
 
 > ### ⭐⭐ THE CHEAPEST BIG SLICE OF THE DAY: **a parser that has NO RESTRICTION LANE**
 > `tuckClauseParser` was one anchored regex. Bare "put target creature on top of its owner's library" native

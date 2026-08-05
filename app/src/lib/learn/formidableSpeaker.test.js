@@ -76,11 +76,21 @@ describe("FORMIDABLE SPEAKER — untap-another-target-permanent parser", () => {
     expect(r).toMatchObject({ confidence: "high", atoms: [{ op: "untap", targetType: "creature" }] });
     expect(r.atoms[0].restrictions).toBeUndefined();
   });
-  it("CREED near-miss: qualified / X / tap-or-untap forms stay LOW (Arbiter)", () => {
-    expect(parseEffectClause("untap target permanent you control.", "Creature").confidence).toBe("low");
-    expect(parseEffectClause("untap another target permanent you control.", "Creature").confidence).toBe("low");
+  it("CREED near-miss: X / tap-or-untap forms stay LOW (Arbiter)", () => {
     expect(parseEffectClause("untap two other target legendary creatures.", "Creature").confidence).toBe("low");
     expect(parseEffectClause("you may tap or untap another target permanent.", "Creature").confidence).toBe("low");
+  });
+  it("⭐ the CONTROLLER SCOPE is now MODELLED (two lines lifted out of the near-miss list, 2026-08-05)", () => {
+    // This arm already had ONE restriction lane (`another` → notSource) and had already been widened once
+    // (the artifact type cell). It still had no " you control" lane, so the scoped wording fell off the
+    // anchor while its unscoped twin parsed — the scoped-untap slice added it, flipping Breaching
+    // Hippocamp, Dauntless Aven, Kelpie Guide and Tenth District Veteran. The two restrictions COMPOSE, which
+    // is what "another target permanent you control" means (CR 109.5 + a controller scope).
+    // scopedUntap.test.js owns the enumeration pins.
+    expect(parseEffectClause("untap target permanent you control.", "Creature").atoms)
+      .toEqual([{ op: "untap", targetType: "permanent", restrictions: [{ kind: "controller", who: "you" }] }]);
+    expect(parseEffectClause("untap another target permanent you control.", "Creature").atoms)
+      .toEqual([{ op: "untap", targetType: "permanent", restrictions: [{ kind: "notSource" }, { kind: "controller", who: "you" }] }]);
   });
 });
 

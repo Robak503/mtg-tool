@@ -1196,9 +1196,18 @@ export function combatKeywordClauseParser(clause) {
   // new targeting behaviour. (The basic-land subtypes and the numeric "up to N lands" forms keep their own
   // matchers below; those carry counts this one deliberately doesn't.)
   {
-    const upM = t.match(/^untap (another )?target (permanent|creature|artifact|enchantment|nonland permanent)$/);
+    // ⭐ AND THE CONTROLLER SCOPE IS THE SECOND MISSING CELL, the same shape as the first. This arm already
+    // had a restriction lane — `another` → notSource — but no ` you control` lane, so "{T}: Untap another
+    // target permanent YOU CONTROL" (Forensic Researcher, Kelpie Guide, North Pole Patrol) fell off the
+    // anchor while its unscoped twin parsed. `controller/you` is enforced layer-aware by
+    // creatureSatisfiesRestrictions and already rides atom.restrictions through atomTargetSpec, so this adds
+    // no targeting behaviour either — it composes with notSource, which is exactly what "ANOTHER target
+    // permanent you control" means (CR 109.5 + a controller scope).
+    const upM = t.match(/^untap (another )?target (permanent|creature|artifact|enchantment|nonland permanent)( you control)?$/);
     if (upM) {
-      const restrictions = upM[1] ? [{ kind: "notSource" }] : [];
+      const restrictions = [];
+      if (upM[1]) restrictions.push({ kind: "notSource" });
+      if (upM[3]) restrictions.push({ kind: "controller", who: "you" });
       return { op: "untap", targetType: upM[2] === "nonland permanent" ? "nonlandPermanent" : upM[2], restrictions };
     }
   }

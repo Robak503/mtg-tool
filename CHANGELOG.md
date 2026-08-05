@@ -30,6 +30,9 @@ summarizes the notable changes.
   empty the spell is countered.
 
 ### Added
+- **"Untap another target permanent you control" works.** Breaching Hippocamp, Dauntless Aven, Kelpie Guide
+  and Tenth District Veteran were unreadable; now they untap one of your other permanents, and never the
+  opponent's or themselves.
 - **Scoped "put on top of library" effects work.** Whisk Away, Aethertow, Azorius Charm and Warrant now hit
   attacking or blocking creatures, and Nightscape Apprentice, Sunscape Apprentice, Civic Guildmage and
   Shadow Guildmage can bounce a creature you control back onto your library — both wordings were previously

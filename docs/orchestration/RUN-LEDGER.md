@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **SCOPED UNTAP — the vein the last slice named, +4** - batch 75
+> Suite 1149 / 14,134 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Breaching Hippocamp, Dauntless
+> Aven, Kelpie Guide, Tenth District Veteran. All audited whole-card.
+> ⭐⭐ **THE GREP THE PREVIOUS SLICE WROTE DOWN PAID OUT IMMEDIATELY.** Comments saying a scoped variant
+> "fails the anchor", cross-checked against a 0-native tier tally, produced five candidate shapes; this was
+> the first one opened. **The vein is repeatable, not a lucky find.**
+> ⭐ **THE SECOND MISSING CELL IN THE SAME ARM.** That matcher already had a restriction lane (`another` →
+> notSource) AND had already been widened once (the artifact type cell, Voltaic Key). It still had no
+> " you control" lane. **A parser that grew one restriction is not a parser that grew restrictions** — check
+> each axis separately.
+> ⛔ **THE TWO RESTRICTIONS COMPOSE**, which is what "another target permanent you control" means (CR 109.5 +
+> a controller scope). Dropping either alone still leaves a plausible atom, so both are pinned separately at
+> ENUMERATION. Mutants: controller dropped → an OPPONENT'S permanent offered; notSource dropped → the source
+> untaps itself, the exact thing "another" forbids.
+> ⚠️ **FOURTH REFUSAL-PIN LIFT TODAY** (formidableSpeaker's CREED near-miss list). Rewritten to assert the
+> modelled atoms, not deleted. Four in one day is a pattern worth naming: **a refusal list is a TODO list
+> with the reasons already written.**
+> ℹ Forensic Researcher and North Pole Patrol carry the identical line and still park, on collect-evidence /
+> waterbend. Pinned so they aren't mistaken for a miss here.
+> ⏭ Four scoped shapes still open from the same probe: en-Kor damage redirection (6), fight-you-control (5),
+> ETB −1/−1 counters on a creature you control (3), counter-target-spell-that-targets-a-permanent-you-control (3).
+
 > ## SLICE DONE - 2026-08-05 - **SCOPED TUCK — one missing restriction group, two families, +8** - batch 71
 > Suite 1148 / 14,127 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Nightscape Apprentice,
 > Sunscape Apprentice, Civic Guildmage, Shadow Guildmage, Warrant // Warden, Whisk Away, Aethertow, Azorius
