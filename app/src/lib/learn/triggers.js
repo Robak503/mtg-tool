@@ -718,6 +718,18 @@ function classifyCondition(condRaw, cardName, cardType) {
   // "enters or leaves the battlefield"). Fired by checkLeavesTriggers off the leave look-back for EVERY
   // exit (graveyard, exile, bounce, tuck) — unlike the graveyard-gated "ltb" self-PiG event. A watcher
   // form ("another creature you control leaves …") or a restricted subject stays UNDETECTED → Arbiter.
+  // ⓘ THE RE-WORDED SELF FORM ("this leaves the battlefield", no noun) IS DELIBERATELY NOT ACCEPTED HERE,
+  // and this note exists so the next reader doesn't "fix" it without re-measuring. Scryfall's templating
+  // update drops the noun from self-references, and the other self anchors in this file (enters / dies /
+  // attacks / deals combat damage) already take both forms — only this one and becomes-tapped below do not.
+  // ⛔ BUT A CORPUS SWEEP ON 2026-08-05 FOUND **ZERO** REAL CARRIERS: strip every parenthetical first and
+  // the short form appears on NO card's rules text. Its only occurrences are inside champion REMINDER text
+  // (stripped at the head of detectTriggers). Widening the anchor would therefore be code no card can
+  // exercise — unverifiable against the corpus — and the miss it guards is a SAFE false-negative, which the
+  // CREED tolerates. Ship it when a carrier exists, not before.
+  // THE PATCH, when that day comes: /^this(?: creature| artifact| enchantment| permanent)? leaves the
+  // battlefield$/ here, and `|| subj === "this"` in the becomes-tapped self-subject test below. Re-run the
+  // sweep after any bulk Scryfall refresh — 121 long-form carriers migrate as sets are re-printed.
   if (/^this (?:creature|artifact|enchantment|permanent) leaves the battlefield$/.test(c)) {
     return { event: "leavesSelf", scope: "self", whose: "any" };
   }
@@ -1382,6 +1394,8 @@ function classifyCondition(condRaw, cardName, cardType) {
   // pronouns bind the source through the existing scope:"self" SELF_PUMP_IT / SELF_COUNTER_IT rewrites.
   if (/\bbecomes tapped\s*$/.test(c)) {
     const subj = c.replace(/\s+becomes tapped\s*$/, "").trim();
+    // ⓘ Bare "this" (the re-worded self form) is NOT in this list on purpose — see the leaves-self note
+    // above: zero real carriers in the corpus as of 2026-08-05, so it would be unverifiable code.
     const isSelfSubj = subj === "this creature" || subj === "this permanent" || subj === "this artifact"
       || (nameL && subj === nameL) || (shortName && subj === shortName) || (firstWord && subj === firstWord);
     if (selfRef && isSelfSubj) return { event: "becomesTapped", scope: "self", whose: "any" };
@@ -3510,7 +3524,11 @@ export function detectTriggers(card) {
   // exactly that shape before (the self-no-untap static, "a pure path accident" — see coverage.js).
   const oracle = foldTwoTriggerDetain(splitCompoundTriggerSentences(stripTriggerAbilityLabel(
     String(oracleOf(card) || "")
-      .replace(/\((?:this (?:creature|permanent|enchantment|artifact|aura|land) enters (?:the battlefield )?with (?:a|one|two|three|four|five|\d+) (?:time|fade) counters? on it\.[^)]*)\)/gi, "")
+      // Number-word alternation censused against the corpus 2026-08-05 (three 12 · two 7 · four 6 · five 5 ·
+      // a 2 · one 1 · seven 1 · twelve 1) — "seven" and "twelve" were MISSING, so Saproling Burst's and
+      // Regenerations Restored's reminders leaked the usual stray-paren phantom. Padded past the printed
+      // range so the next high-count printing doesn't re-open it.
+      .replace(/\((?:this (?:creature|permanent|enchantment|artifact|aura|land) enters (?:the battlefield )?with (?:a|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+) (?:time|fade) counters? on it\.[^)]*)\)/gi, "")
       // ⭐ IMPENDING REMINDER STRIP — the SAME failure mode as the fading/vanishing strip directly above and
       // the squad one below, and it announced itself the same way: the descriptor came out as an unroutable
       // endStep whose effectClause was "remove a time counter from it. )" — STRAY PAREN INCLUDED, which is
@@ -3537,6 +3555,21 @@ export function detectTriggers(card) {
       // MANDATORY half of graft (entering with N +1/+1 counters) is NOT dropped: entersWithPlusCounters now
       // reads the count off the keyword, because these carriers are 0/0 and would otherwise die on arrival.
       .replace(/\(this (?:creature|permanent) enters (?:the battlefield )?with [^)]*\+1\/\+1 counters? on it\. whenever another creature enters[^)]*\)/gi, "")
+      // ⭐ CHAMPION REMINDER STRIP (CR 702.71a) — the SIXTH instance, and it is here for a REASON THE
+      // OTHERS DID NOT HAVE: it is a PREREQUISITE for the leaves-self anchor widening below.
+      // "Champion an Elf (When this creature enters, sacrifice it unless you exile another Elf you control.
+      // When this creature leaves the battlefield, that card returns to the battlefield.)" — the second
+      // sentence starts at a sentence boundary INSIDE the paren, and Wren's Run Packmaster grew the usual
+      // stray-paren phantom off it ("that card returns to the battlefield. )").
+      // ⛔ THE OTHER CHAMPION CARDS ONLY LOOKED CLEAN. Scryfall re-worded most champion reminders from
+      // "When this creature leaves" to "When this leaves", and the short form matched NO anchor — so their
+      // phantom was invisible rather than absent. Widening the anchor below without this strip would have
+      // manufactured the phantom on Thoughtweft Trio, Nova Chaser and Mistbind Clique and LOST them.
+      // That is gate 20 exactly: before loosening a shared gate, ask what else reads it.
+      // The champion trigger itself is not lost — the KEYWORD→TRIGGER synthesis owns the enters half, and
+      // applyExileUntilLeaves' detainedExile link already returns the card on any exit (CR 610.3a), which
+      // IS the leaves half. Synthesizing it again here would return the card TWICE.
+      .replace(/\(when this(?: creature)? enters(?: the battlefield)?, sacrifice it unless you exile another [^)]*\)/gi, "")
       .replace(/\(as an additional cost to cast this spell, you may pay [^)]*any number of times\.[^)]*\)/gi, ""),
   )), card);
   const out = [];
