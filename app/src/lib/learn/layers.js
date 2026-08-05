@@ -274,6 +274,24 @@ function countSelfSpecOnBoard(state, perm, spec) {
   // neither, so both parked.
   // Each permanent is counted at most ONCE — that is the whole point of the "and/or" form: a card that is
   // BOTH an artifact and an enchantment contributes 1, not 2, which is what the printed card means.
+  // COUNTERS ON THE COUNTED PERMANENT — "gets +1/+1 for each OIL COUNTER ON IT" (Necrosquito, Trawler
+  // Drake, Exuberant Fuseling). A direct read of the live counters map: whatever is on the permanent is
+  // what is counted, so the number is exact by construction and a permanent with none contributes 0.
+  //
+  // ⚠️ DISTINCT FROM `countersOnSource`, and the difference is the same one that produced a false positive
+  // in the attached-count slice. This reads the AFFECTED permanent, which is what "it" means in BOTH
+  // shapes: on a self-buff the affected IS the source, and on a granted buff ("Enchanted creature gets
+  // +1/+1 for each oil counter on IT") "it" is the HOST, not the Aura. `countersOnSource` would read the
+  // Aura's own counters there — always zero.
+  //
+  // THE COUNTER-KIND QUESTION IS ALREADY ANSWERED BY THE WHOLE-CARD LAW, which is why no kind allowlist is
+  // needed here. If the line that PLACES the counters is unmodeled, that line is residue and the card stays
+  // parked regardless of this arm. A card can only reach this evaluator when every one of its lines models,
+  // placement included — so a zero count here means the permanent genuinely has no counters, not that the
+  // engine failed to put them there. Verified on the real enter path: Necrosquito lands with {oil: 2}.
+  if (spec.kind === "countersOnSelfSubject") {
+    return spec.counterType ? (perm.counters?.[spec.counterType] || 0) : 0;
+  }
   if (spec.kind === "permanentsYouControlMulti") {
     const needles = spec.allOf || spec.anyOf || [];
     if (!needles.length) return 0;

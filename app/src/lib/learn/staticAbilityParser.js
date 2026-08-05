@@ -476,6 +476,18 @@ function parseSelfCountSource(phrase) {
   if (/^artifacts? and\/or enchantments? you control$/.test(p)) {
     return { kind: "permanentsYouControlMulti", anyOf: ["Artifact", "Enchantment"] };
   }
+  // ── COUNTERS ON THE PERMANENT ITSELF — "for each oil counter on it" (Necrosquito, Trawler Drake,
+  // Exuberant Fuseling). A direct read of the live counters map, exact by construction.
+  // NO COUNTER-KIND ALLOWLIST IS NEEDED, and that is a consequence of the whole-card law rather than an
+  // omission: if the line that PLACES the counters is unmodeled, that line is residue and the card parks
+  // regardless of this entry. A card only reaches the evaluator when every line models, placement included,
+  // so a zero count means the permanent really has no counters. Verified on the real enter path —
+  // Necrosquito lands with {oil: 2}, so its printed 0/0 body becomes the 2/2 the card describes.
+  // ⛔ Named kinds only, and NOT the +1/+1 / -1/-1 kinds: those are already applied to P/T by
+  // `counterPtDelta` at the top of the 7c pass, so reading them here would DOUBLE-count them.
+  if ((m = p.match(/^([a-z][a-z' -]*[a-z]) counters? on it$/)) && !/^[+-]\d/.test(m[1])) {
+    return { kind: "countersOnSelfSubject", counterType: m[1] };
+  }
   // SUBTYPE on the battlefield (ALL controllers, no "you control") — "(other )?<Subtype> on the battlefield"
   // (Sliver Legion "for each other Sliver on the battlefield"). "other" → excludeSelf (each counter excludes
   // itself). A LIVE board count (never zero-by-default) — so it's non-hollow, unlike a "counter on this
