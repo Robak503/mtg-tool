@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Leyline of Sanctity actually protects you.** Leyline of Sanctity, Aegis of the Gods, Spirit of the
+  Hearth and Metropolis Reformer stop opponents targeting you with spells and abilities — while you can
+  still target yourself, exactly as printed.
 - **The Elder Dragons keep their upkeep bargain.** Palladia-Mors, Chromium, Vaevictis Asmadi, Arcades
   Sabboth and Kuro, Pitlord ask you to pay at upkeep — pay and they stay and the mana is spent, decline and
   they're sacrificed.

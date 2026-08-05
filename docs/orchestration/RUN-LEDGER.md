@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **PLAYER HEXPROOF (CR 702.11d) — first player-scoped static, +4** - batch 22
+> Suite 1132 / 14,026 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Aegis of the Gods, Leyline of
+> Sanctity, Spirit of the Hearth, Metropolis Reformer. **A SUBSYSTEM, not ignition** — the first one built
+> since the census turned.
+> ⭐ **WHY THE FAMILY PARKED:** every continuous effect in the engine affected a PERMANENT. "You have
+> hexproof" had **nowhere to live**. The clause was never hard to read; there was no shape to put it in.
+> ⛔ **THE SHAPE CHOSEN, AND THE ONE REFUSED.** Emits an **INERT layer-6 op** with ONE consumer — the
+> `assignsCombatDamageWithToughness` precedent. The layer engine skips it wholesale (l6IndexOf only handles
+> add/removeKeyword/Protection/Ward), so P/T and keyword derivation are **byte-identical**. The alternative,
+> inventing a player-affects mode, would have forced every collector/selector/matcher in layers.js to learn
+> a scope none of them needs — to serve 8 cards. `affects:self` is the SOURCE; the reader resolves the grant
+> to that permanent's CONTROLLER.
+> ⛔ **ENFORCED AT THE SINGLE TARGET-ENUMERATION SEAM, deliberately.** Hexproof stops TARGETING only —
+> damage, edicts, "each player discards", mill are all untargeted and untouched. Enforcing it anywhere
+> broader would quietly turn these into protection-from-everything, which is not what they print.
+> ⛔ **OPPONENT-SCOPED, NOT ABSOLUTE — the half a naive build gets wrong.** A protected player may still
+> target THEMSELF (Leyline doesn't stop you aiming your own effects at yourself). Driven both ways; the
+> self-target row is what separates a correct build from "nobody can ever target you".
+> ℹ Law 6 witness also keeps ai2/ai3 in the opponent's list as the control — that row is what tells
+> "hexproof works" apart from "player targeting broke". Lift-on-leave and controller-scoping both pinned.
+
 > ## 🔎 CENSUS BANKED - 2026-08-05 - **SELF-NAME IN TRIGGER CLAUSES: 451 parked cards, 395 shapes**
 > Ran the obvious follow-up to the Elder Dragon arm — every PARKED card whose trigger effectClause still
 > carries its own name. **451 cards. But the tractable ones are gone**; what's left needs subsystems, and

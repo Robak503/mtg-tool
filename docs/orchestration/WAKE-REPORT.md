@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+306 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 18** — suite **1131 / 14,021** green by exit code
+## ☀️ 2026-08-05 — **+310 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 22** — suite **1132 / 14,026** green by exit code
 
 > ### ⚠️⚠️ AURA PROBES ARE MEMO-POISONED — classify in a FRESH PROCESS
 > `parseAttachedBonus` memoises into a slot, which makes **`isNativeAura` ORDER-DEPENDENT**: the same card in
@@ -38,6 +38,13 @@
 > other produced "this permanent" for a Creature and dropped 29 epithet legendaries. **Normalise
 > per-descriptor where the type is known, or teach the one matcher — never rename globally.** Full
 > post-mortem + the real fix in the run ledger.
+
+> ### ✅ FIRST SUBSYSTEM OF THE NEW MODE SHIPPED: **player hexproof** (+4)
+> Proof the subsystem mode works at the expected size. The pattern that made it cheap: **an INERT layer-6 op
+> with exactly one consumer** (the `assignsCombatDamageWithToughness` precedent) instead of inventing a new
+> affects-scope every collector would have to learn. **Reach for that shape for the next player-scoped
+> static** — Orbs of Warding's damage prevention and the "you can't lose / opponents can't win" family are
+> the same problem.
 
 > ### 🛠 THE MODE HAS CHANGED: IGNITION IS EXHAUSTED, WHAT'S LEFT IS SUBSYSTEM BUILDING
 > Probed each top census candidate for existing machinery. **None of them is ignition.** Every one needs a

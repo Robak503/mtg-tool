@@ -2043,6 +2043,34 @@ export function assignsCombatDamageWithToughness(state, permanentId) {
 }
 
 /**
+ * ⭐ PLAYER HEXPROOF (CR 702.11d — "You have hexproof" means you can't be the target of spells or abilities
+ * your OPPONENTS control): Leyline of Sanctity, Witchbane Orb, Aegis of the Gods, Orbs of Warding,
+ * Metropolis Reformer, Keen-Eared Sentry, Spirit of the Hearth, Crystal Barricade.
+ *
+ * ⛔ THE FIRST PLAYER-SCOPED STATIC IN THE ENGINE. Every continuous effect until now has affected a
+ * PERMANENT, so there was nowhere for "you have hexproof" to live and the whole family parked. Rather than
+ * invent a player-affects mode (which every collector and selector would have to learn), this follows the
+ * `assignsCombatDamageWithToughness` precedent directly above: the parser emits an INERT layer-6 op that
+ * the layer engine skips wholesale (l6IndexOf only processes add/removeKeyword/Protection/Ward), and ONE
+ * consumer reads it. The grant belongs to the SOURCE permanent's CONTROLLER, which is why this keys on
+ * `e.source.permanentId`'s controller rather than on any affects-selector.
+ *
+ * ⓘ Hexproof stops TARGETING only. Damage, sacrifice edicts, "each player discards", and every other
+ * untargeted effect are untouched — enumerateTargets is the single seam, which is exactly why this is
+ * enforced there and nowhere else.
+ */
+export function playerHasHexproof(state, playerId) {
+  if (!playerId || !state?.players?.[playerId]) return false;
+  const board = collectContinuousEffects(state);
+  for (const e of board) {
+    if (e.op?.layerOp !== "playerHexproof") continue;
+    const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
+    if (src?.controller === playerId) return true;
+  }
+  return false;
+}
+
+/**
  * Convenience used by tests/explain: the ordered effects that apply to a
  * permanent (layer asc, then CDA-first, then timestamp). Pure.
  */

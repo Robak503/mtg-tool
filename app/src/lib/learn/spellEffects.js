@@ -47,7 +47,7 @@ import {
 } from "./gameState.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, uncounterableCoversSpell } from "./staticAbilityParser.js";
-import { permanentHasKeyword, permanentProtectionColors, permanentIsCreature } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30)
+import { permanentHasKeyword, permanentProtectionColors, permanentIsCreature, playerHasHexproof } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam
 import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
@@ -484,7 +484,10 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     }
   };
   const addPlayers = () => {
-    for (const pid of Object.keys(state.players)) out.push({ type: "player", id: pid, name: pid });
+    for (const pid of Object.keys(state.players)) {
+      if (!targetablePlayer(pid)) continue;
+      out.push({ type: "player", id: pid, name: pid });
+    }
   };
   // P3.1 counter: legal targets are SPELLS on the stack (kind "spell"; abilities are
   // not spells), filtered by the counter's spellFilter (any/noncreature/creature).
@@ -619,9 +622,16 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // but that's pointless, so opponents-only never offers an illegal or self-defeating target). The card
   // to strip is picked at RESOLUTION from THAT opponent's revealed hand (applyDiscardChosen →
   // pendingChoice), so in 4P there is no cross-opponent cherry-pick and no leak of the other hands.
+  // ⭐ PLAYER HEXPROOF (CR 702.11d) is enforced HERE, at the single target-enumeration seam, and nowhere
+  // else — hexproof stops TARGETING only, so damage, edicts and "each player discards" stay untouched.
+  // ⛔ IT IS OPPONENT-SCOPED, NOT ABSOLUTE. "You can't be the target of spells or abilities your OPPONENTS
+  // control" — a player with hexproof may still target THEMSELF (Leyline of Sanctity does not stop you
+  // aiming your own effects at yourself). That is why the check is skipped when pid === controllerId.
+  const targetablePlayer = (pid) => pid === controllerId || !playerHasHexproof(state, pid);
   const addOpponents = () => {
     for (const pid of Object.keys(state.players)) {
       if (pid === controllerId) continue;
+      if (!targetablePlayer(pid)) continue;
       out.push({ type: "player", id: pid, name: pid });
     }
   };

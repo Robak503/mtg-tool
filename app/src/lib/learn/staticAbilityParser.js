@@ -1843,6 +1843,24 @@ function parseClause(clause, out, selfName, selfType) {
   // defender" / "with defender" compounds (Arcades/High Alert/Felothar), the ATTACHED "enchanted/equipped
   // creature …" grants (the parseAttachedClause path, not this splitter), and the TEMPORARY "target creature
   // … this turn" activated/triggered grants — none is an unconditional board static, so none is matched here.
+  // ⭐ PLAYER HEXPROOF (CR 702.11d) — "You have hexproof." Leyline of Sanctity, Witchbane Orb, Aegis of the
+  // Gods, Orbs of Warding, Metropolis Reformer, Keen-Eared Sentry, Spirit of the Hearth, Crystal Barricade.
+  // The FIRST player-scoped static in the engine: every continuous effect before this affected a PERMANENT,
+  // so this family had nowhere to live and parked wholesale.
+  // ⛔ EMITTED AS AN INERT LAYER-6 OP, the assignsCombatDamageWithToughness pattern directly below. The layer
+  // engine skips it entirely (l6IndexOf only processes add/removeKeyword/Protection/Ward), so P/T and keyword
+  // derivation are byte-identical; ONE consumer reads it — layers.playerHasHexproof, called from the single
+  // target-enumeration seam. Inventing a player-affects mode instead would have forced every collector and
+  // selector in the file to learn a scope they have no use for.
+  // ⓘ `affects: self` is the SOURCE permanent, and the reader resolves the grant to that permanent's
+  // CONTROLLER — the op never affects the permanent it rides on.
+  // ⛔ WHOLE-CLAUSE ANCHORED. "You have hexproof from black" / "you have hexproof as long as …" are NOT this
+  // (a qualified or conditional grant), and "target player gains hexproof until end of turn" is a one-shot
+  // the spell path owns. Any of those leaves residue → the card stays body-only (a safe FN).
+  if (/^you have hexproof$/.test(c)) {
+    out.push({ layer: 6, op: { layerOp: "playerHexproof" }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+    return;
+  }
   {
     const TAIL = "assigns? combat damage equal to (?:its|their) toughness rather than (?:its|their) power";
     if (new RegExp(`^each creature ${TAIL}$`).test(c)) {
