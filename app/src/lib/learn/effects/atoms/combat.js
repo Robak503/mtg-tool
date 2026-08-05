@@ -1818,6 +1818,23 @@ export function pumpClauseParser(clause) {
     const kws = parseGrantedKeywords(m[1]);
     return kws ? { op: "pump", target: "self", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
+  // ⭐ ACTIVATED DEFENDER ESCAPE (CR 609.4b) — "{W}: This creature can attack this turn as though it didn't
+  // have defender." (Mirror Wall, Returned Phalanx, Wall of One Thousand Cuts, Vodalian War Machine, Glade
+  // Watcher) and its pumping twin "{3}: This creature gets +3/-1 until end of turn and can attack this turn
+  // as though it didn't have defender." (Mobile Fort, Walking Wall).
+  // ⛔ NOT parseGrantedKeywords: this is a PHRASE, not a keyword word, so it can't come through the
+  // all-or-nothing keyword vocabulary. It rides the SAME pump vehicle as every other combat trick, which
+  // means the grant lands as a layer-6 addKeyword with the pump's endOfTurn duration and expires at cleanup
+  // (CR 514.2) exactly like a granted trample — no new runtime, no new expiry path.
+  // ⓘ The pseudo-keyword is the STATIC form's, honoured at the two attack-declaration enumeration sites and
+  // nowhere else, so an escaped creature keeps defender for every other reader (Arcades, Wall tribal).
+  // "this turn" is the printed duration and matches the pump's endOfTurn — the two agree, which is why this
+  // rides the pump rather than needing its own duration.
+  const DEF_ESC = "can attack this turn as though it did\\s?n[‘’']?t have defender";
+  m = t.match(new RegExp(`^this creature ${DEF_ESC}$`));
+  if (m) return { op: "pump", target: "self", ptDelta: { p: 0, t: 0 }, grantKeywords: ["attacksIgnoringDefender"] };
+  m = t.match(new RegExp(`^this creature gets ([+-]\\d+)\\/([+-]\\d+) until end of turn and ${DEF_ESC}$`));
+  if (m) return { op: "pump", target: "self", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) }, grantKeywords: ["attacksIgnoringDefender"] };
   m = t.match(/^the triggering creature gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (m) return { op: "pump", target: "thatCreature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
   m = t.match(/^the triggering creature gets ([+-]\d+)\/([+-]\d+) and gains (.+) until end of turn$/);

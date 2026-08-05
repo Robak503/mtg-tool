@@ -3,6 +3,31 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **ACTIVATED + TRIGGERED DEFENDER ESCAPE, +9** - batch 9 (post-v0.153.0)
+> Suite 1129 / 14,014 green + lint 0 BY EXIT CODE. Flip-diff **+9 / 0 / 0** — Mirror Wall, Returned Phalanx,
+> Wall of One Thousand Cuts, Krotiq Nestguard, Glade Watcher, Hightide Hermit, Skyclave Squid, Steelclad
+> Spirit, Prismari Pledgemage.
+> ⭐ The one-shot twin of the STATIC escape shipped earlier: `attacksIgnoringDefender` already existed, only
+> a way to grant it from an effect was missing. Rides the **ordinary pump vehicle**, so the grant lands as a
+> layer-6 addKeyword with the pump's endOfTurn duration and expires at cleanup like a granted trample — no
+> new runtime, no new expiry path.
+> ⛔ **NOT routed through `parseGrantedKeywords`** — that is an all-or-nothing vocabulary of keyword WORDS
+> and this is a PHRASE. Matching it as a phrase keeps the pseudo-keyword out of the grantable-word list,
+> where it would have become grantable by any "gains &lt;X&gt;" clause in the corpus.
+> ℹ **5 of the 9 were the TRIGGERED form**, not the activated one (Skyclave Squid's landfall, Prismari
+> Pledgemage's magecraft) — same effect clause, one matcher served both, which is why measured beat predicted.
+> ⛔ **COMPOUND FORM REFUSED (Mobile Fort, Walking Wall):** `splitClauses` cuts it into a **subjectless**
+> continuation. Binding a bare "can attack this turn as though …" to `self` is right there and WRONG the
+> moment the same continuation follows a TARGETED clause. Two cards are not worth that FP.
+> ⚠️⚠️ **I WROTE A HOLLOW PIN AND THE MUTATION CAUGHT IT — the lesson of this slice.** The runtime drive
+> passed a **hand-written** atom, so a typo in the PARSER's keyword string left the runtime row GREEN (only
+> the parse pin went red). **Parser and runtime were each tested and the SEAM BETWEEN THEM WAS NOT.** Fixed
+> by feeding the **parsed** atom straight into the resolver; the same mutant now kills both halves.
+> ✅ **STANDING CHECK:** when a slice has a parse half and a runtime half, make the runtime drive CONSUME
+> the parser's output. Two green halves do not prove they agree.
+> ⚠️ Harness trap: `expireContinuousEffects` needs `{ atCleanupOfTurn }` — without it it short-circuits and
+> KEEPS every endOfTurn effect, which reads exactly like a real never-expires leak.
+
 > ## 🏷 **v0.153.0 TAGGED (2026-08-05)** — CI release workflow building the signed installer.
 > **91 engine cards since v0.152.0**, twelve slices, batch counter resets to 0.
 > Tagged at 91 rather than a strict 100: Colton's rule is "roughly 100+", the batch is substantial and

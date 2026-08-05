@@ -8,6 +8,12 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Walls that can buy their way into an attack now can.** Mirror Wall, Returned Phalanx, Wall of One
+  Thousand Cuts, Krotiq Nestguard, Glade Watcher and Hightide Hermit can pay to attack for the turn, and
+  Skyclave Squid, Steelclad Spirit and Prismari Pledgemage get the same off their triggers. It lasts the
+  turn and no longer, and they stay defenders for everything else that cares.
+
 ## [0.153.0] - 2026-08-05
 
 ### Added
