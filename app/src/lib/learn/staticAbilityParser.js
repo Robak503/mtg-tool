@@ -1056,6 +1056,20 @@ export function selfCostReductionMetric(card) {
     for (const [re, metric] of SELF_COST_METRICS) {
       if (re.test(s)) return metric;
     }
+    // PER-EACH form — "This spell costs {1} less to cast FOR EACH creature card in your graveyard" (Karador,
+    // Ghost Chieftain; Nemesis of Mortals; Hollow Marauder). Structurally different from every entry in the
+    // table above: those are all "{X} less, where X is <metric>" (one number), this is a per-unit times a
+    // COUNT. The table had no per-each shape at all, so the clause fell straight to null.
+    // ⭐ REUSES parseSelfCountSource RATHER THAN GROWING A SECOND COUNT VOCABULARY. Every source it admits
+    // already carries an exactness argument, and the evaluator this metric reaches (countForSpec, already
+    // imported at the cost site for greatestPowerYouControl) is the same dispatcher the P/T lane uses. An
+    // UNMODELED source returns null and the card parks — "for each creature in your PARTY" has no evaluator
+    // and stays parked, pinned.
+    const fe = s.match(/^this spell costs \{(\d+)\} less to cast for each (.+)$/);
+    if (fe) {
+      const feSpec = parseSelfCountSource(fe[2]);
+      return feSpec ? { kind: "perEachCount", per: Number(fe[1]), countSpec: feSpec } : null;
+    }
     return null; // a "This spell costs …" clause we couldn't reduce to a modeled metric → body-only (Arbiter)
   }
   return null;

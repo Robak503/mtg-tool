@@ -659,6 +659,15 @@ function selfCostReductionForSpell(state, playerId, card) {
       return (player.battlefield || [])
         .filter((p) => isHistoricPermanent(p.card))
         .reduce((sum, p) => sum + manaValueOf(p.card), 0);
+    // PER-EACH (Karador, Ghost Chieftain — "costs {1} less to cast for each creature card in your
+    // graveyard"): a per-unit times a live COUNT, rather than the single number every other metric here
+    // yields. The count runs through countForSpec — the SAME dispatcher greatestPowerYouControl above
+    // already uses, and the same one the layer-7c P/T lane reads — so the cost path and the P/T path can
+    // never disagree about what a count source means. The synthetic `{controller: playerId}` subject is the
+    // established shape at this call site; every source the cost metric can carry is controller-scoped
+    // (graveyard / hand / board), none needs a permanent identity.
+    case "perEachCount":
+      return (metric.per || 0) * countForSpec(state, { controller: playerId }, metric.countSpec);
     default:
       return 0;
   }
