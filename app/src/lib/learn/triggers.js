@@ -3229,6 +3229,45 @@ function detectSubtypeGlobalCombatDamageToCreature(condRaw, _cardName, _typeLine
   return { event: "combatDamageToCreature", scope: "subtypeGlobalToCreature", whose: "any", subtypeFilter: filter, destroyThatCreature: true };
 }
 
+/**
+ * ⭐ THE SELF TWIN (Voracious Cobra, Mephitic Ooze, Bane of the Living's kin) — "Whenever THIS CREATURE
+ * deals combat damage to a creature, destroy that creature."
+ *
+ * The GLOBAL-subtype form directly above already builds the entire pipeline: the event, the per-pair firing
+ * site (checkCombatDamageToCreatureTriggers off combatResolution's creature-damage events), the
+ * "destroy that creature" → "destroy the triggering creature" rewrite, and the cannotRegenerate re-stamp.
+ * Only the SELF scope was missing, so a two-line card sat on the Arbiter while the machinery to run it was
+ * already shipped and tested.
+ *
+ * The subtype gate is what the global form uses to pick the dealer; the self form's gate is simply
+ * "the dealer IS this watcher", which is why it carries NO subtypeFilter and is matched on identity at the
+ * firing site instead.
+ *
+ * CREED, mirroring the global arm verbatim: the condition must be the bare self form (a rider or a
+ * "you control" variant fails the anchor → Arbiter), and the effect must BEGIN with "destroy that
+ * creature" — the only effect shape this scope models. A delayed "…at end of combat" or any other payoff
+ * drops to the Arbiter as a safe false-negative.
+ */
+function detectSelfCombatDamageToCreatureDestroy(condRaw, cardName, _typeLine, effectRaw) {
+  const c = String(condRaw || "").toLowerCase().trim();
+  const eff = String(effectRaw || "").toLowerCase().trim();
+  // ⛔ WHOLE-EFFECT ANCHORED, NOT A PREFIX, and a pin caught the difference. A bare `^destroy that
+  // creature\b` prefix also matches "destroy that creature AT END OF COMBAT" (Sosuke's delayed form) and
+  // would resolve it IMMEDIATELY — strictly stronger than printed, the forbidden direction. The only tail
+  // admitted is the regeneration rider, which the shared parseEffectClause wrapper re-detects and stamps
+  // onto the destroy atom (CANT_REGEN_TEST), so it is modeled rather than dropped.
+  if (!/^destroy that creature\.?(?:\s+(?:it|that creature) can'?t be regenerated\.?)?$/.test(eff)) return null;
+  const m = c.match(/^(.+) deals combat damage to a creature$/);
+  if (!m) return null;
+  if (/\byou control\b/.test(c)) return null;
+  const subj = m[1].trim();
+  const nm = String(cardName || "").toLowerCase();
+  const isSelf = subj === "this creature" || subj === "this permanent" || (nm && subj === nm)
+    || (nm && subj === nm.split(",")[0].trim());
+  if (!isSelf) return null;
+  return { event: "combatDamageToCreature", scope: "selfDealerToCreature", whose: "any", destroyThatCreature: true };
+}
+
 // GLOBAL SUBTYPE damage → controller-lifegain (Essence Sliver) — "Whenever a <Subtype> deals damage, ITS
 // CONTROLLER gains that much life." A Sliver-wide TRIGGERED grant: every Sliver on the battlefield (any
 // controller) has a damage→lifegain trigger, and the LIFE goes to the DEALING creature's controller, scaled to
@@ -3809,7 +3848,12 @@ export function detectTriggers(card) {
         // normalize the leading third-person "gains" → "gain" in the same rewrite (anchored to the exact
         // Essence-shape lead so no other clause is touched).
         effectClause = effectClause.replace(/^its controller gains /i, "you gain ").replace(/^its controller /i, "you ");
-      } else if (cls.scope === "subtypeGlobalToCreature" && cls.destroyThatCreature) {
+      } else if (cls.event === "combatDamageToCreature" && cls.destroyThatCreature) {
+        // Widened from `scope === "subtypeGlobalToCreature"` to the EVENT + flag pair so the SELF twin
+        // (Voracious Cobra) shares this rewrite verbatim. "that creature" is the DAMAGED creature in BOTH
+        // scopes — the firing site threads it as the triggering permanent either way — so the rewrite is
+        // scope-independent by construction. The detectors gate nativeness on the exact "destroy that
+        // creature" prefix, so no other effect can reach here.
         // GLOBAL SUBTYPE combat-damage-to-a-creature (Toxin Sliver — "Whenever a Sliver deals combat damage to
         // a creature, destroy THAT creature. It can't be regenerated."). "that creature" is the DAMAGED creature
         // (CR 608.2c — the object the ability triggered on), threaded as the pending trigger's triggering
@@ -4942,6 +4986,19 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // source's controller. A nontoken entry never matches (no over-fire); an opponent's token never matches.
       return !!triggeringPermanent && !!triggeringPermanent.card?.token
         && triggeringPermanent.controller === sourcePermanent.controller;
+    case "selfDealerToCreature":
+      // SELF-DEALER combat-damage-to-a-creature (Voracious Cobra, Ohran Viper, Serpentine Basilisk,
+      // Stinkweed Imp — "Whenever THIS CREATURE deals combat damage to a creature, destroy that creature").
+      // ⛔ THIS CANNOT USE scope:"self", AND THAT IS THE WHOLE REASON IT EXISTS. `self` asks
+      // "triggeringPermanent === sourcePermanent", but here the triggering permanent is deliberately the
+      // DAMAGED creature (it is the destroy target, threaded so "that creature" binds). The dealer is the
+      // watcher. Under `self` those two ids are never equal, so the trigger classified native and then
+      // NEVER FIRED — measured on a real board before this scope was split out, which is exactly the hollow
+      // gain a flip-diff alone would have shipped.
+      // The DEALER identity is checked at the firing site (checkCombatDamageToCreatureTriggers compares
+      // ev.dealerId to the watcher). Here we confirm only that the triggering object is a creature, which is
+      // the same division of labour the subtypeGlobal twin below uses.
+      return !!triggeringPermanent;
     case "anyPermanent":
       // BECOMES-UNTAPPED (Mesmeric Orb) — ANY permanent's transition fires the watcher; the triggering
       // permanent is the one that untapped (checkUntapTriggers threads it). No controller/type gate — the
@@ -6281,10 +6338,19 @@ export function checkCombatDamageToCreatureTriggers(state, creatureDamageEvents)
       for (const watcher of triggerSourcesOf(state, pid)) {
         // SUBTYPE gate on the DEALER (authoritative): only fire watchers whose subtype filter the dealing
         // creature carries. detectTriggers caches descriptors, so read them once per watcher.
-        const descriptors = detectTriggers(watcher.card).filter((d) => d.event === "combatDamageToCreature" && d.scope === "subtypeGlobalToCreature");
+        const descriptors = detectTriggers(watcher.card).filter((d) => d.event === "combatDamageToCreature"
+          && (d.scope === "subtypeGlobalToCreature" || d.scope === "selfDealerToCreature"));
         if (!descriptors.length) continue;
         for (const d of descriptors) {
-          if (!subtypeFilterMatches(dealerPerm.card, d.subtypeFilter)) continue; // a non-member dealer → no fire
+          // TWO WAYS TO PICK THE DEALER, and each scope uses exactly one.
+          //   subtypeGlobalToCreature — the dealer must CARRY the printed subtype (Toxin Sliver).
+          //   self (Voracious Cobra)  — the dealer must BE this watcher. Identity, not subtype, which is why
+          //     the self descriptor carries no subtypeFilter; running it through subtypeFilterMatches with an
+          //     absent filter would match EVERY dealer and fire the Cobra's destroy off an unrelated
+          //     creature's combat damage — the widest possible over-fire.
+          if (d.scope === "selfDealerToCreature") {
+            if (ev.dealerId !== watcher.id) continue;
+          } else if (!subtypeFilterMatches(dealerPerm.card, d.subtypeFilter)) continue; // a non-member dealer → no fire
           // triggeringPermanent = the DAMAGED creature (the destroy target → ctx.triggeringPermanentId).
           // scopeMatches("subtypeGlobalToCreature") confirms it's a creature; the SUBTYPE gate above (on the
           // DEALER) is the authoritative one. We call makePendingTrigger DIRECTLY (not via triggersForEvent) for
@@ -7634,6 +7700,7 @@ registerTriggerDetector(detectSubtypeGlobalCombatDamage);
 // the to-a-creature form (the inline combat-damage block returns only for the to-a-PLAYER you-control shapes),
 // so this is purely additive (no existing classification changes).
 registerTriggerDetector(detectSubtypeGlobalCombatDamageToCreature);
+registerTriggerDetector(detectSelfCombatDamageToCreatureDestroy); // the SELF twin (Voracious Cobra) — same event, same rewrite, same firing site; only the scope differs
 // GLOBAL SUBTYPE damage → controller-lifegain ("a <Subtype> deals damage, its controller gains that much life"
 // — Essence Sliver). Registered here (defined above, no import) so every importer — runtime AND the coverage
 // metric — sees it. Consulted only after the inline classifyCondition returns falsy, which it does for the bare
