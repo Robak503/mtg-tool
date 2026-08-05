@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 BLOCK: **BUILT ENGINE, NO IGNITION — +17 more** - batch 95 (post-tag)
+> Two slices, same shape as the +51 block: a mechanism that ALREADY EXISTS, missing only its entry point.
+>
+> **POPULATE +13** (`dcebd35e`) — 13 carriers, 0 native (Trostani, Growing Ranks, Wayfaring Temple).
+> `create-token-copy` (CR 707.1) already did the whole job — copiable snapshot, token-doubler multiply,
+> per-copy ETB. `resolveCopySource` is the ONE place that says what to copy, so populate cost **one new
+> source kind + a clause alias.** ⛔ TOKENS ONLY is the RULE, not a simplification — pinned with a 9/9
+> nontoken losing to a 1/1 token. No creature token ⇒ the atom's existing CR 111.12 clean no-op.
+>
+> **TWO-TRIGGER DETAIN FOLD +4** (`b82d4562`) — Journey to Nowhere, Oblivion Ring, Faceless Butcher. The
+> MODERN one-sentence printing ("...until this creature leaves the battlefield") was fully modeled; the
+> OLD printing splits the same effect across two triggers. The fold rewrites PRINTING, not semantics.
+> ⛔ **The leaves-clause is SPLICED OUT** — this frame already synthesizes the return, so keeping it would
+> return the card TWICE. The pin asserts exactly ONE trigger, not merely "native".
+> ⛔ **AND IT HAD TO BE APPLIED ON BOTH SIDES OF `shaped === detected`.** Folding only in detectTriggers
+> left every carrier body-only: coverage counted 2 printed sentences against 1 descriptor. **The tell is a
+> card reading native-trigger in DETECTION and body-only in CLASSIFICATION at the same moment** — learn to
+> spot that pair; it means an invariant, not a missing mechanic.
+
 > ## 🎯 BLOCK: **THE KEYWORD-MECHANIC LENS, +51** - batch 78 (post-tag)
 > Five slices, one lens: **a mechanic whose RUNTIME already exists but whose DETECTOR or LABEL is missing.**
 > Found by tallying keyword mechanics by *sole-blocked carriers* rather than by census clause. That probe is

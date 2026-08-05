@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-04 — **+145 this sitting · v0.151.0 SHIPPED · post-tag batch 78** — suite **1112 / 13,913** green by exit code
+## ☀️ 2026-08-04 — **+162 this sitting · v0.151.0 SHIPPED · post-tag batch 95** — suite **1114 / 13,928** green by exit code
 
 > ### 🎯 THE LENS THAT REOPENED THE CORPUS AFTER IT MEASURED "EXHAUSTED": **sole-blocked BY MECHANIC**
 > The exhaustion finding below is still true *for the census*, which groups by exact clause and caps at 4.
