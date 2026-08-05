@@ -388,8 +388,13 @@ export function parseCloneSpec(card) {
  * `$`-anchor, and return them so a retainOwnAbilities rider can re-append the clone's own abilities to the copy
  * (Sakashima of a Thousand Faces, CR 707.9). Only a fixed set of own abilities is modeled — each has NO
  * runtime battlefield effect, so appending its text to the copy is faithful and inert:
- *   • the legend-rule-off static ("The 'legend rule' doesn't apply to permanents you control.") — the legend
- *     rule is UNENFORCED by the engine (see the isn't-legendary no-op), so this is a harmless inert line.
+ *   • the legend-rule-off static ("The 'legend rule' doesn't apply to permanents you control.") — modelled
+ *     as a real exemption (staticAbilityParser's legendRuleOff → layers.legendRuleExemptFor, read by
+ *     gameState.applyLegendRule), so re-appending the line to the copy genuinely grants it.
+ *     ⛔ THIS COMMENT USED TO SAY "the legend rule is UNENFORCED by the engine ... a harmless inert line".
+ *     That claim expired when sba.js implemented CR 704.5j, and while it stood it seeded FOUR live bugs
+ *     (Spark Double killing your commander, Miirym doing nothing, Mirror Gallery doing nothing, and this).
+ *     A refusal comment is a claim with a timestamp — re-check it before citing it as settled.
  *   • Partner — a bare keyword with no battlefield behavior (it only matters at commander assignment, and a
  *     copy is never a commander per CR 903.3 — snapshotCopiedCard already strips isCommander).
  * `own.oracle` is the ORIGINAL (reminder-preserved) card oracle lines for those abilities; `own.keywords` is

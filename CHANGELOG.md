@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Mirror Gallery works.** Its one line — turning off the legend rule — wasn't being applied at all, so
+  the card did nothing. Mirror Box, Council of Reeds and Cadric's scoped versions work too, and each only
+  covers what it says (Mirror Gallery helps everyone; Mirror Box helps only you).
 - **Miirym, Sentinel Wyrm works.** Her Dragon token copies were being destroyed the moment they arrived —
   the token was legendary and died to the legend rule alongside the Dragon it copied, so the card did
   nothing. The tokens are correctly not legendary now.

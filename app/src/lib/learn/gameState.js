@@ -27,7 +27,7 @@
  */
 
 import { printedPower, printedToughness, counterPtDelta } from "./ptPrimitive.js";
-import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, playerCantGainLife, PERMANENT_TYPE_RE } from "./layers.js";
+import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, playerCantGainLife, legendRuleExemptFor, PERMANENT_TYPE_RE } from "./layers.js";
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
 import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
@@ -2058,6 +2058,11 @@ export function applyLegendRule(state) {
     for (const perm of player.battlefield) {
       const type = String(perm.card?.type || perm.card?.type_line || "");
       if (!/\bLegendary\b/.test(type)) continue;
+      // ⭐ LEGEND-RULE EXEMPTION (CR 704.5j) — Mirror Gallery / Mirror Box / Council of Reeds / Cadric.
+      // ⛔ Skipped at the GROUPING step, not at the destroy step, and that is deliberate: an exempt permanent
+      // must not even COUNT toward its name group, or two exempt copies plus one non-exempt would still trip
+      // the rule. Dropping it here means a group only ever holds permanents the rule can actually reach.
+      if (legendRuleExemptFor(state, perm)) continue;
       const name = perm.card?.name;
       if (!name) continue;
       if (!byName.has(name)) byName.set(name, []);

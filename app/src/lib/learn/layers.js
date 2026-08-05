@@ -2091,6 +2091,39 @@ export function playerHasHexproof(state, playerId) {
  * there instead, immediately BEFORE the doublers: a prevented gain is prevented however many Rhox
  * Faithmenders are out, and zeroing after the fact would be the right answer by luck rather than by rule.
  */
+/**
+ * ⭐ LEGEND-RULE EXEMPTION (CR 704.5j) — is `perm` exempt from the legend rule right now?
+ * Mirror Gallery ("The 'legend rule' doesn't apply." — global), Mirror Box (permanents you control),
+ * Council of Reeds (creatures you control), Cadric Soul Kindler (tokens you control).
+ *
+ * ⛔⛔ WITHOUT THIS READER THOSE CARDS DID NOTHING. sba.js has enforced the legend rule for a while, but the
+ * exemption side was never modelled — so Mirror Gallery, whose ENTIRE text is that one sentence, was an
+ * inert 5-mana artifact. Same INERT-op pattern as playerHexproof / cantGainLife: the layer engine skips the
+ * op entirely and gameState.applyLegendRule is the single consumer.
+ *
+ * ⛔ SCOPES ARE HONORED SEPARATELY, never flattened to "any exemption exempts everything":
+ *   · "all"                  — Mirror Gallery: nobody's legend rule applies, whoever controls the artifact.
+ *   · "permanentsYouControl" — only the SOURCE's controller is exempt (Mirror Box does not help opponents).
+ *   · "creaturesYouControl"  — that, narrowed to creatures.
+ *   · "tokensYouControl"     — that, narrowed to tokens (Cadric exempts his copies, not his originals).
+ * Collapsing them would hand a controller a global exemption they never paid for.
+ */
+export function legendRuleExemptFor(state, perm) {
+  if (!perm) return false;
+  const board = collectContinuousEffects(state);
+  for (const e of board) {
+    if (e.op?.layerOp !== "legendRuleOff") continue;
+    const scope = e.op.scope;
+    if (scope === "all") return true;                       // global — controller-independent
+    const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
+    if (!src?.controller || src.controller !== perm.controller) continue;
+    if (scope === "permanentsYouControl") return true;
+    if (scope === "creaturesYouControl" && /\bCreature\b/.test(String(perm.card?.type || perm.card?.type_line || ""))) return true;
+    if (scope === "tokensYouControl" && perm.card?.token) return true;
+  }
+  return false;
+}
+
 export function playerCantGainLife(state, playerId) {
   if (!playerId || !state?.players?.[playerId]) return false;
   const board = collectContinuousEffects(state);

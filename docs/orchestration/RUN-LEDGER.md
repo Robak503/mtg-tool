@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **LEGEND-RULE EXEMPTION — MIRROR GALLERY DID NOTHING, +1** - batch 34
+> Suite 1139 / 14,057 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** (Mirror Gallery), and it makes
+> four cards function.
+> ⛔⛔ **A 5-MANA ARTIFACT WHOSE ENTIRE TEXT IS ONE SENTENCE WAS INERT.** `sba.js` has enforced CR 704.5j for
+> a while; the EXEMPTION side was never modelled, so "The 'legend rule' doesn't apply." did nothing at all.
+> Mirror Box, Council of Reeds and Cadric carry scoped versions of the same static.
+> ⭐⭐ **FOURTH LIVE BUG FROM ONE SWEEP — AND ALL FOUR TRACE TO A SINGLE EXPIRED COMMENT.** cloneCopy.js said
+> *"the legend rule is UNENFORCED by the engine … a harmless inert line"*. True when written; false since
+> sba.js landed. While it stood it seeded: **Spark Double killing your commander**, **Miirym doing nothing**,
+> **Mirror Gallery doing nothing**, and the retainOwnAbilities line that cited it. **ONE stale comment can
+> seed a family of bugs, because later work cites it as settled rather than re-deriving it.** The comment is
+> now corrected in place with that history attached.
+> ⛔ **SCOPES HONORED SEPARATELY, never flattened:** global (Mirror Gallery — every player, whoever controls
+> it) vs permanents/creatures/tokens-you-control. The mutant that flattens them shows an OPPONENT'S
+> duplicate surviving off the controller's Mirror Box. A SUBTYPE-scoped form (Spider-Verse) is REFUSED — it
+> needs a subtype test this op doesn't carry.
+> ⛔ **APPLIED AT THE GROUPING STEP, not the destroy step** — an exempt permanent must not even COUNT toward
+> its name group, or two exempt copies plus one non-exempt would still trip the rule.
+> ℹ The consumer-removed mutant is the instructive one: Mirror Gallery stays **native-static** while the rule
+> ignores it — the metric-over-claims-runtime split, invisible to any flip-diff.
+
 > ## SLICE DONE - 2026-08-05 - **TOKEN-COPY "isn't legendary" — MIIRYM DID NOTHING AT ALL** - batch 33
 > Suite 1138 / 14,052 green + lint 0 BY EXIT CODE. Flip-diff **0 / 0 / 0**, and it makes a Commander staple
 > actually function.

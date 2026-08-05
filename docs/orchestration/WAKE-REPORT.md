@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+321 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 33** — suite **1138 / 14,052** green by exit code
+## ☀️ 2026-08-05 — **+322 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 34** — suite **1139 / 14,057** green by exit code
 
 > ### ⚠️⚠️ AURA PROBES ARE MEMO-POISONED — classify in a FRESH PROCESS
 > `parseAttachedBonus` memoises into a slot, which makes **`isNativeAura` ORDER-DEPENDENT**: the same card in
@@ -39,7 +39,12 @@
 > per-descriptor where the type is known, or teach the one matcher — never rename globally.** Full
 > post-mortem + the real fix in the run ledger.
 
-> ### ⭐ THE INSTRUMENT TO KEEP RUNNING: **re-check RUNTIME refusal comments**
+> ### ⭐ THE INSTRUMENT TO KEEP RUNNING: **re-check RUNTIME refusal comments** — 4 bugs, 4 slices
+> ⚠️ **AND ONE STALE COMMENT SEEDED THREE OF THEM.** cloneCopy.js's "the legend rule is UNENFORCED by the
+> engine" was cited as settled by later work, so it produced Spark Double killing your commander, Miirym
+> doing nothing, AND Mirror Gallery doing nothing. **When you find an expired refusal, grep for everything
+> that CITES it** — the blast radius is bigger than the one line.
+
 > `grep -rn "unenforced\|not enforced\|not modeled" src/lib/learn/*.js` → check each note against TODAY's
 > engine. **Three live bugs in three consecutive slices** came out of it: ward—discard (creatures targeted
 > for free), clone isn't-legendary (Spark Double killed your commander), token-copy isn't-legendary (Miirym

@@ -1889,6 +1889,24 @@ function parseClause(clause, out, selfName, selfType) {
   // ⛔ WHOLE-CLAUSE ANCHORED. "You have hexproof from black" / "you have hexproof as long as …" are NOT this
   // (a qualified or conditional grant), and "target player gains hexproof until end of turn" is a one-shot
   // the spell path owns. Any of those leaves residue → the card stays body-only (a safe FN).
+  // ⭐ LEGEND-RULE EXEMPTION (CR 704.5j) — Mirror Gallery, Mirror Box, Council of Reeds, Cadric Soul Kindler.
+  // ⛔⛔ THESE CARDS DID NOTHING. `sba.js` enforces the legend rule, but nothing ever read the exemption, so
+  // MIRROR GALLERY — whose ENTIRE printed text is "The 'legend rule' doesn't apply." — was an inert 5-mana
+  // artifact. The fourth expired-refusal bug from the same sweep, and cloneCopy.js still carried the note
+  // that caused it ("the legend rule is UNENFORCED by the engine ... a harmless inert line").
+  // ⓘ Same INERT layer-6 op the player-scoped statics use (playerHexproof / cantGainLife): the layer engine
+  // skips it, and exactly one consumer — gameState.applyLegendRule — reads it.
+  // ⛔ THE SCOPE IS CAPTURED, NOT FLATTENED. "doesn't apply" (global, every player) and "doesn't apply to
+  // <X> you control" are different cards; collapsing them would hand a controller a global exemption they
+  // never paid for. A subtype-scoped form ("to Spiders you control" — Spider-Verse) is NOT matched and
+  // parks: it needs a subtype test this op doesn't carry, and guessing would over-exempt.
+  {
+    const lr = c.match(/^the "legend rule" doesn't apply(?: to (permanents|creatures|tokens) you control)?$/);
+    if (lr) {
+      out.push({ layer: 6, op: { layerOp: "legendRuleOff", scope: lr[1] ? `${lr[1]}YouControl` : "all" }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+      return;
+    }
+  }
   if (/^you have hexproof$/.test(c)) {
     out.push({ layer: 6, op: { layerOp: "playerHexproof" }, affects: { mode: "self" }, duration: { kind: "permanent" } });
     return;
