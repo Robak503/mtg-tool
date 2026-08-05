@@ -6,6 +6,20 @@
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
+> ## SLICE DONE - 2026-08-05 - **UNDAUNTED + BARGAIN, +4** - batch 26 (post-v0.152.0)
+> Suite 1119 / 13,965 green + lint 0 BY EXIT CODE. `77307d39`. Flip-diff **+4 / 0 / 0** — exactly the four
+> predicted (Seeds of Renewal, Sublime Exhalation, Johann's Stopgap, Ice Out).
+> ⭐ **THE CIPHER RATIONALE TURNED INTO A PROBE** instead of waiting to trip over the next case: sweep for
+> keyword-shaped lines still acting as sole blockers, then test each against the untaken-option criterion.
+> **UNDAUNTED** = DELVE's exact twin (pure cost reduction; not applying it = full price = strictly HARDER,
+> the safe direction). Crediting delve while refusing its twin was the inconsistency — same shape as
+> cipher-vs-buyback. **BARGAIN** = the replicate/buyback class (optional additional cost; declining leaves
+> the spell simply not bargained).
+> **Both go in BOTH places** — the cast-keyword strip (spell path) AND the keyword credit (permanent
+> residue). Mutation-checked SEPARATELY so neither masks the other.
+> ⓘ The sweep also ruled OUT the rest on the criterion itself: melee/phasing/sunburst/storm are MANDATORY
+> (not declinable), so they need modelling, not crediting. Don't re-probe them for this lens.
+
 > ## SLICE DONE - 2026-08-05 - **CIPHER, +8** - batch 22 (post-v0.152.0)
 > Suite 1119 / 13,962 green + lint 0 BY EXIT CODE. `de35235e`. Flip-diff **+8 / 0 / 0** — Paranoid
 > Delusions, Last Thoughts, Midnight Recovery, Whispering Madness, Shadow Slice …
