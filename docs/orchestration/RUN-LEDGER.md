@@ -6,6 +6,27 @@
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
+> ## SLICE DONE - 2026-08-05 - **CARDS-DRAWN-THIS-TURN GATE, +9** - batch 78 (post-v0.152.0)
+> Suite 1127 / 14,006 green + lint 0 BY EXIT CODE. Flip-diff **+9 / 0 / 0** — Trench Stalker, Spinehorn
+> Minotaur, Eyekite, Tome Anima, Gnarled Sage, Foggy Swamp Hunters, Messenger Hawk, Evangel of Synthesis,
+> June the Bounty Hunter. **Two arms of code.**
+> ⚠️⚠️ **THIS SLICE EXISTED BECAUSE A CODE COMMENT WAS WRONG — the most valuable finding today.** The gate
+> parser carried an explicit note: *"you've drawn N or more cards this turn" has NO ledger → stays unparsed
+> (FN-safe)*. It reads like a settled engineering decision, so **nothing ever revisited it** — and
+> `selfAsLongAsGates.test.js` had an FN-guard pin repeating the same claim, which made it look VERIFIED.
+> But `cardsDrawnThisTurn` has been in gameState all along: one increment chokepoint, reset for **every**
+> seat at untap (all seats deliberately — instants let a player draw on someone else's turn).
+> **A stale "we can't do this" note is more expensive than no note at all** — it converts a gap into a
+> decision nobody re-examines, and a guard pin repeating it makes the error look load-bearing.
+> ✅ **THE RULE TO WORK BY:** when a census turns up a big zero-native cluster, **check whether the stated
+> refusal still holds** before believing it. Two FN-guard fixtures graduated today (Chillerpillar,
+> Messenger Hawk) and both were kept as POSITIVE pins rather than deleted.
+> ℹ Two of the nine (June, Tome Anima) reach native by **composing** this gate with the `can't be blocked`
+> rider from an earlier slice — vocabulary additions **multiply** rather than add.
+> Law 6: 0 draws → no keywords; **1 draw → still none** (the row that makes the threshold real — without it
+> "two or more" is indistinguishable from "one or more"); 2 → both on. Second drive proves it **EXPIRES** at
+> the turn reset, so it is a per-turn ledger and not a latch.
+
 > ## SLICE DONE - 2026-08-05 - **MONSTROUS GATE, +4** - batch 69 (post-v0.152.0)
 > Suite 1126 / 14,003 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Fleecemane Lion, Chillerpillar,
 > Sinuous Vermin, Skittering Crustacean. **Two lines of code.**

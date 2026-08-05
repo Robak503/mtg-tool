@@ -510,6 +510,18 @@ function gateMet(state, perm, gate) {
   if (gate.kind === "spellsCastThisTurnAtLeast") {
     return (state?.players?.[perm.controller]?.spellsCastThisTurn || 0) >= (gate.atLeast ?? 1);
   }
+  // ⭐ CARDS-DRAWN-THIS-TURN gate ("As long as you've drawn two or more cards this turn, this creature has
+  // deathtouch and lifelink" — Trench Stalker, Spinehorn Minotaur, Eyekite and 7 more). The exact sibling of
+  // the spellsCastThisTurn read directly above, on a ledger that already exists: gameState's per-seat
+  // `cardsDrawnThisTurn`, incremented at the draw chokepoint and reset for every seat at untap. Pure
+  // ignition — the ledger, the effects, and the keywords were all already modelled; only the gate
+  // vocabulary was missing, so the whole clause failed to parse and the card parked.
+  // ⓘ The DRAW STEP counts. CR 121.3 draws are draws whoever performed them and however they were caused,
+  // and the ledger is incremented at the single chokepoint, so "two or more" is naturally satisfied by the
+  // turn's draw plus one more — which is exactly how these cards are meant to play.
+  if (gate.kind === "cardsDrawnThisTurnAtLeast") {
+    return (state?.players?.[perm.controller]?.cardsDrawnThisTurn || 0) >= (gate.atLeast ?? 1);
+  }
   if (gate.kind === "gainedLifeThisTurn") {
     return (state?.players?.[perm.controller]?.lifeGainedThisTurn || 0) >= 1;
   }

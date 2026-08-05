@@ -7,7 +7,13 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+266 this sitting · v0.152.0 PUBLISHED · post-tag batch 69** — suite **1126 / 14,003** green by exit code
+## ☀️ 2026-08-05 — **+275 this sitting · v0.152.0 PUBLISHED · post-tag batch 78** — suite **1127 / 14,006** green by exit code
+
+> ### ⚠️⚠️ DON'T TRUST A REFUSAL COMMENT — +9 sat behind one that had stopped being true
+> The gate parser said *"you've drawn N or more cards this turn" has NO ledger*, and an FN-guard pin
+> repeated it, so it looked VERIFIED. `cardsDrawnThisTurn` had been in gameState the whole time. **A stale
+> "we can't do this" note converts a gap into a decision nobody re-examines.** When a census shows a big
+> zero-native cluster, **check whether the refusal still holds.**
 
 > ### ▶️ START HERE: **CENSUS THE GATES, NOT THE EFFECTS** — the live vein map is in the run ledger
 > When the rider census dried up, tallying the as-long-as CONDITIONS native-vs-parked immediately found a

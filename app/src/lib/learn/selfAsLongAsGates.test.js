@@ -497,6 +497,14 @@ describe("CA-2 — scope pins: a self-gated card emits SELF descriptors only; th
 
 // ── FN guards — no exact evaluator (or an unconsumed effect rider) → NOTHING emitted ────────────────────
 describe("CA-2 — a guard that GRADUATED: monstrous is modelled now", () => {
+  it("⭐ Messenger Hawk graduated too — and its guard note was FACTUALLY WRONG, not merely stale", () => {
+    // It read "no drawn-cards-this-turn ledger exists". gameState has carried `cardsDrawnThisTurn` all
+    // along — one increment chokepoint, reset for every seat at untap. The note turned a gap into a
+    // decision nobody re-examined, and ten cards sat behind it. Drive: cardsDrawnGate.test.js.
+    expect(parseStaticAbilities(MESSENGER_HAWK).map((e) => `${e.op?.layerOp}|${e.op?.gate?.kind}`))
+      .toEqual(["ptModifyGated|cardsDrawnThisTurnAtLeast"]);
+  });
+
   it("⭐ Chillerpillar was an FN-guard fixture here and is now a positive pin", () => {
     // Kept rather than deleted: this file is the record of what the engine refuses, so an entry that
     // graduates should show as graduated. The drive through the real monstrosity atom lives in
@@ -509,7 +517,6 @@ describe("CA-2 — a guard that GRADUATED: monstrous is modelled now", () => {
 describe("CA-2 — FN guards: unevaluable conditions / unconsumed riders emit NOTHING", () => {
   const parked = [
     ["Skymarcher Aspirant (city's blessing — subgame state unmodeled)", SKYMARCHER_ASPIRANT],
-    ["Messenger Hawk (no drawn-cards-this-turn ledger exists)", MESSENGER_HAWK],
     ["Briarberry Cohort ('another blue creature' — a derived-characteristic color count)", BRIARBERRY_COHORT],
     ["Iymrith ('ward {4}' is not a grantable keyword)", IYMRITH],
     ["Slippery Scoundrel (city's blessing + a can't-be-blocked rider)", SLIPPERY_SCOUNDREL],

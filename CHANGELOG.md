@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **The draw-two payoffs work.** Trench Stalker, Spinehorn Minotaur, Eyekite, Tome Anima, Gnarled Sage,
+  Foggy Swamp Hunters, Messenger Hawk, Evangel of Synthesis and June the Bounty Hunter all switch on once
+  you've drawn your second card of the turn — and switch back off next turn.
 - **Monstrous creatures get what they paid for.** Fleecemane Lion gains hexproof and indestructible once
   it's monstrous, and Chillerpillar, Sinuous Vermin and Skittering Crustacean pick up flying, menace and
   hexproof the same way.

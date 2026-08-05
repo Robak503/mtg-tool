@@ -1414,7 +1414,17 @@ function parseAsLongAsGate(condText) {
   if (/^an opponent is poisoned$/.test(t)) return { kind: "opponentPoisonAtLeast", atLeast: 1, gateOn: "source" };
   // Per-turn ledgers the engine already maintains exactly (each has a single increment chokepoint and the
   // shared per-game-turn reset): spellsCastThisTurn (TRIG-CAST2), lifeGainedThisTurn (LG-1),
-  // lifeLostThisTurn. "you've drawn N or more cards this turn" has NO ledger → stays unparsed (FN-safe).
+  // lifeLostThisTurn, and cardsDrawnThisTurn.
+  // ⚠️ THIS COMMENT USED TO SAY "you've drawn N or more cards this turn" HAS NO LEDGER — it was wrong, and
+  // it kept 10 cards parked behind a refusal that had stopped being true. `cardsDrawnThisTurn` is a real
+  // per-seat counter: incremented at gameState's single draw chokepoint and reset for EVERY seat at untap
+  // (resetTurnCounters — all seats, deliberately, because instants let a player draw on someone else's
+  // turn). A stale "we can't do this" note is more expensive than no note at all.
+  m = t.match(/^you've drawn (\w+) or more cards this turn$/);
+  if (m) {
+    const n = GY_NUMWORD[m[1]] ?? (/^\d+$/.test(m[1]) ? parseInt(m[1], 10) : NaN);
+    return Number.isInteger(n) && n > 0 ? { kind: "cardsDrawnThisTurnAtLeast", atLeast: n, gateOn: "source" } : null;
+  }
   m = t.match(/^you've cast (\w+) or more spells this turn$/);
   if (m) {
     const n = GY_NUMWORD[m[1]] ?? (/^\d+$/.test(m[1]) ? parseInt(m[1], 10) : NaN);
