@@ -50,6 +50,7 @@ const HUMAN_SEAT = "user";
 // London floor (CR 103.5): once a seat has shipped this many times, a further ship would bottom
 // all 7 → a 0-card hand, so no more shipping is allowed. Mirrors gameEngine's STARTING_HAND_SIZE.
 const HAND_SIZE = 7;
+import { playerCantLoseGame, playerCantWinGame } from "./layers.js"; // CR 104.3a/104.2a — the can't-lose / can't-win statics (layers never imports learnSession, so this edge is one-way and cycle-free)
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { takeLastCastRanking } from "./opponentAI.js"; // M5.1 — the tick-scoped cast-ranking side-channel (nearTie/top-k rows)
@@ -350,6 +351,12 @@ export function advanceMulligan(session, action = {}, opts = {}) {
 function isPlayerDead(state, playerId) {
   const player = state.players[playerId];
   if (!player) return true;
+  // ⭐ CAN'T-LOSE (CR 104.3a) — Platinum Angel, Herald of Eternal Dawn, Lich's Mastery, and (aimed at the
+  // OPPONENTS) Abyssal Persecutor. Checked FIRST, ahead of every lose condition, because that is what the
+  // rule says: the player simply does not lose, however far below 0 their life is.
+  // ⛔ A player with no controller left on the battlefield still dies — the guard above returns true before
+  // this, so an eliminated seat can't be resurrected by a stale static.
+  if (playerCantLoseGame(state, playerId)) return false;
   if (player.lostGame) return true; // UPKEEP-WIN — "target player loses the game" (CR 104.3a, Door to Nothingness)
   if (player.life <= 0) return true;
   if ((player.poison || 0) >= 10) return true;
@@ -363,6 +370,10 @@ function isPlayerDead(state, playerId) {
 /** UPKEEP-WIN — a player flagged `wonGame` by the win-game atom (Revel in Riches, Felidar Sovereign,
  *  Knuckles the Echidna, a resolved "you win the game" spell). CR 104.2a: that player wins immediately. */
 function hasWonGame(state, playerId) {
+  // ⛔ CAN'T-WIN (CR 104.2a) — Abyssal Persecutor's drawback, and Platinum Persecutor's symmetric lock.
+  // Without this the engine let an Abyssal Persecutor controller win outright, which is the ONE thing that
+  // card exists to prevent.
+  if (playerCantWinGame(state, playerId)) return false;
   return !!state.players?.[playerId]?.wonGame;
 }
 

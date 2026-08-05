@@ -1939,6 +1939,36 @@ function parseClause(clause, out, selfName, selfType) {
       }
     }
   }
+  // ⭐ CAN'T-LOSE / CAN'T-WIN (CR 104.3a/104.2a) — Platinum Angel, Herald of Eternal Dawn, Darksteel Angel,
+  // Lich's Mastery, Platinum Persecutor, and the DRAWBACK side, Abyssal Persecutor.
+  // ⛔⛔ PLATINUM ANGEL DID NOTHING. learnSession.isPlayerDead enforces losing (life ≤ 0, poison ≥ 10,
+  // commander damage ≥ 21) and hasWonGame enforces winning, but NOTHING read the exemption — so the most
+  // iconic "you can't lose" card in the game was an 7-mana 4/4 flier. Abyssal Persecutor is the mirror and
+  // is worse than inert: its whole DRAWBACK was missing, so the engine let its controller win outright.
+  // ⓘ Sixth find from the runtime-refusal sweep, same shape every time: a rule the engine DOES enforce
+  // whose off-switch was never modelled. Same INERT layer-6 op as playerHexproof / legendRuleOff.
+  // ⛔ THE SUBJECT IS CAPTURED PER-CLAUSE, never assumed. "You can't lose" and "your opponents can't lose"
+  // are opposite cards; Abyssal Persecutor prints BOTH halves inverted relative to Platinum Angel, so a
+  // parser that assumed "you = good" would hand its controller a win it must never get.
+  {
+    const half = (txt) => {
+      const m = String(txt).trim().match(/^(you|your opponents|players) can'?t (lose|win) the game$/);
+      if (!m) return null;
+      return { layerOp: m[2] === "lose" ? "cantLoseGame" : "cantWinGame", who: m[1] === "players" ? "all" : m[1] === "you" ? "you" : "opponents" };
+    };
+    // "Players can't lose the game or win the game." — one sentence, both rules, every player.
+    if (/^players can'?t lose the game or win the game$/.test(c)) {
+      out.push({ layer: 6, op: { layerOp: "cantLoseGame", who: "all" }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+      out.push({ layer: 6, op: { layerOp: "cantWinGame", who: "all" }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+      return;
+    }
+    const parts = c.split(/\s+and\s+/);
+    const ops = parts.map(half);
+    if (ops.length && ops.every(Boolean)) {
+      for (const op of ops) out.push({ layer: 6, op, affects: { mode: "self" }, duration: { kind: "permanent" } });
+      return;
+    }
+  }
   if (/^you have hexproof$/.test(c)) {
     out.push({ layer: 6, op: { layerOp: "playerHexproof" }, affects: { mode: "self" }, duration: { kind: "permanent" } });
     return;

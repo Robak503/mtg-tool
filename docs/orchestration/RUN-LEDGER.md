@@ -3,6 +3,29 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **CAN'T-LOSE / CAN'T-WIN — PLATINUM ANGEL WAS A 4/4 FLIER, +3** - batch 41
+> Suite 1141 / 14,070 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Herald of Eternal Dawn,
+> Abyssal Persecutor, Platinum Angel. All three audited whole-card in fresh processes.
+> ⛔⛔ **THE MOST ICONIC "YOU CAN'T LOSE THE GAME" CARD IN MAGIC DID NOTHING.** `isPlayerDead` enforces every
+> lose condition (life ≤ 0, poison ≥ 10, commander damage ≥ 21, `lostGame`) and `hasWonGame` enforces
+> winning — and **nothing anywhere read the exemption**. Platinum Angel was seven mana for a 4/4 flier.
+> ⛔⛔ **ABYSSAL PERSECUTOR WAS WORSE THAN INERT — IT PLAYED BETTER THAN PRINTED.** It prints both halves
+> INVERTED (*its controller* can't win, *its opponents* can't lose), so with the statics unread the engine
+> happily handed its controller the win. **A drawback the engine skips is not a safe false negative.**
+> ⭐ **SIXTH FIND FROM THE RUNTIME-REFUSAL SWEEP, and the shape has not varied once:** a rule the engine DOES
+> enforce, whose OFF-SWITCH was never modelled. legend rule → exemption. max hand size → modifier. Losing →
+> this. **The sweep is still not exhausted.** Ask it of every enforced rule.
+> ⛔ **THE SUBJECT IS CAPTURED PER-CLAUSE, NEVER ASSUMED.** Platinum Angel and Abyssal Persecutor share a
+> sentence skeleton and mean opposite things; the MUT3 mutant that collapses `who` to "you" kills four pins
+> at once. A parser that treated "you" as "the good side" would hand the Persecutor its win back.
+> ⛔ **CHECKED AHEAD OF EVERY LOSE CONDITION** (CR 104.3a — the player does not lose, however far below zero),
+> but BEHIND the missing-player guard, so a stale static can never resurrect an eliminated seat.
+> ℹ Four mutants, each grep-verified as applied AND read on the guarded row: MUT1 (consumer removed) →
+> the angel column flips `true` on life/poison/commander damage alike; MUT2 → "won WITH it" flips `true`;
+> MUT4 (controller scoping dropped) → an opponent is wrongly protected.
+> ℹ **Vitest 4 swallows `console.log` by default** — witness rows need `--disable-console-intercept` to
+> print. A witness you can't see is a hollow gate; check the flag before trusting a clean row.
+
 > ## SLICE DONE - 2026-08-05 - **MAX HAND SIZE — a GLOBAL FAIL-OPEN closed, +4** - batch 38
 > Suite 1140 / 14,062 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Thought Eater, Thought Nibbler,
 > Thought Devourer, Minamo Scrollkeeper.

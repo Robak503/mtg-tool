@@ -7,7 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+326 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 38** — suite **1140 / 14,062** green by exit code
+## ☀️ 2026-08-05 — **+329 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 41** — suite **1141 / 14,070** green by exit code
+
+> ### ⚠️⚠️ A WITNESS YOU CAN'T SEE IS A HOLLOW GATE — **vitest 4 swallows `console.log`**
+> Law-6 witness rows print NOTHING under a plain `vitest run`; the pass reads clean and the row you were
+> relying on never existed. Add **`--disable-console-intercept`** and read the values with your own eyes.
+> Every printed-value witness in this file's method was written before vitest 4 — re-check yours.
 
 > ### ⚠️⚠️ AURA PROBES ARE MEMO-POISONED — classify in a FRESH PROCESS
 > `parseAttachedBonus` memoises into a slot, which makes **`isNativeAura` ORDER-DEPENDENT**: the same card in
@@ -39,7 +44,12 @@
 > per-descriptor where the type is known, or teach the one matcher — never rename globally.** Full
 > post-mortem + the real fix in the run ledger.
 
-> ### ⭐ THE INSTRUMENT TO KEEP RUNNING: **re-check RUNTIME refusal comments** — 5 bugs, 5 slices
+> ### ⭐ THE INSTRUMENT TO KEEP RUNNING: **re-check RUNTIME refusal comments** — 6 bugs, 6 slices
+> ⛔⛔ **NEWEST, AND THE LOUDEST: PLATINUM ANGEL WAS A 4/4 FLIER.** `isPlayerDead` enforced every lose
+> condition and `hasWonGame` enforced winning — with **no exemption read anywhere**. And **Abyssal
+> Persecutor played BETTER than printed**: it prints both halves inverted (*its* controller can't win), so
+> the engine handed its controller the win outright. **A drawback the engine skips is not a safe false
+> negative.** Whenever a card's text is entirely a restriction, ask who reads it.
 > ⭐ **THE SHAPE THAT KEEPS RECURRING:** a rule the engine DOES enforce, whose **modifier or exemption side**
 > was never modelled — with a comment explaining the gap as deliberate. legend rule → exemption unmodelled
 > (Mirror Gallery inert). Max hand size → modifier unmodelled AND a blanket fail-open (Cursed Rack gave its

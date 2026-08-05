@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Platinum Angel works — and Abyssal Persecutor's drawback finally binds.** "You can't lose the game"
+  and "your opponents can't win the game" were being read as flavor: the simulator killed you at 0 life
+  with the Angel on the battlefield, and let an Abyssal Persecutor controller win outright — the one
+  thing that card exists to prevent. Herald of Eternal Dawn is covered by the same fix.
 - **Hand-size limits are enforced again.** Any card mentioning maximum hand size used to switch the
   end-of-turn discard off for *everyone* — so a Cursed Rack gave its own controller an unlimited hand.
   Thought Eater, Thought Nibbler, Thought Devourer and Minamo Scrollkeeper now change your limit properly.

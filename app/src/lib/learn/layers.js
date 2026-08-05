@@ -2153,6 +2153,37 @@ export function maxHandSizeFor(state, playerId) {
   return Math.max(0, max);
 }
 
+/**
+ * ⭐ CAN'T-LOSE / CAN'T-WIN (CR 104.3a / 104.2a) — does a live static stop `playerId` losing (or winning)?
+ * Platinum Angel, Herald of Eternal Dawn, Darksteel Angel, Lich's Mastery, Platinum Persecutor, and the
+ * inverted drawback side, Abyssal Persecutor.
+ *
+ * ⛔ THE SUBJECT IS RESOLVED FROM THE SOURCE'S CONTROLLER, never assumed. `who:"you"` means the controller
+ * of the permanent printing the line; `who:"opponents"` means everyone else; `who:"all"` means every player.
+ * Abyssal Persecutor prints both halves INVERTED relative to Platinum Angel — its controller can't WIN and
+ * its opponents can't LOSE — so a reader that treated "you" as "the good side" would hand its controller a
+ * win the card exists to deny.
+ *
+ * ⓘ Same INERT-op pattern as playerHexproof / cantGainLife / legendRuleOff; learnSession's isPlayerDead and
+ * hasWonGame are the only consumers.
+ */
+function gameOutcomeBlocked(state, playerId, layerOp) {
+  if (!playerId || !state?.players?.[playerId]) return false;
+  const board = collectContinuousEffects(state);
+  for (const e of board) {
+    if (e.op?.layerOp !== layerOp) continue;
+    const who = e.op.who;
+    if (who === "all") return true;
+    const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
+    if (!src?.controller) continue;
+    if (who === "you" && src.controller === playerId) return true;
+    if (who === "opponents" && src.controller !== playerId) return true;
+  }
+  return false;
+}
+export function playerCantLoseGame(state, playerId) { return gameOutcomeBlocked(state, playerId, "cantLoseGame"); }
+export function playerCantWinGame(state, playerId) { return gameOutcomeBlocked(state, playerId, "cantWinGame"); }
+
 export function playerCantGainLife(state, playerId) {
   if (!playerId || !state?.players?.[playerId]) return false;
   const board = collectContinuousEffects(state);
