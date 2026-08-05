@@ -6,6 +6,29 @@
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
+> ## ⛔ SLICE REVERTED - 2026-08-05 - **HOST-COLOUR AURA GATE (hybrid cycle)** — measured +7, ADMITTED 2 WRONG
+> Built, measured **+7 / 0 / 0**, and **thrown away** because two of the seven were false positives. Banked
+> so nobody rebuilds it the same way. **The flip-diff was GREEN and the slice was still wrong** — exactly
+> the standing warning that a clean diff is not a safe change.
+> **What it was:** "As long as enchanted creature is WHITE, it gets +1/+1 and has lifelink" (Steel of the
+> Godhead, Edge of the Divinity, Clout of the Dominus, Shield of the Oversoul, Runes of the Deus … 11
+> carriers). A `hostColor` gate in gateMet + a leading-condition arm in the attached lane.
+> ⛔ **WHY IT DIED — SILENT PARTIALS.** Scourge of the Nobilis and Helm of the Ghastlord bolt a QUOTED
+> ABILITY onto the same clause ("… is red, it gets +1/+1 **and has \"{R/W}: …\"**"). The slice emitted the
+> **+1/+1 and dropped the quoted ability**, then credited the card native. A card credited for a bonus the
+> engine only half-applies is the forbidden direction. **AUDIT EVERY GAINED ROW WHOLE-CARD** — 5 of the 7
+> were correct and would have carried the 2 through.
+> ⚠️ **A SECOND, WORSE HAZARD, and this one is live in the codebase RIGHT NOW:**
+> **`parseAttachedBonus` MEMOISES into a slot, and the memo makes `isNativeAura` ORDER-DEPENDENT.** The same
+> card, same process, gave `isNativeAura=false, bonus=[]` or `true, bonus=3` depending on **which predicate
+> was called first**. Two probes minutes apart disagreed and BOTH looked authoritative. **Any probe of an
+> Aura must classify in a FRESH process, or warm the memo identically every time** — otherwise you are
+> reading a cache, not the engine. This cost most of the debugging time and would have poisoned the pins.
+> ✅ **REBUILD RECIPE, when someone returns to it:** make the host-colour helper reject unless the inner
+> parse consumes the WHOLE clause (a quoted-ability tail must return null, not a bare P/T), decide the
+> shape **above** the aura-own-activated skip (a clause with a colon inside quotes matches that skip and gets
+> waved through), and probe every carrier in a fresh process.
+
 > ## SLICE DONE - 2026-08-05 - **COLOUR CONTROL GATE + a DEAD-CODE PATH, +13** - batch 91 (post-v0.152.0)
 > Suite 1128 / 14,010 green + lint 0 BY EXIT CODE. Flip-diff **+13 / 0 / 0** — the Cohort cycle, the
 > Scarecrow cycle, Gearsmith Guardian, Minotaur Tactician, Toxic Iguanar, Abzan Kin-Guard, Cliffrunner

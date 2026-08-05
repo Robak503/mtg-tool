@@ -9,6 +9,12 @@
 
 ## ☀️ 2026-08-05 — **+288 this sitting · v0.152.0 PUBLISHED · post-tag batch 91** — suite **1128 / 14,010** green by exit code
 
+> ### ⚠️⚠️ AURA PROBES ARE MEMO-POISONED — classify in a FRESH PROCESS
+> `parseAttachedBonus` memoises into a slot, which makes **`isNativeAura` ORDER-DEPENDENT**: the same card in
+> the same process answered `false / bonus=[]` or `true / bonus=3` depending on which predicate ran first.
+> Two probes minutes apart disagreed and both looked authoritative. **One card per process, or warm the memo
+> identically every time.** This is live in the codebase now, not a historical note.
+
 > ### ⚠️⚠️ A FEATURE CAN BE BUILT, PINNED, AND STILL UNREACHABLE — test REACHABILITY
 > The colour-OR gate arm shipped long ago and was **dead** in one clause position: the control-gate arms
 > above it matched on a `(.+)` type group and `return`ed even when no gate parsed, swallowing the clause.
