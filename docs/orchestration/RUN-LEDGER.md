@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-04 - **AURA SELF-BOUNCE admitted, +3** - batch 68 since v0.150.1
+> Suite 1100 files / 13,788 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Crown of Flames ·
+> Ghitu Firebreathing · Hypervolt Grasp, all audited whole-card. Fresh census bug signature ("{C}: return
+> this aura to its owner's hand" — 5 native / 3 sole). `isNativeOwnActivatedAura` allowed only
+> tap/untap/pump/regenerate at `target:"enchanted"`; the self-bounce is the one ability whose referent is
+> the AURA ITSELF. Both of Crown of Flames' abilities already parsed `modeled:true` — nothing was missing
+> but the admission. Admitted by **op AND target together**, so a chosen-target bounce still fails.
+> ⭐ Runtime verified first, and the DETACH is what a parse check can't see: the Aura goes to hand, off
+> the battlefield, and the host's `attachments` list is cleared — no orphaned link. Pump half still works.
+> One stale pin inverted (auraGrantedActivated pinned Hypervolt Grasp body-only from when the bounce was
+> residue; **no reasoned refusal in it**, unlike the Witch's Mark pins) with its guard re-aimed at a
+> chosen-target bounce. Mutations: target-self loosened → 1 red · arm removed → 3 red.
+
 > ## SLICE DONE - 2026-08-04 - **A period INSIDE a closing quote is a boundary, +1** - batch 65
 > Suite 1099 files / 13,781 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Verdant Rebirth.
 > `splitClauses` breaks on `\.\s+`; when a clause ends in a granted quoted ability the period is followed
