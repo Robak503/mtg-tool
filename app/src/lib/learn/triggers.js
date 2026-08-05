@@ -1783,6 +1783,42 @@ function classifyCondition(condRaw, cardName, cardType) {
   // event entirely, and the anchored "you control" requirement keeps it out. A variant with an OBJECT
   // ("…attack a player", "…attack an opponent") is likewise not claimed — the bare form only (safe FN).
   if (/^one or more creatures you control attack$/.test(c)) return { event: "youAttack", scope: "you", whose: "any" };
+  // ===== BATTALION (CR 702.101a) + THE ATTACK-COUNT FAMILY =====
+  // "Battalion — Whenever THIS CREATURE and at least two other creatures attack, …" (Legion Loyalist,
+  // Boros Strike-Captain, Ordruun Veteran, 19 sole-blocked carriers) and its unlabelled sibling
+  // "Whenever you attack with N or more creatures, …" (Military Intelligence).
+  //
+  // BOTH are the once-per-combat `youAttack` event with a MINIMUM ATTACKER COUNT — not a new event. That
+  // matters for correctness, not just economy: routing them through the PER-ATTACKER `attacks` event would
+  // fire once per attacker (a 3-creature alpha strike drawing 3 cards), which is exactly the over-fire the
+  // batched-attack note directly above exists to prevent.
+  //
+  // The ability-word label was never the blocker — a `Landfall —` prefix already detects fine. The
+  // CONDITION was: nothing here could express "and at least two other creatures attack". Measured before
+  // building, with the label removed, so the diagnosis isn't guessed.
+  //
+  // TWO FIELDS, and battalion needs both:
+  //   minAttackers        — total attacking creatures the controller must have declared.
+  //   requireSelfAttacking— battalion says "THIS CREATURE and …", so the source must be among them. Without
+  //                         it, a battalion creature sitting at home would trigger off three OTHER attackers,
+  //                         which is strictly better than printed — the forbidden direction.
+  // "you attack with N or more creatures" carries NO self requirement (the source needn't attack), so it
+  // sets only minAttackers. Both are enforced in checkAttackTriggers' once-per-combat pass.
+  // The subject is matched loosely and then required to be a SELF reference via the shared `selfRef` flag —
+  // battalion prints the card's own name ("Whenever Ordruun Veteran and at least two other creatures
+  // attack"), and `selfRef` is the same name/short-name/first-word recognizer every other self-scope
+  // condition in this function already trusts. A non-self subject falls through undetected (safe FN).
+  const ATTACK_COUNT_WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 };
+  const battalion = c.match(/^.+ and at least (\d+|one|two|three|four|five) other creatures attack$/);
+  if (battalion && selfRef) {
+    const other = ATTACK_COUNT_WORDS[battalion[1]] ?? parseInt(battalion[1], 10);
+    if (Number.isFinite(other)) return { event: "youAttack", scope: "you", whose: "any", minAttackers: other + 1, requireSelfAttacking: true };
+  }
+  const atkCount = c.match(/^you attack with (\d+|one|two|three|four|five|six) or more creatures$/);
+  if (atkCount) {
+    const n = ATTACK_COUNT_WORDS[atkCount[1]] ?? parseInt(atkCount[1], 10);
+    if (Number.isFinite(n)) return { event: "youAttack", scope: "you", whose: "any", minAttackers: n };
+  }
   // ===== EACH-PLAYER (compound-combat-trigger guard) ===== A condition that names BOTH "attacks" and
   // "blocks" is a COMPOUND combat event. The STANDARD "attacks or blocks" form is now SPLIT upstream
   // (DISJUNCTION_BLOCKS_SRC, BLITZ OR-1) into two single-verb sentences before this detector runs, so it
@@ -3987,6 +4023,8 @@ export function detectTriggers(card) {
         batchKeyword: cls.batchKeyword,       // WITH-KEYWORD BATCH combat-damage only (Quartzwood — lowercase keyword; layer-aware dealer gate)
         perDefender: cls.perDefender,         // WITH-KEYWORD BATCH only — fires once per damaged player with that pair's damage total in ctx
         attachedOnly: cls.attachedOnly,       // ATTACHED-ONLY attacks (Reyav) — the triggering attacker must carry ≥1 attachment
+        minAttackers: cls.minAttackers,       // BATTALION (CR 702.101a) + "you attack with N or more creatures" — the minimum DECLARED attacker count, gated in checkAttackTriggers' once-per-combat pass. ⚠️ Unlisted here = dropped = the descriptor decays to a bare "whenever you attack" and fires off a SINGLE attacker — an over-fire, and exactly what happened on the first attempt at this slice (the trigger detected as youAttack with minAttackers undefined while looking perfectly correct).
+        requireSelfAttacking: cls.requireSelfAttacking, // BATTALION only — "THIS CREATURE and at least two others attack", so the source must be among the declared attackers. Unlisted = dropped = a battalion creature sitting at home triggers off three OTHER attackers, strictly better than printed.
         itsController: cls.itsController,      // GLOBAL SUBTYPE combat-damage only ("its controller may …") — beneficiary = dealer's controller
         destroyThatCreature: cls.destroyThatCreature, // GLOBAL SUBTYPE combat-damage-to-CREATURE only (Toxin) — "destroy that creature"
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
@@ -5685,8 +5723,23 @@ export function checkAttackTriggers(state) {
   // (always true) + whose:"any", so the trigger fires regardless of whose turn it is.
   const attackingPlayer = attackers[0]?.attackingPlayer;
   if (attackingPlayer) {
+    // BATTALION / ATTACK-COUNT gate (CR 702.101a) — a youAttack descriptor may carry `minAttackers` and
+    // `requireSelfAttacking`. Both are evaluated HERE, against the DECLARED batch, because that is the only
+    // point where the full attacking set is known (CR 508.1 declares them simultaneously, so counting at a
+    // per-attacker site would see a partial batch and misfire).
+    // The count is the attacking player's OWN declared attackers — every entry in state.combat.attackers
+    // belongs to the active player, which is the same assumption the once-per-combat pass already makes.
+    const attackerIds = new Set(attackers.map((a) => a.permanentId));
+    const attackerCount = attackers.length;
     for (const watcher of triggerSourcesOf(state, attackingPlayer)) {
-      fired = fired.concat(triggersForEvent(state, { event: "youAttack", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: {} }));
+      const raw = triggersForEvent(state, { event: "youAttack", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: {} });
+      fired = fired.concat(raw.filter((t) => {
+        const d = t?.descriptor || t;
+        // A descriptor with neither field is an ordinary "whenever you attack" — unchanged, byte-for-byte.
+        if (d?.minAttackers != null && attackerCount < d.minAttackers) return false;
+        if (d?.requireSelfAttacking && !attackerIds.has(watcher.id)) return false;
+        return true;
+      }));
     }
   }
   // ===== PER-ATTACKER triggers ("this attacks", "a creature you control attacks") =====
