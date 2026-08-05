@@ -32,7 +32,7 @@ import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsC
 import { stripFlashPermissionLine } from "./effects/textNormalize.js"; // self-flash permission — shared with the spell path so metric and parser read ONE regex
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — the metric gates on the SAME vetting the runtime charges on
-import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, hasDethrone, hasTraining, firebendingKeywordValue, soulshiftKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues, startYourEnginesKeywordCount } from "./triggers.js";
+import { detectTriggers, stripTriggerAbilityLabel, foldTwoTriggerDetain, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, hasDethrone, hasTraining, firebendingKeywordValue, soulshiftKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues, startYourEnginesKeywordCount } from "./triggers.js";
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND no-cost credit — the same gate the runtime offers through (fading→triggers→… is already a loaded edge; no cycle)
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler, parseDiscardCostAbility } from "./effects/abilities.js";
@@ -1252,8 +1252,14 @@ function allTriggerSentencesModeled(card, oracle) {
   // (only the leading When is anchored), but detectTriggers splits it into TWO independent triggers. Bump the shaped
   // count by the number of compounds so `shaped === detected` holds for a successfully-split compound; if a half is
   // unmodeled the detected count under-runs this bumped shaped → the card correctly stays on the Arbiter.
-  const compoundShaped = compoundTriggerCount(stripReminder(stripTriggerAbilityLabel(oracle)));
-  const shaped = (stripReminder(stripTriggerAbilityLabel(oracle)).match(TRIGGER_SENTENCE_RE) || []).length + kwTrigShaped + compoundShaped;
+  // TWO-TRIGGER DETAIN FOLD — the SAME text detectTriggers sees (CR 610.3, Journey to Nowhere / Oblivion
+  // Ring). The fold turns an enters-exile + leaves-return PAIR into the one-sentence detain form, so the
+  // shaped count MUST fold too: counting 2 printed sentences against 1 detected descriptor mismatches and
+  // parks the card. This is the "shaped === detected" invariant, and the fold has to be applied on both
+  // sides of it or it buys nothing.
+  const foldedOracle = foldTwoTriggerDetain(oracle, card);
+  const compoundShaped = compoundTriggerCount(stripReminder(stripTriggerAbilityLabel(foldedOracle)));
+  const shaped = (stripReminder(stripTriggerAbilityLabel(foldedOracle)).match(TRIGGER_SENTENCE_RE) || []).length + kwTrigShaped + compoundShaped;
   const detected = detectTriggers(card);
   if (detected.length !== shaped) return false;     // an unrecognized-event trigger sentence
   return detected.every(triggerRoutesNatively);      // every recognized trigger's effect routes
@@ -1289,7 +1295,7 @@ export function permanentTriggersCovered(card) {
   // TRIGGER — never a modal ACTIVATED ability ("{2}: Choose one —", led by a cost) or a leveler, which is the
   // FP this anchoring avoids. FN-safe: allTriggerSentencesModeled passed above (every trigger, modal included,
   // is fully modeled), so removing a modal trigger's own block can only reveal the keyword-only body.
-  const residue = stripTriggerAbilityLabel(card.oracle || "")
+  const residue = stripTriggerAbilityLabel(foldTwoTriggerDetain(card.oracle || "", card))
     // ETB-ENTERING-PRONOUN tail (Surrak and Goreclaw) — "…put a +1/+1 counter on it. It gains haste until end
     // of turn." The entering-creature counter trigger's effect SPANS two sentences (a same-line follow-up):
     // detectTriggers folds the "It gets/gains <kw> until end of turn." sentence into the trigger's effectClause,
@@ -1750,7 +1756,7 @@ export function permanentFullyCovered(card) {
   // counter clause (the Surrak shape) — run BEFORE the trigger-sentence strip (which removes the "counter on
   // it." prefix this anchor needs), so a standalone "It …EOT" elsewhere is never consumed (CREED; mirrors the
   // native-trigger residue chain's ordering).
-  const afterTriggers = stripTriggerAbilityLabel(oracle)
+  const afterTriggers = stripTriggerAbilityLabel(foldTwoTriggerDetain(oracle, card))
     .replace(/(counters? on (?:it|that creature|this creature))\.\s+it (?:gets [+-]\d+\/[+-]\d+(?: and gains [^.]+)?|gains [^.]+) until end of turn\b\.?\s*/gi, "$1. ")
     .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, "\n")
     // REFLEXIVE (CR 603.7) + OPTIONAL-PAYMENT (CR 603.7c) tails — a "When you do, <reflexive>." / "If you do,

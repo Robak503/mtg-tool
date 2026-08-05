@@ -3431,6 +3431,50 @@ export function compoundTriggerCount(oracle) {
  * All triggered abilities printed on a card, as serializable TriggerDescriptors.
  * Cached by card identity (the regex pass runs once per distinct card object).
  */
+/**
+ * ⭐ TWO-TRIGGER DETAIN FOLD (CR 610.3) — Journey to Nowhere, Oblivion Ring, Fiend Hunter, Faceless
+ * Butcher, Detention Sphere and ~14 more.
+ *
+ * The MODERN templating says it in one sentence — "exile target creature an opponent controls UNTIL THIS
+ * CREATURE LEAVES THE BATTLEFIELD" (Banisher Priest) — and that form is fully modeled: removal.js stamps
+ * `untilSourceLeaves`, zones.applyExileUntilLeaves links the card to the source as a `detainedExile`, and
+ * checkLeavesTriggers synthesizes the return on ANY exit.
+ *
+ * The OLDER templating splits the identical effect across two triggers:
+ *     "When this enchantment enters, exile another target nonland permanent."
+ *     "When this enchantment leaves the battlefield, return that card to the battlefield …"
+ * Same rules meaning, different printing — and nothing recognised it, so nineteen cards sat on the Arbiter
+ * beside a mechanism built to run them.
+ *
+ * THE FOLD REWRITES PRINTING, NOT SEMANTICS: the enters-clause gains the "until this <type> leaves the
+ * battlefield" tail so the EXISTING detain parser claims it, and the leaves-clause is DROPPED because the
+ * detain mechanism already synthesizes exactly that return. Keeping it would return the card TWICE.
+ *
+ * ⛔ ALL-OR-NOTHING, AND BOTH HALVES MUST MATCH. The fold fires only when the card has BOTH an
+ * enters-exile and a matching leaves-return; either alone is left completely untouched (a lone
+ * enters-exile is a permanent exile — folding it would silently hand the card back). The leaves-clause must
+ * be the bare return with no rider, so a conditional or transformed return never folds.
+ */
+export function foldTwoTriggerDetain(oracle, card) {
+  const text = String(oracle || "");
+  if (!/leaves the battlefield/i.test(text) || !/\bexile\b/i.test(text)) return text;
+  const lines = text.split("\n");
+  const enterIdx = lines.findIndex((l) => /^when [^.]*enters[^.]*, (?:you may )?exile [^.]*\.?$/i.test(l.trim()));
+  const leaveIdx = lines.findIndex((l) => /^when [^.]*leaves the battlefield, return (?:that|the exiled) card to the battlefield(?: under (?:its|their) owner'?s? control)?\.?$/i.test(l.trim()));
+  if (enterIdx < 0 || leaveIdx < 0 || enterIdx === leaveIdx) return text;
+  const enter = lines[enterIdx].trim().replace(/\.$/, "");
+  if (/\buntil\b/i.test(enter) || /\byou may\b/i.test(enter)) return text; // already the modern form / an optional exile — leave it alone
+  // The source's own noun, so the rewritten tail matches the detain parser's alternation exactly.
+  const typeLine = String(card?.type || card?.type_line || "");
+  const noun = /\bEnchantment\b/i.test(typeLine) ? "enchantment"
+    : /\bCreature\b/i.test(typeLine) ? "creature"
+      : /\bArtifact\b/i.test(typeLine) ? "artifact" : "permanent";
+  const folded = lines.slice();
+  folded[enterIdx] = `${enter} until this ${noun} leaves the battlefield.`;
+  folded.splice(leaveIdx, 1);
+  return folded.join("\n");
+}
+
 export function detectTriggers(card) {
   if (!card || typeof card !== "object") return [];
   if (_detectCache.has(card)) return _detectCache.get(card);
@@ -3464,11 +3508,11 @@ export function detectTriggers(card) {
   // ⚠️ FOUND BY A PATH ACCIDENT: squad was credited on the STATIC residue path and refused on the TRIGGER one,
   // so an identical card flipped or parked purely on what its other line happened to be. This file has fixed
   // exactly that shape before (the self-no-untap static, "a pure path accident" — see coverage.js).
-  const oracle = splitCompoundTriggerSentences(stripTriggerAbilityLabel(
+  const oracle = foldTwoTriggerDetain(splitCompoundTriggerSentences(stripTriggerAbilityLabel(
     String(oracleOf(card) || "")
       .replace(/\((?:this (?:creature|permanent|enchantment|artifact|aura|land) enters (?:the battlefield )?with (?:a|one|two|three|four|five|\d+) (?:time|fade) counters? on it\.[^)]*)\)/gi, "")
       .replace(/\(as an additional cost to cast this spell, you may pay [^)]*any number of times\.[^)]*\)/gi, ""),
-  ));
+  )), card);
   const out = [];
   if (oracle) {
     // Anchored at start / after a sentence boundary, like keywords.js — so a

@@ -54,8 +54,18 @@ describe("parse + classify", () => {
     expect(classifyCard(BANISHER_PRIEST)).toBe("native-trigger");
     expect(classifyCard(SEAL_AWAY)).toBe("native-trigger");
   });
-  it("CREED — the old two-trigger O-Ring wording stays parked; up-to-one stays LOW; Angel of Sanctions FLIPS once embalm is credited", () => {
-    expect(classifyCard(OBLIVION_RING)).toBe("body-only");        // "return the exiled card" cross-trigger — a different frame
+  it("the old two-trigger O-Ring wording NOW FOLDS onto this frame; up-to-one stays LOW; Angel of Sanctions FLIPS once embalm is credited", () => {
+    // ⭐ INVERTED IN PLACE 2026-08-04. This pin called the two-trigger wording "a different frame" and parked
+    // it. It is the same frame in older printing: an enters-exile plus a leaves-return is exactly what
+    // "until this permanent leaves the battlefield" means (CR 610.3). detectTriggers now FOLDS the pair into
+    // the one-sentence form before detection, so this very mechanism claims it — no new resolver, and the
+    // leaves-clause is spliced out because THIS file's mechanism already synthesizes that return (keeping it
+    // would return the card twice). See twoTriggerDetainFold.test.js.
+    expect(classifyCard(OBLIVION_RING)).toBe("native-trigger");
+    // …and the CREED guard this line carried still stands, on a pair that genuinely must not fold: an
+    // OPTIONAL exile ("you may") is a different effect and is deliberately excluded.
+    expect(classifyCard({ id: "c-fh", name: "Fiend Hunter", type: "Creature — Human Cleric", mana: "{1}{W}{W}",
+      power: 1, toughness: 3, oracle: "When this creature enters, you may exile another target creature.\nWhen this creature leaves the battlefield, return that card to the battlefield under its owner's control." })).toBe("body-only");
     // NOTE (zone-option family, 2026-07-24): embalm is now a credited GY zone-option
     // (coverage.js reGyZoneOptionCost), so Angel of Sanctions' O-Ring-frame exile trigger — modeled
     // by THIS file's slice all along — is the whole remaining card. The park reason was embalm alone.
