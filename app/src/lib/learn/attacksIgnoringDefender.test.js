@@ -86,6 +86,40 @@ describe("the phrase is parsed, and it is NOT modelled as removing defender", ()
   });
 });
 
+describe("the GROUP twin — and the false positive that lane is one line away from", () => {
+  const statics = (oracle) => parseStaticAbilities({ id: "g", name: "Granter", type: "Enchantment",
+    mana: "{2}{W}", oracle }) || [];
+
+  it("⛔⛔ NOTHING EVER GRANTS DEFENDER — the clause ENDS in the word, and the anthem lane matches `have (.+)$`", () => {
+    // "Creatures you control can attack as though they didn't have DEFENDER." If this clause reached the
+    // have-tail lane, "defender" is a grantable keyword and every creature you control would GAIN defender —
+    // the exact opposite of the card, from a card whose whole job is letting Walls attack. The group lane is
+    // deliberately placed ABOVE that one. This pin is what keeps the ordering from being "cleaned up".
+    // ⚠️ THE RISK IS VERIFIED, NOT ASSUMED — the control below proves the have-tail lane really does turn a
+    // trailing "have defender" into a defender grant. What keeps our clause away from it is placement.
+    expect(statics("Creatures you control have defender.").map((e) => e.op?.keyword)).toEqual(["defender"]);
+    for (const o of ["Creatures you control can attack as though they didn't have defender.",
+      "Wall creatures can attack as though they didn't have defender.",
+      "Modified creatures you control can attack as though they didn't have defender."]) {
+      const kws = statics(o).map((e) => e.op?.keyword);
+      expect(kws).toEqual(["attacksIgnoringDefender"]);
+      // ⛔ case-INSENSITIVE: the grant lane emits lowercase "defender", so a check for "Defender" would be
+      // hollow — it could never fire no matter how badly this broke.
+      expect(kws.some((k) => String(k).toLowerCase() === "defender")).toBe(false);
+    }
+  });
+
+  it("⭐ the selector is read from the card, not assumed — scope and subtype both carry", () => {
+    // High Alert: yours only.
+    expect(statics("Creatures you control can attack as though they didn't have defender.")[0].affects.selector)
+      .toEqual({ controllerScope: "you", cardTypes: ["Creature"] });
+    // ⛔ Rolling Stones says "Wall creatures", not "Wall creatures YOU CONTROL" — it unlocks EVERY Wall on
+    // the battlefield, including opponents'. Scoping it to "you" would be a quiet rules change.
+    expect(statics("Wall creatures can attack as though they didn't have defender.")[0].affects.selector)
+      .toEqual({ controllerScope: "each", cardTypes: ["Creature"], subtypes: ["Wall"] });
+  });
+});
+
 describe("⭐ LAW 6 — the escape is honored at the real attack-declaration gate", () => {
   function board({ withGate }) {
     let s = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });

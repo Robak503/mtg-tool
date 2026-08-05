@@ -3363,6 +3363,25 @@ function parseClause(clause, out, selfName, selfType) {
   // Hoisted ABOVE both the P/T pass and the keyword pass because the P2.10 combined "get +X/+Y and have
   // <tail>" pushes the layer-7c P/T descriptor BEFORE the grant pass — so a lossy tail must prevent BOTH
   // descriptors, not just the grant one. A lossy "have <tail>" leaves the WHOLE clause body-only (clean FN).
+  // ── GROUP AS-THOUGH DEFENDER ESCAPE (CR 609.4b) — "Creatures you control can attack as though they
+  // didn't have defender." (High Alert, Felothar the Steadfast, Rolling Stones). The GROUP twin of the self
+  // form; same pseudo-keyword, honored at the two attack-declaration enumeration sites, so the creatures
+  // keep defender for every other reader — including this card's OWN other line, which usually reads
+  // "each creature you control WITH DEFENDER assigns combat damage equal to its toughness".
+  // ⛔ PLACED ABOVE THE have-TAIL LANE ON PURPOSE, and this is not a style preference. That lane matches
+  // `have (.+)$` — and this clause ENDS in "…didn't have DEFENDER". If it ever reached there, the tail
+  // "defender" is a grantable keyword and the card would GRANT DEFENDER to every creature you control:
+  // the exact opposite of what it says, from a card whose whole purpose is letting Walls attack. It emits
+  // nothing today only because the selector parse happens to fail on the full clause — luck, not a
+  // guarantee. The anti-FP is pinned in attacksIgnoringDefender.test.js; keep this lane first.
+  {
+    const gd = c.match(/^(.+?) can attack as though (?:they|it) did\s?n[‘’']?t have defender$/);
+    const affects = gd && parseCreatureSelector(`${gd[1]} have`);
+    if (affects) {
+      out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: "attacksIgnoringDefender" }, affects, duration: { kind: "permanent" } });
+      return;
+    }
+  }
   const haveMatch = c.match(/\b(?:have|has)\s+(.+)$/);
   const anthemGrant = haveMatch && parseCreatureSelector(c) ? parseAnthemHaveTail(haveMatch[1]) : null;
   if (haveMatch && parseCreatureSelector(c) && !anthemGrant) {
