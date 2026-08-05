@@ -1255,6 +1255,27 @@ function emitGatedEffect(out, effRaw, gate) {
     const segs = e.slice(4).split(/,|\band\b/).map(s => s.trim().replace(/[^a-z ]/g, "").trim()).filter(Boolean);
     if (segs.length && segs.every(s => GRANTABLE_KEYWORDS.has(s))) { for (const s of segs) kws.push(canonicalKeyword(s)); e = ""; }
   }
+  // ⭐ COMBAT-RESTRICTION RIDERS — "gets +2/+2 AND CAN'T BLOCK" (Childhood Horror). Pure ignition: both
+  // pseudo-keywords below are already modelled and enforced layer-aware, and this emitter already knows how
+  // to attach a gate to an addKeyword. The rider simply had no entry point, so the whole clause fell to the
+  // unconsumed-rider return below and parked the card.
+  //   · "can't block"      → cantBlock   — read by combatEvasion.canBlockAttacker (permanentHasKeyword)
+  //   · "can't be blocked" → unblockable — read by the same function's attacker-side check
+  //   · "can't attack"     → cantAttack  — read at the attack-declaration enumeration sites
+  // ⛔ WHOLE-ANCHORED, AND THAT IS THE ENTIRE SAFETY ARGUMENT. "can't be blocked EXCEPT by artifact
+  // creatures" (fear) and "can't be blocked BY creatures with flying" are FILTERED evasion, a different and
+  // much weaker ability; mapping either onto bare `unblockable` would make the creature unblockable by
+  // everything — a forbidden false positive, and one Frightcrawler would have triggered on its own first
+  // line. The `$` anchor is what keeps them out; do not relax it into a prefix match.
+  // ⓘ "can attack as though it didn't have defender" is NOT here on purpose. It is an as-though effect
+  // (CR 609.4b), not a keyword removal — emitting removeKeyword:defender would be observably wrong to
+  // everything else that reads defender ("creatures with defender you control get …", Wall tribal). It
+  // needs its own pseudo-keyword honored at the attack gates; a separate slice, 8 carriers.
+  if (e !== "") {
+    const restriction = e.replace(/[‘’']/g, "'");
+    const RIDERS = { "can't block": ["cantBlock"], "can't attack": ["cantAttack"], "can't be blocked": ["unblockable"], "can't attack or block": ["cantAttack", "cantBlock"] };
+    if (Object.hasOwn(RIDERS, restriction)) { for (const k of RIDERS[restriction]) kws.push(k); e = ""; }
+  }
   if (e !== "" || (!pt && kws.length === 0)) return; // unconsumed rider, or nothing recognized → LOW (Arbiter)
   if (pt) out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModifyGated", power: pt.power, toughness: pt.toughness, gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });
   for (const kw of kws) out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: kw, gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });

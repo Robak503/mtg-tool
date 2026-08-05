@@ -66,8 +66,19 @@ describe("GATED-GY — CREED: typed counts and non-grantable riders stay LOW", (
     expect(descns("As long as there are five or more mana values among cards in your graveyard, this creature gets +2/+2.")).toEqual([]);
   });
   it("a rider riding alongside the gated P/T drops the WHOLE clause (no silent partial)", () => {
-    expect(descns("As long as there are seven or more cards in your graveyard, this creature gets +2/+2 and can't block.")).toEqual([]);
+    // ⭐ INVERTED 2026-08-05, guard job intact. "can't block" USED to sit here as the specimen unknown
+    // rider. It is now a consumed one — emitGatedEffect maps it to the modelled `cantBlock` pseudo-keyword,
+    // enforced at combatEvasion.canBlockAttacker and driven on a board in gatedCombatRestriction.test.js.
+    // Pinning its real emission here keeps this file honest about what the emitter consumes.
+    expect(descns("As long as there are seven or more cards in your graveyard, this creature gets +2/+2 and can't block.")).toMatchObject([
+      { op: { layerOp: "ptModifyGated", power: 2, toughness: 2, gate: { countSpec: { kind: "cardsInGraveyard" }, atLeast: 7 } }, affects: { mode: "self" } },
+      { op: { layerOp: "addKeyword", keyword: "cantBlock", gate: { countSpec: { kind: "cardsInGraveyard" }, atLeast: 7 } }, affects: { mode: "self" } },
+    ]);
+    // ⛔ THE GUARD'S JOB — riders with NO evaluator still take the whole clause down rather than emit the
+    // P/T alone. Two specimens that remain genuinely unconsumed, so this never becomes a hollow pin:
+    // a quoted activated grant, and a must-attack requirement (Otarian Juggernaut's shape).
     expect(descns("Threshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1, is black, and has \"{2}{B}, {T}: Destroy target green creature.\"")).toEqual([]);
+    expect(descns("As long as there are seven or more cards in your graveyard, this creature gets +2/+2 and attacks each combat if able.")).toEqual([]);
   });
   it("the typed creature-cards gate flips native end-to-end (park LIFTED by BLITZ CA-2)", () => {
     expect(classifyCard({ type: "Creature — Vampire", name: "Killmonger", mana: "{2}{B}", oracle: "As long as there are two or more creature cards in your graveyard, this creature gets +2/+1." })).toMatch(/^native/);
