@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Miirym, Sentinel Wyrm works.** Her Dragon token copies were being destroyed the moment they arrived —
+  the token was legendary and died to the legend rule alongside the Dragon it copied, so the card did
+  nothing. The tokens are correctly not legendary now.
 - **Spark Double no longer kills what it copies.** Copying your own commander (or any legend) was
   destroying one of the pair to the legend rule — the exact thing the card says doesn't happen. The copy is
   correctly not legendary now.

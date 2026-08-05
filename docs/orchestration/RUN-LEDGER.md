@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **TOKEN-COPY "isn't legendary" — MIIRYM DID NOTHING AT ALL** - batch 33
+> Suite 1138 / 14,052 green + lint 0 BY EXIT CODE. Flip-diff **0 / 0 / 0**, and it makes a Commander staple
+> actually function.
+> ⛔⛔ **THE WORSE HALF OF YESTERDAY'S TWIN.** `tokenCopy.js` swallowed ", except the token isn't legendary"
+> inside its match regex (a NON-CAPTURING group) with the same expired justification. With CR 704.5j
+> enforced, a token copy that kept **Legendary** dies to the rule the instant it enters — so **Miirym,
+> Sentinel Wyrm**, whose entire card is "token copy of each legendary Dragon you cast", **did nothing at
+> all**: every token it made was destroyed by the Dragon it had just copied.
+> ⭐ **THREE LIVE BUGS IN THREE CONSECUTIVE SLICES from ONE instrument** — ward—discard, clone, token-copy.
+> `grep -rn "unenforced\|not enforced\|not modeled" src/lib/learn/*.js`, then re-check each note against
+> what the engine can do TODAY. **A refusal comment is a claim with a timestamp.** This sweep is not
+> exhausted; keep running it.
+> ⛔ **THE FLAG IS CONDITIONAL, and the mutant proved that matters.** The tail is a CAPTURING group now and
+> `notLegendary` rides only when PRINTED — forcing it on strips a plain copy's supertype (Vaultborn Tyrant,
+> Ochre Jelly), a false positive pointing the OTHER way. Both directions pinned; the control row is what
+> catches it.
+> ℹ **+0 and invisible to the flip-diff by construction** — Miirym was already native-trigger because the
+> tail was ABSORBED by the regex and never blocked recognition. **Three +0 slices in a row, all real bugs.**
+> ⚠️ My first pin expected 2 Dragons and got 3 — **Miirym herself is a "Legendary Creature — Dragon
+> Spirit"**. The engine was right and my board arithmetic was wrong; corrected in-file.
+
 > ## SLICE DONE - 2026-08-05 - **CLONE "isn't legendary" — a LIVE FP a stale comment created** - batch 33
 > Suite 1137 / 14,049 green + lint 0 BY EXIT CODE. Flip-diff **0 / 0 / 0** — and it fixes a bug that was
 > **destroying the player's commander.**

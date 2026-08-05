@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+321 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 33** — suite **1137 / 14,049** green by exit code
+## ☀️ 2026-08-05 — **+321 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 33** — suite **1138 / 14,052** green by exit code
 
 > ### ⚠️⚠️ AURA PROBES ARE MEMO-POISONED — classify in a FRESH PROCESS
 > `parseAttachedBonus` memoises into a slot, which makes **`isNativeAura` ORDER-DEPENDENT**: the same card in
@@ -39,7 +39,14 @@
 > per-descriptor where the type is known, or teach the one matcher — never rename globally.** Full
 > post-mortem + the real fix in the run ledger.
 
-> ### ▶️ START HERE: **tokenCopy's "isn't legendary"** — same stale note, WORSE bug (Miirym does NOTHING)
+> ### ⭐ THE INSTRUMENT TO KEEP RUNNING: **re-check RUNTIME refusal comments**
+> `grep -rn "unenforced\|not enforced\|not modeled" src/lib/learn/*.js` → check each note against TODAY's
+> engine. **Three live bugs in three consecutive slices** came out of it: ward—discard (creatures targeted
+> for free), clone isn't-legendary (Spark Double killed your commander), token-copy isn't-legendary (Miirym
+> did nothing at all). **A refusal comment is a claim with a timestamp** — and all three measured **+0**, so
+> a flip-diff would never have found them. **The sweep is NOT exhausted.**
+
+> ⏮️ (done) tokenCopy's "isn't legendary"
 > Its twin in `cloneCopy.js` shipped today: the no-op justified by *"the legend rule is unenforced"* had
 > become a live FP that **destroyed the player's commander**. `tokenCopy.js` still swallows the same rider
 > inside `TOKEN_COPY_RE`. Fix shape is in the run ledger (carry a `notLegendary` flag on the atom, pass the

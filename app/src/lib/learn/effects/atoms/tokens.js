@@ -482,6 +482,13 @@ export function applyCreateTokenCopy(state, atom, ctx) {
   if (Array.isArray(atom.addCardTypes) && atom.addCardTypes.length) {
     for (const ct of atom.addCardTypes) copyRiders.push({ kind: "addCardType", cardType: ct });
   }
+  // ⭐ CR 707.9a — "except the token isn't legendary" (Miirym Sentinel Wyrm, Quasiduplicate's kin). The SAME
+  // stripLegendary rider cloneCopy uses, so the token's type line genuinely lacks the supertype.
+  // ⛔ THIS IS LOAD-BEARING, NOT COSMETIC. sba.js enforces CR 704.5j (applyLegendRule) by grouping a
+  // player's legendary permanents BY NAME off the type line and destroying all but the newest. A token copy
+  // of a legendary permanent that KEPT "Legendary" dies to that rule the instant it enters — which for
+  // Miirym (a token copy of every legendary Dragon you cast) meant the card did nothing at all.
+  if (atom.notLegendary) copyRiders.push({ kind: "stripLegendary" });
   const copiable = snapshotCopiedCard(sourcePerm, undefined, copyRiders);
   // Wave-3a token doubler (CR 616): a token-copy is still "a token created", so a doubler multiplies it.
   // Computed once (the minted copy is token:true, never itself a doubler).

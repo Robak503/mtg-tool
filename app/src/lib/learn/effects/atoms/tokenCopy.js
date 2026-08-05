@@ -39,7 +39,7 @@
 // Anchored: "create a token that's a copy of {this creature | it}" + an OPTIONAL ", except the token
 // isn't legendary" tail and nothing else. Apostrophes normalized to straight by the caller. "that's"
 // is the contraction-stripped form; the full "that is a copy" is also accepted.
-const TOKEN_COPY_RE = /^create a token that(?:'s| is) a copy of (this creature|it)(?:, except the token isn't legendary)?$/;
+const TOKEN_COPY_RE = /^create a token that(?:'s| is) a copy of (this creature|it)(, except the token isn't legendary)?$/;
 // TOKEN-COPY + ADD-CARD-TYPE rider (Vaultborn Tyrant — "create a token that's a copy of it, except it's an
 // artifact in addition to its other types"; also Ochre Jelly's self form). CR 707.9a — the copy gains the
 // named CARD TYPE (a supertype-position add, LEFT of the "—"), so the minted token genuinely IS that type
@@ -62,7 +62,7 @@ const ADDABLE_CARD_TYPES = new Set(["artifact", "enchantment"]);
 // copy's characteristics — a subtype feeds the live subtype-ETB/attacks/dies scopes). targetType "creature"
 // + the you-control restriction so the cast path / enumerateTargets offers ONLY the controller's own
 // creatures (never an opponent's, which would be illegal).
-const TOKEN_COPY_TARGET_RE = /^create a token that(?:'s| is) a copy of target creature you control(?:, except it isn't legendary)?$/;
+const TOKEN_COPY_TARGET_RE = /^create a token that(?:'s| is) a copy of target creature you control(, except it isn't legendary)?$/;
 // TOKEN-COPY-UPTOONE-MVX — "create a token that's a copy of up to one target creature with mana value X or
 // less" (Here Comes a New Hero!, an {X} sorcery). CR 601.2c — the target is OPTIONAL (0-or-1: `optionalTarget`),
 // and its legality is bounded by the spell's chosen X (CR 202.3b — X is bound at cast). The copy is UNRESTRICTED
@@ -109,7 +109,13 @@ export function tokenCopyParser(clause) {
   const m = t.match(TOKEN_COPY_RE);
   if (m) {
     const copySource = m[1] === "this creature" ? "self" : "triggering";
-    return { op: "create-token-copy", copySource, count: 1, targetType: null };
+    // ⭐ "except the token isn't legendary" is a REAL type-line modification (CR 707.9a), not a no-op.
+    // ⛔⛔ THIS TAIL USED TO BE SWALLOWED AND DROPPED, justified as "the legend rule is unenforced". sba.js
+    // implements CR 704.5j now, so a LEGENDARY token copy of a legendary permanent dies to the rule the
+    // instant it enters — which for MIIRYM, SENTINEL WYRM (a token copy of each legendary Dragon you cast)
+    // meant the card did NOTHING AT ALL. The flag rides to the resolver, which passes the same
+    // stripLegendary rider cloneCopy uses.
+    return { op: "create-token-copy", copySource, count: 1, targetType: null, ...(m[2] ? { notLegendary: true } : {}) };
   }
   // ADD-CARD-TYPE rider (Vaultborn Tyrant, Ochre Jelly) — a copy that gains a CARD TYPE ("…except it's an
   // artifact in addition to its other types"). Faithfully modeled: the type is prepended to the copy's type
@@ -125,8 +131,9 @@ export function tokenCopyParser(clause) {
     }
     return null; // an un-addable card type → Arbiter (no partial copy)
   }
-  if (TOKEN_COPY_TARGET_RE.test(t)) {
-    return { op: "create-token-copy", copySource: "target", count: 1, targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
+  const tm = t.match(TOKEN_COPY_TARGET_RE);
+  if (tm) {
+    return { op: "create-token-copy", copySource: "target", count: 1, targetType: "creature", restrictions: [{ kind: "controller", who: "you" }], ...(tm[1] ? { notLegendary: true } : {}) };
   }
   // TOKEN-COPY-UPTOONE-MVX (Here Comes a New Hero!) — an {X}-bound OPTIONAL (up-to-one) target copy capped at
   // MV≤X. optionalTarget → the cast may take 0 or 1 target (expandAtoms offers a decline); the manaValue/valueX
