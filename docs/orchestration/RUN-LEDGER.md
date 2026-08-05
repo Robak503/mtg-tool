@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **MAX HAND SIZE — a GLOBAL FAIL-OPEN closed, +4** - batch 38
+> Suite 1140 / 14,062 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Thought Eater, Thought Nibbler,
+> Thought Devourer, Minamo Scrollkeeper.
+> ⛔⛔ **THE BUG WAS NOT THE PARKED CARDS — IT WAS A BLANKET SUSPENSION.** `cleanupDiscardExcess` returned 0
+> for **EVERY player** the moment ANY permanent anywhere printed "maximum hand size" text it couldn't read.
+> So one **Cursed Rack** gave its OWN controller an **unlimited hand for the rest of the game** — and the
+> opponent it was aimed at as well. The four parked cards were the symptom; the fail-open was the defect.
+> ⭐ **FIFTH FIND FROM THE RUNTIME-REFUSAL SWEEP.** The pattern each time: a rule the engine DOES enforce,
+> whose modifier/exemption side was never modelled, with a comment explaining the gap as deliberate.
+> ⛔ **SELF-SCOPED ONLY, and the refusal is honest.** "The chosen player's …" (Cursed Rack) and "Each
+> opponent's …" (Locust Miser) need a chosen-player/opponent binding the op doesn't carry — they still park
+> AND still suspend. **The suspension didn't go away; it got NARROW.**
+> ⛔ **ONE REGEX, TWO CALLERS.** `MODELLED_MAX_HAND_RE` is exported from staticAbilityParser and used by BOTH
+> the emitting arm and cleanupDiscardExcess's readability test. Two copies would drift, and a drift means
+> either a silently-unapplied maximum or a wrongly-suspended cleanup — the exact two failure modes here.
+> ℹ Sets apply before deltas (a set landing after a delta would wipe it); "set 2 AND −3" clamps to 0.
+> ℹ The blanket-suspension mutant **reproduces the original bug exactly** — every readable board discards 0.
+
 > ## SLICE DONE - 2026-08-05 - **LEGEND-RULE EXEMPTION — MIRROR GALLERY DID NOTHING, +1** - batch 34
 > Suite 1139 / 14,057 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** (Mirror Gallery), and it makes
 > four cards function.

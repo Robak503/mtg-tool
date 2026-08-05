@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+322 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 34** — suite **1139 / 14,057** green by exit code
+## ☀️ 2026-08-05 — **+326 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 38** — suite **1140 / 14,062** green by exit code
 
 > ### ⚠️⚠️ AURA PROBES ARE MEMO-POISONED — classify in a FRESH PROCESS
 > `parseAttachedBonus` memoises into a slot, which makes **`isNativeAura` ORDER-DEPENDENT**: the same card in
@@ -39,7 +39,12 @@
 > per-descriptor where the type is known, or teach the one matcher — never rename globally.** Full
 > post-mortem + the real fix in the run ledger.
 
-> ### ⭐ THE INSTRUMENT TO KEEP RUNNING: **re-check RUNTIME refusal comments** — 4 bugs, 4 slices
+> ### ⭐ THE INSTRUMENT TO KEEP RUNNING: **re-check RUNTIME refusal comments** — 5 bugs, 5 slices
+> ⭐ **THE SHAPE THAT KEEPS RECURRING:** a rule the engine DOES enforce, whose **modifier or exemption side**
+> was never modelled — with a comment explaining the gap as deliberate. legend rule → exemption unmodelled
+> (Mirror Gallery inert). Max hand size → modifier unmodelled AND a blanket fail-open (Cursed Rack gave its
+> own controller an unlimited hand). **Ask of every enforced rule: what turns it OFF, and is that modelled?**
+
 > ⚠️ **AND ONE STALE COMMENT SEEDED THREE OF THEM.** cloneCopy.js's "the legend rule is UNENFORCED by the
 > engine" was cited as settled by later work, so it produced Spark Double killing your commander, Miirym
 > doing nothing, AND Mirror Gallery doing nothing. **When you find an expired refusal, grep for everything

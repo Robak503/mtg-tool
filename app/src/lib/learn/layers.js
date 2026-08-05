@@ -2124,6 +2124,35 @@ export function legendRuleExemptFor(state, perm) {
   return false;
 }
 
+/**
+ * ⭐ MAXIMUM HAND SIZE (CR 402.2) for `playerId` — the default 7, adjusted by the SELF-SCOPED statics that
+ * player controls: "Your maximum hand size is N" (set) and "increased/reduced by N" (delta).
+ *
+ * ⛔ SETS ARE APPLIED BEFORE DELTAS, in timestamp order within each group. CR 613 layers a "set" and a
+ * "modify" by timestamp, but a set that lands AFTER a delta would otherwise wipe it — applying every set
+ * first and then every delta is the reading that keeps both cards doing something, and matches how the
+ * P/T layers treat 7b-then-7c. With one card of each in play (the common case) the two orderings agree.
+ * ⛔ CLAMPED AT 0: a large "reduced by" must not produce a negative maximum.
+ *
+ * ⓘ Same INERT-op pattern as playerHexproof / cantGainLife / legendRuleOff — the layer engine skips the op
+ * and gameEngine.cleanupDiscardExcess is the single consumer.
+ */
+export function maxHandSizeFor(state, playerId) {
+  const board = collectContinuousEffects(state);
+  const mine = [];
+  for (const e of board) {
+    if (e.op?.layerOp !== "maxHandSize") continue;
+    const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
+    if (src?.controller === playerId) mine.push(e);
+  }
+  if (mine.length === 0) return 7;
+  const byTs = [...mine].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  let max = 7;
+  for (const e of byTs) if (e.op.mode === "set") max = e.op.n;
+  for (const e of byTs) if (e.op.mode === "delta") max += e.op.n;
+  return Math.max(0, max);
+}
+
 export function playerCantGainLife(state, playerId) {
   if (!playerId || !state?.players?.[playerId]) return false;
   const board = collectContinuousEffects(state);

@@ -772,6 +772,14 @@ export function entersWithPlusCounters(card) {
 }
 
 /**
+ * ⭐ The SELF-SCOPED maximum-hand-size lines this engine models — the SINGLE source of truth, shared by the
+ * parser arm that emits the op and by gameEngine.cleanupDiscardExcess, which must know whether a permanent's
+ * hand-size text is one it can READ before deciding to suspend enforcement. Two copies of this pattern would
+ * drift, and a drift here means either a silently-unapplied maximum or a wrongly-suspended cleanup.
+ */
+export const MODELLED_MAX_HAND_RE = /^your maximum hand size is (?:(increased|reduced) by )?(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)$/;
+
+/**
  * ⭐ ENTERS-WITH −1/−1 COUNTERS (CR 614.1c) — the exact SIGN-FLIPPED twin of entersWithPlusCounters above.
  * Shrewd Hatchling, Noxious Hatchling, Bloodied Ghost, Carnifex Demon, Grim Poppet, Wickerbough Elder and
  * ~30 more.
@@ -1905,6 +1913,30 @@ function parseClause(clause, out, selfName, selfType) {
     if (lr) {
       out.push({ layer: 6, op: { layerOp: "legendRuleOff", scope: lr[1] ? `${lr[1]}YouControl` : "all" }, affects: { mode: "self" }, duration: { kind: "permanent" } });
       return;
+    }
+  }
+  // ⭐ MAXIMUM HAND SIZE, SELF-SCOPED (CR 402.2): "Your maximum hand size is two." (Null Profusion,
+  // Recycle, Doctor Octopus) and the delta forms "increased by N" / "reduced by N" (Trusted Advisor,
+  // Minamo Scrollkeeper, Thought Eater).
+  // ⛔⛔ THE BUG THIS FIXES IS NOT THE PARK — IT IS A GLOBAL FAIL-OPEN. gameEngine.cleanupDiscardExcess
+  // suspends the cleanup discard for EVERY PLAYER the moment ANY permanent anywhere prints "maximum hand
+  // size" text it can't read. So a single Cursed Rack handed its OWN controller an unlimited hand for the
+  // rest of the game. Modelling the self-scoped forms lets that suspension narrow to the shapes that really
+  // are unreadable.
+  // ⓘ Same INERT layer-6 op as playerHexproof / cantGainLife / legendRuleOff: the layer engine skips it and
+  // one consumer reads it.
+  // ⛔ SELF-SCOPED ONLY. "The chosen player's …" (Cursed Rack) and "Each opponent's …" (Locust Miser) target
+  // someone else and need a chosen-player/opponent binding this op does not carry; they still park AND
+  // still suspend, which is the honest fail-open for a number the engine can't place.
+  {
+    const mh = c.match(MODELLED_MAX_HAND_RE);
+    if (mh) {
+      const n = _ENTER_NUM[mh[2]] ?? (/^\d+$/.test(mh[2]) ? parseInt(mh[2], 10) : NaN);
+      if (Number.isInteger(n)) {
+        const op = mh[1] ? { layerOp: "maxHandSize", mode: "delta", n: mh[1] === "reduced" ? -n : n } : { layerOp: "maxHandSize", mode: "set", n };
+        out.push({ layer: 6, op, affects: { mode: "self" }, duration: { kind: "permanent" } });
+        return;
+      }
     }
   }
   if (/^you have hexproof$/.test(c)) {

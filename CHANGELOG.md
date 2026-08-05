@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Hand-size limits are enforced again.** Any card mentioning maximum hand size used to switch the
+  end-of-turn discard off for *everyone* — so a Cursed Rack gave its own controller an unlimited hand.
+  Thought Eater, Thought Nibbler, Thought Devourer and Minamo Scrollkeeper now change your limit properly.
 - **Mirror Gallery works.** Its one line — turning off the legend rule — wasn't being applied at all, so
   the card did nothing. Mirror Box, Council of Reeds and Cadric's scoped versions work too, and each only
   covers what it says (Mirror Gallery helps everyone; Mirror Box helps only you).

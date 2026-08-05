@@ -67,7 +67,7 @@ import {
   checkSacrificeTriggers,
 } from "./triggers.js";
 import { checkAllStateBasedActions } from "./sba.js";
-import { expireContinuousEffects } from "./layers.js";
+import { expireContinuousEffects, maxHandSizeFor } from "./layers.js";
 import {
   parseEffectClause,
   programConfidence,
@@ -93,7 +93,7 @@ import { shuffleControllerLibrary } from "./effects/atoms/library.js"; // seeded
 import { drainDelayedTriggers } from "./effects/atoms/delayedTrigger.js"; // CR 603.7 scheduler drain (leaf atom module — imports only gameState, no cycle)
 import { rankBottomCandidates } from "./mulliganPolicy.js"; // London bottom-N picker (leaf module, no cycle)
 import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.js";
-import { registerGroupTriggeredBodyValidator } from "./staticAbilityParser.js";
+import { registerGroupTriggeredBodyValidator, MODELLED_MAX_HAND_RE } from "./staticAbilityParser.js";
 import { isModeledGroupTriggeredBody, combatDamageReferentSatisfied } from "./triggerRouting.js";
 import { registerGrantTriggeredBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant body gate
 
@@ -689,13 +689,23 @@ export function cleanupDiscardExcess(state, playerId) {
   if (!player) return 0;
   const oracleOf = (p) => String(p?.card?.oracle || p?.card?.oracle_text || "");
   if ((player.battlefield || []).some((p) => NO_MAX_HAND_RE.test(oracleOf(p)))) return 0;
+  // ⛔⛔ THE SUSPENSION IS NOW NARROW. It used to fire on ANY "maximum hand size" text anywhere on the
+  // table and returned 0 for EVERY player — so a single Cursed Rack handed its OWN controller an unlimited
+  // hand for the rest of the game. It still suspends, but only for text the engine genuinely cannot place:
+  // the chosen-player / each-opponent forms, which need a binding the maxHandSize op doesn't carry.
+  // ⓘ A line matching MODELLED_MAX_HAND_RE is READ (layers.maxHandSizeFor) rather than feared. That regex
+  // is exported from staticAbilityParser as the SINGLE source of truth — a second copy here would drift,
+  // and a drift means either a silently-unapplied maximum or a wrongly-suspended cleanup.
   for (const pl of Object.values(state.players)) {
     for (const p of pl.battlefield || []) {
       const o = oracleOf(p);
-      if (MAX_HAND_RE.test(o) && !NO_MAX_HAND_RE.test(o)) return 0;
+      if (!MAX_HAND_RE.test(o) || NO_MAX_HAND_RE.test(o)) continue;
+      const unreadable = o.split("\n").some((line) => /maximum hand size/i.test(line)
+        && !MODELLED_MAX_HAND_RE.test(line.trim().toLowerCase().replace(/\.\s*$/, "")));
+      if (unreadable) return 0;
     }
   }
-  return Math.max(0, (player.hand || []).length - 7);
+  return Math.max(0, (player.hand || []).length - maxHandSizeFor(state, playerId));
 }
 
 /**
