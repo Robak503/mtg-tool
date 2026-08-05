@@ -7,12 +7,37 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-04 — **+67 this sitting · BATCH 100 → TAGGED v0.151.0** — suite **1106 / 13,847** green by exit code
+## ☀️ 2026-08-04 — **+84 this sitting · v0.151.0 SHIPPED · post-tag batch 17** — suite **1108 / 13,871** green by exit code
 
-> ### 🏷 THE BATCH RULE FIRED. Colton's cadence (≈100 engine cards, then ONE tag) is met — batch 71 → 100.
-> Six slices this block, all on the **count-source seam**: ripple · Aura attached-count · Equipment and
-> combined siblings · zone (hand/graveyard) counts · multi-needle type-line counts · counters-on-self.
-> CHANGELOG carries four user-facing entries. Version syncs from the tag at build time; no source bump.
+> ### ✅ **v0.151.0 IS OUT.** Release workflow completed+success; signed installer + `.sig` + `latest.json`
+> published, version synced from the tag. Every running `.exe` picks it up on its next 24h check. Colton's
+> ≈100-card cadence fired at batch 100; the counter reset and post-tag work has already banked **+17**.
+
+> ### ⭐ THE BIGGEST SINGLE SLICE OF THE RUN: **THREATEN (+17)** — and the cause was NOT the family name
+> 47 corpus cards print *"Gain control of target creature until end of turn"* and **zero** were native.
+> control.js's own header blamed *"an end-of-turn revert schedule + the untap/haste rider"*. **The riders
+> were fine.** Measured before building anything:
+> `"Untap target creature. It gains haste…"` → `[untap, pump]` ✅ ·
+> `"Tap target creature. Untap that creature. It gains haste…"` → `[]` ❌ — **a card with no control clause
+> in it at all.** The real blocker was that exactly ONE referent could chain; a second "that creature"/"it"
+> dropped the whole program. **This is gate 20 in the open** — 47 cards nearly got attributed to a
+> control-duration cause that was never theirs.
+> **The transferable move: when a family shares a SYMPTOM, find a card OUTSIDE the family that shows the
+> same symptom.** One clause with no control in it collapsed the whole theory in a single probe.
+> ⛔ **AND THE ORDER OF THE TWO HALVES WAS LOAD-BEARING.** Loosening the parse gate alone admits the card
+> while the tail atom reads the slice of an atom the enumerator never allocated — EMPTY. Act of Treason
+> would classify native-spell and **silently drop its haste grant**: clean flip-diff, green suite, wrong
+> board. The runtime walk was written FIRST for exactly that reason.
+
+> ### ⛔ CORRECTION 31 — **AN UNTAGGED TARGET LIST MAKES A TARGET-BINDING PIN HOLLOW**
+> `targetsForAtom` returns the **whole** target list when no target carries an `atomIndex`:
+> `const tagged = targets.some(t => typeof t?.atomIndex === "number"); return tagged ? filter… : targets;`
+> So a harness that passes untagged targets hands **every** atom the same target no matter which index it
+> asks for — which sidesteps any bug about *which* atom a referent binds to. Measured: with untagged
+> targets, reverting the runtime walk left **all 14 tests green**. The real cast-time enumerator tags per
+> atom, so tagging is fidelity, not decoration.
+> **Rule: any pin about target BINDING must tag `atomIndex`, or it is testing nothing.** Third instance of
+> the correction-30 family today (a mutant that applies but never reaches the guarded case).
 
 > ### ⛔ CORRECTION 30 — **A MUTANT CAN PASS BECAUSE IT NEVER TOUCHED THE CASE UNDER TEST**
 > The double-count guard on counters-on-self was mutated and the suite **stayed green**, which reads as

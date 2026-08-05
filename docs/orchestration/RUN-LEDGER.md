@@ -3,7 +3,43 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
-> ## 🏷 BATCH CLOSED AT 100 - 2026-08-04 — **tagging v0.151.0**
+> ## SLICE DONE - 2026-08-04 - **THREATEN — until-EOT control change, +17** - batch 17 (post-tag)
+> Suite 1108 / 13,871 green + lint 0 BY EXIT CODE. `1760fe36`. Flip-diff **+17 / 0 / 0** — Act of Treason ·
+> Turn Against · Sarkhan Vol · Chamber of Manipulation · 13 more. **47 carriers, ZERO native before.**
+> ⭐ **THE CAUSE WAS NOT THE FAMILY NAME.** control.js's header blamed "an end-of-turn revert schedule + the
+> untap/haste rider". The riders were fine. Measured first:
+> `"Untap target creature. It gains haste…"` → `[untap, pump]` ✅ but
+> `"Tap target creature. Untap that creature. It gains haste…"` → `[]` ❌ — **a card with no control clause
+> in it at all.** The real blocker: exactly ONE referent could chain. **Gate 20 in the open** — 47 cards
+> nearly got attributed to a control-duration cause that wasn't theirs.
+> ⛔ **THE RUNTIME HALF WAS WRITTEN FIRST AND THAT ORDER IS LOAD-BEARING.** Loosening only the parse gate
+> admits the card while the tail atom reads the slice of an atom the enumerator never allocated — EMPTY.
+> Act of Treason would classify native and **silently drop its haste grant**: clean diff, green suite,
+> wrong board.
+> The revert is a **SWEEP, not a callback** — controlAura.js's own hazard note: a creature that never goes
+> home is a LEGAL-LOOKING board, so a green suite and a finished game both stay silent about permanent theft.
+> ⚠️ **THE CENTRAL PIN WAS HOLLOW AND PASSED UNDER THE MUTANT (correction 30, 3rd instance today).**
+> `targetsForAtom` returns the WHOLE list when no target carries an `atomIndex`, so an untagged harness
+> hands every atom the same target regardless of index — sidestepping the exact bug. Tagging to atom 0
+> (what the real enumerator does) makes the mutant red.
+> **3 STALE PINS INVERTED IN PLACE** (sliverOverlord's "stays LOW", two grantAuraCast Chamber fixtures) —
+> each re-aimed at a still-unmodeled example with the moved card re-pinned beside it. Full gate caught all 3.
+
+> ## SLICE DONE - 2026-08-04 - **"costs {1} less FOR EACH …" actually reduces, +0 tier** - post-tag
+> Suite 1107 / 13,857 green + lint 0 BY EXIT CODE. `45c7c05e`. Flip-diff **0 / 0 / 0**, shipped anyway:
+> **Blasphemous Act** — a Commander staple that usually costs about {R} — was being offered at full {8}{R}.
+> The metric table only had "{X} less WHERE X IS <metric>" (one number); the per-each form is per-unit ×
+> COUNT and fell to null. Reuses `parseSelfCountSource` + `countForSpec`, so the cost path and the P/T path
+> cannot disagree about a count source.
+> ⛔ **AFFINITY WAS THE PRECONDITION TO CHECK:** ~30 cards print this exact sentence inside affinity's
+> REMINDER TEXT. Parens are stripped before matching, so they yield null and **cannot be double-reduced** —
+> that would have been a silent mana error across a popular slice. Pinned.
+> ⚠️ Two harness misses first (`kind` not `type`; a castable card needs an id + precombat-main + a stocked
+> pool), both producing "NO CAST" at every arity. Full-price row pinned as the witness.
+
+> ## 🏷 BATCH CLOSED AT 100 — **v0.151.0 SHIPPED** (release workflow completed + success)
+> Published with the signed installer, `.exe.sig` and `latest.json`; version synced from the tag (0.151.0).
+> Every running `.exe` sees it on its next 24h check. Batch counter reset — post-tag work starts a new one.
 > Colton's cadence rule (batch ~100 engine cards, then ONE tag) is met: **batch 71 → 100** across six
 > slices this block. CHANGELOG updated with the four user-facing entries (Voltron sizes · hand/graveyard
 > scalers · the oil cycle · the opponent's-Aura fix). Version syncs from the tag at build time — no source

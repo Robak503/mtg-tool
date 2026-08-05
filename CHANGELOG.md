@@ -9,6 +9,13 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Act of Treason and every "steal a creature for the turn" card work.** Seventeen of them — Act of
+  Treason, Turn Against, Traitorous Blood, Bloody Betrayal, Limits of Solidarity, Portent of Betrayal,
+  Sarkhan Vol's −2 and more. You take the creature untapped and hasty, swing with it, and it goes home at
+  end of turn exactly as printed.
+- **Blasphemous Act costs what it should.** "This spell costs {1} less to cast for each…" was reducing
+  nothing, so Blasphemous Act was asking for its full {8}{R} instead of the {R} it usually costs with a
+  board full of creatures. Vanquish the Horde and Overwhelming Remorse were overcharged the same way.
 - **Sacrifice-yourself artifacts with a leave trigger work.** Experimental Synthesizer and Mouser
   Foundry can now be played fully: cracking them for their ability also fires their "when this leaves
   the battlefield" trigger, so you get both halves — exactly as printed.
