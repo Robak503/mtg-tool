@@ -1331,6 +1331,10 @@ function parseAsLongAsGate(condText) {
   // Source attachment / tap state ("this creature" — the self-name was normalized upstream).
   if (/^(?:this creature|it) is equipped$/.test(t)) return { kind: "isEquipped", gateOn: "source" };
   if (/^(?:this creature|it) is untapped$/.test(t)) return { kind: "untapped", gateOn: "source" };
+  // MONSTROUS (CR 701.32d) — the untapped gate's sibling; layers.gateMet reads the `monstrous` latch the
+  // monstrosity atom sets. gateOn:"source" like the tap read, which is a no-op for these SELF clauses
+  // (source == affected) and correct if the shape ever appears on a group anthem.
+  if (/^(?:this creature|it) is monstrous$/.test(t)) return { kind: "monstrous", gateOn: "source" };
   // PER-CANDIDATE: the affected creature is not a declared attacker (Arcades Sabboth).
   if (/^it's not attacking$/.test(t)) return { kind: "notAttacking" };
   // Source counter-pile thresholds (Beastmaster Ascension / Obscura Ascendancy / Tidal Influence forms).

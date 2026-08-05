@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Monstrous creatures get what they paid for.** Fleecemane Lion gains hexproof and indestructible once
+  it's monstrous, and Chillerpillar, Sinuous Vermin and Skittering Crustacean pick up flying, menace and
+  hexproof the same way.
 - **Goad works.** Shiny Impetus and Coercive Impetus now do what they say: the enchanted creature has to
   attack every combat, and it has to attack somebody *other than you* — unless you're the only target left,
   in which case it comes for you after all.

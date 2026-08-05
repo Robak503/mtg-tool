@@ -131,6 +131,10 @@ const SCORPION_SENTINEL = { id: "scs", name: "Scorpion Sentinel", type: "Creatur
 const SKYMARCHER_ASPIRANT = { id: "sma", name: "Skymarcher Aspirant", type: "Creature — Vampire Soldier", mana: "{W}",
   power: "2", toughness: "1",
   oracle: "This creature has flying as long as you have the city's blessing." };
+// ⭐ MOVED OUT OF THE FN-GUARD LIST 2026-08-05 — the monstrous state IS modelled now (a `monstrous` gate
+// reading the latch applyMonstrosity sets; see monstrousGate.test.js for the drive through the real atom).
+// It stays here as a POSITIVE pin so this file records that the boundary moved rather than silently losing
+// the case: an FN-guard list that quietly drops entries stops being a record of what the engine refuses.
 const CHILLERPILLAR = { id: "chp", name: "Chillerpillar", type: "Snow Creature — Caterpillar", mana: "{3}{U}",
   power: "2", toughness: "4",
   oracle: "{4}{S}: Monstrosity 2.\nAs long as this creature is monstrous, it has flying." };
@@ -492,10 +496,19 @@ describe("CA-2 — scope pins: a self-gated card emits SELF descriptors only; th
 });
 
 // ── FN guards — no exact evaluator (or an unconsumed effect rider) → NOTHING emitted ────────────────────
+describe("CA-2 — a guard that GRADUATED: monstrous is modelled now", () => {
+  it("⭐ Chillerpillar was an FN-guard fixture here and is now a positive pin", () => {
+    // Kept rather than deleted: this file is the record of what the engine refuses, so an entry that
+    // graduates should show as graduated. The drive through the real monstrosity atom lives in
+    // monstrousGate.test.js; here we only assert the boundary moved.
+    expect(parseStaticAbilities(CHILLERPILLAR).map((e) => `${e.op?.keyword}|${e.op?.gate?.kind}`))
+      .toEqual(["Flying|monstrous"]);
+  });
+});
+
 describe("CA-2 — FN guards: unevaluable conditions / unconsumed riders emit NOTHING", () => {
   const parked = [
     ["Skymarcher Aspirant (city's blessing — subgame state unmodeled)", SKYMARCHER_ASPIRANT],
-    ["Chillerpillar (monstrous state unmodeled)", CHILLERPILLAR],
     ["Messenger Hawk (no drawn-cards-this-turn ledger exists)", MESSENGER_HAWK],
     ["Briarberry Cohort ('another blue creature' — a derived-characteristic color count)", BRIARBERRY_COHORT],
     ["Iymrith ('ward {4}' is not a grantable keyword)", IYMRITH],

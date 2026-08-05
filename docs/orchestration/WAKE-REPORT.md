@@ -7,7 +7,14 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+262 this sitting · v0.152.0 PUBLISHED · post-tag batch 65** — suite **1125 / 14,000** green by exit code
+## ☀️ 2026-08-05 — **+266 this sitting · v0.152.0 PUBLISHED · post-tag batch 69** — suite **1126 / 14,003** green by exit code
+
+> ### ▶️ START HERE: **CENSUS THE GATES, NOT THE EFFECTS** — the live vein map is in the run ledger
+> When the rider census dried up, tallying the as-long-as CONDITIONS native-vs-parked immediately found a
+> fully-modelled effect sitting behind a condition the parser didn't know (monstrous: +4 for TWO LINES).
+> The ledger entry lists ~10 more conditions with **zero** natives, biggest first, **and names the two that
+> must be REFUSED** ("remains tapped", "remains on the battlefield" — they scope lockdown/control effects
+> on OTHER permanents, not self buffs; reading them as self gates would be a false positive).
 
 > ### ✅ GOAD SHIPPED (+2) — both halves, driven on a 4-player board. Next: see the run ledger.
 > ⚠️ **NEW TRAP WORTH THE READ: a card name can resolve to a TOKEN entry.** "Mark of the Rani" does —

@@ -6,6 +6,30 @@
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
+> ## SLICE DONE - 2026-08-05 - **MONSTROUS GATE, +4** - batch 69 (post-v0.152.0)
+> Suite 1126 / 14,003 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Fleecemane Lion, Chillerpillar,
+> Sinuous Vermin, Skittering Crustacean. **Two lines of code.**
+> ⭐ **THE METHOD IS THE STORY: WHEN THE RIDER CENSUS DRIED UP, CENSUS THE *GATES*.** Every one of these
+> cards had its monstrosity ACTIVATION modelled and granted ordinary grantable keywords — a fully modelled
+> effect behind a condition the parser didn't know. `parseAsLongAsGate` knew `"is untapped"` and not its
+> sibling `"is monstrous"`, so the whole clause failed and the card parked. `perm.monstrous` was already a
+> real latch set by `applyMonstrosity`. **Pure ignition.**
+> ℹ **THE NEW CENSUS — gate CONDITIONS tallied native-vs-parked — IS THE LIVE VEIN MAP.** 255 shapes;
+> these have **ZERO natives** and modelled-looking effects behind them:
+> · **"enchanted permanent is a creature" (16)** — the Rune cycle · **"you control this creature" (10)**
+> · **"you've drawn two or more cards this turn" (8)** — needs a per-turn draw ledger
+> · **"you have the city's blessing" (6)** · **"equipped creature is a human" (6)** — a per-HOST type read
+> · **"enchanted creature is <COLOR>" (≈15 across w/u/b/r)** — the hybrid-aura cycle, a per-host COLOR read
+> · **"you control another multicolored permanent" (5)** · **"you control your commander" (5)**
+> · **"you control a blue creature" (4)** — a NEAR-MISS: `COLOR_WORDS` already exists for
+>   "a black or green permanent", so the colour vocabulary is half-built.
+> ⛔ Two of these are **refused on sight, not deferred**: `"this creature remains tapped"` (5) and
+> `"this creature remains on the battlefield"` (8) are NOT self-buff gates — they scope a LOCKDOWN or a
+> gain-CONTROL effect on ANOTHER permanent. Reading them as self gates would be a false positive.
+> ⭐ **Second stale refusal pin inverted today, and NOT deleted:** Chillerpillar was an FN-guard fixture in
+> `selfAsLongAsGates.test.js` ("monstrous state unmodeled"). It moved to a POSITIVE pin in the same file
+> — **an FN-guard list that quietly drops graduates stops being a record of what the engine refuses.**
+
 > ## SLICE DONE - 2026-08-05 - **GOAD (CR 701.38) — the subsystem, +2** - batch 65 (post-v0.152.0)
 > Suite 1125 / 14,000 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Shiny Impetus, Coercive Impetus.
 > ⭐ **BOTH HALVES OR NEITHER.** Goad is two rules, and shipping one is worse than shipping none: a creature

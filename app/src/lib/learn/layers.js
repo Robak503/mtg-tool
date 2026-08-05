@@ -529,6 +529,14 @@ function gateMet(state, perm, gate) {
   // perm.tapped read the SF-1 untapped/tapped selectors use (a tap is an immutable state update, so the
   // per-state memo re-derives on the post-tap state).
   if (gate.kind === "untapped") return !perm.tapped;
+  // ⭐ MONSTROUS gate (CR 701.32d — "As long as this creature is monstrous, it has trample" — Fleecemane
+  // Lion, Hundred-Handed One, Colossus of Akros and 5 more). The SIBLING of the untapped read directly
+  // above, and pure ignition: `perm.monstrous` is a real latch already set by the monstrosity atom
+  // (effects/atoms/counters.js applyMonstrosity), and every one of these carriers already has its
+  // activation modelled. Only the gate vocabulary was missing, so the whole clause parked.
+  // ⓘ Monstrosity is a ONE-WAY latch (CR 701.32b — a monstrous creature is monstrous forever), so this
+  // needs no history and no timestamp: a live boolean read, re-evaluated like every other gate.
+  if (gate.kind === "monstrous") return !!perm.monstrous;
   // CARDS-IN-HAND gate (BLITZ CA-1 — Neheb, the Worthy "As long as you have one or fewer cards in hand,
   // Minotaurs you control get +2/+0"): the gate subject's CONTROLLER's live hand size against an
   // atMost/atLeast band. A pure zone-array length read — no derive, no event history.
