@@ -9,7 +9,19 @@
 
 ## ☀️ 2026-08-05 — **+489 this sitting · 🏷 v0.154.0 PUBLISHED · post-tag batch 100 → 🏷 TAG DUE** — suite **1156 / 14,181** green by exit code
 
-> ### ⏭ NEXT BUILD, MEASURED AND SEAM-MAPPED: **"how many COLOURS did you spend?" — sunburst + converge, +10**
+> ### ⚠️⚠️ A TEST FIXTURE WHOSE PROPERTY IS "UNMODELLED" **WILL ROT** — twice now, same file
+> `entersCountersStripAnchor` needs an unmodelled NO-PERIOD keyword line to prove its strip doesn't eat
+> backwards across a newline. That property is the one this project exists to destroy. The fixture was
+> champion (until champion shipped), then sunburst (until today). Now "Double team", verified unmodelled
+> alone AND welded. **When a test like this reddens, the guard is almost certainly fine — re-probe for a
+> keyword that still parks and swap it, never weaken the assertion.** Recorded in-file too.
+
+> ### ✅ DONE (+6): sunburst. The seam-map below held exactly; converge remains.
+> ⛔ Keep the warning that mattered: the counter KIND is read from the type line (+1/+1 on a creature, CHARGE
+> on a non-creature artifact). The kind-forcing mutant still produces the RIGHT NUMBER of counters — **a
+> count that's correct can still be the wrong answer.**
+
+> ### ⏭ ORIGINAL SEAM-MAP (kept — converge still open): **"how many COLOURS did you spend?"**
 > 50 real carriers; the causation probe (swap the colour-count for a fixed count) says **10 flip**. One
 > missing QUESTION behind both keywords, and **the answer already exists at payment time and is thrown away**:
 > `commitPaymentPlan(state, playerId, plan)` receives `plan.spend`, a per-colour map. Nothing records it.

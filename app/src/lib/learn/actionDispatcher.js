@@ -246,6 +246,16 @@ function applyCastSpell(state, action) {
   // freeCast: the pendingFreeCast/pendingCascade clears further down are keyed off action.freeCast under a
   // single-producer invariant an overloaded flag would silently corrupt.
   let working;
+  // ⭐ COLOURS SPENT (CR 202.2 / 105.1) — SUNBURST (CR 702.43) and CONVERGE both ask "how many COLOURS of
+  // mana were spent to cast this?", and the answer has always existed here and been discarded: planPayment
+  // returns `spend: {W,U,B,R,G,C}`, the exact per-colour tally the payment then deducts. Captured beside the
+  // commit and threaded onto the spell's params, the same way `castFromZone` is a few hundred lines down.
+  // ⛔ C IS NOT A COLOUR (CR 105.1) — colourless mana is excluded from the count. Counting it would give
+  // every Sol-Ring-funded sunburst creature a free counter.
+  // ⛔ A FREE / ALT-COST CAST SPENDS NO MANA, so this stays 0 — which is CR-correct (sunburst counts mana
+  // actually spent, and a cascade or "without paying its mana cost" cast spends none), and it is also the
+  // safe direction: an under-count can only ever under-size the payoff.
+  let colorsSpent = 0;
   if (action.freeCast || action.altCost) {
     working = state;
   } else {
@@ -286,6 +296,8 @@ function applyCastSpell(state, action) {
     // a one-shot Treasure/Gold — then deduct EXACTLY what the plan spent. Any surplus from an
     // over-producing source (Sol Ring on a single generic) floats — the floating-mana behavior we want.
     working = commitPaymentPlan(state, action.playerId, plan);
+    // Read off the SAME plan the commit just deducted, so "counted" and "spent" can never drift apart.
+    colorsSpent = ["W", "U", "B", "R", "G"].filter((c) => (plan.spend?.[c] || 0) > 0).length;
   }
 
   // 2b. Pay any ADDITIONAL COSTS (CR 601.2f) — paid at cast, before the spell finishes going on the stack.
@@ -617,6 +629,11 @@ function applyCastSpell(state, action) {
     // has a source zone. A permanent that arrives any other way never reaches this line at all, so it
     // stays unstamped and the rider reads false.
     params.castFromZone = action.fromZone || "hand";
+    // ⭐ COLOURS SPENT — the sunburst / converge count, captured off the payment plan above and threaded the
+    // same way castFromZone is. resolvers.enterPermanent stamps it onto the entering permanent so an ETB
+    // rider can read it. Always a number on a cast (0 for a free/alt-cost cast); a permanent that arrives
+    // any other way never reaches this line and stays unstamped.
+    params.colorsSpent = colorsSpent;
     payload = { resolver: RESOLVER_KEYS.PERMANENT_ETB, params };
   } else {
     payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: castCard.name, reason: "instant-or-sorcery (no recognized effect)" } };

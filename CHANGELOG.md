@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Sunburst counts the colors you actually spent.** Solarion, Suncrusher, Skyreach Manta, Suntouched Myr,
+  Etched Oracle and Baton of Courage enter with a counter for each color of mana paid — the simulator had
+  no way to ask what colors a spell was paid with. Creatures get +1/+1 counters and other artifacts get
+  charge counters, as printed.
 - **Exhaust abilities work, and only once.** Pacesetter Paragon, Greenbelt Guardian, Skystreak Engineer,
   Prowcatcher Specialist, Keen Buccaneer and five more were unreadable. Their once-per-game restriction is
   enforced, so the ability is offered a single time and never comes back on a later turn.

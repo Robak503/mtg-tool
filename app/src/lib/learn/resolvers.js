@@ -28,7 +28,7 @@ import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js
 import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
-import { entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
+import { entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
 import { addContinuousEffect } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); acyclic (layers imports only ptPrimitive/keywords/staticAbilityParser/protection, none of which reach resolvers)
 import { autoPickCreatureType } from "./choicePolicy.js"; // CR 614.12 auto-choice policy — a zero-import LEAF, shared with the effect atoms (which cannot import resolvers: resolvers → runProgram → effectAtoms). One copy, so an ETB choice and an activated choice can never diverge on the same board.
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
@@ -260,6 +260,13 @@ export function enterPermanent(state, card, controller, opts = {}) {
     // trigger correctly does not fire. Defaulting an absent value to "hand" would hand every reanimation
     // effect the payoff the printed rider exists to deny.
     ...(opts.castFromZone ? { castFromZone: opts.castFromZone } : {}),
+    // ⭐ COLOURS SPENT (CR 702.43 sunburst / converge) — how many COLOURS of mana paid for this permanent's
+    // spell, captured off the payment plan at cast time. Lives beside wasCast/castFromZone for the same
+    // reason: a per-permanent fact about HOW the object arrived, JSON-serializable, read at ETB.
+    // ⛔ `!= null` RATHER THAN TRUTHY, and the difference is a real card. A mono-coloured-cost spell paid
+    // entirely with generic-eating colourless mana spends ZERO colours, and `0` is the CORRECT answer —
+    // a truthy check would drop the stamp and leave the rider reading "unknown" instead of "none".
+    ...(opts.colorsSpent != null ? { colorsSpent: opts.colorsSpent } : {}),
   };
   // A planeswalker enters with its starting loyalty as loyalty counters (CR 306.5b). Stored under
   // the generic counters map (`counters.loyalty`) so the 0-loyalty SBA + loyalty costs read it the
@@ -338,6 +345,19 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // that dies to the lethal-toughness SBA. Guarded by entersWithXCounters so only the literal-X form gets it.
   if (opts.xValue > 0 && entersWithXCounters(card)) {
     perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", opts.xValue) };
+  }
+  // ⭐ SUNBURST (CR 702.43a) — a counter for each COLOUR of mana spent to cast it. The count is threaded
+  // from the payment plan (opts.colorsSpent, stamped above); the KIND comes from the card's own type line,
+  // because sunburst puts +1/+1 counters on a creature and CHARGE counters on a non-creature artifact.
+  // Routed through applyCounterDoubling like every other enters-with write, so a Doubling Season entry
+  // doubles it exactly as it doubles the X-counter form directly above.
+  // ⛔ ZERO COLOURS IS A REAL ANSWER and writes nothing — a spell paid entirely with colourless mana gets no
+  // counters, which is what the card says. Guarded by `> 0` so no empty counter key is minted.
+  {
+    const sbKind = sunburstCounterKind(card);
+    if (sbKind && opts.colorsSpent > 0) {
+      perm.counters = { ...perm.counters, [sbKind]: (perm.counters[sbKind] || 0) + applyCounterDoubling(state, controller, sbKind, opts.colorsSpent) };
+    }
   }
   // SAGA (CR 714.3a — Vault 12, SHELF S7): a Saga enters with a lore counter (through the doubler — a
   // Doubling Season entry correctly fires chapters I AND II via the transition range below). `sagaFinal`
@@ -743,7 +763,7 @@ function resolveManual(state, obj) {
 export const RESOLVERS = Object.freeze({
 
   [RESOLVER_KEYS.PERMANENT_ETB]: (state, obj) => {
-    const { card, controller, xValue, kicked, castFromZone } = obj.payload?.params || {};
+    const { card, controller, xValue, kicked, castFromZone, colorsSpent } = obj.payload?.params || {};
     if (!card || !controller) return resolveManual(state, obj);
     // Clone (CR 707.9): the permanent enters AS A COPY of a creature chosen as it enters. Suspend
     // on a resolution-time choice (the player picks which creature; Expert/AI auto-pick) — the
@@ -775,7 +795,7 @@ export const RESOLVERS = Object.freeze({
       const lethal = destroyLethalCreatures(entered);
       return checkDiesTriggers(lethal.state, lethal.dead);
     }
-    return enterPermanent(state, card, controller, { xValue, kicked, wasCast: true, castFromZone });
+    return enterPermanent(state, card, controller, { xValue, kicked, wasCast: true, castFromZone, colorsSpent });
   },
 
   // Aura spell resolving (CR 303.4f): the Aura enters the battlefield attached to the

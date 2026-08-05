@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **SUNBURST — the answer was in hand and thrown away, +6** - post-v0.155.0 batch 16
+> Suite 1159 / 14,192 green + lint 0 BY EXIT CODE. Flip-diff **+6 / 0 / 0** — Solarion, Suncrusher, Skyreach
+> Manta, Suntouched Myr, Etched Oracle, Baton of Courage. All audited whole-card, each with its parsed
+> counter KIND printed.
+> ⭐⭐ **A MISSING QUESTION WHOSE ANSWER ALREADY EXISTED.** Sunburst asks "how many COLOURS did you spend?"
+> and `planPayment` returns `spend:{W,U,B,R,G,C}` — the exact per-colour tally `commitPaymentPlan` then
+> deducts. **Nothing recorded it.** Three links: count it off the plan at cast, thread it onto params beside
+> `castFromZone`, stamp it on the entering permanent. The seam-map written one slice earlier held exactly.
+> ⛔⛔ **THE COUNTER KIND IS READ FROM THE TYPE LINE, NEVER ASSUMED** (CR 702.43a: +1/+1 on a creature, CHARGE
+> on a non-creature artifact). Baton of Courage is the card that proves it — and the MUTOO mutant is the one
+> to remember: forcing "+1/+1" still gives it the RIGHT NUMBER of counters, just the wrong KIND. **A count
+> that's correct can still be the wrong answer.**
+> ⛔ C IS NOT A COLOUR (CR 105.1). The MUTNN mutant shows a colourless-funded cast wrongly gaining a counter.
+> ⛔ **DRIVEN THROUGH THE REAL CAST PATH** — dispatchAction, real pool, real payment, then resolve — because
+> the property is that the number SURVIVES three files. A hand-stamped fixture would have passed while the
+> wiring was broken, which is exactly what the seam-map warned about in advance.
+> ⚠️ **A FIXTURE ROTTED FOR THE SECOND TIME, AND THE PATTERN IS NOW NAMED.** entersCountersStripAnchor used
+> an UNMODELED no-period keyword as its fixture — champion until champion was modelled, then sunburst until
+> this slice. **The fixture's required property is the one the grind exists to destroy, so it will rot
+> again.** Swapped to "Double team" (verified unmodelled alone AND welded), with instructions in-file: when
+> it reddens, re-probe for a keyword that still parks and swap — never weaken the assertion.
+
 > ## SLICE DONE - 2026-08-05 - **EXHAUST (CR 702.180a) — POWER-UP's twin, +10** - post-v0.155.0 batch 10
 > Suite 1158 / 14,186 green + lint 0 BY EXIT CODE. Flip-diff **+10 / 0 / 0** — Pacesetter Paragon, Greenbelt
 > Guardian, Skystreak Engineer, Rough Rhino Cavalry, Prowcatcher Specialist, Rebellious Captives, Hazard of

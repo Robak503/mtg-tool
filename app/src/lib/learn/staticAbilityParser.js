@@ -958,6 +958,30 @@ export function entersWithChoiceCounters(card) {
  * instead of a 0/0 that dies to the lethal-toughness SBA. A "for each <thing>" / "equal to" / "plus N"
  * variant is a DIFFERENT magnitude (not the cast X) → false, left for the Arbiter. Leaf (no engine import).
  */
+/**
+ * ⭐ SUNBURST (CR 702.43) — "This permanent enters with a +1/+1 counter on it for each color of mana spent
+ * to cast it." (Spinal Parasite, Sawtooth Thresher, Solarion, Skyrider Elf, Woodland Wanderer, Radiant
+ * Epicure, the Archaic cycle…). Like ravenous above, the keyword's whole rule lives in REMINDER parens, so
+ * the reminder-strip erases it and no sentence matcher can see it — the keyword itself is detected instead.
+ *
+ * ⛔ THE COUNTER KIND IS PART OF THE ANSWER, not an assumption. Sunburst puts +1/+1 counters on a CREATURE
+ * and CHARGE counters on a non-creature artifact (CR 702.43a). Returning the kind rather than a boolean
+ * keeps the resolver honest — a bare `true` would have quietly given Solarion +1/+1 counters it doesn't get.
+ *
+ * ⛔ ARTIFACT CREATURES TAKE +1/+1 (CR 702.43a — "if it's a creature", checked first), which is why the
+ * creature test precedes the artifact one.
+ *
+ * Returns "+1/+1" | "charge" | null.
+ */
+export function sunburstCounterKind(card) {
+  const raw = String(card?.oracle || card?.oracle_text || "");
+  if (!/(?:^|[\n.;]\s*)sunburst\b/i.test(raw)) return null;
+  const tl = String(card?.type || card?.type_line || "").split(" // ")[0];
+  if (/\bCreature\b/i.test(tl)) return "+1/+1";
+  if (/\bArtifact\b/i.test(tl)) return "charge";
+  return null; // neither — outside CR 702.43a's two cases, so refuse rather than guess
+}
+
 export function entersWithXCounters(card) {
   const rawOracle = String(card?.oracle || card?.oracle_text || "");
   // KW-RAVENOUS (Edge of Eternities / Warhammer 40k — CR keyword) — the keyword's enters-with-X mechanic

@@ -360,6 +360,17 @@ export const COVERED_KEYWORDS = [
   // attacking creature has greater power" intervening-if, which compares layer-aware power against the other
   // ATTACKERS — a bigger creature staying home trains nothing.
   "training",
+  // ⭐ KW-SUNBURST (CR 702.43a) — ENFORCED, not declined, and the enforcement is what earns the credit.
+  // "This permanent enters with a +1/+1 counter on it for each COLOR of mana spent to cast it" (a charge
+  // counter instead if it isn't a creature). The colour count is captured off the payment plan at cast time
+  // (actionDispatcher reads plan.spend, the same tally the commit deducts), threaded to the ETB beside
+  // castFromZone, and applied by resolvers.enterPermanent through the SAME applyCounterDoubling every other
+  // enters-with write uses.
+  // ⛔ THE COUNTER KIND IS READ FROM THE TYPE LINE, never assumed: creature → +1/+1, non-creature artifact →
+  // charge (sunburstCounterKind). Crediting a flat +1/+1 would have quietly mis-modelled Solarion.
+  // ⛔ A FREE / ALT-COST CAST SPENDS NO MANA and gets ZERO counters — CR-correct, and an under-count is the
+  // safe direction regardless.
+  "sunburst",
   // KW-DELVE (CR 702.66a, census slice 48) — "Each card you exile from your graveyard while casting this
   // spell pays for {1}." A pure, OPTIONAL cost reduction; the engine hard-casts at full cost, which is a
   // real legal play, so the option it never takes cannot change what resolves. Same basis as convoke /
