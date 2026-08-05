@@ -65,6 +65,19 @@ export function gainControlClauseParser(clause) {
   if (t === "gain control of target creature") {
     return { op: "gain-control", targetType: "creature", restrictions: [] };
   }
+  // ⭐ THREATEN (Act of Treason / Turn Against / Goatnap — 47 corpus carriers, ZERO of them native before
+  // this): the same target, reverting at end of turn. The header above listed this as explicitly NOT built,
+  // for two named reasons — "an end-of-turn revert schedule + the untap/haste rider". BOTH now exist:
+  //   · the riders were never the problem. splitClauses already yields the three sentences and the parser
+  //     already binds "Untap THAT creature" / "IT gains haste" back to this atom's chosen target via
+  //     `bindPreviousTargets`. Measured, not assumed.
+  //   · the revert is the new half, and it is the SAME stash the control Auras have always used
+  //     (`controlOriginal` + moveControl), expiring at the cleanup step under CR 514.2 instead of on detach.
+  // Emitted as a DISTINCT flag rather than a separate op so every downstream consumer of "gain-control"
+  // (targeting, legality, the event log) keeps working unchanged.
+  if (t === "gain control of target creature until end of turn") {
+    return { op: "gain-control", targetType: "creature", restrictions: [], untilEndOfTurn: true };
+  }
   // "gain control of target <Subtype>" — a CURATED creature subtype only (Sliver, …). An optional trailing
   // " creature" is tolerated ("target Sliver creature"), matching the pump/regen subtype matchers.
   const m = t.match(/^gain control of target ([a-z]+)(?: creature)?$/);
@@ -97,7 +110,15 @@ export function applyGainControl(state, atom, ctx) {
     // survive), keeping tapped state / counters / damage / attachments, summoning-sick under its new
     // controller (CR 702.10c). What stays LOCAL is what belongs to this atom: the event log and the soulbond
     // teardown below.
-    next = moveControl(next, t.id, controller);
+    // THREATEN (atom.untilEndOfTurn): stamp the SAME stash the control Auras use, so the cleanup-step revert
+    // knows where home is and who took it. `controlOriginal` is stamped ONCE — if the creature was already
+    // stolen, home stays the true original rather than the previous thief, matching controlAura's rule.
+    // ⛔ The revert is scheduled by the STAMP, not by this atom: nothing here has to run again for the
+    // creature to go home, which is what makes permanent theft unreachable via this path even if the spell's
+    // own resolution is interrupted afterwards.
+    next = atom.untilEndOfTurn
+      ? moveControl(next, t.id, controller, { controlOriginal: perm.controlOriginal ?? from, controlUntilEndOfTurn: true })
+      : moveControl(next, t.id, controller);
     next = logEvent(next, { kind: "spell-effect", effect: "gain-control", controller, from, permanentId: t.id, name: perm.card?.name || null });
     // SOULBOND teardown (BLITZ SL-1, CR 702.95e) — another player gaining control of a paired creature unpairs
     // it. Clear the moved creature's back-reference AND its (still-under-the-old-controller) partner's, so

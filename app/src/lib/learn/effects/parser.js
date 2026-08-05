@@ -287,14 +287,34 @@ function rebindToMassAntecedent(atom, prev) {
   return null;
 }
 
+/**
+ * The atom a REFERENT binds to (CR 608.2): the nearest PRECEDING atom that owns targets, skipping any
+ * referents in between. "Gain control of target creature until end of turn. Untap THAT creature. IT gains
+ * haste until end of turn." (Act of Treason) chains two referents onto ONE target — every "it"/"that
+ * creature" in the chain names the same permanent, so they all bind to the same antecedent.
+ *
+ * ⛔ MUST STAY IN LOCKSTEP WITH runProgram.referentSourceIndex, which does the same walk at resolution.
+ * They are the gate and the executor of one invariant: if this admits a chain the runtime cannot resolve,
+ * the tail atoms read an empty target slice and silently do nothing — a card that classifies native and
+ * quietly drops its last clause. The runtime half was written FIRST for exactly that reason.
+ *
+ * Byte-identical for the single-referent case: atoms[i-1] is a targeting atom there, so the loop exits at
+ * once and this returns i-1.
+ */
+function referentSourceIndex(atoms, i) {
+  let j = i - 1;
+  while (j >= 0 && atoms[j]?.bindPreviousTargets) j -= 1;
+  return j;
+}
+
 function referentBindingOk(atoms) {
   for (let i = 0; i < atoms.length; i++) {
     if (!atoms[i]?.bindPreviousTargets) continue;
     // ONE check, not two. An explicit `i === 0` guard reads well but a mutation proved it dead: at index 0
-    // `atoms[-1]` is undefined, so the predecessor check below already returns false. Both cases — no atom
-    // before it, and an atom before it that targets nothing — are the same question, and asking it once
-    // means there is no line here that no test can kill.
-    if (!atoms[i - 1]?.targetType) return false;
+    // the walk returns -1, `atoms[-1]` is undefined, so the predecessor check below already returns false.
+    // Both cases — no atom before it, and an atom before it that targets nothing — are the same question,
+    // and asking it once means there is no line here that no test can kill.
+    if (!atoms[referentSourceIndex(atoms, i)]?.targetType) return false;
   }
   return true;
 }
@@ -2289,11 +2309,14 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
     // assembly, for the same reason the exile-if-dies rider above is: the merge gate's contract is
     // "low confidence AND ZERO atoms", and a check that only lowered confidence would leave the atom
     // behind. An unbindable referent is an unparsed clause — the whole spell drops to Arbiter.
-    if (atom.bindPreviousTargets && !atoms[atoms.length - 1]?.targetType) {
+    // The antecedent is the nearest preceding atom that OWNS targets, not literally the last one — a
+    // referent CHAIN ("Untap that creature. It gains haste…") all names the same permanent. Same walk as
+    // referentBindingOk and runProgram.referentSourceIndex; see the note on referentSourceIndex above.
+    if (atom.bindPreviousTargets && !atoms[referentSourceIndex(atoms, atoms.length)]?.targetType) {
       // No chosen targets to bind to — but the antecedent may be an UNFILTERED mass atom, in which case
       // the referent rewrites into the equivalent mass atom (see rebindToMassAntecedent). A filtered or
       // unrecognised antecedent returns null and the whole spell drops to Arbiter, as before.
-      const prevAtom = atoms[atoms.length - 1];
+      const prevAtom = atoms[referentSourceIndex(atoms, atoms.length)];
       const rebound = rebindToMassAntecedent(atom, prevAtom) || rebindToSelfAntecedent(atom, prevAtom);
       if (!rebound) { allParsed = false; break; }
       atoms.push(rebound);

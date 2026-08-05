@@ -47,6 +47,26 @@ function targetsForAtom(targets, atomIndex) {
 }
 
 /**
+ * The atom index a REFERENT binds to (CR 608.2) — the nearest PRECEDING atom that actually has targets,
+ * skipping any referents in between.
+ *
+ * ⭐ THE SKIP IS THE WHOLE POINT, AND WITHOUT IT A CHAIN SILENTLY DOES NOTHING. A referent atom is emitted
+ * with NO targetType, so the cast-time enumerator never allocates it a slice. In "Gain control of target
+ * creature until end of turn. Untap THAT creature. IT gains haste until end of turn." (Act of Treason) the
+ * third atom's antecedent at a literal i-1 is the SECOND atom — which owns no targets — so it would read an
+ * EMPTY slice and resolve as a clean no-op. The card would look fully modeled and quietly drop its haste.
+ * Every referent in a chain refers to the SAME original target, so they all read that one atom's slice.
+ *
+ * Byte-identical for the single-referent case that has always worked: atoms[i-1] is a targeting atom there,
+ * so the loop exits immediately and this returns i-1.
+ */
+function referentSourceIndex(atoms, i) {
+  let j = i - 1;
+  while (j >= 0 && atoms[j]?.bindPreviousTargets) j -= 1;
+  return j;
+}
+
+/**
  * The atoms a program runs (the chosen modal mode(s), or the sequence). `chosenMode` is either a single
  * mode index ("Choose one") OR an ARRAY of indices (MODAL-2 "Choose two" / "one or both"). For an array,
  * every chosen mode's atoms are concatenated IN ASCENDING MODE ORDER — the same order the cast-time
@@ -215,7 +235,7 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
     // targetType, so the cast-time enumerator never allocated it one). programConfidence has already
     // guaranteed a targeting atom sits at i-1; if its target is gone by now the slice is empty and the
     // grant is a clean no-op rather than a fabricated grant on some other permanent.
-    let atomTargets = atoms[i]?.bindPreviousTargets ? targetsForAtom(targets, i - 1) : targetsForAtom(targets, i);
+    let atomTargets = atoms[i]?.bindPreviousTargets ? targetsForAtom(targets, referentSourceIndex(atoms, i)) : targetsForAtom(targets, i);
     // PLAYER PROJECTION (CR 608.2) — "… ITS CONTROLLER discards a card." The bound slice holds the PERMANENT
     // the previous atom targeted; the payload wants a PLAYER. Projecting HERE, once, means every player
     // payload resolver keeps seeing an ordinary {type:"player"} target and needs no change at all.

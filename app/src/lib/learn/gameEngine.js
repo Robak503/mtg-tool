@@ -38,6 +38,7 @@ import {
   resetBecameTargetThisTurnAllPlayers,
   untapAll,
   clearCombatDamage,
+  revertEndOfTurnControl,
   clearRemovedFromCombatFlags,
   clearManaHolds,
   logEvent,
@@ -711,6 +712,11 @@ export function finishCleanupActions(state) {
   // "Until end of turn" continuous effects wear off here (CR 514.2) — pump
   // (Giant Growth etc.) registered as endOfTurn-duration layer effects expire.
   next = expireContinuousEffects(next, { atCleanupOfTurn: next.turn });
+  // THREATEN (CR 514.2) — an "until end of turn" control change ends here too, with the pump it usually
+  // travels with (Act of Treason grants haste in the same breath). Placed BEFORE the SBA fixpoint below
+  // because sending a creature home can itself raise one: the original controller may already own a
+  // legendary copy, and the legend rule is checked at 514.3a like any other.
+  next = revertEndOfTurnControl(next);
   // CR 514.3a (CR-remediation B2) — expiring UEOT effects can themselves cause SBAs (a creature whose
   // toughness the expired pump was propping up is now ≤0; an Equipment on a man-land whose animation
   // just ended sits on a non-creature). Checked and applied HERE, per the rule.

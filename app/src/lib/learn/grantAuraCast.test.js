@@ -33,6 +33,11 @@ const HERMETIC_STUDY = { name: "Hermetic Study", type: "Enchantment — Aura", m
 const GIFT_OF_PARADISE = { name: "Gift of Paradise", type: "Enchantment — Aura", mana: "{2}{G}", oracle: 'Enchant land\nWhen this Aura enters, you gain 3 life.\nEnchanted land has "{T}: Add two mana of any one color."' };
 const WILD_GROWTH = { name: "Wild Growth", type: "Enchantment — Aura", mana: "{G}", oracle: "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional {G}." };
 const CHAMBER_OF_MANIPULATION = { name: "Chamber of Manipulation", type: "Enchantment — Aura", mana: "{2}{U}{U}", oracle: 'Enchant land\nEnchanted land has "{T}, Discard a card: Gain control of target creature until end of turn."' };
+// ⭐ ADDED 2026-08-04. Chamber of Manipulation was the "unmodeled granted effect" fixture for the two CREED
+// pins below, and the Threaten slice MODELS its granted effect — so it is no longer an example of the thing
+// those pins guard. This is a granted effect that is still genuinely unmodeled, keeping both guards live;
+// Chamber itself is re-pinned at its new answer beside them rather than dropped.
+const OMEN_CHAMBER = { name: "Omen Chamber", type: "Enchantment — Aura", mana: "{2}{U}{U}", oracle: 'Enchant land\nEnchanted land has "{T}, Discard a card: Interpret the omens however you like."' };
 
 /** Main-phase state: the caster holds `handCards`, controls a Forest + a Bear; the opponent a Forest + a Goblin. */
 function stateWith(handCards, { userHandExtras = [] } = {}) {
@@ -67,9 +72,12 @@ describe("grantAuraCastHostType — the single offer/dispatch gate", () => {
   it("lanes with their OWN cast branch stay out (byte-identity): Wild Growth = the mana-boost lane", () => {
     expect(grantAuraCastHostType(WILD_GROWTH)).toBeNull();
   });
-  it("CREED — a body-only aura (unmodeled granted effect) is never offered: Chamber of Manipulation", () => {
-    expect(classifyCard(CHAMBER_OF_MANIPULATION)).toBe("body-only");
-    expect(grantAuraCastHostType(CHAMBER_OF_MANIPULATION)).toBeNull();
+  it("CREED — a body-only aura (unmodeled granted effect) is never offered", () => {
+    expect(classifyCard(OMEN_CHAMBER)).toBe("body-only");
+    expect(grantAuraCastHostType(OMEN_CHAMBER)).toBeNull();
+    // …and Chamber of Manipulation, whose granted effect the Threaten slice models, is now native. The gate
+    // is unchanged; the card moved across it.
+    expect(classifyCard(CHAMBER_OF_MANIPULATION)).toBe("native-activated");
   });
   it("CREED — an unmodeled enchant subject fails closed", () => {
     expect(grantAuraCastHostType({ name: "OppOnly", type: "Enchantment — Aura", oracle: 'Enchant creature an opponent controls\nEnchanted creature has "{T}: Draw a card."' })).toBeNull();
@@ -123,8 +131,8 @@ describe("cast → attach (the lane end-to-end)", () => {
     expect(d.players.user.graveyard.map((c) => c.name)).toContain("Squirrel Nest");
   });
 
-  it("CREED — Chamber of Manipulation (body-only) still gets NO targeted aura cast", () => {
-    const s = stateWith([CHAMBER_OF_MANIPULATION]);
+  it("CREED — a body-only aura (unmodeled granted effect) still gets NO targeted aura cast", () => {
+    const s = stateWith([OMEN_CHAMBER]);
     const offers = castsOf(s, "h0");
     expect(offers.every((a) => !a.isAuraSpell)).toBe(true); // the Arbiter-seam posture, unchanged
   });

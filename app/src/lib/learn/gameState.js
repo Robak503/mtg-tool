@@ -33,6 +33,7 @@ import { hasKeyword } from "./keywords.js";
 import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
 import { auraHasTotemArmor } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.116) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
 import { applyControlAuraAttach, revertControlAura } from "./controlAura.js"; // CR 613.1b control Auras — a ZERO-IMPORT leaf, so this lowest-layer module can call it without a cycle
+import { moveControl } from "./controlMove.js"; // THE one control move, shared by the control Auras and the gain-control atom; controlMove imports nothing, so this stays acyclic
 
 // ─── ID generation ────────────────────────────────────────────────────────────
 
@@ -1839,6 +1840,51 @@ export function recordDamageSource(state, { permanentId, sourceId }) {
 // stale-flag exile, no end-of-turn cleanup pass needed).
 export function markExileIfDies(state, { permanentId, turn }) {
   return updatePermanent(state, permanentId, p => ({ ...p, exileIfDiesTurn: turn }));
+}
+
+/**
+ * THREATEN REVERT (CR 514.2) — send home every creature taken by an "until end of turn" control change.
+ *
+ * Act of Treason / Turn Against / Goatnap and ~45 siblings. Runs at the cleanup step alongside
+ * clearCombatDamage, under the same rule that removes marked damage and ends all "this turn" effects.
+ *
+ * ⛔ THE FAILURE MODE IS PERMANENT CONTROL THEFT, and it is the reason this is a SWEEP rather than a
+ * scheduled callback. controlAura.js records the same hazard: a creature that never goes home is a
+ * LEGAL-LOOKING board, so a green suite and a completed game both stay silent about it. A sweep over the
+ * stamp cannot be skipped by an interrupted resolution, a fizzled spell, or a thief that has itself since
+ * left — the only way a creature stays stolen is if this function does not run at all, which is one call
+ * site to verify rather than N.
+ *
+ * The stamp is the schedule: `controlUntilEndOfTurn` plus `controlOriginal` (stamped ONCE at the steal, so
+ * home is the TRUE original even if the creature was already under a thief). Both are cleared on the way
+ * home, so a creature cannot be sent home twice or drift on a later turn.
+ *
+ * ⚠️ A seat that has left the game (CR 800.4a) has no battlefield to return to. That creature keeps its
+ * current controller and the stamp is CLEARED anyway — leaving the stamp would make it a permanent
+ * revert-candidate that never resolves, and re-checking it every cleanup forever is worse than the
+ * simplification. Pinned.
+ *
+ * Mirrors clearCombatDamage's shape: pure, and a no-op that allocates nothing when no creature is stolen.
+ */
+export function revertEndOfTurnControl(state) {
+  const stolen = [];
+  for (const player of Object.values(state.players || {})) {
+    for (const p of player.battlefield || []) if (p.controlUntilEndOfTurn) stolen.push(p);
+  }
+  if (!stolen.length) return state;
+  let next = state;
+  for (const perm of stolen) {
+    const home = perm.controlOriginal;
+    // Clear the stamp FIRST and unconditionally, so an unreachable home (an eliminated seat) can never leave
+    // a permanent revert-candidate behind.
+    next = updatePermanentSafe(next, perm.id, (p) => {
+      const { controlUntilEndOfTurn: _drop, controlOriginal: _dropHome, ...rest } = p;
+      return rest;
+    });
+    if (home == null || !next.players?.[home]) continue;
+    next = moveControl(next, perm.id, home);
+  }
+  return next;
 }
 
 /** Wipe marked damage off every permanent (combat damage wears off at cleanup). Also expires unused

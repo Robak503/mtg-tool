@@ -151,8 +151,16 @@ describe("Sliver Overlord — CREED anti-FP gates (gain-control)", () => {
     expect(p.atoms[0]).toMatchObject({ op: "gain-control", targetType: "creature", restrictions: [] });
   });
 
-  it('"until end of turn" (Threaten — a REVERTING control change) stays LOW (revert not modeled)', () => {
-    expect(programConfidence(parseEffectClause("Gain control of target creature until end of turn."))).toBe("low");
+  // ⭐ INVERTED IN PLACE 2026-08-04, guard job preserved. This pin asserted that the REVERTING control
+  // change stays LOW "(revert not modeled)" — a CREED gate whose reason was true when written and is no
+  // longer: the end-of-turn revert now exists (threatenControl.test.js drives the full steal-and-return
+  // cycle). The form is re-pinned at its new answer so the change is recorded rather than deleted, and the
+  // CREED job this pin did is still done by the controller-restricted case directly below, which remains
+  // genuinely unmodeled.
+  it('"until end of turn" (Threaten) is NOW modeled — the revert shipped with the cleanup sweep', () => {
+    const p = parseEffectClause("Gain control of target creature until end of turn.");
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms[0]).toMatchObject({ op: "gain-control", targetType: "creature", untilEndOfTurn: true });
   });
 
   it('a controller-restricted "you control" form stays LOW (restriction not folded)', () => {
