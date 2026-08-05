@@ -29,11 +29,18 @@ describe("Disguise — recognition", () => {
 });
 
 describe("Disguise — turned-face-up CREED guard", () => {
-  it("a PURE 'when turned face up' delayed trigger is left undetected → the card stays body-only", () => {
+  it("⭐ a PURE 'when turned face up' delayed trigger is left undetected — and the sentence is now VACUOUS", () => {
     const mistway = { name: "Mistway Spy", type: "Creature — Bird Spy", mana: "{1}{U}", power: 2, toughness: 1, oracle: "Flying\nDisguise {1}{U}\nWhen this creature is turned face up, until end of turn, whenever a creature you control deals combat damage to a player, investigate." };
-    // the inner "combat damage → investigate" must NOT be detected as a permanent trigger
+    // ⛔⛔ THE LOAD-BEARING HALF IS UNCHANGED: the inner "combat damage → investigate" must NEVER be detected
+    // as a permanent trigger. That FP guard lives in classifyCondition (which returns null for a pure
+    // turned-face-up condition) and is untouched by the coverage strip below.
     expect((detectTriggers(mistway) || []).some((t) => t.event === "combatDamageToPlayer")).toBe(false);
-    expect(classifyCard(mistway)).not.toMatch(/^native/);
+    // ⚠️ THE TIER ASSERTION FLIPPED ON 2026-08-05, and it is the refusal being EARNED rather than a
+    // regression. The whole sentence — delayed inner trigger and all — fires only on a face-up flip, an event
+    // the runtime has no path to (no morph lane in legalChoices; manifest's own note says its turn-up is not
+    // modelled). Mistway Spy genuinely plays as a 2/1 flier with an unusable disguise cost, so native-body is
+    // the truthful tier. The FP guard above is what keeps that honest; see turnedFaceUpVacuous.test.js.
+    expect(classifyCard(mistway)).toBe("native-body");
   });
   it("the COMPOUND 'enters or is turned face up' still routes as a modeled ETB", () => {
     const gadget = { name: "Gadget Technician", type: "Creature — Goblin Artificer", mana: "{2}{R}", power: 2, toughness: 2, oracle: "When this creature enters or is turned face up, create a 1/1 colorless Thopter artifact creature token with flying.\nDisguise {U/R}{U/R}" };

@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Morph and disguise creatures are playable.** 75 of them — Willbender, Brine Elemental, Stormwing Dragon,
+  Echo Tracer, Nantuko Vigilante and the rest — were held back by their "when turned face up" ability. The
+  simulator has no way to play a creature face down, so that ability can never fire; these now play normally
+  as the hard-cast creatures they are, exactly as the morph cost line has always been treated.
 - **"Is all colors" is applied.** Transguild Courier and Sphinx of the Guildpact were being treated as their
   printed colors, so protection, non-color removal and every color-matters check saw the wrong thing.
 - **"During your turn" equipment works.** Javelin of Lightning, Quick-Draw Katana, Hook Swords, Knife,

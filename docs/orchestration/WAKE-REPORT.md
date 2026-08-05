@@ -7,7 +7,20 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+398 this sitting · 🏷 v0.154.0 PUBLISHED (101 cards) · post-tag batch 9** — suite **1154 / 14,166** green by exit code
+## ☀️ 2026-08-05 — **+473 this sitting · 🏷 v0.154.0 PUBLISHED · post-tag batch 84 → 🏷 TAG DUE SOON** — suite **1155 / 14,175** green by exit code
+
+> ### ⭐⭐ THE RICHEST INSTRUMENT FOUND ALL DAY: **a mechanic half-declared vacuous is a vein**
+> +75 in one strip — the biggest slice of the run — and it was an INCONSISTENCY, not a gap. The codebase
+> already stripped `morph {cost}` as vacuous and wrote out exactly why (no morph lane, every carrier hard-casts
+> face up). The very same note then left the flip TRIGGER as residue. **One unreachable path, two treatments,
+> 75 cards parked.** Grep the comments that justify a strip and check whether a SIBLING clause of the same
+> mechanic was left behind. Then re-verify the preconditions yourself — vacuity is not transitive.
+
+> ### ⚠️⚠️ A SURVIVING MUTANT MEANT A BAD PIN — for the THIRD time today
+> Dropping the strip's leading anchor changed no outcome in any pin I'd written. The case that changes is a
+> compound "enters or is turned face up" carrier whose ETB effect is UNMODELLED: with the anchor it parks,
+> without it the sentence is stripped and the card is credited native **while its trigger silently vanishes.**
+> **When a mutant lives, write the card that distinguishes the two worlds — don't delete the guard.**
 
 > ### ⛔⛔ TWO WAYS A DELETION PROBE OVERCOUNTS — both bit me today, both caught before building
 > ① **TOKENS.** "Is all colors" read 8 would-flip; the tier snapshot excludes tokens, so the real number was

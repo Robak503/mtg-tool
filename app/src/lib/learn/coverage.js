@@ -526,6 +526,33 @@ const ESCAPE_LINE = /^[ \t]*escape\s*[—–-][^\n]*$/gim;
 // textNormalize has not yet rewritten at this point) plus the literal verb "escapes with", so no other
 // sentence can match.
 const ESCAPE_WITH_COUNTERS = /(?:^|(?<=\.)\s*)(?:this creature|this permanent|it|[A-Z][\w'’-]*(?:[ ][A-Z][\w'’-]*)*)\s+escapes with [^.\n]*counters? on it(?: instead)?\.?/gim;
+// ⭐⭐ TURNED-FACE-UP (CR 707.9) — "When/Whenever/As ~ is turned face up, <effect>." The morph / megamorph /
+// disguise flip payoff. **120 real carriers, and the census says 78 of them are blocked by NOTHING ELSE.**
+//
+// ⭐ STRIPPED AS VACUOUS, ON THE MORPH COST LINE'S OWN ARGUMENT — and the inconsistency is the point. The
+// codebase ALREADY strips `morph {cost}` as vacuous, with the reasoning spelled out at reMorphCost: the
+// engine has no morph lane in legalChoices, every morph card carries a normal mana cost, so it is hard-cast
+// FACE UP and its body resolves correctly. That note then says the flip TRIGGER "keeps that residue and
+// stays body-only" — the same unreachable path treated two different ways, which is what left 78 cards
+// parked on an ability the engine can never fire.
+//
+// ⛔ RE-VERIFIED, NOT INHERITED (vacuity is not transitive — the escape-rider slice's rule):
+//   · legalChoices has NO morph/face-down cast lane (grep: zero hits).
+//   · There is no turn-face-up action ANYWHERE in the runtime. Face-down permanents DO exist — manifest
+//     creates them — but manifest.js states its own limit: "that turn-up is NOT modeled here", so a
+//     manifested card plays as a vanilla 2/2 until it leaves. Nothing flips, ever.
+//   · Every carrier is playable by its normal route: all have a printed mana cost except Branch of
+//     Vitu-Ghazi, which is a LAND (played, not cast) and already reads `land` tier.
+//
+// ⛔ SENTENCE-ANCHORED AT THE CONDITION, and Illusionary Mask is why. Its activated ability contains
+// "…has not been turned face up and would assign or deal damage… instead it's turned face up and…" MID-
+// SENTENCE. A phrase-level strip would carve a hole in that clause and could credit the card for a mangled
+// remainder. The anchor requires when/whenever/as to LEAD the sentence, so the Mask is untouched and stays
+// parked on its (genuinely unmodelled) ability.
+// ⛔ THE COMPOUND "enters OR is turned face up" (Gadget Technician, Crowd-Control Warden, Ponyback Brigade)
+// is EXCLUDED — it routes as a normal ETB and DOES fire on the face-up hard cast. Stripping it would delete
+// a working trigger, the exact failure the Polukranos sentence-scope note records.
+const TURNED_FACE_UP = /(?:^|(?<=\.)\s*|(?<=\n))[ \t]*(?:when|whenever|as)\s+(?![^.\n]*\benters?\b)[^.\n]{0,80}?\bis turned face up\b[^.\n]*\.?/gi;
 // KW-PARTNER-WITH (CR 702.124j) — drop the whole "Partner with <name>" LINE before the clause split below.
 // A LINE strip, not a clause credit, and that is the point: partner names routinely contain commas ("Trynn,
 // Champion of Freedom" — 28 of the 54 corpus lines), and isKeywordOnly splits its text on commas, so a clause
@@ -639,7 +666,7 @@ export function isKeywordOnly(oracle, name) {
   // and never reach parseEffectProgram at all. One regex, two callers, so they cannot drift apart. See the
   // note on FLASH_PERMISSION_LINE in textNormalize.js for the runtime evidence that it is vacuous here.
   const deLined = stripDiscardCostAbilityLine(stripCounterShieldLine(stripFlashPermissionLine(
-    stripShuffleInsteadLine(stripPartnerWithLine(String(oracle || "").replace(ESCAPE_LINE, " ").replace(ESCAPE_WITH_COUNTERS, " "))),
+    stripShuffleInsteadLine(stripPartnerWithLine(String(oracle || "").replace(ESCAPE_LINE, " ").replace(ESCAPE_WITH_COUNTERS, " ").replace(TURNED_FACE_UP, " "))),
   )), { name });
   let t = stripReminder(deLined).toLowerCase().replace(/[’']/g, "'");
   // MULTI-INSTANCE CASCADE (CR 702.85) — "Cascade, cascade[, …]" is now MODELED (detectTriggers emits N cascade

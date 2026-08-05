@@ -3,6 +3,39 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **TURNED-FACE-UP IS VACUOUS — +75, the biggest of the run** - post-v0.154.0 batch 84
+> Suite 1155 / 14,175 green + lint 0 BY EXIT CODE. Flip-diff **+75 / 0 / 0**.
+> ⭐⭐ **AN INCONSISTENCY, NOT A GAP.** The codebase ALREADY strips `morph {cost}` as vacuous, with the
+> reasoning at reMorphCost: no morph lane in legalChoices, every carrier has a normal mana cost, so the
+> engine hard-casts it FACE UP and the body resolves correctly. That same note then concludes the flip
+> TRIGGER "keeps that residue and stays body-only" — **the identical unreachable path treated two different
+> ways.** 75 cards sat behind that one inconsistency. **Go re-read the notes that justify a refusal next to a
+> strip; a mechanic half-declared vacuous is a vein.**
+> ⛔ **RE-VERIFIED, NOT INHERITED:** legalChoices has NO morph/face-down lane (grep: zero); there is no
+> turn-face-up action anywhere in the runtime — face-down permanents DO exist via manifest, and manifest.js
+> states its own limit ("that turn-up is NOT modeled here"); every carrier is playable by its normal route
+> (all have a printed mana cost except Branch of Vitu-Ghazi, a LAND, already `land` tier).
+> ⛔⛔ **SENTENCE-ANCHORED AT THE CONDITION — Illusionary Mask is why.** Its ability carries "…has not been
+> turned face up … instead it's turned face up and…" MID-SENTENCE; a phrase-level strip would carve a hole in
+> a real clause. The anchor requires when/whenever/as to LEAD.
+> ⛔ **THE COMPOUND "enters OR is turned face up" IS EXCLUDED** — it fires on the face-up hard cast and is a
+> WORKING trigger. Stripping it would credit the card while deleting its ability.
+> ⭐ **AUDITED PROGRAMMATICALLY, because 75 rows can't be eyeballed:** across all 116 touched cards every
+> removal was a pure trigger sentence, and **ZERO** credited cards were left holding a dangling continuation
+> ("If you do…", "That creature…"). Roalesk, Prime Specimen is the near-miss — first sentence stripped,
+> conjure/cloak continuation survives, card correctly stays parked.
+> ⚠️⚠️ **THE FIRST ANCHOR MUTANT SURVIVED, AND THE PIN WAS THE PROBLEM.** Dropping the leading anchor changed
+> no outcome in any pin: Illusionary Mask parks either way, a compound carrier reads native either way. The
+> case that DOES change is a compound carrier whose ETB effect is UNMODELLED — with the anchor it parks;
+> without it the sentence is stripped and the card is credited native **while its trigger silently vanishes.**
+> One card, written as a pin, and the mutant dies. **Third time this session that a surviving mutant meant a
+> bad pin rather than a dead guard.**
+> ⚠️ Fifth refusal-pin lift: disguiseKeyword's Mistway Spy guard. Its LOAD-BEARING half (the delayed inner
+> trigger must never be detected as a permanent one) is untouched and still asserted; only the tier flipped,
+> and the comment records why that is the refusal being earned.
+> ⚠️ A python-heredoc mutation silently failed to apply and the run read GREEN — correction 22 again. Caught
+> by the grep-verify step; re-applied with the Edit tool. **Never trust a mutation run without the grep.**
+
 > ## SLICE DONE - 2026-08-05 - **IS-ALL-COLORS — a layer-5 op with no static arm, +2** - post-v0.154.0 batch 9
 > Suite 1154 / 14,166 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Transguild Courier, Sphinx of
 > the Guildpact. Both audited whole-card.
