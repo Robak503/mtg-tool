@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **GY → OWN LIBRARY BOTTOM (wording split), +4** - batch 29 (post-v0.153.0)
+> Suite 1134 / 14,035 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Barkform Harvester, Epitaph
+> Golem, Tomb Trawler, Transplant Theorist.
+> ⭐ **THE TIER SPLIT WAS THE WHOLE DIAGNOSIS** — the method working exactly as written:
+> · "from **A** graveyard on the bottom of **ITS OWNER'S** library" → **10 native**, 4 parked
+> · "from **YOUR** graveyard on the bottom of **YOUR** library" → **1 native, 6 PARKED** ← the bug
+> · "from YOUR graveyard on **TOP** of YOUR library" → **17 native**, 9 parked
+> The scope wording was the entire difference — and **the parked wording is the SIMPLER one** (own graveyard,
+> own library, no cross-player routing). The engine could already do the harder version.
+> ℹ Zero new resolver code: leaving `anyGraveyard` unset resolves the holder to ctx.controller, byte-
+> identical to the OWN-TOP path; only the destination flag differs.
+> ⛔ **SEPARATELY ANCHORED, not one regex with an alternation.** The forms differ in WHOSE library receives
+> the card — a loosened pattern accepting "a graveyard … your library" would silently move an OPPONENT'S
+> card into the caster's library. That FP is pinned as a refusal.
+> ℹ Law 6 asserts the card's **POSITION** (last slot, since library index 0 is the top), not merely that it
+> left the graveyard — the top/bottom mutant flips it to first, which is what makes the row discriminate.
+> ⏭ **NEXT, SCOPED:** the PLURAL twin "put **any number of** target creature cards from your graveyard on
+> top of your library" (Footbottom Feast, Bone Harvest, Forever Young, Frantic Salvage, Gravepurge — **5
+> carriers, 0 native**). `maxTargets`/`minTargets` already exist on this atom, but "any number" needs a bound
+> and the graveyard is a PUBLIC, FINITE zone — unlike the Squadron Hawk library-search refusal, a bound here
+> may be derivable rather than fabricated. Worth one probe.
+
 > ## SLICE DONE - 2026-08-05 - **CAN'T-GAIN-LIFE (CR 614) — second player-scoped static, +3** - batch 25
 > Suite 1133 / 14,031 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Erebos God of the Dead,
 > Knight of Dusk's Shadow, Giant Cindermaw. (17 carriers; the other 14 park on unrelated lines.)

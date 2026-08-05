@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **The graveyard recyclers work.** Barkform Harvester, Epitaph Golem, Tomb Trawler and Transplant
+  Theorist put a card from your graveyard on the bottom of your library, exactly where it belongs.
 - **Lifegain hate works.** Giant Cindermaw, Rampaging Ferocidon and Forsaken Wastes stop *everyone* gaining
   life — including you, as printed — while Erebos and Knight of Dusk's Shadow stop only your opponents. It
   beats life-doublers too.

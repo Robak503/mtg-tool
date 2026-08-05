@@ -644,6 +644,20 @@ export function graveyardReturnClauseParser(clause) {
   if (/^put target card from a graveyard on the bottom of its owner's library$/.test(t)) {
     return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "any", anyGraveyard: true, toLibraryBottom: true };
   }
+  // ⭐ GY-TO-BOTTOM, OWN-GRAVEYARD ("put target card from YOUR graveyard on the bottom of YOUR library" —
+  // Barkform Harvester, Canal Dredger, Epitaph Golem, Tomb Trawler, Transplant Theorist, Paradox Shaper).
+  // Found by tier-splitting the phrase: the any-graveyard wording directly above is native on 10 carriers
+  // while this one was native on 1 and parked on 6 — the SCOPE WORDING was the entire difference, and the
+  // parked wording is the SIMPLER one (own graveyard, own library, no cross-player routing at all).
+  // ⓘ Nothing new in the resolver: leaving `anyGraveyard` unset makes `holder` resolve to ctx.controller,
+  // which is the byte-identical path the OWN-TOP arm (17 native carriers) has always used. Only the
+  // destination flag differs, and toLibraryBottom is the same one the any-graveyard arm sets.
+  // ⛔ Separately anchored rather than folded into one regex with an alternation: the two forms differ in
+  // WHOSE library the card goes to, and a single loosened pattern that accepted "a graveyard … your library"
+  // would silently move an opponent's card into the caster's library.
+  if (/^put target card from your graveyard on the bottom of your library$/.test(t)) {
+    return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "any", toLibraryBottom: true };
+  }
   // GY-EXILE — "exile target card from a graveyard" (Coffin Purge, Cremate, Purify the Grave, Fade from
   // Memory). ANY player's graveyard (anyGraveyard → enumerate every graveyard), destination exile. The exact
   // `$` anchor rejects "from your graveyard" (the caster-only forms above), "up to N"/plural, a type-filtered

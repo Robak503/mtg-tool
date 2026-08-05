@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+313 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 25** — suite **1133 / 14,031** green by exit code
+## ☀️ 2026-08-05 — **+317 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 29** — suite **1134 / 14,035** green by exit code
 
 > ### ⚠️⚠️ AURA PROBES ARE MEMO-POISONED — classify in a FRESH PROCESS
 > `parseAttachedBonus` memoises into a slot, which makes **`isNativeAura` ORDER-DEPENDENT**: the same card in
@@ -38,6 +38,13 @@
 > other produced "this permanent" for a Creature and dropped 29 epithet legendaries. **Normalise
 > per-descriptor where the type is known, or teach the one matcher — never rename globally.** Full
 > post-mortem + the real fix in the run ledger.
+
+> ### ⚠️ I MISREAD MY OWN CENSUS — a LINE census is not a SOLE-BLOCKER census
+> This report suggested "you have no maximum hand size" (22) and "you may play an additional land" (14) as
+> next targets. **Both are already modelled and enforced** — Azusa and Exploration are native today. My
+> player-statics census counted cards whose LINE matched, not cards the line BLOCKS, so it over-counted
+> exactly the way the counterweight note below warns. **Use `build-residue-census` (sole-blocker probing)
+> to pick targets; use line censuses only to split a KNOWN shape by tier.**
 
 > ### ✅ THE PLAYER-STATIC PATTERN — two subsystems, two slices, +7
 > **player hexproof (+4)** then **can't-gain-life (+3)**, both on one shape: an **INERT layer-6 op the layer
