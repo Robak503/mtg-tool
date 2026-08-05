@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **"Is all colors" is applied.** Transguild Courier and Sphinx of the Guildpact were being treated as their
+  printed colors, so protection, non-color removal and every color-matters check saw the wrong thing.
 - **"During your turn" equipment works.** Javelin of Lightning, Quick-Draw Katana, Hook Swords, Knife,
   Hookblade, Jousting Lance and Hexgold Halberd grant their bonus only on your own turn — the simulator
   didn't understand the timing clause at all, so none of them did anything.

@@ -7,7 +7,21 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+396 this sitting · 🏷 v0.154.0 TAGGED (101 cards) · post-tag batch 7** — suite **1153 / 14,161** green by exit code
+## ☀️ 2026-08-05 — **+398 this sitting · 🏷 v0.154.0 PUBLISHED (101 cards) · post-tag batch 9** — suite **1154 / 14,166** green by exit code
+
+> ### ⛔⛔ TWO WAYS A DELETION PROBE OVERCOUNTS — both bit me today, both caught before building
+> ① **TOKENS.** "Is all colors" read 8 would-flip; the tier snapshot excludes tokens, so the real number was
+> 3. Filter to real cards or the payoff is fiction.
+> ② **TWO SENTENCES ON ONE LINE.** Stripping whole LINES removed Fallaji Wayfarer's colour-identity
+> disclaimer along with its colour static, turning a non-flip into a flip. 3 → **2**.
+> **Re-check the number against the real cards before opening a file** — a probe is a candidate generator,
+> and it lies in the optimistic direction.
+
+> ### ⭐ THE OTHER HALF OF THAT LESSON: a precise probe can also say DON'T BUILD
+> "If you cast it from your hand" looked like 14 cards. Stripping only the conditional ENTERS-WITH line says
+> **2** — and both want a counter kind the engine does not enforce, which `isHonestEnterCounterKind`
+> correctly refuses. The condition itself has been modelled all along. **Zero payoff and a CREED violation,
+> avoided by one targeted probe.** Detail in the run ledger.
 
 > ### ⚠️⚠️ MEMO POISONING ISN'T JUST AN AURA PROBE HAZARD — it nearly shipped a WRONG PIN
 > `parseAttachedBonus` caches into a slot on the permanent. Probing several EQUIPMENT cards in one process

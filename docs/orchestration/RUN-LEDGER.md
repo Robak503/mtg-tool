@@ -3,6 +3,33 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **IS-ALL-COLORS — a layer-5 op with no static arm, +2** - post-v0.154.0 batch 9
+> Suite 1154 / 14,166 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Transguild Courier, Sphinx of
+> the Guildpact. Both audited whole-card.
+> ⭐ **BUILT ENGINE, NO IGNITION.** `setColor` (layer 5) ships and `permanentColors` reads it — two spell
+> atoms already emit it. The STATIC parser had no arm, so a permanent that IS all colours by its own printed
+> text was read at its PRINTED colours by every colour-sensitive check: protection, non<colour> removal,
+> colour-matters counts, the blocker-filter arms. **Transguild Courier — a colourless artifact creature whose
+> entire text is that one sentence — was a vanilla 3/3.**
+> ⛔ SELF scope only; Leyline of the Guildpact's group form stays residue (emitting the self descriptor would
+> colour the Leyline and nothing else — worse than parking).
+> ⚠️⚠️ **AND THE MEASUREMENT CORRECTED ITSELF DOWNWARD: 3 → 2.** A line-level deletion probe reported Fallaji
+> Wayfarer as a flip; it isn't. Its colour-identity disclaimer shares a LINE with the colour static, so
+> stripping the line removed both sentences. **A deletion probe that strips whole LINES overcounts whenever
+> two sentences share one.** Recorded in the test header — this is the second overcount this session (the
+> first was counting TOKENS as flips), and both were caught only by re-checking before building.
+
+> ## PROBED, NOT BUILT - 2026-08-05 - **CONDITIONAL ENTERS-WITH ("if you cast it from your hand")**
+> ⛔ **THE CONDITION IS ALREADY MODELLED — the cards park on their EFFECTS.** interveningIf has a live
+> CAST-FROM-HAND arm (`entering.wasCast && entering.castFromZone === "hand"`), the dispatcher stamps
+> `castFromZone`, and the TRIGGER form is native (Furnace Dragon, Reiver Demon, Wakening Sun's Avatar).
+> ⚠️ A broad tally said "14 would flip"; the precise probe — strip ONLY the conditional enters-with line —
+> says **2**, and both are DIVINITY-counter Myojin whose kind `isHonestEnterCounterKind` correctly REFUSES
+> (the engine does not enforce divinity counters, and the indestructible those cards want comes from a
+> separate unmodelled static). **Building it would have been a CREED violation for a payoff of zero.**
+> ⏭ The indestructible-counter Myojin cycle (5) parks on its remove-counter activated abilities, not on the
+> enters-with line. Different slice.
+
 > ## SLICE DONE - 2026-08-05 - **DURING-YOUR-TURN EQUIPMENT — a gate that had never met the lane, +7** - post-v0.154.0 batch 7
 > Suite 1153 / 14,161 green + lint 0 BY EXIT CODE. Flip-diff **+7 / 0 / 0** — Javelin of Lightning,
 > Quick-Draw Katana, Hook Swords, Knife, Hookblade, Jousting Lance, Hexgold Halberd. All audited whole-card.

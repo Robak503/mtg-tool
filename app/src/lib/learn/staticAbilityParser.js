@@ -3046,6 +3046,22 @@ function parseClause(clause, out, selfName, selfType) {
     // ({kind:"yourTurn"} — layers.gateMet reads state.activePlayer === controller, re-evaluated every
     // derive pass so the buff flips exactly at the turn boundary). Whole-clause anchored: a keyword or
     // rider tail falls through → LOW (safe FN).
+    // ⭐ IS-ALL-COLORS (CR 105.2 / layer 5) — "~ is all colors." (Transguild Courier, Sphinx of the
+    // Guildpact, Fallaji Wayfarer, O-Kagachi Made Manifest, Awaken the Maelstrom). ZERO native.
+    // ⭐ BUILT ENGINE, NO IGNITION: the `setColor` layer-5 op ships and `permanentColors` reads it — two
+    // spell atoms already emit it. The STATIC parser simply had no arm, so a permanent that IS all colors by
+    // its own printed text was read at its printed colors by every colour-sensitive check (protection,
+    // non<color> removal, colour-matters counts).
+    // ⛔ SELF SCOPE ONLY. Leyline of the Guildpact's "EACH NONLAND PERMANENT YOU CONTROL is all colors" is a
+    // group static with a different affects-mode; it stays residue → body-only (safe FN), rather than being
+    // quietly applied to the Leyline itself.
+    // ⓘ The colour-identity disclaimer some carriers print ("This ability doesn't affect its color
+    // identity.") is a DECK-CONSTRUCTION note with no in-game effect; it is its own sentence and is handled
+    // by the ordinary residue path, so it neither blocks nor is credited here.
+    if (/^(?:this creature|this permanent|it) is all colors$/.test(c)) {
+      out.push({ layer: 5, op: { layerOp: "setColor", colors: ["W", "U", "B", "R", "G"] }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+      return;
+    }
     const dt = c.match(/^during your turn, (?:this creature|it) gets ([+-]\d+)\/([+-]\d+)$/);
     if (dt) {
       out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModifyGated", power: signed(dt[1]), toughness: signed(dt[2]), gate: { kind: "yourTurn" } }, affects: { mode: "self" }, duration: { kind: "permanent" } });
