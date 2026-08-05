@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.154.0] - 2026-08-05
+
 ### Fixed
 - **Platinum Angel works — and Abyssal Persecutor's drawback finally binds.** "You can't lose the game"
   and "your opponents can't win the game" were being read as flavor: the simulator killed you at 0 life
