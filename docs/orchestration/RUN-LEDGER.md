@@ -6,6 +6,22 @@
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
+> ## 🚫 NOT BUILT - 2026-08-05 - **"you control your commander" gate (Lieutenant)** — probed, yield is ZERO
+> Banked so the gate census isn't re-walked into it. The condition looks like a clean state read (commanders
+> ARE tracked, via `isCommander`), and the census showed **7 carriers, 0 native** — exactly the profile that
+> paid twice today. **It would flip NOTHING.** Every one of the seven carries a rider the engine can't
+> consume, and the gate is never the blocker:
+> · quoted TRIGGER grants — Demon of Wailing Agonies, Tyrant's Familiar, Stormsurge Kraken
+> · GROUP anthems — Angelic Field Marshal, Thunderfoot Baloth, Skyhunter Strike Force ("other creatures
+>   you control have melee")
+> · an activation-cost reduction for cards in the graveyard — Convergence of Dominion
+> ✅ **THE LESSON, and it is the counterweight to the two wins:** *"N carriers, 0 native"* means the
+> **condition** is unmodelled — it does NOT mean the condition is the **blocker**. Check the EFFECT side of
+> every carrier before building the gate. Monstrous (+4) and cards-drawn (+9) had fully modelled effects
+> behind an unmodelled condition; Lieutenant has the opposite, and the census can't tell them apart.
+> ⏭ The Lieutenant family unlocks behind **quoted-ability grants** and **group anthems from a self gate**,
+> not behind this condition.
+
 > ## ⛔ SLICE REVERTED - 2026-08-05 - **HOST-COLOUR AURA GATE (hybrid cycle)** — measured +7, ADMITTED 2 WRONG
 > Built, measured **+7 / 0 / 0**, and **thrown away** because two of the seven were false positives. Banked
 > so nobody rebuilds it the same way. **The flip-diff was GREEN and the slice was still wrong** — exactly

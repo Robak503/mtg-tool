@@ -27,6 +27,13 @@
 > "we can't do this" note converts a gap into a decision nobody re-examines.** When a census shows a big
 > zero-native cluster, **check whether the refusal still holds.**
 
+> ### ✅ THE COUNTERWEIGHT: "N carriers, 0 native" ≠ "the condition is the blocker"
+> The gate census paid +4 (monstrous) and +9 (cards-drawn) because those had **fully modelled effects behind
+> an unmodelled condition**. The Lieutenant family ("you control your commander", 7 carriers, 0 native) looks
+> identical in the census and would flip **ZERO** — every carrier is blocked by a quoted-ability grant or a
+> group anthem instead. **Check the EFFECT side of every carrier before building a gate.** The census cannot
+> tell the two apart.
+
 > ### ▶️ START HERE: **CENSUS THE GATES, NOT THE EFFECTS** — the live vein map is in the run ledger
 > When the rider census dried up, tallying the as-long-as CONDITIONS native-vs-parked immediately found a
 > fully-modelled effect sitting behind a condition the parser didn't know (monstrous: +4 for TWO LINES).
