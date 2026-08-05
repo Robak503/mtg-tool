@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Converge spells scale off the colors you paid with.** Radiant Flames and Kaleidoscorch deal damage equal
+  to the number of colors of mana spent — three mana of one color is one damage, as printed.
 - **Converge creatures enter at the right size.** Skyrider Elf, Woodland Wanderer, Tajuru Stalwart,
   Rancorous Archaic and Glinting Creeper count the colors of mana you paid with — and Glinting Creeper
   correctly gets two counters per color rather than one.

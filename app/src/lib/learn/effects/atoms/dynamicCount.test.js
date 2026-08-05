@@ -220,8 +220,20 @@ describe("DAMAGE = a board count, 'where X is' word order (Scourge of Valkas / D
     ]);
   });
 
-  it("CREED: an UNMODELED count source ('colors of mana spent') stays LOW → Arbiter (never a guessed count)", () => {
-    expect(conf(I("Kaleidoscorch deals X damage to any target, where X is the number of colors of mana spent to cast this spell."))).toBe("low");
+  it("⭐ 'colors of mana spent' is now MODELED — the refusal below was EARNED, 2026-08-05", () => {
+    // ⚠️ THIS PIN USED TO ASSERT LOW, and that was right at the time: the count had no source, so crediting
+    // it would have guessed a magnitude. The colour count is now captured at cost-payment time off the
+    // payment plan (actionDispatcher) and read back by countForSpec's colorsSpentThisSpell kind, so the
+    // magnitude is a real answer rather than a guess. convergeSpell.test.js drives it end to end.
+    const p = parseEffectProgram(I("Kaleidoscorch deals X damage to any target, where X is the number of colors of mana spent to cast this spell."));
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms).toMatchObject([{ op: "deal-damage", targetType: "any", amountCount: { kind: "colorsSpentThisSpell" } }]);
+  });
+
+  it("CREED: an UNMODELED count source stays LOW → Arbiter (never a guessed count)", () => {
+    // ⛔ THE GUARD ITSELF IS UNCHANGED — only its example moved, because the grind modelled the old one.
+    // "The number of opponents who lost life this turn" has no ledger behind it, so it must stay a refusal.
+    expect(conf(I("Kaleidoscorch deals X damage to any target, where X is the number of opponents who lost life this turn."))).toBe("low");
   });
 
   it("CREED: 'that player's hand' has no anaphoric player on this form → LOW (not a silent 0)", () => {

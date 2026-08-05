@@ -299,6 +299,11 @@ function applyCastSpell(state, action) {
     // Read off the SAME plan the commit just deducted, so "counted" and "spent" can never drift apart.
     colorsSpent = ["W", "U", "B", "R", "G"].filter((c) => (plan.spend?.[c] || 0) > 0).length;
   }
+  // ⭐ CONVERGE — stamp the count on STATE, the same inter-atom channel `sacrificedForCost` uses, so a SPELL's
+  // scaling atoms can read it at resolution (countForSpec's colorsSpentThisSpell kind). The permanent-ETB path
+  // gets its own copy through params below; a spell has no permanent to stamp, which is why both exist.
+  // ⛔ STAMPED EVEN WHEN ZERO — an alt/free cast spends no mana, and 0 is the right answer, not "unknown".
+  working = { ...working, colorsSpentForCast: colorsSpent };
 
   // 2b. Pay any ADDITIONAL COSTS (CR 601.2f) — paid at cast, before the spell finishes going on the stack.
   // The parser attaches the cost(s) to `program.additionalCosts` and legalChoices.actionsCastSpell freezes

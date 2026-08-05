@@ -3,6 +3,30 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **CONVERGE on SPELLS — the third consumer of one capture, +2** - post-v0.155.0 batch 23
+> Suite 1161 / 14,202 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Kaleidoscorch, Radiant Flames.
+> Both audited whole-card.
+> ⭐ **ONE CAPTURE, THREE READERS, THREE SLICES.** The colour count is derived once at cost-payment time.
+> Sunburst reads it as a keyword (+6), converge's enters-with form as a sentence (+5), and now a SPELL as a
+> dynamic amount (+2). **No slice re-derived the number** — each added a consumer.
+> ⭐ **IT RIDES THE SHARED COUNT PARSER**, so the damage atom needed no changes of its own. The control probe
+> proved that BEFORE the arm existed: the same sentence with an already-modelled count phrase parsed HIGH,
+> which located the gap precisely at the count KIND rather than anywhere in the effect machinery.
+> ⛔ **STAMPED ON STATE, NOT PARAMS** — the `sacrificedForCost` precedent exactly: by resolution the pool is
+> deducted and the answer no longer exists, so it must be captured at payment. An absent stamp reads 0.
+> ⛔ **"COLORS", NOT MANA** — the witness drives three mana of ONE colour and expects 1.
+> ⚠️⚠️ **FIFTH HARNESS ERROR OF THE DAY, AND THE RULE IS NOW EARNED.** The witness printed all zeros; the
+> field is `damageMarked`, not `damage`. All-zero looks identical to "the value never arrived".
+> **WHEN A LAW-6 WITNESS READS ALL-ZERO, CHECK THE FIELD NAME BEFORE YOU TOUCH THE CODE.**
+> ⚠️ **SIXTH REFUSAL-PIN LIFT.** dynamicCount.test.js asserted "colors of mana spent" stays LOW as an
+> UNMODELED count — correct then, earned now. Rewritten to assert the modelled atom, and the CREED guard it
+> belonged to is KEPT with a genuinely unmodelled example ("opponents who lost life this turn") so the
+> property survives the example moving.
+> ℹ 16 converge spells, 2 flip. The rest park on effects (Painful Truths' "draw X and lose X" doesn't parse
+> even with a modelled count — verified; Prismatic Ending/Exert Influence need comparison-gated targeting).
+> ℹ The SINGULAR "for each COLOR of mana spent" wording is accepted and flips ZERO today (Unified Front's
+> token atom doesn't route through parseCountSource). Pinned at the helper level and said plainly.
+
 > ## SLICE DONE - 2026-08-05 - **CONVERGE enters-with — sunburst's longhand twin, +5** - post-v0.155.0 batch 21
 > Suite 1160 / 14,197 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Glinting Creeper, Rancorous
 > Archaic, Tajuru Stalwart, Skyrider Elf, Woodland Wanderer. All audited whole-card with their parsed `per`.

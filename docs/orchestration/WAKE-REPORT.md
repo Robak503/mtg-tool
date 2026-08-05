@@ -16,7 +16,16 @@
 > alone AND welded. **When a test like this reddens, the guard is almost certainly fine — re-probe for a
 > keyword that still parks and swap it, never weaken the assertion.** Recorded in-file too.
 
-> ### ✅ DONE (+11 across two slices): sunburst (+6) and converge's enters-with form (+5). One capability.
+> ### ⚠️⚠️ WHEN A LAW-6 WITNESS READS **ALL ZERO**, CHECK THE FIELD NAME BEFORE THE CODE
+> Five harness errors today, and this is the sharpest: the converge-spell witness printed all zeros because
+> the field is `damageMarked`, not `damage`. **All-zero is indistinguishable from "the value never arrived"**
+> — which is the exact failure the pin exists to detect, so it reads as a real bug. Same family as
+> `activate-ability` vs `activate`, and `runEffectProgram`'s stack-object signature. Confirm the harness can
+> produce a NON-zero row before you conclude anything from a zero one.
+
+> ### ✅ DONE (+13 across THREE slices): sunburst (+6), converge enters-with (+5), converge spells (+2).
+> ⭐ **ONE CAPTURE, THREE READERS.** The colour count is derived once at cost-payment time; each slice added
+> a consumer and none re-derived the number. That is the shape to aim for — a capability, then its readers.
 > ⛔⛔ **THE LESSON BOTH SLICES SHARE: THE DANGEROUS MUTANT IS THE BELIEVABLE ONE.** Sunburst's kind-forcing
 > mutant gives Baton of Courage the RIGHT NUMBER of counters, wrong kind. Converge's multiplier-forcing
 > mutant gives Glinting Creeper HALF its counters — still a plausible pile. Neither shows up as an obviously

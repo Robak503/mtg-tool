@@ -689,6 +689,11 @@ export function countForSpec(state, ctx, spec) {
   if (spec.kind === "sacrificedPower") return Math.max(0, state?.sacrificedForCost?.power || 0);
   if (spec.kind === "sacrificedToughness") return Math.max(0, state?.sacrificedForCost?.toughness || 0);
   if (spec.kind === "sacrificedManaValue") return Math.max(0, state?.sacrificedForCost?.manaValue || 0);
+  // ⭐ CONVERGE (CR 702.117a) — "X is the number of COLORS of mana spent to cast this spell". Captured at
+  // COST-PAYMENT time by actionDispatcher off the payment plan (the only moment the answer exists — the pool
+  // is deducted immediately after) and read here off the SAME inter-atom state channel the sacrificed-*
+  // kinds directly above use. An ABSENT stamp reads 0: a clean no-op, never a fabricated magnitude.
+  if (spec.kind === "colorsSpentThisSpell") return Math.max(0, state?.colorsSpentForCast || 0);
   // ===== MAX-DISCARDED-THIS-WAY (Windfall) ===== the GREATEST number of cards any player discarded during the
   // whole-hand discard the SAME spell just resolved (CR 118.10 "this way"). The discard atom (applyDiscard, on
   // the recordMaxDiscarded form) stamps state.maxDiscardedThisWay IMMEDIATELY before this draw atom resolves,

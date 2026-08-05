@@ -251,6 +251,19 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   if (sacM) {
     return { kind: sacM[1] === "power" ? "sacrificedPower" : sacM[1] === "toughness" ? "sacrificedToughness" : "sacrificedManaValue" };
   }
+  // ⭐ CONVERGE COUNT (CR 702.117a) — "the number of colors of mana spent to cast this spell". Lives in the
+  // SHARED count parser for the same reason the sacrificed-* referent above does: every scaling atom family
+  // (damage, tokens, counters, draw…) picks it up from one edit instead of each re-implementing the phrase.
+  // The value is stamped on state at cost-payment time; countForSpec reads it back.
+  // ⛔ "COLORS", NOT MANA. Two Forests pay two green mana and one COLOUR — the phrase counts distinct colours,
+  // which is exactly what the dispatcher derives from the plan's per-colour spend map.
+  // ⓘ BOTH PRINTED SHAPES, and they arrive here differently. "…where X is THE NUMBER OF COLORS of mana
+  // spent" hands over the plural phrase whole; "…FOR EACH COLOR of mana spent" is split by its caller and
+  // hands over the SINGULAR remainder. Same count either way, so one arm accepts both rather than two arms
+  // drifting apart.
+  if (/^(?:the number of )?colors? of mana spent to cast (?:this spell|it)$/.test(p)) {
+    return { kind: "colorsSpentThisSpell" };
+  }
   const withExclude = (spec) => spec; // "other" exclusion is handled by the parseCountSource wrapper (excludeSelf)
   // ===== RAD-AMONG-PLAYERS (Vault 12 chapter II — SHELF S7) ===== "rad counters among players" — the
   // TOTAL radCounters across every seat, summed live at resolution (countForSpec).
