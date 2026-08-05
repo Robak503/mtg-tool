@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-04 - **A period INSIDE a closing quote is a boundary, +1** - batch 65
+> Suite 1099 files / 13,781 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Verdant Rebirth.
+> `splitClauses` breaks on `\.\s+`; when a clause ends in a granted quoted ability the period is followed
+> by a QUOTE, so no boundary fired and the next sentence was welded in. Added `(?<=\.")\s+`.
+> ⚠️ **I nearly parked this on speculation.** 479 cards carry `."` + more text after reminder-strip, 56
+> of them NATIVE, and the obvious worry was `gains "…." until end of turn` losing its duration. **Measured
+> instead: GAINED 1 / LOST 0 / RETIERED 0 — not one of the 56 moved.** That measurement is the only reason
+> this shipped general rather than as an anchored one-card fold. *When the risk is countable, count it.*
+> ⛔ **HARNESS SCAR (worth as much as the card):** the first law-6 probe reported ZERO dies-triggers and
+> read exactly like an FP. The PROBE was wrong — it killed the creature with a hand-built `moveCardToZone`
+> + a hand-made dead list instead of `destroyLethalCreatures`. **A bad harness manufactures false
+> NEGATIVES as readily as false positives; when a probe says "nothing happened", check it against a
+> working harness before believing it.** Also: cross-probing in one process hit a stale `_cardSlot` memo
+> and reported a LOW program for a card that is HIGH — probe in a clean process.
+
 > ## SLICE DONE - 2026-08-04 - **EQ-GRANT+TRIGGER (Mask of Immolation), +1** - batch 64 since v0.150.1
 > Suite 1098 files / 13,777 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0**. Census two-flip; both
 > halves already native alone ("ETB + Equip" and "granted ability + Equip"), only the pair parked — the
