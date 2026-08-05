@@ -120,6 +120,17 @@
 > parks. **A tier diff cannot tell those two situations apart.** The FP fix by itself flips 0 cards — it
 > was LATENT until the composition exposed it.
 
+> ### ⏸ TWO TWO-FLIP CARDS PROBED AND PARKED (reasons measured, so nobody re-probes)
+> · **Bubble Snare** — an AURA with kicker. `parseKickerEtbCreature` is hard-gated to creatures, but
+>   widening it is NOT the fix on its own: the kicker cast branch in legalChoices pushes
+>   `targets: [], needsTargets: false`, which is right for a creature and wrong for an Aura (it needs a
+>   host). Crediting it would produce a card the cast lane cannot attach — the same FP shape as the
+>   qualified-subject slice. **Needs the kicker cost expansion AND aura host enumeration together.**
+> · **The Spear of Leonidas / Glorious Sunrise** — modal triggers (choose one — with bullet modes) on an
+>   equipment-attacks and a begin-combat trigger. Unprobed beyond the deletion pass; the modal machinery
+>   is its own subsystem.
+> · **Artisan of Kozilek** — annihilator, an unmodeled keyword. Almost certainly an honest park.
+
 > ### ⚠️ READ BEFORE YOUR FIRST GATE — the corrections still standing, plus three earned today
 > **19 — THE GATE IS THE EXIT CODE** and **20 — A CLEAN FLIP-DIFF IS NOT A SAFE CHANGE** (both below).
 > **21 — A BANKED CAUSE IS A HYPOTHESIS WITH A TIMESTAMP.** Three of the four two-flip causes written down
