@@ -83,8 +83,24 @@ export function parseWardCost(card) {
   // LIFE is the one non-mana form this slice pays (no card/permanent choice). Anchor on the digit+life.
   const lifeM = oracle.match(/\bward\s*[—-]\s*pay\s+(\d+)\s+life/i);
   if (lifeM) return { kind: "life", life: parseInt(lifeM[1], 10) };
-  // Discard / sacrifice ward — recognized but UNENFORCED (needs a payer choice). Return null = safe FN.
-  if (/\bward\s*[—-]\s*(discard|sacrifice)/i.test(oracle)) return null;
+  // ⭐ DISCARD ward ("Ward—Discard a card." — Mighty Servant of Leuk-o, Graveyard Trespasser, Tragedy
+  // Feaster, Maha Its Feathers Night and 8 more). This note used to read "recognized but UNENFORCED (needs
+  // a payer choice)" and that WAS true — a mana or life ward is a single yes/no, while a discard needs a
+  // second decision (which card).
+  // ⭐ WHAT MAKES IT PAYABLE: unlike mana, a discard with a non-empty hand ALWAYS succeeds, so the SPELL'S
+  // FATE is settled at the "pay?" answer and the card pick is a follow-up that cannot change it. The
+  // settlement therefore marks the spell saved, then hands off to advanceDiscardChain — which already
+  // discards inline when the hand is small enough to leave no real choice, and pauses for a pick otherwise.
+  // ⛔ An EMPTY hand is "can't pay" → the spell is countered, NOT a free pass (canAffordWardCost).
+  // ⓘ SACRIFICE ward stays null: choosing which permanent to sacrifice has no equivalent "always succeeds"
+  // shortcut (the choice can matter enormously), and there is no sacrifice-chain helper with this shape yet.
+  const discardM = oracle.match(/\bward\s*[—-]\s*discard\s+(a|an|one|two|three|\d+)\s+cards?\b/i);
+  if (discardM) {
+    const w = discardM[1].toLowerCase();
+    const n = { a: 1, an: 1, one: 1, two: 2, three: 3 }[w] ?? parseInt(w, 10);
+    if (Number.isInteger(n) && n > 0) return { kind: "discard", n };
+  }
+  if (/\bward\s*[—-]\s*sacrifice/i.test(oracle)) return null;
 
   // MANA form: "Ward {…}". Pips must be DIRECTLY adjacent ({1}{U}) — no `\s*` between them, or a greedy
   // match would cross the newline after "Ward {2}" and swallow the NEXT ability's mana ("{1}{R}{G},

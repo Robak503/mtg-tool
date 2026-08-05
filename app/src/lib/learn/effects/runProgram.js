@@ -1093,6 +1093,10 @@ function canAffordWardCost(state, playerId, cost) {
   if (!player) return false;
   if (cost.kind === "life") return (player.life ?? 0) >= cost.life; // CR 119.4 — pay life only if you have it
   if (cost.kind === "mana") return canAfford(player.manaPool, manaSources(state, playerId), cost.mana);
+  // ⛔ DISCARD ward — an EMPTY hand is "CAN'T PAY", so the spell is countered rather than waved through.
+  // Tokens are excluded to match advanceDiscardChain, which filters them from the discardable hand: an
+  // affordability check that counted them would promise a payment the chain then couldn't make.
+  if (cost.kind === "discard") return (player.hand || []).filter((c) => !c.token).length >= (cost.n || 1);
   return false;
 }
 
@@ -1107,6 +1111,17 @@ function settleSoftCounterCost(state, playerId, cost) {
     const player = state.players?.[playerId];
     if (!player || (player.life ?? 0) < cost.life) return { state, paid: false };
     return { state: loseLife(state, { playerId, amount: cost.life }), paid: true };
+  }
+  // ⭐ DISCARD ward — the cards do NOT move here. Affordability is confirmed (non-empty hand), which is
+  // enough to settle the SPELL'S fate: a discard with cards in hand always succeeds, so the spell is saved
+  // and the remaining question is only WHICH card. resolveSoftCounterChoice hands that to
+  // advanceDiscardChain immediately after the paid log, so the pick happens through the ordinary discard
+  // pause the player already understands — and discard TRIGGERS fire from that settled path (CR 701.9a)
+  // rather than from a bespoke move here.
+  if (cost.kind === "discard") {
+    const player = state.players?.[playerId];
+    const hand = (player?.hand || []).filter((c) => !c.token);
+    return hand.length >= (cost.n || 1) ? { state, paid: true } : { state, paid: false };
   }
   return { state, paid: false };
 }
@@ -1155,6 +1170,20 @@ export function resolveSoftCounterChoice(state, pay) {
   }
   if (paid) {
     next = logEvent(next, { kind: "spell-effect", effect: "soft-counter-paid", controller: pc.controller, amount: pc.amount, cost: pc.cost || null, spellName: pc.spellName });
+    // ⭐ DISCARD WARD — the spell is already SAVED (paid above); only the card pick remains, and it cannot
+    // change the outcome. Hand it to the ordinary discard chain, which discards inline when the hand is
+    // small enough to leave no real decision and pauses for a pick otherwise.
+    // ⛔ WHEN IT PAUSES WE MUST NOT RESUME HERE. The soft-counter's own `resume` is carried ONTO the discard
+    // choice, so the suspended caster program fires exactly once — after the discard settles — instead of
+    // twice or not at all. resolveDiscardChoice already implements that carry for chained discards; this
+    // reuses it rather than inventing a second resume path.
+    if (pc.cost?.kind === "discard") {
+      next = advanceDiscardChain(next, { queue: [{ playerId: pc.controller, remaining: pc.cost.n || 1 }], sourceName: pc.sourceName || pc.spellName || null });
+      if (next.pendingChoice) {
+        return pc.resume ? { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } } : next;
+      }
+      // No pause (the whole hand was forced) — fall through to the normal resume below.
+    }
   } else {
     // CS-1: a soft counter with a zone redirect (Syncopate / No More Lies) exiles on the decline —
     // pc.counterDest rides the choice from applyCounter so the redirect survives the suspend.

@@ -8,6 +8,11 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **Ward—Discard a card is no longer free.** Graveyard Trespasser, Mighty Servant of Leuk-o, Tragedy
+  Feaster and nine others were being targeted at no cost; now you're asked to discard, and if your hand is
+  empty the spell is countered.
+
 ### Added
 - **Creatures that come in damaged now do.** Bloodied Ghost, Wickerbough Elder, Deity of Scars and Etched
   Monstrosity enter with their −1/−1 counters, so they show up at the size the card actually prints.

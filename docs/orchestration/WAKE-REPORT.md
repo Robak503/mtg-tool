@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+321 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 33** — suite **1135 / 14,039** green by exit code
+## ☀️ 2026-08-05 — **+321 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 33** — suite **1136 / 14,045** green by exit code
 
 > ### ⚠️⚠️ AURA PROBES ARE MEMO-POISONED — classify in a FRESH PROCESS
 > `parseAttachedBonus` memoises into a slot, which makes **`isNativeAura` ORDER-DEPENDENT**: the same card in
@@ -39,7 +39,13 @@
 > per-descriptor where the type is known, or teach the one matcher — never rename globally.** Full
 > post-mortem + the real fix in the run ledger.
 
-> ### ▶️ START HERE: **WARD — DISCARD A CARD** (12 carriers, 0 native; ward—pay-life is 5 native)
+> ### ✅ WARD—DISCARD SHIPPED — +0 coverage, REAL rules gap closed
+> ⚠️ **The lesson to carry:** ward is enforced at the TARGETING chokepoint, which is **tier-independent**, so
+> those 12 creatures were being targeted **for free** regardless of their coverage tier. **A flip-diff
+> measures classification, not correctness** — a 0 is not proof there was no bug. When a mechanic is
+> enforced outside the classifier, check the RUNTIME seam before judging a slice by its flip count.
+
+> ⏮️ (superseded) WARD — DISCARD A CARD scoping
 > Scoped in full in the run ledger, not started. The structured ward-cost descriptor and the two-stage
 > discard-payment chain BOTH already exist; the work is joining them inside the soft-counter settlement.
 > Care points named there: the payer is the OPPONENT, the AI needs an auto-picker, and an empty hand must

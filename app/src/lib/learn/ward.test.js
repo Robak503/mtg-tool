@@ -40,8 +40,15 @@ describe("parseWardCost", () => {
     expect(parseWardCost({ oracle: "Ward {X}" })).toBeNull();
   });
 
-  it("returns null for a discard / sacrifice ward (needs a payer choice — safe FN)", () => {
-    expect(parseWardCost({ oracle: "Ward—Discard a card." })).toBeNull();
+  it("⭐ DISCARD ward is PAYABLE now; SACRIFICE ward still refuses (guard job intact)", () => {
+    // ⭐ UPDATED 2026-08-05. The old note read "needs a payer choice — safe FN", and that reasoning was
+    // sound until the unlock: unlike mana, a discard with a non-empty hand ALWAYS succeeds, so the SPELL'S
+    // fate is settled at the "pay?" answer and the card pick is a follow-up that cannot change it.
+    // See wardDiscard.test.js for the stack drive.
+    expect(parseWardCost({ oracle: "Ward—Discard a card." })).toEqual({ kind: "discard", n: 1 });
+    expect(parseWardCost({ oracle: "Ward—Discard two cards." })).toEqual({ kind: "discard", n: 2 });
+    // ⛔ THE GUARD'S JOB, UNCHANGED: sacrifice has no equivalent "always succeeds" shortcut — WHICH
+    // permanent you sacrifice can matter enormously — so it stays a safe FN.
     expect(parseWardCost({ oracle: "Ward—Sacrifice a creature." })).toBeNull();
   });
 
@@ -98,10 +105,14 @@ describe("wardTaxForSpell / wardTaxForStackObject", () => {
     expect(wardTaxForSpell(stateWith(w1, w2), spell("user", w1.id, w2.id))).toBeNull();
   });
 
-  it("leaves a {X} / discard / sacrifice ward unenforced (safe false-negative)", () => {
+  it("⭐ a DISCARD ward now TAXES; {X} and sacrifice stay unenforced (safe false-negative)", () => {
     expect(wardTaxForSpell(stateWith(wardCreature("Minthara", "ai", "Ward {X}")), spell("user", "Minthara-card-perm"))).toBeNull();
+    // ⭐ The discard ward was SILENTLY IGNORED before — an opponent targeted these creatures for free.
     const d = wardCreature("Pitcher", "ai", "Ward—Discard a card.");
-    expect(wardTaxForSpell(stateWith(d), spell("user", d.id))).toBeNull();
+    expect(wardTaxForSpell(stateWith(d), spell("user", d.id))).toEqual({ cost: { kind: "discard", n: 1 }, wardName: "Pitcher" });
+    // ⛔ Guard re-armed on the form that genuinely still parks.
+    const sac = wardCreature("Butcher", "ai", "Ward—Sacrifice a creature.");
+    expect(wardTaxForSpell(stateWith(sac), spell("user", sac.id))).toBeNull();
   });
 
   it("a single ward target alongside a non-ward target still taxes (one ward = enforced)", () => {

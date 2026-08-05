@@ -3,6 +3,29 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **WARD — DISCARD A CARD, +0 coverage / REAL rules gap closed** - batch 33
+> Suite 1136 / 14,045 green + lint 0 BY EXIT CODE. Flip-diff **0 / 0 / 0** — and it **ships**, for a reason
+> worth reading before the next +0 decision.
+> ⚠️ **WARD IS ENFORCED AT THE TARGETING CHOKEPOINT, WHICH IS TIER-INDEPENDENT.** `wardTaxForStackObject`
+> reads the permanent's card directly — it does not care whether the card is native. So every one of these
+> 12 creatures sat on the battlefield with its ward **SILENTLY IGNORED**: an opponent targeted it **for
+> free**. The carriers still park on unrelated lines (hence +0), but the RULES GAP is real and now closed.
+> **A flip-diff measures classification, not correctness** — do not let a 0 talk you out of a live bug.
+> ⭐ **THE UNLOCK, after `ward.js` refused this for a GOOD reason.** Its note said a discard "needs a payer
+> choice", and that was true: mana/life is one yes/no, a discard needs a second decision. But **a discard
+> with a non-empty hand ALWAYS SUCCEEDS**, so the SPELL'S FATE is settled at the "pay?" answer and the card
+> pick cannot change it. Mark the spell saved, then hand off to `advanceDiscardChain` — which already
+> discards inline when the hand is small enough to leave no real decision, and pauses for a pick otherwise.
+> **No new choice machinery.**
+> ⛔ **THE THREE CARE POINTS, all driven:** an EMPTY hand is *can't pay* → **countered**, never a free pass
+> (even ANSWERING "pay" can't save it) · TOKENS excluded from affordability to match the chain's own filter
+> · when the chain pauses, the soft-counter's `resume` is **carried onto the discard choice** so the
+> suspended program fires exactly once.
+> ⛔ **SACRIFICE ward stays refused** — no equivalent "always succeeds" shortcut (WHICH permanent matters
+> enormously) and no sacrifice chain of this shape. Guard re-armed on it in `ward.test.js`.
+> ℹ A pin asserted the graveyard was EMPTY after a decline; the COUNTERED SPELL goes there (CR 701.6a), so
+> that assertion was asserting a bug. Corrected to the claim that matters: **no card from HAND followed it.**
+
 > ## 🎯 NEXT VEIN, SCOPED NOT STARTED - **WARD — DISCARD A CARD** (12 carriers, 0 native)
 > The sign/scope-twin lens found it, and the split is clean:
 > · **"ward — pay N life"** → **5 native** / 17 parked — modelled (`parseWardCost` returns `{kind:"life"}`)
