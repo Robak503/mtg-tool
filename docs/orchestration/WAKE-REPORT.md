@@ -9,12 +9,16 @@
 
 ## ☀️ 2026-08-05 — **+363 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 75** — suite **1149 / 14,134** green by exit code
 
-> ### ⏭ THE OPEN VEIN, ALREADY MEASURED — **0-native SCOPED shapes**
-> Probe: tally every "target <noun> you control" line native-vs-parked; keep the shapes that are 0-native
-> with 3+ parked carriers. Five came back; two are shipped (tuck +8, untap +4). **Still open:** en-Kor damage
-> redirection (6 carriers), "target creature you control fights target creature an opponent controls" (5),
-> ETB "put two −1/−1 counters on target creature you control" (3), "counter target spell that targets a
-> permanent you control" (3). Each needs its own cause proven — they are different parsers.
+> ### ⛔⛔ A 0-NATIVE LINE TALLY IS A **CANDIDATE, NOT A CAUSE** — verify with ONE command first
+> The scoped-shape probe (tally every "target <noun> you control" line native-vs-parked, keep the 0-native
+> ones with 3+ parked carriers) returned five. Two were real and shipped (**tuck +8, untap +4**). Of the rest,
+> **two already parse HIGH** — Soulstinger / Defiant Greatmaw / Plague Belcher park on their SECOND abilities,
+> and the fight mode likewise. A line-shape tally only proves the line CO-OCCURS with parked cards; the
+> census's sole-blocker DELETION probe is what proves causation.
+> **Before opening any file: `parseEffectClause(splitClauses(clause)[0], type)` and read the confidence.**
+> One command, and it would have saved a whole wasted build.
+> ⏭ **Genuinely open from that probe:** "counter target spell that targets a permanent you control" (3) and
+> the en-Kor damage redirection (6). Both confirmed LOW.
 
 > ### ⚠️ FOUR REFUSAL-PIN LIFTS IN ONE DAY — **a refusal list is a TODO list with the reasons pre-written**
 > landTuck, graveyardToTopMulti, delayedTrigger, formidableSpeaker all had FN-guard lines that this run's

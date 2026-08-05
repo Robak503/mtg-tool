@@ -22,8 +22,16 @@
 > with the reasons already written.**
 > ℹ Forensic Researcher and North Pole Patrol carry the identical line and still park, on collect-evidence /
 > waterbend. Pinned so they aren't mistaken for a miss here.
-> ⏭ Four scoped shapes still open from the same probe: en-Kor damage redirection (6), fight-you-control (5),
-> ETB −1/−1 counters on a creature you control (3), counter-target-spell-that-targets-a-permanent-you-control (3).
+> ⏭ **CORRECTED AFTER CHECKING (same session).** The probe returned FOUR more candidates; parsing each clause
+> in isolation shows **only TWO are real**. `put two −1/−1 counters on target creature you control` and
+> `target creature you control fights target creature an opponent controls` **already parse HIGH** — Soulstinger,
+> Defiant Greatmaw and Plague Belcher park on their SECOND abilities, not on that line at all. Genuinely open:
+> **counter target spell that targets a permanent you control** (3) and **en-Kor damage redirection** (6).
+> ⛔⛔ **AND THAT IS THE METHOD LESSON, WORTH MORE THAN THE SLICE.** A line-shape tally that reads "0 native,
+> 3+ parked" is a **CANDIDATE, NOT A CAUSE** — it only says the line CO-OCCURS with parked cards. The
+> census's sole-blocker deletion probe is what distinguishes the two, and my quick tally skipped it. The tuck
+> and untap slices happened to be genuine; this one would have been a wasted build. **Parse the clause in
+> isolation (one command) before opening any file.**
 
 > ## SLICE DONE - 2026-08-05 - **SCOPED TUCK — one missing restriction group, two families, +8** - batch 71
 > Suite 1148 / 14,127 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Nightscape Apprentice,
