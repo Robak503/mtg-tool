@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-04 - **An Aura's own DREDGE line isn't residue, +1** - batch 69
+> Suite 1101 files / 13,793 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Moldervine Cloak.
+> The static-bonus aura walk hand-lists individually-argued keywords (flash · cycling · shroud · madness ·
+> escape) and dredge was missing. Argument is the PROJECT'S OWN (coverage's `reDredgeCost` note): dredge
+> is a graveyard-side draw replacement the engine never offers, so every draw stays a normal draw.
+> ⛔ **Added as ONE anchored line, not as a blanket "admit every covered keyword"** — each entry in that
+> walk carries a separate vacuity argument, and a wholesale admission would credit keywords whose
+> aura-side behaviour nobody has checked. That is precisely the over-widening reverted three times today.
+> ⚠️ Also probed and correctly LEFT PARKED: **World-Weary** (basic landcycling — its library search is
+> genuinely unmodeled, so crediting it would claim an ability the engine can't offer) · **Savage Firecat /
+> Floodchaser / Clockwork Steed / Aether Meltdown** (four DIFFERENT second mechanics — not one slice) ·
+> **Silkbind Faerie** ({Q} untap-symbol cost) · **Penumbra Umbra** (umbra armor).
+
 > ## SLICE DONE - 2026-08-04 - **AURA SELF-BOUNCE admitted, +3** - batch 68 since v0.150.1
 > Suite 1100 files / 13,788 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Crown of Flames ·
 > Ghitu Firebreathing · Hypervolt Grasp, all audited whole-card. Fresh census bug signature ("{C}: return
