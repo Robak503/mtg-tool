@@ -1367,6 +1367,16 @@ export function combatKeywordClauseParser(clause) {
   // Anchored ^…$: a rider / "all damage" / a source-scoped form falls through → LOW → Arbiter.
   const pvd = t.match(/^prevent the next (\d+|one|two|three|four|five|six|seven|eight|nine|ten) damage that would be dealt to any target this turn$/);
   if (pvd) return { op: "prevent-next-damage", amount: NUM_WORD[pvd[1]] ?? parseInt(pvd[1], 10), targetType: "any" };
+  // …and the CREATURE-TARGETED form (Awe Strike / Stave Off frame): "…that would be dealt to TARGET CREATURE
+  // this turn". Census split: the "any target" wording above is native on 33 carriers while this one parked
+  // 9 — the same shape, refused only by the target word.
+  // ⭐ THE RUNTIME NEEDED NOTHING. applyPreventNextDamage is already target-type-agnostic: its loop reads
+  // `t.type === "creature" || t.type === "planeswalker"` and shields whatever it is handed. The narrower
+  // wording is strictly a SMALLER legal-target set than "any target", so nothing downstream widens — this is
+  // the identical lift the `cant-block` creature form two matchers above documents ("applyCantBlock is
+  // targetType-agnostic → lifts the runtime").
+  const pvc = t.match(/^prevent the next (\d+|one|two|three|four|five|six|seven|eight|nine|ten) damage that would be dealt to target creature this turn$/);
+  if (pvc) return { op: "prevent-next-damage", amount: NUM_WORD[pvc[1]] ?? parseInt(pvc[1], 10), targetType: "creature" };
   const pvy = t.match(/^prevent the next (\d+|one|two|three|four|five|six|seven|eight|nine|ten) damage that would be dealt to you this turn$/);
   if (pvy) return { op: "prevent-next-damage", amount: NUM_WORD[pvy[1]] ?? parseInt(pvy[1], 10), who: "you", targetType: null };
   // PLAYERS-ONLY FOG (BLITZ FOG-1b — Defend the Hearth / Commencement of Festivities): "prevent all

@@ -89,3 +89,60 @@ describe("combat consumption (resolveCombatDamage) — lifelink reads the post-p
     expect(preventionShieldsFor(s)).toHaveLength(0);   // consumed + written back
   });
 });
+
+/**
+ * ⭐ THE CREATURE-TARGETED FORM (2026-08-04) — "…that would be dealt to TARGET CREATURE this turn"
+ * (Squee's Toy · Kei Takahashi · Field Surgeon · Martyrs' Tomb · Anoint · Recuperate · Abuna's Chant ·
+ * Stand // Deliver).
+ *
+ * A census split made the cause unmistakable: the "any target" wording above was native on 33 carriers
+ * while this one parked 9 — the SAME shape, refused only by the target word.
+ *
+ * ⭐ THE RUNTIME NEEDED NOTHING, which is the whole reason this is one matcher and not a feature.
+ * applyPreventNextDamage's loop already reads `t.type === "creature" || t.type === "planeswalker"` and
+ * shields whatever it is handed. "Target creature" is a strictly SMALLER legal-target set than "any
+ * target", so nothing downstream widens — the identical lift the cant-block creature form documents in the
+ * same file. The consumption pins below reuse this file's existing harness deliberately: if the two forms
+ * ever diverge at the damage funnel, they diverge against the same board.
+ *
+ * Mutation-checked (2026-08-04, grep-verified applied AND verified on the case under test — the mutated
+ * matcher was called directly and returned null before the suite was read): the creature arm removed ->
+ * the parse and classify pins go red while every "any target" pin stays green.
+ */
+describe("the CREATURE-targeted form", () => {
+  const SQUEES_TOY = { id: "st", name: "Squee's Toy", type: "Artifact", mana: "{1}",
+    oracle: "{T}: Prevent the next 1 damage that would be dealt to target creature this turn." };
+  const ANOINT = { id: "an", name: "Anoint", type: "Instant", mana: "{W}",
+    oracle: "Prevent the next 3 damage that would be dealt to target creature this turn." };
+
+  it("parses to the same atom with a narrower targetType", () => {
+    expect(parseEffectClause("prevent the next 3 damage that would be dealt to target creature this turn", "Instant").atoms)
+      .toEqual([{ op: "prevent-next-damage", amount: 3, targetType: "creature" }]);
+  });
+
+  it("the carriers flip (activated + spell)", () => {
+    expect(classifyCard(SQUEES_TOY)).toBe("native-activated");
+    expect(classifyCard(ANOINT)).toBe("native-spell");
+  });
+
+  it("⭐ LAW 6 — the shield really absorbs, on the same board the 'any target' pins use", () => {
+    let s = board();
+    s = applyShield(s, { op: "prevent-next-damage", amount: 3, targetType: "creature" }, [{ type: "creature", id: "bear" }]);
+    expect(preventionShieldsFor(s)).toHaveLength(1);
+    s = applyDamageEffect(s, { controller: "ai1", amount: 5, targetType: "creature", targets: [{ type: "creature", id: "bear" }], source: null });
+    expect(s.players.user.battlefield.find((p) => p.id === "bear").damageMarked).toBe(2); // 5 − 3 prevented
+    expect(preventionShieldsFor(s)).toHaveLength(0);                                      // spent
+  });
+
+  it("a hit smaller than the shield leaves the creature untouched", () => {
+    let s = board();
+    s = applyShield(s, { op: "prevent-next-damage", amount: 3, targetType: "creature" }, [{ type: "creature", id: "bear" }]);
+    s = applyDamageEffect(s, { controller: "ai1", amount: 1, targetType: "creature", targets: [{ type: "creature", id: "bear" }], source: null });
+    expect(s.players.user.battlefield.find((p) => p.id === "bear").damageMarked).toBe(0);
+  });
+
+  it("⛔ 'all damage' and a source-scoped rider still park (the anchor did not widen)", () => {
+    expect(programConfidence(parseEffectClause("prevent all damage that would be dealt to target creature this turn", "Instant"))).not.toBe("high");
+    expect(programConfidence(parseEffectClause("prevent the next 3 damage that a source of your choice would deal to target creature this turn", "Instant"))).not.toBe("high");
+  });
+});
