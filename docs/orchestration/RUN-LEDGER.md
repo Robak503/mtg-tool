@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **ESCAPE-WITH-COUNTERS — vacuous, re-verified not inherited, +8** - batch 101
+> Suite 1152 / 14,156 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Phoenix of Ash, Ox of Agonas,
+> Underworld Charger, Woe Strider, Tizerus Charger, Underworld Rage-Hound, Voracious Typhon, Loathsome
+> Chimera. All audited whole-card. **Batch crosses 100 — tag on the next slice boundary.**
+> ⭐ Twelve carriers, ZERO native, shapes differing only by COUNT (a/two/three/twelve/modal).
+> ⭐⭐ **STRIPPED AS VACUOUS ON THE ESCAPE COST LINE'S OWN ARGUMENT — AND RE-VERIFIED RATHER THAN INHERITED.**
+> The escape cost line is stripped because escape is a graveyard re-cast the runtime never offers and every
+> carrier has a real printed mana cost. This rider fires ONLY on an escape-cast, so it is inert by the same
+> mechanism — but **vacuity is not transitive**, so I checked the precondition independently for all twelve
+> carriers of THIS line: every one has a printed mana cost ({G} … {3}{R}{R}) AND an escape line. Same
+> reasoning, separate evidence.
+> ⛔⛔ **SENTENCE-SCOPED, NOT LINE-SCOPED, AND POLUKRANOS IS THE WHOLE REASON.** Its line reads "Polukranos
+> enters with six +1/+1 counters on it. **It escapes with twelve +1/+1 counters on it instead.**" The first
+> sentence is a REAL enters-with rider that fires on an ordinary cast. A line strip deletes it and credits the
+> card for an effect the engine then never performs. The MUTY mutant does exactly that and collapses the
+> discriminator — **that pin is the load-bearing test in the file.**
+> ⓘ Observed and NOT fixed here: Polukranos' rider uses the CARD NAME ("Polukranos enters with …") and the
+> enters-with arm wants "this creature", so it stays body-only — the self-name normalization gap the Elder
+> Dragon post-mortem covers. Recorded so it isn't read as damage from this slice.
+> ⚠️ My first Polukranos pin asserted the wrong thing (`toMatch(/^native/)`) and failed honestly; the fix was
+> to find a REAL discriminator (escape-sentence-alone vs full-line classify differently) rather than relax it.
+
 > ## SLICE DONE - 2026-08-05 - **PREVENT TARGET VOCABULARY — two cells, two different fixes, +6** - batch 93
 > Suite 1151 / 14,151 green + lint 0 BY EXIT CODE. Flip-diff **+6 / 0 / 0** — Revered Elder, Ordruun
 > Commando, Ethereal Champion, Ursine Fylgja, Argivian Blacksmith, Abuna Acolyte. All audited whole-card.

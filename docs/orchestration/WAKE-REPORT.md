@@ -7,7 +7,19 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+381 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 93** — suite **1151 / 14,151** green by exit code
+## ☀️ 2026-08-05 — **+389 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 101 → 🏷 TAG DUE** — suite **1152 / 14,156** green by exit code
+
+> ### 🏷 BATCH 101 — **THE RELEASE THRESHOLD IS MET.** Cut the tag at the next clean slice boundary.
+> Colton's cadence is one tag per ~100 cards, not per slice ([release-cadence memory]). Everything since
+> v0.153.0 is on master and CI-green. `git tag v0.154.0 -a -m "..." && git push origin v0.154.0`.
+
+> ### ⭐ VACUITY IS NOT TRANSITIVE — re-verify the precondition for each new line you strip
+> "Escapes with N +1/+1 counters" is inert for the same reason the escape COST line is: the runtime never
+> offers a graveyard re-cast. Tempting to inherit the argument — I checked all twelve carriers of the new
+> line myself instead (every one has a printed mana cost AND an escape line, so each is playable with the
+> rider dormant). **A strip justified by another strip's evidence is a strip with no evidence.**
+> ⛔ And strip the SENTENCE, not the line, when a real effect shares it — Polukranos' "enters with six +1/+1
+> counters" lives on the same line as its escape rider.
 
 > ### ⚠️⚠️ A PRINTED WITNESS TOLD A BROKEN **HARNESS** FROM A BROKEN **FIX** — read the values, not the verdict
 > The self-prevent pin failed with `shields: []` — identical to the bug it was written to catch. The fix was
@@ -15,10 +27,17 @@
 > program in `payload.params`, so confidence read `undefined` and nothing ran. **A boolean pass/fail would
 > have sent me to rewrite working code.** When a Law-6 pin fails, check the harness signature BEFORE the fix.
 
-> ### ⏭ NEXT, ALREADY SIZED: **DAMAGE REDIRECTION IS AN ABSENT MECHANIC** (8 carriers, 0 native)
-> "The next N damage that would be dealt to X this turn is dealt to <Y> instead" — the en-Kor cycle (6),
-> Carom, Ward of Piety. PREVENTION is built (~48 native, shields + both consumption paths); REDIRECTION is
-> not modelled at all (CR 615.x). This is a mechanic build, not a wording cell — size it before starting.
+> ### ⛔ DAMAGE REDIRECTION — **SIZED AND DELIBERATELY NOT BUILT** (8 carriers, 0 native). Read this first.
+> "The next N damage that would be dealt to X this turn is dealt to <Y> INSTEAD" — the en-Kor cycle (6),
+> Carom, Ward of Piety. Prevention is built (~48 native); redirection is not (CR 615.x). **The blocker is
+> structural, not parsing:** the non-combat path (`applyDamageEffect`) could redirect today, but the COMBAT
+> path funnels every hit through `consultCombat`, whose contract is *"return the reduced amount"* — it has no
+> way to EMIT damage at a third permanent. Building only the non-combat half would make the en-Kor cycle work
+> against burn and silently do nothing against combat damage, **which is the entire reason those cards exist**
+> — a card reading native while failing its primary use. CREED forbids it.
+> **What it actually needs:** give the combat funnel a way to return `{amount, redirects:[{targetId, amount}]}`
+> and have the damage loops apply the extra deals (with their own lethal/SBA pass). That is a combat-resolution
+> slice with its own runtime pins, not a parser slice. Don't open it as a wording fix.
 
 > ### ⭐⭐ THE RICHEST SHAPE ISN'T A WORDING GAP — IT IS A **MISSING QUESTION**
 > +12 in one slice, the biggest of the run. Every counter filter the engine had asked about the target

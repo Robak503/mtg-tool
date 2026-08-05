@@ -30,6 +30,10 @@ summarizes the notable changes.
   empty the spell is countered.
 
 ### Added
+- **Escape creatures are playable.** Phoenix of Ash, Ox of Agonas, Underworld Charger, Woe Strider, Tizerus
+  Charger, Underworld Rage-Hound, Voracious Typhon and Loathsome Chimera were held back by their
+  "escapes with a +1/+1 counter" line — a bonus that only applies when you cast them from your graveyard,
+  which the simulator doesn't offer. They now play normally from hand.
 - **Self-shielding and artifact-shielding creatures work.** Revered Elder, Ordruun Commando, Ethereal
   Champion and Ursine Fylgja prevent damage to *themselves*; Argivian Blacksmith and Abuna Acolyte protect
   artifact creatures specifically. Neither wording was understood before.

@@ -506,6 +506,26 @@ export function stripModeledSelfNoUntap(oracle, name) {
 // keyword must be followed by its cost dash, so a line beginning with the CARD NAME "Escape Velocity …"
 // can never match.
 const ESCAPE_LINE = /^[ \t]*escape\s*[—–-][^\n]*$/gim;
+// ⭐ ESCAPE-WITH-COUNTERS — "This creature escapes with a +1/+1 counter on it." (Phoenix of Ash, Ox of
+// Agonas, Underworld Charger, Woe Strider, Tizerus Charger, Charred Graverobber, Underworld Rage-Hound,
+// Pharika's Spawn, Chainweb Aracnir, Voracious Typhon, Loathsome Chimera) and the "…instead" tail
+// (Polukranos, Unchained). Twelve carriers, ZERO native, and the shapes differ only by COUNT.
+//
+// ⛔ STRIPPED AS **VACUOUS**, ON THE ESCAPE LINE'S OWN ARGUMENT — and re-verified rather than inherited.
+// The escape cost line is stripped because escape is a graveyard re-cast window the runtime never offers and
+// every carrier has a real printed mana cost. This rider fires ONLY on an escape-cast, so it can never apply
+// either. I checked the precondition independently for all twelve carriers of THIS line: every one has a
+// printed mana cost ({G} … {3}{R}{R}) and a printed escape line, so each is fully playable by its ordinary
+// cast with this rider inert. Same reasoning, separately evidenced.
+// ⛔ SENTENCE-SCOPED, NOT LINE-SCOPED, and Polukranos is exactly why: its line reads "Polukranos enters with
+// six +1/+1 counters on it. It escapes with twelve +1/+1 counters on it instead." The first sentence is a
+// REAL enters-with rider that fires on a normal cast. A line strip would delete it and credit the card for a
+// modelled effect it would then never perform — the precise failure the partner-with note above warns about.
+// Only the escape sentence goes.
+// ⛔ THE SUBJECT IS ANCHORED to a self reference ("this creature" / "it" / the card's own name, which
+// textNormalize has not yet rewritten at this point) plus the literal verb "escapes with", so no other
+// sentence can match.
+const ESCAPE_WITH_COUNTERS = /(?:^|(?<=\.)\s*)(?:this creature|this permanent|it|[A-Z][\w'’-]*(?:[ ][A-Z][\w'’-]*)*)\s+escapes with [^.\n]*counters? on it(?: instead)?\.?/gim;
 // KW-PARTNER-WITH (CR 702.124j) — drop the whole "Partner with <name>" LINE before the clause split below.
 // A LINE strip, not a clause credit, and that is the point: partner names routinely contain commas ("Trynn,
 // Champion of Freedom" — 28 of the 54 corpus lines), and isKeywordOnly splits its text on commas, so a clause
@@ -619,7 +639,7 @@ export function isKeywordOnly(oracle, name) {
   // and never reach parseEffectProgram at all. One regex, two callers, so they cannot drift apart. See the
   // note on FLASH_PERMISSION_LINE in textNormalize.js for the runtime evidence that it is vacuous here.
   const deLined = stripDiscardCostAbilityLine(stripCounterShieldLine(stripFlashPermissionLine(
-    stripShuffleInsteadLine(stripPartnerWithLine(String(oracle || "").replace(ESCAPE_LINE, " "))),
+    stripShuffleInsteadLine(stripPartnerWithLine(String(oracle || "").replace(ESCAPE_LINE, " ").replace(ESCAPE_WITH_COUNTERS, " "))),
   )), { name });
   let t = stripReminder(deLined).toLowerCase().replace(/[’']/g, "'");
   // MULTI-INSTANCE CASCADE (CR 702.85) — "Cascade, cascade[, …]" is now MODELED (detectTriggers emits N cascade
