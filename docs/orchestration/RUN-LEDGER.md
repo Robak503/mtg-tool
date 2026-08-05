@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-04 - **prevent-the-next-N on a CREATURE target, +8** - batch 25 (post-tag)
+> Suite 1108 / 13,876 green + lint 0 BY EXIT CODE. `ab76ebb5`. Flip-diff **+8 / 0 / 0** — Squee's Toy ·
+> Kei Takahashi · Field Surgeon · Martyrs' Tomb · Anoint · Recuperate · Abuna's Chant · Stand // Deliver.
+> **A census split named the cause outright:** `"…dealt to ANY TARGET this turn"` native on **33**, the same
+> sentence ending `"…to TARGET CREATURE this turn"` parked **9**. Same shape, refused by ONE word.
+> ⭐ **The runtime needed nothing** — `applyPreventNextDamage` already reads
+> `t.type === "creature" || t.type === "planeswalker"`. "Target creature" is a strictly SMALLER legal-target
+> set than "any target", so nothing downstream widens. Same lift the cant-block creature form documents two
+> matchers above in the same file.
+> Pins added to the EXISTING `preventionShields.test.js` on purpose: the two wordings can never diverge
+> against different boards. Shield-3 absorbs 3 of a 5-hit (2 marked, shield spent); a 1-hit under a 3-shield
+> marks nothing.
+> ⓘ **Vein now exhausted for cheap wins** — every straggler needs *"for each 1 damage prevented this way"*
+> (Sacred Boon · Test of Faith · Scars of the Veteran), which is real tracking machinery. Don't re-probe.
+
 > ## SLICE DONE - 2026-08-04 - **THREATEN — until-EOT control change, +17** - batch 17 (post-tag)
 > Suite 1108 / 13,871 green + lint 0 BY EXIT CODE. `1760fe36`. Flip-diff **+17 / 0 / 0** — Act of Treason ·
 > Turn Against · Sarkhan Vol · Chamber of Manipulation · 13 more. **47 carriers, ZERO native before.**

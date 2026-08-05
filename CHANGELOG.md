@@ -13,6 +13,10 @@ summarizes the notable changes.
   Treason, Turn Against, Traitorous Blood, Bloody Betrayal, Limits of Solidarity, Portent of Betrayal,
   Sarkhan Vol's −2 and more. You take the creature untapped and hasty, swing with it, and it goes home at
   end of turn exactly as printed.
+- **Damage-prevention on a creature works.** Squee's Toy, Kei Takahashi, Field Surgeon, Martyrs' Tomb,
+  Anoint, Recuperate, Abuna's Chant and Stand // Deliver all say "prevent the next N damage that would be
+  dealt to target creature" — the wording the engine didn't take, even though the "any target" version has
+  always worked. The shield now absorbs exactly what it should and is spent once used.
 - **Blasphemous Act costs what it should.** "This spell costs {1} less to cast for each…" was reducing
   nothing, so Blasphemous Act was asking for its full {8}{R} instead of the {R} it usually costs with a
   board full of creatures. Vanquish the Horde and Overwhelming Remorse were overcharged the same way.

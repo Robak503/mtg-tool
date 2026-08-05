@@ -7,7 +7,17 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-04 — **+84 this sitting · v0.151.0 SHIPPED · post-tag batch 17** — suite **1108 / 13,871** green by exit code
+## ☀️ 2026-08-04 — **+92 this sitting · v0.151.0 SHIPPED · post-tag batch 25** — suite **1108 / 13,876** green by exit code
+
+> ### 🎯 THE HIGHEST-YIELD PROBE OF THE WHOLE RUN, and it costs one command: **SPLIT A SHAPE BY TIER**
+> Take a phrase, tally its carriers native-vs-parked, and normalize the surrounding line. When the same
+> shape is native on many and parked on some, the diff between the two wordings IS the bug — no theory
+> needed. It found the last two slices outright:
+> · `"…dealt to ANY TARGET this turn"` native **33** / `"…to TARGET CREATURE this turn"` parked **9** → +8,
+>   one matcher, runtime untouched.
+> · the attached-count and zone-count families the same way.
+> **Contrast with the two reverts today**, both of which came from reasoning about a shape instead of
+> counting it. Count first.
 
 > ### ✅ **v0.151.0 IS OUT.** Release workflow completed+success; signed installer + `.sig` + `latest.json`
 > published, version synced from the tag. Every running `.exe` picks it up on its next 24h check. Colton's
