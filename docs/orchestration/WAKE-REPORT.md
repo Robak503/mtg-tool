@@ -7,7 +7,14 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+223 this sitting · v0.152.0 PUBLISHED · post-tag batch 26** — suite **1119 / 13,965** green by exit code
+## ☀️ 2026-08-05 — **+230 this sitting · v0.152.0 PUBLISHED · post-tag batch 33** — suite **1119 / 13,970** green by exit code
+
+> ### 🔎 THE PHANTOM-TRIGGER TELL, now seen FOUR times (fading · vanishing · squad · impending)
+> A keyword's REMINDER TEXT can contain a real trigger sentence ("At the beginning of your end step, …"),
+> and the trigger anchor catches it INSIDE the parens. The descriptor routes UNNATIVELY and parks the card.
+> **The signature is unmistakable once you know it: the effectClause ends with a STRAY `)`.** If a keyword
+> is credited and its carriers still park, dump the descriptors and look for the paren before anything else.
+
 
 > ### ⭐ THE CHECK THAT PAID TWICE TODAY: **when a pin refuses something, test its REASON against the
 > list the pin lives in.** Cipher was refused for "changing the card's disposition" while BUYBACK — same

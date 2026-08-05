@@ -6,6 +6,21 @@
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
+> ## SLICE DONE - 2026-08-05 - **WEB-SLINGING + IMPENDING, +7** - batch 33 (post-v0.152.0)
+> Suite 1119 / 13,970 green + lint 0 BY EXIT CODE. `df772808`. Flip-diff **+7 / 0 / 0** — four Spider-Man
+> cards + the three Overlords.
+> Both are ALTERNATIVE COSTS/MODES (the prowl/spectacle/surge class): declining = the normal cast.
+> ⛔ **IMPENDING'S KEYWORD CREDIT ALONE BOUGHT ZERO.** Its reminder holds "At the beginning of your end
+> step, remove a time counter from it." — "At" at a sentence boundary INSIDE the paren — so every Overlord
+> grew a **PHANTOM endStep descriptor** that routed unnatively. **The tell: the effectClause came out as
+> `"remove a time counter from it. )"` — STRAY PAREN INCLUDED.** Same signature as the squad bug. Reminder
+> strip added beside fading/vanishing/squad.
+> ⛔ **TWO REFUSALS FROM THE SAME SWEEP, PINNED (not just noted):**
+> · **poison tolerance +N** — MANDATORY and raises a REAL loss threshold (gameState models losing at 10+
+>   poison), so ignoring it kills a player the card says survives. **A wrong game state, not a missed
+>   option** — the criterion's "unpaid state still changes the board" clause.
+> · **paradigm** — exiles the spell UNCONDITIONALLY, so ignoring it uses the wrong zone.
+
 > ## SLICE DONE - 2026-08-05 - **UNDAUNTED + BARGAIN, +4** - batch 26 (post-v0.152.0)
 > Suite 1119 / 13,965 green + lint 0 BY EXIT CODE. `77307d39`. Flip-diff **+4 / 0 / 0** — exactly the four
 > predicted (Seeds of Renewal, Sublime Exhalation, Johann's Stopgap, Ice Out).
