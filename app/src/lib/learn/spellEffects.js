@@ -565,6 +565,12 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       // `effect` rides in so CNT-MV-EXACT (Mental Misstep / Spell Snare) can require the target spell's mana
       // value EQUAL effect.exactMv at enumeration — an MV-mismatched spell is simply not offered as a target.
       if (!spellMatchesCounterFilter(obj, effect.spellFilter, effect)) continue;
+      // ⭐⭐ CNT-TARGETS-WHAT (Turn Aside / Intervene / Hindering Light class) — the counter is legal ONLY
+      // against a spell that is POINTING AT something matching. Every other counter filter above reads the
+      // target spell's own characteristics; this one reads its CHOSEN TARGETS, which is why it needs the
+      // stack object rather than just its card. Enforced here at enumeration so a non-matching spell is never
+      // offered — a targeting restriction belongs at the choice, not at resolution (CR 601.2c + CREED).
+      if (effect.targetsFilter && !spellTargetsMatchFilter(state, obj, effect.targetsFilter, controllerId)) continue;
       // `controller` rides for the that-player projection ("Counter target spell unless ITS
       // CONTROLLER pays {1}. THAT PLAYER discards…" — Frightful Delusion): by discard time the
       // spell may have left the stack, so the projection reads the object recorded at cast.
@@ -827,6 +833,47 @@ export function handCardMatches(card, hf) {
  * filter added in one MUST be added here. spellEffects is the ENUMERATION side ("is this a legal target to
  * offer?"); counterFilterMatches is the RESOLUTION side ("does the counter still apply?").
  */
+/**
+ * ⭐ CNT-TARGETS-WHAT — does `stackObj` (a spell on the stack) point at something the filter accepts?
+ * `casterId` is the player casting the COUNTER, so "you" / "you control" resolve to them (CR 109.5-style
+ * possessive: the counter's controller, never the countered spell's).
+ *
+ * ⛔ CONTROL IS READ **LIVE**, not from the recorded target entry. A target's controller can change between
+ * the spell being cast and the counter being cast (Act of Treason, an Aura, a Vehicle crewed by someone
+ * else), and CR evaluates the counter's own targeting requirement when the counter is cast. Reading the
+ * stale recorded controller would offer — or refuse — the wrong spell.
+ *
+ * ⛔ FAIL-CLOSED on an unresolvable target: a permanent that has already left the battlefield does not
+ * satisfy anything. A dropped legal target is a safe FN; an illegal one offered is the cardinal sin.
+ *
+ * ⛔ TYPES ARE READ OFF THE LIVE CARD, deliberately NOT layer-aware. "Targets a creature" asks what the
+ * spell is pointing at, and a target's identity was fixed when that spell was cast; a permanent animated
+ * afterwards was not a creature when it became a target. The printed type line is the honest read here, and
+ * it is also the conservative one.
+ */
+function spellTargetsMatchFilter(state, stackObj, filter, casterId) {
+  const targets = stackObj?.targets || [];
+  if (!targets.length) return false; // a spell pointing at nothing satisfies no "that targets" filter
+  return targets.some((t) => {
+    if (!t) return false;
+    // PLAYER half — "targets you" / "targets a player".
+    if (filter.player && t.type === "player") {
+      if (filter.player === "any") return true;
+      if (filter.player === "you" && t.id === casterId) return true;
+    }
+    // PERMANENT half.
+    if (!filter.permanent) return false;
+    if (t.type === "player" || t.type === "spell") return false;
+    const lk = findPermanent(state, t.id);
+    if (!lk) return false; // FAIL-CLOSED — already gone
+    if (filter.permanent.youControl && lk.permanent.controller !== casterId) return false;
+    const types = filter.permanent.types;
+    if (!types) return true; // "a permanent"
+    const line = String(lk.permanent.card?.type || lk.permanent.card?.type_line || "").split(" // ")[0];
+    return types.some((ty) => new RegExp(`\\b${ty}\\b`, "i").test(line));
+  });
+}
+
 function spellMatchesCounterFilter(stackObj, filter, atom = null) {
   const card = stackObj?.source;
   // Front-face type only — a split/MDFC spell's enriched type line is "Front // Back".

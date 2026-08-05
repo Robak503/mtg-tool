@@ -7,7 +7,14 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+363 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 75** — suite **1149 / 14,134** green by exit code
+## ☀️ 2026-08-05 — **+375 this sitting · 🏷 v0.153.0 PUBLISHED · post-tag batch 87** — suite **1150 / 14,143** green by exit code
+
+> ### ⭐⭐ THE RICHEST SHAPE ISN'T A WORDING GAP — IT IS A **MISSING QUESTION**
+> +12 in one slice, the biggest of the run. Every counter filter the engine had asked about the target
+> spell's OWN characteristics (type, mana value, color); **none could ask what that spell was POINTING AT.**
+> Fourteen carriers across nine wordings sat behind that one absent predicate. A wording gap flips 2–4 cards;
+> a missing question flips a dozen. **When several unrelated wordings all park, ask what QUESTION the code
+> cannot ask — not which regex is too narrow.**
 
 > ### ⛔⛔ A 0-NATIVE LINE TALLY IS A **CANDIDATE, NOT A CAUSE** — verify with ONE command first
 > The scoped-shape probe (tally every "target <noun> you control" line native-vs-parked, keep the 0-native

@@ -30,6 +30,10 @@ summarizes the notable changes.
   empty the spell is countered.
 
 ### Added
+- **Protective counterspells work.** Turn Aside, Keep Safe, Rebuff the Wicked, Hindering Light, Intervene,
+  Confound, Dawn Charm, Outwit, Cerulean Drake, Hydromorph Gull, Hydromorph Guardian and Vigilant Martyr all
+  read "counter target spell that targets …" — the simulator could ask what a spell *was*, but never what it
+  was *aiming at*, so none of them could be cast. Each now offers exactly the spells it's allowed to answer.
 - **"Untap another target permanent you control" works.** Breaching Hippocamp, Dauntless Aven, Kelpie Guide
   and Tenth District Veteran were unreadable; now they untap one of your other permanents, and never the
   opponent's or themselves.

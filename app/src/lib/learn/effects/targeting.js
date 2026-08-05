@@ -202,6 +202,11 @@ function atomTargetSpec(atom) {
   // field when the atom set it (undefined keys are ignored by the matcher; this keeps the spec minimal).
   if (tt === "spell") return {
     kind: "counter", targetType: "spell", spellFilter: atom.spellFilter || "any",
+    // ⭐ CNT-TARGETS-WHAT — the only counter filter that reads the target spell's CHOSEN TARGETS rather than
+    // its own characteristics (Turn Aside / Intervene / Hindering Light). ⚠️ Unlisted here = dropped = the
+    // enumerator offers EVERY spell on the stack while the card reads native — a silent over-permissive
+    // counter, and exactly the failure mode the spec's own comment above warns about for MV and color.
+    ...(atom.targetsFilter != null && { targetsFilter: atom.targetsFilter }),
     ...(atom.exactMv != null && { exactMv: atom.exactMv }),
     ...(atom.minMv != null && { minMv: atom.minMv }),
     ...(atom.maxMv != null && { maxMv: atom.maxMv }),

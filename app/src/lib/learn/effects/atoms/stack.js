@@ -417,8 +417,31 @@ export function counterClauseParser(clause) {
   // The three-way union that also includes SPELLS ("counter target activated ability, triggered ability, or
   // legendary spell" — Tale's End) is NOT admitted: it needs one atom to span two target classes. Stays low.
   if (/^counter target activated or triggered ability$/.test(t)) return { op: "counter-ability", targetType: "stackAbility", abilityKinds: ["activated-ability", "triggered-ability"] };
+  // (parseSpellTargetsFilter is defined below this parser; hoisted function declarations make the forward
+  // reference in the CNT-TARGETS-WHAT arm safe.)
   if (/^counter target activated ability$/.test(t)) return { op: "counter-ability", targetType: "stackAbility", abilityKinds: ["activated-ability"] };
   if (/^counter target triggered ability$/.test(t)) return { op: "counter-ability", targetType: "stackAbility", abilityKinds: ["triggered-ability"] };
+  // ⭐⭐ CNT-TARGETS-WHAT (CR 601.2c) — "counter target spell THAT TARGETS <X>": Turn Aside, Keep Safe,
+  // Rebuff the Wicked, Intervene, Confound, Hindering Light, Dawn Charm, Hydromorph Gull/Guardian, Fugitive
+  // Droid, Vigilant Martyr, Mistfolk. FOURTEEN carriers across nine wordings, and ONE missing capability
+  // behind all of them: every counter filter this file knows reads the target SPELL'S OWN characteristics
+  // (type, mana value, color) — none could ask what that spell is POINTING AT.
+  // ⭐ GATE 20 SATISFIED SEVERAL TIMES OVER: the filters differ (a creature / a permanent you control / an
+  // enchantment / you / a player), the card types differ (instants AND sacrifice-activated creatures), and
+  // every one of them falls out of this same absent predicate.
+  // ⛔ THE HALVES ARE AN **OR**, because "targets you or a permanent you control" (Hindering Light) is one
+  // filter with two acceptable answers — a spell pointing at EITHER is a legal target. Modelling it as an
+  // AND would make Hindering Light uncastable against everything it exists to stop.
+  // ⓘ Enforced at ENUMERATION against the stack object's recorded `targets`, so a spell that points at
+  // nothing matching is never offered — the CREED-correct place for a targeting restriction.
+  {
+    const tw = /^counter target spell that targets (.+)$/.exec(t);
+    if (tw) {
+      const f = parseSpellTargetsFilter(tw[1]);
+      if (f) return { op: "counter", spellFilter: "any", targetType: "spell", targetsFilter: f };
+      return null; // an unvetted filter → LOW → Arbiter (CREED: never guess what a spell must point at)
+    }
+  }
   if (/^counter target spell$/.test(t)) return { op: "counter", spellFilter: "any", targetType: "spell" };
   if (/^counter target noncreature spell$/.test(t)) return { op: "counter", spellFilter: "noncreature", targetType: "spell" };
   if (/^counter target creature spell$/.test(t)) return { op: "counter", spellFilter: "creature", targetType: "spell" };
@@ -466,6 +489,47 @@ export function counterClauseParser(clause) {
     return { op: "counter", spellFilter: scc[1] ? scc[1].trim() : "any", targetType: "spell", unlessPayCount: { per: parseInt(scc[2], 10), spec } };
   }
   return null;
+}
+
+/**
+ * ⭐ CNT-TARGETS-WHAT — parse the "<X>" of "counter target spell that targets <X>" into a predicate the
+ * enumerator can run against a stack spell's RECORDED targets. Returns null for anything unvetted, which
+ * parks the whole clause (CREED: never guess what a spell must be pointing at).
+ *
+ * The shape is deliberately an OR of two optional halves, because the printed wordings are:
+ *   player half     — "you" (Dawn Charm), "a player" (Mistfolk's sibling wording)
+ *   permanent half  — "a permanent you control" (Turn Aside), "a creature" (Intervene), "a creature you
+ *                     control" (Hydromorph Gull), "an enchantment" (Vigilant Martyr), "an artifact or
+ *                     creature you control" (Fugitive Droid)
+ *   and both at once — "you or a permanent you control" (Hindering Light)
+ *
+ * ⛔ `youControl` is carried on the PERMANENT half only. "targets a creature" (Intervene / Confound) has no
+ * controller scope at all and must stay unscoped — narrowing it to your own creatures would make Confound
+ * refuse the exact spell it is printed to stop.
+ *
+ * ⛔ REFUSED (left null → Arbiter): "this creature" (Mistfolk — a self referent this predicate has no lane
+ * for), and anything else. Every admitted wording is corpus-verified.
+ */
+export function parseSpellTargetsFilter(text) {
+  const t = String(text || "").trim().toLowerCase().replace(/\.$/, "");
+  const PERM = {
+    "a permanent": { types: null, youControl: false },
+    "a permanent you control": { types: null, youControl: true },
+    "a creature": { types: ["creature"], youControl: false },
+    "a creature you control": { types: ["creature"], youControl: true },
+    "an enchantment": { types: ["enchantment"], youControl: false },
+    "an enchantment you control": { types: ["enchantment"], youControl: true },
+    "an artifact or creature you control": { types: ["artifact", "creature"], youControl: true },
+  };
+  if (t === "you") return { player: "you" };
+  if (t === "a player") return { player: "any" };
+  const both = /^you or (.+)$/.exec(t);
+  if (both) {
+    const perm = PERM[both[1]];
+    return perm ? { player: "you", permanent: perm } : null;
+  }
+  const perm = PERM[t];
+  return perm ? { permanent: perm } : null;
 }
 
 /**

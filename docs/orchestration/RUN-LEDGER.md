@@ -3,6 +3,33 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **COUNTER-THAT-TARGETS — a capability, not a wording, +12** - batch 87
+> Suite 1150 / 14,143 green + lint 0 BY EXIT CODE. Flip-diff **+12 / 0 / 0** — Turn Aside, Keep Safe, Rebuff
+> the Wicked, Intervene, Confound, Hindering Light, Dawn Charm, Outwit, Cerulean Drake, Hydromorph Gull,
+> Hydromorph Guardian, Vigilant Martyr. **Biggest single-cause slice of the run.** All twelve audited
+> whole-card.
+> ⭐⭐ **ONE MISSING CAPABILITY, 14 CARRIERS, 9 WORDINGS.** Every counter filter the engine had reads the
+> target spell's OWN characteristics — type, mana value, color. **None could ask what that spell is POINTING
+> AT.** So this wasn't a wording gap like the last few slices; it was a missing question.
+> ⭐ **GATE 20 SEVERAL TIMES OVER.** The filters differ ("a creature" / "a permanent you control" / "an
+> enchantment" / "you" / "a player"), and so do the CARD TYPES — instants AND sacrifice-activated creatures.
+> Cards far outside any one family share the symptom.
+> ⛔ **THE HALVES ARE AN OR.** "Targets you OR a permanent you control" (Hindering Light) is one filter with
+> two acceptable answers; an AND makes the card uncastable against everything it exists to stop.
+> ⛔ **`youControl` RIDES THE PERMANENT HALF ONLY** — "targets a creature" (Intervene/Confound) has no
+> controller scope, and narrowing it would make Confound refuse the exact spell it answers. Witness row pins
+> `creatureAny: ["sMine","sTheirs"]` against `creatureYouControl: ["sMine"]`.
+> ⛔⛔ **CONTROL IS READ LIVE, NOT OFF THE RECORDED TARGET ENTRY.** A target's controller can change between
+> the spell being cast and the counter being cast (Act of Treason, an Aura, a crewed Vehicle), and CR
+> evaluates the counter's targeting requirement when the COUNTER is cast. The stolen-creature witness flips
+> `["sMine"] → []`. Reading the stale entry would offer the wrong spell.
+> ⛔ Enforced at ENUMERATION — a non-matching spell must never be OFFERED, not merely fizzle later.
+> ℹ Mutants: enumeration gate removed → every filter offers ALL THREE stack spells; the field dropped from
+> the target spec → identical failure via the other end of the same wire; youControl ignored → an opponent's
+> own creature-targeting spell becomes a legal Turn Aside target.
+> ℹ Refused and still parked: "targets THIS CREATURE" (Mistfolk — a self referent with no lane). Fugitive
+> Droid's clause IS admitted; it parks on its conditional can't-be-blocked line.
+
 > ## SLICE DONE - 2026-08-05 - **SCOPED UNTAP — the vein the last slice named, +4** - batch 75
 > Suite 1149 / 14,134 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Breaching Hippocamp, Dauntless
 > Aven, Kelpie Guide, Tenth District Veteran. All audited whole-card.
