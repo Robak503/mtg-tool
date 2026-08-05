@@ -27,6 +27,13 @@
 > "we can't do this" note converts a gap into a decision nobody re-examines.** When a census shows a big
 > zero-native cluster, **check whether the refusal still holds.**
 
+> ### ⛔ DON'T GLOBALLY REWRITE TEXT AT A SHARED SEAM — two attempts, −25 and −29
+> The Elder Dragons park because the trigger EFFECT CLAUSE keeps the printed name while the SUBJECT matchers
+> understand it. Both fixes looked surgical; one stripped the reminders storm/cascade are read from, the
+> other produced "this permanent" for a Creature and dropped 29 epithet legendaries. **Normalise
+> per-descriptor where the type is known, or teach the one matcher — never rename globally.** Full
+> post-mortem + the real fix in the run ledger.
+
 > ### 📉 THE EASY VEINS ARE GONE — fresh census, top cluster is SIX
 > `build-residue-census` (2026-08-05): 34,245 scanned · 20,739 non-native · **11,252 sole-blocker cards**,
 > and the largest single shape is worth **6**. Expect 2-6 per slice now, not 9-13. Ranked candidates with

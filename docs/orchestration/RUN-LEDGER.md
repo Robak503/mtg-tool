@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⛔ NOT BUILT - 2026-08-05 - **SELF-NAME IN THE TRIGGER EFFECT CLAUSE** — two attempts, both NET NEGATIVE
+> The Elder Dragons (Palladia-Mors, Chromium, Vaevictis Asmadi, Arcades Sabboth) park on a subsystem that is
+> **fully built**: `sac-unless-pay` exists, and `"sacrifice this creature unless you pay {R}{G}{W}"` parses
+> **HIGH**. The identical clause with the printed NAME — `"sacrifice Palladia-Mors unless you pay …"` —
+> parses LOW. The trigger SUBJECT matchers understand a card naming itself; the **effect clause does not**.
+> ⛔ **ATTEMPT 1 — reuse `selfNormalizeOracle`: +35 / −25.** That helper belongs to the STATIC path and does
+> two extra things that are wrong here: it **STRIPS REMINDER TEXT** (which is exactly where the trigger path
+> reads **storm** and **cascade**, so 25 native spells fell out — Tendrils of Agony, Brain Freeze, Flusterstorm)
+> and it rewrites toward "this creature", turning the INSTANT Bituminous Blast into *"this creature deals 4
+> damage"*. **Right-sounding helper, wrong seam.**
+> ⛔ **ATTEMPT 2 — a narrow, type-correct, reminder-preserving rename: +13 / −29. WORSE.** Storm/cascade came
+> back, but **29 epithet legendaries fell out** (Omnath Locus of Rage, Veyran, Tajic, Yahenni …). Diagnosed:
+> Tajic is a **Creature** and the helper produced **"this permanent"** — the type never reached it on the
+> battalion path — and more fundamentally a GLOBAL rename disturbs every matcher written against the name
+> form. Reverted; suite green at 1130 / 14,017.
+> ✅ **THE RULE:** *a global text rewrite at a shared seam is not a "small fix"* — both attempts LOOKED
+> surgical and both moved 25-30 cards the wrong way. The flip-diff is the only reason either was caught.
+> ⏭ **THE REAL FIX, when someone returns:** do NOT rename globally. Normalise the self-name **per-descriptor,
+> at the point the effectClause is built**, where the card's type is known for certain — or teach the
+> `sac-unless-pay` matcher alone to accept a name via the descriptor's own card context. Four cards.
+
 > ## SLICE DONE - 2026-08-05 - **PLURAL SELF-NAMED TUTOR, +4** - batch 13 (post-v0.153.0)
 > Suite 1130 / 14,017 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Squadron Hawk, Nesting Wurm,
 > Skyshroud Sentinel, Howling Wolf. **A cardinality on a proven path**, not a new fetch mode: the singular
