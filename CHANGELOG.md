@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Converge creatures enter at the right size.** Skyrider Elf, Woodland Wanderer, Tajuru Stalwart,
+  Rancorous Archaic and Glinting Creeper count the colors of mana you paid with — and Glinting Creeper
+  correctly gets two counters per color rather than one.
 - **Sunburst counts the colors you actually spent.** Solarion, Suncrusher, Skyreach Manta, Suntouched Myr,
   Etched Oracle and Baton of Courage enter with a counter for each color of mana paid — the simulator had
   no way to ask what colors a spell was paid with. Creatures get +1/+1 counters and other artifacts get

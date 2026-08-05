@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **CONVERGE enters-with — sunburst's longhand twin, +5** - post-v0.155.0 batch 21
+> Suite 1160 / 14,197 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Glinting Creeper, Rancorous
+> Archaic, Tajuru Stalwart, Skyrider Elf, Woodland Wanderer. All audited whole-card with their parsed `per`.
+> ⭐ **THE SAME QUESTION, DIFFERENT PACKAGING.** Converge is an ability WORD (CR 207.2c) whose sentence
+> carries the rule; sunburst is a keyword whose rule lives in reminder parens. Both consume the colour count
+> the previous slice started recording — only the DETECTION differs, so this is a sibling reader, not a
+> widened one. **Two slices, one capability.**
+> ⛔⛔ **THE PER-COLOUR MULTIPLIER IS PARSED.** Glinting Creeper takes TWO counters per colour; a hard-coded
+> 1 halves it and the card still enters with plausible-looking counters. The MUTPP witness reads
+> `creeperThreeColours: 3` against the correct 6 — **the same shape as the sunburst kind-mutant, which also
+> produced a plausible answer.** Two slices running, the dangerous mutant was the one that stayed believable.
+> ⛔ **THE COVERAGE STRIP IS ANCHORED AT THE LABEL** — the generic enters-with strips lead with `[^.\n]*` and
+> would have left "Converge —" behind as residue. Authorised by the same helper the resolver reads.
+> ℹ Crystalline Crawler and Wildgrowth Archaic carry the identical line and still park on their OTHER
+> abilities. Pinned so they aren't misread as misses.
+> ⏭ The converge SPELL forms (Radiant Flames' "X damage where X is the number of colors spent", Painful
+> Truths, Bring to Light — 16 sorceries/instants) are still open: they need the count threaded to SPELL
+> resolution, not the ETB stamp. Same capture point, different consumer.
+
 > ## SLICE DONE - 2026-08-05 - **SUNBURST — the answer was in hand and thrown away, +6** - post-v0.155.0 batch 16
 > Suite 1159 / 14,192 green + lint 0 BY EXIT CODE. Flip-diff **+6 / 0 / 0** — Solarion, Suncrusher, Skyreach
 > Manta, Suntouched Myr, Etched Oracle, Baton of Courage. All audited whole-card, each with its parsed

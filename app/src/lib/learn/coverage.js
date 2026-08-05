@@ -36,7 +36,7 @@ import { detectTriggers, stripTriggerAbilityLabel, foldTwoTriggerDetain, parseGr
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND no-cost credit — the same gate the runtime offers through (fading→triggers→… is already a loaded edge; no cycle)
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler, parseDiscardCostAbility } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, registerAuraOwnTriggerValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, registerAuraOwnTriggerValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
 import { spellConditionParseable } from "./interveningIf.js"; // EW-1 — the metric⇄runtime shared gate for a conditional enters-with counter (the resolver evaluates the SAME vocabulary via evaluateInterveningIf); acyclic (interveningIf imports only gameState)
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
@@ -3153,7 +3153,17 @@ export function classifyCard(card) {
       ? plotStrippedOracle.replace(/[^.\n]*enters (?:the battlefield )?with x \+1\/\+1 counters? on it[^.\n]*\.?/i, " ")
       : entersWithMetricCounters(card)
         ? plotStrippedOracle.replace(/[^.\n]*enters (?:the battlefield )?with [^.\n]*\+1\/\+1 counters?[^.\n]*\.?/i, " ")
-        : plotStrippedOracle;
+        // ⭐ CONVERGE ENTERS-WITH (CR 702.117a) — "Converge — This creature enters with a +1/+1 counter on it
+        // for each color of mana spent to cast it." Stripped ONLY when convergeEntersCounters confirms the
+        // whole-sentence form, the same single-source-of-truth discipline every branch above uses: the
+        // helper the RESOLVER reads is the helper that authorises the strip, so a card can never be credited
+        // for a sentence the runtime won't honour.
+        // ⛔ The strip is anchored to `^converge —` so it takes the WHOLE labelled sentence and nothing else;
+        // the generic enters-with strips above lead with `[^.\n]*` and would have left the "Converge —"
+        // label behind as residue.
+        : convergeEntersCounters(card)
+          ? plotStrippedOracle.replace(/^[ \t]*converge\s*[—–-]\s*this creature enters with [^.\n]*for each color of mana spent to cast it\.?/im, " ")
+          : plotStrippedOracle;
   // ENTERS-WITH extensions (BLITZ EW-1; CR 614.1c + 122.6a) — three more modeled enters-with-counter shapes,
   // each stripped ONLY when its parser (the SAME helper the resolver reads — single source of truth) confirms
   // the whole-sentence anchored form, so a rider variant is never silently dropped (the strips below carry NO

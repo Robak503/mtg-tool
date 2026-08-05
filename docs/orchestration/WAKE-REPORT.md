@@ -16,10 +16,14 @@
 > alone AND welded. **When a test like this reddens, the guard is almost certainly fine — re-probe for a
 > keyword that still parks and swap it, never weaken the assertion.** Recorded in-file too.
 
-> ### ✅ DONE (+6): sunburst. The seam-map below held exactly; converge remains.
-> ⛔ Keep the warning that mattered: the counter KIND is read from the type line (+1/+1 on a creature, CHARGE
-> on a non-creature artifact). The kind-forcing mutant still produces the RIGHT NUMBER of counters — **a
-> count that's correct can still be the wrong answer.**
+> ### ✅ DONE (+11 across two slices): sunburst (+6) and converge's enters-with form (+5). One capability.
+> ⛔⛔ **THE LESSON BOTH SLICES SHARE: THE DANGEROUS MUTANT IS THE BELIEVABLE ONE.** Sunburst's kind-forcing
+> mutant gives Baton of Courage the RIGHT NUMBER of counters, wrong kind. Converge's multiplier-forcing
+> mutant gives Glinting Creeper HALF its counters — still a plausible pile. Neither shows up as an obviously
+> broken board. **Pin the exact number and the exact kind, or the mutant walks.**
+> ⏭ **STILL OPEN: the converge SPELL forms** (Radiant Flames, Painful Truths, Bring to Light — ~16
+> sorceries/instants). Same capture point, different consumer: the count is on the CAST params but only the
+> permanent-ETB resolver reads it; a spell needs it threaded into effect resolution as a dynamic amount.
 
 > ### ⏭ ORIGINAL SEAM-MAP (kept — converge still open): **"how many COLOURS did you spend?"**
 > 50 real carriers; the causation probe (swap the colour-count for a fixed count) says **10 flip**. One

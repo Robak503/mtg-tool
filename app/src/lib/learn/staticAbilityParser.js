@@ -982,6 +982,36 @@ export function sunburstCounterKind(card) {
   return null; // neither — outside CR 702.43a's two cases, so refuse rather than guess
 }
 
+/**
+ * ⭐ CONVERGE ENTERS-WITH (CR 702.117a) — "Converge — This creature enters with a +1/+1 counter on it for
+ * each color of mana spent to cast it." (Skyrider Elf, Woodland Wanderer, Tajuru Stalwart, Crystalline
+ * Crawler, the Archaic cycle) and the DOUBLED form, "…with TWO +1/+1 counters on it for each color…"
+ * (Glinting Creeper).
+ *
+ * ⭐ THE SAME QUESTION AS SUNBURST, WRITTEN OUT LONGHAND. Converge is an ability WORD (CR 207.2c) with no
+ * rules meaning — the sentence after the dash carries everything — where sunburst is a keyword whose rule
+ * lives in reminder parens. Both read the colour count captured off the payment plan; only the DETECTION
+ * differs, which is why this is a sibling reader rather than a widened sunburst one.
+ *
+ * ⛔ THE PER-COLOUR MULTIPLIER IS PARSED, NOT ASSUMED. Glinting Creeper gets TWO counters per colour, and a
+ * hard-coded 1 would silently halve it — the same class of error as assuming sunburst's counter kind, and
+ * invisible for the same reason (the card still enters with *some* counters).
+ *
+ * ⛔ +1/+1 ONLY. Every corpus carrier of this sentence puts +1/+1 counters on a creature; a different kind
+ * would need its own evidence, so the anchor names the counter explicitly rather than accepting any word.
+ *
+ * Returns { per } | null — `per` counters per colour of mana spent.
+ */
+export function convergeEntersCounters(card) {
+  const raw = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  for (const line of raw.split("\n")) {
+    const m = line.trim().toLowerCase().replace(/[’]/g, "'")
+      .match(/^converge\s*[—–-]\s*this creature enters with (a|one|two|three) \+1\/\+1 counters? on it for each color of mana spent to cast it\.?$/);
+    if (m) return { per: _ENTER_NUM[m[1]] ?? 1 };
+  }
+  return null;
+}
+
 export function entersWithXCounters(card) {
   const rawOracle = String(card?.oracle || card?.oracle_text || "");
   // KW-RAVENOUS (Edge of Eternities / Warhammer 40k — CR keyword) — the keyword's enters-with-X mechanic

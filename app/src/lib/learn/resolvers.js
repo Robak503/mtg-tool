@@ -28,7 +28,7 @@ import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js
 import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
-import { entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
+import { entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
 import { addContinuousEffect } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); acyclic (layers imports only ptPrimitive/keywords/staticAbilityParser/protection, none of which reach resolvers)
 import { autoPickCreatureType } from "./choicePolicy.js"; // CR 614.12 auto-choice policy — a zero-import LEAF, shared with the effect atoms (which cannot import resolvers: resolvers → runProgram → effectAtoms). One copy, so an ETB choice and an activated choice can never diverge on the same board.
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
@@ -357,6 +357,16 @@ export function enterPermanent(state, card, controller, opts = {}) {
     const sbKind = sunburstCounterKind(card);
     if (sbKind && opts.colorsSpent > 0) {
       perm.counters = { ...perm.counters, [sbKind]: (perm.counters[sbKind] || 0) + applyCounterDoubling(state, controller, sbKind, opts.colorsSpent) };
+    }
+    // ⭐ CONVERGE (CR 702.117a) — the same colour count, written longhand instead of as a keyword, and with
+    // a per-colour MULTIPLIER (Glinting Creeper takes two counters per colour). Always +1/+1; the reader
+    // refuses any other wording rather than guessing a kind.
+    // ⛔ MUTUALLY EXCLUSIVE WITH SUNBURST BY CONSTRUCTION — no corpus card prints both, and the two readers
+    // anchor on disjoint text (a bare keyword vs a "Converge —" sentence), so neither can double-count.
+    const conv = convergeEntersCounters(card);
+    if (conv && opts.colorsSpent > 0) {
+      const n = conv.per * opts.colorsSpent;
+      perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", n) };
     }
   }
   // SAGA (CR 714.3a — Vault 12, SHELF S7): a Saga enters with a lore counter (through the doubler — a
