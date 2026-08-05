@@ -2758,3 +2758,23 @@ export function learnClauseParser(clause) {
   return { op: "optional-discard-payment", effectAtoms: [{ op: "draw", amount: 1, targetType: null }], targetType: null };
 }
 registerClauseParser(learnClauseParser);
+
+/**
+ * POPULATE (CR 701.32a) — "Populate." as its own sentence, and the "…, then populate" tail, on Scion of
+ * Vitu-Ghazi, Selesnya Eulogist, Xavier Sal and eleven more whose OTHER text already parses HIGH.
+ *
+ * ⭐ THE MINTER WAS ALREADY BUILT. `create-token-copy` (CR 707.1) does the whole job — the copiable-values
+ * snapshot, the token-doubler multiply, the per-copy ETB triggers — and `resolveCopySource` is the one
+ * place that says WHICH permanent to copy. Populate needed exactly one new source kind
+ * (`creatureTokenYouControl`) and this alias; no new minting, no new resolver.
+ *
+ * ⛔ NOT A TARGET. Populate never prints "target", so nothing is chosen at cast time and the source is
+ * picked at resolution from the controller's own creature TOKENS. With no creature token, the atom's
+ * existing CR 111.12 path makes it a clean no-op — which is the printed outcome, not a shortfall.
+ */
+export function populateClauseParser(clause) {
+  const t = String(clause || "").trim().toLowerCase().replace(/\.$/, "").trim();
+  if (t !== "populate" && t !== "then populate") return null;
+  return { op: "create-token-copy", copySource: "creatureTokenYouControl", count: 1, targetType: null };
+}
+registerClauseParser(populateClauseParser);

@@ -169,7 +169,13 @@ describe("β-2 — compound permanent-type unions (X or Y)", () => {
       .toEqual([{ op: "destroy", targetType: "artifactOrLand", restrictions: [{ kind: "controller", who: "opponent" }] }]);
     expect(parseEffectProgram(I("Destroy target creature or planeswalker.")).atoms)
       .toEqual([{ op: "destroy", targetType: "creatureOrPlaneswalker", restrictions: [] }]); // PW-7 — planeswalkers are now targetable
-    expect(programConfidence(parseEffectProgram(I("Destroy target artifact or enchantment, then populate.")))).toBe("low"); // rider
+    // ⭐ INVERTED IN PLACE 2026-08-04, guard job preserved. This line's JOB is "an unmodeled rider drops the
+    // whole spell to LOW", and its FIXTURE was ", then populate" — chosen because populate was unmodeled.
+    // Populate now parses (CR 701.32a, riding the existing create-token-copy minter), so Sundering Growth is
+    // legitimately HIGH. Re-aimed at a rider that is still unmodeled, with the populate form re-pinned at
+    // its new answer so the flip is recorded rather than lost.
+    expect(programConfidence(parseEffectProgram(I("Destroy target artifact or enchantment, then interpret the omens.")))).toBe("low"); // rider
+    expect(programConfidence(parseEffectProgram(I("Destroy target artifact or enchantment, then populate.")))).toBe("high");
   });
   it("enumerates permanents matching EITHER type across battlefields (not the other types)", () => {
     const s = board();

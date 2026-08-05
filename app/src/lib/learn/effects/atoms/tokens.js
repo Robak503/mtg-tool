@@ -433,6 +433,28 @@ function resolveCopySource(state, atom, ctx) {
     const t = (ctx.targets || []).find((x) => x?.type === "creature") || (ctx.targets || [])[0];
     return t?.id ? findPermanent(state, t.id)?.permanent : null;
   }
+  // POPULATE (CR 701.32a) — "Create a token that's a copy of a creature token you control." The source is
+  // CHOSEN by the controller from their own creature TOKENS, and it is not a target (populate never uses
+  // the word), so nothing is chosen at cast time and the pick happens here at resolution.
+  //
+  // ⛔ TOKENS ONLY, and that is the rule rather than a simplification: `card.token` is the same flag the
+  // token-copy minter stamps and Miirym's nontoken gate reads. A nontoken creature is NOT a legal populate
+  // source, so copying one would be strictly more than the card allows.
+  //
+  // NO LEGAL SOURCE ⇒ null ⇒ applyCreateTokenCopy's CR 111.12 clean no-op. That is the printed outcome for
+  // a player with no creature tokens, not an engine shortfall.
+  //
+  // THE PICK IS DETERMINISTIC AND STATED, so a self-play trace is reproducible: the largest body by
+  // power+toughness, ties broken by the permanent id. Populate's own choice is unconstrained by the rules
+  // (any creature token you control), so any legal pick is faithful; picking the biggest is the obvious
+  // play and never illegal.
+  if (atom.copySource === "creatureTokenYouControl") {
+    const bf = state.players?.[ctx.controller]?.battlefield || [];
+    const tokens = bf.filter((p) => p?.card?.token && /\bcreature\b/i.test(String(p.card.type || "")));
+    if (!tokens.length) return null;
+    const score = (p) => (Number(p.card.power) || 0) + (Number(p.card.toughness) || 0);
+    return tokens.slice().sort((a, b) => score(b) - score(a) || String(a.id).localeCompare(String(b.id)))[0];
+  }
   return null;
 }
 
