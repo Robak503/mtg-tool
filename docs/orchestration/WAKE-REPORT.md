@@ -34,6 +34,16 @@
 > program in `payload.params`, so confidence read `undefined` and nothing ran. **A boolean pass/fail would
 > have sent me to rewrite working code.** When a Law-6 pin fails, check the harness signature BEFORE the fix.
 
+> ### ⛔ THE LACCOLITH FAMILY — **SIZED AND NOT BUILT** (5 carriers, 0 native). Two mechanics, not one clause.
+> "Whenever this creature becomes blocked, you may have it deal damage equal to its power to target creature.
+> **If you do, this creature assigns no combat damage this turn.**" The TRIGGER is already detected correctly
+> (event + scope + effectClause all present) — it is the EFFECT that has nothing. Both halves are missing:
+> `deals damage equal to its power to target creature` parses LOW even standalone, and **"assigns no combat
+> damage this turn" does not exist anywhere in the engine** (grep finds only a CR quotation in a comment).
+> The second half is a combat-resolution change of the same class as the redirection one below, and the
+> drawback is not optional — modelling only the damage would hand these cards a free ping. Laccolith Rig
+> needs the attached-trigger seam on top. **Don't open it as a parser slice.**
+
 > ### ⛔ DAMAGE REDIRECTION — **SIZED AND DELIBERATELY NOT BUILT** (8 carriers, 0 native). Read this first.
 > "The next N damage that would be dealt to X this turn is dealt to <Y> INSTEAD" — the en-Kor cycle (6),
 > Carom, Ward of Piety. Prevention is built (~48 native); redirection is not (CR 615.x). **The blocker is
