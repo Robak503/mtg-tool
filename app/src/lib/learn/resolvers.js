@@ -28,7 +28,7 @@ import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js
 import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
-import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
+import { entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
 import { addContinuousEffect } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); acyclic (layers imports only ptPrimitive/keywords/staticAbilityParser/protection, none of which reach resolvers)
 import { autoPickCreatureType } from "./choicePolicy.js"; // CR 614.12 auto-choice policy — a zero-import LEAF, shared with the effect atoms (which cannot import resolvers: resolvers → runProgram → effectAtoms). One copy, so an ETB choice and an activated choice can never diverge on the same board.
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
@@ -292,6 +292,18 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // bare, unconditional, literal-N form (entersWithPlusCounters guards out kicker / "for each" / "where X").
   const plusCounters = entersWithPlusCounters(card);
   if (plusCounters > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", plusCounters) };
+  // ⭐ THE −1/−1 TWIN (CR 614.1c) — Shrewd Hatchling, Bloodied Ghost, Carnifex Demon, Grim Poppet and
+  // ~30 more. Same replacement, opposite sign, and the runtime was ALREADY finished: ptPrimitive's
+  // counterPtDelta subtracts counters["-1/-1"], so the layer engine has always priced these correctly.
+  // Only the parse step was missing, which is why "+1/+1" was native on 28 carriers and "-1/-1" on ZERO.
+  // ⛔ NOT run through applyCounterDoubling. Doubling Season and its kin read "if one or more counters
+  // WOULD BE PUT ON a permanent YOU CONTROL" — CR 614 doubling applies to counters generally, but this
+  // engine's doubler profile is built for the BENEFICIAL +1/+1 case and doubling a drawback the card prints
+  // would make these creatures WORSE than printed. A doubler that genuinely doubles −1/−1 counters is a
+  // separate, measurable question; silently inheriting the plus twin's call would have answered it by
+  // accident. Fail-closed: the printed number, exactly.
+  const minusCounters = entersWithMinusCounters(card);
+  if (minusCounters > 0) perm.counters = { ...perm.counters, "-1/-1": (perm.counters["-1/-1"] || 0) + minusCounters };
   // MODULAR (BLITZ MOD-1, CR 702.43a) — "Modular N" is (in part) an enters-with-N-+1/+1-counters replacement,
   // but that sentence lives ONLY in the keyword's REMINDER parens (entersWithPlusCounters strips parens →
   // returns 0 for a modular card), so read the count from the keyword itself. modularKeywordValues is the SAME

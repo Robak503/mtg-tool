@@ -771,6 +771,38 @@ export function entersWithPlusCounters(card) {
   return 0;
 }
 
+/**
+ * ⭐ ENTERS-WITH −1/−1 COUNTERS (CR 614.1c) — the exact SIGN-FLIPPED twin of entersWithPlusCounters above.
+ * Shrewd Hatchling, Noxious Hatchling, Bloodied Ghost, Carnifex Demon, Grim Poppet, Wickerbough Elder and
+ * ~30 more.
+ *
+ * ⭐ FOUND BY SPLITTING THE SHAPE BY TIER, and the split could not be starker: "enters with N +1/+1
+ * counters" is native on **28** carriers; "enters with N −1/−1 counters" was native on **ZERO**, with 35
+ * parked. The SIGN was the entire difference.
+ *
+ * ⓘ PURE IGNITION — the runtime was already finished. ptPrimitive.counterPtDelta reads `counters["-1/-1"]`
+ * and SUBTRACTS it, so the layer engine has always priced these correctly; the resolver already writes
+ * arbitrary counter kinds at ETB. Only this parse step was missing, so every carrier parked on a line the
+ * engine could already have honoured.
+ *
+ * ⛔ The same conditional/variable guard as the plus twin, for the same reason: "for each", "if", "unless",
+ * "where X" and kicker forms (Canker Abomination — "for each creature that opponent controls"; Patched
+ * Plaything — "if you cast it from your hand") are a VARIABLE count this doesn't model, and guessing one
+ * would put the wrong body on the battlefield. Those park.
+ * ⛔ Returns a POSITIVE magnitude — the caller adds it as "-1/-1" counters. Keeping the sign in the counter
+ * KIND rather than in the number means a caller can never accidentally add negative counters.
+ */
+export function entersWithMinusCounters(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
+    const m = sentence.match(/enters (?:the battlefield )?with (a|an|one|two|three|four|five|six|seven|\d+) -1\/-1 counters? on it/i);
+    if (!m) continue;
+    if (/\b(?:if|for each|where|kicked|unless|equal to|plus)\b/i.test(sentence)) return 0; // conditional/variable → not modeled
+    return _ENTER_NUM[m[1].toLowerCase()] ?? (parseInt(m[1], 10) || 0);
+  }
+  return 0;
+}
+
 // ENTERS-WITH-NAMED-COUNTERS (CR 614.1c + 122.6a) — the FIXED number of a NAMED (non-P/T) counter a permanent
 // "enters with N <name> counters on it", or null. The generic sibling of entersWithPlusCounters, for a
 // card-specific counter kind (slumber — Arixmethes; charge — the Trigons; oil / shield / stun — BLITZ EW-1;

@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **ENTERS WITH −1/−1 COUNTERS (sign split), +4** - batch 33 (post-v0.153.0)
+> Suite 1135 / 14,039 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Bloodied Ghost, Wickerbough
+> Elder, Deity of Scars, Etched Monstrosity.
+> ⭐ **THE STARKEST TIER SPLIT YET — ONE CHARACTER OF ORACLE TEXT:**
+> · "enters with N **+1/+1** counters" → **28 native**
+> · "enters with N **−1/−1** counters" → **0 native, 35 parked**
+> ℹ **PURE IGNITION — the runtime was already finished.** `ptPrimitive.counterPtDelta` reads
+> `counters["-1/-1"]` and SUBTRACTS it, so the layer engine has always priced these correctly, and the
+> resolver already writes arbitrary counter kinds at ETB. Only the parse step existed nowhere.
+> ⛔ **DELIBERATELY NOT ROUTED THROUGH `applyCounterDoubling`** — the plus twin one line above DOES call it.
+> Inheriting that would **double a printed DRAWBACK**: Etched Monstrosity would enter with TEN −1/−1
+> counters instead of five, strictly worse than printed, off a permanent its controller played to help them.
+> Whether this engine's doubler profile should double −1/−1 is a real, separately measurable question —
+> silently inheriting the call would have answered it **by accident**. Pinned at five.
+> ⭐ **THE RESOLVER MUTANT IS THE ONE THAT MATTERS, and only LAW 6 caught it:** with the ETB write removed
+> the card stays credited **native-body** while entering at **3/3 instead of 2/2**. Every classification pin
+> stayed green. That is the metric-over-claims-runtime split in miniature — **a parse-only slice for an
+> enters-with effect MUST be driven on a real enter path.**
+> ⚠️ Python-heredoc backslash mangling struck again (`occ: 0` on the coverage strip) — caught by grep, fixed
+> with Edit. **Use the Edit tool for anything containing regex escapes.**
+
 > ## 🚫 NOT BUILT - 2026-08-05 - **"ANY NUMBER of target cards from your graveyard"** — the cap makes it an FP
 > Footbottom Feast, Bone Harvest, Forever Young, Gravepurge, Frantic Salvage — **5 carriers, 0 native.**
 > Probed properly rather than assumed, and it is a REFUSAL with arithmetic behind it:

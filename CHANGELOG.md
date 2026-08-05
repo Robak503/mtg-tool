@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Creatures that come in damaged now do.** Bloodied Ghost, Wickerbough Elder, Deity of Scars and Etched
+  Monstrosity enter with their −1/−1 counters, so they show up at the size the card actually prints.
 - **The graveyard recyclers work.** Barkform Harvester, Epitaph Golem, Tomb Trawler and Transplant
   Theorist put a card from your graveyard on the bottom of your library, exactly where it belongs.
 - **Lifegain hate works.** Giant Cindermaw, Rampaging Ferocidon and Forsaken Wastes stop *everyone* gaining
