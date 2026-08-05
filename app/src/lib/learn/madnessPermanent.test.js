@@ -24,7 +24,14 @@ describe("MD-1 — madness on permanents", () => {
     // A madness-REFERENCING line is not a bare cost — never credited.
     expect(isKeywordOnly("Each card in your hand has madness {1}{R}.", "Hypo Granter")).toBe(false);
     // An unmodeled sibling line keeps the card parked (whole-card law) even with madness credited.
+    // ⭐ INVERTED IN PLACE 2026-08-04, guard job preserved. The fixture was Geralf's Masterpiece, picked
+    // because its hand-scaled -1/-1 static was unmodeled; the zone-count slice models that static, so the
+    // card legitimately flips. Re-aimed at a still-unmodeled static, with Geralf's re-pinned at its new
+    // answer directly below — the guard still guards, and the flip is recorded instead of deleted.
+    expect(classifyCard({ id: "gm2", name: "Odd Masterpiece", type: "Creature — Zombie Horror", power: "7", toughness: "7", mana: "{2}{U}",
+      oracle: "Flying\nThis creature gets -1/-1 for each noncreature, nonland card in your graveyard.\n{3}{U}, Discard three cards: Return this card from your graveyard to the battlefield tapped.\nMadness {X}" })).toBe("body-only");
+    // …and with the sibling now modeled, madness rides along on a fully-native card.
     expect(classifyCard({ id: "gm", name: "Geralf's Masterpiece", type: "Creature — Zombie Horror", power: "7", toughness: "7", mana: "{2}{U}",
-      oracle: "Flying\nThis creature gets -1/-1 for each card in your hand.\n{3}{U}, Discard three cards: Return this card from your graveyard to the battlefield tapped.\nMadness {X}" })).toBe("body-only");
+      oracle: "Flying\nThis creature gets -1/-1 for each card in your hand.\n{3}{U}, Discard three cards: Return this card from your graveyard to the battlefield tapped.\nMadness {X}" })).toBe("native-mixed");
   });
 });

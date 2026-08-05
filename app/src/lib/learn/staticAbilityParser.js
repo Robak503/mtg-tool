@@ -443,6 +443,25 @@ function parseSelfCountSource(phrase) {
   // the runtime maintains. The combined phrase is one scan with a wider type test, not two counts summed.
   if (/^equipment attached to it$/.test(p)) return { kind: "equipmentAttachedToSelf" };
   if (/^aura and equipment attached to it$/.test(p)) return { kind: "aurasAndEquipmentAttachedToSelf" };
+  // ── ZONE COUNTS (hand / graveyard) — Empyrial Plate, Empyrial Armor, Wight of the Reliquary, Liliana's
+  // Elite, Salvage Slasher, Glamdring.
+  // ⭐ ADMITTED ON THE CDA VOCABULARY'S OWN EVIDENCE, WHICH IS A STRICTLY STRONGER BAR. parseCdaCountSource
+  // documents its criterion as "admit only what an evaluator computes EXACTLY", and a CDA *sets* the base
+  // P/T — a count that silently returned 0 there is a fabricated 0/0 on the battlefield. These sources
+  // cleared THAT bar. A layer-7c self-buff only ADDS to the printed body, so anything safe for a CDA is
+  // safe here a fortiori. This is not a new permission; it is two vocabularies that disagreed.
+  // The counterpart half is at the eval site: the self-buff branch now calls countForSpec (the dispatcher
+  // that owns the zone kinds) rather than countSelfSpecOnBoard (which never saw them). Vocabulary without
+  // that call buys nothing, and that call without vocabulary buys nothing.
+  // ⛔ ENUMERATED, NOT DELEGATED WHOLESALE. Sources with no exact evaluator in EITHER vocabulary still park:
+  // "noncreature, nonland card in your graveyard", "card with cycling in your graveyard". Handing the whole
+  // CDA parser through would credit whatever it grows next without anyone re-arguing it here.
+  if ((m = p.match(/^(creature|land|artifact|enchantment|instant|sorcery|planeswalker) cards? in your graveyard$/))) return { kind: "cardsInGraveyard", cardType: m[1] };
+  if (/^instant and sorcery cards? in your graveyard$/.test(p)) return { kind: "cardsInGraveyard", cardType: "instantOrSorcery" };
+  if (/^card types? among cards in your graveyard$/.test(p)) return { kind: "cardTypesInGraveyard" };
+  if ((m = p.match(/^(creature|land|artifact|enchantment|instant|sorcery|planeswalker) cards? in all graveyards$/))) return { kind: "cardsInAllGraveyards", cardType: m[1] };
+  if (/^cards? in your hand$/.test(p)) return { kind: "cardsInHand" };
+  if (/^cards? in all players' hands$/.test(p)) return { kind: "cardsInAllHands" };
   // SUBTYPE on the battlefield (ALL controllers, no "you control") — "(other )?<Subtype> on the battlefield"
   // (Sliver Legion "for each other Sliver on the battlefield"). "other" → excludeSelf (each counter excludes
   // itself). A LIVE board count (never zero-by-default) — so it's non-hollow, unlike a "counter on this

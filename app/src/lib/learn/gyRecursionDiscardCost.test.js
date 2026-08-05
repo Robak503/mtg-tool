@@ -42,9 +42,16 @@ describe("parse + classify", () => {
     expect(classifyCard(SKAAB)).toBe("native-activated");
     expect(classifyCard({ id: "gh", name: "Ghoulsteed", type: "Creature — Zombie Horse", power: "4", toughness: "6", mana: "{4}{B}",
       oracle: "{2}{B}, Discard two cards: Return this card from your graveyard to the battlefield tapped." })).toBe("native-activated");
-    // Geralf's Masterpiece stays parked — its hand-scaled -1/-1 static is unmodeled (whole-card law).
+    // ⭐ INVERTED IN PLACE 2026-08-04, guard job preserved. This pin's JOB is "an unmodeled sibling line
+    // keeps the whole card parked". Its FIXTURE was Geralf's Masterpiece, chosen because its hand-scaled
+    // -1/-1 static was unmodeled — and the zone-count slice MODELS that static, so the card now legitimately
+    // flips. The pin is re-aimed at a static that is still genuinely unmodeled, and Geralf's is re-pinned
+    // below at its new, correct answer so the flip is recorded rather than silently lost.
+    expect(classifyCard({ id: "gm2", name: "Odd Masterpiece", type: "Creature — Zombie Horror", power: "7", toughness: "7", mana: "{2}{U}",
+      oracle: "Flying\nThis creature gets -1/-1 for each noncreature, nonland card in your graveyard.\n{3}{U}, Discard three cards: Return this card from your graveyard to the battlefield tapped." })).toBe("body-only");
+    // Geralf's Masterpiece itself: now fully modeled, both halves.
     expect(classifyCard({ id: "gm", name: "Geralf's Masterpiece", type: "Creature — Zombie Horror", power: "7", toughness: "7", mana: "{2}{U}",
-      oracle: "Flying\nThis creature gets -1/-1 for each card in your hand.\n{3}{U}, Discard three cards: Return this card from your graveyard to the battlefield tapped." })).toBe("body-only");
+      oracle: "Flying\nThis creature gets -1/-1 for each card in your hand.\n{3}{U}, Discard three cards: Return this card from your graveyard to the battlefield tapped." })).toBe("native-mixed");
   });
 });
 

@@ -1271,10 +1271,31 @@ function applyLayer7(state, perm, l7Effects) {
           : e.op.countSpec.counterType ? (src.counters?.[e.op.countSpec.counterType] || 0)
           : Object.values(src.counters || {}).reduce((s, v) => s + (v || 0), 0);
       } else {
-        // TRUNK-SELFBUFF: magnitude = a live board count × per-unit ("gets +X/+Y for each <countsource>").
+        // TRUNK-SELFBUFF: magnitude = a live count × per-unit ("gets +X/+Y for each <countsource>").
         // The count is read for THIS permanent (its controller / its type line for the excludeSelf case),
         // re-evaluated here every P/T computation (so it tracks the board live).
-        n = countSelfSpecOnBoard(state, perm, e.op.countSpec);
+        //
+        // ⭐ countForSpec, NOT countSelfSpecOnBoard. The two were never joined: countForSpec handles the
+        // ZONE kinds (hand / graveyard counts) and delegates EVERY other kind straight through to
+        // countSelfSpecOnBoard, so this line's old call was a strict SUBSET of the dispatcher sitting one
+        // level above it. The CDA lane has always gone through the full dispatcher; the self-buff lane never
+        // did, which is why an exact evaluator that already shipped ("cards in your hand", the typed
+        // graveyard counts) was unreachable from here no matter what the vocabulary said. Behaviour for
+        // every previously-admitted spec is byte-identical BY CONSTRUCTION — same function, one hop later.
+        //
+        // ⭐ "YOUR"/"YOU CONTROL" IS THE SOURCE'S CONTROLLER, NOT THE BUFFED CREATURE'S (CR 109.5). On a
+        // self-buff they are the same permanent and nothing changes. On a GRANTED buff — an Aura or
+        // Equipment pumping its host — they diverge the moment the host is not the granter's. Quag Sickness
+        // ("Enchanted creature gets -1/-1 for each Swamp YOU control") is a removal Aura whose NORMAL use is
+        // on an opponent's creature, and it was counting the OPPONENT's Swamps. Measured before the fix:
+        // Empyrial Armor controlled by the user, enchanting an AI creature, with three cards in the user's
+        // hand and none in the AI's, buffed by +0/+0 instead of +3/+3.
+        // The SUBJECT of the count stays the affected permanent (`perm.id` — that is what makes "for each
+        // Equipment attached to it" mean the host's Equipment); only the PERSPECTIVE moves to the source.
+        // Hence the spread rather than passing `src` outright: affected identity, source viewpoint.
+        const cs = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
+        const subject = cs && cs.controller !== perm.controller ? { ...perm, controller: cs.controller } : perm;
+        n = countForSpec(state, subject, e.op.countSpec);
       }
       power += n * (e.op.perPower || 0);
       toughness += n * (e.op.perToughness || 0);
