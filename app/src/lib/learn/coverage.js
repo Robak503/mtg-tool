@@ -195,6 +195,23 @@ export const COVERED_KEYWORDS = [
   // as the referent. Crediting the bare "Ingest" line here is the LAST of the three pieces — the descriptor
   // routed natively and the counts balanced while the card still parked, because the keyword's own printed
   // line survived the trigger-sentence strip as residue.
+  // CIPHER (CR 702.98a) — credited on the UNTAKEN-OPTION rationale, and it meets that family's stated
+  // criterion exactly rather than by analogy. optionalModeKeywords.test.js sets the bar: "the option has to
+  // be one the player may simply decline with no consequence to the rest of the card. A keyword whose
+  // UNPAID state still changes the board (or whose reminder hides a mandatory rider) is a different animal."
+  //   · "Then you MAY exile this spell card encoded on a creature you control" — declining leaves the spell
+  //     resolving normally and going to the graveyard, which is a real, complete, legal play;
+  //   · the unpaid state changes NOTHING on the board (contrast champion, whose unpaid state SACRIFICES the
+  //     creature — which is why champion is credited only because it is ENFORCED, not for being declinable);
+  //   · the reminder hides no mandatory rider: the encoded-copy trigger exists only if you took the option.
+  //     Verified rather than assumed — detectTriggers returns ZERO for a cipher carrier, so the reminder's
+  //     "Whenever that creature deals combat damage…" never leaks in as a phantom descriptor.
+  //   · and its carriers all have real mana costs, so they hard-cast normally — the exact point on which the
+  //     SUSPEND precedent was refused (no mana cost ⇒ cannot be hard-cast at all).
+  // Myriad is the closest sibling already in the family: another "you may create a copy" rider.
+  // ⛔ FN-SAFE: the player loses access to the encode mode, never gains anything. The spell's own printed
+  // effect is untouched — which is why every carrier here was already native once this line was removed.
+  "cipher",
   "ingest",
   // CHAMPION (CR 702.71a) — ENFORCED end-to-end, the ingest pattern exactly: detectTriggers synthesizes the
   // ENTERS descriptor from the printed keyword (one only — the leaves half rides the detain link),

@@ -134,14 +134,25 @@ describe("WINDFALL — discard atom records the max", () => {
 });
 
 describe("WINDFALL — CREED guards", () => {
-  it("Whispering Madness (Windfall body + a Cipher rider) stays LOW → Arbiter (the rider is unmodeled)", () => {
+  // ⭐ INVERTED IN PLACE 2026-08-05, guard job preserved. This asserted the Cipher rider kept Whispering
+  // Madness low. Cipher is now credited on the untaken-option rationale — the same basis buyback has always
+  // been stripped on (an optional disposition change the engine declines; a normal cast resolves the printed
+  // body byte-identically). The card's WINDFALL body is what this file is really about, and it is unchanged:
+  // the pin below now asserts the body carries the program, with an unmodeled-rider guard kept beside it so
+  // the CREED check this describe-block exists for still runs.
+  it("Whispering Madness (Windfall body + a Cipher rider) is now HIGH — the body carries it", () => {
     const wm = {
       name: "Whispering Madness", type: "Sorcery", type_line: "Sorcery", mana: "{2}{U}{B}", mana_cost: "{2}{U}{B}",
       oracle: "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way.\nCipher (Then you may exile this spell card encoded on a creature you control. Whenever that creature deals combat damage to a player, its controller may cast a copy of the encoded card without paying its mana cost.)",
       oracle_text: "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way.\nCipher (Then you may exile this spell card encoded on a creature you control. Whenever that creature deals combat damage to a player, its controller may cast a copy of the encoded card without paying its mana cost.)",
     };
-    expect(programConfidence(parseEffectProgram(wm))).toBe("low"); // the Cipher line is unmodeled
-    expect(classifyCard(wm)).not.toMatch(/^native/);
+    expect(programConfidence(parseEffectProgram(wm))).toBe("high"); // the Cipher rider is declined; the Windfall body carries the card
+    expect(classifyCard(wm)).toMatch(/^native/);
+    // …and the CREED guard this pin carried is intact, on a rider that IS still unmodeled:
+    const odd = { ...wm, name: "Odd Madness",
+      oracle: "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way.\nSpecialize {3}",
+      oracle_text: "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way.\nSpecialize {3}" };
+    expect(classifyCard(odd)).not.toMatch(/^native/);
   });
 
   it("a near-miss draw magnitude (fixed 'draws seven cards' = Wheel) is NOT this matcher — it's the plain WHEEL native", () => {

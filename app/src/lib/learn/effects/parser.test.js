@@ -841,7 +841,12 @@ const MUST_DROP_TO_LOW = [
   // unparseable clause → low; and a vacuous-keyword card whose BODY is unmodeled also stays low (all-or-
   // nothing). (Rebound is now modeled FAITHFULLY — exile-on-resolution via selfExile, recast declined — so a
   // rebound spell with a MODELED body is HIGH; pinned in effects/rebound.test.js + the KWSTRIP describe below.) ──
-  "Target player discards a card.\nCipher",                                     // cipher — NOT vacuous (encodes) → not stripped → low
+  // ⭐ FIXTURE SWAPPED 2026-08-05. Cipher sat here as "NOT vacuous (encodes)". That reason was TRUE — and
+  // equally true of BUYBACK ("return this to your hand instead of the graveyard"), which has been in the
+  // strip list all along on the stated basis that the engine never PAYS it, so a normal cast resolves the
+  // printed body byte-identically and the spell graveyards normally. Cipher is the same shape: an OPTIONAL
+  // disposition change the engine declines. Re-aimed at specialize, which is still genuinely unmodeled.
+  "Target player discards a card.\nSpecialize {3}",                             // specialize — not modeled → not stripped → low
   // ⚠️ BODY SWAPPED 2026-08-01. These two used the FILTERED "return all creature cards…" as their
   // stand-in for an unmodeled body; mass reanimate is now BUILT (see atoms/massReanimate.test.js), so that
   // body reads high and the fixtures stopped testing what they were written to test. The property is
@@ -1389,10 +1394,16 @@ describe("parseEffectProgram — KWSTRIP-1 (vacuous cast-keyword line strip)", (
     // form is refused permanently by that arm's CREED guard, which makes it a stable stand-in.
     expect(programConfidence(parseEffectProgram(I("Suspend 4—{1}{R}\nReturn all cards from your graveyard to the battlefield.")))).toBe("low"); // suspend stripped, unfiltered mass body unmodeled → low
   });
-  it("does NOT text-strip a non-vacuous keyword (cipher) — the card stays low → Arbiter", () => {
-    // Cipher (encode the spell onto a creature) changes the card's disposition in a way the engine doesn't
-    // model, so it must NOT be silently stripped — the card stays low → Arbiter.
-    expect(programConfidence(parseEffectProgram(I("Target player discards a card.\nCipher")))).toBe("low");
+  it("does NOT text-strip a keyword the engine cannot simply decline — the card stays low → Arbiter", () => {
+    // ⭐ INVERTED IN PLACE 2026-08-05, guard job preserved. This pin refused CIPHER because it "changes the
+    // card's disposition". True — and equally true of BUYBACK ("return this to your hand instead of the
+    // graveyard"), which has been in the strip list all along on the stated basis that the engine never PAYS
+    // it, so a normal cast resolves the printed body byte-identically and the spell graveyards normally.
+    // Cipher is that same shape — an OPTIONAL disposition change the engine declines — so refusing one while
+    // stripping the other was inconsistent. The guard is re-aimed at a keyword that is genuinely unmodeled;
+    // cipher is re-pinned at its new answer beside it. See cipher.test.js for the full rationale.
+    expect(programConfidence(parseEffectProgram(I("Target player discards a card.\nSpecialize {3}")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("Target player discards a card.\nCipher")))).toBe("high");
   });
   it("REBOUND is now modeled faithfully (CR 702.88) — the body parses HIGH and the program is stamped selfExile", () => {
     // Rebound is NOT a text-strip: the body parses on its own merits AND the program is stamped `selfExile`
