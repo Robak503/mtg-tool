@@ -34,7 +34,7 @@
  * untested entry in a list that can only loosen is how it grows past what anyone checked.
  */
 export const ABILITY_WORD_LABEL_RE =
-  /^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|fast healing|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant|imprint|valiant|alliance|delirium|metalcraft|threshold|rally|morbid|ferocious|survival|descend 4|formidable|paradox|fateful hour|hellbent|undergrowth|infusion|vivid|void|battalion|battle cry)(?:\s*\([^)]*\))?\s*[—–-]\s*/gim;
+  /^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|fast healing|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant|imprint|valiant|alliance|delirium|metalcraft|threshold|rally|morbid|ferocious|survival|descend 4|formidable|paradox|fateful hour|hellbent|undergrowth|infusion|vivid|void|battalion|battle cry|inspired)(?:\s*\([^)]*\))?\s*[—–-]\s*/gim;
 
 /** Remove a leading CR 207.2c ability-word label from every line that carries one. */
 export function stripAbilityWordLabel(oracle) {

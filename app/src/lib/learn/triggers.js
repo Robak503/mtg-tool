@@ -1425,6 +1425,28 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^a permanent becomes untapped$/.test(c)) {
     return { event: "untapped", scope: "anyPermanent", whose: "any" };
   }
+  // ⭐ INSPIRED (CR 702.108a — "Inspired — Whenever this creature becomes untapped, …"): King Macar,
+  // Disciple of Deceit, Pheres-Band Raiders, Servant of Tymaret and the rest of the Born of the Gods cycle.
+  // THE EXACT MIRROR of the becomes-TAPPED self arm above, and it needs NO new runtime: the `untapped` event
+  // and its firing site already exist (checkUntapTriggers drains gameState's pendingUntapEvents and threads
+  // the untapped permanent as triggeringPermanent), and scope:"self" already gates on
+  // `triggeringPermanent.id === sourcePermanent.id`. Only the DETECTOR was missing, so the whole cycle sat
+  // on the Arbiter while the machinery to run it was already shipped and tested.
+  //
+  // The "Inspired —" ability-word label is decorative (CR 207.2c) and is stripped upstream, exactly like
+  // "Landfall —" — MEASURED, not assumed: with the label removed the sentence still detected nothing, which
+  // is what proved the CONDITION and not the label was the gap.
+  //
+  // SELF-SCOPE ONLY, mirroring the becomes-tapped discipline verbatim: a watcher form ("a creature you
+  // control becomes untapped") or any filtered/compound subject stays UNDETECTED → Arbiter, a safe
+  // false-negative rather than a mis-scoped fire. Untapped-only (CR 701.27a): the untap-step and any
+  // stun/no-untap skip never record an event, so a creature that was never tapped cannot fire this.
+  if (/\bbecomes untapped\s*$/.test(c)) {
+    const usubj = c.replace(/\s+becomes untapped\s*$/, "").trim();
+    const uIsSelf = usubj === "this creature" || usubj === "this permanent" || usubj === "this artifact"
+      || (nameL && usubj === nameL) || (shortName && usubj === shortName) || (firstWord && usubj === firstWord);
+    if (selfRef && uIsSelf) return { event: "untapped", scope: "self", whose: "any" };
+  }
   // LANDFALL (CR 603 — landfall is an ability word, CR 207.2c, for a TRIGGERED ability; NOT a replacement
   // effect, so not CR 614) — "Landfall — Whenever a land you control enters" /
   // "… a land enters the battlefield under your control" (Tatyova, Lotus Cobra, Rampaging Baloths, Jaddi
