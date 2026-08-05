@@ -2273,7 +2273,16 @@ function isNativeOwnActivatedAura(card) {
     // aura-own REGEN ("{G}: Regenerate enchanted creature." — Regeneration, Keldon Mantle, CR 701.19): the
     // regenerate atom carries the SAME fixed target:"enchanted" referent and resolves through the same
     // enchantedTargets host path (applyRegenerate → addRegenShield on the host), so it's op-for-op safe here.
-    prog.atoms.every((a) => (a.op === "tap" || a.op === "untap" || a.op === "pump" || a.op === "regenerate") && a.target === "enchanted");
+    // ⭐ AURA SELF-BOUNCE (2026-08-04 — Crown of Flames; census: 5 native carriers of the shape / 3 blocked)
+    // — "{R}: Return this Aura to its owner's hand." is the ONE atom here whose referent is the Aura ITSELF
+    // rather than its host, so it is admitted by op+target together, never by op alone: a `bounce` aimed at
+    // anything else (a chosen target, the host) is a different card and still fails this gate.
+    //
+    // Runtime-verified before admission, both abilities on the printed card: the pump takes the host 2/2 →
+    // 3/2, and the bounce really returns the Aura to hand AND clears the host's attachment list (no
+    // orphaned link left behind). That detach is the part a parse check cannot see.
+    prog.atoms.every((a) => ((a.op === "tap" || a.op === "untap" || a.op === "pump" || a.op === "regenerate") && a.target === "enchanted")
+      || (a.op === "bounce" && a.target === "self"));
   if (!abilities.every((a) => a.modeled && !a.isManaEffect && !a.isEquipAbility && isEnchantedTapProgram(a.program))) return false;
   // No body clause other than the Enchant keyword line and the printed activated-ability lines. An activated
   // ability line contains a colon whose cost is symbol/word-bearing (the same shape parseActivatedAbilities

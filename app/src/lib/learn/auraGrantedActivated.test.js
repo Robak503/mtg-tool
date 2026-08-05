@@ -64,8 +64,14 @@ describe("GRANTED-ACTIVATED (1b) — recognition", () => {
     expect(classifyCard(aura("Restful", 'Enchant creature\nEnchanted creature can\'t attack or block.\nEnchanted creature has "{B}: This creature gets +1/+1 until end of turn."'))).toBe("native-activated");
     // ⛔ an UNMODELED static rider still parks the whole card — both halves must pass their own gate.
     expect(classifyCard(aura("Restless", 'Enchant creature\nWhenever a player consults an oracle, interpret its riddle however you like.\nEnchanted creature has "{B}: This creature gets +1/+1 until end of turn."'))).toBe("body-only");
-    // return-to-hand rider (Hypervolt Grasp)
-    expect(classifyCard(aura("Grasp", 'Enchant creature\nEnchanted creature has "{T}: This creature deals 1 damage to any target."\n{1}{U}: Return this Aura to its owner\'s hand.'))).toBe("body-only");
+    // ⭐ GRADUATED 2026-08-04 — the return-to-hand rider (Hypervolt Grasp) is MODELED now. The aura-own
+    // activated gate admits a `bounce` atom aimed at `target: "self"` (the Aura returning ITSELF), and the
+    // runtime was verified before that admission: activating it really puts the Aura in hand, off the
+    // battlefield, and clears the host's attachment list. See auraSelfBounce.test.js, which also pins the
+    // boundary — a bounce aimed at a CHOSEN TARGET is still not admitted.
+    expect(classifyCard(aura("Grasp", 'Enchant creature\nEnchanted creature has "{T}: This creature deals 1 damage to any target."\n{1}{U}: Return this Aura to its owner\'s hand.'))).toBe("native-activated");
+    // ⛔ and the rider intent this line used to carry, re-aimed at one that is still genuinely unmodeled:
+    expect(classifyCard(aura("Graspless", 'Enchant creature\nEnchanted creature has "{T}: This creature deals 1 damage to any target."\n{1}{U}: Return target creature to its owner\'s hand.'))).toBe("body-only");
   });
   it("an UNMODELED granted effect stays Arbiter (FN-safe boundary)", () => {
     // ⭐ A MOVING BOUNDARY MARKER, re-pointed for the SECOND time — this test pins the FN-safe boundary
