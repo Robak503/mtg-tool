@@ -9,6 +9,27 @@
 
 ## ☀️ 2026-08-05 — **+205 this sitting · v0.152.0 PUBLISHED · post-tag batch 8** — suite **1117 / 13,949** green by exit code
 
+> ### 🏗 CHAMPION (9 cards) — **DESIGN DONE, seams named. Execute, don't re-derive.**
+> "Champion a Kithkin *(When this enters, sacrifice it unless you exile another Kithkin you control. When
+> this leaves the battlefield, that card returns to the battlefield.)*" — Thoughtweft Trio, Changeling
+> Berserker, Nova Chaser, Mistbind Clique et al.
+> **THE RETURN HALF IS FREE.** `applyExileUntilLeaves` stamps `detainedExile: [{cardId, ownerId}]` on the
+> SOURCE permanent, and `checkLeavesTriggers` synthesizes the return on ANY exit (CR 610.3a). Champion's
+> "when this leaves, that card returns" IS that mechanism — so the build only has to produce the exile and
+> the link, never a second trigger. ⛔ Do NOT also synthesize an LTB trigger: that double-returns the card
+> (the same trap the two-trigger detain fold documents).
+> **WHAT'S ACTUALLY NEW — two things:**
+> ① the exiled permanent is **YOUR OWN and CHOSEN, not targeted** (champion never prints "target"), so it
+>    picks at RESOLUTION exactly like populate's `creatureTokenYouControl` source — same precedent, same
+>    deterministic-and-stated policy. Pick the WEAKEST eligible (power+toughness, ties by id): keeping the
+>    champion body is the obvious play and any legal pick is faithful.
+> ② the **sacrifice fallback** when no eligible creature exists. Not optional — "sacrifice it UNLESS" means
+>    a player with no eligible creature MUST sacrifice.
+> **THE THREE-PIECE KEYWORD PATTERN APPLIES** (see the ingest entry — each piece looks like the finish
+> line): ① atom + resolver · ② keyword→trigger synthesis in detectTriggers + the shaped-count bump in
+> `allTriggerSentencesModeled` · ③ credit the bare "Champion a <X>" line in the `isKeywordOnly` list.
+> ⛔ EXCLUDE SELF from the eligible pool ("another"), or the card exiles itself and never comes back.
+
 > ### 🔭 NEXT SLICES, ALREADY SCOPED — start here, the probing is done
 > Fresh sole-blocking-line rank (re-run after the +103, so these are current):
 > · ✅ **INGEST — SHIPPED (`74b69e8c`, +8).** Was: Its effect is *"that player exiles the top card of their library"*.
