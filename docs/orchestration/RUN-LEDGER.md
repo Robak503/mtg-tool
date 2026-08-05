@@ -6,6 +6,28 @@
 > ## 🏷 **v0.152.0 PUBLISHED** — signed installer + .sig + latest.json, version synced from the tag.
 > 130 engine cards since v0.151.0. Every running `.exe` picks it up on its next 24h check.
 
+> ## SLICE DONE - 2026-08-05 - **attacksIgnoringDefender + GATED BARE EFFECTS, +10** - batch 54 (post-v0.152.0)
+> Suite 1123 / 13,990 green + lint 0 BY EXIT CODE. `4ef7fcf8`. Flip-diff **+10 / 0 / 0**.
+> ⛔ **THE MODELLING CALL IS THE SLICE.** "Can attack as though it didn't have defender" (~50 carriers, **0
+> native**) is an **as-though** effect — CR 609.4b — **NOT** a keyword removal. `removeKeyword:defender`
+> would go green and be WRONG: *"each creature you control **with defender** assigns combat damage equal to
+> its toughness"* (Arcades / High Alert) and Wall tribal would silently switch off. It rides its own
+> pseudo-keyword honored at **exactly two sites** and nowhere else. Pinned both ways — the attack is legal
+> AND `permanentHasKeyword(…,"Defender")` is still **true**.
+> ⭐ **THE EXPENSIVE HALF WAS A PATH ACCIDENT:** *every* gated lane demanded the effect open with **"gets"
+> or "has"**. A gate carrying a BARE permission/restriction matched **no lane** and parked — while
+> emitGatedEffect already knew the rider. **Nothing routed it there.** One widened capture group.
+> ⚠️ **THE FIRST FIX WAS WRONG AND THE SUITE CAUGHT IT — read this before adding a fallback.** I added a
+> new generic arm **mid-block**; it intercepted clauses the SPECIFIC equipped/counter/graveyard lanes owned
+> and handed them `gateOn:"source"` instead of their bare shapes. **6 pins across 4 files went red.** It
+> measured the SAME +10, so the flip-diff would never have caught it. **A generic fallback belongs LAST** —
+> and the right home already existed (the SELF AS-LONG-AS lane, which runs after every specific lane and
+> already strips gateOn).
+> ⓘ Gate kinds audited individually: **`isEnchanted` is a DISTINCT kind from `isEquipped`** (an Aura is not
+> an Equipment) and Platypus-Bear's **Lesson reads as a SUBTYPE**, not a card type. **3 of the 10 gains came
+> from the widened lane, not the new keyword** (Ethrimik, Metathran Elite, Pillar of War) — the accident was
+> costing more than this family.
+
 > ## SLICE DONE - 2026-08-05 - **GATED COMBAT-RESTRICTION RIDERS, +9** - batch 44 (post-v0.152.0)
 > Suite 1122 / 13,986 green + lint 0 BY EXIT CODE. `aa47ed25`. Flip-diff **+9 / 0 / 0**.
 > ⛔ **FIRST, A CORRECTION TO THIS FILE'S OWN QUEUE.** The wake report claimed threshold + spell mastery +

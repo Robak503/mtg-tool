@@ -9,6 +9,11 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Walls that are allowed to attack can finally attack.** Ogre Jailbreaker with a Gate out, Skyclave
+  Sentinel with a +1/+1 counter, Spire Serpent with three artifacts, Slithering Shade with an empty hand,
+  and Geist of the Lonely Vigil, Platypus-Bear, Scuttlegator and Pillar of War when their condition is met.
+  They keep defender for everything else that cares about it — Arcades and High Alert still see them as
+  defenders and still hand them the toughness-damage bonus.
 - **Threshold creatures that give something up now actually give it up.** Childhood Horror, Putrid Imp,
   Dirty Wererat and Frightcrawler get their bonus once you have seven cards in the graveyard *and* stop
   being able to block, exactly as printed. On the other side, Vortex Runner, Nightwhorl Hermit, Jace's

@@ -7,7 +7,20 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+241 this sitting · v0.152.0 PUBLISHED · post-tag batch 44** — suite **1122 / 13,986** green by exit code
+## ☀️ 2026-08-05 — **+251 this sitting · v0.152.0 PUBLISHED · post-tag batch 54** — suite **1123 / 13,990** green by exit code
+
+> ### ⚠️ A FIX THAT MEASURED RIGHT AND WAS STILL WRONG — the flip-diff could not have caught it
+> Widening a gated lane, I first added a **generic arm in the MIDDLE** of the control-gate block. It
+> intercepted clauses the SPECIFIC equipped/counter/graveyard lanes owned and handed them the wrong gate
+> shape. **Same +10 / 0 / 0.** Six pins across four files are what caught it. **A generic fallback belongs
+> LAST, never mid-block** — and check whether the right home already exists before adding an arm (it did).
+> Pair this with the standing rule that a clean flip-diff is not proof of a safe change.
+
+> ### 🔁 THE HIGHEST-YIELD LENS RIGHT NOW: **re-cut a census by RIDER, not by ability word**
+> Two slices back-to-back (+9, +10) came out of one observation — **every gated lane in
+> `staticAbilityParser` demanded the effect open with "gets" or "has"**, so any gate carrying a bare
+> permission or restriction parked even though `emitGatedEffect` already understood the rider. Nothing
+> routed it there. Ask of any parked family: *is the mechanism missing, or only its entry point?*
 
 > ### ⛔ A CORRECTION TO THIS FILE — it queued 38 cards behind a cause that does not exist
 > This report said threshold + spell mastery + lieutenant "share ONE cause". **They share an ability WORD.**
