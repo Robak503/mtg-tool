@@ -180,6 +180,32 @@ describe("⭐⭐ LAW 6 — the enumerated pools, with the EXCLUDED colours named
   });
 });
 
+describe("⛔⛔ THE FAIL-CLOSED DEFAULT — found by a mutant, kept as a guard", () => {
+  it("⛔⛔ an UNKNOWN restriction kind empties the pool; it must never open it", () => {
+    // ⭐ THIS IS THE MUT-A OBSERVATION, TURNED INTO A PERMANENT GUARD. The restriction chain used to end
+    // without an `else`, so a kind with no branch was SILENTLY SATISFIED. Removing the colorAny branch
+    // during mutation testing made "green or white" enumerate ALL SIX creatures, colourless included —
+    // and a too-LARGE legal-target set never looks like a bug in play, which is what makes it dangerous.
+    // ⛔ AUDITED BEFORE FLIPPING: every kind emitted into a restriction array in learn/ was compared against
+    // the evaluator's branches. Only `keyword` and `token` came back unhandled and NEITHER reaches this
+    // function (combatEvasion owns its keyword arms; interveningIf owns token). Corpus flip-diff: 0/0/0.
+    const s = fiveColorBoard();
+    const row = {
+      unknownKind: pool(s, { targetType: "creature", restrictions: [{ kind: "notARealRestrictionKind" }] }),
+      // The control: with NO restrictions the same board offers everything, so the empty row above is the
+      // guard doing its job and not an empty board.
+      noRestrictions: pool(s, { targetType: "creature", restrictions: [] }),
+      // …and a known kind alongside an unknown one still refuses — one bad entry poisons the whole list,
+      // which is the safe direction (CREED: a dropped legal target beats an illegal one).
+      mixed: pool(s, { targetType: "creature", restrictions: [{ kind: "color", color: "G" }, { kind: "bogus" }] }),
+    };
+    console.log("  WITNESS restrictionFailClosed", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row.unknownKind).toEqual([]);
+    expect(row.noRestrictions).toEqual(["b", "c", "g", "r", "u", "w"]);
+    expect(row.mixed).toEqual([]);
+  });
+});
+
 describe("⛔ what this slice deliberately does NOT claim", () => {
   it("⛔ the other FIVE disjunction carriers stay parked — different consumers, not one cause", () => {
     // ⛔⛔ THE GATE-20 LINE. The probe grouped these by SYMPTOM ("collapse the disjunction and it flips"),

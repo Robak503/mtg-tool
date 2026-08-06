@@ -3,6 +3,30 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **FAIL CLOSED ON AN UNKNOWN RESTRICTION KIND — 0 cards, and that is the point** - post-v0.155.0 batch 55
+> Suite 1166 / 14,239 green + lint 0 BY EXIT CODE. Flip-diff **0 / 0 / 0**. No coverage gain; a CREED-class
+> safety guard on the targeting path.
+> ⛔⛔ **THE CHAIN IN `creatureSatisfiesRestrictions` ENDED WITHOUT AN `else`, so a restriction whose kind had
+> no branch was SILENTLY SATISFIED.** The pool opened and the spell offered targets its printed text forbids.
+> **Measured, not theorised:** removing the `colorAny` branch during CD-1's mutation testing made "target
+> green or white creature" enumerate ALL SIX creatures on the probe board, colourless included.
+> ⭐⭐ **A TOO-LARGE LEGAL-TARGET SET NEVER LOOKS LIKE A BUG IN PLAY.** That is the whole argument for fixing
+> it. A dropped legal target shows up as a missing option and gets reported; an extra one just reads as the
+> card having more reach than it prints. This is the invisible half of the CREED's forbidden direction.
+> ⭐ **AUDITED BEFORE FLIPPING, so this shipped as a guard rather than a behaviour change.** Every `kind`
+> emitted into a restriction array anywhere in `learn/` was collected and compared against the evaluator's
+> branches. Exactly two came back unhandled — `keyword` and `token` — and **NEITHER reaches this function**:
+> combatEvasion evaluates its own `keyword` arms (canBlockAttacker, line 985/1133) and interveningIf owns
+> `token` (a board-query descriptor with a `state` field, a different shape entirely). Both were false
+> alarms, and checking beat guessing: the flip-diff then confirmed 0/0/0.
+> ⛔ **THE FLIP-DIFF ALONE WOULD NOT HAVE BEEN ENOUGH** and it is worth saying why. It measures
+> CLASSIFICATION; the failure mode here is ENUMERATION — a card that still reads native but now offers an
+> empty pool. That is precisely the Celestial Purge shape CD-1 just caught. The static audit is what covers
+> it, with the full suite's enumeration paths as the second net.
+> ⭐ Pinned with BOTH controls: an unknown kind empties the pool, an EMPTY restriction list still offers all
+> six creatures (so the empty row is the guard working, not an empty board), and one bad entry beside a good
+> one still refuses — one poisoned entry fails the whole list, the safe direction.
+
 > ## SLICE DONE - 2026-08-05 - **THE COLOUR DISJUNCTION — the first restriction that WIDENS, +8** - post-v0.155.0 batch 55
 > Suite 1166 / 14,238 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Deathmark, Wallop, Rending
 > Volley, Celestial Purge, Slithery Stalker, Lightwielder Paladin, Controlled Instincts, Encase in Ice.

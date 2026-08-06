@@ -185,6 +185,24 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // back-face supertype can't wrongly qualify. Fail-closed on a missing type line (safe false-negative).
       const stl = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0];
       if (!new RegExp(`\\b${r.value}\\b`, "i").test(stl)) return false;
+    } else {
+      // ⛔⛔ FAIL CLOSED ON AN UNKNOWN KIND (CD-1 hardening, 2026-08-05). This chain used to end without an
+      // else, so a restriction whose kind had no branch was SILENTLY SATISFIED — the pool opened and the
+      // spell offered targets its printed text forbids. Measured, not theorised: removing the `colorAny`
+      // branch during mutation testing made "target green or white creature" enumerate ALL SIX creatures on
+      // the probe board, colourless included. A typo in an emitter, or a new kind wired on the emitting side
+      // before this one, lands exactly there — and it is invisible, because a too-large legal-target set
+      // never looks like a bug in play.
+      //
+      // ⭐ AUDITED BEFORE FLIPPING, so this is a guard rather than a behaviour change: every `kind` emitted
+      // into a restriction array anywhere in learn/ was compared against the branches above. Only `keyword`
+      // and `token` came back unhandled, and NEITHER reaches this function — combatEvasion evaluates its own
+      // `keyword` arms (canBlockAttacker) and interveningIf owns `token`. The corpus flip-diff confirmed it:
+      // 0 gained, 0 lost, 0 retiered.
+      //
+      // Refusing is the CREED-correct direction: an unrecognised restriction becomes a dropped legal target
+      // (safe, and visible as a missing option) instead of an illegal one that plays fine and is wrong.
+      return false;
     }
   }
   return true;
