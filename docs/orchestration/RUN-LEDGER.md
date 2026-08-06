@@ -3,6 +3,36 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚙️ INSTRUMENT + MAP (no cards) - 2026-08-06 - **THE SOLE-BLOCKER CENSUS — and why the top rows are NOT veins**
+> Committed `app/scripts/probe-sole-blocker.cjs` and its drill-down companion. **This is the sharpest vein
+> finder built so far** and it supersedes guessing at phrases: for every multi-line parked card, remove ONE
+> line at a time and re-classify; if removing exactly one line makes the card native, that line IS the sole
+> blocker. Tally the normalized blockers. Result: **6,859 of 12,917 multi-line parked cards have a single
+> blocking line** — so the corpus's remaining parked mass is mostly one-bad-line cards, not hopeless ones.
+> ⛔⛔ **BUT THE TOP ROWS ARE LONG-TAIL, NOT VEINS, AND THE DRILL-DOWN IS WHAT PROVES IT.** The #1 row looks
+> like a 30-card family — `whenever this creature deals combat damage to a player, yo…` — and it is not one.
+> Drilling it: all 30 detect the trigger CORRECTLY (`combatDamageToPlayer`) and carry **30 DISTINCT effect
+> clauses**: Spy Eye draws from that player's library, Whispering Specter sacs for a discard, Rootwater Thief
+> pays and searches, Barrowgoyf mills… **A shared trigger PREFIX is not a shared cause.** Gate 20, in its
+> most seductive form yet — the count looked like the best vein of the run.
+> ⭐ **USE THE DRILL BEFORE BUILDING.** `probe-sole-blocker-drill.cjs <prefix>` groups a row by
+> event + does-the-effect-parse + the effect clause itself. A row that collapses to many distinct effects is
+> long-tail work; a row that collapses to ONE effect shape is a slice.
+> ⛔ **CHECKED AND NOT VEINS (measured, do not re-walk):**
+> · `threshold — as long as there are seven or more cards in your graveyard…` (17) — the CONDITION is
+>   already modeled (`cardsInGraveyard`) and the conditional self-pump is ALREADY NATIVE (zero parked
+>   carriers of that exact shape). The 17 are the conditional QUOTED-ABILITY grant — the quoted-grant
+>   statics project, already mapped separately.
+> · UNEARTH (looked like 20 on a rider census) — ceiling **0**. Unearth is already accepted as a zone-option
+>   cost (`reGyZoneOptionCost`); my regex had matched the REMINDER TEXT inside the parentheses. **Third
+>   failure mode of the clause censuses: parenthesised reminder text is not an ability.**
+> · GY self-recursion riders (~52 carriers) — THREE causes, each 1-3 cards: a sac-cost rider, a conditional
+>   activation rider, a destination-with-counters rider. Individually too small to be worth a slice.
+> ⭐ **THE HONEST READ OF THE CORPUS AT THIS COVERAGE LEVEL:** the cheap shared-cause veins in the
+> trigger/spell/activated grammars are largely worked out. What remains is (a) long-tail per-card effects,
+> (b) named subsystems (venture, initiative, the Ring, attractions, incubate, Level Up, restricted mana),
+> and (c) the quoted-grant statics project. **The next big move is a SUBSYSTEM, not another phrase slice** —
+> and the sole-blocker census is how to pick which subsystem buys the most.
 > ## SLICE DONE - 2026-08-06 - **TUTOR SUBTYPE VOCABULARY (+2) — and a verification that almost passed broken** - post-v0.156.0 batch 7
 > Suite 1189 / 14,339 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Giant Harbinger, Forerunner
 > of the Coalition. Both audited whole-card.
