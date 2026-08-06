@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Hand-peeking cards work.** Sorcerous Sight, Telepathic Spies, Wanderguard Sentry, Talas Explorer and
+  Wu Scout look at an opponent's hand. The simulator understood the wording "target player's hand" but not
+  "target opponent's hand", so these sat out — and they now show you only an opponent's hand, never your own.
 - **Two-colour removal and Auras work.** Deathmark, Wallop, Rending Volley, Celestial Purge, Slithery
   Stalker, Lightwielder Paladin, Controlled Instincts and Encase in Ice all read "target green or white
   creature" and the like. The simulator had no way to express "either colour", so these cards sat out

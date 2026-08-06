@@ -21,6 +21,7 @@ import { runEffectProgram } from "./effects/runProgram.js";
 import { atomTargetIntent } from "./effects/programQueries.js";
 import { lookAtHandClauseParser } from "./effects/atoms/hand.js";
 import { classifyCard } from "./coverage.js";
+import { enumerateTargets } from "./spellEffects.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -142,7 +143,13 @@ describe("parse + targeting intent", () => {
     // Asserted directly against the parser so the anchor is load-bearing rather than decorative.
     expect(lookAtHandClauseParser("look at target player's hand")).toEqual({ op: "look-at-hand", targetType: "player" });
     expect(lookAtHandClauseParser("look at target player's hand and choose two cards from it")).toBeNull();
-    expect(lookAtHandClauseParser("look at target opponent's hand")).toBeNull();
+    // ⚠️ THE THIRD LINE HERE ASSERTED THE **OPPONENT** WORDING RETURNS NULL, and it sat inside an ANCHOR
+    // test while actually pinning something else: that the opponent NOUN was unhandled. It was the record
+    // of a gap, not of a guard — 15 corpus cards use that wording against 14 for "player", so the atom,
+    // resolver and log were all built while the larger half never reached them (LH-2). Rewritten to assert
+    // the noun is now supported, with the ANCHOR coverage kept symmetric on BOTH nouns below.
+    expect(lookAtHandClauseParser("look at target opponent's hand")).toEqual({ op: "look-at-hand", targetType: "opponent" });
+    expect(lookAtHandClauseParser("look at target opponent's hand and choose two cards from it")).toBeNull();
   });
 
   it("a comma rider still splits cleanly — the arm takes its own sentence only", () => {
@@ -164,5 +171,69 @@ describe("the corpus rows", () => {
     for (const c of [AGONIZING_MEMORIES, MIND_WARP, EXTORTION, THRULL_SURGEON, VENDILION_CLIQUE]) {
       expect(classifyCard(c)).not.toMatch(/^native/);
     }
+  });
+});
+
+describe("⭐⭐ LH-2 — the OPPONENT wording: built engine, no ignition", () => {
+  // ⭐⭐ THE COUNT IS THE FINDING. 15 corpus cards say "look at target OPPONENT's hand" and 14 say "target
+  // PLAYER's hand". Everything above this line — the atom, applyLookAtHand, the truthful log and its gates
+  // — was already built and correct; the clause parser simply had no branch for the larger half. Nothing
+  // was broken. One noun was missing, and five cards sat on the Arbiter because of it.
+  const SORCEROUS_SIGHT = { id: "c-sos", name: "Sorcerous Sight", type: "Instant", mana: "{U}",
+    oracle: "Look at target opponent's hand.\nDraw a card." };
+  const TELEPATHIC_SPIES = { id: "c-tsp", name: "Telepathic Spies", type: "Creature — Human Advisor", mana: "{2}{U}", power: "1", toughness: "3",
+    oracle: "When this creature enters, look at target opponent's hand." };
+  const WANDERGUARD_SENTRY = { id: "c-wgs", name: "Wanderguard Sentry", type: "Creature — Human Soldier", mana: "{3}{U}", power: "2", toughness: "3",
+    oracle: "When this creature enters, look at target opponent's hand." };
+
+  it("⭐ the clause parses, and to the NARROWER target type", () => {
+    expect(lookAtHandClauseParser("Look at target opponent's hand")).toEqual({ op: "look-at-hand", targetType: "opponent" });
+    // The player wording is untouched — this is additive by construction.
+    expect(lookAtHandClauseParser("Look at target player's hand")).toEqual({ op: "look-at-hand", targetType: "player" });
+  });
+
+  it("⭐ the carriers flip", () => {
+    expect(classifyCard(SORCEROUS_SIGHT)).toBe("native-spell");
+    expect(classifyCard(TELEPATHIC_SPIES)).toBe("native-trigger");
+    expect(classifyCard(WANDERGUARD_SENTRY)).toBe("native-trigger");
+  });
+
+  it("⛔⛔ THE PIN THAT MATTERS: an OPPONENT target never offers the CONTROLLER", () => {
+    // "opponent" is NARROWER than "player", and reusing "player" would have been a legal-target set larger
+    // than printed — the forbidden direction. A pin that only checked "it looked at a hand" would pass
+    // while the card peeked at its own controller's hand.
+    const s = board();
+    const row = {
+      opponent: enumerateTargets(s, "user", { targetType: "opponent" }, []).map((t) => t.id).sort(),
+      player: enumerateTargets(s, "user", { targetType: "player" }, []).map((t) => t.id).sort(),
+    };
+    console.log("  WITNESS lookAtHandOpponentPool", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row.opponent).not.toContain("user");        // ⛔ the whole point
+    expect(row.player).toContain("user");              // …and the control that proves the two differ
+    expect(row.opponent.length).toBe(row.player.length - 1);
+  });
+
+  it("⭐⭐ LAW 6 — the log names the OPPONENT seat and carries their ACTUAL hand", () => {
+    // The file's standing discipline (see the header): a bare marker would let cards classify native while
+    // conveying nothing, so the log must equal the real hand. Same bar for the opponent wording.
+    const before = board();
+    const out = runEffectProgram(before, {
+      source: { name: "Sorcerous Sight" },
+      payload: { params: { program: parseEffectClause("Look at target opponent's hand.", "Instant"), controller: "user", sourceId: "src", context: {}, targets: [{ type: "player", id: "ai1", atomIndex: 0 }] } },
+    });
+    const s = out?.state ?? out;
+    const entries = (s.log || []).filter((e) => e.effect === "look-at-hand");
+    const row = { count: entries.length, looker: entries[0]?.looker, player: entries[0]?.player, cards: entries[0]?.cards };
+    console.log("  WITNESS lookAtHandOpponentLog", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({ count: 1, looker: "user", player: "ai1", cards: ["Theirs X", "Theirs Y", "Theirs Z"] });
+    // …and looking is not taking (CR 701.20e) — the hand is unchanged.
+    expect(s.players.ai1.hand.map((c) => c.name)).toEqual(before.players.ai1.hand.map((c) => c.name));
+  });
+
+  it("⛔ the look-and-CHOOSE family still parks on the opponent wording too", () => {
+    // The whole-clause anchor is unchanged, and its documented reason is the tail, not the noun. A choice
+    // with a material consequence remains a different build.
+    expect(classifyCard({ id: "c-dcb", name: "Deep-Cavern Bat", type: "Creature — Bat", mana: "{1}{B}", power: "1", toughness: "1",
+      oracle: "Flying\nWhen this creature enters, look at target opponent's hand. You may exile a nonland card from it. For as long as that card remains exiled, its owner may play it." })).not.toMatch(/^native/);
   });
 });

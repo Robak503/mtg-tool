@@ -3,6 +3,36 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **LOOK AT TARGET *OPPONENT'S* HAND — one missing noun, +5** - post-v0.155.0 batch 60
+> Suite 1166 / 14,244 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Sorcerous Sight, Telepathic
+> Spies, Wanderguard Sentry, Talas Explorer, Wu Scout. All audited whole-card.
+> ⭐⭐ **BUILT ENGINE, NO IGNITION — SIXTH TIME, AND THE COUNT MAKES IT UNARGUABLE.** 15 corpus cards say
+> "look at target **OPPONENT's** hand"; 14 say "target **PLAYER's** hand". `lookAtHandClauseParser` matched
+> only the second. The atom, `applyLookAtHand`, the truthful log (which carries the ACTUAL card names, with
+> its own hollow-gate note explaining why a bare marker would be fake) and its five gates were all built and
+> correct — **the larger half of the vein simply never reached any of them.** Nothing was broken. One noun.
+> ⛔ **THE ANCHOR AND ITS DOCUMENTED REASON ARE UNTOUCHED.** The whole-clause match exists to keep the
+> "…and choose N cards from it" family (Agonizing Memories, Vendilion Clique, Deep-Cavern Bat) on the
+> Arbiter — a CHOICE with a material consequence is a different build. Only the noun widened, and the
+> anchor is now pinned symmetrically on BOTH nouns.
+> ⛔⛔ **"opponent" IS NARROWER THAN "player", AND THAT IS THE PIN.** It emits targetType `opponent`, which
+> enumerateTargets restricts to non-controller seats. Reusing `player` would have let the card peek at its
+> OWN controller's hand — a legal-target set larger than printed, the forbidden direction, and **a test that
+> only checked "it looked at a hand" would pass while doing it.** Witness names the pools:
+> `{opponent: [ai1,ai2,ai3], player: [ai1,ai2,ai3,user]}`.
+> ⭐ Law 6 row holds the resolver to this file's standing bar: the log names the OPPONENT seat and its cards
+> EQUAL that seat's real hand — `{looker: user, player: ai1, cards: [Theirs X, Theirs Y, Theirs Z]}` — and
+> the hand is unchanged afterwards, because looking is not taking (CR 701.20e).
+> ⭐ **A REFUSAL PIN LIFTED THAT WAS RECORDING A GAP, NOT A GUARD.** `lookAtHandClauseParser("look at target
+> opponent's hand") === null` lived inside an ANCHOR test while actually pinning that the NOUN was unhandled.
+> Rewritten to assert the noun is supported, with the anchor's real assertion (the tail rejection) kept and
+> extended to the opponent wording. **Worth noticing the shape: a refusal pin can quietly encode a TODO.**
+> ⚠️ Two self-inflicted repeats, both caught immediately: a doc block appended after its own closing `*/`
+> (syntax error on first import), and a `python -c` mutation built with the wrong quote style that matched
+> 0 and reported a clean pass. **The second is the dangerous one** — `grep -c` returned 0 and the suite went
+> green, which is a mutation that never applied reading as a survived-then-passing run. Re-done with Edit,
+> per the standing rule that keeps having to be re-learned.
+
 > ## SLICE DONE - 2026-08-05 - **FAIL CLOSED ON AN UNKNOWN RESTRICTION KIND — 0 cards, and that is the point** - post-v0.155.0 batch 55
 > Suite 1166 / 14,239 green + lint 0 BY EXIT CODE. Flip-diff **0 / 0 / 0**. No coverage gain; a CREED-class
 > safety guard on the targeting path.

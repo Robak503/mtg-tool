@@ -423,10 +423,23 @@ export function applyLookAtHand(state, atom, ctx) {
  * deliberately NOT covered here: Agonizing Memories / Mind Warp / Extortion / Thrull Surgeon / Vendilion
  * Clique / Oildeep Gearhulk all continue "…and choose N cards from it", which is a CHOICE plus a
  * material consequence — a different build, not a longer regex.
+ *
+ * ⭐⭐ THE **OPPONENT** WORDING (LH-2, 2026-08-05) — BUILT ENGINE, NO IGNITION, and the count says it plainly:
+ * 15 cards in the corpus say "look at target OPPONENT's hand" and 14 say "target PLAYER's hand". This parser
+ * accepted only the second, so the atom, the resolver, the truthful log and its gates were all in place while
+ * the larger half of the vein never reached any of it. Nothing here was broken — one noun was missing.
+ * ⛔ THE ANCHOR AND ITS DOCUMENTED REASON ARE UNCHANGED. The narrow whole-clause match exists to keep the
+ * "…and choose N cards from it" family (Agonizing Memories, Vendilion Clique, Thrull Surgeon) on the Arbiter,
+ * because a CHOICE with a material consequence is a different build. That still holds — only the noun widened.
+ * ⛔ "opponent" IS NARROWER THAN "player", NOT WIDER: it emits targetType "opponent", which enumerateTargets
+ * restricts to non-controller seats. Reusing "player" here would have let the card target its OWN controller
+ * — a legal-target set larger than printed, the forbidden direction. (Both stamp `type:"player"` on the
+ * target object, which is what applyLookAtHand's seat filter reads, so the resolver needs no change.)
  */
 export function lookAtHandClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   if (/^look at target player's hand$/.test(t)) return { op: "look-at-hand", targetType: "player" };
+  if (/^look at target opponent's hand$/.test(t)) return { op: "look-at-hand", targetType: "opponent" };
   return null;
 }
 
