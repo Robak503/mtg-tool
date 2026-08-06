@@ -88,6 +88,14 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
     } else if (r.kind === "combat") {
       const atk = (state.combat?.attackers || []).some((a) => a.permanentId === perm.id);
       const blk = (state.combat?.blockers || []).some((b) => b.blockerId === perm.id);
+      // ⛔ FAIL-CLOSED ON AN UNRECOGNISED VALUE (BS-1, 2026-08-06). The three checks below are each guarded
+      // by their own value, so a value outside the set matched NONE of them and fell straight through as
+      // SATISFIED — an unknown combat qualifier silently offered the ENTIRE board. Found by a mutation, not
+      // by reading: swapping the bounce parser's qualifier arms emitted {kind:"combat", value:"tapped"},
+      // and the expectation was a pool of nothing. It would have been a pool of everything.
+      // This mirrors the fail-closed default already guarding unknown restriction KINDS; the same hole
+      // existed one level down, for an unknown VALUE inside a known kind.
+      if (r.value !== "attacking" && r.value !== "blocking" && r.value !== "either") return false;
       if (r.value === "attacking" && !atk) return false;
       if (r.value === "blocking" && !blk) return false;
       if (r.value === "either" && !(atk || blk)) return false;

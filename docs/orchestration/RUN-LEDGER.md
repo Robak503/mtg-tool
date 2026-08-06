@@ -3,6 +3,31 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-06 - **BOUNCE STATE QUALIFIER (+8) — and a fail-OPEN hole a mutation walked into** - post-v0.156.0 batch 7
+> Suite 1179 / 14,311 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Selkie Hedge-Mage, Spellweaver
+> Duo, Galestrike, Champion's Victory, Harbinger of the Tides, Remove, Select for Inspection, Surrakar
+> Banisher. All audited whole-card (the two "Cast this spell only during the declare attackers step" cards
+> are legitimately native — that restriction IS modeled and enforced at legalChoices.js:1015; checked, not
+> assumed).
+> ⭐ **NEITHER THE ATOM NOR THE RESTRICTION KINDS WERE NEW** — the bounce parser had no lane for a state
+> qualifier, exactly like the SCOPED TUCK precedent a few dozen lines above it in the same file. Ceiling
+> probe said 8 of 9 before a line was written; it shipped 8.
+> ⭐ **TIER-SPLIT THE NOUN, and the out-of-family card is what makes the cause provable:** bare bounce native
+> on 53, "tapped creature" native on ZERO, "attacking creature" native on ZERO. Two families, one missing
+> group — had only the tapped cards been checked, "something about tapped permanents" would have been an
+> equally good story and a wrong one (gate 20).
+> ⛔⛔ **THE REAL FIND IS A FAIL-OPEN THE SLICE DIDN'T SET OUT TO LOOK FOR.** Mutation 2 swapped the qualifier
+> arms so "tapped" emitted `{kind:"combat", value:"tapped"}`, and the expected symptom was a pool of
+> NOTHING. It was a pool of EVERYTHING: creatureRestrictions' three combat checks are each guarded by their
+> own value, so a value outside the set matched none of them and fell through as SATISFIED. **Fail-open
+> inside a KNOWN kind — one level below the fail-closed default added earlier this run for unknown KINDS.**
+> Fixed, pinned with a printed-value witness, and corpus-cost measured at ZERO (no real card emits an
+> unknown value). ⭐ A mutation is worth running even when you are sure what it will show; this one was run
+> to confirm a pin and returned a bug instead.
+> ⭐ Both mutations applied via a NODE line-edit with an ANCHOR-NOT-FOUND guard that exits rather than
+> silently mutating nothing, and both verified by PRINTING THE CHANGED LINE BACK — the rule earned earlier
+> today, now standard for this run.
+
 > ## SLICE DONE - 2026-08-06 - **"CREATURE OR VEHICLE" removal — ignition, not machinery, +4** - post-v0.156.0 batch 7
 > Suite 1178 / 14,308 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Daring Demolition, Spin Out,
 > Ride's End, Scrap Compactor. All audited whole-card.

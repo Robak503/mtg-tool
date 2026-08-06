@@ -9,6 +9,11 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Bouncing a tapped or attacking creature works.** Galestrike, Harbinger of the Tides, Select for
+  Inspection, Surrakar Banisher, Selkie Hedge-Mage, Spellweaver Duo, Champion's Victory and Remove did
+  nothing in the simulator, which could not read "target tapped creature" or "target attacking creature".
+- **A malformed combat requirement no longer offers every creature.** An unrecognized combat qualifier was
+  treated as satisfied by everything rather than by nothing; it now offers no targets.
 - **"Destroy target creature or Vehicle" works.** Daring Demolition, Spin Out, Ride's End and Scrap
   Compactor did nothing in the simulator. They now correctly hit creatures and Vehicles — including a
   Vehicle that has not been crewed, which these cards exist to answer.

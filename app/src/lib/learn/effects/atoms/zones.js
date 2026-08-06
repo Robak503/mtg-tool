@@ -870,17 +870,33 @@ export function bounceClauseParser(clause) {
   // (which GRANTS a quoted combat-damage trigger carrying exactly this clause) fell out of native the
   // moment the rewrite landed. Same cause as the Rhystic Study family and Smothering Tithe: **a rewrite is
   // a rename, and every reader that spelled the old name out breaks silently.** One vocabulary, both forms.
-  const cb = t.match(/^return (another )?target creature(?: (an opponent controls|you don't control|you control|that player controls|the damaged player controls))? to its owner's hand$/);
+  // ⭐⭐ BS-1 (2026-08-06) — the STATE QUALIFIER group ("tapped"/"attacking"/"blocking"), added the same way
+  // and for the same reason as the SCOPED TUCK above: the atom and the restriction kinds already existed,
+  // this parser simply had no lane for them. Found by tier-splitting the bounce noun — the bare form is
+  // native on 53 carriers while "tapped creature" was native on ZERO (Selkie Hedge-Mage, Spellweaver Duo,
+  // Harbinger of the Tides, Surrakar Banisher, Select for Inspection) and "attacking creature" on ZERO
+  // (Champion's Victory, Remove). ⭐ Two families, one missing group — and the attacking/blocking cards are
+  // the OUT-OF-FAMILY confirmation that the cause is this parser's shape rather than anything about tapped
+  // permanents (gate 20).
+  // The qualifier composes with the existing controller scope (Harbinger of the Tides, Point to the
+  // Scoreboard: "target tapped creature an opponent controls"), which is why it is its own group in front
+  // of the noun rather than more alternatives inside the scope group.
+  const cb = t.match(/^return (another )?target (tapped |attacking |blocking )?creature(?: (an opponent controls|you don't control|you control|that player controls|the damaged player controls))? to its owner's hand$/);
   if (cb) {
-    const who = /^you control$/.test(cb[2] || "") ? "you"
-      : /^that player controls$/.test(cb[2] || "") ? "damagedPlayer"
+    const who = /^you control$/.test(cb[3] || "") ? "you"
+      : /^that player controls$/.test(cb[3] || "") ? "damagedPlayer"
       : "opponent";
     // "ANOTHER" (CR 109.5 — Icefeather Aven, Exit Specialist): same target class, source excluded. See the
     // fail-closed note on the permanent form below.
     const another = cb[1] ? [{ kind: "notSource" }] : [];
-    if (!cb[2]) return another.length ? { op: "bounce", targetType: "creature", restrictions: another } : { op: "bounce", targetType: "creature" };
-    const atom = { op: "bounce", targetType: "creature", restrictions: [{ kind: "controller", who }, ...another] };
-    if (who === "damagedPlayer") atom.who = "damagedPlayer";
+    // BS-1 — the SAME restriction kinds the removal lane emits, so one evaluator serves both.
+    const q = (cb[2] || "").trim();
+    const state = q === "tapped" ? [{ kind: "tapped", value: true }]
+      : q ? [{ kind: "combat", value: q }] : [];
+    const restrictions = [...(cb[3] ? [{ kind: "controller", who }] : []), ...state, ...another];
+    if (!restrictions.length) return { op: "bounce", targetType: "creature" };
+    const atom = { op: "bounce", targetType: "creature", restrictions };
+    if (cb[3] && who === "damagedPlayer") atom.who = "damagedPlayer";
     return atom;
   }
   // "ANOTHER" (CR 109.5 — Aether Channeler #1526's bounce mode, Rushing River, Jace the Living Guildpact):
