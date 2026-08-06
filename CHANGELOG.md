@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **"Destroy target artifact creature" works.** Chandler, Molten Frame, Hearth Charm and Leonin Iconoclast
+  (which hits an enchantment creature) did nothing in the simulator, which could not read a positive card
+  type on a target. They now correctly hit only creatures of that type.
 - **Bouncing a tapped or attacking creature works.** Galestrike, Harbinger of the Tides, Select for
   Inspection, Surrakar Banisher, Selkie Hedge-Mage, Spellweaver Duo, Champion's Victory and Remove did
   nothing in the simulator, which could not read "target tapped creature" or "target attacking creature".

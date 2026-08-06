@@ -346,7 +346,11 @@ describe("parseEffectProgram — targeted atoms (P2.7)", () => {
     expect(programConfidence(parseEffectProgram(I("Exile target creature with shadow.")))).toBe("low"); // an unmodeled keyword rider (SE-1: MODELED restrictions like "you control"/"attacking"/"tapped" now flip HIGH — see restrictedExile.test.js)
     expect(programConfidence(parseEffectProgram(I("Tap target artifact.")))).toBe("low");          // tap is creature-only
     expect(programConfidence(parseEffectProgram(I("Destroy target tapped artifact.")))).toBe("low"); // unmodeled restriction
-    expect(programConfidence(parseEffectProgram(I("Destroy target artifact creature.")))).toBe("low"); // not a bare type
+    // ⚠️ GRADUATED 2026-08-06 (CT-1) — "Destroy target artifact creature." is HIGH now. The `cardType`
+    // restriction kind and its front-face, fail-closed evaluator already existed; only the shared target
+    // grammar never emitted it. Asserted positively below rather than deleted, so the pin protects the flip.
+    expect(parseEffectProgram(I("Destroy target artifact creature.")).atoms)
+      .toEqual([{ op: "destroy", targetType: "creature", restrictions: [{ kind: "cardType", type: "artifact" }] }]);
     expect(programConfidence(parseEffectProgram(I("Return target nonland permanent to its owner's hand.")))).toBe("high"); // β-3: bounce-permanent modeled
     expect(programConfidence(parseEffectProgram(I("Return target tapped artifact to its owner's hand.")))).toBe("low");   // an unmodeled restriction on bounce → Arbiter
     expect(parseEffectProgram(I("Return target creature card from your graveyard to the battlefield.")).atoms).toEqual([{ op: "reanimate", targetType: "graveyardCard", cardFilter: "creature" }]); // β-3b reanimation
@@ -1021,7 +1025,6 @@ const MUST_DROP_TO_LOW = [
   "Draw two cards, discard a card.",                                     // comma-rider (NOT split) → low
   // Unmodeled target restrictions — HIGH would permit an illegal target. P2.4 + β-1 model
   // controller/tapped/power/combat/non-color/non-type; positive-type/keyword/named stay unmodeled.
-  "Destroy target enchantment creature.",                                 // positive type restriction (IS an enchantment) — not modeled
   // MIXED — a MODELED restriction next to an UNMODELED one must still drop to low
   // (the residue allowlist rejects the leftover qualifier). The tapped+controller+attacking example that
   // used to sit here GRADUATED 2026-08-06 to MUST_STAY_HIGH; see the note there for why it was never
@@ -1173,6 +1176,11 @@ const MUST_STAY_HIGH = [
   // type / "legendary" / keyword filter still drops to low (pinned in MUST_DROP_TO_LOW). ──
   "Destroy target nonblack creature.",                                          // color negation (Doom Blade)
   "Destroy target nonartifact creature.",                                       // type negation (Go for the Throat)
+  // ⭐ GRADUATED 2026-08-06 (CT-1) out of MUST_DROP_TO_LOW, where it was labelled "positive type
+  // restriction (IS an enchantment) — not modeled". It is modeled now, by the same `cardType` kind whose
+  // evaluator predates this slice. Enforcement measured: a cardType:"artifact" pool offers ONLY the
+  // artifact creature, and typeNeg is its exact mirror (see spellEffects.test.js and cardTypeTarget.test.js).
+  "Destroy target enchantment creature.",
   // ⭐⭐ GRADUATED 2026-08-06 (UP-1) out of MUST_DROP_TO_LOW, where it sat labelled
   // `tapped+controller modeled, "attacking" not`. THAT COMMENT WAS STALE AND CONTRADICTED BY ITS OWN FILE:
   // the β-1 header eight lines above already lists combat state among the restrictions the engine enforces.

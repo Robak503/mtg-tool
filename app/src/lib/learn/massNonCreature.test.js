@@ -14,7 +14,7 @@ import { classifyCard } from "./coverage.js";
 import { parseEffectProgram, programContainsMassRemoval } from "./effects/parser.js";
 import { ATOM_RESOLVERS } from "./effects/effectAtoms.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
-import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
+import { _resetIdsForTests, createGameState, createPermanent, findPermanent } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
 const I = (oracle, type = "Sorcery") => ({ type, oracle, name: "X" });
@@ -32,13 +32,44 @@ describe("MASS-NC — classification", () => {
       expect(parseEffectProgram(I(oracle)).atoms).toEqual([{ op: "destroy", targetType: tt }]);
     }
   });
-  it("MUST stay arbiter — any FILTER fails the anchor (eachX would wrongly hit the unfiltered set)", () => {
+  it("MUST stay arbiter — a NON-CREATURE filter fails the anchor (eachX would hit the unfiltered set)", () => {
+    // ⚠️ "Destroy all artifact creatures." WAS IN THIS LIST and GRADUATED 2026-08-06 (CT-1). Its removal is
+    // worth explaining, because the parenthesis in this test's own name is what made it look load-bearing.
+    // The concern — an unfiltered eachX hitting the whole class — is REAL for the NON-CREATURE rows below,
+    // which have no restriction-honouring resolver. It stopped being true for a CREATURE wipe on 2026-07-30,
+    // when massCreatureTargets taught `eachCreature` to honour the restriction grammar (see mass.test.js).
+    // "All artifact creatures" is a CREATURE wipe with a modeled filter, so it rides that path.
+    // ⛔ IT WAS ALMOST REVERTED ON THE STRENGTH OF THIS COMMENT ALONE. The CT-1 slice read the parenthesis,
+    // concluded a board wipe had been let through, and rolled back a measured +4 before checking. The
+    // end-to-end assertion below is what settled it — and it is now pinned so the claim can never again be
+    // inherited from prose.
     for (const oracle of [
       "Destroy all nonbasic lands.",
       "Destroy all artifacts you control.",
       "Destroy all enchantments with mana value 3 or less.",
-      "Destroy all artifact creatures.", // a typed subset, not the whole class
     ]) expect(classifyCard(I(oracle))).toBe("arbiter-spell");
+  });
+
+  it("⭐⭐ a FILTERED CREATURE wipe destroys only the filtered set — resolved, not merely parsed", () => {
+    // The atom must carry the restriction AND the resolver must honour it. Parsing alone would have said
+    // nothing about whether the plain creature lives.
+    expect(parseEffectProgram(I("Destroy all artifact creatures.")).atoms)
+      .toEqual([{ op: "destroy", targetType: "eachCreature", restrictions: [{ kind: "cardType", type: "artifact" }] }]);
+    const base = createGameState({ userDeck: [], aiDeck: [] });
+    const SPELL = { id: "c-acw", name: "Artifact Wipe", type: "Sorcery", mana: "{4}", oracle: "Destroy all artifact creatures." };
+    const s = { ...base, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
+      players: { ...base.players,
+        user: { ...base.players.user, hand: [SPELL], manaPool: { ...base.players.user.manaPool, C: 6 },
+          battlefield: [createPermanent({ id: "artcre", controller: "user", summoningSick: false,
+            card: { name: "Golem", type: "Artifact Creature — Golem", power: 2, toughness: 2, oracle: "" } })] },
+        ai: { ...base.players.ai, battlefield: [createPermanent({ id: "plaincre", controller: "ai", summoningSick: false,
+          card: { name: "Bear", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" } })] } } };
+    const cast = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").find((a) => a.cardId === "c-acw");
+    expect(cast).toBeTruthy();
+    const after = resolveTopOfStack(dispatchAction(s, cast));
+    const row = { artifactCreature: !!findPermanent(after, "artcre"), plainCreature: !!findPermanent(after, "plaincre") };
+    console.log("  WITNESS filteredCreatureWipe", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({ artifactCreature: false, plainCreature: true }); // ⛔ NOT a board wipe
   });
 });
 

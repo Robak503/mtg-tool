@@ -101,13 +101,20 @@ describe("parseCreatureTargetRestrictions (P2.4)", () => {
   });
   it("is UNCLEAN when an unmodeled qualifier is present (→ Arbiter)", () => {
     expect(parseCreatureTargetRestrictions(card("Destroy target creature you control with first strike.")).clean).toBe(false); // only "with flying" is modeled (β anti-flyer)
-    expect(parseCreatureTargetRestrictions(card("Destroy target artifact creature.")).clean).toBe(false);      // positive type, not negation
     expect(parseCreatureTargetRestrictions(card("Destroy target legendary creature.")).clean).toBe(false);     // supertype, unmodeled
     // ⚠️ THE COLOUR UNION ROW WAS HERE and is now CLEAN — CD-1 gave the vocabulary a colorAny kind, so
     // "white or blue creature" parses to one restriction holding a colour list. Asserted POSITIVELY now,
     // which is a stronger statement than the refusal it replaces: it says what the parse produces, not
     // merely that it fails.
     expect(parseCreatureTargetRestrictions(card("Destroy target white or blue creature."))).toMatchObject({ clean: true, restrictions: [{ kind: "colorAny", colors: ["W", "U"] }] });
+    // ⚠️ THE POSITIVE-TYPE ROW WAS HERE and is now CLEAN — CT-1 (2026-08-06) wired the `cardType` kind (which
+    // already existed, with only two narrow emitters) into this shared grammar. Asserted POSITIVELY, same as
+    // the colour-union row above, so the pin protects the parse rather than the refusal.
+    expect(parseCreatureTargetRestrictions(card("Destroy target artifact creature."))).toMatchObject({ clean: true, restrictions: [{ kind: "cardType", type: "artifact" }] });
+    // ⛔ ORDER GUARD, and this is the row that matters most: "nonartifact" CONTAINS "artifact", so a
+    // positive match running before the negation arm would emit cardType for a card saying the exact
+    // opposite — the most direct false positive available here.
+    expect(parseCreatureTargetRestrictions(card("Destroy target nonartifact creature."))).toMatchObject({ clean: true, restrictions: [{ kind: "typeNeg", type: "artifact" }] });
   });
   it("is a no-op (clean, no restrictions) for non-creature / non-target effects", () => {
     expect(parseCreatureTargetRestrictions(card("Draw two cards."))).toMatchObject({ clean: true, restrictions: [] });

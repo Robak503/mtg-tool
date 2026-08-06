@@ -3,33 +3,35 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
-> ## SLICE REVERTED - 2026-08-06 - **CT-1 POSITIVE CARD TYPE — +4 measured, REVERTED for a board-wipe false positive** - post-v0.156.0 batch 7
-> Flip-diff measured **+4 / 0 / 0** (Leonin Iconoclast, Hearth Charm, Chandler, Molten Frame), all audited
-> whole-card, Law-6 enforcement exact. **Reverted anyway, and the +4 is not the finding.**
-> ⭐ The setup looked like the run's best pattern: `cardType` — the POSITIVE mirror of `typeNeg` — already
-> existed with a correct front-face, fail-closed evaluator and exactly TWO emitters, both narrow one-off
-> matchers. The shared target grammar never emitted it, so "destroy target artifact creature" parked
-> everywhere. A ninth "built engine, partial ignition", one arm from done.
-> ⛔⛔ **THE SUITE FIRED FOUR PINS, AND ONE OF THEM WAS A BOARD WIPE.** `massNonCreature.test.js` pins
-> "Destroy all artifact creatures." as MUST-STAY-ARBITER because **the mass lane does not apply target
-> restrictions** — its `eachX` would hit the UNFILTERED set. With the arm in, that card classified
-> native-spell: a card reading "destroy all artifact creatures" would have destroyed EVERY creature on the
-> board. The most expensive false positive this run has come near, and it was invisible from the flip-diff,
-> which showed a clean +4/0/0. **The gained rows were all correct; the damage was to a card that never
-> appeared in the diff because it was already native-adjacent on another path.**
-> ⛔ **WHY NOT THE UP-1 OPT-IN TRICK.** UP-1 solved a near-identical shared-grammar problem with a
-> default-false parameter, and it was tempting to repeat it. The conditions are not analogous: UP-1's opt-in
-> keyed off a caller that had ALREADY resolved a union targetType — a narrow, checkable fact. Here the
-> distinction is single-target vs MASS, and the mass gate's entire design is that ANY filter must fail its
-> anchor. Four failing pins is the measurement of how many consumers would need auditing first; doing that
-> audit half-way is exactly how a board wipe ships.
-> ⭐ **THE TRANSFERABLE LESSON: a clean flip-diff says nothing about cards that were ALREADY native.** Every
-> gained row here was correct and whole-card audited. The regression was in a card the diff had no reason to
-> print. Gate 19's exit code caught what gate 20's flip-diff structurally could not.
-> **NEXT-SLICE MAP (if resumed):** the mass lane's restriction handling is the real prerequisite — either
-> teach `eachX` to honour target restrictions, or give the mass confidence gate its own grammar that cannot
-> see them. Until one of those exists, the positive-type arm must stay out. Remaining ceiling on this vein
-> was 12; four were reachable.
+> ## SLICE DONE - 2026-08-06 - **CT-1 POSITIVE CARD TYPE (+4) — reverted on a false alarm, then un-reverted** - post-v0.156.0 batch 7
+> Suite 1180 / 14,314 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Leonin Iconoclast, Hearth
+> Charm, Chandler, Molten Frame. All audited whole-card.
+> ⚠️⚠️ **CORRECTION TO THE ENTRY THAT STOOD HERE (commit 89f6ddfe). It said this slice was reverted because
+> it let a BOARD WIPE through. That was wrong, and the way it was wrong is the whole value of this entry.**
+> Four pins fired when the arm landed. One, `massNonCreature`'s, is titled "any FILTER fails the anchor
+> (eachX would wrongly hit the unfiltered set)". I read that title, concluded "Destroy all artifact
+> creatures." had just been admitted as a wipe, reverted a measured +4, and **banked the claim without
+> running the card.** `eachCreature` learned to honour the restriction grammar on 2026-07-30 — mass.test.js
+> pins it — so the resolved outcome is the artifact creature dying and **the plain creature surviving**.
+> Verified end-to-end, and that assertion now lives in massNonCreature.test.js so the claim can never again
+> be inherited from prose. All four pins were the same deliberate refusal this slice lifts; all four
+> graduated.
+> ⛔ **THE RULE THIS EARNS: a test's PROSE documents what was true when it was written; only its ASSERTION
+> is a fact about now.** A red pin says "a decision recorded here has changed" — it does not say which way,
+> and it is not evidence of a defect until the behaviour itself has been run. Gate 19 (the exit code) tells
+> you something moved; it does not tell you the direction.
+> ⭐ **NINTH "BUILT ENGINE, PARTIAL IGNITION".** `cardType` — front-face, fail-closed — already existed with
+> two narrow emitters; the shared target grammar was never one of them. One arm was the fix.
+> ⭐⭐ **THREE MUTATIONS TO FIND THE ACTUAL GUARD, because two successive comments each named the wrong
+> one.** "nonartifact" contains "artifact", so a positive match could restrict Go for the Throat to exactly
+> the creatures it may not touch. TWO guards stop it and **each is sufficient alone** — the negation arm
+> consuming the phrase first, and the word boundary. Either single mutation SURVIVES; only removing BOTH
+> reproduces the bug, and its symptom is a self-contradictory `[{cardType},{typeNeg}]` pair: native tier,
+> empty pool, silent. **A redundant guard is indistinguishable from a load-bearing one by reading alone.**
+> ⚠️ Heredoc backslash-eating struck twice more here (ninth and tenth occurrences), the second time writing
+> literal 0x08 BYTES into a doc comment where `\b` was meant — invisible in every diff, and lint does not
+> flag control characters outside regexes. Swept to zero across all five touched files and verified.
+> **Shell heredocs are now banned for any content containing a backslash; use the file-edit tool.**
 
 > ## SLICE DONE - 2026-08-06 - **BOUNCE STATE QUALIFIER (+8) — and a fail-OPEN hole a mutation walked into** - post-v0.156.0 batch 7
 > Suite 1179 / 14,311 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Selkie Hedge-Mage, Spellweaver

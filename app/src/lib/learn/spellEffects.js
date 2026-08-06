@@ -463,6 +463,24 @@ export function parseCreatureTargetRestrictions(card, { allowPlaneswalkerUnion =
   const ntm = t.match(/\bnon(artifact|enchantment|land)\b/);
   if (ntm) { restrictions.push({ kind: "typeNeg", type: ntm[1] }); t = t.replace(/\bnon(?:artifact|enchantment|land)\b/g, " "); }
 
+  // ⭐⭐ CT-1 (2026-08-06) — POSITIVE card type ("target ARTIFACT creature" — Chandler, Molten Frame, Hearth
+  // Charm; "target ENCHANTMENT creature" — Leonin Iconoclast). The `cardType` kind and its front-face,
+  // fail-closed evaluator ALREADY EXISTED with exactly two narrow emitters; this shared grammar was simply
+  // never one of them, so every positive-type removal target parked. Ninth "built engine, partial ignition".
+  // ⛔ THE INVERTED-TARGET RISK: "nonartifact" CONTAINS "artifact". Emitting {cardType:"artifact"} for Go
+  // for the Throat would restrict it to exactly the creatures it may not touch.
+  // ⭐ TWO INDEPENDENT GUARDS STOP IT, AND EACH IS SUFFICIENT ALONE — established by mutation, after two
+  // successive comments here named the wrong one as "the" guard:
+  //   1. ORDER — the negation arm runs first and REMOVES "nonartifact" from `t`, so nothing is left to match.
+  //   2. `\b` — "non" and "artifact" are both word characters, so there is no boundary between them and
+  //      `\bartifact\b` cannot match inside the negated word even if this ran first.
+  // Removing EITHER leaves the parse correct (both single mutations survive). Removing BOTH emits
+  // `[{cardType:"artifact"}, {typeNeg:"artifact"}]` — a self-contradictory pair no creature can satisfy, so
+  // the card classifies native and targets NOTHING. That is the failure this pairing exists to prevent, and
+  // it is the silent kind rather than the loud kind.
+  const ctm = t.match(/\b(artifact|enchantment)\b/);
+  if (ctm) { restrictions.push({ kind: "cardType", type: ctm[1] }); t = t.replace(/\b(?:artifact|enchantment)\b/g, " "); }
+
   // β — keyword restriction: "creature with flying" / "creature without flying" (the anti-flyer removal
   // archetype — Pierce the Sky, Plummet, Shredding Winds). hasKeyword is enforced LAYER-AWARE by
   // creatureSatisfiesRestrictions (with → must have it; without → must not, via negate), so a GRANTED
