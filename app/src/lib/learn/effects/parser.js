@@ -714,8 +714,18 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
   // controller). Otherwise the actor is unmodeled → Arbiter.
   if (atom.op === "draw" && !/^(?:then )?(?:you )?draw\b/i.test(s)) return null;
 
-  if ((atom.op === "deal-damage" || atom.op === "destroy") && atom.targetType === "creature") {
-    const { restrictions, clean, cleanedOracle } = parseCreatureTargetRestrictions(sub);
+  // ⭐⭐ UP-1 (2026-08-06): the UNION targetType joins this fold. It used to be gated on "creature" alone,
+  // so a union atom skipped the restriction parse entirely and fell through to `isCleanClause(s)` below —
+  // where the SCOPE PHRASE is itself in UNMODELED_MARKERS. That is why ANY scope failed on a union target:
+  // `you control` exactly as much as `an opponent controls`. **It was never a scope problem**, which is
+  // what the "union + scope" framing had wrongly implied.
+  // ⛔ The union noun is consumed via an OPT-IN flag, never by loosening the shared noun grammar — see the
+  // doc block on parseCreatureTargetRestrictions. Only a caller that has already resolved the union
+  // targetType may ask for its scope; every other call site is byte-identical.
+  if ((atom.op === "deal-damage" || atom.op === "destroy")
+    && (atom.targetType === "creature" || atom.targetType === "creatureOrPlaneswalker")) {
+    const allowPlaneswalkerUnion = atom.targetType === "creatureOrPlaneswalker";
+    const { restrictions, clean, cleanedOracle } = parseCreatureTargetRestrictions(sub, { allowPlaneswalkerUnion });
     if (!(clean && isCleanClause(cleanedOracle))) return null;
     return restrictions.length ? { ...atom, restrictions } : atom;
   }

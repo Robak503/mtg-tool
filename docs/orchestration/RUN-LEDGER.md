@@ -3,6 +3,55 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-06 - **UNION + SCOPE — it was never a scope problem, +4 and a live FP on an already-native card** - post-v0.156.0 batch 7
+> Suite 1176 / 14,300 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Skysovereign Consul Flagship,
+> Careless Celebrant, Iroas's Blessing, Surge of Righteousness. All audited whole-card.
+> ⭐⭐ **THE BANKED FRAMING WAS WRONG, AND CORRECTING IT WAS THE SLICE.** The vein read "union + scope
+> fails", implying something wrong with the SCOPES. Nothing was: `you control` failed exactly as hard as
+> `an opponent controls`, and that SYMMETRY is what found the cause. parser.js's damage/destroy fold was
+> gated on `targetType === "creature"`, so a UNION atom never entered the restriction parse at all — it
+> fell through to `isCleanClause(s)`, where the scope phrase is itself an UNMODELED_MARKER. The scope was
+> never being read, only tripped over. **When every member of an axis fails equally, the axis is not the
+> variable.**
+> ⭐⭐ **FRY: A LIVE FALSE POSITIVE ON A CARD THAT WAS ALREADY NATIVE, AND THE TIER NUMBER CANNOT SEE IT.**
+> Fry read native-spell before this slice with its printed "that's white or blue" silently DROPPED — the
+> engine would aim a 5-damage bolt at a green creature and nothing would look wrong; the card just appears
+> to have more reach than it prints. It was never parked, so no coverage metric was ever going to surface
+> it. Only asserting the PARSED ATOMS did. That is now the fourth defect this run found on cards the tier
+> already counted as working.
+> ⚠️ **THE PHANTOM LETTER — a bug with no textual cause.** Fry appeared as a LOST row the instant the fold
+> admitted it: the filler strip matched bare `that` INSIDE the contraction `that's` (a `\b` sits between
+> "t" and "'"), the `[^a-z]+` sweep ate the apostrophe, and an orphan **"s"** stood as residue. A letter no
+> printed word ever contributed was parking every "target creature that's <colour>" card — on the PLAIN
+> creature lane as much as the union one, which is how Surge of Righteousness rode in on a union fix.
+> ⛔ **THE ONE-LINE VERSION WOULD HAVE BEEN THE BUG.** Making "or planeswalker" clean GLOBALLY reaches SIX
+> call sites including legalChoices' legacy single-target path — a union treated as a plain CREATURE target
+> elsewhere, offering a planeswalker where only creatures are legal. Consumed under a **default-false
+> opt-in** only a caller that already resolved the union targetType may pass. Measured, not reasoned: only
+> THREE restriction kinds reach a union corpus-wide (colorAny / controller / manaValue), all type-agnostic,
+> so no creature-only kind is ever evaluated against a walker.
+> ⭐ Law 6, and it caught the FP that would have shipped: `oppControls` on a 4-seat board offers the
+> opponent's creature AND walker while excluding **your own walker** — before this slice the union carried
+> no restrictions at all, so your own planeswalker was a legal Skysovereign target.
+> ⚠️⚠️ **A SURVIVING MUTANT EXPOSED A FALSE CLAIM OF MINE — SECOND TIME THIS RUN.** I also stripped the
+> union noun from `cleanedOracle`, commenting that the fold's `isCleanClause(cleanedOracle)` gate would
+> otherwise refuse it. Removing that line changed NOTHING for all five carriers: `UNMODELED_MARKERS` never
+> names "planeswalker". **Deleted, not pinned** — same disposition as the DT-2 precedent. Twice now a
+> confident comment has justified code doing nothing, and the mutation caught both while re-reading did not.
+> ⭐ **A GATE THAT WAS RESTING ON THE STRAY LETTER.** The suite's one failure was parser.test.js's
+> MUST_DROP_TO_LOW entry "Destroy target tapped creature an opponent controls that's attacking.", labelled
+> `"attacking" not modeled` — **contradicted by its own file's β-1 header eight lines above**, which lists
+> combat state as enforced. It was only ever dropping on the phantom "s". GRADUATED to MUST_STAY_HIGH with
+> the enforcement MEASURED (each of the three restrictions removed in turn and the pool watched grow), not
+> asserted. A pin can read green for years while testing something other than its stated purpose.
+> ⚠️ The Law-6 harness first returned an EMPTY pool for every spec, including the qualifying creature —
+> attackers live in `state.combat.attackers`, not on the permanent. That reads exactly like "the restriction
+> is too tight" and would have been filed as a code bug. The all-zero rule earned its keep again.
+> ⚠️ Ossuary Rats was in the banked map's expected +4 and did NOT flip — its blocker is the X-count
+> (`where X is the number of creature cards in your graveyard`), a different lane. Surge of Righteousness
+> took the fourth slot instead. **The map's predicted names were right about the count and wrong about the
+> membership**, which is the usual shape when a probe groups by phrase rather than by cause.
+
 > ## SLICE DONE - 2026-08-06 - **"TARGET CREATURE THAT PLAYER CONTROLS" — three widenings, three regressions, +3** - post-v0.156.0 batch 7
 > Suite 1175 / 14,291 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Snapping Thragg, Skirk
 > Commando, Spark Mage. All audited whole-card.

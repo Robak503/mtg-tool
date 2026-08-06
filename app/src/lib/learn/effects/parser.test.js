@@ -1023,8 +1023,9 @@ const MUST_DROP_TO_LOW = [
   // controller/tapped/power/combat/non-color/non-type; positive-type/keyword/named stay unmodeled.
   "Destroy target enchantment creature.",                                 // positive type restriction (IS an enchantment) — not modeled
   // MIXED — a MODELED restriction next to an UNMODELED one must still drop to low
-  // (the residue allowlist rejects the leftover qualifier).
-  "Destroy target tapped creature an opponent controls that's attacking.", // tapped+controller modeled, "attacking" not
+  // (the residue allowlist rejects the leftover qualifier). The tapped+controller+attacking example that
+  // used to sit here GRADUATED 2026-08-06 to MUST_STAY_HIGH; see the note there for why it was never
+  // testing what its comment claimed.
   "Destroy target creature you control with first strike.",               // controller modeled, "with first strike" not (only "with flying" is — β anti-flyer)
   "Destroy target creature an opponent controls with mana value 3 or less.", // controller modeled, "mana value" not
   "Destroy target creature with the greatest power.",                       // non-numeric power phrase → not modeled
@@ -1172,6 +1173,19 @@ const MUST_STAY_HIGH = [
   // type / "legendary" / keyword filter still drops to low (pinned in MUST_DROP_TO_LOW). ──
   "Destroy target nonblack creature.",                                          // color negation (Doom Blade)
   "Destroy target nonartifact creature.",                                       // type negation (Go for the Throat)
+  // ⭐⭐ GRADUATED 2026-08-06 (UP-1) out of MUST_DROP_TO_LOW, where it sat labelled
+  // `tapped+controller modeled, "attacking" not`. THAT COMMENT WAS STALE AND CONTRADICTED BY ITS OWN FILE:
+  // the β-1 header eight lines above already lists combat state among the restrictions the engine enforces.
+  // The clause was still dropping for an entirely unrelated reason — the filler strip matched bare `that`
+  // inside `that's`, leaving an orphan "s" as residue. So a pin whose stated purpose was "a MODELED
+  // restriction next to an UNMODELED one must still drop" was in fact resting on a stray letter, and would
+  // have gone on reading green while proving nothing. The mixed-restriction rule it meant to protect is
+  // still covered by the entries around its old home ("Destroy target enchantment creature.").
+  // Enforcement measured, not assumed — all three restrictions narrow the pool independently:
+  //   {tapped, controller:opponent, combat:attacking} -> [OPPtapATK]   (only the creature meeting all three)
+  //   drop the combat entry                           -> [OPPtapATK, OPPtapNOatk]  (combat was doing work)
+  //   combat alone                                    -> all three attackers, either side
+  "Destroy target tapped creature an opponent controls that's attacking.",
   // ── DESTROY-TARGET nonbasic land + noncreature permanent — the land-destruction staple (Sinkhole /
   // Goblin Ruinblaster body / Stone Rain family) + the broad noncreature-permanent removal (Mold Shambler).
   // Reuse the destroy machinery; the predicate (nonbasicLand / noncreaturePermanent) is in PERMANENT_PREDICATES. ──

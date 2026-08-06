@@ -9,6 +9,14 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Fry aims only at white and blue.** Fry printed "target creature or planeswalker that's white or blue",
+  but the simulator dropped the colour requirement and would let it burn a green creature. It now respects
+  what the card says.
+- **Surge of Righteousness works.** It destroys an attacking or blocking black or red creature; the
+  simulator could not read the "that's attacking or blocking" wording and skipped the card entirely.
+- **Cards that shoot "a creature or planeswalker an opponent controls" respect whose it is.** Skysovereign,
+  Consul Flagship, Careless Celebrant and Iroas's Blessing now fire in the simulator, and they can no longer
+  be pointed at your own planeswalker.
 - **Combat-damage snipe triggers work.** Snapping Thragg, Skirk Commando and Spark Mage shoot a creature
   controlled by the player they just hit. The simulator could not tell which player "that player" meant in
   a targeting clause, so the triggers did nothing — they now aim at the right player's board.

@@ -290,7 +290,22 @@ const MODELED_RESTRICTION_RES = [
   /\bwithout flying\b/g,
 ];
 
-export function parseCreatureTargetRestrictions(card) {
+/**
+ * ⭐⭐ `allowPlaneswalkerUnion` (UP-1, 2026-08-06) — OPT-IN, and opt-in is the whole safety argument.
+ *
+ * A UNION target ("target creature or planeswalker an opponent controls") skips parser.js's damage/destroy
+ * fold entirely, because that fold is gated on `targetType === "creature"`. It then falls through to
+ * `isCleanClause(s)`, where the SCOPE PHRASE is itself in UNMODELED_MARKERS — which is why ANY scope fails
+ * on a union target, `you control` exactly as much as `an opponent controls`. It was never a scope problem.
+ *
+ * ⛔⛔ MAKING "or planeswalker" CLEAN GLOBALLY WOULD BE THE BUG. This function is shared by destroy / exile /
+ * damage AND legalChoices' legacy single-target path; swallowing the union into the noun for everyone would
+ * let a union be treated as a plain CREATURE target somewhere else — offering a planeswalker where only
+ * creatures are legal, or the reverse. The residue is a GUARD, not an oversight. So the union is consumed
+ * ONLY when the caller has already established the union targetType and is asking for its scope.
+ * Default false → all six incumbent call sites are byte-identical.
+ */
+export function parseCreatureTargetRestrictions(card, { allowPlaneswalkerUnion = false } = {}) {
   const oracle = String(card?.oracle || card?.oracle_text || "").toLowerCase();
   let m = oracle.match(/destroy\s+target\s+([^.]+)/);
   if (!m) m = oracle.match(/deals?\s+\d+\s+damage\s+to\s+([^.]+)/);
@@ -308,6 +323,10 @@ export function parseCreatureTargetRestrictions(card) {
   }
 
   let t = ` ${m[1].replace(/[.,]/g, " ")} `;
+  // UP-1: consume the union noun ONLY for a caller that has already resolved the union targetType (see the
+  // doc block above). `t` is the ONLY place it needs removing — see the note at the `cleanedOracle` build
+  // for why the second gate never cared about it, and for the mutation that proved it.
+  if (allowPlaneswalkerUnion) t = t.replace(/\bor planeswalkers?\b/g, " ");
   const restrictions = [];
 
   // ⭐⭐ DEFENDING-PLAYER SCOPE (DP-TGT, 2026-08-05 — Mage-Ring Responder, Hellkite Whelp, Heart-Piercer
@@ -448,7 +467,14 @@ export function parseCreatureTargetRestrictions(card) {
   }
 
   // Strip the base noun + filler; anything left is an UNMODELED qualifier → unclean.
-  t = t.replace(/\b(target|a|an|another|other|each|any|creature|creatures|with|that|to|the|is)\b/g, " ").replace(/[^a-z]+/g, " ").trim();
+  // ⭐ `that's` must be consumed AS ONE TOKEN (UP-1, 2026-08-06). Bare `that` matched the first four
+  // letters — `\b` sits between "t" and "'" — and the `[^a-z]+` sweep then ate the apostrophe and left an
+  // ORPHAN "s" standing as residue. That phantom letter parked every "target creature that's <colour>"
+  // card, on the plain-creature lane as much as the union one. Fry measured it: colorAny built CORRECTLY,
+  // clean=false anyway. ⛔ This does NOT loosen the gate on qualifiers — a real qualifier after the
+  // contraction ("that's tapped", "that's attacking") is still left standing and still parks the card.
+  // The only thing that stops surviving is a letter no printed word ever contributed.
+  t = t.replace(/\b(target|a|an|another|other|each|any|creature|creatures|with|that's|that|to|the|is)\b/g, " ").replace(/[^a-z]+/g, " ").trim();
 
   // The oracle with the MODELED restriction phrases removed — so the confidence
   // gate (which keeps controller/tapped/power in its denylist to protect mass
@@ -456,6 +482,13 @@ export function parseCreatureTargetRestrictions(card) {
   // the clause (riders, other markers) without tripping on a restriction we model.
   let cleanedOracle = oracle;
   for (const re of MODELED_RESTRICTION_RES) cleanedOracle = cleanedOracle.replace(re, " ");
+  // ⚠️ UP-1 DELIBERATELY DOES NOT STRIP THE UNION NOUN FROM `cleanedOracle`, and the reason is worth
+  // keeping because a confident guess got it wrong first. The original version did strip it here, with a
+  // comment claiming the fold's second gate `isCleanClause(cleanedOracle)` would otherwise refuse the
+  // card. A mutation removing this line SURVIVED against all five carriers — `UNMODELED_MARKERS` never
+  // names "planeswalker", so that gate was never going to reject the union noun. The only gate the union
+  // was ever failing is `clean: t.length === 0` on the line below. Dead code with a persuasive comment
+  // reads as load-bearing forever; it is cheaper to say why the line is absent.
   return { restrictions, clean: t.length === 0, cleanedOracle };
 }
 
