@@ -7,6 +7,57 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ☀️ 2026-08-06 — **+43 shipped this stretch · batch 7 now 50 cards post-v0.156.0** — suite **1181 / 14,312** green by bare exit code
+
+> ### ⏭ NEXT BUILD, MEASURED AND CEILING-PROBED — pick the top and go
+> Every number below is a CEILING PROBE (substitute the unparsed phrase for one that provably parses,
+> reclassify, count the flips) — not a carrier count. That distinction has been worth an hour twice today:
+> "dealt damage this turn" had 26 carriers and a ceiling of 18; "exile from a graveyard" has 25 carriers
+> and a ceiling of 6. **Probe the ceiling before building.**
+> · **`creature or Vehicle`, remaining ceiling ~14** — the removal lane shipped (+4). The rest sit behind
+>   DIFFERENT noun tables: the BOUNCE matcher in zones.js takes a bare `creature` noun with no alternation
+>   at all (~line 873), and the pump / keyword-grant / graveyard lanes each carry their own. Same symptom,
+>   different causes — gate 20 says do them as separate measured edits, never one batch.
+> · **exile-from-graveyard, ceiling 6** — `return … from a graveyard` is native on 53+28 carriers while
+>   `exile … from a graveyard` is 25 carriers / 1 native. The VERB is the whole tier split. Needs a new atom
+>   AND resolver (return-from-graveyard is the template) — budget for ignition, and prove it with a runtime
+>   witness rather than a classification test.
+> · **`creature blocking it` ceiling 3 · bare `creature or planeswalker` ceiling 5.**
+> ⛔ **PARKED WITH A PREREQUISITE — do not retry as-is:** positive card type SHIPPED for single targets
+>   (CT-1), but the remaining ~8 of its ceiling need the MASS lane's NON-CREATURE filter path, which has no
+>   restriction-honouring resolver. Creature wipes are fine (verified end-to-end); non-creature ones are not.
+
+> ### ⭐⭐ THREE METHOD RULES EARNED TODAY — all three cost real time, all three are cheap to obey
+> **1. A MUTATION IS NOT APPLIED UNTIL THE CHANGED LINE HAS BEEN PRINTED BACK.** `grep -c` answering 0
+> proves the pattern did not match — never that the edit landed. A perl mutation silently failed while grep
+> reported success; on that false negative I "confirmed" a line was dead code with a corpus-wide flip-diff
+> showing 0 of 34,245 changed — a rigorous measurement of an UNMUTATED FILE, which is worse than no
+> measurement because of how convincing it looks. The full suite caught it. Corrections 22/30/31 say verify
+> the mutant REACHES the guarded case; this adds the step before it: verify the mutant EXISTS.
+> **2. A TEST'S PROSE DOCUMENTS WHAT WAS TRUE WHEN IT WAS WRITTEN; ONLY ITS ASSERTION IS A FACT ABOUT NOW.**
+> A red pin says a recorded decision has changed. It does not say WHICH WAY, and it is not evidence of a
+> defect until the behaviour has been run. I read a pin titled "eachX would wrongly hit the unfiltered set",
+> concluded a board wipe had been admitted, reverted a correct +4, and banked the false claim in the ledger.
+> The resolver had learned to honour restrictions six days earlier. Un-reverted; that claim is now an
+> end-to-end assertion instead of prose.
+> **3. SHELL HEREDOCS ARE BANNED FOR ANY CONTENT CONTAINING A BACKSLASH.** The `\b`-eating trap struck
+> FOUR more times today (ninth through twelfth), once writing literal 0x08 BYTES into a doc comment where
+> `\b` was meant — invisible in every diff, and lint does not flag control characters outside regexes.
+> Use the file-edit tool, or build the string with `String.fromCharCode`. 11 such bytes were also swept out
+> of this repo's own RUN-LEDGER, every one inside a sentence warning about this exact trap.
+
+> ### ✅ SHIPPED THIS STRETCH (each: flip-diff, whole-card audit, mutation, Law-6 witness, CI conclusion read)
+> `995051b4` UP-1 union targetType carries its scope **+4** — and FRY, a live false positive on a card that
+> was ALREADY NATIVE: its printed "that's white or blue" was silently dropped, so the engine would aim 5
+> damage at a green creature. **No coverage metric can find that class; only asserting the parsed atoms did.**
+> `4389cbe4` DD-1 "dealt damage this turn" **+17** — the residue census's top vein. Two witnesses
+> (damageMarked misses infect/wither; damagedBy is optional) — neither half visible to the tier number.
+> `df8cccc0` CV-1 creature-or-Vehicle removal **+4** · `23117164` BS-1 bounce state qualifier **+8**, which
+> also found a FAIL-OPEN: an unrecognised `combat` value satisfied every creature instead of none.
+> `70599074` CT-1 positive card type **+4** (the revert-and-un-revert) · `8dc56f21` KW-1 keyword restriction
+> beyond flying **+6**.
+> ⭐ **THE HIGHEST-VALUE FIND CLASS REMAINS BUGS ON CARDS THE TIER ALREADY COUNTS AS WORKING** — Fry, the
+> combat fail-open, and the union offering your OWN planeswalker were all invisible to the flip-diff.
 ## ☀️ 2026-08-06 — **🏷 v0.156.0 PUBLISHED · batch 7 (IC-1 +3 · DT-1 +1 · DT-2 +3)** — suite **1175 / 14,291** green by exit code
 
 > ### ⏭ NEXT BUILD, MEASURED AND SEAM-MAPPED: **UNION TARGET + ANY SCOPE (4)** — the anaphor half SHIPPED
