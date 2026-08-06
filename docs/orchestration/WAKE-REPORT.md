@@ -7,6 +7,48 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ☀️ 2026-08-06 — **+78 this stretch · batch 7 at 85 post-v0.156.0 (tag at ~100)** — suite **1189 / 14,339** green by bare exit code
+
+> ### ⏭ NEXT BUILD — the ACTIVATED-ABILITY census, freshly run and already filtered
+> A second census axis (the trigger one is below): for every non-native card, run `parseActivatedAbilities`
+> and tally the `effectClause`s that `parseEffectClause` returns EMPTY for. The surviving candidates after
+> I probed the top rows:
+> · **GY SELF-RECURSION RIDERS — ~52 carriers, but THREE separate causes.** `parseGraveyardSelfRecursion`,
+> its offer site, dispatcher and classifier are all BUILT; each parked carrier fails on a different rider:
+> Tymaret on a `, Sacrifice a creature` COST rider · Vivien's Jaguar on an `Activate only if you control a
+> Vivien planeswalker` CONDITIONAL rider · Retrofitted Transmogrant on a `to the battlefield tapped with
+> two +1/+1 counters` DESTINATION rider. **Gate 20: three slices, not one.** Probe each rider's own
+> carrier count first — the biggest is likely the sac-cost one.
+> · `the next N damage … would be dealt` prevention shields **18+9+8** · `copy target activated or
+>   triggered ability` **10** · `target creature blocks this creature if able` **9** · `target creature
+>   can't block this creature` **7**.
+> ⛔ **DEAD ENDS, MEASURED — do not re-walk these:** `add {M} or {M}` (248) and friends are LANDS, already
+> covered. `level N` (76) is the Level Up subsystem. `this creature gains indestructible` (10) ALREADY
+> parses — those cards park elsewhere. Powerstone tokens (ceiling 12) are a DELIBERATE refusal: the token's
+> restricted mana is unmodeled and `manaProduction` returns null for it — the note in tokens.js is accurate,
+> not stale (I checked). Incubate (ceiling 12) needs transform. Bare-colour tutor filters ceiling 1,
+> `noncreature, nonland` ceiling 2, `reveal until` ceiling 0.
+
+> ### ⚠️ THE CENSUS INSTRUMENT HAS TWO KNOWN FAILURE MODES — both bit me today
+> **1. `NATIVE_TIERS`, NOT `startsWith("native")`.** The `land` tier is COVERED but carries no "native"
+> prefix, so a naive filter counts every land as parked. My first activated-ability census put 248 dual
+> lands at the top of the list. Import `NATIVE_TIERS` from coverage.js and use `.has(tier)`.
+> **2. A CLAUSE MAY HAVE A DEDICATED PARSER.** "parseEffectClause returns []" does NOT mean unmodeled —
+> GY self-recursion, suspend, vanishing and the mana abilities all route through their own parsers. Always
+> confirm against the card's TIER and the dedicated parse before calling a row a vein.
+
+> ### ⭐⭐ THE RULE THIS STRETCH ADDED, and it is the one I keep needing
+> **A VERIFICATION THAT RETURNS THE CONVENIENT ANSWER DESERVES MORE SUSPICION THAN ONE THAT RETURNS AN
+> INCONVENIENT ONE.** Every wrong call today arrived as a clean-looking confirmation of what I already
+> expected: a collision check that reported "all safe" because a backslash was eaten; a stack read that
+> reported "never fires" because it looked before the flush; a test pin whose prose said "board wipe".
+> The all-zero rule is the cheap version of this — but all-zero is only the loudest symptom, not the only one.
+
+> ### ✅ SHIPPED THIS STRETCH — 16 slices
+> `995051b4` UP-1 +4 · `4389cbe4` DD-1 +17 · `df8cccc0` CV-1 +4 · `23117164` BS-1 +8 · `70599074` CT-1 +4 ·
+> `8dc56f21` KW-1 +6 · `954c150e` CV-2 +4 · `5b15511e` ST-1 +2 · `5b7a745b` CV-3 +2 · `638d684a` GX-2 +8 ·
+> `d76b9063` RT-1 +5 · `8aa51294` LB-1 +5 · `41fe8bef` CP-1 +7 (and the negative-pump clamp bug, 19 cards) ·
+> `03c3db84` TF-1 +2.
 ## ☀️ 2026-08-06 — **+76 this stretch · batch 7 at 83 cards post-v0.156.0 (tag at ~100)** — suite **1188 / 14,336** green by bare exit code
 
 > ### ⏭ START HERE — the instrument that is finding everything
