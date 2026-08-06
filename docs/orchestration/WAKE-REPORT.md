@@ -7,7 +7,34 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **+489 this sitting · 🏷 v0.154.0 PUBLISHED · post-tag batch 100 → 🏷 TAG DUE** — suite **1156 / 14,181** green by exit code
+## ☀️ 2026-08-05 — **post-v0.155.0 batch 47 · ES-1 +8 · ES-2 +3 · a live over-delivery fixed** — suite **1165 / 14,230** green by exit code
+
+> ### ⏭ NEXT BUILD, MEASURED AND SEAM-MAPPED: **the COLOUR DISJUNCTION (+13)**
+> "red or green creature" and its family. Measured corpus-wide with the repaired probe (collapse the
+> disjunction to its first colour, see what flips) — **13 cards across FOUR card types**:
+> · Creature 5 — Slithery Stalker, Mold Adder, Wandering Champion, Lightwielder Paladin, Mindwrack Liege
+> · Instant 3 — Rending Volley, Flashfreeze, Celestial Purge · Sorcery 2 — Deathmark, Wallop
+> · Enchantment 3 — Snake Pit, Controlled Instincts, Encase in Ice
+> ⭐⭐ **GATE 20 HOLDS UNUSUALLY WELL HERE.** Four card types is four families, none of which is a variant of
+> another, all with the identical symptom and the identical missing vocabulary: **the restriction list is
+> ANDed and has no way to say OR**, so every parser that meets a colour disjunction must park. One structural
+> cause, several call sites — the same shape as ES-1's host spec.
+> **THE SEAM:**
+> ① ONE EVALUATOR: `creatureRestrictions.js` (~line 95). Add a disjunctive kind beside `color`, e.g.
+>    `{kind:"colorAny", colors:["R","G"]}` → `if (!r.colors.some((c) => set.has(c))) return false;`. It MUST
+>    read `permanentColors` layer-aware exactly like the `color` branch does (CR 105.2 — a creature turned
+>    red IS a legal target; a printed-red one turned white is NOT) and fail CLOSED when colors don't resolve.
+> ② SEVERAL EMITTERS, each small: `spellEffects.js:375` (the spell target parser — note it currently takes
+>    only the FIRST colour word and strips the rest, leaving " or " as residue, which is exactly why these
+>    park), `staticAbilityParser.js` `posColor` (the Aura subject), `combatEvasion.js:171,234` (blocker
+>    restrictions). Check each against the 13 before assuming all four are needed.
+> ⛔⛔ **REAL CREED SURFACE, AND IT IS THE LOOSE DIRECTION.** Every restriction shipped so far can only NARROW
+> a pool; a disjunction is the first one that WIDENS. A too-loose `colorAny` offers an illegal target — the
+> cardinal sin — and unlike a narrow bug it will never show up as a missing option. **Pin the exclusion by
+> name**: Deathmark ("destroy target green or white creature") must NOT enumerate a blue creature, and a
+> two-colour disjunction must not degrade into "any creature".
+> ⛔ Law 6 applies (it changes legality): drive a board with one creature of each of the five colours and
+> print the enumerated pool per card, so a broken harness can't read as a clean negative.
 
 > ### ⚠️⚠️ A TEST FIXTURE WHOSE PROPERTY IS "UNMODELLED" **WILL ROT** — twice now, same file
 > `entersCountersStripAnchor` needs an unmodelled NO-PERIOD keyword line to prove its strip doesn't eat
@@ -16,28 +43,18 @@
 > alone AND welded. **When a test like this reddens, the guard is almost certainly fine — re-probe for a
 > keyword that still parks and swap it, never weaken the assertion.** Recorded in-file too.
 
-> ### ⏭ NEXT BUILD, MEASURED AND SEAM-MAPPED: **the `Enchant <subject>` vocabulary (+8)**
-> Ran the KEYWORD-TWIN sweep (harvest keyword-shaped lines, keep the 0-native ones, rank by parked carriers)
-> then causation-tested the top entries. The winner is the Aura enchant-subject vocabulary:
-> · `enchant artifact or creature` — 21 carriers, **4 flip** (Ice Over, Coma Veil, Secure Detention, Petrify)
-> · `enchant artifact` — 20 carriers, **2** (Stasis Cocoon, Relic Ward) · `enchant creature or vehicle` — 10,
->   **2** (Aether Meltdown, Mists of Littjara) · `enchant permanent` — 23 carriers, **0**
-> ⭐ Gate 20 is satisfied by construction: three different subject wordings, one machinery, cards outside each
-> other's families.
-> ⛔⛔ **IT HAS REAL CREED SURFACE — attaching an Aura to an illegal host is the cardinal sin.** The blocker is
-> named in `auraEnchantRestrictions`' own comment: *"type unions can't be expressed against a fixed
-> targetType:'creature'"*. The seam:
-> ① `auraEnchantRestrictions` must return a **targetType** alongside its restrictions (today the caller
->    hardcodes creature). The land-aura branch already does exactly this — `auraEnchantSubject(card) ===
->    "forest" ? "forest" : "land"` — so the pattern exists; generalise it rather than inventing one.
-> ② legalChoices' native-aura branch consumes that targetType when enumerating hosts.
-> ③ `sba.js`'s CR 704.5n fall-off sweep only knows "creature|land|permanent". The module's DOCUMENTED policy
->    is that a missed fall-off is the safe direction and a wrong kill is forbidden — follow it, don't widen
->    the sweep as a side effect.
-> ④ The layer readers are already layer-aware about a host that isn't a creature (`enchantedTargets`), so a
->    P/T bonus on an artifact host no-ops rather than fabricating.
-> ⛔ PIN THE ILLEGAL HOST DIRECTLY: an "enchant artifact" Aura must not enumerate a creature as a host, and
-> vice-versa. A pin that only checks "it attached" would pass while attaching to anything.
+> ### ⚠️⚠️ A BROKEN PROBE RETURNS A CLEAN-LOOKING **NEGATIVE** — THE MEASUREMENT NEEDS ITS OWN GATE
+> A corpus probe for the colour-disjunction vein reported a confident **"0 flips"**. The vein is really **13**.
+> The pattern had been BUILT from a template string through a shell heredoc, one backslash level was eaten,
+> and the word-boundary escape became a literal BACKSPACE character — so the regex matched nothing and
+> every card was skipped. (This sentence lost that same backslash on its own first write, same heredoc.)
+> Nothing errored. The output was well-formed. **A false negative in a probe is worse than a false positive
+> in a build**: a build gets caught by the gates, but a banked "0 flips" permanently buries a vein and looks
+> like diligence in the ledger. Caught only because the number contradicted an earlier probe's +2.
+> ⛔ **STANDING RULE, EARNED TWICE NOW (this and correction 22):** regex LITERALS in probe files written with
+> the Write tool — never a pattern assembled from a template string, never through a heredoc. And every probe
+> carries a **SANITY GATE**: assert the pattern matches one known carrier and `process.exit(1)` if it doesn't,
+> so a broken run REFUSES to report instead of reporting zero.
 
 > ### ⛔ AND THE BIGGEST KEYWORD COUNT WAS WORTH NOTHING: **saddle, 33 carriers, 0 flips**
 > Saddle is crew's twin and looked like the prize of the sweep. Swapping it for crew flips **zero** cards —
