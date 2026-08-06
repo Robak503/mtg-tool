@@ -188,6 +188,15 @@ export function applyDiscard(state, atom, ctx) {
     // no-op, never a fabrication — the exact damagedPlayer mirror). The discarder chooses (CR 701.9b).
     const pid = ctx.upkeepPlayerId;
     discarders = pid && state.players?.[pid] ? [pid] : [];
+  } else if (atom.who === "defendingPlayer") {
+    // DEFENDING-PLAYER DISCARD (DP-DISC — Abyssal Nightstalker / Alley Grifters / Corrupt Official): the
+    // player being attacked, ctx.defenderId (threaded by checkAttackTriggers on attacks/attacksAlone and
+    // checkBlockTriggers on becomesBlocked — the SAME referent the defendingPlayer edict and life-loss
+    // resolvers read). Absent / eliminated referent → discard nobody: the exact damagedPlayer and
+    // upkeepPlayer mirror, a clean logged no-op rather than a fabricated discard. The discarder chooses
+    // their own card via the chain (CR 701.9b).
+    const pid = ctx.defenderId;
+    discarders = pid && state.players?.[pid] ? [pid] : [];
   } else {
     discarders = (ctx.targets || [])
       .filter((t) => t.type === "player" && state.players?.[t.id])
@@ -316,6 +325,18 @@ export function discardClauseParser(clause) {
   // chain (CR 701.9b); the at-random form pitches via the seeded primitive like every other atRandom.
   if ((rm = t.match(new RegExp(`^the upkeep player discards ${RN} cards?( at random)?$`))))
     return { op: "discard", amount: NUM_WORD[rm[1]] ?? parseInt(rm[1], 10), who: "upkeepPlayer", targetType: null, ...(rm[2] ? { atRandom: true } : {}) };
+  // ⭐⭐ DEFENDING-PLAYER DISCARD (DP-DISC, 2026-08-05 — Abyssal Nightstalker, The Haunt of Hightower,
+  // Shrieking Specter on ATTACKS; Alley Grifters, Slate Street Ruffian on BECOMES-BLOCKED; Corrupt
+  // Official's at-random twin). The third referent arm of this same matcher, beside damagedPlayer and
+  // upkeepPlayer — same shape, same all-or-nothing anchor, only the ctx key differs.
+  // ⛔ NO SENTINEL REWRITE, and unlike the upkeep arm this phrase is PRINTED: "defending player" is real
+  // oracle text (CR 508.1), not an anaphor, so there is nothing to disambiguate and nothing to rewrite.
+  // who:"defendingPlayer" reads ctx.defenderId — threaded by checkAttackTriggers on attacks/attacksAlone
+  // and by checkBlockTriggers on becomesBlocked, which is exactly the two events these six cards use — and
+  // triggerRouting's DEFENDING_PLAYER_EVENTS gate keeps the atom off every other event, where the referent
+  // would be unset and the clause would silently drop.
+  if ((rm = t.match(new RegExp(`^defending player discards ${RN} cards?( at random)?$`))))
+    return { op: "discard", amount: NUM_WORD[rm[1]] ?? parseInt(rm[1], 10), who: "defendingPlayer", targetType: null, ...(rm[2] ? { atRandom: true } : {}) };
   let m = t.match(/^target player discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
   // TARGET-OPPONENT discard (Ravenous Rats / Dirty Rat / Deadbridge Shaman ETB) — the same targeted discard as

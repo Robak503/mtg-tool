@@ -3,6 +3,36 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **THE DEFENDING-PLAYER DISCARD — third referent arm of one matcher, +6** - post-v0.155.0 batch 95
+> Suite 1171 / 14,271 green + lint 0 BY EXIT CODE. Flip-diff **+6 / 0 / 0** — Abyssal Nightstalker, The
+> Haunt of Hightower, Shrieking Specter (ATTACKS); Alley Grifters, Slate Street Ruffian (BECOMES-BLOCKED);
+> Corrupt Official (the at-random twin). All audited whole-card.
+> ⭐ hand.js already carried the damagedPlayer and upkeepPlayer discard arms, sharing a count grammar, an
+> at-random flag and a referent-or-nobody resolver. This is the same arm with ctx.defenderId — one regex,
+> one resolver branch, no new machinery.
+> ⛔ **NO SENTINEL REWRITE, and the contrast is the map.** "Defending player" is PRINTED oracle text (CR
+> 508.1), not an anaphor. The three arms shipped earlier today (cast / draw / each-opponent's-upkeep) each
+> needed an event-gated REWRITE because their events bind no such player and their "that player" was
+> ambiguous. **Knowing which families need a sentinel and which read the printed words is this vein's whole
+> structure**, and it is now written down in three places.
+> ⛔⛔ **TWO EVENTS, BOTH DRIVEN.** ctx.defenderId comes from checkAttackTriggers AND checkBlockTriggers —
+> different functions, and exactly the split these six cards fall into. A pin driving one event would leave
+> half the family unproven while reading fully green.
+> ⚠️⚠️ **THE FIRST WITNESS READ ALL-ZERO AND THE CODE WAS FINE.** I asserted a shrunken hand; the discard
+> SUSPENDS on a choice (the discarder picks, CR 701.9b), so nothing moves until that choice resolves. The
+> atom, the resolver and the seat selection were correct the whole time — the log already said
+> `discard-pending, controller: ai2`. **Checking the harness before the code is the only reason this did not
+> read as a broken build**, and it is the third time this run that rule has paid.
+> ⭐ Re-pinned to the codebase's own convention (auraOwnActivatedPlusTrigger.test.js): assert the
+> `discard-pending` log's controller — which IS the wrong-seat question — plus a per-seat hand table proving
+> nobody else lost anything. Witness: `{owedBy:["ai2"], owedCount:1}` on attacks,
+> `{owedBy:["ai3"], owedCount:1}` on becomes-blocked.
+> ⭐ MUT (resolver branch removed) → `owedBy: []` on BOTH events while classification stays native. **Fifth
+> slice this run where the metric-only view could not see a do-nothing.**
+> ⓘ VEIN STATE: the "defending player" axis measured 15 flips / 293 parked of 511 carriers. This took the
+> largest shape (6). The rest is a long tail — damage-to-a-creature-they-control (3), look-at-hand (1), rad
+> counters (1), sacrifice-a-land (1) — 1-3 cards each, each needing its own atom arm.
+
 > ## SLICE DONE - 2026-08-05 - **THE DAMAGED-PLAYER EDICT — the third twin of one arm, +4** - post-v0.155.0 batch 89
 > Suite 1170 / 14,268 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Demon of Loathing, Cabal
 > Executioner (creature pool), Destructive Urge (land), Akki Underminer (permanent). All audited whole-card.

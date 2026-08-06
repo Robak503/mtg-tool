@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Attack and block discard triggers work.** Abyssal Nightstalker, The Haunt of Hightower, Shrieking
+  Specter, Alley Grifters, Slate Street Ruffian and Corrupt Official make the defending player discard.
+  The triggers were recognised but the victim was not, so nothing happened — the player being attacked or
+  blocking now discards, and nobody else does.
 - **Combat-damage edicts work.** Demon of Loathing, Cabal Executioner, Destructive Urge and Akki
   Underminer make the player they hit sacrifice a creature, land or permanent. The trigger was recognised
   but the victim was not, so nothing happened — the damaged player now loses exactly what the card says,
