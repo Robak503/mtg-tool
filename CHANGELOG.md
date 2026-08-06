@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.156.0] - 2026-08-05
+
 ### Fixed
 - **Attack triggers that hit the defender's creatures work.** Mage-Ring Responder, Hellkite Whelp,
   Heart-Piercer Bow, Gouged Zealot, Swathcutter Giant, Ronin Cliffrider, Scalding Salamander and Colossal
