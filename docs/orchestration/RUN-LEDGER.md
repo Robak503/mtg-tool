@@ -3,6 +3,34 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE REVERTED - 2026-08-06 - **CT-1 POSITIVE CARD TYPE — +4 measured, REVERTED for a board-wipe false positive** - post-v0.156.0 batch 7
+> Flip-diff measured **+4 / 0 / 0** (Leonin Iconoclast, Hearth Charm, Chandler, Molten Frame), all audited
+> whole-card, Law-6 enforcement exact. **Reverted anyway, and the +4 is not the finding.**
+> ⭐ The setup looked like the run's best pattern: `cardType` — the POSITIVE mirror of `typeNeg` — already
+> existed with a correct front-face, fail-closed evaluator and exactly TWO emitters, both narrow one-off
+> matchers. The shared target grammar never emitted it, so "destroy target artifact creature" parked
+> everywhere. A ninth "built engine, partial ignition", one arm from done.
+> ⛔⛔ **THE SUITE FIRED FOUR PINS, AND ONE OF THEM WAS A BOARD WIPE.** `massNonCreature.test.js` pins
+> "Destroy all artifact creatures." as MUST-STAY-ARBITER because **the mass lane does not apply target
+> restrictions** — its `eachX` would hit the UNFILTERED set. With the arm in, that card classified
+> native-spell: a card reading "destroy all artifact creatures" would have destroyed EVERY creature on the
+> board. The most expensive false positive this run has come near, and it was invisible from the flip-diff,
+> which showed a clean +4/0/0. **The gained rows were all correct; the damage was to a card that never
+> appeared in the diff because it was already native-adjacent on another path.**
+> ⛔ **WHY NOT THE UP-1 OPT-IN TRICK.** UP-1 solved a near-identical shared-grammar problem with a
+> default-false parameter, and it was tempting to repeat it. The conditions are not analogous: UP-1's opt-in
+> keyed off a caller that had ALREADY resolved a union targetType — a narrow, checkable fact. Here the
+> distinction is single-target vs MASS, and the mass gate's entire design is that ANY filter must fail its
+> anchor. Four failing pins is the measurement of how many consumers would need auditing first; doing that
+> audit half-way is exactly how a board wipe ships.
+> ⭐ **THE TRANSFERABLE LESSON: a clean flip-diff says nothing about cards that were ALREADY native.** Every
+> gained row here was correct and whole-card audited. The regression was in a card the diff had no reason to
+> print. Gate 19's exit code caught what gate 20's flip-diff structurally could not.
+> **NEXT-SLICE MAP (if resumed):** the mass lane's restriction handling is the real prerequisite — either
+> teach `eachX` to honour target restrictions, or give the mass confidence gate its own grammar that cannot
+> see them. Until one of those exists, the positive-type arm must stay out. Remaining ceiling on this vein
+> was 12; four were reachable.
+
 > ## SLICE DONE - 2026-08-06 - **BOUNCE STATE QUALIFIER (+8) — and a fail-OPEN hole a mutation walked into** - post-v0.156.0 batch 7
 > Suite 1179 / 14,311 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Selkie Hedge-Mage, Spellweaver
 > Duo, Galestrike, Champion's Victory, Harbinger of the Tides, Remove, Select for Inspection, Surrakar
