@@ -31,12 +31,22 @@
 > (e.g. "the triggering permanent's controller") on trigger events that bind one, and the parser arm should
 > match the SENTINEL, never the raw pronoun. That also explains the refusal above as deliberate rather than
 > a bug: the pipeline does not trust bare pronouns, and the rewrite is how every sibling earns its trust.
-> ⓘ **A WORKING "its controller" PATH ALREADY EXISTS — START THERE.** life.js's investigate doc block names
-> *"via the bound-referent arm, 'Its controller investigates.' (Fateful Absence)"*. Read how that one reaches
-> its referent before writing anything; it is the in-repo precedent.
-> ⛔ LAY BARE IS A DIFFERENT CAUSE — "counter target spell. Look at ITS CONTROLLER's hand" refers to the
-> countered SPELL, not a permanent. That is ctx.castingPlayerId territory, not
-> triggeringPermanentController. Do not fold it in.
+> ⚠️⚠️ **CORRECTION, CHECKED RATHER THAN ASSUMED: THE IN-REPO PRECEDENT IS THE WRONG MODEL FOR THE TRIGGER
+> FAMILY.** life.js's doc block points at *"Its controller investigates" (Fateful Absence)* as a
+> bound-referent arm, and I nearly sent this map there. It does NOT use a trigger referent. Measured:
+> the whole card parses to
+> `[{destroy…}, {create-named-token, whoCreates:"target", bindPreviousTargets:true, playerFrom:"controller"}]`
+> while the clause ALONE returns `[]`. "Its" there binds to the PREVIOUS CLAUSE'S TARGET inside one spell —
+> a cross-clause binding, not an event referent. **Following that precedent for Poisonbelly Ogre would model
+> the wrong thing entirely**, because no previous clause targeted anything: "its" is the ENTERING creature.
+> ⭐ **SO THE VEIN SPLITS INTO TWO MECHANISMS, and they must not be built together:**
+> · **TRIGGER family (4)** — Poisonbelly Ogre, Fate Foretold, Parasitic Impetus, Smoke Blessing. Needs the
+>   event-gated SENTINEL rewrite + a consumer for `triggeringPermanentController`. No precedent exists yet;
+>   the closest models are the casting/drawing-player arms shipped in the v0.156.0 batch.
+> · **CROSS-CLAUSE family (1)** — Lay Bare, "Counter target spell. Look at ITS CONTROLLER's hand". THIS one
+>   is the Fateful Absence shape: `bindPreviousTargets:true` + `playerFrom:"controller"` against the
+>   preceding clause's chosen target. The mechanism is already built and proven; the missing piece is only
+>   wiring it to the look-at-hand atom (LH-2's), which today takes a targetType rather than a bound target.
 > ⛔ THE SPELL FENCE: a SPELL carrying this referent has no triggering permanent, so the clause would
 > silently no-op. coverage.js's two spell-path referent loops (~1160/1193/1225, the lists that already name
 > damagedPlayer / defendingPlayer / gyOwner) are where it must be added — the established guard for exactly
