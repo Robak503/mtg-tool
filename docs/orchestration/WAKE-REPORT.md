@@ -16,6 +16,31 @@
 > alone AND welded. **When a test like this reddens, the guard is almost certainly fine — re-probe for a
 > keyword that still parks and swap it, never weaken the assertion.** Recorded in-file too.
 
+> ### ✅ THE COUNT-SOURCE VEIN IS **MEASURED OUT** — swept, causation-tested, don't re-walk it
+> Three count kinds shipped today (+6 sunburst, +5 converge, +2 converge-spell, +7 multikicker), so I swept
+> the whole corpus for unmodelled "for each <X>" / "where X is <Y>" phrases, asked `parseCountSource` which
+> it already knows, and ranked the unknowns by PARKED carriers. 97 phrases with 4+ parked carriers — then the
+> causation test (swap for a known count, re-classify) gutted the list:
+> · **domain** ("basic land types among lands you control") — 65 carriers, **2 flip**
+> · instant/sorcery in graveyard — 21 carriers, **0** · target beyond the first — 22, **0** · card in your
+>   graveyard — 12, **0** · card exiled this way — 22, **1** · attacking creatures — 16, **1**
+> · life gained this turn — 18, **2** · creature in your party — 27, **2**
+> · **"+1/+1 counter on it"** — 19 carriers, **4** ← the only one left worth building
+> ⛔ **THE TALLY OVERSTATED EVERY SINGLE ONE.** Domain looked like 52 and is 2. The phrase co-occurs with
+> parked cards; it rarely blocks them. **Causation-test before opening a file** — this sweep cost minutes and
+> saved several wasted builds.
+
+> ### ⏭ THE ONE REMAINING COUNT, SEAM-MAPPED: **"for each +1/+1 counter on it"** (+4)
+> Marketback Walker, Hooded Hydra, Bloodtracker (dies/leaves triggers) and Embalmed Brawler (attacks/blocks).
+> ⛔⛔ **IT NEEDS TWO READS, NOT ONE, AND THAT IS THE WHOLE DIFFICULTY.** On a dies/leaves trigger the
+> permanent is GONE at resolution, so the count must come from the CR 603.10a look-back — reading the live
+> board silently yields 0, an under-count that looks like a working card. On an attacks/blocks trigger the
+> permanent is live and the board is correct. **Same phrase, two sources.**
+> ⭐ The look-back already carries what's needed: `checkDiesTriggers` has `d.counters` and threads only a
+> BOOLEAN (`ctx.triggeringHadNoPlusCounters`, for undying). Thread the COUNT beside it, add a count kind that
+> prefers the look-back and falls back to the live permanent, and pin BOTH paths — a pin that only drives the
+> attacks case would pass with the dies path returning 0.
+
 > ### ⭐⭐ A COUNT WHOSE TRUE VALUE IS ZERO IS STILL WORTH MODELLING — **+7 from it**
 > "For each time it was kicked" parked 7 cards. Multikicker isn't offered (parseKickerCost refuses it), so
 > the count is 0 on every cast the engine can make — **and 0 is the CORRECT answer for those casts.** The
