@@ -3,6 +3,32 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **DEFENDING-PLAYER TAIL — two arms narrower than their own siblings, +3** - post-v0.155.0 batch 98
+> Suite 1171 / 14,275 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Falkenrath Perforator,
+> Simian Sling (damage); Thresher Beast (land sacrifice). All audited whole-card. **Two named causes:**
+> · **DAMAGE**: stack.js had `deals N damage to the upkeep / casting / drawing player` and no DEFENDING
+>   arm. The fourth twin of one matcher. ⛔ No sentinel — "defending player" is PRINTED (CR 508.1).
+> · **SACRIFICE**: removal.js's defendingPlayer edict was BARE-CREATURE only while its upkeep and
+>   damaged-player siblings both took the shared UP_POOL. Widened to exactly that set.
+> ⛔ **THE FILTERED/COUNT REFUSAL IS UNCHANGED and pinned in both directions.** UP_POOL is a fixed allowlist
+> of printed pool NOUNS, not a wildcard, so "a non-Elf creature" and "two creatures" still miss the anchor.
+> Only the noun set widened, to the set the resolver already honours.
+> ⚠️⚠️⚠️ **THREE BAD MUTATIONS IN A ROW ON ONE CLAIM — the sharpest correction-30/31 lesson of the run.**
+> · MUT-B replaced `nonbasic land` and SURVIVED. `grep -c` said applied; it never reached the case, because
+>   plain "land" comes from **TYPED**, a different alternative.
+> · MUT-B2 renamed `creature` and SURVIVED for the same reason — still TYPED supplying "land".
+> · MUT-B3 finally stripped TYPED, was VERIFIED AT THE PARSE (`land -> []`, `creature -> still parses`),
+>   and killed three rows.
+> **"The mutation applied" and "the mutation reached the guarded case" are different facts, and only the
+> second one means anything.** Verifying the mutant's effect ON THE PROBED INPUT — not just its presence in
+> the file — is the step that turned two false all-clears into a real kill.
+> ⚠️ **AND ONE OF THOSE REVERTS SILENTLY DROPPED `permanent|` FROM THE POOL.** Caught by re-probing all
+> three nouns after restoring, not by any test — the suite was green with the narrower pool because no
+> fixture used "a permanent". **A careless mutation revert is a real edit**; treat it like one.
+> ⭐ Law 6, both arms, wrong-seat: `defendingPlayerDamage {ai2:40→39, others 40}` on ATTACKS;
+> `defendingPlayerLandSac {ai3:1→0, others 1}` on BECOMES-BLOCKED, with a land under EVERY seat so a
+> mis-aimed edict would still find one to take.
+
 > ## SLICE DONE - 2026-08-05 - **THE DEFENDING-PLAYER DISCARD — third referent arm of one matcher, +6** - post-v0.155.0 batch 95
 > Suite 1171 / 14,271 green + lint 0 BY EXIT CODE. Flip-diff **+6 / 0 / 0** — Abyssal Nightstalker, The
 > Haunt of Hightower, Shrieking Specter (ATTACKS); Alley Grifters, Slate Street Ruffian (BECOMES-BLOCKED);

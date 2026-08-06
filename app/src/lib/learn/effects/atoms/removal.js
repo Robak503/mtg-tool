@@ -549,10 +549,18 @@ export function sacrificeEdictClauseParser(clause) {
   // creature of their choice" (Nefarox, Overlord of Grixis — an attacks-alone payoff). who:"defendingPlayer"
   // reads ctx.defenderId (threaded on attacks / attacksAlone / becomesBlocked — the same referent AFFLICT's
   // life-loss rides); the triggerRouting DEFENDING_PLAYER_EVENTS gate keeps it off every other event (a
-  // spell / non-combat trigger leaves the referent unset → clean no-op → never native there). BARE creature
-  // pool only — a typed/filtered/count variant fails the exact anchor → low → Arbiter (CREED).
-  m = t.match(/^defending player sacrifices a creature(?: of (?:their|his or her) choice)?$/);
-  if (m) return { op: "sacrifice", who: "defendingPlayer", what: "creature" };
+  // spell / non-combat trigger leaves the referent unset → clean no-op → never native there).
+  // ⭐ POOL WIDENED TO THE SHARED UP_POOL (DP-TAIL, 2026-08-05 — Thresher Beast "defending player
+  // sacrifices a LAND of their choice"). This arm was the narrowest of the four referent edicts: the
+  // upkeep and damaged-player arms above both take the full pool, and this one was bare-creature only.
+  // ⛔ THE COMMENT THIS REPLACES SAID "BARE creature pool only — a typed/filtered/count variant fails the
+  // exact anchor". The FILTERED and COUNT halves of that are unchanged and still refuse: UP_POOL is a
+  // fixed allowlist of printed pool NOUNS (creature / permanent / nonbasic land / the typed set), not a
+  // wildcard, so "a non-Elf creature" and "two creatures" still miss the anchor and stay on the Arbiter.
+  // Only the NOUN set widened, to exactly the set its siblings already accept and the resolver already
+  // honours — a wrong-victim sacrifice remains unreachable from here.
+  m = t.match(new RegExp(`^defending player sacrifices an? (creature|permanent|nonbasic land|artifact, creature, or land|${TYPED.slice(1, -1)})(?: of (?:their|his or her) choice)?$`));
+  if (m) return { op: "sacrifice", who: "defendingPlayer", what: UP_POOL[m[1]] };
   return null;
 }
 

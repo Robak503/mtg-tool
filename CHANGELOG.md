@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **More attack and block payoffs work.** Falkenrath Perforator and Simian Sling damage the defending
+  player; Thresher Beast makes them sacrifice a land. The triggers were recognised but their effects were
+  not, so nothing happened — each now hits the player being attacked or blocking, and only that player.
 - **Attack and block discard triggers work.** Abyssal Nightstalker, The Haunt of Hightower, Shrieking
   Specter, Alley Grifters, Slate Street Ruffian and Corrupt Official make the defending player discard.
   The triggers were recognised but the victim was not, so nothing happened — the player being attacked or

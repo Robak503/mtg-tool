@@ -665,6 +665,14 @@ export function massFilteredDamageClauseParser(clause) {
   // with the may-ness already carried by the trigger's `optional` flag, so one matcher covers both forms.
   const dd = t.match(/^(?:this creature|this permanent|this artifact|this enchantment|it) deals (\d+) damage to the drawing player$/);
   if (dd) return { op: "deal-damage", amount: parseInt(dd[1], 10), target: "drawingPlayer", who: "drawingPlayer", targetType: null };
+  // ⭐ DEFENDING-PLAYER damage (DP-TAIL — Falkenrath Perforator, Simian Sling): the fourth twin of this
+  // matcher, beside upkeep / casting / drawing. ⛔ NO SENTINEL: "defending player" is PRINTED oracle text
+  // (CR 508.1), not an anaphor, so unlike its three neighbours there is nothing to rewrite — the phrase
+  // reaches here as written. ctx.defenderId is threaded by checkAttackTriggers (attacks/attacksAlone) and
+  // checkBlockTriggers (becomesBlocked); triggerRouting's DEFENDING_PLAYER_EVENTS gate keeps the atom off
+  // every other event, where the referent would be unset and the clause would silently drop.
+  const dfd = t.match(/^(?:this creature|this permanent|this artifact|this enchantment|this equipment|it) deals (\d+) damage to defending player$/);
+  if (dfd) return { op: "deal-damage", amount: parseInt(dfd[1], 10), targetType: "defendingPlayer", who: "defendingPlayer" };
   return null;
 }
 

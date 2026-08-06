@@ -38,6 +38,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { classifyCard } from "./coverage.js";
+import { parseEffectClause } from "./effects/parser.js";
 import { checkAttackTriggers, checkBlockTriggers } from "./triggers.js";
 import { flushTriggers, resolveTopOfStack } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
@@ -103,5 +104,66 @@ describe("⭐⭐ LAW 6 — the DEFENDER discards, on BOTH events", () => {
     expect(row.owedCount).toBe(1);
     expect(row.owedBy).toEqual(["ai3"]);
     expect(row.hands).toEqual(hands(before));
+  });
+});
+
+// ─── DP-TAIL: the two arms that were NARROWER than their siblings ────────────────────────────────────
+const FALKENRATH = { id: "c-fp", name: "Falkenrath Perforator", type: "Creature — Vampire", mana: "{2}{B}", power: "2", toughness: "1",
+  oracle: "Whenever this creature attacks, it deals 1 damage to defending player." };
+const THRESHER = { id: "c-tb", name: "Thresher Beast", type: "Creature — Beast", mana: "{4}{G}", power: "3", toughness: "4",
+  oracle: "Whenever this creature becomes blocked, defending player sacrifices a land of their choice." };
+
+describe("⭐⭐ DP-TAIL — two defendingPlayer arms were narrower than their own siblings", () => {
+  it("⭐ both flip", () => {
+    expect(classifyCard(FALKENRATH)).toMatch(/^native/);
+    expect(classifyCard(THRESHER)).toMatch(/^native/);
+  });
+
+  it("⛔ the sacrifice arm widened its NOUN set only — filtered and counted victims still refuse", () => {
+    // The comment this replaced said "BARE creature pool only — a typed/filtered/count variant fails the
+    // exact anchor". The filtered and count halves of that are UNCHANGED: UP_POOL is a fixed allowlist of
+    // printed pool nouns, not a wildcard, so a wrong-victim sacrifice stays unreachable from here.
+    for (const bad of ["defending player sacrifices a non-Elf creature of their choice",
+                       "defending player sacrifices two creatures of their choice"]) {
+      expect(parseEffectClause(bad, "Instant", { sourceScoped: true })?.atoms ?? []).toEqual([]);
+    }
+    // …while the widened nouns parse, to the pool the resolver already honours.
+    expect(parseEffectClause("defending player sacrifices a land of their choice", "Instant", { sourceScoped: true })?.atoms)
+      .toEqual([{ op: "sacrifice", who: "defendingPlayer", what: "land" }]);
+  });
+
+  it("⭐⭐ LAW 6 — the DEFENDED seat takes the damage, and only that seat", () => {
+    const base = board(FALKENRATH);
+    const before = { ...base, combat: { attackers: [{ permanentId: "w", attackingPlayer: "user", defender: "ai2" }], blockers: [] } };
+    const after = drain(checkAttackTriggers(before));
+    const life = (st) => Object.fromEntries(Object.keys(st.players).map((p) => [p, st.players[p].life]));
+    const row = { before: life(before), after: life(after) };
+    console.log("  WITNESS defendingPlayerDamage", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row.after.ai2).toBe(row.before.ai2 - 1);
+    expect(row.after.ai1).toBe(row.before.ai1);
+    expect(row.after.ai3).toBe(row.before.ai3);
+    expect(row.after.user).toBe(row.before.user);
+  });
+
+  it("⭐⭐ LAW 6 — the DEFENDED seat sacrifices the land, and only that seat", () => {
+    const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const land = (id, ctrl) => createPermanent({ id, card: { id: `c-${id}`, name: "Forest", type: "Basic Land — Forest", oracle: "{T}: Add {G}." }, controller: ctrl, summoningSick: false });
+    const w = createPermanent({ id: "w", card: THRESHER, controller: "user", summoningSick: false });
+    const blocker = createPermanent({ id: "blk", card: { id: "c-blk", name: "Blocker", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }, controller: "ai3", summoningSick: false });
+    // ⛔ EVERY SEAT HOLDS A LAND, so a mis-aimed edict would still find one to take.
+    const before = { ...s0, players: { ...s0.players,
+      user: { ...s0.players.user, battlefield: [w, land("lu", "user")] },
+      ai1: { ...s0.players.ai1, battlefield: [land("l1", "ai1")] },
+      ai2: { ...s0.players.ai2, battlefield: [land("l2", "ai2")] },
+      ai3: { ...s0.players.ai3, battlefield: [blocker, land("l3", "ai3")] } },
+      combat: { attackers: [{ permanentId: "w", attackingPlayer: "user", defender: "ai3" }], blockers: [{ blockerId: "blk", attackerId: "w" }] } };
+    const after = drain(checkBlockTriggers(before));
+    const lands = (st) => Object.fromEntries(Object.keys(st.players).map((p) => [p, st.players[p].battlefield.filter((x) => /Land/.test(String(x.card?.type || ""))).length]));
+    const row = { before: lands(before), after: lands(after) };
+    console.log("  WITNESS defendingPlayerLandSac", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row.after.ai3).toBe(row.before.ai3 - 1);
+    expect(row.after.ai1).toBe(row.before.ai1);
+    expect(row.after.ai2).toBe(row.before.ai2);
+    expect(row.after.user).toBe(row.before.user);
   });
 });
