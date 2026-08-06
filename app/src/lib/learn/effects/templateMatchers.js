@@ -752,7 +752,15 @@ export function matchTaxedDraw(oracle) {
  */
 export function matchTaxedTreasure(oracle) {
   const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
-  const m = s.match(/^that player may pay (\{[^}]+\}(?:\{[^}]+\})*)\. if the player doesn't, you create a treasure token$/i);
+  // ⚠️⚠️ BOTH SPELLINGS — SECOND TIME, SAME CAUSE, AND THAT MAKES IT A PATTERN RATHER THAN AN ACCIDENT.
+  // The cardDrawn sentinel rewrite (detectTriggers, TP-3) renames "that player" to "the drawing player"
+  // on exactly this event, and this matcher spelled the old name out — so Smothering Tithe fell out of
+  // native the moment the arm landed. The identical thing happened one slice earlier to the Rhystic Study
+  // family when the CAST arm landed (see the taxed-draw matcher above).
+  // ⛔ **BEFORE ADDING ANY NEW SENTINEL ARM, GREP THE EVENT'S LITERAL "that player" READERS.** A rewrite is
+  // a rename; every reader that spelled the old name out breaks silently, and the card just stops being
+  // native with nothing pointing at the cause.
+  const m = s.match(/^(?:that player|the drawing player) may pay (\{[^}]+\}(?:\{[^}]+\})*)\. if the player doesn't, you create a treasure token$/i);
   if (!m) return null;
   const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
   if (!pips.length) return null;

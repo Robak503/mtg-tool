@@ -116,6 +116,8 @@ export function combatDamageReferentSatisfied(program, event) {
     // sentinel rewrite is already cast-gated; this pin is the belt on top of it, exactly as the gyOwner
     // entry below describes its own pairing.
     if ((a?.who === "castingPlayer" || a?.target === "castingPlayer") && event !== "cast") return false;
+    // DRAWING-PLAYER (TP-3): set ONLY by checkCardDrawnTriggers. Same belt-on-the-rewrite pairing.
+    if ((a?.who === "drawingPlayer" || a?.target === "drawingPlayer") && event !== "cardDrawn") return false;
   }
   return true;
 }

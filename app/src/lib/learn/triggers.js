@@ -3855,7 +3855,19 @@ export function detectTriggers(card) {
       // The DRAW-STEP twin shares this rewrite: at a draw-step entry the player whose step it is is likewise
       // the active player (CR 504.1), so "that player" has the identical referent and the identical
       // who:"upkeepPlayer" atoms bind it. Sharing the sentinel is what keeps the two arms from drifting.
-      if (cls.eachPlayersUpkeep || cls.eachPlayersDrawStep) {
+      // ⭐⭐ EACH **OPPONENT'S** UPKEEP RIDES THE SAME SENTINEL (TP-2, 2026-08-05 — Gibbering Fiend,
+      // Sheoldred, Manic Scribe, Sorin's emblem). The wording differs by one noun from the arm above and
+      // the REFERENT IS IDENTICAL: ctx.upkeepPlayerId is the player whose upkeep it is (the active player,
+      // threaded by checkStepTriggers), and on an opponent's upkeep that active player IS that opponent.
+      // The `whose:"opponents"` filter decides WHICH upkeeps fire; it never changes who "that player" is.
+      // These triggers were already fully DETECTED — event, whose and intervening-if all correct — and
+      // parked solely because the anaphor never became a sentinel, so no atom could bind it. The existing
+      // who:"upkeepPlayer" arms (damage, mill, sacrifice, discard, draw, lose-life) then cover them with no
+      // new parser at all.
+      // ⛔ whose:"yours" is deliberately NOT included: on your own upkeep no second player is established,
+      // so "that player" has no antecedent there — a rewrite would be inventing one.
+      if (cls.eachPlayersUpkeep || cls.eachPlayersDrawStep
+        || (cls.event === "upkeep" && (cls.whose === "opponents" || cls.whose === "any"))) {
         effectClause = effectClause.replace(/\bthat player\b/gi, "the upkeep player");
       }
       // ⭐⭐ CASTING-PLAYER REFERENT (TP-1, CR 603.2 — Eidolon of the Great Revel, Pyrostatic Pillar, Aether
@@ -3874,6 +3886,13 @@ export function detectTriggers(card) {
       // the one that cast. The whose-filter decides IF the trigger fires, never WHO it points at.
       if (cls.event === "cast") {
         effectClause = effectClause.replace(/\bthat player\b/gi, "the casting player");
+      }
+      // DRAWING-PLAYER REFERENT (TP-3 — Fate Unraveler, Underworld Dreams, Kederekt Parasite, Scrawling
+      // Crawler): on a card-drawn trigger, "that player" is the player who DREW — ctx.drawingPlayerId,
+      // already threaded by checkCardDrawnTriggers. The structural twin of the cast arm directly above;
+      // only the event and the ctx key differ. Same event-gated discipline, and for the same reason.
+      if (cls.event === "cardDrawn") {
+        effectClause = effectClause.replace(/\bthat player\b/gi, "the drawing player");
       }
       if (cls.scope === "self" && SELF_PUMP_IT_RE.test(effectClause)) {
         effectClause = effectClause.replace(/^it /i, "this creature ");

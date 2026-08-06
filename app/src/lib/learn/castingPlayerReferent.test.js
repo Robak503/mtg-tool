@@ -38,7 +38,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { classifyCard } from "./coverage.js";
-import { detectTriggers, checkCastTriggers } from "./triggers.js";
+import { detectTriggers, checkCastTriggers, checkCardDrawnTriggers } from "./triggers.js";
 import { flushTriggers, resolveTopOfStack } from "./gameEngine.js";
 import { combatDamageReferentSatisfied } from "./triggerRouting.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
@@ -159,5 +159,78 @@ describe("⛔⛔ THE ROUTING PIN — the belt on top of the event-gated rewrite"
       .map((e) => [e, combatDamageReferentSatisfied(program, e)]));
     console.log("  WITNESS castingPlayerRouting", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
     expect(row).toEqual({ cast: true, etb: false, dies: false, upkeep: false, attacks: false, discarded: false });
+  });
+});
+
+// ─── TP-2 / TP-3: the SAME referent pattern, two more events ─────────────────────────────────────────
+const GIBBERING = { id: "c-gf", name: "Gibbering Fiend", type: "Creature — Horror", mana: "{1}{B}", power: "2", toughness: "1",
+  oracle: ["When this creature enters, it deals 1 damage to each opponent.",
+    "Delirium — At the beginning of each opponent's upkeep, if there are four or more card types among cards in your graveyard, this creature deals 1 damage to that player."].join("\n") };
+const SHEOLDRED = { id: "c-shl", name: "Sheoldred, Whispering One", type: "Legendary Creature — Praetor", mana: "{5}{B}{B}", power: "6", toughness: "6",
+  oracle: ["Swampwalk",
+    "At the beginning of your upkeep, return target creature card from your graveyard to the battlefield.",
+    "At the beginning of each opponent's upkeep, that player sacrifices a creature of their choice."].join("\n") };
+const FATE_UNRAVELER = { id: "c-fu", name: "Fate Unraveler", type: "Creature — Hag", mana: "{3}{B}", power: "3", toughness: "3",
+  oracle: "Whenever an opponent draws a card, this creature deals 1 damage to that player." };
+const SCRAWLING_CRAWLER = { id: "c-sc", name: "Scrawling Crawler", type: "Artifact Creature — Crab", mana: "{4}", power: "2", toughness: "2",
+  oracle: ["At the beginning of your upkeep, each player draws a card.",
+    "Whenever an opponent draws a card, that player loses 1 life."].join("\n") };
+const SMOTHERING_TITHE = { id: "c-st", name: "Smothering Tithe", type: "Enchantment", mana: "{3}{W}",
+  oracle: "Whenever an opponent draws a card, that player may pay {2}. If the player doesn't, you create a Treasure token." };
+
+describe("⭐⭐ TP-2 — each OPPONENT'S upkeep rides the same sentinel (a one-noun wording diff)", () => {
+  it("⭐ the carriers flip, on EXISTING upkeepPlayer arms — no new parser was written", () => {
+    // The whole build is a gate widening: these triggers were already fully DETECTED (event, whose and
+    // intervening-if all correct) and parked only because the anaphor never became a sentinel.
+    for (const c of [GIBBERING, SHEOLDRED]) expect(classifyCard(c), c.name).toMatch(/^native/);
+  });
+
+  it("⭐ the rewrite fires on each-OPPONENT'S upkeep and leaves YOUR upkeep alone", () => {
+    const opp = detectTriggers(GIBBERING).find((d) => d.event === "upkeep");
+    expect(opp?.whose).toBe("opponents");
+    expect(String(opp?.effectClause)).toContain("the upkeep player");
+    // ⛔ whose:"yours" is deliberately excluded — on your own upkeep no second player is established, so
+    // "that player" has no antecedent and a rewrite would be inventing one.
+    const yours = detectTriggers({ name: "P", type: "Enchantment", mana: "{1}",
+      oracle: "At the beginning of your upkeep, this enchantment deals 1 damage to that player." })
+      .find((d) => d.event === "upkeep");
+    expect(String(yours?.effectClause || "")).not.toContain("the upkeep player");
+  });
+});
+
+describe("⭐⭐ TP-3 — the DRAWING player, with the wrong-seat pin", () => {
+  it("⭐ the carriers flip", () => {
+    for (const c of [FATE_UNRAVELER, SCRAWLING_CRAWLER]) expect(classifyCard(c), c.name).toMatch(/^native/);
+  });
+
+  it("⛔⛔ REGRESSION — Smothering Tithe survived the rename (it did NOT, first time round)", () => {
+    // ⚠️⚠️ SECOND OCCURRENCE OF THE SAME CAUSE, ONE SLICE APART. The cast arm renamed the anaphor under the
+    // Rhystic Study family; the draw arm did it to Smothering Tithe, whose matcher likewise spelled "that
+    // player" out. **A rewrite is a rename.** Before adding any further sentinel arm, grep that event's
+    // literal readers first — the flip-diff is what caught both, and nothing else would have.
+    expect(classifyCard(SMOTHERING_TITHE)).toMatch(/^native/);
+  });
+
+  it("⭐⭐ LAW 6 — Fate Unraveler hits the seat that DREW, on a four-seat board", () => {
+    const before = fourSeatBoard([{ id: "fu", card: FATE_UNRAVELER }]);
+    // ai2 draws — not the active player, not the controller's first opponent.
+    let s = checkCardDrawnTriggers(before, "ai2", 1);
+    s = flushTriggers(s);
+    let guard = 0;
+    while ((s.stack || []).length && guard++ < 10) s = resolveTopOfStack(s);
+    const row = { before: lifeTable(before), after: lifeTable(s) };
+    console.log("  WITNESS drawingPlayerDamage", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row.after.ai2).toBe(row.before.ai2 - 1);
+    expect(row.after.ai1).toBe(row.before.ai1);
+    expect(row.after.ai3).toBe(row.before.ai3);
+    expect(row.after.user).toBe(row.before.user);
+  });
+
+  it("⛔⛔ the routing pin — a drawingPlayer atom routes ONLY on cardDrawn", () => {
+    const program = { atoms: [{ op: "deal-damage", amount: 1, target: "drawingPlayer", who: "drawingPlayer", targetType: null }] };
+    const row = Object.fromEntries(["cardDrawn", "cast", "etb", "upkeep", "dies"]
+      .map((e) => [e, combatDamageReferentSatisfied(program, e)]));
+    console.log("  WITNESS drawingPlayerRouting", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({ cardDrawn: true, cast: false, etb: false, upkeep: false, dies: false });
   });
 });

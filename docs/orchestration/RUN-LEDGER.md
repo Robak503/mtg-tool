@@ -3,6 +3,39 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **THE "THAT PLAYER" REFERENT, TWO MORE EVENTS — +7** - post-v0.155.0 batch 78
+> Suite 1167 / 14,258 green + lint 0 BY EXIT CODE. Flip-diff **+7 / 0 / 0**. **TWO NAMED CAUSES, pinned
+> separately — not one shared cause dressed up as one:**
+> · **TP-2, each OPPONENT'S upkeep (+3)** — Gibbering Fiend, Sheoldred, Manic Scribe.
+> · **TP-3, the DRAWING player (+4)** — Fate Unraveler, Underworld Dreams, Scrawling Crawler, Nekusar.
+> ⭐⭐ **TP-2 IS A ONE-NOUN WORDING DIFF AND NEEDED ZERO NEW PARSERS.** "each player's upkeep" was gated for
+> the sentinel rewrite; "each **opponent's** upkeep" was not. The triggers were already fully DETECTED —
+> event, whose and intervening-if all correct — and parked solely because the anaphor never became a
+> sentinel, so no atom could bind it. The referent is IDENTICAL: ctx.upkeepPlayerId is the player whose
+> upkeep it is, and on an opponent's upkeep that IS that opponent. Widening the gate let the six existing
+> who:"upkeepPlayer" arms (damage, mill, sacrifice, discard, draw, lose-life) cover them untouched.
+> ⛔ whose:"yours" deliberately excluded: on your own upkeep no second player is established, so "that
+> player" has no antecedent and a rewrite would be inventing one. Pinned in both directions.
+> ⭐ **TP-3 IS TP-1's TWIN** — same event-gated sentinel, ctx.drawingPlayerId already threaded by
+> checkCardDrawnTriggers. Four pieces: rewrite, two parser arms, two resolver arms, routing pin.
+> ⚠️⚠️ **"A REWRITE IS A RENAME" BIT AGAIN, ONE SLICE AFTER I WROTE IT DOWN.** The draw arm renamed the
+> anaphor under **Smothering Tithe**, whose matcher spelled "that player" out literally — flip-diff read
+> **+7 / 1 LOST**. Identical cause to last slice's Rhystic Study family. Fixed the same way (accept both
+> spellings, one vocabulary), re-measured **+7 / 0 / 0**.
+> ⛔⛔ **THE RULE THAT SHOULD HAVE PREVENTED IT, NOW IN THE CODE:** *before adding any new sentinel arm, GREP
+> THAT EVENT'S LITERAL "that player" READERS.* I ran that grep only AFTER the loss — it lists ~12 readers
+> (rad counters, mill, discard, exile-top, bounce scopes), each tied to an event. **Nothing but the
+> flip-diff catches this**: the card simply stops being native with no error and no failing test.
+> ⭐⭐ **MUT-C REPEATED TP-1's LESSON EXACTLY.** Removing the drawingPlayer resolver arm left the
+> CLASSIFICATION tests PASSING while nobody took damage. Two slices running, the metric-only view could not
+> see a silent do-nothing; only the life-table row could.
+> ⭐ Wrong-seat pin holds on the new arm: ai2 draws → `{user:40, ai1:40, ai2:39, ai3:40}`. Routing pin
+> `{cardDrawn:true, cast:false, etb:false, upkeep:false, dies:false}`.
+> ⚠️ **PYTHON-HEREDOC BACKSLASH MANGLING: FIFTH AND SIXTH OCCURRENCE, IN ONE SLICE.** It ate `\b` in a
+> six-edit batch (assertion caught it) and `\n` in four test fixtures (parse error caught it). Both times I
+> had already written "use Edit for escapes" in the previous entry. **The note is not working as a control.**
+> The fixtures are now built with `["line", "line"].join("\n")` so no escape survives in source at all.
+
 > ## SLICE DONE - 2026-08-05 - **THE CASTING-PLAYER REFERENT — "that player" on a cast trigger, +11** - post-v0.155.0 batch 71
 > Suite 1167 / 14,252 green + lint 0 BY EXIT CODE. Flip-diff **+11 / 0 / 0** — Eidolon of the Great Revel,
 > Pyrostatic Pillar, Aether Sting, Spellshock, Ishi-Ishi, Ruric Thar, Scalding Viper, Cindervines (damage);

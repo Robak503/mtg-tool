@@ -660,6 +660,11 @@ export function massFilteredDamageClauseParser(clause) {
   // Anywhere else the referent is unset → no target → 0 dealt (a clean no-op, never a guessed victim).
   const cd = t.match(/^(?:this creature|this permanent|this artifact|this enchantment|it) deals (\d+) damage to the casting player$/);
   if (cd) return { op: "deal-damage", amount: parseInt(cd[1], 10), target: "castingPlayer", who: "castingPlayer", targetType: null };
+  // DRAWING-PLAYER damage (TP-3 — Fate Unraveler, Underworld Dreams, Kederekt Parasite): same sentinel
+  // discipline, reading ctx.drawingPlayerId. The optional "you may have it deal …" wording reaches here
+  // with the may-ness already carried by the trigger's `optional` flag, so one matcher covers both forms.
+  const dd = t.match(/^(?:this creature|this permanent|this artifact|this enchantment|it) deals (\d+) damage to the drawing player$/);
+  if (dd) return { op: "deal-damage", amount: parseInt(dd[1], 10), target: "drawingPlayer", who: "drawingPlayer", targetType: null };
   return null;
 }
 
@@ -1504,6 +1509,8 @@ export const stackResolvers = {
           // guessed victim; the who:"castingPlayer" routing pin keeps the atom off non-cast events anyway.
           : atom.target === "castingPlayer"
             ? (ctx.castingPlayerId && state.players?.[ctx.castingPlayerId] ? [{ type: "player", id: ctx.castingPlayerId }] : [])
+          : atom.target === "drawingPlayer"
+            ? (ctx.drawingPlayerId && state.players?.[ctx.drawingPlayerId] ? [{ type: "player", id: ctx.drawingPlayerId }] : [])
           : atom.targetType === "defendingPlayer"
             ? (ctx.defenderId && state.players?.[ctx.defenderId] ? [{ type: "player", id: ctx.defenderId }] : [])
             : atom.targetType === "damagedPlayer"

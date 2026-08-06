@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Draw-punisher and opponent-upkeep cards work.** Fate Unraveler, Underworld Dreams, Scrawling Crawler
+  and Nekusar punish whoever drew the card; Gibbering Fiend, Sheoldred and Manic Scribe act on the opponent
+  whose upkeep it is. Both families understood their trigger but not who "that player" meant, so they sat
+  out — and each now hits the right player rather than an arbitrary opponent.
 - **Spell-punisher cards work.** Eidolon of the Great Revel, Pyrostatic Pillar, Aether Sting, Spellshock,
   Ishi-Ishi, Ruric Thar, Scalding Viper, Cindervines, Kambal, Soot Imp and Yawgmoth's Edict all punish
   whoever cast the spell. The simulator understood the trigger but not who "that player" referred to, so
