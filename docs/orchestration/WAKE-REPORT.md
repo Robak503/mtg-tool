@@ -7,41 +7,38 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **post-v0.155.0 batch 47 · ES-1 +8 · ES-2 +3 · a live over-delivery fixed** — suite **1165 / 14,230** green by exit code
+## ☀️ 2026-08-05 — **post-v0.155.0 batch 60 · ES-1 +8 · ES-2 +3 · CD-1 +8 · LH-2 +5 · two live bugs fixed** — suite **1166 / 14,244** green by exit code
 
-> ### ⏭ NEXT BUILD, MEASURED AND SEAM-MAPPED: **the COLOUR DISJUNCTION (+13)**
-> "red or green creature" and its family. Measured corpus-wide with the repaired probe (collapse the
-> disjunction to its first colour, see what flips) — **13 cards across FOUR card types**:
-> · Creature 5 — Slithery Stalker, Mold Adder, Wandering Champion, Lightwielder Paladin, Mindwrack Liege
-> · Instant 3 — Rending Volley, Flashfreeze, Celestial Purge · Sorcery 2 — Deathmark, Wallop
-> · Enchantment 3 — Snake Pit, Controlled Instincts, Encase in Ice
-> ⭐⭐ **GATE 20 HOLDS UNUSUALLY WELL HERE.** Four card types is four families, none of which is a variant of
-> another, all with the identical symptom and the identical missing vocabulary: **the restriction list is
-> ANDed and has no way to say OR**, so every parser that meets a colour disjunction must park. One structural
-> cause, several call sites — the same shape as ES-1's host spec.
-> **THE SEAM:**
-> ① ONE EVALUATOR: `creatureRestrictions.js` (~line 95). Add a disjunctive kind beside `color`, e.g.
->    `{kind:"colorAny", colors:["R","G"]}` → `if (!r.colors.some((c) => set.has(c))) return false;`. It MUST
->    read `permanentColors` layer-aware exactly like the `color` branch does (CR 105.2 — a creature turned
->    red IS a legal target; a printed-red one turned white is NOT) and fail CLOSED when colors don't resolve.
-> ② SEVERAL EMITTERS, each small: `spellEffects.js:375` (the spell target parser — note it currently takes
->    only the FIRST colour word and strips the rest, leaving " or " as residue, which is exactly why these
->    park), `staticAbilityParser.js` `posColor` (the Aura subject), `combatEvasion.js:171,234` (blocker
->    restrictions). Check each against the 13 before assuming all four are needed.
-> ⛔⛔ **REAL CREED SURFACE, AND IT IS THE LOOSE DIRECTION.** Every restriction shipped so far can only NARROW
-> a pool; a disjunction is the first one that WIDENS. A too-loose `colorAny` offers an illegal target — the
-> cardinal sin — and unlike a narrow bug it will never show up as a missing option. **Pin the exclusion by
-> name**: Deathmark ("destroy target green or white creature") must NOT enumerate a blue creature, and a
-> two-colour disjunction must not degrade into "any creature".
-> ⛔ Law 6 applies (it changes legality): drive a board with one creature of each of the five colours and
-> print the enumerated pool per card, so a broken harness can't read as a clean negative.
-
-> ### ⚠️⚠️ A TEST FIXTURE WHOSE PROPERTY IS "UNMODELLED" **WILL ROT** — twice now, same file
-> `entersCountersStripAnchor` needs an unmodelled NO-PERIOD keyword line to prove its strip doesn't eat
-> backwards across a newline. That property is the one this project exists to destroy. The fixture was
-> champion (until champion shipped), then sunburst (until today). Now "Double team", verified unmodelled
-> alone AND welded. **When a test like this reddens, the guard is almost certainly fine — re-probe for a
-> keyword that still parks and swap it, never weaken the assertion.** Recorded in-file too.
+> ### ⏭ NEXT BUILD, MEASURED AND SEAM-MAPPED: **the "THAT PLAYER" REFERENT (≤38, upper bound)**
+> Eidolon of the Great Revel, Pyrostatic Pillar, Kambal, Sheoldred, Forced Fruition, Go Blank, Spy Eye,
+> Snapping Thragg, Demon of Loathing, Master of the Feast and ~28 more.
+> ⚠️⚠️ **READ THIS BEFORE TRUSTING THE NUMBER: 38 IS AN UPPER BOUND FROM A SWAP THAT CHANGES MEANING.**
+> The probe replaced "that player" with "target player" and counted flips. Those are NOT the same card.
+> **"That player" is a REFERENT** — it points back at the player the trigger's condition already established
+> ("Whenever a player casts a spell …, deal 2 damage to **that player**"). **"Target player" is a fresh
+> CHOICE.** Shipping the wording swap would let the controller pick the victim: strictly better than printed,
+> the forbidden direction, on 38 cards at once. **The fix is to RESOLVE the referent, never to accept the
+> wording.** The 38 measures "cards whose victim referent is unresolved", which is the right vein — but the
+> real yield is whatever the referent build actually flips, and that must be re-measured after the build.
+> ⭐⭐ **IT IS WIRING, NOT NEW MACHINERY — every piece but one already exists.** Verified on Eidolon:
+> · the TRIGGER is fully detected — `{event:"cast", scope:"castWatcher", whose:"any", spellFilter:{manaValue
+>   lte 3}}`. Nothing wrong there.
+> · the REFERENT IS ALREADY BOUND — `triggers.js:7612` threads `castingPlayerId` into EVERY cast-trigger's
+>   context, and `stack.js:948` already consumes it for Rhystic Study's taxed draw.
+> · the GAP is one line wide: `parseEffectClause("this creature deals 2 damage to that player")` returns
+>   **zero atoms with an unparsedTail**. The effect side has no "that player" target vocabulary.
+> ⭐ **FOLLOW THE EXISTING PRECEDENT RATHER THAN INVENTING ONE.** `ctx.damagedPlayerId` (63 call sites) is the
+> same pattern already solved for combat damage, complete with its own `who:"damagedPlayer"` scope and the
+> documented discipline that an ABSENT referent yields an EMPTY pool — the ability drops no-target rather
+> than acting on a wrong seat. Copy that shape. The other bound referents (`upkeepPlayerId`,
+> `discardingPlayerId`, `lifeLostPlayerId`, `drawingPlayerId`) suggest the same target vocabulary serves
+> several trigger families at once, so scope the atom as "the referent seat", not as "the caster".
+> ⛔⛔ **THE PIN THAT MATTERS IS THE WRONG-SEAT ONE, and it is invisible to a naive test.** With three
+> opponents on the board, a card must damage the seat that actually cast the spell. A pin asserting only
+> "2 damage was dealt to an opponent" passes while hitting the wrong player two times in three. Drive a
+> 4-seat board, have a NON-adjacent opponent cast, and assert the victim BY SEAT.
+> ⛔ And the absent-referent case: on any event that binds no seat, the effect must do NOTHING — never fall
+> back to "an opponent" or to the controller's choice.
 
 > ### ⚠️⚠️ A BROKEN PROBE RETURNS A CLEAN-LOOKING **NEGATIVE** — THE MEASUREMENT NEEDS ITS OWN GATE
 > A corpus probe for the colour-disjunction vein reported a confident **"0 flips"**. The vein is really **13**.
