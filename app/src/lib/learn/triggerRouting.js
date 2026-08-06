@@ -78,7 +78,13 @@ export function combatDamageReferentSatisfied(program, event) {
     // clause SILENTLY DROPS: precisely the forbidden FP this gate exists to stop, arriving through the one
     // door it was not watching. Every referent-carrying atom shape must be inspected, not just the
     // convenient one.
+    // ⚠️ GENERALISED (2026-08-06): the first cut of this check hard-coded `defendingPlayer`, and the very
+    // next slice needed the identical guard for `damagedPlayer` ("target creature THAT PLAYER controls" —
+    // Snapping Thragg, Skirk Commando). Fixing one referent and leaving its twin open is how a guard grows
+    // holes, so both referents are now driven off the SAME event tables their atom.who checks use above.
+    // Add a referent here and it is covered in both positions at once.
     if ((a?.restrictions || []).some((r) => r?.who === "defendingPlayer") && !DEFENDING_PLAYER_EVENTS.has(event)) return false;
+    if ((a?.restrictions || []).some((r) => r?.who === "damagedPlayer") && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
     // MILLED-COUNT (SHELF M1b): a "that many milled[-nonland]" magnitude reads checkMilledTriggers' context —
     // set ONLY by the milled event. Any other event leaves the referent unset (a silent 0 → dropped clause).
     if ((a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount") && event !== "milled") return false;

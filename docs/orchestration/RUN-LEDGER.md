@@ -3,6 +3,36 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-06 - **"THAT PLAYER CONTROLS" SCOPE — +1, after refusing the wrong card** - post-v0.156.0 batch 4
+> Suite 1174 / 14,287 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Shockmaw Dragon. Audited
+> whole-card. **The honest number is 1; the first measurement said 2.**
+> ⭐ The twin of DP-TGT one referent over: creatureRestrictions already read
+> `{kind:"controller",who:"damagedPlayer"}` off ctx.damagedPlayerId and failed closed without it, and
+> removal.js's PERMANENT lane has parsed this printed phrase all along — only the CREATURE lane could not
+> emit it. Checked BEFORE the opponent arm because it is strictly narrower: the ONE seat just dealt combat
+> damage, not every opponent's board.
+> ⛔⛔ **THE +2 INCLUDED A WRONG CARD, AND CATCHING IT IS THE SLICE.** Flames of the Raze-Boar is a SPELL:
+> "…4 damage to target creature an opponent controls. Then …2 damage to each other creature THAT PLAYER
+> controls…". Its "that player" is a CROSS-CLAUSE reference to the first clause's target, NOT a combat
+> referent. Tagged damagedPlayer, ctx.damagedPlayerId is unset at spell resolution,
+> creatureSatisfiesRestrictions fails EVERY creature, and the second clause hits NOBODY — **a card credited
+> native while silently dropping half its printed text.** Whole-card audit of the gained rows is what
+> surfaced it; the flip-diff alone said +2 and looked clean.
+> ⛔⛔ **THE FENCE THAT SHOULD HAVE STOPPED IT HAD THE SAME BLIND SPOT AS THE TRIGGER GATE — one day apart.**
+> coverage's three spell-path referent loops inspected `atom.who` only, while this referent rides
+> `restrictions[]` with atom.who undefined. **I fixed exactly this shape in triggerRouting yesterday and
+> hard-coded ONE referent there; the twin hole reappeared here immediately.** Both are now driven off a
+> single helper (`atomCarriesEventReferent`) over a shared referent set, in BOTH positions, so adding a
+> referent covers it everywhere at once. **Fixing one instance of a shape and leaving its siblings is how a
+> guard grows holes — this run demonstrated that twice in two days.**
+> ⭐ MUT-A is the sharpest confirmation available: removing the restriction half of the fence brings
+> Flames of the Raze-Boar straight back as `native-spell` — the wrong card, by name, on demand.
+> ⭐ Law 6: pool by seat `{damagedIsAi2:["a2"], noReferent:[]}` (three opponents hold creatures, only the
+> damaged seat's is legal, absent referent fails closed) + routing `{combatDamageToPlayer:true, etb:false,
+> dies:false, cast:false, upkeep:false}`.
+> ⓘ Snapping Thragg and Skirk Commando — the two cards that SURFACED this vein — still park, on their
+> "you may have it deal" optional wrapper. The gain came from cards the probe never named.
+
 > ## SLICE REVERTED + TOOL FIX - 2026-08-06 - **A "+1" THAT THE FLIP-DIFF SCORED AS ZERO — tokens are not the corpus** - post-v0.156.0 batch 3 (unchanged)
 > Suite 1173 / 14,282 green + lint 0 BY EXIT CODE. Flip-diff **0 / 0 / 0** → **REVERTED**, measurement banked.
 > ⛔⛔ **THE GATE CAUGHT MY OWN OVER-PROMISE, WHICH IS WHAT IT IS FOR.** A probe scored the

@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Shockmaw Dragon works.** Its combat-damage trigger burns every creature the player it hit controls —
+  the simulator could not express "that player controls" for creatures, so the trigger did nothing.
 - **"Its controller" payoffs hit the right player.** Poisonbelly Ogre, Fate Foretold and Parasitic Impetus
   act on the controller of the creature that triggered them — the one that entered, died or attacked. The
   simulator could not tell whose creature it was, so these cards did nothing; they now charge the right

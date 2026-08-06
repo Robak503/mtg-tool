@@ -44,6 +44,19 @@ import { castsAsPlaneswalker, isPlaneswalker, shufflesIntoLibraryInsteadOfGravey
 // triggerRoutesNatively (+ the group-triggered-grant validator) extracted to triggerRouting.js — its
 // transitive deps (parseEffectClause / program* / winConditionParseable / interveningIfParseable) live there.
 import { triggerRoutesNatively, isModeledGroupTriggeredBody, programCombatReferentAtoms } from "./triggerRouting.js";
+
+// ⛔⛔ A REFERENT CAN RIDE A **RESTRICTION**, NOT ONLY `atom.who` — and the spell fence below had the same
+// blind spot triggerRouting's trigger gate did (found 2026-08-05, fixed there; found HERE 2026-08-06 by
+// Flames of the Raze-Boar). That card is a SPELL whose second clause reads "each other creature THAT
+// PLAYER controls", parsing to restrictions:[{kind:"controller",who:"damagedPlayer"}] with atom.who
+// undefined. On a spell ctx.damagedPlayerId is unset, creatureSatisfiesRestrictions then fails EVERY
+// creature, and the clause hits NOBODY — a card credited native while silently dropping half its printed
+// text, which is the forbidden direction. Both positions are checked from one helper so they cannot drift.
+const REFERENT_WHOS = new Set(["damagedPlayer", "defendingPlayer", "lifeLostPlayer", "untappedController", "gyOwner", "triggeringPermanentController"]);
+function atomCarriesEventReferent(a) {
+  if (REFERENT_WHOS.has(a?.who)) return true;
+  return (a?.restrictions || []).some((r) => REFERENT_WHOS.has(r?.who));
+}
 import { registerGrantTriggeredBodyValidator, registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant body gates
 import { isNativeGroupWard } from "./groupWard.js";
 import { isControlAura } from "./controlAura.js"; // the control-Aura delivery check, shared with the runtime attach/revert (controlAura imports only controlMove, a zero-import leaf, so this edge is acyclic)
@@ -1157,7 +1170,7 @@ export function spellIsNative(card) {
     // spell resolution — the clause silently no-ops. Without this, the storm branch credited native a body
     // the plain path correctly parks (verified: the same body without the Storm line returns false).
     for (const a of programCombatReferentAtoms(bodyProgram)) {
-      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.countContext === "lifegainAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController" || a?.who === "gyOwner" || a?.who === "triggeringPermanentController") return false;
+      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.countContext === "lifegainAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController" || a?.who === "gyOwner" || atomCarriesEventReferent(a)) return false;
       if (a?.who === "defendingPlayer") return false;
     }
     return true;
@@ -1190,7 +1203,7 @@ export function spellIsNative(card) {
     // Same combat-referent guard as the normal spell path (a spell never supplies the combat-damage referent).
     // Flattened via programCombatReferentAtoms so a MODAL mode-level referent can't slip through.
     for (const a of programCombatReferentAtoms(bodyProgram)) {
-      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.countContext === "lifegainAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController" || a?.who === "gyOwner" || a?.who === "defendingPlayer" || a?.who === "triggeringPermanentController") return false;
+      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.countContext === "lifegainAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController" || a?.who === "gyOwner" || atomCarriesEventReferent(a)) return false;
     }
     return true;
   }
@@ -1222,7 +1235,7 @@ export function spellIsNative(card) {
   // damage spell (Ozai's Cruelty) — where "that player" is a back-reference to the countered-spell controller
   // / damaged target, NOT the combat referent — keeps the whole spell on the Arbiter (a SAFE false-negative).
   for (const a of programCombatReferentAtoms(program)) {
-    if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.countContext === "lifegainAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController" || a?.who === "gyOwner" || a?.who === "triggeringPermanentController") return false;
+    if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount" || a?.countContext === "lifeLostAmount" || a?.countContext === "lifegainAmount" || a?.who === "lifeLostPlayer" || a?.op === "draw-or-counter-triggering" || a?.who === "untappedController" || a?.who === "gyOwner" || atomCarriesEventReferent(a)) return false;
     // who:"defendingPlayer" (CR 509.1a) is the ATTACKS-event referent (ctx.defenderId) — a spell never supplies
     // it, so such an atom would silently drop. Keep the spell on the Arbiter (a SAFE false-negative).
     if (a?.who === "defendingPlayer") return false;
