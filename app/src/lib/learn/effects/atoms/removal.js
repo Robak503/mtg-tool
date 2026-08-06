@@ -711,7 +711,18 @@ export function destroyExileClauseParser(clause) {
   // left-to-right alternation would otherwise let "artifact" match and silently drop the "noncreature",
   // widening the target set to include artifact CREATURES: the forbidden over-delivery. The enumerator side
   // (spellEffects' predicate table) is layer-aware, so an ANIMATED artifact is excluded too.
-  const rm = t.match(/^(destroy|exile) target (?:(white|blue|black|red|green|multicolored) )?(noncreature artifact or noncreature enchantment|noncreature artifact|noncreature enchantment|artifact, enchantment, or land|artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls|that player controls))?$/);
+  // ⭐ CD-1 — the colour slot accepts a DISJUNCTION ("target black or red permanent" — Celestial Purge,
+  // Lightwielder Paladin). Inner groups are NON-CAPTURING so every existing group number below is unchanged.
+  // ⚠️ THIS COMMENT ORIGINALLY CLAIMED THE ALTERNATION ORDER WAS LOAD-BEARING — that listing the pair first
+  // was what stopped "black or red" matching as bare "black". **That claim is false, and a surviving mutant
+  // is how it was found**: reordering the alternation changes NOTHING here, because the pattern is anchored
+  // (`^…$`) and the noun group must consume the rest. A bare "black" leaves "or red permanent", which no
+  // noun alternative matches, so the whole match fails and backtracking finds the pair regardless. Written
+  // down rather than quietly deleted, because the order IS load-bearing in the sibling parse in
+  // spellEffects.js — there the two matches are separate statements against free-form text with no anchor
+  // to force the issue, and moving the pair match after the single one parks Deathmark immediately (that
+  // mutation was run; it kills two pins). Same-looking code, opposite conclusion, for a reason worth keeping.
+  const rm = t.match(/^(destroy|exile) target (?:((?:white|blue|black|red|green) or (?:white|blue|black|red|green)|white|blue|black|red|green|multicolored) )?(noncreature artifact or noncreature enchantment|noncreature artifact|noncreature enchantment|artifact, enchantment, or land|artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls|that player controls))?$/);
   if (rm) {
     const TT = {
       "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent",
@@ -734,8 +745,17 @@ export function destroyExileClauseParser(clause) {
     // COLOR-POS: prepend the colour restriction when the optional adjective matched (rm[2]). Absent → the
     // restrictions array is byte-identical to before, so every previously-parsed card is unchanged.
     const COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
-    if (rm[2] === "multicolored") restrictions.unshift({ kind: "multicolored" });
-    else if (rm[2]) restrictions.unshift({ kind: "color", color: COLOR_LETTER[rm[2]] });
+    const disjM = String(rm[2] || "").match(/^(white|blue|black|red|green) or (white|blue|black|red|green)$/);
+    if (disjM) restrictions.unshift({ kind: "colorAny", colors: [COLOR_LETTER[disjM[1]], COLOR_LETTER[disjM[2]]] });
+    else if (rm[2] === "multicolored") restrictions.unshift({ kind: "multicolored" });
+    // ⛔ GUARDED, and a survived mutant is why. `COLOR_LETTER[rm[2]]` on an unrecognised colour phrase
+    // yields `{kind:"color", color: undefined}` — a restriction that matches NOTHING while the card still
+    // classifies native. That is the silent do-nothing, not a safe park: the tier claims the card plays and
+    // it targets an empty pool. It was unreachable before CD-1 (the alternation admitted only the five
+    // singles), and CD-1 adds a multi-word alternative to that very slot — so the next person who extends
+    // the alternation and forgets a branch here gets a REFUSAL, not a card that quietly does nothing.
+    else if (rm[2] && COLOR_LETTER[rm[2]]) restrictions.unshift({ kind: "color", color: COLOR_LETTER[rm[2]] });
+    else if (rm[2]) return null;   // an admitted colour phrase with no restriction to emit → park, loudly
     const atom = { op: rm[1] === "destroy" ? "destroy" : "exile", targetType: TT[rm[3]], restrictions };
     // Pin the combat-event referent onto the atom for the combat-referent gate (defending/damaged-player scopes).
     if (controllerWho === "defendingPlayer") atom.who = "defendingPlayer";

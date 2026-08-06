@@ -371,6 +371,18 @@ export function parseCreatureTargetRestrictions(card) {
   // one; it cannot loosen a target set that was already being offered. And a restriction is additive —
   // a mis-parsed color word can only REMOVE candidates from the pool (a safe FN), never admit an
   // illegal one (CREED: the forbidden direction is unreachable from here by construction).
+  // ⭐⭐ CD-1 — THE DISJUNCTION IS MATCHED FIRST, AND THE ORDER IS LOAD-BEARING. "target green or white
+  // creature" (Deathmark) used to fall to the single-colour match below, which took only the FIRST colour
+  // word, emitted {color:"G"}, then stripped BOTH words and left a bare " or " standing. That residue is
+  // what parked the card — a lucky park, because the restriction it had already built was WRONG (green
+  // only). Matching the pair first is what makes the emitted restriction describe the printed card.
+  // ⛔ THE "or" MUST BE CONSUMED with the colours. Leaving it behind re-parks the card, which is a safe
+  // failure but silently wastes the build — so the replace covers the whole three-token phrase.
+  const dcm = t.match(/\b(white|blue|black|red|green) or (white|blue|black|red|green)\b/);
+  if (dcm) {
+    restrictions.push({ kind: "colorAny", colors: [COLOR_WORD[dcm[1]], COLOR_WORD[dcm[2]]] });
+    t = t.replace(/\b(?:white|blue|black|red|green) or (?:white|blue|black|red|green)\b/g, " ");
+  }
   const pcm = t.match(/\b(white|blue|black|red|green)\b/);
   if (pcm) { restrictions.push({ kind: "color", color: COLOR_WORD[pcm[1]] }); t = t.replace(/\b(?:white|blue|black|red|green)\b/g, " "); }
   if (/\bmulticolored\b/.test(t)) { restrictions.push({ kind: "multicolored" }); t = t.replace(/\bmulticolored\b/g, " "); }

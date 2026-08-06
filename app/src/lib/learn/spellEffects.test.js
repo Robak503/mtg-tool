@@ -103,7 +103,11 @@ describe("parseCreatureTargetRestrictions (P2.4)", () => {
     expect(parseCreatureTargetRestrictions(card("Destroy target creature you control with first strike.")).clean).toBe(false); // only "with flying" is modeled (β anti-flyer)
     expect(parseCreatureTargetRestrictions(card("Destroy target artifact creature.")).clean).toBe(false);      // positive type, not negation
     expect(parseCreatureTargetRestrictions(card("Destroy target legendary creature.")).clean).toBe(false);     // supertype, unmodeled
-    expect(parseCreatureTargetRestrictions(card("Destroy target white or blue creature.")).clean).toBe(false); // color UNION, not a single non-color
+    // ⚠️ THE COLOUR UNION ROW WAS HERE and is now CLEAN — CD-1 gave the vocabulary a colorAny kind, so
+    // "white or blue creature" parses to one restriction holding a colour list. Asserted POSITIVELY now,
+    // which is a stronger statement than the refusal it replaces: it says what the parse produces, not
+    // merely that it fails.
+    expect(parseCreatureTargetRestrictions(card("Destroy target white or blue creature."))).toMatchObject({ clean: true, restrictions: [{ kind: "colorAny", colors: ["W", "U"] }] });
   });
   it("is a no-op (clean, no restrictions) for non-creature / non-target effects", () => {
     expect(parseCreatureTargetRestrictions(card("Draw two cards."))).toMatchObject({ clean: true, restrictions: [] });

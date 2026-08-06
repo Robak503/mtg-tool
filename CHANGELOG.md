@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Two-colour removal and Auras work.** Deathmark, Wallop, Rending Volley, Celestial Purge, Slithery
+  Stalker, Lightwielder Paladin, Controlled Instincts and Encase in Ice all read "target green or white
+  creature" and the like. The simulator had no way to express "either colour", so these cards sat out
+  entirely — they now offer exactly the colours they print, and nothing else.
 - **More binding Auras are playable.** Suppression Bonds, Nahiri's Binding and Planar Disruption shut down
   the permanent they enchant — they print the same text as Petrify, and were held back only by which kinds
   of permanent they are allowed to target.

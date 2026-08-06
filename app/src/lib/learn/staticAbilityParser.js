@@ -5941,12 +5941,21 @@ function creatureEnchantRestrictions(card) {
   if (nonColor) return [{ kind: "colorNeg", color: COLOR_WORDS[nonColor[1]] }];
   const posColor = subject && subject.match(/^(white|blue|black|red|green) creature$/);
   if (posColor) return [{ kind: "color", color: COLOR_WORDS[posColor[1]] }];
+  // ⭐ CD-1 — the DISJUNCTIVE subject (Controlled Instincts, Encase in Ice: "Enchant red or green creature").
+  // ⚠️ THE COMMENT BELOW USED TO SAY THIS "needs a new disjunctive kind rather than wiring, and this slice
+  // does not invent one." That was true and is now done: creatureRestrictions grew a `colorAny` kind, so
+  // this IS wiring again — the same terms every other subject here was admitted on.
+  const disjColor = subject && subject.match(/^(white|blue|black|red|green) or (white|blue|black|red|green) creature$/);
+  if (disjColor) return [{ kind: "colorAny", colors: [COLOR_WORDS[disjColor[1]], COLOR_WORDS[disjColor[2]]] }];
   const mv = subject && subject.match(/^creature with mana value (\d+) or less$/);
   if (mv) return [{ kind: "manaValue", op: "<=", value: parseInt(mv[1], 10) }];
   // Everything else still returns null here → either a NON-creature targetType in auraEnchantHostSpec
-  // above, or the Arbiter. A colour DISJUNCTION ("red or green creature" — Controlled Instincts, Encase
-  // in Ice) is deliberately NOT here: restrictions are ANDed, so it needs a new disjunctive kind rather
-  // than wiring, and that slice still hasn't been done.
+  // above, or the Arbiter.
+  // ⚠️ THIS PARAGRAPH USED TO EXCLUDE THE COLOUR DISJUNCTION ("red or green creature") on the grounds that
+  // it "needs a new disjunctive kind rather than wiring, and that slice still hasn't been done." Both
+  // halves were true when written; the second no longer is. creatureRestrictions grew `colorAny`, and the
+  // subject moved UP beside the other admitted ones — so this note is corrected rather than left to send
+  // the next reader looking for an exclusion that isn't here any more.
   // ⚠️ THE LINE THAT USED TO END THIS COMMENT SAID TYPE UNIONS WERE "A BIGGER JOB, BANKED". They were,
   // and the job is done — but NOT by relaxing anything here. A union is not a creature restriction, so it
   // could never be expressed in this function; it needed a targetType, which is why it lives one level up.

@@ -3,6 +3,47 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **THE COLOUR DISJUNCTION — the first restriction that WIDENS, +8** - post-v0.155.0 batch 55
+> Suite 1166 / 14,238 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Deathmark, Wallop, Rending
+> Volley, Celestial Purge, Slithery Stalker, Lightwielder Paladin, Controlled Instincts, Encase in Ice.
+> ⛔⛔ **EVERY OTHER RESTRICTION NARROWS A POOL; THIS ONE DESCRIBES A UNION, SO ITS BUG DIRECTION IS THE
+> FORBIDDEN ONE.** A too-tight restriction under-offers — safe, and VISIBLE, because a missing option gets
+> noticed. A too-loose disjunction offers an ILLEGAL target and never looks wrong in play: the card just
+> appears to have more reach than it prints. Every pin names the EXCLUDED colours, not only the legal ones.
+> ⭐ **THE AND-TRAP, MEASURED.** `[{color:G},{color:W}]` for "green or white" enumerates **`[]`** — the list
+> is ANDed, so no mono-coloured creature qualifies. A card shipped that way reads native and hits nothing,
+> which is worse than parking and completely silent. That empty row is in the witness, beside the good ones.
+> ⭐ **13 CARDS SHARE THE SYMPTOM; ONLY 8 SHARE THE CAUSE.** The probe grouped by "collapse the disjunction
+> and it flips". The other five go through a cast-trigger spell filter, a counter spellFilter, a board-state
+> condition and a hand-zone card filter — four separate evaluators. **Shipping them together on the strength
+> of the symptom is the exact gate-20 error already recorded once**; they are pinned as still-parked instead.
+> ⚠️⚠️ **A MUTANT SURVIVED AND THE PIN WAS THE PROBLEM.** Disabling the removal lane's disjunction match left
+> Celestial Purge classifying NATIVE while parsing to `{kind:"color"}` with **no color field** — a restriction
+> that matches nothing, on a card the tier says plays. Every pool pin fed enumerateTargets a HAND-BUILT spec,
+> so it tested the EVALUATOR and said nothing about what a CARD parses to. Added a per-card PARSED-RESTRICTION
+> pin, and hardened the unguarded `else` so an unrecognised colour phrase returns null (parks LOUDLY) instead
+> of emitting a match-nothing restriction.
+> ⚠️ **A SECOND MUTANT SURVIVED AND THE CLAIM WAS THE PROBLEM.** I wrote that the alternation ORDER in
+> removal.js was load-bearing. It is not: that pattern is ANCHORED, so a bare "black" leaves "or red
+> permanent" which no noun alternative matches, and backtracking finds the pair either way. **The comment was
+> corrected rather than the test strengthened.** The order IS load-bearing in the sibling parse in
+> spellEffects, where the matches are separate statements against unanchored text — that mutation kills two
+> pins. Same-looking code, opposite conclusion, both written down.
+> ⚠️ **MUT-A EXPOSED SOMETHING BEYOND THIS SLICE: `creatureSatisfiesRestrictions` FAILS OPEN on an unknown
+> restriction kind.** With the branch removed, every pool opened to ALL SIX creatures including the colourless
+> one — so a typo'd or future kind would silently offer everything. Banked, not fixed: making it fail closed
+> is its own measured slice, because a flip-diff is the only way to see whether an emitter currently relies
+> on that fall-through.
+> ⭐ **SEVEN REFUSAL PINS LIFTED ACROSS SIX FILES** — all asserting "a colour disjunction is inexpressible",
+> which stopped being true. Each rewritten to assert the new truth with history; the lists got SHORTER, never
+> weaker. Three were rotting fixtures of the known class — **a fixture chosen for being UNMODELLED will rot
+> every time this project does its job.** One was my own pin from earlier the same day, which said "+2
+> waiting": the prediction came true and the pin caught it.
+> ⚠️ **THIRD SHELL-MANGLING OF THE SESSION, THIS TIME IN THE LEDGER ITSELF.** A double-quoted `python -c`
+> let the shell run command substitution on the backticks in this very entry and ate every code span.
+> **The rule generalises past regexes: prose containing backticks or backslashes goes through the Write
+> tool, never through a shell-quoted heredoc or `-c` string.**
+
 > ## SLICE DONE - 2026-08-05 - **ENCHANT-SUBJECT, ROUND 2 — the wider unions, +3** - post-v0.155.0 batch 47
 > Suite 1165 / 14,230 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Suppression Bonds
 > (`Enchant nonland permanent`), Nahiri's Binding (`Enchant creature or planeswalker`), Planar Disruption

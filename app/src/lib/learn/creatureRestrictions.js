@@ -92,6 +92,22 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       const colors = isDfc ? card.card_faces?.[0]?.colors : card.colors;
       if (!Array.isArray(colors)) return false;
       if (colors.includes(r.color)) return false; // a non<color> target can't be that color
+    } else if (r.kind === "colorAny") {
+      // ⭐⭐ COLOUR DISJUNCTION (CD-1, CR 105.2) — "target green or white creature" (Deathmark, Slithery
+      // Stalker), "target black or red permanent" (Celestial Purge, Lightwielder Paladin). Every other
+      // restriction in this function NARROWS a pool; this is the first one that describes a UNION, and
+      // that makes its bug direction the forbidden one. A too-loose disjunction offers an ILLEGAL target
+      // and — unlike a too-tight one — never shows up as a missing option, so it is invisible in play.
+      // ⛔ WHY IT COULD NOT RIDE THE EXISTING KIND: this list is ANDed. Pushing {color:G} and {color:W}
+      // would demand a creature be BOTH green AND white, so every mono-coloured legal target vanishes and
+      // the card reads as working while hitting almost nothing. That is why the parsers parked instead.
+      // Layer-aware and fail-closed, exactly like the `color` branch below (a creature turned green IS a
+      // legal Deathmark target; a printed-green one turned blue is NOT).
+      const eff = permanentColors(state, perm.id);
+      const set = eff instanceof Set ? eff : new Set(Array.isArray(eff) ? eff : []);
+      const colors = Array.isArray(r.colors) ? r.colors : [];
+      // An EMPTY colour list would match nothing rather than everything — fail-closed, never fail-open.
+      if (!colors.some((c) => set.has(c))) return false;
     } else if (r.kind === "color" || r.kind === "multicolored") {
       // COLOR-POS (CR 105.2) — read LAYER-AWARE (permanentColors → derived characteristics after layer 5),
       // NOT the printed card. A permanent turned blue by an effect IS a legal "target blue permanent", and a

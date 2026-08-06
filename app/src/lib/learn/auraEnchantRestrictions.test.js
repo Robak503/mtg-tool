@@ -56,7 +56,11 @@ describe("the subject maps onto an already-enforced restriction", () => {
     // below. What remains here is genuinely inexpressible: a colour DISJUNCTION (restrictions are ANDed,
     // so it needs a new disjunctive kind), a type UNION against a fixed targetType "creature", and the
     // exotic subjects with no predicate at all.
-    for (const subject of ["red or green creature", "creature or Vehicle", "modified creature", "creature with another Aura attached to it"]) {
+    // ⚠️ TWO ENTRIES LEFT THIS LIST AND BOTH LEFT FOR REAL REASONS, not by weakening the assertion.
+    // "creature or Vehicle" became a targetType (ES-1); "red or green creature" became a colorAny
+    // restriction (CD-1) once the evaluator learned OR. Each is now pinned POSITIVELY in its own file.
+    // What remains here is still genuinely inexpressible: no predicate exists for either.
+    for (const subject of ["modified creature", "creature with another Aura attached to it"]) {
       expect(auraEnchantRestrictions({ name: "X", type: "Enchantment — Aura", oracle: `Enchant ${subject}\nEnchanted creature gets +1/+1.` })).toBeNull();
     }
   });

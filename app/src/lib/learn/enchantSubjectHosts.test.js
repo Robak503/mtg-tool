@@ -118,11 +118,13 @@ describe("the host spec", () => {
     // ⚠️ "creature or planeswalker" WAS IN THIS LIST and has since moved to the wired set (ES-2). The
     // assertion was rewritten rather than deleted, because what it guards is unchanged: a subject with no
     // predicate must stay on the Arbiter. Each entry below still has none, and each for its OWN reason:
-    //   · "red or green creature" needs a DISJUNCTIVE restriction kind — restrictions are ANDed, so listing
-    //     two colors would demand a creature be BOTH. Controlled Instincts, Encase in Ice: +2 waiting.
+    //   · ⚠️ "red or green creature" WAS LISTED HERE EARLIER THE SAME DAY, with the note "+2 waiting".
+    //     CD-1 built the disjunctive kind and it now returns a colorAny restriction — the prediction came
+    //     true and the pin caught it, which is what a reason-carrying assertion is for. Pinned positively
+    //     in colorDisjunction.test.js now.
     //   · "creature with another Aura attached to it" (Daybreak Coronet) and "modified creature"
-    //     (Lion Umbra) need board-reading predicates that do not exist. +1 each.
-    for (const subject of ["permanent", "Equipment", "artifact creature", "red or green creature", "modified creature"]) {
+    //     (Lion Umbra) need board-reading predicates that do not exist. +1 each, still waiting.
+    for (const subject of ["permanent", "Equipment", "artifact creature", "modified creature"]) {
       expect(auraEnchantHostSpec({ name: "X", type: "Enchantment — Aura", oracle: `Enchant ${subject}\nEnchanted permanent gets +1/+1.` }), subject).toBeNull();
     }
   });

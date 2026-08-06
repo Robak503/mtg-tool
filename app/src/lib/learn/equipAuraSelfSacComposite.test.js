@@ -112,10 +112,12 @@ describe("EQ-2 — CREED FP guards: near-misses stay body-only", () => {
     expect(classifyCard(WURMWEAVER_COIL)).toBe("native-activated");
   });
   it("⛔ an INEXPRESSIBLE restricted subject still parks the whole composite (the original guard's job)", () => {
-    // A colour DISJUNCTION has no restriction kind (restrictions are ANDed), so auraEnchantRestrictions
-    // returns null, the cast lane could not filter hosts, and the card must stay on the Arbiter.
+    // ⚠️ THE FIXTURE WAS "red or green creature" — a colour DISJUNCTION — until CD-1 gave the vocabulary
+    // a colorAny kind and made it expressible. What this pin GUARDS is unchanged: a subject the cast lane
+    // cannot filter hosts for must park the whole composite. Re-pointed at a subject that still has no
+    // predicate at all, never softened.
     expect(classifyCard({ ...WURMWEAVER_COIL, name: "Wurmweaver Probe",
-      oracle: WURMWEAVER_COIL.oracle.replace("Enchant green creature", "Enchant red or green creature") })).toBe("body-only");
+      oracle: WURMWEAVER_COIL.oracle.replace("Enchant green creature", "Enchant modified creature") })).toBe("body-only");
   });
   it("a self-sac that would DROP an LTB trigger parks — Krovod Haunch ('put into a graveyard …')", () => {
     // sacrificeDropsTrigger flags the LTB trigger → the self-sac ability is unmodeled → the whole card parks.

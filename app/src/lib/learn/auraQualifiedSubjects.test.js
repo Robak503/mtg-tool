@@ -73,7 +73,10 @@ describe("the subjects map onto restrictions the runtime already enforces", () =
   it("⛔ the subjects this slice deliberately does NOT model still return null (Arbiter)", () => {
     // A colour DISJUNCTION needs a new disjunctive kind (restrictions are ANDed); a TYPE UNION needs a
     // targetType that isn't fixed to "creature"; the exotic subjects have no predicate at all.
-    for (const subj of ["red or green creature", "artifact or creature", "creature or vehicle", "modified creature", "creature with another Aura attached to it"]) {
+    // ⚠️ THREE ENTRIES GRADUATED OUT OF THIS LIST: the type unions became targetTypes (ES-1) and the
+    // colour disjunction became a colorAny restriction (CD-1). The list is SHORTER, never weaker — the
+    // survivors have no predicate at all, which is exactly the property this pin guards.
+    for (const subj of ["modified creature", "creature with another Aura attached to it"]) {
       expect(auraEnchantRestrictions({ ...ARMOR_OF_THORNS, id: "c-n", oracle: `Enchant ${subj}\nEnchanted creature gets +2/+2.` }), subj).toBeNull();
     }
   });
@@ -86,7 +89,11 @@ describe("recognition", () => {
     expect(classifyCard(THREADS_OF_DISLOYALTY)).toBe("native-aura");
   });
   it("⛔ an unmodeled subject still parks the whole card even with a modeled body", () => {
-    expect(classifyCard({ ...ARMOR_OF_THORNS, id: "c-p", oracle: "Enchant red or green creature\nEnchanted creature gets +2/+2." })).toBe("body-only");
+    // ⚠️ THE FIXTURE WAS "red or green creature" UNTIL CD-1 MODELLED IT. A test whose fixture is chosen
+    // for being UNMODELLED will rot every time this project does its job — the same lesson the
+    // entersCountersStripAnchor fixture has now taught three times. Swapped for a subject that still has
+    // no predicate, rather than the assertion being softened.
+    expect(classifyCard({ ...ARMOR_OF_THORNS, id: "c-p", oracle: "Enchant modified creature\nEnchanted creature gets +2/+2." })).toBe("body-only");
   });
 });
 
