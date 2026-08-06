@@ -758,7 +758,7 @@ export function destroyExileClauseParser(clause) {
   // qualifier smuggled into that slot would silently become an opponent-controls restriction — a wrong
   // restriction on a card the tier then reports as native, which is the silent do-nothing this very
   // function already carries a guarded branch against.
-  const rm = t.match(/^(destroy|exile) target (?:((?:white|blue|black|red|green) or (?:white|blue|black|red|green)|white|blue|black|red|green|multicolored) )?(noncreature artifact or noncreature enchantment|noncreature artifact|noncreature enchantment|artifact, enchantment, or land|artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls|that player controls))?(?: (that (?:was|were) dealt damage this turn))?$/);
+  const rm = t.match(/^(destroy|exile) target (?:((?:white|blue|black|red|green) or (?:white|blue|black|red|green)|white|blue|black|red|green|multicolored) )?(noncreature artifact or noncreature enchantment|noncreature artifact|noncreature enchantment|artifact, enchantment, or land|artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|creature or vehicle|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls|that player controls))?(?: (that (?:was|were) dealt damage this turn))?$/);
   if (rm) {
     const TT = {
       "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent",
@@ -771,6 +771,11 @@ export function destroyExileClauseParser(clause) {
       "creature or artifact": "creatureOrArtifact", "artifact or creature": "creatureOrArtifact", "artifact or land": "artifactOrLand",
       "enchantment or land": "enchantmentOrLand",
       "creature or planeswalker": "creatureOrPlaneswalker", "planeswalker": "planeswalker", // PW-7
+      // ⭐ CV-1 (2026-08-06) — "creature or Vehicle" (CR 301.7: an uncrewed Vehicle is NOT a creature, so
+      // this union is not redundant; a crewed one satisfies either arm). The PERMANENT_PREDICATES entry and
+      // its enumeration path were built for "Enchant creature or Vehicle" (ES-1) and had exactly ONE
+      // consumer — aura subjects. This is the ignition for the removal lane, not new machinery.
+      "creature or vehicle": "creatureOrVehicle",
     };
     const controlScope = rm[4];
     const controllerWho = /^you control$/.test(controlScope || "") ? "you"

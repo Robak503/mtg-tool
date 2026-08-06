@@ -3,6 +3,29 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-06 - **"CREATURE OR VEHICLE" removal — ignition, not machinery, +4** - post-v0.156.0 batch 7
+> Suite 1178 / 14,308 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Daring Demolition, Spin Out,
+> Ride's End, Scrap Compactor. All audited whole-card.
+> ⭐⭐ **EIGHTH "BUILT ENGINE, NO IGNITION" OF THIS RUN.** `PERMANENT_PREDICATES.creatureOrVehicle` and its
+> whole enumeration path already existed — built for "Enchant creature or Vehicle" (ES-1) with exactly ONE
+> consumer, aura subjects. Removal never emitted the targetType. Two additive entries (noun alternation +
+> TT map) were the entire fix. CR 301.7 makes the union non-redundant: an UNCREWED Vehicle is not a creature.
+> ⚠️ **SCOPE STATED HONESTLY — the ceiling was 18 and this ships 4.** The other 14 sit behind DIFFERENT noun
+> tables: zones.js's bounce matcher takes a BARE `creature` noun with no alternation at all, and the pump /
+> keyword-grant / graveyard lanes each carry their own. Same SYMPTOM, different CAUSES — gate 20 — so they
+> are banked here rather than half-built. **Next-slice map:** bounce noun alternation (zones.js ~line 873),
+> then the pump/grant lanes.
+> ⭐ **TWO MUTATIONS SAID SOMETHING DIFFERENT FROM WHAT READING THE CODE PREDICTED, both caught by the new
+> printed-back rule:** (1) deleting the TT-map entry does NOT park the cards — they stay native-spell with
+> `targetType: undefined`, an atom that is built and useless, strictly worse than parking and invisible to
+> the tier; only the parsed-atom assertion catches it. (2) dropping the predicate's Vehicle arm leaves all
+> four native while the uncrewed Vehicle silently leaves the pool.
+> ⚠️ **THE `sed` BACKSLASH TRAP, EIGHTH OCCURRENCE.** Mutation 3 through `sed` produced `/bCreatureb/` — a
+> regex matching nothing. It KILLED the suite, for entirely the wrong reason, and would have been recorded
+> as confirming a claim it never tested. Re-run through a node line-edit with an ANCHOR-NOT-FOUND guard that
+> exits rather than silently mutating nothing. **Shell-quoted regex mutations are now a known-bad
+> instrument; use a node edit that prints the changed line back.**
+
 > ## SLICE DONE - 2026-08-06 - **"DEALT DAMAGE THIS TURN" — the census's #1 vein, +17** - post-v0.156.0 batch 7
 > Suite 1177 / 14,306 green + lint 0 BY EXIT CODE. Flip-diff **+17 / 0 / 0** — Fatal Blow, Rooftop Assassin,
 > Vraska's Finisher, Ogre Siegebreaker, Witch's Mist, Opportunist, Crushing Pain, Hooded Assassin, Lurking

@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **"Destroy target creature or Vehicle" works.** Daring Demolition, Spin Out, Ride's End and Scrap
+  Compactor did nothing in the simulator. They now correctly hit creatures and Vehicles — including a
+  Vehicle that has not been crewed, which these cards exist to answer.
 - **"Destroy target creature that was dealt damage this turn" works.** Seventeen cards built around
   finishing off a damaged creature — Fatal Blow, Rooftop Assassin, Vraska's Finisher, Ogre Siegebreaker,
   Witch's Mist, Opportunist, Crushing Pain, Hooded Assassin, Lurking Deadeye, Stingblade Assassin,
