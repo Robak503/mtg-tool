@@ -7,6 +7,63 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ☀️ 2026-08-06 — **+64 shipped this stretch · batch 7 now 71 cards post-v0.156.0** — suite **1186 / 14,327** green by bare exit code
+
+> ### ⭐⭐ THE METHOD THAT IS WORKING RIGHT NOW — use this before picking a vein
+> **1. READ THE RESOLVER BEFORE BUDGETING A BUILD.** Twice today a slice budgeted for a new atom AND
+> resolver turned out to need ONE regex group, because the machinery already existed and only the matcher
+> was unreachable. GX-2 (filtered graveyard exile, +8) and RT-1 (reanimate-tapped, +5) were both this.
+> **Thirteen "built engine, partial ignition" finds this run** — it is the single most common shape in
+> this codebase. Grep the op name, read the resolver, THEN decide what the slice costs.
+> **2. SPLIT A SHARED ATOM BY ITS VERB OR ITS RIDER, not just by target phrase.** The phrase census buries
+> these: `exile … from a graveyard` sat inside a heterogeneous 55-row bucket, but split by VERB against
+> `return … from a graveyard` (native on 53+28) it was 25 carriers / ONE native — an obvious cause. Same
+> for riders: on the reanimate lane, `tapped` had a ceiling of 7 while `with a +1/+1 counter` and `under
+> your control` had ZERO parked carriers each.
+> **3. CEILING-PROBE, AND TREAT IT AS AN ESTIMATE IN BOTH DIRECTIONS.** Substitute the unparsed phrase for
+> one that provably parses, reclassify, count flips. DD-1 was 26 carriers → ceiling 18. But GX-2 shipped
+> **8 against a ceiling of 6**, because the probe's regex was narrower than the real family. A ceiling is
+> a guide, not a cap.
+
+> ### ⏭ NEXT BUILD — measured, in order
+> · **the `put … onto the battlefield` graveyard lane** — 25 carriers / 4 native, the biggest untouched
+>   verb split left on the graveyard family. Apply rule 1 first: `reanimate`/`applyReanimate` may already
+>   cover it, in which case this is a matcher-only edit like GX-2 and RT-1.
+> · **`return … to the battlefield with a +1/+1 counter on it`** — 9 carriers / 0 native. Riders on the
+>   same reanimate atom; the counter rider is NOT currently emitted (measured: ceiling 0 as written, so
+>   check whether the carriers park on something else first).
+> · **`creature or Vehicle` remainder ~8** — three lanes shipped (removal +4, counters +4, bounce +2). What
+>   is left sits behind the pump and keyword-grant tables, each its own edit (gate 20).
+> · **`creature blocking it` ceiling 3 · `creature or land` ceiling 3 · `creature or enchantment` 2.**
+> ⛔ **PARKED WITH A PREREQUISITE:** positive card type shipped for single targets (CT-1), but the rest of
+>   its ceiling needs the MASS lane's NON-CREATURE filter path, which has no restriction-honouring
+>   resolver. Creature wipes are verified fine; non-creature ones are the hazard.
+
+> ### ⭐⭐ FOUR METHOD RULES EARNED TODAY — all four cost real time
+> **1. A MUTATION IS NOT APPLIED UNTIL THE CHANGED LINE HAS BEEN PRINTED BACK.** `grep -c` answering 0
+> proves the pattern did not match, never that the edit landed. A perl mutation silently failed while grep
+> reported success; I then "confirmed" a line was dead with a corpus-wide flip-diff showing 0 of 34,245
+> changed — a rigorous measurement of an UNMUTATED FILE. The suite caught it.
+> **2. A TEST'S PROSE DOCUMENTS WHAT WAS TRUE WHEN IT WAS WRITTEN; ONLY ITS ASSERTION IS A FACT ABOUT NOW.**
+> A red pin says a recorded decision changed. It does not say WHICH WAY. I read a pin titled "eachX would
+> wrongly hit the unfiltered set", inferred a board wipe, reverted a correct +4 and banked the false claim.
+> **Every graduation since has RUN THE CARD first** — and that habit has now cleared ~15 stale pins safely.
+> **3. SHELL HEREDOCS ARE BANNED FOR CONTENT CONTAINING A BACKSLASH.** The trap struck four more times,
+> once writing literal 0x08 BYTES into a doc comment where `\b` was meant. Use the file-edit tool, or build
+> the string with `String.fromCharCode`. Doc scripts now go to a scratchpad .cjs file and run from there.
+> **4. GRADUATING A PIN IS AN ASSERTION ABOUT BEHAVIOUR** and needs the same evidence as any code change.
+> One row was promoted to MUST_STAY_HIGH on an assumption and had to come back out.
+
+> ### ✅ SHIPPED THIS STRETCH (each: flip-diff, whole-card audit, mutation, Law-6/runtime witness, CI read)
+> `995051b4` UP-1 union scope **+4** (and FRY — a live FP on an already-native card) · `4389cbe4` DD-1
+> dealt-damage-this-turn **+17** · `df8cccc0` CV-1 creature-or-Vehicle removal **+4** · `23117164` BS-1
+> bounce state qualifier **+8** (found a fail-OPEN combat value) · `70599074` CT-1 positive card type **+4**
+> · `8dc56f21` KW-1 keyword beyond flying **+6** · `954c150e` CV-2 counter lane **+4** · `5b15511e` ST-1
+> supertype **+2** · `5b7a745b` CV-3 bounce lane **+2** · `638d684a` GX-2 filtered graveyard exile **+8** ·
+> `d76b9063` RT-1 reanimate-tapped **+5**.
+> ⭐ **THE HIGHEST-VALUE FINDS ARE STILL BUGS ON CARDS THE TIER ALREADY COUNTS AS WORKING** — Fry aiming at
+> a green creature, the combat fail-open offering the whole board, the union offering your OWN planeswalker.
+> None appeared in any flip-diff. Only parsed-atom and pool assertions catch that class.
 ## ☀️ 2026-08-06 — **+43 shipped this stretch · batch 7 now 50 cards post-v0.156.0** — suite **1181 / 14,312** green by bare exit code
 
 > ### ⏭ NEXT BUILD, MEASURED AND CEILING-PROBED — pick the top and go
