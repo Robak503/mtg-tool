@@ -57,6 +57,16 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       if (r.who === "damagedPlayer" && (!ctx?.damagedPlayerId || pid !== ctx.damagedPlayerId)) return false;
     } else if (r.kind === "tapped") {
       if (!!perm.tapped !== r.value) return false;
+    } else if (r.kind === "dealtDamageThisTurn") {
+      // DD-1 — TWO witnesses, because neither is complete alone and the gap in each is the other's
+      // strength. `damageMarked` is the scalar total and misses infect/wither entirely (that damage becomes
+      // -1/-1 counters and never marks), while `damagedBy` is OPTIONAL and stays empty whenever a call site
+      // could not name its source. Either one being non-empty PROVES damage was dealt this turn; requiring
+      // both would refuse legal targets, and this is the one direction the creed calls safe but the
+      // colorDisjunction slice already showed can silently reduce a card to hitting nothing.
+      // Both are cleared together at cleanup (clearCombatDamage, CR 514.2 — "this turn" ends there).
+      const dealt = (perm.damageMarked || 0) > 0 || (perm.damagedBy || []).length > 0;
+      if (dealt !== r.value) return false;
     } else if (r.kind === "power") {
       const pw = creaturePower(perm, state);
       if (r.op === "<=" && !(pw <= r.value)) return false;

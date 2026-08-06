@@ -275,6 +275,17 @@ export function effectNeedsTarget(effect) {
 const MODELED_RESTRICTION_RES = [
   /\b(?:an opponent controls|you don't control|a player other than you controls)\b/g,
   /\byou control\b/g,
+  // ⭐⭐ DD-1 — LOAD-BEARING, and it took three wrong answers to establish that. Delete this line and Fatal
+  // Blow drops native-spell → arbiter-spell: the phrase survives into `cleanedOracle`, and parser.js's fold
+  // re-checks `isCleanClause(cleanedOracle)` after the restriction parse returns, where UNMODELED_MARKERS
+  // names `that (?:…|was|…)`. Verified by DELETING THE LINE AND PRINTING IT BACK, not by grep.
+  // ⚠️ IT WAS TWICE MEASURED AS DEAD, BOTH TIMES FALSELY: a perl mutation silently failed to apply while
+  // `grep -c` on a pattern full of regex metacharacters (`|`, `(`, `?`) reported it removed. On that false
+  // negative it was "confirmed" dead by a corpus-wide flip-diff showing 0 of 34,245 changed — a
+  // measurement of nothing, run against an unmutated file. ⛔ A MUTATION IS NOT APPLIED UNTIL THE CHANGED
+  // LINE HAS BEEN PRINTED. grep answering "0 occurrences" proves the pattern didn't match, not that the
+  // edit landed.
+  /\bthat (?:was|were) dealt damage this turn\b/g,  // DD-1
   /\buntapped\b/g,
   /\btapped\b/g,
   /\bpower \d+ or less\b/g,
@@ -356,6 +367,27 @@ export function parseCreatureTargetRestrictions(card, { allowPlaneswalkerUnion =
   } else if (/\byou control\b/.test(t)) {
     restrictions.push({ kind: "controller", who: "you" });
     t = t.replace(/\byou control\b/g, " ");
+  }
+
+  // ⭐⭐ DEALT DAMAGE THIS TURN (DD-1, 2026-08-06 — Fatal Blow, Rooftop Assassin, Vraska's Finisher and 14
+  // more). The largest single-cause vein the residue census found: 26 carriers, 18 of which park on this
+  // phrase ALONE. The state it needs already exists and is already CR-correct, which is why this is a
+  // restriction and not a subsystem.
+  // ⛔ THE SCALAR `damageMarked` IS NOT THE ANSWER ON ITS OWN, and gameState.js says so at its own
+  // definition: infect/wither damage becomes -1/-1 counters and NEVER reaches damageMarked, yet it was
+  // still damage DEALT — so a creature hit by an infect creature is a legal Fatal Blow target that a
+  // damageMarked-only check would refuse. `damagedBy` covers exactly that case (recordDamageSource is
+  // called on the infect path), and is itself incomplete in the mirror direction: it is OPTIONAL, and a
+  // call site that cannot name its source records nothing. EITHER witness proves the fact, so the
+  // evaluator reads BOTH. Both clear at cleanup together (clearCombatDamage, CR 514.2).
+  // ⛔ "any target that was dealt damage this turn" (Needle Drop) is DELIBERATELY LEFT PARKED — that form
+  // includes PLAYERS, and player damage-this-turn is not tracked. `lifeLostThisTurn` is the nearest thing
+  // and gameState explicitly warns it is NOT the same fact (a drain or a pay-life cost loses life without
+  // any damage being dealt), so reusing it would offer an illegal target. This regex only ever runs on a
+  // creature-target spec, so the any-target form never reaches it.
+  if (/\bthat (?:was|were) dealt damage this turn\b/.test(t)) {
+    restrictions.push({ kind: "dealtDamageThisTurn", value: true });
+    t = t.replace(/\bthat (?:was|were) dealt damage this turn\b/g, " ");
   }
 
   // Tapped / untapped (untapped first so "tapped" doesn't eat it).

@@ -3,6 +3,44 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-06 - **"DEALT DAMAGE THIS TURN" — the census's #1 vein, +17** - post-v0.156.0 batch 7
+> Suite 1177 / 14,306 green + lint 0 BY EXIT CODE. Flip-diff **+17 / 0 / 0** — Fatal Blow, Rooftop Assassin,
+> Vraska's Finisher, Ogre Siegebreaker, Witch's Mist, Opportunist, Crushing Pain, Hooded Assassin, Lurking
+> Deadeye, Stingblade Assassin, Final-Sting Faerie, Downwind Ambusher, Unsparing Boltcaster, Fathom Fleet
+> Cutthroat, You Are Already Dead, Mirrodin Avenged, Jarl of the Forsaken. All audited whole-card.
+> ⭐⭐ **FOUND BY CENSUS, AND THE CENSUS IS THE TRANSFERABLE PART.** Instead of picking a shape by eye, I
+> ranked every phrase that SURVIVES the target grammar by parked-carrier count. This sat at the top with 26
+> carriers; a ceiling probe (strip the phrase, reclassify) said 18 park on it ALONE. Building the top of a
+> ranked list beat the four smaller veins beside it — the aura enchant-subject composition gap I diagnosed
+> first is real but has only **4** carriers, and the census is what showed that before I built it.
+> ⭐ **THE STATE ALREADY EXISTED AND WAS ALREADY CR-CORRECT** — no new tracking, just an honest read of two
+> fields. ⛔ **NEITHER WITNESS IS COMPLETE ALONE:** `damageMarked` misses infect/wither entirely (that damage
+> becomes -1/-1 counters and never marks), `damagedBy` is OPTIONAL and empty whenever a call site couldn't
+> name its source. EITHER proves the fact; requiring both refuses legal targets. Both mutations are pinned
+> and **neither is visible to the tier number** — the suite's card assertions pass with either half deleted.
+> ⛔ **NEEDLE DROP DELIBERATELY LEFT PARKED.** "Any target that was dealt damage this turn" includes PLAYERS,
+> and player damage-this-turn isn't tracked; `lifeLostThisTurn` is the nearest field and gameState warns it
+> is NOT the same fact (a drain or pay-life loses life with no damage dealt). Pinned as a negative so nobody
+> "completes the vein" by reaching for the wrong field.
+> ⚠️ **TWO EDITS, AND THE FIRST FLIP-DIFF FOUND THE SECOND:** 15 flipped while Vraska's Finisher and Jarl
+> didn't, despite parsing correctly — their atom was never BUILT. removal.js's union pattern is fully
+> anchored with an optional controller-scope group and nowhere for a trailing qualifier. Added as a SEPARATE
+> optional group, never by widening the scope alternation: that group feeds `controllerWho`, which defaults
+> to "opponent" for any unrecognised value, so a qualifier smuggled in there becomes a WRONG restriction on
+> a card the tier calls native.
+> ⛔⛔ **THE COSTLIEST ERROR OF THIS RUN, AND IT WAS PURE INSTRUMENTATION.** I recorded the
+> MODELED_RESTRICTION_RES entry as DEAD CODE twice, then removed it and wrote a confident general rule about
+> when such entries are dead. Both readings were false: the perl doing the removal **silently failed to
+> apply**, while `grep -c` on a pattern full of regex metacharacters (`|`, `(`, `?`) returned 0 and was
+> taken as proof. I then "confirmed" it with a corpus-wide flip-diff showing 0 of 34,245 changed — a
+> rigorous measurement of an UNMUTATED FILE, which is worse than no measurement because of how convincing it
+> looks. Deleting the line properly drops Fatal Blow native→arbiter. Caught only when the FULL SUITE went
+> red on this file's own first assertion.
+> ⭐ **NEW STANDING RULE (paid for): A MUTATION IS NOT APPLIED UNTIL THE CHANGED LINE HAS BEEN PRINTED BACK.**
+> `grep -c` answering 0 proves the pattern didn't match — never that the edit landed. Corrections 22/30/31
+> say verify the mutant REACHES the guarded case; this adds the step before it: verify the mutant EXISTS.
+> Three separate hand-verifications agreed with each other and were all wrong; the suite was right.
+
 > ## SLICE DONE - 2026-08-06 - **UNION + SCOPE — it was never a scope problem, +4 and a live FP on an already-native card** - post-v0.156.0 batch 7
 > Suite 1176 / 14,300 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Skysovereign Consul Flagship,
 > Careless Celebrant, Iroas's Blessing, Surge of Righteousness. All audited whole-card.

@@ -748,7 +748,17 @@ export function destroyExileClauseParser(clause) {
   // spellEffects.js — there the two matches are separate statements against free-form text with no anchor
   // to force the issue, and moving the pair match after the single one parks Deathmark immediately (that
   // mutation was run; it kills two pins). Same-looking code, opposite conclusion, for a reason worth keeping.
-  const rm = t.match(/^(destroy|exile) target (?:((?:white|blue|black|red|green) or (?:white|blue|black|red|green)|white|blue|black|red|green|multicolored) )?(noncreature artifact or noncreature enchantment|noncreature artifact|noncreature enchantment|artifact, enchantment, or land|artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls|that player controls))?$/);
+  // DD-1 (2026-08-06) — the trailing "that was dealt damage this turn" qualifier (Vraska's Finisher, Jarl of
+  // the Forsaken) is admitted as a SECOND optional group after the scope. This pattern is fully anchored
+  // (`^…$`), which is why the union lane accepted a controller scope and refused this qualifier: there was
+  // simply nowhere for it to go. Purely additive — absent, both new groups are undefined and every
+  // previously-parsed card emits a byte-identical atom.
+  // ⛔ It is a separate group rather than a widening of the scope alternation on purpose: the scope group
+  // feeds `controllerWho`, which defaults to "opponent" for ANY non-empty value it does not recognise. A
+  // qualifier smuggled into that slot would silently become an opponent-controls restriction — a wrong
+  // restriction on a card the tier then reports as native, which is the silent do-nothing this very
+  // function already carries a guarded branch against.
+  const rm = t.match(/^(destroy|exile) target (?:((?:white|blue|black|red|green) or (?:white|blue|black|red|green)|white|blue|black|red|green|multicolored) )?(noncreature artifact or noncreature enchantment|noncreature artifact|noncreature enchantment|artifact, enchantment, or land|artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls|that player controls))?(?: (that (?:was|were) dealt damage this turn))?$/);
   if (rm) {
     const TT = {
       "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent",
@@ -768,6 +778,8 @@ export function destroyExileClauseParser(clause) {
       : /^that player controls$/.test(controlScope || "") ? "damagedPlayer"
       : "opponent";
     const restrictions = controlScope ? [{ kind: "controller", who: controllerWho }] : [];
+    // DD-1 — same restriction kind and same order the creature lane emits, so the two paths stay pin-compatible.
+    if (rm[5]) restrictions.push({ kind: "dealtDamageThisTurn", value: true });
     // COLOR-POS: prepend the colour restriction when the optional adjective matched (rm[2]). Absent → the
     // restrictions array is byte-identical to before, so every previously-parsed card is unchanged.
     const COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };

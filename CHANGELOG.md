@@ -9,6 +9,13 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **"Destroy target creature that was dealt damage this turn" works.** Seventeen cards built around
+  finishing off a damaged creature — Fatal Blow, Rooftop Assassin, Vraska's Finisher, Ogre Siegebreaker,
+  Witch's Mist, Opportunist, Crushing Pain, Hooded Assassin, Lurking Deadeye, Stingblade Assassin,
+  Final-Sting Faerie, Downwind Ambusher, Unsparing Boltcaster, Fathom Fleet Cutthroat, You Are Already
+  Dead, Mirrodin Avenged and Jarl of the Forsaken — did nothing in the simulator, because it could not
+  tell which creatures had been dealt damage. They now correctly offer only damaged creatures, including
+  ones hit by infect or wither.
 - **Fry aims only at white and blue.** Fry printed "target creature or planeswalker that's white or blue",
   but the simulator dropped the colour requirement and would let it burn a green creature. It now respects
   what the card says.
