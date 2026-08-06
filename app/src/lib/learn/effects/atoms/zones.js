@@ -741,6 +741,27 @@ export function graveyardReturnClauseParser(clause) {
   if (/^exile all graveyards$/.test(t)) return { op: "exile-graveyard", who: "eachPlayer", targetType: null };
   if (/^exile each opponent's graveyard$/.test(t)) return { op: "exile-graveyard", who: "eachOpponent", targetType: null };
   if (/^exile target card from a graveyard$/.test(t)) return { op: "exile-from-graveyard", targetType: "graveyardCard", anyGraveyard: true, cardFilter: "any" };
+  // ⭐⭐ GX-2 (2026-08-06) — the FILTERED form ("exile target CREATURE card from a graveyard" — Shamble Back,
+  // Vile Rebirth, Cemetery Reaper, Thraben Heretic, Selesnya Eulogist, Necrogenesis). Everything this needs
+  // already existed: the `exile-from-graveyard` atom, `applyExileFromGraveyard`, and the shared
+  // `cardFilter` vocabulary that `cardMatchesGraveyardFilter` enforces at ENUMERATION. Only the bare-noun
+  // matcher above was reachable, so any filter parked the card.
+  // ⭐ THE VERB WAS THE WHOLE TIER SPLIT, which is what made this findable: `return … from a graveyard` is
+  // native on 53+28 carriers while `exile … from a graveyard` was 25 carriers and ONE native. Identical
+  // shape, identical filter vocabulary, one verb never wired.
+  // ⛔ `parseGraveyardFilter` is REUSED rather than re-implemented, so the exile lane and the return lane
+  // cannot drift into two different ideas of what "creature card" means — and an unmodeled filter word
+  // returns null here, parking the card (FN-safe) instead of exiling the wrong card.
+  const gxM = /^exile target (.*?)cards? from (a|your|an opponent's) graveyard$/.exec(t);
+  if (gxM) {
+    const cardFilter = parseGraveyardFilter(gxM[1]);
+    if (cardFilter) {
+      const zone = gxM[2];
+      return { op: "exile-from-graveyard", targetType: "graveyardCard", cardFilter,
+        ...(zone === "a" && { anyGraveyard: true }),
+        ...(zone === "an opponent's" && { opponentGraveyard: true }) };
+    }
+  }
   // GY-EXILE-UP-TO-THREE (BLITZ GX-1 — Decompose / Rapid Decay / Scarab Feast): "exile up to three target
   // cards from a single graveyard." The up-to-N subset machinery + the singleGraveyard SUBSET constraint
   // (targeting.expandAtoms filters to subsets whose cards share ONE owner — the totalMvX pattern), so a

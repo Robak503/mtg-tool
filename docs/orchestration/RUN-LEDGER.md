@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-06 - **FILTERED GRAVEYARD EXILE (+8) — the VERB was the whole tier split** - post-v0.156.0 batch 7
+> Suite 1185 / 14,324 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Shamble Back, Vile Rebirth,
+> Thraben Heretic, Cemetery Reaper, Selesnya Eulogist, Necrogenesis, Conversion Chamber, Grave Robbers.
+> All audited whole-card. **Beat its own ceiling probe of 6** — the probe's regex was narrower than the
+> real family (it missed the artifact-card filter), so a ceiling is a floor-ish estimate, not a cap.
+> ⭐⭐ **THE VERB WAS THE ENTIRE TIER SPLIT.** `return … from a graveyard` was native on 53+28 carriers
+> while `exile … from a graveyard` was 25 carriers and ONE native — identical shape, identical filter
+> vocabulary, one verb never wired to it. **Splitting by VERB is what turned "these cards park" into a
+> cause**; the phrase census alone had them buried in a heterogeneous 55-row bucket.
+> ⭐ **NOTHING NEW WAS BUILT.** The `exile-from-graveyard` atom, `applyExileFromGraveyard`, the `cardFilter`
+> vocabulary and `cardMatchesGraveyardFilter` (enforcing at ENUMERATION, front-face per CR 712.4a) all
+> predate this slice. Only the bare-noun matcher was reachable, so ANY filter parked the card. I had budgeted
+> for a new atom AND resolver; reading the file first saved the whole build.
+> ⛔ `parseGraveyardFilter` is REUSED, not re-implemented, so the exile lane and the return lane cannot
+> drift into two different ideas of what "creature card" means. An unmodeled filter word returns null and
+> parks the card — **that** is the boundary worth pinning, not the refusal it replaced.
+> ⚠️ **THE REFUSAL IT REPLACED WAS TRUE OF THE PARSER AND NEVER OF THE MACHINERY.** gyExile.test.js pinned
+> the filtered form LOW with the note "type filter — not bare card". Behaviour checked BEFORE graduating
+> (the CT-1 lesson): the pool rows show a land and an instant excluded across all three zone scopes.
+> ⭐ Mutation: hard-coding `cardFilter` to "any" leaves all eight classifying **native** while the pool
+> opens to every card in every graveyard — Shamble Back would exile a Mountain. Invisible to the tier.
 > ## SLICE DONE - 2026-08-06 - **CREATURE-OR-VEHICLE on the BOUNCE lane (+2)** - post-v0.156.0 batch 7
 > Suite 1184 / 14,321 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Bounce Off, Roadside Blowout.
 > Both audited whole-card. **Third and last of the easy creature-or-Vehicle lanes** (CV-1 removal +4, CV-2

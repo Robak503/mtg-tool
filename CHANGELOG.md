@@ -4184,6 +4184,10 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Graveyard hate that names a card type works.** Shamble Back, Vile Rebirth, Thraben Heretic, Cemetery
+  Reaper, Selesnya Eulogist, Necrogenesis, Conversion Chamber and Grave Robbers exile a creature (or
+  artifact) card from a graveyard. The simulator could only read the unfiltered wording, so all eight did
+  nothing; they now offer only cards of the type the card names.
 - **Bouncing a Vehicle works.** Bounce Off and Roadside Blowout return a creature or a Vehicle to its
   owner's hand — including an uncrewed Vehicle, which is the case these cards exist for.
 - **Legendary-only removal works.** Hero's Demise and Tsabo Tavoc destroy a legendary creature; the

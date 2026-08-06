@@ -41,7 +41,12 @@ describe("gy-exile — recognition + coverage", () => {
     // ("exile all creature cards from all graveyards") are still refused, and that refusal is pinned
     // in the new file — so the over-apply this line guarded against remains unreachable.)
     expect(programConfidence(parseEffectProgram(S("Two Probe", "Exile up to two target cards from a single graveyard.")))).toBe("low"); // only the printed three-count is anchored
-    expect(programConfidence(parseEffectProgram(S("Filtered", "Exile target creature card from a graveyard.")))).toBe("low"); // type filter — not bare "card"
+    // ⚠️ THE TYPE-FILTER ROW GRADUATED 2026-08-06 (GX-2). It read "type filter — not bare card", which was
+    // true of the PARSER and never of the machinery: the exile-from-graveyard atom, applyExileFromGraveyard
+    // and the shared cardFilter vocabulary all predate it, and cardMatchesGraveyardFilter enforces the
+    // filter at ENUMERATION. Asserted positively in gyExileFiltered.test.js, with the pool rows showing a
+    // land and an instant excluded. An UNMODELED filter word still parks, which is the real boundary:
+    expect(programConfidence(parseEffectProgram(S("Bogus", "Exile target zzzq card from a graveyard.")))).toBe("low");
   });
 });
 
