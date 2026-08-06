@@ -9,22 +9,20 @@
 
 ## ☀️ 2026-08-06 — **+78 this stretch · batch 7 at 85 post-v0.156.0 · the phrase veins are worked out** — suite **1189 / 14,339** green by bare exit code
 
-> ### ⏭ NEXT BUILD — **finish LOST MINE OF PHANDELVER's last room**, not a subsystem
-> ⛔ **I RECOMMENDED "Dungeon+Initiative, 22 cards, self-contained" AND THEN DISPROVED IT.** Run
-> `node app/scripts/probe-dungeon-rooms.cjs` before touching venture. The room GRAPH is in the oracle text
-> (no fabrication risk — that part was fine), but **13 of 21 room effects parse and NO dungeon is
-> complete**: Mad Mage 6/9 · **Lost Mine 6/7** · Tomb of Annihilation 1/5. Whole-card-or-park means a
-> venture that can reach an unmodeled room plays the card wrong, so the build as scoped yields ZERO
-> completable dungeons. **The room effects are the blocker; the venture machine is the cheap half.**
-> ⛔ The Initiative half has NO DATA: "Undercity" in the bundled index is the Ravnica dual LAND, not the
-> Initiative dungeon. Its rooms cannot be read, and writing them from memory violates §1.2.
-> ⭐ **CHEAPEST PATH TO THE FIRST PLAYABLE DUNGEON: Lost Mine of Phandelver is ONE room short.** Fungi
-> Cavern's "Target creature gets -4/-0 until your next turn" is the only gap. That is an ordinary effect
-> slice, not a subsystem — and then venture has something it can legally complete.
-> ⚠️ Do not chase `until your next turn` as a vein on its own: 180 carriers, 175 parked, **ceiling 3**.
-> ⭐ **METHOD NOTE THAT COST ME THE BAD CALL:** I ranked subsystems by sole-blocker COUNT without checking
-> whether each could be COMPLETED. A count of cards mentioning a mechanic is not a count of cards that
-> would work. Every row of `probe-subsystem-rank.cjs` needs a completability probe before it is a plan.
+> ### ⏭ NEXT SLICE — **AC-OR "…or pay {X}"**, ceiling **5 of 5**, spec is in the RUN-LEDGER
+> The best ceiling ratio of the run. All five carriers (Spark Harvest, Lash of the Balrog, Morkrut
+> Behemoth, Eaten Alive, Bayou Groff) have their EFFECT already modeled; the additional cost is the sole
+> blocker on every one. The AC-OR splitter, the per-payable-option cast emission and the dispatcher charge
+> ALL EXIST — the only missing piece is a `pay {mana}` cost kind in `parseOneAdditionalCost`.
+> ⛔ **THE ONE HARD PART: affordability must merge the extra pips with the PRINTED cost and test them
+> together**, across coloured/generic/hybrid. Undercharging here is a FREE SPELL — castModifiers.js says so
+> in its own words. **Law 6 witness must be a POOL BALANCE, not a tier**: cast Bayou Groff with exactly
+> printed+extra and assert the pool hits 0; then one pip short and assert the option is not offered.
+> Bayou Groff is the fixture — the additional cost IS its whole card, so nothing can mask a mischarge.
+
+> ### ⛔ DUNGEONS: my earlier "build venture first" call is RETRACTED — see the ledger
+> 13 of 21 rooms parse, NO dungeon is complete (Lost Mine 6/7 is closest), and the Initiative dungeon is
+> not in the bundled data at all. `node app/scripts/probe-dungeon-rooms.cjs` before believing any of it.
 > ### ⭐⭐ THE INSTRUMENT TO START FROM — `app/scripts/probe-sole-blocker.cjs`
 > For every multi-line parked card, remove ONE line and re-classify; if exactly one removal makes it native,
 > that line IS the sole blocker. **6,859 of 12,917 multi-line parked cards have a single blocking line.**

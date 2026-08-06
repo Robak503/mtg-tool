@@ -3,6 +3,36 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⏭ NEXT SLICE, FULLY SPECIFIED (not built) - 2026-08-06 - **AC-OR "…or pay {X}" — ceiling 5 of 5 carriers**
+> **The best ceiling RATIO measured in this whole run: 5 carriers, 5 would flip.** Spark Harvest, Lash of
+> the Balrog, Morkrut Behemoth, Eaten Alive, Bayou Groff — every one of them has its EFFECT already modeled
+> (two of them only because UP-1/GX-2 landed earlier today). The additional cost is the sole blocker on all
+> five.
+> ⭐ **SIXTEENTH "BUILT ENGINE, PARTIAL IGNITION", and the machinery is ~90% there.** `castModifiers.js`
+> already has the AC-OR splitter (CR 601.2f, "<costA> OR <costB>", tried ONLY after every single-cost
+> extractor misses so that "sacrifice an artifact or creature" is not shredded). `legalChoices` already
+> emits ONE CAST PER PAYABLE OPTION and stamps the chosen spec; `actionDispatcher` already charges exactly
+> that spec. **The only missing piece is a `pay {mana}` cost KIND** — `parseOneAdditionalCost` vets
+> sacrifice / payLife / discard / exileFromGraveyard / returnToHand, and nothing else, so the "or pay {3}{B}"
+> half fails vetting and the whole card stays Arbiter.
+> ⛔⛔ **WHY I SPECIFIED IT INSTEAD OF BUILDING IT AT THE END OF A WINDOW.** The affordability check must
+> merge the extra pips with the PRINTED cost and test them TOGETHER — `canAfford(pool, sources, printed +
+> extra)` — across coloured pips, generic and hybrid. Charging them separately, or summing generic while
+> dropping colour, undercharges. **castModifiers' own comment names this exact failure: "an ADDITIONAL cost
+> makes the card MORE expensive, so skipping it is cheaper-than-printed — the forbidden direction. Credit
+> without charging is a FREE SPELL."** A subtly wrong merge is worse than no slice.
+> ⭐ **THE BUILD, in order:**
+> 1. `PAYMANA_COST_RE = /^pay ((?:\{[^}]+\})+)$/i` in castModifiers → `{ kind: "payMana", pips }`, added to
+>    `parseOneAdditionalCost` (and NOT to the single-cost path first — see the ordering warning in-file).
+> 2. `legalChoices` arm beside the `payLife` one (~line 1164): merge `parseManaCost(printed)` with
+>    `parseManaCost(pips)` and gate on the MERGED `canAfford`. Do NOT reuse the plain `affordable` flag —
+>    it was computed for the printed cost alone.
+> 3. `actionDispatcher` arm beside its `payLife` one (~line 392): charge the merged cost.
+> ⛔ **LAW 6 IS MANDATORY HERE and the witness must be a POOL BALANCE, not a tier.** Cast Bayou Groff with
+> EXACTLY printed+extra mana and assert the pool lands at 0; then with one pip short and assert the option
+> is NOT OFFERED. A tier assertion cannot tell a charged spell from a free one.
+> ⭐ Bayou Groff is the cleanest fixture: the additional cost IS the whole card, so nothing else can mask a
+> mischarge.
 > ## ⚠️ CI NOTE - 2026-08-06 - **A run `conclusion: failure` whose JOB says `cancelled` is INFRASTRUCTURE, not a regression**
 > Run 31117377109 (b2358e5a) reported `cancelled`, then `failure` after a re-run, then **`success` on the
 > third attempt** — with no code change between them. The job-level conclusion stayed `cancelled` the whole
