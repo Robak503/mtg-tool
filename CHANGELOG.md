@@ -4184,6 +4184,8 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Tribal tutors for more creature types work.** Giant Harbinger and Forerunner of the Coalition search
+  for a Giant or a Pirate card; the simulator knew a handful of creature types and not these.
 - **Pumps that scale with a board count work on a chosen target.** Primal Bellow, Might of the Masses,
   Hunger of the Nim, Confront the Unknown, Defile, Irradiate and Friendly Neighborhood count your Forests,
   Clues, artifacts or creatures and buff the target by that much.

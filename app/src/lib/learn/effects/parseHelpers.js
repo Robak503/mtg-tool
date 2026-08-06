@@ -478,6 +478,22 @@ const TUTOR_FILTER_WORDS = new Set([
   // lines carry either word left of the em-dash.
   "dragon", "merfolk", "dinosaur", "goblin", "wizard", "elf", "sliver", "vampire",
   "rebel", "mercenary",
+  // ⭐ TF-1 (2026-08-06) — eight more, each held to BOTH of this list's own stated criteria, measured rather
+  // than assumed:
+  //   (a) at least one "search your library for / reveal a <subtype> card" carrier in the corpus —
+  //       giant 4, pirate 2, human 1, soldier 1, zombie 1, angel 1, warrior 1, cleric 1.
+  //   (b) the word appears ONLY on the subtype side of the em dash, ZERO occurrences left of it or on a
+  //       dashless type line (human 4,808 subtype-side / 0 collisions; giant 251 / 0; the rest likewise).
+  // ⛔ I FIRST ADDED EIGHTEEN. Ten of them — beast, spirit, knight, rogue, druid, shaman, dwarf, cat, bird,
+  // snake — passed (b) and FAILED (a) with ZERO carriers: pure untested surface in a gate whose whole job is
+  // to refuse. Trimmed. Criterion (a) is not decoration; it is what keeps this list from accumulating words
+  // no card can exercise.
+  // ⛔ THE COLLISION CHECK ALMOST PASSED BROKEN. Its first run reported 0 subtype-side hits for EVERY
+  // candidate — impossible, since "Human" is on thousands of type lines — and would have read as "all safe"
+  // at a glance. A shell-eaten backslash had turned `\b` into a literal BACKSPACE so nothing matched. The
+  // all-zero rule caught it; the probe now lives in a file with a sanity gate that fails loudly if a known
+  // type line stops splitting.
+  "human", "soldier", "zombie", "angel", "warrior", "cleric", "pirate", "giant",
 ]);
 // ===== RAMP-TYPED ===== the five basic LAND TYPES (CR 305.6). A tutor-filter group naming any of
 // these is GUARANTEED to fetch a LAND — verified against the bundled corpus: ZERO non-land cards

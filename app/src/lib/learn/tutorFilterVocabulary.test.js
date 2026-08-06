@@ -82,7 +82,12 @@ describe("⛔ the existing vocabulary is unchanged", () => {
   });
 
   it("⛔ an unknown word still parks (CREED) — the new arms do not loosen the gate", () => {
-    expect(parseTutorFilter("zombie")).toBeNull();       // not a curated subtype
+    // ⚠️ THE SAMPLE WORD CHANGED 2026-08-06 (TF-1). This row used "zombie", which became a curated subtype
+    // when the tribal vocabulary widened — so the pin went red for a reason that had nothing to do with
+    // its intent. A guard whose example is drawn from the SAME namespace it guards will keep doing that;
+    // "beast" below is deliberately a real creature type that is NOT curated (zero tutor carriers in the
+    // corpus, so criterion (a) keeps it out), which makes it a stable negative rather than a lucky one.
+    expect(parseTutorFilter("beast")).toBeNull();         // a real subtype, but no tutor carrier → not curated
     expect(parseTutorFilter("nonlegendary")).toBeNull(); // Unmarked Grave, still out
   });
 });

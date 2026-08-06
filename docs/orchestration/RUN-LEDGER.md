@@ -3,6 +3,31 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-06 - **TUTOR SUBTYPE VOCABULARY (+2) — and a verification that almost passed broken** - post-v0.156.0 batch 7
+> Suite 1189 / 14,339 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Giant Harbinger, Forerunner
+> of the Coalition. Both audited whole-card.
+> ⭐ **A TIER SPLIT INSIDE ONE ALLOWLIST:** `reveal an ELF card` parsed and `reveal a HUMAN card` did not —
+> same matcher, same shape, different curated word. `TUTOR_FILTER_WORDS` states its own two criteria and
+> both were MEASURED: (a) at least one tutor/reveal carrier in the corpus, (b) the word appears ONLY on the
+> subtype side of the em dash, zero collisions.
+> ⛔ **I FIRST ADDED EIGHTEEN WORDS AND TRIMMED TO EIGHT.** Ten (beast, spirit, knight, rogue, druid,
+> shaman, dwarf, cat, bird, snake) passed (b) and FAILED (a) with ZERO carriers — **pure untested surface
+> in a gate whose entire job is to refuse.** Same +2 either way, less than half the surface. Criterion (a)
+> is what stops the list accumulating words no card can exercise; I nearly ignored it because (b) was the
+> interesting check.
+> ⛔⛔ **THE COLLISION CHECK ALMOST PASSED BROKEN, AND IT WOULD HAVE PASSED IN MY FAVOUR.** Its first run
+> reported ZERO subtype-side hits for EVERY candidate — impossible, "Human" is on thousands of type lines —
+> and read at a glance as "all safe", which was exactly the answer I wanted. A shell-eaten backslash had
+> turned `\b` into a literal BACKSPACE, so nothing matched at all. **The all-zero rule caught it.** Probe
+> rewritten into a scratchpad `.cjs` with a SANITY GATE that exits non-zero if a known type line stops
+> splitting — per the standing no-heredoc rule I had just written and then broke within the hour.
+> ⭐ **THE LESSON: a verification that returns the CONVENIENT answer deserves more suspicion than one that
+> returns an inconvenient one, not less.** Every wrong call I have made today arrived as a clean-looking
+> confirmation of what I already expected.
+> ⚠️ A stale pin went red for a reason unrelated to its intent: `tutorFilterVocabulary.test.js` used
+> "zombie" as its example of an unknown word, and zombie became curated. Replaced with "beast" — a REAL
+> creature type with zero tutor carriers, so criterion (a) keeps it out and the negative is stable rather
+> than lucky. **A guard whose example is drawn from the namespace it guards will keep going red.**
 > ## SLICE DONE - 2026-08-06 - **COUNT-SCALED TARGET PUMP (+7) — and a clamp that ate every negative** - post-v0.156.0 batch 7
 > Suite 1188 / 14,336 green + lint 0 BY EXIT CODE. Flip-diff **+7 / 0 / 0** — Primal Bellow, Might of the
 > Masses, Hunger of the Nim, Confront the Unknown, Defile, Irradiate, Friendly Neighborhood. All audited
