@@ -7,36 +7,42 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **post-v0.155.0 batch 85 · referent + noun-gap era: TP-1 +11 · TP-2/3 +7 · CD-OPP +4 · TO-1 +3** — suite **1169 / 14,265** green by exit code
+## ☀️ 2026-08-06 — **🏷 v0.156.0 PUBLISHED (106 cards) · new batch 0** — suite **1172 / 14,279** green by exit code
 
-> ### ⏭ NEXT BUILD, MEASURED AND SEAM-MAPPED: **UNION + CONTROL SCOPE on fixed-amount damage (+4)**
-> Skysovereign Consul Flagship, Careless Celebrant, Iroas's Blessing, Ossuary Rats — all
-> "deals N damage to target creature or planeswalker **an opponent controls**".
-> ⭐⭐ **SPLIT-BY-TIER, AND THE WORKING PATHS ARE THE PROOF: 7 CARRIERS OF THIS EXACT PHRASE ARE ALREADY
-> NATIVE.** Citizen's Arrest and Prison Realm reach it through the DESTROY/EXILE lane (removal.js's TT map,
-> which carries an optional control-scope group beside the noun map); Bite Down, Master's Rebuke,
-> Hard-Hitting Question, Horrific Assault and Closing Statement reach it through the POWER-DAMAGE lane
-> (`damage-target-power`, combat.js ~2316, which already emits targetType creatureOrPlaneswalker WITH
-> `[{kind:"controller",who:"opponent"}]`). Only the FIXED-AMOUNT damage lane can't compose the two.
-> **A working composition exists in two lanes — copy one, don't invent.**
-> ⓘ **MEASURED BOUNDARY (probe it yourself in 30s, don't re-derive):**
-> · `deals 3 damage to target creature an opponent controls` → parses, restrictions correct.
-> · `deals 3 damage to target creature or planeswalker` → parses, targetType creatureOrPlaneswalker.
-> · `deals 3 damage to target creature or planeswalker an opponent controls` → **[] — the pair fails.**
-> ⓘ **WHERE IT BREAKS, EXACTLY:** `parseCreatureTargetRestrictions` (spellEffects.js ~293) extracts the
-> control restriction CORRECTLY — `{kind:"controller",who:"opponent"}` — and then returns **clean:false**,
-> because "or planeswalker" is left as residue by design (its own comment says so at ~304). The bare union
-> is ALSO clean:false and works anyway, because it short-circuits at spellEffects.js:191, which returns the
-> union targetType and **silently drops any trailing control scope**.
-> ⛔⛔ **DO NOT JUST MAKE THE RESIDUE CLEAN.** That function is shared by destroy / exile / damage AND
-> legalChoices' legacy single-target path. Swallowing "or planeswalker" into the noun there would let a
-> union be treated as a plain CREATURE target somewhere else — offering a planeswalker where only creatures
-> are legal, or the reverse. That residue is a guard, not an oversight; the fix belongs in the damage lane's
-> own target-phrase handling, mirroring removal.js's optional-scope group.
-> ⛔ Law 6 applies (it changes legal targets): drive a board with a creature and a planeswalker on BOTH
-> sides and print the enumerated pool by id — an "an opponent controls" damage must offer neither of yours.
-> ⓘ Stopped here on a deliberate budget call rather than pushed: 4 cards did not justify a change with real
-> FP surface in a shared parser on a thin remaining budget. The measurement is the deliverable.
+> ### ⏭ NEXT BUILD, MEASURED AND SEAM-MAPPED: **the "ITS CONTROLLER" REFERENT (≤5)**
+> Poisonbelly Ogre, Parasitic Impetus (lose-life) · Fate Foretold (draw) · Smoke Blessing (damage, compound
+> with a Treasure) · Lay Bare (the countered SPELL's controller — a DIFFERENT referent, see below).
+> ⚠️ **≤5 IS AN UPPER BOUND FROM A MEANING-CHANGING SWAP** — the probe replaced "its controller" with
+> "target player", which turns a referent into a chosen target. Same caveat as the "that player" axis.
+> ⭐⭐ **BUILT ENGINE, NO IGNITION — AND THIS ONE IS EXACT.** `triggeringPermanentController` is bound in
+> makePendingTrigger's GENERIC context (triggers.js ~5460) and **read by nothing**: a grep across learn/
+> returns the binding line and no consumers. Four of the five carriers want precisely that value (the
+> ENTERING creature's controller for Poisonbelly Ogre; the DYING creature's for Fate Foretold / Smoke
+> Blessing; the ATTACKING creature's for Parasitic Impetus).
+> ⛔⛔ **THE PIPELINE REFUSES A BARE PRONOUN AS A CLAUSE SUBJECT — THIS IS THE WHOLE FINDING, AND IT IS WHY
+> THE OBVIOUS BUILD DOES NOT WORK.** Measured: a parser arm added to `lifeClauseParser` matching
+> `^its controller loses (\d+) life$` returns the correct atom when the parser is called DIRECTLY, and
+> `parseEffectClause` on the identical string still yields `[]`, while its sibling
+> `the upkeep player loses 1 life` sails through the same pipeline. Something upstream of
+> parseClauseToAtom drops a clause whose subject is "its".
+> ⭐ **SO THE CORRECT BUILD IS AN EVENT-GATED SENTINEL REWRITE, exactly like every other referent here.**
+> gyOwner, upkeep-player, discarding-player, casting-player and drawing-player ALL rewrite the anaphor in
+> detectTriggers before any atom sees it. "its controller" should become a sentinel
+> (e.g. "the triggering permanent's controller") on trigger events that bind one, and the parser arm should
+> match the SENTINEL, never the raw pronoun. That also explains the refusal above as deliberate rather than
+> a bug: the pipeline does not trust bare pronouns, and the rewrite is how every sibling earns its trust.
+> ⓘ **A WORKING "its controller" PATH ALREADY EXISTS — START THERE.** life.js's investigate doc block names
+> *"via the bound-referent arm, 'Its controller investigates.' (Fateful Absence)"*. Read how that one reaches
+> its referent before writing anything; it is the in-repo precedent.
+> ⛔ LAY BARE IS A DIFFERENT CAUSE — "counter target spell. Look at ITS CONTROLLER's hand" refers to the
+> countered SPELL, not a permanent. That is ctx.castingPlayerId territory, not
+> triggeringPermanentController. Do not fold it in.
+> ⛔ THE SPELL FENCE: a SPELL carrying this referent has no triggering permanent, so the clause would
+> silently no-op. coverage.js's two spell-path referent loops (~1160/1193/1225, the lists that already name
+> damagedPlayer / defendingPlayer / gyOwner) are where it must be added — the established guard for exactly
+> this hazard.
+> ⓘ Stopped on a budget call after the pipeline refusal was isolated; the arms were written, measured as
+> dead without the rewrite, and REVERTED rather than left as unreachable code.
 
 > ### ⚠️⚠️ A BROKEN PROBE RETURNS A CLEAN-LOOKING **NEGATIVE** — THE MEASUREMENT NEEDS ITS OWN GATE
 > A corpus probe for the colour-disjunction vein reported a confident **"0 flips"**. The vein is really **13**.
