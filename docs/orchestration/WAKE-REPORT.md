@@ -7,60 +7,36 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-05 — **post-v0.155.0 batch 60 · ES-1 +8 · ES-2 +3 · CD-1 +8 · LH-2 +5 · two live bugs fixed** — suite **1166 / 14,244** green by exit code
+## ☀️ 2026-08-05 — **post-v0.155.0 batch 85 · referent + noun-gap era: TP-1 +11 · TP-2/3 +7 · CD-OPP +4 · TO-1 +3** — suite **1169 / 14,265** green by exit code
 
-> ### ⏭ NEXT BUILD, MEASURED AND SEAM-MAPPED: **the "THAT PLAYER" REFERENT (≤38, upper bound)**
-> Eidolon of the Great Revel, Pyrostatic Pillar, Kambal, Sheoldred, Forced Fruition, Go Blank, Spy Eye,
-> Snapping Thragg, Demon of Loathing, Master of the Feast and ~28 more.
-> ⚠️⚠️ **READ THIS BEFORE TRUSTING THE NUMBER: 38 IS AN UPPER BOUND FROM A SWAP THAT CHANGES MEANING.**
-> The probe replaced "that player" with "target player" and counted flips. Those are NOT the same card.
-> **"That player" is a REFERENT** — it points back at the player the trigger's condition already established
-> ("Whenever a player casts a spell …, deal 2 damage to **that player**"). **"Target player" is a fresh
-> CHOICE.** Shipping the wording swap would let the controller pick the victim: strictly better than printed,
-> the forbidden direction, on 38 cards at once. **The fix is to RESOLVE the referent, never to accept the
-> wording.** The 38 measures "cards whose victim referent is unresolved", which is the right vein — but the
-> real yield is whatever the referent build actually flips, and that must be re-measured after the build.
-> ⭐⭐ **IT IS WIRING, NOT NEW MACHINERY — every piece but one already exists.** Verified on Eidolon:
-> · the TRIGGER is fully detected — `{event:"cast", scope:"castWatcher", whose:"any", spellFilter:{manaValue
->   lte 3}}`. Nothing wrong there.
-> · the REFERENT IS ALREADY BOUND — `triggers.js:7612` threads `castingPlayerId` into EVERY cast-trigger's
->   context, and `stack.js:948` already consumes it for Rhystic Study's taxed draw.
-> · the GAP is one line wide: `parseEffectClause("this creature deals 2 damage to that player")` returns
->   **zero atoms with an unparsedTail**. The effect side has no "that player" target vocabulary.
-> ⭐ **FOLLOW THE EXISTING PRECEDENT RATHER THAN INVENTING ONE.** `ctx.damagedPlayerId` (63 call sites) is the
-> same pattern already solved for combat damage, complete with its own `who:"damagedPlayer"` scope and the
-> documented discipline that an ABSENT referent yields an EMPTY pool — the ability drops no-target rather
-> than acting on a wrong seat. Copy that shape. The other bound referents (`upkeepPlayerId`,
-> `discardingPlayerId`, `lifeLostPlayerId`, `drawingPlayerId`) suggest the same target vocabulary serves
-> several trigger families at once, so scope the atom as "the referent seat", not as "the caster".
-> ⛔⛔ **THE PIN THAT MATTERS IS THE WRONG-SEAT ONE, and it is invisible to a naive test.** With three
-> opponents on the board, a card must damage the seat that actually cast the spell. A pin asserting only
-> "2 damage was dealt to an opponent" passes while hitting the wrong player two times in three. Drive a
-> 4-seat board, have a NON-adjacent opponent cast, and assert the victim BY SEAT.
-> ⛔ And the absent-referent case: on any event that binds no seat, the effect must do NOTHING — never fall
-> back to "an opponent" or to the controller's choice.
-> ⓘ **PROBE NOTES FROM A FIRST ATTEMPT (2026-08-05) — read these before starting, they cost three probes.**
-> · **`parseEffectClause` IS NOT THE PATH.** It returns `[]` for BOTH `"this creature deals 2 damage to that
->   player"` AND the working `"…to target player"`, with the type line passed correctly. Yet `classifyCard`
->   gives body-only vs native-trigger for those same two cards. **Find the gate coverage actually uses for a
->   trigger's effect before touching anything** — `allTriggerSentencesModeled` is the entry point to follow.
->   An hour is easy to lose confirming a parser that isn't the one being consulted.
-> · The SHAPE DISTRIBUTION is 24 distinct effect wordings across the 38, so this is one cause with many
->   consumers (like ES-1's host spec). The biggest single shape is **"deals N damage to that player" — 9
->   cards** (Pyrostatic Pillar, Aether Sting, Spellshock, Eidolon, Gibbering Fiend, Fate Unraveler,
->   Ishi-Ishi, Scrawling Crawler, Snapping Thragg). Then "that player loses N life" (5, incl. the
->   "…and you gain N life" pair) and "that player sacrifices a creature of their choice" (3).
-> · ⛔⛔ **THE 9 DAMAGE CARDS DO NOT SHARE A TRIGGER TYPE**, which kills the tempting design. Eidolon fires on
->   CAST; Fate Unraveler and Scrawling Crawler fire on DRAW. So the referent is per-trigger-family, and the
->   effect atom must read ONE canonical field.
-> · ⛔⛔ **DO NOT WRITE A FALLBACK CHAIN** (try castingPlayerId, then drawingPlayerId, then damagedPlayerId…).
->   It picks the WRONG SEAT the moment two are bound — a cast during combat carries a live damagedPlayerId —
->   and a wrong-seat bug is invisible, because the ability resolves and only the identity is wrong. Bind ONE
->   explicit `triggeringPlayerId` at each firing site instead. The first attempt did exactly this at the four
->   sites (cast: triggers.js ~7612; draw: the three `triggeringContext: { drawingPlayerId }` sites plus the
->   `makePendingTrigger(d, watcher, null, { drawingPlayerId })` site) and it is a two-line-per-site change —
->   **reverted only because the consumer half was not found in budget, not because it was wrong.**
-
+> ### ⏭ NEXT BUILD, MEASURED AND SEAM-MAPPED: **UNION + CONTROL SCOPE on fixed-amount damage (+4)**
+> Skysovereign Consul Flagship, Careless Celebrant, Iroas's Blessing, Ossuary Rats — all
+> "deals N damage to target creature or planeswalker **an opponent controls**".
+> ⭐⭐ **SPLIT-BY-TIER, AND THE WORKING PATHS ARE THE PROOF: 7 CARRIERS OF THIS EXACT PHRASE ARE ALREADY
+> NATIVE.** Citizen's Arrest and Prison Realm reach it through the DESTROY/EXILE lane (removal.js's TT map,
+> which carries an optional control-scope group beside the noun map); Bite Down, Master's Rebuke,
+> Hard-Hitting Question, Horrific Assault and Closing Statement reach it through the POWER-DAMAGE lane
+> (`damage-target-power`, combat.js ~2316, which already emits targetType creatureOrPlaneswalker WITH
+> `[{kind:"controller",who:"opponent"}]`). Only the FIXED-AMOUNT damage lane can't compose the two.
+> **A working composition exists in two lanes — copy one, don't invent.**
+> ⓘ **MEASURED BOUNDARY (probe it yourself in 30s, don't re-derive):**
+> · `deals 3 damage to target creature an opponent controls` → parses, restrictions correct.
+> · `deals 3 damage to target creature or planeswalker` → parses, targetType creatureOrPlaneswalker.
+> · `deals 3 damage to target creature or planeswalker an opponent controls` → **[] — the pair fails.**
+> ⓘ **WHERE IT BREAKS, EXACTLY:** `parseCreatureTargetRestrictions` (spellEffects.js ~293) extracts the
+> control restriction CORRECTLY — `{kind:"controller",who:"opponent"}` — and then returns **clean:false**,
+> because "or planeswalker" is left as residue by design (its own comment says so at ~304). The bare union
+> is ALSO clean:false and works anyway, because it short-circuits at spellEffects.js:191, which returns the
+> union targetType and **silently drops any trailing control scope**.
+> ⛔⛔ **DO NOT JUST MAKE THE RESIDUE CLEAN.** That function is shared by destroy / exile / damage AND
+> legalChoices' legacy single-target path. Swallowing "or planeswalker" into the noun there would let a
+> union be treated as a plain CREATURE target somewhere else — offering a planeswalker where only creatures
+> are legal, or the reverse. That residue is a guard, not an oversight; the fix belongs in the damage lane's
+> own target-phrase handling, mirroring removal.js's optional-scope group.
+> ⛔ Law 6 applies (it changes legal targets): drive a board with a creature and a planeswalker on BOTH
+> sides and print the enumerated pool by id — an "an opponent controls" damage must offer neither of yours.
+> ⓘ Stopped here on a deliberate budget call rather than pushed: 4 cards did not justify a change with real
+> FP surface in a shared parser on a thin remaining budget. The measurement is the deliverable.
 
 > ### ⚠️⚠️ A BROKEN PROBE RETURNS A CLEAN-LOOKING **NEGATIVE** — THE MEASUREMENT NEEDS ITS OWN GATE
 > A corpus probe for the colour-disjunction vein reported a confident **"0 flips"**. The vein is really **13**.
