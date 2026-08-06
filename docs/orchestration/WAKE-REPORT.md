@@ -26,9 +26,25 @@
 > **So the EACH-creature lane composes scope fine and the SINGLE-TARGET lane is the holdout, on BOTH
 > qualifiers.** `parseCreatureTargetRestrictions` already returns `clean:true` with the right restriction
 > for the damagedPlayer case — the refusal is downstream of it, in the single-target damage matcher.
-> ⓘ **SUSPECT, NOT CONFIRMED:** stack.js's amountCount TT map carries `"that player": "damagedPlayer"`, so a
-> clause containing "that player" may be intercepted by the "damage equal to X" matcher and bail before the
-> fixed-amount path runs. Verify that before editing anything — it is a hypothesis, not a diagnosis.
+> ⭐⭐ **DIAGNOSED — and the earlier suspect (an amountCount TT interception) was WRONG, so ignore it.** The
+> refusal is `UNMODELED_MARKERS` in parser.js (~line 341), which explicitly lists
+> `that (?:player|creature|deals|has|was|spell)` and `its (?:owner|controller)`. parser.js's damage/destroy
+> fold requires BOTH `clean` from parseCreatureTargetRestrictions AND `isCleanClause(cleanedOracle)`, and
+> that second gate rejects the leftover anaphor. **"defending player controls" parses precisely because it
+> is NOT in that list** — it is an unambiguous printed phrase, not an anaphor.
+> ⭐ **SO THE PARSER'S REFUSAL IS DELIBERATE, AND IT IS THE SAME PRINCIPLE AS THE "its controller" REFUSAL
+> (IC-1): bare anaphors are treated as unresolved residue by design.** The fix is therefore the SENTINEL
+> pattern once more, and it is now mechanical:
+> ① rewrite "that player controls" → an unambiguous sentinel in detectTriggers, gated to the combat-damage
+>   events that bind ctx.damagedPlayerId (the DT-1 scope arm already emits the right restriction; it is the
+>   clause TEXT that has to stop being an anaphor);
+> ② add the sentinel to `MODELED_RESTRICTION_RES` (spellEffects ~275) so `cleanedOracle` strips it and
+>   `isCleanClause` passes;
+> ③ point the DT-1 scope arm at the sentinel as well as the raw phrase — the raw form must keep working for
+>   the EACH-creature lane, which already ships and does not go through this gate.
+> ⛔ Do NOT "fix" this by loosening UNMODELED_MARKERS. That list is what keeps every unresolved anaphor off
+> the native path; widening it would admit exactly the class of card this run has twice caught silently
+> doing nothing (or doing it to the wrong seat).
 > ⛔⛔ **REAL CREED SURFACE, AND THE PRECEDENT IS ALREADY WRITTEN.** DT-1 measured +2 and one was a WRONG
 > CARD: Flames of the Raze-Boar, a SPELL whose "that player" is a cross-clause reference, would have been
 > credited native while its second clause hit nobody. The spell fence now catches it via
