@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **A few more opponent-targeting cards work.** Fiery Justice, Bargain and Armistice give an opponent life
+  or a card draw. The simulator understood "target player gains/draws" but not "target opponent", so these
+  sat out — and each now targets only opponents, never its own controller.
 - **Draw-punisher and opponent-upkeep cards work.** Fate Unraveler, Underworld Dreams, Scrawling Crawler
   and Nekusar punish whoever drew the card; Gibbering Fiend, Sheoldred and Manic Scribe act on the opponent
   whose upkeep it is. Both families understood their trigger but not who "that player" meant, so they sat
