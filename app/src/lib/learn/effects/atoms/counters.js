@@ -549,6 +549,26 @@ export function addCounterClauseParser(clause) {
   }
   let m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
+  // ⭐⭐ CV-2 (2026-08-06) — the "creature or Vehicle" UNION on the counter lane (Seven-Tail Mentor, Grafted
+  // Growth, Light the Way, Fire Nation Engineer). CR 301.7: an UNCREWED Vehicle is not a creature, so this
+  // union reaches a permanent the plain `creature` targetType cannot — which is the whole point of the
+  // printed wording. The `creatureOrVehicle` predicate and its enumeration path already exist (CV-1 lit the
+  // removal lane); this is the counter lane's ignition.
+  // ⛔ SEPARATE ANCHORED MATCHERS, not a widened noun group in the two above. Those are `$`-anchored and
+  // feed different targetTypes ("creature" vs "creatureYouControl"); folding a third noun into them would
+  // put the union through a branch that enumerates creatures ONLY, which is the silent-do-nothing shape.
+  // ⛔ THE YOU-CONTROL FORM CARRIES A RESTRICTION RATHER THAN A DEDICATED targetType, because
+  // `creatureOrVehicle` routes through addPermanents, which enforces the FULL restriction set via
+  // creatureSatisfiesRestrictions. Without that restriction the card would offer an OPPONENT's Vehicle —
+  // an illegal target, the forbidden direction. The Law-6 row in creatureOrVehicleCounter.test.js names the
+  // opponent's Vehicle as the excluded permanent for exactly this reason.
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature or vehicle$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureOrVehicle" };
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature or vehicle you control$/);
+  if (m) {
+    return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10),
+      targetType: "creatureOrVehicle", restrictions: [{ kind: "controller", who: "you" }] };
+  }
   // ENTERED-THIS-TURN target (Cathedral Acolyte's activated — "put a +1/+1 counter on target creature that
   // entered this turn"): the chosen-creature atom narrowed by the enteredThisTurn enumeration gate
   // (perm.enteredOnTurn === state.turn — the field every enter path stamps). ANY controller's creature

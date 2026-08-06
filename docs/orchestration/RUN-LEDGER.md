@@ -3,6 +3,32 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-06 - **CREATURE-OR-VEHICLE on the COUNTER lane (+4)** - post-v0.156.0 batch 7
+> Suite 1182 / 14,315 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Seven-Tail Mentor, Light the
+> Way, Grafted Growth, Perilous Snare. All audited whole-card.
+> ⭐ **THE SECOND LANE OF A PREDICATE CV-1 ALREADY LIT.** `creatureOrVehicle` and its enumeration path
+> exist; the counter matchers simply never emitted the targetType. CR 301.7 is why the union is not
+> redundant phrasing — an UNCREWED Vehicle is not a creature, so it reaches a permanent the plain
+> `creature` targetType cannot, which is the whole reason the cards print it.
+> ⭐ **PER-LANE CEILING PROBE FIRST, and it is why this slice is the counter lane rather than the bounce
+> one.** Splitting the still-parked creature-or-Vehicle carriers by LEAD VERB gave: put 6 · return 4 ·
+> other 3 · untap 1 · destroy/exile/tap 0. Built the top. **The remaining lanes are separate TABLES, not a
+> batch** (gate 20): bounce is zones.js, the pump/grant lanes are their own.
+> ⛔⛔ **THE YOU-CONTROL FORM CARRIES A RESTRICTION, NOT A DEDICATED targetType — and the mutation proves
+> the tier cannot police it.** `creatureOrVehicle` routes through `addPermanents`, which enforces the full
+> restriction set, so `controller: you` is honoured there. Dropping it leaves Seven-Tail Mentor classifying
+> **native-trigger** while its pool silently gains the OPPONENT's Vehicle and creature — an illegal target,
+> the forbidden direction, invisible to every count. Only the Law-6 pool row catches it.
+> ⛔ **SEPARATE ANCHORED MATCHERS, not a widened noun group in the two incumbents.** Those are `$`-anchored
+> and feed DIFFERENT targetTypes (`creature` vs `creatureYouControl`); folding a third noun into either
+> would route the union through a branch enumerating creatures ONLY. Both incumbents pinned byte-identical.
+> ⚠️ **PERILOUS SNARE WAS NOT IN THE PREDICTED SET** and flipped anyway (its Max-speed activated ability
+> carries the clause). Audited like the rest — the Max-speed gate is real and enforced (legalChoices
+> withholds below speed 4), the ETB exile-until is modeled. **A gained row nobody predicted is exactly the
+> one not to wave through on the strength of the three that were.**
+> ⭐ Light the Way's trailing "Untap it." rider is CARRIED (`{op:untap, bindPreviousTargets:true}`), not
+> dropped — checked because a counter atom alone would have been the card reading native with half its
+> text dead.
 > ## SLICE DONE - 2026-08-06 - **KEYWORD RESTRICTION beyond flying (+6)** - post-v0.156.0 batch 7
 > Suite 1181 / 14,312 green + lint 0 BY EXIT CODE. Flip-diff **+6 / 0 / 0** — Clear a Path, Ogre
 > Gatecrasher, Deface, Shadowstorm, Faceless Devourer, Smash to Dust. All audited whole-card.
