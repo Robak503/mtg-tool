@@ -7,6 +7,61 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ☀️ 2026-08-06 — **+76 this stretch · batch 7 at 83 cards post-v0.156.0 (tag at ~100)** — suite **1188 / 14,336** green by bare exit code
+
+> ### ⏭ START HERE — the instrument that is finding everything
+> **CENSUS THE UNPARSED TRIGGER EFFECT CLAUSES, NORMALIZED, RANKED BY COUNT.** For every card that is not
+> native, run `detectTriggers`, take each `effectClause` that `parseEffectClause` returns EMPTY for,
+> normalize it (digits → N, `{…}` → {M}), and tally. That one query produced the last four slices. It beats
+> the target-phrase census because it groups by what the parser actually failed on, not by wording.
+> Current top rows, minus the subsystem-sized ones (venture / initiative / the Ring / attractions):
+> · `remove a time counter` **26** — suspend/vanishing. Check `KW-SUSPEND` first; part of it shipped earlier.
+> · `look at the top N cards of your library. you may …` **~47 across N=4/5/6** — one shape, three counts.
+> · `reveal cards from the top of your library until you …` **17** · `incubate N` **14** ·
+>   `create a tapped powerstone token` **12** · `you may return this card from your graveyard to your hand` **12**.
+> ⛔ **RULE 1 BEFORE BUDGETING ANY OF THEM: READ THE RESOLVER.** Four of the last five slices were budgeted
+> as new-atom builds and turned out to be ONE regex group, because the machinery already existed and only
+> the matcher was unreachable. **Fourteen "built engine, partial ignition" finds this run.** Grep the op
+> name, read the resolver, THEN decide the cost.
+
+> ### ⭐⭐ THE FIND THAT KEEPS PAYING: BUGS ON CARDS THE TIER ALREADY COUNTS AS WORKING
+> This run has now found SEVEN, none visible to any flip-diff. The newest is the largest: `applyPumpEffect`
+> computed `Math.max(0, count * per)`, so **every negative count-scaled pump resolved as zero** — Defile
+> with a Swamp out left a 2/2 at 2/2, across **19 printed cards**, shipped. Found only because a runtime row
+> asserted the NUMBER (`2/2 → 1/1`) instead of asserting the card was native.
+> ⭐ The habit that finds these: after any slice, assert a printed VALUE at runtime — a pool membership, a
+> P/T, a zone. "It classifies native" and "it parses" are both true of a card that does nothing.
+
+> ### ⚠️ TWO FALSE CLAIMS I PUBLISHED TODAY, BOTH RETRACTED — same root cause
+> **1. CT-1**: read a test pin's PROSE ("eachX would wrongly hit the unfiltered set"), inferred a board
+> wipe, reverted a correct +4, banked the claim. The resolver had honoured restrictions for six days.
+> **2. LB-1**: read `state.stack` immediately after a land drop, found it empty, and published "land ETB
+> triggers never fire" — with a matched creature control that appeared to confirm it. Triggers go to
+> `pendingTriggers` and flush on the NEXT PRIORITY PASS. Both controls were measuring the same premature
+> moment. Karoo lands work fine.
+> ⛔ **THE RULE: a matched control does not rescue a harness that stops one step early — it makes the wrong
+> answer look rigorous.** Before believing a NEGATIVE result, assert that the POSITIVE control produced its
+> actual effect, not merely that something appeared. Both retractions are pinned as end-to-end tests so
+> neither claim can be re-derived.
+
+> ### ⭐ THE OTHER STANDING RULES (earned earlier today, still load-bearing)
+> · A mutation is not applied until the CHANGED LINE HAS BEEN PRINTED BACK. `grep -c` answering 0 proves
+>   the pattern did not match, never that the edit landed.
+> · A test's PROSE documents what was true when written; only its ASSERTION is a fact about now. A red pin
+>   says a decision changed — not which way. **Run the card before graduating it.** (~17 pins cleared safely
+>   this way since the CT-1 mistake.)
+> · A pin that CONSTRUCTS THE ARGUMENT ITSELF is testing the callee, not the call. A mutation survived
+>   because a pool row called the helper directly instead of going through `atomTargets`, the seam the
+>   parser actually feeds.
+> · No shell heredocs for content containing a backslash — write the script to a scratchpad `.cjs` and run
+>   it. The trap struck five times today, once writing literal 0x08 bytes into a doc comment.
+
+> ### ✅ SHIPPED THIS STRETCH — 15 slices, every one flip-diffed, audited, mutated, CI-read
+> `995051b4` UP-1 union scope +4 · `4389cbe4` DD-1 dealt-damage +17 · `df8cccc0` CV-1 removal +4 ·
+> `23117164` BS-1 bounce qualifier +8 · `70599074` CT-1 card type +4 · `8dc56f21` KW-1 keywords +6 ·
+> `954c150e` CV-2 counters +4 · `5b15511e` ST-1 supertype +2 · `5b7a745b` CV-3 bounce +2 · `638d684a`
+> GX-2 graveyard exile +8 · `d76b9063` RT-1 reanimate-tapped +5 · `8aa51294` LB-1 land bounce +5 ·
+> `41fe8bef` CP-1 count-scaled pump +7.
 ## ☀️ 2026-08-06 — **+64 shipped this stretch · batch 7 now 71 cards post-v0.156.0** — suite **1186 / 14,327** green by bare exit code
 
 > ### ⭐⭐ THE METHOD THAT IS WORKING RIGHT NOW — use this before picking a vein
