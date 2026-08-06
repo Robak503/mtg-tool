@@ -137,8 +137,19 @@ describe("KICKER coverage — the twelve clean creatures classify native-body", 
 });
 
 describe("KICKER coverage — CREED anti-FP: deferred shapes stay body-only / arbiter", () => {
-  it("Multikicker (variable scaler) stays body-only", () => {
-    expect(classifyCard({ name: "Skitter Eel", type: "Creature — Fish", mana: "{3}{U}", oracle: "Multikicker {2}\nThis creature enters with two +1/+1 counters on it for each time it was kicked." })).toBe("body-only");
+  it("⭐ Multikicker's variable scaler is now MODELED — the refusal here was EARNED, 2026-08-05", () => {
+    // ⚠️ THIS ASSERTED body-only, and that was right while "for each time it was kicked" had no count source:
+    // crediting it would have fabricated a magnitude. The count is now stamped at cast and read by
+    // countForSpec's `timesKicked` kind. It reads ZERO on every cast the engine can make — legalChoices still
+    // never offers a multikicked cast (parseKickerCost refuses multikicker, CR 702.33h) — and zero is the
+    // CORRECT value for those casts: Skitter Eel hard-cast is a plain body with no counters, as printed.
+    // ⛔ WHAT THIS DOES **NOT** CLAIM: that multikicker is offered. That deferral is unchanged and is still
+    // guarded by parseKickerCost's own pins; see multikickerCount.test.js for the count's zero/non-zero drive.
+    expect(classifyCard({ name: "Skitter Eel", type: "Creature — Fish", mana: "{3}{U}", oracle: "Multikicker {2}\nThis creature enters with two +1/+1 counters on it for each time it was kicked." })).toBe("native-body");
+  });
+
+  it("⛔ …and the multikicker COST is still deferred — the offer side is untouched", () => {
+    expect(parseKickerCost({ name: "Skitter Eel", type: "Creature — Fish", mana: "{3}{U}", oracle: "Multikicker {2}\nThis creature enters with two +1/+1 counters on it for each time it was kicked." })).toBeNull();
   });
   it("a kicked ETB-TRIGGER whose EFFECT IS now modeled (destroy target nonbasic land) flips native-trigger — the kicker→trigger routing fires AND the land-destroy atom resolves (Goblin Ruinblaster)", () => {
     // The "it was kicked" intervening-if routes (interveningIf.js), and "destroy target nonbasic land" now parses

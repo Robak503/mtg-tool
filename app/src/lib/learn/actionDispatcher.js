@@ -304,6 +304,11 @@ function applyCastSpell(state, action) {
   // gets its own copy through params below; a spell has no permanent to stamp, which is why both exist.
   // ⛔ STAMPED EVEN WHEN ZERO — an alt/free cast spends no mana, and 0 is the right answer, not "unknown".
   working = { ...working, colorsSpentForCast: colorsSpent };
+  // ⭐ MULTIKICKER COUNT (CR 702.33h) — the same inter-atom channel. `action.kickCount` is honoured when a
+  // caller supplies one; otherwise a kicked cast is one kick and an unkicked cast is zero.
+  // ⛔ ZERO IS THE TRUE ANSWER TODAY, NOT A PLACEHOLDER: legalChoices never offers a multikicked cast
+  // (parseKickerCost refuses multikicker), so every cast the engine can make really was kicked zero times.
+  working = { ...working, timesKickedForCast: Number(action.kickCount) > 0 ? Number(action.kickCount) : (action.kicked ? 1 : 0) };
 
   // 2b. Pay any ADDITIONAL COSTS (CR 601.2f) — paid at cast, before the spell finishes going on the stack.
   // The parser attaches the cost(s) to `program.additionalCosts` and legalChoices.actionsCastSpell freezes

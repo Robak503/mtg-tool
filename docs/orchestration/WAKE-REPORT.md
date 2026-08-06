@@ -16,6 +16,17 @@
 > alone AND welded. **When a test like this reddens, the guard is almost certainly fine — re-probe for a
 > keyword that still parks and swap it, never weaken the assertion.** Recorded in-file too.
 
+> ### ⭐⭐ A COUNT WHOSE TRUE VALUE IS ZERO IS STILL WORTH MODELLING — **+7 from it**
+> "For each time it was kicked" parked 7 cards. Multikicker isn't offered (parseKickerCost refuses it), so
+> the count is 0 on every cast the engine can make — **and 0 is the CORRECT answer for those casts.** The
+> cards now play correctly rather than not at all. Modelled as a COUNT rather than stripped: a strip says
+> "this text doesn't exist" and has to be revisited when multikicker ships; a count computes the true value
+> now and goes live then. **Prove it isn't a dressed-up zero** — the pin stamps a non-zero count and shows
+> the counters follow.
+> ⛔ And when you lift a refusal, PIN THE PART THAT DIDN'T CHANGE: the kicker test gained an assertion that
+> `parseKickerCost` still returns null, so "the count is modelled" can never be misread as "multikicker is
+> offered".
+
 > ### ⚠️⚠️ WHEN A LAW-6 WITNESS READS **ALL ZERO**, CHECK THE FIELD NAME BEFORE THE CODE
 > Five harness errors today, and this is the sharpest: the converge-spell witness printed all zeros because
 > the field is `damageMarked`, not `damage`. **All-zero is indistinguishable from "the value never arrived"**

@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Multikicker creatures are playable.** Skitter of Lizards, Quag Vampires, Enclave Elite, Gnarlid Pack,
+  Apex Hawks, Wolfbriar Elemental and Lightkeeper of Emeria were held back by their "for each time it was
+  kicked" line. They now play correctly as hard-cast creatures — with no bonus counters, which is exactly
+  right, since the simulator does not yet offer the multikicker payment itself.
 - **Converge spells scale off the colors you paid with.** Radiant Flames and Kaleidoscorch deal damage equal
   to the number of colors of mana spent — three mana of one color is one damage, as printed.
 - **Converge creatures enter at the right size.** Skyrider Elf, Woodland Wanderer, Tajuru Stalwart,

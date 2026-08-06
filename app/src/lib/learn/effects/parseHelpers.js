@@ -261,6 +261,18 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   // spent" hands over the plural phrase whole; "…FOR EACH COLOR of mana spent" is split by its caller and
   // hands over the SINGULAR remainder. Same count either way, so one arm accepts both rather than two arms
   // drifting apart.
+  // ⭐ MULTIKICKER COUNT (CR 702.33h) — "for each TIME IT WAS KICKED" (Skitter of Lizards, Quag Vampires,
+  // Enclave Elite, Wolfbriar Elemental, Lightkeeper of Emeria, Gnarlid Pack, Apex Hawks). Captured at cast
+  // like every other cost-time referent here.
+  // ⛔⛔ THIS COUNT IS STRUCTURALLY ZERO TODAY, AND THAT IS SAID OUT LOUD RATHER THAN LEFT TO BE DISCOVERED.
+  // `parseKickerCost` refuses multikicker (CR 702.33h, deferred), so legalChoices never offers a multikicked
+  // cast and the count is 0 on every cast the engine can make. **That is the CORRECT value for those casts** —
+  // Skitter of Lizards hard-cast for {R} is a 1/1 haste with no counters, exactly as printed — which is why
+  // this is a count source rather than a strip: it computes the true answer for the plays available, and it
+  // goes live automatically the day multikicker is offered. A strip would have to be revisited; this will not.
+  // ⓘ The Multikicker LINE itself is already accepted as a covered cost keyword (verified: the keyword plus a
+  // vanilla body reads native today), so this rider was the only thing parking these cards.
+  if (/^times? it was kicked$/.test(p)) return { kind: "timesKicked" };
   if (/^(?:the number of )?colors? of mana spent to cast (?:this spell|it)$/.test(p)) {
     return { kind: "colorsSpentThisSpell" };
   }

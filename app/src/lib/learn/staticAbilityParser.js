@@ -1080,6 +1080,16 @@ function parseMetricCountSource(phrase) {
   if ((m = p.match(/^(plains|islands?|swamps?|mountains?|forests?) you control$/))) {
     return { kind: "permanentsYouControl", subtype: SELF_COUNT_BASIC[m[1]], excludeSelf };
   }
+  // ⭐ MULTIKICKER COUNT (CR 702.33h) — "…enters with a +1/+1 counter on it FOR EACH TIME IT WAS KICKED"
+  // (Skitter of Lizards, Quag Vampires, Enclave Elite, Gnarlid Pack, Apex Hawks). Not a board metric like its
+  // neighbours but a CAST-TIME one, stamped on state by the dispatcher and read back by countForSpec's
+  // `timesKicked` kind — the same channel the colours-spent and sacrificed-* referents use.
+  // ⛔ IT READS ZERO TODAY AND THAT IS THE TRUE ANSWER, not a placeholder: legalChoices never offers a
+  // multikicked cast (parseKickerCost refuses multikicker, CR 702.33h), so every cast the engine can make
+  // really was kicked zero times, and Skitter of Lizards hard-cast for {R} is a 1/1 haste with no counters —
+  // exactly as printed. Modelled as a COUNT rather than stripped so it goes live automatically if
+  // multikicker is ever offered.
+  if (/^times? it was kicked$/.test(p)) return { kind: "timesKicked", excludeSelf };
   return null;
 }
 

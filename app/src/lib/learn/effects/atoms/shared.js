@@ -694,6 +694,11 @@ export function countForSpec(state, ctx, spec) {
   // is deducted immediately after) and read here off the SAME inter-atom state channel the sacrificed-*
   // kinds directly above use. An ABSENT stamp reads 0: a clean no-op, never a fabricated magnitude.
   if (spec.kind === "colorsSpentThisSpell") return Math.max(0, state?.colorsSpentForCast || 0);
+  // ⭐ MULTIKICKER COUNT (CR 702.33h) — how many times the spell's kicker was paid, stamped at cast on the
+  // same channel. Reads 0 today because legalChoices never offers a multikicked cast (parseKickerCost
+  // refuses multikicker), and 0 is the CORRECT answer for every cast the engine can make. Live the moment
+  // multikicker is offered, with no change here.
+  if (spec.kind === "timesKicked") return Math.max(0, state?.timesKickedForCast || 0);
   // ===== MAX-DISCARDED-THIS-WAY (Windfall) ===== the GREATEST number of cards any player discarded during the
   // whole-hand discard the SAME spell just resolved (CR 118.10 "this way"). The discard atom (applyDiscard, on
   // the recordMaxDiscarded form) stamps state.maxDiscardedThisWay IMMEDIATELY before this draw atom resolves,

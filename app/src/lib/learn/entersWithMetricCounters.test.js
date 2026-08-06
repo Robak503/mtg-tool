@@ -58,7 +58,8 @@ describe("ETB-XCOUNTERS-FROM-METRIC — parser (serializable spec, mutually excl
   it("rejects unmodeled metrics → null (CREED: never a fabricated count)", () => {
     const reject = [
       "This creature enters with a +1/+1 counter on it for each color of mana spent to cast it.",      // Sunburst
-      "This creature enters with a +1/+1 counter on it for each time it was kicked.",                   // kicker
+      // ⚠️ "for each time it was kicked" MOVED OUT of this list on 2026-08-05 — it is now a modelled count
+      // (timesKicked), asserted positively below. The guard's job is unchanged; only this example was earned.
       "This creature enters with a +1/+1 counter on it for each creature card in your graveyard.",      // graveyard
       "Aeve enters with a +1/+1 counter on it for each other Ooze you control.",                        // creature subtype
       "This creature enters with a +1/+1 counter on it for each other creature you control with a +1/+1 counter on it.", // qualified
@@ -68,6 +69,15 @@ describe("ETB-XCOUNTERS-FROM-METRIC — parser (serializable spec, mutually excl
       "This creature enters with three +1/+1 counters on it.",                                          // fixed-N (NOT metric)
     ];
     for (const o of reject) expect(entersWithMetricCounters({ oracle: o })).toBeNull();
+  });
+
+  it("⭐ 'for each time it was kicked' is now MODELED — the refusal above was EARNED, 2026-08-05", () => {
+    // CR 702.33h. The count is stamped at cast and read back by countForSpec's `timesKicked` kind. It reads
+    // ZERO today because legalChoices never offers a multikicked cast — and zero is the correct answer for
+    // every cast the engine can make, which is exactly why it is a count rather than a fabrication.
+    // multikickerCount.test.js drives both the zero case and a non-zero stamp end to end.
+    expect(entersWithMetricCounters({ oracle: "This creature enters with a +1/+1 counter on it for each time it was kicked." }))
+      .toMatchObject({ perUnit: 1, metric: { kind: "timesKicked" } });
   });
 });
 

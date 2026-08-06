@@ -3,6 +3,29 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **MULTIKICKER COUNT — a count whose true value is zero, +7** - post-v0.155.0 batch 30
+> Suite 1162 / 14,208 green + lint 0 BY EXIT CODE. Flip-diff **+7 / 0 / 0** — Skitter of Lizards, Quag
+> Vampires, Enclave Elite, Gnarlid Pack, Apex Hawks, Wolfbriar Elemental, Lightkeeper of Emeria. All audited
+> whole-card.
+> ⛔⛔ **THE COUNT IS ZERO TODAY, AND ZERO IS THE CORRECT ANSWER — say it before quoting the number.**
+> `parseKickerCost` refuses multikicker (CR 702.33h, deferred), so legalChoices never offers a multikicked
+> cast: every cast the engine can make really was kicked zero times. Skitter of Lizards hard-cast for {R} is
+> a 1/1 haste with no counters, exactly as printed. These cards were parked on a rider that, once modelled,
+> contributes nothing to the available plays — **they now play correctly instead of not at all.**
+> ⭐ **MODELLED AS A COUNT, NOT STRIPPED, AND THAT IS THE DESIGN CHOICE.** A strip says "this text does not
+> exist" and must be revisited the day multikicker ships. A count computes the true value for every available
+> cast and goes live with no further edit. **The second runtime pin proves it is a real count and not a
+> dressed-up zero** — stamp a non-zero kick count and the counters follow (`{stamp:3, counters:3}`).
+> ⭐ **ONE CAPTURE, MANY READERS — fourth time this session.** The count rides `parseCountSource` for the
+> effect families (Wolfbriar's tokens, Lightkeeper's lifegain) AND `parseMetricCountSource` for the
+> enters-with family, both resolving through countForSpec's single `timesKicked` kind.
+> ⓘ Verified first that the Multikicker LINE was already accepted (keyword + vanilla body reads native), so
+> this rider was the ONLY thing parking these cards.
+> ⚠️ **SEVENTH AND EIGHTH REFUSAL-PIN LIFTS** (entersWithMetricCounters' unmodelled-metric list; kicker's
+> "Multikicker stays body-only"). Both rewritten to assert the modelled answer — and the kicker one gained a
+> NEW pin asserting `parseKickerCost` still returns null, so "the count is modelled" can never be misread as
+> "multikicker is offered". **When you lift a refusal, pin the part that did NOT change.**
+
 > ## SLICE DONE - 2026-08-05 - **CONVERGE on SPELLS — the third consumer of one capture, +2** - post-v0.155.0 batch 23
 > Suite 1161 / 14,202 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Kaleidoscorch, Radiant Flames.
 > Both audited whole-card.
