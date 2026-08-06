@@ -273,6 +273,17 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   // ⓘ The Multikicker LINE itself is already accepted as a covered cost keyword (verified: the keyword plus a
   // vanilla body reads native today), so this rider was the only thing parking these cards.
   if (/^times? it was kicked$/.test(p)) return { kind: "timesKicked" };
+  // ⭐ COUNTERS ON THE SOURCE (CR 603.6e) — "…for each +1/+1 counter ON IT" (Marketback Walker and
+  // Bloodtracker's dies/leaves draw, Hooded Hydra's dies tokens, Embalmed Brawler's attacks life-loss).
+  // ⛔⛔ ONE PHRASE, TWO SOURCES, AND THAT IS THE WHOLE DIFFICULTY. On a DIES / LEAVES trigger the permanent
+  // is GONE by resolution, so the count must come from the CR 603.10a look-back; reading the live board
+  // there silently yields 0 — an under-count that looks exactly like a working card. On an ATTACKS / BLOCKS
+  // trigger the permanent is live and the board is the right answer. countForSpec prefers the look-back and
+  // falls back to the live permanent, and BOTH paths are pinned — a test that only drives the attacks case
+  // passes with the dies path returning zero.
+  // ⭐ The look-back value already exists: checkDiesTriggers stamps `triggeringPlusCounterCount` off the
+  // death snapshot for MODULAR. This reads the same field rather than threading a second one.
+  if (/^\+1\/\+1 counters? on it$/.test(p)) return { kind: "plusCountersOnSource" };
   if (/^(?:the number of )?colors? of mana spent to cast (?:this spell|it)$/.test(p)) {
     return { kind: "colorsSpentThisSpell" };
   }

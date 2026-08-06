@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Counters-on-itself payoffs work.** Marketback Walker, Bloodtracker and Hooded Hydra draw or make tokens
+  for each +1/+1 counter they had when they left the battlefield; Embalmed Brawler, Kilnmouth Dragon and
+  Goblin Razerunners read the counters they currently have.
 - **Multikicker creatures are playable.** Skitter of Lizards, Quag Vampires, Enclave Elite, Gnarlid Pack,
   Apex Hawks, Wolfbriar Elemental and Lightkeeper of Emeria were held back by their "for each time it was
   kicked" line. They now play correctly as hard-cast creatures — with no bonus counters, which is exactly

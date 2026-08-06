@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **COUNTERS ON THE SOURCE — one phrase, two sources, +6** - post-v0.155.0 batch 36
+> Suite 1163 / 14,212 green + lint 0 BY EXIT CODE. Flip-diff **+6 / 0 / 0** — Marketback Walker, Embalmed
+> Brawler, Kilnmouth Dragon, Hooded Hydra, Goblin Razerunners, Bloodtracker. All audited whole-card.
+> ⛔⛔ **ONE PHRASE, TWO SOURCES — the whole slice.** "For each +1/+1 counter ON IT" on a DIES/LEAVES trigger
+> must read the CR 603.10a look-back (the permanent is gone); on an ATTACKS/activated trigger it must read the
+> live board. **Reading live on the dies path returns 0, and a zero looks exactly like a working card** —
+> Marketback Walker would just draw nothing.
+> ⭐ **NOTHING NEW WAS CAPTURED.** `checkDiesTriggers` already stamps `triggeringPlusCounterCount` off the
+> death snapshot for MODULAR; this reads the same field. The build is a count kind that prefers it and falls
+> back to the live permanent.
+> ⛔ **EACH MUTANT BREAKS EXACTLY ONE ROW** — look-back removed → `diesLookBack: 0` with the live row intact;
+> live fallback removed → `liveBoard: 0` with the dies row intact. **That one-row-each split is the proof the
+> two paths are independent**, and it is why both had to be pinned: a test driving only the attacks case
+> passes with the dies path dead.
+> ⭐⭐ **NINTH REFUSAL-PIN LIFT, AND THE BEST ONE: MY OWN PIN PREDICTED ITS RESOLUTION.** The turned-face-up
+> slice asserted Hooded Hydra parks *on its dies trigger, not the flip line*. That claim has now been tested
+> the only way it could be — the dies count shipped, and the card flipped without the flip line ever
+> mattering. **An assertion that carries its REASON can be falsified later; one that just records a tier
+> cannot.**
+> ⚠️ A pin I wrote in this slice was itself wrong first: `parseCountSource` is handed the phrase WITHOUT a
+> leading "the number of" (callers strip it). Corrected to assert the true contract rather than the assumed one.
+
 > ## SLICE DONE - 2026-08-05 - **MULTIKICKER COUNT — a count whose true value is zero, +7** - post-v0.155.0 batch 30
 > Suite 1162 / 14,208 green + lint 0 BY EXIT CODE. Flip-diff **+7 / 0 / 0** — Skitter of Lizards, Quag
 > Vampires, Enclave Elite, Gnarlid Pack, Apex Hawks, Wolfbriar Elemental, Lightkeeper of Emeria. All audited

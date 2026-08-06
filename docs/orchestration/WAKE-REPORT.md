@@ -30,7 +30,7 @@
 > parked cards; it rarely blocks them. **Causation-test before opening a file** — this sweep cost minutes and
 > saved several wasted builds.
 
-> ### ⏭ THE ONE REMAINING COUNT, SEAM-MAPPED: **"for each +1/+1 counter on it"** (+4)
+> ### ✅ BUILT (+6): "for each +1/+1 counter on it" — the seam-map held, and the payoff was 6 not 4.
 > Marketback Walker, Hooded Hydra, Bloodtracker (dies/leaves triggers) and Embalmed Brawler (attacks/blocks).
 > ⛔⛔ **IT NEEDS TWO READS, NOT ONE, AND THAT IS THE WHOLE DIFFICULTY.** On a dies/leaves trigger the
 > permanent is GONE at resolution, so the count must come from the CR 603.10a look-back — reading the live

@@ -699,6 +699,20 @@ export function countForSpec(state, ctx, spec) {
   // refuses multikicker), and 0 is the CORRECT answer for every cast the engine can make. Live the moment
   // multikicker is offered, with no change here.
   if (spec.kind === "timesKicked") return Math.max(0, state?.timesKickedForCast || 0);
+  // ⭐ COUNTERS ON THE SOURCE (CR 603.6e) — "for each +1/+1 counter on it".
+  // ⛔⛔ THE LOOK-BACK IS TRIED FIRST, AND THE ORDER IS THE WHOLE CORRECTNESS PROPERTY. On a dies / leaves
+  // trigger the permanent is already gone, so the live board reads 0 — a silent under-count that looks like
+  // a working card (Marketback Walker would draw nothing). checkDiesTriggers stamps
+  // `triggeringPlusCounterCount` off the CR 603.10a death snapshot (it already does so for MODULAR), so that
+  // value is authoritative whenever it exists. The live read below serves the ATTACKS / BLOCKS shape
+  // (Embalmed Brawler), where the permanent is still on the battlefield and the board IS the right answer.
+  // ⓘ `!= null` rather than truthy: a creature that died with ZERO counters must read 0 from the look-back,
+  // not fall through to a live lookup that would find nothing anyway — but would be the wrong reason.
+  if (spec.kind === "plusCountersOnSource") {
+    if (ctx?.triggeringPlusCounterCount != null) return Math.max(0, ctx.triggeringPlusCounterCount);
+    const lk = ctx?.sourceId ? findPermanent(state, ctx.sourceId) : null;
+    return Math.max(0, lk?.permanent?.counters?.["+1/+1"] || 0);
+  }
   // ===== MAX-DISCARDED-THIS-WAY (Windfall) ===== the GREATEST number of cards any player discarded during the
   // whole-hand discard the SAME spell just resolved (CR 118.10 "this way"). The discard atom (applyDiscard, on
   // the recordMaxDiscarded form) stamps state.maxDiscardedThisWay IMMEDIATELY before this draw atom resolves,

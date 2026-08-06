@@ -67,9 +67,15 @@ describe("the flip payoff stops blocking", () => {
       oracle: "Morph {3}{G}{G}\nAs this creature is turned face up, put five +1/+1 counters on it." })).toBe("native-body");
   });
 
-  it("⛔ …and the real Hooded Hydra still PARKS, on its dies trigger — not on the flip line", () => {
+  it("⭐ …and the real Hooded Hydra is NOW NATIVE — its dies trigger was the blocker, exactly as pinned", () => {
+    // ⚠️ THIS ASSERTED body-only WHEN THE SLICE ABOVE SHIPPED, and the assertion carried a claim: that the
+    // flip line was NOT what parked this card — its dies trigger ("create a Snake for each +1/+1 counter on
+    // it") was. That claim has now been tested the only way it can be: the counters-on-source count shipped
+    // (plusCountersOnSource.test.js), the dies trigger became modelled, and the card flipped without the
+    // flip line ever mattering. **The pin predicted its own resolution**, which is what a reason-carrying
+    // assertion is for.
     expect(classifyCard({ name: "Hooded Hydra", type: "Creature — Snake Hydra", mana: "{X}{G}{G}", power: "0", toughness: "0",
-      oracle: "This creature enters with X +1/+1 counters on it.\nWhen this creature dies, create a 1/1 green Snake creature token for each +1/+1 counter on it.\nMorph {3}{G}{G}\nAs this creature is turned face up, put five +1/+1 counters on it." })).toBe("body-only");
+      oracle: "This creature enters with X +1/+1 counters on it.\nWhen this creature dies, create a 1/1 green Snake creature token for each +1/+1 counter on it.\nMorph {3}{G}{G}\nAs this creature is turned face up, put five +1/+1 counters on it." })).toBe("native-trigger");
   });
 
   it("⭐ it composes — a flip creature keeps its OTHER real abilities", () => {
