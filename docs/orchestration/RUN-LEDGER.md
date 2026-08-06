@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE REVERTED + TOOL FIX - 2026-08-06 - **A "+1" THAT THE FLIP-DIFF SCORED AS ZERO — tokens are not the corpus** - post-v0.156.0 batch 3 (unchanged)
+> Suite 1173 / 14,282 green + lint 0 BY EXIT CODE. Flip-diff **0 / 0 / 0** → **REVERTED**, measurement banked.
+> ⛔⛔ **THE GATE CAUGHT MY OWN OVER-PROMISE, WHICH IS WHAT IT IS FOR.** A probe scored the
+> "damage to its controller" position at **+1** on the strength of Smoke Blessing. The build worked and
+> `classifyCard` agreed — and the flip-diff read **0 GAINED**, because Smoke Blessing is a
+> **"Token Enchantment — Aura"** and `tier-snapshot.mjs` (the AUTHORITY for coverage) excludes tokens. A
+> token is never cast and can never be a coverage gain. Correct code, zero measurable value → reverted per
+> the standing rule rather than kept for the comment value.
+> ⚠️⚠️ **THE INSTRUMENT WAS SYSTEMATICALLY OVER-PROMISING: 804 token-typed cards live in oracle_cards.json,
+> which every probe iterates, and NONE of them are in the snapshot.** Both committed probes now skip
+> `^Token\b`. The correction is not cosmetic — the "that player" axis fell from **21 flips to 16** (five
+> were tokens) and "its controller" dropped off the scope-gap board entirely.
+> ⭐ **NO SHIPPED NUMBER WAS EVER WRONG, and that is the load-bearing detail.** Every slice's count comes
+> from the flip-diff, never from a probe, so the over-promise could only ever mis-SIZE a vein — never
+> mis-report a gain. The two-stage discipline (probe to size, flip-diff to score) absorbed this exactly as
+> designed. What is fixed is the sizing step, so a vein is not chased on cards that cannot count.
+> ⚠️ **PYTHON-HEREDOC BACKSLASH MANGLING, SEVENTH OCCURRENCE — and eslint caught it, not me.** The token
+> gate went in as `/^Token<0x08>/` (a literal BACKSPACE). `no-control-regex` failed the lint by bare exit
+> code. **The mechanical guard has now caught this class more reliably than seven written reminders have
+> prevented it** — which is the argument for guards over notes, in one line.
+
 > ## SLICE DONE - 2026-08-06 - **THE "ITS CONTROLLER" REFERENT — a wrong-DIRECTION bug, not a missing one, +3** - post-v0.156.0 batch 3
 > Suite 1173 / 14,282 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Poisonbelly Ogre (etb),
 > Fate Foretold (dies), Parasitic Impetus (attacks). All audited whole-card.

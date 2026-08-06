@@ -38,6 +38,16 @@ for (const c of cards) {
   const oracle = String(c.oracle_text || "");
   const tl = String(c.type_line || "");
   if (!oracle || tl.includes(" // ")) continue;
+  // ⛔⛔ TOKENS ARE NOT IN THE MEASURED CORPUS — skip them, or this probe over-promises. oracle_cards.json
+  // carries 804 token-typed cards; scripts/tier-snapshot.mjs (the AUTHORITY for coverage) excludes them,
+  // because a token is never cast and can never be a coverage gain.
+  // Measured the hard way (2026-08-06): a probe scored "damage to its controller" at +1 on the strength of
+  // Smoke Blessing, a "Token Enchantment — Aura". The build worked, classifyCard agreed — and the
+  // flip-diff read **0 GAINED**, because the card is not in the snapshot at all. The slice was reverted.
+  // ⓘ No SHIPPED count was ever wrong: every slice's number comes from the flip-diff, so the gate caught
+  // the over-promise exactly as designed. What this fixes is the SIZING step, so a vein is not chased on
+  // a card that cannot count.
+  if (/^Token\b/.test(tl)) continue;
   const card = { name: c.name, type: tl, mana: c.mana_cost, power: c.power, toughness: c.toughness, oracle };
   let before;
   for (const s of SWAPS) {
