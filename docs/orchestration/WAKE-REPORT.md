@@ -9,19 +9,22 @@
 
 ## ☀️ 2026-08-06 — **+78 this stretch · batch 7 at 85 post-v0.156.0 · the phrase veins are worked out** — suite **1189 / 14,339** green by bare exit code
 
-> ### ⏭ NEXT BUILD IS A SUBSYSTEM, AND THE RANKING IS MEASURED
-> `node app/scripts/probe-subsystem-rank.cjs` — sole-blocker counts per subsystem:
-> **Saga 32 · Dungeon+Initiative 22 · Powerstone 14 · the Ring 13 · goad 12 · incubate 10 · connive 10 ·
-> explore 9 · monarch 5 · Attractions 4.**
-> ⭐ **BUILD DUNGEON + INITIATIVE FIRST (22).** One shared venture/dungeon-state machine serves both, the
-> work is self-contained (a tracked side-object with a room pointer — no combat or layer changes), and it
-> is the biggest genuine single build on the board.
-> ⛔ **DO NOT read Saga's 32 as a subsystem.** A Saga's chapters ARE the card, so "remove one chapter →
-> native" means the other chapters already parse. That 32 is per-chapter long-tail, not a missing machine.
-> ⛔ Powerstone (14) is blocked on RESTRICTED MANA (`manaProduction` returns null for the token — the
-> refusal note is accurate, verified). goad (12) needs combat-requirement enforcement the engine lacks.
-> Connive and explore are already built; the targeted-connive form is genuinely missing but its ceiling is 0.
-
+> ### ⏭ NEXT BUILD — **finish LOST MINE OF PHANDELVER's last room**, not a subsystem
+> ⛔ **I RECOMMENDED "Dungeon+Initiative, 22 cards, self-contained" AND THEN DISPROVED IT.** Run
+> `node app/scripts/probe-dungeon-rooms.cjs` before touching venture. The room GRAPH is in the oracle text
+> (no fabrication risk — that part was fine), but **13 of 21 room effects parse and NO dungeon is
+> complete**: Mad Mage 6/9 · **Lost Mine 6/7** · Tomb of Annihilation 1/5. Whole-card-or-park means a
+> venture that can reach an unmodeled room plays the card wrong, so the build as scoped yields ZERO
+> completable dungeons. **The room effects are the blocker; the venture machine is the cheap half.**
+> ⛔ The Initiative half has NO DATA: "Undercity" in the bundled index is the Ravnica dual LAND, not the
+> Initiative dungeon. Its rooms cannot be read, and writing them from memory violates §1.2.
+> ⭐ **CHEAPEST PATH TO THE FIRST PLAYABLE DUNGEON: Lost Mine of Phandelver is ONE room short.** Fungi
+> Cavern's "Target creature gets -4/-0 until your next turn" is the only gap. That is an ordinary effect
+> slice, not a subsystem — and then venture has something it can legally complete.
+> ⚠️ Do not chase `until your next turn` as a vein on its own: 180 carriers, 175 parked, **ceiling 3**.
+> ⭐ **METHOD NOTE THAT COST ME THE BAD CALL:** I ranked subsystems by sole-blocker COUNT without checking
+> whether each could be COMPLETED. A count of cards mentioning a mechanic is not a count of cards that
+> would work. Every row of `probe-subsystem-rank.cjs` needs a completability probe before it is a plan.
 > ### ⭐⭐ THE INSTRUMENT TO START FROM — `app/scripts/probe-sole-blocker.cjs`
 > For every multi-line parked card, remove ONE line and re-classify; if exactly one removal makes it native,
 > that line IS the sole blocker. **6,859 of 12,917 multi-line parked cards have a single blocking line.**

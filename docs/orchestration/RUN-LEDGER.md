@@ -3,6 +3,32 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⛔ CORRECTION - 2026-08-06 - **"BUILD DUNGEON+INITIATIVE FIRST" WAS MY OWN BAD CALL — measured, retracted**
+> I ranked the subsystems an hour ago and recommended Dungeon+Initiative (22 cards) as "the biggest genuine
+> single build, self-contained, no combat or layer work". **Then I probed the dungeons themselves and the
+> recommendation does not survive.** Committed `app/scripts/probe-dungeon-rooms.cjs`.
+> ⭐ THE GOOD NEWS FIRST: the room GRAPH is fully in the bundled oracle text — `Cave Entrance — Scry 1.
+> (Leads to: Goblin Lair, Mine Tunnels)` — so a venture machine needs NO fabricated data. That was the
+> risk I expected and it is not there.
+> ⛔⛔ **THE BLOCKER IS THE ROOM EFFECTS, NOT THE VENTURE MACHINERY. 13 of 21 rooms parse; NO dungeon is
+> complete.** Dungeon of the Mad Mage 6/9 · Lost Mine of Phandelver **6/7** · Tomb of Annihilation 1/5.
+> Whole-card-or-park means a dungeon is only usable if EVERY room parses — a venture that can reach an
+> unmodeled room is a card that plays itself wrong. **So the build as scoped would yield ZERO completable
+> dungeons.** Model the 8 missing room effects FIRST; the venture machine is the cheap half.
+> ⛔ **AND THE INITIATIVE HALF IS NOT BUILDABLE AT ALL RIGHT NOW.** "Undercity" in the bundled index is the
+> Ravnica DUAL LAND (`Land — Island Swamp`), not the Initiative dungeon. The Initiative dungeon object is
+> not in oracle_cards, so its rooms cannot be read — and writing them from memory is a §1.2 violation.
+> **The 22 was really 14 (venture) + 8 (initiative), and the 8 have no data.**
+> ⚠️ Chased one missing room effect as a vein in its own right: `until your next turn` (Fungi Cavern's
+> "-4/-0 until your next turn") has **180 carriers, 175 parked — and a ceiling of 3.** The duration is not
+> the sole blocker for the rest. Not a vein either.
+> ⭐ **THE HONEST NEXT MOVE:** the 8 unmodeled dungeon rooms are ordinary long-tail effects (an
+> exile-top-two-may-play, three each-player-loses-unless-they-X, a token-with-a-name, an until-your-next-turn
+> duration). Lost Mine of Phandelver is ONE room short of complete — that is the cheapest path to the first
+> genuinely playable dungeon, and it is a normal effect slice rather than a subsystem.
+> ⭐ **THE METHOD NOTE:** I ranked subsystems by sole-blocker COUNT without checking whether each subsystem
+> could be COMPLETED. A count of cards that mention a mechanic is not a count of cards that would work. The
+> subsystem ranking is still useful — but every row now needs this second probe before it is a plan.
 > ## ⚙️ MAP (no cards) - 2026-08-06 - **SUBSYSTEM RANKING BY SOLE-BLOCKER COUNT — what to build next**
 > Committed `app/scripts/probe-subsystem-rank.cjs`. Uses the sole-blocker census to answer its own
 > question: for each named subsystem, how many parked cards would flip if THAT and only that were built?
