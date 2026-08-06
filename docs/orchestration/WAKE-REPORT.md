@@ -7,9 +7,36 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-06 — **🏷 v0.156.0 PUBLISHED · batch 4 (IC-1 +3 · DT-1 +1)** — suite **1174 / 14,287** green by exit code
+## ☀️ 2026-08-06 — **🏷 v0.156.0 PUBLISHED · batch 7 (IC-1 +3 · DT-1 +1 · DT-2 +3)** — suite **1175 / 14,291** green by exit code
 
-> ### ⏭ NEXT BUILD, MEASURED AND SEAM-MAPPED: **the FIXED-AMOUNT SINGLE-TARGET DAMAGE LANE (7)**
+> ### ⏭ NEXT BUILD, MEASURED AND SEAM-MAPPED: **UNION TARGET + ANY SCOPE (4)** — the anaphor half SHIPPED
+> ⭐ **HALF THIS LANE IS DONE.** DT-2 shipped the anaphor half (+3: Snapping Thragg, Skirk Commando, Spark
+> Mage) via the sentinel rewrite. What remains is the UNION half: Skysovereign Consul Flagship, Careless
+> Celebrant, Iroas's Blessing, Ossuary Rats — "deals N damage to target creature or planeswalker AN
+> OPPONENT CONTROLS".
+> ⭐⭐ **DIAGNOSED, AND IT IS NOT A SCOPE PROBLEM AT ALL — probe it in 30 seconds and see:**
+> · `target creature or planeswalker` → **parses** (targetType creatureOrPlaneswalker)
+> · `target creature or planeswalker an opponent controls` → **[]**
+> · `target creature or planeswalker YOU CONTROL` → **[]** ← the tell
+> **ANY scope fails on a union target**, so the union+scope framing was misleading: nothing is wrong with
+> the scopes. parser.js's damage/destroy fold (~line 717) is gated on `atom.targetType === "creature"`, so
+> a UNION atom skips the restriction parse entirely and falls through to `isCleanClause(s)` — where the
+> scope phrase is ITSELF in UNMODELED_MARKERS (`you control|an opponent controls|you don't control`).
+> **THE SEAM:** widen that fold's targetType condition to admit `creatureOrPlaneswalker`, so the scope is
+> EXTRACTED as a restriction instead of tripping the marker list. parseCreatureTargetRestrictions must then
+> also stop leaving "or planeswalker" as residue for that call — today it returns `clean:false` on it.
+> ⛔⛔ **DO NOT make "or planeswalker" clean GLOBALLY.** That parser is shared by destroy / exile / damage
+> AND legalChoices' legacy single-target path; swallowing the union into the noun there would let a union
+> be treated as a plain CREATURE target elsewhere — offering a planeswalker where only creatures are legal.
+> Scope the change to the union targetType, not to the shared noun grammar.
+> ⛔ Law 6 (legal targets): 4-seat board with a creature AND a planeswalker on several sides; print the pool
+> by id and assert the excluded seats by name.
+> ⛔ AND THE STANDING WARNING FROM DT-2, which cost three flip-diffs to learn: this clause family has at
+> least SIX literal readers ("that player controls" in removal.js ×3, zones.js's bounce matcher, stack.js's
+> Balefire mass-damage matcher, plus the creature lane). **Any text rewrite here is a RENAME** — prefer a
+> parser-side change that touches no clause text at all.
+>
+> ### ⓘ SUPERSEDED: **the FIXED-AMOUNT SINGLE-TARGET DAMAGE LANE (7)** — anaphor half shipped as DT-2
 > ⭐⭐ **TWO SEPARATE MAPS TURNED OUT TO BE ONE LANE — that consolidation is the finding.** The union+scope
 > gap and the damagedPlayer-scope gap are the same code path refusing two different qualifiers, so they
 > should be built together, once.
