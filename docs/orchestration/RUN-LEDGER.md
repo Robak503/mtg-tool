@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-06 - **CREATURE-OR-VEHICLE on the BOUNCE lane (+2)** - post-v0.156.0 batch 7
+> Suite 1184 / 14,321 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Bounce Off, Roadside Blowout.
+> Both audited whole-card. **Third and last of the easy creature-or-Vehicle lanes** (CV-1 removal +4, CV-2
+> counters +4, CV-3 bounce +2 = 10 from one predicate that already existed and had one consumer).
+> ⛔ **THE RISK HERE WAS CAPTURE-GROUP RENUMBERING, NOT THE UNION.** This matcher already carried two other
+> optional groups (the BS-1 state qualifier, the controller scope) with FIVE printed forms running through
+> it. Adding a group shifts every index after it, and `who` reads the scope group — a wrong index resolves
+> every scope to the "opponent" DEFAULT silently. All five incumbent forms are pinned byte-identical, with
+> the `you control` row called out as the one that would catch exactly that.
+> ⭐⭐ **IGNITION PROVEN AT RESOLUTION, NOT AT PARSE.** A targetType with no working resolver has been this
+> run's most repeated failure. The pin casts Bounce Off at an UNCREWED Vehicle and asserts BOTH that it
+> leaves the battlefield AND that it arrives in its owner's hand — either half alone would pass for a
+> permanent that vanished into nowhere.
+> ⭐ Mutation: forcing `targetType` back to "creature" leaves both cards classifying **native-spell** while
+> the Vehicle silently drops out of the pool. The tier number cannot see it.
 > ## SLICE DONE - 2026-08-06 - **SUPERTYPE TARGET — legendary removal (+2)** - post-v0.156.0 batch 7
 > Suite 1183 / 14,318 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Hero's Demise, Tsabo Tavoc.
 > Both audited whole-card. Ceiling was 5; the other three park on unrelated causes.

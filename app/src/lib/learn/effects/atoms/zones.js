@@ -881,10 +881,16 @@ export function bounceClauseParser(clause) {
   // The qualifier composes with the existing controller scope (Harbinger of the Tides, Point to the
   // Scoreboard: "target tapped creature an opponent controls"), which is why it is its own group in front
   // of the noun rather than more alternatives inside the scope group.
-  const cb = t.match(/^return (another )?target (tapped |attacking |blocking )?creature(?: (an opponent controls|you don't control|you control|that player controls|the damaged player controls))? to its owner's hand$/);
+  // ⭐ CV-3 (2026-08-06) — the noun becomes an alternation so "creature or Vehicle" rides the SAME matcher
+  // (Bounce Off, Roadside Blowout). CR 301.7: an uncrewed Vehicle is not a creature, so the union reaches a
+  // permanent the bare noun cannot. `creatureOrVehicle` and its enumeration path already exist (CV-1 lit
+  // removal, CV-2 the counter lane) — this is the bounce lane's ignition, not new machinery.
+  // ⛔ THE NOUN GROUP IS OPTIONAL-SUFFIX, NOT A FULL ALTERNATION OF THE WHOLE NOUN, so `creature` alone
+  // still matches exactly as before and every incumbent form emits a byte-identical atom (pinned).
+  const cb = t.match(/^return (another )?target (tapped |attacking |blocking )?creature( or vehicle)?(?: (an opponent controls|you don't control|you control|that player controls|the damaged player controls))? to its owner's hand$/);
   if (cb) {
-    const who = /^you control$/.test(cb[3] || "") ? "you"
-      : /^that player controls$/.test(cb[3] || "") ? "damagedPlayer"
+    const who = /^you control$/.test(cb[4] || "") ? "you"
+      : /^that player controls$/.test(cb[4] || "") ? "damagedPlayer"
       : "opponent";
     // "ANOTHER" (CR 109.5 — Icefeather Aven, Exit Specialist): same target class, source excluded. See the
     // fail-closed note on the permanent form below.
@@ -893,10 +899,12 @@ export function bounceClauseParser(clause) {
     const q = (cb[2] || "").trim();
     const state = q === "tapped" ? [{ kind: "tapped", value: true }]
       : q ? [{ kind: "combat", value: q }] : [];
-    const restrictions = [...(cb[3] ? [{ kind: "controller", who }] : []), ...state, ...another];
-    if (!restrictions.length) return { op: "bounce", targetType: "creature" };
-    const atom = { op: "bounce", targetType: "creature", restrictions };
-    if (cb[3] && who === "damagedPlayer") atom.who = "damagedPlayer";
+    const restrictions = [...(cb[4] ? [{ kind: "controller", who }] : []), ...state, ...another];
+    // CV-3 — the union targetType when the noun suffix matched; otherwise byte-identical to before.
+    const targetType = cb[3] ? "creatureOrVehicle" : "creature";
+    if (!restrictions.length) return { op: "bounce", targetType };
+    const atom = { op: "bounce", targetType, restrictions };
+    if (cb[4] && who === "damagedPlayer") atom.who = "damagedPlayer";
     return atom;
   }
   // "ANOTHER" (CR 109.5 — Aether Channeler #1526's bounce mode, Rushing River, Jace the Living Guildpact):
