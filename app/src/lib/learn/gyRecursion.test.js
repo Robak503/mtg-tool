@@ -68,7 +68,11 @@ describe("parser — graveyard recursion is HIGH for modeled type filters; subty
     low("Return target creature card from a graveyard to your hand.");               // any graveyard, not "your"
     // NOTE: "Return up to two target creature cards …" is now NATIVE (MULTI-COUNT slice A — real runtime via
     // targeting.expandAtoms subset enumeration). Pinned HIGH in effects/multiCountTarget.test.js.
-    low("Return target creature card from your graveyard to the battlefield tapped.");        // β-3b reanimation RIDER → Arbiter
+    // ⚠️ GRADUATED 2026-08-06 (RT-1) — the TAPPED rider is modeled. applyReanimate already threaded
+    // atom.entersTapped into enterCardFromZone (built for Tato Farmer) and the MASS form already emitted
+    // it; only this single-target matcher was anchored with nowhere for the rider to go. Verified at
+    // RUNTIME before graduating — see reanimateTapped.test.js. A DIFFERENT rider still parks:
+    low("Return target creature card from your graveyard to the battlefield with a +1/+1 counter on it.");
   });
   it("GRADUATED — non-creature reanimation is modelled now (CR 608)", () => {
     // This pinned an absent VOCABULARY: the bare reanimate arm was hardcoded to "creature" while its own

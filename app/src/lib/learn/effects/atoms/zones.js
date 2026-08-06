@@ -571,13 +571,21 @@ export function graveyardReturnClauseParser(clause) {
     }
     return null; // unmodeled / non-permanent / unfiltered → the whole clause parks (never a mis-reanimate)
   }
-  const rbM = /^return target (.*?)card from your graveyard to the battlefield$/.exec(t);
+  // ⭐⭐ RT-1 (2026-08-06) — the TAPPED rider ("… to the battlefield TAPPED": Helping Hand, Writ of Return,
+  // Gravewaker, Undergrowth Recon and more). The resolver ALREADY honours it — applyReanimate threads
+  // `atom.entersTapped` into enterCardFromZone's `tapped` param, built for Tato Farmer — and the MASS form
+  // above already emits it. Only this single-target matcher was `$`-anchored with nowhere for the rider to
+  // go, so every carrier parked. Thirteenth "built engine, partial ignition" of this run.
+  // ⛔ AN OPTIONAL GROUP, so the bare form matches exactly as before and every existing reanimate emits a
+  // byte-identical atom (`entersTapped` is only added when the rider actually matched, not as a `false`).
+  const rbM = /^return target (.*?)card from your graveyard to the battlefield( tapped)?$/.exec(t);
   if (rbM) {
     const word = rbM[1].trim();
-    if (word === "creature") return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature" };
+    const tap = rbM[2] ? { entersTapped: true } : {};
+    if (word === "creature") return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", ...tap };
     const typeFilter = parseGraveyardFilter(word);
     if (typeFilter && typeFilter !== "any" && isPermanentReanimateFilter(typeFilter)) {
-      return { op: "reanimate", targetType: "graveyardCard", cardFilter: { typeFilter } };
+      return { op: "reanimate", targetType: "graveyardCard", cardFilter: { typeFilter }, ...tap };
     }
     return null; // unmodeled / non-permanent filter → the whole clause parks (never a mis-reanimate)
   }

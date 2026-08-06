@@ -352,7 +352,12 @@ describe("parseEffectProgram — targeted atoms (P2.7)", () => {
     expect(programConfidence(parseEffectProgram(I("Return target nonland permanent to its owner's hand.")))).toBe("high"); // β-3: bounce-permanent modeled
     expect(programConfidence(parseEffectProgram(I("Return target tapped artifact to its owner's hand.")))).toBe("low");   // an unmodeled restriction on bounce → Arbiter
     expect(parseEffectProgram(I("Return target creature card from your graveyard to the battlefield.")).atoms).toEqual([{ op: "reanimate", targetType: "graveyardCard", cardFilter: "creature" }]); // β-3b reanimation
-    expect(programConfidence(parseEffectProgram(I("Return target creature card from your graveyard to the battlefield tapped.")))).toBe("low"); // reanimation rider → Arbiter
+    // ⚠️ GRADUATED 2026-08-06 (RT-1) — the tapped rider is modeled and honoured at runtime (applyReanimate
+    // already threaded entersTapped; only this matcher was anchored with nowhere for the rider to go).
+    // Asserted positively so the pin protects the FLIP; a still-unmodeled rider keeps the original intent:
+    expect(parseEffectProgram(I("Return target creature card from your graveyard to the battlefield tapped.")).atoms)
+      .toEqual([{ op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", entersTapped: true }]);
+    expect(programConfidence(parseEffectProgram(I("Return target creature card from your graveyard to the battlefield with a +1/+1 counter on it.")))).toBe("low");
   });
 });
 

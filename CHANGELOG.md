@@ -4184,6 +4184,9 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Reanimation that returns a permanent tapped works.** Writ of Return, Gravewaker, Undergrowth Recon,
+  Dr. Madison Li and Scaretiller bring a card back from your graveyard tapped; the simulator could not read
+  the "tapped" wording and skipped all five. They now return the permanent, correctly tapped.
 - **Graveyard hate that names a card type works.** Shamble Back, Vile Rebirth, Thraben Heretic, Cemetery
   Reaper, Selesnya Eulogist, Necrogenesis, Conversion Chamber and Grave Robbers exile a creature (or
   artifact) card from a graveyard. The simulator could only read the unfiltered wording, so all eight did

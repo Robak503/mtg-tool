@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-06 - **REANIMATE-TAPPED rider (+5) — the resolver already honoured it** - post-v0.156.0 batch 7
+> Suite 1186 / 14,327 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Undergrowth Recon, Writ of
+> Return, Gravewaker, Dr. Madison Li, Scaretiller. All audited whole-card.
+> ⭐⭐ **THIRTEENTH "BUILT ENGINE, PARTIAL IGNITION", and the clearest instance of the shape yet.** The
+> RESOLVER already honoured the rider: `applyReanimate` threads `atom.entersTapped` into
+> `enterCardFromZone` (built for Tato Farmer), and the MASS form already emitted it. Only the single-target
+> matcher was `$`-anchored with nowhere for the rider to go. **Reading the resolver before writing anything
+> turned a budgeted build into a one-group edit — the second time today (GX-2 was the first).**
+> ⭐ **FOUND BY SPLITTING A SHARED ATOM BY ITS RIDERS**, the instrument that found GX-2's verb split an hour
+> earlier. Per-rider ceilings on the reanimate lane: `tapped` 79 carriers / ceiling **7**; `with a +1/+1
+> counter on it` **0**; `under your control` **0**. One rider carried the entire vein.
+> ⛔ `entersTapped` is added ONLY when the rider matched — never as a `false`. A `false` is harmless at
+> runtime and would still churn every pinned reanimate atom in the suite. Bare form pinned byte-identical.
+> ⭐⭐ **VERIFIED AT RUNTIME BEFORE THE PINS WERE GRADUATED.** Two gates asserted this form must stay LOW,
+> and a parse-only check cannot distinguish "the rider is modeled" from "the rider is parsed and ignored" —
+> the second is a card reading native with printed text doing nothing. Writ of Return arrives TAPPED,
+> **against a Zombify control that arrives UNTAPPED**; without that control the assertion would also pass
+> on an engine that tapped everything it reanimated.
+> ⭐ Mutation: dropping the flag while keeping the group leaves all five classifying **native** with the
+> permanent arriving untapped. Invisible to the tier.
 > ## SLICE DONE - 2026-08-06 - **FILTERED GRAVEYARD EXILE (+8) — the VERB was the whole tier split** - post-v0.156.0 batch 7
 > Suite 1185 / 14,324 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Shamble Back, Vile Rebirth,
 > Thraben Heretic, Cemetery Reaper, Selesnya Eulogist, Necrogenesis, Conversion Chamber, Grave Robbers.
