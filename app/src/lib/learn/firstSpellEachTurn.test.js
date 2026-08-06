@@ -168,10 +168,18 @@ describe("tier", () => {
     expect(classifyCard(ESPER)).toBe("native-trigger");
   });
 
-  it("Shadow in the Warp is DETECTED but still parks on its own effect — detection is not a flip", () => {
-    // Scored honestly, per the eb701643 precedent: the trigger half of this slice reaches several cards,
-    // and each still needs its payoff modelled before it counts.
+  it("Shadow in the Warp — detection is not a flip, and the REASON it parks has now moved", () => {
+    // ⚠️ THIS PIN'S FIXTURE WAS A REDUCED CARD (the trigger line alone) chosen because its payoff was
+    // UNMODELLED — the rotting-fixture class this project keeps re-learning: a fixture whose property is
+    // "not modelled yet" expires the moment the grind does its job. TP-1 modelled "that player" on a cast
+    // trigger, so the reduced form now FLIPS. Asserted positively rather than deleted, because that flip is
+    // the evidence the slice works on this exact wording.
     expect(detectTriggers(SHADOW)[0]?.firstEachTurn).toBe("noncreature");
-    expect(classifyCard(SHADOW)).toBe("body-only");
+    expect(classifyCard(SHADOW)).toMatch(/^native/);
+    // …and the pin's real claim survives on the WHOLE printed card, which still parks — now on its
+    // cost-reduction line rather than on its trigger payoff. Detection is still not a flip; the blocker
+    // simply moved, which is what progress looks like from here.
+    const SHADOW_REAL = { ...SHADOW, oracle: `The first creature spell you cast each turn costs {2} less to cast.\n${SHADOW.oracle}` };
+    expect(classifyCard(SHADOW_REAL)).toBe("body-only");
   });
 });

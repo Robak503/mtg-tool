@@ -112,6 +112,10 @@ export function combatDamageReferentSatisfied(program, event) {
     // double gate. The referent is threaded at BOTH step entries and nowhere else, so every other event
     // still falls through to the safe false-negative.
     if (a?.who === "upkeepPlayer" && event !== "upkeep" && event !== "draw") return false;
+    // CASTING-PLAYER (TP-1): the caster referent is set ONLY by checkCastTriggers. The detectTriggers
+    // sentinel rewrite is already cast-gated; this pin is the belt on top of it, exactly as the gyOwner
+    // entry below describes its own pairing.
+    if ((a?.who === "castingPlayer" || a?.target === "castingPlayer") && event !== "cast") return false;
   }
   return true;
 }

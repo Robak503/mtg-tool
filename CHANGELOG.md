@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Spell-punisher cards work.** Eidolon of the Great Revel, Pyrostatic Pillar, Aether Sting, Spellshock,
+  Ishi-Ishi, Ruric Thar, Scalding Viper, Cindervines, Kambal, Soot Imp and Yawgmoth's Edict all punish
+  whoever cast the spell. The simulator understood the trigger but not who "that player" referred to, so
+  the cards sat out — and they now hit the player who actually cast, never a different opponent.
 - **Hand-peeking cards work.** Sorcerous Sight, Telepathic Spies, Wanderguard Sentry, Talas Explorer and
   Wu Scout look at an opponent's hand. The simulator understood the wording "target player's hand" but not
   "target opponent's hand", so these sat out — and they now show you only an opponent's hand, never your own.

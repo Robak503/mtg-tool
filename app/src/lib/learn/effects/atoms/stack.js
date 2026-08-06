@@ -652,6 +652,14 @@ export function massFilteredDamageClauseParser(clause) {
   // adds the artifact/enchantment source nouns (Copper Tablet is an artifact; Sulfuric Vortex an enchantment).
   const ud = t.match(/^(?:this creature|this permanent|this artifact|this enchantment|it) deals (\d+) damage to the upkeep player$/);
   if (ud) return { op: "deal-damage", amount: parseInt(ud[1], 10), target: "upkeepPlayer", who: "upkeepPlayer", targetType: null };
+  // ⭐ CASTING-PLAYER damage (TP-1 — Eidolon of the Great Revel, Pyrostatic Pillar, Aether Sting, Spellshock,
+  // Gibbering Fiend): the structural twin of the upkeep arm directly above; only the ctx key differs.
+  // "the casting player" is the SENTINEL detectTriggers emits for the "that player" anaphor on a CAST
+  // trigger — the phrase appears NOWHERE in printed oracle, so only that event-gated rewrite can reach this
+  // matcher, and triggerRouting's referent gate additionally pins who:"castingPlayer" to the cast event.
+  // Anywhere else the referent is unset → no target → 0 dealt (a clean no-op, never a guessed victim).
+  const cd = t.match(/^(?:this creature|this permanent|this artifact|this enchantment|it) deals (\d+) damage to the casting player$/);
+  if (cd) return { op: "deal-damage", amount: parseInt(cd[1], 10), target: "castingPlayer", who: "castingPlayer", targetType: null };
   return null;
 }
 
@@ -1491,6 +1499,11 @@ export const stackResolvers = {
         ? (state.players?.[ctx.controller] ? [{ type: "player", id: ctx.controller }] : [])
         : atom.target === "upkeepPlayer"
           ? (ctx.upkeepPlayerId && state.players?.[ctx.upkeepPlayerId] ? [{ type: "player", id: ctx.upkeepPlayerId }] : [])
+          // CASTING-PLAYER (TP-1 — Eidolon of the Great Revel): same synthesis off ctx.castingPlayerId, which
+          // checkCastTriggers already threads. Absent referent -> EMPTY target list -> 0 dealt, never a
+          // guessed victim; the who:"castingPlayer" routing pin keeps the atom off non-cast events anyway.
+          : atom.target === "castingPlayer"
+            ? (ctx.castingPlayerId && state.players?.[ctx.castingPlayerId] ? [{ type: "player", id: ctx.castingPlayerId }] : [])
           : atom.targetType === "defendingPlayer"
             ? (ctx.defenderId && state.players?.[ctx.defenderId] ? [{ type: "player", id: ctx.defenderId }] : [])
             : atom.targetType === "damagedPlayer"

@@ -3858,6 +3858,23 @@ export function detectTriggers(card) {
       if (cls.eachPlayersUpkeep || cls.eachPlayersDrawStep) {
         effectClause = effectClause.replace(/\bthat player\b/gi, "the upkeep player");
       }
+      // ⭐⭐ CASTING-PLAYER REFERENT (TP-1, CR 603.2 — Eidolon of the Great Revel, Pyrostatic Pillar, Aether
+      // Sting, Spellshock, Kambal, Yawgmoth's Edict, Memory Erosion): on a CAST trigger, "that player" is the
+      // player who CAST the spell — ctx.castingPlayerId, already threaded by checkCastTriggers for Rhystic
+      // Study's taxed draw. The fifth arm of the same event-gated rewrite the gyOwner / upkeep-player /
+      // discarding-player arms above established, and triggerRouting's own header names this exact case as
+      // the documented safe-FN it was waiting on.
+      // ⛔⛔ EVENT-GATED, NEVER A CLAUSE MATCHER, for the reason written at the discarding-player arm: the
+      // bare words "that player" are corpus-AMBIGUOUS — upkeep player, damaged player, milled player,
+      // discarder or caster depending ENTIRELY on the event overhead. A matcher that read the words alone
+      // would bind the wrong seat, and a wrong-seat bug is invisible: the ability resolves, someone takes
+      // the damage, and only the identity is wrong.
+      // ⛔ `whose` DOESN'T MATTER HERE and that is worth stating: whether the trigger watches "a player"
+      // (Eidolon, whose:"any") or "an opponent" (Kambal, whose:"opponent"), the referent is the SAME seat —
+      // the one that cast. The whose-filter decides IF the trigger fires, never WHO it points at.
+      if (cls.event === "cast") {
+        effectClause = effectClause.replace(/\bthat player\b/gi, "the casting player");
+      }
       if (cls.scope === "self" && SELF_PUMP_IT_RE.test(effectClause)) {
         effectClause = effectClause.replace(/^it /i, "this creature ");
       }

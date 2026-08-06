@@ -3,6 +3,41 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **THE CASTING-PLAYER REFERENT — "that player" on a cast trigger, +11** - post-v0.155.0 batch 71
+> Suite 1167 / 14,252 green + lint 0 BY EXIT CODE. Flip-diff **+11 / 0 / 0** — Eidolon of the Great Revel,
+> Pyrostatic Pillar, Aether Sting, Spellshock, Ishi-Ishi, Ruric Thar, Scalding Viper, Cindervines (damage);
+> Kambal, Soot Imp, Yawgmoth's Edict (life loss). All audited whole-card.
+> ⭐⭐ **THE FIFTH ARM OF A PROVEN PATTERN, NOT A NEW ONE.** detectTriggers already rewrites the "that player"
+> anaphor into an EVENT-GATED SENTINEL for gyOwner, upkeep-player and discarding-player; this adds the cast
+> arm ("the casting player"), and `ctx.castingPlayerId` was ALREADY threaded by checkCastTriggers for Rhystic
+> Study. triggerRouting's own header names this exact case as the safe-FN it was waiting on.
+> ⛔⛔ **EVENT-GATED, NEVER A CLAUSE MATCHER** — the code's own words: "that player" is corpus-AMBIGUOUS,
+> meaning the upkeep player, damaged player, milled player, discarder or caster depending ENTIRELY on the
+> event overhead. A matcher reading the words alone binds the wrong seat.
+> ⚠️⚠️ **THE FIRST CUT MEASURED +11 GAINED / 4 LOST, AND THE LOSSES ARE THE LESSON.** Rhystic Study, White
+> Rhystic Study, Esper Sentinel and Mystic Remora all say "…unless that player pays {1}", and their matcher
+> keyed on those LITERAL words. **A REWRITE IS A RENAME, AND A RENAME BREAKS EVERY READER THAT SPELLED THE
+> OLD NAME OUT.** Fixed by teaching those matchers BOTH spellings rather than special-casing the rewrite, so
+> one vocabulary survives; both cards are pinned as regression rows. Re-measured **+11 / 0 / 0**.
+> ⭐⭐ **MUT3 IS THE ARGUMENT FOR LAW 6 IN ONE RESULT.** Removing the resolver's castingPlayer branch left the
+> CLASSIFICATION test passing — the card still reads native — while the trigger resolved and **nobody took
+> damage**. Only the runtime life-table rows caught it. A metric-only pin would have shipped a silent
+> do-nothing on 11 cards.
+> ⛔⛔ **THE WRONG-SEAT PIN IS THE POINT.** A wrong-seat bug is invisible: the ability resolves, someone takes
+> the damage, the log looks healthy, only the IDENTITY is wrong. So the third opponent casts, and the witness
+> asserts the WHOLE life table by seat — `{user:40, ai1:40, ai2:40, ai3:38}` — not just "an opponent took 2".
+> Every lazy implementation (first opponent / active player / each opponent) lands somewhere else.
+> ⭐ A second mutant SURVIVED and the pin was the gap: every row drove a CAST event, so disabling the
+> triggerRouting referent pin changed nothing. Added a direct routing assertion —
+> `{cast:true, etb:false, dies:false, upkeep:false, attacks:false, discarded:false}` — which is the pin's
+> actual job: keeping the atom OFF events that cannot supply a caster, where the clause would silently drop.
+> ⭐ **ROTTING FIXTURE, THIRD TIME THIS SESSION.** firstSpellEachTurn's Shadow in the Warp fixture was a
+> REDUCED card chosen because its payoff was unmodelled; TP-1 modelled it, so it flips. Rewritten to assert
+> the flip (evidence the slice works) PLUS the whole printed card still parking — on its cost-reduction line
+> now, not its trigger. The blocker moved, which is what progress looks like from here.
+> ⚠️ Python-heredoc backslash mangling AGAIN (4th time), writing a real newline into a JS template. Caught by
+> the parse error. **The rule is not landing: use Edit for anything containing escapes.**
+
 > ## SLICE DONE - 2026-08-05 - **LOOK AT TARGET *OPPONENT'S* HAND — one missing noun, +5** - post-v0.155.0 batch 60
 > Suite 1166 / 14,244 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Sorcerous Sight, Telepathic
 > Spies, Wanderguard Sentry, Talas Explorer, Wu Scout. All audited whole-card.

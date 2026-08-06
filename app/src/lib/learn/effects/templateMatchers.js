@@ -721,10 +721,17 @@ export function matchTaxedDraw(oracle) {
   // ⛔ SELF-REFERENCE ONLY, for the reason the metric itself is gated: "that creature's" / "the sacrificed
   // creature's" name a DIFFERENT object, and taxing the payer by an unrelated permanent's power would be a
   // number pulled from nowhere. Anchored on "this creature's" alone.
-  const dyn = s.match(/^(?:you may )?draw a card unless that player pays \{x\}, where x is this creature's power$/i);
+  // ⚠⚠ BOTH SPELLINGS, AND A LOST-CARD MEASUREMENT IS WHY (TP-1, 2026-08-05). These matchers keyed on the
+  // LITERAL words "that player". The cast-trigger sentinel rewrite (detectTriggers) turns that anaphor into
+  // "the casting player" on every cast trigger — which is exactly what these are — so the first cut of TP-1
+  // measured **+11 GAINED / 4 LOST**: Rhystic Study, White Rhystic Study, Esper Sentinel and Mystic Remora
+  // all fell out of native. Same referent, same ctx.castingPlayerId, different spelling.
+  // ⛔ Accepting BOTH keeps ONE vocabulary rather than special-casing the rewrite: whichever form reaches
+  // this matcher, the payer is the caster. Do not "simplify" this back to one alternative.
+  const dyn = s.match(/^(?:you may )?draw a card unless (?:that player|the casting player) pays \{x\}, where x is this creature's power$/i);
   if (dyn) return { atom: { op: "taxed-draw", cost: { kind: "mana", genericSpec: { kind: "selfPower" } }, targetType: null } };
 
-  const m = s.match(/^(?:you may )?draw a card unless that player pays (\{[^}]+\}(?:\{[^}]+\})*)$/i);
+  const m = s.match(/^(?:you may )?draw a card unless (?:that player|the casting player) pays (\{[^}]+\}(?:\{[^}]+\})*)$/i);
   if (!m) return null;
   const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
   if (!pips.length) return null;

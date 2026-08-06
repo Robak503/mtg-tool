@@ -181,6 +181,12 @@ export function applyLoseLife(state, atom, ctx) {
     // Absent (a spell / non-upkeep event) → a clean no-op, never a fabricated loss or a wrong recipient.
     const pid = ctx.upkeepPlayerId;
     if (pid && next.players[pid]) next = loseLife(next, { playerId: pid, amount });
+  } else if (atom.who === "castingPlayer") {
+    // CASTING-PLAYER (TP-1 — Kambal, Consul of Allocation "that player loses 2 life and you gain 2 life"):
+    // the seat that cast the spell, ctx.castingPlayerId (threaded by checkCastTriggers). Absent -> a clean
+    // no-op, never a fabricated loss or a wrong recipient.
+    const pid = ctx.castingPlayerId;
+    if (pid && next.players[pid]) next = loseLife(next, { playerId: pid, amount });
   } else {
     next = loseLife(next, { playerId: ctx.controller, amount });
   }
@@ -304,6 +310,10 @@ export function lifeClauseParser(clause) {
   if (m) return { op: "lose-life", who: "discardingPlayer", amount: parseInt(m[1], 10), targetType: null };
   m = t.match(/^the upkeep player loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "upkeepPlayer", targetType: null };
+  // ⭐ CASTING-PLAYER life loss (TP-1 — Kambal, Soot Imp, Yawgmoth's Edict, Scrawling Crawler): the same
+  // structural twin, only the ctx key differs. Sentinel-gated exactly like its siblings above.
+  m = t.match(/^the casting player loses (\d+) life$/);
+  if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "castingPlayer", targetType: null };
   return null;
 }
 
