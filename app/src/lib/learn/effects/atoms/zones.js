@@ -865,7 +865,12 @@ export function bounceClauseParser(clause) {
   // so the combat-referent gate (triggerRouting.combatDamageReferentSatisfied / coverage's spell guard) pins
   // the bounce to combatDamageToPlayer — on any other event (a spell, an ETB) the referent is unset → not
   // native there (a SAFE FN, never a mis-scoped bounce).
-  const cb = t.match(/^return (another )?target creature(?: (an opponent controls|you don't control|you control|that player controls))? to its owner's hand$/);
+  // ⚠️ BOTH SPELLINGS — the DT-2 sentinel renames "target creature that player controls" to "…the damaged
+  // player controls" on combat-damage triggers, and this matcher spelled the old name out. Arm with Aether
+  // (which GRANTS a quoted combat-damage trigger carrying exactly this clause) fell out of native the
+  // moment the rewrite landed. Same cause as the Rhystic Study family and Smothering Tithe: **a rewrite is
+  // a rename, and every reader that spelled the old name out breaks silently.** One vocabulary, both forms.
+  const cb = t.match(/^return (another )?target creature(?: (an opponent controls|you don't control|you control|that player controls|the damaged player controls))? to its owner's hand$/);
   if (cb) {
     const who = /^you control$/.test(cb[2] || "") ? "you"
       : /^that player controls$/.test(cb[2] || "") ? "damagedPlayer"

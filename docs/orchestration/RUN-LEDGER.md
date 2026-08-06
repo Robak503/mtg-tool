@@ -3,6 +3,37 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-06 - **"TARGET CREATURE THAT PLAYER CONTROLS" — three widenings, three regressions, +3** - post-v0.156.0 batch 7
+> Suite 1175 / 14,291 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Snapping Thragg, Skirk
+> Commando, Spark Mage. All audited whole-card.
+> ⭐⭐ **THE REFUSAL WAS DELIBERATE, AND DIAGNOSING THAT IS THE SLICE.** parser.js's `UNMODELED_MARKERS`
+> lists `that (player|creature|…)` and `its (owner|controller)`; the damage/destroy fold needs
+> `isCleanClause(cleanedOracle)` ON TOP of the restriction parse, so a leftover bare ANAPHOR is rejected on
+> purpose. "Defending player controls" parses because it is an unambiguous PRINTED phrase, not an anaphor.
+> **The narrowing that got there: every OTHER scope already parsed on this lane, so the blocker was
+> phrase-specific rather than scope-specific.** The previously-banked suspect (an amountCount TT
+> interception) was wrong and has been retracted in the map.
+> ⛔ Loosening UNMODELED_MARKERS would be the one-line "fix" and is FORBIDDEN — that list is what keeps
+> unresolved anaphors off the native path, the class this run twice caught doing nothing or hitting the
+> wrong seat.
+> ⛔⛔ **THREE WIDENINGS, THREE DIFFERENT LITERAL READERS BROKEN — measured, not reasoned:**
+> · global swap of "that player controls" → **+4 / 8 LOST** (removal.js's permanent lane, 3 sites)
+> · `target creature that player controls` → +3 / 0, but only after the BOUNCE matcher (zones.js) learned
+>   the second spelling — Arm with Aether GRANTS a quoted combat-damage trigger carrying the clause
+> · `creature that player controls` → **+4 / 1 LOST** (Balefire Dragon's dedicated
+>   CDMG-MASS-TO-DAMAGED-PLAYER matcher in stack.js)
+> **"A rewrite is a rename" — fourth, fifth and sixth occurrences, all inside ONE slice.** This clause has
+> at least six literal readers. Stopped at the narrowest anchor that clears the gate; Throat Slitter
+> ("target NONBLACK creature…") is the known, accepted cost — a safe FN is cheaper than whack-a-mole.
+> ⚠️⚠️ **A SURVIVING MUTANT EXPOSED A FALSE CLAIM OF MY OWN.** I added the sentinel to
+> `MODELED_RESTRICTION_RES` and wrote that it was load-bearing ("cleanedOracle must strip it or
+> isCleanClause refuses"). **False** — the sentinel passes isCleanClause anyway, because the marker list
+> names the ANAPHOR and not the sentinel. Dead code justified by a confident comment; **removed, not kept.**
+> The gate that actually clears is the anaphor leaving the text.
+> ⭐ The surviving pin now asserts the real structure: the raw anaphor produces a CORRECT restriction and is
+> still refused — `{sentinel: [deal-damage…damagedPlayer], anaphor: []}` — plus all three regression cards
+> (Arm with Aether, Balefire Dragon, Trygon Predator) pinned native by name.
+
 > ## SLICE DONE - 2026-08-06 - **"THAT PLAYER CONTROLS" SCOPE — +1, after refusing the wrong card** - post-v0.156.0 batch 4
 > Suite 1174 / 14,287 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Shockmaw Dragon. Audited
 > whole-card. **The honest number is 1; the first measurement said 2.**

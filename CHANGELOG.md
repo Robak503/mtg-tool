@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Combat-damage snipe triggers work.** Snapping Thragg, Skirk Commando and Spark Mage shoot a creature
+  controlled by the player they just hit. The simulator could not tell which player "that player" meant in
+  a targeting clause, so the triggers did nothing — they now aim at the right player's board.
 - **Shockmaw Dragon works.** Its combat-damage trigger burns every creature the player it hit controls —
   the simulator could not express "that player controls" for creatures, so the trigger did nothing.
 - **"Its controller" payoffs hit the right player.** Poisonbelly Ogre, Fate Foretold and Parasitic Impetus

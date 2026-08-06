@@ -3907,6 +3907,39 @@ export function detectTriggers(card) {
       if (cls.event === "cardDrawn") {
         effectClause = effectClause.replace(/\bthat player\b/gi, "the drawing player");
       }
+      // ⭐⭐ DAMAGED-PLAYER **CONTROLS** SENTINEL (DT-2, 2026-08-06 — Snapping Thragg, Skirk Commando,
+      // Spark Mage: "you may have it deal N damage to target creature THAT PLAYER controls").
+      // ⛔⛔ THE REFUSAL THIS CLEARS IS DELIBERATE, NOT A BUG. parser.js's UNMODELED_MARKERS lists
+      // `that (player|creature|…)`, and the damage/destroy fold requires isCleanClause(cleanedOracle) on
+      // top of the restriction parse — so a leftover bare ANAPHOR is rejected on purpose. "Defending
+      // player controls" parses precisely because it is an unambiguous PRINTED phrase and is not in that
+      // list. The sentinel turns this anaphor into the same kind of unambiguous phrase; **widening
+      // UNMODELED_MARKERS instead would admit every unresolved anaphor**, which is the class this run has
+      // twice caught silently doing nothing or hitting the wrong seat.
+      // ⛔ Gated to the combat-damage event, the only one that binds ctx.damagedPlayerId. The EACH-creature
+      // lane (DT-1) already ships on the raw phrase and does not pass through this gate, so the scope arm
+      // accepts both spellings — same "one vocabulary" rule the taxed-draw matchers needed.
+      // ⛔⛔ NARROWED TO `target creature that player controls` — MEASURED, NOT GUESSED. A global swap of
+      // "that player controls" on this event read **+4 / 8 LOST**: removal.js's PERMANENT lane matches that
+      // phrase LITERALLY in three places, so "destroy target artifact that player controls" (Joven and
+      // Chandler, Trygon Predator, Caustic Wasps, Cavern-Hoard Dragon …) lost its matcher and parked.
+      // **"A rewrite is a rename", fourth occurrence this run** — and the fix is a narrower anchor rather
+      // than teaching yet another matcher a second spelling, because only the CREATURE-target form is
+      // refused by isCleanClause in the first place. The each-creature and permanent lanes keep the raw
+      // phrase they already parse.
+      if (cls.event === "combatDamageToPlayer") {
+        // ⛔⛔ ANCHORED ON `target creature that player controls` AND DELIBERATELY NO WIDER — three
+        // successive widenings were measured and each one broke a different LITERAL reader of this phrase:
+        //   · global swap                     → +4 / **8 LOST** (removal.js's permanent lane, ×3 sites)
+        //   · `target creature …`             → +3 / 0, but Arm with Aether needed the bounce matcher
+        //                                       taught the second spelling (zones.js)
+        //   · `creature that player controls` → +4 / **1 LOST** (Balefire Dragon's dedicated
+        //                                       CDMG-MASS-TO-DAMAGED-PLAYER matcher, stack.js)
+        // **Every widening finds another reader**, so this stops at the narrowest anchor that clears the
+        // isCleanClause refusal. Throat Slitter ("target NONBLACK creature that player controls") is the
+        // known cost — a safe FN, and cheaper than the whack-a-mole.
+        effectClause = effectClause.replace(/\btarget creature that player controls\b/gi, "target creature the damaged player controls");
+      }
       // ⭐⭐ ITS-CONTROLLER REFERENT (IC-1, 2026-08-06 — Poisonbelly Ogre, Fate Foretold, Parasitic Impetus,
       // Smoke Blessing). "Its controller" names the controller of the object that TRIGGERED the ability, and
       // `triggeringPermanentController` has been bound in makePendingTrigger's generic context all along

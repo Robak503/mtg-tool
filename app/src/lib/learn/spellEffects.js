@@ -321,7 +321,7 @@ export function parseCreatureTargetRestrictions(card) {
   if (/\bdefending player controls\b/.test(t)) {
     restrictions.push({ kind: "controller", who: "defendingPlayer" });
     t = t.replace(/\bdefending player controls\b/g, " ");
-  } else if (/\bthat player controls\b/.test(t)) {
+  } else if (/\b(?:that player|the damaged player) controls\b/.test(t)) {
     // ⭐ THAT-PLAYER SCOPE (DT-1, 2026-08-06 — Snapping Thragg, Skirk Commando: "you may have it deal N
     // damage to target creature THAT PLAYER controls" on a combat-damage trigger). The exact twin of the
     // defending-player arm above: creatureRestrictions.js already reads `who:"damagedPlayer"` off
@@ -330,7 +330,7 @@ export function parseCreatureTargetRestrictions(card) {
     // ⛔ ALSO STRICTLY NARROWER than "an opponent controls": it is the ONE seat just dealt combat damage,
     // not every opponent's board. Checked before the opponent arm for that reason, exactly like its twin.
     restrictions.push({ kind: "controller", who: "damagedPlayer" });
-    t = t.replace(/\bthat player controls\b/g, " ");
+    t = t.replace(/\b(?:that player|the damaged player) controls\b/g, " ");
   } else if (/\b(?:an opponent controls|you don't control|a player other than you controls)\b/.test(t)) {
     restrictions.push({ kind: "controller", who: "opponent" });
     t = t.replace(/\b(?:an opponent controls|you don't control|a player other than you controls)\b/g, " ");
