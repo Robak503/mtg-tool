@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚠️ CI NOTE - 2026-08-06 - **A run `conclusion: failure` whose JOB says `cancelled` is INFRASTRUCTURE, not a regression**
+> Run 31117377109 (b2358e5a) reported `cancelled`, then `failure` after a re-run, then **`success` on the
+> third attempt** — with no code change between them. The job-level conclusion stayed `cancelled` the whole
+> time while the RUN-level conclusion flipped to `failure`.
+> ⭐ **THE CAUSE IS OUR OWN WORKFLOW:** `.github/workflows/ci.yml` sets `concurrency: { group: ci-${ref},
+> cancel-in-progress: true }`. A superseded or racing run is cancelled by design, and a cancelled job can
+> surface at run level as a failure.
+> ⭐ **THE DIAGNOSTIC, in order — do this BEFORE touching code:**
+> 1. `gh api repos/.../actions/runs/<id>/jobs` — if the JOB conclusion is `cancelled` and no STEP reports
+>    `failure`, it is infrastructure. Re-run and read again.
+> 2. Run the CI commands EXACTLY as the workflow does, by bare exit code: `npm run build:rules-index`,
+>    `npm run lint`, `npm test`. All three were 0 here, which is what said "not a regression" before the
+>    third attempt confirmed it.
+> ⚠️ **A DISCIPLINE GAP THIS EXPOSED, worth fixing regardless:** I had been gating on `npx eslint .` and
+> `npx vitest run`, NOT on `npm run lint` (`eslint . --max-warnings 0`) and `npm test` (the timeout
+> wrapper). They agreed this time. **They are not guaranteed to** — `--max-warnings 0` is strictly stricter
+> than a bare eslint run. **Gate on the script the workflow invokes, not on the tool it wraps.**
+> ⛔ The standing rule ("read CI's `conclusion` field") stands, with this refinement: `failure` is not
+> automatically a code failure, and `cancelled` is never a pass. Both need the job-level look.
 > ## ⛔ CORRECTION - 2026-08-06 - **"BUILD DUNGEON+INITIATIVE FIRST" WAS MY OWN BAD CALL — measured, retracted**
 > I ranked the subsystems an hour ago and recommended Dungeon+Initiative (22 cards) as "the biggest genuine
 > single build, self-contained, no combat or layer work". **Then I probed the dungeons themselves and the
