@@ -485,8 +485,20 @@ export function parseCreatureTargetRestrictions(card, { allowPlaneswalkerUnion =
   // archetype — Pierce the Sky, Plummet, Shredding Winds). hasKeyword is enforced LAYER-AWARE by
   // creatureSatisfiesRestrictions (with → must have it; without → must not, via negate), so a GRANTED
   // flying counts. Only "flying" for now (the dominant case); any other keyword stays unmodeled → unclean.
-  if (/\bwith flying\b/.test(t)) { restrictions.push({ kind: "hasKeyword", keyword: "flying", negate: false }); t = t.replace(/\bwith flying\b/g, " "); }
-  else if (/\bwithout flying\b/.test(t)) { restrictions.push({ kind: "hasKeyword", keyword: "flying", negate: true }); t = t.replace(/\bwithout flying\b/g, " "); }
+  // ⭐⭐ KW-1 (2026-08-06) — the arm was "flying" only; the evaluator was never flying-specific. It reads
+  // `permanentHasKeyword`, which resolves ANY keyword generically (printed text, keyword counters, and
+  // layer-6 grants), so widening the PARSER's allowlist is the whole change — a tenth partial ignition.
+  // ⛔ THE SET IS CURATED, NOT OPEN, AND THE "WITHOUT" DIRECTION IS WHY. For a "with X" restriction an
+  // unresolvable keyword fails CLOSED (the creature is not offered — a safe FN). For "without X" the same
+  // unresolved answer means "does not have it", which SATISFIES the restriction — so an untracked keyword
+  // would fail OPEN and offer the whole board. Every word below is a printed keyword `hasKeyword` matches
+  // off the card, in both directions; a keyword this list does not name survives as residue → unclean →
+  // Arbiter, which is the safe side of that asymmetry.
+  const KW = "flying|defender|trample|shadow|first strike|double strike|vigilance|lifelink|deathtouch|menace|reach|haste|hexproof|indestructible";
+  const kwWith = t.match(new RegExp(`\\bwith (${KW})\\b`));
+  const kwWithout = t.match(new RegExp(`\\bwithout (${KW})\\b`));
+  if (kwWith) { restrictions.push({ kind: "hasKeyword", keyword: kwWith[1], negate: false }); t = t.replace(new RegExp(`\\bwith (?:${KW})\\b`, "g"), " "); }
+  else if (kwWithout) { restrictions.push({ kind: "hasKeyword", keyword: kwWithout[1], negate: true }); t = t.replace(new RegExp(`\\bwithout (?:${KW})\\b`, "g"), " "); }
 
   // SUBTYPE-RESTRICTED TARGETING (CR 205.3) — "target <Subtype> creature" (Human Frailty "Destroy target
   // Human creature"; "Destroy target Goblin creature"). A CURATED creature-subtype word only (TARGET_SUBTYPES)

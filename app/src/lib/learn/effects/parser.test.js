@@ -203,7 +203,6 @@ describe("parseEffectProgram — X spells (cost has {X})", () => {
     "Demonfire deals X damage to target creature with power X or less.", // residual non-amount X
     "Exile the top X cards of your library.",                       // exile/mill not modeled
     "Draw X cards. You lose X life.",                               // lose-life not modeled
-    "Hydroid deals X damage to each creature with first strike.", // a non-modeled mass filter (only with/without flying + you/opponents-control are modeled)
   ])("MUST drop to low (X near-miss): %s", (oracle) => {
     const p = parseEffectProgram(IX(oracle));
     expect(programConfidence(p)).toBe("low");
@@ -343,7 +342,6 @@ describe("parseEffectProgram — targeted atoms (P2.7)", () => {
       .toEqual([{ op: "destroy", targetType: "artifact", restrictions: [{ kind: "controller", who: "opponent" }] }]);
   });
   it("keeps RESTRICTED / non-creature variants low (anchor exact)", () => {
-    expect(programConfidence(parseEffectProgram(I("Exile target creature with shadow.")))).toBe("low"); // an unmodeled keyword rider (SE-1: MODELED restrictions like "you control"/"attacking"/"tapped" now flip HIGH — see restrictedExile.test.js)
     expect(programConfidence(parseEffectProgram(I("Tap target artifact.")))).toBe("low");          // tap is creature-only
     expect(programConfidence(parseEffectProgram(I("Destroy target tapped artifact.")))).toBe("low"); // unmodeled restriction
     // ⚠️ GRADUATED 2026-08-06 (CT-1) — "Destroy target artifact creature." is HIGH now. The `cardType`
@@ -1029,7 +1027,6 @@ const MUST_DROP_TO_LOW = [
   // (the residue allowlist rejects the leftover qualifier). The tapped+controller+attacking example that
   // used to sit here GRADUATED 2026-08-06 to MUST_STAY_HIGH; see the note there for why it was never
   // testing what its comment claimed.
-  "Destroy target creature you control with first strike.",               // controller modeled, "with first strike" not (only "with flying" is — β anti-flyer)
   "Destroy target creature an opponent controls with mana value 3 or less.", // controller modeled, "mana value" not
   "Destroy target creature with the greatest power.",                       // non-numeric power phrase → not modeled
   // Pump with a keyword-grant rider — the "+X/+Y" matches but the granted keyword
@@ -1037,10 +1034,7 @@ const MUST_DROP_TO_LOW = [
   "Target creature gets +2/+2 until end of turn with trample.",
   // ── P2.5 adversarial-review catches (REAL Scryfall false-highs the multi-clause
   // pass surfaced; pinned so a future parser change can't re-leak them) ──
-  "Pyrotechnics deals 1 damage to each creature with first strike.",            // qualified mass damage — only with/without flying is modeled (MASS-FILTERED-DAMAGE), first strike isn't
-  "Volley deals 1 damage to each creature with first strike.",                  // a non-modeled mass filter (you/opponents-control + with/without flying ARE modeled)
   "Simoon deals 1 damage to each creature target opponent controls.",           // qualified — must NOT mis-route to "target player"
-  "Shadowstorm deals 2 damage to each creature with shadow.",                   // qualified mass damage
   // ⚠️ RE-POINTED 2026-07-30. This slot held "…deals 3 damage to each creature an opponent controls." with the
   // note "qualified — only bare 'each creature' is modeled" — CAPABILITY language, and the capability landed
   // (the mass arm now delegates to the shared restriction grammar). Before graduating it I checked the phrase
@@ -1176,6 +1170,11 @@ const MUST_STAY_HIGH = [
   // type / "legendary" / keyword filter still drops to low (pinned in MUST_DROP_TO_LOW). ──
   "Destroy target nonblack creature.",                                          // color negation (Doom Blade)
   "Destroy target nonartifact creature.",                                       // type negation (Go for the Throat)
+  // ⭐ GRADUATED 2026-08-06 (KW-1) — the with/without-KEYWORD rows that sat in the drop-to-low gate are HIGH
+  // now. The evaluator was never flying-specific; only the parser allowlist was. A curated set of printed
+  // keywords is modeled, and the mass lane honours it end-to-end (keywordRestriction.test.js resolves
+  // Shadowstorm and shows the non-shadow creature surviving). A keyword OUTSIDE the set still parks.
+  "Pyrotechnics deals 1 damage to each creature with first strike.",
   // ⭐ GRADUATED 2026-08-06 (CT-1) out of MUST_DROP_TO_LOW, where it was labelled "positive type
   // restriction (IS an enchantment) — not modeled". It is modeled now, by the same `cardType` kind whose
   // evaluator predates this slice. Enforcement measured: a cardType:"artifact" pool offers ONLY the

@@ -137,7 +137,6 @@ describe("⛔⭐ GUARD B — an unmodeled qualifier leaves residue and REFUSES",
     "Battle-Scarred Goblin deals 1 damage to each creature blocking it.",
     "Flame Sweep deals 2 damage to each creature except for creatures you control with flying.",
     "Simoon deals 2 damage to each creature target opponent controls.",
-    "Shadowstorm deals 1 damage to each creature with shadow.",
     "Splatter Technique deals 3 damage to each creature and planeswalker.",
   ];
   for (const clause of REFUSED) {

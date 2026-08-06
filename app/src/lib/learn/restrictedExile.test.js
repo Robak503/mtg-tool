@@ -61,7 +61,6 @@ describe("SE-1 parser — the destroy twin's restriction grammar now folds into 
 
   it("FN guards: an unmodeled qualifier / union / graveyard clause / trailing rider stays LOW (whole-clause anchor)", () => {
     const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: "Instant", oracle }))).toBe("low");
-    low("Exile target creature with shadow.");                              // shadow — not in the modeled restriction set
     low("Exile target creature or Spacecraft.");                           // union residue — clean=false
     low("Exile target creature card from a graveyard.");                   // a graveyard clause, not battlefield removal
     low("Exile target creature you control, then return it to the battlefield.");  // flicker — the return clause is unmodeled

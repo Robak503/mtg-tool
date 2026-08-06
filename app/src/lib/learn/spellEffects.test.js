@@ -100,7 +100,7 @@ describe("parseCreatureTargetRestrictions (P2.4)", () => {
     expect(parseCreatureTargetRestrictions(card("Deals 4 damage to target attacking or blocking creature."))).toMatchObject({ clean: true, restrictions: [{ kind: "combat", value: "either" }] });
   });
   it("is UNCLEAN when an unmodeled qualifier is present (→ Arbiter)", () => {
-    expect(parseCreatureTargetRestrictions(card("Destroy target creature you control with first strike.")).clean).toBe(false); // only "with flying" is modeled (β anti-flyer)
+    expect(parseCreatureTargetRestrictions(card("Destroy target creature with annihilator.")).clean).toBe(false); // KW-1: a keyword OUTSIDE the curated set still parks
     expect(parseCreatureTargetRestrictions(card("Destroy target legendary creature.")).clean).toBe(false);     // supertype, unmodeled
     // ⚠️ THE COLOUR UNION ROW WAS HERE and is now CLEAN — CD-1 gave the vocabulary a colorAny kind, so
     // "white or blue creature" parses to one restriction holding a colour list. Asserted POSITIVELY now,

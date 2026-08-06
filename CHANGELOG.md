@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Removal that names a keyword works.** Clear a Path, Ogre Gatecrasher, Deface and Smash to Dust destroy
+  a creature with defender; Shadowstorm and Faceless Devourer hit creatures with shadow. The simulator
+  previously understood only "with flying" and skipped these cards.
 - **"Destroy target artifact creature" works.** Chandler, Molten Frame, Hearth Charm and Leonin Iconoclast
   (which hits an enchantment creature) did nothing in the simulator, which could not read a positive card
   type on a target. They now correctly hit only creatures of that type.

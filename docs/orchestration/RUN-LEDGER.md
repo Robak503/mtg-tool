@@ -3,6 +3,29 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-06 - **KEYWORD RESTRICTION beyond flying (+6)** - post-v0.156.0 batch 7
+> Suite 1181 / 14,312 green + lint 0 BY EXIT CODE. Flip-diff **+6 / 0 / 0** — Clear a Path, Ogre
+> Gatecrasher, Deface, Shadowstorm, Faceless Devourer, Smash to Dust. All audited whole-card.
+> ⭐⭐ **TENTH "BUILT ENGINE, PARTIAL IGNITION", and the narrowest yet.** The EVALUATOR was never
+> flying-specific: `hasKeyword` reads through `permanentHasKeyword`, which resolves ANY keyword generically
+> (printed text, keyword counters, layer-6 grants — so a GRANTED keyword counts). Only the PARSER's
+> allowlist said "flying". Widening that list was the whole change.
+> ⛔⛔ **THE SET IS CURATED, AND THE "WITHOUT" DIRECTION IS WHY.** The two directions have OPPOSITE
+> failure modes on an unresolvable keyword: "with X" fails CLOSED (creature not offered — safe FN), while
+> "without X" reads the SAME unresolved answer as "does not have it" and SATISFIES — offering the whole
+> board. An untracked keyword is harmless one way and a false positive the other. Every admitted word is a
+> printed keyword `hasKeyword` matches in both directions; `annihilator` is pinned as the boundary.
+> ⭐⭐ **THE CT-1 MISTAKE WAS NOT REPEATED.** Six pins fired, one on a MASS effect (Shadowstorm). Earlier
+> today the identical shape led me to read a pin's prose, infer a board wipe, and revert a correct slice.
+> This time the card was RUN first: cast at a 1/1 with shadow and a 1/1 without, the shadow creature dies
+> and the plain one lives. That resolution is now pinned. **A test's prose documents what was true when
+> written; only its assertion is a fact about now.**
+> ⚠️ **ONE PIN ADDED ON A WRONG ASSUMPTION, THEN REMOVED.** "Destroy target creature you control with
+> first strike." was promoted to MUST_STAY_HIGH on the assumption it would flip. It is still LOW — the
+> controller scope and the keyword qualifier do not compose on that path. A safe FN, left alone rather than
+> chased, and named in the test file so the gap is recorded instead of rediscovered. **Graduating a pin is
+> an assertion about behaviour and needs the same evidence as any other.**
+
 > ## SLICE DONE - 2026-08-06 - **CT-1 POSITIVE CARD TYPE (+4) — reverted on a false alarm, then un-reverted** - post-v0.156.0 batch 7
 > Suite 1180 / 14,314 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Leonin Iconoclast, Hearth
 > Charm, Chandler, Molten Frame. All audited whole-card.
@@ -2265,7 +2288,7 @@
 > "to you" not "to ITSELF" (no rider atom at all, and `selfDamage` hits the CONTROLLER — wrong per
 > CR 119.3), and "to ANY TARGET" not a restricted one (Fire and Brimstone read native with the rider
 > dropped). Runtime driven: 3 to its own controller, 2 to the target.
-> ⚠️ **METHOD SCAR:** patching a JS regex from a python heredoc turned `` into a literal BACKSPACE
+> ⚠️ **METHOD SCAR:** patching a JS regex from a python heredoc turned `\b` into a literal BACKSPACE
 > (char 8), so the guard read `/^Hdeals …/` and silently never matched — I chased "the guard doesn't
 > fire" for several rounds. **Patch source files with the editor, not with escape-prone shell/python
 > string surgery; and `cat -A` the line when a regex "should" match and doesn't.**
@@ -3786,7 +3809,7 @@
 > **The narrowing to make, and its danger.** The guard's own neighbouring clause was already narrowed once
 > for the "is put into a graveyard from the battlefield" SELF wording, with the same runtime justification
 > ("Probed end to end on Implement of Examination before narrowing this"). The blanket
-> `leaves the battlefield` clause wants the same treatment for the SELF, NON-CREATURE case only.
+> `\bleaves the battlefield\b` clause wants the same treatment for the SELF, NON-CREATURE case only.
 > ⛔ **CREATURES MUST STAY FLAGGED**: the creature branch goes through `checkDiesTriggers`, and a creature
 > whose trigger keys on "leaves the battlefield" rather than "dies" is exactly the silent drop the guard
 > exists to prevent. Narrow on permanent TYPE and on SELF-subject; anything wider re-opens the hole.
@@ -11049,7 +11072,7 @@ tap-OTHER mana cards, exactly these two were blocked ONLY by the payer noun.
 
 ⛔ **"PERMANENT" MUST NOT USE THE WORD-BOUND TYPE-LINE TEST — third sighting of the VACUOUS-FILTER trap** in
 this engine (Norn's Choirmaster, Keleth were the others). The word never appears in a type line, so
-`permanent` is a gate no printed card satisfies: source built, never offered, card reads modeled while
+`\bpermanent\b` is a gate no printed card satisfies: source built, never offered, card reads modeled while
 producing nothing. **Silent in every metric.** Everything on a battlefield IS a permanent (CR 110.1).
 
 ### ⭐ ALLOWING "PERMANENT" EXPOSED A POLICY BUG IN MY OWN ORDERING — and then the FIX had one too
@@ -11234,7 +11257,7 @@ turn this card is meant to matter*. The naive implementation filters by `!summon
 restrictive direction**, which no coverage number, no tier diff and no other test would ever flag. Pinned, and
 payer ordering now PREFERS sick creatures since they have nothing else to do.
 
-⚠️ The ``-through-heredoc backspace trap bit again; eslint's `no-control-regex` caught it, second time this
+⚠️ The `\b`-through-heredoc backspace trap bit again; eslint's `no-control-regex` caught it, second time this
 run. **The lesson is not "be careful" — it is that the lint rule is the detector**, so never silence it.
 
 ## 🔧 SHIPPED — two-colour tokens in the rider grammar (+3)
@@ -12280,7 +12303,7 @@ that other axis — and it was the same shape twice over: **both gates already e
 GAINED **6** · LOST 0: Merchant Scroll · Bond of Flourishing · Planar Bridge · Beastrider Vanguard ·
 Trail of Crumbs · **Tezzeret, Artifice Master** (playable-pw → native-planeswalker).
 
-**⛔ WHY COLORS MUST NOT BECOME GROUP WORDS.** A group word is matched by `<word>` **containment against
+**⛔ WHY COLORS MUST NOT BECOME GROUP WORDS.** A group word is matched by `\b<word>\b` **containment against
 the TYPE LINE**. No type line contains "green" — admitting it to `TUTOR_FILTER_WORDS` would make the tutor
 classify native, **find nothing, ever**, and *the tier would never show it because the card was already
 counted*. The vacuous-subtype-filter FP class, exactly. Colors route to `filter.colors`.
@@ -12403,8 +12426,8 @@ anthems then apply on top of the new base (CR 613.1a).
    and is not would be credited native with a real modification dropped. Proper fix = prepend the supertype
    to the copy's type line (as `addCardType` does, further left). **Consequence, recorded: Sarkhan, Soul
    Aflame stays parked, so this wave is worth ONE Dragons shelf card (Scion), not two.**
-   ⚠️ **TOOLING: a Python heredoc turned `` into a real BACKSPACE (0x08) inside three regexes.**
-   `JSON.stringify` renders 0x08 as ``, so the file *looked* right and the regexes silently never
+   ⚠️ **TOOLING: a Python heredoc turned `\b` into a real BACKSPACE (0x08) inside three regexes.**
+   `JSON.stringify` renders 0x08 as `\b`, so the file *looked* right and the regexes silently never
    matched. Same class as the recorded `node -e` trap. **Use Edit for anything with regex escapes**, and
    grep for stray control chars after any scripted write.
 
@@ -14465,7 +14488,7 @@ shipped detector already resolves via `shortName`; they park on their effects ("
 
 Rebuilt from the ledger's own notes and landed. Both paths verified at runtime, mutation-checked three ways.
 
-**A BUG WORTH NOT REPEATING — Python `` is a BACKSPACE.** The rebuild silently wrote literal 0x08 control
+**A BUG WORTH NOT REPEATING — Python `\b` is a BACKSPACE.** The rebuild silently wrote literal 0x08 control
 characters into two JS regexes (`/^Hone or more…`), so the detector never matched and I burned most of a turn
 probing a correct-looking arm. `cat -A` on the line is what finally showed it. **Write regexes into JS with
 Python RAW strings (`r'...'`) or an Edit tool — never a plain quoted string.** Third escaping incident of the
