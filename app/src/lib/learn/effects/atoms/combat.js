@@ -249,7 +249,15 @@ export function applyPumpEffect(state, atom, ctx) {
   // Overwhelming Stampede's "greatest power among creatures you control". Computed from `state` (pre-pump,
   // before the loop below adds any P/T effect), so X reads the un-buffed board. Takes precedence over the
   // X-cost pump (amountX → ctx.xValue) and the printed ptDelta; 0 (empty board) is a valid +0/+0, not null.
-  const scaled = atom.ptDeltaCount ? Math.max(0, countForSpec(state, ctx, atom.ptDeltaCount) * (atom.ptDeltaCount.per ?? 1)) : null;
+  // ⭐⭐ THE CLAMP IS ON THE COUNT, NOT THE PRODUCT (CP-1 fix, 2026-08-06). It used to read
+  // `Math.max(0, count * per)`, which is right for the case the comment above describes — an empty board
+  // must give +0/+0, not null — and silently wrong for a NEGATIVE `per`: `-1 × 3` clamped to 0, so every
+  // "-N/-N until end of turn for each …" applied NOTHING. Defile with a Swamp out left a 2/2 at 2/2.
+  // ⛔ A BOARD COUNT CANNOT BE NEGATIVE, so clamping it is the whole intent; clamping the PRODUCT throws
+  // away the sign the card printed. 19 cards print the negative form (Defile, Irradiate, Drag Down, Die
+  // Young, Drown in Filth …), and the self-form matcher's own comment claimed negatives were "admitted
+  // symmetrically" — they parsed, they just did nothing.
+  const scaled = atom.ptDeltaCount ? Math.max(0, countForSpec(state, ctx, atom.ptDeltaCount)) * (atom.ptDeltaCount.per ?? 1) : null;
   // amountX → the chosen X (ctx.xValue) scales the pump. amountXSlot ("p"/"t") marks WHICH stat is the
   // +X for an ASYMMETRIC X-pump ("+X/+0" → slot "p", "+0/+X" → slot "t"); the OTHER stat reads its
   // printed ptDelta. An absent slot = symmetric +X/+X (both stats = X) — the original behavior.
@@ -1879,6 +1887,31 @@ export function pumpClauseParser(clause) {
   if (m && m[1] === m[2]) {
     const countSpec = parseCountSource(m[3]);
     return countSpec ? { op: "pump", target: "self", ptDeltaCount: { ...countSpec, per: parseInt(m[1], 10) } } : null;
+  }
+  // ⭐⭐ CP-1 (2026-08-06) — the TARGET-creature mirror of the self form directly above (Primal Bellow,
+  // Might of the Masses, Hunger of the Nim, Confront the Unknown, Eastfarthing Farmer). Everything needed
+  // already existed: `parseCountSource` models every count these cards use INCLUDING subtypes ("for each
+  // Forest you control" → {subtype:"Forest"}, "for each Clue you control" → {subtype:"Clue"}), and
+  // `applyPumpEffect` already resolves ptDeltaCount at resolution (CR 608.2h). Only the chosen-target
+  // wording had no matcher. Fourteenth "built engine, partial ignition" of this run.
+  // ⛔ ASYMMETRIC IS ADMITTED VIA `ptDeltaCountSlot`, WHICH THE SELF FORM ABOVE DOES NOT DO — it requires
+  // m[1] === m[2] and so refuses "+1/+0 for each artifact you control" (Hunger of the Nim). Here the ZERO
+  // pip marks the stat that does NOT scale, exactly as the "where x is" matcher does it.
+  // ⛔ TWO DIFFERENT NON-ZERO PIPS PARK. "+2/+1 for each …" would need two independent per-values and there
+  // is no field for that; emitting one `per` would silently scale the wrong stat. Refused, not approximated.
+  m = t.match(/^target creature gets ([+-]\d+)\/([+-]\d+) until end of turn for each (.+)$/);
+  if (m) {
+    const pv = parseInt(m[1], 10), tv = parseInt(m[2], 10);
+    const per = pv === 0 ? tv : pv;
+    const slot = pv !== 0 && tv !== 0 ? null : (pv !== 0 ? "p" : "t");
+    if (per === 0) return null;                                  // "+0/+0 for each" scales nothing
+    if (slot === null && pv !== tv) return null;                 // two different non-zero pips → unmodelable
+    const countSpec = parseCountSource(m[3]);
+    return countSpec ? {
+      op: "pump", targetType: "creature",
+      ptDeltaCount: { ...countSpec, per },
+      ...(slot ? { ptDeltaCountSlot: slot } : {}),
+    } : null;
   }
   m = t.match(/^this creature gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (m) return { op: "pump", target: "self", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };

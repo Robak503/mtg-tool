@@ -3,6 +3,31 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-06 - **COUNT-SCALED TARGET PUMP (+7) — and a clamp that ate every negative** - post-v0.156.0 batch 7
+> Suite 1188 / 14,336 green + lint 0 BY EXIT CODE. Flip-diff **+7 / 0 / 0** — Primal Bellow, Might of the
+> Masses, Hunger of the Nim, Confront the Unknown, Defile, Irradiate, Friendly Neighborhood. All audited
+> whole-card.
+> ⭐⭐ **FOURTEENTH "BUILT ENGINE, PARTIAL IGNITION".** `parseCountSource` already models every count these
+> cards use INCLUDING subtypes (`for each Forest you control` → {subtype:"Forest"}, `for each Clue you
+> control` → {subtype:"Clue"}), and `applyPumpEffect` already resolves `ptDeltaCount` at resolution.
+> The SELF wording had a matcher; the chosen-TARGET wording did not.
+> ⭐ The new matcher admits two things the self form refuses, both printed on real cards: ASYMMETRIC
+> (`+1/+0 for each artifact` — the self matcher requires both pips equal) via the existing
+> `ptDeltaCountSlot`, and NEGATIVE (`-1/-1 for each Swamp`).
+> ⛔⛔ **THE REAL FIND: A CLAMP THAT ATE EVERY NEGATIVE COUNT-SCALED PUMP, SHIPPED, FOR 19 PRINTED CARDS.**
+> `applyPumpEffect` computed `Math.max(0, count * per)`. That is correct for the case its comment describes
+> — an empty board must give +0/+0 — and silently wrong for a negative `per`: **-1 × 3 clamps to 0**, so
+> Defile with a Swamp out left a 2/2 at **2/2**. The self-form matcher's own comment claimed negatives were
+> "admitted symmetrically": they parsed, and then did nothing. Fixed by clamping the COUNT, not the product
+> (`Math.max(0, count) * per`) — a board count cannot be negative, so clamping it is the whole intent;
+> clamping the product throws away the sign the card printed.
+> ⭐ **FOUND ONLY BECAUSE THE RUNTIME ROW ASSERTED A NUMBER.** Defile classified native, parsed correctly,
+> and flip-diffed as a gain. The single assertion `2/2 → 1/1` is the entire difference between shipping the
+> card and shipping a card that reads native and does nothing. Law 6 earning its keep for the third time
+> today.
+> ⭐ Mutation surprise, recorded: forcing `ptDeltaCountSlot` null makes Hunger of the Nim PARK rather than
+> mis-scale — the slot and the two-different-pips guard share a condition, so the guard covers the seam
+> twice. Predicted a silent wrong pump; measured a clean refusal. Better than predicted, and worth knowing.
 > ## ⛔ RETRACTED - 2026-08-06 - **"LAND ETB TRIGGERS NEVER FIRE" WAS FALSE — I posted it, then disproved it**
 > **The entry that stood here claimed land ETB triggers never fire, on the strength of a matched control.**
 > It is wrong. Land ETB triggers fire correctly. `applyPlayLand` calls `checkEnterTriggers` on the played

@@ -4184,6 +4184,12 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Pumps that scale with a board count work on a chosen target.** Primal Bellow, Might of the Masses,
+  Hunger of the Nim, Confront the Unknown, Defile, Irradiate and Friendly Neighborhood count your Forests,
+  Clues, artifacts or creatures and buff the target by that much.
+- **Shrinking effects that scale with a board count now actually shrink.** Any "-1/-1 until end of turn for
+  each …" was being applied as zero, so cards like Defile and Irradiate did nothing at all. 19 cards print
+  that wording.
 - **"Return a land you control" works.** Tazeem Raptor, Sutina, Wayward Guide-Beast, Noggle Bridgebreaker
   and Zell Dincht return one of your lands to hand; the simulator understood only the creature and
   permanent wordings, so all five did nothing. It returns a land you have already tapped for mana, which
