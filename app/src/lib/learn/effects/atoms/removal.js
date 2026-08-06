@@ -385,6 +385,12 @@ function applySacrifice(state, atom, ctx) {
     // whose upkeep it is, ctx.upkeepPlayerId (threaded by checkStepTriggers). Absent / eliminated referent
     // (a spell, a non-upkeep event) → nobody sacrifices (a clean logged no-op, never a wrong-player edict).
     sacrificers = ctx.upkeepPlayerId && state.players?.[ctx.upkeepPlayerId] ? [ctx.upkeepPlayerId] : [];
+  } else if (atom.who === "damagedPlayer") {
+    // DAMAGED-PLAYER EDICT (DP-SAC — Demon of Loathing, Cabal Executioner, Destructive Urge, Akki
+    // Underminer): the player just dealt combat damage, ctx.damagedPlayerId (threaded by
+    // checkCombatDamageTriggers). Absent / eliminated referent → nobody sacrifices — the same clean logged
+    // no-op the upkeep and defending arms make, never a wrong-player edict.
+    sacrificers = ctx.damagedPlayerId && state.players?.[ctx.damagedPlayerId] ? [ctx.damagedPlayerId] : [];
   } else if (atom.who === "defendingPlayer") {
     // DEFENDING-PLAYER EDICT (BLITZ TR-2 — Nefarox, Overlord of Grixis "Whenever Nefarox attacks alone,
     // defending player sacrifices a creature of their choice", CR 508.5): the declared defender,
@@ -527,6 +533,18 @@ export function sacrificeEdictClauseParser(clause) {
   const UP_POOL = { ...TYPE_POOL, creature: "creature", permanent: "permanent", "artifact, creature, or land": "artifactCreatureOrLand", "nonbasic land": "nonbasicLand" };
   m = t.match(new RegExp(`^the upkeep player sacrifices an? (creature|permanent|nonbasic land|artifact, creature, or land|${TYPED.slice(1, -1)})(?: of (?:their|his or her) choice)?$`));
   if (m) return { op: "sacrifice", who: "upkeepPlayer", what: UP_POOL[m[1]] };
+  // ⭐⭐ DAMAGED-PLAYER EDICT (DP-SAC, 2026-08-05 — Demon of Loathing, Cabal Executioner, Destructive Urge,
+  // Akki Underminer): "Whenever <source> deals combat damage to a player, THAT PLAYER sacrifices a[n]
+  // <pool>". The structural twin of the upkeep arm directly above and the defending-player arm below —
+  // same pool, same all-or-nothing anchor, only the referent differs (ctx.damagedPlayerId).
+  // ⛔ THE ANAPHOR STAYS LITERAL HERE, unlike the upkeep / cast / draw arms. Those needed an event-gated
+  // SENTINEL rewrite because their events do not bind a damaged player; the combat-damage family is the
+  // one whose bare "that player" the existing who:"damagedPlayer" atoms already own, and triggerRouting's
+  // DAMAGED_PLAYER_EVENTS gate keeps it off every other event. So this arm reads the printed words.
+  // ⛔ SAME ALL-OR-NOTHING POOL: a count or filtered victim fails the exact anchor → Arbiter. A
+  // wrong-victim sacrifice is a forbidden FP (CREED), and an unenforced filter is exactly that.
+  m = t.match(new RegExp(`^that player sacrifices an? (creature|permanent|nonbasic land|artifact, creature, or land|${TYPED.slice(1, -1)})(?: of (?:their|his or her) choice)?$`));
+  if (m) return { op: "sacrifice", who: "damagedPlayer", what: UP_POOL[m[1]] };
   // ===== DEFENDING-PLAYER EDICT (BLITZ TR-2, CR 508.5 / 701.21) ===== "defending player sacrifices a
   // creature of their choice" (Nefarox, Overlord of Grixis — an attacks-alone payoff). who:"defendingPlayer"
   // reads ctx.defenderId (threaded on attacks / attacksAlone / becomesBlocked — the same referent AFFLICT's

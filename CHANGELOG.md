@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Combat-damage edicts work.** Demon of Loathing, Cabal Executioner, Destructive Urge and Akki
+  Underminer make the player they hit sacrifice a creature, land or permanent. The trigger was recognised
+  but the victim was not, so nothing happened — the damaged player now loses exactly what the card says,
+  and no one else does.
 - **Combat-damage payoffs that say "an opponent" work.** Coastal Piracy, Hydra Omnivore, Mindscour Dragon
   and Joven and Chandler trigger when your creature connects. The simulator recognised the wording "deals
   combat damage to a player" but not "to an opponent", so these cards did nothing at all — their triggers

@@ -3,6 +3,37 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **THE DAMAGED-PLAYER EDICT — the third twin of one arm, +4** - post-v0.155.0 batch 89
+> Suite 1170 / 14,268 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Demon of Loathing, Cabal
+> Executioner (creature pool), Destructive Urge (land), Akki Underminer (permanent). All audited whole-card.
+> ⭐ removal.js already carried the UPKEEP-player edict and the DEFENDING-player edict, sharing a pool map,
+> an all-or-nothing anchor and a referent-or-nobody resolver. This is the same arm with ctx.damagedPlayerId.
+> ⛔ **THE ANAPHOR STAYS LITERAL, and that difference is the interesting part.** The three sentinel arms
+> shipped earlier today (cast / draw / each-opponent's-upkeep) needed an event-gated REWRITE because their
+> events bind no damaged player. Combat damage is the one family whose bare "that player" the existing
+> who:"damagedPlayer" atoms already own, with triggerRouting's DAMAGED_PLAYER_EVENTS gate keeping it off
+> every other event — so this arm reads the printed words and adds no rewrite. **Knowing which families
+> need a sentinel and which do not is the whole map of this vein.**
+> ⛔⛔ **THE MUTANT REPEATED THE RUN'S DOMINANT LESSON A FOURTH TIME.** Removing the resolver branch left
+> the CLASSIFICATION test PASSING while NOBODY sacrificed. Four slices in a row now (TP-1, TP-3, DP-SAC,
+> plus CD-OPP's detect-vs-fire) the metric-only view could not see a silent do-nothing.
+> ⭐ Wrong-seat pin: EVERY seat holds a creature on the probe board, so a mis-aimed edict would still find
+> something to kill — `{before:{user:2,ai1:1,ai2:1,ai3:1}, after:{user:2,ai1:1,ai2:0,ai3:1}}`.
+> ⓘ Filtered victims still park ("a non-Elf creature"), pinned — an unenforced victim filter IS a
+> wrong-victim sacrifice.
+
+> ## TOOL FIX - 2026-08-05 - **the noun-gap probe now reports CARRIERS beside flips**
+> ⚠️⚠️ **A ZERO WITHOUT A CARRIER COUNT IS AMBIGUOUS, AND I ALMOST BANKED THE WRONG KIND.** An
+> old-templating axis ("his or her" → "their") reported a clean, confident **0 flips**. The bundle has
+> **ZERO CARRIERS**: Scryfall ships CURRENT Oracle text and the whole corpus was re-templated in 2017, so
+> the `(?:their|his or her)` alternations in triggers.js guard text the bundle no longer contains.
+> **"No carriers exist" and "carriers exist but this swap is not their blocker" are different conclusions**
+> — only the second is a real negative worth banking, and without the carrier column they read identically.
+> ⛔ The sanity gate added last time proves the PATTERN works; it says nothing about the CORPUS. Both
+> columns are now printed, with an explicit `⛔ NO CARRIERS — the axis is empty, not a negative` label.
+> ⓘ Banked negatives, now trustworthy: `target player → target opponent` — **1101 carriers, 772 parked,
+> 0 flips**. A real negative. Old-templating axes: empty, do not re-probe.
+
 > ## SLICE DONE - 2026-08-05 - **COMBAT DAMAGE TO AN *OPPONENT* — the holdout among seven siblings, +4** - post-v0.155.0 batch 85
 > Suite 1169 / 14,265 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Coastal Piracy, Hydra
 > Omnivore, Mindscour Dragon, Joven and Chandler. All audited whole-card.
