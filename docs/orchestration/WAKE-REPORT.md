@@ -7,6 +7,40 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ☀️ 2026-08-06 — **+78 this stretch · batch 7 at 85 post-v0.156.0 · the phrase veins are worked out** — suite **1189 / 14,339** green by bare exit code
+
+> ### ⏭ NEXT BUILD IS A SUBSYSTEM, AND THE RANKING IS MEASURED
+> `node app/scripts/probe-subsystem-rank.cjs` — sole-blocker counts per subsystem:
+> **Saga 32 · Dungeon+Initiative 22 · Powerstone 14 · the Ring 13 · goad 12 · incubate 10 · connive 10 ·
+> explore 9 · monarch 5 · Attractions 4.**
+> ⭐ **BUILD DUNGEON + INITIATIVE FIRST (22).** One shared venture/dungeon-state machine serves both, the
+> work is self-contained (a tracked side-object with a room pointer — no combat or layer changes), and it
+> is the biggest genuine single build on the board.
+> ⛔ **DO NOT read Saga's 32 as a subsystem.** A Saga's chapters ARE the card, so "remove one chapter →
+> native" means the other chapters already parse. That 32 is per-chapter long-tail, not a missing machine.
+> ⛔ Powerstone (14) is blocked on RESTRICTED MANA (`manaProduction` returns null for the token — the
+> refusal note is accurate, verified). goad (12) needs combat-requirement enforcement the engine lacks.
+> Connive and explore are already built; the targeted-connive form is genuinely missing but its ceiling is 0.
+
+> ### ⭐⭐ THE INSTRUMENT TO START FROM — `app/scripts/probe-sole-blocker.cjs`
+> For every multi-line parked card, remove ONE line and re-classify; if exactly one removal makes it native,
+> that line IS the sole blocker. **6,859 of 12,917 multi-line parked cards have a single blocking line.**
+> Then `probe-sole-blocker-drill.cjs <prefix>` groups a row by event + does-the-effect-parse + effect clause.
+> ⛔⛔ **A ROW IS NOT A VEIN UNTIL THE DRILL COLLAPSES IT TO ONE EFFECT SHAPE.** The #1 row looks like a
+> 30-card family (`whenever this creature deals combat damage to a player, yo…`) and is 30 DISTINCT effects
+> with a correctly-detected trigger. A shared trigger PREFIX is not a shared cause — gate 20 in its most
+> seductive form of the run.
+> ⚠️ **THREE KNOWN FAILURE MODES OF THE CLAUSE CENSUSES, all of which bit me:** use `NATIVE_TIERS.has(tier)`
+> not `startsWith("native")` (the `land` tier is covered without the prefix — my first run put 248 dual
+> lands on top); a clause may have a DEDICATED parser (GY-recursion, suspend, mana) so an empty
+> `parseEffectClause` is not proof; and parenthesised REMINDER TEXT is not an ability (it made unearth look
+> like a 20-card vein with a real ceiling of 0).
+
+> ### ⭐ THE STANDING RULE THIS STRETCH KEEPS EARNING
+> **A VERIFICATION THAT RETURNS THE CONVENIENT ANSWER DESERVES MORE SUSPICION THAN ONE THAT RETURNS AN
+> INCONVENIENT ONE.** Every wrong call today arrived as a clean-looking confirmation: a collision check
+> reporting "all safe" (backslash eaten); a stack read reporting "never fires" (looked before the flush);
+> a pin's prose reporting "board wipe". The all-zero rule is the loudest symptom of this, not the only one.
 ## ☀️ 2026-08-06 — **+78 this stretch · batch 7 at 85 post-v0.156.0 (tag at ~100)** — suite **1189 / 14,339** green by bare exit code
 
 > ### ⏭ NEXT BUILD — the ACTIVATED-ABILITY census, freshly run and already filtered

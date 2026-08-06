@@ -3,6 +3,30 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚙️ MAP (no cards) - 2026-08-06 - **SUBSYSTEM RANKING BY SOLE-BLOCKER COUNT — what to build next**
+> Committed `app/scripts/probe-subsystem-rank.cjs`. Uses the sole-blocker census to answer its own
+> question: for each named subsystem, how many parked cards would flip if THAT and only that were built?
+> **Saga chapter 32 · Dungeon+Initiative 22 (venture 14 / initiative 8) · Powerstone token 14 · the Ring 13
+> · goad 12 · incubate 10 · connive 10 · explore 9 · monarch 5 · Attractions 4.**
+> ⛔ **SAGA IS NOT A SUBSYSTEM BUILD — read the number correctly.** A Saga's chapter lines ARE the card, so
+> "removing one chapter makes it native" means the OTHER chapters already parse and one chapter's effect
+> does not. The Saga machinery works; those 32 are per-chapter long-tail effects. **The census points at a
+> LINE, not always at a system.**
+> ⛔ **CONNIVE AND EXPLORE ARE ALREADY BUILT AND ARE NOT THE BLOCKER.** `this creature connives` parses
+> (op `connive`), `target creature you control explores` parses. The TARGETED connive form is genuinely
+> missing — a fifteenth partial ignition — but its ceiling is **0**: all 9 carriers park on other text too.
+> Measured before building, which is the only reason it was not built.
+> ⭐ **THE REAL CANDIDATES, in order of cards-per-build:**
+> · **Dungeon + Initiative (22 combined)** — one shared venture/dungeon-state machine serves both, so the
+>   22 is a genuine single build rather than two.
+> · **the Ring (13)** — one persistent emblem-ish state plus four tempt levels.
+> · **goad (12)** — the smallest real one: a per-turn attack REQUIREMENT plus a can't-attack-you
+>   restriction. Needs combat-requirement enforcement, which the engine does not have today (`goad` appears
+>   in 4 non-test files, none of them combat).
+> · **Powerstone (14)** — blocked on RESTRICTED MANA. `manaProduction` returns null for the token's oracle;
+>   the refusal note in tokens.js is accurate, not stale (verified, not assumed).
+> ⭐ **RECOMMENDATION: Dungeon+Initiative first** — biggest genuine single build, and the venture machinery
+> is self-contained (a dungeon card is a tracked side-object with a room pointer; no combat or layer work).
 > ## ⚙️ INSTRUMENT + MAP (no cards) - 2026-08-06 - **THE SOLE-BLOCKER CENSUS — and why the top rows are NOT veins**
 > Committed `app/scripts/probe-sole-blocker.cjs` and its drill-down companion. **This is the sharpest vein
 > finder built so far** and it supersedes guessing at phrases: for every multi-line parked card, remove ONE
