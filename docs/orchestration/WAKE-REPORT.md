@@ -7,52 +7,39 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-06 — **🏷 v0.156.0 PUBLISHED (106 cards) · new batch 0** — suite **1172 / 14,279** green by exit code
+## ☀️ 2026-08-06 — **🏷 v0.156.0 PUBLISHED · batch 4 (IC-1 +3 · DT-1 +1)** — suite **1174 / 14,287** green by exit code
 
-> ### ⏭ NEXT BUILD, MEASURED AND SEAM-MAPPED: **the "ITS CONTROLLER" REFERENT (≤5)**
-> Poisonbelly Ogre, Parasitic Impetus (lose-life) · Fate Foretold (draw) · Smoke Blessing (damage, compound
-> with a Treasure) · Lay Bare (the countered SPELL's controller — a DIFFERENT referent, see below).
-> ⚠️ **≤5 IS AN UPPER BOUND FROM A MEANING-CHANGING SWAP** — the probe replaced "its controller" with
-> "target player", which turns a referent into a chosen target. Same caveat as the "that player" axis.
-> ⭐⭐ **BUILT ENGINE, NO IGNITION — AND THIS ONE IS EXACT.** `triggeringPermanentController` is bound in
-> makePendingTrigger's GENERIC context (triggers.js ~5460) and **read by nothing**: a grep across learn/
-> returns the binding line and no consumers. Four of the five carriers want precisely that value (the
-> ENTERING creature's controller for Poisonbelly Ogre; the DYING creature's for Fate Foretold / Smoke
-> Blessing; the ATTACKING creature's for Parasitic Impetus).
-> ⛔⛔ **THE PIPELINE REFUSES A BARE PRONOUN AS A CLAUSE SUBJECT — THIS IS THE WHOLE FINDING, AND IT IS WHY
-> THE OBVIOUS BUILD DOES NOT WORK.** Measured: a parser arm added to `lifeClauseParser` matching
-> `^its controller loses (\d+) life$` returns the correct atom when the parser is called DIRECTLY, and
-> `parseEffectClause` on the identical string still yields `[]`, while its sibling
-> `the upkeep player loses 1 life` sails through the same pipeline. Something upstream of
-> parseClauseToAtom drops a clause whose subject is "its".
-> ⭐ **SO THE CORRECT BUILD IS AN EVENT-GATED SENTINEL REWRITE, exactly like every other referent here.**
-> gyOwner, upkeep-player, discarding-player, casting-player and drawing-player ALL rewrite the anaphor in
-> detectTriggers before any atom sees it. "its controller" should become a sentinel
-> (e.g. "the triggering permanent's controller") on trigger events that bind one, and the parser arm should
-> match the SENTINEL, never the raw pronoun. That also explains the refusal above as deliberate rather than
-> a bug: the pipeline does not trust bare pronouns, and the rewrite is how every sibling earns its trust.
-> ⚠️⚠️ **CORRECTION, CHECKED RATHER THAN ASSUMED: THE IN-REPO PRECEDENT IS THE WRONG MODEL FOR THE TRIGGER
-> FAMILY.** life.js's doc block points at *"Its controller investigates" (Fateful Absence)* as a
-> bound-referent arm, and I nearly sent this map there. It does NOT use a trigger referent. Measured:
-> the whole card parses to
-> `[{destroy…}, {create-named-token, whoCreates:"target", bindPreviousTargets:true, playerFrom:"controller"}]`
-> while the clause ALONE returns `[]`. "Its" there binds to the PREVIOUS CLAUSE'S TARGET inside one spell —
-> a cross-clause binding, not an event referent. **Following that precedent for Poisonbelly Ogre would model
-> the wrong thing entirely**, because no previous clause targeted anything: "its" is the ENTERING creature.
-> ⭐ **SO THE VEIN SPLITS INTO TWO MECHANISMS, and they must not be built together:**
-> · **TRIGGER family (4)** — Poisonbelly Ogre, Fate Foretold, Parasitic Impetus, Smoke Blessing. Needs the
->   event-gated SENTINEL rewrite + a consumer for `triggeringPermanentController`. No precedent exists yet;
->   the closest models are the casting/drawing-player arms shipped in the v0.156.0 batch.
-> · **CROSS-CLAUSE family (1)** — Lay Bare, "Counter target spell. Look at ITS CONTROLLER's hand". THIS one
->   is the Fateful Absence shape: `bindPreviousTargets:true` + `playerFrom:"controller"` against the
->   preceding clause's chosen target. The mechanism is already built and proven; the missing piece is only
->   wiring it to the look-at-hand atom (LH-2's), which today takes a targetType rather than a bound target.
-> ⛔ THE SPELL FENCE: a SPELL carrying this referent has no triggering permanent, so the clause would
-> silently no-op. coverage.js's two spell-path referent loops (~1160/1193/1225, the lists that already name
-> damagedPlayer / defendingPlayer / gyOwner) are where it must be added — the established guard for exactly
-> this hazard.
-> ⓘ Stopped on a budget call after the pipeline refusal was isolated; the arms were written, measured as
-> dead without the rewrite, and REVERTED rather than left as unreachable code.
+> ### ⏭ NEXT BUILD, MEASURED AND SEAM-MAPPED: **the FIXED-AMOUNT SINGLE-TARGET DAMAGE LANE (7)**
+> ⭐⭐ **TWO SEPARATE MAPS TURNED OUT TO BE ONE LANE — that consolidation is the finding.** The union+scope
+> gap and the damagedPlayer-scope gap are the same code path refusing two different qualifiers, so they
+> should be built together, once.
+> · **UNION + SCOPE (4)** — Skysovereign Consul Flagship, Careless Celebrant, Iroas's Blessing, Ossuary
+>   Rats: "deals N damage to target creature or planeswalker AN OPPONENT CONTROLS".
+> · **DAMAGED-PLAYER SCOPE (3)** — Snapping Thragg, Skirk Commando, Spark Mage: "you may have it deal N
+>   damage to target creature THAT PLAYER controls" on a combat-damage trigger.
+> ⓘ **THE EXACT BOUNDARY, PROBED — do not re-derive it (30 seconds of `parseEffectClause`):**
+> · `deals 3 damage to target creature an opponent controls` → **parses**
+> · `deals 3 damage to target creature defending player controls` → **parses** (DP-TGT shipped it)
+> · `deals 3 damage to target creature THAT PLAYER controls` → **[]**
+> · `deals 3 damage to EACH creature that player controls` → **parses** (DT-1 shipped it)
+> · `deals 3 damage to target creature or planeswalker an opponent controls` → **[]**
+> **So the EACH-creature lane composes scope fine and the SINGLE-TARGET lane is the holdout, on BOTH
+> qualifiers.** `parseCreatureTargetRestrictions` already returns `clean:true` with the right restriction
+> for the damagedPlayer case — the refusal is downstream of it, in the single-target damage matcher.
+> ⓘ **SUSPECT, NOT CONFIRMED:** stack.js's amountCount TT map carries `"that player": "damagedPlayer"`, so a
+> clause containing "that player" may be intercepted by the "damage equal to X" matcher and bail before the
+> fixed-amount path runs. Verify that before editing anything — it is a hypothesis, not a diagnosis.
+> ⛔⛔ **REAL CREED SURFACE, AND THE PRECEDENT IS ALREADY WRITTEN.** DT-1 measured +2 and one was a WRONG
+> CARD: Flames of the Raze-Boar, a SPELL whose "that player" is a cross-clause reference, would have been
+> credited native while its second clause hit nobody. The spell fence now catches it via
+> `atomCarriesEventReferent` (coverage.js) — **whatever is built here must keep that fence satisfied**, and
+> the whole-card audit of every gained row is what caught it, not the flip-diff.
+> ⛔ Law 6 applies (legal targets): drive a 4-seat board with a creature AND a planeswalker on several
+> sides, print the pool by id, and assert the excluded seats BY NAME — "an opponent controls" and "that
+> player controls" differ in multiplayer, which is the whole point of the distinction.
+> ⓘ Snapping Thragg / Skirk Commando / Spark Mage also carry a "you may have it deal" OPTIONAL wrapper.
+> That is NOT the blocker — the bare form `it deals N damage to target creature that player controls`
+> returns [] on its own — so do not chase the wrapper first.
 
 > ### ⚠️⚠️ A BROKEN PROBE RETURNS A CLEAN-LOOKING **NEGATIVE** — THE MEASUREMENT NEEDS ITS OWN GATE
 > A corpus probe for the colour-disjunction vein reported a confident **"0 flips"**. The vein is really **13**.
