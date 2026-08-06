@@ -16,6 +16,35 @@
 > alone AND welded. **When a test like this reddens, the guard is almost certainly fine — re-probe for a
 > keyword that still parks and swap it, never weaken the assertion.** Recorded in-file too.
 
+> ### ⏭ NEXT BUILD, MEASURED AND SEAM-MAPPED: **the `Enchant <subject>` vocabulary (+8)**
+> Ran the KEYWORD-TWIN sweep (harvest keyword-shaped lines, keep the 0-native ones, rank by parked carriers)
+> then causation-tested the top entries. The winner is the Aura enchant-subject vocabulary:
+> · `enchant artifact or creature` — 21 carriers, **4 flip** (Ice Over, Coma Veil, Secure Detention, Petrify)
+> · `enchant artifact` — 20 carriers, **2** (Stasis Cocoon, Relic Ward) · `enchant creature or vehicle` — 10,
+>   **2** (Aether Meltdown, Mists of Littjara) · `enchant permanent` — 23 carriers, **0**
+> ⭐ Gate 20 is satisfied by construction: three different subject wordings, one machinery, cards outside each
+> other's families.
+> ⛔⛔ **IT HAS REAL CREED SURFACE — attaching an Aura to an illegal host is the cardinal sin.** The blocker is
+> named in `auraEnchantRestrictions`' own comment: *"type unions can't be expressed against a fixed
+> targetType:'creature'"*. The seam:
+> ① `auraEnchantRestrictions` must return a **targetType** alongside its restrictions (today the caller
+>    hardcodes creature). The land-aura branch already does exactly this — `auraEnchantSubject(card) ===
+>    "forest" ? "forest" : "land"` — so the pattern exists; generalise it rather than inventing one.
+> ② legalChoices' native-aura branch consumes that targetType when enumerating hosts.
+> ③ `sba.js`'s CR 704.5n fall-off sweep only knows "creature|land|permanent". The module's DOCUMENTED policy
+>    is that a missed fall-off is the safe direction and a wrong kill is forbidden — follow it, don't widen
+>    the sweep as a side effect.
+> ④ The layer readers are already layer-aware about a host that isn't a creature (`enchantedTargets`), so a
+>    P/T bonus on an artifact host no-ops rather than fabricating.
+> ⛔ PIN THE ILLEGAL HOST DIRECTLY: an "enchant artifact" Aura must not enumerate a creature as a host, and
+> vice-versa. A pin that only checks "it attached" would pass while attaching to anything.
+
+> ### ⛔ AND THE BIGGEST KEYWORD COUNT WAS WORTH NOTHING: **saddle, 33 carriers, 0 flips**
+> Saddle is crew's twin and looked like the prize of the sweep. Swapping it for crew flips **zero** cards —
+> every carrier parks on its Mount abilities instead. Same story as domain (65 carriers, 2 flips). **The
+> keyword sweep ranks by carriers, which is not payoff; causation-test before opening a file.** Also 0:
+> exploit, melee, banding (each ≤1 carrier once real cards are filtered).
+
 > ### ✅ THE COUNT-SOURCE VEIN IS **MEASURED OUT** — swept, causation-tested, don't re-walk it
 > Three count kinds shipped today (+6 sunburst, +5 converge, +2 converge-spell, +7 multikicker), so I swept
 > the whole corpus for unmodelled "for each <X>" / "where X is <Y>" phrases, asked `parseCountSource` which
