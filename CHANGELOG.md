@@ -4184,6 +4184,10 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **"Return a land you control" works.** Tazeem Raptor, Sutina, Wayward Guide-Beast, Noggle Bridgebreaker
+  and Zell Dincht return one of your lands to hand; the simulator understood only the creature and
+  permanent wordings, so all five did nothing. It returns a land you have already tapped for mana, which
+  is the sensible choice.
 - **Reanimation that returns a permanent tapped works.** Writ of Return, Gravewaker, Undergrowth Recon,
   Dr. Madison Li and Scaretiller bring a card back from your graveyard tapped; the simulator could not read
   the "tapped" wording and skipped all five. They now return the permanent, correctly tapped.

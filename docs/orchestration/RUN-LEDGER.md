@@ -3,6 +3,42 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚠️ FINDING (no slice yet) - 2026-08-06 - **LAND ETB TRIGGERS NEVER FIRE · 66 lands counted COVERED**
+> Two independent holes, both found while building LB-1, both invisible to every flip-diff ever run:
+> **(1) `classifyCard` short-circuits EVERY Land to the `land` tier** (`if (/\bland\b/.test(type)) return
+> "land"`), and `land` sits in `NATIVE_TIERS`. A census found **66 lands counted as COVERED while a trigger
+> clause of theirs does not parse** — the Karoo bounce cycle (11), depletion counters (5), the Lair
+> sacrifice-unless cycle (5), storage counters (5), the Ravnica-style sac-search lands (5), and more.
+> **(2) LAND ETB TRIGGERS DO NOT FIRE AT ALL** on the play-land path. Measured with a MATCHED CONTROL, not
+> inferred:
+> · a LAND printing `When this land enters, draw a card` → stack after play **0**, no card drawn
+> · the IDENTICAL trigger on a CREATURE → stack after cast **1**, card drawn
+> So even a land whose clause parses perfectly does nothing when it enters.
+> ⛔ **NOT FIXED HERE, AND THE SIZE IS THE REASON.** (2) is an engine-path build, not a parser slice. (1) is
+> a METRIC POLICY call with a real cost: making the land tier conditional would DROP up to 66 cards out of
+> covered — an honest number that reads as a regression. **That is Colton's call, not mine**, and it is
+> exactly the shape the CREED cares about: the count is currently generous in the forbidden direction.
+> ⭐ Recommendation when picked up: do (2) first. It is a real playability gain (the Karoo cycle is
+> Commander staple), and it makes (1) cheap — once land triggers fire, most of the 66 stop being false
+> credits and start being true ones.
+
+> ## SLICE DONE - 2026-08-06 - **LAND self-bounce scope (+5)** - post-v0.156.0 batch 7
+> Suite 1187 / 14,330 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Tazeem Raptor, Sutina, Wayward
+> Guide-Beast, Noggle Bridgebreaker, Zell Dincht. All audited whole-card.
+> ⭐ A NOUN AND A FILTER FLAG. `oneYouControlWorst`, `worstOwnBounceTarget` and the optional "you may"
+> wrapper all existed; the alternation admitted `permanent|creature` and not `land`. The rank already
+> preferred a TAPPED LAND, which is the correct line for the family.
+> ⛔ No implicit `excludeSource` — "a land you control" includes the source (CR 109.5 needs the printed
+> word "another", which these cards do not print). Refusing a printed permission is a CREED violation too.
+> ⚠️⚠️ **I CLAIMED SIXTEEN CARDS AND SHIPPED FIVE.** The first draft of the code comment said the eleven
+> Karoo lands were the real prize. They are not: the clause parses for them now, but land ETB triggers
+> never fire (see the FINDING above). **The parse said sixteen, the flip-diff said five, and only running
+> the card settled it** — the clearest argument for law 6 this run has produced.
+> ⚠️⚠️ **A MUTATION SURVIVED AND THE TEST WAS AT FAULT, NOT THE CODE.** The pool rows first called
+> `worstOwnBounceTarget` DIRECTLY, so dropping `landOnly` from the `atomTargets` dispatch left the suite
+> GREEN while every real card lost the flag. Rewritten to go through `atomTargets` — the seam the parser
+> actually feeds — with the direct helper kept as a control. **A pin that constructs the argument itself is
+> testing the callee, not the call.** New standing check for any scope/flag work.
 > ## SLICE DONE - 2026-08-06 - **REANIMATE-TAPPED rider (+5) — the resolver already honoured it** - post-v0.156.0 batch 7
 > Suite 1186 / 14,327 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Undergrowth Recon, Writ of
 > Return, Gravewaker, Dr. Madison Li, Scaretiller. All audited whole-card.
