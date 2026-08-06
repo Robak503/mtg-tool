@@ -101,7 +101,7 @@ describe("parseCreatureTargetRestrictions (P2.4)", () => {
   });
   it("is UNCLEAN when an unmodeled qualifier is present (→ Arbiter)", () => {
     expect(parseCreatureTargetRestrictions(card("Destroy target creature with annihilator.")).clean).toBe(false); // KW-1: a keyword OUTSIDE the curated set still parks
-    expect(parseCreatureTargetRestrictions(card("Destroy target legendary creature.")).clean).toBe(false);     // supertype, unmodeled
+    expect(parseCreatureTargetRestrictions(card("Destroy target world creature.")).clean).toBe(false);         // ST-1: a supertype OUTSIDE the admitted set still parks
     // ⚠️ THE COLOUR UNION ROW WAS HERE and is now CLEAN — CD-1 gave the vocabulary a colorAny kind, so
     // "white or blue creature" parses to one restriction holding a colour list. Asserted POSITIVELY now,
     // which is a stronger statement than the refusal it replaces: it says what the parse produces, not
@@ -111,6 +111,9 @@ describe("parseCreatureTargetRestrictions (P2.4)", () => {
     // already existed, with only two narrow emitters) into this shared grammar. Asserted POSITIVELY, same as
     // the colour-union row above, so the pin protects the parse rather than the refusal.
     expect(parseCreatureTargetRestrictions(card("Destroy target artifact creature."))).toMatchObject({ clean: true, restrictions: [{ kind: "cardType", type: "artifact" }] });
+    // ⚠️ THE SUPERTYPE ROW WAS HERE and is now CLEAN — ST-1 (2026-08-06) wired the `supertype` kind (which
+    // already existed, with one emitter) into this shared grammar. Asserted positively, like the two above.
+    expect(parseCreatureTargetRestrictions(card("Destroy target legendary creature."))).toMatchObject({ clean: true, restrictions: [{ kind: "supertype", value: "legendary" }] });
     // ⛔ ORDER GUARD, and this is the row that matters most: "nonartifact" CONTAINS "artifact", so a
     // positive match running before the negation arm would emit cardType for a card saying the exact
     // opposite — the most direct false positive available here.

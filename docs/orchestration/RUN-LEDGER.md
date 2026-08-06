@@ -3,6 +3,33 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-06 - **SUPERTYPE TARGET — legendary removal (+2)** - post-v0.156.0 batch 7
+> Suite 1183 / 14,318 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Hero's Demise, Tsabo Tavoc.
+> Both audited whole-card. Ceiling was 5; the other three park on unrelated causes.
+> ⭐⭐ **ELEVENTH "BUILT ENGINE, PARTIAL IGNITION".** The `supertype` kind and its evaluator — word-bounded,
+> FRONT-FACE only (CR 712.4a), fail-closed on a missing type line — already existed with exactly ONE
+> emitter (the Mithril Coat / Mjölnir self-attach). The shared target grammar never emitted it.
+> ⭐⭐ **THE MASS LANE WAS PROBED BEFORE THE FLIP-DIFF, NOT AFTER — the CT-1 lesson, applied.** Earlier
+> today CT-1 added a restriction to this same shared grammar and only found its mass reach when the suite
+> went red, which led to a wrongly-reverted slice. So the three mass forms were checked FIRST:
+> · `Destroy target legendary creature.` → native, restriction carried
+> · `Destroy all legendary creatures.` → native on `eachCreature`, restriction carried (that resolver
+>   honours restrictions — proven end-to-end in massNonCreature.test.js)
+> · `Destroy all legendary PERMANENTS.` → **still parks**, because the non-creature mass lane has no
+>   restriction-honouring resolver. **That lane is the hazard and this change does not reach it.** Pinned.
+> ⛔ Only `legendary` is admitted though the evaluator handles any supertype — `basic` is already served by
+> the nonbasicLand predicate, `snow`/`world` have no carriers worth the surface. Others stay residue.
+> ⭐ Law 6 names the DFC as the excluded row: a permanent whose type line CONTAINS "Legendary" only on its
+> BACK face is not offered. A substring read would have taken it; the evaluator is front-face (CR 712.4a).
+> ⚠️ **FLAGGED, PRE-EXISTING, NOT INTRODUCED HERE — worth its own look.** Tsabo Tavoc's body reads
+> "protection from legendary creatures". Protection from a COLOUR is enforced at targeting (CR 702.16b);
+> protection from a SUPERTYPE is not. Before calling that a wrong admission I measured it: **40 cards
+> carrying non-colour protection were ALREADY native**, so the classifier's policy on that clause long
+> predates this slice. "My change let this in" and "my change is the first to surface it" are different
+> facts, and the second one does not justify a revert.
+> ⚠️ The MUST_DROP_TO_LOW gate held **two** copies of the same legendary row; the first removal left the
+> suite red and the second copy was only found by grepping after. Duplicated entries in a long refusal list
+> are invisible until exactly one of them is graduated.
 > ## SLICE DONE - 2026-08-06 - **CREATURE-OR-VEHICLE on the COUNTER lane (+4)** - post-v0.156.0 batch 7
 > Suite 1182 / 14,315 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Seven-Tail Mentor, Light the
 > Way, Grafted Growth, Perilous Snare. All audited whole-card.

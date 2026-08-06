@@ -478,6 +478,17 @@ export function parseCreatureTargetRestrictions(card, { allowPlaneswalkerUnion =
   // `[{cardType:"artifact"}, {typeNeg:"artifact"}]` — a self-contradictory pair no creature can satisfy, so
   // the card classifies native and targets NOTHING. That is the failure this pairing exists to prevent, and
   // it is the silent kind rather than the loud kind.
+  // ⭐⭐ ST-1 (2026-08-06) — SUPERTYPE (CR 205.4). The `supertype` restriction kind and its evaluator —
+  // word-bounded, FRONT-FACE only (CR 712.4a, so a DFC back-face supertype cannot wrongly qualify), and
+  // fail-closed on a missing type line — already existed with exactly ONE emitter: the Mithril Coat /
+  // Mjölnir self-attach in stack.js. The shared target grammar never emitted it. Eleventh "built engine,
+  // partial ignition" of this run.
+  // ⛔ ONLY `legendary` IS ADMITTED, though the evaluator handles any supertype. "basic" belongs to lands
+  // and is already read by the nonbasicLand predicate; "snow" and "world" have no targeted-removal carriers
+  // worth the surface. A supertype outside this arm survives as residue → unclean → Arbiter, the safe side.
+  const stm = t.match(/\blegendary\b/);
+  if (stm) { restrictions.push({ kind: "supertype", value: "legendary" }); t = t.replace(/\blegendary\b/g, " "); }
+
   const ctm = t.match(/\b(artifact|enchantment)\b/);
   if (ctm) { restrictions.push({ kind: "cardType", type: ctm[1] }); t = t.replace(/\b(?:artifact|enchantment)\b/g, " "); }
 

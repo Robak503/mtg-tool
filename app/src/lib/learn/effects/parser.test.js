@@ -938,8 +938,6 @@ const MUST_DROP_TO_LOW = [
   // ⚠️ "Destroy target white or blue creature." LIVED HERE until CD-1 taught the restriction vocabulary
   // OR (colorAny). It now parses to a real atom and is pinned positively in colorDisjunction.test.js.
   // Replaced with a qualifier that is still genuinely unmodelled, rather than dropping the row.
-  "Destroy target legendary creature.",                         // supertype — still unmodelled → MUST drop
-  "Destroy target legendary creature.",                         // unmodeled "legendary" supertype → MUST drop
   // FILTERED board wipes — `eachCreature` would wrongly hit the UNFILTERED set, so the exact
   // "all creatures" anchor must reject any qualifier (color/type/keyword/controller).
   // ⚠️ RE-POINTED 2026-07-30. These three held the CREATURE-filter forms, annotated "keyword filter → not all
@@ -1170,6 +1168,11 @@ const MUST_STAY_HIGH = [
   // type / "legendary" / keyword filter still drops to low (pinned in MUST_DROP_TO_LOW). ──
   "Destroy target nonblack creature.",                                          // color negation (Doom Blade)
   "Destroy target nonartifact creature.",                                       // type negation (Go for the Throat)
+  // ⭐ GRADUATED 2026-08-06 (ST-1) — the `supertype` kind and its front-face, fail-closed evaluator predate
+  // this slice; only the shared grammar never emitted it. The MASS forms were checked BEFORE shipping: the
+  // creature wipe carries the restriction (the resolver honours it), and "all legendary PERMANENTS" still
+  // parks, because the non-creature mass lane has no restriction-honouring resolver. See supertypeTarget.test.js.
+  "Destroy target legendary creature.",
   // ⭐ GRADUATED 2026-08-06 (KW-1) — the with/without-KEYWORD rows that sat in the drop-to-low gate are HIGH
   // now. The evaluator was never flying-specific; only the parser allowlist was. A curated set of printed
   // keywords is modeled, and the mass lane honours it end-to-end (keywordRestriction.test.js resolves

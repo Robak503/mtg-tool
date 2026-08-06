@@ -4184,6 +4184,8 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Legendary-only removal works.** Hero's Demise and Tsabo Tavoc destroy a legendary creature; the
+  simulator could not read "legendary" as a target requirement and skipped both cards.
 - **Counters on "target creature or Vehicle" work.** Seven-Tail Mentor, Grafted Growth, Light the Way and
   Perilous Snare put a +1/+1 counter on a creature or a Vehicle — including a Vehicle that has not been
   crewed, which is the case these cards are printed for. The ones that say "you control" can no longer be
