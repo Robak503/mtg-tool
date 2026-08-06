@@ -3,6 +3,35 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **"DEFENDING PLAYER CONTROLS" AS A TARGET SCOPE — and a hole in the routing gate, +8** - post-v0.155.0 batch 106
+> Suite 1172 / 14,279 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Mage-Ring Responder, Hellkite
+> Whelp, Heart-Piercer Bow (target damage); Gouged Zealot, Swathcutter Giant, Ronin Cliffrider, Scalding
+> Salamander (mass damage); Colossal Whale (exile). All audited whole-card. **Predicted 3, measured 8** —
+> the scope reaches every effect that takes a creature target, not just the shape that surfaced it.
+> ⭐ **THE EVALUATOR ALREADY KNEW THIS RESTRICTION.** creatureRestrictions.js has read
+> `{kind:"controller",who:"defendingPlayer"}` off ctx.defenderId — failing closed when unset — for as long
+> as the family has existed, and removal.js's PERMANENT lane has parsed the same printed phrase all along.
+> Only parseCreatureTargetRestrictions could not emit it. One scope arm, checked BEFORE the opponent arm.
+> ⛔⛔ **THE ORDER IS LOAD-BEARING AND MULTIPLAYER IS WHY.** "An opponent controls" is EVERY opponent's
+> board; "defending player controls" is the ONE seat being attacked. Matching it as the opponent scope
+> would offer targets the printed card cannot reach. Witness names seats, not counts:
+> `{defending:["a2"], opponent:["a1","a2","a3"], noReferent:[]}`.
+> ⛔⛔⛔ **THE REAL FIND: THE ROUTING GATE HAD A DOOR IT WAS NOT WATCHING.** triggerRouting pinned the
+> defending-player referent by inspecting **`atom.who`**. This atom carries the referent as a
+> **RESTRICTION** — its own `who` is undefined — so the existing check sailed straight past it. Off a
+> combat event ctx.defenderId is unset, creatureSatisfiesRestrictions then fails EVERY creature, the pool
+> comes back empty and the clause **SILENTLY DROPS**: exactly the FP that gate exists to stop, arriving
+> through the one shape it never inspected. **A guard that checks one field of a two-field vocabulary is
+> not a guard.** Fixed to inspect the restriction list too; pinned per-event.
+> ⭐ BOTH mutants VERIFIED TO REACH THE GUARDED CASE before being trusted (the DP-TAIL lesson applied
+> immediately): the scope arm disabled → `parse === []`, then three rows die; the routing check disabled →
+> `etb === true`, then the routing row dies.
+> ⭐ **A CREED REFUSAL PIN ROTTED, AND CHECKING WHICH KIND IT WAS MATTERED.** koglaTitanApe asserted
+> `destroy target creature defending player controls` stays LOW, reason "creature not in destroy typelist".
+> True of the PERMANENT lane's type map; the clause now parses through the CREATURE lane to an atom
+> structurally identical to its shipped opponent sibling. Verified as correct rather than assumed —
+> and it is precisely the atom whose referent rides a restriction, i.e. the one the gate fix protects.
+
 > ## SLICE DONE - 2026-08-05 - **DEFENDING-PLAYER TAIL — two arms narrower than their own siblings, +3** - post-v0.155.0 batch 98
 > Suite 1171 / 14,275 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Falkenrath Perforator,
 > Simian Sling (damage); Thresher Beast (land sacrifice). All audited whole-card. **Two named causes:**

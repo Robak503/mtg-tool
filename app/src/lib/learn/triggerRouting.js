@@ -70,6 +70,15 @@ export function combatDamageReferentSatisfied(program, event) {
     if (a?.who === "damagedPlayer" && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
     if (a?.countContext === "combatDamageAmount" && !COMBAT_DAMAGE_AMOUNT_EVENTS.has(event)) return false;
     if (a?.who === "defendingPlayer" && !DEFENDING_PLAYER_EVENTS.has(event)) return false;
+    // ⛔⛔ THE REFERENT CAN ALSO RIDE A **RESTRICTION**, NOT ONLY `atom.who` (DP-TGT, 2026-08-05). A
+    // "target creature DEFENDING PLAYER CONTROLS" atom carries the referent as
+    // `restrictions:[{kind:"controller",who:"defendingPlayer"}]` while its own `who` is undefined — so the
+    // check directly above sails right past it. Off a combat event ctx.defenderId is unset,
+    // creatureSatisfiesRestrictions then fails EVERY creature, the target pool comes back empty and the
+    // clause SILENTLY DROPS: precisely the forbidden FP this gate exists to stop, arriving through the one
+    // door it was not watching. Every referent-carrying atom shape must be inspected, not just the
+    // convenient one.
+    if ((a?.restrictions || []).some((r) => r?.who === "defendingPlayer") && !DEFENDING_PLAYER_EVENTS.has(event)) return false;
     // MILLED-COUNT (SHELF M1b): a "that many milled[-nonland]" magnitude reads checkMilledTriggers' context —
     // set ONLY by the milled event. Any other event leaves the referent unset (a silent 0 → dropped clause).
     if ((a?.countContext === "milledCount" || a?.countContext === "nonlandMilledCount") && event !== "milled") return false;

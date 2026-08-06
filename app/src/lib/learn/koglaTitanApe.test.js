@@ -80,7 +80,17 @@ describe("Kogla parse — the two new seams", () => {
     expect(conf("Return target Dragon you control to its owner's hand")).toBe("low");        // non-curated subtype
     expect(conf("Return target Human an opponent controls to its owner's hand")).toBe("low"); // opponent scope unmatched
     expect(conf("Return target Human to its owner's hand")).toBe("low");                      // no control scope
-    expect(conf("destroy target creature defending player controls")).toBe("low");            // creature not in destroy typelist
+    // ⚠️ THE FOURTH LINE HERE ASSERTED `destroy target creature defending player controls` STAYS LOW,
+    // reason given: "creature not in destroy typelist". That was true of the PERMANENT lane's type map and
+    // is no longer the whole story — DP-TGT taught parseCreatureTargetRestrictions the defending-player
+    // scope, so the clause now parses through the CREATURE lane to an atom structurally identical to its
+    // already-shipped opponent sibling: {op:"destroy", targetType:"creature",
+    // restrictions:[{controller/defendingPlayer}]}. That is correct, not an over-reach — the restriction
+    // evaluator has always read this referent and fails closed without it.
+    // ⛔ WHAT KEEPS IT HONEST IS THE ROUTING GATE, and this atom is exactly why that gate had to change:
+    // it carries the referent in its RESTRICTIONS, not in atom.who, so the old check could not see it.
+    // Asserted positively here rather than deleted, because the parse is the evidence.
+    expect(conf("destroy target creature defending player controls")).toBe("high");
   });
 });
 

@@ -310,8 +310,18 @@ export function parseCreatureTargetRestrictions(card) {
   let t = ` ${m[1].replace(/[.,]/g, " ")} `;
   const restrictions = [];
 
-  // Controller — "an opponent controls" / "you don't control" vs "you control".
-  if (/\b(?:an opponent controls|you don't control|a player other than you controls)\b/.test(t)) {
+  // ⭐⭐ DEFENDING-PLAYER SCOPE (DP-TGT, 2026-08-05 — Mage-Ring Responder, Hellkite Whelp, Heart-Piercer
+  // Bow: "deals N damage to target creature DEFENDING PLAYER CONTROLS"). Checked BEFORE the opponent arm
+  // because it is STRICTLY NARROWER: in multiplayer "an opponent controls" is every opponent's board,
+  // while this is only the ONE seat being attacked. Matching it as the opponent scope would offer targets
+  // the printed card cannot reach — the forbidden direction — so the order here is load-bearing.
+  // ⭐ The evaluator already knew this restriction (creatureRestrictions.js — `who:"defendingPlayer"` reads
+  // ctx.defenderId and fails closed when it is unset); only this parser could not emit it. The permanent
+  // lane (removal.js's control-scope group) has parsed the same phrase all along.
+  if (/\bdefending player controls\b/.test(t)) {
+    restrictions.push({ kind: "controller", who: "defendingPlayer" });
+    t = t.replace(/\bdefending player controls\b/g, " ");
+  } else if (/\b(?:an opponent controls|you don't control|a player other than you controls)\b/.test(t)) {
     restrictions.push({ kind: "controller", who: "opponent" });
     t = t.replace(/\b(?:an opponent controls|you don't control|a player other than you controls)\b/g, " ");
   } else if (/\byou control\b/.test(t)) {
