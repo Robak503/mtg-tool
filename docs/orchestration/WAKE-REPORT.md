@@ -39,6 +39,28 @@
 > 4-seat board, have a NON-adjacent opponent cast, and assert the victim BY SEAT.
 > ⛔ And the absent-referent case: on any event that binds no seat, the effect must do NOTHING — never fall
 > back to "an opponent" or to the controller's choice.
+> ⓘ **PROBE NOTES FROM A FIRST ATTEMPT (2026-08-05) — read these before starting, they cost three probes.**
+> · **`parseEffectClause` IS NOT THE PATH.** It returns `[]` for BOTH `"this creature deals 2 damage to that
+>   player"` AND the working `"…to target player"`, with the type line passed correctly. Yet `classifyCard`
+>   gives body-only vs native-trigger for those same two cards. **Find the gate coverage actually uses for a
+>   trigger's effect before touching anything** — `allTriggerSentencesModeled` is the entry point to follow.
+>   An hour is easy to lose confirming a parser that isn't the one being consulted.
+> · The SHAPE DISTRIBUTION is 24 distinct effect wordings across the 38, so this is one cause with many
+>   consumers (like ES-1's host spec). The biggest single shape is **"deals N damage to that player" — 9
+>   cards** (Pyrostatic Pillar, Aether Sting, Spellshock, Eidolon, Gibbering Fiend, Fate Unraveler,
+>   Ishi-Ishi, Scrawling Crawler, Snapping Thragg). Then "that player loses N life" (5, incl. the
+>   "…and you gain N life" pair) and "that player sacrifices a creature of their choice" (3).
+> · ⛔⛔ **THE 9 DAMAGE CARDS DO NOT SHARE A TRIGGER TYPE**, which kills the tempting design. Eidolon fires on
+>   CAST; Fate Unraveler and Scrawling Crawler fire on DRAW. So the referent is per-trigger-family, and the
+>   effect atom must read ONE canonical field.
+> · ⛔⛔ **DO NOT WRITE A FALLBACK CHAIN** (try castingPlayerId, then drawingPlayerId, then damagedPlayerId…).
+>   It picks the WRONG SEAT the moment two are bound — a cast during combat carries a live damagedPlayerId —
+>   and a wrong-seat bug is invisible, because the ability resolves and only the identity is wrong. Bind ONE
+>   explicit `triggeringPlayerId` at each firing site instead. The first attempt did exactly this at the four
+>   sites (cast: triggers.js ~7612; draw: the three `triggeringContext: { drawingPlayerId }` sites plus the
+>   `makePendingTrigger(d, watcher, null, { drawingPlayerId })` site) and it is a two-line-per-site change —
+>   **reverted only because the consumer half was not found in budget, not because it was wrong.**
+
 
 > ### ⚠️⚠️ A BROKEN PROBE RETURNS A CLEAN-LOOKING **NEGATIVE** — THE MEASUREMENT NEEDS ITS OWN GATE
 > A corpus probe for the colour-disjunction vein reported a confident **"0 flips"**. The vein is really **13**.
