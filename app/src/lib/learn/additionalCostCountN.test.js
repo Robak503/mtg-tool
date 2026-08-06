@@ -66,9 +66,23 @@ describe("AC-1 recognition — count-of-N additional costs flip when the effect 
   it("PARK: Gaea's Balance stays Arbiter — the per-basic-type tutor effect is unmodeled (cost done, effect isn't)", () => {
     expect(classifyCard(spell("Gaea's Balance", GAEAS_BALANCE, "Sorcery", "{3}{G}"))).not.toMatch(/^native/);
   });
-  it("PARK: a count-N cost with an 'or pay {N}' alternative is a compound we don't model → stays LOW", () => {
+  // ⚠️ GRADUATED 2026-08-07 (AC-MANA). This row asserted that "sacrifice two creatures OR pay {3}" was "a
+  // compound we don't model". The count-N side was already modeled when the row was written; the `pay {N}`
+  // side became a vetted cost kind in AC-MANA, and the AC-OR splitter composes any two vetted sides — so the
+  // compound is now modeled by construction rather than by a special case.
+  // ⛔ GRADUATED ONLY AFTER RUNNING BOTH PAYMENT OPTIONS, not on the parse: pay charges printed+extra
+  // (pool 5 → 0) and leaves the creatures alone, sacrifice charges printed only (pool 2 → 0) and kills
+  // exactly two, and with ONE creature on board the sacrifice option is not offered at all. A parse-level
+  // check could not have distinguished "modeled" from "modeled and charging the wrong thing".
+  it("⭐ a count-N cost with an 'or pay {N}' alternative is modeled — BOTH sides are vetted kinds", () => {
     const compound = "As an additional cost to cast this spell, sacrifice two creatures or pay {3}.\nDraw three cards.";
-    expect(classifyCard(spell("Fake Compound", compound, "Sorcery", "{1}{B}"))).not.toMatch(/^native/);
+    expect(classifyCard(spell("Fake Compound", compound, "Sorcery", "{1}{B}"))).toBe("native-spell");
+  });
+  it("PARK: an OR whose OTHER side is unvetted still parks — one bad side sinks the card", () => {
+    // The guard the row above used to provide, restated where it still bites: AC-OR requires BOTH sides to
+    // be vetted, so a prose cost keeps the whole card at Arbiter.
+    const halfBad = "As an additional cost to cast this spell, sacrifice two creatures or pay half your life.\nDraw three cards.";
+    expect(classifyCard(spell("Fake HalfBad", halfBad, "Sorcery", "{1}{B}"))).not.toMatch(/^native/);
   });
   it("PARK: a self-referential count-N effect ('for each creature sacrificed') stays LOW", () => {
     const selfRef = "As an additional cost to cast this spell, sacrifice two creatures.\nDraw a card for each creature sacrificed this way.";

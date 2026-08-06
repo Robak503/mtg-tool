@@ -218,6 +218,42 @@ export function parseManaCost(costString) {
   return cost;
 }
 
+/**
+ * AC-MANA (2026-08-07) — add an ADDITIONAL mana cost's pips to an already-adjusted printed cost.
+ *
+ * ⛔⛔ THIS EXISTS BECAUSE THE OBVIOUS SHORTCUT IS WRONG HERE. Concatenating the two cost STRINGS and
+ * re-parsing is exact in the abstract (parseManaCost simply accumulates pips), but by this point the printed
+ * `cost` is no longer the printed string: cost-increase tax, static tax, generic reduction and coloured-pip
+ * reduction have all been folded in. Re-parsing from the raw mana_cost would silently discard every one of
+ * those. So the merge has to happen on the OBJECT.
+ *
+ * ⛔ AND AN OBJECT MERGE IS THE VERSION THAT SILENTLY DROPS A FIELD — hybrid, phyrexian and snow are the
+ * easy ones to forget, and forgetting one UNDERCHARGES, which is the free-spell direction this whole family
+ * is wired to avoid. The pinned test therefore checks this helper AGAINST string concatenation on
+ * unadjusted costs, so the two definitions of "merged" are held equal by a gate rather than by care.
+ *
+ * X is deliberately NOT summed as a value: `xCount` adds because {X}{X} owes 2X (CR 107.3), and `hasX` ORs.
+ */
+export function addExtraManaCost(cost, extraPips) {
+  const extra = parseManaCost(extraPips || "");
+  return {
+    ...cost,
+    generic: (cost.generic || 0) + extra.generic,
+    W: (cost.W || 0) + extra.W,
+    U: (cost.U || 0) + extra.U,
+    B: (cost.B || 0) + extra.B,
+    R: (cost.R || 0) + extra.R,
+    G: (cost.G || 0) + extra.G,
+    C: (cost.C || 0) + extra.C,
+    snow: (cost.snow || 0) + extra.snow,
+    anyColor: (cost.anyColor || 0) + extra.anyColor,
+    hasX: !!cost.hasX || extra.hasX,
+    xCount: (cost.xCount || 0) + extra.xCount,
+    hybrid: [...(cost.hybrid || []), ...extra.hybrid],
+    phyrexian: [...(cost.phyrexian || []), ...extra.phyrexian],
+  };
+}
+
 // W2: the old pool-only `canPayManaCost` heuristic was DELETED — it diverged from the live planner
 // (skipped the numeric side of {2/W}, ignored phyrexian) and had zero production callers. Every
 // affordability check routes through manaModel.canAfford (planPayment !== null); a pool-only check
@@ -1172,6 +1208,30 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         if (!affordable) continue;
         if ((player.life || 0) < addCost.amount) continue;
         for (const ch of combos) emit(ch, { payLifeCost: addCost.amount, payLifeName: `pay ${addCost.amount} life` });
+      } else if (addCost.kind === "payMana") {
+        // ⭐⭐ AC-MANA (2026-08-07) — "…or pay {3}{B}" (Spark Harvest, Eaten Alive, Lash of the Balrog,
+        // Morkrut Behemoth, Bayou Groff).
+        // ⛔⛔ THE AFFORDABILITY CHECK MUST BE THE MERGED COST, AND THE PRINTED-COST `affordable` FLAG IS
+        // USELESS HERE — in BOTH directions. It can be TRUE while the merged cost is out of reach (offering
+        // a cast the dispatcher then can't pay: MANA_SHORT on a legal-looking action), and on a card whose
+        // OTHER option got it past the emission gate it can be FALSE while the merged cost is affordable
+        // (silently withholding a legal cast). So this branch ignores it and asks `canAfford` about the sum.
+        // ⛔ Every other branch's `if (!affordable) continue` is correct for its kind — those costs are not
+        // mana, so the printed check is the whole mana question. This one is the exception BECAUSE the cost
+        // is itself mana. Do not "tidy" this into the shared guard.
+        const mergedCost = addExtraManaCost(cost, addCost.pips);
+        if (!freeCast && !canAfford(player.manaPool, manaSources(state, playerId), mergedCost, spendContext)) continue;
+        // ⭐⭐ THE CHARGE IS THE SAME OBJECT AS THE OFFER, and that is the entire safety argument. The
+        // dispatcher pays `action.cost` through planPayment; stamping the MERGED cost here means the
+        // additional mana is charged with NO dispatcher change at all, and offer and payment cannot drift
+        // apart — there is only one cost object. The alternative (a second payment step beside the
+        // sacrifice/discard arms) would have been a second place to get the merge wrong.
+        // ⛔ `cmc` is deliberately LEFT AT THE PRINTED VALUE. It feeds AI curve/sort hints, not legality;
+        // an additional cost does not change the spell's mana value (CR 202.3 — mana value reads the mana
+        // COST, and an additional cost is not part of it).
+        for (const ch of combos) {
+          emit(ch, { cost: mergedCost, payManaCost: addCost.pips, payManaName: `pay ${addCost.pips}` });
+        }
       } else if (addCost.kind === "discard") {
         // The player picks which hand card(s) to discard. The spell itself is being cast (on its way to the
         // stack), so it's NOT a legal discard candidate — exclude it. Fewer than N candidates → uncastable.

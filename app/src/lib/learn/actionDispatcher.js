@@ -344,10 +344,15 @@ function applyCastSpell(state, action) {
   const programCosts = program?.additionalCosts
     || (isPermanentSpell(castCard) ? (extractAdditionalCosts(String(castCard?.oracle ?? "")).costs || []) : []);
   const isChoiceCost = programCosts[0]?.kind === "choice";
+  // ⭐ `pips` joins the identity comparison (AC-MANA, 2026-08-07). Every other distinguishing field of a
+  // vetted cost kind was already compared; payMana's is `pips`, and without it two payMana options on one
+  // card would be indistinguishable to this matcher. No printed card prints "pay {A} or pay {B}" today, so
+  // this is closing the gap while it is still theoretical rather than after a card exposes it.
   const chosenSpec = isChoiceCost && action.addCostSpec
     && programCosts[0].options.some((o) => o.kind === action.addCostSpec.kind
       && o.sacType === action.addCostSpec.sacType && o.count === action.addCostSpec.count
-      && o.amount === action.addCostSpec.amount && o.cardType === action.addCostSpec.cardType)
+      && o.amount === action.addCostSpec.amount && o.cardType === action.addCostSpec.cardType
+      && o.pips === action.addCostSpec.pips)
     ? [action.addCostSpec] : null;
   if (isChoiceCost && !chosenSpec) {
     // A choice cost reached the dispatcher without a valid stamp — refuse rather than cast it cost-free.
@@ -450,7 +455,22 @@ function applyCastSpell(state, action) {
       if (!retPerm) throw new DispatcherError(`Return-cost permanent ${action.returnPermId} not on battlefield`, "PERM_NOT_FOUND");
       working = moveCardToZone(working, { playerId: action.playerId, fromZone: "battlefield", toZone: "hand", cardId: action.returnPermId });
       working = checkLeavesTriggers(working);
+    } else if (ac.kind === "payMana") {
+      // ⭐⭐ AC-MANA (2026-08-07) — ALREADY PAID, and deliberately so. legalChoices stamps the MERGED cost
+      // (printed + these pips) as `action.cost`, and the mana-payment block above pays `action.cost` through
+      // planPayment. So there is exactly ONE cost object and ONE payment; offer and charge cannot drift.
+      // ⛔ THIS ARM IS NOT DEAD CODE — it is the acknowledgement the fail-closed `else` below demands. That
+      // guard threw ADDCOST_UNSUPPORTED for this kind until now, which is precisely how it should behave for
+      // an unrecognised cost: refuse the cast rather than skip the cost. Skipping is a FREE SPELL.
+      // ⛔ DO NOT charge the pips again here. `action.cost` already includes them; a second payment would
+      // double-charge, which is the safe direction but still wrong — and it would silently diverge from the
+      // affordability check that offered the cast.
+      // (A free-cast never reaches this block at all: the mana branch above is skipped for it.)
     } else {
+      // ⛔⛔ THE FAIL-CLOSED GUARD. An additional cost this dispatcher does not recognise must REFUSE the
+      // cast, never silently skip it — skipping is cheaper-than-printed, i.e. a FREE SPELL. I deleted this
+      // line by accident while adding the payMana arm above and caught it before the tree was gated; it is
+      // the single most load-bearing line in this block.
       throw new DispatcherError(`Unsupported additional cost kind: ${ac.kind}`, "ADDCOST_UNSUPPORTED");
     }
   }

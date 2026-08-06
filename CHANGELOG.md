@@ -4184,6 +4184,10 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Spells with an "or pay" additional cost work.** Spark Harvest, Eaten Alive, Lash of the Balrog,
+  Morkrut Behemoth, Bayou Groff, Lightning Axe, Pumpkin Bombardment and Soaring Stoneglider let you choose
+  between paying the listed cost or paying extra mana. The simulator understood every option except the
+  mana one, so it skipped all eight cards. Both ways to pay are now offered, and each is charged correctly.
 - **Tribal tutors for more creature types work.** Giant Harbinger and Forerunner of the Coalition search
   for a Giant or a Pirate card; the simulator knew a handful of creature types and not these.
 - **Pumps that scale with a board count work on a chosen target.** Primal Bellow, Might of the Masses,

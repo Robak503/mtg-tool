@@ -3,36 +3,50 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
-> ## ⏭ NEXT SLICE, FULLY SPECIFIED (not built) - 2026-08-06 - **AC-OR "…or pay {X}" — ceiling 5 of 5 carriers**
-> **The best ceiling RATIO measured in this whole run: 5 carriers, 5 would flip.** Spark Harvest, Lash of
-> the Balrog, Morkrut Behemoth, Eaten Alive, Bayou Groff — every one of them has its EFFECT already modeled
-> (two of them only because UP-1/GX-2 landed earlier today). The additional cost is the sole blocker on all
-> five.
-> ⭐ **SIXTEENTH "BUILT ENGINE, PARTIAL IGNITION", and the machinery is ~90% there.** `castModifiers.js`
-> already has the AC-OR splitter (CR 601.2f, "<costA> OR <costB>", tried ONLY after every single-cost
-> extractor misses so that "sacrifice an artifact or creature" is not shredded). `legalChoices` already
-> emits ONE CAST PER PAYABLE OPTION and stamps the chosen spec; `actionDispatcher` already charges exactly
-> that spec. **The only missing piece is a `pay {mana}` cost KIND** — `parseOneAdditionalCost` vets
-> sacrifice / payLife / discard / exileFromGraveyard / returnToHand, and nothing else, so the "or pay {3}{B}"
-> half fails vetting and the whole card stays Arbiter.
-> ⛔⛔ **WHY I SPECIFIED IT INSTEAD OF BUILDING IT AT THE END OF A WINDOW.** The affordability check must
-> merge the extra pips with the PRINTED cost and test them TOGETHER — `canAfford(pool, sources, printed +
-> extra)` — across coloured pips, generic and hybrid. Charging them separately, or summing generic while
-> dropping colour, undercharges. **castModifiers' own comment names this exact failure: "an ADDITIONAL cost
-> makes the card MORE expensive, so skipping it is cheaper-than-printed — the forbidden direction. Credit
-> without charging is a FREE SPELL."** A subtly wrong merge is worse than no slice.
-> ⭐ **THE BUILD, in order:**
-> 1. `PAYMANA_COST_RE = /^pay ((?:\{[^}]+\})+)$/i` in castModifiers → `{ kind: "payMana", pips }`, added to
->    `parseOneAdditionalCost` (and NOT to the single-cost path first — see the ordering warning in-file).
-> 2. `legalChoices` arm beside the `payLife` one (~line 1164): merge `parseManaCost(printed)` with
->    `parseManaCost(pips)` and gate on the MERGED `canAfford`. Do NOT reuse the plain `affordable` flag —
->    it was computed for the printed cost alone.
-> 3. `actionDispatcher` arm beside its `payLife` one (~line 392): charge the merged cost.
-> ⛔ **LAW 6 IS MANDATORY HERE and the witness must be a POOL BALANCE, not a tier.** Cast Bayou Groff with
-> EXACTLY printed+extra mana and assert the pool lands at 0; then with one pip short and assert the option
-> is NOT OFFERED. A tier assertion cannot tell a charged spell from a free one.
-> ⭐ Bayou Groff is the cleanest fixture: the additional cost IS the whole card, so nothing else can mask a
-> mischarge.
+> ## SLICE DONE - 2026-08-07 - **AC-MANA: "…or pay {X}" additional cost (+8)** - post-v0.156.0 batch 7
+> Suite 1190 / 14,348 green + lint 0 BY EXIT CODE (`npm run lint` / `npm test`, the scripts CI invokes).
+> Flip-diff **+8 / 0 / 0** — Spark Harvest, Eaten Alive, Lash of the Balrog, Morkrut Behemoth, Bayou Groff,
+> Lightning Axe, Pumpkin Bombardment, Soaring Stoneglider. All audited whole-card. **Predicted 5, shipped 8**
+> — the ceiling probe's regex required "sacrifice a creature or pay", missing the discard-or-pay forms.
+> ⭐ SIXTEENTH "BUILT ENGINE, PARTIAL IGNITION": the AC-OR splitter, the one-cast-per-payable-option
+> emission and the dispatcher's charge-the-stamped-spec all existed. `parseOneAdditionalCost` simply had no
+> `pay {mana}` kind, so that half failed vetting and the whole card stayed Arbiter.
+> ⭐⭐ **THE DESIGN THAT MAKES UNDERCHARGING UNREACHABLE: ONE COST OBJECT.** legalChoices stamps the MERGED
+> cost (printed + extra pips) as `action.cost`, and the dispatcher already pays `action.cost`. Offer and
+> charge are therefore the same object and cannot drift, and the dispatcher's payMana arm is a deliberate
+> NO-OP. The alternative — a second payment step beside the sacrifice/discard arms — would have been a
+> second place to get the merge wrong.
+> ⛔ **THE MERGE IS AN OBJECT MERGE AND HAD TO BE.** By offer time the printed cost has cost-increase tax,
+> static tax, generic reduction and coloured-pip reduction folded in; re-parsing the raw mana_cost would
+> discard all four. So `addExtraManaCost` merges fields — and an object merge is exactly the kind that
+> silently loses hybrid/phyrexian/snow. **It is pinned AGAINST STRING CONCATENATION on unadjusted costs**,
+> so the two definitions of "merged" are held equal by a gate rather than by care.
+> ⛔ The printed-cost `affordable` flag is IGNORED in this branch, in both directions: it can be true while
+> the merged cost is unreachable (MANA_SHORT on a legal-looking action) and false while the merged cost is
+> affordable (silently withholding a legal cast).
+> ⚠️⚠️ **I DELETED THE FAIL-CLOSED `else` BY ACCIDENT** while adding the payMana arm — the edit consumed the
+> `throw ADDCOST_UNSUPPORTED` along with the line above it. Without it ANY unrecognised additional cost is
+> silently skipped instead of refusing the cast: a FREE SPELL, the forbidden direction. Caught before
+> anything was gated or pushed, restored, and the story written into the comment so it is not "tidied" away.
+> ⛔ **I COULD NOT HONESTLY PIN THAT `else`, AND SAID SO IN THE TEST.** For a non-choice cost the dispatcher
+> iterates the card's PARSED costs, so an `addCostSpec` override is ignored — and every parsed kind has an
+> arm. It is unreachable through the public API today. Pinned the REACHABLE half instead (an OR stamp that
+> matches no parsed option refuses the cast) rather than faking a path that does not exist.
+> ⭐ **A LATENT GAP FOUND WHILE FAILING TO WRITE THAT PIN:** the OR-stamp matcher compared every
+> distinguishing field EXCEPT `pips`, so two payMana options would have been indistinguishable. No printed
+> card prints "pay {A} or pay {B}", so this closed it while still theoretical.
+> ⚠️ **A MUTATION SURVIVED AND THE TEST WAS AT FAULT:** dropping `hybrid`'s concat changed nothing, because
+> every exotic pip in my equivalence pairs sat on the PRINTED side and never in the EXTRA. **A merge guard
+> that never merges the field it guards is a hollow row.** Pairs rewritten so hybrid, phyrexian, snow and
+> xCount each appear in the extra; all four now die individually to their own mutation.
+> ⭐ Law 6 is a POOL BALANCE, not a tier: Bayou Groff ({1}{G} + {3} = 5) resolves pool **5 → 0**; one mana
+> short offers nothing; **printed-cost-only mana offers nothing** (the free-spell guard); wrong colour
+> offers nothing; and the sacrifice option still charges printed-only (2 → 0) and takes the creature.
+> ⭐ **GRADUATED a stale pin, after RUNNING BOTH OPTIONS** — `additionalCostCountN`'s "sacrifice two
+> creatures or pay {3} is a compound we don't model". Both sides were independently vetted, so AC-OR
+> composes them: pay charges 5 → 0 leaving creatures alone, sacrifice charges 2 → 0 and kills exactly two,
+> and with one creature the sac option is not offered. Replaced with a positive assertion plus a new park
+> row (an OR whose other side is prose still sinks the card).
 > ## ⚠️ CI NOTE - 2026-08-06 - **A run `conclusion: failure` whose JOB says `cancelled` is INFRASTRUCTURE, not a regression**
 > ⚠️ **IT HAPPENED TWICE IN ONE EVENING, WITH TWO DIFFERENT SIGNATURES.** The second (run 31121704565,
 > commit ccf6a4de) failed at the step **"Set up job"** — GitHub runner allocation, BEFORE any of our code

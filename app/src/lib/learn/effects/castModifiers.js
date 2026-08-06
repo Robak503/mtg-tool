@@ -36,6 +36,9 @@ const SAC_COST_RE = /^sacrifice (?:a|an) (artifact or creature|creature or artif
 // only new field is `count:N`. The "artifact or creature" union stays N=1-only (no count-N corpus card needs it).
 const SAC_COUNT_COST_RE = /^sacrifice (two|three|four|five) (creatures|permanents|artifacts|enchantments|lands)$/i;
 const PAYLIFE_COST_RE = /^pay (\d+) life$/i;                        // ADDCOST-2 — no-choice life cost (N already numeric)
+// AC-MANA — "pay {3}{B}". Anchored to pips ONLY, so "pay 3 life" can never reach it (PAYLIFE_COST_RE runs
+// first anyway) and a prose cost ("pay half your life") fails vetting → the whole card parks (FN-safe).
+const PAYMANA_COST_RE = /^pay ((?:\{[^}]+\})+)$/i;
 const DISCARD_COST_RE = /^discard (?:a|an|one) card$/i;            // ADDCOST-2 — the N=1 form
 const DISCARD_COUNT_COST_RE = /^discard (two|three|four|five) cards$/i; // AC-1 (count-of-N) — "discard two/three… cards" (Cathartic Reunion)
 // ADDCOST-3 (census slice 33) — "exile a <type> card from your graveyard" (Makeshift Mauler, Stitched
@@ -95,6 +98,18 @@ function parseOneAdditionalCost(phrase) {
   if (sacN) return { cost: { kind: "sacrifice", sacType: sacN[2].toLowerCase().replace(/s$/, ""), count: SMALL_NUM[sacN[1].toLowerCase()] }, selfRef: /\bsacrificed\b/i };
   const life = PAYLIFE_COST_RE.exec(p);
   if (life) return { cost: { kind: "payLife", amount: parseInt(life[1], 10) }, selfRef: null };
+  // ⭐⭐ AC-MANA (2026-08-07) — "pay {3}{B}" as one side of an AC-OR choice: Spark Harvest, Lash of the
+  // Balrog, Morkrut Behemoth, Eaten Alive, Bayou Groff. All five print "sacrifice a creature OR pay {cost}",
+  // all five had their EFFECT already modeled, and this vetted kind was the sole blocker on every one.
+  // ⛔ NO `selfRef` — mana is not an object, so nothing downstream can try to read "the paid card" back.
+  // ⛔ THE CHARGING HALF IS THE WHOLE RISK, and it lives at the two consumers (legalChoices offers, the
+  // dispatcher charges). An additional cost makes the card MORE expensive, so a miss is cheaper-than-printed
+  // — a FREE SPELL, the forbidden direction. Both sites merge these pips with the PRINTED cost by
+  // CONCATENATING THE COST STRINGS and parsing once, which is exact: parseManaCost accumulates pips, so
+  // "{1}{B}" + "{3}{B}" parses to generic 4 / B 2, and hybrid, phyrexian and snow pips survive untouched.
+  // Hand-merging the two parsed objects field-by-field is the version that silently drops one of those.
+  const payMana = PAYMANA_COST_RE.exec(p);
+  if (payMana) return { cost: { kind: "payMana", pips: payMana[1] }, selfRef: null };
   const disc = DISCARD_COST_RE.exec(p);
   if (disc) return { cost: { kind: "discard", count: 1 }, selfRef: /\bdiscarded\b/i };
   const discN = DISCARD_COUNT_COST_RE.exec(p);
