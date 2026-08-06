@@ -280,8 +280,16 @@ export function lifeClauseParser(clause) {
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "eachOpponent", targetType: null };
   m = t.match(/^target (player|opponent) loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[2], 10), who: "target", targetType: m[1] };
-  m = t.match(/^target player gains (\d+) life$/);
-  if (m) return { op: "gain-life", amount: parseInt(m[1], 10), who: "target", targetType: "player" }; // LIFE-GAIN-TARGET — applyGainLife who:"target"
+  // ⭐ TARGET **OPPONENT** GAINS (TO-1, 2026-08-05 — Fiery Justice, Soldevi Steam Beast, Armistice): the
+  // same targeted gain, with the printed "opponent" NARROWING the legal targets to opponents. This is the
+  // shape its own sibling one line above already had — `target (player|opponent) loses N life` — and the
+  // discard family has it too; gain-life and draw were the two that never got it. The wording diff was
+  // the whole bug: nothing about the effect was unmodelled.
+  // ⛔ NARROWER, NEVER WIDER: targetType "opponent" enumerates only non-controller seats, so this cannot
+  // offer a target the printed card forbids. Reusing "player" would have let the controller gain their own
+  // opponent's life — a larger legal-target set than printed, the forbidden direction.
+  m = t.match(/^target (player|opponent) gains (\d+) life$/);
+  if (m) return { op: "gain-life", amount: parseInt(m[2], 10), who: "target", targetType: m[1] }; // LIFE-GAIN-TARGET — applyGainLife who:"target"
   m = t.match(/^each player loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   // ===== DEFENDING-PLAYER (CR 509.1a — the player being attacked) ===== "defending player loses N life" /

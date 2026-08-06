@@ -355,8 +355,13 @@ export function drawEachPlayerClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   let m = t.match(/^each player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
-  m = t.match(/^target player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
-  if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
+  // ⭐ TARGET **OPPONENT** DRAWS (TO-1 — Bargain, Sphinx of Enlightenment): the sibling arm this parser
+  // never got. `target (player|opponent) loses N life` (life.js) and the target-opponent discard arm
+  // (hand.js) both already carry it; draw and gain-life were the two holdouts, and the wording was the
+  // only thing missing. targetType "opponent" NARROWS to non-controller seats — the printed truth, and the
+  // safe direction (reusing "player" would let the card be pointed at its own controller).
+  m = t.match(/^target (player|opponent) draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "draw", amount: NUM_WORD[m[2]] ?? parseInt(m[2], 10), who: "target", targetType: m[1] };
   // ===== UPKEEP-PLAYER DRAW (BLITZ TR-2, CR 503.1a / 121.1) ===== "the upkeep player draws N cards" — the
   // SENTINEL detectTriggers emits for an "each player's upkeep" trigger's "that player draws …" (Seizan's
   // draw half, split off the drain by the parser's upkeep-player normalizer). Corpus-clean phrase (only the

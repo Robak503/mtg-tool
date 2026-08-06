@@ -3,6 +3,29 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **TARGET *OPPONENT* GAINS / DRAWS — the sibling arm two parsers never got, +3** - post-v0.155.0 batch 81
+> Suite 1168 / 14,261 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Fiery Justice, Bargain,
+> Armistice. All audited whole-card.
+> ⭐⭐ **A SPLIT-BY-TIER FIND WHERE THE SIBLINGS ARE THE EVIDENCE.** The identical construct was already
+> handled in two neighbouring parsers and missing in two others, in the same files:
+> · `life.js` `target (player|opponent) loses N life` — HAD it · `hand.js` target-opponent discard — HAD it
+> · `life.js` `target player gains N life` — did NOT · `misc.js` `target player draws N cards` — did NOT
+> **Nothing about the effect was unmodelled; the recipient WORDING was.** One regex each, and the fix is the
+> shape its own sibling one line above already used.
+> ⛔⛔ **"opponent" IS NARROWER THAN "player" — the whole CREED argument, and the third time this session it
+> has been the deciding detail** (LH-2's hand-peek, TP-1's referent, now this). targetType "opponent"
+> enumerates only non-controller seats. Reusing "player" would let Bargain be pointed at its own controller
+> and Armistice hand ITS controller the life: a legal-target set LARGER than printed. **A test that checked
+> only "somebody drew a card" would pass while doing exactly that** — so the witness asserts the pool by
+> seat in both directions: `{opponent:[ai1,ai2,ai3], player:[ai1,ai2,ai3,user]}`.
+> ⭐ Both mutants died on the right rows: pinning the gain arm back to "player" flips the parsed atom's
+> targetType in the witness (the over-offer, visible by value); breaking the draw arm parks Bargain.
+> ⓘ Two carriers deliberately still park, reasons unrelated to this slice and recorded so nobody re-probes
+> them: Sphinx of Enlightenment's "target opponent draws a card AND you draw three cards" is a compound the
+> splitter doesn't break; Soldevi Steam Beast waits on its becomes-tapped trigger.
+> ⓘ The remaining `target opponent -> target player` probe rows are a DIFFERENT cause: Stensia Banquet and
+> Gruesome Scourger need "target opponent **or planeswalker**", a type union, not a recipient noun.
+
 > ## SLICE DONE - 2026-08-05 - **THE "THAT PLAYER" REFERENT, TWO MORE EVENTS — +7** - post-v0.155.0 batch 78
 > Suite 1167 / 14,258 green + lint 0 BY EXIT CODE. Flip-diff **+7 / 0 / 0**. **TWO NAMED CAUSES, pinned
 > separately — not one shared cause dressed up as one:**
