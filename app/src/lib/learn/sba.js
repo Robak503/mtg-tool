@@ -82,7 +82,13 @@ function sweepAttachmentLegality(state) {
       // existence — a missed fall-off is the safe direction; a wrong kill is the forbidden one (CREED).
       let legal = false;
       if (host?.permanent) {
-        const enchantM = String(perm.card?.oracle || perm.card?.oracle_text || "").match(/^Enchant (creature|land|permanent)\b/im);
+        // ⛔⛔ THE UNION EXCLUSION (ES-1, 2026-08-05) — `(?!\s+or\b)`. Without it "Enchant creature or
+        // Vehicle" (Aether Meltdown, Mists of Littjara) matches the bare `creature` alternative, and this
+        // sweep then kills the Aura the instant its host is an UNCREWED Vehicle — a legal host by the
+        // printed line. The card would have been credited native, attached correctly, and then destroyed
+        // itself on the next SBA pass: a wrong kill, the direction this module's own policy names as the
+        // forbidden one. A union subject falls through to host-existence-only, the documented safe branch.
+        const enchantM = String(perm.card?.oracle || perm.card?.oracle_text || "").match(/^Enchant (creature|land|permanent)\b(?!\s+or\b)/im);
         if (!enchantM) legal = true;
         else if (enchantM[1] === "creature") legal = permanentIsCreature(next, host.permanent.id);
         else if (enchantM[1] === "land") legal = /\bLand\b/.test(String(host.permanent.card?.type || host.permanent.card?.type_line || ""));

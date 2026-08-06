@@ -839,11 +839,19 @@ export const RESOLVERS = Object.freeze({
     // payload (actionDispatcher, from the shared grantAuraCastHostType gate) — the CR 608.2b re-check
     // requires that type ("Enchant land" must still point at a Land). Legacy payloads carry no hostType
     // and keep the original mana-aura/creature derivation byte-identical.
+    // ES-1 (2026-08-05): the NON-CREATURE host types. This re-check defaulted to /Creature/ for every
+    // hostType it didn't recognise, so the moment an "Enchant artifact" Aura became native its cast would
+    // have FIZZLED here — spell to the graveyard, nothing on the battlefield, and the coverage metric
+    // claiming the card plays. That is the silent-do-nothing the CREED forbids, and it is why this seam
+    // was mapped before the parser was touched rather than discovered afterwards.
     const requiredType = hostType === "land" ? /Land/
       : hostType === "creature" ? /Creature/
-        : isNativeManaAura(card)
-          ? (auraChoosesColorOnEnter(card) ? /Forest/ : /Land/)
-          : /Creature/;
+        : hostType === "artifact" ? /Artifact/
+          : hostType === "creatureOrArtifact" ? /Creature|Artifact/
+            : hostType === "creatureOrVehicle" ? /Creature|Vehicle/
+              : isNativeManaAura(card)
+                ? (auraChoosesColorOnEnter(card) ? /Forest/ : /Land/)
+                : /Creature/;
     if (!tgt || !requiredType.test(tgtType)) {
       // BESTOW (CR 702.103g): a bestow spell whose creature target is gone at resolution doesn't enter as
       // an unattached Aura — it isn't put onto the battlefield at all → owner's graveyard. Same fizzle as

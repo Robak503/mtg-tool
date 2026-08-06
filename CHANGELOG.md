@@ -9,6 +9,14 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Auras that enchant artifacts and Vehicles are playable.** Ice Over, Coma Veil, Secure Detention, Petrify,
+  Stasis Cocoon, Relic Ward, Aether Meltdown and Mists of Littjara were held back only by their "Enchant"
+  line — the simulator could offer them a creature or nothing at all. They now target the permanents they
+  actually enchant, and an Aura on an uncrewed Vehicle stays attached instead of falling off.
+- **"Its activated abilities can't be activated" now shuts off the whole permanent.** Arrest, Lawmage's
+  Binding, Demotion, Stupefying Touch, Detainment Spell and Koma's lock stopped a permanent's ordinary
+  abilities but still let it be tapped for mana, crewed, or used for a mana-doubling ability. An arrested
+  mana creature is now genuinely silenced.
 - **Counters-on-itself payoffs work.** Marketback Walker, Bloodtracker and Hooded Hydra draw or make tokens
   for each +1/+1 counter they had when they left the battlefield; Embalmed Brawler, Kilnmouth Dragon and
   Goblin Razerunners read the counters they currently have.

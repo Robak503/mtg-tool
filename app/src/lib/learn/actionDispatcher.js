@@ -59,7 +59,7 @@ import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) �
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
-import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped, impositionEntersTapped } from "./staticAbilityParser.js";
+import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped, impositionEntersTapped, auraEnchantHostSpec } from "./staticAbilityParser.js";
 // ORDEAL (BLITZ OC-1): the Theros Ordeal cast lane — the SAME gate legalChoices offers on and the metric
 // awards (single source of truth, no drift). Acyclic: coverage.js never imports actionDispatcher.js.
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
@@ -545,8 +545,14 @@ function applyCastSpell(state, action) {
     // to the targeted creature. The target id is the battlefield permanent chosen at cast.
     // ORDEAL (BLITZ OC-1): the fully-modeled trigger-only Ordeal Aura rides the SAME lane (enter +
     // attach; its triggers fire off the attached linkage) — the gate mirrors legalChoices' offer.
+    // ES-1: `hostType` rides the SERIALIZABLE payload (the grant lane's proven pattern, one branch down)
+    // so the resolver's CR 608.2b re-check demands the type the card actually enchants. It is read from
+    // auraEnchantHostSpec — the SAME function legalChoices enumerated with — so offer and re-check cannot
+    // drift. Absent for an Ordeal (not a host-spec card) → the re-check keeps its /Creature/ default,
+    // which is exactly right for it.
     const targetId = targets[0]?.id;
-    payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId } };
+    const hostSpec = auraEnchantHostSpec(castCard);
+    payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId, ...(hostSpec && { hostType: hostSpec.targetType }) } };
   } else if (action.enchantsPlayer && isPlayerAuraCard(castCard)) {
     // PLAYER-AURA (Fraying Sanity / the Curse class — SHELF S7, CR 303.4): the target is a PLAYER id;
     // AURA_ETB's player branch re-checks the player is still in the game at resolution and enters the

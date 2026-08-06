@@ -5761,7 +5761,7 @@ export function attachedPreventionOf(card) {
  */
 export function isNativeAura(card) {
   if (!isAuraCard(card)) return false;
-  if (!auraEnchantRestrictions(card)) return false;         // "creature" or "creature you control" only
+  if (!auraEnchantHostSpec(card)) return false;             // a subject the cast lane can enumerate
   const prev = attachedPreventionOf(card);
   // The MODELED-HALF gate: an aura must carry at least one modeled payload — a layer bonus, an AP-1 wall,
   // the PZ-1 lock, or (SL-1) a modeled AURA-OWN TRIGGER (Spirit Link / Vampiric Link — a trigger-ONLY aura
@@ -5838,6 +5838,51 @@ function auraTouchClausesAllModeled(card) {
  * drift. Pure.
  */
 export function auraEnchantRestrictions(card) {
+  // ⭐ THE CREATURE-ONLY ACCESSOR, and it must STAY creature-only. Its two remaining callers —
+  // grantAuraCastHostType (which turns a non-null return into `{ host: "creature" }`) and coverage's
+  // qualified-subject branch — both mean "this is a CREATURE host whose filter rides the restriction
+  // list". Widening this to the non-creature subjects auraEnchantHostSpec now expresses would have made
+  // an "Enchant artifact" Aura enumerate CREATURES in the grant lane: the cardinal CREED sin, reached by
+  // a one-line convenience. The host spec below is the widened source; this stays the narrow view of it.
+  const spec = auraEnchantHostSpec(card);
+  return spec && spec.targetType === "creature" ? spec.restrictions : null;
+}
+
+/**
+ * THE HOST SPEC (ES-1, CR 303.4a) — `{ targetType, restrictions }` for an Aura whose "Enchant <subject>"
+ * line the engine can enumerate natively, or null. THE SINGLE SOURCE for all five seams that must agree:
+ *   ① isNativeAura's gate           ② legalChoices' cast enumeration    ③ the AURA_ETB payload's hostType
+ *   ④ the resolver's CR 608.2b re-check                                 ⑤ sba.js's CR 704.5n fall-off sweep
+ * Any one of them disagreeing is a card credited native that the engine cannot actually attach — or worse,
+ * one that attaches and is then killed by the sweep on the next SBA pass. Both were live before this slice
+ * (④ defaulted to /Creature/, so an "Enchant artifact" cast FIZZLED at resolution; ⑤ read "Enchant creature
+ * or Vehicle" as bare "creature" and would have fallen the Aura off an uncrewed Vehicle instantly).
+ *
+ * ⛔ THE NON-CREATURE SUBJECTS ARE TYPE UNIONS, WHICH IS WHY THEY WAITED. The restriction list is ANDed and
+ * says nothing about TYPE, so "artifact or creature" cannot be expressed against a fixed targetType —
+ * it needs a targetType of its own. Each one below maps onto a PERMANENT_PREDICATES entry the removal
+ * lanes already enumerate with, so this is wiring rather than new targeting machinery.
+ */
+export function auraEnchantHostSpec(card) {
+  const restrictions = creatureEnchantRestrictions(card);
+  if (restrictions) return { targetType: "creature", restrictions };
+  const subject = auraEnchantSubject(card);
+  // ⭐ NON-CREATURE HOSTS (2026-08-05). The BODY of each of these cards already parses: attachedBodyNoun
+  // (AN-1) resolved "enchanted permanent" / "enchanted artifact" a slice ago, and every effect they print
+  // — the no-untap lock (untapAll), the pacifism pair + the Arrest activation lock (legalChoices +
+  // manaModel, both keyed on permanentHasKeyword, which is type-agnostic), the shroud grant — is enforced
+  // on ANY permanent, not just creatures. The subject line was the whole blocker.
+  //   "artifact"            → Stasis Cocoon, Relic Ward
+  //   "artifact or creature"→ Ice Over, Coma Veil, Secure Detention, Petrify
+  //   "creature or vehicle" → Aether Meltdown, Mists of Littjara
+  if (subject === "artifact") return { targetType: "artifact", restrictions: [] };
+  if (subject === "artifact or creature") return { targetType: "creatureOrArtifact", restrictions: [] };
+  if (subject === "creature or vehicle") return { targetType: "creatureOrVehicle", restrictions: [] };
+  return null;
+}
+
+/** The CREATURE-subject half of the host spec (every subject that yields targetType "creature"). */
+function creatureEnchantRestrictions(card) {
   const subject = auraEnchantSubject(card);
   if (subject === "creature") return [];
   if (subject === "creature you control") return [{ kind: "controller", who: "you" }];
@@ -5882,10 +5927,13 @@ export function auraEnchantRestrictions(card) {
   if (posColor) return [{ kind: "color", color: COLOR_WORDS[posColor[1]] }];
   const mv = subject && subject.match(/^creature with mana value (\d+) or less$/);
   if (mv) return [{ kind: "manaValue", op: "<=", value: parseInt(mv[1], 10) }];
-  // Everything else still returns null → Arbiter. A colour DISJUNCTION ("red or green creature" —
-  // Controlled Instincts, Encase in Ice) is deliberately NOT here: restrictions are ANDed, so it needs a
-  // new disjunctive kind rather than wiring, and this slice does not invent one. Type unions
-  // ("artifact or creature") need a targetType that isn't fixed to "creature" — a bigger job, banked.
+  // Everything else still returns null here → either a NON-creature targetType in auraEnchantHostSpec
+  // above, or the Arbiter. A colour DISJUNCTION ("red or green creature" — Controlled Instincts, Encase
+  // in Ice) is deliberately NOT here: restrictions are ANDed, so it needs a new disjunctive kind rather
+  // than wiring, and that slice still hasn't been done.
+  // ⚠️ THE LINE THAT USED TO END THIS COMMENT SAID TYPE UNIONS WERE "A BIGGER JOB, BANKED". They were,
+  // and the job is done — but NOT by relaxing anything here. A union is not a creature restriction, so it
+  // could never be expressed in this function; it needed a targetType, which is why it lives one level up.
   return null;
 }
 

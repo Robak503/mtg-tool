@@ -705,6 +705,20 @@ export function staticEffectsOf(state, permanent) {
   // applies ONLY to that creature (affects fixed [attachedTo]). collectContinuousEffects
   // re-runs per state, so the bonus appears/disappears the instant attachedTo changes.
   if (permanent.attachedTo) {
+    // ⚠️⚠️ KNOWN, BOUNDED IMPRECISION (ES-1, 2026-08-05) — READ THIS BEFORE "FIXING" IT.
+    // By CR 613.1, "Enchanted CREATURE gets -4/-0" applies only while the enchanted permanent IS a
+    // creature. Aether Meltdown / Mists of Littjara legally enchant an UNCREWED Vehicle (an artifact),
+    // and this emits the P/T bonus anyway — so that Vehicle's derived power reads 3-4 = -1 instead of 3.
+    // The CREWED reading is already CORRECT (-1), and both carriers modify POWER only, so the 0-toughness
+    // SBA — the one place a wrong P/T turns lethal — is unreachable. Every consumer of a permanent's power
+    // that was checked is creature-scoped; that was NOT exhaustively proven across all ~75 call sites, and
+    // this comment deliberately does not claim it was.
+    // ⛔ THE OBVIOUS FIX DOES NOT WORK, MEASURED: gating this on permanentIsCreature(state, attachedTo) is
+    // RE-ENTRANT — permanentIsCreature runs the layer-4 derive, which collects continuous effects, which
+    // calls this function. The guard answers false mid-flight and the ENTIRE attached-bonus system silently
+    // stops applying (a plain Bear under an aura read its printed power, unbuffed). If this is ever worth
+    // fixing, it needs a SHALLOW host-type read off state.continuousEffects (crew stores a layer-4 type add
+    // scoped to the vehicle — see actionDispatcher.applyCrewVehicle), never the derive.
     for (const e of parseAttachedBonus(card)) {
       partials.push({ ...e, affects: { mode: "fixed", permanentIds: [permanent.attachedTo] } });
     }

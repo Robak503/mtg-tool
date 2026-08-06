@@ -693,6 +693,14 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     creatureOrLand: (tl) => /\bCreature\b|\bLand\b/.test(tl),
     creatureOrArtifact: (tl) => /\bCreature\b|\bArtifact\b/.test(tl),
     artifactOrLand: (tl) => /\bArtifact\b|\bLand\b/.test(tl),
+    // ES-1 "Enchant creature or Vehicle" (Aether Meltdown, Mists of Littjara) — CR 301.7: a Vehicle is an
+    // ARTIFACT that is only a creature while crewed, so this is NOT creatureOrArtifact (that would offer
+    // every artifact on the board, hosts the printed card cannot touch — the forbidden direction). The
+    // Vehicle arm requires BOTH the Artifact type and the Vehicle subtype, mirroring the basic-land-subtype
+    // predicates above. PRINTED-only on the creature arm, consistent with its creatureOrArtifact sibling:
+    // a permanent that is a creature only by LAYERS is simply not offered (a safe under-offer), and a
+    // CREWED Vehicle matches the Vehicle arm regardless, so the practically-reachable pool is complete.
+    creatureOrVehicle: (tl) => /\bCreature\b/.test(tl) || (/\bArtifact\b/.test(tl) && /\bVehicle\b/.test(tl)),
     enchantmentOrLand: (tl) => /\bEnchantment\b|\bLand\b/.test(tl),
   };
   const addPermanents = (pred) => {

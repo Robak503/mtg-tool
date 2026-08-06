@@ -3,6 +3,42 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **THE ENCHANT-SUBJECT VOCABULARY — five seams, one host spec, +8** - post-v0.155.0 batch 44
+> Suite 1165 / 14,227 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Ice Over, Coma Veil, Secure
+> Detention, Petrify (`Enchant artifact or creature`); Stasis Cocoon, Relic Ward (`Enchant artifact`);
+> Aether Meltdown, Mists of Littjara (`Enchant creature or Vehicle`). All audited whole-card, the three with
+> extra moving parts DRIVEN (Secure Detention's ETB token, Relic Ward's shroud on an artifact host, Aether
+> Meltdown's energy).
+> ⭐ **THE BODIES ALREADY WORKED; THE SUBJECT LINE WAS THE WHOLE BLOCKER.** attachedBodyNoun (AN-1) taught the
+> parser "enchanted permanent"/"enchanted artifact" a slice ago, and every effect these eight print is
+> enforced on ANY permanent. Measured by substitution probe (swap ONLY the Enchant line, keep the rest
+> byte-identical): 21/20/10 parked carriers on the three subjects, **4/2/2 blocked SOLELY by subject**.
+> ⛔⛔ **TWO OF THE FIVE SEAMS WERE LIVE TRAPS, AND BOTH FAIL SILENTLY.** ④ the AURA_ETB resolver's CR 608.2b
+> re-check DEFAULTED to /Creature/ — an "Enchant artifact" cast would have FIZZLED at resolution while the
+> metric claimed the card plays. ⑤ sba.js's CR 704.5n sweep read "Enchant creature or Vehicle" on its bare
+> `creature` alternative and would have destroyed the Aura on an UNCREWED Vehicle — a legal host — on the very
+> next SBA pass. **Neither is visible to a pin that checks only the OFFER**, which is why the seam was mapped
+> before the parser was touched.
+> ⭐⭐ **A SEPARATE LIVE OVER-DELIVERY FOUND BY A POSITIVE CONTROL — and it was on ALREADY-NATIVE cards.**
+> legalChoices has five sites enumerating a permanent's activated abilities; the file's own comment claimed
+> all five gate through one predicate, but that predicate knew only the BOARD-WIDE artifact lock. The
+> PER-PERMANENT lock (Arrest, Lawmage's Binding, Demotion, Stupefying Touch, Detainment Spell, Koma mode 1)
+> was checked at exactly ONE. Measured on shipped code: an arrested Llanowar Elves read **`{offered: 1,
+> forPayment: 0}`** — manaModel refused it for payment while legalChoices still offered the tap. Crew,
+> double-mana-pool and loyalty had the same hole. Fixed in the shared predicate, because the four-way
+> divergence IS the bug; MUT4 reconstitutes `{offered: 1, forPayment: 0}` exactly.
+> ⛔ **THE POSITIVE CONTROL EARNED ITS KEEP TWICE IN ONE SLICE.** A Signet fixture (mana-only ability) asserted
+> through the `activate-ability` lane read `after: 0` — a perfect-looking lock over an empty filter. Then the
+> crew row used kind `"crew"` where the engine emits `"crew-vehicle"`: `{before: 0, after: 0}`. **A filter that
+> matches nothing is indistinguishable from a working guard.** Both were caught only by `before > 0`.
+> ⚠️ **ONE KNOWN IMPRECISION, PINNED AT ITS WRONG VALUE ON PURPOSE.** An uncrewed Vehicle under Aether
+> Meltdown derives power -1 where CR 613.1 says 3 (the effect names "creature"; the host isn't one). The
+> CREWED reading is already correct, and both carriers touch POWER only so the 0-toughness SBA is unreachable.
+> **The obvious fix is re-entrant, measured:** gating the emission on permanentIsCreature runs the layer-4
+> derive from inside effect collection, the guard answers false mid-flight, and the ENTIRE attached-bonus
+> system stops applying (a plain Bear read its unbuffed printed power). Reverted, documented in layers.js,
+> and asserted at -1 so a future "fix" fails loudly.
+
 > ## SLICE DONE - 2026-08-05 - **COUNTERS ON THE SOURCE — one phrase, two sources, +6** - post-v0.155.0 batch 36
 > Suite 1163 / 14,212 green + lint 0 BY EXIT CODE. Flip-diff **+6 / 0 / 0** — Marketback Walker, Embalmed
 > Brawler, Kilnmouth Dragon, Hooded Hydra, Goblin Razerunners, Bloodtracker. All audited whole-card.

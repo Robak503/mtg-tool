@@ -76,7 +76,7 @@ registerGrantActivatedBodyValidator(isModeledGroupActivatedBody);
 // with coverage.js's identical registration; see registerLevelerCardValidator in staticAbilityParser.js.
 registerLevelerCardValidator(modeledLeveler);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, playFromTopPermission, castFromTopFilterAllows, parseStaticAbilities } from "./staticAbilityParser.js";
+import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, parseBestowCost, auraEnchantSubject, auraEnchantRestrictions, auraEnchantHostSpec, playFromTopPermission, castFromTopFilterAllows, parseStaticAbilities } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
@@ -1382,7 +1382,14 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // ENCHANT-RESTRICTION (CR 303.4a): "Enchant creature you control" limits legal targets to the caster's
       // OWN creatures — the SAME restriction (creatureSatisfiesRestrictions "you") isNativeAura gated on, so
       // the aura can never attach to an illegal creature. Bare "Enchant creature" → [] (any creature).
-      const targets = enumerateTargets(state, playerId, { targetType: "creature", restrictions: auraEnchantRestrictions(card) || [] }, colorsOf(card));
+      // ES-1 (2026-08-05): the HOST TYPE comes from the card, not a hardcoded "creature". An Aura whose
+      // subject is a type union ("Enchant artifact or creature" — Ice Over; "Enchant creature or Vehicle"
+      // — Aether Meltdown) or a bare non-creature ("Enchant artifact" — Stasis Cocoon) enumerates hosts of
+      // THAT type. ⛔ The pin that matters is the negative one: an "Enchant artifact" Aura must never
+      // enumerate a creature. A test that only checked "it attached" would pass while attaching to
+      // anything, which is why enchantSubjectHosts.test.js asserts the pools by NAME in both directions.
+      const hostSpec = auraEnchantHostSpec(card) || { targetType: "creature", restrictions: [] };
+      const targets = enumerateTargets(state, playerId, { targetType: hostSpec.targetType, restrictions: hostSpec.restrictions }, colorsOf(card));
       if (targets.length === 0) continue;
       for (const t of targets) {
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
@@ -1682,7 +1689,23 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
 // same gate for affordability/payment. NOT gated (CR scope): casting artifact spells (601.2), triggered
 // (603.2) / static (604.1) abilities, and hand/graveyard-zone activations — cycling, plot, gy-recursion/
 // -exile act on CARDS, not battlefield artifact permanents (CR 109.2).
-function lockedArtifactSource(state, locked, permId) {
+//
+// ⭐⭐ IT COVERS **TWO** LOCKS AS OF 2026-08-05, AND THE SECOND ONE WAS A LIVE BUG. The paragraph above has
+// always claimed every activated-ability enumeration site gates through this one predicate — but the
+// predicate only knew the BOARD-WIDE artifact lock (NR-1). The PER-PERMANENT lock (AU-2
+// "activatedAbilitiesLocked" — Arrest, Lawmage's Binding, Demotion, Stupefying Touch, Detainment Spell,
+// and Koma's mode-1) was checked at exactly ONE of the five sites: actionsActivateAbility. So an ARRESTED
+// Llanowar Elves was refused by manaModel.manaSources for AFFORDABILITY yet still OFFERED a `tap-for-mana`
+// action — tap it and the mana appears. Measured on shipped code before the fix: `{offered: 1,
+// forPayment: 0}`. Crew (CR 702.122a), the double-mana-pool ability (CR 605.1a) and loyalty (CR 606.2) had
+// the same hole. Every one is an over-delivery — the engine doing MORE than the printed card allows, which
+// is the forbidden direction, not the safe one.
+// ⛔ FIXED HERE RATHER THAN AT THE FOUR CALL SITES *because* the four-way divergence is what caused it.
+function lockedActivationSource(state, locked, permId) {
+  // AU-2 (CR 602.5 — "a player can't begin to activate an ability that's prohibited from being activated"):
+  // the per-permanent lock, layer-aware via permanentHasKeyword and type-agnostic, so it shuts off a locked
+  // artifact, Vehicle, creature or planeswalker alike.
+  if (permanentHasKeyword(state, permId, "activatedAbilitiesLocked")) return true;
   return locked && permanentTypes(state, permId).types.includes("Artifact");
 }
 
@@ -1695,7 +1718,7 @@ function actionsTapForMana(state, playerId) {
   const artLocked = artifactActivationsLocked(state); // NR-1: locks artifact mana abilities (CR 605.1a)
   for (const perm of player.battlefield) {
     if (perm.tapped) continue;
-    if (lockedArtifactSource(state, artLocked, perm.id)) continue; // NR-1 — no artifact taps for mana under the lock
+    if (lockedActivationSource(state, artLocked, perm.id)) continue; // NR-1 artifact lock + AU-2 per-permanent lock
     let prod = manaProduction(perm.card);
     // GROUP-GRANT: a permanent with no own mana ability can have a {T}: Add … ability GRANTED by a lord
     // (Gemhide/Manaweft). DEDUP mirrors manaSources — the grant only adds a source where the permanent has
@@ -1793,7 +1816,7 @@ function actionsCrewVehicle(state, playerId) {
   let crewPool = null; // computed once, only if a crewable Vehicle exists
   for (const perm of player.battlefield) {
     if (!/\bVehicle\b/.test(String(perm.card?.type || ""))) continue;
-    if (lockedArtifactSource(state, artLocked, perm.id)) continue; // NR-1 — a Vehicle can't be crewed under the lock
+    if (lockedActivationSource(state, artLocked, perm.id)) continue; // NR-1 lock, and AU-2: an ARRESTED Vehicle can't be crewed
     const n = parseCrewCost(perm.card);
     if (n == null || permanentIsCreature(state, perm.id)) continue;
     if (!crewPool) {
@@ -1835,7 +1858,7 @@ function actionsActivateAbility(state, playerId) {
     // NR-1 — the WHOLE activated surface of an artifact permanent is off under the lock: printed abilities,
     // aura/equipment-granted and group-granted abilities (the granted ability belongs to the HOST — an
     // artifact host means an artifact's ability), and equip (Equipment is an artifact, CR 702.6a).
-    if (lockedArtifactSource(state, artLocked, perm.id)) continue;
+    if (lockedActivationSource(state, artLocked, perm.id)) continue;
     // GRANTED-ACTIVATED (subsystem 1 phase 1b): an Aura on this creature can confer an activated ability
     // ("Enchanted creature has \"{T}: …\""). The granted descriptors are enumerated HERE on the host, so
     // tapSelf taps the host and the effect's "this creature"/"you" bind to the host/controller at resolution.
@@ -1852,12 +1875,10 @@ function actionsActivateAbility(state, playerId) {
     const granted = [...grantedActivatedForHost(state, perm), ...groupGranted];
     const abilities = granted.length ? [...printed, ...granted] : printed;
     if (!abilities.length) continue;
-    // LOCK-ACTIVATED (Koma mode 1 — "Its activated abilities can't be activated this turn"): a permanent
-    // under the layer-6 "activatedAbilitiesLocked" grant (applyTapEffect, end-of-turn duration) can't have
-    // ANY of its activated abilities activated this turn (CR 603-style continuous restriction). Mana abilities
-    // route through the no-stack mana path, not here, so this gate covers the stack-activated abilities the
-    // restriction targets; the grant auto-expires at cleanup, so the suppression is exactly one turn.
-    if (permanentHasKeyword(state, perm.id, "activatedAbilitiesLocked")) continue;
+    // LOCK-ACTIVATED (Koma mode 1 / the Arrest class): the "activatedAbilitiesLocked" check that USED to
+    // live here moved UP into lockedActivationSource, which this loop already gates on. It was the only
+    // one of the five enumeration sites that had it, and that asymmetry was the bug — see the predicate's
+    // note. Left as a pointer rather than a duplicate check so there stays exactly ONE source of truth.
     const isCreaturePerm = isCreature(perm.card);
     for (const ab of abilities) {
       if (!ab.modeled) continue;
@@ -2330,7 +2351,7 @@ function actionsDoubleManaPool(state, playerId) {
   const actions = [];
   const artLocked = artifactActivationsLocked(state); // NR-1: Doubling Cube is an artifact mana ability (CR 605.1a)
   for (const perm of player.battlefield) {
-    if (lockedArtifactSource(state, artLocked, perm.id)) continue; // NR-1 — no artifact activation under the lock
+    if (lockedActivationSource(state, artLocked, perm.id)) continue; // NR-1 artifact lock + AU-2 per-permanent lock
     for (const ab of parseActivatedAbilities(perm.card)) {
       if (!ab.doubleManaPool) continue;
       if (ab.tapSelf) {
@@ -2923,7 +2944,7 @@ function actionsActivateLoyalty(state, playerId) {
     if (perm.counters?.loyalty == null) continue;
     // NR-1 — an ARTIFACT planeswalker's loyalty abilities are activated abilities of an artifact (Luxior,
     // Ignited / The Aetherspark — both arbiter-pw today, so this is a dormant-but-correct future-proof gate).
-    if (lockedArtifactSource(state, artLocked, perm.id)) continue;
+    if (lockedActivationSource(state, artLocked, perm.id)) continue;
     if (!planeswalkerPlayable(perm.card)) continue;
     if (perm.loyaltyActivatedThisTurn) continue; // CR 606.3 — at most one per turn per walker
     const loyalty = perm.counters.loyalty;
