@@ -1,7 +1,12 @@
 /**
- * enchantSubjectHosts.test.js — ES-1: the NON-CREATURE "Enchant <subject>" vocabulary.
- * "Enchant artifact" (Stasis Cocoon, Relic Ward), "Enchant artifact or creature" (Ice Over, Coma Veil,
- * Secure Detention, Petrify), "Enchant creature or Vehicle" (Aether Meltdown, Mists of Littjara).
+ * enchantSubjectHosts.test.js — ES-1/ES-2: the NON-CREATURE "Enchant <subject>" vocabulary.
+ *   ES-1 · "Enchant artifact" (Stasis Cocoon, Relic Ward) · "Enchant artifact or creature" (Ice Over,
+ *          Coma Veil, Secure Detention, Petrify) · "Enchant creature or Vehicle" (Aether Meltdown,
+ *          Mists of Littjara).
+ *   ES-2 · "Enchant nonland permanent" (Suppression Bonds) · "Enchant creature or planeswalker"
+ *          (Nahiri's Binding) · "Enchant artifact, creature, or planeswalker" (Planar Disruption).
+ *          All three print Petrify's EXACT body — a shared BODY is what makes them one cause rather than
+ *          three, and that sharing is ASSERTED below rather than claimed in prose.
  *
  * ⭐ THE BODIES ALREADY WORKED — THE SUBJECT LINE WAS THE WHOLE BLOCKER. attachedBodyNoun (AN-1) taught the
  * attached-bonus parser "enchanted permanent" / "enchanted artifact" a slice ago, and every effect these
@@ -32,6 +37,8 @@
  *   · the resolver's `hostType === "artifact"` arm dropped    -> Stasis Cocoon fizzles; nothing attaches.
  *   · legalChoices' hostSpec pinned back to targetType:"creature" -> the artifact rows enumerate CREATURES,
  *     which is the illegal-host FP this file exists to forbid.
+ *   · the three ES-2 keys renamed out of the resolver's HOST_TYPE_RE lookup -> all three es2Resolve rows
+ *     read null: offered, cast, and then silently nothing.
  *
  * Real oracle fixtures (bundled Scryfall, probed 2026-08-05).
  */
@@ -59,6 +66,15 @@ const RELIC_WARD = { id: "c-rw", name: "Relic Ward", type: "Enchantment — Aura
   oracle: "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nEnchant artifact\nEnchanted artifact has shroud. (It can't be the target of spells or abilities.)" };
 const MISTS = { id: "c-ml", name: "Mists of Littjara", type: "Enchantment — Aura", mana: "{1}{U}",
   oracle: "Flash\nEnchant creature or Vehicle\nEnchanted creature gets -3/-0." };
+// ES-2 — three MORE subjects, and what makes them one cause with Petrify rather than three of their own:
+// all four print the IDENTICAL body. The subject line is literally the only difference.
+const LOCK_BODY = "Enchanted permanent can't attack or block, and its activated abilities can't be activated.";
+const SUPPRESSION_BONDS = { id: "c-sb", name: "Suppression Bonds", type: "Enchantment — Aura", mana: "{3}{W}",
+  oracle: `Enchant nonland permanent\n${LOCK_BODY}` };
+const NAHIRIS_BINDING = { id: "c-nb", name: "Nahiri's Binding", type: "Enchantment — Aura", mana: "{1}{W}{W}",
+  oracle: `Enchant creature or planeswalker\n${LOCK_BODY}` };
+const PLANAR_DISRUPTION = { id: "c-pd", name: "Planar Disruption", type: "Enchantment — Aura", mana: "{1}{W}",
+  oracle: `Enchant artifact, creature, or planeswalker\n${LOCK_BODY}` };
 const AETHER_MELTDOWN = { id: "c-am", name: "Aether Meltdown", type: "Enchantment — Aura", mana: "{1}{U}",
   oracle: "Flash (You may cast this spell any time you could cast an instant.)\nEnchant creature or Vehicle\nWhen this Aura enters, you get {E}{E} (two energy counters).\nEnchanted creature gets -4/-0." };
 
@@ -71,6 +87,7 @@ const BEAR = { id: "bear", card: { id: "c-bear", name: "Bear", type: "Creature �
 const SIGNET = { id: "signet", card: { id: "c-sig", name: "Jayemdae Tome", type: "Artifact — Book", oracle: "{4}, {T}: Draw a card." } };
 const SOL_RING = { id: "solring", card: { id: "c-sr", name: "Sol Ring", type: "Artifact", oracle: "{T}: Add {C}{C}." } };
 const TRUCK = { id: "truck", card: { id: "c-truck", name: "Smuggler's Copter", type: "Artifact — Vehicle", power: 3, toughness: 3, oracle: "Flying\nCrew 1" } };
+const WALKER = { id: "walker", loyalty: 4, card: { id: "c-pw", name: "Test Walker", type: "Legendary Planeswalker — Tester", oracle: "+1: Draw a card." } };
 
 describe("the host spec", () => {
   it("⭐ each subject resolves to its own targetType — and the union is NOT a creature restriction", () => {
@@ -98,10 +115,29 @@ describe("the host spec", () => {
   });
 
   it("⛔ an INEXPRESSIBLE subject still parks (the gate didn't just open)", () => {
-    // "Enchant permanent" has no restriction and no predicate wired here; "Enchant Equipment" and
-    // "Enchant creature or planeswalker" likewise. Each must stay on the Arbiter, not fall through.
-    for (const subject of ["permanent", "Equipment", "creature or planeswalker", "artifact creature"]) {
+    // ⚠️ "creature or planeswalker" WAS IN THIS LIST and has since moved to the wired set (ES-2). The
+    // assertion was rewritten rather than deleted, because what it guards is unchanged: a subject with no
+    // predicate must stay on the Arbiter. Each entry below still has none, and each for its OWN reason:
+    //   · "red or green creature" needs a DISJUNCTIVE restriction kind — restrictions are ANDed, so listing
+    //     two colors would demand a creature be BOTH. Controlled Instincts, Encase in Ice: +2 waiting.
+    //   · "creature with another Aura attached to it" (Daybreak Coronet) and "modified creature"
+    //     (Lion Umbra) need board-reading predicates that do not exist. +1 each.
+    for (const subject of ["permanent", "Equipment", "artifact creature", "red or green creature", "modified creature"]) {
       expect(auraEnchantHostSpec({ name: "X", type: "Enchantment — Aura", oracle: `Enchant ${subject}\nEnchanted permanent gets +1/+1.` }), subject).toBeNull();
+    }
+  });
+
+  it("⭐ ES-2 — the wider unions, and the shared body that makes them ONE cause", () => {
+    // ⛔ Petrify is the CONTROL: it already worked and prints this exact body. If these ever stop sharing
+    // it, "one cause" stops being true and this assertion is what says so — gate 20, kept honest by a
+    // check rather than by a claim in a comment.
+    expect(PETRIFY.oracle.endsWith(LOCK_BODY)).toBe(true);
+    expect(auraEnchantHostSpec(SUPPRESSION_BONDS)).toEqual({ targetType: "nonlandPermanent", restrictions: [] });
+    expect(auraEnchantHostSpec(NAHIRIS_BINDING)).toEqual({ targetType: "creatureOrPlaneswalker", restrictions: [] });
+    expect(auraEnchantHostSpec(PLANAR_DISRUPTION)).toEqual({ targetType: "artifactCreatureOrPlaneswalker", restrictions: [] });
+    for (const c of [SUPPRESSION_BONDS, NAHIRIS_BINDING, PLANAR_DISRUPTION]) {
+      expect(c.oracle.endsWith(LOCK_BODY), `${c.name} shares Petrify's body`).toBe(true);
+      expect(classifyCard(c), c.name).toMatch(/^native/);
     }
   });
 });
@@ -111,7 +147,12 @@ function boardWith(auraCard, perms) {
   // Any-color sources so a cast never fails for MANA reasons — a mana miss would masquerade as a
   // correctly-narrowed offer, and every assertion here is about the host POOL.
   const lands = ["l1", "l2", "l3", "l4"].map((id) => createPermanent({ id, card: { name: "City of Brass", type: "Land", oracle: "{T}: Add one mana of any color." }, controller: "user", summoningSick: false }));
-  const built = perms.map((p) => createPermanent({ id: p.id, card: p.card, controller: "user", summoningSick: false }));
+  // A planeswalker fixture needs its LOYALTY COUNTER — that is what makes it a live walker to the
+  // enumerators, not the type line alone.
+  const built = perms.map((p) => {
+    const base = createPermanent({ id: p.id, card: p.card, controller: "user", summoningSick: false });
+    return p.loyalty == null ? base : { ...base, counters: { ...(base.counters || {}), loyalty: p.loyalty } };
+  });
   return { ...s, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", turn: 5,
     players: { ...s.players, user: { ...s.players.user, battlefield: [...lands, ...built], hand: [auraCard] } } };
 }
@@ -136,6 +177,23 @@ describe("⭐⭐ LAW 6 — the HOST POOLS, named in both directions", () => {
       artifact: ["signet", "truck"],
       artifactOrCreature: ["bear", "signet", "truck"],
       creatureOrVehicle: ["bear", "truck"],
+    });
+  });
+
+  it("⭐⭐ ES-2 — the wider unions enumerate correctly, and the LAND is the pin that matters", () => {
+    // boardWith always seats four City of Brass lands, so "nonland permanent" carries a live negative
+    // case for free: a wrong predicate would put l1..l4 in the row, BY NAME.
+    const board = [BEAR, SIGNET, WALKER];
+    const row = {
+      nonlandPermanent: hostsFor(boardWith(SUPPRESSION_BONDS, board), "Suppression Bonds"),
+      creatureOrPlaneswalker: hostsFor(boardWith(NAHIRIS_BINDING, board), "Nahiri's Binding"),
+      artifactCreatureOrPw: hostsFor(boardWith(PLANAR_DISRUPTION, board), "Planar Disruption"),
+    };
+    console.log("  WITNESS enchantSubjectHostsES2", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({
+      nonlandPermanent: ["bear", "signet", "walker"],   // ⛔ NO l1..l4
+      creatureOrPlaneswalker: ["bear", "walker"],        // ⛔ the artifact is NOT offered
+      artifactCreatureOrPw: ["bear", "signet", "walker"],
     });
   });
 
@@ -256,6 +314,25 @@ describe("⭐⭐ LAW 6 — cast → resolve → SBA, the two seams that fail SIL
     // -1. Pinned at the WRONG value on purpose — if someone fixes the layer emission this test fails
     // LOUDLY and points at the note in layers.js explaining why the obvious fix is re-entrant.
     expect(uncrewed).toBe(-1);
+  });
+
+  it("⭐⭐ ES-2 — all three RESOLVE onto their host (the CR 608.2b arms), not just enumerate", () => {
+    // ⛔ WITHOUT ITS OWN ARM IN THE RESOLVER'S LOOKUP each of these falls to the /Creature/ default and
+    // FIZZLES on a non-creature host — offered, cast, and then silently nothing. Enumeration pins cannot
+    // see that, which is exactly why this row exists beside them.
+    const land = { id: "victim", card: { id: "c-v", name: "Grazing Land", type: "Land", oracle: "" } };
+    const attach = (aura, host, name) => {
+      let s = boardWith(aura, [host, land]);
+      s = resolveTopOfStack(dispatchAction(s, legalActionsForPlayer(s, "user").find((a) => a.isAuraSpell && a.name === name)));
+      return s.players.user.battlefield.find((p) => p.card?.name === name)?.attachedTo ?? null;
+    };
+    const row = {
+      suppressionBonds: attach(SUPPRESSION_BONDS, SIGNET, "Suppression Bonds"),
+      nahirisBinding: attach(NAHIRIS_BINDING, WALKER, "Nahiri's Binding"),
+      planarDisruption: attach(PLANAR_DISRUPTION, WALKER, "Planar Disruption"),
+    };
+    console.log("  WITNESS es2Resolve", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({ suppressionBonds: "signet", nahirisBinding: "walker", planarDisruption: "walker" });
   });
 
   it("⛔ the sweep still KILLS an ordinary 'Enchant creature' Aura whose host stopped being one", () => {

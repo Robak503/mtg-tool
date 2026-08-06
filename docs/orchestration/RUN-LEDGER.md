@@ -3,6 +3,39 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **ENCHANT-SUBJECT, ROUND 2 — the wider unions, +3** - post-v0.155.0 batch 47
+> Suite 1165 / 14,230 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Suppression Bonds
+> (`Enchant nonland permanent`), Nahiri's Binding (`Enchant creature or planeswalker`), Planar Disruption
+> (`Enchant artifact, creature, or planeswalker`). All audited whole-card.
+> ⭐⭐ **GATE 20 IS SATISFIED BY A CHECK, NOT BY A CLAIM.** All three print Petrify's byte-identical body —
+> "Enchanted permanent can't attack or block, and its activated abilities can't be activated" — and Petrify
+> ALREADY WORKED. The subject line is literally the only difference between them and a card that plays. The
+> test asserts the shared body (and Petrify's, as the control) rather than asserting one cause in prose: if
+> they ever stop sharing it, the pin says so.
+> ⭐ **PURE WIRING ON THE HOST SPEC ES-1 SHIPPED.** Two of the three targetTypes (`nonlandPermanent`,
+> `creatureOrPlaneswalker`) were already enumerable; only the triple union needed a predicate.
+> ⛔ **THE RESOLVER TERNARY BECAME A LOOKUP AT EIGHT BRANCHES.** The dangerous part of that chain is its
+> TAIL — the /Creature/ default that silently fizzles a non-creature host. At eight levels the tail is hard
+> to see; HOST_TYPE_RE makes each arm one line and the default explicit. MUT5 (three keys renamed out) reads
+> `{suppressionBonds: null, nahirisBinding: null, planarDisruption: null}` — offered, cast, then nothing.
+> ⚠️ **A GIT CHECKOUT DURING THE FLIP-DIFF ATE THE TEST ADDITIONS.** The flip-diff-by-file-copy protocol backs
+> up the modified SOURCE files, reverts, snapshots, restores. This slice's test file was TRACKED (it shipped
+> with ES-1), so `git checkout -- app/src/lib/learn/` reverted it too and the ES-2 pins vanished silently —
+> the source diff was fine, so nothing failed. **Back up every modified file, not just the ones you think of
+> as "the change."** Re-applied and re-verified.
+> ⚠️ Python-heredoc backslash mangling bit again (correction 22) writing `
+` into a JS fixture — real
+> newlines landed in the string literal. Re-done with the Edit tool. **The rule holds: Edit, never a heredoc,
+> for anything containing escapes.**
+> ⓘ **THE SHELF IS MEASURABLY THINNER, and the census says so.** 11,132 sole-blocker cards remain but spread
+> across 26,392 clusters; the largest single remaining shape is **6** cards and needs a whole subsystem
+> (initiative, attractions, stickers, contraptions, specialize, the Ring). The 396 "bug signature" shapes
+> (parked despite native carriers) total just **73** cards. **The one-wording-many-cards era is over** —
+> plan the next stretch for 2-8 card slices, not 20+.
+> ⓘ Banked and named, not built: `red or green creature` (+2, needs a DISJUNCTIVE restriction kind — the
+> ANDed list can't say it), `creature with another Aura attached to it` (+1, Daybreak Coronet) and
+> `modified creature` (+1, Lion Umbra), both needing board-reading predicates.
+
 > ## SLICE DONE - 2026-08-05 - **THE ENCHANT-SUBJECT VOCABULARY — five seams, one host spec, +8** - post-v0.155.0 batch 44
 > Suite 1165 / 14,227 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Ice Over, Coma Veil, Secure
 > Detention, Petrify (`Enchant artifact or creature`); Stasis Cocoon, Relic Ward (`Enchant artifact`);

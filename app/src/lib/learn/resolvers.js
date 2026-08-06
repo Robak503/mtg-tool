@@ -844,14 +844,20 @@ export const RESOLVERS = Object.freeze({
     // have FIZZLED here — spell to the graveyard, nothing on the battlefield, and the coverage metric
     // claiming the card plays. That is the silent-do-nothing the CREED forbids, and it is why this seam
     // was mapped before the parser was touched rather than discovered afterwards.
-    const requiredType = hostType === "land" ? /Land/
-      : hostType === "creature" ? /Creature/
-        : hostType === "artifact" ? /Artifact/
-          : hostType === "creatureOrArtifact" ? /Creature|Artifact/
-            : hostType === "creatureOrVehicle" ? /Creature|Vehicle/
-              : isNativeManaAura(card)
-                ? (auraChoosesColorOnEnter(card) ? /Forest/ : /Land/)
-                : /Creature/;
+    // ⛔ A LOOKUP, NOT A NINTH TERNARY. This started as two branches and reached eight; at that depth the
+    // `else` tail is genuinely hard to see, and the tail is the DANGEROUS part — it is the /Creature/
+    // default that silently fizzled every non-creature host before ES-1. A miss here still falls to that
+    // default, so the table keeps ONE key per targetType auraEnchantHostSpec can emit and nothing else.
+    // nonlandPermanent is a NEGATIVE requirement, hence a lookahead rather than a type name; `.test()`
+    // against the host's type line is the same contract either way.
+    const HOST_TYPE_RE = {
+      land: /Land/, creature: /Creature/, artifact: /Artifact/,
+      creatureOrArtifact: /Creature|Artifact/, creatureOrVehicle: /Creature|Vehicle/,
+      nonlandPermanent: /^(?!.*\bLand\b)/, creatureOrPlaneswalker: /Creature|Planeswalker/,
+      artifactCreatureOrPlaneswalker: /Artifact|Creature|Planeswalker/,
+    };
+    const requiredType = HOST_TYPE_RE[hostType]
+      || (isNativeManaAura(card) ? (auraChoosesColorOnEnter(card) ? /Forest/ : /Land/) : /Creature/);
     if (!tgt || !requiredType.test(tgtType)) {
       // BESTOW (CR 702.103g): a bestow spell whose creature target is gone at resolution doesn't enter as
       // an unattached Aura — it isn't put onto the battlefield at all → owner's graveyard. Same fizzle as

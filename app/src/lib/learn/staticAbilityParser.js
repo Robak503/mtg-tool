@@ -5878,6 +5878,22 @@ export function auraEnchantHostSpec(card) {
   if (subject === "artifact") return { targetType: "artifact", restrictions: [] };
   if (subject === "artifact or creature") return { targetType: "creatureOrArtifact", restrictions: [] };
   if (subject === "creature or vehicle") return { targetType: "creatureOrVehicle", restrictions: [] };
+  // ⭐ THE WIDER UNIONS (ES-2, same day, same machinery). All three print the IDENTICAL body to Petrify —
+  // "Enchanted permanent can't attack or block, and its activated abilities can't be activated" — so the
+  // subject really is the only difference between them and a card that already works. Each maps onto a
+  // targetType enumerateTargets ALREADY offers (nonlandPermanent and creatureOrPlaneswalker are shipped
+  // predicates; the triple union is one new type-line OR beside its siblings).
+  //   "nonland permanent"                  → Suppression Bonds
+  //   "creature or planeswalker"           → Nahiri's Binding
+  //   "artifact, creature, or planeswalker"→ Planar Disruption
+  if (subject === "nonland permanent") return { targetType: "nonlandPermanent", restrictions: [] };
+  if (subject === "creature or planeswalker") return { targetType: "creatureOrPlaneswalker", restrictions: [] };
+  if (subject === "artifact, creature, or planeswalker") return { targetType: "artifactCreatureOrPlaneswalker", restrictions: [] };
+  // ⛔ STILL NULL, AND EACH FOR ITS OWN REASON — these are NOT wiring and must not be added as if they were:
+  //   · "red or green creature" (Controlled Instincts, Encase in Ice) needs a DISJUNCTIVE restriction kind;
+  //     restrictions are ANDed, so listing two colors would demand a creature be both. +2 waiting.
+  //   · "creature with another Aura attached to it" (Daybreak Coronet) and "modified creature" (Lion Umbra)
+  //     need new board-reading predicates. +1 each.
   return null;
 }
 

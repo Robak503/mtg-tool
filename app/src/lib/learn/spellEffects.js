@@ -701,6 +701,11 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     // a permanent that is a creature only by LAYERS is simply not offered (a safe under-offer), and a
     // CREWED Vehicle matches the Vehicle arm regardless, so the practically-reachable pool is complete.
     creatureOrVehicle: (tl) => /\bCreature\b/.test(tl) || (/\bArtifact\b/.test(tl) && /\bVehicle\b/.test(tl)),
+    // ES-2 "Enchant artifact, creature, or planeswalker" (Planar Disruption) — the triple union, read
+    // exactly as printed. Deliberately NOT mapped to nonlandPermanent, which would also offer an
+    // ENCHANTMENT the printed card cannot touch (the same no-narrowing/no-widening discipline as the
+    // artifactEnchantmentOrLand entry above).
+    artifactCreatureOrPlaneswalker: (tl) => /\bArtifact\b|\bCreature\b|\bPlaneswalker\b/.test(tl),
     enchantmentOrLand: (tl) => /\bEnchantment\b|\bLand\b/.test(tl),
   };
   const addPermanents = (pred) => {

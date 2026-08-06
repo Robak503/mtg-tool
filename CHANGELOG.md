@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **More binding Auras are playable.** Suppression Bonds, Nahiri's Binding and Planar Disruption shut down
+  the permanent they enchant — they print the same text as Petrify, and were held back only by which kinds
+  of permanent they are allowed to target.
 - **Auras that enchant artifacts and Vehicles are playable.** Ice Over, Coma Veil, Secure Detention, Petrify,
   Stasis Cocoon, Relic Ward, Aether Meltdown and Mists of Littjara were held back only by their "Enchant"
   line — the simulator could offer them a creature or nothing at all. They now target the permanents they
