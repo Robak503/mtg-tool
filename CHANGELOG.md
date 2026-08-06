@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Combat-damage payoffs that say "an opponent" work.** Coastal Piracy, Hydra Omnivore, Mindscour Dragon
+  and Joven and Chandler trigger when your creature connects. The simulator recognised the wording "deals
+  combat damage to a player" but not "to an opponent", so these cards did nothing at all — their triggers
+  now fire exactly as printed.
 - **A few more opponent-targeting cards work.** Fiery Justice, Bargain and Armistice give an opponent life
   or a card draw. The simulator understood "target player gains/draws" but not "target opponent", so these
   sat out — and each now targets only opponents, never its own controller.

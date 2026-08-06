@@ -2129,12 +2129,25 @@ function classifyCondition(condRaw, cardName, cardType) {
     // firing at all — a paired positive is the only reason that was visible.
     return { event: "combatDamageToYou", scope: "eachCreature", whose: "any" };
   }
-  if (/\bdeals combat damage to a player$/.test(c)) {
+  // ⭐⭐ "TO AN OPPONENT" IS THE SAME EVENT (CD-OPP, 2026-08-05 — Coastal Piracy, Hydra Omnivore, Mindscour
+  // Dragon, Joven and Chandler). The guard was END-ANCHORED on the literal "a player", so the opponent
+  // wording was not merely mis-scoped, it was **UNDETECTED ENTIRELY** — detectTriggers returned [] and the
+  // whole card parked. Nothing about these effects was unmodelled; one noun was.
+  // ⛔ WHY whose:"any" IS EXACTLY RIGHT HERE RATHER THAN A NARROWER NEW VALUE. In combat the player dealt
+  // damage is the DEFENDING player, who is by construction an opponent of the attacking creature's
+  // controller (CR 506.2) — including the stolen-creature case, where the thief is the controller and the
+  // original owner is their opponent. So "a player" and "an opponent" name the same reachable set for this
+  // event, and the two wordings genuinely are one descriptor.
+  // ⛔⛔ AND INVENTING A NEW `whose` WOULD BE THE DANGEROUS CHOICE, per the warning written into the
+  // combatDamageToYou arm a few lines above: scopeMatches FAILS CLOSED on a value it does not know, so a
+  // made-up scope detects fine and then never fires — a descriptor that reads modelled and does nothing.
+  // Reusing the proven value keeps these four on the same runtime path every existing carrier uses.
+  if (/\bdeals combat damage to (?:a player|an opponent)$/.test(c)) {
     if (selfRef) return { event: "combatDamageToPlayer", scope: "self", whose: "any" };
     // TOKEN-FILTERED (Curiosity Crafter #1734) — checked BEFORE the bare creature form, whose /a creature
     // you control/ test is a SUBSTRING match and would otherwise swallow "a creature token you control" and
     // drop the qualifier entirely. That is the over-fire direction: every creature connecting would draw.
-    if (/^a creature token you control deals combat damage to a player$/.test(c)) return { event: "combatDamageToPlayer", scope: "creatureYouControl", whose: "any", tokenFilter: true };
+    if (/^a creature token you control deals combat damage to (?:a player|an opponent)$/.test(c)) return { event: "combatDamageToPlayer", scope: "creatureYouControl", whose: "any", tokenFilter: true };
     if (/a creature you control/.test(c)) return { event: "combatDamageToPlayer", scope: "creatureYouControl", whose: "any" };
     // EQUIP-RIDER combat-damage (WAVE 4) — "Whenever EQUIPPED CREATURE deals combat damage to a player,
     // <effect>" (Goldvein Pick / The Reaver Cleaver Treasure riders, the Swords' combat-damage payloads).
@@ -2144,7 +2157,7 @@ function classifyCondition(condRaw, cardName, cardType) {
     // (The Reaver Cleaver's GRANTED ability, Beamtown Beatstick "…or battle") never enters this block →
     // UNDETECTED → Arbiter (a SAFE false-negative, never an over-fire). whose:"any" like the per-attacker
     // self/creatureYouControl forms above.
-    if (/^equipped creature deals combat damage to a player$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
+    if (/^equipped creature deals combat damage to (?:a player|an opponent)$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
     // AURA-RIDER combat-damage (SUPER STATE) — "Whenever ENCHANTED CREATURE deals combat damage to a player,
     // <effect>". An Aura's OWN triggered ability keyed off its host: the watcher is the AURA, the connecting
     // attacker is the triggering permanent, so the SAME "equippedCreature" attached-linkage scope fires ONLY
@@ -2152,7 +2165,7 @@ function classifyCondition(condRaw, cardName, cardType) {
     // the identical `attachedTo` field, and the per-host correctness relies on ATTACH permitting only an
     // own-creature host (resolvers.js), exactly like the Equipment rider above. The "to an opponent" object is
     // handled in the sibling block below (the outer guard here is END-anchored on "a player"). whose:"any".
-    if (/^enchanted creature deals combat damage to a player$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
+    if (/^enchanted creature deals combat damage to (?:a player|an opponent)$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
     // SUBTYPE combat-damage (tribal payoffs — Curious Altisaur "Whenever a Dinosaur you control deals
     // combat damage to a player, draw a card"). A single-word creature SUBTYPE filter, reusing the
     // subtypeYouControl scope (controller + type-line substring; the attacker is threaded as

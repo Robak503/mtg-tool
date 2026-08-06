@@ -3,6 +3,34 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-05 - **COMBAT DAMAGE TO AN *OPPONENT* — the holdout among seven siblings, +4** - post-v0.155.0 batch 85
+> Suite 1169 / 14,265 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Coastal Piracy, Hydra
+> Omnivore, Mindscour Dragon, Joven and Chandler. All audited whole-card.
+> ⭐⭐ **THE SIBLINGS WERE IN THE SAME FILE, WHICH MAKES THIS THE PUREST SPLIT-BY-TIER YET.** Seven matchers
+> in triggers.js ALREADY accepted `(?:a player|an opponent)` — the keyword-batch arm, the batch arm, the
+> non-combat damage arm, the enchanted-creature arm, the commander arm and both mill arms. The MAIN
+> combat-damage-to-a-player arm was the lone holdout, END-ANCHORED on the literal "a player".
+> ⛔⛔ **SO THE OPPONENT WORDING WASN'T MIS-SCOPED — IT WAS UNDETECTED ENTIRELY.** `detectTriggers` returned
+> `[]` and the whole card parked. Nothing about these effects was unmodelled; one noun was.
+> ⛔⛔ **DETECTION IS NOT FIRING, AND THIS EVENT HAS BURNED THIS PROJECT BEFORE.** The combatDamageToYou arm
+> a few lines up carries the scar in its own comment: an unknown scope value made the descriptor detect
+> fine and NEVER FIRE, and *"only the POSITIVE runtime test caught it"* — the negative half passed the whole
+> time on nothing firing at all. That comment is why this slice drives the real fire site rather than
+> stopping at classifyCard, and why the witness prints counts: `{creatureYouControl:1,
+> selfScopedOnOtherAttacker:0, selfScopedAsAttacker:1}` — a positive, a discriminating negative, and the
+> positive's own mirror.
+> ⛔ **AND IT IS WHY I DID NOT INVENT A NARROWER SCOPE.** `whose:"any"` is exactly right here: in combat the
+> damaged player is the DEFENDING player, an opponent of the attacking creature's controller by
+> construction (CR 506.2, true even for a stolen attacker). A new scope value would have bought nothing and
+> re-created the fail-closed trap the file already documents.
+> ⛔ The end-anchor's REAL job is untouched and pinned: "…to an opponent **or a planeswalker**" has no
+> modelled scope and still parks. Widening the noun must not loosen the scope refusal.
+> ⭐ MUT-A (guard back to the literal "a player") kills three rows including the runtime one — all counts
+> drop to 0.
+> ⓘ **PROCESS FIX APPLIED THIS SLICE.** Last slice's docs script failed partway and the commit ran anyway,
+> shipping TO-1 without its CHANGELOG line. Here the docs are written and VERIFIED PRESENT before `git add`
+> runs, rather than the commit being a separate un-gated step.
+
 > ## SLICE DONE - 2026-08-05 - **TARGET *OPPONENT* GAINS / DRAWS — the sibling arm two parsers never got, +3** - post-v0.155.0 batch 81
 > Suite 1168 / 14,261 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Fiery Justice, Bargain,
 > Armistice. All audited whole-card.
