@@ -186,6 +186,14 @@ export function applyLoseLife(state, atom, ctx) {
     // by checkCardDrawnTriggers. Absent → a clean no-op, never a wrong recipient.
     const pid = ctx.drawingPlayerId;
     if (pid && next.players[pid]) next = loseLife(next, { playerId: pid, amount });
+  } else if (atom.who === "triggeringPermanentController") {
+    // ITS-CONTROLLER (IC-1 — Poisonbelly Ogre / Parasitic Impetus): the controller of the object that
+    // triggered, ctx.triggeringPermanentController. Absent → a clean no-op.
+    // ⛔ NOT ctx.controller as a fallback: that is the WRONG SEAT by construction on every carrier here.
+    // Poisonbelly Ogre's watcher is MINE while the entering creature is usually an OPPONENT'S, and
+    // Parasitic Impetus is MY aura on THEIR creature — falling through would drain me instead of them.
+    const pid = ctx.triggeringPermanentController;
+    if (pid && next.players[pid]) next = loseLife(next, { playerId: pid, amount });
   } else if (atom.who === "castingPlayer") {
     // CASTING-PLAYER (TP-1 — Kambal, Consul of Allocation "that player loses 2 life and you gain 2 life"):
     // the seat that cast the spell, ctx.castingPlayerId (threaded by checkCastTriggers). Absent -> a clean
@@ -330,6 +338,13 @@ export function lifeClauseParser(clause) {
   // DRAWING-PLAYER life loss (TP-3 — Scrawling Crawler). Same twin, only the ctx key differs.
   m = t.match(/^the drawing player loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "drawingPlayer", targetType: null };
+  // ⭐ ITS-CONTROLLER (IC-1 — Poisonbelly Ogre, Parasitic Impetus): the SENTINEL detectTriggers emits for
+  // "its controller" on an etb/dies/attacks trigger whose scope isn't self. The phrase appears NOWHERE in
+  // printed oracle, so only that scope-gated rewrite can reach this arm; who:"triggeringPermanentController"
+  // reads ctx.triggeringPermanentController, and coverage's spell-path referent loops keep it off spells,
+  // where no triggering permanent exists and the clause would silently no-op.
+  m = t.match(/^the triggering permanent's controller loses (\d+) life$/);
+  if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "triggeringPermanentController", targetType: null };
   return null;
 }
 

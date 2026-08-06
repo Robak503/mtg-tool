@@ -55,6 +55,11 @@ function applyDrawAtom(state, atom, ctx) {
     // non-upkeep event) → draw nobody (a clean no-op, never a fabricated or wrong-player draw).
     const pid = ctx.upkeepPlayerId;
     next = pid && state.players?.[pid] ? applyDrawEffect(state, { controller: pid, amount }) : state;
+  } else if (atom.who === "triggeringPermanentController") {
+    // ITS-CONTROLLER DRAW (IC-1 — Fate Foretold): ctx.triggeringPermanentController. Absent → draw nobody,
+    // never the ability's controller (see the parse arm — that fallback is the wrong seat by construction).
+    const pid = ctx.triggeringPermanentController;
+    next = pid && state.players?.[pid] ? applyDrawEffect(state, { controller: pid, amount }) : state;
   } else {
     next = applyDrawEffect(state, { controller: ctx.controller, amount });
   }
@@ -373,6 +378,13 @@ export function drawEachPlayerClauseParser(clause) {
   // draws N additional cards" is on 12 cards (Kami of the Crescent Moon #1817, Rites of Flourishing #1524,
   // Font of Mythos #2207, Howling Mine #723), while "each player draws N additional" and "target player
   // draws an additional" appear ZERO times. Widening those siblings on symmetry alone would be speculative.
+  // ⭐ ITS-CONTROLLER DRAW (IC-1 — Fate Foretold "when enchanted creature dies, its controller draws a
+  // card"): the same sentinel discipline as the upkeep arm below, reading ctx.triggeringPermanentController.
+  // ⛔ The default draw branch draws for the ABILITY's controller — the wrong seat here by construction,
+  // since Fate Foretold is usually YOUR aura on an OPPONENT'S creature, so falling through would hand you
+  // the card the card gives them.
+  m = t.match(/^the triggering permanent's controller draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "triggeringPermanentController", targetType: null };
   m = t.match(/^the upkeep player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) (?:additional )?cards?$/);
   if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "upkeepPlayer", targetType: null };
   return null;

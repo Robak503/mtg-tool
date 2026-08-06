@@ -3907,6 +3907,33 @@ export function detectTriggers(card) {
       if (cls.event === "cardDrawn") {
         effectClause = effectClause.replace(/\bthat player\b/gi, "the drawing player");
       }
+      // ⭐⭐ ITS-CONTROLLER REFERENT (IC-1, 2026-08-06 — Poisonbelly Ogre, Fate Foretold, Parasitic Impetus,
+      // Smoke Blessing). "Its controller" names the controller of the object that TRIGGERED the ability, and
+      // `triggeringPermanentController` has been bound in makePendingTrigger's generic context all along
+      // with NO consumer. This rewrite is what lets an atom own it.
+      // ⛔⛔ A REWRITE IS REQUIRED, NOT OPTIONAL — measured. A parser arm matching the RAW pronoun returns
+      // the right atom when called directly and still yields [] through parseEffectClause, while its
+      // sibling "the upkeep player loses 1 life" passes the same pipeline. The pipeline deliberately does
+      // not trust a bare pronoun as a clause subject; the sentinel is how every sibling referent earns that
+      // trust (gyOwner / upkeep / discarding / casting / drawing all do exactly this).
+      // ⛔ SCOPE-GATED, and `scope !== "self"` is the load-bearing half. On a SELF trigger "its" is the
+      // source itself, whose controller IS the ability's controller — the default path is already right and
+      // rewriting would only add a referent that can go unbound. The carriers that need this are precisely
+      // the ones where the triggering object is SOMEONE ELSE'S: eachOtherCreature (Poisonbelly Ogre's
+      // entering creature) and equippedCreature (an Aura on an opponent's creature).
+      // ⛔ THE THREE EVENTS ARE LISTED EXPLICITLY rather than defaulted, so an event that binds no
+      // triggering permanent can never reach the sentinel — a safe FN for anything unlisted.
+      // ⛔⛔ ANCHORED TO THE CLAUSE SUBJECT (`^its controller`), NOT A FREE REPLACE — and a real collision
+      // is why. A free `\bits controller\b` swap also rewrites the phrase INSIDE "it doesn't untap during
+      // ITS CONTROLLER's next untap step", which combat.js's tap-lock matchers key on LITERALLY. That is
+      // the "a rewrite is a rename" hazard this run has already paid for twice (the Rhystic Study family
+      // and Smothering Tithe), caught here by a pre-existing scope-gate pin rather than by the flip-diff,
+      // which read 0 lost because the affected card parks for other reasons anyway.
+      // Every carrier names the referent as its SUBJECT ("its controller loses/draws …"), so the anchor
+      // costs nothing and removes the whole class of collision.
+      if ((cls.event === "etb" || cls.event === "dies" || cls.event === "attacks") && cls.scope !== "self") {
+        effectClause = effectClause.replace(/^its controller\b/i, "the triggering permanent's controller");
+      }
       if (cls.scope === "self" && SELF_PUMP_IT_RE.test(effectClause)) {
         effectClause = effectClause.replace(/^it /i, "this creature ");
       }

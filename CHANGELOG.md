@@ -8,6 +8,12 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **"Its controller" payoffs hit the right player.** Poisonbelly Ogre, Fate Foretold and Parasitic Impetus
+  act on the controller of the creature that triggered them — the one that entered, died or attacked. The
+  simulator could not tell whose creature it was, so these cards did nothing; they now charge the right
+  player rather than their own controller.
+
 ## [0.156.0] - 2026-08-05
 
 ### Fixed

@@ -3,6 +3,37 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-06 - **THE "ITS CONTROLLER" REFERENT — a wrong-DIRECTION bug, not a missing one, +3** - post-v0.156.0 batch 3
+> Suite 1173 / 14,282 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Poisonbelly Ogre (etb),
+> Fate Foretold (dies), Parasitic Impetus (attacks). All audited whole-card.
+> ⭐⭐ **BUILT ENGINE, NO IGNITION, EXACTLY.** `triggeringPermanentController` was bound in
+> makePendingTrigger's generic context with **ZERO consumers** — a grep across learn/ returned the binding
+> line and nothing else. This slice is the consumer.
+> ⭐⭐ **THE MAP FROM THE PREVIOUS ATTEMPT WAS RIGHT, AND FOLLOWING IT MADE THIS FAST.** The first attempt
+> was reverted after measuring that a parser arm on the RAW pronoun returns the correct atom when called
+> directly and still yields `[]` through parseEffectClause — the pipeline refuses a bare pronoun as a clause
+> subject. The banked conclusion ("the fix is an event-gated SENTINEL, like every sibling referent") was
+> the whole build. **A reverted attempt that leaves an accurate map is not a wasted attempt.**
+> ⛔⛔ **MUT-B IS THE SHARPEST MUTATION RESULT OF THE RUN: A WRONG-*DIRECTION* EFFECT, NOT A MISSING ONE.**
+> With the resolver arm removed the atom falls through to the default, and the witness reads
+> `user: 40→39` instead of `ai2: 40→39` — **the OPPOSITE seat**. Poisonbelly Ogre's watcher is MINE while
+> the entering creature is usually an OPPONENT'S, so the fallback drains ME for a card that drains THEM.
+> The classification test stayed green throughout, and **any assertion of the form "a player lost 1 life"
+> would have passed while it happened.** Every other silent-do-nothing this run was an absence; this one is
+> an inversion, and only a per-seat table can see it.
+> ⛔⛔ **"A REWRITE IS A RENAME" COLLIDED A THIRD TIME — caught by a PIN, not by the flip-diff.** A free
+> `\bits controller\b` swap also rewrites the phrase inside "it doesn't untap during ITS CONTROLLER's next
+> untap step", which combat.js's tap-lock matchers key on literally. selfAttackNoUntap's scope-gate pin
+> failed on the changed clause string; **the flip-diff read 0 LOST the whole time**, because the affected
+> card parks for unrelated reasons. Fixed by anchoring the rewrite to the clause SUBJECT (`^its controller`)
+> — every carrier names it there, so the anchor costs nothing and removes the entire collision class.
+> ⛔ `scope !== "self"` is load-bearing and pinned both ways: on a self trigger "its" is the source, whose
+> controller already IS the ability's controller, so a rewrite would only add a referent that can go unbound.
+> ⛔ SPELL FENCE in all THREE of coverage's referent loops. The third has a different tail and was missed on
+> the first pass — counted, not eyeballed.
+> ⚠️ Harness error caught by the all-zero rule again: `checkEtbTriggers` does not exist; the entry point is
+> `checkEnterTriggers(state, enteredPerm)`. Checked before touching code, per the standing rule.
+
 > ## SLICE DONE - 2026-08-05 - **"DEFENDING PLAYER CONTROLS" AS A TARGET SCOPE — and a hole in the routing gate, +8** - post-v0.155.0 batch 106
 > Suite 1172 / 14,279 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Mage-Ring Responder, Hellkite
 > Whelp, Heart-Piercer Bow (target damage); Gouged Zealot, Swathcutter Giant, Ronin Cliffrider, Scalding
