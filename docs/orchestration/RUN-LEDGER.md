@@ -3,25 +3,32 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
-> ## ⚠️ FINDING (no slice yet) - 2026-08-06 - **LAND ETB TRIGGERS NEVER FIRE · 66 lands counted COVERED**
-> Two independent holes, both found while building LB-1, both invisible to every flip-diff ever run:
-> **(1) `classifyCard` short-circuits EVERY Land to the `land` tier** (`if (/\bland\b/.test(type)) return
-> "land"`), and `land` sits in `NATIVE_TIERS`. A census found **66 lands counted as COVERED while a trigger
-> clause of theirs does not parse** — the Karoo bounce cycle (11), depletion counters (5), the Lair
-> sacrifice-unless cycle (5), storage counters (5), the Ravnica-style sac-search lands (5), and more.
-> **(2) LAND ETB TRIGGERS DO NOT FIRE AT ALL** on the play-land path. Measured with a MATCHED CONTROL, not
-> inferred:
-> · a LAND printing `When this land enters, draw a card` → stack after play **0**, no card drawn
-> · the IDENTICAL trigger on a CREATURE → stack after cast **1**, card drawn
-> So even a land whose clause parses perfectly does nothing when it enters.
-> ⛔ **NOT FIXED HERE, AND THE SIZE IS THE REASON.** (2) is an engine-path build, not a parser slice. (1) is
-> a METRIC POLICY call with a real cost: making the land tier conditional would DROP up to 66 cards out of
-> covered — an honest number that reads as a regression. **That is Colton's call, not mine**, and it is
-> exactly the shape the CREED cares about: the count is currently generous in the forbidden direction.
-> ⭐ Recommendation when picked up: do (2) first. It is a real playability gain (the Karoo cycle is
-> Commander staple), and it makes (1) cheap — once land triggers fire, most of the 66 stop being false
-> credits and start being true ones.
-
+> ## ⛔ RETRACTED - 2026-08-06 - **"LAND ETB TRIGGERS NEVER FIRE" WAS FALSE — I posted it, then disproved it**
+> **The entry that stood here claimed land ETB triggers never fire, on the strength of a matched control.**
+> It is wrong. Land ETB triggers fire correctly. `applyPlayLand` calls `checkEnterTriggers` on the played
+> land (actionDispatcher ~line 203) and the trigger lands in **`pendingTriggers`**, flushing on the next
+> priority pass exactly like every other trigger.
+> ⚠️ **THE HARNESS READ `s.stack` IMMEDIATELY AFTER THE LAND DROP** and found it empty — which is correct
+> and means nothing, because nothing has flushed yet. Passing priority first:
+> · Karoo (Selesnya Sanctuary) → the old land LEAVES the battlefield and ARRIVES in hand; the creature is
+>   untouched. The bounce works.
+> · a land printing `When this land enters, draw a card` → library 1 → 0, card in hand. The draw works.
+> ⭐ **SO LB-1 IS WORTH SIXTEEN CARDS IN PLAY, NOT FIVE** — 5 visible to the flip-diff plus the 11 Karoos,
+> whose clause now parses (re-counted: 11). My in-slice "correction" from 16 down to 5 was itself the error.
+> ⚠️ **AND THE SECOND HALF WAS OVERSTATED TOO.** 57 land trigger clauses still do not parse, but the fire
+> site's own comment says it plainly: *an unmodeled land ETB routes to the Arbiter via buildTriggerStack,
+> never fabricated*. That is the normal safe path for any unmodeled clause, not a silent drop. The `land`
+> tier counting them as covered is still arguably generous and is worth Colton's eye some day — but it is a
+> metric-tidiness question, **not the correctness hole I wrote it up as**.
+> ⛔⛔ **SECOND TIME TODAY I BANKED A FALSE CLAIM FROM AN INCOMPLETE HARNESS**, and the root cause was
+> identical both times: I drew a conclusion from a partial observation instead of running the path to
+> completion. CT-1 was reading a pin's prose instead of resolving the card; this was reading the stack
+> instead of flushing it. **A matched control does not rescue a harness that stops one step early — it just
+> makes the wrong answer look rigorous.** Both controls agreed with each other and both were measuring the
+> same premature moment.
+> ⭐ THE CHECK THAT WOULD HAVE CAUGHT IT: before believing a negative, assert the POSITIVE control produces
+> its expected effect. My creature-ETB control "passed" by showing stack=1 — but I never asserted the card
+> was actually drawn, which is the same one-step-early error one level down.
 > ## SLICE DONE - 2026-08-06 - **LAND self-bounce scope (+5)** - post-v0.156.0 batch 7
 > Suite 1187 / 14,330 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Tazeem Raptor, Sutina, Wayward
 > Guide-Beast, Noggle Bridgebreaker, Zell Dincht. All audited whole-card.
@@ -30,10 +37,9 @@
 > preferred a TAPPED LAND, which is the correct line for the family.
 > ⛔ No implicit `excludeSource` — "a land you control" includes the source (CR 109.5 needs the printed
 > word "another", which these cards do not print). Refusing a printed permission is a CREED violation too.
-> ⚠️⚠️ **I CLAIMED SIXTEEN CARDS AND SHIPPED FIVE.** The first draft of the code comment said the eleven
-> Karoo lands were the real prize. They are not: the clause parses for them now, but land ETB triggers
-> never fire (see the FINDING above). **The parse said sixteen, the flip-diff said five, and only running
-> the card settled it** — the clearest argument for law 6 this run has produced.
+> ⭐ **SIXTEEN CARDS IN PLAY, FIVE VISIBLE TO THE METRIC.** The 11 Karoo lands are counted in the `land`
+> tier either way, so the flip-diff can only ever show the five non-land carriers — but the Karoo bounce
+> genuinely works now, verified end to end (see the RETRACTION above; I briefly published the opposite).
 > ⚠️⚠️ **A MUTATION SURVIVED AND THE TEST WAS AT FAULT, NOT THE CODE.** The pool rows first called
 > `worstOwnBounceTarget` DIRECTLY, so dropping `landOnly` from the `atomTargets` dispatch left the suite
 > GREEN while every real card lost the flag. Rewritten to go through `atomTargets` — the seam the parser

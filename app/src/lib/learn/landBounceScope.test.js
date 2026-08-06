@@ -14,19 +14,19 @@
  * in the refusing direction. The rank's first-in-order tie-break means an earlier tapped land wins anyway,
  * so a self-bounce only happens when it is the only tapped land — a real line, not a bug.
  *
- * ⚠️⚠️ THE ELEVEN KAROO LANDS ARE **NOT** A GAIN FROM THIS SLICE, AND THE FIRST DRAFT OF THIS FILE SAID THEY
- * WERE. The clause parses for them now, but **land ETB triggers never fire at all**. Measured with a matched
- * control rather than inferred:
- *   · a LAND printing "When this land enters, draw a card"  -> stack after play: 0, no card drawn
- *   · the IDENTICAL trigger on a CREATURE                   -> stack after cast: 1, card drawn
- * The gap is upstream of this parser, is banked in the run ledger as its own item, and is why the honest
- * scope here is the FIVE non-land carriers. The Karoos are pre-wired for the day that path lands.
- * ⭐ This is the whole argument for law 6: the flip-diff said +5, the parse said sixteen cards were fixed,
- * and only running the card showed which number was true.
- *
- * ⚠️ SEPARATELY, AND WORTH ITS OWN LOOK: `classifyCard` short-circuits every Land to the `land` tier, which
- * sits in NATIVE_TIERS. A census found 66 lands counted as COVERED while a trigger clause of theirs does not
- * parse. No flip-diff can ever show that, in either direction.
+ * ⭐⭐ SIXTEEN CARDS IN PLAY, FIVE VISIBLE TO THE METRIC. `classifyCard` short-circuits every Land to the
+ * `land` tier, so the 11 Karoo bounce-lands (Selesnya Sanctuary, Azorius Chancery, Simic Growth Chamber…)
+ * are counted the same before and after — but their ETB bounce genuinely works now. Verified end to end:
+ * playing the Karoo and passing priority moves the old land off the battlefield and into hand, leaving a
+ * creature on the same board untouched.
+ * ⚠️⚠️ I PUBLISHED THE OPPOSITE OF THAT FIRST, and the retraction is the lesson worth keeping. An earlier
+ * probe read `s.stack` IMMEDIATELY after the land drop, found it empty, and concluded land ETB triggers
+ * never fire — with a matched creature control that appeared to confirm it. Both readings were taken one
+ * step too early: `applyPlayLand` puts the trigger in `pendingTriggers`, which flushes on the next
+ * PRIORITY PASS. Flush first and both the bounce and a plain land-ETB draw work perfectly.
+ * ⛔ THE RULE: a matched control does not rescue a harness that stops one step early — it makes the wrong
+ * answer look rigorous, because both sides measure the same premature moment. Before believing a NEGATIVE,
+ * assert the POSITIVE control produced its actual effect, not merely that something appeared on the stack.
  *
  * Mutation-checked (2026-08-06, applied-check by PRINTING THE CHANGED LINE BACK):
  *   · `land` removed from the noun alternation -> all five park.
@@ -47,7 +47,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { classifyCard } from "./coverage.js";
 import { parseEffectClause } from "./effects/parser.js";
 import { atomTargets, worstOwnBounceTarget } from "./effects/atoms/shared.js";
-import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
+import { legalActionsForPlayer, filterActions } from "./legalChoices.js";
+import { dispatchAction } from "./actionDispatcher.js";
+import { resolveTopOfStack } from "./gameEngine.js";
+import { _resetIdsForTests, createGameState, createPermanent, findPermanent } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -122,5 +125,41 @@ describe("⭐⭐ LAW 6 — the chosen permanent, with the creature named as excl
       unfiltered: ["TAPPED_LAND"],
       helperDirect: ["TAPPED_LAND"],
     });
+  });
+});
+
+describe("⭐⭐ THE KAROO, END TO END — the claim I retracted, now pinned", () => {
+  it("⭐⭐ playing Selesnya Sanctuary returns a LAND to hand and leaves the creature alone", () => {
+    // ⛔ THIS TEST EXISTS BECAUSE I PUBLISHED THE OPPOSITE. Nothing here is exotic — the only thing the
+    // original probe got wrong was looking before the flush. Pinning the whole path means the retracted
+    // claim ("land ETB triggers never fire") can never be re-derived from a premature read.
+    const KAROO = { id: "c-ss", name: "Selesnya Sanctuary", type: "Land",
+      oracle: "This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand.\n{T}: Add {G}{W}." };
+    const base = createGameState({ userDeck: [], aiDeck: [] });
+    const mk = (id, type, tapped) => ({ ...createPermanent({ id, controller: "user", summoningSick: false,
+      card: { id: `c-${id}`, name: id, type, oracle: "" } }), tapped });
+    let s = { ...base, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
+      players: { ...base.players, user: { ...base.players.user, hand: [KAROO],
+        battlefield: [mk("OLD_LAND", "Land — Plains", true), mk("MY_BEAR", "Creature — Bear", true)] } } };
+    const play = filterActions(legalActionsForPlayer(s, "user"), "play-land").find((a) => a.cardId === "c-ss");
+    expect(play, "the Karoo must be playable").toBeTruthy();
+    s = dispatchAction(s, play);
+    // ⭐ THE WHOLE LESSON IN ONE ASSERTION: the stack is EMPTY here and the trigger is PENDING. Reading the
+    // stack at this moment is what produced the false finding.
+    expect(s.stack || []).toHaveLength(0);
+    expect((s.pendingTriggers || []).map((t) => t.event)).toContain("etb");
+    for (let i = 0; i < 8; i++) {
+      const pass = filterActions(legalActionsForPlayer(s, s.priorityHolder), "pass-priority")[0];
+      if (pass) s = dispatchAction(s, pass);
+      if (s.stack?.length) s = resolveTopOfStack(s);
+      if (!s.stack?.length && !(s.pendingTriggers || []).length && i > 2) break;
+    }
+    const row = {
+      oldLandOnBattlefield: !!findPermanent(s, "OLD_LAND"),
+      oldLandInHand: s.players.user.hand.some((c) => c.name === "OLD_LAND"),
+      bearUntouched: !!findPermanent(s, "MY_BEAR"),
+    };
+    console.log("  WITNESS karooResolved", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({ oldLandOnBattlefield: false, oldLandInHand: true, bearUntouched: true });
   });
 });

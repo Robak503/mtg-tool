@@ -983,17 +983,15 @@ export function bounceClauseParser(clause) {
   // rest, plus Tazeem Raptor / Sutina / Wayward Guide-Beast on the "you may" wrapper. Everything else was
   // already here — `oneYouControlWorst`, `worstOwnBounceTarget`, the optional wrapper — so this is a noun
   // and a filter flag, not machinery.
-  // ⚠️⚠️ THE KAROO LANDS THEMSELVES STILL DO NOT WORK, AND THE FIRST DRAFT OF THIS COMMENT CLAIMED THEY DID.
-  // The clause parses now, but **land ETB triggers never fire at all** on the play-land path — measured
-  // with a matched control: a LAND printing "When this land enters, draw a card" resolves with an EMPTY
-  // stack and no card drawn, while the identical CREATURE trigger puts one object on the stack and draws.
-  // That gap is upstream of this parser and is banked in the run ledger as its own item.
-  // ⛔ SO THE HONEST SCOPE OF THIS SLICE IS THE FIVE NON-LAND CARRIERS (Tazeem Raptor, Sutina, Wayward
-  // Guide-Beast, Noggle Bridgebreaker, Zell Dincht), which are cast normally and DO fire. The eleven Karoos
-  // are pre-wired for the day the land-ETB path lands — worth having, but not a gain yet.
-  // ⚠️ Separately: `classifyCard` short-circuits every Land to the `land` tier, which sits in NATIVE_TIERS.
-  // A census found 66 lands counted as COVERED while a trigger clause of theirs does not parse. The metric
-  // cannot see any of this, which is exactly why the runtime control above was worth running.
+  // ⭐⭐ SIXTEEN CARDS IN PLAY, FIVE VISIBLE TO THE METRIC. `classifyCard` short-circuits every Land to the
+  // `land` tier, so the 11 KAROO bounce-lands (Selesnya Sanctuary, Azorius Chancery, Simic Growth Chamber,
+  // Golgari Rot Farm, Izzet Boilerworks, Rakdos Carnarium …) count the same before and after — but their
+  // ETB bounce genuinely works now. Verified end to end, and pinned in landBounceScope.test.js.
+  // ⚠️⚠️ AN EARLIER DRAFT OF THIS COMMENT SAID THE OPPOSITE — that land ETB triggers never fire, so the
+  // Karoos were dead weight. That was a HARNESS artifact and it is worth naming here because the same trap
+  // is one line away from anyone editing this file: `applyPlayLand` puts the ETB into `pendingTriggers`,
+  // which flushes on the next PRIORITY PASS. A probe that reads `state.stack` straight after the land drop
+  // sees an empty stack, which is correct and means nothing.
   const selfB = t.match(/^return (a|another) (permanent|creature|land) you control to its owner's hand$/);
   if (selfB) {
     return { op: "bounce", scope: "oneYouControlWorst",
