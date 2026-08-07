@@ -3,6 +3,33 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-07 - **SAC-UNION cost nouns (+10) — one evaluator, two grammars, BATCH CROSSES 100** - post-v0.156.0 batch 7
+> Suite 1191 / 14,352 green + lint 0 BY EXIT CODE (`npm run lint` / `npm test`). Flip-diff **+10 / 0 / 0** —
+> Heartfire, Final Flare, Final Vengeance, Merciless Resolve (cast lane) · Ragamuffyn, Ertai the Corrupted,
+> Blood Aspirant, Spark Reaper, Dreadmalkin, Diversion Specialist (activated lane). All audited whole-card.
+> **Batch 7 now stands at 103 cards — past the ~100 tag threshold.**
+> ⭐ **ONE EVALUATOR, TWO GRAMMARS.** "Sacrifice a creature or enchantment/planeswalker/land" appears as a
+> CAST additional cost and as an ACTIVATED-ability cost; both grammars now emit the same canonical camelCase
+> keys and `sacTypeMatches` evaluates them in one place — the artifactOrCreature pattern, extended. The two
+> grammars had DUPLICATE inline canonicalization ternaries; both now go through one shared map, because two
+> copies of a growing map is how lanes drift.
+> ⭐ **THE PROBE SAID 11, THE DIFF SAID 10, WITH DIFFERENT MEMBERS** — Dreadmalkin and Diversion Specialist
+> ("Sacrifice ANOTHER creature or X") were outside the probe regex; Betrayer's Bargain and Final Payment
+> were predicted and did NOT flip: they are THREE-option costs and the AC-OR splitter requires exactly two
+> vetted sides. **Left parked deliberately** — a split-point search has its own ambiguity rules and is a
+> separate slice, banked below.
+> ⭐ Mutation M1 is the one the tier cannot see: removing the union keys from `sacTypeMatches` leaves every
+> card NATIVE while the victim pool empties — an unpayable cost is invisible to classification. Only the
+> Ertai victim row (creature + enchantment offered, ARTIFACT never) catches it. M3 confirmed lane
+> independence: killing the activated grammar parks its six and leaves the cast four untouched.
+> ⚠️ Ragamuffyn's hellbent rider ("Activate only if you have no cards in hand") was verified AT RUNTIME
+> before the card was accepted — offered on an empty hand, withheld with a card held. The condition-rider
+> machinery is fail-closed by design, but a comment is not a verification.
+> ⚠️ **`npm run lint` caught what `npx eslint .` would have passed** — an unused import, failed by
+> `--max-warnings 0`. First concrete payoff of the gate-on-the-CI-script rule from yesterday's CI note.
+> ⏭ **NEXT (banked): the SPLIT-POINT OR search** — "sacrifice a creature or enchantment OR pay {2}"
+> (Betrayer's Bargain, Final Payment). Try each " or " as the split; accept iff exactly ONE split yields
+> two vetted sides; ambiguity → park. ~10 lines in the AC-OR else-branch, worth its own Law-6 pass.
 > ## SLICE DONE - 2026-08-07 - **AC-MANA: "…or pay {X}" additional cost (+8)** - post-v0.156.0 batch 7
 > Suite 1190 / 14,348 green + lint 0 BY EXIT CODE (`npm run lint` / `npm test`, the scripts CI invokes).
 > Flip-diff **+8 / 0 / 0** — Spark Harvest, Eaten Alive, Lash of the Balrog, Morkrut Behemoth, Bayou Groff,

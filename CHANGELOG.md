@@ -4184,6 +4184,10 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Costs that sacrifice "a creature or enchantment" (or planeswalker, or land) work.** Heartfire, Final
+  Flare, Final Vengeance, Merciless Resolve, Ragamuffyn, Ertai the Corrupted, Blood Aspirant, Spark Reaper,
+  Dreadmalkin and Diversion Specialist all pay with either half of their printed choice; the simulator
+  previously understood only single-type sacrifices, so all ten did nothing.
 - **Spells with an "or pay" additional cost work.** Spark Harvest, Eaten Alive, Lash of the Balrog,
   Morkrut Behemoth, Bayou Groff, Lightning Axe, Pumpkin Bombardment and Soaring Stoneglider let you choose
   between paying the listed cost or paying extra mana. The simulator understood every option except the

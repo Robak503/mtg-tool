@@ -419,8 +419,18 @@ export function parseAbilityCost(costStr, card = null) {
     // (legalChoices expands one action per legal sacrificeable permanent of <type>), so the parser only
     // records the shape; "another" excludes the source. A COUNT ("two creatures") or a compound type
     // ("a creature or planeswalker") doesn't match → null (deferred), keeping the all-or-nothing gate.
-    const sacOtherM = /^sacrifice (a|an|another) (creature|permanent|artifact|enchantment|land)$/i.exec(item);
-    if (sacOtherM) { sacOther = { type: sacOtherM[2].toLowerCase(), another: /^another$/i.test(sacOtherM[1]) }; continue; }
+    // SAC-UNION (2026-08-07) — the printed cost unions join the singles (Ragamuffyn / Dredge "a creature or
+    // land", Ertai the Corrupted / Blood Aspirant "a creature or enchantment", Spark Reaper "a creature or
+    // planeswalker"). Union alternatives FIRST in the alternation, canonicalized to the same camelCase keys
+    // the cast-cost lane emits, so legalChoices' sacTypeMatches serves both grammars with ONE evaluator —
+    // the artifactOrCreature pattern, extended. An unlisted compound still falls through → null (deferred).
+    const sacOtherM = /^sacrifice (a|an|another) (creature or enchantment|creature or planeswalker|creature or land|creature|permanent|artifact|enchantment|land)$/i.exec(item);
+    if (sacOtherM) {
+      const SAC_UNION_CANON = { "creature or enchantment": "creatureOrEnchantment", "creature or planeswalker": "creatureOrPlaneswalker", "creature or land": "creatureOrLand" };
+      const rawType = sacOtherM[2].toLowerCase();
+      sacOther = { type: SAC_UNION_CANON[rawType] || rawType, another: /^another$/i.test(sacOtherM[1]) };
+      continue;
+    }
     // γ1b-SUBTYPE — "Sacrifice a/an/another <Subtype>" (Koma "Sacrifice another Serpent"; Goblin Sledder
     // "Sacrifice a Goblin"; Strands of Night "Sacrifice a Swamp"; Wand of the Elements "Sacrifice an Island"):
     // a CHOICE cost scoped to a SUBTYPE rather than a base card type. The victim is any PERMANENT you control

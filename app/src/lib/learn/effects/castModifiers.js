@@ -29,7 +29,21 @@ const ADDITIONAL_COST_RE = /\bas an additional cost to cast this spell,\s*([^.]+
 // ADDCOST-1 sac victims — single types PLUS the "artifact or creature" UNION (Deadly Dispute, Deadly
 // Dispute-style "sacrifice an artifact or creature"). The union is enforced as one sacType key
 // ("artifactOrCreature"); legalChoices.sacTypeMatches offers a victim matching EITHER type.
-const SAC_COST_RE = /^sacrifice (?:a|an) (artifact or creature|creature or artifact|creature|permanent|artifact|enchantment|land)$/i;
+// SAC-UNION (2026-08-07) — three more printed unions join artifactOrCreature (Heartfire "creature or
+// planeswalker", Final Flare / Final Vengeance "creature or enchantment", Merciless Resolve "creature or
+// land"). ⛔ UNION ALTERNATIVES MUST SIT BEFORE THE SINGLES in the alternation so "creature or enchantment"
+// is consumed whole — the anchored `$` would reject a partial match here, but keeping the order explicit
+// costs nothing and survives a future de-anchoring.
+const SAC_COST_RE = /^sacrifice (?:a|an) (artifact or creature|creature or artifact|creature or enchantment|creature or planeswalker|creature or land|creature|permanent|artifact|enchantment|land)$/i;
+// One canonicalization for BOTH exec sites below (parseOneAdditionalCost and extractAdditionalCosts had
+// duplicate inline ternaries; two copies of a growing map is how they drift).
+const SAC_TYPE_CANON = {
+  "artifact or creature": "artifactOrCreature", "creature or artifact": "artifactOrCreature",
+  "creature or enchantment": "creatureOrEnchantment",
+  "creature or planeswalker": "creatureOrPlaneswalker",
+  "creature or land": "creatureOrLand",
+};
+const canonSacType = (raw) => SAC_TYPE_CANON[raw] || raw;
 // AC-1 (count-of-N, CR 601.2f) — the PLURAL form: "sacrifice two/three/four/five <type>s" (Bankrupt in Blood,
 // Phyrexian Tribute "sacrifice two creatures"; Gaea's Balance "sacrifice five lands"). Canonicalized to the SAME
 // singular sacType key the N=1 form emits (creatures→creature, lands→land), so sacTypeMatches is untouched; the
@@ -90,9 +104,7 @@ function parseOneAdditionalCost(phrase) {
   const p = String(phrase || "").trim();
   const sac = SAC_COST_RE.exec(p);
   if (sac) {
-    const raw = sac[1].toLowerCase();
-    const sacType = (raw === "artifact or creature" || raw === "creature or artifact") ? "artifactOrCreature" : raw;
-    return { cost: { kind: "sacrifice", sacType }, selfRef: /\bsacrificed\b/i };
+    return { cost: { kind: "sacrifice", sacType: canonSacType(sac[1].toLowerCase()) }, selfRef: /\bsacrificed\b/i };
   }
   const sacN = SAC_COUNT_COST_RE.exec(p);
   if (sacN) return { cost: { kind: "sacrifice", sacType: sacN[2].toLowerCase().replace(/s$/, ""), count: SMALL_NUM[sacN[1].toLowerCase()] }, selfRef: /\bsacrificed\b/i };
@@ -135,10 +147,8 @@ export function extractAdditionalCosts(oracle) {
   const exGy = EXILE_GY_COST_RE.exec(phrase);      // ADDCOST-3 — exile a typed card from your own graveyard
   let cost, selfRef = null;
   if (sac) {
-    // Canonicalize the "artifact or creature" / "creature or artifact" union to one sacType key.
-    const raw = sac[1].toLowerCase();
-    const sacType = (raw === "artifact or creature" || raw === "creature or artifact") ? "artifactOrCreature" : raw;
-    cost = { kind: "sacrifice", sacType };                                            // N=1 — BYTE-IDENTICAL (no count field)
+    // Canonicalize the union phrasings to one sacType key (SAC_TYPE_CANON — shared with parseOneAdditionalCost).
+    cost = { kind: "sacrifice", sacType: canonSacType(sac[1].toLowerCase()) };        // N=1 — BYTE-IDENTICAL (no count field)
     selfRef = /\bsacrificed\b/i;
   }
   else if (sacN) {

@@ -347,6 +347,13 @@ function sacTypeMatches(card, type, subtype = null) {
     type === "land" ? t.includes("Land") :
     // ADDCOST-1 union — "sacrifice an artifact or creature" (Deadly Dispute): a victim matching EITHER type.
     type === "artifactOrCreature" ? (t.includes("Artifact") || t.includes("Creature")) :
+    // SAC-UNION (2026-08-07) — the three remaining printed sac-cost unions, measured at 11 carriers across
+    // BOTH grammars (the cast additional-cost lane: Heartfire, Final Flare, Merciless Resolve …; the
+    // activated-ability lane: Ragamuffyn, Ertai the Corrupted, Spark Reaper, Dredge …). Same one-evaluator
+    // pattern as artifactOrCreature above; the fail-closed `false` below still catches any key no branch names.
+    type === "creatureOrEnchantment" ? (t.includes("Creature") || t.includes("Enchantment")) :
+    type === "creatureOrPlaneswalker" ? (t.includes("Creature") || t.includes("Planeswalker")) :
+    type === "creatureOrLand" ? (t.includes("Creature") || t.includes("Land")) :
     false;
   if (!baseOk) return false;
   if (!subtype) return true;
