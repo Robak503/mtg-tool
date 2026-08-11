@@ -149,3 +149,23 @@ describe("coverage", () => {
       oracle: "As an additional cost to cast this spell, sacrifice an artifact or creature.\nDraw two cards. Create a Treasure token." })).toBe("native-spell");
   });
 });
+
+describe("⭐ AC-OR-SPLIT (2026-08-07) — several ' or 's, exactly ONE valid split", () => {
+  // "pay {4} or sacrifice an artifact or creature" splits at the FIRST or; "sacrifice a creature or
+  // enchantment or pay {2}" at the LAST. The union side only vets when taken WHOLE, so the wrong split
+  // points eliminate themselves. Annihilating Glare, Deadly Precision, Betrayer's Bargain, Final Payment.
+  const costsOf2 = (o) => extractAdditionalCosts(o).costs;
+  it("⭐ first-or and last-or splits both resolve", () => {
+    expect(costsOf2("As an additional cost to cast this spell, pay {4} or sacrifice an artifact or creature.\nDraw a card."))
+      .toEqual([{ kind: "choice", options: [{ kind: "payMana", pips: "{4}" }, { kind: "sacrifice", sacType: "artifactOrCreature" }] }]);
+    expect(costsOf2("As an additional cost to cast this spell, pay 5 life or sacrifice a creature or enchantment.\nDraw a card."))
+      .toEqual([{ kind: "choice", options: [{ kind: "payLife", amount: 5 }, { kind: "sacrifice", sacType: "creatureOrEnchantment" }] }]);
+  });
+  it("⛔ a vetted union alone is never split — the single-cost extractors still run first", () => {
+    expect(costsOf2("As an additional cost to cast this spell, sacrifice an artifact or creature.\nDraw a card."))
+      .toEqual([{ kind: "sacrifice", sacType: "artifactOrCreature" }]);
+  });
+  it("⛔ zero valid splits still park — the incumbent one-bad-side behaviour is unchanged", () => {
+    expect(costsOf2("As an additional cost to cast this spell, sacrifice a creature or pay half your life.\nDraw a card.")).toBeNull();
+  });
+});

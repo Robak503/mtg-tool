@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-07 - **AC-OR-SPLIT: the split-point search (+4)** - post-v0.157.0 batch 1
+> Suite 1192 / 14,361 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Annihilating Glare, Deadly
+> Precision, Betrayer's Bargain, Final Payment. All audited whole-card. Post-release batch now **+13**.
+> ⭐ A phrase with several " or "s tries EACH one as THE split; both sides must vet as single costs.
+> "pay {4} or sacrifice an artifact or creature" splits at the FIRST or, "sacrifice a creature or
+> enchantment or pay {2}" at the LAST — **the union side only vets when taken WHOLE, so the wrong split
+> points eliminate themselves.** The banked "separate slice" from SAC-UNION landed the same day, and its
+> park row graduated with the note.
+> ⚠️ **THE EXACTLY-ONE AMBIGUITY RULE IS DEFENSIVE-ONLY, MEASURED:** a mutation relaxing it to at-least-one
+> SURVIVED, because with the current vocabulary no phrase can have two valid splits (a union's pieces never
+> vet alone). Documented in-file rather than pinned by a faked path — the dispatcher-else treatment. Kept
+> because the vocabulary grows and the first ambiguous addition should park loudly.
+> ⛔ Dusk Mangler's shape (three REAL options, Oxford commas) re-pinned as the boundary: every piece vets
+> alone but no single split yields two vetted sides → parked, not guessed.
+> ⏭ Banked from the same census: **tap-N-untapped-permanents costs** (Guardian of the Great Door, Warlord's
+> Elite — 2 carriers, convoke-adjacent, a new cost kind with victim enumeration) — a separate cause.
 > ## SLICE DONE - 2026-08-07 - **AC-REVEAL: the tribal-discount cycle (+9, ceiling 9 of 9)** - post-v0.157.0 batch 1
 > Suite 1192 / 14,357 green + lint 0 BY EXIT CODE (`npm run lint` / `npm test`). Flip-diff **+9 / 0 / 0** —
 > Silvergill Adept, Wren's Run Vanquisher, Daring Buccaneer, Goldmeadow Stalwart, Squeaking Pie Sneak,

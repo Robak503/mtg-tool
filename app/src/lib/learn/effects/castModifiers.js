@@ -188,13 +188,31 @@ export function extractAdditionalCosts(oracle) {
   }
   else {
     // AC-OR — tried ONLY here, after every single-cost extractor has failed on the WHOLE phrase, so a vetted
-    // cost that itself contains " or " ("sacrifice an artifact or creature") is never split. Exactly two
-    // sides, both vetted, else null → LOW → Arbiter.
-    const parts = phrase.split(/\s+or\s+/i);
-    if (parts.length !== 2) return { costs: null, rest: oracle };
-    const a = parseOneAdditionalCost(parts[0]);
-    const b = parseOneAdditionalCost(parts[1]);
-    if (!a || !b) return { costs: null, rest: oracle };         // one unvetted side → the whole card parks
+    // cost that itself contains " or " ("sacrifice an artifact or creature") is never split.
+    // ⭐ AC-OR-SPLIT (2026-08-07): a phrase with SEVERAL " or " occurrences tries each one as THE split —
+    // "pay {4} or sacrifice an artifact or creature" (Annihilating Glare, Deadly Precision) splits at the
+    // FIRST or; "sacrifice a creature or enchantment or pay {2}" (Betrayer's Bargain, Final Payment) at the
+    // LAST. Both sides must vet as single costs, which is what keeps a union intact on whichever side it
+    // sits: the union side only vets when taken WHOLE, so the wrong split points eliminate themselves.
+    // ⛔⛔ EXACTLY ONE VALID SPLIT, OR PARK. Zero valid → an unvetted side somewhere (unchanged behaviour).
+    // MORE than one valid → the phrase is ambiguous, and guessing between two readings of a COST is how a
+    // spell gets mischarged. No printed card is ambiguous today; the rule exists for the one that will be.
+    // ⚠️ MEASURED, NOT ASSUMED (2026-08-07): a mutation relaxing this to at-least-one SURVIVED, because with
+    // the current vocabulary ambiguity is UNREACHABLE — every vetted phrase containing " or " is a sac
+    // union, and a union's pieces ("enchantment", "creature") never vet alone, so no phrase can have two
+    // valid splits. The strict rule is defensive-only today, kept because the vocabulary grows and the
+    // first ambiguous addition should park loudly, not mischarge quietly. Same honest treatment as the
+    // dispatcher's unreachable ADDCOST_UNSUPPORTED else: documented, not pinned by a faked path.
+    const seps = [...phrase.matchAll(/\s+or\s+/gi)];
+    if (!seps.length) return { costs: null, rest: oracle };
+    let found = null, foundCount = 0;
+    for (const sm of seps) {
+      const a = parseOneAdditionalCost(phrase.slice(0, sm.index));
+      const b = parseOneAdditionalCost(phrase.slice(sm.index + sm[0].length));
+      if (a && b) { found = { a, b }; foundCount++; }
+    }
+    if (foundCount !== 1) return { costs: null, rest: oracle };
+    const { a, b } = found;
     cost = { kind: "choice", options: [a.cost, b.cost] };
     // The self-reference guard must consider BOTH sides: whichever is paid, an effect that reads the paid
     // object back ("the sacrificed creature's power") still cannot be fed the cost details.

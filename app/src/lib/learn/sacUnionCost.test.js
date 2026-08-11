@@ -73,10 +73,20 @@ describe("the carriers", () => {
     expect(row).toEqual({ castKey: "creatureOrEnchantment", activatedKey: "creatureOrEnchantment" });
   });
 
-  it("⛔ the THREE-option compound stays parked — two vetted sides is the AC-OR contract", () => {
-    // Betrayer's Bargain / Final Payment. A split-point search is a separate slice; until then, parked.
+  it("⭐ GRADUATED (AC-OR-SPLIT, same day) — the union-then-pay compound splits at the LAST or", () => {
+    // This row was written as a park a few hours before the split-point search landed; the banked "separate
+    // slice" arrived the same day. The union side only vets when taken WHOLE, so the wrong split points
+    // eliminate themselves and exactly one survives.
     expect(extractAdditionalCosts(
-      "As an additional cost to cast this spell, sacrifice a creature or enchantment or pay {2}. Draw a card.").costs).toBeNull();
+      "As an additional cost to cast this spell, sacrifice a creature or enchantment or pay {2}. Draw a card.").costs)
+      .toEqual([{ kind: "choice", options: [{ kind: "sacrifice", sacType: "creatureOrEnchantment" }, { kind: "payMana", pips: "{2}" }] }]);
+  });
+
+  it("⛔ a compound with NO single valid split still parks — three REAL options are not two", () => {
+    // Dusk Mangler's shape: every comma-separated piece is individually vetted, but no single " or " split
+    // yields two vetted sides. The exactly-one rule keeps it parked rather than guessed at.
+    expect(extractAdditionalCosts(
+      "As an additional cost to cast this spell, sacrifice a creature, discard a card, or pay 4 life. Draw a card.").costs).toBeNull();
   });
 });
 
