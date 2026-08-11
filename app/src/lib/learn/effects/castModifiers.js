@@ -53,6 +53,12 @@ const PAYLIFE_COST_RE = /^pay (\d+) life$/i;                        // ADDCOST-2
 // AC-MANA — "pay {3}{B}". Anchored to pips ONLY, so "pay 3 life" can never reach it (PAYLIFE_COST_RE runs
 // first anyway) and a prose cost ("pay half your life") fails vetting → the whole card parks (FN-safe).
 const PAYMANA_COST_RE = /^pay ((?:\{[^}]+\})+)$/i;
+// AC-REVEAL (2026-08-07) — "reveal a <Subtype> card from your hand" (the tribal-discount cycle: Silvergill
+// Adept, Wren's Run Vanquisher, Daring Buccaneer, Goldmeadow Stalwart …; 9 carriers, every one paired with
+// "or pay {N}"). The reveal moves nothing — payability is simply "a matching card is in hand", and an
+// unknown subtype word fails that check for every card ever, so the kind is fail-closed by construction
+// and needs no curated allowlist. Capitalized single token only, mirroring the γ1b subtype-cost gate.
+const REVEAL_HAND_COST_RE = /^reveal an? ([A-Z][a-z]+) card from your hand$/;
 const DISCARD_COST_RE = /^discard (?:a|an|one) card$/i;            // ADDCOST-2 — the N=1 form
 const DISCARD_COUNT_COST_RE = /^discard (two|three|four|five) cards$/i; // AC-1 (count-of-N) — "discard two/three… cards" (Cathartic Reunion)
 // ADDCOST-3 (census slice 33) — "exile a <type> card from your graveyard" (Makeshift Mauler, Stitched
@@ -122,6 +128,10 @@ function parseOneAdditionalCost(phrase) {
   // Hand-merging the two parsed objects field-by-field is the version that silently drops one of those.
   const payMana = PAYMANA_COST_RE.exec(p);
   if (payMana) return { cost: { kind: "payMana", pips: payMana[1] }, selfRef: null };
+  // AC-REVEAL — the revealed card stays in hand (nothing moves), so there is no paid OBJECT an effect could
+  // read back; selfRef stays null like payLife/payMana.
+  const reveal = REVEAL_HAND_COST_RE.exec(p);
+  if (reveal) return { cost: { kind: "revealFromHand", subtype: reveal[1].toLowerCase() }, selfRef: null };
   const disc = DISCARD_COST_RE.exec(p);
   if (disc) return { cost: { kind: "discard", count: 1 }, selfRef: /\bdiscarded\b/i };
   const discN = DISCARD_COUNT_COST_RE.exec(p);

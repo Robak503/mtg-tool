@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-07 - **AC-REVEAL: the tribal-discount cycle (+9, ceiling 9 of 9)** - post-v0.157.0 batch 1
+> Suite 1192 / 14,357 green + lint 0 BY EXIT CODE (`npm run lint` / `npm test`). Flip-diff **+9 / 0 / 0** —
+> Silvergill Adept, Wren's Run Vanquisher, Daring Buccaneer, Goldmeadow Stalwart, Squeaking Pie Sneak,
+> Sadistic Skymarcher, Thunderherd Migration, Flamekin Bladewhirl, Surtland Elementalist. All audited
+> whole-card. **First slice of the post-v0.157.0 batch.**
+> ⭐ "Reveal a <Subtype> card from your hand or pay {N}" — a new vetted cost kind on the AC-OR machinery.
+> The reveal moves NOTHING, so payability is just "a matching card is in hand": fail-closed by
+> construction (an unknown subtype matches no hand card ever), no curated allowlist needed — a dead
+> subtype only kills the reveal OPTION, the pay lane still casts at the printed compound. The hand check
+> reuses sacTypeMatches' word-bounded subtype path: one subtype evaluator, again.
+> ⛔⛔ **THE TRAP IS SELF-REVEAL, AND IT IS THE NAMED ASSERTION.** CR 601.2h — the spell is on the stack
+> while its costs are paid, so it is not in hand. Daring Buccaneer IS a Pirate: without the `h.id !==
+> card.id` exclusion, every copy pays its own discount and the {2} is never charged. Mutation confirmed the
+> tier CANNOT see it — the card stays native while self-discounting; only the lone-Buccaneer offer row
+> (reveal NOT offered, pay offered) catches it.
+> ⭐ Law 6 is the two-lane pool balance: reveal lane charges printed only (3 → 2, the revealed card STAYS
+> in hand), pay lane charges printed+{2} (3 → 0), a hand of non-Pirates offers only the pay lane.
+> ⚠️ One guard example graduated (the TF-1 zombie-pin shape, second instance): additionalCostChoice's
+> "one unvetted side parks" row used reveal-a-Dinosaur as its example, which just became vetted. Replaced
+> with prose ("pay half your life") — permanently outside the pip-anchored vocabulary, a stable negative —
+> and the Dinosaur row re-asserted POSITIVELY.
 > ## SLICE DONE - 2026-08-07 - **SAC-UNION cost nouns (+10) — one evaluator, two grammars, BATCH CROSSES 100** - post-v0.156.0 batch 7
 > Suite 1191 / 14,352 green + lint 0 BY EXIT CODE (`npm run lint` / `npm test`). Flip-diff **+10 / 0 / 0** —
 > Heartfire, Final Flare, Final Vengeance, Merciless Resolve (cast lane) · Ragamuffyn, Ertai the Corrupted,

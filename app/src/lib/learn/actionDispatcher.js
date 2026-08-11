@@ -352,7 +352,10 @@ function applyCastSpell(state, action) {
     && programCosts[0].options.some((o) => o.kind === action.addCostSpec.kind
       && o.sacType === action.addCostSpec.sacType && o.count === action.addCostSpec.count
       && o.amount === action.addCostSpec.amount && o.cardType === action.addCostSpec.cardType
-      && o.pips === action.addCostSpec.pips)
+      && o.pips === action.addCostSpec.pips
+      // AC-REVEAL — `subtype` is revealFromHand's distinguishing field, added for the same reason `pips`
+      // was: every kind's identity fields must be compared, or two options of that kind are one to this gate.
+      && o.subtype === action.addCostSpec.subtype)
     ? [action.addCostSpec] : null;
   if (isChoiceCost && !chosenSpec) {
     // A choice cost reached the dispatcher without a valid stamp — refuse rather than cast it cost-free.
@@ -396,6 +399,14 @@ function applyCastSpell(state, action) {
       working = sacrificePermanentForCost(working, action.playerId, victim);
     } else if (ac.kind === "payLife") {
       working = loseLife(working, { playerId: action.playerId, amount: ac.amount });
+    } else if (ac.kind === "revealFromHand") {
+      // AC-REVEAL (2026-08-07) — the reveal moves nothing; the charge is verifying the stamped card is
+      // actually in hand (fail-fast if not — an offer/payment disagreement is an upstream bug, never a
+      // skipped cost) and logging the reveal. The hand is hidden information, so the log line is the whole
+      // material effect of the payment.
+      const revealed = working.players[action.playerId]?.hand.find((h) => h.id === action.revealCardId);
+      if (!revealed) throw new DispatcherError("Reveal-cost card not in hand", "ADDCOST_UNPAID");
+      working = logEvent(working, { kind: "reveal-from-hand", controller: action.playerId, cardId: revealed.id, name: revealed.name });
     } else if (ac.kind === "discard" && (ac.count ?? 1) > 1) {
       // AC-1 (count-of-N) — discard EACH of the N frozen hand cards (hand→graveyard). Same fail-fast: a
       // short/missing `discardIds` means the offer was malformed — THROW rather than discard fewer than N.

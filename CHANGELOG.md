@@ -4184,6 +4184,10 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **The tribal reveal-or-pay cards work.** Silvergill Adept, Wren's Run Vanquisher, Daring Buccaneer,
+  Goldmeadow Stalwart, Squeaking Pie Sneak, Sadistic Skymarcher, Thunderherd Migration, Flamekin
+  Bladewhirl and Surtland Elementalist can be cast by revealing a matching card from your hand or by
+  paying the extra mana. A card can no longer reveal itself to pay its own discount.
 - **Costs that sacrifice "a creature or enchantment" (or planeswalker, or land) work.** Heartfire, Final
   Flare, Final Vengeance, Merciless Resolve, Ragamuffyn, Ertai the Corrupted, Blood Aspirant, Spark Reaper,
   Dreadmalkin and Diversion Specialist all pay with either half of their printed choice; the simulator

@@ -64,7 +64,16 @@ describe("the parser splits an OR into two vetted options — and never splits a
   });
 
   it("⛔ one unvetted side parks the whole card (the vetted vocabulary stays the source of truth)", () => {
-    expect(costsOf("As an additional cost to cast this spell, reveal a Dinosaur card from your hand or pay {1}.\nDraw a card.")).toBeNull();
+    // ⚠️ THE EXAMPLE CHANGED 2026-08-07 (AC-REVEAL). This row used "reveal a Dinosaur card from your hand",
+    // which became a vetted kind — the TF-1 zombie-pin shape: a guard whose example is drawn from the same
+    // namespace it guards goes red when the vocabulary grows. "pay half your life" is PROSE, permanently
+    // outside the pip-anchored vocabulary, so this negative is stable rather than lucky.
+    expect(costsOf("As an additional cost to cast this spell, sacrifice a creature or pay half your life.\nDraw a card.")).toBeNull();
+  });
+
+  it("⭐ GRADUATED — reveal-or-pay is a modeled compound now (AC-REVEAL)", () => {
+    expect(costsOf("As an additional cost to cast this spell, reveal a Dinosaur card from your hand or pay {1}.\nDraw a card."))
+      .toEqual([{ kind: "choice", options: [{ kind: "revealFromHand", subtype: "dinosaur" }, { kind: "payMana", pips: "{1}" }] }]);
   });
 
   it("a plain single cost is byte-identical", () => {

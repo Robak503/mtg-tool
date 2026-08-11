@@ -1239,6 +1239,23 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         for (const ch of combos) {
           emit(ch, { cost: mergedCost, payManaCost: addCost.pips, payManaName: `pay ${addCost.pips}` });
         }
+      } else if (addCost.kind === "revealFromHand") {
+        // AC-REVEAL (2026-08-07) — "reveal a <Subtype> card from your hand" (Silvergill Adept, Daring
+        // Buccaneer …). Nothing moves; payability is simply a matching card in hand. The subtype check is
+        // sacTypeMatches' own word-bounded path (type "permanent" + subtype), so the reveal cost and the
+        // sacrifice costs share ONE evaluator rather than growing a second subtype matcher.
+        // ⛔⛔ THE SPELL CANNOT REVEAL ITSELF (CR 601.2h — it is on the stack while its costs are paid), and
+        // this is not a technicality: Daring Buccaneer IS a Pirate, so without the exclusion every copy in
+        // hand would pay its own discount and the {2} would never be charged. Cheaper-than-printed, the
+        // forbidden direction.
+        if (!affordable) continue;   // R1.5 — printed-cost re-check, exactly as payLife above
+        const revealable = player.hand.filter((h) => h.id !== card.id && sacTypeMatches(h, "permanent", addCost.subtype));
+        if (!revealable.length) continue;
+        // WHICH card is revealed is informationally irrelevant to the engine (nothing moves, no effect reads
+        // it back), so the first match is stamped — the auto-pick precedent the discard cost already set.
+        for (const ch of combos) {
+          emit(ch, { revealCardId: revealable[0].id, revealName: `reveal ${revealable[0].name}` });
+        }
       } else if (addCost.kind === "discard") {
         // The player picks which hand card(s) to discard. The spell itself is being cast (on its way to the
         // stack), so it's NOT a legal discard candidate — exclude it. Fewer than N candidates → uncastable.
