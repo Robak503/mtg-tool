@@ -7,6 +7,28 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ☀️ 2026-08-07 — **🏷 v0.157.0 PUBLISHED (103 cards) · post-release batch +13** — suite **1192 / 14,361** green by `npm run lint` / `npm test`
+
+> ### ⏭ THE VEIN THAT IS PAYING RIGHT NOW: the ADDITIONAL-COST vocabulary
+> Four consecutive slices, all on the same machinery, each banked by the previous one: AC-MANA (+8,
+> "or pay {X}") → SAC-UNION (+10, "sacrifice a creature or enchantment/planeswalker/land", one evaluator
+> across the cast and activated grammars) → AC-REVEAL (+9, the tribal reveal-or-pay cycle, ceiling 9 of 9)
+> → AC-OR-SPLIT (+4, several " or "s try each split point; a union side only vets whole).
+> · **Next in the vein, measured:** tap-N-untapped-permanents costs (Guardian of the Great Door, Warlord's
+>   Elite — 2 carriers, convoke-adjacent, needs victim enumeration) · "sacrifice a legendary creature or
+>   pay {2}" (Louisoix's Sacrifice — needs a supertype-qualified sacType) · behold-or-pay (2, needs the
+>   behold keyword action) · Dusk Mangler's three REAL options (needs N-option choice emission).
+> ⛔ THE STANDING TRAPS OF THIS VEIN, all hit once already: the spell CANNOT pay its own reveal/sac cost
+> (CR 601.2h — it is on the stack; Daring Buccaneer is itself a Pirate); the printed-cost `affordable`
+> flag is wrong in BOTH directions for merged-mana options; and every cost kind's DISTINGUISHING FIELD
+> must join the OR-stamp identity comparison (pips, then subtype — check yours).
+
+> ### ⭐ THE VERIFIED-HONESTY LEDGER (what this run does when a pin can't be written)
+> Two guards are now documented as DEFENSIVE-ONLY rather than pinned by a faked path, each proven
+> unreachable by a surviving mutation that was then explained instead of buried: the dispatcher's
+> `ADDCOST_UNSUPPORTED` else (a non-choice cost iterates parsed costs, overrides ignored) and AC-OR-SPLIT's
+> exactly-one ambiguity rule (a union's pieces never vet alone, so two valid splits cannot exist today).
+> The pattern: run the mutation, and when it survives for a REACHABILITY reason, write that down in-file.
 ## ☀️ 2026-08-06 — **+78 this stretch · batch 7 at 85 post-v0.156.0 · the phrase veins are worked out** — suite **1189 / 14,339** green by bare exit code
 
 > ### ⏭ NEXT SLICE — **AC-OR "…or pay {X}"**, ceiling **5 of 5**, spec is in the RUN-LEDGER
