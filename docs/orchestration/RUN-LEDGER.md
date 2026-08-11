@@ -3,6 +3,13 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⏭ BANKED (measured, not built) - 2026-08-07 - **NONTOKEN sac costs — 4 flips, the last cheap row of the vein**
+> Qualified-sac census across both grammars: `nontoken` is the only qualifier with real yield — nontoken
+> creature 2 (Knight of the Last Breath, Korozda Guildmage) · nontoken permanent 1 (Infernal Tribute) ·
+> nontoken artifact 1 (Thopter Foundry). Build: a `nontoken` prefix group in SAC_COST_RE + sacOtherM, a
+> nontoken flag through the canon map, and a token-check in sacTypeMatches (verify how the engine marks
+> token permanents FIRST — rule 1). ⛔ Dead ends, measured: legendary creature/artifact ceiling 0 (park on
+> other text), attacking/untapped/basic 0-1 each.
 > ## SLICE DONE - 2026-08-07 - **AC-OR-SPLIT: the split-point search (+4)** - post-v0.157.0 batch 1
 > Suite 1192 / 14,361 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Annihilating Glare, Deadly
 > Precision, Betrayer's Bargain, Final Payment. All audited whole-card. Post-release batch now **+13**.
