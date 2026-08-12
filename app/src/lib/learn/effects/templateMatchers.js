@@ -621,6 +621,15 @@ const SAC_UNLESS_PAY_NOUNS = new Set(["creature", "artifact", "enchantment", "la
  */
 export function matchUpkeepSacUnlessPay(oracle) {
   const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
+  // SAC-UNLESS-DISCARD (2026-08-07) — the Masticore cycle's cost ("sacrifice this creature unless you
+  // discard a card": Masticore, Razormane, Argentum, Molten-Tail; Coral Net's Aura form). Same pausing
+  // atom, a DIFFERENT cost kind — the settle path is already discriminated on `cost.kind`, so the discard
+  // arm rides the machinery mana built. Fixed N=1 only; "discard two cards" has no carrier and stays parked.
+  const d = s.match(/^sacrifice this(?:\s+([a-z]+))?\s+unless you discard a card$/i);
+  if (d) {
+    if (d[1] && !SAC_UNLESS_PAY_NOUNS.has(d[1].toLowerCase())) return null; // unrecognized noun → safe FN
+    return { atom: { op: "sac-unless-pay", cost: { kind: "discard", count: 1 }, targetType: null } };
+  }
   const m = s.match(/^sacrifice this(?:\s+([a-z]+))?\s+unless you pay\s+(\{[^}]+\}(?:\{[^}]+\})*)$/i);
   if (!m) return null;
   if (m[1] && !SAC_UNLESS_PAY_NOUNS.has(m[1].toLowerCase())) return null; // an unrecognized noun → unmodeled (safe FN)

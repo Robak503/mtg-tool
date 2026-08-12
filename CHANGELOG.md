@@ -4184,6 +4184,9 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **The Masticore upkeep cost works.** Masticore, Razormane Masticore and Coral Net now offer the printed
+  choice each upkeep: discard a card to keep the permanent, or let it go. Previously the simulator could
+  not read the discard option and skipped these cards entirely.
 - **Costs that sacrifice a nontoken permanent work.** Thopter Foundry, Infernal Tribute, Knight of the
   Last Breath and Korozda Guildmage now pay their sacrifice costs correctly — and a token can never be
   used to pay a cost that says "nontoken", so Thopter Foundry cannot eat its own Thopters.

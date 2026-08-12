@@ -167,7 +167,10 @@ describe("⭐ WIRING COMPLETENESS — the invariant behavioural tests cannot rea
     // hand ability (cycling generalized). The tripwire fired exactly as designed — the diff was read, the new
     // site DOES fire checkDiscardTriggers (it is not in `unwired` below), so the count moves rather than the
     // invariant. Bumping this number without checking `unwired` would defeat the whole test.
-    expect(sites).toBe(12);      // if this changes, a discard site was added or removed — read the diff
+    // 12 → 13 on 2026-08-07: runProgram.resolveSacUnlessPayChoice's discard arm (SAC-UNLESS-DISCARD, the
+    // Masticore cycle). Tripwire fired again; `unwired` stayed empty — the new site fires
+    // checkDiscardTriggers one line below its move. Count moves, invariant holds.
+    expect(sites).toBe(13);      // if this changes, a discard site was added or removed — read the diff
     expect(unwired).toEqual([]);
   });
 });

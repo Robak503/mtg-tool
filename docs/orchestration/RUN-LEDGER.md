@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-07 - **SAC-UNLESS-DISCARD: the Masticore cycle (+3)** - post-v0.157.0 batch 1
+> Suite 1194 / 14,369 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Masticore, Razormane
+> Masticore, Coral Net (through the quoted-grant path: the Aura hands the enchanted creature the Masticore
+> trigger verbatim). All audited whole-card. Post-release batch **+20**.
+> ⭐ SEVENTEENTH "BUILT ENGINE, PARTIAL IGNITION": the sac-unless-pay machine — pausing atom, pending
+> choice, settle, auto-pick — existed whole for MANA costs, and the cost object already carried a `kind`
+> discriminator. The discard cost is a second arm on each side of an existing seam.
+> ⛔⛔ **THE AUTO-PICK ARM IS THE LOAD-BEARING ONE.** Without it a discard cost fell through to
+> `canAfford(pool, sources, {})` — TRUE for an empty mana cost — so the auto-pick said "pay", the settle's
+> mana-only arm could not pay, and the Masticore DIED WITH A FULL HAND. An auto-pick and a settle that
+> disagree about payability is the cast lane's offer/payment split, one layer down. The mutation kills on
+> the EMPTY-hand row: the mutant answers "pay" for a hand that cannot.
+> ⭐ The discard is REAL — moveCardToZone + checkDiscardTriggers (CR 701.9a), so madness/discard watchers
+> fire. **The wiring-completeness tripwire in discardTrigger.test.js fired on the new site exactly as its
+> author intended** — count 12 → 13, `unwired` still empty. A structural invariant catching a cross-file
+> addition the day it lands is that test earning its keep.
+> ⭐ Law 6 runs BOTH outcomes to completion: full hand → discards and LIVES (hand 1→0, card in graveyard);
+> empty hand → sacrifices; and the disagreement guard — "pay" chosen against an empty hand still
+> sacrifices, never a free keep.
 > ## SLICE DONE - 2026-08-07 - **SAC-NONTOKEN (+4) — the Thopter Foundry loop, forbidden by name** - post-v0.157.0 batch 1
 > Suite 1193 / 14,364 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Thopter Foundry, Infernal
 > Tribute, Knight of the Last Breath, Korozda Guildmage. All audited whole-card. Post-release batch **+17**.

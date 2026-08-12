@@ -1397,6 +1397,12 @@ export function autoPickOptionalDiscard(state, pc) {
 export function autoPickSacUnlessPay(state, pc) {
   const player = state.players?.[pc?.controller];
   if (!player) return false; // controller gone → can't pay → sacrificed
+  // SAC-UNLESS-DISCARD (2026-08-07) — pay iff a card is in hand. ⛔ THE KIND ARM IS NOT OPTIONAL: without
+  // it a discard cost fell through to canAfford(pool, sources, {}), which is TRUE for an empty mana cost —
+  // so the auto-pick said "pay", the settle's mana-only arm could not pay, and the creature DIED with a
+  // full hand. An auto-pick and a settle that disagree about payability is the same offer/payment split
+  // the cast lane guards against, one layer down.
+  if (pc.cost?.kind === "discard") return (player.hand || []).length >= (pc.cost.count || 1);
   return canAfford(player.manaPool, manaSources(state, pc.controller), pc.cost?.mana || {});
 }
 
@@ -1498,6 +1504,18 @@ export function resolveSacUnlessPayChoice(state, pay) {
     const r = payManaCost(next, pc.controller, pc.cost.mana || {});
     next = r.state;
     paid = r.paid;
+  } else if (pay && pc.cost?.kind === "discard") {
+    // SAC-UNLESS-DISCARD (2026-08-07, the Masticore cycle) — discard the first hand card (the auto-pick
+    // precedent the additional-cost discard set), as a REAL discard: hand → graveyard through
+    // moveCardToZone, then checkDiscardTriggers so madness/discard watchers see it (CR 701.9a). An empty
+    // hand pays nothing and `paid` stays false → the source sacrifices, which is the printed outcome.
+    const hand = next.players[pc.controller]?.hand || [];
+    if (hand.length >= (pc.cost.count || 1)) {
+      const cid = hand[0].id;
+      next = moveCardToZone(next, { playerId: pc.controller, fromZone: "hand", toZone: "graveyard", cardId: cid });
+      next = checkDiscardTriggers(next, pc.controller, 1);
+      paid = true;
+    }
   }
   next = logEvent(next, { kind: "spell-effect", effect: "sac-unless-pay", controller: pc.controller, paid, sourceName: pc.sourceName || null });
   if (!paid) {
