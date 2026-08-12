@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **HOST-REFERENT SENTINEL (+1) — Unstable Mutation's counter finds its creature** - post-v0.157.0 batch 1
+> Suite 1199 / 14,402 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Unstable Mutation.
+> Audited whole-card (+3/+3 static modeled, the counter now lands). Post-release batch **+42**.
+> ⭐ One rewrite line: on the enchanted-controller's-upkeep event, "that creature" → "enchanted
+> creature" — the antecedent the trigger condition itself names — binding Level Up's existing
+> target:"enchanted" counter arm. Gated on THIS event only; other triggers' anaphors stay unbound.
+> ⛔ Essence Flare / Takklemaggot rewrite too but their -0/-1 counters REFUSE at the counter arm's ±1/±1
+> shape — ptPrimitive only weighs ±1/±1, so admitting them would credit a counter that applies NOTHING
+> (the free-spell shape). Asymmetric counters = their own slice if ever worth it (2 carriers).
+> ⭐ Same-day pin graduation: my own hours-old Unstable Mutation park row flipped to positive + the
+> Essence Flare refusal row. Mutation AU-M2 (rewrite removed → parks) killed, printed back.
+> Token diet: ~25k output tokens this slice (the event slice's scouting covered it).
 > ## SLICE DONE - 2026-08-12 - **ENCHANTED-CONTROLLER'S UPKEEP (+7) — one event, seven auras** - post-v0.157.0 batch 1
 > Suite 1199 / 14,402 green + lint 0 BY EXIT CODE. Flip-diff **+7 / 0 / 0** — Stab Wound, One Thousand
 > Lashes, Soul Bleed (lose-life), Wanderlust, Parasitic Bond, Maddening Wind ("this Aura deals N

@@ -3898,6 +3898,17 @@ export function detectTriggers(card) {
         || (cls.event === "upkeep" && (cls.whose === "opponents" || cls.whose === "any"))) {
         effectClause = effectClause.replace(/\bthat player\b/gi, "the upkeep player");
       }
+      // ENCHANTED-HOST REFERENT (2026-08-12 — Unstable Mutation "put a -1/-1 counter on THAT CREATURE"):
+      // on the enchanted-controller's-upkeep event, "that creature" is the ENCHANTED CREATURE named in the
+      // trigger condition — the aura's host — so the rewrite hands it to the existing target:"enchanted"
+      // atoms (Level Up's counter arm, the tap/pump family), which resolve the host via attachedTo. Gated
+      // on THIS event only: any other trigger's "that creature" anaphor keeps no antecedent here and stays
+      // unbound → LOW → Arbiter. Essence Flare / Takklemaggot rewrite too but their "-0/-1"/"-0/-1"
+      // counters fail the counter arm's ±1/±1 shape — only ±1/±1 carries P/T weight in ptPrimitive — so
+      // they stay parked rather than crediting a counter that would apply NOTHING (the free-spell shape).
+      if (cls.enchantedControllersUpkeep) {
+        effectClause = effectClause.replace(/\bthat creature\b/gi, "enchanted creature");
+      }
       // ⭐⭐ CASTING-PLAYER REFERENT (TP-1, CR 603.2 — Eidolon of the Great Revel, Pyrostatic Pillar, Aether
       // Sting, Spellshock, Kambal, Yawgmoth's Edict, Memory Erosion): on a CAST trigger, "that player" is the
       // player who CAST the spell — ctx.castingPlayerId, already threaded by checkCastTriggers for Rhystic

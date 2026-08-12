@@ -4185,8 +4185,8 @@ rewiring, session-manager UI, and the archetype-aware Garfield goldfish — foll
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
 - **Punisher auras tick.** Stab Wound, One Thousand Lashes, Soul Bleed, Wanderlust, Parasitic Bond,
-  Maddening Wind and Super Intelligence now fire at the upkeep of the enchanted creature's controller —
-  the right player's upkeep, even when the aura's owner is someone else.
+  Maddening Wind, Super Intelligence and Unstable Mutation now fire at the upkeep of the enchanted
+  creature's controller — the right player's upkeep, even when the aura's owner is someone else.
 - **Half-life effects work.** Quietus Spike, Scytheclaw, Virtus the Veiled, Radioactive Man, Ebonblade
   Reaper, Havoc Festival, Infernal Contract and Cruel Bargain now halve the right player's life total at
   resolution, rounding the way each card prints it.

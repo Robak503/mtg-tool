@@ -14,6 +14,8 @@
  * Mutation-checked (2026-08-12, applied-check by PRINTING THE CHANGED LINE BACK):
  *   · the host-controller firing gate removed -> the aura fires on EVERY upkeep — the aura owner's own
  *     upkeep row (must be SILENT) gains a trigger. An over-fire the tier cannot see.
+ *   · the "that creature" → "enchanted creature" host-referent rewrite removed -> Unstable Mutation
+ *     parks (the detection row dies).
  *
  * Real oracle fixtures (bundled Scryfall, probed 2026-08-12).
  */
@@ -36,13 +38,20 @@ describe("the carriers", () => {
     for (const c of [STAB_WOUND, WANDERLUST]) expect(classifyCard(c), c.name).toMatch(/^native/);
   });
 
-  it("⭐ detection — the event carries the flag; 'that creature' clauses stay parked", () => {
+  it("⭐ detection — the event carries the flag; the host referent binds; -0/-1 refuses", () => {
     const d = detectTriggers(STAB_WOUND);
     expect(d).toHaveLength(1);
     expect(d[0]).toMatchObject({ event: "upkeep", whose: "any", enchantedControllersUpkeep: true });
-    // Unstable Mutation's counter clause references "that creature" (the host) — no sentinel yet → parked.
+    // GRADUATED same-day: "that creature" on THIS event rewrites to "enchanted creature" (the host —
+    // the antecedent the trigger condition itself names), binding Level Up's target:"enchanted" counter
+    // arm. Unstable Mutation's -1/-1 is fully modeled and flips.
     expect(classifyCard({ id: "c-um", name: "Unstable Mutation", type: "Enchantment — Aura", mana: "{U}",
-      oracle: "Enchant creature\nEnchanted creature gets +3/+3.\nAt the beginning of the upkeep of enchanted creature's controller, put a -1/-1 counter on that creature." })).toBe("body-only");
+      oracle: "Enchant creature\nEnchanted creature gets +3/+3.\nAt the beginning of the upkeep of enchanted creature's controller, put a -1/-1 counter on that creature." })).toMatch(/^native/);
+    // ⛔ Essence Flare's "-0/-1" counter carries NO P/T weight in ptPrimitive (only ±1/±1 does) — the
+    // counter arm's shape refuses it, so the card parks rather than crediting a counter that would
+    // apply NOTHING (the free-spell shape).
+    expect(classifyCard({ id: "c-ef", name: "Essence Flare", type: "Enchantment — Aura", mana: "{U}",
+      oracle: "Enchant creature\nEnchanted creature gets +2/+0.\nAt the beginning of the upkeep of enchanted creature's controller, put a -0/-1 counter on that creature." })).toBe("body-only");
   });
 });
 
