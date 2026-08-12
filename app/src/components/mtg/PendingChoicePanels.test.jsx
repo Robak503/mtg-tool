@@ -113,6 +113,23 @@ describe("SacUnlessPayPanel — the inverted-polarity one", () => {
     expect(out).toContain("{2}");
     expect(out).toContain("keep it");
   });
+
+  // NON-MANA cost kinds (2026-08-12) — the discard kind shipped 08-07 with its engine arms but WITHOUT a
+  // wardCostLabel arm, so this panel read "Pay {0} (keep it)" for Masticore: a lying label on the human
+  // path. These rows pin both non-mana kinds to their printed cost and the numeric-fallback lie to ABSENT.
+  it("⛔ a discard cost reads 'Discard a card', never the numeric-fallback 'Pay {0}'", () => {
+    const out = render(<SacUnlessPayPanel decision={{ kind: "sac-unless-pay", cost: { kind: "discard", count: 1 }, sourceName: "Masticore" }} onChoose={() => {}} />);
+    expect(out).toContain("Discard a card");
+    expect(out).not.toContain("Pay {0}");
+  });
+
+  it("a sacrifice cost names the victim pool ('Sacrifice two lands')", () => {
+    const out = render(<SacUnlessPayPanel decision={{ kind: "sac-unless-pay", cost: { kind: "sacrifice", type: "land", count: 2 }, sourceName: "Cosmic Larva" }} onChoose={() => {}} />);
+    expect(out).toContain("Sacrifice two lands");
+    expect(out).toContain("Sacrifice Cosmic Larva");
+    const single = render(<SacUnlessPayPanel decision={{ kind: "sac-unless-pay", cost: { kind: "sacrifice", type: "enchantment", count: 1 }, sourceName: "Endless Wurm" }} onChoose={() => {}} />);
+    expect(single).toContain("Sacrifice an enchantment");
+  });
 });
 
 describe("TaxedPaymentPanel", () => {

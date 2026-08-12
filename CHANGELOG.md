@@ -4184,6 +4184,11 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Upkeep "rent" paid with permanents works.** Bog Elemental, Cosmic Larva and Endless Wurm now offer
+  their printed upkeep choice: sacrifice a land (or two lands, or an enchantment) to keep the creature,
+  or let it go. The cost is all-or-nothing — one land against a two-land cost pays nothing.
+- **The Masticore upkeep prompt now names its real cost.** The choice panel read "Pay {0}" for
+  discard-to-keep upkeep costs; it now says "Discard a card".
 - **The Masticore upkeep cost works.** Masticore, Razormane Masticore and Coral Net now offer the printed
   choice each upkeep: discard a card to keep the permanent, or let it go. Previously the simulator could
   not read the discard option and skipped these cards entirely.

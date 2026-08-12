@@ -48,7 +48,7 @@ import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL REPL
 // ─── Re-export the public atom symbols (consumers import these from the barrel path) ──────────
 export { applyCreateToken, applyCreateTokenCopy } from "./atoms/tokens.js";
 export { enterCardFromZone } from "./atoms/zones.js";
-export { sacrificeCreatureEffect, advanceSacrificeChain } from "./atoms/removal.js";
+export { sacrificeCreatureEffect, advanceSacrificeChain, sacrificePoolMatch } from "./atoms/removal.js";
 export { applyProliferate } from "./atoms/counters.js";
 export { applyEarthbend } from "./atoms/combat.js";
 export { counterSpellById, controllerSacSubtypeMatch } from "./atoms/stack.js";

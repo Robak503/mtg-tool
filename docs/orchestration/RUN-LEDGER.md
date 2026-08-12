@@ -3,6 +3,29 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **SAC-UNLESS-SACRIFICE: pay the rent with permanents (+3)** - post-v0.157.0 batch 1
+> Suite 1195 / 14,378 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Bog Elemental, Cosmic
+> Larva, Endless Wurm. All audited whole-card (two lines each). Post-release batch **+23**.
+> ⭐ The THIRD cost kind on the sac-unless-pay seam (mana → discard → sacrifice), from drilling the
+> upkeep-sac-unless census row the Masticore slice left behind. The matcher's alternation IS the
+> allowlist — only the three measured victim forms (a land / two lands / an enchantment) admitted (TF-1).
+> ⭐ ONE EVALUATOR: `sacrificePoolMatch` — the edict victim-pool predicate — EXPORTED from removal.js and
+> shared by auto-pick AND settle, so offer and payment cannot disagree; an Artifact Land pays a land cost
+> for free. Victim policy mirrors the edict chain (lowest p+t, id tie-break); each victim dies through
+> sacrificeCreatureEffect so dies + TRIG-SACRIFICE watchers fire.
+> ⛔ **FOUND A SHIPPED GAP: the human panel lied for Masticore.** `wardCostLabel` had NO discard arm, so
+> since 08-07 the free-play panel read "Pay {0} (keep it)" for a discard cost — the engine arms landed,
+> the label fell to the numeric fallback. Fixed for discard AND the new sacrifice kind, pinned by SSR
+> panel rows asserting the lie ABSENT. Law: a new cost kind must never reach the numeric fallback.
+> ⭐ CENSUS FAILURE MODE (4th): the drill SENTENCE-SPLITS — it showed Argentum Masticore's clause as
+> PARSES while the real line carries a reflexive rider ("When you discard a card this way, destroy…").
+> The matcher correctly refuses the whole line. NOT a free +1 — parked to the reflexive-trigger seam.
+> ⭐ Law 6 witnesses: land on board → pays, land to graveyard, Elemental LIVES; bare board → sacrifices;
+> **ALL-OR-NOTHING** — two-lands cost with ONE land pays NOTHING (land STAYS, Larva dies; a partial
+> charge is worse than either printed outcome); POOL HONESTY — the Wurm takes the Seal, never the Swamp.
+> Mutations M1 (matcher → parks), M2 (settle → RENT-PAID DEATH, the free-spell inversion), M3 (auto-pick
+> → insufficiency rows die at the ANSWER; outcome converges via settle re-check — recorded honestly).
+> Token diet: ~90k output tokens this slice (census + drill + probes + build + gates).
 > ## SLICE DONE - 2026-08-07 - **SAC-UNLESS-DISCARD: the Masticore cycle (+3)** - post-v0.157.0 batch 1
 > Suite 1194 / 14,369 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Masticore, Razormane
 > Masticore, Coral Net (through the quoted-grant path: the Aura hands the enchanted creature the Masticore

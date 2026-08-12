@@ -630,6 +630,18 @@ export function matchUpkeepSacUnlessPay(oracle) {
     if (d[1] && !SAC_UNLESS_PAY_NOUNS.has(d[1].toLowerCase())) return null; // unrecognized noun → safe FN
     return { atom: { op: "sac-unless-pay", cost: { kind: "discard", count: 1 }, targetType: null } };
   }
+  // SAC-UNLESS-SACRIFICE (2026-08-12) — the cost is sacrificing ANOTHER permanent of a printed type: Bog
+  // Elemental ("a land"), Cosmic Larva ("two lands"), Endless Wurm ("an enchantment"). Only the three
+  // measured victim forms are admitted — the alternation IS the allowlist, so an unmeasured victim type
+  // ("a creature", "three lands") stays parked rather than guessing a pool. The victim pool at settle time
+  // is sacrificePoolMatch — the SAME word-anchored edict predicate — so an Artifact Land pays a land cost.
+  const v = s.match(/^sacrifice this(?:\s+([a-z]+))?\s+unless you sacrifice (a land|two lands|an enchantment)$/i);
+  if (v) {
+    if (v[1] && !SAC_UNLESS_PAY_NOUNS.has(v[1].toLowerCase())) return null; // unrecognized noun → safe FN
+    const FORMS = { "a land": { type: "land", count: 1 }, "two lands": { type: "land", count: 2 }, "an enchantment": { type: "enchantment", count: 1 } };
+    const f = FORMS[v[2].toLowerCase()];
+    return { atom: { op: "sac-unless-pay", cost: { kind: "sacrifice", type: f.type, count: f.count }, targetType: null } };
+  }
   const m = s.match(/^sacrifice this(?:\s+([a-z]+))?\s+unless you pay\s+(\{[^}]+\}(?:\{[^}]+\})*)$/i);
   if (!m) return null;
   if (m[1] && !SAC_UNLESS_PAY_NOUNS.has(m[1].toLowerCase())) return null; // an unrecognized noun → unmodeled (safe FN)

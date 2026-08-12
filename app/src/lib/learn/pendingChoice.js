@@ -646,6 +646,9 @@ export function setPendingEdictModeChoice(state, { controller, modes, sac = [], 
 /** A short human number for a structured ward cost, for the pending-choice log banner. */
 function wardCostHeadline(cost) {
   if (cost?.kind === "life") return cost.life;
+  // NON-MANA sac-unless-pay kinds (2026-08-12) — a count, not a pip total; without these arms the log
+  // banner's amount was null (discard) / would be null (sacrifice).
+  if (cost?.kind === "discard" || cost?.kind === "sacrifice") return cost.count || 1;
   if (cost?.kind === "mana") {
     const m = cost.mana || {};
     const colored = ["W", "U", "B", "R", "G", "C"].reduce((s, c) => s + (m[c] || 0), 0);

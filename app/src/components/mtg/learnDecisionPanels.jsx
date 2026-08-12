@@ -30,6 +30,14 @@ import { sectionLabelStyle } from "./learnViewStyles.js";
 export function wardCostLabel(decision) {
   const cost = decision?.cost;
   if (cost?.kind === "life") return `Pay ${cost.life} life`;
+  // NON-MANA sac-unless-pay kinds (2026-08-12) — the discard kind shipped 08-07 with its engine arms but
+  // NOT this label, so the human panel read "Pay {0}" for Masticore. Never let a new cost kind fall to the
+  // numeric fallback: it renders a lie.
+  if (cost?.kind === "discard") return (cost.count || 1) === 1 ? "Discard a card" : `Discard ${cost.count} cards`;
+  if (cost?.kind === "sacrifice") {
+    const t = cost.type || "permanent";
+    return (cost.count || 1) === 1 ? `Sacrifice ${/^[aeiou]/i.test(t) ? "an" : "a"} ${t}` : `Sacrifice ${cost.count === 2 ? "two" : cost.count} ${t}s`;
+  }
   if (cost?.kind === "mana") {
     const m = cost.mana || {};
     const pips = [];

@@ -27,7 +27,7 @@ import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice, setPendingImpulseDigChoice } from "../pendingChoice.js";
 import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents } from "../gameState.js";
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 import { checkDiscardTriggers } from "../triggers.js"; // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event
 import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the shared board-condition readers; runProgram → interveningIf → gameState is a leaf edge (no cycle)
@@ -1403,6 +1403,11 @@ export function autoPickSacUnlessPay(state, pc) {
   // full hand. An auto-pick and a settle that disagree about payability is the same offer/payment split
   // the cast lane guards against, one layer down.
   if (pc.cost?.kind === "discard") return (player.hand || []).length >= (pc.cost.count || 1);
+  // SAC-UNLESS-SACRIFICE (2026-08-12) — pay iff enough pool-matching permanents are on the controller's
+  // battlefield (same predicate the settle uses, so offer and payment cannot disagree about payability).
+  if (pc.cost?.kind === "sacrifice") {
+    return (player.battlefield || []).filter((p) => sacrificePoolMatch(pc.cost.type, p.card)).length >= (pc.cost.count || 1);
+  }
   return canAfford(player.manaPool, manaSources(state, pc.controller), pc.cost?.mana || {});
 }
 
@@ -1514,6 +1519,22 @@ export function resolveSacUnlessPayChoice(state, pay) {
       const cid = hand[0].id;
       next = moveCardToZone(next, { playerId: pc.controller, fromZone: "hand", toZone: "graveyard", cardId: cid });
       next = checkDiscardTriggers(next, pc.controller, 1);
+      paid = true;
+    }
+  } else if (pay && pc.cost?.kind === "sacrifice") {
+    // SAC-UNLESS-SACRIFICE (2026-08-12, Bog Elemental / Cosmic Larva / Endless Wurm) — pay by sacrificing
+    // `count` permanents from the printed pool, re-scanned NOW (CR 603.6e — the board may have changed during
+    // the pause). Pool = sacrificePoolMatch, the SAME word-anchored edict predicate offered at auto-pick, so
+    // the two sides cannot disagree. A cost is all-or-nothing: fewer than `count` matches pays NOTHING and
+    // `paid` stays false → the source sacrifices (the printed outcome). Victim policy mirrors the edict
+    // chain's: lowest power+toughness, id tie-break — each dies through sacrificeCreatureEffect so dies +
+    // TRIG-SACRIFICE watchers fire per victim.
+    const pool = (next.players[pc.controller]?.battlefield || []).filter((p) => sacrificePoolMatch(pc.cost.type, p.card));
+    const count = pc.cost.count || 1;
+    if (pool.length >= count) {
+      const score = (p) => (Number(p.card?.power) || 0) + (Number(p.card?.toughness) || 0);
+      const victims = pool.slice().sort((a, b) => score(a) - score(b) || String(a.id).localeCompare(String(b.id))).slice(0, count);
+      for (const vic of victims) next = sacrificeCreatureEffect(next, pc.controller, vic.id);
       paid = true;
     }
   }

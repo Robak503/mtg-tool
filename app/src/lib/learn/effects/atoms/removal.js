@@ -263,7 +263,7 @@ const SACRIFICE_POOLS = new Set(["creature", "permanent", "land", "artifact", "e
 // uses — so a name the engine cannot mint can never become a pool that is silently empty at resolution.
 const isNamedTokenPool = (what) => typeof what === "string" && what.startsWith("token:")
   && Object.prototype.hasOwnProperty.call(NAMED_TOKENS, what.slice(6));
-function sacrificePoolMatch(what, card) {
+export function sacrificePoolMatch(what, card) {
   // NAMED TOKEN — must be a TOKEN (CR 111.1) whose name is the printed one. Both halves matter: without
   // the token check a real Food ARTIFACT card would qualify; without the name check any token would.
   if (isNamedTokenPool(what)) {
