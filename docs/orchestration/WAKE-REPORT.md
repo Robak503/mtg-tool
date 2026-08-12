@@ -7,6 +7,34 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ☀️ 2026-08-12 — **post-release batch +42 · six slices this sitting · CI green at f14e626c** — suite **1199 / 14,402** green by `npm run lint` / `npm test`
+
+> ### ⏭ RUNNABLE NOW — the measured next candidates, in value order
+> · **Aura-upkeep pay-or-else family (6):** Paralyze, Mind Whip, Apathy, Slow Motion, Dance of the Dead,
+>   Errant Minion — same enchanted-controller's-upkeep event (BUILT today), else-effects vary (tap-keep,
+>   sac, discard-random, return). Closest cousin: the sac-unless-pay seam's cost kinds.
+> · **Scaled damagedPlayer lose-life (3):** Graveblade Marauder, Tomb Blade, Emissary of Despair —
+>   "that player loses life equal to/for each X" needs RECIPIENT-scoped count sources (countForSpec
+>   scoping, the one real gap). The fixed+half damagedPlayer arms exist as of today.
+> · **Undrilled census rows:** spell mastery (12, one shared graveyard condition — applyConditional
+>   exists) · addendum (8, cast-during-main-phase) · attacks-pump-per-attacker (8).
+> · **Parked with reasons, don't re-walk:** gated lure/attacks-if-able (card-text enforcement reads need
+>   a state-aware refactor) · threshold quoted-grant family (~17, joins the group quoted-grant order) ·
+>   asymmetric -0/-1 counters (2 carriers, ptPrimitive weighs only ±1/±1) · Argentum Masticore
+>   (reflexive rider) · Raving Dead (random-attack) · Shredder (token-copy machine).
+
+> ### ⭐ TODAY'S SIX SLICES (all pushed, CI-verified through a55f771f; f14e626c's run in flight at write time)
+> SAC-UNLESS-SACRIFICE (+3, the all-or-nothing cost row) → SAC-UNLESS-RETURN-LAND (+2, the Djinn's
+> untapped gate; closed the upkeep-sac-unless row) → GATED-PROTECTION (+1 **and the leading-conditional
+> protection FP fixed** — a tapped Pristine Angel was untargetable in every sim; whole-sentence guard in
+> parseProtectionColors) → HALF-LIFE (+8, per-recipient CR 118.5 with printed rounding; two spell-lane
+> bonus flips) → ENCHANTED-CONTROLLER'S-UPKEEP event (+7, the seat is the HOST's controller — whose:yours
+> was the natural wrong answer) → HOST-REFERENT sentinel (+1, Unstable Mutation).
+> ⛔ NEW STANDING TRAP: `gh run list --commit <sha>` went intermittently EMPTY today and manufactured two
+> false dropped-event incidents — the reliable query is the UNFILTERED `gh run list --json headSha,…`
+> filtered client-side. Dispatch lag ran ~7 min; a 6-min monitor threshold cried wolf twice.
+> ⭐ Same-day pin graduations: Soul Bleed's CREED park (auraOwnTriggered) and my own hours-old Unstable
+> Mutation park row — both flipped to positives with the Bequeathal protocol.
 ## ☀️ 2026-08-07 — **🏷 v0.157.0 PUBLISHED (103 cards) · post-release batch +13** — suite **1192 / 14,361** green by `npm run lint` / `npm test`
 
 > ### ⏭ THE VEIN THAT IS PAYING RIGHT NOW: the ADDITIONAL-COST vocabulary
