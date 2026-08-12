@@ -143,6 +143,16 @@ export function applyAddPoison(state, atom, ctx) {
 export function applyLoseLife(state, atom, ctx) {
   let next = state;
   const amount = Math.max(0, resolveScaledAmount(state, atom, ctx) || 0);
+  // ===== HALF-LIFE (CR 118.5 — Quietus Spike / Scytheclaw / Virtus the Veiled / Radioactive Man /
+  // Ebonblade Reaper / Havoc Festival) ===== "loses half their life, rounded up|down" halves the
+  // RECIPIENT's live total at resolution, so it is computed PER RECIPIENT here — the precomputed
+  // `amount` above is 0 for a half atom (no fixed N). Life at or below 0 halves to 0 (a clean no-op) —
+  // the Math.max keeps a rounded negative from ever becoming a life GAIN. Only the branches a half arm
+  // can emit read amountFor (damagedPlayer / upkeepPlayer / controller); add it to a sibling branch
+  // WITH its parser arm if a half form with that referent ever gets a carrier.
+  const amountFor = (pid) => (atom.half
+    ? Math.max(0, (atom.half === "down" ? Math.floor : Math.ceil)((next.players[pid]?.life || 0) / 2))
+    : amount);
   if (atom.who === "eachPlayer") {
     // ===== EACH-PLAYER ===== (EP-3) EVERY player loses N life (symmetric — Crushing Disappointment).
     // Non-targeted, so it resolves identically on a spell or a trigger. An eliminated player isn't in
@@ -176,11 +186,19 @@ export function applyLoseLife(state, atom, ctx) {
     const pid = ctx.discardingPlayerId;
     if (pid && next.players[pid]) next = loseLife(next, { playerId: pid, amount });
   } else if (atom.who === "upkeepPlayer") {
-    // UPKEEP-PLAYER (BLITZ TR-2 — Seizan, Perverter of Truth "that player loses 2 life …"): the player
-    // whose upkeep it is, ctx.upkeepPlayerId (threaded by checkStepTriggers at every upkeep-step entry).
-    // Absent (a spell / non-upkeep event) → a clean no-op, never a fabricated loss or a wrong recipient.
+    // UPKEEP-PLAYER (BLITZ TR-2 — Seizan, Perverter of Truth "that player loses 2 life …"; the HALF form
+    // is Havoc Festival): the player whose upkeep it is, ctx.upkeepPlayerId (threaded by checkStepTriggers
+    // at every upkeep-step entry). Absent (a spell / non-upkeep event) → a clean no-op, never a
+    // fabricated loss or a wrong recipient.
     const pid = ctx.upkeepPlayerId;
-    if (pid && next.players[pid]) next = loseLife(next, { playerId: pid, amount });
+    if (pid && next.players[pid]) next = loseLife(next, { playerId: pid, amount: amountFor(pid) });
+  } else if (atom.who === "damagedPlayer") {
+    // DAMAGED-PLAYER (HALF-LIFE slice, CR 118.5) — the player just dealt combat damage,
+    // ctx.damagedPlayerId (threaded by checkCombatDamageTriggers — the SAME referent the discard / mill /
+    // rad damagedPlayer resolvers read, and gate-kept by combatDamageReferentSatisfied so no other event
+    // can route it). Absent / eliminated → a clean no-op, never a fabricated loss or a wrong recipient.
+    const pid = ctx.damagedPlayerId;
+    if (pid && next.players[pid]) next = loseLife(next, { playerId: pid, amount: amountFor(pid) });
   } else if (atom.who === "drawingPlayer") {
     // DRAWING-PLAYER (TP-3 — Scrawling Crawler "that player loses 1 life"): ctx.drawingPlayerId, threaded
     // by checkCardDrawnTriggers. Absent → a clean no-op, never a wrong recipient.
@@ -201,9 +219,9 @@ export function applyLoseLife(state, atom, ctx) {
     const pid = ctx.castingPlayerId;
     if (pid && next.players[pid]) next = loseLife(next, { playerId: pid, amount });
   } else {
-    next = loseLife(next, { playerId: ctx.controller, amount });
+    next = loseLife(next, { playerId: ctx.controller, amount: amountFor(ctx.controller) });
   }
-  return logEvent(next, { kind: "spell-effect", effect: "lose-life", who: atom.who || "controller", amount });
+  return logEvent(next, { kind: "spell-effect", effect: "lose-life", who: atom.who || "controller", amount, ...(atom.half ? { half: atom.half } : {}) });
 }
 
 /**
@@ -331,6 +349,23 @@ export function lifeClauseParser(clause) {
   if (m) return { op: "lose-life", who: "discardingPlayer", amount: parseInt(m[1], 10), targetType: null };
   m = t.match(/^the upkeep player loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "upkeepPlayer", targetType: null };
+  // ===== HALF-LIFE (CR 118.5) ===== "loses half their life, rounded up|down" — the amount is half the
+  // RECIPIENT's live total at resolution (applyLoseLife.amountFor), rounding as PRINTED (Raving Dead's
+  // "rounded down" is a real different number — the capture is not decorative). Three measured referents:
+  //  · "that player …" — the combat-damaged player (Quietus Spike / Scytheclaw via the equipment grant,
+  //    Virtus the Veiled / Radioactive Man / Ebonblade Reaper self). who:"damagedPlayer" reads
+  //    ctx.damagedPlayerId and is gate-kept by combatDamageReferentSatisfied (triggerRouting.js), so an
+  //    upkeep/cast/spell "that player" can NEVER route here and mis-scope (safe FN → Arbiter).
+  //  · "the upkeep player …" — Havoc Festival, via detectTriggers' upkeep sentinel rewrite (corpus-clean:
+  //    only the rewrite produces this phrase).
+  //  · "you lose half your life …" — Ebonblade Reaper's attacks trigger (the controller's own half).
+  // An unrounded "loses half their life" (Goblin Game's rules-text form) fails the anchor → Arbiter.
+  m = t.match(/^that player loses half (?:their|his or her) life, rounded (up|down)$/);
+  if (m) return { op: "lose-life", who: "damagedPlayer", half: m[1], targetType: null };
+  m = t.match(/^the upkeep player loses half (?:their|his or her) life, rounded (up|down)$/);
+  if (m) return { op: "lose-life", who: "upkeepPlayer", half: m[1], targetType: null };
+  m = t.match(/^(?:you )?lose half your life, rounded (up|down)$/);
+  if (m) return { op: "lose-life", who: "controller", half: m[1], targetType: null };
   // ⭐ CASTING-PLAYER life loss (TP-1 — Kambal, Soot Imp, Yawgmoth's Edict, Scrawling Crawler): the same
   // structural twin, only the ctx key differs. Sentinel-gated exactly like its siblings above.
   m = t.match(/^the casting player loses (\d+) life$/);

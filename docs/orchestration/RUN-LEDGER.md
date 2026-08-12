@@ -3,6 +3,29 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **HALF-LIFE (+8) — the recipient's live total, rounded as printed** - post-v0.157.0 batch 1
+> Suite 1198 / 14,397 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Quietus Spike, Scytheclaw
+> (equipped grant), Virtus the Veiled, Radioactive Man, Ebonblade Reaper (self combat-damage), Havoc
+> Festival (upkeep sentinel), and TWO OVER the +6 ceiling: Infernal Contract + Cruel Bargain ("Draw four
+> cards. You lose half your life, rounded up.") through the controller arm on the SPELL lane — the caster
+> is the referent, no event gate needed. All audited whole-card. Post-release batch **+34**.
+> ⭐ Vein found by drilling the 21-carrier equipped-creature combat-damage census row: 16 distinct effects
+> (long tail, banked) but its one pair — "that player loses half their life" — opened a 24-carrier
+> corpus-wide family. Three matcher arms (damagedPlayer / upkeepPlayer sentinel / controller), ONE
+> per-recipient computation (applyLoseLife.amountFor, CR 118.5): the precomputed fixed amount is 0 for a
+> half atom, so the per-branch read is load-bearing, not cosmetic.
+> ⭐ applyLoseLife had NO damagedPlayer branch at all — the discard/mill/rad resolvers had the referent,
+> lose-life never did. Added mirroring the siblings; combatDamageReferentSatisfied gates it generically
+> (an upkeep/cast "that player" can never route here — the atom.who check is shared).
+> ⭐ ROUNDING IS REAL DATA: Raving Dead prints "rounded down" — at 21 life, up loses 11 and down loses
+> 10. The mutation inverts the rounding and both live-total rows die.
+> ⛔ PARKED HONESTLY: Raving Dead (random-attack line), Shredder (token-copy attack machine), Personal
+> Incarnation (damage-redirect activated ability), the targeted spell forms (Rush of Dread mode / Blood
+> Tribute kicker / Peer into the Abyss compound), and the unrounded rules-text form (Goblin Game) fails
+> the anchor by design.
+> ⭐ Law 6: 21-life up/down split (10 vs 11 left); no-referent no-op (a spell's anaphoric "that player"
+> touches nobody); negative life halves to ZERO, never a gain.
+> Token diet: ~55k output tokens this slice (the census drill had already paid for the vein map).
 > ## SLICE DONE - 2026-08-12 - **GATED-PROTECTION (+1) — and the leading-conditional protection FP, fixed** - post-v0.157.0 batch 1
 > Suite 1197 / 14,391 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Mystic Familiar (re-run
 > AFTER the protection.js fix; runtime-only, no tier movement). Audited whole-card. Post-release batch **+26**.

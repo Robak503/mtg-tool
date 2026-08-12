@@ -4184,6 +4184,9 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Half-life effects work.** Quietus Spike, Scytheclaw, Virtus the Veiled, Radioactive Man, Ebonblade
+  Reaper, Havoc Festival, Infernal Contract and Cruel Bargain now halve the right player's life total at
+  resolution, rounding the way each card prints it.
 - **Conditional protection is no longer always-on.** Cards whose protection lives behind a condition
   ("As long as this creature is untapped…" — Pristine Angel; threshold cards like Mystic Familiar) were
   granting their protection unconditionally in the simulator — a tapped Pristine Angel could not be
