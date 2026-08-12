@@ -650,7 +650,11 @@ export function massFilteredDamageClauseParser(clause) {
   // else the referent is unset → no target → 0 dealt (a clean no-op). Real DAMAGE through the shared
   // per-target hitPlayer path (source threaded, so infect/doubler replacements compose). The subject set
   // adds the artifact/enchantment source nouns (Copper Tablet is an artifact; Sulfuric Vortex an enchantment).
-  const ud = t.match(/^(?:this creature|this permanent|this artifact|this enchantment|it) deals (\d+) damage to the upkeep player$/);
+  // "this aura" joins the subject set for the ENCHANTED-CONTROLLER'S UPKEEP event (2026-08-12 — Wanderlust,
+  // Parasitic Bond, Maddening Wind print "this Aura deals N damage to that player"; the same sentinel
+  // rewrite produces "the upkeep player", and that event's firing gate guarantees the referent is the
+  // host's controller).
+  const ud = t.match(/^(?:this creature|this permanent|this artifact|this enchantment|this aura|it) deals (\d+) damage to the upkeep player$/);
   if (ud) return { op: "deal-damage", amount: parseInt(ud[1], 10), target: "upkeepPlayer", who: "upkeepPlayer", targetType: null };
   // ⭐ CASTING-PLAYER damage (TP-1 — Eidolon of the Great Revel, Pyrostatic Pillar, Aether Sting, Spellshock,
   // Gibbering Fiend): the structural twin of the upkeep arm directly above; only the ctx key differs.

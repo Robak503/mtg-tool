@@ -3,6 +3,30 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **ENCHANTED-CONTROLLER'S UPKEEP (+7) — one event, seven auras** - post-v0.157.0 batch 1
+> Suite 1199 / 14,402 green + lint 0 BY EXIT CODE. Flip-diff **+7 / 0 / 0** — Stab Wound, One Thousand
+> Lashes, Soul Bleed (lose-life), Wanderlust, Parasitic Bond, Maddening Wind ("this Aura deals N
+> damage" — subject joined the upkeep-damage arm), Super Intelligence (draw). All audited whole-card
+> (their aura statics were already modeled — the trigger was each card's sole blocker). Post-release
+> batch **+41**.
+> ⭐ From drilling the aura-upkeep census row: 21 carriers parked on ONE missing EVENT — "at the
+> beginning of the upkeep of enchanted creature's controller". detectTriggers had no arm; the effects
+> were mostly already-built who:"upkeepPlayer" atoms. The build: an event flag riding the step machinery
+> (whose:"any") + a host-controller firing gate in the descriptor loop + the SAME "that player" → "the
+> upkeep player" sentinel the each-player's-upkeep arm uses — by the gate's construction the upkeep
+> player IS the host's controller, which is what makes the sentinel honest.
+> ⛔⛔ **THE SEAT IS THE WHOLE CARD**: Stab Wound is MY aura on YOUR creature firing on YOUR upkeep —
+> whose:"yours" would have been the natural-looking and WRONG scope. The mutation removes the firing
+> gate and the aura fires on EVERY upkeep — both silence rows (owner's upkeep, unattached) die. An
+> over-fire the tier cannot see.
+> ⭐ GRADUATED PIN: auraOwnTriggered.test.js pinned Soul Bleed as a CREED park ("the scope isn't
+> modeled → body-only") — flipped to a positive detection assertion per the graduation protocol, with
+> the Bequeathal precedent's phrasing. The park bar (credited only when detected AND routed) unchanged.
+> ⛔ PARKED HONESTLY (14 remain): the "that creature" counter trio (Unstable Mutation / Essence Flare /
+> Takklemaggot — the HOST referent has no sentinel yet, a natural next arm), the pay-or-else forms
+> (Paralyze / Mind Whip / Apathy / Slow Motion / Dance of the Dead / Errant Minion), scaled damage
+> (Unnatural Hunger / Festering Wound), Paroxysm, Venarian Gold, Leeching Licid.
+> Token diet: ~60k output tokens this slice.
 > ## SLICE DONE - 2026-08-12 - **HALF-LIFE (+8) — the recipient's live total, rounded as printed** - post-v0.157.0 batch 1
 > Suite 1198 / 14,397 green + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Quietus Spike, Scytheclaw
 > (equipped grant), Virtus the Veiled, Radioactive Man, Ebonblade Reaper (self combat-damage), Havoc

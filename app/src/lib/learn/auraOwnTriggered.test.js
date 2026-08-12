@@ -247,19 +247,25 @@ describe("AU-3 CREED — false-negative-SAFE parks stay on the Arbiter", () => {
     // creature's CR-603.10a look-back `attachments`.
     //
     // The bar this pin enforced — an aura is credited only when its body is DETECTED and ROUTED — is
-    // unchanged and still met; the dies condition simply has a detector now. The two tests around it still
-    // hold the line for the shapes that genuinely have none (Forced Adaptation, Soul Bleed).
+    // unchanged and still met; the dies condition simply has a detector now. The tests around it still
+    // hold the line for the shapes that genuinely have none (Forced Adaptation, On Thin Ice — Soul Bleed
+    // graduated 2026-08-12 with the enchanted-controller's-upkeep event).
     const d = detectTriggers(cardOf("Bequeathal"));
     expect(d).toHaveLength(1);
     expect(d[0]).toMatchObject({ event: "dies", scope: "equippedCreature" });
     expect(classifyCard(cardOf("Bequeathal"))).toMatch(/^native/);
   });
 
-  it("the enchanted-CONTROLLER's-upkeep scope isn't modeled → body-only (Soul Bleed)", () => {
-    // "At the beginning of the upkeep of enchanted creature's controller, that player loses 1 life." — a
-    // scoped upkeep referent detectTriggers doesn't detect → body-only.
-    expect(detectTriggers(cardOf("Soul Bleed"))).toHaveLength(0);
-    expect(classifyCard(cardOf("Soul Bleed"))).toBe("body-only");
+  it("⭐ GRADUATED (2026-08-12): the enchanted-CONTROLLER's-upkeep scope IS modeled now (Soul Bleed)", () => {
+    // This pin guarded "a scoped upkeep referent detectTriggers doesn't detect → body-only" until the
+    // ENCHANTED-CONTROLLER'S UPKEEP event landed (enchantedControllersUpkeep flag: host-controller firing
+    // gate + the shared "that player" → "the upkeep player" sentinel). The bar the park enforced —
+    // credited only when detected AND routed — is unchanged and now MET; the runtime pins (host-seat
+    // firing, wrong-upkeep silence, unattached silence) live in auraEnchantedControllersUpkeep.test.js.
+    const d = detectTriggers(cardOf("Soul Bleed"));
+    expect(d).toHaveLength(1);
+    expect(d[0]).toMatchObject({ event: "upkeep", whose: "any", enchantedControllersUpkeep: true });
+    expect(classifyCard(cardOf("Soul Bleed"))).toMatch(/^native/);
   });
 
   it("a linked exile-until-leaves ETB effect isn't modeled → body-only (On Thin Ice)", () => {

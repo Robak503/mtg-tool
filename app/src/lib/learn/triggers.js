@@ -1642,6 +1642,21 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^the beginning of each player[’']s upkeep$/.test(c)) {
     return { event: "upkeep", scope: "you", whose: "any", eachPlayersUpkeep: true };
   }
+  // ===== ENCHANTED-CONTROLLER'S UPKEEP (2026-08-12, CR 603.2b — Stab Wound, Soul Bleed, One Thousand
+  // Lashes, Wanderlust, Parasitic Bond, Super Intelligence class; 21 parked carriers on this ONE event) =====
+  // "At the beginning of the upkeep of ENCHANTED CREATURE'S CONTROLLER, <effect>" — an Aura trigger that
+  // fires on the HOST's controller's upkeep. The aura's own controller is usually an OPPONENT (Stab Wound
+  // is MY aura on YOUR creature, firing on YOUR upkeep), which is exactly why whose:"yours" is wrong here.
+  // event:"upkeep" whose:"any" rides the step machinery unchanged; the enchantedControllersUpkeep flag
+  // (a) adds the host-controller firing gate in the step-descriptor loop — fire ONLY when the aura is
+  // attached and its host's controller IS the player whose upkeep it is — and (b) gates the same
+  // "that player" → "the upkeep player" sentinel rewrite the each-player's arm uses: by construction of
+  // the gate, the upkeep player IS the host's controller, so every existing who:"upkeepPlayer" atom
+  // (lose-life, damage, draw, discard…) binds the right seat. "that creature" (the host) has NO sentinel
+  // yet — those clauses stay unbound → LOW → Arbiter (safe FN; the Unstable Mutation counter trio parks).
+  if (/^the beginning of the upkeep of enchanted creature[’']s controller$/.test(c)) {
+    return { event: "upkeep", scope: "you", whose: "any", enchantedControllersUpkeep: true };
+  }
   // ===== EACH-PLAYER'S DRAW STEP (CR 504.1 + 603.2b) ===== "At the beginning of EACH PLAYER'S draw step,
   // <effect>" (Rites of Flourishing #1524, Kami of the Crescent Moon #1817, Dictate of Kruphix #1907). The
   // exact structural twin of the upkeep arm above, and it reuses that arm's machinery rather than growing a
@@ -3879,7 +3894,7 @@ export function detectTriggers(card) {
       // new parser at all.
       // ⛔ whose:"yours" is deliberately NOT included: on your own upkeep no second player is established,
       // so "that player" has no antecedent there — a rewrite would be inventing one.
-      if (cls.eachPlayersUpkeep || cls.eachPlayersDrawStep
+      if (cls.eachPlayersUpkeep || cls.eachPlayersDrawStep || cls.enchantedControllersUpkeep
         || (cls.event === "upkeep" && (cls.whose === "opponents" || cls.whose === "any"))) {
         effectClause = effectClause.replace(/\bthat player\b/gi, "the upkeep player");
       }
@@ -4455,6 +4470,7 @@ export function detectTriggers(card) {
         functionsFromGraveyard: cls.functionsFromGraveyard, // GY-FUNCTIONING milled trigger (Radroach) — fired by checkMilledTriggers' graveyard scan, never the battlefield scan
         eachPlayersUpkeep: cls.eachPlayersUpkeep, // EACH-PLAYER'S UPKEEP (BLITZ TR-2): gates the "that player" → "the upkeep player" sentinel rewrite; whose:"any" carries the fire-on-every-upkeep semantics
         eachPlayersDrawStep: cls.eachPlayersDrawStep, // EACH-PLAYER'S DRAW STEP (CR 504.1): the structural twin, sharing that sentinel and its atoms
+        enchantedControllersUpkeep: cls.enchantedControllersUpkeep, // ENCHANTED-CONTROLLER'S UPKEEP (2026-08-12): host-controller firing gate + the same sentinel. ⚠️ Unlisted here = dropped = the aura would fire on EVERY upkeep — an over-fire, not a miss.
         gyCardType: cls.gyCardType,           // GY-EVENT (SHELF S7): front-face type gate on the moved card ("Creature" | null = any)
         gyOwnerScope: cls.gyOwnerScope,       // GY-EVENT: whose graveyard — "you" | "opponent" | "any"
         excludeFromBattlefield: cls.excludeFromBattlefield, // GY-EVENT gyEnter only: skip from-battlefield entries (the dies clause covers those)
@@ -5664,6 +5680,14 @@ export function triggersForEvent(state, { event, sourcePermanent, triggeringPerm
     // Price of Knowledge). When the active player isn't an opponent of the source's controller (i.e. it
     // IS the controller, or a non-opponent in some future multiplayer wrinkle), skip.
     if (d.whose === "opponents" && !opponentsOf(state, sourcePermanent.controller).includes(state.activePlayer)) continue;
+    // ENCHANTED-CONTROLLER'S UPKEEP (2026-08-12 — Stab Wound class): fire ONLY when this Aura is attached
+    // and its HOST's controller is the player whose upkeep it is (state.activePlayer, the same identity
+    // the whose-gates above read). Unattached or wrong-seat upkeep → skip. This is the gate that makes the
+    // sentinel rewrite honest: the upkeep player IS the host's controller whenever the trigger fires.
+    if (d.enchantedControllersUpkeep) {
+      const host = sourcePermanent.attachedTo ? findPermanent(state, sourcePermanent.attachedTo) : null;
+      if (!host || host.controller !== state.activePlayer) continue;
+    }
     // BENEFICIARY OVERRIDE: only the subtypeGlobal "its controller" descriptors carry one (set by
     // checkCombatDamageTriggers = the dealing creature's controller). Every other descriptor passes null →
     // makePendingTrigger falls back to the source's controller, so this is inert for all existing scopes.
