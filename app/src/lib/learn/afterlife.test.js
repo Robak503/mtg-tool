@@ -81,7 +81,11 @@ describe("AFTERLIFE — synthesis + routing + classify", () => {
     expect(classifyCard(ORZHOV_ENFORCER).startsWith("native")).toBe(true);  // Deathtouch + Afterlife 1
     // FN guards — unmodeled sibling clauses keep the WHOLE card off native (all-or-nothing).
     expect(classifyCard(AFTERLIFE_INSURANCE)).not.toMatch(/^native/);       // grant + draw (a spell)
-    expect(classifyCard(KNIGHT_LAST_BREATH)).not.toMatch(/^native/);        // sac-activated body unmodeled
+    // ⚠️ GRADUATED 2026-08-07 (SAC-NONTOKEN) — the row above this comment used to park Knight of the Last
+    // Breath as "sac-activated body unmodeled". That body ("{3}, Sacrifice another nontoken creature:
+    // Create a …") is modeled now; its afterlife half was ALREADY proven by this file's own runtime rows,
+    // so the whole card is the sum of two verified halves. Asserted positively.
+    expect(classifyCard(KNIGHT_LAST_BREATH)).toMatch(/^native/);
     expect(classifyCard(INDEBTED_SPIRIT)).not.toMatch(/^native/);           // bestow + enchanted-creature buff line
   });
 });

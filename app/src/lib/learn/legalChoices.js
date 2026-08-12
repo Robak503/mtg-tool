@@ -2203,6 +2203,11 @@ function actionsActivateAbility(state, playerId) {
         sacVictims = player.battlefield.filter((v) =>
           (!ab.sacOther.another || v.id !== perm.id) &&
           sacTypeMatches(v.card, ab.sacOther.type, ab.sacOther.subtype || null) &&
+          // SAC-NONTOKEN (2026-08-07) — "Sacrifice a NONTOKEN <type>" (Thopter Foundry, Infernal Tribute):
+          // a token victim is excluded. Same `!v.card?.token` read the alt-cost sacrificeCreature lane uses.
+          // ⛔ Offering a token here would let Thopter Foundry sacrifice its own Thopters in a loop the card
+          // is explicitly printed to forbid — an illegal payment, the forbidden direction.
+          (!ab.sacOther.nontoken || !v.card?.token) &&
           !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""),
         );
         if (sacVictims.length === 0) continue; // no legal sacrifice available → the cost can't be paid

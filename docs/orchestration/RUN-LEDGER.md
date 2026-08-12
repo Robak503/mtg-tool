@@ -3,13 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
-> ## ⏭ BANKED (measured, not built) - 2026-08-07 - **NONTOKEN sac costs — 4 flips, the last cheap row of the vein**
-> Qualified-sac census across both grammars: `nontoken` is the only qualifier with real yield — nontoken
-> creature 2 (Knight of the Last Breath, Korozda Guildmage) · nontoken permanent 1 (Infernal Tribute) ·
-> nontoken artifact 1 (Thopter Foundry). Build: a `nontoken` prefix group in SAC_COST_RE + sacOtherM, a
-> nontoken flag through the canon map, and a token-check in sacTypeMatches (verify how the engine marks
-> token permanents FIRST — rule 1). ⛔ Dead ends, measured: legendary creature/artifact ceiling 0 (park on
-> other text), attacking/untapped/basic 0-1 each.
+> ## SLICE DONE - 2026-08-07 - **SAC-NONTOKEN (+4) — the Thopter Foundry loop, forbidden by name** - post-v0.157.0 batch 1
+> Suite 1193 / 14,364 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Thopter Foundry, Infernal
+> Tribute, Knight of the Last Breath, Korozda Guildmage. All audited whole-card. Post-release batch **+17**.
+> ⭐ The `(nontoken )?` qualifier joins the ACTIVATED sac-cost grammar only — the cast lane has ZERO
+> carriers, measured, so per the TF-1 criterion it got no surface. The flag rides `sacOther` and the victim
+> gather enforces it with the same `!v.card?.token` read the alt-cost lane already uses.
+> ⛔⛔ **THE NAMED FAILURE IS THE THOPTER FOUNDRY LOOP:** the card sacrifices a NONTOKEN artifact to mint a
+> Thopter TOKEN; offering a token victim lets it eat its own product forever. The mutation confirmed the
+> tier CANNOT see it — drop the victim check and the card stays native while the loop goes live. Only the
+> pool row (token on board, never offered) catches it.
+> ⭐ The witness also showed the Foundry offering ITSELF as a victim — correct, not a bug: the card says
+> "a", not "another" (CR 109.5), the same reasoning as the Karoo self-bounce.
+> ⭐ One pin graduated with both halves verified: afterlife.test.js parked Knight of the Last Breath as
+> "sac-activated body unmodeled"; the body is modeled now and the afterlife half was already proven by that
+> file's own runtime rows.
+> ⛔ Group renumber (the CV-3 lesson): the noun moved [2]→[3]; every incumbent form pinned byte-identical.
 > ## SLICE DONE - 2026-08-07 - **AC-OR-SPLIT: the split-point search (+4)** - post-v0.157.0 batch 1
 > Suite 1192 / 14,361 green + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Annihilating Glare, Deadly
 > Precision, Betrayer's Bargain, Final Payment. All audited whole-card. Post-release batch now **+13**.

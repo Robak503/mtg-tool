@@ -4184,6 +4184,9 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Costs that sacrifice a nontoken permanent work.** Thopter Foundry, Infernal Tribute, Knight of the
+  Last Breath and Korozda Guildmage now pay their sacrifice costs correctly — and a token can never be
+  used to pay a cost that says "nontoken", so Thopter Foundry cannot eat its own Thopters.
 - **Additional costs with a choice on either side of "or pay" work.** Annihilating Glare, Deadly
   Precision, Betrayer's Bargain and Final Payment offer both ways to pay — sacrificing a permanent of
   either printed type, or paying the mana or life alternative.

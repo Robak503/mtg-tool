@@ -424,11 +424,19 @@ export function parseAbilityCost(costStr, card = null) {
     // planeswalker"). Union alternatives FIRST in the alternation, canonicalized to the same camelCase keys
     // the cast-cost lane emits, so legalChoices' sacTypeMatches serves both grammars with ONE evaluator —
     // the artifactOrCreature pattern, extended. An unlisted compound still falls through → null (deferred).
-    const sacOtherM = /^sacrifice (a|an|another) (creature or enchantment|creature or planeswalker|creature or land|creature|permanent|artifact|enchantment|land)$/i.exec(item);
+    // SAC-NONTOKEN (2026-08-07) — the optional `nontoken ` qualifier (Knight of the Last Breath, Korozda
+    // Guildmage, Infernal Tribute, Thopter Foundry — all four carriers live on THIS grammar; the cast-cost
+    // lane has ZERO, measured, so per the TF-1 criterion it stays untouched there). The flag rides the cost
+    // and legalChoices' victim gather enforces it with the same `!v.card?.token` check the alt-cost
+    // sacrificeCreature lane already uses.
+    // ⛔ ADDING A GROUP RENUMBERS THE CAPTURES (the CV-3 lesson): the noun moves from [2] to [3]. The
+    // incumbent forms are pinned byte-identical in sacUnionCost.test.js / sacNontoken.test.js.
+    const sacOtherM = /^sacrifice (a|an|another) (nontoken )?(creature or enchantment|creature or planeswalker|creature or land|creature|permanent|artifact|enchantment|land)$/i.exec(item);
     if (sacOtherM) {
       const SAC_UNION_CANON = { "creature or enchantment": "creatureOrEnchantment", "creature or planeswalker": "creatureOrPlaneswalker", "creature or land": "creatureOrLand" };
-      const rawType = sacOtherM[2].toLowerCase();
-      sacOther = { type: SAC_UNION_CANON[rawType] || rawType, another: /^another$/i.test(sacOtherM[1]) };
+      const rawType = sacOtherM[3].toLowerCase();
+      sacOther = { type: SAC_UNION_CANON[rawType] || rawType, another: /^another$/i.test(sacOtherM[1]),
+        ...(sacOtherM[2] ? { nontoken: true } : {}) };
       continue;
     }
     // γ1b-SUBTYPE — "Sacrifice a/an/another <Subtype>" (Koma "Sacrifice another Serpent"; Goblin Sledder
