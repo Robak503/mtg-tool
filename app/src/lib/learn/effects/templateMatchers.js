@@ -642,6 +642,17 @@ export function matchUpkeepSacUnlessPay(oracle) {
     const f = FORMS[v[2].toLowerCase()];
     return { atom: { op: "sac-unless-pay", cost: { kind: "sacrifice", type: f.type, count: f.count }, targetType: null } };
   }
+  // SAC-UNLESS-RETURN-LAND (2026-08-12) — the cost is BOUNCING your own land: Waterspout Djinn ("an
+  // untapped Island"), Living Tsunami ("a land"). Same allowlist-by-alternation as the sacrifice arm —
+  // only the two measured victim forms are admitted; "an untapped Mountain" has no carrier and parks.
+  // The untapped requirement is REAL (the Djinn cannot pay with a tapped Island) and rides the cost.
+  const r = s.match(/^sacrifice this(?:\s+([a-z]+))?\s+unless you return (an untapped island|a land) you control to its owner's hand$/i);
+  if (r) {
+    if (r[1] && !SAC_UNLESS_PAY_NOUNS.has(r[1].toLowerCase())) return null; // unrecognized noun → safe FN
+    const FORMS = { "an untapped island": { subtype: "Island", untapped: true }, "a land": { subtype: null, untapped: false } };
+    const f = FORMS[r[2].toLowerCase()];
+    return { atom: { op: "sac-unless-pay", cost: { kind: "return-land", subtype: f.subtype, untapped: f.untapped }, targetType: null } };
+  }
   const m = s.match(/^sacrifice this(?:\s+([a-z]+))?\s+unless you pay\s+(\{[^}]+\}(?:\{[^}]+\})*)$/i);
   if (!m) return null;
   if (m[1] && !SAC_UNLESS_PAY_NOUNS.has(m[1].toLowerCase())) return null; // an unrecognized noun → unmodeled (safe FN)

@@ -4184,6 +4184,9 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Bounce-a-land upkeep costs work.** Waterspout Djinn and Living Tsunami now offer their printed
+  upkeep choice: return a land you control to your hand (the Djinn insists on an untapped Island) or
+  sacrifice the creature. The returned land goes to your hand, not the graveyard.
 - **Upkeep "rent" paid with permanents works.** Bog Elemental, Cosmic Larva and Endless Wurm now offer
   their printed upkeep choice: sacrifice a land (or two lands, or an enchantment) to keep the creature,
   or let it go. The cost is all-or-nothing — one land against a two-land cost pays nothing.

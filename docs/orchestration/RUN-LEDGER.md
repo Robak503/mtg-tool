@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **SAC-UNLESS-RETURN-LAND: the Djinn's rent is a bounce (+2)** - post-v0.157.0 batch 1
+> Suite 1196 / 14,386 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Waterspout Djinn, Living
+> Tsunami. Both audited whole-card (Flying + the upkeep line). Post-release batch **+25**. This closes
+> the upkeep-sac-unless census row's last coherent sub-group; the residue is singletons (Junk Golem's
+> counter, Anurid Scavenger's graveyard-to-library, two variable-{M} costs, the flavor-text Parrot) and
+> Argentum Masticore parked to the reflexive-trigger seam.
+> ⭐ FOURTH cost kind on the sac-unless-pay seam (mana → discard → sacrifice → return-land). Allowlist-
+> by-alternation again: two measured forms only; "an untapped Mountain" parks.
+> ⛔⛔ **THE UNTAPPED GATE IS THE LOAD-BEARING CONSTRAINT** — the Djinn cannot pay with a tapped Island;
+> paying anyway is a FREE KEEP (the free-spell inversion on the POOL axis rather than the arm axis). The
+> gate lives in ONE shared predicate (returnLandPoolMatch) used by auto-pick AND settle; the mutation
+> drops the gate and the tapped-Island row pays a forbidden cost.
+> ⭐ The return is a BOUNCE, not a death: moveCardToZone battlefield → hand under applyZoneMove's
+> controller-as-owner proxy, NO dies/sacrifice watchers (CR 700.4). Witness pins hand=true,
+> graveyard=false. Victim policy: prefer a TAPPED land when the cost allows (strictly dominant — least
+> mana access lost), witnessed: the Tsunami bounces the tapped Mountain and keeps the untapped Island.
+> ⚠️ **GITHUB DROPPED THE PUSH EVENT FOR 608f4f27 (third occurrence)** — no workflow run dispatched in
+> 6 min (monitored). This slice's push is the nudge; its run validates BOTH slices.
+> Token diet: ~55k output tokens this slice (seam already mapped — the fourth arm rides the third's scouting).
 > ## SLICE DONE - 2026-08-12 - **SAC-UNLESS-SACRIFICE: pay the rent with permanents (+3)** - post-v0.157.0 batch 1
 > Suite 1195 / 14,378 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Bog Elemental, Cosmic
 > Larva, Endless Wurm. All audited whole-card (two lines each). Post-release batch **+23**.

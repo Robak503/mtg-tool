@@ -130,6 +130,14 @@ describe("SacUnlessPayPanel — the inverted-polarity one", () => {
     const single = render(<SacUnlessPayPanel decision={{ kind: "sac-unless-pay", cost: { kind: "sacrifice", type: "enchantment", count: 1 }, sourceName: "Endless Wurm" }} onChoose={() => {}} />);
     expect(single).toContain("Sacrifice an enchantment");
   });
+
+  it("a return-land cost names the pool, untapped constraint included", () => {
+    const out = render(<SacUnlessPayPanel decision={{ kind: "sac-unless-pay", cost: { kind: "return-land", subtype: "Island", untapped: true }, sourceName: "Waterspout Djinn" }} onChoose={() => {}} />);
+    expect(out).toContain("Return an untapped Island");
+    expect(out).not.toContain("Pay {0}");
+    const any = render(<SacUnlessPayPanel decision={{ kind: "sac-unless-pay", cost: { kind: "return-land", subtype: null, untapped: false }, sourceName: "Living Tsunami" }} onChoose={() => {}} />);
+    expect(any).toContain("Return a land");
+  });
 });
 
 describe("TaxedPaymentPanel", () => {

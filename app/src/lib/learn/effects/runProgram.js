@@ -30,6 +30,16 @@ import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPerman
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 import { checkDiscardTriggers } from "../triggers.js"; // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event
+import { isLandCard } from "./atoms/shared.js"; // SAC-UNLESS-RETURN-LAND — shared.js is a strict leaf, so this edge is DAG-safe
+
+// SAC-UNLESS-RETURN-LAND (2026-08-12) — the ONE pool predicate for a return-a-land upkeep cost
+// (Waterspout Djinn "an untapped Island", Living Tsunami "a land"), used by BOTH autoPickSacUnlessPay
+// and resolveSacUnlessPayChoice so offer and payment cannot disagree. Word-anchored subtype read
+// (a nonbasic Island qualifies); the untapped requirement is the Djinn's printed gate.
+const returnLandPoolMatch = (cost, p) =>
+  isLandCard(p.card)
+  && (!cost.subtype || new RegExp(`\\b${cost.subtype}\\b`, "i").test(String(p.card?.type || p.card?.type_line || "")))
+  && (!cost.untapped || !p.tapped);
 import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the shared board-condition readers; runProgram → interveningIf → gameState is a leaf edge (no cycle)
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
 
@@ -1408,6 +1418,11 @@ export function autoPickSacUnlessPay(state, pc) {
   if (pc.cost?.kind === "sacrifice") {
     return (player.battlefield || []).filter((p) => sacrificePoolMatch(pc.cost.type, p.card)).length >= (pc.cost.count || 1);
   }
+  // SAC-UNLESS-RETURN-LAND (2026-08-12) — pay iff a pool-matching land is on the battlefield (the
+  // Djinn's untapped gate lives in the shared predicate, so a fully-tapped board honestly refuses).
+  if (pc.cost?.kind === "return-land") {
+    return (player.battlefield || []).some((p) => returnLandPoolMatch(pc.cost, p));
+  }
   return canAfford(player.manaPool, manaSources(state, pc.controller), pc.cost?.mana || {});
 }
 
@@ -1535,6 +1550,19 @@ export function resolveSacUnlessPayChoice(state, pay) {
       const score = (p) => (Number(p.card?.power) || 0) + (Number(p.card?.toughness) || 0);
       const victims = pool.slice().sort((a, b) => score(a) - score(b) || String(a.id).localeCompare(String(b.id))).slice(0, count);
       for (const vic of victims) next = sacrificeCreatureEffect(next, pc.controller, vic.id);
+      paid = true;
+    }
+  } else if (pay && pc.cost?.kind === "return-land") {
+    // SAC-UNLESS-RETURN-LAND (2026-08-12, Waterspout Djinn / Living Tsunami) — pay by BOUNCING one
+    // pool-matching land, re-scanned NOW (CR 603.6e). The return is the bounce convention applyZoneMove
+    // uses: moveCardToZone battlefield → hand under the controller-as-owner proxy, NO dies/sacrifice
+    // watchers (a bounce is not dying, CR 700.4). Victim policy: prefer a TAPPED land when the cost
+    // allows one (least mana access lost — strictly dominant, unlike the sacrifice arm's fungible
+    // pools), id tie-break; the Djinn's untapped-only pool makes the preference inert there.
+    const pool = (next.players[pc.controller]?.battlefield || []).filter((p) => returnLandPoolMatch(pc.cost, p));
+    if (pool.length) {
+      const vic = pool.slice().sort((a, b) => (a.tapped === b.tapped ? String(a.id).localeCompare(String(b.id)) : a.tapped ? -1 : 1))[0];
+      next = moveCardToZone(next, { playerId: pc.controller, fromZone: "battlefield", toZone: "hand", cardId: vic.id });
       paid = true;
     }
   }

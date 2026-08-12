@@ -38,6 +38,9 @@ export function wardCostLabel(decision) {
     const t = cost.type || "permanent";
     return (cost.count || 1) === 1 ? `Sacrifice ${/^[aeiou]/i.test(t) ? "an" : "a"} ${t}` : `Sacrifice ${cost.count === 2 ? "two" : cost.count} ${t}s`;
   }
+  if (cost?.kind === "return-land") {
+    return cost.subtype ? `Return ${cost.untapped ? "an untapped" : /^[aeiou]/i.test(cost.subtype) ? "an" : "a"} ${cost.subtype}` : `Return ${cost.untapped ? "an untapped" : "a"} land`;
+  }
   if (cost?.kind === "mana") {
     const m = cost.mana || {};
     const pips = [];
