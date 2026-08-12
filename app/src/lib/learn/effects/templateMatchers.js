@@ -653,6 +653,20 @@ export function matchUpkeepSacUnlessPay(oracle) {
     const f = FORMS[r[2].toLowerCase()];
     return { atom: { op: "sac-unless-pay", cost: { kind: "return-land", subtype: f.subtype, untapped: f.untapped }, targetType: null } };
   }
+  // SLOW MOTION (2026-08-12) — the OTHER-PLAYER's pay-or-sacrifice: "that player sacrifices that creature
+  // unless they pay {2}" on the enchanted-controller's-upkeep event. BOTH nouns arrive as sentinels the
+  // event's rewrites produce ("that player" → "the upkeep player", "that creature" → "enchanted creature")
+  // — neither phrase exists in printed oracle, so this arm is unreachable from any other event (the
+  // sentinel-gate discipline). payerRef re-aims the choice at the upkeep player (the HOST's controller,
+  // by the firing gate's construction) and victimRef re-aims the sacrifice at the HOST — the aura
+  // survives either outcome; only the creature is on the line.
+  const sm = s.match(/^the upkeep player sacrifices enchanted creature unless they pay\s+(\{[^}]+\}(?:\{[^}]+\})*)$/i);
+  if (sm) {
+    const pips = (sm[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
+    const mana = pips.length ? parseFixedManaPips(pips) : null;
+    if (!mana) return null; // {X} / unknown symbol → unmodeled cost (safe FN)
+    return { atom: { op: "sac-unless-pay", cost: { kind: "mana", mana }, payerRef: "upkeepPlayer", victimRef: "enchanted", targetType: null } };
+  }
   const m = s.match(/^sacrifice this(?:\s+([a-z]+))?\s+unless you pay\s+(\{[^}]+\}(?:\{[^}]+\})*)$/i);
   if (!m) return null;
   if (m[1] && !SAC_UNLESS_PAY_NOUNS.has(m[1].toLowerCase())) return null; // an unrecognized noun → unmodeled (safe FN)

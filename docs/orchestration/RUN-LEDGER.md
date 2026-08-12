@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **SLOW MOTION (+1) — the OTHER player's pay-or-sacrifice** - post-v0.157.0 batch 1
+> Suite 1199 / 14,405 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Slow Motion. Audited
+> whole-card (the Rancor-style graveyard-return line already parsed). Post-release batch **+43**.
+> ⭐ The sac-unless-pay machine's FIFTH configuration: payerRef:"upkeepPlayer" re-aims the choice at the
+> HOST's controller (they pay), victimRef:"enchanted" re-aims the sacrifice at the HOST (the aura
+> survives the choice either way — only the creature is on the line). Both nouns arrive as SENTINELS the
+> enchanted-controller's-upkeep event produces ("the upkeep player" / "enchanted creature") — neither
+> phrase exists in printed oracle, so the arm is unreachable from any other event, pinned by the
+> raw-printed-text refusal row.
+> ⭐ THE WITNESS CORRECTED THE AUTHOR: the decline row first expected the aura to SURVIVE on the
+> battlefield — CR 704.5n says it goes to the graveyard with its host (where its own return trigger
+> picks it up). The row now asserts the rules-correct outcome and says so in-comment.
+> Mutations: SM-M1 (matcher arm → parks), SM-M2 (victimRef re-aim dropped → the WRONG permanent on the
+> line + the detached guard vanishes) — both killed, printed back.
+> ⛔ The rest of the pay-or-else aura family (Paralyze / Apathy / Mind Whip) needs a NEW choice shape —
+> "upkeep player may pay → payoff" with varied else-effects; Errant Minion (X-prevention) and Dance of
+> the Dead (reanimator machine) park. Banked, not built.
+> Token diet: ~30k output tokens this slice.
 > ## SLICE DONE - 2026-08-12 - **HOST-REFERENT SENTINEL (+1) — Unstable Mutation's counter finds its creature** - post-v0.157.0 batch 1
 > Suite 1199 / 14,402 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Unstable Mutation.
 > Audited whole-card (+3/+3 static modeled, the counter now lands). Post-release batch **+42**.

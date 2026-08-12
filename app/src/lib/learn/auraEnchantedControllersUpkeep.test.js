@@ -16,6 +16,9 @@
  *     upkeep row (must be SILENT) gains a trigger. An over-fire the tier cannot see.
  *   · the "that creature" → "enchanted creature" host-referent rewrite removed -> Unstable Mutation
  *     parks (the detection row dies).
+ *   · Slow Motion's matcher arm removed -> Slow Motion parks.
+ *   · the victimRef re-aim dropped from applyUpkeepSacUnlessPay -> the WRONG permanent is on the line
+ *     (the aura, not the host) and the detached guard vanishes — both Slow Motion runtime rows die.
  *
  * Real oracle fixtures (bundled Scryfall, probed 2026-08-12).
  */
@@ -23,6 +26,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { classifyCard } from "./coverage.js";
 import { checkStepTriggers, detectTriggers } from "./triggers.js";
+import { matchUpkeepSacUnlessPay } from "./effects/templateMatchers.js";
+import { ATOM_RESOLVERS } from "./effects/effectAtoms.js";
+import { resolveSacUnlessPayChoice } from "./effects/runProgram.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -93,5 +99,55 @@ describe("⭐⭐ LAW 6 — the aura fires on the HOST's controller's upkeep, and
       const fired = checkStepTriggers({ ...detached, activePlayer: seat, phase: "upkeep", step: "upkeep" }, "upkeep");
       expect((fired.pendingTriggers || []).filter((t) => t.source?.name === "Stab Wound")).toHaveLength(0);
     }
+  });
+});
+
+describe("⭐⭐ SLOW MOTION — the OTHER player's pay-or-sacrifice, re-aimed at the HOST", () => {
+  const SLOW_MOTION = { id: "c-sm", name: "Slow Motion", type: "Enchantment — Aura", mana: "{2}{U}",
+    oracle: "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, that player sacrifices that creature unless they pay {2}.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand." };
+  const SM_ATOM = matchUpkeepSacUnlessPay("the upkeep player sacrifices enchanted creature unless they pay {2}")?.atom;
+
+  it("⭐ Slow Motion flips native; the sentinel arm carries both re-aims; raw printed text refuses", () => {
+    expect(classifyCard(SLOW_MOTION)).toMatch(/^native/);
+    expect(SM_ATOM).toMatchObject({ op: "sac-unless-pay", payerRef: "upkeepPlayer", victimRef: "enchanted", cost: { kind: "mana" } });
+    // The PRINTED clause (pre-sentinel) must NOT parse — only the event's rewrites produce the phrases.
+    expect(matchUpkeepSacUnlessPay("that player sacrifices that creature unless they pay {2}")).toBeNull();
+  });
+
+  it("⭐⭐ LAW 6: the choice lands on the HOST's controller, and a DECLINE sacrifices the HOST — never the aura", () => {
+    const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const host = createPermanent({ id: "HOST", controller: "ai1", summoningSick: false,
+      card: { id: "c-br", name: "Grizzly Bears", type: "Creature — Bear", mana: "{1}{G}", power: "2", toughness: "2", oracle: "" } });
+    const aura = createPermanent({ id: "AURA", controller: "user", summoningSick: false, card: SLOW_MOTION });
+    aura.attachedTo = "HOST";
+    host.attachments = ["AURA"];
+    const s = { ...s0, players: { ...s0.players,
+      user: { ...s0.players.user, battlefield: [aura] },
+      ai1: { ...s0.players.ai1, battlefield: [host] } } };
+    const paused = ATOM_RESOLVERS["sac-unless-pay"](s, SM_ATOM, { controller: "user", sourceId: "AURA", cardName: "Slow Motion", upkeepPlayerId: "ai1", targets: [] });
+    const row = { payer: paused.pendingChoice?.controller, victim: paused.pendingChoice?.sourceId, victimName: paused.pendingChoice?.sourceName };
+    console.log("  WITNESS slowMotionReaimed", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({ payer: "ai1", victim: "HOST", victimName: "Grizzly Bears" });
+    const after = resolveSacUnlessPayChoice(paused, false);
+    const outcome = {
+      hostOnBoard: after.players.ai1.battlefield.some((p) => p.id === "HOST"),
+      hostInGraveyard: after.players.ai1.graveyard.some((c) => c.id === "c-br"),
+      // CR 704.5n — the aura, attached to nothing once the host dies, leaves the battlefield too (its
+      // own put-into-graveyard return trigger then brings it to hand in the full engine flow). The first
+      // draft of this row expected the aura to SURVIVE — the witness corrected the author.
+      auraOnBoard: after.players.user.battlefield.some((p) => p.id === "AURA"),
+    };
+    console.log("  WITNESS slowMotionDecline", JSON.stringify(outcome)); // vitest 4 needs --disable-console-intercept
+    expect(outcome).toEqual({ hostOnBoard: false, hostInGraveyard: true, auraOnBoard: false });
+  });
+
+  it("⛔ DETACHED or NO upkeep referent: no choice at all — never charged to the wrong seat", () => {
+    const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const aura = createPermanent({ id: "AURA", controller: "user", summoningSick: false, card: SLOW_MOTION });
+    const s = { ...s0, players: { ...s0.players, user: { ...s0.players.user, battlefield: [aura] } } };
+    const detached = ATOM_RESOLVERS["sac-unless-pay"](s, SM_ATOM, { controller: "user", sourceId: "AURA", cardName: "Slow Motion", upkeepPlayerId: "ai1", targets: [] });
+    expect(detached.pendingChoice).toBeFalsy();
+    const noReferent = ATOM_RESOLVERS["sac-unless-pay"](s, SM_ATOM, { controller: "user", sourceId: "AURA", cardName: "Slow Motion", targets: [] });
+    expect(noReferent.pendingChoice).toBeFalsy();
   });
 });

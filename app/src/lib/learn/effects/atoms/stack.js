@@ -1017,11 +1017,34 @@ function applyTaxedTreasure(state, atom, ctx) {
 // keeps it, don't-pay sacrifices it.
 function applyUpkeepSacUnlessPay(state, atom, ctx) {
   if (state.pendingChoice) return state; // FIFO — one choice at a time
+  let controller = ctx.controller;
+  let sourceId = ctx.sourceId ?? null;
+  let sourceName = ctx.cardName || null;
+  // SLOW MOTION (2026-08-12) — the OTHER-PLAYER's pay-or-sacrifice, re-aimed at fire time:
+  // payerRef:"upkeepPlayer" puts the choice (and the mana charge) on the player whose upkeep it is —
+  // the HOST's controller by the enchanted-controller's-upkeep firing gate — and victimRef:"enchanted"
+  // makes the HOST the permanent sacrificed on decline (the aura itself survives either outcome).
+  // Referent unset (a non-upkeep event) or a detached aura → NO choice at all (a clean no-op, never a
+  // choice charged to the wrong seat or a sacrifice of the wrong permanent). Everything downstream —
+  // resolveSacUnlessPayChoice, autoPickSacUnlessPay, the settle — inherits unchanged: pc.controller
+  // pays, pc.sourceId dies.
+  if (atom.payerRef === "upkeepPlayer") {
+    if (!ctx.upkeepPlayerId || !state.players?.[ctx.upkeepPlayerId]) return state;
+    controller = ctx.upkeepPlayerId;
+  }
+  if (atom.victimRef === "enchanted") {
+    const src = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+    const hostId = src?.permanent?.attachedTo || null;
+    const host = hostId ? findPermanent(state, hostId) : null;
+    if (!host) return state;
+    sourceId = hostId;
+    sourceName = host.permanent?.card?.name || null;
+  }
   return setPendingSacUnlessPayChoice(state, {
-    controller: ctx.controller,
+    controller,
     cost: atom.cost,
-    sourceId: ctx.sourceId ?? null,
-    sourceName: ctx.cardName || null,
+    sourceId,
+    sourceName,
   });
 }
 
