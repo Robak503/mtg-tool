@@ -1355,9 +1355,20 @@ function emitGatedEffect(out, effRaw, gate) {
   if (ptm) { pt = { power: signed(ptm[1]), toughness: signed(ptm[2]) }; e = e.slice(ptm[0].length); }
   e = e.replace(/^\s*(?:,\s*and|,|and)\s+/, "").trim(); // connector between the P/T and the keyword(s)
   const kws = [];
+  let protColors = [];
   if (e.startsWith("has ")) {
-    const segs = e.slice(4).split(/,|\band\b/).map(s => s.trim().replace(/[^a-z ]/g, "").trim()).filter(Boolean);
-    if (segs.length && segs.every(s => GRANTABLE_KEYWORDS.has(s))) { for (const s of segs) kws.push(canonicalKeyword(s)); e = ""; }
+    // GATED-PROTECTION (2026-08-12 — Mystic Familiar "Threshold — … gets +1/+1 and has protection from
+    // black"): the tail delegates to parseAnthemHaveTail, the SAME all-or-nothing oracle the group-anthem
+    // path uses, so a protection-from-COLOR span joins the grantable keywords here too. Pure-keyword tails
+    // reduce to the identical split/strip/GRANTABLE check as before (byte-stable). addProtection is
+    // enforced gate-aware by layers.permanentProtectionColors, whose gate check landed with this arm.
+    // ⓘ The !tail.wardLife rejection is DEFENSIVE-ONLY, mutation-proven unreachable (2026-08-12): a
+    // quoted ward tail is refused UPSTREAM before this line ever sees it (descriptors [] under the
+    // mutant). It stays because the failure it guards is a credit-with-dropped-ward FP, and the upstream
+    // refusal is not pinned here — if gated ward is ever modeled, route it through an addWard-with-gate
+    // op AND a gate check in the ward read, then delete this note.
+    const tail = parseAnthemHaveTail(e.slice(4));
+    if (tail && !tail.wardLife) { kws.push(...tail.keywords); protColors = tail.protColors; e = ""; }
   }
   // ⭐ COMBAT-RESTRICTION RIDERS — "gets +2/+2 AND CAN'T BLOCK" (Childhood Horror). Pure ignition: both
   // pseudo-keywords below are already modelled and enforced layer-aware, and this emitter already knows how
@@ -1383,9 +1394,10 @@ function emitGatedEffect(out, effRaw, gate) {
       "can attack as though it didn't have defender": ["attacksIgnoringDefender"] };
     if (Object.hasOwn(RIDERS, restriction)) { for (const k of RIDERS[restriction]) kws.push(k); e = ""; }
   }
-  if (e !== "" || (!pt && kws.length === 0)) return; // unconsumed rider, or nothing recognized → LOW (Arbiter)
+  if (e !== "" || (!pt && kws.length === 0 && protColors.length === 0)) return; // unconsumed rider, or nothing recognized → LOW (Arbiter)
   if (pt) out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModifyGated", power: pt.power, toughness: pt.toughness, gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });
   for (const kw of kws) out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: kw, gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+  if (protColors.length) out.push({ layer: 6, op: { layerOp: "addProtection", colors: protColors, gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });
 }
 
 /**

@@ -3,6 +3,34 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **GATED-PROTECTION (+1) — and the leading-conditional protection FP, fixed** - post-v0.157.0 batch 1
+> Suite 1197 / 14,391 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Mystic Familiar (re-run
+> AFTER the protection.js fix; runtime-only, no tier movement). Audited whole-card. Post-release batch **+26**.
+> ⭐ From drilling the THRESHOLD census row (17 sole-blocker / 27 total parked): the graveyard-count gate
+> and the gated-buff grammar already existed (gated flying parses) — the has-tail simply couldn't say
+> "protection from <color>". emitGatedEffect now delegates its has-tail to parseAnthemHaveTail — the
+> SAME all-or-nothing oracle the group-anthem path uses — one evaluator, byte-stable for pure-keyword
+> tails. Measured ceiling honest at +1: Pristine Angel parks on "protection from artifacts" (non-color
+> quality), Teroh's Vanguard on a quoted grant.
+> ⛔⛔ **THE REAL FIND: A LIVE PRE-EXISTING FP.** parseProtectionColors' conditional guard scanned the
+> sentence only FROM the match onward — a LEADING "As long as …, this creature has protection from X"
+> read as UNCONDITIONAL printed protection. Pristine Angel conferred all-five-color protection WHILE
+> TAPPED at the targeting/blocking/damage sites, live in every sim it appeared in. Whole-sentence guard
+> now; Etched Champion's trailing form pinned intact (25 incumbent protection tests green). My own
+> shut-gate witness row caught it — the build was right, the six-card row still showed B, and the
+> discrepancy led straight to the printed read.
+> ⭐ Enforcement half: permanentProtectionColors now honors op.gate (mirroring the layer-4/6/7c reads).
+> Witnesses: 7 cards → ["B"] and 2/3; 6 cards → [] and 1/2.
+> Mutations: GP-M1 (gate check → six-card row confers B) KILLS; GP-M3 (sentence fix reverted → both
+> leading-conditional rows die) KILLS; GP-M2 (wardLife rejection) **SURVIVED** — the quoted ward tail is
+> refused UPSTREAM (descriptors [] under the mutant, verified) — kept as documented defensive-only, the
+> dispatcher-else precedent. Honest-pin doctrine: the test header records the survival, not a fake kill.
+> ⛔ PARKED HONESTLY: gated lure (Seton's Desire / Stone-Tongue) + gated attacks-if-able (Otarian
+> Juggernaut) — their enforcement reads are CARD-TEXT reads (lureFilterOf / selfMustAttack, no state
+> param), whose anchors already correctly refuse the gated sentence. Gating them = a state-aware
+> enforcement refactor, its own slice. The quoted-grant threshold family (~17) joins the group
+> quoted-grant order's territory.
+> Token diet: ~85k output tokens this slice (threshold drill + shape probes + build + FP chase + gates).
 > ## SLICE DONE - 2026-08-12 - **SAC-UNLESS-RETURN-LAND: the Djinn's rent is a bounce (+2)** - post-v0.157.0 batch 1
 > Suite 1196 / 14,386 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Waterspout Djinn, Living
 > Tsunami. Both audited whole-card (Flying + the upkeep line). Post-release batch **+25**. This closes
@@ -19,8 +47,11 @@
 > controller-as-owner proxy, NO dies/sacrifice watchers (CR 700.4). Witness pins hand=true,
 > graveyard=false. Victim policy: prefer a TAPPED land when the cost allows (strictly dominant — least
 > mana access lost), witnessed: the Tsunami bounces the tapped Mountain and keeps the untapped Island.
-> ⚠️ **GITHUB DROPPED THE PUSH EVENT FOR 608f4f27 (third occurrence)** — no workflow run dispatched in
-> 6 min (monitored). This slice's push is the nudge; its run validates BOTH slices.
+> ⚠️ CORRECTED (same day): NOT a dropped push event — GitHub dispatched BOTH runs ~7 min late, past the
+> monitor's 6-min threshold calibrated on the real drop incidents. 608f4f27's run was then auto-
+> cancelled by this slice's push (the benign concurrency pattern); 25e9fb91's run validates both
+> slices. Diet for the diagnostic: read `gh run list --limit N` (all runs) BEFORE concluding a drop —
+> the per-commit query plus a tight timeout manufactured a false incident.
 > Token diet: ~55k output tokens this slice (seam already mapped — the fourth arm rides the third's scouting).
 > ## SLICE DONE - 2026-08-12 - **SAC-UNLESS-SACRIFICE: pay the rent with permanents (+3)** - post-v0.157.0 batch 1
 > Suite 1195 / 14,378 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Bog Elemental, Cosmic

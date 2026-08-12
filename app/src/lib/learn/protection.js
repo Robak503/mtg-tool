@@ -47,7 +47,15 @@ export function parseProtectionColors(card) {
     const before = oracle.slice(Math.max(0, m.index - 16), m.index).toLowerCase();
     if (/\bgains?\s+$/.test(before)) continue;
     const periodIdx = oracle.indexOf(".", m.index);
-    const sentence = oracle.slice(m.index, periodIdx >= 0 ? periodIdx : oracle.length).toLowerCase();
+    // GATED-PROTECTION FIX (2026-08-12): the conditional test must see the WHOLE sentence, not just the
+    // text from the match onward — a LEADING conditional ("As long as there are seven or more cards in
+    // your graveyard, this creature … has protection from black" — Mystic Familiar; "As long as this
+    // creature is untapped, it has protection from …" — Pristine Angel) was slipping through and being
+    // read as UNCONDITIONAL printed protection: a live FP at the targeting/blocking/damage sites even
+    // while the condition was false. The trailing form (Etched Champion "… as long as <metalcraft>")
+    // stays caught — it is inside the same sentence slice.
+    const sentStart = Math.max(oracle.lastIndexOf(".", m.index), oracle.lastIndexOf("\n", m.index)) + 1;
+    const sentence = oracle.slice(sentStart, periodIdx >= 0 ? periodIdx : oracle.length).toLowerCase();
     if (/\bas long as\b/.test(sentence)) continue;
     const tail = m[1].toLowerCase().trim();
     if (/^all colors\b/.test(tail) || /^each color\b/.test(tail)) {

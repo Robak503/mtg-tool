@@ -4184,6 +4184,11 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Conditional protection is no longer always-on.** Cards whose protection lives behind a condition
+  ("As long as this creature is untapped…" — Pristine Angel; threshold cards like Mystic Familiar) were
+  granting their protection unconditionally in the simulator — a tapped Pristine Angel could not be
+  targeted or damaged. The condition is now respected, and Mystic Familiar's threshold bonus
+  (+1/+1 and protection from black at seven cards in graveyard) is fully modeled.
 - **Bounce-a-land upkeep costs work.** Waterspout Djinn and Living Tsunami now offer their printed
   upkeep choice: return a land you control to your hand (the Djinn insists on an untapped Island) or
   sacrifice the creature. The returned land goes to your hand, not the graveyard.

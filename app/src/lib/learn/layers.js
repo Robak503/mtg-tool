@@ -1754,6 +1754,12 @@ export function permanentProtectionColors(state, permanentId) {
   const l6 = l6IndexOf(state).protection;
   for (const e of l6) {
     if (!effectAffects(e, perm, state)) continue;
+    // GATED-PROTECTION (2026-08-12 — Mystic Familiar's threshold grant): an addProtection op may carry a
+    // `gate`; skip it while the gate is closed, mirroring the layer-4/6/7c gate reads. Without this check
+    // a gated grant would confer protection with the gate SHUT — a forbidden FP at all three enforcement
+    // sites (combat damage / block / targeting). Every pre-existing addProtection op carries no gate and
+    // is untouched.
+    if (e.op.gate && !gateMet(state, perm, e.op.gate)) continue;
     for (const c of e.op.colors || []) set.add(String(c).toUpperCase());
     // EQUIP-PROTECTION-DYNAMIC (Commander's Plate, CR 702.16 + 702.16j): a granted "protection from each
     // color that's not in your commander's color identity". The quality is computed HERE from live state,
