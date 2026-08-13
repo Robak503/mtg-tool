@@ -7,6 +7,22 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ☀️ 2026-08-12 (night) — **THE PLAY-HINTS LEDGER SHIPPED + the shelf grind is the mode** — suite **1203 / 14,425** green
+
+> ### ⭐ NEW SYSTEM: the AI's decision layer is never blind (docs/orchestration/PLAY-HINTS-LEDGER.md)
+> Every card — parked included — carries a derived play role+timing (cardPlayHints.deriveCardRole, 14
+> roles, pure printed-text). The ledger file (card-play-hints.json; curated > arbiter > derived,
+> curated survives re-warms) overrides per card; `node scripts/warm-play-hints.mjs` re-warms it
+> (currently 1,257 cards / 340 parked hinted). The five learn API routes thread it; selfPlayRunner is
+> DELIBERATELY unwired (frozen-hash contract). Remains, in the doc: board-aware timing · the Arbiter
+> enrichment pass · the verdict-cache source · role growth (utility 503 = the refinement target).
+
+> ### ⏭ THE SHELF GRIND (Colton's standing order: deck testing) — targets in value order
+> colton 93% — ALL SIX ≥90 (Flow State closed Veyran at exactly 90). joe 79% — NINE below bar:
+> Jurassic Ramp 82 (closest) · Dragons 80 · Believe it! 79 · Wolverine 77 · Hulk Smash 77 · Kinnan 76 ·
+> Kellan 74 · Captain America 73 · Halfshell 68 (deepest). Per-deck parked lists print from
+> `measure-coverage.mjs <name>`; the Joe-deck law: 1-2 cards per shared subsystem is a huge win.
+> Veyran's own residue is ledgered (Arcane Denial = the closest single arm).
 ## ☀️ 2026-08-12 (later) — **batch +48 · the SPELL-MASTERY vein is drilled and design-ready** — suite **1200 / 14,412** green
 
 > ### ⏭ NEXT BUILD — SPELL-MASTERY riders (17 parked carriers, ONE shared condition, census in hand)
