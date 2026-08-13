@@ -25,6 +25,7 @@ import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { getSession, putSession, deleteSession } from "../../../../lib/server/learnSessionStore.js";
 import { autosaveSession, deleteSave } from "../../../../lib/server/learnSaveStore.js";
 import { appendGameRecord, recordFromSession } from "../../../../lib/server/gameRecordsStore.js";
+import { loadPlayHints } from "../../../../lib/server/playHintsLedger.js"; // PLAY-HINTS (2026-08-12) — parked cards get a play identity
 
 export async function POST(request) {
   let body;
@@ -52,7 +53,7 @@ export async function POST(request) {
 
   let result;
   try {
-    result = applyChoice(session, choice);
+    result = applyChoice(session, choice, { policy: { playHints: loadPlayHints() || true } });
   } catch (error) {
     return Response.json({ error: error.message || "Engine error processing choice." }, { status: 500 });
   }

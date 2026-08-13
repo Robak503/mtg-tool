@@ -26,6 +26,7 @@ import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { putSession } from "../../../../lib/server/learnSessionStore.js";
 import { getPuzzle } from "../../../../lib/server/puzzleStore.js";
+import { loadPlayHints } from "../../../../lib/server/playHintsLedger.js"; // PLAY-HINTS (2026-08-12) — parked cards get a play identity
 
 export async function POST(request) {
   let body;
@@ -57,7 +58,7 @@ export async function POST(request) {
 
   let advanced;
   try {
-    advanced = advanceUntilDecision(session);
+    advanced = advanceUntilDecision(session, { policy: { playHints: loadPlayHints() || true } });
   } catch (error) {
     return Response.json({ error: error.message || "Engine error loading the puzzle." }, { status: 500 });
   }

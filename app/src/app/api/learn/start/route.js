@@ -50,6 +50,7 @@ import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { putSession } from "../../../../lib/server/learnSessionStore.js";
 import { autosaveSession } from "../../../../lib/server/learnSaveStore.js";
 import { enrichDeck, enrichDecks } from "../../../../lib/server/learnDeckEnrich.js";
+import { loadPlayHints } from "../../../../lib/server/playHintsLedger.js"; // PLAY-HINTS (2026-08-12) — parked cards get a play identity
 
 export async function POST(request) {
   let body;
@@ -142,7 +143,7 @@ export async function POST(request) {
   } else {
     let advanced;
     try {
-      advanced = advanceUntilDecision(session);
+      advanced = advanceUntilDecision(session, { policy: { playHints: loadPlayHints() || true } });
     } catch (error) {
       return Response.json(
         { error: error.message || "Engine error advancing to first decision." },

@@ -28,6 +28,7 @@
 import { detectArchetype } from "../goldfish.js";
 import { filterActions } from "./legalChoices.js";
 import { opponentsOf, findPermanent } from "./gameState.js";
+import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
 import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, goaderControllersOf } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction } from "./manaModel.js";
@@ -72,11 +73,48 @@ function normalizePolicy(policy) {
  * runGoldfish uses internally), but operating on a cast-spell
  * legal-action object rather than a fully-classified card.
  */
-function scoreCastAction(action, card, archetype) {
+// ─── PLAY-HINTS role tables (2026-08-12, the decision-layer ledger — docs/orchestration/PLAY-HINTS-LEDGER.md) ──
+// Per-archetype score by ROLE (lower casts sooner), used ONLY when a hints map is threaded via
+// pol.playHints — absent, scoreCastAction's legacy flag path runs byte-identical (the resolveArbiter
+// default-off precedent; frozen self-play trajectory hashes untouched). The tables SUBSUME the legacy
+// flags (ramp/draw/interaction/token map to their roles at the legacy scores) and extend each archetype
+// in its own spirit: control WANTS wipes at 0 (the legacy interaction regex could not even see a wipe),
+// combo tutors are gold at 0 (legacy scored them as "else"), token decks finally rank anthems.
+// Timing is folded into the numbers (late/hold roles sit higher); board-AWARE timing is phase 2.
+const ROLE_SCORES = {
+  aggro: { ramp: 3, "card-draw": 3, counterspell: 2, "spot-removal": 2, protection: 2, wipe: 4, tutor: 3, recursion: 4, "token-maker": 2, anthem: 2, equipment: 3, lifegain: 5, finisher: 4, utility: 5 },
+  control: { counterspell: 0, "spot-removal": 0, wipe: 0, "card-draw": 1, protection: 1, ramp: 2, tutor: 2, recursion: 3, finisher: 3, lifegain: 3, "token-maker": 4, anthem: 4, equipment: 4, utility: 4 },
+  combo: { ramp: 0, tutor: 0, "card-draw": 1, counterspell: 2, protection: 2, recursion: 2, "spot-removal": 3, wipe: 4, "token-maker": 3, anthem: 4, equipment: 4, lifegain: 4, finisher: 3, utility: 3 },
+  voltron: { ramp: 0, equipment: 1, protection: 1, anthem: 2, tutor: 2, "card-draw": 2, counterspell: 2, "spot-removal": 2, finisher: 2, wipe: 4, recursion: 3, "token-maker": 3, lifegain: 4, utility: 3 },
+  tokens: { ramp: 0, "token-maker": 1, anthem: 1, "card-draw": 2, "spot-removal": 2, counterspell: 3, tutor: 2, recursion: 3, protection: 3, wipe: 4, equipment: 4, lifegain: 4, finisher: 3, utility: 3 },
+  aristocrats: { ramp: 0, "token-maker": 1, recursion: 1, "card-draw": 2, "spot-removal": 2, tutor: 2, counterspell: 3, protection: 3, wipe: 3, anthem: 3, equipment: 4, lifegain: 3, finisher: 3, utility: 3 },
+  ramp: { ramp: 0, "card-draw": 1, tutor: 1, finisher: 2, "spot-removal": 3, counterspell: 3, wipe: 3, recursion: 3, "token-maker": 3, anthem: 3, equipment: 4, protection: 3, lifegain: 4, utility: 3 },
+  midrange: { ramp: 0, "card-draw": 1, tutor: 1, "spot-removal": 2, counterspell: 2, wipe: 2, "token-maker": 3, recursion: 3, protection: 3, anthem: 3, equipment: 3, lifegain: 4, finisher: 3, utility: 3 },
+};
+function scoreByRole(hint, card, action, archetype) {
+  const type = String(card?.type || card?.type_line || "");
+  const cmc = action.cmc || 0;
+  // The aggro creature-curve override survives from the legacy scorer: cheap bodies outrank every role.
+  if (archetype === "aggro" && /Creature/.test(type)) {
+    if (cmc <= 2) return 0;
+    if (cmc <= 3) return 1;
+  }
+  const table = ROLE_SCORES[archetype] || ROLE_SCORES.midrange;
+  const s = table[hint.role];
+  return typeof s === "number" ? s : table.utility;
+}
+
+/** Test-only handle on the cast scorer — pins the default-off byte-identity contract (cardPlayHints.test.js). */
+export const __scoreCastActionForTests = (...args) => scoreCastAction(...args);
+
+function scoreCastAction(action, card, archetype, hint = null) {
   // Commander framework — the AI prioritizes casting its commander: a key threat + engine piece, and the
   // path to commander damage / the 21-loss (CR 903.10a). A command-zone cast outranks every other play
   // (lowest score wins), so the AI deploys its commander as soon as it can afford the taxed cost.
   if (action?.fromZone === "command" || card?.isCommander) return -1;
+  // PLAY-HINTS (default-off): a threaded hint routes to the role tables; absent → the legacy flag path
+  // below, byte-identical.
+  if (hint) return scoreByRole(hint, card, action, archetype);
   const type = String(card?.type || card?.type_line || "");
   const oracle = String(card?.oracle || card?.oracle_text || "");
   const isCreature = /Creature/.test(type);
@@ -704,6 +742,11 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     // the combined card, so the pick reflects what will really resolve.
     const card = actions[0].faceCard || cardFromHand(state, aiPlayerId, cardId);
     if (!card) continue; // card vanished
+    // PLAY-HINTS (default-off — docs/orchestration/PLAY-HINTS-LEDGER.md): pol.playHints threads the
+    // ledger map (or `true` for pure derivation). lookupPlayHint is TOTAL — ledger entry first, derived
+    // role otherwise — so with hints on, every card (parked included) carries a play identity. Absent →
+    // hint null → the legacy scorer, byte-identical (frozen trajectory hashes untouched).
+    const hint = pol.playHints ? lookupPlayHint(pol.playHints === true ? null : pol.playHints, card) : null;
     // AI-F2 — UNRESOLVABLE SPELLS: a LOW-confidence instant/sorcery whose program carries ZERO
     // runnable atoms (and no legacy `effect`, no chosen target) resolves as markPendingArbiter —
     // in self-play the spell just VANISHES (the Tier-1 breakage census's spell-unresolved rows:
@@ -725,7 +768,7 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
       if (pol.counter === "v1") continue;
       const counterPick = pickCounterCast(state, aiPlayerId, actions);
       if (!counterPick) continue; // no on-side threatening target → keep holding
-      scored.push({ action: counterPick, score: scoreCastAction(actions[0], card, archetype), cmc: actions[0].cmc || 0 });
+      scored.push({ action: counterPick, score: scoreCastAction(actions[0], card, archetype, hint), cmc: actions[0].cmc || 0 });
       continue;
     }
     // W7c (AI-F4) — BOARD WIPES: cast a held symmetric wipe when the AI is CLEARLY behind on
@@ -775,7 +818,7 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
       if (pol.aura === "v1") continue;
       const auraPick = pickAuraCast(state, aiPlayerId, actions, card);
       if (!auraPick) continue;
-      scored.push({ action: auraPick, score: scoreCastAction(actions[0], card, archetype), cmc: actions[0].cmc || 0 });
+      scored.push({ action: auraPick, score: scoreCastAction(actions[0], card, archetype, hint), cmc: actions[0].cmc || 0 });
       continue;
     }
     // W5 — X-SPELL SIZING: an X card is offered once per affordable X (× target
@@ -787,7 +830,7 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     if (pol.xSizing !== "v1" && actions.some((a) => a.xValue != null)) {
       const xChosen = pickXCast(state, aiPlayerId, actions);
       if (!xChosen) continue; // no killable threat / no legal face → hold
-      scored.push({ action: xChosen, score: scoreCastAction(actions[0], card, archetype), cmc: actions[0].cmc || 0 });
+      scored.push({ action: xChosen, score: scoreCastAction(actions[0], card, archetype, hint), cmc: actions[0].cmc || 0 });
       continue;
     }
     // KICKER (CR 702.33): a kicker card is emitted as a normal cast plus — when the kicker mana is also
@@ -799,7 +842,7 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     if (kickedActions.length && kickedActions.every(a => !(a.targets?.length))) {
       // TARGETLESS kicked group — kicker CREATURES (counter + ETB variants always emit targets:[]) and
       // untargeted kicked-spell-effects: no aiming to get wrong, take the kicked cast (legacy behavior).
-      scored.push({ action: kickedActions[0], score: scoreCastAction(kickedActions[0], card, archetype), cmc: kickedActions[0].cmc || 0 });
+      scored.push({ action: kickedActions[0], score: scoreCastAction(kickedActions[0], card, archetype, hint), cmc: kickedActions[0].cmc || 0 });
       continue;
     }
     if (kickedActions.length) {
@@ -813,12 +856,12 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
       const chosen = chooseDisciplinedVariant(state, aiPlayerId, kickedActions)
         ?? chooseDisciplinedVariant(state, aiPlayerId, unkicked);
       if (!chosen) continue;
-      scored.push({ action: chosen, score: scoreCastAction(chosen, card, archetype), cmc: chosen.cmc || 0 });
+      scored.push({ action: chosen, score: scoreCastAction(chosen, card, archetype, hint), cmc: chosen.cmc || 0 });
       continue;
     }
     const chosen = chooseDisciplinedVariant(state, aiPlayerId, actions);
     if (!chosen) continue;
-    scored.push({ action: chosen, score: scoreCastAction(actions[0], card, archetype), cmc: actions[0].cmc || 0 });
+    scored.push({ action: chosen, score: scoreCastAction(actions[0], card, archetype, hint), cmc: actions[0].cmc || 0 });
   }
 
   if (scored.length === 0) return null;

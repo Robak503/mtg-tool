@@ -22,6 +22,7 @@ import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { putSession } from "../../../../lib/server/learnSessionStore.js";
 import { loadSave } from "../../../../lib/server/learnSaveStore.js";
 import { migrate, isResumable } from "../../../../lib/server/learnSaveSchema.js";
+import { loadPlayHints } from "../../../../lib/server/playHintsLedger.js"; // PLAY-HINTS (2026-08-12) — parked cards get a play identity
 
 export async function POST(request) {
   let body;
@@ -67,7 +68,7 @@ export async function POST(request) {
     // Re-derive the current decision rather than persisting it — decisions can
     // hold (formerly non-serializable) option data, and recomputing from the
     // pure, deterministic state is both safe and free.
-    advanced = advanceUntilDecision(doc.session);
+    advanced = advanceUntilDecision(doc.session, { policy: { playHints: loadPlayHints() || true } });
   } catch (error) {
     return Response.json({ error: error.message || "Engine error resuming the game." }, { status: 500 });
   }

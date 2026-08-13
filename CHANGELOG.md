@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **The AI understands every card's role.** Cards the simulator can't fully model are no longer
+  invisible to the AI's decisions: every card now carries a derived play role (wipe, ramp, tutor,
+  finisher…) the opponents use to sequence their turns — control decks now hold and cast board wipes
+  like board wipes. A per-card hints ledger (card-play-hints.json) lets hand-written guidance override
+  the derivation, and `scripts/warm-play-hints.mjs` builds it for your saved decks.
+
 ### Fixed
 - **Removal that names a keyword works.** Clear a Path, Ogre Gatecrasher, Deface and Smash to Dust destroy
   a creature with defender; Shadowstorm and Faceless Devourer hit creatures with shadow. The simulator

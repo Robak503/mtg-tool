@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **THE PLAY-HINTS LEDGER — the AI's decision layer is no longer blind** - Colton's order, built whole
+> Suite 1203 / 14,425 green + lint 0 BY EXIT CODE. Design doc: docs/orchestration/PLAY-HINTS-LEDGER.md
+> (the three not-blind layers: Arbiter resolution · AI-F2 restraint · THIS, decision). No tier movement
+> by design — this is the AI's judgment, not the coverage metric.
+> ⭐ THE SYSTEM: cardPlayHints.deriveCardRole — a pure, TOTAL role+timing classifier over PRINTED text
+> (14 roles), so a parked card has a play identity the moment it exists · the LEDGER FILE
+> (card-play-hints.json, curated > arbiter > derived, curated survives re-warms) · warm-play-hints.mjs
+> (first warm: 1,257 cards / 21 decks, 340 parked cards hinted) · per-archetype ROLE_SCORES tables in
+> opponentAI subsuming the legacy four flags · the five learn API routes thread
+> policy.playHints = ledger || derivation — the Academy is NEVER hint-blind.
+> ⛔⛔ THE DEFAULT-OFF CONTRACT: no hints threaded ⇒ scoreCastAction BYTE-IDENTICAL to legacy (pinned:
+> control scored Wrath of God 4 — the legacy interaction regex cannot even SEE a wipe — and must keep
+> doing so hints-off). selfPlayRunner deliberately unwired: frozen trajectory hashes safe.
+> ⭐ The blindness rows: hints ON, control casts the wipe at priority 0, combo ranks tutors 0, token
+> decks rank anthems, parked cards score as citizens. THE WITNESS CORRECTED THE AUTHOR: Craterhoof
+> derived "anthem" until the big-body finisher prong learned to outrank printed pump text.
+> Mutation PH-M1 (hint branch removed → the blindness returns) killed, printed back.
+> ⏭ REMAINS (in the design doc): board-aware timing (the timing vocabulary is already carried) ·
+> the Arbiter enrichment pass (source:"arbiter" notes) · the verdict-cache SOURCE (resolution layer) ·
+> role growth (utility = 503 of 1,257 is the refinement target).
+> Token diet: ~90k output tokens this build (design + 4 modules + 5 routes + tests + doc).
 > ## SLICE DONE - 2026-08-12 - **FLOW STATE (+1) — Veyran Cantrips hits the 1.0 BAR** - the shelf grind opens
 > Suite 1202 / 14,421 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Flow State. Audited
 > whole-card. Post-release batch **+52**. ⭐⭐ **VEYRAN CANTRIPS: 89% → 90% — COLTON'S WHOLE SHELF NOW
