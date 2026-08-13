@@ -3,6 +3,30 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **EXTRA COMBAT, INCREMENT 3 (+5) — the after-MAIN insertion point** - the shelf grind
+> Suite 1204 / 14,434 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Relentless Assault,
+> Aggravated Assault, Seize the Day (three shelf carriers: Otharri Test, Hulk Smash's kin, Captain
+> America's kin) + Waves of Aggression and Response // Resurgence from the wider corpus. All audited
+> whole-card. Post-release batch **+58**.
+> ⭐ THE MACHINE ALREADY EXISTED — state.extraPhases with the CR 500.8 LIFO pop at end-of-combat — and
+> its own comments named this exact build ("Increment 3 gives the queue entry its own insertion
+> point"). The build: each queue entry carries after:"main"|absent, advanceStep pops each CLASS at ITS
+> boundary (a second pop site at main-phase exit; the end-of-combat site gained the class filter), the
+> after-main clause arm emits insertAfter:"main", and the promised "additional main phase" is the
+> normal forward transition out of the inserted combat (CR 505.1a).
+> ⭐ RIDERS THAT LANDED WITH IT: the attacked-this-turn mass untap (the RAID per-permanent flag — these
+> spells resolve in a main phase when the live attacker set is gone) and the applyExtraCombat SIGNATURE
+> FIX ((state, ctx) under a (state, atom, ctx) registry — the atom landed in the ctx slot and the log's
+> controller read undefined; the queueing was always right, only the log lied).
+> ⓘ THE PRECOMBAT-ACTIVATION CORNER, stated in-file: resolved before the normal combat, the model gives
+> one FEWER combat than CR 500.8 grants (under-delivery, FN-safe); the AI line (postcombat activation)
+> is exact.
+> ⭐ THREE park-pin graduations across three files (extraCombatAtom ×2, attackingUntap, massUntapOwn-
+> Creatures) — each had predicted this build in its own comment. Mutations EC-M1 (the pop site) and
+> EC-M2 (the class filter → a combat at a boundary the card never printed) both killed, printed back.
+> ⛔ Karlach still parks (the trigger compound: untap-attackers + first strike grant + first-combat
+> gate) — the named follow-up, worth 2 decks.
+> Token diet: ~55k output tokens this slice.
 > ## SLICE DONE - 2026-08-12 - **HALANA AND ALENA (+1) — one arm, two shelf decks paid** - the shelf grind
 > Suite 1204 / 14,429 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Halana and Alena, Partners
 > (parked in BOTH Shalai-and-Hallar Test and Wolverine — the cross-deck census's shared-card law).

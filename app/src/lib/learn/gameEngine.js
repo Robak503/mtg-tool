@@ -282,15 +282,46 @@ export function advanceStep(state) {
   // exactly N extra combats. Without the pop, Relentless Assault loops the turn forever.
   if (state.step === "end-of-combat") {
     const queued = state.extraPhases || [];
-    if (queued.length > 0) {
+    // CLASS-AWARE POP (Increment 3, 2026-08-12): this site consumes only the AFTER-COMBAT entries
+    // (`after` absent ⇒ the classic kind). LIFO within the class (CR 500.8). An after-MAIN entry queued
+    // during this combat's triggers waits for its own pop site below.
+    const idx = queued.length ? [...queued].map((e, i) => [e, i]).filter(([e]) => (e.after ?? "combat") === "combat").map(([, i]) => i).pop() : undefined;
+    if (idx !== undefined) {
       const bocIdx = TURN_SEQUENCE.findIndex((e) => e.step === "beginning-of-combat");
       if (bocIdx !== -1) {
         return {
           ...emptied,
-          extraPhases: queued.slice(0, -1), // LIFO — most recently created occurs first (CR 500.8)
+          extraPhases: queued.filter((_, i) => i !== idx), // LIFO within the class — most recent first (CR 500.8)
           phase: TURN_SEQUENCE[bocIdx].phase,
           step: TURN_SEQUENCE[bocIdx].step,
           combat: null,                     // a NEW combat: last combat's attackers/blockers do not carry over
+          priorityHolder: null,
+          consecutivePasses: 0,
+        };
+      }
+    }
+  }
+  // ===== EXTRA COMBAT AFTER A MAIN PHASE (Increment 3, 2026-08-12 — Aggravated Assault, Relentless
+  // Assault, Seize the Day: "After this MAIN phase, there is an additional combat phase…") ================
+  // The after:"main" pop site: leaving EITHER main phase with a queued after-main run, jump to
+  // beginning-of-combat instead of the normal forward transition. The promised "additional main phase"
+  // is the normal forward transition once this combat drains (CR 505.1a — every main after the first is
+  // a postcombat main; the after-combat block above makes the identical argument). Queued during a
+  // NON-main step (an upkeep activation), the entry simply waits here for the next main to end — the
+  // printed "after this main phase" resolves to the next main boundary, matching the card's ruling.
+  // ⛔ THE NON-TERMINATION TRAP, same as above: popped as taken, never re-queued — N grants, N combats.
+  if (state.step === "main") {
+    const queued = state.extraPhases || [];
+    const idx = queued.length ? [...queued].map((e, i) => [e, i]).filter(([e]) => e.after === "main").map(([, i]) => i).pop() : undefined;
+    if (idx !== undefined) {
+      const bocIdx = TURN_SEQUENCE.findIndex((e) => e.step === "beginning-of-combat");
+      if (bocIdx !== -1) {
+        return {
+          ...emptied,
+          extraPhases: queued.filter((_, i) => i !== idx),
+          phase: TURN_SEQUENCE[bocIdx].phase,
+          step: TURN_SEQUENCE[bocIdx].step,
+          combat: null,
           priorityHolder: null,
           consecutivePasses: 0,
         };

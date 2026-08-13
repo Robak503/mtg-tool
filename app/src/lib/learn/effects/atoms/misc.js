@@ -241,6 +241,19 @@ export function miscClauseParser(clause) {
       || /^there is an additional combat phase after this phase(, followed by an additional main phase)?$/.test(t)) {
     return { op: "extra-combat", targetType: null };
   }
+  // ===== EXTRA-COMBAT, AFTER-MAIN INSERTION (Increment 3, 2026-08-12 — Aggravated Assault #699,
+  // Relentless Assault #1543, Seize the Day) ===== "After this main phase, there is an additional combat
+  // phase[ followed by an additional main phase]." The queue entry carries its OWN insertion point
+  // (after:"main") and advanceStep pops it when a MAIN phase ends — the promised additional main is the
+  // normal forward transition out of the inserted combat (CR 505.1a: every main after the first is a
+  // postcombat main), exactly the argument the after-combat arm above already makes.
+  // ⓘ THE PRECOMBAT-ACTIVATION CORNER, stated honestly: activated/resolved BEFORE the normal combat, the
+  // model jumps main → extra combat → postcombat main and the turn's NORMAL combat is not replayed — one
+  // FEWER combat than CR 500.8 grants in that corner. Under-delivery (FN-safe), never an extra combat the
+  // card didn't pay for; the AI line (activate in the postcombat main) is modeled exactly.
+  if (/^after this main phase, there is an additional combat phase(,? followed by an additional main phase)?$/.test(t)) {
+    return { op: "extra-combat", insertAfter: "main", targetType: null };
+  }
   // TAPPED-COUNT DRAW (BLITZ TD-1 — Theft of Dreams / Borrowing 100,000 Arrows): "Draw a card for each
   // tapped creature target opponent controls." The CONTROLLER draws; the chosen OPPONENT target only
   // supplies the count (countForSpec's tappedCreaturesOfTargetOpponent — layer-aware creature read at
@@ -568,9 +581,14 @@ export function applyExtraTurn(state, atom, ctx) {
  * The queue is per-STATE (never the module-level TURN_SEQUENCE, which is shared by every game), and each
  * run is popped as it is taken, so N grants give exactly N extra combats and the turn always terminates.
  */
-export function applyExtraCombat(state, ctx) {
-  const next = { ...state, extraPhases: [...(state.extraPhases || []), { kind: "combat" }] };
-  return logEvent(next, { kind: "spell-effect", effect: "extra-combat", controller: ctx.controller, queued: next.extraPhases.length });
+export function applyExtraCombat(state, atom, ctx) {
+  // SIGNATURE FIX (2026-08-12, found adding the after-main arm): this resolver was (state, ctx) while the
+  // registry calls (state, atom, ctx) — the atom landed in the ctx slot and the log's `controller` read
+  // atom.controller (undefined). The queueing behavior was always right; only the log line lied.
+  // AFTER-MAIN (Increment 3): the entry carries its insertion point — advanceStep pops after:"main"
+  // entries when a MAIN phase ends, and the classic entries (after absent ⇒ "combat") at end-of-combat.
+  const next = { ...state, extraPhases: [...(state.extraPhases || []), { kind: "combat", ...(atom?.insertAfter === "main" ? { after: "main" } : {}) }] };
+  return logEvent(next, { kind: "spell-effect", effect: "extra-combat", controller: ctx?.controller, after: atom?.insertAfter || "combat", queued: next.extraPhases.length });
 }
 
 /**

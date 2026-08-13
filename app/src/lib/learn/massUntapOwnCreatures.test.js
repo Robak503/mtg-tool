@@ -95,10 +95,12 @@ describe("tier", () => {
       oracle: "Untap all creatures you control." })).toBe("native-spell");
   });
 
-  it("⛔ Aggravated Assault stays PARKED — its additional-combat rider is a separate blocker", () => {
-    // The honest counterweight to the 43-card clause count.
+  it("⭐ GRADUATED (2026-08-12): Aggravated Assault flips — the additional-combat rider landed (Increment 3)", () => {
+    // The separate blocker this pin named — the after-MAIN extra-combat rider — got its insertion point
+    // (extraCombatAtom.test.js's Increment-3 describe holds the pop witnesses). The 43-card clause count's
+    // honest counterweight is now the flip itself.
     expect(classifyCard({ name: "Aggravated Assault", type: "Enchantment", mana: "{2}{R}",
       oracle: "{3}{R}{R}: Untap all creatures you control. After this main phase, there is an additional combat phase followed by an additional main phase." }))
-      .not.toMatch(/^native/);
+      .toMatch(/^native/);
   });
 });

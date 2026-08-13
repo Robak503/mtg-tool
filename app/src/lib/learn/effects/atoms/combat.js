@@ -158,6 +158,12 @@ export function applyUntapLands(state, atom, ctx) {
       // fallback to "all creatures" — which would untap the whole board off a card that promised only the
       // attackers.
       if (!(state.combat?.attackers || []).some((a) => a?.permanentId === perm.id)) continue;
+    } else if (atom?.scope === "attackedThisTurn") {
+      // ATTACKED-THIS-TURN (2026-08-12 — Relentless Assault): the RAID flag, not the live combat set —
+      // these spells resolve in a MAIN phase (combat is already null). A creature that never attacked
+      // this turn is untouched; outside any attack this turn the loop unatps nothing (clean no-op).
+      if (!perm.attackedThisTurn) continue;
+      if (!(/\bcreature\b/i.test(typeLineStr(perm.card)) || permanentIsCreature(state, perm.id))) continue;
     } else if (!/\bland\b/i.test(typeLineStr(perm.card))) continue;
     ids.push(perm.id);
   }
@@ -1363,6 +1369,11 @@ export function combatKeywordClauseParser(clause) {
   // scope: only permanents in the LIVE attacker set. Every carrier is an attack trigger, so the set is
   // populated when it fires; outside combat it untaps nothing rather than falling back to the whole board.
   if (/^untap all attacking creatures$/.test(t)) return { op: "untap-lands", all: true, scope: "attacking", targetType: null };
+  // ATTACKED-THIS-TURN mass untap (2026-08-12 — Relentless Assault "Untap all creatures that attacked
+  // this turn", Seize the Day's kin): the TURN-scoped sibling of the attacking scope above. These spells
+  // resolve in a MAIN phase when state.combat is null, so the live attacker set is gone — the read is the
+  // RAID per-permanent flag (p.attackedThisTurn, stamped at attack declaration, cleared at untap step).
+  if (/^untap all creatures that attacked this turn$/.test(t)) return { op: "untap-lands", all: true, scope: "attackedThisTurn", targetType: null };
   // CANT-BE-BLOCKED SELF (BLITZ SC-1 — Sword Coast Sailor's granted trigger effect: "this creature can't
   // be blocked this turn"): the SOURCE as the fixed referent (atomTargets target:"self" → ctx.sourceId);
   // the same layer-6 endOfTurn unblockable grant as the targeted form. Whole-clause anchored.

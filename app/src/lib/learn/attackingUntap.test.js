@@ -104,10 +104,14 @@ describe("⭐ the RAPHAEL wording — 'after this COMBAT phase' is the same inse
     expect(ops).toEqual(["extra-combat"]);
   });
 
-  it("⛔ and widening it did NOT open the after-MAIN form", () => {
-    // The reason it is a separate alternative rather than an optional `(combat )?` inside one pattern.
-    const ops = (parseEffectProgram({ type: "Sorcery", name: "X", oracle: "After this main phase, there is an additional combat phase." })?.atoms || []).map((a) => a.op);
-    expect(ops).not.toContain("extra-combat");
+  it("⭐ GRADUATED (2026-08-12): the after-MAIN form parses via its OWN arm with its OWN insertion point", () => {
+    // This pin guarded against the after-COMBAT arm being widened into the main form (which would have
+    // fired at the wrong boundary). Increment 3 gave the form its own arm instead: insertAfter:"main",
+    // popped by advanceStep at a MAIN-phase exit — the separate-alternative discipline held to the end.
+    // The pop-site witnesses live in extraCombatAtom.test.js's Increment-3 describe.
+    const atoms = parseEffectProgram({ type: "Sorcery", name: "X", oracle: "After this main phase, there is an additional combat phase." })?.atoms || [];
+    expect(atoms.map((a) => a.op)).toContain("extra-combat");
+    expect(atoms.find((a) => a.op === "extra-combat").insertAfter).toBe("main");
   });
 });
 
@@ -175,5 +179,25 @@ describe("tier", () => {
     expect(classifyCard({ name: "Scourge of the Throne", type: "Creature — Dragon", mana: "{4}{R}{R}", power: "5", toughness: "5",
       oracle: "Flying\nDethrone (Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1 counter on it.)\nWhenever this creature attacks for the first time each turn, if it's attacking the player with the most life or tied for most life, untap all attacking creatures. After this phase, there is an additional combat phase." }))
       .not.toMatch(/^native/);
+  });
+});
+
+describe("⭐ ATTACKED-THIS-TURN scope (Increment 3 — Relentless Assault's untap)", () => {
+  it("⭐⭐ only the creature that attacked this turn untaps; the bystander stays tapped", () => {
+    const s0 = createGameState({ userDeck: [], aiDeck: [] });
+    const attacker = { id: "ATK", controller: "user", tapped: true, attackedThisTurn: true, summoningSick: false, counters: {},
+      card: { id: "c-a", name: "Raging Bear", type: "Creature — Bear", oracle: "", power: "2", toughness: "2" } };
+    const bystander = { id: "BYS", controller: "user", tapped: true, summoningSick: false, counters: {},
+      card: { id: "c-b", name: "Sleepy Bear", type: "Creature — Bear", oracle: "", power: "2", toughness: "2" } };
+    const s = { ...s0, players: { ...s0.players, user: { ...s0.players.user, battlefield: [attacker, bystander] } } };
+    const atom = (parseEffectProgram({ type: "Sorcery", name: "X", oracle: "Untap all creatures that attacked this turn." }) || {}).atoms?.[0];
+    expect(atom).toMatchObject({ op: "untap-lands", scope: "attackedThisTurn" });
+    const after = resolveAtom(s, atom, { controller: "user", targets: [] });
+    const row = {
+      attackerTapped: after.players.user.battlefield.find((p) => p.id === "ATK")?.tapped,
+      bystanderTapped: after.players.user.battlefield.find((p) => p.id === "BYS")?.tapped,
+    };
+    console.log("  WITNESS attackedThisTurnUntap", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({ attackerTapped: false, bystanderTapped: true });
   });
 });
