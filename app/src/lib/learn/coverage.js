@@ -36,7 +36,7 @@ import { detectTriggers, stripTriggerAbilityLabel, foldTwoTriggerDetain, parseGr
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND no-cost credit — the same gate the runtime offers through (fading→triggers→… is already a loaded edge; no cycle)
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler, parseDiscardCostAbility } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, registerAuraOwnTriggerValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, registerAuraOwnTriggerValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, attachedNoUntapOf, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
 import { spellConditionParseable } from "./interveningIf.js"; // EW-1 — the metric⇄runtime shared gate for a conditional enters-with counter (the resolver evaluates the SAME vocabulary via evaluateInterveningIf); acyclic (interveningIf imports only gameState)
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
@@ -1459,6 +1459,15 @@ export function permanentTriggersCovered(card) {
     // follow the exact "suspect it." clause (FN-safe — a standalone create-sentence elsewhere is untouched).
     // Runs before the When-strip (which removes the "suspect it." prefix this anchor needs).
     .replace(/(suspect it)\.\s+create a [^.]+ token\b\.?\s*/gi, "$1. ")
+    // UPKEEP-PLAYER MAY-PAY follow-up (2026-08-12 — Paralyze "that player may pay {4}. If the player
+    // does, untap the creature."; Apathy's discard-at-random form): the SAME follow-up-sentence class as
+    // Surrak/Person-of-Interest above — matchOptionalManaPayment collapses the two sentences into ONE
+    // optional-mana-payment atom and the WHOLE effect parses HIGH in allTriggerSentencesModeled (proven
+    // before this residue check runs), but the trigger-sentence strip stops at the first period after
+    // "…may pay {4}.", leaving the payoff sentence as apparent residue. Anchored to DIRECTLY follow the
+    // exact may-pay / may-discard-at-random clause (FN-safe — a standalone "If the player does…" with any
+    // other antecedent is untouched).
+    .replace(/(may (?:pay (?:\{[^}]+\})+|discard a card at random))\.\s+if the player does,?\s+[^.]+\.?\s*/gi, "$1. ")
     // TOKEN-ABILITY GRANT (TK-1's residue half, 2026-07-28) — "…create a 1/1 colorless Eldrazi Scion creature
     // token. It has \"Sacrifice this token: Add {C}.\"" (the Scion/Spawn family, Serpent Generator, Mitotic
     // Slime). EXACTLY the Surrak/Person-of-Interest follow-up class: detectTriggers already folds the
@@ -2613,7 +2622,14 @@ function isNativeOwnTriggeredAura(card) {
   // right (credit on transformed text owes a check on the untransformed card) and one parser change
   // could make it load-bearing again, but it is DEFENSIVE, not live, and its own doc above still names
   // Elephant Guide as a victim it no longer has. Said out loud so the next reader doesn't inherit that.
-  if (parseAuraBonus(card).length === 0 && !isControlAura(card)) return false;
+  // NO-UNTAP TAP-LOCK AURAS (2026-08-12 — Paralyze / Apathy, the UPKEEP-PLAYER MAY-PAY slice) — the
+  // THIRD deliverer family, same argument as control auras directly above: the tap-lock line is enforced
+  // by gameState.untapAll reading the PRINTED attachment (attachedNoUntapOf's regex), so a sibling
+  // trigger line cannot poison it — the exact property parseAuraBonus lacks and isControlAura has. A
+  // no-untap aura has no P/T-or-keyword bonus by construction, so without this arm the guard refused a
+  // composition whose runtime delivery is fine. Still a delivery CHECK, not a bypass — an Aura with
+  // neither a surviving bonus, nor a control line, nor the printed tap-lock line fails.
+  if (parseAuraBonus(card).length === 0 && !isControlAura(card) && !attachedNoUntapOf(card)) return false;
   return true;
 }
 

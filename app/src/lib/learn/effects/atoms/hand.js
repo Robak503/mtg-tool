@@ -121,7 +121,7 @@ export function advanceDiscardChain(state, { queue, sourceName = null }) {
  * (contrast the δ-1b Duress reveal). The seed threads through EVERY pick (nextRandomInt returns the advanced
  * state), so the sequence is serialize-stable: a game saved mid-discard restores the identical picks.
  */
-function pitchRandomDiscard(state, { discarders, amount, sourceName = null }) {
+export function pitchRandomDiscard(state, { discarders, amount, sourceName = null }) {
   let next = state;
   for (const pid of discarders) {
     let remaining = amount;

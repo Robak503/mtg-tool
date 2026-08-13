@@ -886,8 +886,17 @@ function optionalPaymentConditionMet(state, atom, ctx) {
 
 function applyOptionalManaPayment(state, atom, ctx) {
   if (state.pendingChoice) return state; // FIFO — one choice at a time (belt-and-braces; setter re-guards)
+  // UPKEEP-PLAYER MAY-PAY (2026-08-12 — Paralyze/Apathy): payerRef re-aims the choice (and the charge,
+  // and the payoff's controller) at the player whose upkeep it is — the HOST's controller by the
+  // enchanted-controller's-upkeep firing gate. Referent unset (a non-upkeep event) → NO choice at all
+  // (a clean no-op, never a choice charged to the wrong seat). The Slow Motion pattern.
+  let payController = ctx.controller;
+  if (atom.payerRef === "upkeepPlayer") {
+    if (!ctx.upkeepPlayerId || !state.players?.[ctx.upkeepPlayerId]) return state;
+    payController = ctx.upkeepPlayerId;
+  }
   return setPendingOptionalManaPaymentChoice(state, {
-    controller: ctx.controller,
+    controller: payController,
     cost: atom.cost,
     effectAtoms: atom.effectAtoms || [],
     // FALLBACK (Springheart) — run by the settler when the payment is NOT made, whether declined or

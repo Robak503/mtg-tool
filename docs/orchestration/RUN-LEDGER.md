@@ -3,6 +3,30 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **UPKEEP-PLAYER MAY-PAY (+2) — Paralyze and Apathy ransom the host** - post-v0.157.0 batch 1
+> Suite 1200 / 14,408 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Paralyze, Apathy. Audited
+> whole-card (ETB tap + the tap-lock static + the may-pay trigger). Post-release batch **+45**.
+> ⭐ ONE machine, three pieces: (1) a matchOptionalManaPayment sibling arm on the event's SENTINELS
+> ("the upkeep player may pay {4} / may discard a card at random. if the player does, <payoff>") —
+> neither phrase exists in printed oracle, so the arm is unreachable from any other event; (2) the
+> optional-mana-payment payerRef re-aim at the suspend site (the Slow Motion pattern); (3) a
+> discard-random COST kind settled by the SEEDED pitchRandomDiscard (a REAL CR 701.9b discard — watchers
+> fire, serialize-stable, and the before-check is the paid gate).
+> ⭐ TWO COVERAGE GATES had to learn the shape: the residue walk strips the "If the player does, …"
+> follow-up (the Surrak/Toxin-Sliver rider class — anchored to DIRECTLY follow the may-pay clause), and
+> the static+trigger composite's delivery guard admits the TAP-LOCK static via attachedNoUntapOf — the
+> third deliverer family after bonuses and control lines (gameState.untapAll reads the PRINTED line, so
+> a sibling trigger cannot poison it — the exact property the guard demands).
+> ⭐ Law 6 through the REAL flush (checkStepTriggers → flushTriggers → resolveTopOfStack — the payoff's
+> sourceId only threads via the program resume): the choice lands on the HOST's controller; pay =
+> hand 2→1 at random AND the tapped host UNTAPS; empty hand = auto-pick refuses, a stale "pay" charges
+> NOTHING and the host stays tapped.
+> ⭐ THIRD same-day pin graduation: auraTapLock.test.js pinned Paralyze body-only ("an unmodeled
+> aura-own trigger") — flipped to positive; Bind the Monster / Narcolepsy still hold that test's line.
+> Mutations MP-M1..M4 (parser arm / discard-random settle / payerRef re-aim / delivery-guard arm) ALL
+> killed, printed back. ⛔ Mind Whip parks honestly (inverted "If they don't" + compound else — needs
+> an elseAtoms arm, 1 carrier); Errant Minion (X-prevention) and Dance of the Dead (reanimator) park.
+> Token diet: ~70k output tokens this slice (two coverage gates took the digging).
 > ## SLICE DONE - 2026-08-12 - **SLOW MOTION (+1) — the OTHER player's pay-or-sacrifice** - post-v0.157.0 batch 1
 > Suite 1199 / 14,405 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Slow Motion. Audited
 > whole-card (the Rancor-style graveyard-return line already parsed). Post-release batch **+43**.

@@ -3907,7 +3907,10 @@ export function detectTriggers(card) {
       // counters fail the counter arm's ±1/±1 shape — only ±1/±1 carries P/T weight in ptPrimitive — so
       // they stay parked rather than crediting a counter that would apply NOTHING (the free-spell shape).
       if (cls.enchantedControllersUpkeep) {
-        effectClause = effectClause.replace(/\bthat creature\b/gi, "enchanted creature");
+        // "(that|the) creature" both rewrite: Apathy prints "untap THAT creature", Paralyze "untap THE
+        // creature" — on this event both anaphors have the same single antecedent (the enchanted host).
+        // "enchanted creature" itself never matches (no "that/the" directly before "creature" there).
+        effectClause = effectClause.replace(/\b(?:that|the) creature\b/gi, "enchanted creature");
       }
       // ⭐⭐ CASTING-PLAYER REFERENT (TP-1, CR 603.2 — Eidolon of the Great Revel, Pyrostatic Pillar, Aether
       // Sting, Spellshock, Kambal, Yawgmoth's Edict, Memory Erosion): on a CAST trigger, "that player" is the

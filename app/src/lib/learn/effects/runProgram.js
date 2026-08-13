@@ -27,7 +27,7 @@ import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice, setPendingImpulseDigChoice } from "../pendingChoice.js";
 import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents } from "../gameState.js";
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 import { checkDiscardTriggers } from "../triggers.js"; // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event
 import { isLandCard } from "./atoms/shared.js"; // SAC-UNLESS-RETURN-LAND — shared.js is a strict leaf, so this edge is DAG-safe
@@ -1215,6 +1215,10 @@ export function autoPickOptionalManaPayment(state, pc) {
   if (!player) return false;
   const cost = pc?.cost;
   if (cost?.kind === "energy") return hasEnergy(state, pc.controller, cost.amount || 0); // pay-if-able (energy is a stored resource; spending a beneficial payoff is the sensible default)
+  // DISCARD-RANDOM (2026-08-12, Apathy) — pay iff a non-token card is in hand (the SAME before-check the
+  // settle's cost arm gates on, so auto-pick and settle cannot disagree — the Masticore lesson). Untapping
+  // your own creature for one random card is the pay-if-able default; a hand-value refinement is future.
+  if (cost?.kind === "discard-random") return (player.hand || []).filter((c) => !c.token).length >= (cost.count || 1);
   if (cost?.kind !== "mana") return false; // only the modeled mana / energy forms pay
   return canAfford(player.manaPool, manaSources(state, pc.controller), cost.mana || {});
 }
@@ -1261,6 +1265,17 @@ export function resolveOptionalManaPaymentChoice(state, pay) {
     // and an unaffordable "pay" runs NO payoff (mirrors payManaCost's no-fabrication guarantee, the CREED bar).
     if (hasEnergy(next, pc.controller, pc.cost.amount || 0)) {
       next = spendEnergy(next, { playerId: pc.controller, amount: pc.cost.amount || 0 });
+      paid = true;
+    }
+  } else if (canPay && pay && pc.cost?.kind === "discard-random") {
+    // DISCARD-RANDOM cost (2026-08-12, Apathy "may discard a card at random. If the player does, untap…"):
+    // a REAL random discard through the SEEDED pitchRandomDiscard — CR 701.9b picks the card, discard
+    // watchers fire, serialize-stable. The before-check is the paid gate: an empty (non-token) hand pays
+    // NOTHING and `paid` stays false → no payoff (the CREED no-fabrication bar, same as an unaffordable
+    // payManaCost).
+    const nontoken = (next.players[pc.controller]?.hand || []).filter((c) => !c.token);
+    if (nontoken.length >= (pc.cost.count || 1)) {
+      next = pitchRandomDiscard(next, { discarders: [pc.controller], amount: pc.cost.count || 1, sourceName: pc.sourceName || null });
       paid = true;
     }
   }

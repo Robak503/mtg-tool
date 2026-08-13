@@ -19,6 +19,13 @@
  *   · Slow Motion's matcher arm removed -> Slow Motion parks.
  *   · the victimRef re-aim dropped from applyUpkeepSacUnlessPay -> the WRONG permanent is on the line
  *     (the aura, not the host) and the detached guard vanishes — both Slow Motion runtime rows die.
+ *   · the upkeep-player may-pay parser arm removed -> Paralyze + Apathy park (3 rows die).
+ *   · the discard-random settle arm removed -> paid stays false with a full hand — the pay row's host
+ *     never untaps.
+ *   · the payerRef re-aim dropped from applyOptionalManaPayment -> the choice lands on the AURA OWNER
+ *     instead of the host's controller (the pay row's controller assertion dies).
+ *   · the attachedNoUntapOf arm dropped from the composite delivery guard -> both carriers park (the
+ *     tap-lock static has no parseAuraBonus bonus, and the guard refuses the composition again).
  *
  * Real oracle fixtures (bundled Scryfall, probed 2026-08-12).
  */
@@ -28,7 +35,8 @@ import { classifyCard } from "./coverage.js";
 import { checkStepTriggers, detectTriggers } from "./triggers.js";
 import { matchUpkeepSacUnlessPay } from "./effects/templateMatchers.js";
 import { ATOM_RESOLVERS } from "./effects/effectAtoms.js";
-import { resolveSacUnlessPayChoice } from "./effects/runProgram.js";
+import { resolveSacUnlessPayChoice, resolveOptionalManaPaymentChoice, autoPickOptionalManaPayment } from "./effects/runProgram.js";
+import { flushTriggers, resolveTopOfStack } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -149,5 +157,66 @@ describe("⭐⭐ SLOW MOTION — the OTHER player's pay-or-sacrifice, re-aimed a
     expect(detached.pendingChoice).toBeFalsy();
     const noReferent = ATOM_RESOLVERS["sac-unless-pay"](s, SM_ATOM, { controller: "user", sourceId: "AURA", cardName: "Slow Motion", targets: [] });
     expect(noReferent.pendingChoice).toBeFalsy();
+  });
+});
+
+describe("⭐⭐ UPKEEP-PLAYER MAY-PAY — Paralyze pays mana, Apathy pays a random discard, both untap the HOST", () => {
+  const APATHY = { id: "c-ap", name: "Apathy", type: "Enchantment — Aura", mana: "{U}",
+    oracle: "Enchant creature\nEnchanted creature doesn't untap during its controller's untap step.\nAt the beginning of the upkeep of enchanted creature's controller, that player may discard a card at random. If the player does, untap that creature." };
+  const PARALYZE = { id: "c-pz", name: "Paralyze", type: "Enchantment — Aura", mana: "{B}",
+    oracle: "Enchant creature\nWhen this Aura enters, tap enchanted creature.\nEnchanted creature doesn't untap during its controller's untap step.\nAt the beginning of the upkeep of enchanted creature's controller, that player may pay {4}. If the player does, untap the creature." };
+
+  it("⭐ the pair flips native; Mind Whip's inverted polarity stays parked", () => {
+    for (const c of [APATHY, PARALYZE]) expect(classifyCard(c), c.name).toMatch(/^native/);
+    expect(classifyCard({ id: "c-mw", name: "Mind Whip", type: "Enchantment — Aura", mana: "{2}{B}",
+      oracle: "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, that player may pay {3}. If they don't, this Aura deals 2 damage to that player and you tap that creature." })).toBe("body-only");
+  });
+
+  function pausedApathy(handCount) {
+    // MY Apathy on ai1's TAPPED Bear; ai1's upkeep — drive the REAL flush so the payoff's sourceId
+    // threads through the program resume (a direct resolver call would witness nothing).
+    const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const host = createPermanent({ id: "HOST", controller: "ai1", tapped: true, summoningSick: false,
+      card: { id: "c-br", name: "Grizzly Bears", type: "Creature — Bear", mana: "{1}{G}", power: "2", toughness: "2", oracle: "" } });
+    const aura = createPermanent({ id: "AURA", controller: "user", summoningSick: false, card: APATHY });
+    aura.attachedTo = "HOST";
+    host.attachments = ["AURA"];
+    const hand = Array.from({ length: handCount }, (_, i) => ({ id: "h" + i, name: "Held " + i, type: "Instant", oracle: "" }));
+    let s = { ...s0, activePlayer: "ai1", phase: "upkeep", step: "upkeep", players: { ...s0.players,
+      user: { ...s0.players.user, battlefield: [aura] },
+      ai1: { ...s0.players.ai1, battlefield: [host], hand } } };
+    s = checkStepTriggers(s, "upkeep");
+    s = flushTriggers(s);
+    let guard = 0;
+    while ((s.stack || []).length && !s.pendingChoice && guard++ < 10) s = resolveTopOfStack(s);
+    return s;
+  }
+
+  it("⭐⭐ LAW 6 — PAY: the upkeep player discards ONE at random, and the tapped HOST untaps", () => {
+    const paused = pausedApathy(2);
+    expect(paused.pendingChoice?.kind).toBe("optional-mana-payment");
+    expect(paused.pendingChoice?.controller).toBe("ai1"); // the HOST's controller, not the aura owner
+    expect(autoPickOptionalManaPayment(paused, paused.pendingChoice)).toBe(true);
+    const after = resolveOptionalManaPaymentChoice(paused, true);
+    const row = {
+      handAfter: after.players.ai1.hand.length,
+      discardedToGraveyard: after.players.ai1.graveyard.length,
+      hostUntapped: after.players.ai1.battlefield.find((p) => p.id === "HOST")?.tapped === false,
+    };
+    console.log("  WITNESS apathyPays", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({ handAfter: 1, discardedToGraveyard: 1, hostUntapped: true });
+  });
+
+  it("⛔⛔ LAW 6 — EMPTY hand: auto-pick refuses, a stale 'pay' charges NOTHING and the host stays tapped", () => {
+    const paused = pausedApathy(0);
+    expect(paused.pendingChoice?.kind).toBe("optional-mana-payment");
+    expect(autoPickOptionalManaPayment(paused, paused.pendingChoice)).toBe(false);
+    const after = resolveOptionalManaPaymentChoice(paused, true); // the disagreement guard
+    const row = {
+      graveyard: after.players.ai1.graveyard.length,
+      hostStillTapped: after.players.ai1.battlefield.find((p) => p.id === "HOST")?.tapped === true,
+    };
+    console.log("  WITNESS apathyEmptyHand", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({ graveyard: 0, hostStillTapped: true });
   });
 });

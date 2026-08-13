@@ -68,8 +68,13 @@ describe("reader + classify", () => {
     // (Singing Bell Strike sat here as a near-miss until UT-1 modeled the granted untap escape —
     // it's pinned native-activated below; the unmodeled-clause intent is carried by Immobilizing
     // Ink's discard COST and Paralyze/Narcolepsy's triggers.)
-    // The {4} upkeep untap offer is an unmodeled aura-own trigger.
-    expect(classifyCard(PARALYZE)).toBe("body-only");
+    // GRADUATED (2026-08-12): the {4} upkeep untap offer IS modeled now — the UPKEEP-PLAYER MAY-PAY arm
+    // (enchanted-controller's-upkeep sentinels + the optional-mana-payment payerRef re-aim) collapses
+    // "that player may pay {4}. If the player does, untap the creature" into one atom, and the composite
+    // delivery guard admits the tap-lock static via attachedNoUntapOf (gameState.untapAll reads the
+    // printed line). Runtime rows live in auraEnchantedControllersUpkeep.test.js. The unmodeled-clause
+    // intent of THIS test is still carried by Bind the Monster and Narcolepsy below.
+    expect(classifyCard(PARALYZE)).toMatch(/^native/);
     // Real Narcolepsy: the upkeep tap's intervening-if "tap it" pronoun effect routes LOW → body-only. (The
     // bare "tap enchanted creature" upkeep shape — no intervening-if — is credited by AU-3; see Curse of
     // Chains in auraOwnTriggered.test.js.)

@@ -1305,6 +1305,33 @@ function emblemAbilityModeled(x) {
  */
 function matchOptionalManaPayment(oracle, cardType) {
   const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
+  // ===== UPKEEP-PLAYER MAY-PAY (2026-08-12 — Paralyze "may pay {4}", Apathy "may discard a card at
+  // random"; both "if the player does, untap enchanted creature") ===== the payer is the UPKEEP player —
+  // the host's controller, by the enchanted-controller's-upkeep firing gate — and BOTH phrases here are
+  // SENTINELS that event's rewrites produce ("the upkeep player" / "enchanted creature"): neither exists
+  // in printed oracle, so this arm is unreachable from any other event. The atom is the SAME
+  // optional-mana-payment op with a payerRef the suspend site re-aims (the Slow Motion pattern) and,
+  // for Apathy, a discard-random cost kind (settled by the seeded pitchRandomDiscard — a REAL discard,
+  // CR 701.9b, so discard watchers fire). The payoff runs through the SAME gates as the main arm below.
+  const up = s.match(/^the upkeep player may (?:pay\s+((?:\{[^}]+\})+)|(discard a card at random))\.\s*if the player does,?\s+(.+)$/i);
+  if (up) {
+    let cost;
+    if (up[1]) {
+      const upips = (up[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
+      const umana = upips.length ? parseFixedManaPips(upips) : null;
+      if (!umana) return null; // {X} / unknown symbol → unmodeled cost (safe FN)
+      cost = { kind: "mana", mana: umana };
+    } else {
+      cost = { kind: "discard-random", count: 1 };
+    }
+    const upayoff = parseEffectClauseImpl(up[3].trim(), cardType, { hasX: false });
+    if (!upayoff || programConfidence(upayoff) !== "high" || upayoff.structure === "modal" || upayoff.xSpell) return null;
+    const uinner = upayoff.atoms || [];
+    if (uinner.length === 0 || !uinner.every((a) => KNOWN.has(a.op))) return null;
+    if (uinner.some((a) => a.targetType && !isNonChosenTargetType(a.targetType))) return null; // no chosen targets on this arm (no carrier needs one)
+    if (uinner.slice(0, -1).some((a) => PAUSING_ATOM_OPS.has(a.op))) return null; // WI-3 — same dropped-payoff gate as the main arm
+    return { atom: { op: "optional-mana-payment", cost, effectAtoms: uinner, payerRef: "upkeepPlayer", targetType: null } };
+  }
   // "you may pay {pips}. if you do, <effect>" — the cost is one-or-more directly-adjacent mana pips.
   const m = s.match(/^you may pay\s+(\{[^}]+\}(?:\{[^}]+\})*)\.\s*if you do,?\s+(.+)$/i);
   if (!m) return null;
