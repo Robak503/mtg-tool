@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **SPELL MASTERY additive riders (+3) — no new machine** - post-v0.157.0 batch 1
+> Suite 1201 / 14,416 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Unholy Hunger, Dark
+> Petition, Gideon's Phalanx (the last two OVER the starter estimate: the add-mana and group-
+> indestructible riders already parsed). Audited whole-card. Post-release batch **+51**.
+> ⭐ NO NEW MACHINE: the parser collapses "<base>.
+Spell mastery — If <cond>, <rider>." into base
+> atoms + ONE `conditional` atom { ifTrue: rider, ifFalse: [] } — the SAME applyConditional the CR 608.2
+> replacement arm feeds — and evaluateInterveningIf gained the instant-and/or-sorcery UNION count arm
+> (conditionIsDecidable probes the evaluator live, so the parser gate picked it up with no wiring).
+> ⛔ THE FREE-SPELL DIRECTION IS THE GUARD: unmet condition → the rider does NOTHING (witnessed both
+> ways; the non-IS creature card in the graveyard must not count). Mutation SM-M2 swaps the branches and
+> the program-shape row dies; SM-M1 removes the condition arm and all four rows die.
+> ⛔ Parked honestly: Calculated Dismissal (scry rider PAUSES and `conditional` is not in the PAUSING
+> registry — admitting it would drop the pause contract; the fix is registering conditional as pausing
+> WITH the WI-3 last-position audit, its own slice), Dark Dabbling (group-regenerate rider unparsed),
+> the "instead" replacement class (Fiery Impulse — needs the label-aware replacement arm), and the
+> machine riders. ~11 spell-mastery carriers remain, mapped in the wake report.
+> Token diet: ~50k output tokens this slice.
 > ## SLICE DONE - 2026-08-12 - **SCALED DAMAGED-PLAYER (+2) — the count reads the right seat** - post-v0.157.0 batch 1
 > Suite 1200 / 14,412 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Graveblade Marauder,
 > Emissary of Despair. Audited whole-card. Post-release batch **+48**.

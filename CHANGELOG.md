@@ -4184,6 +4184,9 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Spell mastery bonuses land.** Unholy Hunger, Dark Petition and Gideon's Phalanx now check your
+  graveyard at resolution and deliver their bonus — the life, the {B}{B}{B}, the indestructible blanket —
+  only when two or more instant or sorcery cards are really there.
 - **Graveblade Marauder and Emissary of Despair drain correctly.** Marauder's saboteur hit counts the
   creature cards in its controller's graveyard; Emissary counts the artifacts the damaged player
   controls — each card reads the seat it prints.

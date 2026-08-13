@@ -1279,6 +1279,19 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   m = c.match(/^(?:there is|there's) a card in your graveyard$/);
   if (m) return (state.players[controllerId].graveyard || []).length >= 1;
 
+  // ===== SPELL MASTERY (CR 207.2c ability word — 2026-08-12) ===== "there are two or more instant
+  // and/or sorcery cards in your graveyard" — the UNION count (a card matching EITHER type counts once;
+  // the same Instant|Sorcery word-anchored read library.js's bespoke Animist's Awakening arm uses). The
+  // single-type arm below can't see this phrase (its `([a-z]+)` word stops at the slash), so this arm
+  // sits beside it rather than widening it.
+  m = c.match(new RegExp(`^(?:there are|you have) ${NUM_RE} or more instant and/or sorcery cards? in your graveyard$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    const gy = state.players[controllerId].graveyard || [];
+    return gy.filter((card) => /\b(?:Instant|Sorcery)\b/i.test(typeStr(card))).length >= n;
+  }
+
   // "[there are|you have] <N> or more <type> cards in your graveyard"
   m = c.match(new RegExp(`^(?:there are|you have) ${NUM_RE} or more ([a-z]+) cards? in your graveyard$`));
   if (m) {

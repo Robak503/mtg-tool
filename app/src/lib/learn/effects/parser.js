@@ -1697,6 +1697,39 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       // exactly as they were.
     }
   }
+  // ===== SPELL MASTERY — ADDITIVE RIDER (CR 207.2c ability word; 2026-08-12 — Unholy Hunger "you gain 2
+  // life", Dark Dabbling "also regenerate each other creature you control") ===== "<base>.\nSpell mastery —
+  // If <cond>, <rider>." The label marks a conditional EXTRA, not a replacement: the base ALWAYS runs; the
+  // rider runs only when the condition holds at resolution. Collapsed to base atoms + ONE `conditional`
+  // atom { ifTrue: rider, ifFalse: [] } — the SAME resolver the replacement arm feeds — so the splitter
+  // never orphans the rider sentence. Gates mirror the replacement arm (both halves HIGH + non-modal, the
+  // condition decidable — evaluateInterveningIf gained the instant-and/or-sorcery union arm alongside
+  // this), plus: NO pausing rider atom at all in this slice (Calculated Dismissal's scry parks — the
+  // conditional op is not in the PAUSING registry, so admitting a pauser would drop the pause contract),
+  // and a leading "also " strips (pure connective — the rider's atoms are already additive by shape).
+  // An unmodeled rider FALLS THROUGH — the card stays exactly as parked as before.
+  {
+    const sm = oracle.match(/^(.+?)\.?\n\s*Spell mastery — If ([^,]+),\s*(.+?)\.?\s*$/is);
+    if (sm) {
+      const [, smBase, smCond, smRider] = sm;
+      const base = parseEffectClauseImpl(smBase.trim().replace(/\.$/, "") + ".", cardType, { hasX });
+      const rider = parseEffectClauseImpl(smRider.trim().replace(/^also\s+/i, ""), cardType, { hasX });
+      const ok = base && rider
+        && programConfidence(base) === "high" && programConfidence(rider) === "high"
+        && base.structure !== "modal" && rider.structure !== "modal"
+        && base.atoms.length > 0 && rider.atoms.length > 0
+        && !rider.atoms.some((a) => PAUSING_ATOM_OPS.has(a.op))
+        && !rider.atoms.some((a) => a.targetType && !isNonChosenTargetType(a.targetType))
+        && conditionIsDecidable(smCond.trim());
+      if (ok) {
+        return makeProgram({
+          confidence: "high",
+          atoms: [...base.atoms, { op: "conditional", branchOn: smCond.trim().toLowerCase(), ifTrue: rider.atoms, ifFalse: [], targetType: null }],
+          unparsedTail: null,
+        });
+      }
+    }
+  }
 
   // ONCE-PER-TURN — "Do this only once each turn." is a FREQUENCY RESTRICTION enforced at resolution via
   // the `oncePerTurn` flag on the gated atom (state.onceTriggersFiredThisTurn, cleared each untap step).
