@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **KARLACH + THE ATTACKING BATCH (+5) — and extra combats now BEGIN properly** - the shelf grind
+> Suite 1205 / 14,439 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** across two snapshots —
+> Karlach, Fury of Avernus (×2 shelf decks: Otharri Test + Hulk Smash) + four printed attacking-batch
+> carriers (Headlong Rush, Akki Coalflinger, Chieftain en-Dal, Fangren Pathcutter). All audited
+> whole-card. Post-release batch **+63**.
+> ⭐ THE PIECES: the FIRST-COMBAT intervening-if (a turn-stamped combatsThisTurn tally — self-expiring,
+> no reset wiring), the THEY-fold ("They gain first strike…" after the exact untap sentence → the
+> attacking-batch subject), the attackingCreatures grant scope (the LIVE attacker set, any controller),
+> and the residue strip for the follow-up sentences.
+> ⛔⛔ **THE ENTER-COMBAT BUG, found and fixed**: advanceStep's two extra-phase jumps RETURNED EARLY and
+> skipped the beginning-of-combat entry chain — an EXTRA combat never fired its combatBegin triggers or
+> the Vihaan animate (Halana's own trigger was silent in exactly the combats Karlach creates), and never
+> counted. enterCombatPostProcess is now the ONE entry chain for all three sites — which is also what
+> closes Karlach's gate in her own extra combat (count 2 ≠ 1, the non-recursion guarantee, witnessed).
+> ⭐ TWO comment corrections the diff forced: the attacking-batch subject is NOT sentinel-only (four
+> real cards print it), and the interveningIf arm's first draft CRASHED on an absent tally
+> (undefined === undefined walked into the truthy branch — the guard order is the fix). Both witnessed.
+> ⭐ Park-pin graduations: attackingUntap's Karlach row (its named blockers landed); Scourge of the
+> Throne stays parked honestly (the most-life seat-compare condition, no arm).
+> Mutations KA-M1 (the condition arm) / KA-M2 (the they-fold) both killed, printed back.
+> Token diet: ~65k output tokens this slice.
 > ## SLICE DONE - 2026-08-12 - **EXTRA COMBAT, INCREMENT 3 (+5) — the after-MAIN insertion point** - the shelf grind
 > Suite 1204 / 14,434 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Relentless Assault,
 > Aggravated Assault, Seize the Day (three shelf carriers: Otharri Test, Hulk Smash's kin, Captain

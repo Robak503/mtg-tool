@@ -250,6 +250,21 @@ export function emptyManaPools(state) {
  * Callers should run runStepActions() afterward to apply the new
  * step's automatic effects (untap, draw, etc.).
  */
+/**
+ * ENTER-COMBAT post-processing (Increment 3b, 2026-08-12) — everything a beginning-of-combat ENTRY owes,
+ * shared by the normal sequence walk and BOTH extra-phase jumps. The jumps used to return early and SKIP
+ * this: an extra combat never fired its combatBegin step triggers or the Vihaan animate — Halana's own
+ * combat trigger was silent in exactly the combats Karlach creates. Also stamps the turn-scoped combat
+ * tally (`combatsThisTurn: { turn, count }`) that Karlach's "first combat phase of the turn"
+ * intervening-if reads — self-expiring via the turn stamp, so it needs no reset wiring.
+ */
+function enterCombatPostProcess(s) {
+  let out = { ...s, combatsThisTurn: { turn: s.turn, count: (s.combatsThisTurn?.turn === s.turn ? s.combatsThisTurn.count : 0) + 1 } };
+  out = checkStepTriggers(out, "combatBegin");
+  out = applyVihaanCombatAnimate(out);
+  return out;
+}
+
 export function advanceStep(state) {
   const index = findSequenceIndex(state.phase, state.step);
   if (index === -1) {
@@ -289,7 +304,7 @@ export function advanceStep(state) {
     if (idx !== undefined) {
       const bocIdx = TURN_SEQUENCE.findIndex((e) => e.step === "beginning-of-combat");
       if (bocIdx !== -1) {
-        return {
+        return enterCombatPostProcess({
           ...emptied,
           extraPhases: queued.filter((_, i) => i !== idx), // LIFO within the class — most recent first (CR 500.8)
           phase: TURN_SEQUENCE[bocIdx].phase,
@@ -297,7 +312,7 @@ export function advanceStep(state) {
           combat: null,                     // a NEW combat: last combat's attackers/blockers do not carry over
           priorityHolder: null,
           consecutivePasses: 0,
-        };
+        });
       }
     }
   }
@@ -316,7 +331,7 @@ export function advanceStep(state) {
     if (idx !== undefined) {
       const bocIdx = TURN_SEQUENCE.findIndex((e) => e.step === "beginning-of-combat");
       if (bocIdx !== -1) {
-        return {
+        return enterCombatPostProcess({
           ...emptied,
           extraPhases: queued.filter((_, i) => i !== idx),
           phase: TURN_SEQUENCE[bocIdx].phase,
@@ -324,7 +339,7 @@ export function advanceStep(state) {
           combat: null,
           priorityHolder: null,
           consecutivePasses: 0,
-        };
+        });
       }
     }
   }
@@ -650,7 +665,7 @@ export function runStepActions(state) {
   //    player in triggersForEvent; whose:"any" ("each combat", Unnatural Growth) fires regardless of turn.
   //  - firstMain: at the PRECOMBAT main only (gate on phase — both main phases share step "main"); else it
   //    would fire twice (a postcombat-main double-fire is the landmine here).
-  else if (next.step === "beginning-of-combat") next = checkStepTriggers(next, "combatBegin");
+  else if (next.step === "beginning-of-combat") next = enterCombatPostProcess(next); // combatBegin triggers + Vihaan animate + the combat tally (Increment 3b)
   // VIHAAN-ANIMATE (a targeted #319-style hook the trigger compiler can't reach): at the beginning-of-combat
   // step, Vihaan, Goldwaker makes every Treasure the ACTIVE player controls a 3/3 Construct Assassin artifact
   // creature until end of turn — a MASS, optional, subject-scoped layer-4 animate the effect vocabulary can't
@@ -658,7 +673,7 @@ export function runStepActions(state) {
   // framework (vihaanAnimate.js); a no-op when no Vihaan-style watcher is on the active player's board. Fired
   // right after the combatBegin step trigger so the now-creature Treasures are full combat participants for the
   // attack/block declarations that follow this step.
-  if (next.step === "beginning-of-combat") next = applyVihaanCombatAnimate(next);
+  // (the Vihaan animate runs inside enterCombatPostProcess now — ONE entry chain for all three beginning-of-combat sites)
   if (next.phase === "precombat-main" && next.step === "main")
     next = checkStepTriggers(next, "firstMain");
   // secondMain (CR 505.1b) — the postcombat sibling. Gated on the PHASE for the same reason firstMain is:

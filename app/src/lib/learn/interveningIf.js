@@ -1317,6 +1317,17 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     return gy.filter((card) => re.test(typeStr(card))).length >= n;
   }
 
+  // ===== FIRST-COMBAT-OF-THE-TURN (Increment 3b, 2026-08-12 — Karlach "Whenever you attack, if it's the
+  // first combat phase of the turn, …"; Scourge of the Throne's "attacks the player with the most life"
+  // kin shares the tally) ===== reads the turn-stamped combat tally enterCombatPostProcess maintains at
+  // EVERY beginning-of-combat entry (normal walk + both extra-phase jumps): count 1 during the turn's
+  // first combat, 2+ inside the extras — so the gate closes exactly when the extra combat it granted
+  // begins (the non-recursion guarantee, CR 500.8's practical shape).
+  m = c.match(/^it's the first combat phase of the turn$/);
+  // ⛔ the tally must EXIST before the turn compare — with both fields absent, undefined === undefined is
+  // TRUE and the read crashes (caught by the first probe run; the guard order is the fix, not optional).
+  if (m) return (state.combatsThisTurn && state.combatsThisTurn.turn === state.turn ? state.combatsThisTurn.count : 0) === 1;
+
   // "an opponent controls more <lands|creatures|artifacts|enchantments> than you"
   m = c.match(OPP_CONTROLS_MORE_RE);
   if (m) {

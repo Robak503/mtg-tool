@@ -936,7 +936,12 @@ export function applyGrantKeywordsGroup(state, atom, ctx) {
   const bf = state.players[ctrl].battlefield || [];
   let sel = atom.scope === "permanentsYouControl"
     ? bf                                                             // ALL your permanents (Heroic Intervention)
-    : bf.filter((p) => permanentIsCreature(state, p.id));           // creaturesYouControl
+    : atom.scope === "attackingCreatures"
+      // THE KARLACH FOLD's batch (Increment 3b, 2026-08-12): the LIVE attacker set, any controller —
+      // the "They" of "untap all attacking creatures. They gain first strike…" is exactly that batch.
+      // Outside combat the set is empty → no grant (a clean no-op, never a fallback to the whole board).
+      ? (state.combat?.attackers || []).map((a) => findPermanent(state, a.permanentId)?.permanent).filter(Boolean)
+      : bf.filter((p) => permanentIsCreature(state, p.id));           // creaturesYouControl
   // COUNTER-FILTERED ("those creatures" — the +1/+1-counter creatures the preceding draw counted; Inspiring
   // Call). Read at resolution off the live counter bag (CR 611.2c snapshot), so a creature that loses its
   // counter before this resolves is excluded — faithful. Absent → no filter (the plain group grant).
@@ -2056,6 +2061,16 @@ function parseGroupGrantKeywords(phrase) {
  */
 export function groupGrantClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // ATTACKING-BATCH grant (Increment 3b, 2026-08-12 — the Karlach fold's product, AND a printed subject:
+  // the flip-diff surfaced four real carriers printing it standalone — Headlong Rush, Akki Coalflinger,
+  // Chieftain en-Dal, Fangren Pathcutter, all combat tricks whose printed intent IS the live attacker
+  // set. The first draft of this comment claimed sentinel-only; the diff corrected it.)
+  // Same all-or-nothing keyword gate as the main arm; scope "attackingCreatures" = the LIVE attacker set.
+  const am = t.match(/^attacking creatures gains? (.+) until end of turn$/);
+  if (am) {
+    const akws = parseGroupGrantKeywords(am[1]);
+    return akws ? { op: "grant-keywords-group", scope: "attackingCreatures", grantKeywords: akws } : null;
+  }
   const m = t.match(/^(creatures|permanents) you control gains? (.+) until end of turn$/);
   if (!m) return null;
   // PROTECTION-FROM-EACH-COLOR tail (Akroma's Will mode B — "… gain lifelink, indestructible, and

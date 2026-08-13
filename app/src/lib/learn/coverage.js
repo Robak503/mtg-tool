@@ -1468,6 +1468,13 @@ export function permanentTriggersCovered(card) {
     // exact may-pay / may-discard-at-random clause (FN-safe — a standalone "If the player does…" with any
     // other antecedent is untouched).
     .replace(/(may (?:pay (?:\{[^}]+\})+|discard a card at random))\.\s+if (?:the player does|they don't),?\s+[^.]+\.?\s*/gi, "$1. ")
+    // THE KARLACH FOLD's residue (Increment 3b, 2026-08-12): "untap all attacking creatures. They gain
+    // first strike until end of turn. After this phase, there is an additional combat phase." — the two
+    // follow-up sentences ride the trigger's effectClause (the they-fold + the extra-combat arm; the
+    // WHOLE effect routes natively, proven by allTriggerSentencesModeled before this walk runs), but the
+    // trigger-sentence strip stops at the first period. Anchored to DIRECTLY follow the exact untap
+    // sentence — the Surrak follow-up discipline, same as every sibling above.
+    .replace(/(untap all attacking creatures)\.\s+they gain [^.]+\.(?:\s+after this (?:combat )?phase, there is an additional combat phase\.?)?\s*/gi, "$1. ")
     // TOKEN-ABILITY GRANT (TK-1's residue half, 2026-07-28) — "…create a 1/1 colorless Eldrazi Scion creature
     // token. It has \"Sacrifice this token: Add {C}.\"" (the Scion/Spawn family, Serpent Generator, Mitotic
     // Slime). EXACTLY the Surrak/Person-of-Interest follow-up class: detectTriggers already folds the

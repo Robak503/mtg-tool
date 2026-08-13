@@ -3906,6 +3906,13 @@ export function detectTriggers(card) {
         || (cls.event === "upkeep" && (cls.whose === "opponents" || cls.whose === "any"))) {
         effectClause = effectClause.replace(/\bthat player\b/gi, "the upkeep player");
       }
+      // THE KARLACH FOLD (Increment 3b, 2026-08-12 — "untap all attacking creatures. They gain first
+      // strike until end of turn."): "They" is the attacker batch the preceding sentence just untapped.
+      // Grammar-anchored to DIRECTLY follow the exact untap sentence (the Surrak follow-up discipline),
+      // so no other "They …" anaphor is ever consumed; the rewritten subject ("attacking creatures gain
+      // …") is a SENTINEL only this fold produces — groupGrantClauseParser's attacking arm binds it to
+      // the LIVE attacker set (any controller, matching "ALL attacking creatures").
+      effectClause = effectClause.replace(/(untap all attacking creatures\.)\s+they gain /i, "$1 attacking creatures gain ");
       // ENCHANTED-HOST REFERENT (2026-08-12 — Unstable Mutation "put a -1/-1 counter on THAT CREATURE"):
       // on the enchanted-controller's-upkeep event, "that creature" is the ENCHANTED CREATURE named in the
       // trigger condition — the aura's host — so the rewrite hands it to the existing target:"enchanted"

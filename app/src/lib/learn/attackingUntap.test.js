@@ -170,12 +170,19 @@ describe("tier", () => {
       .toBe("native-trigger");
   });
 
-  it("⛔ Karlach and Scourge of the Throne stay PARKED — each holds a second blocker", () => {
-    // The honest counterweight: 6 carriers, 1 flip. Both of these print an intervening-if the clause
-    // widening does nothing for, and Karlach adds a keyword-grant rider on top.
+  it("⭐ GRADUATED (2026-08-12): Karlach flips — her second blockers landed (Increment 3b)", () => {
+    // The pin named her blockers exactly: the first-combat intervening-if (now the turn-stamped combat
+    // tally arm) and the "They gain first strike" rider (now the they-fold + the attackingCreatures
+    // grant scope). Witnesses live in karlachFirstCombat.test.js.
     expect(classifyCard({ name: "Karlach, Fury of Avernus", type: "Legendary Creature — Human Barbarian", mana: "{2}{R}{R}", power: "4", toughness: "4",
       oracle: "Whenever you attack, if it's the first combat phase of the turn, untap all attacking creatures. They gain first strike until end of turn. After this phase, there is an additional combat phase.\nChoose a Background (You can have a Background as a second commander.)" }))
-      .not.toMatch(/^native/);
+      .toMatch(/^native/);
+  });
+
+  it("⛔ Scourge of the Throne stays PARKED — the most-life attack condition has no arm", () => {
+    // Still the honest counterweight: "attacking the player with the most life or tied for most life"
+    // is a different condition (a seat-compare at attack time), and the first-time-each-turn qualifier
+    // rides the combat-damage… attack event distinctly. Parked until measured worth building.
     expect(classifyCard({ name: "Scourge of the Throne", type: "Creature — Dragon", mana: "{4}{R}{R}", power: "5", toughness: "5",
       oracle: "Flying\nDethrone (Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1 counter on it.)\nWhenever this creature attacks for the first time each turn, if it's attacking the player with the most life or tied for most life, untap all attacking creatures. After this phase, there is an additional combat phase." }))
       .not.toMatch(/^native/);

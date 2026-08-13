@@ -4191,6 +4191,10 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Karlach, Fury of Avernus works** — first combat of the turn only: untaps the attackers, grants
+  first strike, and queues her extra combat (which correctly can't re-trigger her). Headlong Rush, Akki
+  Coalflinger, Chieftain en-Dal and Fangren Pathcutter ride the same attacking-batch grant. Extra
+  combat phases also now fire beginning-of-combat triggers properly.
 - **Extra combat steps work.** Relentless Assault, Aggravated Assault, Seize the Day, Waves of
   Aggression and Response // Resurgence now really grant their additional combat phase after your main
   phase — untapping the right creatures on the way in.
