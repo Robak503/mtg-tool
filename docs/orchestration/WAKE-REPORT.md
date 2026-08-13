@@ -7,6 +7,27 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ☀️ 2026-08-12 (late night) — **batch +58 · the shelf grind's instruments are proven** — suite **1204 / 14,434** green, master 56b0fc5c
+
+> ### ⏭ RUNNABLE NOW — the shelf queue, exactly where it stands
+> · **Karlach, Fury of Avernus (×2 decks: Otharri Test + Hulk Smash)** — the named next: two pieces
+>   remain on her attack trigger: the FIRST-COMBAT intervening-if (needs a combatsThisTurn tally —
+>   increment at beginning-of-combat, reset at untap — plus the interveningIf arm) and the "They gain
+>   first strike until end of turn" rider on the attacker batch (a they→attacking-creatures fold + an
+>   attacking-scope keyword pump). "Untap all attacking creatures" and the extra combat ALREADY WORK.
+>   Scourge of the Throne + Najeela share pieces.
+> · **The cross-deck census** (24 shared parked cards, probed): Halana SHIPPED; parked-with-reasons:
+>   Karlach (above), Forgotten Ancient (counter redistribution), Kodama (the "modified" predicate —
+>   pays vocabulary), Teferi's Protection/Endurance/Solitude (machines), Mother of Runes (color-choice
+>   protection), Thassa's Oracle (devotion-X + win gate), The One Ring (multi-blocked).
+> · **The instruments**: measure-coverage <name> per deck · the cross-deck probe (scratchpad) · sole-
+>   blocker per-line removal. Joe's nine below-bar decks + 4 test decks are the tail; closest bars:
+>   Jurassic Ramp 82, Dragons 80, Believe it! 79.
+
+> ### ⭐ THE DAY'S SYSTEMS (beyond the card slices)
+> The PLAY-HINTS LEDGER (decision layer — see its design doc) · EXTRA-COMBAT Increment 3 (the after-
+> main insertion; three park-pins graduated as their own comments predicted) · the leading-conditional
+> protection FP fix · the Entish cost-skip FP fix · the play-hints byte-identity contract.
 ## ☀️ 2026-08-12 (night) — **THE PLAY-HINTS LEDGER SHIPPED + the shelf grind is the mode** — suite **1203 / 14,425** green
 
 > ### ⭐ NEW SYSTEM: the AI's decision layer is never blind (docs/orchestration/PLAY-HINTS-LEDGER.md)
