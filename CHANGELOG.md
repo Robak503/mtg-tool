@@ -4184,6 +4184,9 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Entish Restoration pays its cost.** With a power-4 creature on board, the spell was searching three
+  basic lands without sacrificing a land first — the sacrifice is unconditional on the printed card and
+  now always happens.
 - **Spell mastery bonuses land.** Unholy Hunger, Dark Petition and Gideon's Phalanx now check your
   graveyard at resolution and deliver their bonus — the life, the {B}{B}{B}, the indestructible blanket —
   only when two or more instant or sorcery cards are really there.

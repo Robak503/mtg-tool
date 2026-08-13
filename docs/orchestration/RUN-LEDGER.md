@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **THE ENTISH COST-SKIP FP, FIXED (+0 by design) — replacement scope** - post-v0.157.0 batch 1
+> Suite 1201 / 14,416 green + lint 0 BY EXIT CODE. Flip-diff **0 / 0 / 0** — a pure bug-fix slice: Entish
+> Restoration stays native, now HONESTLY. Post-release batch unchanged at **+51**.
+> ⛔⛔ **THE FIND (via the conditional pause audit, 6 carriers):** the CR 608.2 replacement arm captured
+> the WHOLE base into ifFalse — so "Sacrifice a land. Search two… If you control a power-4 creature,
+> instead search three…" SKIPPED THE SACRIFICE whenever the condition held. A big board ramped three
+> basics for FREE, live in every sim. "Instead" replaces the sentence ADJACENT to the If: the base now
+> splits at its last sentence boundary — the preamble runs unconditionally BEFORE the conditional atom,
+> only the final sentence is replaced. Single-sentence bases (Scute Swarm class) emit byte-identically.
+> ⭐ The split also fixes the PAUSE ORDER for multi-sentence carriers: prefix atoms (the pausing
+> sacrifice-land) now run at PROGRAM level where the runner owns continuations — and the arm gained the
+> WI-3 branch gate (a NON-LAST pausing atom in either branch → LOW → Arbiter; a branch pauser resolving
+> successors during its own pause was the audit's original smell).
+> ⭐ The old test pinned the BUGGY shape (atoms[0] IS the conditional) — graduated to the corrected
+> witness row (sacrifice-land at top level, tutor-vs-tutor branches). Mutation CR-M1 reverts the scope
+> and the row dies. Printed back, killed.
+> ⏭ Calculated Dismissal's pausing rider stays the named next step: register `conditional` in the
+> PAUSING registry now that the branch gate exists (a last-position pauser is the only admitted shape).
+> Token diet: ~40k output tokens this slice (the audit WAS the discovery).
 > ## SLICE DONE - 2026-08-12 - **SPELL MASTERY additive riders (+3) — no new machine** - post-v0.157.0 batch 1
 > Suite 1201 / 14,416 green + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Unholy Hunger, Dark
 > Petition, Gideon's Phalanx (the last two OVER the starter estimate: the add-mana and group-

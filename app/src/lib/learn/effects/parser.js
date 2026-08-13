@@ -1674,17 +1674,37 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
     const cond = oracle.match(/^(.+?)\.\s*If ([^,]+),\s*(?:instead\s+(.+?)|(.+?)\s+instead)\.?\s*$/is);
     if (cond) {
       const [, baseText, condition, altLeading, altTrailing] = cond;
-      const inner = parseEffectClauseImpl(baseText.trim(), cardType, { hasX });
+      // ⛔⛔ REPLACEMENT SCOPE (2026-08-12 — the Entish Restoration COST-SKIP FP, found by the conditional
+      // pause audit): "instead" replaces the sentence ADJACENT to the If, never the whole preamble.
+      // "Sacrifice a land. Search for two basics… If you control a power-4 creature, instead search for
+      // three…" — the sacrifice is UNCONDITIONAL (its own sentence), but capturing the whole base into
+      // ifFalse made the true-branch SKIP it: a big board ramped three basics for FREE. Split the base at
+      // its last sentence boundary: the prefix runs unconditionally BEFORE the conditional atom (which
+      // also hands its pauses to the program runner instead of the branch loop), and only the final
+      // sentence is replaced. A single-sentence base has no internal boundary → prefix null → the emitted
+      // program is byte-identical to before (Scute Swarm class untouched).
+      const sentSplit = baseText.match(/^(.+\.)\s+([^.]+)$/s);
+      const prefixText = sentSplit ? sentSplit[1] : null;
+      const replacedText = sentSplit ? sentSplit[2] : baseText;
+      const prefix = prefixText ? parseEffectClauseImpl(prefixText.trim(), cardType, { hasX }) : null;
+      const inner = parseEffectClauseImpl(replacedText.trim(), cardType, { hasX });
       const alt = parseEffectClauseImpl(String(altLeading || altTrailing).trim(), cardType, { hasX });
+      // WI-3 for the BRANCH LOOP: applyConditional resolves branch atoms inline, so a NON-LAST pausing
+      // atom inside either branch would resolve its successors during the pause (FIFO no-ops / wrong
+      // order). Reject → LOW → Arbiter (safe FN). A LAST-position pauser is fine — the program runner
+      // owns the continuation once the branch ends.
+      const branchPauseSafe = (atoms) => !atoms.slice(0, -1).some((a) => PAUSING_ATOM_OPS.has(a.op));
       const ok = inner && alt
+        && (!prefixText || (prefix && programConfidence(prefix) === "high" && prefix.structure !== "modal" && prefix.atoms.length > 0))
         && programConfidence(inner) === "high" && programConfidence(alt) === "high"
         && inner.structure !== "modal" && alt.structure !== "modal"
         && inner.atoms.length > 0 && alt.atoms.length > 0
+        && branchPauseSafe(inner.atoms) && branchPauseSafe(alt.atoms)
         && conditionIsDecidable(condition.trim());
       if (ok) {
         return makeProgram({
           confidence: "high",
-          atoms: [{ op: "conditional", branchOn: condition.trim().toLowerCase(), ifTrue: alt.atoms, ifFalse: inner.atoms, targetType: null }],
+          atoms: [...(prefix ? prefix.atoms : []), { op: "conditional", branchOn: condition.trim().toLowerCase(), ifTrue: alt.atoms, ifFalse: inner.atoms, targetType: null }],
           unparsedTail: null,
         });
       }

@@ -56,10 +56,17 @@ describe("parsing — one atom, both branches, both word orders", () => {
     expect(p.atoms[0].ifFalse.map((a) => a.op)).toEqual(["create-token"]);
   });
 
-  it("the leading-instead order (Entish Restoration)", () => {
+  it("⛔⛔ the leading-instead order (Entish Restoration) — the SACRIFICE is UNCONDITIONAL", () => {
+    // REPLACEMENT SCOPE FIX (2026-08-12): this pin used to assert atoms[0] IS the conditional — which
+    // meant the whole base (INCLUDING "Sacrifice a land") sat inside ifFalse, and a power-4 board ramped
+    // three basics WITHOUT paying the land: a live cost-skip FP, found by the conditional pause audit.
+    // "instead" replaces the sentence ADJACENT to the If; the preamble runs unconditionally BEFORE the
+    // conditional atom (which also hands its pauses to the program runner instead of the branch loop).
     const p = parseEffectClause("sacrifice a land. search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle. if you control a creature with power 4 or greater, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle", "Sorcery", { hasX: false });
     expect(p.confidence).toBe("high");
-    expect(p.atoms[0]).toMatchObject({ op: "conditional" });
+    const row = { ops: p.atoms.map((a) => a.op), ifTrue: p.atoms[1].ifTrue.map((a) => a.op), ifFalse: p.atoms[1].ifFalse.map((a) => a.op) };
+    console.log("  WITNESS entishScope", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({ ops: ["sacrifice-land", "conditional"], ifTrue: ["tutor"], ifFalse: ["tutor"] });
   });
 
   it("⚠️ THE FIELD IS branchOn — `condition` means \"skip this atom\" to runProgram", () => {
