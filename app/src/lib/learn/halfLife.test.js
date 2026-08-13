@@ -18,6 +18,9 @@
  * Mutation-checked (2026-08-12, applied-check by PRINTING THE CHANGED LINE BACK):
  *   · the three matcher arms removed -> all half-life carriers park.
  *   · rounding inverted (down → ceil) -> the 21-life rounded-down row loses 11 instead of 10.
+ *   · the SCALED damagedPlayer arms disabled -> Marauder + Emissary park and both runtime rows die.
+ *   · the "they control" → "that player controls" normalize dropped -> Emissary's count falls to the
+ *     defendingPlayer referent (unset on a combat-damage event) → 0 → the recipient-scope row dies.
  *
  * Real oracle fixtures (bundled Scryfall, probed 2026-08-12).
  */
@@ -95,5 +98,56 @@ describe("⭐⭐ LAW 6 — halves computed from the recipient's LIVE total", () 
   it("⛔ life at 0 or below halves to ZERO — never a life gain from rounding a negative", () => {
     const after = applyLoseLife(stateWithLife(-3), DMG_UP, { controller: "user", damagedPlayerId: "ai1", targets: [] });
     expect(after.players.ai1.life).toBe(-3);
+  });
+});
+
+describe("⭐⭐ SCALED DAMAGED-PLAYER — the count reads the RIGHT seat (2026-08-12 slice)", () => {
+  const MARAUDER = { id: "c-gm", name: "Graveblade Marauder", type: "Creature — Human Warrior", mana: "{2}{B}", power: "1", toughness: "4",
+    oracle: "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nWhenever this creature deals combat damage to a player, that player loses life equal to the number of creature cards in your graveyard." };
+  const EMISSARY = { id: "c-ed", name: "Emissary of Despair", type: "Creature — Spirit", mana: "{2}{B}{B}", power: "2", toughness: "1",
+    oracle: "Flying\nWhenever this creature deals combat damage to a player, that player loses 1 life for each artifact they control." };
+
+  it("⭐ the pair flips; Tomb Blade's unless-sac rider stays parked; the arms parse", () => {
+    for (const c of [MARAUDER, EMISSARY]) expect(classifyCard(c), c.name).toMatch(/^native/);
+    expect(classifyCard({ id: "c-tb", name: "Tomb Blade", type: "Artifact Creature — Necron", mana: "{2}{B}", power: "2", toughness: "1",
+      oracle: "Flying\nWhenever this creature deals combat damage to a player, that player loses life equal to the number of creatures they control unless they sacrifice a creature of their choice.\nUnearth {6}{B}{B}" })).toBe("body-only");
+    const row = {
+      marauder: lifeClauseParser("that player loses life equal to the number of creature cards in your graveyard"),
+      emissary: lifeClauseParser("that player loses 1 life for each artifact they control"),
+      unmodeledSrc: lifeClauseParser("that player loses 1 life for each wish they made"),
+    };
+    console.log("  WITNESS scaledDamagedParsed", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row.marauder).toMatchObject({ op: "lose-life", who: "damagedPlayer" });
+    expect(row.emissary).toMatchObject({ op: "lose-life", who: "damagedPlayer" });
+    expect(row.unmodeledSrc).toBeNull();
+  });
+
+  function board() {
+    // MY graveyard: 3 creature cards + 2 sorceries. ai1 controls 2 artifacts; I control 5 artifacts.
+    // The seat mix-ups this witnesses against: Marauder counting ai1's graveyard, Emissary counting MINE.
+    const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const art = (pid, ctrl) => ({ id: pid, controller: ctrl, tapped: false, summoningSick: false, card: { id: "card-" + pid, name: "Sol Ring " + pid, type: "Artifact", oracle: "" }, counters: {} });
+    return { ...s0, players: { ...s0.players,
+      user: { ...s0.players.user,
+        graveyard: [...Array.from({ length: 3 }, (_, i) => ({ id: "gc" + i, name: "Dead Bear " + i, type: "Creature — Bear", oracle: "" })),
+          ...Array.from({ length: 2 }, (_, i) => ({ id: "gs" + i, name: "Old Spell " + i, type: "Sorcery", oracle: "" }))],
+        battlefield: Array.from({ length: 5 }, (_, i) => art("UA" + i, "user")) },
+      ai1: { ...s0.players.ai1, battlefield: Array.from({ length: 2 }, (_, i) => art("XA" + i, "ai1")) } } };
+  }
+
+  it("⭐⭐ Marauder: the damaged player loses MY creature-card count (3, not my whole graveyard of 5)", () => {
+    const atom = lifeClauseParser("that player loses life equal to the number of creature cards in your graveyard");
+    const after = applyLoseLife(board(), atom, { controller: "user", damagedPlayerId: "ai1", targets: [] });
+    const row = { ai1Life: after.players.ai1.life };
+    console.log("  WITNESS marauderCount", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({ ai1Life: 37 });
+  });
+
+  it("⭐⭐ Emissary: the damaged player loses THEIR artifact count (2), never MINE (5)", () => {
+    const atom = lifeClauseParser("that player loses 1 life for each artifact they control");
+    const after = applyLoseLife(board(), atom, { controller: "user", damagedPlayerId: "ai1", targets: [] });
+    const row = { ai1Life: after.players.ai1.life, userLife: after.players.user.life };
+    console.log("  WITNESS emissaryRecipientScope", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({ ai1Life: 38, userLife: 40 });
   });
 });

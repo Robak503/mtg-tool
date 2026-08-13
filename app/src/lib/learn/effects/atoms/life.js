@@ -298,6 +298,24 @@ export function lifeClauseParser(clause) {
     const src = parseCountSource(mfe[2]);
     return src ? { op: "lose-life", who: "controller", amountCount: { ...src, per: parseInt(mfe[1], 10) }, targetType: null } : null;
   }
+  // ===== SCALED DAMAGED-PLAYER (2026-08-12 — Graveblade Marauder "that player loses life equal to the
+  // number of creature cards in your graveyard"; Emissary of Despair "that player loses 1 life for each
+  // artifact they control") ===== who:"damagedPlayer" pins the referent to the combat-damage event via
+  // combatDamageReferentSatisfied (the fixed/half siblings' gate — an upkeep/cast "that player" is
+  // sentinel-rewritten before this matcher and can never arrive here). On THIS event "they" IS the damaged
+  // player, so a trailing "they control" normalizes to the "that player controls" count form — whose spec
+  // (who:"target") reads ctx.damagedPlayerId in countForSpec, the Cavern-Hoard Dragon path. allowScopes
+  // admits that recipient-scoped source; an unmodeled source still nulls the whole clause (safe FN).
+  mfe = t.match(/^that player loses (\d+) life for each (.+)$/);
+  if (mfe) {
+    const src = parseCountSource(mfe[2].replace(/\bthey control$/i, "that player controls"), { allowScopes: true });
+    return src ? { op: "lose-life", who: "damagedPlayer", amountCount: { ...src, per: parseInt(mfe[1], 10) }, targetType: null } : null;
+  }
+  mfe = t.match(/^that player loses life equal to the number of (.+)$/);
+  if (mfe) {
+    const src = parseCountSource(mfe[1].replace(/\bthey control$/i, "that player controls"), { allowScopes: true });
+    return src ? { op: "lose-life", who: "damagedPlayer", amountCount: { ...src, per: 1 }, targetType: null } : null;
+  }
   let m = t.match(/^(?:you )?gain (\d+) life$/);
   if (m) return { op: "gain-life", amount: parseInt(m[1], 10), targetType: null };
   m = t.match(/^(?:you )?lose (\d+) life$/);

@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **SCALED DAMAGED-PLAYER (+2) — the count reads the right seat** - post-v0.157.0 batch 1
+> Suite 1200 / 14,412 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Graveblade Marauder,
+> Emissary of Despair. Audited whole-card. Post-release batch **+48**.
+> ⭐ Two arms beside the fixed/half damagedPlayer siblings: "that player loses life equal to the number
+> of <src>" and "… loses N life for each <src>", same combatDamageReferentSatisfied gate. The seat split
+> is the whole card: Marauder counts MY graveyard (controller-scoped source, as printed), Emissary counts
+> THEIRS — "they control" normalizes to the "that player controls" count form, whose who:"target" spec
+> reads ctx.damagedPlayerId in countForSpec (the Cavern-Hoard Dragon path; allowScopes admits it).
+> ⭐ Law 6 seat witnesses: my 3 creature cards (of a 5-card graveyard) → ai1 at 37; ai1's 2 artifacts
+> (mine: 5) → ai1 at 38, me untouched. Mutations SD-M1 (arms) and SD-M2 (normalize dropped → the count
+> falls to the unset defendingPlayer referent → 0) both killed, printed back.
+> ⛔ Tomb Blade parks honestly (loses-life-UNLESS-SAC — a pay-or-else machine on the damage trigger, 1
+> carrier). ⚠️ TOOL NOTE, third occurrence: a backslash regex in a heredoc'd .cjs anchor lost an escape
+> level and silently mismatched — anchor mutation scripts on backslash-free substrings or line indexes.
+> Token diet: ~35k output tokens this slice.
 > ## SLICE DONE - 2026-08-12 - **MIND WHIP (+1) — decline runs the punishment** - post-v0.157.0 batch 1
 > Suite 1200 / 14,409 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Mind Whip. Audited
 > whole-card (Enchant + the one trigger line). Post-release batch **+46**. The pay-or-else aura family

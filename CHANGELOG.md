@@ -4184,6 +4184,9 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Graveblade Marauder and Emissary of Despair drain correctly.** Marauder's saboteur hit counts the
+  creature cards in its controller's graveyard; Emissary counts the artifacts the damaged player
+  controls — each card reads the seat it prints.
 - **Paralyze, Apathy and Mind Whip work.** The enchanted creature's controller gets the printed upkeep
   offer — pay or suffer the card's consequence — with the payment, the untap and Mind Whip's damage all
   landing on the right player.
