@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **FLOW STATE (+1) — Veyran Cantrips hits the 1.0 BAR** - the shelf grind opens
+> Suite 1202 / 14,421 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Flow State. Audited
+> whole-card. Post-release batch **+52**. ⭐⭐ **VEYRAN CANTRIPS: 89% → 90% — COLTON'S WHOLE SHELF NOW
+> CLEARS THE ≥90% PER-DECK BAR (6 of 6).** The shelf grind is the new mode (Colton's order): deck-driven
+> targets off measure-coverage, not census rows.
+> ⭐ SHELF STATE (measured this session): colton 93% (6 decks, all ≥90) · joe 79% (11 decks, NINE below
+> bar: Jurassic Ramp 82 · Dragons 80 · Believe it! 79 · Wolverine 77 · Hulk Smash 77 · Kinnan 76 ·
+> Kellan 74 · Captain America 73 · Halfshell 68) · unassigned test decks 73%. Joe's tail is the queue.
+> ⭐ LOOK-INHERIT on the CR 608.2 replacement arm: neither half of Flow State's sentence split parses
+> alone (the alt's "of them" needs the look sentence), but whole-base and alt-with-look each parse as
+> ONE impulse-dig — keep:1 vs keep:2, the same machine with a different knob (the narrow one-atom
+> same-op gate is the whole safety argument). evaluateInterveningIf gained the two-type conjunction arm.
+> ⭐ `conditional` is now REGISTERED PAUSING (its inner can pause — the impulse-dig picker) and
+> applyConditional gained the pause-break (the Entish-class hazard's belt-and-braces).
+> ⭐ Law 6: instant+sorcery → the dig pauses with keep 2; instant ONLY → keep 1 (the upgrade never fires
+> on half the condition). Mutations FS-M1 (look-inherit) / FS-M2 (conjunction arm) both killed, printed
+> back. ⛔ Veyran residue parked with reasons: Fiery Inscription (the Ring), DRC (gated attacks-if-able),
+> Aria (verse counters), Thunderdrum (opus rider), Vivi pair, Expressive Iteration (3-way split — the
+> narrow gate refusal row pins it), Mizzix's Mastery, Flame of Anor (modal-count), Arcane Denial (the
+> may-draw-up-to-two DELAYED opponent draw — the self-draw half already parses schedule-delayed; the
+> closest next shelf arm).
+> Token diet: ~55k output tokens this slice (incl. the shelf measurement that opened the mode).
 > ## SLICE DONE - 2026-08-12 - **THE ENTISH COST-SKIP FP, FIXED (+0 by design) — replacement scope** - post-v0.157.0 batch 1
 > Suite 1201 / 14,416 green + lint 0 BY EXIT CODE. Flip-diff **0 / 0 / 0** — a pure bug-fix slice: Entish
 > Restoration stays native, now HONESTLY. Post-release batch unchanged at **+51**.

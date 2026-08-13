@@ -4184,6 +4184,8 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Flow State works.** The cantrip digs three, keeps one — or keeps two once your graveyard holds both
+  an instant and a sorcery. This puts the Veyran Cantrips deck fully into simulator-playable territory.
 - **Entish Restoration pays its cost.** With a power-4 creature on board, the spell was searching three
   basic lands without sacrificing a land first — the sacrifice is unconditional on the printed card and
   now always happens.

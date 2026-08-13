@@ -1708,6 +1708,34 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
           unparsedTail: null,
         });
       }
+      // ===== LOOK-INHERIT (2026-08-12 — Flow State "Look at the top three… Put one of them into your
+      // hand… If <cond>, instead put two of them into your hand…") ===== The alt is a bare replacement
+      // PUT instruction whose "of them" antecedent is the base's look sentence — neither half of the
+      // sentence split parses alone, but the WHOLE base parses (impulse-dig keep:1) and the alt parses
+      // once it inherits the look sentence (impulse-dig keep:2). Gated NARROW: exactly ONE atom on each
+      // side and the SAME op — the same machine with a different knob, never two different effects
+      // stitched together. A pausing atom is fine here (single = last; the program runner owns the
+      // continuation, and `conditional` is registered pausing).
+      {
+        const lookM = baseText.trim().match(/^(look at the top [a-z]+ cards? of your library\.)/i);
+        if (lookM) {
+          const whole = parseEffectClauseImpl(baseText.trim(), cardType, { hasX });
+          const altWithLook = parseEffectClauseImpl(lookM[1] + " " + String(altLeading || altTrailing).trim(), cardType, { hasX });
+          const ok2 = whole && altWithLook
+            && programConfidence(whole) === "high" && programConfidence(altWithLook) === "high"
+            && whole.structure !== "modal" && altWithLook.structure !== "modal"
+            && whole.atoms.length === 1 && altWithLook.atoms.length === 1
+            && whole.atoms[0].op === altWithLook.atoms[0].op
+            && conditionIsDecidable(condition.trim());
+          if (ok2) {
+            return makeProgram({
+              confidence: "high",
+              atoms: [{ op: "conditional", branchOn: condition.trim().toLowerCase(), ifTrue: altWithLook.atoms, ifFalse: whole.atoms, targetType: null }],
+              unparsedTail: null,
+            });
+          }
+        }
+      }
       // ⚠️ FALL THROUGH — never return LOW from here. This regex also matches shapes that OTHER, older
       // machinery already models: every "deal N damage to target creature. If that creature would die this
       // turn, exile it instead" rider (Anger of the Gods, Pillar of Flame, Incendiary Flow — 23 cards) has

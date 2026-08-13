@@ -130,6 +130,7 @@ const PAUSING_OPS_LIST = [
   "taxed-treasure", // stack.js applyTaxedTreasure → setPendingTaxedPaymentChoice (opponent pays or you create a Treasure — Smothering Tithe)
   "iterated-edict", // iteratedEdict.js applyIteratedEdict → advanceEdictChain → setPendingEdictModeChoice (Torment of Hailfire)
   "connive", // connive.js applyConnive → setPendingDiscardChoice (the chosen discard; the counter settles in resolveDiscardChoice)
+  "conditional", // the barrel's applyConditional — an INNER branch atom can itself pause (Flow State's impulse-dig); the parser arms admit a pauser only in a branch's LAST slot (2026-08-12)
 ];
 for (const op of PAUSING_OPS_LIST) {
   if (!ATOM_RESOLVERS[op]) throw new Error(`PAUSING_ATOM_OPS drift: "${op}" is not a registered atom op`);
@@ -182,6 +183,11 @@ function applyConditional(state, atom, ctx) {
     const after = resolveAtom(next, inner, ctx);
     if (after == null) return null;          // an unresolvable inner atom rejects the whole branch
     next = after;
+    // PAUSE-BREAK (2026-08-12, the conditional pause audit): a pausing inner (Flow State's impulse-dig)
+    // must STOP the branch — resolving successors during a pending choice re-orders effects and FIFO-
+    // no-ops any second pauser (the Entish-class hazard). The parser arms admit a pauser only in a
+    // branch's LAST slot, so this break is belt-and-braces; the program runner owns the continuation.
+    if (next.pendingChoice) break;
   }
   return next;
 }

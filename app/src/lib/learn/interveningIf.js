@@ -1279,6 +1279,19 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   m = c.match(/^(?:there is|there's) a card in your graveyard$/);
   if (m) return (state.players[controllerId].graveyard || []).length >= 1;
 
+  // ===== TWO-TYPE CONJUNCTION (2026-08-12 — Flow State "there is an instant card and a sorcery card in
+  // your graveyard") ===== BOTH singular type checks must hold, each through the SAME word-anchored
+  // type-line scan the singular arm above uses (and inheriting its stated exposure the same way).
+  m = c.match(/^there (?:is|are) an? ([a-z]+) card and an? ([a-z]+) card in your graveyard$/);
+  if (m) {
+    const gy = state.players[controllerId].graveyard || [];
+    return [m[1], m[2]].every((w) => {
+      const word = w.replace(/s$/, "");
+      const re = new RegExp(`\\b${word.charAt(0).toUpperCase() + word.slice(1)}\\b`, "i");
+      return gy.some((card) => re.test(typeStr(card)));
+    });
+  }
+
   // ===== SPELL MASTERY (CR 207.2c ability word — 2026-08-12) ===== "there are two or more instant
   // and/or sorcery cards in your graveyard" — the UNION count (a card matching EITHER type counts once;
   // the same Instant|Sorcery word-anchored read library.js's bespoke Animist's Awakening arm uses). The
