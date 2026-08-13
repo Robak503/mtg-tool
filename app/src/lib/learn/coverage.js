@@ -1467,7 +1467,7 @@ export function permanentTriggersCovered(card) {
     // "…may pay {4}.", leaving the payoff sentence as apparent residue. Anchored to DIRECTLY follow the
     // exact may-pay / may-discard-at-random clause (FN-safe — a standalone "If the player does…" with any
     // other antecedent is untouched).
-    .replace(/(may (?:pay (?:\{[^}]+\})+|discard a card at random))\.\s+if the player does,?\s+[^.]+\.?\s*/gi, "$1. ")
+    .replace(/(may (?:pay (?:\{[^}]+\})+|discard a card at random))\.\s+if (?:the player does|they don't),?\s+[^.]+\.?\s*/gi, "$1. ")
     // TOKEN-ABILITY GRANT (TK-1's residue half, 2026-07-28) — "…create a 1/1 colorless Eldrazi Scion creature
     // token. It has \"Sacrifice this token: Add {C}.\"" (the Scion/Spawn family, Serpent Generator, Mitotic
     // Slime). EXACTLY the Surrak/Person-of-Interest follow-up class: detectTriggers already folds the

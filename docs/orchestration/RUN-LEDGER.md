@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **MIND WHIP (+1) — decline runs the punishment** - post-v0.157.0 batch 1
+> Suite 1200 / 14,409 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Mind Whip. Audited
+> whole-card (Enchant + the one trigger line). Post-release batch **+46**. The pay-or-else aura family
+> is now 4 of 6 (Errant Minion's X-prevention and Dance of the Dead's reanimator machine park).
+> ⭐ The INVERTED connective on the same arm: "if they don't, <else>" routes the parsed branch to
+> elseAtoms with an EMPTY payoff — paying buys silence, declining runs the punishment (2 damage to the
+> upkeep player AND the host taps; the Springheart elseAtoms machinery, second carrier). "you tap"
+> normalizes to the bare "tap" inside THIS arm's branch text only — for a forced tap the printed actor
+> is mechanically inert.
+> ⭐ Law 6 decline witness: upkeep player 40→38, aura owner untouched, host taps. Mutation MW-M1 swaps
+> the polarity routing and THREE rows die (paying punishes / declining buys silence) — the inversion is
+> the vicious wrongness this arm guards. Printed back, killed.
+> Token diet: ~25k output tokens this slice (the halves probe found the one missing subject form fast).
 > ## SLICE DONE - 2026-08-12 - **UPKEEP-PLAYER MAY-PAY (+2) — Paralyze and Apathy ransom the host** - post-v0.157.0 batch 1
 > Suite 1200 / 14,408 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Paralyze, Apathy. Audited
 > whole-card (ETB tap + the tap-lock static + the may-pay trigger). Post-release batch **+45**.

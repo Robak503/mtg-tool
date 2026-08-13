@@ -26,6 +26,9 @@
  *     instead of the host's controller (the pay row's controller assertion dies).
  *   · the attachedNoUntapOf arm dropped from the composite delivery guard -> both carriers park (the
  *     tap-lock static has no parseAuraBonus bonus, and the guard refuses the composition again).
+ *   · the inverted-polarity routing swapped (effectAtoms ⇄ elseAtoms) -> THREE rows die: Apathy's pay
+ *     row (paying now punishes), the empty-hand row, and Mind Whip's decline row (declining now buys
+ *     silence) — the polarity inversion is the vicious wrongness this arm guards.
  *
  * Real oracle fixtures (bundled Scryfall, probed 2026-08-12).
  */
@@ -166,10 +169,11 @@ describe("⭐⭐ UPKEEP-PLAYER MAY-PAY — Paralyze pays mana, Apathy pays a ran
   const PARALYZE = { id: "c-pz", name: "Paralyze", type: "Enchantment — Aura", mana: "{B}",
     oracle: "Enchant creature\nWhen this Aura enters, tap enchanted creature.\nEnchanted creature doesn't untap during its controller's untap step.\nAt the beginning of the upkeep of enchanted creature's controller, that player may pay {4}. If the player does, untap the creature." };
 
-  it("⭐ the pair flips native; Mind Whip's inverted polarity stays parked", () => {
+  it("⭐ the trio flips native (Mind Whip's inverted arm landed the same slice)", () => {
     for (const c of [APATHY, PARALYZE]) expect(classifyCard(c), c.name).toMatch(/^native/);
-    expect(classifyCard({ id: "c-mw", name: "Mind Whip", type: "Enchantment — Aura", mana: "{2}{B}",
-      oracle: "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, that player may pay {3}. If they don't, this Aura deals 2 damage to that player and you tap that creature." })).toBe("body-only");
+    // Errant Minion still parks — "may pay any amount of mana" + X-prevention has no arm (safe FN).
+    expect(classifyCard({ id: "c-em", name: "Errant Minion", type: "Enchantment — Aura", mana: "{1}{U}{U}",
+      oracle: "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, that player may pay any amount of mana. This Aura deals 2 damage to that player. Prevent X of that damage, where X is the amount of mana that player paid this way." })).toBe("body-only");
   });
 
   function pausedApathy(handCount) {
@@ -218,5 +222,41 @@ describe("⭐⭐ UPKEEP-PLAYER MAY-PAY — Paralyze pays mana, Apathy pays a ran
     };
     console.log("  WITNESS apathyEmptyHand", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
     expect(row).toEqual({ graveyard: 0, hostStillTapped: true });
+  });
+
+  const MIND_WHIP = { id: "c-mw", name: "Mind Whip", type: "Enchantment — Aura", mana: "{2}{B}",
+    oracle: "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, that player may pay {3}. If they don't, this Aura deals 2 damage to that player and you tap that creature." };
+
+  function pausedMindWhip() {
+    // MY Mind Whip on ai1's UNTAPPED Bear; ai1's upkeep. Same real-flush drive as Apathy above.
+    const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const host = createPermanent({ id: "HOST", controller: "ai1", tapped: false, summoningSick: false,
+      card: { id: "c-br", name: "Grizzly Bears", type: "Creature — Bear", mana: "{1}{G}", power: "2", toughness: "2", oracle: "" } });
+    const aura = createPermanent({ id: "AURA", controller: "user", summoningSick: false, card: MIND_WHIP });
+    aura.attachedTo = "HOST";
+    host.attachments = ["AURA"];
+    let s = { ...s0, activePlayer: "ai1", phase: "upkeep", step: "upkeep", players: { ...s0.players,
+      user: { ...s0.players.user, battlefield: [aura] },
+      ai1: { ...s0.players.ai1, battlefield: [host] } } };
+    s = checkStepTriggers(s, "upkeep");
+    s = flushTriggers(s);
+    let guard = 0;
+    while ((s.stack || []).length && !s.pendingChoice && guard++ < 10) s = resolveTopOfStack(s);
+    return s;
+  }
+
+  it("⭐⭐ MIND WHIP (inverted polarity) — DECLINE runs the punishment: 2 damage to the upkeep player AND the host taps", () => {
+    const paused = pausedMindWhip();
+    expect(classifyCard(MIND_WHIP)).toMatch(/^native/); // graduated from the refusal row above, same slice
+    expect(paused.pendingChoice?.kind).toBe("optional-mana-payment");
+    expect(paused.pendingChoice?.controller).toBe("ai1");
+    const after = resolveOptionalManaPaymentChoice(paused, false);
+    const row = {
+      upkeepPlayerLife: after.players.ai1.life,
+      auraOwnerLife: after.players.user.life,
+      hostTapped: after.players.ai1.battlefield.find((p) => p.id === "HOST")?.tapped === true,
+    };
+    console.log("  WITNESS mindWhipDecline", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({ upkeepPlayerLife: 38, auraOwnerLife: 40, hostTapped: true });
   });
 });

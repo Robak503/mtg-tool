@@ -1313,7 +1313,7 @@ function matchOptionalManaPayment(oracle, cardType) {
   // optional-mana-payment op with a payerRef the suspend site re-aims (the Slow Motion pattern) and,
   // for Apathy, a discard-random cost kind (settled by the seeded pitchRandomDiscard — a REAL discard,
   // CR 701.9b, so discard watchers fire). The payoff runs through the SAME gates as the main arm below.
-  const up = s.match(/^the upkeep player may (?:pay\s+((?:\{[^}]+\})+)|(discard a card at random))\.\s*if the player does,?\s+(.+)$/i);
+  const up = s.match(/^the upkeep player may (?:pay\s+((?:\{[^}]+\})+)|(discard a card at random))\.\s*if (the player does|they don't),?\s+(.+)$/i);
   if (up) {
     let cost;
     if (up[1]) {
@@ -1324,13 +1324,19 @@ function matchOptionalManaPayment(oracle, cardType) {
     } else {
       cost = { kind: "discard-random", count: 1 };
     }
-    const upayoff = parseEffectClauseImpl(up[3].trim(), cardType, { hasX: false });
+    // INVERTED POLARITY (Mind Whip "if they don't, this Aura deals 2 damage … and you tap that creature"):
+    // the branch text becomes elseAtoms — run on DECLINE/can't-pay — with an EMPTY payoff (paying buys
+    // silence). "you tap" normalizes to the bare "tap" the vocabulary knows: for a FORCED tap of the
+    // named object the printed actor is mechanically inert, and the normalize is scoped to THIS arm's
+    // branch text only.
+    const inverted = /don't/i.test(up[3]);
+    const upayoff = parseEffectClauseImpl(up[4].trim().replace(/\byou tap\b/gi, "tap"), cardType, { hasX: false });
     if (!upayoff || programConfidence(upayoff) !== "high" || upayoff.structure === "modal" || upayoff.xSpell) return null;
     const uinner = upayoff.atoms || [];
     if (uinner.length === 0 || !uinner.every((a) => KNOWN.has(a.op))) return null;
     if (uinner.some((a) => a.targetType && !isNonChosenTargetType(a.targetType))) return null; // no chosen targets on this arm (no carrier needs one)
     if (uinner.slice(0, -1).some((a) => PAUSING_ATOM_OPS.has(a.op))) return null; // WI-3 — same dropped-payoff gate as the main arm
-    return { atom: { op: "optional-mana-payment", cost, effectAtoms: uinner, payerRef: "upkeepPlayer", targetType: null } };
+    return { atom: { op: "optional-mana-payment", cost, effectAtoms: inverted ? [] : uinner, elseAtoms: inverted ? uinner : [], payerRef: "upkeepPlayer", targetType: null } };
   }
   // "you may pay {pips}. if you do, <effect>" — the cost is one-or-more directly-adjacent mana pips.
   const m = s.match(/^you may pay\s+(\{[^}]+\}(?:\{[^}]+\})*)\.\s*if you do,?\s+(.+)$/i);
