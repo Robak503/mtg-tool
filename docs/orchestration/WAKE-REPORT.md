@@ -7,6 +7,25 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ☀️ 2026-08-12 (later) — **batch +48 · the SPELL-MASTERY vein is drilled and design-ready** — suite **1200 / 14,412** green
+
+> ### ⏭ NEXT BUILD — SPELL-MASTERY riders (17 parked carriers, ONE shared condition, census in hand)
+> The condition: "two or more instant and/or sorcery cards in your graveyard" at resolution. ONE bespoke
+> precedent already evaluates it: library.js:587 (Nissa's Pilgrimage's untap rider — read it first, reuse
+> its check). TWO rider classes:
+> · **ADDITIVE** (condition true → extra atoms after the base): Unholy Hunger (+ gain 2), Calculated
+>   Dismissal (+ scry 2, pausing-last OK), Dark Dabbling (+ draw), Kytheon's Tactics (+ riders on the
+>   same group), Send to Sleep (those creatures don't untap — needs the tapped-lock grant), Gideon's
+>   Phalanx (group gains indestructible EOT). START HERE: Unholy Hunger + Calculated Dismissal +
+>   Dark Dabbling look like base-parses + one appended atom.
+> · **INSTEAD replacement** (Fiery Impulse 2→4 damage): the `conditional` atom (applyConditional,
+>   CR 608.2 "<base>. If <cond>, <alt> instead.") is the seam — check its condition vocabulary for a
+>   graveyard-count arm before building a second evaluator.
+> · Parked-for-machines: Swift Reckoning (flash grant), Exquisite Firecraft (can't-be-countered rider),
+>   Talent of the Telepath (free-cast from reveal), Psychic Rebuttal (copy), Necromantic Summons
+>   (+1/+1-counter rider on the reanimated body — check the reanimate atom's counter support first).
+> ⚠️ The "Spell mastery — " ability-word label must strip on the SPELL lane the way static labels do —
+> verify where splitClauses handles labels before assuming.
 ## ☀️ 2026-08-12 — **post-release batch +42 · six slices this sitting · CI green at f14e626c** — suite **1199 / 14,402** green by `npm run lint` / `npm test`
 
 > ### ⏭ RUNNABLE NOW — the measured next candidates, in value order
