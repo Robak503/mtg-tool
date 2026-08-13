@@ -3233,6 +3233,14 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
     // pump parser re-gates the rewritten "double this creature's power …" form (→ doublePt self atom).
     if (new RegExp(`^double ${esc}['’]s power(?: and toughness)? until end of turn$`, "i").test(eff))
       return eff.replace(new RegExp(`${esc}['’]s`, "i"), "this creature's");
+    // X-BY-OWN-POWER COUNTER GIFT (2026-08-12 — Halana and Alena, Partners: "put X +1/+1 counters on
+    // another target creature you control, where X is <Name>'s power. That creature gains haste until
+    // end of turn."): the SAME mid-clause possessive discipline as the Tifa arm directly above —
+    // rewritten ONLY inside this exact whole-clause grammar (optional haste rider included), so no
+    // other possessive can ever be consumed (CREED). The counter parser re-gates the rewritten form
+    // (→ the sourcePower scaled arm + the proven two-sentence haste fold).
+    if (new RegExp(`^put x \\+1/\\+1 counters on another target creature you control, where x is ${esc}['’]s power(?:\\. that creature gains haste until end of turn)?\\.?$`, "i").test(eff))
+      return eff.replace(new RegExp(`${esc}['’]s`, "i"), "this creature's");
     // UPKEEP DOUBLE-OR-RESET (Lily Bowen, SHELF S7 — "double the number of +1/+1 counters on <Name> if its
     // power is N or less. Otherwise, remove all but one +1/+1 counter from it, then you gain 1 life for each
     // +1/+1 counter removed this way"): the self-name sits MID-clause. Rewrite it to "this creature" ONLY

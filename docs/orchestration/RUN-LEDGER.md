@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **HALANA AND ALENA (+1) — one arm, two shelf decks paid** - the shelf grind
+> Suite 1204 / 14,429 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Halana and Alena, Partners
+> (parked in BOTH Shalai-and-Hallar Test and Wolverine — the cross-deck census's shared-card law).
+> Audited whole-card. Post-release batch **+53**.
+> ⭐ THE CROSS-DECK CENSUS is the shelf grind's instrument now: 24 cards parked in 2+ below-bar decks
+> (Endurance ×3, Teferi's Protection ×3, 22 ×2s), sole-blocker probed. Halana was the cheapest: the
+> combatBegin event DETECTED, the another-target excludeSource atom existed (Benevolent Hydra), the
+> sourcePower countFor kind existed, the two-sentence haste fold existed — ONE scaled counter arm + ONE
+> grammar-anchored possessive rewrite ("<Name>'s power" → "this creature's", the Tifa Lockhart
+> discipline: the rewrite lives only inside this exact whole-clause shape).
+> ⭐ THE WITNESS CAUGHT A WRONG FIELD NAME: the arm first emitted amountCount — the add-counter resolver
+> reads countFor — and the gift silently defaulted to 1. The Law-6 rows (base gift 2; LAYER-AWARE gift 4
+> with two counters on Halana; never on herself) exposed it before any push.
+> Mutations HC-M1 (the arm) / HC-M2 (the possessive grammar) both killed, printed back.
+> ⛔ Parked from the cross-deck list with reasons: Karlach (EXTRA COMBAT machine), Forgotten Ancient
+> (counter redistribution choice), Kodama (the "modified" predicate — pays vocabulary, next-tier
+> candidate), Teferi's Protection/Endurance/Solitude (machines). Next cheapest to probe: Neyith,
+> Thassa's Oracle, The One Ring, Mother of Runes.
+> Token diet: ~45k output tokens this slice.
 > ## SLICE DONE - 2026-08-12 - **THE PLAY-HINTS LEDGER — the AI's decision layer is no longer blind** - Colton's order, built whole
 > Suite 1203 / 14,425 green + lint 0 BY EXIT CODE. Design doc: docs/orchestration/PLAY-HINTS-LEDGER.md
 > (the three not-blind layers: Arbiter resolution · AI-F2 restraint · THIS, decision). No tier movement

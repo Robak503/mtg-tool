@@ -639,6 +639,14 @@ export function addCounterClauseParser(clause) {
   // activated-dispatcher always threads sourceId, so this never mis-targets in practice.
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on another target creature you control$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureYouControl", excludeSource: true };
+  // X-BY-SOURCE-POWER (2026-08-12 — Halana and Alena, Partners: "put X +1/+1 counters on another target
+  // creature you control, where X is this creature's power. That creature gains haste until end of
+  // turn."): the scaled twin of the fixed-N arm directly above — amountCount kind "sourcePower"
+  // (countForSpec reads ctx.sourceId's LAYER-AWARE power at resolution, so pumps/counters on Halana
+  // grow the gift), same excludeSource marker (CR 109.5 "another"). The haste rider is the existing
+  // two-sentence fold — [add-counter, pump] sharing the one chosen target.
+  m = t.match(/^put x ([+-]1\/[+-]1) counters? on another target creature you control, where x is this creature's power$/);
+  if (m) return { op: "add-counter", counterType: m[1], countFor: { kind: "sourcePower" }, targetType: "creatureYouControl", excludeSource: true };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on this creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), target: "self" };
   // MONSTROSITY (CR 701.32) — the "Monstrosity N" activated keyword action: if the source ISN'T monstrous, put N
