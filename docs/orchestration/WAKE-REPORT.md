@@ -15,6 +15,20 @@
 > · **Twelve decks remain**: Jurassic 85 (closest — drill its parked list next), Dragons 80,
 >   Believe it! 79, Hulk Smash 79, Wolverine 78, Kinnan 77, Teval 76, Kellan 74, Otharri 73,
 >   Cap America 73, Halfshell 68, Shalai 66.
+> · **NEXT SLICE, DESIGN BANKED — Pugnacious Hammerskull** (Jurassic): "Whenever this creature
+>   attacks while you don't control another Dinosaur, put a stun counter on it." Five sites, all
+>   scouted: ① interveningIf.js ~1168 — add `you don't control another (.+)` to the SOURCE-EXCLUDING
+>   branch (it already fail-closes without sourcePermanentId); ② triggers.js — carve "attacks while
+>   <cond>" BEFORE the blanket while-reject (~915), emitting the attacks event + `attacksWhileIf`
+>   ONLY when interveningIfParseable(cond) (else the old reject → Arbiter, FN-safe); ③ the
+>   descriptor-threading allowlist (~4487) — list attacksWhileIf or it silently drops (the
+>   duringOpponentsTurn lesson); ④ checkAttackTriggers — the FIRE-TIME-ONLY gate via
+>   evaluateInterveningIf with {sourcePermanentId} (CR: "attacks while" is part of the trigger EVENT,
+>   checked at declaration, NOT re-checked at resolution — do NOT stamp it as interveningIf, that
+>   over-suppresses); ⑤ the effect "put a stun counter on it" — the it→"this creature" sentinel on the
+>   attacks-self event ("put a stun counter on this creature" already parses HIGH:
+>   add-named-counter-self/stun). Witnesses: lone-Dino attack ⇒ stun lands; second Dino out ⇒ silent;
+>   the stun counter's untap-replacement consumes it.
 > · **Batch +89 of ~100** — cut the release tag after roughly one more slice, per the batching law.
 > · Corrected en route: Mjölnir, Storm Hammer is NOT a discard-lane card (attach-ETB + tap-stun attack
 >   trigger — its own slice).
