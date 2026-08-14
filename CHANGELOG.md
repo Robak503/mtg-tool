@@ -16,6 +16,12 @@ summarizes the notable changes.
   the derivation, and `scripts/warm-play-hints.mjs` builds it for your saved decks.
 
 ### Fixed
+- **"Return two target creatures" means two.** Step Through, Undo and Essence Fracture bounce exactly
+  two creatures — with only one creature on the battlefield the spell correctly can't be cast, rather
+  than half-resolving. Cards with a typecycling line (Step Through's Wizardcycling, Lórien Revealed's
+  Islandcycling) no longer sit out the simulator because of it.
+- **Noxious Revival works.** Any graveyard's card goes on top of its owner's library — an opponent's
+  card tops their deck, not yours.
 - **Discard-to-activate abilities can aim.** Trumpeting Carnosaur's "discard this card: 3 damage to a
   creature or planeswalker" and Steel Wrecking Ball's "destroy target artifact" now work from your
   hand — the target is chosen when you activate, and with no legal target the ability simply isn't

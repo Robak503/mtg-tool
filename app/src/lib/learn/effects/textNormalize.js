@@ -203,7 +203,11 @@ export function stripNoMaxHandSizeRider(text) {
 // not assumed: detectTriggers returns ZERO for a cipher carrier, so nothing leaks in as a phantom descriptor.
 // Bare keyword after reminder-strip (no brace cost), so it anchors on the word alone, exactly like conspire.
 // The keyword-only credit in coverage.js carries the matching rationale for the PERMANENT-residue side.
-const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|freerunning\s*\{|suspend\s+\d+\s*[—–-]|splice onto arcane\s*\{|recover\s*\{|harmonize\s*\{|basic landcycling\s*\{|cycling\s*\{|flashback\s*(?:\{|[—–-])|jump-start\b|retrace\b|escape\s*[—–-]|spectacle\s*\{|prowl\s*\{|surge\s*\{|miracle\s*\{|overload\s*\{|awaken\s+\d+\s*[—–-]|buyback\s*\{|entwine\s*\{|conspire\b|cipher\b|undaunted\b|bargain\b|web-slinging\s*\{|impending\s+\d+\s*[—–-]|mayhem\s*\{|dredge\s+\d)[^\n]*$/gim;
+const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|freerunning\s*\{|suspend\s+\d+\s*[—–-]|splice onto arcane\s*\{|recover\s*\{|harmonize\s*\{|(?:basic land|[a-z]+)?cycling\s*\{|flashback\s*(?:\{|[—–-])|jump-start\b|retrace\b|escape\s*[—–-]|spectacle\s*\{|prowl\s*\{|surge\s*\{|miracle\s*\{|overload\s*\{|awaken\s+\d+\s*[—–-]|buyback\s*\{|entwine\s*\{|conspire\b|cipher\b|undaunted\b|bargain\b|web-slinging\s*\{|impending\s+\d+\s*[—–-]|mayhem\s*\{|dredge\s+\d)[^\n]*$/gim;
+// ⭐ TYPECYCLING joined the cycling entry 2026-08-14 (Step Through's "Wizardcycling {2}"): `[a-z]+cycling`
+// covers wizardcycling / slivercycling / mountaincycling etc. — the SAME vacuous-for-the-normal-cast
+// justification as plain cycling (a hand-side alternative that never touches the spell's own resolution;
+// the permanent path already treated it that way — Vedalken Aethermage).
 // MADNESS_LINE needs a TIGHTER anchor than the others: a madness line can be COMPOUND
 // ("Madness {R}, cycling {1}{R}, kicker {2}{R}, buyback {4}{R}" — Blast from the Past), and buyback's
 // kept "return to hand as it resolves" effect lives ONLY on that line. A greedy `[^\n]*$` strip would drop

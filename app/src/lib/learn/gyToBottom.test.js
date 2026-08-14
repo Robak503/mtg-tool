@@ -49,12 +49,15 @@ describe("AR-1 parser — the bottom-return clause is HIGH; every near-miss stay
     expect(programConfidence(p)).toBe("high");
     expect(p.atoms).toEqual([EXPECTED_ATOM]);
   });
-  it("FN guards: a typed filter / up-to-one count / own-graveyard scope / top destination stays LOW", () => {
+  it("FN guards: a typed filter / up-to-one count / own-graveyard scope stays LOW (top GRADUATED)", () => {
     const low = (clause) => expect(programConfidence(parseEffectClause(clause, "Artifact"))).toBe("low");
     low("Put target artifact, instant, or sorcery card from a graveyard on the bottom of its owner's library."); // Keeper of the Cadence — typed filter
     low("Put up to one target card from a graveyard on the bottom of its owner's library.");                     // Swiftgear Drake — optional count
     low("Put target card from your graveyard on the bottom of its owner's library.");                            // own-graveyard scope variant (unevidenced)
-    low("Put target card from a graveyard on top of its owner's library.");                                      // top destination variant (unevidenced)
+    // The top-destination form left this list 2026-08-14: Noxious Revival is the evidence ("Put target
+    // card from a graveyard on top of its owner's library" — its own arm + witnesses in
+    // stepThroughNoxious.test.js). Pinned HIGH here so the two files can't disagree silently.
+    expect(programConfidence(parseEffectClause("Put target card from a graveyard on top of its owner's library.", "Artifact"))).toBe("high");
   });
   it("intent is AMBIGUOUS (anyGraveyard — the reanimate-from-any discipline); own-gy returns stay own", () => {
     expect(atomTargetIntent(EXPECTED_ATOM)).toBe("ambiguous");

@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **THE RASHMI PAIR (+5) — exact-two bounce · Noxious owner-top · typecycling strip** - the shelf grind (Test Rashmi 87→89)
+> Suite 1214 / 14,478 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Step Through +
+> Noxious Revival (both Test Rashmi) + riders Undo, Essence Fracture (the exact-two arm), Lórien
+> Revealed (typecycling). All audited whole-card. Post-release batch **+88**.
+> ⭐ THREE SMALL ARMS: the multi-bounce "up to " became OPTIONAL (absent ⇒ minTargets = maxTargets = N,
+> CR 601.2c — ONE creature ⇒ UNCASTABLE, witnessed); the Noxious arm (applyReturnFromGraveyard's
+> anyGraveyard holder-routing already implements "its owner's library" — CR 404.1, one arm, whole
+> card); CAST_KEYWORD_LINE's cycling entry generalized to `[a-z]+cycling` (wizard/island/sliver-cycling
+> = the same vacuous cast-alternative plain cycling always was; the line-anchored strip can never
+> promote an unmodeled body — pinned).
+> ⭐⭐ Owner-top witnessed: an ENEMY graveyard card lands on the ENEMY's library top, never yours.
+> Mutations SP-M1 (minTargets reverted → the one-creature board casts) / SP-M2 (Noxious arm → parks)
+> / SP-M3 (typecycling reverted → Step Through + Lórien park) all killed, printed back.
+> ⭐ ONE PARK PIN GRADUATED (gyToBottom's FN-guard pinned the top-destination form LOW as
+> "unevidenced" — Noxious Revival IS the evidence; the line now pins it HIGH so the two files can't
+> silently disagree). The full-suite gate caught it — third graduation catch this session.
+> Token diet: ~30k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **DISCARD-ABILITY TARGETING (+2) — Trumpeting Carnosaur + Steel Wrecking Ball** - the shelf grind (Jurassic Ramp carrier)
 > Suite 1213 / 14,473 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — both carriers
 > body-only→native-trigger. Audited whole-card (Carnosaur: Trample + discover-5 ETB + the activation;

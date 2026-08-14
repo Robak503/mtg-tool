@@ -659,6 +659,14 @@ export function graveyardReturnClauseParser(clause) {
     const cf = parseGraveyardFilter(topM[1]);
     if (cf) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: cf, toLibraryTop: true };
   }
+  // NOXIOUS REVIVAL (2026-08-14) — "put target card from A graveyard on top of ITS OWNER's library":
+  // the anyGraveyard twin of the arm above. applyReturnFromGraveyard already routes an anyGraveyard
+  // target to the ZONE HOLDER's library (the same t.controller stamp GY-TO-BOTTOM documents), so the
+  // whole card is this one arm. "its owner's" is what the holder routing implements — a card sits in
+  // its owner's graveyard (CR 404.1), so holder === owner by construction.
+  if (/^put target card from a graveyard on top of its owner's library$/.test(t)) {
+    return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "any", anyGraveyard: true, toLibraryTop: true };
+  }
   // ⭐ GY-TO-TOP, MULTI-COUNT (CR 601.2c "up to N") — "put up to <N> target <filter> card(s) from your
   // graveyard on top of your library" (Meldweb Curator, Biblioplex Assistant, Monastery Messenger, Runo
   // Stromkirk, Treason of Isengard, Boseiju Reaches Skyward). Found by tier-splitting the destination phrase:
@@ -887,12 +895,16 @@ export function bounceClauseParser(clause) {
   // MULTI-COUNT (CR 601.2c "up to N") — "return up to <N> target <creatures|permanents|…> to their owners' hands"
   // (each card returns to its OWN owner's hand; applyZoneMove → atomTargets(ctx.targets) already loops). Same bounce
   // resolver + a maxTargets count so targeting.expandAtoms offers each subset of 0..N legal targets. minTargets:0.
-  const multiB = t.match(/^return up to (two|three|four|five) target (creatures|nonland permanents|permanents|artifacts|enchantments|lands)(?: (an opponent controls|you don't control|you control))? to their owners' hands$/);
+  // EXACT-N joined 2026-08-14 (Step Through — "Return TWO target creatures to their owners' hands"):
+  // without "up to", minTargets = maxTargets = N (CR 601.2c, the untap-exact-lands / Ghostly Flicker
+  // discipline — one legal creature ⇒ the spell is UNCASTABLE, never a half-cast). The up-to form is
+  // byte-identical (minTargets 0).
+  const multiB = t.match(/^return (up to )?(two|three|four|five) target (creatures|nonland permanents|permanents|artifacts|enchantments|lands)(?: (an opponent controls|you don't control|you control))? to their owners' hands$/);
   if (multiB) {
     const TTm = { "creatures": "creature", "permanents": "permanent", "nonland permanents": "nonlandPermanent", "artifacts": "artifact", "enchantments": "enchantment", "lands": "land" };
-    const n = SMALL_NUM[multiB[1]];
-    const restrictions = multiB[3] ? [{ kind: "controller", who: /^you control$/.test(multiB[3]) ? "you" : "opponent" }] : [];
-    if (n >= 2) return { op: "bounce", targetType: TTm[multiB[2]], restrictions, maxTargets: n, minTargets: 0 };
+    const n = SMALL_NUM[multiB[2]];
+    const restrictions = multiB[4] ? [{ kind: "controller", who: /^you control$/.test(multiB[4]) ? "you" : "opponent" }] : [];
+    if (n >= 2) return { op: "bounce", targetType: TTm[multiB[3]], restrictions, maxTargets: n, minTargets: multiB[1] ? 0 : n };
   }
   // "return target creature[ you control | an opponent controls | you don't control | that player controls]
   // to its owner's hand" (Chulane, Teller of Tales's {3},{T} bounce). Mirrors the non-creature `bp` branch
