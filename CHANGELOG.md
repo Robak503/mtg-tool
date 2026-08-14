@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Hellkite Courser lends you your commander.** Its enters trigger really borrows your commander
+  from the command zone — it arrives with haste, swings, and goes home at the next end step. If it
+  dies first, nothing comes back from nowhere.
 - **Terror of the Peaks taxes your removal.** Opponents pay 3 life to aim spells at it — and if they
   can't afford the life, they can't cast it at all. Its damage trigger on your entering creatures
   already worked; the whole card now plays.

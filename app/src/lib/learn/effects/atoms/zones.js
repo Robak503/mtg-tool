@@ -9,7 +9,17 @@ import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers
 import { atomTargets } from "./shared.js";
 import { parseGraveyardFilter, cardMatchesGraveyardFilter, parseCreatureTargetRestrictions } from "../../spellEffects.js"; // seam batch 16: graveyard card-type filter (leaf-safe, same as stack.js's spellEffects import) for graveyardReturnClauseParser. cardMatchesGraveyardFilter joins it for MASS-REANIMATE, which selects at RESOLUTION (no enumerated targets) — same import edge, no new module dependency.
 import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // MULTI-COUNT: number-word → int for "up to N target … cards"; parseCountSource: MASS-OPPONENT-BOUNCE toughness-threshold count (leaf, cycle-free)
-import { shuffleControllerLibrary } from "./library.js"; // GS-1 — the deterministic rngSeed shuffle (works for any player id); library.js never imports zones.js → cycle-free sibling edge
+import { shuffleControllerLibrary } from "./library.js";
+import { applyScheduleDelayed } from "./delayedTrigger.js"; // the CR 603.7 queue (a sibling leaf)
+// CZ-COMMANDER-VISIT cross-layer doors — INJECTED, never imported: a static resolvers.js/layers.js
+// import from this atoms leaf TDZ-crashed 56 suites (zones sits under effectAtoms → parser, and
+// resolvers.js reaches back through that chain). The integrators register at their own load
+// (resolvers.js registers enterPermanent; layers.js registers addContinuousEffect) — the same
+// registerGrantTriggeredBodyValidator pattern grantUntilEot.js uses for the identical reason.
+let _enterPermanent = null;
+let _addContinuousEffect = null;
+export function registerCzEnterPermanent(fn) { if (typeof fn === "function") _enterPermanent = fn; }
+export function registerCzAddContinuousEffect(fn) { if (typeof fn === "function") _addContinuousEffect = fn; } // GS-1 — the deterministic rngSeed shuffle (works for any player id); library.js never imports zones.js → cycle-free sibling edge
 
 /** Move creature(s) battlefield → hand (bounce), → exile, or → library (TUCK — top via toTop, else
  * bottom) — chosen targets, or ALL creatures for a mass `exile all creatures` (targetType "eachCreature"). */
@@ -1304,7 +1314,63 @@ export function applyDetainReturn(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "detain-return", returned });
 }
 
+/**
+ * CZ-COMMANDER-VISIT (Hellkite Courser, 2026-08-14 — CR 903 + 603.7): "you may put a commander you own
+ * from the command zone onto the battlefield. It gains haste. Return it to the command zone at the
+ * beginning of the next end step." ONE atom for the whole three-sentence instruction (splitClauses
+ * keeps it folded). The fetch enters through resolvers.enterPermanent (ETB triggers, Kismet, the
+ * timestamp — the same door every non-cast entry uses); haste is a fixed-id endOfTurn addKeyword
+ * (behaviorally exact: the return fires at the NEXT end step, and haste only matters on a turn the
+ * commander has been under its controller's control since the start of anyway); the return rides the
+ * CR 603.7 delayed queue as a `[cz-return <permId>]` SENTINEL clause only czClauseParser reads.
+ * POLICY (documented house auto-pick, the riot discipline): the MAY is always taken when the command
+ * zone is non-empty (a free commander is never worse than declining in this sim's evaluation), and
+ * with partners the FIRST commander in the zone is fetched — deterministic, logged.
+ */
+export function czClauseParser(clause) {
+  const t = String(clause || "").trim().toLowerCase();
+  if (/^(?:you may )?put a commander you own from the command zone onto the battlefield\. it gains haste\. return it to the command zone at the beginning of the next end step$/.test(t)) {
+    return { op: "cz-commander-visit" };
+  }
+  const rm = t.match(/^\[cz-return ([\w:.-]+)\]$/);
+  if (rm) return { op: "cz-return", permanentId: rm[1] };
+  return null;
+}
+
+export function applyCzCommanderVisit(state, atom, ctx) {
+  const player = state.players?.[ctx.controller];
+  const cz = player?.command || [];
+  if (!cz.length) return logEvent(state, { kind: "spell-effect", effect: "cz-commander-visit", fetched: null, controller: ctx.controller });
+  const card = cz[0];
+  let next = { ...state, players: { ...state.players, [ctx.controller]: { ...player, command: cz.filter((c) => c !== card) } } };
+  if (!_enterPermanent || !_addContinuousEffect) throw new Error("cz-commander-visit: integrator doors unregistered — load resolvers.js (the engine always does; a harness must too)");
+  next = _enterPermanent(next, card, ctx.controller);
+  // The just-entered permanent: this card's id, highest timestamp (enterPermanent stamps monotonically).
+  const perm = (next.players[ctx.controller]?.battlefield || [])
+    .filter((p) => p.card?.id === card.id)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
+  if (!perm) return next; // entry replaced/redirected — nothing to haste or schedule
+  next = _addContinuousEffect(next, {
+    layer: 6,
+    op: { layerOp: "addKeyword", keyword: "Haste" },
+    affects: { mode: "fixed", permanentIds: [perm.id] },
+    duration: { kind: "endOfTurn", turn: next.turn },
+    source: { kind: "resolution", permanentId: null, cardName: ctx.cardName || null },
+  }).state;
+  next = applyScheduleDelayed(next, { delayedClause: `[cz-return ${perm.id}]`, fireStep: "end", fireScope: "any" }, ctx);
+  return logEvent(next, { kind: "spell-effect", effect: "cz-commander-visit", fetched: card.name || null, permanentId: perm.id, controller: ctx.controller });
+}
+
+export function applyCzReturn(state, atom, ctx) {
+  const lk = findPermanent(state, atom.permanentId);
+  if (!lk) return logEvent(state, { kind: "spell-effect", effect: "cz-return", returned: null, controller: ctx.controller }); // already left — CR 603.7, a clean no-op
+  const next = moveCardToZone(state, { playerId: lk.controller, fromZone: "battlefield", toZone: "command", cardId: atom.permanentId });
+  return logEvent(next, { kind: "spell-effect", effect: "cz-return", returned: lk.permanent?.card?.name || null, controller: ctx.controller });
+}
+
 export const zoneResolvers = {
+  "cz-commander-visit": applyCzCommanderVisit, // Hellkite Courser — the CZ fetch + haste + delayed return
+  "cz-return": applyCzReturn,                  // the delayed half's sentinel
   "bounce": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "hand"),
   "tuck": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "library", atom.where === "top"),
   "return-from-graveyard": applyReturnFromGraveyard,

@@ -251,6 +251,12 @@ export function splitClauses(oracle) {
       (/^if you do,/i.test(sentence) && /^you may (?:discard a card|pay \{|sacrifice (?:a|an) )/i.test(prev))
       || (/^(?:until the end of your next turn, you may play|you may play (?:that card|it|them|those cards|cards exiled this way) until the end of your next turn)/i.test(sentence)
           && /^exile the top (?:card|two cards|three cards|four cards|five cards) of your library$/i.test(prev))
+      // CZ-COMMANDER-VISIT (Hellkite Courser, 2026-08-14) — the three-sentence ETB is ONE instruction
+      // (fetch + haste + the delayed return); both continuations fold onto their exact leads, so this can
+      // only ever reassemble the one shape the cz arm claims (the anchored-fold discipline above).
+      || (/^it gains haste$/i.test(sentence) && /put a commander you own from the command zone onto the battlefield$/i.test(prev))
+      || (/^return it to the command zone at the beginning of the next end step$/i.test(sentence)
+          && /put a commander you own from the command zone onto the battlefield\. it gains haste$/i.test(prev))
     )) {
       clauses[clauses.length - 1] = `${prev}. ${sentence}`;
       continue;

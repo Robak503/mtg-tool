@@ -990,3 +990,13 @@ export function getResolver(key) {
 export function _clearExtensionsForTests() {
   EXTENSIONS.clear();
 }
+
+// CZ-COMMANDER-VISIT injection (Hellkite Courser, 2026-08-14): hand the atoms leaf the two cross-layer
+// doors it must not import statically (zones.js sits under effectAtoms → parser; a static import of this
+// module from there TDZ-crashed 56 suites). resolvers.js already imports zones-ward safely at runtime via
+// the resolver registry, and layers.js is imported here transitively — registering at THIS module's load
+// guarantees the doors exist before any game resolves an atom.
+import { registerCzEnterPermanent, registerCzAddContinuousEffect } from "./effects/atoms/zones.js";
+import { addContinuousEffect as _czAddContinuousEffect } from "./layers.js";
+registerCzEnterPermanent(enterPermanent);
+registerCzAddContinuousEffect(_czAddContinuousEffect);

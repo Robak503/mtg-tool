@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **HELLKITE COURSER (+1) — the CZ-COMMANDER-VISIT machine** - the shelf grind (Dragons 83→84)
+> Suite 1238 / 14,582 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Hellkite
+> body-only→native-trigger. Post-release batch **+73**.
+> ⭐ ONE ATOM over three existing doors: resolvers.enterPermanent (the shared non-cast entry — ETB
+> triggers/Kismet/timestamp) · a fixed-id endOfTurn Haste addKeyword · the CR 603.7 delayed queue
+> carrying a `[cz-return <permId>]` SENTINEL only czClauseParser reads. splitClauses keeps the
+> three-sentence instruction folded. House auto-picks documented (the riot discipline): the MAY is
+> always taken; partners fetch the FIRST commander.
+> ⚠️ A TDZ LESSON RE-LEARNED AT THE GATE: static zones.js→resolvers.js/layers.js imports crashed 56
+> suites (zones sits under effectAtoms → parser). Fixed with the INJECTION pattern (register the two
+> doors at resolvers.js load — grantUntilEot's validator precedent); the resolver guard THROWS if the
+> integrator never loaded (fail-fast, never a silent half-resolve); witnesses import resolvers.js
+> exactly as the engine always does.
+> ⭐⭐ Witnessed: the commander enters WITH haste, the CZ empties, ONE delayed record (fireStep end) ·
+> the end-step drain sends him home (battlefield → command) · an empty CZ is a clean no-op (nothing
+> scheduled) · died-before-the-end-step → the return is a clean skip (never fabricated back).
+> Mutations HK-M1 (the splitter fold's haste continuation dropped → severs → parks) / HK-M2 (the
+> delayed schedule dropped → the commander STAYS — the loan-becomes-gift FP) both killed, printed
+> back, per-process; the cz-return guard is witness-pinned (its removal fails the clean-skip test).
+> Token diet: ~20k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **TERROR OF THE PEAKS (+1) — the TARGET-LIFE-TAX static** - the shelf grind (Dragons 82→83)
 > Suite 1237 / 14,577 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Terror
 > body-only→native-mixed (the enters-damage trigger already routed; the tax static was the whole park).
