@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Temple Altisaur shields the herd.** Any damage to another Dinosaur you control is cut to 1 —
+  but never to the Altisaur itself, never to non-Dinosaurs, and never to an opponent's Dinosaurs.
 - **Throne of the God-Pharaoh works.** Each end step it counts your tapped creatures — attackers,
   tapped mana dorks, all of them, read live — and drains each opponent for that much. Black Widow's
   combat-damage drain and Harvest Season's tapped-count land search work off the same counting.

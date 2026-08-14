@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **TEMPLE ALTISAUR (+1) — the prevent-all-but-N the module promised** - the shelf grind (Jurassic carrier)
+> Suite 1224 / 14,516 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Temple Altisaur
+> body-only→native-static. Audited whole-card (the card IS its one sentence). Post-release batch **+18**.
+> ⭐ THE MODULE'S OWN DESIGN NOTES PROMISED THE SLOT ("a future prevent-N drops in without a rewrite")
+> — delivered: the parse entry (target-side, live subtype filter, CR 109.5 excludeSelf) · the
+> target-subtype scope matcher · the preventAllBut op (a CAP, never a raise) · the strip mirror.
+> damagedBy honesty holds by construction: the cap runs in the CONSULT, so a capped hit still deals 1
+> and stamps truthfully (the Raptor rider regression run green alongside).
+> ⭐⭐ Witnessed through the REAL funnel: 5 → 1 on another Dino · the Altisaur itself takes the full 5
+> AND DIES (the lethal SBA — the witness first read damageMarked off a dead permanent and got 0; the
+> death IS the proof) · non-Dino full 5 · enemy Dino full 5 · a 1-ping stays 1.
+> Mutations TA-M1 (entry → parks) / TA-M2 (excludeSelf → the self-cap, strictly-better-than-printed)
+> / TA-M3 (the op → full damage) all killed, printed back under the no-op-throw rule.
+> Token diet: ~30k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **THE TAPPED COUNT (+3) — Throne of the God-Pharaoh** - the shelf grind (Otharri carrier; Teval re-measured 76→79 after the Rumble slice)
 > Suite 1223 / 14,510 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Throne of the
 > God-Pharaoh (Otharri) + riders Black Widow, Daring Operative (the equal-to arm on the existing

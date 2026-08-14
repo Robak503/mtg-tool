@@ -140,6 +140,17 @@ export function parseDamageReplacements(card) {
   if (/if this creature would deal combat damage to a player,? it deals double that damage/i.test(oracle)) {
     out.push({ op: { op: "multiply", factor: 2 }, scope: { side: "source", self: true, combatOnly: true, targetPlayerOnly: true } });
   }
+  // TEMPLE ALTISAUR (2026-08-14) — the SUBTYPE-SCOPED PARTIAL prevention: "If a source would deal
+  // damage to another <Subtype> you control, prevent all but N of that damage." Target-side with a
+  // live subtype filter + the CR 109.5 "another" self-exclusion; the op is the module's
+  // long-anticipated prevent-N — a CAP at N, never a zero (that's op:"prevent").
+  const pab = oracle.match(/(?:^|[\n.;])\s*if a source would deal damage to another ([A-Z][a-z]+) you control, prevent all but (\d+|one) of that damage\s*(?:\.|$)/i);
+  if (pab) {
+    out.push({
+      op: { op: "preventAllBut", floor: pab[2].toLowerCase() === "one" ? 1 : parseInt(pab[2], 10) },
+      scope: { side: "target", targetSubtype: pab[1].toLowerCase(), excludeSelf: true },
+    });
+  }
 
   return out;
 }
@@ -186,6 +197,8 @@ export function stripDamageReplacementClauses(oracle, card) {
   t = t.replace(/if a source you control would deal damage[^.]*deals? triple[^.]*\.?/i, " ");
   // CM-1 CREATURE-you-control double (Gratuitous Violence), whole sentence.
   t = t.replace(/if a creature you control would deal damage[^.]*deals? double[^.]*\.?/i, " ");
+  // TEMPLE ALTISAUR subtype-scoped partial prevention, whole sentence — mirrors the parse anchor.
+  t = t.replace(/if a source would deal damage to another [A-Z][a-z]+ you control, prevent all but (?:\d+|one) of that damage\.?/i, " ");
   // CM-1 SELF combat-to-player double (Charging Tuskodon), whole sentence.
   t = t.replace(/if this creature would deal combat damage to a player[^.]*\.?/i, " ");
   return t;
@@ -249,6 +262,24 @@ export function buildSourceFilter(entry, _state) {
     return () => true;
   }
   if (scope.side === "target") {
+    // TARGET-SUBTYPE (Temple Altisaur): the AFFECTED CREATURE must carry the subtype (live front-face
+    // read), be controlled by the replacement's controller ("you control"), and — CR 109.5 "another" —
+    // not be this permanent itself. A target off the battlefield can't be verified → no match (FN-safe).
+    if (scope.targetSubtype) {
+      return (event) => {
+        if (event?.targetKind !== "creature" || event.targetId == null) return false;
+        if (scope.excludeSelf && event.targetId === entry.permanentId) return false;
+        for (const pid of Object.keys(_state?.players || {})) {
+          const tgt = (_state.players[pid].battlefield || []).find((p) => p.id === event.targetId);
+          if (tgt) {
+            if (pid !== entry.permanentController) return false;
+            const type = String(tgt.card?.type_line ?? tgt.card?.type ?? "").toLowerCase();
+            return new RegExp(`\\b${scope.targetSubtype}\\b`).test(type);
+          }
+        }
+        return false;
+      };
+    }
     // Affected-player scoped: the replacement's controller is the player being dealt to.
     return (event) => event?.targetKind === "player"
       && event?.targetId === entry.permanentController;
@@ -321,6 +352,9 @@ function applyOp(amount, op) {
   if (op.op === "multiply") return { amount: amount * (op.factor ?? 1), prevented: false };
   if (op.op === "add") return { amount: amount + (op.addend ?? 0), prevented: false };
   if (op.op === "prevent") return { amount: 0, prevented: true };
+  // TEMPLE ALTISAUR — "prevent all but N": a CAP, never a floor-up (an amount already ≤ N is untouched,
+  // so a 1-damage ping still deals 1 — the printed behaviour, not a fabricated raise).
+  if (op.op === "preventAllBut") return { amount: Math.min(amount, Math.max(0, op.floor ?? 1)), prevented: false };
   return { amount, prevented: false };
 }
 
