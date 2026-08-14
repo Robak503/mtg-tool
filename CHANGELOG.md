@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Betor, Kin to All climbs the ladder.** Each end step it checks your creatures' real total
+  toughness — buffs and counters included — drawing at 10, untapping your team at 20, and halving
+  every opponent's life at 40, in the printed order.
 - **Jeska's Will works — both modes.** The red mana counts the targeted opponent's actual hand, the
   exile-three grants its play-this-turn window, and controlling your commander unlocks choosing both.
 - **Savage Order works — every clause.** The cost really demands a 4-power creature (a pumped 3-drop

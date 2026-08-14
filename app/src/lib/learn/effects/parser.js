@@ -1761,6 +1761,36 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // conditional op is not in the PAUSING registry, so admitting a pauser would drop the pause contract),
   // and a leading "also " strips (pure connective — the rider's atoms are already additive by shape).
   // An unmodeled rider FALLS THROUGH — the card stays exactly as parked as before.
+  // BETOR (2026-08-14) — the SEQUENTIAL "Then if" ladder: "<base>. Then if <cond A>, <effect A>. Then
+  // if <cond B>, <effect B>." Each rung is a conditional atom evaluated AT ITS POINT in the resolution
+  // (applyConditional — the ordeal comment's "mid-effect conditional", CR 608.2c: instructions run in
+  // the order written, so the untap rung's board is read AFTER the draw resolved). Every rung's
+  // condition must be interveningIfParseable and every effect HIGH + pause-free + non-targeting (the
+  // spell-mastery discipline) — anything else falls through → low → Arbiter.
+  {
+    const bt = oracle.match(/^(.+?)\.\s+then if ([^,]+), (.+?)\.\s+then if ([^,]+), (.+?)\.?\s*$/is);
+    if (bt) {
+      const base = parseEffectClauseImpl(bt[1].trim(), cardType, { hasX });
+      const rungs = [[bt[2], bt[3]], [bt[4], bt[5]]].map(([cond, fx]) => ({
+        cond: cond.trim().toLowerCase(), prog: parseEffectClauseImpl(fx.trim(), cardType, { hasX }),
+      }));
+      const cleanRung = (r) => r.prog && programConfidence(r.prog) === "high" && r.prog.structure !== "modal"
+        && r.prog.atoms.length > 0
+        && !r.prog.atoms.some((a) => PAUSING_ATOM_OPS.has(a.op))
+        && !r.prog.atoms.some((a) => a.targetType && !isNonChosenTargetType(a.targetType))
+        && interveningIfParseable(r.cond);
+      const ok = base && programConfidence(base) === "high" && base.structure !== "modal" && base.atoms.length > 0
+        && rungs.every(cleanRung);
+      if (ok) {
+        return makeProgram({
+          confidence: "high",
+          atoms: [...base.atoms,
+            ...rungs.map((r) => ({ op: "conditional", branchOn: r.cond, ifTrue: r.prog.atoms, ifFalse: [], targetType: null }))],
+          unparsedTail: null,
+        });
+      }
+    }
+  }
   // SAVAGE ORDER (2026-08-14) — the FETCHED-PERMANENT rider: "<battlefield tutor>. It gains
   // <keyword[ and keyword]> until end of turn." The rider binds to the CARD the tutor just put onto
   // the battlefield — carried as fetchedGrants on the tutor atom, applied by resolveTutorChoice's

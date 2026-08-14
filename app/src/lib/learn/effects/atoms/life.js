@@ -393,6 +393,10 @@ export function lifeClauseParser(clause) {
   if (m) return { op: "lose-life", who: "upkeepPlayer", half: m[1], targetType: null };
   m = t.match(/^(?:you )?lose half your life, rounded (up|down)$/);
   if (m) return { op: "lose-life", who: "controller", half: m[1], targetType: null };
+  // BETOR (2026-08-14) — the EACH-OPPONENT half: "each opponent loses half their life, rounded up".
+  // The same half machinery, fanned across opponents (each computes THEIR OWN half at resolution).
+  m = t.match(/^each opponent loses half (?:their|his or her) life, rounded (up|down)$/);
+  if (m) return { op: "lose-life", who: "eachOpponent", half: m[1], targetType: null };
   // ⭐ CASTING-PLAYER life loss (TP-1 — Kambal, Soot Imp, Yawgmoth's Edict, Scrawling Crawler): the same
   // structural twin, only the ctx key differs. Sentinel-gated exactly like its siblings above.
   m = t.match(/^the casting player loses (\d+) life$/);

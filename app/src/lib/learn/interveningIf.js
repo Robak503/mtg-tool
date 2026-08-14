@@ -1229,6 +1229,20 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     return m[1] === "land" ? !!stamp.land : !!stamp.nonland;
   }
 
+  // BETOR (2026-08-14) — "creatures you control have total toughness N or greater": the LAYER-AWARE
+  // toughness SUM across the controller's creatures (pumps/counters/anthems count — creatureToughness
+  // reads the live board at resolution, the powerAtLeast discipline). An empty board sums 0 (a definite
+  // false against any printed N — the parseable probe needs no extra field).
+  m = c.match(/^creatures you control have total toughness (\d+) or greater$/);
+  if (m) {
+    const need = parseInt(m[1], 10);
+    let total = 0;
+    for (const perm of controllerBoard(state, controllerId)) {
+      if (isCreaturePermLocal(perm)) total += creatureToughness(perm, state);
+    }
+    return total >= need;
+  }
+
   // "you control a/an/<N> or more <filter>"
   m = c.match(new RegExp(`^you control ${NUM_RE}(?: or more)? (.+)$`));
   if (m) {

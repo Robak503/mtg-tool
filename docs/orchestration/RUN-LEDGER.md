@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **BETOR, KIN TO ALL (+1) — the toughness ladder** - the shelf grind (Dragons 80→81)
+> Suite 1228 / 14,528 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Betor
+> body-only→native-trigger. Audited whole-card (Flying + the one ladder trigger). Post-release batch **+24**.
+> ⭐ THREE PIECES: the total-toughness interveningIf predicate (LAYER-AWARE sum, creatures only —
+> witnessed: a 99-toughness ARTIFACT counts nothing) · the SEQUENTIAL "Then if" ladder fold (each rung
+> a conditional atom read at ITS point in the resolution, CR 608.2c) · the each-opponent half-life arm
+> (the existing half machinery fanned per opponent).
+> ⭐⭐ Witnessed: 21 total toughness → 10 ✓ 20 ✓ 40 ✗.
+> Mutations BT-M1 (predicate → the trigger unreadable) / BT-M2 (ladder fold → the Then-ifs orphan) /
+> BT-M3 (the creature gate → artifacts count) all killed, printed back.
+> ⭐ ONE PIN GRADUATED (conditionVocabularyReaders listed the exact Betor form as a near-miss — a real
+> reader now, pinned TRUE with the cross-reference). The gate keeps catching them.
+> Token diet: ~20k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **JESKA'S WILL (+1) — the cross-deck staple on the Akroma rails** - the shelf grind (Hulk Smash + Cap America carrier)
 > Suite 1227 / 14,525 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Jeska's Will
 > arbiter-spell→native-spell. Audited whole-card (the FULL oracle printed first). Post-release batch **+23**.

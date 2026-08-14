@@ -201,6 +201,8 @@ describe("every reader is visible to every lane that shares the vocabulary", () 
   it("CREED — a near-miss wording is still refused rather than approximated", () => {
     // Opponent-scoped and card-count (not type-count) variants are NOT these readers.
     expect(activationConditionParseable("four or more card types among cards in your opponent's graveyard")).toBe(false);
-    expect(activationConditionParseable("creatures you control have total toughness 8 or greater")).toBe(false);
+    // GRADUATED 2026-08-14 (Betor): the total-toughness sum is a real reader now — pinned TRUE so the
+    // two files cannot silently disagree (witnesses in betorThresholds.test.js).
+    expect(activationConditionParseable("creatures you control have total toughness 8 or greater")).toBe(true);
   });
 });
