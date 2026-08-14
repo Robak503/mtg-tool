@@ -12,11 +12,19 @@
 > ### ⏭ RUNNABLE NOW — post-release
 > · **Verify the release run finishes green** (workflowName "release" on v0.158.0 — ~20-30 min; if it
 >   fails, fix the pipeline before anything else).
-> · **The grind continues, new batch**: Jurassic 86 (Marauding Raptor needs the entering-creature
->   damage rider — design half-scouted: the trigger detects, "the triggering creature" referent parses,
->   the Dinosaur-rider conditional is the new piece). Dragons 80 (Terror of the Peaks parks ONLY on
->   the target-tax static — "spells targeting this cost 3 life more" — a new framework, banked).
->   Then Believe it! 79, Hulk Smash 79, Wolverine 78, Kinnan 77, Teval 76, the rest.
+> · **The grind continues, new batch**: Jurassic 86. **MARAUDING RAPTOR, DESIGN REFINED (build next)**:
+>   the trigger detects (etb/otherCreatureYouControl), "deals 2 damage to the triggering creature"
+>   parses HIGH (the sentinel site at triggers.js ~4323 rewrites that-creature forms on
+>   ETB_ENTERING_CREATURE_SCOPES — extend it with "to it" → "to the triggering creature"). The rider
+>   "If a Dinosaur is dealt damage this way…" MUST honor prevention (PV-1 shields consume in
+>   applyDamageEffect and SKIP the damagedBy mark) — so the honest condition reads the triggering
+>   permanent's `damagedBy` (contains this source) AND its Dinosaur subtype, as a new interveningIf
+>   predicate behind a sentinel phrase; thread triggeringPermanentId into applyConditional's context
+>   (it passes only sourcePermanentId today — effectAtoms.js ~178). The conditional atom (branchOn,
+>   NOT condition — the field-name trap is documented in-function) runs the self-pump branch.
+> · Dragons 80: Terror of the Peaks parks ONLY on the target-tax static ("spells targeting this cost
+>   3 life more" — a new framework, banked). Then Believe it! 79, Hulk Smash 79, Wolverine 78,
+>   Kinnan 77, Teval 76, the rest.
 
 ## ☀️ 2026-08-14 (earlier) — **batch +89 · 🏁 TEST RASHMI HITS THE BAR (90%)** — suite **1215 / 14,481** green
 
