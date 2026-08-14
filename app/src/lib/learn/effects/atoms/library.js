@@ -963,7 +963,14 @@ export function applyImpulseExileAtom(state, atom, ctx) {
   };
   // Exiling from your own library is public-info here (the cards are named in the log — they're the
   // controller's own cards revealed by the play permission), matching the impulse-draw family's face-up exile.
-  return logEvent(next, { kind: "spell-effect", effect: "impulse-exile", controller, exiled: taken.map((c) => c.name).join(", ") || null });
+  // BONEHOARD (2026-08-14) — the EXILED-TYPE stamp for the "If you exiled a <land/nonland> card this
+  // way" riders: a transient resolution marker OVERWRITTEN by every impulse-exile, read only by the
+  // two interveningIf predicates the Bonehoard fold emits — and that fold always places THIS atom
+  // first in the same program, so within-program ordering guarantees the read is fresh (a conditional
+  // can never see a previous program's stamp through the fold's own sentinel conditions).
+  const isLandCardType = (c) => /\bLand\b/.test(String(c?.type_line || c?.type || ""));
+  const withStamp = { ...next, _impulseExiledTypes: { land: taken.some(isLandCardType), nonland: taken.some((c) => !isLandCardType(c)) } };
+  return logEvent(withStamp, { kind: "spell-effect", effect: "impulse-exile", controller, exiled: taken.map((c) => c.name).join(", ") || null });
 }
 
 /**

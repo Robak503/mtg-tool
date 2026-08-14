@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Bonehoard Dracosaur works.** Each upkeep it exiles two cards you can play that turn — and the
+  bonuses read what was actually exiled: a land among them mints the 3/1 Dinosaur, a nonland pumps
+  the Dracosaur, both when the two cards split.
 - **Temple Altisaur shields the herd.** Any damage to another Dinosaur you control is cut to 1 —
   but never to the Altisaur itself, never to non-Dinosaurs, and never to an opponent's Dinosaurs.
 - **Throne of the God-Pharaoh works.** Each end step it counts your tapped creatures — attackers,

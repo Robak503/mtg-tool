@@ -1218,6 +1218,17 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     return hasSubtype && wasDamagedBySource;
   }
 
+  // BONEHOARD (2026-08-14) — "you exiled a land/nonland card this way": reads the transient stamp the
+  // impulse-exile resolver writes (overwritten per impulse; the emitting fold places the impulse atom
+  // first in the same program, so the read is always fresh). No stamp at all → null (fail-closed — the
+  // condition only exists behind the fold's sentinel, so a stampless read means a broken program).
+  m = c.match(/^you exiled a (land|nonland) card this way$/);
+  if (m) {
+    const stamp = state?._impulseExiledTypes;
+    if (!stamp) return null;
+    return m[1] === "land" ? !!stamp.land : !!stamp.nonland;
+  }
+
   // "you control a/an/<N> or more <filter>"
   m = c.match(new RegExp(`^you control ${NUM_RE}(?: or more)? (.+)$`));
   if (m) {
@@ -1596,7 +1607,9 @@ export function interveningIfParseable(condition) {
   const entering = { id: "__entering__", card: { name: "__probe_name__", type: "Creature" }, tributePaid: false };
   // The probe graveyard holds the probe source card so the IN-YOUR-GRAVEYARD zone check (Radroach) returns
   // a boolean here (the runtime threads a real sourceCardId from the graveyard scan).
-  const probe = { players: { __probe__: { battlefield: [entering], graveyard: [{ id: "__probe_gy__" }] } } };
+  // The probe ALSO carries a definite _impulseExiledTypes stamp so the BONEHOARD exiled-type shapes
+  // return a boolean here (the runtime stamp is written by every impulse-exile resolution).
+  const probe = { players: { __probe__: { battlefield: [entering], graveyard: [{ id: "__probe_gy__" }] } }, _impulseExiledTypes: { land: false, nonland: false } };
   // The probe context ALSO carries a definite numeric `xValue` so the X-VALUE THRESHOLD shape ("x is N or
   // more") returns a boolean here (the runtime stamps a real xValue on every {X}-cost entry via
   // checkEnterTriggers); every other shape ignores the extra field.

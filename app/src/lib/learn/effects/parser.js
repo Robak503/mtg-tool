@@ -1761,6 +1761,36 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // conditional op is not in the PAUSING registry, so admitting a pauser would drop the pause contract),
   // and a leading "also " strips (pure connective — the rider's atoms are already additive by shape).
   // An unmodeled rider FALLS THROUGH — the card stays exactly as parked as before.
+  // BONEHOARD DRACOSAUR (2026-08-14) — the impulse-2 with EXILED-TYPE riders: "exile the top two
+  // cards of your library. You may play them this turn. If you exiled a land card this way, <rider A>.
+  // If you exiled a nonland card this way, <rider B>." The impulse core parses HIGH alone; each rider
+  // becomes a conditional atom whose branchOn is the exiled-type predicate reading the stamp the
+  // impulse resolver writes (always fresh — the impulse atom precedes its conditionals in THIS fold).
+  // Both riders must parse HIGH + be pause-free + non-targeting (the spell-mastery discipline);
+  // anything else falls through → low → Arbiter.
+  {
+    const bh = oracle.match(/^(exile the top .+? you may play (?:them|it|that card) this turn)\.\s+if you exiled a land card this way, (.+?)\.\s+if you exiled a nonland card this way, (.+?)\.?\s*$/is);
+    if (bh) {
+      const base = parseEffectClauseImpl(bh[1].trim(), cardType, { hasX });
+      const riderA = parseEffectClauseImpl(bh[2].trim(), cardType, { hasX });
+      const riderB = parseEffectClauseImpl(bh[3].trim(), cardType, { hasX });
+      const cleanRider = (r) => r && programConfidence(r) === "high" && r.structure !== "modal" && r.atoms.length > 0
+        && !r.atoms.some((a) => PAUSING_ATOM_OPS.has(a.op))
+        && !r.atoms.some((a) => a.targetType && !isNonChosenTargetType(a.targetType));
+      const ok = base && programConfidence(base) === "high" && base.structure !== "modal" && base.atoms.length > 0
+        && cleanRider(riderA) && cleanRider(riderB)
+        && interveningIfParseable("you exiled a land card this way") && interveningIfParseable("you exiled a nonland card this way");
+      if (ok) {
+        return makeProgram({
+          confidence: "high",
+          atoms: [...base.atoms,
+            { op: "conditional", branchOn: "you exiled a land card this way", ifTrue: riderA.atoms, ifFalse: [], targetType: null },
+            { op: "conditional", branchOn: "you exiled a nonland card this way", ifTrue: riderB.atoms, ifFalse: [], targetType: null }],
+          unparsedTail: null,
+        });
+      }
+    }
+  }
   // FEROCIOUS HARD-COUNTER UPGRADE (2026-08-14 — Stubborn Denial "Counter target noncreature spell
   // unless its controller pays {1}. Ferocious — If you control a creature with power 4 or greater,
   // counter that spell instead."): the second sentence REPLACES the soft counter with a hard one when

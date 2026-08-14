@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **BONEHOARD DRACOSAUR (+1) — the exiled-type riders** - the shelf grind (Jurassic carrier — ONE from the bar)
+> Suite 1225 / 14,520 green (+1 skipped) + lint 0 BY EXIT CODE (impulseExile regression 16/16). Flip-diff **+1 / 0 / 0** — Bonehoard Dracosaur
+> body-only→native-trigger. Audited whole-card (Flying + first strike + the one trigger).
+> Post-release batch **+19**. Colton RE-CONFIRMED the order mid-run: "keep grinding non-stop till all
+> decks hit 90."
+> ⭐ THE DESIGN: the impulse-exile resolver writes a TRANSIENT { land, nonland } stamp (overwritten
+> per impulse), two interveningIf predicates read it (fail-closed on no stamp; the parseable probe
+> carries a definite stamp), and the parser fold emits [impulse-exile, conditional(land→the 3/1 Dino
+> token), conditional(nonland→self +2/+2)] — the impulse atom PRECEDES its conditionals in the same
+> program, so the read is fresh by construction.
+> ⭐⭐ Witnessed: land+nonland → token + both riders · two lands → token only · two spells → NO token.
+> Mutations BH-M1 (fold → parks) / BH-M2 (stamp renamed → both conditionals reject) / BH-M3 (the
+> land/nonland branch SWAPPED → the wrong rider fires) all killed, printed back.
+> Token diet: ~30k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **TEMPLE ALTISAUR (+1) — the prevent-all-but-N the module promised** - the shelf grind (Jurassic carrier)
 > Suite 1224 / 14,516 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Temple Altisaur
 > body-only→native-static. Audited whole-card (the card IS its one sentence). Post-release batch **+18**.
