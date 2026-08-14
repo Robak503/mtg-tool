@@ -316,6 +316,10 @@ export function dealDamageScaledClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   const TT = {
     "any target": "any", "target creature": "creature", "target player": "player",
+    // "any OTHER target" (Red Hulk's reflexive) — the any union minus the SOURCE itself (CR 109.5 "other"):
+    // rides the same "any" enumeration; the excludeSource flag (stamped in build() off this phrase) drops
+    // ctx.sourceId from the creature pool — the Support-N exclusion addCreatures already honors.
+    "any other target": "any",
     "target player or planeswalker": "playerOrPlaneswalker",
     "target creature or planeswalker": "creatureOrPlaneswalker", "each opponent": "eachOpponent",
     // MASS-SCALE (BLITZ FE-1 — Gates Ablaze "deals X damage to each creature, where X is the number of Gates you
@@ -352,6 +356,7 @@ export function dealDamageScaledClauseParser(clause) {
     // spell guard) keeps this native ONLY off an attacks trigger — the referent gate the DESTROY-defendingPlayer
     // path already relies on. A defendingPlayer TARGET always also needs the pin (the target itself is ctx.defenderId).
     const atom = { op: "deal-damage", targetType, amountCount };
+    if (String(targetPhrase).trim() === "any other target") atom.excludeSource = true; // CR 109.5 "other"
     if (targetType === "defendingPlayer" || amountCount.who === "defendingPlayer") atom.who = "defendingPlayer";
     if (targetType === "damagedPlayer") atom.who = "damagedPlayer"; // referent gate: combat-damage events only
     return atom;
@@ -390,7 +395,9 @@ export function dealDamageScaledClauseParser(clause) {
   // (Cabaretti Charm, Coordinated Maneuver, Bumi Bash modes). The count is non-greedy so the FIRST " to
   // <allowlisted target>" wins; a multi-count ("…plus the number of Equipment…", Slash of Light) or an
   // unmodeled count → parseCountSource null → low → Arbiter. Emits the SAME amountCount atom (resolver shared).
-  const mds2 = t.match(/^.+? deals? damage equal to the number of (.+?) to (target creature|any target|target player|target player or planeswalker|target creature or planeswalker|each opponent)$/);
+  // ("any other target" joined the alternation 2026-08-14 — Red Hulk's reflexive; build() stamps
+  // excludeSource off the phrase, the TT entry maps it onto the same "any" enumeration.)
+  const mds2 = t.match(/^.+? deals? damage equal to the number of (.+?) to (target creature|any target|any other target|target player|target player or planeswalker|target creature or planeswalker|each opponent)$/);
   if (mds2) return build(mds2[2], mds2[1]);
   // DMG-SCALE-3 — "where X is" word order: "<source> deals X damage to <target>, where X is [equal to] the
   // number of <count>" (Scourge of Valkas / Dragon Tempest "…to any target, where X is the number of Dragons

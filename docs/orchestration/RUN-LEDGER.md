@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **RED HULK (+12) — the gendered referent + the source-count + "any other target"** - the shelf grind (Hulk Smash 86→87)
+> Suite 1234 / 14,561 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+12 / 0 / 0** — Red Hulk plus
+> ELEVEN audited siblings (Preyseizer Dragon, Cornered Crook, Scarlet Spider, Fireblade Artist, Zuko,
+> Servant of the Scale, Canopy Crawler, Pyroclastic Hellion, Mockingbird, Mycoloth, Falkenrath
+> Exterminator — every oracle printed; the four keyword riders each verified modeled/credited: mayhem
+> GY-cast family, firebendingKeywordValue, devour/amplify optional-mode). Post-release batch **+46**.
+> ⭐ FOUR SMALL PIECES: the scope-self "on him/her"→"on this creature" rewrite · parseCountSource accepts
+> "counters on this creature" as plusCountersOnSource · the reflexive-lead guard allows `^this creature`
+> (the SOURCE referent, never the primary object) · "any other target" in the DMG-SCALE alternation →
+> the "any" enumeration with excludeSource (the Support-N exclusion addCreatures already honors).
+> ⭐⭐ Witnessed: dealt 2 with 2 counters → Enrage adds one (3), the reflexive deals EXACTLY 3 (the
+> post-counter amount, printed sequencing) · RED HULK NEVER IN HIS OWN POOL, with the seen-to-fail
+> control (the plain any-target form DOES offer him) · a non-self scope's "on him" NOT rewritten.
+> Mutations RH-M1 (rewrite off → parks) / RH-M2 (excludeSource stamp dropped → classify stays native,
+> selfInPool=true — the self-shot FP) / RH-M3 (count widening reverted → parks) all killed, printed
+> back, per-process. **A first M1 SURVIVED** ("he deals"→"this creature deals" — dead under the damage
+> arms' wildcard source phrase); the dead rewrite was REMOVED (zero-diff re-snapshot proves it), the
+> honest kill re-aimed at the object rewrite, and the branch comment records why the subject form needs
+> no rewrite.
+> Token diet: ~22k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **HULK, STRONGEST THERE IS (+1) — two seam widenings** - the shelf grind (Hulk Smash 85→86)
 > Suite 1233 / 14,556 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Hulk
 > body-only→native-trigger. Post-release batch **+34**.

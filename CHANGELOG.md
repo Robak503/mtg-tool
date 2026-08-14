@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Red Hulk hits back — and eleven friends wake up with him.** Taking damage grows him a counter,
+  then he unloads damage equal to his counters at anything else — never at himself. The same fixes
+  bring Mockingbird, Mycoloth, Preyseizer Dragon, Fireblade Artist, Falkenrath Exterminator, Cornered
+  Crook, Scarlet Spider, Zuko, Servant of the Scale, Canopy Crawler, and Pyroclastic Hellion to life.
 - **Hulk, Strongest There Is gets angrier.** He enters with his +1/+1 counter, and each upkeep every
   Gamma creature you control doubles its own counters — your non-Gamma creatures correctly sit it out.
 - **Caltrops punishes every attack.** It pings each attacking creature for 1 no matter whose turn it

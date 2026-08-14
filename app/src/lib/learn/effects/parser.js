@@ -1564,7 +1564,8 @@ function matchReflexiveTrigger(oracle, cardType, hasX) {
   const reflexiveText = m[2].trim();
   // The reflexive must not carry a SECOND reflexive/trigger or lead with an unbound primary-object referent.
   if (/\bwhen you do\b/i.test(reflexiveText)) return null;          // a chained 2nd reflexive — not modeled
-  if (/^(?:it|they|that|those|this)\b/i.test(reflexiveText)) return null; // primary-object referent (e.g. "it fights")
+  // "this creature" is the SOURCE referent (never the primary object) — always well-bound, allowed (Red Hulk 2026-08-14).
+  if (/^(?:it|they|that|those|this)\b/i.test(reflexiveText) && !/^this creature\b/i.test(reflexiveText)) return null; // primary-object referent (e.g. "it fights")
   const primary = parseEffectClauseImpl(primaryText, cardType, { hasX });
   if (!primary || programConfidence(primary) !== "high" || primary.structure === "modal") return null;
   // MANDATORY-primary gate: an optional primary ("you may …") must not fold (a declined "may" would still
@@ -1608,7 +1609,8 @@ function matchOptionalReflexiveTrigger(oracle, cardType, hasX) {
   const primaryText = m[1].trim();
   const reflexiveText = m[2].trim();
   if (/\bwhen you do\b/i.test(reflexiveText)) return null;          // a chained 2nd reflexive — not modeled
-  if (/^(?:it|they|that|those|this)\b/i.test(reflexiveText)) return null; // primary-object referent (e.g. "it fights")
+  // "this creature" is the SOURCE referent (never the primary object) — always well-bound, allowed (Red Hulk 2026-08-14).
+  if (/^(?:it|they|that|those|this)\b/i.test(reflexiveText) && !/^this creature\b/i.test(reflexiveText)) return null; // primary-object referent (e.g. "it fights")
   const primary = parseEffectClauseImpl(primaryText, cardType, { hasX });
   if (!primary || programConfidence(primary) !== "high" || primary.structure === "modal") return null;
   // OPTIONAL-primary gate (INVERTED): the primary must be EXACTLY ONE optional atom.

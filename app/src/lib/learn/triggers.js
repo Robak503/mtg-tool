@@ -4358,6 +4358,18 @@ export function detectTriggers(card) {
         effectClause = effectClause
           .replace(/\b(deals? \d+ damage) to it\b/gi, "$1 to the triggering creature")
           .replace(/\bif an? ([a-z]+) is dealt damage this way\b/gi, "if the triggering creature is a $1 dealt damage by this source");
+      } else if (cls.scope === "self" && /\bon (?:him|her)\b/i.test(effectClause)) {
+        // ===== GENDERED SELF-REFERENT (2026-08-14 — Red Hulk "put a +1/+1 counter on HIM … equal to the
+        // number of +1/+1 counters on HIM"; Mockingbird "on HER") ===== Marvel legends print him/her where
+        // classic templating prints it/this creature. On a scope-SELF trigger the gendered pronoun is
+        // unambiguously the SOURCE (the same referent "it" carries on Enrage — CR 603.2), so normalize the
+        // OBJECT form to "on this creature" (the counter-put arm's self target AND parseCountSource's
+        // plusCountersOnSource both accept it). The SUBJECT form ("he deals …") deliberately has NO
+        // rewrite — a mutation proved it dead: every damage arm this can reach takes a WILDCARD source
+        // phrase (`^.+? deals?`), so the pronoun subject already parses; an anchored future arm that needs
+        // it should add its own rewrite WITH a witness. Every rewritten clause still re-gates through the
+        // parsers — a shape they don't model stays LOW (FN-safe).
+        effectClause = effectClause.replace(/\bon (?:him|her)\b/gi, "on this creature");
       } else if (cls.event === "attacks" && cls.scope === "anyCreature" && /\bdeals? \d+ damage to it\b/i.test(effectClause)) {
         // ===== ATTACKER DAMAGE-PRONOUN (2026-08-14 — Caltrops "Whenever a creature attacks, this artifact
         // deals 1 damage to IT.") ===== on the anyCreature attacks event "it" is unambiguously the

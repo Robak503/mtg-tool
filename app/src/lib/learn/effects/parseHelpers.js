@@ -286,7 +286,9 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   // passes with the dies path returning zero.
   // ⭐ The look-back value already exists: checkDiesTriggers stamps `triggeringPlusCounterCount` off the
   // death snapshot for MODULAR. This reads the same field rather than threading a second one.
-  if (/^\+1\/\+1 counters? on it$/.test(p)) return { kind: "plusCountersOnSource" };
+  // "on this creature" — the explicit source self-reference (Red Hulk's reflexive via the gendered-pronoun
+  // normalization, 2026-08-14): the SAME referent as "on it" in a source-scoped clause, same reader.
+  if (/^\+1\/\+1 counters? on (?:it|this creature)$/.test(p)) return { kind: "plusCountersOnSource" };
   if (/^(?:the number of )?colors? of mana spent to cast (?:this spell|it)$/.test(p)) {
     return { kind: "colorsSpentThisSpell" };
   }
