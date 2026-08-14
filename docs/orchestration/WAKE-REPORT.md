@@ -7,6 +7,23 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ☀️ 2026-08-14 — **batch +78 · the shelf grind rolls under the wakeup loop** — suite **1210 / 14,454** green
+
+> ### ⏭ RUNNABLE NOW — the banked queue, exactly where it stands
+> · **Laboratory Maniac (×2 decks)** — the draw-from-empty-library replacement win; pairs with the
+>   Thassa's Oracle machines. · **Mana Drain** (delayed mana at next main) · **the discard-from-hand
+>   activation lane** (Trumpeting Carnosaur, Mjölnir) · **Venser** (spell-or-permanent bounce).
+> · **Fresh per-deck drills** — the realism gate, latest full read: Test Rashmi 84, Jurassic Ramp 84,
+>   Dragons 80, Believe it! 79, Hulk Smash 79, Wolverine 78, Teval 76, Kinnan 76, Kellan 74, Otharri 73,
+>   Captain America 73, Halfshell 68, Shalai 66 — all to ≥90 per Colton's standing order (non-stop, he
+>   stops it). Colton's own six decks are all ≥90 already.
+> · **Shipped since the 08-12 entry**: Karlach + the attacking batch (+5, extra combats enter properly),
+>   Palani's Hatcher (+1), X-shaped ETBs (+5, Meathook), Displace (+2), Vedalken Aethermage (+1),
+>   Wavebreak Hippocamp (+5), Ghostly Flicker (+1, the exact-two union blink).
+> · **Housekeeping that matters**: CHANGELOG.md had been silently DOUBLED since 954c150e with six
+>   slices' bullets fused into the seam — repaired 2026-08-14 (8482 → 4300 lines, 35 bullets rehomed
+>   into [Unreleased], structure-gated). Doc-append scripts must gate on structure counts, not "wrote OK".
+
 ## ☀️ 2026-08-12 (late night) — **batch +58 · the shelf grind's instruments are proven** — suite **1204 / 14,434** green, master 56b0fc5c
 
 > ### ⏭ RUNNABLE NOW — the shelf queue, exactly where it stands

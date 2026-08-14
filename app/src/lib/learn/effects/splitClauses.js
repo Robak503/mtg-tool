@@ -672,7 +672,7 @@ export function splitClauses(oracle) {
     // UP-TO-TWO joined the guard (2026-08-12 — Displace): the same non-fail-safe split, one size up —
     // "exile up to two target creatures you control" also parses HIGH alone, describing a card that
     // exiles two creatures and never returns them.
-    if (/^exile (?:target creature|up to two target creatures) you control, then return (?:that card|it|those cards) to the battlefield under (?:your|its owner's|their owner's) control\.?$/i.test(sentence)) {
+    if (/^exile (?:target creature|up to two target creatures|two target artifacts, creatures, and\/or lands) you control, then return (?:that card|it|those cards) to the battlefield under (?:your|its owner's|their owner's) control\.?$/i.test(sentence)) {
       clauses.push(sentence);
       continue;
     }

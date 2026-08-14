@@ -945,6 +945,18 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       }
     }
   }
+  // GHOSTLY-FLICKER union (2026-08-14) — "two target artifacts, creatures, and/or lands you control":
+  // an OWN-SIDE triple union (the BW-1 triple-union precedent one line below, own-side). The blink atom
+  // returns whatever leaves, so type mixing is free; canBeTargetedBy keeps shroud/protection honest.
+  else if (effect.targetType === "artifactCreatureOrLandYouControl") {
+    for (const perm of state.players[controllerId]?.battlefield || []) {
+      const tl = String(perm.card?.type || perm.card?.type_line || "");
+      if ((/\bArtifact\b/.test(tl) || isCreature(perm.card) || /\bLand\b/.test(tl))
+          && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors)) {
+        out.push({ type: "creature", id: perm.id, controller: controllerId, name: perm.card?.name });
+      }
+    }
+  }
   else if (effect.targetType === "player") addPlayers();
   else if (effect.targetType === "any") { addCreatures(); addPlayers(); addPlaneswalkers(); }
   else if (effect.targetType === "creatureOrPlaneswalker") { addCreatures(); addPlaneswalkers(); }

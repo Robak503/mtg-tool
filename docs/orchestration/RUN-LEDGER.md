@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **GHOSTLY FLICKER (+1) — the exact-two union blink** - the shelf grind (Test Rashmi 83→84)
+> Suite 1210 / 14,454 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Ghostly Flicker (Test
+> Rashmi). Audited whole-card (the card IS its one sentence). Post-release batch **+78**.
+> ⭐ THREE PIECES on the Displace rails: the blink3M arm (minTargets 2 = maxTargets 2 — CR 601.2c; ONE
+> legal permanent ⇒ UNCASTABLE, witnessed), the own-side triple-union enumeration
+> (artifactCreatureOrLandYouControl — an enchantment is NEVER offered, witnessed), and the keep-whole
+> guard widened to the union form (split at ", then" = the exile-no-return half-card).
+> ⛔ THE BUILD BROKE THE TREE FIRST: a node -e edit collapsed an escape level and left literal `and/or`
+> inside two regex literals — SyntaxError on every import, one wasted fixer pass that "fixed" the wrong
+> thing. THE RULE IS NOW LAW: edit scripts write backslashes via String.fromCharCode(92), never through
+> shell+heredoc+JS triple escaping.
+> 🧹 SIDE FIND, REPAIRED: CHANGELOG.md had been DOUBLED since 954c150e — a full stale copy concatenated,
+> and six slices' bullets fused into the seam behind a BARE \r (invisible to line tools). Un-fused, 35
+> bullets rehomed into [Unreleased], stale copy dropped (8482 → 4300 lines), dupe + structure gates in
+> the repair script itself. Doc-append scripts must verify structure counts after writing.
+> Mutations GF-M1 (arm disabled → parks) / GF-M2 (minTargets 2→0 → the uncastable + exact-two witnesses
+> die) both killed, printed back.
+> Token diet: ~65k output tokens this slice (the broken-tree repair + the changelog surgery).
 > ## SLICE DONE - 2026-08-14 - **WAVEBREAK HIPPOCAMP (+5) — the first-spell-on-their-turn watchers** - the shelf grind (Test Rashmi 82→83)
 > Suite 1209 / 14,450 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Wavebreak Hippocamp (Test
 > Rashmi) + Dreamstalker Manticore, Mischievous Chimera, Arena Trickster, Nymris Oona's Trickster from

@@ -751,6 +751,12 @@ export function graveyardReturnClauseParser(clause) {
   // owner, the stolen-creature-goes-home semantics the single arm already resolves.
   const blink2M = t.match(/^exile up to two target creatures you control, then return those cards to the battlefield under (your|their owner's) control$/);
   if (blink2M) return { op: "blink", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }], returnTo: blink2M[1] === "your" ? "controller" : "owner", maxTargets: 2, minTargets: 0 };
+  // GHOSTLY FLICKER (2026-08-14) — "Exile two target artifacts, creatures, and/or lands you control,
+  // then return those cards…": the own-side TRIPLE-UNION targetType (enumerated in spellEffects) with
+  // EXACTLY two targets — minTargets 2 = maxTargets 2, the CR 601.2c exact-N discipline the
+  // untap-exact-lands arm documents (one legal target ⇒ uncastable, never a half-cast).
+  const blink3M = t.match(/^exile two target artifacts, creatures, and\/or lands you control, then return those cards to the battlefield under (your|their owner's) control$/);
+  if (blink3M) return { op: "blink", targetType: "artifactCreatureOrLandYouControl", restrictions: [], returnTo: blink3M[1] === "your" ? "controller" : "owner", maxTargets: 2, minTargets: 2 };
   if (/^exile target player's graveyard$/.test(t)) return { op: "exile-graveyard", who: "targetPlayer", targetType: "player" };
   if (/^exile target opponent's graveyard$/.test(t)) return { op: "exile-graveyard", who: "targetPlayer", targetType: "opponent" };
   if (/^exile all graveyards$/.test(t)) return { op: "exile-graveyard", who: "eachPlayer", targetType: null };
