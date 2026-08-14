@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **CALTROPS (+2) — the ANY-CREATURE attacks scope** - the shelf grind (Hulk Smash 84→85)
+> Suite 1232 / 14,551 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Caltrops +
+> Righteous Cause (audited: "Whenever a creature attacks, you gain 1 life"), both body-only→native-trigger.
+> Post-release batch **+33**.
+> ⭐ THREE PIECES: the bare `^a creature attacks$` arm (scope anyCreature) · the fire-site PARTITION (a
+> new non-attacking-players scan gated to exactly this scope; the attached-watcher scan excludes it — the
+> subtypeGlobal de-dup pattern at both sites) · the attacker damage-pronoun rewrite ("deals 1 damage to
+> IT" → the triggering-creature sentinel, the Marauding Raptor precedent on a new event).
+> ⭐⭐ Witnessed: the DEFENDER's Caltrops kills an opposing 1-toughness attacker · the attacking player's
+> own fires too, exactly once · Righteous Cause pays the WATCHER'S controller (+1/attacker) · a
+> 3-toughness attacker survives with damageMarked 1 · a cross-controller Aura fires exactly ONCE.
+> Mutations CT-M1 (arm off → parks) / CT-M2 (scan dropped → the defender-side fire dies, classify stays
+> native — the FP shape) / CT-M3 (scope gate widened → the attached Aura DOUBLE-fires 1→2) all killed,
+> printed back, per-process. **A first M3 guess SURVIVED** (you-control leak — scopeMatches' controller
+> check already blocks it); re-aimed at the gate's real load and recorded in the witness header.
+> Token diet: ~15k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **STRENGTH OF WILL (+4) — shape D of the until-EOT quoted grant** - the shelf grind (Hulk Smash 83→84)
 > Suite 1231 / 14,544 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Strength of
 > Will + THREE audited siblings: Infuse with Vitality & Pain 101 (deathtouch + the exact Feign Death

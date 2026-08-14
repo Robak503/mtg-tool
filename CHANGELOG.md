@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Caltrops punishes every attack.** It pings each attacking creature for 1 no matter whose turn it
+  is — including when the opponent swings into you, which is the whole point. Righteous Cause's
+  gain-a-life-per-attacker works the same way.
 - **Strength of Will grants the full package.** Your creature really gains indestructible plus the
   damage-to-counters ability until end of turn — it shrugs off lethal damage, grows by exactly the
   damage taken, and both gifts wear off together at cleanup. Infuse with Vitality, Pain 101, and Run

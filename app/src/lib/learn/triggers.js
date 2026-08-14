@@ -1993,6 +1993,11 @@ function classifyCondition(condRaw, cardName, cardType) {
     // payload parses. Now: the bare form matches exactly; the one CHECKABLE restriction below is modeled
     // explicitly; anything else stays UNDETECTED → Arbiter, the same safe-FN posture as every other guard).
     if (/^a creature you control attacks$/.test(c)) return { event: "attacks", scope: "creatureYouControl", whose: "any" };
+    // ANY-CREATURE attacks (Caltrops — "Whenever a creature attacks, this artifact deals 1 damage to it.").
+    // The watcher can sit on ANY battlefield (a defender's Caltrops fires on the attacker's declaration), so
+    // the fire site adds a non-attacking-players scan gated to exactly this scope (the subtypeGlobal
+    // de-dup pattern) — see checkAttackTriggers. Anchored bare form, same posture as the you-control arm.
+    if (/^a creature attacks$/.test(c)) return { event: "attacks", scope: "anyCreature", whose: "any" };
     // ATTACHED-ONLY attacks (Reyav, Master Smith — "Whenever a creature you control that's enchanted or
     // equipped attacks"): "enchanted or equipped" ⇔ the attacker has ≥1 attachment (attachments are only
     // ever Auras/Equipment in this engine, so the OR-form reduces to a length check — scopeMatches enforces
@@ -4353,6 +4358,12 @@ export function detectTriggers(card) {
         effectClause = effectClause
           .replace(/\b(deals? \d+ damage) to it\b/gi, "$1 to the triggering creature")
           .replace(/\bif an? ([a-z]+) is dealt damage this way\b/gi, "if the triggering creature is a $1 dealt damage by this source");
+      } else if (cls.event === "attacks" && cls.scope === "anyCreature" && /\bdeals? \d+ damage to it\b/i.test(effectClause)) {
+        // ===== ATTACKER DAMAGE-PRONOUN (2026-08-14 — Caltrops "Whenever a creature attacks, this artifact
+        // deals 1 damage to IT.") ===== on the anyCreature attacks event "it" is unambiguously the
+        // DECLARED ATTACKER — the same sentinel rewrite the entering-creature ETB branch above uses; the
+        // TRIG-PRONOUN damage arm binds it to ctx.triggeringPermanentId (target:"thatCreature").
+        effectClause = effectClause.replace(/\b(deals? \d+ damage) to it\b/gi, "$1 to the triggering creature");
       } else if (cls.event === "milled" && MILLED_TOKEN_PAYOFF_RE.test(effectClause)) {
         // ===== MILLED "that many" TOKENS (Screeching Scorchbeast, SHELF M1b) ===== the magnitude is the
         // number of milled cards matching THIS trigger's filter (ctx.nonlandMilledCount for a nonland-filtered
@@ -5315,6 +5326,11 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
     // permanent was threaded at all — a bare fire with none would otherwise bind the referent to nothing and
     // the effect would silently no-op while the card read native.
     case "blocksCreature":
+      return !!triggeringPermanent;
+    // ANY-CREATURE (Caltrops' "a creature attacks") — every fire site that emits this scope threads a
+    // DECLARED ATTACKER as the triggering permanent (a creature by CR 508.1a), so like blocksCreature the
+    // only assertion left is that one was threaded at all; the controller is deliberately unconstrained.
+    case "anyCreature":
       return !!triggeringPermanent;
     case "equippedCreature":
       // EQUIP (WAVE 4) — the source is the EQUIPMENT; the trigger fires ONLY when the triggering permanent IS
@@ -6369,7 +6385,21 @@ export function checkAttackTriggers(state) {
     for (const attachId of attackerPerm.attachments || []) {
       const alk = findPermanent(state, attachId);
       if (!alk || alk.controller === a.attackingPlayer) continue; // already scanned above
-      fired = fired.concat(triggersForEvent(state, { event: "attacks", sourcePermanent: alk.permanent, triggeringPermanent: attackerPerm, triggeringContext: context }));
+      // anyCreature EXCLUDED here: an attached watcher on another player's battlefield is ALSO covered by
+      // the all-non-attacking-players scan below — without this filter an anyCreature descriptor on an
+      // attached permanent would double-fire (the subtypeGlobal de-dup pattern, applied at both sites).
+      fired = fired.concat(triggersForEvent(state, { event: "attacks", sourcePermanent: alk.permanent, triggeringPermanent: attackerPerm, triggeringContext: context, scopeFilter: (s) => s !== "anyCreature" }));
+    }
+    // ===== ANY-CREATURE watchers on NON-attacking players' battlefields (Caltrops — "Whenever a creature
+    // attacks") ===== The scans above cover the attacker itself + every watcher the ATTACKING player
+    // controls, so together with this scan each watcher/attacker pair is visited exactly once by
+    // construction. Gated to exactly the anyCreature scope so no other descriptor gains a second site.
+    for (const [pid, pl] of Object.entries(state.players || {})) {
+      if (pid === a.attackingPlayer) continue; // the attacking side is fully covered above
+      void pl;
+      for (const watcher of triggerSourcesOf(state, pid)) {
+        fired = fired.concat(triggersForEvent(state, { event: "attacks", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context, scopeFilter: (s) => s === "anyCreature" }));
+      }
     }
   }
   // ===== KW-EXALTED (CR 702.83a — BLITZ EX-1, the rampage fire-time pattern) ===== "Whenever a creature
