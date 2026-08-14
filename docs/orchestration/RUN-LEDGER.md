@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **FORCE OF VIGOR (+1) — the fixed-count up-to-two destroy** - the shelf grind (Hulk Smash 82→83)
+> Suite 1230 / 14,538 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Force of Vigor
+> arbiter-spell→native-spell. Audited whole-card (the alt-cost line was ALREADY modeled — castModifiers'
+> EXILE-COLOR arm, Force of Negation's exact shape, notYourTurn). Post-release batch **+26**.
+> ⭐ ONE NEW ARM on two existing machines: "destroy up to two target artifacts and/or enchantments" —
+> a FIXED cap riding the Yao Guai multi-count lane end-to-end (same union predicate, same subset
+> enumeration minTargets:0, same applyDestroyEffect over ctx.targets), no collective-MV constraint.
+> ⭐⭐ Witnessed: 3 eligible → all 7 subsets ≤2 offered, NO triple · the mixed pair (artifact+enchantment)
+> both destroyed in one resolution · a creature never eligible · choosing nothing legal.
+> Mutations FOV-M1 (count word out of the alternation → parks) / FOV-M2 (maxTargets dropped → the pair
+> subset dies while classify stays native — the FP shape the witness pins) both killed, printed back.
+> ⭐ ONE PIN GRADUATED: altCostOffer's T2 canary held FOV as unmodeled-body/no-offer; flipped to the
+> positive (pitch offered off-turn, notYourTurn still binds on your own). Misdirection/Swat canaries stay.
+> Token diet: ~13k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **ESCAPE TO THE WILDS (+1) — the fourth impulse referent** - the shelf grind (Hulk Smash 81→82)
 > Suite 1229 / 14,532 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Escape
 > arbiter-spell→native-spell. Audited whole-card (impulse ×5 extended + extra land, both HIGH).

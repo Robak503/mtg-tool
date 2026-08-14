@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Force of Vigor pitches and sweeps.** On an opponent's turn you can exile a green card instead of
+  paying mana, and the spell destroys up to two artifacts or enchantments in any mix — including
+  choosing just one, or none.
 - **Escape to the Wilds plays out fully.** The top five exile with their play window lasting through
   the end of your next turn — the same two-turn window Light Up the Stage uses — plus the extra land
   drop, all in the simulator.

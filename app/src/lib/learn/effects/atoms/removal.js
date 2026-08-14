@@ -902,6 +902,17 @@ export function destroyExileClauseParser(clause) {
   if (/^destroy any number of target artifacts and\/or enchantments with total mana value x or less$/.test(t)) {
     return { op: "destroy", targetType: "artifactOrEnchantment", minTargets: 0, maxTargets: MULTI_COUNT_UNBOUNDED, totalMvXConstraint: true };
   }
+  // FIXED-COUNT "up to N" destroy on the SAME union (Force of Vigor "destroy up to two target artifacts
+  // and/or enchantments"; Nature's Claim-style singles stay on the anchored single-target arm above). Rides
+  // the Yao Guai lane end-to-end — same artifactOrEnchantment predicate, same subset enumeration
+  // (minTargets:0 → choosing zero is legal, CR 601.2c), same applyDestroyEffect over ctx.targets — with a
+  // FIXED cap instead of the unbounded sentinel and no collective-MV constraint. "and/or" only: the plain
+  // "artifacts or enchantments" print is a different wording that has not been probed → stays LOW (FN-safe).
+  const upM = t.match(/^destroy up to (one|two|three|four) target artifacts and\/or enchantments$/);
+  if (upM) {
+    const N = { one: 1, two: 2, three: 3, four: 4 };
+    return { op: "destroy", targetType: "artifactOrEnchantment", minTargets: 0, maxTargets: N[upM[1]] };
+  }
   if (/^destroy all creatures$/.test(t)) return { op: "destroy", targetType: "eachCreature" };
   if (/^exile all creatures$/.test(t)) return { op: "exile", targetType: "eachCreature" };
   // MASS-EXILE PARITY (CR 701.8a destroy / 701.10a exile) — the typed mass list was bound to the DESTROY verb

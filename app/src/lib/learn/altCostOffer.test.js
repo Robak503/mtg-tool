@@ -243,9 +243,17 @@ describe("ALT-COST CREED — LOW altCost carriers NEVER emit an altCost action",
     const s = altState({ hand: [DEFLECTING_SWAT], battlefield: [CMDR_PERM()], stack: [stackSpell], pool: { R: 1, C: 2 } });
     expect(casts(s).every((a) => !a.altCost)).toBe(true);
   });
-  it("Force of Vigor (pitch metadata, unmodeled body) → no altCost action on an opponent's turn with a green card in hand", () => {
+  it("GRADUATED 2026-08-14: Force of Vigor — the body is MODELED now, the pitch is OFFERED off-turn", () => {
+    // Canaried here while "destroy up to two target artifacts and/or enchantments" parsed LOW. The
+    // fixed-count multi-destroy arm (forceOfVigor.test.js) admits the body, so the ALREADY-modeled
+    // exileColorCard pitch (Force of Negation's shape, notYourTurn) now rides it — a green hand card
+    // pitches on an opponent's turn. The class guard stays: Misdirection/Deflecting Swat above.
     const s = altState({ hand: [FORCE_OF_VIGOR, { ...GREEN_BEAR, id: "gb2" }], stack: [stackSpell], pool: { G: 2, C: 2 } });
-    expect(casts(s).every((a) => !a.altCost)).toBe(true);
+    const alt = altsOf(casts(s), "fov");
+    expect(alt.length).toBe(1);
+    expect(alt[0].altCost).toEqual({ kind: "exileColorCard", exilePitchId: "gb2", exilePitchName: "Green Bear" });
+    const ownTurn = altState({ ownTurn: true, hand: [FORCE_OF_VIGOR, { ...GREEN_BEAR, id: "gb2" }], stack: [spellOnStack("s1", "Divination", "Sorcery", "ai")], pool: { G: 2, C: 2 } });
+    expect(altsOf(casts(ownTurn), "fov").length).toBe(0); // notYourTurn still binds
   });
 });
 
