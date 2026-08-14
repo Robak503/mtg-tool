@@ -744,6 +744,13 @@ export function graveyardReturnClauseParser(clause) {
   // creature was stolen — the owner form hands it back. Both are parsed; `returnTo` resolves it at runtime.
   const blinkM = t.match(/^exile target creature you control, then return (?:that card|it) to the battlefield under (your|its owner's) control$/);
   if (blinkM) return { op: "blink", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }], returnTo: blinkM[1] === "your" ? "controller" : "owner" };
+  // UP-TO-TWO blink (2026-08-12 — Displace "Exile up to two target creatures you control, then return
+  // those cards to the battlefield under their owner's control"): the multi-target twin of the arm
+  // above. applyBlink already iterates ctx.targets, so only the enumeration bound is new
+  // (maxTargets 2 / minTargets 0 — the bounce multi-form's exact shape). "their owner's" = returnTo
+  // owner, the stolen-creature-goes-home semantics the single arm already resolves.
+  const blink2M = t.match(/^exile up to two target creatures you control, then return those cards to the battlefield under (your|their owner's) control$/);
+  if (blink2M) return { op: "blink", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }], returnTo: blink2M[1] === "your" ? "controller" : "owner", maxTargets: 2, minTargets: 0 };
   if (/^exile target player's graveyard$/.test(t)) return { op: "exile-graveyard", who: "targetPlayer", targetType: "player" };
   if (/^exile target opponent's graveyard$/.test(t)) return { op: "exile-graveyard", who: "targetPlayer", targetType: "opponent" };
   if (/^exile all graveyards$/.test(t)) return { op: "exile-graveyard", who: "eachPlayer", targetType: null };

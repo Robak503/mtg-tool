@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **DISPLACE (+2) — the up-to-two blink, and the split that ate the return** - the shelf grind (Test Rashmi 80→81)
+> Suite 1207 / 14,446 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Displace (Test Rashmi) +
+> Illusionist's Stratagem (corpus). Audited whole-card. Post-release batch **+71**.
+> ⭐ TWO SMALL PIECES: the multi-target blink parser arm (applyBlink already iterates ctx.targets) and
+> the splitClauses KEEP-WHOLE guard widened to the up-to-two form — the LOAD-BEARING half: split at
+> ", then", the first half parses HIGH alone and describes a card that EXILES two creatures and NEVER
+> RETURNS THEM (the non-fail-safe direction the guard's own single-form comment documents).
+> Mutation DP-M1 (guard reverted to single-only → Displace parks) killed, printed back.
+> ⏭ Banked from the Rashmi drill: Ghostly Flicker (the artifact/creature/land UNION targets), Vedalken
+> Aethermage (subtype bounce — needs the targeting-restriction subtype kind), Venser (spell-or-permanent
+> bounce), Laboratory Maniac (the draw-replacement win — pairs with Thassa's Oracle ×2 decks), Wavebreak
+> Hippocamp (first-spell-per-opponent-turn watcher), Mana Drain (delayed mana).
+> Token diet: ~35k output tokens this slice.
 > ## SLICE DONE - 2026-08-12 - **X-SHAPED ETBs (+5) — one gate widening, Meathook Massacre included** - the shelf grind
 > Suite 1206 / 14,444 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Triceraton Commander
 > (Jurassic Ramp 83→84) + The Meathook Massacre, Rocco Cabaretti Caterer, Springleaf Parade, Spiteful
