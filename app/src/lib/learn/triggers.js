@@ -4517,7 +4517,11 @@ export function detectTriggers(card) {
         // buildTriggerStack) parse the bare clause with no card context. Stamp effectHasX off the card's printed
         // mana cost so BOTH sites pass hasX:true → the half-X gain/draw clauses parse HIGH. Gated to selfCast so
         // no other trigger's effect parse changes (additive; every other descriptor leaves effectHasX undefined).
-        effectHasX: cls.event === "selfCast" && /\{x\}/i.test(String(card.mana || card.mana_cost || "")),
+        // ETB joined selfCast (2026-08-12 — Triceraton Commander "{X}{X}{W}{W} … When this creature
+        // enters, create X 2/2 … tokens"): the entering permanent CARRIES its cast X (enteredPerm.xValue,
+        // threaded into the self-ETB context), so an X-shaped ETB effect parses AND resolves honestly —
+        // a blinked/uncast re-entry has xValue 0 and the effect does nothing, the CR 601.2b answer.
+        effectHasX: (cls.event === "selfCast" || cls.event === "etb") && /\{x\}/i.test(String(card.mana || card.mana_cost || "")),
         // Raw effect text so the flush stage (gameEngine, which can import the parser
         // without the triggers→parser→effectAtoms→triggers cycle) can parse it into a
         // full EffectProgram. P2.8 routes the rich-parsed program through the

@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **X-SHAPED ETBs (+5) — one gate widening, Meathook Massacre included** - the shelf grind
+> Suite 1206 / 14,444 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Triceraton Commander
+> (Jurassic Ramp 83→84) + The Meathook Massacre, Rocco Cabaretti Caterer, Springleaf Parade, Spiteful
+> Banditry from the wider corpus. All audited whole-card. Post-release batch **+69**.
+> ⭐ THE WHOLE BUILD IS ONE GATE WIDENING: the X-amount grammar existed behind hasX (Secure the Wastes'
+> spell lane), the entering permanent already CARRIES its cast X (enteredPerm.xValue → the self-ETB
+> context, line 5777's existing thread), and the parse sites already read d.effectHasX — the stamp was
+> just selfCast-only. Now selfCast|etb, gated on a printed {X} cost.
+> ⛔ THE BLINK CORNER IS THE HONESTY GUARD: an uncast re-entry has xValue 0 → the effect does NOTHING
+> (CR 601.2b). Witnessed: X=3 cast → 3 tokens; no xValue → 0, never a fabricated count.
+> Mutation XE-M1 (the ETB arm removed → the carriers park) killed, printed back.
+> Token diet: ~25k output tokens this slice.
 > ## SLICE DONE - 2026-08-12 - **PALANI'S HATCHER (+1) — the subtype sac pool, and a wrong-victim FP caught pre-push** - the shelf grind (Jurassic Ramp 82→83)
 > Suite 1205 / 14,441 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Palani's Hatcher. Audited
 > whole-card. Post-release batch **+64**. Colton's standing order: Joe + test decks ALL to ≥90, no stops.
