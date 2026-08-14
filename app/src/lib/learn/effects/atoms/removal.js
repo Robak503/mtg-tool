@@ -263,12 +263,23 @@ const SACRIFICE_POOLS = new Set(["creature", "permanent", "land", "artifact", "e
 // uses — so a name the engine cannot mint can never become a pool that is silently empty at resolution.
 const isNamedTokenPool = (what) => typeof what === "string" && what.startsWith("token:")
   && Object.prototype.hasOwnProperty.call(NAMED_TOKENS, what.slice(6));
+// CREATURE-SUBTYPE sac pools (2026-08-12, Palani's Hatcher) — one lowercased entry per MEASURED carrier
+// (TF-1). Adding a word here without a carrier is forbidden; the parser arm and sacrificePoolMatch both
+// key on this one set, so the offer and the charge can never disagree about what "an Egg" means.
+const SAC_SUBTYPE_NOUNS = new Set(["egg"]);
 export function sacrificePoolMatch(what, card) {
   // NAMED TOKEN — must be a TOKEN (CR 111.1) whose name is the printed one. Both halves matter: without
   // the token check a real Food ARTIFACT card would qualify; without the name check any token would.
   if (isNamedTokenPool(what)) {
     const want = NAMED_TOKENS[what.slice(6)]?.name;
     return !!card?.token && !!want && String(card?.name || "").toLowerCase() === want.toLowerCase();
+  }
+  // CREATURE-SUBTYPE pool (2026-08-12, Palani's Hatcher "sacrifice an Egg"): a CREATURE whose live type
+  // line carries the subtype, word-anchored — token or nontoken alike (the printed cost says "an Egg",
+  // not "an Egg token"; Palani's own minted 0/1s carry "Creature — Dinosaur Egg" and qualify).
+  if (typeof what === "string" && what.startsWith("subtype:")) {
+    const sub = what.slice(8);
+    return isCreatureCard(card) && new RegExp(`\\b${sub}\\b`, "i").test(String(card?.type || card?.type_line || ""));
   }
   switch (what) {
     case "permanent": return true;
@@ -408,7 +419,11 @@ function applySacrifice(state, atom, ctx) {
   // Thread `atom.what` onto each queue head so advanceSacrificeChain builds the right victim pool, and a re-entry
   // from resolveSacrificeChoice (queue.slice(1)) preserves it per-sacrificer. The known pools pass through
   // (sacrificePoolMatch interprets them); anything else falls back to "creature" (the byte-stable default).
-  const what = (SACRIFICE_POOLS.has(atom.what) || isNamedTokenPool(atom.what)) ? atom.what : "creature";
+  // ⛔ subtype: pools joined this gate WITH their parser arm (2026-08-12, Palani's Egg) — before that,
+  // an unknown `what` fell back to "creature" here and the Egg sac offered the RAPTOR as a victim: the
+  // wrong-victim FP the pool discipline exists to prevent (caught by the Law-6 witness pre-push).
+  const isSubtypePool = typeof atom.what === "string" && atom.what.startsWith("subtype:");
+  const what = (SACRIFICE_POOLS.has(atom.what) || isNamedTokenPool(atom.what) || isSubtypePool) ? atom.what : "creature";
   return advanceSacrificeChain(state, { queue: sacrificers.map((pid) => ({ playerId: pid, what })), sourceName: ctx.cardName });
 }
 
@@ -476,6 +491,13 @@ export function sacrificeEdictClauseParser(clause) {
   const tokSac = t.match(/^sacrifice an? ([a-z]+)(?: token)?$/);
   if (tokSac && Object.prototype.hasOwnProperty.call(NAMED_TOKENS, tokSac[1])) {
     return { op: "sacrifice", who: "controller", what: `token:${tokSac[1]}` };
+  }
+  // CREATURE-SUBTYPE victim (2026-08-12 — Palani's Hatcher "sacrifice an Egg, then create a 3/3…"): a
+  // CURATED subtype allowlist, one entry per measured carrier (TF-1 — never a general subtype guess; an
+  // unlisted subtype stays low → Arbiter). The pool is `subtype:<Sub>`; sacrificePoolMatch word-anchors
+  // it against the live type line, so Palani's own 0/1 Dinosaur Egg tokens qualify and nothing else does.
+  if (tokSac && SAC_SUBTYPE_NOUNS.has(tokSac[1])) {
+    return { op: "sacrifice", who: "controller", what: `subtype:${tokSac[1].charAt(0).toUpperCase()}${tokSac[1].slice(1)}` };
   }
   // The victim NOUN. "creature" is the legacy bare form and stays byte-identical; the three filtered nouns
   // are the token-split / planeswalker pools above. Ordered LONGEST-FIRST so "creature token" can never be

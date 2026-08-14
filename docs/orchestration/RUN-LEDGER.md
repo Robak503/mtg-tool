@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-12 - **PALANI'S HATCHER (+1) — the subtype sac pool, and a wrong-victim FP caught pre-push** - the shelf grind (Jurassic Ramp 82→83)
+> Suite 1205 / 14,441 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Palani's Hatcher. Audited
+> whole-card. Post-release batch **+64**. Colton's standing order: Joe + test decks ALL to ≥90, no stops.
+> ⭐ ONE curated set (SAC_SUBTYPE_NOUNS, one entry per measured carrier — TF-1) keys the parser arm,
+> sacrificePoolMatch's subtype: branch, AND the chain-queue gate, so offer and charge cannot drift.
+> ⛔⛔ **THE WITNESS CAUGHT A WRONG-VICTIM FP PRE-PUSH**: the chain-queue validator (SACRIFICE_POOLS)
+> didn't know subtype: pools and fell back to "creature" — the Egg sac offered the RAPTOR as a victim.
+> The Law-6 two-creature row died on it; the gate now admits the pool class. One set, three gates.
+> Mutation EGG-M1 (the allowlist emptied → both rows die) killed, printed back.
+> ⏭ Jurassic residue banked: Triceraton Commander (create-X-tokens ETB — the X-stamp read, a family
+> arm), Trumpeting Carnosaur (the discard-from-hand activation lane, shared with Mjölnir), Etali /
+> Descendants' Path (free-cast machines), Marauding Raptor (compound rider).
+> Token diet: ~35k output tokens this slice.
 > ## SLICE DONE - 2026-08-12 - **KARLACH + THE ATTACKING BATCH (+5) — and extra combats now BEGIN properly** - the shelf grind
 > Suite 1205 / 14,439 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** across two snapshots —
 > Karlach, Fury of Avernus (×2 shelf decks: Otharri Test + Hulk Smash) + four printed attacking-batch

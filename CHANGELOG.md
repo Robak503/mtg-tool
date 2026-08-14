@@ -4191,6 +4191,8 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Palani's Hatcher hatches.** The combat trigger sacrifices an Egg — and only an Egg — then delivers
+  the 3/3 Dinosaur.
 - **Karlach, Fury of Avernus works** — first combat of the turn only: untaps the attackers, grants
   first strike, and queues her extra combat (which correctly can't re-trigger her). Headlong Rush, Akki
   Coalflinger, Chieftain en-Dal and Fangren Pathcutter ride the same attacking-batch grant. Extra
