@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Korvold feasts properly.** His enters-and-attacks trigger sacrifices another permanent — never
+  himself, even as the last permanent standing — and every sacrifice grows him a counter and draws a
+  card. Kraum, Shabraz, Trelasarra, Neva, Black Widow, General Traag, and Abomination (Irradiated
+  Brute) wake up on the same fix.
 - **Power-up works — the Gamma legends flex.** Hulk Gamma Goliath, She-Hulk, and Abomination's
   power-up abilities activate once per game as printed, and Goliath really discounts the other
   Gammas' power-ups by {3} (never his own). Fourteen more cards ride the same fixes, including

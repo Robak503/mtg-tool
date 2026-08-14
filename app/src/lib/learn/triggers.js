@@ -3242,7 +3242,9 @@ const SELF_NAME_EFFECT_VERB_RE = /^(?:gets [+-]\d+\/[+-]\d+|gains |deals |fights
 // "[<lead conjunct> and ]put N +1/+1 counters on <Name>" form (SHELF S7 — a self-name in the SECOND
 // conjunct of a compound payoff; CR 201.4 makes the name unambiguous, and the parser re-gates the
 // rewritten compound anyway — an unmodeled lead conjunct still drops the whole program LOW).
-const SELF_NAME_TRAILING_COUNTER_RE = /^((?:you may )?remove (?:a|an|one|two|three|four|five|\d+) [a-z]+ counters? from |(?:[^.]+ and )?put (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on )$/i;
+// ("that many" joined the put-counter number slot 2026-08-14 — Abomination, Irradiated Brute "put THAT
+// MANY +1/+1 counters on Abomination" off a combat-damage batch; the amount sentinel re-gates downstream.)
+const SELF_NAME_TRAILING_COUNTER_RE = /^((?:you may )?remove (?:a|an|one|two|three|four|five|\d+) [a-z]+ counters? from |(?:[^.]+ and )?put (?:a|an|one|two|three|four|five|\d+|that many) \+1\/\+1 counters? on )$/i;
 function rewriteSelfNameToThisCreature(effectClause, cardName) {
   const eff = String(effectClause || "");
   const fullName = String(cardName || "").trim();
@@ -3264,6 +3266,15 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
     // re-gates the rewritten form anyway (a non-modeled counter kind fails there → the card stays non-native).
     const tm = eff.match(new RegExp(`^(.+?)\\s*${esc}$`, "i"));
     if (tm && SELF_NAME_TRAILING_COUNTER_RE.test(tm[1].trim() + " ")) return `${tm[1].trim()} this creature`;
+    // MID-CLAUSE counter-on-name + CONTINUATION (2026-08-14 — Korvold "put a +1/+1 counter on KORVOLD
+    // and draw a card"; Trelasarra "…and scry 1"; Neva "…, then scry 1"; Abomination Irradiated Brute
+    // "put THAT MANY +1/+1 counters on Abomination"): the Strong-class trailing arm above requires the
+    // name at the clause END, so a conjoined tail parked seventeen watcher legends. Same discipline —
+    // whole-clause anchored on the exact counter grammar, the tail restricted to an " and …"/", then …"
+    // continuation the parser re-gates. A name inside ANY other grammar (a token name, a tutor filter)
+    // can never match this head+tail shape (the blanket-pass lesson, learned at the gate).
+    const cm = eff.match(new RegExp(`^((?:you may )?put (?:a|an|one|two|three|four|five|\\d+|that many) \\+1\\/\\+1 counters? on )${esc}((?: and | then |, then ).+)$`, "i"));
+    if (cm) return `${cm[1]}this creature${cm[2]}`;
     // POSSESSIVE self-name (Tifa Lockhart — Landfall "double <Name>'s power until end of turn"): the card
     // names ITSELF in a mid-clause possessive. Rewrite "<Name>'s" → "this creature's" ONLY inside the exact
     // double-own-P/T grammar (whole-clause anchored on "double … power[ and toughness] until end of turn"),
@@ -3871,6 +3882,11 @@ export function detectTriggers(card) {
         effectClause += `. ${s}`;
       }
       }
+      // (A blanket selfNormalizeOracle pass sat here for one probe cycle on 2026-08-14 and was REMOVED:
+      // it corrupted token NAMES ("Koma's Coil"), tutor filters ("a card named Screaming Seahawk"), and
+      // trampled rewriteSelfNameToThisCreature's pure-promotion verb discipline — seven witness files
+      // failed at the gate. Self-names in trigger payloads go through THAT machinery's anchored grammars,
+      // extended per shape; see the counter-on-name arm added for Korvold below it.)
       // The leading-sentence referent rewrites below operate on a single non-modal effect sentence's
       // pronouns; a modal block's modes carry their own self/that/triggering referents (handled inside
       // the parser per mode), so skip the whole chain when the effect is the re-extracted modal block.

@@ -340,6 +340,7 @@ export function advanceSacrificeChain(state, { queue, sourceName = null }) {
     // dies-triggers on isCreatureCard, fires sacrifice-triggers for all), so only the pool the chooser sees changes.
     const candidates = (player.battlefield || [])
       .filter((p) => sacrificePoolMatch(head.what, p.card))
+      .filter((p) => !(head.excludeId && p.id === head.excludeId)) // "another" — the source is never a victim
       .map((p) => ({ id: p.id, name: p.card?.name }));
     if (candidates.length === 0) { q = q.slice(1); continue; } // nothing to sacrifice → can't → skip
     if (candidates.length === 1) {
@@ -424,7 +425,10 @@ function applySacrifice(state, atom, ctx) {
   // wrong-victim FP the pool discipline exists to prevent (caught by the Law-6 witness pre-push).
   const isSubtypePool = typeof atom.what === "string" && atom.what.startsWith("subtype:");
   const what = (SACRIFICE_POOLS.has(atom.what) || isNamedTokenPool(atom.what) || isSubtypePool) ? atom.what : "creature";
-  return advanceSacrificeChain(state, { queue: sacrificers.map((pid) => ({ playerId: pid, what })), sourceName: ctx.cardName });
+  // excludeSource ("sacrifice ANOTHER permanent" — Korvold): the source is never a legal victim. Threaded
+  // per head so a resolveSacrificeChoice re-entry (queue.slice(1)) preserves it, like `what`.
+  const excludeId = atom.excludeSource ? (ctx.sourceId ?? null) : null;
+  return advanceSacrificeChain(state, { queue: sacrificers.map((pid) => ({ playerId: pid, what, ...(excludeId ? { excludeId } : {}) })), sourceName: ctx.cardName });
 }
 
 /**
@@ -479,12 +483,15 @@ export function sacrificeEdictClauseParser(clause) {
   //
   // "a land" is deliberately absent: sacLand.js already owns the controller's land sacrifice (including the
   // counted forms), and duplicating it here would give one printed phrase two parsers.
-  const csac = t.match(/^sacrifice an? (permanent|artifact|enchantment|nontoken creature|creature token|planeswalker|artifact or enchantment)$/);
+  // ("another" 2026-08-14 — Korvold, Fae-Cursed King "sacrifice another permanent": the SOURCE is never a
+  // legal victim, CR 109.5. excludeSource threads ctx.sourceId → the queue head's excludeId, which the
+  // chain's candidate filter honors — the same self-exclusion discipline every "another …" arm carries.)
+  const csac = t.match(/^sacrifice (?:an?|(another)) (permanent|artifact|enchantment|nontoken creature|creature token|planeswalker|artifact or enchantment)$/);
   if (csac) {
     const POOL = { permanent: "permanent", artifact: "artifact", enchantment: "enchantment",
       "nontoken creature": "nontokenCreature", "creature token": "creatureToken", planeswalker: "planeswalker",
       "artifact or enchantment": "artifactOrEnchantment" };
-    return { op: "sacrifice", who: "controller", what: POOL[csac[1]] };
+    return { op: "sacrifice", who: "controller", what: POOL[csac[2]], ...(csac[1] ? { excludeSource: true } : {}) };
   }
   // NAMED-TOKEN victim (The Cabbage Merchant) — "Sacrifice a Food token." Validated against NAMED_TOKENS,
   // the same registry the mint side uses. The trailing "token" is optional: both spellings are printed.

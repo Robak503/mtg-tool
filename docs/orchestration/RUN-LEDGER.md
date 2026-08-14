@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **KORVOLD (+8) — the counter-on-name arm + "sacrifice another"** - the shelf grind (Dragons 81→82)
+> Suite 1236 / 14,572 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Korvold plus
+> SEVEN audited watcher legends (Kraum, Shabraz, General Traag, Neva, Trelasarra, Black Widow,
+> Abomination Irradiated Brute). Post-release batch **+71**.
+> ⭐ TWO PIECES: ① a MID-CLAUSE counter-on-name arm on rewriteSelfNameToThisCreature (the EXISTING
+> pure-promotion machinery) — "put a/that many +1/+1 counter(s) on <Name>[ and …|, then …]", whole-clause
+> anchored; ② "sacrifice ANOTHER permanent" (CR 109.5) — excludeSource → the queue head's excludeId →
+> the chain's candidate filter.
+> ⛔⛔ A BLANKET selfNormalizeOracle pass was built FIRST and KILLED AT THE GATE, twice over: flip-diff
+> caught a LOST native (Black Waltz No. 3 — the sentence splitter severs a dotted name; the fragment
+> pass let the first-word form eat "Black"), and after repositioning, SEVEN witness files failed (token
+> names "Koma's Coil", tutor filters "a card named Screaming Seahawk", the verb-gated pure-promotion
+> discipline). The blanket was REMOVED; the anchored arm keeps 8 of the blanket's 17 flips — the other
+> nine were over-reach and stay parked (FN-safe). The dotted-name pin now guards in korvoldSelfName.
+> ⭐⭐ Witnessed: with one Food, the FOOD dies and Korvold survives · ALONE, nothing is sacrificed ·
+> SEEN-TO-FAIL control: the plain pool DOES sacrifice Korvold when alone (the fate "another" prevents).
+> Mutations KV-M1 (arm off → parks; a first mutant NULLED the function and crashed the harness —
+> retargeted to a clean disable) / KV-M2 (excludeId filter dropped → classify stays native,
+> aloneSurvives=false — the self-victim FP) both killed, printed back, per-process.
+> Token diet: ~24k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **THE POWER-UP CLUSTER (+17)** - 🏁 **HULK SMASH HITS THE BAR: 90% — THE THIRD DECK**
 > Suite 1235 / 14,566 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+17 / 0 / 0** — the three
 > in-deck power-up legends (Gamma Goliath native-mixed · She-Hulk · Abomination) plus FOURTEEN audited
