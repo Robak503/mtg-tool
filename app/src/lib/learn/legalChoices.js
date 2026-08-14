@@ -2509,13 +2509,12 @@ function actionsCycleFromHand(state, playerId) {
  * whose cost is mana plus discarding the card itself, played from hand. Cycling is the special case where
  * the effect is hard-coded "draw a card"; this is the general one.
  *
- * ⛔ TWO CREED GATES, both narrowing on purpose:
- *  · the effect program must be HIGH — a low parse would resolve to nothing while the card was still
- *    discarded and the mana still spent, which is strictly worse for the player than not offering it;
- *  · the program must need NO CHOSEN TARGET. Target selection at ACTIVATION time is the casting path's
- *    machinery and is not wired here, so a targeted ability (Steel Wrecking Ball's "destroy target
- *    artifact", Trumpeting Carnosaur's damage) is REFUSED rather than resolved with no target. That is a
- *    false negative and the correct answer until targeting is built for this lane.
+ * ⛔ THE CREED GATE: the effect program must be HIGH — a low parse would resolve to nothing while the
+ * card was still discarded and the mana still spent, strictly worse for the player than not offering it.
+ * ⭐ TARGETED LANE (2026-08-14): a chosen-target program is now expanded per legal target combo via
+ * expandCastChoices (Steel Wrecking Ball's "destroy target artifact", Trumpeting Carnosaur's damage) —
+ * the refusal that used to sit here was a documented FN until the targeting was wired. Zero legal
+ * targets → no action (CR 602.2b via 601.2c — never a discarded card with a fizzled effect).
  */
 function actionsDiscardAbilityFromHand(state, playerId) {
   if (state.activePlayer !== playerId) return [];
@@ -2541,7 +2540,18 @@ function actionsDiscardAbilityFromHand(state, playerId) {
     // part-parseable text. It stays because it states the intended contract and BECOMES load-bearing the
     // moment the parser gains partial results (atoms present, confidence low). Do not read it as the gate.
     if (!program || programConfidence(program) !== "high") continue;
-    if (!(program.atoms || []).length || programNeedsChosenTarget(program)) continue;
+    if (!(program.atoms || []).length) continue;
+    // TARGETED LANE (2026-08-14 — Trumpeting Carnosaur, Steel Wrecking Ball): a chosen-target program
+    // expands one action per legal target combo, exactly like the cast path (expandCastChoices with the
+    // card's colors for KW-PROTECTION, CR 702.16b). ZERO combos → no action (a target requirement with
+    // no legal target is unactivatable, CR 602.2b/601.2c — never a discarded card and a fizzled effect).
+    // Non-targeted abilities emit the single bare action, byte-identical to before.
+    if (programNeedsChosenTarget(program)) {
+      for (const choice of expandCastChoices(state, playerId, program, colorsOf(card))) {
+        actions.push({ kind: "discard-ability", playerId, cardId: card.id, name: card.name, cost, cmc: totalCmc(cost), targets: choice.targets || [] });
+      }
+      continue;
+    }
     actions.push({ kind: "discard-ability", playerId, cardId: card.id, name: card.name, cost, cmc: totalCmc(cost) });
   }
   return actions;

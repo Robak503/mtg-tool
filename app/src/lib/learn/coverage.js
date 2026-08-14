@@ -620,10 +620,13 @@ function stripShuffleInsteadLine(oracle) {
 // The rest of each carrier rides the normal paths: "enters with N +1/+1 counters" is already modeled, as is
 // Phantom Nantuko's "{T}: Put a +1/+1 counter on this creature".
 // DISCARD-COST HAND ABILITY ("<mana>, Discard this card: <effect>") — the general form of cycling. Credited
-// ONLY under the SAME three conditions legalChoices.actionsDiscardAbilityFromHand offers it on: the line
-// parses, its effect program is HIGH, and the program needs NO chosen target. Written as one predicate used
-// by both strip paths so the metric cannot out-run the runtime — a targeted ability (Steel Wrecking Ball,
-// Trumpeting Carnosaur) is refused by the engine and must stay parked here too.
+// ONLY under the SAME conditions legalChoices.actionsDiscardAbilityFromHand offers it on: the line
+// parses and its effect program is HIGH. Written as one predicate used by both strip paths so the metric
+// cannot out-run the runtime.
+// ⭐ TARGETED LANE (2026-08-14): the target-refusal is GONE in lockstep with the runtime — legalChoices
+// now expands a chosen-target program per legal combo (Steel Wrecking Ball, Trumpeting Carnosaur), so the
+// metric credits it. Target-pool emptiness stays a runtime affair (zero combos → no action), exactly as
+// on the cast path.
 function discardCostAbilityModeled(card) {
   const ab = parseDiscardCostAbility(card);
   if (!ab) return null;
@@ -637,7 +640,7 @@ function discardCostAbilityModeled(card) {
   // the note at that call site). Kept in lockstep so the two predicates cannot drift even where one arm is
   // currently doing no work.
   if (!program || programConfidence(program) !== "high") return null;
-  if (!(program.atoms || []).length || programNeedsChosenTarget(program)) return null;
+  if (!(program.atoms || []).length) return null;
   return ab;
 }
 /** Drop the whole "<mana>, Discard this card: <effect>" LINE when the engine really offers it. */

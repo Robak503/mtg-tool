@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **DISCARD-ABILITY TARGETING (+2) — Trumpeting Carnosaur + Steel Wrecking Ball** - the shelf grind (Jurassic Ramp carrier)
+> Suite 1213 / 14,473 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — both carriers
+> body-only→native-trigger. Audited whole-card (Carnosaur: Trample + discover-5 ETB + the activation;
+> Wrecking Ball: targeted-damage ETB + the activation + Crew). Post-release batch **+83**.
+> ⭐ THE LANE'S OWN COMMENT NAMED THE BUILD: actionsDiscardAbilityFromHand refused chosen-target
+> programs "until targeting is built for this lane" — built: one action per legal combo via
+> expandCastChoices (the cast path's machinery, colorsOf for KW-PROTECTION), targets frozen at
+> activation (CR 602.2b), threaded through the dispatcher onto the stack payload. ZERO legal targets
+> → no action (never a discarded card with a fizzled effect). The coverage predicate widened in
+> LOCKSTEP (the shared-predicate design did its job — one edit each side, metric can't out-run runtime).
+> ⭐ THREE PARK PINS GRADUATED honestly (discardCostHandAbility ×2 + discardAbilityStaticLane; the
+> blanket-refusal pin became the zero-target gate on the same board, and the strip fixture landed
+> native-STATIC — the anthem names the tier once the discard line strips, measured not assumed).
+> Mutations DA-M1 (expansion branch → refusal returns) / DA-M2 (predicate re-narrowed → carriers park)
+> / DA-M3 (dispatcher threading → stack loses the target) all killed, printed back.
+> Token diet: ~30k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **VENSER, SHAPER SAVANT (+1) — the stack∪battlefield union bounce** - the shelf grind
 > Suite 1213 / 14,472 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Venser
 > body-only→native-trigger. Audited whole-card (Flash + the ETB). Post-release batch **+81**.

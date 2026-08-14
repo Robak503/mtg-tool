@@ -7,14 +7,13 @@
  * dispatcher mirrors applyCycle — pay the mana, move the card hand → graveyard as the rest of the cost, fire
  * discard triggers, push an effect-program stack object, retain priority (CR 117.3c).
  *
- * ⛔ TWO GATES, AND THEY ARE THE SAME TWO IN THREE PLACES. The ability is offered, dispatched and CREDITED
- * only when its effect program is HIGH and needs NO CHOSEN TARGET:
- *   · low-confidence → offering it would spend the mana and bin the card for an effect that does nothing,
- *     which is strictly worse for the player than not offering it at all;
- *   · needs a target → target selection at ACTIVATION time is the casting path's machinery and is not wired
- *     into this lane, so Steel Wrecking Ball ("destroy target artifact") and Trumpeting Carnosaur are
- *     REFUSED rather than resolved with no target. A false negative, and the correct answer for now.
- * The metric reads the same predicate, so it cannot credit a card the engine will not offer.
+ * ⛔ THE GATE: the ability is offered, dispatched and CREDITED only when its effect program is HIGH —
+ * low-confidence would spend the mana and bin the card for an effect that does nothing, strictly worse
+ * for the player than not offering it at all. The metric reads the same predicate as the runtime.
+ * ⭐ TARGETED LANE GRADUATED (2026-08-14): a chosen-target program now expands one action per legal
+ * target combo (expandCastChoices, the cast path's machinery — Steel Wrecking Ball, Trumpeting
+ * Carnosaur). ZERO legal targets → still not offered (CR 602.2b via 601.2c — never a discarded card
+ * with a fizzled effect); the old blanket refusal pin below became that zero-target gate honestly.
  *
  * ⛔ THE COST IS PAID BEFORE THE ABILITY RESOLVES (CR 601.2h/602.2b) — the card is in the graveyard while its
  * own ability is on the stack. Asserted below, because a resolver that discarded afterwards would let the
@@ -90,12 +89,37 @@ describe("⭐ the ability really activates from hand", () => {
 });
 
 describe("⛔ the gates — refuse rather than resolve wrongly", () => {
-  it("a TARGETED ability is not offered (target selection is not wired into this lane)", () => {
+  it("⛔⛔ a targeted ability with ZERO legal targets is not offered (GRADUATED 2026-08-14: this board has no artifact — the zero-target gate, no longer a blanket refusal)", () => {
     expect(activate(WRECKING_BALL).offered).toBe(false);
   });
 
-  it("⛔ …and it is not credited either — metric and runtime read the same predicate", () => {
-    expect(classifyCard(WRECKING_BALL)).not.toMatch(/^native/);
+  it("⭐⭐ TARGETED LANE (2026-08-14): with an enemy artifact out, the action IS offered with the target FROZEN, and dispatch carries it onto the stack", () => {
+    const s0 = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    const enemyArt = createPermanent({ id: "eArt", controller: "ai1", summoningSick: false,
+      card: { id: "card-eArt", name: "Mind Stone", type: "Artifact", oracle: "" } });
+    let s = {
+      ...s0, turn: 6, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user",
+      players: {
+        ...s0.players,
+        ai1: { ...s0.players.ai1, battlefield: [enemyArt] },
+        user: { ...s0.players.user, hand: [{ ...WRECKING_BALL, id: "SUBJ" }],
+          manaPool: { W: 5, U: 5, B: 5, R: 5, G: 5, C: 5 }, life: 40 },
+      },
+    };
+    const act = legalActionsForPlayer(s, "user").find((a) => a.kind === "discard-ability" && a.cardId === "SUBJ");
+    const row = { offered: !!act, frozenTarget: act?.targets?.[0]?.id };
+    console.log("  WITNESS discardTargeted", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({ offered: true, frozenTarget: "eArt" });
+    s = dispatchAction(s, act);
+    const stk = (s.stack || [])[0];
+    const row2 = { inGy: s.players.user.graveyard.some((c) => c.id === "SUBJ"),
+      stackTargets: stk?.payload?.params?.targets?.map((t) => t.id) };
+    console.log("  WITNESS discardTargetedDispatch", JSON.stringify(row2)); // vitest 4 needs --disable-console-intercept
+    expect(row2).toEqual({ inGy: true, stackTargets: ["eArt"] });
+  });
+
+  it("⭐ …and the carriers are credited — metric and runtime read the same predicate (GRADUATED)", () => {
+    expect(classifyCard(WRECKING_BALL)).toMatch(/^native/);
   });
 
   it("an ability whose effect does not parse is not offered", () => {

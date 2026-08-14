@@ -1372,11 +1372,14 @@ function applyDiscardAbility(state, action) {
   working = checkDiscardTriggers(working, action.playerId, 1);
 
   const { id: stkId, state: working2 } = mintId(working, "stk");
+  // TARGETED LANE (2026-08-14): the action carries the targets legalChoices froze at activation
+  // (CR 602.2b — targets are chosen when the ability is activated); absent = the non-targeted form.
+  const chosenTargets = action.targets || [];
   const stackObject = createStackObject({
     id: stkId, kind: "activated-ability",
     source: { name: card.name, oracle: "" },
-    controller: action.playerId, targets: [], cost: action.cost,
-    payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program, controller: action.playerId, targets: [] } },
+    controller: action.playerId, targets: chosenTargets, cost: action.cost,
+    payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program, controller: action.playerId, targets: chosenTargets } },
   });
   let next = { ...working2, stack: [...working2.stack, stackObject] };
   next = logEvent(next, { kind: "discard-ability", playerId: action.playerId, cardName: card.name });

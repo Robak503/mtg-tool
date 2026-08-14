@@ -49,12 +49,14 @@ describe("recognition", () => {
     expect(classifyCard({ ...WAKER_OF_WAVES, id: "c-d", oracle: DISCARD_ABILITY })).toBe("native-body");
   });
 
-  it("⛔ a TARGETED discard ability is NOT stripped and still parks the card", () => {
-    // The engine refuses to offer a targeted discard ability (programNeedsChosenTarget), so crediting the
-    // card would claim an ability that is never playable. This is the gate that keeps the strip honest.
+  it("⭐ a TARGETED discard ability is stripped too (GRADUATED 2026-08-14 — the lane expands targets now)", () => {
+    // Was the blanket-refusal pin. legalChoices.actionsDiscardAbilityFromHand now expands a chosen-target
+    // program per legal combo (expandCastChoices — Trumpeting Carnosaur, Steel Wrecking Ball), so the
+    // strip credits it in lockstep. Zero-legal-targets stays a runtime gate (witnessed in
+    // discardCostHandAbility.test.js), exactly as on the cast path.
     const targeted = { ...WAKER_OF_WAVES, id: "c-t", name: "Targeted Whale",
       oracle: `${ANTHEM}\n{1}{U}, Discard this card: Destroy target creature.` };
-    expect(classifyCard(targeted)).toBe("body-only");
+    expect(classifyCard(targeted)).toBe("native-static"); // the ANTHEM line names the tier once the discard line strips
   });
 
   it("⛔ an UNMODELED second clause still parks the card (nothing else is loosened)", () => {

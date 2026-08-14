@@ -16,6 +16,10 @@ summarizes the notable changes.
   the derivation, and `scripts/warm-play-hints.mjs` builds it for your saved decks.
 
 ### Fixed
+- **Discard-to-activate abilities can aim.** Trumpeting Carnosaur's "discard this card: 3 damage to a
+  creature or planeswalker" and Steel Wrecking Ball's "destroy target artifact" now work from your
+  hand — the target is chosen when you activate, and with no legal target the ability simply isn't
+  offered, so the card is never thrown away for nothing.
 - **Venser, Shaper Savant works.** His flash entrance returns any spell or permanent to its owner's
   hand — including a spell that "can't be countered," because returning isn't countering. The bounced
   spell goes to its owner's hand, never the graveyard.
