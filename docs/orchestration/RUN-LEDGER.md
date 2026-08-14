@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **ATTACKS-WHILE (+5) — Pugnacious Hammerskull + the lane the old reject named** - the shelf grind (Jurassic 85→86)
+> Suite 1216 / 14,485 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** —
+> Pugnacious Hammerskull (Jurassic) + riders Brazen Blademaster, Seasoned Warrenguard (NAMED in the
+> old reject comment as inexpressible), Hand That Feeds, Courageous Goblin. All audited whole-card
+> (every rider = a self-pump on a vocabulary condition). Post-release batch **+94**.
+> ⭐ THE DESIGN LINE: "attacks while <cond>" is part of the trigger EVENT — checked ONCE at
+> declaration, NOT a CR 603.4 intervening-if (the re-check would over-suppress on a board that changed
+> between flush and resolution; an FP in the player's favour is still an FP). Five sites exactly as
+> banked: the interveningIf third source-excluding spelling ("you DON'T control ANOTHER <filter>") ·
+> the carve above the blanket while-reject (admitted ONLY when interveningIfParseable) · the
+> attacksWhileIf threading-allowlist entry · the fire-time gate at checkAttackTriggers' single enqueue
+> point (every attack lane gated uniformly) · the it→"this creature" stun sentinel (lane-gated).
+> ⭐⭐ Witnessed through the REAL fire path: lone Dino → the self-stun fires · second Dino → SILENT ·
+> a Bear does not satisfy "another Dinosaur" → still fires (the source never counts against itself).
+> Mutations HS-M1 (carve → all park) / HS-M2 (allowlist drop → the over-fire the comment predicts) /
+> HS-M3 (fire gate bypassed → silence dies) all killed, printed back.
+> Token diet: ~35k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **DISPLACER KITTEN (+1) — the up-to-one blink, and Avoidance joins the label list** - 🏁 **TEST RASHMI HITS THE BAR: 90%**
 > Suite 1215 / 14,481 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Displacer
 > Kitten body-only→native-trigger. Audited whole-card (the card IS its one trigger). Post-release

@@ -1125,6 +1125,20 @@ function classifyCondition(condRaw, cardName, cardType) {
   // refusal below ate this rider before the castNth arm could see it. Exempted by the EXACT phrase only —
   // every other "during" qualifier stays refused wholesale (safe FN, as before).
   const castDuringExempt = /spell during each opponent's turn$/.test(c);
+  // ATTACKS-WHILE (2026-08-14 — Pugnacious Hammerskull "Whenever this creature attacks while you don't
+  // control another Dinosaur, …"): the while-part is a FIRE-TIME-ONLY event condition — part of the
+  // trigger EVENT per the printed wording, checked at declaration and NOT re-checked at resolution,
+  // which is why it is deliberately NOT stamped interveningIf (that would over-suppress on a board that
+  // changes between flush and resolution — an FP in the player's favour is still an FP). Admitted ONLY
+  // when interveningIf.js can read the condition (the shared strict vocabulary; anything else falls to
+  // the blanket reject below → Arbiter, FN-safe). Placed above the qualifier guard for the Military
+  // Intelligence reason: that guard eats every "while".
+  {
+    const awM = c.match(/^this creature attacks while (.+)$/);
+    if (awM && interveningIfParseable(awM[1])) {
+      return { event: "attacks", scope: "self", whose: "any", attacksWhileIf: awM[1] };
+    }
+  }
   if (!castWithExempt && !castDuringExempt && /\b(?:with|while|during|named)\b/.test(c)) return null;
 
   // The subject is mapped ONLY to a scope scopeMatches can ENFORCE (bare, or the controller
@@ -3922,6 +3936,13 @@ export function detectTriggers(card) {
       // …") is a SENTINEL only this fold produces — groupGrantClauseParser's attacking arm binds it to
       // the LIVE attacker set (any controller, matching "ALL attacking creatures").
       effectClause = effectClause.replace(/(untap all attacking creatures\.)\s+they gain /i, "$1 attacking creatures gain ");
+      // ATTACKS-WHILE SELF-REFERENT (2026-08-14 — Pugnacious Hammerskull "put a stun counter on IT"):
+      // on the attacks-self event "it" is the attacking source itself — rewritten to the "this creature"
+      // the self counter arms already bind (add-named-counter-self). Gated to the attacksWhileIf lane
+      // (its only carrier) so no other "on it" anaphor is ever consumed.
+      if (cls.attacksWhileIf && cls.scope === "self") {
+        effectClause = effectClause.replace(/\bon it\b/gi, "on this creature");
+      }
       // ENCHANTED-HOST REFERENT (2026-08-12 — Unstable Mutation "put a -1/-1 counter on THAT CREATURE"):
       // on the enchanted-controller's-upkeep event, "that creature" is the ENCHANTED CREATURE named in the
       // trigger condition — the aura's host — so the rewrite hands it to the existing target:"enchanted"
@@ -4486,6 +4507,7 @@ export function detectTriggers(card) {
         attachedOnly: cls.attachedOnly,       // ATTACHED-ONLY attacks (Reyav) — the triggering attacker must carry ≥1 attachment
         minAttackers: cls.minAttackers,       // BATTALION (CR 702.101a) + "you attack with N or more creatures" — the minimum DECLARED attacker count, gated in checkAttackTriggers' once-per-combat pass. ⚠️ Unlisted here = dropped = the descriptor decays to a bare "whenever you attack" and fires off a SINGLE attacker — an over-fire, and exactly what happened on the first attempt at this slice (the trigger detected as youAttack with minAttackers undefined while looking perfectly correct).
         requireSelfAttacking: cls.requireSelfAttacking, // BATTALION only — "THIS CREATURE and at least two others attack", so the source must be among the declared attackers. Unlisted = dropped = a battalion creature sitting at home triggers off three OTHER attackers, strictly better than printed.
+        attacksWhileIf: cls.attacksWhileIf,    // ATTACKS-WHILE (Pugnacious Hammerskull) — the FIRE-TIME-ONLY event condition, evaluated in checkAttackTriggers at declaration (never interveningIf — no resolution re-check). Unlisted = dropped = the self-stun fires with a second Dinosaur out, strictly WORSE than printed for the player, but an over-fire all the same.
         itsController: cls.itsController,      // GLOBAL SUBTYPE combat-damage only ("its controller may …") — beneficiary = dealer's controller
         destroyThatCreature: cls.destroyThatCreature, // GLOBAL SUBTYPE combat-damage-to-CREATURE only (Toxin) — "destroy that creature"
         tapLockThatCreature: cls.tapLockThatCreature, // SELF combat-damage-to-CREATURE tap-and-lock (Kashi-Tribe family) — "tap that creature and it doesn't untap…". ⚠️ Unlisted here = dropped = the rewrite below never fires, the clause stays an unbindable "tap that creature and…" → LOW, and the card silently parks while the detector looks correct.
@@ -6374,6 +6396,18 @@ export function checkAttackTriggers(state) {
       }
     }
   }
+  if (!fired.length) return state;
+  // ATTACKS-WHILE (Pugnacious Hammerskull) — the FIRE-TIME-ONLY event condition, evaluated HERE at
+  // declaration against the live board (the single enqueue point, so every lane above is gated
+  // uniformly). Deliberately NOT interveningIf: the printed "attacks while <cond>" is part of the
+  // trigger EVENT and is never re-checked at resolution. Strict — anything but an affirmative true
+  // refuses to fire (the detection carve admitted only interveningIfParseable conditions, so a null
+  // here means the state cannot answer; refusing is the FN-safe direction).
+  fired = fired.filter((t) => {
+    const d = t?.descriptor || t;
+    if (!d?.attacksWhileIf) return true;
+    return evaluateInterveningIf(state, d.attacksWhileIf, t?.controller, { sourcePermanentId: t?.source?.permanentId ?? null }) === true;
+  });
   if (!fired.length) return state;
   // ATTACK-TRIGGER MULTIPLIER (Isshin, CR 603.x): every ability in this list fired because a creature
   // attacked, so each is repeated once per attack-multiplier static ITS controller controls. Applied at

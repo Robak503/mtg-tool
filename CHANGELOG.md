@@ -16,6 +16,10 @@ summarizes the notable changes.
   the derivation, and `scripts/warm-play-hints.mjs` builds it for your saved decks.
 
 ### Fixed
+- **"Attacks while…" triggers work.** Pugnacious Hammerskull stuns itself only when it attacks as your
+  lone Dinosaur — a second Dinosaur (but not a Bear) silences it. Brazen Blademaster, Seasoned
+  Warrenguard, Hand That Feeds and Courageous Goblin get their attack bonuses under the same printed
+  conditions, checked at the moment of attack as the cards say.
 - **Displacer Kitten works.** Casting a noncreature spell lets you flicker one of your nonland
   permanents — your choice, including choosing nothing; a land or an opponent's permanent is never a
   legal pick, and the flickered permanent always comes back.

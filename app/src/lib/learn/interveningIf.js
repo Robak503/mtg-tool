@@ -1165,7 +1165,9 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // Placed ABOVE the incumbent so "no other creatures" cannot be shaved to the filter "other creatures"
   // (parseFilter strips "other" as filler, which would silently drop the exclusion entirely — the same trap
   // the mass-damage recipient delegation hit one slice earlier).
-  let m = c.match(/^you control no other (.+)$/) || c.match(/^you control no (.+?) other than this [a-z]+$/);
+  // "you DON'T control ANOTHER <filter>" joined 2026-08-14 (Pugnacious Hammerskull's attacks-while
+  // condition) — the same source-excluding zero-count, third printed spelling.
+  let m = c.match(/^you control no other (.+)$/) || c.match(/^you control no (.+?) other than this [a-z]+$/) || c.match(/^you don't control another (.+)$/);
   if (m) {
     const filter = parseFilter(m[1]);
     if (!filter) return null;
