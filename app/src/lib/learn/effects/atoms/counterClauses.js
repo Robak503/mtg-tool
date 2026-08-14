@@ -41,6 +41,8 @@
  * gameState.addCounter (the central doubler hook), so NO doubling is applied here.
  */
 
+import { COUNT_SUBTYPE } from "../parseHelpers.js"; // a zero-import leaf — cycle-safe; the curated subtype allowlist
+
 const SMALL_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 
 // Canonical sentinel emitted by detectTriggers' non-self triggering-referent rewrite (see triggers.js,
@@ -80,7 +82,11 @@ const DOUBLE_COUNTERS_SELF = /^double the number of (\+1\/\+1) counters on this 
 // = that creature's current +1/+1 count, read pre-mutation, routed through addCounter's doubler hook so
 // Doubling Season composes per target, CR 616). Restricted to +1/+1 (the only fully layer-enforced kind,
 // mirroring the rest of this file). Anchored start-to-end: any rider leaves residue → null → LOW → Arbiter.
-const DOUBLE_COUNTERS_EACH = /^double the number of (\+1\/\+1) counters on each creature you control$/;
+// (Subtype widening 2026-08-14, Hulk Strongest There Is — "each GAMMA creature you control": an optional
+// subtype word curated through COUNT_SUBTYPE, exactly the counters.js filtered-mass-counter posture — an
+// un-curated word → null → Arbiter, never a silent zero-match. Rides controllerCreatureTargets'
+// word-bounded subtypeFilter, the same field the fixed-amount arms emit.)
+const DOUBLE_COUNTERS_EACH = /^double the number of (\+1\/\+1) counters on each(?: ([a-z]+))? creature you control$/;
 
 // DOUBLE-COUNTERS-TRIGGERING (CR 121) — "Whenever a creature you control with a +1/+1 counter on it attacks,
 // double the number of +1/+1 counters ON IT" (Byrke; Seismic Tutelage's enchanted-creature attack trigger).
@@ -161,11 +167,14 @@ export function counterClausesParser(clause) {
   // to add each one's current +1/+1 count to ITSELF (a per-target double, never a single global amount).
   const dem = t.match(DOUBLE_COUNTERS_EACH);
   if (dem) {
+    const sub = dem[2] ? COUNT_SUBTYPE[dem[2]] : null;
+    if (dem[2] && !sub) return null; // an un-curated subtype word → Arbiter (never a silent zero-match)
     return {
       op: "add-counter",
       counterType: dem[1],
       scope: "youControl",
       perTargetDouble: dem[1],
+      ...(sub ? { subtypeFilter: sub } : {}),
     };
   }
   return null;

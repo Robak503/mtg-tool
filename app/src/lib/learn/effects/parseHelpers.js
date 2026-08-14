@@ -182,6 +182,9 @@ export const COUNT_SUBTYPE = {
   villain: "Villain", villains: "Villain", ooze: "Ooze", oozes: "Ooze",
   leech: "Leech", leeches: "Leech", wraith: "Wraith", wraiths: "Wraith",
   fractal: "Fractal", fractals: "Fractal", moogle: "Moogle", moogles: "Moogle",
+  // Added 2026-08-14 (Hulk, Strongest There Is — "each Gamma creature you control"): corpus-verified
+  // 22 type-line occurrences, ALL in the subtype position, zero left of the dash.
+  gamma: "Gamma", gammas: "Gamma",
   // artifact subtypes (incl. the named tokens)
   treasure: "Treasure", treasures: "Treasure", clue: "Clue", clues: "Clue", food: "Food", foods: "Food",
   equipment: "Equipment", powerstone: "Powerstone", powerstones: "Powerstone", construct: "Construct", constructs: "Construct",

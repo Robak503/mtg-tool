@@ -3202,7 +3202,9 @@ export function classifyCard(card) {
   const baseOracle = entersWithMinusCounters(card) > 0
     ? plotStrippedOracle.replace(/[^.\n]*enters (?:the battlefield )?with (?:a|an|one|two|three|four|five|six|seven|\d+) -1\/-1 counters? on it[^.\n]*\.?/i, " ")
     : entersWithPlusCounters(card) > 0 && !isGraft
-    ? plotStrippedOracle.replace(/[^.\n]*enters (?:the battlefield )?with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it[^.\n]*\.?/i, " ")
+    // "on him/her" mirrors the READER's widening (staticAbilityParser 2026-08-14, Hulk Strongest There
+    // Is) — strip and reader must accept the same referent set or the credited sentence stays as residue.
+    ? plotStrippedOracle.replace(/[^.\n]*enters (?:the battlefield )?with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on (?:it|him|her)[^.\n]*\.?/i, " ")
     : entersWithXCounters(card) && xPipCount >= 1 && !isRavenous
       ? plotStrippedOracle.replace(/[^.\n]*enters (?:the battlefield )?with x \+1\/\+1 counters? on it[^.\n]*\.?/i, " ")
       : entersWithMetricCounters(card)

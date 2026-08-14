@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Hulk, Strongest There Is gets angrier.** He enters with his +1/+1 counter, and each upkeep every
+  Gamma creature you control doubles its own counters — your non-Gamma creatures correctly sit it out.
 - **Caltrops punishes every attack.** It pings each attacking creature for 1 no matter whose turn it
   is — including when the opponent swings into you, which is the whole point. Righteous Cause's
   gain-a-life-per-attacker works the same way.

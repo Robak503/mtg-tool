@@ -763,7 +763,10 @@ export function entersWithPlusCounters(card) {
   if (graft) return _ENTER_NUM[graft[1].toLowerCase()] ?? (parseInt(graft[1], 10) || 0);
   const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
   for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
-    const m = sentence.match(/enters (?:the battlefield )?with (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it/i);
+    // "on him/her" — Marvel legends' gendered self-referent (Hulk, Strongest There Is: "Hulk enters with
+    // a +1/+1 counter on him"), the same entering-creature referent as "it"; the coverage strips already
+    // accepted all three, so the reader accepting only "it" was the one seam out of step (2026-08-14).
+    const m = sentence.match(/enters (?:the battlefield )?with (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on (?:it|him|her)/i);
     if (!m) continue;
     if (/\b(?:if|for each|where|kicked|unless|equal to|plus)\b/i.test(sentence)) return 0; // conditional/variable → not modeled
     return _ENTER_NUM[m[1].toLowerCase()] ?? (parseInt(m[1], 10) || 0);

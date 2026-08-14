@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **HULK, STRONGEST THERE IS (+1) — two seam widenings** - the shelf grind (Hulk Smash 85→86)
+> Suite 1233 / 14,556 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Hulk
+> body-only→native-trigger. Post-release batch **+34**.
+> ⭐ NO NEW MACHINE, two seams: ① the SUBTYPE slot on the board-wide counter double (DOUBLE_COUNTERS_EACH
+> + COUNT_SUBTYPE curation — "gamma" corpus-verified: 22 type-line hits, ALL subtype-position, zero left
+> of the dash) riding perTargetDouble + subtypeFilter end-to-end; ② the "on him/her" self-referent on the
+> enters-with-+1/+1 READER (Marvel gendered templating) — and the coverage STRIP widened in lockstep,
+> because the reader fix alone flipped nothing (reader/strip referent mismatch leaves the credited
+> sentence as residue; found live, the two-site law in a new costume).
+> ⭐⭐ Witnessed: G3 3→6 · G1 1→2 · the 5-counter NON-Gamma bystander stays 5 · a 0-counter Gamma stays 0.
+> Mutations HK-M1 (curation dropped → parks, the zero-match guard) / HK-M2 (subtypeFilter dropped →
+> bystander 5→10, the over-fire) / HK-M3 (reader referent reverted → parks) all killed, printed back,
+> per-process. Test-harness note: createPermanent ignores a counters option — seed counters by spread
+> AFTER construction.
+> Token diet: ~16k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **CALTROPS (+2) — the ANY-CREATURE attacks scope** - the shelf grind (Hulk Smash 84→85)
 > Suite 1232 / 14,551 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Caltrops +
 > Righteous Cause (audited: "Whenever a creature attacks, you gain 1 life"), both body-only→native-trigger.
