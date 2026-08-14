@@ -25,6 +25,12 @@
 > · Dragons 80: Terror of the Peaks parks ONLY on the target-tax static ("spells targeting this cost
 >   3 life more" — a new framework, banked). Then Believe it! 79, Hulk Smash 79, Wolverine 78,
 >   Kinnan 77, Teval 76, the rest.
+> · **RAPTOR SHIPPED (a5894539, +2 with Aether Flash — Jurassic 87).** Descendants' Path probed: the
+>   trigger detects with the full three-sentence effectClause; the parker is the REVEAL-CONDITIONAL
+>   FREE CAST ("you may cast it without paying its mana cost" — matchRevealTopConditional handles
+>   put-routers only, not casting) + the shares-a-creature-type predicate. A real machine slice:
+>   the freeCast.js lane (cascade/discover) is the casting half's home; the predicate wants a
+>   board-scan against the revealed card's subtypes. Etali, Primal Storm shares the machine class.
 
 ## ☀️ 2026-08-14 (earlier) — **batch +89 · 🏁 TEST RASHMI HITS THE BAR (90%)** — suite **1215 / 14,481** green
 
