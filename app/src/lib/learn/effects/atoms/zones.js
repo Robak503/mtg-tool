@@ -923,6 +923,15 @@ export function bounceClauseParser(clause) {
   // removal, CV-2 the counter lane) — this is the bounce lane's ignition, not new machinery.
   // ⛔ THE NOUN GROUP IS OPTIONAL-SUFFIX, NOT A FULL ALTERNATION OF THE WHOLE NOUN, so `creature` alone
   // still matches exactly as before and every incumbent form emits a byte-identical atom (pinned).
+  // SUBTYPE bounce (2026-08-12 — Vedalken Aethermage "return target Sliver to its owner's hand"): a
+  // CURATED subtype set, one entry per measured carrier (TF-1 — a generic capitalized-word capture would
+  // swallow non-subtype nouns). Emits the creature targetType + the SAME kind:"subtype" restriction the
+  // targeting evaluator (creatureRestrictions) already enforces — one evaluator, no new machinery.
+  const BOUNCE_SUBTYPES = { sliver: "Sliver" };
+  const subB = t.match(/^return target ([a-z]+) to its owner's hand$/);
+  if (subB && BOUNCE_SUBTYPES[subB[1]]) {
+    return { op: "bounce", targetType: "creature", restrictions: [{ kind: "subtype", subtype: BOUNCE_SUBTYPES[subB[1]] }] };
+  }
   const cb = t.match(/^return (another )?target (tapped |attacking |blocking )?creature( or vehicle)?(?: (an opponent controls|you don't control|you control|that player controls|the damaged player controls))? to its owner's hand$/);
   if (cb) {
     const who = /^you control$/.test(cb[4] || "") ? "you"

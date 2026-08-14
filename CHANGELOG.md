@@ -4191,6 +4191,7 @@ The project shipped its first phases — knowledge layer, Ollama integration, ag
 rewiring, session-manager UI, and the archetype-aware Garfield goldfish — followed by
 the Tauri desktop shell with signed auto-update, a card-collection feature, and in-app
 data sync. See the git history and GitHub Releases for details.### Fixed
+- **Vedalken Aethermage works.** The flash ETB bounces a Sliver — and only a Sliver.
 - **Displace works.** Both blinked creatures leave and come back — never the half-card that exiled them
   for good.
 - **X-cost permanents deliver their X.** Triceraton Commander, The Meathook Massacre, Rocco, Springleaf

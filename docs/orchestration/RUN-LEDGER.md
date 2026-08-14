@@ -3,6 +3,16 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **VEDALKEN AETHERMAGE (+1) — the subtype bounce** - the shelf grind (Test Rashmi 81→82)
+> Suite 1208 / 14,447 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Vedalken Aethermage.
+> Audited whole-card (Flash + the ETB + Wizardcycling all parse). Post-release batch **+72**.
+> ⭐ ONE parser arm: a CURATED subtype set (BOUNCE_SUBTYPES, one entry per measured carrier — TF-1)
+> emitting the creature targetType + the kind:"subtype" restriction creatureRestrictions ALREADY
+> enforces at enumeration — one evaluator, no new machinery. (A variable-name collision with a later
+> `sb` in the same function scope crashed the first probe — renamed, the probe is the gate.)
+> Mutation SL-M1 (the set emptied → parks) killed, printed back.
+> Token diet: ~20k output tokens this slice. The self-pacing wakeup loop is ARMED (Colton: non-stop
+> until Joe + test decks all ≥90 or he stops it).
 > ## SLICE DONE - 2026-08-12 - **DISPLACE (+2) — the up-to-two blink, and the split that ate the return** - the shelf grind (Test Rashmi 80→81)
 > Suite 1207 / 14,446 green + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Displace (Test Rashmi) +
 > Illusionist's Stratagem (corpus). Audited whole-card. Post-release batch **+71**.
