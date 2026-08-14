@@ -7,17 +7,17 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-14 — **batch +88 · Rashmi at 89, one card from the bar** — suite green (counts in ledger)
+## ☀️ 2026-08-14 — **batch +89 · 🏁 TEST RASHMI HITS THE BAR (90%)** — suite **1215 / 14,481** green
 
 > ### ⏭ RUNNABLE NOW — the shelf queue, exactly where it stands
-> · **Test Rashmi 89 — ONE flip to the bar.** Remaining parked: Stream of Thought (replicate), See the
->   Truth, Veil of Summer, Tamiyo Collector of Tales, Rashmi herself (cast-trigger impulse), Displacer
->   Kitten, Marang River Regent, Endurance, Sylvan Library, Planar Genesis. Pick the cheapest.
-> · Then the below-bar drills (fresh 08-14 measure): Jurassic 85, Dragons 80, Believe it! 79, Hulk
->   Smash 79, Wolverine 78, Kinnan 77, Teval 76, Kellan 74, Otharri 73, Cap America 73, Halfshell 68,
->   Shalai 66.
+> · 🏁 **Test Rashmi 90/100 — the first below-bar deck across ≥90 under the standing order** (was 83
+>   when it started). Its remaining parked 10 stay banked for the corpus, not the bar.
+> · **Twelve decks remain**: Jurassic 85 (closest — drill its parked list next), Dragons 80,
+>   Believe it! 79, Hulk Smash 79, Wolverine 78, Kinnan 77, Teval 76, Kellan 74, Otharri 73,
+>   Cap America 73, Halfshell 68, Shalai 66.
+> · **Batch +89 of ~100** — cut the release tag after roughly one more slice, per the batching law.
 > · Corrected en route: Mjölnir, Storm Hammer is NOT a discard-lane card (attach-ETB + tap-stun attack
->   trigger — its own slice). Batch nearing ~100: consider the release tag after the next few slices.
+>   trigger — its own slice).
 > · **Fresh per-deck drills** — the realism gate, latest full read: Test Rashmi 84, Jurassic Ramp 84,
 >   Dragons 80, Believe it! 79, Hulk Smash 79, Wolverine 78, Teval 76, Kinnan 76, Kellan 74, Otharri 73,
 >   Captain America 73, Halfshell 68, Shalai 66 — all to ≥90 per Colton's standing order (non-stop, he

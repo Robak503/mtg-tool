@@ -759,6 +759,13 @@ export function graveyardReturnClauseParser(clause) {
   // owner, the stolen-creature-goes-home semantics the single arm already resolves.
   const blink2M = t.match(/^exile up to two target creatures you control, then return those cards to the battlefield under (your|their owner's) control$/);
   if (blink2M) return { op: "blink", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }], returnTo: blink2M[1] === "your" ? "controller" : "owner", maxTargets: 2, minTargets: 0 };
+  // DISPLACER KITTEN (2026-08-14) — "exile up to one target nonland permanent you control, then return
+  // that card to the battlefield under its owner's control": the up-to-ONE nonland form, and the blink
+  // family's FIRST TRIGGER-side carrier (a cast trigger — Displace/Flicker are spells), which is why
+  // atomTargetIntent gained its "blink" → own case in the same slice. maxTargets 1 + minTargets 0 rides
+  // the same subset path as up-to-two (the [t]-or-[] expansion).
+  const blink1M = t.match(/^exile up to one target nonland permanent you control, then return that card to the battlefield under (your|its owner's) control$/);
+  if (blink1M) return { op: "blink", targetType: "nonlandPermanent", restrictions: [{ kind: "controller", who: "you" }], returnTo: blink1M[1] === "your" ? "controller" : "owner", maxTargets: 1, minTargets: 0 };
   // GHOSTLY FLICKER (2026-08-14) — "Exile two target artifacts, creatures, and/or lands you control,
   // then return those cards…": the own-side TRIPLE-UNION targetType (enumerated in spellEffects) with
   // EXACTLY two targets — minTargets 2 = maxTargets 2, the CR 601.2c exact-N discipline the

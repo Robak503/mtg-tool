@@ -298,6 +298,12 @@ export function atomTargetIntent(atom) {
       // for non-own targets, which is correct for the entire ETB-removal family.
       if (tt.includes("YouControl") || tt.includes("youControl") || tt === "self") return "own";
       return "enemy";
+    case "blink":
+      // BLINK (2026-08-14 — Displacer Kitten, the family's first TRIGGER carrier): every corpus blink
+      // arm prints "you control" (the restriction enforces legality), and blinking your own permanent
+      // for value/ETB re-use is the card's entire purpose — own-side, never a mis-target. The spell
+      // carriers (Displace, Ghostly Flicker) never consulted intent; this case exists for the flush.
+      return "own";
     case "bounce-spell-or-permanent":
       // VENSER — the STACK∪BATTLEFIELD union bounce. Same enemy-side tempo intent as the ETB-bounce
       // family above (bounce their spell as a pseudo-counter, or their permanent as tempo — the

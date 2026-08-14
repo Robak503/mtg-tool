@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **DISPLACER KITTEN (+1) — the up-to-one blink, and Avoidance joins the label list** - 🏁 **TEST RASHMI HITS THE BAR: 90%**
+> Suite 1215 / 14,481 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Displacer
+> Kitten body-only→native-trigger. Audited whole-card (the card IS its one trigger). Post-release
+> batch **+89**.
+> 🏁 **THE MILESTONE: Test Rashmi 90/100 — the FIRST below-bar deck to cross ≥90 under the standing
+> order** (83 at the order's start; the climb: Wavebreak +1, Displace path, Vedalken, Ghostly Flicker,
+> Lab Man, Mana Drain, Venser, Step Through + Noxious, the Kitten). Twelve decks remain below.
+> ⭐ THREE ONE-LINERS: the keep-whole guard's up-to-one-nonland alternative, the blink1M arm (the
+> subset path already handles maxTargets 1 + minTargets 0), and "avoidance" joining the CR 207.2c
+> ability-word list — the trigger was INVISIBLE behind the label (detectTriggers [] while the clause
+> parsed HIGH — the classic label-miss signature; isolate-then-build caught it in one probe).
+> ⭐ THE FAMILY'S FIRST TRIGGER CARRIER: blink had NO atomTargetIntent case (Displace/Flicker are
+> spells — the cast path never consulted it) → "blink" → own, with the reasoning in-comment.
+> ⭐⭐ Pool witnessed: own enchantment YES · own land NO · enemy permanent NO · the empty pick offered.
+> Mutations DK-M1 (guard → split severs the return) / DK-M2 (intent case → not routable) / DK-M3
+> (label → trigger invisible) all killed, printed back.
+> Token diet: ~25k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **THE RASHMI PAIR (+5) — exact-two bounce · Noxious owner-top · typecycling strip** - the shelf grind (Test Rashmi 87→89)
 > Suite 1214 / 14,478 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Step Through +
 > Noxious Revival (both Test Rashmi) + riders Undo, Essence Fracture (the exact-two arm), Lórien

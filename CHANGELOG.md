@@ -16,6 +16,9 @@ summarizes the notable changes.
   the derivation, and `scripts/warm-play-hints.mjs` builds it for your saved decks.
 
 ### Fixed
+- **Displacer Kitten works.** Casting a noncreature spell lets you flicker one of your nonland
+  permanents — your choice, including choosing nothing; a land or an opponent's permanent is never a
+  legal pick, and the flickered permanent always comes back.
 - **"Return two target creatures" means two.** Step Through, Undo and Essence Fracture bounce exactly
   two creatures — with only one creature on the battlefield the spell correctly can't be cast, rather
   than half-resolving. Cards with a typecycling line (Step Through's Wizardcycling, Lórien Revealed's
