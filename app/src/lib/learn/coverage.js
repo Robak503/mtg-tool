@@ -1676,6 +1676,14 @@ export function permanentTriggersCovered(card) {
     // hand."; the draw-then form), incl. the OR-predicate (Track Down "creature or land"). Same FN-safe
     // discipline: only a follow-up the HIGH gate already vouched for reaches this strip.
     .replace(/\bif it['’]s an? (?:creature|artifact|land|enchantment)(?: or (?:creature|artifact|land|enchantment))? card, (?:put it into your hand|draw a card)\b\.?\s*/gi, " ")
+    // DAMAGE-RIDER (2026-08-14 — Marauding Raptor "…deals 2 damage to it. If a Dinosaur is dealt damage
+    // this way, this creature gets +2/+0 until end of turn."): the SAME residue blind spot — detectTriggers
+    // appends the "if"-led follow-up to the effectClause (isFollowupSentence), the whole program parses
+    // HIGH via the parser's DAMAGE-RIDER arm (vouched by allTriggerSentencesModeled BEFORE this strip
+    // runs), but the When-strip stops at the first period and leaves the rider as apparent residue.
+    // Anchored to the exact modeled shape (subtype × self-pump) — an unmodeled variant fails the HIGH
+    // gate above and never reaches here (FN-safe).
+    .replace(/\bif an? [a-z]+ is dealt damage this way, this creature gets \+\d+\/\+\d+ until end of turn\b\.?\s*/gi, " ")
     // LK-1 IMPULSE-DIG REVEAL-TAKE (Arcanist's Owl, Faerie Mechanist, Augur of Bolas, Foul Emissary, Glint-Nest
     // Crane, …) — a triggered ability whose effect is the FILTERED impulse-dig ("look at the top N cards … you
     // may reveal a <type> card from among them and put it into your hand. Put the rest on the bottom …") SPANS
@@ -1930,6 +1938,13 @@ export function permanentFullyCovered(card) {
     // only reveal the keyword/activated body — never hide a genuinely unmodeled sentence.
     .replace(/\bwhen you do(?:\s+this|\s+so)?,?[ \t]+[^.\n]*\.?[ \t]*/gi, " ")
     .replace(/\bif you do,?[ \t]+[^.\n]*\.?[ \t]*/gi, " ")
+    // DAMAGE-RIDER (2026-08-14 — Marauding Raptor): the "If a <Subtype> is dealt damage this way, this
+    // creature gets +N/+0…" tail is part of the trigger's effect (folded into the effectClause, vouched
+    // HIGH above via the parser's DAMAGE-RIDER arm) — MIRRORED from permanentTriggersCovered's chain,
+    // same anchored shape, so the composite gate (the Raptor also carries a cost-reduction static)
+    // doesn't read the vouched rider as unmodeled residue. FN-safe: an unmodeled variant fails the
+    // HIGH gate above and never reaches this strip.
+    .replace(/\bif an? [a-z]+ is dealt damage this way, this creature gets \+\d+\/\+\d+ until end of turn\b\.?\s*/gi, " ")
     // ⭐ FREQUENCY RIDERS — "Do this only once each turn." / "This ability triggers only once each turn."
     // MIRRORED FROM permanentTriggersCovered, which has stripped both for a while. This chain did not, so a
     // card whose trigger carries the rider composed fine with NOTHING and parked the moment it also had an

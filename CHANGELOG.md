@@ -8,6 +8,11 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **Marauding Raptor works — and honestly.** Each creature you play takes its 2 damage, and the Raptor
+  only grows when a Dinosaur was actually dealt the damage: a prevention shield that soaks the hit means
+  no pump, exactly as printed. Aether Flash's enters-damage works the same way.
+
 ## [0.158.0] - 2026-08-14
 
 ### Added

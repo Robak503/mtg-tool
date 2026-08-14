@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **MARAUDING RAPTOR (+2) — the damage-rider, honest against prevention** - the shelf grind (Jurassic 86→87)
+> Suite 1217 / 14,490 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Marauding
+> Raptor (Jurassic) body-only→native-MIXED (the cost-reduction static + the trigger compose) + Aether
+> Flash native-trigger (the any-creature watcher, same referent sentinel). Both audited whole-card.
+> Post-release batch **+2** (the new batch, post-v0.158.0).
+> ⭐ THE HONESTY LINE: "dealt damage this way" reads the victim's damagedBy — the noncombat damage
+> path now STAMPS it (mirroring the combat funnel's recordDamageSource; the list's own comment said
+> "optional — a call site that cannot name its source records nothing", and this call site CAN).
+> Prevention shields zero the hit BEFORE the stamp → a shielded Dinosaur never pumps the Raptor —
+> WITNESSED (the subtype-only shortcut was refused as an FP lane; the wake-report design note called
+> it before the build). Pieces: the ETB entering-creature sentinels ("to it" + the rider phrase no
+> card prints) · the parser's DAMAGE-RIDER arm (spell-mastery's template, interveningIfParseable gate)
+> · the damagedBy+subtype predicate · triggeringPermanentId threaded into applyConditional · TWO
+> residue strips (permanentTriggersCovered + the composite chain — the tier walk needed both).
+> Mutations MR-M1 (stamp → TRUE-branch dies) / MR-M2 (the conjunct → the PREVENTION witness dies —
+> exactly the FP it blocks) / MR-M3 (parser arm → parks) all killed, printed back.
+> Token diet: ~45k output tokens this slice (the two-chain residue hunt).
 > ## 🚀 RELEASE - 2026-08-14 - **v0.158.0 CUT — the +94 batch ships** (post-release batch resets to +0)
 > Tagged at 37ded14d; the release workflow confirmed running (workflowName "release", branch v0.158.0).
 > The batch: 94 cards flipped native across ~25 slices since v0.157.0 — headlined by the CR 104.3c

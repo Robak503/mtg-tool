@@ -76,7 +76,7 @@ import { becomeCopyClauseParser } from "./atoms/becomeCopy.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
 import { parseKickerCost } from "../kicker.js"; // KICKED-SPELL-EFFECT — a clean single-mana Kicker cost (no multikicker / and-or / {X}); kicker.js → parseHelpers.js → keywords.js is acyclic (parser already imports parseHelpers)
-import { spellConditionParseable, activationConditionParseable, evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the spell-side shape gate (a board condition a resolving spell can read); interveningIf → gameState is a leaf edge, no cycle (parser is not imported by either)
+import { spellConditionParseable, activationConditionParseable, evaluateInterveningIf, interveningIfParseable } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the spell-side shape gate (a board condition a resolving spell can read); interveningIfParseable joins 2026-08-14 for the DAMAGE-RIDER trigger sentinel (a per-object condition only trigger context can read); interveningIf → gameState is a leaf edge, no cycle (parser is not imported by either)
 import { poisonClauseParser, playerInvestigateClauseParser } from "./atoms/life.js"; // POISON (CR 122) — "<who> gets N poison counters"
 
 /**
@@ -1756,6 +1756,35 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // conditional op is not in the PAUSING registry, so admitting a pauser would drop the pause contract),
   // and a leading "also " strips (pure connective — the rider's atoms are already additive by shape).
   // An unmodeled rider FALLS THROUGH — the card stays exactly as parked as before.
+  // DAMAGE-RIDER CONDITIONAL (2026-08-14 — Marauding Raptor "…deals 2 damage to it. If a Dinosaur is
+  // dealt damage this way, this creature gets +2/+0…"): the condition phrase is a SENTINEL only the
+  // trigger-side ETB rewrite produces ("the triggering creature is a <subtype> dealt damage by this
+  // source" — no card prints it), so a spell's own "dealt damage this way" can never reach this arm.
+  // Mirrors the Spell-mastery rider arm below verbatim except the gate: interveningIfParseable (the
+  // TRIGGER-side probe — the condition needs triggeringPermanentId/sourcePermanentId, which a spell
+  // cannot supply and conditionIsDecidable correctly refuses). ifFalse is empty — no printed else.
+  {
+    const dr = oracle.match(/^(.+?)\.\s+if (the triggering creature is an? [a-z]+ dealt damage by this source), (.+?)\.?\s*$/is);
+    if (dr) {
+      const [, drBase, drCond, drRider] = dr;
+      const base = parseEffectClauseImpl(drBase.trim(), cardType, { hasX });
+      const rider = parseEffectClauseImpl(drRider.trim(), cardType, { hasX });
+      const ok = base && rider
+        && programConfidence(base) === "high" && programConfidence(rider) === "high"
+        && base.structure !== "modal" && rider.structure !== "modal"
+        && base.atoms.length > 0 && rider.atoms.length > 0
+        && !rider.atoms.some((a) => PAUSING_ATOM_OPS.has(a.op))
+        && !rider.atoms.some((a) => a.targetType && !isNonChosenTargetType(a.targetType))
+        && interveningIfParseable(drCond.trim().toLowerCase());
+      if (ok) {
+        return makeProgram({
+          confidence: "high",
+          atoms: [...base.atoms, { op: "conditional", branchOn: drCond.trim().toLowerCase(), ifTrue: rider.atoms, ifFalse: [], targetType: null }],
+          unparsedTail: null,
+        });
+      }
+    }
+  }
   {
     const sm = oracle.match(/^(.+?)\.?\n\s*Spell mastery — If ([^,]+),\s*(.+?)\.?\s*$/is);
     if (sm) {

@@ -175,7 +175,9 @@ export function resolveAtom(state, atom, ctx) {
  * Verified by board: Scute Swarm made its copy at six lands and NOTHING at three. Do not rename it back.
  */
 function applyConditional(state, atom, ctx) {
-  const verdict = evaluateInterveningIf(state, atom.branchOn, ctx.controller, { sourcePermanentId: ctx.sourceId });
+  // triggeringPermanentId joined the context 2026-08-14 (the DAMAGE-RIDER predicate reads the entering
+  // creature's damagedBy + subtype); every pre-existing shape ignores the extra field.
+  const verdict = evaluateInterveningIf(state, atom.branchOn, ctx.controller, { sourcePermanentId: ctx.sourceId, triggeringPermanentId: ctx.triggeringPermanentId });
   if (typeof verdict !== "boolean") return null;
   const branch = (verdict ? atom.ifTrue : atom.ifFalse) || [];
   let next = state;

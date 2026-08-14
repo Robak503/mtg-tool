@@ -1196,6 +1196,28 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
       .every((pid) => (state.players[pid]?.battlefield || []).filter((p) => permMatchesFilter(p, filter, state)).length === 0);
   }
 
+  // DAMAGE-RIDER (2026-08-14 — Marauding Raptor): "the triggering creature is a <subtype> dealt damage
+  // by this source" — a SENTINEL phrase only the ETB entering-creature rewrite produces (no card prints
+  // it). TRUE iff the triggering permanent is on a battlefield, its damagedBy list contains THIS source
+  // (recordDamageSource stamps it; prevention shields skip the stamp — so this is the honest CR "dealt
+  // damage this way", never subtype-alone), AND its type line carries the subtype. Fail-closed: a
+  // missing referent (either id, or the permanent already gone) → null → the conditional rejects.
+  m = c.match(/^the triggering creature is an? ([a-z]+) dealt damage by this source$/);
+  if (m) {
+    const tid = context?.triggeringPermanentId;
+    const sid = context?.sourcePermanentId;
+    if (!tid || !sid) return null;
+    let perm = null;
+    for (const pid of Object.keys(state.players || {})) {
+      perm = (state.players[pid]?.battlefield || []).find((p) => p.id === tid) || perm;
+    }
+    if (!perm) return false; // the entering creature already left — it was not "dealt damage this way" in any live sense
+    const typeLine = String(perm.card?.type || perm.card?.type_line || "").toLowerCase();
+    const hasSubtype = new RegExp(`\\b${m[1]}\\b`).test(typeLine);
+    const wasDamagedBySource = (perm.damagedBy || []).includes(sid);
+    return hasSubtype && wasDamagedBySource;
+  }
+
   // "you control a/an/<N> or more <filter>"
   m = c.match(new RegExp(`^you control ${NUM_RE}(?: or more)? (.+)$`));
   if (m) {

@@ -4331,6 +4331,18 @@ export function detectTriggers(card) {
         // The replace is verb-anchored (deals damage = / gain life =) so it touches ONLY the payoff stat, never a
         // co-occurring discover-X "that creature's toughness" (Pantlaza keeps its own native exact-match parse).
         effectClause = effectClause.replace(/\b(deals? damage equal to|gain life equal to) that creature's (power|toughness)\b/gi, "$1 the triggering creature's $2");
+      } else if (cls.event === "etb" && ETB_ENTERING_CREATURE_SCOPES.has(cls.scope) && /\bdeals? \d+ damage to it\b/i.test(effectClause)) {
+        // ===== DAMAGE-RIDER (2026-08-14 — Marauding Raptor) ===== "this creature deals 2 damage to IT.
+        // If a Dinosaur is dealt damage this way, this creature gets +2/+0…": on an entering-creature ETB,
+        // "it" is unambiguously the ENTERING creature (the same referent logic as the SOURCE-STAT branch
+        // above) → "the triggering creature", which the fixed-amount damage arm already binds
+        // (target:"thatCreature"). The rider's "a <Subtype> is dealt damage this way" is rewritten to the
+        // SENTINEL condition the parser's DAMAGE-RIDER arm + interveningIf's damagedBy predicate read —
+        // honest against prevention because the damage path stamps damagedBy only when damage actually
+        // landed. Both rewrites are gated to this event+scope; a spell's anaphora never reaches them.
+        effectClause = effectClause
+          .replace(/\b(deals? \d+ damage) to it\b/gi, "$1 to the triggering creature")
+          .replace(/\bif an? ([a-z]+) is dealt damage this way\b/gi, "if the triggering creature is a $1 dealt damage by this source");
       } else if (cls.event === "milled" && MILLED_TOKEN_PAYOFF_RE.test(effectClause)) {
         // ===== MILLED "that many" TOKENS (Screeching Scorchbeast, SHELF M1b) ===== the magnitude is the
         // number of milled cards matching THIS trigger's filter (ctx.nonlandMilledCount for a nonland-filtered

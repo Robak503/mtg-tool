@@ -23,6 +23,7 @@ import {
   moveCardToZone,
   findPermanent,
   markCombatDamage,
+  recordDamageSource,
   markExileIfDies,
   destroyLethalCreatures,
   logEvent,
@@ -1322,6 +1323,14 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
     let out = (sourceInfect || sourceWither)
       ? addCounter(s, { permanentId: permId, type: "-1/-1", amount: dealt })
       : markCombatDamage(s, { permanentId: permId, amount: dealt });
+    // DAMAGE-RIDER (2026-08-14 — Marauding Raptor): record the SOURCE of this hit on the victim's
+    // damagedBy list, exactly as the combat funnel does (recordDamageSource). The list was already
+    // documented as "optional — a call site that cannot name its source records nothing"; this call
+    // site CAN (the trigger threads source.id), and the stamp is what lets the "dealt damage by this
+    // source" rider read the honest fact — a prevention shield above zeroed `dealt` and never reaches
+    // here, so a fully-prevented hit is never falsely recorded. Additive for the Fatal Blow family
+    // (dealtDamageThisTurn reads damageMarked OR damagedBy — both now witness a sourced ability hit).
+    if (source?.id) out = recordDamageSource(out, { permanentId: permId, sourceId: source.id });
     // WOLVERINE clause 2: a non-combat damage source (an ability) that hits another creature arms the
     // per-turn flag too (the oracle says "dealt damage", not "combat damage"). No-op for non-Wolverine sources.
     if (source) out = armDamageToCreatureFlag(out, source, permId);
