@@ -361,6 +361,10 @@ function applyCastSpell(state, action) {
     // A choice cost reached the dispatcher without a valid stamp — refuse rather than cast it cost-free.
     throw new DispatcherError("Spell has an OR additional cost but no valid option was chosen", "ADDCOST_UNPAID");
   }
+  // TARGET-LIFE-TAX (Terror of the Peaks, 2026-08-14): the legalChoices post-filter stamped the summed
+  // life tax for the CHOSEN targets and refused any cast the caster couldn't pay — so charging here can
+  // never drive life negative. A board-imposed cost (CR 601.2f), paid with the other cost items.
+  if (action.targetLifeTax) working = loseLife(working, { playerId: action.playerId, amount: action.targetLifeTax });
   for (const ac of chosenSpec || programCosts) {
     if (ac.kind === "sacrifice" && (ac.count ?? 1) > 1) {
       // AC-1 (count-of-N, CR 701.21a) — sacrifice EACH of the N frozen victims (battlefield→graveyard + dies

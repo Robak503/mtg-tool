@@ -2380,6 +2380,18 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ activatedCostReduction: { amount: parseInt(aacrM[2], 10), ...(aacrM[1] === "artifacts" ? { subject: "artifact" } : {}) } });
     return;
   }
+  // TARGET-LIFE-TAX (Terror of the Peaks — "Spells your opponents cast that target this creature cost an
+  // additional 3 life to cast.", 2026-08-14): a MANDATORY cast cost (CR 601.2f), NOT ward's optional
+  // pay-or-be-countered — modeling it as ward would let a caster cast-then-decline, a wrong mechanism.
+  // Enforced at TWO chokes keyed off this one descriptor: legalChoices' post-filter (an action targeting
+  // the taxed permanent is stamped targetLifeTax, and DROPPED when the caster can't pay — CR 119.4) and
+  // actionDispatcher's cast payment. Whole-clause anchored; any variant (a mana tax, "that target you or")
+  // stays unparsed → residue → body-only (FN-safe).
+  const tltM = c.match(/^spells your opponents cast that target this creature cost an additional (\d+) life to cast$/);
+  if (tltM) {
+    out.push({ targetLifeTax: { amount: parseInt(tltM[1], 10) } });
+    return;
+  }
   // POWER-UP-ONLY variant (Hulk, Gamma Goliath — "Power-up abilities of OTHER creatures you control cost
   // {3} less to activate.", 2026-08-14): the same marker family, gated at the apply site to abilities the
   // parser stamped `powerUp` (the label arm in effects/abilities.js) AND to a DIFFERENT permanent than the

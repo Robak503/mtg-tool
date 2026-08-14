@@ -3512,7 +3512,38 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   actions.push(...actionsDeclareAttacker(state, playerId));
   actions.push(...actionsDeclareBlocker(state, playerId, attackerIds));
 
-  return actions;
+  return applyTargetLifeTaxes(state, playerId, actions);
+}
+
+// TARGET-LIFE-TAX post-filter (Terror of the Peaks, 2026-08-14 — "Spells your opponents cast that target
+// this creature cost an additional 3 life to cast."): ONE choke over the assembled list instead of edits
+// at the seven cast-push sites. A cast-spell action whose chosen targets include a taxed permanent on an
+// OPPONENT'S battlefield is stamped `targetLifeTax` (the dispatcher pays it as a cost), and DROPPED
+// outright when the caster's life can't cover it (CR 119.4 — a cost you can't pay makes the cast
+// illegal, never a cast-then-die). Spells only — the printed tax names "Spells", so abilities pass
+// untouched. The common case (no taxed permanent on the board) returns the list unchanged.
+function applyTargetLifeTaxes(state, playerId, actions) {
+  let taxed = null;
+  for (const [pid, pl] of Object.entries(state.players || {})) {
+    if (pid === playerId) continue; // the taxer's controller is not their own opponent
+    for (const perm of pl?.battlefield || []) {
+      for (const d of parseStaticAbilities(perm.card)) {
+        if (d.targetLifeTax) { (taxed ||= new Map()).set(perm.id, (taxed.get(perm.id) || 0) + d.targetLifeTax.amount); }
+      }
+    }
+  }
+  if (!taxed) return actions;
+  const life = state.players[playerId]?.life ?? 0;
+  const out = [];
+  for (const a of actions) {
+    if (a.kind !== "cast-spell" || !a.targets?.length) { out.push(a); continue; }
+    let tax = 0;
+    for (const t of a.targets) if (t?.id && taxed.has(t.id)) tax += taxed.get(t.id);
+    if (!tax) { out.push(a); continue; }
+    if (life < tax) continue; // can't pay the added life → this cast is not offered
+    out.push({ ...a, targetLifeTax: tax });
+  }
+  return out;
 }
 
 /**

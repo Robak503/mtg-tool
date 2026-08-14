@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Terror of the Peaks taxes your removal.** Opponents pay 3 life to aim spells at it — and if they
+  can't afford the life, they can't cast it at all. Its damage trigger on your entering creatures
+  already worked; the whole card now plays.
 - **Korvold feasts properly.** His enters-and-attacks trigger sacrifices another permanent — never
   himself, even as the last permanent standing — and every sacrifice grows him a counter and draws a
   card. Kraum, Shabraz, Trelasarra, Neva, Black Widow, General Traag, and Abomination (Irradiated

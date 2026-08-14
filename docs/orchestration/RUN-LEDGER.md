@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **TERROR OF THE PEAKS (+1) — the TARGET-LIFE-TAX static** - the shelf grind (Dragons 82→83)
+> Suite 1237 / 14,577 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Terror
+> body-only→native-mixed (the enters-damage trigger already routed; the tax static was the whole park).
+> Post-release batch **+72**.
+> ⭐ A NEW MACHINE, deliberately NOT ward: the printed tax is a MANDATORY cast cost (CR 601.2f) — ward's
+> pay-or-be-countered would let a caster cast-then-decline, a wrong mechanism. ONE descriptor
+> (targetLifeTax), TWO chokes: legalChoices' post-filter over the ASSEMBLED action list (one choke
+> instead of edits at the seven cast-push sites — stamps the summed tax per chosen-target set, DROPS an
+> unpayable cast per CR 119.4) and actionDispatcher's cast payment (loseLife with the other cost items).
+> ⭐⭐ Witnessed: the Terror-targeting Murder carries targetLifeTax 3 while the bystander-targeting one
+> carries none · at 2 life the taxed cast is NOT offered (the bystander cast still is) · dispatching
+> charges EXACTLY 3 (40→37) · the caster's OWN Terror never taxes them.
+> Mutations TT-M1 (arm off → parks + no stamp) / TT-M2 (the life gate dropped → the 2-life caster is
+> OFFERED the illegal cast) / TT-M3 (the charge dropped → lifeAfter 40, the free-tax FP) all killed,
+> printed back, per-process.
+> Token diet: ~14k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **KORVOLD (+8) — the counter-on-name arm + "sacrifice another"** - the shelf grind (Dragons 81→82)
 > Suite 1236 / 14,572 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+8 / 0 / 0** — Korvold plus
 > SEVEN audited watcher legends (Kraum, Shabraz, General Traag, Neva, Trelasarra, Black Widow,
