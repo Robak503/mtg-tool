@@ -3,6 +3,15 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🚀 RELEASE - 2026-08-14 - **v0.158.0 CUT — the +94 batch ships** (post-release batch resets to +0)
+> Tagged at 37ded14d; the release workflow confirmed running (workflowName "release", branch v0.158.0).
+> The batch: 94 cards flipped native across ~25 slices since v0.157.0 — headlined by the CR 104.3c
+> deck-out rule (never modeled before), Mana Drain's delayed payout, Venser's stack∪battlefield bounce,
+> the discard-ability targeting lane, the attacks-while lane, and 🏁 Test Rashmi as the first below-bar
+> deck to cross ≥90 under the standing order. Cut at +94 (within "roughly 100") on the user-facing-fix
+> justification — deck-out and Mana Drain were real rules bugs in every sim. CHANGELOG: [0.157.0]
+> reconstructed (tagged mid-corruption), [0.158.0] rolled and shipped.
+
 > ## SLICE DONE - 2026-08-14 - **ATTACKS-WHILE (+5) — Pugnacious Hammerskull + the lane the old reject named** - the shelf grind (Jurassic 85→86)
 > Suite 1216 / 14,485 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** —
 > Pugnacious Hammerskull (Jurassic) + riders Brazen Blademaster, Seasoned Warrenguard (NAMED in the

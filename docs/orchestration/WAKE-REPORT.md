@@ -7,7 +7,18 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-14 — **batch +89 · 🏁 TEST RASHMI HITS THE BAR (90%)** — suite **1215 / 14,481** green
+## ☀️ 2026-08-14 — **🚀 v0.158.0 CUT (the +94 batch) · 🏁 Rashmi at bar · batch resets +0** — suite **1216 / 14,485** green
+
+> ### ⏭ RUNNABLE NOW — post-release
+> · **Verify the release run finishes green** (workflowName "release" on v0.158.0 — ~20-30 min; if it
+>   fails, fix the pipeline before anything else).
+> · **The grind continues, new batch**: Jurassic 86 (Marauding Raptor needs the entering-creature
+>   damage rider — design half-scouted: the trigger detects, "the triggering creature" referent parses,
+>   the Dinosaur-rider conditional is the new piece). Dragons 80 (Terror of the Peaks parks ONLY on
+>   the target-tax static — "spells targeting this cost 3 life more" — a new framework, banked).
+>   Then Believe it! 79, Hulk Smash 79, Wolverine 78, Kinnan 77, Teval 76, the rest.
+
+## ☀️ 2026-08-14 (earlier) — **batch +89 · 🏁 TEST RASHMI HITS THE BAR (90%)** — suite **1215 / 14,481** green
 
 > ### ⏭ RUNNABLE NOW — the shelf queue, exactly where it stands
 > · 🏁 **Test Rashmi 90/100 — the first below-bar deck across ≥90 under the standing order** (was 83
