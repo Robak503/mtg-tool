@@ -25,6 +25,16 @@
 > · Dragons 80: Terror of the Peaks parks ONLY on the target-tax static ("spells targeting this cost
 >   3 life more" — a new framework, banked). Then Believe it! 79, Hulk Smash 79, Wolverine 78,
 >   Kinnan 77, Teval 76, the rest.
+> · **JURASSIC'S LAST TWO — designs banked (2026-08-14 late; ALTISAUR SHIPPED 8ccc0db6, Jurassic 88)**:
+>   ① **Bonehoard Dracosaur** — the upkeep impulse-2 parses HIGH ALONE; the parkers are the two "If
+>   you exiled a <land/nonland> card this way" riders. Build: the impulse-exile resolver stamps
+>   { exiledLandThisWay, exiledNonlandThisWay } (a per-resolution state marker, the drainDelayed
+>   pattern), two interveningIf predicates read the stamp, a parser fold emits [impulse-exile,
+>   conditional(land→the 3/1 Dino token), conditional(nonland→self +2/+2)]. ② **Savage Order** — three
+>   lows: the power-qualified sac additional cost ("power 4 or greater" — check the γ1b victim
+>   vocabulary), the Dinosaur battlefield tutor (check parseTutorFilter('dinosaur creature')), and the
+>   fetched-permanent "It gains indestructible" rider (the tutor-referent bind). Either flip + one more
+>   puts Jurassic AT THE BAR (88 → 90 needs two).
 > · **TEMPLE ALTISAUR DESIGN (banked 2026-08-14)**: "If a source would deal damage to another Dinosaur
 >   you control, prevent all but 1 of that damage." A BOARD static (not attached — the Gaseous Form
 >   class in combatEvasion.js is per-attachment), subtype-scoped with a FLOOR: needs ① a static reader
