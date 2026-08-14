@@ -3,6 +3,16 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **JESKA'S WILL (+1) — the cross-deck staple on the Akroma rails** - the shelf grind (Hulk Smash + Cap America carrier)
+> Suite 1227 / 14,525 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Jeska's Will
+> arbiter-spell→native-spell. Audited whole-card (the FULL oracle printed first). Post-release batch **+23**.
+> ⭐ ONE NEW ARM on existing rails: the Akroma conditionalBothCommander modal + impulse-exile-3
+> existed; only the scaled targeted mana add was new (manaPerTargetHand — the TARGETED opponent's LIVE
+> hand at resolution, CR 608.2h; a departed target adds 0).
+> ⭐⭐ Witnessed: a 5-card hand → exactly {R}×5, no other colors · an empty hand → nothing.
+> Mutations JW-M1 (arm → the all-or-nothing modal gate parks it) / JW-M2 (the live read → fixed 1 →
+> the 5-card witness dies) both killed, printed back. Akroma-modal regression green alongside.
+> Token diet: ~15k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **SAVAGE ORDER (+3) — the six-site bar card** - 🏁 **JURASSIC RAMP HITS THE BAR: 90% — THE SECOND DECK**
 > Suite 1226 / 14,522 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** across two snapshots —
 > Savage Order (Jurassic — the REAL "until your next turn" text) + riders Shadow-Rite Priest

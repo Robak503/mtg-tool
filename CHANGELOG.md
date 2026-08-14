@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Jeska's Will works — both modes.** The red mana counts the targeted opponent's actual hand, the
+  exile-three grants its play-this-turn window, and controlling your commander unlocks choosing both.
 - **Savage Order works — every clause.** The cost really demands a 4-power creature (a pumped 3-drop
   counts, a shrunken 4-drop doesn't), the fetched Dinosaur arrives on the battlefield, and it keeps
   its indestructible through your opponents' turns as printed. Shadow-Rite Priest's black-creature

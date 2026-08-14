@@ -306,6 +306,11 @@ export function miscClauseParser(clause) {
   // adds basic mana to the controller's pool (applyAddMana → addMana per color). PURE basic symbols only —
   // {X}, hybrid/Phyrexian, snow {S}, or a rider ("Add {R}{R}{R}. Spend this mana only on…") fails the anchor →
   // low → Arbiter (FN-safe; a restricted-use ritual would over-credit if modeled as plain mana).
+  // JESKA'S WILL (2026-08-14) — the scaled targeted add: "Add {R} for each card in target opponent's
+  // hand". One color symbol × the targeted opponent's hand size (resolved live in applyAddMana);
+  // targetType opponent rides the normal enumeration.
+  const mth = t.match(/^add \{([wubrgc])\} for each card in target opponent's hand$/);
+  if (mth) return { op: "add-mana", manaPerTargetHand: mth[1].toUpperCase(), targetType: "opponent" };
   const rit = t.match(/^add ((?:\{[wubrgc]\})+)$/);
   if (rit) {
     const mana = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
@@ -530,6 +535,15 @@ function anyColorChoice(state, ctx) {
 
 export function applyAddMana(state, atom, ctx) {
   let next = state;
+  // JESKA'S WILL (2026-08-14) — "Add {R} for each card in target opponent's hand": the amount is the
+  // TARGETED opponent's LIVE hand size at resolution (CR 608.2h). A departed/absent target → 0 added
+  // (a clean no-op, never a fabricated count).
+  if (atom.manaPerTargetHand) {
+    const tid = (ctx.targets || []).find((t) => t.type === "player")?.id;
+    const n = tid ? (state.players?.[tid]?.hand || []).length : 0;
+    if (n > 0) next = addMana(next, { playerId: ctx.controller, color: atom.manaPerTargetHand, amount: n });
+    return logEvent(next, { kind: "spell-effect", effect: "add-mana", controller: ctx.controller, mana: { [atom.manaPerTargetHand]: n } });
+  }
   // ANY-COLOUR add — the amount is EXACT (one), only the colour is chosen, so a suboptimal pick can only
   // ever be a play-QUALITY loss, never more mana than printed.
   if (atom.anyColor) {
