@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **QUARTET PHASE 1, SLICE 3 — the trigger-target chooser converts** - the SUBSYSTEM QUARTET
+> Suite 1240 / 14,595 green (+1 skipped) + lint 0 BY EXIT CODE. No flip-diff (ranking-only). Card
+> batch unchanged at **+74**.
+> ⭐ chooseTriggerTargets: among the CORRECT-SIDE candidates (the safety filter untouched on both
+> sides of the flag), flag-on picks by summed permanentValue — removal aims at the BIGGEST enemy
+> threat, buffs land on the best own permanent; player/spell targets score neutral (candidate order
+> breaks their ties, the legacy pick). Flag absent ⇒ first-correct-side, byte-identical.
+> ⭐⭐ Witnessed: legacy takes the first-enumerated 1/1 token; the evaluator kills the 6/6 Dragon
+> engine · friendly-fire candidates refused on BOTH sides (NO_SAFE_TARGET, flag or no flag).
+> Mutation (the max-pick INVERTED → the evaluator aims at the token) killed by the witness itself,
+> restored, re-verified green.
+> Token diet: ~9k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **QUARTET PHASE 1, SLICE 2 — the runProgram auto-pick mirrors convert** - the SUBSYSTEM QUARTET
 > Suite 1240 / 14,592 green (+1 skipped) + lint 0 BY EXIT CODE. No flip-diff (ranking-only, flag-off
 > byte-identical — the suite pins it). Card batch unchanged at **+74**.

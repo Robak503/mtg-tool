@@ -30,6 +30,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { evaluateBoard, permanentValue } from "./boardEval.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { autoPickSacrificeCandidate, autoPickDiscardCandidate } from "./effects/runProgram.js";
+import { chooseTriggerTargets } from "./gameEngine.js";
+import { parseEffectClause } from "./effects/parser.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -106,5 +108,52 @@ describe("⭐⭐ LAW 6 — the runProgram auto-pick MIRRORS convert with the sam
     const pc = { controller: "user", candidates: [{ id: "h-elf" }, { id: "h-bear" }] };
     expect(autoPickDiscardCandidate(s, pc)).toBe("h-elf");                              // legacy: lowest MV
     expect(autoPickDiscardCandidate({ ...s, usePolicyEval: true }, pc)).toBe("h-bear"); // evaluator: keep the ramp
+  });
+});
+
+describe("⭐⭐ LAW 6 — the trigger-target chooser converts (slice 3)", () => {
+  // A removal-shaped trigger ("destroy target creature") facing TWO enemy creatures: a 1/1 token and a
+  // big value engine. The legacy chooser takes the FIRST correct-side candidate (enumeration order);
+  // the evaluator aims at the bigger threat. The side FILTER is identical either way — an OWN creature
+  // candidate is refused on both sides of the flag (the safety half stays untouched).
+  const setup = () => {
+    const g = createGameState({ userDeck: [], aiDeck: [] });
+    const small = createPermanent({ id: "SM", controller: "ai", summoningSick: false,
+      card: { id: "c-SM", name: "Small Token", type: "Creature — Soldier", power: "1", toughness: "1", oracle: "", token: true } });
+    const big = createPermanent({ id: "BIG", controller: "ai", summoningSick: false,
+      card: { id: "c-BIG", name: "Big Engine", type: "Creature — Dragon", mana: "{4}{R}{R}", cmc: 6, power: "6", toughness: "6", oracle: "" } });
+    const s = { ...g, players: { ...g.players, ai: { ...g.players.ai, battlefield: [small, big] } } };
+    const program = parseEffectClause("destroy target creature", "Instant", { hasX: false });
+    const candidates = [
+      { targets: [{ type: "creature", id: "SM", controller: "ai", atomIndex: 0 }] },
+      { targets: [{ type: "creature", id: "BIG", controller: "ai", atomIndex: 0 }] },
+    ];
+    return { s, program, candidates };
+  };
+
+  it("⛔ SEEN-TO-FAIL control: flag OFF picks the FIRST correct-side candidate (the small token)", () => {
+    const { s, program, candidates } = setup();
+    const pick = chooseTriggerTargets(candidates, { state: s, trigger: { controller: "user" }, program });
+    expect(pick?.targets?.[0]?.id).toBe("SM"); // enumeration order, threat-blind — the wrong pick
+  });
+
+  it("⭐⭐ flag ON: the evaluator aims the removal at the BIG threat", () => {
+    const { s, program, candidates } = setup();
+    const pick = chooseTriggerTargets(candidates, { state: { ...s, usePolicyEval: true }, trigger: { controller: "user" }, program });
+    const row = { picked: pick?.targets?.[0]?.id };
+    console.log("  WITNESS triggerTargetEval", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({ picked: "BIG" });
+  });
+
+  it("the side FILTER is untouched by the flag: an own-creature candidate is refused on BOTH sides", () => {
+    const { s, program } = setup();
+    const own = createPermanent({ id: "OWN", controller: "user", summoningSick: false,
+      card: { id: "c-OWN", name: "My Guy", type: "Creature — Bear", power: "2", toughness: "2", oracle: "" } });
+    const s2 = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [own] } } };
+    const onlyOwn = [{ targets: [{ type: "creature", id: "OWN", controller: "user", atomIndex: 0 }] }];
+    const offPick = chooseTriggerTargets(onlyOwn, { state: s2, trigger: { controller: "user" }, program });
+    const onPick = chooseTriggerTargets(onlyOwn, { state: { ...s2, usePolicyEval: true }, trigger: { controller: "user" }, program });
+    expect(String(offPick)).toBe(String(onPick)); // both NO_SAFE_TARGET — never friendly fire, flag or no flag
+    expect(offPick?.targets).toBeUndefined();
   });
 });

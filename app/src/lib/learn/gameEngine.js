@@ -47,7 +47,9 @@ import {
   applyRadiation,
   addCounter,
   moveCardToZone,
+  findPermanent,
 } from "./gameState.js";
+import { permanentValue } from "./boardEval.js"; // QUARTET PHASE 1 slice 3 — the shared evaluator (leaf-importing module, cycle-free)
 import { setPendingCleanupDiscardChoice } from "./pendingChoice.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
@@ -1469,7 +1471,22 @@ export function chooseTriggerTargets(candidates, info) {
     if (intent === "ambiguous") return false;
     return true;
   };
-  return candidates.find((c) => (c.targets || []).every(targetOk(atomsFor(c)))) || NO_SAFE_TARGET;
+  // QUARTET PHASE 1 slice 3 (2026-08-14): behind `state.usePolicyEval`, the pick among the
+  // CORRECT-SIDE candidates consults the shared evaluator instead of first-in-enumeration-order —
+  // removal aims at the BIGGEST enemy threat, a buff lands on the OWN best permanent (both directions
+  // prefer the high-value target; permanentValue is the one shared currency). Player-targets score 0
+  // (neutral — candidate order breaks the tie, exactly the legacy pick among them). The side FILTER
+  // above is untouched either way: this re-ranks only what was already provably safe (ranking-only,
+  // THE CREED). Flag absent ⇒ first-correct-side, byte-identical.
+  const safe = candidates.filter((c) => (c.targets || []).every(targetOk(atomsFor(c))));
+  if (!safe.length) return NO_SAFE_TARGET;
+  if (!state.usePolicyEval) return safe[0];
+  const candValue = (c) => (c.targets || []).reduce((s, t) => {
+    if (t.type === "player" || t.type === "spell") return s;
+    const lk = findPermanent(state, t.id);
+    return s + (lk ? permanentValue(lk.permanent, state) : 0);
+  }, 0);
+  return safe.reduce((best, c) => (candValue(c) > candValue(best) ? c : best), safe[0]);
 }
 
 /**

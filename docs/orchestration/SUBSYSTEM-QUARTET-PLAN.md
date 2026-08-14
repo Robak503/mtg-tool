@@ -106,6 +106,14 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
+- 2026-08-14 — **PHASE 1 SLICE 3 SHIPPED**: the trigger-target chooser (gameEngine.chooseTriggerTargets)
+  converts — among the CORRECT-SIDE candidates, flag-on picks by summed permanentValue (removal aims at
+  the biggest threat; buffs land on the best own permanent; player/spell targets neutral). The side
+  FILTER is untouched either way (a friendly-fire candidate refused on both sides — witnessed).
+  Witnessed: legacy takes the first-enumerated small token, the evaluator the big Dragon; the max-pick
+  inversion mutant killed by the witness. NEXT: the may-decision sites, then scoreChoice, then the
+  goldfish gate.
+
 - 2026-08-14 — **PHASE 1 SLICE 2 SHIPPED**: the runProgram auto-pick MIRRORS converted
   (autoPickSacrificeCandidate → evalLeastValuableCmp; autoPickDiscardCandidate → the new
   cardValue/evalLeastValuableCardCmp twin), same flag, so the AC-1 site and the edict/discard chains
