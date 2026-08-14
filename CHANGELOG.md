@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Escape to the Wilds plays out fully.** The top five exile with their play window lasting through
+  the end of your next turn — the same two-turn window Light Up the Stage uses — plus the extra land
+  drop, all in the simulator.
 - **Betor, Kin to All climbs the ladder.** Each end step it checks your creatures' real total
   toughness — buffs and counters included — drawing at 10, untapping your team at 20, and halving
   every opponent's life at 40, in the printed order.

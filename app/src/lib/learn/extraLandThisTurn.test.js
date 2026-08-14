@@ -121,7 +121,13 @@ describe("ONE-SHOT EXTRA-LAND — classifyCard", () => {
 
   it("CREED: a card with ANY unmodeled rider / symmetric / variable-X clause stays non-native", () => {
     expect(classifyCard(NAHIRIS_LITHOFORMING)).not.toMatch(/^native/); // variable X + sac-X + lands-enter-tapped rider
-    expect(classifyCard(ESCAPE_TO_THE_WILDS)).not.toMatch(/^native/);  // play-cards-from-exile rider
+  });
+
+  it("GRADUATED 2026-08-14: Escape to the Wilds — the play-cards-from-exile rider is MODELED now", () => {
+    // Pinned non-native above while the exile-play rider was unmodeled. The extended-window impulse
+    // machine (impulseExtendedWindow.test.js, owner+stamp cleanup expiry) plus the "cards exiled this
+    // way" referent widening (escapeToTheWilds.test.js — BOTH regex sites) admit the full card.
+    expect(classifyCard(ESCAPE_TO_THE_WILDS)).toBe("native-spell");
   });
 });
 

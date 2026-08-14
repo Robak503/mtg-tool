@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **ESCAPE TO THE WILDS (+1) — the fourth impulse referent** - the shelf grind (Hulk Smash 81→82)
+> Suite 1229 / 14,532 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Escape
+> arbiter-spell→native-spell. Audited whole-card (impulse ×5 extended + extra land, both HIGH).
+> Post-release batch **+25**.
+> ⭐ A REFERENT widening, not a machine: "cards exiled this way" joins that card/it/them/those cards
+> on the EXTENDED-window arm only. TWO sites had to widen (unlisted-=-dropped by rote): the
+> templateMatchers arm AND the splitClauses keep-whole fold — the splitter severs the sentence pair
+> before the matcher sees it, so one-site widening flips nothing.
+> ⭐⭐ Witnessed: the program [impulse-exile ×5 extended, extra-land] · the splitter keeps the pair
+> whole · the referent WITHOUT the next-turn tail still severs (window-scoped, no plain-form ride-in).
+> Mutations ETW-M1 (matcher referent reverted → parks) / ETW-M2 (fold referent reverted → severs →
+> parks) both killed, printed back — re-run PER-PROCESS after the first pass's module cache poisoned
+> the restored check (a harness lesson: ESM import cache outlives fs.writeFileSync).
+> ⭐ ONE PIN GRADUATED: extraLandThisTurn's CREED pin held Escape non-native for exactly this rider;
+> flipped to a dated graduation assertion (Nahiri's Lithoforming stays pinned, still parks).
+> Token diet: ~14k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **BETOR, KIN TO ALL (+1) — the toughness ladder** - the shelf grind (Dragons 80→81)
 > Suite 1228 / 14,528 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Betor
 > body-only→native-trigger. Audited whole-card (Flying + the one ladder trigger). Post-release batch **+24**.

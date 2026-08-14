@@ -249,7 +249,7 @@ export function splitClauses(oracle) {
     const prev = clauses.length ? clauses[clauses.length - 1] : null;
     if (prev && (
       (/^if you do,/i.test(sentence) && /^you may (?:discard a card|pay \{|sacrifice (?:a|an) )/i.test(prev))
-      || (/^(?:until the end of your next turn, you may play|you may play (?:that card|it|them|those cards) until the end of your next turn)/i.test(sentence)
+      || (/^(?:until the end of your next turn, you may play|you may play (?:that card|it|them|those cards|cards exiled this way) until the end of your next turn)/i.test(sentence)
           && /^exile the top (?:card|two cards|three cards|four cards|five cards) of your library$/i.test(prev))
     )) {
       clauses[clauses.length - 1] = `${prev}. ${sentence}`;

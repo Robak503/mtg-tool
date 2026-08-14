@@ -529,7 +529,7 @@ export function matchImpulseExilePlay(oracle) {
   // is why it needed its own flag rather than a bigger number: `state.turn` counts PLAYER turns, so "your
   // next turn" is not `turn + 1` in multiplayer. The expiry is decided at cleanup by the OWNER + stamp turn
   // (see applyImpulseExileAtom), never by arithmetic on the turn counter.
-  const e = s.match(/^exile the top (card|two cards|three cards|four cards|five cards) of your library\. (?:you may play (?:that card|it|them|those cards) until the end of your next turn|until the end of your next turn, you may play (?:that card|it|them|those cards))$/);
+  const e = s.match(/^exile the top (card|two cards|three cards|four cards|five cards) of your library\. (?:you may play (?:that card|it|them|those cards|cards exiled this way) until the end of your next turn|until the end of your next turn, you may play (?:that card|it|them|those cards))$/);
   if (!e) return null;
   const eWord = e[1] === "card" ? "one" : e[1].split(" ")[0];
   const eCount = NUM[eWord] || 1;
