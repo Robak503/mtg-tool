@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.158.0] - 2026-08-14
+
 ### Added
 - **The AI understands every card's role.** Cards the simulator can't fully model are no longer
   invisible to the AI's decisions: every card now carries a derived play role (wipe, ramp, tutor,
@@ -115,41 +117,6 @@ summarizes the notable changes.
   Goldmeadow Stalwart, Squeaking Pie Sneak, Sadistic Skymarcher, Thunderherd Migration, Flamekin
   Bladewhirl and Surtland Elementalist can be cast by revealing a matching card from your hand or by
   paying the extra mana. A card can no longer reveal itself to pay its own discount.
-- **Costs that sacrifice "a creature or enchantment" (or planeswalker, or land) work.** Heartfire, Final
-  Flare, Final Vengeance, Merciless Resolve, Ragamuffyn, Ertai the Corrupted, Blood Aspirant, Spark Reaper,
-  Dreadmalkin and Diversion Specialist all pay with either half of their printed choice; the simulator
-  previously understood only single-type sacrifices, so all ten did nothing.
-- **Spells with an "or pay" additional cost work.** Spark Harvest, Eaten Alive, Lash of the Balrog,
-  Morkrut Behemoth, Bayou Groff, Lightning Axe, Pumpkin Bombardment and Soaring Stoneglider let you choose
-  between paying the listed cost or paying extra mana. The simulator understood every option except the
-  mana one, so it skipped all eight cards. Both ways to pay are now offered, and each is charged correctly.
-- **Tribal tutors for more creature types work.** Giant Harbinger and Forerunner of the Coalition search
-  for a Giant or a Pirate card; the simulator knew a handful of creature types and not these.
-- **Pumps that scale with a board count work on a chosen target.** Primal Bellow, Might of the Masses,
-  Hunger of the Nim, Confront the Unknown, Defile, Irradiate and Friendly Neighborhood count your Forests,
-  Clues, artifacts or creatures and buff the target by that much.
-- **Shrinking effects that scale with a board count now actually shrink.** Any "-1/-1 until end of turn for
-  each …" was being applied as zero, so cards like Defile and Irradiate did nothing at all. 19 cards print
-  that wording.
-- **"Return a land you control" works.** Tazeem Raptor, Sutina, Wayward Guide-Beast, Noggle Bridgebreaker
-  and Zell Dincht return one of your lands to hand; the simulator understood only the creature and
-  permanent wordings, so all five did nothing. It returns a land you have already tapped for mana, which
-  is the sensible choice.
-- **Reanimation that returns a permanent tapped works.** Writ of Return, Gravewaker, Undergrowth Recon,
-  Dr. Madison Li and Scaretiller bring a card back from your graveyard tapped; the simulator could not read
-  the "tapped" wording and skipped all five. They now return the permanent, correctly tapped.
-- **Graveyard hate that names a card type works.** Shamble Back, Vile Rebirth, Thraben Heretic, Cemetery
-  Reaper, Selesnya Eulogist, Necrogenesis, Conversion Chamber and Grave Robbers exile a creature (or
-  artifact) card from a graveyard. The simulator could only read the unfiltered wording, so all eight did
-  nothing; they now offer only cards of the type the card names.
-- **Bouncing a Vehicle works.** Bounce Off and Roadside Blowout return a creature or a Vehicle to its
-  owner's hand — including an uncrewed Vehicle, which is the case these cards exist for.
-- **Legendary-only removal works.** Hero's Demise and Tsabo Tavoc destroy a legendary creature; the
-  simulator could not read "legendary" as a target requirement and skipped both cards.
-- **Counters on "target creature or Vehicle" work.** Seven-Tail Mentor, Grafted Growth, Light the Way and
-  Perilous Snare put a +1/+1 counter on a creature or a Vehicle — including a Vehicle that has not been
-  crewed, which is the case these cards are printed for. The ones that say "you control" can no longer be
-  pointed at an opponent's Vehicle.
 - **Removal that names a keyword works.** Clear a Path, Ogre Gatecrasher, Deface and Smash to Dust destroy
   a creature with defender; Shadowstorm and Faceless Devourer hit creatures with shadow. The simulator
   previously understood only "with flying" and skipped these cards.
@@ -188,6 +155,49 @@ summarizes the notable changes.
   act on the controller of the creature that triggered them — the one that entered, died or attacked. The
   simulator could not tell whose creature it was, so these cards did nothing; they now charge the right
   player rather than their own controller.
+
+## [0.157.0] - 2026-08-07
+
+> Section reconstructed 2026-08-14: v0.157.0 was tagged while CHANGELOG.md was doubled (see the
+> repair note in the run ledger), so its notes had been stranded in [Unreleased]. These are the
+> bullets that actually shipped in it.
+
+### Fixed
+- **Costs that sacrifice "a creature or enchantment" (or planeswalker, or land) work.** Heartfire, Final
+  Flare, Final Vengeance, Merciless Resolve, Ragamuffyn, Ertai the Corrupted, Blood Aspirant, Spark Reaper,
+  Dreadmalkin and Diversion Specialist all pay with either half of their printed choice; the simulator
+  previously understood only single-type sacrifices, so all ten did nothing.
+- **Spells with an "or pay" additional cost work.** Spark Harvest, Eaten Alive, Lash of the Balrog,
+  Morkrut Behemoth, Bayou Groff, Lightning Axe, Pumpkin Bombardment and Soaring Stoneglider let you choose
+  between paying the listed cost or paying extra mana. The simulator understood every option except the
+  mana one, so it skipped all eight cards. Both ways to pay are now offered, and each is charged correctly.
+- **Tribal tutors for more creature types work.** Giant Harbinger and Forerunner of the Coalition search
+  for a Giant or a Pirate card; the simulator knew a handful of creature types and not these.
+- **Pumps that scale with a board count work on a chosen target.** Primal Bellow, Might of the Masses,
+  Hunger of the Nim, Confront the Unknown, Defile, Irradiate and Friendly Neighborhood count your Forests,
+  Clues, artifacts or creatures and buff the target by that much.
+- **Shrinking effects that scale with a board count now actually shrink.** Any "-1/-1 until end of turn for
+  each …" was being applied as zero, so cards like Defile and Irradiate did nothing at all. 19 cards print
+  that wording.
+- **"Return a land you control" works.** Tazeem Raptor, Sutina, Wayward Guide-Beast, Noggle Bridgebreaker
+  and Zell Dincht return one of your lands to hand; the simulator understood only the creature and
+  permanent wordings, so all five did nothing. It returns a land you have already tapped for mana, which
+  is the sensible choice.
+- **Reanimation that returns a permanent tapped works.** Writ of Return, Gravewaker, Undergrowth Recon,
+  Dr. Madison Li and Scaretiller bring a card back from your graveyard tapped; the simulator could not read
+  the "tapped" wording and skipped all five. They now return the permanent, correctly tapped.
+- **Graveyard hate that names a card type works.** Shamble Back, Vile Rebirth, Thraben Heretic, Cemetery
+  Reaper, Selesnya Eulogist, Necrogenesis, Conversion Chamber and Grave Robbers exile a creature (or
+  artifact) card from a graveyard. The simulator could only read the unfiltered wording, so all eight did
+  nothing; they now offer only cards of the type the card names.
+- **Bouncing a Vehicle works.** Bounce Off and Roadside Blowout return a creature or a Vehicle to its
+  owner's hand — including an uncrewed Vehicle, which is the case these cards exist for.
+- **Legendary-only removal works.** Hero's Demise and Tsabo Tavoc destroy a legendary creature; the
+  simulator could not read "legendary" as a target requirement and skipped both cards.
+- **Counters on "target creature or Vehicle" work.** Seven-Tail Mentor, Grafted Growth, Light the Way and
+  Perilous Snare put a +1/+1 counter on a creature or a Vehicle — including a Vehicle that has not been
+  crewed, which is the case these cards are printed for. The ones that say "you control" can no longer be
+  pointed at an opponent's Vehicle.
 
 ## [0.156.0] - 2026-08-05
 
