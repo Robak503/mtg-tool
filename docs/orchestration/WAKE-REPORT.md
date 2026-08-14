@@ -25,6 +25,13 @@
 > · Dragons 80: Terror of the Peaks parks ONLY on the target-tax static ("spells targeting this cost
 >   3 life more" — a new framework, banked). Then Believe it! 79, Hulk Smash 79, Wolverine 78,
 >   Kinnan 77, Teval 76, the rest.
+> · **NEXT BUILD BANKED — Betor, Kin to All (Dragons 80)**: the end-step trigger with THREE sequential
+>   toughness-threshold conditionals (total toughness 10 → draw · 20 → untap team · 30 → probe the
+>   third). Pieces: ONE new interveningIf predicate ("creatures you control have total toughness N or
+>   greater" — a layer-aware toughness SUM, the powerAtLeast pattern) + the sequential conditional fold
+>   (the Bonehoard two-conditional template). Jeska COMMITTED locally (e5601c67) — push when b902522d CI
+>   lands, then re-measure Hulk + Cap America. Parked with reasons: Rith (excess-damage tracking),
+>   Sarkhan Fireblood (restricted-spend mana), Ancient Brass Dragon (d20 reflexive mass-reanimate).
 > · 🏁 **JURASSIC RAMP AT THE BAR: 90/100 (Savage Order landed — the SECOND deck under the order).**
 >   Eleven remain: Dragons 80 · Hulk Smash 80 · Teval 79 · Believe it! 79 · Wolverine 78 · Kinnan 77 ·
 >   Kellan 74 · Otharri 74 · Cap America 73 · Halfshell 68 · Shalai 66. Next closest: Dragons/Hulk at
