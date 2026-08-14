@@ -16,6 +16,10 @@ summarizes the notable changes.
   the derivation, and `scripts/warm-play-hints.mjs` builds it for your saved decks.
 
 ### Fixed
+- **Decking out is real, and Laboratory Maniac works.** Drawing from an empty library now loses the
+  game as the rules say — previously the draw silently fizzled and nobody ever decked out. With
+  Laboratory Maniac on your battlefield that same draw wins you the game instead, unless something says
+  you can't win (Abyssal Persecutor), in which case the draw is still replaced and the game goes on.
 - **Ghostly Flicker works.** Exactly two of your artifacts, creatures and/or lands blink out and come
   back under your control — an enchantment is never a legal pick, and with only one legal permanent the
   spell correctly cannot be cast at all.

@@ -18,7 +18,9 @@ beforeEach(() => _resetIdsForTests());
 const KOMA = { id: "cmd-koma-Koma", name: "Koma, Cosmos Serpent", type: "Legendary Creature — Serpent", power: 6, toughness: 6, oracle: "", mana: "{3}{G}{G}{U}{U}" };
 function deck(prefix) {
   const out = [];
-  for (let i = 0; i < 20; i++) out.push({ id: prefix + "-f-" + i, name: "Forest", type: "Basic Land — Forest", oracle: "{T}: Add {G}." });
+  // 60 cards — deep enough that no seat DECKS OUT mid-walk (CR 104.3c is real as of 2026-08-14; the
+  // old 20-card fixture survived only because empty draws were silently smaller draws back then).
+  for (let i = 0; i < 60; i++) out.push({ id: prefix + "-f-" + i, name: "Forest", type: "Basic Land — Forest", oracle: "{T}: Add {G}." });
   return out;
 }
 

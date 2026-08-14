@@ -2064,6 +2064,17 @@ function parseClause(clause, out, selfName, selfType) {
       return;
     }
   }
+  // ⭐ EMPTY-DRAW WIN (CR 614 / 104.2a) — Laboratory Maniac: "If you would draw a card while your library
+  // has no cards in it, you win the game instead." Same INERT layer-6 op as cantLoseGame; the ONE consumer
+  // is gameState.drawCards (the single draw chokepoint), which asks layers.playerEmptyDrawWins on a
+  // shortfall. Built TOGETHER with the CR 104.3c deck-out loss itself — before this slice drawCards
+  // silently drew fewer and NOBODY ever decked out (the "decking" epoch label was a post-hoc heuristic),
+  // so a win-INSTEAD had no loss to replace. hasWonGame's cantWin guard (Abyssal Persecutor) still
+  // applies on read — the draw stays replaced either way, which is the printed CR 614.1 behaviour.
+  if (/^if you would draw a card while your library has no cards in it, you win the game instead$/.test(c)) {
+    out.push({ layer: 6, op: { layerOp: "emptyDrawWins" }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+    return;
+  }
   {
     const TAIL = "assigns? combat damage equal to (?:its|their) toughness rather than (?:its|their) power";
     if (new RegExp(`^each creature ${TAIL}$`).test(c)) {

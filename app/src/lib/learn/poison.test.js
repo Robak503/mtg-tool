@@ -62,7 +62,9 @@ describe("KW-POISON — poison-counter track + loss SBA", () => {
   });
 
   it("nine poison counters does NOT lose (the threshold is exactly ten)", () => {
-    const deck = Array.from({ length: 10 }, (_, i) => ({ id: `f${i}`, name: "Forest", type: "Basic Land — Forest" }));
+    // 60 cards, not 10 — with the CR 104.3c deck-out real (2026-08-14) a 10-card walk ends in a
+    // DECKING win that this assertion would misread as a poison result.
+    const deck = Array.from({ length: 60 }, (_, i) => ({ id: `f${i}`, name: "Forest", type: "Basic Land — Forest" }));
     const session = createLearnSession({ userDeck: deck, opponentDeck: deck, difficulty: "expert" });
     const poisoned = {
       ...session,

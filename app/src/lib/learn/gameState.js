@@ -27,7 +27,7 @@
  */
 
 import { printedPower, printedToughness, counterPtDelta } from "./ptPrimitive.js";
-import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, playerCantGainLife, legendRuleExemptFor, PERMANENT_TYPE_RE } from "./layers.js";
+import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE } from "./layers.js";
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
 import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
@@ -815,14 +815,23 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
 }
 
 /**
- * Draw N cards from the top of library to hand. If the library is empty
- * mid-draw, draws as many as are available — the engine handles
- * deck-out as a state-based action.
+ * Draw N cards from the top of library to hand. If the library is empty mid-draw, draws as many as are
+ * available AND the shortfall is the CR 120.3 deck-out: the player is stamped `triedToDrawFromEmpty`
+ * and loses at the next state-based check (learnSession.isPlayerDead reads the stamp — before this
+ * slice the shortfall was SILENT and nobody ever decked out; the "decking" epoch label was a post-hoc
+ * died-while-empty heuristic).
+ * ⭐ EMPTY-DRAW WIN (CR 614 — Laboratory Maniac): a live "you win instead" static on the drawing
+ * player's side replaces each empty draw with the win — `wonGame` instead of the loss stamp. The
+ * cantWin guard (Abyssal Persecutor) is applied by hasWonGame ON READ, and the draw stays replaced
+ * either way: with both statics live the player neither wins nor decks out, the printed CR 614.1
+ * behaviour. This is the ONE draw chokepoint — draw step, spells, triggers, wheels all route here.
  */
 export function drawCards(state, { playerId, count }) {
   assertPlayer(playerId);
   if (!Number.isInteger(count) || count < 0) throw new Error(`drawCards: count must be a non-negative integer, got ${count}`);
 
+  const shortfall = count > (state.players[playerId]?.library.length ?? 0);
+  const winsInstead = shortfall && playerEmptyDrawWins(state, playerId);
   return withPlayer(state, playerId, player => {
     const drawCount = Math.min(count, player.library.length);
     const drawn = player.library.slice(0, drawCount);
@@ -832,6 +841,7 @@ export function drawCards(state, { playerId, count }) {
       library: remaining,
       hand: [...player.hand, ...drawn],
       cardsDrawnThisTurn: player.cardsDrawnThisTurn + drawCount,
+      ...(shortfall ? (winsInstead ? { wonGame: true } : { triedToDrawFromEmpty: true }) : {}),
     };
   });
 }

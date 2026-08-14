@@ -7,19 +7,21 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-14 — **batch +78 · the shelf grind rolls under the wakeup loop** — suite **1210 / 14,454** green
+## ☀️ 2026-08-14 — **batch +79 · deck-out is REAL now (CR 104.3c)** — suite **1211 / 14,461** green
 
 > ### ⏭ RUNNABLE NOW — the banked queue, exactly where it stands
-> · **Laboratory Maniac (×2 decks)** — the draw-from-empty-library replacement win; pairs with the
->   Thassa's Oracle machines. · **Mana Drain** (delayed mana at next main) · **the discard-from-hand
->   activation lane** (Trumpeting Carnosaur, Mjölnir) · **Venser** (spell-or-permanent bounce).
+> · **Mana Drain** (counter + delayed {C} at your next main — the manaPool + step-advance sites are
+>   scouted: stack.js applyCounter has the rider pattern, gameEngine 677/682 are the main-phase gates).
+> · **The discard-from-hand activation lane** (Trumpeting Carnosaur — discover already exists as an
+>   atom — and Mjölnir). · **Venser** (spell-or-permanent bounce union).
 > · **Fresh per-deck drills** — the realism gate, latest full read: Test Rashmi 84, Jurassic Ramp 84,
 >   Dragons 80, Believe it! 79, Hulk Smash 79, Wolverine 78, Teval 76, Kinnan 76, Kellan 74, Otharri 73,
 >   Captain America 73, Halfshell 68, Shalai 66 — all to ≥90 per Colton's standing order (non-stop, he
 >   stops it). Colton's own six decks are all ≥90 already.
 > · **Shipped since the 08-12 entry**: Karlach + the attacking batch (+5, extra combats enter properly),
 >   Palani's Hatcher (+1), X-shaped ETBs (+5, Meathook), Displace (+2), Vedalken Aethermage (+1),
->   Wavebreak Hippocamp (+5), Ghostly Flicker (+1, the exact-two union blink).
+>   Wavebreak Hippocamp (+5), Ghostly Flicker (+1, the exact-two union blink), Laboratory Maniac (+1 —
+>   and CR 104.3c deck-out modeled for the first time: sims now really eliminate decked players).
 > · **Housekeeping that matters**: CHANGELOG.md had been silently DOUBLED since 954c150e with six
 >   slices' bullets fused into the seam — repaired 2026-08-14 (8482 → 4300 lines, 35 bullets rehomed
 >   into [Unreleased], structure-gated). Doc-append scripts must gate on structure counts, not "wrote OK".

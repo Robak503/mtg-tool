@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **LABORATORY MANIAC (+1) — and DECK-OUT BECAME REAL** - the shelf grind (×2 decks carry him)
+> Suite 1211 / 14,461 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Laboratory
+> Maniac body-only→native-static. Audited whole-card (the card IS its one line). Post-release batch **+79**.
+> ⭐⭐ THE BASE RULE WAS THE REAL FIND: CR 104.3c/120.3 deck-out was NOT modeled — drawCards silently
+> drew fewer, its own doc-comment CLAIMED "the engine handles deck-out as a state-based action", and no
+> such SBA existed (the "decking" epoch label was a died-while-empty heuristic). A hollow claim in the
+> hollow-gate sense, found because Lab Man's win-INSTEAD had no loss to replace. Built together:
+> the CR 120.3 shortfall stamp at the drawCards chokepoint + isPlayerDead reads it (after the
+> can't-lose guard) + the emptyDrawWins layer-6 INERT op (staticAbilityParser → layers →
+> the same chokepoint). CR 614.1 corner witnessed: Lab Man + Abyssal Persecutor = the draw is
+> replaced, the win is blocked ON READ — neither win nor deck-out.
+> ⛔ TWO FIXTURES DIED HONESTLY: poison (10-card walk) and cmdMirror (20-card walk) decked out
+> mid-test under the new rule — both re-fixtured to 60 cards with in-comment notes. Sims now
+> genuinely eliminate decked players; "decking" in the epoch stats means the rule, not the vibe.
+> Mutations LM-M1 (parser arm → parks) / LM-M2 (winsInstead branch → Lab Man decks out) / LM-M3
+> (stamp-read → nobody ever decks) all killed, printed back.
+> Token diet: ~45k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **GHOSTLY FLICKER (+1) — the exact-two union blink** - the shelf grind (Test Rashmi 83→84)
 > Suite 1210 / 14,454 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Ghostly Flicker (Test
 > Rashmi). Audited whole-card (the card IS its one sentence). Post-release batch **+78**.

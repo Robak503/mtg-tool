@@ -358,6 +358,7 @@ function isPlayerDead(state, playerId) {
   // this, so an eliminated seat can't be resurrected by a stale static.
   if (playerCantLoseGame(state, playerId)) return false;
   if (player.lostGame) return true; // UPKEEP-WIN — "target player loses the game" (CR 104.3a, Door to Nothingness)
+  if (player.triedToDrawFromEmpty) return true; // DECK-OUT (CR 104.3c / 120.3) — stamped at the drawCards chokepoint
   if (player.life <= 0) return true;
   if ((player.poison || 0) >= 10) return true;
   const dmgFrom = player.commanderDamageFrom || {};
@@ -440,7 +441,9 @@ function removePlayerFromGame(state, playerId) {
     ? {
         life: _gone.life ?? null,
         poison: _gone.poison ?? null,
-        decked: (_gone.library || []).length === 0,
+        // The honest CR 120.3 stamp first (set at the drawCards chokepoint); the died-while-empty
+        // heuristic stays as the fallback for deaths where the empty library was the real story.
+        decked: !!_gone.triedToDrawFromEmpty || (_gone.library || []).length === 0,
         commanderLethal: Object.values(_gone.commanderDamageFrom || {}).some((n) => n >= 21),
         // Source of the lethal blow (loseLife stamped it on the killing damage): true = combat, false =
         // non-combat (burn/ability), null = a non-damage finish (drain/pay-life) → the "damage" win-con

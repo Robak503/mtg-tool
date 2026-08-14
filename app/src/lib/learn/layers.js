@@ -2204,6 +2204,21 @@ function gameOutcomeBlocked(state, playerId, layerOp) {
 export function playerCantLoseGame(state, playerId) { return gameOutcomeBlocked(state, playerId, "cantLoseGame"); }
 export function playerCantWinGame(state, playerId) { return gameOutcomeBlocked(state, playerId, "cantWinGame"); }
 
+/**
+ * ⭐ EMPTY-DRAW WIN (CR 614 — Laboratory Maniac) — does `playerId` control a live "if you would draw from
+ * an empty library, you win instead" static? Always self-scoped (the printed line says "you"), so this is
+ * gameOutcomeBlocked's shape without the who dispatch. The ONE consumer is gameState.drawCards.
+ */
+export function playerEmptyDrawWins(state, playerId) {
+  if (!playerId || !state?.players?.[playerId]) return false;
+  for (const e of collectContinuousEffects(state)) {
+    if (e.op?.layerOp !== "emptyDrawWins") continue;
+    const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
+    if (src?.controller === playerId) return true;
+  }
+  return false;
+}
+
 export function playerCantGainLife(state, playerId) {
   if (!playerId || !state?.players?.[playerId]) return false;
   const board = collectContinuousEffects(state);
