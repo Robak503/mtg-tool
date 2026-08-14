@@ -262,6 +262,10 @@ export function applyTutor(state, atom, ctx) {
       : atom.destination === "top" ? "top"
         : atom.destination === "graveyard" ? "graveyard" : "hand",
     entersTapped: !!atom.entersTapped,
+    // SAVAGE ORDER (2026-08-14) — the fetched-permanent UEOT keyword grants, threaded EXPLICITLY (the
+    // whitelist warning above means it: unlisted = dropped = the fetched Dino enters without its
+    // printed indestructible — the silent partial).
+    ...(atom.fetchedGrants ? { fetchedGrants: atom.fetchedGrants, fetchedGrantsUntil: atom.fetchedGrantsUntil || "endOfTurn" } : {}),
     // RAMP-MULTI — "up to two": fetch up to `remaining` matching lands (resolveTutorChoice chains the rest).
     // RAMP-MULTI-X — `countFor` resolves the fetch cardinality (computed above as dynCount; a 0 short-circuits
     // to the no-op return before this point, so here dynCount is ≥1). A static `remaining` wins when present;
@@ -1970,14 +1974,19 @@ export function tutorClauseParser(clause, ctx = {}) {
     // The admission is EXPLICITLY two-armed — see the note on bfm. Either the bare PERMANENT-card fetch
     // (Planar Bridge), gated by the real `permanentOnly` front-face check, or a genuine LAND guarantee over a
     // NON-EMPTY group list. Written this way so neither arm rests on `[].every()` being vacuously true.
+    // SAVAGE ORDER (2026-08-14) — the third admission arm: a GUARANTEED-CREATURE fetch ("Dinosaur
+    // creature card"). The destination-battlefield resolver already enters via enterCardFromZone (ETBs
+    // fire, same as reanimation), so the only thing that gated creatures was this admission list.
+    const guaranteedCreature = (g) => g.includes("creature");
     const admitted = filter && (
       (filter.permanentOnly && filter.groups.length === 0) ||
-      (filter.groups.length > 0 && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic))
+      (filter.groups.length > 0 && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) ||
+      (filter.groups.length > 0 && filter.groups.every(guaranteedCreature))
     );
     if (admitted) {
       return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!bfm[2], targetType: null };
     }
-    return null; // a non-land / unmodeled-filter / ambiguous-basic battlefield tutor → low → Arbiter
+    return null; // a non-land/non-creature / unmodeled-filter / ambiguous-basic battlefield tutor → low → Arbiter
   }
   // mf — RAMP-MULTI up-to-N LANDS (or PLAIN CREATURES) to battlefield. "put them" (the ramp forms) OR "put
   // those cards" (Defense of the Heart's compound-trigger multi-fetch) — the two printed anaphors for the

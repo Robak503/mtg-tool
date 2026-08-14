@@ -41,6 +41,7 @@ const returnLandPoolMatch = (cost, p) =>
   && (!cost.subtype || new RegExp(`\\b${cost.subtype}\\b`, "i").test(String(p.card?.type || p.card?.type_line || "")))
   && (!cost.untapped || !p.tapped);
 import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the shared board-condition readers; runProgram → interveningIf → gameState is a leaf edge (no cycle)
+import { addContinuousEffect } from "../layers.js"; // SAVAGE ORDER — the fetched-permanent UEOT keyword grants; layers never imports runProgram (gameState itself imports layers), so this edge is cycle-free
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
 
 /**
@@ -366,6 +367,26 @@ export function resolveTutorChoice(state, cardId) {
     if (destination === "battlefield") {
       // RAMP-1 — the fetched card enters the battlefield (tapped per the card), firing ETB triggers.
       next = enterCardFromZone(next, { playerId: pc.controller, cardId, fromZone: sourceZone, tapped: !!pc.entersTapped }).state;
+      // SAVAGE ORDER (2026-08-14) — the fetched-permanent UEOT keyword grants ("It gains indestructible
+      // until end of turn"): find the just-entered permanent by its card id (the newest such entry) and
+      // attach one layer-6 addKeyword effect per granted keyword, endOfTurn duration (CR 611.2c).
+      if (pc.fetchedGrants?.length) {
+        const bf = next.players[pc.controller]?.battlefield || [];
+        const entered = [...bf].reverse().find((p) => p.card?.id === cardId);
+        if (entered) {
+          for (const kw of pc.fetchedGrants) {
+            next = addContinuousEffect(next, {
+              layer: 6,
+              op: { layerOp: "addKeyword", keyword: kw },
+              affects: { mode: "fixed", permanentIds: [entered.id] },
+              duration: pc.fetchedGrantsUntil === "untilOwnersNextTurn"
+                ? { kind: "untilOwnersNextTurn", owner: pc.controller, turn: next.turn }
+                : { kind: "endOfTurn", turn: next.turn },
+              source: { kind: "resolution", permanentId: null, cardName: pc.sourceName || null },
+            }).state;
+          }
+        }
+      }
     } else if (destination === "top") {
       // FETCH-TO-TOP (CR 701.19e — "shuffle and put that card on top"): SHUFFLE the library FIRST (the chosen
       // card is still in it), THEN reposition it to index 0 (the top) so it lands on top AFTER the shuffle

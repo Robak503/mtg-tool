@@ -221,8 +221,8 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Sorcery", "Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.", { name: "Explosive Vegetation" }))).toBe("native-spell");
     // RAMP-SPLIT: the Cultivate/Kodama split-destination fetch is now native (one -> battlefield tapped, other -> hand; found-one -> battlefield tapped per the rulings).
     expect(classifyCard(C("Sorcery", "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.", { name: "Cultivate" }))).toBe("native-spell");
-    // Still Arbiter: a non-land cheat-into-play (Natural Order).
-    expect(classifyCard(C("Sorcery", "Search your library for a green creature card, put it onto the battlefield, then shuffle.", { name: "Natural Order" }))).toBe("arbiter-spell");
+    // GRADUATED 2026-08-14 (Savage Order): the creature battlefield-fetch is faithful (Planar Bridge precedent); the REAL Natural Order still parks via its unmodeled color-sac COST — these fixtures had dropped the cost.
+    expect(classifyCard(C("Sorcery", "Search your library for a green creature card, put it onto the battlefield, then shuffle.", { name: "Natural Order" }))).toBe("native-spell");
   });
   it("a permanent with abilities is body-only (body works, ability doesn't yet)", () => {
     // P2.8 + the flush-time target chooser: a body whose ONLY ability is a now-firing

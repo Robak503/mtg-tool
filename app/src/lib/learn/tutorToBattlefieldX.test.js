@@ -60,10 +60,9 @@ describe("parser — bfx: creature/permanent search→battlefield capped by X", 
   });
 
   it("CREED landmines stay LOW → Arbiter (no cap / wrong comparator / riders / unmodeled cost)", () => {
-    // NON-X creature→battlefield: NO cap at all — would fetch any creature. Must NOT be native.
-    expect(programConfidence(parseEffectClause("Search your library for a creature card, put it onto the battlefield, then shuffle.", "Sorcery", { hasX: false }))).toBe("low");
-    // Even on an {X} spell, a NON-cap creature→bf fetch must stay low (no "mana value X or less").
-    expect(programConfidence(parseEffectClause("Search your library for a creature card, put it onto the battlefield, then shuffle.", "Sorcery", { hasX: true }))).toBe("low");
+    // GRADUATED 2026-08-14 (Savage Order): the bfm creature admission is faithful — the printed card really fetches any creature (the Planar Bridge precedent in bfm's own note); Natural Order still parks via its unmodeled color-sac COST (verified live).
+    expect(programConfidence(parseEffectClause("Search your library for a creature card, put it onto the battlefield, then shuffle.", "Sorcery", { hasX: false }))).toBe("high");
+    expect(programConfidence(parseEffectClause("Search your library for a creature card, put it onto the battlefield, then shuffle.", "Sorcery", { hasX: true }))).toBe("high");
     // "mana value X or GREATER" — an unmodeled comparator (would mis-cap). Stays low.
     expect(programConfidence(parseEffectClause("Search your library for a creature card with mana value X or greater, put it onto the battlefield, then shuffle.", "Sorcery", { hasX: true }))).toBe("low");
     // Finale of Devastation NOW FLIPS HIGH (bfxg — library-and/or-graveyard tutor + the condX team-pump-haste
@@ -187,7 +186,7 @@ describe("coverage — Wargate + Nature's Rhythm flip native-spell; landmines st
 
   it("landmines remain arbiter-spell (Natural Order color-sac / non-X no-cap)", () => {
     expect(classifyCard(C("Sorcery", "As an additional cost to cast this spell, sacrifice a green creature.\nSearch your library for a green creature card, put it onto the battlefield, then shuffle.", "{2}{G}{G}", "Natural Order"))).toBe("arbiter-spell");
-    // A creature→battlefield with NO mana-value cap (not even an {X} spell) must never be native (would fetch anything).
-    expect(classifyCard(C("Sorcery", "Search your library for a creature card, put it onto the battlefield, then shuffle.", "{3}{G}", "Fake Uncapped"))).toBe("arbiter-spell");
+    // GRADUATED 2026-08-14 (Savage Order): the bfm creature admission is faithful — the printed card really fetches any creature (the Planar Bridge precedent in bfm's own note); Natural Order still parks via its unmodeled color-sac COST (verified live).
+    expect(classifyCard(C("Sorcery", "Search your library for a creature card, put it onto the battlefield, then shuffle.", "{3}{G}", "Fake Uncapped"))).toBe("native-spell");
   });
 });

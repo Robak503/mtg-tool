@@ -35,6 +35,11 @@ const ADDITIONAL_COST_RE = /\bas an additional cost to cast this spell,\s*([^.]+
 // is consumed whole — the anchored `$` would reject a partial match here, but keeping the order explicit
 // costs nothing and survives a future de-anchoring.
 const SAC_COST_RE = /^sacrifice (?:a|an) (artifact or creature|creature or artifact|creature or enchantment|creature or planeswalker|creature or land|creature|permanent|artifact|enchantment|land)$/i;
+// SAVAGE ORDER (2026-08-14) — the POWER-QUALIFIED sac cost: "sacrifice a creature with power N or
+// greater". Emits { kind:"sacrifice", sacType:"creature", minPower:N }; the victim enumeration and the
+// dispatcher's payment validation both enforce minPower against LAYER-AWARE power (a pumped 3-drop can
+// pay; a debuffed 4-drop cannot — CR 601.2h reads the live board).
+const SAC_COST_POWER_RE = /^sacrifice (?:a|an) creature with power (\d+) or greater$/i;
 // One canonicalization for BOTH exec sites below (parseOneAdditionalCost and extractAdditionalCosts had
 // duplicate inline ternaries; two copies of a growing map is how they drift).
 const SAC_TYPE_CANON = {
@@ -112,6 +117,8 @@ function parseOneAdditionalCost(phrase) {
   if (sac) {
     return { cost: { kind: "sacrifice", sacType: canonSacType(sac[1].toLowerCase()) }, selfRef: /\bsacrificed\b/i };
   }
+  const sacP = SAC_COST_POWER_RE.exec(p);
+  if (sacP) return { cost: { kind: "sacrifice", sacType: "creature", minPower: parseInt(sacP[1], 10) }, selfRef: /\bsacrificed\b/i };
   const sacN = SAC_COUNT_COST_RE.exec(p);
   if (sacN) return { cost: { kind: "sacrifice", sacType: sacN[2].toLowerCase().replace(/s$/, ""), count: SMALL_NUM[sacN[1].toLowerCase()] }, selfRef: /\bsacrificed\b/i };
   const life = PAYLIFE_COST_RE.exec(p);
@@ -150,6 +157,7 @@ export function extractAdditionalCosts(oracle) {
   if (!m) return { costs: null, rest: oracle };
   const phrase = m[1].trim();
   const sac = SAC_COST_RE.exec(phrase);
+  const sacP = SAC_COST_POWER_RE.exec(phrase);   // SAVAGE ORDER — the power-qualified N=1 form
   const sacN = SAC_COUNT_COST_RE.exec(phrase);   // AC-1 count-of-N — tried only when the N=1 singular form misses
   const life = PAYLIFE_COST_RE.exec(phrase);
   const disc = DISCARD_COST_RE.exec(phrase);
@@ -159,6 +167,10 @@ export function extractAdditionalCosts(oracle) {
   if (sac) {
     // Canonicalize the union phrasings to one sacType key (SAC_TYPE_CANON — shared with parseOneAdditionalCost).
     cost = { kind: "sacrifice", sacType: canonSacType(sac[1].toLowerCase()) };        // N=1 — BYTE-IDENTICAL (no count field)
+    selfRef = /\bsacrificed\b/i;
+  }
+  else if (sacP) {
+    cost = { kind: "sacrifice", sacType: "creature", minPower: parseInt(sacP[1], 10) }; // SAVAGE ORDER
     selfRef = /\bsacrificed\b/i;
   }
   else if (sacN) {

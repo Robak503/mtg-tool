@@ -3,6 +3,32 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **SAVAGE ORDER (+3) — the six-site bar card** - 🏁 **JURASSIC RAMP HITS THE BAR: 90% — THE SECOND DECK**
+> Suite 1226 / 14,522 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** across two snapshots —
+> Savage Order (Jurassic — the REAL "until your next turn" text) + riders Shadow-Rite Priest
+> (native-mixed; its black-creature fetch enforces color via the filter's colors field) and Garruk,
+> Caller of Beasts (native-planeswalker). All audited whole-card. Post-release batch **+22**.
+> 🏁 **JURASSIC RAMP 90/100 — the SECOND deck across ≥90 under the order** (82 at the order's start;
+> the climb: Triceraton X-ETBs, Palani, Carnosaur, Marauding Raptor, Temple Altisaur, Bonehoard,
+> Savage Order). Eleven decks remain.
+> ⭐ SIX SITES: SAC_COST_POWER_RE (minPower, both exec sites) · the victim enumeration's LAYER-AWARE
+> power gate · the dispatcher's charge re-validation (THROW under the minimum) · the bfm
+> guaranteed-CREATURE admission · the fetched-grants fold (BOTH durations) · the untilOwnersNextTurn
+> duration kind (a documented one-step approximation, expires at the owner's next cleanup).
+> ⛔ TWO LESSONS RECORDED: the FIXTURE was anchored on a TRUNCATED oracle probe ("until end of turn" —
+> the real card says "until your next turn"; the fold's FN-safety refused until the duration was
+> modeled: PRINT THE FULL ORACLE before anchoring) · setPendingTutorChoice's parameter list was the
+> FIFTH unlisted-=-dropped whitelist (the fetched Dino entered WITHOUT indestructible until listed —
+> caught by the witness, not the classifier).
+> Mutations SO-M1 (admission → both carriers park) / SO-M2 (the power gate → the 3-power board casts)
+> / SO-M3 (the pc threading → the grant vanishes) all killed, printed back.
+> ⭐⭐ SEVEN PARK PINS GRADUATED across FIVE files (the widest catch of the batch): all guarded the
+> lands-only battlefield-fetch BELT with the reason "a creature cheat-into-play must never be native".
+> Investigated before graduating: the REAL Natural Order still parks via its unmodeled color-sac COST
+> (verified live — the suspenders hold without the belt), and bfm's own Planar Bridge note establishes
+> that a faithful uncapped fetch is honest modeling, not an over-delivery. The bare-creature-fetch
+> class flips WITH the graduation — counted in the post-suite snapshot.
+> Token diet: ~50k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **BONEHOARD DRACOSAUR (+1) — the exiled-type riders** - the shelf grind (Jurassic carrier — ONE from the bar)
 > Suite 1225 / 14,520 green (+1 skipped) + lint 0 BY EXIT CODE (impulseExile regression 16/16). Flip-diff **+1 / 0 / 0** — Bonehoard Dracosaur
 > body-only→native-trigger. Audited whole-card (Flying + first strike + the one trigger).

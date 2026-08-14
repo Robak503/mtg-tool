@@ -1188,8 +1188,11 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       } else if (addCost.kind === "sacrifice") {
         // γ1b: the player picks which permanent of <type> to sacrifice. A victim whose OWN leave-trigger
         // the dies path can't fire is excluded (sacrificeDropsTrigger) so we never partially apply.
+        // SAVAGE ORDER (2026-08-14) — minPower gates the victim pool by LAYER-AWARE power at cast time
+        // (creaturePower reads pumps/counters live): a 3-power board can't pay "power 4 or greater".
         const victims = player.battlefield.filter(v =>
           sacTypeMatches(v.card, addCost.sacType) &&
+          (addCost.minPower == null || creaturePower(v, state) >= addCost.minPower) &&
           !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""));
         if (victims.length === 0) continue;               // no legal victim → unpayable → uncastable
         for (const victim of victims) {

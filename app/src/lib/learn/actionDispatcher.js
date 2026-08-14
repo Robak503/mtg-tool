@@ -378,6 +378,12 @@ function applyCastSpell(state, action) {
       if (!action.sacCreatureId) throw new DispatcherError("Spell requires an additional sacrifice cost but no victim was chosen", "ADDCOST_UNPAID");
       const victim = working.players[action.playerId]?.battlefield.find(p => p.id === action.sacCreatureId);
       if (!victim) throw new DispatcherError(`Sacrifice victim ${action.sacCreatureId} not on battlefield`, "PERM_NOT_FOUND");
+      // SAVAGE ORDER (2026-08-14) — the power-qualified cost re-validates the victim's LAYER-AWARE power
+      // at charge time (the offer used the same read; a board change in between must not under-charge —
+      // THROW rather than accept a victim the printed cost refuses).
+      if (ac.minPower != null && creaturePower(victim, working) < ac.minPower) {
+        throw new DispatcherError(`Sacrifice victim ${action.sacCreatureId} has power below the printed minimum ${ac.minPower}`, "ADDCOST_UNPAID");
+      }
       // SACRIFICED REFERENT (CR 608.2h + 603.6e last-known-info) — a spell whose effect scales off "the
       // sacrificed creature's power / toughness / mana value" (Fling, Tormented Thoughts, Reckoner's Bargain,
       // Eldritch Evolution) reads the victim as it LAST EXISTED on the battlefield. Captured HERE, before the

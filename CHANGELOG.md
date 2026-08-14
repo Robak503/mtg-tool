@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Savage Order works — every clause.** The cost really demands a 4-power creature (a pumped 3-drop
+  counts, a shrunken 4-drop doesn't), the fetched Dinosaur arrives on the battlefield, and it keeps
+  its indestructible through your opponents' turns as printed. Shadow-Rite Priest's black-creature
+  fetch and Garruk, Caller of Beasts ride the same machinery.
 - **Bonehoard Dracosaur works.** Each upkeep it exiles two cards you can play that turn — and the
   bonuses read what was actually exiled: a land among them mints the 3/1 Dinosaur, a nonland pumps
   the Dracosaur, both when the two cards split.

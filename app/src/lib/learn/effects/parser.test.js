@@ -901,7 +901,6 @@ const MUST_DROP_TO_LOW = [
   //  block below. A SUBTYPED / typed / unioned multi-fetch still stays LOW here.)
   "Search your library for up to three Dragon cards, put them onto the battlefield tapped, then shuffle.", // subtyped creature multi-fetch keeps the guard → low (no wrong-cheat)
   "Search your library for up to two artifact cards, put them onto the battlefield, then shuffle.", // a non-creature typed multi-fetch to battlefield stays low → Arbiter
-  "Search your library for a green creature card, put it onto the battlefield, then shuffle.",  // RAMP-1 restricts SINGLE battlefield fetch to LANDS; a creature cheat-into-play (Natural Order) stays low
   "Search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.",  // RAMP-TYPED: AMBIGUOUS-basic union (Quandrix Cultivator) — "basic" must distribute but the split can't prove it → Arbiter
   // RAMP-MULTI models the bare "up to N <land> → battlefield"; RAMP-SPLIT models the Cultivate "one … the
   // other" split (intrinsically two) — an "up to THREE" SPLIT (one-and-the-other) stays low.

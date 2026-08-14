@@ -2317,6 +2317,19 @@ export function expireContinuousEffects(state, { atCleanupOfTurn = null, atStepB
     if (d.kind === "endOfStep") {
       return !(atStepBegin && d.phase === atStepBegin.phase && d.step === atStepBegin.step);
     }
+    // SAVAGE ORDER (2026-08-14) — "until your next turn" (CR 514.2's named-point sibling): the effect
+    // survives THROUGH other players' turns and expires at the CLEANUP of the first LATER turn — a
+    // deliberate one-step approximation of "as your next turn begins" (the gap: the effect also covers
+    // your own next turn's body; for indestructible-class grants that is strictly closer to printed
+    // than endOfTurn's early drop, and the owner-turn-begin hook doesn't exist yet to do it exactly).
+    // Expiry: any cleanup of a turn AFTER the stamp turn where the OWNER is the active player — the
+    // caller threads activePlayer; without it (a legacy call) the effect survives (fail-open toward the
+    // printed longer duration, never a premature strip of a protection the player paid for).
+    if (d.kind === "untilOwnersNextTurn") {
+      if (atCleanupOfTurn == null) return true;
+      if (d.turn == null || !Number.isFinite(d.turn)) return false; // malformed → expirable (the endOfTurn discipline)
+      return !(atCleanupOfTurn > d.turn && state.activePlayer === d.owner);
+    }
     return true; // permanent / unhandled durations survive
   });
   if (kept.length === list.length) return state;

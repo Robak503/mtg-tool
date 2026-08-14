@@ -36,7 +36,7 @@ describe("⭐ the probe can still SEE an asymmetry (a zero run would otherwise b
     // The live lead this probe surfaced: bfm's guaranteed-land guard. Recorded as a pin so that if the
     // guard is ever revisited, this test names what changed rather than the change passing silently.
     expect(parses("search your library for a creature card with mana value 3 or less, put it onto the battlefield, then shuffle")).toBe(true);
-    expect(parses("search your library for a creature card, put it onto the battlefield, then shuffle")).toBe(false);
+    expect(parses("search your library for a creature card, put it onto the battlefield, then shuffle")).toBe(true); // GRADUATED 2026-08-14 (Savage Order): the bfm creature admission is faithful — the printed card really fetches any creature (the Planar Bridge precedent in bfm's own note); Natural Order still parks via its unmodeled color-sac COST (verified live).
   });
 });
 

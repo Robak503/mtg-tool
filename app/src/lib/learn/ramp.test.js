@@ -54,7 +54,7 @@ describe("parser — battlefield-destination tutor (RAMP-1)", () => {
     // / Kodama's Reach) is MODELED by RAMP-SPLIT. The non-land cheat-into-play stays low:
     expect(isHigh("Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.")).toBe(true);  // Kodama's Reach (split) — RAMP-SPLIT
     expect(isHigh("Search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.")).toBe(true);                        // WAVE-2b UP-TO-N — "up to three" land fetch now native
-    expect(isHigh("Search your library for a green creature card, put it onto the battlefield, then shuffle.")).toBe(false);                                      // Natural Order (non-land cheat)
+    expect(isHigh("Search your library for a green creature card, put it onto the battlefield, then shuffle.")).toBe(true); // GRADUATED 2026-08-14 (Savage Order): the creature battlefield-fetch is faithful (Planar Bridge precedent); the REAL Natural Order still parks via its unmodeled color-sac COST — these fixtures had dropped the cost.
   });
 
   it("regression: the HAND tutor is unchanged (destination hand, no entersTapped)", () => {
@@ -117,7 +117,7 @@ describe("coverage — ramp flips native across every path; landmines bounce", (
 
   it("RAMP-SPLIT: the split-destination Cultivate fetch is now native; the non-land battlefield cheat stays Arbiter (multi-land 'up to two' is RAMP-MULTI)", () => {
     expect(classifyCard(C("Sorcery", "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.", "Cultivate"))).toBe("native-spell"); // RAMP-SPLIT — one -> battlefield tapped, other -> hand
-    expect(classifyCard(C("Instant", "Search your library for a green creature card, put it onto the battlefield, then shuffle.", "Natural Order"))).toBe("arbiter-spell"); // non-land cheat
+    expect(classifyCard(C("Instant", "Search your library for a green creature card, put it onto the battlefield, then shuffle.", "Natural Order"))).toBe("native-spell"); // GRADUATED 2026-08-14 (Savage Order): the creature battlefield-fetch is faithful (Planar Bridge precedent); the REAL Natural Order still parks via its unmodeled color-sac COST — these fixtures had dropped the cost.
   });
 });
 

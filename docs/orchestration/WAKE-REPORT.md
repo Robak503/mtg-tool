@@ -25,7 +25,12 @@
 > · Dragons 80: Terror of the Peaks parks ONLY on the target-tax static ("spells targeting this cost
 >   3 life more" — a new framework, banked). Then Believe it! 79, Hulk Smash 79, Wolverine 78,
 >   Kinnan 77, Teval 76, the rest.
-> · 🎯 **JURASSIC AT 89 — SAVAGE ORDER IS THE BAR CARD (Bonehoard SHIPPED cc09d6f9).** The precise
+> · 🏁 **JURASSIC RAMP AT THE BAR: 90/100 (Savage Order landed — the SECOND deck under the order).**
+>   Eleven remain: Dragons 80 · Hulk Smash 80 · Teval 79 · Believe it! 79 · Wolverine 78 · Kinnan 77 ·
+>   Kellan 74 · Otharri 74 · Cap America 73 · Halfshell 68 · Shalai 66. Next closest: Dragons/Hulk at
+>   80 (ten flips each) — probe their parked veins fresh; the cross-deck staples (Jeska's Will in
+>   BOTH Hulk+Cap, Teferi's Protection in THREE decks) are the multipliers.
+> · (superseded) 🎯 **JURASSIC AT 89 — SAVAGE ORDER IS THE BAR CARD (Bonehoard SHIPPED cc09d6f9).** The precise
 >   six-site design: ① SAC_COST_RE (effects/castModifiers.js ~152) doesn't admit "with power 4 or
 >   greater" — add the qualified branch → { kind:"sacrifice", sacType:"creature", minPower:4 };
 >   ② enforce minPower at the victim enumeration (legalChoices.sacTypeMatches call sites, e.g. ~845 —

@@ -57,7 +57,7 @@ import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP
 import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTROY-TOKEN-RIDER — Pongify / Rapid Hybridization (destroy creature + can't-regen + that controller makes a token)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
-import { parseTokenKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); parseGrantedKeywords (COUNTER-THEN-GRANT); SMALL_NUM for MULTI-COUNT damage count words; parseCountSource for FE-1 DRAIN-BY-COUNT fused matcher
+import { parseTokenKeywords, parseGrantedKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); parseGrantedKeywords (COUNTER-THEN-GRANT + the SAVAGE ORDER fetched-grants fold); SMALL_NUM for MULTI-COUNT damage count words; parseCountSource for FE-1 DRAIN-BY-COUNT fused matcher
 import { proliferateClauseParser, gainExperienceClauseParser, gainEnergyClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, removeNamedCounterSelfClauseParser, shieldCounterClauseParser, evolveCounterSelfClauseParser, renownClauseParser, endureClauseParser, transferCountersClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + ARIXMETHES (remove named counter from self) + SHIELD-COUNTER (CR 122.1c protective counter) + KW-EVOLVE sentinel (SHELF S7)
 import { earthbendClauseParser, combatKeywordClauseParser, massBlockLockClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, groupLoseKeywordsClauseParser, setBasePtTeamClauseParser, setBasePtTargetClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + FT-1 (mass-block-lock) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation) + SET-BASE-PT-TARGET (SU-1 — Diminish/Square Up)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
@@ -1761,6 +1761,30 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // conditional op is not in the PAUSING registry, so admitting a pauser would drop the pause contract),
   // and a leading "also " strips (pure connective — the rider's atoms are already additive by shape).
   // An unmodeled rider FALLS THROUGH — the card stays exactly as parked as before.
+  // SAVAGE ORDER (2026-08-14) — the FETCHED-PERMANENT rider: "<battlefield tutor>. It gains
+  // <keyword[ and keyword]> until end of turn." The rider binds to the CARD the tutor just put onto
+  // the battlefield — carried as fetchedGrants on the tutor atom, applied by resolveTutorChoice's
+  // battlefield entry as UEOT layer-6 addKeyword effects on the entered permanent. Gated: the base
+  // must be a single HIGH battlefield-destination tutor and every keyword must pass
+  // parseGrantedKeywords (all-or-nothing — an unmodeled keyword parks the whole card, FN-safe).
+  {
+    const so = oracle.match(/^(search your library for .+? onto the battlefield[^.]*?)\.\s+it gains ([a-z][a-z ]*(?: and [a-z][a-z ]*)*) until (end of turn|your next turn)\.?\s*$/is);
+    if (so) {
+      const base = parseEffectClauseImpl(so[1].trim(), cardType, { hasX });
+      const kws = parseGrantedKeywords(so[2].trim());
+      const ok = base && programConfidence(base) === "high" && base.structure !== "modal"
+        && base.atoms.length === 1 && base.atoms[0].op === "tutor" && base.atoms[0].destination === "battlefield"
+        && kws && kws.length > 0;
+      if (ok) {
+        return makeProgram({
+          confidence: "high",
+          atoms: [{ ...base.atoms[0], fetchedGrants: kws,
+            fetchedGrantsUntil: /your next turn/i.test(so[3]) ? "untilOwnersNextTurn" : "endOfTurn" }],
+          unparsedTail: null,
+        });
+      }
+    }
+  }
   // BONEHOARD DRACOSAUR (2026-08-14) — the impulse-2 with EXILED-TYPE riders: "exile the top two
   // cards of your library. You may play them this turn. If you exiled a land card this way, <rider A>.
   // If you exiled a nonland card this way, <rider B>." The impulse core parses HIGH alone; each rider
