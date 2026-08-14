@@ -99,6 +99,7 @@ import {
   resolveTaxedPaymentChoice,
   autoPickEdictMode,
   resolveEdictModeChoice,
+  optionalAutoTakeValue,
 } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
@@ -1712,7 +1713,10 @@ export function advanceUntilDecision(
           pilot,
           recordDecision,
           buildOffered: () => pendingYesNoActions(pc),
-          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: true },
+          // QUARTET PHASE 1 slice 4: the autopilot fallback is board-aware behind the flag
+          // (optionalAutoTakeValue — take iff taking scores ≥ declining); flag absent ⇒ true, the
+          // legacy always-take, byte-identical. A real pilot/human decision is upstream and unaffected.
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: optionalAutoTakeValue(current.state, pc) },
         });
         current = { ...current, state: settleOptionalChoice(current.state, picked.value) };
         continue;

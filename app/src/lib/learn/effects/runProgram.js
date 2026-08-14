@@ -28,7 +28,7 @@ import { clearPendingChoice, setPendingTutorChoice, setPendingImpulseDigChoice }
 import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents } from "../gameState.js";
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
-import { evalLeastValuableCmp, evalLeastValuableCardCmp } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
+import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
 import { programConfidence } from "./parser.js";
 import { checkDiscardTriggers } from "../triggers.js"; // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event
 import { isLandCard } from "./atoms/shared.js"; // SAC-UNLESS-RETURN-LAND — shared.js is a strict leaf, so this edge is DAG-safe
@@ -1090,6 +1090,25 @@ export function resolveScryChoice(state, keepIdsOrdered, opts = {}) {
  * and resume. Mirrors the tutor/scry settle. Eliminated-controller guard (the pause can outlive the
  * SBA that removes the controller). The taken/declined outcome is logged either way.
  */
+/**
+ * QUARTET PHASE 1 slice 4 (2026-08-14) — the board-aware MAY decision. The legacy autopilot ALWAYS
+ * takes an optional effect ("the modeled optionals are all beneficial" — true when written, no longer
+ * guaranteed as the corpus grows: an optional self-sacrifice or symmetric effect can hurt). Behind
+ * `state.usePolicyEval`, decide by the SCORE-CHOICE pattern the plan names: resolve BOTH worlds
+ * through the real settle (resolveOptionalChoice is a pure state transform), diff evaluateBoard for
+ * the DECIDER, take iff taking is at least as good. Deterministic (the resolvers are), and the same
+ * comparison the decision log (phase 2) will record. Flag absent ⇒ true (legacy always-take,
+ * byte-identical). Never consulted for a HUMAN's choice — only the autopilot fallback reads it.
+ */
+export function optionalAutoTakeValue(state, pc) {
+  if (!state?.usePolicyEval) return true;
+  const who = pc?.controller;
+  if (!who) return true;
+  const taken = resolveOptionalChoice(state, true);
+  const declined = resolveOptionalChoice(state, false);
+  return evaluateBoard(taken, who) >= evaluateBoard(declined, who);
+}
+
 export function resolveOptionalChoice(state, doIt) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "optional-effect") return state;

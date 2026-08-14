@@ -29,7 +29,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { evaluateBoard, permanentValue } from "./boardEval.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
-import { autoPickSacrificeCandidate, autoPickDiscardCandidate } from "./effects/runProgram.js";
+import { autoPickSacrificeCandidate, autoPickDiscardCandidate, optionalAutoTakeValue, runEffectProgram } from "./effects/runProgram.js";
 import { chooseTriggerTargets } from "./gameEngine.js";
 import { parseEffectClause } from "./effects/parser.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
@@ -155,5 +155,37 @@ describe("⭐⭐ LAW 6 — the trigger-target chooser converts (slice 3)", () =>
     const onPick = chooseTriggerTargets(onlyOwn, { state: { ...s2, usePolicyEval: true }, trigger: { controller: "user" }, program });
     expect(String(offPick)).toBe(String(onPick)); // both NO_SAFE_TARGET — never friendly fire, flag or no flag
     expect(offPick?.targets).toBeUndefined();
+  });
+});
+
+describe("⭐⭐ LAW 6 — the MAY decision converts (slice 4): take iff taking scores ≥ declining", () => {
+  // Two real optional programs paused at their α2 pendingChoice: a HARMFUL may ("you may sacrifice a
+  // permanent" — taking gives up your own board) and a BENEFICIAL one ("you may draw a card").
+  // The legacy autopilot ALWAYS takes; the evaluator declines the harmful one and takes the good one.
+  const pausedOn = (clause, extra = {}) => {
+    const g = createGameState({ userDeck: [], aiDeck: [] });
+    const s0 = { ...g, players: { ...g.players, user: { ...g.players.user,
+      battlefield: [perm("ELF", ELVES)],
+      library: [{ id: "lib1", name: "Top", type: "Instant", oracle: "" }], ...extra } } };
+    const prog = parseEffectClause(clause, "Instant", { hasX: false });
+    const s = runEffectProgram(s0, { source: { name: "Probe" }, payload: { params: { program: prog, controller: "user", targets: [] } } });
+    expect(s.pendingChoice?.kind).toBe("optional-effect"); // the α2 pause is real, not assumed
+    return s;
+  };
+
+  it("⛔ SEEN-TO-FAIL control: flag OFF always takes — even the self-sacrifice may", () => {
+    const s = pausedOn("you may sacrifice a permanent");
+    expect(optionalAutoTakeValue(s, s.pendingChoice)).toBe(true); // the legacy wrong pick, proven
+  });
+
+  it("⭐⭐ flag ON: declines the self-sacrifice, still takes the draw", () => {
+    const sac = pausedOn("you may sacrifice a permanent");
+    const draw = pausedOn("you may draw a card");
+    const row = {
+      sac: optionalAutoTakeValue({ ...sac, usePolicyEval: true }, sac.pendingChoice),
+      draw: optionalAutoTakeValue({ ...draw, usePolicyEval: true }, draw.pendingChoice),
+    };
+    console.log("  WITNESS mayDecision", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({ sac: false, draw: true });
   });
 });

@@ -106,6 +106,15 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
+- 2026-08-14 — **PHASE 1 SLICE 4 SHIPPED**: the MAY decision converts — optionalAutoTakeValue is the
+  SCORE-CHOICE pattern realized (resolve BOTH worlds through the real settle, diff evaluateBoard for
+  the decider, take iff ≥). The autopilot fallback in learnSession is board-aware behind the flag; a
+  human/pilot decision is upstream and untouched. Witnessed: flag-off always-takes even a self-
+  sacrifice may (the proven wrong pick); flag-on declines it and still takes the draw. The
+  comparison-direction mutant killed by the witness. Phase 1 steps 1-3 of the build list are DONE and
+  scoreChoice arrived early (step ⑤ folded into this slice's helper). NEXT: the goldfish gate (≥100
+  seeded flag-on vs flag-off games) — the LAST item before the flag can flip.
+
 - 2026-08-14 — **PHASE 1 SLICE 3 SHIPPED**: the trigger-target chooser (gameEngine.chooseTriggerTargets)
   converts — among the CORRECT-SIDE candidates, flag-on picks by summed permanentValue (removal aims at
   the biggest threat; buffs land on the best own permanent; player/spell targets neutral). The side

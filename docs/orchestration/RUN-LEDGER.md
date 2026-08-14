@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **QUARTET PHASE 1, SLICE 4 — the MAY decision converts (scoreChoice arrives)** - the SUBSYSTEM QUARTET
+> Suite 1240 / 14,597 green (+1 skipped) + lint 0 BY EXIT CODE. No flip-diff (ranking-only). Card
+> batch unchanged at **+74**.
+> ⭐ optionalAutoTakeValue IS the plan's scoreChoice pattern realized: resolve BOTH worlds through the
+> real settle (resolveOptionalChoice is pure), diff evaluateBoard for the DECIDER, take iff ≥. The
+> learnSession autopilot fallback consults it behind the flag; a human/pilot decision is upstream and
+> untouched. The legacy always-take comment ("all modeled optionals are beneficial") was true when
+> written and no longer guaranteed — exactly the drift this converts away from.
+> ⭐⭐ Witnessed: flag-off ALWAYS takes even "you may sacrifice a permanent" (the proven wrong pick);
+> flag-on declines it and still takes "you may draw a card". The comparison-direction mutant (≥ → <)
+> killed by the witness, restored, re-verified.
+> Phase-1 build list: steps 1-3 done, step ⑤ (scoreChoice) folded in early. NEXT: the goldfish gate.
+> Token diet: ~10k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **QUARTET PHASE 1, SLICE 3 — the trigger-target chooser converts** - the SUBSYSTEM QUARTET
 > Suite 1240 / 14,595 green (+1 skipped) + lint 0 BY EXIT CODE. No flip-diff (ranking-only). Card
 > batch unchanged at **+74**.
