@@ -583,7 +583,10 @@ export function splitClauses(oracle) {
     // effect boundaries — the split below would shatter the quote. Keep the whole sentence so
     // grantUntilEotClauseParser sees it intact; its body validator + whole-clause anchor keep the CREED gate
     // downstream (an unmodeled body / a rider → null → LOW → Arbiter, never a confident wrong partial).
-    if (/^until end of turn, (?:target creature (?:gets [+-]\d+\/[+-]\d+ and )?gains|creatures you control gain) ["“].+["”]\.?$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // (Shape-D widening 2026-08-14, Strength of Will: an optional " you control" scope and an optional
+    // KEYWORD phrase between "gains" and the quote — "…gains indestructible and \"Whenever…\"". The
+    // keyword group is bounded by the required ` and "` ahead of the quote, mirroring the arm's regex.)
+    if (/^until end of turn, (?:target creature(?: you control)? (?:gets [+-]\d+\/[+-]\d+ and )?gains(?: [a-z][a-z' ]+ and)?|creatures you control gain) ["“].+["”]\.?$/i.test(sentence)) { clauses.push(sentence); continue; }
     // TAP-PERMANENT-LOCK (Koma) — the normalize fold above joined "Tap target permanent. Its activated
     // abilities can't be activated this turn." into one sentence with an internal " and "; that " and " is
     // INTERNAL to the one tap+lock instruction ("Its" = the tapped permanent), NOT a top-level effect

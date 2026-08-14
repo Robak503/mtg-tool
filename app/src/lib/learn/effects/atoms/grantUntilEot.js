@@ -40,6 +40,7 @@ import { findPermanent, logEvent } from "../../gameState.js";
 import { addContinuousEffect } from "../../layers.js";
 import { atomTargets } from "./shared.js";
 import { applyPumpEffect } from "./combat.js";
+import { parseGrantedKeywords } from "../parseHelpers.js"; // a leaf (proven cycle-free — combat.js imports it)
 
 // ── Injected body validators (the registerGroupTriggeredBodyValidator pattern — no load cycle) ──────────
 let grantTriggeredBodyValidator = null;
@@ -87,6 +88,22 @@ export function grantUntilEotClauseParser(clause) {
     const kind = validatedGrantKind(m[1]);
     return kind ? { op: "grant-until-eot", scope: "youControl", grantKind: kind, quoted: m[1] } : null;
   }
+  // (D) keyword(s) + quoted grant, optional you-control scope — Strength of Will ("… target creature
+  // you control gains indestructible and 'Whenever this creature is dealt damage, put that many +1/+1
+  // counters on it.'"). The lazy keyword group is bounded by the REQUIRED ` and "` before the quote, so
+  // a multi-keyword list ("flying and first strike and '…'") lands whole in group 3; parseGrantedKeywords
+  // is the all-or-nothing validator (an unmodeled keyword parks the card, FN-safe) exactly as the
+  // counter-then-grant fold uses it. The scope group becomes a controller restriction the shared target
+  // enumeration already honors — never a second predicate implementation.
+  m = t.match(/^until end of turn, target creature( you control)? gains ([a-z][a-z' ]*?) and ["“](.+)["”]\.?$/i);
+  if (m) {
+    const kws = parseGrantedKeywords(m[2].trim());
+    const kind = kws ? validatedGrantKind(m[3]) : null;
+    if (!kws || !kind) return null;
+    return { op: "grant-until-eot", targetType: "creature",
+      ...(m[1] ? { restrictions: [{ kind: "controller", who: "you" }] } : {}),
+      grantKeywords: kws, grantKind: kind, quoted: m[3] };
+  }
   return null;
 }
 
@@ -112,13 +129,25 @@ export function applyGrantUntilEot(state, atom, ctx) {
   if (!ids.length) {
     return logEvent(next, { kind: "spell-effect", effect: "grant-until-eot", granted: 0, controller: ctx.controller });
   }
-  const { state: s2 } = addContinuousEffect(next, {
+  let s2 = addContinuousEffect(next, {
     layer: 6,
     op: { layerOp: "addAbility", grant: { kind: atom.grantKind, quoted: atom.quoted } },
     affects: { mode: "fixed", permanentIds: ids },
     duration: { kind: "endOfTurn", turn: next.turn },
     source: { kind: "resolution", permanentId: null, cardName: ctx.cardName || null },
-  });
+  }).state;
+  // Shape D's keyword half — one addKeyword effect per granted keyword over the SAME fixed set and the
+  // SAME duration (the counter-then-grant storage shape), so the keyword and the quoted ability expire
+  // together at the same cleanup.
+  for (const kw of atom.grantKeywords || []) {
+    s2 = addContinuousEffect(s2, {
+      layer: 6,
+      op: { layerOp: "addKeyword", keyword: kw },
+      affects: { mode: "fixed", permanentIds: ids },
+      duration: { kind: "endOfTurn", turn: next.turn },
+      source: { kind: "resolution", permanentId: null, cardName: ctx.cardName || null },
+    }).state;
+  }
   return logEvent(s2, { kind: "spell-effect", effect: "grant-until-eot", granted: ids.length, grantKind: atom.grantKind, controller: ctx.controller });
 }
 

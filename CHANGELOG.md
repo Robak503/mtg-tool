@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Strength of Will grants the full package.** Your creature really gains indestructible plus the
+  damage-to-counters ability until end of turn — it shrugs off lethal damage, grows by exactly the
+  damage taken, and both gifts wear off together at cleanup. Infuse with Vitality, Pain 101, and Run
+  Wild ride the same new wording.
 - **Force of Vigor pitches and sweeps.** On an opponent's turn you can exile a green card instead of
   paying mana, and the spell destroys up to two artifacts or enchantments in any mix — including
   choosing just one, or none.

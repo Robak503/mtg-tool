@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **STRENGTH OF WILL (+4) — shape D of the until-EOT quoted grant** - the shelf grind (Hulk Smash 83→84)
+> Suite 1231 / 14,544 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Strength of
+> Will + THREE audited siblings: Infuse with Vitality & Pain 101 (deathtouch + the exact Feign Death
+> dies-return body) and Run Wild (trample + a validated activated regenerate body). Post-release batch **+31**.
+> ⭐ ONE NEW ARM (grantUntilEot shape D: keyword(s) + quoted body, optional you-control scope) on three
+> existing machines: parseGrantedKeywords all-or-nothing, the Feign Death fixed-ids addAbility vehicle,
+> the Enrage dealtDamage amount threading. The apply stores the keyword half as addKeyword effects over
+> the SAME fixed ids + duration (keyword and quoted ability expire at the same cleanup). The splitter's
+> until-EOT quoted-grant guard widened in lockstep — the two-site law again, by rote this time.
+> ⭐⭐ Witnessed with a SEEN-TO-FAIL control: the ungranted 2/2 twin DIES to 3 damage; the granted one
+> survives (indestructible) AND takes exactly 3 counters (amount-scaled); both halves expire together at
+> cleanup (the same damage then kills it). You-control scope: an enemy creature never offered.
+> Mutations SW-M1 (arm off → parks) / SW-M2 (guard widening reverted → severs → parks) / SW-M3 (the
+> addKeyword loop dropped → classify stays native but the survival witness DIES — the exact FP shape the
+> witness exists to pin) all killed, printed back, per-process.
+> Token diet: ~18k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **FORCE OF VIGOR (+1) — the fixed-count up-to-two destroy** - the shelf grind (Hulk Smash 82→83)
 > Suite 1230 / 14,538 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Force of Vigor
 > arbiter-spell→native-spell. Audited whole-card (the alt-cost line was ALREADY modeled — castModifiers'
