@@ -25,6 +25,19 @@
 > · Dragons 80: Terror of the Peaks parks ONLY on the target-tax static ("spells targeting this cost
 >   3 life more" — a new framework, banked). Then Believe it! 79, Hulk Smash 79, Wolverine 78,
 >   Kinnan 77, Teval 76, the rest.
+> · 🎯 **JURASSIC AT 89 — SAVAGE ORDER IS THE BAR CARD (Bonehoard SHIPPED cc09d6f9).** The precise
+>   six-site design: ① SAC_COST_RE (effects/castModifiers.js ~152) doesn't admit "with power 4 or
+>   greater" — add the qualified branch → { kind:"sacrifice", sacType:"creature", minPower:4 };
+>   ② enforce minPower at the victim enumeration (legalChoices.sacTypeMatches call sites, e.g. ~845 —
+>   layer-aware creaturePower ≥ N) AND wherever the dispatcher validates the paid victim; ③ widen the
+>   bfm battlefield-tutor admission (atoms/library.js ~1963) with a guaranteed-CREATURE arm
+>   (filter.groups.every(g => g.includes("creature")) — ["dinosaur","creature"] qualifies; the
+>   destination:"battlefield" resolver already enters via enterCardFromZone with ETBs); ④ the "It
+>   gains indestructible until end of turn" rider → a fetchedGrants field on the tutor atom, applied
+>   at resolveTutorChoice's battlefield entry as a UEOT addKeyword continuous effect; ⑤ the fold
+>   binding the rider sentence to the tutor; ⑥ witnesses: the cost refuses a 3-power victim, the
+>   fetched Dino enters WITH indestructible UEOT, the tutor pauses for the pick. Landing it = JURASSIC
+>   AT THE BAR (the second deck) — record the milestone.
 > · **JURASSIC'S LAST TWO — designs banked (2026-08-14 late; ALTISAUR SHIPPED 8ccc0db6, Jurassic 88)**:
 >   ① **Bonehoard Dracosaur** — the upkeep impulse-2 parses HIGH ALONE; the parkers are the two "If
 >   you exiled a <land/nonland> card this way" riders. Build: the impulse-exile resolver stamps
