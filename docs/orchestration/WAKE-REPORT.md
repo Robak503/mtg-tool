@@ -25,6 +25,13 @@
 > · Dragons 80: Terror of the Peaks parks ONLY on the target-tax static ("spells targeting this cost
 >   3 life more" — a new framework, banked). Then Believe it! 79, Hulk Smash 79, Wolverine 78,
 >   Kinnan 77, Teval 76, the rest.
+> · **TEMPLE ALTISAUR DESIGN (banked 2026-08-14)**: "If a source would deal damage to another Dinosaur
+>   you control, prevent all but 1 of that damage." A BOARD static (not attached — the Gaseous Form
+>   class in combatEvasion.js is per-attachment), subtype-scoped with a FLOOR: needs ① a static reader
+>   ("prevent all but N of that damage to <subtype> you control", source-excluding "another") ② consult
+>   in BOTH damage funnels (applyDamageEffect's creature hit ~spellEffects:1320 AND combatResolution),
+>   capping dealt to N ③ the classify registry entry. Note: the cap must NOT stamp damagedBy beyond
+>   what actually lands (the Raptor rider reads it). Batch progress since v0.158.0: **+17**.
 > · **KINNAN DRILL SCOUTED (2026-08-14 late)**: Wolverine's five remaining are ALL machines (kicked
 >   modal, fight+delirium, fight+excess-to-mana, the modified predicate, the Ozolith transfer) — parked
 >   with reasons. Kinnan's best two: **Elvish Spirit Guide** ("Exile this creature from your hand: Add
