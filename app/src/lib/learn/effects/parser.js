@@ -1761,6 +1761,23 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // conditional op is not in the PAUSING registry, so admitting a pauser would drop the pause contract),
   // and a leading "also " strips (pure connective — the rider's atoms are already additive by shape).
   // An unmodeled rider FALLS THROUGH — the card stays exactly as parked as before.
+  // FEROCIOUS HARD-COUNTER UPGRADE (2026-08-14 — Stubborn Denial "Counter target noncreature spell
+  // unless its controller pays {1}. Ferocious — If you control a creature with power 4 or greater,
+  // counter that spell instead."): the second sentence REPLACES the soft counter with a hard one when
+  // the condition holds at resolution (CR 608.2 — "instead" on the same resolving object). One atom:
+  // the ordinary soft counter + hardIfCondition, which applyCounter evaluates through the SAME
+  // spell-readable vocabulary the gate here vouches (spellConditionParseable — a condition a resolving
+  // spell can read from the board alone). An unreadable condition falls through → low → Arbiter.
+  {
+    const fh = oracle.match(/^counter target (noncreature )?spell unless its controller pays \{(\d+)\}\.\s*(?:[a-z' ]+ — )?if ([^,]+), counter that spell instead\.?\s*$/i);
+    if (fh && spellConditionParseable(fh[3].trim().toLowerCase())) {
+      return makeProgram({
+        confidence: "high",
+        atoms: [{ op: "counter", spellFilter: fh[1] ? "noncreature" : "any", targetType: "spell", unlessPay: parseInt(fh[2], 10), hardIfCondition: fh[3].trim().toLowerCase() }],
+        unparsedTail: null,
+      });
+    }
+  }
   // DAMAGE-RIDER CONDITIONAL (2026-08-14 — Marauding Raptor "…deals 2 damage to it. If a Dinosaur is
   // dealt damage this way, this creature gets +2/+0…"): the condition phrase is a SENTINEL only the
   // trigger-side ETB rewrite produces ("the triggering creature is a <subtype> dealt damage by this

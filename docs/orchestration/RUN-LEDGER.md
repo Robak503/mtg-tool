@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **STUBBORN DENIAL (+1) — the ferocious hard-counter upgrade** - the shelf grind (Teval carrier)
+> Suite 1219 / 14,498 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Stubborn Denial
+> arbiter-spell→native-spell. Audited whole-card (the card IS its two sentences). Post-release batch **+7**.
+> ⭐ ONE ATOM, ONE GATE: the ordinary soft counter + hardIfCondition — applyCounter evaluates it at
+> resolution through the SAME spell-readable vocabulary the parser's spellConditionParseable gate
+> vouched (CR 608.2 "instead": TRUE replaces the pay-choice with an outright counter; anything else
+> keeps the printed SOFT base — never a fabricated upgrade). The condition ("you control a creature
+> with power 4 or greater") was already in the vocabulary — the attacks-while slice proved it.
+> ⭐⭐ Witnessed: 4-power board → countered OUTRIGHT, no pay-choice · empty board → the pay-choice
+> pends · 3-power → NO upgrade (the threshold exact).
+> Mutations SD-M1 (fold arm → parks) / SD-M2 (the gate → the ferocious board still gets the choice)
+> both killed, printed back — under the NEW no-op-throw rule.
+> Token diet: ~20k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **X-PUMP + KEYWORD GRANT (+4) — Tyvar's Stand and the severed compound** - the shelf grind (Hulk Smash 79→80; the pushed entry said "Wolverine carrier" — measured wrong, corrected here)
 > Suite 1218 / 14,494 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Tyvar's Stand
 > (Wolverine) + Pedal to the Metal, Frantic Confrontation, Lunar Frenzy (the asymmetric +X/+0 trio).

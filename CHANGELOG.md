@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Stubborn Denial works — both halves.** With a 4-power creature on your board it counters outright;
+  without one, the opponent gets the printed chance to pay {1}. Exactly four is the line.
 - **X-cost pump tricks with keyword grants work.** Tyvar's Stand delivers its +X/+X AND the hexproof
   and indestructible; Pedal to the Metal, Frantic Confrontation and Lunar Frenzy deliver +X/+0 with
   first strike (and trample). The X landed before this fix, but the keywords were silently lost.

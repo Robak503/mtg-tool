@@ -15,6 +15,7 @@ import { snapshotCopiedCard } from "../../cloneCopy.js"; // COPY-A-CREATURE-SPEL
 import { checkCopyTriggers } from "../../triggers.js"; // MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10): fire "cast or copy" watchers at the copy-creation site. Cycle-safe — triggers.js's import closure (targeting→spellEffects→triggers, layers, keywords, saga, triggerScheduler) never reaches atoms/stack.js, so this edge adds no cycle; checkCopyTriggers is called only at runtime.
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // MANA DRAIN: schedule the delayed {C} payout on the CR 603.7 queue (leaf module — imports only gameState, cycle-free)
 import { applyZoneMove } from "./zones.js"; // VENSER: the permanent half of the spell-or-permanent bounce. Layering {tokens,library,zones} <- removal <- stack sanctions this edge (zones' closure never reaches stack)
+import { evaluateInterveningIf } from "../../interveningIf.js"; // FEROCIOUS HARD-COUNTER (Stubborn Denial): the resolution-time condition read. interveningIf imports only gameState — leaf edge, cycle-free.
 
 /**
  * P3.1 counter (CR 701.6a) — counter the target spell(s) on the stack. The targeted
@@ -173,7 +174,14 @@ function applyCounter(state, atom, ctx) {
     // controller's pay-or-be-countered choice (runProgram attaches the resume + suspends; the driver settles
     // it via resolveSoftCounterChoice — pay → spell survives, else countered). The parser produces exactly
     // ONE spell target per counter atom, so set the choice and stop the loop.
-    if ((atom.unlessPay != null || atom.unlessPayX || atom.unlessPayCount) && !next.pendingChoice) {
+    // FEROCIOUS HARD-COUNTER (2026-08-14 — Stubborn Denial): with the printed condition TRUE at
+    // resolution (CR 608.2's "instead"), the soft counter is replaced by a HARD one — skip the
+    // pay-choice entirely and fall through to counterSpellById. Anything but an affirmative true
+    // (false, or a null the parser's spellConditionParseable gate should make impossible) keeps the
+    // printed BASE behavior — the soft counter — never a fabricated upgrade.
+    const hardUpgrade = atom.hardIfCondition
+      && evaluateInterveningIf(next, atom.hardIfCondition, ctx.controller, { sourcePermanentId: ctx.sourceId }) === true;
+    if ((atom.unlessPay != null || atom.unlessPayX || atom.unlessPayCount) && !hardUpgrade && !next.pendingChoice) {
       // SOFT-CNT-COUNT — "pays {N} for each <count source>" (Rakshasa's Disdain {1}/GY card, Override
       // {1}/artifact, Oppressive Will {1}/hand card): the tax is per × a board/zone count resolved HERE via
       // the shared countForSpec (the same primitive the deal-damage-by-count path uses). An unmodeled count
