@@ -406,6 +406,22 @@ export function matchImpulseDig(oracle) {
     const label = chosen ? `${rd[2].trim()} card of the chosen type` : `${rd[2].trim()} card`;
     return { atom: { op: "impulse-dig", amount, restTo: "bottom", filter, filterLabel: label }, rest: oracle.slice(rd[0].length).trim() };
   }
+  // (3) MALEVOLENT RUMBLE (2026-08-14) — the REVEALED filtered keep with a GRAVEYARD rest: "Reveal the
+  // top N cards of your library. You may put a <type> card from among them into your hand. Put the rest
+  // into your graveyard." The whole set is revealed up front (public — cosmetically different from the
+  // look-then-reveal-one form above; every zone outcome is identical), the keep is optional + filtered
+  // through the SAME parseTutorFilter gate (an unlisted type → null → Arbiter), and the rest goes to the
+  // GRAVEYARD — the restTo the resolver already implements. Any trailing sentence (Rumble's Eldrazi
+  // Spawn token) rides `rest` through the normal pipeline.
+  const rg = String(oracle).match(
+    /^reveal the top (\w+) cards? of your library\. you may put an? ([a-z][a-z ]*?) card from among them into your hand\. put the rest into your graveyard\.?/i,
+  );
+  if (rg) {
+    const amount = DIG_NUM[rg[1].toLowerCase()];
+    const filter = parseTutorFilter(rg[2].trim());
+    if (!amount || !filter) return null;                        // unspelled N / unlisted type → Arbiter
+    return { atom: { op: "impulse-dig", amount, restTo: "graveyard", filter, filterLabel: `${rg[2].trim()} card` }, rest: oracle.slice(rg[0].length).trim() };
+  }
   return null;
 }
 

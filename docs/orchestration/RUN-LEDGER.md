@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **REVEALED DIG → GRAVEYARD (+5) — Malevolent Rumble and the self-mill staples** - the shelf grind (Teval carrier)
+> Suite 1222 / 14,507 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Malevolent Rumble
+> (Teval) + Scout the Borders, Grisly Salvage, Commune with the Gods, Satyr Wayfinder (the ETB-trigger
+> carrier). All audited whole-card — exact template matches, union filters ("creature or land") already
+> in the vocabulary. Post-release batch **+14**.
+> ⭐ ONE MATCHER FORM (matchImpulseDig form 3): the REVEALED filtered keep with a GRAVEYARD rest — the
+> SAME impulse-dig atom + parseTutorFilter gate as the look-reveal form, restTo:"graveyard" already in
+> the resolver. Rumble's Eldrazi Spawn token rides `rest` through the normal pipeline.
+> ⭐⭐ Witnessed end-to-end: keep the Bear → hand [Bear] · graveyard [the other three] · the FIFTH card
+> untouched in the library · no-match → all four to the graveyard with no pause.
+> Mutations MR-M1 (form → all five park) / MR-M2 (restTo → bottom → the graveyard witness dies) both
+> killed, printed back under the no-op-throw rule.
+> Token diet: ~20k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **OUROBOROID (+1) — the mass sourcePower counters** - the shelf grind (Shalai carrier)
 > Suite 1221 / 14,504 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Ouroboroid
 > body-only→native-trigger. Audited whole-card (the card IS its one trigger). Post-release batch **+9**.

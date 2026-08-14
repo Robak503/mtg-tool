@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **The self-mill diggers work.** Malevolent Rumble, Grisly Salvage, Scout the Borders, Commune with
+  the Gods and Satyr Wayfinder reveal their cards, offer the printed keep, and put the rest into your
+  graveyard — not the bottom of your library — feeding every graveyard payoff as intended.
 - **Ouroboroid works.** Each combat on your turn it reads its own current power — pumps and counters
   included — and puts that many +1/+1 counters on every creature you control, itself included, so it
   snowballs exactly as printed.
