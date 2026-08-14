@@ -25,6 +25,15 @@
 > · Dragons 80: Terror of the Peaks parks ONLY on the target-tax static ("spells targeting this cost
 >   3 life more" — a new framework, banked). Then Believe it! 79, Hulk Smash 79, Wolverine 78,
 >   Kinnan 77, Teval 76, the rest.
+> · **KINNAN DRILL SCOUTED (2026-08-14 late)**: Wolverine's five remaining are ALL machines (kicked
+>   modal, fight+delirium, fight+excess-to-mana, the modified predicate, the Ozolith transfer) — parked
+>   with reasons. Kinnan's best two: **Elvish Spirit Guide** ("Exile this creature from your hand: Add
+>   {G}") — needs a HAND-EXILE mana-source lane: manaSources reads battlefield only (manaModel.js
+>   ~1300; its own line-495 comment names the class as deliberately unspent); the build = a
+>   handCardId source entry + planPayment pays it + commitPaymentPlan exiles it. Determinism-critical
+>   planner — build fresh, witness that an unspent guide STAYS in hand. **Moonsilver Key** — the tutor
+>   filter "artifact card with a mana ability or a basic land card": compose the filter from the
+>   manaModel's own recognizer (isArtifact && parseable-mana-ability) || basic land. Both moderate.
 > · **RAPTOR SHIPPED (a5894539, +2 with Aether Flash — Jurassic 87).** Descendants' Path probed: the
 >   trigger detects with the full three-sentence effectClause; the parker is the REVEAL-CONDITIONAL
 >   FREE CAST ("you may cast it without paying its mana cost" — matchRevealTopConditional handles
