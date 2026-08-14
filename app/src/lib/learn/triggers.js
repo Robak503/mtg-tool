@@ -1125,6 +1125,16 @@ function classifyCondition(condRaw, cardName, cardType) {
   // refusal below ate this rider before the castNth arm could see it. Exempted by the EXACT phrase only —
   // every other "during" qualifier stays refused wholesale (safe FN, as before).
   const castDuringExempt = /spell during each opponent's turn$/.test(c);
+  // KISHLA SKIMMER (2026-08-14) — the UNFILTERED leave with the turn rider: "Whenever a card leaves
+  // your graveyard DURING YOUR TURN, draw a card. This ability triggers only once each turn." The
+  // duringYourTurn flag is the Wavebreak duringOpponentsTurn's mirror — gated at the fire loop
+  // (checkGraveyardEventTriggers) against the ACTIVE player; the once-per-turn latch rides the
+  // standard trailing-sentence stamp. TF-1: only the during-form is emitted (Kishla is the carrier);
+  // the bare unfiltered "a card leaves your graveyard" stays unmatched → Arbiter.
+  if (/^a card leaves your graveyard during your turn$/.test(c)) {
+    return { event: "gyLeave", scope: "gyWatcher", whose: "any", gyCardType: null, gyOwnerScope: "you", duringYourTurn: true };
+  }
+
   // ATTACKS-WHILE (2026-08-14 — Pugnacious Hammerskull "Whenever this creature attacks while you don't
   // control another Dinosaur, …"): the while-part is a FIRE-TIME-ONLY event condition — part of the
   // trigger EVENT per the printed wording, checked at declaration and NOT re-checked at resolution,
@@ -4544,6 +4554,7 @@ export function detectTriggers(card) {
         eachPlayersDrawStep: cls.eachPlayersDrawStep, // EACH-PLAYER'S DRAW STEP (CR 504.1): the structural twin, sharing that sentinel and its atoms
         enchantedControllersUpkeep: cls.enchantedControllersUpkeep, // ENCHANTED-CONTROLLER'S UPKEEP (2026-08-12): host-controller firing gate + the same sentinel. ⚠️ Unlisted here = dropped = the aura would fire on EVERY upkeep — an over-fire, not a miss.
         duringOpponentsTurn: cls.duringOpponentsTurn, // CAST-NTH's turn-scope rider (2026-08-14, Wavebreak Hippocamp). ⚠️ Unlisted here = dropped = the watcher fires on its controller's OWN turn too — an over-fire (and it WAS dropped for one probe run; this list's warnings mean it).
+        duringYourTurn: cls.duringYourTurn,    // GY-LEAVE's turn-scope rider (2026-08-14, Kishla Skimmer) — the mirror of the line above, gated in checkGraveyardEventTriggers. Unlisted = dropped = fires on opponents' turns too, the same over-fire.
         gyCardType: cls.gyCardType,           // GY-EVENT (SHELF S7): front-face type gate on the moved card ("Creature" | null = any)
         gyOwnerScope: cls.gyOwnerScope,       // GY-EVENT: whose graveyard — "you" | "opponent" | "any"
         excludeFromBattlefield: cls.excludeFromBattlefield, // GY-EVENT gyEnter only: skip from-battlefield entries (the dies clause covers those)
@@ -7607,6 +7618,9 @@ export function checkGraveyardEventTriggers(state) {
           if (d.gyOwnerScope === "you" && ev.gyOwner !== watcher.controller) continue;
           if (d.gyOwnerScope === "opponent" && !opponentsOf(cleared, watcher.controller).includes(ev.gyOwner)) continue;
           if (d.excludeFromBattlefield && ev.zone === "battlefield") continue;
+          // KISHLA SKIMMER — "during your turn": the event only fires while the WATCHER's controller is
+          // the active player (the printed turn rider; the Wavebreak turn-gate's mirror).
+          if (d.duringYourTurn && cleared.activePlayer !== watcher.controller) continue;
           // gyOwnerId rides the context so a "that player" payoff (Bloodchief Ascension's drain) can bind
           // the graveyard's owner at resolution; the card trio mirrors the milled-trigger context shape.
           fired.push(makePendingTrigger(d, watcher, null, {

@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Kishla Skimmer works.** A card leaving your graveyard on your turn draws you a card — once each
+  turn, never on an opponent's turn, and never off someone else's graveyard.
 - **Stubborn Denial works — both halves.** With a 4-power creature on your board it counters outright;
   without one, the opponent gets the printed chance to pay {1}. Exactly four is the line.
 - **X-cost pump tricks with keyword grants work.** Tyvar's Stand delivers its +X/+X AND the hexproof

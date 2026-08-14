@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **KISHLA SKIMMER (+1) — the during-your-turn gy-leave watcher** - the shelf grind (Teval carrier)
+> Suite 1220 / 14,502 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Kishla Skimmer
+> body-only→native-trigger. Audited whole-card (Flying + the one trigger). Post-release batch **+8**.
+> ⭐ THREE PIECES on existing plumbing: the unfiltered gyLeave arm + duringYourTurn (TF-1 — only the
+> during-form; the bare form stays Arbiter) · the threading-allowlist entry · the fire-loop turn gate
+> in checkGraveyardEventTriggers (the Wavebreak gate's mirror). The once-per-turn latch rode the
+> standard trailing-sentence stamp for free.
+> ⛔ THE ARM'S FIRST PLACEMENT WAS EATEN by the blanket "during" qualifier reject — detectTriggers []
+> while the arm looked perfect (the Military Intelligence lesson, relearned live). Relocated above the
+> reject, witnessed through the REAL fire loop: your-turn leave fires · opponent-turn leave SILENT ·
+> opponent-graveyard leave SILENT.
+> Mutations KS-M1 (arm → parks) / KS-M2 (allowlist → the descriptor decays) / KS-M3 (fire gate → the
+> opponent-turn silence dies) all killed, printed back under the no-op-throw rule.
+> Token diet: ~20k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **STUBBORN DENIAL (+1) — the ferocious hard-counter upgrade** - the shelf grind (Teval carrier)
 > Suite 1219 / 14,498 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Stubborn Denial
 > arbiter-spell→native-spell. Audited whole-card (the card IS its two sentences). Post-release batch **+7**.
