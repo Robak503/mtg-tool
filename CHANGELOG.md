@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **X-cost pump tricks with keyword grants work.** Tyvar's Stand delivers its +X/+X AND the hexproof
+  and indestructible; Pedal to the Metal, Frantic Confrontation and Lunar Frenzy deliver +X/+0 with
+  first strike (and trample). The X landed before this fix, but the keywords were silently lost.
 - **Marauding Raptor works — and honestly.** Each creature you play takes its 2 damage, and the Raptor
   only grows when a Dinosaur was actually dealt the damage: a prevention shield that soaks the hit means
   no pump, exactly as printed. Aether Flash's enters-damage works the same way.

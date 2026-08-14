@@ -653,6 +653,11 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
       if (base.who) atom.who = base.who;
       if (base.restrictions) atom.restrictions = base.restrictions;
       if (base.duration) atom.duration = base.duration;
+      // KEYWORD GRANTS ride the X-pump (2026-08-14 — Tyvar's Stand "+X/+X and gains hexproof and
+      // indestructible"): the fixed compound arm parses them into grantKeywords, and this rebuild
+      // dropped the field in transit (the unlisted-=-dropped trap, FOURTH instance) — the X-pump
+      // would have resolved with the protection half silently gone (the forbidden partial).
+      if (base.grantKeywords) atom.grantKeywords = base.grantKeywords;
       // Carry a non-targetType binding (a self pump's target:"self") so an X-cost self atom can't
       // silently lose its binding and route a target-less/mis-targeted pump. (ptDelta is NOT
       // carried — an X atom reads its amount from ctx.xValue, not a printed delta.) No current

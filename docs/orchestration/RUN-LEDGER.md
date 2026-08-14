@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **X-PUMP + KEYWORD GRANT (+4) — Tyvar's Stand and the severed compound** - the shelf grind (Wolverine carrier)
+> Suite 1218 / 14,494 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Tyvar's Stand
+> (Wolverine) + Pedal to the Metal, Frantic Confrontation, Lunar Frenzy (the asymmetric +X/+0 trio).
+> All audited whole-card (each IS its one sentence). Post-release batch **+6**.
+> ⭐ TWO PIECES: the keep-whole guard's pip pattern excluded X (the compound SHATTERED on " and " —
+> the driver-vs-parser lesson AGAIN) + the amountX rebuild DROPPED grantKeywords in transit (the
+> unlisted-=-dropped trap, FOURTH instance — the X-pump would have resolved with the protection half
+> silently gone). Witnessed at the resolver: X=3 → +3/+3 AND hexproof AND indestructible all land.
+> ⭐⭐ THE HOLLOW-GATE LAW EARNED ITS KEEP TWICE THIS SLICE: (1) a surviving mutation exposed my
+> "compound fallback" as DEAD CODE built on a wrong diagnosis — removed, header rewritten honestly;
+> (2) the first M1 run was a SILENT NO-OP REPLACE that counted as a hit — the mutation scripts now
+> throw on no-op (lines[i] === before), banked as a rule alongside the backslash law.
+> Mutations TS-M1 (pip widening → shatters, properly applied on the redo) / TS-M2 (the carry → the
+> partial) both killed, printed back.
+> Token diet: ~40k output tokens this slice (the two hollow-gate hunts).
 > ## SLICE DONE - 2026-08-14 - **MARAUDING RAPTOR (+2) — the damage-rider, honest against prevention** - the shelf grind (Jurassic 86→87)
 > Suite 1217 / 14,490 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+2 / 0 / 0** — Marauding
 > Raptor (Jurassic) body-only→native-MIXED (the cost-reduction static + the trigger compose) + Aether
