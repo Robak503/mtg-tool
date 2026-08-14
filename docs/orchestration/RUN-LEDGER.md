@@ -3,7 +3,7 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
-> ## SLICE DONE - 2026-08-14 - **X-PUMP + KEYWORD GRANT (+4) — Tyvar's Stand and the severed compound** - the shelf grind (Wolverine carrier)
+> ## SLICE DONE - 2026-08-14 - **X-PUMP + KEYWORD GRANT (+4) — Tyvar's Stand and the severed compound** - the shelf grind (Hulk Smash 79→80; the pushed entry said "Wolverine carrier" — measured wrong, corrected here)
 > Suite 1218 / 14,494 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+4 / 0 / 0** — Tyvar's Stand
 > (Wolverine) + Pedal to the Metal, Frantic Confrontation, Lunar Frenzy (the asymmetric +X/+0 trio).
 > All audited whole-card (each IS its one sentence). Post-release batch **+6**.
