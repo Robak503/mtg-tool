@@ -42,6 +42,7 @@ import { parseEffectProgram, programConfidence, parseEffectClause, programNeedsC
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
 import { expandCastChoices } from "./effects/targeting.js";
 import { tutorManaValue } from "./effects/atoms/library.js"; // AC-1 — the least-valuable ranking the edict/discard auto-pick uses (library.js is a leaf, cycle-safe)
+import { evalLeastValuableCmp } from "./boardEval.js"; // QUARTET PHASE 1 — the shared evaluator's victim ranking (boardEval imports only leaves: gameState + library + cardPlayHints — cycle-free)
 
 // S1.1 (shelf run, 2026-07-10): parse a card's CAST program from the cost-only-keyword-STRIPPED
 // oracle — the same strip the classifier (coverage.js) and the dispatcher's fallback use. The
@@ -1167,7 +1168,13 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
           sacTypeMatches(v.card, addCost.sacType) &&
           !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""));
         if (pool.length < n) continue;                    // fewer than N legal victims → cost can't be paid → uncastable
-        const ranked = [...pool].sort(leastValuablePermanentCmp);
+        // QUARTET PHASE 1 (the first converted site, 2026-08-14): behind `state.usePolicyEval` the
+        // victim ranking consults the shared board evaluator (boardEval.evalLeastValuableCmp — a Sol
+        // Ring is no longer "cheaper" than a vanilla bear just because its MV is lower). Flag absent ⇒
+        // the legacy MV-then-power policy byte-identically (the default-off law in
+        // SUBSYSTEM-QUARTET-PLAN.md; the flag flips only when the phase gate passes). Ranking-only —
+        // the pool's LEGALITY filters above are untouched either way.
+        const ranked = [...pool].sort(state.usePolicyEval ? evalLeastValuableCmp(state) : leastValuablePermanentCmp);
         for (const ch of combos) {
           // Don't sacrifice a permanent the effect targets — paid as a cost (gone before the spell resolves) →
           // the target would fizzle (CR 608.2b). Exclude every targeted id BEFORE taking the N cheapest.

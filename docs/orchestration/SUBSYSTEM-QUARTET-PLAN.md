@@ -106,4 +106,12 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
-- 2026-08-14 — PLAN CREATED. Nothing built yet. Next: Phase 1 step 1 (`evaluateBoard`).
+- 2026-08-14 — **PHASE 1 SLICE 1 SHIPPED**: `boardEval.js` (permanentValue — layer-aware P/T,
+  cardPlayHints role bonuses, commander weight, token discount; evaluateBoard; evalLeastValuableCmp)
+  + the FIRST converted site (the AC-1 sacrifice-victim ranking in legalChoices, behind
+  `state.usePolicyEval`, default off). Witnessed: the legacy policy sacrifices Llanowar Elves to keep
+  a vanilla bear; the evaluator keeps the mana engine — with the flag-off seen-to-fail control pinning
+  the default-off law. Mutations killed (role bonus zeroed → the witness's point dies; the flag gate
+  inverted → the flag-off control catches it). NEXT: convert the runProgram autoPickSacrificeCandidate
+  mirror + the edict-chain choice, then targets, then `scoreChoice`.
+- 2026-08-14 — PLAN CREATED.

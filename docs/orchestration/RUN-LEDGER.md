@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **QUARTET PHASE 1, SLICE 1 — boardEval + the first converted choice site** - the SUBSYSTEM QUARTET (Colton-ordered)
+> Suite 1240 / 14,590 green (+1 skipped) + lint 0 BY EXIT CODE. NO flip-diff — zero parser/classifier
+> surface touched (a ranking-only policy layer, default-off; the suite pins byte-identical flag-off
+> behavior). Card batch unchanged at **+74**.
+> ⭐ boardEval.js: permanentValue (layer-aware P/T · cardPlayHints ROLE bonuses — the built-but-idle
+> deriver is now live · commander weight · token discount) + evaluateBoard (pure, deterministic,
+> serialize-stable — the phase-3 replay contract) + evalLeastValuableCmp (legacy tiebreak fallthrough).
+> FIRST SITE CONVERTED: the AC-1 count-of-N sacrifice-victim ranking (legalChoices), behind
+> `state.usePolicyEval` per the plan's default-off law.
+> ⭐⭐ Witnessed with the flag-off SEEN-TO-FAIL control: legacy sacrifices LLANOWAR ELVES to keep a
+> vanilla bear (MV-blind — the wrong pick, proven); the evaluator keeps the mana engine (B1+B2 die).
+> Mutations BE-M1 (ramp bonus zeroed → the flag-on pick degenerates to the Elves) / BE-M2 (the flag
+> gate INVERTED → the flag-off row changes — the default-off law's own control catches it) both
+> killed, printed back, per-process.
+> Plan status updated in SUBSYSTEM-QUARTET-PLAN.md; next: the runProgram auto-pick mirror + edict
+> chain, then targets, then scoreChoice. CHANGELOG deliberately untouched (default-off = not yet
+> user-facing).
+> Token diet: ~13k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **SUMMON: BAHAMUT (+1) — the FF Summon Saga class opens** - the shelf grind (Dragons 84→85)
 > Suite 1239 / 14,586 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Bahamut
 > body-only→native-trigger. Post-release batch **+74**.
