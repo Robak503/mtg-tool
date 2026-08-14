@@ -2325,9 +2325,15 @@ export function fightClauseParser(clause) {
   const s = String(clause || "");
   // (1) bare source-bound: "[this creature|it] fights (up to one) target creature you don't control"
   {
+    // ("an opponent controls" 2026-08-14 — Abomination, Terrifying Titan's power-up body: the SAME
+    // who:"opponent" restriction this arm already emits for "you don't control".)
+    // `sourceAnchored` iff the printed subject is "THIS CREATURE" — that wording can only mean the
+    // ability's source (CR 109.5), so the compound-program gate (fightAtomMisplaced) may safely admit it
+    // alongside other atoms. A bare "it" stays unmarked: in a spell compound "it" is the PUMPED TARGET
+    // (Epic Confrontation), the exact mis-binding the gate exists to refuse.
     const fm = s.toLowerCase().replace(/[’]/g, "'")
-      .match(/^(?:this creature|it) fights (up to one )?target creature you don't control$/);
-    if (fm) return { op: "fight", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], optionalTarget: !!fm[1] };
+      .match(/^(this creature|it) fights (up to one )?target creature (?:you don't control|an opponent controls)$/);
+    if (fm) return { op: "fight", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], optionalTarget: !!fm[2], ...(fm[1] === "this creature" ? { sourceAnchored: true } : {}) };
   }
   // (2) source-bound "another": "[have ]?[this creature|it] fight(s) another target creature"
   {

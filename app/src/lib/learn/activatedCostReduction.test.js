@@ -92,7 +92,9 @@ describe("ACTIVATED-COST-REDUCTION — parser marker", () => {
     // A battlefield of bare cards (the command-zone/battlefield entry shapes collectActivatedCostReducers accepts).
     const bf = [{ card: TRAINING_GROUNDS() }, { card: HEARTSTONE() }, { card: BIOMANCERS_FAMILIAR() }];
     // Two you-control reducers (Training Grounds + Biomancer's Familiar), Heartstone's symmetric one dropped.
-    expect(collectActivatedCostReducers(bf)).toEqual([{ amount: 2 }, { amount: 2 }]);
+    // _sourceId (2026-08-14): the collector threads each reducer's own permanent id so the power-up
+    // "OTHER creatures" excludeSelf gate can compare; bare-card entries have no id → null.
+    expect(collectActivatedCostReducers(bf)).toEqual([{ amount: 2, _sourceId: null }, { amount: 2, _sourceId: null }]);
     expect(collectActivatedCostReducers([])).toEqual([]);
   });
 });

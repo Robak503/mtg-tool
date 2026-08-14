@@ -3,6 +3,29 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **THE POWER-UP CLUSTER (+17)** - 🏁 **HULK SMASH HITS THE BAR: 90% — THE THIRD DECK**
+> Suite 1235 / 14,566 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+17 / 0 / 0** — the three
+> in-deck power-up legends (Gamma Goliath native-mixed · She-Hulk · Abomination) plus FOURTEEN audited
+> riders (Rock Soldiers, Liminal Hold, Veldrane, Darwin, Prayer of Binding, Explosive Entry, Rhys the
+> Exiled, Arcanis, Powder Ganger, Hercules, Eron, Chomping Changeling, Markov Enforcer, Curious Farm
+> Animals — every oracle printed; each rider blocked ONLY by these seams). Post-release batch **+63**.
+> ⭐ THE LATCH ALREADY SHIPPED (activationLimitScope:"game" — the exhaust witness pins it; power-up rides
+> the same ledger). This slice: ① "up to one target" on the singular destroy/exile arm (subset path;
+> rode the O-Ring until-leaves wrapper for free — Liminal Hold/Prayer of Binding) · ② SELF-NAME +
+> leading-He/She normalization on activated effectClauses (selfNormalizeOracle, the static path's own
+> grammar — "Regenerate Eron", "He gains vigilance…") · ③ the sourceAnchored fight exception ("THIS
+> CREATURE fights" can only bind the source; the anaphoric bare-"it" compound stays refused — and Epic
+> Confrontation was ALREADY modeled via fight-pair, a wrong first negative caught in-witness) · ④ the
+> POWER-UP-ONLY cost reducer (Goliath's static): powerUpOnly + excludeSelf on the Training-Grounds
+> marker family, _sourceId threaded through the collector.
+> ⭐⭐ Witnessed: She-Hulk offered at {1}{G}{G} beside Goliath while Goliath's own stays {6} · the
+> discount is REAL at the gate (payable on a 3-mana pool the printed cost can't) · Abomination's
+> compound [counter, sourceAnchored fight].
+> Mutations PU-M1 (reducer arm → Goliath parks + the discount vanishes) / PU-M2 (excludeSelf → Goliath's
+> own discounts, the "other" violation) / PU-M3 (sourceAnchored → Abomination parks) all killed, printed
+> back, per-process. TWO pins graduated (the collector's _sourceId shape; detainExile's up-to-one-LOW →
+> HIGH with the until-leaves atom pinned).
+> Token diet: ~25k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **RED HULK (+12) — the gendered referent + the source-count + "any other target"** - the shelf grind (Hulk Smash 86→87)
 > Suite 1234 / 14,561 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+12 / 0 / 0** — Red Hulk plus
 > ELEVEN audited siblings (Preyseizer Dragon, Cornered Crook, Scarlet Spider, Fireblade Artist, Zuko,

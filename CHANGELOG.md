@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Power-up works — the Gamma legends flex.** Hulk Gamma Goliath, She-Hulk, and Abomination's
+  power-up abilities activate once per game as printed, and Goliath really discounts the other
+  Gammas' power-ups by {3} (never his own). Fourteen more cards ride the same fixes, including
+  Prayer of Binding, Arcanis the Omnipotent, Hercules, and Markov Enforcer.
 - **Red Hulk hits back — and eleven friends wake up with him.** Taking damage grows him a counter,
   then he unloads damage equal to his counters at anything else — never at himself. The same fixes
   bring Mockingbird, Mycoloth, Preyseizer Dragon, Fireblade Artist, Falkenrath Exterminator, Cornered

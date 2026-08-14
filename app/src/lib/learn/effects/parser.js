@@ -2684,8 +2684,12 @@ export function parseEffectClause(oracle, cardType = "", opts = {}) {
 // — where "it" is the PUMPED target, NOT the source: the fighter would be mis-bound, and a spell threads no
 // sourceId so the fight silently no-ops (a half-resolve). Force such a program LOW (→ Arbiter) — the whole
 // spell stays non-native (CREED; the chosen-fighter spell form is a future, separate model).
+// (sourceAnchored exception 2026-08-14 — Abomination, Terrifying Titan "Put a +1/+1 counter on this
+// creature. This creature fights up to one target …": a fight whose printed subject is "THIS CREATURE"
+// can only bind the SOURCE (CR 109.5), so the anaphora hazard this gate refuses cannot arise — the
+// fight arm stamps the flag exclusively off that wording, never off "it".)
 function fightAtomMisplaced(atoms) {
-  return Array.isArray(atoms) && atoms.some(a => a.op === "fight") && atoms.length !== 1;
+  return Array.isArray(atoms) && atoms.some(a => a.op === "fight" && !a.sourceAnchored) && atoms.length !== 1;
 }
 
 export function programConfidence(program) {

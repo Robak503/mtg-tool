@@ -26,6 +26,7 @@ import { parseLeveler, isLevelerFrame } from "../leveler.js";
 // CONDITION rider (CR 602.5d) — the metric⇄runtime shared shape gate. interveningIf.js imports only
 // gameState.js (which does NOT import this module), so this edge is acyclic.
 import { activationConditionParseable } from "../interveningIf.js";
+import { selfNormalizeOracle } from "../staticAbilityParser.js"; // leaf-importing module — cycle-safe; the shared self-name grammar
 
 /** Strip reminder text (parens) but PRESERVE newlines so per-ability line splitting works. */
 function stripReminder(text) {
@@ -1052,7 +1053,19 @@ export function parseActivatedAbilities(card) {
     const beforeTimingStrip = activationLimit ? afterPrecombat.replace(LIMIT_RIDER, "").trim() : afterPrecombat;
     // Read the flag off the PRE-strip text — after the strip the phrase is gone by construction.
     const sorceryOnly = abilityIsSorcerySpeedOnly(beforeTimingStrip);
-    const effectClause = stripBonusUntapRider(stripEnforcedTimingRider(beforeTimingStrip));
+    let effectClause = stripBonusUntapRider(stripEnforcedTimingRider(beforeTimingStrip));
+    // SELF-NAME + GENDERED-SUBJECT normalization (the Power-up bodies, 2026-08-14 — She-Hulk "Put a
+    // +1/+1 counter on She-Hulk", Abomination "… He fights up to one target creature an opponent
+    // controls"): a legend's ability body names itself (CR 201.4 — the name means "this object") and the
+    // Marvel printings use gendered subject pronouns for the follow-up sentence. Route the name through
+    // the SAME selfNormalizeOracle grammar the static path trusts (longest-form-first, tribe-word guard),
+    // then rewrite a SENTENCE-LEADING "He/She " — on a creature's own activated body that subject is
+    // unambiguously the source. Every rewritten clause still re-gates through parseEffectClause (LOW on
+    // anything unmodeled, FN-safe).
+    if (card?.name && /creature/i.test(String(card.type || card.type_line || ""))) {
+      effectClause = selfNormalizeOracle(effectClause, card.name, card.type || card.type_line);
+      effectClause = effectClause.replace(/(^|\.\s+)(?:he|she)\s+/gi, (m, lead) => lead + "this creature ");
+    }
     if (!costStr || !effectClause) continue;
 
     // CC-3 — thread the card so a SELF-NAME remove-counter cost item ("Remove a charge counter from
@@ -1120,6 +1133,7 @@ export function parseActivatedAbilities(card) {
       effectClause,
       activationLimit: activationLimit ?? (isBoast || isPowerUp || isExhaust ? 1 : null), // ONCE-1 — N activations per turn, or null (runtime-enforced frequency restriction)
       ...(isPowerUp || isExhaust ? { activationLimitScope: "game" } : {}), // POWER-UP / EXHAUST — "only once", never re-armed by a new turn
+      ...(isPowerUp ? { powerUp: true } : {}), // the powerUpOnly cost reducer (Hulk, Gamma Goliath) gates on this — Exhaust must NOT ride it
       preCombatOnly, // "before attackers are declared" — legalChoices narrows the window to the PRECOMBAT main
       sorceryOnly,   // CR 602.5i "Activate only as a sorcery" — legalChoices adds the EMPTY-STACK half the generic main-step gate does not cover
 

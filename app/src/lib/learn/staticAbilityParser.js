@@ -2380,6 +2380,16 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ activatedCostReduction: { amount: parseInt(aacrM[2], 10), ...(aacrM[1] === "artifacts" ? { subject: "artifact" } : {}) } });
     return;
   }
+  // POWER-UP-ONLY variant (Hulk, Gamma Goliath — "Power-up abilities of OTHER creatures you control cost
+  // {3} less to activate.", 2026-08-14): the same marker family, gated at the apply site to abilities the
+  // parser stamped `powerUp` (the label arm in effects/abilities.js) AND to a DIFFERENT permanent than the
+  // reducer's own source ("other" — excludeSelf, compared via the _sourceId collectActivatedCostReducers
+  // threads). Rides the same one-mana floor.
+  const pucrM = c.match(/^power-up abilities of other creatures you control cost \{(\d+)\} less to activate$/);
+  if (pucrM) {
+    out.push({ activatedCostReduction: { amount: parseInt(pucrM[1], 10), powerUpOnly: true, excludeSelf: true } });
+    return;
+  }
   // EQUIP-ONLY variant (Bureau Headmaster — "Equip abilities you activate cost {1} less to activate.",
   // SHELF S7): same marker family with `equipOnly` — the apply site gates it to isEquipAbility instead
   // of isCreaturePerm (an Equipment isn't a creature, so the Training-Grounds gate would never fire).
@@ -4570,7 +4580,9 @@ export function collectActivatedCostReducers(permanents) {
   for (const entry of permanents || []) {
     const card = entry?.card || entry;
     for (const d of parseStaticAbilities(card)) {
-      if (d.activatedCostReduction) reducers.push(d.activatedCostReduction);
+      // _sourceId: which permanent carries this reducer — the excludeSelf ("OTHER creatures") gate at the
+      // offer site compares it against the ability's own permanent. Additive; existing filters ignore it.
+      if (d.activatedCostReduction) reducers.push({ ...d.activatedCostReduction, _sourceId: entry?.id ?? null });
     }
   }
   return reducers;

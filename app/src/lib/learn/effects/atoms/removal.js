@@ -780,7 +780,11 @@ export function destroyExileClauseParser(clause) {
   // qualifier smuggled into that slot would silently become an opponent-controls restriction — a wrong
   // restriction on a card the tier then reports as native, which is the silent do-nothing this very
   // function already carries a guarded branch against.
-  const rm = t.match(/^(destroy|exile) target (?:((?:white|blue|black|red|green) or (?:white|blue|black|red|green)|white|blue|black|red|green|multicolored) )?(noncreature artifact or noncreature enchantment|noncreature artifact|noncreature enchantment|artifact, enchantment, or land|artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|creature or vehicle|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls|that player controls))?(?: (that (?:was|were) dealt damage this turn))?$/);
+  // ("up to one target" 2026-08-14 — She-Hulk Jade Defender "Destroy up to one target artifact or
+  // enchantment": choosing ZERO is legal, CR 601.2c. The optional prefix group stamps maxTargets:1 +
+  // minTargets:0 — the exact "up to ONE target" subset path targeting already documents (subsets [t] or
+  // []). Absent, every previously-parsed card emits a byte-identical atom.)
+  const rm = t.match(/^(destroy|exile) (up to one )?target (?:((?:white|blue|black|red|green) or (?:white|blue|black|red|green)|white|blue|black|red|green|multicolored) )?(noncreature artifact or noncreature enchantment|noncreature artifact|noncreature enchantment|artifact, enchantment, or land|artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|creature or vehicle|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls|that player controls))?(?: (that (?:was|were) dealt damage this turn))?$/);
   if (rm) {
     const TT = {
       "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent",
@@ -799,29 +803,29 @@ export function destroyExileClauseParser(clause) {
       // consumer — aura subjects. This is the ignition for the removal lane, not new machinery.
       "creature or vehicle": "creatureOrVehicle",
     };
-    const controlScope = rm[4];
+    const controlScope = rm[5];
     const controllerWho = /^you control$/.test(controlScope || "") ? "you"
       : /^defending player controls$/.test(controlScope || "") ? "defendingPlayer"
       : /^that player controls$/.test(controlScope || "") ? "damagedPlayer"
       : "opponent";
     const restrictions = controlScope ? [{ kind: "controller", who: controllerWho }] : [];
     // DD-1 — same restriction kind and same order the creature lane emits, so the two paths stay pin-compatible.
-    if (rm[5]) restrictions.push({ kind: "dealtDamageThisTurn", value: true });
+    if (rm[6]) restrictions.push({ kind: "dealtDamageThisTurn", value: true });
     // COLOR-POS: prepend the colour restriction when the optional adjective matched (rm[2]). Absent → the
     // restrictions array is byte-identical to before, so every previously-parsed card is unchanged.
     const COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
-    const disjM = String(rm[2] || "").match(/^(white|blue|black|red|green) or (white|blue|black|red|green)$/);
+    const disjM = String(rm[3] || "").match(/^(white|blue|black|red|green) or (white|blue|black|red|green)$/);
     if (disjM) restrictions.unshift({ kind: "colorAny", colors: [COLOR_LETTER[disjM[1]], COLOR_LETTER[disjM[2]]] });
-    else if (rm[2] === "multicolored") restrictions.unshift({ kind: "multicolored" });
+    else if (rm[3] === "multicolored") restrictions.unshift({ kind: "multicolored" });
     // ⛔ GUARDED, and a survived mutant is why. `COLOR_LETTER[rm[2]]` on an unrecognised colour phrase
     // yields `{kind:"color", color: undefined}` — a restriction that matches NOTHING while the card still
     // classifies native. That is the silent do-nothing, not a safe park: the tier claims the card plays and
     // it targets an empty pool. It was unreachable before CD-1 (the alternation admitted only the five
     // singles), and CD-1 adds a multi-word alternative to that very slot — so the next person who extends
     // the alternation and forgets a branch here gets a REFUSAL, not a card that quietly does nothing.
-    else if (rm[2] && COLOR_LETTER[rm[2]]) restrictions.unshift({ kind: "color", color: COLOR_LETTER[rm[2]] });
-    else if (rm[2]) return null;   // an admitted colour phrase with no restriction to emit → park, loudly
-    const atom = { op: rm[1] === "destroy" ? "destroy" : "exile", targetType: TT[rm[3]], restrictions };
+    else if (rm[3] && COLOR_LETTER[rm[3]]) restrictions.unshift({ kind: "color", color: COLOR_LETTER[rm[3]] });
+    else if (rm[3]) return null;   // an admitted colour phrase with no restriction to emit → park, loudly
+    const atom = { op: rm[1] === "destroy" ? "destroy" : "exile", targetType: TT[rm[4]], restrictions, ...(rm[2] ? { minTargets: 0, maxTargets: 1 } : {}) };
     // Pin the combat-event referent onto the atom for the combat-referent gate (defending/damaged-player scopes).
     if (controllerWho === "defendingPlayer") atom.who = "defendingPlayer";
     if (controllerWho === "damagedPlayer") atom.who = "damagedPlayer";

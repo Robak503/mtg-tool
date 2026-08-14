@@ -70,7 +70,12 @@ describe("parse + classify", () => {
     // (coverage.js reGyZoneOptionCost), so Angel of Sanctions' O-Ring-frame exile trigger — modeled
     // by THIS file's slice all along — is the whole remaining card. The park reason was embalm alone.
     expect(classifyCard(ANGEL_OF_SANCTIONS)).toBe("native-trigger");
-    expect(parseEffectClause("exile up to one target nonland permanent an opponent controls until this enchantment leaves the battlefield").confidence).toBe("low");
+    // GRADUATED 2026-08-14: the up-to-one form parses HIGH now — the "up to one target" prefix on the
+    // singular removal arm (powerUpCluster slice) rides the SAME until-leaves wrapper; choosing zero is
+    // legal (CR 601.2c) and the O-Ring return path is unchanged. Carriers: Liminal Hold, Prayer of Binding.
+    const upToOne = parseEffectClause("exile up to one target nonland permanent an opponent controls until this enchantment leaves the battlefield");
+    expect(upToOne.confidence).toBe("high");
+    expect(upToOne.atoms[0]).toMatchObject({ op: "exile", untilSourceLeaves: true, minTargets: 0, maxTargets: 1 });
   });
 });
 

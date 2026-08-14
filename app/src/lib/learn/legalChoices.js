@@ -2040,8 +2040,9 @@ function actionsActivateAbility(state, playerId) {
         // price, not a missing effect, and one the coverage tier can't see.
         const applicable = activatedReducers.filter((r) => (
           r.equipOnly ? !!ab.isEquipAbility
-            : r.subject === "artifact" ? isArtifact(perm.card)
-              : isCreaturePerm));
+            : r.powerUpOnly ? (!!ab.powerUp && isCreaturePerm && (!r.excludeSelf || r._sourceId !== perm.id)) // Gamma Goliath — power-up abilities of OTHER creatures
+              : r.subject === "artifact" ? isArtifact(perm.card)
+                : isCreaturePerm));
         if (applicable.length) cost = activatedCostReductionForCost(applicable, cost);
       }
       // NO-CHOICE cost affordability gates — X-INDEPENDENT, so they sit ABOVE the γ1f costX expansion and
