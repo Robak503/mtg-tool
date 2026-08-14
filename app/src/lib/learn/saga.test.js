@@ -49,7 +49,10 @@ describe("SAGA — classifier (all-or-nothing chapters, shared routing gate)", (
   });
 
   it("a residue line, a chapter gap, or an unroutable chapter stays body-only (CREED)", () => {
-    expect(classifyCard({ ...VAULT12, name: "Residue Saga", oracle: VAULT12.oracle + "\nFlying" })).toBe("body-only");
+    // GRADUATED 2026-08-14: a pure COMBAT-KEYWORD line ("\nFlying") is no longer residue — the FF Summon
+    // creature Sagas print one and the body machinery credits it (summonBahamut.test.js). The residue pin
+    // keeps its teeth on a line the skip must NEVER swallow: an unmodeled ability line.
+    expect(classifyCard({ ...VAULT12, name: "Residue Saga", oracle: VAULT12.oracle + "\nProtection from everything" })).toBe("body-only");
     const gap = "I — Each player gets two rad counters.\nIII — Each player gets two rad counters.";
     expect(classifyCard({ ...VAULT12, name: "Gap Saga", oracle: gap })).toBe("body-only");
     expect(parseSagaChapters({ ...VAULT12, oracle: gap })).toBeNull();

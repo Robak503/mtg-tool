@@ -23,6 +23,15 @@
 
 const ROMAN = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6 };
 
+import { COMBAT_KEYWORDS } from "./keywords.js"; // zero-import leaf — cycle-free
+import { stripAbilityWordLabel } from "./effects/textNormalize.js"; // zero-import leaf — the CR 207.2c label strip
+// A pure combat-keyword line on an enchantment CREATURE Saga (Summon: Bahamut's "Flying") is NOT chapter
+// residue — the body's keyword machinery credits it exactly as on any creature; parking the whole Saga on
+// it was the FF-Summon class's only blocker. Every comma token must be a listed keyword (else the line
+// still parks the card — an unmodeled ability line stays all-or-nothing).
+const COMBAT_KW_SET = new Set(COMBAT_KEYWORDS.map((k) => k.toLowerCase()));
+const isPureKeywordLine = (line) => line.split(/,\s*/).every((t) => COMBAT_KW_SET.has(t.trim().toLowerCase()));
+
 export function isSagaCard(card) {
   return /\bSaga\b/.test(String(card?.type || card?.type_line || ""));
 }
@@ -40,9 +49,13 @@ export function parseSagaChapters(card) {
   for (const rawLine of oracle.split(/\n+/)) {
     const line = rawLine.trim();
     if (!line) continue;
+    if (isPureKeywordLine(line)) continue; // a creature Saga's keyword line — credited by the body machinery, never chapter residue
     const m = line.match(/^((?:[IV]+)(?:\s*,\s*[IV]+)*)\s*—\s*(.+)$/);
     if (!m) return null; // a non-chapter line on a Saga → unmodeled residue → park the whole card
-    const effect = m[2].trim();
+    // A FLAVOR-LABELED chapter ("IV — Mega Flare — This creature deals …", the FF Summons): the label
+    // carries no rules meaning (CR 207.2c) — strip it through the SAME single-source list every other
+    // path uses, so an un-listed label keeps the raw text and the chapter parses LOW (FN-safe).
+    const effect = stripAbilityWordLabel(m[2].trim()).trim();
     for (const numeral of m[1].split(/\s*,\s*/)) {
       const n = ROMAN[numeral.trim().toLowerCase()];
       if (!n || byChapter.has(n)) return null; // unknown numeral / duplicate chapter → park

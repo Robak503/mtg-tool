@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **SUMMON: BAHAMUT (+1) — the FF Summon Saga class opens** - the shelf grind (Dragons 84→85)
+> Suite 1239 / 14,586 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Bahamut
+> body-only→native-trigger. Post-release batch **+74**.
+> ⭐ THREE PIECES on the existing Saga machinery: ① a pure COMBAT-KEYWORD line on a creature Saga is
+> SKIPPED (the body machinery credits it — "Flying" was the class's park); ② flavor-labeled chapters
+> strip through the single-source ABILITY_WORD_LABEL_RE ("mega flare" listed); ③ the TOTAL-MV damage
+> arm (CR 202.3 — countForSpec's totalMvPermanentsYouControl, excludeSource for "other").
+> ⭐⭐ Witnessed: 4 chapters (I,II shared · the label stripped) · Mega Flare deals EXACTLY the sum of
+> OTHER permanents' MV (the Saga's own 8 excluded) · an unmodeled ability line still parks · an
+> UN-listed label refused by anchored arms. NB a first negative claimed the un-listed label parks the
+> DAMAGE chapter — wrong: the damage arm's wildcard source phrase swallows labels; recorded honestly.
+> Mutations SB-M1 (keyword skip off → parks) / SB-M2 (excludeSource off → the Saga counts itself,
+> aiLife 37→29 — the self-count over-fire) both killed, printed back, per-process.
+> ⭐ ONE PIN GRADUATED (saga.test's residue example WAS "\nFlying" — now the class's whole point;
+> re-aimed at an unmodeled line with the dated cross-reference).
+> Token diet: ~15k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **HELLKITE COURSER (+1) — the CZ-COMMANDER-VISIT machine** - the shelf grind (Dragons 83→84)
 > Suite 1238 / 14,582 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Hellkite
 > body-only→native-trigger. Post-release batch **+73**.

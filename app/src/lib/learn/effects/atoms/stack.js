@@ -399,6 +399,11 @@ export function dealDamageScaledClauseParser(clause) {
   // excludeSource off the phrase, the TT entry maps it onto the same "any" enumeration.)
   const mds2 = t.match(/^.+? deals? damage equal to the number of (.+?) to (target creature|any target|any other target|target player|target player or planeswalker|target creature or planeswalker|each opponent)$/);
   if (mds2) return build(mds2[2], mds2[1]);
+  // TOTAL-MV damage (Summon: Bahamut's Mega Flare, 2026-08-14 — CR 202.3): "deals damage equal to the
+  // TOTAL MANA VALUE of [other ]permanents you control to each opponent". Not a "number of" count, so
+  // the mds arms can't reach it; the amount rides countForSpec's totalMvPermanentsYouControl reader.
+  const mvs = t.match(/^.+? deals? damage equal to the total mana value of (other )?permanents you control to (each opponent)$/);
+  if (mvs) return { op: "deal-damage", targetType: "eachOpponent", amountCount: { kind: "totalMvPermanentsYouControl", ...(mvs[1] ? { excludeSource: true } : {}) } };
   // DMG-SCALE-3 — "where X is" word order: "<source> deals X damage to <target>, where X is [equal to] the
   // number of <count>" (Scourge of Valkas / Dragon Tempest "…to any target, where X is the number of Dragons
   // you control"; Tribal Flames, Profane Prayers, Sparksmith, Gempalm Incinerator, Tendrils of Corruption).

@@ -723,6 +723,15 @@ export function countForSpec(state, ctx, spec) {
     const lk = ctx?.sourceId ? findPermanent(state, ctx.sourceId) : null;
     return Math.max(0, lk?.permanent?.counters?.["+1/+1"] || 0);
   }
+  // ===== TOTAL-MV-PERMANENTS-YOU-CONTROL (Summon: Bahamut's Mega Flare, 2026-08-14 — CR 202.3) =====
+  // "damage equal to the total mana value of OTHER permanents you control": the SUM of the controller's
+  // battlefield permanents' printed mana values (Scryfall cmc; a token/land with no cost reads 0 — CR
+  // 202.3a, correct not conservative). excludeSource drops the Saga itself ("other").
+  if (spec.kind === "totalMvPermanentsYouControl") {
+    return Math.max(0, (state.players?.[ctx?.controller]?.battlefield || [])
+      .filter((p) => !(spec.excludeSource && p.id === ctx?.sourceId))
+      .reduce((s, p) => s + Math.max(0, p.card?.cmc || 0), 0));
+  }
   // ===== MAX-DISCARDED-THIS-WAY (Windfall) ===== the GREATEST number of cards any player discarded during the
   // whole-hand discard the SAME spell just resolved (CR 118.10 "this way"). The discard atom (applyDiscard, on
   // the recordMaxDiscarded form) stamps state.maxDiscardedThisWay IMMEDIATELY before this draw atom resolves,

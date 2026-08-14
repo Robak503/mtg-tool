@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Summon: Bahamut runs its whole Saga.** Chapters I and II snipe a nonland permanent each, III
+  draws two, and Mega Flare hits every opponent for the total mana value of your other permanents —
+  never counting Bahamut itself. Its Flying line no longer confuses the Saga reader.
 - **Hellkite Courser lends you your commander.** Its enters trigger really borrows your commander
   from the command zone — it arrives with haste, swings, and goes home at the next end step. If it
   dies first, nothing comes back from nowhere.
