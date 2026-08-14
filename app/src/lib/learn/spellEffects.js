@@ -671,7 +671,9 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       // NOT-A-COUNTER: a copy (Double Major) and an uncounterability GRANT (Vexing Shusher) both target a
       // spell without trying to counter it, so the uncounterability exclusions must not narrow THEIR legal
       // targets. Every counter atom leaves both flags undefined -> the counter path is byte-identical.
-      if (!effect.copyNotCounter && !effect.grantNotCounter) {
+      // `notCounter` — the BOUNCE lane's flag (Venser's "return target spell…"): like copy and grant,
+      // returning a spell to hand is not countering it, so the CR 701.6a exclusions don't narrow its pool.
+      if (!effect.copyNotCounter && !effect.grantNotCounter && !effect.notCounter) {
         if (/can't be countered/i.test(String(obj.source?.oracle || obj.source?.oracle_text || ""))) continue;
         // GRANTED uncounterability (Vexing Shusher's "{R/G}: Target spell can't be countered") -- the one
         // path that cannot be re-derived from the board, so it rides the stack object as a mark set at
@@ -963,6 +965,10 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   else if (effect.targetType === "playerOrPlaneswalker") { addPlayers(); addPlaneswalkers(); }
   else if (effect.targetType === "planeswalker") addPlaneswalkers();
   else if (effect.targetType === "spell") addStackSpells();
+  // VENSER — the STACK∪BATTLEFIELD union ("return target spell or permanent to its owner's hand").
+  // The atom carries notCounter, so addStackSpells skips the CR 701.6a exclusions (a bounce is not a
+  // counter — Venser legally bounces an uncounterable spell). The permanent half is the plain predicate.
+  else if (effect.targetType === "spellOrPermanent") { addStackSpells(); addPermanents(PERMANENT_PREDICATES.permanent); }
   else if (effect.targetType === "stackAbility") addStackAbilities(new Set(effect.abilityKinds || ["triggered-ability", "activated-ability"]));
   else if (effect.targetType === "graveyardCard") addGraveyardCards();
   else if (effect.targetType === "opponent") addOpponents();

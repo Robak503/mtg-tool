@@ -938,6 +938,14 @@ export function bounceClauseParser(clause) {
   if (subB && BOUNCE_SUBTYPES[subB[1]]) {
     return { op: "bounce", targetType: "creature", restrictions: [{ kind: "subtype", subtype: BOUNCE_SUBTYPES[subB[1]] }] };
   }
+  // VENSER (2026-08-14 — "return target spell or permanent to its owner's hand"): the STACK∪BATTLEFIELD
+  // union. The resolver lives in stack.js (applyBounceSpellOrPermanent — the layering is {zones} <-
+  // removal <- stack, so only stack may reach both counterSpellById and applyZoneMove). `notCounter`
+  // rides the atom into enumeration: a bounce is NOT a counter (CR 701.6a), so the stack-spell pool must
+  // NOT exclude uncounterable spells — Venser bounces what Counterspell cannot touch.
+  if (/^return target spell or permanent to its owner's hand$/.test(t)) {
+    return { op: "bounce-spell-or-permanent", targetType: "spellOrPermanent", notCounter: true };
+  }
   const cb = t.match(/^return (another )?target (tapped |attacking |blocking )?creature( or vehicle)?(?: (an opponent controls|you don't control|you control|that player controls|the damaged player controls))? to its owner's hand$/);
   if (cb) {
     const who = /^you control$/.test(cb[4] || "") ? "you"

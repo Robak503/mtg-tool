@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **VENSER, SHAPER SAVANT (+1) — the stack∪battlefield union bounce** - the shelf grind
+> Suite 1213 / 14,472 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Venser
+> body-only→native-trigger. Audited whole-card (Flash + the ETB). Post-release batch **+81**.
+> ⭐ FOUR SEAMS, ALL EXISTING MACHINERY: the zones.js union arm (targetType spellOrPermanent +
+> notCounter), the spellEffects enumeration (addStackSpells + the plain permanent predicate), the
+> stack.js resolver (stack half → counterSpellById dest:"hand" — verified NO countered-watcher exists
+> to mis-fire; battlefield half → applyZoneMove; the layering {zones}<-removal<-stack is why it lives
+> there), and the enemy-side intent case (the Man-o'-War logic, wider pool).
+> ⭐⭐ RETURN ≠ COUNTER (CR 701.6a): notCounter bypasses the uncounterable exclusions — witnessed as a
+> PAIR (same board: the uncounterable spell IS in Venser's pool, NOT in Counterspell's).
+> ⛔ THE WITNESS CAUGHT A REAL DROP LIVE: atomTargetSpec rebuilds a reduced spec and silently dropped
+> notCounter (the unlisted-=-dropped trap, THIRD instance of the class) — venserSeesSpell:false on the
+> first run; the spec arm now threads it explicitly with the trap named in-comment.
+> Mutations VN-M1 (arm → parks) / VN-M2 (spec threading → the pool pair dies) / VN-M3 (intent case →
+> not routable → parks) all killed, printed back.
+> Token diet: ~40k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **MANA DRAIN (+1) — the delayed {C} payout on the CR 603.7 queue** - the shelf grind
 > Suite 1212 / 14,467 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Mana Drain
 > arbiter-spell→native-spell. Audited whole-card. Post-release batch **+80**.

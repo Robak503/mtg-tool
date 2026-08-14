@@ -16,6 +16,9 @@ summarizes the notable changes.
   the derivation, and `scripts/warm-play-hints.mjs` builds it for your saved decks.
 
 ### Fixed
+- **Venser, Shaper Savant works.** His flash entrance returns any spell or permanent to its owner's
+  hand — including a spell that "can't be countered," because returning isn't countering. The bounced
+  spell goes to its owner's hand, never the graveyard.
 - **Mana Drain pays out.** The counter half always worked through the assistant; now the countered
   spell's mana value — including a cast X — really arrives as {C} at the beginning of your next main
   phase, ready to spend that phase. A countered 0-cost spell correctly pays nothing, and a Drain that

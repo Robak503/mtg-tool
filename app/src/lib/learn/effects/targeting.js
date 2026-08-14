@@ -200,6 +200,11 @@ function atomTargetSpec(atom) {
   // path enumerator (spellEffects.spellMatchesCounterFilter, which reads them off this spec) offers exactly the
   // legal stack spells — never a wrong-MV/wrong-color target (CR 601.2c + CREED FP-forbidden). Only carry a
   // field when the atom set it (undefined keys are ignored by the matcher; this keeps the spec minimal).
+  // VENSER — the STACK∪BATTLEFIELD union ("return target spell or permanent…"). `notCounter` MUST be
+  // threaded explicitly (the generic tail below drops unknown atom fields — the same unlisted-=-dropped
+  // trap the tt==="spell" arm documents for its own filters); without it the enumeration wrongly
+  // excludes uncounterable spells from a bounce that is not a counter (CR 701.6a).
+  if (tt === "spellOrPermanent") return { kind: atom.op, targetType: tt, ...(atom.notCounter && { notCounter: true }) };
   if (tt === "spell") return {
     kind: "counter", targetType: "spell", spellFilter: atom.spellFilter || "any",
     // ⭐ CNT-TARGETS-WHAT — the only counter filter that reads the target spell's CHOSEN TARGETS rather than

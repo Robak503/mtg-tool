@@ -14,6 +14,7 @@ import { expandCastChoices } from "../targeting.js"; // STORM-COPY-TARGET: re-en
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // COPY-A-CREATURE-SPELL (Double Major, CR 707.2): the chosen creature spell's copiable card. cloneCopy is a pure leaf (imports only gameState) — cycle-safe.
 import { checkCopyTriggers } from "../../triggers.js"; // MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10): fire "cast or copy" watchers at the copy-creation site. Cycle-safe — triggers.js's import closure (targeting→spellEffects→triggers, layers, keywords, saga, triggerScheduler) never reaches atoms/stack.js, so this edge adds no cycle; checkCopyTriggers is called only at runtime.
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // MANA DRAIN: schedule the delayed {C} payout on the CR 603.7 queue (leaf module — imports only gameState, cycle-free)
+import { applyZoneMove } from "./zones.js"; // VENSER: the permanent half of the spell-or-permanent bounce. Layering {tokens,library,zones} <- removal <- stack sanctions this edge (zones' closure never reaches stack)
 
 /**
  * P3.1 counter (CR 701.6a) — counter the target spell(s) on the stack. The targeted
@@ -1508,7 +1509,29 @@ function applyCopyCreatureSpell(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "copy-creature-spell", count: 1, controller: ctx.controller, cardName: sourceCard?.name });
 }
 
+/**
+ * VENSER (2026-08-14) — "return target spell or permanent to its owner's hand": the STACK∪BATTLEFIELD
+ * union bounce. A STACK target routes through counterSpellById with counterDest:"hand" — mechanically
+ * the exact stack→hand move (CR 701.6a's zone change), labeled via:"return-to-hand"; this is NOT a
+ * counter in the rules sense, which is why enumeration (the atom's notCounter flag) does not exclude
+ * uncounterable spells, and why no countered-watcher exists to mis-fire (verified: triggers.js has no
+ * such event). A BATTLEFIELD target routes through applyZoneMove → hand (the ordinary bounce). A target
+ * in neither place fizzled (left the zone before resolution) — a clean no-op per target (CR 608.2b).
+ */
+function applyBounceSpellOrPermanent(state, atom, ctx) {
+  let next = state;
+  for (const t of ctx.targets || []) {
+    if ((next.stack || []).some((o) => o.id === t.id && o.kind === "spell")) {
+      next = counterSpellById(next, t.id, { via: "return-to-hand", counterDest: "hand" });
+    } else if (findPermanent(next, t.id)) {
+      next = applyZoneMove(next, { ...atom, op: "bounce", targetType: "permanent" }, { ...ctx, targets: [t] }, "hand");
+    }
+  }
+  return next;
+}
+
 export const stackResolvers = {
+  "bounce-spell-or-permanent": applyBounceSpellOrPermanent, // VENSER — the STACK∪BATTLEFIELD union bounce ("return target spell or permanent to its owner's hand")
   "copy-spell": applyCopySpell, // STORM (CR 702.40) — copy the storm spell N times (N = spells cast before it this turn)
   "copy-creature-spell": applyCopyCreatureSpell, // COPY-A-CREATURE-SPELL (Double Major, CR 707.10) — a token copy of a chosen own creature spell
   "copy-instant-or-sorcery": applyCopyInstantOrSorcery, // COPY AN INSTANT/SORCERY (Reverberate, CR 707.10) — clones the resolving payload; the copy is no card and goes to no zone
