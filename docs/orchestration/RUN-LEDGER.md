@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **THE TAPPED COUNT (+3) — Throne of the God-Pharaoh** - the shelf grind (Otharri carrier; Teval re-measured 76→79 after the Rumble slice)
+> Suite 1223 / 14,510 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+3 / 0 / 0** — Throne of the
+> God-Pharaoh (Otharri) + riders Black Widow, Daring Operative (the equal-to arm on the existing
+> graveyard count) and Harvest Season (the RAMP-MULTI-X tutor whose X = the tapped count — the
+> qualifier unlocked the existing where-X machinery). All audited whole-card. Post-release batch **+17**.
+> ⭐ TWO SMALL PIECES: the tappedOnly qualifier on the permanentsYouControl count (parseCountSource +
+> countForSpec's main branch, the powerAtLeast/requiresCounter pattern, read LIVE at resolution) + the
+> "equal to the number of" spelling of the existing each-opponent for-each arm (per:1, same atom).
+> ⭐⭐ Witnessed: 2 tapped + 1 untapped → each opponent loses exactly 2 · zero tapped → zero loss.
+> Mutations TH-M1 (arm → parks) / TH-M2 (the qualifier filter → untapped count too, the over-count)
+> both killed, printed back under the no-op-throw rule.
+> ⭐ ONE PARK PIN GRADUATED (omnathRamp's CREED pin named Harvest Season's tapped count as unmodeled —
+> this slice modeled it; pinned HIGH with the cross-reference). The full-suite gate caught it — the
+> graduation catch pattern holds.
+> ⏭ Banked from this drill: Undead Butler (the may-exile-it dies-reflexive — a NEW optional-payment
+> machine: exile-self-from-gy as the cost, the targeted gy return as the payoff; no existing lane).
+> Token diet: ~25k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **REVEALED DIG → GRAVEYARD (+5) — Malevolent Rumble and the self-mill staples** - the shelf grind (Teval carrier)
 > Suite 1222 / 14,507 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Malevolent Rumble
 > (Teval) + Scout the Borders, Grisly Salvage, Commune with the Gods, Satyr Wayfinder (the ETB-trigger

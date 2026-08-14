@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Throne of the God-Pharaoh works.** Each end step it counts your tapped creatures — attackers,
+  tapped mana dorks, all of them, read live — and drains each opponent for that much. Black Widow's
+  combat-damage drain and Harvest Season's tapped-count land search work off the same counting.
 - **The self-mill diggers work.** Malevolent Rumble, Grisly Salvage, Scout the Borders, Commune with
   the Gods and Satyr Wayfinder reveal their cards, offer the printed keep, and put the rest into your
   graveyard — not the bottom of your library — feeding every graveyard payoff as intended.

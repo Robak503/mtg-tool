@@ -336,6 +336,13 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   if ((m = p.match(/^(creatures?|lands?|artifacts?|enchantments?) you control$/))) {
     return withExclude({ kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]] });
   }
+  // TAPPED-QUALIFIED (2026-08-14 — Throne of the God-Pharaoh "the number of TAPPED creatures you
+  // control"): the same permanentsYouControl count with tappedOnly, honored in countForSpec's main
+  // branch off the live perm.tapped at resolution (CR 608.2h) — the same qualifier pattern as
+  // powerAtLeast / requiresCounter.
+  if ((m = p.match(/^tapped (creatures?|lands?|artifacts?|enchantments?) you control$/))) {
+    return withExclude({ kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]], tappedOnly: true });
+  }
   // ===== POWER-QUALIFIED CREATURE COUNT ===== "creatures you control with power N or {greater|more}" — the
   // count of the controller's creatures whose LAYER-AWARE power (read at resolution via creaturePower in
   // countForSpec) is ≥ N (The Boulder, Ready to Rumble: "earthbend X, where X is the number of creatures you

@@ -270,9 +270,11 @@ describe("OMNATH BUILD D — RAMP-MULTI-X (Traverse the Outlands)", () => {
   });
 
   it("CREED — an unmodeled count source stays LOW → Arbiter (never a fabricated/mis-scoped fetch count)", () => {
-    // Harvest Season — "tapped creatures you control" is not a modeled count source.
+    // Harvest Season GRADUATED 2026-08-14: "tapped creatures you control" joined the count vocabulary
+    // (the tappedOnly qualifier — witnesses in throneTappedCount.test.js). Pinned HIGH here so the
+    // two files can't silently disagree.
     expect(programConfidence(parseEffectProgram({ type: "Sorcery", mana: "{X}{G}", name: "Harvest Season",
-      oracle: "Search your library for up to X basic land cards, where X is the number of tapped creatures you control, put those cards onto the battlefield tapped, then shuffle." }))).toBe("low");
+      oracle: "Search your library for up to X basic land cards, where X is the number of tapped creatures you control, put those cards onto the battlefield tapped, then shuffle." }))).toBe("high");
     // Celebrate the Harvest — "different powers among creatures you control".
     expect(programConfidence(parseEffectProgram({ type: "Sorcery", mana: "{2}{G}", name: "Celebrate the Harvest",
       oracle: "Search your library for up to X basic land cards, where X is the number of different powers among creatures you control. Put those cards onto the battlefield tapped, then shuffle." }))).toBe("low");

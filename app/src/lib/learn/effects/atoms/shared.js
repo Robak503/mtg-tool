@@ -770,7 +770,10 @@ export function countForSpec(state, ctx, spec) {
       && (spec.powerAtLeast == null || creaturePower(perm, state) >= spec.powerAtLeast)
       // COUNTER-QUALIFIED ("…with a +1/+1 counter on it"): count only creatures currently carrying ≥1 +1/+1
       // counter, read at resolution off the live counter bag (CR 608.2h). Absent → no filter (plain count).
-      && (spec.requiresCounter == null || (perm.counters?.[spec.requiresCounter] || 0) > 0),
+      && (spec.requiresCounter == null || (perm.counters?.[spec.requiresCounter] || 0) > 0)
+      // TAPPED-QUALIFIED (2026-08-14 — Throne of the God-Pharaoh "tapped creatures you control"): the
+      // live tapped state at resolution. Absent → no filter (plain count, byte-identical).
+      && (!spec.tappedOnly || !!perm.tapped),
     ).length;
   }
   // ===== CHOSEN-TYPE (Distant Melody) ===== "permanent you control of that type" where the type was chosen

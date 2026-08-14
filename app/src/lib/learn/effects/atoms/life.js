@@ -288,6 +288,15 @@ export function lifeClauseParser(clause) {
     const src = parseCountSource(mfe[2]);
     return src ? { op: "lose-life", who: "eachOpponent", amountCount: { ...src, per: parseInt(mfe[1], 10) }, targetType: null } : null;
   }
+  // THRONE OF THE GOD-PHARAOH (2026-08-14) — the "equal to the number of" spelling of the for-each arm
+  // directly above: "each opponent loses life equal to the number of <count>". Same atom, per:1; an
+  // unmodeled count source (parseCountSource → null — which is what gated the tapped qualifier until
+  // this slice added it) stays low → Arbiter.
+  mfe = t.match(/^each opponent loses life equal to the number of (.+)$/);
+  if (mfe) {
+    const src = parseCountSource(mfe[1]);
+    return src ? { op: "lose-life", who: "eachOpponent", amountCount: { ...src, per: 1 }, targetType: null } : null;
+  }
   mfe = t.match(/^each player loses (\d+) life for each (.+)$/);
   if (mfe) {
     const src = parseCountSource(mfe[2]);
