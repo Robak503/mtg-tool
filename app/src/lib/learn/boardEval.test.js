@@ -29,6 +29,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { evaluateBoard, permanentValue } from "./boardEval.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
+import { autoPickSacrificeCandidate, autoPickDiscardCandidate } from "./effects/runProgram.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -84,5 +85,26 @@ describe("⭐⭐ LAW 6 — the first converted site: the sac-cost ranking, flag-
     const row = { sacIds: [...(a.sacCountIds || [])].sort() };
     console.log("  WITNESS bankruptEval", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
     expect(row.sacIds).toEqual(["B1", "B2"]);
+  });
+});
+
+describe("⭐⭐ LAW 6 — the runProgram auto-pick MIRRORS convert with the same flag (slice 2)", () => {
+  it("⭐⭐ the EDICT auto-pick: flag off gives up the Elves; flag on gives up a bear", () => {
+    const s = board();
+    const pc = { controller: "user", candidates: [{ id: "ELF" }, { id: "B1" }] };
+    const legacy = autoPickSacrificeCandidate(s, pc);
+    const evald = autoPickSacrificeCandidate({ ...s, usePolicyEval: true }, pc);
+    const row = { legacy, evald };
+    console.log("  WITNESS edictAutoPick", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row).toEqual({ legacy: "ELF", evald: "B1" }); // the mirror converts; the flag-off side is the proven old pick
+  });
+
+  it("⭐⭐ the DISCARD auto-pick: flag off bins the Elves card; flag on bins the vanilla", () => {
+    const g = createGameState({ userDeck: [], aiDeck: [] });
+    const hand = [{ ...ELVES, id: "h-elf" }, { ...BEAR("HB"), id: "h-bear" }];
+    const s = { ...g, players: { ...g.players, user: { ...g.players.user, hand } } };
+    const pc = { controller: "user", candidates: [{ id: "h-elf" }, { id: "h-bear" }] };
+    expect(autoPickDiscardCandidate(s, pc)).toBe("h-elf");                              // legacy: lowest MV
+    expect(autoPickDiscardCandidate({ ...s, usePolicyEval: true }, pc)).toBe("h-bear"); // evaluator: keep the ramp
   });
 });

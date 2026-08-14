@@ -106,6 +106,13 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
+- 2026-08-14 — **PHASE 1 SLICE 2 SHIPPED**: the runProgram auto-pick MIRRORS converted
+  (autoPickSacrificeCandidate → evalLeastValuableCmp; autoPickDiscardCandidate → the new
+  cardValue/evalLeastValuableCardCmp twin), same flag, so the AC-1 site and the edict/discard chains
+  stay policy-mirrors on BOTH sides of the flag. Witnessed (edict: legacy gives up the Elves, the
+  evaluator a bear; discard: legacy bins the Elves card, the evaluator the vanilla) with flag-off
+  controls; both flag-branch mutations killed. NEXT: the target-choice sites (chooseTriggerTargets).
+
 - 2026-08-14 — **PHASE 1 SLICE 1 SHIPPED**: `boardEval.js` (permanentValue — layer-aware P/T,
   cardPlayHints role bonuses, commander weight, token discount; evaluateBoard; evalLeastValuableCmp)
   + the FIRST converted site (the AC-1 sacrifice-victim ranking in legalChoices, behind

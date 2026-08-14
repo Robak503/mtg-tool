@@ -95,3 +95,25 @@ export function evalLeastValuableCmp(state) {
     cmpStr(String(a.card?.name || ""), String(b.card?.name || "")) ||
     cmpStr(String(a.id || ""), String(b.id || ""));
 }
+
+/** A HAND card's valuation (the discard picker's read) — no battlefield state, so MV + role + stats. */
+export function cardValue(card) {
+  if (!card) return 0;
+  let v = Math.max(0, tutorManaValue(card));
+  if (/\bCreature\b/.test(String(card.type || card.type_line || ""))) {
+    v += 0.3 * ((Number(card.power) || 0) + (Number(card.toughness) || 0));
+  }
+  v += ROLE_BONUS[deriveCardRole(card).role] || 0;
+  return v;
+}
+
+/** The card twin of evalLeastValuableCmp — same legacy fallthrough, over bare cards (hands). */
+export function evalLeastValuableCardCmp() {
+  const cmpStr = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  return (a, b) =>
+    cardValue(a) - cardValue(b) ||
+    tutorManaValue(a) - tutorManaValue(b) ||
+    (Number(a.power) || 0) - (Number(b.power) || 0) ||
+    cmpStr(String(a.name || ""), String(b.name || "")) ||
+    cmpStr(String(a.id || ""), String(b.id || ""));
+}

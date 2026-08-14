@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **QUARTET PHASE 1, SLICE 2 — the runProgram auto-pick mirrors convert** - the SUBSYSTEM QUARTET
+> Suite 1240 / 14,592 green (+1 skipped) + lint 0 BY EXIT CODE. No flip-diff (ranking-only, flag-off
+> byte-identical — the suite pins it). Card batch unchanged at **+74**.
+> ⭐ autoPickSacrificeCandidate → evalLeastValuableCmp and autoPickDiscardCandidate → the NEW
+> cardValue/evalLeastValuableCardCmp twin (hand cards have no battlefield state — MV + role + stats),
+> both behind the same `state.usePolicyEval`, so the AC-1 site and the edict/discard chains remain
+> policy-MIRRORS on both sides of the flag (the mirror-drift comment's invariant preserved).
+> ⭐⭐ Witnessed with flag-off controls: the edict pick (legacy ELF → evaluator B1) · the discard pick
+> (legacy bins the Elves card → evaluator bins the vanilla). Mutations (each flag branch disabled →
+> its conversion dies while the OTHER survives — proving the two branches are independent) both
+> killed, printed back, per-process.
+> Token diet: ~8k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **QUARTET PHASE 1, SLICE 1 — boardEval + the first converted choice site** - the SUBSYSTEM QUARTET (Colton-ordered)
 > Suite 1240 / 14,590 green (+1 skipped) + lint 0 BY EXIT CODE. NO flip-diff — zero parser/classifier
 > surface touched (a ranking-only policy layer, default-off; the suite pins byte-identical flag-off
