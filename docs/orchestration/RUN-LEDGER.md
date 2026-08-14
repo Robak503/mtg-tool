@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **WAVEBREAK HIPPOCAMP (+5) — the first-spell-on-their-turn watchers** - the shelf grind (Test Rashmi 82→83)
+> Suite 1209 / 14,450 green + lint 0 BY EXIT CODE. Flip-diff **+5 / 0 / 0** — Wavebreak Hippocamp (Test
+> Rashmi) + Dreamstalker Manticore, Mischievous Chimera, Arena Trickster, Nymris Oona's Trickster from
+> the corpus. All audited whole-card. Post-release batch **+77**.
+> ⭐ TWO SMALL PIECES + A THREADING LESSON RELEARNED: (1) the blanket qualifier-refusal (any "during" →
+> null) gained an exact-phrase exemption so the castNth arm could see the rider; (2) the fire handler
+> gained the turn gate (active player must be an opponent of the watcher's controller). Then the
+> descriptor-threading allowlist DROPPED the flag exactly as its own warnings predict — the watcher
+> fired on its controller's OWN turn until the witness caught it (the over-fire direction, live for one
+> probe run). The flag is listed now, with the warning it earned.
+> Mutations WB-M1 (exemption) / WB-M2 (turn gate → own-turn silence dies) both killed, printed back.
+> Token diet: ~40k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **VEDALKEN AETHERMAGE (+1) — the subtype bounce** - the shelf grind (Test Rashmi 81→82)
 > Suite 1208 / 14,447 green + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Vedalken Aethermage.
 > Audited whole-card (Flash + the ETB + Wizardcycling all parse). Post-release batch **+72**.

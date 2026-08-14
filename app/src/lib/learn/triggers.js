@@ -1121,7 +1121,11 @@ function classifyCondition(condRaw, cardName, cardType) {
     }
   }
   const castWithExempt = /^(?:you|an opponent|a player|each player) casts? an? spell with (?:\{x\} in its mana cost|mana value \d+ or (?:greater|more|less|fewer))$/.test(c);
-  if (!castWithExempt && /\b(?:with|while|during|named)\b/.test(c)) return null;
+  // The DURING-EACH-OPPONENT'S-TURN exemption (2026-08-14 — Wavebreak Hippocamp): the blanket qualifier
+  // refusal below ate this rider before the castNth arm could see it. Exempted by the EXACT phrase only —
+  // every other "during" qualifier stays refused wholesale (safe FN, as before).
+  const castDuringExempt = /spell during each opponent's turn$/.test(c);
+  if (!castWithExempt && !castDuringExempt && /\b(?:with|while|during|named)\b/.test(c)) return null;
 
   // The subject is mapped ONLY to a scope scopeMatches can ENFORCE (bare, or the controller
   // restriction); any other restriction (keyword/type/power/named/token) → null → UNDETECTED, so
@@ -2342,11 +2346,16 @@ function classifyCondition(condRaw, cardName, cardType) {
   // PAYOFF still has to parse HIGH to fire (Rashmi's reveal/free-cast does not → stays non-native; the
   // detection is correct but the whole card routes to the Arbiter, a SAFE false-negative). checkCastTriggers
   // reads the CASTER's count. (The bare "you … second" form stays its own castSecond event for stable identity.)
-  const nthM = c.match(/^(you|an opponent|a player) casts? (?:your|their) (first|second|third) spell (?:each|this) turn$/);
+  const nthM = c.match(/^(you|an opponent|a player) casts? (?:your|their) (first|second|third) spell (?:(?:each|this) turn|(during each opponent's turn))$/);
   if (nthM) {
     const nth = nthM[2] === "first" ? 1 : nthM[2] === "second" ? 2 : 3;
     const whose = nthM[1] === "you" ? "you" : nthM[1] === "an opponent" ? "opponent" : "any";
-    return { event: "castNth", scope: "castWatcher", whose, nth };
+    // DURING-EACH-OPPONENT'S-TURN rider (2026-08-14 — Wavebreak Hippocamp "Whenever you cast your first
+    // spell during each opponent's turn, draw a card"): the same per-caster count (spellsCastThisTurn
+    // zeroes at untap, so "first" is per TURN as printed), gated at fire time to turns where the ACTIVE
+    // player is an opponent of the watcher's controller. The fire handler calls detectTriggers directly,
+    // so the flag needs no descriptor-threading entry.
+    return { event: "castNth", scope: "castWatcher", whose, nth, ...(nthM[3] ? { duringOpponentsTurn: true } : {}) };
   }
   // X-SPELL cast trigger — "cast a spell with {X} in its mana cost" (CR 107.3 / 601.2b). The {X} and "mana
   // cost" land AFTER "spell", so this never matches the generic "…spell$" matcher; it's its own anchored
@@ -4500,6 +4509,7 @@ export function detectTriggers(card) {
         eachPlayersUpkeep: cls.eachPlayersUpkeep, // EACH-PLAYER'S UPKEEP (BLITZ TR-2): gates the "that player" → "the upkeep player" sentinel rewrite; whose:"any" carries the fire-on-every-upkeep semantics
         eachPlayersDrawStep: cls.eachPlayersDrawStep, // EACH-PLAYER'S DRAW STEP (CR 504.1): the structural twin, sharing that sentinel and its atoms
         enchantedControllersUpkeep: cls.enchantedControllersUpkeep, // ENCHANTED-CONTROLLER'S UPKEEP (2026-08-12): host-controller firing gate + the same sentinel. ⚠️ Unlisted here = dropped = the aura would fire on EVERY upkeep — an over-fire, not a miss.
+        duringOpponentsTurn: cls.duringOpponentsTurn, // CAST-NTH's turn-scope rider (2026-08-14, Wavebreak Hippocamp). ⚠️ Unlisted here = dropped = the watcher fires on its controller's OWN turn too — an over-fire (and it WAS dropped for one probe run; this list's warnings mean it).
         gyCardType: cls.gyCardType,           // GY-EVENT (SHELF S7): front-face type gate on the moved card ("Creature" | null = any)
         gyOwnerScope: cls.gyOwnerScope,       // GY-EVENT: whose graveyard — "you" | "opponent" | "any"
         excludeFromBattlefield: cls.excludeFromBattlefield, // GY-EVENT gyEnter only: skip from-battlefield entries (the dies clause covers those)
@@ -7916,6 +7926,9 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
         if (castCount !== d.nth) continue;
         if (d.whose === "you" && casterId !== watcher.controller) continue;
         if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(casterId)) continue;
+        // DURING-EACH-OPPONENT'S-TURN (2026-08-14, Wavebreak Hippocamp): fire only when the ACTIVE
+        // player is an opponent of the watcher's controller — the printed turn scope, never wider.
+        if (d.duringOpponentsTurn && !opponentsOf(state, watcher.controller).includes(state.activePlayer)) continue;
         fired.push(makePendingTrigger(d, watcher, null, context));
       }
     }
