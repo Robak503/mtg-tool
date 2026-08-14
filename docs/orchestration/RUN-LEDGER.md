@@ -3,6 +3,16 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **OUROBOROID (+1) — the mass sourcePower counters** - the shelf grind (Shalai carrier)
+> Suite 1221 / 14,504 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Ouroboroid
+> body-only→native-trigger. Audited whole-card (the card IS its one trigger). Post-release batch **+9**.
+> ⭐ ONE ARM marrying two existing pieces: countFor sourcePower (the Halana kind, layer-aware at
+> resolution) × the scope:"youControl" mass path — the amount resolves ONCE off the source (a single
+> printed X) and applies uniformly; the source is among "each creature you control", so it SNOWBALLS
+> (witnessed: 4-power → 4 on itself + 4 on the team, 0 on the enemy; next combat X would be 8).
+> Mutations OU-M1 (arm → parks) / OU-M2 (countFor → fixed 1 → the snowball dies) both killed,
+> printed back under the no-op-throw rule.
+> Token diet: ~15k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **KISHLA SKIMMER (+1) — the during-your-turn gy-leave watcher** - the shelf grind (Teval carrier)
 > Suite 1220 / 14,502 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Kishla Skimmer
 > body-only→native-trigger. Audited whole-card (Flying + the one trigger). Post-release batch **+8**.

@@ -647,6 +647,13 @@ export function addCounterClauseParser(clause) {
   // two-sentence fold — [add-counter, pump] sharing the one chosen target.
   m = t.match(/^put x ([+-]1\/[+-]1) counters? on another target creature you control, where x is this creature's power$/);
   if (m) return { op: "add-counter", counterType: m[1], countFor: { kind: "sourcePower" }, targetType: "creatureYouControl", excludeSource: true };
+  // OUROBOROID (2026-08-14) — the MASS twin of the Halana arm above: "put X +1/+1 counters on EACH
+  // creature you control, where X is this creature's power". Same countFor sourcePower (ctx.sourceId's
+  // LAYER-AWARE power at resolution — the amount resolves ONCE off the source, a single printed X, and
+  // applies uniformly through the existing scope:"youControl" mass path). The source itself is among
+  // "each creature you control", so it snowballs — the printed behavior.
+  m = t.match(/^put x ([+-]1\/[+-]1) counters? on each creature you control, where x is this creature's power$/);
+  if (m) return { op: "add-counter", counterType: m[1], countFor: { kind: "sourcePower" }, scope: "youControl" };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on this creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), target: "self" };
   // MONSTROSITY (CR 701.32) — the "Monstrosity N" activated keyword action: if the source ISN'T monstrous, put N

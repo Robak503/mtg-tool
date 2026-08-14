@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Ouroboroid works.** Each combat on your turn it reads its own current power — pumps and counters
+  included — and puts that many +1/+1 counters on every creature you control, itself included, so it
+  snowballs exactly as printed.
 - **Kishla Skimmer works.** A card leaving your graveyard on your turn draws you a card — once each
   turn, never on an opponent's turn, and never off someone else's graveyard.
 - **Stubborn Denial works — both halves.** With a 4-power creature on your board it counters outright;
