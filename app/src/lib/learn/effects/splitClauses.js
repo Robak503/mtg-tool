@@ -60,6 +60,18 @@ export function splitClauses(oracle) {
     // against its matcher and the card still classified body-only, which is the tell that the failure was a
     // SIBLING clause rather than the one being worked on.
     .replace(/\s*If you search(?:ed)? your library this way,?\s+shuffle\.?/gi, "")
+    // MANA-DRAIN FOLD (2026-08-14) — "Counter target spell. At the beginning of your next main phase,
+    // add an amount of {C} equal to that spell's mana value." The sentence split severs the delayed-mana
+    // rider from its "that spell" antecedent — the rider alone is a dead referent (→ low) and the bare
+    // counter alone would be a CONFIDENT WRONG PARTIAL (a Mana Drain that never pays out — the
+    // forbidden direction: it under-credits the card the caster chose for the payout). Fold the period
+    // to a comma so the pair stays ONE clause; the stack.js arm matches the folded form exactly and
+    // schedules the payout at counter resolution with the MV rewritten concrete. Anchored to the exact
+    // printed pair (Mana Drain is its only carrier), so any variant splits normally, byte-identical.
+    .replace(
+      /(counter target spell)\.\s+(at the beginning of your next main phase, add an amount of \{c\} equal to that spell's mana value)/gi,
+      "$1, $2",
+    )
     // ===== WALT-ANIMATE ===== strip the vacuous "it's/that's still a land" reminder. A land that
     // "becomes a creature" is additive BY DEFAULT (it stays a land — that's why it still taps; 0
     // non-additive land-animates in the corpus), so this clause never changes resolution. Stripping it

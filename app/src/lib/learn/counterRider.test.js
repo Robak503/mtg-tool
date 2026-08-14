@@ -149,9 +149,12 @@ describe("CREED — genuinely-unmodeled counter-riders STAY Arbiter (anti-FP)", 
     expect(isHigh(ORACLE.arcaneDenial)).toBe(false);
     expect(classifyCard(C(ORACLE.arcaneDenial, "Arcane Denial"))).toBe("arbiter-spell");
   });
-  it("Mana Drain (DELAYED mana at next main phase) stays arbiter-spell", () => {
-    expect(isHigh(ORACLE.manaDrain)).toBe(false);
-    expect(classifyCard(C(ORACLE.manaDrain, "Mana Drain"))).toBe("arbiter-spell");
+  it("Mana Drain GRADUATED (2026-08-14): the delayed mana is modeled on the CR 603.7 queue", () => {
+    // Was a park pin ("delayed mana unmodeled → arbiter-spell"). The machine exists now — the
+    // splitClauses MANA-DRAIN FOLD keeps the pair one clause, applyCounter locks the MV and schedules
+    // the concrete "add {c}…" payout for the caster's next main. Full witnesses: manaDrainDelayed.test.js.
+    expect(isHigh(ORACLE.manaDrain)).toBe(true);
+    expect(classifyCard(C(ORACLE.manaDrain, "Mana Drain"))).toBe("native-spell");
   });
   it("Render Silent (continuous can't-cast restriction) stays arbiter-spell", () => {
     expect(isHigh(ORACLE.renderSilent)).toBe(false);

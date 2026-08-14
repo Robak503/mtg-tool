@@ -16,6 +16,10 @@ summarizes the notable changes.
   the derivation, and `scripts/warm-play-hints.mjs` builds it for your saved decks.
 
 ### Fixed
+- **Mana Drain pays out.** The counter half always worked through the assistant; now the countered
+  spell's mana value — including a cast X — really arrives as {C} at the beginning of your next main
+  phase, ready to spend that phase. A countered 0-cost spell correctly pays nothing, and a Drain that
+  fizzles (its target left the stack) schedules no mana.
 - **Decking out is real, and Laboratory Maniac works.** Drawing from an empty library now loses the
   game as the rules say — previously the draw silently fizzled and nobody ever decked out. With
   Laboratory Maniac on your battlefield that same draw wins you the game instead, unless something says

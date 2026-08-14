@@ -13,6 +13,7 @@ import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared 
 import { expandCastChoices } from "../targeting.js"; // STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // COPY-A-CREATURE-SPELL (Double Major, CR 707.2): the chosen creature spell's copiable card. cloneCopy is a pure leaf (imports only gameState) — cycle-safe.
 import { checkCopyTriggers } from "../../triggers.js"; // MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10): fire "cast or copy" watchers at the copy-creation site. Cycle-safe — triggers.js's import closure (targeting→spellEffects→triggers, layers, keywords, saga, triggerScheduler) never reaches atoms/stack.js, so this edge adds no cycle; checkCopyTriggers is called only at runtime.
+import { applyScheduleDelayed } from "./delayedTrigger.js"; // MANA DRAIN: schedule the delayed {C} payout on the CR 603.7 queue (leaf module — imports only gameState, cycle-free)
 
 /**
  * P3.1 counter (CR 701.6a) — counter the target spell(s) on the stack. The targeted
@@ -196,9 +197,20 @@ function applyCounter(state, atom, ctx) {
     // Fracture's draw go to whoever's spell was countered, not the caster). The rider only fires when the counter
     // actually happens (a fizzle above skips it).
     const riderController = targetObj.controller;
+    // MANA DRAIN — the countered spell's MV, read BEFORE counterSpellById moves it off the stack.
+    // CR 202.3b: on the stack an {X} cost counts the chosen X, which rides payload.params.xValue
+    // (absent on non-X casts → +0); card.cmc counts X as 0, so the sum is the stack MV.
+    const counteredMv = Math.floor(card?.cmc ?? card?.mana_value ?? 0) + Math.max(0, targetObj.payload?.params?.xValue || 0);
     next = counterSpellById(next, t.id, { exileInstead: !!atom.exileInstead, counterDest: atom.counterDest || null });
     if (atom.controllerRider && next.players?.[riderController]) {
       next = applyControllerRider(next, atom.controllerRider, { controller: riderController, power: 0 }, ctx);
+    }
+    // MANA DRAIN (CR 603.7d) — schedule the {C} payout for the CASTER's next main phase, the clause
+    // rewritten CONCRETE with the MV locked here (the sentinel discipline — the fired trigger parses
+    // on the ordinary ritual-mana arm, no dead "that spell" referent). MV 0 schedules nothing — an
+    // empty add is not a firing. Runs only after a REAL counter (a fizzle above `continue`d away).
+    if (atom.delayedManaFromMv && counteredMv > 0 && next.players?.[ctx.controller]) {
+      next = applyScheduleDelayed(next, { delayedClause: "add " + "{c}".repeat(counteredMv), fireStep: "main", fireScope: "yours" }, ctx);
     }
   }
   return next;
@@ -443,6 +455,14 @@ export function counterClauseParser(clause) {
     }
   }
   if (/^counter target spell$/.test(t)) return { op: "counter", spellFilter: "any", targetType: "spell" };
+  // MANA DRAIN (2026-08-14) — the splitClauses MANA-DRAIN FOLD delivers the two printed sentences as
+  // this ONE folded clause. The rider is resolved at COUNTER RESOLUTION (applyCounter): the countered
+  // spell's MV is locked there and the delayed payout is scheduled on the CR 603.7 queue with the
+  // clause rewritten CONCRETE ("add {c}…"), so the fired trigger parses on the ordinary ritual-mana
+  // arm with no dead "that spell" referent.
+  if (/^counter target spell, at the beginning of your next main phase, add an amount of \{c\} equal to that spell's mana value$/.test(t)) {
+    return { op: "counter", spellFilter: "any", targetType: "spell", delayedManaFromMv: true };
+  }
   if (/^counter target noncreature spell$/.test(t)) return { op: "counter", spellFilter: "noncreature", targetType: "spell" };
   if (/^counter target creature spell$/.test(t)) return { op: "counter", spellFilter: "creature", targetType: "spell" };
   if (/^counter target enchantment, instant, or sorcery spell$/.test(t)) return { op: "counter", spellFilter: "enchantmentInstantSorcery", targetType: "spell" };

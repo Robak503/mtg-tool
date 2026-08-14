@@ -7,13 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-08-14 — **batch +79 · deck-out is REAL now (CR 104.3c)** — suite **1211 / 14,461** green
+## ☀️ 2026-08-14 — **batch +80 · deck-out real (CR 104.3c) · Mana Drain pays out (CR 603.7)** — suite **1212 / 14,467** green
 
 > ### ⏭ RUNNABLE NOW — the banked queue, exactly where it stands
-> · **Mana Drain** (counter + delayed {C} at your next main — the manaPool + step-advance sites are
->   scouted: stack.js applyCounter has the rider pattern, gameEngine 677/682 are the main-phase gates).
 > · **The discard-from-hand activation lane** (Trumpeting Carnosaur — discover already exists as an
->   atom — and Mjölnir). · **Venser** (spell-or-permanent bounce union).
+>   atom — and Mjölnir). · **Venser** (spell-or-permanent bounce union). · Then fresh drills of the
+>   below-bar list (next targets: Dragons 80, Believe it! 79, Hulk Smash 79).
 > · **Fresh per-deck drills** — the realism gate, latest full read: Test Rashmi 84, Jurassic Ramp 84,
 >   Dragons 80, Believe it! 79, Hulk Smash 79, Wolverine 78, Teval 76, Kinnan 76, Kellan 74, Otharri 73,
 >   Captain America 73, Halfshell 68, Shalai 66 — all to ≥90 per Colton's standing order (non-stop, he

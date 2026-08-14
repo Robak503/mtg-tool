@@ -93,8 +93,10 @@ describe("coverage — SOFT-COUNTER-RIDER staples flip native; the unmodeled one
     expect(classifyCard(C("Instant", "Exile target creature or planeswalker. Its controller creates a 4/4 white Angel creature token with flying.", "Angelic Ascension"))).toBe("native-spell");
     expect(classifyCard(C("Sorcery", "Exile target nonland permanent. Its controller creates a Treasure token.", "Buy Your Silence"))).toBe("native-spell");
   });
-  it("CREED: delayed / conditional counter-riders stay Arbiter-routed", () => {
+  it("CREED: delayed / conditional counter-riders stay Arbiter-routed (Mana Drain GRADUATED 2026-08-14)", () => {
     expect(classifyCard(C("Instant", "Counter target spell. Its controller may draw up to two cards at the beginning of the next turn's upkeep. You draw a card at the beginning of the next turn's upkeep.", "Arcane Denial"))).toBe("arbiter-spell");
-    expect(classifyCard(C("Instant", "Counter target spell. At the beginning of your next main phase, add an amount of {C} equal to that spell's mana value.", "Mana Drain"))).toBe("arbiter-spell");
+    // Mana Drain left this pin 2026-08-14: its delayed payout rides the CR 603.7 queue now
+    // (the MANA-DRAIN FOLD + delayedManaFromMv; witnesses in manaDrainDelayed.test.js).
+    expect(classifyCard(C("Instant", "Counter target spell. At the beginning of your next main phase, add an amount of {C} equal to that spell's mana value.", "Mana Drain"))).toBe("native-spell");
   });
 });

@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **MANA DRAIN (+1) — the delayed {C} payout on the CR 603.7 queue** - the shelf grind
+> Suite 1212 / 14,467 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Mana Drain
+> arbiter-spell→native-spell. Audited whole-card. Post-release batch **+80**.
+> ⭐ THREE EXISTING MACHINES, ONE SEAM: the splitClauses fold (two sentences stay ONE clause — the bare
+> counter alone is the FORBIDDEN confident-wrong-partial: a Drain that never pays), the counter arm's
+> delayedManaFromMv flag, and applyCounter locking the MV at resolution and scheduling the payout on
+> the EXISTING CR 603.7 delayed-trigger queue with the clause rewritten CONCRETE ("add {c}…" — the
+> sentinel discipline; the fired trigger parses on the ordinary ritual-mana arm, no dead "that spell"
+> referent). fireStep "main" + fireScope "yours" + the step-entry drain = "your next main phase"
+> correct by construction (CR 603.7b/d). CR 202.3b witnessed: an X=5 {X}{R} spell pays SIX.
+> ⛔ MV-0 schedules nothing; a fizzled counter schedules nothing — both witnessed.
+> Mutations MD-M1 (fold → parks) / MD-M2 (scheduling block → counters but never pays) both killed,
+> printed back — M1 needed the line-index method AGAIN (the heredoc backslash trap's third bite;
+> the String.fromCharCode/backslash-free-anchor rule is LAW, not preference).
+> ⭐ TWO PARK PINS GRADUATED HONESTLY (counterRider + softCounterRider pinned Mana Drain as
+> correctly-Arbiter when the machine didn't exist — the full-suite gate caught both, exactly its job;
+> the TEST_EXIT discipline matters: the outer task exit was 0, only the captured code was honest).
+> Token diet: ~35k output tokens this slice.
 > ## SLICE DONE - 2026-08-14 - **LABORATORY MANIAC (+1) — and DECK-OUT BECAME REAL** - the shelf grind (×2 decks carry him)
 > Suite 1211 / 14,461 green (+1 skipped) + lint 0 BY EXIT CODE. Flip-diff **+1 / 0 / 0** — Laboratory
 > Maniac body-only→native-static. Audited whole-card (the card IS its one line). Post-release batch **+79**.
