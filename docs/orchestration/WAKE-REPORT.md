@@ -13,11 +13,13 @@
 > The next three decks' full residue maps, probed blockers, and slice queues live in
 > **docs/orchestration/SHELF-TAIL-PLAN.md** — a booting session reads THAT file, not a vein block
 > here. The order (Colton's steer, banked in the vault): **① Wolverine 80 → ② Kellan 74 →
-> ③ Otharri 74 → ④ Cap America 73 → ⑤ Halfshell 67 → ⑥ Shalai 67 → ⑦ Bumble Flower Combo 63 (NEW
-> 08-15: Colton's combo addition, imported + measured; list banked in the vault registry) → cEDH
-> LAST: ⑧ Believe it! 79 → ⑨ Kinnan 77.** ✅ Forgotten Ancient SHIPPED (the counter-MOVE, Wolverine
-> 79→80, batch +52) — next per the plan: The Ozolith (its combat-start move-all rides the new move
-> machinery). Ceiling calls flagged per deck as residue thins.
+> ③ Otharri 74 → ④ Cap America 73 → ⑤ Halfshell 67 → ⑥ Shalai 67 → ⑦ the archetype-gap pair (NEW
+> 08-15, both pasted by Colton + imported to the test profile, lists banked in the vault registry):
+> Brago Blink 75 (flicker) + Bumble Flower Combo 63 (combo/alt-win) → cEDH LAST: ⑧ Believe it! 79 →
+> ⑨ Kinnan 77.** Veyran = the draw-go seat per Colton (that gap was never open). ✅ Forgotten
+> Ancient SHIPPED (the counter-MOVE, Wolverine 79→80, batch +52); ✅ The Ozolith flip VERIFIED
+> +1/0/0 (both arms built — witness suite + gate in flight). Ceiling calls flagged per deck as
+> residue thins.
 > Today's twenty (all CI green): the Swat retarget · Sarkhan-FB · Rivaz · Rith (Dragons→90) ·
 > Atzocan · Heirloom (Jurassic→90) · Tortured Existence (+17) · Teval herself · Molt Tender ·
 > Undead Butler (pause kind) · Tormod (+12) · Bloodghast · Ripples (pause kind #2 + life-rider) ·

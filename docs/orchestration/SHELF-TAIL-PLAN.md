@@ -7,9 +7,23 @@
 ## The order (Colton's steer, 2026-08-15 — do not reorder)
 
 **① Wolverine 79 → ② Kellan 74 → ③ Otharri 74**, then Cap America 73 → Halfshell 67 → Shalai 67 →
-**Bumble Flower Combo 63** (NEW 08-15 — Colton's combo addition, see below), and the cEDH pair
+the two NEW archetype-gap decks (08-15, Colton's program to fill missing deck types: **Brago Blink 75**
+— flicker/draw-go, **Bumble Flower Combo 63** — combo/alt-win; see below), and the cEDH pair
 (**Believe it! 79, Kinnan 77) LAST** — "hardest to push past 90… focus those last."
 Call the ceiling explicitly per deck when the residue is genuinely unbuildable-class.
+
+### NEW ARRIVAL: Brago Blink — 75, needs 15 (the flicker vein)
+Colton's blink gap-filler (imported to the test profile 08-15; list banked in the vault registry).
+⭐ THE FLICKER MACHINERY is the point: **Brago himself** (combat-damage-to-player → mass-flicker any
+number of your own nonland permanents — exile-and-return re-fires every ETB), the **flicker family**
+(Soulherder + Teleportation Circle + Thassa, Deep-Dwelling end-step/activated single-flickers,
+Deadeye Navigator's soulbond flicker, Ephemerate/Cloudshift/Essence Flux instants — Essence Flux is
+the one unmodeled SPELL), and the ETB-reuse cluster it feeds (11 ETBs: Detention Sphere, Skyclave
+Apparition, Recruiter of the Guard, Preston…). One exile-and-return-now atom + the "return it at the
+next end step" delayed form likely unlocks 8-10 cards across THIS deck alone. Dies/LTB: Reality Acid
+(sac-on-leave), Watcher for Tomorrow (hideaway-ish), Anticausal Vestige. Strionic Resonator
+(trigger-copy — heavy, park-candidate), Elesh Norn MoM (ETB-doubling replacement — heavy,
+ceiling-candidate).
 
 ### NEW ARRIVAL: Bumble Flower Combo — 63, needs 27 (the widest gap; slotted pre-cEDH)
 Colton's pasted combo deck (imported to the Omnath test profile 08-15; the source list is banked in the
