@@ -34,9 +34,18 @@ Counter-themed (X-Men). 21 residue; the probed queue:
    `moveFromId` (settle removes the spent total from the source) + `anyNumber` (zero legal = the "you
    may"; the atom is in the α2 UN-optional family). The AI really moves (whole pile → strongest own
    other; [] on enemy-only). The move machinery is now REUSABLE — #2's combat-start move-all rides it.
-2. **The Ozolith** — leaves-with-counters accumulator (the dies/leave look-back ALREADY snapshots
-   `counters` — see gameState markDead) + the combat-start move-all (an intervening-if "has counters
-   on it" + the move machinery from #1).
+2. **The Ozolith** — probed deeper 08-15 (post-Ancient): trigger 1 ("Whenever a creature you control
+   leaves the battlefield, if it had counters on it, put those counters on The Ozolith") does NOT
+   detect at all — the LTB-watcher grammar exists (triggers.js ~1643, Nadier's/Ninth Bridge form,
+   fired by checkLeavesTriggers off pendingLeaveEvents for EVERY exit kind — bounce/exile included,
+   so no dies-only partial), but the mid-clause intervening-if + the "put THOSE counters" look-back
+   referent (every kind, from the leave event's counter snapshot; verify pendingLeaveEvents carries
+   `counters` like markDead does at gameState 1999) need a new detect arm + a leave-referent
+   counter-copy atom + ctx threading. Trigger 2 ("you may move ALL counters from The Ozolith onto
+   target creature", combat-start, intervening-if "has counters on it") is NOT the Ancient's pause —
+   all-or-nothing onto ONE target: a targeted optional atom moving EVERY counter kind (the α2
+   optional stamp is right here — a real yes/no), reusing the settle-side remove discipline (literal
+   counts off the source, doublers only on the landing side). Two arms, ONE slice — the card needs both.
 3. **Kodama of the West Tree** — 0 triggers detect. Needs the MODIFIED predicate (equipped OR
    enchanted-by-own-aura OR any counter — all computable board reads) for: the combat-damage watcher
    (modified creature you control → fetch a basic land ONTO the battlefield — the tutor-to-bf lane
