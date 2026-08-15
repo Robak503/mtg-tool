@@ -7,6 +7,27 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ☀️ 2026-08-15 — **🐉 DRAGONS AT 90 (the 12th deck) · QUARTET P3+P4 COMPLETE · batch +98 → v0.159.0 tags on CI green** — suite **1249 / 14,658** green
+
+> ### ⏭ RUNNABLE NOW
+> · **Tag v0.159.0 once afec8481's CI lands green** (`git tag v0.159.0 -a -m "Release v0.159.0" && git push origin v0.159.0`),
+>   then verify the release workflow (~20-30 min). The +98 batch: Deflecting Swat's RETARGET machine
+>   (CR 115.7) · Sarkhan Fireblood native-planeswalker + the fixed-amount restricted add · Rivaz's
+>   graveyard-recursion machine (castFromZoneOnly + the dies-exile grant) · Rith's excess-damage
+>   ledger + granted ward {N} (Dragons 89→90) · Atzocan's subtype GY return (+10) · Quartet Phase 3
+>   (auditor always-on under tests + seeded replay) · Phase 4 (the restricted sub-pool, three
+>   consumer classes) · TWO metric holes closed honestly (measure-coverage dropped `loyalty`;
+>   manaCardResidueModeled never checked activated residue — 87 over-claims purged, runtime unchanged).
+> · **Jurassic 89 — ONE flip re-closes it** (the honest re-open): Herd Heirloom (the until-EOT
+>   trample + quoted combat-draw grant — its restricted mana line is modeled now) probed closest;
+>   then Wayward Swordtooth (city's blessing), Descendants' Path (upkeep reveal-cast).
+> · **The honest shelf** (post-purge): 12 at bar (Slivers 100 · Vihaan 96 · Omnath 93 · Zaxara 93 ·
+>   Mothman 91 · Earth Bent 91 · cdh 91 · Rashmi 90 · Hulk 90 · Veyran 90 · **Dragons 90** · Jurassic
+>   89→next). Below: Teval 79 · Believe it! 79 · Wolverine 78 · Kinnan 77 · Otharri 74 · Kellan 74 ·
+>   Cap 73 · Halfshell 67 · Shalai 67.
+> · Quartet tails (the plan file ledger is current): Phase 1 flip awaits a policy that beats the
+>   tightened gate (the --diagnose loop exists); Phase 2 tail = evalScores on pending-window rows.
+
 ## ☀️ 2026-08-14 — **🚀 v0.158.0 CUT (the +94 batch) · 🏁 Rashmi at bar · batch resets +0** — suite **1216 / 14,485** green
 
 > ### ⏭ RUNNABLE NOW — post-release
