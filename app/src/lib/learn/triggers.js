@@ -1656,6 +1656,15 @@ function classifyCondition(condRaw, cardName, cardType) {
     // self-or-another / leaves-without-dying / intervening-if variant leaves residue → stays UNDETECTED → Arbiter.
     if (ltbSubj === "another creature you control")
       return { event: "permanentLeaves", scope: "otherCreatureYouControlLeaves", whose: "any" };
+    // "a creature you control leaves the battlefield" (The Ozolith, SHELF-TAIL W2) — the BARE creature
+    // any-exit form: same event/exit semantics as the "another" arm directly above, WITHOUT the self
+    // exclusion (CR-correct: the bare "a creature you control" self-includes, matching the bare PiG
+    // scopes' convention; The Ozolith itself is an artifact, so the difference is latent until a
+    // creature-typed carrier prints it). Its corpus payoff carries the "if it had counters on it"
+    // look-back intervening-if — evaluated off the leave event's counters snapshot (interveningIf.js
+    // HAD_ANY_COUNTERS, ctx.triggeringHadCounters threaded by checkLeavesTriggers).
+    if (ltbSubj === "a creature you control")
+      return { event: "permanentLeaves", scope: "creatureYouControlLeaves", whose: "any" };
   }
   // "Leaves the battlefield" (LTB) for OTHER subjects is intentionally NOT detected here: a self-LTB / un-scoped
   // form whose effect the engine can't fire would be a false positive (the whole ability silently does nothing,
@@ -3329,8 +3338,38 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
     // 2026-08-05), so the noun cannot be wrong here the way it was in the global attempt.
     if (new RegExp(`^sacrifice ${esc} unless you pay (?:\\{[^}]+\\})+\\.?$`, "i").test(eff))
       return eff.replace(new RegExp(`\\b${esc}\\b`, "i"), "this creature");
+    // OZOLITH LEAVE-COUNTERS PAYOFF (W2) — "put those counters on <Name>": the trailing self-name is the
+    // SOURCE (CR 201.4); "those counters" is the leave event's snapshot (ctx.triggeringLeaveCounters).
+    // "this permanent" (not "creature") — the carrier is an artifact; my parser arm matches exactly this
+    // rewritten form. Whole-clause anchored (any rider → unmatched → the card parks, CREED).
+    if (new RegExp(`^put those counters on ${esc}$`, "i").test(eff))
+      return "put those counters on this permanent";
+    // OZOLITH COMBAT MOVE-ALL (W2) — "[you may ]move all counters from <Name> onto target creature": the
+    // mid-clause self-name is the move's SOURCE. Same discipline: exact whole-clause anchor, the parser
+    // re-gates the rewritten "this permanent" form (move-all-counters-to-target).
+    const mvAll = eff.match(new RegExp(`^(you may )?move all counters from ${esc} onto target creature$`, "i"));
+    if (mvAll) return `${mvAll[1] || ""}move all counters from this permanent onto target creature`;
   }
   return effectClause;
+}
+
+// INTERVENING-IF SELF-NAME (W2, CR 201.4) — the same allowlist discipline as rewriteSelfNameToThisCreature,
+// for the CONDITION slot: "The Ozolith has counters on it" names its own source, and the interveningIf
+// vocabulary (metric-side interveningIfParseable is pure text, no card in hand) needs the normalized
+// "this permanent" form. ONE anchored grammar; anything else passes through untouched → unparseable → the
+// trigger stays body-only (FN-safe, never a mis-scoped read).
+function rewriteSelfNameInterveningIf(ifText, cardName) {
+  if (!ifText) return ifText;
+  const fullName = String(cardName || "").trim();
+  if (fullName.length < 3) return ifText;
+  const shortName = fullName.split(",")[0].trim();
+  for (const nm of (shortName && shortName !== fullName ? [fullName, shortName] : [fullName])) {
+    if (nm.length < 3) continue;
+    const esc = nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (new RegExp(`^${esc} has counters on it$`, "i").test(ifText.trim()))
+      return "this permanent has counters on it";
+  }
+  return ifText;
 }
 
 // GLOBAL SUBTYPE combat-damage-to-a-player (Synapse Sliver / Brood Sliver) — "Whenever a <Subtype> deals
@@ -4632,7 +4671,10 @@ export function detectTriggers(card) {
         tokenFilter: cls.tokenFilter,         // "a CREATURE TOKEN you control …" (Curiosity Crafter, Anointer Priest). Unlisted here = silently dropped = the trigger fires on every creature, token or not.
         etbExcludeSelf: cls.etbExcludeSelf,   // "ANOTHER creature you control with power N or greater" (Garruk's Packleader). Unlisted here = silently dropped = the source fires on its OWN entry — a fabricated draw, the over-fire direction.
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
-        interveningIf: split.interveningIf,
+        // The condition slot gets the SAME self-name normalization discipline as the effect clause (one
+        // anchored grammar — see rewriteSelfNameInterveningIf): "The Ozolith has counters on it" → the
+        // "this permanent" form the interveningIf vocabulary reads. Every other condition passes untouched.
+        interveningIf: rewriteSelfNameInterveningIf(split.interveningIf, card.name),
         // SELF-CAST (CR 603.2): an {X}-cost spell's "When you cast this spell" trigger pays off the cast's X
         // (Hydroid Krasis "gain half X life and draw half X cards"). The effect-clause parsers gate X-amount
         // shapes on hasX (an {X} cost), but the trigger-effect parse sites (triggerRoutesNatively + the flush
@@ -5518,6 +5560,11 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id
         && isCreaturePerm(triggeringPermanent)
         && triggeringPermanent.controller === sourcePermanent.controller;
+    case "creatureYouControlLeaves":
+      // "a creature you control leaves the battlefield" (The Ozolith, W2) — the bare form of the arm directly
+      // above: NO self exclusion (the bare subject self-includes, the same convention as the bare PiG scopes).
+      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent)
+        && triggeringPermanent.controller === sourcePermanent.controller;
     case "creatureOpponentControls":
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller !== sourcePermanent.controller;
     case "landYouControl":
@@ -6356,16 +6403,26 @@ export function checkLeavesTriggers(state) {
     // the tokenYouControlLeaves scope (any exit) responds; the PiG scopes require leftToGraveyard, so a
     // bounced creature/artifact never fires a PiG drain.
     //
+    // LEAVE-COUNTERS LOOK-BACK (The Ozolith, W2 — CR 603.6e): the leaving permanent's counter snapshot,
+    // threaded as trigger context so (a) the "it had counters on it" intervening-if reads a definite boolean
+    // (interveningIf.js HAD_ANY_COUNTERS — missing → null → FN-safe drop) and (b) the "put THOSE counters
+    // on ~" payoff copies the exact snapshotted pile (put-leave-counters-on-self). Plain JSON, additive —
+    // every other descriptor ignores both fields.
+    const counterKinds = Object.entries(e.counters || {}).filter(([, n]) => n > 0);
+    const leaveCtx = {
+      triggeringHadCounters: counterKinds.length > 0,
+      triggeringLeaveCounters: counterKinds.length ? Object.fromEntries(counterKinds) : null,
+    };
     // SELF-source FIRST (the look-back as BOTH source and triggering) — a permanent whose OWN
     // "an artifact you control is put into a graveyard" watcher should fire when IT dies (Tablet of Epityr,
     // Marionette Master): by the time this runs the permanent is already in the graveyard, so it is NOT in
     // triggerSourcesOf (the battlefield scan) below. The bare ("an artifact you control") scope self-matches;
     // an "another …" scope (excludeSelf) skips itself via the id check, so a self-excluding watcher never
     // mis-fires on its own death. The battlefield scan below then covers every OTHER (surviving) watcher.
-    fired = fired.concat(triggersForEvent(cleared, { event: "permanentLeaves", sourcePermanent: lookBack, triggeringPermanent: lookBack }));
+    fired = fired.concat(triggersForEvent(cleared, { event: "permanentLeaves", sourcePermanent: lookBack, triggeringPermanent: lookBack, triggeringContext: leaveCtx }));
     for (const pid of Object.keys(cleared.players)) {
       for (const watcher of triggerSourcesOf(cleared, pid)) {
-        fired = fired.concat(triggersForEvent(cleared, { event: "permanentLeaves", sourcePermanent: watcher, triggeringPermanent: lookBack }));
+        fired = fired.concat(triggersForEvent(cleared, { event: "permanentLeaves", sourcePermanent: watcher, triggeringPermanent: lookBack, triggeringContext: leaveCtx }));
       }
     }
   }

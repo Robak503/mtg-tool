@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **⭐ THE OZOLITH (+1) — the leave-counters accumulator + the combat move-all** - the shelf grind (Wolverine 80→81)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — The Ozolith
+> body-only→native-trigger, BOTH arms in one slice. Post-release batch **+53**.
+> ⭐ ARM 1 (the accumulator): the bare LTB subject "a creature you control" (scope
+> creatureYouControlLeaves, self-inclusive — the Ninth Bridge "another" arm's sibling) + the LOOK-BACK
+> intervening-if "it had counters on it" (HAD_ANY_COUNTERS — the undying/persist LKI discipline;
+> recordLeaveEvent now snapshots `counters`, checkLeavesTriggers stamps triggeringHadCounters +
+> triggeringLeaveCounters as trigger context) + put-leave-counters-on-self (every kind, exact snapshot,
+> through addCounter so landing-side doublers compose). Fires on EVERY exit kind — no dies-only partial.
+> ⭐ ARM 2 (the move-all): BOTH slots self-name-normalized by anchored allowlist arms (the effect via
+> rewriteSelfNameToThisCreature; the condition via the NEW rewriteSelfNameInterveningIf — "The Ozolith
+> has counters on it" → "this permanent has counters on it", read by the new kind-less
+> SOURCE_HAS_ANY_COUNTERS live reader). move-all-counters-to-target: α2-optional + targeted, intent
+> "own" (the pile is never gifted), the W1 settle discipline (literal removal, doublers land-side only,
+> lethal sweep + dies triggers after). Witness 13 pins; 3 mutations (subject arm · remove loop ·
+> look-back reader) each seen-to-fail. Token diet: ~10k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **⭐ FORGOTTEN ANCIENT (+1) — the counter-MOVE (CR 122.5); the SHELF-TAIL opens** - the shelf grind (Wolverine 79→80)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Forgotten Ancient
 > body-only→native-trigger (both triggers audited: the cast watcher already routed; the upkeep MOVE

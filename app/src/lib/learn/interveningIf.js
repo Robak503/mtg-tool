@@ -513,6 +513,11 @@ const HAD_NO_PLUS_COUNTERS_RE = /^it had no \+1\/\+1 counters on it$/;
 // KW-PERSIST (BLITZ PS-1, CR 702.79a) — undying's minus-twin: the LKI counter-lessness read off
 // ctx.triggeringHadNoMinusCounters (stamped by checkDiesTriggers from the death look-back).
 const HAD_NO_MINUS_COUNTERS_RE = /^it had no -1\/-1 counters on it$/;
+// HAD-ANY-COUNTERS (The Ozolith, W2 — CR 603.6e) — the ANY-KIND positive of the undying pair: "it had
+// counters on it" reads the LEAVE look-back's counter snapshot (ctx.triggeringHadCounters, stamped by
+// checkLeavesTriggers off pendingLeaveEvents' counters field). Same LKI discipline: the value is frozen
+// history, identical at flush AND resolution. Missing → null (FN-safe drop).
+const HAD_ANY_COUNTERS_RE = /^it had counters on it$/;
 
 // ===== POWER-DIFFERED-FROM-BASE (Jason Bright — CR 603.4 + 603.6e) ===========================
 // "its power was different from its base power" — the intervening-if on Jason Bright's tribal dies trigger
@@ -644,6 +649,10 @@ const CTRL_GAINED_LIFE_N_RE = new RegExp(`^you(?:['’]ve| have)? gained ${NUM_R
 // source gone from the battlefield → null (can't confirm → FN-safe drop, the engine convention for a
 // vanished source). Anchored; the counter type is a bare word matched against the counters map key.
 const SOURCE_COUNTER_THRESHOLD_RE = new RegExp(`^this (?:enchantment|artifact|creature|permanent) has ${NUM_RE} or more ([a-z]+) counters on it$`);
+// SOURCE-HAS-ANY-COUNTERS (The Ozolith, W2 — CR 603.4): the threshold-less, kind-less sibling — "this
+// permanent has counters on it" (the rewriteSelfNameInterveningIf-normalized form of "<Name> has counters
+// on it"). Same live source read + FN-safe drops, true iff ANY counter kind sits at ≥1.
+const SOURCE_HAS_ANY_COUNTERS_RE = /^this (?:enchantment|artifact|creature|permanent) has counters on it$/;
 
 function isCreatureCard(card) {
   return /\bcreature\b/i.test(typeStr(card));
@@ -880,6 +889,14 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
       return (src.counters?.[m[2]] || 0) >= parseCount(m[1]);
     }
   }
+  // SOURCE-HAS-ANY-COUNTERS (The Ozolith, W2) — the kind-less sibling: any counter kind ≥1, same drops.
+  if (SOURCE_HAS_ANY_COUNTERS_RE.test(c)) {
+    const srcId = context?.sourcePermanentId;
+    if (!srcId) return null;
+    const src = controllerBoard(state, controllerId).find((p) => p.id === srcId);
+    if (!src) return null;
+    return Object.values(src.counters || {}).some((n) => n > 0);
+  }
 
   // SAME-NAME ETB (Guardian Project) — needs the entering permanent from the trigger context.
   if (SAME_NAME_ETB_RE.test(c)) {
@@ -1064,6 +1081,12 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     const hadNone = context?.triggeringHadNoMinusCounters;
     if (typeof hadNone !== "boolean") return null; // no per-object counters snapshot → can't confirm (FN-safe)
     return hadNone === true;
+  }
+  // HAD-ANY-COUNTERS (The Ozolith, W2) — the any-kind positive twin, read off the LEAVE look-back.
+  if (HAD_ANY_COUNTERS_RE.test(c)) {
+    const had = context?.triggeringHadCounters;
+    if (typeof had !== "boolean") return null;     // no leave snapshot in context → can't confirm (FN-safe)
+    return had === true;
   }
 
   // LIFE-COMPARISON (BLITZ SC-1 — Sword Coast Sailor / the background quartet: "no opponent has more life
@@ -1650,7 +1673,9 @@ export function interveningIfParseable(condition) {
   // It ALSO carries `sourcePermanentId` pointing at the probe permanent so the SOURCE-COUNTER-THRESHOLD
   // shape returns a boolean here (the runtime threads the real source id via makePendingTrigger's context);
   // the probe permanent has no counters → false, still a definite boolean.
-  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringHadNoMinusCounters: true, triggeringPowerDifferedFromBase: true, defenderId: "__probe__", sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0 }) !== null;
+  // `triggeringHadCounters` — the HAD-ANY-COUNTERS leave-look-back shape (The Ozolith) returns a boolean
+  // here (the runtime stamps it off every leave event's counters snapshot); every other shape ignores it.
+  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringHadNoMinusCounters: true, triggeringHadCounters: true, triggeringPowerDifferedFromBase: true, defenderId: "__probe__", sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0 }) !== null;
 }
 
 /**

@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **The Ozolith remembers.** When a creature you control leaves the battlefield with counters on it —
+  killed, bounced, or exiled — those exact counters (every kind) really land on The Ozolith, and at the
+  start of your combat you can move the whole banked pile onto a creature: it all arrives (a doubler
+  doubles what lands), the Ozolith empties by exactly what was banked, and declining is a real choice.
 - **Forgotten Ancient actually moves its counters.** The upkeep ability really moves any number of
   +1/+1 counters onto other creatures — they leave the Ancient and land where you put them (a doubler
   doubles what lands, never what leaves), moving none is a real choice, and the practice-game AI banks

@@ -1103,7 +1103,10 @@ export function recordGraveyardEvents(state, events) {
  */
 function recordLeaveEvent(state, permanent, toGraveyard, toZone = null) {
   if (!permanent?.card) return state;
-  const ev = { id: permanent.id, controller: permanent.controller, card: permanent.card, toGraveyard: !!toGraveyard };
+  // `counters` — the leaving permanent's counter pile, snapshotted while it still exists (CR 603.6e/603.10a
+  // look-back, the markDead precedent): The Ozolith's "if it had counters on it, put THOSE counters on ~"
+  // reads this last-known state (checkLeavesTriggers threads it as trigger context). Plain JSON, serialize-safe.
+  const ev = { id: permanent.id, controller: permanent.controller, card: permanent.card, toGraveyard: !!toGraveyard, counters: { ...(permanent.counters || {}) } };
   // EARTHBEND-RETURN (CR 603.7): carry the animated land's flag + destination zone so triggers.checkLeavesTriggers
   // can synthesize the "when it dies or is exiled, return it to the battlefield tapped" delayed trigger. Only a
   // graveyard (dies) or exile exit qualifies — a bounce to hand / tuck to library does NOT (the rider is dies-or-exiled).

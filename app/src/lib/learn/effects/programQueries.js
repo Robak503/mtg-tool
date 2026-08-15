@@ -140,6 +140,11 @@ export function atomTargetIntent(atom) {
       // a second time. Legality stays wider than intent ("target creature" really is any creature); intent is
       // "own" so a chooser never spends the tap enabling an opponent's adapt.
       return "own";
+    case "move-all-counters-to-target":
+      // MOVE-ALL-COUNTERS (The Ozolith, W2) — the banked pile is a pump you aim at YOUR OWN creature.
+      // Legality stays wider ("target creature" really is any creature — a political dump onto an enemy is
+      // printed-legal); intent is "own" so the flush chooser never gifts the pile across the table.
+      return "own";
     case "look-at-hand":
       // LOOK AT A HAND (CR 701.20e) — "look at target player's hand" is information you want about an
       // OPPONENT; looking at your own hand tells you nothing you don't know. Same shape as cant-block
