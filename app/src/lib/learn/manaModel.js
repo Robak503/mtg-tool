@@ -30,7 +30,7 @@
  * legalChoices, and layers imports none of these modules so that edge is acyclic too.
  */
 
-import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife } from "./gameState.js";
+import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent } from "./gameState.js";
 import { checkSacrificeTriggers, checkLeavesTriggers } from "./triggers.js"; // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
 import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow, colorsOf } from "./layers.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
@@ -471,6 +471,23 @@ function manaAbilityRequiresTap(oracle) {
     const ci = line.indexOf(":");
     if (ci === -1) continue;
     if (/\badd\b/i.test(line.slice(ci + 1)) && /\{t\}/i.test(line.slice(0, ci))) return true;
+  }
+  return false;
+}
+
+/**
+ * EXILE-FROM-GRAVEYARD mana cost (Molt Tender "{T}, Exile a card from your graveyard: Add one mana of
+ * any color", 2026-08-15) — the ONE consumable the sub-system now actually PAYS: commitManaTap exiles a
+ * graveyard card when the tap commits, and the availability gate skips the source when the graveyard is
+ * empty, so the carve out of the phantom-mana gate below mints nothing it doesn't pay for. Precise
+ * per-line, mirroring manaAbilitySacrificesSelf; the exact bare-article wording only ("a card" — a
+ * typed/counted exile stays consumable → refused, FN-safe).
+ */
+function manaAbilityExilesGyCard(oracle) {
+  for (const line of String(oracle || "").split(/\n+/)) {
+    const ci = line.indexOf(":");
+    if (ci === -1) continue;
+    if (/\badd\b/i.test(line.slice(ci + 1)) && /(?:^|,)\s*exile a card from your graveyard\s*$/i.test(line.slice(0, ci))) return true;
   }
   return false;
 }
@@ -1110,13 +1127,17 @@ function manaProductionImpl(card) {
   // is NOT a free, tapless, repeatable source. Reading it minted PHANTOM mana the self-play sim "paid" every
   // turn for free (dirtying training data). Gate it like the TRIGGERED/ETB phantom case above. Lands are exempt
   // (raw-oracle parsing + their colorless fallback). RUNTIME-ONLY: classifyCard never calls manaProduction.
+  // EXILE-FROM-GY COST (Molt Tender) — carved OUT of the phantom-mana refusal below because it is now
+  // PAID for real: commitManaTap exiles a graveyard card on the tap, and manaSources gates the source on
+  // a non-empty graveyard. The flag rides the production so both halves key off one read.
+  const exilesGyCard = manaAbilityExilesGyCard(oracleForAdd);
   const isActivatedSource =
-    isLandCard || (activatedManaText(oracleForAdd) != null && !manaAbilityCostUnpayable(oracleForAdd));
+    isLandCard || (activatedManaText(oracleForAdd) != null && (!manaAbilityCostUnpayable(oracleForAdd) || exilesGyCard));
   if (fromOracle && isActivatedSource) {
     const requiresTap = manaAbilityRequiresTap(oracleForAdd);
     return manaAbilitySacrificesSelf(oracleForAdd)
       ? { ...fromOracle, sacrifices: true, requiresTap }
-      : { ...fromOracle, requiresTap };
+      : { ...fromOracle, requiresTap, ...(exilesGyCard ? { exilesGyCard: true } : {}) };
   }
 
   // ===== TAP-OTHER COST (CR 118.4 / 302.6) =====================================================
@@ -1520,7 +1541,11 @@ export function manaSources(state, playerId) {
       sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}) });
       continue;
     }
-    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}) });
+    // EXILE-FROM-GY COST (Molt Tender): the source exists ONLY while the graveyard has a card to pay
+    // with — an empty graveyard means the cost can't be paid, so the source is never offered (the
+    // availability half of the phantom-gate carve; commitManaTap is the payment half).
+    if (prod.exilesGyCard && (player.graveyard || []).length === 0) continue;
+    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}) });
   }
   return sources;
 }
@@ -1715,7 +1740,7 @@ export function planPayment(pool, sources, cost, spendContext = null) {
     // PAINLAND: stamp the life cost ONLY when the chosen colour is one of the painful ones — a tap for
     // the free {C} half costs nothing, exactly as printed.
     const painHit = s.painColors && s.painColors.includes(primaryColor) ? s.painAmount : 0;
-    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
+    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
     return wantColor && assigned ? wantColor : primaryColor;
   };
 
@@ -1874,6 +1899,20 @@ export function commitManaTap(state, playerId, tap) {
   // already own that field, and folding the two would make a painland's colour choice and an ability's
   // printed cost indistinguishable in the plan.
   if (tap.payLifeCost) next = loseLife(next, { playerId, amount: tap.payLifeCost });
+  // EXILE-FROM-GY COST (Molt Tender) — PAY the printed cost for real: exile a graveyard card as the tap
+  // commits (the payment half of the phantom-gate carve; manaSources' non-empty gate is the offer half).
+  // Deterministic house pick, the riot discipline: the FIRST (oldest) graveyard card — a smarter pick is
+  // a play-quality upgrade, never a rules question. An empty graveyard here (a same-plan earlier tap
+  // drained it) exiles nothing and the tap still resolves — logged distinctly so the under-pay is VISIBLE,
+  // never silent; the offer gate makes this vanishingly rare.
+  if (tap.exilesGyCard) {
+    const gy = next.players[playerId]?.graveyard || [];
+    if (gy.length) {
+      next = moveCardToZone(next, { playerId, fromZone: "graveyard", toZone: "exile", cardId: gy[0].id });
+    } else {
+      next = logEvent(next, { kind: "mana", event: "exile-gy-cost-unpaid", permanentId: tap.permanentId, playerId });
+    }
+  }
   if (tap.sacrifices) {
     const sacPerm = next.players[playerId]?.battlefield?.find(p => p.id === tap.permanentId); // capture pre-move (for the type)
     next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId });

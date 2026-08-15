@@ -3,6 +3,16 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **MOLT TENDER (+1) — the exile-from-GY mana cost, PAID for real** - the shelf grind (Teval 81→82)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Molt Tender
+> body-only→native-mana, zero riders. Post-release batch **+20**.
+> ⚠️ A COST CARVED OUT OF THE PHANTOM-MANA GATE (manaCostConsumable — the load-bearing CREED guard),
+> honest because BOTH halves pay: manaSources offers the source ONLY while the graveyard is non-empty
+> (the availability half) and commitManaTap ACTUALLY exiles a graveyard card as the tap commits
+> (oldest-first deterministic pick, the riot discipline). Every OTHER consumable stays refused —
+> typed exile, counted exile, discard all pinned. The payment-disabled mutation seen-to-fail (mana
+> minted, graveyard untouched — the exact phantom the gate exists to prevent).
+> Token diet: ~5k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **⭐ TEVAL HERSELF (+1) — the article-form land reanimate; the Joe-deck commander is NATIVE** - the shelf grind (Teval 80→81)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Teval, the Balanced
 > Scale body-only→native-trigger. Post-release batch **+19**. v0.159.0 CONFIRMED SHIPPED (all five

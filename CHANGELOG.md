@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Molt Tender pays its way.** The second tap really exiles a card from your graveyard for its
+  any-color mana — it's never offered with an empty graveyard, and the exile actually happens (which
+  also feeds Teval's Zombie trigger, as printed).
 - **Teval, the Balanced Scale runs her whole engine.** The attack trigger mills three and really
   offers the land back onto the battlefield tapped, and every batch of cards leaving your graveyard
   makes the 2/2 Zombie Druid — including the batch her own land return creates.
