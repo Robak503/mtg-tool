@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.159.0] - 2026-08-15
+
 ### Fixed
 - **Tribal graveyard recursion works by name.** "Return target Dinosaur card from your graveyard to
   your hand" (Atzocan Seer) and its whole family — Goblin, Zombie, Myr, Spirit, Knight, Villain, and
