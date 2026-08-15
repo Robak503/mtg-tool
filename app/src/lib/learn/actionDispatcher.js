@@ -1150,8 +1150,16 @@ function applyActivateAbility(state, action) {
   // moveCardToZone's chokepoint). The card is re-resolved against the LIVE hand; a missing card is a hard
   // error so we never silently under-pay (CREED). Done BEFORE the ability goes on the stack.
   if (action.discardCardId) {
-    const inHand = (working.players[action.playerId]?.hand || []).some((c) => c.id === action.discardCardId);
-    if (!inHand) throw new DispatcherError(`Discard-cost card ${action.discardCardId} not in hand`, "CARD_NOT_FOUND");
+    const pitched = (working.players[action.playerId]?.hand || []).find((c) => c.id === action.discardCardId);
+    if (!pitched) throw new DispatcherError(`Discard-cost card ${action.discardCardId} not in hand`, "CARD_NOT_FOUND");
+    // γ1h-TYPED (Tortured Existence) — a typed discard cost re-validates the pitch's FRONT-FACE type here
+    // (defense in depth; the enumerator only ever offers matching victims, but a hand-built action paying
+    // "Discard a creature card" with a land would under-pay — CR 601.2h, the forbidden direction).
+    if (action.discardCardFilter) {
+      const front = String(pitched.type || pitched.type_line || "").split(" // ")[0];
+      const word = action.discardCardFilter[0].toUpperCase() + action.discardCardFilter.slice(1);
+      if (!front.includes(word)) throw new DispatcherError(`Discard-cost card ${pitched.name} is not a ${action.discardCardFilter} card`, "ADDCOST_UNPAID");
+    }
     working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.discardCardId });
     working = checkDiscardTriggers(working, action.playerId, 1);
   }

@@ -27,7 +27,11 @@ describe("parse + classify", () => {
     expect(ab.costModeled).toBe(true);
     expect(ab.modeled).toBe(true);
     expect(parseActivatedAbilities({ oracle: "{T}, Discard two cards: Draw a card.", type: "Creature", name: "X" })[0]?.modeled).toBeFalsy();
-    expect(parseActivatedAbilities({ oracle: "{T}, Discard a creature card: Draw a card.", type: "Creature", name: "Y" })[0]?.modeled).toBeFalsy();
+    // GRADUATED 2026-08-15 (torturedExistence.test.js): the TYPED discard ("a creature card") is the
+    // γ1h-TYPED filter now — modeled, with the filter riding the ability for the enumerator + dispatcher.
+    const typed = parseActivatedAbilities({ oracle: "{T}, Discard a creature card: Draw a card.", type: "Creature", name: "Y" })[0];
+    expect(typed?.modeled).toBe(true);
+    expect(typed?.discardCardFilter).toBe("creature");
     expect(classifyCard(RUMMAGING_GOBLIN)).toBe("native-activated");
     expect(classifyCard({ id: "ink", name: "Immobilizing Ink", type: "Enchantment — Aura", mana: "{1}{U}",
       oracle: "Enchant creature\nEnchanted creature doesn't untap during its controller's untap step.\nEnchanted creature has \"{1}, Discard a card: Untap this creature.\"" })).toBe("native-activated");

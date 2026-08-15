@@ -2282,6 +2282,13 @@ function actionsActivateAbility(state, playerId) {
       if (ab.discardCard) {
         const seenNames = new Set();
         discardVictims = (player.hand || []).filter((c) => {
+          // γ1h-TYPED (Tortured Existence): a typed discard cost narrows the pool to hand cards whose
+          // FRONT-FACE type line carries the type (CR 712.4a, word-cased match — "creature" → Creature).
+          if (ab.discardCardFilter) {
+            const front = String(c?.type || c?.type_line || "").split(" // ")[0];
+            const word = ab.discardCardFilter[0].toUpperCase() + ab.discardCardFilter.slice(1);
+            if (!front.includes(word)) return false;
+          }
           const k = c?.name || c?.id;
           if (seenNames.has(k)) return false;
           seenNames.add(k);
@@ -2410,6 +2417,7 @@ function actionsActivateAbility(state, playerId) {
             returnLandName: returnLandVictim?.card?.name ?? null,
             discardCardId: discardVictim?.id ?? null,    // γ1h (DC-1) — the chosen hand card to pitch (cost)
             discardCardName: discardVictim?.name ?? null,
+            ...(ab.discardCardFilter ? { discardCardFilter: ab.discardCardFilter } : {}), // γ1h-TYPED — the dispatcher re-validates the pitch's front-face type
             ...(ab.activationLimit ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
             program: ab.program,
             targets: ch.targets,

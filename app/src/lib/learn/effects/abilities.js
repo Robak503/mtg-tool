@@ -337,6 +337,7 @@ export function parseAbilityCost(costStr, card = null) {
   let tapCreature = null;
   let returnLand = null;
   let discardCard = 0;
+  let discardCardFilter = null; // γ1h-TYPED — "Discard a creature card" (Tortured Existence)
   for (const item of items) {
     if (/^\{t\}$/i.test(item)) { tapSelf = true; continue; }
     // γ1h — DISCARD-A-CARD cost (BLITZ DC-1 — Rummaging Goblin "{T}, Discard a card: Draw a card."; the
@@ -347,6 +348,15 @@ export function parseAbilityCost(costStr, card = null) {
     // Whole-item anchored ($): a COUNT ("discard two cards"), a filter ("discard a creature card"), or
     // "discard your hand" doesn't match → null (deferred, a safe FN).
     if (/^discard a card$/i.test(item)) { discardCard = 1; continue; }
+    // γ1h-TYPED (Tortured Existence "{B}, Discard a creature card: …", 2026-08-15): the TYPED discard
+    // cost — same choice shape, the hand pool narrowed to cards whose FRONT-FACE type line carries the
+    // type (CR 712.4a, the graveyard/tutor front-face discipline). legalChoices filters the victims;
+    // the dispatcher re-validates the chosen card (defense in depth — a non-matching pitch is the FP).
+    // Basic card types only; a subtype/color/compound filter still nulls (deferred, a safe FN).
+    {
+      const tm = item.match(/^discard an? (creature|artifact|enchantment|land|instant|sorcery|planeswalker) card$/i);
+      if (tm) { discardCard = 1; discardCardFilter = tm[1].toLowerCase(); continue; }
+    }
     // γ1f — TAP-CREATURE cost (Earthcraft "Tap an untapped creature you control: …"): a CHOICE cost
     // (CR 602.1b — "tap an untapped creature you control" is a cost to tap ANOTHER permanent, distinct
     // from the source's own {T}). The player picks WHICH untapped creature they control to tap (like
@@ -506,7 +516,7 @@ export function parseAbilityCost(costStr, card = null) {
     if (!pips.every(pipIsMana)) return null;                      // {X}/{Q}/{E}/… → unmodeled ({S} IS mana, SN-1)
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
-  return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, discardCard, costX };
+  return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, discardCard, discardCardFilter, costX };
 }
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
@@ -1152,6 +1162,7 @@ export function parseActivatedAbilities(card) {
       removeCounter: cost?.removeCounter ?? null, // γ1c — "Remove a <type> counter from this"
       tapCreature: cost?.tapCreature ?? null,  // γ1f — "Tap an untapped creature you control": legalChoices picks the creature
       discardCard: cost?.discardCard ?? 0,     // γ1h — "Discard a card": legalChoices expands per distinct hand card (DC-1)
+      discardCardFilter: cost?.discardCardFilter ?? null, // γ1h-TYPED — "Discard a creature card" (Tortured Existence): the victim pool narrows to the front-face type
       returnLand: cost?.returnLand ?? null,    // γ1g — "Return a land you control to its owner's hand": legalChoices picks the land, dispatcher bounces it
       costModeled: !!cost,
       isManaEffect,

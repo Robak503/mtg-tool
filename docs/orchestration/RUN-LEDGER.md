@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **⭐ TORTURED EXISTENCE (+17) — the TYPED discard cost** - the shelf grind (Teval 79→80)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+17 / 0 / 0** — the biggest single-arm
+> rider haul of the run: Survival of the Fittest · Fauna Shaman · Seismic Assault · Molten Vortex ·
+> Lotleth Troll · Trade Routes · Ayula's Influence + nine more, ALL whole-card audited (Lotleth's
+> regenerate verified genuinely modeled before accepting). Post-release batch **+18**.
+> ⭐ γ1h-TYPED: the bare "Discard a card" cost (DC-1) gains a basic-card-type filter — the victim pool
+> narrows at the ENUMERATOR (front-face type, CR 712.4a) and the DISPATCHER re-validates the pitch
+> (defense in depth: a hand-built action pitching a Forest for "Discard a creature card" THROWS —
+> pinned). Subtype ("Dragon card") and count ("two creature cards") filters still null whole (FN-safe,
+> pinned). The enumerator-filter mutation seen-to-fail. End-to-end: pitch paid hand→GY, the ability
+> stacks, the empty-pool floor holds. Token diet: ~6k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **HERD HEIRLOOM (+1) — the power-threshold quoted grant; JURASSIC BACK AT 90** - the shelf grind (Jurassic 89→**90** ✅, the honest re-open re-closed)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Herd Heirloom
 > body-only→native-mana, zero riders. Post-release batch **+1** (v0.159.0 reset it).

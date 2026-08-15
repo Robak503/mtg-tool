@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **"Discard a creature card" costs are real costs.** Tortured Existence, Survival of the Fittest,
+  Fauna Shaman, Seismic Assault, Molten Vortex, Lotleth Troll, and ten more now offer their abilities
+  only when a matching card is in hand, pitch exactly the card type printed, and never accept a land
+  where a creature is required.
 - **Herd Heirloom's second tap works.** Point it at your power-4-or-greater creature and it really
   gains trample plus the combat-damage card draw until end of turn — smaller creatures and opposing
   creatures are never offered as targets.
