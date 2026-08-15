@@ -10,13 +10,20 @@
 ## 🌙 2026-08-15 EVENING — **FOURTEEN slices · v0.159.0 LIVE · 13 decks at bar · TEVAL 79→85** — suite **1254 / 14,685** green
 
 > ### ⏭ RUNNABLE NOW — the Teval vein (15 residue; all shipped work pushed + CI green through 08752d55)
-> · **THE SHARED SEAM NEXT — the MILLED-REFERENT pick** serves TWO residue cards in one build:
->   Ripples of Undeath ("put a card from among THOSE [just-milled] cards into your hand" behind the
->   pay-{1}-and-3-life compound cost — the banked two-piece design below) AND Six ("you may put a
->   LAND card from among them into your hand" on the attack mill — no payment, just the pick). The
->   mill atom must stamp its milled ids into ctx/resume; the pick is a choice over that set (the
->   tutor-picker pattern). Build Six FIRST (no payment half) → then Ripples adds only the life-rider
->   cost on the optional-mana-payment atom.
+> · **THE SHARED SEAM NEXT — the MILLED-REFERENT pick (blueprint refined to the line, 08-15 late):**
+>   ① the STAMP: millOnePlayer (library.js 745) already captures `milledCards` pre-move — stamp
+>   `_lastMilledIds: milledCards.map(c=>c.id)` on its returned state (the _impulseExiledTypes
+>   state-stamp convention; overwritten per mill = the freshest mill is the referent; serialize-safe).
+>   ② the PICK atom ("put a [land ]card from among them/those cards into your hand"): reads
+>   state._lastMilledIds ∩ the controller's CURRENT graveyard (CR 608.2b — a card recurred/exiled in
+>   between never offered), optional land-filter word. A HUMAN pick = another 8-point pause kind (the
+>   Undead Butler checklist: parser arm · applier · pendingChoice kind+setter · settler · 3
+>   learnSession sites · panel+hook+prop+fixture — every template named in that slice's commit
+>   7764d407); AI auto-pick deterministic (first matching — lands fungible; a land-filtered pick has
+>   no judgment loss). ③ RIPPLES also needs the LIFE-RIDER on matchOptionalManaPayment's cost
+>   grammar ("{1} and 3 life" → cost.life charged in the settler beside payManaCost).
+>   ⚠️ Six does NOT flip from the pick (its retrace static parks it regardless — verified); Ripples
+>   DOES. Build the pick + the life rider as ONE Ripples slice.
 > · Then: Court of Cunning (monarch ETB modeled; the upkeep any-number-of-target-players mill with
 >   the monarch-conditional 10× count is the gap) · the ETB bucket (Titania, Overlord of the
 >   Balemurk, Animate Dead — heavy) · Tasigur · Ardyn · Breach the Multiverse · Teval's Judgment ·
