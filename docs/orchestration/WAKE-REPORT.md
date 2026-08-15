@@ -7,6 +7,19 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🏁 2026-08-15 LATE — **TEVAL AT 90 (the 14th deck) · TWENTY slices today · batch +51** — suite **1263 / 14,701** green
+
+> ### ⏭ THE GRIND ORDER (Colton's steer, 2026-08-15 late): **cEDH decks LAST.**
+> "believe it and kinnan will be the hardest to push past 90 as those are cdh decks so focus those
+> last." The queue is therefore: **① Wolverine 79 → ② Kellan 74 → ③ Otharri 74 → ④ Cap America 73 →
+> ⑤ Halfshell 67 → ⑥ Shalai 67 → THEN ⑦ Believe it! 79 → ⑧ Kinnan 77** (both cEDH — the hardest
+> residue, deliberately deferred). Ceiling calls flagged per deck as the residue thins.
+> Today's twenty (all CI green): the Swat retarget · Sarkhan-FB · Rivaz · Rith (Dragons→90) ·
+> Atzocan · Heirloom (Jurassic→90) · Tortured Existence (+17) · Teval herself · Molt Tender ·
+> Undead Butler (pause kind) · Tormod (+12) · Bloodghast · Ripples (pause kind #2 + life-rider) ·
+> Dredger's (3 widenings) · Court of Cunning · Toxic Deluge (pay-X-life, a LOST caught+reverted) ·
+> Teval's Judgment (mode-memory modal, +5 — **TEVAL 90**) + v0.159.0 shipped + 3 metric holes fixed.
+
 ## 🌙 2026-08-15 EVENING — **FOURTEEN slices · v0.159.0 LIVE · 13 decks at bar · TEVAL 79→85** — suite **1254 / 14,685** green
 
 > ### ⏭ RUNNABLE NOW — the Teval vein (15 residue; all shipped work pushed + CI green through 08752d55)
