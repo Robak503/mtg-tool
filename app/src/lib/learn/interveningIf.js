@@ -575,6 +575,15 @@ const OPP_LOST_LIFE_ANY_RE = /^an opponent lost life this turn$/;
 // damage callers pass and no non-damage loss does. Absent tally = 0 = false (fail-closed).
 const OPP_DEALT_DAMAGE_RE = /^an opponent was dealt damage this turn$/;
 
+// ===== EXCESS-DAMAGE (Rith, Liberated Primeval — CR 120.4a, 2026-08-15) ======================
+// "a creature or planeswalker an opponent controlled was dealt excess damage this turn" — reads the
+// excessDamageThisTurn ledger stamped at the gameState.markCombatDamage chokepoint (every creature-damage
+// path funnels there; a stale-turn ledger reads false). The ledger records the DAMAGED creature's
+// controller, so "an opponent controlled" is resolved here against the CONDITION's controller — Rith's
+// own creatures taking excess damage never satisfy it. Deliberately under-detecting (deathtouch excess +
+// the planeswalker loyalty path are uncredited — the trigger under-fires, never over-fires, CREED).
+const EXCESS_DAMAGE_OPP_RE = /^a creature or planeswalker an opponent controlled was dealt excess damage this turn$/;
+
 // ===== MONARCH-STATUS (CR 725.1 + 603.4 — BLITZ IF-1) ========================================
 // "you're the monarch" (Throne Warden, Garrulous Sycophant, Skyline Despot, Faramir Steward of Gondor …) —
 // the controller currently holds the monarch designation (CR 725.1: "The monarch is a designation a player
@@ -816,6 +825,14 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // OPPONENT-DEALT-DAMAGE (KW-BLOODTHIRST) — the DAMAGE-only sibling of the life-loss read above.
   if (OPP_DEALT_DAMAGE_RE.test(c)) {
     return opponentIds(state, controllerId).some((pid) => (state.players[pid]?.damageTakenThisTurn || 0) >= 1);
+  }
+  // EXCESS-DAMAGE (Rith — CR 120.4a): the ledger read. Turn-matched (a stale ledger is false), scoped to
+  // the condition controller's OPPONENTS (the ledger stores the damaged creature's controller).
+  if (EXCESS_DAMAGE_OPP_RE.test(c)) {
+    const led = state?.excessDamageThisTurn;
+    if (!led || led.turn !== state?.turn) return false;
+    const opps = opponentIds(state, controllerId);
+    return (led.controllers || []).some((pid) => opps.includes(pid));
   }
 
   // MONARCH-STATUS (CR 725.1 — BLITZ IF-1) — the controller holds the monarch designation right now. A live

@@ -1823,13 +1823,32 @@ export function applyRadiation(state, { playerId }) {
 export function markCombatDamage(state, { permanentId, amount, sourceId }) {
   if (!Number.isInteger(amount) || amount < 0) throw new Error("markCombatDamage: amount must be a non-negative integer");
   if (amount === 0) return state;   // CR 120.8 — 0 damage is not dealt at all, so it marks no source either
-  return updatePermanent(state, permanentId, p => ({
+  const next = updatePermanent(state, permanentId, p => ({
     ...p,
     damageMarked: (p.damageMarked || 0) + amount,
     damagedBy: sourceId && !(p.damagedBy || []).includes(sourceId)
       ? [...(p.damagedBy || []), sourceId]
       : p.damagedBy,
   }));
+  // ===== EXCESS-DAMAGE LEDGER (Rith, Liberated Primeval — CR 120.4a, 2026-08-15) =====
+  // Both damage paths (combat aggregation + spell damage) funnel through this function, so this is the
+  // single stamp site: when a CREATURE's marked total exceeds its layer-aware toughness, the excess is
+  // recorded as { turn, controllers:[the damaged creature's controller] } for the end-step intervening-if
+  // ("a creature or planeswalker an opponent controlled was dealt excess damage this turn").
+  // DELIBERATE UNDER-DETECTION (FN-safe both ways): deathtouch's any-nonzero-is-lethal excess (CR 702.2c)
+  // and planeswalker damage (a loyalty path that never marks damageMarked) are NOT credited — the trigger
+  // under-fires, never over-fires. The stale-turn ledger self-expires (turn-matched on read AND write).
+  const lk = findPermanent(next, permanentId);
+  if (lk && /\bCreature\b/.test(String(lk.permanent.card?.type || lk.permanent.card?.type_line || ""))) {
+    const tough = creatureToughness(lk.permanent, next);
+    if (Number.isFinite(tough) && (lk.permanent.damageMarked || 0) > tough) {
+      const prev = next.excessDamageThisTurn && next.excessDamageThisTurn.turn === next.turn ? next.excessDamageThisTurn.controllers : [];
+      if (!prev.includes(lk.controller)) {
+        return { ...next, excessDamageThisTurn: { turn: next.turn, controllers: [...prev, lk.controller] } };
+      }
+    }
+  }
+  return next;
 }
 
 /** Record that `sourceId` dealt damage to `permanentId` this turn, without touching the damage total.

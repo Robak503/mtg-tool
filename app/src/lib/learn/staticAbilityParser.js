@@ -3770,6 +3770,10 @@ function parseClause(clause, out, selfName, selfType) {
       if (anthemGrant.wardLife) {
         out.push({ layer: 6, op: { layerOp: "addWard", life: anthemGrant.wardLife }, affects, duration: { kind: "permanent" } });
       }
+      // GRANTED WARD {N} (Rith — CR 702.21): the generic-pip twin, same enforced addWard channel.
+      if (anthemGrant.wardGeneric) {
+        out.push({ layer: 6, op: { layerOp: "addWard", generic: anthemGrant.wardGeneric }, affects, duration: { kind: "permanent" } });
+      }
     }
   }
 }
@@ -3805,11 +3809,24 @@ function parseAnthemHaveTail(tail) {
   // null the tail rather than be silently dropped from a card that still gets credited. Mana-cost ward
   // grants keep their own `generic` channel (Cathedral Acolyte) and are not routed through here.
   let wardLife = 0;
+  let wardGeneric = 0;
   {
     const wm = s.match(/"?\bward\s*[\u2014-]\s*pay\s+(\d+)\s+life\.?"?/i);
     if (wm) {
       wardLife = parseInt(wm[1], 10);
       s = (s.slice(0, wm.index) + s.slice(wm.index + wm[0].length))
+        .replace(/\s*,\s*and\s*/gi, ", ").replace(/^[,\s]+|[,\s]+$/g, "").replace(/\s+and$/i, "").trim();
+    }
+    // \u2500\u2500 GRANTED WARD {N} (Rith, Liberated Primeval "Other Dragons you control have ward {2}" \u2014
+    // CR 702.21, 2026-08-15): the GENERIC-PIP twin of the pay-life peel directly above, emitting the
+    // SAME addWard/generic op the counter-gated grant (Cathedral Acolyte) already uses \u2014 ward.js unions
+    // it with printed ward at the tax site, so the grant is ENFORCED, not parse-only. Fixed generic pips
+    // only ({2}); a colored/{X}/hybrid ward pip fails the digit match, strips to a non-grantable word in
+    // the keyword loop below, and nulls the whole tail exactly as before (CREED FN-safe).
+    const wg = s.match(/"?\bward\s+\{(\d+)\}\.?"?/i);
+    if (wg) {
+      wardGeneric = parseInt(wg[1], 10);
+      s = (s.slice(0, wg.index) + s.slice(wg.index + wg[0].length))
         .replace(/\s*,\s*and\s*/gi, ", ").replace(/^[,\s]+|[,\s]+$/g, "").replace(/\s+and$/i, "").trim();
     }
     // NOTE: no explicit "reject any other ward span" guard here. I wrote one, and a mutation proved it
@@ -3843,8 +3860,8 @@ function parseAnthemHaveTail(tail) {
     if (!GRANTABLE_KEYWORDS.has(word)) return null;
     keywords.push(canonicalKeyword(word));
   }
-  if (keywords.length === 0 && protColors.length === 0 && !wardLife) return null; // nothing recognized
-  return { keywords, protColors, ...(wardLife > 0 && { wardLife }) };
+  if (keywords.length === 0 && protColors.length === 0 && !wardLife && !wardGeneric) return null; // nothing recognized
+  return { keywords, protColors, ...(wardLife > 0 && { wardLife }), ...(wardGeneric > 0 && { wardGeneric }) };
 }
 
 const canonicalKeyword = canonicalCombatKeyword;

@@ -9,6 +9,11 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Rith, Liberated Primeval watches for overkill.** Her end-step trigger really checks whether an
+  opponent's creature was dealt excess damage this turn — exact lethal doesn't count, overkill does —
+  and pays out the 4/4 Dragon. "Other Dragons you control have ward {2}" is now a real, enforced ward,
+  and the same fix lights up ward grants on Bronze Guardian, Giant Ankheg, Star Whale, Radagast, and
+  Flowering of the White Tree.
 - **Rivaz of the Claw does everything on the card.** The tap really makes two any-color mana that
   only Dragon creature spells can spend, once each of your turns you can cast a Dragon creature
   straight from your graveyard, and a Dragon recurred that way is exiled when it dies — no

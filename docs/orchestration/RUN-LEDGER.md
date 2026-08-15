@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **🐉 RITH (+7) — the excess-damage ledger; DID YOU SAY DRAGONS HITS 90** - the shelf grind (Dragons 89→**90** ✅)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+7 / 0 / 0** — Rith native-mixed + six
+> ward-grant riders (Flowering of the White Tree · Star Whale · Radagast · Bronze Guardian · A-Kargan
+> Warleader · Giant Ankheg, the tail parser's own former named rejection). Post-release batch **+88**.
+> ⭐ THE EXCESS-DAMAGE LEDGER (CR 120.4a): stamped at gameState.markCombatDamage — the single chokepoint
+> both damage paths funnel through. Excess = marked total > layer-aware toughness (EXACT lethal is NOT
+> excess — the boundary mutation seen-to-fail); deathtouch excess + the PW loyalty path deliberately
+> uncredited (the trigger under-fires, never over-fires). The intervening-if reader is turn-matched and
+> OPPONENT-scoped off the victim's controller (my own creature's excess never fires my Rith — pinned
+> both directions). interveningIfParseable admits it for free (probe-board boolean).
+> ⭐ GRANTED WARD {N}: the generic-pip twin of the pay-life ward peel in parseAnthemHaveTail, riding the
+> SAME enforced addWard channel (Cathedral Acolyte's op; ward.js unions at the tax site). The
+> Ward—Sacrifice refusal control still holds. Star Whale's suspend = the documented flashback-class
+> alt-cost FN (body credited, the alternative cast withheld).
+> **THE SHELF: 12 decks at/over the bar.** Token diet: ~10k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **⭐⭐ RIVAZ OF THE CLAW (+3 / −87 honest) — the graveyard-recursion machine + TWO metric holes closed** - the shelf grind (Dragons 88→89)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+3 / −87 / 0**: Rivaz + Smokebraider +
 > Flamebraider native; the −87 is the HONEST PURGE (below). Post-release batch **+81 gross**.

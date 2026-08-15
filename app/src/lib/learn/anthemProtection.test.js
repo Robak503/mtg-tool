@@ -84,17 +84,25 @@ describe("parseStaticAbilities — anthem protection ALL-OR-NOTHING (CREED FNs)"
     ["dynamic protection quality", "Creatures you control have protection from the chosen color."],
     ["'protection from everything'", "Creatures you control have protection from everything."],
     ["'protection from all colors' (unmodeled here)", "Creatures you control have protection from all colors."],
-    ["protection + an UNMODELED keyword (ward)", "Creatures you control have ward {2} and protection from red."],
+    // GRADUATED 2026-08-15 (Rith slice, rithExcessDamage.test.js): "ward {2}" is a MODELED granted keyword
+    // now (the generic-pip addWard twin of the pay-life peel) — the ward+protection combined tail emits both
+    // descriptors, asserted below the loop. A Ward—Sacrifice/Discard tail still parks (rithExcessDamage pins it).
     // NOTE: afflict USED to be parkable here, but the afflict subsystem (afflict.test.js) now models the
     // group-afflict grant — "Artifact creatures you control have afflict 3." emits a layer-6 quoted-triggered
-    // grant. It is asserted native in afflict.test.js; a COMBINED tail (afflict + an ungrantable keyword) would
-    // still park, but no such printed card exists, so the parkable list keeps only the ward case above.
+    // grant. It is asserted native in afflict.test.js.
   ];
   for (const [label, oracle] of parkable) {
     it(`PARKED: ${label} → no descriptors (body-only)`, () => {
       expect(parseStaticAbilities({ name: "X", type: "Enchantment", oracle })).toEqual([]);
     });
   }
+
+  it("GRADUATED 2026-08-15: ward {2} + protection from red → BOTH enforced grants emit (the Rith slice's generic-pip ward)", () => {
+    const d = parseStaticAbilities({ name: "X", type: "Enchantment", oracle: "Creatures you control have ward {2} and protection from red." });
+    expect(d).toHaveLength(2);
+    expect(d.map((x) => x.op.layerOp).sort()).toEqual(["addProtection", "addWard"]);
+    expect(d.find((x) => x.op.layerOp === "addWard").op.generic).toBe(2);
+  });
 });
 
 // ─── (B) runtime — the grant applies live to the right creatures ─────────────────

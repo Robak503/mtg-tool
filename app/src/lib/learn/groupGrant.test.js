@@ -77,9 +77,16 @@ describe("GROUP-GRANT (A) — subtype-without-\"creatures\" selector", () => {
   });
 
   it("all-or-nothing: a non-grantable keyword drops the WHOLE subtype clause (CREED)", () => {
-    expect(parseStaticAbilities({ name: "x", oracle: "Dragons you control have ward {1}." })).toEqual([]);
+    // (The "Dragons you control have ward {1}" case GRADUATED 2026-08-15 — asserted below; these two keep
+    // the guard alive with genuinely-unmodeled tails.)
     expect(parseStaticAbilities({ name: "x", oracle: "Wraiths you control have protection from Ring-bearers." })).toEqual([]);
     expect(parseStaticAbilities({ name: "x", oracle: "Snakes you control have daunt, deathtouch, and poisonous 2." })).toEqual([]);
+  });
+
+  it("GRADUATED 2026-08-15: 'Dragons you control have ward {1}' → the enforced addWard grant over the subtype selector (the Rith slice)", () => {
+    const d = parseStaticAbilities({ name: "x", oracle: "Dragons you control have ward {1}." });
+    expect(d).toHaveLength(1);
+    expect(d[0]).toMatchObject({ layer: 6, op: { layerOp: "addWard", generic: 1 }, affects: { selector: { subtypes: ["Dragon"] } } });
   });
 
   it("static-only guard: an 'until end of turn' combat-trick grant is NOT a static (ignored)", () => {

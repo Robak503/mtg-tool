@@ -149,16 +149,22 @@ describe("parseStaticAbilities — keyword-grant all-or-nothing (FP fix)", () =>
     expect(classifyCard(c)).not.toBe("native-static");
   });
 
-  it("Giant Ankheg: 'Other creatures you control have trample and ward {2}' → ZERO descriptors (ward not grantable)", () => {
+  it("GRADUATED 2026-08-15: Giant Ankheg's 'trample and ward {2}' → BOTH grants emit (the Rith slice's generic-pip ward)", () => {
     const c = card("Giant Ankheg", "Other creatures you control have trample and ward {2}.", "Creature — Insect");
-    expect(parseStaticAbilities(c)).toHaveLength(0);
+    const d = parseStaticAbilities(c);
+    expect(d).toHaveLength(2);
+    expect(d.map((x) => x.op.layerOp).sort()).toEqual(["addKeyword", "addWard"]);
+    for (const x of d) expect(x.affects.selector).toMatchObject({ excludeSelf: true });
   });
 
-  it("combined P2.10 clause is guarded WHOLE on a LOSSY tail: '… get +1/+1 and have flying and ward {2}' → NO P/T leak, NO keyword leak", () => {
-    // ward {2} is not grantable → the whole clause (P/T + keyword) drops. (The protection-from-COLOR variant
-    // is now MODELED — see the clean case below — so this uses a genuinely-unmodeled tail segment.)
+  it("GRADUATED 2026-08-15: the combined P2.10 clause '… get +1/+1 and have flying and ward {2}' emits all THREE (P/T + keyword + the enforced ward)", () => {
+    // Pinned zero-descriptors while ward {2} was ungrantable; the Rith slice models it through the same
+    // enforced addWard channel, so the whole clause parses. A genuinely-unmodeled tail (Ward—Sacrifice /
+    // daunt) still drops the whole clause — the guard class lives in groupGrant.test.js + rithExcessDamage.
     const c = card("Lossy Lord", "Creatures you control get +1/+1 and have flying and ward {2}.", "Enchantment");
-    expect(parseStaticAbilities(c)).toHaveLength(0); // neither the +1/+1 nor the flying survives
+    const d = parseStaticAbilities(c);
+    expect(d).toHaveLength(3);
+    expect(d.map((x) => x.op.layerOp).sort()).toEqual(["addKeyword", "addWard", "ptModify"]);
   });
 
   it("combined P2.10 clause with a CLEAN protection tail: '… get +1/+1 and have flying and protection from red' → P/T + keyword + addProtection", () => {
