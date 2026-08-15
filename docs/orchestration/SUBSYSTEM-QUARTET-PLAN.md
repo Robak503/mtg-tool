@@ -106,6 +106,21 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
+- 2026-08-15 — **PHASE 3 SLICE 1 SHIPPED — and the auditor earned its keep on day one.** auditState
+  (seven invariant families: per-player hidden-zone card uniqueness + GLOBAL battlefield/stack
+  uniqueness, attachment symmetry both ways, counters ≥ 0, life/pools numeric, battlefield/stack
+  shapes, delayed-record validity) wired behind MTG_AUDIT=1 in dispatchAction (staged per the
+  default-off law; always-on-in-tests waits for the full backfill). Every invariant witnessed with a
+  hand-corrupted seen-to-fail state; the dedup mutation killed. THE BACKFILL'S FIRST PASS FOUND TWO
+  REAL ISSUES: ① the deck builder's falsy-id fallback minted IDENTICAL card ids across every id-less
+  deck (caught on game one: "deck-Forest-1" in two players' libraries; fixed at the root — the deck
+  NAME fallback; the mirror-match residual documented); ② the one-zone invariant honestly SCOPED
+  (hidden zones per-player — every state-level lookup there is playerId-scoped; battlefield+stack
+  global, where cross-player id interaction is real). After the fixes: 10 full games, EVERY action
+  audited, zero violations. REMAINING Phase-3: the replay harness (record rngSeed+deckLists+
+  actionStream → deterministic re-run → state-hash assert) + the full-suite backfill + the
+  always-on-in-tests flip.
+
 - 2026-08-15 — **KLAUTH SHIPPED — the sub-pool's first consumer; Phase 4's build list is now three of
   four done.** The keep-whole fold + the layer-aware totalAttackingPower reader + the minting resolver
   (R/G round-robin off the source's color identity, documented deterministic). Klauth

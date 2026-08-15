@@ -30,7 +30,12 @@ function deckToCardArray(deck) {
     if (NON_MAINBOARD.has(entry.section)) continue;
     for (let i = 0; i < (entry.qty || 1); i++) {
       out.push({
-        id: `${deck.id || "deck"}-${entry.name}-${i}`,
+        // (QUARTET Phase 3 backfill find, 2026-08-15: the bare "deck" fallback minted IDENTICAL ids
+        // across every id-less deck — the auditor caught "deck-Forest-1" in two players' libraries on
+        // game one. The deck NAME fallback kills the observed class; the residual mirror-match case
+        // (two seats on the SAME deck) is noted in audit.js and awaits per-seat prefixing at session
+        // assembly if formPod ever deals mirrors.)
+        id: `${deck.id || deck.name || "deck"}-${entry.name}-${i}`,
         name: entry.name,
         type: entry.type || "",
         mana: entry.mana || "",

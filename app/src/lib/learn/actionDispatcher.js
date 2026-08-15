@@ -55,6 +55,7 @@ import {
 } from "./gameState.js";
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
 import { manaSources, planPayment, sourcesExcludingOneShotVictim, commitPaymentPlan, commitManaTap, payManaCost } from "./manaModel.js";
+import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
 import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
@@ -1817,7 +1818,17 @@ export function dispatchAction(state, action) {
   if (!handler) {
     throw new DispatcherError(`Unknown action kind: ${action.kind}`, "BAD_ACTION");
   }
-  return handler(state, action);
+  const next = handler(state, action);
+  // QUARTET PHASE 3 — the invariant auditor (MTG_AUDIT=1, off by default per the plan's staging: the
+  // always-on-in-tests flip waits for the backfill). A violation after an action is engine corruption
+  // at its FIRST observable moment — throw the diagnosis, never let it propagate silently.
+  if (process.env.MTG_AUDIT === "1") {
+    const violations = auditState(next);
+    if (violations.length) {
+      throw new DispatcherError(`AUDIT after ${action.kind}: ${violations.join(" | ")}`, "AUDIT_VIOLATION");
+    }
+  }
+  return next;
 }
 
 /**

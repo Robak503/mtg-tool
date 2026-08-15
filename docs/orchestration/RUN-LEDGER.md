@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **QUARTET PHASE 3 SLICE 1 — the invariant auditor, earning its keep on day one** - the SUBSYSTEM QUARTET
+> Suite green + lint 0 BY EXIT CODE (sequential). Card batch unchanged at **+75**.
+> ⭐ audit.js — auditState, PURE, seven invariant families (per-player hidden-zone card uniqueness ·
+> GLOBAL battlefield/stack uniqueness · attachment symmetry both ways · counters ≥ 0 · life/pools
+> numeric · battlefield/stack shapes · delayed-record validity), wired behind MTG_AUDIT=1 in
+> dispatchAction (STAGED per the default-off law — the always-on-in-tests flip waits for the full
+> backfill). Every invariant proven by a HAND-CORRUPTED seen-to-fail state beside the clean-state
+> no-false-positive pin; the one-zone dedup mutation killed.
+> ⭐⭐ THE BACKFILL BIT ON GAME ONE, twice: ① the deck builder's falsy-id fallback minted identical
+> card ids across every id-less deck ("deck-Forest-1" in two libraries) — fixed at the ROOT (the name
+> fallback; the mirror-match residual documented); ② the one-zone invariant honestly SCOPED (hidden
+> zones per-player — every state-level lookup there is playerId-scoped; battlefield+stack global).
+> After both: 10 full games, EVERY dispatch audited, ZERO violations.
+> ⚠️ The first audited probe read "0 errors, 10 games, 0s" — a MASS FAILURE swallowed as degenerate
+> games (the hollow-gate law: a too-clean number IS the alarm). The direct single-game probe named the
+> real violation chain.
+> Token diet: ~15k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **KLAUTH (+1) — the sub-pool's first consumer** - the SUBSYSTEM QUARTET × the shelf grind (Dragons 85→86)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Klauth
 > body-only→native-trigger. Post-release batch **+75**.
