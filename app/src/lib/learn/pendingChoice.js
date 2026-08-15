@@ -404,14 +404,16 @@ export function setPendingDivideChoice(state, { controller, amount, candidates, 
  * same full-assignment rule as divide-damage). resolveDistributeChoice applies each via the add-counter atom
  * so the controller's counter doublers compose (CR 616). Mirrors setPendingDivideChoice exactly.
  */
-export function setPendingDistributeChoice(state, { controller, amount, counterType = "+1/+1", maxTargets = null, perTargetCap = null, candidates, sourceName = null }) {
+export function setPendingDistributeChoice(state, { controller, amount, counterType = "+1/+1", maxTargets = null, perTargetCap = null, candidates, sourceName = null, moveFromId = null, anyNumber = false }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "distribute-counters-pending", controller, amount, counterType, count: candidates.length, sourceName });
   return {
     ...next,
     // perTargetCap (SHELF M1c — Mothman's "a counter on EACH of up to X"): each chosen target may receive at
     // most this many; the auto-pick and the settle both honor it, so a surplus is under-spent, never stacked.
-    pendingChoice: { kind: "distribute-counters", controller, amount, counterType, maxTargets, perTargetCap, candidates, sourceName },
+    // moveFromId + anyNumber (Forgotten Ancient, W1 — CR 122.5): a MOVE removes the spent total from this
+    // source at settle, and "any number" makes ZERO a legal assignment (the full-assignment rule is waived).
+    pendingChoice: { kind: "distribute-counters", controller, amount, counterType, maxTargets, perTargetCap, candidates, sourceName, moveFromId, anyNumber },
   };
 }
 

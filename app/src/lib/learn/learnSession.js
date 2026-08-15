@@ -2892,7 +2892,9 @@ export function applyDistributeChoice(session, choice, opts = {}) {
       (pc.candidates || []).length,
       pc.maxTargets ?? (pc.candidates || []).length,
     );
-    const required = Math.min(pc.amount || 0, targetSlots * perCap);
+    //   - "move ANY NUMBER of +1/+1 counters …" (Forgotten Ancient, W1) — pc.anyNumber: zero-through-all is
+    //     the printed choice (moving nothing IS the "you may" decline), so nothing is required.
+    const required = pc.anyNumber ? 0 : Math.min(pc.amount || 0, targetSlots * perCap);
     if (cappedSum < required) {
       return { session, decision: { kind: "distribute-counters", ...pc } }; // under-assigned — re-surface the picker
     }

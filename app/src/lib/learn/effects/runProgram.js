@@ -26,11 +26,11 @@
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice, setPendingImpulseDigChoice } from "../pendingChoice.js";
 import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
-import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents } from "../gameState.js";
+import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures } from "../gameState.js";
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
 import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
 import { programConfidence } from "./parser.js";
-import { checkDiscardTriggers } from "../triggers.js"; // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event
+import { checkDiscardTriggers, checkDiesTriggers } from "../triggers.js"; // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event; checkDiesTriggers — the move-from-self settle's lethal sweep (W1)
 import { isLandCard } from "./atoms/shared.js"; // SAC-UNLESS-RETURN-LAND — shared.js is a strict leaf, so this edge is DAG-safe
 
 // SAC-UNLESS-RETURN-LAND (2026-08-12) — the ONE pool predicate for a return-a-land upkeep cost
@@ -812,6 +812,18 @@ export function resolveDivideChoice(state, distribution) {
  */
 export function autoPickDistributeCounters(state, pc) {
   const amount = pc.amount || 0;
+  // MOVE-FROM-SELF (Forgotten Ancient, W1): the candidate pool spans EVERY battlefield (the printed "other
+  // creatures"), so the AI policy filters to the controller's OWN side and moves the WHOLE pile onto its
+  // strongest own creature — the card's real line (bank counters, dump them on the best attacker), never a
+  // decline-only hollow credit. No own-side candidate → move nothing ([] — legal, pc.anyNumber).
+  if (pc.moveFromId) {
+    const own = (pc.candidates || [])
+      .filter((c) => c.controller === pc.controller)
+      .map((c) => ({ c, p: creaturePower(findPermanent(state, c.id)?.permanent, state) || 0 }))
+      .sort((a, b) => b.p - a.p || (a.c.id < b.c.id ? -1 : 1));
+    if (own.length === 0 || amount <= 0) return [];
+    return [{ id: own[0].c.id, type: "creature", amount }];
+  }
   const pool = (pc.candidates || [])
     .map((c) => ({ c, p: creaturePower(findPermanent(state, c.id)?.permanent, state) || 0 }))
     .sort((a, b) => b.p - a.p || (a.c.id < b.c.id ? -1 : 1));
@@ -840,16 +852,28 @@ export function resolveDistributeChoice(state, distribution) {
   let next = clearPendingChoice(state);
   if (!next.players?.[pc.controller]) return next;             // controller eliminated mid-pause → no counters, no resume
   const validIds = new Set((pc.candidates || []).map((c) => c.id));
+  // MOVE-FROM-SELF (Forgotten Ancient, W1 — CR 122.5): a move can only place what the SOURCE actually holds
+  // RIGHT NOW — cap the budget at its live pile (defensive; the pause blocks intervening actions, so this
+  // normally equals pc.amount). Never fabricate a counter the source doesn't have.
+  const budget = pc.moveFromId ? Math.min(pc.amount || 0, getCounter(next, pc.moveFromId, pc.counterType || "+1/+1")) : (pc.amount || 0);
   let spent = 0;
   for (const d of distribution || []) {
-    if (!validIds.has(d.id) || spent >= (pc.amount || 0)) continue;
+    if (!validIds.has(d.id) || spent >= budget) continue;
     // perTargetCap (SHELF M1c): a human distribution can never stack past the printed per-target cap either.
-    const amt = Math.max(0, Math.min(d.amount || 0, (pc.amount || 0) - spent, pc.perTargetCap || Infinity));
+    const amt = Math.max(0, Math.min(d.amount || 0, budget - spent, pc.perTargetCap || Infinity));
     if (amt <= 0) continue;
     next = resolveAtom(next, { op: "add-counter", counterType: pc.counterType || "+1/+1", amount: amt }, { controller: pc.controller, targets: [{ type: "creature", id: d.id }] });
     spent += amt;
   }
-  next = logEvent(next, { kind: "spell-effect", effect: "distribute-counters", controller: pc.controller, amount: pc.amount, spent });
+  // The REMOVE half of the move (CR 122.5): the source loses exactly the CHOSEN total — placement-side
+  // doublers (CR 616) inflate what lands, never what leaves. Removing +1/+1 counters can be lethal under a
+  // debuff static (a 0/3 alive only through its counters), so sweep SBAs right here (CR 704.5g).
+  if (pc.moveFromId && spent > 0) {
+    next = removeCounter(next, { permanentId: pc.moveFromId, type: pc.counterType || "+1/+1", amount: spent });
+    const r = destroyLethalCreatures(next);
+    next = checkDiesTriggers(r.state, r.dead);
+  }
+  next = logEvent(next, { kind: "spell-effect", effect: "distribute-counters", controller: pc.controller, amount: pc.amount, spent, ...(pc.moveFromId ? { movedFrom: pc.moveFromId } : {}) });
   return resumeAfterChoice(next, pc);
 }
 

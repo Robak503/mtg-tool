@@ -525,6 +525,11 @@ export function DistributeCountersPanel({ decision, onChoose }) {
   const placeable = Math.min(total, targetSlots * perCap);
   const remaining = placeable - assigned;
   const chosenCount = Object.values(amounts).filter((n) => n > 0).length;
+  // anyNumber (Forgotten Ancient's counter-MOVE, W1): "move ANY NUMBER" — zero-through-all is legal, so the
+  // submit gate drops to "anything assigned so far" (an empty submit IS the printed "you may" decline).
+  // Mirrors learnSession.applyDistributeChoice's required=0 waiver.
+  const anyNumber = !!decision.anyNumber;
+  const canSubmit = anyNumber ? remaining >= 0 : remaining === 0;
 
   const bump = (id, delta) =>
     setAmounts((prev) => {
@@ -539,7 +544,7 @@ export function DistributeCountersPanel({ decision, onChoose }) {
     });
 
   const submit = async () => {
-    if (submitting || remaining !== 0) return;
+    if (submitting || !canSubmit) return;
     const distribution = candidates
       .filter((c) => (amounts[c.id] || 0) > 0)
       .map((c) => ({ id: c.id, amount: amounts[c.id] }));
@@ -555,18 +560,26 @@ export function DistributeCountersPanel({ decision, onChoose }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
       <ChoiceBanner
         icon="🎯"
-        title={`Distribute ${total} ${counterType} counter${total === 1 ? "" : "s"}${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}
+        title={`${anyNumber ? "Move up to" : "Distribute"} ${total} ${counterType} counter${total === 1 ? "" : "s"}${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}
       >
-        Assign all {placeable} among your creatures
-        {maxTargets != null ? `, up to ${maxTargets} of them` : ""}
-        {perTargetCap != null ? ` (max ${perTargetCap} each)` : ""}
-        {placeable < total
-          ? ` — only ${placeable} of ${total} can be placed on the board you have`
-          : ""}
-        . Remaining:{" "}
-        <b style={{ color: remaining === 0 ? "var(--ley-green)" : "var(--ley-gold)" }}>
-          {remaining}
-        </b>
+        {anyNumber ? (
+          <>Move any number of them onto other creatures — moving none is allowed. Assigned:{" "}
+            <b style={{ color: "var(--ley-green)" }}>{assigned}</b>
+          </>
+        ) : (
+          <>
+            Assign all {placeable} among your creatures
+            {maxTargets != null ? `, up to ${maxTargets} of them` : ""}
+            {perTargetCap != null ? ` (max ${perTargetCap} each)` : ""}
+            {placeable < total
+              ? ` — only ${placeable} of ${total} can be placed on the board you have`
+              : ""}
+            . Remaining:{" "}
+            <b style={{ color: remaining === 0 ? "var(--ley-green)" : "var(--ley-gold)" }}>
+              {remaining}
+            </b>
+          </>
+        )}
       </ChoiceBanner>
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
         {candidates.map((c) => {
@@ -624,9 +637,11 @@ export function DistributeCountersPanel({ decision, onChoose }) {
       <button
         className="btn btn-primary btn-sm"
         onClick={submit}
-        disabled={remaining !== 0 || submitting}
+        disabled={!canSubmit || submitting}
       >
-        {remaining === 0 ? "Place counters" : `Assign ${remaining} more`}
+        {anyNumber
+          ? (assigned > 0 ? `Move ${assigned}` : "Move none")
+          : remaining === 0 ? "Place counters" : `Assign ${remaining} more`}
       </button>
     </div>
   );

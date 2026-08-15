@@ -30,12 +30,10 @@ around a slice).
 
 Counter-themed (X-Men). 21 residue; the probed queue:
 
-1. **Forgotten Ancient** — trigger 1 (any-player cast → optional self +1/+1) ALREADY ROUTES; the gap
-   is trigger 2: "move any number of +1/+1 counters from this creature onto other creatures"
-   (upkeep). Build: remove-N-from-self + the EXISTING distribute-counters pause
-   (setPendingDistributeChoice). ⚠️ HOLLOW-CREDIT TRAP: the decline-only shortcut would credit a
-   card whose signature ability never moves a counter — the AI policy must REALLY move
-   (deterministic: all counters onto the strongest other creature).
+1. ✅ **Forgotten Ancient** — SHIPPED 2026-08-15 (Wolverine 79→80). The move = the distribute pause +
+   `moveFromId` (settle removes the spent total from the source) + `anyNumber` (zero legal = the "you
+   may"; the atom is in the α2 UN-optional family). The AI really moves (whole pile → strongest own
+   other; [] on enemy-only). The move machinery is now REUSABLE — #2's combat-start move-all rides it.
 2. **The Ozolith** — leaves-with-counters accumulator (the dies/leave look-back ALREADY snapshots
    `counters` — see gameState markDead) + the combat-start move-all (an intervening-if "has counters
    on it" + the move machinery from #1).

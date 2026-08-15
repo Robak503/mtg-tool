@@ -198,8 +198,11 @@ describe("ANYCAST-SELF-COUNTER — Managorger Hydra whole-card flip + CREED near
   });
 
   it("CREED — optional 'may' + an unmodeled second ability, and an unmodeled cast effect, both stay parked", () => {
-    // Forgotten Ancient: optional "you may" self-counter PLUS an unmodeled upkeep counter-move ability → whole card not faithful.
-    expect(classifyCard({ type: "Creature — Elemental", name: "Forgotten Ancient", power: 0, toughness: 3, oracle: "Whenever a player casts a spell, you may put a +1/+1 counter on this creature.\nAt the beginning of your upkeep, you may move any number of +1/+1 counters from this creature onto other creatures." })).toBe("body-only");
+    // GRADUATED 2026-08-15: Forgotten Ancient WAS this pin's example — its upkeep counter-move is now
+    // modeled (move-counters-from-self, forgottenAncient.test.js owns the flip). The guard CLASS lives on
+    // with the same shape, second ability still unmodeled: "onto other PERMANENTS" misses the anchored
+    // "onto other creatures" arm → the whole card stays parked.
+    expect(classifyCard({ type: "Creature — Elemental", name: "Remembered Ancient", power: 0, toughness: 3, oracle: "Whenever a player casts a spell, you may put a +1/+1 counter on this creature.\nAt the beginning of your upkeep, you may move any number of +1/+1 counters from this creature onto other permanents." })).toBe("body-only");
     // Same whose:any watcher but an unmodeled effect (mill + scry) → must not falsely claim native.
     expect(classifyCard({ type: "Creature — Hydra", name: "FakeGorger", power: 1, toughness: 1, oracle: "Trample\nWhenever a player casts a spell, that player mills three cards and you scry that many." })).toBe("body-only");
   });

@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Forgotten Ancient actually moves its counters.** The upkeep ability really moves any number of
+  +1/+1 counters onto other creatures — they leave the Ancient and land where you put them (a doubler
+  doubles what lands, never what leaves), moving none is a real choice, and the practice-game AI banks
+  the pile then dumps it on your strongest other creature instead of never using the ability.
 - **"Choose one that hasn't been chosen this turn" remembers.** Teval's Judgment, Breeches, Gala
   Greeters, Monument to Endurance, and Galadriel all track their picks — the same mode is never
   offered twice in a turn, and once all modes are spent the trigger correctly does nothing until

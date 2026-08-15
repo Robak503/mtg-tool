@@ -511,7 +511,10 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
     // is realized when the player chooses whether to cast at instant speed, exactly as the extra-land
     // grant's is realized at the land-play step. Stamping `optional` would add a meaningless yes/no pause
     // before a permission that costs nothing to hold.
-    return (inner.op === "free-cast" || inner.op === "play-extra-land-this-turn" || inner.op === "grant-flash-this-turn")
+    // MOVE-COUNTERS-FROM-SELF (Forgotten Ancient, W1) — the FOURTH member: the printed "any number" already
+    // makes ZERO a legal distribution (the pause's anyNumber waiver), so the "may" IS the picker's zero row.
+    // Stamping `optional` would double-prompt (a yes/no before a choice that can itself decline).
+    return (inner.op === "free-cast" || inner.op === "play-extra-land-this-turn" || inner.op === "grant-flash-this-turn" || inner.op === "move-counters-from-self")
       ? inner : { ...inner, optional: true };
   }
 

@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **⭐ FORGOTTEN ANCIENT (+1) — the counter-MOVE (CR 122.5); the SHELF-TAIL opens** - the shelf grind (Wolverine 79→80)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Forgotten Ancient
+> body-only→native-trigger (both triggers audited: the cast watcher already routed; the upkeep MOVE
+> was the gap). Post-release batch **+52**. First slice off SHELF-TAIL-PLAN.md.
+> ⭐ "You may move ANY NUMBER of +1/+1 counters from this creature onto other creatures": the EXISTING
+> distribute-counters pause carries two extensions — `moveFromId` (the settle removes the spent total
+> from the source: the CR 122.5 remove half, placement still through add-counter so recipient doublers
+> compose while the REMOVED side stays literal — witnessed 8-land/4-leave) and `anyNumber` (ZERO is a
+> legal assignment: the settler's full-assignment rule waived, which IS the "you may" — the atom joins
+> the free-cast UN-optional family, no double-prompt). The budget re-reads the source's LIVE pile at
+> settle (never fabricate); removal runs the lethal SBA sweep + dies triggers (a debuff-static board
+> can make the move lethal to the source). Panel: anyNumber submit gate ("Move none" is a real button).
+> ⚠️ The HOLLOW-CREDIT trap the plan named, closed: the AI policy REALLY moves — whole pile onto the
+> strongest OWN other creature, [] only when enemy-only (never an enemy pump) — both pins
+> mutation-checked (3 mutations: parser arm · remove block · AI branch — each kills its named tests).
+> GRADUATION CATCH (the full suite's job): castTriggers.test.js pinned Forgotten Ancient ITSELF as its
+> "unmodeled second ability stays parked" example — graduated with the date; the guard class lives on
+> ("onto other PERMANENTS" misses the anchored arm → still parked, verified green).
+> Token diet: ~11k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **🏁 TEVAL'S JUDGMENT (+5) — the MODE-MEMORY modal; TEVAL AT 90, THE FOURTEENTH DECK AT THE BAR** - the shelf grind (Teval 89→**90** ✅)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+5 / 0 / 0** — Teval's Judgment + FOUR
 > riders, the whole mode-memory family at once: Breeches, Eager Pillager · Gala Greeters (her tapped
