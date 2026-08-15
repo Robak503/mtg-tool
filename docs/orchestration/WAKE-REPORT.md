@@ -13,11 +13,11 @@
 > The next three decks' full residue maps, probed blockers, and slice queues live in
 > **docs/orchestration/SHELF-TAIL-PLAN.md** — a booting session reads THAT file, not a vein block
 > here. The order (Colton's steer, banked in the vault): **① Wolverine 81 → ② Kellan 74 →
-> ③ Otharri 74 → ④ Cap America 73 → ⑤ Halfshell 67 → ⑥ Shalai 67 → ⑦ the archetype-gap QUINTET (NEW
-> 08-15, all pasted by Colton + imported to the test profile, lists banked in the vault registry):
-> Thrun Voltron 80 + Brago Blink 75 (flicker) + Shorikai Vehicles 73 (crew) + Bumble Flower Combo
-> 62 (alt-win) + Light-Paws Voltron 58 (auras — the shelf floor) → cEDH LAST: ⑧ Believe it! 79 →
-> ⑨ Kinnan 77.** Veyran = the draw-go seat per Colton (that gap was
+> ③ Otharri 74 → ④ Cap America 73 → ⑤ Halfshell 67 → ⑥ Shalai 67 → ⑦ the archetype-gap SIX — the
+> program COMPLETE (all pasted by Colton 08-15, lists banked in the vault registry; theft VETOED for
+> training on purpose): Thrun Voltron 80 + Brago Blink 75 (flicker) + Shorikai Vehicles 73 (crew) +
+> Nekusar Wheels 71 + Bumble Flower Combo 62 (alt-win) + Light-Paws Voltron 58 (auras — the floor) →
+> cEDH LAST: ⑧ Believe it! 79 → ⑨ Kinnan 77.** Veyran = the draw-go seat per Colton (that gap was
 > never open). ✅ Forgotten Ancient SHIPPED (Wolverine 79→80, +52); ✅ The Ozolith SHIPPED 1f36bf1f
 > (both arms, Wolverine 80→**81**, batch +53). Next slice: Kodama of the West Tree (the modified
 > predicate). Ceiling calls flagged per deck as residue thins.

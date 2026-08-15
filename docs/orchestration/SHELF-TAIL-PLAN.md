@@ -7,12 +7,25 @@
 ## The order (Colton's steer, 2026-08-15 — do not reorder)
 
 **① Wolverine 79 → ② Kellan 74 → ③ Otharri 74**, then Cap America 73 → Halfshell 67 → Shalai 67 →
-the FIVE archetype-gap decks (08-15, Colton's program to fill missing deck types: **Thrun Voltron 80**
-— equipment voltron, **Brago Blink 75** — flicker, **Shorikai Vehicles 73** — crew/artifacts,
-**Bumble Flower Combo 62** — combo/alt-win, **Light-Paws Voltron 58** — AURA voltron, the shelf
-floor; theft + wheels may still arrive), and the cEDH pair (**Believe it! 79, Kinnan 77) LAST** —
-"hardest to push past 90… focus those last." (Veyran = the draw-go seat per Colton.)
+the SIX archetype-gap decks — ⭐ THE PROGRAM IS COMPLETE (08-15, all pasted by Colton in one evening:
+**Thrun Voltron 80** — equipment voltron, **Brago Blink 75** — flicker, **Shorikai Vehicles 73** —
+crew/artifacts, **Nekusar Wheels 71** — wheels, **Bumble Flower Combo 62** — combo/alt-win,
+**Light-Paws Voltron 58** — AURA voltron, the shelf floor; ⛔ THEFT is VETOED for training per the
+vault's no-theft-training ruling — that gap stays open ON PURPOSE; superfriends remains the one
+optional add), and the cEDH pair (**Believe it! 79, Kinnan 77) LAST** — "hardest to push past 90…
+focus those last." (Veyran = the draw-go seat per Colton.)
 Call the ceiling explicitly per deck when the residue is genuinely unbuildable-class.
+
+### NEW ARRIVAL: Nekusar Wheels — 71, needs 19 (the wheels vein)
+The program's closer (list in the vault registry). The residue: **18 spells** — ⭐ THE WHEEL SUITE
+ITSELF (Wheel of Fortune / Wheel and Deal / Windfall-class "each player discards their hand and
+draws N" — ONE mass draw-discard atom family unlocks most of the pile; Windfall is already in
+Bumbleflower's + Shorikai's residue too), Dark Deal, Peer into the Abyss, Molten Psyche. The
+per-draw PUNISHMENT watchers (Underworld Dreams / Spiteful Visions / Fate Unraveler / Kederekt
+Parasite / Razorkin Needlehead — "whenever an opponent draws a card, damage" — one watcher class,
+five-plus cards, and Nekusar HIMSELF likely rides it), the cast-punishers (Forced Fruition, Painful
+Quandary), Teferi's Puzzle Box (the upkeep hand-cycle), Sheoldred (the both-ways drain). Strategy:
+the opponent-draw punishment watcher first (Nekusar's identity + 5 riders), then the wheel atom.
 
 ### NEW ARRIVAL: Light-Paws Voltron — 58, needs 32 (the shelf floor; the aura-statics stress test)
 Voltron #2 (list in the vault registry; Colton's framing: get Light-Paws out FAST). The residue is
