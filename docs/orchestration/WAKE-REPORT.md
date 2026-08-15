@@ -25,16 +25,18 @@
 >   mill-3 is modeled; needs the optional GY-land-to-battlefield-tapped tail + the LEAVE-GRAVEYARD
 >   batch event ("whenever one or more cards leave your graveyard" — a new watcher class; every
 >   GY-exit site funnels through moveCardToZone/recordGraveyardEvents — probe that chokepoint first).
->   ③ Undead Butler: ETB mill modeled; the dies→may-exile-it→reflexive return rides the
->   reflexive-trigger seam. ④ Molt Tender — DESIGN BANKED (build with care, it touches the
->   PHANTOM-MANA gate): the "{T}, Exile a card from your graveyard: Add one mana of any color" cost
->   is refused by manaCostConsumable (manaModel ~640, the load-bearing CREED gate). The honest carve:
->   a manaAbilityExilesGyCard(oracle) reader (mirror manaAbilitySacrificesSelf at 453) → thread
->   `exilesGyCard: true` through the isActivatedSource branch (~1115) onto sources (~1520) → the
->   AVAILABILITY gate skips the source when the graveyard is empty → commitManaTap ACTUALLY exiles a
->   graveyard card when the tap commits (deterministic house pick, oldest-first, documented like the
->   riot policies) — paying for real is what makes the carve non-phantom. ① Tortured Existence
->   SHIPPED ca6ec474 (+17 riders incl. Survival/Fauna Shaman; Teval 79→80).
+>   ✅ SHIPPED so far down this vein: ① Tortured Existence ca6ec474 (+17) · ② TEVAL HERSELF f9259d35
+>   (native-trigger — the article-form pickFromGraveyard land reanimate closed her; both triggers
+>   pre-detected) · ④ Molt Tender 8d8253bd (the phantom-gate carve, both halves pay). **Teval 82.**
+>   NEXT: ③ Undead Butler (dies→may-exile-it→reflexive return — the reflexive seam). ⑤ RIPPLES OF
+>   UNDEATH — DESIGN BANKED: the firstMain trigger detects; the tail "you may pay {1} and 3 life. If
+>   you do, put a card from among those cards into your hand" needs TWO pieces on the
+>   optional-mana-payment machinery (stack.js ~909, settler-based, effectAtoms/elseAtoms ride the
+>   pause): (a) a LIFE RIDER on the cost ("{1} and 3 life" — add costLife to the atom + charge it in
+>   resolveOptionalManaPaymentChoice beside payManaCost), (b) the MILLED-REFERENT pick payoff ("those
+>   cards" = this trigger's own mill — the mill atom must stamp the milled ids into ctx/resume, and
+>   the payoff is a pick-a-card-to-hand choice over that set, the tutor-picker pattern). Then the ETB
+>   bucket (Court of Cunning, Titania, Bloodghast, Overlord of the Balemurk…).
 > · **The honest shelf** (post-purge): 12 at bar (Slivers 100 · Vihaan 96 · Omnath 93 · Zaxara 93 ·
 >   Mothman 91 · Earth Bent 91 · cdh 91 · Rashmi 90 · Hulk 90 · Veyran 90 · **Dragons 90** · Jurassic
 >   89→next). Below: Teval 79 · Believe it! 79 · Wolverine 78 · Kinnan 77 · Otharri 74 · Kellan 74 ·
