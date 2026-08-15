@@ -1037,7 +1037,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // dispatcher passes to planPayment for the same cast, or the two halves disagree and the sim offers a
     // cast whose payment then throws MANA_SHORT — a legal-looking action that cannot be taken. `fromZone` is
     // this builder's own parameter, so commander casts are recognised here exactly as they are there.
-    const spendContext = { castCard: card, isCommander: fromZone === "command" };
+    // POOL-RESTRICTED SUB-POOL (QUARTET Phase 4): thread the tagged entries so a qualifying cast can
+    // spend them (restricted-first in the planner). The ability-activation path threads NONE — Klauth's
+    // "only to cast spells" is enforced by absence (the default-deny posture).
+    const spendContext = { castCard: card, isCommander: fromZone === "command", restrictedEntries: player.restrictedMana || [] };
     const affordable = freeCast || canAfford(player.manaPool, manaSources(state, playerId), cost, spendContext);
     // EMERGE (CR 702.97): the whole POINT of emerge is casting the Eldrazi when the FULL printed cost is out
     // of reach — sacrificing a creature cuts the cost by its mana value. So when the normal cast is NOT

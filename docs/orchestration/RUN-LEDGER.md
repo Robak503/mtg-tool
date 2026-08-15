@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **QUARTET PHASE 4 CORE — the pool-restricted sub-pool** - the SUBSYSTEM QUARTET
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff not run — deliberate: zero cards flip
+> until the first consumer (Klauth's arm, next slice) mints an entry; the core is planner-witnessed.
+> Card batch unchanged at **+74**.
+> ⭐ THE MODEL the source-filter's own comment called "a much larger change", built bounded:
+> player.restrictedMana tagged entries · the planPayment PRE-PASS (restricted-FIRST, colored pips
+> then generic, hybrids conservatively excluded) · entrySpends deducted exactly at commitPaymentPlan
+> (remainders STAY TAGGED — no laundering; the source-surplus full-consumption guard untouched) ·
+> emptyManaPools drops un-held entries at step ends, the holdUntilEndOfTurn kind survives to
+> finishCleanupActions (Klauth's printed rider) · the "@any-spell" token (bare "cast spells" — any
+> castCard; abilities enforced by default-deny absence). Cast sites thread entries; the ability path
+> deliberately does not.
+> ⭐⭐ Witnessed ×6 with the no-context seen-to-fail control. Mutations SP-M1 (context filter dropped →
+> the ability-payment FP) / SP-M2 (commit deduction dropped → the double-spend) / SP-M3 (the hold
+> inverted → Klauth's rider dies at a step end) all killed via the witness, per-process.
+> Token diet: ~16k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **QUARTET PHASE 4 SLICE 1 — the conjunctive spend-restriction phrase** - the SUBSYSTEM QUARTET
 > Suite green + lint 0 BY EXIT CODE (sequential run). Flip-diff **0/0/0** — deliberate: the gain is
 > RUNTIME mana access (the tier metric doesn't price a restricted source), witnessed at the planner

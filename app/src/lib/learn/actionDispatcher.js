@@ -287,7 +287,7 @@ function applyCastSpell(state, action) {
     // "Spend this mana only to cast a creature spell" is offered here and nowhere else. Must MATCH the
     // affordability context in legalChoices exactly — an offer the payment then refuses is a MANA_SHORT
     // throw on a legal-looking action.
-    const plan = planPayment(pool, castSources, action.cost, { castCard, isCommander: action.fromZone === "command" });
+    const plan = planPayment(pool, castSources, action.cost, { castCard, isCommander: action.fromZone === "command", restrictedEntries: state.players[action.playerId]?.restrictedMana || [] });
     if (!plan) {
       throw new DispatcherError("Cannot pay the spell's mana cost", "MANA_SHORT");
     }

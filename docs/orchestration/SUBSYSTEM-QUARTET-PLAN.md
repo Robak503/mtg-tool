@@ -106,6 +106,21 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
+- 2026-08-15 — **PHASE 4 CORE SHIPPED: the pool-restricted sub-pool.** player.restrictedMana =
+  [{ pool, restriction, holdUntilEndOfTurn? }] — the tagged entries the per-color pool couldn't
+  express. planPayment PRE-PASS spends qualifying entries FIRST (restricted-first; colored pips then
+  generic; hybrids conservatively not entry-payable); the plan's entrySpends deduct exactly at
+  commitPaymentPlan (remainders STAY TAGGED — partial spends can't launder, unlike source surplus,
+  whose full-consumption guard is untouched); emptyManaPools drops un-held entries at step ends,
+  holdUntilEndOfTurn survives to finishCleanupActions. "@any-spell" token for the bare "cast spells"
+  form (any castCard qualifies; abilities thread no context — enforced by default-deny). The two cast
+  sites thread entries; the ability path deliberately does not. Witnessed ×6 (pays from zero open
+  mana · no-context refusal · restricted-first leaves the pool untouched · partial stays tagged ·
+  emptied entries drop · the hold survives steps and dies at cleanup); mutations ×3 killed (the
+  context filter, the commit deduction, the hold inversion). REMAINING: Klauth's trigger arm (the
+  three-sentence fold + totalAttackingPower + the any-combination color policy + the resolver
+  minting the entry) — the first CONSUMER of this core.
+
 - 2026-08-15 — **PHASE 4 SLICE 1 SHIPPED: the conjunctive spend-restriction phrase.** "dragon" joined
   SPEND_CAST_TYPE_WORDS, and a multi-word phrase ("Dragon creature spells" — Rivaz's {T}) becomes ONE
   CONJUNCTIVE entry: the spell must match EVERY word (an ANY-match would be looser than printed — the

@@ -236,7 +236,13 @@ export function emptyManaPools(state) {
     const hold = state.players[pid].manaHold || {};
     const newPool = {};
     for (const c of MANA_COLORS) newPool[c] = keep.includes(c) ? pool[c] || 0 : Math.min(pool[c] || 0, hold[c] || 0);
-    nextPlayers[pid] = { ...state.players[pid], manaPool: newPool };
+    // POOL-RESTRICTED SUB-POOL (QUARTET Phase 4 — Klauth): tagged entries empty with the pool UNLESS
+    // they carry the printed until-end-of-turn hold ("you don't lose this mana as steps and phases
+    // end") — those survive every step/phase end and are dropped at CLEANUP (finishCleanupActions).
+    const rm = state.players[pid].restrictedMana;
+    const keptEntries = Array.isArray(rm) ? rm.filter((e) => e.holdUntilEndOfTurn) : rm;
+    nextPlayers[pid] = { ...state.players[pid], manaPool: newPool,
+      ...(keptEntries !== rm ? { restrictedMana: keptEntries } : {}) };
   }
   return { ...state, players: nextPlayers };
 }
@@ -764,6 +770,19 @@ export function cleanupDiscardExcess(state, playerId) {
  */
 export function finishCleanupActions(state) {
   let next = emptyManaPools(state);
+  // POOL-RESTRICTED SUB-POOL (QUARTET Phase 4 — Klauth): the until-end-of-turn HELD entries survived
+  // every step-end drain above; the turn ends HERE, so every entry drops (CR 514.2 + the printed
+  // "until end of turn" bound on the hold itself).
+  {
+    const cleared = {};
+    let touched = false;
+    for (const pid of Object.keys(next.players)) {
+      const p = next.players[pid];
+      if (Array.isArray(p.restrictedMana) && p.restrictedMana.length) { cleared[pid] = { ...p, restrictedMana: [] }; touched = true; }
+      else cleared[pid] = p;
+    }
+    if (touched) next = { ...next, players: cleared };
+  }
   next = clearCombatDamage(next); // combat damage wears off at end of turn
   next = clearWolverineTurnFlags(next); // WOLVERINE clause 2: reset the per-turn dealt-damage flag (CR 514.2)
   next = clearImpulsePlayPermissions(next); // IMPULSE-EXILE (CR 118.10): the "play that card this turn" permission lapses

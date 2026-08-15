@@ -893,6 +893,11 @@ export function parseSpendRestriction(oracle) {
     // COMMANDER (CR 903.3) — a designation, not a type-line word, so it gets its own token rather than
     // riding SPEND_CAST_TYPE_WORDS where it could never match a printed line (the vacuous-filter failure).
     if (/\bto cast your commander\b/.test(clause)) { types.add("@commander"); continue; }
+    // BARE "to cast spells" (Klauth — QUARTET Phase 4, 2026-08-15): ANY spell qualifies, but activated
+    // abilities do NOT — a real restriction the type-word vocabulary can't express (no word matches every
+    // type line), so it gets its own token like @commander. spendRestrictionAllows honors it for any
+    // castCard; the no-context default-deny still refuses ability payments (they thread no castCard).
+    if (/^to cast spells$/.test(clause.trim())) { types.add("@any-spell"); continue; }
     // Take only the "cast …" spans; anything after "or activate"/"or to activate"/"or pay" is a permission
     // this model deliberately declines to use.
     // ⛔ THE LOOKAHEAD IS THE ANTI-LOSSY GUARD, and omitting it was a live over-delivery caught by an
@@ -928,6 +933,7 @@ export function spendRestrictionAllows(restriction, castCard, opts = {}) {
   const typeLine = String(castCard.type || castCard.type_line || "").toLowerCase();
   for (const t of restriction.castTypes || []) {
     if (t === "@commander") { if (opts.isCommander) return true; continue; }
+    if (t === "@any-spell") return true; // bare "cast spells" — any castCard qualifies (context presence IS the spell-ness)
     // A multi-word entry is CONJUNCTIVE ("dragon creature" — every word must sit on the type line;
     // parseSpendRestriction's phrase note). A single-word entry is byte-identical to before.
     if (t.split(/\s+/).every((word) => new RegExp(`\\b${word}\\b`).test(typeLine))) return true;
@@ -1548,6 +1554,41 @@ export function planPayment(pool, sources, cost, spendContext = null) {
   const spend = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
   if (!cost) return { taps: [], spend };
 
+  // ⭐ POOL-RESTRICTED SUB-POOL (QUARTET Phase 4 core, 2026-08-15 — CR 106.6 on TRIGGER-GRANTED mana:
+  // Klauth's "add X … Spend this mana only to cast spells"). The per-color pool cannot carry a
+  // restriction (the laundering hazard the source-filter's full-consumption condition documents), so
+  // restricted mana lives in TAGGED ENTRIES (player.restrictedMana — threaded here as
+  // spendContext.restrictedEntries; the default-deny posture holds: no context ⇒ no entries seen).
+  // A PRE-PASS spends qualifying entries FIRST (restricted-first — never strand restricted mana when a
+  // legal spend exists), colored pips then generic; the remainder STAYS TAGGED in its entry (partial
+  // spends can't launder — unlike source surplus, which floats untagged and so keeps its
+  // full-consumption guard unchanged). Hybrid pips are deliberately NOT entry-payable (conservative —
+  // a rare planner null where a cleverer order could pay, FN-safe). The plan carries `entrySpends` so
+  // commitPaymentPlan deducts the EXACT amounts from the EXACT entries — the same
+  // "affordable == actually paid" invariant the taps hold.
+  const entrySpends = [];
+  const rEntries = (spendContext?.restrictedEntries || [])
+    .map((e, i) => ({ e, i }))
+    .filter(({ e }) => e && spendRestrictionAllows(e.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander }));
+  if (rEntries.length) {
+    let effCost = { ...cost };
+    for (const { e, i } of rEntries) {
+      const es = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+      let any = false;
+      for (const c of MANA_COLORS) { // colored pips first — the entry's exact colors
+        const take = Math.min(e.pool?.[c] || 0, effCost[c] || 0);
+        if (take > 0) { es[c] += take; effCost = { ...effCost, [c]: effCost[c] - take }; any = true; }
+      }
+      for (const c of MANA_COLORS) { // then generic from what's left in the entry
+        const left = (e.pool?.[c] || 0) - es[c];
+        const take = Math.min(left, effCost.generic || 0);
+        if (take > 0) { es[c] += take; effCost = { ...effCost, generic: effCost.generic - take }; any = true; }
+      }
+      if (any) entrySpends.push({ entry: i, spend: es });
+    }
+    cost = effCost; // the greedy below pays only what the entries could not
+  }
+
   const working = {};
   for (const c of MANA_COLORS) working[c] = pool?.[c] || 0;
 
@@ -1763,7 +1804,7 @@ export function planPayment(pool, sources, cost, spendContext = null) {
     }
   }
 
-  return { taps, spend };
+  return { taps, spend, ...(entrySpends.length ? { entrySpends } : {}) };
 }
 
 /**
@@ -1840,7 +1881,20 @@ export function commitPaymentPlan(state, playerId, plan) {
   const topped = next.players[playerId].manaPool;
   const nextPool = {};
   for (const col of Object.keys(topped)) nextPool[col] = (topped[col] || 0) - (plan?.spend?.[col] || 0);
-  return { ...next, players: { ...next.players, [playerId]: { ...next.players[playerId], manaPool: nextPool } } };
+  // POOL-RESTRICTED SUB-POOL (QUARTET Phase 4): deduct the planner's entrySpends from the EXACT tagged
+  // entries it priced (indices into player.restrictedMana at plan time); an emptied entry is dropped.
+  // The remainder stays tagged — a partial spend can never launder restricted mana into the open pool.
+  let restrictedMana = next.players[playerId].restrictedMana;
+  if (plan?.entrySpends?.length && Array.isArray(restrictedMana)) {
+    restrictedMana = restrictedMana.map((e, i) => {
+      const es = plan.entrySpends.find((x) => x.entry === i);
+      if (!es) return e;
+      const p = { ...e.pool };
+      for (const c of Object.keys(es.spend)) p[c] = Math.max(0, (p[c] || 0) - (es.spend[c] || 0));
+      return { ...e, pool: p };
+    }).filter((e) => Object.values(e.pool).some((n) => n > 0));
+  }
+  return { ...next, players: { ...next.players, [playerId]: { ...next.players[playerId], manaPool: nextPool, ...(restrictedMana !== next.players[playerId].restrictedMana ? { restrictedMana } : {}) } } };
 }
 
 /**
