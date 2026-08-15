@@ -6,9 +6,25 @@
 
 ## The order (Colton's steer, 2026-08-15 — do not reorder)
 
-**① Wolverine 79 → ② Kellan 74 → ③ Otharri 74**, then Cap America 73 → Halfshell 67 → Shalai 67,
-and the cEDH pair (**Believe it! 79, Kinnan 77) LAST** — "hardest to push past 90… focus those last."
+**① Wolverine 79 → ② Kellan 74 → ③ Otharri 74**, then Cap America 73 → Halfshell 67 → Shalai 67 →
+**Bumble Flower Combo 63** (NEW 08-15 — Colton's combo addition, see below), and the cEDH pair
+(**Believe it! 79, Kinnan 77) LAST** — "hardest to push past 90… focus those last."
 Call the ceiling explicitly per deck when the residue is genuinely unbuildable-class.
+
+### NEW ARRIVAL: Bumble Flower Combo — 63, needs 27 (the widest gap; slotted pre-cEDH)
+Colton's pasted combo deck (imported to the Omnath test profile 08-15; the source list is banked in the
+vault deck-source registry). Ms. Bumbleflower Bant group-hug/Food with FOUR alt-wins — the machinery the
+shelf lacked. The buckets: **14 ETBs** (the Food/TMNT/LOTR value cluster: Arcade Cabinet, Elanor Gardner,
+Eriette's Tempting Apple, Field-Tested Frying Pan, Heaped Harvest, Killer Service…), **11 spells**
+(Academy Manufactor — the token-triple replacement, Campsite Cuisine, Continue?, Dusk // Dawn,
+Long River's Pull, Peerless Recycling…), **5 upkeep** — ⭐ the ALT-WIN vein: Mechanized Production
+(eight same-name artifacts), Simic Ascendancy (ten growth counters), Triskaidekaphile (exactly 13 in
+hand) all ride the EXISTING upkeep-win lane (triggerRouting's UPKEEP-WIN branch + winGame
+evaluateWinThreshold — Felidar Sovereign ALREADY routes through it); each needs its threshold added to
+the strict evaluator's vocabulary. Innkeeper's Talent + Sam, Loyal Attendant round the bucket.
+**3 activated** (Peregrin Took, Kwain, Gingerbrute), Ms. Bumbleflower herself (cast trigger),
+Shoreline Looter, Hot Soup, Feasting Hobbit. Strategy: the alt-win upkeep trio FIRST (cheap, the
+combo identity, one shared lane), then the Food ETB cluster.
 
 ## The per-slice discipline (unchanged — the compact checklist)
 
