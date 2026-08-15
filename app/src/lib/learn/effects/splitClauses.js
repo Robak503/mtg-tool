@@ -276,6 +276,11 @@ export function splitClauses(oracle) {
       // sentence split strands the closing quote as its own "clause". Fold it back onto the exact lead
       // (anchored-fold discipline: this can only ever reassemble the one quoted grant the arm claims).
       || (/^"$/.test(sentence) && /gains "when this creature dies, exile it$/i.test(prev))
+      // COURT OF CUNNING (2026-08-15) — the monarch-conditional mill override is ONE instruction with
+      // its lead ("…mills ten cards INSTEAD" rewrites the amount, CR 614; split, the lead would mill 2
+      // unconditionally — a wrong amount for the monarch). Exact pair only.
+      || (/^if you're the monarch, each of those players mills ten cards instead$/i.test(sentence)
+          && /any number of target players each mill two cards$/i.test(prev))
     )) {
       clauses[clauses.length - 1] = `${prev}. ${sentence}`;
       continue;

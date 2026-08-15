@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Court of Cunning knows who wears the crown.** The enters-trigger makes you the monarch, and the
+  upkeep mill really checks the crown at resolution — two cards without it, ten with it, and an
+  opponent's crown never upgrades your mill.
 - **Dredger's Insight digs properly.** The enters-mill really offers an artifact, creature, or land
   from among exactly the milled four, and the lifegain watches for artifact and creature cards
   leaving your graveyard — both as printed. Eerie Gravestone's sacrifice dig works the same way.

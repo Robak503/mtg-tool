@@ -3,6 +3,16 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **COURT OF CUNNING (+1) — the monarch-conditional targeted mill** - the shelf grind (Teval 87→88)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Court of Cunning
+> body-only→native-trigger, zero riders. Post-release batch **+42**.
+> ⭐ "Any number of target players each mill two. If you're the monarch, TEN instead": modeled as the
+> ALWAYS-CHOOSE-ONE pick (one chosen player per firing — a legal instance of "any number", CR 601.2c,
+> never an over-fire) riding the EXISTING who:"target" mill branch; amountIfMonarch is a CR 614
+> resolution-time override off state.monarchId (the same live read the monarch-status intervening-if
+> uses). The 2/10/wrong-crown matrix pinned (an opponent's crown never upgrades my mill); the
+> override mutation seen-to-fail. The splitClauses fold keeps the pair whole (split, the lead would
+> mill 2 unconditionally — the wrong amount for the monarch). Token diet: ~5k output tokens.
 > ## SLICE DONE - 2026-08-15 - **DREDGER'S INSIGHT (+2) — three widenings on the fresh milled machinery** - the shelf grind (Teval 86→87)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0** — Dredger's Insight +
 > Eerie Gravestone (ETB draw + the sac-activated mill-and-pick, audited). Post-release batch **+41**.

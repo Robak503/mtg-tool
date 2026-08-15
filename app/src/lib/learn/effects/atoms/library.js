@@ -833,7 +833,11 @@ export function applyMill(state, atom, ctx) {
     for (const t of ctx.targets || []) {
       if (t.type !== "player" || !next.players?.[t.id]) continue;
       const libLen = (next.players[t.id].library || []).length;
-      const n = atom.halfLibrary ? (atom.round === "up" ? Math.ceil(libLen / 2) : Math.floor(libLen / 2)) : amount;
+      // MONARCH OVERRIDE (Court of Cunning, CR 614 "instead", 2026-08-15): the amount rewrites to
+      // amountIfMonarch when the CONTROLLER holds the crown AT RESOLUTION (state.monarchId — the same
+      // live read the monarch-status intervening-if uses). Absent field → byte-identical.
+      const base = (atom.amountIfMonarch != null && next.monarchId === ctx.controller) ? atom.amountIfMonarch : amount;
+      const n = atom.halfLibrary ? (atom.round === "up" ? Math.ceil(libLen / 2) : Math.floor(libLen / 2)) : base;
       next = millOnePlayer(next, t.id, n);
     }
   } else if (atom.who === "damagedPlayer") {
@@ -1620,6 +1624,16 @@ export function millClauseParser(clause) {
   // rounding is mandatory (a bare "half their library" has no corpus card and is ambiguous → unmatched).
   m = t.match(/^target (player|opponent) mills half their library, rounded (up|down)$/);
   if (m) return { op: "mill", who: "target", targetType: m[1], halfLibrary: true, round: m[2], amount: 0 };
+  // COURT OF CUNNING (2026-08-15) — "any number of target players each mill two cards. If you're the
+  // monarch, each of those players mills ten cards instead." (splitClauses keeps the pair folded — the
+  // override is CR 614 "instead", not a second effect.) Modeled as the ALWAYS-CHOOSE-ONE pick: exactly
+  // one chosen player target each firing — a LEGAL instance of "any number" (CR 601.2c — one is a valid
+  // choice every time; never an over-fire), riding the SAME who:"target" branch as the fixed-amount
+  // targeted mill above. amountIfMonarch is the resolution-time override (state.monarchId — the same
+  // field the MONARCH-STATUS intervening-if and Regal Behemoth's mana gate read).
+  if (/^any number of target players each mill two cards\. if you're the monarch, each of those players mills ten cards instead$/.test(t)) {
+    return { op: "mill", who: "target", targetType: "player", amount: 2, amountIfMonarch: 10 };
+  }
   return null;
 }
 
