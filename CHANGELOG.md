@@ -8,6 +8,11 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **Herd Heirloom's second tap works.** Point it at your power-4-or-greater creature and it really
+  gains trample plus the combat-damage card draw until end of turn — smaller creatures and opposing
+  creatures are never offered as targets.
+
 ## [0.159.0] - 2026-08-15
 
 ### Fixed

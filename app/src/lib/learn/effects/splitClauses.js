@@ -610,8 +610,10 @@ export function splitClauses(oracle) {
     // downstream (an unmodeled body / a rider → null → LOW → Arbiter, never a confident wrong partial).
     // (Shape-D widening 2026-08-14, Strength of Will: an optional " you control" scope and an optional
     // KEYWORD phrase between "gains" and the quote — "…gains indestructible and \"Whenever…\"". The
-    // keyword group is bounded by the required ` and "` ahead of the quote, mirroring the arm's regex.)
-    if (/^until end of turn, (?:target creature(?: you control)? (?:gets [+-]\d+\/[+-]\d+ and )?gains(?: [a-z][a-z' ]+ and)?|creatures you control gain) ["“].+["”]\.?$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // keyword group is bounded by the required ` and "` ahead of the quote, mirroring the arm's regex.
+    // Herd Heirloom widening 2026-08-15: the optional " with power N or greater" threshold, mirroring
+    // the arm's new power-restriction group exactly — guard and arm must never drift.)
+    if (/^until end of turn, (?:target creature(?: you control)?(?: with power \d+ or greater)? (?:gets [+-]\d+\/[+-]\d+ and )?gains(?: [a-z][a-z' ]+ and)?|creatures you control gain) ["“].+["”]\.?$/i.test(sentence)) { clauses.push(sentence); continue; }
     // TAP-PERMANENT-LOCK (Koma) — the normalize fold above joined "Tap target permanent. Its activated
     // abilities can't be activated this turn." into one sentence with an internal " and "; that " and " is
     // INTERNAL to the one tap+lock instruction ("Its" = the tapped permanent), NOT a top-level effect

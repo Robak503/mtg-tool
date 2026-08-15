@@ -3,6 +3,16 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **HERD HEIRLOOM (+1) — the power-threshold quoted grant; JURASSIC BACK AT 90** - the shelf grind (Jurassic 89→**90** ✅, the honest re-open re-closed)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Herd Heirloom
+> body-only→native-mana, zero riders. Post-release batch **+1** (v0.159.0 reset it).
+> ⭐ ONE WIDENING, MIRRORED IN TWO PLACES that must never drift: the TG-1 shape-D arm (grantUntilEot)
+> + its splitClauses keep-whole guard both gain the optional "with power N or greater" threshold,
+> emitted as the { kind:"power", op:">=" } restriction the shared 16-kind satisfier already enforces
+> layer-aware. Enumeration witnessed: my power-5 offered, my power-2 and the opponent's fatty both
+> excluded; the power-group mutation seen-to-fail. **THE SHELF: 13 decks at/over the bar** — below:
+> Teval 79 · Believe it! 79 · Wolverine 78 · Kinnan 77 · Otharri 74 · Kellan 74 · Cap 73 ·
+> Halfshell 67 · Shalai 67. Token diet: ~5k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **ATZOCAN SEER (+10) — the subtype graveyard return** - the shelf grind (Jurassic 88→89)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+10 / 0 / 0** — Atzocan Seer native-mana
 > + nine riders (Boggart Birth Rite · Decoy Ploy · Tombstone · Wort, Boggart Auntie · Lord of the

@@ -95,14 +95,22 @@ export function grantUntilEotClauseParser(clause) {
   // is the all-or-nothing validator (an unmodeled keyword parks the card, FN-safe) exactly as the
   // counter-then-grant fold uses it. The scope group becomes a controller restriction the shared target
   // enumeration already honors — never a second predicate implementation.
-  m = t.match(/^until end of turn, target creature( you control)? gains ([a-z][a-z' ]*?) and ["“](.+)["”]\.?$/i);
+  // HERD HEIRLOOM (2026-08-15) — the optional POWER-THRESHOLD restriction ("target creature you control
+  // WITH POWER 4 OR GREATER gains trample and '<quoted>'"): the { kind:"power", op:">=" } restriction the
+  // shared 16-kind satisfier already enforces layer-aware (creatureRestrictions.js) — never a second
+  // predicate implementation. Absent → byte-identical to before.
+  m = t.match(/^until end of turn, target creature( you control)?( with power (\d+) or greater)? gains ([a-z][a-z' ]*?) and ["“](.+)["”]\.?$/i);
   if (m) {
-    const kws = parseGrantedKeywords(m[2].trim());
-    const kind = kws ? validatedGrantKind(m[3]) : null;
+    const kws = parseGrantedKeywords(m[4].trim());
+    const kind = kws ? validatedGrantKind(m[5]) : null;
     if (!kws || !kind) return null;
+    const restrictions = [
+      ...(m[1] ? [{ kind: "controller", who: "you" }] : []),
+      ...(m[2] ? [{ kind: "power", op: ">=", value: parseInt(m[3], 10) }] : []),
+    ];
     return { op: "grant-until-eot", targetType: "creature",
-      ...(m[1] ? { restrictions: [{ kind: "controller", who: "you" }] } : {}),
-      grantKeywords: kws, grantKind: kind, quoted: m[3] };
+      ...(restrictions.length ? { restrictions } : {}),
+      grantKeywords: kws, grantKind: kind, quoted: m[5] };
   }
   return null;
 }
