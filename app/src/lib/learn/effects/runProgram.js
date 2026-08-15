@@ -158,6 +158,15 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
   const atoms = programAtoms(program, params.chosenMode);
 
   let next = state;
+  // MODE-MEMORY (Teval's Judgment, 2026-08-15): stamp the resolved mode into the per-source per-turn
+  // ledger (the once-latch convention — cleared at untap) so the flush chooser never re-offers it this
+  // turn. Stamped at RESOLUTION, matching the printed "hasn't been CHOSEN" as closely as the engine's
+  // flush/resolve split allows (two same-batch stack copies could both pick one mode pre-resolution — a
+  // sequential-flush rarity for a once-per-batch watcher; the repeat would be an extra pick of a mode
+  // the card allows only once, accepted and documented rather than hidden).
+  if (program.modal?.modeMemoryPerTurn && params.sourceId != null && params.chosenMode != null && !Array.isArray(params.chosenMode)) {
+    next = { ...next, onceTriggersFiredThisTurn: { ...(next.onceTriggersFiredThisTurn || {}), [`${params.sourceId}_mode${params.chosenMode}`]: true } };
+  }
   const cardName = stackObject?.source?.name || null;
   // CR 608.2b (CR-remediation B4) — if EVERY target the spell/ability had when it was put on the
   // stack is now ABSENT, it doesn't resolve at all: no atom runs. Before this gate, only the

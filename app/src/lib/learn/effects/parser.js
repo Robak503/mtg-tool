@@ -800,15 +800,21 @@ function parseModal(cardType, oracle, hasX = false) {
   // parse, dropping the whole card. Fixed-N only: the "{P} worth of modes" Season cycle is a point-cost
   // system and "Choose X" is variable; both stay unmatched → low → Arbiter (FN-safe).
   const rep = cb ? null : stripped.match(/^choose (three|four|five)\.\s*you may choose the same mode more than once\.\s*/i);
-  const m = (cb || rep) ? null : stripped.match(MODAL_RE);
-  if (!cb && !rep && !m) return null;
+  // MODE-MEMORY (Teval's Judgment, 2026-08-15): "choose one THAT HASN'T BEEN CHOSEN THIS TURN —" — a
+  // single-pick modal whose per-turn mode exclusion is enforced at the flush chooser (the per-source
+  // ledger in onceTriggersFiredThisTurn, recorded at resolution) and the modal carries modeMemoryPerTurn.
+  // Its OWN anchored regex (the repeatable-lead discipline) so every existing modal is byte-identical.
+  const mem = (cb || rep) ? null : stripped.match(/^choose one that hasn't been chosen this turn\s*[—–-]\s*/i);
+  const m = (cb || rep || mem) ? null : stripped.match(MODAL_RE);
+  if (!cb && !rep && !mem && !m) return null;
   const REP_COUNT = { three: 3, four: 4, five: 5 };
   const repeatable = !!rep;
-  const tail = (cb || rep) ? "" : (m[2] || "").toLowerCase();
+  const modeMemoryPerTurn = !!mem;
+  const tail = (cb || rep || mem) ? "" : (m[2] || "").toLowerCase();
   const orBoth = tail === " or both";
   const orMore = tail === " or more"; // "choose one or more" → MODAL-N (any non-empty subset, CR 700.2)
   const conditionalBothCommander = !!cb;
-  const rest = stripped.slice((cb || rep || m)[0].length).trim();
+  const rest = stripped.slice((cb || rep || mem || m)[0].length).trim();
   // "one or more" modes ARE bullet-separated in every printed case; the " or "-fallback split (used only
   // for un-bulleted two-mode charms) would wrongly shred a "one or more" mode's effect text, so require
   // bullets for the MODAL-N form (a non-bulleted "one or more" → null → low, an FN-safe park).
@@ -855,7 +861,7 @@ function parseModal(cardType, oracle, hasX = false) {
   // (CR 700.2d). Applying the guard here would reject the cards this branch exists to model.
   if (!repeatable && chooseCount > modes.length) return { chooseCount, upTo, atLeastOne, modes: null };
   if ((orBoth || conditionalBothCommander) && modes.length !== 2) return { chooseCount, upTo, atLeastOne, modes: null };
-  return { chooseCount, upTo, atLeastOne, ...(conditionalBothCommander && { conditionalBothCommander: true }), ...(repeatable && { repeatable: true }), modes };
+  return { chooseCount, upTo, atLeastOne, ...(conditionalBothCommander && { conditionalBothCommander: true }), ...(repeatable && { repeatable: true }), ...(modeMemoryPerTurn && { modeMemoryPerTurn: true }), modes };
 }
 
 // The up-front multi-sentence SPAN matchers (δ-1 hand disruption · the removal/counter rider folds ·

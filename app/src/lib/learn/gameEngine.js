@@ -1360,10 +1360,20 @@ function buildTriggerStack(state, trigger, chooseTargets) {
         modalChooseOneRoutable(program)) &&
       combatDamageReferentSatisfied(program, trigger.descriptor?.event)
     ) {
-      const candidates = expandCastChoices(state, trigger.controller, program, [], {
+      let candidates = expandCastChoices(state, trigger.controller, program, [], {
         ...(trigger.context || {}),
         sourceId: trigger.context?.sourceId ?? trigger.source?.permanentId ?? null,
       });
+      // MODE-MEMORY (Teval's Judgment, 2026-08-15): "choose one that hasn't been chosen this turn" —
+      // drop every candidate whose mode is already in the per-source ledger (stamped at RESOLUTION by
+      // runProgram's modal exec, cleared at untap like every once-latch). All modes exhausted → the
+      // ability can't choose a legal mode → the same removal path directly below.
+      if (program.modal?.modeMemoryPerTurn) {
+        const srcId = trigger.source?.permanentId ?? trigger.context?.sourceId ?? null;
+        if (srcId) {
+          candidates = candidates.filter((c) => !state.onceTriggersFiredThisTurn?.[`${srcId}_mode${c.chosenMode}`]);
+        }
+      }
       // No mode is castable (every mode needs a target none of which is legal) → the ability is removed
       // from the stack (CR 603.3c / 700.2d). A non-targeted mode is always castable, so this only fires
       // when EVERY mode is fully target-gated and unsatisfiable.

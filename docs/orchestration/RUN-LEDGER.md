@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **🏁 TEVAL'S JUDGMENT (+5) — the MODE-MEMORY modal; TEVAL AT 90, THE FOURTEENTH DECK AT THE BAR** - the shelf grind (Teval 89→**90** ✅)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+5 / 0 / 0** — Teval's Judgment + FOUR
+> riders, the whole mode-memory family at once: Breeches, Eager Pillager · Gala Greeters (her tapped
+> Treasure rides TODAY'S tapped-token work) · Monument to Endurance · Galadriel, Light of Valinor —
+> all whole-card audited. Post-release batch **+51**.
+> ⭐ "Choose one that HASN'T BEEN CHOSEN THIS TURN —": ① parseModal's own anchored lead (every
+> existing modal byte-identical) stamping modal.modeMemoryPerTurn; ② the trigger modal-block
+> extractor's lead widened (the naive capture truncated at the first bullet's period — the exact
+> forbidden partial its own doc names); ③ the runtime memory: the flush chooser drops
+> already-chosen modes off the per-source per-turn ledger (all exhausted → the CR 700.2d removal),
+> stamped at RESOLUTION (the once-latch convention). Three fires in one turn pick THREE DIFFERENT
+> modes with all payoffs real (witnessed); the filter mutation seen-to-fail.
+> **THE SHELF: 14 decks at/over the bar.** Token diet: ~9k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **⭐ TOXIC DELUGE (+2) — the PAY-X-LIFE additional cost; TEVAL AT 89** - the shelf grind (Teval 88→89)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0** — Toxic Deluge + Hatred
 > (the same payLifeX on its +X/+0 pump, audited). Post-release batch **+44**.

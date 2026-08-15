@@ -520,8 +520,10 @@ function reflexiveEffectAfterRoll(accumulatedEffect, sentence) {
  * applies to the COMPLETE card — never a half-resolved modal. Returns the full block, or null if the effect
  * isn't a modal lead-in (caller keeps the naive clause). Pure.
  */
-const MODAL_LEAD_RE = /^choose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b\s*[—-]/i;
-const MODAL_LEAD_SCAN_RE = /\bchoose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b\s*[—-]/i;
+// (the optional "that hasn't been chosen this turn" — Teval's Judgment's MODE-MEMORY lead, 2026-08-15;
+// the parser's parseModal owns the semantic flag, this extractor only needs the block kept whole.)
+const MODAL_LEAD_RE = /^choose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b(?: that hasn't been chosen this turn)?\s*[—-]/i;
+const MODAL_LEAD_SCAN_RE = /\bchoose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b(?: that hasn't been chosen this turn)?\s*[—-]/i;
 function extractModalEffectBlock(oracle, searchFrom, effectClause) {
   if (!MODAL_LEAD_RE.test(String(effectClause || "").trim())) return null;
   const tail = oracle.slice(searchFrom);

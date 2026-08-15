@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **"Choose one that hasn't been chosen this turn" remembers.** Teval's Judgment, Breeches, Gala
+  Greeters, Monument to Endurance, and Galadriel all track their picks — the same mode is never
+  offered twice in a turn, and once all modes are spent the trigger correctly does nothing until
+  next turn.
 - **Toxic Deluge costs what it says.** You choose X when you cast it, pay exactly that much life —
   never more than you can afford — and every creature gets -X/-X. Hatred's pay-X-life pump works the
   same way.
