@@ -199,6 +199,7 @@ export function runSelfPlayGame({
   mulligan = null, // AI-F9 — null/false (single-game default, byte-identical): mulligan only for seats whose PILOT supplies decideMulligan; true: seats WITHOUT one default to decideMulliganForAI (runSelfPlayBatch turns this ON so 0-land/7-land keeps stop poisoning labels).
   resolveArbiter = null, // ARBITER-IN-RUNNER: a SYNC (pa,state)→verdict|null cache lookup; when set, gated cards resolve from the warm verdict cache instead of no-op'ing. null ⇒ byte-identical (hash preserved).
   legacyUserPivot = false, // LEGACY PIN (HARNESS-DATA wave 1b): true recovers the pre-FFA commander semantics (user dies ⇒ pod ends, liveOpponents[0] crowned) for A/B + anchor-lineage proof. Default false ⇒ commander pods play to the SOLE SURVIVOR and recorded winners are real.
+  usePolicyEval = null, // QUARTET PHASE 1 gate knob: true | [seatIds] — the seats whose choices consult boardEval (stamped onto state; boardEval.usePolicyEvalFor reads it). null ⇒ byte-identical legacy play.
 } = {}) {
   // Per-seat pilot identity ({playbook,temperament} | null) — used by both the in-game decide
   // router/recorder below AND the pre-game mulligan config. Defined up here so the mulligan
@@ -286,6 +287,9 @@ export function runSelfPlayGame({
       // (wave 1b). legacyUserPivot recovers the old user-pivot semantics for A/B/lineage.
       ffaSoleSurvivor: mode === "commander" && !legacyUserPivot,
     });
+    // QUARTET gate stamp — after creation so createLearnSession stays untouched; the flag rides the
+    // state like any serialized field (pure reads only — boardEval.usePolicyEvalFor).
+    if (usePolicyEval != null) session = { ...session, state: { ...session.state, usePolicyEval } };
   } catch (error) {
     return {
       result: "setup-error",

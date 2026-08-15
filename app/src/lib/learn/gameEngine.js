@@ -49,7 +49,7 @@ import {
   moveCardToZone,
   findPermanent,
 } from "./gameState.js";
-import { permanentValue } from "./boardEval.js"; // QUARTET PHASE 1 slice 3 — the shared evaluator (leaf-importing module, cycle-free)
+import { permanentValue, policyEvalEnabledFor } from "./boardEval.js"; // QUARTET PHASE 1 slice 3 — the shared evaluator (leaf-importing module, cycle-free)
 import { setPendingCleanupDiscardChoice } from "./pendingChoice.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
@@ -1480,7 +1480,7 @@ export function chooseTriggerTargets(candidates, info) {
   // THE CREED). Flag absent ⇒ first-correct-side, byte-identical.
   const safe = candidates.filter((c) => (c.targets || []).every(targetOk(atomsFor(c))));
   if (!safe.length) return NO_SAFE_TARGET;
-  if (!state.usePolicyEval) return safe[0];
+  if (!policyEvalEnabledFor(state, controller)) return safe[0];
   const candValue = (c) => (c.targets || []).reduce((s, t) => {
     if (t.type === "player" || t.type === "spell") return s;
     const lk = findPermanent(state, t.id);

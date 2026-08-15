@@ -42,7 +42,7 @@ import { parseEffectProgram, programConfidence, parseEffectClause, programNeedsC
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
 import { expandCastChoices } from "./effects/targeting.js";
 import { tutorManaValue } from "./effects/atoms/library.js"; // AC-1 — the least-valuable ranking the edict/discard auto-pick uses (library.js is a leaf, cycle-safe)
-import { evalLeastValuableCmp } from "./boardEval.js"; // QUARTET PHASE 1 — the shared evaluator's victim ranking (boardEval imports only leaves: gameState + library + cardPlayHints — cycle-free)
+import { evalLeastValuableCmp, policyEvalEnabledFor } from "./boardEval.js"; // QUARTET PHASE 1 — the shared evaluator's victim ranking (boardEval imports only leaves: gameState + library + cardPlayHints — cycle-free)
 
 // S1.1 (shelf run, 2026-07-10): parse a card's CAST program from the cost-only-keyword-STRIPPED
 // oracle — the same strip the classifier (coverage.js) and the dispatcher's fallback use. The
@@ -1174,7 +1174,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // the legacy MV-then-power policy byte-identically (the default-off law in
         // SUBSYSTEM-QUARTET-PLAN.md; the flag flips only when the phase gate passes). Ranking-only —
         // the pool's LEGALITY filters above are untouched either way.
-        const ranked = [...pool].sort(state.usePolicyEval ? evalLeastValuableCmp(state) : leastValuablePermanentCmp);
+        const ranked = [...pool].sort(policyEvalEnabledFor(state, playerId) ? evalLeastValuableCmp(state) : leastValuablePermanentCmp);
         for (const ch of combos) {
           // Don't sacrifice a permanent the effect targets — paid as a cost (gone before the spell resolves) →
           // the target would fizzle (CR 608.2b). Exclude every targeted id BEFORE taking the N cheapest.

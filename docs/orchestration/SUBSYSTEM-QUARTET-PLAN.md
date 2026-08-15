@@ -106,6 +106,26 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
+- 2026-08-14 — **THE PHASE-1 GATE RAN TWICE — VERDICT: NO FLIP, and the second run is a real negative.**
+  The harness (scripts/eval-gate.mjs): per seed, the SAME pod runs flag-off and flag-on-for-one-
+  rotating-seat; the treated seat's wins are compared arm-to-arm; a divergence counter guards against a
+  vacuous gate (the hollow-gate law). The flag went PER-SEAT for this (boardEval.usePolicyEvalFor —
+  `true` | [seatIds]; the runner grew a `usePolicyEval` knob).
+  · **Run 1** (sites: sac victims + auto-picks + trigger targets + mays): 100 games, 0 errors, only
+    17 diverged, 27 vs 26 — noise. The converted sites are LOW-FREQUENCY. The verdict line was
+    tightened to demand a real margin (≥ max(3, 20% of diverged)).
+  · **SLICE 5** (the response): the CAST-ORDERING refinement — scoreCastAction splits into the
+    archetype tier + a flag-gated within-tier cardValue adjustment (capped < 1, provably never
+    crossing a tier — the cap mutation is witness-killed). The highest-frequency choice in the sim.
+  · **Run 2** (cast ordering live): 100 games, 0 errors, **64 diverged** (the flag reaches real
+    decisions now) — and the treated seat won **21 vs 26: WORSE than legacy.** A real regression the
+    gate caught before it could touch play (the default-off law held; nothing user-facing changed).
+  **READING:** value-first within-tier cast ordering is the wrong policy as weighted — plausibly it
+  front-loads threats into removal and mis-sequences. The right next move is NOT weight-twiddling
+  blind: build **Phase 2 (the decision log) FIRST**, so the 64 divergent games can say WHICH decisions
+  flipped and which flips lost games. The quartet's own sequencing (evaluator → log) proves itself:
+  the log is the diagnostic the tuner needs. Until then the flag stays off everywhere.
+
 - 2026-08-14 — **PHASE 1 SLICE 4 SHIPPED**: the MAY decision converts — optionalAutoTakeValue is the
   SCORE-CHOICE pattern realized (resolve BOTH worlds through the real settle, diff evaluateBoard for
   the decider, take iff ≥). The autopilot fallback in learnSession is board-aware behind the flag; a

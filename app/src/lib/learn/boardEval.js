@@ -44,6 +44,19 @@ const ROLE_BONUS = Object.freeze({
   "utility": 0, "curve": 0,
 });
 
+/**
+ * The flag read every converted site uses — PER-SEAT capable for the A/B gate: `state.usePolicyEval`
+ * may be `true` (every seat — the witnesses' form) or an ARRAY of seat ids (only those seats' choices
+ * consult the evaluator — the goldfish gate runs one treated seat against three legacy seats on the
+ * SAME seeds, which a global flag cannot express). Absent/false ⇒ legacy everywhere, byte-identical.
+ */
+export function policyEvalEnabledFor(state, playerId) {
+  const f = state?.usePolicyEval;
+  if (f === true) return true;
+  if (Array.isArray(f)) return f.includes(playerId);
+  return false;
+}
+
 /** The valuation of ONE battlefield permanent — pure, deterministic, layer-aware for P/T. */
 export function permanentValue(perm, state = null) {
   const card = perm?.card;

@@ -29,6 +29,7 @@ import { detectArchetype } from "../goldfish.js";
 import { filterActions } from "./legalChoices.js";
 import { opponentsOf, findPermanent } from "./gameState.js";
 import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
+import { cardValue, policyEvalEnabledFor } from "./boardEval.js"; // QUARTET PHASE 1 slice 5 — the cast-ordering refinement (leaf-importing, cycle-free)
 import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, goaderControllersOf } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction } from "./manaModel.js";
@@ -107,7 +108,18 @@ function scoreByRole(hint, card, action, archetype) {
 /** Test-only handle on the cast scorer — pins the default-off byte-identity contract (cardPlayHints.test.js). */
 export const __scoreCastActionForTests = (...args) => scoreCastAction(...args);
 
-function scoreCastAction(action, card, archetype, hint = null) {
+function scoreCastAction(action, card, archetype, hint = null, state = null, aiPlayerId = null) {
+  // QUARTET PHASE 1 slice 5 (2026-08-14) — the CAST-ORDERING refinement, the HIGHEST-FREQUENCY choice
+  // in the sim (every main phase, every seat). Behind the per-seat flag: keep the tier structure the
+  // archetype tables define, but break WITHIN-tier order by the shared evaluator's cardValue — deploy
+  // the more valuable card of a tier first. The adjustment is < 1 so it can NEVER cross tiers (the
+  // archetype ordering stays authoritative); flag absent ⇒ the legacy integer tiers, byte-identical.
+  const evalAdj = state && aiPlayerId && policyEvalEnabledFor(state, aiPlayerId)
+    ? Math.min(0.9, Math.max(0, cardValue(card)) / 100)
+    : 0;
+  return scoreCastTier(action, card, archetype, hint) - evalAdj;
+}
+function scoreCastTier(action, card, archetype, hint = null) {
   // Commander framework — the AI prioritizes casting its commander: a key threat + engine piece, and the
   // path to commander damage / the 21-loss (CR 903.10a). A command-zone cast outranks every other play
   // (lowest score wins), so the AI deploys its commander as soon as it can afford the taxed cost.
@@ -768,7 +780,7 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
       if (pol.counter === "v1") continue;
       const counterPick = pickCounterCast(state, aiPlayerId, actions);
       if (!counterPick) continue; // no on-side threatening target → keep holding
-      scored.push({ action: counterPick, score: scoreCastAction(actions[0], card, archetype, hint), cmc: actions[0].cmc || 0 });
+      scored.push({ action: counterPick, score: scoreCastAction(actions[0], card, archetype, hint, state, aiPlayerId), cmc: actions[0].cmc || 0 });
       continue;
     }
     // W7c (AI-F4) — BOARD WIPES: cast a held symmetric wipe when the AI is CLEARLY behind on
@@ -818,7 +830,7 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
       if (pol.aura === "v1") continue;
       const auraPick = pickAuraCast(state, aiPlayerId, actions, card);
       if (!auraPick) continue;
-      scored.push({ action: auraPick, score: scoreCastAction(actions[0], card, archetype, hint), cmc: actions[0].cmc || 0 });
+      scored.push({ action: auraPick, score: scoreCastAction(actions[0], card, archetype, hint, state, aiPlayerId), cmc: actions[0].cmc || 0 });
       continue;
     }
     // W5 — X-SPELL SIZING: an X card is offered once per affordable X (× target
@@ -830,7 +842,7 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     if (pol.xSizing !== "v1" && actions.some((a) => a.xValue != null)) {
       const xChosen = pickXCast(state, aiPlayerId, actions);
       if (!xChosen) continue; // no killable threat / no legal face → hold
-      scored.push({ action: xChosen, score: scoreCastAction(actions[0], card, archetype, hint), cmc: actions[0].cmc || 0 });
+      scored.push({ action: xChosen, score: scoreCastAction(actions[0], card, archetype, hint, state, aiPlayerId), cmc: actions[0].cmc || 0 });
       continue;
     }
     // KICKER (CR 702.33): a kicker card is emitted as a normal cast plus — when the kicker mana is also
@@ -842,7 +854,7 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     if (kickedActions.length && kickedActions.every(a => !(a.targets?.length))) {
       // TARGETLESS kicked group — kicker CREATURES (counter + ETB variants always emit targets:[]) and
       // untargeted kicked-spell-effects: no aiming to get wrong, take the kicked cast (legacy behavior).
-      scored.push({ action: kickedActions[0], score: scoreCastAction(kickedActions[0], card, archetype, hint), cmc: kickedActions[0].cmc || 0 });
+      scored.push({ action: kickedActions[0], score: scoreCastAction(kickedActions[0], card, archetype, hint, state, aiPlayerId), cmc: kickedActions[0].cmc || 0 });
       continue;
     }
     if (kickedActions.length) {
@@ -856,12 +868,12 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
       const chosen = chooseDisciplinedVariant(state, aiPlayerId, kickedActions)
         ?? chooseDisciplinedVariant(state, aiPlayerId, unkicked);
       if (!chosen) continue;
-      scored.push({ action: chosen, score: scoreCastAction(chosen, card, archetype, hint), cmc: chosen.cmc || 0 });
+      scored.push({ action: chosen, score: scoreCastAction(chosen, card, archetype, hint, state, aiPlayerId), cmc: chosen.cmc || 0 });
       continue;
     }
     const chosen = chooseDisciplinedVariant(state, aiPlayerId, actions);
     if (!chosen) continue;
-    scored.push({ action: chosen, score: scoreCastAction(actions[0], card, archetype, hint), cmc: actions[0].cmc || 0 });
+    scored.push({ action: chosen, score: scoreCastAction(actions[0], card, archetype, hint, state, aiPlayerId), cmc: actions[0].cmc || 0 });
   }
 
   if (scored.length === 0) return null;

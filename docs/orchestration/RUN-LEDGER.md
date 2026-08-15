@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-14 - **QUARTET PHASE 1, SLICE 5 + THE GATE ×2 — an honest negative** - the SUBSYSTEM QUARTET
+> Suite green + lint 0 BY EXIT CODE (fresh run post-slice; the gate runs themselves: 200 games total,
+> ZERO errors). No flip-diff (ranking-only, default-off). Card batch unchanged at **+74**.
+> ⭐ THE GATE MACHINERY: scripts/eval-gate.mjs (same-seed same-pod A/B, a rotating treated seat, a
+> DIVERGENCE counter as the hollow-gate guard) · the flag went PER-SEAT (usePolicyEvalFor: true |
+> [seatIds]; all five sites converted to the per-seat read; the runner grew a usePolicyEval knob).
+> ⭐ SLICE 5: scoreCastAction → archetype tier + a flag-gated within-tier cardValue adjustment (capped
+> <1 — the tier-cap mutation witness-killed; per-seat isolation witnessed).
+> ⭐⭐ THE RESULTS, recorded as they fell: run 1 (low-frequency sites) 17/100 diverged, 27-26 — NOISE;
+> the verdict line tightened to demand ≥ max(3, 20% of diverged). Run 2 (cast ordering live) **64/100
+> diverged, 21-26 — the evaluator seat plays WORSE.** A real regression caught INSIDE the gate, never
+> reaching play (default-off held). The flag flips nowhere.
+> READING (in the plan's ledger): don't tune weights blind — build Phase 2 (the decision log) first so
+> the 64 divergent games can name WHICH flipped decisions lost. The quartet's own sequencing proves
+> itself: the log is the tuner's diagnostic.
+> Token diet: ~18k output tokens this slice (+ ~17 min of background gate compute).
 > ## SLICE DONE - 2026-08-14 - **QUARTET PHASE 1, SLICE 4 — the MAY decision converts (scoreChoice arrives)** - the SUBSYSTEM QUARTET
 > Suite 1240 / 14,597 green (+1 skipped) + lint 0 BY EXIT CODE. No flip-diff (ranking-only). Card
 > batch unchanged at **+74**.

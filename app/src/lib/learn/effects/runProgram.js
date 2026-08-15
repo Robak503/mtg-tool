@@ -28,7 +28,7 @@ import { clearPendingChoice, setPendingTutorChoice, setPendingImpulseDigChoice }
 import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents } from "../gameState.js";
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
-import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
+import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
 import { programConfidence } from "./parser.js";
 import { checkDiscardTriggers } from "../triggers.js"; // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event
 import { isLandCard } from "./atoms/shared.js"; // SAC-UNLESS-RETURN-LAND — shared.js is a strict leaf, so this edge is DAG-safe
@@ -682,7 +682,7 @@ export function autoPickSacrificeCandidate(state, pendingChoice) {
   // QUARTET PHASE 1 (2026-08-14): behind `state.usePolicyEval` the pick consults the shared board
   // evaluator (a mana dork outvalues a vanilla body — the AC-1 site's exact discipline; the two
   // policies stay mirrors on BOTH sides of the flag). Flag absent ⇒ legacy MV-then-power, byte-identical.
-  if (state.usePolicyEval) return [...perms].sort(evalLeastValuableCmp(state))[0].id;
+  if (policyEvalEnabledFor(state, pendingChoice.controller)) return [...perms].sort(evalLeastValuableCmp(state))[0].id;
   const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
   const pwr = (p) => Number(p.card?.power) || 0;
   return [...perms].sort((a, b) =>
@@ -858,7 +858,7 @@ export function autoPickDiscardCandidate(state, pendingChoice) {
   if (cards.length === 0) return null;
   // QUARTET PHASE 1 (2026-08-14): the card twin — flag on ⇒ cardValue ranking (keep the ramp/draw
   // piece, bin the vanilla body); flag absent ⇒ legacy MV-then-power, byte-identical.
-  if (state.usePolicyEval) return [...cards].sort(evalLeastValuableCardCmp())[0].id;
+  if (policyEvalEnabledFor(state, pendingChoice.controller)) return [...cards].sort(evalLeastValuableCardCmp())[0].id;
   const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
   const pwr = (c) => Number(c.power) || 0;
   return [...cards].sort((a, b) =>
@@ -1101,9 +1101,8 @@ export function resolveScryChoice(state, keepIdsOrdered, opts = {}) {
  * byte-identical). Never consulted for a HUMAN's choice — only the autopilot fallback reads it.
  */
 export function optionalAutoTakeValue(state, pc) {
-  if (!state?.usePolicyEval) return true;
   const who = pc?.controller;
-  if (!who) return true;
+  if (!who || !policyEvalEnabledFor(state, who)) return true;
   const taken = resolveOptionalChoice(state, true);
   const declined = resolveOptionalChoice(state, false);
   return evaluateBoard(taken, who) >= evaluateBoard(declined, who);

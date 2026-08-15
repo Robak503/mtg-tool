@@ -31,6 +31,7 @@ import { evaluateBoard, permanentValue } from "./boardEval.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { autoPickSacrificeCandidate, autoPickDiscardCandidate, optionalAutoTakeValue, runEffectProgram } from "./effects/runProgram.js";
 import { chooseTriggerTargets } from "./gameEngine.js";
+import { __scoreCastActionForTests } from "./opponentAI.js";
 import { parseEffectClause } from "./effects/parser.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 
@@ -187,5 +188,34 @@ describe("⭐⭐ LAW 6 — the MAY decision converts (slice 4): take iff taking 
     };
     console.log("  WITNESS mayDecision", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
     expect(row).toEqual({ sac: false, draw: true });
+  });
+});
+
+describe("⭐⭐ LAW 6 — the CAST-ORDERING refinement (slice 5): within-tier by value, tiers untouched", () => {
+  // The highest-frequency choice in the sim. Behind the flag, scoreCastAction subtracts a <1
+  // cardValue adjustment — within-tier order flips toward the more valuable card, but the archetype
+  // TIER structure stays authoritative (the adjustment can never cross an integer tier boundary).
+  const A_ELVES = { name: "Llanowar Elves", type: "Creature — Elf Druid", mana: "{G}", cmc: 1, power: "1", toughness: "1", oracle: "{T}: Add {G}." };
+  const A_DRAW = { name: "Divination", type: "Sorcery", mana: "{2}{U}", cmc: 3, oracle: "Draw two cards." };
+
+  it("⛔ SEEN-TO-FAIL control: flag OFF returns the legacy integer tiers, byte-identical", () => {
+    expect(__scoreCastActionForTests({ cmc: 1 }, A_ELVES, "midrange", null, {}, "ai1")).toBe(0);
+    expect(__scoreCastActionForTests({ cmc: 3 }, A_DRAW, "midrange", null, {}, "ai1")).toBe(1);
+  });
+
+  it("⭐⭐ flag ON: a sub-1 value adjustment applies — and can NEVER cross a tier boundary", () => {
+    const sOn = { usePolicyEval: ["ai1"] };
+    const elves = __scoreCastActionForTests({ cmc: 1 }, A_ELVES, "midrange", null, sOn, "ai1");
+    const draw = __scoreCastActionForTests({ cmc: 3 }, A_DRAW, "midrange", null, sOn, "ai1");
+    const row = { elves, draw, tiersHold: elves < draw && draw < 2 && elves > -1 };
+    console.log("  WITNESS castOrderEval", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
+    expect(row.tiersHold).toBe(true);          // ramp tier still beats draw tier; both within their integer band
+    expect(elves).toBeLessThan(0);             // the adjustment is REAL (not the legacy integer)
+    expect(elves).toBeGreaterThan(-0.95);      // and bounded — never a tier jump
+  });
+
+  it("the flag is PER-SEAT: another seat's flag never touches this seat's scores", () => {
+    const sOther = { usePolicyEval: ["ai2"] };
+    expect(__scoreCastActionForTests({ cmc: 1 }, A_ELVES, "midrange", null, sOther, "ai1")).toBe(0); // legacy
   });
 });
