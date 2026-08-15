@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Dredger's Insight digs properly.** The enters-mill really offers an artifact, creature, or land
+  from among exactly the milled four, and the lifegain watches for artifact and creature cards
+  leaving your graveyard — both as printed. Eerie Gravestone's sacrifice dig works the same way.
 - **Ripples of Undeath completes its loop.** The first-main mill really offers the pay-{1}-and-3-life
   follow-up, both halves of the cost are charged together or not at all, and the card you fish back
   comes from exactly the three just milled — never something older in the graveyard. Miara, Thorn of

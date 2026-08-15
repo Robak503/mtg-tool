@@ -1379,9 +1379,13 @@ function classifyCondition(condRaw, cardName, cardType) {
   // A DEDICATED EVENT NAME for the same reason: a batched descriptor then has no route into the per-card
   // fire loop at all. The gyCardType / gyOwnerScope filter fields are IDENTICAL to the singular's, so the
   // batch pass reuses the very same predicates rather than restating them.
-  const gyLeaveBatch = c.match(/^one or more (creature )?cards leave your graveyard$/);
+  // (Dredger's Insight widening 2026-08-15: the "artifact and/or creature" union — gyCardType becomes a
+  // "|"-union the fire pass tests grouped, ANY listed type matching the front face, CR 205.2.)
+  const gyLeaveBatch = c.match(/^one or more (creature |artifact and\/or creature )?cards leave your graveyard$/);
   if (gyLeaveBatch) {
-    return { event: "gyLeaveBatch", scope: "gyWatcher", whose: "any", gyCardType: gyLeaveBatch[1] ? "Creature" : null, gyOwnerScope: "you" };
+    const ty = gyLeaveBatch[1]?.trim();
+    const gyCardType = ty === "creature" ? "Creature" : ty === "artifact and/or creature" ? "Artifact|Creature" : null;
+    return { event: "gyLeaveBatch", scope: "gyWatcher", whose: "any", gyCardType, gyOwnerScope: "you" };
   }
   // BATCHED GY-ENTER (CR 603.1) — the inbound mirror: "Whenever ONE OR MORE <type> cards are put into your
   // graveyard from anywhere / from your library" (The Gitrog Monster #897, Titania #5153, Turntimber Sower
@@ -7777,7 +7781,7 @@ export function checkGraveyardEventTriggers(state) {
       for (const watcher of triggerSourcesOf(cleared, pid)) {
         for (const d of detectTriggers(watcher.card).filter((x) => x.event === evName)) {
           const hit = dirEvents.find((ev) => {
-            if (d.gyCardType && !new RegExp(`\\b${d.gyCardType}\\b`).test(frontFaceType(ev.card))) return false;
+            if (d.gyCardType && !new RegExp(`\\b(?:${d.gyCardType})\\b`).test(frontFaceType(ev.card))) return false; // grouped — a "|"-union (Dredger's "Artifact|Creature") tests ANY listed type; single words unchanged
             if (d.gyOwnerScope === "you" && ev.gyOwner !== watcher.controller) return false;
             if (d.gyFromZone && ev.zone !== d.gyFromZone) return false;
             return true;

@@ -48,9 +48,11 @@ describe("trigger follow-up fix — an unmodeled follow-up makes the WHOLE trigg
     // your hand" is the MILLED-REFERENT PICK now (_lastMilledIds ∩ live GY, the land filter, the
     // milled-pick pause) — modeled, native. The guard class lives on the two forms below.
     expect(classifyCard(C("When this creature enters, mill three cards. You may put a land card from among them into your hand."))).toBe("native-trigger");
-    // A MANDATORY plain-imperative follow-up with the DIFFERENT referent phrase (Patient Naturalist's
-    // "from among the MILLED CARDS") stays parked — the pick's anchor is "them|those cards" only.
-    expect(classifyCard(C("When this creature enters, mill four cards. Put a land card from among the milled cards into your hand."))).toBe("body-only");
+    // GRADUATED 2026-08-15 (dredgersInsight.test.js, the same day it was set): the "milled cards"
+    // referent phrase joined the pick's anchor — the MANDATORY imperative form is the same modeled
+    // pick (no optional flag = no may-pause; the choice machinery is identical). The conditional
+    // rider above is the guard class's remaining parked member.
+    expect(classifyCard(C("When this creature enters, mill four cards. Put a land card from among the milled cards into your hand."))).toBe("native-trigger");
   });
   it("the fix is atom-agnostic — a draw + unmodeled follow-up is body-only too", () => {
     // GRADUATED SUBJECT (2026-07-28): this used "You may discard a card." as the unmodeled follow-up, and

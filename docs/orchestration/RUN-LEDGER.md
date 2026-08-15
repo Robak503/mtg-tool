@@ -3,6 +3,16 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **DREDGER'S INSIGHT (+2) — three widenings on the fresh milled machinery** - the shelf grind (Teval 86→87)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0** — Dredger's Insight +
+> Eerie Gravestone (ETB draw + the sac-activated mill-and-pick, audited). Post-release batch **+41**.
+> ⭐ THREE WIDENINGS, same-day machinery: ① the pick's referent gains "the milled cards" (the
+> mandatory imperative form models too — the millFollowup pin set THIS MORNING graduated the same
+> day; the conditional rider keeps the guard); ② the pick's type filter is an or-UNION ("an artifact,
+> creature, or land card"), every word closed-vocabulary-validated (the toaster control pinned; the
+> validation mutation seen-to-fail); ③ gyLeaveBatch's filter gains "artifact and/or creature"
+> (gyCardType "Artifact|Creature", the fire-pass regex GROUPED so the union tests any listed type).
+> Token diet: ~6k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **⭐ RIPPLES OF UNDEATH (+2) — the milled-referent pick + the life-rider compound cost** - the shelf grind (Teval 85→86)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0** — Ripples + Miara, Thorn
 > of the Glade (the life-rider pair on her Elf-dies trigger, audited). Post-release batch **+39**.

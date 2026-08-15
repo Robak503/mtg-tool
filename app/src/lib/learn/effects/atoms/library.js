@@ -1479,12 +1479,22 @@ export function libraryKeywordClauseParser(clause) {
   // ATOM (onlyIfHandEmpty), so the whole card (surveil-if + the draw clause) models natively.
   m = t.match(/^surveil (\d+) if you have no cards in hand$/);
   if (m) return { op: "surveil", amount: parseInt(m[1], 10), onlyIfHandEmpty: true, targetType: null };
-  // MILLED-REFERENT PICK (Ripples of Undeath "put a card from among those cards into your hand";
-  // Six's land-filtered "put a land card from among them into your hand" — 2026-08-15): the pick reads
-  // the _lastMilledIds stamp ∩ the live graveyard (CR 608.2b). The referent phrasing is anchored to the
-  // two printed forms ("those cards" / "them") — any other referent stays LOW (never a guessed set).
-  m = t.match(/^put a (land )?card from among (?:them|those cards) into your hand$/);
-  if (m) return { op: "pick-milled-to-hand", ...(m[1] ? { cardFilter: "land" } : {}), targetType: null };
+  // MILLED-REFERENT PICK (Ripples "those cards" · Six "them" · Dredger's Insight / Patient Naturalist
+  // "the milled cards" — 2026-08-15): the pick reads the _lastMilledIds stamp ∩ the live graveyard
+  // (CR 608.2b). The type phrase is a single basic type or an or-union ("an artifact, creature, or
+  // land card"), EVERY word validated against the closed basic-type list — one stranger word nulls the
+  // whole clause (CREED FN-safe, never a guessed filter). No phrase → any card.
+  m = t.match(/^put (?:a|an|one) (?:([a-z, /]+?) )?card from among (?:them|those cards|the milled cards) into your hand$/);
+  if (m) {
+    let cardFilter = null;
+    if (m[1]) {
+      const MILL_PICK_TYPES = new Set(["artifact", "creature", "enchantment", "land", "instant", "sorcery", "planeswalker", "battle"]);
+      const words = m[1].split(/\s*(?:,|\bor\b|\/)\s*/).map((w) => w.trim()).filter(Boolean);
+      if (!words.length || !words.every((w) => MILL_PICK_TYPES.has(w))) return null;
+      cardFilter = [...new Set(words)].sort().join("|");
+    }
+    return { op: "pick-milled-to-hand", ...(cardFilter ? { cardFilter } : {}), targetType: null };
+  }
   return null;
 }
 
@@ -2176,9 +2186,12 @@ export function applyPickMilledToHand(state, atom, ctx) {
   const gy = state.players[owner].graveyard || [];
   const candidates = gy.filter((c) => {
     if (!stamped.has(c.id)) return false;
-    if (atom.cardFilter === "land") {
+    if (atom.cardFilter) {
+      // A "|"-union of basic type words (the parse arm's closed vocabulary) — the front face must
+      // carry ANY listed type, cap-cased word test (CR 712.4a front-face discipline).
       const front = String(c.type || c.type_line || "").split(" // ")[0];
-      if (!/\bLand\b/.test(front)) return false;
+      const ok = atom.cardFilter.split("|").some((w) => front.includes(w[0].toUpperCase() + w.slice(1)));
+      if (!ok) return false;
     }
     return true;
   });
