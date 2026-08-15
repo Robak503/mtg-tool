@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Warden of the Grove's endure X works as printed.** Each other nontoken creature you play endures
+  X — X really counts every counter on the Warden, the counters land on the creature that entered
+  (not on the Warden), and if that creature's already gone you get the X/X white Spirit instead.
 - **Kodama of the West Tree knows what "modified" means.** The land-fetch really fires only when a
   modified creature you control connects — a counter, any Equipment, or an Aura *you* control counts;
   an opponent's Pacifism doesn't — and the same definition drives the trample grant, so the two can

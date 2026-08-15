@@ -133,6 +133,10 @@ export function combatDamageReferentSatisfied(program, event) {
     if ((a?.who === "castingPlayer" || a?.target === "castingPlayer") && event !== "cast") return false;
     // DRAWING-PLAYER (TP-3): set ONLY by checkCardDrawnTriggers. Same belt-on-the-rewrite pairing.
     if ((a?.who === "drawingPlayer" || a?.target === "drawingPlayer") && event !== "cardDrawn") return false;
+    // ENDURE-ON-TRIGGERING (Warden, W4): the recipient referent is the ENTERING creature — meaningful only
+    // on the etb watcher event whose triggeringPermanentId is that creature. Any other event's triggering
+    // object is a different referent class → not native there (a SAFE false-negative, the belt convention).
+    if (a?.recipient === "triggering" && event !== "etb") return false;
   }
   return true;
 }

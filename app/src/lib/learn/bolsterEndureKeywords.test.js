@@ -145,10 +145,14 @@ describe("ENDURE N — recognition (real oracle)", () => {
     expect(classifyCard({ name: "Sinkhole Surveyor", type: "Creature — Bird Scout", oracle: "Flying\nWhenever this creature attacks, you lose 1 life and this creature endures 1. (Put a +1/+1 counter on it or create a 1/1 white Spirit creature token.)" })).toBe("native-trigger");
   });
 
-  it("FN guard: a variable-N endure ('endures X') or a non-self referent stays LOW → Arbiter", () => {
+  it("FN guard: a BARE variable-X endure or a non-self referent stays LOW → Arbiter", () => {
+    // GRADUATED 2026-08-15: Warden of the Grove's where-clause form ("it endures X, where X is the number
+    // of counters on this creature") is now modeled (wardenOfTheGrove.test.js owns the flip). The guard
+    // class survives on the two forms that stay unbindable: a bare "it endures x" (no where-clause — the
+    // X has no referent) and a chosen-target endure (no such fixed-N card; never mis-bound to the source).
     expect(conf("it endures x")).toBe("low");
-    expect(conf("target creature endures 2")).toBe("low"); // no fixed-N non-self endure exists; never mis-bound to the source
-    expect(classifyCard({ name: "Warden of the Grove", type: "Creature — Hydra", oracle: "At the beginning of your end step, put a +1/+1 counter on this creature.\nWhenever another nontoken creature you control enters, it endures X, where X is the number of counters on this creature. (Put X +1/+1 counters on the creature that entered or create an X/X white Spirit creature token.)" })).toBe("body-only");
+    expect(conf("target creature endures 2")).toBe("low");
+    expect(conf("it endures x, where x is the number of counters on target creature")).toBe("low"); // a non-source X referent
   });
 });
 

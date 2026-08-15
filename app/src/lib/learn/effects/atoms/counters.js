@@ -1119,8 +1119,22 @@ export function applyRenown(state, atom, ctx) {
  * real modeled atoms (self add-counter / create-token). endure 0 does nothing (CR 701.63b).
  */
 export function applyEndure(state, atom, ctx) {
-  const n = Math.max(0, atom.amount || 0);
+  // ENDURE-X (Warden of the Grove, W4 — CR 701.63a): the dynamic amount is the SOURCE's whole counter bag
+  // (countFor kind:"countersOnSource", no counterType → every kind), read live at resolution via the shared
+  // countForSpec. The source gone → 0 → the same clean no-op the fixed endure-0 takes (CR 701.63b; an LKI
+  // count would need a snapshot no path threads — the under-fire is the safe direction).
+  const n = atom.countFor ? Math.max(0, countForSpec(state, ctx, atom.countFor) || 0) : Math.max(0, atom.amount || 0);
   if (n <= 0) return state; // CR 701.63b — endure 0: no counters, no token
+  // RECIPIENT "triggering" (Warden, W4): "IT endures X" where IT is the creature that just ENTERED — the
+  // triggering permanent, not the source. Mode A rides the existing target:"thatCreature" referent
+  // (ctx.triggeringPermanentId), so doublers + the counters-placed watchers + the lethal SBA all compose;
+  // the recipient already gone by resolution → mode B (the X/X Spirit — the CR 701.63a can't-put-counters
+  // branch). The bare self form below is byte-identical for every existing carrier.
+  if (atom.recipient === "triggering") {
+    const rec = ctx.triggeringPermanentId ? findPermanent(state, ctx.triggeringPermanentId) : null;
+    if (rec) return applyAddCounter(state, { op: "add-counter", counterType: "+1/+1", amount: n, target: "thatCreature" }, ctx);
+    return applyCreateToken(state, { op: "create-token", count: 1, power: n, toughness: n, descriptor: "white spirit" }, ctx);
+  }
   const src = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
   if (src) {
     // MODE A — put N +1/+1 counters on the enduring permanent (the standard target:"self" placement path:
@@ -1146,6 +1160,14 @@ export function endureClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").trim();
   const m = t.match(/^(?:it |this creature )?endures? (\d+|one|two|three|four|five)$/);
   if (m) return { op: "endure", amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: null };
+  // ENDURE-X-ON-TRIGGERING (Warden of the Grove, W4): "IT endures X, where X is the number of counters on
+  // THIS CREATURE" — "it" = the creature that just entered (the etb watcher's triggering permanent), "this
+  // creature" = the SOURCE. Whole-clause anchored; the bare "it endures x" (no where-clause — an unbindable
+  // X) still falls through → LOW (the graduated pin's surviving control). The routing belt gates
+  // recipient:"triggering" to the etb event so a non-ETB carrier can never mis-bind the referent.
+  if (/^it endures x, where x is the number of counters on this creature$/.test(t)) {
+    return { op: "endure", countFor: { kind: "countersOnSource" }, recipient: "triggering", targetType: null };
+  }
   return null;
 }
 

@@ -669,6 +669,10 @@ export function countForSpec(state, ctx, spec) {
     const refId = ctx?.sourceId;
     const lk = refId ? findPermanent(state, refId) : null;
     if (!lk) return 0;
+    // ALL-KINDS form (Warden of the Grove, W4 — "the number of counters on this creature", no type
+    // qualifier): counterType absent → the whole bag summed, every kind (CR-literal). The typed form
+    // below is byte-identical for every existing caller (they all stamp counterType).
+    if (!spec.counterType) return Object.values(lk.permanent.counters || {}).reduce((n, v) => n + Math.max(0, v || 0), 0);
     return Math.max(0, lk.permanent.counters?.[spec.counterType] || 0);
   }
   // ===== DICE-ROLL (CR 726) ===== the result of a just-rolled die (Ancient Dragons "equal to the result").

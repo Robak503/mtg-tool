@@ -137,12 +137,9 @@ Counter-themed (X-Men). 21 residue; the probed queue:
    The probe found the subsystem ALREADY BUILT (the modified-anthem selector + layers.isModifiedPermanent
    — the one-place CR 700.9 definition): the slice was just the watcher subject arm (requiresModified,
    the token-filter carve's sibling) + the descriptor registration + the scopeMatches live gate.
-4. **Warden of the Grove** — PROBED 08-15 late: trigger 1 (end-step self-counter) ROUTES; the gap is
-   trigger 2 — "whenever another nontoken creature you control enters, it endures X, where X is the
-   number of counters on this creature." ⭐ ENDURE MODE B ALREADY EXISTS (counters.js imports
-   applyCreateToken for "the N/N white Spirit token when the source has left") — probe what endure
-   machinery is wired before building; the gaps are likely the DYNAMIC X (counters-on-source) + the
-   entering-creature referent + the counters-or-token CHOICE seam. NEXT SLICE UP.
+4. ✅ **Warden of the Grove** — SHIPPED 2026-08-15 (Wolverine 82→83). The endure atom existed; the
+   slice was the where-clause parser arm + countersOnSource's all-kinds branch + the
+   recipient:"triggering" mode (rides target:"thatCreature") + the etb routing belt.
 5. **Canopy Gargantuan** — probed: the upkeep "put +1/+1 counters on EACH OTHER creature you control
    equal to THAT CREATURE'S toughness" — a per-target-scaled mass counter atom (the amount referent is
    each recipient's OWN toughness). Contained; medium.

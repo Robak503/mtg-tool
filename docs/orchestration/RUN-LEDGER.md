@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **⭐ WARDEN OF THE GROVE (+1) — ENDURE X on the enterer (CR 701.63a)** - the shelf grind (Wolverine 82→83)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Warden
+> body-only→native-trigger (the end-step self-counter already routed; the endure-X etb watcher was the
+> gap). Post-release batch **+56**.
+> ⭐ THREE REFERENTS, ALL EXISTING SEAMS: the etb otherCreatureYouControl watcher already detected; the
+> dynamic X rides countFor kind:"countersOnSource" with a NEW all-kinds branch (no counterType → the
+> whole bag summed — every existing typed caller byte-identical); the endure RECIPIENT is the
+> TRIGGERING creature (atom.recipient:"triggering" → applyEndure mode A rides the existing
+> target:"thatCreature" referent — doublers/watchers/SBAs compose; recipient gone → mode B, the X/X
+> Spirit). The routing belt gates recipient:"triggering" to etb (the countContext/upkeepPlayer belt
+> convention — an attacks-carrier of the same clause verifies NOT-native). GRADUATION #3 of the day:
+> bolsterEndureKeywords' Warden pin graduated; guards survive (bare "endures x" + a non-source X
+> referent). ⚠️ One live catch: countForSpec's arg order is (state, ctx, spec) — the swapped call
+> no-op'd BOTH modes and the witness caught it before the gate. 3 mutations (parser arm · recipient
+> branch · all-kinds sum) each seen-to-fail. Token diet: ~7k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **⭐ KODAMA (+2) — the MODIFIED watcher (CR 700.9); the cross-deck slice** - the shelf grind (Wolverine 81→82 · Thrun 80→81)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0** — Kodama of the West Tree
 > (body-only→native-mixed) + SP//dr, Piloted by Peni (native-trigger; whole-card audited: Vigilance +
