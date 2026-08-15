@@ -106,6 +106,32 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
+- 2026-08-15 — **THE DIAGNOSTIC DELIVERED ITS VERDICT AND THE FALSIFIED POLICY IS WITHDRAWN.** The
+  100-seed --diagnose probe: **62 of 64 divergent games forked on a cast-spell decision, and the
+  evaluator seat won 18 vs 23 in exactly those** (pass-priority: 2 forks, 1-1 neutral) — slice 5's
+  value-first within-tier cast ordering is the confirmed loser, precisely as hypothesized after the
+  21-26 gate. ACTION: the adjustment is REMOVED (the threading seam stays for a data-backed
+  replacement); the withdrawal is PINNED (boardEval.test castOrderWithdrawn — flag on/off cast scores
+  identical; a re-introduced adjustment that forgets to re-gate fails there first). The CONFIRMATION
+  re-gate: 17 diverged, 27-26 — byte-identical to the pre-slice-5 baseline; the negative is gone and
+  the remaining four converted sites are noise-to-slightly-positive. Determinism held across all four
+  100-game runs (same seeds → same outcomes).
+  **PHASE-1 STANDING:** four sites converted safely (default-off), the falsifiable hypothesis tested
+  and honestly rejected, the gate + diagnostic machinery permanent. The flag flip awaits a policy
+  that actually earns it — the diagnostic now exists to find one.
+
+- 2026-08-15 — **PHASE 2 RESHAPED BY A DISCOVERY, then built lean.** The plan's premise ("the sim
+  logs events, not decisions") was STALE: the rows-v3 decision trajectory already exists
+  (selfPlayRunner recordDecisions → featurizeState features + action + offered-set histogram + rank +
+  castScores + scoreGap), and decidePendingChoice already records the pending-window decisions. So
+  Phase 2 is NOT a new channel — it is: ① the HIDDEN-INFO CONTRACT pin (decisionLogHiddenInfo.test:
+  a distinctively-named opponent hand card is absent from a seat's serialized features while its
+  COUNT is seen — the visit-proof control against a vacuous pass; the featurizer's sizes-only
+  vocabulary is now a witnessed contract, not a happenstance); ② the FIRST-DIVERGENCE DIAGNOSTIC
+  (eval-gate --diagnose): both arms record decisions, and for every diverged game the treated seat's
+  first differing action names the choice class that forked it, tallied with per-arm win correlation
+  — the tuning tool the negative gate demanded. The 100-game probe is running; findings land here.
+
 - 2026-08-14 — **THE PHASE-1 GATE RAN TWICE — VERDICT: NO FLIP, and the second run is a real negative.**
   The harness (scripts/eval-gate.mjs): per seed, the SAME pod runs flag-off and flag-on-for-one-
   rotating-seat; the treated seat's wins are compared arm-to-arm; a divergence counter guards against a

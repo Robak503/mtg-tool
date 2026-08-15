@@ -29,7 +29,6 @@ import { detectArchetype } from "../goldfish.js";
 import { filterActions } from "./legalChoices.js";
 import { opponentsOf, findPermanent } from "./gameState.js";
 import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
-import { cardValue, policyEvalEnabledFor } from "./boardEval.js"; // QUARTET PHASE 1 slice 5 — the cast-ordering refinement (leaf-importing, cycle-free)
 import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, goaderControllersOf } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction } from "./manaModel.js";
@@ -109,15 +108,15 @@ function scoreByRole(hint, card, action, archetype) {
 export const __scoreCastActionForTests = (...args) => scoreCastAction(...args);
 
 function scoreCastAction(action, card, archetype, hint = null, state = null, aiPlayerId = null) {
-  // QUARTET PHASE 1 slice 5 (2026-08-14) — the CAST-ORDERING refinement, the HIGHEST-FREQUENCY choice
-  // in the sim (every main phase, every seat). Behind the per-seat flag: keep the tier structure the
-  // archetype tables define, but break WITHIN-tier order by the shared evaluator's cardValue — deploy
-  // the more valuable card of a tier first. The adjustment is < 1 so it can NEVER cross tiers (the
-  // archetype ordering stays authoritative); flag absent ⇒ the legacy integer tiers, byte-identical.
-  const evalAdj = state && aiPlayerId && policyEvalEnabledFor(state, aiPlayerId)
-    ? Math.min(0.9, Math.max(0, cardValue(card)) / 100)
-    : 0;
-  return scoreCastTier(action, card, archetype, hint) - evalAdj;
+  // QUARTET slice 5 WITHDRAWN (2026-08-15): the within-tier cardValue adjustment was FALSIFIED by the
+  // gate diagnostic — 62/64 divergent games forked on a cast-spell decision and the evaluator seat won
+  // 18 vs 23 there (eval-gate --diagnose, 100 seeds; the plan's status ledger holds the full reading).
+  // The SEAM (the state/aiPlayerId threading + the tier split) deliberately REMAINS so a data-backed
+  // replacement can slot in and re-gate; until one passes, the tier is the whole score on BOTH sides
+  // of the flag. The withdrawal is pinned in boardEval.test.js — a re-introduced adjustment that
+  // forgets to re-gate fails there first.
+  void state; void aiPlayerId;
+  return scoreCastTier(action, card, archetype, hint);
 }
 function scoreCastTier(action, card, archetype, hint = null) {
   // Commander framework — the AI prioritizes casting its commander: a key threat + engine piece, and the

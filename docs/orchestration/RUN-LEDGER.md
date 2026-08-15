@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **QUARTET PHASE 2 SLICE 1 — the diagnostic names the loser; the loser is withdrawn** - the SUBSYSTEM QUARTET
+> Suite green + lint 0 BY EXIT CODE (sequential, one run — the stall lesson honored). 300 more gate
+> games, ZERO errors. Card batch unchanged at **+74**.
+> ⭐ PHASE 2 RESHAPED BY DISCOVERY: the plan's "the sim logs events, not decisions" was STALE — the
+> rows-v3 trajectory already exists (features/action/offered-histogram/rank/castScores). Phase 2 built
+> what was actually missing: ① the HIDDEN-INFO CONTRACT pin (decisionLogHiddenInfo.test — an
+> opponent's distinctively-named hand card absent from a seat's serialized features while its COUNT is
+> seen, the visit-proof against a vacuous pass); ② eval-gate --diagnose (both arms record decisions;
+> each diverged game's FIRST differing treated-seat action is tallied by kind with per-arm wins).
+> ⭐⭐ THE VERDICT: 62/64 forks = cast-spell, evaluator seat 18-23 there → slice 5's within-tier
+> value-first ordering FALSIFIED → WITHDRAWN (the seam stays; the withdrawal pinned in
+> castOrderWithdrawn). Confirmation re-gate: 17 diverged, 27-26 — byte-identical to the pre-slice-5
+> baseline. Determinism held across four 100-game runs.
+> ⚠️ TOOLING LESSON RE-LEARNED: two inline node -e edits NO-OP'd SILENTLY (the split/join found no
+> match, "success" printed anyway) and cost a probe cycle — the mutation harness's throw-on-no-op rule
+> applies to EVERY scripted source edit; the Edit tool is the honest default for source changes.
+> Token diet: ~20k output tokens this slice (+ ~35 min background gate compute).
 > ## SLICE DONE - 2026-08-14 - **QUARTET PHASE 1, SLICE 5 + THE GATE ×2 — an honest negative** - the SUBSYSTEM QUARTET
 > Suite green + lint 0 BY EXIT CODE (fresh run post-slice; the gate runs themselves: 200 games total,
 > ZERO errors). No flip-diff (ranking-only, default-off). Card batch unchanged at **+74**.

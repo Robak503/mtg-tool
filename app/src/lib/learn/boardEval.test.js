@@ -191,31 +191,26 @@ describe("⭐⭐ LAW 6 — the MAY decision converts (slice 4): take iff taking 
   });
 });
 
-describe("⭐⭐ LAW 6 — the CAST-ORDERING refinement (slice 5): within-tier by value, tiers untouched", () => {
-  // The highest-frequency choice in the sim. Behind the flag, scoreCastAction subtracts a <1
-  // cardValue adjustment — within-tier order flips toward the more valuable card, but the archetype
-  // TIER structure stays authoritative (the adjustment can never cross an integer tier boundary).
+describe("⛔ SLICE 5 WITHDRAWN — the cast-ordering adjustment was FALSIFIED and removed (2026-08-15)", () => {
+  // The gate diagnostic (eval-gate --diagnose, 100 seeds): 62/64 divergent games forked on a
+  // cast-spell decision, and the evaluator seat won 18 vs 23 there — value-first within-tier cast
+  // ordering LOSES. The adjustment is withdrawn; the threading seam remains for a data-backed
+  // replacement. This pin holds the withdrawal: the flag must NOT change cast scores until a new
+  // policy passes the gate — a re-introduced adjustment that forgets to re-gate fails HERE first.
   const A_ELVES = { name: "Llanowar Elves", type: "Creature — Elf Druid", mana: "{G}", cmc: 1, power: "1", toughness: "1", oracle: "{T}: Add {G}." };
   const A_DRAW = { name: "Divination", type: "Sorcery", mana: "{2}{U}", cmc: 3, oracle: "Draw two cards." };
 
-  it("⛔ SEEN-TO-FAIL control: flag OFF returns the legacy integer tiers, byte-identical", () => {
-    expect(__scoreCastActionForTests({ cmc: 1 }, A_ELVES, "midrange", null, {}, "ai1")).toBe(0);
-    expect(__scoreCastActionForTests({ cmc: 3 }, A_DRAW, "midrange", null, {}, "ai1")).toBe(1);
-  });
-
-  it("⭐⭐ flag ON: a sub-1 value adjustment applies — and can NEVER cross a tier boundary", () => {
+  it("⭐⭐ flag ON and OFF produce IDENTICAL cast scores (the withdrawal is total)", () => {
     const sOn = { usePolicyEval: ["ai1"] };
-    const elves = __scoreCastActionForTests({ cmc: 1 }, A_ELVES, "midrange", null, sOn, "ai1");
-    const draw = __scoreCastActionForTests({ cmc: 3 }, A_DRAW, "midrange", null, sOn, "ai1");
-    const row = { elves, draw, tiersHold: elves < draw && draw < 2 && elves > -1 };
-    console.log("  WITNESS castOrderEval", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
-    expect(row.tiersHold).toBe(true);          // ramp tier still beats draw tier; both within their integer band
-    expect(elves).toBeLessThan(0);             // the adjustment is REAL (not the legacy integer)
-    expect(elves).toBeGreaterThan(-0.95);      // and bounded — never a tier jump
-  });
-
-  it("the flag is PER-SEAT: another seat's flag never touches this seat's scores", () => {
-    const sOther = { usePolicyEval: ["ai2"] };
-    expect(__scoreCastActionForTests({ cmc: 1 }, A_ELVES, "midrange", null, sOther, "ai1")).toBe(0); // legacy
+    const rows = [
+      [__scoreCastActionForTests({ cmc: 1 }, A_ELVES, "midrange", null, {}, "ai1"),
+       __scoreCastActionForTests({ cmc: 1 }, A_ELVES, "midrange", null, sOn, "ai1")],
+      [__scoreCastActionForTests({ cmc: 3 }, A_DRAW, "midrange", null, {}, "ai1"),
+       __scoreCastActionForTests({ cmc: 3 }, A_DRAW, "midrange", null, sOn, "ai1")],
+    ];
+    console.log("  WITNESS castOrderWithdrawn", JSON.stringify(rows)); // vitest 4 needs --disable-console-intercept
+    for (const [off, on] of rows) expect(on).toBe(off);
+    expect(rows[0][0]).toBe(0); // and the scores ARE the legacy integer tiers
+    expect(rows[1][0]).toBe(1);
   });
 });
