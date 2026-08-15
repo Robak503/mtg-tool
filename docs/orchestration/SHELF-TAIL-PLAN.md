@@ -7,10 +7,34 @@
 ## The order (Colton's steer, 2026-08-15 — do not reorder)
 
 **① Wolverine 79 → ② Kellan 74 → ③ Otharri 74**, then Cap America 73 → Halfshell 67 → Shalai 67 →
-the two NEW archetype-gap decks (08-15, Colton's program to fill missing deck types: **Brago Blink 75**
-— flicker/draw-go, **Bumble Flower Combo 63** — combo/alt-win; see below), and the cEDH pair
-(**Believe it! 79, Kinnan 77) LAST** — "hardest to push past 90… focus those last."
+the FOUR archetype-gap decks (08-15, Colton's program to fill missing deck types: **Thrun Voltron 80**
+— equipment/totem-armor voltron, **Brago Blink 75** — flicker, **Shorikai Vehicles 73** —
+crew/artifacts, **Bumble Flower Combo 62** — combo/alt-win; a second voltron + theft + wheels may
+still arrive), and the cEDH pair (**Believe it! 79, Kinnan 77) LAST** — "hardest to push past 90…
+focus those last." (Veyran = the draw-go seat per Colton, that gap was never open.)
 Call the ceiling explicitly per deck when the residue is genuinely unbuildable-class.
+
+### NEW ARRIVAL: Thrun Voltron — 80, needs 10 (the closest gap deck to the bar)
+Voltron #1 of 2 (list in the vault registry). The equipment/aura machinery mostly EXISTS (8
+native-equipment + 6 native-aura already); the residue: **7 aura/equip statics** — ⭐ TOTEM ARMOR
+(Lion Umbra; Bear/Boar/Snake umbras parse their pump halves — verify whether their totem-armor
+rider is modeled or silently dropped, CREED check needed), Prowler's Helm/Whispersilk-class
+unblockable grants, Nazgûl Battle-Mace, Strong Back, Glaive, Indomitable Might. **Kodama of the
+West Tree** (cross-deck with Wolverine — one slice, two decks). Buster Sword (attack trigger),
+Saryth (untap-fang activation), Kenrith's Transformation (ETB cantrip-removal aura),
+Nyxborn Hydra (enters-as X), Thrun himself (the regenerate-ish "can't be countered / hexproof from"
+statics — probe what parks him). Primal Might/Professor Hojo (fight-adjacent anthems).
+
+### NEW ARRIVAL: Shorikai Vehicles — 73, needs 17 (the crew vein)
+The vehicles gap-filler (corrected 100 imported 08-15; list in the vault registry). ⭐ CREW is the
+whole point: the crew cost mechanic + a Vehicle becoming an artifact creature until EOT does not
+exist in the engine — Shorikai himself (tap-activation + Crew 8), the Vehicle fleet's attack
+triggers (Parhelion II, Weatherlight, The Indomitable, Ironsoul Enforcer), Kotori/Katsumasa (upkeep
+animators), Peacewalker Colossus (crew-adjacent activation), Mechtitan Core (the five-piece token
+LTB). Also: 7 ETBs (Cosima MDFC, Emry, Mu Yanling…), 6 spells (Chain of Vapor, Dispatch, Narset's
+Reversal…), Sai (cast trigger), Born to Drive (aura static). The permission suite already parses
+(17 native-spell). Strategy: the CREW mechanic first (one mechanic, many cards), then the Vehicle
+attack-trigger family.
 
 ### NEW ARRIVAL: Brago Blink — 75, needs 15 (the flicker vein)
 Colton's blink gap-filler (imported to the test profile 08-15; list banked in the vault registry).

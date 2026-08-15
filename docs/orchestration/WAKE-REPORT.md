@@ -12,14 +12,14 @@
 > ### ⏭ RUNNABLE NOW — **the shelf tail runs off [SHELF-TAIL-PLAN.md](SHELF-TAIL-PLAN.md)** (Colton, 08-15: keep the window low)
 > The next three decks' full residue maps, probed blockers, and slice queues live in
 > **docs/orchestration/SHELF-TAIL-PLAN.md** — a booting session reads THAT file, not a vein block
-> here. The order (Colton's steer, banked in the vault): **① Wolverine 80 → ② Kellan 74 →
-> ③ Otharri 74 → ④ Cap America 73 → ⑤ Halfshell 67 → ⑥ Shalai 67 → ⑦ the archetype-gap pair (NEW
-> 08-15, both pasted by Colton + imported to the test profile, lists banked in the vault registry):
-> Brago Blink 75 (flicker) + Bumble Flower Combo 63 (combo/alt-win) → cEDH LAST: ⑧ Believe it! 79 →
-> ⑨ Kinnan 77.** Veyran = the draw-go seat per Colton (that gap was never open). ✅ Forgotten
-> Ancient SHIPPED (the counter-MOVE, Wolverine 79→80, batch +52); ✅ The Ozolith flip VERIFIED
-> +1/0/0 (both arms built — witness suite + gate in flight). Ceiling calls flagged per deck as
-> residue thins.
+> here. The order (Colton's steer, banked in the vault): **① Wolverine 81 → ② Kellan 74 →
+> ③ Otharri 74 → ④ Cap America 73 → ⑤ Halfshell 67 → ⑥ Shalai 67 → ⑦ the archetype-gap QUARTET (NEW
+> 08-15, all pasted by Colton + imported to the test profile, lists banked in the vault registry):
+> Thrun Voltron 80 + Brago Blink 75 (flicker) + Shorikai Vehicles 73 (crew) + Bumble Flower Combo
+> 62 (alt-win) → cEDH LAST: ⑧ Believe it! 79 → ⑨ Kinnan 77.** Veyran = the draw-go seat per Colton (that gap was
+> never open). ✅ Forgotten Ancient SHIPPED (Wolverine 79→80, +52); ✅ The Ozolith SHIPPED 1f36bf1f
+> (both arms, Wolverine 80→**81**, batch +53). Next slice: Kodama of the West Tree (the modified
+> predicate). Ceiling calls flagged per deck as residue thins.
 > Today's twenty (all CI green): the Swat retarget · Sarkhan-FB · Rivaz · Rith (Dragons→90) ·
 > Atzocan · Heirloom (Jurassic→90) · Tortured Existence (+17) · Teval herself · Molt Tender ·
 > Undead Butler (pause kind) · Tormod (+12) · Bloodghast · Ripples (pause kind #2 + life-rider) ·
