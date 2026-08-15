@@ -272,6 +272,10 @@ export function splitClauses(oracle) {
       // (the word-set guard on the atom arm keeps unknown type phrases LOW → Arbiter).
       || (/^spend this mana only to cast [a-z][a-z ]*? spells$/i.test(sentence)
           && /^add (?:one|two|three|four|five) mana in any combination of colors$/i.test(prev))
+      // RIVAZ RIDER (2026-08-15) — the quoted dies-exile grant's period sits INSIDE the quotes, so the
+      // sentence split strands the closing quote as its own "clause". Fold it back onto the exact lead
+      // (anchored-fold discipline: this can only ever reassemble the one quoted grant the arm claims).
+      || (/^"$/.test(sentence) && /gains "when this creature dies, exile it$/i.test(prev))
     )) {
       clauses[clauses.length - 1] = `${prev}. ${sentence}`;
       continue;

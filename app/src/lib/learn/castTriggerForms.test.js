@@ -72,8 +72,12 @@ describe("Nth-spell-per-turn detection (generalized castSecond)", () => {
 // ─── CREED guards (no over-fire / no false flip) ─────────────────────────────────
 
 describe("CREED guards — riders / unmodeled filters stay UNDETECTED", () => {
-  it("'from your graveyard' rider stays undetected; the COLOR filter graduated 2026-07-30", () => {
-    expect(castDescriptors("Whenever you cast a Dragon creature spell from your graveyard, it gains haste.")).toHaveLength(0);
+  it("GRADUATED 2026-08-15: the 'from your graveyard' cast event IS detected (castFromZoneOnly + typedAll); the COLOR filter graduated 2026-07-30", () => {
+    // Pinned undetected while the source-zone gate didn't exist. The Rivaz slice (rivazOfTheClaw.test.js)
+    // built it: castFromZoneOnly (exact-zone, under-fires when the caller threads no zone) + the typedAll
+    // CONJUNCTIVE filter (Dragon AND Creature — the any-of "typed" kind would over-fire on every creature).
+    expect(castDescriptors("Whenever you cast a Dragon creature spell from your graveyard, it gains haste.")[0])
+      .toMatchObject({ event: "cast", whose: "you", castFromZoneOnly: "graveyard", spellFilter: { kind: "typedAll", words: ["Dragon", "Creature"] } });
     // ⭐ A colour is a whole-object QUALITY (CR 105.2), read from colorsOf — exactly like the `multicolored`
     // filter beside it, whose comment already established the CR-faithfulness of that reading at the cast
     // event. It was denylisted only because a SUBTYPE scan for "red" would never fire; it is not a subtype

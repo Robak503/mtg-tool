@@ -9,6 +9,14 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Rivaz of the Claw does everything on the card.** The tap really makes two any-color mana that
+  only Dragon creature spells can spend, once each of your turns you can cast a Dragon creature
+  straight from your graveyard, and a Dragon recurred that way is exiled when it dies — no
+  double-dipping. Smokebraider and Flamebraider's Elemental mana comes along for the ride.
+- **The coverage dashboard stopped over-counting mana rocks.** Cards like the Keyrunes and Monuments
+  were counted fully-supported while their second ability (animation, sac effects) wasn't modeled —
+  and two rocks were making mana without charging their activation cost. The counts are honest now;
+  the mana side of those cards still works exactly as before.
 - **Sarkhan, Fireblood plays all three abilities.** The rummage +1, the Dragon-mana +1 (two mana of
   any colors that really spend only on Dragon spells — and vanish at step's end, as printed), and the
   −7's four 5/5 Dragons all resolve natively now. Desolation of Smaug rides along: sweep the

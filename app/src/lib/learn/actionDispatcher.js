@@ -915,7 +915,7 @@ function sacrificePermanentForCost(state, playerId, permObj) {
   const sfcBpw = creatureBasePower(permObj, state);
   let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: permObj.id });
   if (/Creature/.test(typeLine)) {
-    next = checkDiesTriggers(next, [{ controller: playerId, id: permObj.id, name: permObj.card?.name || "creature", card: permObj.card, counters: { ...(permObj.counters || {}) }, power: Number.isFinite(sfcPw) ? sfcPw : null, basePower: Number.isFinite(sfcBpw) ? sfcBpw : null }]);
+    next = checkDiesTriggers(next, [{ controller: playerId, id: permObj.id, name: permObj.card?.name || "creature", card: permObj.card, counters: { ...(permObj.counters || {}) }, power: Number.isFinite(sfcPw) ? sfcPw : null, basePower: Number.isFinite(sfcBpw) ? sfcBpw : null, diesExileAfter: !!permObj.grantDiesExile }]);
   } else {
     // LEAVE-DRAIN (CR 603.3b): a NON-creature cost sacrifice (Blood/Clue/artifact) has no dies path —
     // drain its leave event now so permanentLeaves watchers stack above the ability (the creature
@@ -1665,6 +1665,14 @@ function applyCastSpellMaybeDiscover(state, action) {
     return {
       ...next,
       onceTriggersFiredThisTurn: { ...(next.onceTriggersFiredThisTurn || {}), [`${action.milledGyCastSourceId}_milledGyCast`]: true },
+    };
+  }
+  // DRAGON-GY CAST (Rivaz of the Claw): the type-filtered sibling of the Raul latch directly above —
+  // same per-source once-per-turn key, cleared at untap.
+  if (action.dragonGyCastSourceId) {
+    return {
+      ...next,
+      onceTriggersFiredThisTurn: { ...(next.onceTriggersFiredThisTurn || {}), [`${action.dragonGyCastSourceId}_dragonGyCast`]: true },
     };
   }
   return next;

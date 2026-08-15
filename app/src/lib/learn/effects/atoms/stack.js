@@ -460,6 +460,13 @@ export function counterClauseParser(clause) {
   // the targeted object's own targets off the live board. `optional` records the printed "may": CR 115.7d —
   // the player may leave any number of targets unchanged, which is the resolver's decline path.
   if (/^(?:you may )?choose new targets for target spell or ability$/.test(t)) return { op: "retarget", targetType: "spellOrStackAbility", optional: true };
+  // RIVAZ RIDER (2026-08-15) — the cast-trigger payoff 'it gains "When this creature dies, exile it."'
+  // where "it" is the CAST SPELL (the trigger's castStackObjectId, threaded by checkCastTriggers). The
+  // resolver stamps the spell's stack payload; PERMANENT_ETB carries the stamp onto the permanent, and the
+  // dies path exiles the card after death processing. Exact printed sentence only.
+  // (`\.\s*"` — the trigger-line splitter re-joins the quoted sentence with a space before the closing
+  // quote; both the clean and the re-joined form are the same printed text.)
+  if (/^it gains "when this creature dies, exile it\.\s*"$/.test(t)) return { op: "grant-dies-exile-to-cast-spell", targetType: null };
   // ⭐⭐ CNT-TARGETS-WHAT (CR 601.2c) — "counter target spell THAT TARGETS <X>": Turn Aside, Keep Safe,
   // Rebuff the Wicked, Intervene, Confound, Hindering Light, Dawn Charm, Hydromorph Gull/Guardian, Fugitive
   // Droid, Vigilant Martyr, Mistfolk. FOURTEEN carriers across nine wordings, and ONE missing capability
@@ -1622,8 +1629,32 @@ function applyRetarget(state, atom, ctx) {
   return next;
 }
 
+/**
+ * RIVAZ RIDER — 'it gains "When this creature dies, exile it."' applied to the TRIGGERING CAST SPELL.
+ * The grant is recorded on the spell's stack payload (params.grantDiesExile); PERMANENT_ETB threads it
+ * onto the permanent exactly like castFromZone, and checkDiesTriggers exiles the card from the graveyard
+ * after death processing (the granted trigger is deterministic and choiceless, so it is applied at the
+ * dies site rather than as its own stack object — caster-PESSIMAL timing: the dragon exiles
+ * unconditionally, which only ever denies its owner recursion, never grants anything extra).
+ * The spell already resolved / left the stack → a logged no-op (never a guess at which permanent it became).
+ */
+function applyGrantDiesExileToCastSpell(state, atom, ctx) {
+  const spellId = ctx?.castStackObjectId;
+  const idx = spellId ? (state.stack || []).findIndex((o) => o.id === spellId && o.kind === "spell") : -1;
+  if (idx === -1) {
+    return logEvent(state, { kind: "spell-effect", effect: "grant-dies-exile-fizzle", targetId: spellId || null, controller: ctx?.controller });
+  }
+  const obj = state.stack[idx];
+  const next = {
+    ...state,
+    stack: [...state.stack.slice(0, idx), { ...obj, payload: { ...obj.payload, params: { ...(obj.payload?.params || {}), grantDiesExile: true } } }, ...state.stack.slice(idx + 1)],
+  };
+  return logEvent(next, { kind: "spell-effect", effect: "grant-dies-exile", targetId: spellId, cardName: obj.source?.name || null, controller: ctx?.controller });
+}
+
 export const stackResolvers = {
   retarget: applyRetarget, // ⭐ RETARGET (Deflecting Swat, CR 115.7) — re-pick a stack object's own targets off the live board; decline = keep (CR 115.7d)
+  "grant-dies-exile-to-cast-spell": applyGrantDiesExileToCastSpell, // RIVAZ RIDER — stamp the triggering cast spell; the permanent it becomes exiles on death
   "bounce-spell-or-permanent": applyBounceSpellOrPermanent, // VENSER — the STACK∪BATTLEFIELD union bounce ("return target spell or permanent to its owner's hand")
   "copy-spell": applyCopySpell, // STORM (CR 702.40) — copy the storm spell N times (N = spells cast before it this turn)
   "copy-creature-spell": applyCopyCreatureSpell, // COPY-A-CREATURE-SPELL (Double Major, CR 707.10) — a token copy of a chosen own creature spell

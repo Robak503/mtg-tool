@@ -2116,7 +2116,15 @@ export function permanentEquipmentCovered(card) {
 // fragile, separate follow-up: distinguishing a mana ability from a value ability is error-prone, and
 // under-correcting is the safe direction.)
 function manaCardResidueModeled(card, oracle) {
-  return !isLevelGatedOracle(oracle) && allTriggerSentencesModeled(card, oracle);
+  if (isLevelGatedOracle(oracle) || !allTriggerSentencesModeled(card, oracle)) return false;
+  // ⭐ ACTIVATED RESIDUE (2026-08-15) — a PRE-EXISTING hole closed the day it grew carriers: this gate
+  // checked triggers and level-gates but NEVER activated abilities, so a mana source with an unmodeled
+  // activated line (Shaman of Forgotten Ways' Formidable life-set, Sage of the Maze's land-animation)
+  // claimed native-mana while an entire ability was missing — a metric over-claim, the all-or-nothing
+  // law violated. Every NON-mana activated ability must now be modeled; the mana line itself is exempt
+  // (isManaEffect — it is vouched by the manaProduction credit this tier stands on, and `modeled` is
+  // deliberately false for every mana ability since they never ride the stack path).
+  return parseActivatedAbilities(card).every((a) => a.modeled || a.isManaEffect);
 }
 
 // ADDITIVE registry seam (WAVE 0): module-level list of extra coverage classifiers. A classifier is

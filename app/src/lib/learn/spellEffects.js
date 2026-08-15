@@ -1215,7 +1215,7 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
       // a "<payoff> equal to its power" dies-trigger the real on-board power (mirrors destroyLethalCreatures).
       const pw = creaturePower(lk.permanent, next);
       const bpw = creatureBasePower(lk.permanent, next);
-      dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card, power: Number.isFinite(pw) ? pw : null, basePower: Number.isFinite(bpw) ? bpw : null, counters: { ...(lk.permanent.counters || {}) } });
+      dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card, power: Number.isFinite(pw) ? pw : null, basePower: Number.isFinite(bpw) ? bpw : null, counters: { ...(lk.permanent.counters || {}) }, diesExileAfter: !!lk.permanent.grantDiesExile });
     } else if (isPlaneswalker(lk.permanent.card)) {
       // A destroyed planeswalker "dies" (CR 700.4); capture its look-back (no power — the only modeled
       // PW-death watcher is Cruel Celebrant's flat creature-or-planeswalker drain).

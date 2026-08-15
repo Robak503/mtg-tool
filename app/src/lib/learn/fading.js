@@ -64,7 +64,7 @@ export function applyFadeVanishUpkeep(state) {
       // Power + base power captured pre-move (CR 603.6e) so a dies-payoff reading either LKI resolves.
       const fvPw = creaturePower(lk.permanent, next);
       const fvBpw = creatureBasePower(lk.permanent, next);
-      dead.push({ controller: pid, id: snapshot.id, name: snapshot.card?.name || "permanent", card: snapshot.card, counters: { ...(lk.permanent.counters || {}) }, power: Number.isFinite(fvPw) ? fvPw : null, basePower: Number.isFinite(fvBpw) ? fvBpw : null });
+      dead.push({ controller: pid, id: snapshot.id, name: snapshot.card?.name || "permanent", card: snapshot.card, counters: { ...(lk.permanent.counters || {}) }, power: Number.isFinite(fvPw) ? fvPw : null, basePower: Number.isFinite(fvBpw) ? fvBpw : null, diesExileAfter: !!lk.permanent.grantDiesExile });
       next = moveCardToZone(next, { playerId: pid, fromZone: "battlefield", toZone: "graveyard", cardId: snapshot.id });
     };
     if (fv.kind === "fading") {

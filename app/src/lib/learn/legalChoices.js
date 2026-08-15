@@ -2878,6 +2878,32 @@ function actionsCastMilledFromGraveyard(state, playerId) {
     .map((a) => ({ ...a, milledGyCastSourceId: source.id }));
 }
 
+/**
+ * DRAGON-CREATURE GRAVEYARD CAST (Rivaz of the Claw — Dragons shelf, CR 601.3e): "Once during each of
+ * your turns, you may cast a Dragon creature spell from your graveyard." The Raul machine's type-filtered
+ * sibling: same once-per-your-turn latch (`${sourceId}_dragonGyCast`, latched by the dispatcher on the
+ * cast, cleared at untap), same SHARED cast builder (fromZone "graveyard" — full cost, targets, timing,
+ * cast triggers all identical to a hand cast). The eligibility gate is the CONJUNCTIVE type-line test
+ * (Dragon AND Creature, word-bounded — "creature" alone must never qualify) — the enforcement that keeps
+ * the credited static from being a no-op (CREED). Rivaz's own exile rider is a separate TRIGGER
+ * (checkCastTriggers' castFromZoneOnly descriptor) and fires off this cast like any other.
+ */
+function actionsCastDragonCreatureFromGraveyard(state, playerId) {
+  const player = state.players[playerId];
+  if (state.activePlayer !== playerId) return []; // "during each of YOUR turns"
+  const source = (player.battlefield || []).find((p) =>
+    parseStaticAbilities(p.card).some((d) => d.castDragonCreatureGraveyardPermission)
+    && !state.onceTriggersFiredThisTurn?.[`${p.id}_dragonGyCast`]);
+  if (!source) return [];
+  const eligible = (player.graveyard || []).filter((c) => {
+    const t = String(c?.type || c?.type_line || "");
+    return /\bDragon\b/.test(t) && /\bCreature\b/.test(t);
+  });
+  if (!eligible.length) return [];
+  return castActionsFromZone(state, playerId, eligible, "graveyard", null, false)
+    .map((a) => ({ ...a, dragonGyCastSourceId: source.id }));
+}
+
 function actionsPlayFromTopOfLibrary(state, playerId) {
   const perm = playFromTopPermission(state, playerId);
   if (!perm) return [];
@@ -3495,6 +3521,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsPlayImpulseFromExile(state, playerId)); // IMPULSE-EXILE step 2 (CR 118.10): play an impulse-exiled card THIS TURN at full cost (nonland cast / land play from exile)
     actions.push(...actionsPlayFromTopOfLibrary(state, playerId)); // PLAY-FROM-TOP (Future Sight, CR 118.6): cast/play the top library card while the permission static is active
     actions.push(...actionsCastMilledFromGraveyard(state, playerId)); // MILLED-GY CAST (Raul): once per your turn, cast a nonland milled this turn from your graveyard
+    actions.push(...actionsCastDragonCreatureFromGraveyard(state, playerId)); // DRAGON-GY CAST (Rivaz): once per your turn, cast a Dragon creature spell from your graveyard
     actions.push(...actionsCastFlashbackFromGraveyard(state, playerId)); // FLASHBACK (CR 702.34a): cast from graveyard for the flashback cost, then exile it
     actions.push(...actionsActivateGraveyardRecursion(state, playerId)); // GY-1 (CR 602.2): "Return this card from your graveyard …" activated from the graveyard
     actions.push(...actionsActivateGraveyardExile(state, playerId)); // GY-2 (CR 602.2): "<mana>, Exile this card from your graveyard: <effect>"

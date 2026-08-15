@@ -2871,6 +2871,16 @@ function parseClause(clause, out, selfName, selfType) {
     return;
   }
 
+  // ── DRAGON-CREATURE GRAVEYARD CAST PERMISSION (Rivaz of the Claw — Dragons shelf, CR 601.3e):
+  // "Once during each of your turns, you may cast a Dragon creature spell from your graveyard." The
+  // Raul marker's type-filtered sibling: a coverage MARKER (no affects/op) enforced by legalChoices'
+  // actionsCastDragonCreatureFromGraveyard (once-per-your-turn latch + the conjunctive Dragon∧Creature
+  // type-line gate), so crediting it native is honest. Exact printed sentence only.
+  if (/^once during each of your turns, you may cast a dragon creature spell from your graveyard$/.test(c)) {
+    out.push({ castDragonCreatureGraveyardPermission: true });
+    return;
+  }
+
   // ── COUNTER-GATED GROUP WARD (Cathedral Acolyte — SHELF S7, CR 702.21): "Each creature you control
   // with a counter on it has ward {N}." A layer-6 addWard grant over the ANY-counter dynamic selector
   // (requiresAnyCounter — any kind, re-read per query so a counter arriving/leaving moves a creature in or

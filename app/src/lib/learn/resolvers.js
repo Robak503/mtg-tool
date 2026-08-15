@@ -267,6 +267,10 @@ export function enterPermanent(state, card, controller, opts = {}) {
     // entirely with generic-eating colourless mana spends ZERO colours, and `0` is the CORRECT answer —
     // a truthy check would drop the stamp and leave the rider reading "unknown" instead of "none".
     ...(opts.colorsSpent != null ? { colorsSpent: opts.colorsSpent } : {}),
+    // GRANTED DIES-EXILE (RIVAZ, 2026-08-15) — the cast-trigger grant 'it gains "When this creature dies,
+    // exile it."' stamped on the SPELL's stack payload rides here onto the permanent (the castFromZone
+    // pattern exactly). Read by the dies path: the card exiles from the graveyard after death processing.
+    ...(opts.grantDiesExile ? { grantDiesExile: true } : {}),
   };
   // A planeswalker enters with its starting loyalty as loyalty counters (CR 306.5b). Stored under
   // the generic counters map (`counters.loyalty`) so the 0-loyalty SBA + loyalty costs read it the
@@ -773,7 +777,7 @@ function resolveManual(state, obj) {
 export const RESOLVERS = Object.freeze({
 
   [RESOLVER_KEYS.PERMANENT_ETB]: (state, obj) => {
-    const { card, controller, xValue, kicked, castFromZone, colorsSpent } = obj.payload?.params || {};
+    const { card, controller, xValue, kicked, castFromZone, colorsSpent, grantDiesExile } = obj.payload?.params || {};
     if (!card || !controller) return resolveManual(state, obj);
     // Clone (CR 707.9): the permanent enters AS A COPY of a creature chosen as it enters. Suspend
     // on a resolution-time choice (the player picks which creature; Expert/AI auto-pick) — the
@@ -805,7 +809,7 @@ export const RESOLVERS = Object.freeze({
       const lethal = destroyLethalCreatures(entered);
       return checkDiesTriggers(lethal.state, lethal.dead);
     }
-    return enterPermanent(state, card, controller, { xValue, kicked, wasCast: true, castFromZone, colorsSpent });
+    return enterPermanent(state, card, controller, { xValue, kicked, wasCast: true, castFromZone, colorsSpent, grantDiesExile });
   },
 
   // Aura spell resolving (CR 303.4f): the Aura enters the battlefield attached to the

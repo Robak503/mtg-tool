@@ -3,6 +3,29 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **⭐⭐ RIVAZ OF THE CLAW (+3 / −87 honest) — the graveyard-recursion machine + TWO metric holes closed** - the shelf grind (Dragons 88→89)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+3 / −87 / 0**: Rivaz + Smokebraider +
+> Flamebraider native; the −87 is the HONEST PURGE (below). Post-release batch **+81 gross**.
+> ⭐ THE WHOLE CARD: ① the FIXED any-combination production arm ("{T}: Add two mana in any combination
+> of colors" — a HOLLOW spot: the Phase-4 witness hand-built its planner source, so the production side
+> never offered Rivaz's tap at all; now credited WITH the conjunctive restriction via
+> restrictedManaProduction, no laundering); ② the Raul machine's type-filtered sibling (once-per-turn
+> Dragon-creature GY cast — same shared builder, per-source latch, Elf/off-turn/latch controls pinned);
+> ③ the rider as a REAL cast trigger: castFromZoneOnly (the Vega seam's exact-zone sibling) + the
+> typedAll conjunctive spell filter + a grant atom that stamps the cast spell's payload →
+> PERMANENT_ETB carries it → checkDiesTriggers exiles AFTER death processing (the death is real —
+> tally + dies triggers fire; caster-pessimal immediate timing, documented). End-to-end witnessed:
+> GY cast → stamp → lethal → EXILE; the hand-cast control keeps the graveyard.
+> ⭐⭐ TWO PRE-EXISTING METRIC HOLES CLOSED, both caught by this slice's own flip-diff audit:
+> · mana-pip activation costs (Terrarion "{2},{T},Sac", Orb "{1},{T}") had NO cost field — the arm
+>   refuses them (free-mana FP killed before it shipped);
+> · manaCardResidueModeled NEVER checked activated residue — Shaman of Forgotten Ways claimed
+>   native-mana with its whole Formidable ability missing. Now every non-mana activated ability must
+>   be modeled. The −87 demotions are all this class (four spot-checked: Harness, keyrune animation,
+>   sac-damage, the {0} Forest drop — every one genuinely unmodeled). HONEST SHELF after the purge:
+>   Dragons 89 · Jurassic Ramp 90→88 (re-queued) · Omnath 94→93 · Earth Bent 92→91 · aggregate 84%.
+> Both mutations (castFromZoneOnly gate · the markDead diesExileAfter carry) seen-to-fail.
+> Token diet: ~18k output tokens this slice (the two found holes bought the overage).
 > ## SLICE DONE - 2026-08-15 - **SARKHAN FIREBLOOD + DESOLATION OF SMAUG (+2) — the fixed-amount restricted add** - the shelf grind (Dragons 87→88)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0** — Sarkhan, Fireblood
 > playable-pw→NATIVE-PLANESWALKER (the shelf's first) + Desolation of Smaug arbiter-spell→native-spell

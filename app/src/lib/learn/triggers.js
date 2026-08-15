@@ -21,6 +21,7 @@ import {
   creaturePower,
   recordCreatureDeaths,
   registerLifeLossWatcher, // LIFE-LOSS-ON-EVENT (SHELF M3) — the loseLife chokepoint's registry seam
+  logEvent, // GRANTED DIES-EXILE (Rivaz) — the graveyard→exile move logs at the dies chokepoint
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, colorsOf } from "./layers.js";
@@ -2413,6 +2414,14 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^you cast a spell from anywhere other than your hand$/.test(c)) {
     return { event: "cast", scope: "castWatcher", whose: "you", spellFilter: "any", castNotFromHand: true };
   }
+  // RIVAZ OF THE CLAW (Dragons shelf, 2026-08-15) — "you cast a Dragon creature spell from your graveyard":
+  // the cast event with a CONJUNCTIVE type filter (typedAll — the spell's line must carry BOTH words; the
+  // existing "typed" kind is ANY-of, which would fire on every creature) and a POSITIVE source-zone gate
+  // (castFromZoneOnly — the Vega castNotFromHand seam's exact-zone sibling; an unthreaded caller under-fires,
+  // never over-fires, CREED). Exact printed sentence only.
+  if (/^you cast a dragon creature spell from your graveyard$/.test(c)) {
+    return { event: "cast", scope: "castWatcher", whose: "you", spellFilter: { kind: "typedAll", words: ["Dragon", "Creature"] }, castFromZoneOnly: "graveyard" };
+  }
   // ===== FIRST-<KIND>-SPELL-EACH-TURN (CR 603.2) ===== "Whenever an opponent casts their FIRST noncreature
   // spell EACH TURN" — Esper Sentinel, Shadow in the Warp, The Queen of Dale, The Frightful Four, and the
   // unfiltered five (Pain Distributor, Mind's Dilation, The Lord of Pain, Jace's emblem). The generic cast
@@ -4553,6 +4562,7 @@ export function detectTriggers(card) {
         spellFilter: cls.spellFilter,         // cast triggers only (undefined otherwise)
         firesOnCopy: cls.firesOnCopy,         // MAGECRAFT COPY HALF (BLITZ MC-1): magecraft's "cast OR copy" descriptor alone carries this; checkCopyTriggers fires ONLY firesOnCopy watchers at a copy site (a plain "whenever you cast" never fires on a copy — CR 707.10)
         castNotFromHand: cls.castNotFromHand, // CAST-FROM-NONHAND (Vega, K1): checkCastTriggers gates on the cast's source zone
+        castFromZoneOnly: cls.castFromZoneOnly, // CAST-FROM-EXACT-ZONE (Rivaz): fires ONLY when the cast's threaded source zone equals this. ⚠️ Unlisted here = dropped = the descriptor fires on EVERY matching cast from anywhere — an over-fire, the forbidden direction.
         nth: cls.nth,                         // TRIG-CASTNTH: 1|2|3 ("cast your Nth spell each turn"); else undefined
         firstEachTurn: cls.firstEachTurn,     // FIRST-<KIND>-SPELL-EACH-TURN (CR 603.2, Esper Sentinel): "any"|"noncreature", gating checkCastTriggers on the CASTER's per-turn count. ⚠️ Unlisted here = dropped = the descriptor keeps only its spellFilter and fires on EVERY matching spell — an OVER-FIRE. That is exactly what happened on the first attempt at this slice, and the trigger looked correctly detected while it did.
         permanentFilter: cls.permanentFilter, // PERM-ENTERS: "artifact"|"enchantment" (permanentEnters triggers only)
@@ -6129,7 +6139,32 @@ export function checkDiesTriggers(state, dead) {
   // (Morbid Opportunist alone), in which case `fired` is empty and a bare `return state2` would silently skip
   // them — the card classifies native and never fires, the exact metric-over-claims-runtime drift the CREED
   // forbids. Caught by the n=1 test, which is why that test exists despite looking redundant beside n=3.
-  if (!fired.length) return checkDiesBatchTriggers(state2, dead);
+  // ===== GRANTED DIES-EXILE (RIVAZ, 2026-08-15) ===== a dead creature whose permanent carried the granted
+  // 'When this creature dies, exile it.' (diesExileAfter on the look-back — stamped at cast by the Rivaz
+  // trigger, carried through PERMANENT_ETB) has its card moved graveyard → exile HERE, after all death
+  // processing (the death REALLY happened — dies triggers fired, the tally counted, unlike exileInstead).
+  // Applied immediately rather than as its own stack object: the granted trigger is deterministic and
+  // choiceless, and the immediate move is CASTER-PESSIMAL (paper lets the owner order undying/recursion
+  // triggers to beat the exile; this model never does) — an under-delivery for the grant's own recipient,
+  // never an over-fire. A card no longer in its owner's graveyard (already recurred/replaced) is skipped —
+  // a clean FN, mirroring the CR "new object" fizzle.
+  const exileGrantedDead = (s) => {
+    let out = s;
+    for (const d of dead) {
+      if (!d?.diesExileAfter || d.exileInstead || d.shuffledInstead || !d.card?.id) continue;
+      for (const pid of Object.keys(out.players || {})) {
+        const gy = out.players[pid]?.graveyard || [];
+        const gi = gy.findIndex((c) => c?.id === d.card.id);
+        if (gi === -1) continue;
+        const card = gy[gi];
+        out = { ...out, players: { ...out.players, [pid]: { ...out.players[pid], graveyard: [...gy.slice(0, gi), ...gy.slice(gi + 1)], exile: [...(out.players[pid].exile || []), card] } } };
+        out = logEvent(out, { kind: "spell-effect", effect: "granted-dies-exile", cardName: card.name, controller: d.controller });
+        break;
+      }
+    }
+    return out;
+  };
+  if (!fired.length) return exileGrantedDead(checkDiesBatchTriggers(state2, dead));
   // DIES-TRIGGER MULTIPLIER (Teysa Karlov): every fire here is caused by a CREATURE dying (event "dies",
   // triggeringPermanent a dead creature) → each qualifying ability triggers an additional time per multiplier
   // its controller controls. Applied AFTER the fired list is fully built so a batch of simultaneous deaths is
@@ -6144,7 +6179,7 @@ export function checkDiesTriggers(state, dead) {
   //
   // NOT passed through multiplyDiesTriggers: a doubler (Teysa) arguably multiplies a batch trigger too, but
   // leaving it unmultiplied is the UNDER-fire, which is the safe direction. Deliberate, not overlooked.
-  return checkDiesBatchTriggers(afterSingular, dead);
+  return exileGrantedDead(checkDiesBatchTriggers(afterSingular, dead));
 }
 
 /**
@@ -7836,6 +7871,10 @@ function spellMatchesFilter(filter, spellCard) {
     switch (filter.kind) {
       case "typed":
         return filter.words.some((w) => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(t));
+      // CONJUNCTIVE typed filter (Rivaz "Dragon CREATURE spell") — EVERY listed word must be on the line
+      // ("typed" is any-of; using it here would fire on every creature spell, an over-fire).
+      case "typedAll":
+        return filter.words.every((w) => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(t));
       case "hasX":
         return /\{x\}/i.test(String(spellCard?.mana ?? spellCard?.mana_cost ?? ""));
       case "manaValue": {
@@ -7903,7 +7942,10 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
   // castSpellMv (KELLAN, SHELF S7): the cast spell's mana value, for a watcher payoff whose magnitude/cap is
   // RELATIONAL to the triggering cast ("cast a permanent spell with EQUAL OR LESSER mana value" — Kellan, the
   // Kid). Same MV reader the cascade cap uses; additive + inert for every existing cast trigger.
-  const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard), castingPlayerId: casterId, castSpellMv: cascadingSpellManaValue(spellCard) };
+  // castStackObjectId (RIVAZ, 2026-08-15): the cast SPELL's own stack id, for a grant effect that must
+  // stamp the triggering spell ("it gains …" where "it" is the cast spell — the grant rides the stack
+  // object into PERMANENT_ETB). Additive + inert for every existing cast trigger, like castSpellMv above.
+  const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard), castingPlayerId: casterId, castSpellMv: cascadingSpellManaValue(spellCard), castStackObjectId: stackObjectId };
   let fired = [];
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {
@@ -7926,6 +7968,9 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
         // CAST-FROM-NONHAND (Vega, SHELF K1): fires ONLY when the cast's source zone is known and isn't
         // the hand. An unthreaded caller (castFromZone undefined) under-fires — never over-fires (CREED).
         if (d.castNotFromHand && (!castFromZone || castFromZone === "hand")) continue;
+        // CAST-FROM-EXACT-ZONE (Rivaz): fires ONLY when the cast's source zone is known AND equals the
+        // descriptor's zone. An unthreaded caller (castFromZone undefined) under-fires — never over-fires.
+        if (d.castFromZoneOnly && castFromZone !== d.castFromZoneOnly) continue;
         // FIRST-<KIND>-SPELL-EACH-TURN (CR 603.2) — the gate is on the CASTER's own per-turn count, so each
         // opponent gets their own first spell. recordSpellCast increments BEFORE this runs (the storm site
         // depends on the same ordering), so the triggering spell is already counted and "first" reads as

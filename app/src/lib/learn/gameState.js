@@ -1982,6 +1982,9 @@ export function destroyLethalCreatures(state, deathtouched = new Set(), cause = 
       // to EXILE instead of the graveyard — but ONLY this turn (the flag stores the turn it applies to, so
       // it self-expires; a stale flag from a prior turn is ignored).
       exileInstead: perm.exileIfDiesTurn === state.turn,
+      // GRANTED DIES-EXILE (RIVAZ): the durable TRIGGER cousin of exileInstead — the death happens (dies
+      // triggers + tally), then checkDiesTriggers exiles the card from the graveyard.
+      diesExileAfter: !!perm.grantDiesExile,
       // SHUFFLE-INSTEAD (CR 614) - the same "it never actually died" flag as exileInstead directly above.
       // moveCardToZone redirects the graveyard-bound move to a library shuffle, but the DEAD LIST is built
       // before that move, so without this every dies-trigger and the deaths-this-turn tally would still see a
@@ -2105,6 +2108,8 @@ export function applyLegendRule(state) {
             // EXILE-IF-DIES: "if it would die this turn, exile it instead" applies to ANY death,
             // legend-rule included (CR 700.4 — this IS a death).
             exileInstead: perm.exileIfDiesTurn === state.turn,
+            // GRANTED DIES-EXILE (RIVAZ): same carry as the markDead site — a legend-rule death still exiles.
+            diesExileAfter: !!perm.grantDiesExile,
       // SHUFFLE-INSTEAD (CR 614) - the same "it never actually died" flag as exileInstead directly above.
       // moveCardToZone redirects the graveyard-bound move to a library shuffle, but the DEAD LIST is built
       // before that move, so without this every dies-trigger and the deaths-this-turn tally would still see a

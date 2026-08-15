@@ -330,6 +330,26 @@ function parseAddClause(oracle, card) {
     const n = parseFixedQuantity(any[1]);
     return { colors: ["W", "U", "B", "R", "G"], amount: n == null ? 1 : n };
   }
+  // FIXED ANY-COMBINATION (Rivaz of the Claw "{T}: Add two mana in any combination of colors." — the
+  // Dragons-shelf restricted-source class, 2026-08-15): the fixed-amount sibling of Shape B directly
+  // above, same all-five-colors planner semantics (per-pip color choice models "any combination"
+  // exactly). Discovered as a HOLLOW spot: the Phase-4 witness hand-built its planner source, so the
+  // production side silently never offered Rivaz's tap at all. The restriction is NOT read here —
+  // restrictedManaProduction strips the "Spend this mana only …" sentence, re-parses through this arm,
+  // and re-attaches the parsed restriction, so the credited source always carries it (no laundering).
+  const anyCombo = oracle.match(/\bAdd (a|an|one|two|three|four|five|\d+) mana in any combination of colors/i);
+  if (anyCombo) {
+    // ⛔ MANA-PIP ACTIVATION COSTS REFUSE (caught on this arm's own first flip-diff): Terrarion
+    // ("{2}, {T}, Sacrifice…") and Orb of Dragonkind ("{1}, {T}…") carry a mana cost the source model
+    // has no field for — crediting them would mint the two mana WITHOUT the printed payment, strictly
+    // better than the card (the forbidden FP). Only {T}/{Q} costs pass; a pip-bearing cost line
+    // returns null and the card stays non-native (FN-safe).
+    const line = oracle.split("\n").find((l) => /add\b.*\bmana in any combination of colors/i.test(l)) || "";
+    const costSeg = line.includes(":") ? line.split(":")[0] : "";
+    if (/\{(?![tq]\})[^}]*\}/i.test(costSeg)) return null;
+    const n = parseFixedQuantity(anyCombo[1]);
+    return { colors: ["W", "U", "B", "R", "G"], amount: n == null ? 1 : n };
+  }
   // ⭐ PAINLAND (Shivan Reef, Adarkar Wastes, Karplusan Forest, Battlefield Forge, Llanowar Wastes, Caves of
   // Koilos, Yavimaya Coast, Brushland, Underground River, Sulfurous Springs — 10 corpus cards, all premium
   // fixing). Two separate {T} abilities:
