@@ -277,7 +277,19 @@ export function applyReanimate(state, atom, ctx) {
   let next = state;
   const reanimated = [];
   let lastMv = 0;
-  for (const t of ctx.targets || []) {
+  // NO-TARGET PICK (Teval "you may return A land card from your graveyard to the battlefield tapped",
+  // 2026-08-15): the article form is NOT a targeted return (CR 601.2c — nothing is targeted; the card is
+  // chosen as the effect resolves), so the atom carries pickFromGraveyard instead of a targetType and the
+  // pick is synthesized HERE off the live graveyard: the FIRST card matching the atom's cardFilter (a
+  // deterministic house pick, the riot discipline — lands are near-fungible; a smarter pick is a
+  // play-quality upgrade, never a rules question). No matching card → the loop runs zero times and the
+  // resolve logs a clean no-op (the printed "may" had nothing to take).
+  let picks = ctx.targets || [];
+  if (!picks.length && atom.pickFromGraveyard) {
+    const found = (next.players[ctx.controller]?.graveyard || []).find((c) => cardMatchesGraveyardFilter(c, atom.cardFilter));
+    if (found) picks = [{ type: "graveyardCard", id: found.id }];
+  }
+  for (const t of picks) {
     if (t.type !== "graveyardCard") continue;
     // REANIMATE-DRAIN (Reanimate): capture the reanimated card's MV BEFORE it leaves the graveyard, so a
     // following "you lose life equal to that card's mana value" atom reads it (via state.revealedCardMV,
@@ -509,6 +521,16 @@ export function graveyardReturnClauseParser(clause) {
   if (anotherM) {
     const cardFilter = parseGraveyardFilter(anotherM[1]);
     if (cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter, excludeTriggeringCard: true };
+  }
+  // NO-TARGET LAND REANIMATE (Teval, 2026-08-15) — "return A land card from your graveyard to the
+  // battlefield [tapped]": the ARTICLE form (no "target") is a resolution-time pick, not a targeted
+  // return — the atom carries pickFromGraveyard and applyReanimate synthesizes the choice off the live
+  // graveyard. LAND ONLY this slice (the printed carrier class; a wider article-form filter would need
+  // its own pick policy per type). The α2 peel stamps the printed "you may" as optional exactly like
+  // any other clause.
+  const noTargetLand = /^return a land card from your graveyard to the battlefield( tapped)?$/.exec(t);
+  if (noTargetLand) {
+    return { op: "reanimate", targetType: null, pickFromGraveyard: true, cardFilter: { typeFilter: "land" }, ...(noTargetLand[1] ? { entersTapped: true } : {}) };
   }
   const gm = /^return target (.*?)card from your graveyard to your hand$/.exec(t);
   if (gm) {

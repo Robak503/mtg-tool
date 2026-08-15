@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **⭐ TEVAL HERSELF (+1) — the article-form land reanimate; the Joe-deck commander is NATIVE** - the shelf grind (Teval 80→81)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Teval, the Balanced
+> Scale body-only→native-trigger. Post-release batch **+19**. v0.159.0 CONFIRMED SHIPPED (all five
+> assets: installer + .sig ×2 + latest.json; the 30-min release run green).
+> ⭐ THE LAST CLAUSE: both her triggers already detected (the attack mill + the BATCHED gyLeave
+> Zombie watcher — pre-existing machinery); the gap was "return A land card from your graveyard to
+> the battlefield tapped" — the ARTICLE form is a resolution-time pick, not a target (CR 601.2c), so
+> the new pickFromGraveyard reanimate variant synthesizes the choice off the live graveyard
+> (deterministic first-match; land-scoped this slice — a creature article-form stays LOW, pinned).
+> The printed may pauses as a real optional (decline pinned); the no-land floor is a clean logged
+> no-op; the synthesis mutation seen-to-fail. Token diet: ~5k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **⭐ TORTURED EXISTENCE (+17) — the TYPED discard cost** - the shelf grind (Teval 79→80)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+17 / 0 / 0** — the biggest single-arm
 > rider haul of the run: Survival of the Fittest · Fauna Shaman · Seismic Assault · Molten Vortex ·

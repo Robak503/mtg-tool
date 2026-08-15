@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Teval, the Balanced Scale runs her whole engine.** The attack trigger mills three and really
+  offers the land back onto the battlefield tapped, and every batch of cards leaving your graveyard
+  makes the 2/2 Zombie Druid — including the batch her own land return creates.
 - **"Discard a creature card" costs are real costs.** Tortured Existence, Survival of the Fittest,
   Fauna Shaman, Seismic Assault, Molten Vortex, Lotleth Troll, and ten more now offer their abilities
   only when a matching card is in hand, pitch exactly the card type printed, and never accept a land
