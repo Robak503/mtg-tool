@@ -7,12 +7,26 @@
 ## The order (Colton's steer, 2026-08-15 — do not reorder)
 
 **① Wolverine 79 → ② Kellan 74 → ③ Otharri 74**, then Cap America 73 → Halfshell 67 → Shalai 67 →
-the FOUR archetype-gap decks (08-15, Colton's program to fill missing deck types: **Thrun Voltron 80**
-— equipment/totem-armor voltron, **Brago Blink 75** — flicker, **Shorikai Vehicles 73** —
-crew/artifacts, **Bumble Flower Combo 62** — combo/alt-win; a second voltron + theft + wheels may
-still arrive), and the cEDH pair (**Believe it! 79, Kinnan 77) LAST** — "hardest to push past 90…
-focus those last." (Veyran = the draw-go seat per Colton, that gap was never open.)
+the FIVE archetype-gap decks (08-15, Colton's program to fill missing deck types: **Thrun Voltron 80**
+— equipment voltron, **Brago Blink 75** — flicker, **Shorikai Vehicles 73** — crew/artifacts,
+**Bumble Flower Combo 62** — combo/alt-win, **Light-Paws Voltron 58** — AURA voltron, the shelf
+floor; theft + wheels may still arrive), and the cEDH pair (**Believe it! 79, Kinnan 77) LAST** —
+"hardest to push past 90… focus those last." (Veyran = the draw-go seat per Colton.)
 Call the ceiling explicitly per deck when the residue is genuinely unbuildable-class.
+
+### NEW ARRIVAL: Light-Paws Voltron — 58, needs 32 (the shelf floor; the aura-statics stress test)
+Voltron #2 (list in the vault registry; Colton's framing: get Light-Paws out FAST). The residue is
+the densest aura-statics pile on the shelf: **13 aura/equip statics** (Ethereal Armor / All That
+Glitters — count-scaling pumps, Daybreak Coronet — enchanted-by-2+-condition, Face of Divinity,
+Pariah — damage redirection, Darksteel Mutation — ability-removal animate-down, the protection
+blessings), **9 ETBs** including ⭐ LIGHT-PAWS HERSELF (cast-an-Aura → tutor another Aura MV≤ onto
+the battlefield attached — HER whole identity; the tutor-to-battlefield lane exists, the
+cast-Aura watcher + the attach-on-arrival are the gaps), Sage's Reverie/Mantle of the Ancients,
+**5 activated** (Mother/Giver — the SAME protection-choice pair already queued for Otharri: ONE arm,
+THREE decks now), Umbra Mystic (grants totem armor — pairs with Thrun's umbra check), Aetherflux
+(cast-count lifegain/kill), Kor Spiritdancer (aura-cast draw+pump). Strategy: Light-Paws' chain
+trigger first (the deck IS her), then the count-scaling pump statics (Ethereal Armor class serves
+three decks), then Mother/Giver.
 
 ### NEW ARRIVAL: Thrun Voltron — 80, needs 10 (the closest gap deck to the bar)
 Voltron #1 of 2 (list in the vault registry). The equipment/aura machinery mostly EXISTS (8
