@@ -1226,7 +1226,13 @@ function parseEffectProgramInner(card) {
   // {X}-cost spell (no additional cost): the parser may stamp `amountX` on a damage/draw/pump atom whose
   // amount is the chosen X, bound at cast time (CR 601.2b) and read at resolution.
   const bodyOracle = altCost ? altRest : (costs ? rest : oracle);
-  const program = parseEffectClause(bodyOracle, typeOf(card), { hasX: hasXCost(card) });
+  // PAY-X-LIFE (Toxic Deluge, 2026-08-15): a payLifeX additional cost makes the spell X-PARAMETERIZED
+  // through its COST rather than its mana — the body parses hasX (the "-X/-X" binds the chosen X) and
+  // the program stamps xSpell so the cast path runs its X-choice expansion. The compound-defer guard
+  // above doesn't apply (this X IS the cost's own X, not a second axis).
+  const xFromCost = Array.isArray(costs) && costs.some((c) => c.kind === "payLifeX");
+  const program = parseEffectClause(bodyOracle, typeOf(card), { hasX: hasXCost(card) || xFromCost });
+  if (xFromCost && program && programConfidence(program) === "high") program.xSpell = true;
   if (costs && program) program.additionalCosts = costs;
   if (altCost && program) program.altCost = altCost;
   return stamp(program);

@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Toxic Deluge costs what it says.** You choose X when you cast it, pay exactly that much life —
+  never more than you can afford — and every creature gets -X/-X. Hatred's pay-X-life pump works the
+  same way.
 - **Court of Cunning knows who wears the crown.** The enters-trigger makes you the monarch, and the
   upkeep mill really checks the crown at resolution — two cards without it, ten with it, and an
   opponent's crown never upgrades your mill.

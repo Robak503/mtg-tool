@@ -410,6 +410,14 @@ function applyCastSpell(state, action) {
       working = sacrificePermanentForCost(working, action.playerId, victim);
     } else if (ac.kind === "payLife") {
       working = loseLife(working, { playerId: action.playerId, amount: ac.amount });
+    } else if (ac.kind === "payLifeX") {
+      // PAY-X-LIFE (Toxic Deluge, 2026-08-15): the chosen X IS the life paid (CR 601.2b — chosen at
+      // cast, threaded as action.xValue by the X-spell enumeration, which bounded it at life-1). A
+      // missing X is an upstream bug — THROW rather than cast with the cost silently skipped.
+      if (!Number.isInteger(action.xValue) || action.xValue < 0) {
+        throw new DispatcherError("Spell requires an X-life additional cost but no X was chosen", "ADDCOST_UNPAID");
+      }
+      if (action.xValue > 0) working = loseLife(working, { playerId: action.playerId, amount: action.xValue });
     } else if (ac.kind === "revealFromHand") {
       // AC-REVEAL (2026-08-07) — the reveal moves nothing; the charge is verifying the stamped card is
       // actually in hand (fail-fast if not — an offer/payment disagreement is an upstream bug, never a

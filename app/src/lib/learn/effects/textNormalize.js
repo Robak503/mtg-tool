@@ -297,15 +297,19 @@ export function stripCastKeywordLines(text) {
 export function rewriteAmountX(clause) {
   const damage = /(deals?\s+)X(\s+damage\b)/i;
   const draw = /(\bdraws?\s+)X(\s+cards?\b)/i; // "draws?" covers the each-player/target form ("target player draws X cards", "each player draws X cards") in addition to the controller "draw X cards"
+  // (`gets?` on the NEGATIVE forms ONLY — TOXIC DELUGE 2026-08-15: "All creatures GET -X/-X". The
+  // POSITIVE form stays singular `gets`: widening it hijacked Finale of Devastation's "creatures you
+  // control get +X/+X and gain haste…" away from its own conditional team-pump path — a measured LOST
+  // on this slice's first flip-diff, reverted the same hour.)
   const pumpSym = /(\bgets\s+)\+X\/\+X\b/i;
   // NEGATIVE symmetric X-pump (X-PUMP-NEG): "gets -X/-X" — a debuff scaled by the chosen X (Grim Hireling's
   // "Target creature gets -X/-X until end of turn", paid with X sacrificed Treasures). Rewrites to the sentinel
   // "-1/-1" so the numeric pump clause parses, and reports xSign:-1 so the caller stamps amountXNeg — the
   // resolver then applies -X/-X (both pips = -ctx.xValue) and the lethal SBA drops a creature to <=0 toughness.
-  const pumpSymNeg = /(\bgets\s+)-X\/-X\b/i;
+  const pumpSymNeg = /(\bgets?\s+)-X\/-X\b/i;
   // DOUBLED NEGATIVE X-pump (Nuclear Fallout — SHELF S7): "gets twice -X/-X" — both pips subtract 2·X.
   // Rewrites to the same "-1/-1" sentinel; xTimes:2 rides out so the caller stamps amountXTimes.
-  const pumpSymNegTwice = /(\bgets\s+)twice -X\/-X\b/i;
+  const pumpSymNegTwice = /(\bgets?\s+)twice -X\/-X\b/i;
   // ASYMMETRIC X-pump (X-PUMP-ASYM): ONE pip is +X, the other a printed value — "+X/+0" / "+X/+2"
   // (slot "p") and "+0/+X" / "+2/+X" (slot "t"). The non-X pip MUST be a digit (so these can never
   // match the symmetric +X/+X handled above). The caller carries the printed ptDelta + amountXSlot so

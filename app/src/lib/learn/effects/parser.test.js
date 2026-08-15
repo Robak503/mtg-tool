@@ -1668,9 +1668,14 @@ describe("parseEffectProgram — additional cast costs (ADDCOST-1 sacrifice + AD
     expect(programConfidence(p)).toBe("high");
     expect(p.additionalCosts).toEqual([{ kind: "discard", count: 2 }]);
   });
-  it("ADDCOST-2 MUST DROP TO LOW: X-life / self-ref-discard remain deferred", () => {
-    expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, pay X life.\nDraw X cards.")))).toBe("low");               // X-life deferred (+ X-cost compound)
-    expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, discard a card.\nDraw cards equal to the discarded card's mana value.")))).toBe("low"); // self-ref / cost-scaled effect
+  it("ADDCOST-2: X-life GRADUATED (2026-08-15, toxicDeluge.test.js); self-ref-discard remains deferred", () => {
+    // The payLifeX kind: X-parameterized through the COST (xSpell), the body's X bound — the cast path
+    // enumerates X life-bounded and the dispatcher charges it (the vetted-kind gate held until then).
+    const p = parseEffectProgram(I("As an additional cost to cast this spell, pay X life.\nDraw X cards."));
+    expect(programConfidence(p)).toBe("high");
+    expect(p.additionalCosts).toEqual([{ kind: "payLifeX" }]);
+    expect(p.xSpell).toBe(true);
+    expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, discard a card.\nDraw cards equal to the discarded card's mana value.")))).toBe("low"); // self-ref / cost-scaled effect — the guard class lives
   });
   it("MUST DROP TO LOW: a sac cost whose REMAINING effect is itself unmodeled (all-or-nothing)", () => {
     // The sac cost is clean, but a SCALED drain ("loses life equal to …") is not a modeled atom → LOW.

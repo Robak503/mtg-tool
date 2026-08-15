@@ -1130,10 +1130,17 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // the failure mode the dead-card hunt exists to find.
     // AC-PERMANENT: a permanent spell carries its vetted cost BESIDE the (null) program — see the helper.
     const permAddCosts = program ? null : permanentAdditionalCosts(card);
-    const addCost0 = (program?.additionalCosts || permAddCosts || [])[0] || null;
+    let addCost0 = (program?.additionalCosts || permAddCosts || [])[0] || null;
+    // PAY-X-LIFE (Toxic Deluge, 2026-08-15) — the ONE vetted cost kind that IS the spell's X: the
+    // "never both xSpell and additional-cost" invariant this block documents is deliberately broken by
+    // it, and the X-SPELL branch below owns its whole expansion (the life-bounded X range + the
+    // dispatcher's loseLife charge). Route it past this block or the terminal continue makes the card
+    // uncastable (no way-to-pay branch knows the kind).
+    const lifeXAddCost = addCost0?.kind === "payLifeX";
+    if (lifeXAddCost) addCost0 = null;
     // ⛔ No vetted cost, but the card PRINTS a mandatory one → do not offer the cast at all. See the helper:
     // casting it is casting cheaper than printed. This must sit BEFORE every remaining cast branch.
-    if (!addCost0 && hasUnvettedMandatoryAdditionalCost(card)) continue;
+    if (!addCost0 && !lifeXAddCost && hasUnvettedMandatoryAdditionalCost(card)) continue; // (payLifeX is vetted — the X branch pays it)
     if (addCost0) {
       // A permanent has no effect atoms to enumerate, so it has exactly ONE (empty) target combo. Asking
       // expandCastChoices for it would return [] (it early-returns on a null program) and the `continue`
@@ -1350,8 +1357,16 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // (generic += X, so payment auto-taps fixed + X) and onto the action (xValue),
     // which the dispatcher threads into resolution.
     if (isHigh && program.xSpell) {
+      // PAY-X-LIFE (Toxic Deluge, 2026-08-15): the X lives in the ADDITIONAL COST, not the mana — the
+      // range is bounded by the caster's LIFE (CR 119.4; capped at life-1 so the sim never offers the
+      // suicide cast — a play-quality bound, X=life stays a legal-but-never-offered FN) and the mana
+      // half stays the fixed printed cost. MV stays printed too (CR 202.3b counts only {X} in the MANA
+      // cost, and this spell has none).
+      const lifeX = (program.additionalCosts || []).some((c) => c.kind === "payLifeX");
       // CR 601.2b — a spell cast without paying its mana cost has X = 0. Otherwise enumerate affordable X.
-      const xValues = freeCast ? [0] : affordableXValues(state, playerId, cost);
+      const xValues = freeCast ? [0]
+        : lifeX ? Array.from({ length: Math.max(0, Math.min((state.players[playerId]?.life ?? 0) - 1, X_CHOICE_CAP)) }, (_, i) => i + 1)
+        : affordableXValues(state, playerId, cost);
       if (xValues.length === 0) continue;
       // Two reasons the legal target set can DEPEND on the chosen X, BOTH requiring PER-X enumeration:
       //   • targetCountX (Curse of the Swine "Exile X target creatures") — the NUMBER of targets is X.
@@ -1367,8 +1382,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       const combosOnce = expandsTargetsPerX ? null : expandCastChoices(state, playerId, program, colorsOf(card));
       if (!expandsTargetsPerX && combosOnce.length === 0) continue;
       for (const x of xValues) {
-        const xCost = xResolvedCost(cost, x); // DOUBLE-X (CR 107.3): a {X}{X} spell owes 2X; xValue stays X for the effect
-        const xCmc = printedCmc + (cost.xCount ?? 1) * x; // mana value = printed + total X paid (CR 202.3b); commander tax doesn't count
+        const xCost = lifeX ? cost : xResolvedCost(cost, x); // PAY-X-LIFE: the mana half is the fixed printed cost (the X is life, charged at the dispatcher)
+        const xCmc = lifeX ? printedCmc : printedCmc + (cost.xCount ?? 1) * x; // MV stays printed for a life-X (CR 202.3b counts only mana-{X})
         // Per-X target enumeration for an X-count-target (min=max=X distinct) OR an X-MV-bound target; otherwise
         // the hoisted X-independent combos. An X with too few / no legal targets yields no combos → that X skipped.
         const combos = expandsTargetsPerX

@@ -55,6 +55,7 @@ const canonSacType = (raw) => SAC_TYPE_CANON[raw] || raw;
 // only new field is `count:N`. The "artifact or creature" union stays N=1-only (no count-N corpus card needs it).
 const SAC_COUNT_COST_RE = /^sacrifice (two|three|four|five) (creatures|permanents|artifacts|enchantments|lands)$/i;
 const PAYLIFE_COST_RE = /^pay (\d+) life$/i;                        // ADDCOST-2 — no-choice life cost (N already numeric)
+const PAYLIFE_X_COST_RE = /^pay x life$/i;                          // TOXIC DELUGE (2026-08-15) — the caster CHOOSES X at cast; X = the spell's X (the -X/-X body binds it)
 // AC-MANA — "pay {3}{B}". Anchored to pips ONLY, so "pay 3 life" can never reach it (PAYLIFE_COST_RE runs
 // first anyway) and a prose cost ("pay half your life") fails vetting → the whole card parks (FN-safe).
 const PAYMANA_COST_RE = /^pay ((?:\{[^}]+\})+)$/i;
@@ -81,7 +82,7 @@ const RETURN_HAND_COST_RE = /^return (?:a|an) (permanent|creature|land|artifact|
 // Colton's shelf). NUM_WORD not SMALL_NUM: SMALL_NUM stops at five and the printed cost is SIX, so the
 // smaller table would have silently failed to match the one card this shape exists for.
 const EXILE_GY_COUNT_COST_RE = /^exile (a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards? from your graveyard$/i;
-export const SUPPORTED_ADDITIONAL_COST_KINDS = new Set(["sacrifice", "payLife", "discard", "exileFromGraveyard", "returnToHand", "choice"]);
+export const SUPPORTED_ADDITIONAL_COST_KINDS = new Set(["sacrifice", "payLife", "payLifeX", "discard", "exileFromGraveyard", "returnToHand", "choice"]);
 
 /**
  * Pull a modeled additional cost off a spell's oracle. Returns `{ costs, rest }`:
@@ -160,6 +161,7 @@ export function extractAdditionalCosts(oracle) {
   const sacP = SAC_COST_POWER_RE.exec(phrase);   // SAVAGE ORDER — the power-qualified N=1 form
   const sacN = SAC_COUNT_COST_RE.exec(phrase);   // AC-1 count-of-N — tried only when the N=1 singular form misses
   const life = PAYLIFE_COST_RE.exec(phrase);
+  const lifeX = PAYLIFE_X_COST_RE.exec(phrase);   // TOXIC DELUGE — pay X life (X chosen at cast, bound to the body's X)
   const disc = DISCARD_COST_RE.exec(phrase);
   const discN = DISCARD_COUNT_COST_RE.exec(phrase); // AC-1 count-of-N
   const exGy = EXILE_GY_COST_RE.exec(phrase);      // ADDCOST-3 — exile a typed card from your own graveyard
@@ -181,6 +183,12 @@ export function extractAdditionalCosts(oracle) {
     selfRef = /\bsacrificed\b/i;
   }
   else if (life) { cost = { kind: "payLife", amount: parseInt(life[1], 10) }; }       // no-choice: deduct N at cast
+  // TOXIC DELUGE (2026-08-15) — "pay X life": the caster CHOOSES X at cast (CR 601.2b — the same timing
+  // an {X} mana cost's X is chosen); the X binds the spell's body ("-X/-X"), so the extractor marks the
+  // program X-parameterized via xFromCost (the parser sets hasX for the body parse + xSpell). The cast
+  // path enumerates X bounded by the caster's LIFE (CR 119.4) and loseLife-charges it — gated by
+  // SUPPORTED_ADDITIONAL_COST_KINDS until that enforcement exists.
+  else if (lifeX) { cost = { kind: "payLifeX" }; }
   else if (disc) { cost = { kind: "discard", count: 1 }; selfRef = /\bdiscarded\b/i; } // N=1 — BYTE-IDENTICAL
   else if (discN) { cost = { kind: "discard", count: SMALL_NUM[discN[1].toLowerCase()] }; selfRef = /\bdiscarded\b/i; } // AC-1 N>1
   // ADDCOST-3: the paid card is EXILED, so an effect reading it back ("the exiled card") can't be fed the

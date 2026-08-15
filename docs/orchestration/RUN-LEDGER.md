@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **⭐ TOXIC DELUGE (+2) — the PAY-X-LIFE additional cost; TEVAL AT 89** - the shelf grind (Teval 88→89)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0** — Toxic Deluge + Hatred
+> (the same payLifeX on its +X/+0 pump, audited). Post-release batch **+44**.
+> ⭐ FOUR PIECES: ① the payLifeX extractor arm (the program is X-PARAMETERIZED through its COST — the
+> parser's xFromCost stamps xSpell); ② the kind vetted into SUPPORTED_ADDITIONAL_COST_KINDS only WITH
+> ③ the cast-path enforcement: the X range is LIFE-bounded (life−1 — the suicide cast is a
+> never-offered FN, CR 119.4), the mana half stays printed, MV stays printed (CR 202.3b), the
+> dispatcher loseLife-charges the chosen X (missing X THROWS), AND the offer path's two guards
+> (the additional-cost block's terminal continue + the unvetted-mandatory gate) each needed the
+> deliberate carve — the "never both xSpell and additional-cost" invariant is broken by exactly this
+> kind, documented at the carve; ④ the plural "All creatures GET -X/-X" joins the NEG X-pump rewrite.
+> ⛔ A LOST CAUGHT AND REVERTED SAME-HOUR: widening the POSITIVE +X/+X form too hijacked Finale of
+> Devastation off its conditional team-pump path (the flip-diff's whole job) — the widening is now
+> NEG-only and Finale is verified restored. The 1-life floor (no X≥1 cast) + the charge mutation
+> both pinned. Token diet: ~12k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **COURT OF CUNNING (+1) — the monarch-conditional targeted mill** - the shelf grind (Teval 87→88)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Court of Cunning
 > body-only→native-trigger, zero riders. Post-release batch **+42**.
