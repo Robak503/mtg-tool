@@ -106,6 +106,17 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
+- 2026-08-15 — **PHASE 4 SLICE 1 SHIPPED: the conjunctive spend-restriction phrase.** "dragon" joined
+  SPEND_CAST_TYPE_WORDS, and a multi-word phrase ("Dragon creature spells" — Rivaz's {T}) becomes ONE
+  CONJUNCTIVE entry: the spell must match EVERY word (an ANY-match would be looser than printed — the
+  forbidden direction; the mutation that degrades every→some is witness-killed by an Elf paying with
+  Dragon mana). AND within an entry, OR across entries; single-word entries byte-identical; the Helga
+  anti-lossy guard pinned intact. Witnessed at the PLANNER level: the restricted source pays a Dragon
+  cast and cannot pay an Elf cast, with the unrestricted-source control. Zero tier flips (Rivaz still
+  parks on his other machines) — the gain is RUNTIME mana access for the Dragons/Kinnan decks' play.
+  REMAINING Phase-4 core: the POOL-restricted sub-pool (Klauth's trigger-granted mana) + the
+  end-of-turn hold + his X-scaled any-combination arm.
+
 - 2026-08-15 — **PHASE 4 SCOPED AGAINST REALITY — half of it shipped long ago.** Probed before
   building (the Phase-2 lesson): manaModel already has spendRestrictionAllows + SPEND_CAST_TYPE_WORDS
   + per-SOURCE restrictions honored by planPayment's spendContext — Rivaz's {T} restriction parses,

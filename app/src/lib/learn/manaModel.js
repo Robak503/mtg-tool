@@ -879,6 +879,10 @@ const SPEND_CAST_TYPE_WORDS = new Set([
   "artifact", "creature", "enchantment", "instant", "sorcery", "planeswalker", "battle", "land",
   // subtypes that appear in printed spend restrictions, each a real type-line word
   "aura", "equipment", "dinosaur", "myr", "angel", "dwarf", "saga", "elemental", "vehicle",
+  // (QUARTET Phase 4, 2026-08-15 — the Dragons-deck restricted sources: Rivaz of the Claw
+  // "Dragon creature spells", Dragonlord's Servant-class rocks. A real type-line word, word-bounded
+  // like every sibling.)
+  "dragon",
 ]);
 export function parseSpendRestriction(oracle) {
   const text = String(oracle || "").toLowerCase();
@@ -901,10 +905,16 @@ export function parseSpendRestriction(oracle) {
     // yields no types and the card stays refused, exactly as before.
     for (const cm of clause.matchAll(/\bcast ([a-z, /]*?)\s*spells?(?=$|[,.]|\s+(?:or|and)\b)/g)) {
       for (const w of cm[1].split(/\s*(?:,|\/|\bor\b|\band\b)\s*/)) {
-        const word = w.trim().replace(/^(?:a|an|the)\s+/, "").trim();
-        if (!word) continue;
-        if (!SPEND_CAST_TYPE_WORDS.has(word)) return null;   // one unrecognised word → refuse the whole card
-        types.add(word);
+        const phrase = w.trim().replace(/^(?:a|an|the)\s+/, "").trim();
+        if (!phrase) continue;
+        // CONJUNCTIVE PHRASE (QUARTET Phase 4, 2026-08-15 — Rivaz "Dragon CREATURE spells"): a multi-word
+        // type phrase means the spell must match EVERY word ("dragon creature" ≠ any creature). Each word
+        // must be in the vocabulary (one stranger → refuse the whole card, unchanged); the WHOLE phrase is
+        // kept as one entry, and spendRestrictionAllows tests all of an entry's words conjunctively —
+        // AND within an entry, OR across entries. A single-word phrase is byte-identical to before.
+        const words = phrase.split(/\s+/);
+        if (!words.every((word) => SPEND_CAST_TYPE_WORDS.has(word))) return null;
+        types.add(words.join(" "));
       }
     }
   }
@@ -918,7 +928,9 @@ export function spendRestrictionAllows(restriction, castCard, opts = {}) {
   const typeLine = String(castCard.type || castCard.type_line || "").toLowerCase();
   for (const t of restriction.castTypes || []) {
     if (t === "@commander") { if (opts.isCommander) return true; continue; }
-    if (new RegExp(`\\b${t}\\b`).test(typeLine)) return true;
+    // A multi-word entry is CONJUNCTIVE ("dragon creature" — every word must sit on the type line;
+    // parseSpendRestriction's phrase note). A single-word entry is byte-identical to before.
+    if (t.split(/\s+/).every((word) => new RegExp(`\\b${word}\\b`).test(typeLine))) return true;
   }
   return false;
 }

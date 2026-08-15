@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **QUARTET PHASE 4 SLICE 1 — the conjunctive spend-restriction phrase** - the SUBSYSTEM QUARTET
+> Suite green + lint 0 BY EXIT CODE (sequential run). Flip-diff **0/0/0** — deliberate: the gain is
+> RUNTIME mana access (the tier metric doesn't price a restricted source), witnessed at the planner
+> level. Card batch unchanged at **+74**.
+> ⭐ PROBED BEFORE BUILDING (the Phase-2 lesson, again): the source-restriction machinery SHIPPED long
+> ago (spendRestrictionAllows + planPayment's spendContext; Sarkhan Fireblood already playable-pw) —
+> the gap was VOCABULARY. Two widenings: "dragon" joins SPEND_CAST_TYPE_WORDS; a multi-word phrase
+> ("Dragon creature spells", Rivaz's {T}) becomes ONE CONJUNCTIVE entry — every word must match the
+> type line (ANY-match = looser than printed = the forbidden FP; the every→some mutant is killed by an
+> ELF paying with Dragon mana). The Helga anti-lossy guard pinned intact.
+> ⭐⭐ Witnessed: the restricted source pays a Dragon creature cast, CANNOT pay an Elf cast, with the
+> unrestricted-source seen-to-fail control · a stranger word still refuses the whole card.
+> Mutations RS-M1 (every→some → the looser-than-printed payment) / RS-M2 ("dragon" dropped → the
+> parse nulls) both killed via the witness, per-process, restored + re-verified.
+> Phase-4 remaining core: the POOL-restricted sub-pool (Klauth) + the end-of-turn hold + the X-scaled
+> any-combination arm.
+> Token diet: ~12k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **QUARTET PHASE 2 SLICE 1 — the diagnostic names the loser; the loser is withdrawn** - the SUBSYSTEM QUARTET
 > Suite green + lint 0 BY EXIT CODE (sequential, one run — the stall lesson honored). 300 more gate
 > games, ZERO errors. Card batch unchanged at **+74**.
