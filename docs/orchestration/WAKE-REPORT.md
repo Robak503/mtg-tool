@@ -18,9 +18,15 @@
 >   (auditor always-on under tests + seeded replay) · Phase 4 (the restricted sub-pool, three
 >   consumer classes) · TWO metric holes closed honestly (measure-coverage dropped `loyalty`;
 >   manaCardResidueModeled never checked activated residue — 87 over-claims purged, runtime unchanged).
-> · **Jurassic 89 — ONE flip re-closes it** (the honest re-open): Herd Heirloom (the until-EOT
->   trample + quoted combat-draw grant — its restricted mana line is modeled now) probed closest;
->   then Wayward Swordtooth (city's blessing), Descendants' Path (upkeep reveal-cast).
+> · ✅ **Jurassic RE-CLOSED at 90 (Herd Heirloom shipped c5516947)** — 13 decks at the bar.
+> · **TEVAL 79 IS THE NEXT VEIN (probed 08-15)**: ① Tortured Existence — the "Discard a creature
+>   card" ACTIVATION-COST item is the only gap (the return effect + {B} parse; parseAbilityCost needs
+>   the discard-cost item + payment pick). ② Teval herself (Joe-deck commander = the win): attack
+>   mill-3 is modeled; needs the optional GY-land-to-battlefield-tapped tail + the LEAVE-GRAVEYARD
+>   batch event ("whenever one or more cards leave your graveyard" — a new watcher class; every
+>   GY-exit site funnels through moveCardToZone/recordGraveyardEvents — probe that chokepoint first).
+>   ③ Undead Butler: ETB mill modeled; the dies→may-exile-it→reflexive return rides the
+>   reflexive-trigger seam. ④ Molt Tender: the exile-from-GY-cost mana ability.
 > · **The honest shelf** (post-purge): 12 at bar (Slivers 100 · Vihaan 96 · Omnath 93 · Zaxara 93 ·
 >   Mothman 91 · Earth Bent 91 · cdh 91 · Rashmi 90 · Hulk 90 · Veyran 90 · **Dragons 90** · Jurassic
 >   89→next). Below: Teval 79 · Believe it! 79 · Wolverine 78 · Kinnan 77 · Otharri 74 · Kellan 74 ·
