@@ -44,9 +44,12 @@ describe("trigger follow-up fix — an unmodeled follow-up makes the WHOLE trigg
   it("a clean single-sentence mill trigger is native; a mill-with-rider is body-only (no partial)", () => {
     expect(classifyCard(C("When this creature enters, mill three cards."))).toBe("native-trigger");
     expect(classifyCard(C("When this creature enters, mill a card. If a land card was milled this way, you gain 2 life."))).toBe("body-only");
-    expect(classifyCard(C("When this creature enters, mill three cards. You may put a land card from among them into your hand."))).toBe("body-only");
-    // A MANDATORY plain-imperative follow-up that back-references the milled cards (Patient
-    // Naturalist) must also route to Arbiter — caught by the "among"/"milled cards" reference.
+    // GRADUATED 2026-08-15 (ripplesOfUndeath.test.js): "you may put a land card from among THEM into
+    // your hand" is the MILLED-REFERENT PICK now (_lastMilledIds ∩ live GY, the land filter, the
+    // milled-pick pause) — modeled, native. The guard class lives on the two forms below.
+    expect(classifyCard(C("When this creature enters, mill three cards. You may put a land card from among them into your hand."))).toBe("native-trigger");
+    // A MANDATORY plain-imperative follow-up with the DIFFERENT referent phrase (Patient Naturalist's
+    // "from among the MILLED CARDS") stays parked — the pick's anchor is "them|those cards" only.
     expect(classifyCard(C("When this creature enters, mill four cards. Put a land card from among the milled cards into your hand."))).toBe("body-only");
   });
   it("the fix is atom-agnostic — a draw + unmodeled follow-up is body-only too", () => {

@@ -39,6 +39,7 @@ import {
   setPendingOptionalDrawDiscardChoice,
   setPendingOptionalDiscardPaymentChoice,
   setPendingOptionalExileSelfChoice,
+  setPendingMilledPickChoice,
   setPendingSacUnlessPayChoice,
   setPendingTaxedPaymentChoice,
   setPendingEdictModeChoice,
@@ -108,6 +109,7 @@ const FIXTURES = {
   "optional-draw-discard": (s) => setPendingOptionalDrawDiscardChoice(s, { controller: "ai", effectAtoms: [] }),
   "optional-discard-payment": (s) => setPendingOptionalDiscardPaymentChoice(s, { controller: "ai", available: false, effectAtoms: [] }),
   "optional-exile-self-payment": (s) => setPendingOptionalExileSelfChoice(s, { controller: "ai", available: false, cardId: "gone", effectAtoms: [] }),
+  "milled-pick": (s) => setPendingMilledPickChoice(s, { controller: "ai", candidates: [{ id: "mp1", name: "A", type: "Creature" }, { id: "mp2", name: "B", type: "Land" }] }),
   "sac-unless-pay": (s) => setPendingSacUnlessPayChoice(s, { controller: "ai", cost: { kind: "mana", mana: { generic: 2, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } }, sourceId: null }),
   "taxed-payment": (s) => setPendingTaxedPaymentChoice(s, { payer: "ai", beneficiary: "user", cost: { kind: "mana", mana: { generic: 1, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } } }),
   // ITERATED-EDICT (Torment of Hailfire) — the affected OPPONENT (ai) chooses one mode. Comfortable life →

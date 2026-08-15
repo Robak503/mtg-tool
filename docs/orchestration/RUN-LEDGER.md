@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **⭐ RIPPLES OF UNDEATH (+2) — the milled-referent pick + the life-rider compound cost** - the shelf grind (Teval 85→86)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0** — Ripples + Miara, Thorn
+> of the Glade (the life-rider pair on her Elf-dies trigger, audited). Post-release batch **+39**.
+> ⭐ THREE PIECES, ONE SLICE: ① the _lastMilledIds stamp (millOnePlayer — freshest-mill referent; the
+> pick re-intersects the LIVE graveyard, CR 608.2b — the pre-existing-GY-card exclusion pinned);
+> ② the milled-pick PAUSE KIND (the 8-point checklist again — pauses only on 2+ candidates, 1 moves
+> directly, AI/stale takes the first); ③ the LIFE RIDER on optional-mana-payment ("{1} and 3 life" —
+> the whole compound pays or NOTHING charges, CR 601.2h; the CR 119.4 can't-afford gate pinned at
+> 2 life). The splitter keeps the compound-cost sentence whole + the matcher is reached PER-CLAUSE
+> (the impulse/self-hit re-entry pattern — the fourth instance). Both mutations (the life charge ·
+> the stamp) seen-to-fail. Token diet: ~11k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **⭐ BLOODGHAST (+1) — the GY-functioning landfall self-return** - the shelf grind (Teval 84→85)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Bloodghast
 > body-only→native-mixed (the family's NAMESAKE finally joins its own class). Post-release batch **+37**.

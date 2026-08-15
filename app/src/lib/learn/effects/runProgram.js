@@ -1304,9 +1304,19 @@ export function resolveOptionalManaPaymentChoice(state, pay) {
   // fallback. Every other carrier omits the field and defaults to true, so their path is unchanged.
   const canPay = pc.available !== false;
   if (canPay && pay && pc.cost?.kind === "mana") {
-    const r = payManaCost(next, pc.controller, pc.cost.mana || {});
-    next = r.state;
-    paid = r.paid;
+    // LIFE RIDER (Ripples of Undeath "pay {1} and 3 life", 2026-08-15): the WHOLE compound must be
+    // payable or NOTHING is charged (CR 601.2h — a cost is paid in full or not at all): the life gate
+    // runs FIRST (CR 119.4 — you can't pay more life than you have; paying down to exactly 0 is
+    // legal), then the mana; the life is only deducted when the mana half also paid, so a failed
+    // payManaCost can never half-charge the life. Absent rider (every pre-existing carrier) → the
+    // life gate passes vacuously and the branch is byte-identical.
+    const lifeOwed = pc.cost.life || 0;
+    if ((next.players[pc.controller]?.life ?? 0) >= lifeOwed) {
+      const r = payManaCost(next, pc.controller, pc.cost.mana || {});
+      next = r.state;
+      paid = r.paid;
+      if (paid && lifeOwed > 0) next = loseLife(next, { playerId: pc.controller, amount: lifeOwed });
+    }
   } else if (canPay && pay && pc.cost?.kind === "energy") {
     // ENERGY (CR 122.1e): pay iff the controller actually has the energy — spendEnergy never drives it negative,
     // and an unaffordable "pay" runs NO payoff (mirrors payManaCost's no-fabrication guarantee, the CREED bar).
@@ -1565,6 +1575,31 @@ export function resolveOptionalDiscardPaymentChoice(state, doDiscard) {
     };
     return runEffectProgram(next, obj);
   }
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * ===== MILLED-PICK ===== — settle "put a [land ]card from among those cards into your hand" (Ripples /
+ * Six): move the CHOSEN candidate graveyard → hand. The chosen id is re-validated against the pause's
+ * candidate list AND the live graveyard (CR 608.2b — gone → fall through to the first still-present
+ * candidate; none left → a logged no-op). A null/stale submit auto-picks the first candidate, the same
+ * deterministic pick the AI driver uses.
+ */
+export function resolveMilledPickChoice(state, cardId) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "milled-pick") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → bail
+  const gy = next.players[pc.controller].graveyard || [];
+  const stillThere = (id) => gy.some((c) => c.id === id);
+  const valid = (pc.candidates || []).filter((c) => stillThere(c.id));
+  const pick = valid.find((c) => c.id === cardId) || valid[0] || null;
+  if (!pick) {
+    next = logEvent(next, { kind: "spell-effect", effect: "milled-pick", picked: null, controller: pc.controller });
+    return resumeAfterChoice(next, pc);
+  }
+  next = moveCardToZone(next, { playerId: pc.controller, fromZone: "graveyard", toZone: "hand", cardId: pick.id });
+  next = logEvent(next, { kind: "spell-effect", effect: "milled-pick", picked: pick.name, controller: pc.controller });
   return resumeAfterChoice(next, pc);
 }
 

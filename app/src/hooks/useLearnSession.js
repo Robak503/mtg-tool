@@ -838,6 +838,12 @@ export default function useLearnSession() {
     [submitPendingChoice],
   );
 
+  /** MILLED-PICK (Ripples / Six) — take the named just-milled card from the graveyard to hand. */
+  const applyMilledPickChoice = useCallback(
+    (cardId) => submitPendingChoice("milled-pick", { cardId }),
+    [submitPendingChoice],
+  );
+
   /** SAC-UNLESS-PAY — INVERTED polarity: paying KEEPS the permanent, declining sacrifices it. */
   const applySacUnlessPayChoice = useCallback(
     (pay) => submitPendingChoice("sac-unless-pay", { pay: pay === true }),
@@ -1456,6 +1462,7 @@ export default function useLearnSession() {
     applyOptionalDrawDiscardChoice,
     applyOptionalDiscardPaymentChoice,
     applyOptionalExileSelfChoice, // OPTIONAL-EXILE-SELF (Undead Butler)
+    applyMilledPickChoice, // MILLED-PICK (Ripples / Six)
     applySacUnlessPayChoice,
     applyTaxedPaymentChoice,
     applyEdictModeChoice,

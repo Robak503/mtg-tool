@@ -677,6 +677,34 @@ export function OptionalDiscardPaymentPanel({ decision, onChoose }) {
   );
 }
 
+/** MILLED-PICK (Ripples / Six) — pick one of the just-milled cards to take from your graveyard to your hand. */
+export function MilledPickPanel({ decision, onChoose }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <ChoiceBanner
+        icon="🃏"
+        title={`Take a card?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}
+      >
+        Put one of these just-milled cards into your hand.
+      </ChoiceBanner>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
+        {(decision.candidates || []).map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            className="ley-glass"
+            style={{ textAlign: "left", padding: "10px 14px", cursor: "pointer" }}
+            onClick={() => onChoose?.(c.id)}
+          >
+            <strong>{c.name}</strong>
+            {c.type ? <span style={{ opacity: 0.7 }}> — {c.type}</span> : null}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** OPTIONAL-EXILE-SELF (Undead Butler) — exiling the dead card from your graveyard is the cost; only a real exile runs the payoff. */
 export function OptionalExileSelfPanel({ decision, onChoose }) {
   const available = decision.available !== false;

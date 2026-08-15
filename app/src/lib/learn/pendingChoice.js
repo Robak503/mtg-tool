@@ -47,6 +47,7 @@ export const PENDING_CHOICE_KINDS = [
   "optional-draw-discard",
   "optional-discard-payment",
   "optional-exile-self-payment",
+  "milled-pick",
   "sac-unless-pay",
   "taxed-payment",
   "edict-mode",
@@ -598,6 +599,21 @@ export function setPendingOptionalDiscardPaymentChoice(state, { controller, avai
  * recurred/exiled during the pause). `targets` = the payoff's flush-locked target (CR 603.3d), replayed at
  * settle. The driver pauses a human and auto-decides an AI (pay iff available — the payoff is upside). FIFO.
  */
+/**
+ * MILLED-PICK (Ripples of Undeath / Six — 2026-08-15) — "put a [land ]card from among those cards into
+ * your hand": pick ONE of the candidate cards (the _lastMilledIds ∩ live-graveyard set, computed by the
+ * applier). The driver pauses a human and auto-picks the FIRST candidate for an AI (deterministic).
+ * resolveMilledPickChoice moves the chosen card graveyard → hand. FIFO.
+ */
+export function setPendingMilledPickChoice(state, { controller, candidates = [], sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "milled-pick-pending", controller, count: candidates.length, sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "milled-pick", controller, candidates, sourceName },
+  };
+}
+
 export function setPendingOptionalExileSelfChoice(state, { controller, available, cardId, effectAtoms = [], sourceName = null, targets = [] }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "optional-exile-self-pending", controller, available, sourceName, cardId });

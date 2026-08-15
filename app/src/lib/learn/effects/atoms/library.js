@@ -6,7 +6,7 @@
 import { logEvent, opponentsOf, findPermanent, deterministicRng, shuffleSeededLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
 import { permanentIsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW
 import { hasKeyword } from "../../keywords.js"; // LK-1 chosen-type impulse-dig membership (keywords.js is a zero-import leaf — cycle-safe)
-import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice, setPendingLookTopTakeChoice } from "../../pendingChoice.js";
+import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice, setPendingLookTopTakeChoice, setPendingMilledPickChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard, isInstantOrSorceryCard, resolveScaledAmount } from "./shared.js";
 import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource, TUTOR_COLOR_WORD } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers; TUTOR_COLOR_WORD for the color-qualified X-tutor (Green Sun's Zenith)
 // MILL-ON-EVENT (Wave 3b): the mill atom is one of the two real mill chokepoints, so it enqueues the
@@ -752,7 +752,12 @@ export function millOnePlayer(state, playerId, count) {
   if (n === 0) return state;
   const milledCards = player.library.slice(0, n); // captured pre-move (top N → graveyard)
   const next = millCards(state, { playerId, count: n });
-  return checkMilledTriggers(next, { milledByPlayer: playerId, milledCards });
+  // MILLED-REFERENT stamp (Ripples of Undeath "…from among THOSE cards", 2026-08-15): the freshest
+  // mill's card ids, for a FOLLOWING pick atom in the same program (the _impulseExiledTypes state-stamp
+  // convention — plain JSON, serialize-safe; overwritten per mill, so "those cards" always means the mill
+  // that just resolved). The pick re-intersects against the LIVE graveyard at its own resolution
+  // (CR 608.2b — a card that left in between is never offered), so a stale stamp can't fabricate.
+  return checkMilledTriggers({ ...next, _lastMilledIds: milledCards.map((c) => c.id) }, { milledByPlayer: playerId, milledCards });
 }
 
 /**
@@ -1474,6 +1479,12 @@ export function libraryKeywordClauseParser(clause) {
   // ATOM (onlyIfHandEmpty), so the whole card (surveil-if + the draw clause) models natively.
   m = t.match(/^surveil (\d+) if you have no cards in hand$/);
   if (m) return { op: "surveil", amount: parseInt(m[1], 10), onlyIfHandEmpty: true, targetType: null };
+  // MILLED-REFERENT PICK (Ripples of Undeath "put a card from among those cards into your hand";
+  // Six's land-filtered "put a land card from among them into your hand" — 2026-08-15): the pick reads
+  // the _lastMilledIds stamp ∩ the live graveyard (CR 608.2b). The referent phrasing is anchored to the
+  // two printed forms ("those cards" / "them") — any other referent stays LOW (never a guessed set).
+  m = t.match(/^put a (land )?card from among (?:them|those cards) into your hand$/);
+  if (m) return { op: "pick-milled-to-hand", ...(m[1] ? { cardFilter: "land" } : {}), targetType: null };
   return null;
 }
 
@@ -2148,7 +2159,45 @@ function applyEnchantedGyMill(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "enchanted-gy-mill", controller: ctx.controller, target: pid, amount });
 }
 
+/**
+ * MILLED-REFERENT PICK (Ripples of Undeath / Six's land form, 2026-08-15) — "put a [land ]card from
+ * among those cards into your hand": candidates = the _lastMilledIds stamp ∩ the controller's LIVE
+ * graveyard (CR 608.2b — a card recurred/exiled since the mill is never offered), front-face
+ * land-filtered when the atom says so. Zero candidates → a logged no-op (the may/put had nothing to
+ * take). ONE candidate → the move happens directly (no choice content — pausing would be noise).
+ * TWO+ → the milled-pick pause (a human picks; the AI auto-picks the first candidate — deterministic;
+ * for the land-filtered form there is no judgment to lose, and a smarter any-card pick is a
+ * play-quality upgrade, never a rules question).
+ */
+export function applyPickMilledToHand(state, atom, ctx) {
+  const owner = ctx.controller;
+  if (!owner || !state.players?.[owner]) return state;
+  const stamped = new Set(state._lastMilledIds || []);
+  const gy = state.players[owner].graveyard || [];
+  const candidates = gy.filter((c) => {
+    if (!stamped.has(c.id)) return false;
+    if (atom.cardFilter === "land") {
+      const front = String(c.type || c.type_line || "").split(" // ")[0];
+      if (!/\bLand\b/.test(front)) return false;
+    }
+    return true;
+  });
+  if (candidates.length === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "milled-pick", picked: null, controller: owner });
+  }
+  if (candidates.length === 1) {
+    const next = moveCardToZone(state, { playerId: owner, fromZone: "graveyard", toZone: "hand", cardId: candidates[0].id });
+    return logEvent(next, { kind: "spell-effect", effect: "milled-pick", picked: candidates[0].name, controller: owner });
+  }
+  return setPendingMilledPickChoice(state, {
+    controller: owner,
+    candidates: candidates.map((c) => ({ id: c.id, name: c.name, type: c.type || c.type_line || "" })),
+    sourceName: ctx.cardName || null,
+  });
+}
+
 export const libraryResolvers = {
+  "pick-milled-to-hand": applyPickMilledToHand, // MILLED-REFERENT PICK (Ripples / Six) — the _lastMilledIds ∩ live-GY choice
   "tutor": applyTutor,
   "shuffle": applyShuffle,
   "enchanted-gy-mill": applyEnchantedGyMill, // ENCHANTED-PLAYER GY-COUNT mill (Fraying Sanity — SHELF S7)

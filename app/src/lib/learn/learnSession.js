@@ -94,6 +94,7 @@ import {
   autoPickOptionalDiscard,
   resolveOptionalDiscardPaymentChoice,
   resolveOptionalExileSelfChoice,
+  resolveMilledPickChoice,
   autoPickSacUnlessPay,
   resolveSacUnlessPayChoice,
   autoPickTaxedPayment,
@@ -878,6 +879,13 @@ function settleOptionalDiscardChoice(state, doDiscard) {
 // happens + the payoff runs (a payoff pause may still be pending, so guard before flushing). Same shape.
 function settleOptionalExileSelfChoice(state, doExile) {
   const next = resolveOptionalExileSelfChoice(state, doExile);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+// MILLED-PICK (Ripples / Six) — settle "put a [land ]card from among those cards into your hand": the
+// chosen (or auto-picked) card moves graveyard → hand, then the program resumes. Same flush shape.
+function settleMilledPickChoice(state, cardId) {
+  const next = resolveMilledPickChoice(state, cardId);
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
@@ -2129,6 +2137,28 @@ export function advanceUntilDecision(
         current = { ...current, state: settleOptionalDiscardChoice(current.state, picked.value) };
         continue;
       }
+      // MILLED-PICK (Ripples / Six) — pick a card from the just-milled set. Auto-pick: the FIRST
+      // candidate (deterministic — the same pick the settler's stale-submit fallback makes).
+      if (pc.kind === "milled-pick") {
+        if (pause) {
+          return { session: current, decision: { kind: "milled-pick", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
+          buildOffered: () => (pc.candidates || []).map((c) => ({ kind: "pending-choice", choiceKind: pc.kind, value: c.id, label: `Take ${c.name}` })),
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            value: pc.candidates?.[0]?.id ?? null,
+          },
+        });
+        current = { ...current, state: settleMilledPickChoice(current.state, picked.value) };
+        continue;
+      }
       // OPTIONAL-EXILE-SELF (Undead Butler) — the dies self-exile payment. Auto-pick: pay iff available
       // (the payoff is upside — the legacy always-take posture every optional-payment auto-pick uses).
       if (pc.kind === "optional-exile-self-payment") {
@@ -3093,6 +3123,44 @@ export function applyOptionalDiscardPaymentChoice(session, choice, opts = {}) {
 }
 
 /**
+ * MILLED-PICK (Ripples / Six) — the human submit: `choice.cardId` names the candidate to take to hand.
+ * A stale/absent id falls to the settler's first-candidate auto-pick. Mirrors the other apply fns.
+ */
+export function applyMilledPickChoice(session, choice, opts = {}) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "milled-pick") {
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
+  }
+  const cardId = choice?.cardId ?? null;
+  let newState;
+  try {
+    newState = settleMilledPickChoice(session.state, cardId);
+  } catch (error) {
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "milled-pick-choice", cardId },
+    auto: false,
+    reasoning: "user-chose-milled-pick",
+  };
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
+}
+
+/**
  * OPTIONAL-EXILE-SELF (Undead Butler) — the human submit for "you may exile it. When you do, <payoff>."
  * `choice.exile` (or a bare boolean) is the yes/no; settleOptionalExileSelfChoice re-scans + pays + runs
  * the payoff. Mirrors applyOptionalDiscardPaymentChoice exactly.
@@ -3844,6 +3912,7 @@ export function applyPendingChoice(session, choice, opts = {}) {
     return applyOptionalDiscardPaymentChoice(session, choice, opts);
   if (kind === "optional-exile-self-payment")
     return applyOptionalExileSelfChoice(session, choice, opts);
+  if (kind === "milled-pick") return applyMilledPickChoice(session, choice, opts);
   if (kind === "sac-unless-pay") return applySacUnlessPayChoice(session, choice, opts);
   if (kind === "taxed-payment") return applyTaxedPaymentChoice(session, choice, opts);
   if (kind === "edict-mode") return applyEdictModeChoice(session, choice, opts);

@@ -476,6 +476,15 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
   const selfHit = matchSelfHitDamage(s);
   if (selfHit && selfHit.atoms?.length === 1 && KNOWN.has(selfHit.atoms[0].op)) return selfHit.atoms[0];
 
+  // ⭐ OPTIONAL-MANA-PAYMENT AS A CLAUSE (Ripples of Undeath, 2026-08-15) — the FOURTH instance of the
+  // established shape (impulse, self-hit, the Klauth fold): a whole-oracle matcher whose sentence pair
+  // can also sit MID-PROGRAM ("Mill three cards. Then you may pay {1} and 3 life. If you do, …"). The
+  // splitter now keeps the compound-cost sentence whole and folds its "If you do," on (its own new
+  // guards), so the SAME matcher — every CREED gate included — is reached per-clause with the text it
+  // wants. The whole-oracle call stays first and keeps its cards byte-identical.
+  const ompClause = matchOptionalManaPayment(s, cardType);
+  if (ompClause?.atom && KNOWN.has(ompClause.atom.op)) return ompClause.atom;
+
   // α2 — "you may <effect>": an OPTIONAL effect the controller chooses to take (or not). Peel the
   // "you may" wrapper and parse the inner clause on its own merits; if it reduces to a fully-modeled
   // atom, stamp optional:true so the resolver offers a real yes/no (player) / auto-decides (AI),
@@ -1343,9 +1352,13 @@ function matchOptionalManaPayment(oracle, cardType) {
     if (uinner.slice(0, -1).some((a) => PAUSING_ATOM_OPS.has(a.op))) return null; // WI-3 — same dropped-payoff gate as the main arm
     return { atom: { op: "optional-mana-payment", cost, effectAtoms: inverted ? [] : uinner, elseAtoms: inverted ? uinner : [], payerRef: "upkeepPlayer", targetType: null } };
   }
-  // "you may pay {pips}. if you do, <effect>" — the cost is one-or-more directly-adjacent mana pips.
-  const m = s.match(/^you may pay\s+(\{[^}]+\}(?:\{[^}]+\})*)\.\s*if you do,?\s+(.+)$/i);
+  // "you may pay {pips}[ and N life]. if you do, <effect>" — the cost is one-or-more directly-adjacent
+  // mana pips, optionally with a LIFE RIDER (Ripples of Undeath "pay {1} and 3 life", 2026-08-15): the
+  // rider becomes cost.life, charged by the settler beside payManaCost. Absent → byte-identical.
+  const m = s.match(/^you may pay\s+(\{[^}]+\}(?:\{[^}]+\})*)( and (\d+) life)?\.\s*if you do,?\s+(.+)$/i);
   if (!m) return null;
+  const costLife = m[2] ? parseInt(m[3], 10) : 0;
+  m.splice(2, 2); // drop the life groups so every existing index below reads unchanged
   const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
   if (!pips.length) return null;
   // ENERGY variant (CR 122.1e) — "you may pay {E}{E}. If you do, <effect>" (Hexgold Slith, Thriving Rats,
@@ -1353,11 +1366,12 @@ function matchOptionalManaPayment(oracle, cardType) {
   // NOT mana. The optional-effect suspend + payoff gates below are cost-agnostic — only the cost shape differs.
   let cost;
   if (pips.every((p) => /^e$/i.test(p))) {
+    if (costLife) return null; // an energy+life compound has no printed carrier — refuse, never guess
     cost = { kind: "energy", amount: pips.length };
   } else {
     const mana = parseFixedManaPips(pips);
     if (!mana) return null;                                          // {X} / unknown symbol → unmodeled cost
-    cost = { kind: "mana", mana };
+    cost = { kind: "mana", mana, ...(costLife ? { life: costLife } : {}) };
   }
   const rawPayoff = m[2].trim();
   if (/\bif you do\b/i.test(rawPayoff)) return null;                 // a SECOND "if you do" — not modeled

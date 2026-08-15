@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Ripples of Undeath completes its loop.** The first-main mill really offers the pay-{1}-and-3-life
+  follow-up, both halves of the cost are charged together or not at all, and the card you fish back
+  comes from exactly the three just milled — never something older in the graveyard. Miara, Thorn of
+  the Glade's pay-and-draw works the same way.
 - **Bloodghast comes back.** Every land you play really offers the Vampire back from your graveyard
   to the battlefield — and it never phantom-triggers while it's already in play.
 - **Tapped tokens enter tapped.** Tormod, the Desecrator's Zombies, Liliana's Reaver's, Girder

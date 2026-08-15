@@ -602,6 +602,12 @@ export function splitClauses(oracle) {
     // "base power and toughness" is internal to the one set instruction. Anchored to the exact literal-N/N
     // form (a rider like Turn to Frog's "and loses all abilities" doesn't match → splits → low → Arbiter).
     if (/^target creature has base power and toughness \d+\/\d+ until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // COMPOUND MANA+LIFE PAYMENT (Ripples of Undeath "you may pay {1} and 3 life", 2026-08-15): the
+    // " and " joins the ONE cost, not two effects. Keep the sentence whole (the leading "Then " stripped
+    // so the NEXT sentence's "If you do," fold — whose prev anchor is ^you may pay \{ — pairs onto it,
+    // and the pair then parses via matchOptionalManaPayment's life-rider grammar). Anchored to the exact
+    // pips-and-N-life form; any other "pay X and Y" still splits → low → Arbiter.
+    if (/^(?:then )?you may pay (?:\{[^}]+\})+ and \d+ life$/i.test(sentence)) { clauses.push(sentence.replace(/^then\s+/i, "")); continue; }
     // UNTIL-EOT QUOTED GRANT (BLITZ TG-1 — Feign Death / Demonic Gifts / Showstopper): the sentence carries a
     // QUOTED ability body ("…gains \"When this creature dies, …\""), and both the "gets +N/+N AND gains" pump
     // conjunction and any " and " INSIDE the quotes are internal to the one grant instruction, NOT top-level

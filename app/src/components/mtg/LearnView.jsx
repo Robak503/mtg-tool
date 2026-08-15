@@ -37,6 +37,7 @@ import {
   OptionalDrawDiscardPanel,
   OptionalDiscardPaymentPanel,
   OptionalExileSelfPanel,
+  MilledPickPanel,
   SacUnlessPayPanel,
   TaxedPaymentPanel,
   EdictModePanel,
@@ -730,6 +731,7 @@ export default function LearnView({
               onOptionalDrawDiscardChoose={session.applyOptionalDrawDiscardChoice}
               onOptionalDiscardPaymentChoose={session.applyOptionalDiscardPaymentChoice}
               onOptionalExileSelfChoose={session.applyOptionalExileSelfChoice}
+              onMilledPickChoose={session.applyMilledPickChoice}
               onSacUnlessPayChoose={session.applySacUnlessPayChoice}
               onTaxedPaymentChoose={session.applyTaxedPaymentChoice}
               onEdictModeChoose={session.applyEdictModeChoice}
@@ -853,6 +855,11 @@ export default function LearnView({
             decision={decision}
             onChoose={session.applyOptionalExileSelfChoice}
           />
+        </div>
+      )}
+      {session.board && decision?.kind === "milled-pick" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <MilledPickPanel decision={decision} onChoose={session.applyMilledPickChoice} />
         </div>
       )}
       {session.board && decision?.kind === "sac-unless-pay" && (
@@ -1354,6 +1361,7 @@ function DecisionPrompt({
   onOptionalDrawDiscardChoose,
   onOptionalDiscardPaymentChoose,
   onOptionalExileSelfChoose,
+  onMilledPickChoose,
   onSacUnlessPayChoose,
   onTaxedPaymentChoose,
   onEdictModeChoose,
@@ -1405,6 +1413,9 @@ function DecisionPrompt({
   }
   if (decision.kind === "optional-exile-self-payment") {
     return <OptionalExileSelfPanel decision={decision} onChoose={onOptionalExileSelfChoose} />;
+  }
+  if (decision.kind === "milled-pick") {
+    return <MilledPickPanel decision={decision} onChoose={onMilledPickChoose} />;
   }
   if (decision.kind === "sac-unless-pay") {
     return <SacUnlessPayPanel decision={decision} onChoose={onSacUnlessPayChoose} />;
