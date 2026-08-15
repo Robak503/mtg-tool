@@ -106,6 +106,22 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
+- 2026-08-15 — **🏁 PHASE 3 COMPLETE — its gate met in full.** Slice 2: replay.js (canonicalState —
+  explicit field order, platform-stable; stateHash FNV-1a) + the withStateHash runner option; the
+  determinism CONTRACT witnessed (a full game replays hash-identical on identical args; the
+  different-seed control kills the constant-hash hollow gate; the battlefield-component mutation
+  killed). THE BACKFILL delivered THREE real finds, all root-fixed: ① the falsy-id deck fallback
+  (cross-deck collisions), ② the one-zone invariant's honest scoping (per-player hidden zones,
+  global battlefield+stack), ③ the qty-split per-name id collision (thirty same-id Forests in one
+  library — the route test's fixture). After all three: the FULL SUITE runs with EVERY dispatch
+  audited, zero violations — and the audit is now ALWAYS-ON under tests (the setup file), MTG_AUDIT=1
+  for dev runs. Every future witness is audited by default; every real-game bug is a
+  { args, finalStateHash } fixture.
+  **THE QUARTET'S STANDING:** Phase 1 built+gated (the flip awaits a policy that earns it — the
+  diagnostic loop exists to find one) · Phase 2 spine pinned + the diagnostic delivered its first
+  verdict (tail: evalScores on pending rows) · Phase 3 COMPLETE · Phase 4 functionally complete (the
+  core + two consumers). The shelf grind resumes primary.
+
 - 2026-08-15 — **PHASE 3 SLICE 1 SHIPPED — and the auditor earned its keep on day one.** auditState
   (seven invariant families: per-player hidden-zone card uniqueness + GLOBAL battlefield/stack
   uniqueness, attachment symmetry both ways, counters ≥ 0, life/pools numeric, battlefield/stack

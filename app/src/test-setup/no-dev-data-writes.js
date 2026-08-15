@@ -1,3 +1,9 @@
+// QUARTET PHASE 3 (2026-08-15) — the invariant auditor is ALWAYS-ON under tests: every
+// dispatchAction audits the resulting state (audit.js — one-zone-per-card, attachment symmetry,
+// counters, pools, shapes) and THROWS the diagnosis on corruption. Flipped only after the full
+// backfill ran clean (SUBSYSTEM-QUARTET-PLAN.md Phase 3 — three real finds, all root-fixed).
+process.env.MTG_AUDIT = "1";
+
 /**
  * Tripwire: no test may write into the dev tree's data/ root. (HB-1 guard #2)
  *

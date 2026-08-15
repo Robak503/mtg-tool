@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **🏁 QUARTET PHASE 3 COMPLETE — replay + the always-on audit** - the SUBSYSTEM QUARTET
+> The AUDITED full suite green (14,623 tests, EVERY dispatch audited, zero violations) + lint 0 BY
+> EXIT CODE. Card batch unchanged at **+75**.
+> ⭐ SLICE 2: replay.js (canonicalState — explicit field order; stateHash FNV-1a) + the withStateHash
+> runner option. The determinism CONTRACT witnessed: a FULL GAME replays hash-identical on identical
+> args (2f919db9 twice) · a different seed diverges (the anti-constant control) · tapped/counter/life
+> deltas each move the hash · the battlefield-component mutation killed. Any real-game bug is now a
+> { args, finalStateHash } fixture.
+> ⭐⭐ THE BACKFILL'S THIRD FIND: the qty-split per-name id collision (a deck listing one NAME across
+> thirty qty-1 entries minted thirty "-Forest-0"s in ONE library — the route test's fixture; the
+> per-player one-zone invariant caught it). Root-fixed with a per-name counter across the whole deck
+> (single-entry decks mint byte-identically). Three finds, three root fixes, zero scoping cop-outs.
+> ⭐ THE FLIP: MTG_AUDIT=1 is ALWAYS-ON under tests (the vitest setup file) — every future witness is
+> audited by default; dev runs opt in with the env var. Phase 3's gate is met IN FULL.
+> Token diet: ~14k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **QUARTET PHASE 3 SLICE 1 — the invariant auditor, earning its keep on day one** - the SUBSYSTEM QUARTET
 > Suite green + lint 0 BY EXIT CODE (sequential). Card batch unchanged at **+75**.
 > ⭐ audit.js — auditState, PURE, seven invariant families (per-player hidden-zone card uniqueness ·

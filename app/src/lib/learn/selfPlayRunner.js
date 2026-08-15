@@ -27,6 +27,7 @@
  */
 
 import { createLearnSession, advanceUntilDecision, isPlayerDead, hasWonGame } from "./learnSession.js";
+import { stateHash } from "./replay.js"; // QUARTET PHASE 3 — the stable final-state digest (a zero-engine-import leaf)
 import { gameSeedAt, mulberry32 } from "./seedMath.js";
 import { makeMulliganPolicy, PLAYBOOK_MULLIGAN_PARAMS } from "./mulliganPolicy.js";
 import { computeEpochStats } from "./epochStats.js";
@@ -200,6 +201,7 @@ export function runSelfPlayGame({
   resolveArbiter = null, // ARBITER-IN-RUNNER: a SYNC (pa,state)→verdict|null cache lookup; when set, gated cards resolve from the warm verdict cache instead of no-op'ing. null ⇒ byte-identical (hash preserved).
   legacyUserPivot = false, // LEGACY PIN (HARNESS-DATA wave 1b): true recovers the pre-FFA commander semantics (user dies ⇒ pod ends, liveOpponents[0] crowned) for A/B + anchor-lineage proof. Default false ⇒ commander pods play to the SOLE SURVIVOR and recorded winners are real.
   usePolicyEval = null, // QUARTET PHASE 1 gate knob: true | [seatIds] — the seats whose choices consult boardEval (stamped onto state; boardEval.usePolicyEvalFor reads it). null ⇒ byte-identical legacy play.
+  withStateHash = false, // QUARTET PHASE 3 — stamp finalStateHash (replay.stateHash) on the result; default off, zero cost to existing callers.
 } = {}) {
   // Per-seat pilot identity ({playbook,temperament} | null) — used by both the in-game decide
   // router/recorder below AND the pre-game mulligan config. Defined up here so the mulligan
@@ -476,6 +478,10 @@ export function runSelfPlayGame({
     // its own source of truth — so training/analysis can account for the position edge. "user"
     // on the default path; whatever startSeat requested otherwise.
     onThePlay: out.state?.startingPlayer ?? null,
+    // QUARTET PHASE 3 — SEEDED REPLAY: the final state's stable digest (replay.stateHash — explicit
+    // field order, platform-stable). withStateHash-gated so no existing caller pays the canonicalize
+    // cost; a replay is a re-run with identical args whose hash must match this one bit-for-bit.
+    ...(withStateHash ? { finalStateHash: stateHash(out.state) } : {}),
     // Mulligan-policy era stamp (SIM-INTEGRITY Phase 2): 2 = playbook policies + ranked
     // bottom-picker active for this game's mulligan phase; 0 = no mulligan phase ran.
     // NEVER pool mulligan data across policy versions (the re-anchor warning in the order).

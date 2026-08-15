@@ -26,8 +26,15 @@ const NON_MAINBOARD = new Set(["Sideboard", "Tokens", "Commander", "Companion"])
 function deckToCardArray(deck) {
   if (!deck?.cards) return [];
   const out = [];
+  // (QUARTET Phase 3 backfill find #3, 2026-08-15: a deck listing the same NAME across several
+  // qty-1 entries minted the same "-Name-0" id for each — thirty colliding Forests in one library,
+  // caught by the per-player one-zone invariant. The counter is per-NAME across the WHOLE deck, so
+  // ids are unique however the qty is split; single-entry-per-name decks mint byte-identically.)
+  const nameCounts = new Map();
   for (const entry of deck.cards) {
     if (NON_MAINBOARD.has(entry.section)) continue;
+    const start = nameCounts.get(entry.name) || 0;
+    nameCounts.set(entry.name, start + (entry.qty || 1));
     for (let i = 0; i < (entry.qty || 1); i++) {
       out.push({
         // (QUARTET Phase 3 backfill find, 2026-08-15: the bare "deck" fallback minted IDENTICAL ids
@@ -35,7 +42,7 @@ function deckToCardArray(deck) {
         // game one. The deck NAME fallback kills the observed class; the residual mirror-match case
         // (two seats on the SAME deck) is noted in audit.js and awaits per-seat prefixing at session
         // assembly if formPod ever deals mirrors.)
-        id: `${deck.id || deck.name || "deck"}-${entry.name}-${i}`,
+        id: `${deck.id || deck.name || "deck"}-${entry.name}-${start + i}`,
         name: entry.name,
         type: entry.type || "",
         mana: entry.mana || "",
