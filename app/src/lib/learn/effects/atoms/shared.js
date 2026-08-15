@@ -723,6 +723,16 @@ export function countForSpec(state, ctx, spec) {
     const lk = ctx?.sourceId ? findPermanent(state, ctx.sourceId) : null;
     return Math.max(0, lk?.permanent?.counters?.["+1/+1"] || 0);
   }
+  // ===== TOTAL-ATTACKING-POWER (Klauth, QUARTET Phase 4, 2026-08-15 — CR 508.3) ===== "X is the total
+  // power of attacking creatures": the LAYER-AWARE power sum over the declared attackers (an anthem'd
+  // board adds more — the same powerAtLeast discipline). Fired at declaration (checkAttackTriggers), so
+  // every attacker is live; a since-removed id simply reads 0 through the findPermanent miss.
+  if (spec.kind === "totalAttackingPower") {
+    return Math.max(0, (state.combat?.attackers || []).reduce((sum, a) => {
+      const lk = findPermanent(state, a.permanentId);
+      return sum + (lk ? Math.max(0, creaturePower(lk.permanent, state) || 0) : 0);
+    }, 0));
+  }
   // ===== TOTAL-MV-PERMANENTS-YOU-CONTROL (Summon: Bahamut's Mega Flare, 2026-08-14 — CR 202.3) =====
   // "damage equal to the total mana value of OTHER permanents you control": the SUM of the controller's
   // battlefield permanents' printed mana values (Scryfall cmc; a token/land with no cost reads 0 — CR

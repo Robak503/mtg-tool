@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **KLAUTH (+1) — the sub-pool's first consumer** - the SUBSYSTEM QUARTET × the shelf grind (Dragons 85→86)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Klauth
+> body-only→native-trigger. Post-release batch **+75**.
+> ⭐ THREE NEW PINS on the witnessed core: ① the splitClauses keep-whole fold (splitting would mint
+> UNRESTRICTED mana — the laundering FP; both continuations anchor on exact leads) · ② countForSpec's
+> totalAttackingPower (LAYER-AWARE — an anthem lifts X from 8 to 10, witnessed) · ③
+> applyAddRestrictedMana (X round-robin across the SOURCE's color identity — Klauth spreads R/G 4-4;
+> tagged @any-spell + holdUntilEndOfTurn; the entry pays a spell through the REAL planner and is
+> invisible to the ability path).
+> Mutations KM-M1 (the fold's first continuation dropped → Klauth parks) / KM-M2 (the reader degraded
+> to printed power → the anthem witness dies at 8) both killed via the witness, per-process.
+> Harness note: a hand-built anthem needs the REAL layer shape (layer 7 sublayer 7c ptModify — the
+> first cut used a nonexistent ptDelta op and the anthem silently did nothing).
+> Token diet: ~14k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **QUARTET PHASE 4 CORE — the pool-restricted sub-pool** - the SUBSYSTEM QUARTET
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff not run — deliberate: zero cards flip
 > until the first consumer (Klauth's arm, next slice) mints an entry; the core is planner-witnessed.

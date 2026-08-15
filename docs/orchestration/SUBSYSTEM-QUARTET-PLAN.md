@@ -106,6 +106,14 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
+- 2026-08-15 — **KLAUTH SHIPPED — the sub-pool's first consumer; Phase 4's build list is now three of
+  four done.** The keep-whole fold + the layer-aware totalAttackingPower reader + the minting resolver
+  (R/G round-robin off the source's color identity, documented deterministic). Klauth
+  body-only→native-trigger; Dragons 85→86. Remaining Phase-4 tail: more consumers as the shelf finds
+  them (the Rivaz/Shang-Chi restricted SOURCES already ride slice 1's conjunctive phrase; their other
+  parked machines are unrelated). The quartet's cross-pollination note: this slice moved BOTH a
+  quartet phase and the shelf batch — the interleave working as designed.
+
 - 2026-08-15 — **PHASE 4 CORE SHIPPED: the pool-restricted sub-pool.** player.restrictedMana =
   [{ pool, restriction, holdUntilEndOfTurn? }] — the tagged entries the per-color pool couldn't
   express. planPayment PRE-PASS spends qualifying entries FIRST (restricted-first; colored pips then

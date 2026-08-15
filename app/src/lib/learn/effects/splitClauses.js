@@ -257,6 +257,14 @@ export function splitClauses(oracle) {
       || (/^it gains haste$/i.test(sentence) && /put a commander you own from the command zone onto the battlefield$/i.test(prev))
       || (/^return it to the command zone at the beginning of the next end step$/i.test(sentence)
           && /put a commander you own from the command zone onto the battlefield\. it gains haste$/i.test(prev))
+      // KLAUTH (QUARTET Phase 4, 2026-08-15) — the three-sentence restricted-mana instruction is ONE
+      // atom (the X add + its spend restriction + its until-end-of-turn hold are inseparable: splitting
+      // would let the add parse alone and mint UNRESTRICTED mana — the laundering FP). Same anchored-fold
+      // discipline: each continuation folds only onto its exact lead.
+      || (/^spend this mana only to cast spells$/i.test(sentence)
+          && /add x mana in any combination of colors, where x is the total power of attacking creatures$/i.test(prev))
+      || (/^until end of turn, you don't lose this mana as steps and phases end$/i.test(sentence)
+          && /add x mana in any combination of colors.*spend this mana only to cast spells$/i.test(prev))
     )) {
       clauses[clauses.length - 1] = `${prev}. ${sentence}`;
       continue;

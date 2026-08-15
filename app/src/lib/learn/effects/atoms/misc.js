@@ -6,7 +6,8 @@ import { applyDrawEffect } from "../../spellEffects.js";
 import { logEvent, addEmblem, addMana, holdMana, opponentsOf, grantFlashThisTurn } from "../../gameState.js";
 import { parseFlashCastFilter } from "../../staticAbilityParser.js"; // the STATIC grant's own filter parser — reused so the turn-scoped twin cannot drift from it
 import { setPendingDivideChoice } from "../../pendingChoice.js";
-import { resolveScaledAmount, isCreatureCard } from "./shared.js";
+import { resolveScaledAmount, isCreatureCard, countForSpec } from "./shared.js";
+import { findPermanent } from "../../gameState.js"; // ADD-RESTRICTED-MANA — the source card's color identity read (same leaf edge as line 6)
 import { NUM_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 23 (NUM_WORD, each-player draw) + 26 (parseCountSource, for-each draw)
 
 /**
@@ -335,6 +336,14 @@ export function miscClauseParser(clause) {
   // of that sentence — all 30 in the corpus use end-of-combat, so the duration is matched literally rather
   // than parsed into a general timing vocabulary we cannot yet honor). Modeled as a pool CAP via holdMana,
   // NOT as plain mana: crediting the plain form would hand the player mana that evaporates a step early.
+  // KLAUTH (QUARTET Phase 4, 2026-08-15) — the three-sentence restricted-mana instruction (splitClauses
+  // keeps it folded; splitting would let the add parse alone and mint UNRESTRICTED mana — the laundering
+  // FP). One atom: the X add (layer-aware total attacking power) + the @any-spell restriction + the
+  // until-end-of-turn hold, minted as a player.restrictedMana entry by applyAddRestrictedMana.
+  if (/^add x mana in any combination of colors, where x is the total power of attacking creatures\. spend this mana only to cast spells\. until end of turn, you don't lose this mana as steps and phases end$/.test(t)) {
+    return { op: "add-restricted-mana", anyCombination: true, amountCount: { kind: "totalAttackingPower" },
+      restriction: { castTypes: ["@any-spell"] }, holdUntilEndOfTurn: true, targetType: null };
+  }
   const held = t.match(/^add ((?:\{[wubrgc]\})+) lasting until end of combat$/);
   if (held) {
     const mana = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
@@ -623,7 +632,34 @@ export function applyLureThisTurn(state, atom, ctx) {
   return logEvent({ ...state, lureThisTurn: marks }, { kind: "spell-effect", effect: "lure-this-turn", lured: ids.length, controller: ctx.controller });
 }
 
+/**
+ * ADD-RESTRICTED-MANA (Klauth — QUARTET Phase 4): mint a tagged player.restrictedMana entry of X mana.
+ * X = the amountCount read (totalAttackingPower — layer-aware, summed at resolution). ANY-COMBINATION
+ * house policy (documented deterministic, the riot discipline): spread X round-robin across the SOURCE
+ * card's color identity (color_identity ?? colors ?? the cost's pips — Klauth spreads R/G), falling
+ * back to {C} when no identity is derivable. A suboptimal spread is a play-QUALITY loss only — the
+ * planner treats the entry's colors as generic-payable too, and the mana can never exceed X (CREED).
+ */
+function applyAddRestrictedMana(state, atom, ctx) {
+  const x = Math.max(0, countForSpec(state, ctx, atom.amountCount) || 0);
+  if (x === 0) return logEvent(state, { kind: "spell-effect", effect: "add-restricted-mana", controller: ctx.controller, amount: 0 });
+  const src = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  const card = src?.permanent?.card;
+  let colors = Array.isArray(card?.color_identity) && card.color_identity.length ? card.color_identity.map((c) => String(c).toUpperCase())
+    : Array.isArray(card?.colors) && card.colors.length ? card.colors.map((c) => String(c).toUpperCase())
+    : [...new Set([...(String(card?.mana || card?.mana_cost || "").matchAll(/\{([WUBRG])\}/g))].map((m) => m[1]))];
+  if (!colors.length) colors = ["C"];
+  const pool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+  for (let i = 0; i < x; i++) pool[colors[i % colors.length]] += 1; // round-robin — deterministic
+  const entry = { pool, restriction: atom.restriction, ...(atom.holdUntilEndOfTurn ? { holdUntilEndOfTurn: true } : {}) };
+  const player = state.players[ctx.controller];
+  if (!player) return state;
+  const next = { ...state, players: { ...state.players, [ctx.controller]: { ...player, restrictedMana: [...(player.restrictedMana || []), entry] } } };
+  return logEvent(next, { kind: "spell-effect", effect: "add-restricted-mana", controller: ctx.controller, amount: x, pool });
+}
+
 export const miscResolvers = {
+  "add-restricted-mana": applyAddRestrictedMana, // Klauth — the pool-restricted sub-pool's first minter
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
   "extra-combat": applyExtraCombat, // ===== EXTRA-COMBAT ===== (CR 500.8) — queue one additional combat phase; advanceStep pops it leaving end-of-combat
   "grant-flash-this-turn": applyGrantFlashThisTurn, // CR 601.3e — the TURN-SCOPED twin of the static flash-cast permission
