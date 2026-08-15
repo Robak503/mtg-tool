@@ -14,6 +14,19 @@
 > last." The queue is therefore: **① Wolverine 79 → ② Kellan 74 → ③ Otharri 74 → ④ Cap America 73 →
 > ⑤ Halfshell 67 → ⑥ Shalai 67 → THEN ⑦ Believe it! 79 → ⑧ Kinnan 77** (both cEDH — the hardest
 > residue, deliberately deferred). Ceiling calls flagged per deck as the residue thins.
+> **THE WOLVERINE VEIN (79, needs 11 — probed 08-15 late):** ① Forgotten Ancient — trigger 1 (cast
+> watcher, optional self-counter) ROUTES already; the gap is trigger 2's counter-MOVE ("move any
+> number of +1/+1 counters from this creature onto other creatures") — build as remove-N-from-self +
+> the EXISTING distribute-counters pause (setPendingDistributeChoice); ⚠️ the decline-only shortcut is
+> a HOLLOW credit (the signature ability would never move a counter — the Raul no-op law), so the AI
+> policy must really move (deterministic: all onto the strongest other). ② Kodama of the West Tree —
+> 0 triggers detect; needs the MODIFIED predicate (counters/equipment/aura — all computable) for the
+> combat watcher + the modified-trample static + the basic-land-to-battlefield fetch payoff.
+> ③ The Ozolith — the leaves-with-counters accumulator (the dead look-back already snapshots
+> counters!) + the combat-start move-all. ④ Warden of the Grove — endure X (heavier, the
+> counters-or-token choice). Then the upkeep bucket (Neyith, Berserk, Canopy Gargantuan), the
+> anthems (Inscription of Abundance, Beastie Beatdown, The Last Agni Kai), Well Rested, Brotherhood
+> Regalia, Cori-Steel Cutter, Nibelheim Aflame, Legolas's, HULK SMASH!, the two Wolverines.
 > Today's twenty (all CI green): the Swat retarget · Sarkhan-FB · Rivaz · Rith (Dragons→90) ·
 > Atzocan · Heirloom (Jurassic→90) · Tortured Existence (+17) · Teval herself · Molt Tender ·
 > Undead Butler (pause kind) · Tormod (+12) · Bloodghast · Ripples (pause kind #2 + life-rider) ·
