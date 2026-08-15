@@ -12,10 +12,15 @@
 > ### ⏭ RUNNABLE NOW — the Teval vein (15 residue; all shipped work pushed + CI green through 08752d55)
 > · ✅ **RIPPLES SHIPPED a48758be (+2 with Miara; Teval 86)** — the milled-referent pick + the
 >   milled-pick pause kind + the life-rider compound cost all landed per the blueprint below.
->   **NEXT-CLOSEST: Dredger's Insight** — three widenings on TODAY'S fresh machinery: ① the pick's
->   referent phrase "from among the MILLED CARDS" (currently "them|those cards" only — the
->   millFollowup guard pins the boundary); ② a MULTI-TYPE pick filter ("an artifact, creature, or
->   land card"); ③ the gyLeaveBatch arm's type filter widened to "artifact and/or creature cards".
+>   ✅ Dredger's Insight SHIPPED f8df8533 (+2 with Eerie Gravestone; **Teval 87**).
+>   **NEXT: COURT OF CUNNING (probed 08-15 night)** — both triggers detect (monarch ETB modeled);
+>   the upkeep tail is the gap: "any number of target players each mill two cards. If you're the
+>   monarch, … ten instead." Pieces: ① an anchored splitClauses FOLD pairing the two sentences;
+>   ② the mill atom gains amountIfMonarch (resolution-time state.monarchId read — the
+>   MONARCH_STATUS machinery in interveningIf is the precedent) on applyMill's EXISTING "target"
+>   branch (Kitsune's Technique built targeted player mill); ③ enumeration for
+>   any-number-of-target-PLAYERS subsets (the multi-count creature-subset machinery is the template;
+>   note the AI pick: in THIS deck the caster targets THEMSELF — Teval wants the self-mill).
 >   Then: Toxic Deluge (the pay-X-life additional cost + the -X/-X team debuff) · Colossal
 >   Grave-Reaver (the batch library→GY reanimate pick) · Court of Cunning · Titania · Overlord ·
 >   Animate Dead · Tasigur (delve — heavy) · Six (retrace parks it — likely CEILING-class) · Ardyn ·
