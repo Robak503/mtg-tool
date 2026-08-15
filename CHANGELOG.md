@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Tribal graveyard recursion works by name.** "Return target Dinosaur card from your graveyard to
+  your hand" (Atzocan Seer) and its whole family — Goblin, Zombie, Myr, Spirit, Knight, Villain, and
+  Mercenary returns on cards like Lord of the Undead, Myr Reservoir, Wort, Boggart Auntie, and Angel
+  of Flight Alabaster — now target exactly the right creature type, never anything else.
 - **Rith, Liberated Primeval watches for overkill.** Her end-step trigger really checks whether an
   opponent's creature was dealt excess damage this turn — exact lethal doesn't count, overkill does —
   and pays out the 4/4 Dragon. "Other Dragons you control have ward {2}" is now a real, enforced ward,

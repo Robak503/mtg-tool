@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **ATZOCAN SEER (+10) — the subtype graveyard return** - the shelf grind (Jurassic 88→89)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+10 / 0 / 0** — Atzocan Seer native-mana
+> + nine riders (Boggart Birth Rite · Decoy Ploy · Tombstone · Wort, Boggart Auntie · Lord of the
+> Undead · Myr Reservoir · Angel of Flight Alabaster · Barrow Witches · Strongarm Thug — every one a
+> pure subtype-return carrier, all nine whole-card audited). Post-release batch **+98**.
+> ⭐ ONE SMALL ARM: "return target <Subtype> card from your graveyard to your hand" — a single
+> creature-subtype word validated against CR_CREATURE_TYPES (the closed zero-import leaf), riding the
+> STRUCTURED {subtype} cardFilter the soulshift shape already enforces word-bounded at the ONE
+> cardMatchesGraveyardFilter chokepoint (enumeration + resolution can't drift). Non-subtype words and
+> multi-word phrases still null whole (pinned); the vocabulary-gate mutation seen-to-fail.
+> Enumeration witnessed end-to-end: only the Dinosaur offered; the chosen card moves GY→hand; the
+> empty-pool floor holds. Token diet: ~6k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **🐉 RITH (+7) — the excess-damage ledger; DID YOU SAY DRAGONS HITS 90** - the shelf grind (Dragons 89→**90** ✅)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+7 / 0 / 0** — Rith native-mixed + six
 > ward-grant riders (Flowering of the White Tree · Star Whale · Radagast · Bronze Guardian · A-Kargan

@@ -9,6 +9,7 @@ import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers
 import { atomTargets } from "./shared.js";
 import { parseGraveyardFilter, cardMatchesGraveyardFilter, parseCreatureTargetRestrictions } from "../../spellEffects.js"; // seam batch 16: graveyard card-type filter (leaf-safe, same as stack.js's spellEffects import) for graveyardReturnClauseParser. cardMatchesGraveyardFilter joins it for MASS-REANIMATE, which selects at RESOLUTION (no enumerated targets) — same import edge, no new module dependency.
 import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // MULTI-COUNT: number-word → int for "up to N target … cards"; parseCountSource: MASS-OPPONENT-BOUNCE toughness-threshold count (leaf, cycle-free)
+import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // SUBTYPE RETURN (Atzocan Seer) — the closed CR subtype vocabulary (a zero-import leaf, cycle-free)
 import { shuffleControllerLibrary } from "./library.js";
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // the CR 603.7 queue (a sibling leaf)
 // CZ-COMMANDER-VISIT cross-layer doors — INJECTED, never imported: a static resolvers.js/layers.js
@@ -513,6 +514,15 @@ export function graveyardReturnClauseParser(clause) {
   if (gm) {
     const cardFilter = parseGraveyardFilter(gm[1]);
     if (cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter };
+    // SUBTYPE RETURN (Atzocan Seer "Return target Dinosaur card from your graveyard to your hand",
+    // 2026-08-15): a SINGLE creature-subtype word, validated against the closed CR vocabulary
+    // (CR_CREATURE_TYPES — a zero-import leaf), rides the STRUCTURED {subtype} filter the soulshift
+    // shape already enforces word-bounded at the ONE cardMatchesGraveyardFilter chokepoint. A
+    // non-subtype word / multi-word phrase still nulls the whole clause (CREED FN-safe, never a mis-match).
+    const word = gm[1].trim().toLowerCase();
+    if (/^[a-z]+$/.test(word) && CR_CREATURE_TYPES.has(word)) {
+      return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: { subtype: word } };
+    }
   }
   // ===== BARE REANIMATE — the filter vocabulary the MV-CAPPED arm below already has ====================
   // "Return target ARTIFACT / PERMANENT / LAND / ENCHANTMENT card from your graveyard to the battlefield."

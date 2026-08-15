@@ -60,7 +60,8 @@ describe("parser — graveyard recursion is HIGH for modeled type filters; subty
   });
   it("a non-type filter / zone / cardinality / destination is low (Arbiter)", () => {
     const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle }))).toBe("low");
-    low("Return target goblin card from your graveyard to your hand.");              // creature SUBTYPE — unmodeled
+    // GRADUATED 2026-08-15 (atzocanSeer.test.js): a single creature SUBTYPE ("goblin", "dinosaur") parses
+    // HIGH now via the CR_CREATURE_TYPES-validated {subtype} structured filter. The guard class lives on:
     low("Return target green card from your graveyard to your hand.");               // color — unmodeled
     low("Return target historic card from your graveyard to your hand.");            // "historic" (artifact/legendary/Saga) — unmodeled
     low("Return target nonland permanent card from your graveyard to your hand.");   // negation — unmodeled
@@ -231,7 +232,10 @@ describe("coverage — clean graveyard recursion is native-spell", () => {
     expect(classifyCard(RAISE_DEAD)).toBe("native-spell");
     expect(classifyCard(REGROWTH)).toBe("native-spell");
     expect(classifyCard({ type: SORCERY, name: "X", oracle: "Return target artifact card from your graveyard to your hand." })).toBe("native-spell"); // REG-1 — now modeled
-    expect(classifyCard({ type: SORCERY, name: "Y", oracle: "Return target goblin card from your graveyard to your hand." })).toBe("arbiter-spell");  // creature subtype — still Arbiter
+    // GRADUATED 2026-08-15 (atzocanSeer.test.js): a creature-subtype filter is native now ({subtype},
+    // CR-vocabulary-gated); a COLOR filter keeps the arbiter park (the guard class).
+    expect(classifyCard({ type: SORCERY, name: "Y", oracle: "Return target goblin card from your graveyard to your hand." })).toBe("native-spell");
+    expect(classifyCard({ type: SORCERY, name: "Z", oracle: "Return target green card from your graveyard to your hand." })).toBe("arbiter-spell");
   });
 });
 

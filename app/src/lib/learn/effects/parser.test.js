@@ -1002,7 +1002,9 @@ const MUST_DROP_TO_LOW = [
   // must stay LOW → Arbiter, so we never mis-target the graveyard or silently drop a rider. ──
   // NOTE: "Return up to two target creature cards …" is now NATIVE (MULTI-COUNT slice A — real runtime via
   // targeting.expandAtoms subset enumeration + the multi-target-ready resolver). Pinned HIGH in multiCountTarget.test.js.
-  "Return target goblin card from your graveyard to your hand.",                    // creature SUBTYPE — unmodeled (REG-1 models types, not subtypes)
+  // GRADUATED 2026-08-15 (atzocanSeer.test.js): "Return target goblin card from your graveyard to your
+  // hand" parses HIGH now (the CR-vocabulary-gated {subtype} filter). The COLOR form keeps this gate:
+  "Return target green card from your graveyard to your hand.",                     // COLOR filter — unmodeled
   "Return target nonland permanent card from your graveyard to your hand.",         // negation — unmodeled
   "Return target artifact creature card from your graveyard to your hand.",         // INTERSECTION (both), not a union — unmodeled
   "Return target creature card from a graveyard to your hand.",                     // ANY graveyard, not "your"
