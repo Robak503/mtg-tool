@@ -7,14 +7,26 @@
 ## The order (Colton's steer, 2026-08-15 — do not reorder)
 
 **① Wolverine 79 → ② Kellan 74 → ③ Otharri 74**, then Cap America 73 → Halfshell 67 → Shalai 67 →
-the SIX archetype-gap decks — ⭐ THE PROGRAM IS COMPLETE (08-15, all pasted by Colton in one evening:
+the SEVEN archetype decks — ⭐ THE PROGRAM IS COMPLETE (08-15, all pasted by Colton in one evening:
 **Thrun Voltron 80** — equipment voltron, **Brago Blink 75** — flicker, **Shorikai Vehicles 73** —
 crew/artifacts, **Nekusar Wheels 71** — wheels, **Bumble Flower Combo 62** — combo/alt-win,
-**Light-Paws Voltron 58** — AURA voltron, the shelf floor; ⛔ THEFT is VETOED for training per the
-vault's no-theft-training ruling — that gap stays open ON PURPOSE; superfriends remains the one
-optional add), and the cEDH pair (**Believe it! 79, Kinnan 77) LAST** — "hardest to push past 90…
-focus those last." (Veyran = the draw-go seat per Colton.)
+**Atraxa Superfriends 62** — planeswalkers/loyalty ⚠️ 99 cards, ONE SHORT — awaiting the missing
+card from Colton, **Light-Paws Voltron 58** — AURA voltron, the shelf floor; ⛔ THEFT is VETOED for
+training per the vault's no-theft-training ruling — that gap stays open ON PURPOSE), and the cEDH
+pair (**Believe it! 79, Kinnan 77) LAST** — "hardest to push past 90… focus those last." (Veyran =
+the draw-go seat per Colton.)
 Call the ceiling explicitly per deck when the residue is genuinely unbuildable-class.
+
+### NEW ARRIVAL: Atraxa Superfriends — 62 (61/99), the LOYALTY stress test
+The optional seventh (list in the vault registry; ⚠️ one card short — pending). THE FIRST DECK TO
+EXERCISE THE PLANESWALKER LANES: 13 playable-pw / 7 arbiter-pw / 1 native-planeswalker — the
+loyalty tiers finally have a workload. The residue: **22 spells** (mostly the WALKERS' own ability
+sets — Ajani Steadfast, Dovin Baan, Ashiok…), **5 upkeep** (Teferi Hero, Garruk, Kiora, The Eternal
+Wanderer), **4 ETBs** (the Oaths + Carth), Arena Rector (dies→cheat a walker), Tamiyo/Vraska
+(attack-adjacent), Astral Cornucopia. Atraxa's own end-step proliferate presumably rides the
+existing proliferate atom — verify. Strategy: this deck grinds LAST of the seven (walker ability
+modeling is its own program — the per-walker ability sets are the long tail; the playable-pw tier
+already gives partial sim value).
 
 ### NEW ARRIVAL: Nekusar Wheels — 71, needs 19 (the wheels vein)
 The program's closer (list in the vault registry). The residue: **18 spells** — ⭐ THE WHEEL SUITE
