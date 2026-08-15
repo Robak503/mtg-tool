@@ -10,7 +10,17 @@
 ## 🌙 2026-08-15 EVENING — **FOURTEEN slices · v0.159.0 LIVE · 13 decks at bar · TEVAL 79→85** — suite **1254 / 14,685** green
 
 > ### ⏭ RUNNABLE NOW — the Teval vein (15 residue; all shipped work pushed + CI green through 08752d55)
-> · **THE SHARED SEAM NEXT — the MILLED-REFERENT pick (blueprint refined to the line, 08-15 late):**
+> · ✅ **RIPPLES SHIPPED a48758be (+2 with Miara; Teval 86)** — the milled-referent pick + the
+>   milled-pick pause kind + the life-rider compound cost all landed per the blueprint below.
+>   **NEXT-CLOSEST: Dredger's Insight** — three widenings on TODAY'S fresh machinery: ① the pick's
+>   referent phrase "from among the MILLED CARDS" (currently "them|those cards" only — the
+>   millFollowup guard pins the boundary); ② a MULTI-TYPE pick filter ("an artifact, creature, or
+>   land card"); ③ the gyLeaveBatch arm's type filter widened to "artifact and/or creature cards".
+>   Then: Toxic Deluge (the pay-X-life additional cost + the -X/-X team debuff) · Colossal
+>   Grave-Reaver (the batch library→GY reanimate pick) · Court of Cunning · Titania · Overlord ·
+>   Animate Dead · Tasigur (delve — heavy) · Six (retrace parks it — likely CEILING-class) · Ardyn ·
+>   Breach · Teval's Judgment.
+> · (executed) **the MILLED-REFERENT pick blueprint (08-15 late):**
 >   ① the STAMP: millOnePlayer (library.js 745) already captures `milledCards` pre-move — stamp
 >   `_lastMilledIds: milledCards.map(c=>c.id)` on its returned state (the _impulseExiledTypes
 >   state-stamp convention; overwritten per mill = the freshest mill is the referent; serialize-safe).
