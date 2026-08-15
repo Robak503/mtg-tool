@@ -106,6 +106,20 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
+- 2026-08-15 — **PHASE 4 SCOPED AGAINST REALITY — half of it shipped long ago.** Probed before
+  building (the Phase-2 lesson): manaModel already has spendRestrictionAllows + SPEND_CAST_TYPE_WORDS
+  + per-SOURCE restrictions honored by planPayment's spendContext — Rivaz's {T} restriction parses,
+  and Sarkhan Fireblood is already playable-pw. The genuinely unbuilt piece is NARROWER than planned:
+  **POOL-restricted mana** — mana granted by a resolving trigger that enters the pool carrying a spend
+  restriction (Klauth's "add X … Spend this mana only to cast spells"), which the per-color-count pool
+  cannot express (the manaHold CAP model deliberately avoided tagged sub-pools; a spend restriction
+  cannot ride a cap — widening would be the forbidden FP direction). Klauth also needs the
+  until-END-OF-TURN hold variant (the existing hold clears at end of combat) and the X-scaled
+  any-combination add (amountCount totalAttackingPower). Rivaz's remaining parks are un-related
+  machines (a standing GY-cast permission + a quoted grant-on-cast). Phase 4's build list is now:
+  ① the tagged restricted sub-pool + planPayment/commitPaymentPlan integration, ② the end-of-turn
+  hold variant, ③ Klauth's trigger arm (the three-sentence fold), ④ carriers re-probed + witnessed.
+
 - 2026-08-15 — **THE DIAGNOSTIC DELIVERED ITS VERDICT AND THE FALSIFIED POLICY IS WITHDRAWN.** The
   100-seed --diagnose probe: **62 of 64 divergent games forked on a cast-spell decision, and the
   evaluator seat won 18 vs 23 in exactly those** (pass-priority: 2 forks, 1-1 neutral) — slice 5's
