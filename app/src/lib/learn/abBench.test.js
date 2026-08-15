@@ -56,7 +56,13 @@ describe("abBench — paired A/B run", () => {
     expect(s.why).toBeTruthy();
     expect(Array.isArray(s.whySentences)).toBe(true);
     if (s.why.avgTurns) { expect(Number.isFinite(s.why.avgTurns.base)).toBe(true); expect(Number.isFinite(s.why.avgTurns.var)).toBe(true); }
-  });
+    // 60s WALL, measured not guessed (2026-08-15): this 12-game paired run is a REAL ~7s workload in
+    // isolation (7.06s pre-/7.11s post-Bloodghast — the suspect slice measured innocent via a baseline
+    // swap), and full-suite worker contention multiplies it 2.5-3× — three loaded runs tripped the old
+    // 20s default at ~5-10% aggregate load variance while the isolated number never moved. The wall is a
+    // HANG detector (the vault law), not a speed budget: a genuine hang still dies here, 3× over the
+    // worst honest loaded run.
+  }, 60_000);
 
   it("refuses a second concurrent run", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});

@@ -4448,6 +4448,18 @@ export function detectTriggers(card) {
         // phrase is byte-identical to Essence Sliver's combat-damage payoff, so the rewrite is a RE-POINT,
         // not an unblock: without it the atom carries combatDamageAmount and gains 0 on this event.
         effectClause = "you gain that much life-lost life";
+      } else if (cls.event === "landfall"
+        && /^you may return this card from your graveyard to the battlefield$/i.test(effectClause.trim())) {
+        // ===== GRAVEYARD-FUNCTIONING landfall self-return (Bloodghast — the family's namesake, 2026-08-15)
+        // ===== "Landfall — Whenever a land you control enters, you may return this card from your graveyard
+        // to the battlefield." The "from your graveyard" IS the zone statement (CR 603.3d — the ability
+        // functions from the graveyard), so the descriptor is stamped functionsFromGraveyard and
+        // checkLandfallTriggers' GRAVEYARD scan fires it with the card as source (sourceCardId on the
+        // context; the battlefield loop excludes the flag — the Radroach/aura discipline exactly). The
+        // marker resolves via applyGySelfReturnBattlefield (graveyard → battlefield, the exact card). The
+        // "may" is auto-taken — returning your own creature is pure upside, the family's standing posture.
+        effectClause = "[gy-self-return:battlefield] return it to the battlefield";
+        cls.functionsFromGraveyard = true;
       } else if (cls.event === "milled"
         && String(split.interveningIf || "").toLowerCase().trim() === "this creature is in your graveyard"
         && /^you may return it to your hand$/i.test(effectClause.trim())) {
@@ -5946,7 +5958,26 @@ export function checkLandfallTriggers(state, enteredLand) {
   let fired = [];
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {
-      fired = fired.concat(triggersForEvent(state, { event: "landfall", sourcePermanent: watcher, triggeringPermanent: enteredLand }));
+      // A GY-FUNCTIONING landfall descriptor (Bloodghast) never fires from the battlefield —
+      // the Radroach/milled discipline: the flag routes the two scans off one detectTriggers cache.
+      fired = fired.concat(triggersForEvent(state, { event: "landfall", sourcePermanent: watcher, triggeringPermanent: enteredLand, descriptorFilter: (d) => !d.functionsFromGraveyard }));
+    }
+    // GRAVEYARD scan (Bloodghast — CR 603.3d): the landfall self-return functions FROM the graveyard;
+    // the card itself is the source, sourceCardId threads the exact card for the battlefield return.
+    // The DIRECT detectTriggers idiom (the milled scan's, NOT triggersForEvent) — a graveyard card can
+    // carry no granted/group-granted abilities, and the grant-merge per gy card per land drop was
+    // measured as an abBench timeout on first landing. The one scope this class prints ("a land YOU
+    // control") is checked by hand: the entered land's controller must be the graveyard's owner.
+    if (enteredLand.controller === pid) {
+      for (const gyCard of state.players[pid]?.graveyard || []) {
+        // RAW-STRING PRE-FILTER (perf, measured via the abBench cap): the stamp class exists ONLY for
+        // this exact wording, so any card whose oracle lacks it can never carry the descriptor — one
+        // .includes beats even the memoized detectTriggers walk on the every-land-drop hot path.
+        if (!String(gyCard?.oracle || gyCard?.oracle_text || "").includes("return this card from your graveyard to the battlefield")) continue;
+        for (const d of detectTriggers(gyCard).filter((x) => x.event === "landfall" && x.functionsFromGraveyard)) {
+          fired.push(makePendingTrigger(d, { id: `gy-${gyCard.id}`, controller: pid, card: gyCard }, null, { sourceCardId: gyCard.id }));
+        }
+      }
     }
   }
   if (!fired.length) return state;

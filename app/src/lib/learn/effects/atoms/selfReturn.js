@@ -158,6 +158,12 @@ export function selfReturnClauseParser(clause) {
   if (/^\[gy-self-return:hand\] return it to your hand$/i.test(t)) {
     return { op: "gy-self-return-hand" };
   }
+  // GY-FUNCTIONING BATTLEFIELD self-return (Bloodghast — the landfall class, 2026-08-15): the
+  // battlefield sibling of the hand form above. Same sentinel discipline; the atom is only the
+  // graveyard → battlefield move of the exact card (ctx.sourceCardId).
+  if (/^\[gy-self-return:battlefield\] return it to the battlefield$/i.test(t)) {
+    return { op: "gy-self-return-battlefield" };
+  }
   // GY-FUNCTIONING AURA SELF-RETURN (Dragon Fangs cycle / Smoke Shroud) — the battlefield-and-ATTACHED
   // sibling of the hand form directly above. Same sentinel discipline: detectTriggers produces the marker
   // for "you may return this card from your graveyard to the battlefield attached to that creature", and
@@ -321,6 +327,25 @@ export function applyGySelfReturnHand(state, atom, ctx) {
 }
 
 /**
+ * applyGySelfReturnBattlefield — the BATTLEFIELD sibling (Bloodghast's landfall return, CR 603.3d): move
+ * the source card (ctx.sourceCardId, threaded by checkLandfallTriggers' graveyard scan) from its owner's
+ * graveyard onto the battlefield via enterCardFromZone (real ETB — triggers, timestamps, the works).
+ * The CR 608.2b gone-guard mirrors the hand form: a card that left the graveyard between flush and
+ * resolution (a second Bloodghast trigger already returned it) is a logged no-op, never a fabricated body.
+ */
+export function applyGySelfReturnBattlefield(state, atom, ctx) {
+  const owner = ctx.controller;
+  const cardId = ctx.sourceCardId;
+  if (!owner || !cardId || !state.players?.[owner]) return state;
+  const gy = state.players[owner].graveyard || [];
+  if (!gy.some((c) => c.id === cardId)) {
+    return logEvent(state, { kind: "spell-effect", effect: "gy-self-return-battlefield", returned: false, controller: owner });
+  }
+  const r = enterCardFromZone(state, { playerId: owner, cardId, fromZone: "graveyard" });
+  return logEvent(r.state, { kind: "spell-effect", effect: "gy-self-return-battlefield", returned: !!r.entered, controller: owner });
+}
+
+/**
  * applyGySelfAttachReturn - GY-FUNCTIONING AURA self-return (Dragon Fangs cycle, CR 603.3d): move THE SOURCE
  * CARD (ctx.sourceCardId - the Aura in the graveyard, threaded by checkEnterTriggers' graveyard scan) onto
  * the battlefield ATTACHED to the creature that just entered (ctx.triggeringPermanentId).
@@ -417,6 +442,7 @@ export const selfReturnResolvers = {
   "undying-return": applyUndyingReturn,
   "persist-return": applyPersistReturn, // KW-PERSIST (PS-1, CR 702.79a) — undying's -1/-1 mirror
   "gy-self-return-hand": applyGySelfReturnHand,
+  "gy-self-return-battlefield": applyGySelfReturnBattlefield, // Bloodghast — the landfall GY self-return
   "gy-self-attach-return": applyGySelfAttachReturn,
   "dies-return-bf": applyDiesReturnBattlefield, // TG-1 — the Feign Death frame (granted dies-return)
 };

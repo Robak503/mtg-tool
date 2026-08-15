@@ -3,6 +3,15 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **⭐ BLOODGHAST (+1) — the GY-functioning landfall self-return** - the shelf grind (Teval 84→85)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Bloodghast
+> body-only→native-mixed (the family's NAMESAKE finally joins its own class). Post-release batch **+37**.
+> ⭐ The Radroach/aura sentinel discipline extended to the LANDFALL event: the stamp class rewrites the
+> effect to [gy-self-return:battlefield] + functionsFromGraveyard; checkLandfallTriggers grows the
+> GRAVEYARD scan (sourceCardId threads the exact card; the battlefield loop EXCLUDES the flag — the
+> on-battlefield-fires-nothing control pinned) and applyGySelfReturnBattlefield does the real
+> enterCardFromZone ETB with the CR 608.2b gone-guard. The scan-removed mutation seen-to-fail.
+> Token diet: ~6k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **TORMOD (+12) — the tapped-token adjective** - the shelf grind (Teval 83→84)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+12 / 0 / 0** — Tormod, the Desecrator
 > + eleven riders (Liliana's Reaver · Girder Goons · Shadow Summoning · Baloth Prime · Arnim Zola ·

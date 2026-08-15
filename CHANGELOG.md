@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Bloodghast comes back.** Every land you play really offers the Vampire back from your graveyard
+  to the battlefield — and it never phantom-triggers while it's already in play.
 - **Tapped tokens enter tapped.** Tormod, the Desecrator's Zombies, Liliana's Reaver's, Girder
   Goons', Shadow Summoning's Spirits, and eight more token-makers now put their tokens onto the
   battlefield tapped exactly as printed — no free blockers, no phantom mana taps.
