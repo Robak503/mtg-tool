@@ -265,6 +265,13 @@ export function splitClauses(oracle) {
           && /add x mana in any combination of colors, where x is the total power of attacking creatures$/i.test(prev))
       || (/^until end of turn, you don't lose this mana as steps and phases end$/i.test(sentence)
           && /add x mana in any combination of colors.*spend this mana only to cast spells$/i.test(prev))
+      // SARKHAN FIREBLOOD's +1 (2026-08-15) — the FIXED-amount two-sentence sibling of the Klauth fold
+      // right above, for the same laundering-FP reason: "Add two mana in any combination of colors."
+      // split from its "Spend this mana only to cast Dragon spells." would parse alone and mint
+      // UNRESTRICTED mana. The continuation folds only onto the exact fixed-amount any-combination lead
+      // (the word-set guard on the atom arm keeps unknown type phrases LOW → Arbiter).
+      || (/^spend this mana only to cast [a-z][a-z ]*? spells$/i.test(sentence)
+          && /^add (?:one|two|three|four|five) mana in any combination of colors$/i.test(prev))
     )) {
       clauses[clauses.length - 1] = `${prev}. ${sentence}`;
       continue;

@@ -119,7 +119,12 @@ function enrich(dk) {
     const found = lookupCard(entry.name);
     if (!found) { cards.push({ type: "", oracle: "", mana: "", name: entry.name, qty: entry.qty || 1, _unknown: true }); continue; }
     const c = publicCard(found);
-    cards.push({ type: c.type, oracle: c.oracle, mana: c.mana, name: c.name, qty: entry.qty || 1 });
+    // `loyalty` MUST ride along (2026-08-15): planeswalkerPlayable/-NativelyCovered read
+    // startingLoyalty(card), and the slim shape silently dropped it — every walker in the DECK
+    // measure classified arbiter-pw regardless of its real tier (caught when Sarkhan, Fireblood
+    // went native in the tier snapshot but not here). power/toughness ride for the same
+    // shape-fidelity reason.
+    cards.push({ type: c.type, oracle: c.oracle, mana: c.mana, name: c.name, loyalty: c.loyalty, power: c.power, toughness: c.toughness, qty: entry.qty || 1 });
   }
   return cards;
 }

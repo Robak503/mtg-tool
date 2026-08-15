@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **SARKHAN FIREBLOOD + DESOLATION OF SMAUG (+2) — the fixed-amount restricted add** - the shelf grind (Dragons 87→88)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0** — Sarkhan, Fireblood
+> playable-pw→NATIVE-PLANESWALKER (the shelf's first) + Desolation of Smaug arbiter-spell→native-spell
+> (a legit rider: its sweep atom already existed). Post-release batch **+78**.
+> ⭐ The sub-pool's SECOND minter: "Add two/three/four… mana in any combination of colors. Spend this
+> mana only to cast <Type> spells" — the arm calls manaModel.parseSpendRestriction ITSELF (the
+> planner's own vocabulary + conjunctive + anti-lossy guards; an unknown word keeps the clause LOW,
+> pinned with an Elephant control). splitClauses keeps the pair folded (the laundering-FP guard,
+> pinned: the bare add parses NOTHING). CR 605.1a verified from the CR JSON: a loyalty add is NEVER a
+> mana ability — the stack routing is printed fidelity. Spell-source mints (no permanent) now spread
+> WUBRG, never {C} ("any combination of COLORS" can't produce colorless).
+> ⭐⭐ A METRIC BUG root-fixed: measure-coverage's slim enrich DROPPED `loyalty`, so every walker in
+> every DECK measure read arbiter-pw regardless of real tier (caught when the tier snapshot said
+> native and the deck measure disagreed). The corrected shelf: 11 decks ≥90; below the bar: Dragons
+> 88 · Teval/Wolverine/Believe-it 79 · Kinnan 77 · Otharri/Kellan/Cap 74 · Halfshell 68 · Shalai 67.
+> Fold + fixed-amount-read mutations each seen-to-fail; Klauth byte-identical (R4/G4 held).
+> Token diet: ~12k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **⭐ DEFLECTING SWAT (+1) — the RETARGET machine (CR 115.7)** - the shelf grind (Dragons 86→87)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Deflecting Swat
 > arbiter-spell→native-spell, zero riders. Post-release batch **+76**.

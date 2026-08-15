@@ -109,9 +109,14 @@ describe("PW-1 recognition — REAL parks stay parked (CREED)", () => {
     expect(classifyCard(TEZZERET)).toBe("arbiter-pw");
     expect(planeswalkerPlayable(TEZZERET)).toBe(false);
   });
-  it("Sarkhan, Fireblood → playable-pw: the restricted 'only to cast Dragon spells' mana ability stays LOW", () => {
-    expect(classifyCard(SARKHAN_FB)).toBe("playable-pw");
-    expect(programConfidence(parseEffectClause("Add two mana in any combination of colors. Spend this mana only to cast Dragon spells.", "Instant"))).toBe("low");
+  it("GRADUATED 2026-08-15: Sarkhan, Fireblood → native-planeswalker (the restricted add is the add-restricted-mana atom now)", () => {
+    // Canaried here as playable-pw while "Add two mana … only to cast Dragon spells" parsed LOW. The
+    // fixed-amount restricted-add arm (sarkhanFireblood.test.js — parseSpendRestriction-guarded, fold-
+    // protected) models it, so all three abilities are HIGH and the walker counts native.
+    expect(classifyCard(SARKHAN_FB)).toBe("native-planeswalker");
+    const p = parseEffectClause("Add two mana in any combination of colors. Spend this mana only to cast Dragon spells.", "Instant");
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms[0]).toMatchObject({ op: "add-restricted-mana", amount: 2, restriction: { castTypes: ["dragon"] } });
   });
 });
 

@@ -9,6 +9,7 @@ import { setPendingDivideChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, isCreatureCard, countForSpec } from "./shared.js";
 import { findPermanent } from "../../gameState.js"; // ADD-RESTRICTED-MANA — the source card's color identity read (same leaf edge as line 6)
 import { NUM_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 23 (NUM_WORD, each-player draw) + 26 (parseCountSource, for-each draw)
+import { parseSpendRestriction } from "../../manaModel.js"; // SARKHAN-FIREBLOOD restricted add — the planner's OWN restriction parser, reused so the arm can't drift from what the spender enforces (read only inside the clause parser — init-safe)
 
 /**
  * Draw (CR 120) — the ACTOR is the atom's `who`:
@@ -344,6 +345,20 @@ export function miscClauseParser(clause) {
     return { op: "add-restricted-mana", anyCombination: true, amountCount: { kind: "totalAttackingPower" },
       restriction: { castTypes: ["@any-spell"] }, holdUntilEndOfTurn: true, targetType: null };
   }
+  // SARKHAN FIREBLOOD's +1 (2026-08-15) — the FIXED-amount restricted add ("Add two mana in any
+  // combination of colors. Spend this mana only to cast Dragon spells."), the two-sentence sibling of
+  // the Klauth arm above (splitClauses keeps the pair folded — the same laundering-FP guard: the add
+  // alone would mint UNRESTRICTED mana). The restriction is parsed by manaModel.parseSpendRestriction
+  // ITSELF — the same vocabulary, conjunctive-phrase, and anti-lossy-tail guards the payment planner
+  // enforces, so this arm cannot admit a phrase the spender would refuse; a refused phrase keeps the
+  // clause LOW → Arbiter. No hold flag: the mana empties as steps end (CR 500.4) like any pool.
+  // (CR 605.1a — a loyalty "Add" is NOT a mana ability, so this atom resolving via the stack is the
+  // correct fidelity for its Sarkhan carrier, not a shortcut.)
+  const restrictedAdd = t.match(/^add (one|two|three|four|five) mana in any combination of colors\. (spend this mana only to cast [a-z][a-z ]*? spells)$/);
+  if (restrictedAdd) {
+    const restriction = parseSpendRestriction(`${restrictedAdd[2]}.`);
+    if (restriction) return { op: "add-restricted-mana", anyCombination: true, amount: NUM_WORD[restrictedAdd[1]], restriction, targetType: null };
+  }
   const held = t.match(/^add ((?:\{[wubrgc]\})+) lasting until end of combat$/);
   if (held) {
     const mana = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
@@ -641,14 +656,19 @@ export function applyLureThisTurn(state, atom, ctx) {
  * planner treats the entry's colors as generic-payable too, and the mana can never exceed X (CREED).
  */
 function applyAddRestrictedMana(state, atom, ctx) {
-  const x = Math.max(0, countForSpec(state, ctx, atom.amountCount) || 0);
+  // A FIXED amount (Sarkhan Fireblood's "Add two mana …") reads atom.amount directly; the count-derived
+  // form (Klauth's X) keeps its countForSpec read byte-identically.
+  const x = atom.amount != null ? Math.max(0, atom.amount) : Math.max(0, countForSpec(state, ctx, atom.amountCount) || 0);
   if (x === 0) return logEvent(state, { kind: "spell-effect", effect: "add-restricted-mana", controller: ctx.controller, amount: 0 });
   const src = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
   const card = src?.permanent?.card;
   let colors = Array.isArray(card?.color_identity) && card.color_identity.length ? card.color_identity.map((c) => String(c).toUpperCase())
     : Array.isArray(card?.colors) && card.colors.length ? card.colors.map((c) => String(c).toUpperCase())
     : [...new Set([...(String(card?.mana || card?.mana_cost || "").matchAll(/\{([WUBRG])\}/g))].map((m) => m[1]))];
-  if (!colors.length) colors = ["C"];
+  // No derivable identity (a SPELL-source mint — Desolation of Smaug — threads no source permanent):
+  // an anyCombination atom spreads WUBRG (the printed "any combination of COLORS" can't produce {C},
+  // and any spread is a legal player choice); only a non-anyCombination mint keeps the {C} floor.
+  if (!colors.length) colors = atom.anyCombination ? ["W", "U", "B", "R", "G"] : ["C"];
   const pool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
   for (let i = 0; i < x; i++) pool[colors[i % colors.length]] += 1; // round-robin — deterministic
   const entry = { pool, restriction: atom.restriction, ...(atom.holdUntilEndOfTurn ? { holdUntilEndOfTurn: true } : {}) };

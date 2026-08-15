@@ -9,6 +9,11 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Sarkhan, Fireblood plays all three abilities.** The rummage +1, the Dragon-mana +1 (two mana of
+  any colors that really spend only on Dragon spells — and vanish at step's end, as printed), and the
+  −7's four 5/5 Dragons all resolve natively now. Desolation of Smaug rides along: sweep the
+  non-Dragons, bank four Dragon-only mana. Planeswalkers in the deck coverage dashboard also stopped
+  under-reporting — a dropped loyalty field made every walker read as unmodeled there.
 - **Deflecting Swat actually swats.** Cast it free with your commander out (or pay the {2}{R}) and it
   re-aims a spell or ability on the stack: removal pointed at your creature gets deflected onto
   something of its own caster's, and when there's nothing better to point it at, the targets simply
