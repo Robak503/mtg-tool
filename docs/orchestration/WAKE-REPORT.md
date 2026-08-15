@@ -7,6 +7,29 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🌙 2026-08-15 EVENING — **FOURTEEN slices · v0.159.0 LIVE · 13 decks at bar · TEVAL 79→85** — suite **1254 / 14,685** green
+
+> ### ⏭ RUNNABLE NOW — the Teval vein (15 residue; all shipped work pushed + CI green through 08752d55)
+> · **THE SHARED SEAM NEXT — the MILLED-REFERENT pick** serves TWO residue cards in one build:
+>   Ripples of Undeath ("put a card from among THOSE [just-milled] cards into your hand" behind the
+>   pay-{1}-and-3-life compound cost — the banked two-piece design below) AND Six ("you may put a
+>   LAND card from among them into your hand" on the attack mill — no payment, just the pick). The
+>   mill atom must stamp its milled ids into ctx/resume; the pick is a choice over that set (the
+>   tutor-picker pattern). Build Six FIRST (no payment half) → then Ripples adds only the life-rider
+>   cost on the optional-mana-payment atom.
+> · Then: Court of Cunning (monarch ETB modeled; the upkeep any-number-of-target-players mill with
+>   the monarch-conditional 10× count is the gap) · the ETB bucket (Titania, Overlord of the
+>   Balemurk, Animate Dead — heavy) · Tasigur · Ardyn · Breach the Multiverse · Teval's Judgment ·
+>   Toxic Deluge (the X-life sweep).
+> · **Today's fourteen** (all full-discipline, all CI green): Swat retarget · Sarkhan-FB ·
+>   Rivaz · Rith (Dragons→90) · Atzocan · Heirloom (Jurassic→90) · Tortured Existence (+17) ·
+>   Teval herself · Molt Tender · Undead Butler (the optional-exile-self pause kind, 8 wiring
+>   points) · Tormod (+12 tapped tokens) · Bloodghast (the landfall GY scan) + v0.159.0 + the
+>   abBench wall measured honest (60s, the evidence in the test).
+> · Batch **+37** post-tag. Colton's standing ask: grind ALL decks to 90 and call the ceiling when
+>   the residue is genuinely unbuildable-class. Below the bar: Teval 85 · Wolverine 79 ·
+>   Believe it! 79 · Kinnan 77 · Otharri 74 · Kellan 74 · Cap 73 · Halfshell 67 · Shalai 67.
+
 ## ☀️ 2026-08-15 — **🐉 DRAGONS AT 90 (the 12th deck) · QUARTET P3+P4 COMPLETE · batch +98 → v0.159.0 tags on CI green** — suite **1249 / 14,658** green
 
 > ### ⏭ RUNNABLE NOW
