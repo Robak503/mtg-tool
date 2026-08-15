@@ -76,9 +76,13 @@ describe("WITH-KEYWORD BATCH — detection (coverage)", () => {
     expect(detectTriggers(mk("attacking or blocking creatures"))).toHaveLength(0);
   });
 
-  it("CREED: Kodama's 'modified creatures' subject stays unmodeled (body-only)", () => {
-    const card = { name: "Kodama of the West Tree", type: "Legendary Creature — Spirit", oracle: "Reach\nModified creatures you control have trample. (Equipment, Auras you control, and counters are modifications.)\nWhenever a modified creature you control deals combat damage to a player, search your library for a basic land card, put it onto the battlefield tapped, then shuffle." };
-    expect(classifyCard(card)).toBe("body-only");
+  it("GRADUATED 2026-08-15: Kodama's 'modified' subject is now modeled (kodama.test.js owns the flip); the guard class lives on", () => {
+    // The per-attacker "a modified creature you control deals combat damage to a player" watcher shipped
+    // (requiresModified via layers.isModifiedPermanent — SHELF-TAIL W3). The guard class survives with the
+    // BATCH form, still unmodeled: "one or more modified creatures … deal" is a batch subject this file's
+    // parseSubtypeList lane rightly rejects ("modified" is a quality, not a subtype) → undetected.
+    const batch = { name: "Synth", type: "Creature — Beast", oracle: "Whenever one or more modified creatures you control deal combat damage to a player, draw a card." };
+    expect(detectTriggers(batch)).toHaveLength(0);
   });
 });
 

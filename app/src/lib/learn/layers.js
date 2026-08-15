@@ -957,7 +957,7 @@ const _selectorColorInProgress = new Set();
  * naive "any Aura attached" read would hand the anthem to creatures the printed card excludes, the forbidden
  * direction. Equipment carries no such clause (CR 301.5b — equipped is equipped, whoever owns the Equipment).
  */
-function isModifiedPermanent(state, perm) {
+export function isModifiedPermanent(state, perm) {
   if (!perm) return false;
   for (const n of Object.values(perm.counters || {})) if ((n || 0) > 0) return true;
   for (const pid of Object.keys(state?.players || {})) {

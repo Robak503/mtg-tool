@@ -133,11 +133,10 @@ Counter-themed (X-Men). 21 residue; the probed queue:
    (recordLeaveEvent → trigger ctx), the look-back "it had counters on it" reader (HAD_ANY_COUNTERS),
    the kind-less "this permanent has counters on it" live reader, rewriteSelfNameInterveningIf (the
    condition-slot name-normalize allowlist), and move-all-counters-to-target (intent "own").
-3. **Kodama of the West Tree** — 0 triggers detect. Needs the MODIFIED predicate (equipped OR
-   enchanted-by-own-aura OR any counter — all computable board reads) for: the combat-damage watcher
-   (modified creature you control → fetch a basic land ONTO the battlefield — the tutor-to-bf lane
-   exists) + the "modified creatures you control have trample" group static (the dynamic-selector
-   grant machinery; add a requiresModified selector arm beside requiresAnyCounter/Cathedral-Acolyte).
+3. ✅ **Kodama of the West Tree** — SHIPPED 2026-08-15 (Wolverine 81→82 + Thrun 80→81 + SP//dr rider).
+   The probe found the subsystem ALREADY BUILT (the modified-anthem selector + layers.isModifiedPermanent
+   — the one-place CR 700.9 definition): the slice was just the watcher subject arm (requiresModified,
+   the token-filter carve's sibling) + the descriptor registration + the scopeMatches live gate.
 4. **Warden of the Grove** — end-step self-counter (routes) + "it endures X" (the endure keyword:
    the recipient's controller chooses counters OR a token — a new choice mechanic; medium-heavy).
 5. The upkeep bucket: **Neyith of the Dire Hunt** (upkeep fight offer), **Berserk**-class,

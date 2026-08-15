@@ -24,7 +24,7 @@ import {
   logEvent, // GRANTED DIES-EXILE (Rivaz) — the graveyard→exile move logs at the dies chokepoint
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, colorsOf } from "./layers.js";
+import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, colorsOf, isModifiedPermanent } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 import { applyLifeGainReplacement } from "./replacementEffects.js"; // LIFE-GAIN replacement (CR 614.1) — read by checkLifegainTriggers so a trigger sees the life ACTUALLY gained. replacementEffects imports nothing at all, so this edge is one-way and cycle-free.
 import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
@@ -2212,6 +2212,13 @@ function classifyCondition(condRaw, cardName, cardType) {
     // you control/ test is a SUBSTRING match and would otherwise swallow "a creature token you control" and
     // drop the qualifier entirely. That is the over-fire direction: every creature connecting would draw.
     if (/^a creature token you control deals combat damage to (?:a player|an opponent)$/.test(c)) return { event: "combatDamageToPlayer", scope: "creatureYouControl", whose: "any", tokenFilter: true };
+    // MODIFIED-FILTERED (Kodama of the West Tree, SHELF-TAIL W3 — CR 700.9): "a MODIFIED creature you
+    // control deals combat damage to a player". Same shape as the token-filtered carve directly above:
+    // the qualifier becomes a pre-switch scopeMatches gate (requiresModified) reading layers'
+    // isModifiedPermanent — the SAME one-place CR 700.9 definition the modified-anthem selector uses, so
+    // the watcher and the trample grant can never disagree about what "modified" means. LIVE state read
+    // on the connecting attacker (threaded by combatResolution), the CR 603.4-correct moment.
+    if (/^a modified creature you control deals combat damage to (?:a player|an opponent)$/.test(c)) return { event: "combatDamageToPlayer", scope: "creatureYouControl", whose: "any", requiresModified: true };
     if (/a creature you control/.test(c)) return { event: "combatDamageToPlayer", scope: "creatureYouControl", whose: "any" };
     // EQUIP-RIDER combat-damage (WAVE 4) — "Whenever EQUIPPED CREATURE deals combat damage to a player,
     // <effect>" (Goldvein Pick / The Reaver Cleaver Treasure riders, the Swords' combat-damage payloads).
@@ -4642,6 +4649,7 @@ export function detectTriggers(card) {
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
         targeterIsController: cls.targeterIsController, // VALIANT becomesTarget only — "…a spell or ability YOU CONTROL"; checkBecomesTargetTriggers drops the trigger when the targeting stack object's controller isn't the targeted permanent's. ⚠️ Unlisted here = dropped = fires off an OPPONENT'S removal spell too, an over-fire, with the trigger looking correctly detected the whole time.
         requiresCounter: cls.requiresCounter, // COUNTER-PREDICATE dies/attacks scope only (BLITZ CNT-1 — "with a +1/+1 counter on it") — scopeMatches gate reads the triggering creature's live counter bag
+        requiresModified: cls.requiresModified, // MODIFIED-PREDICATE combatDamageToPlayer (Kodama, W3 — CR 700.9) — scopeMatches gate via layers.isModifiedPermanent. ⚠️ Unlisted here = dropped = fires on EVERY connecting creature — the over-fire direction, with the detector looking correct.
         requiresDamagedBySource: cls.requiresDamagedBySource, // DEALT-DAMAGE-BY-ME dies scope only (Sengir Vampire) — scopeMatches gate reads the dead creature's damagedBy look-back. ⚠️ Unlisted here = dropped = the trigger fires on EVERY creature death anywhere, the widest possible over-fire, while still looking correctly detected.
         counterType: cls.counterType,         // COUNTERS-PUT-ON (CR 122.6) — the counter KIND the watcher listens for; checkCounterTriggers fires only on a matching placement
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
@@ -5408,6 +5416,10 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   // the creatureYouControl controller scope (mirrors nontokenFilter/attachedOnly). A triggering permanent
   // with 0 of the counter must NOT fire (the restriction the reject would otherwise drop).
   if (descriptor.requiresCounter && !((triggeringPermanent?.counters?.[descriptor.requiresCounter] || 0) > 0)) return false;
+  // MODIFIED gate (Kodama, W3 — CR 700.9): the connecting attacker must be modified RIGHT NOW (live read —
+  // counters / equipped / enchanted by its controller's own Aura), via layers' single shared definition.
+  // Fails CLOSED on a missing state/permanent (never an over-fire on an unverifiable predicate).
+  if (descriptor.requiresModified && !isModifiedPermanent(state, triggeringPermanent)) return false;
   // DEALT-DAMAGE-BY-ME gate — the dying creature must carry THIS source's id in its damagedBy look-back.
   // Fails CLOSED: a look-back with no snapshot (an unmodeled death path) reads [] and the trigger drops,
   // which is a false negative and permitted. Firing on an unproven "it probably hit that one" would be a

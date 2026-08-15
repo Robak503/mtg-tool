@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Kodama of the West Tree knows what "modified" means.** The land-fetch really fires only when a
+  modified creature you control connects — a counter, any Equipment, or an Aura *you* control counts;
+  an opponent's Pacifism doesn't — and the same definition drives the trample grant, so the two can
+  never disagree. SP//dr, Piloted by Peni's draw works the same way.
 - **The Ozolith remembers.** When a creature you control leaves the battlefield with counters on it —
   killed, bounced, or exiled — those exact counters (every kind) really land on The Ozolith, and at the
   start of your combat you can move the whole banked pile onto a creature: it all arrives (a doubler

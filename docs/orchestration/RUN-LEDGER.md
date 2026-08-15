@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **⭐ KODAMA (+2) — the MODIFIED watcher (CR 700.9); the cross-deck slice** - the shelf grind (Wolverine 81→82 · Thrun 80→81)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0** — Kodama of the West Tree
+> (body-only→native-mixed) + SP//dr, Piloted by Peni (native-trigger; whole-card audited: Vigilance +
+> targeted-counter ETB + the same watcher wording). Post-release batch **+55**.
+> ⭐ The slice was THREE EDITS: the static half already existed (the modified-anthem selector +
+> layers.isModifiedPermanent — the one-place CR 700.9 definition, Kodama named in its comment), and the
+> fetch payoff already parsed HIGH — only the watcher subject arm ("a modified creature you control
+> deals combat damage to a player" → requiresModified, the token-filter carve's sibling), the
+> descriptor-field registration, and the scopeMatches live gate were missing. The watcher and the
+> trample grant read ONE definition — they cannot disagree. GRADUATION: batchKeywordCombatDamage's
+> "Kodama stays body-only" pin graduated with the date; the guard class survives on the BATCH form
+> ("one or more modified creatures…" — a quality is not a subtype). Witness pins the CR 700.9 carve
+> (an opponent's Pacifism does NOT modify; any controller's Equipment DOES). 2 mutations (detect arm ·
+> scope gate) seen-to-fail — the gate mutation kills the OVER-FIRE guard, its whole job.
+> Token diet: ~6k output tokens this slice (the smallest of the day — the probe found the subsystem built).
 > ## SLICE DONE - 2026-08-15 - **⭐ THE OZOLITH (+1) — the leave-counters accumulator + the combat move-all** - the shelf grind (Wolverine 80→81)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — The Ozolith
 > body-only→native-trigger, BOTH arms in one slice. Post-release batch **+53**.
