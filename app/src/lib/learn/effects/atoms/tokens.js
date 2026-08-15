@@ -139,7 +139,8 @@ export function applyCreateToken(state, atom, ctx) {
     const minted = mintId(next, "tok");
     next = minted.state;
     const card = { id: `tok-${minted.id}`, name, type, power: tokPower, toughness: tokToughness, oracle, keywords, token: true };
-    let perm = createPermanent({ id: minted.id, card, controller: ctx.controller });
+    // TAPPED (Tormod — "create a TAPPED 2/2…"): the same atom.tapped flag the Treasure-maker mints honored.
+    let perm = createPermanent({ id: minted.id, card, controller: ctx.controller, tapped: !!atom.tapped });
     if (counterN > 0) perm = { ...perm, counters: { ...perm.counters, [ewc.type || "+1/+1"]: (perm.counters?.[ewc.type || "+1/+1"] || 0) + counterN } };
     const player = next.players[ctx.controller];
     next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, perm] } } };
@@ -740,8 +741,13 @@ function createTokenClauseParserCore(clause) {
   // of the "with" rider is a strict PROMOTION (it can only let an already-near-HIGH clause parse): the old
   // regex only accepted "named X" when followed by "with (.+)", so a bare "…token named X" (no "with") fell
   // to LOW. The name group is non-capturing-anchored and the "with" group stays optional + separate.
-  const m = t.match(/^create (a|an|one|two|three|four|five|\d+) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?: named ([a-z' ]+?))?(?: with (.+))?$/);
+  // TAPPED creature token (Tormod, the Desecrator "create a TAPPED 2/2 black Zombie…", 2026-08-15): the
+  // adjective rides the SAME atom.tapped flag the Treasure-maker already mints honored (createPermanent
+  // tapped at the one mint chokepoint) — no new enforcement, one captured word.
+  const m = t.match(/^create (a|an|one|two|three|four|five|\d+) (tapped )?(\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?: named ([a-z' ]+?))?(?: with (.+))?$/);
   if (m) {
+    const entersTapped = !!m[2];
+    m.splice(2, 1); // drop the tapped group so every existing index below reads unchanged
     const power = parseInt(m[2], 10);
     const toughness = parseInt(m[3], 10);
     if (toughness < 1) return null;  // 0-toughness token dies to the lethal SBA → incomplete capture → Arbiter
@@ -756,7 +762,7 @@ function createTokenClauseParserCore(clause) {
     // guards a hypothetical "Forest Dryad land creature token with flying".
     if (landMana.oracle && m[6] !== undefined) return null;
     const tokenName = m[5] ? m[5].trim().split(/\s+/).map(cap).join(" ") : null; // title-case the parsed name (it was lowercased upstream)
-    const base = { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power, toughness, descriptor: m[4].trim(), ...(tokenName ? { name: tokenName } : {}), ...(landMana.oracle ? { tokenOracle: landMana.oracle } : {}), targetType: null };
+    const base = { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power, toughness, descriptor: m[4].trim(), ...(entersTapped ? { tapped: true } : {}), ...(tokenName ? { name: tokenName } : {}), ...(landMana.oracle ? { tokenOracle: landMana.oracle } : {}), targetType: null };
     if (m[6] === undefined) return base;
     // A QUOTED inline ability → the clean-mana-ability gate (T4) OR the curated self-dies TRIGGERED-ability gate
     // (T5: a Pest's dies→gain-life, a Devil's dies→deal-damage — both minted as real oracle so checkDiesTriggers

@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Tapped tokens enter tapped.** Tormod, the Desecrator's Zombies, Liliana's Reaver's, Girder
+  Goons', Shadow Summoning's Spirits, and eight more token-makers now put their tokens onto the
+  battlefield tapped exactly as printed — no free blockers, no phantom mana taps.
 - **Undead Butler's last service works.** When it dies you really choose whether to exile it from
   your graveyard, and only a real exile fetches the creature card back to your hand — if the Butler
   slipped out of the graveyard first, there's no free return. Paramecia Coloniex's identical trick

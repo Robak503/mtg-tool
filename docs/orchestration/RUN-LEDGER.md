@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **TORMOD (+12) — the tapped-token adjective** - the shelf grind (Teval 83→84)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+12 / 0 / 0** — Tormod, the Desecrator
+> + eleven riders (Liliana's Reaver · Girder Goons · Shadow Summoning · Baloth Prime · Arnim Zola ·
+> the Robot cluster — ALL whole-card audited, Baloth's three clauses read in full). Post-release
+> batch **+36**.
+> ⭐ ONE CAPTURED WORD: "create a TAPPED <N>/<N> … creature token" — the adjective rides the SAME
+> atom.tapped flag the Treasure-maker's mint already honored (createPermanent at the one chokepoint);
+> the group is spliced out so every existing arm index reads unchanged (untapped forms byte-identical,
+> pinned). The mint really enters tapped (witnessed against the untapped control); the pass-through
+> mutation seen-to-fail. Tormod = the SECOND consumer of Teval's own gyLeaveBatch watcher.
+> Token diet: ~4k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **⭐ UNDEAD BUTLER (+2) — the optional-exile-self pause kind** - the shelf grind (Teval 82→83)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0** — Undead Butler + Paramecia
 > Coloniex (the identical dies shape, whole-card audited). Post-release batch **+22**.
