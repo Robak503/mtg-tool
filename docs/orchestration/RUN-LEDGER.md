@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **⭐ DEFLECTING SWAT (+1) — the RETARGET machine (CR 115.7)** - the shelf grind (Dragons 86→87)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Deflecting Swat
+> arbiter-spell→native-spell, zero riders. Post-release batch **+76**.
+> ⭐ THE NEW CAPABILITY: "choose new targets for target spell or ability" — a `retarget` atom on the
+> full stack union (targetType spellOrStackAbility: spells + activated/triggered abilities; notCounter
+> threaded so CR 701.6a never narrows the pool — an UNCOUNTERABLE spell is still retargetable, pinned
+> beside the real-counter control). The resolver re-picks the targeted object's own targets off the
+> LIVE board via expandCastChoices from the TARGETED SPELL'S controller's perspective (the
+> STORM-COPY-TARGET precedent), same chosenMode only (CR 115.8). Deterministic house policy: deflect
+> away from the retargeter's stuff; EVERY no-better-option path declines (CR 115.7d — keep printed
+> targets), never fabricates. Both params.targets AND obj.targets rewritten in sync.
+> ⭐ Two graduations riding: the parser pin (low→HIGH with the atom shape) and the altCostOffer canary
+> (free-if-commander now OFFERED, with the no-commander seen-to-fail control; Misdirection's "change
+> the target" wording stays low — the class guard holds). 9-test witness file; the write-back and the
+> not-aimed-at-me decline arm each mutation-killed. Swat's own target leaving the stack = the
+> WHOLESALE CR 608.2b fizzle before the may ever pauses (pinned).
+> Token diet: ~13k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **🏁 QUARTET PHASE 3 COMPLETE — replay + the always-on audit** - the SUBSYSTEM QUARTET
 > The AUDITED full suite green (14,623 tests, EVERY dispatch audited, zero violations) + lint 0 BY
 > EXIT CODE. Card batch unchanged at **+75**.

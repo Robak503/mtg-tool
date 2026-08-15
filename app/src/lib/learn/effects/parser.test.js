@@ -1712,9 +1712,13 @@ describe("parseEffectProgram — printed alt-cost strip (free / pitch / exile / 
     expect(gush.altCost).toEqual({ kind: "returnLandsToHand", count: 2, subtype: "Island", condition: "always" });
   });
   it("MUST DROP TO LOW: the alt-cost strips but the REMAINING effect is unmodeled (all-or-nothing)", () => {
-    // Deflecting Swat — free-if-commander, but 'choose new targets' (redirect) is unmodeled.
-    expect(programConfidence(parseEffectProgram(I("If you control a commander, you may cast this spell without paying its mana cost.\nYou may choose new targets for target spell or ability.")))).toBe("low");
-    // Misdirection — exile-pitch, but 'change the target' (redirect) is unmodeled.
+    // GRADUATED 2026-08-15 (deflectingSwat.test.js): Deflecting Swat's 'choose new targets for target
+    // spell or ability' is the RETARGET atom now (CR 115.7) — free-if-commander + a HIGH body.
+    const swat = parseEffectProgram(I("If you control a commander, you may cast this spell without paying its mana cost.\nYou may choose new targets for target spell or ability."));
+    expect(programConfidence(swat)).toBe("high");
+    expect(swat.atoms).toEqual([{ op: "retarget", targetType: "spellOrStackAbility", optional: true }]);
+    // Misdirection — exile-pitch, but 'change the target' (a DIFFERENT wording + a single-target filter —
+    // NOT the retarget arm, which is anchored on 'choose new targets for target spell or ability') stays low.
     expect(programConfidence(parseEffectProgram(I("You may exile a blue card from your hand rather than pay this spell's mana cost.\nChange the target of target spell with a single target.")))).toBe("low");
   });
   it("MUST DROP TO LOW: an un-modeled alt-cost SHAPE / CONDITION is NOT stripped (the sentence keeps the card LOW)", () => {

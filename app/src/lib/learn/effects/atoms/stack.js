@@ -454,6 +454,12 @@ export function counterClauseParser(clause) {
   // reference in the CNT-TARGETS-WHAT arm safe.)
   if (/^counter target activated ability$/.test(t)) return { op: "counter-ability", targetType: "stackAbility", abilityKinds: ["activated-ability"] };
   if (/^counter target triggered ability$/.test(t)) return { op: "counter-ability", targetType: "stackAbility", abilityKinds: ["triggered-ability"] };
+  // ⭐ RETARGET (CR 115.7) — "[you may] choose new targets for target spell or ability" (Deflecting Swat;
+  // Bolt Bend / Ricochet Trap word it the same after their cost lines peel). The target is the full stack
+  // union (spell OR activated/triggered ability — targetType "spellOrStackAbility"); the RESOLVER re-picks
+  // the targeted object's own targets off the live board. `optional` records the printed "may": CR 115.7d —
+  // the player may leave any number of targets unchanged, which is the resolver's decline path.
+  if (/^(?:you may )?choose new targets for target spell or ability$/.test(t)) return { op: "retarget", targetType: "spellOrStackAbility", optional: true };
   // ⭐⭐ CNT-TARGETS-WHAT (CR 601.2c) — "counter target spell THAT TARGETS <X>": Turn Aside, Keep Safe,
   // Rebuff the Wicked, Intervene, Confound, Hindering Light, Dawn Charm, Hydromorph Gull/Guardian, Fugitive
   // Droid, Vigilant Martyr, Mistfolk. FOURTEEN carriers across nine wordings, and ONE missing capability
@@ -1550,7 +1556,74 @@ function applyBounceSpellOrPermanent(state, atom, ctx) {
   return next;
 }
 
+/**
+ * ⭐ RETARGET (Deflecting Swat, CR 115.7) — "you may choose new targets for target spell or ability."
+ * The targeted stack object's OWN targets are re-picked here off the LIVE board via expandCastChoices
+ * (the same enumerator the cast path and STORM-COPY-TARGET use), run from the TARGETED OBJECT'S
+ * controller's perspective (target legality — protection, hexproof, "can't be the target" — is judged
+ * for the spell, not for Swat's controller; only the CHOICE among legal combos belongs to Swat's caster).
+ *
+ * The deterministic house policy (documented like the auto-pick policies, riot discipline):
+ *   - DECLINE (keep every target, CR 115.7d — always legal for a printed "may") when the object's
+ *     current targets don't touch the retargeter (nothing to deflect), when the object carries no
+ *     effect-program (a manual/Arbiter payload we cannot re-enumerate — a safe FN, never a guess),
+ *     or when no legal combo avoids the retargeter's own stuff.
+ *   - Otherwise DEFLECT: first legal combo (same chosenMode — CR 115.8: a mode is never re-chosen)
+ *     none of whose targets is the retargeter or the retargeter's permanent.
+ * Both payload.params.targets AND the top-level obj.targets (when present) are rewritten in sync, so
+ * resolution (runProgram reads params.targets) and the CR 608.2b fizzle check see the same picture.
+ * A target already gone from the stack logs a distinct fizzle line (CR 608.2b), never a silent skip.
+ */
+function applyRetarget(state, atom, ctx) {
+  let next = state;
+  const me = ctx?.controller;
+  const isMine = (x) => (x?.type === "player" ? x.id === me : x?.controller === me);
+  for (const t of ctx?.targets || []) {
+    if (t.type !== "spell" && t.type !== "stackAbility") continue;
+    const idx = (next.stack || []).findIndex((o) => o.id === t.id);
+    if (idx === -1) {
+      next = logEvent(next, { kind: "spell-effect", effect: "retarget-fizzle", targetId: t.id });
+      continue;
+    }
+    const obj = next.stack[idx];
+    const params = obj.payload?.params;
+    const program = params?.program || null;
+    const originals = Array.isArray(params?.targets) ? params.targets : [];
+    if (!program || originals.length === 0) {
+      next = logEvent(next, { kind: "spell-effect", effect: "retarget-decline", targetId: t.id, cardName: obj.source?.name || null, reason: !program ? "no-program" : "no-targets" });
+      continue;
+    }
+    if (!originals.some(isMine)) {
+      next = logEvent(next, { kind: "spell-effect", effect: "retarget-decline", targetId: t.id, cardName: obj.source?.name || null, reason: "not-aimed-at-me" });
+      continue;
+    }
+    let combos;
+    try { combos = expandCastChoices(next, obj.controller, program) || []; } catch { combos = []; }
+    if (params.chosenMode != null) combos = combos.filter((c) => c.chosenMode === params.chosenMode);
+    const deflected = combos.find((c) => (c.targets || []).length > 0 && !(c.targets || []).some(isMine));
+    if (!deflected) {
+      next = logEvent(next, { kind: "spell-effect", effect: "retarget-decline", targetId: t.id, cardName: obj.source?.name || null, reason: "no-safe-combo" });
+      continue;
+    }
+    const newTargets = deflected.targets;
+    next = {
+      ...next,
+      stack: [
+        ...next.stack.slice(0, idx),
+        { ...obj, ...(Array.isArray(obj.targets) ? { targets: newTargets } : {}), payload: { ...obj.payload, params: { ...params, targets: newTargets } } },
+        ...next.stack.slice(idx + 1),
+      ],
+    };
+    next = logEvent(next, {
+      kind: "spell-effect", effect: "retarget", targetId: t.id, cardName: obj.source?.name || null, controller: me,
+      from: originals.map((x) => x.name || x.id), to: newTargets.map((x) => x.name || x.id),
+    });
+  }
+  return next;
+}
+
 export const stackResolvers = {
+  retarget: applyRetarget, // ⭐ RETARGET (Deflecting Swat, CR 115.7) — re-pick a stack object's own targets off the live board; decline = keep (CR 115.7d)
   "bounce-spell-or-permanent": applyBounceSpellOrPermanent, // VENSER — the STACK∪BATTLEFIELD union bounce ("return target spell or permanent to its owner's hand")
   "copy-spell": applyCopySpell, // STORM (CR 702.40) — copy the storm spell N times (N = spells cast before it this turn)
   "copy-creature-spell": applyCopyCreatureSpell, // COPY-A-CREATURE-SPELL (Double Major, CR 707.10) — a token copy of a chosen own creature spell

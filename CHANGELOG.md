@@ -9,6 +9,11 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Deflecting Swat actually swats.** Cast it free with your commander out (or pay the {2}{R}) and it
+  re-aims a spell or ability on the stack: removal pointed at your creature gets deflected onto
+  something of its own caster's, and when there's nothing better to point it at, the targets simply
+  stay as printed — exactly how the card's "may" works. Uncounterable spells are fair game; a
+  retarget was never a counter.
 - **Klauth fuels the alpha strike.** His attack trigger really adds mana equal to your total
   attacking power — pumped attackers count — and it lasts until end of turn as printed. The mana
   spends only on spells, never on abilities, and Rivaz of the Claw's Dragon-only mana now pays

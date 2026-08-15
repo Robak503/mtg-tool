@@ -239,9 +239,19 @@ describe("ALT-COST CREED — LOW altCost carriers NEVER emit an altCost action",
     const s = altState({ hand: [MISDIRECTION, BRAINSTORM], stack: [stackSpell], pool: { U: 2, C: 3 }, life: 20 });
     expect(casts(s).every((a) => !a.altCost)).toBe(true);
   });
-  it("Deflecting Swat (free metadata, unmodeled body) → no altCost action even with a commander on the battlefield", () => {
+  it("GRADUATED 2026-08-15: Deflecting Swat — the retarget body is MODELED now (CR 115.7), free-if-commander is OFFERED", () => {
+    // Canaried here while "choose new targets for target spell or ability" parsed LOW. The retarget atom
+    // (deflectingSwat.test.js) admits the body, so the ALREADY-modeled free/controlCommander alt cost
+    // (Fierce Guardianship's shape) now rides it. The class guard stays: Misdirection above ("change the
+    // target … single target" — a different wording the arm does not match) still never offers.
     const s = altState({ hand: [DEFLECTING_SWAT], battlefield: [CMDR_PERM()], stack: [stackSpell], pool: { R: 1, C: 2 } });
-    expect(casts(s).every((a) => !a.altCost)).toBe(true);
+    const alt = altsOf(casts(s), "swat");
+    expect(alt.length).toBe(1);
+    expect(alt[0].altCost).toEqual({ kind: "free" });
+    expect(alt[0].targets[0]).toMatchObject({ type: "spell", id: "s1" });
+    // Seen-to-fail control: no commander on the battlefield → the condition gate holds, no free offer.
+    const noCmdr = altState({ hand: [DEFLECTING_SWAT], stack: [stackSpell], pool: { R: 1, C: 2 } });
+    expect(altsOf(casts(noCmdr), "swat").length).toBe(0);
   });
   it("GRADUATED 2026-08-14: Force of Vigor — the body is MODELED now, the pitch is OFFERED off-turn", () => {
     // Canaried here while "destroy up to two target artifacts and/or enchantments" parsed LOW. The

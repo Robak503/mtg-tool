@@ -971,6 +971,10 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // counter — Venser legally bounces an uncounterable spell). The permanent half is the plain predicate.
   else if (effect.targetType === "spellOrPermanent") { addStackSpells(); addPermanents(PERMANENT_PREDICATES.permanent); }
   else if (effect.targetType === "stackAbility") addStackAbilities(new Set(effect.abilityKinds || ["triggered-ability", "activated-ability"]));
+  // RETARGET (Deflecting Swat, CR 115.7) — "target spell or ability": the full stack union. The spec
+  // carries notCounter, so the counter-only CR 701.6a exclusions don't narrow the pool (an uncounterable
+  // spell's targets can still legally be changed — retargeting never counters).
+  else if (effect.targetType === "spellOrStackAbility") { addStackSpells(); addStackAbilities(new Set(["triggered-ability", "activated-ability"])); }
   else if (effect.targetType === "graveyardCard") addGraveyardCards();
   else if (effect.targetType === "opponent") addOpponents();
   else if (effect.targetType === "artifactOrEnchantmentOrFlyingCreature") addArtifactEnchantmentOrFlyingCreature(); // BW-1 triple union

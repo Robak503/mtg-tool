@@ -205,6 +205,10 @@ function atomTargetSpec(atom) {
   // trap the tt==="spell" arm documents for its own filters); without it the enumeration wrongly
   // excludes uncounterable spells from a bounce that is not a counter (CR 701.6a).
   if (tt === "spellOrPermanent") return { kind: atom.op, targetType: tt, ...(atom.notCounter && { notCounter: true }) };
+  // RETARGET (Deflecting Swat, CR 115.7) — the STACK-WIDE union "target spell or ability". `notCounter`
+  // MUST be threaded explicitly (same unlisted-=-dropped trap as the Venser arm above): retargeting is not
+  // countering, so the CR 701.6a uncounterability exclusions never narrow Swat's legal pool.
+  if (tt === "spellOrStackAbility") return { kind: "retarget", targetType: tt, notCounter: true };
   if (tt === "spell") return {
     kind: "counter", targetType: "spell", spellFilter: atom.spellFilter || "any",
     // ⭐ CNT-TARGETS-WHAT — the only counter filter that reads the target spell's CHOSEN TARGETS rather than
