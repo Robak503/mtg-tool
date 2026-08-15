@@ -137,15 +137,26 @@ Counter-themed (X-Men). 21 residue; the probed queue:
    The probe found the subsystem ALREADY BUILT (the modified-anthem selector + layers.isModifiedPermanent
    — the one-place CR 700.9 definition): the slice was just the watcher subject arm (requiresModified,
    the token-filter carve's sibling) + the descriptor registration + the scopeMatches live gate.
-4. **Warden of the Grove** — end-step self-counter (routes) + "it endures X" (the endure keyword:
-   the recipient's controller chooses counters OR a token — a new choice mechanic; medium-heavy).
-5. The upkeep bucket: **Neyith of the Dire Hunt** (upkeep fight offer), **Berserk**-class,
-   **Canopy Gargantuan**. The anthems: **Inscription of Abundance** (modal), **Beastie Beatdown**,
-   **The Last Agni Kai**. Statics: **Well Rested**, **Brotherhood Regalia** (granted
-   shroud/can't-be-targeted class). **Cori-Steel Cutter** (cast trigger + token), **The Ozolith**
-   pairs with #2, **Nibelheim Aflame** / **Legolas's Quick Reflexes** / **HULK SMASH!** (spells),
-   the two Wolverine cards themselves (attacks + ETB), **Quilled Greatwurm**, **Meltstrider's
-   Resolve**, **Raph & Mikey** (unclassified — probe fresh).
+4. **Warden of the Grove** — PROBED 08-15 late: trigger 1 (end-step self-counter) ROUTES; the gap is
+   trigger 2 — "whenever another nontoken creature you control enters, it endures X, where X is the
+   number of counters on this creature." ⭐ ENDURE MODE B ALREADY EXISTS (counters.js imports
+   applyCreateToken for "the N/N white Spirit token when the source has left") — probe what endure
+   machinery is wired before building; the gaps are likely the DYNAMIC X (counters-on-source) + the
+   entering-creature referent + the counters-or-token CHOICE seam. NEXT SLICE UP.
+5. **Canopy Gargantuan** — probed: the upkeep "put +1/+1 counters on EACH OTHER creature you control
+   equal to THAT CREATURE'S toughness" — a per-target-scaled mass counter atom (the amount referent is
+   each recipient's OWN toughness). Contained; medium.
+6. **Well Rested** — probed: a GRANTED quoted trigger ("becomes untapped" + a once-each-turn latch);
+   pendingUntapEvents exists in gameState — the event lane may be wired; probe the granted-trigger
+   parse of the untap event.
+7. **Neyith of the Dire Hunt** — probed: the fight-or-blocked OR-batch draw detects but doesn't route;
+   the combat-begin pay-{2}{R/G}-double-power offer doesn't detect (compound: optional pay + double +
+   must-be-blocked rider). HEAVY — park toward the deck's end.
+8. The rest: the anthems (**Inscription of Abundance** modal, **Beastie Beatdown**, **The Last Agni
+   Kai**), **Brotherhood Regalia** (granted shroud class), **Cori-Steel Cutter** (cast trigger +
+   token), **Nibelheim Aflame** / **Legolas's Quick Reflexes** / **HULK SMASH!** (spells), the two
+   Wolverine cards (attacks + ETB), **Quilled Greatwurm**, **Meltstrider's Resolve**, **Berserk**,
+   **Raph & Mikey** (unclassified — probe fresh).
 
 ## ② KELLAN OF THE WEST — 74, needs 16 (the widest gap)
 
