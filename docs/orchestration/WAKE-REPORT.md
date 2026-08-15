@@ -13,14 +13,19 @@
 > · ✅ **RIPPLES SHIPPED a48758be (+2 with Miara; Teval 86)** — the milled-referent pick + the
 >   milled-pick pause kind + the life-rider compound cost all landed per the blueprint below.
 >   ✅ Dredger's Insight SHIPPED f8df8533 (+2 with Eerie Gravestone; **Teval 87**).
->   **NEXT: COURT OF CUNNING (probed 08-15 night)** — both triggers detect (monarch ETB modeled);
->   the upkeep tail is the gap: "any number of target players each mill two cards. If you're the
->   monarch, … ten instead." Pieces: ① an anchored splitClauses FOLD pairing the two sentences;
->   ② the mill atom gains amountIfMonarch (resolution-time state.monarchId read — the
->   MONARCH_STATUS machinery in interveningIf is the precedent) on applyMill's EXISTING "target"
->   branch (Kitsune's Technique built targeted player mill); ③ enumeration for
->   any-number-of-target-PLAYERS subsets (the multi-count creature-subset machinery is the template;
->   note the AI pick: in THIS deck the caster targets THEMSELF — Teval wants the self-mill).
+>   ✅ Court of Cunning SHIPPED 0b09b940 (+1; **Teval 88 — two from the bar**).
+>   **NEXT: TOXIC DELUGE (probed 08-15 night, four pieces):** ① the PAY-X-LIFE additional-cost arm in
+>   castModifiers.extractAdditionalCosts (~the PAYLIFE_COST_RE cluster; fixed payLife EXISTS — add the
+>   X form → { kind: "payLifeX" } and mark the program X-parameterized so the body parses hasX);
+>   ② "payLifeX" joins SUPPORTED_ADDITIONAL_COST_KINDS ONLY WITH ③ the cast-path enforcement:
+>   X-range enumeration (bounded by the caster's LIFE, not mana — the {X}-mana enumeration in
+>   legalChoices ~1353 is the template; the AI's X pick wants a board read — the biggest enemy
+>   toughness worth sweeping, or deterministic-capped) + the loseLife X payment at cast (the
+>   discard-additional-cost dispatcher site ~443 is the payment template) + xValue threading;
+>   ④ the "-X/-X" MASS pump arm (hasX-gated — the fixed "all creatures get -2/-2" already parses,
+>   amountX is the parser's existing stamp path). Then the ETB bucket: Titania · Overlord of the
+>   Balemurk · Animate Dead · Colossal Grave-Reaver · Tasigur (delve—heavy) · Ardyn · Breach ·
+>   Teval's Judgment · Six (retrace — CEILING-class candidate).
 >   Then: Toxic Deluge (the pay-X-life additional cost + the -X/-X team debuff) · Colossal
 >   Grave-Reaver (the batch library→GY reanimate pick) · Court of Cunning · Titania · Overlord ·
 >   Animate Dead · Tasigur (delve — heavy) · Six (retrace parks it — likely CEILING-class) · Ardyn ·
