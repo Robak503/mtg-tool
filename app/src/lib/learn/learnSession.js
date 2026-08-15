@@ -93,6 +93,7 @@ import {
   resolveOptionalDrawDiscardChoice,
   autoPickOptionalDiscard,
   resolveOptionalDiscardPaymentChoice,
+  resolveOptionalExileSelfChoice,
   autoPickSacUnlessPay,
   resolveSacUnlessPayChoice,
   autoPickTaxedPayment,
@@ -870,6 +871,13 @@ function settleOptionalDrawDiscardChoice(state, doDraw) {
 // runs (the cost-discard's which-card pause may still be pending, so guard before flushing). Mirrors settleOptionalSacChoice.
 function settleOptionalDiscardChoice(state, doDiscard) {
   const next = resolveOptionalDiscardPaymentChoice(state, doDiscard);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+// OPTIONAL-EXILE-SELF (Undead Butler) — settle "you may exile it. When you do, <payoff>." On pay the exile
+// happens + the payoff runs (a payoff pause may still be pending, so guard before flushing). Same shape.
+function settleOptionalExileSelfChoice(state, doExile) {
+  const next = resolveOptionalExileSelfChoice(state, doExile);
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
@@ -2121,6 +2129,28 @@ export function advanceUntilDecision(
         current = { ...current, state: settleOptionalDiscardChoice(current.state, picked.value) };
         continue;
       }
+      // OPTIONAL-EXILE-SELF (Undead Butler) — the dies self-exile payment. Auto-pick: pay iff available
+      // (the payoff is upside — the legacy always-take posture every optional-payment auto-pick uses).
+      if (pc.kind === "optional-exile-self-payment") {
+        if (pause) {
+          return { session: current, decision: { kind: "optional-exile-self-payment", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            value: !!pc.available,
+          },
+        });
+        current = { ...current, state: settleOptionalExileSelfChoice(current.state, picked.value) };
+        continue;
+      }
       if (pc.kind === "sac-unless-pay") {
         if (pause) {
           return { session: current, decision: { kind: "sac-unless-pay", ...pc } };
@@ -3063,6 +3093,45 @@ export function applyOptionalDiscardPaymentChoice(session, choice, opts = {}) {
 }
 
 /**
+ * OPTIONAL-EXILE-SELF (Undead Butler) — the human submit for "you may exile it. When you do, <payoff>."
+ * `choice.exile` (or a bare boolean) is the yes/no; settleOptionalExileSelfChoice re-scans + pays + runs
+ * the payoff. Mirrors applyOptionalDiscardPaymentChoice exactly.
+ */
+export function applyOptionalExileSelfChoice(session, choice, opts = {}) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "optional-exile-self-payment") {
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
+  }
+  const doExile = choice?.exile === true || choice === true;
+  let newState;
+  try {
+    newState = settleOptionalExileSelfChoice(session.state, doExile);
+  } catch (error) {
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "optional-exile-self-choice", exiled: doExile },
+    auto: false,
+    reasoning: "user-chose-optional-exile-self",
+  };
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
+}
+
+/**
  * ===== UPKEEP-SAC-UNLESS-PAY ===== — the player chose to pay (keep the permanent) or not (sacrifice it), for a
  * "sacrifice this <noun> unless you pay {cost}." `choice.pay` is the yes/no. resolveSacUnlessPayChoice charges the
  * mana + keeps it on a pay-and-afford, else sacrifices the source, then resumes + re-derives. Mirrors applyOptionalSacChoice.
@@ -3773,6 +3842,8 @@ export function applyPendingChoice(session, choice, opts = {}) {
     return applyOptionalDrawDiscardChoice(session, choice, opts);
   if (kind === "optional-discard-payment")
     return applyOptionalDiscardPaymentChoice(session, choice, opts);
+  if (kind === "optional-exile-self-payment")
+    return applyOptionalExileSelfChoice(session, choice, opts);
   if (kind === "sac-unless-pay") return applySacUnlessPayChoice(session, choice, opts);
   if (kind === "taxed-payment") return applyTaxedPaymentChoice(session, choice, opts);
   if (kind === "edict-mode") return applyEdictModeChoice(session, choice, opts);

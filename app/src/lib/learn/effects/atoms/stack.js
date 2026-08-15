@@ -5,7 +5,7 @@
 
 import { applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js"; // the SHARED creature-restriction grammar — massFilteredDamageClauseParser's general arm delegates its recipient phrase to it (no new module edge: applyDamageEffect already came from here)
 import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject, addCounter, recordGraveyardEvents, updatePermanentSafe } from "../../gameState.js";
-import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice } from "../../pendingChoice.js";
+import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingOptionalExileSelfChoice, setPendingSacUnlessPayChoice, setPendingTaxedPaymentChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
 import { permanentIsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW
 import { applyControllerRider } from "./removal.js";
@@ -1026,6 +1026,26 @@ function applyOptionalDiscardPayment(state, atom, ctx) {
   });
 }
 
+// OPTIONAL-EXILE-SELF PAYMENT (Undead Butler, CR 603.7) — "you may exile it. When you do, <payoff>": the
+// dies-trigger self-exile cost. Availability = the dead card (ctx.triggeringCardId, the dies look-back's
+// durable key) sits in SOME graveyard right now; a false-`available` pause still surfaces (the player/AI
+// must decline — the established pattern). The payoff atoms + the flush-locked target ride the pause.
+// No referent threaded (a non-dies caller) → no choice at all, a clean no-op — never a guessed exile.
+function applyOptionalExileSelfPayment(state, atom, ctx) {
+  if (state.pendingChoice) return state; // FIFO — one choice at a time
+  const cardId = ctx?.triggeringCardId;
+  if (!cardId) return logEvent(state, { kind: "spell-effect", effect: "optional-exile-self", skipped: "no-referent", controller: ctx?.controller });
+  const available = Object.keys(state.players || {}).some((pid) => (state.players[pid]?.graveyard || []).some((c) => c.id === cardId));
+  return setPendingOptionalExileSelfChoice(state, {
+    controller: ctx.controller,
+    available,
+    cardId,
+    effectAtoms: atom.effectAtoms || [],
+    sourceName: ctx.cardName || null,
+    targets: ctx.targets || [],
+  });
+}
+
 // OPPONENT-PAYS-TO-DENY (taxed-draw) — the effect of "Whenever an opponent casts a spell, you may draw a card unless
 // that player pays {N}." (Rhystic Study). The PAYER is the opponent who cast — ctx.castingPlayerId, threaded into the
 // trigger context by checkCastTriggers and spread into ctx by runEffectProgram. Suspend on the payer's pay-or-let-
@@ -1665,6 +1685,7 @@ export const stackResolvers = {
   "optional-sac-payment": applyOptionalSacPayment, // REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — "you may sacrifice a <subtype>. if you do, <effect>"
   "optional-draw-discard": applyOptionalDrawDiscard, // OPTIONAL DRAW-THEN-DISCARD — "you may draw a card. if you do, discard a card."
   "optional-discard-payment": applyOptionalDiscardPayment, // OPTIONAL-DISCARD-PAYMENT (CR 603.7c) — "you may discard a card. if you do, <effect>"
+  "optional-exile-self-payment": applyOptionalExileSelfPayment, // OPTIONAL-EXILE-SELF (Undead Butler, CR 603.7) — "you may exile it. when you do, <payoff>" (the dies self-exile cost)
   "sac-unless-pay": applyUpkeepSacUnlessPay, // UPKEEP-SAC-UNLESS-PAY (echo-without-the-keyword) — "sacrifice this <noun> unless you pay {cost}"
   "cumulative-upkeep": applyCumulativeUpkeep, // CUMULATIVE UPKEEP (CR 702.24) — add age counter, pay {cost}×age-counters or sacrifice (Mystic Remora)
   "echo": applyEcho, // ECHO (EC-1, CR 702.30) — the one-time first-upkeep pay-or-sacrifice (echoDone-stamped)

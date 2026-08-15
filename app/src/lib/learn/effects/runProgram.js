@@ -1569,6 +1569,47 @@ export function resolveOptionalDiscardPaymentChoice(state, doDiscard) {
 }
 
 /**
+ * ===== OPTIONAL-EXILE-SELF PAYMENT ===== — settle "you may exile it. When you do, <payoff>" (Undead
+ * Butler): on `doExile`, the dead card is RE-SCANNED across every graveyard NOW (CR 603.6e — it may have
+ * been recurred/exiled during the pause; the offer-site availability is not trusted here, the same
+ * independence the discard settler documents) and moved graveyard → exile; ONLY a real move runs the
+ * payoff (with the flush-locked pc.targets replayed — CR 603.3d). Decline, or the card gone → NOTHING:
+ * the payoff never runs without the paid cost (the cardinal CREED guarantee). Logged either way.
+ */
+export function resolveOptionalExileSelfChoice(state, doExile) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "optional-exile-self-payment") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → bail, no resume
+  let paid = false;
+  if (doExile && pc.cardId) {
+    for (const pid of Object.keys(next.players || {})) {
+      const gy = next.players[pid]?.graveyard || [];
+      const gi = gy.findIndex((c) => c?.id === pc.cardId);
+      if (gi === -1) continue;
+      const card = gy[gi];
+      next = { ...next, players: { ...next.players, [pid]: { ...next.players[pid], graveyard: [...gy.slice(0, gi), ...gy.slice(gi + 1)], exile: [...(next.players[pid].exile || []), card] } } };
+      paid = true;
+      break;
+    }
+  }
+  next = logEvent(next, { kind: "spell-effect", effect: "optional-exile-self", controller: pc.controller, paid, sourceName: pc.sourceName || null });
+  if (paid && (pc.effectAtoms || []).length) {
+    const r = pc.resume || {};
+    const obj = {
+      source: { name: pc.sourceName ?? null },
+      payload: { params: {
+        program: { atoms: pc.effectAtoms }, controller: pc.controller, targets: pc.targets || [],
+        xValue: r.xValue ?? null, sourceId: r.sourceId ?? null, context: r.context || {},
+        kicked: r.kicked ?? false, chosenMode: null, spellToGraveyard: r.spellToGraveyard ?? null,
+      } },
+    };
+    return runEffectProgram(next, obj);
+  }
+  return resumeAfterChoice(next, pc);
+}
+
+/**
  * ===== UPKEEP-SAC-UNLESS-PAY ===== — settle "sacrifice this <noun> unless you pay {cost}": INVERTED polarity vs
  * optional-mana-payment. If `pay` AND the controller can afford it, charge the mana (payManaCost — taps their sources)
  * and the permanent SURVIVES; otherwise (declined, OR an unaffordable pay — payManaCost never fabricates mana, CR 119,

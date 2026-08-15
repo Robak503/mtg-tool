@@ -46,6 +46,7 @@ export const PENDING_CHOICE_KINDS = [
   "optional-sac-payment",
   "optional-draw-discard",
   "optional-discard-payment",
+  "optional-exile-self-payment",
   "sac-unless-pay",
   "taxed-payment",
   "edict-mode",
@@ -587,6 +588,22 @@ export function setPendingOptionalDiscardPaymentChoice(state, { controller, avai
     // discardCount defaults to 1, so every existing caller is byte-identical; only the cost-bearing
     // graveyard self-return (Old One Eye, two cards) passes anything else.
     pendingChoice: { kind: "optional-discard-payment", controller, available, effectAtoms, sourceName, discardCount },
+  };
+}
+
+/**
+ * OPTIONAL-EXILE-SELF PAYMENT (Undead Butler, CR 603.7) — "you may exile it. When you do, <payoff>": the
+ * dies-trigger self-exile cost. `cardId` is the dead card's durable id (diesCtx.triggeringCardId);
+ * `available` = the card sits in a graveyard NOW (re-checked at settle, CR 603.6e — it may have been
+ * recurred/exiled during the pause). `targets` = the payoff's flush-locked target (CR 603.3d), replayed at
+ * settle. The driver pauses a human and auto-decides an AI (pay iff available — the payoff is upside). FIFO.
+ */
+export function setPendingOptionalExileSelfChoice(state, { controller, available, cardId, effectAtoms = [], sourceName = null, targets = [] }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "optional-exile-self-pending", controller, available, sourceName, cardId });
+  return {
+    ...next,
+    pendingChoice: { kind: "optional-exile-self-payment", controller, available, cardId, effectAtoms, sourceName, targets },
   };
 }
 

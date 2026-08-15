@@ -677,6 +677,31 @@ export function OptionalDiscardPaymentPanel({ decision, onChoose }) {
   );
 }
 
+/** OPTIONAL-EXILE-SELF (Undead Butler) — exiling the dead card from your graveyard is the cost; only a real exile runs the payoff. */
+export function OptionalExileSelfPanel({ decision, onChoose }) {
+  const available = decision.available !== false;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <ChoiceBanner
+        icon="🪦"
+        title={`Exile it?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}
+      >
+        You may exile this card from your graveyard. If you do, the effect resolves.
+        {!available && (
+          <span style={{ color: "var(--ley-gold)" }}> The card is no longer in your graveyard.</span>
+        )}
+      </ChoiceBanner>
+      <YesNoChoice
+        yesLabel="Exile it"
+        noLabel="Decline"
+        yesDisabled={!available}
+        onYes={() => onChoose?.(true)}
+        onNo={() => onChoose?.(false)}
+      />
+    </div>
+  );
+}
+
 /**
  * SAC-UNLESS-PAY — INVERTED polarity, and the panel says so plainly: paying KEEPS the permanent and
  * DECLINING sacrifices it. Every other pay/decline here is "pay for a bonus"; misreading this one

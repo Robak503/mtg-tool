@@ -123,6 +123,7 @@ const PAUSING_OPS_LIST = [
   "optional-sac-payment", // stack.js applyOptionalSacPayment → setPendingOptionalSacBySubtypeChoice
   "optional-draw-discard", // stack.js applyOptionalDrawDiscard → setPendingOptionalDrawDiscardChoice
   "optional-discard-payment", // stack.js applyOptionalDiscardPayment → setPendingOptionalDiscardPaymentChoice (the cost-discard pause; payoff is non-pausing)
+  "optional-exile-self-payment", // stack.js applyOptionalExileSelfPayment → setPendingOptionalExileSelfChoice (Undead Butler — the dies self-exile cost pause)
   "sac-unless-pay", // stack.js applyUpkeepSacUnlessPay → setPendingSacUnlessPayChoice (upkeep pay-or-sacrifice)
   "cumulative-upkeep", // stack.js applyCumulativeUpkeep → setPendingSacUnlessPayChoice (age counter + scaled pay-or-sacrifice — CR 702.24)
   "echo", // stack.js applyEcho → setPendingSacUnlessPayChoice (the one-time first-upkeep pay-or-sacrifice — CR 702.30)

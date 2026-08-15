@@ -832,6 +832,12 @@ export default function useLearnSession() {
     [submitPendingChoice],
   );
 
+  /** OPTIONAL-EXILE-SELF (Undead Butler) — pay by exiling the dead card from the graveyard, or decline. */
+  const applyOptionalExileSelfChoice = useCallback(
+    (exile) => submitPendingChoice("optional-exile-self-payment", { exile: exile === true }),
+    [submitPendingChoice],
+  );
+
   /** SAC-UNLESS-PAY — INVERTED polarity: paying KEEPS the permanent, declining sacrifices it. */
   const applySacUnlessPayChoice = useCallback(
     (pay) => submitPendingChoice("sac-unless-pay", { pay: pay === true }),
@@ -1449,6 +1455,7 @@ export default function useLearnSession() {
     applyDistributeCountersChoice,
     applyOptionalDrawDiscardChoice,
     applyOptionalDiscardPaymentChoice,
+    applyOptionalExileSelfChoice, // OPTIONAL-EXILE-SELF (Undead Butler)
     applySacUnlessPayChoice,
     applyTaxedPaymentChoice,
     applyEdictModeChoice,

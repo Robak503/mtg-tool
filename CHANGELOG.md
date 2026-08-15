@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Undead Butler's last service works.** When it dies you really choose whether to exile it from
+  your graveyard, and only a real exile fetches the creature card back to your hand — if the Butler
+  slipped out of the graveyard first, there's no free return. Paramecia Coloniex's identical trick
+  works too.
 - **Molt Tender pays its way.** The second tap really exiles a card from your graveyard for its
   any-color mana — it's never offered with an empty graveyard, and the exile actually happens (which
   also feeds Teval's Zombie trigger, as printed).

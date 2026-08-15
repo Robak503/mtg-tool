@@ -1629,6 +1629,31 @@ function matchOptionalReflexiveTrigger(oracle, cardType, hasX) {
   return { atoms };
 }
 
+/**
+ * ===== OPTIONAL-EXILE-SELF REFLEXIVE (Undead Butler, CR 603.7) ===== "You may exile it. When you do,
+ * <payoff>." — the dies-trigger self-exile payment. Emits ONE optional-exile-self-payment atom carrying
+ * the payoff (the pausing-payment pattern; see the call-site comment for why not reflexiveGate). Gates,
+ * verbatim from the optional-mana-payment arm: every payoff atom KNOWN · at most ONE chosen targetType
+ * (lifted onto the wrapper so the trigger enumerates + locks it at flush, CR 603.3d) · no NON-LAST
+ * pausing payoff atom (a mid-payoff pause would drop the tail at settle — the WI-3 trap). A graveyardCard
+ * payoff atom is stamped excludeTriggeringCard: the exiled card is gone from the pool when the real
+ * reflexive chooses (CR 603.7), so offering it would target a card the cost already removed.
+ */
+function matchOptionalExileSelfReflexive(oracle, cardType) {
+  const s = stripReminder(oracle).trim();
+  const m = s.match(/^you may exile it\.\s+when you do(?:\s+this|\s+so)?\s*,?\s+(.+?)\.?$/i);
+  if (!m) return null;
+  if (/\bwhen you do\b/i.test(m[1])) return null; // a chained 2nd reflexive — not modeled
+  const payoff = parseEffectClauseImpl(m[1].trim(), cardType, { hasX: false });
+  if (!payoff || programConfidence(payoff) !== "high" || payoff.structure === "modal" || payoff.xSpell) return null;
+  const inner = (payoff.atoms || []).map((a) => (a.targetType === "graveyardCard" ? { ...a, excludeTriggeringCard: true } : a));
+  if (!inner.length || !inner.every((a) => KNOWN.has(a.op)) || inner.some((a) => a.optional)) return null;
+  const chosen = [...new Set(inner.map((a) => a.targetType).filter((tt) => tt && !isNonChosenTargetType(tt)))];
+  if (chosen.length > 1) return null;
+  if (inner.slice(0, -1).some((a) => PAUSING_ATOM_OPS.has(a.op))) return null;
+  return { atom: { op: "optional-exile-self-payment", effectAtoms: inner, targetType: chosen[0] ?? null } };
+}
+
 // INSPIRING CALL — "Draw a card for each creature you control with a +1/+1 counter on it. Those creatures gain
 // <grantable keyword[s]> until end of turn." The "those creatures" anaphora binds the group grant to the SAME
 // +1/+1-counter-filtered set the draw just counted; the two sentences span the clause splitter, so it's matched
@@ -2350,6 +2375,18 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   const orfx = matchOptionalReflexiveTrigger(oracle, cardType, hasX);
   if (orfx) {
     return makeProgram({ confidence: "high", atoms: orfx.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== OPTIONAL-EXILE-SELF REFLEXIVE (Undead Butler, CR 603.7) ===== "You may exile it. When you do,
+  // <payoff>." — the DIES-trigger shape where "it" is the dead source card, now in its owner's graveyard.
+  // The generic optional-reflexive above rejects it ("exile it" parses LOW as a bare clause — the referent
+  // has no standalone meaning), so this matcher owns it: ONE pausing optional-exile-self-payment atom (the
+  // optional-payment PATTERN, not the reflexiveGate route — availability is re-checked at settle, so a card
+  // that left the graveyard during the pause window can never yield a free payoff, the FP the α2 route
+  // would allow). The three optional-mana-payment gates apply verbatim; graveyardCard payoff atoms are
+  // stamped excludeTriggeringCard (the dead card leaves the pool as the cost — it can never target itself).
+  const oxs = matchOptionalExileSelfReflexive(oracle, cardType);
+  if (oxs) {
+    return makeProgram({ confidence: "high", atoms: [oxs.atom], xSpell: false, unparsedTail: null });
   }
   // ===== OPTIONAL-MANA-PAYMENT (CR 603.7c) ===== "You may pay {cost}. If you do, <effect>." → ONE
   // optional-mana-payment atom (the resolver suspends on a real pay/decline; payManaCost charges the cost, the

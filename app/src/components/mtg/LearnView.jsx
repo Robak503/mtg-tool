@@ -36,6 +36,7 @@ import {
   DistributeCountersPanel,
   OptionalDrawDiscardPanel,
   OptionalDiscardPaymentPanel,
+  OptionalExileSelfPanel,
   SacUnlessPayPanel,
   TaxedPaymentPanel,
   EdictModePanel,
@@ -728,6 +729,7 @@ export default function LearnView({
               onDistributeCountersChoose={session.applyDistributeCountersChoice}
               onOptionalDrawDiscardChoose={session.applyOptionalDrawDiscardChoice}
               onOptionalDiscardPaymentChoose={session.applyOptionalDiscardPaymentChoice}
+              onOptionalExileSelfChoose={session.applyOptionalExileSelfChoice}
               onSacUnlessPayChoose={session.applySacUnlessPayChoice}
               onTaxedPaymentChoose={session.applyTaxedPaymentChoice}
               onEdictModeChoose={session.applyEdictModeChoice}
@@ -842,6 +844,14 @@ export default function LearnView({
           <OptionalDiscardPaymentPanel
             decision={decision}
             onChoose={session.applyOptionalDiscardPaymentChoice}
+          />
+        </div>
+      )}
+      {session.board && decision?.kind === "optional-exile-self-payment" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <OptionalExileSelfPanel
+            decision={decision}
+            onChoose={session.applyOptionalExileSelfChoice}
           />
         </div>
       )}
@@ -1343,6 +1353,7 @@ function DecisionPrompt({
   onDistributeCountersChoose,
   onOptionalDrawDiscardChoose,
   onOptionalDiscardPaymentChoose,
+  onOptionalExileSelfChoose,
   onSacUnlessPayChoose,
   onTaxedPaymentChoose,
   onEdictModeChoose,
@@ -1391,6 +1402,9 @@ function DecisionPrompt({
     return (
       <OptionalDiscardPaymentPanel decision={decision} onChoose={onOptionalDiscardPaymentChoose} />
     );
+  }
+  if (decision.kind === "optional-exile-self-payment") {
+    return <OptionalExileSelfPanel decision={decision} onChoose={onOptionalExileSelfChoose} />;
   }
   if (decision.kind === "sac-unless-pay") {
     return <SacUnlessPayPanel decision={decision} onChoose={onSacUnlessPayChoose} />;

@@ -243,6 +243,12 @@ export function atomTargetIntent(atom) {
       // TRIGGER (Nantuko Tracer / Vessel of Endless Rest ETBs) routes to the Arbiter (a SAFE FN) —
       // exactly the reanimate / exile-from-graveyard discipline below. Activated/cast paths unaffected.
       return (atom.anyGraveyard || atom.opponentGraveyard) ? "ambiguous" : "own";
+    case "optional-exile-self-payment":
+      // OPTIONAL-EXILE-SELF (Undead Butler): the wrapper's lifted targetType is its PAYOFF's — a
+      // return-from-graveyard over the caster's OWN graveyard (the parser only ever lifts a
+      // graveyardCard payoff here, and the arm stamps excludeTriggeringCard). Own-side, same as the
+      // bare return-from-graveyard entry above.
+      return "own";
     case "reanimate":
       // OWN-graveyard reanimate ("from your graveyard") is own-side, so a reanimation TRIGGER routes
       // natively. But the REANIMATE-FROM-ANY forms ("from a graveyard" / "from an opponent's graveyard")

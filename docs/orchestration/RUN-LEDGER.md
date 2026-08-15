@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **⭐ UNDEAD BUTLER (+2) — the optional-exile-self pause kind** - the shelf grind (Teval 82→83)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0** — Undead Butler + Paramecia
+> Coloniex (the identical dies shape, whole-card audited). Post-release batch **+22**.
+> ⭐ A NEW PAUSE KIND on the optional-payment pattern (6 wiring points, all templated): "you may exile
+> it. When you do, <payoff>" — the dies self-exile cost. ⛔ NOT the α2/reflexiveGate route: the settler
+> RE-SCANS the dead card across every graveyard at settle (CR 603.6e) and ONLY a real GY→exile move
+> runs the payoff — the vanished-card control (recurred mid-pause → take pays nothing, NO free return)
+> is the design's whole reason and the re-scan-short-circuit mutation kills exactly it. The parser
+> lifts the payoff's targetType onto the wrapper (flush-locked, CR 603.3d) and stamps
+> excludeTriggeringCard (the dead card never targets itself, CR 603.7); atomTargetIntent knows the
+> wrapper as own-side. diesCtx.triggeringCardId stamped (additive+inert).
+> Token diet: ~9k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **MOLT TENDER (+1) — the exile-from-GY mana cost, PAID for real** - the shelf grind (Teval 81→82)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Molt Tender
 > body-only→native-mana, zero riders. Post-release batch **+20**.

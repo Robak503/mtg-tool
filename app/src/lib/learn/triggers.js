@@ -6085,6 +6085,10 @@ export function checkDiesTriggers(state, dead) {
     // interveningIf.js reads an identical value at flush AND resolution (the source is gone by then). A
     // creature-front DFC / an Enchantment Creature both read true; a non-creature look-back reads false.
     const diesCtx = { triggeringWasCreature: /\bCreature\b/i.test(String(d.card?.type || d.card?.type_line || "")) };
+    // triggeringCardId (UNDEAD BUTLER, 2026-08-15): the dead CARD's durable id, for a dies payoff that
+    // must find the card in a graveyard at RESOLVE time ("you may exile it" — the optional-exile-self
+    // payment). The permanent is gone by then; the card id is the only stable key. Additive + inert.
+    if (d.card?.id) diesCtx.triggeringCardId = d.card.id;
     if (d.power != null) diesCtx.dyingPower = d.power;
     // KW-UNDYING (CR 702.92a + 603.6e last-known-info): the undying intervening-if reads whether the DYING
     // object had any +1/+1 counters AS IT LAST EXISTED on the battlefield. Stamped ONLY when the death
