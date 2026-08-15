@@ -9,24 +9,13 @@
 
 ## 🏁 2026-08-15 LATE — **TEVAL AT 90 (the 14th deck) · TWENTY slices today · batch +51** — suite **1263 / 14,701** green
 
-> ### ⏭ THE GRIND ORDER (Colton's steer, 2026-08-15 late): **cEDH decks LAST.**
-> "believe it and kinnan will be the hardest to push past 90 as those are cdh decks so focus those
-> last." The queue is therefore: **① Wolverine 79 → ② Kellan 74 → ③ Otharri 74 → ④ Cap America 73 →
-> ⑤ Halfshell 67 → ⑥ Shalai 67 → THEN ⑦ Believe it! 79 → ⑧ Kinnan 77** (both cEDH — the hardest
-> residue, deliberately deferred). Ceiling calls flagged per deck as the residue thins.
-> **THE WOLVERINE VEIN (79, needs 11 — probed 08-15 late):** ① Forgotten Ancient — trigger 1 (cast
-> watcher, optional self-counter) ROUTES already; the gap is trigger 2's counter-MOVE ("move any
-> number of +1/+1 counters from this creature onto other creatures") — build as remove-N-from-self +
-> the EXISTING distribute-counters pause (setPendingDistributeChoice); ⚠️ the decline-only shortcut is
-> a HOLLOW credit (the signature ability would never move a counter — the Raul no-op law), so the AI
-> policy must really move (deterministic: all onto the strongest other). ② Kodama of the West Tree —
-> 0 triggers detect; needs the MODIFIED predicate (counters/equipment/aura — all computable) for the
-> combat watcher + the modified-trample static + the basic-land-to-battlefield fetch payoff.
-> ③ The Ozolith — the leaves-with-counters accumulator (the dead look-back already snapshots
-> counters!) + the combat-start move-all. ④ Warden of the Grove — endure X (heavier, the
-> counters-or-token choice). Then the upkeep bucket (Neyith, Berserk, Canopy Gargantuan), the
-> anthems (Inscription of Abundance, Beastie Beatdown, The Last Agni Kai), Well Rested, Brotherhood
-> Regalia, Cori-Steel Cutter, Nibelheim Aflame, Legolas's, HULK SMASH!, the two Wolverines.
+> ### ⏭ RUNNABLE NOW — **the shelf tail runs off [SHELF-TAIL-PLAN.md](SHELF-TAIL-PLAN.md)** (Colton, 08-15: keep the window low)
+> The next three decks' full residue maps, probed blockers, and slice queues live in
+> **docs/orchestration/SHELF-TAIL-PLAN.md** — a booting session reads THAT file, not a vein block
+> here. The order (Colton's steer, banked in the vault): **① Wolverine 79 → ② Kellan 74 →
+> ③ Otharri 74 → ④ Cap America 73 → ⑤ Halfshell 67 → ⑥ Shalai 67 → cEDH LAST: ⑦ Believe it! 79 →
+> ⑧ Kinnan 77.** First slice up: Forgotten Ancient's counter-MOVE (design + the hollow-credit trap
+> are in the plan). Ceiling calls flagged per deck as residue thins.
 > Today's twenty (all CI green): the Swat retarget · Sarkhan-FB · Rivaz · Rith (Dragons→90) ·
 > Atzocan · Heirloom (Jurassic→90) · Tortured Existence (+17) · Teval herself · Molt Tender ·
 > Undead Butler (pause kind) · Tormod (+12) · Bloodghast · Ripples (pause kind #2 + life-rider) ·
@@ -35,53 +24,11 @@
 
 ## 🌙 2026-08-15 EVENING — **FOURTEEN slices · v0.159.0 LIVE · 13 decks at bar · TEVAL 79→85** — suite **1254 / 14,685** green
 
-> ### ⏭ RUNNABLE NOW — the Teval vein (15 residue; all shipped work pushed + CI green through 08752d55)
-> · ✅ **RIPPLES SHIPPED a48758be (+2 with Miara; Teval 86)** — the milled-referent pick + the
->   milled-pick pause kind + the life-rider compound cost all landed per the blueprint below.
->   ✅ Dredger's Insight SHIPPED f8df8533 (+2 with Eerie Gravestone; **Teval 87**).
->   ✅ Court of Cunning SHIPPED 0b09b940 (+1; **Teval 88 — two from the bar**).
->   **NEXT: TOXIC DELUGE (probed 08-15 night, four pieces):** ① the PAY-X-LIFE additional-cost arm in
->   castModifiers.extractAdditionalCosts (~the PAYLIFE_COST_RE cluster; fixed payLife EXISTS — add the
->   X form → { kind: "payLifeX" } and mark the program X-parameterized so the body parses hasX);
->   ② "payLifeX" joins SUPPORTED_ADDITIONAL_COST_KINDS ONLY WITH ③ the cast-path enforcement:
->   X-range enumeration (bounded by the caster's LIFE, not mana — the {X}-mana enumeration in
->   legalChoices ~1353 is the template; the AI's X pick wants a board read — the biggest enemy
->   toughness worth sweeping, or deterministic-capped) + the loseLife X payment at cast (the
->   discard-additional-cost dispatcher site ~443 is the payment template) + xValue threading;
->   ④ the "-X/-X" MASS pump arm (hasX-gated — the fixed "all creatures get -2/-2" already parses,
->   amountX is the parser's existing stamp path). Then the ETB bucket: Titania · Overlord of the
->   Balemurk · Animate Dead · Colossal Grave-Reaver · Tasigur (delve—heavy) · Ardyn · Breach ·
->   Teval's Judgment · Six (retrace — CEILING-class candidate).
->   Then: Toxic Deluge (the pay-X-life additional cost + the -X/-X team debuff) · Colossal
->   Grave-Reaver (the batch library→GY reanimate pick) · Court of Cunning · Titania · Overlord ·
->   Animate Dead · Tasigur (delve — heavy) · Six (retrace parks it — likely CEILING-class) · Ardyn ·
->   Breach · Teval's Judgment.
-> · (executed) **the MILLED-REFERENT pick blueprint (08-15 late):**
->   ① the STAMP: millOnePlayer (library.js 745) already captures `milledCards` pre-move — stamp
->   `_lastMilledIds: milledCards.map(c=>c.id)` on its returned state (the _impulseExiledTypes
->   state-stamp convention; overwritten per mill = the freshest mill is the referent; serialize-safe).
->   ② the PICK atom ("put a [land ]card from among them/those cards into your hand"): reads
->   state._lastMilledIds ∩ the controller's CURRENT graveyard (CR 608.2b — a card recurred/exiled in
->   between never offered), optional land-filter word. A HUMAN pick = another 8-point pause kind (the
->   Undead Butler checklist: parser arm · applier · pendingChoice kind+setter · settler · 3
->   learnSession sites · panel+hook+prop+fixture — every template named in that slice's commit
->   7764d407); AI auto-pick deterministic (first matching — lands fungible; a land-filtered pick has
->   no judgment loss). ③ RIPPLES also needs the LIFE-RIDER on matchOptionalManaPayment's cost
->   grammar ("{1} and 3 life" → cost.life charged in the settler beside payManaCost).
->   ⚠️ Six does NOT flip from the pick (its retrace static parks it regardless — verified); Ripples
->   DOES. Build the pick + the life rider as ONE Ripples slice.
-> · Then: Court of Cunning (monarch ETB modeled; the upkeep any-number-of-target-players mill with
->   the monarch-conditional 10× count is the gap) · the ETB bucket (Titania, Overlord of the
->   Balemurk, Animate Dead — heavy) · Tasigur · Ardyn · Breach the Multiverse · Teval's Judgment ·
->   Toxic Deluge (the X-life sweep).
-> · **Today's fourteen** (all full-discipline, all CI green): Swat retarget · Sarkhan-FB ·
->   Rivaz · Rith (Dragons→90) · Atzocan · Heirloom (Jurassic→90) · Tortured Existence (+17) ·
->   Teval herself · Molt Tender · Undead Butler (the optional-exile-self pause kind, 8 wiring
->   points) · Tormod (+12 tapped tokens) · Bloodghast (the landfall GY scan) + v0.159.0 + the
->   abBench wall measured honest (60s, the evidence in the test).
-> · Batch **+37** post-tag. Colton's standing ask: grind ALL decks to 90 and call the ceiling when
->   the residue is genuinely unbuildable-class. Below the bar: Teval 85 · Wolverine 79 ·
->   Believe it! 79 · Kinnan 77 · Otharri 74 · Kellan 74 · Cap 73 · Halfshell 67 · Shalai 67.
+> The Teval vein ran start-to-finish (79→90 same day); every blueprint that lived here — the
+> milled-referent pick (stamp ∩ live GY, CR 608.2b), the pay-X-life additional cost, the Court
+> monarch override, the mode-memory modal — SHIPPED and is documented in the RUN-LEDGER entries
+> a48758be→db91416a. Detail trimmed 08-15 late per Colton's keep-the-window-low ask; the
+> RUN-LEDGER is the archive.
 
 ## ☀️ 2026-08-15 — **🐉 DRAGONS AT 90 (the 12th deck) · QUARTET P3+P4 COMPLETE · batch +98 → v0.159.0 tags on CI green** — suite **1249 / 14,658** green
 
