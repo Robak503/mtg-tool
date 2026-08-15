@@ -28,7 +28,28 @@
 >   ✅ SHIPPED so far down this vein: ① Tortured Existence ca6ec474 (+17) · ② TEVAL HERSELF f9259d35
 >   (native-trigger — the article-form pickFromGraveyard land reanimate closed her; both triggers
 >   pre-detected) · ④ Molt Tender 8d8253bd (the phantom-gate carve, both halves pay). **Teval 82.**
->   NEXT: ③ Undead Butler (dies→may-exile-it→reflexive return — the reflexive seam). ⑤ RIPPLES OF
+>   NEXT: ③ UNDEAD BUTLER — FULL BLUEPRINT (a 6-file pause-kind slice, all templates named):
+>   the dies effect "you may exile it. When you do, return target creature card from your graveyard
+>   to your hand" — both triggers already detect; matchOptionalReflexiveTrigger (parser ~1607) rejects
+>   it only because "exile it" parses LOW. ⛔ NOT the α2/reflexiveGate route: if the dead card leaves
+>   the GY during the pause window, take→no-op-exile→payoff-still-runs = a free return (FP). The
+>   honest model is the PAUSING-PAYMENT pattern (availability re-checked at settle):
+>   ① triggers.js ~6087: stamp diesCtx.triggeringCardId = d.card.id (additive+inert).
+>   ② a whole-clause matcher beside matchOptionalReflexiveTrigger: /^you may exile it\. when you
+>     do, (.+)$/ → { op:"optional-exile-self-payment", effectAtoms, targetType: lifted } with the
+>     optional-mana-payment arm's THREE gates (parser ~1393: all KNOWN · ≤1 chosen targetType lifted
+>     onto the wrapper for flush-time enumeration · no non-last PAUSING_ATOM_OPS) + stamp
+>     excludeTriggeringCard on any graveyardCard payoff atom (the dead card never targets itself).
+>   ③ applier (zones.js): availability = ctx.triggeringCardId present in its owner's graveyard NOW;
+>     pause carries { controller, available, effectAtoms, cardId, targets: ctx.targets }.
+>   ④ pendingChoice.js: the kind (register at ~48) + setter (setPendingOptionalDiscardPaymentChoice
+>     at 582 is the template).
+>   ⑤ runProgram settler (resolveOptionalDiscardPaymentChoice at 1537 is the template): on pay,
+>     RE-SCAN the card in its owner's GY (CR 603.6e), move GY→exile (the exileGrantedDead move
+>     shape), then run effectAtoms with pc.targets; decline/absent → nothing (no payoff without the
+>     paid cost — the cardinal guarantee).
+>   ⑥ learnSession: the three sites (auto-decide ~2104 · the settle fn ~872 region, mirror
+>     settleOptionalDiscardChoice · the human panel label ~3774). ⑤ RIPPLES OF
 >   UNDEATH — DESIGN BANKED: the firstMain trigger detects; the tail "you may pay {1} and 3 life. If
 >   you do, put a card from among those cards into your hand" needs TWO pieces on the
 >   optional-mana-payment machinery (stack.js ~909, settler-based, effectAtoms/elseAtoms ride the
