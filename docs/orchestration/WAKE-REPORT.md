@@ -26,7 +26,15 @@
 >   batch event ("whenever one or more cards leave your graveyard" — a new watcher class; every
 >   GY-exit site funnels through moveCardToZone/recordGraveyardEvents — probe that chokepoint first).
 >   ③ Undead Butler: ETB mill modeled; the dies→may-exile-it→reflexive return rides the
->   reflexive-trigger seam. ④ Molt Tender: the exile-from-GY-cost mana ability.
+>   reflexive-trigger seam. ④ Molt Tender — DESIGN BANKED (build with care, it touches the
+>   PHANTOM-MANA gate): the "{T}, Exile a card from your graveyard: Add one mana of any color" cost
+>   is refused by manaCostConsumable (manaModel ~640, the load-bearing CREED gate). The honest carve:
+>   a manaAbilityExilesGyCard(oracle) reader (mirror manaAbilitySacrificesSelf at 453) → thread
+>   `exilesGyCard: true` through the isActivatedSource branch (~1115) onto sources (~1520) → the
+>   AVAILABILITY gate skips the source when the graveyard is empty → commitManaTap ACTUALLY exiles a
+>   graveyard card when the tap commits (deterministic house pick, oldest-first, documented like the
+>   riot policies) — paying for real is what makes the carve non-phantom. ① Tortured Existence
+>   SHIPPED ca6ec474 (+17 riders incl. Survival/Fauna Shaman; Teval 79→80).
 > · **The honest shelf** (post-purge): 12 at bar (Slivers 100 · Vihaan 96 · Omnath 93 · Zaxara 93 ·
 >   Mothman 91 · Earth Bent 91 · cdh 91 · Rashmi 90 · Hulk 90 · Veyran 90 · **Dragons 90** · Jurassic
 >   89→next). Below: Teval 79 · Believe it! 79 · Wolverine 78 · Kinnan 77 · Otharri 74 · Kellan 74 ·
