@@ -1,187 +1,244 @@
-# SHELF-TAIL PLAN — the next three decks to 90
+# THE SHELF COMPLETION PLAN — every deck to 90 (or a called ceiling)
 
-> **The self-contained grind plan for Wolverine → Kellan → Otharri.** A fresh session boots off THIS
-> file + the standing discipline, without replaying the prior window. Written 2026-08-15 late, after
-> Teval hit 90 (the 14th deck at the bar). Update the ✅/status lines in place as slices land.
+> **THE ONE DOCUMENT ANY CHAT CAN BOOT FROM AND EXECUTE.** Colton's standing order: grind every deck
+> to ≥90% native coverage, non-stop, and call the honest ceiling per deck when the residue is
+> genuinely unbuildable-class. This file holds the whole remaining arc: the boot ritual, the
+> discipline, the ordered queue, every deck's residue map, and the cross-deck veins that pay in
+> multiple decks at once. Update statuses IN PLACE as slices land. (Written 2026-08-15 late;
+> census: 28 decks — 13 at the bar, 15 below, whole-shelf aggregate 81%.)
 
-## The order (Colton's steer, 2026-08-15 — do not reorder)
+## 0. BOOT RITUAL (a fresh chat starts here, inside a minute)
 
-**① Wolverine 79 → ② Kellan 74 → ③ Otharri 74**, then Cap America 73 → Halfshell 67 → Shalai 67 →
-the SEVEN archetype decks — ⭐ THE PROGRAM IS COMPLETE (08-15, all pasted by Colton in one evening:
-**Thrun Voltron 80** — equipment voltron, **Brago Blink 75** — flicker, **Shorikai Vehicles 73** —
-crew/artifacts, **Nekusar Wheels 71** — wheels, **Bumble Flower Combo 62** — combo/alt-win,
-**Atraxa Superfriends 62** — planeswalkers/loyalty, **Light-Paws Voltron 58** — AURA voltron, the
-shelf floor; ⛔ THEFT is VETOED for
-training per the vault's no-theft-training ruling — that gap stays open ON PURPOSE), and the cEDH
-pair (**Believe it! 79, Kinnan 77) LAST** — "hardest to push past 90… focus those last." (Veyran =
-the draw-go seat per Colton.)
-Call the ceiling explicitly per deck when the residue is genuinely unbuildable-class.
+1. Read this file + the top block of [WAKE-REPORT.md](WAKE-REPORT.md) (the live %s beat this file's).
+2. Every engine/measure command runs from `app/` with
+   `MTG_APP_ROOT="C:\Users\colto\AppData\Roaming\com.colton.mtg-tool"`.
+3. Per-deck gate: `node scripts/measure-coverage.mjs "<deck name>"`. Corpus flip-diff:
+   `node scripts/tier-snapshot.mjs --out=<file>` / `--diff=<before>,<after>` — if no session
+   baseline exists yet, take one BEFORE the first edit.
+4. Pick the TOP un-✅'d deck in §3's queue, then its FIRST un-✅'d slice. Before building anything,
+   check §4 (the cross-deck veins) — if the card sits in a vein, build the vein's shared machinery.
+5. Ship each slice through §2 in full, push, confirm CI green (`gh run list --branch master`)
+   before the next push. ONE gate run at a time.
 
-### NEW ARRIVAL: Atraxa Superfriends — 62 (62/100), the LOYALTY stress test
-The optional seventh (list in the vault registry; the first import was 99 — a transcription drop of
-Interplanar Beacon, caught by Colton's land-count question and fixed same night). THE FIRST DECK TO
-EXERCISE THE PLANESWALKER LANES: 13 playable-pw / 7 arbiter-pw / 1 native-planeswalker — the
-loyalty tiers finally have a workload. The residue: **22 spells** (mostly the WALKERS' own ability
-sets — Ajani Steadfast, Dovin Baan, Ashiok…), **5 upkeep** (Teferi Hero, Garruk, Kiora, The Eternal
-Wanderer), **4 ETBs** (the Oaths + Carth), Arena Rector (dies→cheat a walker), Tamiyo/Vraska
-(attack-adjacent), Astral Cornucopia. Atraxa's own end-step proliferate presumably rides the
-existing proliferate atom — verify. Strategy: this deck grinds LAST of the seven (walker ability
-modeling is its own program — the per-walker ability sets are the long tail; the playable-pw tier
-already gives partial sim value).
+## 1. DEFINITION OF DONE
 
-### NEW ARRIVAL: Nekusar Wheels — 71, needs 19 (the wheels vein)
-The program's closer (list in the vault registry). The residue: **18 spells** — ⭐ THE WHEEL SUITE
-ITSELF (Wheel of Fortune / Wheel and Deal / Windfall-class "each player discards their hand and
-draws N" — ONE mass draw-discard atom family unlocks most of the pile; Windfall is already in
-Bumbleflower's + Shorikai's residue too), Dark Deal, Peer into the Abyss, Molten Psyche. The
-per-draw PUNISHMENT watchers (Underworld Dreams / Spiteful Visions / Fate Unraveler / Kederekt
-Parasite / Razorkin Needlehead — "whenever an opponent draws a card, damage" — one watcher class,
-five-plus cards, and Nekusar HIMSELF likely rides it), the cast-punishers (Forced Fruition, Painful
-Quandary), Teferi's Puzzle Box (the upkeep hand-cycle), Sheoldred (the both-ways drain). Strategy:
-the opponent-draw punishment watcher first (Nekusar's identity + 5 riders), then the wheel atom.
+Every deck in §3 either **≥90%** on measure-coverage OR carries an explicit **CEILING call** written
+into its section (what's left, why it's unbuildable-class, Colton notified). Releases batch ~100
+cards per tag (the running batch count lives at the top of RUN-LEDGER.md; slices push to master
+individually). When the LAST deck clears, tell Colton the shelf is at its max and give the final
+table with any ceiling residue.
 
-### NEW ARRIVAL: Light-Paws Voltron — 58, needs 32 (the shelf floor; the aura-statics stress test)
-Voltron #2 (list in the vault registry; Colton's framing: get Light-Paws out FAST). The residue is
-the densest aura-statics pile on the shelf: **13 aura/equip statics** (Ethereal Armor / All That
-Glitters — count-scaling pumps, Daybreak Coronet — enchanted-by-2+-condition, Face of Divinity,
-Pariah — damage redirection, Darksteel Mutation — ability-removal animate-down, the protection
-blessings), **9 ETBs** including ⭐ LIGHT-PAWS HERSELF (cast-an-Aura → tutor another Aura MV≤ onto
-the battlefield attached — HER whole identity; the tutor-to-battlefield lane exists, the
-cast-Aura watcher + the attach-on-arrival are the gaps), Sage's Reverie/Mantle of the Ancients,
-**5 activated** (Mother/Giver — the SAME protection-choice pair already queued for Otharri: ONE arm,
-THREE decks now), Umbra Mystic (grants totem armor — pairs with Thrun's umbra check), Aetherflux
-(cast-count lifegain/kill), Kor Spiritdancer (aura-cast draw+pump). Strategy: Light-Paws' chain
-trigger first (the deck IS her), then the count-scaling pump statics (Ethereal Armor class serves
-three decks), then Mother/Giver.
+## 2. THE PER-SLICE DISCIPLINE (never skip a step)
 
-### NEW ARRIVAL: Thrun Voltron — 80, needs 10 (the closest gap deck to the bar)
-Voltron #1 of 2 (list in the vault registry). The equipment/aura machinery mostly EXISTS (8
-native-equipment + 6 native-aura already); the residue: **7 aura/equip statics** — ⭐ TOTEM ARMOR
-(Lion Umbra; Bear/Boar/Snake umbras parse their pump halves — verify whether their totem-armor
-rider is modeled or silently dropped, CREED check needed), Prowler's Helm/Whispersilk-class
-unblockable grants, Nazgûl Battle-Mace, Strong Back, Glaive, Indomitable Might. **Kodama of the
-West Tree** (cross-deck with Wolverine — one slice, two decks). Buster Sword (attack trigger),
-Saryth (untap-fang activation), Kenrith's Transformation (ETB cantrip-removal aura),
-Nyxborn Hydra (enters-as X), Thrun himself (the regenerate-ish "can't be countered / hexproof from"
-statics — probe what parks him). Primal Might/Professor Hojo (fight-adjacent anthems).
+probe (print the FULL oracle + which line blocks — today's lesson: HALF the "gaps" turn out to be
+one missing arm on machinery that already exists, so probe before building) → build the smallest
+honest arm → flip-diff by tier snapshot (audit EVERY gained rider whole-card; a LOST line is the
+whole point) → witness file with seen-to-fail controls → per-process mutations (`false &&` each new
+arm, verify the named test dies, restore) → ONE sequential lint+full-suite with UNPIPED exit codes
+(`npx vitest run > "$TEMP/suite.txt" 2>&1; echo "TEST_EXIT=$?"`) → RUN-LEDGER + CHANGELOG entries →
+measure the deck(s), update this file + the wake report → commit, push, CI green before the next
+push. Old MUST-STAY-LOW pins that flip are GRADUATED with the date + a surviving guard-class
+control (three graduated today — expect more; the full suite is the graduation detector).
+THE CREED: false-negative SAFE, false-positive FORBIDDEN. The named traps: the hollow credit (a
+modeled line the runtime never exercises), the piped exit code, the decline-only AI shortcut.
 
-### NEW ARRIVAL: Shorikai Vehicles — 73, needs 17 (the crew vein)
-The vehicles gap-filler (corrected 100 imported 08-15; list in the vault registry). ⭐ CREW is the
-whole point: the crew cost mechanic + a Vehicle becoming an artifact creature until EOT does not
-exist in the engine — Shorikai himself (tap-activation + Crew 8), the Vehicle fleet's attack
-triggers (Parhelion II, Weatherlight, The Indomitable, Ironsoul Enforcer), Kotori/Katsumasa (upkeep
-animators), Peacewalker Colossus (crew-adjacent activation), Mechtitan Core (the five-piece token
-LTB). Also: 7 ETBs (Cosima MDFC, Emry, Mu Yanling…), 6 spells (Chain of Vapor, Dispatch, Narset's
-Reversal…), Sai (cast trigger), Born to Drive (aura static). The permission suite already parses
-(17 native-spell). Strategy: the CREW mechanic first (one mechanic, many cards), then the Vehicle
-attack-trigger family.
+## 3. THE QUEUE (Colton's order — cEDH LAST; Atraxa last of the gap decks)
 
-### NEW ARRIVAL: Brago Blink — 75, needs 15 (the flicker vein)
-Colton's blink gap-filler (imported to the test profile 08-15; list banked in the vault registry).
-⭐ THE FLICKER MACHINERY is the point: **Brago himself** (combat-damage-to-player → mass-flicker any
-number of your own nonland permanents — exile-and-return re-fires every ETB), the **flicker family**
-(Soulherder + Teleportation Circle + Thassa, Deep-Dwelling end-step/activated single-flickers,
-Deadeye Navigator's soulbond flicker, Ephemerate/Cloudshift/Essence Flux instants — Essence Flux is
-the one unmodeled SPELL), and the ETB-reuse cluster it feeds (11 ETBs: Detention Sphere, Skyclave
-Apparition, Recruiter of the Guard, Preston…). One exile-and-return-now atom + the "return it at the
-next end step" delayed form likely unlocks 8-10 cards across THIS deck alone. Dies/LTB: Reality Acid
-(sac-on-leave), Watcher for Tomorrow (hideaway-ish), Anticausal Vestige. Strionic Resonator
-(trigger-copy — heavy, park-candidate), Elesh Norn MoM (ETB-doubling replacement — heavy,
-ceiling-candidate).
+| # | Deck | % | Status |
+|---|------|---|--------|
+| ① | Wolverine, claws out! | 83 | **ACTIVE** — 4 slices shipped today (§5.1) |
+| ② | Kellan of the west | 74 | queued (§5.2) |
+| ③ | Otharri Test | 74 | queued (§5.3) |
+| ④ | Captain America Shoot your Shot | 73 | queued (§5.4) |
+| ⑤ | Halfshell heroes | 67 | queued (§5.5) |
+| ⑥ | Shalai and Hallar Test | 69 | queued (§5.6) |
+| ⑦ | Thrun Voltron | 81 | gap-deck (§5.7) |
+| ⑧ | Brago Blink | 75 | gap-deck (§5.8) |
+| ⑨ | Shorikai Vehicles | 73 | gap-deck (§5.9) |
+| ⑩ | Nekusar Wheels | 71 | gap-deck (§5.10) |
+| ⑪ | Bumble Flower Combo | 62 | gap-deck (§5.11) |
+| ⑫ | Light-Paws Voltron | 58 | gap-deck (§5.12) |
+| ⑬ | Atraxa Superfriends | 62 | gap-deck, LAST of the seven (§5.13 — walker modeling is its own program) |
+| ⑭ | Believe it! | 79 | **cEDH — LAST** (§5.14) |
+| ⑮ | Kinnan Mana Overload | 77 | **cEDH — LAST** (§5.15) |
 
-### NEW ARRIVAL: Bumble Flower Combo — 63, needs 27 (the widest gap; slotted pre-cEDH)
-Colton's pasted combo deck (imported to the Omnath test profile 08-15; the source list is banked in the
-vault deck-source registry). Ms. Bumbleflower Bant group-hug/Food with FOUR alt-wins — the machinery the
-shelf lacked. The buckets: **14 ETBs** (the Food/TMNT/LOTR value cluster: Arcade Cabinet, Elanor Gardner,
-Eriette's Tempting Apple, Field-Tested Frying Pan, Heaped Harvest, Killer Service…), **11 spells**
-(Academy Manufactor — the token-triple replacement, Campsite Cuisine, Continue?, Dusk // Dawn,
-Long River's Pull, Peerless Recycling…), **5 upkeep** — ⭐ the ALT-WIN vein: Mechanized Production
-(eight same-name artifacts), Simic Ascendancy (ten growth counters), Triskaidekaphile (exactly 13 in
-hand) all ride the EXISTING upkeep-win lane (triggerRouting's UPKEEP-WIN branch + winGame
-evaluateWinThreshold — Felidar Sovereign ALREADY routes through it); each needs its threshold added to
-the strict evaluator's vocabulary. Innkeeper's Talent + Sam, Loyal Attendant round the bucket.
-**3 activated** (Peregrin Took, Kwain, Gingerbrute), Ms. Bumbleflower herself (cast trigger),
-Shoreline Looter, Hot Soup, Feasting Hobbit. Strategy: the alt-win upkeep trio FIRST (cheap, the
-combo identity, one shared lane), then the Food ETB cluster.
+⛔ THEFT decks are VETOED for training (the vault's no-theft-training ruling) — that archetype gap
+stays open on purpose. Veyran = the draw-go seat (never a gap).
 
-## The per-slice discipline (unchanged — the compact checklist)
+**ALREADY AT THE BAR (13 — maintain, never regress; the flip-diff's LOST line is the guard;
+census-verified 2026-08-15 late):** Slivers 100 · Vihaan 96 · Earth Bent 93 · Omnath 93 ·
+Zaxara 93 · Mothman 91 · cdh 91 · Test Rashmi 90 · Teval Test 90 · Dragons 90 · Jurassic 90 ·
+Hulk 90 · Veyran 90. (Historical note: earlier docs said "14 at the bar" — the full census says 13;
+trust the census.) This list + §3's fifteen = ALL 28 DECKS in every profile (Colton's 6 + Joe's 11
++ the test profile's 11, the seven 08-15 gap decks included). **Whole-shelf aggregate: 81%
+(2272/2797).** A deck missing from both lists is a BUG — re-run the bare census
+(`node scripts/measure-coverage.mjs` with no arg) and reconcile.
 
-probe (print the FULL oracle + which line blocks) → build the smallest honest arm → flip-diff by tier
-snapshot (`MTG_APP_ROOT="C:\Users\colto\AppData\Roaming\com.colton.mtg-tool" node scripts/tier-snapshot.mjs
---out/--diff`; the latest baseline is named below) → whole-card audit EVERY rider → witnesses with
-seen-to-fail controls → per-process mutations (throw-on-no-op; disable arms, never null) → ONE
-sequential lint+full-suite by UNPIPED exit codes → RUN-LEDGER + CHANGELOG → push → `gh run list`
-green before the NEXT push. Per-deck gate: `node scripts/measure-coverage.mjs "<deck>"` (same
-MTG_APP_ROOT). Old pins that flip are GRADUATED with the date + a surviving guard-class control.
-The traps with names: the hollow credit (a modeled line the runtime never exercises — the Raul no-op
-law), the pin set-and-graduated same day is fine, the LOST line is the whole point of the flip-diff.
+## 4. ⭐ THE CROSS-DECK VEINS — build these AS VEINS, not per-card
 
-**Latest tier baseline:** `scratchpad/tiers-afterJudgment.json` (in the session scratchpad — take a
-fresh `--out` first thing if the scratchpad is gone; the diff pair only needs two fresh snapshots
-around a slice).
+When the queue reaches a card in one of these, build the SHARED machinery and measure every listed
+deck. Ordered roughly by payoff:
 
-## ① WOLVERINE, CLAWS OUT! — 79, needs 11
+1. **The opponent-draw punishment watcher** ("whenever an opponent draws a card, ~ deals damage"):
+   Nekusar HIMSELF + Underworld Dreams, Spiteful Visions, Fate Unraveler, Kederekt Parasite,
+   Razorkin Needlehead, Sheoldred's half — ~7 cards in Nekusar alone.
+2. **The mass draw-discard WHEEL atom** ("each player discards their hand, then draws seven"-class):
+   Nekusar ×~10 (the Wheels), Windfall also in Bumbleflower + Shorikai... (verify each wording —
+   Wheel of Misfortune's bidding stays parked).
+3. **Mother/Giver protection activation** ("{T}: target creature you control gains protection from
+   the color of your choice until end of turn" — the CHOICE seam): Otharri (Mother+Giver), Light-Paws
+   (Mother+Giver), Shalai (Mother, Skrelv). ONE arm, THREE decks.
+4. **The flicker family** (exile-and-return-now + return-at-next-end-step): Brago himself + Soulherder,
+   Teleportation Circle, Thassa, Deadeye, Ephemerate/Cloudshift/Essence Flux — ~10 in Brago; the
+   ETB-reuse it powers is most of that deck's residue.
+5. **The CREW mechanic** (tap creatures totaling power N → the Vehicle is an artifact creature until
+   EOT): Shorikai himself + the fleet's attack triggers unlock only through it (~8-10 cards).
+6. **Equipment/Vehicle ATTACK-trigger family**: Cap America ×8 (the Swords, Kaldra, Iron Man),
+   Thrun (Buster Sword — ALSO in Cap + Halfshell?), Shorikai (Parhelion, Weatherlight, Indomitable).
+7. **Count-scaling aura pumps** ("+1/+1 for each aura/enchantment attached/you control" — Ethereal
+   Armor / All That Glitters / Sage's Reverie class): Light-Paws ×4-5, Bumbleflower (All That
+   Glitters), Cap (statics-adjacent).
+8. **The alt-win upkeep thresholds** (the EXISTING upkeep-win lane + new vocabulary): Bumbleflower's
+   Mechanized Production (eight same-name artifacts) / Simic Ascendancy (ten growth counters) /
+   Triskaidekaphile (exactly 13 in hand). Felidar already routes — the lane is proven.
+9. **Shared singles seen in 2+ gap maps** (check both decks when built): Teferi's Protection
+   (Kellan+Cap — CEILING-class candidate), Thassa's Oracle (Believe it!+Kinnan — the cEDH win),
+   Skyclave Apparition (Brago+Shalai), Innkeeper's Talent (Bumbleflower+Shalai), Chaos Warp
+   (Nekusar+Shalai), Chain of Vapor (Nekusar+Kinnan), Codsworth (Cap+Bumbleflower),
+   Continue?/Arcade Cabinet (Halfshell+Bumbleflower), Orcish Bowmasters (Nekusar+Believe it!),
+   Galadriel's Dismissal (Otharri+Shalai+Bumbleflower), Imposter Mech (Shorikai+Kinnan),
+   Proft's Eidetic Memory (Brago+Nekusar), Silent Arbiter (Nekusar+Light-Paws).
 
-Counter-themed (X-Men). 21 residue; the probed queue:
+## 5. PER-DECK RESIDUE MAPS
 
-1. ✅ **Forgotten Ancient** — SHIPPED 2026-08-15 (Wolverine 79→80). The move = the distribute pause +
-   `moveFromId` (settle removes the spent total from the source) + `anyNumber` (zero legal = the "you
-   may"; the atom is in the α2 UN-optional family). The AI really moves (whole pile → strongest own
-   other; [] on enemy-only). The move machinery is now REUSABLE — #2's combat-start move-all rides it.
-2. ✅ **The Ozolith** — SHIPPED 2026-08-15 (Wolverine 80→81, both arms in one slice). New reusable
-   machinery: the bare "a creature you control leaves" watcher scope, the leave-event counter snapshot
-   (recordLeaveEvent → trigger ctx), the look-back "it had counters on it" reader (HAD_ANY_COUNTERS),
-   the kind-less "this permanent has counters on it" live reader, rewriteSelfNameInterveningIf (the
-   condition-slot name-normalize allowlist), and move-all-counters-to-target (intent "own").
-3. ✅ **Kodama of the West Tree** — SHIPPED 2026-08-15 (Wolverine 81→82 + Thrun 80→81 + SP//dr rider).
-   The probe found the subsystem ALREADY BUILT (the modified-anthem selector + layers.isModifiedPermanent
-   — the one-place CR 700.9 definition): the slice was just the watcher subject arm (requiresModified,
-   the token-filter carve's sibling) + the descriptor registration + the scopeMatches live gate.
-4. ✅ **Warden of the Grove** — SHIPPED 2026-08-15 (Wolverine 82→83). The endure atom existed; the
-   slice was the where-clause parser arm + countersOnSource's all-kinds branch + the
-   recipient:"triggering" mode (rides target:"thatCreature") + the etb routing belt.
-5. **Canopy Gargantuan** — probed: the upkeep "put +1/+1 counters on EACH OTHER creature you control
-   equal to THAT CREATURE'S toughness" — a per-target-scaled mass counter atom (the amount referent is
-   each recipient's OWN toughness). Contained; medium.
-6. **Well Rested** — probed: a GRANTED quoted trigger ("becomes untapped" + a once-each-turn latch);
-   pendingUntapEvents exists in gameState — the event lane may be wired; probe the granted-trigger
-   parse of the untap event.
-7. **Neyith of the Dire Hunt** — probed: the fight-or-blocked OR-batch draw detects but doesn't route;
-   the combat-begin pay-{2}{R/G}-double-power offer doesn't detect (compound: optional pay + double +
-   must-be-blocked rider). HEAVY — park toward the deck's end.
-8. The rest: the anthems (**Inscription of Abundance** modal, **Beastie Beatdown**, **The Last Agni
-   Kai**), **Brotherhood Regalia** (granted shroud class), **Cori-Steel Cutter** (cast trigger +
-   token), **Nibelheim Aflame** / **Legolas's Quick Reflexes** / **HULK SMASH!** (spells), the two
-   Wolverine cards (attacks + ETB), **Quilled Greatwurm**, **Meltstrider's Resolve**, **Berserk**,
-   **Raph & Mikey** (unclassified — probe fresh).
+### 5.1 Wolverine, claws out! — 83, needs 7 (ACTIVE)
+✅ Forgotten Ancient (counter-MOVE) · ✅ The Ozolith (leave-accumulator + move-all) · ✅ Kodama
+(the modified watcher; +SP//dr, +Thrun) · ✅ Warden (endure-X on the enterer).
+Remaining, probed: **Canopy Gargantuan** (upkeep "put +1/+1 counters on EACH OTHER creature you
+control equal to THAT CREATURE'S toughness" — a per-target-scaled mass counter; NEXT) · **Well
+Rested** (a GRANTED quoted "becomes untapped" trigger + once-per-turn latch; pendingUntapEvents
+exists) · **Neyith** (the fight-or-blocked OR-batch + the pay-offer — HEAVY, park to deck-end) ·
+the anthems (Inscription of Abundance modal, Beastie Beatdown, The Last Agni Kai) · Brotherhood
+Regalia (granted shroud) · Cori-Steel Cutter · the spells (Nibelheim Aflame, Legolas's Quick
+Reflexes, HULK SMASH!) · the two Wolverines (attacks+ETB) · Quilled Greatwurm · Meltstrider's
+Resolve · Berserk · Raph & Mikey (probe fresh).
 
-## ② KELLAN OF THE WEST — 74, needs 16 (the widest gap)
+### 5.2 Kellan of the west — 74, needs 16
+12 spells (Recurring Insight, Unexpected Results, **Teferi's Protection** ⚠️ CEILING-candidate
+(phasing), One with the Multiverse, Ellie and Alan, Mystic Forge…), 4 cast triggers (Jace
+Reawakened, Rashmi Eternities Crafter — the reveal-cast lane, The Legend of Yangchen, Mind's
+Dilation), 4 ETBs (Bonny Pall, Savvy Trader, Transcendent Dragon, Aang), Sakashima's Protege /
+Fblthp / Eladamri (probe), The Reality Chip, The Key to the Vault, Monk Gyatso. Strategy: the
+cast-trigger bucket first, then cheap ETBs; expect 2-3 ceiling flags — call them.
 
-Spell-heavy Temur. The buckets: **12 unmodeled spells** (Recurring Insight, Unexpected Results,
-Teferi's Protection ⚠️ likely CEILING-class (phase-out + protection-from-everything), One with the
-Multiverse, Ellie and Alan, Mystic Forge…), **4 cast triggers** (Jace Reawakened, Rashmi Eternities
-Crafter — the cast-MV-reveal lane, The Legend of Yangchen, Mind's Dilation), **4 ETBs** (Bonny Pall,
-Savvy Trader, Transcendent Dragon, Aang//…), Sakashima's Protege / Fblthp / Eladamri (unclassified —
-probe), The Reality Chip, The Key to the Vault, Monk Gyatso. Strategy: the cast-trigger bucket first
-(Rashmi's reveal-cast rides the Velomachus-class reveal lane if built once), then the cheap ETBs;
-expect 2-3 ceiling flags here — call them.
+### 5.3 Otharri Test — 74, needs 16
+11 spells (Tithe, Blacksmith's Skill, Hour of Reckoning, Neyali, Galadriel's Dismissal, Anim
+Pakal…), 4 activated (Everflowing Chalice, **Mother+Giver — vein #3**, Kirol), 3 ETBs (Solitude —
+evoke-pitch class, Rosie Cotton, Staff of the Storyteller), 2 attacks (Otharri herself —
+experience + hasty Phoenix, Aurelia the Law Above), Ocelot Pride / Windcrag Siege (upkeep), Zack
+Fair / Patrolling Peacemaker (enters-as), Glimmer Lens, Crumb and Get It. Strategy: vein #3 first,
+then Everflowing Chalice, then Otharri herself (the commander = the win).
 
-## ③ OTHARRI TEST — 74, needs 16
+### 5.4 Captain America Shoot your Shot — 73, needs 17
+**8 attack triggers — vein #6's heart** (Sword of Hearth and Home, Kaldra Compleat, Sword of
+Wealth and Power, Iron Man, Buster Sword, Super-Soldier Serum…), 5 aura/equip statics
+(Illusionist's Bracers, Aettir and Priwen, Panther Habit, Conqueror's Flail, Hammer of Nazahn),
+5 ETBs (Forge Anew, Puresteel Paladin, Cloud, Mjölnir, Cap Liberator), 2 upkeep (Cap First
+Avenger, Tony Stark MDFC), Zirda / Codsworth (activated), **Teferi's Protection** (ceiling-cand),
+We Say Thee Nay!, Cap Living Legend, Halvar MDFC, Cap Super-Soldier (enters-as). Strategy: vein
+#6 (the Sword attack-trigger family) is most of the deck.
 
-RW tokens/equipment. The buckets: **11 spells** (Tithe — tutor-land-conditional, Blacksmith's Skill,
-Hour of Reckoning, Neyali, Galadriel's Dismissal, Anim Pakal…), **4 activated** (Everflowing Chalice
-— the charge-counter X rock, **Giver of Runes + Mother of Runes** — the protection-choice pair, ONE
-arm serves both, Kirol), **3 ETBs** (Solitude — the evoke pitch class, Rosie Cotton, Staff of the
-Storyteller), **2 attack triggers** (Otharri herself — experience counters + a hasty Phoenix token;
-Aurelia the Law Above), Ocelot Pride / Windcrag Siege (upkeep), Zack Fair / Patrolling Peacemaker
-(enters-as/replacement), Glimmer Lens, Crumb and Get It. Strategy: Mother/Giver's shared protection
-arm + Everflowing Chalice first (cheap, cross-deck staples), then Otharri herself (the commander =
-the win per the Joe-deck law).
+### 5.5 Halfshell heroes — 67, needs 23
+12 spells (Heroes in a Half Shell, Splinter, Continue?, Endless Foot Assault, Fast Forward, Rat
+King…), 8 ETBs (Baxter, Arcade Cabinet, Raphael, Pizzasaur, Foot Chopper, Lita…), 5 attacks
+(Shredder, Ray Fillet, Mole Module, Bebop, Casey Jones), 3 dies (Tokka & Rahzar, Vigor, Big
+Mother Mouser), 2 upkeep (Irma, Tempestra), Coin of Mastery / Exploding Barrel, Donatello.
+Strategy: the ETB bucket first (the widest), then attacks; expect TMNT-mechanic oddities — probe
+each.
 
-## Standing state (2026-08-15 close)
+### 5.6 Shalai and Hallar Test — 69, needs 21 (drifted 67→69 from ambient machinery — re-measure first)
+10 ETBs (Skyclave Apparition — vein #9, Solitude, Rishkar, Court of Garenbrig, Scythecat Cub…),
+8 spells (Shalai and Hallar THEMSELVES, Chaos Warp, Winds of Abandon, Galadriel's Dismissal,
+Kutzil…), 5 attacks (Krenko Tin Street, Ragavan, Kami of Celebration, Araña, Trouble in Pairs),
+4 activated (Incubation Druid, **Mother of Runes — vein #3**, Hajar, Skrelv), Uncivil Unrest,
+Boromir, Arwen, Innkeeper's Talent. Strategy: vein #3 + the commander pair first.
 
-Shelf: **14 at the bar** · below: Wolverine 79 · Believe it! 79 (cEDH-last) · Kinnan 77 (cEDH-last) ·
-Kellan 74 · Otharri 74 · Cap 73 · Halfshell 67 · Shalai 67. Batch **+51** post-v0.159.0 (tag at
-~100). Suite anchor: 1263 files / 14,701 tests. Six ceiling candidates flagged so far: Six (retrace),
-Teferi's Protection (phasing), Tasigur (delve), Sakashima's Protege (probe), Overlord of the
-Balemurk (impending), Breach the Multiverse — confirm or break each when reached.
+### 5.7 Thrun Voltron — 81, needs 9
+✅ Kodama (cross-deck). 7 aura/equip statics: ⭐ TOTEM ARMOR (Lion Umbra parked; verify the
+Bear/Boar/Snake umbras' rider isn't silently dropped — CREED check), Prowler's Helm, Nazgûl
+Battle-Mace, Strong Back, Glaive, Indomitable Might. Buster Sword (vein #6), Saryth (activated),
+Kenrith's Transformation, Nyxborn Hydra (enters-as X), Thrun himself (probe what parks him),
+Primal Might / Professor Hojo.
+
+### 5.8 Brago Blink — 75, needs 15
+**Vein #4 is most of it**: Brago's attack mass-flicker + Soulherder / Teleportation Circle /
+Thassa / Deadeye (upkeep-phase + activated) + Essence Flux; then the 11-ETB cluster it feeds
+(Detention Sphere, Skyclave — vein #9, Recruiter, Preston, Proft's, Loran, Cryogen Relic…), 3 dies
+(Reality Acid, Watcher for Tomorrow, Anticausal Vestige), Strionic Resonator (trigger-copy —
+heavy, park), Elesh Norn MoM (ETB-doubling replacement — CEILING-candidate), Peter Parker's
+Camera (enters-as).
+
+### 5.9 Shorikai Vehicles — 73, needs 17
+**Vein #5 (CREW) is the deck**: Shorikai himself (tap-activation + Crew 8), the fleet's attack
+triggers (Parhelion II, Weatherlight, The Indomitable, Ironsoul Enforcer — vein #6 overlap),
+Kotori / Katsumasa (upkeep animators), Peacewalker Colossus, Mechtitan Core (dies), Mobilizer
+Mech. Then 7 ETBs (Cosima MDFC, Emry, Mu Yanling, Nautiloid, Surgehacker…), 6 spells (Chain of
+Vapor, Dispatch, Narset's Reversal, Permission Denied, Prodigy's Prototype…), Sai (cast), Born to
+Drive, Padeem/Arcane Denial (upkeep-ish), Imposter Mech.
+
+### 5.10 Nekusar Wheels — 71, needs 19
+**Vein #1 first** (Nekusar + the punishment engines — ~7 cards), then **vein #2** (the wheel suite
+~10). Leftovers: Forced Fruition / Painful Quandary (cast-punishers), Teferi's Puzzle Box (upkeep
+hand-cycle), Dark Deal / Peer into the Abyss / Molten Psyche (spells), Orcish Bowmasters,
+Proft's, Tergrid (heavy — the discard-theft half; fine as a CARD, watch the modeling), Library of
+Leng / Phyrexian Tyranny (unclassified).
+
+### 5.11 Bumble Flower Combo — 62, needs 28
+**Vein #8 first** (the three alt-win thresholds — cheap, the combo identity, one proven lane).
+Then the 14-ETB Food cluster (Arcade Cabinet, Elanor Gardner, Eriette's Apple, Frying Pan, Heaped
+Harvest, Killer Service…), 11 spells (Academy Manufactor — the token-triple replacement,
+Campsite Cuisine, Dusk // Dawn, Long River's Pull, Peerless Recycling…), 3 activated (Peregrin
+Took, Kwain, Gingerbrute), Ms. Bumbleflower herself (cast trigger), Shoreline Looter, Hot Soup,
+Feasting Hobbit, Innkeeper's Talent, Sam Loyal Attendant.
+
+### 5.12 Light-Paws Voltron — 58, needs 32 (the floor)
+**Light-Paws herself first** (cast-an-Aura → tutor another Aura MV≤ onto the battlefield ATTACHED
+— the tutor lane exists; the cast-watcher + attach-on-arrival are the gaps; the deck IS her).
+Then **vein #7** (the count-scaling pumps ×4-5), **vein #3** (Mother/Giver), the 13 aura statics
+(Daybreak Coronet — enchanted-by-2+, Face of Divinity, Pariah — damage redirection, Darksteel
+Mutation, the blessings), 9 ETBs (Sage's Reverie, Mantle of the Ancients, On Thin Ice, Brilliant
+Wings, Chains of Custody…), Umbra Mystic (grants totem armor — pairs with 5.7's check),
+Aetherflux (cast-count lifegain), Kor Spiritdancer, the stax-lite spells (Deafening Silence…).
+
+### 5.13 Atraxa Superfriends — 62 (LAST of the gap decks — walker modeling is its own program)
+The first deck exercising the planeswalker lanes (13 playable-pw / 7 arbiter-pw / 1 native). The
+residue is mostly THE WALKERS' OWN ability sets (22 "spells" = loyalty abilities: three Teferis,
+two Elspeths, two Sorins, Ugin, Oko…) + the Oaths (ETBs), Arena Rector (dies→cheat), Astral
+Cornucopia, Deploy the Gatewatch. Verify Atraxa's own end-step proliferate rides the existing
+proliferate atom. Approach when reached: pick the 5-6 HIGHEST-play-rate walkers and model their
+plus/minus abilities as a program (loyalty machinery exists); the ultimates and the long tail may
+be the ceiling call. The playable-pw tier already gives partial sim value.
+
+### 5.14 Believe it! — 79, needs 11 (cEDH — LAST per Colton)
+11 spells: the cEDH consult/storm brains — **Doomsday / Tainted Pact / Demonic Consultation**
+(library-exile piles — CEILING-candidates: the Doomsday pile is a solver, not a parser arm),
+Misdirection, Nanogene Conversion, Satoru…; 4 ETBs: **Thassa's Oracle** (vein #9 — the win
+condition; devotion-vs-library count, buildable), Thousand-Faced Shadow, Orcish Bowmasters,
+Subtlety; Lim-Dûl's Vault / Roaming Throne (unclassified), Kaito, Emrakul (cast — ceiling-cand),
+Ingenious Prodigy, Moon-Circuit Hacker. Expect the densest ceiling residue on the shelf.
+
+### 5.15 Kinnan Mana Overload — 77, needs 13 (cEDH — LAST)
+9 spells (Transmute Artifact, Tezzeret the Seeker, Veil of Summer, Chain of Vapor, Mindbreak
+Trap, Moonsilver Key…), 5 ETBs (**Thassa's Oracle** — shared with 5.14, Gilded Drake ⚠️
+theft-CARD (fine — the veto is archetype-level), Wan Shi Tong, Endurance, The One Ring), 3 clones
+(Clever Impersonator, Copy Enchantment, Imposter Mech), 3 cast (Wandering Archaic, Valley
+Floodcaller, Hullbreaker Horror), Kinnan himself (the activated big-mana cheat + the mana-doubling
+static — probe which half parks), Elvish Spirit Guide, Nezahal.
+
+## 6. KNOWN CEILING CANDIDATES (confirm or break when reached; call them per deck)
+
+Six (retrace) · Teferi's Protection (phasing) · Tasigur (delve) · Sakashima's Protege ·
+Overlord of the Balemurk (impending) · Breach the Multiverse · Elesh Norn MoM (replacement
+doubling) · Doomsday/Tainted Pact/Demonic Consultation (pile solvers) · Emrakul (control-theft
+turn) · Strionic Resonator (trigger-copy) · the Atraxa walker long-tail. A ceiling call names the
+cards, the class, and the honest % floor it leaves.
