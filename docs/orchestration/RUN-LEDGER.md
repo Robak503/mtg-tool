@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔍 SCOUTING - 2026-08-16 - **NEAR-SHELF RESIDUE IS NOW MEDIUM+ (clean single-arms mined)** - build-ready targets for the next fire
+> Probed ~15 cards this fire; no clean single-arm found — the cheap twin/filter/conjugation gaps are worked
+> out. The near-residue clusters into a few NAMED, BUILD-READY mediums (each de-risked here so the next fire
+> starts at build):
+> • **Court of Garenbrig** — ETB-monarch ✓, the "then if you're the monarch, DOUBLE the +1/+1 counters on
+>   each creature you control" BOTH already parse (mass counter-doubling is HIGH; "if you are the monarch"
+>   intervening-if routes). ONLY blocker = "distribute two +1/+1 counters among UP TO two target creatures"
+>   — the distributeCounters.js parser NAMES "up to N" as a distinct fast-follow (it handles "one or two …
+>   you control"); Court also needs the ANY-creature recipient (not you-control) — a CREED widening. ONE
+>   medium arm.
+> • **Counter-DOUBLING vein** — "double the number of +1/+1 counters on EACH creature you control" is HIGH;
+>   the SINGLE-target "…on target creature" is LOW (Scythecat Cub's landfall payoff + others). One arm →
+>   possibly several, but each host pairs it with a 2nd blocker (Scythecat = "2nd time resolved this turn"
+>   tracker; Innkeeper's Talent = Class leveling + L3 doubling-replacement).
+> • **Otharri GY-reanimate** — the named layer re-entry ({2}{R}{W},Tap-a-Rebel return from graveyard);
+>   Thunderfoot Baloth = LIEUTENANT (commander-control-gated anthem, "as long as you control your commander").
+> Not a card shipped, but the next fire skips probing. Token diet: ~9k output tokens (all scouting).
 > ## SLICE DONE - 2026-08-16 - **RISHKAR, PEEMA RENEGADE (+1) — counter-gated group mana grant** - the next batch (SH7)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+4**.
 > ⭐ A single clean arm: the UNFILTERED "each creature you control has '{T}: Add {G}'" was already
