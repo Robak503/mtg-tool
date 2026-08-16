@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **CONJURER'S CLOSET (+1) — the OPTIONAL "you may" blink keep-whole (flicker vein #4)** - the next batch (SH13)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+10**.
+> ⭐ A one-line splitter fix isolated by probe: the end-step blink WITHOUT "you may" was ALREADY native; the
+> ONLY gap was the optional wrapper. The blink keep-whole guard (splitClauses) anchored on "^exile …, then
+> return …", so a leading "you may" slipped past it and the ", then" split severed the sentence — the SAME
+> non-fail-safe split the mandatory blink guards against (the severed "you may exile target creature you
+> control" parses HIGH as an optional EXILE — a card that may exile your creature and never return it).
+> Admitting "(?:you may )?" in the guard keeps it whole; the α2 wrapper peels "you may" and stamps the blink
+> optional. The guard now covers ALL future optional blinks against that mis-split, even though only Conjurer's
+> Closet flips today. 1 mutation via Edit, seen-to-fail. Token diet: ~24k (most of it the blink-landscape probe
+> below — the fix itself was one regex char-class). — Cindy
+>
+> 🗺 **⭐ DELAYED-RETURN BLINK = the next BIG vein (84 cards, probed 08-16)**: "exile … return … AT THE BEGINNING
+> OF THE NEXT END STEP" is the single largest unbuilt blink cluster (Otherworldly Journey, Mistmeadow Witch,
+> Flickerwisp, Angel of Condemnation, Eerie Interlude, S.H.I.E.L.D. Flying Car, Salvation Swan, Guardian of
+> Ghirapur, Gilraen, Sentinel of the Pearl Trident … ~23 body-only in the first 25 alone). It's a SUBSYSTEM —
+> exile-with-tracking + a delayed triggered ability that returns the SPECIFIC exiled card at the next end step;
+> the delayedTrigger.js primitive EXISTS (it already does "sacrifice it at the next end step"), so the return
+> variant is tractable but wants a FRESH-context fire (not a deep-continuation one). Highest leverage on the
+> board — a proper build here could flip a real cluster, not +1. THE next fire's target.
+>
 > ## SLICE DONE - 2026-08-16 - **ESSENCE FLUX (+1) — blink + "if it's a <subtype>, +1/+1 counter" rider (flicker vein #4)** - the next batch (SH12)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+9**.
 > ⭐ A probe of the WHOLE flicker vein #4 first (banked below): the base immediate blink is ALREADY native

@@ -735,7 +735,12 @@ export function splitClauses(oracle) {
     // exiles two creatures and never returns them.
     // UP-TO-ONE NONLAND joined 2026-08-14 (Displacer Kitten's cast-trigger blink) — same guard, one
     // size down: the severed first half would exile the permanent and never return it.
-    if (/^exile (?:target creature|up to one target nonland permanent|up to two target creatures|two target artifacts, creatures, and\/or lands) you control, then return (?:that card|it|those cards) to the battlefield under (?:your|its owner's|their owner's) control\.?$/i.test(sentence)) {
+    // OPTIONAL "you may" joined 2026-08-16 (Conjurer's Closet — SH13): an end-step "you may exile … you
+    // control, then return …" is the SAME non-fail-safe split — the severed "you may exile target creature
+    // you control" parses HIGH as an optional exile, describing a card that MAY exile your creature and never
+    // return it. The leading "you may" is peeled + stamped optional by the α2 wrapper AFTER keep-whole, so the
+    // guard only has to admit the prefix; the inner blink parses exactly as the mandatory form does.
+    if (/^(?:you may )?exile (?:target creature|up to one target nonland permanent|up to two target creatures|two target artifacts, creatures, and\/or lands) you control, then return (?:that card|it|those cards) to the battlefield under (?:your|its owner's|their owner's) control\.?$/i.test(sentence)) {
       clauses.push(sentence);
       continue;
     }

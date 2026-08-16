@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Conjurer's Closet blinks on your end step.** Its optional end-step "exile then return" now works — you
+  can flicker one of your creatures each turn to re-trigger its enter ability, as printed.
 - **Essence Flux rewards Spirits.** Its blink now returns the creature and, if it's a Spirit, brings it back
   with a +1/+1 counter — as printed, and nothing extra for a non-Spirit.
 - **Simic Ascendancy builds toward its win.** When +1/+1 counters land on your creatures it now banks that
