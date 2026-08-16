@@ -432,6 +432,12 @@ export function cdmgPayoffClauseParser(clause) {
   // permanent (ctx.sourceId) automatically. Sentinel-only → never reached off the countersPut rewrite.
   const cpDmgM = t.match(/^this creature deals that much counters-put damage to target opponent$/);
   if (cpDmgM) return { op: "deal-damage", countContext: "countersPutCount", targetType: "player" };
+  // (cp-self-ctr) counters-PUT self-counter accumulator (Simic Ascendancy — SH11): "put that many counters-put
+  // <named> counters on this <permanent>" → the add-named-counter-self atom the fixed form emits, amount swapped
+  // for countContext:"countersPutCount". Sentinel-only ("counters-put" is inserted by the countersPut rewrite) →
+  // never reached off that event, so an absent referent can't place 0. A ±1/+1 name can't reach here ([a-z]+).
+  const cpSelfCtrM = t.match(/^put that many counters-put ([a-z]+) counters? on this (?:artifact|permanent|creature|enchantment)$/);
+  if (cpSelfCtrM) return { op: "add-named-counter-self", counterType: cpSelfCtrM[1], countContext: "countersPutCount" };
   // (b) fixed-N rad to the damaged player — "they/that player gets N rad counters"
   const cdmgRadFixedM = t.match(/^(?:they|that player) gets? (\d+|a|an|one|two|three|four|five) rad counters?$/);
   if (cdmgRadFixedM) return { op: "rad", who: "damagedPlayer", amount: SMALL_NUM[cdmgRadFixedM[1]] ?? parseInt(cdmgRadFixedM[1], 10), targetType: null };
@@ -786,8 +792,13 @@ export function addCounterClauseParser(clause) {
 export function applyAddNamedCounterSelf(state, atom, ctx) {
   const lk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
   if (!lk) return state;
-  const next = addCounter(state, { permanentId: ctx.sourceId, type: atom.counterType, amount: atom.amount || 1 });
-  return logEvent(next, { kind: "spell-effect", effect: "add-named-counter-self", counterType: atom.counterType, amount: atom.amount || 1, targets: [ctx.sourceId] });
+  // MAGNITUDE (SH11): a countContext form ("put that many <named> counters …" — Simic Ascendancy's growth
+  // accumulator) reads the threaded event count (ctx.countersPutCount); the fixed form uses atom.amount. An
+  // absent/zero count places nothing (a clean logged no-op, never a fabricated counter — CREED).
+  const amount = atom.countContext ? (ctx[atom.countContext] || 0) : (atom.amount || 1);
+  if (amount <= 0) return logEvent(state, { kind: "spell-effect", effect: "add-named-counter-self", counterType: atom.counterType, amount: 0, targets: [ctx.sourceId] });
+  const next = addCounter(state, { permanentId: ctx.sourceId, type: atom.counterType, amount });
+  return logEvent(next, { kind: "spell-effect", effect: "add-named-counter-self", counterType: atom.counterType, amount, targets: [ctx.sourceId] });
 }
 
 /**

@@ -124,9 +124,12 @@ deck. Ordered roughly by payoff:
    Ethereal Armor + 5 more auras + 2 equipment. ✅ VEIN #7 CLOSED (08-16): Ancestral Mask (SH3, source-exclusion) + Sage's Reverie (SH4, the "aura you
    control attached to a creature" FILTERED count — the two-countForSpec bug found by the magnitude pin,
    both eval paths fixed). No count-scaling aura pumps remain parked.
-8. **The alt-win upkeep thresholds** (the EXISTING upkeep-win lane + new vocabulary): Bumbleflower's
-   Mechanized Production (eight same-name artifacts) / Simic Ascendancy (ten growth counters) /
-   Triskaidekaphile (exactly 13 in hand). Felidar already routes — the lane is proven.
+8. **The alt-win upkeep thresholds** (the EXISTING upkeep-win lane + new vocabulary): ✅ **Triskaidekaphile
+   (exactly 13 in hand) SHIPPED** + ✅ **Simic Ascendancy (twenty growth counters) SHIPPED (SH11, 08-16 —
+   the countersPut→growth self-accumulator; the win-threshold itself already routed)**. The last member is
+   **Mechanized Production** (eight same-name artifacts) — HEAVIER: an aura-attach + a copy-of-enchanted token
+   + a same-name-count win, three pieces to probe. Felidar routes — the win LANE is proven; the new work each
+   time is the counter/count VOCABULARY feeding it.
 9. **Shared singles seen in 2+ gap maps** (check both decks when built): Teferi's Protection
    (Kellan+Cap — CEILING-class candidate), Thassa's Oracle (Believe it!+Kinnan — the cEDH win),
    Skyclave Apparition (Brago+Shalai), Innkeeper's Talent (Bumbleflower+Shalai), Chaos Warp

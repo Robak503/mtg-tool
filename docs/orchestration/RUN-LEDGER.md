@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **SIMIC ASCENDANCY (+1) — the countersPut→growth-counter self-accumulator (vein #8)** - the next batch (SH11)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+8**.
+> ⭐ The probe found ONE gap where I expected two-plus: Simic's activated "{1}{G}{U}: put a +1/+1 counter on
+> target creature" (native-activated) AND its upkeep "if this enchantment has 20+ growth counters, you win the
+> game" (native-trigger — the alt-win lane + the named-counter intervening-if BOTH already route) were already
+> covered. Only clause 2 — "whenever one or more +1/+1 counters are put on a creature you control, put THAT MANY
+> growth counters on this enchantment" — parked. The named-counter TWIN of Shalai's SH1 damage payoff: the SAME
+> countersPut trigger + ctx.countersPutCount threading + the SAME sentinel discipline, only the payoff differs
+> (place N growth counters on the source vs deal N damage). Reused the existing add-named-counter-self atom
+> (already handles fixed named counters on "this enchantment"), swapping amount → countContext.
+> ⚠️ Three-site slice, all mirroring SH1: (1) triggers.js countersPut rewrite inserts the unprintable
+> "counters-put" sentinel; (2) counters.js parser arm maps the sentinel → {add-named-counter-self, countContext};
+> (3) applyAddNamedCounterSelf honors countContext (fixed form byte-identical). The SENTINEL is the referent
+> gate — a bare spell "put that many growth counters …" stays LOW (pinned), so no off-event fabricated counter.
+> ⚠️ HOLLOW-GATE: witness pins the RUNTIME — Simic gains EXACTLY countersPutCount growth counters (4 placed → 4
+> growth), a 0-count places nothing. 3 mutations via Edit, seen-to-fail (rewrite → classify dies; parser arm →
+> parse+classify die; countContext branch → runtime magnitude dies to the fixed default). Token diet: ~20k
+> output tokens (a 3-site slice, but every site had an SH1 template to mirror). — Cindy
+>
 > ## SLICE DONE - 2026-08-16 - **WINDS OF CHANGE (+1) — the hand-only shuffle-in + draw-that-many wheel (vein #2 CLOSED)** - the next batch (SH10)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+7**.
 > ⭐ The last straggler of vein #2 (the wheel atom): the rest — Wheel of Fortune, Windfall, Magus, Reforge,
@@ -61,13 +80,16 @@
 >
 > 🔭 **BUILD-READY MEDIUMS for the next fire** (fresh probe 08-16 across 3 more veins — the clean single-arms
 > ARE mined; every near-residue target is now a genuine medium, ranked by tractability×payoff):
-> • **① Simic Ascendancy** (Bumbleflower; vein #8 alt-win) — TWO concrete gaps, both de-risked: (a) the
->   counters-put→"put that many GROWTH counters on this enchantment" magnitude accumulator (a named-counter
->   variant of the Shalai SH1 magnitude threading — LOW now); (b) the upkeep "if this enchantment has 20+
->   growth counters, you win" named-counter win-threshold ("you win the game" already parses HIGH; the
->   named-counter intervening-if is the piece). The alt-win LANE is proven (Triskaidekaphile SH). Best next.
+> • **① Simic Ascendancy** — ✅ SHIPPED (SH11, 08-16); it turned out to be ONE gap (the growth accumulator),
+>   not two — the alt-win + activated were already native. The countersPut self-accumulator machinery now
+>   exists (add-named-counter-self + countContext) for any future "put that many <named> counters on this
+>   <permanent>" host.
 > • **② Winds of Change** — ✅ SHIPPED (SH10, 08-16); vein #2 (the wheel atom) now FULLY closed.
-> • **③ Counter-DOUBLING target-form** — "…on target creature" LOW, but flips +0 alone (Solidarity of Heroes
+> • **③ Mechanized Production** (Bumbleflower; vein #8 alt-win — the last member) — HEAVIER: an Aura ("enchant
+>   artifact you control") + upkeep "create a token that's a COPY of enchanted artifact, then if you control
+>   eight or more artifacts with the same name, you win the game." Three pieces: the aura-attach, the
+>   copy-of-enchanted token, and the same-name-count win. Probe each before committing — likely a real medium+.
+> • **④ Counter-DOUBLING target-form** — "…on target creature" LOW, but flips +0 alone (Solidarity of Heroes
 >   pairs it with Strive + the "on each of them" phrasing; Scythecat = 2nd-time-resolved tracker; Kalonian
 >   Hydra already native). Foundational-only — ship ONLY when it completes a card.
 > • **Heavier veins (subsystem builds, multi-fire): ** Otharri experience-counter reanimate · Brago flicker

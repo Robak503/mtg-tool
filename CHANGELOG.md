@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Simic Ascendancy builds toward its win.** When +1/+1 counters land on your creatures it now banks that
+  many growth counters — and at twenty, on your upkeep, you win the game, exactly as printed.
 - **Winds of Change works.** Every player now shuffles their hand into their library and draws that many
   cards back — a full hand refresh that leaves graveyards untouched, completing the wheel family.
 - **Thunderfoot Baloth's Lieutenant bonus works.** While you control your commander, it now gives itself and

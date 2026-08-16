@@ -3083,6 +3083,15 @@ const COUNTERS_PLACED_PAYOFF_RE = /^(?:you may )?(?:draw that many cards|gain th
 // is unprintable text, so ONLY a countersPut-context clause ever reaches the parser arm — a different
 // trigger's "deals that much damage to target opponent" is never rewritten → parks (CREED, no absent-ctx FP).
 const COUNTERS_PUT_DAMAGE_PAYOFF_RE = /^this creature deals that much damage to target opponent$/i;
+// COUNTERS-PUT SELF-COUNTER ACCUMULATOR (Simic Ascendancy — SHELF-TAIL SH11): the PASSIVE "one or more
+// +1/+1 counters are put on a creature you control → put THAT MANY <named> counters on this <permanent>"
+// (Simic's growth-counter accumulator). "that many" = the counters placed in the event (ctx.countersPutCount,
+// threaded by checkCountersPutTriggers). A NAMED (non-±1/+1) counter on the SOURCE itself — the add-named-
+// counter-self atom the fixed form already emits, magnitude swapped to countContext. Whole-clause anchored
+// (a rider leaves residue → no rewrite → LOW → Arbiter, a SAFE FN). The named counter is a single bare word,
+// never a ±1/+1 form (those route through addCounter's creature-self path); the sentinel it rewrites to (below)
+// is the referent gate — only a countersPut-context clause ever reaches the parser arm.
+const COUNTERS_PUT_SELF_COUNTER_PAYOFF_RE = /^put that many [a-z]+ counters? on this (?:artifact|permanent|creature|enchantment)$/i;
 
 // LIFEGAIN-SCALED SELF COUNTERS (BLITZ EC-1b — Sunbond / Light of Promise): "Whenever you gain life, put
 // that many +1/+1 counters on this creature." — "that many" is the amount of life just gained
@@ -4524,6 +4533,14 @@ export function detectTriggers(card) {
         // countContext:"countersPutCount"; the unprintable sentinel is the referent gate (only a
         // countersPut-context clause reaches the arm, so no other event reads an absent ctx and deals 0).
         effectClause = effectClause.replace(/\bdeals that much damage\b/i, "deals that much counters-put damage");
+      } else if (cls.event === "countersPut" && COUNTERS_PUT_SELF_COUNTER_PAYOFF_RE.test(effectClause)) {
+        // ===== COUNTERS-PUT "that many" SELF-COUNTER ACCUMULATOR (Simic Ascendancy — SH11) ===== "put that
+        // many <named> counters on this <permanent>", magnitude = ctx.countersPutCount. Rewrite → the event-
+        // specific sentinel the add-named-counter-self parser maps to countContext:"countersPutCount"; the
+        // unprintable "counters-put" token is the referent gate (only a countersPut-context clause reaches the
+        // arm, so no spell/other trigger ever reads an absent ctx and places 0). Insert the sentinel right
+        // after "that many" — the parser arm anchors on "put that many counters-put <name> counters on this …".
+        effectClause = effectClause.replace(/^put that many\b/i, "put that many counters-put");
       } else if (cls.event === "lifegain" && LIFEGAIN_SELF_COUNTER_PAYOFF_RE.test(effectClause)) {
         // ===== LIFEGAIN-SCALED SELF COUNTERS (BLITZ EC-1b — Sunbond / Light of Promise) ===== "Whenever you
         // gain life, put that many +1/+1 counters on this creature." — "that many" = the life just gained
