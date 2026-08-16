@@ -2339,6 +2339,23 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       return makeProgram({ confidence: "high", atoms: [{ op: "reveal-until-creature-attacking", targetType: null }], xSpell: false, unparsedTail: null });
     }
   }
+  // ===== FIGHT-EXCESS-TO-MANA (The Last Agni Kai, W11) ===== the three-sentence span (the fight-pair,
+  // the "excess damage this way → add that much {R}" back-reference, and the turn-scoped red-mana hold)
+  // would shatter under the splitter, so it's collapsed up front. EXACT whole-string anchor; any variant
+  // (a different color, a non-fight source, an unbounded hold) falls through → low → Arbiter. The atom is
+  // the PROVEN fight-pair (arm (a)'s exact fields) + the two rider flags applyFightPair enforces
+  // (excessToMana — the Ram Through lethal-need convention; holdManaColorTurn — emptyManaPools' turn hold).
+  {
+    const ak = String(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "")
+      .match(/^target creature you control fights target creature an opponent controls\. if the creature the opponent controls is dealt excess damage this way, add that much \{r\}\. until end of turn, you don't lose unspent red mana as steps and phases end$/);
+    if (ak && KNOWN.has("fight-pair")) {
+      return makeProgram({ confidence: "high", atoms: [{
+        op: "fight-pair", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], role: "target",
+        secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter",
+        excessToMana: "R", holdManaColorTurn: "R",
+      }], xSpell: false, unparsedTail: null });
+    }
+  }
   // ===== EXILE-X-CONTROLLER-RIDER (Curse of the Swine) ===== "Exile X target creatures. For each creature
   // exiled this way, its controller creates a 2/2 green Boar creature token." → ONE exile atom (targetCountX —
   // the target count is the chosen X) carrying a per-exiled createToken controllerRider. Gated to hasX (the

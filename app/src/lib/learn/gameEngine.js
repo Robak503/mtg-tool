@@ -234,8 +234,14 @@ export function emptyManaPools(state) {
     // It can never preserve MORE than the printed effect promised, so it cannot manufacture mana out of
     // nothing — the failure mode is a rare 1-mana carry, not a leak.
     const hold = state.players[pid].manaHold || {};
+    // TURN-SCOPED COLOR HOLD (The Last Agni Kai, W11 — "Until end of turn, you don't lose unspent red
+    // mana as steps and phases end"): manaHoldTurn[c] keeps the WHOLE color at every step/phase drain;
+    // finishCleanupActions strips the flag BEFORE its own drain, so the mana still empties at cleanup
+    // (the printed "until end of turn" bound). Unlike manaHold (a bounded per-color cap, end-of-combat),
+    // this is unbounded by design — the printed effect holds ALL unspent mana of the color.
+    const holdTurn = state.players[pid].manaHoldTurn || {};
     const newPool = {};
-    for (const c of MANA_COLORS) newPool[c] = keep.includes(c) ? pool[c] || 0 : Math.min(pool[c] || 0, hold[c] || 0);
+    for (const c of MANA_COLORS) newPool[c] = (keep.includes(c) || holdTurn[c]) ? pool[c] || 0 : Math.min(pool[c] || 0, hold[c] || 0);
     // POOL-RESTRICTED SUB-POOL (QUARTET Phase 4 — Klauth): tagged entries empty with the pool UNLESS
     // they carry the printed until-end-of-turn hold ("you don't lose this mana as steps and phases
     // end") — those survive every step/phase end and are dropped at CLEANUP (finishCleanupActions).
@@ -769,7 +775,20 @@ export function cleanupDiscardExcess(state, playerId) {
  * run inline when the hand is already legal.
  */
 export function finishCleanupActions(state) {
-  let next = emptyManaPools(state);
+  // TURN-SCOPED COLOR HOLD (W11): strip manaHoldTurn BEFORE the cleanup drain below — "until end of
+  // turn" ends here, so the held color empties with everything else (CR 514.2).
+  let next = state;
+  {
+    const stripped = {};
+    let touched = false;
+    for (const pid of Object.keys(next.players)) {
+      const p = next.players[pid];
+      if (p.manaHoldTurn && Object.keys(p.manaHoldTurn).length) { stripped[pid] = { ...p, manaHoldTurn: {} }; touched = true; }
+      else stripped[pid] = p;
+    }
+    if (touched) next = { ...next, players: stripped };
+  }
+  next = emptyManaPools(next);
   // POOL-RESTRICTED SUB-POOL (QUARTET Phase 4 — Klauth): the until-end-of-turn HELD entries survived
   // every step-end drain above; the turn ends HERE, so every entry drops (CR 514.2 + the printed
   // "until end of turn" bound on the hold itself).

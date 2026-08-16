@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **🏁 THE LAST AGNI KAI (+1) — fight-excess-to-mana + the turn red hold; WOLVERINE AT 90** - the shelf grind (Wolverine 89→**90** ✅)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — arbiter-spell→
+> native-spell. Post-release batch **+72**. ⭐ **WOLVERINE IS THE 14TH DECK AT THE BAR** — the first
+> shelf-tail deck closed: ELEVEN slices 79→90 in ~30 hours (Ancient · Ozolith · Kodama+SP//dr ·
+> Warden · Canopy · Well Rested · Meltstrider+3 · Regalia · Cutter+6 (Monastery Mentor!) ·
+> Raph & Mikey · Agni Kai). Parked honestly: Neyith, Quilled, Berserk, the two Wolverines, HULK
+> SMASH!, Nibelheim, Legolas's, Inscription, Beastie (each named in the plan with its heavy line).
+> ⭐ THE SLICE: the three-sentence span collapsed pre-split → the PROVEN fight-pair atom + two rider
+> flags: excessToMana (excess = damage beyond the target's lethal need — remaining toughness, or 1
+> under deathtouch, the Ram Through convention) and holdManaColorTurn (player.manaHoldTurn —
+> emptyManaPools keeps the WHOLE color at every step/phase drain; finishCleanupActions strips the
+> flag BEFORE its own drain, so "until end of turn" ends exactly at cleanup, CR 514.2). Witness pins
+> excess=4 real red · the hold surviving a drain while {G} empties · the cleanup strip. 3 mutations
+> (anchor · excess capture · the holdTurn branch) via Edit, each seen-to-fail.
+> Token diet: ~7k output tokens this slice.
 > ## SLICE DONE - 2026-08-16 - **RAPH & MIKEY (+1) — the duo plural-verb trigger + reveal-until-creature-ATTACKING** - the shelf grind (Wolverine 88→89)
 > Suite green + lint 0 BY EXIT CODE (sequential; one lint catch — an unused test import — fixed
 > pre-gate). Flip-diff **+1 / 0 / 0**. Post-release batch **+71**.

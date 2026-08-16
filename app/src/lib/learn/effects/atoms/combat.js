@@ -5,7 +5,7 @@
 
 import { addContinuousEffect, permanentIsCreature, permanentHasKeyword } from "../../layers.js";
 import { applyDamageEffect } from "../../spellEffects.js"; // TRAMPLE-EXCESS (Ram Through) — the shared player-damage path (removal.js precedent; call-time binding, cycle-safe)
-import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe, addPreventionShield } from "../../gameState.js";
+import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe, addPreventionShield, addMana } from "../../gameState.js";
 import { checkDiesTriggers, checkUntapTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
 import { autoPickCreatureType } from "../../choicePolicy.js"; // BECOME-CREATURE-TYPE (CR 614.12) — the shared auto-choice policy; choicePolicy.js imports NOTHING, which is the only shape an atom can share with resolvers (resolvers -> runProgram -> effectAtoms -> here)
@@ -629,11 +629,32 @@ export function applyFightPair(state, atom, ctx) {
   if (permanentHasKeyword(base, fighter.permanent.id, "Deathtouch")) deathtouched.add(target.permanent.id);
   if (permanentHasKeyword(base, target.permanent.id, "Deathtouch")) deathtouched.add(fighter.permanent.id);
   let next = base;
+  // EXCESS-TO-MANA rider (The Last Agni Kai, SHELF-TAIL W11 — CR 120.4a): "If the creature the opponent
+  // controls is dealt excess damage this way, add that much {R}." Excess = the fighter's damage beyond the
+  // TARGET's lethal need — its remaining toughness (toughness − damage already marked), or 1 when the
+  // fighter has deathtouch (the Ram Through convention exactly). Computed PRE-mark off the same reads the
+  // fight locks; 0 excess adds nothing. The mana is added AFTER the exchange with the turn-scoped hold
+  // (holdManaColorTurn → player.manaHoldTurn — emptyManaPools keeps that color at every step/phase end
+  // until finishCleanupActions strips the flag, the printed "you don't lose unspent red mana" line).
+  let excess = 0;
+  if (atom.excessToMana && aPow > 0) {
+    const lethalNeed = deathtouched.has(target.permanent.id)
+      ? 1
+      : Math.max(0, creatureToughness(target.permanent, base) - (target.permanent.damageMarked || 0));
+    excess = Math.max(0, aPow - lethalNeed);
+  }
   if (aPow > 0) next = markCombatDamage(next, { permanentId: target.permanent.id, amount: aPow });
   if (bPow > 0) next = markCombatDamage(next, { permanentId: fighter.permanent.id, amount: bPow });
   const lethal = destroyLethalCreatures(next, deathtouched); // SINGLE simultaneous SBA pass (CR 701.12a)
   next = checkDiesTriggers(lethal.state, lethal.dead);
-  return logEvent(next, { kind: "spell-effect", effect: "fight-pair", targets: [fighter.permanent.id, target.permanent.id] });
+  if (atom.excessToMana && excess > 0) {
+    next = addMana(next, { playerId: ctx.controller, color: atom.excessToMana, amount: excess });
+  }
+  if (atom.holdManaColorTurn) {
+    const p = next.players[ctx.controller];
+    if (p) next = { ...next, players: { ...next.players, [ctx.controller]: { ...p, manaHoldTurn: { ...(p.manaHoldTurn || {}), [atom.holdManaColorTurn]: true } } } };
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "fight-pair", targets: [fighter.permanent.id, target.permanent.id], ...(atom.excessToMana ? { excessMana: excess } : {}) });
 }
 
 /**

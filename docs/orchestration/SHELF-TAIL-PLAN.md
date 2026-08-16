@@ -111,7 +111,11 @@ deck. Ordered roughly by payoff:
 
 ## 5. PER-DECK RESIDUE MAPS
 
-### 5.1 Wolverine, claws out! — 85, needs 5 (ACTIVE)
+### 5.1 Wolverine, claws out! — 🏁 90, AT THE BAR (closed 2026-08-16; eleven slices 79→90)
+Parked residue (each with its named heavy line — return only if the ceiling program ever revisits):
+Neyith · Quilled Greatwurm · Berserk · the two Wolverines · HULK SMASH! · Nibelheim Aflame ·
+Legolas's Quick Reflexes · Inscription of Abundance · Beastie Beatdown. **NEXT DECK: §5.2 KELLAN.**
+### (history) 5.1 while active — 85, needs 5
 ✅ Forgotten Ancient (counter-MOVE) · ✅ The Ozolith (leave-accumulator + move-all) · ✅ Kodama
 (the modified watcher; +SP//dr, +Thrun) · ✅ Warden (endure-X on the enterer) · ✅ Canopy
 Gargantuan (perTargetStat:"toughness") · ✅ Well Rested (the IT-COUNTER + CONTINUATION pronoun

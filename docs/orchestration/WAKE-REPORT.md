@@ -16,7 +16,7 @@
 > ### ⏭ RUNNABLE NOW — **the shelf tail runs off [SHELF-TAIL-PLAN.md](SHELF-TAIL-PLAN.md)** (Colton, 08-15: keep the window low)
 > The next three decks' full residue maps, probed blockers, and slice queues live in
 > **docs/orchestration/SHELF-TAIL-PLAN.md** — a booting session reads THAT file, not a vein block
-> here. The order (Colton's steer, banked in the vault): **① Wolverine 89 → ② Kellan 74 →
+> here. The order (Colton's steer, banked in the vault): **① Wolverine 🏁90 AT THE BAR → ② Kellan 74 (ACTIVE) →
 > ③ Otharri 74 → ④ Cap America 73 → ⑤ Halfshell 67 → ⑥ Shalai 67 → ⑦ the archetype SEVEN — the
 > program COMPLETE (all pasted by Colton 08-15, lists banked in the vault registry; theft VETOED for
 > training on purpose): Thrun Voltron 80 + Brago Blink 75 (flicker) + Shorikai Vehicles 73 (crew) +

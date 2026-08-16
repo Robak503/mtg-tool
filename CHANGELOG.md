@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **The Last Agni Kai converts the overkill.** The fight really pays excess damage out as red mana,
+  and that red genuinely survives every step and phase until end of turn — then empties at cleanup
+  like the card says.
 - **Raph & Mikey cause proper trouble.** Their attack trigger fires (the duo's plural wording was the
   whole blocker), digs to the first creature in your library, puts it in tapped *and attacking* the
   same player, and bottoms the rest at random — exactly as printed.
