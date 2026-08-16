@@ -465,6 +465,19 @@ function gateMet(state, perm, gate) {
     }
     return false;
   }
+  // CONTROL-YOUR-COMMANDER gate (LIEUTENANT cycle — Thunderfoot Baloth "As long as you control your
+  // commander, this creature gets +2/+2 and other creatures you control get +2/+2 and have trample"; CR 903):
+  // open exactly while the gate subject's CONTROLLER has any permanent flagged card.isCommander on their
+  // battlefield. Reuses the isCommander flag stamped at seat build (the same one selector.commanderOnly reads
+  // for Bastion Protector). The group anthem carries gateOn:"source" (gatePermForEffect swaps the subject to
+  // this leveler-style SOURCE before gateMet), so the whole grant flips ON/OFF live as the commander leaves or
+  // re-enters — re-evaluated every derive pass like every other gate (CR 611.3a). A pure battlefield scan: no
+  // derive, no recursion. The same "you control your commander" predicate the intervening-if evaluator handles
+  // for the triggered half of the cycle (interveningIf.js) — one condition, two consumption sites.
+  if (gate.kind === "controlYourCommander") {
+    const bf = state?.players?.[perm.controller]?.battlefield || [];
+    return bf.some((p) => p?.card?.isCommander === true);
+  }
   // LIFE-TOTAL gates (BLITZ CA-2) — pure per-seat life reads, re-evaluated every derive (CR 611.3a):
   //   lifeAtLeast — "as long as you have 25 or more life" (Divinity of Pride / Angel of Vitality /
   //   Serra Ascendant's 30): the gate subject's CONTROLLER's live life total.

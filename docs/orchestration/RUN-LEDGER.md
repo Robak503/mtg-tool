@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **THUNDERFOOT BALOTH (+1) — the LIEUTENANT ability word (commander-gated compound anthem)** - the next batch (SH9)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+6**.
+> ⭐ The scouting fire's 2nd de-risked target. "Lieutenant — As long as you control your commander, this
+> creature gets +2/+2 and other creatures you control get +2/+2 and have trample" — a commander-PRESENCE
+> gated compound static: a self pump + a group anthem (+ granted trample) over your OTHER creatures. The
+> unconditional other-anthem already parsed; the two gaps were (1) the self-pump ("this creature gets +X/+X"
+> as a bare static has no un-gated carrier) and (2) the commander-control GATE. Both landed on EXISTING
+> machinery: a dedicated parseLieutenantStatic emits the SAME 3 descriptors the leveler band-anthem path uses
+> (ptModifyGated 7c self + ptModifyGated 7c group gateOn:"source" + gated layer-6 addKeyword), and a new
+> gateMet branch kind:"controlYourCommander" is a pure battlefield scan for the controller's isCommander flag
+> — the SAME flag selector.commanderOnly (Bastion Protector) reads and the SAME predicate the intervening-if
+> half of the cycle uses (interveningIf.js). One condition, two consumption sites; zero new plumbing.
+> ⚠️ TWO-PATHS trap (caught by classify, not the parser): parseStaticAbilities emitted the descriptors but
+> staticAbilitiesCoverCard + clauseProducesStatic have their OWN parseClause walk — both needed the
+> parseLieutenantStatic recognition added or the card parked despite the descriptors. Fixed all three sites.
+> ⚠️ HOLLOW-GATE: witness pins the RUNTIME via deriveCharacteristics + permanentHasKeyword — WITH the
+> commander the ally is 4/4 + trample and the source 5/5 (self-only, excludeSelf keeps the group buff off it),
+> WITHOUT it nothing applies, an opponent never gets it. 2 mutations via Edit: (1) neuter the parse → body-only
+> (parse+classify+runtime die); (2) neuter the gateMet branch → ONLY the WITH-commander pin dies (parse/classify
+> survive) — proving the gate is load-bearing, not cosmetic. Token diet: ~24k output tokens (a real medium: the
+> two-paths trace + the layer-condition seam study, not a shelf single-arm). — Cindy
+>
 > ## SLICE DONE - 2026-08-16 - **COURT OF GARENBRIG (+1) — distribute "up to N among target creatures" (any-recipient)** - the next batch (SH8)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+5**.
 > ⭐ The scouting fire's #1 build-ready target, landed in one arm. Court's other pieces already parsed
@@ -20,13 +42,18 @@
 > the 4th time this pattern's bitten). 1 mutation via Edit, seen-to-fail (kills the parse + both classifies).
 > Token diet: ~11k output tokens (the graduation cost the extra). — Cindy
 >
-> 🔭 **STILL BUILD-READY for the next fire** (de-risked in the 08-16 scouting fire, minus Court now shipped):
+> 🔭 **STILL BUILD-READY for the next fire** (de-risked in the 08-16 scouting fire; Court + Thunderfoot shipped):
 > • **Counter-DOUBLING vein** — "double the number of +1/+1 counters on EACH creature you control" is HIGH;
 >   the SINGLE-target "…on target creature" is LOW (Scythecat Cub's landfall payoff + others). One arm →
 >   possibly several, but each host pairs it with a 2nd blocker (Scythecat = "2nd time resolved this turn"
->   tracker; Innkeeper's Talent = Class leveling + L3 doubling-replacement).
-> • **Otharri GY-reanimate** — the named layer re-entry ({2}{R}{W},Tap-a-Rebel return from graveyard);
->   Thunderfoot Baloth = LIEUTENANT (commander-control-gated anthem, "as long as you control your commander").
+>   tracker; Innkeeper's Talent = Class leveling + L3 doubling-replacement). NOTE: the target-doubling arm
+>   alone flips +0 (no clean host) — a foundational-only arm, so ship it ONLY when it completes a card.
+> • **Otharri GY-reanimate** — the named layer re-entry ({2}{R}{W},Tap-a-Rebel return from graveyard); the
+>   experience-counter attack trigger (make N tapped-attacking Rebels for each experience counter) is the 2nd
+>   blocker — heavier, a whole experience-counter subsystem.
+> • **LIEUTENANT vein (re-probe)** — SH9 built Thunderfoot's exact template; the C16 Lieutenant cycle may
+>   carry more (the corpus scan across all 34k flipped ONLY Thunderfoot, so any others either differ in
+>   template — widen parseLieutenantStatic — or carry a real 2nd blocker). Cheap to re-probe by name.
 > ## SLICE DONE - 2026-08-16 - **RISHKAR, PEEMA RENEGADE (+1) — counter-gated group mana grant** - the next batch (SH7)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+4**.
 > ⭐ A single clean arm: the UNFILTERED "each creature you control has '{T}: Add {G}'" was already

@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Thunderfoot Baloth's Lieutenant bonus works.** While you control your commander, it now gives itself and
+  your other creatures +2/+2 and grants them trample — and correctly gives nothing while your commander is
+  gone, tracking live as it leaves and re-enters.
 - **Court of Garenbrig grows your team.** Its upkeep now distributes its two +1/+1 counters among up to two
   of your creatures and — while you're the monarch — doubles every +1/+1 counter you control, as printed.
 - **Rishkar, Peema Renegade turns your counters into mana.** Creatures you control that have a counter now

@@ -4399,6 +4399,50 @@ function _cardSlot(card) {
  * no id/timestamp/source). Bounded — recognizes the anthem/lord grammar above;
  * everything else yields []. Pure; memoized per card object (results read-only).
  */
+/**
+ * LIEUTENANT (CR 903; the Commander 2016 ability word) — "Lieutenant — As long as you control your commander,
+ * this creature gets +X/+X and other creatures you control get +Y/+Y [and have <keywords>]." A commander-
+ * presence-gated COMPOUND static: a self pump + a group anthem over your OTHER creatures (+ optional granted
+ * keywords on that group). The self-pump alone doesn't parse through the general anthem oracle (a bare
+ * "this creature gets +X/+X" static has no un-gated carrier), so this dedicated handler emits all three
+ * descriptors directly — the same shape the leveler band-anthem path emits (ptModifyGated 7c + gated layer-6
+ * addKeyword), reusing the existing gate framework end-to-end.
+ *
+ * All descriptors gate on kind:"controlYourCommander" (layers.gateMet — a live battlefield scan for the
+ * controller's isCommander flag). The GROUP descriptors carry gateOn:"source" so the gate reads the SOURCE's
+ * controller, not each affected creature (the leveler-anthem convention; here both are "you" so it's also
+ * correct-by-construction). The keyword tail delegates to parseAnthemHaveTail (the all-or-nothing keyword
+ * oracle): an unmodeled keyword / a protection or ward span → null → the WHOLE clause stays LOW and the
+ * whole-card CREED parks the card (safe FN). Returns an array of static descriptors, or null if not the
+ * Lieutenant template. Pure.
+ */
+function parseLieutenantStatic(clause) {
+  const c = String(clause).toLowerCase().trim();
+  const m = c.match(/^lieutenant\s*[—-]\s*as long as you control your commander,\s+this creature gets \+(\d+)\/\+(\d+) and other creatures you control get \+(\d+)\/\+(\d+)(?: and have (.+?))?\.?$/);
+  if (!m) return null;
+  const selfP = parseInt(m[1], 10), selfT = parseInt(m[2], 10);
+  const otherP = parseInt(m[3], 10), otherT = parseInt(m[4], 10);
+  let keywords = [];
+  if (m[5] != null) {
+    const tail = parseAnthemHaveTail(m[5].trim());
+    // Only a bare grantable-keyword list on the group is modeled here — a protection/ward span on a Lieutenant
+    // grant isn't in the corpus, so reject it rather than silently drop it (whole clause → LOW, safe FN).
+    if (!tail || tail.protColors.length || tail.wardLife || tail.wardGeneric || !tail.keywords.length) return null;
+    keywords = tail.keywords;
+  }
+  const selfGate = { kind: "controlYourCommander" };
+  const groupGate = { kind: "controlYourCommander", gateOn: "source" };
+  const groupAffects = () => ({ mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], excludeSelf: true } });
+  const out = [
+    { layer: 7, sublayer: "7c", op: { layerOp: "ptModifyGated", power: selfP, toughness: selfT, gate: selfGate }, affects: { mode: "self" }, duration: { kind: "permanent" } },
+    { layer: 7, sublayer: "7c", op: { layerOp: "ptModifyGated", power: otherP, toughness: otherT, gate: groupGate }, affects: groupAffects(), duration: { kind: "permanent" } },
+  ];
+  for (const kw of keywords) {
+    out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: kw, gate: groupGate }, affects: groupAffects(), duration: { kind: "permanent" } });
+  }
+  return out;
+}
+
 export function parseStaticAbilities(card) {
   const slot = _cardSlot(card);
   if (slot && "statics" in slot) return slot.statics;
@@ -4407,6 +4451,8 @@ export function parseStaticAbilities(card) {
   if (rawOracle && !isLevelGated(rawOracle)) {
     const oracle = selfNormalizeOracle(rawOracle, card?.name, card?.type || card?.type_line); // TRUNK-SELFBUFF: name-based self-ref → "this creature"
     for (const clause of abilityClauses(oracle)) {
+      const lt = parseLieutenantStatic(clause); // LIEUTENANT (CR 903) — a commander-gated compound the general anthem oracle can't reach (self pump has no un-gated carrier)
+      if (lt) { out.push(...lt); continue; }
       parseClause(clause, out, card?.name, card?.type || card?.type_line); // name → EMINENCE excludeSelf sourceName; type → ARIXMETHES type-change
     }
     // ⛔ CHOSEN-TYPE WITHOUT A CHOOSER IS A RUNTIME-VACUOUS NATIVE. Every chosenType descriptor resolves
@@ -4956,6 +5002,7 @@ export function staticAbilitiesCoverCard(card, isKeywordOnlyClause) {
   const oracle = selfNormalizeOracle(String(card?.oracle || card?.oracle_text || ""), card?.name, card?.type || card?.type_line); // match the runtime's name-normalized parse
   for (const clause of abilityClauses(oracle)) {
     if (hasPipReducer && /^this effect reduces only the amount of colored mana you pay$/i.test(clause.trim())) continue;
+    if (parseLieutenantStatic(clause)) continue; // LIEUTENANT (CR 903) — a commander-gated compound handled outside parseClause; parseStaticAbilities emits its descriptors in the same loop
     const produced = [];
     parseClause(clause, produced, card?.name);
     if (produced.length > 0) continue;          // a modeled static clause
@@ -6511,6 +6558,7 @@ export function isNativeManaGrantAura(card) {
  * so it needs the per-clause static test + the leveler guard, not the whole-card wrapper.
  */
 export function clauseProducesStatic(clause) {
+  if (parseLieutenantStatic(String(clause || ""))) return true; // LIEUTENANT (CR 903) — a commander-gated compound handled outside parseClause
   const out = [];
   parseClause(String(clause || ""), out);
   return out.length > 0;
