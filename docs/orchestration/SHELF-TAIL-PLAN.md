@@ -116,7 +116,23 @@ deck. Ordered roughly by payoff:
 (the modified watcher; +SP//dr, +Thrun) · ✅ Warden (endure-X on the enterer) · ✅ Canopy
 Gargantuan (perTargetStat:"toughness") · ✅ Well Rested (the IT-COUNTER + CONTINUATION pronoun
 rewrite — the untap event, granted lane, and once-latch all pre-existed). All six SHIPPED 08-15.
-Remaining, probed: **Neyith** (the fight-or-blocked OR-batch + the pay-offer — HEAVY, park to deck-end) ·
+BATCH-PROBED 08-15 late (Wolverine Best There Is = native-mixed and Ulvenwald Tracker =
+native-activated ALREADY — ambient flips, don't re-build): the cheapest remaining, in order —
+**Meltstrider's Resolve** (probed deeper: the ETB detects but "ENCHANTED CREATURE fights up to one
+target creature an opponent controls" needs the enchanted-referent fight form — the host via the
+aura's attachedTo, the equippedCreature-scope convention; AND the static line "+0/+2 and can't be
+blocked by more than one creature" needs the blocking-restriction grant — check combatEvasion for
+the menace-inverse. TWO parts, one card) · **Brotherhood Regalia** (granted ward{2} exists; the blockers are likely the
+"is an Assassin in addition" type-add + "can't be blocked" grant + the DUAL equip costs) ·
+**Quilled Greatwurm** (the deals-combat-damage-during-your-turn → that-many self counters watcher;
+⚠️ its cast-from-GY-by-removing-counters line may park the card — check the alt-cast exclusion
+rule first) · **Cori-Steel Cutter** (Flurry = the existing cast-Nth machinery + token; the
+"you may attach it to that token" rider is the likely blocker) · **Raph & Mikey** (attack →
+reveal-until-creature → battlefield TAPPED AND ATTACKING — probe whether a reveal-until atom
+exists). The arbiter-spell trio (Inscription kicked-modal-count · Beastie Beatdown two-target
+delirium · Last Agni Kai fight-excess-to-mana — the excess ledger exists) are CHUNKIER — they
+already PLAY via the Arbiter; take them after the body-only five. **Neyith** (the fight-or-blocked
+OR-batch + the pay-offer — HEAVY, park to deck-end) ·
 the anthems (Inscription of Abundance modal, Beastie Beatdown, The Last Agni Kai) · Brotherhood
 Regalia (granted shroud) · Cori-Steel Cutter · the spells (Nibelheim Aflame, Legolas's Quick
 Reflexes, HULK SMASH!) · the two Wolverines (attacks+ETB) · Quilled Greatwurm · Meltstrider's
