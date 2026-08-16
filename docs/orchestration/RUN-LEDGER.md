@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **DELAYED-BLINK WIDEN #3 (+1) — Voyager Staff (the "the exiled card" alias)** - the next batch (SH17)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+17**.
+> ⭐ A one-token alias off the SH14 machinery: Voyager Staff's activated ability says "return THE EXILED CARD"
+> where the SH15 cards say "that card" — same referent (the just-exiled card). Added the alternation to the
+> delay-last arm; the sac-activated wrapper routes the effect, so it flips native-activated. 1 mutation via
+> Edit (drop the alias → Voyager Staff drops), seen-to-fail. Delayed-blink vein now +7 across SH14-17.
+> ⏭️ BANKED (not built this fire — deeper): Flickerwisp (ETB "another target PERMANENT" — needs a new
+> permanent targetType + excludeSelf restriction + a rethink of atomTargetIntent, since an ETB blink of any
+> permanent is often aimed at an OPPONENT, unlike the "own"-intent creature blinks); Semester's End (mass
+> creatures+planeswalkers + a per-type enters-with-counter rider — +1/+1 if creature, loyalty if walker);
+> Hide on the Ceiling (X-target artifacts/creatures). Each a real medium, not a one-line widen. Token: ~14k.
+>
 > ## SLICE DONE - 2026-08-16 - **DELAYED-BLINK WIDEN #2 (+2) — Eerie Interlude + Ghostway (the MASS forms)** - the next batch (SH16)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0**. NEW batch: **+16**.
 > ⭐ Two more off the SH14 machinery — both exile a WHOLE set of your creatures and return EACH at the next end

@@ -36,4 +36,11 @@ describe("SH15 — the delay-LAST plain phrasing", () => {
   it("CREED gate — a delayed 'under your control' form is NOT modeled (owner-return only) → LOW → Arbiter", () => {
     expect(programConfidence(parseEffectClause("Exile target creature. Return that card to the battlefield under your control at the beginning of the next end step.", "Instant"))).toBe("low");
   });
+  it("the 'the exiled card' phrasing is the same referent → same atom; Voyager Staff (sac-activated) flips native", () => {
+    // Voyager Staff uses "Return THE EXILED CARD …" where the others use "that card"; both name the just-exiled card.
+    expect(parseEffectClause("Exile target creature. Return the exiled card to the battlefield under its owner's control at the beginning of the next end step.", "Instant").atoms[0])
+      .toMatchObject({ op: "delayed-blink", targetType: "creature", withCounter: false });
+    expect(classifyCard({ name: "Voyager Staff", type: "Artifact", mana: "{3}",
+      oracle: "{2}, Sacrifice this artifact: Exile target creature. Return the exiled card to the battlefield under its owner's control at the beginning of the next end step." })).toBe("native-activated");
+  });
 });

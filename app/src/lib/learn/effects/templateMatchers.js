@@ -1017,7 +1017,9 @@ export function matchDelayedBlink(oracle) {
   // Owner return only ("under its owner's control") — a "your control" delayed spell isn't in the corpus, so
   // it stays LOW rather than guessing the controller (the immediate "your"-blink is Conjurer's Closet, already
   // native). The delayed-blink applier + [blink-return] sentinel (SH14) resolve both forms identically.
-  if (/^exile target creature\. return that card to the battlefield under its owner's control at the beginning of the next end step$/.test(t)) {
+  // "that card" and "the exiled card" are the same referent (the just-exiled card); Voyager Staff's activated
+  // ability uses the latter. Both admitted here so the single-creature delay-last form flips either phrasing.
+  if (/^exile target creature\. return (?:that card|the exiled card) to the battlefield under its owner's control at the beginning of the next end step$/.test(t)) {
     return { atoms: [{ op: "delayed-blink", targetType: "creature", withCounter: false }] };
   }
   // MASS "any number of target creatures you control" (Eerie Interlude): the whole chosen set is exiled and
