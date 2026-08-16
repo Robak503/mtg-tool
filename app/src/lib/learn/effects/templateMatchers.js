@@ -967,6 +967,19 @@ export function matchTimetwisterWheel(oracle) {
   return { atoms: [{ op: "timetwister-wheel", draw: 7, targetType: null }] };
 }
 
+// WINDS OF CHANGE (SHELF-TAIL — Nekusar's vein #2, the one wheel straggler) — "Each player shuffles the cards
+// from their hand into their library, then draws THAT MANY cards." The HAND-ONLY twin of the Timetwister wheel:
+// only the hand folds in (the graveyard stays put, unlike Echo of Eons), and the draw count is per-player "that
+// many" = the number of cards THAT player just shuffled in from hand (not a fixed seven). One collapsed atom —
+// the shuffle-in + variable draw-back is a single indivisible per-player effect (a sentence split would strand
+// the "that many" back-reference). applyWindsOfChange captures each hand's size BEFORE the fold, so the draw is
+// exact per seat. Whole-clause anchored → any rider leaves residue → LOW → Arbiter (a SAFE false-negative).
+export function matchWindsOfChange(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  if (!/^each player shuffles the cards from their hand into their library, then draws that many cards$/.test(t)) return null;
+  return { atoms: [{ op: "winds-of-change", targetType: null }] };
+}
+
 // RAD-TARGET-OR-TREASURE (The Ghoul, Gunslinger — SHELF S7) — "target player gets two rad counters. If
 // that player is you, create a Treasure token." A chosen-PLAYER rad (CR 115.1 — any player, self included)
 // whose anaphoric second sentence rewards self-targeting with a Treasure. Collapsed into ONE rad atom with

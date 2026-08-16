@@ -104,8 +104,10 @@ deck. Ordered roughly by payoff:
    routed). VEIN #1 CLOSED — only Razorkin Needlehead remains, blocked by "first strike during your turn"
    (a conditional-keyword subsystem, NOT the draw trigger).
 2. **The mass draw-discard WHEEL atom** ("each player discards their hand, then draws seven"-class):
-   Nekusar ×~10 (the Wheels), Windfall also in Bumbleflower + Shorikai... (verify each wording —
-   Wheel of Misfortune's bidding stays parked).
+   ✅ CLOSED (08-16) — the family all classifies (Wheel of Fortune, Windfall, Magus, Reforge, Whispering
+   Madness, Time Reversal, Echo of Eons) and the last straggler **Winds of Change SHIPPED (SH10)** — the
+   hand-only shuffle-in + draw-that-many twin of the Timetwister wheel. Wheel of Misfortune's bidding stays
+   parked (a genuinely different mechanic — the number-bid, not the wheel).
 3. **Mother/Giver protection activation** ("{T}: target creature you control gains protection from
    the color of your choice until end of turn" — the CHOICE seam): Otharri (Mother+Giver), Light-Paws
    (Mother+Giver), Shalai (Mother, Skrelv). ONE arm, THREE decks.

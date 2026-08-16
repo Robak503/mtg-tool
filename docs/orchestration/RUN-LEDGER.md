@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **WINDS OF CHANGE (+1) — the hand-only shuffle-in + draw-that-many wheel (vein #2 CLOSED)** - the next batch (SH10)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+7**.
+> ⭐ The last straggler of vein #2 (the wheel atom): the rest — Wheel of Fortune, Windfall, Magus, Reforge,
+> Whispering Madness, Time Reversal, Echo of Eons — all already classify; ONLY Winds of Change parked. It's the
+> HAND-ONLY twin of the Timetwister wheel: only the hand folds into the library (the graveyard STAYS put), and
+> the draw is per-player "that many" = the count that seat just shuffled in (a net-neutral refill, not a fixed
+> seven). Built as the clean self-contained pair of the existing pattern: matchWindsOfChange (whole-clause
+> anchored, modeled on matchTimetwisterWheel) → a `winds-of-change` collapse atom → applyWindsOfChange (captures
+> each hand's size BEFORE the fold, one deterministic per-player rngSeed shuffle, draw exactly that many). NO
+> cross-system threading — a single spell atom + applier, the low-risk medium I picked over Simic Ascendancy's
+> multi-site accumulator this fire.
+> ⚠️ HOLLOW-GATE: the witness pins the RUNTIME (windsOfChange.test.js) — the graveyard is UNTOUCHED (the whole
+> differentiator from Timetwister, invisible to classify), the draw equals the OLD hand size per seat, an empty
+> hand draws nothing, ids conserved, deterministic. 2 mutations via Edit, seen-to-fail: (1) neuter the matcher →
+> body-only; (2) fold the graveyard into the pool → ONLY the conservation pin dies (proving hand-only load-
+> bearing). Token diet: ~14k output tokens. — Cindy
+>
 > ## SLICE DONE - 2026-08-16 - **THUNDERFOOT BALOTH (+1) — the LIEUTENANT ability word (commander-gated compound anthem)** - the next batch (SH9)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+6**.
 > ⭐ The scouting fire's 2nd de-risked target. "Lieutenant — As long as you control your commander, this
@@ -49,10 +66,7 @@
 >   variant of the Shalai SH1 magnitude threading — LOW now); (b) the upkeep "if this enchantment has 20+
 >   growth counters, you win" named-counter win-threshold ("you win the game" already parses HIGH; the
 >   named-counter intervening-if is the piece). The alt-win LANE is proven (Triskaidekaphile SH). Best next.
-> • **② Winds of Change** (Nekusar; vein #2 wheel-straggler) — the rest of the wheel atom is native (Wheel of
->   Fortune, Windfall, Magus, Reforge, Whispering Madness all classify); the ONE straggler is the shuffle
->   variant: "each player shuffles the cards from their hand into their library, then draws THAT MANY cards"
->   — a new atom (shuffle-hand-into-library + draw-equal-to-count back-reference). One arm, one card.
+> • **② Winds of Change** — ✅ SHIPPED (SH10, 08-16); vein #2 (the wheel atom) now FULLY closed.
 > • **③ Counter-DOUBLING target-form** — "…on target creature" LOW, but flips +0 alone (Solidarity of Heroes
 >   pairs it with Strive + the "on each of them" phrasing; Scythecat = 2nd-time-resolved tracker; Kalonian
 >   Hydra already native). Foundational-only — ship ONLY when it completes a card.

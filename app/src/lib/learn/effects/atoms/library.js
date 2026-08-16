@@ -1598,6 +1598,32 @@ export function applyTimetwisterWheel(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "timetwister-wheel", controller: ctx.controller, draw: atom.draw || 7 });
 }
 
+/**
+ * WINDS OF CHANGE (SHELF-TAIL — Nekusar vein #2): "Each player shuffles the cards from their hand into their
+ * library, then draws that many cards." Per player: the HAND folds into the library (the graveyard STAYS put,
+ * unlike applyTimetwisterWheel), ONE deterministic shuffle (the threaded rngSeed, advanced per player so a
+ * serialized game restores byte-identical), then draw exactly THAT MANY — the count of cards THAT player just
+ * shuffled in, captured BEFORE the fold. A net-neutral hand refill (draw = shuffled), so an empty hand shuffles
+ * and draws nothing; the draw is bounded by the shuffled pile (CR 120.3 — always ≥ the hand count since the hand
+ * is now inside it). Tokens can't sit in hand-as-cards (the store excludes token rows), so no filtering needed.
+ * Non-targeted; identical on a spell or a trigger.
+ */
+export function applyWindsOfChange(state, atom, ctx) {
+  let next = state;
+  for (const pid of Object.keys(next.players)) {
+    const p = next.players[pid];
+    if (!p) continue;
+    const handCount = (p.hand || []).length; // "that many" = the cards THIS player shuffles in from hand
+    const pool = [...(p.library || []), ...(p.hand || [])]; // HAND only into library (graveyard untouched)
+    next = { ...next, players: { ...next.players, [pid]: { ...p, library: pool, hand: [] } } };
+    next = shuffleControllerLibrary(next, pid);
+    const lib = next.players[pid].library || [];
+    const n = Math.min(handCount, lib.length);
+    next = { ...next, players: { ...next.players, [pid]: { ...next.players[pid], hand: lib.slice(0, n), library: lib.slice(n) } } };
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "winds-of-change", controller: ctx.controller });
+}
+
 export function millClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   let m = t.match(/^(?:you )?mill (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
@@ -2282,6 +2308,7 @@ export const libraryResolvers = {
   "mill": applyMill,
   "exile-top-of-library": applyExileTopOfLibrary, // ===== INGEST (CR 701.19a) ===== the EXILE twin of mill; a separate op because an ingested card leaves the graveyard unreachable
   "timetwister-wheel": applyTimetwisterWheel, // TIMETWISTER WHEEL (Echo of Eons) — hand+GY fold into library, shuffle, draw 7, per player
+  "winds-of-change": applyWindsOfChange, // WINDS OF CHANGE (Nekusar) — hand-only fold into library, shuffle, draw THAT MANY (per-player hand count), per player
   "explore": applyExplore, // ===== EXPLORE ===== (CR 701.44) reveal top: land→hand, else +1/+1 + keep-on-top. Ixalan ETB family flips native-trigger.
   "reveal-top-to-hand": applyRevealTopToHand, // ===== REVEAL-TOP-TO-HAND (Yuriko) ===== reveal top → hand + stamp its MV (state.revealedCardMV) for a following drain.
   "impulse-exile": applyImpulseExileAtom, // ===== IMPULSE-EXILE-AND-PLAY ===== exile top card → exile face-up, stamp `_impulse`/`_impulseTurn`; play permission offered THIS TURN at the action layer (full-cost cast / play-land from exile), cleared at cleanup. Professional Face-Breaker's sac-Treasure ability flips native-mixed.

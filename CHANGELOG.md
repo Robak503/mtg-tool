@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Winds of Change works.** Every player now shuffles their hand into their library and draws that many
+  cards back — a full hand refresh that leaves graveyards untouched, completing the wheel family.
 - **Thunderfoot Baloth's Lieutenant bonus works.** While you control your commander, it now gives itself and
   your other creatures +2/+2 and grants them trample — and correctly gives nothing while your commander is
   gone, tracking live as it leaves and re-enters.
