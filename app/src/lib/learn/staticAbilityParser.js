@@ -5139,6 +5139,28 @@ function parseAttachedClauseCore(c, subject, noun = "creature") {
       return out;
     }
   }
+  // UNBLOCKABLE grant (Whispersilk Cloak "can't be blocked and has shroud"; the bare "can't be blocked" —
+  // Prowler's Helm's "except by Walls" is NOT this, see below). The `unblockable` pseudo-keyword the until-EOT
+  // cant-be-blocked atom + Brotherhood Regalia already grant (canBlockAttacker reads it layer-aware), plus an
+  // optional grantable-keyword tail ("and has shroud"), delegated to parseAnthemHaveTail like every other
+  // attached keyword grant. ⛔ WHOLE-ANCHORED ($) IS THE SAFETY: "can't be blocked EXCEPT by <X>" / "BY
+  // creatures with <X>" is FILTERED evasion (CR 509.1b — a different, much weaker ability); mapping it onto
+  // bare unblockable would be a forbidden FP, so the anchor keeps it out (it falls through → LOW → Arbiter).
+  // An unmodeled / protection / ward keyword tail drops the WHOLE bonus (safe FN — never a half grant).
+  {
+    const ub = rest.match(/^can't be blocked(?: and (?:has|have) (.+?))?\.?$/);
+    if (ub) {
+      const extra = [];
+      if (ub[1] != null) {
+        const tail = parseAnthemHaveTail(ub[1].trim());
+        if (!tail || tail.protColors.length || tail.wardLife || tail.wardGeneric || !tail.keywords.length) return null;
+        for (const kw of tail.keywords) extra.push({ layer: 6, op: { layerOp: "addKeyword", keyword: kw }, duration: { kind: "permanent" } });
+      }
+      out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: "unblockable" }, duration: { kind: "permanent" } });
+      out.push(...extra);
+      return out;
+    }
+  }
   // ⭐ GRANTED MUST-ATTACK (CR 508.1a) — "Enchanted creature attacks each combat if able" (Bloodshed Fever,
   // Lust for War, Skin Invasion) and the combined "gets +N/+N and attacks each combat if able" (Furor of
   // the Bitten, Guise of Fire, Uncontrollable Anger). The pacifism twin: a layer-6 grant of the `mustAttack`

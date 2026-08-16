@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **"Can't be blocked" gear works.** Whispersilk Cloak, Cloak of Mists, Protective Bubble, Aqueous Form, and
+  Silver Shroud Costume now make the equipped/enchanted creature unblockable (and grant shroud where printed).
 - **Voyager Staff works.** Its "{2}, Sacrifice" ability now exiles a creature and returns it at the next end
   step — a repeatable blink for re-triggering enter abilities.
 - **Eerie Interlude and Ghostway work.** Their team-wide flicker — exile your creatures now, return them all

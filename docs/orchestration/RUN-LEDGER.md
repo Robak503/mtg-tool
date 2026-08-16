@@ -11,11 +11,30 @@
 > unchanged — the ~100 tag still fires; only WHAT we pick changes.) Rule saved: [[feedback-deck-shelf-over-release-batch]].
 > **Fresh measurements (08-16):** Thrun **82** (LEADER — needs 8) · Otharri 77 · Brago 76 · Nekusar 74 · Kellan
 > 74 · Shalai 73 · Bumbleflower 64 · Light-Paws ~58 (floor). Batch stands at **+17**.
-> 🎯 **FOCUS: THRUN VOLTRON → 90** (18 parked: 6 aura/equip statics [Prowler's Helm, Whispersilk Cloak, Nazgûl
-> Battle-Mace, Lion Umbra, Strong Back, Indomitable Might] · 5 spell-effects [Abundance, Animist's Might, Band
-> Together, Natural Order, Thrun himself] · 2 anthems [Primal Might, Professor Hojo] · Buster Sword attack-trig ·
-> Kenrith's Transformation ETB · Nyxborn Hydra enters-as · Saryth activated · Zopandrel upkeep). Start with the
-> aura/equip bucket — likely a shared unblockable/pump-grant shape. Measure with `node scripts/measure-coverage.mjs "Thrun Voltron"`.
+> 🎯 **FOCUS: THRUN VOLTRON → 90** — now **83** (SH18 flipped Whispersilk Cloak); **needs 7 more**. Parked: 5
+> aura/equip [Prowler's Helm=FILTERED evasion=defer, Nazgûl Battle-Mace=annihilator+quoted-trig=heavy, Lion
+> Umbra=modified+totem-armor, Strong Back=cost-reductions, Indomitable Might=+3/+3+assign-as-unblocked] · 5
+> spell-effects [Abundance, Animist's Might, Band Together, Natural Order, Thrun himself] · 2 anthems [Primal
+> Might, Professor Hojo] · Buster Sword attack-trig · Kenrith's Transformation ETB · Nyxborn Hydra enters-as ·
+> Saryth activated · Zopandrel upkeep. Measure with `node scripts/measure-coverage.mjs "Thrun Voltron"`.
+>
+> ## SLICE DONE - 2026-08-16 - **THRUN #1: the ATTACHED unblockable-grant vein (+5) — Whispersilk Cloak + 4 more** - DECK-FIRST (SH18)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+5 / 0 / 0**. NEW batch: **+22**. **Thrun 82 → 83.**
+> ⭐ First deck-shelf-first slice (per the pivot). Thrun's fat parked bucket was 6 aura/equip statics; the
+> shared shape is the "equipped/enchanted creature can't be blocked [and has <kw>]" grant. Added ONE arm to
+> parseAttachedClauseCore: the `unblockable` pseudo-keyword (the SAME one Brotherhood Regalia W8 + the until-EOT
+> cant-be-blocked atom grant — canBlockAttacker reads it layer-aware) + an optional grantable-keyword tail
+> ("and has shroud") via parseAnthemHaveTail. Whole-corpus flip **+5**: Whispersilk Cloak (Thrun) · Cloak of
+> Mists · Protective Bubble · Aqueous Form · Silver Shroud Costume — each whole-card audited (bare unblockable
+> + separately-modeled riders: scry-on-attack, ETB auto-attach; no FPs).
+> ⛔ THE $ ANCHOR IS THE SAFETY: "can't be blocked EXCEPT by Walls" (Prowler's Helm) / "BY creatures with
+> flying" is FILTERED evasion (CR 509.1b — weaker); the anchor keeps it out (stays LOW) — pinned + mutation-
+> proven (relaxing the anchor false-positives Prowler's). Runtime pin: the equipped host IS unblockable + has
+> shroud layer-aware, both lift unattached. 2 mutations via Edit, seen-to-fail.
+> 📊 DECK-vs-BATCH in action: +5 to the batch but +1 to THRUN (the other 4 aren't in its 100). Thrun now needs
+> 7 more (13 body-only + 4 arbiter; aura/equip bucket down to 5: Indomitable Might, Lion Umbra, Nazgûl Battle-
+> Mace, Prowler's Helm, Strong Back). Next Thrun slice: Indomitable Might (+3/+3 + assign-as-unblocked) or the
+> green spell-effects (Abundance, Animist's Might, Band Together, Natural Order). Token: ~24k.
 >
 > ## SLICE DONE - 2026-08-16 - **DELAYED-BLINK WIDEN #3 (+1) — Voyager Staff (the "the exiled card" alias)** - the next batch (SH17)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+17**.
