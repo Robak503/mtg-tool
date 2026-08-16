@@ -118,11 +118,20 @@ Gargantuan (perTargetStat:"toughness") · ✅ Well Rested (the IT-COUNTER + CONT
 rewrite — the untap event, granted lane, and once-latch all pre-existed). All six SHIPPED 08-15.
 BATCH-PROBED 08-15 late (Wolverine Best There Is = native-mixed and Ulvenwald Tracker =
 native-activated ALREADY — ambient flips, don't re-build): the cheapest remaining, in order —
-**Meltstrider's Resolve** (probed deeper: the ETB detects but "ENCHANTED CREATURE fights up to one
-target creature an opponent controls" needs the enchanted-referent fight form — the host via the
-aura's attachedTo, the equippedCreature-scope convention; AND the static line "+0/+2 and can't be
-blocked by more than one creature" needs the blocking-restriction grant — check combatEvasion for
-the menace-inverse. TWO parts, one card) · **Brotherhood Regalia** (granted ward{2} exists; the blockers are likely the
+**Meltstrider's Resolve** (FULLY DESIGNED 08-15 late — build next; four small seams:
+① the fight arm: `^enchanted creature fights (up to one )?target creature (?:you don't control|an
+opponent controls)$` → the op:"fight" atom + a `fighterReferent:"enchantedHost"` field (the
+sourceAnchored sibling, combat.js arm (1) is the template); the applier resolves the fighter as
+findPermanent(ctx.sourceId).permanent.attachedTo — the aura's own ETB, the host just attached;
+absent → no-op. Intent already "enemy" via the fight case.
+② the aura static: parseAttachedBonus (staticAbilityParser ~5276) is ALL-OR-NOTHING "+X/+Y +
+grantable keywords" — the "can't be blocked by more than one creature" tail drops the WHOLE bonus
+today. Extend with a special blockCap marker grant (kept all-or-nothing).
+③ the block site: legalBlockerActions' cap read is `isBlockedByAtMostOne(card)` (combatEvasion 820,
+a card-text read) — extend to ALSO honor an attached-aura blockCap grant on the attacker.
+④ the classifier acceptance for the extended bonus. Witness: the fight fires on the host (up-to-one
+declinable), the cap holds at block declaration with the aura attached AND releases when it leaves,
+the near-misses. Mutations: the arm · the fighterReferent resolution · the block-site read) · **Brotherhood Regalia** (granted ward{2} exists; the blockers are likely the
 "is an Assassin in addition" type-add + "can't be blocked" grant + the DUAL equip costs) ·
 **Quilled Greatwurm** (the deals-combat-damage-during-your-turn → that-many self counters watcher;
 ⚠️ its cast-from-GY-by-removing-counters line may park the card — check the alt-cast exclusion
