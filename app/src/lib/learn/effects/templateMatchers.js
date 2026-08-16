@@ -23,6 +23,7 @@
  * INSTEAD_ABILITY_WORD_CONDITION tables stay module-private.
  */
 import { stripReminder } from "./textNormalize.js";
+import { CR_CREATURE_TYPES } from "./creatureTypes.js"; // the closed creature-subtype vocabulary (leaf; read at call time only — never module-init, per the import-cycle gotcha)
 import { parseTutorFilter, parseCountSource, parseGrantedKeywords, SMALL_NUM } from "./parseHelpers.js";
 import { parseControllerRider } from "./spanMatchers.js"; // sibling leaf (slice 4) — the controller-rider fold matchExileXControllerRider reuses
 import { fightClauseParser } from "./atoms/combat.js";
@@ -978,6 +979,23 @@ export function matchWindsOfChange(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   if (!/^each player shuffles the cards from their hand into their library, then draws that many cards$/.test(t)) return null;
   return { atoms: [{ op: "winds-of-change", targetType: null }] };
+}
+
+// BLINK + SUBTYPE-COUNTER RIDER (SHELF-TAIL — Brago's flicker vein #4; Essence Flux) — "Exile target creature
+// you control, then return that card to the battlefield under (your|its owner's) control. If it's a <subtype>,
+// put a +1/+1 counter on it." The base self-blink already parses (zones.blinkClauseParser), but the trailing
+// conditional counter on the RETURNED card ("it" = the new object, CR 400.7) is a second sentence the clause
+// splitter strands → the whole spell parks. Collapsed here into the ONE blink atom the base form emits, plus
+// an ifSubtypeCounter rider the resolver honors (checks the returned permanent's type line for the subtype).
+// The subtype must be a real creature type (CR_CREATURE_TYPES) — a bogus word → null → LOW → Arbiter (SAFE FN,
+// never a fabricated counter). Whole-oracle anchored; a rider beyond the counter clause leaves residue → null.
+export function matchBlinkSubtypeCounter(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  const m = t.match(/^exile target creature you control, then return (?:that card|it) to the battlefield under (your|its owner's) control\. if it's a ([a-z]+), put a \+1\/\+1 counter on it$/);
+  if (!m) return null;
+  if (!CR_CREATURE_TYPES.has(m[2])) return null; // the set is lowercase; not a real creature subtype → LOW → Arbiter (CREED)
+  const subtype = m[2].charAt(0).toUpperCase() + m[2].slice(1); // Title-Case for the resolver's word-bound type-line check
+  return { atoms: [{ op: "blink", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }], returnTo: m[1] === "your" ? "controller" : "owner", ifSubtypeCounter: { subtype, counterType: "+1/+1", amount: 1 } }] };
 }
 
 // RAD-TARGET-OR-TREASURE (The Ghoul, Gunslinger — SHELF S7) — "target player gets two rad counters. If

@@ -3,7 +3,7 @@
  * reanimate). Also hosts the shared enterCardFromZone helper (reanimation + library ramp).
  */
 
-import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
+import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter } from "../../gameState.js";
 import { impositionEntersTapped } from "../../staticAbilityParser.js"; // KM-1 (CR 614.1c) — Kismet taxes non-cast entries too (leaf-safe: staticAbilityParser imports only keywords.js)
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
@@ -144,7 +144,18 @@ export function applyBlink(state, atom, ctx) {
     next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "exile", cardId: perm.id });
     const r = enterCardFromZone(next, { playerId: returnController, cardId, fromZone: "exile", fromPlayerId: owner });
     next = r.state;
-    if (r.entered) blinked.push(cardId);
+    if (r.entered) {
+      blinked.push(cardId);
+      // SUBTYPE-COUNTER RIDER (Essence Flux — CR 400.7 the returned object is NEW): "if it's a <subtype>, put
+      // a +1/+1 counter on it" — read the RETURNED permanent's live type line; a match adds the counter to the
+      // new object (r.permanentId). A non-matching subtype adds nothing (never a fabricated counter — CREED).
+      if (atom.ifSubtypeCounter && r.permanentId) {
+        const np = findPermanent(next, r.permanentId);
+        if (np && new RegExp(`\\b${atom.ifSubtypeCounter.subtype}\\b`, "i").test(np.permanent.card?.type || "")) {
+          next = addCounter(next, { permanentId: r.permanentId, type: atom.ifSubtypeCounter.counterType, amount: atom.ifSubtypeCounter.amount || 1 });
+        }
+      }
+    }
   }
   return logEvent(next, { kind: "spell-effect", effect: "blink", controller: ctx.controller, targets: blinked });
 }

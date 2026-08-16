@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **ESSENCE FLUX (+1) — blink + "if it's a <subtype>, +1/+1 counter" rider (flicker vein #4)** - the next batch (SH12)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+9**.
+> ⭐ A probe of the WHOLE flicker vein #4 first (banked below): the base immediate blink is ALREADY native
+> (Ephemerate, Cloudshift, Ghostly Flicker, Momentary Blink). Essence Flux parked only on its trailing second
+> sentence — "If it's a Spirit, put a +1/+1 counter on it" — which the clause splitter strands (the "it" is the
+> RETURNED card, CR 400.7 a NEW object). Collapsed by a whole-oracle matchBlinkSubtypeCounter into the ONE
+> blink atom the base emits + an ifSubtypeCounter rider applyBlink honors (reads the returned permanent's live
+> type line). The subtype is validated against CR_CREATURE_TYPES (lowercase set — the has() casing bit once) →
+> a bogus word stays LOW (pinned), never a fabricated counter.
+> ⚠️ HOLLOW-GATE: witness pins the RUNTIME — a blinked Spirit returns WITH the counter (on the new id), a
+> non-Spirit WITHOUT, a "Spirit Warrior" still gets it (word-bound). 2 mutations via Edit, seen-to-fail (matcher
+> → arbiter-spell; resolver rider → the Spirit gets no counter). Token diet: ~22k output tokens (most of it the
+> full flicker-vein probe, banked as the map below — the build itself was 3 contained edits). — Cindy
+>
+> 🗺 **FLICKER VEIN #4 MAP (probed 08-16, so nobody re-walks it)**: base immediate self-blink = NATIVE. Parked
+> stragglers, each a DISTINCT medium (no shared arm): **Flickerwisp** (ETB + "another target PERMANENT" any-
+> target exile + DELAYED return at next end step — the delayedTrigger.js primitive EXISTS, so tractable);
+> **Teleportation Circle** (end-step-triggered immediate blink, "up to one target artifact or creature");
+> **Restoration Angel** (ETB optional blink + "non-Angel" subtype-EXCLUSION filter); **Eldrazi Displacer**
+> ({2}{C} activated blink + "return tapped" + "another target creature" any-creature); **Soulherder** (exile-
+> watch +1/+1 counter trigger + end-step blink — two abilities). Essence Flux ✅ SHIPPED (SH12).
+>
 > ## SLICE DONE - 2026-08-16 - **SIMIC ASCENDANCY (+1) — the countersPut→growth-counter self-accumulator (vein #8)** - the next batch (SH11)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+8**.
 > ⭐ The probe found ONE gap where I expected two-plus: Simic's activated "{1}{G}{U}: put a +1/+1 counter on

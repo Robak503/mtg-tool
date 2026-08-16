@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Essence Flux rewards Spirits.** Its blink now returns the creature and, if it's a Spirit, brings it back
+  with a +1/+1 counter — as printed, and nothing extra for a non-Spirit.
 - **Simic Ascendancy builds toward its win.** When +1/+1 counters land on your creatures it now banks that
   many growth counters — and at twenty, on your upkeep, you win the game, exactly as printed.
 - **Winds of Change works.** Every player now shuffles their hand into their library and draws that many

@@ -111,9 +111,13 @@ deck. Ordered roughly by payoff:
 3. **Mother/Giver protection activation** ("{T}: target creature you control gains protection from
    the color of your choice until end of turn" — the CHOICE seam): Otharri (Mother+Giver), Light-Paws
    (Mother+Giver), Shalai (Mother, Skrelv). ONE arm, THREE decks.
-4. **The flicker family** (exile-and-return-now + return-at-next-end-step): Brago himself + Soulherder,
-   Teleportation Circle, Thassa, Deadeye, Ephemerate/Cloudshift/Essence Flux — ~10 in Brago; the
-   ETB-reuse it powers is most of that deck's residue.
+4. **The flicker family** (exile-and-return-now + return-at-next-end-step): 🔶 PROBED 08-16 — the base
+   immediate self-blink is ALREADY native (Ephemerate, Cloudshift, Ghostly Flicker, Momentary Blink), and
+   ✅ **Essence Flux SHIPPED (SH12** — blink + "if it's a Spirit, +1/+1 counter" rider). The remaining
+   stragglers are each a DISTINCT medium (no shared arm): Flickerwisp (ETB + any-permanent exile + DELAYED
+   return — delayedTrigger.js primitive exists), Teleportation Circle (end-step immediate blink, up-to-one),
+   Restoration Angel (ETB optional blink + non-Angel exclusion), Eldrazi Displacer (activated blink + return-
+   tapped), Soulherder (exile-watch counter + end-step blink). Full map in RUN-LEDGER's SH12 entry.
 5. **The CREW mechanic** (tap creatures totaling power N → the Vehicle is an artifact creature until
    EOT): Shorikai himself + the fleet's attack triggers unlock only through it (~8-10 cards).
 6. **Equipment/Vehicle ATTACK-trigger family**: Cap America ×8 (the Swords, Kaldra, Iron Man),
