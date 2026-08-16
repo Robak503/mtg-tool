@@ -108,9 +108,9 @@ deck. Ordered roughly by payoff:
    COUNT+KEYWORD COMPOSE SHIPPED (ND2, 08-16, +8) — the bare count-static + fixed-P/T-keyword were
    already native; the greedy `for each (.+)` swallowed "and has <kw>" so the compose dropped. Fixed →
    Ethereal Armor + 5 more auras + 2 equipment. STILL PARKED in this family: Sage's Reverie (ETB
-   draw-for-each-aura + static, compound), Ancestral Mask ("for each OTHER enchantment ON THE
-   BATTLEFIELD" — the subtypeOnBattlefield count is deliberately dropped on the attached path, see the
-   parseAttachedBonus guard; needs the source-exclusion fix to flip).
+   draw-for-each-aura + static, compound — the last one). ✅ Ancestral Mask SHIPPED (SH3, 08-16) — the
+   "for each OTHER enchantment on the battlefield" source-exclusion (applyLayer7 subtracts the source
+   aura for an attached excludeSelf count). Vein #7 is now essentially closed.
 8. **The alt-win upkeep thresholds** (the EXISTING upkeep-win lane + new vocabulary): Bumbleflower's
    Mechanized Production (eight same-name artifacts) / Simic Ascendancy (ten growth counters) /
    Triskaidekaphile (exactly 13 in hand). Felidar already routes — the lane is proven.

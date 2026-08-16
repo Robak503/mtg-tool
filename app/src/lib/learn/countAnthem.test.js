@@ -36,8 +36,12 @@ describe("GROUP COUNT-ANTHEM — recognition", () => {
     expect(classifyCard({ name: "Squirrel Mob", type: "Creature — Squirrel", oracle: "This creature gets +1/+1 for each other Squirrel on the battlefield." })).toBe("native-static");
     expect(classifyCard({ name: "Mogg Squad", type: "Creature — Goblin", oracle: "This creature gets -1/-1 for each other creature on the battlefield." })).toBe("native-static");
   });
-  it("FN boundary — an AURA host ('for each other enchantment') is REJECTED (Arbiter), not over-buffed", () => {
-    expect(classifyCard({ name: "Ancestral Mask", type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature gets +2/+2 for each other enchantment on the battlefield." })).toBe("body-only");
+  it("GRADUATED (SH3, 2026-08-16) — the aura host ('for each other enchantment') is now NATIVE, source-excluded", () => {
+    // Was body-only (rejected as a safe FN to avoid over-buffing on the source). SHELF-TAIL SH3 modeled it:
+    // applyLayer7 subtracts the source aura for an attached excludeSelf count. The over-buff risk this pin
+    // guarded is now MEASURED correct in ancestralMask.test.js (Mask + 2 other ench → 6/6, not 8/8). The
+    // counter-on-source FN control directly below is the surviving guard-class boundary.
+    expect(classifyCard({ name: "Ancestral Mask", type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature gets +2/+2 for each other enchantment on the battlefield." })).toBe("native-aura");
   });
   it("FN boundary — a counter-on-source count (hollow-risk) stays Arbiter", () => {
     expect(classifyCard({ name: "Joraga Warcaller", type: "Creature — Elf Warrior", oracle: "Other Elf creatures you control get +1/+1 for each +1/+1 counter on this creature." })).toBe("body-only");

@@ -1378,6 +1378,16 @@ function applyLayer7(state, perm, l7Effects) {
         const cs = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
         const subject = cs && cs.controller !== perm.controller ? { ...perm, controller: cs.controller } : perm;
         n = countForSpec(state, subject, e.op.countSpec);
+        // ATTACHED "other X on the battlefield" SOURCE-EXCLUSION (Ancestral Mask — SH3, CR 109.5). Gated on
+        // `attachedExcludeSource` (stamped ONLY by parseAttachedBonus) — NOT the generic op shape, which a
+        // GROUP anthem (Sliver Legion "each other Sliver gets +1/+1 for each other Sliver") also carries and
+        // whose "other" the eval's own excludeSelf already handled against the buffed permanent. Here "other"
+        // means "every X but the SOURCE aura/equipment", invisible to the creature-scoped count: subtract the
+        // source iff it's a DISTINCT permanent that itself carries the subtype.
+        if (e.op.attachedExcludeSource
+            && cs && cs.id !== perm.id && new RegExp(`\\b${e.op.countSpec.subtype}\\b`).test(typeLineOf(cs.card))) {
+          n = Math.max(0, n - 1);
+        }
       }
       power += n * (e.op.perPower || 0);
       toughness += n * (e.op.perToughness || 0);

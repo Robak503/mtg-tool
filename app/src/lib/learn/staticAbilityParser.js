@@ -5129,12 +5129,18 @@ function parseAttachedClauseCore(c, subject, noun = "creature") {
     const countSpec = parseSelfCountSource(countPhrase);
     if (!countSpec) return null;                       // unmodeled metric → whole bonus drops
     // A subtypeOnBattlefield ("for each [other] X on the battlefield") count is evaluated against the ATTACHED
-    // CREATURE, but its "other" excludes the AURA/EQUIPMENT SOURCE — which the creature-scoped count eval can't
-    // see, so it would over-count the source itself (Ancestral Mask "+2/+2 for each OTHER enchantment" counted
-    // the Mask → 6/6 not 4/4). Drop it → body-only → Arbiter (safe FN). This source is correct only on the
-    // SELF / GROUP-anthem paths, where the counting permanent IS a candidate member.
-    if (countSpec.kind === "subtypeOnBattlefield") return null;
-    out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModifyDynamicCount", countSpec, perPower: signed(dynPt[1]), perToughness: signed(dynPt[2]) }, duration: { kind: "permanent" } });
+    // CREATURE, so its "other" (excludeSelf) — which means "every X BUT THE SOURCE aura/equipment" — was
+    // invisible to the creature-scoped count and over-counted the source (Ancestral Mask "+2/+2 for each OTHER
+    // enchantment" gave 6/6 not 4/4). SHELF-TAIL SH3: the op is now emitted, and applyLayer7's dynamic-count
+    // branch subtracts the SOURCE permanent for an attached excludeSelf count (it holds `cs`, the source; the
+    // creature-scoped eval never could). A non-"other" form ("for each X on the battlefield") correctly counts
+    // the source too, so no exclusion — the guard is retired, not moved.
+    // `attachedExcludeSource` (SH3): ONLY an ATTACHED "for each OTHER X on the battlefield" excludes the
+    // SOURCE aura/equipment. A GROUP anthem (Sliver Legion) shares the subtypeOnBattlefield+excludeSelf op
+    // shape but its "other" means "other than the BUFFED permanent" (the eval's own excludeSelf), NOT the
+    // source — so the layer exclusion must be gated on THIS flag, never on the generic op shape.
+    const attachedExcludeSource = countSpec.kind === "subtypeOnBattlefield" && !!countSpec.excludeSelf;
+    out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModifyDynamicCount", countSpec, perPower: signed(dynPt[1]), perToughness: signed(dynPt[2]), ...(attachedExcludeSource ? { attachedExcludeSource: true } : {}) }, duration: { kind: "permanent" } });
     if (!kwTail) return out.length ? out : null;       // pure count-static, no keyword tail (byte-identical to before)
     rest = kwTail;                                      // fall through to the shared have-keyword handler
   }

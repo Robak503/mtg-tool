@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **ANCESTRAL MASK (+1) — "for each OTHER X on the battlefield" source-exclusion** - the shelf grind (SH3, the named vein-#7 straggler)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** (LOST 0 — retiring the parse
+> guard broke no other subtypeOnBattlefield card, the critical check). Post-release batch **+98** (TWO from
+> v0.160.0). Ancestral Mask body-only→native-aura.
+> ⭐ The count is board-wide but "other" excludes the SOURCE aura/equipment — invisible to the
+> CREATURE-scoped count (excludeSelf drops the buffed CREATURE, never the Mask). parseAttachedBonus used to
+> DROP the whole bonus (safe FN); now emits the op + applyLayer7's dynamic-count branch subtracts the source
+> (`cs`, held there) for an attached excludeSelf count, guarded on cs.id !== perm.id so a self-buff (cs===perm,
+> already handled by the eval's excludeSelf) never double-subtracts.
+> ⚠️ HOLLOW-GATE: the witness pins the MAGNITUDE (Mask + 2 other ench → 6/6, NOT 8/8) via the real
+> permanentPower layer path — a native flip with the wrong number would be caught. 2 mutations (the
+> source-exclusion → 8/8 · re-add the parse guard → body-only) via Edit, each seen-to-fail. ⚠️ harness trap
+> banked: createPermanent RESETS attachedTo to null — set it AFTER create, and the aura card needs
+> `oracle_text` (not `oracle`) for staticEffectsOf→parseAuraBonus.
+> ⚠️⚠️ REGRESSION CAUGHT BY THE FULL SUITE, NOT THE FLIP-DIFF (the load-bearing lesson): the first cut
+> gated the source-exclusion on the GENERIC subtypeOnBattlefield+excludeSelf op shape — which SLIVER
+> LEGION's group anthem ("each other Sliver gets +1/+1 for each other Sliver") ALSO carries, but whose
+> "other" means "other than the BUFFED permanent", NOT the source. So it UNDER-counted Slivers by 1 (3
+> tests broke: 2 Sliver Legion magnitude + 1 graduated aura pin). The flip-diff's LOST=0 could NOT see it —
+> a MAGNITUDE break is not a tier change. Fixed with an `attachedExcludeSource` flag stamped ONLY by
+> parseAttachedBonus. Graduated the countAnthem FN-boundary pin (aura body-only→native-aura). TWO
+> excludeSelf semantics conflated; the flag disambiguates. Token diet: ~17k this slice (the regression cost).
 > ## SLICE DONE - 2026-08-16 - **TRISKAIDEKAPHILE (+1) — the exact-13-in-hand win** - the shelf grind (SH2, Bumbleflower 62→63)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Triskaidekaphile (whole-card
 > audited: the "no maximum hand size" static + "{3}{U}: draw" were already native; only the win-condition

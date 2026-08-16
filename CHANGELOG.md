@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Ancestral Mask counts correctly.** "+2/+2 for each other enchantment on the battlefield" now excludes
+  the Mask itself, so it grants the right bonus instead of over-counting by one.
 - **Triskaidekaphile can win.** Holding exactly thirteen cards in hand at your upkeep now wins the game,
   as printed (and twelve or fourteen correctly don't).
 - **Aura/Equipment that scale AND grant a keyword now work.** Ethereal Armor, Glaive of the Guildpact,
