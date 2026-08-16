@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **WELL RESTED (+1) — the compound self-counter pronoun** - the shelf grind (Wolverine 84→85)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Well Rested (the Aura)
+> body-only→native-trigger through the GRANTED lane. Post-release batch **+58**.
+> ⭐ The whole gap was ONE PRONOUN: the granted body's "put two +1/+1 counters on IT, then you gain 2
+> life and draw a card" failed SELF_COUNTER_IT_RE's whole-clause anchor. The new IT-COUNTER +
+> CONTINUATION arm (self-scope-gated, LEADING-only — the SELF_PUMP tail-agnostic precedent) rewrites
+> just the counter segment's pronoun and hands the compound to the parser's all-or-nothing gate. The
+> untapped event, the granted-trigger lane, and the once-each-turn latch were ALL already built.
+> Witness pins the rewritten descriptor + the non-self guard + the "."-rider staying raw. 1 mutation
+> (the itThen block, via Edit — the perl lesson applied) seen-to-fail.
+> Token diet: ~4k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **CANOPY GARGANTUAN (+1) — per-target toughness counters (CR 608.2)** - the shelf grind (Wolverine 83→84)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Canopy
 > body-only→native-trigger, zero riders. Post-release batch **+57**.

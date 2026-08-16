@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Well Rested wakes up properly.** The enchanted creature's untap trigger really fires — two
+  counters on the creature itself, two life, a card — once each turn as printed.
 - **Canopy Gargantuan counts each creature separately.** The upkeep really gives every *other*
   creature you control counters equal to its own toughness — the 0/5 wall gets five while the 1/1
   gets one, existing counters raise the count, and the Gargantuan itself gets none.

@@ -111,13 +111,12 @@ deck. Ordered roughly by payoff:
 
 ## 5. PER-DECK RESIDUE MAPS
 
-### 5.1 Wolverine, claws out! — 83, needs 7 (ACTIVE)
+### 5.1 Wolverine, claws out! — 85, needs 5 (ACTIVE)
 ✅ Forgotten Ancient (counter-MOVE) · ✅ The Ozolith (leave-accumulator + move-all) · ✅ Kodama
-(the modified watcher; +SP//dr, +Thrun) · ✅ Warden (endure-X on the enterer).
-✅ Canopy Gargantuan (perTargetStat:"toughness" — SHIPPED 08-15).
-Remaining, probed: **Well
-Rested** (a GRANTED quoted "becomes untapped" trigger + once-per-turn latch; pendingUntapEvents
-exists) · **Neyith** (the fight-or-blocked OR-batch + the pay-offer — HEAVY, park to deck-end) ·
+(the modified watcher; +SP//dr, +Thrun) · ✅ Warden (endure-X on the enterer) · ✅ Canopy
+Gargantuan (perTargetStat:"toughness") · ✅ Well Rested (the IT-COUNTER + CONTINUATION pronoun
+rewrite — the untap event, granted lane, and once-latch all pre-existed). All six SHIPPED 08-15.
+Remaining, probed: **Neyith** (the fight-or-blocked OR-batch + the pay-offer — HEAVY, park to deck-end) ·
 the anthems (Inscription of Abundance modal, Beastie Beatdown, The Last Agni Kai) · Brotherhood
 Regalia (granted shroud) · Cori-Steel Cutter · the spells (Nibelheim Aflame, Legolas's Quick
 Reflexes, HULK SMASH!) · the two Wolverines (attacks+ETB) · Quilled Greatwurm · Meltstrider's

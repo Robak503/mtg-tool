@@ -4142,6 +4142,15 @@ export function detectTriggers(card) {
         // the whole-clause anchor, so the parser's self-counter atom (target:"self") models it.
         effectClause = effectClause.replace(/ on it$/i, " on this creature");
       }
+      // IT-COUNTER + CONTINUATION (Well Rested's granted body, W6 — "put two +1/+1 counters on it, then
+      // you gain 2 life and draw a card"): the SAME self-scope counter phrase with a ", then …" tail.
+      // The LEADING-only rewrite (the SELF_PUMP tail-agnostic precedent, 2984-2988): normalize just the
+      // counter segment's pronoun and hand the WHOLE compound to the parser, whose all-or-nothing gate
+      // re-decides — an unmodeled tail keeps the card LOW (never a partial fire, only the CHANCE to model).
+      {
+        const itThen = cls.scope === "self" && effectClause.match(/^(put (?:a|an|one|two|three|four|five|\d+|that many) [+-]1\/[+-]1 counters? on) it, then (.+)$/i);
+        if (itThen) effectClause = `${itThen[1]} this creature, then ${itThen[2]}`;
+      }
       if (cls.scope === "self" && SELF_DOUBLE_IT_RE.test(effectClause)) {
         // IT-DOUBLE: "double the number of +1/+1 counters on IT" — same self-scope + whole-clause rules as
         // the counter rewrite directly above; the parser's countersOnSource atom models the rewritten form.
