@@ -1411,9 +1411,58 @@ export function applyCzReturn(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "cz-return", returned: lk.permanent?.card?.name || null, controller: ctx.controller });
 }
 
+/**
+ * DELAYED-RETURN BLINK (Otherworldly Journey, Long Road Home — SHELF-TAIL SH14; CR 400.7 + 603.7): "Exile
+ * target creature. At the beginning of the next end step, return that card to the battlefield under its
+ * owner's control with a +1/+1 counter on it." The delayed twin of applyBlink — the creature is exiled NOW
+ * (any creature, not just yours: a legal target on either side), and the return is scheduled on the CR 603.7
+ * delayed queue as a `[blink-return <cardId> <ownerId> <counter|plain>]` SENTINEL only blinkReturnClauseParser
+ * reads, firing at the NEXT end step. Mirrors cz-commander-visit's fetch+schedule shape exactly, but exiles
+ * (battlefield → exile) instead of fetching, and the delayed half re-enters FROM EXILE (enterCardFromZone).
+ * A target gone before the exile resolves is a clean no-op (CR 608.2b).
+ */
+export function applyDelayedBlink(state, atom, ctx) {
+  let next = state;
+  const done = [];
+  for (const t of ctx.targets || []) {
+    const lk = findPermanent(next, t.id);
+    if (!lk) continue;                       // gone before resolution — no-op, never a fabricated exile
+    const perm = lk.permanent;
+    const cardId = perm.card?.id;
+    if (!cardId) continue;
+    const owner = perm.owner || lk.controller;
+    next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "exile", cardId: perm.id });
+    next = applyScheduleDelayed(next, { delayedClause: `[blink-return ${cardId} ${owner} ${atom.withCounter ? "counter" : "plain"}]`, fireStep: "end", fireScope: "any" }, ctx);
+    done.push(cardId);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "delayed-blink", controller: ctx.controller, targets: done });
+}
+
+/** The delayed half's sentinel parser (mirrors czClauseParser's `[cz-return …]`). Case-preserving on the ids —
+ * the fixed tokens are matched case-insensitively, but the card/owner ids keep their original case. */
+export function blinkReturnClauseParser(clause) {
+  const m = String(clause || "").trim().match(/^\[blink-return (\S+) (\S+) (counter|plain)\]$/i);
+  if (m) return { op: "blink-return", cardId: m[1], ownerId: m[2], withCounter: /^counter$/i.test(m[3]) };
+  return null;
+}
+
+/** Return the exiled card to the battlefield under its owner's control (CR 400.7 — a NEW object), with a
+ * +1/+1 counter when the source printed one. Owner eliminated / card already gone from exile → a clean no-op. */
+export function applyBlinkReturn(state, atom, ctx) {
+  if (!state.players?.[atom.ownerId]) return logEvent(state, { kind: "spell-effect", effect: "blink-return", returned: null, controller: ctx.controller });
+  const r = enterCardFromZone(state, { playerId: atom.ownerId, cardId: atom.cardId, fromZone: "exile", fromPlayerId: atom.ownerId });
+  let next = r.state;
+  if (r.entered && atom.withCounter && r.permanentId) {
+    next = addCounter(next, { permanentId: r.permanentId, type: "+1/+1", amount: 1 });
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "blink-return", returned: r.entered ? atom.cardId : null, controller: ctx.controller });
+}
+
 export const zoneResolvers = {
   "cz-commander-visit": applyCzCommanderVisit, // Hellkite Courser — the CZ fetch + haste + delayed return
   "cz-return": applyCzReturn,                  // the delayed half's sentinel
+  "delayed-blink": applyDelayedBlink,          // DELAYED-RETURN BLINK (Otherworldly Journey / Long Road Home) — exile now, return at next end step
+  "blink-return": applyBlinkReturn,            // its delayed half's sentinel (re-enter from exile + optional +1/+1)
   "bounce": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "hand"),
   "tuck": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "library", atom.where === "top"),
   "return-from-graveyard": applyReturnFromGraveyard,

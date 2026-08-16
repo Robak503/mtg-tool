@@ -135,6 +135,13 @@ export function atomTargetIntent(atom) {
       // program would have an ambiguous-intent atom → programTriggerTargetsResolvable false → the trigger
       // silently routes to the Arbiter (a forbidden no-op fabrication path) instead of firing natively.
       return "enemy";
+    case "delayed-blink":
+      // DELAYED-RETURN BLINK (Otherworldly Journey / Long Road Home) — "exile target creature … return it with
+      // a +1/+1 counter." Legality stays wide ("target creature" is any creature — a political blink of an
+      // opponent's is printed-legal), but the rational use is YOUR OWN creature: protect it (dodge a removal
+      // spell in response) and grow it (+1/+1). Intent "own" so a chooser never hands an opponent a free
+      // counter. Load-bearing only for a future trigger carrier; on the cast path the AI reads the same side.
+      return "own";
     case "adapt-ignore-counters":
       // ADAPT-IGNORES-COUNTERS (Biomancer's Familiar) — you spend this on YOUR OWN creature, to let it adapt
       // a second time. Legality stays wider than intent ("target creature" really is any creature); intent is

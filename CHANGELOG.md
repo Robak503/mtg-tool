@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Otherworldly Journey and Long Road Home work.** They now exile the creature and return it at the next
+  end step with a +1/+1 counter — the full delayed flicker, timed correctly.
 - **Conjurer's Closet blinks on your end step.** Its optional end-step "exile then return" now works — you
   can flicker one of your creatures each turn to re-trigger its enter ability, as printed.
 - **Essence Flux rewards Spirits.** Its blink now returns the creature and, if it's a Spirit, brings it back

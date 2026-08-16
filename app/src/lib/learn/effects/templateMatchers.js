@@ -998,6 +998,19 @@ export function matchBlinkSubtypeCounter(oracle) {
   return { atoms: [{ op: "blink", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }], returnTo: m[1] === "your" ? "controller" : "owner", ifSubtypeCounter: { subtype, counterType: "+1/+1", amount: 1 } }] };
 }
 
+// DELAYED-RETURN BLINK (SHELF-TAIL SH14 — Otherworldly Journey, Long Road Home; CR 400.7 + 603.7) — "Exile
+// target creature. At the beginning of the next end step, return that card to the battlefield under its owner's
+// control with a +1/+1 counter on it." A two-sentence SPELL: an immediate exile of ANY creature (a legal target
+// on either side of the table) + a delayed return at the NEXT end step, the returned card gaining a +1/+1
+// counter. ONE collapse atom — the delayed-blink applier exiles now and schedules the `[blink-return …]`
+// sentinel (the general matchDelayedTrigger can't bind "that card" to the specific exiled card). Whole-oracle
+// anchored; any variant (no counter, "you control", a different delay) → null → LOW → Arbiter (a SAFE FN).
+export function matchDelayedBlink(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  if (!/^exile target creature\. at the beginning of the next end step, return that card to the battlefield under its owner's control with a \+1\/\+1 counter on it$/.test(t)) return null;
+  return { atoms: [{ op: "delayed-blink", targetType: "creature", withCounter: true }] };
+}
+
 // RAD-TARGET-OR-TREASURE (The Ghoul, Gunslinger — SHELF S7) — "target player gets two rad counters. If
 // that player is you, create a Treasure token." A chosen-PLAYER rad (CR 115.1 — any player, self included)
 // whose anaphoric second sentence rewards self-targeting with a Treasure. Collapsed into ONE rad atom with

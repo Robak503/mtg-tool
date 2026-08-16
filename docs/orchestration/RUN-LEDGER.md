@@ -3,6 +3,30 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **DELAYED-RETURN BLINK (+2) — Otherworldly Journey + Long Road Home; the reusable delayed-blink machinery** - the next batch (SH14)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0**. NEW batch: **+12**.
+> ⭐ The banked 84-card vein's foundation, BUILT. Both cards are identical: "Exile target creature. At the
+> beginning of the next end step, return that card to the battlefield under its owner's control with a +1/+1
+> counter on it." The delayed twin of the immediate blink — the creature is exiled NOW, and the return rides
+> the CR 603.7 delayed queue as a `[blink-return <cardId> <ownerId> <counter|plain>]` SENTINEL, firing at the
+> NEXT end step and re-entering FROM EXILE (a new object) with the counter. Mirrored cz-commander-visit
+> (Hellkite Courser) exactly — a dedicated atom that does the immediate half + schedules the sentinel, plus a
+> sentinel resolver — because the general matchDelayedTrigger can't bind "that card" to the SPECIFIC exiled
+> card. 6 sites: matchDelayedBlink · dispatch · applyDelayedBlink (exile+schedule) · blinkReturnClauseParser
+> (case-preserving on the ids — the round-trip concern I flagged was unfounded) · applyBlinkReturn · the op
+> registrations · atomTargetIntent "own" (the +1/+1 blink protects+grows YOUR creature, never gifts a counter).
+> ⚠️ HOLLOW-GATE: witness pins the WHOLE delayed chain (exile now → drains at "end" not "upkeep" → returns as a
+> new id with the counter; a plain return adds none; a vanished target no-ops). 3 mutations via Edit, seen-to-
+> fail (matcher → arbiter; the counter branch → no counter; the schedule → nothing returns). Token diet: ~30k
+> output tokens (the session's biggest slice — a real subsystem, but the cz precedent made every site a mirror).
+> — Cindy
+>
+> 🔭 **The delayed-blink machinery is now REUSABLE** — the 84-card vein's follow-ons (Flickerwisp's ETB + any-
+> permanent exile, Mistmeadow Witch's activated, Angel of Condemnation, Eerie Interlude's "any number") each
+> now need only their OWN wrapper (ETB/activated trigger, target-scope) on top of the [blink-return] sentinel +
+> applyBlinkReturn. Next fire can widen the matcher (drop "with a +1/+1 counter" → plain delayed return;
+> "another target permanent"; "you control") to flip a cluster off the foundation THIS slice laid.
+>
 > ## SLICE DONE - 2026-08-16 - **CONJURER'S CLOSET (+1) — the OPTIONAL "you may" blink keep-whole (flicker vein #4)** - the next batch (SH13)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+10**.
 > ⭐ A one-line splitter fix isolated by probe: the end-step blink WITHOUT "you may" was ALREADY native; the

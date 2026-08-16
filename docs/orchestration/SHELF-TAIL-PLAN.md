@@ -118,10 +118,12 @@ deck. Ordered roughly by payoff:
    return — delayedTrigger.js primitive exists), Teleportation Circle (end-step immediate blink, up-to-one),
    Restoration Angel (ETB optional blink + non-Angel exclusion), Eldrazi Displacer (activated blink + return-
    tapped), Soulherder (exile-watch counter + end-step blink). Full map in RUN-LEDGER's SH12 entry.
-   ✅ **Conjurer's Closet SHIPPED (SH13** — the optional "you may" blink keep-whole). ⭐ **The DELAYED-RETURN
-   blink is the next BIG vein: 84 cards** ("exile … return at the beginning of the next end step") — a
-   subsystem (exile-tracking + delayed-return trigger; the delayedTrigger.js primitive exists), highest
-   leverage on the board, wants a fresh-context fire. Detailed in RUN-LEDGER's SH13 entry.
+   ✅ **Conjurer's Closet SHIPPED (SH13** — the optional "you may" blink keep-whole). ✅ **DELAYED-RETURN BLINK
+   MACHINERY SHIPPED (SH14** — Otherworldly Journey + Long Road Home, +2; the `[blink-return]` sentinel +
+   applyBlinkReturn + applyDelayedBlink, mirroring cz-commander-visit). The 84-card vein's foundation is now
+   built and REUSABLE — its follow-ons (Flickerwisp ETB + any-permanent exile, Mistmeadow Witch activated,
+   Angel of Condemnation, Eerie Interlude) each need only their own wrapper on top; widen the matcher (plain
+   return / "another target permanent" / "you control") next to flip a cluster. Detailed in RUN-LEDGER SH14.
 5. **The CREW mechanic** (tap creatures totaling power N → the Vehicle is an artifact creature until
    EOT): Shorikai himself + the fleet's attack triggers unlock only through it (~8-10 cards).
 6. **Equipment/Vehicle ATTACK-trigger family**: Cap America ×8 (the Swords, Kaldra, Iron Man),
