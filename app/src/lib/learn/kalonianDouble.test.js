@@ -129,18 +129,22 @@ describe("DOUBLE-COUNTERS-EACH — CREED guards: only +1/+1 / youControl; other 
   // Bristly Bill = the board-wide double (this activated ability, native-activated) + a MODELED landfall
   // counter-on-target trigger. It composes to native-mixed via the LANDFALL-composite fix (permanentFully-
   // Covered now strips the "Landfall —" ability-word label before its trigger-sentence strip — see
-  // landfall.test.js). Court of Garenbrig still carries an UNMODELED rider (monarch + distribute-counters
-  // upkeep), so it stays body-only (whole-card CREED) — the new double atom never masks that text.
+  // landfall.test.js). The board-wide double atom never masks unmodeled text on its own — the whole-card
+  // CREED still parks anything with a genuine gap (the three low() siblings above are the surviving controls).
   it("Bristly Bill, Spine Sower is native-mixed (board-double activated + a modeled landfall counter trigger)", () => {
     expect(classifyCard({
       name: "Bristly Bill, Spine Sower", type: "Legendary Creature — Plant Druid", mana: "{1}{G}",
       oracle: "Landfall — Whenever a land you control enters, put a +1/+1 counter on target creature.\n{3}{G}{G}: Double the number of +1/+1 counters on each creature you control.",
     })).toBe("native-mixed");
   });
-  it("Court of Garenbrig stays body-only (the monarch + distribute-counters upkeep clause is unmodeled)", () => {
+  // GRADUATED (SH8, 2026-08-16): Court's last unmodeled rider was the "distribute two +1/+1 counters among
+  // UP TO two target creatures" upkeep clause. SH8 built exactly that arm (any-creature / up-to count target
+  // — distributeUpToAny.test.js); the monarch intervening-if and the mass double already parsed, so the whole
+  // card now classifies native-trigger. The three low() siblings above stay parked as the surviving FN controls.
+  it("Court of Garenbrig is native-trigger (SH8 built the distribute-up-to arm; monarch-if + mass double already parsed)", () => {
     expect(classifyCard({
       name: "Court of Garenbrig", type: "Enchantment", mana: "{1}{G}{G}",
       oracle: "When this enchantment enters, you become the monarch.\nAt the beginning of your upkeep, distribute two +1/+1 counters among up to two target creatures. Then if you're the monarch, double the number of +1/+1 counters on each creature you control.",
-    })).toBe("body-only");
+    })).toBe("native-trigger");
   });
 });

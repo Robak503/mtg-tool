@@ -253,8 +253,9 @@ Boromir, Arwen, Innkeeper's Talent. Strategy: vein #3 + the commander pair first
 ✅ **SHALAI AND HALLAR SHIPPED 08-16 (SH1, +1, deck 69→71)** — the commander's counters-put "deals that
 much damage to target opponent" is native (magnitude threading + sentinel rewrite + deal-damage
 countContext; hollow-gate runtime pin proves damage=counters). Remaining Shalai residue is the ETB/spell
-buckets (Skyclave vein #9, Rishkar's granted-mana second ability, Court of Garenbrig's distribute+monarch)
-— re-probe fresh next time Shalai comes up. The build-ready spec that WAS here (for reference):
+buckets — of which **Rishkar's granted-mana second ability SHIPPED (SH7, 08-16)** and **Court of Garenbrig's
+distribute+monarch SHIPPED (SH8, 08-16)**, leaving Skyclave vein #9 as the main un-mined ETB here — re-probe
+fresh next time Shalai comes up. The build-ready spec that WAS here (for reference):
 🎯 **SHALAI AND HALLAR (the commander).**
 "Whenever one or more +1/+1 counters are put on a creature you control, Shalai and Hallar deals THAT
 MUCH damage to target opponent." Trigger detects (event:countersPut, scoped). The gap is TWO pieces:

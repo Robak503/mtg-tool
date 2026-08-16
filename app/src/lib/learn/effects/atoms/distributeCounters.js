@@ -145,6 +145,19 @@ export function distributeCountersClauseParser(clause) {
     if (!amount || amount > maxTargets) return null;               // over-targeting / unparsed N → LOW (mirror divide-bounded)
     return { op: "distribute-counters", counterType: "+1/+1", amount, maxTargets, group: "creaturesYouControl" };
   }
+  // UP-TO-N ANY-CREATURE (Court of Garenbrig — SHELF-TAIL SH8): "distribute N +1/+1 counters among UP TO M
+  // target creatures" — the fast-follow the header names. Two widenings from the you-control arm above: the
+  // "up to M" count-target shape (the distribute pause already spreads `amount` across the chosen subset —
+  // "up to" just lets the picker take fewer than M), and the ANY-creature recipient (group:"creatures", the
+  // SAME any-creature pool The Wise Mothman uses; the distribute-choice policy picks own creatures for a
+  // +1/+1 benefit — a legal opponent target is never the rational pick). amount ≤ maxTargets guard kept.
+  const mUp = t.match(/^distribute (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? among up to (one|two|three|four|five) target creatures$/);
+  if (mUp) {
+    const amount = DISTRIBUTE_SMALL_NUM[mUp[1]] ?? parseInt(mUp[1], 10);
+    const maxTargets = DISTRIBUTE_SMALL_NUM[mUp[2]];
+    if (!amount || amount > maxTargets) return null;
+    return { op: "distribute-counters", counterType: "+1/+1", amount, maxTargets, group: "creatures" };
+  }
   // MILLED "each of up to X" (The Wise Mothman, SHELF M1c) — "put a +1/+1 counter on each of up to X target
   // creatures, where X is the number of nonland cards milled this way": a milled-trigger payoff whose target
   // COUNT is the event magnitude and each chosen creature gets exactly ONE counter. Routed through the same

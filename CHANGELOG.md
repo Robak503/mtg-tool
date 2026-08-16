@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Court of Garenbrig grows your team.** Its upkeep now distributes its two +1/+1 counters among up to two
+  of your creatures and — while you're the monarch — doubles every +1/+1 counter you control, as printed.
 - **Rishkar, Peema Renegade turns your counters into mana.** Creatures you control that have a counter now
   correctly gain "{T}: Add {G}" — and creatures without a counter don't.
 - **Kederekt Parasite's optional ping works.** When an opponent draws and you control a red permanent, it
