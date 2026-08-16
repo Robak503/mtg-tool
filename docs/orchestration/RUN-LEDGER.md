@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **RISHKAR, PEEMA RENEGADE (+1) — counter-gated group mana grant** - the next batch (SH7)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+4**.
+> ⭐ A single clean arm: the UNFILTERED "each creature you control has '{T}: Add {G}'" was already
+> native-mana; the gap was the "WITH A COUNTER ON IT" filter. Reused the SAME requiresAnyCounter DYNAMIC
+> selector the counter-gated WARD + KEYWORD grants already use (re-read per query so a creature moves in/out
+> live as counters change), with parseGrantedManaSpec for the body — placed BEFORE the general mana-grant
+> block so the qualifier isn't swallowed into parseCreatureSelector (which has no counter-filter → would
+> null the selector). The counter-gated group FAMILY (ward · keyword · now MANA) is complete.
+> ⚠️ HOLLOW-GATE: the witness pins the RUNTIME via grantedManaSpecsFor — a COUNTERED creature gets the tap,
+> an UNCOUNTED one gets NOTHING (the filter's whole point, invisible to classify). 1 mutation via Edit,
+> seen-to-fail (kills parse + classify + the runtime-enforcement pin).
+> ⚠️ GRADUATED a MUST-STAY-LOW pin: counterGatedGroupKeyword.test.js asserted Rishkar STAYS body-only ("a
+> granted mana ability isn't a keyword") — that was the FN boundary the keyword slice drew, and SH7 built
+> exactly it. Updated to native-mixed + the graduation note; Nev (cast-ordinal X-value trigger, unbuilt)
+> stays the surviving FN control. The FULL SUITE caught it (not the flip-diff — a sibling test's assertion).
+> Token diet: ~12k output tokens (the graduation cost the extra).
 > ## SLICE DONE - 2026-08-16 - **KEDEREKT PARASITE (+1) — optional causative "you may have this creature deal N damage"** - the next batch (SH6, vein #1 CLOSED)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+3**.
 > ⭐ A SINGLE clean arm — isolated by probe: the intervening-if "if you control a red permanent" already

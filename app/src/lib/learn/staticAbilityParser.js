@@ -2980,6 +2980,29 @@ function parseClause(clause, out, selfName, selfType) {
     }
   }
 
+  // ── COUNTER-GATED GROUP MANA GRANT (Rishkar, Peema Renegade — SHELF-TAIL SH7) ────────────────────────
+  // "Each creature you control WITH A COUNTER ON IT has \"{T}: Add <mana>\"." The mana twin of the
+  // counter-gated ward + keyword grants above — the SAME requiresAnyCounter dynamic selector (re-read per
+  // query, so a creature moves in/out live as counters arrive/leave), with parseGrantedManaSpec instead of
+  // the keyword/ward. ONLY a modeled mana body flips (CREED — an unmodeled Add body → no descriptor →
+  // body-only). The general (unfiltered) mana grant lives just below; this claims the counter-filtered form
+  // first so its "with a counter on it" qualifier isn't swallowed into the selector text (parseCreatureSelector
+  // has no counter-filter, so the general block would null the selector and drop the whole grant).
+  {
+    const cgmM = clause.match(/^each creature you control with a counter on it (?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i);
+    if (cgmM) {
+      const manaSpec = parseGrantedManaSpec(cgmM[1]);
+      if (manaSpec) {
+        out.push({
+          layer: 6,
+          op: { layerOp: "addAbility", grant: { kind: "mana", spec: manaSpec } },
+          affects: { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], requiresAnyCounter: true } },
+          duration: { kind: "permanent" },
+        });
+        return;
+      }
+    }
+  }
   // ── GROUP-GRANT granted quoted MANA ability (Gemhide/Manaweft Sliver, Enduring Vitality) ────────────
   // "<selector> have \"{T}: Add <mana>\"" mints a MANA ability onto every matching permanent (CR 113.7 — a
   // granted ability functions on the recipient). The ONLY granted-ability kind modeled here is a MANA

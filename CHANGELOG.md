@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Rishkar, Peema Renegade turns your counters into mana.** Creatures you control that have a counter now
+  correctly gain "{T}: Add {G}" — and creatures without a counter don't.
 - **Kederekt Parasite's optional ping works.** When an opponent draws and you control a red permanent, it
   now offers to deal its 1 damage, instead of the whole ability falling through.
 - **Aurelia, the Law Above triggers off any player's attack.** Her draw and her damage/lifegain now fire

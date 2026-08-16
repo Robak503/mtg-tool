@@ -56,13 +56,16 @@ describe("parse + classify", () => {
     expect(d.affects.selector.excludeSelf).toBeUndefined(); // no "other" → self-inclusive, unlike Tyrant above
   });
 
-  it("real siblings sharing this selector stay body-only on SEPARATE residue, not a regression here", () => {
+  it("a real sibling on SEPARATE residue stays body-only; Rishkar's mana grant GRADUATED (SH7, 2026-08-16)", () => {
     const nev = { name: "Nev, the Practical Dean", type: "Legendary Creature — Merfolk Wizard", mana: "{2}{U}{U}",
       oracle: "Creatures you control with counters on them have trample.\nWhenever you cast your first spell with {X} in its mana cost each turn, put X +1/+1 counters on Nev." };
     const rishkar = { name: "Rishkar, Peema Renegade", type: "Legendary Creature — Elf Druid", mana: "{1}{G}{G}",
       oracle: "When Rishkar enters, put a +1/+1 counter on each of up to two target creatures.\nEach creature you control with a counter on it has \"{T}: Add {G}.\"" };
-    expect(classifyCard(nev)).toBe("body-only"); // the cast-ordinal + X-filter + cross-permanent X-value trigger is unbuilt
-    expect(classifyCard(rishkar)).toBe("body-only"); // a granted ACTIVATED (mana) ability isn't a GRANTABLE_KEYWORDS keyword
+    expect(classifyCard(nev)).toBe("body-only"); // STILL parked — the cast-ordinal + X-filter + cross-permanent X-value trigger is unbuilt (the surviving FN control)
+    // Rishkar WAS the FN boundary here ("a granted mana ability isn't a keyword"); SH7 built exactly that —
+    // the counter-gated group MANA grant (requiresAnyCounter selector + parseGrantedManaSpec), runtime-pinned
+    // in counterGatedManaGrant.test.js. So it now classifies native-mixed.
+    expect(classifyCard(rishkar)).toBe("native-mixed");
   });
 });
 
