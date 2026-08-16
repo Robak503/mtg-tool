@@ -3,6 +3,15 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🏁 RELEASE - 2026-08-16 - **v0.160.0 CUT (batch +98 since v0.159.0 → RESET to 0)**
+> Tagged v0.160.0 @ 5c3486d0 (SH3). The +98-card shelf-tail batch: Mother/Giver protection-color (+10) ·
+> tapped-and-attacking tokens · artifact-creature pumps (+3) · Shalai counters-damage (commander) ·
+> any-player-draw (Spiteful) · count-static+keyword aura/equip compose (+8) · Triskaidekaphile exact-13 ·
+> Ancestral Mask source-exclusion — plus Wolverine→90 and 8 imported archetype decks. Cut at +98 (≈100):
+> the cheap veins were mined, the remaining cards are individual mediums (Sage's Reverie filtered-aura
+> count · Aurelia attack-count triggers · Kederekt intervening-if) — deferred to the NEXT batch, no work
+> lost. **THE NEXT BATCH STARTS AT 0 from here.** Release CI watching; next-100 plan = SHELF-TAIL-PLAN.md.
+
 > ## SLICE DONE - 2026-08-16 - **ANCESTRAL MASK (+1) — "for each OTHER X on the battlefield" source-exclusion** - the shelf grind (SH3, the named vein-#7 straggler)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** (LOST 0 — retiring the parse
 > guard broke no other subtypeOnBattlefield card, the critical check). Post-release batch **+98** (TWO from

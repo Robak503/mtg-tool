@@ -1,5 +1,17 @@
 # THE SHELF COMPLETION PLAN — every deck to 90 (or a called ceiling)
 
+> ## 🏁 v0.160.0 CUT 2026-08-16 → THIS IS NOW THE NEXT-100 PLAN. The +98 shelf-tail batch shipped (batch
+> reset to 0). The cheap veins are MINED — veins #1 (opp-draw), #3 (Mother/Giver), #7 (count+keyword aura,
+> count-other source-excl) are done; #2 (wheels) core native. **NEXT-BATCH TARGETS** = the individual
+> mediums that remain + the decks still under the bar: Sage's Reverie (the "aura you control attached to a
+> creature" FILTERED count — parse + eval add, serves both its arms) · Aurelia (the "attacks with N or more
+> creatures" attack-count TRIGGER event — new detection) · Kederekt Parasite (opp-draw intervening-if +
+> optional causative) · Rishkar (granted-mana-to-countered static) · Otharri's {2}{R}{W},Tap-a-Rebel
+> graveyard-reanimate (the named LAYER re-entry) · Aettir base-P/T-from-life (the named dynamic-set-base
+> layer slice). Decks still below 90: Light-Paws 61, Bumbleflower 63, Nekusar 72, Cap 73 (heavy), Shorikai
+> 73 (crew vein #5), Otharri 76, Halfshell 67 (heavy), Kellan 74 (heavy) · gap decks Thrun 81/Brago
+> 75(flicker vein #4)/Atraxa 62 · cEDH LAST (Believe it! 79, Kinnan 77). Same discipline, same non-stop.
+
 > **THE ONE DOCUMENT ANY CHAT CAN BOOT FROM AND EXECUTE.** Colton's standing order: grind every deck
 > to ≥90% native coverage, non-stop, and call the honest ceiling per deck when the residue is
 > genuinely unbuildable-class. This file holds the whole remaining arc: the boot ritual, the
