@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Eerie Interlude and Ghostway work.** Their team-wide flicker — exile your creatures now, return them all
+  at the next end step — now resolves, dodging a board wipe as printed.
 - **Turn to Mist and Mistmeadow Witch work.** Their delayed flicker — exile now, return at the next end
   step — now resolves, including Mistmeadow Witch's repeatable "{2}{W}{U}" blink.
 - **Otherworldly Journey and Long Road Home work.** They now exile the creature and return it at the next

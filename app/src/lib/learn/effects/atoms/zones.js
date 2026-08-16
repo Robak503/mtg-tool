@@ -1424,7 +1424,12 @@ export function applyCzReturn(state, atom, ctx) {
 export function applyDelayedBlink(state, atom, ctx) {
   let next = state;
   const done = [];
-  for (const t of ctx.targets || []) {
+  // NON-TARGETED MASS (Ghostway "exile each creature you control"): enumerate the controller's creatures at
+  // resolution — there are no chosen targets. A snapshot of ids taken BEFORE any exile, so the loop is stable.
+  const targets = atom.eachYouControl
+    ? (state.players?.[ctx.controller]?.battlefield || []).filter((p) => /\bcreature\b/i.test(p.card?.type || "")).map((p) => ({ id: p.id }))
+    : (ctx.targets || []);
+  for (const t of targets) {
     const lk = findPermanent(next, t.id);
     if (!lk) continue;                       // gone before resolution — no-op, never a fabricated exile
     const perm = lk.permanent;

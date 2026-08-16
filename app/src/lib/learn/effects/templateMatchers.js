@@ -1020,6 +1020,20 @@ export function matchDelayedBlink(oracle) {
   if (/^exile target creature\. return that card to the battlefield under its owner's control at the beginning of the next end step$/.test(t)) {
     return { atoms: [{ op: "delayed-blink", targetType: "creature", withCounter: false }] };
   }
+  // MASS "any number of target creatures you control" (Eerie Interlude): the whole chosen set is exiled and
+  // EACH returns at the next end step. applyDelayedBlink already loops ctx.targets (one [blink-return] sentinel
+  // per card), so this is a targeting widen only — maxTargets 999 / minTargets 0 / anyNumber (the same fill the
+  // graveyard "any number" arm uses), restricted to your own creatures. "their owner's" (plural) return.
+  if (/^exile any number of target creatures you control\. return those cards to the battlefield under their owner's control at the beginning of the next end step$/.test(t)) {
+    return { atoms: [{ op: "delayed-blink", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }], withCounter: false, maxTargets: 999, minTargets: 0, anyNumber: true }] };
+  }
+  // NON-TARGETED MASS "each creature you control" (Ghostway): no targeting — applyDelayedBlink's eachYouControl
+  // mode enumerates the controller's creatures at RESOLUTION and exiles+schedules each. A token exiled this way
+  // ceases to exist (CR 111.7) so its scheduled return no-ops naturally (enterCardFromZone finds nothing) — the
+  // classic Ghostway board-wipe dodge, faithful. "their owner's" return.
+  if (/^exile each creature you control\. return those cards to the battlefield under their owner's control at the beginning of the next end step$/.test(t)) {
+    return { atoms: [{ op: "delayed-blink", targetType: null, withCounter: false, eachYouControl: true }] };
+  }
   return null;
 }
 

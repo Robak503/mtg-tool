@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **DELAYED-BLINK WIDEN #2 (+2) — Eerie Interlude + Ghostway (the MASS forms)** - the next batch (SH16)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0**. NEW batch: **+16**.
+> ⭐ Two more off the SH14 machinery — both exile a WHOLE set of your creatures and return EACH at the next end
+> step. Eerie Interlude = "exile ANY NUMBER of target creatures you control" (a targeted any-number selection —
+> maxTargets 999 / minTargets 0 / anyNumber, the same fill the graveyard any-number arm uses). Ghostway = "exile
+> EACH creature you control" (NON-targeted mass — a new eachYouControl applier mode that enumerates the
+> controller's creatures at RESOLUTION, lands + opponents excluded). applyDelayedBlink already loops (one
+> [blink-return] per card), so Eerie was a pure targeting widen; Ghostway added the ~3-line enumeration mode.
+> ⚠️ HOLLOW-GATE: witness pins the RUNTIME — Eerie exiles the CHOSEN set + schedules each; Ghostway exiles ALL
+> your creatures (a LAND stays, an OPPONENT's creature stays) + schedules each. A token exiled by Ghostway
+> ceases to exist (CR 111.7) → its return no-ops (the board-wipe dodge, faithful). 2 mutations via Edit,
+> seen-to-fail (any-number arm → Eerie drops; eachYouControl enumeration → Ghostway exiles nothing). Token diet:
+> ~18k. The delayed-blink vein has now yielded 6 cards across SH14-16 (+6) off one subsystem. — Cindy
+>
 > ## SLICE DONE - 2026-08-16 - **DELAYED-BLINK WIDEN #1 (+2) — Turn to Mist + Mistmeadow Witch (the delay-LAST plain phrasing)** - the next batch (SH15)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0**. NEW batch: **+14**.
 > ⭐ The harvest strategy VALIDATED — the SH14 machinery ([blink-return] sentinel + applyDelayedBlink/
