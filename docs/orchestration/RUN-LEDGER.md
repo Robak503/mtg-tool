@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **DELAYED-BLINK WIDEN #1 (+2) — Turn to Mist + Mistmeadow Witch (the delay-LAST plain phrasing)** - the next batch (SH15)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0**. NEW batch: **+14**.
+> ⭐ The harvest strategy VALIDATED — the SH14 machinery ([blink-return] sentinel + applyDelayedBlink/
+> applyBlinkReturn) took +2 more off a ONE-arm matcher widen. Corpus census surfaced the second printed word
+> order: the SH14 cards put the delay clause FIRST ("At the beginning of the next end step, return … with a
+> +1/+1 counter"), but Turn to Mist and Mistmeadow Witch put it LAST ("Return that card … at the beginning of
+> the next end step") with NO counter. Added a second matchDelayedBlink arm (withCounter:false); the applier +
+> sentinel resolve both identically. Flip: Turn to Mist (spell) + Mistmeadow Witch (its activated ability's
+> cost-stripped effect — proving the delayed-blink rides trigger/activated wrappers, not just bare spells).
+> Owner-return only (a delayed "your control" spell isn't in the corpus → stays LOW, pinned; the immediate
+> "your" blink is Conjurer's Closet SH13). 1 mutation via Edit, seen-to-fail. Runtime already covered by
+> SH14's witness (the withCounter:false path is pinned there). Token diet: ~16k (mostly the census). — Cindy
+>
+> 🔭 **Delayed-blink follow-ons still open** (each a wrapper on the SH14/SH15 foundation): Flickerwisp (ETB +
+> "another target PERMANENT" — a new targetType), Angel of Condemnation (activated + exert), Eerie Interlude
+> ("exile ANY NUMBER of target creatures you control, return those cards" — the mass form), Salvation Swan /
+> S.H.I.E.L.D. Flying Car (ETB "up to one"). Widen the matcher's target scope + phrasing per card.
+>
 > ## SLICE DONE - 2026-08-16 - **DELAYED-RETURN BLINK (+2) — Otherworldly Journey + Long Road Home; the reusable delayed-blink machinery** - the next batch (SH14)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+2 / 0 / 0**. NEW batch: **+12**.
 > ⭐ The banked 84-card vein's foundation, BUILT. Both cards are identical: "Exile target creature. At the

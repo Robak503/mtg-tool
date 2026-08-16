@@ -1007,8 +1007,20 @@ export function matchBlinkSubtypeCounter(oracle) {
 // anchored; any variant (no counter, "you control", a different delay) → null → LOW → Arbiter (a SAFE FN).
 export function matchDelayedBlink(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
-  if (!/^exile target creature\. at the beginning of the next end step, return that card to the battlefield under its owner's control with a \+1\/\+1 counter on it$/.test(t)) return null;
-  return { atoms: [{ op: "delayed-blink", targetType: "creature", withCounter: true }] };
+  // DELAY-FIRST + a +1/+1 counter (Otherworldly Journey, Long Road Home): "… At the beginning of the next end
+  // step, return that card … with a +1/+1 counter on it."
+  if (/^exile target creature\. at the beginning of the next end step, return that card to the battlefield under its owner's control with a \+1\/\+1 counter on it$/.test(t)) {
+    return { atoms: [{ op: "delayed-blink", targetType: "creature", withCounter: true }] };
+  }
+  // DELAY-LAST, plain (Turn to Mist — a spell; Mistmeadow Witch — the cost-stripped effect of its activated
+  // ability): "Exile target creature. Return that card … at the beginning of the next end step." No counter.
+  // Owner return only ("under its owner's control") — a "your control" delayed spell isn't in the corpus, so
+  // it stays LOW rather than guessing the controller (the immediate "your"-blink is Conjurer's Closet, already
+  // native). The delayed-blink applier + [blink-return] sentinel (SH14) resolve both forms identically.
+  if (/^exile target creature\. return that card to the battlefield under its owner's control at the beginning of the next end step$/.test(t)) {
+    return { atoms: [{ op: "delayed-blink", targetType: "creature", withCounter: false }] };
+  }
+  return null;
 }
 
 // RAD-TARGET-OR-TREASURE (The Ghoul, Gunslinger — SHELF S7) — "target player gets two rad counters. If

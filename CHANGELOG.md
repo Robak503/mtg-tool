@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Turn to Mist and Mistmeadow Witch work.** Their delayed flicker — exile now, return at the next end
+  step — now resolves, including Mistmeadow Witch's repeatable "{2}{W}{U}" blink.
 - **Otherworldly Journey and Long Road Home work.** They now exile the creature and return it at the next
   end step with a +1/+1 counter — the full delayed flicker, timed correctly.
 - **Conjurer's Closet blinks on your end step.** Its optional end-step "exile then return" now works — you

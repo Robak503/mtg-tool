@@ -121,9 +121,10 @@ deck. Ordered roughly by payoff:
    ✅ **Conjurer's Closet SHIPPED (SH13** — the optional "you may" blink keep-whole). ✅ **DELAYED-RETURN BLINK
    MACHINERY SHIPPED (SH14** — Otherworldly Journey + Long Road Home, +2; the `[blink-return]` sentinel +
    applyBlinkReturn + applyDelayedBlink, mirroring cz-commander-visit). The 84-card vein's foundation is now
-   built and REUSABLE — its follow-ons (Flickerwisp ETB + any-permanent exile, Mistmeadow Witch activated,
-   Angel of Condemnation, Eerie Interlude) each need only their own wrapper on top; widen the matcher (plain
-   return / "another target permanent" / "you control") next to flip a cluster. Detailed in RUN-LEDGER SH14.
+   built and REUSABLE. ✅ **WIDEN #1 SHIPPED (SH15** — Turn to Mist + Mistmeadow Witch, the delay-LAST plain
+   phrasing, +2). Still open (each a wrapper on the foundation): Flickerwisp (ETB + "another target PERMANENT"
+   — new targetType), Angel of Condemnation (activated + exert), Eerie Interlude (mass "any number"),
+   Salvation Swan / S.H.I.E.L.D. Flying Car (ETB "up to one"). Detailed in RUN-LEDGER SH14/SH15.
 5. **The CREW mechanic** (tap creatures totaling power N → the Vehicle is an artifact creature until
    EOT): Shorikai himself + the fleet's attack triggers unlock only through it (~8-10 cards).
 6. **Equipment/Vehicle ATTACK-trigger family**: Cap America ×8 (the Swords, Kaldra, Iron Man),
