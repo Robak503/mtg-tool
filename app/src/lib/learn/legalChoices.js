@@ -1210,6 +1210,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         const victims = player.battlefield.filter(v =>
           sacTypeMatches(v.card, addCost.sacType) &&
           (addCost.minPower == null || creaturePower(v, state) >= addCost.minPower) &&
+          (addCost.color == null || colorsOf(v.card).includes(addCost.color)) &&   // COLOR-qualified sac (Natural Order)
           !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""));
         if (victims.length === 0) continue;               // no legal victim → unpayable → uncastable
         for (const victim of victims) {

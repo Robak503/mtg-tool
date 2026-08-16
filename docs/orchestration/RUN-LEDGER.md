@@ -11,13 +11,31 @@
 > unchanged — the ~100 tag still fires; only WHAT we pick changes.) Rule saved: [[feedback-deck-shelf-over-release-batch]].
 > **Fresh measurements (08-16):** Thrun **82** (LEADER — needs 8) · Otharri 77 · Brago 76 · Nekusar 74 · Kellan
 > 74 · Shalai 73 · Bumbleflower 64 · Light-Paws ~58 (floor). Batch stands at **+17**.
-> 🎯 **FOCUS: THRUN VOLTRON → 90** — now **85** (SH18 Whispersilk · SH19 Indomitable Might · SH20 Lion Umbra); **needs 5 more**.
+> 🎯 **FOCUS: THRUN VOLTRON → 90** — now **86** (SH18 Whispersilk · SH19 Indomitable Might · SH20 Lion Umbra · SH21 Natural Order); **needs 4 more**.
 > Parked: 4 aura/equip [Prowler's Helm=FILTERED evasion=DEFER, Nazgûl Battle-Mace=annihilator+quoted-trig=heavy,
 > Lion Umbra=modified+totem-armor, Strong Back=cost-reductions] · 5 spell-effects [Abundance draw-replace, Animist's
 > Might fight+cost-reduce, Band Together multi-source fight, Natural Order sac→tutor-to-bf, Thrun himself] · 2
 > anthems [Primal Might X-pump+fight, Professor Hojo first-ability cost-reduce] · Buster Sword attack-trig ·
 > Kenrith's Transformation ETB · Nyxborn Hydra enters-as · Saryth activated · Zopandrel upkeep. Measure with
 > `node scripts/measure-coverage.mjs "Thrun Voltron"`.
+>
+> ## SLICE DONE - 2026-08-16 - **THRUN #4: Natural Order (+1) — the COLOUR-qualified additional sac cost** - DECK-FIRST (SH21)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+25**. **Thrun 85 → 86.**
+> ⭐ Natural Order's tutor body (search → onto the battlefield → shuffle) was ALREADY native; the sole blocker
+> was the COLOUR qualifier on the cost — "sacrifice a GREEN creature". The colour twin of Savage Order's
+> minPower filter: castModifiers SAC_COST_COLOR_RE emits {kind:"sacrifice", sacType:"creature", color:"G"};
+> both consumers gate the victim pool by colorsOf (legalChoices offers only green creatures, actionDispatcher
+> re-checks at pay). Additive — colour-sac costs didn't parse before, so nothing existing shifts.
+> ⚠️ TWO-PATHS trap (found by smoke, not flip-diff): extractAdditionalCosts has its OWN cost chain SEPARATE
+> from parseOneAdditionalCost — I added the arm to the latter first and classify didn't move; both needed it.
+> ⚠️ GRADUATED 3 landmine pins (tutorFilterVocabulary + tutorToBattlefieldX×2) that used Natural Order as their
+> "unmodeled cost = parks" example — flipped to native + dated. THE FULL SUITE caught them (flip-diff clean).
+> ⚠️ HOLLOW-GATE: witness pins the RUNTIME — only a green creature is OFFERED as the victim (a red one isn't),
+> and dispatching a red victim THROWS. 2 mutations via Edit, seen-to-fail. Token: ~30k (the two-paths + two
+> graduation waves). — Cindy
+> 🎯 **THRUN now 86 — needs 4.** Remaining: Animist's Might (fight native + conditional cost-reduce), Band
+> Together (multi-source fight), Abundance (draw-replace), Primal Might (X-pump-fight), 2 anthems, Buster Sword,
+> Kenrith's Transformation, Nyxborn Hydra, Saryth, Zopandrel. Each fiddly — best on fresh context per card.
 >
 > ## SLICE DONE - 2026-08-16 - **THRUN #3: Lion Umbra (+1) — the "Enchant MODIFIED creature" host restriction** - DECK-FIRST (SH20)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+24**. **Thrun 84 → 85.**

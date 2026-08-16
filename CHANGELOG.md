@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Natural Order works.** It now correctly requires sacrificing a green creature as you cast it, then tutors
+  a green creature straight onto the battlefield.
 - **Lion Umbra works.** It can now only enchant a modified creature (one with a counter, Equipment, or Aura),
   as printed, and grants its +3/+3, vigilance, reach, and totem armor.
 - **Indomitable Might works.** It now gives the enchanted creature +3/+3 and lets it deal its full combat

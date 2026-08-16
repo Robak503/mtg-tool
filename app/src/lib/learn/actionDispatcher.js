@@ -66,7 +66,7 @@ import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTap
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { landDropAllowance } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { permanentHasKeyword, permanentIsCreature, addContinuousEffect } from "./layers.js";
+import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf } from "./layers.js";
 import { parseCrewCost, parseDiscardCostAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch
 import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers } from "./triggers.js";
 import { setPendingSoftCounterChoice } from "./pendingChoice.js";
@@ -388,6 +388,12 @@ function applyCastSpell(state, action) {
       // THROW rather than accept a victim the printed cost refuses).
       if (ac.minPower != null && creaturePower(victim, working) < ac.minPower) {
         throw new DispatcherError(`Sacrifice victim ${action.sacCreatureId} has power below the printed minimum ${ac.minPower}`, "ADDCOST_UNPAID");
+      }
+      // COLOR-QUALIFIED cost (Natural Order — "sacrifice a green creature") re-validates the victim's colour
+      // at charge time, same as minPower above: the offer already filtered by colour, but a colour-changing
+      // effect in between must not let a wrong-colour victim under-pay the printed cost — THROW.
+      if (ac.color != null && !colorsOf(victim.card).includes(ac.color)) {
+        throw new DispatcherError(`Sacrifice victim ${action.sacCreatureId} is not the printed colour ${ac.color}`, "ADDCOST_UNPAID");
       }
       // SACRIFICED REFERENT (CR 608.2h + 603.6e last-known-info) — a spell whose effect scales off "the
       // sacrificed creature's power / toughness / mana value" (Fling, Tormented Thoughts, Reckoner's Bargain,

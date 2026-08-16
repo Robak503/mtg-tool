@@ -69,8 +69,9 @@ describe("parser — bfx: creature/permanent search→battlefield capped by X", 
     // rider, both modeled faithfully). See the FINALE block below for the atom-shape + runtime coverage. A
     // GRAVEYARD-ONLY search-to-battlefield remains a landmine (not the "library and/or graveyard" bfxg shape).
     expect(programConfidence(parseEffectClause("Search your graveyard for a creature card with mana value X or less and put it onto the battlefield.", "Sorcery", { hasX: true }))).toBe("low");
-    // Natural Order — "sacrifice a GREEN creature" (color-qualified sac cost unmodeled) → low.
-    expect(programConfidence(progOf({ name: "Natural Order", type: "Sorcery", mana: "{2}{G}{G}", oracle: "As an additional cost to cast this spell, sacrifice a green creature.\nSearch your library for a green creature card, put it onto the battlefield, then shuffle." }))).toBe("low");
+    // Natural Order GRADUATED (SH21) — the color-qualified sac cost is modeled now (castModifiers), so its
+    // program parses HIGH. A GRAVEYARD-only search-to-battlefield (above) is still the surviving landmine here.
+    expect(programConfidence(progOf({ name: "Natural Order", type: "Sorcery", mana: "{2}{G}{G}", oracle: "As an additional cost to cast this spell, sacrifice a green creature.\nSearch your library for a green creature card, put it onto the battlefield, then shuffle." }))).toBe("high");
     // Chord of Calling — the RAW oracle (with the convoke line) is low to the BARE effect parser (it doesn't
     // strip cost-only keyword lines). classifyCard, which DOES strip convoke (stripCostOnlyKeywordLines, the
     // established convoke pattern), flips Chord native — asserted in the coverage block below, NOT here.
@@ -184,9 +185,11 @@ describe("coverage — Wargate + Nature's Rhythm flip native-spell; landmines st
     expect(classifyCard(C("Sorcery", "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle. If X is 10 or more, creatures you control get +X/+X and gain haste until end of turn.", "{X}{G}{G}", "Finale of Devastation"))).toBe("native-spell");
   });
 
-  it("landmines remain arbiter-spell (Natural Order color-sac / non-X no-cap)", () => {
-    expect(classifyCard(C("Sorcery", "As an additional cost to cast this spell, sacrifice a green creature.\nSearch your library for a green creature card, put it onto the battlefield, then shuffle.", "{2}{G}{G}", "Natural Order"))).toBe("arbiter-spell");
-    // GRADUATED 2026-08-14 (Savage Order): the bfm creature admission is faithful — the printed card really fetches any creature (the Planar Bridge precedent in bfm's own note); Natural Order still parks via its unmodeled color-sac COST (verified live).
+  it("Natural Order GRADUATED (SH21); the non-X no-cap fetch stays native (Savage Order)", () => {
+    // Natural Order GRADUATED 2026-08-16 (SH21): its color-qualified sac cost is modeled now (castModifiers
+    // SAC_COST_COLOR_RE + the colorsOf victim gate), so the whole card flips native-spell.
+    expect(classifyCard(C("Sorcery", "As an additional cost to cast this spell, sacrifice a green creature.\nSearch your library for a green creature card, put it onto the battlefield, then shuffle.", "{2}{G}{G}", "Natural Order"))).toBe("native-spell");
+    // GRADUATED 2026-08-14 (Savage Order): the bfm creature admission is faithful — the printed card really fetches any creature (the Planar Bridge precedent in bfm's own note).
     expect(classifyCard(C("Sorcery", "Search your library for a creature card, put it onto the battlefield, then shuffle.", "{3}{G}", "Fake Uncapped"))).toBe("native-spell");
   });
 });

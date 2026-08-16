@@ -99,10 +99,11 @@ describe("tier", () => {
       .toBe("native-activated");
   });
 
-  it("⛔ Natural Order stays PARKED — its additional cost is a separate blocker", () => {
-    // Recorded so the vocabulary's reach is not overstated: the filter lands, the card does not.
+  it("Natural Order flips native (GRADUATED SH21 — its color-sac additional cost is now modeled)", () => {
+    // Was the "filter lands, card parks on the cost" example; SH21 modeled the colour-qualified sacrifice cost
+    // (castModifiers SAC_COST_COLOR_RE + the colorsOf victim gate), so the whole card is native now.
     expect(classifyCard({ name: "Natural Order", type: "Sorcery", mana: "{2}{G}{G}",
       oracle: "As an additional cost to cast this spell, sacrifice a green creature.\nSearch your library for a green creature card, put it onto the battlefield, then shuffle." }))
-      .not.toMatch(/^native/);
+      .toMatch(/^native/);
   });
 });

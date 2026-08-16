@@ -40,6 +40,9 @@ const SAC_COST_RE = /^sacrifice (?:a|an) (artifact or creature|creature or artif
 // dispatcher's payment validation both enforce minPower against LAYER-AWARE power (a pumped 3-drop can
 // pay; a debuffed 4-drop cannot — CR 601.2h reads the live board).
 const SAC_COST_POWER_RE = /^sacrifice (?:a|an) creature with power (\d+) or greater$/i;
+// COLOR-QUALIFIED sac cost (Natural Order). Single creature, one WUBRG colour word only.
+const SAC_COST_COLOR_RE = /^sacrifice (?:a|an) (white|blue|black|red|green) creature$/i;
+const SAC_COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
 // One canonicalization for BOTH exec sites below (parseOneAdditionalCost and extractAdditionalCosts had
 // duplicate inline ternaries; two copies of a growing map is how they drift).
 const SAC_TYPE_CANON = {
@@ -120,6 +123,12 @@ function parseOneAdditionalCost(phrase) {
   }
   const sacP = SAC_COST_POWER_RE.exec(p);
   if (sacP) return { cost: { kind: "sacrifice", sacType: "creature", minPower: parseInt(sacP[1], 10) }, selfRef: /\bsacrificed\b/i };
+  // COLOR-QUALIFIED sac cost (Natural Order — "sacrifice a green creature"): the COLOR twin of the minPower
+  // filter above. Emits { kind:"sacrifice", sacType:"creature", color:<WUBRG letter> }; both consumers gate the
+  // victim pool by colorsOf (legalChoices offers only same-color creatures, the dispatcher re-checks at pay) —
+  // the SAME layer-aware color read the alt-cost "cast by sacrificing a <color> creature" path already uses.
+  const sacC = SAC_COST_COLOR_RE.exec(p);
+  if (sacC) return { cost: { kind: "sacrifice", sacType: "creature", color: SAC_COLOR_LETTER[sacC[1].toLowerCase()] }, selfRef: /\bsacrificed\b/i };
   const sacN = SAC_COUNT_COST_RE.exec(p);
   if (sacN) return { cost: { kind: "sacrifice", sacType: sacN[2].toLowerCase().replace(/s$/, ""), count: SMALL_NUM[sacN[1].toLowerCase()] }, selfRef: /\bsacrificed\b/i };
   const life = PAYLIFE_COST_RE.exec(p);
@@ -159,6 +168,7 @@ export function extractAdditionalCosts(oracle) {
   const phrase = m[1].trim();
   const sac = SAC_COST_RE.exec(phrase);
   const sacP = SAC_COST_POWER_RE.exec(phrase);   // SAVAGE ORDER — the power-qualified N=1 form
+  const sacC = SAC_COST_COLOR_RE.exec(phrase);   // NATURAL ORDER — the colour-qualified N=1 form
   const sacN = SAC_COUNT_COST_RE.exec(phrase);   // AC-1 count-of-N — tried only when the N=1 singular form misses
   const life = PAYLIFE_COST_RE.exec(phrase);
   const lifeX = PAYLIFE_X_COST_RE.exec(phrase);   // TOXIC DELUGE — pay X life (X chosen at cast, bound to the body's X)
@@ -173,6 +183,10 @@ export function extractAdditionalCosts(oracle) {
   }
   else if (sacP) {
     cost = { kind: "sacrifice", sacType: "creature", minPower: parseInt(sacP[1], 10) }; // SAVAGE ORDER
+    selfRef = /\bsacrificed\b/i;
+  }
+  else if (sacC) {
+    cost = { kind: "sacrifice", sacType: "creature", color: SAC_COLOR_LETTER[sacC[1].toLowerCase()] }; // NATURAL ORDER
     selfRef = /\bsacrificed\b/i;
   }
   else if (sacN) {
