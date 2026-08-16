@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **ARTIFACT-CREATURE PUMP (+3) — "target artifact creature you control gets…"** - the shelf grind (H1, the vein paid ×3)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+3 / 0 / 0** — Baxter Stockman, Weldfast
+> Engineer, Aethershield Artificer (all whole-card audited: single/clean abilities; Aethershield's
+> indestructible grant rides the same pump+grant). Post-release batch **+86**.
+> ⭐ ONE clean arm on existing machinery: the you-control pump (pctrl) already handled "target creature
+> you control gets…"; the ONLY gap was the ARTIFACT type qualifier. The cardType restriction
+> {kind:"cardType",type:"artifact"} was ALREADY honored by creatureSatisfiesRestrictions (the Modular
+> "target artifact creature" precedent) — so no enumeration/resolver change, just (a) a parser arm
+> emitting the cardType restriction + (b) widening splitClauses' pump keep-whole guard to accept the
+> "artifact" qualifier (else the "+N/+N and gains KW" clause shattered before the arm saw it).
+> ⚠️ NAME TRAP (banked): probed the plan's "Baxter" shorthand → got **Baxter Stockman**, but Halfshell's
+> actual card is **"Baxter, Fly in the Ointment"** (a DIFFERENT card, still parked). So this +3 is a real
+> CORPUS gain serving other decks — it does NOT move Halfshell (stays 67). The deck-% and the corpus are
+> different metrics; the flip-diff (corpus) is what the batch counts. Lesson: resolve the EXACT deck card
+> name before probing, not the plan's shorthand. 3 mutations (split guard · parser arm · cardType
+> restriction) via Edit, each seen-to-fail. Token diet: ~11k output tokens this slice.
 > ## SLICE DONE - 2026-08-16 - **TAPPED-AND-ATTACKING TOKEN (+1) — the mobilize-token for-each (Kessig Cagebreakers)** - the shelf grind (Otharri O1)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Kessig Cagebreakers
 > body-only→native-trigger (whole-card audited: single ability, count filters to CREATURE cards in

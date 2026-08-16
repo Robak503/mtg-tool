@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Artifact-creature combat pumps work.** Cards that pump "target artifact creature you control" at
+  combat — Weldfast Engineer, Aethershield Artificer, Baxter Stockman — now resolve their buff (and any
+  granted keyword) on a real, correctly-restricted target instead of falling through.
 - **"Tapped and attacking" tokens really attack.** Kessig Cagebreakers (and cards like it) now make
   their Wolf tokens that enter tapped-and-attacking actually join the attack and deal damage, one per
   creature card in your graveyard — not enter and sit there.

@@ -211,13 +211,19 @@ Avenger, Tony Stark MDFC), Zirda / Codsworth (activated), **Teferi's Protection*
 We Say Thee Nay!, Cap Living Legend, Halvar MDFC, Cap Super-Soldier (enters-as). Strategy: vein
 #6 (the Sword attack-trigger family) is most of the deck.
 
-### 5.5 Halfshell heroes — 67, needs 23
+### 5.5 Halfshell heroes — 67, needs 23 · ⚠️ NAME-TRAP LOGGED 08-16
 12 spells (Heroes in a Half Shell, Splinter, Continue?, Endless Foot Assault, Fast Forward, Rat
-King…), 8 ETBs (Baxter, Arcade Cabinet, Raphael, Pizzasaur, Foot Chopper, Lita…), 5 attacks
-(Shredder, Ray Fillet, Mole Module, Bebop, Casey Jones), 3 dies (Tokka & Rahzar, Vigor, Big
-Mother Mouser), 2 upkeep (Irma, Tempestra), Coin of Mastery / Exploding Barrel, Donatello.
-Strategy: the ETB bucket first (the widest), then attacks; expect TMNT-mechanic oddities — probe
-each.
+King…), 8 ETBs (**Baxter = "Baxter, Fly in the Ointment"** — NOT Baxter Stockman; resolve exact
+names before probing, Arcade Cabinet, Raphael = "Raphael, Mutant Ninja", Pizzasaur = "Dimension X
+Pizzasaur", Foot Chopper = "Foot Clan Chopper", Lita = "Lita, Mechanical Engineer" 2 blockers…),
+5 attacks (Shredder, Ray Fillet = "Ray Fillet, Wave Warrior" — its countered-creature combat-draw
+trigger is NOT EVEN DETECTED, heavy; Mole Module = mill+cheat, Bebop, Casey Jones = "Casey Jones,
+Vigilante" ETB✓ but delayed-random-discard blocker), 3 dies (Tokka & Rahzar, Vigor, Big Mother
+Mouser), 2 upkeep (Irma, Tempestra), Coin of Mastery / Exploding Barrel, Donatello. Strategy:
+probed 08-16 — most are distinct heavies (TMNT-mechanic oddities as warned); NO cheap arm found in
+the ETB/attack buckets. **The +3 artifact-creature-pump slice (H1) came from the CORPUS, not this
+deck** (Baxter Stockman ≠ the deck's Baxter). Halfshell may be a vein-doctrine skip like Kellan/Cap
+— re-probe the spells bucket + "Baxter, Fly in the Ointment"/Lita specifically before deciding.
 
 ### 5.6 Shalai and Hallar Test — 69, needs 21 (drifted 67→69 from ambient machinery — re-measure first)
 10 ETBs (Skyclave Apparition — vein #9, Solitude, Rishkar, Court of Garenbrig, Scythecat Cub…),

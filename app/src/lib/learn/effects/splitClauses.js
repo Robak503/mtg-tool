@@ -358,7 +358,11 @@ export function splitClauses(oracle) {
     // indestructible until end of turn"): the fixed-digit pips excluded the X form, so the X compound
     // SHATTERED on " and " exactly like the permanent-subject case below — and the amountX path never
     // saw it. Keeping it whole is FN-safe as ever: the clause parse still gates the whole shape.
-    if (/^target creature (?:(?:you control|an opponent controls) )?(?:gets [+-](?:\d+|x)\/[+-](?:\d+|x) and )?gains\b.*\buntil end of turn(?: and untap it)?$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ⭐ "ARTIFACT creature" JOINED 2026-08-16 (Baxter Stockman's combat-begin pump, SHELF-TAIL H1): the
+    // optional type qualifier let the whole clause shatter before pumpClauseParser's artifact-creature arm
+    // saw it. The cardType restriction rides the same keep-whole path (bare "you control" only for the
+    // typed form — the printed shape).
+    if (/^target (?:artifact )?creature (?:(?:you control|an opponent controls) )?(?:gets [+-](?:\d+|x)\/[+-](?:\d+|x) and )?gains\b.*\buntil end of turn(?: and untap it)?$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ⭐ THE SAME BINDING FOR A PERMANENT SUBJECT (Tamiyo's Safekeeping — "Target permanent you control gains
     // hexproof and indestructible until end of turn."). The anchor above is nailed to "target creature", so a
     // permanent-subject grant SHATTERED on the internal " and " into "…gains hexproof" + "indestructible until

@@ -1743,6 +1743,19 @@ export function pumpClauseParser(clause) {
     const kws = parseGrantedKeywords(pg[1]);
     return kws ? { op: "pump", target: "enchanted", targetType: null, ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
+  // ARTIFACT-CREATURE TARGET pump (Baxter Stockman's combat-begin trigger — SHELF-TAIL H1, CR 205.2). The
+  // pctrl arm just below carries "target creature you control gets …"; this widens the TYPE with a cardType
+  // restriction. `creatureSatisfiesRestrictions` already honors {kind:"cardType", type:"artifact"} on any
+  // creature-target enumeration (the Modular "target artifact creature" precedent), so ONLY the parse was
+  // missing — no resolver/enumeration change. YOU-CONTROL only (the printed shape); an opponent-scoped
+  // artifact-creature pump isn't a real form to invent from symmetry. Placed before pctrl so the "artifact"
+  // qualifier isn't shaved; pctrl's own regex can't match this clause anyway (it anchors bare "creature").
+  const actrl = t.match(/^target artifact creature you control gets ([+-]\d+)\/([+-]\d+)(?: and gains (.+))? until end of turn$/);
+  if (actrl) {
+    const kws = actrl[3] ? parseGrantedKeywords(actrl[3]) : null;
+    if (actrl[3] && !kws) return null;
+    return { op: "pump", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }, { kind: "cardType", type: "artifact" }], ptDelta: { p: parseInt(actrl[1], 10), t: parseInt(actrl[2], 10) }, ...(kws ? { grantKeywords: kws } : {}) };
+  }
   let pctrl = t.match(/^target creature (you control|an opponent controls) gets ([+-]\d+)\/([+-]\d+)(?: and gains (.+))? until end of turn$/);
   if (pctrl) {
     const who = pctrl[1] === "you control" ? "you" : "opponent";
