@@ -126,12 +126,10 @@ subtype ADD + the "unblockable" pseudo-keyword; the dual equip line was already 
 (standing): push slice DOCS in the SAME commit as the feat — a docs-chaser push concurrency-cancels
 the feat's CI run (3 cycles burned before this stuck) · **Brotherhood Regalia** (granted ward{2} exists; the blockers are likely the
 "is an Assassin in addition" type-add + "can't be blocked" grant + the DUAL equip costs) ·
-**Cori-Steel Cutter** (probed deeper 08-16 — NEXT: the Flurry trigger DETECTS, the effect blocks on
-"create a 1/1 white Monk creature token with prowess. You may attach this Equipment to it" — the
-token-with-keyword grammar + the OPTIONAL attach (attachSourceToCreated exists MANDATORY via the
-Saddle; the may-variant needs a policy — ⚠️ auto-attach is NOT pure upside: attaching moves the
-Cutter OFF its current host. Honest deterministic policy: attach iff currently UNATTACHED, else
-decline)) · **Quilled Greatwurm** (probed: the during-your-turn combat-damage-to-ANYTHING watcher
+✅ **Cori-Steel Cutter (+7 — SHIPPED 08-16 with Monastery Mentor among six riders)**: the prowess
+token peel (tokenOracle:"Prowess" — the changeling convention) + attach-source-to-last-token (the
+α2 yes/no, the _lastMintedTokenIds stamp, the sequence gate at all 4 confidence sites, the
+attach-iff-unattached auto-policy) · **Quilled Greatwurm** (probed: the during-your-turn combat-damage-to-ANYTHING watcher
 detects NOTHING + the GY-alt-cast "removing six counters from among creatures" compound cost —
 BOTH heavy; park to deck-end beside Neyith) · **Raph & Mikey** (probed: attack → reveal-until-
 creature → battlefield TAPPED AND ATTACKING + rest to bottom RANDOM — check whether a reveal-until

@@ -9,10 +9,14 @@
 
 ## 🏁 2026-08-15 LATE — **TEVAL AT 90 (the 14th deck) · TWENTY slices today · batch +51** — suite **1263 / 14,701** green
 
+> ### 🔴 STANDING ORDER (Colton, 2026-08-16): NON-STOP TO THE 100s. Grind the batch to ~100 → tag
+> v0.160.0 → plan + fully execute the NEXT ~100 without pausing. Report only at 100-boundaries or on
+> a genuine blocker. An hourly session cron (job 9ae0cad6) forces continuation; if the session died,
+> THIS block is the order — boot from SHELF-TAIL-PLAN.md and keep going.
 > ### ⏭ RUNNABLE NOW — **the shelf tail runs off [SHELF-TAIL-PLAN.md](SHELF-TAIL-PLAN.md)** (Colton, 08-15: keep the window low)
 > The next three decks' full residue maps, probed blockers, and slice queues live in
 > **docs/orchestration/SHELF-TAIL-PLAN.md** — a booting session reads THAT file, not a vein block
-> here. The order (Colton's steer, banked in the vault): **① Wolverine 87 → ② Kellan 74 →
+> here. The order (Colton's steer, banked in the vault): **① Wolverine 88 → ② Kellan 74 →
 > ③ Otharri 74 → ④ Cap America 73 → ⑤ Halfshell 67 → ⑥ Shalai 67 → ⑦ the archetype SEVEN — the
 > program COMPLETE (all pasted by Colton 08-15, lists banked in the vault registry; theft VETOED for
 > training on purpose): Thrun Voltron 80 + Brago Blink 75 (flicker) + Shorikai Vehicles 73 (crew) +

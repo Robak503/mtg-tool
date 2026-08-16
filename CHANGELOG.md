@@ -9,6 +9,11 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Prowess tokens are real, and Cori-Steel Cutter's attach is a real choice.** Monk and Goblin Wizard
+  tokens "with prowess" now actually grow on your noncreature spells (Monastery Mentor's whole engine
+  works), and the Cutter's "you may attach" is a genuine decision — the practice AI attaches a free
+  Cutter but never strips its current wearer, and the mandatory attach cards (Auxiliary Boosters)
+  attach every time as printed.
 - **Brotherhood Regalia grants everything it says.** The equipped creature really has ward {2} (the
   tax applies), really becomes an Assassin (subtype-matters cards see it), and really can't be
   blocked — all three lift the moment the Equipment comes off.

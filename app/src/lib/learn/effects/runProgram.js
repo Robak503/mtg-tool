@@ -1135,6 +1135,16 @@ export function resolveScryChoice(state, keepIdsOrdered, opts = {}) {
  */
 export function optionalAutoTakeValue(state, pc) {
   const who = pc?.controller;
+  // ATTACH-TO-LAST-TOKEN (Cori-Steel Cutter, W9): the legacy always-take would YANK the Cutter off its
+  // current host every trigger — confidently wrong, the exact class the always-take comment warns about.
+  // The deterministic default: attach iff the Equipment is currently UNATTACHED (pure upside then; a
+  // Cutter already on a wearer holds). The policy evaluator below refines this when enabled — this guard
+  // only replaces the blind always-take on the legacy path.
+  if (pc?.effectOp === "attach-source-to-last-token" && (!who || !policyEvalEnabledFor(state, who))) {
+    const srcId = pc?.resume?.sourceId;
+    const src = srcId ? findPermanent(state, srcId) : null;
+    return !!src && !src.permanent.attachedTo;
+  }
   if (!who || !policyEvalEnabledFor(state, who)) return true;
   const taken = resolveOptionalChoice(state, true);
   const declined = resolveOptionalChoice(state, false);

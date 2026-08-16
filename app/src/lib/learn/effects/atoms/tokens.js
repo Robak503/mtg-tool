@@ -170,6 +170,10 @@ export function applyCreateToken(state, atom, ctx) {
     const gateKey = `${ctx.sourceId || ""}_create-token`;
     next = { ...next, onceTriggersFiredThisTurn: { ...(next.onceTriggersFiredThisTurn || {}), [gateKey]: true } };
   }
+  // LAST-MINTED stamp (Cori-Steel Cutter, W9 — the _lastMilledIds convention): the freshest mint is the
+  // referent a following "attach this Equipment to IT" atom reads (∩ still-alive at its own resolution).
+  // Overwritten per create; plain JSON, serialize-safe; every other consumer ignores it.
+  if (mintedIds.length) next = { ...next, _lastMintedTokenIds: [...mintedIds] };
   return logEvent(next, { kind: "spell-effect", effect: "create-token", count, power: atom.power, toughness: atom.toughness, controller: ctx.controller });
 }
 
@@ -689,6 +693,34 @@ export function createTokenClauseParser(clause) {
   return { ...inner, attachSourceToCreated: true };
 }
 
+/**
+ * ATTACH-SOURCE-TO-LAST-TOKEN (Cori-Steel Cutter, W9 — CR 701.3): the OPTIONAL sibling of the folded
+ * mandatory rider above. The Cutter prints the attach as its OWN sentence — "You may attach this Equipment
+ * to it." — so the splitter hands it over as a separate clause, the α2 peel strips "you may" and stamps
+ * `optional` (a REAL yes/no: attaching moves the Cutter OFF its current host, which a human may want or
+ * refuse — the fresh hasty Monk is often the better wearer). "It" is the token the PRECEDING create-token
+ * atom just minted — read off the _lastMintedTokenIds stamp ∩ still-alive (CR 608.2b); a missing stamp /
+ * dead token / vanished source → a logged no-op (the FN-safe referent convention). The parser's sequence
+ * gate (attachLastTokenSequenceOk) refuses the atom without a preceding create-token in the SAME program,
+ * so a stray printed sentence can never parse HIGH and silently no-op (the dropped-clause FP).
+ */
+export function applyAttachSourceToLastToken(state, atom, ctx) {
+  const ids = Array.isArray(state._lastMintedTokenIds) ? state._lastMintedTokenIds : [];
+  const tokenId = ids.length === 1 ? ids[0] : null;
+  const src = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  if (!tokenId || !src || !findPermanent(state, tokenId)) {
+    return logEvent(state, { kind: "spell-effect", effect: "attach-source-to-last-token", controller: ctx.controller, attached: false });
+  }
+  const next = attachPermanent(state, { equipId: ctx.sourceId, targetId: tokenId });
+  return logEvent(next, { kind: "spell-effect", effect: "attach-source-to-last-token", controller: ctx.controller, attached: true, target: tokenId });
+}
+
+export function attachSourceToLastTokenClauseParser(clause) {
+  const t = String(clause || "").replace(/[’]/g, "'").trim().toLowerCase().replace(/\.$/, "");
+  if (t === "attach this equipment to it") return { op: "attach-source-to-last-token", targetType: null };
+  return null;
+}
+
 function createTokenClauseParserCore(clause) {
   // A leading "you " is a redundant subject — the token's controller is ALWAYS the effect's controller
   // (CR 111.1), so "you create …" ≡ "create …". The conjoined payload form ("you create a … token and …",
@@ -780,6 +812,13 @@ function createTokenClauseParserCore(clause) {
     // as all creature types. Any OTHER keywords alongside ("with flying and changeling") still go through
     // parseTokenKeywords; an unmodeled companion keyword → null → low (CREED — whole token or nothing).
     const withPhrase = m[6];
+    // PROWESS TOKEN (Cori-Steel Cutter's Monk, W9): prowess is a TRIGGERED keyword — not a grantable
+    // static — so it can't ride parseTokenKeywords (that would stamp an inert word the runtime ignores).
+    // The changeling convention: mint the token with "Prowess" as its ORACLE, so the real prowess
+    // machinery (native-body-proven — detection reads the permanent's card) fires its cast-pump exactly
+    // like a printed Monastery Swiftspear. Bare "prowess" only; a companion list stays all-or-nothing
+    // through the static path (no corpus carrier mixes them).
+    if (/^prowess\.?$/i.test(withPhrase.trim())) return { ...base, tokenOracle: "Prowess" };
     if (/\bchangeling\b/i.test(withPhrase)) {
       const remainder = withPhrase.replace(/\bchangeling\b/i, "").replace(/\b(and|,)\b/gi, " ").replace(/\s+/g, " ").trim();
       if (remainder) {
@@ -846,6 +885,7 @@ export function applyCreateTokenCopyEach(state, atom, ctx) {
 
 export const tokenResolvers = {
   "create-token": applyCreateToken,
+  "attach-source-to-last-token": applyAttachSourceToLastToken, // W9 (Cori-Steel Cutter) — the optional attach onto the just-minted token
   "create-named-token": applyCreateNamedToken, // ===== TOKENS ===== T2 Treasure/Clue/Food/Gold
   "create-token-copy": applyCreateTokenCopy,   // ===== TOKEN-COPY ===== (Wave 5b) CR 707.1 — token that's a copy
   "create-token-copy-each": applyCreateTokenCopyEach, // ===== TOKEN-COPY-EACH ===== (COPY-RIDER) Second Harvest — copy each token you control

@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **⭐ CORI-STEEL CUTTER (+7) — the PROWESS token + the optional attach** - the shelf grind (Wolverine 87→88)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+7 / 0 / 0** — the Cutter + SIX riders,
+> all whole-card audited: **Monastery Mentor** (the iconic prowess-token maker!), Rally the Monastery
+> (modal), Jeskai Revelation (5-atom compound), Goblin Wizardry, A-Cori-Steel, Auxiliary Boosters
+> (whose MANDATORY "and attach" rides the new atom un-optionally — CR-exact for free). Post-release
+> batch **+70**.
+> ⭐ TWO ARMS: ① the PROWESS token peel — prowess is TRIGGERED, not static, so it can't ride
+> parseTokenKeywords (an inert stamp); the changeling convention mints the token with "Prowess" as its
+> ORACLE so the real prowess machinery fires (native-body-proven). ② ATTACH-SOURCE-TO-LAST-TOKEN —
+> the own-sentence "You may attach this Equipment to it": split → α2 stamps a REAL yes/no (attaching
+> yanks the Cutter off its wearer — a human choice), the atom reads the NEW _lastMintedTokenIds stamp
+> ∩ alive, the attachLastTokenSequenceOk parser gate (the diceRoll mirror, wired at all 4 confidence
+> sites) refuses a create-less program, and the legacy auto-policy attaches IFF the Equipment is
+> UNATTACHED (never the blind always-take). 4 mutations (peel · arm · gate-chain · policy), all via
+> Edit, each seen-to-fail. Token diet: ~9k output tokens this slice.
 > ## SLICE DONE - 2026-08-16 - **BROTHERHOOD REGALIA (+1) — the three-grant equip line** - the shelf grind (Wolverine 86→87)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. Post-release batch **+63**.
 > ⭐ ONE parser arm, THREE existing lanes: "has ward {2}, is an Assassin in addition to its other

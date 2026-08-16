@@ -50,7 +50,7 @@ import { rollDieClauseParser, resultScaledPayoffClauseParser } from "./atoms/rol
 import { freeCastClauseParser } from "./atoms/freeCast.js"; // FREE-CAST (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle)
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
-import { createNamedTokenClauseParser, createTokenClauseParser, mobilizeClauseParser, mobilizeSacClauseParser } from "./atoms/tokens.js";
+import { createNamedTokenClauseParser, createTokenClauseParser, attachSourceToLastTokenClauseParser, mobilizeClauseParser, mobilizeSacClauseParser } from "./atoms/tokens.js";
 import { monarchClauseParser } from "./atoms/monarch.js"; // MONARCH (CR 725)
 import { sacrificeEdictClauseParser, destroyExileClauseParser, ordealThresholdSacClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding) + OC-1 (Ordeal threshold-sac sentinel)
 import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP — "Sacrifice a land." controller self-sac (Roiling Regrowth / Cycle of Renewal)
@@ -315,6 +315,18 @@ function referentBindingOk(atoms) {
     // Both cases — no atom before it, and an atom before it that targets nothing — are the same question,
     // and asking it once means there is no line here that no test can kill.
     if (!atoms[referentSourceIndex(atoms, i)]?.targetType) return false;
+  }
+  return true;
+}
+
+// ATTACH-LAST-TOKEN sequence (Cori-Steel Cutter, W9): the attach atom reads the _lastMintedTokenIds stamp
+// only a create-token atom writes — so it is honest ONLY when a create-token PRECEDES it in the same
+// program (else the read silently no-ops: the dropped-clause FP). Mirrors diceRollSequenceOk exactly.
+function attachLastTokenSequenceOk(atoms) {
+  let minted = false;
+  for (const a of atoms) {
+    if (a?.op === "create-token") { minted = true; continue; }
+    if (a?.op === "attach-source-to-last-token" && !minted) return false;
   }
   return true;
 }
@@ -2597,7 +2609,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // parses fully (all-or-nothing across modes).
   const modal = parseModal(cardType, oracle, hasX);
   if (modal) {
-    if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms) && referentBindingOk(mode.atoms))) {
+    if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms) && attachLastTokenSequenceOk(mode.atoms) && referentBindingOk(mode.atoms))) {
       const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX || a.targetCountX || a.ptX || a.filter?.mvCapX || a.mvCapX));
       return makeProgram({ confidence: "high", structure: "modal", atoms: [], modal, xSpell, unparsedTail: null });
     }
@@ -2692,7 +2704,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // ambiguity blocked. (α2 review — tightened from "any optional in a multi-atom program drops".) Shared with
   // the collapsed-template path via `optionalsFormSuffix` so both HIGH paths enforce the same invariant.
   const optionalScopeOk = optionalsFormSuffix(atoms);
-  if (allParsed && atoms.length > 0 && optionalScopeOk && atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(atoms) && diceRollSequenceOk(atoms) && revealTopSequenceOk(atoms)) {
+  if (allParsed && atoms.length > 0 && optionalScopeOk && atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(atoms) && diceRollSequenceOk(atoms) && revealTopSequenceOk(atoms) && attachLastTokenSequenceOk(atoms)) {
     // Drop a redundant `shuffle` atom that immediately follows a `tutor` (the tutor
     // already shuffles after its search, CR 701.19e) — some cards template the shuffle as
     // its own sentence, which would otherwise shuffle twice. P3.2 review cleanup.
@@ -2773,7 +2785,7 @@ export function programConfidence(program) {
   if (program.structure === "modal") {
     const modes = program.modal?.modes;
     if (!Array.isArray(modes) || modes.length < 2) return "low";
-    return modes.every(mode => Array.isArray(mode.atoms) && mode.atoms.length > 0 && mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms) && referentBindingOk(mode.atoms))
+    return modes.every(mode => Array.isArray(mode.atoms) && mode.atoms.length > 0 && mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms) && attachLastTokenSequenceOk(mode.atoms) && referentBindingOk(mode.atoms))
       ? "high" : "low";
   }
   if (!Array.isArray(program.atoms) || program.atoms.length === 0) return "low";
@@ -2992,6 +3004,11 @@ registerClauseParser(createNamedTokenClauseParser);
 // "create N P/T … creature token" clauses match no earlier registered parser and (verified) no later
 // parseExtendedAtom branch → the inline→CLAUSE_PARSERS move is behavior-identical.
 registerClauseParser(createTokenClauseParser);
+// ATTACH-SOURCE-TO-LAST-TOKEN (Cori-Steel Cutter, W9) — the α2-peeled "attach this equipment to it"
+// (its "it" = the token the PRECEDING create-token minted). The attachLastTokenSequenceOk gate below
+// refuses the atom without that preceding create in the same program, so a stray printed sentence can
+// never parse HIGH and silently no-op.
+registerClauseParser(attachSourceToLastTokenClauseParser);
 // SACRIFICE-EDICTS (seam batch 21 / Wave C) — the contiguous edict block migrated to
 // atoms/removal.sacrificeEdictClauseParser (target / each-player / each-opponent "sacrifices a creature",
 // original order). These were the LAST matchers in parseExtendedAtom, so nothing ran after them; the clauses
