@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⏸️ SESSION PAUSED — 2026-08-16 (Colton) — **FRESH SESSION for Thrun's hard tail**
+> A long deck-first session (SH18-23, Thrun 82→88, batch +29, all green + pushed) reached the point where
+> Thrun's last 2 flips are SUBSTANTIAL ENGINE FEATURES, not the one-line widens the first six were. Colton's
+> call: **pause here and build them in a FRESH session** (full context budget, lower regression risk), rather
+> than force heavy engine work ~18 fires deep. **A fresh /cindy `grind` resumes RIGHT HERE.** The scoped tail:
+> • **Band Together** — MULTI-SOURCE fight: "up to two target creatures you control EACH deal damage equal to
+>   their power to another target creature." The single-source damage-target-power op exists (matchDamagePower-
+>   TrampleExcess); this needs the "up to two … each" multi-source wrapper. NEW machinery.
+> • **Zopandrel** — the gap is NARROW + de-risked: only the COUNT-N in its activated cost "Sacrifice two OTHER
+>   creatures" ({G/P} Phyrexian + single-sac + the indestructible-counter effect ALL already native). Extend
+>   the activated-ability sac cost to count-N-other (the spell SAC_COUNT_COST_RE is the precedent). LIKELY THE
+>   CHEAPEST of the tail — probe the activated-cost parser first.
+> • **Animist's Might** — fight native; gap = a TARGET-CONDITIONAL cost-reduce ("costs {2} less if it targets a
+>   legendary creature you control"). No general "costs {N} less if <cond>" recognizer exists (only bargain).
+> • Heavier: Kenrith's Transformation (a loses-all-abilities LAYER effect — real engine feature) · Nyxborn
+>   Hydra (bestow + X) · Abundance (draw-replacement) · Professor Hydra/Hojo (first-ability cost-reduce).
+> Need only 2 of these for Thrun's first 90. Measure: `node scripts/measure-coverage.mjs "Thrun Voltron"`.
+>
 > ## ⭐ PRIORITY PIVOT — 2026-08-16 (Colton) — **DECK-SHELF-FIRST, not batch-first**
 > Colton's call mid-grind: *"the deck shelf is the most key thing we have as those allow the test harness to
 > make real change and quality learning for the play harness."* A deck below 90% native has cards the sim can't
