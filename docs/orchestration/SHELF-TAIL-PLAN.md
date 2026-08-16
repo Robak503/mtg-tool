@@ -61,6 +61,7 @@ modeled line the runtime never exercises), the piped exit code, the decline-only
 | ⑬ | Atraxa Superfriends | 62 | gap-deck, LAST of the seven (§5.13 — walker modeling is its own program) |
 | ⑭ | Believe it! | 79 | **cEDH — LAST** (§5.14) |
 | ⑮ | Kinnan Mana Overload | 77 | **cEDH — LAST** (§5.15) |
+| ⑯ | Killer Turts | 65 | NEW 08-16 — Colton's Raph & Mikey deck (Archidekt 25074367, his profile); slot after the gap decks, before cEDH. The commander is ALREADY NATIVE (the 08-16 W10 slice). Residue veins: EXTRA TURNS (Final Fortune/Last Chance/Warrior's Oath — an unbuilt family, possibly ceiling-adjacent), extra combats (Port Razer/World at War), the counter-wars instants (Pyroblast class), rituals (Geosurge/Irencrag), Sylvan Library, Scroll Rack, The One Ring (shared with Kinnan). |
 
 ⛔ THEFT decks are VETOED for training (the vault's no-theft-training ruling) — that archetype gap
 stays open on purpose. Veyran = the draw-go seat (never a gap).
@@ -151,13 +152,20 @@ REPLACEMENT parks it). ⭐ **THE HONEST PATH TO 90: Cori-Steel Cutter (+1 — th
 hasty Monk) + Raph & Mikey (+1 — the reveal-until atom + tapped-and-attacking placement) + ONE of
 the spell trio (+1).**
 
-### 5.2 Kellan of the west — 74, needs 16
-12 spells (Recurring Insight, Unexpected Results, **Teferi's Protection** ⚠️ CEILING-candidate
-(phasing), One with the Multiverse, Ellie and Alan, Mystic Forge…), 4 cast triggers (Jace
-Reawakened, Rashmi Eternities Crafter — the reveal-cast lane, The Legend of Yangchen, Mind's
-Dilation), 4 ETBs (Bonny Pall, Savvy Trader, Transcendent Dragon, Aang), Sakashima's Protege /
-Fblthp / Eladamri (probe), The Reality Chip, The Key to the Vault, Monk Gyatso. Strategy: the
-cast-trigger bucket first, then cheap ETBs; expect 2-3 ceiling flags — call them.
+### 5.2 Kellan of the west — 74, needs 16 (ACTIVE)
+PROBED 08-16 (the cast bucket): **Rashmi** — the castNth (first-spell-each-turn) trigger DETECTS;
+the blocker is the effect: reveal-top + may-CAST-IT-FREE with the lesser-MV condition + else-to-hand.
+⚠️ NO reveal-cast atom exists (the earlier "reveal-cast lane" note was wrong — corrected): this is a
+real free-cast-from-LIBRARY subsystem (the freeCast atom is HAND-scoped; needs the library variant +
+the MV-vs-trigger-cost condition + the else-branch to hand). MEDIUM-HEAVY — the deck's commander,
+worth it. **Mind's Dilation** — same family, opponent-side (exile-top + may-cast-free): rides
+whatever Rashmi builds. **Jace Reawakened** — a planeswalker (playable-pw; the walker program's
+lane, park). **The Legend of Yangchen** — a SAGA MDFC, nothing detects (sagas are their own
+program, park). The rest: 12 spells (Recurring Insight, Unexpected Results, **Teferi's
+Protection** ⚠️ CEILING-candidate, One with the Multiverse, Ellie and Alan, Mystic Forge…), 4 ETBs
+(Bonny Pall, Savvy Trader, Transcendent Dragon, Aang), Sakashima's Protege / Fblthp / Eladamri
+(probe), The Reality Chip, The Key to the Vault, Monk Gyatso. Strategy: the ETB bucket + cheap
+spells FIRST (Rashmi's subsystem second — bigger but the commander); expect 2-3 ceiling flags.
 
 ### 5.3 Otharri Test — 74, needs 16
 11 spells (Tithe, Blacksmith's Skill, Hour of Reckoning, Neyali, Galadriel's Dismissal, Anim
