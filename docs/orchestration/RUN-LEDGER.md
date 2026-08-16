@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-15 - **CANOPY GARGANTUAN (+1) — per-target toughness counters (CR 608.2)** - the shelf grind (Wolverine 83→84)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Canopy
+> body-only→native-trigger, zero riders. Post-release batch **+57**.
+> ⭐ perTargetStat:"toughness" — the perTargetDouble sibling on applyAddCounter: each recipient gets
+> its OWN layer-aware toughness in counters, SNAPSHOTTED pre-loop (CR 608.2 simultaneous — the 0/5
+> gets exactly 5, never a self-fed 10; existing counters DO feed the read via layer 7c — a
+> 1/1+two-counters reads 3). The "other" rides the team scope's existing excludeSource. ⚠️ A HOLLOW
+> MUTATION CAUGHT LIVE: the parser-arm perl mutation silently never matched (regex metachars) and
+> "0 kills" almost passed as verified — re-done via Edit, the kill CONFIRMED. perl -pe exits 0 on
+> no-match; VERIFY the mutation applied (grep the mutated form) before trusting its result.
+> Token diet: ~5k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **⭐ WARDEN OF THE GROVE (+1) — ENDURE X on the enterer (CR 701.63a)** - the shelf grind (Wolverine 82→83)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Warden
 > body-only→native-trigger (the end-step self-counter already routed; the endure-X etb watcher was the

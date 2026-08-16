@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Canopy Gargantuan counts each creature separately.** The upkeep really gives every *other*
+  creature you control counters equal to its own toughness — the 0/5 wall gets five while the 1/1
+  gets one, existing counters raise the count, and the Gargantuan itself gets none.
 - **Warden of the Grove's endure X works as printed.** Each other nontoken creature you play endures
   X — X really counts every counter on the Warden, the counters land on the creature that entered
   (not on the Warden), and if that creature's already gone you get the X/X white Spirit instead.

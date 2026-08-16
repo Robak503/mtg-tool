@@ -114,8 +114,8 @@ deck. Ordered roughly by payoff:
 ### 5.1 Wolverine, claws out! — 83, needs 7 (ACTIVE)
 ✅ Forgotten Ancient (counter-MOVE) · ✅ The Ozolith (leave-accumulator + move-all) · ✅ Kodama
 (the modified watcher; +SP//dr, +Thrun) · ✅ Warden (endure-X on the enterer).
-Remaining, probed: **Canopy Gargantuan** (upkeep "put +1/+1 counters on EACH OTHER creature you
-control equal to THAT CREATURE'S toughness" — a per-target-scaled mass counter; NEXT) · **Well
+✅ Canopy Gargantuan (perTargetStat:"toughness" — SHIPPED 08-15).
+Remaining, probed: **Well
 Rested** (a GRANTED quoted "becomes untapped" trigger + once-per-turn latch; pendingUntapEvents
 exists) · **Neyith** (the fight-or-blocked OR-batch + the pay-offer — HEAVY, park to deck-end) ·
 the anthems (Inscription of Abundance modal, Beastie Beatdown, The Last Agni Kai) · Brotherhood

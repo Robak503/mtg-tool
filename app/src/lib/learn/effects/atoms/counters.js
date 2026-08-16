@@ -2,7 +2,7 @@
  * effects/atoms/counters.js — counter atoms (add-counter, proliferate, gain-experience, rad).
  */
 
-import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters, updatePermanentSafe, drawCards, creaturePower, gainLife } from "../../gameState.js";
+import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, removeCounter, addPoison, addExperience, addEnergy, addRadCounters, updatePermanentSafe, drawCards, creaturePower, creatureToughness, gainLife } from "../../gameState.js";
 import { ENFORCED_KEYWORD_COUNTER_KINDS } from "../../staticAbilityParser.js"; // gate the keyword-counter PLACEMENT on the same set the grant reads (no duplicated list to drift)
 import { addContinuousEffect, permanentIsCreature } from "../../layers.js"; // COUNTER-THEN-GRANT rider (Snakeskin Veil) — layer-6 keyword grant, same seam combat.js pumps use
 import { checkDiesTriggers, checkCounterPlacedTriggers, checkEvolvesTriggers, checkBecomesMonstrousTriggers } from "../../triggers.js";
@@ -137,7 +137,20 @@ export function applyAddCounter(state, atom, ctx) {
   // doubler hook, so Doubling Season composes per target (CR 616). Restricted to +1/+1 (the only enforced kind,
   // mirroring the rest of this atom); a target with 0 of that counter gets 0 (a clean no-op, never a fabricated
   // floor). When unset this is a normal fixed/dynamic single `amount` applied uniformly.
-  const amountForTarget = (perm) => atom.perTargetDouble
+  // PER-TARGET STAT (Canopy Gargantuan, W5): the amount = each recipient's OWN layer-aware toughness,
+  // SNAPSHOTTED against the pre-loop state so every placement reads the same board (CR 608.2 — the
+  // resolution is simultaneous; a recipient's own arriving counters never inflate a later read). An
+  // unsizeable stat (NaN — a CDA the engine can't size) → 0 (FN-safe, never a fabricated count).
+  const statSnapshot = atom.perTargetStat === "toughness"
+    ? new Map(targets.map((t) => {
+        const lk0 = findPermanent(next, t.id);
+        const tough = lk0 ? creatureToughness(lk0.permanent, next) : 0;
+        return [t.id, Number.isFinite(tough) ? Math.max(0, tough) : 0];
+      }))
+    : null;
+  const amountForTarget = (perm) => statSnapshot
+    ? (statSnapshot.get(perm?.id) || 0)
+    : atom.perTargetDouble
     ? Math.max(0, perm?.counters?.[atom.perTargetDouble] || 0)
     : amount;
   // COUNTERS-PLACED watcher (CR 122.6): tally the ACTUAL number of +1/+1 counters this event places, split by
@@ -182,7 +195,7 @@ export function applyAddCounter(state, atom, ctx) {
       }).state;
     }
   }
-  next = logEvent(next, { kind: "spell-effect", effect: "add-counter", counterType: atom.counterType, amount: atom.perTargetDouble ? "perTargetDouble" : amount, targets: targets.map(t => t.id) });
+  next = logEvent(next, { kind: "spell-effect", effect: "add-counter", counterType: atom.counterType, amount: atom.perTargetDouble ? "perTargetDouble" : atom.perTargetStat ? `perTargetStat:${atom.perTargetStat}` : amount, targets: targets.map(t => t.id) });
   // Fire the placer's "Whenever you put one or more +1/+1 counters on a creature [you control]" triggers
   // ONCE for this whole event (CR 122.6), controller-scoped to ctx.controller, "that many" = the placed count.
   // A clean no-op when no +1/+1 landed on a creature (placedOnAny === 0) or no such watcher exists.
@@ -654,6 +667,14 @@ export function addCounterClauseParser(clause) {
   // "each creature you control", so it snowballs — the printed behavior.
   m = t.match(/^put x ([+-]1\/[+-]1) counters? on each creature you control, where x is this creature's power$/);
   if (m) return { op: "add-counter", counterType: m[1], countFor: { kind: "sourcePower" }, scope: "youControl" };
+  // PER-TARGET TOUGHNESS (Canopy Gargantuan, SHELF-TAIL W5 — "put a number of +1/+1 counters on each
+  // OTHER creature you control equal to THAT CREATURE'S toughness"): the amount is EACH recipient's OWN
+  // layer-aware toughness (perTargetStat — the perTargetDouble sibling; amounts snapshotted pre-loop so
+  // the placement is CR 608.2-simultaneous), the source excluded (excludeSource — the "other" word).
+  // Whole-clause anchored; a non-"other" or power variant falls through → LOW (no corpus carrier).
+  if (/^put a number of \+1\/\+1 counters on each other creature you control equal to that creature's toughness$/.test(t)) {
+    return { op: "add-counter", counterType: "+1/+1", scope: "youControl", excludeSource: true, perTargetStat: "toughness" };
+  }
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on this creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), target: "self" };
   // MONSTROSITY (CR 701.32) — the "Monstrosity N" activated keyword action: if the source ISN'T monstrous, put N
