@@ -60,7 +60,9 @@ describe("the subject maps onto an already-enforced restriction", () => {
     // "creature or Vehicle" became a targetType (ES-1); "red or green creature" became a colorAny
     // restriction (CD-1) once the evaluator learned OR. Each is now pinned POSITIVELY in its own file.
     // What remains here is still genuinely inexpressible: no predicate exists for either.
-    for (const subject of ["modified creature", "creature with another Aura attached to it"]) {
+    // "modified creature" GRADUATED (SH20, 2026-08-16 — Lion Umbra; it maps onto the layer-aware
+    // isModifiedPermanent predicate now). "creature with another Aura attached to it" still has no predicate.
+    for (const subject of ["creature with another Aura attached to it"]) {
       expect(auraEnchantRestrictions({ name: "X", type: "Enchantment — Aura", oracle: `Enchant ${subject}\nEnchanted creature gets +1/+1.` })).toBeNull();
     }
   });

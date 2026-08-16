@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Lion Umbra works.** It can now only enchant a modified creature (one with a counter, Equipment, or Aura),
+  as printed, and grants its +3/+3, vigilance, reach, and totem armor.
 - **Indomitable Might works.** It now gives the enchanted creature +3/+3 and lets it deal its full combat
   damage to the defending player even when blocked, as printed.
 - **"Can't be blocked" gear works.** Whispersilk Cloak, Cloak of Mists, Protective Bubble, Aqueous Form, and

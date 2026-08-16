@@ -6157,6 +6157,11 @@ function creatureEnchantRestrictions(card) {
   // (Positive COLOUR subjects were once listed here too; they gained a restriction kind — see below.)
   if (subject === "tapped creature") return [{ kind: "tapped", value: true }];
   if (subject === "creature without flying") return [{ kind: "hasKeyword", keyword: "flying", negate: true }];
+  // MODIFIED (Lion Umbra — CR 701.48: a permanent is "modified" if it has a counter, an Equipment, or an Aura
+  // its controller controls attached). The predicate already exists layer-aware (layers.isModifiedPermanent,
+  // built for Kodama's "modified creatures you control" anthem); this is pure WIRING onto the same
+  // creatureSatisfiesRestrictions "modified" kind, so it can't mint a wrongly-legal host.
+  if (subject === "modified creature") return [{ kind: "modified", value: true }];
   const pw = subject && subject.match(/^creature with power (\d+) or less$/);
   if (pw) return [{ kind: "power", op: "<=", value: parseInt(pw[1], 10) }];
   // ⭐ THREE MORE ON THE SAME TERMS (2026-08-03) — each maps EXACTLY onto a restriction

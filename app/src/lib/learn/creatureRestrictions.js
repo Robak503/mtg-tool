@@ -21,7 +21,7 @@
  * delegation that follows it.
  */
 import { creaturePower, creatureToughness, findPermanent } from "./gameState.js";
-import { permanentColors, permanentHasKeyword } from "./layers.js";
+import { permanentColors, permanentHasKeyword, isModifiedPermanent } from "./layers.js";
 
 export /** Does a creature permanent (controlled by `pid`) satisfy a restriction set, from `casterId`'s view? */
 function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions, ctx = null) {
@@ -57,6 +57,11 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       if (r.who === "damagedPlayer" && (!ctx?.damagedPlayerId || pid !== ctx.damagedPlayerId)) return false;
     } else if (r.kind === "tapped") {
       if (!!perm.tapped !== r.value) return false;
+    } else if (r.kind === "modified") {
+      // MODIFIED (CR 701.48 — Lion Umbra's "Enchant modified creature"): has a counter / Equipment / an Aura
+      // its controller controls. Layer-aware via layers.isModifiedPermanent (the same predicate Kodama's
+      // "modified creatures you control" anthem reads), re-evaluated live.
+      if (isModifiedPermanent(state, perm) !== r.value) return false;
     } else if (r.kind === "dealtDamageThisTurn") {
       // DD-1 — TWO witnesses, because neither is complete alone and the gap in each is the other's
       // strength. `damageMarked` is the scalar total and misses infect/wither entirely (that damage becomes

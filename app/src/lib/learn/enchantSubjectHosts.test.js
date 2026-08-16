@@ -122,9 +122,9 @@ describe("the host spec", () => {
     //     CD-1 built the disjunctive kind and it now returns a colorAny restriction — the prediction came
     //     true and the pin caught it, which is what a reason-carrying assertion is for. Pinned positively
     //     in colorDisjunction.test.js now.
-    //   · "creature with another Aura attached to it" (Daybreak Coronet) and "modified creature"
-    //     (Lion Umbra) need board-reading predicates that do not exist. +1 each, still waiting.
-    for (const subject of ["permanent", "Equipment", "artifact creature", "modified creature"]) {
+    //   · "creature with another Aura attached to it" (Daybreak Coronet) needs a board-reading predicate that
+    //     does not exist. ("modified creature", Lion Umbra, GRADUATED SH20 — it reads isModifiedPermanent now.)
+    for (const subject of ["permanent", "Equipment", "artifact creature", "creature with another Aura attached to it"]) {
       expect(auraEnchantHostSpec({ name: "X", type: "Enchantment — Aura", oracle: `Enchant ${subject}\nEnchanted permanent gets +1/+1.` }), subject).toBeNull();
     }
   });

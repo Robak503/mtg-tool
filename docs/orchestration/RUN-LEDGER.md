@@ -11,13 +11,30 @@
 > unchanged — the ~100 tag still fires; only WHAT we pick changes.) Rule saved: [[feedback-deck-shelf-over-release-batch]].
 > **Fresh measurements (08-16):** Thrun **82** (LEADER — needs 8) · Otharri 77 · Brago 76 · Nekusar 74 · Kellan
 > 74 · Shalai 73 · Bumbleflower 64 · Light-Paws ~58 (floor). Batch stands at **+17**.
-> 🎯 **FOCUS: THRUN VOLTRON → 90** — now **84** (SH18 Whispersilk +SH19 Indomitable Might); **needs 6 more**.
+> 🎯 **FOCUS: THRUN VOLTRON → 90** — now **85** (SH18 Whispersilk · SH19 Indomitable Might · SH20 Lion Umbra); **needs 5 more**.
 > Parked: 4 aura/equip [Prowler's Helm=FILTERED evasion=DEFER, Nazgûl Battle-Mace=annihilator+quoted-trig=heavy,
 > Lion Umbra=modified+totem-armor, Strong Back=cost-reductions] · 5 spell-effects [Abundance draw-replace, Animist's
 > Might fight+cost-reduce, Band Together multi-source fight, Natural Order sac→tutor-to-bf, Thrun himself] · 2
 > anthems [Primal Might X-pump+fight, Professor Hojo first-ability cost-reduce] · Buster Sword attack-trig ·
 > Kenrith's Transformation ETB · Nyxborn Hydra enters-as · Saryth activated · Zopandrel upkeep. Measure with
 > `node scripts/measure-coverage.mjs "Thrun Voltron"`.
+>
+> ## SLICE DONE - 2026-08-16 - **THRUN #3: Lion Umbra (+1) — the "Enchant MODIFIED creature" host restriction** - DECK-FIRST (SH20)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+24**. **Thrun 84 → 85.**
+> ⭐ Lion Umbra's bonus (+3/+3, vigilance, reach) AND its totem/umbra armor were ALREADY modeled; the sole
+> blocker was the enchant line's "modified" qualifier having no host predicate. Pure WIRING (2 tiny sites, no
+> new machinery): creatureEnchantRestrictions maps "modified creature" → {kind:"modified"}, and
+> creatureSatisfiesRestrictions enforces it via layers.isModifiedPermanent — the SAME layer-aware predicate
+> Kodama's "modified creatures you control" anthem reads (CR 701.48: modified = has a counter / Equipment / an
+> Aura its controller controls). Runtime-pinned: a countered creature is a legal host, a bare one is NOT.
+> ⚠️ GRADUATED 5 MUST-STAY-PARKED pins across 4 files (auraEnchantRestrictions, auraQualifiedSubjects×2,
+> enchantSubjectHosts, equipAuraSelfSacComposite) — they used "modified creature" as their EXAMPLE of an
+> inexpressible enchant subject; SH20 made it expressible, so each swapped to the still-null "creature with
+> another Aura attached to it" (Daybreak Coronet). ⚠️ THE FULL SUITE caught these (flip-diff was clean +1/0/0)
+> — the recurring lesson: a graduation the tier-diff can't see. 2 mutations via Edit, seen-to-fail. Token: ~26k.
+> 🎯 **THRUN now 85 — needs 5.** Remaining: green spells (Natural Order sac→tutor, Animist's Might fight+
+> cost-reduce, Band Together multi-source fight), Abundance draw-replace, Primal Might X-pump-fight, 2 anthems
+> (Primal Might/Professor Hojo cost-reduce), Buster Sword, Kenrith's Transformation, Nyxborn Hydra, Saryth, Zopandrel.
 >
 > ## SLICE DONE - 2026-08-16 - **THRUN #2: Indomitable Might (+1) — the GRANTED assign-as-unblocked** - DECK-FIRST (SH19)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+23**. **Thrun 83 → 84.**

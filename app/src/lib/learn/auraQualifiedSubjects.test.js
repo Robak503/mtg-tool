@@ -76,7 +76,9 @@ describe("the subjects map onto restrictions the runtime already enforces", () =
     // ⚠️ THREE ENTRIES GRADUATED OUT OF THIS LIST: the type unions became targetTypes (ES-1) and the
     // colour disjunction became a colorAny restriction (CD-1). The list is SHORTER, never weaker — the
     // survivors have no predicate at all, which is exactly the property this pin guards.
-    for (const subj of ["modified creature", "creature with another Aura attached to it"]) {
+    // "modified creature" GRADUATED (SH20, 2026-08-16 — Lion Umbra). "creature with another Aura attached to
+    // it" still has no predicate — the survivor that keeps this pin meaningful.
+    for (const subj of ["creature with another Aura attached to it"]) {
       expect(auraEnchantRestrictions({ ...ARMOR_OF_THORNS, id: "c-n", oracle: `Enchant ${subj}\nEnchanted creature gets +2/+2.` }), subj).toBeNull();
     }
   });
@@ -93,7 +95,7 @@ describe("recognition", () => {
     // for being UNMODELLED will rot every time this project does its job — the same lesson the
     // entersCountersStripAnchor fixture has now taught three times. Swapped for a subject that still has
     // no predicate, rather than the assertion being softened.
-    expect(classifyCard({ ...ARMOR_OF_THORNS, id: "c-p", oracle: "Enchant modified creature\nEnchanted creature gets +2/+2." })).toBe("body-only");
+    expect(classifyCard({ ...ARMOR_OF_THORNS, id: "c-p", oracle: "Enchant creature with another Aura attached to it\nEnchanted creature gets +2/+2." })).toBe("body-only");
   });
 });
 
