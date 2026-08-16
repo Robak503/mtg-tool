@@ -8,7 +8,7 @@ import { applyDamageEffect } from "../../spellEffects.js"; // TRAMPLE-EXCESS (Ra
 import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe, addPreventionShield, addMana } from "../../gameState.js";
 import { checkDiesTriggers, checkUntapTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
-import { autoPickCreatureType } from "../../choicePolicy.js"; // BECOME-CREATURE-TYPE (CR 614.12) — the shared auto-choice policy; choicePolicy.js imports NOTHING, which is the only shape an atom can share with resolvers (resolvers -> runProgram -> effectAtoms -> here)
+import { autoPickCreatureType, autoPickProtectionColor } from "../../choicePolicy.js"; // BECOME-CREATURE-TYPE (CR 614.12) + PROTECTION-COLOR (vein #3, Mother/Giver) — the shared auto-choice policies; choicePolicy.js imports NOTHING, which is the only shape an atom can share with resolvers (resolvers -> runProgram -> effectAtoms -> here)
 import { NON_CHOSEN_TARGET_TYPES } from "../../targetTypes.js"; // MASS-TAP — targetTypes.js is a zero-import leaf (cycle-safe)
 import { SMALL_NUM, NUM_WORD, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE, TARGET_SUBTYPES } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../../keywords.js"; // GROUP-KEYWORD-GRANT vocab (keywords.js is a zero-import leaf — cycle-safe)
@@ -804,15 +804,20 @@ export function applyGrantProtection(state, atom, ctx) {
   let next = state;
   const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
   const dur = { kind: "endOfTurn", turn: next.turn };
+  // OF-YOUR-CHOICE (Mother/Giver, vein #3): the color resolves AT RESOLUTION via the shared
+  // deterministic policy (the autoPickCreatureType convention — board-shaped, never payoff-tuned).
+  const colors = atom.colorChoice
+    ? [autoPickProtectionColor(next, ctx.controller, { orColorless: !!atom.orColorless })]
+    : (atom.colors || []);
   for (const target of targets) {
     if (!findPermanent(next, target.id)) continue;   // target gone → clean no-op, never a fabricated grant
     next = addContinuousEffect(next, {
-      layer: 6, op: { layerOp: "addProtection", colors: atom.colors || [] },
+      layer: 6, op: { layerOp: "addProtection", colors },
       affects: { mode: "fixed", permanentIds: [target.id] },
       duration: dur, source: src,
     }).state;
   }
-  return logEvent(next, { kind: "spell-effect", effect: "grant-protection", colors: atom.colors || [], targets: targets.map((t) => t.id) });
+  return logEvent(next, { kind: "spell-effect", effect: "grant-protection", colors, targets: targets.map((t) => t.id) });
 }
 
 /**
@@ -1463,6 +1468,19 @@ export function combatKeywordClauseParser(clause) {
       return pm[1] === "this creature"
         ? { op: "grant-protection", target: "self", colors: [color] }
         : { op: "grant-protection", targetType: "creature", colors: [color] };
+    }
+    // ⭐ OF-YOUR-CHOICE (Mother of Runes / Giver of Runes — SHELF-TAIL vein #3, CR 702.16): the dynamic
+    // color the fixed arm above deliberately parked is now a real resolution-time pick —
+    // choicePolicy.autoPickProtectionColor (the shared deterministic board read: the most-represented
+    // color among opponents' nonland permanents; the autoPickCreatureType convention exactly).
+    // Giver's "another" rides the excludeSource target spec (the Benevolent Hydra precedent) and its
+    // "from colorless or …" adds C to the pick's candidate set. Whole-clause anchored — any rider
+    // (Skrelv's toxic/hexproof compound) stays parked.
+    if (/^target creature you control gains protection from the color of your choice until end of turn$/.test(t)) {
+      return { op: "grant-protection", targetType: "creatureYouControl", colorChoice: true };
+    }
+    if (/^another target creature you control gains protection from colorless or from the color of your choice until end of turn$/.test(t)) {
+      return { op: "grant-protection", targetType: "creatureYouControl", excludeSource: true, colorChoice: true, orColorless: true };
     }
   }
   // CANT-BLOCK with the printed "an opponent controls" restriction (Clamor Shaman / Plasma Jockey / Smelt-Ward

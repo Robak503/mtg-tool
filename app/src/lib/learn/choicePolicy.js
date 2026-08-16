@@ -76,3 +76,35 @@ export function autoPickCreatureType(state, controller, { excludePermanentId = n
   }
   return best;
 }
+
+/**
+ * PROTECTION-COLOR auto-pick (Mother of Runes / Giver of Runes, SHELF-TAIL vein #3 — CR 702.16).
+ * "Protection from the color of your choice" wants the color most likely to threaten the protected
+ * creature: the MOST-REPRESENTED color among OPPONENTS' nonland permanents (each permanent counts once
+ * per color it has — layers are not consulted; the printed colors are the defensible board read, and this
+ * is a leaf module that must not import layers). WUBRG-order deterministic tiebreak; an empty read →
+ * "W" (a legal color must be chosen — CR 601.2b — and the fixed fallback keeps replays byte-identical).
+ * With `orColorless` (Giver's "from colorless or from the color of your choice"), colorless ("C") joins
+ * the tally via opponents' colorless nonland permanents and can win it.
+ * The same deliberately-dull discipline as autoPickCreatureType above: board-shaped, never payoff-tuned.
+ */
+export function autoPickProtectionColor(state, controller, { orColorless = false } = {}) {
+  const tally = { W: 0, U: 0, B: 0, R: 0, G: 0, ...(orColorless ? { C: 0 } : {}) };
+  for (const pid of Object.keys(state?.players || {})) {
+    if (pid === controller) continue;
+    for (const perm of state.players[pid]?.battlefield || []) {
+      const card = perm.card || perm;
+      const type = String(card?.type || card?.type_line || "");
+      if (/\bLand\b/.test(type) && !/\bCreature\b/.test(type)) continue;
+      const colors = Array.isArray(card?.colors) ? card.colors : [];
+      if (colors.length === 0) { if (orColorless) tally.C += 1; continue; }
+      for (const c of colors) if (c in tally) tally[c] += 1;
+    }
+  }
+  let best = "W";
+  let bestN = -1;
+  for (const c of Object.keys(tally)) { // insertion order = WUBRG(+C) → deterministic tiebreak
+    if (tally[c] > bestN) { best = c; bestN = tally[c]; }
+  }
+  return best;
+}

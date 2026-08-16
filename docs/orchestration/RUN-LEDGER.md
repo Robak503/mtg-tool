@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **⭐ VEIN #3: MOTHER/GIVER (+10) — protection from the color of your choice** - the shelf grind (Otharri·Light-Paws·Shalai all move)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+10 / 0 / 0** — Mother of Runes + Giver
+> of Runes + Armored Guardian + Benevolent Bodyguard + Moonlit Strider (activateds) + Gods Willing +
+> Shelter + Blessed Breath + Center Soul + Emerge Unscathed (spell forms; the rebound pair rides the
+> ADJUDICATED stripReboundLine — the mandatory exile modeled, the free recast a declined upside,
+> FN-safe, verified in the strip's own doc before crediting). Skrelv's compound stays parked (CREED).
+> Post-release batch **+82**.
+> ⭐ The parked "of your choice" graduated: choicePolicy.autoPickProtectionColor — the most-represented
+> color among OPPONENTS' nonland permanents (the autoPickCreatureType convention: board-shaped,
+> WUBRG-deterministic, never payoff-tuned; Giver's orColorless adds C to the candidates; excludeSource
+> carries the "another"). ⚠️ A WEAK PIN CAUGHT BY ITS OWN MUTATION: the opponent-scoping mutation
+> SURVIVED the first witness (the own-board control was too small to flip the outcome) — the pin was
+> strengthened to a color-DOMINANT own board and the kill confirmed. A zero-kill mutation is a red
+> flag about the WITNESS, not a pass (the hollow-gate law's newest instance, again).
+> 3 mutations (arm · colorChoice branch · opponent scoping) via Edit, each now seen-to-fail.
+> Token diet: ~8k output tokens this slice.
 > ## SLICE DONE - 2026-08-16 - **🏁 THE LAST AGNI KAI (+1) — fight-excess-to-mana + the turn red hold; WOLVERINE AT 90** - the shelf grind (Wolverine 89→**90** ✅)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — arbiter-spell→
 > native-spell. Post-release batch **+72**. ⭐ **WOLVERINE IS THE 14TH DECK AT THE BAR** — the first

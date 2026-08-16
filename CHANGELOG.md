@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **"Protection from the color of your choice" is a real choice.** Mother of Runes, Giver of Runes,
+  Gods Willing, Shelter, and six more now grant genuine protection with a sensibly chosen color (the
+  most-threatening color on your opponents' boards), and Giver can pick colorless as printed.
 - **The Last Agni Kai converts the overkill.** The fight really pays excess damage out as red mana,
   and that red genuinely survives every step and phase until end of turn — then empties at cleanup
   like the card says.

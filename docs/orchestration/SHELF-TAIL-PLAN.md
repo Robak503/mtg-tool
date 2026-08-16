@@ -164,8 +164,13 @@ lane, park). **The Legend of Yangchen** — a SAGA MDFC, nothing detects (sagas 
 program, park). The rest: 12 spells (Recurring Insight, Unexpected Results, **Teferi's
 Protection** ⚠️ CEILING-candidate, One with the Multiverse, Ellie and Alan, Mystic Forge…), 4 ETBs
 (Bonny Pall, Savvy Trader, Transcendent Dragon, Aang), Sakashima's Protege / Fblthp / Eladamri
-(probe), The Reality Chip, The Key to the Vault, Monk Gyatso. Strategy: the ETB bucket + cheap
-spells FIRST (Rashmi's subsystem second — bigger but the commander); expect 2-3 ceiling flags.
+(probe), The Reality Chip, The Key to the Vault, Monk Gyatso. ⚠️ FULL-PROBE VERDICT (08-16):
+KELLAN HAS NO CHEAP SLICES — every residue card is a subsystem: AIRBEND (Aang + Monk Gyatso — a new
+keyword action: exile + a cast-for-{2} permission), play-from-library (Reality Chip + Rashmi's
+free-cast + Savvy Trader's exile-play), REBOUND (Recurring Insight), the counter-exile-cast chain
+(Transcendent Dragon), a quoted-CDA token (Bonny Pall). Per §4's vein doctrine the queue JUMPS to
+vein #3 (Mother/Giver — Otharri+Light-Paws+Shalai, three decks per arm) and returns to Kellan with
+the airbend + play-from-library subsystems as deliberate builds; expect 2-3 ceiling flags.
 
 ### 5.3 Otharri Test — 74, needs 16
 11 spells (Tithe, Blacksmith's Skill, Hour of Reckoning, Neyali, Galadriel's Dismissal, Anim
