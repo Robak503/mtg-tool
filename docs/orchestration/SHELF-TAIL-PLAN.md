@@ -229,8 +229,20 @@ deck** (Baxter Stockman ≠ the deck's Baxter). Halfshell may be a vein-doctrine
 10 ETBs (Skyclave Apparition — vein #9, Solitude, Rishkar, Court of Garenbrig, Scythecat Cub…),
 8 spells (Shalai and Hallar THEMSELVES, Chaos Warp, Winds of Abandon, Galadriel's Dismissal,
 Kutzil…), 5 attacks (Krenko Tin Street, Ragavan, Kami of Celebration, Araña, Trouble in Pairs),
-4 activated (Incubation Druid, **Mother of Runes — vein #3**, Hajar, Skrelv), Uncivil Unrest,
+4 activated (Incubation Druid, **Mother of Runes — vein #3 ✅**, Hajar, Skrelv), Uncivil Unrest,
 Boromir, Arwen, Innkeeper's Talent. Strategy: vein #3 + the commander pair first.
+🎯 **NEXT SLICE — BUILD-READY (scoped 08-16, no re-probe needed): SHALAI AND HALLAR (the commander).**
+"Whenever one or more +1/+1 counters are put on a creature you control, Shalai and Hallar deals THAT
+MUCH damage to target opponent." Trigger detects (event:countersPut, scoped). The gap is TWO pieces:
+(1) THREADING — the counter-put event ALREADY carries the magnitude (`{id,type,amount,controller}`,
+gameState.js:1559), but checkCountersPutTriggers' scoped flush (triggers.js ~7770) does NOT pass
+`ev.amount` into the pending trigger's context; thread it as `ctx.countersPutCount` (the milledCount
+precedent — checkMilledTriggers threads a magnitude the same way). (2) PARSE ARM — "this creature deals
+that much damage to target opponent" → `{op:"damage", source:self, targetType:"opponent",
+amountContext:"countersPutCount"}` (the ptContext/combatDamageAmount precedent for context-scaled
+amounts). Witness: parse pin + threading pin (ev.amount→ctx) + runtime (deals N = counters placed) +
+the countersPut routing. Likely siblings: other "deals that much damage" counters-put payoffs. HIGH
+value (Joe-deck law — the commander is the deck's engine).
 
 ### 5.7 Thrun Voltron — 81, needs 9
 ✅ Kodama (cross-deck). 7 aura/equip statics: ⭐ TOTEM ARMOR (Lion Umbra parked; verify the

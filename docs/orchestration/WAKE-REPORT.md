@@ -18,11 +18,13 @@
 > not 340: the shelf grew from 8 imported decks; list = memory/orders/arbiter-nuance-queue.md, Cindy
 > owns the merge, Omnath authors the CURATED NOTES section). Each slice, drop a terse COMMS line naming
 > cards NEWLY PARKED (with the blocker); flips shrink the set from the native side automatically.
-> **LATEST (08-16 late):** ✅ vein #3 Mother/Giver (+10) · ✅ O1 tapped-attacking-token (Kessig +1,
-> Otharri's trigger routes) — batch **+83**, ~17 from v0.160.0. 🔍 Kellan + Cap America both SCOUTED
-> HEAVY (vein doctrine, no cheap slices — verdicts in SHELF-TAIL-PLAN §5.2/§5.4; Aettir dynamic-set-base
-> = named layer re-entry). **NEXT: Halfshell ⑤ (67)** — probe its residue fresh, or hunt a cross-deck
-> vein (§4) since the queue front is heavy.
+> **LATEST (08-16 late):** ✅ vein #3 Mother/Giver (+10) · ✅ O1 tapped-attacking-token (Kessig +1) ·
+> ✅ H1 artifact-creature pump (+3: Baxter Stockman, Weldfast Engineer, Aethershield Artificer) — batch
+> **+86**, ~14 from v0.160.0. 🔍 Kellan + Cap America SCOUTED HEAVY (vein doctrine; §5.2/§5.4). Halfshell
+> also mostly heavy + a NAME TRAP (its "Baxter" = "Baxter, Fly in the Ointment", not the flipped Baxter
+> Stockman — §5.5). 🎯 **NEXT SLICE IS BUILD-READY: Shalai and Hallar** (the commander — countersPut
+> magnitude → "deals that much damage to target opponent"; full spec + the two pieces in SHELF-TAIL-PLAN
+> §5.6, no re-probe needed).
 > ### ⏭ RUNNABLE NOW — **the shelf tail runs off [SHELF-TAIL-PLAN.md](SHELF-TAIL-PLAN.md)** (Colton, 08-15: keep the window low)
 > The next three decks' full residue maps, probed blockers, and slice queues live in
 > **docs/orchestration/SHELF-TAIL-PLAN.md** — a booting session reads THAT file, not a vein block
