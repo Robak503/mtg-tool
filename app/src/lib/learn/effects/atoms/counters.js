@@ -425,6 +425,13 @@ export function cdmgPayoffClauseParser(clause) {
   if (cpDrawM) return { op: "draw", countContext: "countersPlaced", optional: !!cpDrawM[1], targetType: null };
   const cpLifeM = t.match(/^(you may )?gain that much counters-placed life$/);
   if (cpLifeM) return { op: "gain-life", countContext: "countersPlaced", optional: !!cpLifeM[1], targetType: null };
+  // (cp-dmg) counters-PUT damage sentinel (Shalai and Hallar — SH1): "this creature deals that much
+  // counters-put damage to target opponent" → the deal-damage atom the fixed form emits
+  // ({op:"deal-damage", targetType:"player"}), amount swapped for countContext:"countersPutCount" (the
+  // counters placed in the event, threaded by checkCountersPutTriggers). Source is the trigger's
+  // permanent (ctx.sourceId) automatically. Sentinel-only → never reached off the countersPut rewrite.
+  const cpDmgM = t.match(/^this creature deals that much counters-put damage to target opponent$/);
+  if (cpDmgM) return { op: "deal-damage", countContext: "countersPutCount", targetType: "player" };
   // (b) fixed-N rad to the damaged player — "they/that player gets N rad counters"
   const cdmgRadFixedM = t.match(/^(?:they|that player) gets? (\d+|a|an|one|two|three|four|five) rad counters?$/);
   if (cdmgRadFixedM) return { op: "rad", who: "damagedPlayer", amount: SMALL_NUM[cdmgRadFixedM[1]] ?? parseInt(cdmgRadFixedM[1], 10), targetType: null };

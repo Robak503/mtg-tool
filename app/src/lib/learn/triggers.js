@@ -3060,6 +3060,13 @@ const SELF_SAC_IT_RE = /^sacrifice it$/i;
 // (Terrasymbiosis / Earth Kingdom General both carry it). A DIFFERENT trailing rider ("draw that many cards,
 // then discard") leaves residue → no match → no rewrite → LOW → Arbiter (a SAFE false-negative).
 const COUNTERS_PLACED_PAYOFF_RE = /^(?:you may )?(?:draw that many cards|gain that much life)(?:\.\s*do this only once each turn)?\.?$/i;
+// COUNTERS-PUT DAMAGE PAYOFF (Shalai and Hallar — SHELF-TAIL SH1): the PASSIVE "counters are put on a
+// creature you control → this creature deals THAT MUCH damage to target opponent". "that much" = the
+// counters placed in the event (ctx.countersPutCount, threaded by checkCountersPutTriggers). Whole-clause
+// anchored so a rider leaves residue → no rewrite → LOW → Arbiter (SAFE FN). The sentinel it rewrites to
+// is unprintable text, so ONLY a countersPut-context clause ever reaches the parser arm — a different
+// trigger's "deals that much damage to target opponent" is never rewritten → parks (CREED, no absent-ctx FP).
+const COUNTERS_PUT_DAMAGE_PAYOFF_RE = /^this creature deals that much damage to target opponent$/i;
 
 // LIFEGAIN-SCALED SELF COUNTERS (BLITZ EC-1b — Sunbond / Light of Promise): "Whenever you gain life, put
 // that many +1/+1 counters on this creature." — "that many" is the amount of life just gained
@@ -4494,6 +4501,13 @@ export function detectTriggers(card) {
         effectClause = effectClause
           .replace(/\bdraw that many cards\b/i, "draw that many counters-placed cards")
           .replace(/\bgain that much life\b/i, "gain that much counters-placed life");
+      } else if (cls.event === "countersPut" && COUNTERS_PUT_DAMAGE_PAYOFF_RE.test(effectClause)) {
+        // ===== COUNTERS-PUT "that much" DAMAGE (Shalai and Hallar — SH1) ===== the PASSIVE counters-put
+        // form: "deals that much damage to target opponent", magnitude = ctx.countersPutCount (threaded by
+        // checkCountersPutTriggers). Rewrite → the event-specific sentinel the deal-damage parser maps to
+        // countContext:"countersPutCount"; the unprintable sentinel is the referent gate (only a
+        // countersPut-context clause reaches the arm, so no other event reads an absent ctx and deals 0).
+        effectClause = effectClause.replace(/\bdeals that much damage\b/i, "deals that much counters-put damage");
       } else if (cls.event === "lifegain" && LIFEGAIN_SELF_COUNTER_PAYOFF_RE.test(effectClause)) {
         // ===== LIFEGAIN-SCALED SELF COUNTERS (BLITZ EC-1b — Sunbond / Light of Promise) ===== "Whenever you
         // gain life, put that many +1/+1 counters on this creature." — "that many" = the life just gained
@@ -7754,7 +7768,10 @@ export function checkCounterTriggers(state) {
     fired = fired.concat(
       detectTriggers(lk.permanent.card)
         .filter((d) => d.event === "countersPut" && d.scope === "self" && d.counterType === ev.type)
-        .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, {}))
+        // COUNTERS-PUT MAGNITUDE (Shalai and Hallar — SHELF-TAIL SH1): thread the count placed in THIS
+        // event (ev.amount, recorded by gameState addCounter) so a "deals that much damage" payoff reads it
+        // via countContext:"countersPutCount" — the counters-placed sentinel discipline, one event over.
+        .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, { countersPutCount: ev.amount }))
     );
     // SCOPED COUNTERS-PUT — WATCHERS ("a creature you control receives counters"), as opposed to the
     // receiving permanent's own self-trigger handled just above. Routed through triggersForEvent so the
@@ -7768,6 +7785,7 @@ export function checkCounterTriggers(state) {
       for (const watcher of triggerSourcesOf(cleared, pid)) {
         fired = fired.concat(triggersForEvent(cleared, {
           event: "countersPut", sourcePermanent: watcher, triggeringPermanent: lk.permanent,
+          triggeringContext: { countersPutCount: ev.amount }, // SH1 magnitude (see the self path above)
           descriptorFilter: (d) => d.scope !== "self" && d.counterType === ev.type,
         }));
       }

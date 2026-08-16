@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **SHALAI AND HALLAR (+1) — countersPut "deals that much damage"; THE COMMANDER** - the shelf grind (SH1, Shalai 69→71)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Shalai and Hallar (the
+> commander; whole-card audited — flying/vigilance keywords + the one counters-payoff trigger). Post-release
+> batch **+87**. Deck Shalai and Hallar Test 69→**71**.
+> ⭐ THE PASSIVE countersPut magnitude, mirroring the counters-placed / lifegain-drain sentinel discipline:
+> (1) checkCounterTriggers now threads `ctx.countersPutCount = ev.amount` (the event already carried the
+> count; both the self + SCOPED flush paths); (2) detectTriggers rewrites the countersPut damage payoff →
+> the unprintable sentinel "deals that much counters-put damage to target opponent" — the SENTINEL IS THE
+> REFERENT GATE (only a countersPut-context clause reaches the arm, so no other event reads an absent ctx
+> and silently deals 0, CREED); (3) the parser arm maps the sentinel → {op:"deal-damage",
+> countContext:"countersPutCount", targetType:"player"} — the exact fixed-form atom, amount→context.
+> `resolveScaledAmount` ALREADY read countContext, so the applier was untouched.
+> ⚠️ HOLLOW-GATE CHECK IN THE WITNESS: a runtime pin proves the damage dealt EQUALS the counters placed
+> (resolveAtom + a 0-count control) — a native flip that dealt nothing would be caught. 3 mutations
+> (rewrite branch · parser arm · the SCOPED-path threading — the self-path mutation SURVIVED because Shalai
+> fires scoped, a good reminder to mutate the path the card actually takes) via Edit, each seen-to-fail.
+> Token diet: ~16k output tokens this slice (a medium slice — mis-scoped as cheap last fire; the
+> sentinel+threading+referent machinery is real).
 > ## SLICE DONE - 2026-08-16 - **ARTIFACT-CREATURE PUMP (+3) — "target artifact creature you control gets…"** - the shelf grind (H1, the vein paid ×3)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+3 / 0 / 0** — Baxter Stockman, Weldfast
 > Engineer, Aethershield Artificer (all whole-card audited: single/clean abilities; Aethershield's
