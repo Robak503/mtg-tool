@@ -42,18 +42,23 @@
 > the 4th time this pattern's bitten). 1 mutation via Edit, seen-to-fail (kills the parse + both classifies).
 > Token diet: ~11k output tokens (the graduation cost the extra). — Cindy
 >
-> 🔭 **STILL BUILD-READY for the next fire** (de-risked in the 08-16 scouting fire; Court + Thunderfoot shipped):
-> • **Counter-DOUBLING vein** — "double the number of +1/+1 counters on EACH creature you control" is HIGH;
->   the SINGLE-target "…on target creature" is LOW (Scythecat Cub's landfall payoff + others). One arm →
->   possibly several, but each host pairs it with a 2nd blocker (Scythecat = "2nd time resolved this turn"
->   tracker; Innkeeper's Talent = Class leveling + L3 doubling-replacement). NOTE: the target-doubling arm
->   alone flips +0 (no clean host) — a foundational-only arm, so ship it ONLY when it completes a card.
-> • **Otharri GY-reanimate** — the named layer re-entry ({2}{R}{W},Tap-a-Rebel return from graveyard); the
->   experience-counter attack trigger (make N tapped-attacking Rebels for each experience counter) is the 2nd
->   blocker — heavier, a whole experience-counter subsystem.
-> • **LIEUTENANT vein (re-probe)** — SH9 built Thunderfoot's exact template; the C16 Lieutenant cycle may
->   carry more (the corpus scan across all 34k flipped ONLY Thunderfoot, so any others either differ in
->   template — widen parseLieutenantStatic — or carry a real 2nd blocker). Cheap to re-probe by name.
+> 🔭 **BUILD-READY MEDIUMS for the next fire** (fresh probe 08-16 across 3 more veins — the clean single-arms
+> ARE mined; every near-residue target is now a genuine medium, ranked by tractability×payoff):
+> • **① Simic Ascendancy** (Bumbleflower; vein #8 alt-win) — TWO concrete gaps, both de-risked: (a) the
+>   counters-put→"put that many GROWTH counters on this enchantment" magnitude accumulator (a named-counter
+>   variant of the Shalai SH1 magnitude threading — LOW now); (b) the upkeep "if this enchantment has 20+
+>   growth counters, you win" named-counter win-threshold ("you win the game" already parses HIGH; the
+>   named-counter intervening-if is the piece). The alt-win LANE is proven (Triskaidekaphile SH). Best next.
+> • **② Winds of Change** (Nekusar; vein #2 wheel-straggler) — the rest of the wheel atom is native (Wheel of
+>   Fortune, Windfall, Magus, Reforge, Whispering Madness all classify); the ONE straggler is the shuffle
+>   variant: "each player shuffles the cards from their hand into their library, then draws THAT MANY cards"
+>   — a new atom (shuffle-hand-into-library + draw-equal-to-count back-reference). One arm, one card.
+> • **③ Counter-DOUBLING target-form** — "…on target creature" LOW, but flips +0 alone (Solidarity of Heroes
+>   pairs it with Strive + the "on each of them" phrasing; Scythecat = 2nd-time-resolved tracker; Kalonian
+>   Hydra already native). Foundational-only — ship ONLY when it completes a card.
+> • **Heavier veins (subsystem builds, multi-fire): ** Otharri experience-counter reanimate · Brago flicker
+>   family (~10) · Shorikai CREW (~8-10) · Cap equipment/vehicle attack-triggers (×8). LIEUTENANT re-probe:
+>   the 34k scan flipped ONLY Thunderfoot, so any cycle-mates differ in template or carry a real 2nd blocker.
 > ## SLICE DONE - 2026-08-16 - **RISHKAR, PEEMA RENEGADE (+1) — counter-gated group mana grant** - the next batch (SH7)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+4**.
 > ⭐ A single clean arm: the UNFILTERED "each creature you control has '{T}: Add {G}'" was already
