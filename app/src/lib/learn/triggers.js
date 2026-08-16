@@ -1772,6 +1772,12 @@ function classifyCondition(condRaw, cardName, cardType) {
   // filtered variant leaves residue → null → Arbiter (SAFE false-negative). scope:"opponentDraw" matches in
   // scopeMatches like "milled"/"you" (returns true — the whose:"opponent" gate lives in the dedicated checker).
   if (/^an opponent draws a card$/.test(c)) return { event: "cardDrawn", scope: "opponentDraw", whose: "opponent" };
+  // ANY-PLAYER DRAW (Spiteful Visions — SHELF-TAIL ND1) — "Whenever A PLAYER draws a card, …". The SYMMETRIC
+  // twin of the opponentDraw arm above: fires for EVERY draw (the controller's own draws included, CR 121.2),
+  // so scope:"anyDraw" is fired in BOTH checkCardDrawnTriggers scans (own + opponents-of-drawer). The "that
+  // player" referent still rewrites to the drawing player (the cardDrawn rewrite is event-gated, not
+  // scope-gated), so the payload is byte-identical to the opponent form — only who it fires FOR is wider.
+  if (/^a player draws a card$/.test(c)) return { event: "cardDrawn", scope: "anyDraw", whose: "any" };
   // ===== OPPONENT DISCARD (CR 701.9a) ===== "Whenever an opponent discards a card, …" — Liliana's Caress,
   // Raiders' Wake, Fell Specter, Megrim, Sangromancer, Geth's Grimoire, Tourach, Abyssal Nocturnus. The
   // structural twin of the opponentDraw arm directly above, and fired the same way: checkDiscardTriggers
@@ -5502,6 +5508,11 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // controller) is applied in checkCardDrawnTriggers, which scans the drawer's opponents' watchers directly.
       // Always matches here (like "milled"/"you"): the event already proved a draw happened.
       return true;
+    case "anyDraw":
+      // ANY-PLAYER DRAW (Spiteful Visions, ND1) — a draw event has no triggering permanent; the scope is
+      // fired in BOTH checkCardDrawnTriggers scans (the drawer's own sources + the drawer's opponents'),
+      // so reaching here already proves a draw happened and the wider "any player" gate is the scan itself.
+      return true;
     case "youDiscard":
       // ⭐ SELF DISCARD — same contract as opponentDiscard directly below: a discard event has no triggering
       // PERMANENT to match against, and the "you" gate is the SCAN (checkDiscardTriggers consults the
@@ -7386,7 +7397,7 @@ export function checkCardDrawnTriggers(state, drawingPlayerId, count = 1) {
   for (const oppId of opponentsOf(state, drawingPlayerId)) {
     for (const perm of triggerSourcesOf(state, oppId)) {
       for (let i = 0; i < count; i++) {
-        fired = fired.concat(triggersForEvent(state, { event: "cardDrawn", sourcePermanent: perm, triggeringContext: { drawingPlayerId }, scopeFilter: (scope) => scope === "opponentDraw" }));
+        fired = fired.concat(triggersForEvent(state, { event: "cardDrawn", sourcePermanent: perm, triggeringContext: { drawingPlayerId }, scopeFilter: (scope) => scope === "opponentDraw" || scope === "anyDraw" }));
       }
     }
   }

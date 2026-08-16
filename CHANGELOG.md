@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **"Whenever a player draws a card" punishers work.** Spiteful Visions now deals its damage on every
+  draw — yours and your opponents' — not just opponents', matching the printed symmetric wording.
 - **Shalai and Hallar's ping works.** When +1/+1 counters land on your creatures, she now deals that
   much damage to an opponent — the deck's whole counters-to-damage engine, live.
 - **Artifact-creature combat pumps work.** Cards that pump "target artifact creature you control" at

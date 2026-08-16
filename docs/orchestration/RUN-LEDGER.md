@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **ANY-PLAYER DRAW WATCHER (+1) — Spiteful Visions; vein #1 straggler** - the shelf grind (ND1, Nekusar 71→72)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Spiteful Visions (whole-card
+> audited: the draw-step additional-draw arm was ALREADY native — same as Nekusar's — my change is only the
+> symmetric cardDrawn damage). Post-release batch **+88**. Deck Nekusar Wheels 71→**72**.
+> ⭐ THE SYMMETRIC TWIN of the opponentDraw watcher (Underworld Dreams / Fate Unraveler, already native):
+> "Whenever A PLAYER draws a card" fires for EVERY draw, the controller's own included. scope:"anyDraw"
+> is fired in BOTH checkCardDrawnTriggers scans (the drawer's own sources + the drawer's opponents') — 4
+> touches: detection arm + scopeMatches case + the opponent-scan scopeFilter widening + (routing already
+> accepted it). The "that player" referent rewrite is event-gated not scope-gated, so the payload is
+> byte-identical to the opponent form. VEIN #1 CONTEXT: the opponent-draw-punishment core was ALREADY
+> built (Underworld Dreams, Fate Unraveler, Nekusar himself native) — the remaining stragglers are each
+> distinct (Spiteful = this anyDraw scope ✅; Kederekt Parasite = intervening-if + optional; Razorkin =
+> conditional first-strike, heavy). 3 mutations (detection · scopeMatches · opponent-scan filter — the
+> filter one kills exactly the opponents'-draw half a "you draw"-only read would miss) via Edit, each
+> seen-to-fail. ⚠️ witness field trap: the fired trigger's source is `t.source.permanentId`, not
+> `t.sourcePermanentId` — cost one red re-run. Token diet: ~14k output tokens this slice.
 > ## SLICE DONE - 2026-08-16 - **SHALAI AND HALLAR (+1) — countersPut "deals that much damage"; THE COMMANDER** - the shelf grind (SH1, Shalai 69→71)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Shalai and Hallar (the
 > commander; whole-card audited — flying/vigilance keywords + the one counters-payoff trigger). Post-release
