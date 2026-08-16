@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Sage's Reverie counts its auras.** Its draw and its buff now scale with the Auras you control that are
+  attached to a creature — counting exactly those, not auras sitting on lands or artifacts.
 - **Ancestral Mask counts correctly.** "+2/+2 for each other enchantment on the battlefield" now excludes
   the Mask itself, so it grants the right bonus instead of over-counting by one.
 - **Triskaidekaphile can win.** Holding exactly thirteen cards in hand at your upkeep now wins the game,

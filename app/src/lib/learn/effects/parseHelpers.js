@@ -392,6 +392,14 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   if ((m = p.match(/^(?:(creature|artifact|land|instant|sorcery|enchantment|planeswalker) )?cards? in your graveyard$/))) {
     return withExclude(m[1] ? { kind: "cardsInGraveyard", cardType: COUNT_GY_TYPE[m[1]] } : { kind: "cardsInGraveyard" });
   }
+  // ===== AURA ATTACHED TO A CREATURE (Sage's Reverie — SHELF-TAIL SH4) ===== "aura you control that's
+  // attached to a creature" — the Aura subtype count FILTERED to auras whose attachedTo is a CREATURE (an
+  // aura on a land / artifact / player is excluded, CR 303.4). countForSpec's permanentsYouControl counter
+  // honors `attachedToType`. Both of Sage's Reverie's arms (the ETB draw + the layer-7c static) use this
+  // exact phrase, so one count source flips the whole card. Apostrophe normalized to straight by the caller.
+  if (p.match(/^aura you control that's attached to a creature$/)) {
+    return withExclude({ kind: "permanentsYouControl", subtype: "Aura", attachedToType: "creature" });
+  }
   // ===== COUNT SUBTYPES ===== "<Subtype>(s) you control" — a single curated permanent subtype (Goblin /
   // Elf / Treasure / Shrine / Gate …). Checked AFTER the card-type + basic-land-subtype branches so those
   // win their words; a single word not in the allowlist → null → low. (A multi-word or qualified subtype

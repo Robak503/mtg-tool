@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **SAGE'S REVERIE (+1) — "aura you control that's attached to a creature" filtered count** - the NEXT batch (SH4, Light-Paws 61→62)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. **NEW batch (post-v0.160.0): +1.**
+> Deck Light-Paws Voltron 61→**62**.
+> ⭐ The base "Aura you control" count existed; the gap was the ATTACHED-TO-A-CREATURE filter (an aura on a
+> land/artifact/player excluded, CR 303.4). One count source, BOTH arms (ETB draw + layer-7c static).
+> ⚠️⚠️ THE HOLLOW-GATE CHECK EARNED ITS KEEP AGAIN — TWO `countForSpec` FUNCTIONS: the classify went native
+> after I added the filter to shared.js's countForSpec (the ETB-draw path), but the witness MAGNITUDE pin
+> failed (5/5 not 4/4) because the LAYER static uses a SEPARATE layers.js countForSpec → countSelfSpecOnBoard
+> (167), which I hadn't touched. The minimal board passed BY COINCIDENCE (no land-aura to over-count). Fixed
+> both count paths; the two arms now agree. Lesson: a filter on a count that has two eval implementations
+> must land in BOTH — and only a runtime MAGNITUDE pin (not classify, not the flip-diff) catches the miss.
+> 3 mutations (layer filter · static parse arm · ETB-draw parse arm) via Edit, each seen-to-fail. Token
+> diet: ~19k output tokens this slice (the two-countForSpec hunt).
 > ## 🏁 RELEASE - 2026-08-16 - **v0.160.0 CUT (batch +98 since v0.159.0 → RESET to 0)**
 > Tagged v0.160.0 @ 5c3486d0 (SH3). The +98-card shelf-tail batch: Mother/Giver protection-color (+10) ·
 > tapped-and-attacking tokens · artifact-creature pumps (+3) · Shalai counters-damage (commander) ·

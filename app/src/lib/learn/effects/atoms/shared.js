@@ -796,7 +796,14 @@ export function countForSpec(state, ctx, spec) {
       && (spec.requiresCounter == null || (perm.counters?.[spec.requiresCounter] || 0) > 0)
       // TAPPED-QUALIFIED (2026-08-14 — Throne of the God-Pharaoh "tapped creatures you control"): the
       // live tapped state at resolution. Absent → no filter (plain count, byte-identical).
-      && (!spec.tappedOnly || !!perm.tapped),
+      && (!spec.tappedOnly || !!perm.tapped)
+      // ATTACHED-TO-TYPE (Sage's Reverie SH4 — "aura you control that's attached to a CREATURE"): the aura's
+      // host must be a permanent of the named type. Read live off attachedTo (an aura on a land/artifact, or
+      // a detached one, is excluded — CR 303.4). Absent → no filter (plain count, byte-identical).
+      && (spec.attachedToType == null
+          || (!!perm.attachedTo && new RegExp(`\\b${spec.attachedToType}\\b`, "i").test(
+                String(findPermanent(state, perm.attachedTo)?.permanent?.card?.type
+                    || findPermanent(state, perm.attachedTo)?.permanent?.card?.type_line || "")))),
     ).length;
   }
   // ===== CHOSEN-TYPE (Distant Melody) ===== "permanent you control of that type" where the type was chosen

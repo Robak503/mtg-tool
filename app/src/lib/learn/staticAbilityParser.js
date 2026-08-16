@@ -408,6 +408,13 @@ function parseSelfCountSource(phrase) {
   // is a real MTG subtype appearing ONLY in the subtype position of a type line, so `\b<Subtype>\b` can never
   // mis-match a card type. An UNCURATED word ("for each token you control") returns null → the card parks.
   // Placed AFTER the card-type arm so creature/artifact/land/enchantment keep their cardType wire byte-for-byte.
+  // AURA ATTACHED TO A CREATURE (Sage's Reverie SH4) — the STATIC half of the same phrase the ETB draw uses
+  // (parseCountSource has the twin arm). The Aura subtype count filtered to auras whose host is a CREATURE;
+  // countSelfSpecOnBoard/countForSpec's permanentsYouControl counter honors attachedToType. Placed before the
+  // generic subtype arm so the qualifier isn't shaved. Apostrophe normalized straight by the caller.
+  if (/^aura you control that's attached to a creature$/.test(p)) {
+    return { kind: "permanentsYouControl", subtype: "Aura", attachedToType: "creature" };
+  }
   if ((m = p.match(/^([a-z][a-z' -]*[a-z]) you control$/)) && COUNT_SUBTYPE[m[1]]) {
     return { kind: "permanentsYouControl", subtype: COUNT_SUBTYPE[m[1]] };
   }

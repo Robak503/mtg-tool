@@ -321,7 +321,15 @@ function countSelfSpecOnBoard(state, perm, spec) {
   // untappedOnly (BLITZ CA-2 — Spur Grappler / Scoria Cat "as long as you control no untapped lands", an
   // atLeast:0/atMost:0 band over this filtered count): restrict to permanents whose live tapped flag is
   // false. Absent flag keeps the pre-existing unfiltered count — no behavior change for prior gates.
-  return (player.battlefield || []).filter((p) => re.test(typeLineOf(p.card)) && (!spec.untappedOnly || !p.tapped)).length;
+  // attachedToType (Sage's Reverie SH4 — "aura you control that's attached to a CREATURE"): the aura's host
+  // must be a permanent of the named type. THIS is the layer-static count path (the ETB-draw arm uses the
+  // shared.js countForSpec twin); both must filter or the two arms disagree. Absent → no filter.
+  return (player.battlefield || []).filter((p) =>
+    re.test(typeLineOf(p.card))
+    && (!spec.untappedOnly || !p.tapped)
+    && (spec.attachedToType == null
+        || (!!p.attachedTo && new RegExp(`\\b${spec.attachedToType}\\b`, "i").test(typeLineOf(findPerm(state, p.attachedTo)?.card))))
+  ).length;
 }
 
 // GATED-SELFBUFF: does the SOURCE permanent itself match a count spec's type? (so "another <type>" can
