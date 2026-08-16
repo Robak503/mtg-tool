@@ -5086,6 +5086,17 @@ function parseAttachedClauseCore(c, subject, noun = "creature") {
   let rest = c.replace(new RegExp(`^${subject} ${noun}\\s+`), "").trim();
   const out = [];
 
+  // ASSIGN-AS-UNBLOCKED grant (Indomitable Might — CR 508.1h). "<enchanted|equipped> creature's controller may
+  // have it assign its combat damage as though it weren't blocked." — the GRANTED twin of Thorn Elemental's
+  // printed self line. Its subject is "…creature's controller" (not "…creature"), so the leading strip above
+  // doesn't fire and the clause arrives whole; matched here on `c`. A layer-6 grant of the
+  // `assignsCombatDamageAsUnblocked` pseudo-keyword, read printed-OR-granted at the combatResolution assign site
+  // (the enchanted creature's own text says nothing — the grant is read beside the printed regex, exactly like
+  // the cantBlock/mustAttack grants). Whole-clause anchored; scoped to the host by staticEffectsOf.
+  if (/^(?:enchanted|equipped) creature's controller may have it assign its combat damage as though it weren't blocked\.?$/.test(c)) {
+    return [{ layer: 6, op: { layerOp: "addKeyword", keyword: "assignsCombatDamageAsUnblocked" }, duration: { kind: "permanent" } }];
+  }
+
   // PACIFISM CLASS (BLITZ PA-1): "can't attack or block" / "can't attack" / "can't block" — layer-6
   // grants of the cantAttack/cantBlock pseudo-keywords, permanent for as long as the attachment holds
   // (the layer engine scopes attached bonuses to the host). Block-side enforcement is the SAME

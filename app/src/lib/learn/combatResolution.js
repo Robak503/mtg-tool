@@ -452,7 +452,7 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
     // power straight to the defending player (the deterministic take of the printed MAY — always legal,
     // and the entire point of the card). Its blockers still deal back normally in the blocker loop below;
     // trample is irrelevant on this path (nothing is assigned to blockers, so nothing "spills").
-    if ((liveBlockers.length > 0 || wasBlocked) && mayAssignAsUnblocked(lookup.permanent.card)) {
+    if ((liveBlockers.length > 0 || wasBlocked) && (mayAssignAsUnblocked(lookup.permanent.card) || permanentHasKeyword(state, lookup.permanent.id, "assignsCombatDamageAsUnblocked"))) {
       dealt += spillToDefender(power, false);
     } else if (liveBlockers.length > 0) {
       let remaining = power;

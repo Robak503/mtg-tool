@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Indomitable Might works.** It now gives the enchanted creature +3/+3 and lets it deal its full combat
+  damage to the defending player even when blocked, as printed.
 - **"Can't be blocked" gear works.** Whispersilk Cloak, Cloak of Mists, Protective Bubble, Aqueous Form, and
   Silver Shroud Costume now make the equipped/enchanted creature unblockable (and grant shroud where printed).
 - **Voyager Staff works.** Its "{2}, Sacrifice" ability now exiles a creature and returns it at the next end

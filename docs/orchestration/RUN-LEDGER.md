@@ -11,12 +11,29 @@
 > unchanged — the ~100 tag still fires; only WHAT we pick changes.) Rule saved: [[feedback-deck-shelf-over-release-batch]].
 > **Fresh measurements (08-16):** Thrun **82** (LEADER — needs 8) · Otharri 77 · Brago 76 · Nekusar 74 · Kellan
 > 74 · Shalai 73 · Bumbleflower 64 · Light-Paws ~58 (floor). Batch stands at **+17**.
-> 🎯 **FOCUS: THRUN VOLTRON → 90** — now **83** (SH18 flipped Whispersilk Cloak); **needs 7 more**. Parked: 5
-> aura/equip [Prowler's Helm=FILTERED evasion=defer, Nazgûl Battle-Mace=annihilator+quoted-trig=heavy, Lion
-> Umbra=modified+totem-armor, Strong Back=cost-reductions, Indomitable Might=+3/+3+assign-as-unblocked] · 5
-> spell-effects [Abundance, Animist's Might, Band Together, Natural Order, Thrun himself] · 2 anthems [Primal
-> Might, Professor Hojo] · Buster Sword attack-trig · Kenrith's Transformation ETB · Nyxborn Hydra enters-as ·
-> Saryth activated · Zopandrel upkeep. Measure with `node scripts/measure-coverage.mjs "Thrun Voltron"`.
+> 🎯 **FOCUS: THRUN VOLTRON → 90** — now **84** (SH18 Whispersilk +SH19 Indomitable Might); **needs 6 more**.
+> Parked: 4 aura/equip [Prowler's Helm=FILTERED evasion=DEFER, Nazgûl Battle-Mace=annihilator+quoted-trig=heavy,
+> Lion Umbra=modified+totem-armor, Strong Back=cost-reductions] · 5 spell-effects [Abundance draw-replace, Animist's
+> Might fight+cost-reduce, Band Together multi-source fight, Natural Order sac→tutor-to-bf, Thrun himself] · 2
+> anthems [Primal Might X-pump+fight, Professor Hojo first-ability cost-reduce] · Buster Sword attack-trig ·
+> Kenrith's Transformation ETB · Nyxborn Hydra enters-as · Saryth activated · Zopandrel upkeep. Measure with
+> `node scripts/measure-coverage.mjs "Thrun Voltron"`.
+>
+> ## SLICE DONE - 2026-08-16 - **THRUN #2: Indomitable Might (+1) — the GRANTED assign-as-unblocked** - DECK-FIRST (SH19)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+23**. **Thrun 83 → 84.**
+> ⭐ The aura-granted twin of Thorn Elemental's printed "assign combat damage as though it weren't blocked"
+> (CR 508.1h). Indomitable Might = "+3/+3" (ordinary attached ptModify) + "Enchanted creature's controller may
+> have it assign its combat damage as though it weren't blocked." Two contained sites: (1) a parseAttachedClause
+> arm — the subject is "…creature's CONTROLLER" so the leading strip doesn't fire and the clause arrives whole,
+> matched on `c` → a layer-6 `assignsCombatDamageAsUnblocked` grant; (2) combatResolution's assign site reads
+> printed-OR-granted (mayAssignAsUnblocked(card) || permanentHasKeyword) — the SAME additive cantBlock/mustAttack
+> pattern, so printed carriers (Thorn Elemental) are byte-identical.
+> ⚠️ HOLLOW-GATE: witness pins the RUNTIME — a blocked enchanted 5/5 deals its FULL 5 to the DEFENDER (the wall
+> takes 0, deals back); a CONTROL bear without the aura deals to the wall. 2 mutations via Edit, seen-to-fail
+> (parse → body-only; the granted branch of the combat read → damage goes to the blocker). Token: ~22k.
+> 🎯 **THRUN now 84 — needs 6.** Remaining clean-ish: the green spell-effects (Natural Order sac→tutor-to-bf,
+> Animist's Might fight+cost-reduction, Band Together multi-source fight), Lion Umbra (modified+totem-armor),
+> Primal Might (X-pump+fight). Prowler's Helm (filtered evasion) + Nazgûl Battle-Mace (annihilator) stay deferred.
 >
 > ## SLICE DONE - 2026-08-16 - **THRUN #1: the ATTACHED unblockable-grant vein (+5) — Whispersilk Cloak + 4 more** - DECK-FIRST (SH18)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+5 / 0 / 0**. NEW batch: **+22**. **Thrun 82 → 83.**
