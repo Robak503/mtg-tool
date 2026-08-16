@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **TRISKAIDEKAPHILE (+1) — the exact-13-in-hand win** - the shelf grind (SH2, Bumbleflower 62→63)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Triskaidekaphile (whole-card
+> audited: the "no maximum hand size" static + "{3}{U}: draw" were already native; only the win-condition
+> blocked). Post-release batch **+97** (THREE from v0.160.0). Deck Bumble Flower Combo 62→**63**.
+> ⭐ The upkeep-WIN lane already existed (Felidar Sovereign "40 or more life", Mortal Combat's graveyard
+> count) — the gap was the CONDITION: an EXACT hand-count (=== 13, never ≥) + "thirteen" (a teen, absent
+> from the tens-only cardinal allowlist). 2 edits (the cardinal + the arm). ⚠️ EXACT-COUNT hollow-gate:
+> the witness pins 13 wins / 12+14 do NOT — the >= mutation (would wrongly win at 14) is seen-to-fail, the
+> whole point of a thirteen-FRAGILE combo. CREED: an out-of-allowlist count ("exactly twelve") → null, no
+> fail-open win. 2 mutations (the arm · === vs >=) via Edit, each seen-to-fail. Token diet: ~9k output
+> tokens this slice.
 > ## SLICE DONE - 2026-08-16 - **⭐ COUNT-STATIC + KEYWORD AURA/EQUIP (+8) — the compose that was missing** - the shelf grind (ND2, Light-Paws 58→61)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+8 / 0 / 0** — 6 auras + 2 equipment
 > (Ethereal Armor, Armored Ascension, Crystalline Armor, Claws of Valakut, Auramancer's Guise, Crown of

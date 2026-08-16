@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Triskaidekaphile can win.** Holding exactly thirteen cards in hand at your upkeep now wins the game,
+  as printed (and twelve or fourteen correctly don't).
 - **Aura/Equipment that scale AND grant a keyword now work.** Ethereal Armor, Glaive of the Guildpact,
   and six more give both their "+X/+X for each …" bonus and their granted keyword (first strike, flying,
   vigilance, ward…), instead of dropping the whole bonus.

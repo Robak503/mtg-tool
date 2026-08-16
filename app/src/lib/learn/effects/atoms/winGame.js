@@ -35,6 +35,7 @@ import { payManaCost } from "../../manaModel.js"; // PACT rider: the shared plan
 const THRESHOLD_WORD = {
   ten: 10, twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
   "one hundred": 100, hundred: 100,
+  thirteen: 13, // Triskaidekaphile — the sole "exactly thirteen" win (SHELF-TAIL SH2)
 };
 
 /** Parse a count token (numeric "40" or a spelled "thirty") to an integer, or null if unrecognized. */
@@ -97,6 +98,17 @@ export function evaluateWinThreshold(state, condition, controllerId) {
     if (n == null) return null;
     const count = (player.graveyard || []).filter((card) => /Creature/.test(typeStr(card))).length;
     return count >= n;
+  }
+
+  // "you have exactly N cards in your hand" (Triskaidekaphile — SH2). A FRAGILE exact-count win (=== N,
+  // never >=): the printed threshold is precise, and the "no maximum hand size" static on the same card is
+  // what makes holding exactly 13 legal. Hand size is the live hand length; an absent hand → 0 (never
+  // exactly-13 by accident). Only "thirteen" is in the allowlist today (the sole printed card); a number
+  // the map can't read → null → no win (safe, no fail-open).
+  m = c.match(/^you have exactly (\d+|thirteen) cards in your hand$/);
+  if (m) {
+    const n = parseThresholdCount(m[1]);
+    return n == null ? null : (player.hand || []).length === n;
   }
 
   return null; // outside the modeled vocabulary → caller must NOT fire (no fail-open)
