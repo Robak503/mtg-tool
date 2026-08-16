@@ -11,13 +11,32 @@
 > unchanged — the ~100 tag still fires; only WHAT we pick changes.) Rule saved: [[feedback-deck-shelf-over-release-batch]].
 > **Fresh measurements (08-16):** Thrun **82** (LEADER — needs 8) · Otharri 77 · Brago 76 · Nekusar 74 · Kellan
 > 74 · Shalai 73 · Bumbleflower 64 · Light-Paws ~58 (floor). Batch stands at **+17**.
-> 🎯 **FOCUS: THRUN VOLTRON → 90** — now **86** (SH18 Whispersilk · SH19 Indomitable Might · SH20 Lion Umbra · SH21 Natural Order); **needs 4 more**.
+> 🎯 **FOCUS: THRUN VOLTRON → 90** — now **87** (SH18-22: Whispersilk · Indomitable Might · Lion Umbra · Natural Order · Saryth); **needs 3 more** to hit the shelf.
 > Parked: 4 aura/equip [Prowler's Helm=FILTERED evasion=DEFER, Nazgûl Battle-Mace=annihilator+quoted-trig=heavy,
 > Lion Umbra=modified+totem-armor, Strong Back=cost-reductions] · 5 spell-effects [Abundance draw-replace, Animist's
 > Might fight+cost-reduce, Band Together multi-source fight, Natural Order sac→tutor-to-bf, Thrun himself] · 2
 > anthems [Primal Might X-pump+fight, Professor Hojo first-ability cost-reduce] · Buster Sword attack-trig ·
 > Kenrith's Transformation ETB · Nyxborn Hydra enters-as · Saryth activated · Zopandrel upkeep. Measure with
 > `node scripts/measure-coverage.mjs "Thrun Voltron"`.
+>
+> ## SLICE DONE - 2026-08-16 - **THRUN #5: Saryth (+3) — the "untap target CREATURE OR LAND" union** - DECK-FIRST (SH22)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+3 / 0 / 0**. NEW batch: **+28**. **Thrun 86 → 87.**
+> ⭐ Saryth's two anthems (tapped→deathtouch, untapped→hexproof) were ALREADY native; the sole gap was its
+> activated "{1},{T}: Untap another target creature or land you control" — a UNION targetType. The untap parser
+> handled every SINGLE type; the `creatureOrLand` union already exists (SAC_UNION_CANON + enumeration), so this
+> was a vocabulary widen onto it (same notSource/controller lanes). Flip **+3**: Saryth (native-mixed) + Civic
+> Gardener + Initiate's Companion (native-trigger — attack / combat-damage triggers + the unscoped union), each
+> whole-card audited (a trigger + the untap, no FPs).
+> ⚠️ HOLLOW-GATE CAUGHT LIVE: the parse flipped all three, but the untap APPLIER's creature-only fallback
+> silently DROPPED land targets — the runtime witness caught it (a native flip that couldn't untap a land). Added
+> the creatureOrLand case to the applier (reads the live type line like isLand). 2 mutations via Edit, seen-to-
+> fail (the parser arm → all drop; the applier case → neither creature nor land untaps).
+> ⚠️ GRADUATED a MUST-STAY-LOW pin (untapTargetTypes: "a type union is not claimed" used creature-or-land as
+> its example) → split to keep "artifact or creature" (still unbuilt) as the guard + a positive claim for
+> creature-or-land. Full suite caught it. Token: ~28k.
+> 🎯 **THRUN now 87 — needs 3.** Remaining: Animist's Might (fight+cost-reduce), Band Together (multi-fight),
+> Abundance (draw-replace), Primal Might (X-pump-fight), Professor Hojo (first-ability cost-reduce), Nyxborn
+> Hydra (bestow+X), Kenrith's Transformation (base-P/T-set+lose-abilities), Zopandrel (mass P/T-double). Fiddly.
 >
 > ## SLICE DONE - 2026-08-16 - **THRUN #4: Natural Order (+1) — the COLOUR-qualified additional sac cost** - DECK-FIRST (SH21)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+25**. **Thrun 85 → 86.**

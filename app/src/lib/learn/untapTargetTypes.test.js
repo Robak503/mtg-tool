@@ -62,9 +62,13 @@ describe("the parser — the widened type list", () => {
     expect(atom("untap another target artifact").restrictions).toEqual([{ kind: "notSource" }]);
   });
 
-  it("CREED — a type UNION is still not claimed (no predicate, so no fabricated pool)", () => {
+  it("CREED — an UNBUILT type union is still not claimed (no predicate, so no fabricated pool)", () => {
+    // "creature or land" GRADUATED (SH22, 2026-08-16 — Saryth; the creatureOrLand union targetType is claimed
+    // now, applier + all). "artifact or creature" still has no untap arm → stays unclaimed, the surviving guard.
     expect(parseEffectClause("untap target artifact or creature").atoms?.[0]?.op).not.toBe("untap");
-    expect(parseEffectClause("untap target creature or land").atoms?.[0]?.op).not.toBe("untap");
+  });
+  it("the creature-or-land union IS claimed now (SH22 — Saryth)", () => {
+    expect(parseEffectClause("untap target creature or land").atoms?.[0]).toEqual({ op: "untap", targetType: "creatureOrLand", restrictions: [] });
   });
 });
 

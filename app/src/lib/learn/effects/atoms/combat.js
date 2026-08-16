@@ -77,6 +77,9 @@ export function applyTapEffect(state, atom, ctx, tap) {
     const ok = wantsBasicSubtype
       ? isLand && new RegExp(`\\b${cap(atom.targetType)}\\b`).test(tl)
       : wantsBasicLand ? (isLand && /\bbasic\b/i.test(tl))
+      // CREATURE-OR-LAND union (Saryth) — act on EITHER, read off the permanent's live type line (the same
+      // source `isLand` uses), so a land target isn't dropped by the creature-only fallback below.
+      : atom?.targetType === "creatureOrLand" ? (isLand || /\bcreature\b/i.test(tl))
       : wantsLand ? isLand : wantsPermanent ? true : t.type === "creature";
     if (!ok) continue;
     // ⭐ LOCK-ONLY (Barl's Cage / Elvish Hunter / House Guildmage — "Target creature doesn't untap during its
@@ -1261,6 +1264,16 @@ export function combatKeywordClauseParser(clause) {
       if (upM[1]) restrictions.push({ kind: "notSource" });
       if (upM[3]) restrictions.push({ kind: "controller", who: "you" });
       return { op: "untap", targetType: upM[2] === "nonland permanent" ? "nonlandPermanent" : upM[2], restrictions };
+    }
+    // ⭐ CREATURE-OR-LAND union (Saryth, the Viper's Fang — "{1},{T}: Untap another target creature or land
+    // you control"). The union targetType already exists (SAC_UNION_CANON / the enumeration's creatureOrLand);
+    // this only widens the untap vocabulary onto it — same notSource + controller lanes as the single-type arm.
+    const upUnionM = t.match(/^untap (another )?target creature or land( you control)?$/);
+    if (upUnionM) {
+      const restrictions = [];
+      if (upUnionM[1]) restrictions.push({ kind: "notSource" });
+      if (upUnionM[2]) restrictions.push({ kind: "controller", who: "you" });
+      return { op: "untap", targetType: "creatureOrLand", restrictions };
     }
   }
   // AURA-OWN-ENCHANTED (Freed from the Real "{U}: Tap enchanted creature." / "{U}: Untap enchanted creature.";

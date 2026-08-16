@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **"Untap target creature or land" works.** Saryth, the Viper's Fang, Civic Gardener, and Initiate's
+  Companion can now untap either a creature or a land, as printed.
 - **Natural Order works.** It now correctly requires sacrificing a green creature as you cast it, then tutors
   a green creature straight onto the battlefield.
 - **Lion Umbra works.** It can now only enchant a modified creature (one with a counter, Equipment, or Aura),
