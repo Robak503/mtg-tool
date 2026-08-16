@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⭐ PRIORITY PIVOT — 2026-08-16 (Colton) — **DECK-SHELF-FIRST, not batch-first**
+> Colton's call mid-grind: *"the deck shelf is the most key thing we have as those allow the test harness to
+> make real change and quality learning for the play harness."* A deck below 90% native has cards the sim can't
+> play → broken self-play boards → garbage play-AI learning. So the GRIND SELECTION is now **focus-fire the
+> closest-to-90 deck's own parked residue** until it crosses 90, then the next deck. (Batch + release mechanics
+> unchanged — the ~100 tag still fires; only WHAT we pick changes.) Rule saved: [[feedback-deck-shelf-over-release-batch]].
+> **Fresh measurements (08-16):** Thrun **82** (LEADER — needs 8) · Otharri 77 · Brago 76 · Nekusar 74 · Kellan
+> 74 · Shalai 73 · Bumbleflower 64 · Light-Paws ~58 (floor). Batch stands at **+17**.
+> 🎯 **FOCUS: THRUN VOLTRON → 90** (18 parked: 6 aura/equip statics [Prowler's Helm, Whispersilk Cloak, Nazgûl
+> Battle-Mace, Lion Umbra, Strong Back, Indomitable Might] · 5 spell-effects [Abundance, Animist's Might, Band
+> Together, Natural Order, Thrun himself] · 2 anthems [Primal Might, Professor Hojo] · Buster Sword attack-trig ·
+> Kenrith's Transformation ETB · Nyxborn Hydra enters-as · Saryth activated · Zopandrel upkeep). Start with the
+> aura/equip bucket — likely a shared unblockable/pump-grant shape. Measure with `node scripts/measure-coverage.mjs "Thrun Voltron"`.
+>
 > ## SLICE DONE - 2026-08-16 - **DELAYED-BLINK WIDEN #3 (+1) — Voyager Staff (the "the exiled card" alias)** - the next batch (SH17)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+17**.
 > ⭐ A one-token alias off the SH14 machinery: Voyager Staff's activated ability says "return THE EXILED CARD"
