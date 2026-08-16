@@ -512,7 +512,14 @@ export function applyUntapEarthbentLand(state, atom, ctx) {
  * unreadable → no-op (CR 701.12: nothing fights). Single-target in the corpus; the loop is general.
  */
 export function fightCreature(state, atom, ctx) {
-  const sourceLk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  // ENCHANTED-HOST fighter (Meltstrider's Resolve, W7 — CR 303.4): on an Aura's own trigger, "enchanted
+  // creature fights …" makes the fighter the aura's HOST (the permanent it's attached to), not the aura.
+  // Resolved LIVE off the aura's attachedTo (the aura's own ETB — the host it just attached to); an
+  // unattached/vanished aura or host → null fighter → nothing fights (a clean no-op, CR 701.12).
+  const fighterId = atom.fighterReferent === "enchantedHost"
+    ? (ctx.sourceId ? findPermanent(state, ctx.sourceId)?.permanent?.attachedTo ?? null : null)
+    : ctx.sourceId;
+  const sourceLk = fighterId ? findPermanent(state, fighterId) : null;
   const source = sourceLk?.permanent;
   const targets = atomTargets(state, atom, ctx);
   let next = state;
@@ -521,7 +528,7 @@ export function fightCreature(state, atom, ctx) {
   const hitIds = [];
   for (const t of targets) {
     if (t.type !== "creature") continue;
-    if (t.id === ctx.sourceId) continue; // "another target creature" (CR 701.12) — a creature never fights itself
+    if (t.id === fighterId) continue; // "another target creature" (CR 701.12) — a creature never fights itself
     const targetLk = findPermanent(next, t.id);
     if (!source || !targetLk) continue; // source/target left the battlefield → nothing fights (CR 701.12)
     // Lock BOTH amounts from the PRE-fight, layer-aware power (CR 701.12a, read at resolution), floored at 0.
@@ -529,12 +536,12 @@ export function fightCreature(state, atom, ctx) {
     const tgtPow = Math.max(0, creaturePower(targetLk.permanent, next));
     // Deathtouch is read PRE-fight too (a fighter killed by the simultaneous damage still dealt its damage
     // deathtouch-flagged); reuse the layer-aware keyword read so a GRANTED deathtouch counts.
-    if (permanentHasKeyword(next, ctx.sourceId, "Deathtouch")) deathtouched.add(t.id);
-    if (permanentHasKeyword(next, t.id, "Deathtouch")) deathtouched.add(ctx.sourceId);
+    if (permanentHasKeyword(next, fighterId, "Deathtouch")) deathtouched.add(t.id);
+    if (permanentHasKeyword(next, t.id, "Deathtouch")) deathtouched.add(fighterId);
     // Mark BOTH hits before any SBA runs — simultaneity (CR 701.12a). markCombatDamage is a no-op at 0.
     if (srcPow > 0) next = markCombatDamage(next, { permanentId: t.id, amount: srcPow });
-    if (tgtPow > 0) next = markCombatDamage(next, { permanentId: ctx.sourceId, amount: tgtPow });
-    hitIds.push(t.id, ctx.sourceId);
+    if (tgtPow > 0) next = markCombatDamage(next, { permanentId: fighterId, amount: tgtPow });
+    hitIds.push(t.id, fighterId);
     acted = true;
   }
   if (acted) {
@@ -542,7 +549,7 @@ export function fightCreature(state, atom, ctx) {
     const lethal = destroyLethalCreatures(next, deathtouched);
     next = checkDiesTriggers(lethal.state, lethal.dead);
   }
-  return logEvent(next, { kind: "spell-effect", effect: "fight", source: ctx.sourceId || null, targets: hitIds });
+  return logEvent(next, { kind: "spell-effect", effect: "fight", source: fighterId || null, targets: hitIds });
 }
 
 /**
@@ -2334,6 +2341,14 @@ export function fightClauseParser(clause) {
     const fm = s.toLowerCase().replace(/[’]/g, "'")
       .match(/^(this creature|it) fights (up to one )?target creature (?:you don't control|an opponent controls)$/);
     if (fm) return { op: "fight", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], optionalTarget: !!fm[2], ...(fm[1] === "this creature" ? { sourceAnchored: true } : {}) };
+    // ENCHANTED-HOST fight (Meltstrider's Resolve, W7 — an Aura's own ETB: "ENCHANTED CREATURE fights up
+    // to one target creature an opponent controls"). Same shape as the source-bound arm above, with the
+    // fighter re-pointed at the aura's HOST (fighterReferent — fightCreature resolves attachedTo live).
+    // "enchanted creature" can only appear in an attachment's own body (CR 303.4), so the referent is
+    // unambiguous; sourceAnchored applies for the same compound-gate reason as "this creature".
+    const fe = s.toLowerCase().replace(/[’]/g, "'")
+      .match(/^enchanted creature fights (up to one )?target creature (?:you don't control|an opponent controls)$/);
+    if (fe) return { op: "fight", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], optionalTarget: !!fe[1], sourceAnchored: true, fighterReferent: "enchantedHost" };
   }
   // (2) source-bound "another": "[have ]?[this creature|it] fight(s) another target creature"
   {

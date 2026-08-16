@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **⭐ MELTSTRIDER'S RESOLVE (+4) — the enchanted-host fight + the attached block-cap** - the shelf grind (Wolverine 85→86)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+4 / 0 / 0** — Meltstrider's + THREE
+> riders, all whole-card audited: Pitiless Fists + Warbriar Blessing (the same enchanted-fight ETB,
+> simple bonuses) + Wolfrider's Saddle (equipment — its create+attach ETB VERIFIED riding the real
+> attachSourceToCreated rider before crediting, not assumed). Post-release batch **+62**.
+> ⭐ FOUR SEAMS, four conventions: ① the fight arm "enchanted creature fights (up to one) target…"
+> → fighterReferent:"enchantedHost" (the sourceAnchored sibling); ② fightCreature resolves the
+> fighter off the aura's LIVE attachedTo (unattached → clean no-op, CR 701.12); ③ parseAttachedBonus
+> "+X/+Y and can't be blocked by more than one creature" → ptModify + the blockCapOne pseudo-keyword
+> (the cantAttack/mustAttack layer-6 convention — lifts when the attachment leaves); ④ the
+> legalBlockerActions cap read is now printed-OR-granted (combatEvasion.isBlockedByAtMostOne ‖
+> permanentHasKeyword blockCapOne). Witness 7 pins incl. the aura-never-fights guard + the
+> cap-holds/cap-absent declaration pair; 3 mutations (arm · referent · cap-read), ALL via Edit
+> (the perl lesson), each seen-to-fail. Token diet: ~8k output tokens this slice.
 > ## SLICE DONE - 2026-08-15 - **WELL RESTED (+1) — the compound self-counter pronoun** - the shelf grind (Wolverine 84→85)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Well Rested (the Aura)
 > body-only→native-trigger through the GRANTED lane. Post-release batch **+58**.

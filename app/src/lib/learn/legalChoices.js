@@ -3376,8 +3376,10 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
       const minBlk = minBlockersByAttacker[attackerId];
       if (minBlk > 1 && (blockersOnAttacker[attackerId] || 0) + eligible.length < minBlk) continue;  // a legal ≥N block can't be completed (menace / EV-3 set rule)
       // BLOCK-COUNT CAP (CR 509.1c) — "can't be blocked by more than one creature": once one blocker is on this
-      // attacker, no further blocker may be declared (menace-inverse). Layer-aware via the attacker's live card.
-      if ((blockersOnAttacker[attackerId] || 0) >= 1 && isBlockedByAtMostOne(findPermanent(state, attackerId)?.permanent?.card)) continue;
+      // attacker, no further blocker may be declared (menace-inverse). PRINTED (the attacker's own card) OR
+      // GRANTED (Meltstrider's Resolve, W7 — the attached blockCapOne pseudo-keyword, lifted when the aura leaves).
+      if ((blockersOnAttacker[attackerId] || 0) >= 1
+        && (isBlockedByAtMostOne(findPermanent(state, attackerId)?.permanent?.card) || permanentHasKeyword(state, attackerId, "blockCapOne"))) continue;
       // N2: attach the attacker's name — without it, blocking among several attackers in a pod
       // renders as N byte-identical "Block the attacker with [[X]]." lines.
       const attackerName = findPermanent(state, attackerId)?.permanent?.card?.name || null;

@@ -9,6 +9,11 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Meltstrider's Resolve (and friends) do what auras say.** The enters-fight really makes the
+  *enchanted creature* fight (never the aura, and declining is allowed), and "can't be blocked by
+  more than one creature" now works as an aura or equipment grant — it holds while attached and
+  lifts the moment the attachment leaves. Pitiless Fists, Warbriar Blessing, and Wolfrider's Saddle
+  ride the same fixes.
 - **Well Rested wakes up properly.** The enchanted creature's untap trigger really fires — two
   counters on the creature itself, two life, a card — once each turn as printed.
 - **Canopy Gargantuan counts each creature separately.** The upkeep really gives every *other*

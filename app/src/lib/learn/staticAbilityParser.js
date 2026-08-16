@@ -5031,6 +5031,21 @@ function parseAttachedClauseCore(c, subject, noun = "creature") {
     if (cantM[2]) out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: "activatedAbilitiesLocked" }, duration: { kind: "permanent" } });
     return out;
   }
+  // BLOCK-COUNT CAP grant (Meltstrider's Resolve, W7 — CR 509.1c, the menace-inverse as an ATTACHED bonus):
+  // "gets +0/+2 and can't be blocked by more than one creature" (+ the bare cap form). A layer-6 grant of
+  // the `blockCapOne` pseudo-keyword — the cantAttack/mustAttack convention: scoped to the host by
+  // staticEffectsOf, lifted the instant the attachment leaves, and enforced at the SAME block-declaration
+  // site the PRINTED self form (combatEvasion.isBlockedByAtMostOne) already uses — legalBlockerActions now
+  // reads printed-OR-granted. Anchored whole-clause ($): any other rider drops the whole bonus (safe FN).
+  {
+    const capPt = rest.match(/^gets ([+-]\d+)\/([+-]\d+) and can't be blocked by more than one creature\.?$/);
+    const capBare = /^can't be blocked by more than one creature\.?$/.test(rest);
+    if (capPt || capBare) {
+      if (capPt) out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModify", power: signed(capPt[1]), toughness: signed(capPt[2]) }, duration: { kind: "permanent" } });
+      out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: "blockCapOne" }, duration: { kind: "permanent" } });
+      return out;
+    }
+  }
   // ⭐ GRANTED MUST-ATTACK (CR 508.1a) — "Enchanted creature attacks each combat if able" (Bloodshed Fever,
   // Lust for War, Skin Invasion) and the combined "gets +N/+N and attacks each combat if able" (Furor of
   // the Bitten, Guise of Fire, Uncontrollable Anger). The pacifism twin: a layer-6 grant of the `mustAttack`
