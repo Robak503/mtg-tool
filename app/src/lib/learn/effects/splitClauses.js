@@ -735,6 +735,17 @@ export function splitClauses(oracle) {
       clauses.push(sentence);
       continue;
     }
+    // TAPPED-AND-ATTACKING TOKEN keep-whole (Otharri, Suns' Glory — O1). The token disposition
+    // "…creature token that's tapped and attacking …" carries an INTERNAL " and " (tapped ∧ attacking)
+    // that the split below would sever into "…token that's tapped" + "attacking for each …" — a bare
+    // token clause plus an orphan. Anchored to the exact create-token disposition shape (the tokens.js
+    // parser arm re-gates it); any variant splits normally, byte-identical. Same non-fail-safe class as
+    // the blink guard above: the severed "…token that's tapped" half parses HIGH alone, describing a
+    // token that enters tapped but never attacks — a silent drop of the whole combat-cheat.
+    if (/creature tokens? that's tapped and attacking\b/i.test(sentence)) {
+      clauses.push(sentence);
+      continue;
+    }
     // Split on a top-level " and " OR a ", then " sequence ("Scry 2, then draw a card" — Preordain;
     // "Draw a card, then discard a card" — loot). The comma is required so an in-effect "then" (a
     // rarity) isn't severed; each split piece is still re-parsed on its own merits, so a mis-split

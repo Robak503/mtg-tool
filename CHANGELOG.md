@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **"Tapped and attacking" tokens really attack.** Kessig Cagebreakers (and cards like it) now make
+  their Wolf tokens that enter tapped-and-attacking actually join the attack and deal damage, one per
+  creature card in your graveyard — not enter and sit there.
 - **"Protection from the color of your choice" is a real choice.** Mother of Runes, Giver of Runes,
   Gods Willing, Shelter, and six more now grant genuine protection with a sensibly chosen color (the
   most-threatening color on your opponents' boards), and Giver can pick colorless as printed.

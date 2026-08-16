@@ -41,6 +41,10 @@ push. Old MUST-STAY-LOW pins that flip are GRADUATED with the date + a surviving
 control (three graduated today — expect more; the full suite is the graduation detector).
 THE CREED: false-negative SAFE, false-positive FORBIDDEN. The named traps: the hollow credit (a
 modeled line the runtime never exercises), the piped exit code, the decline-only AI shortcut.
+**+ THE COMMS FEED (Colton, 08-16):** when a slice PARKS a card (a probe that stays body-only, a
+CREED park, a named ceiling), drop a terse line in the vault's COMMS.md naming it + the blocker —
+Omnath owns the Arbiter play-nuance backfill (the `note` field on `parked:true` entries in
+card-play-hints.json) and works from that feed. Flips need no line; they shrink his list natively.
 
 ## 3. THE QUEUE (Colton's order — cEDH LAST; Atraxa last of the gap decks)
 
@@ -174,11 +178,16 @@ the airbend + play-from-library subsystems as deliberate builds; expect 2-3 ceil
 
 ### 5.3 Otharri Test — 74, needs 16
 11 spells (Tithe, Blacksmith's Skill, Hour of Reckoning, Neyali, Galadriel's Dismissal, Anim
-Pakal…), 4 activated (Everflowing Chalice, **Mother+Giver — vein #3**, Kirol), 3 ETBs (Solitude —
-evoke-pitch class, Rosie Cotton, Staff of the Storyteller), 2 attacks (Otharri herself —
-experience + hasty Phoenix, Aurelia the Law Above), Ocelot Pride / Windcrag Siege (upkeep), Zack
-Fair / Patrolling Peacemaker (enters-as), Glimmer Lens, Crumb and Get It. Strategy: vein #3 first,
-then Everflowing Chalice, then Otharri herself (the commander = the win).
+Pakal…), 4 activated (Everflowing Chalice — the multikicker charge-counter rock, HEAVY;
+**✅ Mother+Giver vein #3 SHIPPED 08-16**; Kirol — copy-a-triggered-ability, heavy), 3 ETBs
+(Solitude — evoke-pitch class, Rosie Cotton, Staff of the Storyteller), 2 attacks (Otharri herself
++ Aurelia). ⚠️ OTHARRI PARTIALLY DONE 08-16: her attack trigger (experience counter + N
+tapped-and-attacking Rebels) NOW ROUTES — the O1 tapped-and-attacking-token machinery (split
+keep-whole guard + the create-token disposition arm + the combat.attackers join, flipped Kessig
+Cagebreakers +1) — but she stays body-only on her THIRD ability: "{2}{R}{W}, Tap an untapped Rebel:
+Return this card from your graveyard to the battlefield tapped" (a graveyard-activated reanimate —
+its own subsystem). Otharri flips when THAT lands. Ocelot Pride / Windcrag Siege (upkeep), Zack
+Fair / Patrolling Peacemaker (enters-as), Glimmer Lens, Crumb and Get It.
 
 ### 5.4 Captain America Shoot your Shot — 73, needs 17
 **8 attack triggers — vein #6's heart** (Sword of Hearth and Home, Kaldra Compleat, Sword of

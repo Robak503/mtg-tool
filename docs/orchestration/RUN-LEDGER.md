@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **TAPPED-AND-ATTACKING TOKEN (+1) — the mobilize-token for-each (Kessig Cagebreakers)** - the shelf grind (Otharri O1)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Kessig Cagebreakers
+> body-only→native-trigger (whole-card audited: single ability, count filters to CREATURE cards in
+> GY — verified 2-of-3). Post-release batch **+83**.
+> ⭐ THREE pieces: (a) the splitClauses keep-whole guard ("…token that's tapped and attacking …" — the
+> internal " and " would sever it into a bare token + orphan, the blink-guard non-fail-safe class); (b)
+> the create-token disposition arm (tapped + entersAttacking + countFor, before the plain for-each
+> anchor); (c) applyCreateToken's ATTACKING JOIN — registering the minted tokens in
+> state.combat.attackers vs ctx.defenderId (the applyMobilize convention). The join CLOSES the
+> DEAD-FIELD trap the createTokenCopy warning named: entersAttacking alone sets a permanent flag NOTHING
+> reads — attacking-ness is combat.attackers membership. TARGETED Otharri (the commander); her attack
+> trigger NOW ROUTES, but she stays body-only on her separate {2}{R}{W},Tap-a-Rebel graveyard-reanimate
+> (flips when that lands — noted in the plan). A build that flipped a DIFFERENT card than aimed is still
+> a real audited +1 — the flip-diff, not the target, is what counts. 3 mutations (split guard · parser
+> arm · the join) via Edit, each seen-to-fail. Token diet: ~10k output tokens this slice.
 > ## SLICE DONE - 2026-08-16 - **⭐ VEIN #3: MOTHER/GIVER (+10) — protection from the color of your choice** - the shelf grind (Otharri·Light-Paws·Shalai all move)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+10 / 0 / 0** — Mother of Runes + Giver
 > of Runes + Armored Guardian + Benevolent Bodyguard + Moonlit Strider (activateds) + Gods Willing +

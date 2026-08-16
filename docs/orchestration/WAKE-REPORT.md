@@ -11,8 +11,13 @@
 
 > ### 🔴 STANDING ORDER (Colton, 2026-08-16): NON-STOP TO THE 100s. Grind the batch to ~100 → tag
 > v0.160.0 → plan + fully execute the NEXT ~100 without pausing. Report only at 100-boundaries or on
-> a genuine blocker. A 10-minute session cron (job 3e50230c) forces continuation; if the session died,
+> a genuine blocker. A 10-minute session cron (job b5b7ec29; step 0 = CHECK COMMS, Colton 08-16) forces continuation; if the session died,
 > THIS block is the order — boot from SHELF-TAIL-PLAN.md and keep going.
+> **PER-SLICE COMMS FEED (Colton, 08-16):** Omnath owns the ARBITER PLAY-NUANCE BACKFILL (the
+> `note` field on every `parked:true` entry in card-play-hints.json — 340 at handoff; he + Colton
+> clarify how each parked card is SUPPOSED to play). Each slice, drop a terse COMMS line naming any
+> cards NEWLY PARKED (with the blocker) so his list stays current; flips shrink the set from the
+> native side automatically.
 > ### ⏭ RUNNABLE NOW — **the shelf tail runs off [SHELF-TAIL-PLAN.md](SHELF-TAIL-PLAN.md)** (Colton, 08-15: keep the window low)
 > The next three decks' full residue maps, probed blockers, and slice queues live in
 > **docs/orchestration/SHELF-TAIL-PLAN.md** — a booting session reads THAT file, not a vein block

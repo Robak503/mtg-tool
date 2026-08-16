@@ -146,6 +146,17 @@ export function applyCreateToken(state, atom, ctx) {
     next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, perm] } } };
     mintedIds.push(minted.id);
   }
+  // ATTACKING JOIN (Otharri O1 — CR 508.1c): a token minted "tapped and attacking" must be REGISTERED in
+  // state.combat.attackers to actually be attacking — the entersAttacking permanent flag alone is inert
+  // (the dead-field warning on createTokenCopy names this exactly). The applyMobilize convention verbatim:
+  // append each minted token vs the trigger's defender (ctx.defenderId, threaded by the attack-trigger
+  // flush). It was NEVER declared as an attacker, so no attack triggers fire for it (CR 508.4). A missing
+  // defender (a non-attack resolution path) leaves the tokens tapped but un-joined — FN-safe, never a
+  // fabricated combat entry (the Raph & Mikey convention).
+  if (atom.entersAttacking && ctx.defenderId && mintedIds.length) {
+    const entries = mintedIds.map((id) => ({ permanentId: id, attackingPlayer: ctx.controller, defender: ctx.defenderId }));
+    next = { ...next, combat: { ...(next.combat || { attackers: [], blockers: [] }), attackers: [...(next.combat?.attackers || []), ...entries] } };
+  }
   // ATTACH-TO-CREATED-TOKEN (CR 701.3) — "…, then attach this Equipment to it." Attach BEFORE the ETB fire
   // and the lethal SBA below, exactly like the Living Weapon path in resolvers.enterPermanent: a token whose
   // survival depends on the Equipment's bonus (a 0/0 germ-shaped token) must already be wearing it when the
@@ -753,6 +764,23 @@ function createTokenClauseParserCore(clause) {
     if (!landMana.ok || landMana.oracle) return null; // a land token's intrinsic mana + a dynamic count is unprinted — park (CREED)
     const countFor = parseCountSource(mxw[4].replace(/^the (?:total )?number of /, ""));
     return countFor ? { op: "create-token", power: parseInt(mxw[1], 10), toughness, descriptor: mxw[3].trim(), countFor, targetType: null } : null;
+  }
+  // ===== TAPPED-AND-ATTACKING FOR-EACH (Otharri, Suns' Glory — SHELF-TAIL O1, CR 508.1c) ===== "create a
+  // <P>/<T> <desc> creature token that's tapped and attacking for each <count source>". The mobilize
+  // disposition (enters TAPPED and joins combat.attackers vs the trigger's defender — applyCreateToken's
+  // entersAttacking wiring, the applyMobilize convention) on a dynamic count. Placed BEFORE the plain
+  // for-each anchor: that regex needs "creature token" immediately followed by "for each", so this
+  // disposition-carrying variant never reaches it. tapped + entersAttacking are COMBAT STATE (per the
+  // dead-field warning above) — a type-add descriptor is still forbidden here (a Rebel/Warrior subtype is
+  // fine; the parser's non-land descriptor gate keeps it clean).
+  const mta = t.match(/^create (?:a|an|one) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens? that's tapped and attacking for each (.+)$/);
+  if (mta) {
+    const toughness = parseInt(mta[2], 10);
+    if (toughness < 1) return null;
+    const landMana = landTokenManaOracle(mta[3]);
+    if (!landMana.ok || landMana.oracle) return null; // a land token minting tapped-and-attacking is unprinted → park (CREED)
+    const countFor = parseCountSource(mta[4]);
+    return countFor ? { op: "create-token", power: parseInt(mta[1], 10), toughness, descriptor: mta[3].trim(), countFor, tapped: true, entersAttacking: true, targetType: null } : null;
   }
   const mtf = t.match(/^create (?:a|an|one) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens? for each (.+)$/);
   if (mtf) {
