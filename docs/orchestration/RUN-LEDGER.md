@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **KEDEREKT PARASITE (+1) — optional causative "you may have this creature deal N damage"** - the next batch (SH6, vein #1 CLOSED)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+3**.
+> ⭐ A SINGLE clean arm — isolated by probe: the intervening-if "if you control a red permanent" already
+> ROUTES, "the drawing player" is the cardDrawn rewrite, and the base "this creature deals N damage" is
+> HIGH. The ONLY gap was the CAUSATIVE "have this creature DEAL" (vs declarative "DEALS"). Fixed with a
+> clause-level conjugation "have <bound self> deal" → "<self> deals" (this creature / it / that creature
+> only), riding the same parseClauseToAtom normalize as the each-of-your-opponents fix; the "you may"
+> wrapper is peeled + stamped optional by α2 upstream (verified opt:true). VEIN #1 (opponent-draw
+> punishment) NOW CLOSED — only Razorkin's conditional-first-strike remains, a different subsystem.
+> ⚠️ witness scoping-pin trap banked: "have TARGET creature deal…" has its OWN pre-existing high parse
+> (a chosen-target causative), so it's NOT the scoping boundary — used "have ANOTHER creature deal…"
+> (genuinely untouched + low) instead. 1 mutation (the conjugation) via Edit, seen-to-fail. Token diet:
+> ~10k output tokens this slice (a clean single-arm after the probe isolated it).
 > ## SLICE DONE - 2026-08-16 - **AURELIA, THE LAW ABOVE (+1) — "a player attacks with N or more creatures" any-player scope** - the next batch (SH5)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+2**.
 > ⭐ TWO arms, both foundational: (1) the ANY-PLAYER attack-count scope — the symmetric twin of "you attack

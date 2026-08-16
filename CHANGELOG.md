@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Kederekt Parasite's optional ping works.** When an opponent draws and you control a red permanent, it
+  now offers to deal its 1 damage, instead of the whole ability falling through.
 - **Aurelia, the Law Above triggers off any player's attack.** Her draw and her damage/lifegain now fire
   when anyone — you or an opponent — attacks with enough creatures, as printed.
 - **Sage's Reverie counts its auras.** Its draw and its buff now scale with the Auras you control that are

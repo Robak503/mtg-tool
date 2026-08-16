@@ -99,10 +99,10 @@ deck. Ordered roughly by payoff:
 1. **The opponent-draw punishment watcher** ("whenever an opponent draws a card, ~ deals damage"):
    🔶 MOSTLY BUILT (probed 08-16): the CORE is ALREADY native — Nekusar himself, Underworld Dreams,
    Fate Unraveler. Stragglers are each DISTINCT, not a cheap shared arm: ✅ Spiteful Visions (ND1 —
-   the "a player draws" anyDraw scope, symmetric) done 08-16; Kederekt Parasite = "if you control a
-   red permanent" intervening-if + "you may have ~ deal" optional (medium); Razorkin Needlehead =
-   "first strike during your turn" conditional keyword (HEAVY — that's the real blocker, not the draw
-   trigger). The rich cheap vein was already mined; only individual medium/heavy cards remain.
+   the "a player draws" anyDraw scope, symmetric) done 08-16; ✅ Kederekt Parasite SHIPPED (SH6, 08-16 —
+   the optional causative "you may have this creature deal" was the only gap; the intervening-if already
+   routed). VEIN #1 CLOSED — only Razorkin Needlehead remains, blocked by "first strike during your turn"
+   (a conditional-keyword subsystem, NOT the draw trigger).
 2. **The mass draw-discard WHEEL atom** ("each player discards their hand, then draws seven"-class):
    Nekusar ×~10 (the Wheels), Windfall also in Bumbleflower + Shorikai... (verify each wording —
    Wheel of Misfortune's bidding stays parked).

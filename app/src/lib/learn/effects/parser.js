@@ -462,7 +462,15 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
   // written against "each opponent". Normalize the longer form up front so every downstream matcher (deal N
   // damage to each opponent, each opponent loses N, …) covers the "your opponents" wording with no per-matcher
   // widening. Word-bounded; "each of THEIR opponents" (a different player's opponents) is untouched.
-  const s = stripReminder(clause).replace(/\beach of your opponents\b/gi, "each opponent");
+  // CAUSATIVE DAMAGE (Kederekt Parasite — SHELF-TAIL SH6): a triggered ability's optional "you may HAVE this
+  // creature DEAL N damage to X" is the causative twin of the declarative "this creature DEALS N damage to X"
+  // (which parses HIGH). The "you may" wrapper is peeled + stamped optional upstream (α2); here we only
+  // conjugate the causative "have <bound self> deal" → "<self> deals" so the existing damage matcher binds.
+  // Scoped to the bound self-referents (this creature / it / that creature) — a chosen-target causative
+  // ("have target creature deal …") is not this shape and is untouched.
+  const s = stripReminder(clause)
+    .replace(/\beach of your opponents\b/gi, "each opponent")
+    .replace(/\bhave (this creature|it|that creature) deal\b/gi, (_m, subj) => `${subj} deals`);
   if (!s) return null;
 
   // ⭐ IMPULSE-EXILE AS A CLAUSE (2026-08-03) — "Exile the top N cards of your library. Until the end of
