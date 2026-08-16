@@ -597,12 +597,16 @@ export function applyFightPair(state, atom, ctx) {
   // powers are locked, so the pumped power deals more AND the pumped toughness lets it survive the return
   // damage. A real layer-7c ptModify (identical to applyPumpEffect) → creaturePower/destroyLethalCreatures
   // read it layer-aware below. The buff persists to end of turn, matching the printed duration.
-  if (atom.fighterPump && (atom.fighterPump.power || atom.fighterPump.toughness)) {
+  // amountX (Primal Might — "+X/+X") binds both pips to the chosen X (ctx.xValue); the fixed form uses the
+  // printed power/toughness. A 0 X (empty pick) is a valid +0/+0, so gate on the flag, not the value.
+  const fpPow = atom.fighterPump?.amountX ? (ctx.xValue || 0) : (atom.fighterPump?.power || 0);
+  const fpTou = atom.fighterPump?.amountX ? (ctx.xValue || 0) : (atom.fighterPump?.toughness || 0);
+  if (atom.fighterPump && (atom.fighterPump.amountX || fpPow || fpTou)) {
     const pre = fightPairRefs(base, ctx);
     if (pre.fighter) {
       base = addContinuousEffect(base, {
         layer: 7, sublayer: "7c",
-        op: { layerOp: "ptModify", power: atom.fighterPump.power || 0, toughness: atom.fighterPump.toughness || 0 },
+        op: { layerOp: "ptModify", power: fpPow, toughness: fpTou },
         affects: { mode: "fixed", permanentIds: [pre.fighter.permanent.id] },
         duration: { kind: "endOfTurn", turn: base.turn },
         source: { kind: "resolution", permanentId: null, cardName: ctx.cardName || null },

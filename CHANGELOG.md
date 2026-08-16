@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Primal Might works.** It now pumps your creature by +X/+X and then fights, so the X you pay actually
+  swings the fight, as printed.
 - **"Untap target creature or land" works.** Saryth, the Viper's Fang, Civic Gardener, and Initiate's
   Companion can now untap either a creature or a land, as printed.
 - **Natural Order works.** It now correctly requires sacrificing a green creature as you cast it, then tutors

@@ -11,13 +11,27 @@
 > unchanged — the ~100 tag still fires; only WHAT we pick changes.) Rule saved: [[feedback-deck-shelf-over-release-batch]].
 > **Fresh measurements (08-16):** Thrun **82** (LEADER — needs 8) · Otharri 77 · Brago 76 · Nekusar 74 · Kellan
 > 74 · Shalai 73 · Bumbleflower 64 · Light-Paws ~58 (floor). Batch stands at **+17**.
-> 🎯 **FOCUS: THRUN VOLTRON → 90** — now **87** (SH18-22: Whispersilk · Indomitable Might · Lion Umbra · Natural Order · Saryth); **needs 3 more** to hit the shelf.
+> 🎯 **FOCUS: THRUN VOLTRON → 90** — now **88** (SH18-23; +Primal Might); **needs 2 more** to hit the first shelf deck.
 > Parked: 4 aura/equip [Prowler's Helm=FILTERED evasion=DEFER, Nazgûl Battle-Mace=annihilator+quoted-trig=heavy,
 > Lion Umbra=modified+totem-armor, Strong Back=cost-reductions] · 5 spell-effects [Abundance draw-replace, Animist's
 > Might fight+cost-reduce, Band Together multi-source fight, Natural Order sac→tutor-to-bf, Thrun himself] · 2
 > anthems [Primal Might X-pump+fight, Professor Hojo first-ability cost-reduce] · Buster Sword attack-trig ·
 > Kenrith's Transformation ETB · Nyxborn Hydra enters-as · Saryth activated · Zopandrel upkeep. Measure with
 > `node scripts/measure-coverage.mjs "Thrun Voltron"`.
+>
+> ## SLICE DONE - 2026-08-16 - **THRUN #6: Primal Might (+1) — the X-scaled pump-then-fight** - DECK-FIRST (SH23)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+29**. **Thrun 87 → 88.**
+> ⭐ The fixed-N "gets +N/+N until end of turn. Then it fights…" was ALREADY native (matchPumpThenFight → a
+> fight-pair carrying fighterPump). Primal Might is the X form — "+X/+X" — so this widened the matcher to admit
+> both-X, marked the program xSpell (X chosen at cast, CR 601.2b), and the fighterPump binds to the chosen X
+> (ctx.xValue) at resolution via the amountX lane applyPumpEffect already reads. 3 contained sites, the
+> X-machinery all pre-existing.
+> ⚠️ HOLLOW-GATE: witness pins the RUNTIME — X=3 pumps the 2/2 fighter to 5/5 so it KILLS a 3/3 enemy and
+> survives; the X=0 CONTROL leaves it 2/2 so it DIES (proving the scaling load-bearing, not cosmetic). 2
+> mutations via Edit, seen-to-fail (matcher X alternation → arbiter; the amountX applier branch → fighter unpumped).
+> 🎯 **THRUN now 88 — needs 2 to hit the first 90.** Remaining: Animist's Might (fight+conditional cost-reduce),
+> Band Together (multi-source fight), Abundance (draw-replace), Professor Hojo (cost-reduce), Nyxborn Hydra
+> (bestow+X), Kenrith's Transformation (loses-all-abilities LAYER effect — heavy), Zopandrel (mass P/T-double).
 >
 > ## SLICE DONE - 2026-08-16 - **THRUN #5: Saryth (+3) — the "untap target CREATURE OR LAND" union** - DECK-FIRST (SH22)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+3 / 0 / 0**. NEW batch: **+28**. **Thrun 86 → 87.**

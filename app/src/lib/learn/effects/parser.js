@@ -2204,7 +2204,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // (the fightAtomMisplaced park). HIGH iff the op is KNOWN (fight-pair). Not an X spell.
   const ptf = matchPumpThenFight(oracle);
   if (ptf && ptf.atoms.every(a => KNOWN.has(a.op))) {
-    return makeProgram({ confidence: "high", atoms: ptf.atoms, xSpell: false, unparsedTail: null });
+    return makeProgram({ confidence: "high", atoms: ptf.atoms, xSpell: !!ptf.xSpell, unparsedTail: null }); // Primal Might's "+X/+X" pump is an X-spell
   }
   // ===== UNTAP-THEN-PUMP (Ornamental Courage / Inspirit / Gerrard's Command / Spidery Grasp / Aim High / Steady
   // Aim) ===== "Untap target creature. It gets +X/+Y [and gains reach] until end of turn." → ONE pump atom with

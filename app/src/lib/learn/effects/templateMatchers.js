@@ -829,15 +829,19 @@ export function matchTaxedTreasure(oracle) {
 // damage …"), modal, or cost-prefixed variant fails the exact anchor → falls through → LOW → Arbiter (CREED).
 export function matchPumpThenFight(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
-  const m = t.match(/^target creature you control gets \+(\d+)\/\+(\d+) until end of turn\. (?:then )?it fights (up to one )?target creature (?:you don't control|an opponent controls)$/);
+  const m = t.match(/^target creature you control gets \+(\d+|x)\/\+(\d+|x) until end of turn\. (?:then )?it fights (up to one )?target creature (?:you don't control|an opponent controls)$/);
   if (!m) return null;
-  const power = parseInt(m[1], 10), toughness = parseInt(m[2], 10);
+  // X form (Primal Might — "+X/+X"): both pips must be X (a mixed +X/+3 isn't this template) → an X-spell whose
+  // pump binds to the chosen X (ctx.xValue) at resolution, the same amountX lane applyPumpEffect already reads.
+  const isX = m[1] === "x" || m[2] === "x";
+  if (isX && !(m[1] === "x" && m[2] === "x")) return null;
   const upToOne = !!m[3];
   // Reuse the canonical fight-pair (form a) shape so the targeting roles/restrictions stay in sync, then attach
   // the fighter pump. Both enemy phrasings map to the same opponent restriction in form a.
   const fp = fightClauseParser(`target creature you control fights ${upToOne ? "up to one " : ""}target creature you don't control`);
   if (!fp || fp.op !== "fight-pair") return null;
-  return { atoms: [{ ...fp, fighterPump: { power, toughness } }] };
+  const fighterPump = isX ? { amountX: true } : { power: parseInt(m[1], 10), toughness: parseInt(m[2], 10) };
+  return { atoms: [{ ...fp, fighterPump }], xSpell: isX };
 }
 
 // UNTAP-THEN-PUMP (Ornamental Courage / Inspirit / Gerrard's Command / Spidery Grasp / Aim High / Steady Aim) —
