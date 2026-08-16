@@ -189,7 +189,20 @@ Return this card from your graveyard to the battlefield tapped" (a graveyard-act
 its own subsystem). Otharri flips when THAT lands. Ocelot Pride / Windcrag Siege (upkeep), Zack
 Fair / Patrolling Peacemaker (enters-as), Glimmer Lens, Crumb and Get It.
 
-### 5.4 Captain America Shoot your Shot — 73, needs 17
+### 5.4 Captain America Shoot your Shot — 73, needs 17 · 🔍 SCOUTED 08-16: NO CHEAP SLICES (vein doctrine, like Kellan)
+Probed the vein #6 heart + statics: uniformly heavy. The 8 attack/combat-damage triggers are DISTINCT
+subsystems, not one shared arm — Sword of Hearth and Home (blink + basic-land tutor), Sword of Wealth and
+Power (Treasure arm ✓ but blocked on "copy your next instant/sorcery this turn" — delayed-copy), Buster
+Sword (draw + cast-from-hand ≤MV), Super-Soldier Serum (mass-attach "any number of target Equipment" + a
+legendary-Soldier type-add). Statics: Panther Habit = damage-prevention→+1/+1-counters REPLACEMENT (CR
+615 subsystem); **Aettir and Priwen = base P/T X/X where X = your life total** — the ONE bounded candidate:
+fixed base-P/T equip is ALREADY native (layer 7b), so the only gap is a DYNAMIC set-base (7b reads fixed
+values only today; 7c has DYNAMIC_PT_FNS for MODIFY, not SET). That's a new layer-7b capability (parser arm
++ a dynamic-set-base branch + a controller-life reader) worth its OWN focused slice — could generalize to
+other "base P/T equal to X" cards. Queue ADVANCES past Cap (→ Halfshell ⑤) like it did past Kellan; Aettir
+is the named re-entry point when a layer fire comes up.
+
+### 5.4-orig Captain America Shoot your Shot — 73, needs 17
 **8 attack triggers — vein #6's heart** (Sword of Hearth and Home, Kaldra Compleat, Sword of
 Wealth and Power, Iron Man, Buster Sword, Super-Soldier Serum…), 5 aura/equip statics
 (Illusionist's Bracers, Aettir and Priwen, Panther Habit, Conqueror's Flail, Hammer of Nazahn),
