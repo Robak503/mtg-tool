@@ -121,13 +121,10 @@ native-activated ALREADY — ambient flips, don't re-build): the cheapest remain
 ✅ **Meltstrider's Resolve (+4 — SHIPPED 08-16 with riders Pitiless Fists, Warbriar Blessing,
 Wolfrider's Saddle)**: fighterReferent:"enchantedHost" on the fight atom + the blockCapOne
 pseudo-keyword grant + the printed-OR-granted block-site read ·
-**Brotherhood Regalia** (probed 08-16: the dual "Equip legendary creature {1}" line is ALREADY
-modeled — equipQuality:"legendary"; the blocker is ONE static line with THREE grants: "has ward {2},
-is an Assassin in addition to its other types, and can't be blocked" → parseAttachedClause needs
-③ arms: ward-attached (the group wardGeneric's attached sibling), the TYPE-ADD (check whether a
-layer-4 addSubtype op exists under the animate/Mistform machinery — permanentTypes is layer-aware;
-if not, the type-add is the slice's real build), and unblockable-attached (a cantBeBlocked
-pseudo-keyword + the canBlockAttacker printed-OR-granted read — the blockCapOne pattern exactly)) · **Brotherhood Regalia** (granted ward{2} exists; the blockers are likely the
+✅ **Brotherhood Regalia (SHIPPED 08-16)**: one arm, three existing lanes (addWard + the layer-4
+subtype ADD + the "unblockable" pseudo-keyword; the dual equip line was already modeled). ⚠️ PROCESS
+(standing): push slice DOCS in the SAME commit as the feat — a docs-chaser push concurrency-cancels
+the feat's CI run (3 cycles burned before this stuck) · **Brotherhood Regalia** (granted ward{2} exists; the blockers are likely the
 "is an Assassin in addition" type-add + "can't be blocked" grant + the DUAL equip costs) ·
 **Quilled Greatwurm** (the deals-combat-damage-during-your-turn → that-many self counters watcher;
 ⚠️ its cast-from-GY-by-removing-counters line may park the card — check the alt-cast exclusion

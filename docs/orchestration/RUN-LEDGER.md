@@ -3,6 +3,16 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **BROTHERHOOD REGALIA (+1) — the three-grant equip line** - the shelf grind (Wolverine 86→87)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. Post-release batch **+63**.
+> ⭐ ONE parser arm, THREE existing lanes: "has ward {2}, is an Assassin in addition to its other
+> types, and can't be blocked" → addWard (the Cathedral grant's op — the attached→collect stream
+> verified before crediting) + the generic layer-4 subtype ADD (the animate lane) + the "unblockable"
+> pseudo-keyword (the cant-be-blocked atom's op). The dual "Equip legendary creature {1}" line was
+> ALREADY modeled (equipQuality) — the probe kept the slice honest at one arm. Witness pins all three
+> layer-aware reads WITH unattached controls + the zero-blocks declaration pair. 1 mutation (the arm,
+> via Edit) kills 3. Docs ride THIS commit (the CI-cancel lesson, 3 cycles burned before it stuck).
+> Token diet: ~5k output tokens this slice.
 > ## SLICE DONE - 2026-08-16 - **⭐ MELTSTRIDER'S RESOLVE (+4) — the enchanted-host fight + the attached block-cap** - the shelf grind (Wolverine 85→86)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+4 / 0 / 0** — Meltstrider's + THREE
 > riders, all whole-card audited: Pitiless Fists + Warbriar Blessing (the same enchanted-fight ETB,

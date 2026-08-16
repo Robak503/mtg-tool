@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Brotherhood Regalia grants everything it says.** The equipped creature really has ward {2} (the
+  tax applies), really becomes an Assassin (subtype-matters cards see it), and really can't be
+  blocked — all three lift the moment the Equipment comes off.
 - **Meltstrider's Resolve (and friends) do what auras say.** The enters-fight really makes the
   *enchanted creature* fight (never the aura, and declining is allowed), and "can't be blocked by
   more than one creature" now works as an aura or equipment grant — it holds while attached and

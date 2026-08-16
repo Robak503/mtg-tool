@@ -5031,6 +5031,22 @@ function parseAttachedClauseCore(c, subject, noun = "creature") {
     if (cantM[2]) out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: "activatedAbilitiesLocked" }, duration: { kind: "permanent" } });
     return out;
   }
+  // BROTHERHOOD REGALIA (W8 — one line, THREE grants): "has ward {N}, is an <Subtype> in addition to its
+  // other types, and can't be blocked." All three ride existing lanes: addWard (the Cathedral group grant's
+  // layer-6 op — permanentGrantedWardCosts taxes it; attached bonuses flow through staticEffectsOf →
+  // collectContinuousEffects, verified before crediting), the generic layer-4 subtype ADD (the animate
+  // lane's final loop in applyTypeColorLayers), and the "unblockable" pseudo-keyword (the until-EOT
+  // cant-be-blocked atom's op — canBlockAttacker already reads it layer-aware). Whole-clause anchored;
+  // any variant (a conditional, a different tail order) drops the whole bonus → body-only (safe FN).
+  {
+    const reg = rest.match(/^has ward \{(\d+)\}, is an? ([a-z]+) in addition to its other types, and can't be blocked\.?$/);
+    if (reg) {
+      out.push({ layer: 6, op: { layerOp: "addWard", generic: parseInt(reg[1], 10) }, duration: { kind: "permanent" } });
+      out.push({ layer: 4, op: { subtypes: [reg[2][0].toUpperCase() + reg[2].slice(1)] }, duration: { kind: "permanent" } });
+      out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: "unblockable" }, duration: { kind: "permanent" } });
+      return out;
+    }
+  }
   // BLOCK-COUNT CAP grant (Meltstrider's Resolve, W7 — CR 509.1c, the menace-inverse as an ATTACHED bonus):
   // "gets +0/+2 and can't be blocked by more than one creature" (+ the bare cap form). A layer-6 grant of
   // the `blockCapOne` pseudo-keyword — the cantAttack/mustAttack convention: scoped to the host by
