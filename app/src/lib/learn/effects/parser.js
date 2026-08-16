@@ -457,7 +457,12 @@ function conditionReadableHere(condition, sourceScoped) {
 }
 
 function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false) {
-  const s = stripReminder(clause);
+  // "each of your opponents" ≡ "each opponent" (SHELF-TAIL SH5) — from the controller's own perspective the
+  // two phrasings name the identical player set (CR 102.2), and the whole damage/life-loss/etc. vocabulary is
+  // written against "each opponent". Normalize the longer form up front so every downstream matcher (deal N
+  // damage to each opponent, each opponent loses N, …) covers the "your opponents" wording with no per-matcher
+  // widening. Word-bounded; "each of THEIR opponents" (a different player's opponents) is untouched.
+  const s = stripReminder(clause).replace(/\beach of your opponents\b/gi, "each opponent");
   if (!s) return null;
 
   // ⭐ IMPULSE-EXILE AS A CLAUSE (2026-08-03) — "Exile the top N cards of your library. Until the end of

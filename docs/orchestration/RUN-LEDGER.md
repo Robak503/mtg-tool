@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **AURELIA, THE LAW ABOVE (+1) — "a player attacks with N or more creatures" any-player scope** - the next batch (SH5)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. NEW batch: **+2**.
+> ⭐ TWO arms, both foundational: (1) the ANY-PLAYER attack-count scope — the symmetric twin of "you attack
+> with N" (Military Intelligence), scope:"anyAttack" fired by its OWN all-players pass in checkAttackTriggers
+> (the once-per-combat "you attack" pass excludes it via scopeFilter so a self-attack fires once); (2) the
+> clause-level "each of your opponents" ≡ "each opponent" normalization (Aurelia's 5+ effect — CR 102.2,
+> the two phrasings name the identical set; fixes damage/life-loss/etc. with no per-matcher widening).
+> ⚠️ The normalization alone flipped +0 (every "your opponents" card has a 2nd blocker) — a FOUNDATIONAL arm,
+> shipped only because it completes Aurelia. Touched the CORE combat-trigger flush; the full suite is the
+> gate. Witness runtime pins: Aurelia fires on an OPPONENT'S 3-attacker declaration (the whole point), once
+> on a self-attack (no double from the two passes), both triggers at 5+, none below 3, and a scope:"you"
+> card stays opponent-blind (regression). 3 mutations (all-players pass · detection arm · normalization) via
+> Edit, each seen-to-fail. Token diet: ~21k output tokens this slice (the each-of-your-opponents hunt + the
+> combat-flush build). ⚠️ Aurelia's 2-arm shape flagged the each-of-your-opponents matcher is BURIED (no
+> single eachOpponent damage-target source found by grep) — the clause-level normalize sidestepped it.
 > ## SLICE DONE - 2026-08-16 - **SAGE'S REVERIE (+1) — "aura you control that's attached to a creature" filtered count** - the NEXT batch (SH4, Light-Paws 61→62)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0**. **NEW batch (post-v0.160.0): +1.**
 > Deck Light-Paws Voltron 61→**62**.

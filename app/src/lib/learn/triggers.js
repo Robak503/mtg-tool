@@ -1122,6 +1122,16 @@ function classifyCondition(condRaw, cardName, cardType) {
       const n = words[atkCountEarly[1]] ?? parseInt(atkCountEarly[1], 10);
       if (Number.isFinite(n)) return { event: "youAttack", scope: "you", whose: "any", minAttackers: n };
     }
+    // ANY-PLAYER ATTACK-COUNT (Aurelia, the Law Above — SHELF-TAIL SH5): "a PLAYER attacks with N or more
+    // creatures" — the symmetric twin of the "you attack" form above. Fires for EVERY watcher (all players)
+    // whenever ANY player declares ≥N attackers, so scope:"anyAttack" gets its own all-players pass in
+    // checkAttackTriggers (the "you attack" pass excludes it). Same minAttackers gate against the declared batch.
+    const atkCountAny = c.match(/^a player attacks with (\d+|one|two|three|four|five|six) or more creatures$/);
+    if (atkCountAny) {
+      const words = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 };
+      const n = words[atkCountAny[1]] ?? parseInt(atkCountAny[1], 10);
+      if (Number.isFinite(n)) return { event: "youAttack", scope: "anyAttack", whose: "any", minAttackers: n };
+    }
   }
   const castWithExempt = /^(?:you|an opponent|a player|each player) casts? an? spell with (?:\{x\} in its mana cost|mana value \d+ or (?:greater|more|less|fewer))$/.test(c);
   // The DURING-EACH-OPPONENT'S-TURN exemption (2026-08-14 — Wavebreak Hippocamp): the blanket qualifier
@@ -5496,6 +5506,8 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
             || (Array.isArray(triggeringPermanent.attachments) && triggeringPermanent.attachments.includes(sourcePermanent.id)));
     case "you":
       return true; // step / lifegain / cardDrawn / youAttack triggers — `whose` gates ownership
+    case "anyAttack":
+      return true; // ANY-PLAYER ATTACK-COUNT (Aurelia, SH5) — checkAttackTriggers' all-players pass is the gate
     case "milled":
       // MILL-ON-EVENT — a player-mill event has NO triggering PERMANENT (the milled cards are library
       // objects, not permanents); the milling-player `whose` gate is applied in checkMilledTriggers, which
@@ -6554,7 +6566,10 @@ export function checkAttackTriggers(state) {
     const attackerIds = new Set(attackers.map((a) => a.permanentId));
     const attackerCount = attackers.length;
     for (const watcher of triggerSourcesOf(state, attackingPlayer)) {
-      const raw = triggersForEvent(state, { event: "youAttack", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: {} });
+      // scope !== "anyAttack": the "you attack" pass fires only the ATTACKING player's own-scope watchers; an
+      // anyAttack descriptor (Aurelia, SH5) is fired by the all-players pass below, so exclude it here to
+      // avoid a double-fire when the attacking player controls one. Existing scope:"you" cards are unaffected.
+      const raw = triggersForEvent(state, { event: "youAttack", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: {}, scopeFilter: (sc) => sc !== "anyAttack" });
       fired = fired.concat(raw.filter((t) => {
         const d = t?.descriptor || t;
         // A descriptor with neither field is an ordinary "whenever you attack" — unchanged, byte-for-byte.
@@ -6562,6 +6577,17 @@ export function checkAttackTriggers(state) {
         if (d?.requireSelfAttacking && !attackerIds.has(watcher.id)) return false;
         return true;
       }));
+    }
+    // ANY-PLAYER ATTACK-COUNT pass (Aurelia — "a player attacks with N or more creatures"): fires EVERY
+    // player's anyAttack watchers when the declared batch is ≥ minAttackers, regardless of who attacked.
+    for (const pid of Object.keys(state.players || {})) {
+      for (const watcher of triggerSourcesOf(state, pid)) {
+        const raw = triggersForEvent(state, { event: "youAttack", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: { attackingPlayerId: attackingPlayer }, scopeFilter: (sc) => sc === "anyAttack" });
+        fired = fired.concat(raw.filter((t) => {
+          const d = t?.descriptor || t;
+          return !(d?.minAttackers != null && attackerCount < d.minAttackers);
+        }));
+      }
     }
   }
   // ===== PER-ATTACKER triggers ("this attacks", "a creature you control attacks") =====

@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Aurelia, the Law Above triggers off any player's attack.** Her draw and her damage/lifegain now fire
+  when anyone — you or an opponent — attacks with enough creatures, as printed.
 - **Sage's Reverie counts its auras.** Its draw and its buff now scale with the Auras you control that are
   attached to a creature — counting exactly those, not auras sitting on lands or artifacts.
 - **Ancestral Mask counts correctly.** "+2/+2 for each other enchantment on the battlefield" now excludes
