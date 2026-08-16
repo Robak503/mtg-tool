@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Aura/Equipment that scale AND grant a keyword now work.** Ethereal Armor, Glaive of the Guildpact,
+  and six more give both their "+X/+X for each …" bonus and their granted keyword (first strike, flying,
+  vigilance, ward…), instead of dropping the whole bonus.
 - **"Whenever a player draws a card" punishers work.** Spiteful Visions now deals its damage on every
   draw — yours and your opponents' — not just opponents', matching the printed symmetric wording.
 - **Shalai and Hallar's ping works.** When +1/+1 counters land on your creatures, she now deals that

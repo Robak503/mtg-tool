@@ -104,9 +104,13 @@ deck. Ordered roughly by payoff:
    EOT): Shorikai himself + the fleet's attack triggers unlock only through it (~8-10 cards).
 6. **Equipment/Vehicle ATTACK-trigger family**: Cap America ×8 (the Swords, Kaldra, Iron Man),
    Thrun (Buster Sword — ALSO in Cap + Halfshell?), Shorikai (Parhelion, Weatherlight, Indomitable).
-7. **Count-scaling aura pumps** ("+1/+1 for each aura/enchantment attached/you control" — Ethereal
-   Armor / All That Glitters / Sage's Reverie class): Light-Paws ×4-5, Bumbleflower (All That
-   Glitters), Cap (statics-adjacent).
+7. **Count-scaling aura pumps** ("+1/+1 for each aura/enchantment attached/you control"): ✅ THE
+   COUNT+KEYWORD COMPOSE SHIPPED (ND2, 08-16, +8) — the bare count-static + fixed-P/T-keyword were
+   already native; the greedy `for each (.+)` swallowed "and has <kw>" so the compose dropped. Fixed →
+   Ethereal Armor + 5 more auras + 2 equipment. STILL PARKED in this family: Sage's Reverie (ETB
+   draw-for-each-aura + static, compound), Ancestral Mask ("for each OTHER enchantment ON THE
+   BATTLEFIELD" — the subtypeOnBattlefield count is deliberately dropped on the attached path, see the
+   parseAttachedBonus guard; needs the source-exclusion fix to flip).
 8. **The alt-win upkeep thresholds** (the EXISTING upkeep-win lane + new vocabulary): Bumbleflower's
    Mechanized Production (eight same-name artifacts) / Simic Ascendancy (ten growth counters) /
    Triskaidekaphile (exactly 13 in hand). Felidar already routes — the lane is proven.

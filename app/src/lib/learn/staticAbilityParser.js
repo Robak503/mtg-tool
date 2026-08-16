@@ -5117,7 +5117,16 @@ function parseAttachedClauseCore(c, subject, noun = "creature") {
   // attaching to another player's creature, resolvers.js), so "you control" reads the right player.
   const dynPt = rest.match(/^gets?\s+([+-]\d+)\/([+-]\d+)\s+for each\s+(.+)$/);
   if (dynPt) {
-    const countSpec = parseSelfCountSource(dynPt[3]);
+    // COUNT + KEYWORD (Ethereal Armor "+1/+1 for each enchantment you control AND HAS first strike" — ND2):
+    // the greedy "for each (.+)" would swallow the "and has <keyword>" grant into the count phrase, nulling
+    // parseSelfCountSource → the whole bonus dropped. Peel a trailing " and has <keywords>" FIRST (only "and
+    // has" — never "artifact and/or enchantment"), then fall through to the SHARED have-keyword tail below,
+    // exactly the base-P/T-set lane one arm up. Both halves were already native alone; only the compose broke.
+    let countPhrase = dynPt[3];
+    const kwSplit = countPhrase.match(/^(.+?)\s+and (has\s+.+)$/);
+    const kwTail = kwSplit ? kwSplit[2].trim() : "";
+    if (kwSplit) countPhrase = kwSplit[1].trim();
+    const countSpec = parseSelfCountSource(countPhrase);
     if (!countSpec) return null;                       // unmodeled metric → whole bonus drops
     // A subtypeOnBattlefield ("for each [other] X on the battlefield") count is evaluated against the ATTACHED
     // CREATURE, but its "other" excludes the AURA/EQUIPMENT SOURCE — which the creature-scoped count eval can't
@@ -5125,7 +5134,9 @@ function parseAttachedClauseCore(c, subject, noun = "creature") {
     // the Mask → 6/6 not 4/4). Drop it → body-only → Arbiter (safe FN). This source is correct only on the
     // SELF / GROUP-anthem paths, where the counting permanent IS a candidate member.
     if (countSpec.kind === "subtypeOnBattlefield") return null;
-    return [{ layer: 7, sublayer: "7c", op: { layerOp: "ptModifyDynamicCount", countSpec, perPower: signed(dynPt[1]), perToughness: signed(dynPt[2]) }, duration: { kind: "permanent" } }];
+    out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModifyDynamicCount", countSpec, perPower: signed(dynPt[1]), perToughness: signed(dynPt[2]) }, duration: { kind: "permanent" } });
+    if (!kwTail) return out.length ? out : null;       // pure count-static, no keyword tail (byte-identical to before)
+    rest = kwTail;                                      // fall through to the shared have-keyword handler
   }
 
   const ptMatch = rest.match(/^gets?\s+([+-]\d+)\/([+-]\d+)\b/);

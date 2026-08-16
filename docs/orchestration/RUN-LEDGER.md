@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **⭐ COUNT-STATIC + KEYWORD AURA/EQUIP (+8) — the compose that was missing** - the shelf grind (ND2, Light-Paws 58→61)
+> Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+8 / 0 / 0** — 6 auras + 2 equipment
+> (Ethereal Armor, Armored Ascension, Crystalline Armor, Claws of Valakut, Auramancer's Guise, Crown of
+> Skemfar, Glaive of the Guildpact, Thran Power Suit — ALL whole-card audited: each is a clean count +
+> grantable-keyword compose; Crown's extra graveyard-return activated was already modeled; Thran's ward
+> {2} rides the existing wardM arm). Post-release batch **+96** (FOUR from v0.160.0). Deck Light-Paws
+> Voltron 58→**61** (the floor deck lifted).
+> ⭐ ONE arm, and BOTH halves were already native ALONE — the bare count-static ("+1/+1 for each
+> enchantment you control", All That Glitters) and the fixed P/T + keyword ("+2/+2 and has first strike").
+> Only the COMPOSE broke: parseAttachedBonus's `for each (.+)` GREEDILY swallowed the "and has <keyword>"
+> grant into the count phrase → parseSelfCountSource nulled → whole bonus dropped. The fix peels a
+> trailing " and has <keywords>" (only "and has" — NEVER "artifact and/or enchantment", regression-pinned)
+> then falls through to the SHARED have-keyword tail — the base-P/T-set lane, one arm over. parseAttachedBonus
+> drives BOTH auras + equipment, hence the ×8. 1 mutation (disable the split → count phrase keeps the
+> keyword text → nulls → all flips die) via Edit, seen-to-fail. A high-payoff vein: a single greedy-regex
+> fix, eight cards. Token diet: ~15k output tokens this slice.
 > ## SLICE DONE - 2026-08-16 - **ANY-PLAYER DRAW WATCHER (+1) — Spiteful Visions; vein #1 straggler** - the shelf grind (ND1, Nekusar 71→72)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+1 / 0 / 0** — Spiteful Visions (whole-card
 > audited: the draw-step additional-draw arm was ALREADY native — same as Nekusar's — my change is only the
