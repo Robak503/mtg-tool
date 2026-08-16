@@ -131,9 +131,8 @@ token peel (tokenOracle:"Prowess" — the changeling convention) + attach-source
 α2 yes/no, the _lastMintedTokenIds stamp, the sequence gate at all 4 confidence sites, the
 attach-iff-unattached auto-policy) · **Quilled Greatwurm** (probed: the during-your-turn combat-damage-to-ANYTHING watcher
 detects NOTHING + the GY-alt-cast "removing six counters from among creatures" compound cost —
-BOTH heavy; park to deck-end beside Neyith) · **Raph & Mikey** (probed: attack → reveal-until-
-creature → battlefield TAPPED AND ATTACKING + rest to bottom RANDOM — check whether a reveal-until
-atom exists (Etali-class) + the attack-cheat placement; medium-heavy). The arbiter-spell trio (Inscription kicked-modal-count · Beastie Beatdown two-target
+BOTH heavy; park to deck-end beside Neyith) · ✅ **Raph & Mikey (SHIPPED 08-16)**: the duo plural-verb self-attack arm + reveal-until-creature-
+attacking (the reveal-until-n-lands frame + the mobilize combat-join). The arbiter-spell trio (Inscription kicked-modal-count · Beastie Beatdown two-target
 delirium · Last Agni Kai fight-excess-to-mana — the excess ledger exists) are CHUNKIER — they
 already PLAY via the Arbiter; take them after the body-only five. **Neyith** (the fight-or-blocked
 OR-batch + the pay-offer — HEAVY, park to deck-end) ·

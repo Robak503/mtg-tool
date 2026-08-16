@@ -2326,6 +2326,19 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       return makeProgram({ confidence: "high", atoms: [otw.atom], xSpell: true, unparsedTail: null });
     }
   }
+  // ===== REVEAL-UNTIL-CREATURE-ATTACKING (Raph & Mikey, W10) ===== the two-sentence dig+disposition span
+  // ("reveal … until you reveal a creature card. Put that card onto the battlefield tapped and attacking
+  // and the rest on the bottom … in a random order") would shatter under the splitter — the disposition is
+  // a back-reference to the reveal — so it's collapsed up front, the matchOpenTheWay convention. EXACT
+  // whole-string anchor: any variant (an untapped/not-attacking put, an into-hand disposition, a typed
+  // stop other than "a creature card") falls through → low → Arbiter.
+  {
+    const rm = String(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "")
+      .match(/^reveal cards from the top of your library until you reveal a creature card\. put that card onto the battlefield tapped and attacking and the rest on the bottom of your library in a random order$/);
+    if (rm && KNOWN.has("reveal-until-creature-attacking")) {
+      return makeProgram({ confidence: "high", atoms: [{ op: "reveal-until-creature-attacking", targetType: null }], xSpell: false, unparsedTail: null });
+    }
+  }
   // ===== EXILE-X-CONTROLLER-RIDER (Curse of the Swine) ===== "Exile X target creatures. For each creature
   // exiled this way, its controller creates a 2/2 green Boar creature token." → ONE exile atom (targetCountX —
   // the target count is the chosen X) carrying a per-exiled createToken controllerRider. Gated to hasX (the

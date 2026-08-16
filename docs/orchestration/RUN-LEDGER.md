@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## SLICE DONE - 2026-08-16 - **RAPH & MIKEY (+1) — the duo plural-verb trigger + reveal-until-creature-ATTACKING** - the shelf grind (Wolverine 88→89)
+> Suite green + lint 0 BY EXIT CODE (sequential; one lint catch — an unused test import — fixed
+> pre-gate). Flip-diff **+1 / 0 / 0**. Post-release batch **+71**.
+> ⭐ TWO ARMS: ① the DUO-NAME PLURAL VERB — "Whenever Raph & Mikey ATTACK" conjugates plural, so the
+> singular \battacks\b self family never saw it; the new arm is gated to the EXACT self-name subject
+> (a watcher plural carries its own wording — unreachable, CREED-pinned). ② the two-sentence
+> dig+disposition span collapsed pre-split (the matchOpenTheWay convention): reveal until the FIRST
+> creature → enterCardFromZone TAPPED + the MOBILIZE-convention combat.attackers join vs
+> ctx.defenderId (never DECLARED — no attack triggers fire for it, CR 508.1c) → bottom the rest in
+> the deterministic-random order. A missing defender enters tapped but never fabricates a combat
+> entry (FN-safe, pinned). 3 mutations (duo arm · collapse anchor · the JOIN line) via Edit, each
+> seen-to-fail. Token diet: ~7k output tokens this slice.
 > ## SLICE DONE - 2026-08-16 - **⭐ CORI-STEEL CUTTER (+7) — the PROWESS token + the optional attach** - the shelf grind (Wolverine 87→88)
 > Suite green + lint 0 BY EXIT CODE (sequential). Flip-diff **+7 / 0 / 0** — the Cutter + SIX riders,
 > all whole-card audited: **Monastery Mentor** (the iconic prowess-token maker!), Rally the Monastery

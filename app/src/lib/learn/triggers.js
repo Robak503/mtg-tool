@@ -2002,6 +2002,17 @@ function classifyCondition(condRaw, cardName, cardType) {
     }
     return null;
   }
+  // DUO-NAME PLURAL VERB (Raph & Mikey, W10): a multi-character card's self-attack trigger conjugates
+  // PLURAL — "Whenever Raph & Mikey ATTACK, …" — so the singular \battacks\b family below never sees it.
+  // Gated to the EXACT self-name subject (full or legendary-short), so a watcher plural ("creatures you
+  // control attack") — which carries its own subject wording — can never reach this arm (CREED).
+  if (/\battack\b/.test(c) && !/\battacks\b/.test(c)) {
+    const duoM = c.match(/^(.+?) attack$/);
+    if (duoM) {
+      const duoSubj = duoM[1].trim();
+      if (duoSubj === nameL || (shortNameRef && duoSubj === shortName)) return { event: "attacks", scope: "self", whose: "any" };
+    }
+  }
   if (/\battacks\b/.test(c)) {
     if (selfRef) return { event: "attacks", scope: "self", whose: "any" };
     // ANCHORED bare form (was a non-anchored substring test — any "a creature you control <restriction>

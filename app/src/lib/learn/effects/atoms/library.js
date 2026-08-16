@@ -1233,6 +1233,48 @@ export function applyRevealUntilNLands(state, atom, ctx) {
 }
 
 /**
+ * ===== REVEAL-UNTIL-CREATURE-ATTACKING (Raph & Mikey, SHELF-TAIL W10 — CR 508.1c "attacking") =====
+ * "Reveal cards from the top of your library until you reveal a creature card. Put that card onto the
+ * battlefield tapped and attacking and the rest on the bottom of your library in a random order."
+ * The reveal-until-n-lands frame (prefix reveal → put → deterministic-random bottom) with a CREATURE stop
+ * and the MOBILIZE attack-join: the entered creature appends to combat.attackers vs the trigger's defender
+ * (ctx.defenderId, threaded by the attack-trigger flush) — never DECLARED, so no attack triggers fire for
+ * it (the applyMobilize convention verbatim). No creature in the whole library → everything revealed
+ * bottoms (CR — you reveal until you can't). A missing defender (a non-attack resolution path) enters the
+ * creature TAPPED but skips the join (FN-safe: never a fabricated combat entry) — the trigger only fires
+ * on attack, so the defender is always threaded in practice.
+ */
+export function applyRevealUntilCreatureAttacking(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state;
+  const lib = player.library || [];
+  if (lib.length === 0) return logEvent(state, { kind: "spell-effect", effect: "reveal-until-creature-attacking", controller, found: false, bottomed: 0 });
+  let revealEnd = 0;
+  let creature = null;
+  for (let i = 0; i < lib.length; i++) {
+    revealEnd = i + 1;
+    if (/\bCreature\b/i.test(String(lib[i]?.type || lib[i]?.type_line || ""))) { creature = lib[i]; break; }
+  }
+  let next = state;
+  let entered = false;
+  if (creature) {
+    const r = enterCardFromZone(next, { playerId: controller, cardId: creature.id, fromZone: "library", tapped: true });
+    if (r.entered) {
+      next = r.state;
+      entered = true;
+      const defender = ctx.defenderId;
+      if (defender) {
+        next = { ...next, combat: { ...(next.combat || { attackers: [], blockers: [] }), attackers: [...(next.combat?.attackers || []), { permanentId: r.permanentId, attackingPlayer: controller, defender }] } };
+      }
+    }
+  }
+  const bottomCount = revealEnd - (entered ? 1 : 0);
+  if (bottomCount > 0) next = bottomTopNInRandomOrder(next, controller, bottomCount);
+  return logEvent(next, { kind: "spell-effect", effect: "reveal-until-creature-attacking", controller, found: entered, bottomed: bottomCount });
+}
+
+/**
  * ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card of your library. If it's a
  * creature card, put it onto the battlefield. Otherwise, you may put that card on the bottom of your library."
  * (CR 701.18 reveal, CR 701.16 put-onto-the-battlefield-from-a-library, CR 601-free bottom move.) A cast-trigger
@@ -2247,6 +2289,7 @@ export const libraryResolvers = {
   "reveal-put-filtered": applyRevealPutFiltered, // ===== REVEAL-THAT-MANY-PUT-FILTERED (Gishath) ===== combat-damage trigger: reveal that many (= combatDamageAmount) → put all matching <subtype> creatures onto battlefield → bottom the rest random. Gishath/Pantlaza flip native-trigger.
   "chosen-type-reveal-to-hand": applyChosenTypeRevealToHand, // ===== CHOSEN-TYPE REVEAL TO HAND (For the Ancestors) ===== choose a creature type (deterministic, maximizing pick) → reveal top N → matching cards to hand → bottom the rest random.
   "reveal-until-n-lands": applyRevealUntilNLands, // ===== REVEAL-UNTIL-N-LANDS (Open the Way) ===== ({X} spell, X≤players) reveal top until X lands → all lands onto battlefield tapped → rest to bottom random. Open the Way flips native-spell.
+  "reveal-until-creature-attacking": applyRevealUntilCreatureAttacking, // W10 (Raph & Mikey) — reveal until a creature → enter it tapped + JOIN the attack (the mobilize convention) → bottom the rest random
   "reveal-top-conditional": applyRevealTopConditional, // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== reveal top: creature → onto battlefield (fires ETB); else put on bottom (deterministic "you may", like explore).
   "animist-awakening": applyAnimistAwakening, // ===== ANIMIST'S AWAKENING ===== ({X} spell) reveal top X → put all LANDS onto battlefield tapped → bottom the rest random; spell-mastery (2+ IS in GY) untaps those lands. Animist's Awakening flips native-spell.
 };
