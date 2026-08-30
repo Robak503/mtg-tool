@@ -3,6 +3,40 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚔️ 2026-08-30 (cont.) — CAP16 Codsworth: the TWO-TARGET attach · +1 · Cap 74→75%
+> Suite **1318 / 15,090** green; lint 0; flip-diff **+1, zero LOST**.
+> · **The THIRD attach shape, and the only one where NEITHER end is the source.** `self-attach` moves the
+>   SOURCE onto a chosen host; `attach-to-self` moves a chosen attachment onto the SOURCE; `attach-pair`
+>   moves a chosen attachment onto a chosen host. Built on the EXISTING two-target mechanism
+>   (`targetType` + `secondaryTargetType` + `distinct`, the pump-pair/fight-pair shape) plus one new
+>   `auraOrEquipmentYouControl` union — "Aura" is an enchantment SUBTYPE and "Equipment" an artifact
+>   subtype, so one word-bounded type-line test covers both.
+> · **⭐ THE ROLES ARE LOAD-BEARING, unlike the fight pair's.** Both ends of a fight are creatures, so a
+>   positional mix-up is survivable; here the ends are DIFFERENT KINDS of object, and swapping them means
+>   trying to attach a creature to an Aura. Targets are role-tagged `attachment`/`host` and the resolver
+>   reads the tags — pinned by a reversed-target-list test (mutation M1).
+> · Codsworth's other clauses were ALREADY modeled (commander-ward static, restricted-spend mana ability,
+>   and the "Activate only as a sorcery" timing rider) — ablation had confirmed the attach line was his
+>   sole blocker, and it was.
+> · **⚠️ MUTATION M2 SURVIVED → CODE DELETED (second time today).** I had re-validated both targets before
+>   calling attachPermanent — but attachPermanent ALREADY bails when either permanent is missing. Two
+>   guards for one invariant is the drift hazard this codebase documents for the duplicated control-move,
+>   so the duplicate went and the doc now names which layer owns it.
+> · **⚠️ MUTATION M4 SURVIVED → A TEST WAS ADDED rather than a comment.** The `next === state` short-circuit
+>   only affects the LOG — without it a no-op still writes an "attach-pair" event, i.e. the decision log
+>   claims an attach that never happened. Every other assertion is board-shaped and blind to that, so the
+>   log got its own gate (plus a positive control that a REAL attach does log). M4 now kills a test.
+>   **Three surviving mutations today, three different correct answers: document (CAP14 M4, a live early
+>   exit), delete (CAP15 M2 unreachable / CAP16 M2 duplicated), or WRITE THE MISSING TEST (this one).**
+> · **⚠️ A FALSE LINT SIGNAL, caught.** A chained `grep -c ... && npx eslint .` reported LINT_EXIT=1 — but
+>   `grep -c` exits 1 on ZERO matches, so the `&&` short-circuited and **lint never ran**. Re-run alone: 0.
+>   Same species as the no-op `sed` mutation this morning: an exit code that describes a step that did not
+>   happen. Chain verification steps with `;`, never `&&`.
+> · **Mutations (4; two seen to fail, one deleted, one gated by a new test):** M1 resolver reads order not
+>   roles → 1 · M2 duplicate departed-target guard → 0, **deleted** · M3 clause arm disabled → 8 · M4 log
+>   short-circuit → 0 then **1 after the log test was written**.
+> Witness: `codsworthAttachPair.test.js` (13). Cap America **75%**.
+>
 > ## ⚔️ 2026-08-30 (cont.) — CAP15 Sword of Hearth and Home · +1 · Cap 73→74%
 > Suite **1317 / 15,077** green; lint 0; both exit codes UNPIPED. Flip-diff **+1, zero LOST**.
 > · **⛔ COLLAPSED WHOLE, and that is the correctness argument.** The instruction that RETURNS the exiled

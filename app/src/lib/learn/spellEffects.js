@@ -948,6 +948,20 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       }
     }
   }
+  // AURA-OR-EQUIPMENT union (SHELF CAP16 — Codsworth, Handy Helper: "Attach target Aura or Equipment you
+  // control to target creature you control"). The own-side attachment pool: the permanents that CAN be
+  // attached to something. Mirrors equipmentYouControl directly above, widened to the Aura subtype — and
+  // the subtype is the right read, because "Aura" is an enchantment SUBTYPE (CR 303.4) while "Equipment"
+  // is an artifact subtype, so one word-bounded type-line test covers both.
+  else if (effect.targetType === "auraOrEquipmentYouControl") {
+    for (const perm of state.players[controllerId]?.battlefield || []) {
+      const tl = String(perm.card?.type || perm.card?.type_line || "");
+      if ((/\bEquipment\b/.test(tl) || /\bAura\b/.test(tl))
+          && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors)) {
+        out.push({ type: "permanent", id: perm.id, controller: controllerId, name: perm.card?.name });
+      }
+    }
+  }
   // GHOSTLY-FLICKER union (2026-08-14) — "two target artifacts, creatures, and/or lands you control":
   // an OWN-SIDE triple union (the BW-1 triple-union precedent one line below, own-side). The blink atom
   // returns whatever leaves, so type mixing is free; canBeTargetedBy keeps shroud/protection honest.

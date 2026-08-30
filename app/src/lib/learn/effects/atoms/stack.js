@@ -273,6 +273,40 @@ function applyAttachToSelf(state, atom, ctx) {
 }
 
 /**
+ * ATTACH-PAIR (SHELF CAP16, CR 701.3a — Codsworth, Handy Helper: "{T}: Attach target Aura or Equipment you
+ * control to target creature you control."). The TWO-CHOSEN-TARGET attach, and the third member of the
+ * attach family: `self-attach` moves the SOURCE onto a chosen host, `attach-to-self` moves a chosen
+ * attachment onto the SOURCE, and this moves a chosen attachment onto a chosen host — the source is not
+ * either end.
+ *
+ * Targets are ROLE-TAGGED (`attachment` / `host`), the same mechanism fightPairRefs uses for its pair, with
+ * a positional fallback for an untagged list. Roles matter more here than for a fight: the two ends are
+ * DIFFERENT KINDS of object, so a positional mix-up would try to attach a creature to an Aura.
+ *
+ * A DEPARTED TARGET (CR 608.2b — either end may have left since activation) is a clean no-op, and that is
+ * owned by attachPermanent, NOT re-checked here: it bails when either permanent is missing. An earlier draft
+ * duplicated the check and its mutation survived, which is the tell — two guards for one invariant is the
+ * drift hazard this codebase already documents for the duplicated control-move.
+ *
+ * The `next === state` short-circuit below is about the LOG, not the board: without it a no-op would still
+ * write an "attach-pair" event, i.e. the decision log would claim an attach that never happened. Pinned by
+ * test, because a mutation that only changes the log is invisible to every board-shaped assertion.
+ *
+ * attachPermanent also detaches from any PREVIOUS host, which is the printed behaviour and the whole point
+ * of the card — moving an Equipment that is already attached elsewhere is what this ability is for.
+ */
+function applyAttachPair(state, atom, ctx) {
+  const ts = ctx.targets || [];
+  let attachT = ts.find((t) => t?.role === "attachment");
+  let hostT = ts.find((t) => t?.role === "host");
+  if (!attachT && !hostT) { attachT = ts[0]; hostT = ts[1]; }   // untagged → positional (attachment, then host)
+  if (!attachT?.id || !hostT?.id || attachT.id === hostT.id) return state;
+  const next = attachPermanent(state, { equipId: attachT.id, targetId: hostT.id });
+  if (next === state) return state;                              // nothing moved → don't log an attach
+  return logEvent(next, { kind: "spell-effect", effect: "attach-pair", equipId: attachT.id, targetId: hostT.id, controller: ctx.controller });
+}
+
+/**
  * Equip-attach clause parsers (migrated from parseExtendedAtom, seam batch 9 / Wave A4):
  *   - self-attach: "attach it to target creature you control" — an Equipment's ETB auto-attach ("it" = the
  *     source Equipment via ctx.sourceId; host enumerated controller:you).
@@ -299,6 +333,25 @@ export function attachClauseParser(clause) {
   // so the trigger enumerates ONLY the controller's legendary creatures — a non-legendary board → clean no-op).
   if (/^attach it to target legendary creature you control$/.test(t)) {
     return { op: "self-attach", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }, { kind: "supertype", value: "legendary" }] };
+  }
+  // ATTACH-PAIR (SHELF CAP16 — Codsworth, Handy Helper): "attach target Aura or Equipment you control to
+  // target creature you control". The third attach shape, and the only one where NEITHER end is the source:
+  // self-attach moves the source onto a chosen host, attach-to-self moves a chosen attachment onto the
+  // source, this moves a chosen attachment onto a chosen host.
+  //
+  // Two role-tagged targets on the pump-pair/fight-pair mechanism (targetType + secondaryTargetType +
+  // distinct). The roles are not cosmetic here: the ends are DIFFERENT KINDS of object, so an untagged
+  // positional mix-up would try to attach a creature to an Aura.
+  //
+  // Anchored whole ($) — a count ("attach two target …"), an "up to", or an unqualified subject fails and
+  // falls through to the later parsers, keeping the all-or-nothing gate (a safe FN → Arbiter).
+  if (/^attach target aura or equipment you control to target creature you control$/.test(t)) {
+    return {
+      op: "attach-pair",
+      targetType: "auraOrEquipmentYouControl", restrictions: [], role: "attachment",
+      secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "host",
+      distinct: true,
+    };
   }
   const ats = t.match(/^attach up to one target equipment you control to (.+)$/);
   if (ats) {
@@ -1831,4 +1884,5 @@ export const stackResolvers = {
   },
   "self-attach": applySelfAttach, // ETB-EQUIP-ATTACH — auto-attach an Equipment to a creature you control
   "attach-to-self": applyAttachToSelf, // EQUIP-AUTO-ATTACH — attach a chosen Equipment you control onto the source creature
+  "attach-pair": applyAttachPair, // ATTACH-PAIR (CAP16) — attach a chosen Aura/Equipment onto a chosen creature (neither is the source)
 };

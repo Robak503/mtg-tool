@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Codsworth, Handy Helper works.** His tap ability now actually moves an Aura or Equipment you control
+  onto a creature you control — including pulling one off whatever it was attached to.
 - **Sword of Hearth and Home works.** Connecting now blinks a creature you own — including one an opponent
   has stolen from you, which comes back under your control — and fetches a basic land onto the battlefield.
 - **Captain America, First Avenger works.** His "Throw" ability now actually unattaches an Equipment as its

@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9–CAP15 shipped, Cap 69% → 74% native** — suite **1316 / 15,065** green
+## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9–CAP16 shipped, Cap 69% → 75% native** — suite **1316 / 15,065** green
 
 > ⚠️ **NUMBER HYGIENE (corrected 08-30, Colton caught it).** Earlier entries said "Cap 81→86 native
 > cards". That figure added the 13 LAND-PARTIAL slots to the native count, which inflates it — land-partial
