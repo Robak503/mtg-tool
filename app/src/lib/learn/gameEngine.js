@@ -36,6 +36,7 @@ import {
   resetCreatureDeathsAllPlayers,
   resetAttackedThisTurnAllPlayers,
   resetBecameTargetThisTurnAllPlayers,
+  resetBecameTappedThisTurnAllPlayers,
   untapAll,
   clearCombatDamage,
   revertEndOfTurnControl,
@@ -436,6 +437,7 @@ export function runStepActions(state) {
       next = resetCreatureDeathsAllPlayers(next); // DEATHS-THIS-TURN: "for each / if a creature died this turn" counts every seat's deaths this turn
       next = resetAttackedThisTurnAllPlayers(next); // RAID: "you attacked this turn" — clear every seat's attack flag at untap
       next = resetBecameTargetThisTurnAllPlayers(next); // KIRA: "for the first time each turn" — clear every permanent's became-target flag at untap
+      next = resetBecameTappedThisTurnAllPlayers(next); // CAP LIVING LEGEND: "first time that creature has become tapped this turn" — clear the per-permanent tap flag at untap
       next = { ...next, onceTriggersFiredThisTurn: {} }; // ONCE-PER-TURN: clear per-source discover gates (Pantlaza, etc.)
       next = untapAll(next, { playerId: state.activePlayer });
       // SEEDBORN-UNTAP (a targeted #319-style hook the trigger compiler can't reach): Seedborn Muse —

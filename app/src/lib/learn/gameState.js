@@ -1181,9 +1181,15 @@ export function tapPermanent(state, permanentId, { fromEnter = false } = {}) {
   // crew, cost payment) is a real transition and records.
   const lk = fromEnter ? null : findPermanent(state, permanentId);
   const transitions = !!lk && !lk.permanent.tapped;
-  const next = updatePermanent(state, permanentId, p => ({ ...p, tapped: true }));
+  // FIRST-TAP-THIS-TURN (Captain America, Living Legend — CR 603.4): stamp whether this transition is the
+  // permanent's FIRST becomes-tapped event this turn, read from the per-permanent becameTappedThisTurn flag
+  // (the Kira becameTargetThisTurn pattern; reset at the untap step). Stamped ON THE EVENT because the fact
+  // is historical — once an event WAS the first tap, no later board change can unmake it, so the fire-site
+  // gate needs no CR 603.4 re-check at resolution.
+  const firstThisTurn = transitions && !lk.permanent.becameTappedThisTurn;
+  const next = updatePermanent(state, permanentId, p => ({ ...p, tapped: true, ...(transitions ? { becameTappedThisTurn: true } : {}) }));
   if (!transitions) return next;
-  return { ...next, pendingTapEvents: [...(next.pendingTapEvents || []), { id: permanentId, controller: lk.controller }] };
+  return { ...next, pendingTapEvents: [...(next.pendingTapEvents || []), { id: permanentId, controller: lk.controller, firstThisTurn }] };
 }
 
 /**
@@ -1239,15 +1245,18 @@ export function regeneratePermanent(state, permanentId) {
   // that bypasses tapPermanent, so it records here directly (the pendingUntapEvents / pendingTapEvents pattern).
   const lk = findPermanent(state, permanentId);
   const transitions = !!lk && !lk.permanent.tapped;
+  // FIRST-TAP-THIS-TURN — mirrored from tapPermanent (this is the one tap site that bypasses it).
+  const firstThisTurn = transitions && !lk.permanent.becameTappedThisTurn;
   const next = updatePermanent(state, permanentId, p => ({
     ...p,
     regenShields: Math.max(0, (p.regenShields || 0) - 1),
     damageMarked: 0,
     tapped: true,
+    ...(transitions ? { becameTappedThisTurn: true } : {}),
     ...(inCombat ? { removedFromCombat: true } : {}),
   }));
   if (!transitions) return next;
-  return { ...next, pendingTapEvents: [...(next.pendingTapEvents || []), { id: permanentId, controller: lk.controller }] };
+  return { ...next, pendingTapEvents: [...(next.pendingTapEvents || []), { id: permanentId, controller: lk.controller, firstThisTurn }] };
 }
 
 // ── TOTEM ARMOR (CR 702.116 / "Umbra armor") — a destruction-replacement on an Aura ──────────────────────
@@ -2364,6 +2373,25 @@ export function resetBecameTargetThisTurnAllPlayers(state) {
       ...player,
       battlefield: player.battlefield.map((p) =>
         p.becameTargetThisTurn ? { ...p, becameTargetThisTurn: false } : p,
+      ),
+    };
+  }
+  return { ...state, players };
+}
+
+/**
+ * FIRST-TAP-THIS-TURN (Captain America, Living Legend): clear every permanent's becameTappedThisTurn flag
+ * at the untap step — the Kira becameTargetThisTurn reset, one flag over. "This turn" spans the whole game
+ * turn regardless of whose it is, so the untap-step boundary (once per turn) is the correct clear site.
+ */
+export function resetBecameTappedThisTurnAllPlayers(state) {
+  const players = {};
+  for (const id of Object.keys(state.players)) {
+    const player = state.players[id];
+    players[id] = {
+      ...player,
+      battlefield: player.battlefield.map((p) =>
+        p.becameTappedThisTurn ? { ...p, becameTappedThisTurn: false } : p,
       ),
     };
   }

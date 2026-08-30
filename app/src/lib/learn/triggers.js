@@ -1144,6 +1144,18 @@ function classifyCondition(condRaw, cardName, cardType) {
   // (checkGraveyardEventTriggers) against the ACTIVE player; the once-per-turn latch rides the
   // standard trailing-sentence stamp. TF-1: only the during-form is emitted (Kishla is the carrier);
   // the bare unfiltered "a card leaves your graveyard" stays unmatched → Arbiter.
+  // ===== BECOMES-TAPPED WATCHER, your-turn-gated (Captain America, Living Legend — SHELF CAP1) =====
+  // "a creature you control becomes tapped during your turn" — the ONE watcher form admitted (the general
+  // watcher family stays UNDETECTED per the self-arm note below). The controlled-creature scope is exactly
+  // what scopeMatches' creatureYouControl enforces, and "during your turn" is exactly the whose:"yours"
+  // activePlayer gate in triggersForEvent (the watcher IS the source, so its controller is "you"). Fired by
+  // checkTapTriggers' watcher loop off the same pendingTapEvents queue as the self form (CR 701.26a — real
+  // untapped→tapped transitions only; enters-tapped never records). ⚠️ PLACED ABOVE the blanket
+  // `with|while|during|named` reject — like the Kishla gyLeave arm directly below — because the condition
+  // carries "during"; every other "during" qualifier stays refused wholesale (safe FN, as before).
+  if (/^a creature you control becomes tapped during your turn$/.test(c)) {
+    return { event: "becomesTapped", scope: "creatureYouControl", whose: "yours" };
+  }
   if (/^a card leaves your graveyard during your turn$/.test(c)) {
     return { event: "gyLeave", scope: "gyWatcher", whose: "any", gyCardType: null, gyOwnerScope: "you", duringYourTurn: true };
   }
@@ -4291,14 +4303,17 @@ export function detectTriggers(card) {
         // (a safe FN), and every other "that creature" effect in this family (destroy, bounce-at-end-of-
         // combat, can't-attack-next-turn) is untouched and still parks.
         effectClause = "the triggering creature doesn't untap during its controller's next untap step";
-      } else if (cls.scope === "permanentYouControl" && /^untap it$/i.test(effectClause)) {
+      } else if ((cls.scope === "permanentYouControl"
+        || (cls.scope === "creatureYouControl" && cls.event === "becomesTapped")) && /^untap it$/i.test(effectClause)) {
         // AMULET-UNTAP (#1301) — "Whenever a permanent you control enters tapped, untap IT". "It" is the
         // ENTERING permanent (CR 608.2c), which is usually a LAND, so this cannot ride the creature-only
         // "the triggering creature" sentinel the pump/counter families use. Rewrite to the permanent-wide
         // sentinel combat.js parses into target:"thatPermanent" → ctx.triggeringPermanentId.
         //
-        // Scope-gated to permanentYouControl and whole-clause anchored: no other trigger family reaches this
-        // branch, and any rider on the clause stays unrewritten → LOW → Arbiter (a safe FN).
+        // Scope-gated (permanentYouControl, + the CAP1 becomes-tapped watcher whose "it" is the TAPPED
+        // creature — the same CR 608.2c binding, threaded identically by checkTapTriggers) and whole-clause
+        // anchored: no other trigger family reaches this branch, and any rider on the clause stays
+        // unrewritten → LOW → Arbiter (a safe FN).
         effectClause = "untap the triggering permanent";
       } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope)
         && (NONSELF_COUNTER_REF_RE.test(effectClause) || NONSELF_DOUBLE_COUNTER_REF_RE.test(effectClause))) {
@@ -4666,6 +4681,23 @@ export function detectTriggers(card) {
       // half would fire un-latched → an over-fire, the forbidden FP). Until the halves share a key, leave a
       // compound-with-limiter card un-stripped → LOW → Arbiter (a SAFE false-negative).
       const compoundLimiter = /\band whenever\b[^\n]*this ability triggers only once each turn/i.test(oracleOf(card));
+      // FIRST-TAP-OF-THAT-CREATURE intervening-if (Captain America, Living Legend — SHELF CAP1): "if it's
+      // the first time that creature has become tapped this turn" is a PER-TRIGGERING-CREATURE latch, not
+      // the per-SOURCE once-per-turn latch — the ability fires once per creature per turn. Consume it into
+      // a dedicated descriptor flag HERE so it never reaches the interveningIf slot: (a) the strict
+      // interveningIf vocabulary can't read it → the card would park (safe but pointless), and (b) the
+      // runtime evaluator FAILS OPEN on unknown conditions → an over-fire if it ever got detected another
+      // way. checkTapTriggers enforces the flag against the tap event's firstThisTurn stamp (recorded at
+      // transition time off the per-permanent becameTappedThisTurn flag — historical, so no CR 603.4
+      // resolution re-check is needed: once an event was the first tap, nothing can unmake that).
+      // Event+scope-gated and whole-condition-anchored: any other wording stays on the interveningIf path.
+      let firstTapOfThatCreatureThisTurn;
+      let interveningIfRaw = split.interveningIf;
+      if (cls.event === "becomesTapped" && cls.scope === "creatureYouControl"
+          && /^it's the first time that creature has become tapped this turn$/i.test(String(interveningIfRaw || "").trim())) {
+        firstTapOfThatCreatureThisTurn = true;
+        interveningIfRaw = null;
+      }
       let oncePerTurnTrigger = false;
       if (!compoundLimiter && /\bThis ability triggers only once each turn\.?\s*$/i.test(effectClause)) {
         effectClause = effectClause.replace(/\.?\s*This ability triggers only once each turn\.?\s*$/i, "").trim();
@@ -4749,7 +4781,8 @@ export function detectTriggers(card) {
         // The condition slot gets the SAME self-name normalization discipline as the effect clause (one
         // anchored grammar — see rewriteSelfNameInterveningIf): "The Ozolith has counters on it" → the
         // "this permanent" form the interveningIf vocabulary reads. Every other condition passes untouched.
-        interveningIf: rewriteSelfNameInterveningIf(split.interveningIf, card.name),
+        interveningIf: rewriteSelfNameInterveningIf(interveningIfRaw, card.name),
+        firstTapOfThatCreatureThisTurn, // CAP1: per-creature first-tap latch — checkTapTriggers gates on the event's firstThisTurn stamp. ⚠️ Unlisted here = dropped = the trigger fires on EVERY tap — an over-fire, the forbidden direction.
         // SELF-CAST (CR 603.2): an {X}-cost spell's "When you cast this spell" trigger pays off the cast's X
         // (Hydroid Krasis "gain half X life and draw half X cards"). The effect-clause parsers gate X-amount
         // shapes on hasX (an {X} cost), but the trigger-effect parse sites (triggerRoutesNatively + the flush
@@ -7874,7 +7907,24 @@ export function checkTapTriggers(state) {
       event: "becomesTapped",
       sourcePermanent: lk.permanent,
       triggeringPermanent: lk.permanent,
+      // The tapped permanent's own self-watcher only — the board-watcher pass below owns every other scope,
+      // and without this exclusion a watcher that happens to BE the tapped permanent would fire twice.
+      descriptorFilter: (d) => d.scope === "self",
     }));
+    // BECOMES-TAPPED WATCHERS (Captain America, Living Legend — SHELF CAP1): the board pass, mirroring
+    // checkCounterTriggers' scoped loop. scopeMatches does the controller/creature work; the CAP1
+    // per-creature latch gates on the event's firstThisTurn stamp (recorded at transition time in
+    // gameState.tapPermanent / regeneratePermanent — a second same-turn tap of the same creature carries
+    // firstThisTurn:false and is dropped HERE, before a pending trigger ever exists). The scope !== "self"
+    // half exactly complements the filter above, so no descriptor can fire on both passes.
+    for (const pid of Object.keys(cleared.players)) {
+      for (const watcher of triggerSourcesOf(cleared, pid)) {
+        fired = fired.concat(triggersForEvent(cleared, {
+          event: "becomesTapped", sourcePermanent: watcher, triggeringPermanent: lk.permanent,
+          descriptorFilter: (d) => d.scope !== "self" && (!d.firstTapOfThatCreatureThisTurn || !!ev.firstThisTurn),
+        }));
+      }
+    }
   }
   if (!fired.length) return cleared;
   return { ...cleared, pendingTriggers: [...(cleared.pendingTriggers || []), ...fired] };
