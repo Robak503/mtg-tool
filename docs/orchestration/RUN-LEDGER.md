@@ -3,6 +3,31 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔧 2026-08-30 — CODEX FOUR-FIX RUN (Colton's review) + CAP AMERICA FOCUS-FIRE (3 slices) — all on master
+> **The Codex four (each its own commit, full gates: suite 1306 files / 14,958 green · lint 0 · check:engine OK):**
+> · **#2 Arbiter status contract** (8bd4329d): 'resolved' RESERVED for grounded citation-clean answers;
+>   deterministic → `fallback_only`, model failure → `model_timeout`/`model_error`; `answerTrusted` bit on every
+>   response. Jace's consumers already branch on the string, so fallbacks now get the honest framing free.
+> · **#1 legend-rule/clone residuals** (8addd044): headline claims were ALREADY fixed at HEAD (verified);
+>   closed the real residue — Irenicus's Vile Duplication swallowed-unstamped "isn't legendary" tail (a live
+>   dropped rider), the Sakashima end-to-end same-name witness, stale "unenforced" comments.
+> · **#3 THE LAND TIER IS GATED** (the step-change): `landFullyCovered` vouches every line via the runtime's
+>   own recognizers; unmodeled utility lands → `land-partial` (playable, NOT native). 658/1,265 nonbasic-text
+>   lands demoted; **corpus 41.2% → 39.4%**; ⚠️ **the shelf's at-the-bar narrative RESET — only Omnath (93)
+>   still ≥90**; Teval 90→64 (channel/utility lands), Wolverine 90→82, Dragons 90→79, Jurassic 90→73 etc.
+>   The bar didn't move; the measurement got honest. SHELF-TAIL-PLAN'S numbers all need re-reading.
+> · **#4 quote-aware trigger extraction** (925849a7, TK-1 closed): ONE shared scanner for detection + shaped
+>   count + all residue strips; consumed-period + balanced-quote rules pinned. Fingerprint 12 changes all
+>   audited: +9 Pest/Eldrazi-Spawn makers flip (machinery pre-existed), Alpine Moon + Topsoil Turner phantom
+>   MANA SOURCES killed (live runtime FPs), 2 laterals, Llanowar Reborn.
+> **CAP AMERICA (Joe's active deck — Colton's focus-fire order) 73→76 before the review landed:**
+> CAP1 Living Legend (becomes-tapped watcher + per-creature first-tap latch, 8690a0c2) · CAP2 Liberator
+> (equipment-attached-to-source count, +Kemba lead noted) · CAP3 Super-Soldier (named-counter presence gate +
+> player+group hexproof union; Rhox Pummeler rode along). Ablation map for the rest is banked in-session:
+> 9 more single-blocker cards named (Reaver Cleaver, Kaldra, Buster Sword, Nazahn, Codsworth, Cloud, Aettir,
+> Conqueror's Flail, Panther Habit). NOTE: post-#3 the deck reads 63 (13 partial lands) — the native-card
+> count is unchanged; the tail now includes lands.
+>
 > ## ⏸️ SESSION PAUSED — 2026-08-16 (Colton) — **FRESH SESSION for Thrun's hard tail**
 > A long deck-first session (SH18-23, Thrun 82→88, batch +29, all green + pushed) reached the point where
 > Thrun's last 2 flips are SUBSTANTIAL ENGINE FEATURES, not the one-line widens the first six were. Colton's
