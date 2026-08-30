@@ -626,6 +626,21 @@ export function countForSpec(state, ctx, spec) {
   // creaturePower/creatureToughness are layer-aware (counters + anthems counted) and read at resolution. An
   // ABSENT referent (a spell / the permanent already left the battlefield) or a NON-creature → 0 (a clean no-op,
   // CR 107.3 — never a fabricated count). Computed BEFORE the player lookup (these read a permanent, not a player).
+  // ===== EQUIPMENT-ATTACHED-TO-SOURCE (SHELF CAP2 — Captain America, Liberator) ===== the number of
+  // Equipment permanents attached to the ability's OWN permanent (ctx.sourceId), read live at resolution
+  // (CR 608.2h). Scans every seat's battlefield because an attached Equipment lives on its CONTROLLER's
+  // battlefield, which need not be the host's (a stolen Equipment stays attached). Absent source → 0.
+  if (spec.kind === "equipmentAttachedToSource") {
+    const refId = ctx?.sourceId;
+    if (!refId || !findPermanent(state, refId)) return 0;
+    let total = 0;
+    for (const pl of Object.values(state?.players || {})) {
+      for (const perm of pl.battlefield || []) {
+        if (perm.attachedTo === refId && /\bEquipment\b/i.test(String(perm.card?.type || perm.card?.type_line || ""))) total += 1;
+      }
+    }
+    return total;
+  }
   const STAT_KIND = {
     triggeringPower: { id: "triggeringPermanentId", read: creaturePower },
     triggeringToughness: { id: "triggeringPermanentId", read: creatureToughness },

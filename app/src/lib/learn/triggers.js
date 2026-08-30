@@ -4502,6 +4502,20 @@ export function detectTriggers(card) {
         effectClause = effectClause
           .replace(/\b(deals? \d+ damage) to it\b/gi, "$1 to the triggering creature")
           .replace(/\bif an? ([a-z]+) is dealt damage this way\b/gi, "if the triggering creature is a $1 dealt damage by this source");
+      } else if (cls.scope === "self" && /^for each equipment attached to (?:him|her|it|this creature), (?:create .+)$/i.test(effectClause)) {
+        // ===== LEADING FOR-EACH, EQUIPMENT-ATTACHED (SHELF CAP2 — Captain America, Liberator: "Whenever
+        // Captain America attacks, for each Equipment attached to him, create a 1/1 white Soldier creature
+        // token.") ===== Invert the LEADING "for each <src>, create <tok>" to the TRAILING form the token
+        // atom's mtf matcher parses ("create <tok> for each <src>") and normalize the gendered/pronoun
+        // referent to "this creature" (unambiguously the SOURCE on a scope-SELF trigger, the Red Hulk
+        // rule). CR-equivalent for a create clause: N iterations of "create one token" ≡ "create N tokens".
+        // ⛔ DELIBERATELY NOT a general "for each X, <effect>" inversion: an iterative per-object form
+        // ("for each creature, tap it") is NOT count-scaled, so only this exact count source + a create
+        // tail is inverted. Whole-clause anchored: any rider stays unrewritten → LOW → Arbiter (CREED).
+        effectClause = effectClause.replace(
+          /^for each equipment attached to (?:him|her|it|this creature), (create .+)$/i,
+          "$1 for each equipment attached to this creature",
+        );
       } else if (cls.scope === "self" && /\bon (?:him|her)\b/i.test(effectClause)) {
         // ===== GENDERED SELF-REFERENT (2026-08-14 — Red Hulk "put a +1/+1 counter on HIM … equal to the
         // number of +1/+1 counters on HIM"; Mockingbird "on HER") ===== Marvel legends print him/her where

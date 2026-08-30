@@ -289,6 +289,12 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   // "on this creature" — the explicit source self-reference (Red Hulk's reflexive via the gendered-pronoun
   // normalization, 2026-08-14): the SAME referent as "on it" in a source-scoped clause, same reader.
   if (/^\+1\/\+1 counters? on (?:it|this creature)$/.test(p)) return { kind: "plusCountersOnSource" };
+  // ⭐ EQUIPMENT-ATTACHED-TO-SOURCE (SHELF CAP2 — Captain America, Liberator: "for each Equipment attached
+  // to him, create a 1/1 white Soldier creature token", normalized by the trigger rewrite to the trailing
+  // form with "this creature"). Counts the Equipment permanents whose attachedTo is the SOURCE permanent,
+  // live at resolution (CR 608.2h). Source-relative like plusCountersOnSource — countForSpec reads
+  // ctx.sourceId; an absent source → 0 (a clean no-op, never a fabricated count).
+  if (/^equipment attached to this creature$/.test(p)) return { kind: "equipmentAttachedToSource" };
   if (/^(?:the number of )?colors? of mana spent to cast (?:this spell|it)$/.test(p)) {
     return { kind: "colorsSpentThisSpell" };
   }
