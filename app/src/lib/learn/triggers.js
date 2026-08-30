@@ -347,6 +347,107 @@ const FLAVOR_LABEL_RE = new RegExp(
  * 207.2c words PLUS an explicit set of crossover-set flavor labels (FLAVOR_LABEL_RE), each anchored on a
  * trailing trigger-keyword lookahead so it can only consume a true label, never real rules text.
  */
+/**
+ * ⭐ QUOTE-AWARE TRIGGER-SENTENCE SCAN (Codex fix #4 / TK-1, 2026-08-30) — THE shared extraction path.
+ *
+ * The old form everywhere was the regex `(?:^|[\n.;]\s*)(When|Whenever|At)\b\s+[^.]+\.` — and `[^.]+`
+ * stops at the FIRST period, even one INSIDE a quoted granted ability. A Devil-maker's trigger
+ * ("…create a 1/1 red Devil creature token with \"When this creature dies, it deals 1 damage to any
+ * target.\"") was truncated mid-quote: the sentence garbled, shaped/detected desynced, ~15 Pest/Devil
+ * makers parked, and the quote-tail haunted every residue chain.
+ *
+ * This scanner walks the text with quote + paren depth: a sentence ANCHOR is When/Whenever/At at a
+ * sentence boundary (start of text, or after `[\n.;]` at depth 0 — whitespace preserved-boundary,
+ * exactly the old anchor); the sentence END is the first `.` at depth 0 (so a quoted ability's
+ * internal period no longer terminates it; the sentence may span newlines, as `[^.]+` did). An
+ * unterminated candidate (no depth-0 period before end-of-text) is not a sentence, as before.
+ *
+ * ⛔ ONE SCANNER, EVERY CONSUMER. detectTriggers' extraction, coverage's shaped-sentence count, and
+ * every residue chain's trigger-strip all route through scanTriggerSentences/stripTriggerSentences —
+ * the `shaped === detected` invariant only survives because there is exactly one definition of
+ * "a trigger sentence". Do not re-derive the regex anywhere.
+ *
+ * Returns [{ word, inner, start, end }] — word = the matched When/Whenever/At (original casing),
+ * inner = the sentence body after the word (no trailing period), [start,end) = the full sentence
+ * span including its final period.
+ */
+export function scanTriggerSentences(text) {
+  const s = String(text || "");
+  const out = [];
+  let quote = false, paren = 0, atBoundary = true;
+  for (let i = 0; i < s.length; ) {
+    const ch = s[i];
+    if (ch === '"') { quote = !quote; atBoundary = false; i++; continue; }
+    if (!quote && ch === "(") { paren++; atBoundary = false; i++; continue; }
+    if (!quote && ch === ")") { paren = Math.max(0, paren - 1); atBoundary = false; i++; continue; }
+    if (!quote && paren === 0 && (ch === "\n" || ch === "." || ch === ";")) { atBoundary = true; i++; continue; }
+    if (ch === " " || ch === "\t") { i++; continue; } // whitespace preserves the boundary state
+    if (atBoundary && !quote && paren === 0) {
+      const m = /^(When(?:ever)?|At)\b\s+/i.exec(s.slice(i));
+      if (m) {
+        // Scan to the terminating '.' at depth 0 (quotes and parens both nest the depth) — OR to a
+        // closing quote directly after a period (Magic templating puts the sentence's final period
+        // INSIDE the quotes: `…token with "…deals 1 damage to each opponent."` has NO depth-0 period
+        // at all). The quote-final form terminates ONLY when nothing chains on: a lowercase
+        // continuation (`has "A." and "B."` — the chain keeps the sentence open) keeps scanning.
+        // innerEnd: where the sentence BODY stops (exclusive); end: the last consumed char (the
+        // period, or the closing quote in the quote-final form — the quote is part of the body, so
+        // the extracted inner stays quote-BALANCED for the downstream grant parsers).
+        let q = false, p = 0, end = -1, innerEnd = -1;
+        for (let j = i + m[0].length; j < s.length; j++) {
+          const c = s[j];
+          if (c === '"') {
+            if (q && p === 0 && s[j - 1] === ".") {
+              const rest = s.slice(j + 1);
+              if (/^[ \t]*(?:\n|$)/.test(rest) || /^[ \t]+[^a-z]/.test(rest)) { end = j; innerEnd = j + 1; break; }
+            }
+            q = !q;
+          }
+          else if (!q && c === "(") p++;
+          else if (!q && c === ")") p = Math.max(0, p - 1);
+          else if (!q && p === 0 && c === ".") { end = j; innerEnd = j; break; }
+        }
+        if (end !== -1) {
+          out.push({ word: m[1], inner: s.slice(i + m[0].length, innerEnd).trim(), start: i, end: end + 1 });
+          // ⛔ The terminal period is CONSUMED, not a fresh boundary — the old regex ate it as the
+          // sentence's final `\.`, which is precisely why a REFLEXIVE follow-up ("roll a d20. When you
+          // do, …" — CR 603.7) directly after a trigger sentence was never counted as its own shaped
+          // sentence (detectTriggers folds it into the effectClause instead). Re-arming the boundary
+          // here counted those reflexive sentences and parked 17 cards on shaped!==detected arithmetic
+          // — caught by the corpus fingerprint diff on this fix's first draft.
+          i = end + 1; atBoundary = false; continue;
+        }
+      }
+    }
+    atBoundary = false; i++;
+  }
+  return out;
+}
+
+/**
+ * Remove every scanned trigger sentence from `text`, replacing each (plus the leading boundary
+ * character the old regex consumed — the previous sentence's `.`/`;`/newline) with `repl`.
+ * Behavior-identical to the old `.replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, repl)`
+ * for quote-free text; on quote-carrying text it removes the WHOLE sentence instead of truncating
+ * at the quoted period (the fix). Shared by every residue chain — see scanTriggerSentences.
+ */
+export function stripTriggerSentences(text, repl = " ") {
+  const s = String(text || "");
+  const hits = scanTriggerSentences(s);
+  if (!hits.length) return s;
+  let out = "", pos = 0;
+  for (const h of hits) {
+    let a = h.start;
+    let b = a;
+    while (b > pos && /[ \t]/.test(s[b - 1])) b--;
+    if (b > pos && /[\n.;]/.test(s[b - 1])) a = b - 1; // include the one boundary char, like the old anchor
+    out += s.slice(pos, a) + repl;
+    pos = h.end;
+  }
+  out += s.slice(pos);
+  return out;
+}
+
 export function stripTriggerAbilityLabel(oracle) {
   // "treasure hunter" is Knuckles the Echidna's flavor ability-word label on its upkeep-win trigger
   // ("Treasure Hunter — At the beginning of your upkeep, …"). Like the others it's CR 207.2c flavor with
@@ -3858,10 +3959,12 @@ export function detectTriggers(card) {
   if (oracle) {
     // Anchored at start / after a sentence boundary, like keywords.js — so a
     // mid-sentence "when" never false-matches.
-    const re = /(?:^|[\n.;]\s*)(When|Whenever|At)\b\s+([^.]+)\./gi;
-    let m;
-    while ((m = re.exec(oracle)) !== null) {
-      const inner = m[2].trim();
+    // QUOTE-AWARE (Codex fix #4): the shared scanner replaces the old first-period regex here — a
+    // quoted granted ability's internal period no longer truncates the sentence. m mirrors the old
+    // regex-match shape (m[1] = the anchor word, used by sourceText at the descriptor build).
+    for (const hit of scanTriggerSentences(oracle)) {
+      const m = [null, hit.word];
+      const inner = hit.inner;
       const split = splitTriggerSentence(inner);
       if (!split) continue;
       // ===== "…FOR THE FIRST TIME EACH TURN" (CR 603.2) — the limiter baked into the EVENT WORDING =====
@@ -3943,7 +4046,7 @@ export function detectTriggers(card) {
       // is self-contained (lead + all bullets), so it bypasses BOTH the same-line follow-up loop (which would
       // mis-append bullet text) AND the leading-sentence referent rewrites below (which target a non-modal
       // clause's pronouns; modal modes carry their own self/that referents the parser handles).
-      const modalBlock = extractModalEffectBlock(oracle, m.index, effectClause);
+      const modalBlock = extractModalEffectBlock(oracle, hit.start, effectClause); // hit.start = the sentence's anchor-word position (the old m.index, sans the leading boundary — extractModalEffectBlock scans FORWARD from here, so the delta is inert)
       if (modalBlock !== null) {
         effectClause = modalBlock;
         // (Mode flavor labels — "• Sort Inventory — Draw a card…" — are stripped by the PARSER's own
@@ -3972,7 +4075,7 @@ export function detectTriggers(card) {
           }).join("\n");
         }
       } else {
-      const sameLine = oracle.slice(re.lastIndex).split("\n")[0].replace(/\([^)]*\)/g, " ");
+      const sameLine = oracle.slice(hit.end).split("\n")[0].replace(/\([^)]*\)/g, " "); // hit.end = just past the sentence's period (the old re.lastIndex)
       for (const sent of sameLine.split(/\.\s+|\.\s*$|;\s+/)) {
         const s = sent.trim();
         if (!s) continue;

@@ -35,12 +35,16 @@ const PLAIN_EQUIP = { name: "Plain Blade", type: "Artifact — Equipment", mana:
   oracle: "Equipped creature gets +2/+0.\nEquip {2}" };
 
 describe("the composition — each half already understood its own piece", () => {
-  it("THE LOAD-BEARING PAIR — both flip, and the EQUIPMENT gate alone still can't take them", () => {
-    // permanentEquipmentCovered staying false is the whole diagnosis: its naive trigger strip leaves the
-    // reflexive tail / reminder text behind. The composite is what closes it.
-    expect(permanentEquipmentCovered(GOLDVEIN_PICK)).toBe(false);
+  it("THE LOAD-BEARING PAIR — both flip; the quote-aware strip made the EQUIPMENT gate self-sufficient for Goldvein (Codex fix #4)", () => {
+    // HISTORY: permanentEquipmentCovered used to fail BOTH (its naive first-period trigger strip left
+    // the reflexive tail / Treasure reminder behind), and the composite existed to close that gap. The
+    // shared quote-aware strip now cleans Goldvein's sentence whole, so the equipment gate takes it
+    // directly (native-equipment — a LATERAL move, still native, runtime unchanged). Mask of Memory's
+    // "If you do, discard a card." reflexive tail still needs the composite — that half of the
+    // diagnosis stands, and both cards still flip native either way.
+    expect(permanentEquipmentCovered(GOLDVEIN_PICK)).toBe(true);
     expect(permanentEquipmentCovered(MASK_OF_MEMORY)).toBe(false);
-    expect(classifyCard(GOLDVEIN_PICK)).toBe("native-mixed");
+    expect(classifyCard(GOLDVEIN_PICK)).toBe("native-equipment");
     expect(classifyCard(MASK_OF_MEMORY)).toBe("native-mixed");
   });
 

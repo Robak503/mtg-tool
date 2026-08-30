@@ -32,7 +32,7 @@ import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsC
 import { stripFlashPermissionLine } from "./effects/textNormalize.js"; // self-flash permission — shared with the spell path so metric and parser read ONE regex
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — the metric gates on the SAME vetting the runtime charges on
-import { detectTriggers, stripTriggerAbilityLabel, foldTwoTriggerDetain, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, hasDethrone, hasTraining, firebendingKeywordValue, soulshiftKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues, startYourEnginesKeywordCount } from "./triggers.js";
+import { detectTriggers, stripTriggerAbilityLabel, foldTwoTriggerDetain, parseGrantedTriggeredAbilities, compoundTriggerCount, cascadeInstanceCount, ravenousTriggerCount, undyingKeywordCount, evolveKeywordCount, renownKeywordValue, mobilizeKeywordValue, backupKeywordValue, partnerWithName, hasDethrone, hasTraining, firebendingKeywordValue, soulshiftKeywordCount, flankingKeywordCount, persistKeywordCount, battleCryKeywordCount, afterlifeKeywordValues, mentorKeywordCount, modularKeywordValues, startYourEnginesKeywordCount, scanTriggerSentences, stripTriggerSentences } from "./triggers.js"; // scan/stripTriggerSentences: THE shared quote-aware extraction (Codex fix #4) — shaped count + every residue strip must use it or shaped===detected snaps
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND no-cost credit — the same gate the runtime offers through (fading→triggers→… is already a loaded edge; no cycle)
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler, parseDiscardCostAbility } from "./effects/abilities.js";
@@ -1264,10 +1264,10 @@ export function spellIsNative(card) {
 // as the SINGLE source of truth, so the runtime group-triggered-grant validator consults the identical gate
 // and can't drift from the metric. Imported above; used by permanentTriggersCovered + the composite classifier.
 
-// The When/Whenever/At sentence shape (matches detectTriggers' grammar). Used to COUNT
-// trigger-shaped sentences so an UNMODELED-event trigger ("Whenever you cast …", "…put
-// into a graveyard …") can't be silently stripped from the residue and mis-credited.
-const TRIGGER_SENTENCE_RE = /(?:^|[\n.;]\s*)(?:When|Whenever|At)\b\s+[^.]+\./gi;
+// The When/Whenever/At sentence shape is COUNTED via triggers.js's scanTriggerSentences — the SAME
+// quote-aware scanner detectTriggers extracts with (Codex fix #4), so the shaped-sentence count and
+// the detected-trigger count read one definition of "a trigger sentence" and cannot desync on a
+// quoted granted ability's internal period. (The old TRIGGER_SENTENCE_RE lived here.)
 
 /**
  * Every trigger-shaped sentence on the card is a DETECTED trigger that routes natively.
@@ -1403,7 +1403,7 @@ function allTriggerSentencesModeled(card, oracle) {
   // sides of it or it buys nothing.
   const foldedOracle = foldTwoTriggerDetain(oracle, card);
   const compoundShaped = compoundTriggerCount(stripReminder(stripTriggerAbilityLabel(foldedOracle)));
-  const shaped = (stripReminder(stripTriggerAbilityLabel(foldedOracle)).match(TRIGGER_SENTENCE_RE) || []).length + kwTrigShaped + compoundShaped;
+  const shaped = scanTriggerSentences(stripReminder(stripTriggerAbilityLabel(foldedOracle))).length + kwTrigShaped + compoundShaped;
   const detected = detectTriggers(card);
   if (detected.length !== shaped) return false;     // an unrecognized-event trigger sentence
   return detected.every(triggerRoutesNatively);      // every recognized trigger's effect routes
@@ -1527,7 +1527,7 @@ export function permanentTriggersCovered(card) {
     // DIRECTLY follow the exact chosen-player rad clause (FN-safe).
     .replace(/(target player gets (?:a|an|one|two|three|four|five|\d+) rad counters?)\.\s*if that player is you, create a treasure token\b\.?\s*/gi, "$1. ")
     .replace(/(?:^|[\n.;]\s*)(?:When|Whenever|At)\b[^\n]*?\bchoose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b\s*[—-][^\n]*(?:\n\s*•[^\n]*)+/gi, " ")
-    .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ")
+    .replace(/[\s\S]*/, (all) => stripTriggerSentences(all, " ")) // QUOTE-AWARE (Codex fix #4): the shared scanner strips whole sentences (a quoted ability internal period no longer truncates)
     .replace(/\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b\.?/gi, " ")
     .replace(/\bDo this only once each turn\b\.?\s*/gi, " ")
     // ONCE-PER-TURN TRIGGER rider (M1a's residue half, 2026-07-28) — "This ability triggers only once each
@@ -1784,8 +1784,8 @@ function landFullyCovered(card) {
   // Residue: strip trigger sentences (the permanent gates' anchored form), then every remaining line must
   // be an admitted lane. Line-granular on purpose — a rider sharing a line with a modeled ability keeps
   // the line unmatched and demotes the card (CREED: never a silent drop).
-  const afterTriggers = stripTriggerAbilityLabel(foldTwoTriggerDetain(stripReminder(raw), card))
-    .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, "\n");
+  // QUOTE-AWARE (Codex fix #4): the shared scanner strips whole sentences.
+  const afterTriggers = stripTriggerSentences(stripTriggerAbilityLabel(foldTwoTriggerDetain(stripReminder(raw), card)), "\n");
   const tapped = entersTapped(card);
   for (const line of afterTriggers.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (tapped && /^[^.]*\benters (?:the battlefield )?tapped\.?$/i.test(line)) continue;
@@ -1976,7 +1976,7 @@ export function permanentFullyCovered(card) {
   // native-trigger residue chain's ordering).
   const afterTriggers = stripTriggerAbilityLabel(foldTwoTriggerDetain(oracle, card))
     .replace(/(counters? on (?:it|that creature|this creature))\.\s+it (?:gets [+-]\d+\/[+-]\d+(?: and gains [^.]+)?|gains [^.]+) until end of turn\b\.?\s*/gi, "$1. ")
-    .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, "\n")
+    .replace(/[\s\S]*/, (all) => stripTriggerSentences(all, "\n")) // QUOTE-AWARE (Codex fix #4): the shared scanner strips whole sentences (a quoted ability internal period no longer truncates)
     // REFLEXIVE (CR 603.7) + OPTIONAL-PAYMENT (CR 603.7c) tails — a "When you do, <reflexive>." / "If you do,
     // <effect>." sentence is part of the PRECEDING trigger's effect (detectTriggers folds it into the
     // effectClause, which parses HIGH in allTriggerSentencesModeled above — proven before this residue check
@@ -2081,7 +2081,9 @@ export function permanentEquipmentCovered(card) {
   // the remaining "• …" mode lines as residue. On an EQUIPMENT every bullet line belongs to its (already
   // fully-verified, allTriggerSentencesModeled above) modal trigger — equipment carry no standalone modal
   // statics — so drop the bullet lines with the trigger sentences.
-  const noTrig = { ...card, oracle: oracle.replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ").replace(/^\s*•[^\n]*$/gm, " ") };
+  // QUOTE-AWARE (Codex fix #4): the shared scanner strips whole sentences (a quoted ability's internal
+  // period no longer truncates the strip).
+  const noTrig = { ...card, oracle: stripTriggerSentences(oracle, " ").replace(/^\s*•[^\n]*$/gm, " ") };
   const abilities = parseActivatedAbilities(noTrig);
   if (abilities.length === 0 || !abilities.every((a) => a.isEquipAbility && a.modeled)) return false;
   // The bonus parser is all-or-nothing over every equipped-creature clause: a non-empty result
@@ -3968,7 +3970,7 @@ function classifyChosenTypeAnthem(card) {
     .replace(CHOSEN_TYPE_CHOOSER_RE, " ")
     .replace(CHOSEN_TYPE_ANTHEM_RE, " ")
     .replace(CHOSEN_TYPE_ETB_COUNTER_RE, " ")
-    .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ")
+    .replace(/[\s\S]*/, (all) => stripTriggerSentences(all, " ")) // QUOTE-AWARE (Codex fix #4): the shared scanner strips whole sentences (a quoted ability internal period no longer truncates)
     .replace(/[\s.]+/g, " ").trim();
   if (residue.length > 0) return null;
   return isDoor ? "native-mixed" : "native-static";

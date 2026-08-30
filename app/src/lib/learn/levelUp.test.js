@@ -177,8 +177,11 @@ describe("modeledLeveler + classifyCard — whole card or park", () => {
       expect(parseStaticAbilities(card), card.name).toEqual([]);
     }
   });
-  it("Under-Construction Skyscraper (the Land leveler) keeps the land tier and gets no leveler emission", () => {
-    expect(classifyCard(SKYSCRAPER)).toBe("land");
+  it("Under-Construction Skyscraper (the Land leveler) gets no leveler emission; land-partial since the land gate (Codex fix #3)", () => {
+    // The leveler text is a whole unmodeled ability on a Land — the gated land tier honestly demotes
+    // it (the old unconditional "land" was the over-count). The load-bearing half of this pin is the
+    // NO-EMISSION pair below: no leveler machinery ever fires off a Land.
+    expect(classifyCard(SKYSCRAPER)).toBe("land-partial");
     expect(modeledLeveler(SKYSCRAPER)).toBeNull();
     expect(parseActivatedAbilities(SKYSCRAPER)).toEqual([]);
   });

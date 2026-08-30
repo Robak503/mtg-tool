@@ -43,7 +43,10 @@ describe("energy SPEND not yet enforced — mana model stays honest", () => {
   it("a FREE {C} line + an energy-gated any-color line credits only the {C} (Aether Hub / Solar Transformer)", () => {
     const aetherHub = { name: "Aether Hub", type: "Land", oracle: "When this land enters, you get {E} (an energy counter).\n{T}: Add {C}.\n{T}, Pay {E}: Add one mana of any color." };
     expect(manaProduction(aetherHub)).toMatchObject({ colors: ["C"], amount: 1 }); // NOT the any-color energy line
-    expect(classifyCard(aetherHub)).toBe("land");
+    // land-partial since the land gate (Codex fix #3): the energy-pay any-color line is a whole ability
+    // the runtime refuses (energy SPEND unenforced), so the card is honestly NOT fully modeled — the
+    // {C} under-offer above is the runtime truth this test exists to pin.
+    expect(classifyCard(aetherHub)).toBe("land-partial");
     const solar = { name: "Solar Transformer", type: "Artifact", oracle: "This artifact enters tapped.\nWhen this artifact enters, you get {E}{E}{E} (three energy counters).\n{T}: Add {C}.\n{T}, Pay {E}: Add one mana of any color." };
     expect(manaProduction(solar)).toMatchObject({ colors: ["C"], amount: 1 });
     expect(classifyCard(solar)).toBe("native-mana");

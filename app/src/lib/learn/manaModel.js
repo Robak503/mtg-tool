@@ -741,6 +741,10 @@ export function stripNonSelfQuotedGrants(text, typeLine) {
     (whole, subject, quote) => {
       const sub = subject.toLowerCase();
       if (/\bother\b/.test(sub) || /\b(?:enchanted|equipped|fortified)\b/.test(sub)) return subject + " ";
+      // NON-BATTLEFIELD-ZONE GRANT (Topsoil Turner class): a grant to cards in a HAND/GRAVEYARD/LIBRARY
+      // can never include the battlefield granter itself, even when the granter's type line matches the
+      // granted set. Strip \u2192 FN-safe: never a phantom standing source off a zone the permanent isn't in.
+      if (/\bin your (?:hand|graveyard|library)\b|\bin exile\b/.test(sub)) return subject + " ";
       // CONDITIONAL GRANT (P0-residual FP wave): a grant whose membership this card-level, stateless
       // model cannot evaluate must never credit the granter's own standing production —
       //   • "As long as <condition>, this creature has …" (Honored Hierarch renown / Mul Daya top-card)
@@ -763,6 +767,27 @@ export function stripNonSelfQuotedGrants(text, typeLine) {
         if (sing.length >= 3 && new RegExp("\\b" + sing + "\\b", "i").test(tl)) return whole;
       }
       return subject + " ";
+    },
+  // ── GAINS-FORM PHANTOM SOURCES (Codex fix #4 fallout, 2026-08-30) ──────────────────────────────
+  // The has/have matcher above never sees a "gains \"…\"" grant, and two real phantoms hid there:
+  //   · Topsoil Turner — "each Forest and Treefolk card IN YOUR HAND perpetually gains \"{T}: Add
+  //     {G}{G}.\"" (a hand-zone grant can never include the battlefield granter, type match or not);
+  //   · Alpine Moon — "Lands YOUR OPPONENTS CONTROL … lose all abilities and gain \"{T}: Add {C}.\""
+  //     (an opponents-scoped grant likewise never includes the granter).
+  // Both credited the GRANTER itself with the quoted production. This second pass strips a gains-form
+  // quote ONLY when (a) it could mint a phantom source at all (an "add" inside the quote) AND (b) the
+  // subject is one of those two provably-non-self classes. Everything else returns `whole` untouched —
+  // ⛔ DELIBERATELY: a first draft stripped every unmatched gains-subject and ate Rivaz of the Claw's
+  // dies-exile grant ("it gains \"When this creature dies, exile it.\"" — no mana inside, and the text
+  // is load-bearing for the classifier + the runtime grant stamp). Caught by rivazOfTheClaw.test.js.
+  ).replace(
+    /([^.\n"“]*?\b(?:perpetually\s+)?gains?\b[^.\n"“]*?)((?:["“][^"”]*["”])(?:\s*,?\s*(?:and\s+)?["“][^"”]*["”])*)/gi,
+    (whole, subject, quote) => {
+      if (!/\badd\b/i.test(String(quote || ""))) return whole; // no mana inside — never a phantom source
+      const sub = subject.toLowerCase();
+      if (/\bin your (?:hand|graveyard|library)\b|\bin exile\b/.test(sub)) return subject + " ";
+      if (/\byour opponents?\b|\ban opponent controls\b|\bopponents? control\b/.test(sub)) return subject + " ";
+      return whole; // unknown gains-subject: keep the text (pre-existing behavior — never widen on a guess)
     },
   );
 }
