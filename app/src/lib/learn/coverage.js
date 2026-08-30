@@ -1747,6 +1747,56 @@ export function permanentTriggersCovered(card) {
  * uses. Every call site passes the card whose oracle the line came from — passing a DIFFERENT card
  * (or none) would desync this mirror from parseActivatedAbilities and hide/expose phantom residue.
  */
+/**
+ * ⭐ LAND FULL-COVERAGE GATE (Codex fix #3, 2026-08-30) — is EVERY line of this land's text something the
+ * engine actually plays? "land" (native) only when yes; "land-partial" otherwise. The lanes, each the SAME
+ * gate its runtime uses (never a parallel re-implementation):
+ *   · empty text / a BASIC — vanilla; a basic's whole text is its intrinsic mana + reminder (CR 305.6).
+ *   · trigger sentences — allTriggerSentencesModeled + the same anchored strip the permanent gates use
+ *     (the Karoo bounce-lands' ETB is modeled — landBounceScope — so they stay "land").
+ *   · the bare enters-tapped static — entersTapped(card), the exact recognizer resolvers honors at entry.
+ *     A CONDITIONAL tapland ("enters tapped unless …") fails it — the runtime never evaluates the
+ *     condition (it enters untapped, the documented player-favorable miss), so the metric must not call
+ *     that card fully modeled.
+ *   · mana lines — manaProduction ON THE SINGLE LINE (the runtime's own parser), so a second, unparsed
+ *     ability can never free-ride on the first line's production.
+ *   · activated-ability lines — parseActivatedAbilities' own modeled flag / the graveyard-ability lanes
+ *     (Fabled Passage's sac-fetch is modeled and stays "land"; Mystifying Maze's exile is not and parks).
+ *   · anything left must be keyword-only (Cycling on a Triome) — else land-partial.
+ * FN-safe by construction: every lane is a positive vouch by the runtime's own recognizer; unrecognized
+ * text always demotes. Never strips unsupported abilities to inflate the count (the review's explicit ban).
+ */
+function landFullyCovered(card) {
+  const type = String(card?.type || card?.type_line || "");
+  const raw = String(card?.oracle ?? card?.oracle_text ?? "");
+  if (!stripReminder(raw).trim()) return true;
+  if (/\bBasic\b/i.test(type)) return true;
+  if (!allTriggerSentencesModeled(card, raw)) return false;
+  const isManaLine = (txt) => /\badd\b/i.test(txt) && !!manaProduction({ name: card?.name, type, oracle: txt });
+  const isGraveyardAbility = (txt) => {
+    const one = { ...card, oracle: txt };
+    return !!(parseGraveyardSelfRecursion(one) || parseGraveyardExileAbility(one));
+  };
+  // Every parsed activated ability must be modeled, a graveyard ability, or a mana line the mana model
+  // parses (a land's "{T}: Add …" reads as an activated ability here but is owned by the mana model).
+  const activated = parseActivatedAbilities(card);
+  if (!activated.every((a) => a.modeled || isGraveyardAbility(a.raw) || isManaLine(a.raw))) return false;
+  // Residue: strip trigger sentences (the permanent gates' anchored form), then every remaining line must
+  // be an admitted lane. Line-granular on purpose — a rider sharing a line with a modeled ability keeps
+  // the line unmatched and demotes the card (CREED: never a silent drop).
+  const afterTriggers = stripTriggerAbilityLabel(foldTwoTriggerDetain(stripReminder(raw), card))
+    .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, "\n");
+  const tapped = entersTapped(card);
+  for (const line of afterTriggers.split("\n").map((l) => l.trim()).filter(Boolean)) {
+    if (tapped && /^[^.]*\benters (?:the battlefield )?tapped\.?$/i.test(line)) continue;
+    if (isManaLine(line)) continue;
+    if (isActivatedAbilityLine(line, card)) continue; // vouched modeled/gy/mana by the .every above
+    if (isKeywordOnly(line, card?.name)) continue;
+    return false;
+  }
+  return true;
+}
+
 function isActivatedAbilityLine(line, card) {
   // OUTLAST (CR 702.107a) — a bare "Outlast {W}" line has no colon, so expand it through the SHARED expander
   // before testing. parseActivatedAbilities applies the same call, which is the only reason this mirror still
@@ -2947,7 +2997,14 @@ export function classifyCard(card) {
     if (splitTier) return splitTier;
     if (parseSplitCard(card)) return "arbiter-spell";
   }
-  if (/\bland\b/.test(type)) return "land";
+  // ⭐ LANDS ARE GATED NOW (Codex fix #3, 2026-08-30). This used to be an unconditional `return "land"` —
+  // every card with Land on its type line counted fully native, including utility lands whose abilities
+  // the engine has never modeled (Mystifying Maze's untargeting exile, man-land animations, conditional
+  // taplands whose condition the runtime never evaluates). That inflated every coverage number the
+  // project steers by. A land is "land" (native) ONLY when landFullyCovered vouches every line of its
+  // text; otherwise it's "land-partial" — PLAYABLE (the land drop + any modeled mana still work at
+  // runtime, exactly like playable-pw) but NOT native, so it counts in the gap it belongs to.
+  if (/\bland\b/.test(type)) return landFullyCovered(card) ? "land" : "land-partial";
   // A DFC with a planeswalker BACK face but a non-PW front (Jace, Vryn's Prodigy; Valki // Tibalt)
   // enters as its front at runtime; its transform + back face are unmodeled, so it's NEVER native.
   // Classify body-only directly — running the creature native classifiers on the combined oracle could
@@ -3398,7 +3455,10 @@ export const ALL_TIERS = Object.freeze([
   "native-static", "native-equipment", "native-aura", "native-mana-aura", "native-mixed",
   "native-clone", "native-planeswalker", "land",
   // playable but not native
-  "playable-pw",
+  // land-partial (Codex fix #3): a land with text the engine doesn't fully model — the land drop and any
+  // modeled mana still play (like playable-pw's loyalty subset), but the card is NOT native and counts in
+  // the gap. The unconditional every-Land-is-native short-circuit this replaces inflated every number.
+  "playable-pw", "land-partial",
   // the gap
   "body-only", "arbiter-spell", "arbiter-pw",
 ]);

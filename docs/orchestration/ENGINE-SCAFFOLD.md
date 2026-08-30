@@ -77,19 +77,25 @@ breach because it *asserts* the runtime is safe.)
 | `native-clone` | a clone/copy permanent | ✅ |
 | `native-planeswalker` | PW whose every loyalty ability is modeled | ✅ |
 | `native-spell` | instant/sorcery whose program is HIGH-confidence | ✅ |
-| `land` | any card with "Land" in its type line (see caveat) | ✅ |
+| `land` | a Land whose EVERY line is modeled (landFullyCovered) | ✅ |
 | `playable-pw` | PW playable but not fully modeled | ❌ (metric) |
+| `land-partial` | a Land with unmodeled text (drop + modeled mana still play) | ❌ (metric) |
 | `body-only` | has unmodeled non-keyword residue | ❌ |
 | `arbiter-spell` | instant/sorcery that isn't HIGH | ❌ |
 | `arbiter-pw` | PW that isn't playable | ❌ |
 
 `isNativeTier(tier)` is the authority for "counts as native" (`land` + every
-`native-*`; **not** `playable-pw`/`arbiter-*`). Always use it; never hardcode the
-set. **Caveat (known metric seam):** the `land` tier is *unconditional* — any card
-whose type line contains "Land" counts native regardless of unmodeled activated
-abilities on it (Mystifying Maze, etc.). This is the one non-all-or-nothing tier;
-it over-counts a handful of utility lands. Documented, not yet tightened (a
-`land-partial` tier is the fix if it ever matters).
+`native-*`; **not** `playable-pw`/`land-partial`/`arbiter-*`). Always use it; never
+hardcode the set. **The old caveat is CLOSED (Codex fix #3, 2026-08-30):** the `land`
+tier used to be *unconditional* (any type line containing "Land" counted native —
+Mystifying Maze as native as a Forest). `landFullyCovered` now vouches every line
+through the runtime's own recognizers (allTriggerSentencesModeled · entersTapped ·
+per-line manaProduction · parseActivatedAbilities' modeled flag · isKeywordOnly);
+anything unrecognized demotes to `land-partial`. Basics, taplands, Karoos, Triomes,
+fetches, and modeled-utility lands (Nykthos, Reliquary Tower, Rogue's Passage) stay
+`land`; man-lands, conditional taplands, shocks (no pay-life machinery), Channel
+lands, and spell//land MDFCs demote. Corpus effect at introduction: 658 of 1,265
+nonbasic-text lands demoted; corpus native 41.2% → 39.4% — the honest number.
 
 ### 2.2 The classification pipeline (order matters — first match wins)
 
@@ -98,7 +104,7 @@ it over-counts a handful of utility lands. Documented, not yet tightened (a
 ```
 1.  Planeswalker?            → castsAsPlaneswalker → loyaltyAbilities tiers
 2.  Adventure?               → adventure.js splits faces; BOTH halves must be native
-3.  Land (type line)?        → "land" (unconditional — see caveat above)
+3.  Land (type line)?        → landFullyCovered ? "land" : "land-partial" (Codex #3 — see §2.1)
 4.  DFC back-face PW?        → body-only
 5.  Instant/Sorcery?         → spellIsNative:
        storm/cascade keyword carve-outs (validated via detectTriggers +

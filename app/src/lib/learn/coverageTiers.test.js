@@ -21,8 +21,14 @@ import { ALL_TIERS, NATIVE_TIERS, isNativeTier } from "./coverage.js";
 function tiersInSource() {
   const src = readFileSync(new URL("./coverage.js", import.meta.url), "utf8");
   const found = new Set();
-  for (const m of src.matchAll(/return\s+"((?:native|arbiter)-[a-z-]+|land|body-only|playable-pw)"/g)) {
-    found.add(m[1]);
+  // Every tier literal on a `return` line — the plain `return "tier"` form AND the ternary
+  // (`return gate(card) ? "land" : "land-partial"`, the Codex-#3 land gate). Line-scoped so a tier
+  // string in a comment or unrelated expression never counts.
+  for (const line of src.split("\n")) {
+    if (!/\breturn\b/.test(line)) continue;
+    for (const m of line.matchAll(/"((?:native|arbiter)-[a-z-]+|land|land-partial|body-only|playable-pw)"/g)) {
+      found.add(m[1]);
+    }
   }
   return found;
 }
@@ -54,6 +60,8 @@ describe("ALL_TIERS is the single source for tier breakdowns", () => {
 
   it("agrees with isNativeTier on the split (natives + playable + gap, nothing orphaned)", () => {
     const gap = ALL_TIERS.filter((t) => !isNativeTier(t));
-    expect(gap).toEqual(["playable-pw", "body-only", "arbiter-spell", "arbiter-pw"]);
+    // land-partial (Codex fix #3): playable (land drop + modeled mana) but NOT native — the gated
+    // replacement for the unconditional every-Land-is-native short-circuit.
+    expect(gap).toEqual(["playable-pw", "land-partial", "body-only", "arbiter-spell", "arbiter-pw"]);
   });
 });
