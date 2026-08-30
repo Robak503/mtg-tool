@@ -3631,6 +3631,29 @@ function detectSelfCombatDamageToCreatureDestroy(condRaw, cardName, _typeLine, e
 }
 
 /**
+ * ⭐ SELF combat-damage-to-a-creature EXILE (SHELF CAP4 — Kaldra Compleat's granted trigger: "Whenever this
+ * creature deals combat damage to a creature, exile that creature"; also printed on Duplicant-adjacent
+ * bodies). The THIRD payoff shape on the same event/scope/fire site as the destroy + tap-lock twins —
+ * same gates verbatim: the bare self condition (a rider / "you control" variant → Arbiter), the WHOLE
+ * effect anchored to exactly "exile that creature" (a delayed / conditional / rider-carrying variant is
+ * never admitted — resolving it immediately would be strictly stronger than printed).
+ */
+function detectSelfCombatDamageToCreatureExile(condRaw, cardName, _typeLine, effectRaw) {
+  const c = String(condRaw || "").toLowerCase().trim();
+  const eff = String(effectRaw || "").toLowerCase().trim();
+  if (!/^exile that creature\.?$/.test(eff)) return null;
+  const m = c.match(/^(.+) deals combat damage to a creature$/);
+  if (!m) return null;
+  if (/\byou control\b/.test(c)) return null;
+  const subj = m[1].trim();
+  const nm = String(cardName || "").toLowerCase();
+  const isSelf = subj === "this creature" || subj === "this permanent" || (nm && subj === nm)
+    || (nm && subj === nm.split(",")[0].trim());
+  if (!isSelf) return null;
+  return { event: "combatDamageToCreature", scope: "selfDealerToCreature", whose: "any", exileThatCreature: true };
+}
+
+/**
  * ⭐ SELF combat-damage-to-a-creature TAP-AND-LOCK (CR 510.2 / 302.6) — "Whenever this creature deals combat
  * damage to a creature, tap that creature and it doesn't untap during its controller's next untap step."
  * The Kashi-Tribe / Orochi Snake Warrior family (Kashi-Tribe Warriors, Kashi-Tribe Reaver, Kashi-Tribe Elite,
@@ -4503,6 +4526,12 @@ export function detectTriggers(card) {
         // ⓘ "your next untap step" is accepted alongside "its controller's": on a SELF attacks trigger the
         // controller IS "you", so the two wordings name the same untap step.
         effectClause = "the source creature doesn't untap during its controller's next untap step";
+      } else if (cls.event === "combatDamageToCreature" && cls.exileThatCreature) {
+        // ⭐ SELF combat-damage EXILE (CAP4) — the destroy twin's third sibling rewrite, identical in shape:
+        // "that creature" is the DAMAGED creature, threaded by checkCombatDamageToCreatureTriggers as the
+        // triggering permanent; the removal.js exile sentinel binds it. The detector gates on the exact
+        // whole-effect text, so no other clause can reach this branch.
+        effectClause = "exile the triggering creature";
       } else if (cls.event === "combatDamageToCreature" && cls.tapLockThatCreature) {
         // ⭐ SELF combat-damage TAP-AND-LOCK — the destroy twin's sibling rewrite, and identical in shape:
         // "that creature" is the DAMAGED creature, threaded by checkCombatDamageToCreatureTriggers as the
@@ -4862,6 +4891,7 @@ export function detectTriggers(card) {
         itsController: cls.itsController,      // GLOBAL SUBTYPE combat-damage only ("its controller may …") — beneficiary = dealer's controller
         destroyThatCreature: cls.destroyThatCreature, // GLOBAL SUBTYPE combat-damage-to-CREATURE only (Toxin) — "destroy that creature"
         tapLockThatCreature: cls.tapLockThatCreature, // SELF combat-damage-to-CREATURE tap-and-lock (Kashi-Tribe family) — "tap that creature and it doesn't untap…". ⚠️ Unlisted here = dropped = the rewrite below never fires, the clause stays an unbindable "tap that creature and…" → LOW, and the card silently parks while the detector looks correct.
+        exileThatCreature: cls.exileThatCreature, // SELF combat-damage-to-CREATURE exile (CAP4 — Kaldra Compleat's granted trigger). Same ⚠️ as its twins: unlisted = dropped = the rewrite never fires.
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
         targeterIsController: cls.targeterIsController, // VALIANT becomesTarget only — "…a spell or ability YOU CONTROL"; checkBecomesTargetTriggers drops the trigger when the targeting stack object's controller isn't the targeted permanent's. ⚠️ Unlisted here = dropped = fires off an OPPONENT'S removal spell too, an over-fire, with the trigger looking correctly detected the whole time.
         requiresCounter: cls.requiresCounter, // COUNTER-PREDICATE dies/attacks scope only (BLITZ CNT-1 — "with a +1/+1 counter on it") — scopeMatches gate reads the triggering creature's live counter bag
@@ -7290,7 +7320,18 @@ export function checkCombatDamageToCreatureTriggers(state, creatureDamageEvents)
       for (const watcher of triggerSourcesOf(state, pid)) {
         // SUBTYPE gate on the DEALER (authoritative): only fire watchers whose subtype filter the dealing
         // creature carries. detectTriggers caches descriptors, so read them once per watcher.
-        const descriptors = detectTriggers(watcher.card).filter((d) => d.event === "combatDamageToCreature"
+        // ⭐ GRANTED descriptors merged (SHELF CAP4 — Kaldra Compleat: the Equipment grants its HOST
+        // "Whenever this creature deals combat damage to a creature, exile that creature"). This site
+        // reads printed cards directly (it bypasses triggersForEvent for the dealer-identity reasons
+        // below), so an attached/group grant was structurally INVISIBLE here — Kaldra classified native
+        // while its granted trigger could never fire, the recurring runtime-vacuous trap (the
+        // checkTapTriggers comment documents the same catch). The host is the dealer, so the granted
+        // selfDealerToCreature descriptor's identity gate below works unchanged.
+        const descriptors = [
+          ...detectTriggers(watcher.card),
+          ...grantedTriggersForHost(state, watcher),
+          ...grantedTriggersForGroup(state, watcher),
+        ].filter((d) => d.event === "combatDamageToCreature"
           && (d.scope === "subtypeGlobalToCreature" || d.scope === "selfDealerToCreature"));
         if (!descriptors.length) continue;
         for (const d of descriptors) {
@@ -8704,6 +8745,7 @@ registerTriggerDetector(detectSubtypeGlobalCombatDamage);
 registerTriggerDetector(detectSubtypeGlobalCombatDamageToCreature);
 registerTriggerDetector(detectSelfCombatDamageToCreatureDestroy); // the SELF twin (Voracious Cobra) — same event, same rewrite, same firing site; only the scope differs
 registerTriggerDetector(detectSelfCombatDamageToCreatureTapLock); // ⭐ the SECOND payoff shape on that same event/scope/fire site (Kashi-Tribe family) — tap-and-lock instead of destroy
+registerTriggerDetector(detectSelfCombatDamageToCreatureExile); // ⭐ the THIRD payoff shape (CAP4 — Kaldra Compleat's granted trigger) — exile instead of destroy
 // GLOBAL SUBTYPE damage → controller-lifegain ("a <Subtype> deals damage, its controller gains that much life"
 // — Essence Sliver). Registered here (defined above, no import) so every importer — runtime AND the coverage
 // metric — sees it. Consulted only after the inline classifyCondition returns falsy, which it does for the bare

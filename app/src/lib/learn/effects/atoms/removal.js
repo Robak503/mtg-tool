@@ -663,6 +663,13 @@ export function destroyExileClauseParser(clause) {
   // matches "that creature can't be regenerated"). Only the detectTriggers sentinel produces this clause, so a
   // spell anaphor never reaches it; an absent id is a clean no-op (applyDestroyEffect over an empty target list).
   if (/^destroy the triggering creature$/.test(t)) return { op: "destroy", target: "thatCreature" };
+  // TRIG-PRONOUN exile (SHELF CAP4 — Kaldra Compleat's granted "Whenever this creature deals combat damage
+  // to a creature, EXILE that creature"): the destroy sentinel's exile twin, byte-for-byte the same
+  // referent plumbing — target:"thatCreature" → atomTargets/triggeringTargets → ctx.triggeringPermanentId
+  // (the damaged creature), resolved through the SAME applyZoneMove the targeted-exile atoms use. Only the
+  // detectTriggers rewrite produces this phrase (zero printed oracle text), so a spell anaphor never
+  // reaches it; an absent id is a clean no-op.
+  if (/^exile the triggering creature$/.test(t)) return { op: "exile", target: "thatCreature" };
   // BASILISK TOUCH (BLITZ DG-1, CR 511) — the DELAYED twin of the sentinel above: "destroy the triggering
   // creature at end of combat" (Deathgazer's "destroy that creature at end of combat", rewritten to the
   // sentinel by the DG-1 fire site in checkBlockTriggers). The resolver does NOT destroy now — it enqueues
