@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { createGameState, createPermanent, _resetIdsForTests, moveCardToZone, findPermanent } from "./gameState.js";
+import { createGameState, createPermanent, _resetIdsForTests, moveCardToZone, findPermanent, applyLegendRule } from "./gameState.js";
 import { parseFadingVanishing, applyFadeVanishUpkeep } from "./fading.js";
 import { legalActionsForPlayer, filterActions } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
@@ -560,8 +560,10 @@ describe("WI-2 — mandatory-ness is parsed, threaded, and ENFORCED (CR 707.9)",
 //      "Sakashima" — legendary first-word elision, mirroring triggers.js);
 //   2. the "another creature you control" scope (a youControl set — the clone isn't on the battlefield yet, so
 //      "another" is naturally satisfied);
-//   3. the retainOwnAbilities rider — the copy ALSO keeps Sakashima's own abilities (the legend-rule-off static,
-//      an unenforced no-op line, and Partner, a bare keyword), appended to the copy so it reads as printed.
+//   3. the retainOwnAbilities rider — the copy ALSO keeps Sakashima's own abilities (the legend-rule-off static
+//      — a REAL exemption since sba.js implemented CR 704.5j: staticAbilityParser's legendRuleOff op, read by
+//      gameState.applyLegendRule — and Partner, a bare keyword), appended to the copy so it reads as printed.
+//      The end-to-end same-name witness lives in the "legend rule doesn't apply" test below.
 const SAKASHIMA = {
   id: "c-sak",
   name: "Sakashima of a Thousand Faces",
@@ -630,6 +632,35 @@ describe("Sakashima of a Thousand Faces — classifier + short-name scope + reta
     // The copy's oracle carries BOTH the source ETB trigger AND Sakashima's own inert abilities.
     expect(detectTriggers(copy).map((t) => t.effectClause)).toEqual(["draw a card"]);
     expect(copy.oracle).toContain("Partner");
+  });
+
+  it("⭐ END-TO-END — the retained legend-rule-off is a REAL exemption: Sakashima copies your LEGEND and both survive CR 704.5j", () => {
+    // Codex fix #1 witness (2026-08-30): the copy takes the copied legend's NAME, so without the retained
+    // static the legend rule would destroy one of the same-name pair. Sakashima's own line, appended to the
+    // copy by retainOwnAbilities, exempts its controller's permanents — applyLegendRule must keep BOTH.
+    const KRENKO = { name: "Krenko, Mob Boss", type: "Legendary Creature — Goblin Warrior", power: 3, toughness: 3, oracle: "" };
+    let s = boardState({
+      user: [createPermanent({ id: "u-krenko", card: { ...KRENKO }, controller: "user", summoningSick: false })],
+      hand: [SAKASHIMA], pool: { C: 9, U: 3 },
+    });
+    s = castToChoice(s, "c-sak");
+    s = finalizeStackResolution(resolveCloneChoice(s, "u-krenko"));
+    const krenkos = () => s.players.user.battlefield.filter((p) => p.card.name === "Krenko, Mob Boss");
+    expect(krenkos()).toHaveLength(2); // the copy took the name — a same-name legendary pair
+    const r = applyLegendRule(s);
+    s = r.state;
+    expect(krenkos()).toHaveLength(2); // ⭐ the retained static exempts them — CR 704.5j does not apply
+
+    // ⛔ CONTROL: the SAME same-name pair WITHOUT the exemption line loses one to the legend rule — proving
+    // the survival above comes from the retained static, not from a broken legend-rule harness.
+    const bare = boardState({
+      user: [
+        { ...createPermanent({ id: "k1", card: { ...KRENKO }, controller: "user", summoningSick: false }), timestamp: 1 },
+        { ...createPermanent({ id: "k2", card: { ...KRENKO }, controller: "user", summoningSick: false }), timestamp: 2 },
+      ],
+    });
+    const bareAfter = applyLegendRule(bare).state;
+    expect(bareAfter.players.user.battlefield.filter((p) => p.card.name === "Krenko, Mob Boss")).toHaveLength(1);
   });
 
   // CREED near-miss — an UNMODELED own ability on the tail must PARK the whole card (never a partial copy).

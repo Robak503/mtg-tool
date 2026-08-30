@@ -17,8 +17,9 @@
  *
  * Each form tolerates exactly the CLEAN copiable-value / combat-state riders, ALL anchored after the
  * source phrase and reduced to nothing else:
- *   - ", except the token isn't legendary"  — a NO-OP (the legend rule is unenforced); recognized so
- *     Miirym matches, but carries no atom field.
+ *   - ", except the token isn't legendary"  — a REAL type-line modification (CR 707.9a) since sba.js
+ *     implemented CR 704.5j: stamped as atom.notLegendary → tokens.js pushes the stripLegendary
+ *     copy-rider, so Miirym's token copies of legendary Dragons survive the legend rule.
  *   - " that enters tapped" / "; it enters tapped" forms are NOT in scope here (Miirym/Scute don't use
  *     them); the entersTapped/entersAttacking atom fields exist for the resolver but no in-deck clause
  *     reaches them yet, so the parser stays narrow (any tapped/attacking rider currently → null → low).
@@ -57,7 +58,8 @@ const ADDABLE_CARD_TYPES = new Set(["artifact", "enchantment"]);
 // TOKEN-COPY-TARGET — "create a token that's a copy of target creature you control" (Quasiduplicate,
 // Cackling Counterpart, Self-Reflection, Multiversal Recruitment). The resolver ALREADY supports
 // copySource:"target" (resolveCopySource → ctx.targets[0]); only the recognition was missing. The optional
-// ", except it isn't legendary" tail is a NO-OP (the legend rule is unenforced — no atom field). A
+// ", except it isn't legendary" tail is STAMPED (atom.notLegendary → the stripLegendary copy-rider —
+// CR 704.5j is enforced now, so the strip is what keeps a copied legend's token alive). A
 // type-addition / stat-change "except" ("4/4 Hero") is NOT matched → low → Arbiter (it would change the
 // copy's characteristics — a subtype feeds the live subtype-ETB/attacks/dies scopes). targetType "creature"
 // + the you-control restriction so the cast path / enumerateTargets offers ONLY the controller's own
@@ -85,7 +87,7 @@ const TOKEN_COPY_UPTOONE_MVX_RE = /^create a token that(?:'s| is) a copy of up t
 // null → Arbiter: that form pairs with stat/type riders we don't model), keeping the existing CREED pin
 // intact. Every granted keyword must be in GRANTABLE_KEYWORDS (the layer-enforceable set the clone rider also
 // restricts to) — an unmodeled keyword fails the gate → null → low → Arbiter (whole-card CREED, no partial).
-const TOKEN_COPY_TARGET_KEYWORD_RE = /^create a token that(?:'s| is) a copy of target creature you control, except the token has ([a-z' ]+?)(?:,? and it isn't legendary)?$/;
+const TOKEN_COPY_TARGET_KEYWORD_RE = /^create a token that(?:'s| is) a copy of target creature you control, except the token has ([a-z' ]+?)(,? and it isn't legendary)?$/;
 // TOKEN-COPY-EACH — "for each token you control, create a token that's a copy of that permanent" (Second
 // Harvest, CR 707.1). DISTINCT from every single-source form above: this copies EACH of the controller's
 // TOKEN permanents once (a per-source for-each), so it carries NO copySource referent (the resolver iterates
@@ -161,10 +163,14 @@ export function tokenCopyParser(clause) {
   if (km) {
     // Split the granted-keyword list on " and " ("flying and vigilance"); every keyword must be modeled +
     // grantable, else the whole card is unmodeled → null → low → Arbiter (CREED whole-card, never a partial
-    // copy that silently drops a keyword). The trailing ", and it isn't legendary" no-op is already consumed.
+    // copy that silently drops a keyword).
+    // ⛔ THE ", and it isn't legendary" TAIL IS STAMPED, NOT SWALLOWED (Codex fix #1, 2026-08-30): this arm
+    // used to consume the tail as an unstamped optional group — a live dropped rider once sba.js began
+    // enforcing CR 704.5j (a legendary token copy died to the rule the card exempts it from). Same
+    // notLegendary flag as the sibling arms → tokens.js pushes the stripLegendary copy-rider.
     const kws = km[1].split(/\s+and\s+/).map((k) => k.trim()).filter(Boolean);
     if (kws.length && kws.every((k) => GRANTABLE_KEYWORDS.has(k))) {
-      return { op: "create-token-copy", copySource: "target", count: 1, targetType: "creature", grantKeywords: kws, restrictions: [{ kind: "controller", who: "you" }] };
+      return { op: "create-token-copy", copySource: "target", count: 1, targetType: "creature", grantKeywords: kws, restrictions: [{ kind: "controller", who: "you" }], ...(km[2] ? { notLegendary: true } : {}) };
     }
   }
   return null;

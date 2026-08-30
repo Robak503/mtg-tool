@@ -99,3 +99,24 @@ describe("⭐ LAW 6 — the token survives beside the Dragon it copied", () => {
     expect(rows[1].dragonsLeft).toBe(2);
   });
 });
+
+// ── THE KEYWORD-GRANT ARM STAMPS THE TAIL TOO (Codex fix #1, 2026-08-30 — Irenicus's Vile Duplication) ──
+// "Create a token that's a copy of target creature you control, except the token has flying and it isn't
+// legendary." The keyword arm used to SWALLOW the ", and it isn't legendary" tail as an unstamped optional
+// group — a live dropped rider once CR 704.5j was enforced (the flying token copy of a legend died on
+// entry). The tail is captured and stamped now, riding the same notLegendary → stripLegendary lane.
+describe("keyword-grant token copy stamps notLegendary (Irenicus's Vile Duplication)", () => {
+  it("⭐ real oracle → grantKeywords + notLegendary, both stamped", () => {
+    const atom = tokenCopyParser("create a token that's a copy of target creature you control, except the token has flying and it isn't legendary");
+    expect(atom).toMatchObject({
+      op: "create-token-copy", copySource: "target", targetType: "creature",
+      grantKeywords: ["flying"], notLegendary: true,
+    });
+  });
+
+  it("⛔ the keyword-only form (no tail) does NOT invent the flag", () => {
+    const atom = tokenCopyParser("create a token that's a copy of target creature you control, except the token has flying");
+    expect(atom).toMatchObject({ op: "create-token-copy", grantKeywords: ["flying"] });
+    expect(atom.notLegendary).toBeUndefined();
+  });
+});

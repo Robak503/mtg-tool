@@ -118,9 +118,9 @@ describe("tokenCopyParser — TARGET source (you control)", () => {
 // legendary"). The keyword is threaded through snapshotCopiedCard's addKeyword rider (the SAME path a clone's
 // "it has flying" rider uses → card.keywords → layers' printedKeywords), so the minted token genuinely flies.
 describe("tokenCopyParser — TARGET source + keyword-grant rider (Irenicus's Vile Duplication)", () => {
-  it("'…except the token has flying and it isn't legendary' → grantKeywords:[flying]", () => {
+  it("'…except the token has flying and it isn't legendary' → grantKeywords:[flying] + notLegendary (Codex fix #1: the tail is stamped, not swallowed)", () => {
     expect(tokenCopyParser("create a token that's a copy of target creature you control, except the token has flying and it isn't legendary"))
-      .toEqual({ op: "create-token-copy", copySource: "target", count: 1, targetType: "creature", grantKeywords: ["flying"], restrictions: [{ kind: "controller", who: "you" }] });
+      .toEqual({ op: "create-token-copy", copySource: "target", count: 1, targetType: "creature", grantKeywords: ["flying"], restrictions: [{ kind: "controller", who: "you" }], notLegendary: true });
   });
   it("the ', and it isn't legendary' tail is optional (bare keyword rider still parses)", () => {
     expect(tokenCopyParser("create a token that's a copy of target creature you control, except the token has flying")?.grantKeywords).toEqual(["flying"]);
