@@ -19,23 +19,19 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// vi.mock factories are hoisted above imports, so the spy must be created via
+// vi.mock factories are hoisted above imports, so the spies must be created via
 // vi.hoisted to exist when the factory runs.
-const { callModelMessagesMock } = vi.hoisted(() => ({ callModelMessagesMock: vi.fn() }));
+const { callModelMessagesMock, retrieveRulesMock } = vi.hoisted(() => ({ callModelMessagesMock: vi.fn(), retrieveRulesMock: vi.fn() }));
 
 vi.mock("../../../lib/server/modelProvider", () => ({
   callModelMessages: callModelMessagesMock,
 }));
 
-// Return a high-confidence rule so the handler skips the retrieval-miss branch
-// and reaches the model call (the only place provider is chosen).
+// Default: a high-confidence rule so the handler skips the retrieval-miss branch and reaches the
+// model call (the only place provider is chosen). A spy so the status-contract tests can override
+// it per-case (the retrieval-miss row needs an empty low-confidence return).
 vi.mock("../../../lib/server/rulesRetrieval.js", () => ({
-  retrieveRules: () => ({
-    rules: [{ ruleNumber: "117.3a", text: "A player who has priority may cast a spell." }],
-    cardNames: [],
-    rulesGuruPrecedents: [],
-    confidence: "high",
-  }),
+  retrieveRules: retrieveRulesMock,
 }));
 
 vi.mock("../../../lib/server/cardIndex.js", () => ({
@@ -54,6 +50,13 @@ function arbiterRequest(body) {
 
 beforeEach(() => {
   callModelMessagesMock.mockReset();
+  retrieveRulesMock.mockReset();
+  retrieveRulesMock.mockReturnValue({
+    rules: [{ ruleNumber: "117.3a", text: "A player who has priority may cast a spell." }],
+    cardNames: [],
+    rulesGuruPrecedents: [],
+    confidence: "high",
+  });
   // A well-formed successful trace that only cites the allowed rule, so the
   // citation stripper leaves it intact.
   callModelMessagesMock.mockResolvedValue({
@@ -119,5 +122,76 @@ describe("Arbiter ollama-only invariant", () => {
     const json = await resp.json();
     expect(callModelMessagesMock).not.toHaveBeenCalled();
     expect(json.provider).toBe("deterministic");
+  });
+});
+
+// ── STATUS CONTRACT (Codex fix #2, 2026-08-30) ────────────────────────────────────────────────────
+// "resolved" is RESERVED for a question-specific, grounded, citation-clean answer. Every fallback —
+// deterministic scaffolding, a model timeout/error, a retrieval miss, a hallucinated citation — must
+// report an explicit non-resolved status AND answerTrusted:false, because useChatSessions branches on
+// status === "resolved" to decide whether Jace presents the trace as a formal ruling.
+describe("Arbiter status contract — resolved is reserved for grounded answers", () => {
+  it("deterministicOnly → fallback_only, untrusted, rules preserved", async () => {
+    const json = await (await POST(arbiterRequest({ question: "x", deterministicOnly: true }))).json();
+    expect(json.status).toBe("fallback_only");
+    expect(json.answerTrusted).toBe(false);
+    expect(json.trace).toBeTruthy();
+    expect(json.retrievalMetadata).toBeTruthy();
+  });
+
+  it("validationMode → fallback_only, untrusted", async () => {
+    const json = await (await POST(arbiterRequest({ question: "x", validationMode: true }))).json();
+    expect(json.status).toBe("fallback_only");
+    expect(json.answerTrusted).toBe(false);
+  });
+
+  it("model TIMEOUT → model_timeout, untrusted, modelError + trace preserved", async () => {
+    callModelMessagesMock.mockResolvedValue({ ok: false, data: { timeout: true } });
+    const json = await (await POST(arbiterRequest({ question: "x" }))).json();
+    expect(json.status).toBe("model_timeout");
+    expect(json.answerTrusted).toBe(false);
+    expect(json.modelError).toEqual({ timeout: true });
+    expect(json.trace).toBeTruthy();
+  });
+
+  it("model ERROR → model_error, untrusted", async () => {
+    callModelMessagesMock.mockResolvedValue({ ok: false, data: { error: "boom" } });
+    const json = await (await POST(arbiterRequest({ question: "x" }))).json();
+    expect(json.status).toBe("model_error");
+    expect(json.answerTrusted).toBe(false);
+  });
+
+  it("retrieval MISS → retrieval_miss, untrusted, no model call", async () => {
+    retrieveRulesMock.mockReturnValue({ rules: [], cardNames: [], rulesGuruPrecedents: [], confidence: "low" });
+    const json = await (await POST(arbiterRequest({ question: "x" }))).json();
+    expect(json.status).toBe("retrieval_miss");
+    expect(json.answerTrusted).toBe(false);
+    expect(callModelMessagesMock).not.toHaveBeenCalled();
+  });
+
+  it("hallucinated citation → citation_failed, untrusted", async () => {
+    callModelMessagesMock.mockResolvedValue({
+      ok: true, provider: "ollama", status: 200,
+      data: { content: [{ text: "STATE\n- ok\n\nRESOLUTION\n1. step\n\nRULE TRACE\n- [999.9z] fabricated\n\nCITATIONS\n[999.9z]" }] },
+    });
+    const json = await (await POST(arbiterRequest({ question: "x" }))).json();
+    expect(json.status).toBe("citation_failed");
+    expect(json.answerTrusted).toBe(false);
+  });
+
+  it("a genuinely grounded, citation-clean answer → resolved, answerTrusted:true", async () => {
+    const json = await (await POST(arbiterRequest({ question: "x" }))).json();
+    expect(json.status).toBe("resolved");
+    expect(json.answerTrusted).toBe(true);
+  });
+
+  it("an UNRESOLVED model answer stays unresolved and untrusted", async () => {
+    callModelMessagesMock.mockResolvedValue({
+      ok: true, provider: "ollama", status: 200,
+      data: { content: [{ text: "UNRESOLVED - the retrieved rules do not cover this interaction." }] },
+    });
+    const json = await (await POST(arbiterRequest({ question: "x" }))).json();
+    expect(json.status).toBe("unresolved");
+    expect(json.answerTrusted).toBe(false);
   });
 });

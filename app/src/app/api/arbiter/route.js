@@ -152,6 +152,7 @@ export async function POST(request) {
       provider: "none",
       trace,
       status: "retrieval_miss",
+      answerTrusted: false,
       retrievalMetadata: retrievalMetadata({
         rules: [],
         cards,
@@ -179,10 +180,16 @@ export async function POST(request) {
       reason: body.validationMode ? "validation_mode" : "deterministic_only",
     });
 
+    // STATUS CONTRACT (Codex fix #2, 2026-08-30): "resolved" is RESERVED for a question-specific,
+    // grounded answer. A deterministic trace is retrieved-rules scaffolding with no conclusion, so it
+    // reports "fallback_only" + answerTrusted:false — the ChatPanel/useChatSessions consumers already
+    // branch on status === "resolved", so a fallback trace is now framed as unresolved to the user
+    // instead of being presented as a formal ruling.
     return Response.json({
       provider: "deterministic",
       trace,
-      status: "resolved",
+      status: "fallback_only",
+      answerTrusted: false,
       retrievalMetadata: retrievalMetadata({
         rules: retrieval.rules,
         cards,
@@ -214,11 +221,16 @@ export async function POST(request) {
       cards,
       reason: result.data?.timeout ? "model_timeout_deterministic_fallback" : "model_error_deterministic_fallback",
     });
+    // STATUS CONTRACT (Codex fix #2): the model failed — the deterministic trace is a diagnostic
+    // fallback, never a grounded conclusion. Distinct statuses for timeout vs error so callers and
+    // tests can tell them apart; answerTrusted:false either way. The retrieved rules + trace are
+    // preserved (still useful context), and HTTP stays 200 — the ROUTE worked, the model didn't.
     return Response.json({
       provider: "deterministic",
       modelError: result.data,
       trace,
-      status: "resolved",
+      status: result.data?.timeout ? "model_timeout" : "model_error",
+      answerTrusted: false,
       retrievalMetadata: retrievalMetadata({
         rules: retrieval.rules,
         cards,
@@ -240,6 +252,8 @@ export async function POST(request) {
     provider: result.provider,
     trace: citationCheck.text,
     status,
+    // The machine-readable trust bit (Codex fix #2): true ONLY on a grounded, citation-clean answer.
+    answerTrusted: status === "resolved",
     retrievalMetadata: retrievalMetadata({
       rules: retrieval.rules,
       cards,
