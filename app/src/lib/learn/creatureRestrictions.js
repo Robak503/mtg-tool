@@ -55,6 +55,26 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // never a mis-scoped destroy). A non-damaged opponent's permanent is excluded, so in multiplayer the
       // pool is exactly the damaged player's, never "any opponent's" — the exact mirror of defendingPlayer.
       if (r.who === "damagedPlayer" && (!ctx?.damagedPlayerId || pid !== ctx.damagedPlayerId)) return false;
+    } else if (r.kind === "owner") {
+      // OWNER scope (SHELF CAP15, CR 108.3 — Sword of Hearth and Home: "exile up to one target creature
+      // YOU OWN"). Distinct from `controller` on purpose, and the difference is the entire reason the card
+      // is templated this way: a creature of yours an opponent has STOLEN is still one you own, and the
+      // Sword is how you get it back. Reading this as controller-scoped would refuse exactly the target
+      // the card exists to hit.
+      //
+      // Effective owner = `perm.owner ?? perm.controller`. `owner` is stamped only when a permanent's
+      // ownership diverges from its controller (BLITZ SB-2's owner-routing); for a normally-cast permanent
+      // it is absent and the controller IS the owner, so this is byte-identical to the controller check on
+      // every ordinary board.
+      //
+      // ⛔ ONLY THE "you" ARM EXISTS, deliberately. An `opponent` twin would be one more line and is NOT
+      // shipped: no card emits it today (its mutation survived, because nothing can reach it), and this
+      // file's own discipline is that unreachable surface in a predicate that can only LOOSEN is how a
+      // gate grows past what anyone has checked. Five corpus cards do print an "an opponent owns" /
+      // "you don't own" subject — Brainstealer Dragon, Nihiloor, Bronze Tablet, Weave the Nightmare,
+      // Anafenza — so the arm becomes a one-liner the day a slice actually models one of them.
+      const ownerId = perm.owner ?? pid;
+      if (r.who === "you" && ownerId !== casterId) return false;
     } else if (r.kind === "tapped") {
       if (!!perm.tapped !== r.value) return false;
     } else if (r.kind === "modified") {

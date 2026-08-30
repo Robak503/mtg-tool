@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9–CAP14 shipped, Cap 69% → 73% native** — suite **1316 / 15,065** green
+## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9–CAP15 shipped, Cap 69% → 74% native** — suite **1316 / 15,065** green
 
 > ⚠️ **NUMBER HYGIENE (corrected 08-30, Colton caught it).** Earlier entries said "Cap 81→86 native
 > cards". That figure added the 13 LAND-PARTIAL slots to the native count, which inflates it — land-partial
@@ -24,7 +24,11 @@
 > single-blockers once "enters tapped unless …" is modeled. Only **Urza's Saga** and the two MDFC backs
 > are genuinely hard. **Cap's realistic reach is ~90, not 87.**
 >
-> ### ⭐ THE BEST NEXT SLICE ON THE BOARD: **conditional enters-tapped — 109 cards corpus-wide**
+> ### 🔴 COLTON'S ORDER (08-30, explicit): **finish Cap's CARDS first — lands only after. Target 90.**
+> The land vein below is real and banked, but it is NOT next. Grind the remaining non-land cards to the
+> floor first; the lands come after, and they are what carry Cap from ~87 to 90.
+>
+> ### ⏸ BANKED FOR AFTER THE CARDS: **conditional enters-tapped — 109 cards corpus-wide**
 > 10 pay-life shocklands ("As this land enters, you may pay N life. If you don't, it enters tapped") + 99
 > "This land enters tapped unless …". Biggest corpus vein currently visible, AND it moves Cap by 4 with
 > knock-on to 3 more. This is what "the land tier" actually is: not one program, a queue of ordinary

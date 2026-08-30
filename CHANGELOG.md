@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Sword of Hearth and Home works.** Connecting now blinks a creature you own — including one an opponent
+  has stolen from you, which comes back under your control — and fetches a basic land onto the battlefield.
 - **Captain America, First Avenger works.** His "Throw" ability now actually unattaches an Equipment as its
   cost — the Equipment stays on the battlefield — and he deals damage equal to that Equipment's mana value,
   divided among up to three targets. His "Catch" attach trigger already worked.

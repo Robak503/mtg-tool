@@ -3,6 +3,34 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚔️ 2026-08-30 (cont.) — CAP15 Sword of Hearth and Home · +1 · Cap 73→74%
+> Suite **1317 / 15,077** green; lint 0; both exit codes UNPIPED. Flip-diff **+1, zero LOST**.
+> · **⛔ COLLAPSED WHOLE, and that is the correctness argument.** The instruction that RETURNS the exiled
+>   creature lives in the THIRD sentence ("Put BOTH cards onto the battlefield"), shared with the tutored
+>   land. Split by clause, the lead half reads "exile your own creature" full stop — a card that eats your
+>   best creature permanently. Same keep-whole hazard the plain blink arm documents, one sentence further on.
+> · **⭐ "YOU OWN", NOT "YOU CONTROL" — the load-bearing distinction and the point of the card.** A creature
+>   of yours an OPPONENT HAS STOLEN is still one you own, and this Sword is how you get it back (it returns
+>   under YOUR control). A controller-scoped read would refuse exactly the target the card exists to hit.
+>   New `kind:"owner"` restriction in creatureRestrictions; effective owner = `perm.owner ?? controller`, and
+>   since `owner` is stamped ONLY when it diverges (the SB-2 owner-routing), this is byte-identical to the
+>   controller check on any board where nothing has been stolen.
+> · **Two EXISTING atoms, no new resolver:** the up-to-one blink (Displacer Kitten's maxTargets 1 /
+>   minTargets 0 shape) + the basic-land tutor onto the battlefield untapped. The tutor atom was taken from
+>   the REAL parser's output for the standalone clause rather than hand-written, and a test pins the two as
+>   byte-identical so this collapse can't drift from the shape the resolver is proven on.
+> · **⚠️ MUTATION M2 SURVIVED AND THE CODE WAS DELETED, not documented.** I had written an `owner ===
+>   "opponent"` arm alongside the "you" arm. Nothing emits it, so nothing could kill it. Five corpus cards
+>   DO print an "an opponent owns" subject (Brainstealer Dragon, Nihiloor, Bronze Tablet, Weave the
+>   Nightmare, Anafenza), but none is modeled — so the arm was unreachable surface in a predicate that can
+>   only LOOSEN, which is precisely how a gate grows past what anyone checked. Removed, with the carrier
+>   list recorded in the comment so it is a one-liner the day a slice needs it. **Contrast CAP14's M4**,
+>   which survived and was KEPT-and-documented because it is a real early-exit on a live path; the test is
+>   whether the line does anything, not whether it looks reasonable.
+> · **Mutations (3; two seen to fail, one deleted):** M1 owner falls back to controller → 2 · M2 opponent
+>   arm removed → 0, **code deleted** · M3 the collapse never dispatched → 5.
+> Witness: `swordHearthAndHome.test.js` (12). Cap America **74%**.
+>
 > ## ⚔️ 2026-08-30 (cont.) — CAP14: **CAPTAIN AMERICA HIMSELF IS NATIVE** · +1 · Cap 72→73%
 > Suite **1316 / 15,065** green; lint 0; both exit codes UNPIPED. Flip-diff **+1, zero LOST** — the deck's
 > own commander, which is the highest play-value card in Joe's list.

@@ -993,6 +993,35 @@ export function matchWindsOfChange(oracle) {
 // an ifSubtypeCounter rider the resolver honors (checks the returned permanent's type line for the subtype).
 // The subtype must be a real creature type (CR_CREATURE_TYPES) — a bogus word → null → LOW → Arbiter (SAFE FN,
 // never a fabricated counter). Whole-oracle anchored; a rider beyond the counter clause leaves residue → null.
+// SWORD OF HEARTH AND HOME (SHELF CAP15, CR 108.3 + 701.20) — "Whenever equipped creature deals combat
+// damage to a player, exile up to one target creature you own, then search your library for a basic land
+// card. Put both cards onto the battlefield under your control, then shuffle."
+//
+// ⛔ IT MUST BE COLLAPSED, not split. The instruction that RETURNS the exiled creature lives in the THIRD
+// sentence ("Put BOTH cards onto the battlefield"), shared with the tutored land — so the clause splitter
+// would strand it and leave a lead half that reads "exile your own creature, permanently". That is the same
+// keep-whole hazard the plain blink arm documents, one sentence further along.
+//
+// ⭐ "YOU OWN", NOT "YOU CONTROL", and the distinction is the point of the card: a creature of yours an
+// opponent has STOLEN is still one you own, and this is how you get it back — returning under YOUR control.
+// Emitted as the owner-scoped restriction (creatureRestrictions `kind:"owner"`), which is byte-identical to
+// the controller check on any board where nothing has been stolen.
+//
+// Two EXISTING atoms, no new resolver: the up-to-one blink (maxTargets 1 / minTargets 0 — Displacer Kitten's
+// shape) returning under the controller, then the basic-land tutor onto the battlefield UNTAPPED (the card
+// says nothing about tapped). Whole-oracle anchored; any rider leaves residue → null → LOW → Arbiter.
+export function matchSwordHearthAndHome(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  const m = t.match(/^exile up to one target creature you own, then search your library for a basic land card\. put both cards onto the battlefield under your control, then shuffle$/);
+  if (!m) return null;
+  return { atoms: [
+    { op: "blink", targetType: "creature", restrictions: [{ kind: "owner", who: "you" }], returnTo: "controller", maxTargets: 1, minTargets: 0 },
+    // Byte-identical to what the standalone basic-land tutor clause parses to (verified against the real
+    // parser output), so this collapse cannot drift from the shape the resolver is already proven on.
+    { op: "tutor", filter: { groups: [["basic", "land"]] }, filterLabel: "basic land card", destination: "battlefield", entersTapped: false, targetType: null },
+  ] };
+}
+
 export function matchBlinkSubtypeCounter(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   const m = t.match(/^exile target creature you control, then return (?:that card|it) to the battlefield under (your|its owner's) control\. if it's a ([a-z]+), put a \+1\/\+1 counter on it$/);
