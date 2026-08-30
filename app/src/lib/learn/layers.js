@@ -406,6 +406,12 @@ function countForSpec(state, perm, spec) {
   switch (spec.kind) {
     case "cardsInHand":
       return (state?.players?.[perm?.controller]?.hand || []).length;
+    case "lifeTotal":
+      // SHELF CAP8 (Aettir and Priwen's dynamic 7b set) — the controller's LIVE life, unclamped
+      // (CR 107.2 — a negative calculated value stands; the game ends before it matters). Added to
+      // BOTH countForSpec twins the same day (shared.js has the ctx-shaped copy) per this file's own
+      // both-must-agree warning.
+      return state?.players?.[perm?.controller]?.life ?? 0;
     case "cardsInAllHands": {
       let n = 0;
       for (const pl of Object.values(state?.players || {})) n += (pl.hand || []).length;
@@ -1337,6 +1343,17 @@ function applyLayer7(state, perm, l7Effects) {
   // derive, CR 613.7). Pre-existing 7b ops carry no gate and are untouched.
   for (const e of l7Effects.filter(e => e.sublayer === "7b").sort(byTimestamp)) {
     if (e.op.gate && !gateMet(state, perm, e.op.gate)) continue;
+    // DYNAMIC 7b SET (SHELF CAP8 — Aettir and Priwen "base power and toughness X/X, where X is your
+    // life total"): the set value is a live count (the 7a CDA loop's countForSpec, one sublayer over —
+    // CR 613.4b, a set that tracks its metric every derive). `perm` is the ATTACHED creature here, and
+    // its controller IS the equipment's controller (attach forbids cross-player equips), so a
+    // controller-scoped spec reads the right player.
+    if (e.op.countSpec) {
+      const n = countForSpec(state, perm, e.op.countSpec);
+      if (e.op.setPower) basePower = n;
+      if (e.op.setToughness) baseToughness = n;
+      continue;
+    }
     if (e.op.power != null) basePower = e.op.power;
     if (e.op.toughness != null) baseToughness = e.op.toughness;
   }

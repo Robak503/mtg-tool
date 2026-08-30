@@ -5242,6 +5242,17 @@ function parseAttachedClauseCore(c, subject, noun = "creature") {
   // it → null → whole bonus drops (Aettir and Priwen stays body-only — safe FN, no fabricated CDA). Without
   // a keyword tail (the bare "…N/N" form) `rest` becomes "" and the function returns the lone 7b op below.
   // applyLayer7 already applies sublayer 7b, layered after the layer-6 keyword grants.
+  // ⭐ EQUIP-DYNAMIC-BASE-PT-SET (SHELF CAP8 — Aettir and Priwen: "has base power and toughness X/X,
+  // where X is your life total"). The DYNAMIC sibling of the literal 7b set directly below: the set value
+  // is a live count (op.countSpec + setPower/setToughness — the 7a CDA loop's exact shape, one sublayer
+  // over), re-read at every derive (CR 613.7 — the base tracks life both directions). Whole-clause
+  // anchored to the one modeled metric; any other "where X is …" phrase falls through to the literal arm
+  // (which can't match "x/x") → the bonus drops → body-only (safe FN, the pre-existing behavior).
+  const dynBaseSet = rest.match(/^(?:has|have)\s+base power and toughness\s+x\/x,\s*where x is your life total\.?$/);
+  if (dynBaseSet) {
+    out.push({ layer: 7, sublayer: "7b", op: { countSpec: { kind: "lifeTotal" }, setPower: true, setToughness: true }, duration: { kind: "permanent" } });
+    return out; // the whole bonus clause is consumed — nothing may trail it (the $ anchor)
+  }
   const baseSet = rest.match(/^(?:has|have)\s+base power and toughness\s+(\d+)\/(\d+)\b/);
   if (baseSet) {
     out.push({ layer: 7, sublayer: "7b", op: { power: parseInt(baseSet[1], 10), toughness: parseInt(baseSet[2], 10) }, duration: { kind: "permanent" } });

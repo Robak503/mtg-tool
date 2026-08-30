@@ -788,6 +788,11 @@ export function countForSpec(state, ctx, spec) {
   const player = playerId ? state?.players?.[playerId] : null;
   if (!player) return 0;
   if (spec.kind === "cardsInHand") return (player.hand || []).length;
+  // ===== LIFE TOTAL (SHELF CAP8 — Aettir and Priwen's "base power and toughness X/X, where X is your
+  // life total") ===== the resolved player's live life, read at every derive (CR 613.7 — the base P/T
+  // tracks life both directions). Unclamped on purpose: CR 107.2 lets a calculated value be negative,
+  // and a negative base power is legal (the game is over before it matters anyway).
+  if (spec.kind === "lifeTotal") return player.life ?? 0;
   // ===== DEATHS-THIS-TURN (CR 700.4), controller-scoped ===== "creatures that died under your control this
   // turn" (Body Count) reads THIS player's per-turn creature-death tally only. (The unscoped all-seats sum is
   // handled by the scope:"all" branch above the player lookup.) Absent tally → 0 (a safe no-op, never fabricated).
