@@ -62,7 +62,7 @@ import { isNativeGroupWard } from "./groupWard.js";
 import { isControlAura } from "./controlAura.js"; // the control-Aura delivery check, shared with the runtime attach/revert (controlAura imports only controlMove, a zero-import leaf, so this edge is acyclic)
 import { auraEnchantRestrictions } from "./staticAbilityParser.js"; // the qualified-subject host filter, shared with legalChoices' cast lane so offer + metric read ONE source
 import { isNativeKira } from "./kiraTargetCounter.js";
-import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy, counterShieldPrevention } from "./combatEvasion.js";
+import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy, counterShieldPrevention, attachedPreventPutCountersOf, selfPreventPutCounters } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
 // OMNATH — ground the classifier on the two RUNTIME registries the engine actually consults (never a
 // name-only credit): staticEffectsOf reads layers.STATIC_REGISTRY (the layer-7c dynamic +1/+1-per-green
@@ -2083,7 +2083,20 @@ export function permanentEquipmentCovered(card) {
   // statics — so drop the bullet lines with the trigger sentences.
   // QUOTE-AWARE (Codex fix #4): the shared scanner strips whole sentences (a quoted ability's internal
   // period no longer truncates the strip).
-  const noTrig = { ...card, oracle: stripTriggerSentences(oracle, " ").replace(/^\s*•[^\n]*$/gm, " ") };
+  // PREVENT-AND-PUT (SHELF CAP9, CR 615 — Panther Habit): strip the attached prevent-and-put LINE before
+  // the bonus / residue analysis, gated on attachedPreventPutCountersOf — the SAME reader both damage
+  // paths consult, so the metric and the runtime cannot disagree about which Equipment carry the wall.
+  // A LINE strip for the reason stripCounterShieldLine takes one: the clause mentions "equipped creature",
+  // so leaving it in makes the bonus-less `anyTouch` guard below reject the card (it cannot tell a modeled
+  // touching clause from a dropped rider), and the residue loop would then whitelist it only through the
+  // generic "equipped creature" branch — which is vouched by a bonus parse that never ran. Naming the
+  // clause here keeps the credit anchored to the reader that proves the runtime plays it.
+  // ⛔ HONEST ONLY BECAUSE THE PAYOUT IS ENFORCED: prevention alone would credit an Equipment whose whole
+  // upside (the counters) the engine never delivers. See the payout loops in combatResolution/spellEffects.
+  const preStripped = attachedPreventPutCountersOf({ ...card, oracle })
+    ? oracle.split("\n").filter((ln) => !attachedPreventPutCountersOf({ oracle: ln })).join("\n")
+    : oracle;
+  const noTrig = { ...card, oracle: stripTriggerSentences(preStripped, " ").replace(/^\s*•[^\n]*$/gm, " ") };
   const abilities = parseActivatedAbilities(noTrig);
   if (abilities.length === 0 || !abilities.every((a) => a.isEquipAbility && a.modeled)) return false;
   // The bonus parser is all-or-nothing over every equipped-creature clause: a non-empty result
@@ -3791,6 +3804,35 @@ registerCoverageClassifier((card) => {
   };
   const residue = stripReminder(String(card?.oracle || card?.oracle_text || ""))
     .split("\n").map((l) => l.trim()).filter((l) => l && !SELF_PREVENT_LINE_RE.test(normSelfName(l))).join("\n");
+  if (!residue) return "native-static";
+  return isKeywordOnly(residue, card?.name) ? "native-static" : null;
+});
+
+// PREVENT-AND-PUT, SELF form (SHELF CAP9, CR 615 — Ironscale Hydra) — the sibling of the self-prevention
+// lane directly above, and built the same way: gated on selfPreventPutCounters, the SAME reader the combat
+// funnel consults, so the metric can't claim a wall the runtime doesn't enforce. The line is stripped and
+// the remainder must be keyword-only (all-or-nothing) — a carrier with any other clause stays body-only.
+//
+// ⛔ THE PAYOUT IS WHAT MAKES THIS HONEST, and the runtime enforces BOTH printed restrictions with it: the
+// wall fires only on COMBAT damage FROM A CREATURE, and pays exactly ONE counter. Crediting it as a flat
+// wall would make the Hydra shrug off a Bolt it should take — the forbidden over-claim.
+// Noncombat damage is deliberately NOT covered by this card, so applyDamageEffect never consults it.
+const SELF_PREVENT_PUT_LINE_RE = /^if a creature would deal combat damage to (?:this creature|it), prevent that damage and put a \+1\/\+1 counter on (?:this creature|it)\.?$/i;
+registerCoverageClassifier((card) => {
+  if (!selfPreventPutCounters(card)) return null;
+  const type = String(card?.type ?? card?.type_line ?? "");
+  if (!/creature/i.test(type)) return null;
+  const name = String(card?.name ?? "").toLowerCase().replace(/[’']/g, "'");
+  const nEsc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const shortEsc = name.split(",")[0].trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const normSelfName = (line) => {
+    let x = line.toLowerCase().replace(/[’']/g, "'");
+    if (nEsc) x = x.replace(new RegExp(`\\b${nEsc}\\b`, "g"), "this creature");
+    if (shortEsc && shortEsc !== nEsc) x = x.replace(new RegExp(`\\b${shortEsc}\\b`, "g"), "this creature");
+    return x;
+  };
+  const residue = stripReminder(String(card?.oracle || card?.oracle_text || ""))
+    .split("\n").map((l) => l.trim()).filter((l) => l && !SELF_PREVENT_PUT_LINE_RE.test(normSelfName(l))).join("\n");
   if (!residue) return "native-static";
   return isKeywordOnly(residue, card?.name) ? "native-static" : null;
 });

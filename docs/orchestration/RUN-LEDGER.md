@@ -3,6 +3,49 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚔️ 2026-08-30 (cont.) — CAP9 Panther Habit: the PREVENT-AND-PUT wall (CR 615), Cap 81→82 · +2 corpus
+> Suite **1311 files / 14,993** green (was 1310 / 14,979 — the delta is exactly this slice's witness file);
+> lint 0; both exit codes captured UNPIPED. Flip-diff **+2, zero LOST**, both audited whole-card.
+> · **THE SCOPE NOTE WAS OVER-BUILT, AND PROBING IS WHY.** SHELF-TAIL-PLAN §5.4 blueprinted this as a
+>   6-file seam change: teach `applyDamageReplacements` to return `{amount, prevented, sideEffects[]}` and
+>   update every consult call site. That is the CR 614 doubler seam — the wrong one. Panther Habit is a CR
+>   615 PREVENTION, and the engine already had the exact shape: `counterShieldPrevention` (Phantom /
+>   Bloatfly) prevents damage and bills itself in +1/+1 counters at BOTH deal sites, with a record-then-pay
+>   pass in combatResolution and an inline pay in applyDamageEffect. This slice is that machinery's
+>   INVERSE — same slot, counters flowing out instead of in — so the damage-replacement module was not
+>   touched at all. ⭐ Re-probe a banked blueprint's load-bearing claim before building on it (the A0b
+>   queue-hygiene lesson, second carrier).
+> · **Built:** `attachedPreventPutCountersOf` / `selfPreventPutCounters` / `attachedPreventPutCounters`
+>   (combatEvasion, beside the shield) → consulted at the combat funnel (`preventAndPutCounters`, recorded
+>   into `pcAdditions`, paid after the loops through `addCounter` so CR 616 counter doublers and
+>   counters-placed watchers see it) and at `applyDamageEffect.hitCreature` (inline, mutable state).
+>   Coverage: a reader-gated LINE strip in `permanentEquipmentCovered` + a `native-static` lane beside the
+>   self-prevention sibling.
+> · **⚠️ NO BUDGET, DELIBERATELY.** The shield needs `csBudget` because it SPENDS a finite pool several
+>   hits could over-promise; this PAYS OUT, so each prevented hit independently earns. Copying the budget
+>   across is the obvious wrong move — it is mutation M5, and it dies.
+> · **Rode along: Ironscale Hydra** (+1, `native-static`) — the SELF form, and its two printed restrictions
+>   are load-bearing in opposite directions: COMBAT damage from a CREATURE only (crediting it flat would
+>   shrug off a Bolt — an over-claim, pinned by mutation M3), and exactly ONE counter, never "that many"
+>   (M4). Parked on purpose, same payload + an unmodeled rider: **Anti-Venom** (cast-conditional
+>   reanimation ETB) · **Jared Carthalion** (monarch condition + monarch-granting ETB) · **Gatta and Luzzu**
+>   (one-shot this-turn floating prevention). All three pinned body-only as FP guards.
+> · **Mutations (7, each seen to fail, restored):** M1 combat payout disabled → 5 die · M2 noncombat payout
+>   dropped → 1 · M3 self wall widened to noncombat → the FP guard · M4 self wall pays "that many" → 2 ·
+>   M5 spend-budget applied to the payout → 2 · M6 equipment coverage strip removed → 1 · M7 self-wall
+>   coverage lane removed → 1.
+> · **🐞 BANKED FINDING, OUT OF SCOPE — CR 510.1a combat-damage assignment caps at lethal even with ONE
+>   blocker.** `combatResolution`'s assignment loop uses `give = Math.min(remaining, lethalNeed)` per
+>   blocker and DISCARDS the remainder unless the attacker has trample. A non-trampler with a single
+>   blocker must assign ALL its damage to that blocker (CR 510.1a). **Measured, not inferred:** a 7/7
+>   lifelinker blocked by one 4/4 gains **4** life, not 7. Invisible to lethality (the blocker dies
+>   either way), but visible to lifelink, "damage dealt" triggers, and now this wall. NOT fixed here —
+>   it is the engine's most load-bearing loop and deserves its own slice. This slice's counters follow
+>   whatever the engine actually dealt, so the two numbers are read from one value and cannot drift.
+> **Cap remaining singles:** Cloud (trigger doubler) · Buster Sword (free-cast ≤ damage) · Codsworth
+> (two-target activated attach — note its oracle also prints commander-ward and a restricted mana ability,
+> which §5.4's scoping omitted).
+>
 > ## ⚔️ 2026-08-30 (cont.) — CAP AMERICA FOCUS-FIRE CAP4-8: five more slices, 73→81 native cards — all pushed, CI watched
 > The ablation map from the session's opening probes paid out. Each slice: targeted tests + mutation-check
 > (seen-to-fail) + corpus census (every flip audited by name) + neighbors green + lint. Cap native cards

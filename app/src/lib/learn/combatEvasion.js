@@ -513,6 +513,73 @@ export function selfDamagePreventionBy(card) {
   return null;
 }
 
+// ─── PREVENT-AND-PUT counters (SHELF CAP9, CR 615) — the counter-shield's INVERSE ─────────────────────
+// The wall above SPENDS +1/+1 counters to pay for itself; this one PAYS OUT in them. Same CR 615
+// prevention, opposite direction of the counter flow, so it deliberately lives beside its sibling and
+// is enforced at the same two deal sites (combatResolution's funnel and applyDamageEffect).
+//
+// ⛔ WHY NO SHARED PREDICATE WITH counterShieldPrevention. The zero-counter question that forces phantom
+// and bloatfly apart does not exist here at all — there is nothing to spend, so the prevention is always
+// unconditional and can never fail for lack of a resource. Collapsing the two families would hand the
+// spend-branch a mode it must not have.
+//
+// ⛔ AND WHY CREDITING THIS WITHOUT THE COUNTERS IS THE MIRROR-IMAGE FALSE POSITIVE OF THE SHIELD'S:
+// there, prevention-without-payment yields an immortal creature that never pays. Here, prevention-without-
+// payout yields an immortal creature that never GROWS — still an over-claim, because the counters ARE the
+// card's whole upside and a metric crediting the wall alone claims a card the engine only half plays.
+// The payout is applied through gameState.addCounter at both sites — the counter chokepoint — so counter
+// doublers (CR 616) and every counters-placed watcher see the placement.
+//
+// The two printed shapes are each CORPUS-UNIQUE (censused against the bundled oracle, 38,254 cards):
+//
+//  ATTACHED  "If equipped creature would be dealt damage, prevent that damage and put that many +1/+1
+//            counters on it."  (Panther Habit — the only carrier; no Aura prints this shape, so the
+//            reader is deliberately NOT widened to "enchanted creature": untested surface, not coverage.)
+//            → ALL damage, any source, combat or not. N = the amount that would have been dealt.
+//
+//  SELF      "If a creature would deal combat damage to this creature, prevent that damage and put a
+//            +1/+1 counter on this creature."  (Ironscale Hydra — the only carrier.)
+//            → COMBAT damage from a CREATURE only, and exactly ONE counter regardless of the amount.
+//              Both restrictions are load-bearing: crediting it as an all-damage wall would shrug off a
+//              Bolt (an over-claim), and paying "that many" would over-grow it.
+const reAttachedPreventPutCounters =
+  /(?:^|[\n.;])\s*if equipped creature would be dealt damage, prevent that damage and put that many \+1\/\+1 counters on it\s*(?:\.|$)/i;
+const reSelfPreventPutCounterCombat =
+  /(?:^|[\n.;])\s*if a creature would deal combat damage to (?:this creature|it), prevent that damage and put a \+1\/\+1 counter on (?:this creature|it)\s*(?:\.|$)/i;
+
+/**
+ * "put-that-many" | null — the ATTACHED prevent-and-put wall this Equipment CARD prints (Panther Habit).
+ * Read off the raw oracle (not selfOracle): the subject is "equipped creature", never the card's own name.
+ */
+export function attachedPreventPutCountersOf(card) {
+  const o = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  return reAttachedPreventPutCounters.test(o) ? "put-that-many" : null;
+}
+
+/**
+ * "combat-put-one" | null — the SELF prevent-and-put wall this creature CARD prints (Ironscale Hydra).
+ * selfOracle normalizes the printed name to "this creature", matching every other self-wall reader here.
+ */
+export function selfPreventPutCounters(card) {
+  return reSelfPreventPutCounterCombat.test(selfOracle(card)) ? "combat-put-one" : null;
+}
+
+/**
+ * The ATTACHED prevent-and-put wall in force on a permanent, aggregated across its attachments —
+ * "put-that-many" | null. Mirrors attachedDamagePrevention below (same scan, same live-attachment read),
+ * so the wall appears and disappears with the Equipment for free.
+ */
+export function attachedPreventPutCounters(state, permId) {
+  const lk = findPermanent(state, permId);
+  if (!lk?.permanent?.attachments?.length) return null;
+  for (const attId of lk.permanent.attachments) {
+    const att = findPermanent(state, attId);
+    if (!att?.permanent?.card) continue;
+    if (attachedPreventPutCountersOf(att.permanent.card)) return "put-that-many";
+  }
+  return null;
+}
+
 // ATTACHED DAMAGE-PREVENTION (BLITZ AP-1, CR 615 — the Gaseous Form / Defang class). The per-card
 // reader (attachedPreventionOf) lives in staticAbilityParser — the aura NATIVE gate (isNativeAura,
 // which the CAST paths consult directly) must see the same read, and this module already imports from

@@ -226,27 +226,43 @@ Return this card from your graveyard to the battlefield tapped" (a graveyard-act
 its own subsystem). Otharri flips when THAT lands. Ocelot Pride / Windcrag Siege (upkeep), Zack
 Fair / Patrolling Peacemaker (enters-as), Glimmer Lens, Crumb and Get It.
 
-### 5.4 Captain America Shoot your Shot — ⚔️ FOCUS-FIRE ACTIVE (Colton 08-30: Joe's live deck) — 81 native cards, CAP1-8 SHIPPED
+### 5.4 Captain America Shoot your Shot — ⚔️ FOCUS-FIRE ACTIVE (Colton 08-30: Joe's live deck) — 82 native cards, CAP1-9 SHIPPED
 **The 08-16 "no cheap slices" scout was WRONG in method** — it bucketed by trigger kind; ablation-probing
-per CARD (strip one sentence, re-classify) found 12 single-blocker cards. Eight shipped 2026-08-30
-(CAP1-8, RUN-LEDGER has the receipts): Living Legend · Liberator · Super-Soldier · Kaldra Compleat ·
-Reaver Cleaver · Conqueror's Flail · Hammer of Nazahn · Aettir and Priwen (+ siblings Rhox Pummeler,
-Guildpact Informant, Grateful Apparition). **Remaining singles, scoped:**
-- **Panther Habit (CAP9, blueprint banked)** — "If equipped creature would be dealt damage, prevent that
-  damage and put that many +1/+1 counters on it" (CR 615). ⛔ THE SEAM IS THE WORK: damageReplacements'
-  consult is PURE amount-in/amount-out (consultDamageAmount → number); a prevent-and-counters op needs a
-  STATE side effect. Honest shape: applyDamageReplacements returns { amount, prevented, sideEffects:[…] }
-  and every consult call site (combatResolution's consultCombat sub-steps + applyDamageEffect) applies
-  them + records the counter placement through addCounter so counters-put watchers fire. New scope kind:
-  target-side `equippedByThis` (resolve the wearer live off attachedTo). A 6-file pause-kind slice.
+per CARD (strip one sentence, re-classify) found 12 single-blocker cards. Nine shipped 2026-08-30
+(CAP1-9, RUN-LEDGER has the receipts): Living Legend · Liberator · Super-Soldier · Kaldra Compleat ·
+Reaver Cleaver · Conqueror's Flail · Hammer of Nazahn · Aettir and Priwen · Panther Habit (+ siblings
+Rhox Pummeler, Guildpact Informant, Grateful Apparition, Ironscale Hydra). **Remaining singles, scoped:**
+- **Panther Habit — ✅ SHIPPED 2026-08-30 (CAP9), +2 corpus (Ironscale Hydra rode along)**
+  ⭐ **AND THE BLUEPRINT BELOW WAS WRONG — the trap was pointing at the wrong seam.** It scoped this as a
+  6-file change to `applyDamageReplacements` (returning `{amount, prevented, sideEffects[]}`) — but that is
+  the CR **614** damage-REPLACEMENT/doubler module, and Panther Habit is a CR **615** PREVENTION. The shape
+  it needs already existed one slot away: `counterShieldPrevention` (Phantom / Bloatfly) prevents damage
+  and bills itself in +1/+1 counters at BOTH deal sites, with a record-then-pay pass in combatResolution
+  and an inline pay in applyDamageEffect. This slice is that machinery's INVERSE (counters flow OUT), so
+  `damageReplacements.js` was never touched. Re-probe a banked blueprint's load-bearing claim before
+  building on it — the second carrier of NEXT-QUEUE A0b's queue-hygiene lesson.
+  What shipped: readers in `combatEvasion.js` (`attachedPreventPutCountersOf` / `selfPreventPutCounters` /
+  `attachedPreventPutCounters`), both damage funnels, a reader-gated LINE strip in
+  `permanentEquipmentCovered`, and a `native-static` lane for the self form.
+  ⚠️ **No per-step budget** (the shield's `csBudget` must NOT be copied across — it exists to stop a
+  SPEND over-promising; a payout has nothing to exhaust). Witness: `preventDamagePutCounters.test.js`
+  (14, seven mutations seen to fail). Parked as FP guards: Anti-Venom · Jared Carthalion · Gatta and Luzzu.
+  🐞 Banked while measuring, out of scope: combat damage assignment caps at lethal per blocker even for a
+  single-blocked NON-trampler (CR 510.1a says assign all) — a 7/7 lifelinker into one 4/4 gains 4, not 7.
+  Full detail in the RUN-LEDGER entry.
 - **Cloud, Midgar Mercenary** — "if a triggered ability of Cloud or an Equipment attached to it triggers,
   that ability triggers an additional time" — a SCOPED trigger-count doubler (attachment-aware); probe
   etbTriggerMultiplier/attackTriggerMultiplier for the multiplier registry before building.
 - **Buster Sword** — granted cdmg draw + "you may cast a spell from your hand with mana value ≤ that
   damage without paying its mana cost" (free-cast with a dynamic MV cap off ctx.combatDamageAmount).
-- **Codsworth, Handy Helper** — "{T}: Attach target Aura or Equipment you control to target creature you
-  control" — a TWO-heterogeneous-target activated ability; check the targeting layer's multi-target
-  support first (twoTargetPump is same-type; this is aura-or-equipment + creature).
+- **Codsworth, Handy Helper** — ⚠️ **NOT a single-blocker card; this entry was mis-scoped.** Its full
+  oracle (verified 08-30) is THREE clauses, not one: "Commanders you control have ward {2}." +
+  "{T}: Add {W}{W}. Spend this mana only to cast Aura and/or Equipment spells." (a RESTRICTED-spend
+  mana ability — the subsystem-quartet's restricted-spend pool) + "{T}: Attach target Aura or Equipment
+  you control to target creature you control. Activate only as a sorcery." Only the third clause is what
+  the original note described. The attach half is still a TWO-heterogeneous-target activated ability
+  (check the targeting layer first — twoTargetPump is same-type; this is aura-or-equipment + creature),
+  but all three must land for the card to flip. Re-price before starting.
 **Multi-blockers after:** Sword of Hearth and Home (blink+tutor riders) · Mjölnir (4 pieces, several
 modeled) · Super-Soldier Serum (attack mass-attach + type-add) · Iron Man · Sword of Wealth and Power
 (delayed spell-copy) · Zirda (activation cost-reduce) · Illusionist's Bracers (ability copy) · Forge

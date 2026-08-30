@@ -7,6 +7,30 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9 Panther Habit shipped, Cap 81→82 native** — suite **1311 / 14,993** green
+
+> ### ⏭ RUNNABLE NOW — the shelf tail runs off [SHELF-TAIL-PLAN.md](SHELF-TAIL-PLAN.md) §5.4
+> Cap America is the focus-fire deck (Colton 08-30, Joe's live deck). CAP1-9 shipped; the next scoped
+> singles are **Cloud, Midgar Mercenary** (a scoped trigger-count doubler — probe the
+> etbTriggerMultiplier/attackTriggerMultiplier registry first) and **Buster Sword** (granted combat-damage
+> draw + a free-cast with a dynamic MV cap off `ctx.combatDamageAmount`). **Codsworth was re-scoped
+> 08-30 and is NO LONGER a single-blocker** — its oracle carries three clauses (commander ward +
+> a restricted-spend mana ability + the two-target attach); re-price it before starting. After the
+> singles: the multi-blockers (Sword of Hearth and Home, Mjölnir, Super-Soldier Serum, Iron Man, Sword of
+> Wealth and Power, Zirda, Illusionist's Bracers, Forge Anew, First Avenger, the 3 MDFCs).
+>
+> **CAP9 in one line:** the CR 615 prevent-and-PUT-counters wall — the counter-shield's inverse, built
+> beside it at both damage funnels rather than through the CR 614 doubler seam the plan had blueprinted.
+> ⭐ That blueprint was wrong about which seam it needed; probing it first is what caught that. +2 corpus
+> (Ironscale Hydra rode along), flip-diff clean with zero LOST, seven mutations seen to fail.
+>
+> **🐞 BANKED, UNCLAIMED — a real engine divergence found while measuring CAP9.** Combat damage assignment
+> caps at lethal PER BLOCKER even when a NON-trampler has exactly one blocker, and discards the remainder;
+> CR 510.1a requires it to assign all its damage there. Measured: a 7/7 lifelinker blocked by one 4/4
+> gains **4** life, not 7. Invisible to lethality, visible to lifelink / damage-dealt triggers / the CAP9
+> wall. Deliberately NOT fixed in that slice — it lives in `combatResolution`'s assignment loop, the most
+> load-bearing loop in the engine, and wants its own slice with its own flip-diff.
+
 ## 🏁 2026-08-15 LATE — **TEVAL AT 90 (the 14th deck) · TWENTY slices today · batch +51** — suite **1263 / 14,701** green
 
 > ### 🔴 STANDING ORDER (Colton, 2026-08-16): NON-STOP TO THE 100s. Grind the batch to ~100 → tag

@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Panther Habit works.** Damage to the equipped creature is prevented and it grows by that many +1/+1
+  counters instead — in combat and from burn alike, as printed.
+- **Ironscale Hydra works.** Combat damage from a creature is prevented and the Hydra grows by one +1/+1
+  counter. Noncombat damage still gets through, exactly as printed.
 - **Primal Might works.** It now pumps your creature by +X/+X and then fights, so the X you pay actually
   swings the fight, as printed.
 - **"Untap target creature or land" works.** Saryth, the Viper's Fang, Civic Gardener, and Initiate's

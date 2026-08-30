@@ -55,7 +55,7 @@ import {
 import { permanentHasKeyword, permanentColors, permanentProtectionColors, assignsCombatDamageWithToughness } from "./layers.js";
 import { applyDestroyEffect } from "./spellEffects.js"; // DG-1 — the shared destroy primitive (indestructible/shield/regen/totem + dies-triggers); spellEffects never imports this module (cycle-safe)
 import { protectionApplies } from "./protection.js";
-import { selfDamagePrevention, selfDamagePreventionBy, attachedDamagePrevention, mayAssignAsUnblocked, attackerMinBlockers, counterShieldPrevention } from "./combatEvasion.js";
+import { selfDamagePrevention, selfDamagePreventionBy, attachedDamagePrevention, mayAssignAsUnblocked, attackerMinBlockers, counterShieldPrevention, attachedPreventPutCounters, selfPreventPutCounters } from "./combatEvasion.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 import { armDamageToCreatureFlag, marksDamageToCreature } from "./wolverine.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCombatDamageTriggers, checkCombatDamageToCreatureTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
@@ -238,6 +238,37 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     return true;
   };
 
+  // PREVENT-AND-PUT (SHELF CAP9, CR 615 — Panther Habit / Ironscale Hydra): the counter-shield's inverse,
+  // recorded here and PAID after the loops for the same reason csRemovals is — `state` is the frozen
+  // pre-step board and addCounter must run against the accumulating `next`.
+  //
+  // ⭐ NO BUDGET, DELIBERATELY (contrast csBudget above). The shield needs one because it spends a finite
+  // resource several hits could over-promise; this pays OUT, so each prevented hit independently earns its
+  // own counters and two hits in one step correctly earn twice. The absence of a budget here is the
+  // difference between the two families, not an oversight.
+  const pcAdditions = new Map();  // permanentId -> +1/+1 counters to ADD after the loops
+  /** Decide the prevent-and-put wall for one hit. Returns true when the damage is PREVENTED. */
+  const preventAndPutCounters = (targetId, amount, sourcePerm) => {
+    const lk = findPermanent(state, targetId);
+    if (!lk) return false;
+    // ATTACHED (Panther Habit): all damage, any source, "that many" = the amount about to be dealt.
+    if (attachedPreventPutCounters(state, targetId)) {
+      if (amount > 0) pcAdditions.set(targetId, (pcAdditions.get(targetId) || 0) + amount);
+      return true;
+    }
+    // SELF (Ironscale Hydra): COMBAT damage FROM A CREATURE only, and exactly ONE counter. This funnel is
+    // by definition combat, so the remaining printed restriction to enforce is the source being a creature
+    // — checked live off the dealer's type line. A sourceless hit can't satisfy "a creature would deal", so
+    // it is NOT prevented (FN-safe: the Hydra takes it, never an invented wall).
+    if (selfPreventPutCounters(lk.permanent.card)) {
+      const type = String(sourcePerm?.card?.type_line ?? sourcePerm?.card?.type ?? "");
+      if (!/\bcreature\b/i.test(type)) return false;
+      pcAdditions.set(targetId, (pcAdditions.get(targetId) || 0) + 1);
+      return true;
+    }
+    return false;
+  };
+
   // ASSIGNS-DAMAGE-BY-TOUGHNESS (BLITZ DN-1, CR 510.1a — Doran / Belligerent Brontodon / Ancient Lumberknot):
   // the AMOUNT of combat damage a creature assigns. CR 510.1a assigns combat damage equal to POWER; a live
   // "assigns combat damage equal to its toughness rather than its power" static replaces that with the
@@ -344,6 +375,13 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       // here, applied after the loops). Sits AFTER the flat walls so a creature carrying both is prevented
       // by the free one and never charged a counter it did not need to spend.
       if (counterShieldPrevents(targetId, amt)) return 0;
+      // PREVENT-AND-PUT (CAP9): sits directly after its sibling and BEFORE the attached AP-1 wall. Under
+      // CR 616.1 the affected creature's controller orders applicable prevention effects; the engine's
+      // deterministic stand-in gives this one priority over the flat attached wall because it is the only
+      // one with an upside, which is what that controller would choose. A creature carrying a FREE self
+      // wall (Guard Gomazoa) above still wins — the counters simply aren't earned, an under-count and so
+      // the FN-safe direction, never an over-claim.
+      if (preventAndPutCounters(targetId, amt, sourcePerm)) return 0;
       // AP-1 (Gaseous Form / Sandskin): an attached "…dealt TO enchanted creature" wall zeroes the deal.
       if (lk && attachedDamagePrevention(state, targetId).to) return 0;
     }
@@ -596,6 +634,14 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
   // opponents (CR 728; the rad subsystem itself is already modeled and mills/drains at each precombat main).
   if (csRad.n > 0) {
     for (const pid of Object.keys(next.players)) next = addRadCounters(next, { playerId: pid, amount: csRad.n });
+  }
+  // PREVENT-AND-PUT payout (CAP9, CR 615) — the half that makes THIS credit honest, exactly as the
+  // csRemovals loop above is for the shield. Routed through addCounter (the counter chokepoint) rather
+  // than a direct write, so CR 616 counter doublers and every counters-placed watcher see the placement.
+  // A creature that left the battlefield during the step earns nothing (findPermanent guard), matching
+  // every sibling loop here.
+  for (const [id, n] of pcAdditions) {
+    if (n > 0 && findPermanent(next, id)) next = addCounter(next, { permanentId: id, type: "+1/+1", amount: n });
   }
   // PV-1 (CR 615): write the surviving prevention shields back (the local pool decremented at the deal
   // sites). Only when a live pool existed — an empty pool leaves state untouched (byte-identical).

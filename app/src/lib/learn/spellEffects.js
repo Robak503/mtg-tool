@@ -52,7 +52,7 @@ import { permanentHasKeyword, permanentProtectionColors, permanentIsCreature, pl
 import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
-import { selfDamagePrevention, attachedDamagePrevention, counterShieldPrevention } from "./combatEvasion.js"; // FOG-1/AP-1 — the printed self + attached prevent-all walls (leaf-safe: combatEvasion never imports this module)
+import { selfDamagePrevention, attachedDamagePrevention, counterShieldPrevention, attachedPreventPutCounters } from "./combatEvasion.js"; // FOG-1/AP-1 — the printed self + attached prevent-all walls (leaf-safe: combatEvasion never imports this module)
 import { armDamageToCreatureFlag } from "./wolverine.js";
 import { creatureSatisfiesRestrictions } from "./creatureRestrictions.js"; // the shared 16-kind restriction satisfier (leaf) — also read by effects/atoms/shared.massCreatureTargets
 import { TARGET_SUBTYPES } from "./effects/parseHelpers.js"; // SUBTYPE-TARGET — curated creature-subtype allowlist (leaf, cycle-safe)
@@ -1314,6 +1314,16 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
         }
         // no counter → NOT prevented; fall through and take it.
       }
+    }
+    // PREVENT-AND-PUT (SHELF CAP9, CR 615 — Panther Habit): the ATTACHED wall pays out in +1/+1 counters
+    // and covers ALL damage, so unlike the combat-only walls it binds here too — a Bolt aimed at the
+    // wearer is prevented and grows it by that much. Same slot as the counter-shield sibling directly
+    // above, and this site owns mutable state so the payout is inline (no record-and-pay pass needed).
+    // Ironscale Hydra's SELF wall is deliberately absent: its printed scope is COMBAT damage from a
+    // creature, so it must NOT fire here — it takes the Bolt, exactly as printed.
+    // Routed through addCounter so counter doublers / counters-placed watchers see the placement.
+    if (lk && attachedPreventPutCounters(s, permId)) {
+      return addCounter(s, { permanentId: permId, type: "+1/+1", amount: dealt });
     }
     // AP-1 (Inviolability / Heart of Light): an attached "…dealt TO enchanted creature" ALL wall blocks
     // non-combat damage too; the combat-only forms (Gaseous Form) bind only at the combat funnel.
