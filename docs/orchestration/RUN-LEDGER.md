@@ -3,6 +3,31 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚔️ 2026-08-30 (cont.) — CAP AMERICA FOCUS-FIRE CAP4-8: five more slices, 73→81 native cards — all pushed, CI watched
+> The ablation map from the session's opening probes paid out. Each slice: targeted tests + mutation-check
+> (seen-to-fail) + corpus census (every flip audited by name) + neighbors green + lint. Cap native cards
+> 81/100 in pre-land-gate terms (the post-gate deck % reads lower because 13 utility lands honestly count
+> as land-partial now — the CARD tail, not the land tail, is what these slices grind).
+> · **CAP4 Kaldra Compleat** (73972a5c): the THIRD combat-damage-to-creature payoff twin (EXILE) + ⭐ the
+>   Law-6 catch — the fire site read only PRINTED cards, so an attached grant was structurally invisible;
+>   grantedTriggersForHost/Group merged in. Witness: exile-not-graveyard on a real board.
+> · **CAP5 The Reaver Cleaver** (15d028be): the player-or-planeswalker UNION on combatDamageToPlayer
+>   (alsoPlaneswalker marker + a pw fire-pass off combat-damage-planeswalker events, amount threaded).
+>   +2 siblings: Guildpact Informant + Grateful Apparition — a NAMED WAKE-REPORT deferred, closed.
+> · **CAP6 Conqueror's Flail** (460cd134): permanentEquipmentCovered credits clauseProducesStatic residue
+>   clauses — the attachment-gated cant-cast was parsed AND enforced for months; two proven halves fell
+>   between tiers. Fingerprint: the widen flipped ONLY the Flail corpus-wide.
+> · **CAP7 Hammer of Nazahn** (e8309cb0): 'attach THAT Equipment' = the ENTERING equipment —
+>   attachFrom:'triggering' on the self-attach atom (the subtype-ETB lane already detected the union;
+>   first-draft bespoke condition arms were dead code, removed unshipped). Optional wrapper pauses on a
+>   real yes/no (pendingChoice optional-effect), pinned.
+> · **CAP8 Aettir and Priwen** (f38af149): DYNAMIC layer-7b base-P/T set (X = your life total), live at
+>   every derive. ⚠️ the lifeTotal count kind went into BOTH countForSpec twins (shared.js + layers.js) —
+>   the shared-only draft was the vacuous-native trap (native tier, runtime 0/0), mutation-driven.
+> **Cap remaining singles:** Cloud (trigger doubler) · Panther Habit (CR 615 prevention→counters) ·
+> Buster Sword (free-cast ≤ damage) · Codsworth (two-target activated attach). Then the multi-blockers
+> (Sword of Hearth and Home, Mjölnir, Serum, Iron Man, SoWaP, Zirda, Bracers, First Avenger, 3 MDFCs).
+>
 > ## 🔧 2026-08-30 — CODEX FOUR-FIX RUN (Colton's review) + CAP AMERICA FOCUS-FIRE (3 slices) — all on master
 > **The Codex four (each its own commit, full gates: suite 1306 files / 14,958 green · lint 0 · check:engine OK):**
 > · **#2 Arbiter status contract** (8bd4329d): 'resolved' RESERVED for grounded citation-clean answers;
