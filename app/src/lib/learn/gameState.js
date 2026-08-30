@@ -1053,6 +1053,33 @@ export function attachPermanent(state, { equipId, targetId }) {
 }
 
 /**
+ * UNATTACH IN PLACE (SHELF CAP14, CR 701.3c — Captain America, First Avenger's "Throw" activation cost:
+ * "Unattach an Equipment from Captain America"). The clean inverse of attachPermanent: clear the
+ * Equipment's `attachedTo` and drop it from its host's `attachments`, leaving BOTH permanents on the
+ * battlefield.
+ *
+ * ⛔ DELIBERATELY NOT detachPermanentFromAll. That function is the battlefield-EXIT chokepoint — it records
+ * a leave event and fires the leave/LTB machinery, which is exactly right when a permanent is leaving and
+ * exactly wrong here: nothing leaves the battlefield when an Equipment is unattached (CR 701.3d), so
+ * routing through it would fabricate a leaves-the-battlefield event for a permanent that never left.
+ *
+ * Scoped to EQUIPMENT on purpose. An Aura that stops being attached goes to the graveyard as a state-based
+ * action (CR 704.5m), and a control Aura must hand its host back (revertControlAura) — neither applies to
+ * Equipment, and neither is modeled here, so a non-Equipment argument is a no-op rather than a half-done
+ * teardown. The layer engine reads the two links, so clearing them is the whole job: the bonus stops.
+ */
+export function unattachEquipment(state, equipId) {
+  const lk = findPermanent(state, equipId);
+  if (!lk?.permanent) return state;
+  if (!/\bequipment\b/i.test(String(lk.permanent.card?.type_line ?? lk.permanent.card?.type ?? ""))) return state;
+  const host = lk.permanent.attachedTo;
+  if (!host) return state;                       // already unattached — nothing to pay
+  let next = updatePermanentSafe(state, equipId, (p) => ({ ...p, attachedTo: null }));
+  next = updatePermanentSafe(next, host, (p) => ({ ...p, attachments: (p.attachments || []).filter((id) => id !== equipId) }));
+  return next;
+}
+
+/**
  * GY-EVENT queue (Syr Konrad / Bloodchief Ascension — SHELF S7, CR 603.6c/603.10a look-back): record a card
  * ENTERING a graveyard ({dir:"enter", zone: the zone it came FROM}) or LEAVING one ({dir:"leave", zone: the
  * zone it went TO}) on `state.pendingGraveyardEvents`. The pendingLeaveEvents/pendingUntapEvents pattern —

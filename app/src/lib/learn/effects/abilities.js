@@ -294,6 +294,32 @@ function execRemoveCounterFromSelfName(item, card) {
 }
 
 /**
+ * γ1i (SHELF CAP14) — the "Unattach an Equipment from <SELF>" cost item, self-name anchored EXACTLY as
+ * execRemoveCounterFromSelfName above is, and for the same reason: the printed card names itself (CR 201.5),
+ * so the from-tail must equal this card's full or legendary SHORT name verbatim — never a substring, never
+ * another permanent. Captain America, First Avenger prints "Unattach an Equipment from Captain America"
+ * (the short form). The "this creature"/"this permanent"/"it" self-references are accepted too, so a future
+ * card templated the modern way parses without a second arm.
+ *
+ * ⛔ THE ANCHOR IS THE WHOLE SAFETY. A variant naming ANOTHER permanent ("from target creature"), a COUNT
+ * ("Unattach two Equipment"), or an AURA subject fails `^…$` → the cost parks → the ability stays unmodeled
+ * → body-only. That is the fail-closed direction: unattaching the wrong permanent as a cost is a real
+ * board change the coverage tier cannot see.
+ */
+function execUnattachFromSelfName(item, card) {
+  if (!/^unattach an equipment from /i.test(item)) return null;   // cheap gate — skip regex construction
+  const forms = ["this creature", "this permanent", "it"];
+  const name = String(card?.name || "").trim();
+  if (name) {
+    forms.push(name);
+    const short = name.split(",")[0].trim();
+    if (short && short !== name) forms.push(short);
+  }
+  const alt = forms.map(escapeRe).join("|");
+  return new RegExp(`^unattach an equipment from (?:${alt})$`, "i").exec(item);
+}
+
+/**
  * A single pip the engine's mana model understands. {X}/{Q}/{E} are deliberately NOT mana. {S} (snow,
  * CR 107.4h / 106.3) IS a modeled mana pip as of BLITZ SN-1: it flows verbatim into `manaPips`, and
  * parseManaCost records it as `cost.snow`, which planPayment can satisfy ONLY from a snow source's mana
@@ -336,6 +362,7 @@ export function parseAbilityCost(costStr, card = null) {
   let removeCounter = null;
   let tapCreature = null;
   let returnLand = null;
+  let unattachEquipment = null; // γ1i — "Unattach an Equipment from <self>" (CAP14): a chosen attached Equipment
   let discardCard = 0;
   let discardCardFilter = null; // γ1h-TYPED — "Discard a creature card" (Tortured Existence)
   for (const item of items) {
@@ -376,6 +403,16 @@ export function parseAbilityCost(costStr, card = null) {
     // Forest"), or a "to their owner's hand" plural variant doesn't match → deferred, keeping the all-or-nothing
     // gate (a safe false-negative → Arbiter).
     if (/^return a land you control to its owner's hand$/i.test(item)) { returnLand = { another: false }; continue; }
+    // γ1i — UNATTACH-AN-EQUIPMENT cost (SHELF CAP14, CR 701.3c — Captain America, First Avenger:
+    // "{3}, Unattach an Equipment from Captain America: …"): a CHOICE cost — the player picks WHICH
+    // Equipment attached to the SOURCE to remove. The parser only records the shape; legalChoices expands
+    // one action per Equipment currently attached to the source (and offers nothing when none is), and the
+    // dispatcher actually unattaches the chosen one before the ability goes on the stack (CR 601.2h —
+    // never activate without paying). The chosen Equipment's MANA VALUE is threaded into resolution, which
+    // is what makes this cost different from its siblings: the EFFECT is sized by the cost that was paid.
+    // Whole-item anchored ($) over the SELF-NORMALIZED subject, so a variant naming another permanent, a
+    // count, or an Aura doesn't match → deferred, keeping the all-or-nothing gate (a safe FN → Arbiter).
+    if (execUnattachFromSelfName(item, card)) { unattachEquipment = { from: "self" }; continue; }
     // γ1 — two NO-CHOICE non-mana costs the engine pays without a player decision:
     //   "Pay N life"          → deduct N life (the caller checks affordability).
     //   "Sacrifice this[ …]"  → sacrifice the SOURCE permanent (no "which one?" choice).
@@ -516,7 +553,7 @@ export function parseAbilityCost(costStr, card = null) {
     if (!pips.every(pipIsMana)) return null;                      // {X}/{Q}/{E}/… → unmodeled ({S} IS mana, SN-1)
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
-  return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, discardCard, discardCardFilter, costX };
+  return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, unattachEquipment, discardCard, discardCardFilter, costX };
 }
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
@@ -859,7 +896,12 @@ export function parseActivatedAbilities(card) {
       const body = ln.slice(ms[0].length).trim().replace(/\.?\s*$/, "");
       return `${body}. Activate only if your speed is 4.`;
     }
-    return /\([^)]*activate/i.test(ln) ? ln : ln.replace(/^[A-Za-z][A-Za-z'\- ]{0,40}\s[—–]\s*(?=\{)/, "");
+    // CAP14: the charset admits an ELLIPSIS so a flavor label that carries one strips too — Captain
+    // America's paired "Throw ... — {3}, …" / "... Catch — At the beginning …". The gates that make this
+    // safe are unchanged and are what bound the widen: the label must still be followed by a DASH and then
+    // a BRACE COST (the `(?=\{)` lookahead), and any line whose reminder text mentions "activate" is skipped
+    // above as a rules-bearing keyword. A dotted label with no brace cost after it still never matches.
+    return /\([^)]*activate/i.test(ln) ? ln : ln.replace(/^[A-Za-z][A-Za-z'.\- ]{0,40}\s[—–]\s*(?=\{)/, "");
   }).join("\n");
   // ===== OUTLAST (CR 702.107a) — expand the keyword into the ability it IS ==========================
   // "Outlast [cost]" means "[cost], {T}: Put a +1/+1 counter on this creature. Activate only as a sorcery."
@@ -1164,6 +1206,7 @@ export function parseActivatedAbilities(card) {
       discardCard: cost?.discardCard ?? 0,     // γ1h — "Discard a card": legalChoices expands per distinct hand card (DC-1)
       discardCardFilter: cost?.discardCardFilter ?? null, // γ1h-TYPED — "Discard a creature card" (Tortured Existence): the victim pool narrows to the front-face type
       returnLand: cost?.returnLand ?? null,    // γ1g — "Return a land you control to its owner's hand": legalChoices picks the land, dispatcher bounces it
+      unattachEquipment: cost?.unattachEquipment ?? null, // γ1i (CAP14) — "Unattach an Equipment from <self>": legalChoices picks the Equipment, dispatcher unattaches it + threads its mana value
       costModeled: !!cost,
       isManaEffect,
       doubleManaPool, // DOUBLE-MANA-POOL (Doubling Cube) — the runtime doubles the activator's pool (no stack)

@@ -236,9 +236,17 @@ describe("coverage — clean equipment flips and CREED negatives", () => {
     // silently dropping the half people actually play it for.
     expect(classifyCard(EQ("Sword of Wealth and Power", "Equipped creature gets +2/+2 and has protection from instants and from sorceries.\nWhenever equipped creature deals combat damage to a player, create a Treasure token. When you next cast an instant or sorcery spell this turn, copy that spell. You may choose new targets for the copy.\nEquip {2}", "Artifact — Equipment"))).toBe("body-only");
   });
-  it("CREED: Captain America stays NON-native (his 'Throw' activated ability is unmodeled)", () => {
+  it("GRADUATED (CAP14, 2026-08-30): Captain America's 'Throw' is modeled — he is native now", () => {
+    // His "Catch" trigger always parsed; "Throw" was the sole blocker, and it needed three things that
+    // now exist: the ellipsis-carrying flavor label strips, the "Unattach an Equipment from <self>"
+    // activation COST parses and is actually paid, and the divide-damage amount is read from the mana
+    // value of the Equipment unattached to pay for it. capThrowUnattachCost.test.js owns the runtime
+    // witness — including that the Equipment STAYS on the battlefield and that a MISSING referent deals
+    // zero. Asserted AS native so this pin can never silently re-park him.
     const CAP = "Throw ... — {3}, Unattach an Equipment from Captain America: He deals damage equal to that Equipment's mana value divided as you choose among one, two, or three targets.\n... Catch — At the beginning of combat on your turn, attach up to one target Equipment you control to Captain America.";
-    expect(classifyCard({ name: "Captain America, First Avenger", type: "Legendary Creature — Human Soldier Hero", oracle: CAP })).not.toBe("native-trigger");
-    expect(classifyCard({ name: "Captain America, First Avenger", type: "Legendary Creature — Human Soldier Hero", oracle: CAP })).toBe("body-only");
+    expect(classifyCard({ name: "Captain America, First Avenger", type: "Legendary Creature — Human Soldier Hero", oracle: CAP })).toBe("native-mixed");
+    // ⭐ THE SURVIVING GUARD of the class this vacated — an UNMODELED activated-ability payload must still
+    // park the whole card. Illusionist's Bracers' ability-COPY is genuinely unmodeled, so it holds the seat.
+    expect(classifyCard(EQ("Illusionist's Bracers", "Whenever an ability of equipped creature is activated, if it isn't a mana ability, copy that ability. You may choose new targets for the copy.\nEquip {3}", "Artifact — Equipment"))).toBe("body-only");
   });
 });

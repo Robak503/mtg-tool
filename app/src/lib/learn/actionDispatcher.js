@@ -52,7 +52,9 @@ import {
   clearRemovedFromCombatFlags,
   recordGraveyardEvents,
   findPermanent,
+  unattachEquipment,
 } from "./gameState.js";
+import { tutorManaValue } from "./effects/atoms/library.js"; // γ1i (CAP14) — the shared MV reader the tutor / free-cast paths use, so "mana value" means ONE thing engine-wide
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
 import { manaSources, planPayment, sourcesExcludingOneShotVictim, commitPaymentPlan, commitManaTap, payManaCost } from "./manaModel.js";
 import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
@@ -1159,6 +1161,25 @@ function applyActivateAbility(state, action) {
     working = moveCardToZone(working, { playerId: action.playerId, fromZone: "battlefield", toZone: "hand", cardId: action.returnLandId });
     working = checkLeavesTriggers(working);
   }
+  // γ1i (SHELF CAP14, CR 701.3c) — pay an "Unattach an Equipment from <self>" cost by ACTUALLY removing the
+  // chosen Equipment from the source, BEFORE the ability goes on the stack (CR 601.2h). Its MANA VALUE is
+  // captured HERE, at payment time, because the effect is sized by the cost that was paid — read later it
+  // could be a different (or absent) permanent.
+  //
+  // ⛔ NOT a battlefield exit: the Equipment stays in play, merely unattached (CR 701.3d), so this must NOT
+  // route through detachPermanentFromAll — that is the leave chokepoint and would fabricate an LTB event
+  // for a permanent that never left. A missing or wrongly-attached chosen Equipment is a HARD ERROR rather
+  // than a silent skip: activating without paying the cost is the forbidden direction.
+  let unattachedEquipmentMv = null;
+  if (action.unattachEquipmentId) {
+    const eq = working.players[action.playerId]?.battlefield.find((p) => p.id === action.unattachEquipmentId);
+    if (!eq) throw new DispatcherError(`Unattach-cost Equipment ${action.unattachEquipmentId} not on battlefield`, "PERM_NOT_FOUND");
+    if (eq.attachedTo !== action.permanentId) {
+      throw new DispatcherError(`Unattach-cost Equipment ${action.unattachEquipmentId} is not attached to the source`, "ADDCOST_UNPAID");
+    }
+    unattachedEquipmentMv = tutorManaValue(eq.card);
+    working = unattachEquipment(working, action.unattachEquipmentId);
+  }
   // γ1h (BLITZ DC-1) — pay a "Discard a card" cost by moving the CHOSEN hand card to the graveyard
   // (CR 601.2h / 701.8 — a discard from a cost is still a discard; the graveyard-entry event records via
   // moveCardToZone's chokepoint). The card is re-resolved against the LIVE hand; a missing card is a hard
@@ -1233,6 +1254,16 @@ function applyActivateAbility(state, action) {
     // effect (Grim Hireling's "-X/-X") applies the SAME X the player paid in sacrificed Treasures. Only the sac-X
     // path sets action.xValue on an activated ability, so every other ability keeps its prior X-free params shape.
     if (action.xValue != null) params.xValue = action.xValue;
+    // γ1i (CAP14) — thread the unattached Equipment's mana value into resolution so the divide-damage
+    // atom's `amountFrom:"unattachedEquipmentMv"` sizes itself off the cost that was ACTUALLY paid.
+    //
+    // ⭐ IT RIDES `params.context`, NOT A TOP-LEVEL PARAM. runProgram destructures a FIXED set of params
+    // (program/controller/targets/xValue/sourceId/context/kicked) and builds each atom's ctx by spreading
+    // `context` — so a new top-level field would be silently dropped, while `context` already flows through
+    // every resume path (the pause/resume records carry it verbatim). A divide-damage PAUSES for the
+    // division, so surviving the resume is not optional here.
+    // Only this cost sets it, so every other ability keeps its prior params shape byte-for-byte.
+    if (unattachedEquipmentMv != null) params.context = { ...(params.context || {}), unattachedEquipmentMv };
     payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
   }
 

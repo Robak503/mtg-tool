@@ -2313,6 +2313,29 @@ function actionsActivateAbility(state, playerId) {
         if (returnLandVictims.length === 0) continue; // no returnable land → the cost can't be paid
       }
 
+      // γ1i (SHELF CAP14) — an "Unattach an Equipment from <self>" cost (Captain America's "Throw"): the
+      // PLAYER picks WHICH Equipment attached to the SOURCE to remove. Expand one action per attached
+      // Equipment — they are NOT fungible here, because the chosen one's MANA VALUE becomes the ability's
+      // damage, so each is a genuinely different play. An UNEQUIPPED source can't pay the cost at all and
+      // is simply not offered (CR 601.2h) — which is also the honest reading of the card: no Equipment,
+      // no Throw.
+      let unattachVictims = [null];
+      if (ab.unattachEquipment) {
+        // Read the SOURCE's attachment list off the battlefield permanent being enumerated (`perm`) rather
+        // than re-looking it up: the enumerator already holds the live object, exactly as the equip branch
+        // below reads its permanents directly.
+        unattachVictims = (perm.attachments || [])
+          .map((id) => findPermanent(state, id)?.permanent)
+          .filter((e) => e && /\bequipment\b/i.test(String(e.card?.type_line ?? e.card?.type ?? "")));
+        // ⚠️ DEFENSIVE, AND ITS MUTATION DOES NOT FAIL — measured, not assumed (CAP14 mutation M4). With an
+        // empty pool the `for (const unattachVictim of unattachVictims)` loop below already iterates zero
+        // times, so deleting this line changes NOTHING and the suite stays green. It is kept as a cheap
+        // early exit that skips the remaining per-ability work, NOT as a proven gate — the behaviour it
+        // describes (an unequipped source is offered no Throw) is real and pinned, but THIS line is not
+        // what enforces it. Said plainly so a later reader doesn't mistake it for a load-bearing guard.
+        if (unattachVictims.length === 0) continue; // nothing attached → the cost can't be paid
+      }
+
       // γ1h (BLITZ DC-1) — a "Discard a card" cost (Rummaging Goblin / the granted looter interiors): the
       // PLAYER picks WHICH hand card to pitch. Expand one action per DISTINCT-named hand card (copies are
       // fungible — CR 601.2h pays with the object, and identical cards pay identically), capping the
@@ -2353,6 +2376,7 @@ function actionsActivateAbility(state, playerId) {
         // cost has no {mana} part, so this is trivially satisfied there, but the guard keeps a future
         // mana+tap-creature ability payable-only-when-truly-affordable (never an unpayable offer, CREED).
         if (ab.tapCreature && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== tapVictim?.id), cost)) continue;
+       for (const unattachVictim of unattachVictims) {
        for (const returnLandVictim of returnLandVictims) {
         // γ1g — a "Return a land you control to its owner's hand" cost: the land bounced for the cost can't ALSO
         // tap for mana (it's gone before the {mana} is paid), so exclude it from THIS action's mana sources for
@@ -2455,6 +2479,8 @@ function actionsActivateAbility(state, playerId) {
             tapCreatureName: tapVictim?.card?.name ?? null,
             returnLandId: returnLandVictim?.id ?? null,  // γ1g — the chosen land to return to owner's hand (cost)
             returnLandName: returnLandVictim?.card?.name ?? null,
+            unattachEquipmentId: unattachVictim?.id ?? null,     // γ1i (CAP14) — the chosen attached Equipment (cost)
+            unattachEquipmentName: unattachVictim?.card?.name ?? null,
             discardCardId: discardVictim?.id ?? null,    // γ1h (DC-1) — the chosen hand card to pitch (cost)
             discardCardName: discardVictim?.name ?? null,
             ...(ab.discardCardFilter ? { discardCardFilter: ab.discardCardFilter } : {}), // γ1h-TYPED — the dispatcher re-validates the pitch's front-face type
@@ -2468,10 +2494,12 @@ function actionsActivateAbility(state, playerId) {
               ? `Sacrifice ${ab.sacCount.count} ${ab.sacCount.subtype}s: ${ab.effectClause}`
               : ab.tapCreature && tapVictim ? `Tap ${tapVictim.card?.name}: ${ab.effectClause}`
               : ab.returnLand && returnLandVictim ? `Return ${returnLandVictim.card?.name}: ${ab.effectClause}`
+              : ab.unattachEquipment && unattachVictim ? `Unattach ${unattachVictim.card?.name}: ${ab.effectClause}`
               : ab.discardCard && discardVictim ? `Discard ${discardVictim.name}: ${ab.effectClause}`
               : victim ? `Sacrifice ${victim.card?.name}: ${ab.effectClause}` : ab.effectClause,
           });
         }
+       }
        }
        }
        }

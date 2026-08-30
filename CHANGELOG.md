@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Captain America, First Avenger works.** His "Throw" ability now actually unattaches an Equipment as its
+  cost — the Equipment stays on the battlefield — and he deals damage equal to that Equipment's mana value,
+  divided among up to three targets. His "Catch" attach trigger already worked.
 - **Forked Lightning works**, and every "divided as you choose among one, two, or three targets" spell now
   actually respects its target limit — the picker won't let you spread damage over more targets than the
   card allows, and the AI won't either.

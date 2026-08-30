@@ -163,7 +163,11 @@ function applyCreateEmblem(state, atom, ctx) {
  * UI all land — no native-but-unplayable false positive). 0 amount / no legal target → a logged no-op.
  */
 export function applyDivideDamage(state, atom, ctx) {
-  const amount = atom.amount || 0;
+  // DIVIDE-DYNAMIC (CAP14): `amountFrom` names a trigger/activation-context referent instead of a printed
+  // number. A MISSING referent yields 0 — a logged no-op, never a fabricated amount and never a fallback to
+  // some other number. Same fail-closed discipline as the free-cast cap (CAP11): an unsizeable effect does
+  // nothing rather than doing something invented.
+  const amount = atom.amountFrom ? Math.max(0, Number(ctx?.[atom.amountFrom]) || 0) : (atom.amount || 0);
   const group = atom.group || "anyTarget";
   if (amount <= 0) return logEvent(state, { kind: "spell-effect", effect: "divide-damage", controller: ctx.controller, amount: 0 });
   const candidates = [];
@@ -390,6 +394,21 @@ export function miscClauseParser(clause) {
     // over-target -- a real FP, correctly refused at the time. With the cap threaded, Forked Lightning
     // (4 damage among three targets) and its kin are honestly playable, so the refusal is gone.
     return { op: "divide-damage", amount, group: GROUP[b[3]], maxTargets };
+  }
+  // DIVIDE-DYNAMIC (SHELF CAP14 — Captain America, First Avenger's "Throw"): the amount is not printed, it
+  // is the mana value of the Equipment just unattached to PAY FOR the ability. Only reachable because CAP13
+  // made the target bound enforceable: with a dynamic amount the old `amount > maxTargets → refuse` rule
+  // could never clear this card, since the tier decision is static and the amount is unknown until
+  // resolution.
+  //
+  // ⛔ THE REFERENT IS COST-PAID, WHICH IS WHY IT CAN BE TRUSTED. ctx.unattachedEquipmentMv is stamped by
+  // the dispatcher at activation time from the Equipment it ACTUALLY unattached (CR 601.2h — the cost is
+  // paid before the ability goes on the stack), so the amount can never be read off a permanent that was
+  // not paid. A MISSING referent resolves to zero damage rather than to some default — see applyDivideDamage.
+  const dyn = t.match(/^.+ deals damage equal to that equipment's mana value divided as you choose among (one or two|one, two, or three) (targets|target creatures|target players)$/);
+  if (dyn) {
+    const GROUP = { "targets": "anyTarget", "target creatures": "creatures", "target players": "players" };
+    return { op: "divide-damage", amountFrom: "unattachedEquipmentMv", group: GROUP[dyn[2]], maxTargets: dyn[1] === "one or two" ? 2 : 3 };
   }
   return null;
 }

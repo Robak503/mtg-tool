@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9–CAP13 shipped, Cap 81→85 native (72%)** — suite **1315 / 15,049** green
+## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9–CAP14 shipped, Cap 81→86 native (73%)** — suite **1316 / 15,065** green
 
 > ### 🔴 COLTON'S CALL (08-30): **grind Cap as far as she goes (≈87%), THEN move to the LAND TIER.**
 > Measured, not estimated: Cap carries 13 land-partial slots, so flipping every remaining CARD still tops
@@ -19,11 +19,7 @@
 > Cap America is the focus-fire deck (Colton 08-30, Joe's live deck). CAP1-12 shipped. **Cap's CHEAP
 > singles are gone** — five single-blocker cards remain, each a real slice now. All were ablation-probed
 > 2026-08-30, so the next seat does not need to re-probe:
-> · **Captain America, First Avenger** — the "Throw" ability. ⭐ **HALF-BUILT: CAP13 landed its prerequisite**
->   (the divide-damage target bound is now enforced, so a DYNAMIC damage amount is admissible). Two pieces
->   remain: an **"Unattach an Equipment from <self>" activation COST** item, and threading **that
->   Equipment's mana value** through as the divide amount. His "Catch" trigger already parses HIGH
->   (`attach-to-self`), so Throw is his ONLY blocker.
+> · ~~**Captain America, First Avenger**~~ — ✅ **SHIPPED (CAP14)**. The deck's own commander is native.
 > · **Codsworth, Handy Helper** — "{T}: Attach target Aura or Equipment you control to target creature you
 >   control" — TWO heterogeneous targets; check the targeting layer's multi-target support first.
 > · **Illusionist's Bracers** — copy an activated ability of the equipped creature.
@@ -45,6 +41,15 @@
 > beside it at both damage funnels rather than through the CR 614 doubler seam the plan had blueprinted.
 > ⭐ That blueprint was wrong about which seam it needed; probing it first is what caught that. +2 corpus
 > (Ironscale Hydra rode along), flip-diff clean with zero LOST, seven mutations seen to fail.
+>
+> **CAP14 in one line: the deck's COMMANDER is native.** Captain America's "Throw" needed three things —
+> an ellipsis-carrying flavor label that strips, an "Unattach an Equipment from <self>" activation COST
+> (γ1i, self-name anchored like CC-3's counter costs), and ⭐ a **COST-PAID REFERENT**: the unattached
+> Equipment's MANA VALUE becomes the damage. No other modeled cost feeds the effect it paid for.
+> ⛔ Unattaching is NOT a battlefield exit — `gameState.unattachEquipment` clears both links in place and
+> deliberately avoids the leave chokepoint. ⚠️ The threading trap worth carrying forward: `runProgram`
+> destructures a FIXED param set, so a new top-level param is silently dropped — ride `params.context`,
+> which also survives the pause/resume a divide-damage requires.
 >
 > **CAP13 in one line:** the divide-damage TARGET BOUND is now carried and enforced (auto-pick + settle +
 > submit guard + the UI panel), instead of being relied upon to fall out of the ≥1-per-target rule. **This

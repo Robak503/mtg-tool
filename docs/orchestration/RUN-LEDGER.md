@@ -3,6 +3,44 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚔️ 2026-08-30 (cont.) — CAP14: **CAPTAIN AMERICA HIMSELF IS NATIVE** · +1 · Cap 72→73%
+> Suite **1316 / 15,065** green; lint 0; both exit codes UNPIPED. Flip-diff **+1, zero LOST** — the deck's
+> own commander, which is the highest play-value card in Joe's list.
+> · **Three pieces met here, and the middle one is a NEW SEAM.** ① an ELLIPSIS-carrying CR 207.2c flavor
+>   label ("Throw ... —") stripping off an activated line. ② **γ1i** — an "Unattach an Equipment from
+>   \<self\>" activation COST (CR 701.3c): a CHOICE cost, self-name anchored exactly like CC-3's
+>   remove-counter costs, paid by the dispatcher before the ability hits the stack. ③ **⭐ a COST-PAID
+>   REFERENT** — the chosen Equipment's MANA VALUE becomes the ability's damage. **No other modeled cost
+>   feeds the effect it paid for**; that is what made this different from its siblings.
+> · **⛔ UNATTACHING IS NOT A BATTLEFIELD EXIT (CR 701.3d).** New `gameState.unattachEquipment` clears both
+>   links in place. It deliberately does NOT route through `detachPermanentFromAll` — that is the
+>   battlefield-EXIT chokepoint and would fabricate a leaves-the-battlefield event for a permanent that
+>   never left. Pinned: the Equipment stays in play, never reaches the graveyard, no leave event recorded.
+> · **⭐ THE THREADING TRAP, and why `params.context`.** `runProgram` destructures a FIXED param set
+>   (program/controller/targets/xValue/sourceId/context/kicked) and builds each atom's ctx by spreading
+>   `context` — so a new TOP-LEVEL param is silently dropped. The first wiring did exactly that and the
+>   division simply never paused. `context` already flows through every pause/resume record, which matters
+>   here because a divide-damage PAUSES for the division: surviving the resume is not optional.
+> · **⛔ A MISSING REFERENT DEALS ZERO**, never a default (mutation M3 tried 99 and died). Same fail-closed
+>   discipline as CAP11's free-cast cap.
+> · **⚠️ A SCRIPTED WRITE CORRUPTED A REGEX INTO CONTROL BYTES.** A python rewrite turned `` into a literal
+>   **backspace (0x08)**, so the shipped source read `/<BS>equipment<BS>/i` — which matched nothing, and the
+>   symptom was "the pool is empty" with a source line that LOOKED correct. Found with `od -c`, not by
+>   reading. Third self-inflicted tooling failure today (after the no-op `sed` mutation and the truncating
+>   write). **Standing practice: never script a rewrite whose payload contains regex escapes — use Edit.**
+> · **⚖️ A STALE PIN GRADUATED** (third of the day, all three caught by the FULL suite rather than the
+>   targeted run): Cap's own "stays NON-native" assertion. Graduated with a surviving guard —
+>   **Illusionist's Bracers** now holds the "an unmodeled activated payload parks the whole card" seat.
+> · **⚠️ MUTATION M4 SURVIVED, AND IT IS RECORDED AS SUCH IN THE SOURCE.** The `unattachVictims.length === 0
+>   → continue` early exit is DEFENSIVE, not load-bearing: with an empty pool the loop below already iterates
+>   zero times, so deleting the line changes nothing. The BEHAVIOUR (an unequipped Cap is offered no Throw)
+>   is real and pinned; that LINE is not what enforces it, and the comment now says so. A surviving mutation
+>   is a fact to write down, not a gate to claim.
+> · **Mutations (6; five seen to fail, one recorded as surviving):** M1 cost never paid → 3 · M2 mana value
+>   never threaded → 2 · M3 missing referent defaults → 3 · M4 unequipped guard removed → **0 (documented)** ·
+>   M5 cost-item parser arm disabled → 8 · M6 host-side link not cleared → 6.
+> Witness: `capThrowUnattachCost.test.js` (16). Cap America **73%** (86 native cards + 13 land-partial).
+>
 > ## ⚔️ 2026-08-30 (cont.) — CAP13: the divide-damage TARGET BOUND enforced · +1 (Cap unchanged, by design)
 > Suite **1315 / 15,049** green; lint 0; both exit codes UNPIPED. Flip-diff **+1, zero LOST** (Forked Lightning).
 > · **THIS IS A PREREQUISITE SLICE, NOT A CAP CARD** — say so plainly: Cap America stays at 72%. The target

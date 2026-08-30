@@ -226,7 +226,7 @@ Return this card from your graveyard to the battlefield tapped" (a graveyard-act
 its own subsystem). Otharri flips when THAT lands. Ocelot Pride / Windcrag Siege (upkeep), Zack
 Fair / Patrolling Peacemaker (enters-as), Glimmer Lens, Crumb and Get It.
 
-### 5.4 Captain America Shoot your Shot — ⚔️ FOCUS-FIRE ACTIVE (Colton 08-30: Joe's live deck) — 85 native cards, CAP1-12 SHIPPED
+### 5.4 Captain America Shoot your Shot — ⚔️ FOCUS-FIRE ACTIVE (Colton 08-30: Joe's live deck) — 86 native cards, CAP1-14 SHIPPED
 **The 08-16 "no cheap slices" scout was WRONG in method** — it bucketed by trigger kind; ablation-probing
 per CARD (strip one sentence, re-classify) found 12 single-blocker cards. ELEVEN shipped 2026-08-30
 (CAP1-9, RUN-LEDGER has the receipts): Living Legend · Liberator · Super-Soldier · Kaldra Compleat ·
@@ -284,6 +284,12 @@ Annie Joins Up). **Remaining singles, scoped:**
 have equip {0}" — a cost SET, distinct from the already-modeled equip-cost REDUCTION. Cheap because
 `evaluateInterveningIf` already spoke the metalcraft gate and was already imported at the equip offer site.
 Astor, Bearer of Blades parses its equip {1} now but stays parked on its ETB + crew grant.
+**✅ CAP13+CAP14 (2026-08-30) — Captain America, First Avenger, the COMMANDER, +1** (plus Forked Lightning
+from the prerequisite). CAP13 made the divide-damage target bound ENFORCED (auto-pick + settle + submit
+guard + the UI panel) so a DYNAMIC damage amount became admissible; CAP14 then built the "Unattach an
+Equipment from <self>" activation cost and threaded the unattached Equipment's mana value through as the
+divide amount. His "Catch" trigger already parsed. Witnesses: `divideDamageBounded.test.js` (15) +
+`capThrowUnattachCost.test.js` (16).
 **Multi-blockers after:** Sword of Hearth and Home (blink+tutor riders) · Mjölnir (4 pieces, several
 modeled) · Super-Soldier Serum (attack mass-attach + type-add) · Iron Man · Sword of Wealth and Power
 (delayed spell-copy) · Zirda (activation cost-reduce) · Illusionist's Bracers (ability copy) · Forge
