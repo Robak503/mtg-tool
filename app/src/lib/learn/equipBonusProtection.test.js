@@ -55,9 +55,14 @@ describe("parseAttachedClause — EQUIP-BASE-PT-SET (has base power and toughnes
       { layer: 7, sublayer: "7b", op: { power: 0, toughness: 2 }, duration: { kind: "permanent" } },
     ]);
   });
-  it("a DYNAMIC base-P/T ('X/X, where X is your life total') has residue → whole bonus drops (safe FN)", () => {
-    // Aettir and Priwen — the trailing ", where X is …" is unmodeled, so the all-or-nothing rejects it.
-    expect(parseEquipmentBonus({ type: "Artifact — Equipment", oracle: "Equipped creature has base power and toughness X/X, where X is your life total.\nEquip {5}" })).toEqual([]);
+  it("GRADUATED (CAP8, 2026-08-30) — the DYNAMIC base-P/T ('X/X, where X is your life total') emits the 7b countSpec op", () => {
+    // This pin read "the trailing ', where X is …' is unmodeled, so the all-or-nothing rejects it" — true
+    // until the dynamic 7b set landed (capAettirAndPriwen.test.js owns the runtime witnesses: the base
+    // tracks live life both directions through BOTH countForSpec twins). Any OTHER metric still drops the
+    // bonus, pinned there.
+    expect(parseEquipmentBonus({ type: "Artifact — Equipment", oracle: "Equipped creature has base power and toughness X/X, where X is your life total.\nEquip {5}" })).toEqual([
+      { layer: 7, sublayer: "7b", op: { countSpec: { kind: "lifeTotal" }, setPower: true, setToughness: true }, duration: { kind: "permanent" } },
+    ]);
   });
 });
 
@@ -255,15 +260,19 @@ describe("coverage — clean flips and pinned false-negatives (CREED)", () => {
     expect(classifyCard({ name: "Shield of Duty and Reason", type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature has protection from green and from blue." })).toBe("native-aura");
     expect(classifyCard({ name: "Blanchwood Armor", type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature gets +1/+1 for each Forest you control." })).toBe("native-aura");
   });
-  it("PINNED FNs: the Swords (combat-damage trigger rider), Conqueror's Flail (rider), Aettir and Priwen (dynamic base-P/T) — all body-only", () => {
+  it("PINNED FNs: Buster Sword (free-cast rider) + a non-commander typed equip — body-only; Flail + Aettir GRADUATED (CAP6/CAP8)", () => {
     // (Sword of Feast and Famine graduated OUT of this FN list — its discard+untap payload models whole
     // since the untap anchor learned the second-conjunct "you " subject; swordFeastFamine.test.js pins the
     // flip; War and Peace then graduated too (swordWarPeace.test.js). Buster Sword holds the Sword seat:
-    // its free-cast-with-MV-cap payload half is genuinely unmodeled.)
+    // its free-cast-with-MV-cap payload half is genuinely unmodeled.
+    // GRADUATIONS 2026-08-30: Conqueror's Flail flipped native-equipment (CAP6 — the equipment residue
+    // walk credits clauseProducesStatic clauses; opponentsCantAct.test.js pins it) and Aettir and Priwen
+    // flipped native-equipment (CAP8 — the dynamic 7b set; capAettirAndPriwen.test.js pins the live
+    // tracking). Both asserted here AS native so this pin can never silently re-park them.)
     expect(classifyCard({ name: "Buster Sword", type: "Legendary Artifact — Equipment", oracle: "Equipped creature gets +3/+2.\nWhenever equipped creature deals combat damage to a player, draw a card, then you may cast a spell from your hand with mana value less than or equal to that damage without paying its mana cost.\nEquip {2}" })).toBe("body-only");
     expect(classifyCard({ name: "Sword of Wealth and Power", type: "Artifact — Equipment", oracle: "Equipped creature gets +2/+2 and has protection from instants and from sorceries.\nWhenever equipped creature deals combat damage to a player, create a Treasure token.\nEquip {2}" })).toBe("body-only");
-    expect(classifyCard({ name: "Conqueror's Flail", type: "Artifact — Equipment", oracle: "Equipped creature gets +1/+1 for each color among permanents you control.\nAs long as this Equipment is attached to a creature, your opponents can't cast spells during your turn.\nEquip {2}" })).toBe("body-only");
-    expect(classifyCard({ name: "Aettir and Priwen", type: "Legendary Artifact — Equipment", oracle: "Equipped creature has base power and toughness X/X, where X is your life total.\nEquip {5}" })).toBe("body-only");
+    expect(classifyCard({ name: "Conqueror's Flail", type: "Artifact — Equipment", oracle: "Equipped creature gets +1/+1 for each color among permanents you control.\nAs long as this Equipment is attached to a creature, your opponents can't cast spells during your turn.\nEquip {2}" })).toBe("native-equipment");
+    expect(classifyCard({ name: "Aettir and Priwen", type: "Legendary Artifact — Equipment", oracle: "Equipped creature has base power and toughness X/X, where X is your life total.\nEquip {5}" })).toBe("native-equipment");
     // A typed equip whose quality is NOT "commander" stays body-only (only the commander quality is modeled).
     expect(classifyCard({ name: "Steelclaw Lance", type: "Artifact — Equipment", oracle: "Equipped creature gets +2/+0.\nEquip Knight {1}\nEquip {3}" })).toBe("body-only");
   });

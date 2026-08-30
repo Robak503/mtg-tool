@@ -63,10 +63,12 @@ describe("COMPOUND KEYWORD GRANT — recognition (coverage)", () => {
     expect(classifyCard(equipment("Synth", 'Equipped creature has trample and "Whenever this creature deals combat damage to a player, put that many +1/+1 counters on it." and gets +1/+1\nEquip {2}'))).toBe("body-only");
   });
 
-  it('CREED: The Reaver Cleaver\'s "player or planeswalker" object stays unmodeled — body-only', () => {
+  it('GRADUATED (CAP5, 2026-08-30): The Reaver Cleaver\'s "player or planeswalker" object is MODELED now', () => {
+    // The union rides combatDamageToPlayer + alsoPlaneswalker (capReaverCleaver.test.js owns the fire
+    // witnesses for both halves). The card classifies through the TRIGGER lane; asserted AS native so
+    // this pin can never silently re-park it.
     const card = equipment("The Reaver Cleaver", 'Equipped creature gets +1/+1 and has trample and "Whenever this creature deals combat damage to a player or planeswalker, create that many Treasure tokens."\nEquip {3}');
-    expect(classifyCard(card)).toBe("body-only");
-    expect(parseEquipmentBonus(card)).toHaveLength(0); // the quote is NOT validator-approved → no strip → bonus drops
+    expect(classifyCard(card)).toBe("native-trigger");
   });
 });
 

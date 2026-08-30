@@ -211,8 +211,11 @@ describe("coverage — clean equipment flips and CREED negatives", () => {
     expect(classifyCard(EQ("Argentum Armor", "Equipped creature gets +6/+6.\nWhenever equipped creature attacks, destroy target permanent.\nEquip {6}"))).toBe("native-equipment");
     expect(classifyCard(EQ("Ultima Weapon", "Whenever equipped creature attacks, destroy target creature an opponent controls.\nEquipped creature gets +7/+7.\nEquip {7}", "Legendary Artifact — Equipment"))).toBe("native-equipment");
   });
-  it("CREED: The Reaver Cleaver (granted quoted ability) stays body-only", () => {
-    expect(classifyCard(EQ("The Reaver Cleaver", "Equipped creature gets +1/+1 and has trample and \"Whenever this creature deals combat damage to a player or planeswalker, create that many Treasure tokens.\"\nEquip {3}", "Legendary Artifact — Equipment"))).toBe("body-only");
+  it("GRADUATED (CAP5, 2026-08-30): The Reaver Cleaver's granted quoted ability is native now", () => {
+    // The player-or-planeswalker union rides combatDamageToPlayer with the alsoPlaneswalker marker and a
+    // pw fire-pass; capReaverCleaver.test.js owns both halves' fire witnesses. Asserted AS native so this
+    // pin can never silently re-park it.
+    expect(classifyCard(EQ("The Reaver Cleaver", "Equipped creature gets +1/+1 and has trample and \"Whenever this creature deals combat damage to a player or planeswalker, create that many Treasure tokens.\"\nEquip {3}", "Legendary Artifact — Equipment"))).toBe("native-trigger");
   });
   it("CREED: a Sword rider with an UNMODELED payload clause stays body-only", () => {
     // Buster Sword: the +3/+2 static IS modeled, but the combat-damage payload's free-cast half ("you
