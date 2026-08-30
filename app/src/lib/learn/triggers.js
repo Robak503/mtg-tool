@@ -2346,6 +2346,20 @@ function classifyCondition(condRaw, cardName, cardType) {
   // combatDamageToYou arm a few lines above: scopeMatches FAILS CLOSED on a value it does not know, so a
   // made-up scope detects fine and then never fires — a descriptor that reads modelled and does nothing.
   // Reusing the proven value keeps these four on the same runtime path every existing carrier uses.
+  // ⭐ PLAYER-OR-PLANESWALKER UNION (SHELF CAP5 — The Reaver Cleaver's granted "Whenever this creature
+  // deals combat damage to a player or planeswalker, create that many Treasure tokens"). The SAME
+  // combatDamageToPlayer event with the alsoPlaneswalker marker: the player half rides every existing
+  // fire path unchanged, and checkCombatDamageTriggers' planeswalker pass fires ONLY marked descriptors
+  // off combatResolution's combat-damage-planeswalker events (same combatDamageAmount threading, CR
+  // 120.3c loyalty damage carries an amount like any other). SELF subject only, END-anchored — a
+  // watcher form, "or battle" (Beamtown Beatstick), or any rider stays UNDETECTED → Arbiter (safe FN).
+  if (/\bdeals combat damage to a player or planeswalker$/.test(c)) {
+    const subj = c.replace(/\s+deals combat damage to a player or planeswalker$/, "").trim();
+    const isSelfSubj = subj === "this creature" || subj === "this permanent"
+      || (nameL && subj === nameL) || (shortName && subj === shortName) || (firstWord && subj === firstWord);
+    if (selfRef && isSelfSubj) return { event: "combatDamageToPlayer", scope: "self", whose: "any", alsoPlaneswalker: true };
+    return null; // a non-self subject with the union → Arbiter (never a mis-scoped fire)
+  }
   if (/\bdeals combat damage to (?:a player|an opponent)$/.test(c)) {
     if (selfRef) return { event: "combatDamageToPlayer", scope: "self", whose: "any" };
     // TOKEN-FILTERED (Curiosity Crafter #1734) — checked BEFORE the bare creature form, whose /a creature
@@ -4870,6 +4884,7 @@ export function detectTriggers(card) {
         whose: cls.whose,
         spellFilter: cls.spellFilter,         // cast triggers only (undefined otherwise)
         firesOnCopy: cls.firesOnCopy,         // MAGECRAFT COPY HALF (BLITZ MC-1): magecraft's "cast OR copy" descriptor alone carries this; checkCopyTriggers fires ONLY firesOnCopy watchers at a copy site (a plain "whenever you cast" never fires on a copy — CR 707.10)
+        alsoPlaneswalker: cls.alsoPlaneswalker, // PLAYER-OR-PLANESWALKER union (CAP5 — The Reaver Cleaver): the pw pass fires ONLY marked descriptors. Unlisted here = dropped = the union under-fires to player-only (a safe FN, but the modeled semantics is the full union).
         castNotFromHand: cls.castNotFromHand, // CAST-FROM-NONHAND (Vega, K1): checkCastTriggers gates on the cast's source zone
         castFromZoneOnly: cls.castFromZoneOnly, // CAST-FROM-EXACT-ZONE (Rivaz): fires ONLY when the cast's threaded source zone equals this. ⚠️ Unlisted here = dropped = the descriptor fires on EVERY matching cast from anywhere — an over-fire, the forbidden direction.
         nth: cls.nth,                         // TRIG-CASTNTH: 1|2|3 ("cast your Nth spell each turn"); else undefined
@@ -7234,8 +7249,38 @@ export function checkBecomesTargetTriggers(state, stackObj) {
  */
 export function checkCombatDamageTriggers(state, playerEvents) {
   const hits = (playerEvents || []).filter((e) => e.kind === "combat-damage-player");
-  if (!hits.length) return state;
+  // ⭐ PLANESWALKER HALF of the player-or-planeswalker UNION (CAP5 — The Reaver Cleaver): combat damage
+  // to a defended planeswalker (combatResolution's combat-damage-planeswalker events, CR 120.3c — the
+  // loyalty damage carries an amount exactly like player damage). Fires ONLY descriptors carrying
+  // alsoPlaneswalker (a bare to-a-player watcher must never fire off pw damage — the over-fire this
+  // gate exists to forbid), on the dealer-side paths only (there is no recipient-"you" or global-subtype
+  // union carrier). Same combatDamageAmount threading, so "that many" payoffs read the pw damage too.
+  const pwHits = (playerEvents || []).filter((e) => e.kind === "combat-damage-planeswalker");
+  if (!hits.length && !pwHits.length) return state;
   let fired = [];
+  const unionOnly = (d) => !!d.alsoPlaneswalker;
+  for (const ev of pwHits) {
+    const lk = findPermanent(state, ev.attackerId);
+    if (!lk) continue;
+    const attackerPerm = lk.permanent;
+    const context = { damagedPlaneswalkerId: ev.planeswalkerId, combatDamageAmount: ev.amount };
+    // self (incl. an attached grant's host — triggersForEvent merges granted descriptors)
+    fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: attackerPerm, triggeringPermanent: attackerPerm, triggeringContext: context, descriptorFilter: unionOnly }));
+    // the attacking player's other watchers + cross-controller attached watchers (the player-pass mirror)
+    for (const watcher of triggerSourcesOf(state, ev.attackingPlayer)) {
+      if (watcher.id === attackerPerm.id) continue;
+      fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context, descriptorFilter: unionOnly }));
+    }
+    for (const attachId of attackerPerm.attachments || []) {
+      const alk = findPermanent(state, attachId);
+      if (!alk || alk.controller === ev.attackingPlayer) continue; // already scanned above
+      fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: alk.permanent, triggeringPermanent: attackerPerm, triggeringContext: context, descriptorFilter: unionOnly }));
+    }
+  }
+  if (!hits.length) {
+    if (!fired.length) return state;
+    return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+  }
   // subtypeGlobal is fired ONLY by the dedicated all-players scan below (with the dealer-controller
   // beneficiary), so the per-attacker self + attacking-player paths EXCLUDE it — preventing a double-fire
   // for a global watcher the attacking player happens to control.

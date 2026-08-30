@@ -34,9 +34,12 @@ describe("combat-damage-to-a-player — detection", () => {
     expect(cdEvents(TREASURE_ORACLE)[0]).toMatchObject({ event: "combatDamageToPlayer", scope: "self" });
     expect(cdEvents("Whenever a creature you control deals combat damage to a player, draw a card.")[0]).toMatchObject({ scope: "creatureYouControl" });
   });
-  it("does NOT detect qualified / batch / wrong-object variants (safe false-negative)", () => {
+  it("does NOT detect batch / wrong-object variants (safe false-negative); the SELF union is modeled since CAP5", () => {
     expect(cdEvents("Whenever this creature deals combat damage to a creature, draw a card.")).toHaveLength(0);
-    expect(cdEvents("Whenever this creature deals combat damage to a player or planeswalker, draw a card.")).toHaveLength(0);
+    // ⭐ CAP5 (The Reaver Cleaver): the self "player or planeswalker" UNION detects now, carrying the
+    // alsoPlaneswalker marker (the pw fire-pass gates on it). A WATCHER-form union still parks.
+    expect(cdEvents("Whenever this creature deals combat damage to a player or planeswalker, draw a card.")[0]).toMatchObject({ scope: "self", alsoPlaneswalker: true });
+    expect(cdEvents("Whenever a creature you control deals combat damage to a player or planeswalker, draw a card.")).toHaveLength(0);
     expect(cdEvents("Whenever one or more creatures you control deal combat damage to a player, create a Treasure token.")).toHaveLength(0);
   });
   it("detects the SUBTYPE shape ('a Dinosaur you control deals combat damage to a player') → subtypeYouControl", () => {
