@@ -2557,6 +2557,26 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ activatedCostReduction: { amount: parseInt(eqcrM[1], 10), equipOnly: true } });
     return;
   }
+  // ── EQUIP-COST OVERRIDE (SHELF CAP12 — Puresteel Paladin, Astor, Bearer of Blades) ────────────────
+  // "Equipment you control have equip {N}." — a cost SET, not the reduction the arm directly above models.
+  // CR-wise it GRANTS each Equipment an ADDITIONAL equip ability at cost {N}; the printed one stays. The
+  // apply site therefore takes the CHEAPER of the two rather than replacing outright, which is the same
+  // thing in effect (a player offered Equip {8} and Equip {0} takes the {0}) while staying honest about
+  // what the card does.
+  //
+  // ⛔ THE CONDITION IS ANCHORED, NOT CAPTURED FREELY, and that is a CREED gate rather than laziness.
+  // Coverage credits any clause parseClause emits a descriptor for (clauseProducesStatic), so accepting an
+  // arbitrary "as long as <anything>" tail here would credit cards whose gate the runtime cannot evaluate —
+  // the offer site would then fail closed and the card would be native-on-paper, dead in play: a hollow
+  // credit, the exact thing this project keeps re-learning. Only the two printed forms in the corpus are
+  // admitted, and the metalcraft gate below was MEASURED against the runtime evaluator
+  // (interveningIf.evaluateInterveningIf "you control three or more artifacts" → true at 3+, false at 2)
+  // before this arm was written. A different gate parks the card.
+  const eqOvM = c.match(/^equipment you control have equip \{(\d+)\}(?: as long as (you control three or more artifacts))?$/);
+  if (eqOvM) {
+    out.push({ equipCostOverride: { amount: parseInt(eqOvM[1], 10), condition: eqOvM[2] || null } });
+    return;
+  }
   // NINJUTSU-ONLY variant (Silver-Fur Master + its Alchemy rebalance A-Silver-Fur Master — the ONLY two cards
   // in the index with this clause). ⭐ It gets a BENIGN MARKER, not an activatedCostReduction descriptor, and
   // the distinction is the whole point: this discount can only ever apply to a ninjutsu ACTIVATION, and the
@@ -4857,6 +4877,25 @@ export function collectActivatedCostReducers(permanents) {
     }
   }
   return reducers;
+}
+
+/**
+ * EQUIP-COST OVERRIDE (SHELF CAP12): collect the { amount, condition } equip-cost SETS a controller's
+ * battlefield grants to their Equipment (Puresteel Paladin's metalcraft equip {0}, Astor's equip {1}).
+ * The sibling of collectActivatedCostReducers for the cost-SET family — kept separate because the two
+ * compose differently: a reduction shaves generic mana with a one-mana floor, a set replaces the cost
+ * outright. Returns the raw list; the offer site evaluates each `condition` LIVE and takes the cheapest
+ * applicable. Pure — no state read here (the condition stays text for the site that owns the evaluator).
+ */
+export function collectEquipCostOverrides(permanents) {
+  const out = [];
+  for (const entry of permanents || []) {
+    const card = entry?.card || entry;
+    for (const d of parseStaticAbilities(card)) {
+      if (d.equipCostOverride) out.push({ ...d.equipCostOverride, _sourceId: entry?.id ?? null });
+    }
+  }
+  return out;
 }
 
 /**

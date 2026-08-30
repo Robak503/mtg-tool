@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Puresteel Paladin works.** While you control three or more artifacts, your Equipment can be equipped for
+  free — the discount now actually shows up on the equip you're offered, and switches off when you drop
+  below three.
 - **Buster Sword works.** When the equipped creature connects you draw a card and may then cast a spell from
   your hand free, capped at the damage that was actually dealt — as printed.
 - **Trigger-doubling by source works.** Katara, the Fearless, Harmonic Prodigy, Cloud, Midgar Mercenary, and

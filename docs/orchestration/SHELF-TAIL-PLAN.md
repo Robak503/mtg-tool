@@ -226,7 +226,7 @@ Return this card from your graveyard to the battlefield tapped" (a graveyard-act
 its own subsystem). Otharri flips when THAT lands. Ocelot Pride / Windcrag Siege (upkeep), Zack
 Fair / Patrolling Peacemaker (enters-as), Glimmer Lens, Crumb and Get It.
 
-### 5.4 Captain America Shoot your Shot — ⚔️ FOCUS-FIRE ACTIVE (Colton 08-30: Joe's live deck) — 84 native cards, CAP1-11 SHIPPED
+### 5.4 Captain America Shoot your Shot — ⚔️ FOCUS-FIRE ACTIVE (Colton 08-30: Joe's live deck) — 85 native cards, CAP1-12 SHIPPED
 **The 08-16 "no cheap slices" scout was WRONG in method** — it bucketed by trigger kind; ablation-probing
 per CARD (strip one sentence, re-classify) found 12 single-blocker cards. ELEVEN shipped 2026-08-30
 (CAP1-9, RUN-LEDGER has the receipts): Living Legend · Liberator · Super-Soldier · Kaldra Compleat ·
@@ -280,6 +280,10 @@ Annie Joins Up). **Remaining singles, scoped:**
   the original note described. The attach half is still a TWO-heterogeneous-target activated ability
   (check the targeting layer first — twoTargetPump is same-type; this is aura-or-equipment + creature),
   but all three must land for the card to flip. Re-price before starting.
+**✅ CAP12 (2026-08-30) — Puresteel Paladin, +1.** Its blocker was the metalcraft "Equipment you control
+have equip {0}" — a cost SET, distinct from the already-modeled equip-cost REDUCTION. Cheap because
+`evaluateInterveningIf` already spoke the metalcraft gate and was already imported at the equip offer site.
+Astor, Bearer of Blades parses its equip {1} now but stays parked on its ETB + crew grant.
 **Multi-blockers after:** Sword of Hearth and Home (blink+tutor riders) · Mjölnir (4 pieces, several
 modeled) · Super-Soldier Serum (attack mass-attach + type-add) · Iron Man · Sword of Wealth and Power
 (delayed spell-copy) · Zirda (activation cost-reduce) · Illusionist's Bracers (ability copy) · Forge

@@ -34,7 +34,7 @@ import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapMan
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
-import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
+import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksOf, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
@@ -1966,6 +1966,10 @@ function actionsActivateAbility(state, playerId) {
   // per player (invariant across the perm/ability loops); applied ONLY to abilities of a CREATURE the player
   // controls (the modeled subject), floored at one mana by activatedCostReductionForCost.
   const activatedReducers = collectActivatedCostReducers(player.battlefield || []);
+  // EQUIP-COST OVERRIDE (SHELF CAP12 — Puresteel Paladin / Astor): the cost-SET sibling of the reducers
+  // above. Collected once per enumeration like they are; each entry's condition is evaluated LIVE at the
+  // equip branch below (an unconditional entry has condition === null).
+  const equipOverrides = collectEquipCostOverrides(player.battlefield || []);
   const artLocked = artifactActivationsLocked(state); // NR-1: covers printed + granted + equip abilities of artifacts (CR 602.1/702.6a)
   for (const perm of player.battlefield) {
     // NR-1 — the WHOLE activated surface of an artifact permanent is off under the lock: printed abilities,
@@ -2070,6 +2074,26 @@ function actionsActivateAbility(state, playerId) {
               : r.subject === "artifact" ? isArtifact(perm.card)
                 : isCreaturePerm));
         if (applicable.length) cost = activatedCostReductionForCost(applicable, cost);
+      }
+      // EQUIP-COST OVERRIDE (SHELF CAP12 — Puresteel Paladin "Equipment you control have equip {0} as long
+      // as you control three or more artifacts"; Astor "…have equip {1}"). CR-wise the static GRANTS each
+      // Equipment an ADDITIONAL equip ability at the stated cost, leaving the printed one intact — so this
+      // takes the CHEAPER of the two rather than replacing outright. Compared by total mana value, the
+      // deterministic stand-in for "the player picks the one they'd rather pay"; a strict `<` means a tie
+      // keeps the printed cost, so the override can only ever make an equip cheaper, never differently-colored.
+      //
+      // ⛔ FAIL CLOSED ON AN UNCONFIRMABLE GATE. evaluateInterveningIf returns null for a condition outside
+      // its vocabulary, and `!== true` withholds the override on null exactly as the ability-condition gate
+      // above does — the parse arm only admits a gate measured against this evaluator, so a null here means
+      // the board drifted, not a shape gap. Applied AFTER the reducers and BEFORE the affordability gate, so
+      // canAfford and the dispatcher both see the price the player will actually pay.
+      if (ab.isEquipAbility && equipOverrides.length) {
+        let best = null;
+        for (const ov of equipOverrides) {
+          if (ov.condition && evaluateInterveningIf(state, ov.condition, playerId, { sourcePermanentId: ov._sourceId }) !== true) continue;
+          if (best == null || ov.amount < best) best = ov.amount;
+        }
+        if (best != null && best < totalCmc(cost)) cost = parseManaCost(best > 0 ? `{${best}}` : "");
       }
       // NO-CHOICE cost affordability gates — X-INDEPENDENT, so they sit ABOVE the γ1f costX expansion and
       // gate EVERY enumeration path below (previously the costX branch `continue`d past them — an {X}

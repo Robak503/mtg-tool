@@ -7,12 +7,29 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9 + CAP10 + CAP11 shipped, Cap 81→84 native** — suite **1313 / 15,023** green
+## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9–CAP12 shipped, Cap 81→85 native (72%)** — suite **1314 / 15,034** green
 
+> ### 🔴 COLTON'S CALL (08-30): **grind Cap as far as she goes (≈87%), THEN move to the LAND TIER.**
+> Measured, not estimated: Cap carries 13 land-partial slots, so flipping every remaining CARD still tops
+> her out at **87%** — 90 is unreachable without the land tier. That tier is the shelf-wide ceiling (it is
+> what took Teval 90→64, Wolverine 90→82, Dragons 90→79, Jurassic 90→73), so it is the next big build once
+> Cap's cards are done.
+>
 > ### ⏭ RUNNABLE NOW — the shelf tail runs off [SHELF-TAIL-PLAN.md](SHELF-TAIL-PLAN.md) §5.4
-> Cap America is the focus-fire deck (Colton 08-30, Joe's live deck). CAP1-11 shipped, and **Cap's scoped
-> SINGLES are now exhausted** — what's left is the multi-blocker tail, so the next seat picks between
-> continuing Cap into genuinely multi-clause cards or moving down the shelf queue.
+> Cap America is the focus-fire deck (Colton 08-30, Joe's live deck). CAP1-12 shipped. **Cap's CHEAP
+> singles are gone** — five single-blocker cards remain, each a real slice now. All were ablation-probed
+> 2026-08-30, so the next seat does not need to re-probe:
+> · **Captain America, First Avenger** — the "Throw" ability: an unattach-an-Equipment COST plus damage
+>   equal to that Equipment's mana value, divided among one, two, or three targets.
+> · **Codsworth, Handy Helper** — "{T}: Attach target Aura or Equipment you control to target creature you
+>   control" — TWO heterogeneous targets; check the targeting layer's multi-target support first.
+> · **Illusionist's Bracers** — copy an activated ability of the equipped creature.
+> · **Iron Man, Titan of Innovation** — attack trigger: Treasure, then an optional sacrifice, then a tutor
+>   whose MV filter is *1 plus the sacrificed artifact's mana value*. ⭐ A dynamic-MV referent — the same
+>   family as CAP11's combat-damage cap, so that slice is the shape to copy.
+> · **Sword of Hearth and Home** — combat-damage blink + basic-land tutor ("put BOTH cards onto the
+>   battlefield"), one clause referring to the exiled creature and the found land together.
+> Everything else left in the deck is a genuine multi-blocker.
 > **Cap's remaining tail:** Sword of Hearth and Home (blink+tutor riders) · Mjölnir (4 pieces, several
 > modeled) · Super-Soldier Serum (attack mass-attach + type-add) · Iron Man · Sword of Wealth and Power
 > (delayed spell-copy — now also the live guard specimen in equipRider.test.js, so a slice that models it
@@ -25,6 +42,12 @@
 > beside it at both damage funnels rather than through the CR 614 doubler seam the plan had blueprinted.
 > ⭐ That blueprint was wrong about which seam it needed; probing it first is what caught that. +2 corpus
 > (Ironscale Hydra rode along), flip-diff clean with zero LOST, seven mutations seen to fail.
+>
+> **CAP12 in one line:** the equip-cost SET (Puresteel Paladin's metalcraft equip {0}) — distinct from the
+> equip-cost REDUCTION already modeled, and cheap because `evaluateInterveningIf` already spoke the
+> metalcraft gate and was already imported at the equip offer site. ⛔ The gate vocabulary is anchored to
+> the one printed form on purpose: coverage credits any clause the static parser emits a descriptor for, so
+> a free-form `as long as` tail would mint cards that are native on paper and dead in play.
 >
 > **CAP11 in one line:** the combat-damage-capped free cast. The free-cast machinery and the RELATIONAL
 > cap shape both already existed (Kellan's `capFromCastMv`), so this was ONE property, not a subsystem —

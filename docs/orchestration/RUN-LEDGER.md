@@ -3,6 +3,38 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚔️ 2026-08-30 (cont.) — CAP12 Puresteel Paladin: the equip-cost SET, Cap 84→85 · +1
+> Suite **1314 / 15,034** green; lint 0; both exit codes UNPIPED. Flip-diff **+1, zero LOST**.
+> · **The SET, not the reduction.** "Equipment you control have equip {N}" is a different mechanism from
+>   the already-modeled "Equip abilities you activate cost {N} less" (Bureau Headmaster's
+>   `activatedCostReduction` + `equipOnly`): a reduction shaves generic mana with a one-mana floor, a SET
+>   replaces the cost. Kept as a separate marker (`equipCostOverride`) for that reason. CR-wise the static
+>   GRANTS each Equipment an ADDITIONAL equip ability at the stated cost and leaves the printed one intact,
+>   so the offer site takes the CHEAPER of the two — strictly cheaper, so a tie or a worse override can
+>   never RAISE a printed equip cost (mutation M3).
+> · **⛔ THE HOLLOW-CREDIT GATE IS THE WHOLE DESIGN.** `clauseProducesStatic` credits any clause the static
+>   parser emits a descriptor for, so a freely-captured "as long as <anything>" tail would mark cards native
+>   whose gate the runtime cannot evaluate — the offer site fails closed and the card is native-on-paper,
+>   dead in play. The arm admits ONLY the one printed gate, and that gate was **measured against the runtime
+>   evaluator before the arm was written** (`evaluateInterveningIf(state, "you control three or more
+>   artifacts")` → false at 2, true at 3). Two unrecognized gates are pinned as producing no descriptor.
+> · **What it cost:** almost nothing new. `evaluateInterveningIf` already spoke the metalcraft gate AND was
+>   already imported at the equip offer site; `parseAsLongAsGate` and the reducer-collector pattern gave the
+>   shape. The slice is a parser arm + a collector + ~8 lines at the offer site.
+> · **⚠️ A FALSE MUTATION RESULT, CAUGHT.** M1's `sed` failed on a regex escape (`Invalid content of \{\}`)
+>   and the test run PASSED — which reads exactly like "the gate doesn't bite" unless you check that the
+>   mutation actually applied. It hadn't. Re-run through python with an assert-the-match-exists step, M1
+>   then killed 7 tests. **A mutation that doesn't apply is not a passing gate, it is no gate at all** — the
+>   hollow-gate law aimed at my own tooling, the same shape Omnath found in his COMMS write scripts today.
+> · **Mutations (3, each seen to fail, restored):** M1 parser arm disabled → 7 die · M2 live gate read
+>   removed → 2 · M3 "cheaper only" guard removed → 1.
+> · **Astor, Bearer of Blades** parses its unconditional equip {1} now but stays **body-only** — its ETB
+>   look-at-seven and "Vehicles you control have crew 1" are unmodeled (pinned as the FP guard). It flips
+>   the day those land. Auriok Steelshaper / Ano'thr carry "Equip costs you pay cost {1} less", a wording
+>   the existing reducer arm does not match — deliberately NOT widened, because both cards are blocked
+>   elsewhere so the widen would add untested surface that flips nothing today.
+> Witness: `equipCostOverride.test.js` (11). Cap America **72%** (85 native cards + 13 land-partial).
+>
 > ## ⚔️ 2026-08-30 (cont.) — CAP11 Buster Sword: the COMBAT-DAMAGE-capped free cast, Cap 83→84 · +1
 > Suite **1313 / 15,023** green; lint 0; both exit codes UNPIPED. Flip-diff **+1, zero LOST**.
 > · **THE GAP WAS ONE PROPERTY, NOT A SUBSYSTEM.** The free-cast machinery already existed end to end
