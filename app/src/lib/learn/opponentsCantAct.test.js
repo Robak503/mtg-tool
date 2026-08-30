@@ -78,8 +78,14 @@ describe("OPPONENTS-CANT-ACT — coverage (CREED: no partial flips)", () => {
     expect(classifyCard(VOICE_OF_VICTORY)).toBe("native-static");
   });
 
-  it("Conqueror's Flail stays body-only (dynamic-PT bonus unmodeled here)", () => {
-    expect(classifyCard(CONQUERORS_FLAIL)).toBe("body-only");
+  it("GRADUATED — Conqueror's Flail flips native-equipment (CAP6, 2026-08-30)", () => {
+    // This pin read "stays body-only (dynamic-PT bonus unmodeled here)" — and BOTH halves have since
+    // graduated: the color-count bonus parses through parseEquipmentBonus (the artifact-creature-pump
+    // era), and permanentEquipmentCovered now credits a residue clause the shared static grammar emits a
+    // real descriptor for (clauseProducesStatic — the cant-cast static is attachment-gated at parse and
+    // enforced at legalChoices' cast gate, both pinned in this file). The CREED negative this pin stood
+    // for lives on in the windowless-clause refusal above.
+    expect(classifyCard(CONQUERORS_FLAIL)).toBe("native-equipment");
   });
 });
 

@@ -2146,6 +2146,16 @@ export function permanentEquipmentCovered(card) {
     // a creature functions identically on an artifact), so an equipment can carry its own keywords and still be
     // fully covered. Only-loosens (never over-claims: an UNmodeled keyword isn't in COVERED_KEYWORDS → residue).
     if (COVERED_KEYWORDS.some((k) => c === k || c === `${k}.` || c.startsWith(`${k} `))) continue;
+    // ⭐ MODELED STATIC on the Equipment (SHELF CAP6 — Conqueror's Flail: "As long as this Equipment is
+    // attached to a creature, your opponents can't cast spells during your turn."): a clause the shared
+    // static grammar emits a REAL descriptor for (clauseProducesStatic — the exact per-clause gate the
+    // composite tier trusts) is a MODELED clause, not residue. The Flail's cant-cast is parsed
+    // attachment-gated (cantCastDescriptorOf) and enforced at legalChoices' cast gate — pinned in
+    // opponentsCantAct.test.js — so crediting it here composes two already-proven halves. The
+    // trigger-shaped guard ABOVE runs first, so an uncounted When/Whenever clause can never reach this
+    // (clauseProducesStatic would refuse it anyway — parseClause has no trigger grammar). Only-loosens:
+    // a clause the grammar doesn't emit for stays residue → body-only.
+    if (clauseProducesStatic(c)) continue;
     return false; // residue the engine doesn't model → body-only
   }
   return true;
