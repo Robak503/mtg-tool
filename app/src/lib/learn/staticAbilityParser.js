@@ -1499,6 +1499,19 @@ function parseAsLongAsGate(condText) {
       ? { countSpec: { kind: "countersOnSelf", counterType: m[2] }, atLeast: n, atMost: n, gateOn: "source" }
       : null;
   }
+  // ⭐ NAMED-COUNTER PRESENCE (SHELF CAP3 — Captain America, Super-Soldier: "as long as [this creature]
+  // has a shield counter on him, …"): threshold-1 presence of a NAMED counter on the SOURCE — the
+  // parseSelfNamedCounterPresenceGate condition, admitted into the shared as-long-as vocabulary with the
+  // gendered object pronoun (Marvel legends print him/her — the Red Hulk rule). The ±1/+1 P/T kinds and
+  // loyalty are NOT this gate (the threshold arms above own those); gateMet's countersOnSelf read
+  // re-evaluates live (CR 613.7), so the grant drops the instant the last counter is removed.
+  m = t.match(/^(?:this creature|it) has (?:a|an|one) ([a-z]+) counter on (?:it|him|her)$/);
+  if (m) {
+    const kind = m[1].toLowerCase();
+    if (!/^[+-]?1$/.test(kind) && kind !== "loyalty") {
+      return { countSpec: { kind: "countersOnSelf", counterType: kind }, atLeast: 1, gateOn: "source" };
+    }
+  }
   // Hand-size ceiling (Neheb, the Worthy — "you have one or fewer cards in hand").
   m = t.match(/^you have (\w+) or fewer cards? in hand$/);
   if (m) {
@@ -3608,6 +3621,22 @@ function parseClause(clause, out, selfName, selfType) {
       // (Divine Sacrament) — each line is its own additive layer-7c effect, so the markers carry no extra
       // rules meaning here; normalize them away so the selector/effect anchors see the plain anthem shape.
       rest = rest.replace(/\balso (gets?|has|have)\b/, "$1").replace(/\b(gets?) an additional (?=[+-]\d)/, "$1 ");
+      // ⭐ PLAYER+GROUP HEXPROOF UNION (SHELF CAP3 — Captain America, Super-Soldier: "…, you and other
+      // Heroes you control have hexproof"): the union { you } ∪ { other <Subtype>s you control }, each half
+      // riding an ALREADY-modeled lane under the SAME gate — the player half is the inert layer-6
+      // playerHexproof op (its one consumer, layers.playerHasHexproof, evaluates op.gate against the
+      // source), the group half a gated addKeyword over the subtypes selector with excludeSelf ("other" —
+      // the source never grants itself the keyword; Cap's own protection is the players', not his).
+      // ⛔ HEXPROOF ONLY: no other keyword has a player-scoped static op to ride, so any other effect text
+      // falls through to the general branch below and parks on its selector (a safe FN).
+      const uH = rest.match(/^you and other ([a-z]+s) you control have hexproof$/);
+      if (uH) {
+        out.push({ layer: 6, op: { layerOp: "playerHexproof", gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+        // normalizeSubtype owns the plural (heroes → Hero — the irregular map, not a naive s-strip);
+        // matchesSelector compares subtypes case-insensitively.
+        emitGatedGroupEffect(out, "have hexproof", gate, { mode: "dynamic", selector: { controllerScope: "you", subtypes: [normalizeSubtype(uH[1])], excludeSelf: true } });
+        return;
+      }
       // SELF/BOUND subjects park: the self gated lanes above own "this creature/it"; an aura's
       // "enchanted creature" and an Equipment's "equipped creature" belong to the attachment lanes.
       const em = rest.match(/^(.+?)\s+(gets? [+-]\d+\/[+-]\d+.*|(?:has|have)\s+.+)$/);

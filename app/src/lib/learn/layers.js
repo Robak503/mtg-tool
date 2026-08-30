@@ -2116,6 +2116,10 @@ export function playerHasHexproof(state, playerId) {
   for (const e of board) {
     if (e.op?.layerOp !== "playerHexproof") continue;
     const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
+    // GATED FORM (SHELF CAP3 — Captain America, Super-Soldier's shield-counter gate): a conditional
+    // player-hexproof carries op.gate; evaluate it against the SOURCE permanent live (CR 613.7), the same
+    // gateMet every gated keyword rides. An ungated op has no gate → gateMet returns true unchanged.
+    if (e.op.gate && (!src || !gateMet(state, src, e.op.gate))) continue;
     if (src?.controller === playerId) return true;
   }
   return false;
