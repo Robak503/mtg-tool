@@ -1829,6 +1829,73 @@ export function coloredPipReductionForSpell(reducers, spellCard) {
   return out;
 }
 
+// The card TYPES a source-scoped trigger multiplier's subject may name. Anything not in here (and not
+// "permanent") is read as a SUBTYPE — a word-bounded type-line token, which is exactly how the corpus
+// carriers name their tribes (Ally, Wizard, Shaman, Ninja, Doctor).
+const SRC_MULT_CARDTYPES = new Set(["creature", "artifact", "enchantment", "land", "planeswalker", "battle"]);
+
+/**
+ * Parse the SUBJECT of "If a triggered ability of <SUBJECT> triggers, that ability triggers an additional
+ * time" into a serializable filter, or null when it names anything this engine cannot faithfully decide
+ * against a permanent's live characteristics (→ the card stays body-only, a safe FN).
+ *
+ * The closed vocabulary, each shape verified against a real printed carrier:
+ *   "an Ally you control"                          → Katara, the Fearless
+ *   "a Shaman or another Wizard you control"       → Harmonic Prodigy  ("another" excludes the source itself)
+ *   "a legendary creature you control"             → Annie Joins Up
+ *   "a Ninja creature you control"                 → Splinter, Radical Rat (subtype + card type)
+ *
+ * ⛔ DELIBERATELY UNCLAIMED, both measured against the bundled oracle rather than assumed:
+ *   Delney's "a creature you control with power 2 or less" — a layer-aware power predicate this filter
+ *   set does not carry, and the wrong threshold silently doubles the wrong triggers.
+ *   Echoes of Eternity's "a colorless spell you control or another colorless permanent you control" —
+ *   its subject includes SPELLS on the stack, which are not permanents and have no entry in the
+ *   battlefield walk this filter is evaluated against.
+ * Both stay body-only. (Both are multi-blocker cards anyway — neither would flip on this arm alone.)
+ */
+function parseSourceTriggerMultiplierSubject(subject, _selfName) {
+  const s = String(subject || "").trim();
+  // Every supported shape is controller-qualified ("… you control"). A subject WITHOUT it would scope to
+  // every player's permanents — no printed carrier does that, and inventing the scope would over-fire.
+  const m = s.match(/^(.+?) you control$/);
+  if (!m) return null;
+  const body = m[1].trim();
+
+  // "a Shaman or another Wizard" — two terms, the "another" one excluding the static's own permanent.
+  const unionM = body.match(/^an? ([a-z]+) or another ([a-z]+)$/);
+  if (unionM) {
+    const a = termFor(unionM[1], false);
+    const b = termFor(unionM[2], true);
+    return (a && b) ? { kind: "typedUnion", terms: [a, b] } : null;
+  }
+  // "a legendary creature" — the only supertype form in the corpus for this shape.
+  const legendM = body.match(/^a legendary (creature|artifact|enchantment|permanent)$/);
+  if (legendM) {
+    return { kind: "typedUnion", terms: [{ supertype: "legendary", cardType: legendM[1] === "permanent" ? null : legendM[1] }] };
+  }
+  // "a Ninja creature" — a subtype narrowed by a card type.
+  const subAndTypeM = body.match(/^an? ([a-z]+) (creature|artifact|enchantment|land|planeswalker)$/);
+  if (subAndTypeM && !SRC_MULT_CARDTYPES.has(subAndTypeM[1])) {
+    return { kind: "typedUnion", terms: [{ subtype: subAndTypeM[1], cardType: subAndTypeM[2] }] };
+  }
+  // "an Ally" / "a creature" / "a permanent" — a single bare term.
+  const oneM = body.match(/^an? ([a-z]+)$/);
+  if (oneM) {
+    const t = termFor(oneM[1], false);
+    return t ? { kind: "typedUnion", terms: [t] } : null;
+  }
+  return null; // anything with more structure (a power predicate, a colorless/spell scope) → body-only
+}
+
+/** One subject term → { subtype? , cardType? , supertype? , excludeSelf? }, or null if unusable. */
+function termFor(word, excludeSelf) {
+  const w = String(word || "").toLowerCase();
+  if (!w) return null;
+  if (w === "permanent") return { cardType: null, ...(excludeSelf ? { excludeSelf: true } : {}) };
+  if (SRC_MULT_CARDTYPES.has(w)) return { cardType: w, ...(excludeSelf ? { excludeSelf: true } : {}) };
+  return { subtype: w, ...(excludeSelf ? { excludeSelf: true } : {}) };
+}
+
 function parseClause(clause, out, selfName, selfType) {
   // Strip flavor ability-word labels (CR 207.2c — they carry no rules meaning).
   // Metalcraft/Threshold/Delirium appear on STATIC clauses; the GY path re-strips
@@ -1960,6 +2027,66 @@ function parseClause(clause, out, selfName, selfType) {
       duration: { kind: "permanent" },
     });
     return; // handled — a modeled rule-modifying static
+  }
+
+  // ── SOURCE-SCOPED TRIGGER MULTIPLIER — the FIFTH axis (Katara · Harmonic Prodigy · Cloud · Annie) ──
+  // ⭐ THIS ONE IS NOT LIKE THE FOUR ABOVE, and the difference decides where it is enforced.
+  // Those four are scoped by WHAT CAUSED the trigger (a creature dying / attacking / entering, a spell
+  // being cast), so each is applied at that cause's own enqueue site and can never touch another event.
+  // This family is scoped by WHOSE ABILITY IT IS — "a triggered ability OF <subject>" — which says
+  // nothing about the cause, so it must apply to EVERY trigger whose source matches, from any event.
+  // There is no shared enqueue site (each check*Triggers appends to pendingTriggers itself, ~30 places),
+  // so it is enforced at the UNIVERSAL FLUSH CHOKEPOINT instead — gameEngine.flushTriggers, where the
+  // once-per-turn trigger latch already lives for exactly this reason. Doing it at the enqueue sites
+  // would mean 30 edits and a permanent drift risk; doing it at the flush is one site that sees them all.
+  //
+  // The SUBJECT vocabulary is deliberately closed (parseSourceTriggerMultiplierSubject). An unparseable
+  // subject pushes nothing and the card stays body-only — Delney's layer-aware power predicate ("a
+  // creature you control with power 2 or less") and Echoes of Eternity's spell-inclusive colorless scope
+  // are both unclaimed on purpose: doubling the wrong permanent's triggers is a forbidden FP, and it is
+  // invisible to any P/T-shaped gate.
+  const srcMultM = c.match(/^if a triggered ability of (.+?) triggers, that ability triggers an additional time$/);
+  if (srcMultM) {
+    const filter = parseSourceTriggerMultiplierSubject(srcMultM[1], selfName);
+    if (filter) {
+      out.push({
+        layer: 6,
+        op: { layerOp: "sourceTriggerMultiplier", sourceFilter: filter },
+        affects: { mode: "self" },
+        duration: { kind: "permanent" },
+      });
+    }
+    return; // handled (or intentionally dropped to body-only on an unmodeled subject)
+  }
+
+  // CLOUD, MIDGAR MERCENARY — the same axis with an ATTACHMENT scope and an as-long-as gate:
+  // "As long as <NAME> is equipped, if a triggered ability of <NAME> or an Equipment attached to it
+  // triggers, that ability triggers an additional time." The gate is real and enforced LIVE at the
+  // counter (an unequipped Cloud doubles nothing, and losing its Equipment turns the static off for free).
+  //
+  // BOTH name slots must be the card's OWN self-reference, so this can never bind to another permanent.
+  // They read as "this creature" here rather than as the printed name because parseStaticAbilities runs
+  // selfNormalizeOracle over the oracle before splitting into clauses — verified against the real card,
+  // not assumed. The printed-name spellings are accepted too, so the arm survives a normalizer change
+  // instead of silently going dead (the vacuous-native trap: a parser arm nothing can reach any more).
+  const cloudMultM = c.match(/^as long as (.+?) is equipped, if a triggered ability of (.+?) or an equipment attached to it triggers, that ability triggers an additional time$/);
+  if (cloudMultM) {
+    const self = String(selfName || "").toLowerCase();
+    const shortSelf = self.split(",")[0].trim();
+    const namesSelf = (s) => {
+      const x = String(s).trim();
+      if (x === "this creature" || x === "this permanent") return true;
+      return !!self && (x === self || (!!shortSelf && x === shortSelf));
+    };
+    if (namesSelf(cloudMultM[1]) && namesSelf(cloudMultM[2])) {
+      out.push({
+        layer: 6,
+        op: { layerOp: "sourceTriggerMultiplier", sourceFilter: { kind: "selfOrAttachedEquipment", requiresEquipped: true } },
+        affects: { mode: "self" },
+        duration: { kind: "permanent" },
+      });
+    }
+    return; // handled (a subject that isn't this card's own self-reference → nothing pushed → body-only)
   }
 
   // ── ASSIGNS-COMBAT-DAMAGE-BY-TOUGHNESS (BLITZ DN-1 — Doran, the Siege Tower; Belligerent Brontodon;

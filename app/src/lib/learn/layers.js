@@ -2067,6 +2067,75 @@ function enteringMatchesFilter(filter, card) {
 }
 
 /**
+ * SOURCE-SCOPED TRIGGER MULTIPLIER — the FIFTH axis (Katara, the Fearless · Harmonic Prodigy ·
+ * Cloud, Midgar Mercenary · Annie Joins Up; CR 603.x). How many EXTRA times a triggered ability whose
+ * SOURCE is `triggerSourcePermId` fires.
+ *
+ * ⭐ WHY THIS ONE TAKES A PERMANENT AND NOT A CONTROLLER, unlike its four siblings. They are scoped by
+ * what CAUSED the trigger, so their site already knows the event and only needs to know whose ability
+ * it is. This family is scoped by WHOSE ABILITY IT IS ("a triggered ability OF an Ally you control"),
+ * so the thing that must be tested is the ability's SOURCE permanent — and the gate is not "does the
+ * trigger's controller control a Katara" but "does a Katara's controller control THIS source". Those
+ * differ the moment a trigger's controller is overridden (the beneficiary case), so the controller is
+ * derived here from the static rather than passed in.
+ *
+ * FN-SAFE ON A DEPARTED SOURCE: a dies / leaves-the-battlefield trigger's source is already gone by
+ * flush time, so it cannot be tested and is NOT doubled. Under CR that would use last-known information;
+ * under-counting is the safe direction (a doubled trigger the card doesn't grant is the forbidden FP),
+ * and it is recorded here so nobody reads the miss as intent.
+ */
+export function sourceTriggerMultiplierCount(state, triggerSourcePermId) {
+  if (!state || triggerSourcePermId == null) return 0;
+  const board = collectContinuousEffects(state);
+  if (board.length === 0) return 0;
+  const subject = findPerm(state, triggerSourcePermId);
+  if (!subject) return 0;                                   // source has left the battlefield → no double
+  let n = 0;
+  for (const e of board) {
+    if (e.op?.layerOp !== "sourceTriggerMultiplier") continue;
+    const staticPerm = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
+    if (!staticPerm) continue;
+    // "…you control": the STATIC's controller must control the ability's source permanent.
+    if (subject.controller !== staticPerm.controller) continue;
+    if (!sourceMultiplierFilterMatches(state, e.op.sourceFilter, subject, staticPerm)) continue;
+    n += 1;
+  }
+  return n;
+}
+
+/** Does the ability's SOURCE permanent satisfy a source-scoped multiplier's printed subject? */
+function sourceMultiplierFilterMatches(state, filter, subject, staticPerm) {
+  if (!filter) return false;
+  // CLOUD: the source is the static's own permanent, or an Equipment attached to it — and the whole
+  // static is gated on that permanent being equipped, which is re-read LIVE here (an unequipped Cloud
+  // doubles nothing, so removing its Equipment turns the multiplier off for free).
+  if (filter.kind === "selfOrAttachedEquipment") {
+    const attachments = staticPerm.attachments || [];
+    const equipmentAttached = attachments.filter((id) => {
+      const a = findPerm(state, id);
+      return !!a && /\bequipment\b/i.test(String(a.card?.type_line ?? a.card?.type ?? ""));
+    });
+    if (filter.requiresEquipped && equipmentAttached.length === 0) return false;
+    if (subject.id === staticPerm.id) return true;
+    return equipmentAttached.includes(subject.id);
+  }
+  if (filter.kind !== "typedUnion" || !Array.isArray(filter.terms)) return false;
+  // Layer-aware read, so an animated or type-granted permanent answers as what it currently IS.
+  const { types, subtypes } = permanentTypes(state, subject.id);
+  const lowerTypes = types.map((t) => String(t).toLowerCase());
+  const lowerSubs = subtypes.map((t) => String(t).toLowerCase());
+  // Supertypes are not part of the derived type/subtype split, so read the printed line for those.
+  const line = String(subject.card?.type_line ?? subject.card?.type ?? "").toLowerCase();
+  return filter.terms.some((term) => {
+    if (term.excludeSelf && subject.id === staticPerm.id) return false;   // "…or ANOTHER Wizard you control"
+    if (term.supertype && !new RegExp(`\\b${term.supertype}\\b`).test(line)) return false;
+    if (term.cardType && !lowerTypes.includes(term.cardType)) return false;
+    if (term.subtype && !lowerSubs.includes(term.subtype)) return false;
+    return true;
+  });
+}
+
+/**
  * Shared counter for the trigger-multiplier statics — ONE walk, so the family can't drift apart.
  * `opMatches` is an optional extra gate on the static's own op (the enters filter uses it).
  */

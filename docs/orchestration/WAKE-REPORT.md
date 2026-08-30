@@ -7,22 +7,31 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9 Panther Habit shipped, Cap 81→82 native** — suite **1311 / 14,993** green
+## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9 + CAP10 shipped, Cap 81→83 native** — suite **1312 / 15,010** green
 
 > ### ⏭ RUNNABLE NOW — the shelf tail runs off [SHELF-TAIL-PLAN.md](SHELF-TAIL-PLAN.md) §5.4
-> Cap America is the focus-fire deck (Colton 08-30, Joe's live deck). CAP1-9 shipped; the next scoped
-> singles are **Cloud, Midgar Mercenary** (a scoped trigger-count doubler — probe the
-> etbTriggerMultiplier/attackTriggerMultiplier registry first) and **Buster Sword** (granted combat-damage
-> draw + a free-cast with a dynamic MV cap off `ctx.combatDamageAmount`). **Codsworth was re-scoped
-> 08-30 and is NO LONGER a single-blocker** — its oracle carries three clauses (commander ward +
-> a restricted-spend mana ability + the two-target attach); re-price it before starting. After the
-> singles: the multi-blockers (Sword of Hearth and Home, Mjölnir, Super-Soldier Serum, Iron Man, Sword of
-> Wealth and Power, Zirda, Illusionist's Bracers, Forge Anew, First Avenger, the 3 MDFCs).
+> Cap America is the focus-fire deck (Colton 08-30, Joe's live deck). CAP1-10 shipped; the next scoped
+> single is **Buster Sword** — "whenever equipped creature deals combat damage to a player, draw a card,
+> then you may cast a spell from your hand with mana value ≤ that damage without paying its mana cost"
+> (ablation-confirmed 08-30: that ONE line is its only blocker). A free-cast with a dynamic MV cap read
+> off `ctx.combatDamageAmount`, wrapped in a "may". **Codsworth was re-scoped 08-30 and is NO LONGER a
+> single-blocker** — its oracle carries three clauses (commanders-have-ward + a restricted-spend mana
+> ability + the two-target attach); re-price it before starting. After the singles: the multi-blockers
+> (Sword of Hearth and Home, Mjölnir, Super-Soldier Serum, Iron Man, Sword of Wealth and Power, Zirda,
+> Illusionist's Bracers, Forge Anew, First Avenger, the 3 MDFCs).
 >
 > **CAP9 in one line:** the CR 615 prevent-and-PUT-counters wall — the counter-shield's inverse, built
 > beside it at both damage funnels rather than through the CR 614 doubler seam the plan had blueprinted.
 > ⭐ That blueprint was wrong about which seam it needed; probing it first is what caught that. +2 corpus
 > (Ironscale Hydra rode along), flip-diff clean with zero LOST, seven mutations seen to fail.
+>
+> **CAP10 in one line:** the FIFTH trigger-multiplier axis — SOURCE-scoped ("a triggered ability OF an
+> Ally you control") rather than CAUSE-scoped like the four that existed. It has no single event to hang
+> off, so it is enforced at `gameEngine.flushTriggers`, the universal chokepoint that already hosts the
+> once-per-turn latch — not at the ~30 separate `pendingTriggers` append sites. +4 corpus (Cloud, Katara,
+> Harmonic Prodigy, Annie Joins Up), zero LOST, six mutations seen to fail. ⚠️ Near-miss worth carrying
+> forward: the first Cloud regex matched the printed NAME and the arm never fired — `parseStaticAbilities`
+> self-normalizes the oracle to "this creature" before splitting clauses. Re-classify, don't just read.
 >
 > **🐞 BANKED, UNCLAIMED — a real engine divergence found while measuring CAP9.** Combat damage assignment
 > caps at lethal PER BLOCKER even when a NON-trampler has exactly one blocker, and discards the remainder;

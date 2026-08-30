@@ -3,6 +3,50 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚔️ 2026-08-30 (cont.) — CAP10: the FIFTH multiplier axis (SOURCE-scoped triggers), Cap 82→83 · +4 corpus
+> Suite **1312 / 15,010** green (was 1311 / 14,993 — the delta is exactly this slice's witness file);
+> lint 0; both exit codes UNPIPED. Flip-diff **+4, zero LOST** — Katara, the Fearless · Harmonic Prodigy ·
+> Cloud, Midgar Mercenary · Annie Joins Up.
+> · **THE AXIS IS THE POINT, not the card.** The engine had FOUR trigger multipliers (Teysa dies · Isshin
+>   attacks · Panharmonicon enters · Veyran cast), and every one is scoped by **what CAUSED** the trigger —
+>   so each is applied at that cause's own enqueue site and structurally cannot touch another event. This
+>   family is scoped by **whose ability it is** ("a triggered ability OF an Ally you control"), which says
+>   nothing about the cause, so it must see EVERY trigger from every event. Cap's card (Cloud) is one of
+>   eight carriers; a census found the family, and ablation found four are single-blockers.
+> · **⭐ THE SEAM: there is no shared enqueue site — there IS a shared FLUSH.** Each `check*Triggers`
+>   appends to `pendingTriggers` itself (~30 places), so an enqueue-site build meant 30 edits and a
+>   permanent drift risk. `gameEngine.flushTriggers` sees every trigger from every event and already hosts
+>   the once-per-turn latch for precisely this reason — its own comment calls it "the universal flush
+>   chokepoint". `multiplySourceScopedTriggers` runs there, BEFORE orderTriggersAPNAP so copies stay
+>   ordered with their originals (CR 603.3b), fast-pathed to byte-identical on a board with no such static.
+> · **Built:** parser arm + a CLOSED subject vocabulary (`parseSourceTriggerMultiplierSubject`) →
+>   `op.layerOp:"sourceTriggerMultiplier"` with a `sourceFilter`; `layers.sourceTriggerMultiplierCount`.
+>   ⚠️ It takes a **PERMANENT, not a controller**, unlike its four siblings: the gate is not "does the
+>   trigger's controller control a Katara" but "does a Katara's controller control THIS source" — those
+>   differ the moment a trigger's controller is overridden (the beneficiary case).
+> · **Filters, each verified against a real carrier:** subtype ("an Ally you control") · two-term union
+>   with self-exclusion ("a Shaman or **another** Wizard you control" — Harmonic Prodigy is itself a Wizard,
+>   so "another" is load-bearing and pinned) · supertype+type ("a legendary creature you control" — Annie
+>   is a legendary ENCHANTMENT, so her own abilities correctly don't double) · Cloud's attachment scope
+>   with a LIVE equipped gate (an unequipped Cloud doubles nothing; losing its Equipment turns the static
+>   off for free).
+> · **⛔ UNCLAIMED ON PURPOSE (both measured, both multi-blockers anyway):** Delney's "a creature you
+>   control with power 2 or less" (a layer-aware power predicate this filter set doesn't carry) and Echoes
+>   of Eternity's "a colorless SPELL you control or another colorless permanent" (its subject includes
+>   spells, which are not permanents and have no entry in the battlefield walk). Clara Oswald and Splinter
+>   stay parked on their own riders. Naban's ENTERS-axis filter is pinned as a no-cross-claim control.
+> · **📌 DOCUMENTED FALSE NEGATIVE:** a dies / LTB trigger's source is already gone at flush time, so it
+>   can't be tested and is NOT doubled. CR would use last-known information; under-counting is the safe
+>   direction and it is pinned so the miss reads as a recorded limit, not as intent.
+> · **⚠️ THE TRAP THAT ALMOST SHIPPED A DEAD ARM:** the first Cloud regex matched the printed card NAME,
+>   and the arm never fired — `parseStaticAbilities` runs `selfNormalizeOracle` BEFORE splitting clauses,
+>   so the parser sees "this creature", never "Cloud". Caught by re-classifying rather than by reading;
+>   the arm now accepts both spellings so a normalizer change can't silently kill it.
+> · **Mutations (6, each seen to fail, restored):** M1 flush multiply disabled → 5 die · M2 "another"
+>   self-exclusion removed → 1 · M3 Cloud equipped-gate removed → 1 · M4 "you control" scope removed → 1 ·
+>   M5 Cloud attachment membership removed → 1 · M6 parser arm disabled → 7.
+> Witness: `sourceTriggerMultiplier.test.js` (17). Cap America 70% (83 native cards + 13 land-partial).
+>
 > ## ⚔️ 2026-08-30 (cont.) — CAP9 Panther Habit: the PREVENT-AND-PUT wall (CR 615), Cap 81→82 · +2 corpus
 > Suite **1311 files / 14,993** green (was 1310 / 14,979 — the delta is exactly this slice's witness file);
 > lint 0; both exit codes captured UNPIPED. Flip-diff **+2, zero LOST**, both audited whole-card.

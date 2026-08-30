@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Trigger-doubling by source works.** Katara, the Fearless, Harmonic Prodigy, Cloud, Midgar Mercenary, and
+  Annie Joins Up now make the abilities they name trigger an additional time — Cloud only while it's
+  equipped, and Harmonic Prodigy correctly never doubles its own.
 - **Panther Habit works.** Damage to the equipped creature is prevented and it grows by that many +1/+1
   counters instead — in combat and from burn alike, as printed.
 - **Ironscale Hydra works.** Combat damage from a creature is prevented and the Hydra grows by one +1/+1

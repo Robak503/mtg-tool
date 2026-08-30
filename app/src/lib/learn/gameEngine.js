@@ -70,7 +70,7 @@ import {
   checkSacrificeTriggers,
 } from "./triggers.js";
 import { checkAllStateBasedActions } from "./sba.js";
-import { expireContinuousEffects, maxHandSizeFor } from "./layers.js";
+import { expireContinuousEffects, maxHandSizeFor, sourceTriggerMultiplierCount } from "./layers.js";
 import {
   parseEffectClause,
   programConfidence,
@@ -1108,6 +1108,38 @@ export function enqueueTrigger(state, trigger) {
  * the rotation only walks live seats. Generalizes the old 2-bucket split to the
  * Commander 4-seat pod.
  */
+/**
+ * SOURCE-SCOPED TRIGGER MULTIPLIER (CR 603.x) — repeat each pending trigger once per matching static, keyed
+ * on the trigger's SOURCE permanent rather than on the event that caused it. See the note at the call site
+ * in flushTriggers for why this family is enforced here and not at the enqueue sites.
+ *
+ * Each extra instance is a distinct copy of the trigger ("that ability triggers an additional time" — CR
+ * says an additional instance, not a modified one), pushed adjacent to its original so APNAP ordering keeps
+ * them together — the same shape triggers.multiplyTriggers uses for the four event-scoped siblings.
+ *
+ * The count is memoized per SOURCE permanent, not per controller: two triggers from the same source get the
+ * same multiplier, while two Allies with a Katara out are counted separately because the subject differs.
+ */
+function multiplySourceScopedTriggers(state, pending) {
+  const cache = new Map();
+  const countFor = (srcId) => {
+    if (srcId == null) return 0;
+    if (!cache.has(srcId)) cache.set(srcId, sourceTriggerMultiplierCount(state, srcId));
+    return cache.get(srcId);
+  };
+  // Fast path: nothing on the board matches → return the original array untouched (byte-identical flush).
+  let anyExtra = false;
+  for (const t of pending) { if (countFor(t.source?.permanentId) > 0) { anyExtra = true; break; } }
+  if (!anyExtra) return pending;
+  const out = [];
+  for (const t of pending) {
+    out.push(t);
+    const extra = countFor(t.source?.permanentId);
+    for (let i = 0; i < extra; i++) out.push({ ...t });
+  }
+  return out;
+}
+
 function orderTriggersAPNAP(state, pending) {
   const order = state.turnOrder || Object.keys(state.players);
   const startIdx = order.indexOf(state.activePlayer);
@@ -1564,7 +1596,19 @@ export function flushTriggers(state, { chooseTargets } = {}) {
   const pending = state.pendingTriggers || [];
   if (pending.length === 0) return state;
 
-  const ordered = orderTriggersAPNAP(state, pending);
+  // SOURCE-SCOPED TRIGGER MULTIPLIER (the 5th axis — Katara / Harmonic Prodigy / Cloud / Annie Joins Up,
+  // CR 603.x). The other four multipliers are scoped by what CAUSED the trigger and are applied at that
+  // cause's own enqueue site. This family is scoped by WHOSE ABILITY it is, so it has no single event to
+  // hang off — it must see every trigger from every event. THIS is the universal chokepoint (the same
+  // reason the once-per-turn latch below lives here), and applying it once here is what keeps it off the
+  // ~30 separate pendingTriggers append sites, where it could silently miss one forever.
+  //
+  // Placed BEFORE orderTriggersAPNAP so the extra instances are ordered with the originals (CR 603.3b —
+  // simultaneous triggers go on the stack in APNAP order; a copy is not "later" than its original).
+  // Fast-pathed on the board carrying any such static, so an ordinary flush is byte-identical.
+  const multiplied = multiplySourceScopedTriggers(state, pending);
+
+  const ordered = orderTriggersAPNAP(state, multiplied);
 
   // Mint a deterministic stack id for any trigger without one (real triggers
   // from triggers.js carry no id; some tests pass explicit ids). Thread state so

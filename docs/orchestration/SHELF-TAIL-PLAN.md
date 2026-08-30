@@ -226,12 +226,13 @@ Return this card from your graveyard to the battlefield tapped" (a graveyard-act
 its own subsystem). Otharri flips when THAT lands. Ocelot Pride / Windcrag Siege (upkeep), Zack
 Fair / Patrolling Peacemaker (enters-as), Glimmer Lens, Crumb and Get It.
 
-### 5.4 Captain America Shoot your Shot — ⚔️ FOCUS-FIRE ACTIVE (Colton 08-30: Joe's live deck) — 82 native cards, CAP1-9 SHIPPED
+### 5.4 Captain America Shoot your Shot — ⚔️ FOCUS-FIRE ACTIVE (Colton 08-30: Joe's live deck) — 83 native cards, CAP1-10 SHIPPED
 **The 08-16 "no cheap slices" scout was WRONG in method** — it bucketed by trigger kind; ablation-probing
-per CARD (strip one sentence, re-classify) found 12 single-blocker cards. Nine shipped 2026-08-30
+per CARD (strip one sentence, re-classify) found 12 single-blocker cards. Ten shipped 2026-08-30
 (CAP1-9, RUN-LEDGER has the receipts): Living Legend · Liberator · Super-Soldier · Kaldra Compleat ·
-Reaver Cleaver · Conqueror's Flail · Hammer of Nazahn · Aettir and Priwen · Panther Habit (+ siblings
-Rhox Pummeler, Guildpact Informant, Grateful Apparition, Ironscale Hydra). **Remaining singles, scoped:**
+Reaver Cleaver · Conqueror's Flail · Hammer of Nazahn · Aettir and Priwen · Panther Habit · Cloud (+ siblings
+Rhox Pummeler, Guildpact Informant, Grateful Apparition, Ironscale Hydra, Katara, Harmonic Prodigy,
+Annie Joins Up). **Remaining singles, scoped:**
 - **Panther Habit — ✅ SHIPPED 2026-08-30 (CAP9), +2 corpus (Ironscale Hydra rode along)**
   ⭐ **AND THE BLUEPRINT BELOW WAS WRONG — the trap was pointing at the wrong seam.** It scoped this as a
   6-file change to `applyDamageReplacements` (returning `{amount, prevented, sideEffects[]}`) — but that is
@@ -250,9 +251,18 @@ Rhox Pummeler, Guildpact Informant, Grateful Apparition, Ironscale Hydra). **Rem
   🐞 Banked while measuring, out of scope: combat damage assignment caps at lethal per blocker even for a
   single-blocked NON-trampler (CR 510.1a says assign all) — a 7/7 lifelinker into one 4/4 gains 4, not 7.
   Full detail in the RUN-LEDGER entry.
-- **Cloud, Midgar Mercenary** — "if a triggered ability of Cloud or an Equipment attached to it triggers,
-  that ability triggers an additional time" — a SCOPED trigger-count doubler (attachment-aware); probe
-  etbTriggerMultiplier/attackTriggerMultiplier for the multiplier registry before building.
+- **Cloud, Midgar Mercenary — ✅ SHIPPED 2026-08-30 (CAP10), +4 corpus.** The probe paid off but not the
+  way the note expected: the multiplier registry exists, and Cloud does NOT fit it. All four existing
+  multipliers (Teysa dies · Isshin attacks · Panharmonicon enters · Veyran cast) are scoped by what
+  CAUSED the trigger and are applied at that cause's enqueue site; Cloud is scoped by WHOSE ABILITY it is,
+  so it needs a FIFTH axis that sees every trigger from every event. Built at `gameEngine.flushTriggers`
+  — the universal flush chokepoint that already hosts the once-per-turn latch — rather than at the ~30
+  separate `pendingTriggers` append sites. Rode along: **Katara, the Fearless · Harmonic Prodigy · Annie
+  Joins Up** (a census found 8 carriers; ablation found 4 single-blockers). Unclaimed on purpose: Delney
+  (layer-aware power predicate) · Echoes of Eternity (spell-inclusive scope) · Clara Oswald · Splinter.
+  ⚠️ The near-miss worth remembering: the first Cloud regex matched the printed NAME and the arm never
+  fired — `parseStaticAbilities` self-normalizes the oracle to "this creature" before splitting clauses.
+  Witness: `sourceTriggerMultiplier.test.js` (17, six mutations seen to fail).
 - **Buster Sword** — granted cdmg draw + "you may cast a spell from your hand with mana value ≤ that
   damage without paying its mana cost" (free-cast with a dynamic MV cap off ctx.combatDamageAmount).
 - **Codsworth, Handy Helper** — ⚠️ **NOT a single-blocker card; this entry was mis-scoped.** Its full
