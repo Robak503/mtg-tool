@@ -217,13 +217,24 @@ describe("coverage — clean equipment flips and CREED negatives", () => {
     // pin can never silently re-park it.
     expect(classifyCard(EQ("The Reaver Cleaver", "Equipped creature gets +1/+1 and has trample and \"Whenever this creature deals combat damage to a player or planeswalker, create that many Treasure tokens.\"\nEquip {3}", "Legendary Artifact — Equipment"))).toBe("native-trigger");
   });
-  it("CREED: a Sword rider with an UNMODELED payload clause stays body-only", () => {
-    // Buster Sword: the +3/+2 static IS modeled, but the combat-damage payload's free-cast half ("you
-    // may cast a spell from your hand with mana value less than or equal to that damage without paying
-    // its mana cost") is unmodeled, so the whole payload parses LOW → body-only (no partial flip).
-    // (Feast and Famine, then War and Peace — the prior specimens — each graduated as their payloads
-    // became modeled; swordFeastFamine.test.js / swordWarPeace.test.js pin those flips.)
-    expect(classifyCard(EQ("Buster Sword", "Equipped creature gets +3/+2.\nWhenever equipped creature deals combat damage to a player, draw a card, then you may cast a spell from your hand with mana value less than or equal to that damage without paying its mana cost.\nEquip {2}", "Legendary Artifact — Equipment"))).toBe("body-only");
+  it("GRADUATED (CAP11, 2026-08-30): Buster Sword's free-cast payload is modeled now", () => {
+    // The FOURTH specimen to graduate out of this seat (Feast and Famine → War and Peace → Reaver Cleaver
+    // → Buster Sword), each as its payload became modeled. Here: the combat-damage-capped free cast
+    // (capFromCombatDamage reading ctx.combatDamageAmount, the relational shape Kellan's capFromCastMv
+    // established). busterSwordFreeCast.test.js owns the runtime witness — including the guard that a
+    // MISSING referent casts nothing rather than casting UNCAPPED. Asserted AS native so this pin can
+    // never silently re-park it.
+    expect(classifyCard(EQ("Buster Sword", "Equipped creature gets +3/+2.\nWhenever equipped creature deals combat damage to a player, draw a card, then you may cast a spell from your hand with mana value less than or equal to that damage without paying its mana cost.\nEquip {2}", "Legendary Artifact — Equipment"))).toBe("native-equipment");
+  });
+  it("CREED: a Sword rider with an UNMODELED payload clause still stays body-only", () => {
+    // ⭐ THE SURVIVING GUARD OF THE CLASS the graduation above vacated. The rule under test is "an
+    // unmodeled payload half parks the WHOLE equipment — never a partial flip", and retiring its last
+    // specimen alongside the graduated card would quietly retire the rule too.
+    // Sword of Wealth and Power (real oracle, bundled snapshot) is the live specimen: its Treasure arm IS
+    // modeled, but the same trigger's second sentence — the delayed "when you next cast an instant or
+    // sorcery spell this turn, copy that spell" — is not. A partial flip would credit the card while
+    // silently dropping the half people actually play it for.
+    expect(classifyCard(EQ("Sword of Wealth and Power", "Equipped creature gets +2/+2 and has protection from instants and from sorceries.\nWhenever equipped creature deals combat damage to a player, create a Treasure token. When you next cast an instant or sorcery spell this turn, copy that spell. You may choose new targets for the copy.\nEquip {2}", "Artifact — Equipment"))).toBe("body-only");
   });
   it("CREED: Captain America stays NON-native (his 'Throw' activated ability is unmodeled)", () => {
     const CAP = "Throw ... — {3}, Unattach an Equipment from Captain America: He deals damage equal to that Equipment's mana value divided as you choose among one, two, or three targets.\n... Catch — At the beginning of combat on your turn, attach up to one target Equipment you control to Captain America.";

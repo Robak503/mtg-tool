@@ -3,6 +3,42 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚔️ 2026-08-30 (cont.) — CAP11 Buster Sword: the COMBAT-DAMAGE-capped free cast, Cap 83→84 · +1
+> Suite **1313 / 15,023** green; lint 0; both exit codes UNPIPED. Flip-diff **+1, zero LOST**.
+> · **THE GAP WAS ONE PROPERTY, NOT A SUBSYSTEM.** The free-cast machinery already existed end to end
+>   (`pendingFreeCast` → the action-layer cast-or-decline decision), and so did the RELATIONAL cap shape:
+>   Kellan, the Kid's `capFromCastMv` reads its cap off the trigger context. Buster Sword is that pattern
+>   with a different referent — `capFromCombatDamage` reading `ctx.combatDamageAmount`. Probing first is
+>   what turned "a free-cast with a dynamic MV cap" from a subsystem into a one-property extension.
+> · **⭐ THE ATOM CARRIES `countContext:"combatDamageAmount"` DELIBERATELY.** The free-cast resolver
+>   ignores countContext entirely — but FOUR existing gates key on that exact string
+>   (`triggerRouting.combatDamageReferentSatisfied` plus coverage's three body-referent fences). Declaring
+>   it means the new referent is policed by the machinery that already polices its siblings, instead of by
+>   four new checks that would be four new places to drift. Without it the atom parses HIGH on a
+>   cast/ETB/upkeep trigger where the referent is unset and the clause silently drops — the forbidden FP.
+> · **⛔ A MISSING CAP CASTS NOTHING, NEVER UNCAPPED.** Same discipline as its sibling: an unsizeable cap
+>   makes the free-cast half a no-op. "No cap" would let a hit for 3 put a 9-drop on the stack for free —
+>   a fabricated effect invisible to any confidence-shaped gate. Pinned by mutation M2.
+> · **⚖️ TWO STALE REFUSAL PINS GRADUATED (2026-08-30)** — caught by the FULL suite, not by the targeted
+>   run, which is the whole reason that rule exists. Buster Sword was pinned body-only as a known FN in
+>   BOTH `equipBonusProtection.test.js` and `equipRider.test.js`. Each graduated with the date AND a
+>   surviving guard-class control, so the rule ("an unmodeled payload half parks the WHOLE equipment —
+>   never a partial flip") is still under test rather than retired along with its specimen: **Sword of
+>   Wealth and Power** holds the seat now (its Treasure arm is modeled; the delayed "when you next cast an
+>   instant or sorcery this turn, copy that spell" is not). ⚠️ First attempt at that guard was a card I
+>   INVENTED, and it classified native-mixed — its impulse-exile payload shipped back on 08-04. Guard
+>   specimens come from the oracle, not from imagination.
+> · **Mutations (4, each seen to fail, restored):** M1 clause parser arm disabled → 4 die · M2
+>   missing-referent guard removed (uncapped free cast) → 1 · M3 cap value dropped → 4 · M4 countContext
+>   dropped (referent unpoliced) → 2.
+> · **Ordering proof banked in the witness:** the just-drawn card IS in the candidate set, and that is
+>   correct — "draw a card, THEN you may cast a spell from your hand". Were the park computed before the
+>   draw it could not appear, so that assertion doubles as the sequencing pin.
+> Witness: `busterSwordFreeCast.test.js` (12). Cap America **71%** (84 native cards + 13 land-partial).
+> **Cap's scoped singles are now EXHAUSTED** — what remains is the multi-blocker tail (Sword of Hearth and
+> Home, Mjölnir, Super-Soldier Serum, Iron Man, Sword of Wealth and Power, Zirda, Illusionist's Bracers,
+> Forge Anew, Cap First Avenger, the 3 MDFCs) plus Codsworth, re-scoped 08-30 as a 3-clause card.
+>
 > ## ⚔️ 2026-08-30 (cont.) — CAP10: the FIFTH multiplier axis (SOURCE-scoped triggers), Cap 82→83 · +4 corpus
 > Suite **1312 / 15,010** green (was 1311 / 14,993 — the delta is exactly this slice's witness file);
 > lint 0; both exit codes UNPIPED. Flip-diff **+4, zero LOST** — Katara, the Fearless · Harmonic Prodigy ·

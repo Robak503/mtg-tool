@@ -7,23 +7,31 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9 + CAP10 shipped, Cap 81→83 native** — suite **1312 / 15,010** green
+## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9 + CAP10 + CAP11 shipped, Cap 81→84 native** — suite **1313 / 15,023** green
 
 > ### ⏭ RUNNABLE NOW — the shelf tail runs off [SHELF-TAIL-PLAN.md](SHELF-TAIL-PLAN.md) §5.4
-> Cap America is the focus-fire deck (Colton 08-30, Joe's live deck). CAP1-10 shipped; the next scoped
-> single is **Buster Sword** — "whenever equipped creature deals combat damage to a player, draw a card,
-> then you may cast a spell from your hand with mana value ≤ that damage without paying its mana cost"
-> (ablation-confirmed 08-30: that ONE line is its only blocker). A free-cast with a dynamic MV cap read
-> off `ctx.combatDamageAmount`, wrapped in a "may". **Codsworth was re-scoped 08-30 and is NO LONGER a
-> single-blocker** — its oracle carries three clauses (commanders-have-ward + a restricted-spend mana
-> ability + the two-target attach); re-price it before starting. After the singles: the multi-blockers
-> (Sword of Hearth and Home, Mjölnir, Super-Soldier Serum, Iron Man, Sword of Wealth and Power, Zirda,
-> Illusionist's Bracers, Forge Anew, First Avenger, the 3 MDFCs).
+> Cap America is the focus-fire deck (Colton 08-30, Joe's live deck). CAP1-11 shipped, and **Cap's scoped
+> SINGLES are now exhausted** — what's left is the multi-blocker tail, so the next seat picks between
+> continuing Cap into genuinely multi-clause cards or moving down the shelf queue.
+> **Cap's remaining tail:** Sword of Hearth and Home (blink+tutor riders) · Mjölnir (4 pieces, several
+> modeled) · Super-Soldier Serum (attack mass-attach + type-add) · Iron Man · Sword of Wealth and Power
+> (delayed spell-copy — now also the live guard specimen in equipRider.test.js, so a slice that models it
+> must re-home that guard) · Zirda (activation cost-reduce) · Illusionist's Bracers (ability copy) · Forge
+> Anew · Cap First Avenger (unattach-cost X-damage + combat attach) · the 3 MDFCs. **Codsworth was
+> re-scoped 08-30 and is NO LONGER a single-blocker** — its oracle carries three clauses
+> (commanders-have-ward + a restricted-spend mana ability + the two-target attach); re-price before starting.
 >
 > **CAP9 in one line:** the CR 615 prevent-and-PUT-counters wall — the counter-shield's inverse, built
 > beside it at both damage funnels rather than through the CR 614 doubler seam the plan had blueprinted.
 > ⭐ That blueprint was wrong about which seam it needed; probing it first is what caught that. +2 corpus
 > (Ironscale Hydra rode along), flip-diff clean with zero LOST, seven mutations seen to fail.
+>
+> **CAP11 in one line:** the combat-damage-capped free cast. The free-cast machinery and the RELATIONAL
+> cap shape both already existed (Kellan's `capFromCastMv`), so this was ONE property, not a subsystem —
+> `capFromCombatDamage` reading `ctx.combatDamageAmount`. The atom carries `countContext:"combatDamageAmount"`
+> so the four EXISTING referent gates police it instead of four new checks. A missing cap casts NOTHING,
+> never uncapped. ⚖️ Graduated two stale body-only pins for this card, each keeping a live guard-class
+> control — and the FULL suite is what caught them, not the targeted run.
 >
 > **CAP10 in one line:** the FIFTH trigger-multiplier axis — SOURCE-scoped ("a triggered ability OF an
 > Ally you control") rather than CAUSE-scoped like the four that existed. It has no single event to hang

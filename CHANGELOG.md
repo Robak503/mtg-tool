@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Buster Sword works.** When the equipped creature connects you draw a card and may then cast a spell from
+  your hand free, capped at the damage that was actually dealt — as printed.
 - **Trigger-doubling by source works.** Katara, the Fearless, Harmonic Prodigy, Cloud, Midgar Mercenary, and
   Annie Joins Up now make the abilities they name trigger an additional time — Cloud only while it's
   equipped, and Harmonic Prodigy correctly never doubles its own.

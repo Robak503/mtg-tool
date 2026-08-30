@@ -69,8 +69,18 @@ export function applyFreeCastAtom(state, atom, ctx) {
   // off the trigger context (ctx.castSpellMv, stamped by checkCastTriggers at the cast event). A missing
   // referent (never the real trigger path) makes the free-cast half UNSIZEABLE → skip it entirely (an
   // uncapped free cast would be the FP; the else-land arm below still runs — it's the printed fallback).
-  const capMissing = atom.capFromCastMv && typeof ctx.castSpellMv !== "number";
-  const opts = { maxMv: atom.capFromCastMv ? (capMissing ? -1 : ctx.castSpellMv) : (atom.maxMv ?? null), typeFilter: atom.typeFilter || null };
+  // COMBAT-DAMAGE cap (SHELF CAP11 — Buster Sword: "…mana value less than or equal to that damage"):
+  // the same relational shape as capFromCastMv directly above, reading the combat-damage magnitude the
+  // trigger context supplies. Identical missing-referent discipline: an UNSIZEABLE cap makes the
+  // free-cast half a no-op rather than an UNCAPPED free cast, which would be the forbidden FP — a
+  // Buster Sword hit for 3 must never let a 9-drop out for nothing.
+  const cdCapMissing = atom.capFromCombatDamage && typeof ctx.combatDamageAmount !== "number";
+  const capMissing = (atom.capFromCastMv && typeof ctx.castSpellMv !== "number") || cdCapMissing;
+  const relationalCap = atom.capFromCastMv ? ctx.castSpellMv : (atom.capFromCombatDamage ? ctx.combatDamageAmount : null);
+  const opts = {
+    maxMv: (atom.capFromCastMv || atom.capFromCombatDamage) ? (capMissing ? -1 : relationalCap) : (atom.maxMv ?? null),
+    typeFilter: atom.typeFilter || null,
+  };
   const eligible = capMissing ? [] : (player.hand || []).filter((c) => freeCastEligible(c, opts));
   // No eligible card → the optional cast is simply not taken (CR 601.2b is a "may"). Log the whiff so
   // the decision log is honest; never park an empty decision (the action layer would offer only a no-op).
@@ -133,6 +143,24 @@ export function freeCastClauseParser(clause) {
   const m2 = t.match(/^cast an instant or sorcery spell from your hand without paying its mana cost$/);
   if (m2) {
     return { op: "free-cast", maxMv: null, typeFilter: "instantSorcery", targetType: null };
+  }
+  // BUSTER SWORD (SHELF CAP11) — the cap is the COMBAT DAMAGE just dealt, not a printed number:
+  // "…draw a card, then you may cast a spell from your hand with mana value less than or equal to THAT
+  // DAMAGE without paying its mana cost." Note the word order differs from the fixed-cap forms above
+  // (the cap trails "from your hand" rather than leading it), which is why it needs its own anchor.
+  // The relational shape itself is not new — Kellan, the Kid's `capFromCastMv` already reads its cap off
+  // the trigger context — so this is that pattern with a different referent.
+  //
+  // ⭐ IT CARRIES countContext:"combatDamageAmount" ON PURPOSE, and that is load-bearing rather than
+  // decorative. The free-cast resolver ignores countContext entirely (it reads capFromCombatDamage), but
+  // FOUR existing gates key on that exact string — triggerRouting.combatDamageReferentSatisfied and
+  // coverage's three body-referent fences — so declaring it here means the referent is policed by the
+  // machinery that already polices its siblings, instead of by four new checks that could drift apart.
+  // Without it, this atom would parse HIGH on a cast/ETB/upkeep trigger where ctx.combatDamageAmount is
+  // unset, and the clause would silently drop: the forbidden dropped-clause FP.
+  const m3 = t.match(/^cast a spell from your hand with mana value less than or equal to that damage without paying its mana cost$/);
+  if (m3) {
+    return { op: "free-cast", capFromCombatDamage: true, countContext: "combatDamageAmount", maxMv: null, typeFilter: null, targetType: null };
   }
   return null;
 }

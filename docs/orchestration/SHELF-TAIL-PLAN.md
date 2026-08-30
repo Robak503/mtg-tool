@@ -226,11 +226,11 @@ Return this card from your graveyard to the battlefield tapped" (a graveyard-act
 its own subsystem). Otharri flips when THAT lands. Ocelot Pride / Windcrag Siege (upkeep), Zack
 Fair / Patrolling Peacemaker (enters-as), Glimmer Lens, Crumb and Get It.
 
-### 5.4 Captain America Shoot your Shot — ⚔️ FOCUS-FIRE ACTIVE (Colton 08-30: Joe's live deck) — 83 native cards, CAP1-10 SHIPPED
+### 5.4 Captain America Shoot your Shot — ⚔️ FOCUS-FIRE ACTIVE (Colton 08-30: Joe's live deck) — 84 native cards, CAP1-11 SHIPPED
 **The 08-16 "no cheap slices" scout was WRONG in method** — it bucketed by trigger kind; ablation-probing
-per CARD (strip one sentence, re-classify) found 12 single-blocker cards. Ten shipped 2026-08-30
+per CARD (strip one sentence, re-classify) found 12 single-blocker cards. ELEVEN shipped 2026-08-30
 (CAP1-9, RUN-LEDGER has the receipts): Living Legend · Liberator · Super-Soldier · Kaldra Compleat ·
-Reaver Cleaver · Conqueror's Flail · Hammer of Nazahn · Aettir and Priwen · Panther Habit · Cloud (+ siblings
+Reaver Cleaver · Conqueror's Flail · Hammer of Nazahn · Aettir and Priwen · Panther Habit · Cloud · Buster Sword (+ siblings
 Rhox Pummeler, Guildpact Informant, Grateful Apparition, Ironscale Hydra, Katara, Harmonic Prodigy,
 Annie Joins Up). **Remaining singles, scoped:**
 - **Panther Habit — ✅ SHIPPED 2026-08-30 (CAP9), +2 corpus (Ironscale Hydra rode along)**
@@ -263,8 +263,15 @@ Annie Joins Up). **Remaining singles, scoped:**
   ⚠️ The near-miss worth remembering: the first Cloud regex matched the printed NAME and the arm never
   fired — `parseStaticAbilities` self-normalizes the oracle to "this creature" before splitting clauses.
   Witness: `sourceTriggerMultiplier.test.js` (17, six mutations seen to fail).
-- **Buster Sword** — granted cdmg draw + "you may cast a spell from your hand with mana value ≤ that
-  damage without paying its mana cost" (free-cast with a dynamic MV cap off ctx.combatDamageAmount).
+- **Buster Sword — ✅ SHIPPED 2026-08-30 (CAP11), +1.** The note's guess was right about the referent and
+  wrong about the size: the free-cast machinery already existed end to end, and so did the RELATIONAL cap
+  shape (Kellan, the Kid's `capFromCastMv` reads its cap off the trigger context). This was ONE property —
+  `capFromCombatDamage` reading `ctx.combatDamageAmount`. The atom also carries
+  `countContext:"combatDamageAmount"` so the four EXISTING referent gates police it, rather than four new
+  checks that could drift. ⛔ A missing cap casts NOTHING (never uncapped — a hit for 3 must not free a
+  9-drop). ⚖️ Graduated two stale body-only pins for this card (equipBonusProtection + equipRider), each
+  keeping a live guard-class control (Sword of Wealth and Power). Witness:
+  `busterSwordFreeCast.test.js` (12, four mutations seen to fail).
 - **Codsworth, Handy Helper** — ⚠️ **NOT a single-blocker card; this entry was mis-scoped.** Its full
   oracle (verified 08-30) is THREE clauses, not one: "Commanders you control have ward {2}." +
   "{T}: Add {W}{W}. Spend this mana only to cast Aura and/or Equipment spells." (a RESTRICTED-spend
