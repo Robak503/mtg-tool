@@ -232,7 +232,20 @@ Fair / Patrolling Peacemaker (enters-as), Glimmer Lens, Crumb and Get It.
 > they are playable-but-not-fully-modeled, which is the whole point of the land gate. The honest figure is
 > **73/100 native**. Exact breakdown (measured 2026-08-30): 73 native · 13 land-partial · 12 body-only ·
 > 2 arbiter-spell. **And 23 of the 73 are LANDS** — the non-land spell coverage is 50/64.
-> **Card-work ceiling: 87%** (73 + the 14 remaining real cards). 90 needs the land tier.
+> ⚠️ **AND THE "87% CEILING" WAS ALSO WRONG — retracted the same day, Colton pushed on it and was right.**
+> It assumed all 13 land-partial slots were unreachable without a separate "land tier" program. **They are
+> not a monolith.** Ablation-probed 2026-08-30 — SEVEN of the 13 are SINGLE-blockers right now:
+> · **Sacred Foundry · Hallowed Fountain · Steam Vents** — all three blocked by the SAME clause
+>   ("As this land enters, you may pay 2 life. If you don't, it enters tapped"). One slice, three slots.
+> · **Spectator Seating** — "enters tapped unless you have two or more opponents".
+> · **Inventors' Fair** (the sac-tutor activated ability) · **Otawara** (Channel) · **Uthros** (Station).
+> Three more (**Mines of Moria · Mistrise Village · Monumental Henge**) become single-blockers the moment
+> the enters-tapped-unless arm lands — each then needs only its own activated ability.
+> ⛔ Genuinely hard, and the real residue: **Urza's Saga** (Saga chapters on a land) and the two MDFC backs.
+> **⭐ THE VEIN: conditional enters-tapped is 109 cards corpus-wide** (10 pay-life shocklands + 99
+> "enters tapped unless …"). That is the cheapest high-payoff work on the board and it moves Cap by 4
+> immediately. So Cap's realistic reach is ~90, not 87, and "the land tier" is a set of ordinary slices —
+> not a wall.
 **The 08-16 "no cheap slices" scout was WRONG in method** — it bucketed by trigger kind; ablation-probing
 per CARD (strip one sentence, re-classify) found 12 single-blocker cards. ELEVEN shipped 2026-08-30
 (CAP1-9, RUN-LEDGER has the receipts): Living Legend · Liberator · Super-Soldier · Kaldra Compleat ·

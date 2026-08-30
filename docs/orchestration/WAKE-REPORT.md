@@ -16,6 +16,19 @@
 > arbiter-spell. **23 of the 73 are LANDS**, so non-land spell coverage is 50/64. Today moved the deck
 > 69% → 73% — five cards flipped (Panther Habit, Cloud, Buster Sword, Puresteel Paladin, Captain America
 > himself); CAP13 added zero to this deck by design, being the prerequisite for CAP14.
+>
+> ⚠️ **A SECOND RETRACTION, same day: the "87% card-work ceiling" was WRONG too.** It treated all 13
+> land-partial slots as needing a separate land-tier program. Ablation says otherwise — **SEVEN are
+> single-blockers today**, and the three shocklands (Sacred Foundry / Hallowed Fountain / Steam Vents)
+> share ONE clause, so a single slice takes three slots. Spectator Seating is a fourth. Three more become
+> single-blockers once "enters tapped unless …" is modeled. Only **Urza's Saga** and the two MDFC backs
+> are genuinely hard. **Cap's realistic reach is ~90, not 87.**
+>
+> ### ⭐ THE BEST NEXT SLICE ON THE BOARD: **conditional enters-tapped — 109 cards corpus-wide**
+> 10 pay-life shocklands ("As this land enters, you may pay N life. If you don't, it enters tapped") + 99
+> "This land enters tapped unless …". Biggest corpus vein currently visible, AND it moves Cap by 4 with
+> knock-on to 3 more. This is what "the land tier" actually is: not one program, a queue of ordinary
+> slices, cheapest first.
 
 > ### 🔴 COLTON'S CALL (08-30): **grind Cap as far as she goes (≈87%), THEN move to the LAND TIER.**
 > Measured, not estimated: Cap carries 13 land-partial slots, so flipping every remaining CARD still tops
