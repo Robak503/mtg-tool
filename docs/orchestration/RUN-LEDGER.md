@@ -3,6 +3,41 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚔️ 2026-08-30 (cont.) — CAP13: the divide-damage TARGET BOUND enforced · +1 (Cap unchanged, by design)
+> Suite **1315 / 15,049** green; lint 0; both exit codes UNPIPED. Flip-diff **+1, zero LOST** (Forked Lightning).
+> · **THIS IS A PREREQUISITE SLICE, NOT A CAP CARD** — say so plainly: Cap America stays at 72%. The target
+>   is Captain America, First Avenger himself, whose "Throw" ability deals damage equal to an Equipment's
+>   mana value "divided as you choose among one, two, or three targets". His amount is DYNAMIC, so the old
+>   `amount > maxTargets → refuse` rule could never clear him: the tier decision is static and the amount
+>   is not knowable until resolution. The bound had to move from "relied upon" to "enforced" first.
+> · **Why the old refusal was RIGHT, and what changed.** The picker requires ≥1 damage per chosen target, so
+>   a card whose amount ≤ its cap can't exceed the cap by construction — the bound fell out for free. Over
+>   that line (Forked Lightning: 4 damage among three targets) an unbounded picker would open a FOURTH
+>   target, a fabricated target and a forbidden FP, so the arm refused the card. Now `maxTargets` rides the
+>   atom and is enforced in **all three** consumers: `autoPickDivideDistribution` (stops opening new targets,
+>   folds the remainder onto one already chosen), `resolveDivideChoice` (defence in depth — ignores further
+>   NEW targets), and `applyDivideChoice` (an over-target submit re-surfaces the picker unresolved).
+> · **The UI moved with it.** `DivideDamagePanel` gates its + button on a new target once the bound is full,
+>   gates submit, and its copy now reads "up to N targets" instead of "any number of targets" — otherwise the
+>   player builds a division the engine then bounces, which is a worse bug than the one being fixed.
+> · **The sibling was already right.** `setPendingDistributeChoice` has carried `maxTargets` (with auto-pick
+>   and settle honoring it) since the Mothman slice, and its panel already gated the same way — so this is
+>   mirroring a proven shape, not inventing one. Two pickers that disagreed about their own bound is the
+>   drift that got closed.
+> · **⚖️ THREE STALE PINS GRADUATED** — again caught by the FULL suite, not the targeted run (second time
+>   today). All three asserted the over-cap refusal. Each graduated with the date AND a surviving
+>   guard-class control, so MUST_DROP_TO_LOW still tests a live rule: **Aerial Volley** (a FILTERED target
+>   group — the resolver's `creatures` group can't filter to "with flying") and the **X-divide** forms
+>   (Conflagrate, Rolling Thunder) remain honestly refused.
+> · **Mutations (5, each seen to fail, restored):** M1 auto-pick bound removed → 1 · M2 auto-pick
+>   player-slot guard removed → 1 · M3 settle bound removed → 1 · M4 submit over-target guard removed → 1 ·
+>   M5 bound not threaded to the pending choice → 5. ⚠️ M3's first attempt returned "no tests" (a load error,
+>   not a gate result) and was REDONE cleanly — per this morning's lesson, a mutation run that isn't a clean
+>   test failure is not a valid observation.
+> · Sundering Stroke stays `arbiter-spell` (its "if at least seven red mana was spent" rider), correctly.
+> Witness: `divideDamageBounded.test.js` (15). **NEXT: Cap's "Throw"** — now only two pieces, an
+> "Unattach an Equipment from <self>" activation COST and a dynamic amount (that Equipment's mana value).
+>
 > ## ⚔️ 2026-08-30 (cont.) — CAP12 Puresteel Paladin: the equip-cost SET, Cap 84→85 · +1
 > Suite **1314 / 15,034** green; lint 0; both exit codes UNPIPED. Flip-diff **+1, zero LOST**.
 > · **The SET, not the reduction.** "Equipment you control have equip {N}" is a different mechanism from

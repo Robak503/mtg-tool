@@ -761,15 +761,23 @@ export function autoPickDivideDistribution(state, pc) {
     .filter((c) => c.type === "creature")
     .map((c) => ({ c, t: Math.max(1, creatureToughness(findPermanent(state, c.id)?.permanent, state) || 1) }))
     .sort((a, b) => a.t - b.t || (a.c.id < b.c.id ? -1 : 1));
+  // SHELF CAP13 — the printed target BOUND ("among one, two, or three targets", CR 601.2d). null = the
+  // unbounded "any number of target" forms, so `cap` is Infinity there and every line below behaves exactly
+  // as it did. The bound counts DISTINCT chosen targets, not damage, so the greedy kill loop stops opening
+  // new ones once it is full and the leftover is folded onto a target already chosen.
+  const cap = pc.maxTargets == null ? Infinity : Math.max(0, pc.maxTargets);
   for (const { c, t } of creatures) {
-    if (remaining <= 0) break;
+    if (remaining <= 0 || dist.length >= cap) break;
     const give = Math.min(remaining, t);
     if (give > 0) { dist.push({ id: c.id, type: "creature", amount: give }); remaining -= give; }
   }
   if (remaining > 0) {
     const player = enemies.find((c) => c.type === "player") || (pc.candidates || []).find((c) => c.type === "player");
-    if (player) dist.push({ id: player.id, type: "player", amount: remaining });
-    else if (dist.length) dist[dist.length - 1].amount += remaining; // no player target → onto the last creature
+    // Opening the PLAYER as a new target is legal only while the bound has room; otherwise the remainder
+    // rides on a target already chosen. CR 601.2d requires the whole amount be assigned, and a bounded
+    // divide must not exceed its printed target count to do it.
+    if (player && dist.length < cap) dist.push({ id: player.id, type: "player", amount: remaining });
+    else if (dist.length) dist[dist.length - 1].amount += remaining; // bound full / no player → last target
   }
   return dist;
 }
@@ -793,10 +801,19 @@ export function resolveDivideChoice(state, distribution) {
   if (!next.players?.[pc.controller]) return next; // caster eliminated mid-pause → no damage, no resume
   const validIds = new Set((pc.candidates || []).map((c) => c.id));
   let spent = 0;
+  // SHELF CAP13 — enforce the printed target bound HERE too, not only at the session submit guard. Defence
+  // in depth for exactly the reason the running `spent` cap already is: a malformed or non-UI submit must
+  // not be able to hit more targets than the card allows. The legal path never trips it (applyDivideChoice
+  // re-surfaces an over-target submit before it reaches here). DISTINCT ids are counted, so two entries
+  // naming one target consume a single slot.
+  const cap = pc.maxTargets == null ? Infinity : Math.max(0, pc.maxTargets);
+  const chosen = new Set();
   for (const d of distribution || []) {
     if (!validIds.has(d.id) || (d.type !== "creature" && d.type !== "player")) continue;
+    if (!chosen.has(d.id) && chosen.size >= cap) continue; // bound full → ignore further NEW targets
     const amt = Math.max(0, Math.min(d.amount || 0, (pc.amount || 0) - spent));
     if (amt <= 0) continue;
+    chosen.add(d.id);
     next = resolveAtom(next, { op: "deal-damage", amount: amt, targetType: d.type }, { controller: pc.controller, targets: [{ type: d.type, id: d.id }] });
     spent += amt;
   }

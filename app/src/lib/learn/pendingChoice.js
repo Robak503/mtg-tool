@@ -389,12 +389,15 @@ export function setPendingSacrificeChoice(state, { controller, candidates, queue
  * per the spell's `group`) — all public, hidden-info safe. `amount` is the total damage to split (each
  * assigned target gets ≥1, CR 601.2d). The caster's continuation rides on `pendingChoice.resume`.
  */
-export function setPendingDivideChoice(state, { controller, amount, candidates, group, sourceName = null }) {
+export function setPendingDivideChoice(state, { controller, amount, candidates, group, sourceName = null, maxTargets = null }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "divide-damage-pending", controller, amount, count: candidates.length, sourceName });
   return {
     ...next,
-    pendingChoice: { kind: "divide-damage", controller, amount, candidates, group, sourceName },
+    // maxTargets (SHELF CAP13 — the printed "among one, two, or three targets" bound, CR 601.2d). null = the
+    // unbounded "any number of target" forms. Mirrors setPendingDistributeChoice's maxTargets exactly, and
+    // is honored in all three consumers: the auto-pick, the settle, and the session-level submit guard.
+    pendingChoice: { kind: "divide-damage", controller, amount, candidates, group, sourceName, maxTargets },
   };
 }
 

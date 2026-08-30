@@ -119,10 +119,16 @@ describe("MT-1 parser + coverage — divide-damage is native (the card-name pref
       .toMatchObject({ op: "divide-damage", amount: 4, group: "creatures" });
     expect(classifyCard(I("Boulderfall deals 5 damage divided as you choose among any number of targets.", "{4}{R}"))).toBe("native-spell");
   });
-  it("MUST_DROP_TO_LOW: an over-cap bounded count, a flying-restricted group, an X-divide, or a rider stays low → Arbiter", () => {
+  it("MUST_DROP_TO_LOW: a flying-restricted group, an X-divide, or a rider stays low → Arbiter (over-cap GRADUATED)", () => {
     const low = (o, m) => expect(programConfidence(parseEffectProgram(I(o, m)))).toBe("low");
-    // bounded N ≤ cap is now native (DIVIDE-BOUNDED) — but these bounded forms still drop to low:
-    low("Forked Lightning deals 4 damage divided as you choose among one, two, or three target creatures.", "{2}{R}{R}"); // N(4) > maxTargets(3): the picker can't enforce the 3-target cap → low (CREED)
+    // ⚖️ GRADUATED 2026-08-30 (CAP13): the over-cap refusal is GONE. It existed because the picker could
+    // not enforce a target bound, so 4 damage among "one, two, or three targets" could open a fourth
+    // target — a fabricated target, correctly refused then. The bound is now CARRIED and ENFORCED in the
+    // auto-pick, the settle, and the session submit guard, so Forked Lightning is honestly playable.
+    // divideDamageBounded.test.js owns that proof; asserted AS high here so this pin can't re-park it.
+    expect(programConfidence(parseEffectProgram(I("Forked Lightning deals 4 damage divided as you choose among one, two, or three target creatures.", "{2}{R}{R}")))).toBe("high");
+    // ⭐ THE SURVIVING GUARDS of this class — the two refusals that are still real, so MUST_DROP_TO_LOW
+    // keeps testing a live rule rather than being emptied by the graduation above.
     low("Aerial Volley deals 3 damage divided as you choose among one, two, or three target creatures with flying.", "{1}{W}"); // restricted creatures group (with flying) — the resolver can't filter → residue → low
     low("Conflagrate deals X damage divided as you choose among any number of targets.", "{X}{X}{R}"); // X (not numeric) — fast-follow
     low("Rolling Thunder deals X damage divided as you choose among any number of target creatures and/or players.", "{X}{X}{R}");
@@ -133,14 +139,17 @@ describe("MT-1 parser + coverage — divide-damage is native (the card-name pref
 // TARGETS" (Arc Lightning, Twin Bolt, Electrolyze, Flames of the Firebrand). Reuses the SAME resolver/picker
 // with NO picker change: when amount ≤ the printed cap, the picker's "≥1 per chosen target, total = amount"
 // rule already makes the effective target count ≤ amount ≤ cap, so it behaves identically to the unbounded
-// `any number` group. amount > cap (Forked Lightning N=4) is rejected so the picker can never over-target.
+// `any number` group. ⚖️ CAP13 (2026-08-30): the bound is now CARRIED on the atom and ENFORCED by the
+// auto-pick, the settle, and the session submit guard — so amount > cap (Forked Lightning N=4) is native
+// too, instead of refused. A FILTERED group ("with flying") and an X-divide remain the live refusals.
 describe("DIVIDE-BOUNDED — native when amount ≤ the printed target cap (reuses the divide picker)", () => {
   const C = (oracle, type = "Sorcery", mana = "{1}{R}") => ({ type, mana, oracle, name: oracle.split(" ")[0] });
   it("'one, two, or three targets' (N=3) and 'one or two targets' (N=2) parse to the divide atom + go native", () => {
+    // maxTargets rides the atom since CAP13 — the printed bound is CARRIED now, not merely relied upon.
     expect(parseEffectProgram(C("Arc Lightning deals 3 damage divided as you choose among one, two, or three targets.")).atoms)
-      .toEqual([{ op: "divide-damage", amount: 3, group: "anyTarget" }]);
+      .toEqual([{ op: "divide-damage", amount: 3, group: "anyTarget", maxTargets: 3 }]);
     expect(parseEffectProgram(C("Twin Bolt deals 2 damage divided as you choose among one or two targets.", "Instant", "{1}{R}")).atoms)
-      .toEqual([{ op: "divide-damage", amount: 2, group: "anyTarget" }]);
+      .toEqual([{ op: "divide-damage", amount: 2, group: "anyTarget", maxTargets: 2 }]);
     expect(classifyCard(C("Arc Lightning deals 3 damage divided as you choose among one, two, or three targets."))).toBe("native-spell");
     // a trailing modeled clause rides along (Electrolyze = divide + draw)
     expect(classifyCard(C("Electrolyze deals 2 damage divided as you choose among one or two targets.\nDraw a card.", "Instant", "{1}{U}{R}"))).toBe("native-spell");
@@ -149,8 +158,14 @@ describe("DIVIDE-BOUNDED — native when amount ≤ the printed target cap (reus
     expect(parseEffectProgram(C("Spark deals 3 damage divided as you choose among one, two, or three target creatures.")).atoms[0]).toMatchObject({ op: "divide-damage", amount: 3, group: "creatures" });
     expect(parseEffectProgram(C("Spark deals 2 damage divided as you choose among one or two target players.")).atoms[0]).toMatchObject({ op: "divide-damage", amount: 2, group: "players" });
   });
-  it("CREED: amount > cap stays low (Forked Lightning N=4 > 3); a flying restriction leaves residue → low", () => {
-    expect(programConfidence(parseEffectProgram(C("Forked Lightning deals 4 damage divided as you choose among one, two, or three target creatures.")))).toBe("low");
+  it("GRADUATED (CAP13): amount > cap is native now; a flying restriction still leaves residue → low", () => {
+    // The bound is enforced in all three consumers (auto-pick / settle / submit guard), so a 4-damage
+    // divide among three targets can no longer over-target. divideDamageBounded.test.js owns the runtime
+    // proof; asserted AS high here so this pin can never silently re-park the card.
+    expect(programConfidence(parseEffectProgram(C("Forked Lightning deals 4 damage divided as you choose among one, two, or three target creatures.")))).toBe("high");
+    // ⭐ THE SURVIVING GUARD — a FILTERED target group is a different refusal and is still live: the
+    // resolver's `creatures` group cannot filter to "with flying", so crediting it would let the divide
+    // hit creatures the card can't target.
     expect(programConfidence(parseEffectProgram(C("Aerial Volley deals 3 damage divided as you choose among one, two, or three target creatures with flying.", "Instant", "{1}{W}")))).toBe("low");
   });
   it("a bounded creature with the divide as a death/activated ability flips (Gang of Devils, Mogg Mob)", () => {

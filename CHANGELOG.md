@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Forked Lightning works**, and every "divided as you choose among one, two, or three targets" spell now
+  actually respects its target limit — the picker won't let you spread damage over more targets than the
+  card allows, and the AI won't either.
 - **Puresteel Paladin works.** While you control three or more artifacts, your Equipment can be equipped for
   free — the discount now actually shows up on the equip you're offered, and switches off when you drop
   below three.

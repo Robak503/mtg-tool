@@ -2830,6 +2830,24 @@ export function applyDivideChoice(session, choice, opts = {}) {
     if (cappedSum < (pc.amount || 0)) {
       return { session, decision: { kind: "divide-damage", ...pc } }; // under-assigned — re-surface the picker
     }
+    // SHELF CAP13 — the printed TARGET BOUND (CR 601.2d, "among one, two, or three targets"). The sum guard
+    // above catches an under-assignment; this catches the opposite illegal submit — a division spread over
+    // MORE targets than the card permits. Same remedy: re-surface the SAME pending choice unresolved rather
+    // than settling an illegal division. Counts distinct ids that actually RECEIVE damage, so a zero-amount
+    // or duplicate entry can't inflate the count. A null maxTargets (the unbounded forms) skips it entirely.
+    if (pc.maxTargets != null) {
+      const hit = new Set();
+      let spent = 0;
+      for (const d of distribution) {
+        if (!validIds.has(d?.id) || (d.type !== "creature" && d.type !== "player")) continue;
+        const amt = Math.max(0, Math.min(d.amount || 0, (pc.amount || 0) - spent));
+        if (amt <= 0) continue;
+        spent += amt; hit.add(d.id);
+      }
+      if (hit.size > pc.maxTargets) {
+        return { session, decision: { kind: "divide-damage", ...pc } }; // over-targeted — re-surface
+      }
+    }
   }
   let newState;
   try {

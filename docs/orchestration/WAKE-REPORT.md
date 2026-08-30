@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9–CAP12 shipped, Cap 81→85 native (72%)** — suite **1314 / 15,034** green
+## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9–CAP13 shipped, Cap 81→85 native (72%)** — suite **1315 / 15,049** green
 
 > ### 🔴 COLTON'S CALL (08-30): **grind Cap as far as she goes (≈87%), THEN move to the LAND TIER.**
 > Measured, not estimated: Cap carries 13 land-partial slots, so flipping every remaining CARD still tops
@@ -19,8 +19,11 @@
 > Cap America is the focus-fire deck (Colton 08-30, Joe's live deck). CAP1-12 shipped. **Cap's CHEAP
 > singles are gone** — five single-blocker cards remain, each a real slice now. All were ablation-probed
 > 2026-08-30, so the next seat does not need to re-probe:
-> · **Captain America, First Avenger** — the "Throw" ability: an unattach-an-Equipment COST plus damage
->   equal to that Equipment's mana value, divided among one, two, or three targets.
+> · **Captain America, First Avenger** — the "Throw" ability. ⭐ **HALF-BUILT: CAP13 landed its prerequisite**
+>   (the divide-damage target bound is now enforced, so a DYNAMIC damage amount is admissible). Two pieces
+>   remain: an **"Unattach an Equipment from <self>" activation COST** item, and threading **that
+>   Equipment's mana value** through as the divide amount. His "Catch" trigger already parses HIGH
+>   (`attach-to-self`), so Throw is his ONLY blocker.
 > · **Codsworth, Handy Helper** — "{T}: Attach target Aura or Equipment you control to target creature you
 >   control" — TWO heterogeneous targets; check the targeting layer's multi-target support first.
 > · **Illusionist's Bracers** — copy an activated ability of the equipped creature.
@@ -42,6 +45,13 @@
 > beside it at both damage funnels rather than through the CR 614 doubler seam the plan had blueprinted.
 > ⭐ That blueprint was wrong about which seam it needed; probing it first is what caught that. +2 corpus
 > (Ironscale Hydra rode along), flip-diff clean with zero LOST, seven mutations seen to fail.
+>
+> **CAP13 in one line:** the divide-damage TARGET BOUND is now carried and enforced (auto-pick + settle +
+> submit guard + the UI panel), instead of being relied upon to fall out of the ≥1-per-target rule. **This
+> is a PREREQUISITE, not a Cap card** — Cap stays 72%; it exists so Captain America's "Throw" (whose damage
+> amount is DYNAMIC, and so could never clear the old `amount > cap → refuse` rule) becomes reachable.
+> Forked Lightning graduated along the way. ⚖️ Three stale over-cap pins graduated, each keeping a live
+> guard (Aerial Volley's filtered group + the X-divide forms are still honestly refused).
 >
 > **CAP12 in one line:** the equip-cost SET (Puresteel Paladin's metalcraft equip {0}) — distinct from the
 > equip-cost REDUCTION already modeled, and cheap because `evaluateInterveningIf` already spoke the

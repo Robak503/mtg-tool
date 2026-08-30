@@ -1508,9 +1508,18 @@ export function DivideDamagePanel({ decision, onChoose }) {
 
   const assigned = Object.values(amounts).reduce((s, n) => s + (n || 0), 0);
   const remaining = total - assigned;
+  // SHELF CAP13 — the printed TARGET BOUND (CR 601.2d: "among one, two, or three targets"). null on the
+  // unbounded "any number of target" cards, where every gate below is inert. The engine enforces this too
+  // (applyDivideChoice re-surfaces an over-target submit); gating here as well is what keeps the player
+  // from building a division the engine will bounce.
+  const maxTargets = decision.maxTargets ?? null;
+  const usedTargets = Object.values(amounts).filter((n) => (n || 0) > 0).length;
+  const boundFull = maxTargets != null && usedTargets >= maxTargets;
   const bump = (id, delta) =>
     setAmounts((prev) => {
       const cur = prev[id] || 0;
+      // Opening a NEW target while the bound is full is illegal; raising one already chosen is fine.
+      if (delta > 0 && cur === 0 && boundFull) return prev;
       const next = Math.max(
         0,
         delta > 0 ? Math.min(cur + delta, cur + Math.max(0, remaining)) : cur + delta,
@@ -1519,6 +1528,7 @@ export function DivideDamagePanel({ decision, onChoose }) {
     });
   const submit = async () => {
     if (submitting || remaining !== 0) return;
+    if (maxTargets != null && usedTargets > maxTargets) return;
     const distribution = candidates
       .filter((c) => (amounts[c.id] || 0) > 0)
       .map((c) => ({ id: c.id, type: c.type, amount: amounts[c.id] }));
@@ -1544,7 +1554,11 @@ export function DivideDamagePanel({ decision, onChoose }) {
           🎯 Divide {total} damage{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
-          Assign all {total} among any number of targets. Remaining:{" "}
+          Assign all {total} among{" "}
+          {maxTargets == null
+            ? "any number of targets"
+            : `up to ${maxTargets} target${maxTargets === 1 ? "" : "s"}`}
+          . Remaining:{" "}
           <b style={{ color: remaining === 0 ? "var(--ley-green)" : "var(--ley-gold)" }}>
             {remaining}
           </b>
@@ -1594,7 +1608,7 @@ export function DivideDamagePanel({ decision, onChoose }) {
                   className="btn btn-secondary btn-sm btn-icon"
                   style={{ width: 24, height: 24 }}
                   onClick={() => bump(c.id, +1)}
-                  disabled={remaining <= 0}
+                  disabled={remaining <= 0 || (amt === 0 && boundFull)}
                 >
                   +
                 </button>

@@ -178,7 +178,7 @@ export function applyDivideDamage(state, atom, ctx) {
     for (const pid of Object.keys(state.players)) candidates.push({ id: pid, name: pid, type: "player", controller: pid });
   }
   if (candidates.length === 0) return logEvent(state, { kind: "spell-effect", effect: "divide-damage", controller: ctx.controller, amount, candidates: 0 });
-  return setPendingDivideChoice(state, { controller: ctx.controller, amount, candidates, group, sourceName: ctx.cardName });
+  return setPendingDivideChoice(state, { controller: ctx.controller, amount, candidates, group, sourceName: ctx.cardName, maxTargets: atom.maxTargets ?? null });
 }
 
 /**
@@ -383,9 +383,13 @@ export function miscClauseParser(clause) {
   if (b) {
     const amount = parseInt(b[1], 10);
     const maxTargets = b[2] === "one or two" ? 2 : 3;
-    if (amount > maxTargets) return null;
     const GROUP = { "targets": "anyTarget", "target creatures": "creatures", "target players": "players" };
-    return { op: "divide-damage", amount, group: GROUP[b[3]] };
+    // SHELF CAP13 — the bound is now CARRIED and ENFORCED (auto-pick + settle + submit guard) rather than
+    // being relied upon to fall out of the per-target >=1 rule. The old arm refused any card whose amount
+    // EXCEEDED its target cap (`amount > maxTargets` -> null), because an unbounded picker would then
+    // over-target -- a real FP, correctly refused at the time. With the cap threaded, Forked Lightning
+    // (4 damage among three targets) and its kin are honestly playable, so the refusal is gone.
+    return { op: "divide-damage", amount, group: GROUP[b[3]], maxTargets };
   }
   return null;
 }
