@@ -226,7 +226,35 @@ Return this card from your graveyard to the battlefield tapped" (a graveyard-act
 its own subsystem). Otharri flips when THAT lands. Ocelot Pride / Windcrag Siege (upkeep), Zack
 Fair / Patrolling Peacemaker (enters-as), Glimmer Lens, Crumb and Get It.
 
-### 5.4 Captain America Shoot your Shot — 73, needs 17 · 🔍 SCOUTED 08-16: NO CHEAP SLICES (vein doctrine, like Kellan)
+### 5.4 Captain America Shoot your Shot — ⚔️ FOCUS-FIRE ACTIVE (Colton 08-30: Joe's live deck) — 81 native cards, CAP1-8 SHIPPED
+**The 08-16 "no cheap slices" scout was WRONG in method** — it bucketed by trigger kind; ablation-probing
+per CARD (strip one sentence, re-classify) found 12 single-blocker cards. Eight shipped 2026-08-30
+(CAP1-8, RUN-LEDGER has the receipts): Living Legend · Liberator · Super-Soldier · Kaldra Compleat ·
+Reaver Cleaver · Conqueror's Flail · Hammer of Nazahn · Aettir and Priwen (+ siblings Rhox Pummeler,
+Guildpact Informant, Grateful Apparition). **Remaining singles, scoped:**
+- **Panther Habit (CAP9, blueprint banked)** — "If equipped creature would be dealt damage, prevent that
+  damage and put that many +1/+1 counters on it" (CR 615). ⛔ THE SEAM IS THE WORK: damageReplacements'
+  consult is PURE amount-in/amount-out (consultDamageAmount → number); a prevent-and-counters op needs a
+  STATE side effect. Honest shape: applyDamageReplacements returns { amount, prevented, sideEffects:[…] }
+  and every consult call site (combatResolution's consultCombat sub-steps + applyDamageEffect) applies
+  them + records the counter placement through addCounter so counters-put watchers fire. New scope kind:
+  target-side `equippedByThis` (resolve the wearer live off attachedTo). A 6-file pause-kind slice.
+- **Cloud, Midgar Mercenary** — "if a triggered ability of Cloud or an Equipment attached to it triggers,
+  that ability triggers an additional time" — a SCOPED trigger-count doubler (attachment-aware); probe
+  etbTriggerMultiplier/attackTriggerMultiplier for the multiplier registry before building.
+- **Buster Sword** — granted cdmg draw + "you may cast a spell from your hand with mana value ≤ that
+  damage without paying its mana cost" (free-cast with a dynamic MV cap off ctx.combatDamageAmount).
+- **Codsworth, Handy Helper** — "{T}: Attach target Aura or Equipment you control to target creature you
+  control" — a TWO-heterogeneous-target activated ability; check the targeting layer's multi-target
+  support first (twoTargetPump is same-type; this is aura-or-equipment + creature).
+**Multi-blockers after:** Sword of Hearth and Home (blink+tutor riders) · Mjölnir (4 pieces, several
+modeled) · Super-Soldier Serum (attack mass-attach + type-add) · Iron Man · Sword of Wealth and Power
+(delayed spell-copy) · Zirda (activation cost-reduce) · Illusionist's Bracers (ability copy) · Forge
+Anew · Cap First Avenger (unattach-cost X-damage + combat attach) · the 3 MDFCs (Halvar/T'Challa/Tony).
+⚠️ POST-LAND-GATE NOTE: the deck's measure-coverage % now includes 13 land-partial slots — the CARD
+tail above is what focus-fire grinds; the land tail is engine-wide work, not deck work.
+
+### 5.4-old (superseded 08-30) Captain America — 73, needs 17 · 🔍 SCOUTED 08-16: NO CHEAP SLICES (vein doctrine, like Kellan)
 Probed the vein #6 heart + statics: uniformly heavy. The 8 attack/combat-damage triggers are DISTINCT
 subsystems, not one shared arm — Sword of Hearth and Home (blink + basic-land tutor), Sword of Wealth and
 Power (Treasure arm ✓ but blocked on "copy your next instant/sorcery this turn" — delayed-copy), Buster
