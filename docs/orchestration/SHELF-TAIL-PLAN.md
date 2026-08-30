@@ -226,7 +226,13 @@ Return this card from your graveyard to the battlefield tapped" (a graveyard-act
 its own subsystem). Otharri flips when THAT lands. Ocelot Pride / Windcrag Siege (upkeep), Zack
 Fair / Patrolling Peacemaker (enters-as), Glimmer Lens, Crumb and Get It.
 
-### 5.4 Captain America Shoot your Shot — ⚔️ FOCUS-FIRE ACTIVE (Colton 08-30: Joe's live deck) — 86 native cards, CAP1-14 SHIPPED
+### 5.4 Captain America Shoot your Shot — ⚔️ FOCUS-FIRE ACTIVE (Colton 08-30: Joe's live deck) — **73/100 native**, CAP1-14 SHIPPED
+> ⚠️ **READ THE NUMBER CORRECTLY — an earlier heading here said "86 native cards" and that was MISLEADING.**
+> 86 = 73 native + 13 land-partial, i.e. it counted the land-partial slots as native. They are NOT native;
+> they are playable-but-not-fully-modeled, which is the whole point of the land gate. The honest figure is
+> **73/100 native**. Exact breakdown (measured 2026-08-30): 73 native · 13 land-partial · 12 body-only ·
+> 2 arbiter-spell. **And 23 of the 73 are LANDS** — the non-land spell coverage is 50/64.
+> **Card-work ceiling: 87%** (73 + the 14 remaining real cards). 90 needs the land tier.
 **The 08-16 "no cheap slices" scout was WRONG in method** — it bucketed by trigger kind; ablation-probing
 per CARD (strip one sentence, re-classify) found 12 single-blocker cards. ELEVEN shipped 2026-08-30
 (CAP1-9, RUN-LEDGER has the receipts): Living Legend · Liberator · Super-Soldier · Kaldra Compleat ·

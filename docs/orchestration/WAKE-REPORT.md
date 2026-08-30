@@ -7,7 +7,15 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9–CAP14 shipped, Cap 81→86 native (73%)** — suite **1316 / 15,065** green
+## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9–CAP14 shipped, Cap 69% → 73% native** — suite **1316 / 15,065** green
+
+> ⚠️ **NUMBER HYGIENE (corrected 08-30, Colton caught it).** Earlier entries said "Cap 81→86 native
+> cards". That figure added the 13 LAND-PARTIAL slots to the native count, which inflates it — land-partial
+> means playable but NOT fully modeled, which is the entire reason the land gate exists. **The honest
+> number is 73/100 native.** Measured breakdown: 73 native · 13 land-partial · 12 body-only · 2
+> arbiter-spell. **23 of the 73 are LANDS**, so non-land spell coverage is 50/64. Today moved the deck
+> 69% → 73% — five cards flipped (Panther Habit, Cloud, Buster Sword, Puresteel Paladin, Captain America
+> himself); CAP13 added zero to this deck by design, being the prerequisite for CAP14.
 
 > ### 🔴 COLTON'S CALL (08-30): **grind Cap as far as she goes (≈87%), THEN move to the LAND TIER.**
 > Measured, not estimated: Cap carries 13 land-partial slots, so flipping every remaining CARD still tops
