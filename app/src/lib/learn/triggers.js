@@ -4540,6 +4540,16 @@ export function detectTriggers(card) {
         // ⓘ "your next untap step" is accepted alongside "its controller's": on a SELF attacks trigger the
         // controller IS "you", so the two wordings name the same untap step.
         effectClause = "the source creature doesn't untap during its controller's next untap step";
+      } else if (cls.event === "etb" && cls.scope === "subtypeYouControl" && cls.subtypeFilter === "Equipment"
+        && /^(you may )?attach that equipment to target creature you control$/i.test(effectClause)) {
+        // ⭐ NAZAHN-ATTACH (CAP7 — Hammer of Nazahn: "Whenever [this] or another Equipment you control
+        // enters, you may attach THAT EQUIPMENT to target creature you control"). The subtype-ETB lane
+        // already detects the condition (subtypeFilter Equipment, the union reduced); "that Equipment" is
+        // the ENTERING equipment (CR 608.2c), threaded as the triggering permanent. Rewrite to the
+        // sentinel stack.js parses into the self-attach atom's attachFrom:"triggering" variant; the
+        // "you may " prefix is preserved for the parser's optional wrapper. Scope+event+filter-gated and
+        // whole-clause anchored: a rider stays unrewritten → LOW → Arbiter (safe FN).
+        effectClause = effectClause.replace(/attach that equipment/i, "attach the triggering equipment");
       } else if (cls.event === "combatDamageToCreature" && cls.exileThatCreature) {
         // ⭐ SELF combat-damage EXILE (CAP4) — the destroy twin's third sibling rewrite, identical in shape:
         // "that creature" is the DAMAGED creature, threaded by checkCombatDamageToCreatureTriggers as the

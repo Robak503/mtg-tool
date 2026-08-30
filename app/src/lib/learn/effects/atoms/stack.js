@@ -236,12 +236,17 @@ function applyCounter(state, atom, ctx) {
  * (never a fabricated attach).
  */
 function applySelfAttach(state, atom, ctx) {
-  if (!ctx.sourceId) return state;
+  // NAZAHN-ATTACH (CAP7): attachFrom:"triggering" attaches the TRIGGERING equipment (the one whose entry
+  // fired the watcher — ctx.triggeringPermanentId) instead of the source; Hammer of Nazahn stays on the
+  // battlefield and moves OTHER entering Equipment onto the chosen creature. An absent referent (the
+  // equipment left before resolution) is a clean no-op via the guard, never a fabricated attach.
+  const equipId = atom.attachFrom === "triggering" ? ctx.triggeringPermanentId : ctx.sourceId;
+  if (!equipId) return state;
   let next = state;
   for (const t of ctx.targets || []) {
     if (!t?.id) continue;
-    next = attachPermanent(next, { equipId: ctx.sourceId, targetId: t.id });
-    next = logEvent(next, { kind: "spell-effect", effect: "equip-attach", equipId: ctx.sourceId, targetId: t.id, controller: ctx.controller });
+    next = attachPermanent(next, { equipId, targetId: t.id });
+    next = logEvent(next, { kind: "spell-effect", effect: "equip-attach", equipId, targetId: t.id, controller: ctx.controller });
   }
   return next;
 }
@@ -282,6 +287,12 @@ export function attachClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   if (/^attach it to target creature you control$/.test(t)) {
     return { op: "self-attach", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
+  }
+  // NAZAHN-ATTACH sentinel (CAP7): produced ONLY by detectTriggers' equipment-enters rewrite ("attach
+  // that equipment …" — zero printed oracle text carries this phrase), so a spell anaphor never reaches
+  // it. Same atom, attachFrom:"triggering" — the applier reads ctx.triggeringPermanentId.
+  if (/^attach the triggering equipment to target creature you control$/.test(t)) {
+    return { op: "self-attach", attachFrom: "triggering", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
   }
   // LEGENDARY variant (Mithril Coat, Mjölnir, Storm Hammer): "attach it to target LEGENDARY creature you control".
   // Same self-attach atom + a supertype:legendary target restriction (creatureSatisfiesRestrictions enforces it,
