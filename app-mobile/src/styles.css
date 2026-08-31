@@ -9,6 +9,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { scroll-behavior: smooth; }
 
 body {
@@ -122,6 +123,11 @@ button { -webkit-tap-highlight-color: transparent; }
 .citations span { width: 100%; color: #82938a; font-size: .64rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .citations small { padding: 5px 8px; border-radius: 7px; color: #aebcb4; background: rgb(255 255 255 / 5%); font-size: .65rem; }
 .diagnostic { overflow: auto; padding: 12px; border-radius: 10px; color: #e8b4a6; background: rgb(0 0 0 / 25%); font-size: .68rem; white-space: pre-wrap; }
+.activity-status { min-height: 1.3em; margin: 12px 4px 0; color: #9caf9f; font-size: .72rem; }
+.answer-feedback { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+.answer-feedback > span { width: 100%; color: #91a29a; font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.feedback-button { min-height: 44px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 12px; color: #d8ded9; background: rgb(28 48 40 / 72%); font-size: .74rem; }
+.feedback-button:disabled { opacity: .62; }
 .loading-card { color: #b9c7c0; font-size: .86rem; animation: breathe 1.3s ease-in-out infinite alternate; }
 @keyframes breathe { to { opacity: .58; } }
 
@@ -151,7 +157,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .composer button { display: grid; width: 46px; height: 46px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 15px; color: #1b120b; background: linear-gradient(145deg, #ffc278, #d66d39); font-size: 1.35rem; font-weight: 800; }
 .composer button:disabled { opacity: .4; }
 .composer #stop-button { width: auto; padding: 0 14px; color: #f4f0e5; background: #4b2d29; font-size: .78rem; }
-.composer button:focus-visible, .quick-prompts button:focus-visible, .suggestions button:focus-visible { outline: 3px solid #ffc278; outline-offset: 3px; }
+.composer button:focus-visible, .quick-prompts button:focus-visible, .suggestions button:focus-visible, .feedback-button:focus-visible, summary:focus-visible { outline: 3px solid #ffc278; outline-offset: 3px; }
 .answer-card:focus { outline: none; }
 .composer > p { margin: 7px 2px 0; color: #687970; font-size: .62rem; }
 

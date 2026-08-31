@@ -37,6 +37,8 @@
         </article>
       </section>
 
+      <p id="activity-status" class="activity-status" role="status" aria-live="polite">Preparing the offline assistant.</p>
+
       <details class="knowledge-receipt">
         <summary>Offline knowledge status</summary>
         <dl id="receipt">
@@ -48,14 +50,14 @@
       </details>
     </main>
 
-    <form id="ask-form" class="composer">
+    <form id="ask-form" class="composer" aria-describedby="composer-privacy">
       <label for="question">Ask Omnath</label>
       <div class="composer-row">
         <textarea id="question" name="question" rows="1" maxlength="500" placeholder="Name the cards and game state…" required></textarea>
         <button id="ask-button" type="submit" aria-label="Ask question"><span aria-hidden="true">↑</span></button>
         <button id="stop-button" type="button" aria-label="Stop response" hidden>Stop</button>
       </div>
-      <p>Answers use only evidence stored on this device.</p>
+      <p id="composer-privacy">Answers use only evidence stored on this device.</p>
     </form>
   </body>
 </html>

@@ -45,8 +45,8 @@
 | --- | --- | --- |
 | Offline vertical-slice baseline | Complete | Branch `codex/omnath-phone-polish`, commit `c3b4e072` |
 | Validated interpretation and pure controller | Complete | `cd app-mobile; npm run answer:test; npm run build` |
-| UI, private feedback, diagnostics, and native lifecycle | Next | Resume from the first uncommitted diff after this table |
-| Security, bundle split, fixtures, and receipts | Pending | Run after the UI checkpoint is green |
+| UI, private feedback, diagnostics, and fixtures | Complete | `cd app-mobile; npm run answer:test; npm run build` |
+| Native lifecycle, security, and receipts | Next | Resume from the first uncommitted diff after this table |
 | Physical Pixel verification | Blocked on device | `npm run device:verify -- -AirplaneMode -PushModels -Model enhanced` |
 
 Each completed pre-phone checkpoint is committed separately. Generated packs,

@@ -11,7 +11,7 @@
     "knowledge:test": "node --no-warnings --test tests/knowledge-pack.test.mjs",
     "knowledge:parity": "node --no-warnings scripts/verify-knowledge-parity.mjs",
     "repository:test": "node --no-warnings --test tests/knowledge-repository.test.mjs",
-    "answer:test": "node --no-warnings --test tests/answer-planner.test.mjs tests/narration-contract.test.mjs tests/interpretation-contract.test.mjs tests/assistant-controller.test.mjs",
+    "answer:test": "node --no-warnings --test tests/answer-planner.test.mjs tests/narration-contract.test.mjs tests/interpretation-contract.test.mjs tests/assistant-controller.test.mjs tests/feedback-diagnostics.test.mjs",
     "test": "npm run knowledge:test && npm run repository:test && npm run answer:test",
     "tauri": "tauri",
     "android:init": "tauri android init --ci --skip-targets-install",
