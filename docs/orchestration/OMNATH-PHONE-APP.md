@@ -39,6 +39,19 @@
 > deletes the other. Shared implementation must reconcile both decision logs;
 > broader phone features remain outside this lane until Colton activates them.
 
+### Recoverable implementation checkpoints
+
+| Checkpoint | State | Receipt / recovery command |
+| --- | --- | --- |
+| Offline vertical-slice baseline | Complete | Branch `codex/omnath-phone-polish`, commit `c3b4e072` |
+| Validated interpretation and pure controller | Complete | `cd app-mobile; npm run answer:test; npm run build` |
+| UI, private feedback, diagnostics, and native lifecycle | Next | Resume from the first uncommitted diff after this table |
+| Security, bundle split, fixtures, and receipts | Pending | Run after the UI checkpoint is green |
+| Physical Pixel verification | Blocked on device | `npm run device:verify -- -AirplaneMode -PushModels -Model enhanced` |
+
+Each completed pre-phone checkpoint is committed separately. Generated packs,
+APKs, device reports, receipts, and model binaries remain ignored artifacts.
+
 ---
 
 ## 0. Owner amendment — reconcile July D7 and D12

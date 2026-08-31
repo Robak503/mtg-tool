@@ -98,3 +98,16 @@ test("never fabricates a ruling when retrieval is empty", async () => {
   assert.equal(answer.citations.length, 0);
   assert.match(answer.facts.message, /won’t invent/i);
 });
+
+test("does not mark a named interaction trusted without a deterministic verdict", async () => {
+  const answer = await planOfflineAnswer(
+    repository({
+      async searchCards() { return [omnath]; },
+      async getRulings() { return []; },
+    }),
+    "Does Omnath, Locus of Creation interact with this trigger?",
+  );
+  assert.equal(answer.status, "matches");
+  assert.equal(answer.answerTrusted, false);
+  assert.match(answer.facts.message, /not a complete ruling|still needs/i);
+});

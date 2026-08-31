@@ -1,3 +1,5 @@
+import { deterministicIntent } from "./interpretationContract.js";
+
 const QUESTION_STOP_WORDS = new Set([
   "a",
   "an",
@@ -85,7 +87,7 @@ function answerPlan(status, facts, citations = [], extra = {}) {
   });
 }
 
-export async function planOfflineAnswer(repository, rawQuestion) {
+export async function planOfflineAnswer(repository, rawQuestion, verifiedInterpretation = null) {
   const question = String(rawQuestion ?? "").trim();
   if (!question) {
     return answerPlan("insufficient", {
@@ -95,9 +97,10 @@ export async function planOfflineAnswer(repository, rawQuestion) {
     });
   }
 
-  const ruleNumber = question.match(/\b(?:CR\s*)?(\d{3}\.\d+[a-z]?)\b/i)?.[1];
+  const ruleNumber = verifiedInterpretation?.rule?.ruleNumber
+    ?? question.match(/\b(?:CR\s*)?(\d{3}\.\d+[a-z]?)\b/i)?.[1];
   if (ruleNumber) {
-    const rule = await repository.getRuleExact(ruleNumber);
+    const rule = verifiedInterpretation?.rule ?? await repository.getRuleExact(ruleNumber);
     if (rule) {
       return answerPlan("grounded", {
         heading: `Rule ${rule.ruleNumber}`,
@@ -107,8 +110,10 @@ export async function planOfflineAnswer(repository, rawQuestion) {
     }
   }
 
+  const intent = verifiedInterpretation?.intent ?? deterministicIntent(question);
+  const interpretedCards = verifiedInterpretation?.cards ?? [];
   const quotedName = question.match(/[“"]([^”"]{2,})[”"]/)?.[1];
-  const exact = await repository.findCardExact(quotedName ?? question);
+  const exact = interpretedCards[0] ?? await repository.findCardExact(quotedName ?? question);
   const terms = searchTerms(question);
   const candidates = exact
     ? [exact]
@@ -117,7 +122,7 @@ export async function planOfflineAnswer(repository, rawQuestion) {
       : [];
   const card = exact ?? candidates.find((candidate) => questionNamesCard(question, candidate));
 
-  if (card) {
+  if (card && intent === "card_lookup") {
     const rulings = (await repository.getRulings(card.oracleId)).slice(0, 4);
     return answerPlan("grounded", {
       heading: card.name,
@@ -136,6 +141,32 @@ export async function planOfflineAnswer(repository, rawQuestion) {
           oracleId: card.oracleId,
         })),
       ]);
+  }
+
+  if (card || interpretedCards.length) {
+    const referenceCards = interpretedCards.length ? interpretedCards : [card];
+    const reference = referenceCards[0];
+    const rulings = (await repository.getRulings(reference.oracleId)).slice(0, 2);
+    const rules = terms ? await repository.searchRules(terms, 4) : [];
+    return answerPlan("matches", {
+      heading: "I found the local card evidence, but not a complete ruling",
+      subheading: referenceCards.map(({ name }) => name).join(" · "),
+      message:
+        "I can quote the cards and related rules stored on this phone, but this interaction still needs a deterministic verdict or more game-state detail before I can call it resolved.",
+      details: referenceCards.map(({ name, oracleText }) => `${name}: ${oracleText || "No single-face Oracle text."}`),
+      followUp: "Add the zones, targets, timing, and choices involved.",
+    }, [
+      ...referenceCards.map(cardCitation),
+      ...rulings.map((ruling) => ({
+        kind: "official-ruling",
+        label: `${reference.name} ruling — ${ruling.publishedAt}`,
+        oracleId: reference.oracleId,
+      })),
+      ...rules.map(ruleCitation),
+    ], {
+      relatedRules: Object.freeze(rules),
+      suggestions: Object.freeze(candidates.slice(0, 4).map((candidate) => candidate.name)),
+    });
   }
 
   const rules = terms ? await repository.searchRules(terms, 4) : [];
