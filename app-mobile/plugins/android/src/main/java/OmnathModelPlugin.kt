@@ -29,29 +29,29 @@ private data class ModelSpec(val file: String, val bytes: Long, val sha256: Stri
 @TauriPlugin
 class OmnathModelPlugin(private val activity: Activity) : Plugin(activity) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val lifecycle = ModelLifecycle()
     private val catalog = mapOf(
         "base" to ModelSpec("Gemma3-1B-IT_q8_ekv1280_Google_Tensor_G5.litertlm", 1678542365L, "1ed29548b302764ce32ebf03d7df8fff943218b76d14230e97ee4bd0224cd8d1"),
         "enhanced" to ModelSpec("gemma-4-E2B-it_Google_Tensor_G5.litertlm", 3113545589L, "af1082986639ecde7db95d91be6fe54f8b6b458104734c5bafc204e69d6852dc"),
     )
     @Volatile private var engine: Engine? = null
     @Volatile private var conversation: Conversation? = null
-    @Volatile private var loadedModelId: String? = null
     @Volatile private var loading: Job? = null
     @Volatile private var generation: Job? = null
 
     private fun result(state: String, error: String? = null) = JSObject().apply {
-        put("state", state); put("modelId", loadedModelId); put("generating", generation?.isActive == true)
+        val snapshot = lifecycle.snapshot()
+        put("state", state); put("modelId", snapshot.modelId); put("generating", snapshot.generating)
         if (error != null) put("error", error)
     }
 
-    @Command fun status(invoke: Invoke) = invoke.resolve(result(if (loading?.isActive == true) "loading" else if (engine == null) "unloaded" else "ready"))
+    @Command fun status(invoke: Invoke) = invoke.resolve(result(lifecycle.snapshot().state))
 
     @Command fun loadModel(invoke: Invoke) {
         val id = invoke.parseArgs(ModelArgs::class.java).modelId ?: return invoke.reject("modelId is required")
         val spec = catalog[id] ?: return invoke.reject("Unknown modelId")
-        if (generation?.isActive == true) return invoke.reject("Generation is active")
-        if (loading?.isActive == true) return invoke.reject("A model is already loading")
-        if (engine != null && loadedModelId == id) return invoke.resolve(result("ready"))
+        val shouldLoad = try { lifecycle.beginLoad(id) } catch (error: IllegalStateException) { return invoke.reject(error.message ?: "Model is busy") }
+        if (!shouldLoad) return invoke.resolve(result("ready"))
         loading = scope.launch {
             try {
                 val root = File(activity.getExternalFilesDir(null), "models")
@@ -63,9 +63,9 @@ class OmnathModelPlugin(private val activity: Activity) : Plugin(activity) {
                 conversation?.close(); engine?.close()
                 val next = Engine(EngineConfig(modelPath = model.path, backend = Backend.GPU(), cacheDir = activity.cacheDir.path))
                 next.initialize()
-                engine = next; conversation = next.createConversation(); loadedModelId = id
+                engine = next; conversation = next.createConversation(); lifecycle.finishLoad(id)
                 invoke.resolve(result("ready"))
-            } catch (error: Throwable) { invoke.reject(error.message ?: error.javaClass.simpleName) }
+            } catch (error: Throwable) { lifecycle.failLoad(id); invoke.reject(error.message ?: error.javaClass.simpleName) }
             finally { loading = null }
         }
     }
@@ -75,7 +75,7 @@ class OmnathModelPlugin(private val activity: Activity) : Plugin(activity) {
         val requestId = args.requestId ?: return invoke.reject("requestId is required")
         val prompt = args.prompt?.takeIf { it.isNotBlank() } ?: return invoke.reject("prompt is required")
         val active = conversation ?: return invoke.reject("Model is not loaded")
-        if (generation?.isActive == true) return invoke.reject("Generation is already active")
+        try { lifecycle.beginGeneration(requestId) } catch (error: IllegalStateException) { return invoke.reject(error.message ?: "Model is busy") }
         generation = scope.launch {
             val output = StringBuilder()
             try {
@@ -85,26 +85,27 @@ class OmnathModelPlugin(private val activity: Activity) : Plugin(activity) {
                 }
                 invoke.resolve(JSObject().apply { put("requestId", requestId); put("text", output.toString()) })
             } catch (error: Throwable) { invoke.reject(error.message ?: error.javaClass.simpleName) }
+            finally { lifecycle.finishGeneration(requestId); generation = null }
         }
     }
 
     @Command fun cancel(invoke: Invoke) {
         try { conversation?.javaClass?.methods?.firstOrNull { it.name == "cancelProcess" }?.invoke(conversation) } catch (_: Throwable) {}
-        generation?.cancel(); generation = null
+        generation?.cancel(); generation = null; lifecycle.cancelGeneration()
         invoke.resolve(result(if (engine == null) "unloaded" else "ready"))
     }
 
     @Command fun unload(invoke: Invoke) {
-        loading?.cancel(); loading = null; generation?.cancel(); generation = null; conversation?.close(); conversation = null; engine?.close(); engine = null; loadedModelId = null
+        loading?.cancel(); loading = null; generation?.cancel(); generation = null; conversation?.close(); conversation = null; engine?.close(); engine = null; lifecycle.unload()
         invoke.resolve(result("unloaded"))
     }
 
     @Command fun benchmark(invoke: Invoke) {
         val info = try { conversation?.javaClass?.methods?.firstOrNull { it.name == "getBenchmarkInfo" }?.invoke(conversation)?.toString() } catch (_: Throwable) { null }
-        invoke.resolve(JSObject().apply { put("modelId", loadedModelId); put("benchmark", info ?: "unavailable") })
+        invoke.resolve(JSObject().apply { put("modelId", lifecycle.snapshot().modelId); put("benchmark", info ?: "unavailable") })
     }
 
-    override fun onDestroy() { loading?.cancel(); generation?.cancel(); conversation?.close(); engine?.close(); scope.cancel(); super.onDestroy() }
+    override fun onDestroy() { loading?.cancel(); generation?.cancel(); conversation?.close(); engine?.close(); lifecycle.unload(); scope.cancel(); super.onDestroy() }
 
     private fun sha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
