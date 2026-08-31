@@ -1,0 +1,10 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = [
+  "allow-status",
+  "allow-load-model",
+  "allow-generate",
+  "allow-cancel",
+  "allow-unload",
+  "allow-benchmark",
+]

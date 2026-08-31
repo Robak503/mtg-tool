@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0d1714" />
+    <title>Omnath MTG Assistant</title>
+    <script type="module" src="/src/main.js"></script>
+  </head>
+  <body>
+    <main id="app" data-state="loading" aria-busy="true">
+      <header class="topbar">
+        <a class="brand" href="#top" aria-label="Omnath home">
+          <span class="brand-mark" aria-hidden="true">O</span>
+          <span><strong>Omnath</strong><small>MTG rules assistant</small></span>
+        </a>
+        <span class="offline-pill"><i></i> Offline</span>
+      </header>
+
+      <section id="top" class="hero">
+        <p class="eyebrow">ONE OMNATH · ON YOUR PHONE</p>
+        <h1>Rules answers that stay at the table.</h1>
+        <p>Card text, official rulings, and the Comprehensive Rules—available without a signal.</p>
+      </section>
+
+      <section class="quick-prompts" aria-label="Example questions">
+        <button type="button" data-question="What does Omnath, Locus of Creation do?">Omnath, Locus of Creation</button>
+        <button type="button" data-question="Show CR 702.7">Show CR 702.7</button>
+        <button type="button" data-question="How do triggered abilities work?">Triggered abilities</button>
+      </section>
+
+      <section id="conversation" class="conversation" aria-live="polite">
+        <article class="answer-card welcome-card">
+          <div class="answer-kicker"><span class="pulse"></span> Preparing local knowledge</div>
+          <h2 id="startup-title">Opening the offline rules pack…</h2>
+          <p id="startup-copy">The first launch may take a moment while the verified database is placed in private app storage.</p>
+        </article>
+      </section>
+
+      <details class="knowledge-receipt">
+        <summary>Offline knowledge status</summary>
+        <dl id="receipt">
+          <div><dt>Rules runtime</dt><dd id="runtime-status">Checking</dd></div>
+          <div><dt>Knowledge pack</dt><dd id="pack-status">Opening</dd></div>
+          <div><dt>Local model</dt><dd id="model-status">Checking</dd></div>
+          <div><dt>Network</dt><dd>Never required</dd></div>
+        </dl>
+      </details>
+    </main>
+
+    <form id="ask-form" class="composer">
+      <label for="question">Ask Omnath</label>
+      <div class="composer-row">
+        <textarea id="question" name="question" rows="1" maxlength="500" placeholder="Name the cards and game state…" required></textarea>
+        <button id="ask-button" type="submit" aria-label="Ask question"><span aria-hidden="true">↑</span></button>
+        <button id="stop-button" type="button" aria-label="Stop response" hidden>Stop</button>
+      </div>
+      <p>Answers use only evidence stored on this device.</p>
+    </form>
+  </body>
+</html>

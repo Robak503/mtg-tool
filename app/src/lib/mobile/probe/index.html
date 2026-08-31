@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Omnath WebView Runtime Probe</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+        background: #101714;
+        color: #e7f5eb;
+      }
+      body {
+        max-width: 54rem;
+        margin: 3rem auto;
+        padding: 0 1.25rem;
+      }
+      main {
+        border: 1px solid #365443;
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        background: #16211b;
+      }
+      main[data-status="pass"] h1 {
+        color: #7ee2a8;
+      }
+      main[data-status="fail"] h1 {
+        color: #ff8d8d;
+      }
+      pre {
+        overflow: auto;
+        line-height: 1.45;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="probe" data-status="running">
+      <h1>Running Omnath WebView probe…</h1>
+      <pre id="report"></pre>
+    </main>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
+

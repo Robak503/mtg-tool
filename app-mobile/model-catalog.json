@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "runtime": "com.google.ai.edge.litertlm:litertlm-android:0.16.1",
+  "models": {
+    "base": {
+      "file": "Gemma3-1B-IT_q8_ekv1280_Google_Tensor_G5.litertlm",
+      "repository": "litert-community/Gemma3-1B-IT",
+      "expectedBytes": 1678542365,
+      "sha256": "1ed29548b302764ce32ebf03d7df8fff943218b76d14230e97ee4bd0224cd8d1",
+      "licenseGate": "gemma"
+    },
+    "enhanced": {
+      "file": "gemma-4-E2B-it_Google_Tensor_G5.litertlm",
+      "repository": "litert-community/gemma-4-E2B-it-litert-lm",
+      "expectedBytes": 3113545589,
+      "sha256": "af1082986639ecde7db95d91be6fe54f8b6b458104734c5bafc204e69d6852dc",
+      "licenseGate": null
+    }
+  }
+}
