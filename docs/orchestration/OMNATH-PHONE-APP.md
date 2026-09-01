@@ -48,7 +48,7 @@
 | UI, private feedback, diagnostics, and fixtures | Complete | `cd app-mobile; npm run answer:test; npm run build` |
 | Native lifecycle and shell security | Complete | `cd app-mobile; npm run android:model:test; npm run shell:test` |
 | Automated build receipt | Complete | `cd app-mobile; npm run receipt` |
-| Final full-suite APK | Next | `cd app-mobile; npm run release:verify` |
+| Final full-suite APK | Complete | Commit `96c4ecc9`; `cd app-mobile; npm run release:verify` |
 | Physical Pixel verification | Blocked on device | `npm run device:verify -- -AirplaneMode -PushModels -Model enhanced` |
 
 Each completed pre-phone checkpoint is committed separately. Generated packs,
@@ -550,9 +550,9 @@ CR JSON nor the source Oracle/rulings envelopes are runtime APK inputs.
 
 ### Stage 4 — vertical-slice APK
 
-**Implementation receipt — 2026-08-30, pending device execution, model staging,
-and commit.** The deterministic vertical slice and local-model seam now exist in
-`app-mobile/`.
+**Implementation receipt — 2026-08-31, pending device execution.** The
+deterministic vertical slice, local-model seam, and pre-phone alpha polish now
+exist on branch `codex/omnath-phone-polish`.
 
 - The phone UI has one Omnath chat surface and no persona selector. It exposes
   the runtime and knowledge-pack receipt without requiring a network.
@@ -567,6 +567,18 @@ and commit.** The deterministic vertical slice and local-model seam now exist in
   Model output may only arrange `{{RESULT}}` and `{{FOLLOW_UP}}` exactly once;
   unknown, duplicate, missing, oversized, or literal model content is rejected
   in favor of the deterministic answer.
+- Model-assisted question interpretation accepts only a bounded JSON intent,
+  card-name, and rule-number shape. Every proposed record must resolve exactly
+  in the local pack before it can affect retrieval, and interaction questions
+  remain untrusted without a deterministic verdict. A pure controller prevents
+  cancelled or superseded requests from rendering stale results.
+- Answer feedback stores only aggregate outcome/rejection counts. Correction
+  reopens the composer, and exportable diagnostic receipts whitelist runtime,
+  pack, model, and outcome codes without retaining question or answer text.
+- Desktop fixtures cover grounded, related-only, insufficient, corrupt-pack,
+  unavailable-model, invalid-model, and cancellation states. Browser testing
+  caught and fixed the composer style that previously overrode the Stop
+  button's hidden state.
 - LiteRT-LM 0.16.1 publishes newer Kotlin metadata than Tauri 2.11's Android
   host compiler reads by default. The phone Gradle modules use the narrow
   `-Xskip-metadata-version-check` compatibility flag and aligned JVM 17 targets;
@@ -580,18 +592,23 @@ and commit.** The deterministic vertical slice and local-model seam now exist in
   The base candidate's exact byte count and SHA-256 are also pinned, but its
   endpoint returns HTTP 401 until Colton accepts the Hugging Face Gemma license
   and supplies `HF_TOKEN`.
-- The rebuilt APK containing the compiled LiteRT plugin is 203,775,537 bytes with
-  SHA-256 `2befe4621f05f4432338f076adad896c153588a48e89ae1ccf2d839e54d8239f`.
-  Its manifest still contains no `android.permission.INTERNET`.
-- The rebuilt signed ARM64 debug APK targets Android 36 with minimum SDK 24,
-  package id `com.colton.omnath.probe.debug`, and user-facing label **Omnath MTG
-  Assistant**. It is 178,695,004 bytes with SHA-256
-  `8c65ccb991c2dcaf3d19a750fb401f8b867763a57ffa5228e62c0691be90bbe4`.
-  Its manifest has no `android.permission.INTERNET`; the only reported
-  permission is Android's package-scoped dynamic-receiver protection. The
-  embedded native library contains the SQLite signature and knowledge resource
-  names. Installation, first-run provisioning, airplane-mode queries, and the
-  Android WebView probe remain pending until ADB sees the Pixel.
+- The authoritative full-suite ARM64 debug APK targets Android 36 with minimum
+  SDK 24, package id `com.colton.omnath.probe.debug`, and user-facing label
+  **Omnath MTG Assistant**. It is 203,770,366 bytes with SHA-256
+  `87f52fe36e121ee62a4b7976043d6594dfe3532e929e10801ae1d60bca7ac5f9`.
+  Its machine-generated receipt reports 931 entries, no
+  `android.permission.INTERNET`, no bundled `.litertlm`, no raw Oracle/rulings/CR
+  input, a matching knowledge-pack hash, and a matching staged enhanced-model
+  hash. The only reported permission is Android's package-scoped
+  dynamic-receiver protection.
+- The initial UI/controller JavaScript is 28,569 bytes (10,310 bytes gzip); the
+  995,428-byte rules-engine witness is isolated in a lazy chunk. The release
+  gate passed 24 mobile JS/data/security tests, 17 engine/WebView tests, three
+  Rust provisioning tests, and three Kotlin model-lifecycle tests before the
+  APK receipt was issued.
+- Installation, first-run provisioning, airplane-mode queries, the packaged
+  Android WebView probe, and model performance remain pending until ADB sees the
+  Pixel.
 
 - One chat surface.
 - One Omnath persona.
@@ -607,9 +624,9 @@ and commit.** The deterministic vertical slice and local-model seam now exist in
 
 ### Stage 5 — friend alpha
 
-- Readable trust/recovery language.
-- Correction and answer-rating controls.
-- Exportable diagnostics without private conversation leakage.
+- Readable trust/recovery language, correction and answer-rating controls, and
+  exportable diagnostics without private conversation leakage are implemented
+  in the pre-phone slice.
 - Local player preferences and limited useful memory.
 - Airplane-mode regression suite and signed test APK.
 
