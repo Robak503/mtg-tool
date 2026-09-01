@@ -47,7 +47,8 @@
 | Validated interpretation and pure controller | Complete | `cd app-mobile; npm run answer:test; npm run build` |
 | UI, private feedback, diagnostics, and fixtures | Complete | `cd app-mobile; npm run answer:test; npm run build` |
 | Native lifecycle and shell security | Complete | `cd app-mobile; npm run android:model:test; npm run shell:test` |
-| Automated build receipt and final APK | Next | Resume from the first uncommitted diff after this table |
+| Automated build receipt | Complete | `cd app-mobile; npm run receipt` |
+| Final full-suite APK | Next | `cd app-mobile; npm run release:verify` |
 | Physical Pixel verification | Blocked on device | `npm run device:verify -- -AirplaneMode -PushModels -Model enhanced` |
 
 Each completed pre-phone checkpoint is committed separately. Generated packs,

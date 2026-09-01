@@ -21,7 +21,9 @@
     "android:model:test": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/test-android-model.ps1",
     "models:stage": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/stage-models.ps1",
     "models:push": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/push-models-to-device.ps1",
-    "device:verify": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/device-verify.ps1"
+    "device:verify": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/device-verify.ps1",
+    "receipt": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/create-build-receipt.ps1",
+    "release:verify": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/verify-release-candidate.ps1"
   },
   "dependencies": {
     "@tauri-apps/api": "2.11.1",
