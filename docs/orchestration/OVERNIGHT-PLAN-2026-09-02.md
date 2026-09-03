@@ -81,8 +81,8 @@ Stage ① builds the arms; stage ② is making them COMPLETE across the corpus a
 land-partial, 368 single-blockers):** ✅ reveal-lands (19, LANDS-7) · ✅ typed-basic union fetch — the
 Landscapes/Panoramas (16, LANDS-8) · ✅ Channel (shipped in stage ①, LANDS-5: +20 riders) · ✅ shocklands
 (LANDS-2) · ✅ "enters tapped unless" (LANDS-1, 83) · ✅ enters-with-N-counters lands (12, LANDS-9) ·
-✅⚠️ storage-counter lands (13, LANDS-10 — a METRIC flip only: their remove-counter mana is never offered at
-runtime; corrected 04:50, see the top of §6) · ✅ the Karoos + pay-{1} lands (9 + Scythe Tiger, LANDS-11) ·
+✅ storage-counter lands (13, LANDS-10 — was a METRIC-only flip, corrected 04:50; **made honest by STAGE ④-4 at
+10:45**: the tap-only removal form is a real source; the {1}-costed Steppe form of 5 of them stays refused) · ✅ the Karoos + pay-{1} lands (9 + Scythe Tiger, LANDS-11) ·
 ✅ choose-a-color permanents (21, LANDS-12). **Measured after LANDS-12 (the DONE ② number): land-partial
 454 → 368 (single-blockers 368 → 291); after LANDS-13 (the lairs, +5): 363.** ⚠️ CORRECTION to an earlier
 line here: NOT every ≥3-carrier family is shipped or parked — five families of exactly 5 carriers remain
@@ -280,8 +280,11 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
   slice's witness and census also caught **four live FPs in the OLD main product and fixed them**: Ancient
   Spring's and Spawning Bed's plain taps sacrificed the land; Grand Coliseum handed out a PAINLESS any-colour;
   Hall of Oracles gave its {1}-costed any-colour for free; a Pathway's back face tapped on the front. Still
-  unmodelled (fail-closed, honest): a second line with a pain / pay-life / doesn't-untap rider, and the
-  storage/charge counter-removal mana (a variable-amount, mana-costed source — its own lane).
+  unmodelled (fail-closed, honest): a second line with a pain / pay-life / doesn't-untap rider.
+  **→ ✅ STAGE ④-4 (10:45): the tap-only counter-removal mana SHIPPED** — the 11 storage lands spend their
+  counters (LANDS-10's credit is honest now) and the five Mana Batteries flipped (+5); a two-pass planner
+  preserves stored counters unless the cost needs them. Still refused: the {1}-costed forms (the Saltcrusted
+  Steppe cycle, Crucible of the Spirit Dragon, Petalmane Baku — no mana-costed mana source).
 - **The Roads (5 — Reef/Wild/… Roads) · PARKED 05:50:** "{1}{U}, {T}, Sacrifice this land: Create a 1/1
   colorless Pilot creature token with 'This token saddles Mounts and crews Vehicles as though its power were
   2 greater.'" The token is a quoted STATIC on two verbs; crew is modeled (the crew power sum in legalChoices

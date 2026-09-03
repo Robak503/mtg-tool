@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔋 2026-09-03 — STAGE ④-4: COUNTER-REMOVAL MANA — the storage lands spend their counters; the Mana Batteries flip · **+5 corpus** · corpus 40.4% (13,835/34,245) · LANDS-10's 13 storage lands are now HONEST at runtime
+> Suite **1353 / 15,351** green; lint 0. Flip-diff **+5, zero LOST** (the five Mana Batteries, body-only →
+> native-mana — their only mana line is the removal line, now a real product). **9/9 killed.**
+> · **Two tap-only, mana-cost-free forms** (CR 605.1a / 122.1): "{T}, Remove any number of <K> counters from
+>   this <noun>: Add {M} for each <K> counter removed this way." (11 storage lands — Mage-Ring Network,
+>   Fountain of Cho, Subterranean Hangar …) and "…: Add {M}, then add an additional {M} for each …" (the five
+>   Batteries; Kyren Toy's "X plus one" is the same shape). ONE reader in manaProductionImpl feeds both the
+>   metric and the runtime; it fires as the MAIN product only when the card has no other tap-mana line (the
+>   Batteries), else the line rides as an EXTRA record (④-3's path). The amount is the permanent's LIVE
+>   counters (plus one for the Battery form) — greedy-max, every counter removed ("any number" makes that
+>   legal; surplus floats); the plan carries the counters it priced and the commit removes exactly those
+>   (pinned: {C}{C}{C} from three storage counters leaves zero and taps the land).
+> · **Two-pass planning.** A storage land is two records on one permanent; a greedy planner taking the plain
+>   tap first would report a payable {3} unpayable, and taking the removal first would burn every counter for
+>   a single {C}. So pass A plans WITHOUT the removal records (counters preserved whenever the cost can be met
+>   without them — pinned: {C} from a 3-counter land keeps all three), and only on failure pass B plans with
+>   every record, a permanent's larger sibling first. A board with no removal record is byte-identical.
+> · **Still refused, honestly:** the {1}-costed forms (the Saltcrusted Steppe cycle ×5, Crucible of the
+>   Spirit Dragon, Petalmane Baku) — the planner has no mana-costed mana source (pinned).
+> · The 04:50 correction's storage half is closed: LANDS-10's 13 credited lands now make counters they CAN
+>   spend. The extra-lines pin that expected the storage line refused was re-anchored on the Steppe form.
+
 > ## 🏞️ 2026-09-03 — STAGE ④-3: EXTRA MANA LINES — the multi-line-mana correction's runtime half · **+6 corpus** · corpus 40.4% (13,830/34,245) · 41 lands now offer their second line · FOUR live FPs in the old main product fixed
 > Suite **1352 / 15,343** green; lint 0. Flip-diff **+6, zero LOST** — the Gathering Place five (land-partial
 > → land: their gated coloured line is now offered, so the credit is honest) and Tablet of Compleation

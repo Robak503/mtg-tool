@@ -38,8 +38,11 @@
 > taps), the planner never taps a permanent twice, and the slice's own census caught four live FPs in the old
 > main product (Ancient Spring / Spawning Bed's plain taps sacrificed the land; Grand Coliseum's painless
 > any-colour; Hall of Oracles' free {1}-costed any-colour; a Pathway's back face on the front) — all fixed and
-> pinned. The Gathering Place five flipped honestly (+6 with Tablet of Compleation; corpus 13,830; suite
-> 1352 / 15,343). Still fail-closed: rider-bearing second lines and the storage counter-removal mana.
+> pinned. The Gathering Place five flipped honestly (+6 with Tablet of Compleation). **And at 10:45 (STAGE
+> ④-4) the storage half closed too:** the tap-only counter-removal mana is a real source (the 11 storage lands
+> spend their counters — LANDS-10's credit is honest now; the five Mana Batteries flipped, +5), with a
+> two-pass planner that preserves stored counters unless the cost needs them (corpus 13,835; suite 1353 /
+> 15,351). Still fail-closed: rider-bearing second lines and the {1}-costed Steppe form.
 >
 > **② DONE — the land-tier family table (every `land-partial` clause family with ≥3 corpus carriers, census
 > 05:45 scratch lands-census-0545.txt; land-partial 454 → 357, single-blockers 368 → 280):**
@@ -84,8 +87,10 @@
 > mutations seen-to-fail, full suite, CI. **Stage ④ opened at 07:15 with a banked scope verdict (plan §4)
 > and its first slice shipped at 07:45: CLASH — the atom + "if you win" as a condition; the five
 > ETB-counter carriers flipped (+5) — and its second arm at 08:10: the "whenever you clash" trigger event
-> (Sylvan Echoes, +1; corpus 13,824; suite 1351 / 15,329). The clash family is at its honest edge for one
-> night (6 of 13 sole-blocked flipped; the rest are their own payoff/rider shapes).**
+> (Sylvan Echoes, +1). The clash family is at its honest edge for one night (6 of 13 sole-blocked flipped;
+> the rest are their own payoff/rider shapes). Then the correction's own runtime: STAGE ④-3 1b15d243 extra
+> mana lines (+6, four old FPs fixed) and STAGE ④-4 counter-removal mana (+5, the Batteries; the storage
+> lands honest) — corpus **13,835**, suite **1353 / 15,351**.**
 >
 > **Where the walk stopped and why (05:10):** Squirrel Girl at 83 — everything left on her is a multi-slice
 > program (Sylvan Library's pending-choice stack, Boseiju's three-piece channel, Cavern of Souls, The One

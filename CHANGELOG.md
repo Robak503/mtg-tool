@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Storage lands and Mana Batteries actually spend their counters** — Mage-Ring Network, Fountain of Cho,
+  Subterranean Hangar and their kin tap for one mana per storage counter removed; the five Mana Batteries
+  tap for one plus one per charge counter. The counters really come off when you pay.
 - **Lands with two mana abilities tap for both** — the Tainted lands, the Verges, the Gathering Place cycle,
   the free colourless tap beside an any-colour line, and the "Sacrifice this land" rituals now offer their
   second line (gated exactly as printed), and a land is never tapped twice through two lines. Four wrong taps

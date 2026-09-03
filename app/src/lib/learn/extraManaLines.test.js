@@ -52,12 +52,14 @@ describe("which second lines are admitted", () => {
     expect(reef.painColors).toEqual(["U", "R"]);
   });
 
-  it("⛔ a rider-bearing line is never admitted (a painland's coloured line, a pay-life line, a counter-removal line)", () => {
+  it("⛔ a rider-bearing line is never admitted (a painland's coloured line, a pay-life line, a mana-COSTED counter-removal line)", () => {
     expect(extraManaLineProducts(SHIVAN_REEF, manaProduction(SHIVAN_REEF))).toEqual([]);
     const payLife = L("Caves of Koilos-ish", "{T}: Add {C}.\n{T}, Pay 1 life: Add {W} or {B}.");
     expect(extraManaLineProducts(payLife, manaProduction(payLife))).toEqual([]);
-    const storage = L("Mage-Ring Network", "{T}: Add {C}.\n{1}, {T}: Put a storage counter on this land.\n{T}, Remove any number of storage counters from this land: Add {C} for each storage counter removed this way.");
-    expect(extraManaLineProducts(storage, manaProduction(storage))).toEqual([]);
+    // The tap-only "Remove any number of storage counters" line IS admitted since STAGE ④-4 (counterRemovalMana.test.js);
+    // the {1}-costed Steppe form stays refused — the planner has no mana-costed source.
+    const steppe = L("Saltcrusted Steppe", "{T}: Add {C}.\n{1}, {T}: Put a storage counter on this land.\n{1}, Remove X storage counters from this land: Add X mana in any combination of {G} and/or {W}.");
+    expect(extraManaLineProducts(steppe, manaProduction(steppe))).toEqual([]);
   });
 
   it("a plain line printed FIRST is still an extra when the merged main chose the other line's colours (the free {C} tap)", () => {

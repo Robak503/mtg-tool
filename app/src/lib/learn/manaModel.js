@@ -30,7 +30,7 @@
  * legalChoices, and layers imports none of these modules so that edge is acyclic too.
  */
 
-import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, creaturePower } from "./gameState.js";
+import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, creaturePower, removeCounter } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit
 import { checkSacrificeTriggers, checkLeavesTriggers, checkDiesTriggers } from "./triggers.js"; // SG-3: a sacrificed-creature mana cost dies through the chokepoint // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
 import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow, colorsOf } from "./layers.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
@@ -888,7 +888,7 @@ const MAX_SPEED_PREFIX = /^\s*max speed\s*[—–-]\s*/i;
  * counter-removal rider fails the anchor on purpose: its single-line product would silently drop the rider
  * (a painless painland tap), the forbidden direction. Never the main line itself. Memoized per card object.
  */
-const EXTRA_MANA_LINE_RE = /^\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?$/i;
+const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.)$/i; // + STAGE ④-4: the tap-only counter-removal forms
 // A PLAIN tap line: complete, ungated, no sacrifice — the line a multi-line card can always tap for.
 const PLAIN_MANA_LINE_RE = /^\{T\}: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.$/i;
 
@@ -949,7 +949,11 @@ export function extraManaLineProducts(card, mainProd) {
     // ONLY mana line is gated — Tablet of Compleation — has that line AS its main; it must not ride twice).
     const covered = !!mainProd && prod.colors.every((c) => (mainProd.colors || []).includes(c))
       && !!prod.sacrifices === !!mainProd.sacrifices
-      && (prod.activationCondition || null) === (mainProd.activationCondition || null);
+      && (prod.activationCondition || null) === (mainProd.activationCondition || null)
+      // STAGE ④-4: a counter-removal line is its own ability — covered only by a main that IS that same line
+      // (the Batteries), never by a plain tap of the same colour (Mage-Ring Network's storage line rides).
+      && (prod.removesCounters?.type || null) === (mainProd.removesCounters?.type || null)
+      && (prod.removesCounters?.mode || null) === (mainProd.removesCounters?.mode || null);
     if (covered) continue;
     out.push({ ...prod, extraLine: line });
   }
@@ -1284,6 +1288,22 @@ function manaProductionImpl(card) {
   // Strip the gated ability (lands included) so parseAddClause sees only the ENERGY-FREE mana: Aether Hub keeps
   // its {C}, and a source whose ONLY mana is energy-gated produces nothing → null → non-native, correctly.
   oracleForAdd = oracleForAdd.replace(/[^.\n]*\bpay (?:\{e\})+[^.\n:]*:\s*add\b[^.\n]*\.?/gi, " ");
+  // ===== COUNTER-REMOVAL MANA (STAGE ④-4, 2026-09-03 — CR 605.1a / 122.1) ===== the tap-only, mana-cost-free
+  // forms: "{T}, Remove any number of <K> counters from this <noun>: Add {M} for each <K> counter removed this
+  // way." (the storage lands — Fountain of Cho, Mage-Ring Network, Subterranean Hangar …) and "…: Add {M}, then
+  // add an additional {M} for each <K> counter removed this way." (the Mana Batteries). The AMOUNT is resolved
+  // LIVE by manaSources from the permanent's counters (greedy-max — "any number" makes removing them all legal;
+  // surplus floats) and the commit removes exactly the counters the plan priced. Only fires when this is the
+  // card's ONLY tap-mana line (the Batteries); a storage land's plain "{T}: Add {C}." stays its main product
+  // and the removal line rides as an EXTRA line (extraManaLineProducts parses it alone, where it IS the only
+  // line). The {1}-costed forms (the Saltcrusted Steppe cycle, Petalmane Baku) stay refused: no mana-costed source.
+  {
+    const crm = oracleForAdd.match(/^\{T\}, Remove any number of (storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{([WUBRGC])\}(, then add an additional \{([WUBRGC])\})? for each \1 counters? removed this way\.?$/im);
+    const otherTapLine = crm && /^\{T\}(?:, [^:\n]*)?: Add\b/im.test(oracleForAdd.replace(crm[0], ""));
+    if (crm && !otherTapLine && (!crm[3] || crm[4] === crm[2])) {
+      return { colors: [crm[2]], amount: crm[3] ? 1 : 0, requiresTap: true, removesCounters: { type: crm[1], mode: crm[3] ? "plusOne" : "perCounter" } };
+    }
+  }
   const fromOracle = parseAddClause(oracleForAdd, card);
   // A NON-LAND activated mana ability must also be PAYABLE by the sim as a standing source. An ability whose
   // only cost is a CONSUMABLE/non-repeatable resource the sim can't spend — a non-self sacrifice (Utopia Mycon
@@ -1582,6 +1602,14 @@ export function manaSources(state, playerId) {
     // comparison legalChoices uses for activated abilities.
     if (prod.activationCondition
       && evaluateInterveningIf(state, prod.activationCondition, playerId, { sourcePermanentId: perm.id }) !== true) continue;
+    // STAGE ④-4: a MAIN counter-removal product (the Mana Batteries — their only mana line) resolves its amount
+    // from the permanent's live counters, plus one for the Battery form; nothing to add → no source.
+    if (prod.removesCounters) {
+      const n = perm.counters?.[prod.removesCounters.type] || 0;
+      const a = (prod.removesCounters.mode === "plusOne" ? 1 : 0) + n;
+      if (a <= 0) continue;
+      prod = { ...prod, amount: a, removesCountersLive: { type: prod.removesCounters.type, count: n } };
+    }
     // KW-ENGINES (CR 702.179) — a "Max speed —" mana ability is live ONLY while its controller's speed
     // is 4. Gated here at the same single chokepoint as the activation condition, for the same reason:
     // every affordability/payment consumer reads sources from here, so a below-max source is never
@@ -1723,7 +1751,7 @@ export function manaSources(state, playerId) {
     // SG-3 — a sacrifice-a-creature source needs ANOTHER creature to feed it (never the source itself, never
     // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid).
     if (prod.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")))) continue;
-    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}) });
+    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}) });
     // STAGE ④-3 — EXTRA MANA LINES: a second, complete "{T}: Add …" line the main product does not cover (a
     // gated colour line — Tainted Isle / the Verges / Gathering Place; a free "{T}: Add {C}" beside a painful
     // any-colour line — Grand Coliseum; a "{T}, Sacrifice this land: Add …" ritual line). Each is its own
@@ -1732,8 +1760,12 @@ export function manaSources(state, playerId) {
     for (const extra of extraManaLineProducts(perm.card, manaProduction(perm.card))) {
       if (extra.activationCondition && evaluateInterveningIf(state, extra.activationCondition, playerId, { sourcePermanentId: perm.id }) !== true) continue;
       const exFixed = extra.fixed && Object.keys(extra.fixed).length > 1 ? extra.fixed : null;
-      const exAmount = exFixed ? Object.values(exFixed).reduce((a, b) => a + b, 0) : (extra.amount ?? 1) * manaMult;
-      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), extraLine: true });
+      // STAGE ④-4: a counter-removal line's amount is the permanent's LIVE counters (plus one for the Battery form).
+      const crCount = extra.removesCounters ? (perm.counters?.[extra.removesCounters.type] || 0) : 0;
+      const exAmount = extra.removesCounters ? ((extra.removesCounters.mode === "plusOne" ? 1 : 0) + crCount) * manaMult
+        : exFixed ? Object.values(exFixed).reduce((a, b) => a + b, 0) : (extra.amount ?? 1) * manaMult;
+      if (exAmount <= 0) continue;
+      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: crCount } } : {}), extraLine: true });
     }
   }
   // SG-6 — EXILE-FROM-HAND sources (Elvish / Simian Spirit Guide): a mana ability of a card in HAND. Offered
@@ -1791,7 +1823,25 @@ export function sourcesExcludingOneShotVictim(sources, victimId) {
  * thread context under-pays (a clean MANA_SHORT) instead of silently spending restricted mana on the wrong
  * thing. The unsafe direction requires an explicit, wrong context; the safe direction is the default.
  */
+/**
+ * STAGE ④-4 — TWO-PASS PLANNING around counter-removal sources. A storage land offers two records on one
+ * permanent (its plain tap and its counter-removal line) and the greedy planner tries sources in order:
+ * taking the plain tap first would exclude the removal sibling and report a payable {3} as unpayable, while
+ * taking the removal first would burn every stored counter to pay a single {C}. So: pass A plans WITHOUT the
+ * removal records (the counters are preserved whenever the cost can be met without them); only if that fails
+ * does pass B plan with every record, a permanent's larger sibling first. Boards with no removal record take
+ * pass A alone — byte-identical to the single-pass planner.
+ */
 export function planPayment(pool, sources, cost, spendContext = null) {
+  const hasRemoval = (sources || []).some((s) => s && s.removesCounters);
+  if (!hasRemoval) return planPaymentOnce(pool, sources, cost, spendContext);
+  const passA = planPaymentOnce(pool, (sources || []).filter((s) => !s.removesCounters), cost, spendContext);
+  if (passA) return passA;
+  const ordered = [...(sources || [])].sort((a, b) => (a.permanentId === b.permanentId ? (b.amount || 0) - (a.amount || 0) : 0));
+  return planPaymentOnce(pool, ordered, cost, spendContext);
+}
+
+function planPaymentOnce(pool, sources, cost, spendContext = null) {
   const spend = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
   if (!cost) return { taps: [], spend };
 
@@ -1870,6 +1920,7 @@ export function planPayment(pool, sources, cost, spendContext = null) {
       sacrificesCreature: !!s.sacrificesCreature,
       exilesGyCard: !!s.exilesGyCard,
       fromHand: !!s.fromHand, // SG-6 — the source is a HAND card; the committer exiles it instead of tapping
+      removesCounters: s.removesCounters || null, // STAGE ④-4 — the counters this tap removes (the commit removes exactly these)
       used: false,
     }))
     .filter(s => s.amount > 0)
@@ -1946,7 +1997,7 @@ export function planPayment(pool, sources, cost, spendContext = null) {
     // PAINLAND: stamp the life cost ONLY when the chosen colour is one of the painful ones — a tap for
     // the free {C} half costs nothing, exactly as printed.
     const painHit = s.painColors && s.painColors.includes(primaryColor) ? s.painAmount : 0;
-    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
+    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(bonusPicks.length && { bonus: bonusPicks }) });
     return wantColor && assigned ? wantColor : primaryColor;
   };
 
@@ -2148,6 +2199,12 @@ export function commitManaTap(state, playerId, tap) {
       return logEvent(next, { kind: "mana", event: "exile-from-hand-cost", cardId: tap.permanentId, playerId });
     }
     return logEvent(next, { kind: "mana", event: "exile-from-hand-cost-unpaid", cardId: tap.permanentId, playerId });
+  }
+  // STAGE ④-4 — COUNTER-REMOVAL COST: pay the printed cost for real — remove exactly the counters the plan
+  // priced (CR 601.2h via 602.2b), before the tap so a failure here can never leave the source spent unpaid.
+  if (tap.removesCounters && tap.removesCounters.count > 0) {
+    next = removeCounter(next, { permanentId: tap.permanentId, type: tap.removesCounters.type, amount: tap.removesCounters.count });
+    next = logEvent(next, { kind: "mana", event: "remove-counters-cost", permanentId: tap.permanentId, playerId, counterType: tap.removesCounters.type, removed: tap.removesCounters.count });
   }
   if (tap.sacrifices) {
     const sacPerm = next.players[playerId]?.battlefield?.find(p => p.id === tap.permanentId); // capture pre-move (for the type)
