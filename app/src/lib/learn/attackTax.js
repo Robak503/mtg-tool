@@ -39,7 +39,11 @@
  */
 export function parseAttackTax(card) {
   const oracle = String(card?.oracle ?? card?.oracle_text ?? "").replace(/\([^)]*\)/g, " ");
-  const m = oracle.match(/(?:^|[\n.])\s*creatures can't attack you unless their controller pays \{(\d+)\} for each creature they control that's attacking you\s*(?:\.|$)/i);
+  // ④-AM (2026-09-03): the "you OR PLANESWALKERS you control … for each of THOSE creatures" printing (Baird, Steward of
+  // Argive; Archon of Absolution) is the same tax — the declare action's `defender` is the PLAYER whether the attack is
+  // at them or at their planeswalker (defenderPlaneswalkerId rides beside it), so attackTaxToDeclare already charges
+  // both. Read from the same regex as the Ghostly Prison wording, so the metric and the runtime cannot drift.
+  const m = oracle.match(/(?:^|[\n.])\s*creatures can't attack you(?: or planeswalkers you control)? unless their controller pays \{(\d+)\} for each (?:of those creatures|creature they control that's attacking you)\s*(?:\.|$)/i);
   if (!m) return null;
   const generic = parseInt(m[1], 10);
   return generic > 0 ? { generic } : null;
@@ -47,7 +51,7 @@ export function parseAttackTax(card) {
 
 /** True iff this exact clause (lowercased, whole) is the modeled attack tax — the coverage-side gate. */
 export function isAttackTaxClause(clause) {
-  return /^creatures can't attack you unless their controller pays \{\d+\} for each creature they control that's attacking you$/i.test(String(clause || "").trim());
+  return /^creatures can't attack you(?: or planeswalkers you control)? unless their controller pays \{\d+\} for each (?:of those creatures|creature they control that's attacking you)$/i.test(String(clause || "").trim());
 }
 
 /**

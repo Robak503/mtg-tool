@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🏰 2026-09-03 (night cron) — ④-AM: the attack tax's second printing — "you or planeswalkers you control … for each of those creatures" · **+2** · corpus 14,107 / 34,245 (41.2%)
+> Suite **1400 files / 15,582 tests** green; lint 0. Flip-diff **+2, zero LOST**. **3/3 killed (a fourth, {X} read as {1}, had no carrier — Sphere of Safety's 'where X' tail refuses it before the digit class does — and was deleted).**
+> · **The shape:** attackTax.js read only Ghostly Prison's sentence. Baird, Steward of Argive (EDHREC #2539) and Archon
+>   of Absolution print the modern template — "creatures can't attack you OR PLANESWALKERS YOU CONTROL unless their
+>   controller pays {1} for each of THOSE creatures" — the same tax (CR 508.1g): the declare action's `defender` is the
+>   PLAYER whether the attack is at them or at their planeswalker, so attackTaxToDeclare already charged both; the one
+>   regex (parser + clause check, one copy) learned the second printing. Not claimed, mutation-proven: Sphere of Safety's
+>   {X} (enchantments you control), Sivitri's "2 life", the until-your-next-turn temporary taxes (Forbidding Spirit,
+>   Yojimbo), Archangel of Tithes' untapped gate, Nils' per-counter tax, Collective Restraint's domain count.
+> · **Board-verified:** with no mana the attack into Baird is withheld; with one land it is offered and declaring taps it.
+> · **The census is flat:** the fresh residue census's largest cluster is six sole-blockers (initiative, attractions,
+>   specialize — Alchemy / Un-set mechanics). The multi-card veins at this granularity are spent; what remains is
+>   runtime subsystems (per-defender batch combat damage for Alela's kin, X-scaled activations, the AI using combat-role
+>   activations) and the play-weighted singles.
+> · **CI:** ④-AK/④-AL's run (6c5698aa) in flight at commit time; ④-AM pushes only after it is green
+
 > ## 🏷️ 2026-09-03 (night cron) — ④-AL: thirty-four Universes-Beyond FLAVOR words join the measured trigger-label list · **+34** · corpus 14,105 / 34,245 (41.2%)
 > Suite **1399 files / 15,578 tests** green; lint 0. Flip-diff **+34, zero LOST**. **3/3 killed.**
 > · **The shape:** CR 207.2d — a flavor word "provide[s] a flavorful description" and has "no special rules meaning",

@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Baird, Steward of Argive and Archon of Absolution tax attacks** — the "you or planeswalkers you control" printing of the attack tax is read like Ghostly Prison's.
 - **Thirty-four Universes Beyond creatures work** — the Warhammer 40,000 and Dungeons & Dragons flavor words (Fire Breath, Rosarius, Phalanx Commander, Keen Senses …) no longer hide the trigger behind them.
 - **Converge spells work** — Unified Front and Infuse with the Elements count the colors of mana spent; every ability word the Comprehensive Rules name is now read past.
 - **Goad works** — Jeering Homunculus, Taunting Kobold, Goblin Racketeer, Coveted Peacock, Taunting Sliver, Glóin, Oceanus Dragon and Bjorna goad a creature until your next turn: it must attack, and not you.

@@ -7,6 +7,19 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🏰 2026-09-03 (night cron) — **④-AM: the attack tax's second printing (Baird, Archon of Absolution) (+2)** · suite **1400 files / 15,582 tests** green · corpus 14,107 / 34,245 (41.2%) · flip-diff +2 / 0 lost · 3/3 killed (a fourth, {X} read as {1}, had no carrier — Sphere of Safety's 'where X' tail refuses it before the digit class does — and was deleted)
+
+> **Night tally (stage ④, thirty-nine slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
+> J (+1) · K (+1, FP closed on 3) · L (+4) · M (+2) · N (+7) · O (+4) · P (+3) · Q (+6) · R (+2) · S (+2) · T (+12) · U (+2) ·
+> V (+2, Thrun 90) · W (+3, Thrun 91) · X (+1, Earth Bent 89) · Y (+1) · Z (+6, Veyran 89) · AA (+9, Mothman 88) · AB (+1) ·
+> AC (+12, Hulk 86) · AD (+2) · AE (+30; the combat window) · AF (+26) · AG (+21) · AH (+2) · AI (+6) · AJ (+2) · AK (+2) ·
+> AL (+34) · AM (+2) — corpus 13,862 → 14,107. **The night crossed 41%.**
+> **The census is flat** — largest cluster six sole-blockers (Alchemy / Un-set mechanics). The remaining leads are runtime
+> subsystems, each sized in the ledger: per-defender batch combat damage (Alela's kin, ~3 cards), X-scaled-magnitude
+> activations (Kessig Wolf Run's kin), the AI using combat-role activations, the "up to N" counted pick, Secluded
+> Courtyard's chosen-type activation permission.
+> **CI:** ④-AK/④-AL's run (6c5698aa) in flight at commit time; ④-AM pushes only after it is green
+
 ## 🏷️ 2026-09-03 (night cron) — **④-AL: thirty-four flavor words join the measured trigger-label list (+34)** · suite **1399 files / 15,578 tests** green · corpus 14,105 / 34,245 (41.2%) · flip-diff +34 / 0 lost · 3/3 killed
 
 > **Night tally (stage ④, thirty-eight slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·

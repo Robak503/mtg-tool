@@ -200,6 +200,7 @@ the scratchpad). ✅ **④-A** — Aura-own cumulative upkeep composes with the 
 ✅ **④-AJ** — the bound-pronoun goad ("… Goad it.") as a referent atom (+2; 2/2 killed).
 ✅ **④-AK** — the rest of CR 207.2c's ability words on the shared label list, four excluded on purpose (+2; 3/3 killed).
 ✅ **④-AL** — thirty-four measured flavor words on the trigger-label list (+34; 3/3 killed).
+✅ **④-AM** — the attack tax's second printing (Baird, Archon of Absolution) (+2; 3/3 killed (a fourth, {X} read as {1}, had no carrier — Sphere of Safety's 'where X' tail refuses it before the digit class does — and was deleted)).
 Queue = the census's two-flip / bug-signature leads (see WAKE-REPORT top).
 Only after ①–③'s DONE lines are met. Boot from the vault's `memory/orders/cindy-corpus-roadmap.md`
 (WHAT/WHY/ORDER) + the repo's `RESIDUE-GRIND-RUNBOOK.md` (HOW): fresh census, largest clause family with
