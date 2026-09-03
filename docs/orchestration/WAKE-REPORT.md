@@ -7,6 +7,18 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-03 (night cron) — **④-T: GY-3 — targeted graveyard exile-cost abilities (+12)** · suite **1381 / 15,505** green · corpus 13,942 / 34,245 (40.7%) · flip-diff +12 / 0 lost · 5/5 killed
+
+> **Night tally (stage ④, twenty slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
+> J (+1) · K (+1, FP closed on 3) · L (+4) · M (+2) · N (+7) · O (+4) · P (+3) · Q (+6) · R (+2) · S (+2) · T (+12) —
+> corpus 13,862 → 13,942.
+> **⏸ CI — PLATFORM, not code (measured):** the last GREEN head re-run also hits the 900 s wall with the identical
+> single-worker signature (654 / 1,374 files; per-file times equal to green; zero parallelism). Master sits at ④-M
+> (98023534, red for this reason); ④-N … ④-T are committed locally. **The wall stays a hang detector.** Next seat:
+> `gh run rerun 33793925874 --failed` once runners are healthy (a green run takes ~10 min); if it goes green, push
+> HEAD and watch. If Colton wants pushes regardless, that is his call — it is written here, not taken.
+> **Next runnable:** Graveyard Shovel's life rider, the Crown cycle's share-a-type mass pump, or the next census read.
+
 ## 🥷 2026-09-03 (night cron) — **④-S: the self-sac Aura composite — exile the host and make a token (+2)** · suite **1380 / 15,499** green · corpus 13,930 / 34,245 (40.7%) · flip-diff +2 / 0 lost · 1/3 killed (+2 documented redundant guards)
 
 > **Night tally (stage ④, nineteen slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·

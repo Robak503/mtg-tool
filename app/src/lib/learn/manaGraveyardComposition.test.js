@@ -34,11 +34,11 @@ function board({ battlefield = [], graveyard = [], pool = {} } = {}) {
 }
 
 describe("the tiers", () => {
-  it("⭐ Abzan Devotee and Buried Treasure are native-mana; Jack-o'-Lantern (a graveyard MANA ability) and Gravestone Strider (its once-per-turn any-colour line is a separate gap) stay parked", () => {
+  it("⭐ Abzan Devotee, Buried Treasure and (since ④-T's targeted graveyard lane) Gravestone Strider are native-mana; Jack-o'-Lantern (a graveyard MANA ability) stays parked", () => {
     expect(classifyCard(DEVOTEE)).toBe("native-mana");
     expect(classifyCard(TREASURE)).toBe("native-mana");
+    expect(classifyCard(STRIDER)).toBe("native-mana"); // ④-T: its "exile target card from a graveyard" is offered from the graveyard now
     expect(classifyCard(JACK)).not.toMatch(/^native/);
-    expect(classifyCard(STRIDER)).not.toMatch(/^native/);
   });
 });
 

@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Graveyard abilities with a target work** — Gravestone Strider, Helica Glider, Rubblebelt Maverick, Placid Rottentail, Venom, Beetle, Bonebind Orator, Eerie Soultender, Soul of Innistrad and the four Renew cards: pay the cost from the graveyard and pick the target.
 - **Uneasy Alliance and Path to Redemption work** — sacrifice the Aura to exile the creature and get the token.
 - **Abzan Devotee and Buried Treasure work** — mana on the battlefield, the graveyard ability from the graveyard.
 - **Choking Restraints, Phantom Wings, Thrull Retainer, Stamina, Carapace and Briar Shield work** — sacrificing

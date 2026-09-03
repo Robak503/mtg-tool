@@ -1151,16 +1151,19 @@ function applyActivateGyExile(state, action) {
   // The exile-self cost item (CR 602.2b — costs are paid before the ability is put on the stack).
   working = moveCardToZone(working, { playerId: action.playerId, fromZone: "graveyard", toZone: "exile", cardId: action.cardId });
   const { id: stkId, state: working2 } = mintId(working, "stk");
+  // GY-3 (④-T): the lane's chosen targets ride the stack object and the program params (an untargeted GY-2
+  // ability carries []); the source stays null — the card is in exile by now, not a permanent.
+  const gyTargets = action.targets || [];
   const stackObject = createStackObject({
     id: stkId,
     kind: "activated-ability",
     source: card,
     controller: action.playerId,
-    targets: [],
+    targets: gyTargets,
     cost: action.cost,
     payload: {
       resolver: RESOLVER_KEYS.EFFECT_PROGRAM,
-      params: { program: action.program, controller: action.playerId, targets: [], cardId: card.id, sourceId: null },
+      params: { program: action.program, controller: action.playerId, targets: gyTargets, cardId: card.id, sourceId: null, ...(action.chosenMode != null ? { chosenMode: action.chosenMode } : {}) },
     },
   });
   let next = { ...working2, stack: [...working2.stack, stackObject] };

@@ -158,8 +158,14 @@ export function parseGraveyardExileAbility(card) {
     // KW-ENGINES (CR 702.179d) — "Max speed — {3}, Exile this card from your graveyard: …" (the
     // Aetherdrift Surveyor cycle). The prefix gates the ability on speed 4; peel it and carry
     // `maxSpeed` so the offer site withholds below max — never an ungated view of a gated ability.
+    // RENEW (④-T, 2026-09-03 — Tarkir: Dragonstorm's "Renew — {1}{B}, Exile this card from your graveyard: Put a
+    // lifelink counter on target creature. Activate only as a sorcery."): an ability WORD naming exactly this shape,
+    // peeled like "Max speed —" but carrying no gate. ⛔ Found by the flip-diff audit: the classifier already saw the
+    // line through the ability parser's word-stripped text and credited four Renew cards while THIS parse — the one
+    // the graveyard lane offers from — returned null on the printed card. Offer and credit stand on one parse again.
     const ms = rawLine.trim().match(/^max speed\s*[—–]\s*/i);
-    const line = ms ? rawLine.trim().slice(ms[0].length) : rawLine;
+    const rn = !ms && rawLine.trim().match(/^renew\s*[—–]\s*/i);
+    const line = ms ? rawLine.trim().slice(ms[0].length) : rn ? rawLine.trim().slice(rn[0].length) : rawLine;
     const m = line.trim().match(/^((?:\{[^}]+\})+), exile this card from your graveyard: (.+)$/i);
     if (!m) continue;
     let eff = m[2].trim();
@@ -174,8 +180,13 @@ export function parseGraveyardExileAbility(card) {
     const program = parseEffectClause(normalizeSelfName(eff, card), "Instant");
     if (!program || programConfidence(program) !== "high") return null;
     if (program.modal || program.xSpell) return null;                    // v1 — the plain shape only
-    if ((program.atoms || []).some((a) => !!a.targetType)) return null;  // v1 — non-targeted only (GY-3 adds enumeration)
-    return { manaPips: m[1], program, effectClause: eff, sorceryOnly, raw: rawLine.trim(), ...(gated && { maxSpeed: true }) };
+    // GY-3 (④-T, 2026-09-03 night): a TARGETED program is admitted now — the graveyard lane expands its targets
+    // through expandCastChoices (the same helper every battlefield activation uses) and the dispatcher threads
+    // them onto the stack object, so "{2}, Exile this card from your graveyard: Exile target card from a
+    // graveyard." (Gravestone Strider) and the "+1/+1 counter on target creature" Ikoria cycle offer one
+    // activation per legal target and fizzle cleanly if the target leaves (CR 608.2b). Modal / X stay parked.
+    const targeted = (program.atoms || []).some((a) => !!a.targetType);
+    return { manaPips: m[1], program, effectClause: eff, sorceryOnly, raw: rawLine.trim(), targeted, ...(gated && { maxSpeed: true }) };
   }
   return null;
 }

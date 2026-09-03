@@ -3,6 +3,33 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-03 (night cron) — CORPUS ④-T: GY-3 — the TARGETED graveyard exile-cost ability · **+12** (Gravestone Strider, Helica Glider, Rubblebelt Maverick, Placid Rottentail, Venom, Beetle, Bonebind Orator, Eerie Soultender, Soul of Innistrad and the four Renew cards) · corpus 13,942 / 34,245 (40.7%)
+> Suite **1381 / 15,505** green; lint 0. Flip-diff **+12, zero LOST**. **5/5 killed.**
+> · **The shape:** "{2}, Exile this card from your graveyard: Exile target card from a graveyard." (Gravestone Strider),
+>   the Ikoria "…: Put a +1/+1 counter on target creature. It gains flying until end of turn. Activate only as a
+>   sorcery." cycle, "return another target creature card from your graveyard to your hand". GY-2 refused any
+>   targeted program ("v1 — GY-3 adds enumeration"); now the ONE shared parse admits it, the graveyard lane expands
+>   targets through the SAME helper every battlefield activation uses (the card's own id rides as the source so an
+>   "another" restriction never offers the card being exiled), and the dispatcher threads the chosen targets onto the
+>   stack object and the program params. A combo that targets the card ITSELF is dropped — the cost exiles it first
+>   and the ability would fizzle (legal, pointless; the sacrifice-victim lane's guard). No legal target → not offered.
+> · **Board-verified:** the Strider in our graveyard is offered on each OTHER graveyard card; resolving exiles the
+>   pick and the Strider; Helica Glider's counter lands on the chosen creature at sorcery speed only.
+> · **Caught by the flip-diff audit, whole-card:** four "Renew — {cost}, Exile this card from your graveyard: …"
+>   cards (Alchemist's Assistant, Agent of Kotis, Constrictor Sage, Adorned Crocodile) flipped native while the
+>   graveyard lane returned NOTHING for them — the classifier saw the line through the ability parser's word-stripped
+>   text, the lane reads the printed card. Credited-and-never-offered is the FP the CREED forbids; the shared parse now
+>   peels the Renew ability word exactly as it peels "Max speed —", so offer and credit stand on one parse again
+>   (pinned: the lifelink counter lands from the graveyard; the peel's removal is a killed mutation). Venom's "It
+>   gains deathtouch until end of turn" rides the counter atom as a keyword grant (verified, not assumed).
+> · **Three pins rewritten:** GY-2's "a targeted effect stays out (v1 gate)" pair (Rubblebelt Maverick — the pin
+>   itself said "the GY-3 lane, not v1"; this is that lane) and ④-R's own "Gravestone Strider stays parked" — each
+>   now pins the native with the witness named.
+> · **CI (platform, measured):** the CONTROL re-run of the last GREEN head (④-K, 33792869857) also hit the 900 s wall
+>   at 654 / 1,374 files — the identical single-worker signature as the two ④-L/M attempts. The slowdown is the
+>   GitHub runner allocation, not the code. The wall is NOT raised; nothing is pushed until a re-run completes on a
+>   healthy runner. Six slices (④-N … ④-S, +12 more with this one) are committed locally behind that gate.
+
 > ## 🥷 2026-09-03 (night cron) — CORPUS ④-S: the self-sacrifice Aura COMPOSITE with a carrier — exile the host AND make a token · **+2** (Uneasy Alliance / Path to Redemption) · corpus 13,930 / 34,245 (40.7%)
 > Suite **1380 / 15,499** green; lint 0. Flip-diff **+2, zero LOST**. **1/3 killed (+2 documented redundant guards).**
 > · **The shape:** "{5}, Sacrifice this Aura: Exile enchanted creature. You create a 1/1 black Ninja creature token.

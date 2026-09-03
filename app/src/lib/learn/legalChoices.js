@@ -2902,11 +2902,26 @@ function actionsActivateGraveyardExile(state, playerId) {
     if (rec.maxSpeed && (player.speed || 0) < 4) continue;
     const cost = parseManaCost(rec.manaPips);
     if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
-    out.push({
-      kind: "activate-gy-exile", playerId, cardId: card.id, name: card.name,
-      cost, cmc: totalCmc(cost), program: rec.program,
-      abilityText: rec.raw,
-    });
+    // GY-3 (④-T): a targeted program expands through the SAME helper the battlefield activated lane uses; the
+    // card's own id rides as sourceId so an "another target … card from your graveyard" restriction (notSource)
+    // never offers the card that is being exiled as its own cost. No legal target → not offered (CR 601.2c).
+    const choices = rec.targeted ? expandCastChoices(state, playerId, rec.program, colorsOf(card), { sourceId: card.id }) : [{ targets: [] }];
+    if (choices.length === 0) continue;
+    for (const ch of choices) {
+      // The card is exiled as the COST before the ability resolves, so a combo that targets the card ITSELF
+      // ("exile target card from a graveyard" aimed at the Strider) fizzles to nothing (CR 608.2b) — legal,
+      // pointless, dropped: the same self-defeating-combo guard the sacrifice-victim lane applies.
+      if ((ch.targets || []).some((t) => t.id === card.id)) continue;
+      out.push({
+        kind: "activate-gy-exile", playerId, cardId: card.id, name: card.name,
+        cost, cmc: totalCmc(cost), program: rec.program,
+        abilityText: rec.raw,
+        targets: ch.targets || [],
+        chosenMode: ch.chosenMode ?? null,
+        needsTargets: (ch.targets || []).length > 0,
+        ...(ch.targets?.length === 1 && ch.targets[0]?.name ? { targetName: ch.targets[0].name } : {}),
+      });
+    }
   }
   return out;
 }

@@ -26,15 +26,15 @@ const RUBBLEBELT = { id: "rbm", name: "Rubblebelt Maverick", type: "Creature —
   power: "2", toughness: "1", oracle: "{1}{G}, Exile this card from your graveyard: Put a +1/+1 counter on target creature. Activate only as a sorcery." };
 
 describe("recognizer + classify", () => {
-  it("parses the plain and sorcery-rider forms; a TARGETED effect stays out (v1 gate)", () => {
-    expect(parseGraveyardExileAbility(HALO_SCARAB)).toMatchObject({ manaPips: "{2}", sorceryOnly: false });
-    expect(parseGraveyardExileAbility(GHOULCALLER)).toMatchObject({ manaPips: "{3}{B}", sorceryOnly: true });
-    expect(parseGraveyardExileAbility(RUBBLEBELT)).toBe(null); // targeted → the GY-3 lane, not v1
+  it("parses the plain and sorcery-rider forms; a TARGETED effect is admitted and flagged since GY-3 (④-T, 2026-09-03)", () => {
+    expect(parseGraveyardExileAbility(HALO_SCARAB)).toMatchObject({ manaPips: "{2}", sorceryOnly: false, targeted: false });
+    expect(parseGraveyardExileAbility(GHOULCALLER)).toMatchObject({ manaPips: "{3}{B}", sorceryOnly: true, targeted: false });
+    expect(parseGraveyardExileAbility(RUBBLEBELT)).toMatchObject({ manaPips: "{1}{G}", targeted: true }); // GY-3: the lane expands its targets (gyExileTargeted.test.js)
   });
-  it("carriers flip native-activated; the targeted one holds body-only", () => {
+  it("carriers flip native-activated; the targeted one composes since GY-3", () => {
     expect(classifyCard(HALO_SCARAB)).toBe("native-activated");
     expect(classifyCard(GHOULCALLER)).toBe("native-activated");
-    expect(classifyCard(RUBBLEBELT)).toBe("body-only");
+    expect(classifyCard(RUBBLEBELT)).toMatch(/^native/);
   });
 });
 
