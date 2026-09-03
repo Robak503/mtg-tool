@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔁 2026-09-03 (night cron) — CORPUS ④-G: the FLASHBACK GRANT — "gains flashback until end of turn … equal to its mana cost" · **+6** (Snapcaster Mage, Stingcaster Mage, Slickshot Lockpicker, Katilda and Lier, Lost in Memories, the spell Flashback) · **corpus crosses 40.6%** (13,890 / 34,245)
+> Suite **1368 / 15,436** green; lint 0. Flip-diff **+6, zero LOST**, each audited whole-card. **7/7 killed.**
+> · **The shape:** a `grant-flashback` atom (a graveyard-card target, the caster's own graveyard, instant-or-sorcery
+>   filtered — the exile-from-graveyard lane's target spec) stamps the card with `flashbackGrant: { cost, turn }` —
+>   its PRINTED mana cost; a costless or {X} card gains nothing the lane could price (a logged no-op, never a
+>   fabricated cost). The graveyard-cast lane's ONE cost reader honours the stamp only while `turn` is the current
+>   turn ("until end of turn" without a cleanup pass — pinned: the next turn offers nothing; a printed flashback line
+>   still wins). The existing flashback cast path exiles the card after it resolves (pinned through a real cast).
+> · **The router learned the op** (target intent "own" — a card in the caster's own graveyard is always an own-side
+>   pick); without it the whole family stayed Arbiter on a perfect parse (the ④-F lesson, now a killed mutation).
+> · **Riders audited:** Stingcaster (haste + the ETB), Slickshot Lockpicker (the ETB + a plot line the existing
+>   alt-cast gate already admits), Katilda and Lier (a cast-a-Human watcher with the grant), Lost in Memories (an
+>   Aura granting a combat-damage trigger with the grant — the granted-trigger lane validates it), and the SPELL
+>   Flashback (the same two sentences as a spell body — witnessed through the cast path).
+
 > ## 🐐 2026-09-03 (night cron) — CORPUS ④-F: "target opponent creates <N> <P/T> … creature tokens" · **+7** (Forbidden Orchard → land; the Hunted cycle ×5; Ox Drover) · corpus 13,884 / 34,245 (40.5%)
 > Suite **1367 / 15,432** green; lint 0. Flip-diff **+7, zero LOST**, each audited whole-card. **5/5 killed.**
 > · **The arm RECURSES:** "target opponent creates X" is parsed by handing "create X" back to the creature-token parser

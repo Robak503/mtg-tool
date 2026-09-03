@@ -397,6 +397,8 @@ export function atomTargetIntent(atom) {
       // targeted tutor of some other shape must decide its own side rather than inherit this one.
       if (tt === "player" && atom.searcherIsTarget) return "own";
       return "ambiguous";
+    case "grant-flashback": // ④-G (Snapcaster) — a card in the CASTER's own graveyard: always an own-side pick
+      return "own";
     case "create-token": // ④-F (Forbidden Orchard / the Hunted cycle) — the CREATURE-token sibling of the named-token arm: the same "target opponent creates" creator stamp, the same enemy-side pick. Falls through.
     case "create-named-token":
       // TARGET-OPPONENT-CREATES — "target opponent creates a tapped Treasure token" (Generous Plunderer's

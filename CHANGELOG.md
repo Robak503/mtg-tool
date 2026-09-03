@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Snapcaster Mage works** — the instant or sorcery you pick in your graveyard gains flashback for the turn at
+  its own mana cost, and is exiled after you cast it. Stingcaster Mage, Slickshot Lockpicker, Katilda and Lier,
+  Lost in Memories and the spell Flashback ride the same grant.
 - **The Hunted cycle and Forbidden Orchard work** — Hunted Troll, Dragon, Lammasu, Bonebrute and Phantasm hand
   their tokens to the opponent you pick; Forbidden Orchard gives an opponent a Spirit each time it's tapped for
   mana; Ox Drover too. (Hunted Horror's protection rider is still on the Arbiter.)

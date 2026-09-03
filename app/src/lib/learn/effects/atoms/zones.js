@@ -1468,7 +1468,33 @@ export function applyBlinkReturn(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "blink-return", returned: r.entered ? atom.cardId : null, controller: ctx.controller });
 }
 
+/**
+ * GRANT-FLASHBACK (CORPUS ④-G, 2026-09-03 — Snapcaster Mage / Stingcaster Mage, CR 702.34): "target instant or
+ * sorcery card in your graveyard gains flashback until end of turn. The flashback cost is equal to its mana cost."
+ * Stamps the targeted graveyard card with `flashbackGrant: { cost, turn }` — the card's PRINTED mana cost (a card
+ * with no printed mana cost, or an {X} cost, gains nothing the lane could price: a logged no-op, never a fabricated
+ * cost). The graveyard-cast lane (legalChoices) reads the stamp only while `turn` is the current turn — "until end
+ * of turn" without a cleanup pass — and the existing flashback cast path exiles the card after it resolves.
+ */
+export function applyGrantFlashback(state, atom, ctx) {
+  let next = state;
+  const granted = [];
+  for (const t of ctx.targets || []) {
+    if (t.type !== "graveyardCard") continue;
+    const owner = t.controller;
+    const gy = next.players?.[owner]?.graveyard || [];
+    const card = gy.find((c) => c.id === t.id);
+    if (!card) continue; // left the graveyard — no-op (CR 608.2b)
+    const cost = String(card.mana ?? card.mana_cost ?? "").trim();
+    if (!/^(?:\{[^}]+\}\s*)+$/.test(cost) || /\{X\}/i.test(cost)) continue; // nothing the lane could price
+    next = { ...next, players: { ...next.players, [owner]: { ...next.players[owner], graveyard: gy.map((c) => (c.id === t.id ? { ...c, flashbackGrant: { cost, turn: next.turn } } : c)) } } };
+    granted.push(t.id);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "grant-flashback", controller: ctx.controller, targets: granted });
+}
+
 export const zoneResolvers = {
+  "grant-flashback": applyGrantFlashback, // ④-G (Snapcaster Mage) — a graveyard instant/sorcery gains flashback = its mana cost until end of turn
   "cz-commander-visit": applyCzCommanderVisit, // Hellkite Courser — the CZ fetch + haste + delayed return
   "cz-return": applyCzReturn,                  // the delayed half's sentinel
   "delayed-blink": applyDelayedBlink,          // DELAYED-RETURN BLINK (Otherworldly Journey / Long Road Home) — exile now, return at next end step

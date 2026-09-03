@@ -7,6 +7,15 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🔁 2026-09-03 (night cron) — **④-G: the flashback grant (+6: Snapcaster Mage and kin) — corpus 40.6%** · suite **1368 / 15,436** green · corpus 13,890 / 34,245 · flip-diff +6 / 0 lost · 7/7 killed
+
+> **Night tally (stage ④):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3) · D tapped-for-mana (+2) · E Nikya
+> (+1) · F opponent creature tokens (+7) · G flashback grant (+6) — corpus 13,862 → 13,890 (+28), Squirrel Girl 90,
+> Kinnan 71. **Next runnable:** Relic of Progenitus (an opponent-side graveyard pick — the tempting-offer pause
+> pattern), the en-Kor damage redirect (5), Bubble Snare (kicker on the aura cast lane), Hypnotic Siren
+> (bestow-with-control), then the late census's bug-signature leads (Savage Firecat's counter removal, Rattleclaw's
+> morph, the Mind Extraction / Scapegoat sac-cost spells).
+
 ## 🐐 2026-09-03 (night cron) — **④-F: "target opponent creates … creature tokens" (+7: Forbidden Orchard, the Hunted cycle)** · suite **1367 / 15,432** green · corpus 13,884 / 34,245 (40.5%) · flip-diff +7 / 0 lost · 5/5 killed
 
 > **Night tally (stage ④):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3, Joe's commander) · D tapped-for-mana

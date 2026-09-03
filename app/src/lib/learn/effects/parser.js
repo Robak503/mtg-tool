@@ -2430,6 +2430,15 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       return makeProgram({ confidence: "high", atoms: [{ op: "copy-activated-ability", targetType: null }], xSpell: false, unparsedTail: null });
     }
   }
+  // ===== GRANT FLASHBACK (CORPUS ④-G, 2026-09-03 — Snapcaster Mage / Stingcaster Mage, CR 702.34) ===== two
+  // sentences the splitter would separate ("The flashback cost is equal to its mana cost" is a rider on the grant,
+  // not an effect of its own); ONE targeted atom on the caster's own graveyard, instant-or-sorcery filtered.
+  {
+    const gf = stripReminder(String(oracle)).trim().toLowerCase().replace(/\s+/g, " ").replace(/\.$/, "");
+    if (gf === "target instant or sorcery card in your graveyard gains flashback until end of turn. the flashback cost is equal to its mana cost" && KNOWN.has("grant-flashback")) {
+      return makeProgram({ confidence: "high", atoms: [{ op: "grant-flashback", targetType: "graveyardCard", cardFilter: "instant|sorcery" }], xSpell: false, unparsedTail: null });
+    }
+  }
   // ===== PLAYER PROTECTION FROM EVERYTHING (THE ONE RING, SG-17, 2026-09-03 — CR 702.16b) ===== "you gain protection
   // from everything until your next turn" — Teferi's shield without the life lock (the Ring's cast-ETB).
   {

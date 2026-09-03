@@ -2949,7 +2949,15 @@ function actionsPlayImpulseFromExile(state, playerId) {
 //   • a flashback-line cost-reduction rider — "Flashback {8}{W}{W}. This spell costs {X} less…" (Visions of
 //     Glory): the ". This" after the pips fails the terminator, so the whole line doesn't match.
 // These 9 (of 94 native-body flashback cards) stay NATIVE on their body; only their graveyard recast is withheld.
-function parseFlashbackManaCost(card) {
+function parseFlashbackManaCost(card, currentTurn = null) {
+  // ④-G — a GRANTED flashback (Snapcaster's "gains flashback until end of turn … equal to its mana cost"): the grant
+  // rides the graveyard card as `flashbackGrant: { cost, turn }` and counts ONLY on the turn it was granted (the
+  // "until end of turn" without a cleanup pass). A printed flashback line still wins where both exist.
+  const g = card?.flashbackGrant;
+  if (g && currentTurn != null && g.turn === currentTurn && /^(?:\{[^}]+\}\s*)+$/.test(String(g.cost || "")) && !parseManaCost(g.cost).hasX) {
+    const printed = String(card?.oracle || card?.oracle_text || "").match(/(?:^|\n)[ \t]*flashback[ \t]+((?:\{[^}]+\}[ \t]*)+?)[ \t]*(?:\(|\.?[ \t]*(?:\n|$))/i);
+    if (!printed) return String(g.cost).trim();
+  }
   const oracle = card?.oracle || card?.oracle_text || "";
   const m = oracle.match(/(?:^|\n)[ \t]*flashback[ \t]+((?:\{[^}]+\}[ \t]*)+?)[ \t]*(?:\(|\.?[ \t]*(?:\n|$))/i);
   if (!m) return null;
@@ -2986,7 +2994,7 @@ function actionsCastFlashbackFromGraveyard(state, playerId) {
   const actions = [];
   for (const card of gy) {
     if (isLand(card)) continue;
-    const fbCost = parseFlashbackManaCost(card);
+    const fbCost = parseFlashbackManaCost(card, state.turn); // + ④-G: a same-turn granted flashback
     if (!fbCost) continue;                                    // no plain-mana flashback cost → not offered (SAFE FN)
     if (!isNativeTier(classifyCard(card))) continue;         // THE CREED / lockstep: modeled body only
     // Project the flashback cost as the payable cost; body/type/oracle are unchanged (the builder's
