@@ -180,7 +180,12 @@ export async function planOfflineAnswer(repository, rawQuestion, verifiedInterpr
           label: `${card.name} ruling — ${ruling.publishedAt}`,
           oracleId: card.oracleId,
         })),
-      ]);
+      ], {
+        cardArt: Object.freeze({
+          oracleId: card.oracleId,
+          faceIndex: Number.isInteger(card.matchedFaceIndex) ? card.matchedFaceIndex : -1,
+        }),
+      });
   }
 
   if (card || interpretedCards.length) {

@@ -53,6 +53,7 @@ test("quotes exact card text and ruling receipts when the full card is named", a
   assert.equal(answer.status, "grounded");
   assert.equal(answer.answerTrusted, true);
   assert.equal(answer.facts.message, omnath.oracleText);
+  assert.deepEqual(answer.cardArt, { oracleId: "omnath-id", faceIndex: -1 });
   assert.equal(answer.citations[0].kind, "oracle-card");
   assert.equal(answer.citations[1].kind, "official-ruling");
 });

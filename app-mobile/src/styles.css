@@ -180,6 +180,9 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 .asked-question::before { content: "YOU"; display: block; margin-bottom: 4px; color: var(--ley-green); font: 700 .55rem/1 var(--font-mono); letter-spacing: .1em; }
 .card-line { color: var(--ley-gold); font-size: .75rem; font-weight: 700; }
+.card-art { width: min(72%, 260px); margin: 12px auto 16px; }
+.card-art[hidden] { display: none; }
+.card-art img { display: block; width: 100%; height: auto; border: 1px solid var(--ley-line); border-radius: 12px; box-shadow: 0 14px 36px rgb(0 0 0 / 42%); }
 .answer-message { margin: 0; color: var(--ley-text); font-size: .9rem; line-height: 1.66; white-space: pre-line; }
 .pulse { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--ley-green); box-shadow: 0 0 9px var(--ley-green-glow); }
 .detail-list { margin: 0; padding: 0; list-style: none; }

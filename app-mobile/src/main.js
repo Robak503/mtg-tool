@@ -1,4 +1,5 @@
 import "./styles.css";
+import { invoke } from "@tauri-apps/api/core";
 import { createAssistantController } from "./assistantController.js";
 import { buildDiagnosticReceipt, copyDiagnosticReceipt } from "./diagnostics.js";
 import { createFeedbackStore } from "./feedbackStore.js";
@@ -31,6 +32,25 @@ function renderList(items, className) {
   const list = element("ul", className);
   for (const item of items) list.append(element("li", "", item));
   return list;
+}
+
+function renderCardArt(article, answer) {
+  if (!answer.cardArt) return;
+  const figure = element("figure", "card-art");
+  figure.hidden = true;
+  const picture = element("img");
+  picture.alt = `${answer.facts.heading} card`;
+  picture.decoding = "async";
+  figure.append(picture);
+  article.append(figure);
+  invoke("read_card_art", {
+    oracleId: answer.cardArt.oracleId,
+    faceIndex: answer.cardArt.faceIndex,
+  }).then((art) => {
+    if (!art?.dataUrl || !article.isConnected) return;
+    picture.src = art.dataUrl;
+    figure.hidden = false;
+  }).catch(() => {});
 }
 
 function diagnosticReceipt() {
@@ -90,6 +110,7 @@ function renderAnswer(answer, question) {
   const article = element("article", `answer-card answer-${answer.status}`);
   const labels = { grounded: "OMNATH · VERIFIED LOCAL EVIDENCE", matches: "OMNATH · RELATED EVIDENCE · NOT A RULING", insufficient: "OMNATH · MORE DETAIL NEEDED" };
   article.append(element("p", "asked-question", question), element("div", "answer-kicker", labels[answer.status]), element("h2", "", answer.facts.heading));
+  renderCardArt(article, answer);
   if (answer.facts.subheading) article.append(element("p", "card-line", answer.facts.subheading));
   article.append(element("p", "answer-message", answer.facts.message));
   if (answer.facts.details?.length) {

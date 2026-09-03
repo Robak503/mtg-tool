@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -85,6 +86,68 @@ struct KnowledgeProgress {
     phase: &'static str,
     copied_bytes: u64,
     total_bytes: u64,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CardArt {
+    oracle_id: String,
+    face_index: i32,
+    data_url: String,
+}
+
+fn art_relative_path(oracle_id: &str, face_index: i32) -> Option<String> {
+    let normalized = oracle_id.to_ascii_lowercase();
+    let bytes = normalized.as_bytes();
+    let uuid_shape = bytes.len() == 36
+        && [8, 13, 18, 23].iter().all(|index| bytes[*index] == b'-')
+        && bytes
+            .iter()
+            .enumerate()
+            .all(|(index, value)| [8, 13, 18, 23].contains(&index) || value.is_ascii_hexdigit());
+    if !uuid_shape || !(-1..=9).contains(&face_index) {
+        return None;
+    }
+    let suffix = if face_index >= 0 {
+        format!("-{face_index}")
+    } else {
+        String::new()
+    };
+    Some(format!(
+        "art/images/{}/{}{}.jpg",
+        &normalized[..2],
+        normalized,
+        suffix
+    ))
+}
+
+#[tauri::command]
+fn read_card_art(
+    app: AppHandle,
+    oracle_id: String,
+    face_index: i32,
+) -> Result<Option<CardArt>, String> {
+    let mut candidates = vec![face_index];
+    if face_index < 0 {
+        candidates.push(0);
+    }
+    for candidate in candidates {
+        let Some(relative) = art_relative_path(&oracle_id, candidate) else {
+            return Err("Invalid card-art identity".to_string());
+        };
+        let path = app
+            .path()
+            .resolve(relative, BaseDirectory::Resource)
+            .map_err(|error| error.to_string())?;
+        if let Ok(bytes) = app.fs().read(&path) {
+            return Ok(Some(CardArt {
+                oracle_id: oracle_id.to_ascii_lowercase(),
+                face_index: candidate,
+                data_url: format!("data:image/jpeg;base64,{}", BASE64.encode(bytes)),
+            }));
+        }
+    }
+    Ok(None)
 }
 
 fn sha256_path(path: &Path) -> Result<String, BoxError> {
@@ -326,7 +389,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             knowledge_status,
-            prepare_knowledge
+            prepare_knowledge,
+            read_card_art
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -406,5 +470,19 @@ mod tests {
             &manifest,
         ));
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn card_art_paths_are_identity_bounded() {
+        assert_eq!(
+            art_relative_path("cd133d30-51ff-4114-a7d7-029345f0f0d7", -1).as_deref(),
+            Some("art/images/cd/cd133d30-51ff-4114-a7d7-029345f0f0d7.jpg")
+        );
+        assert_eq!(
+            art_relative_path("cd133d30-51ff-4114-a7d7-029345f0f0d7", 1).as_deref(),
+            Some("art/images/cd/cd133d30-51ff-4114-a7d7-029345f0f0d7-1.jpg")
+        );
+        assert!(art_relative_path("../../private", -1).is_none());
+        assert!(art_relative_path("cd133d30-51ff-4114-a7d7-029345f0f0d7", 10).is_none());
     }
 }

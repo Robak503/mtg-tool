@@ -1,3 +1,5 @@
+param([switch]$IncludeArt)
+
 $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -8,6 +10,9 @@ $jniDir = Join-Path $androidRoot "app\src\main\jniLibs\arm64-v8a"
 $jniLib = Join-Path $jniDir "libomnath_webview_probe_lib.so"
 $knowledgeSourceDir = Join-Path $projectRoot "build\knowledge"
 $androidKnowledgeDir = Join-Path $androidRoot "app\src\main\assets\knowledge"
+$artSourceDir = Join-Path $projectRoot "build\art"
+$androidAssetsDir = Join-Path $androidRoot "app\src\main\assets"
+$androidArtDir = Join-Path $androidAssetsDir "art"
 $apk = Join-Path $androidRoot "app\build\outputs\apk\arm64\debug\app-arm64-debug.apk"
 
 function Sync-AndroidKnowledgeAssets {
@@ -31,6 +36,48 @@ function Test-ApkKnowledgeAssets {
   try {
     return $null -ne $archive.GetEntry("assets/knowledge/omnath-knowledge.sqlite") -and
       $null -ne $archive.GetEntry("assets/knowledge/omnath-knowledge.manifest.json")
+  } finally {
+    $archive.Dispose()
+  }
+}
+
+function Clear-AndroidArtAssets {
+  $assetsFull = [System.IO.Path]::GetFullPath($androidAssetsDir).TrimEnd('\') + '\'
+  $artFull = [System.IO.Path]::GetFullPath($androidArtDir)
+  if (-not $artFull.StartsWith($assetsFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Refusing to clear Android art outside generated assets: $artFull"
+  }
+  if (Test-Path -LiteralPath $artFull -PathType Container) {
+    Remove-Item -LiteralPath $artFull -Recurse -Force
+  }
+}
+
+function Sync-AndroidArtAssets {
+  $manifestPath = Join-Path $artSourceDir "omnath-art.manifest.json"
+  if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+    throw "Build the offline art pack before requesting an art APK: $manifestPath"
+  }
+  $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+  $sourceImages = @(Get-ChildItem -LiteralPath (Join-Path $artSourceDir "images") -Recurse -File -Filter "*.jpg")
+  if ($sourceImages.Count -ne $manifest.images) {
+    throw "Art image count mismatch: manifest $($manifest.images), files $($sourceImages.Count)"
+  }
+  Clear-AndroidArtAssets
+  New-Item -ItemType Directory -Path $androidArtDir -Force | Out-Null
+  Get-ChildItem -LiteralPath $artSourceDir | Copy-Item -Destination $androidArtDir -Recurse -Force
+}
+
+function Test-ApkArtAssets {
+  if (-not (Test-Path -LiteralPath $apk -PathType Leaf)) { return $false }
+  $manifestPath = Join-Path $artSourceDir "omnath-art.manifest.json"
+  if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { return $false }
+  $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $archive = [System.IO.Compression.ZipFile]::OpenRead($apk)
+  try {
+    $images = @($archive.Entries | Where-Object { $_.FullName -match '^assets/art/images/.+\.jpg$' })
+    return $null -ne $archive.GetEntry("assets/art/omnath-art.manifest.json") -and
+      $images.Count -eq $manifest.images
   } finally {
     $archive.Dispose()
   }
@@ -71,6 +118,7 @@ $env:Path = @(
 if (Test-Path -LiteralPath $nativeLib) {
   Remove-Item -LiteralPath $nativeLib -Force
 }
+Clear-AndroidArtAssets
 
 Push-Location $projectRoot
 try {
@@ -84,11 +132,11 @@ if ($tauriExit -eq 0) {
   if (-not (Test-Path -LiteralPath $apk)) {
     throw "Tauri reported success but no debug APK was found at $apk"
   }
-  if (Test-ApkKnowledgeAssets) {
+  if ((-not $IncludeArt) -and (Test-ApkKnowledgeAssets)) {
     Write-Output $apk
     exit 0
   }
-  Write-Output "Tauri build omitted Android knowledge assets; rebuilding with explicit packaged resources."
+  Write-Output "Rebuilding Android with explicit packaged resources."
 }
 
 if (-not (Test-Path -LiteralPath $nativeLib)) {
@@ -98,6 +146,7 @@ if (-not (Test-Path -LiteralPath $nativeLib)) {
 New-Item -ItemType Directory -Path $jniDir -Force | Out-Null
 Copy-Item -LiteralPath $nativeLib -Destination $jniLib -Force
 Sync-AndroidKnowledgeAssets
+if ($IncludeArt) { Sync-AndroidArtAssets }
 
 & (Join-Path $androidRoot "gradlew.bat") --project-dir $androidRoot clean assembleArm64Debug -x rustBuildArm64Debug
 if ($LASTEXITCODE -ne 0) {
@@ -108,6 +157,9 @@ if (-not (Test-Path -LiteralPath $apk)) {
 }
 if (-not (Test-ApkKnowledgeAssets)) {
   throw "Gradle reported success but the APK is missing its packaged knowledge assets."
+}
+if ($IncludeArt -and -not (Test-ApkArtAssets)) {
+  throw "Gradle reported success but the APK art payload does not match its manifest."
 }
 
 Write-Output $apk
