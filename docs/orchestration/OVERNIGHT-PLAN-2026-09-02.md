@@ -279,6 +279,22 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
 
 ## §6 PARKED / NEEDS COLTON (append as you go — this is the morning report's raw material)
 
+- **[Per-defender BATCH combat damage — 2026-09-03 night, sized, not started — Cindy lane]** `checkBatchCombatDamageTriggers`
+  fires the bare and subject-filtered "whenever one or more <creatures> you control deal combat damage to a player" batches
+  ONCE per attacking player (documented as the design), with a context that names no defender. CR-wise it triggers once per
+  player dealt damage (the Anowon ruling), and the per-defender machinery already exists for the keyword-filtered batches
+  (`perDefender: true`, ctx `damagedPlayerId` + `combatDamageAmount`). Making every batch per-defender is a rules
+  correction (an under-fire today, FN-safe) AND supplies the referent the routing gate needs for "that player" — Alela
+  (goad), Popular Entertainer, Feline Sovereign flip; the other 12 batch-that-player carriers park on their effects
+  (loses half life, exile the top of that player's library, manifest). Touches a shipped subsystem with its own
+  once-per-controller pins — a fresh-session slice, not a night tail.
+- **[X-scaled-MAGNITUDE activated abilities — sized 2026-09-03 night — Cindy lane]** Kessig Wolf Run's "{X}{R}{G}, {T}: target
+  creature gets +X/+X" parses HIGH, but the activated lane admits {X} costs only for targets-per-X programs (`costXTargetCount`);
+  an amountX magnitude has no runtime path (choose X from 1..affordable, thread xValue). The spell lane already does this for
+  X spells — the activated twin is the work. Carriers: the {X} pumps on lands and creatures (count first).
+- **[The AI and combat-role activations — 2026-09-03 night — Cindy lane]** ④-AE's combat window offers archers and pumps in
+  combat to the human; `pickSafeAbilityActivation` skips every TARGETED activation, so the AI never shoots. A targeted
+  picker (an attacker/blocker as target, the same side rules the flush chooser uses) is the play-quality half.
 - **[Grafted Identity — the additional-cost sacrifice on an AURA cast, 2026-09-03 night — Cindy lane]** Since ④-K
   its body (control + a +1/+1 bonus) is native, and only "As an additional cost to cast this spell, sacrifice a
   creature." parks it. Measured on a board: the additional-cost lane emits the cast with the victim chosen but
