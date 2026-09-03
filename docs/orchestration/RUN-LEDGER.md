@@ -3,6 +3,16 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🏮 2026-09-03 (night cron) — ④-X: COMMAND BEACON — the commander from the command zone to the hand · **+1** · Earth Bent 89/100 · corpus 13,951 / 34,245 (40.7%)
+> Suite **1385 / 15,522** green; lint 0. Flip-diff **+1, zero LOST**. **3/3 killed.**
+> · **The shape:** "{T}, Sacrifice this land: Put your commander into your hand from the command zone." The land's mana
+>   line was modeled; the activation parked on the payoff. The command zone already existed as a zone (Hellkite
+>   Courser's visit atom); this atom moves the first commander there into the hand, where it is cast at printed cost
+>   like any card in hand — the commander tax keys on casts FROM the command zone (CR 903.8) — and it stays the
+>   commander (the isCommander flag rides the card). An empty zone is a logged no-op: the cost was legally paid.
+> · **Board-verified:** tap + sacrifice → the commander is in hand, the zone empty, the Beacon in the graveyard.
+> · **CI:** RESOLVED. PR #465's Runner facts step measured the windows-2025 runner at 2 CPUs / 9 GB (four this morning) — vitest = 1 worker — so the suite could not fit the 900 s wall. Fix MERGED to master (bc99a88c): the test job sharded in two with --maxWorkers=2, the wall unchanged (still a hang detector); both shards green on the PR in ~8.5 min. Master's first sharded run is in flight; when green the eleven local slices (④-N … ④-X) rebase onto it and push in one go.
+
 > ## 🪖 2026-09-03 (night cron) — ④-W: the GRANTED except-by evasion — Prowler's Helm, Invisibility, Seeker · **+3** · Thrun Voltron 91/100 · corpus 13,949 / 34,245 (40.7%)
 > Suite **1384 / 15,519** green; lint 0. Flip-diff **+3, zero LOST**. **6/6 killed.**
 > · **The shape:** "Equipped creature can't be blocked except by Walls." / "Enchanted creature can't be blocked except by

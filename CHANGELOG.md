@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Command Beacon works** — sacrifice it to put your commander into your hand from the command zone.
 - **Prowler's Helm, Invisibility and Seeker work** — the creature wearing them can only be blocked by what the
   card names.
 - **Thrun, Breaker of Silence and Gaea's Revenge work** — nongreen spells and abilities can't target them (Thrun's

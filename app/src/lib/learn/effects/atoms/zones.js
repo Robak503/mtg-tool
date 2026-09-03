@@ -1417,7 +1417,24 @@ export function czClauseParser(clause) {
   }
   const rm = t.match(/^\[cz-return ([\w:.-]+)\]$/);
   if (rm) return { op: "cz-return", permanentId: rm[1] };
+  // ④-X (2026-09-03 night) — COMMAND BEACON: "{T}, Sacrifice this land: Put your commander into your hand from the
+  // command zone." (Earth Bent; a Commander staple). The card leaves the command zone for the HAND — from there it
+  // is cast like any card in hand, at printed cost (CR 903.8's tax counts only casts from the command zone, which
+  // legalChoices keys on fromZone === "command"), and it stays the commander (the isCommander flag rides the card).
+  // Partners: the FIRST commander in the zone, the same deterministic house pick the visit atom above documents.
+  if (/^put your commander into your hand from the command zone$/.test(t)) return { op: "cz-commander-to-hand" };
   return null;
+}
+
+/** ④-X — Command Beacon's payoff: the first commander in the controller's command zone moves to their hand. An empty
+ *  zone is a logged no-op (the cost was legally paid — CR 602.2 — and the effect simply finds nothing to move). */
+export function applyCzCommanderToHand(state, atom, ctx) {
+  const player = state.players?.[ctx.controller];
+  const cz = player?.command || [];
+  if (!cz.length) return logEvent(state, { kind: "spell-effect", effect: "cz-commander-to-hand", moved: null, controller: ctx.controller });
+  const card = cz[0];
+  const next = { ...state, players: { ...state.players, [ctx.controller]: { ...player, command: cz.filter((c) => c !== card), hand: [...(player.hand || []), card] } } };
+  return logEvent(next, { kind: "spell-effect", effect: "cz-commander-to-hand", moved: card.name || null, controller: ctx.controller });
 }
 
 export function applyCzCommanderVisit(state, atom, ctx) {
@@ -1531,6 +1548,7 @@ export function applyGrantFlashback(state, atom, ctx) {
 export const zoneResolvers = {
   "grant-flashback": applyGrantFlashback, // ④-G (Snapcaster Mage) — a graveyard instant/sorcery gains flashback = its mana cost until end of turn
   "cz-commander-visit": applyCzCommanderVisit, // Hellkite Courser — the CZ fetch + haste + delayed return
+  "cz-commander-to-hand": applyCzCommanderToHand, // ④-X Command Beacon — the commander leaves the command zone for the hand
   "cz-return": applyCzReturn,                  // the delayed half's sentinel
   "delayed-blink": applyDelayedBlink,          // DELAYED-RETURN BLINK (Otherworldly Journey / Long Road Home) — exile now, return at next end step
   "blink-return": applyBlinkReturn,            // its delayed half's sentinel (re-enter from exile + optional +1/+1)

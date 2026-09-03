@@ -185,6 +185,7 @@ the scratchpad). ✅ **④-A** — Aura-own cumulative upkeep composes with the 
 ✅ **④-U** — "untap up to seven lands": Palinchron / Great Whale (+2; 2/2).
 ✅ **④-V** — Thrun, Breaker of Silence: the nongreen target shield (+2; 6/6 killed). **Thrun Voltron 90/100.**
 ✅ **④-W** — the granted except-by evasion: Prowler's Helm / Invisibility / Seeker (+3; 6/6 killed).
+✅ **④-X** — Command Beacon: the commander from the command zone to the hand (+1; 3/3).
 Queue = the census's two-flip / bug-signature leads (see WAKE-REPORT top).
 Only after ①–③'s DONE lines are met. Boot from the vault's `memory/orders/cindy-corpus-roadmap.md`
 (WHAT/WHY/ORDER) + the repo's `RESIDUE-GRIND-RUNBOOK.md` (HOW): fresh census, largest clause family with

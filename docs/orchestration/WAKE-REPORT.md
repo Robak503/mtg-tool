@@ -7,6 +7,16 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🏮 2026-09-03 (night cron) — **④-X: Command Beacon — the commander to hand from the command zone (+1)** · suite **1385 / 15,522** green · corpus 13,951 / 34,245 (40.7%) · flip-diff +1 / 0 lost · 3/3 killed · Earth Bent 89/100
+
+> **Night tally (stage ④, twenty-four slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
+> J (+1) · K (+1, FP closed on 3) · L (+4) · M (+2) · N (+7) · O (+4) · P (+3) · Q (+6) · R (+2) · S (+2) · T (+12) · U (+2) ·
+> V (+2, Thrun 90) · W (+3, Thrun 91) · X (+1) — corpus 13,862 → 13,951.
+> **⏸ CI:** RESOLVED. PR #465's Runner facts step measured the windows-2025 runner at 2 CPUs / 9 GB (four this morning) — vitest = 1 worker — so the suite could not fit the 900 s wall. Fix MERGED to master (bc99a88c): the test job sharded in two with --maxWorkers=2, the wall unchanged (still a hang detector); both shards green on the PR in ~8.5 min. Master's first sharded run is in flight; when green the eleven local slices (④-N … ④-X) rebase onto it and push in one go.
+> **Next runnable:** Earth Bent's tail — Yavimaya, Cradle of Growth ("Each land is a Forest in addition…", a global
+> land-type static), Scythecat Cub (landfall counter with a second-resolution doubling), The Earth King (attack-search
+> for basic lands), Ashaya — or Mothman (87) / Veyran (87) walked the same way.
+
 ## 🪖 2026-09-03 (night cron) — **④-W: the granted except-by evasion — Prowler's Helm, Invisibility, Seeker (+3)** · suite **1384 / 15,519** green · corpus 13,949 / 34,245 (40.7%) · flip-diff +3 / 0 lost · 6/6 killed · Thrun Voltron 91/100
 
 > **Night tally (stage ④, twenty-three slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
