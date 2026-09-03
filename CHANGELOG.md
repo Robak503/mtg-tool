@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Converge spells work** — Unified Front and Infuse with the Elements count the colors of mana spent; every ability word the Comprehensive Rules name is now read past.
 - **Goad works** — Jeering Homunculus, Taunting Kobold, Goblin Racketeer, Coveted Peacock, Taunting Sliver, Glóin, Oceanus Dragon and Bjorna goad a creature until your next turn: it must attack, and not you.
 - **"Target creature defending player controls" on attack triggers works** — Spring Splasher and Skymark Roc pick from the attacked player's board.
 - **"Target creature with power 5 or greater" (and toughness / mana value bounds) works** — the Behemoth cycle, Goblin Smuggler, Wrangle, Claim the Firstborn, Eternal Isolation, Silkwrap and more read the bound off the creature's live stats.

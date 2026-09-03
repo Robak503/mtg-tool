@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 📜 2026-09-03 (night cron) — ④-AK: the rest of CR 207.2c's ability words join the shared label list · **+2** · corpus 14,071 / 34,245 (41.1%)
+> Suite **1398 files / 15,575 tests** green; lint 0. Flip-diff **+2, zero LOST**. **3/3 killed.**
+> · **The shape:** ABILITY_WORD_LABEL_RE (effects/textNormalize.js — one copy for the trigger path and the spell path)
+>   held 38 measured labels; the bundled CR's 207.2c sentence names 64. The 24 missing ones joined, traced
+>   word-for-word to cr_current.json — an ability word has "no special rules meaning" by the CR's own definition, a
+>   stronger gate than a measured flip. ⛔ Left OUT on purpose: bloodrush / channel / grandeur (abilities activated FROM
+>   HAND — stripped, "{R}, Discard this card: …" would read as a battlefield activation), renew (from the graveyard; GY-3
+>   peels it itself), sweep (an ADDITIONAL COST that would read as a bounce effect), and spell mastery — the first
+>   flip-diff LOST Animist's Awakening to it: an existing arm parses "Spell mastery — If …, untap those lands" WHOLE.
+>   Three of the four exclusions are mutation-proven (bloodrush, spell mastery; sweep has no killable carrier — documented).
+> · **Honest size:** 438 parked cards sit behind 287 distinct unlisted labels — but most are Universes-Beyond FLAVOR
+>   words (CR 207.2d: "Vicious Mockery —", "Shrieking Gargoyles —"), which the CR does not list and the detector keeps
+>   on a measured list (FLAVOR_TRIGGER_LABELS) for the reason its comment records: "Max speed", "Solved" and Saga
+>   chapters look the same and carry rules meaning. Of the true 207.2c carriers, only the two Converge spells (Unified
+>   Front, Infuse with the Elements) park on the label alone; Domain / Coven / Kinship / Revolt park on their effects.
+> · **Process slip, caught by the suite count:** the first witness was written to `abilityWordLabels.test.js` — a name an
+>   EXISTING test file already had (the 2026-08 four-word slice), which the Write overwrote. The full suite came back
+>   with nine fewer tests and no mention of the new pins; the original was restored from HEAD and the new pins moved to
+>   `crAbilityWords.test.js`. The overwrite reached no commit. Lesson banked in memory: glob for the name before a Write.
+> · **CI:** ④-AI/④-AJ's run (353bace9) in flight at commit time; ④-AK pushes only after it is green
+
 > ## 🪢 2026-09-03 (night cron) — ④-AJ: the bound-pronoun goad — "Tap target creature an opponent controls. Goad it." · **+2** · corpus 14,069 / 34,245 (41.1%)
 > Suite **1397 files / 15,573 tests** green; lint 0. Flip-diff **+2, zero LOST**. **2/2 killed.**
 > · **The shape:** "goad it / that creature / them" as a referent atom (CR 608.2) — the "Untap it" chain's shape: no target of

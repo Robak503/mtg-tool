@@ -34,7 +34,19 @@
  * untested entry in a list that can only loosen is how it grows past what anyone checked.
  */
 export const ABILITY_WORD_LABEL_RE =
-  /^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|fast healing|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant|imprint|valiant|alliance|delirium|metalcraft|threshold|rally|morbid|ferocious|survival|descend 4|formidable|paradox|fateful hour|hellbent|undergrowth|infusion|vivid|void|battalion|battle cry|inspired|avoidance|mega flare)(?:\s*\([^)]*\))?\s*[—–-]\s*/gim;
+  // ④-AK (2026-09-03): the REST of CR 207.2c's list joined, traced word-for-word to the bundled rules text
+  // (knowledge/mtg-judge/data/cr/cr_current.json, "207.2c") — adamant, addendum, celebration, chroma, cohort,
+  // converge, council's dilemma, coven, descend 8, disappear, domain, eminence, fathomless descent, join forces,
+  // kinship, pack tactics, parley, radiance, repartee, revolt, secret council, spell mastery, strive, tempting offer,
+  // will of the council. An ability word has "no special rules meaning" by the CR's own definition, so the CR list
+  // is a stronger gate than a measured flip. ⛔ FOUR 207.2c WORDS ARE DELIBERATELY LEFT OUT because the text AFTER
+  // them is not an ability of the permanent: bloodrush, channel and grandeur label abilities activated FROM HAND
+  // ("Bloodrush — {R}, Discard this card: …"), renew labels one activated FROM THE GRAVEYARD (the GY-3 lane peels it
+  // itself), and sweep labels an ADDITIONAL COST ("Sweep — Return any number of Islands you control …") — stripped,
+  // each would read as a battlefield activation or an effect, the forbidden direction (mutation-proven for two).
+  // And SPELL MASTERY stays out for the opposite reason: an existing arm reads the label itself (the first
+  // flip-diff LOST Animist's Awakening to the strip — "Spell mastery — If …, untap those lands" is parsed whole).
+  /^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|fast healing|enrage|raid|flurry of blows|flurry|eukrasia|opus|lieutenant|imprint|valiant|alliance|delirium|metalcraft|threshold|rally|morbid|ferocious|survival|descend 4|descend 8|formidable|paradox|fateful hour|hellbent|undergrowth|infusion|vivid|void|battalion|battle cry|inspired|avoidance|mega flare|adamant|addendum|celebration|chroma|cohort|converge|council's dilemma|council’s dilemma|coven|disappear|domain|eminence|fathomless descent|join forces|kinship|pack tactics|parley|radiance|repartee|revolt|secret council|strive|tempting offer|will of the council)(?:\s*\([^)]*\))?\s*[—–-]\s*/gim;
 
 /** Remove a leading CR 207.2c ability-word label from every line that carries one. */
 export function stripAbilityWordLabel(oracle) {
