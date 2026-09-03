@@ -7,6 +7,16 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎼 2026-09-03 (night cron) — **④-Y: Aria of Flame — each opponent gains N life (+1)** · suite **1386 / 15,524** green · corpus 13,952 / 34,245 (40.7%) · flip-diff +1 / 0 lost · 3/3 killed · Veyran Cantrips 88/100
+
+> **Night tally (stage ④, twenty-five slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
+> J (+1) · K (+1, FP closed on 3) · L (+4) · M (+2) · N (+7) · O (+4) · P (+3) · Q (+6) · R (+2) · S (+2) · T (+12) · U (+2) ·
+> V (+2, Thrun 90) · W (+3, Thrun 91) · X (+1, Earth Bent 89) · Y (+1, Veyran 88/100) — corpus 13,862 → 13,952.
+> **CI:** master's first SHARDED run (bc99a88c): shard 2 green, shard 1 finishing; the twelve local slices push the moment both are green (rebased onto that head already).
+> **Next runnable:** Veyran's tail — Thunderdrum Soloist (Opus: the "five or more mana was spent" rider, the Vexing
+> Bauble mana-spent ledger's twin), Arcane Denial (delayed upkeep draws), Dragon's Rage Channeler (delirium P/T +
+> flying); Earth Bent's Scythecat Cub / The Earth King; Mothman (87).
+
 ## 🏮 2026-09-03 (night cron) — **④-X: Command Beacon — the commander to hand from the command zone (+1)** · suite **1385 / 15,522** green · corpus 13,951 / 34,245 (40.7%) · flip-diff +1 / 0 lost · 3/3 killed · Earth Bent 89/100
 
 > **Night tally (stage ④, twenty-four slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·

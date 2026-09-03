@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Aria of Flame works** — every opponent gains 10 on entry, and the verse counters burn as before.
 - **Command Beacon works** — sacrifice it to put your commander into your hand from the command zone.
 - **Prowler's Helm, Invisibility and Seeker work** — the creature wearing them can only be blocked by what the
   card names.

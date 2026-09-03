@@ -3,6 +3,15 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎼 2026-09-03 (night cron) — ④-Y: "each opponent gains N life" — Aria of Flame · **+1** · Veyran Cantrips 88/100 · corpus 13,952 / 34,245 (40.7%)
+> Suite **1386 / 15,524** green; lint 0. Flip-diff **+1, zero LOST**. **3/3 killed.**
+> · **The shape:** the loss twin ("each opponent loses N life") and the targeted gain both existed; the each-opponent
+>   GAIN had no arm, so Aria of Flame parked on its own drawback line while its verse-counter storm trigger was
+>   already modeled. The applier gains for every opponent and fires each one's lifegain triggers (CR 119.3) — the
+>   same recipient dispatch the poison / loss appliers use.
+> · **Board-verified (four-seat pod):** cast from hand, all three opponents gain 10 and the caster does not.
+> · **CI:** master's first SHARDED run (bc99a88c): shard 2 green, shard 1 finishing; the twelve local slices push the moment both are green (rebased onto that head already).
+
 > ## 🏮 2026-09-03 (night cron) — ④-X: COMMAND BEACON — the commander from the command zone to the hand · **+1** · Earth Bent 89/100 · corpus 13,951 / 34,245 (40.7%)
 > Suite **1385 / 15,522** green; lint 0. Flip-diff **+1, zero LOST**. **3/3 killed.**
 > · **The shape:** "{T}, Sacrifice this land: Put your commander into your hand from the command zone." The land's mana

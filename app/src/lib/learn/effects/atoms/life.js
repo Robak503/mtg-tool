@@ -42,6 +42,16 @@ export function applyGainLife(state, atom, ctx) {
     }
     return logEvent(next, { kind: "spell-effect", effect: "gain-life", who: "defendingPlayer", amount });
   }
+  if (atom.who === "eachOpponent") {
+    // ④-Y — every opponent gains (Aria of Flame's "each opponent gains 10 life"); each recipient's own lifegain
+    // triggers fire (CR 119.3). Eliminated seats are simply absent from opponentsOf.
+    for (const pid of opponentsOf(next, ctx.controller)) {
+      if (!next.players[pid]) continue;
+      next = gainLife(next, { playerId: pid, amount });
+      if (amount > 0) next = checkLifegainTriggers(next, pid, amount);
+    }
+    return logEvent(next, { kind: "spell-effect", effect: "gain-life", who: "eachOpponent", amount });
+  }
   next = gainLife(next, { playerId: ctx.controller, amount });
   // TRIG-LIFEGAIN (CR 119.3): the controller gained life → fire their "Whenever you gain life" triggers.
   if (amount > 0) next = checkLifegainTriggers(next, ctx.controller, amount);
@@ -331,6 +341,11 @@ export function lifeClauseParser(clause) {
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "controller", targetType: null };
   m = t.match(/^each opponent loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "eachOpponent", targetType: null };
+  // ④-Y (2026-09-03 night) — "each opponent gains N life" (Aria of Flame's ETB, Veyran Cantrips): the gain twin of
+  // the loss arm directly above; applyGainLife's eachOpponent branch gains for every opponent and fires each one's
+  // own lifegain triggers (CR 119.3), the same recipient dispatch the poison / loss appliers use.
+  m = t.match(/^each opponent gains (\d+) life$/);
+  if (m) return { op: "gain-life", amount: parseInt(m[1], 10), who: "eachOpponent", targetType: null };
   m = t.match(/^target (player|opponent) loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[2], 10), who: "target", targetType: m[1] };
   // ⭐ TARGET **OPPONENT** GAINS (TO-1, 2026-08-05 — Fiery Justice, Soldevi Steam Beast, Armistice): the
