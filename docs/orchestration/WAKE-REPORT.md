@@ -34,6 +34,32 @@
 > in the plan's §6 with the numbers. Nothing under-offered is wrong in the rules sense (a land that taps for
 > less is a safe under-play); the wrong thing was the claim, and it is now on the record.
 >
+> **② DONE — the land-tier family table (every `land-partial` clause family with ≥3 corpus carriers, census
+> 05:45 scratch lands-census-0545.txt; land-partial 454 → 357, single-blockers 368 → 280):**
+>
+> | family (carriers) | status |
+> |---|---|
+> | "enters tapped unless …" (83) | SHIPPED LANDS-1 |
+> | shocklands, pay 2 life (10) | SHIPPED LANDS-2 (the optional-life-payment pause) |
+> | self-name sacrifice + `historic` (13) | SHIPPED LANDS-3 |
+> | exile-N-from-graveyard costs (31) | SHIPPED LANDS-4 |
+> | Channel + Mistrise (22) | SHIPPED LANDS-5/6 |
+> | reveal-lands · typed-basic fetch · enters-with-counters (47) | SHIPPED LANDS-7/8/9 |
+> | storage-counter lands (13) | SHIPPED LANDS-10 — ⚠️ metric only: their remove-counter mana is never offered (see the correction) |
+> | Karoos + "sacrifice unless you pay {1}" (9 + 1) | SHIPPED LANDS-11 |
+> | "as this enters, choose a color" (21) | SHIPPED LANDS-12 |
+> | the Invasion lairs (5) | SHIPPED LANDS-13 |
+> | the Alchemy Gates: seek + "Activate only once." (5) | SHIPPED LANDS-14b |
+> | the Roads: a Pilot token with a quoted saddle/crew static (5) | PARKED — saddle is not modeled; a half-honored quoted static is absence, not value |
+> | the Gathering Place cycle: a gated SECOND mana line (5) | PARKED — multi-product mana (the correction's fix; top of §6) |
+> | bands with other legendary creatures (5) | PARKED — a retired keyword, no banding subsystem |
+> | the Overlooks: reflexive "When you do … and you gain 1 life" (5) | PARKED — the reflexive-with-rider shape |
+> | Ice Age "If this land would enter, sacrifice a <type> instead" (3) | PARKED — a choice-bearing pre-enter replacement (§6 has the unpark) |
+>
+> Below three carriers (not required by the DONE line, listed for honesty): Station (2), Hall of Tagsin (2),
+> Lotus Vale / Scorched Ruins (2), the Temple reveal-tapped pair (2), Base Camp (2), Soldevi / Balduvian (2),
+> Dungeon Descent (2), Urborg / Yavimaya "each land is a …" (2), and 27 singletons.
+>
 > **Every slice on master (SHA · what · witness):** LANDS-1 37bb04b7 "enters tapped unless" (83) ·
 > LANDS-2 fce3397b shocklands (10, the optional-life-payment pause) · LANDS-3 3ee7890b self-name sacrifice +
 > `historic` (13) · LANDS-4 bb367426 exile-N-from-graveyard cost (31) · LANDS-5+6 aae508fe Channel +
@@ -44,7 +70,9 @@
 > the Invasion lairs (5) · SG-6 c01bd5fe the Spirit Guides (2) · SG-7/8 a9a3ee69 Altar of Dementia + Dosan
 > (2) · SG-9/12 9d8bfc41 Evolutionary Leap + Homeward Path (4) · SG-10/11 4e7f37b2 Peregrin Took + Frenzied
 > Baloth (2) · SG-13 2d99bdb6 Vexing Bauble (4) · SG-14 ce87d354 Allosaurus Shepherd (1) · 7e28368b the
-> correction (docs only). Every slice: flip-diff zero LOST, mutations seen-to-fail, full suite, CI.
+> correction (docs only) · LANDS-14b the Alchemy Gates: seek + once-per-game (8; corpus 13,814; suite
+> 1346 / 15,301) — the slice that closed stage ②. Every slice: flip-diff zero LOST, mutations
+> seen-to-fail, full suite, CI.
 >
 > **Where the walk stopped and why (05:10):** Squirrel Girl at 83 — everything left on her is a multi-slice
 > program (Sylvan Library's pending-choice stack, Boseiju's three-piece channel, Cavern of Souls, The One

@@ -86,8 +86,9 @@ runtime; corrected 04:50, see the top of §6) · ✅ the Karoos + pay-{1} lands 
 ✅ choose-a-color permanents (21, LANDS-12). **Measured after LANDS-12 (the DONE ② number): land-partial
 454 → 368 (single-blockers 368 → 291); after LANDS-13 (the lairs, +5): 363.** ⚠️ CORRECTION to an earlier
 line here: NOT every ≥3-carrier family is shipped or parked — five families of exactly 5 carriers remain
-OPEN: the Gates' once-only draw ("… Activate only once" — a once-ever ledger); ~~the Invasion lairs~~ (✅
-LANDS-13 — the negated-subtype return cost); the Roads
+OPEN: ~~the Gates' once-only draw~~ (✅ LANDS-14b, 05:45 — "Seek a nonland card" as a seeded random
+library→hand atom, CR 701.55, plus the bare "Activate only once." as the game-scoped limit); ~~the Invasion
+lairs~~ (✅ LANDS-13 — the negated-subtype return cost); the Roads
 ("Sacrifice this land: create a Pilot token with a quoted sac ability"); the Gathering Place cycle ("Add
 {X} or {Y}. Activate only if this land entered this turn OR you control a basic land" — an OR condition
 the activation-gate vocabulary refuses structurally); the Overlooks (reflexive "When you do … and you gain
@@ -95,7 +96,10 @@ the activation-gate vocabulary refuses structurally); the Overlooks (reflexive "
 (3), Station (2). Original queue for reference: "As it
 enters, choose a color" (6 — `chosenColor` exists for Auras) · the Karoos (10) · the Gates (5) · "sacrifice
 unless you pay {1}" (4). **Parks:** bands (5), the Overlooks' reflexive "When you do … and you gain 1 life"
-tail (5), Station (2).
+tail (5), Station (2), **the Roads (5 — saddle unmodeled) and the Ice Age sac-instead lands (3 — a
+choice-bearing pre-enter replacement), both parked 05:50 with the unpark in §6.** With LANDS-14b every
+≥3-carrier family is SHIPPED or PARKED and the wake report carries the table → **DONE ② met (05:55):
+land-partial 454 → 357, single-blockers 368 → 280.**
 
 ---
 
@@ -239,6 +243,19 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
   permanent as mutually exclusive (one {T} per permanent), every manaSources consumer re-gated. A real
   subsystem slice, a few hours with gates; it also makes the 55 credited lands honest. Your call on priority
   against stage ④'s subsystems (morph ~164, initiative/ring ~126, quoted-grant statics ~133).
+- **The Roads (5 — Reef/Wild/… Roads) · PARKED 05:50:** "{1}{U}, {T}, Sacrifice this land: Create a 1/1
+  colorless Pilot creature token with 'This token saddles Mounts and crews Vehicles as though its power were
+  2 greater.'" The token is a quoted STATIC on two verbs; crew is modeled (the crew power sum in legalChoices
+  + the dispatcher), **saddle is not modeled at all** (no saddle action, no Mount subsystem). Minting the
+  token would credit a static the engine can honor only halfway — absence ≠ value. Unpark = a saddle
+  subsystem (mirror crew: a saddle action + the power sum), then the quoted-static allowlist in the token
+  parser + the "+N as though" reader at both crew/saddle power sums.
+- **The Ice Age "If this land would enter, sacrifice a <type> instead" (3 — Lake of the Dead class) ·
+  PARKED 05:50:** a pre-enter REPLACEMENT with a player choice (sacrifice a Swamp to let it enter, or it goes
+  to the graveyard). The enter chokepoints run replacement effects that have no choice (enters-tapped,
+  counters, colour picks); a choice-bearing replacement before the permanent exists needs its own pending
+  choice on the play-land / enterPermanent paths. Unpark = the shockland pause pattern (LANDS-2) at the
+  pre-enter site with a sacrifice picker.
 - (append here: card · blocker · why it parks · what would unpark it)
 
 ## §7 WHAT THE MORNING REPORT MUST CONTAIN

@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **The Alchemy Gates work** (Gate to Manorborn and its four siblings) — "Seek a nonland card" pulls a random
+  nonland card from your library into your hand, and the ability really is once per game.
 - **Allosaurus Shepherd works** — your green spells can't be targeted by counters while it's out, and its
   {4}{G}{G} turns every Elf you control into a 5/5 Dinosaur Elf until end of turn.
 - **Vexing Bauble works** — a spell cast for no mana at all (a free cast, a {0} spell) is countered; a paid

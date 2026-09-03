@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🚪 2026-09-03 — LANDS-14b: the Alchemy Gates — "Seek a nonland card. Activate only once." · **+8 corpus** · land-partial 363→357 · corpus 40.3% (13,814/34,245) · **STAGE ② DONE**
+> Suite **1346 / 15,301** green; lint 0. Flip-diff **+8, zero LOST** — the five Gates (land-partial → land)
+> and three riders audited against their real oracle: Spectacle of Destruction (its upkeep trigger seeks a
+> nonland card), Excogitator Sphinx ("Seek an instant or sorcery card" — one of the four modeled filters),
+> First Little Pig (a bare "Activate only once." on an already-modeled exile). **6/6 killed.**
+> · **SEEK (CR 701.55).** A card matching the filter is chosen at random from the library and put into hand
+>   — no reveal, no shuffle. The pick rides the engine's seeded RNG (the same deterministicRng the
+>   random-bottom helpers use), salted with the turn and the library size; same seed → same card (pinned).
+>   Exactly four printed filters (nonland / creature / land / instant or sorcery); any rider ("… and put it
+>   onto the battlefield tapped", a mana-value cap) fails the anchor → Arbiter (pinned). No match → a logged
+>   no-op (701.55b). The 117 corpus seek carriers beyond these shapes stay parked.
+> · **The bare "Activate only once."** — with no "each turn" — is a once-per-GAME limit (the Power-up /
+>   Exhaust frame), stripped for the effect parse and enforced through the existing game-scoped
+>   activation ledger. Pinned: on a later turn, untapped and with mana, the Gate's seek is not offered;
+>   "Activate only once each turn" keeps its per-turn scope.
+> · **Stage ② is DONE:** every `land-partial` clause family with ≥3 corpus carriers is SHIPPED or PARKED with
+>   a reason (the table is in the wake report; the Roads and the Ice Age sac-instead lands parked 05:50 —
+>   saddle is unmodeled; a choice-bearing pre-enter replacement); land-partial 454 → 357, single-blockers
+>   368 → 280. The multi-line-mana correction below still governs what "fully covered" means for 55 of them.
+
 > ## ⚠️ 2026-09-03 04:50 — CORRECTION (no code): the land tier credits mana lines the runtime never offers — 55 "land"-tier cards, INCLUDING tonight's 13 storage lands (LANDS-10)
 > Found while building the Gathering Place gate (the would-be LANDS-14, reverted unshipped). The mana model
 > reads ONE product per card (parseAddClause takes the first "Add" clause) and manaSources offers that

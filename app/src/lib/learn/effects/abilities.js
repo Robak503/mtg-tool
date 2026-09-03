@@ -146,6 +146,12 @@ const LIMIT_RIDER = new RegExp(
   `\\.?\\s*Activate (?:this ability )?(?:only once|no more than (${Object.keys(LIMIT_WORDS).join("|")})) each turn\\.?\\s*$`,
   "i",
 );
+// ONCE-EVER RIDER (LANDS-14b, 2026-09-03 — the Alchemy Gates: "{3}{G}, {T}: Seek a nonland card. Activate
+// only once."): the bare "Activate only once." with NO "each turn" is a once-per-GAME limit (CR 602.5 —
+// the same frame Power-up / Exhaust carry), enforced through the existing game-scoped activation ledger.
+// Distinct from LIMIT_RIDER above, which requires "each turn"; the two never both match one line.
+const ONCE_EVER_RIDER = /\.?\s*Activate (?:this ability )?only once\.?\s*$/i;
+
 export function parseGraveyardExileAbility(card) {
   const oracle = stripReminder(String(card?.oracle || card?.oracle_text || ""));
   for (const rawLine of oracle.split("\n")) {
@@ -1160,9 +1166,13 @@ export function parseActivatedAbilities(card) {
     // A matched count word is always a LIMIT_WORDS key (the alternation is built from it), but fall back to
     // "no limit, don't strip" rather than NaN if that ever drifts — a safe false negative.
     const activationLimit = limitM ? (limitM[1] ? LIMIT_WORDS[limitM[1].toLowerCase()] ?? null : 1) : null;
+    // ONCE-EVER (LANDS-14b): the bare "Activate only once." — a once-per-GAME limit (activationLimitScope
+    // "game", the Power-up ledger), stripped for the effect parse exactly like the per-turn rider.
+    const onceEver = !limitM && ONCE_EVER_RIDER.test(afterCondition);
     const preCombatOnly = PRECOMBAT_RIDER.test(afterCondition) && !OPPONENT_TURN_RIDER.test(afterCondition);
     const afterPrecombat = preCombatOnly ? afterCondition.replace(PRECOMBAT_RIDER, "").trim() : afterCondition;
-    const beforeTimingStrip = activationLimit ? afterPrecombat.replace(LIMIT_RIDER, "").trim() : afterPrecombat;
+    const beforeTimingStrip = activationLimit ? afterPrecombat.replace(LIMIT_RIDER, "").trim()
+      : onceEver ? afterPrecombat.replace(ONCE_EVER_RIDER, "").trim() : afterPrecombat;
     // Read the flag off the PRE-strip text — after the strip the phrase is gone by construction.
     const sorceryOnly = abilityIsSorcerySpeedOnly(beforeTimingStrip);
     let effectClause = stripBonusUntapRider(stripEnforcedTimingRider(beforeTimingStrip));
@@ -1243,8 +1253,8 @@ export function parseActivatedAbilities(card) {
       raw: line,
       costStr,
       effectClause,
-      activationLimit: activationLimit ?? (isBoast || isPowerUp || isExhaust ? 1 : null), // ONCE-1 — N activations per turn, or null (runtime-enforced frequency restriction)
-      ...(isPowerUp || isExhaust ? { activationLimitScope: "game" } : {}), // POWER-UP / EXHAUST — "only once", never re-armed by a new turn
+      activationLimit: activationLimit ?? (isBoast || isPowerUp || isExhaust || onceEver ? 1 : null), // ONCE-1 — N activations per turn, or null (runtime-enforced frequency restriction)
+      ...(isPowerUp || isExhaust || onceEver ? { activationLimitScope: "game" } : {}), // POWER-UP / EXHAUST / the bare "Activate only once." (LANDS-14b) — never re-armed by a new turn
       ...(isPowerUp ? { powerUp: true } : {}), // the powerUpOnly cost reducer (Hulk, Gamma Goliath) gates on this — Exhaust must NOT ride it
       preCombatOnly, // "before attackers are declared" — legalChoices narrows the window to the PRECOMBAT main
       sorceryOnly,   // CR 602.5i "Activate only as a sorcery" — legalChoices adds the EMPTY-STACK half the generic main-step gate does not cover

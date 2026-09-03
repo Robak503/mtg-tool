@@ -1293,6 +1293,43 @@ export function applyRevealUntilCreatureAttacking(state, atom, ctx) {
 }
 
 /**
+ * ===== SEEK (LANDS-14b, 2026-09-03 — the Alchemy Gates "Seek a nonland card", CR 701.55) =====
+ * "Seek a <filter> card": a card matching the filter is chosen AT RANDOM from the library and put into its
+ * owner's hand, without revealing and without a shuffle (701.55a/b). The pick rides the engine's seeded
+ * RNG (the same deterministicRng the random-bottom helpers use — same seed, same game, byte-identical),
+ * salted with the turn and the library size so two seeks in one game do not repeat an index pattern.
+ * No matching card → a logged no-op (701.55b: nothing happens). Filters: the four printed on the modeled
+ * carriers only — "nonland" (the Gates, 12 corpus lines), "creature", "land", "instant or sorcery"; any
+ * rider ("… and put it onto the battlefield tapped", a mana-value cap) fails the anchor → Arbiter.
+ */
+const SEEK_FILTERS = {
+  nonland: (c) => !/\bLand\b/i.test(String(c?.type || c?.type_line || "")),
+  creature: (c) => /\bCreature\b/i.test(String(c?.type || c?.type_line || "")),
+  land: (c) => /\bLand\b/i.test(String(c?.type || c?.type_line || "")),
+  "instant or sorcery": (c) => /\b(?:Instant|Sorcery)\b/i.test(String(c?.type || c?.type_line || "")),
+};
+export function seekClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").trim();
+  const m = t.match(/^seek an? (nonland|creature|land|instant or sorcery) card$/);
+  if (m) return { op: "seek", filter: m[1], targetType: null };
+  return null;
+}
+export function applySeek(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state;
+  const pred = SEEK_FILTERS[atom.filter];
+  if (!pred) return state;
+  const lib = player.library || [];
+  const candidates = lib.filter(pred);
+  if (candidates.length === 0) return logEvent(state, { kind: "spell-effect", effect: "seek", controller, filter: atom.filter, found: false });
+  const rng = deterministicRng((((state.rngSeed ?? 0) >>> 0) + (state.turn || 0) * 7919 + lib.length * 104729) >>> 0);
+  const picked = candidates[Math.floor(rng() * candidates.length)];
+  const next = moveCardToZone(state, { playerId: controller, fromZone: "library", toZone: "hand", cardId: picked.id });
+  return logEvent(next, { kind: "spell-effect", effect: "seek", controller, filter: atom.filter, found: true, cardName: picked.name || null });
+}
+
+/**
  * ===== REVEAL-UNTIL-CREATURE-TO-HAND (SG-9, 2026-09-03 — Evolutionary Leap, CR 701.18) =====
  * "Reveal cards from the top of your library until you reveal a creature card. Put that card into your hand
  * and the rest on the bottom of your library in a random order." The attacking sibling's frame with the
@@ -2373,6 +2410,7 @@ export const libraryResolvers = {
   "reveal-until-n-lands": applyRevealUntilNLands, // ===== REVEAL-UNTIL-N-LANDS (Open the Way) ===== ({X} spell, X≤players) reveal top until X lands → all lands onto battlefield tapped → rest to bottom random. Open the Way flips native-spell.
   "reveal-until-creature-attacking": applyRevealUntilCreatureAttacking, // W10 (Raph & Mikey) — reveal until a creature → enter it tapped + JOIN the attack (the mobilize convention) → bottom the rest random
   "reveal-until-creature-to-hand": applyRevealUntilCreatureToHand, // SG-9 (Evolutionary Leap) — reveal until a creature → that card to HAND → bottom the rest random
+  seek: applySeek, // LANDS-14b (the Alchemy Gates, CR 701.55) — a random matching library card to hand, no reveal, no shuffle
   "reveal-top-conditional": applyRevealTopConditional, // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== reveal top: creature → onto battlefield (fires ETB); else put on bottom (deterministic "you may", like explore).
   "animist-awakening": applyAnimistAwakening, // ===== ANIMIST'S AWAKENING ===== ({X} spell) reveal top X → put all LANDS onto battlefield tapped → bottom the rest random; spell-mastery (2+ IS in GY) untaps those lands. Animist's Awakening flips native-spell.
 };
