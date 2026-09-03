@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Sylvan Library works** — at your draw step you may draw two extra cards, then for each of them pay 4 life
+  to keep it or put it back on top; the Academy asks you one card at a time, and the autopilot pays only
+  while it keeps a life buffer.
 - **The Alchemy Gates work** (Gate to Manorborn and its four siblings) — "Seek a nonland card" pulls a random
   nonland card from your library into your hand, and the ability really is once per game.
 - **Allosaurus Shepherd works** — your green spells can't be targeted by counters while it's out, and its

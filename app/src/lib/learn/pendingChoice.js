@@ -551,6 +551,22 @@ export function setPendingOptionalManaPaymentChoice(state, { controller, cost, e
  * call resumeAfterChoice; it finalizes the stack (SBA + trigger flush) directly. `permanentId` is the
  * entered land; `life` the printed N. FIFO: one choice at a time (the family rule).
  */
+/**
+ * ===== SYLVAN LIBRARY (SG-15b, CR 603.7c + 121.4) ===== — suspend on ONE drawn card's "pay L life or put
+ * the card on top of your library" decision. Raised inside an effect program (the sylvan-library atom), so
+ * runProgram attaches the continuation as `.resume`; the settler chains the next card (`remaining`) under
+ * the SAME resume, and resumes the program after the last one. `cardId` is the card in hand this decision
+ * is about; `cardName` for the picker. FIFO: one choice at a time (the family rule).
+ */
+export function setPendingSylvanLibraryChoice(state, { controller, cardId, cardName = null, life, remaining = [], sourceName = null, resume = undefined }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "sylvan-library-pending", controller, cardId, cardName, amount: life, sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "sylvan-library", controller, cardId, cardName, life, remaining: [...remaining], sourceName, ...(resume !== undefined ? { resume } : {}) },
+  };
+}
+
 export function setPendingOptionalLifePaymentChoice(state, { controller, permanentId, life, sourceName = null }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "optional-life-payment-pending", controller, amount: life, sourceName });

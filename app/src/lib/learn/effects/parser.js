@@ -2387,6 +2387,20 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       return makeProgram({ confidence: "high", atoms: [{ op: "reveal-until-creature-attacking", targetType: null }], xSpell: false, unparsedTail: null });
     }
   }
+  // ===== SYLVAN LIBRARY (SG-15b, 2026-09-03 — CR 603.7c + 121.4) ===== "you may draw two additional cards.
+  // If you do, choose two cards in your hand drawn this turn. For each of those cards, pay 4 life or put the
+  // card on top of your library." Three sentences with an "if you do" back-reference and a per-card
+  // either/or — collapsed up front to ONE optional atom: runProgram's optional-effect pause owns the
+  // "you may" (a human decides, the autopilot takes it); the applier draws, then raises the per-card
+  // pay-or-put-back pause (sylvan-library), one card at a time. EXACT whole-string anchor.
+  {
+    const sl = String(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "")
+      .match(/^you may draw (two|three) additional cards\. if you do, choose (two|three) cards in your hand drawn this turn\. for each of those cards, pay (\d+) life or put the card on top of your library$/);
+    if (sl && KNOWN.has("sylvan-library")) {
+      const W = { two: 2, three: 3 };
+      return makeProgram({ confidence: "high", atoms: [{ op: "sylvan-library", optional: true, draw: W[sl[1]], choose: W[sl[2]], life: parseInt(sl[3], 10), targetType: null }], xSpell: false, unparsedTail: null });
+    }
+  }
   // ===== TYPED TEAM BASE-P/T SET + TYPE ADD (SG-14, 2026-09-03 — Allosaurus Shepherd) ===== "Until end of
   // turn, each Elf creature you control has base power and toughness 5/5 and becomes a Dinosaur in addition
   // to its other types." The top-level " and " would shatter the sentence into two half-clauses that parse

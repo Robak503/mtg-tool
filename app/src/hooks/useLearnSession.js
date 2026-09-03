@@ -549,6 +549,56 @@ export default function useLearnSession() {
   // OPTIONAL-LIFE-PAYMENT (LANDS-TIER slice 2; CR 614.1c + 119.4) — answer the shockland clause "As this
   // land enters, you may pay N life. If you don't, it enters tapped." `pay` true charges the life for an
   // untapped land, false lets it enter tapped. Mirrors applyOptionalManaPaymentChoice.
+  // SYLVAN LIBRARY (SG-15b; CR 603.7c + 121.4) — answer one drawn card's "pay L life or put it back on top".
+  // `pay` true keeps the card and pays; false puts it back. Mirrors applyOptionalLifePaymentChoice.
+  const applySylvanLibraryChoice = useCallback(
+    async (pay) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
+
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "sylvan-library", pay: pay === true },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
+        return null;
+      } finally {
+        inFlightRef.current = false;
+      }
+    },
+    [state.sessionId],
+  );
+
   const applyOptionalLifePaymentChoice = useCallback(
     async (pay) => {
       if (inFlightRef.current || !state.sessionId) return null;
@@ -1526,6 +1576,7 @@ export default function useLearnSession() {
     applySoftCounterChoice,
     applyOptionalManaPaymentChoice,
     applyOptionalLifePaymentChoice,
+    applySylvanLibraryChoice,
     applyOptionalSacChoice,
     applyCommanderReturnChoice,
     mulligan,

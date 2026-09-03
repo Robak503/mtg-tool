@@ -24,7 +24,7 @@
  */
 
 import { markPendingArbiter } from "../pendingArbiter.js";
-import { clearPendingChoice, setPendingTutorChoice, setPendingImpulseDigChoice } from "../pendingChoice.js";
+import { clearPendingChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice } from "../pendingChoice.js"; // + SG-15b: the Sylvan Library per-card pause is chained by its own settler
 import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
@@ -1324,6 +1324,41 @@ export function resolveSoftCounterChoice(state, pay) {
  * exactly as the mana sibling does after its own resume. A vanished land (it left the battlefield during
  * the pause) or an eliminated controller → clear the pause and do nothing, never a phantom tap or charge.
  */
+/**
+ * ===== SYLVAN LIBRARY (SG-15b, CR 603.7c + 121.4) ===== — settle ONE drawn card's pay-or-put-back: `pay`
+ * with the life to spare → lose L life and keep the card; otherwise (declined, or life below L — CR 119.4
+ * lets you pay down to 0, never below) the card goes from hand to the TOP of its owner's library. Then
+ * chain the next card under the same continuation, or resume the program after the last one. A card that
+ * already left the hand (a mid-pause effect) is skipped — never a phantom move, never a charge for nothing.
+ */
+export function resolveSylvanLibraryChoice(state, pay) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "sylvan-library") return state;
+  let next = clearPendingChoice(state);
+  const player = next.players?.[pc.controller];
+  if (!player) return next;
+  const life = pc.life || 0;
+  const inHand = (player.hand || []).some((c) => c.id === pc.cardId);
+  if (inHand) {
+    if (pay && life > 0 && (player.life ?? 0) >= life) {
+      next = loseLife(next, { playerId: pc.controller, amount: life });
+      next = logEvent(next, { kind: "spell-effect", effect: "sylvan-library-card", controller: pc.controller, cardId: pc.cardId, cardName: pc.cardName, paid: true, amount: life });
+    } else {
+      next = moveCardToZone(next, { playerId: pc.controller, fromZone: "hand", toZone: "library", cardId: pc.cardId, toTop: true });
+      next = logEvent(next, { kind: "spell-effect", effect: "sylvan-library-card", controller: pc.controller, cardId: pc.cardId, cardName: pc.cardName, paid: false, putBack: true });
+    }
+  } else {
+    next = logEvent(next, { kind: "spell-effect", effect: "sylvan-library-card", controller: pc.controller, cardId: pc.cardId, cardName: pc.cardName, skipped: "not in hand" });
+  }
+  const remaining = Array.isArray(pc.remaining) ? pc.remaining : [];
+  if (remaining.length > 0) {
+    const [id, ...rest] = remaining;
+    const card = (next.players[pc.controller]?.hand || []).find((c) => c.id === id);
+    return setPendingSylvanLibraryChoice(next, { controller: pc.controller, cardId: id, cardName: card?.name || null, life, remaining: rest, sourceName: pc.sourceName || null, resume: pc.resume });
+  }
+  return pc.resume ? resumeAfterChoice(next, pc) : next;
+}
+
 export function resolveOptionalLifePaymentChoice(state, pay) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "optional-life-payment") return state;

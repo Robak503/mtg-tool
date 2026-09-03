@@ -88,6 +88,17 @@ export function autoPickCreatureType(state, controller, { excludePermanentId = n
  * the tally via opponents' colorless nonland permanents and can win it.
  * The same deliberately-dull discipline as autoPickCreatureType above: board-shaped, never payoff-tuned.
  */
+/**
+ * SYLVAN LIBRARY (SG-15b) — the autopilot's pay-or-put-back for ONE drawn card: pay L life iff the player
+ * would keep at least 8 life afterwards (a deterministic buffer — cards are worth life while life is not
+ * the constraint; never below L itself, CR 119.4). A human decides at the panel; this is the fallback only.
+ */
+export function autoPickSylvanLibraryPayment(state, controller, life) {
+  const cur = state?.players?.[controller]?.life ?? 0;
+  const l = Math.max(0, life || 0);
+  return l > 0 && cur - l >= 8;
+}
+
 export function autoPickProtectionColor(state, controller, { orColorless = false } = {}) {
   const tally = { W: 0, U: 0, B: 0, R: 0, G: 0, ...(orColorless ? { C: 0 } : {}) };
   for (const pid of Object.keys(state?.players || {})) {

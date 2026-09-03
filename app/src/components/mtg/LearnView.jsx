@@ -50,6 +50,7 @@ import {
   SoftCounterPanel,
   OptionalManaPaymentPanel,
   OptionalLifePaymentPanel,
+  SylvanLibraryPanel,
   OptionalSacPanel,
   SacrificeChoicePanel,
   DiscardChoicePanel,
@@ -745,6 +746,7 @@ export default function LearnView({
               onSoftCounterChoose={session.applySoftCounterChoice}
               onOptionalManaPaymentChoose={session.applyOptionalManaPaymentChoice}
               onOptionalLifePaymentChoose={session.applyOptionalLifePaymentChoice}
+              onSylvanLibraryChoose={session.applySylvanLibraryChoice}
               onOptionalSacChoose={session.applyOptionalSacChoice}
               onCommanderReturnChoose={session.applyCommanderReturnChoice}
             />
@@ -959,6 +961,16 @@ export default function LearnView({
           <OptionalLifePaymentPanel
             decision={decision}
             onChoose={session.applyOptionalLifePaymentChoice}
+          />
+        </div>
+      )}
+      {/* SYLVAN LIBRARY (SG-15b; CR 603.7c + 121.4) — one drawn card at a time: pay L life to keep it, or put
+          it back on top. Same side-sheet. */}
+      {session.board && decision?.kind === "sylvan-library" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <SylvanLibraryPanel
+            decision={decision}
+            onChoose={session.applySylvanLibraryChoice}
           />
         </div>
       )}
@@ -1386,6 +1398,7 @@ function DecisionPrompt({
   onSoftCounterChoose,
   onOptionalManaPaymentChoose,
   onOptionalLifePaymentChoose,
+  onSylvanLibraryChoose,
   onOptionalSacChoose,
   onCommanderReturnChoose,
 }) {
@@ -1472,6 +1485,9 @@ function DecisionPrompt({
   }
   if (decision.kind === "optional-life-payment") {
     return <OptionalLifePaymentPanel decision={decision} onChoose={onOptionalLifePaymentChoose} />;
+  }
+  if (decision.kind === "sylvan-library") {
+    return <SylvanLibraryPanel decision={decision} onChoose={onSylvanLibraryChoose} />;
   }
   if (decision.kind === "optional-sac-payment") {
     return <OptionalSacPanel decision={decision} onChoose={onOptionalSacChoose} />;

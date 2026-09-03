@@ -6,7 +6,7 @@
 import { logEvent, opponentsOf, findPermanent, deterministicRng, shuffleSeededLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
 import { permanentIsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW
 import { hasKeyword } from "../../keywords.js"; // LK-1 chosen-type impulse-dig membership (keywords.js is a zero-import leaf — cycle-safe)
-import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice, setPendingLookTopTakeChoice, setPendingMilledPickChoice } from "../../pendingChoice.js";
+import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice, setPendingLookTopTakeChoice, setPendingMilledPickChoice, setPendingSylvanLibraryChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard, isInstantOrSorceryCard, resolveScaledAmount } from "./shared.js";
 import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource, TUTOR_COLOR_WORD } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers; TUTOR_COLOR_WORD for the color-qualified X-tutor (Green Sun's Zenith)
 // MILL-ON-EVENT (Wave 3b): the mill atom is one of the two real mill chokepoints, so it enqueues the
@@ -1293,6 +1293,31 @@ export function applyRevealUntilCreatureAttacking(state, atom, ctx) {
 }
 
 /**
+ * ===== SYLVAN LIBRARY (SG-15b, 2026-09-03 — CR 603.7c + 121.4) ===== the taken half of "you may draw N
+ * additional cards. If you do, choose N cards in your hand drawn this turn. For each of those cards, pay
+ * L life or put the card on top of your library." The optional-effect pause has already been answered
+ * "yes" by the time this runs (runProgram strips `optional` on resume). Draw N through the shared draw
+ * effect (draw triggers fire per card actually drawn), then the chosen cards are the LAST N entries of
+ * the drawn-this-turn ledger that are still in hand (the cards this effect drew — the standard choice;
+ * a deck-out draws fewer and chooses fewer, CR 121.4), and the per-card pay-or-put-back pause is raised
+ * for the first of them; the settler chains the rest, then resumes the program.
+ */
+export function applySylvanLibrary(state, atom, ctx) {
+  const controller = ctx.controller;
+  if (!state.players?.[controller]) return state;
+  let next = applyDrawEffect(state, { controller, amount: Math.max(0, atom.draw || 0) });
+  const player = next.players[controller];
+  const inHand = new Set((player.hand || []).map((c) => c.id));
+  const drawnIds = (player.drawnThisTurnIds || []).filter((id) => inHand.has(id));
+  const chosen = drawnIds.slice(-Math.max(0, atom.choose || 0));
+  next = logEvent(next, { kind: "spell-effect", effect: "sylvan-library", controller, drew: atom.draw || 0, chosen: chosen.length });
+  if (chosen.length === 0) return next;
+  const [first, ...rest] = chosen;
+  const card = (player.hand || []).find((c) => c.id === first);
+  return setPendingSylvanLibraryChoice(next, { controller, cardId: first, cardName: card?.name || null, life: atom.life || 0, remaining: rest, sourceName: ctx.cardName || null });
+}
+
+/**
  * ===== SEEK (LANDS-14b, 2026-09-03 — the Alchemy Gates "Seek a nonland card", CR 701.55) =====
  * "Seek a <filter> card": a card matching the filter is chosen AT RANDOM from the library and put into its
  * owner's hand, without revealing and without a shuffle (701.55a/b). The pick rides the engine's seeded
@@ -2411,6 +2436,7 @@ export const libraryResolvers = {
   "reveal-until-creature-attacking": applyRevealUntilCreatureAttacking, // W10 (Raph & Mikey) — reveal until a creature → enter it tapped + JOIN the attack (the mobilize convention) → bottom the rest random
   "reveal-until-creature-to-hand": applyRevealUntilCreatureToHand, // SG-9 (Evolutionary Leap) — reveal until a creature → that card to HAND → bottom the rest random
   seek: applySeek, // LANDS-14b (the Alchemy Gates, CR 701.55) — a random matching library card to hand, no reveal, no shuffle
+  "sylvan-library": applySylvanLibrary, // SG-15b — draw N extra, then per drawn card: pay L life or put it back on top (a chained pause)
   "reveal-top-conditional": applyRevealTopConditional, // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== reveal top: creature → onto battlefield (fires ETB); else put on bottom (deterministic "you may", like explore).
   "animist-awakening": applyAnimistAwakening, // ===== ANIMIST'S AWAKENING ===== ({X} spell) reveal top X → put all LANDS onto battlefield tapped → bottom the rest random; spell-mastery (2+ IS in GY) untaps those lands. Animist's Awakening flips native-spell.
 };

@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 📚 2026-09-03 — SG-15b: Sylvan Library — draw two extra, then pay 4 or put each back (a chained pending choice) · **+1 corpus** · Squirrel Girl 83→84 · corpus 40.3% (13,815/34,245)
+> Suite **1348 / 15,311** green; lint 0 (engine + hook + panel + view). Flip-diff **+1, zero LOST** (body-only
+> → native-trigger). **7/7 killed.**
+> · One optional atom collapsed from the three sentences: runProgram's existing optional-effect pause owns
+>   the "you may" (a human decides; the autopilot takes it), the applier draws N through the shared draw
+>   effect (draw triggers fire per card actually drawn), picks the LAST N entries of the drawn-this-turn
+>   ledger still in hand — the cards this effect drew, never the turn-draw (pinned, M2) — and raises the
+>   per-card `sylvan-library` pause. The settler pays (only with the life to spare — CR 119.4, pinned) or
+>   puts the card on TOP (pinned: not the bottom), chains the second card under the same continuation, then
+>   resumes the program.
+> · The learn side is the LANDS-2 pattern end to end: driver branch (pause a human with `affordable`;
+>   autopilot pays iff ≥8 life would remain), settle + apply + dispatch, the hook's choose call, a
+>   SylvanLibraryPanel, and the LearnView wiring (side-sheet + router). Deck-side, the Academy asks one
+>   card at a time — the CR's "for each of those cards" as two decisions, not a four-way form.
+
 > ## 📒 2026-09-03 — SG-15a: the drawn-this-turn card LEDGER (substrate for Sylvan Library) · +0 corpus by design
 > Suite **1347 / 15,305** green; lint 0. Flip-diff **0 / 0** (a pure engine fact, no claim rides on it).
 > **4/4 killed.** `player.drawnThisTurnIds` — which cards this player drew this turn, in draw order —

@@ -128,9 +128,11 @@ Jace's emblem rode along; +4, 8/8 killed). ✅ **SG-14** — Allosaurus Shepherd
 "…spells you control can't be countered" family, enforced where counter targets are enumerated; a
 subtype-filtered base-P/T set with a same-turn Dinosaur add, collapsed ahead of the " and " split; +1,
 8/8 killed — and a fixture typed from memory caught by the flip-diff: the card prints "other CREATURE
-types"). **Deck 83/100.** What remains on her deck: Sylvan Library (a pending-choice stack), Boseiju's
-channel (three pieces), and the multis/parks in §6 — every one a multi-slice program or a park, so per
-Colton's order the walk moves to stage ④ (the corpus) from here.
+types"). ✅ **SG-15a/b** (the overnight cron, 06:00–06:50) — the drawn-this-turn card ledger, then Sylvan
+Library end to end (an optional draw-two atom; a chained per-card pay-4-or-put-back pending choice with
+its Academy panel; +1, 7/7 killed). **Deck 84/100.** What remains: Boseiju's channel (SG-16, in flight —
+its three pieces all have lanes: the union destroy target, the "That player" rider connective, the
+typed-basic search) and the multis/parks in §6 — the latter every one a multi-slice program or a park.
 
 Stored 09-02 on Colton's profile (100/0 unresolved). **67/100**: 14 native-mana · 10 native-spell ·
 5 native-trigger · 4 native-activated · 5 native-static · 1 native-mana-aura · 6 native-mixed ·

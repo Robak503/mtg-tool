@@ -1822,6 +1822,72 @@ export function OptionalLifePaymentPanel({ decision, onChoose }) {
 }
 
 /**
+ * ===== SYLVAN LIBRARY ===== (SG-15b; CR 603.7c + 121.4) — one drawn card's "pay L life or put the card on
+ * top of your library". Shown to the Library's controller once per chosen card (the settler chains the next
+ * card). "Pay" is disabled when `decision.affordable` is false (life below L — CR 119.4 lets you pay down to 0,
+ * never below). Submits the boolean via applySylvanLibraryChoice. Structurally the OptionalLifePaymentPanel.
+ */
+export function SylvanLibraryPanel({ decision, onChoose }) {
+  const life = Number(decision.life) || 0;
+  const affordable = decision.affordable !== false;
+  const remaining = Array.isArray(decision.remaining) ? decision.remaining.length : 0;
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (pay) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onChoose?.(pay);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+        }}
+      >
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
+          📚 Keep {decision.cardName || "this card"}?
+          {decision.sourceName ? ` — ${decision.sourceName}` : ""}
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
+          Pay {life} life to keep it in hand, or put it back on top of your library.
+          {remaining > 0 && <span> One more card to decide after this.</span>}
+          {!affordable && (
+            <span style={{ color: "var(--ley-gold)" }}> You don’t have {life} life to pay — it goes back on top.</span>
+          )}
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          className="btn btn-primary btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => submit(true)}
+          disabled={submitting || !affordable}
+        >
+          Pay {life} life, keep it
+        </button>
+        <button
+          className="btn btn-ghost btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => submit(false)}
+          disabled={submitting}
+        >
+          Put it back on top
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * ===== REFLEXIVE-SAC-BY-SUBTYPE ===== (CR 603.7c) — "you may sacrifice a <subtype>. If you do, <effect>"
  * picker (The Goose Mother / Wedding Security). Shown to the controller of the trigger/ability: sacrifice
  * one matching permanent to run the payoff, or decline. "Sacrifice" is disabled when `decision.available`

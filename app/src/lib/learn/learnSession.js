@@ -31,6 +31,8 @@
 import { createGameState, loseLife, logEvent, moveCardToZone, MODES } from "./gameState.js";
 import { setPendingCommanderReturnChoice, clearPendingChoice } from "./pendingChoice.js";
 import { autoPickOptionalLifePayment } from "./landEntersTapped.js"; // LANDS-TIER slice 2 — the shockland auto-policy (pay iff life >= 10)
+import { autoPickSylvanLibraryPayment } from "./choicePolicy.js"; // SG-15b — Sylvan Library's per-card pay-or-put-back auto-policy (pay iff ≥8 life would remain)
+import { resolveSylvanLibraryChoice } from "./effects/runProgram.js"; // SG-15b — the per-card settler (chains the next card, then resumes)
 import {
   startGame,
   prepareStart,
@@ -860,6 +862,16 @@ function settleOptionalManaPaymentChoice(state, pay) {
 // re-derives. Deliberately NOT the settleOptionalManaPaymentChoice shape.
 function settleOptionalLifePaymentChoice(state, pay) {
   return resolveOptionalLifePaymentChoice(state, pay);
+}
+
+// SYLVAN LIBRARY (SG-15b; CR 603.7c + 121.4) — settle ONE drawn card's pay-or-put-back. The settler chains
+// the next card under the same continuation, and after the last one resumes the program — which may itself
+// set ANOTHER choice, so guard pendingChoice before flushing — then finalizeStackResolution flushes what the
+// resumed program enqueued (CR 603.3). Mirrors settleOptionalSacChoice.
+function settleSylvanLibraryChoice(state, pay) {
+  const next = resolveSylvanLibraryChoice(state, pay);
+  if (next.pendingChoice) return next;
+  return finalizeStackResolution(next);
 }
 
 // REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — settle the "you may sacrifice a <subtype>. If you do, <effect>" sac-or-
@@ -2108,6 +2120,31 @@ export function advanceUntilDecision(
         current = { ...current, state: settleOptionalLifePaymentChoice(current.state, picked.value) };
         continue;
       }
+      // ===== SYLVAN LIBRARY ===== (SG-15b; CR 603.7c + 121.4) — one drawn card's "pay L life or put it back on
+      // top". A human decides at the panel (with `affordable` — CR 119.4 lets you pay down to 0, never below);
+      // the autopilot pays iff at least 8 life would remain (autoPickSylvanLibraryPayment). The settler chains
+      // the next card, then resumes the program.
+      if (pc.kind === "sylvan-library") {
+        if (pause) {
+          const affordable = (current.state.players?.[pc.controller]?.life ?? 0) >= (pc.life || 0);
+          return { session: current, decision: { kind: "sylvan-library", ...pc, resume: undefined, affordable } };
+        }
+        const picked = decidePendingChoice({
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            value: autoPickSylvanLibraryPayment(current.state, pc.controller, pc.life),
+          },
+        });
+        current = { ...current, state: settleSylvanLibraryChoice(current.state, picked.value) };
+        continue;
+      }
       // ===== REFLEXIVE-SAC-BY-SUBTYPE ===== (CR 603.7c) — "you may sacrifice a <subtype>. If you do, <effect>"
       // (The Goose Mother, Wedding Security). pc.controller owns the trigger/ability (sacs + decides), so `pause`
       // pauses a human and auto-decides an AI (sac-if-able — the modeled payoffs outvalue a fungible token).
@@ -3104,6 +3141,46 @@ export function applyOptionalLifePaymentChoice(session, choice, opts = {}) {
 }
 
 /**
+ * ===== SYLVAN LIBRARY ===== (SG-15b; CR 603.7c + 121.4) — the player answered ONE drawn card's pay-or-put-back.
+ * `choice.pay` is the yes/no. The settler charges the life (only with it to spare) or puts the card on top,
+ * chains the next card or resumes the program, then re-derives. A double-submit (nothing pending) re-derives.
+ * Mirrors applyOptionalLifePaymentChoice.
+ */
+function applySylvanLibraryChoice(session, choice, opts = {}) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "sylvan-library") {
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
+  }
+  const pay = choice?.pay === true || choice === true;
+  let newState;
+  try {
+    newState = settleSylvanLibraryChoice(session.state, pay);
+  } catch (error) {
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "sylvan-library-choice", cardId: pc.cardId, paid: pay },
+    auto: false,
+    reasoning: "user-chose-sylvan-library",
+  };
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
+}
+
+/**
  * ===== REFLEXIVE-SAC-BY-SUBTYPE ===== (CR 603.7c) — the player chose to sacrifice a matching-subtype permanent
  * (and run the payoff) or not, for a "you may sacrifice a <subtype>. If you do, <effect>" (The Goose Mother /
  * Wedding Security). `choice.sac` is the yes/no. resolveOptionalSacChoice pitches one matching permanent + runs
@@ -4006,6 +4083,7 @@ export function applyPendingChoice(session, choice, opts = {}) {
   if (kind === "optional-mana-payment")
     return applyOptionalManaPaymentChoice(session, choice, opts);
   if (kind === "optional-life-payment") return applyOptionalLifePaymentChoice(session, choice, opts);
+  if (kind === "sylvan-library") return applySylvanLibraryChoice(session, choice, opts);
   if (kind === "optional-sac-payment") return applyOptionalSacChoice(session, choice, opts);
   if (kind === "optional-draw-discard")
     return applyOptionalDrawDiscardChoice(session, choice, opts);
