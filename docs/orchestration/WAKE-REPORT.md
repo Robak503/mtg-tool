@@ -7,6 +7,17 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🪽 2026-09-03 (night cron) — **④-AD: the two-keyword grant keeps its counter-bearing subject whole (+2)** · suite **1391 files / 15,543 tests** green · corpus 13,982 / 34,245 (40.8%) · flip-diff +2 / 0 lost · 2/2 killed
+
+> **Night tally (stage ④, thirty slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
+> J (+1) · K (+1, FP closed on 3) · L (+4) · M (+2) · N (+7) · O (+4) · P (+3) · Q (+6) · R (+2) · S (+2) · T (+12) · U (+2) ·
+> V (+2, Thrun 90) · W (+3, Thrun 91) · X (+1, Earth Bent 89) · Y (+1) · Z (+6, Veyran 89) · AA (+9, Mothman 88) · AB (+1) ·
+> AC (+12, Hulk 86) · AD (+2) — corpus 13,862 → 13,982.
+> **CI:** ④-AC's run (c0458f7a, sharded) was in flight at commit time; ④-AD pushes only after it is green
+> **Next runnable:** Urdnan ("target attacking creature gains …" — no arm even reduced); Kessig Wolf Run ({X} pump on a
+> land — X-scaled magnitude activations are refused by design); Xenagos (+X/+X where X is the target's power);
+> Secluded Courtyard; the "up to N" non-targeted returns (a counted pick).
+
 ## 🧬 2026-09-03 (night cron) — **④-AC: "target creature with a [+1/+1] counter on it" — the graft cycle (+12)** · suite **1390 files / 15,540 tests** green · corpus 13,980 / 34,245 (40.8%) · flip-diff +12 / 0 lost · 5/5 killed · Hulk Smash 86/100 · Dragons 91/100
 
 > **Night tally (stage ④, twenty-nine slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·

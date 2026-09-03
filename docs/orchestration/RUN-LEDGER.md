@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🪽 2026-09-03 (night cron) — ④-AD: the two-keyword grant keeps its counter-bearing subject whole (Steppe Glider, Ollenbock Escort) · **+2** · corpus 13,982 / 34,245 (40.8%)
+> Suite **1391 files / 15,543 tests** green; lint 0. Flip-diff **+2, zero LOST**. **2/2 killed.**
+> · **The shape:** ④-AC's peel lives in parseClauseToAtom, but "target creature with a +1/+1 counter on it gains
+>   flying AND vigilance until end of turn" never reached it — splitClauses shattered the sentence on " and " first,
+>   because its keep-whole guard for "target creature … gains … until end of turn" did not admit the qualifier. The
+>   guard now admits it with the peel's exact vocabulary; a type the peel refuses (time) still shatters and parks.
+> · **Board-verified:** Steppe Glider offers only the countered bear; resolving grants BOTH keywords to it and nothing
+>   to the bare one.
+> · **Honest edge:** Sigardian Paladin stays parked on its other line.
+> · **CI:** ④-AC's run (c0458f7a, sharded) was in flight at commit time; ④-AD pushes only after it is green
+
 > ## 🧬 2026-09-03 (night cron) — ④-AC: "TARGET CREATURE WITH A [+1/+1] COUNTER ON IT" — the graft cycle · **+12** · Hulk Smash 86/100 · Dragons 91/100 · corpus 13,980 / 34,245 (40.8%)
 > Suite **1390 files / 15,540 tests** green; lint 0. Flip-diff **+12, zero LOST**. **5/5 killed.**
 > · **The shape:** 29 carriers, 16 parking on the phrase ALONE (the residue census never surfaced it because it hides

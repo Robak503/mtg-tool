@@ -362,7 +362,12 @@ export function splitClauses(oracle) {
     // optional type qualifier let the whole clause shatter before pumpClauseParser's artifact-creature arm
     // saw it. The cardType restriction rides the same keep-whole path (bare "you control" only for the
     // typed form — the printed shape).
-    if (/^target (?:artifact )?creature (?:(?:you control|an opponent controls) )?(?:gets [+-](?:\d+|x)\/[+-](?:\d+|x) and )?gains\b.*\buntil end of turn(?: and untap it)?$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ⭐ THE COUNTER-BEARING QUALIFIER JOINED 2026-09-03 (④-AD — Steppe Glider "Target creature with a +1/+1 counter
+    // on it gains flying and vigilance until end of turn", Sigardian Paladin, Ollenbock Escort): the same shatter
+    // again — parseClauseToAtom's ④-AC peel never saw the sentence because " and " had already split it. The
+    // qualifier vocabulary here mirrors the peel's exactly (+1/+1, -1/-1, stun, or "a counter"); a type the peel
+    // refuses (time) is not kept whole either, so it shatters and parks as before.
+    if (/^target (?:artifact )?creature (?:(?:you control|an opponent controls) )?(?:with (?:a|an|one or more) (?:(?:[+-]1\/[+-]1|stun) )?counters? on it )?(?:gets [+-](?:\d+|x)\/[+-](?:\d+|x) and )?gains\b.*\buntil end of turn(?: and untap it)?$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ⭐ THE SAME BINDING FOR A PERMANENT SUBJECT (Tamiyo's Safekeeping — "Target permanent you control gains
     // hexproof and indestructible until end of turn."). The anchor above is nailed to "target creature", so a
     // permanent-subject grant SHATTERED on the internal " and " into "…gains hexproof" + "indestructible until

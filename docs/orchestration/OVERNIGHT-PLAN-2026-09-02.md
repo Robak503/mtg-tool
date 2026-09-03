@@ -191,6 +191,7 @@ the scratchpad). ✅ **④-A** — Aura-own cumulative upkeep composes with the 
 ✅ **④-AA** — the non-targeted "return a <filter> card from your graveyard to your hand", chosen as it resolves (+9; 6/6).
 ✅ **④-AB** — City of Brass: "this land" joins the becomes-tapped self nouns (+1; 2/2 killed).
 ✅ **④-AC** — "target creature with a [+1/+1] counter on it": the subject-qualifier peel + the hasCounter restriction (+12; 5/5 killed).
+✅ **④-AD** — the two-keyword grant keeps its counter-bearing subject whole in splitClauses (+2; 2/2 killed).
 Queue = the census's two-flip / bug-signature leads (see WAKE-REPORT top).
 Only after ①–③'s DONE lines are met. Boot from the vault's `memory/orders/cindy-corpus-roadmap.md`
 (WHAT/WHY/ORDER) + the repo's `RESIDUE-GRIND-RUNBOOK.md` (HOW): fresh census, largest clause family with
