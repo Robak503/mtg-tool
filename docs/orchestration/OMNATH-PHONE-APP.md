@@ -614,24 +614,27 @@ exist on branch `codex/omnath-phone-polish`.
   The base candidate's exact byte count and SHA-256 are also pinned, but its
   endpoint returns HTTP 401 until Colton accepts the Hugging Face Gemma license
   and supplies `HF_TOKEN`.
-- The authoritative full-art ARM64 debug APK targets Android 36 with minimum
-  SDK 24, package id `com.colton.omnath.probe.debug`, and user-facing label
-  **Omnath MTG Assistant**. The model-free freeze correction from commit
-  `263474f6` is 767,182,842 bytes with SHA-256
-  `fb59ecea586caa16dbd608b6f45786ba8a4b9d0db0b8243077768695379a27b5`.
-  Its machine-generated receipt reports 37,526 entries, no
+- The corrected full-art ARM64 debug APK targets Android 36 with minimum SDK
+  24, package id `com.colton.omnath.probe.debug`, and user-facing label
+  **Omnath MTG Assistant**. The indexed-art build from commit `0082b127` is
+  889,173,748 bytes with SHA-256
+  `4fd646cb894a9eeeafd1e2d1f445658bd698a747bf220bd332a3e9e4c3a594d5`.
+  Its machine-generated receipt reports only 935 entries, no
   `android.permission.INTERNET`, no bundled `.litertlm`, no raw Oracle/rulings/CR
   input, and a matching staged enhanced-model hash. It also proves that the
   105,324,544-byte SQLite pack is physically present at
   `assets/knowledge/omnath-knowledge.sqlite` and hashes to
   `d9dd2756c414123ab9934263496b043ef0225d5178314f5996f4efdca4dc3d75`.
-  The only reported permission is Android's package-scoped dynamic-receiver
-  protection.
-- The UI/controller JavaScript is 30,727 bytes (10,950 bytes gzip), and the
+  Both packaged SQLite databases are stored without ZIP compression so Android
+  can expose direct file descriptors during verified first-run copying. The only
+  reported permission is Android's package-scoped dynamic-receiver protection.
+  The matching core-only APK is 309,126,333 bytes with SHA-256
+  `021dc8df1c5889912d9d10395d6b6a8c8d3f18f3b2d6a07558f6c72243c6c713`.
+- The UI/controller JavaScript is 31,894 bytes (11,400 bytes gzip), and the
   LEYLINE stylesheet is 12,029 bytes (3,240 bytes gzip); the
   995,428-byte rules-engine witness is isolated in a lazy chunk. The release
-  gate passed 29 mobile JS/data/security tests, 17 engine/WebView tests, four
-  Rust provisioning/art-path tests, and three Kotlin model-lifecycle tests before the
+  gate passed 31 mobile JS/data/security tests, 17 engine/WebView tests, three
+  Rust provisioning tests, and three Kotlin model-lifecycle tests before the
   APK receipt was issued.
 - Installation, launch, and corrected first-run provisioning are proven on the
   Pixel 10 XL. The UI reached **Offline and ready** with the rules runtime and
@@ -654,14 +657,15 @@ exist on branch `codex/omnath-phone-polish`.
   Re-installing this updated APK, the packaged Android WebView report, and
   optional model performance remain pending.
 - The resumable art builder compiled 36,592 playable card/face previews from the
-  pinned Oracle snapshot into art pack `327497431c01b8f8908d6700`. The images
-  total 510,273,231 bytes; art-series collectibles are excluded. The manifest
-  records source URL, byte count, and SHA-256 for every image. The Android build
-  receipt independently opened the final APK and verified all 36,592 packaged
-  entries byte-for-byte against that manifest. The WebView requests art only by
-  validated Oracle UUID and bounded face index through the native bridge; no
-  arbitrary resource path is accepted. The Omnath preview is included and the
-  UI hides the art region cleanly when a core-only APK has no art pack.
+  pinned Oracle snapshot into art pack `327497431c01b8f8908d6700`. The source
+  images total 510,273,231 bytes; art-series collectibles are excluded. They are
+  stored as BLOBs in one 580,046,848-byte `omnath-art.sqlite` with SHA-256
+  `bc6c45076f58f9d2aba32a7d9d35c1c44175dfe52b3c0fb1937cc4c0936277a3`.
+  The Android receipt independently opens the final APK and verifies the
+  database and manifest hashes. The WebView selects art by validated Oracle UUID
+  and bounded face index through the read-only SQL adapter; it no longer makes a
+  native resource call per image. The Omnath preview is present and the UI hides
+  the art region cleanly when a core-only APK has no art database.
 - Physical Pixel screenshots then verified both presentation corrections in the
   core APK: `Show CR 702.7` displayed 702.7a and its subsequent lettered rules,
   while `What does Omnath, Locus of Creation do?` displayed the single playable
@@ -679,8 +683,15 @@ exist on branch `codex/omnath-phone-polish`.
   `263474f6` makes the unavailable-model path return the deterministic plan
   directly and adds a two-second ceiling to model status probes. A regression
   fixture supplies a narration promise that never settles and proves it is never
-  called when model status is unavailable. The replacement full-art APK retains
-  the byte-verified 36,592-image payload and now awaits Pixel retest.
+  called when model status is unavailable. The next Pixel retest still froze
+  earlier at `Checking local evidence`, before model status or image rendering.
+  That isolated the remaining failure to the APK's 36,592 loose Android asset
+  entries, which were overwhelming the asset/IPC layer even during an unrelated
+  rules database query. Commit `0082b127` replaces them with the single indexed
+  art database described above, makes art optional so a damaged or absent art
+  pack cannot disable rules answers, and records art readiness in privacy-safe
+  diagnostics. Source, native, model-lifecycle, pack, and APK receipt checks pass;
+  the corrected full-art APK now awaits the final Pixel responsiveness test.
 
 - One chat surface.
 - One Omnath persona.
