@@ -421,6 +421,7 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
     landsPlayedThisTurn: 0,
     extraLandsThisTurn: 0,    // ONE-SHOT-EXTRA-LAND (CR 505.5b / 305.2): the per-turn land-play budget RAISED by a resolving "you may play [N] additional land[s] this turn" effect (Explore → +1, Summer Bloom → +3). landDropAllowance adds it; resetTurnCounters zeroes it each of the player's turns.
     cardsDrawnThisTurn: 0,
+    drawnThisTurnIds: [],     // SG-15a: the ids of the cards this player drew this turn, in draw order (drawCards stamps; both per-turn resets clear) — Sylvan Library's "cards in your hand drawn this turn"
     spellsCastThisTurn: 0,    // TRIG-CAST2: "cast your second spell each turn" — incremented at the cast chokepoint, reset for all seats at untap
     nextSpellUncounterable: false, // LANDS-6 (Mistrise Village): "The next spell you cast this turn can't be countered" — armed by the resolving ability, consumed (and cleared) by the next cast at the chokepoint, reset for all seats at untap
     noncreatureSpellsCastThisTurn: 0, // FIRST-NONCREATURE-EACH-TURN (CR 603.2, Esper Sentinel): the noncreature subset of the count above — same chokepoint, same per-seat reset
@@ -842,6 +843,10 @@ export function drawCards(state, { playerId, count }) {
       library: remaining,
       hand: [...player.hand, ...drawn],
       cardsDrawnThisTurn: player.cardsDrawnThisTurn + drawCount,
+      // SG-15a (2026-09-03): WHICH cards were drawn this turn, in draw order — the referent for "cards in
+      // your hand drawn this turn" (Sylvan Library). Stamped here, the one draw chokepoint; cleared with
+      // the count. `|| []` keeps an unstamped legacy seat (an old save) drawing byte-identically.
+      drawnThisTurnIds: [...(player.drawnThisTurnIds || []), ...drawn.map((c) => c.id)],
       ...(shortfall ? (winsInstead ? { wonGame: true } : { triedToDrawFromEmpty: true }) : {}),
     };
   });
@@ -2235,6 +2240,7 @@ export function resetTurnCounters(state, { playerId }) {
     landsPlayedThisTurn: 0,
     extraLandsThisTurn: 0,  // ONE-SHOT-EXTRA-LAND: the resolving "additional land this turn" budget is per-turn; reset alongside landsPlayedThisTurn so it never carries into a later turn (CR 505.5b — "this turn" only).
     cardsDrawnThisTurn: 0,
+    drawnThisTurnIds: [], // SG-15a — the drawn-this-turn id ledger clears with the count
   }));
 }
 
@@ -2249,7 +2255,7 @@ export function resetTurnCounters(state, { playerId }) {
 export function resetCardsDrawnAllPlayers(state) {
   const players = {};
   for (const id of Object.keys(state.players)) {
-    players[id] = { ...state.players[id], cardsDrawnThisTurn: 0 };
+    players[id] = { ...state.players[id], cardsDrawnThisTurn: 0, drawnThisTurnIds: [] };
   }
   return { ...state, players };
 }

@@ -3,6 +3,13 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 📒 2026-09-03 — SG-15a: the drawn-this-turn card LEDGER (substrate for Sylvan Library) · +0 corpus by design
+> Suite **1347 / 15,305** green; lint 0. Flip-diff **0 / 0** (a pure engine fact, no claim rides on it).
+> **4/4 killed.** `player.drawnThisTurnIds` — which cards this player drew this turn, in draw order —
+> stamped at the one draw chokepoint (drawCards) beside `cardsDrawnThisTurn`, cleared by both per-turn
+> resets (the active player's and the all-seats one); an unstamped legacy seat draws byte-identically.
+> The referent for "cards in your hand drawn this turn" (Sylvan Library, SG-15b next).
+
 > ## 🚪 2026-09-03 — LANDS-14b: the Alchemy Gates — "Seek a nonland card. Activate only once." · **+8 corpus** · land-partial 363→357 · corpus 40.3% (13,814/34,245) · **STAGE ② DONE**
 > Suite **1346 / 15,301** green; lint 0. Flip-diff **+8, zero LOST** — the five Gates (land-partial → land)
 > and three riders audited against their real oracle: Spectacle of Destruction (its upkeep trigger seeks a
