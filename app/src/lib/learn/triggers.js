@@ -3195,6 +3195,14 @@ const SELF_DOUBLE_IT_LEAD_RE = /^double the number of [+-]1\/[+-]1 counters on i
 // cls.scope === "self" at the rewrite site (a NON-self trigger's "it" is the OTHER triggering permanent — the
 // NONSELF_SAC_REF_RE → thatCreature lane handles those), so this never mis-binds.
 const SELF_SAC_IT_RE = /^sacrifice it$/i;
+// SELF-SAC-IT-UNLESS (LANDS-TIER slice 11, 2026-09-03) — a SELF-scope ETB that sacrifices its OWN source unless
+// a cost is paid, with the pronoun "it": the Karoos ("When this land enters, sacrifice it unless you return an
+// untapped Plains you control to its owner's hand"), Archway Commons / Rupture Spire / Transguild Promenade
+// ("… unless you pay {1}"). "it" is the SOURCE (CR 608.2c), so the pronoun is rewritten to "this permanent" —
+// a noun the sac-unless-pay matcher already admits — and THAT matcher re-gates the cost tail (mana /
+// return-land / sacrifice / discard); an unreadable cost leaves residue → LOW → Arbiter. Gated on
+// cls.event === "etb" && cls.scope === "self" at the rewrite site.
+const SELF_SAC_IT_UNLESS_RE = /^sacrifice it unless (you .+)$/i;
 
 // COUNTERS-PLACED — the EXACT "that many"/"that much" payoff shapes a counters-placed trigger rewrites to an
 // event-specific sentinel (so the count binds ctx.countersPlaced, not combatDamageAmount). Anchored to the
@@ -4359,6 +4367,11 @@ export function detectTriggers(card) {
         // today. The anchored form is kept deliberately as the narrower change — it cannot touch a sentence
         // it was never reasoned about — but the gate here is honest about being untested, not silently strong.
         effectClause = effectClause.replace(/^(double the number of [+-]1\/[+-]1 counters) on it\./i, "$1 on this creature.");
+      }
+      if (cls.event === "etb" && cls.scope === "self" && SELF_SAC_IT_UNLESS_RE.test(effectClause)) {
+        // SELF-SAC-IT-UNLESS (LANDS-11, the Karoos / "sacrifice it unless you pay {1}" lands) — see the
+        // constant's note: "it" is the source of a self-scope ETB; the sac-unless-pay matcher re-gates the cost.
+        effectClause = effectClause.replace(SELF_SAC_IT_UNLESS_RE, "sacrifice this permanent unless $1");
       }
       if (cls.event === "becomesTarget" && cls.scope === "self" && SELF_SAC_IT_RE.test(effectClause)) {
         // SELF-SAC-IT (BECOMES-TARGET, the Phantasmal Illusion family) — "…sacrifice it" where "it" is the

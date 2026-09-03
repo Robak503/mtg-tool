@@ -9,6 +9,12 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Storage lands work.** Saltcrusted Steppe, Dreadship Reef, Calciform Pools, Molten Slagheap, Fungal
+  Reaches, Mage-Ring Network, Fountain of Cho and their kin can now actually put storage counters on
+  themselves (their remove-counters mana abilities already worked).
+- **The Karoos and the "unless you pay {1}" lands work.** Karoo, Coral Atoll, Everglades, Dormant Volcano
+  and Jungle Basin now ask you to return an untapped land of the right type or lose them; Archway Commons,
+  Rupture Spire, Transguild Promenade and Gateway Plaza ask for the {1}.
 - **Lands that enter with counters work.** The Vivid lands, the depletion lands, Gemstone Mine and Tendo Ice
   Bridge now actually arrive with their charge, depletion or mining counters when you play them.
 - **The reveal-lands work — all nineteen.** The Snarls, Game Trail, Port Town, Fortified Village and their

@@ -3,6 +3,32 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🏗️ 2026-09-03 — LANDS-10 storage-counter lands (one noun) · LANDS-11 the Karoos + "sacrifice it unless you pay {1}" (two words) · **+23 corpus** · corpus 40.2% (13,751/34,245)
+> Suite **1329 / 15,199** green (one pre-existing pin re-anchored, test-only — see below); lint 0. Flip-diff
+> **+23, zero LOST, zero RETIERED**: twelve storage/charge lands (Saltcrusted Steppe, Dreadship Reef,
+> Calciform Pools, Molten Slagheap, Fungal Reaches, Mage-Ring Network, Crucible of the Spirit Dragon,
+> Fountain of Cho, Subterranean Hangar, Mercadian Bazaar, Rushwood Grove, Saprazzan Cove, Mirrodin's Core),
+> the five Karoos (Karoo, Coral Atoll, Everglades, Dormant Volcano, Jungle Basin), the four pay-{1} lands
+> (Archway Commons, Rupture Spire, Transguild Promenade, Gateway Plaza) and one creature rider, Scythe
+> Tiger ("sacrifice it unless you sacrifice a land" — the same self-ETB pronoun, honest).
+> · **LANDS-10 = "Put a storage counter on this LAND"** (16 carriers): the add-named-counter-self parser's
+>   noun list knew artifact / permanent / creature / enchantment; "land" joins it. The mana abilities that
+>   REMOVE those counters were already modeled — ablation showed only the put line parked them. **2/2 killed.**
+> · **LANDS-11 = the self-ETB "sacrifice it unless <cost>"**: the `sac-unless-pay` atom already paid with
+>   mana / a discard / a sacrifice / a RETURNED land (Waterspout Djinn's "an untapped Island") and paused on
+>   the pay-or-sacrifice choice. Two words stood between the lands and it: the pronoun "it" — for a
+>   self-scope ETB "it" is the source (CR 608.2c), so triggers.js rewrites "sacrifice it unless …" to
+>   "sacrifice this permanent unless …" (a noun the matcher admits) and the matcher re-gates the cost — and
+>   the four untapped basic types the return-land cost only knew "island" for. **4/4 killed** — after one
+>   survivor: the SCOPE gate on the rewrite (a non-self ETB's "it" is the OTHER permanent) had no fixture; a
+>   "whenever another creature enters … sacrifice it unless you pay {1}" probe now pins that it is never
+>   rewritten and never credited. An older pin that asserted "an untapped Mountain has no carrier → parked"
+>   was re-anchored (Dormant Volcano is the carrier now); its refusal moved to a non-basic subtype.
+> · Stage ② tally: reveal 19 · typed-basic 16 · enters-with-counters 12 · storage 13 · Karoo/pay 10 (+ the
+>   stage ① arms). Next: choose-a-color lands (~24 — "As it enters, choose a color [other than X]" +
+>   "{T}: Add [{X} or] one mana of the chosen color"; the Aura `chosenColor` stamp and auto-pick exist; the
+>   mana-spec parser needs a `chosenColor` leg resolved at manaSources against the permanent).
+
 > ## 🔋 2026-09-03 — LANDS-9: lands that ENTER WITH N COUNTERS (Vivid · depletion · Gemstone Mine) · **+12 corpus** · corpus 40.1% (13,728/34,245) · shipped with 7+8 in one commit
 > Suite **1327 / 15,186** green; lint 0. Flip-diff **+12, zero LOST, zero RETIERED** — the five Vivid lands,
 > the five depletion lands, Gemstone Mine, Tendo Ice Bridge. **4/4 killed.**

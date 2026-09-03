@@ -867,7 +867,11 @@ export function addNamedCounterSelfClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   // "this enchantment" joins the noun list (Bloodchief Ascension's quest counter — SHELF S7); the resolver
   // is already permanent-type-agnostic, so the noun only widens which self-references route here.
-  const m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([a-z]+) counters? on this (?:artifact|permanent|creature|enchantment)$/);
+  // "this land" joins the noun list (LANDS-TIER slice 10, 2026-09-03 — the storage lands: "{1}, {T}: Put a
+  // storage counter on this land", Saltcrusted Steppe / Dreadship Reef / Fungal Reaches …, 16 corpus lands;
+  // Throne of Makindi's charge and Hellion Crucible's pressure counters ride the same noun). The resolver is
+  // permanent-type-agnostic; the removal mana abilities that READ those counters were already modeled.
+  const m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([a-z]+) counters? on this (?:artifact|permanent|creature|enchantment|land)$/);
   if (!m) return null;
   // ±1/+1 forms are spelled with digits + slash and never match [a-z]+; this guard is belt-and-suspenders.
   if (/^[+-]?1\/[+-]?1$/.test(m[2])) return null;

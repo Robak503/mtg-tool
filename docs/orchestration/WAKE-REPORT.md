@@ -7,7 +7,17 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## 🏞️ 2026-09-03 — **OVERNIGHT STAGE ② OPEN: LANDS-7 reveal-lands (+19) · LANDS-8 typed-basic fetch (+16) · LANDS-9 enters-with-counters (+12) — corpus 40.1% (13,728), Cap 84** — suite **1327 / 15,186** green
+## 🏗️ 2026-09-03 — **STAGE ② rolling: LANDS-10 storage-counter lands · LANDS-11 the Karoos + pay-{1} lands (+23) — corpus 40.2% (13,751), Cap 84** — suite **1329 / 15,199** green
+
+> **LANDS-10** = one noun ("this land") in the add-named-counter-self parser — 13 storage/charge lands whose
+> remove-counter mana abilities were already modeled. **LANDS-11** = two words — the self-ETB pronoun "it"
+> rewritten to "this permanent" (CR 608.2c) so the existing `sac-unless-pay` atom re-gates the cost, and
+> the four untapped basic types the return-land cost lacked — the five Karoos + four "unless you pay {1}"
+> lands (+ Scythe Tiger). 2/2 + 4/4 killed (the rewrite's scope gate got its own probe after surviving once).
+> **Next:** the choose-a-color lands (~24, seams read; a `chosenColor` leg in the mana-spec parser resolved
+> at manaSources), then the Gates' once-only draw (5), then stage ③ Squirrel Girl.
+
+## 🏞️ 2026-09-03 — LANDS-7 reveal-lands (+19) · LANDS-8 typed-basic fetch (+16) · LANDS-9 enters-with-counters (+12) — corpus 40.1% (13,728), Cap 84 — suite 1327 / 15,186 green
 
 > **LANDS-9** (shipped in the same commit): the Vivid, depletion and mining lands — the reader and the
 > tutor-site placement existed; the play-land path now places the counters through the same doubling seam,

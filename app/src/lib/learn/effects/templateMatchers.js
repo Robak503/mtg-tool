@@ -647,11 +647,15 @@ export function matchUpkeepSacUnlessPay(oracle) {
   // untapped Island"), Living Tsunami ("a land"). Same allowlist-by-alternation as the sacrifice arm —
   // only the two measured victim forms are admitted; "an untapped Mountain" has no carrier and parks.
   // The untapped requirement is REAL (the Djinn cannot pay with a tapped Island) and rides the cost.
-  const r = s.match(/^sacrifice this(?:\s+([a-z]+))?\s+unless you return (an untapped island|a land) you control to its owner's hand$/i);
+  // LANDS-TIER slice 11 (2026-09-03): the five UNTAPPED basic types join "island" — the Karoos ("sacrifice it
+  // unless you return an untapped Plains you control …", Karoo / Coral Atoll / Everglades / Dormant Volcano /
+  // Jungle Basin) and the Visions bounce-lands ride the same cost shape through the self-ETB "it" rewrite in
+  // triggers.js. The subtype is read from the printed word; the untapped requirement still rides the cost.
+  const r = s.match(/^sacrifice this(?:\s+([a-z]+))?\s+unless you return (an untapped (?:plains|island|swamp|mountain|forest)|a land) you control to its owner's hand$/i);
   if (r) {
     if (r[1] && !SAC_UNLESS_PAY_NOUNS.has(r[1].toLowerCase())) return null; // unrecognized noun → safe FN
-    const FORMS = { "an untapped island": { subtype: "Island", untapped: true }, "a land": { subtype: null, untapped: false } };
-    const f = FORMS[r[2].toLowerCase()];
+    const um = r[2].match(/^an untapped ([a-z]+)$/i);
+    const f = um ? { subtype: um[1].charAt(0).toUpperCase() + um[1].slice(1).toLowerCase(), untapped: true } : { subtype: null, untapped: false };
     return { atom: { op: "sac-unless-pay", cost: { kind: "return-land", subtype: f.subtype, untapped: f.untapped }, targetType: null } };
   }
   // SLOW MOTION (2026-08-12) — the OTHER-PLAYER's pay-or-sacrifice: "that player sacrifices that creature

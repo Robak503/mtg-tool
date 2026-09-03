@@ -55,7 +55,10 @@ describe("the carriers", () => {
     expect(row.aLand).toEqual({ kind: "return-land", subtype: null, untapped: false });
     expect(row.mana?.kind).toBe("mana");
     expect(row.sacrifice).toEqual({ kind: "sacrifice", type: "land", count: 1 });
-    expect(row.untappedMountain).toBeNull();
+    // GRADUATED 2026-09-03 (LANDS-11): the four other untapped basic types joined "island" for the Karoos (Dormant
+    // Volcano wants a Mountain); the refusal moves to a non-basic subtype, which still has no carrier and still parks.
+    expect(row.untappedMountain).toEqual({ kind: "return-land", subtype: "Mountain", untapped: true });
+    expect(p("Sacrifice this creature unless you return an untapped Desert you control to its owner's hand.")).toBeNull();
   });
 });
 
