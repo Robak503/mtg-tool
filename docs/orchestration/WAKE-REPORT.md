@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-09-03 — **THE MORNING REPORT (overnight run, 2026-09-02 → 09-03)** — suite **1335 / 15,244** green · CI green through SG-3 (SG-4/SG-5 in flight at write time)
+## ☀️ 2026-09-03 — **THE MORNING REPORT (overnight run, 2026-09-02 → 09-03)** — suite **1345 / 15,294** green · CI green through SG-13 (2d99bdb6); SG-14 ce87d354 + the correction commit 7e28368b in flight at the final write (05:10)
 
 > **The three stage numbers.** ① **Captain America 75 → 84/100** — its land tail is finished to the parks
 > (Uthros/Station, Urza's Saga, two MDFC backs); every remaining Cap card is multi-piece (§6 of the plan
@@ -40,12 +40,29 @@
 > Mistrise (22) · LANDS-7/8/9 93e0b030 reveal-lands + typed-basic fetch + enters-with-counters (47) ·
 > LANDS-10/11 3664b15d storage lands + Karoos (23) · LANDS-12 b7ee895f choose-a-color (21) · SG-1 92f0bfd6
 > the commander (2) · SG-2 7a141f59 Bellower/Altar of the Brood/Skullclamp (6) · SG-3 113b7d42 the Altars pay
-> for real (3) · SG-4 b927adfe Jaheira (1) · SG-5 (this commit) Geier Reach/Lore Broker (2). Every slice:
-> flip-diff zero LOST, mutations seen-to-fail, full suite, CI.
+> for real (3) · SG-4 b927adfe Jaheira (1) · SG-5 27fe2bd4 Geier Reach/Lore Broker (2) · LANDS-13 8347efdd
+> the Invasion lairs (5) · SG-6 c01bd5fe the Spirit Guides (2) · SG-7/8 a9a3ee69 Altar of Dementia + Dosan
+> (2) · SG-9/12 9d8bfc41 Evolutionary Leap + Homeward Path (4) · SG-10/11 4e7f37b2 Peregrin Took + Frenzied
+> Baloth (2) · SG-13 2d99bdb6 Vexing Bauble (4) · SG-14 ce87d354 Allosaurus Shepherd (1) · 7e28368b the
+> correction (docs only). Every slice: flip-diff zero LOST, mutations seen-to-fail, full suite, CI.
 >
-> **Parks / needs you (plan §6):** Squirrel Girl's Archidekt URL is still uncaptured. Cap's multis. The
-> land tier's six open families + bands. Squirrel Girl's mediums and multis (Cavern of Souls, The One Ring,
-> Endurance, the X-spells …).
+> **Where the walk stopped and why (05:10):** Squirrel Girl at 83 — everything left on her is a multi-slice
+> program (Sylvan Library's pending-choice stack, Boseiju's three-piece channel, Cavern of Souls, The One
+> Ring, Endurance = evoke, the seven X-spells, the DFCs) or a park. Stage ④ was opened with a fresh corpus
+> census (04:00, scratch census-2026-09-03.txt): the single-blocker tail is down to families of ≤6 cards,
+> most of them subsystem-scale (initiative, attractions, specialize, clash, en-Kor redirection) — the real
+> remaining coverage is the three subsystems the July vein map already named (morph ~164, initiative/ring
+> ~126, quoted-grant statics ~133). The first stage ④ lane I tried (the Gathering Place five) is what
+> surfaced the multi-line-mana correction above, and it was reverted rather than shipped vacuous.
+>
+> **What I'd do next, in order:** ① multi-product mana (it makes 55 credited lands honest, closes the
+> Gathering Place / Verge / storage families for real, and is a play-quality fix for every self-play game on
+> those boards) · ② your pick among the three subsystems · ③ Sylvan Library as its own pending-choice slice
+> if you want Squirrel Girl higher. **Two things only you can do:** capture Squirrel Girl's Archidekt URL
+> (the deck does not survive a box move without it), and rule on the subsystem order.
+>
+> **Parks / needs you (plan §6):** the multi-line mana gap (top of §6, with the shapes). Squirrel Girl's
+> Archidekt URL. Cap's multis. The land tier's open families + bands. Squirrel Girl's remainder (above).
 >
 > **Traps that fired (and are banked):** the Bash heredoc collapsed backslashes (memory:
 > bash-heredoc-backslash-collapse); a flip-diff "before" taken from a stale main checkout (memory:
