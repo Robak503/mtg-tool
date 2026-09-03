@@ -35,6 +35,7 @@ export function createFixtureDependencies(name) {
   return {
     verifyRuntime: async () => ({ passed: true, results: [{ id: "fixture-runtime", passed: true }] }),
     openRepository: async () => {
+      if (mode === "startup-loading") return new Promise(() => {});
       if (mode === "pack-error") throw new Error("private fixture path");
       return repository(mode);
     },

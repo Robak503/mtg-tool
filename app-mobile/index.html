@@ -7,7 +7,21 @@
     <title>Omnath MTG Assistant</title>
     <script type="module" src="/src/main.js"></script>
   </head>
-  <body>
+  <body class="startup-locked">
+    <section id="startup-gate" class="startup-gate" role="status" aria-live="polite" aria-label="Preparing Omnath">
+      <div class="startup-panel">
+        <div class="startup-sigil" aria-hidden="true"><span>Ω</span></div>
+        <p class="startup-eyebrow">Omnath · offline initialization</p>
+        <h1>Preparing your local library</h1>
+        <p id="startup-gate-copy" class="startup-gate-copy">Opening the verified rules, card details, and artwork stored in the app.</p>
+        <div class="startup-track" role="progressbar" aria-label="Preparing offline library">
+          <span></span>
+        </div>
+        <p class="startup-note">Keep Omnath open. First launch can take a few minutes.</p>
+        <span class="startup-private">No network required</span>
+      </div>
+    </section>
+
     <main id="app" data-state="loading" aria-busy="true">
       <header class="topbar">
         <a class="brand" href="#top" aria-label="Omnath home">
@@ -25,9 +39,9 @@
 
       <section class="quick-prompts" aria-label="Example questions">
         <span class="quick-label">Try</span>
-        <button type="button" data-question="What does Omnath, Locus of Creation do?">Omnath, Locus of Creation</button>
-        <button type="button" data-question="Show CR 702.7">Show CR 702.7</button>
-        <button type="button" data-question="How do triggered abilities work?">Triggered abilities</button>
+        <button type="button" data-question="What does Omnath, Locus of Creation do?" disabled>Omnath, Locus of Creation</button>
+        <button type="button" data-question="Show CR 702.7" disabled>Show CR 702.7</button>
+        <button type="button" data-question="How do triggered abilities work?" disabled>Triggered abilities</button>
       </section>
 
       <section id="conversation" class="conversation" aria-live="polite">
@@ -54,8 +68,8 @@
     <form id="ask-form" class="composer" aria-describedby="composer-privacy">
       <label for="question">Ask Omnath <span>· stays on this device</span></label>
       <div class="composer-row">
-        <textarea id="question" name="question" rows="1" maxlength="500" placeholder="Name the cards and game state…" required></textarea>
-        <button id="ask-button" type="submit" aria-label="Ask question"><span aria-hidden="true">↑</span></button>
+        <textarea id="question" name="question" rows="1" maxlength="500" placeholder="Name the cards and game state…" required disabled></textarea>
+        <button id="ask-button" type="submit" aria-label="Ask question" disabled><span aria-hidden="true">↑</span></button>
         <button id="stop-button" type="button" aria-label="Stop response" hidden>Stop</button>
       </div>
       <p id="composer-privacy">Local evidence only · no cloud connection</p>

@@ -32,6 +32,20 @@ test("the chat shell exposes recovery, live status, bounded input, and hidden-st
   assert.match(css, /prefers-reduced-motion/);
 });
 
+test("startup is a blocking, accessible loading screen until local data is ready", () => {
+  const html = read("index.html");
+  const css = read("src/styles.css");
+  const main = read("src/main.js");
+  assert.match(html, /id="startup-gate"[^>]*role="status"[^>]*aria-live="polite"/);
+  assert.match(html, /class="startup-track"[^>]*role="progressbar"/);
+  assert.match(html, /id="question"[^>]*disabled/);
+  assert.match(html, /id="ask-button"[^>]*disabled/);
+  assert.match(css, /\.startup-gate\s*\{[^}]*position:\s*fixed;[^}]*z-index:\s*20;/s);
+  assert.match(css, /body\.startup-locked\s*\{\s*overflow:\s*hidden;/);
+  assert.match(main, /finishStartup\(true\)/);
+  assert.match(main, /finishStartup\(false\)/);
+});
+
 test("optional copy progress cannot gate opening the offline pack", () => {
   const repository = read("src/knowledgeRepository.js");
   assert.doesNotMatch(repository, /addPluginListener/);

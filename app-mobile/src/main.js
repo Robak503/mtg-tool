@@ -15,10 +15,29 @@ const runtimeStatus = document.querySelector("#runtime-status");
 const packStatus = document.querySelector("#pack-status");
 const modelStatusNode = document.querySelector("#model-status");
 const activityStatus = document.querySelector("#activity-status");
+const startupGate = document.querySelector("#startup-gate");
+const startupGateCopy = document.querySelector("#startup-gate-copy");
 const feedback = createFeedbackStore(globalThis.localStorage);
 let controller;
 let lastQuestion = "";
 let ratingRecorded = false;
+
+function finishStartup(ready) {
+  startupGate.hidden = true;
+  document.body.classList.remove("startup-locked");
+  questionInput.disabled = !ready;
+  askButton.disabled = !ready;
+  for (const button of document.querySelectorAll("[data-question]")) button.disabled = !ready;
+}
+
+function showStartupPhase(progress) {
+  const messages = {
+    verifying: "Verifying the rules, card details, and artwork stored in the app.",
+    copying: "Placing the offline rules and card database in private app storage.",
+    "copying-art": "Placing the offline card artwork in private app storage.",
+  };
+  startupGateCopy.textContent = messages[progress?.phase] ?? startupGateCopy.textContent;
+}
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -236,11 +255,13 @@ async function initialize() {
     modelStatusNode.textContent = state.model?.state === "ready" ? `Ready · ${state.model.modelId}` : state.model?.state === "loading" ? "Loading if staged" : "Deterministic fallback";
   });
   const state = await controller.start((progress) => {
+    showStartupPhase(progress);
     packStatus.textContent = ["copying", "copying-art"].includes(progress.phase) && progress.totalBytes
       ? `${progress.phase === "copying-art" ? "Preparing card art" : "Preparing knowledge"} · ${Math.floor((progress.copiedBytes / progress.totalBytes) * 100)}%`
       : progress.phase === "verifying" ? "Verifying" : progress.phase;
   });
   if (state.phase === "error") {
+    finishStartup(false);
     packStatus.textContent = "Unavailable";
     activityStatus.textContent = "Offline knowledge is unavailable. No answer will be generated.";
     renderFailure(state.errorCode);
@@ -252,6 +273,7 @@ async function initialize() {
   document.querySelector("#startup-copy").textContent = "Ask with full card names for the strongest result. Omnath will quote local evidence or tell you when it needs more detail.";
   document.querySelector(".welcome-card .answer-kicker").textContent = "OMNATH · VERIFIED RULES RUNTIME + KNOWLEDGE PACK";
   activityStatus.textContent = "Offline knowledge is ready.";
+  finishStartup(true);
   if (fixture?.initialQuestion) {
     const pending = ask(fixture.initialQuestion);
     if (fixture.cancelImmediately) await controller.cancel();
