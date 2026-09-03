@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Tempt with Discovery works** — you search for a land, each opponent is asked whether they'll search for one
+  too (the AI decides by whether it's behind on lands; you get a real prompt when you're asked), and you search
+  once more for every opponent who accepted.
 - **Archdruid's Charm works** — all three modes: the creature-or-land search (a land enters tapped, a creature goes
   to your hand), the +1/+1 counter and bite (the counter lands first, so the bite hits for one more), and the
   artifact-or-enchantment exile.

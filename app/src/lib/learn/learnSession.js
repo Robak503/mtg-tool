@@ -31,8 +31,8 @@
 import { createGameState, loseLife, logEvent, moveCardToZone, MODES } from "./gameState.js";
 import { setPendingCommanderReturnChoice, clearPendingChoice } from "./pendingChoice.js";
 import { autoPickOptionalLifePayment } from "./landEntersTapped.js"; // LANDS-TIER slice 2 — the shockland auto-policy (pay iff life >= 10)
-import { autoPickSylvanLibraryPayment } from "./choicePolicy.js"; // SG-15b — Sylvan Library's per-card pay-or-put-back auto-policy (pay iff ≥8 life would remain)
-import { resolveSylvanLibraryChoice } from "./effects/runProgram.js"; // SG-15b — the per-card settler (chains the next card, then resumes)
+import { autoPickSylvanLibraryPayment, autoPickTemptingOffer } from "./choicePolicy.js"; // + TEMPTING OFFER (Tempt with Discovery) — the asked opponent's auto-answer // SG-15b — Sylvan Library's per-card pay-or-put-back auto-policy (pay iff ≥8 life would remain)
+import { resolveSylvanLibraryChoice, resolveTemptingOfferChoice } from "./effects/runProgram.js"; // + TEMPTING OFFER — the asked opponent's settler // SG-15b — the per-card settler (chains the next card, then resumes)
 import {
   startGame,
   prepareStart,
@@ -868,6 +868,12 @@ function settleOptionalLifePaymentChoice(state, pay) {
 // the next card under the same continuation, and after the last one resumes the program — which may itself
 // set ANOTHER choice, so guard pendingChoice before flushing — then finalizeStackResolution flushes what the
 // resumed program enqueued (CR 603.3). Mirrors settleOptionalSacChoice.
+// TEMPTING OFFER (Tempt with Discovery) — settle the asked opponent's answer (accept → their own land search is
+// suspended; decline → the offer moves on). The settler returns the next pause, which the driver loop drains.
+function settleTemptingOfferChoice(state, accept) {
+  return resolveTemptingOfferChoice(state, accept === true);
+}
+
 function settleSylvanLibraryChoice(state, pay) {
   const next = resolveSylvanLibraryChoice(state, pay);
   if (next.pendingChoice) return next;
@@ -2120,6 +2126,29 @@ export function advanceUntilDecision(
         current = { ...current, state: settleOptionalLifePaymentChoice(current.state, picked.value) };
         continue;
       }
+      // ===== TEMPTING OFFER ===== (Tempt with Discovery) — the asked OPPONENT's "you may search your library for a
+      // land card". choiceSeat = pc.controller = the opponent asked; a human decides at the panel, the autopilot by
+      // autoPickTemptingOffer (accept iff a land is there to find and it controls no more lands than the offerer).
+      if (pc.kind === "tempting-offer") {
+        if (pause) {
+          return { session: current, decision: { kind: "tempting-offer", ...pc, resume: undefined } };
+        }
+        const picked = decidePendingChoice({
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            value: autoPickTemptingOffer(current.state, pc),
+          },
+        });
+        current = { ...current, state: settleTemptingOfferChoice(current.state, picked.value) };
+        continue;
+      }
       // ===== SYLVAN LIBRARY ===== (SG-15b; CR 603.7c + 121.4) — one drawn card's "pay L life or put it back on
       // top". A human decides at the panel (with `affordable` — CR 119.4 lets you pay down to 0, never below);
       // the autopilot pays iff at least 8 life would remain (autoPickSylvanLibraryPayment). The settler chains
@@ -3146,6 +3175,44 @@ export function applyOptionalLifePaymentChoice(session, choice, opts = {}) {
  * chains the next card or resumes the program, then re-derives. A double-submit (nothing pending) re-derives.
  * Mirrors applyOptionalLifePaymentChoice.
  */
+/**
+ * ===== TEMPTING OFFER ===== (Tempt with Discovery) — the asked opponent (a human) answered the offer at the panel.
+ * Structurally applySylvanLibraryChoice: a yes/no settle, then re-derive the next decision.
+ */
+function applyTemptingOfferChoice(session, choice, opts = {}) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "tempting-offer") {
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
+  }
+  const accept = choice?.accept === true || choice === true;
+  let newState;
+  try {
+    newState = settleTemptingOfferChoice(session.state, accept);
+  } catch (error) {
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "tempting-offer-choice", accepted: accept },
+    auto: false,
+    reasoning: "user-answered-tempting-offer",
+  };
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
+}
+
 function applySylvanLibraryChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
@@ -4084,6 +4151,7 @@ export function applyPendingChoice(session, choice, opts = {}) {
     return applyOptionalManaPaymentChoice(session, choice, opts);
   if (kind === "optional-life-payment") return applyOptionalLifePaymentChoice(session, choice, opts);
   if (kind === "sylvan-library") return applySylvanLibraryChoice(session, choice, opts);
+  if (kind === "tempting-offer") return applyTemptingOfferChoice(session, choice, opts); // Tempt with Discovery — the asked opponent's answer
   if (kind === "optional-sac-payment") return applyOptionalSacChoice(session, choice, opts);
   if (kind === "optional-draw-discard")
     return applyOptionalDrawDiscardChoice(session, choice, opts);

@@ -51,6 +51,7 @@ import {
   OptionalManaPaymentPanel,
   OptionalLifePaymentPanel,
   SylvanLibraryPanel,
+  TemptingOfferPanel,
   OptionalSacPanel,
   SacrificeChoicePanel,
   DiscardChoicePanel,
@@ -747,6 +748,7 @@ export default function LearnView({
               onOptionalManaPaymentChoose={session.applyOptionalManaPaymentChoice}
               onOptionalLifePaymentChoose={session.applyOptionalLifePaymentChoice}
               onSylvanLibraryChoose={session.applySylvanLibraryChoice}
+              onTemptingOfferChoose={session.applyTemptingOfferChoice}
               onOptionalSacChoose={session.applyOptionalSacChoice}
               onCommanderReturnChoose={session.applyCommanderReturnChoice}
             />
@@ -971,6 +973,16 @@ export default function LearnView({
           <SylvanLibraryPanel
             decision={decision}
             onChoose={session.applySylvanLibraryChoice}
+          />
+        </div>
+      )}
+      {/* TEMPTING OFFER (Tempt with Discovery) — the asked opponent answers: search for a land (and hand the offerer
+          another) or decline. Same side-sheet. */}
+      {session.board && decision?.kind === "tempting-offer" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <TemptingOfferPanel
+            decision={decision}
+            onChoose={session.applyTemptingOfferChoice}
           />
         </div>
       )}
@@ -1399,6 +1411,7 @@ function DecisionPrompt({
   onOptionalManaPaymentChoose,
   onOptionalLifePaymentChoose,
   onSylvanLibraryChoose,
+  onTemptingOfferChoose,
   onOptionalSacChoose,
   onCommanderReturnChoose,
 }) {
@@ -1488,6 +1501,9 @@ function DecisionPrompt({
   }
   if (decision.kind === "sylvan-library") {
     return <SylvanLibraryPanel decision={decision} onChoose={onSylvanLibraryChoose} />;
+  }
+  if (decision.kind === "tempting-offer") {
+    return <TemptingOfferPanel decision={decision} onChoose={onTemptingOfferChoose} />;
   }
   if (decision.kind === "optional-sac-payment") {
     return <OptionalSacPanel decision={decision} onChoose={onOptionalSacChoose} />;

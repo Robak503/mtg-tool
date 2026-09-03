@@ -24,7 +24,7 @@
  */
 
 import { markPendingArbiter } from "../pendingArbiter.js";
-import { clearPendingChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice } from "../pendingChoice.js"; // + SG-15b: the Sylvan Library per-card pause is chained by its own settler
+import { clearPendingChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice, setPendingTemptingOfferChoice } from "../pendingChoice.js"; // + TEMPTING OFFER (Tempt with Discovery) // + SG-15b: the Sylvan Library per-card pause is chained by its own settler
 import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
@@ -458,6 +458,7 @@ export function resolveTutorChoice(state, cardId) {
       // RAMP-SPLIT — advance the ordered destination sequence so the NEXT pick uses the next destination
       // (Cultivate: pick 1 -> battlefield tapped, pick 2 -> hand). Null on the uniform single/multi path.
       destinations: Array.isArray(pc.destinations) ? pc.destinations.slice(1) : null,
+      temptingOffer: pc.temptingOffer || null, // TEMPTING OFFER — the offer's running state rides every chained bonus search
     });
     return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
   }
@@ -471,7 +472,63 @@ export function resolveTutorChoice(state, cardId) {
   if (searchedLibrary && !topAlreadyShuffled) next = shuffleControllerLibrary(next, pc.controller);
   next = logEvent(next, { kind: "spell-effect", effect: "tutor", controller: pc.controller, found: !!inSource, destination });
 
+  // TEMPTING OFFER (Tempt with Discovery) — a search that belongs to a tempting offer advances the offer instead
+  // of resuming the program: ask the next opponent, pay the offerer, or (after the last bonus search) resume.
+  if (pc.temptingOffer) return advanceTemptingOffer(next, pc);
   return resumeAfterChoice(next, pc);
+}
+
+/**
+ * TEMPTING OFFER — the offer's state machine, driven by the settlers. Stages: "offerer-first" (the offerer's first
+ * search just settled) and "opponent-search" (an accepting opponent's search just settled, or an opponent declined)
+ * both ask the NEXT opponent, or — none left — suspend the offerer's bonus searches (one per accepting opponent,
+ * chained through `remaining`) under stage "bonus"; "bonus" resumes the program when its last search settles.
+ */
+export function advanceTemptingOffer(state, pc) {
+  const to = pc.temptingOffer || {};
+  if (to.stage === "bonus") return resumeAfterChoice(state, pc);
+  const [nextOpp, ...rest] = to.opponents || [];
+  if (nextOpp && state.players?.[nextOpp]) {
+    return setPendingTemptingOfferChoice(state, { controller: nextOpp, offerer: to.offerer, accepted: to.accepted || 0, opponents: rest, sourceName: pc.sourceName || null, resume: pc.resume || null });
+  }
+  const accepted = to.accepted || 0;
+  const offerer = state.players?.[to.offerer];
+  if (accepted > 0 && offerer) {
+    const isLand = (c) => /\bLand\b/i.test(String(c.type || c.type_line || ""));
+    const candidates = (offerer.library || []).filter(isLand).map((c) => ({ id: c.id, name: c.name }));
+    const paused = setPendingTutorChoice(state, {
+      controller: to.offerer, candidates, sourceName: pc.sourceName || null, filterLabel: "land card", filter: { groups: [["land"]] },
+      destination: "battlefield", entersTapped: false, mayFailToFind: true, remaining: accepted,
+      temptingOffer: { stage: "bonus", offerer: to.offerer, opponents: [], accepted },
+    });
+    return pc.resume ? { ...paused, pendingChoice: { ...paused.pendingChoice, resume: pc.resume } } : paused;
+  }
+  return resumeAfterChoice(state, pc);
+}
+
+/**
+ * TEMPTING OFFER — the asked opponent's answer. Accept: the opponent's own land search is suspended (their pick
+ * settles through resolveTutorChoice, which advances the offer with `accepted + 1` — they searched, whether or not
+ * they found a land, CR 701.19c). Decline: the offer advances at once (the next opponent, or the offerer's bonus).
+ */
+export function resolveTemptingOfferChoice(state, accept) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "tempting-offer") return state;
+  let next = clearPendingChoice(state);
+  const base = { offerer: pc.offerer, opponents: pc.opponents || [], accepted: pc.accepted || 0 };
+  if (accept === true) {
+    const isLand = (c) => /\bLand\b/i.test(String(c.type || c.type_line || ""));
+    const candidates = (next.players?.[pc.controller]?.library || []).filter(isLand).map((c) => ({ id: c.id, name: c.name }));
+    next = logEvent(next, { kind: "tempting-offer-answer", controller: pc.controller, accepted: true, sourceName: pc.sourceName || null });
+    const paused = setPendingTutorChoice(next, {
+      controller: pc.controller, candidates, sourceName: pc.sourceName || null, filterLabel: "land card", filter: { groups: [["land"]] },
+      destination: "battlefield", entersTapped: false, mayFailToFind: true,
+      temptingOffer: { stage: "opponent-search", ...base, accepted: base.accepted + 1 },
+    });
+    return pc.resume ? { ...paused, pendingChoice: { ...paused.pendingChoice, resume: pc.resume } } : paused;
+  }
+  next = logEvent(next, { kind: "tempting-offer-answer", controller: pc.controller, accepted: false, sourceName: pc.sourceName || null });
+  return advanceTemptingOffer(next, { temptingOffer: { stage: "opponent-search", ...base }, resume: pc.resume || null, sourceName: pc.sourceName || null });
 }
 
 /**

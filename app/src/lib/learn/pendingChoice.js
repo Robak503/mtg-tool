@@ -82,7 +82,7 @@ export function setPendingCleanupDiscardChoice(state, { controller, candidates, 
  * library). FIFO: one pending choice at a time (the driver settles it before the
  * next atom/spell resolves, so this guard is belt-and-braces).
  */
-export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", sourceZones = null, destinations = null, mayFailToFind = null, fetchedGrants = null, fetchedGrantsUntil = null, landToBattlefieldTapped = false }) {
+export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", sourceZones = null, destinations = null, mayFailToFind = null, fetchedGrants = null, fetchedGrantsUntil = null, landToBattlefieldTapped = false, temptingOffer = null }) {
   if (state.pendingChoice) return state;
   // RAMP-SPLIT (Cultivate / Kodama's Reach) — an ORDERED per-fetch destination sequence; its HEAD applies to
   // THIS pick (so the fetch path + picker label read destination/entersTapped unchanged), the tail rides on
@@ -119,6 +119,9 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
       filter: filter || null,
       // ARCHDRUID'S CHARM (2026-09-03) — a LAND pick enters the battlefield tapped; anything else takes `destination`.
       ...(landToBattlefieldTapped ? { landToBattlefieldTapped: true } : {}),
+      // TEMPTING OFFER (Tempt with Discovery, 2026-09-03) — the offer's running state rides every search it chains
+      // (offerer / opponents still to ask / how many accepted / which stage); the settler advances it.
+      ...(temptingOffer ? { temptingOffer } : {}),
       // SAVAGE ORDER (2026-08-14) — the fetched-permanent UEOT/next-turn keyword grants, threaded through
       // this FOURTH naming site (the destination comment above warns exactly this: miss one and the path
       // silently under-delivers — the fetched Dino entered WITHOUT its printed indestructible until listed).
@@ -518,6 +521,33 @@ export function setPendingSoftCounterChoice(state, { controller, amount, cost = 
  * payManaCost never fabricates mana). The continuation rides on `pendingChoice.resume` (attached by runProgram).
  * FIFO: one choice at a time.
  */
+/**
+ * TEMPTING OFFER (Tempt with Discovery, 2026-09-03 — CR 701 "tempting offer" ability word): the OPPONENT's
+ * "you may search your library for a land card and put it onto the battlefield". controller = the opponent asked
+ * (the driver routes the pause to that seat — a human decides at the panel, the AI by autoPickTemptingOffer). The
+ * offer's running state (offerer, opponents still to ask, accepted count) rides the choice; the settler either
+ * suspends the opponent's own land search (accept) or asks the next opponent / pays the offerer (decline).
+ * `hasLand` is read here for the panel; accepting with no land still counts as having searched (CR 701.19c).
+ */
+export function setPendingTemptingOfferChoice(state, { controller, offerer, accepted = 0, opponents = [], sourceName = null, resume = null }) {
+  if (state.pendingChoice) return state;
+  const hasLand = (state.players?.[controller]?.library || []).some((c) => /\bLand\b/i.test(String(c.type || c.type_line || "")));
+  const next = logEvent(state, { kind: "tempting-offer-pending", controller, offerer, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "tempting-offer",
+      controller,
+      offerer,
+      accepted,
+      opponents: [...opponents],
+      hasLand,
+      sourceName,
+      ...(resume ? { resume } : {}),
+    },
+  };
+}
+
 export function setPendingOptionalManaPaymentChoice(state, { controller, cost, effectAtoms = [], sourceName = null, targets = [], elseAtoms = [], available = true }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "optional-mana-payment-pending", controller, amount: wardCostHeadline(cost), sourceName });

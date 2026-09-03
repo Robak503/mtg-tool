@@ -1888,6 +1888,65 @@ export function SylvanLibraryPanel({ decision, onChoose }) {
 }
 
 /**
+ * ===== TEMPTING OFFER ===== (Tempt with Discovery) — an opponent offers you a land search: accept and you search
+ * your library for a land and put it onto the battlefield — but the offerer searches once more for every player
+ * who accepted. Shown to the ASKED opponent. Submits the boolean via applyTemptingOfferChoice.
+ */
+export function TemptingOfferPanel({ decision, onChoose }) {
+  const hasLand = decision.hasLand !== false;
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (accept) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onChoose?.(accept);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+        }}
+      >
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
+          🌱 A tempting offer{decision.sourceName ? ` — ${decision.sourceName}` : ""}
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
+          Search your library for a land and put it onto the battlefield? If you do, the offerer searches for another land too.
+          {!hasLand && <span style={{ color: "var(--ley-gold)" }}> Your library has no land to find.</span>}
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          className="btn btn-primary btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => submit(true)}
+          disabled={submitting}
+        >
+          Accept — search for a land
+        </button>
+        <button
+          className="btn btn-ghost btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => submit(false)}
+          disabled={submitting}
+        >
+          Decline
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * ===== REFLEXIVE-SAC-BY-SUBTYPE ===== (CR 603.7c) — "you may sacrifice a <subtype>. If you do, <effect>"
  * picker (The Goose Mother / Wedding Security). Shown to the controller of the trigger/ability: sacrifice
  * one matching permanent to run the payoff, or decline. "Sacrifice" is disabled when `decision.available`

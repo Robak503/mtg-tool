@@ -2460,7 +2460,37 @@ export function applyPickMilledToHand(state, atom, ctx) {
   });
 }
 
+/**
+ * TEMPTING-OFFER-LAND (Tempt with Discovery, 2026-09-03): "Search your library for a land card and put it onto the
+ * battlefield. Each opponent may search their library for a land card and put it onto the battlefield. For each
+ * opponent who searches a library this way, search your library for a land card and put it onto the battlefield.
+ * Then each player who searched a library this way shuffles." A chain of PAUSES driven by the tutor settler: the
+ * offerer's first search (this atom), then one tempting-offer choice per opponent (accept → that opponent's own
+ * search), then the offerer's bonus searches (one per accepting opponent, chained through `remaining`). Every
+ * search shuffles as it settles (CR 701.19e) — the printed "then each player who searched shuffles" is the same
+ * set of shuffles. The program resumes after the last search.
+ */
+export function applyTemptingOfferLand(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state;
+  const isLand = (c) => /\bLand\b/i.test(String(c.type || c.type_line || ""));
+  const candidates = (player.library || []).filter(isLand).map((c) => ({ id: c.id, name: c.name }));
+  return setPendingTutorChoice(state, {
+    controller,
+    candidates,
+    sourceName: ctx.cardName || null,
+    filterLabel: "land card",
+    filter: { groups: [["land"]] },
+    destination: "battlefield",
+    entersTapped: false,
+    mayFailToFind: true, // a search WITH a stated quality may fail to find (CR 701.19b)
+    temptingOffer: { stage: "offerer-first", offerer: controller, opponents: opponentsOf(state, controller), accepted: 0 },
+  });
+}
+
 export const libraryResolvers = {
+  "tempting-offer-land": applyTemptingOfferLand, // Tempt with Discovery — the offerer's first land search; the settler chains the offer
   "pick-milled-to-hand": applyPickMilledToHand, // MILLED-REFERENT PICK (Ripples / Six) — the _lastMilledIds ∩ live-GY choice
   "tutor": applyTutor,
   "shuffle": applyShuffle,

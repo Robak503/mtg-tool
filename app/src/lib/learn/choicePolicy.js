@@ -99,6 +99,22 @@ export function autoPickSylvanLibraryPayment(state, controller, life) {
   return l > 0 && cur - l >= 8;
 }
 
+/**
+ * TEMPTING OFFER auto-answer (Tempt with Discovery): the asked opponent accepts iff they have a land card to find AND
+ * they control no more lands than the offerer — behind or level, a free land is worth the offerer's extra one;
+ * ahead, refuse and deny the ramp. Board-shaped and deterministic (the same dull discipline as the other picks).
+ */
+export function autoPickTemptingOffer(state, pc) {
+  const me = state?.players?.[pc?.controller];
+  const offerer = state?.players?.[pc?.offerer];
+  if (!me || !offerer) return false;
+  const isLand = (c) => /\bLand\b/i.test(String(c?.type || c?.type_line || ""));
+  const hasLand = (me.library || []).some(isLand);
+  if (!hasLand) return false;
+  const lands = (p) => (p.battlefield || []).filter((perm) => isLand(perm.card || {})).length;
+  return lands(me) <= lands(offerer);
+}
+
 export function autoPickProtectionColor(state, controller, { orColorless = false } = {}) {
   const tally = { W: 0, U: 0, B: 0, R: 0, G: 0, ...(orColorless ? { C: 0 } : {}) };
   for (const pid of Object.keys(state?.players || {})) {

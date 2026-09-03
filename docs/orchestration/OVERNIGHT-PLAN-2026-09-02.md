@@ -233,6 +233,11 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
 
 ## §6 PARKED / NEEDS COLTON (append as you go — this is the morning report's raw material)
 
+- **[TEMPTING OFFER family, 2026-09-03 — Cindy lane, engine parks]** the state machine ships for Tempt with
+  Discovery's land payoff. The seven other tempting-offer cards (Tempt with Vengeance / Reflexes / Glory /
+  Immortality / Bunnies / Mayhem / …) each need their own accept-payoff atom on the same chain (tokens, a creature
+  from the graveyard, +1/+1 counters, …) — one small arm each, none needs Colton.
+
 - **[CAP-BRACERS family remainder, 2026-09-03 — Cindy lane, engine parks]** the `abilityActivated` event ships for
   the plain / creature / artifact / artifact-or-creature / single-word-subtype filters. Still parked, each one a
   small arm on the same checker: **Sarkhan's Whelp** + **Leori, Sparktouched Hunter** (a two-word planeswalker-type
@@ -358,8 +363,9 @@ decks at large", then "the program work — all those cards are used lots of pla
 5. **The X-spell program** — Genesis Wave, Finale of Devastation, Green Sun's Zenith, Chord of Calling,
    Archdruid's Charm, Nature's Rhythm, Tempt with Discovery — shelf-wide (Zaxara).
    Status 2026-09-03: five were already native; **Archdruid's Charm ✅ SHIPPED (⑤a)** — tutor per-card destination
-   rider + bite counter-first rider; **Tempt with Discovery** = the tempting-offer choice (opponent-side pause +
-   AI accept policy), next.
+   rider + bite counter-first rider; **Tempt with Discovery ✅ SHIPPED (⑤b)** — the tempting-offer state machine on
+   the tutor settler + an opponent-side pause (panel + AI policy). **Item 5 done; the day order is complete on
+   Cindy's lane** (item 3 = Omnath's rulings, [Q-CAP-ARBITER]).
 Every item through §5 in full; parks to §6 + COMMS.
 
 ## §7 WHAT THE MORNING REPORT MUST CONTAIN

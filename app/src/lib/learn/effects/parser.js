@@ -2387,6 +2387,16 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       return makeProgram({ confidence: "high", atoms: [{ op: "reveal-until-creature-attacking", targetType: null }], xSpell: false, unparsedTail: null });
     }
   }
+  // ===== TEMPT WITH DISCOVERY (X-PROGRAM ⑤b, 2026-09-03 — the "tempting offer" ability word) ===== four sentences the
+  // splitter would shatter; ONE atom whose settlers chain the offerer's search → each opponent's may-search → the
+  // offerer's bonus searches. The ability-word label is stripped here. EXACT anchor; the other Tempt cards carry
+  // different payoffs and fall through → Arbiter.
+  {
+    const tw = String(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/^tempting offer\s*[—-]\s*/, "").replace(/\.$/, "");
+    if (tw === "search your library for a land card and put it onto the battlefield. each opponent may search their library for a land card and put it onto the battlefield. for each opponent who searches a library this way, search your library for a land card and put it onto the battlefield. then each player who searched a library this way shuffles" && KNOWN.has("tempting-offer-land")) {
+      return makeProgram({ confidence: "high", atoms: [{ op: "tempting-offer-land", targetType: null }], xSpell: false, unparsedTail: null });
+    }
+  }
   // ===== ARCHDRUID'S CHARM (X-PROGRAM ⑤, 2026-09-03) ===== two of its three modes, each a multi-sentence span the
   // clause splitter would shatter, collapsed whole. (1) "Search your library for a creature or land card and reveal
   // it. Put it onto the battlefield tapped if it's a land card. Otherwise, put it into your hand. Then shuffle." →

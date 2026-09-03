@@ -3,6 +3,31 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🌱 2026-09-03 — X-PROGRAM ⑤b: TEMPT WITH DISCOVERY — the TEMPTING OFFER as an opponent-side pause · **+1 corpus** · Squirrel Girl 87 → 88 · Zaxara 91 · **Colton's day order (plan §8) COMPLETE on my lane** · corpus 13,847 / 34,245 (40.4%)
+> Suite **1359 / 15,394** green; lint 0 (engine, session, hook, panel, view). Flip-diff **+1, zero LOST** (Tempt with
+> Discovery, arbiter-spell → native-spell). **13/13 killed** (M3 + M7 survived their first run — the multi-acceptor
+> bonus arithmetic has no two-seat witness — and got the missing test: the state machine driven directly at the
+> point a pod reaches with two acceptors, pinned through the chained pick).
+> · **THE SHAPE.** One atom (`tempting-offer-land`) and a state machine the TUTOR SETTLER drives: the offerer's first
+>   land search (the proven tutor pause, `temptingOffer` riding it) → one `tempting-offer` pause per opponent whose
+>   CONTROLLER is that opponent (accept → the opponent's own land search; decline → move on) → the offerer's bonus
+>   searches, one per acceptor, chained through the tutor's own `remaining` → the program resumes after the last
+>   settle. Accepting with no land to find still counts as having searched (CR 701.19c — pinned). Every search
+>   shuffles as it settles (CR 701.19e), which IS the printed "then each player who searched shuffles".
+> · **THE OPPONENT'S SEAT.** The pause routes to the asked opponent: a human answers at a new panel
+>   (TemptingOfferPanel — accept / decline, warns when the library holds no land); the autopilot answers by
+>   `autoPickTemptingOffer` — accept iff a land is there to find AND it controls no more lands than the offerer
+>   (behind or level takes the land; ahead denies the ramp). Both directions are witnessed through the learn-session
+>   driver: the AI as the asked opponent auto-answers and the user's bonus pick surfaces as a tutor decision; the
+>   user as the asked opponent gets the `tempting-offer` decision and applyPendingChoice routes the answer.
+> · **Threading sites** (each explicit, each a killed mutation): the tutor pause carries `temptingOffer`, the chained
+>   bonus pick re-carries it, the settler advances it, the offer pause carries `hasLand` for the panel.
+> · **Not claimed:** the dev-server boot was not run for the panel/view change (eslint parsed the JSX; the hook and
+>   view mirror the Sylvan Library wiring line for line). The other seven "tempting offer" cards (Vengeance,
+>   Reflexes, Glory, Immortality, Bunnies, Mayhem …) carry different payoffs and stay on the Arbiter — §6.
+> · **CI note:** the Cavern head 5d8cf317 shows CANCELLED — superseded by the Archdruid push under the concurrency
+>   rule; the Archdruid run carries its code. Not red.
+
 > ## 🌿 2026-09-03 — X-PROGRAM ⑤a: ARCHDRUID'S CHARM — two modes on PROVEN atoms with one rider each · **+1 corpus** · Squirrel Girl 86 → 87 · Zaxara 91 · Colton's day-order item 5 (first half) · corpus 13,846 / 34,245 (40.4%)
 > Suite **1358 / 15,386** green; lint 0. Flip-diff **+1, zero LOST** (Archdruid's Charm, arbiter-spell → native-spell).
 > **10/10 killed.**
