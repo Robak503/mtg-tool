@@ -827,7 +827,11 @@ export function applyMill(state, atom, ctx) {
   let next = state;
   // LIFE-LOSS-SCALED (Mindcrank, SHELF M3): countContext reads a trigger-context magnitude
   // (ctx.lifeLostAmount). Absent → 0 → a clean no-op, never a fabricated mill.
-  const amount = atom.countContext ? Math.max(0, ctx[atom.countContext] || 0) : (atom.amount || 0);
+  // SG-7 (Altar of Dementia): a board/LKI count (`amountCount` — the sacrificed creature's power) sizes the
+  // mill through countForSpec, the same reader the draw / discover atoms use.
+  const amount = atom.countContext ? Math.max(0, ctx[atom.countContext] || 0)
+    : atom.amountCount ? Math.max(0, countForSpec(state, ctx, atom.amountCount))
+      : (atom.amount || 0);
   if (atom.who === "lifeLostPlayer") {
     // The player who just LOST life (ctx.lifeLostPlayerId, threaded by checkLifeLossTriggers).
     // Absent/eliminated referent → mill nobody (mirrors the damagedPlayer guard below).
@@ -1640,6 +1644,15 @@ export function applyWindsOfChange(state, atom, ctx) {
 
 export function millClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // SACRIFICED REFERENT (SG-7, 2026-09-03 — Altar of Dementia "Sacrifice a creature: Target player mills cards
+  // equal to the sacrificed creature's power"): the magnitude of the permanent sacrificed to pay the cost,
+  // read off the same inter-atom channel the draw / life / damage forms use (`sacrificedForCost`, CR 608.2h
+  // + 603.6e LKI — stamped by the dispatcher before the sacrifice, for spells AND activated abilities).
+  const sacM = t.match(/^target player mills cards equal to the sacrificed (?:creature|permanent|artifact)'s (power|toughness|mana value)$/);
+  if (sacM) {
+    const kind = sacM[1] === "power" ? "sacrificedPower" : sacM[1] === "toughness" ? "sacrificedToughness" : "sacrificedManaValue";
+    return { op: "mill", who: "target", targetType: "player", amountCount: { kind, per: 1 } };
+  }
   let m = t.match(/^(?:you )?mill (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "controller", targetType: null };
   m = t.match(/^each opponent mills (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);

@@ -34,6 +34,7 @@ import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapMan
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
+import { castOwnTurnOnlyLock } from "./staticAbilityParser.js"; // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
 import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksOf, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund
@@ -434,7 +435,13 @@ function canCastSorcerySpeed(state, playerId) {
  * surfaces priority via state.priorityHolder.
  */
 function canCastInstantSpeed(state, playerId) {
-  return state.priorityHolder === playerId;
+  if (state.priorityHolder !== playerId) return false;
+  // SG-8 — Dosan the Falling Leaf: "Players can cast spells only during their own turns." Any battlefield
+  // permanent (any controller — the static is symmetric, CR 604.2) locks every OFF-turn cast; own-turn
+  // casts are untouched. Read off the same sentence the static parser marks, via castOwnTurnOnlyLock.
+  if (state.activePlayer !== playerId
+    && Object.values(state.players || {}).some((p) => (p.battlefield || []).some((perm) => castOwnTurnOnlyLock(perm.card)))) return false;
+  return true;
 }
 
 // ─── Action generators ───────────────────────────────────────────────────────

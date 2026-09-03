@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🍂 2026-09-03 — SG-7 + SG-8: Altar of Dementia (the sacrificed creature's power sizes a target-player mill) · Dosan the Falling Leaf (an own-turn cast lock) · **+2 corpus** · Squirrel Girl 75→77 · corpus 40.3% (13,795/34,245)
+> Suite **1339 / 15,263** green; lint 0. Flip-diff **+2, zero LOST** (Altar of Dementia body-only →
+> native-activated; Dosan body-only → native-static). **6/6 killed** first pass. SG-6 CI: success.
+> · **Altar.** The sacrifice-a-creature cost already expanded per victim (SG-3), and the SACRIFICED
+>   REFERENT (`sacrificedForCost`, CR 608.2h + 603.6e LKI) already fed "draw / gain life / damage equal to
+>   the sacrificed creature's power" — but only the SPELL path stamped it. The dispatcher's activated sac
+>   branch now stamps the victim's power / toughness / mana value before the sacrifice, the mill parser
+>   gained the "Target player mills cards equal to the sacrificed creature's power" form (`amountCount`),
+>   and `applyMill` resolves `amountCount` through `countForSpec` like the draw atom. Pinned: a 4-power
+>   victim mills the targeted opponent four, a 1-power one mills one (M1 zero-stamp, M2 applier ignoring
+>   the count, M3 toughness-for-power each fail it).
+> · **Dosan.** "Players can cast spells only during their own turns." — a static MARKER off the exact
+>   sentence (the castLimit pattern) plus `castOwnTurnOnlyLock(card)`, read at `canCastInstantSpeed` across
+>   EVERY battlefield (CR 604.2, symmetric — the opponent's Dosan locks you too, pinned; M5 controller-only
+>   fails it). Own-turn casts untouched; without Dosan the off-turn instant is offered as before.
+> · Trap: the mutation script's result print died under Windows cp1252 (vitest's ⎯ glyphs) AFTER the loop —
+>   files were restored by `finally`, results lost; rerun with `PYTHONIOENCODING=utf-8`. Future scripts
+>   set it at the top.
+
 > ## 🐒 2026-09-03 — SG-6: Elvish / Simian Spirit Guide — an EXILE-FROM-HAND mana source · **+2 corpus** · Squirrel Girl deck 74→75 · corpus 40.3% (13,793/34,245)
 > Suite **1337 / 15,254** green; lint 0. Flip-diff **+2, zero LOST**. **5/5 killed** — after one survivor
 > earned its pin: loosening the cost regex so "from your hand" was optional survived because no fixture

@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Altar of Dementia works** — the creature you sacrifice sets how many cards the targeted player mills.
+- **Dosan the Falling Leaf works** — while it's out, nobody (you included) casts spells on another player's
+  turn; your own turn is untouched.
 - **Elvish Spirit Guide and Simian Spirit Guide work** — exiled from your hand for a mana; never usable from
   the battlefield.
 - **The Invasion lairs work** (Darigaaz's Caldera, Treva's Ruins, Dromar's Cavern, Rith's Grove, Crosis's

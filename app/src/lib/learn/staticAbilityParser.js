@@ -2954,6 +2954,15 @@ function parseClause(clause, out, selfName, selfType) {
     }
   }
 
+  // ── OWN-TURN CAST LOCK (SG-8, 2026-09-03 — Dosan the Falling Leaf, CR 604.2): "Players can cast spells
+  // only during their own turns." Emitted as a coverage MARKER (the castLimit pattern — no `affects`/`op`).
+  // The RUNTIME enforcement lives in legalChoices.canCastInstantSpeed, which reads the SAME line via
+  // castOwnTurnOnlyLock across every battlefield — one parser, no drift. Symmetric on purpose (CR 604.2:
+  // the static applies to every player, Dosan's controller included). Exact sentence only.
+  if (/^players can cast spells only during their own turns$/.test(c)) {
+    out.push({ castOwnTurnOnly: true });
+    return;
+  }
   // ── CAST-LIMIT (BLITZ RL-1 — Rule of Law / Arcane Laboratory / Eidolon of Rhetoric, CR 604.2):
   // "Each player can't cast more than one spell each turn." Emitted as a coverage MARKER (the
   // blockRestriction pattern — no `affects`/`op`, the layer engine ignores it). The RUNTIME enforcement
@@ -4990,6 +4999,16 @@ export function cantCastDescriptorOf(card) {
  * Pure — the per-player allowance (1 + Σ across the battlefield + command zone) is computed at the land-play
  * site (legalChoices.actionsPlayLand + actionDispatcher.applyPlayLand), this just exposes the per-card delta.
  */
+/**
+ * OWN-TURN CAST LOCK (SG-8 — Dosan the Falling Leaf): does this card print "Players can cast spells only
+ * during their own turns."? Read by legalChoices.canCastInstantSpeed across every battlefield; the same
+ * sentence the static parser emits its coverage marker for (one line, two readers, no drift).
+ */
+export function castOwnTurnOnlyLock(card) {
+  const o = String(card?.oracle || card?.oracle_text || "");
+  return /(?:^|[\n.;])\s*players can cast spells only during their own turns\s*(?:\.|$)/i.test(o);
+}
+
 export function extraLandDropsOf(card) {
   let n = 0;
   for (const d of parseStaticAbilities(card)) {

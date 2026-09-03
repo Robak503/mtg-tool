@@ -1274,6 +1274,19 @@ function applyActivateAbility(state, action) {
   if (action.sacCreatureId) {
     const victim = working.players[action.playerId]?.battlefield.find((p) => p.id === action.sacCreatureId);
     if (!victim) throw new DispatcherError(`Sacrifice victim ${action.sacCreatureId} not on battlefield`, "PERM_NOT_FOUND");
+    // SG-7 (2026-09-03, Altar of Dementia "Sacrifice a creature: Target player mills cards equal to the
+    // sacrificed creature's power"): stamp the victim's LKI on the SAME inter-atom channel the spell-side
+    // additional-cost sacrifice uses (`sacrificedForCost`, CR 608.2h + 603.6e), so an activated ability's
+    // "equal to the sacrificed creature's power/toughness/mana value" magnitude reads the creature that was
+    // ACTUALLY fed — measured before the sacrifice, exactly as the spell path does.
+    working = {
+      ...working,
+      sacrificedForCost: {
+        power: Math.max(0, creaturePower(victim, working) ?? 0),
+        toughness: Math.max(0, creatureToughness(victim, working) ?? 0),
+        manaValue: Math.max(0, victim.card?.cmc ?? 0),
+      },
+    };
     working = sacrificePermanentForCost(working, action.playerId, victim);
   }
   // γ1d — pay a "Sacrifice N <fungible subtype>" cost: sacrifice each of the N chosen victims (battlefield →
