@@ -609,7 +609,11 @@ export function parseFixedManaPips(pipStrings) {
 // UPKEEP-SAC-UNLESS-PAY noun allowlist — the printed permanent-type nouns for which "sacrifice this <noun>" means
 // "sacrifice the source permanent" unambiguously. An unrecognized noun → no match (safe FN → Arbiter). The sac target
 // is always the source (ctx.sourceId) regardless of noun; the allowlist just gates out garbage.
-const SAC_UNLESS_PAY_NOUNS = new Set(["creature", "artifact", "enchantment", "land", "permanent", "token"]);
+// ④-L (2026-09-03 night): "aura" joins — "At the beginning of your upkeep, sacrifice this Aura unless you pay {B}"
+// (Melancholy, Thirst, Binding Grasp). The Aura's own upkeep trigger already fires on any battlefield permanent and
+// the aura-own trigger validator already vouches for whatever this matcher parses; only the noun was missing, so
+// "this enchantment" / "this permanent" parsed HIGH while the Aura-templated print of the same sentence parked.
+const SAC_UNLESS_PAY_NOUNS = new Set(["creature", "artifact", "enchantment", "land", "permanent", "token", "aura"]);
 
 /**
  * ===== UPKEEP-SAC-UNLESS-PAY (echo-without-the-keyword, CR 603.7c) ===== "Sacrifice this <noun> unless you pay

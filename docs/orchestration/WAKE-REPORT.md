@@ -7,6 +7,15 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ⏳ 2026-09-03 (night cron) — **④-L: the upkeep tax on an Aura — "sacrifice this Aura unless you pay" (+4)** · suite **1373 / 15,466** green · corpus 13,904 / 34,245 (40.6%) · flip-diff +4 / 0 lost · 2/2 killed
+
+> **Night tally (stage ④, twelve slices):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3) · D tapped-for-mana
+> (+2) · E Nikya (+1) · F opponent creature tokens (+7) · G flashback grant (+6) · H en-Kor redirect (+5) · I Savage
+> Firecat (+3) · J Bubble Snare (+1) · K control-aura bonus + Siren (+1, FP closed on 3) · L upkeep-tax Auras (+4) —
+> corpus 13,862 → 13,904 (+42). **Next runnable:** Relic of Progenitus / Scrabbling Claws (an opponent-side graveyard
+> pick + "exile all graveyards"), Grafted Identity (the additional-cost sacrifice on an AURA cast, 1 card), Serra
+> Bestiary's restriction line, or the next census read.
+
 ## 🧲 2026-09-03 (night cron) — **④-K: control Auras carry their bonus (FP closed on 3 credited cards) + Hypnotic Siren (+1)** · suite **1372 / 15,459** green · corpus 13,900 / 34,245 (40.6%) · flip-diff +1 / 0 lost · 7/7 killed
 
 > **Night tally (stage ④, eleven slices):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3) · D tapped-for-mana

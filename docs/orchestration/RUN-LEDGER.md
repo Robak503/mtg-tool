@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⏳ 2026-09-03 (night cron) — CORPUS ④-L: "sacrifice this AURA unless you pay" — the upkeep tax on an Aura · **+4** (Melancholy / Thirst / Binding Grasp / Vapor Snare) · corpus 13,904 / 34,245 (40.6%)
+> Suite **1373 / 15,466** green; lint 0. Flip-diff **+4, zero LOST**. **2/2 killed.**
+> · **The shape:** "At the beginning of your upkeep, sacrifice this Aura unless you pay {B}." The whole pay-or-
+>   sacrifice mechanism existed (37 corpus carriers: creatures, enchantments, permanents — the pausing atom, the
+>   pay/decline choice, the aura-own trigger validator) and the noun allowlist simply lacked "aura": the byte-
+>   identical sentence with "this enchantment" parsed HIGH while the Aura-templated print parked. One word.
+> · **Board-verified:** Melancholy on the opponent's Bear — pay {B} at our upkeep and it stays attached (pool
+>   charged); decline and it is sacrificed, the Bear free of it. Binding Grasp: decline and the stolen Bear goes
+>   HOME (the control revert rides the sacrifice — ④-K's bonus fix is what let the card's body through). Vapor
+>   Snare's return-a-land cost was already modeled (the karoo arm), so it rode the same word. The AI's upkeep is
+>   silent — it is the AURA CONTROLLER's upkeep, not the host's.
+> · **Honest edge:** Serra Bestiary stays parked on its "can't attack or block, and its activated abilities with
+>   {T} … can't be activated" line (pinned off the tier). An Aura with its own trigger sits on the trigger tier.
+
 > ## 🧲 2026-09-03 (night cron) — CORPUS ④-K: a CONTROL AURA CARRIES ITS BONUS (a live FP closed on 3 credited cards) + Hypnotic Siren's bestow steal · **+1** · corpus 13,900 / 34,245 (40.6%)
 > Suite **1372 / 15,459** green; lint 0. Flip-diff **+1, zero LOST**. **7/7 killed.**
 > · **The FP (found while probing Siren, measured on the board):** Spirit Away / Yavimaya's Embrace / Corrupted

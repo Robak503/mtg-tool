@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Melancholy, Thirst, Binding Grasp and Vapor Snare work** — the Aura asks for its upkeep payment each
+  turn and is sacrificed if you decline (a stolen creature goes home).
 - **Hypnotic Siren works, bestowed** — bestow it on an opponent's creature and the creature is yours, a
   flier with +1/+1, until the Siren leaves.
 - **Bubble Snare works, kicked** — the Aura lane offers the kicked cast when you can pay it, and the kicked
