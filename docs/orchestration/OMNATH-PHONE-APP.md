@@ -9,8 +9,9 @@
 > **Status.** Phone-owned implementation is active. The browser-safe engine
 > boundary, full offline knowledge pack, grounded answer contract, Tauri Android
 > shell, and LiteRT-LM plugin now exist. Physical Pixel installation and
-> network-isolated knowledge retrieval are proven; the updated rule-section
-> presentation and optional model performance still need device execution.
+> network-isolated knowledge retrieval are proven; the updated rule-section and
+> playable-card selection fixes plus optional model performance still need
+> device execution.
 > This document does not authorize implementation in
 > the protected engine or corpus directories.
 >
@@ -51,7 +52,7 @@
 | Native lifecycle and shell security | Complete | `cd app-mobile; npm run android:model:test; npm run shell:test` |
 | Automated build receipt | Complete | `cd app-mobile; npm run receipt` |
 | Final full-suite APK | Complete | Commit `96c4ecc9`; `cd app-mobile; npm run release:verify` |
-| Physical Pixel verification | In progress | Installation, provisioning, FTS, and exact CR lookup passed manually in airplane mode; updated section expansion and optional model performance remain |
+| Physical Pixel verification | In progress | Installation, provisioning, FTS, exact CR lookup, and card retrieval passed manually; updated section/card presentation and optional model performance remain |
 
 Each completed pre-phone checkpoint is committed separately. Generated packs,
 APKs, device reports, receipts, and model binaries remain ignored artifacts.
@@ -328,7 +329,13 @@ The current citation reader is not a mobile import boundary:
   canonical source records.
 
 Card images and Commander Spellbook combo data are optional packs, not MVP
-requirements.
+requirements. Offline card art, when added, is a separately versioned build-time
+pack of compressed previews keyed by Oracle/card-face identity. The base app must
+remain fully usable without it, missing art must never weaken Oracle/rules truth,
+and the phone must not fetch the source image URLs at runtime. A pilot may ship a
+curated deck/Commander art pack before a full-catalog pack; source terms,
+attribution, storage size, and update behavior must be verified before friend
+distribution.
 
 ---
 
@@ -609,9 +616,9 @@ exist on branch `codex/omnath-phone-polish`.
   and supplies `HF_TOKEN`.
 - The authoritative full-suite ARM64 debug APK targets Android 36 with minimum
   SDK 24, package id `com.colton.omnath.probe.debug`, and user-facing label
-  **Omnath MTG Assistant**. The rule-section expansion build from commit
-  `fa9a6e9a` is 244,910,037 bytes with SHA-256
-  `7cc39a2131e0eaaf433e4751d96edee0f6112193e4350881d16547d0259e7596`.
+  **Omnath MTG Assistant**. The playable-Oracle-record build from commit
+  `5e4c55cc` is 244,910,157 bytes with SHA-256
+  `c747d61ade9428be73b0ad61005605610c4f2b5655c48f69075b59f0cdaa22b1`.
   Its machine-generated receipt reports 933 entries, no
   `android.permission.INTERNET`, no bundled `.litertlm`, no raw Oracle/rulings/CR
   input, and a matching staged enhanced-model hash. It also proves that the
@@ -620,10 +627,10 @@ exist on branch `codex/omnath-phone-polish`.
   `d9dd2756c414123ab9934263496b043ef0225d5178314f5996f4efdca4dc3d75`.
   The only reported permission is Android's package-scoped dynamic-receiver
   protection.
-- The UI/controller JavaScript is 29,674 bytes (10,600 bytes gzip), and the
+- The UI/controller JavaScript is 30,037 bytes (10,720 bytes gzip), and the
   LEYLINE stylesheet is 11,809 bytes (3,180 bytes gzip); the
   995,428-byte rules-engine witness is isolated in a lazy chunk. The release
-  gate passed 26 mobile JS/data/security tests, 17 engine/WebView tests, three
+  gate passed 27 mobile JS/data/security tests, 17 engine/WebView tests, three
   Rust provisioning tests, and three Kotlin model-lifecycle tests before the
   APK receipt was issued.
 - Installation, launch, and corrected first-run provisioning are proven on the
@@ -636,8 +643,16 @@ exist on branch `codex/omnath-phone-polish`.
   Commit `fa9a6e9a` now expands a numbered section into its lettered subrules and
   treats a natural-language definition as grounded only when its normalized
   terms exactly match a local CR section title. Both cases have repository and
-  answer-planner regression coverage. Re-installing this updated APK, the
-  packaged Android WebView report, and optional model performance remain pending.
+  answer-planner regression coverage.
+- `What does Omnath, Locus of Creation do?` then exposed a second deterministic
+  retrieval issue: free-text FTS selected Scryfall's textless `art_series`
+  record instead of the playable Oracle record, producing a duplicate name and
+  `Card // Card` rather than Oracle text. This is not a model dependency. Commit
+  `5e4c55cc` extracts the exact name from the natural card-question template and
+  explicitly ranks playable records ahead of art-series aliases. Full-pack tests
+  prove exact Omnath lookup returns the normal layout and canonical Oracle text.
+  Re-installing this updated APK, the packaged Android WebView report, and
+  optional model performance remain pending.
 
 - One chat surface.
 - One Omnath persona.
