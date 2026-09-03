@@ -7,6 +7,20 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 📏 2026-09-03 (night cron) — **④-AG: "with power / toughness / mana value N or less / greater" joins the subject peel (+21)** · suite **1394 files / 15,562 tests** green · corpus 14,059 / 34,245 (41.1%) · flip-diff +21 / 0 lost · 6/6 killed
+
+> **Night tally (stage ④, thirty-three slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
+> J (+1) · K (+1, FP closed on 3) · L (+4) · M (+2) · N (+7) · O (+4) · P (+3) · Q (+6) · R (+2) · S (+2) · T (+12) · U (+2) ·
+> V (+2, Thrun 90) · W (+3, Thrun 91) · X (+1, Earth Bent 89) · Y (+1) · Z (+6, Veyran 89) · AA (+9, Mothman 88) · AB (+1) ·
+> AC (+12, Hulk 86) · AD (+2) · AE (+30; the combat window) · AF (+26) · AG (+21) — corpus 13,862 → 14,059.
+> **The subject peel (④-AC → ④-AG)** — one seam in parseClauseToAtom — now reads FIVE qualifier families for every
+> atom arm at once: another · attacking/blocking · with/without <keyword> · with a [+1/+1] counter · with power /
+> toughness / mana value N or less / greater. 91 cards across five slices, every one board-verified at the pool.
+> **CI:** ④-AD/④-AE's run (8574a7c4) still in flight at commit time; ④-AF + ④-AG push only after it is green
+> **Next runnable:** the AI using combat-role activations (pickSafeAbilityActivation skips targeted ones); "target
+> creature that player controls" / "defending player controls" on the peel; Kessig Wolf Run ({X} pump on a land);
+> Xenagos (+X/+X where X is the target's power); Secluded Courtyard; the "up to N" non-targeted returns.
+
 ## 🐎 2026-09-03 (night cron) — **④-AF: "another target … creature" + "with / without <keyword>" join the subject peel (+26)** · suite **1393 files / 15,556 tests** green · corpus 14,038 / 34,245 (41.0%) · flip-diff +26 / 0 lost · 5/5 killed
 
 > **Night tally (stage ④, thirty-two slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·

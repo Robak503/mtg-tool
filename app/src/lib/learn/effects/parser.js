@@ -500,13 +500,18 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
   // ability flushes thread — CR 109.5); "with / without <keyword>" as `hasKeyword` over the SAME curated vocabulary
   // the legacy parser holds (KW-1's reason: an untracked keyword would fail OPEN on "without"). "another" ALONE never
   // fires the peel — the bare "another target creature …" arms (excludeSource) keep their shape byte-for-byte.
-  const cbt = /\b(another )?(target )(attacking or blocking |attacking |blocking )?(creature(?: you control| an opponent controls| you don't control)?)( with(out)? (flying|defender|trample|shadow|first strike|double strike|vigilance|lifelink|deathtouch|menace|reach|haste|hexproof|indestructible))?( with (?:a|an|one or more) (?:([+-]1\/[+-]1|stun) )?counters? on it)?\b/i.exec(s);
+  // ⭐ THE BOUND QUALIFIER JOINED (④-AG, 2026-09-03 — "target creature with power 2 or less can't be blocked this turn"
+  // (Hazoret, Godseeker), "with power 5 or greater gains indestructible" (Spearbreaker Behemoth), "destroy target
+  // creature with mana value 3 or less" (Feed the Cauldron), "with toughness 2 or less gains flying" (Goblin Kites)):
+  // the same three kinds the legacy parser emits — power / toughness / manaValue with op "<=" or ">=" — evaluated
+  // LAYER-AWARE by the satisfier (a pumped creature's live power counts; CR 613). ~60 carriers.
+  const cbt = /\b(another )?(target )(attacking or blocking |attacking |blocking )?(creature(?: you control| an opponent controls| you don't control)?)( with(out)? (flying|defender|trample|shadow|first strike|double strike|vigilance|lifelink|deathtouch|menace|reach|haste|hexproof|indestructible))?( with (?:a|an|one or more) (?:([+-]1\/[+-]1|stun) )?counters? on it)?( with (power|toughness|mana value) (\d+) or (less|greater|more))?\b/i.exec(s);
   // ⛔ FALL THROUGH, NEVER RETURN NULL, when the reduced clause does not parse to a plain creature atom: an arm may
   // own the printed phrase WHOLE — Mentor's "put a +1/+1 counter on target attacking creature with lesser power"
   // (counters.js) parsed HIGH before this peel existed, and returning null here dropped Tributary Instructor and
   // The Powerful Dragon out of native (caught by the flip-diff, 2 LOST). Below the peel the clause meets the arms
   // exactly as it always did, so a non-stamp is byte-identical to the pre-slice parse.
-  if (cbt && (cbt[3] || cbt[5] || cbt[8])) {
+  if (cbt && (cbt[3] || cbt[5] || cbt[8] || cbt[10])) {
     const reduced = s.replace(cbt[0], `${cbt[2]}${cbt[4]}`);
     const inner = parseClauseToAtom(cardType, reduced, hasX, sourceScoped);
     const plainCreature = inner && KNOWN.has(inner.op) && inner.targetType === "creature"
@@ -517,6 +522,7 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
       if (cbt[3]) extra.push({ kind: "combat", value: /\bor\b/i.test(cbt[3]) ? "either" : cbt[3].trim().toLowerCase() });
       if (cbt[5]) extra.push({ kind: "hasKeyword", keyword: cbt[7].toLowerCase(), negate: !!cbt[6] });
       if (cbt[8]) extra.push({ kind: "hasCounter", counterType: cbt[9] ? cbt[9].toLowerCase() : null });
+      if (cbt[10]) extra.push({ kind: cbt[11].toLowerCase() === "mana value" ? "manaValue" : cbt[11].toLowerCase(), op: cbt[13].toLowerCase() === "less" ? "<=" : ">=", value: parseInt(cbt[12], 10) });
       return { ...inner, restrictions: [...(inner.restrictions || []), ...extra] };
     }
   }

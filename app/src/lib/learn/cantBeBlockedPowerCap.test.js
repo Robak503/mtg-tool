@@ -30,8 +30,12 @@ describe("parse + classify", () => {
     expect(classifyCard(TUNNELER)).toBe("native-activated");
     expect(classifyCard(SPIDER_MAN)).toBe("native-trigger");
   });
-  it("CREED — the 'except by' and conditional forms stay LOW", () => {
+  it("CREED — the 'except by' form stays LOW; the 'or greater' bound parses HIGH since ④-AG (2026-09-03) through the subject peel", () => {
     expect(programConfidence(parseEffectClause("target creature with power 2 or less can't be blocked this turn except by artifact creatures", "Creature"))).not.toBe("high");
-    expect(programConfidence(parseEffectClause("target creature with power 4 or greater can't be blocked this turn", "Creature"))).not.toBe("high");
+    // Pinned LOW until ④-AG: the cap arm below only knew "or less". The peel now reads any bound off the subject and
+    // rides it back as the same `power` restriction, so the "or greater" form is the same atom with op ">=".
+    const p = parseEffectClause("target creature with power 4 or greater can't be blocked this turn", "Creature");
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms[0]).toMatchObject({ op: "cant-be-blocked", targetType: "creature", restrictions: [{ kind: "power", op: ">=", value: 4 }] });
   });
 });

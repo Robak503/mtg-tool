@@ -194,6 +194,7 @@ the scratchpad). ✅ **④-A** — Aura-own cumulative upkeep composes with the 
 ✅ **④-AD** — the two-keyword grant keeps its counter-bearing subject whole in splitClauses (+2; 2/2 killed).
 ✅ **④-AE** — "target attacking / blocking creature" (the combat-role peel) + the COMBAT WINDOW for combat-role activated abilities; 28 hollow credits made honest (+30; 8/8 killed).
 ✅ **④-AF** — "another target … creature" (notSource) + "with / without <keyword>" (hasKeyword, curated vocabulary) on the subject peel (+26; 5/5 killed).
+✅ **④-AG** — "with power / toughness / mana value N or less / greater" on the subject peel (+21; 6/6 killed).
 Queue = the census's two-flip / bug-signature leads (see WAKE-REPORT top).
 Only after ①–③'s DONE lines are met. Boot from the vault's `memory/orders/cindy-corpus-roadmap.md`
 (WHAT/WHY/ORDER) + the repo's `RESIDUE-GRIND-RUNBOOK.md` (HOW): fresh census, largest clause family with

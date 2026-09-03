@@ -1037,7 +1037,9 @@ const MUST_DROP_TO_LOW = [
   // (the residue allowlist rejects the leftover qualifier). The tapped+controller+attacking example that
   // used to sit here GRADUATED 2026-08-06 to MUST_STAY_HIGH; see the note there for why it was never
   // testing what its comment claimed.
-  "Destroy target creature an opponent controls with mana value 3 or less.", // controller modeled, "mana value" not
+  // ("… an opponent controls with mana value 3 or less" GRADUATED 2026-09-03 — ④-AG's subject peel reads the bound;
+  // the mixed example is now a counter type the runtime never places, which the peel refuses by vocabulary.)
+  "Destroy target creature an opponent controls with a bounty counter on it.", // controller modeled, "bounty counter" not
   "Destroy target creature with the greatest power.",                       // non-numeric power phrase → not modeled
   // Pump with a keyword-grant rider — the "+X/+Y" matches but the granted keyword
   // would be silently dropped, so it must NOT rate HIGH.

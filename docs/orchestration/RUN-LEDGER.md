@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 📏 2026-09-03 (night cron) — ④-AG: "with POWER / TOUGHNESS / MANA VALUE N or less / greater" joins the subject peel · **+21** · corpus 14,059 / 34,245 (41.1%)
+> Suite **1394 files / 15,562 tests** green; lint 0. Flip-diff **+21, zero LOST**. **6/6 killed.**
+> · **The shape:** the fourth qualifier family on the peel — the bound comes off the subject and rides back as the
+>   legacy parser's own kinds (power / toughness / manaValue, op "<=" for "or less", ">=" for "or greater / or more"),
+>   evaluated LAYER-AWARE by the satisfier (CR 613 — a 4-power beast wearing a +1/+1 counter satisfies "power 5 or
+>   greater"; board-proven). A controller AFTER the bound ("with mana value 3 or less an opponent controls" — Silkwrap)
+>   reduces cleanly because the peel leaves the controller phrase in place for the arm.
+> · **Who flipped:** the Behemoth cycle (Spearbreaker / Beacon / Rakeclaw / Mosstodon / Vagrant Plowbeasts — "{1}:
+>   target creature with power 5 or greater gains …"), Bloodthorn Taunter, Whalebone Glider, Goblin Smuggler and
+>   Deserter's Disciple ("another … with power 2 or less can't be blocked"), Break Through the Line, Underfoot
+>   Underdogs, Sunstrike Legionnaire, Slimy Dualleech, Wrangle / Claim the Firstborn / Smelt-Ward Ignus (the
+>   gain-control-untap-haste chain), Eternal Isolation, Silkwrap, Baffling End, The Witch's Vanity, Beluna's Gatekeeper.
+> · **Board-verified:** Mosstodon offers the 5-power beast and the countered 4-power beast, never the plain 4-power
+>   one, and grants trample; Goblin Smuggler excludes itself although its own power is 2; Eternal Isolation offers
+>   only power 4 or greater and tucks the chosen one. Goblin Kites (a coin-flip delayed sacrifice) stays parked.
+>   Three stale pins rewritten to the new truth (parser.test's MUST_DROP_TO_LOW mixed example, cantBeBlockedPowerCap's
+>   "or greater", tuck.test's Eternal Isolation).
+> · **CI:** ④-AD/④-AE's run (8574a7c4) still in flight at commit time; ④-AF + ④-AG push only after it is green
+
 > ## 🐎 2026-09-03 (night cron) — ④-AF: "ANOTHER target … creature" + "with / without <keyword>" join the subject peel — the Pegasus cycle · **+26** · corpus 14,038 / 34,245 (41.0%)
 > Suite **1393 files / 15,556 tests** green; lint 0. Flip-diff **+26, zero LOST**. **5/5 killed.**
 > · **The shape:** two more qualifiers on the ④-AC/④-AE peel. "another" rides back as `notSource` (the satisfier fails

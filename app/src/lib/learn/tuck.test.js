@@ -31,8 +31,10 @@ describe("TUCK-1 — classification", () => {
       expect(parseEffectProgram(I(oracle)).atoms).toEqual([atom]);
     }
   });
-  it("MUST stay arbiter — a restriction, a 3-way union, or a positional tuck (deferred fast-follow)", () => {
-    expect(classifyCard(I("Put target creature with power 4 or greater on the bottom of its owner's library.", "Sorcery"))).toBe("arbiter-spell");
+  it("a 3-way union or a positional tuck MUST stay arbiter; the power-bound restriction flipped native with ④-AG (2026-09-03)", () => {
+    // Eternal Isolation — the bound rides the subject peel as a `power` restriction the enumeration enforces
+    // (boundQualifierTarget.test.js pins the pool at runtime).
+    expect(classifyCard(I("Put target creature with power 4 or greater on the bottom of its owner's library.", "Sorcery"))).toBe("native-spell");
     expect(classifyCard(I("Put target artifact, creature, or enchantment on top of its owner's library.", "Sorcery"))).toBe("arbiter-spell");
     expect(classifyCard(I("Put target creature into its owner's library third from the top."))).toBe("arbiter-spell");
   });

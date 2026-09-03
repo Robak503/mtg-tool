@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"Target creature with power 5 or greater" (and toughness / mana value bounds) works** — the Behemoth cycle, Goblin Smuggler, Wrangle, Claim the Firstborn, Eternal Isolation, Silkwrap and more read the bound off the creature's live stats.
 - **"Another target attacking creature" and "target creature with / without flying" work** — the Pegasus cycle, Herald of the Sun, Forced Landing, Stinging Shot, Quicksand and more offer exactly the creatures the card names.
 - **"Target attacking creature" and "target blocking creature" work** — Run Amok, Righteousness, Outflank, Most Valuable Slayer, Infantry Veteran, Serra Advocate and more only offer creatures in that combat role.
 - **Combat-time activated abilities** — abilities that target an attacking or blocking creature (D'Avenant Archer, Kithkin Shielddare, Harpoon Sniper and their kin) can now be activated during combat, by either player, instead of only in a main phase where they had no legal target.
