@@ -71,9 +71,12 @@
 > (2) · SG-9/12 9d8bfc41 Evolutionary Leap + Homeward Path (4) · SG-10/11 4e7f37b2 Peregrin Took + Frenzied
 > Baloth (2) · SG-13 2d99bdb6 Vexing Bauble (4) · SG-14 ce87d354 Allosaurus Shepherd (1) · 7e28368b the
 > correction (docs only) · LANDS-14b df8aafe1 the Alchemy Gates: seek + once-per-game (8) — the slice that
-> closed stage ② · SG-15a 915ac6a6 the drawn-this-turn ledger (0, substrate) · SG-15b Sylvan Library end
-> to end with its Academy panel (1; **Squirrel Girl 84**; corpus 13,815; suite 1348 / 15,311). Every
-> slice: flip-diff zero LOST, mutations seen-to-fail, full suite, CI.
+> closed stage ② · SG-15a 915ac6a6 the drawn-this-turn ledger (0, substrate) · SG-15b 0f376ff1 Sylvan
+> Library end to end with its Academy panel (1) · SG-16 Boseiju's channel (3; **Squirrel Girl 85 — the
+> walk's honest end**; corpus **40.4%**, 13,818; suite 1349 / 15,317). Every slice: flip-diff zero LOST,
+> mutations seen-to-fail, full suite, CI. **Stage ④ opened at 07:15 with a banked scope verdict (plan §4):
+> clash is the first corpus slice — 35 carriers, 13 sole-blocked by the clash line, all machinery but the
+> clash atom itself exists.**
 >
 > **Where the walk stopped and why (05:10):** Squirrel Girl at 83 — everything left on her is a multi-slice
 > program (Sylvan Library's pending-choice stack, Boseiju's three-piece channel, Cavern of Souls, The One

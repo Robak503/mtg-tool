@@ -154,6 +154,11 @@ export function parseControllerRider(t) {
   // the optional "may" is the tutor's find-nothing (identical to how Farhaven Elf's "you may search" models).
   m = t.match(/^may search their library for a basic land card, put (?:it|that card) onto the battlefield( tapped)?, then shuffle$/);
   if (m) return { kind: "rampBasic", entersTapped: !!m[1] };
+  // SG-16 (Boseiju, Who Endures) — "may search their library for a land card WITH A BASIC LAND TYPE": any land
+  // carrying one of the five basic land types (a typed nonbasic like Overgrown Tomb qualifies; a typeless
+  // nonbasic like Command Tower does not — CR 305.6). Rides the same ramp rider with the typed filter.
+  m = t.match(/^may search their library for a land card with a basic land type, put (?:it|that card) onto the battlefield( tapped)?, then shuffle$/);
+  if (m) return { kind: "rampBasic", entersTapped: !!m[1], typedBasic: true };
   // CNT-MILL-RIDER (BLITZ CS-1 — Thought Collapse / Didn't Say Please) — "mills N cards" (the COUNTERED
   // spell's controller mills, applied to the captured controller via library.millOnePlayer so the
   // mill-doubler + milled-trigger binds fire exactly like any other mill). Fixed count only; a scaled/
@@ -230,7 +235,10 @@ export function matchRemovalControllerRider(oracle, parseLead = null) {
   // fails cleanly on if it doesn't parse. Without this the whole-oracle `$` anchor meant a perfectly ordinary
   // second sentence — "Draw a card." on Geomancer's Gambit / Price of Freedom — sent the card to the Arbiter
   // even though both halves were individually modeled.
-  const m = stripReminder(oracle).trim().match(/^((?:exile|destroy) target .+?)\.\s+its controller ([^.]+)\.?(?:\s+([\s\S]+))?$/i);
+  // "That player" (SG-16 — Boseiju's channel "…an opponent controls. That player may search…") is the same
+  // back-reference as "Its controller": the just-removed permanent's controller (CR 608.2c). Accepted only
+  // here, on the removal lead, where that referent is captured; the counter-rider frames below keep theirs.
+  const m = stripReminder(oracle).trim().match(/^((?:exile|destroy) target .+?)\.\s+(?:its controller|that player) ([^.]+)\.?(?:\s+([\s\S]+))?$/i);
   if (!m) return null;
   // The bare destroy/exile lead lives in atoms/removal.destroyExileClauseParser (seam batch 27), so resolve
   // the rider-stripped lead via that clause parser directly. (The old parseExtendedAtom() || fallback was

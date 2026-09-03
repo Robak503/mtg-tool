@@ -807,6 +807,10 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     // Basic supertype (CR 205.4a). Both a Land type line AND the absence of the Basic supertype are required,
     // so a basic land (type line "Basic Land — …") is excluded and a non-land bearing neither word never matches.
     nonbasicLand: (tl) => /\bLand\b/.test(tl) && !/\bBasic\b/.test(tl),
+    // SG-16 (Boseiju, Who Endures) — "artifact, enchantment, or nonbasic land": the three-way union whose land
+    // arm excludes the Basic supertype (CR 205.4a). A basic land is never a legal target; an artifact or
+    // enchantment always is (an artifact land counts through its artifact arm, as printed).
+    artifactEnchantmentOrNonbasicLand: (tl) => /\bArtifact\b/.test(tl) || /\bEnchantment\b/.test(tl) || (/\bLand\b/.test(tl) && !/\bBasic\b/.test(tl)),
     // BASIC-LAND (Earthcraft "Untap target basic land") — a Land WITH the Basic supertype (CR 205.4a). Both a
     // Land type line AND the Basic supertype are required, so a nonbasic land (type line "Land — …", no "Basic")
     // is excluded and a non-land never matches. Symmetric with nonbasicLand above.

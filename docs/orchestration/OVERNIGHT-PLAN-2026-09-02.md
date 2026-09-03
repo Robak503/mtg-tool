@@ -130,9 +130,10 @@ subtype-filtered base-P/T set with a same-turn Dinosaur add, collapsed ahead of 
 8/8 killed — and a fixture typed from memory caught by the flip-diff: the card prints "other CREATURE
 types"). ✅ **SG-15a/b** (the overnight cron, 06:00–06:50) — the drawn-this-turn card ledger, then Sylvan
 Library end to end (an optional draw-two atom; a chained per-card pay-4-or-put-back pending choice with
-its Academy panel; +1, 7/7 killed). **Deck 84/100.** What remains: Boseiju's channel (SG-16, in flight —
-its three pieces all have lanes: the union destroy target, the "That player" rider connective, the
-typed-basic search) and the multis/parks in §6 — the latter every one a multi-slice program or a park.
+its Academy panel; +1, 7/7 killed). ✅ **SG-16** — Boseiju's channel (the union destroy target, the "That
+player" rider connective, the typed-basic search; Volatile Fault and Dalek Drone rode along; +3, 6/6
+killed). **Deck 85/100 — the walk's honest end:** every remaining card is a multi-slice program or a park
+(§6). ③'s DONE line (≥90) is NOT met; the residue is named in §6 as ceiling-class for one night.
 
 Stored 09-02 on Colton's profile (100/0 unresolved). **67/100**: 14 native-mana · 10 native-spell ·
 5 native-trigger · 4 native-activated · 5 native-static · 1 native-mana-aura · 6 native-mixed ·
@@ -158,6 +159,21 @@ Stored 09-02 on Colton's profile (100/0 unresolved). **67/100**: 14 native-mana 
 Only after ①–③'s DONE lines are met. Boot from the vault's `memory/orders/cindy-corpus-roadmap.md`
 (WHAT/WHY/ORDER) + the repo's `RESIDUE-GRIND-RUNBOOK.md` (HOW): fresh census, largest clause family with
 existing machinery first, vein doctrine — build systems, register cards.
+
+**Stage ④ scope verdict (07:15, runbook §3.5 — banked before building):** the 04:00 census (scratch
+census-2026-09-03.txt) says the corpus single-blocker tail is down to ≤6-card families; the two defect
+reports are 1–3-card composition cases each (a DFC, morph, evoke). Among the non-Alchemy families with
+EXISTING machinery, **clash** is the largest honest lever: 35 corpus carriers, **13 sole-blocked by the
+clash line** (Nath's Elite / Oaken Brawler / Paperfin Rascal / Bog Hoodlums / Adder-Staff Boggart's ETB
+"clash with an opponent. If you win, put a +1/+1 counter on this creature" ×5; Sentry Oak, Springjack
+Knight, Fire Juggler, Ringskipper, Entangling Trap, Sylvan Echoes, Rebellion of the Flamekin, Merfolk
+Surveyor). What exists: reveal-top, top/bottom placement, MV reads, the trigger context channel (the
+`manaSpent`-style intervening-if precedent). What's missing: a `clash` atom (CR 701.22 — each clashing
+player reveals their top card, may put it on the bottom; the controller wins iff their card's mana value is
+higher) with a deterministic opponent pick + top/bottom policy, and "if you win/won" as a context
+condition binding the payoff. Expected flip: the 5 ETB-counter cards first (one shape), the rest as the
+payoffs are confirmed modeled. **Not started tonight** — SG-16 (Boseiju) was in its gate chain at the
+verdict and the morning was due; the next `/cindy grind` takes clash as stage ④'s first slice.
 
 ---
 

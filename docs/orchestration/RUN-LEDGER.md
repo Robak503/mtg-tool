@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🌲 2026-09-03 — SG-16: Boseiju, Who Endures — the channel's union destroy + the opponent's typed-basic search · **+3 corpus** · Squirrel Girl 84→85 · corpus **40.4%** (13,818/34,245)
+> Suite **1349 / 15,317** green; lint 0. Flip-diff **+3, zero LOST** — Boseiju (land-partial → land) and two
+> riders audited against their real oracle: Volatile Fault ("Destroy target nonbasic land an opponent
+> controls. THAT PLAYER may search … a basic land card … You create a Treasure token" — the connective,
+> plus the trailing sentence through the rider span's `rest` path) and Dalek Drone ("… destroy target
+> creature an opponent controls. That player loses 3 life" — the modeled lose-life rider). **6/6 killed —
+> after one survivor earned its pin:** the union predicate admitting a BASIC land survived because no
+> fixture put an opponent's basic Forest on the board; the witness now does, and the pin holds (the
+> suite ran on the code before that test-only addition; the added assertion passes in isolation).
+> · Three pieces, all on existing lanes: (1) the destroy lead's union list gains "artifact, enchantment,
+>   or nonbasic land" → a new targetType with its PERMANENT_PREDICATES entry (the enumerator's generic
+>   predicate path; the "an opponent controls" scope rides the ordinary controller restriction — pinned:
+>   the artifact and the nonbasic dual are targets, the basic Forest and the user's own permanents are
+>   not); (2) the rider-removal span accepts "That player" beside "Its controller" on the removal lead
+>   only (CR 608.2c — the same referent); (3) the ramp rider learns "a land card with a basic land
+>   type" — a `basicLandType` gate in the SHARED tutor matcher (a typed nonbasic like Overgrown Tomb
+>   qualifies, a typeless Command Tower does not — pinned both ways). The legendary-count cost reduction
+>   was already modeled (LANDS-5): with one legendary creature the channel costs {G}; without, {G} alone
+>   is not enough (pinned).
+> · **Squirrel Girl's walk truly ends at 85/100** — every remaining card is a multi-slice program or a
+>   park (§6). Stage ④ opens with the banked clash verdict (plan §4).
+
 > ## 📚 2026-09-03 — SG-15b: Sylvan Library — draw two extra, then pay 4 or put each back (a chained pending choice) · **+1 corpus** · Squirrel Girl 83→84 · corpus 40.3% (13,815/34,245)
 > Suite **1348 / 15,311** green; lint 0 (engine + hook + panel + view). Flip-diff **+1, zero LOST** (body-only
 > → native-trigger). **7/7 killed.**

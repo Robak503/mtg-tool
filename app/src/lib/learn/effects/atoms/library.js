@@ -98,6 +98,14 @@ export function cardMatchesTutorFilter(card, filter) {
   // in the common case" is not the same as correct, and a legal fetch of a second copy is a search wider
   // than the card allows. Compared case-insensitively on the exact printed name.
   if (filter.excludeName && String(card?.name || "").toLowerCase() === String(filter.excludeName).toLowerCase()) return false;
+  // BASIC-LAND-TYPE gate (SG-16 — Boseiju's "a land card with a basic land type", CR 305.6): the card must be a
+  // LAND whose type line carries one of the five basic land types — a typed nonbasic (Overgrown Tomb)
+  // qualifies, a typeless nonbasic (Command Tower) does not. Front-face type line only; enforced in the
+  // shared matcher so the candidate pool and the auto-pick's re-check agree.
+  if (filter.basicLandType) {
+    const tl = String(card?.type || card?.type_line || "");
+    if (!/\bLand\b/.test(tl) || !/\b(?:Plains|Island|Swamp|Mountain|Forest)\b/.test(tl)) return false;
+  }
   // NAME (CR 702.124j's partner-with tutor: "a card NAMED [name]") — the positive mirror of excludeName above,
   // and deliberately the same case-insensitive exact-name comparison so the two can never disagree about what
   // "the same name" means. A named search is a search WITH a stated quality, so it may legally fail to find

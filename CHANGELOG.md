@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Boseiju, Who Endures works** — channel it to destroy an opponent's artifact, enchantment, or nonbasic land;
+  they may fetch a land with a basic land type; each legendary creature you control knocks {1} off the cost.
 - **Sylvan Library works** — at your draw step you may draw two extra cards, then for each of them pay 4 life
   to keep it or put it back on top; the Academy asks you one card at a time, and the autopilot pays only
   while it keeps a life buffer.

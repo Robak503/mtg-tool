@@ -151,7 +151,10 @@ export function applyControllerRider(state, rider, cap, ctx) {
   if (rider.kind === "rampBasic") {
     // Reuse the RAMP-1 battlefield tutor (basic land → battlefield), scoped to the TARGET's controller — their
     // library, their pick; the "may" is the tutor's find-nothing. Suspends the program (pending-choice).
-    const tutorAtom = { op: "tutor", filter: { groups: [["basic", "land"]] }, filterLabel: "basic land card", destination: "battlefield", entersTapped: !!rider.entersTapped, targetType: null };
+    // SG-16 (Boseiju): the typed variant fetches any LAND carrying a basic land type (cardMatchesTutorFilter's
+    // basicLandType gate — a typed nonbasic qualifies, a typeless one does not), else the plain basic search.
+    const filter = rider.typedBasic ? { groups: [["land"]], basicLandType: true } : { groups: [["basic", "land"]] };
+    const tutorAtom = { op: "tutor", filter, filterLabel: rider.typedBasic ? "land card with a basic land type" : "basic land card", destination: "battlefield", entersTapped: !!rider.entersTapped, targetType: null };
     return applyTutor(state, tutorAtom, { ...ctx, controller: cap.controller });
   }
   if (rider.kind === "mill") {
@@ -798,7 +801,7 @@ export function destroyExileClauseParser(clause) {
   // enchantment": choosing ZERO is legal, CR 601.2c. The optional prefix group stamps maxTargets:1 +
   // minTargets:0 — the exact "up to ONE target" subset path targeting already documents (subsets [t] or
   // []). Absent, every previously-parsed card emits a byte-identical atom.)
-  const rm = t.match(/^(destroy|exile) (up to one )?target (?:((?:white|blue|black|red|green) or (?:white|blue|black|red|green)|white|blue|black|red|green|multicolored) )?(noncreature artifact or noncreature enchantment|noncreature artifact|noncreature enchantment|artifact, enchantment, or land|artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|creature or vehicle|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls|that player controls))?(?: (that (?:was|were) dealt damage this turn))?$/);
+  const rm = t.match(/^(destroy|exile) (up to one )?target (?:((?:white|blue|black|red|green) or (?:white|blue|black|red|green)|white|blue|black|red|green|multicolored) )?(artifact, enchantment, or nonbasic land|noncreature artifact or noncreature enchantment|noncreature artifact|noncreature enchantment|artifact, enchantment, or land|artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|creature or vehicle|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control|defending player controls|that player controls))?(?: (that (?:was|were) dealt damage this turn))?$/);
   if (rm) {
     const TT = {
       "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent",
@@ -806,6 +809,10 @@ export function destroyExileClauseParser(clause) {
       "nonbasic land": "nonbasicLand", "artifact or enchantment": "artifactOrEnchantment",
       "noncreature artifact": "noncreatureArtifact", "noncreature enchantment": "noncreatureEnchantment",
       "artifact, enchantment, or land": "artifactEnchantmentOrLand",
+      // SG-16 (Boseiju, Who Endures — the NEO channel land): a three-way union whose land arm is NONBASIC only
+      // (CR 205.4a). The predicate lives in spellEffects.PERMANENT_PREDICATES; the enumerator's generic
+      // predicate path picks it up, so the opponent scope rides the ordinary controller restriction.
+      "artifact, enchantment, or nonbasic land": "artifactEnchantmentOrNonbasicLand",
       "noncreature artifact or noncreature enchantment": "noncreatureArtifactOrEnchantment",
       "creature or enchantment": "creatureOrEnchantment", "creature or land": "creatureOrLand",
       "creature or artifact": "creatureOrArtifact", "artifact or creature": "creatureOrArtifact", "artifact or land": "artifactOrLand",
