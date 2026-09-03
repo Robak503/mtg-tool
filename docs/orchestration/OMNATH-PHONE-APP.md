@@ -550,7 +550,7 @@ CR JSON nor the source Oracle/rulings envelopes are runtime APK inputs.
 
 ### Stage 4 — vertical-slice APK
 
-**Implementation receipt — 2026-09-02, pending device execution.** The
+**Implementation receipt — 2026-09-03, corrected APK pending device execution.** The
 deterministic vertical slice, local-model seam, and pre-phone alpha polish now
 exist on branch `codex/omnath-phone-polish`.
 
@@ -585,6 +585,13 @@ exist on branch `codex/omnath-phone-polish`.
   unavailable-model, invalid-model, and cancellation states. Browser testing
   caught and fixed the composer style that previously overrode the Stop
   button's hidden state.
+- The first physical Pixel install exposed a Windows fallback packaging gap:
+  the no-symlink Gradle recovery copied the Rust library but omitted Tauri's
+  `assets/knowledge` resources, so first-launch provisioning failed closed.
+  Commit `ffb2a2a1` explicitly packages the SQLite database and manifest during
+  that fallback. The release receipt now rejects an APK unless both entries are
+  physically present and the database and manifest hashes match their verified
+  build inputs.
 - LiteRT-LM 0.16.1 publishes newer Kotlin metadata than Tauri 2.11's Android
   host compiler reads by default. The phone Gradle modules use the narrow
   `-Xskip-metadata-version-check` compatibility flag and aligned JVM 17 targets;
@@ -600,23 +607,26 @@ exist on branch `codex/omnath-phone-polish`.
   and supplies `HF_TOKEN`.
 - The authoritative full-suite ARM64 debug APK targets Android 36 with minimum
   SDK 24, package id `com.colton.omnath.probe.debug`, and user-facing label
-  **Omnath MTG Assistant**. The LEYLINE UI build from commit `b1e39b5d` is
-  203,770,990 bytes with SHA-256
-  `bb6cac334756af97ca874f508f18ef1c7c6957016432880aa63d30ef6aa25942`.
-  Its machine-generated receipt reports 931 entries, no
+  **Omnath MTG Assistant**. The corrected knowledge-packaging build from commit
+  `ffb2a2a1` is 244,909,781 bytes with SHA-256
+  `6fb473f476106910661b12d18164a37362f73e1c0c6c9e89014e0976bf6bc032`.
+  Its machine-generated receipt reports 933 entries, no
   `android.permission.INTERNET`, no bundled `.litertlm`, no raw Oracle/rulings/CR
-  input, a matching knowledge-pack hash, and a matching staged enhanced-model
-  hash. The only reported permission is Android's package-scoped
-  dynamic-receiver protection.
+  input, and a matching staged enhanced-model hash. It also proves that the
+  105,324,544-byte SQLite pack is physically present at
+  `assets/knowledge/omnath-knowledge.sqlite` and hashes to
+  `d9dd2756c414123ab9934263496b043ef0225d5178314f5996f4efdca4dc3d75`.
+  The only reported permission is Android's package-scoped dynamic-receiver
+  protection.
 - The UI/controller JavaScript is 28,620 bytes (10,330 bytes gzip), and the
   LEYLINE stylesheet is 11,809 bytes (3,180 bytes gzip); the
   995,428-byte rules-engine witness is isolated in a lazy chunk. The release
   gate passed 24 mobile JS/data/security tests, 17 engine/WebView tests, three
   Rust provisioning tests, and three Kotlin model-lifecycle tests before the
   APK receipt was issued.
-- Installation, first-run provisioning, airplane-mode queries, the packaged
-  Android WebView probe, and model performance remain pending until ADB sees the
-  Pixel.
+- Installation and launch are proven on the Pixel. First-run provisioning,
+  airplane-mode queries, the packaged Android WebView probe, and model
+  performance remain pending on the corrected APK.
 
 - One chat surface.
 - One Omnath persona.
