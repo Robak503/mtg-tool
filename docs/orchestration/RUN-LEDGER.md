@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 😈 2026-09-03 (night cron) — ④-AI: GOAD as an effect atom (CR 701.38) · **+6** · corpus 14,067 / 34,245 (41.1%)
+> Suite **1396 files / 15,570 tests** green; lint 0. Flip-diff **+6, zero LOST**. **7/7 killed.**
+> · **The shape:** "goad target creature [an opponent controls / defending player controls / that player controls]",
+>   optional "you may" — Jeering Homunculus, Taunting Kobold, Goblin Racketeer, Coveted Peacock, Taunting Sliver (a
+>   group-granted ETB), Glóin. The goad-AURA slice (goad.test.js) had already built the two rules as pseudo-keywords the
+>   attack planner reads layer-aware — `mustAttack` and `goaded`, the goader off the effect's SOURCE — so the atom grants
+>   the same two for "until your next turn" (the SAVAGE ORDER `untilOwnersNextTurn` kind, the goader as owner) and
+>   records the goader on the source as `controller`, because a SPELL has no source permanent and without it the "not
+>   at me" half would silently vanish (the half-credit the goad test forbids). layers.goaderControllersOf falls back to
+>   it. Trigger routing needed the atom's target INTENT ("enemy") so the flush chooser can place it — without that the
+>   ETB / attack triggers stayed parked while the parse was already HIGH (the first flip-diff: +1, Glóin alone).
+> · **Board-verified (four seats):** the goad resolves, both halves land, the goader is the caster; on the Bear's
+>   controller's turn the planner attacks and never at the goader; the grant survives the goader's own cleanup and the
+>   Bear's controller's turn, expiring at the cleanup of the goader's next turn.
+> · **Honest size:** 56 goad carriers; six flip. The rest park on their OTHER shapes — "goad each creature target
+>   player controls" (mass), "goad it / that creature" (bound pronouns after a gain-control or an untap), Alela's
+>   "one or more Faeries you control deal combat damage" (a batch event the referent gate does not name), Bothersome
+>   Quasit's "goaded creatures your opponents control can't block", Frenzied Gorespawn's "for each opponent".
+> · **CI:** ④-AH's run (9ec2ec36) in flight at commit time; ④-AI pushes only after it is green
+
 > ## 🎯 2026-09-03 (night cron) — ④-AH: "target creature DEFENDING PLAYER / THAT PLAYER controls" joins the subject peel · **+2** · corpus 14,061 / 34,245 (41.1%)
 > Suite **1395 files / 15,565 tests** green; lint 0. Flip-diff **+2, zero LOST**. **5/5 killed (a sixth, the early stacked-referent stamp, had no carrier and was deleted).**
 > · **The shape:** the fifth qualifier family on the peel — the two event referents the legacy parser already emits

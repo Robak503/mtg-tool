@@ -1713,6 +1713,9 @@ export function goaderControllersOf(state, permanentId) {
     if (e.op.layerOp !== "addKeyword") continue;
     const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
     if (src?.controller) out.add(src.controller);
+    // ④-AI (goad as an EFFECT): a spell's resolution has no source permanent, so the goad atom records the goader on
+    // the source as `controller`. Read only when no permanent resolves — an Aura's goad keeps resolving live.
+    else if (e.source?.controller) out.add(e.source.controller);
   }
   return out;
 }

@@ -758,6 +758,37 @@ export function applyPumpPair(state, atom, ctx) {
  * 514.2) exactly like a combat-trick keyword grant. ENEMY-side (you disable an opponent's blocker to push
  * damage), so atomTargetIntent → "enemy" and the trigger-flush chooser picks an opponent's creature.
  */
+/**
+ * GOAD (CR 701.38 — ④-AI, 2026-09-03): "goad target creature [an opponent controls]" — Jeering Homunculus, Bothersome
+ * Quasit, Taunting Kobold, Maeve; "goad target creature that player controls" through the subject peel's referent
+ * fallback (Alela, Frenzied Gorespawn); ~56 carriers. The two rules of goad are the two pseudo-keywords the goad-AURA
+ * slice already grants and the attack planner already reads layer-aware: `mustAttack` ("attacks each combat if
+ * able") and `goaded` ("attacks a player other than the goader if able", the goader resolved by
+ * layers.goaderControllersOf off the effect's SOURCE). Duration "until your next turn" = the SAVAGE ORDER kind
+ * `untilOwnersNextTurn` with the GOADER as owner (expires at the cleanup of the goader's next turn — the same
+ * documented one-step approximation).
+ * ⛔ The goader is recorded on the source as `controller` too: a SPELL has no source permanent, and without it
+ * goaderControllersOf would resolve nobody — the must-attack half would hold and the "not at me" half silently vanish,
+ * the half-credit goad.test.js exists to forbid. goaderControllersOf falls back to source.controller.
+ */
+export function applyGoad(state, atom, ctx) {
+  const targets = atomTargets(state, atom, ctx);
+  let next = state;
+  const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null, controller: ctx.controller || null };
+  const dur = { kind: "untilOwnersNextTurn", owner: ctx.controller, turn: next.turn };
+  for (const target of targets) {
+    if (target.type !== "creature" || !findPermanent(next, target.id)) continue;
+    for (const keyword of ["mustAttack", "goaded"]) {
+      next = addContinuousEffect(next, {
+        layer: 6, op: { layerOp: "addKeyword", keyword },
+        affects: { mode: "fixed", permanentIds: [target.id] },
+        duration: dur, source: src,
+      }).state;
+    }
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "goad", targets: targets.map(t => t.id) });
+}
+
 export function applyCantBlock(state, atom, ctx) {
   const targets = atomTargets(state, atom, ctx);
   let next = state;
@@ -1086,6 +1117,21 @@ export function earthbendClauseParser(clause) {
  * All whole-clause-anchored, mutually exclusive. Pure (no parser.js import — cycle-safe); normalizes the clause
  * exactly as parseExtendedAtom does. Registered via registerClauseParser in parser.js.
  */
+/** GOAD clause (④-AI): the single-target forms only — "goad target creature", "… an opponent controls / you don't
+ * control", "goad up to one target creature …". A referent scope ("that player / defending player controls") arrives
+ * REDUCED through parseClauseToAtom's fallback and is stamped there. Mass forms ("goad each creature target player
+ * controls") and bound pronouns ("goad it") stay LOW → Arbiter. */
+export function goadClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").trim().replace(/\.$/, "");
+  const m = t.match(/^goad (up to one )?target creature( an opponent controls| you don't control)?$/);
+  if (!m) return null;
+  return {
+    op: "goad", targetType: "creature",
+    restrictions: m[2] ? [{ kind: "controller", who: "opponent" }] : [],
+    ...(m[1] ? { maxTargets: 1, minTargets: 0 } : {}),
+  };
+}
+
 export function combatKeywordClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   // TAP-PERMANENT (Koma "Tap target permanent. Its activated abilities can't be activated this turn.") — a
@@ -2640,6 +2686,7 @@ export const combatResolvers = {
   "untap-lands": applyUntapLands, // UNTAP-UP-TO-N-LANDS (Finale of Revelation) — deterministic greedy untap of up to N of the controller's own tapped lands, condX-gated
   "untap-remove-from-combat": applyUntapRemoveFromCombat, // GUSTCLOAK ESCAPE (GC-1, CR 506.4/510.1c-d) — untap the trigger source + remove it from combat (flag + attacker-record drop; blockers stay in combat, deal nothing)
   "cant-block": applyCantBlock,
+  "goad": applyGoad, // GOAD (CR 701.38, ④-AI) — mustAttack + goaded until the goader's next turn; the goader on the source
   "become-color": applyBecomeColor,            // COLOUR CHANGE (CR 105.1) — setColor had only the animate writer
   "grant-protection": applyGrantProtection,   // PROTECTION-FROM-A-COLOUR (CR 702.16) — the layer op existed; nothing parsed to it // CANT-BLOCK — "target creature can't block this turn" → layer-6 endOfTurn cantBlock grant
   "cant-be-blocked": applyCantBeBlocked, // CANT-BE-BLOCKED — "target creature can't be blocked this turn" → layer-6 endOfTurn unblockable grant
