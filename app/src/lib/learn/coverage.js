@@ -4898,10 +4898,23 @@ function classifyAnnihilator(card) {
   // No OTHER triggered ability may ride along (annihilator isn't a detected trigger — see header). A second
   // detected trigger is unmodeled residue the runtime won't play through this tier → FORBIDDEN dropped-ability
   // FP. This is what PARKS Ulamog / Kozilek (their cast / GY-shuffle triggers).
-  if (detectTriggers(card).length > 0) return null;
+  // ④-M (2026-09-03 night): a second triggered ability MAY ride along — iff EVERY detected trigger routes natively
+  // (the trigger system fires it entirely independently of the annihilator hook, so the two compose — the same
+  // widening isNativeBestow took on 2026-07-30) AND the body with those trigger LINES removed is still keyword-only.
+  // Artisan of Kozilek (cast: reanimate) / Nulldrifter (cast: draw two) each classified native ALONE on either line
+  // and parked together — the census's two-flip signature. An UNROUTED trigger still parks the whole card (CREED:
+  // Ulamog's graveyard-shuffle, Kozilek's cast-draw-four…). Whole LINES are stripped, not the descriptor's head —
+  // the head is only the trigger's opening and a substring strip would leave debris (the bestow gate's lesson).
+  const trigs = detectTriggers(card);
   // Strip reminder (CR 207.2) + the annihilator keyword line(s); the remainder must be keyword-only (vanilla or
   // evergreen keywords). A non-keyword static/activated/one-shot clause keeps residue → null → Arbiter.
-  const residue = stripReminder(String(card?.oracle ?? card?.oracle_text ?? "")).replace(ANNIHILATOR_KEYWORD_STRIP, " ");
+  let residue = stripReminder(String(card?.oracle ?? card?.oracle_text ?? "")).replace(ANNIHILATOR_KEYWORD_STRIP, " ");
+  if (trigs.length > 0) {
+    if (!trigs.every((d) => triggerRoutesNatively(d))) return null;
+    const heads = trigs.map((d) => String(d?.sourceText || "").trim()).filter(Boolean);
+    if (heads.length !== trigs.length) return null;               // a trigger whose head can't be located → park (FN-safe)
+    residue = residue.split("\n").filter((l) => !heads.some((h) => l.includes(h))).join("\n");
+  }
   if (!isKeywordOnly(residue, card?.name)) return null;
   return "native-trigger";                                        // enforced annihilator trigger + an otherwise keyword body
 }

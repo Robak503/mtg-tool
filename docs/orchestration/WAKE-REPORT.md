@@ -7,6 +7,16 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🌀 2026-09-03 (night cron) — **④-M: annihilator + a routing trigger compose (+2)** · suite **1374 / 15,469** green · corpus 13,906 / 34,245 (40.6%) · flip-diff +2 / 0 lost · 3/3 killed
+
+> **Night tally (stage ④, thirteen slices):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3) · D tapped-for-mana
+> (+2) · E Nikya (+1) · F opponent creature tokens (+7) · G flashback grant (+6) · H en-Kor redirect (+5) · I Savage
+> Firecat (+3) · J Bubble Snare (+1) · K control-aura bonus + Siren (+1, FP closed on 3) · L upkeep-tax Auras (+4) ·
+> M annihilator composite (+2) — corpus 13,862 → 13,906 (+44). **Next runnable:** Relic of Progenitus / Scrabbling
+> Claws / Merrow Bonegnawer ("target player exiles a card from their graveyard" — a new opponent-side pick, panel +
+> driver), Cooped Up / Utter Insignificance ("{2}{W}: Exile enchanted creature" on the aura-own activated lane),
+> Grafted Identity (the additional-cost sacrifice on an AURA cast), or the next census read.
+
 ## ⏳ 2026-09-03 (night cron) — **④-L: the upkeep tax on an Aura — "sacrifice this Aura unless you pay" (+4)** · suite **1373 / 15,466** green · corpus 13,904 / 34,245 (40.6%) · flip-diff +4 / 0 lost · 2/2 killed
 
 > **Night tally (stage ④, twelve slices):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3) · D tapped-for-mana

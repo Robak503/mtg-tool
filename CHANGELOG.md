@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Artisan of Kozilek and Nulldrifter work** — the cast trigger and annihilator both fire.
 - **Melancholy, Thirst, Binding Grasp and Vapor Snare work** — the Aura asks for its upkeep payment each
   turn and is sacrificed if you decline (a stolen creature goes home).
 - **Hypnotic Siren works, bestowed** — bestow it on an opponent's creature and the creature is yours, a

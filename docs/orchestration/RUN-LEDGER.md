@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🌀 2026-09-03 (night cron) — CORPUS ④-M: ANNIHILATOR + a routing trigger compose (a tier-composition fix) · **+2** (Artisan of Kozilek / Nulldrifter) · corpus 13,906 / 34,245 (40.6%)
+> Suite **1374 / 15,469** green; lint 0. Flip-diff **+2, zero LOST**. **3/3 killed.**
+> · **The shape:** the annihilator classifier demanded detectTriggers(card) be EMPTY, so Artisan of Kozilek (cast:
+>   reanimate) and Nulldrifter (cast: draw two) each classified native ALONE on either line and parked together — the
+>   census's two-flip signature. The annihilator hook (declare-blockers) and the trigger system fire entirely
+>   independently, so the gate now admits a sibling trigger iff EVERY detected trigger routes natively and the
+>   body with those trigger LINES removed is still keyword-only (the widening isNativeBestow took on 07-30). An
+>   unrouted trigger still parks the card — Ulamog's graveyard shuffle is the pinned negative. No runtime change.
+> · **Board-verified:** Nulldrifter cast from hand — the cast trigger draws two; it attacks and the AI sacrifices
+>   one permanent through the existing chain.
+
 > ## ⏳ 2026-09-03 (night cron) — CORPUS ④-L: "sacrifice this AURA unless you pay" — the upkeep tax on an Aura · **+4** (Melancholy / Thirst / Binding Grasp / Vapor Snare) · corpus 13,904 / 34,245 (40.6%)
 > Suite **1373 / 15,466** green; lint 0. Flip-diff **+4, zero LOST**. **2/2 killed.**
 > · **The shape:** "At the beginning of your upkeep, sacrifice this Aura unless you pay {B}." The whole pay-or-
