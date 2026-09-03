@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Vexing Bauble works** — a spell cast for no mana at all (a free cast, a {0} spell) is countered; a paid
+  spell is left alone, and an alternative-cost cast the engine can't judge is never countered on a guess.
 - **Peregrin Took works** — every batch of tokens you make brings one extra Food along (once per batch, never
   for an opponent's tokens).
 - **Frenzied Baloth works** — while it's out, nothing prevents combat damage: not a Fog, not a printed

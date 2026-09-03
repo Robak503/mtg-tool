@@ -116,8 +116,13 @@ Avenger and Trostani Discordant rode the same two sentences; +4, 6/6 killed). �
 Peregrin Took (a passive "+1 Food per token event" replacement at the one token-enter chokepoint) and
 Frenzied Baloth ("Combat damage can't be prevented" — the fog latch, every printed/attached wall, the counter
 shields, the floating shields and the prevent-style replacement ops all inert for COMBAT damage; +2, 7/7
-killed). **Deck 81/100.** What remains on her deck is the mediums (Vexing Bauble, Sylvan Library, Boseiju's
-channel effect) and the multis/parks in §6.
+killed). ✅ **SG-13** — Vexing Bauble (the dispatcher now knows whether mana was spent; a "no mana was
+spent to cast it" intervening-if; "counter that spell" on a cast trigger — rewritten at the trigger
+splitter so a spell's own "counter that spell instead" can never borrow it; Hesitation, Lunar Force and
+Jace's emblem rode along; +4, 8/8 killed). **Deck 82/100.** What remains on her deck: Sylvan Library
+(a pending-choice stack), Boseiju's channel (three pieces), Allosaurus Shepherd (two lanes: a colour-scoped
+"green spells you control can't be countered" static + a subtype-filtered base-P/T set with a type add),
+and the multis/parks in §6.
 
 Stored 09-02 on Colton's profile (100/0 unresolved). **67/100**: 14 native-mana · 10 native-spell ·
 5 native-trigger · 4 native-activated · 5 native-static · 1 native-mana-aura · 6 native-mixed ·
@@ -206,11 +211,11 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
   multis: Cavern of Souls (choose a creature type + an uncounterable-creature-spell mana source), The One
   Ring, Endurance, Allosaurus Shepherd, Disruptor Flute, Shang-Chi, Tezzeret, Urza's Saga, and the X-spells
   (Genesis Wave, Finale of Devastation, Green Sun's Zenith, Chord of Calling, Archdruid's Charm, Nature's
-  Rhythm, Tempt with Discovery). Mediums still open (one real lane each): Vexing Bauble (a cast trigger
-  with a "no mana was spent" intervening-if), Sylvan Library (a pay-4-life-or-put-back pending choice),
-  Boseiju's channel effect (destroy + the opponent's basic-typed search + a legendary-count cost reduction —
-  three pieces). (Shipped since this line was first written: Elvish Spirit Guide SG-6, Altar of Dementia
-  SG-7, Dosan SG-8, Evolutionary Leap SG-9, Peregrin Took SG-10, Frenzied Baloth SG-11, Homeward Path SG-12.)
+  Rhythm, Tempt with Discovery). Mediums still open: Sylvan Library (a pay-4-life-or-put-back pending
+  choice — its own pending-choice stack, a full slice), Boseiju's channel effect (destroy + the opponent's
+  basic-typed search + a legendary-count cost reduction — three pieces). (Shipped since this line was first
+  written: Elvish Spirit Guide SG-6, Altar of Dementia SG-7, Dosan SG-8, Evolutionary Leap SG-9, Peregrin
+  Took SG-10, Frenzied Baloth SG-11, Homeward Path SG-12, Vexing Bauble SG-13.)
 - **Two engine holes found and FIXED tonight, worth a human eye on old harness data:** (a) the payment
   planner never carried cost riders — a planned Molt Tender tap exiled nothing until SG-3; (b) a played
   Vivid/depletion/Gemstone land arrived with no counters until LANDS-9. Any self-play game before tonight

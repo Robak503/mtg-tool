@@ -13,11 +13,12 @@
 > (Uthros/Station, Urza's Saga, two MDFC backs); every remaining Cap card is multi-piece (§6 of the plan
 > names each). ② **Land tier corpus-wide: land-partial 454 → 363** (single-blockers 368 → 291 before
 > the lairs); five 5-carrier families still open, listed honestly in the plan's §2 line (an earlier "all
-> shipped or parked" claim was corrected). ③ **Squirrel Girl 67 → 81/100, her commander NATIVE.** Corpus
-> **39.53% → 40.3% (13,801 / 34,245)**, +~265 cards in one night. (Landed after this block was first
+> shipped or parked" claim was corrected). ③ **Squirrel Girl 67 → 82/100, her commander NATIVE.** Corpus
+> **39.53% → 40.3% (13,805 / 34,245)**, +~269 cards in one night. (Landed after this block was first
 > written: LANDS-13 the Invasion lairs 8347efdd, +5; SG-6 the Spirit Guides c01bd5fe, +2, CI green; SG-7/8
 > Altar of Dementia + Dosan the Falling Leaf a9a3ee69, +2, CI green; SG-9/12 Evolutionary Leap + Homeward
-> Path 9d8bfc41, +4; SG-10/11 Peregrin Took + Frenzied Baloth, +2 — suite 1343 / 15,282.)
+> Path 9d8bfc41, +4; SG-10/11 Peregrin Took + Frenzied Baloth 4e7f37b2, +2, CI green; SG-13 Vexing Bauble,
+> +4 — suite 1344 / 15,288.)
 > Note: the SG-5 and LANDS-13 CI runs show CANCELLED — GitHub's concurrency rule, each superseded by the
 > next push; the SG-6 run (which carries their code) is green. Not red.
 >

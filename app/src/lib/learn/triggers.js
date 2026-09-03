@@ -724,6 +724,15 @@ function splitTriggerSentence(inner) {
       rest = rest.slice(nextComma + 1).trim();
     }
   }
+  // COUNTER-THAT-SPELL (SG-13, 2026-09-03 — Vexing Bauble / Hesitation / Lunar Force / Jace's emblem): on a
+  // CAST trigger, "counter that spell" refers to the spell whose cast fired the trigger. The clause is
+  // rewritten HERE — the one splitter both the metric and the runtime parse through — to a phrase no card
+  // prints ("counter the cast spell"), which is the only form the stack parser's cast-referent counter
+  // accepts. A SPELL's own "…counter that spell instead" (Stubborn Denial's ferocious rider) never passes
+  // through this splitter, so it keeps its whole-sentence parse and can never be mis-read as a cast referent.
+  if (/\bcasts?\b/i.test(condition) && /\bcounter that spell\b/i.test(rest)) {
+    rest = rest.replace(/\bcounter that spell\b/gi, "counter the cast spell");
+  }
   return { condition, effectClause: rest, interveningIf };
 }
 
@@ -8427,7 +8436,7 @@ function prowessDescriptor() {
  * fabricated). Context carries the cast spell's name + type for future referential
  * effects. Pure — appends to pendingTriggers and returns new state.
  */
-export function checkCastTriggers(state, { spellCard, casterId, targets = [], xValue = null, stackObjectId = null, castFromZone = null }) {
+export function checkCastTriggers(state, { spellCard, casterId, targets = [], xValue = null, stackObjectId = null, castFromZone = null, manaSpent = null }) {
   if (!spellCard) return state;
   // `castingPlayerId` carries the CASTER's seat into every cast-trigger's context (spread into the resolver ctx by
   // runEffectProgram). Load-bearing for OPPONENT-PAYS-TO-DENY (taxed-payment) — the pay-decision belongs to the
@@ -8439,7 +8448,10 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
   // castStackObjectId (RIVAZ, 2026-08-15): the cast SPELL's own stack id, for a grant effect that must
   // stamp the triggering spell ("it gains …" where "it" is the cast spell — the grant rides the stack
   // object into PERMANENT_ETB). Additive + inert for every existing cast trigger, like castSpellMv above.
-  const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard), castingPlayerId: casterId, castSpellMv: cascadingSpellManaValue(spellCard), castStackObjectId: stackObjectId };
+  // manaSpent (SG-13, Vexing Bauble): a definite boolean from the dispatcher's payment plan (true / false),
+  // or null when the cast path cannot say (an alternative cost) — the "no mana was spent to cast it"
+  // intervening-if reads it and stays unfired on null.
+  const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard), castingPlayerId: casterId, castSpellMv: cascadingSpellManaValue(spellCard), castStackObjectId: stackObjectId, manaSpent };
   let fired = [];
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {

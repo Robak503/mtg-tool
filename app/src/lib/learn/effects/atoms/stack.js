@@ -503,6 +503,12 @@ export function dealDamageScaledClauseParser(clause) {
  */
 export function counterClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // COUNTER-THAT-SPELL (SG-13, 2026-09-03 — Vexing Bauble's cast trigger "…, counter that spell."): the
+  // referent is the CAST spell the trigger fired on (ctx.castStackObjectId), never a chosen target. The
+  // phrase matched here is the trigger SPLITTER's rewrite ("counter the cast spell" — printed on no card),
+  // produced only for a cast-event condition; a spell's own "counter that spell (instead)" never reaches it
+  // (Stubborn Denial's ferocious rider keeps its whole-sentence parse — pinned by that card's test).
+  if (t === "counter the cast spell") return { op: "counter-cast-spell", targetType: null };
   // STIFLE-CLASS (CR 701.6a) — countering an ABILITY on the stack, not a spell (Stifle, Trickbind, Bind,
   // Sublime Epiphany #1709). A separate op because the counter applier is spell-shaped throughout: it looks
   // up `o.kind === "spell"`, re-checks a spellFilter against a CARD, and routes the countered object to a
@@ -1753,7 +1759,22 @@ function applyGrantDiesExileToCastSpell(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "grant-dies-exile", targetId: spellId, cardName: obj.source?.name || null, controller: ctx?.controller });
 }
 
+/**
+ * COUNTER-THAT-SPELL (SG-13 — Vexing Bauble): counter the spell whose cast fired this trigger. The referent
+ * is the trigger context's castStackObjectId; a spell already off the stack (resolved / countered by
+ * something else) is a logged no-op (CR 608.2b), never a guess at another object.
+ */
+function applyCounterCastSpell(state, atom, ctx) {
+  const spellId = ctx?.castStackObjectId;
+  if (!spellId) return logEvent(state, { kind: "spell-effect", effect: "counter-fizzle", targetId: null, controller: ctx?.controller });
+  // CR 603.4's second check (the intervening-if re-evaluated at resolution) is the trigger resolver's job
+  // (EFFECT_PROGRAM re-evaluates the bound condition); an UNCONFIRMED (null) condition never reaches this
+  // atom natively — the flush routes it to a manual resolution, so an unknown payment never counters.
+  return counterSpellById(state, spellId, { via: ctx?.cardName || null });
+}
+
 export const stackResolvers = {
+  "counter-cast-spell": applyCounterCastSpell, // SG-13 (Vexing Bauble) — counter the CAST spell the trigger fired on (ctx.castStackObjectId)
   retarget: applyRetarget, // ⭐ RETARGET (Deflecting Swat, CR 115.7) — re-pick a stack object's own targets off the live board; decline = keep (CR 115.7d)
   "grant-dies-exile-to-cast-spell": applyGrantDiesExileToCastSpell, // RIVAZ RIDER — stamp the triggering cast spell; the permanent it becomes exiles on death
   "bounce-spell-or-permanent": applyBounceSpellOrPermanent, // VENSER — the STACK∪BATTLEFIELD union bounce ("return target spell or permanent to its owner's hand")

@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔮 2026-09-03 — SG-13: Vexing Bauble — "if no mana was spent to cast it, counter that spell" · **+4 corpus** · Squirrel Girl 81→82 · corpus 40.3% (13,805/34,245)
+> Suite **1344 / 15,288** green; lint 0. Flip-diff **+4, zero LOST** — Vexing Bauble body-only → native-mixed,
+> and three riders audited against their real oracle: Hesitation and Lunar Force ("When a/an opponent casts
+> a spell, sacrifice this enchantment and counter that spell" — both halves modeled) and Jace, Unraveler of
+> Secrets (his −8 emblem "…casts their first spell each turn, counter that spell"). **8/8 killed.** SG-10/11
+> CI (4e7f37b2): success — it carries the SG-9/12 code whose own run was cancelled by concurrency.
+> · Three pieces. (1) The dispatcher now knows whether mana was spent: read off the SAME payment plan the
+>   commit deducted (any colour > 0), `false` on a free cast, `null` on an alternative cost (unknown stays
+>   unknown); threaded into checkCastTriggers' context as `manaSpent`. (2) The intervening-if vocabulary
+>   gained "no mana was spent to cast it": a definite boolean answers, anything else is null → the flush
+>   routes the trigger to a manual resolution and the spell survives (pinned: an unknown payment never
+>   counters). (3) "counter that spell" on a cast trigger counters ctx.castStackObjectId.
+> · **A false positive caught by the suite and fixed the honest way.** The first cut parsed the bare phrase
+>   "counter that spell" in the clause parser — and Stubborn Denial's ferocious rider ("…counter that spell
+>   instead") started parsing as a cast-referent counter with no referent, so the printed soft counter never
+>   pended (3 pins red). The referent only exists on a CAST trigger, so the rewrite now lives in the trigger
+>   SPLITTER (the one path both the metric and the runtime parse through): a cast-event condition rewrites
+>   the phrase to "counter the cast spell" (printed on no card), and the stack parser accepts only that. A
+>   non-cast trigger carrying the phrase stays parked (pinned; M8 — the un-gated rewrite — fails it).
+
 > ## 🥧 2026-09-03 — SG-10 + SG-11: Peregrin Took (+1 Food per token event) · Frenzied Baloth (combat damage can't be prevented) · **+2 corpus** · Squirrel Girl 79→81 · corpus 40.3% (13,801/34,245)
 > Suite **1343 / 15,282** green; lint 0. Flip-diff **+2, zero LOST** (Took body-only → native-mixed; Baloth
 > body-only → native-static). **7/7 killed** first pass.

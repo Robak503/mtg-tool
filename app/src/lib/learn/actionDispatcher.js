@@ -307,8 +307,13 @@ function applyCastSpell(state, action) {
   // actually spent, and a cascade or "without paying its mana cost" cast spends none), and it is also the
   // safe direction: an under-count can only ever under-size the payoff.
   let colorsSpent = 0;
+  // SG-13 (Vexing Bauble, 2026-09-03): "if no mana was spent to cast it" — a definite boolean where the engine
+  // KNOWS (a paid plan: any mana at all; a free cast: none), null where it does not (an alternative cost may
+  // or may not include mana — unknown stays unknown, so the intervening-if never fires on a guess).
+  let manaSpent = null;
   if (action.freeCast || action.altCost) {
     working = state;
+    if (action.freeCast) manaSpent = false;
   } else {
     // Plan payment from the current pool PLUS untapped mana sources. planPayment
     // is pool-first, so a pre-filled pool pays with zero taps (preserving the
@@ -349,6 +354,8 @@ function applyCastSpell(state, action) {
     working = commitPaymentPlan(state, action.playerId, plan);
     // Read off the SAME plan the commit just deducted, so "counted" and "spent" can never drift apart.
     colorsSpent = ["W", "U", "B", "R", "G"].filter((c) => (plan.spend?.[c] || 0) > 0).length;
+    // SG-13: read off the SAME plan — a {0} spell (or a cost reduced to nothing) spent no mana at all.
+    manaSpent = Object.values(plan.spend || {}).some((n) => (n || 0) > 0);
   }
   // ⭐ CONVERGE — stamp the count on STATE, the same inter-atom channel `sacrificedForCost` uses, so a SPELL's
   // scaling atoms can read it at resolution (countForSpec's colorsSpentThisSpell kind). The permanent-ETB path
@@ -816,7 +823,7 @@ function applyCastSpell(state, action) {
   // not at a later checkpoint, so they resolve BEFORE the spell — correct order, and the
   // right thing for any future referential effect).
   next = recordSpellCast(next, { playerId: action.playerId, spellCard: castCard }); // TRIG-CAST2: count this cast BEFORE firing, so "your second spell each turn" sees the running total
-  next = checkCastTriggers(next, { spellCard: castCard, casterId: action.playerId, targets, xValue: action.xValue, stackObjectId: stkId, castFromZone: action.fromZone || "hand" }); // SELF-CAST: thread the chosen X so a "When you cast this spell" half-X/X payoff (Hydroid Krasis) resolves at the real X; STORM: thread the spell's stack id so the storm trigger can snapshot its payload to copy; ADVENTURE: the FACE cast (so "cast an Adventure spell" matches); CAST-FROM-NONHAND (Vega, K1): the action's source zone gates the from-anywhere-but-hand watchers
+  next = checkCastTriggers(next, { spellCard: castCard, casterId: action.playerId, targets, xValue: action.xValue, stackObjectId: stkId, castFromZone: action.fromZone || "hand", manaSpent }); // SELF-CAST: thread the chosen X so a "When you cast this spell" half-X/X payoff (Hydroid Krasis) resolves at the real X; STORM: thread the spell's stack id so the storm trigger can snapshot its payload to copy; ADVENTURE: the FACE cast (so "cast an Adventure spell" matches); CAST-FROM-NONHAND (Vega, K1): the action's source zone gates the from-anywhere-but-hand watchers
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // BECOMES-TARGET (CR 603.2 — the Phantasmal Illusion family): if this spell targets one or more permanents
   // that carry a "When this creature becomes the target of a spell or ability, sacrifice it." trigger, fire it

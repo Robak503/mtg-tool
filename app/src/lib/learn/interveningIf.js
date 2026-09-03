@@ -726,6 +726,15 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   const c = String(condition || "").toLowerCase().trim();
   if (!state?.players?.[controllerId]) return false; // controller gone → condition unmet
 
+  // ===== NO-MANA-SPENT (SG-13, 2026-09-03 — Vexing Bauble, CR 603.4) ===== "…, if no mana was spent to cast
+  // it, …" on a cast trigger. Reads the cast context's `manaSpent` (threaded by checkCastTriggers from the
+  // dispatcher's payment plan): a definite false → true; a definite true → false; anything else (an
+  // alternative-cost cast, a context without the field) → null, "can't confirm" — never a fired guess.
+  if (c === "no mana was spent to cast it") {
+    if (typeof context?.manaSpent !== "boolean") return null;
+    return context.manaSpent === false;
+  }
+
   // ===== SELF TAP-STATE (CR 603.4 + 106.1) ===== "…, if this artifact is untapped, …" (Howling Mine #723,
   // Blinkmoth Urn, Genesis Chamber) and its inverse "if this artifact is tapped" (Mana Vault #145). The
   // source's own tap state is the most directly checkable condition there is — one boolean on the permanent
@@ -1744,7 +1753,7 @@ export function interveningIfParseable(condition) {
   // the probe permanent has no counters → false, still a definite boolean.
   // `triggeringHadCounters` — the HAD-ANY-COUNTERS leave-look-back shape (The Ozolith) returns a boolean
   // here (the runtime stamps it off every leave event's counters snapshot); every other shape ignores it.
-  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringHadNoMinusCounters: true, triggeringHadCounters: true, triggeringPowerDifferedFromBase: true, defenderId: "__probe__", sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0 }) !== null;
+  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringHadNoMinusCounters: true, triggeringHadCounters: true, triggeringPowerDifferedFromBase: true, defenderId: "__probe__", sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0, manaSpent: true }) !== null; // manaSpent: a definite boolean so the NO-MANA-SPENT shape (Vexing Bauble) probes as readable; the runtime threads the real value off every cast
 }
 
 /**
