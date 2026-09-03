@@ -662,6 +662,16 @@ exist on branch `codex/omnath-phone-polish`.
   validated Oracle UUID and bounded face index through the native bridge; no
   arbitrary resource path is accepted. The Omnath preview is included and the
   UI hides the art region cleanly when a core-only APK has no art pack.
+- Physical Pixel screenshots then verified both presentation corrections in the
+  core APK: `Show CR 702.7` displayed 702.7a and its subsequent lettered rules,
+  while `What does Omnath, Locus of Creation do?` displayed the single playable
+  card name, mana cost, type line, complete Oracle text, and official rulings.
+  A generic `Triggered abilities` topic correctly remained a `matches` result
+  labeled related evidence rather than being promoted to a ruling. Privacy-safe
+  receipts reported runtime passed, knowledge ready at pack
+  `2ff865558090ad70c6d3f2c5`, the expected unavailable model, and outcome states
+  matching the visible `matches` and `grounded` cards. The full-art APK itself
+  remains pending installation and image-render verification on the Pixel.
 
 - One chat surface.
 - One Omnath persona.
