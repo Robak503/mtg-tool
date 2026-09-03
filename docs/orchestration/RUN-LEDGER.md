@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🪏 2026-09-03 (night cron) — ④-AA: "return a <filter> card from your graveyard to your hand" — the NON-targeted return, chosen as it resolves · **+9** (Takenuma / Corpse Churn / Grapple with the Past / Dig Up the Body / Inspiration from Beyond / Under the Skin / Pothole Mole / Eccentric Farmer / Acolyte of Affliction) · Mothman Cometh 88/98 · corpus 13,967 / 34,245 (40.8%)
+> Suite **1388 / 15,533** green; lint 0. Flip-diff **+9, zero LOST**. **6/6 killed.**
+> · **The shape:** the targeted "return TARGET creature card…" was modeled; the non-targeted "return A creature card
+>   from your graveyard to your hand" (the mill-then-return family, Takenuma's channel) had no arm — the card is chosen
+>   AS THE EFFECT RESOLVES (CR 608.2), not at cast. It rides the milled-pick pause aimed at the controller with toZone
+>   "hand" (④-P's destination), a human picks on the panel, the AI takes the first candidate, and the candidates are
+>   ordered most-valuable-first (highest mana value) so that first pick is the sensible one. The filter is the
+>   targeted lane's own vocabulary (a basic type, an " or "-union, "permanent", bare "card"); an unmodeled filter
+>   parks. 0 candidates → a no-op; 1 → moved; 2+ → the pause. The "you may" forms ride the optional wrapper.
+> · **Board-verified:** two creature cards in the graveyard — the pause belongs to the caster, aimed at the hand,
+>   Wurm before Bear; settling returns the pick. One card: returned, no pause. None: nothing.
+> · **Audited whole-card:** every gain is "mill N, then [you may] return a <filter> card…" beside modeled halves
+>   (manifest dread, casualty, flashback, an ETB); Takenuma's channel rode the union "creature or planeswalker".
+> · **CI:** ④-Z (a8cf1d41) is on master with its sharded run in flight; ④-AA is local behind it.
+
 > ## 🎺 2026-09-03 (night cron) — ④-Z: the OPUS cycle — "if five or more mana was spent to cast that spell, … instead" · **+6** (Thunderdrum Soloist / Tackle Artist / Spectacular Skywhale / Elemental Mascot / Deluge Virtuoso / Colorstorm Stallion) · Veyran Cantrips 89/100 · corpus 13,958 / 34,245 (40.7%)
 > Suite **1387 / 15,529** green; lint 0. Flip-diff **+6, zero LOST**. **6/6 killed.**
 > · **The shape:** "Opus — Whenever you cast an instant or sorcery spell, <X>. If five or more mana was spent to cast

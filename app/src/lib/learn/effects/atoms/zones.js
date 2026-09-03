@@ -497,6 +497,45 @@ function isPermanentReanimateFilter(typeFilter) {
  * trailing rider. Pure; uses parseGraveyardFilter from spellEffects (leaf-safe, like stack.js's applyDamageEffect
  * import). Registered via registerClauseParser in parser.js.
  */
+/**
+ * ④-AA (2026-09-03 night) — the NON-targeted single return: "Return a <filter> card from your graveyard to your hand."
+ * (the Ice Age / Coldsnap cantrip riders, Takenuma's channel, the Gravedigger-without-target class). No target is
+ * chosen at cast (CR 601.2c does not apply — the card is chosen AS THE EFFECT RESOLVES, CR 608.2), so it rides the
+ * milled-pick pause aimed at the controller with toZone "hand": a human picks on the panel, the AI takes the first
+ * candidate, and the candidates are ordered most-valuable-first (highest mana value) so that first pick is the
+ * sensible one. The filter is the SAME parseGraveyardFilter vocabulary the targeted lane uses (a basic type, an
+ * " or "-union, "permanent", bare "card"); an unmodeled filter → null → the clause stays LOW (FN-safe). Exact `$`
+ * anchor: a count ("up to two"), another zone or destination, or a rider is a different shape and parks.
+ */
+export function graveyardReturnPickClauseParser(clause) {
+  const t = String(clause || "").trim().toLowerCase();
+  const m = /^return (?:a|an) (.*?)cards? from your graveyard to your hand$/.exec(t);
+  if (!m) return null;
+  const cardFilter = parseGraveyardFilter(m[1].trim());
+  if (!cardFilter) return null;
+  return { op: "return-from-graveyard-pick", cardFilter, targetType: null };
+}
+
+/** ④-AA — resolve the non-targeted return: 0 candidates → a logged no-op; 1 → moved; 2+ → the milled-pick pause. */
+export function applyReturnFromGraveyardPick(state, atom, ctx) {
+  const player = state.players?.[ctx.controller];
+  if (!player) return state;
+  const mv = (c) => Number(c.cmc ?? c.mana_value ?? 0) || 0;
+  const candidates = (player.graveyard || []).filter((c) => cardMatchesGraveyardFilter(c, atom.cardFilter))
+    .sort((x, y) => (mv(y) - mv(x)) || String(x.name).localeCompare(String(y.name)));
+  if (candidates.length === 0) return logEvent(state, { kind: "spell-effect", effect: "return-from-graveyard-pick", picked: null, controller: ctx.controller });
+  if (candidates.length === 1) {
+    const next = moveCardToZone(state, { playerId: ctx.controller, fromZone: "graveyard", toZone: "hand", cardId: candidates[0].id });
+    return logEvent(next, { kind: "spell-effect", effect: "return-from-graveyard-pick", picked: candidates[0].name, controller: ctx.controller });
+  }
+  return setPendingMilledPickChoice(state, {
+    controller: ctx.controller,
+    candidates: candidates.map((c) => ({ id: c.id, name: c.name, type: c.type || c.type_line || "" })),
+    sourceName: ctx.cardName || null,
+    toZone: "hand",
+  });
+}
+
 export function graveyardReturnClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   // MULTI-COUNT (CR 601.2c "up to N") — "return up to <N> target <filter> cards from your graveyard to your hand"
@@ -1555,6 +1594,7 @@ export const zoneResolvers = {
   "bounce": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "hand"),
   "tuck": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "library", atom.where === "top"),
   "return-from-graveyard": applyReturnFromGraveyard,
+  "return-from-graveyard-pick": applyReturnFromGraveyardPick, // ④-AA — the non-targeted "return a <filter> card" chosen at resolution
   "reanimate": applyReanimate,
   "exile-from-graveyard": applyExileFromGraveyard,
   "exile-graveyard": applyExileGraveyard,   // WHOLE-ZONE graveyard hate (Bojuka Bog / Farewell / Rakdos Charm)

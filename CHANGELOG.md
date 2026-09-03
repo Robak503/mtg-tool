@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"Return a card from your graveyard to your hand" works** — Corpse Churn, Grapple with the Past, Takenuma's
+  channel and their kin let you pick the card as the spell resolves.
 - **The Opus cycle works** — Thunderdrum Soloist, Tackle Artist, Spectacular Skywhale, Elemental Mascot, Deluge
   Virtuoso and Colorstorm Stallion upgrade their payoff when five or more mana was spent on the spell.
 - **Aria of Flame works** — every opponent gains 10 on entry, and the verse counters burn as before.
