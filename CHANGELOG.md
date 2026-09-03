@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Evolutionary Leap works** — sacrifice a creature, reveal until a creature card, it goes to your hand, the
+  rest to the bottom in random order.
+- **Homeward Path works** — every stolen creature goes home to its owner, on both sides of the table.
 - **Altar of Dementia works** — the creature you sacrifice sets how many cards the targeted player mills.
 - **Dosan the Falling Leaf works** — while it's out, nobody (you included) casts spells on another player's
   turn; your own turn is untouched.

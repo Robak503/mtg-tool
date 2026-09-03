@@ -1293,6 +1293,34 @@ export function applyRevealUntilCreatureAttacking(state, atom, ctx) {
 }
 
 /**
+ * ===== REVEAL-UNTIL-CREATURE-TO-HAND (SG-9, 2026-09-03 — Evolutionary Leap, CR 701.18) =====
+ * "Reveal cards from the top of your library until you reveal a creature card. Put that card into your hand
+ * and the rest on the bottom of your library in a random order." The attacking sibling's frame with the
+ * INTO-HAND disposition: the first creature card in the library goes to hand (moveCardToZone, the ordinary
+ * library→hand move), and every card revealed before it bottoms in deterministic-random order. No creature
+ * anywhere in the library → everything revealed bottoms (you reveal until you can't); an empty library is a
+ * logged no-op.
+ */
+export function applyRevealUntilCreatureToHand(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state;
+  const lib = player.library || [];
+  if (lib.length === 0) return logEvent(state, { kind: "spell-effect", effect: "reveal-until-creature-to-hand", controller, found: false, bottomed: 0 });
+  let revealEnd = 0;
+  let creature = null;
+  for (let i = 0; i < lib.length; i++) {
+    revealEnd = i + 1;
+    if (/\bCreature\b/i.test(String(lib[i]?.type || lib[i]?.type_line || ""))) { creature = lib[i]; break; }
+  }
+  let next = state;
+  if (creature) next = moveCardToZone(next, { playerId: controller, fromZone: "library", toZone: "hand", cardId: creature.id });
+  const bottomCount = revealEnd - (creature ? 1 : 0);
+  if (bottomCount > 0) next = bottomTopNInRandomOrder(next, controller, bottomCount);
+  return logEvent(next, { kind: "spell-effect", effect: "reveal-until-creature-to-hand", controller, found: !!creature, name: creature?.name || null, bottomed: bottomCount });
+}
+
+/**
  * ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== "Reveal the top card of your library. If it's a
  * creature card, put it onto the battlefield. Otherwise, you may put that card on the bottom of your library."
  * (CR 701.18 reveal, CR 701.16 put-onto-the-battlefield-from-a-library, CR 601-free bottom move.) A cast-trigger
@@ -2344,6 +2372,7 @@ export const libraryResolvers = {
   "chosen-type-reveal-to-hand": applyChosenTypeRevealToHand, // ===== CHOSEN-TYPE REVEAL TO HAND (For the Ancestors) ===== choose a creature type (deterministic, maximizing pick) → reveal top N → matching cards to hand → bottom the rest random.
   "reveal-until-n-lands": applyRevealUntilNLands, // ===== REVEAL-UNTIL-N-LANDS (Open the Way) ===== ({X} spell, X≤players) reveal top until X lands → all lands onto battlefield tapped → rest to bottom random. Open the Way flips native-spell.
   "reveal-until-creature-attacking": applyRevealUntilCreatureAttacking, // W10 (Raph & Mikey) — reveal until a creature → enter it tapped + JOIN the attack (the mobilize convention) → bottom the rest random
+  "reveal-until-creature-to-hand": applyRevealUntilCreatureToHand, // SG-9 (Evolutionary Leap) — reveal until a creature → that card to HAND → bottom the rest random
   "reveal-top-conditional": applyRevealTopConditional, // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== reveal top: creature → onto battlefield (fires ETB); else put on bottom (deterministic "you may", like explore).
   "animist-awakening": applyAnimistAwakening, // ===== ANIMIST'S AWAKENING ===== ({X} spell) reveal top X → put all LANDS onto battlefield tapped → bottom the rest random; spell-mastery (2+ IS in GY) untaps those lands. Animist's Awakening flips native-spell.
 };

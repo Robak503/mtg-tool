@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🌱 2026-09-03 — SG-9 + SG-12: Evolutionary Leap (reveal-until-creature INTO HAND) · Homeward Path (every creature goes home to its owner) · **+4 corpus** · Squirrel Girl 77→79 · corpus 40.3% (13,799/34,245)
+> Suite **1341 / 15,271** green; lint 0. Flip-diff **+4, zero LOST** — Evolutionary Leap body-only →
+> native-activated, Homeward Path land-partial → land, and two riders audited against their real oracle:
+> Vivien, Nature's Avenger (her −1 is Leap's exact sentence; playable-pw → native-planeswalker) and Trostani
+> Discordant (her end-step trigger is the Path's exact sentence; → native-mixed). **6/6 killed** first pass.
+> SG-7/8 CI (a9a3ee69): success.
+> · **Leap.** The Raph & Mikey reveal-until-creature frame had one disposition (onto the battlefield tapped
+>   and attacking). The into-hand sibling is a second EXACT whole-string anchor and its own applier: the
+>   first creature card in the library moves to hand (the ordinary library→hand move), the revealed prefix
+>   bottoms in deterministic-random order; no creature → everything revealed bottoms. Pinned: the found card
+>   goes to HAND not the graveyard (M1), the creature's own slot is not bottomed (M2), the onto-the-battlefield
+>   wording is NOT this atom (M3).
+> · **Path.** "Each player gains control of all creatures they own" — a mass reset through the shared control
+>   move (an in-place splice: no leave/enter, no dies, attachments ride), across EVERY battlefield (M4: the
+>   activator-only variant fails the opponent's stolen creature going home). A threaten's end-of-turn stash is
+>   cleared on the way home so nothing drags the creature back (M5). Only printed creatures (a layer-animated
+>   land is skipped — FN-safe; control.js stays a leaf under gameState's import order). The land tier admitted
+>   the line through the ordinary activated path — no coverage edit was needed.
+
 > ## 🍂 2026-09-03 — SG-7 + SG-8: Altar of Dementia (the sacrificed creature's power sizes a target-player mill) · Dosan the Falling Leaf (an own-turn cast lock) · **+2 corpus** · Squirrel Girl 75→77 · corpus 40.3% (13,795/34,245)
 > Suite **1339 / 15,263** green; lint 0. Flip-diff **+2, zero LOST** (Altar of Dementia body-only →
 > native-activated; Dosan body-only → native-static). **6/6 killed** first pass. SG-6 CI: success.

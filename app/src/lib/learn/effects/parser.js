@@ -70,7 +70,7 @@ import { suspectClauseParser } from "./atoms/suspect.js"; // SUSPECT (BLITZ EK-1
 import { grantUncounterableClauseParser, nextSpellUncounterableClauseParser, attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser, copyCreatureSpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell) + COPY-A-CREATURE-SPELL (Double Major)
 import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser, earthbendReturnClauseParser, detainReturnClauseParser, czClauseParser, blinkReturnClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce) + EARTHBEND-RETURN (CR 603.7 delayed trigger) + DETAIN-RETURN (DT-1) + CZ-COMMANDER-VISIT (Hellkite Courser) + DELAYED-BLINK (Otherworldly Journey)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
-import { gainControlClauseParser } from "./atoms/control.js"; // GAIN-CONTROL — indefinite control-change of a target creature/subtype (Sliver Overlord)
+import { gainControlClauseParser, regainOwnedCreaturesClauseParser } from "./atoms/control.js"; // GAIN-CONTROL (+ SG-12 Homeward Path's mass "each player gains control of all creatures they own") — indefinite control-change of a target creature/subtype (Sliver Overlord)
 import { grantUntilEotClauseParser } from "./atoms/grantUntilEot.js"; // UNTIL-EOT QUOTED GRANT (TG-1) — Feign Death / Showstopper family
 import { becomeCopyClauseParser } from "./atoms/becomeCopy.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
@@ -2387,6 +2387,17 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       return makeProgram({ confidence: "high", atoms: [{ op: "reveal-until-creature-attacking", targetType: null }], xSpell: false, unparsedTail: null });
     }
   }
+  // ===== REVEAL-UNTIL-CREATURE-TO-HAND (SG-9, 2026-09-03 — Evolutionary Leap) ===== the INTO-HAND sibling of
+  // the span above ("reveal … until you reveal a creature card. Put that card into your hand and the rest on
+  // the bottom of your library in a random order"), collapsed up front for the same back-reference reason.
+  // EXACT whole-string anchor: any other disposition or stop type falls through → low → Arbiter.
+  {
+    const rh = String(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "")
+      .match(/^reveal cards from the top of your library until you reveal a creature card\. put that card into your hand and the rest on the bottom of your library in a random order$/);
+    if (rh && KNOWN.has("reveal-until-creature-to-hand")) {
+      return makeProgram({ confidence: "high", atoms: [{ op: "reveal-until-creature-to-hand", targetType: null }], xSpell: false, unparsedTail: null });
+    }
+  }
   // ===== FIGHT-EXCESS-TO-MANA (The Last Agni Kai, W11) ===== the three-sentence span (the fight-pair,
   // the "excess damage this way → add that much {R}" back-reference, and the turn-scoped red-mana hold)
   // would shatter under the splitter, so it's collapsed up front. EXACT whole-string anchor; any variant
@@ -3162,6 +3173,7 @@ registerClauseParser(freeCastClauseParser);
 // {kind:"subtype"} target restriction (enumerateTargets enforces it), and applyGainControl moves the permanent
 // to the new controller's battlefield summoning-sick. Whole-clause anchored — matches no earlier parser.
 registerClauseParser(gainControlClauseParser);
+registerClauseParser(regainOwnedCreaturesClauseParser); // SG-12 (Homeward Path) — the mass owner-reset, exact sentence only
 registerClauseParser(becomeCopyClauseParser); // BECOME-COPY (CR 613.1a/707.9) — riders reuse parseCloneRider; unmodelled rider -> null -> Arbiter
 registerClauseParser(grantUntilEotClauseParser); // UNTIL-EOT QUOTED GRANT (TG-1) — body-validated via the injected grant validators
 

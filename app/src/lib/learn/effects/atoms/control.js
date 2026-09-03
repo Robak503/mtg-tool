@@ -133,6 +133,42 @@ export function applyGainControl(state, atom, ctx) {
   return next;
 }
 
+/**
+ * ===== REGAIN-OWNED-CREATURES (SG-12, 2026-09-03 — Homeward Path, CR 613.1b / 702.10c) =====
+ * "Each player gains control of all creatures they own." A MASS control reset: every creature on ANY
+ * battlefield whose stamped `owner` differs from its controller goes home through the shared control move
+ * (an in-place splice — no leave/enter, no dies, attachments ride). A permanent with no `owner` stamp has
+ * never changed hands (the owner-routing convention: absent ⇒ owner === controller) and is left alone.
+ * A threaten's end-of-turn stash (`controlOriginal` / `controlUntilEndOfTurn`) is CLEARED on the way home:
+ * the creature is where the cleanup revert would send it, so there is nothing left to revert.
+ */
+export function regainOwnedCreaturesClauseParser(clause) {
+  const t = String(clause || "").trim().toLowerCase();
+  if (t === "each player gains control of all creatures they own") return { op: "regain-owned-creatures", targetType: null };
+  return null;
+}
+
+export function applyRegainOwnedCreatures(state, atom, ctx) {
+  let next = state;
+  const moves = [];
+  for (const pid of Object.keys(next.players || {})) {
+    for (const perm of next.players[pid]?.battlefield || []) {
+      if (!perm?.owner || perm.owner === pid) continue;
+      // A printed creature (type line). A layer-granted creature type (an animated land) is skipped — FN-safe,
+      // and it keeps this atom off the layers module (control.js is a leaf under gameState's import order).
+      if (!/\bCreature\b/i.test(String(perm.card?.type || perm.card?.type_line || ""))) continue;
+      if (!next.players[perm.owner]) continue; // the owner left the game (CR 800.4a) → nothing to go home to
+      moves.push({ id: perm.id, from: pid, to: perm.owner, name: perm.card?.name || null });
+    }
+  }
+  for (const m of moves) {
+    next = moveControl(next, m.id, m.to, { controlOriginal: undefined, controlUntilEndOfTurn: undefined });
+    next = logEvent(next, { kind: "spell-effect", effect: "regain-owned-creatures", controller: ctx.controller, from: m.from, to: m.to, permanentId: m.id, name: m.name });
+  }
+  return next;
+}
+
 export const controlResolvers = {
   "gain-control": applyGainControl,
+  "regain-owned-creatures": applyRegainOwnedCreatures,
 };
