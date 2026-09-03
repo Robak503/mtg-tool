@@ -3,6 +3,15 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🏙️ 2026-09-03 (night cron) — ④-AB: CITY OF BRASS — "whenever this land becomes tapped" · **+1** · Hulk Smash 85/100 · corpus 13,968 / 34,245 (40.8%)
+> Suite **1389 files / 15,535 tests** green; lint 0. Flip-diff **+1, zero LOST**. **2/2 killed.**
+> · **The shape:** the becomes-tapped SELF watcher existed (creature / permanent / artifact / name forms) and a land's mana
+>   tap already funnels through the same tapPermanent chokepoint; only the noun "this land" was missing from the
+>   self-subject list, so City of Brass — a five-colour staple — parked on its own drawback. One word.
+> · **Board-verified:** paying a spell with the City taps it, the watcher fires at the flush, the controller takes 1.
+> · **Honest edge:** Sorrow's Path stays parked on its blocking-pair activated ability.
+> · **CI:** ④-AA's run (4d7e4f74, sharded) was in flight at commit time; ④-AB pushes only after it is green
+
 > ## 🪏 2026-09-03 (night cron) — ④-AA: "return a <filter> card from your graveyard to your hand" — the NON-targeted return, chosen as it resolves · **+9** (Takenuma / Corpse Churn / Grapple with the Past / Dig Up the Body / Inspiration from Beyond / Under the Skin / Pothole Mole / Eccentric Farmer / Acolyte of Affliction) · Mothman Cometh 88/98 · corpus 13,967 / 34,245 (40.8%)
 > Suite **1388 / 15,533** green; lint 0. Flip-diff **+9, zero LOST**. **6/6 killed.**
 > · **The shape:** the targeted "return TARGET creature card…" was modeled; the non-targeted "return A creature card

@@ -7,6 +7,18 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🏙️ 2026-09-03 (night cron) — **④-AB: City of Brass — "whenever this land becomes tapped" (+1)** · suite **1389 files / 15,535 tests** green · corpus 13,968 / 34,245 (40.8%) · flip-diff +1 / 0 lost · 2/2 killed · Hulk Smash 85/100
+
+> **Night tally (stage ④, twenty-eight slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
+> J (+1) · K (+1, FP closed on 3) · L (+4) · M (+2) · N (+7) · O (+4) · P (+3) · Q (+6) · R (+2) · S (+2) · T (+12) · U (+2) ·
+> V (+2, Thrun 90) · W (+3, Thrun 91) · X (+1, Earth Bent 89) · Y (+1) · Z (+6, Veyran 89) · AA (+9, Mothman 88) · AB (+1) —
+> corpus 13,862 → 13,968.
+> **CI:** ④-AA's run (4d7e4f74, sharded) was in flight at commit time; ④-AB pushes only after it is green
+> **Next runnable:** the Hulk / Jurassic walks' remaining single-blockers — Kessig Wolf Run ({X} pump on a land), Hidden
+> Hideout (a "with a counter on it" target restriction), Xenagos (a +X/+X where X is the target's power), Secluded
+> Courtyard ("or activate an ability of a creature source of the chosen type" on the chosen-type mana), or the "up to N"
+> non-targeted returns (a counted pick).
+
 ## 🪏 2026-09-03 (night cron) — **④-AA: the non-targeted graveyard return, chosen as it resolves (+9)** · suite **1388 / 15,533** green · corpus 13,967 / 34,245 (40.8%) · flip-diff +9 / 0 lost · 6/6 killed · Mothman Cometh 88/98
 
 > **Night tally (stage ④, twenty-seven slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·

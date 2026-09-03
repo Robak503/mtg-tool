@@ -1572,7 +1572,10 @@ function classifyCondition(condRaw, cardName, cardType) {
     const subj = c.replace(/\s+becomes tapped\s*$/, "").trim();
     // ⓘ Bare "this" (the re-worded self form) is NOT in this list on purpose — see the leaves-self note
     // above: zero real carriers in the corpus as of 2026-08-05, so it would be unverifiable code.
-    const isSelfSubj = subj === "this creature" || subj === "this permanent" || subj === "this artifact"
+    // ④-AB (2026-09-03): "this land" joins the self nouns — City of Brass / Sorrow's Path ("Whenever this land becomes
+    // tapped, it deals 1 damage to you."). A land's mana tap funnels through the same tapPermanent chokepoint, so the
+    // event was already recorded; only the noun kept the watcher undetected.
+    const isSelfSubj = subj === "this creature" || subj === "this permanent" || subj === "this artifact" || subj === "this land"
       || (nameL && subj === nameL) || (shortName && subj === shortName) || (firstWord && subj === firstWord);
     if (selfRef && isSelfSubj) return { event: "becomesTapped", scope: "self", whose: "any" };
   }
