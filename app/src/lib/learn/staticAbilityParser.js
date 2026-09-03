@@ -5804,6 +5804,13 @@ export function parseAttachedBonus(card, subjectOverride) {
     // PZ-1: the attached tap-lock line is enforced in gameState.untapAll, not as a layer bonus — skip it
     // (the AP-1 wall-skip pattern) so a compound aura keeps its other half.
     if (subject === "enchanted" && ATT_NO_UNTAP_CLAUSE_RE.test(c.trim())) continue;
+    // ④-K CONTROL AURA (2026-09-03 night): "You control enchanted creature." is delivered by controlAura.js at the
+    // attach chokepoint (gameState.attachPermanent), never by the layer engine — so it is not a bonus clause and must
+    // not poison the parse. Before this it fell through to parseAttachedClause, returned null and DROPPED THE WHOLE
+    // BONUS to []: Spirit Away / Yavimaya's Embrace / Corrupted Conscience were credited native-aura (the tier gate
+    // accepts a control line as a deliverer) while the stolen host never got its +2/+2 flying / trample / infect —
+    // measured on the board, 2026-09-03, a live FP. Same skip shape as the tap-lock line directly above.
+    if (subject === "enchanted" && AURA_CONTROL_CLAUSE_RE.test(c.trim())) continue;
     // AF-1: a validator-approved AURA-OWN ACTIVATED line ("{W}: Enchanted creature gets +0/+3 until end of
     // turn") is the runtime's (legalChoices enumerates it on the Aura; the pump resolves onto the host via
     // the enchanted referent) — skip it so the compound carrier keeps its static half.

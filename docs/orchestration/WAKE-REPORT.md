@@ -7,6 +7,15 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🧲 2026-09-03 (night cron) — **④-K: control Auras carry their bonus (FP closed on 3 credited cards) + Hypnotic Siren (+1)** · suite **1372 / 15,459** green · corpus 13,900 / 34,245 (40.6%) · flip-diff +1 / 0 lost · 7/7 killed
+
+> **Night tally (stage ④, eleven slices):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3) · D tapped-for-mana
+> (+2) · E Nikya (+1) · F opponent creature tokens (+7) · G flashback grant (+6) · H en-Kor redirect (+5) · I Savage
+> Firecat (+3) · J Bubble Snare (+1) · K control-aura bonus + Siren (+1, and Spirit Away / Yavimaya's Embrace /
+> Corrupted Conscience now PLAY as credited) — corpus 13,862 → 13,900 (+38). **Next runnable:** Relic of Progenitus /
+> Scrabbling Claws (an opponent-side graveyard pick + "exile all graveyards"), Grafted Identity (the additional-cost
+> sacrifice on an AURA cast), Mind Extraction / Scapegoat, or the next census read.
+
 ## 🫧 2026-09-03 (night cron) — **④-J: Bubble Snare — kicker on the Aura lane (+1)** · suite **1371 / 15,448** green · corpus 13,899 / 34,245 (40.6%) · flip-diff +1 / 0 lost · 8/8 killed
 
 > **Night tally (stage ④, ten slices):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3) · D tapped-for-mana

@@ -43,12 +43,27 @@ export function isControlAura(card) {
   return CONTROL_LINE.test(String(card?.oracle || card?.oracle_text || ""));
 }
 
+/** The printed control line alone, TYPE-BLIND — for a bestow creature (an Aura only while bestowed, CR 702.103e:
+ *  Hypnotic Siren) and for the AI's cast intent (a card that steals when cast as an Aura is enemy-intent whatever
+ *  its type line says). Never a delivery gate on its own: the attach/revert hooks go through isControlAuraPermanent. */
+export function grantsControlWhenAttached(card) {
+  return CONTROL_LINE.test(String(card?.oracle || card?.oracle_text || ""));
+}
+
+/** Does this PERMANENT steal its host while attached? A printed Aura by type (isControlAura), or a bestow creature
+ *  WHILE bestowed — the `bestowed` flag is stamped by enterPermanent on the bestow cast and cleared when it falls off,
+ *  so the moment Hypnotic Siren becomes a creature again it stops counting (④-K, 2026-09-03). */
+export function isControlAuraPermanent(perm) {
+  if (!perm) return false;
+  return isControlAura(perm.card) || (perm.bestowed === true && grantsControlWhenAttached(perm.card));
+}
+
 /**
  * ATTACH side — called after the link is formed. Moves the host under the Aura's controller and stamps the
  * two fields the revert needs. No-op unless `auraPerm` really is a control Aura and the host is elsewhere.
  */
 export function applyControlAuraAttach(state, auraPerm, hostId) {
-  if (!auraPerm || !hostId || !isControlAura(auraPerm.card)) return state;
+  if (!auraPerm || !hostId || !isControlAuraPermanent(auraPerm)) return state;
   const to = auraPerm.controller;
   if (!to) return state;
   const hostController = controllerOfPermanent(state, hostId);
@@ -67,7 +82,7 @@ export function applyControlAuraAttach(state, auraPerm, hostId) {
  * took it.
  */
 export function revertControlAura(state, auraPerm) {
-  if (!auraPerm || !isControlAura(auraPerm.card)) return state;
+  if (!auraPerm || !isControlAuraPermanent(auraPerm)) return state;
   const hostId = auraPerm.attachedTo;
   if (!hostId) return state;
   const hostAt = controllerOfPermanent(state, hostId);

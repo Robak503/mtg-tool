@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Hypnotic Siren works, bestowed** — bestow it on an opponent's creature and the creature is yours, a
+  flier with +1/+1, until the Siren leaves.
 - **Bubble Snare works, kicked** — the Aura lane offers the kicked cast when you can pay it, and the kicked
   Snare taps the creature it lands on.
 - **Savage Firecat works** — enters with its seven counters and sheds one each time you tap a land for
@@ -59,6 +61,9 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **Control Auras with a bonus now grant it** — Spirit Away, Yavimaya's Embrace and Corrupted Conscience
+  stole the creature but never gave it the +2/+2, flying, trample or infect; they do now. The AI also
+  casts control Auras on the biggest enemy creature instead of holding them.
 - **Steelswarm Operator no longer spends its activation-only mana on artifact spells** — the card is routed to the
   Arbiter until per-line restrictions land (it used to be credited with a looser restriction than printed).
 - **Pay-life lands charge the life** — Horizon Canopy, Silent Clearing, the whole Horizon cycle and Mana

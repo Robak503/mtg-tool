@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🧲 2026-09-03 (night cron) — CORPUS ④-K: a CONTROL AURA CARRIES ITS BONUS (a live FP closed on 3 credited cards) + Hypnotic Siren's bestow steal · **+1** · corpus 13,900 / 34,245 (40.6%)
+> Suite **1372 / 15,459** green; lint 0. Flip-diff **+1, zero LOST**. **7/7 killed.**
+> · **The FP (found while probing Siren, measured on the board):** Spirit Away / Yavimaya's Embrace / Corrupted
+>   Conscience were credited native-aura — the tier gate accepts "You control enchanted creature." as a deliverer —
+>   but the control line POISONED parseAuraBonus (all-or-nothing: an unrecognised clause drops the whole bonus to
+>   []), so the stolen host never got its +2/+2 flying / trample / infect. A stolen Bear read 2/2, no flying. The
+>   control line is delivered by controlAura.js at the attach chokepoint, never by the layer engine — so the parse
+>   now SKIPS it (the tap-lock line's proven skip shape) and the bonus survives: the Bear is ours AND a 4/4 flier.
+>   Three cards the metric already counted now actually play as printed; the count did not move for them.
+> · **Hypnotic Siren rides the fix:** its bestow gate needs a surviving aura bonus (it has one now), and a BESTOWED
+>   permanent is an Aura while attached (CR 702.103e) — isControlAuraPermanent reads the `bestowed` flag so the
+>   steal fires on the bestow cast and the revert fires when the Siren leaves. A plain bestow (Nyxborn Rollicker)
+>   steals nothing (pinned; the mutation that made every bestow steal is killed).
+> · **The AI:** a control line is ENEMY-intent, type-blind. Before this parseAuraBonus read [] for every control
+>   Aura and the AI HELD Mind Control forever; with the bonus alive, Spirit Away would have read as an OWN buff.
+>   Board-verified: the AI puts Spirit Away on the biggest enemy creature and holds it with only its own board.
+> · **Not flipped (audited):** Binding Grasp / Coerced to Kill / Become the Pilot / Grafted Identity / Duskmourn's
+>   Domination keep their other blockers (may-pay upkeep, base P/T, conditional unblockable, sac-cost on an Aura,
+>   loses-all-abilities) — parked honestly, each a separate shape.
+
 > ## 🫧 2026-09-03 (night cron) — CORPUS ④-J: BUBBLE SNARE — KICKER on the Aura cast lane · **+1** · corpus 13,899 / 34,245 (40.6%)
 > Suite **1371 / 15,448** green; lint 0. Flip-diff **+1, zero LOST**. **8/8 killed.**
 > · **The shape:** "Kicker {2}{U} / Enchant creature / When this Aura enters, if it was kicked, tap enchanted creature.

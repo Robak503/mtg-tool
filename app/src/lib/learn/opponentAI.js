@@ -30,6 +30,7 @@ import { filterActions } from "./legalChoices.js";
 import { opponentsOf, findPermanent } from "./gameState.js";
 import { lookupPlayHint } from "./cardPlayHints.js"; // PLAY-HINTS (2026-08-12) — a zero-import leaf, cycle-safe
 import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature, goaderControllersOf } from "./layers.js";
+import { grantsControlWhenAttached } from "./controlAura.js"; // ④-K — a control Aura (or a bestow steal) is ENEMY-intent for auraCastIntent; controlAura is a zero-engine-import leaf
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction } from "./manaModel.js";
 import { attackerMinBlockers, canBlockAttacker, lureFilterOf, mustBeBlockedIfAble, mustAttackUnlessOf, controllerMeetsBoardPredicate } from "./combatEvasion.js";
@@ -555,6 +556,12 @@ function teamPumpFlipsLethal(state, aiPlayerId, pumpPower) {
  * never guess a side — a beneficial Aura on an enemy fatty is a live FP).
  */
 function auraCastIntent(card) {
+  // ④-K CONTROL AURA (2026-09-03): "You control enchanted creature." steals the host — ENEMY-intent, whatever the
+  // rest of the bonus says (Spirit Away's +2/+2 flying is a buff on a creature that is now OURS). Type-blind so a
+  // bestow steal (Hypnotic Siren) reads the same. Before this, parseAuraBonus read [] for every control Aura (the
+  // control line poisoned the parse) and the AI HELD Mind Control forever; once the bonus survives, a control Aura
+  // with a positive bonus would have read as an OWN buff and been cast on the AI's own creature.
+  if (grantsControlWhenAttached(card)) return "enemy";
   let bonus;
   try { bonus = parseAuraBonus(card); } catch { return null; }
   if (!Array.isArray(bonus) || bonus.length === 0) return null;
