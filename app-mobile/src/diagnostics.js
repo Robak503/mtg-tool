@@ -5,23 +5,35 @@ function safeCode(value) {
   return /^[a-z0-9._-]{1,80}$/i.test(text) ? text : null;
 }
 
-export function buildDiagnosticReceipt({ runtime, knowledge, model, lastOutcome, feedback, generatedAt = new Date().toISOString() }) {
+function runtimeWitnesses(runtime) {
+  const checks = Array.isArray(runtime?.checks) ? runtime.checks : Array.isArray(runtime?.results) ? runtime.results : [];
+  const witnesses = checks
+    .map(({ id, passed }) => ({ id: safeCode(id), passed: passed === true }))
+    .filter(({ id }) => id);
+  for (const [id, passed] of Object.entries(runtime?.realm ?? {})) {
+    const safeId = safeCode(id);
+    if (safeId) witnesses.push({ id: safeId, passed: passed === true });
+  }
+  return witnesses;
+}
+
+export function buildDiagnosticReceipt({ runtime, knowledge, model, lastOutcome, feedback, errorCode, generatedAt = new Date().toISOString() }) {
   return Object.freeze({
     schemaVersion: 1,
     generatedAt,
     app: { version: APP_VERSION, product: "Omnath MTG Assistant", offlineOnly: true },
     runtime: {
       passed: runtime?.passed === true,
-      witnesses: Array.isArray(runtime?.results)
-        ? runtime.results.map(({ id, passed }) => ({ id: safeCode(id), passed: passed === true })).filter(({ id }) => id)
-        : [],
+      witnesses: runtimeWitnesses(runtime),
     },
+    startup: { errorCode: safeCode(errorCode) },
     knowledge: {
       ready: knowledge?.ready === true,
       schemaVersion: Number(knowledge?.schemaVersion ?? 0),
       packId: safeCode(knowledge?.packId),
       databaseBytes: Number(knowledge?.databaseBytes ?? 0),
       databaseSha256: safeCode(knowledge?.databaseSha256),
+      error: knowledge?.error ? "unavailable" : null,
       art: {
         ready: knowledge?.artReady === true,
         packId: safeCode(knowledge?.artPackId),

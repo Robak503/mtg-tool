@@ -20,7 +20,7 @@ test("feedback persists aggregates without accepting conversation text", () => {
 
 test("diagnostic receipt whitelists receipts and excludes private fields", async () => {
   const receipt = buildDiagnosticReceipt({
-    runtime: { passed: true, results: [{ id: "combat", passed: true }], private: "question" },
+    runtime: { passed: true, checks: [{ id: "combat", passed: true }], realm: { processAbsent: true }, private: "question" },
     knowledge: {
       ready: true,
       packId: "pack-1",
@@ -34,12 +34,18 @@ test("diagnostic receipt whitelists receipts and excludes private fields", async
     },
     model: { state: "ready", modelId: "enhanced", prompt: "private prompt" },
     lastOutcome: { status: "grounded", modelRejection: null, answer: "private answer" },
+    errorCode: "knowledge_unavailable",
     feedback: { schemaVersion: 1, totals: { helpful: 1 }, outcomes: {}, modelRejections: {} },
     generatedAt: "2026-08-30T00:00:00.000Z",
   });
   const text = JSON.stringify(receipt);
   assert.equal(text.includes("private"), false);
   assert.equal(text.includes("secret"), false);
+  assert.deepEqual(receipt.runtime.witnesses, [
+    { id: "combat", passed: true },
+    { id: "processAbsent", passed: true },
+  ]);
+  assert.deepEqual(receipt.startup, { errorCode: "knowledge_unavailable" });
   assert.deepEqual(receipt.knowledge.art, {
     ready: true,
     packId: "art-1",

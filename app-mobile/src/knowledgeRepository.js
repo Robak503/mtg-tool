@@ -1,4 +1,4 @@
-import { addPluginListener, invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import Database from "@tauri-apps/plugin-sql";
 
 export function normalizeCardName(name) {
@@ -221,40 +221,45 @@ export function createKnowledgeRepository(database, status, artDatabase = null) 
 
 export async function openKnowledgeRepository(onProgress) {
   let unlisten = null;
-  let nativeProgress = null;
   if (onProgress) {
-    const { listen } = await import("@tauri-apps/api/event");
-    unlisten = await listen("knowledge-progress", ({ payload }) => onProgress(payload));
-    nativeProgress = await addPluginListener("omnath-model", "asset-progress", (event) => {
-      onProgress({
-        phase: event.assetKind === "art" ? "copying-art" : "copying",
-        copiedBytes: Number(event.copiedBytes ?? 0),
-        totalBytes: Number(event.totalBytes ?? 0),
-      });
-    });
+    try {
+      const { listen } = await import("@tauri-apps/api/event");
+      unlisten = await listen("knowledge-progress", ({ payload }) => onProgress(payload));
+    } catch {
+      // Progress is optional and must never prevent the offline pack from opening.
+    }
   }
   const status = await invoke("prepare_knowledge").finally(() => {
     unlisten?.();
-    nativeProgress?.unregister();
   });
   if (!status?.ready) {
-    throw new Error(status?.error || "The offline knowledge pack is not ready");
+    const error = new Error("The offline knowledge pack is not ready");
+    error.code = "knowledge_unavailable";
+    error.knowledgeStatus = status;
+    throw error;
   }
-  const database = await Database.load(status.databaseUrl);
-  let artDatabase = null;
-  let effectiveStatus = status;
-  if (status.artReady && status.artDatabaseUrl) {
-    try {
-      artDatabase = await Database.load(status.artDatabaseUrl);
-    } catch (error) {
-      effectiveStatus = {
-        ...status,
-        artReady: false,
-        artError: `Unable to open indexed art: ${error instanceof Error ? error.message : String(error)}`,
-      };
+  try {
+    const database = await Database.load(status.databaseUrl);
+    let artDatabase = null;
+    let effectiveStatus = status;
+    if (status.artReady && status.artDatabaseUrl) {
+      try {
+        artDatabase = await Database.load(status.artDatabaseUrl);
+      } catch (error) {
+        effectiveStatus = {
+          ...status,
+          artReady: false,
+          artError: `Unable to open indexed art: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
     }
+    const repository = createKnowledgeRepository(database, effectiveStatus, artDatabase);
+    await repository.verify();
+    return repository;
+  } catch {
+    const error = new Error("The offline knowledge pack could not be opened");
+    error.code = "knowledge_unavailable";
+    error.knowledgeStatus = { ...status, error: "unavailable" };
+    throw error;
   }
-  const repository = createKnowledgeRepository(database, effectiveStatus, artDatabase);
-  await repository.verify();
-  return repository;
 }

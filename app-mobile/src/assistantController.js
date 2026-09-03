@@ -5,6 +5,23 @@ function publicState(state) {
   return Object.freeze({ ...state });
 }
 
+function safeFailedKnowledge(status) {
+  if (!status || typeof status !== "object") return null;
+  return Object.freeze({
+    ready: false,
+    schemaVersion: Number(status.schemaVersion ?? 0),
+    packId: status.packId ?? null,
+    databaseBytes: Number(status.databaseBytes ?? 0),
+    databaseSha256: status.databaseSha256 ?? null,
+    artReady: status.artReady === true,
+    artPackId: status.artPackId ?? null,
+    artDatabaseBytes: Number(status.artDatabaseBytes ?? 0),
+    artDatabaseSha256: status.artDatabaseSha256 ?? null,
+    error: status.error ? "unavailable" : null,
+    artError: status.artError ? "unavailable" : null,
+  });
+}
+
 export function createAssistantController({ verifyRuntime, openRepository, model }) {
   const listeners = new Set();
   let repository = null;
@@ -34,6 +51,7 @@ export function createAssistantController({ verifyRuntime, openRepository, model
     emit({ phase: "booting", errorCode: null });
     try {
       const runtime = await verifyRuntime();
+      emit({ runtime });
       if (!runtime?.passed) throw Object.assign(new Error("runtime failed"), { code: "runtime_failed" });
       repository = await openRepository(onKnowledgeProgress);
       emit({ phase: "ready", runtime, knowledge: repository.status, model: { state: "loading" } });
@@ -48,7 +66,7 @@ export function createAssistantController({ verifyRuntime, openRepository, model
       return publicState(state);
     } catch (error) {
       const errorCode = error?.code === "runtime_failed" ? "runtime_failed" : "knowledge_unavailable";
-      emit({ phase: "error", errorCode });
+      emit({ phase: "error", errorCode, knowledge: safeFailedKnowledge(error?.knowledgeStatus) });
       return publicState(state);
     }
   }

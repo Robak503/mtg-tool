@@ -78,6 +78,28 @@ test("fails startup closed on a corrupt pack without leaking the exception", asy
   const state = await controller.start();
   assert.equal(state.phase, "error");
   assert.equal(state.errorCode, "knowledge_unavailable");
+  assert.equal(state.runtime.passed, true);
+  assert.equal(JSON.stringify(state).includes("private"), false);
+});
+
+test("retains a privacy-safe failed knowledge receipt for diagnostics", async () => {
+  const controller = createAssistantController({
+    verifyRuntime: async () => ({ passed: true, checks: [{ id: "classifier", passed: true }] }),
+    openRepository: async () => {
+      const error = new Error("C:\\private\\pack.sqlite hash mismatch");
+      error.knowledgeStatus = {
+        ready: false,
+        error: "C:\\private\\pack.sqlite hash mismatch",
+        databaseBytes: 42,
+      };
+      throw error;
+    },
+    model: model(),
+  });
+  const state = await controller.start();
+  assert.equal(state.runtime.passed, true);
+  assert.equal(state.knowledge.error, "unavailable");
+  assert.equal(state.knowledge.databaseBytes, 42);
   assert.equal(JSON.stringify(state).includes("private"), false);
 });
 

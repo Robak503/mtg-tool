@@ -46,7 +46,7 @@ function renderCardArt(article, answer) {
 
 function diagnosticReceipt() {
   const state = controller?.getState() ?? {};
-  return buildDiagnosticReceipt({ runtime: state.runtime, knowledge: state.knowledge, model: state.model, lastOutcome: state.lastOutcome, feedback: feedback.snapshot() });
+  return buildDiagnosticReceipt({ runtime: state.runtime, knowledge: state.knowledge, model: state.model, lastOutcome: state.lastOutcome, errorCode: state.errorCode, feedback: feedback.snapshot() });
 }
 
 function addFeedbackControls(article, answer) {
@@ -231,7 +231,7 @@ async function initialize() {
   const fixture = fixtureName ? (await import("./fixtures.js")).createFixtureDependencies(fixtureName) : null;
   controller = createAssistantController(fixture ?? await productionDependencies());
   controller.subscribe((state) => {
-    runtimeStatus.textContent = state.runtime?.passed ? "Verified" : state.phase === "error" ? "Failed" : "Checking";
+    runtimeStatus.textContent = state.runtime?.passed ? "Verified" : state.runtime ? "Failed" : state.phase === "error" ? "Unavailable" : "Checking";
     if (state.knowledge?.packId) packStatus.textContent = `Verified · ${state.knowledge.packId}${state.knowledge.artReady ? " · Art ready" : ""}`;
     modelStatusNode.textContent = state.model?.state === "ready" ? `Ready · ${state.model.modelId}` : state.model?.state === "loading" ? "Loading if staged" : "Deterministic fallback";
   });

@@ -31,3 +31,9 @@ test("the chat shell exposes recovery, live status, bounded input, and hidden-st
   assert.match(css, /min-height:\s*48px/);
   assert.match(css, /prefers-reduced-motion/);
 });
+
+test("optional copy progress cannot gate opening the offline pack", () => {
+  const repository = read("src/knowledgeRepository.js");
+  assert.doesNotMatch(repository, /addPluginListener/);
+  assert.match(repository, /Progress is optional and must never prevent/);
+});
