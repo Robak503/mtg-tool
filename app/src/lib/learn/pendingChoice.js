@@ -540,6 +540,27 @@ export function setPendingOptionalManaPaymentChoice(state, { controller, cost, e
 }
 
 /**
+ * ===== OPTIONAL-LIFE-PAYMENT (CR 614.1c + 119.4 — the SHOCKLAND clause, LANDS-TIER slice 2) ===== — flag
+ * "As this land enters, you may pay N life. If you don't, it enters tapped." awaiting the CONTROLLER's
+ * pay-or-decline. Raised by the PLAY-LAND path AFTER the land is on the battlefield UNTAPPED: on settle,
+ * paying deducts the life and leaves it untapped; declining taps it (fromEnter — CR 701.26a, entering
+ * tapped is not "becoming tapped"). Nothing else can act while the pause is open, so "enter untapped,
+ * decide, tap on decline" is observably identical to the replacement it models.
+ *
+ * NO `resume` — this pause is raised outside any effect program (a land drop), so the settler must not
+ * call resumeAfterChoice; it finalizes the stack (SBA + trigger flush) directly. `permanentId` is the
+ * entered land; `life` the printed N. FIFO: one choice at a time (the family rule).
+ */
+export function setPendingOptionalLifePaymentChoice(state, { controller, permanentId, life, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "optional-life-payment-pending", controller, amount: life, sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "optional-life-payment", controller, permanentId, life, sourceName },
+  };
+}
+
+/**
  * ===== REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) ===== — suspend on a "you may sacrifice a <subtype>. If you do,
  * <effect>" sac-or-decline decision. The driver pauses a human and auto-decides an AI (sac-if-able — the modeled
  * payoffs are beneficial). `subtype` is the capitalized token subtype the controller may sacrifice one of (a

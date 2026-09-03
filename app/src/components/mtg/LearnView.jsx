@@ -49,6 +49,7 @@ import {
   DivideDamagePanel,
   SoftCounterPanel,
   OptionalManaPaymentPanel,
+  OptionalLifePaymentPanel,
   OptionalSacPanel,
   SacrificeChoicePanel,
   DiscardChoicePanel,
@@ -743,6 +744,7 @@ export default function LearnView({
               onDivideChoose={session.applyDivideChoice}
               onSoftCounterChoose={session.applySoftCounterChoice}
               onOptionalManaPaymentChoose={session.applyOptionalManaPaymentChoice}
+              onOptionalLifePaymentChoose={session.applyOptionalLifePaymentChoice}
               onOptionalSacChoose={session.applyOptionalSacChoice}
               onCommanderReturnChoose={session.applyCommanderReturnChoice}
             />
@@ -947,6 +949,16 @@ export default function LearnView({
           <OptionalManaPaymentPanel
             decision={decision}
             onChoose={session.applyOptionalManaPaymentChoice}
+          />
+        </div>
+      )}
+      {/* OPTIONAL-LIFE-PAYMENT (LANDS-TIER slice 2; CR 614.1c) — the shockland clause "As this land enters,
+          you may pay N life. If you don't, it enters tapped." → pay or enter tapped. Same side-sheet. */}
+      {session.board && decision?.kind === "optional-life-payment" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <OptionalLifePaymentPanel
+            decision={decision}
+            onChoose={session.applyOptionalLifePaymentChoice}
           />
         </div>
       )}
@@ -1373,6 +1385,7 @@ function DecisionPrompt({
   onDivideChoose,
   onSoftCounterChoose,
   onOptionalManaPaymentChoose,
+  onOptionalLifePaymentChoose,
   onOptionalSacChoose,
   onCommanderReturnChoose,
 }) {
@@ -1456,6 +1469,9 @@ function DecisionPrompt({
   }
   if (decision.kind === "optional-mana-payment") {
     return <OptionalManaPaymentPanel decision={decision} onChoose={onOptionalManaPaymentChoose} />;
+  }
+  if (decision.kind === "optional-life-payment") {
+    return <OptionalLifePaymentPanel decision={decision} onChoose={onOptionalLifePaymentChoose} />;
   }
   if (decision.kind === "optional-sac-payment") {
     return <OptionalSacPanel decision={decision} onChoose={onOptionalSacChoose} />;

@@ -1757,6 +1757,71 @@ export function OptionalManaPaymentPanel({ decision, onChoose }) {
 }
 
 /**
+ * ===== OPTIONAL-LIFE-PAYMENT ===== (LANDS-TIER slice 2; CR 614.1c + 119.4) — the shockland clause "As this
+ * land enters, you may pay N life. If you don't, it enters tapped." Shown to the player who just played the
+ * land: pay the life for an untapped land, or decline and it enters tapped. "Pay" is disabled when
+ * `decision.affordable` is false (life below N — CR 119.4 lets you pay down to 0, never below). Submits the
+ * boolean via applyOptionalLifePaymentChoice. Structurally the OptionalManaPaymentPanel with life for mana.
+ */
+export function OptionalLifePaymentPanel({ decision, onChoose }) {
+  const life = Number(decision.life) || 0;
+  const affordable = decision.affordable !== false;
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (pay) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onChoose?.(pay);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <div
+        style={{
+          padding: "12px 14px",
+          background: "var(--ley-green-faint)",
+          border: "1px solid var(--ley-line-bright)",
+          borderRadius: 6,
+        }}
+      >
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
+          🩸 Pay {life} life?
+          {decision.sourceName ? ` — ${decision.sourceName}` : ""}
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
+          Pay {life} life and it enters untapped. Decline and it enters tapped.
+          {!affordable && (
+            <span style={{ color: "var(--ley-gold)" }}> You don’t have {life} life to pay.</span>
+          )}
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          className="btn btn-primary btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => submit(true)}
+          disabled={submitting || !affordable}
+        >
+          Pay {life} life
+        </button>
+        <button
+          className="btn btn-ghost btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => submit(false)}
+          disabled={submitting}
+        >
+          Enter tapped
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * ===== REFLEXIVE-SAC-BY-SUBTYPE ===== (CR 603.7c) — "you may sacrifice a <subtype>. If you do, <effect>"
  * picker (The Goose Mother / Wedding Security). Shown to the controller of the trigger/ability: sacrifice
  * one matching permanent to run the payoff, or decline. "Sacrifice" is disabled when `decision.available`

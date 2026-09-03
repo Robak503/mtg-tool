@@ -7,7 +7,19 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## 🏞️ 2026-09-02 — **OVERNIGHT STAGE ① IN FLIGHT: LANDS-1 shipped (+84 corpus), Cap 76%** — suite **1319 / 15,111** green
+## 🩸 2026-09-03 — **OVERNIGHT STAGE ① IN FLIGHT: LANDS-2 shipped (the shocklands, +10 corpus), Cap 79%** — suite **1320 / 15,123** green
+
+> **LANDS-2 = the shockland clause** "As this land enters, you may pay 2 life. If you don't, it enters
+> tapped." — all ten corpus shocklands flipped (flip-diff +10, zero LOST). It is a player CHOICE, so the
+> play-land path raises a real `optional-life-payment` pause (new pending-choice kind, panel, hook, route)
+> for a controller who can pay, and the tutor site (`enterPermanent`, no resume seam) applies the WRITTEN
+> policy (pay iff life ≥ 10) and CHARGES the life on the spot — the near-miss FP (untapped, never charged)
+> is pinned by mutation M1. 8/8 mutations killed. Corpus 39.8% (13,615/34,245). Cap 76 → 79: 27 `land`,
+> 9 `land-partial` (Mines of Moria · Mistrise Village · Monumental Henge · Otawara · Inventors' Fair ·
+> Uthros + Urza's Saga + two MDFC backs), 10 body-only, 2 arbiter-spell. Ledger has the two banked traps
+> (flip-diff "before" from a stale checkout; Bash heredocs eat backslashes).
+
+## 🏞️ 2026-09-02 — LANDS-1 shipped (+84 corpus), Cap 76% — suite 1319 / 15,111 green
 
 > **LANDS-1 = "This land enters tapped unless <condition>"** — 83 of 107 corpus lands flipped to `land`
 > (flip-diff +84, zero LOST; the one non-land gain, Platoon Dispenser, audited on the real trigger path).

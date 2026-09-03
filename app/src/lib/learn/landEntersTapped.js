@@ -72,3 +72,43 @@ export function conditionalEntersTapped(state, card, controller, enteringPermId 
   if (holds === null) return false;   // cannot confirm on this board → untapped (FN-safe)
   return !holds;
 }
+
+/**
+ * THE SHOCKLAND CLAUSE (LANDS-TIER slice 2, 2026-09-02; CR 614.1c + 119.4): "As this land enters, you may
+ * pay N life. If you don't, it enters tapped." — the ten shocklands (all N = 2), and Cap America's three
+ * (Sacred Foundry · Hallowed Fountain · Steam Vents — one arm, three slots). Returns { life: N } or null.
+ *
+ * Unlike the "unless" gate this is a PLAYER CHOICE, not a board read, so the reader only recognises the
+ * line; the two enter sites decide HOW the choice is made: the play-land path raises a real pause for a
+ * human seat (an AI seat auto-decides through autoPickOptionalLifePayment — pay iff life ≥ 10, a written
+ * policy, never a decline-only shortcut), and resolvers.enterPermanent — which runs INSIDE an effect's
+ * resolution (a tutored shockland) where a land-entry pause has no resume seam — applies that same policy
+ * for every seat and logs it as an auto-decision. That second limit is deliberate and recorded, not hidden.
+ *
+ * Whole-line anchored: the exact printed sentence and nothing more. A rider or a different subject leaves
+ * the line as residue (the card stays partial), never a partial credit.
+ */
+export function paysLifeOrEntersTapped(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  if (!/pay \d+ life/i.test(oracle)) return null;
+  for (const raw of oracle.split("\n")) {
+    const m = raw.trim().match(/^as this land enters, you may pay (\d+) life\. if you don't, it enters tapped\.?$/i);
+    if (m) return { life: parseInt(m[1], 10) };
+  }
+  return null;
+}
+
+/**
+ * The AI / autopilot policy for the shockland payment — WRITTEN DOWN, so nobody mistakes it for a rule:
+ * pay the life iff the controller has at least 10 afterwards-still-comfortable life (life ≥ 10). Paying
+ * is always legal down to 0 (CR 119.4), and an untapped dual on the turn it is played is worth two life
+ * in every position except a low-life one — the same "pay-if-able" default the optional-mana-payment
+ * auto-pick uses, with the resource swapped. A board-aware refinement (don't pay on turn one with no
+ * play; pay at lower life when the mana is lethal) is a future enhancement; this default is never
+ * ILLEGAL and never silently declines. `null` cost → false.
+ */
+export function autoPickOptionalLifePayment(state, controller, life) {
+  const pl = state?.players?.[controller];
+  if (!pl || !(life > 0)) return false;
+  return (pl.life ?? 0) >= 10 && (pl.life ?? 0) >= life;
+}

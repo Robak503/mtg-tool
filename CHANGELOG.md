@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Shocklands work.** Sacred Foundry, Steam Vents, Hallowed Fountain and the rest of the ten now ask you
+  whether to pay 2 life when you play one — pay and it enters untapped, decline and it enters tapped — and
+  you're never asked when you can't afford it. A shockland put onto the battlefield by an effect pays when
+  you're at 10 or more life and actually charges the 2; the AI seats decide the same way.
 - **"Enters tapped unless …" lands work — 83 of them.** Fast lands, slow lands, the check lands and Castles,
   the "two or more opponents" Commander cycle, the "13 or less life" cycle, Rivendell and its legendary-gated
   kin, and more now actually check their condition when they enter — untapped when it holds, tapped when it

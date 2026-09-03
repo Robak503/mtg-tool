@@ -30,6 +30,7 @@
 
 import { createGameState, loseLife, logEvent, moveCardToZone, MODES } from "./gameState.js";
 import { setPendingCommanderReturnChoice, clearPendingChoice } from "./pendingChoice.js";
+import { autoPickOptionalLifePayment } from "./landEntersTapped.js"; // LANDS-TIER slice 2 — the shockland auto-policy (pay iff life >= 10)
 import {
   startGame,
   prepareStart,
@@ -87,6 +88,7 @@ import {
   resolveSoftCounterChoice,
   autoPickOptionalManaPayment,
   resolveOptionalManaPaymentChoice,
+  resolveOptionalLifePaymentChoice,
   autoPickOptionalSac,
   resolveOptionalSacChoice,
   autoPickOptionalDrawDiscard,
@@ -849,6 +851,15 @@ function settleSoftCounterChoice(state, pay) {
 function settleOptionalManaPaymentChoice(state, pay) {
   const next = resolveOptionalManaPaymentChoice(state, pay);
   return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+// OPTIONAL-LIFE-PAYMENT (LANDS-TIER slice 2; CR 614.1c + 119.4) — settle the shockland pay-or-tap:
+// resolveOptionalLifePaymentChoice charges the life through loseLife (only when the player has it — never
+// fabricated) or taps the land. Raised by a land PLAY on the play-land path (a special action, CR 116.2a),
+// so no stack resolution is in flight and there is nothing to finalize — the choice clears and the driver
+// re-derives. Deliberately NOT the settleOptionalManaPaymentChoice shape.
+function settleOptionalLifePaymentChoice(state, pay) {
+  return resolveOptionalLifePaymentChoice(state, pay);
 }
 
 // REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — settle the "you may sacrifice a <subtype>. If you do, <effect>" sac-or-
@@ -2069,6 +2080,34 @@ export function advanceUntilDecision(
         };
         continue;
       }
+      // ===== OPTIONAL-LIFE-PAYMENT ===== (LANDS-TIER slice 2; CR 614.1c + 119.4) — the shockland clause "As
+      // this land enters, you may pay N life. If you don't, it enters tapped.", raised by the play-land path
+      // (the land is ALREADY on the battlefield, untapped, when this is consulted). pc.controller played it
+      // (pays + decides), so `pause` pauses a human and auto-decides an AI through the WRITTEN policy
+      // (autoPickOptionalLifePayment — pay iff life >= 10, never a decline-only shortcut). `affordable` is
+      // CR 119.4's floor (you may pay down to 0, never below) so the picker can disable "Pay". Resolving
+      // charges the life or taps the land; a land play is a special action, so nothing is finalized.
+      if (pc.kind === "optional-life-payment") {
+        if (pause) {
+          const affordable = (current.state.players?.[pc.controller]?.life ?? 0) >= pc.life;
+          return { session: current, decision: { kind: "optional-life-payment", ...pc, affordable } };
+        }
+        const picked = decidePendingChoice({
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            value: autoPickOptionalLifePayment(current.state, pc.controller, pc.life),
+          },
+        });
+        current = { ...current, state: settleOptionalLifePaymentChoice(current.state, picked.value) };
+        continue;
+      }
       // ===== REFLEXIVE-SAC-BY-SUBTYPE ===== (CR 603.7c) — "you may sacrifice a <subtype>. If you do, <effect>"
       // (The Goose Mother, Wedding Security). pc.controller owns the trigger/ability (sacs + decides), so `pause`
       // pauses a human and auto-decides an AI (sac-if-able — the modeled payoffs outvalue a fungible token).
@@ -3024,6 +3063,47 @@ export function applyOptionalManaPaymentChoice(session, choice, opts = {}) {
 }
 
 /**
+ * ===== OPTIONAL-LIFE-PAYMENT ===== (LANDS-TIER slice 2; CR 614.1c + 119.4) — the player chose to pay N life
+ * for an untapped shockland or to let it enter tapped ("As this land enters, you may pay N life. If you don't,
+ * it enters tapped."). `choice.pay` is the yes/no. resolveOptionalLifePaymentChoice charges the life (or, if
+ * the player can't cover it, taps — loseLife never fabricates) or taps the land, then re-derives. A
+ * double-submit (nothing pending) re-derives. Mirrors applyOptionalManaPaymentChoice.
+ */
+export function applyOptionalLifePaymentChoice(session, choice, opts = {}) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "optional-life-payment") {
+    return advanceUntilDecision(session, opts); // nothing pending (double-submit) — re-derive.
+  }
+  const pay = choice?.pay === true || choice === true;
+  let newState;
+  try {
+    newState = settleOptionalLifePaymentChoice(session.state, pay);
+  } catch (error) {
+    return {
+      session,
+      decision: { kind: "dispatch-error", reason: error.message, code: error.code },
+    };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "optional-life-payment-choice", paid: pay },
+    auto: false,
+    reasoning: "user-chose-optional-life-payment",
+  };
+  return advanceUntilDecision(
+    { ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] },
+    opts,
+  );
+}
+
+/**
  * ===== REFLEXIVE-SAC-BY-SUBTYPE ===== (CR 603.7c) — the player chose to sacrifice a matching-subtype permanent
  * (and run the payoff) or not, for a "you may sacrifice a <subtype>. If you do, <effect>" (The Goose Mother /
  * Wedding Security). `choice.sac` is the yes/no. resolveOptionalSacChoice pitches one matching permanent + runs
@@ -3925,6 +4005,7 @@ export function applyPendingChoice(session, choice, opts = {}) {
   if (kind === "soft-counter") return applySoftCounterChoice(session, choice, opts);
   if (kind === "optional-mana-payment")
     return applyOptionalManaPaymentChoice(session, choice, opts);
+  if (kind === "optional-life-payment") return applyOptionalLifePaymentChoice(session, choice, opts);
   if (kind === "optional-sac-payment") return applyOptionalSacChoice(session, choice, opts);
   if (kind === "optional-draw-discard")
     return applyOptionalDrawDiscardChoice(session, choice, opts);

@@ -20,7 +20,7 @@
  * PR-2 and the cast path emits these payloads in PR-3.
  */
 
-import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, startingLoyalty, opponentsOf, moveCardToZone, tapPermanent, recordGraveyardEvents, updatePermanentSafe } from "./gameState.js";
+import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, startingLoyalty, opponentsOf, moveCardToZone, tapPermanent, recordGraveyardEvents, updatePermanentSafe, loseLife } from "./gameState.js";
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkSagaChapterTriggers, modularKeywordValues } from "./triggers.js";
 import { parseSagaChapters } from "./saga.js"; // SAGA (CR 714 — Vault 12, SHELF S7): entry lore counter + sagaFinal stamp; a pure leaf
 import { markPendingArbiter } from "./pendingArbiter.js";
@@ -30,7 +30,7 @@ import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopie
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
 import { addContinuousEffect } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); acyclic (layers imports only ptPrimitive/keywords/staticAbilityParser/protection, none of which reach resolvers)
-import { conditionalEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>"; a leaf over interveningIf (interveningIf → layers → staticAbilityParser, none reach resolvers) — acyclic
+import { conditionalEntersTapped, paysLifeOrEntersTapped, autoPickOptionalLifePayment } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>"; a leaf over interveningIf (interveningIf → layers → staticAbilityParser, none reach resolvers) — acyclic
 import { autoPickCreatureType } from "./choicePolicy.js"; // CR 614.12 auto-choice policy — a zero-import LEAF, shared with the effect atoms (which cannot import resolvers: resolvers → runProgram → effectAtoms). One copy, so an ETB choice and an activated choice can never diverge on the same board.
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
 import { parseFabricate, decideFabricate, applyFabricateServos } from "./fabricate.js"; // KW-FABRICATE (CR 702.111a) — ETB choice: N +1/+1 counters OR N 1/1 Servo tokens
@@ -221,12 +221,23 @@ export function enterPermanent(state, card, controller, opts = {}) {
   const ts = s2.timestampCounter || 0;
   const s3 = { ...s2, timestampCounter: ts + 1 };
   const typeStr = String(card?.type || card?.type_line || "");
+  // THE SHOCKLAND CLAUSE at THIS site (LANDS-TIER slice 2): decided BEFORE the permanent is built so the
+  // tapped flag and the life payment are one decision — the policy pays only when it can (life ≥ N and the
+  // written ≥10 floor), and a decision to pay is CHARGED below right after the land joins the battlefield,
+  // never left as a free untapped dual.
+  const shock = paysLifeOrEntersTapped(card);
+  const shockPay = !!(shock && autoPickOptionalLifePayment(s3, controller, shock.life));
   const perm = {
     // LANDS-TIER (2026-09-02): the CONDITIONAL "enters tapped unless <condition>" read joins the two here
     // (a tutored / put-onto-the-battlefield land runs through this site, not the play-land path). The
     // permanent is not on the battlefield yet, so an "other lands" count is already correct; its id is
     // threaded anyway so both sites read the evaluator identically.
-    ...createPermanent({ id: permId, card, controller, tapped: entersTapped(card) || impositionEntersTapped(s3, card, controller) || conditionalEntersTapped(s3, card, controller, permId), summoningSick: /Creature/.test(typeStr) }), // KM-1: an opposing Kismet forces the entry tapped (CR 614.1c)
+    // THE SHOCKLAND CLAUSE at THIS site (LANDS-TIER slice 2): a tutored / put-onto-the-battlefield shockland
+    // enters INSIDE an effect's resolution, where a land-entry pause has no resume seam — so the WRITTEN
+    // policy decides for every seat here (autoPickOptionalLifePayment: pay iff life ≥ 10) and the outcome is
+    // logged as an auto-decision. The play-land path (the 95% case) gives a human the real choice. This is a
+    // documented limit, not a hidden one: see landEntersTapped.paysLifeOrEntersTapped.
+    ...createPermanent({ id: permId, card, controller, tapped: entersTapped(card) || impositionEntersTapped(s3, card, controller) || conditionalEntersTapped(s3, card, controller, permId) || (shock ? !shockPay : false), summoningSick: /Creature/.test(typeStr) }), // KM-1: an opposing Kismet forces the entry tapped (CR 614.1c)
     enteredOnTurn: s3.turn,
     timestamp: ts,
     // A clone enters carrying a `card` that's the COPIED creature's copiable values, while its
@@ -524,6 +535,14 @@ export function enterPermanent(state, card, controller, opts = {}) {
     },
   };
   next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller });
+  // THE SHOCKLAND CLAUSE — the policy decided to PAY above, so charge it now through loseLife (the one
+  // life sink: "whenever you lose life" watchers and the 0-life SBA both see it) and log it as an
+  // auto-decision. An untapped shockland with no life charged is the fabricated-effect FP, so the two
+  // halves are never separable: `shockPay` set the tapped flag AND drives this deduction.
+  if (shockPay) {
+    next = loseLife(next, { playerId: controller, amount: shock.life });
+    next = logEvent(next, { kind: "spell-effect", effect: "optional-life-payment", controller, paid: true, amount: shock.life, permanentId: permId, auto: true });
+  }
   // ENTERS-WITH-COUNTERS half (CR 122.6): "counters being put on an object … refers to putting counters on
   // that object while it's on the battlefield AND ALSO to an object that's given counters as it enters."
   // Recorded HERE, the single point where the finished permanent joins the battlefield, rather than at each

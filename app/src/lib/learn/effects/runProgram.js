@@ -26,7 +26,7 @@
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice, setPendingImpulseDigChoice } from "../pendingChoice.js";
 import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
-import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures } from "../gameState.js";
+import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
 import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
 import { programConfidence } from "./parser.js";
@@ -1307,6 +1307,36 @@ export function resolveSoftCounterChoice(state, pay) {
     next = counterSpellById(next, pc.spellId, { via: "soft-counter", counterDest: pc.counterDest || null });
   }
   return resumeAfterChoice(next, pc);
+}
+
+/**
+ * ===== OPTIONAL-LIFE-PAYMENT (CR 614.1c + 119.4 — the SHOCKLAND clause, LANDS-TIER slice 2) ===== — settle
+ * "you may pay N life. If you don't, it enters tapped." for a land that entered UNTAPPED on the play-land
+ * path and is waiting on the controller. PAY → deduct the life through loseLife (the one life sink — so a
+ * "whenever you lose life" watcher and the 0-life SBA both see it; CR 119.4 permits paying down to exactly
+ * 0, so the gate is life >= N, not > N) and the land stays untapped. DECLINE — or an unaffordable pay —
+ * → tap it with fromEnter (CR 701.26a: entering tapped is NOT "becoming tapped"; no becomes-tapped event).
+ *
+ * NO RESUME: this pause was raised outside any effect program, so resumeAfterChoice is deliberately not
+ * called — the settler returns the board and the learnSession wrapper finalizes the stack (SBA + flush),
+ * exactly as the mana sibling does after its own resume. A vanished land (it left the battlefield during
+ * the pause) or an eliminated controller → clear the pause and do nothing, never a phantom tap or charge.
+ */
+export function resolveOptionalLifePaymentChoice(state, pay) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "optional-life-payment") return state;
+  let next = clearPendingChoice(state);
+  const player = next.players?.[pc.controller];
+  if (!player) return next;
+  const lk = findPermanent(next, pc.permanentId);
+  if (!lk?.permanent) return next;
+  const life = pc.life || 0;
+  if (pay && (player.life ?? 0) >= life && life > 0) {
+    next = loseLife(next, { playerId: pc.controller, amount: life });
+    return logEvent(next, { kind: "spell-effect", effect: "optional-life-payment", controller: pc.controller, paid: true, amount: life, permanentId: pc.permanentId });
+  }
+  next = tapPermanent(next, pc.permanentId, { fromEnter: true });
+  return logEvent(next, { kind: "spell-effect", effect: "optional-life-payment", controller: pc.controller, paid: false, amount: life, permanentId: pc.permanentId });
 }
 
 /**

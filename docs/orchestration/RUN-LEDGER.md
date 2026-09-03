@@ -3,6 +3,46 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🩸 2026-09-03 — LANDS-TIER slice 2: THE SHOCKLAND CLAUSE · **+10 corpus (all ten shocklands)** · Cap 76→79 · corpus 39.8% (13,615/34,245)
+> Suite **1320 / 15,123** green; lint 0. Flip-diff **+10, zero LOST, zero RETIERED** — exactly Stomping
+> Ground · Steam Vents · Breeding Pool · Blood Crypt · Sacred Foundry · Godless Shrine · Overgrown Tomb ·
+> Hallowed Fountain · Temple Garden · Watery Grave. Cap: 27 `land` / 9 `land-partial` (was 24/12).
+> Overnight stage ① item 1 (plan §1a row 1) — done.
+> · **"As this land enters, you may pay 2 life. If you don't, it enters tapped."** is a PLAYER CHOICE, not
+>   a board read, so the reader (`landEntersTapped.paysLifeOrEntersTapped` → `{life:N}`, whole-line
+>   anchored) only recognises the line and the two enter sites decide HOW the choice is made:
+>   — **play-land path** (actionDispatcher): the land is already on the battlefield untapped; a controller
+>     who can pay gets a REAL pending choice `optional-life-payment` (new pendingChoice kind → runProgram
+>     `resolveOptionalLifePaymentChoice` → learnSession driver branch + settle + `applyOptionalLifePaymentChoice`
+>     → `/api/learn/choose` hook → `OptionalLifePaymentPanel` → LearnView mount/route). A controller who
+>     CAN'T pay (life < N, CR 119.4) has no choice to make: tapped, no pause.
+>   — **tutor site** (`resolvers.enterPermanent`, inside an effect's resolution — no land-entry resume seam):
+>     the WRITTEN policy decides for every seat and the decision to pay is CHARGED right after the push via
+>     `loseLife` (the one life sink), logged `auto:true`. **The FP I nearly shipped:** my first cut set the
+>     tapped flag from the policy and never charged the life — a free untapped dual. The two halves are now
+>     one decision (`shockPay` sets the flag AND drives the deduction) and mutation M1 pins it.
+> · **The policy is written down, not implied:** `autoPickOptionalLifePayment` = pay iff life ≥ 10 (and ≥ N).
+>   Never a decline-only shortcut, never illegal; a board-aware refinement is named as future work in its doc.
+> · **Classifier:** both `landFullyCovered` sites admit the line ONLY through the same reader (the CAP12
+>   discipline); the second site strips the sentence PAIR as one line (`tapRe` alone spans only the
+>   "If you don't" half — that residue is why the shocklands never flipped before).
+> · **Mutations 8/8 KILLED** (seen-to-fail): M1 tutor pays-but-never-charges · M2 reader subject loosened
+>   · M3 CR 119.4 can't-pay guard removed · M4 resolver pays without re-checking life (negative) · M5
+>   classifier credits a line the reader refused · M6 policy threshold 10→0 · M7 decline path never taps ·
+>   M8 tutor ignores the policy (always untapped). **Documented gap:** the learnSession driver branch is
+>   mirrored code (the optional-mana-payment shape) with no engine-level witness of its own — a
+>   session-level pause test is the next step if a driver mutation ever matters.
+> · ⚠️ **Flip-diff trap, banked:** the first "before" snapshot came from the MAIN checkout, which sits at
+>   bb2b1adb (CAP16) — one commit BEHIND LANDS-1 — so the diff read +94 (LANDS-1's 84 + these 10). The
+>   honest before is the committed HEAD: `git archive 37bb04b7 app/src app/scripts` into scratch, a
+>   junction to node_modules, snapshot there, remove the junction. Never snapshot "before" from a tree you
+>   have not verified is at HEAD.
+> · ⚠️ **Bash-heredoc trap, banked:** a quoted heredoc into python still collapsed `\\` → `\` (a `\\d` became
+>   `\d`, a `\\n` became a newline) and an assert caught it before any write. Scripts with backslashes go
+>   through the Write tool to a file, then run — never inline.
+> · Cap tail now: Mines of Moria · Mistrise Village · Monumental Henge · Otawara · Inventors' Fair · Uthros
+>   (single-blockers, all activated abilities) + Urza's Saga + 2 MDFC backs; 10 body-only; 2 arbiter-spell.
+
 > ## 🏞️ 2026-09-02 — LANDS-TIER slice 1: "enters tapped unless <condition>" · **+84 corpus (83 lands)** · Cap 75→76 · corpus 39.53→39.78%
 > Suite **1319 / 15,111** green; lint 0; exit codes unpiped, chained with `;`. Flip-diff **+84, zero LOST**
 > (83 `land` + 1 `native-mixed`, the latter audited whole-card below). Overnight stage ① item 2 — done

@@ -57,7 +57,7 @@ import {
 import { tutorManaValue } from "./effects/atoms/library.js"; // γ1i (CAP14) — the shared MV reader the tutor / free-cast paths use, so "mana value" means ONE thing engine-wide
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
 import { manaSources, planPayment, sourcesExcludingOneShotVictim, commitPaymentPlan, commitManaTap, payManaCost } from "./manaModel.js";
-import { conditionalEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" (a leaf over interveningIf; cycle-free)
+import { conditionalEntersTapped, paysLifeOrEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" + the shockland pay-life clause (a leaf over interveningIf; cycle-free)
 import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
 import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
@@ -72,7 +72,7 @@ import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf } from "./layers.js";
 import { parseCrewCost, parseDiscardCostAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch
 import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers } from "./triggers.js";
-import { setPendingSoftCounterChoice } from "./pendingChoice.js";
+import { setPendingSoftCounterChoice, setPendingOptionalLifePaymentChoice } from "./pendingChoice.js"; // setPendingOptionalLifePaymentChoice — the shockland pause (LANDS-TIER slice 2), raised from the play-land path
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
 import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js";
 import { applyKiraTargetCounter } from "./kiraTargetCounter.js";
@@ -170,6 +170,21 @@ function applyPlayLand(state, action) {
     const entered = bf[bf.length - 1];
     if (entered && (entersTapped(card) || impositionEntersTapped(next, card, action.playerId) || conditionalEntersTapped(next, card, action.playerId, entered.id))) { // KM-1: an opposing Kismet taxes the land drop too (CR 614.1c)
       next = tapPermanent(next, entered.id, { fromEnter: true }); // CR 701.26a: entering tapped is NOT "becoming tapped" — suppress the becomes-tapped event
+    } else if (entered) {
+      // THE SHOCKLAND CLAUSE (LANDS-TIER slice 2, CR 614.1c + 119.4): "you may pay N life. If you don't, it
+      // enters tapped." A PLAYER CHOICE, so the land enters UNTAPPED and the decision is raised as a real
+      // pending choice — a human seat gets the picker, an AI seat is auto-decided by the WRITTEN policy
+      // (autoPickOptionalLifePayment: pay iff life ≥ 10). Nothing can act while the pause is open, so
+      // "enter untapped → decide → tap on decline" is observably the replacement it models. A controller
+      // who cannot pay at all (life < N, CR 119.4) has no choice to make: tapped, no pause.
+      const shock = paysLifeOrEntersTapped(card);
+      if (shock) {
+        if ((next.players[action.playerId].life ?? 0) < shock.life) {
+          next = tapPermanent(next, entered.id, { fromEnter: true });
+        } else {
+          next = setPendingOptionalLifePaymentChoice(next, { controller: action.playerId, permanentId: entered.id, life: shock.life, sourceName: card.name });
+        }
+      }
     }
   }
   // KW-FADING / KW-VANISHING (CR 702.32a / 702.63a): a fading/vanishing LAND enters with N fade/time

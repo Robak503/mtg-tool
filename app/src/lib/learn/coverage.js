@@ -63,7 +63,7 @@ import { isControlAura } from "./controlAura.js"; // the control-Aura delivery c
 import { auraEnchantRestrictions } from "./staticAbilityParser.js"; // the qualified-subject host filter, shared with legalChoices' cast lane so offer + metric read ONE source
 import { isNativeKira } from "./kiraTargetCounter.js";
 import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy, counterShieldPrevention, attachedPreventPutCountersOf, selfPreventPutCounters } from "./combatEvasion.js";
-import { entersTappedUnlessCondition } from "./landEntersTapped.js"; // LANDS-TIER — the conditional enters-tapped reader BOTH enter sites consult (metric and runtime read one function)
+import { entersTappedUnlessCondition, paysLifeOrEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — the conditional enters-tapped reader BOTH enter sites consult (metric and runtime read one function)
 import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
 // OMNATH — ground the classifier on the two RUNTIME registries the engine actually consults (never a
 // name-only credit): staticEffectsOf reads layers.STATIC_REGISTRY (the layer-7c dynamic +1/+1-per-green
@@ -1795,9 +1795,15 @@ function landFullyCovered(card) {
   // sentence (whole line, ending at the condition); a compound or rider leaves residue as before.
   const condTapped = entersTappedUnlessCondition(card);
   const condLineRe = condTapped ? new RegExp(`^[^.]*\\benters tapped unless ${condTapped.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.?$`, "i") : null;
+  // LANDS-TIER slice 2: the SHOCKLAND clause, vouched by the same reader both enter sites consult
+  // (landEntersTapped.paysLifeOrEntersTapped — the play-land path raises a real pay-or-tap pause, the tutor
+  // site applies the written auto-policy and charges the life). Exactly the printed sentence pair, whole line.
+  const shockTapped = paysLifeOrEntersTapped(card);
+  const shockLineRe = shockTapped ? /^as this land enters, you may pay \d+ life\. if you don't, it enters tapped\.?$/i : null;
   for (const line of afterTriggers.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (tapped && /^[^.]*\benters (?:the battlefield )?tapped\.?$/i.test(line)) continue;
     if (condLineRe && condLineRe.test(line)) continue;
+    if (shockLineRe && shockLineRe.test(line)) continue;
     if (isManaLine(line)) continue;
     if (isActivatedAbilityLine(line, card)) continue; // vouched modeled/gy/mana by the .every above
     if (isKeywordOnly(line, card?.name)) continue;
@@ -3360,7 +3366,12 @@ export function classifyCard(card) {
   // LANDS-TIER (2026-09-02): a CONDITIONAL "enters tapped unless <condition>" sentence is credited here
   // too, on the same reader the enter sites consult (it vouches only conditions the shared evaluator can
   // read). tapRe already spans the whole sentence through the condition, so the strip needs no change.
-  const isTapped = entersTapped(card) || !!entersTappedUnlessCondition(card);
+  // LANDS-TIER slice 2: the SHOCKLAND sentence pair ("As this land enters, you may pay N life. If you don't, it
+  // enters tapped.") — tapRe spans only the second sentence, so the pair is stripped as ONE line by shockRe
+  // first, on the same reader both enter sites consult (paysLifeOrEntersTapped).
+  const shock = paysLifeOrEntersTapped(card);
+  const shockRe = /^[ \t]*as this land enters, you may pay \d+ life\. if you don't, it enters tapped\.?[ \t]*$/gim;
+  const isTapped = entersTapped(card) || !!entersTappedUnlessCondition(card) || !!shock;
   // CREW (BLITZ VH-1, CR 702.121): "Crew N" is a modeled special-activation line — legalChoices.
   // actionsCrewVehicle offers it (tap own creatures with total power ≥ N, auto-picked sick-first),
   // actionDispatcher.applyCrewVehicle taps + animates (a layer-4 endOfTurn Creature type-add; printed P/T
@@ -3390,9 +3401,10 @@ export function classifyCard(card) {
   const crewRe = /(?:^|\n)\s*crew \d+\b[^\n]*(?=\n|$)/gi;
   const hasCrew = /\bvehicle\b/.test(type) && parseCrewCost(card) != null;
   const crewOracle = hasCrew ? riotOracle.replace(crewRe, "\n") : riotOracle;
-  const etOracle = isTapped ? crewOracle.replace(tapRe, "\n").trim() : crewOracle;
+  const shockStripped = shock ? crewOracle.replace(shockRe, "") : crewOracle;
+  const etOracle = isTapped ? shockStripped.replace(tapRe, "\n").trim() : crewOracle;
   const etCard = crewOracle !== oracle || isTapped
-    ? { ...card, oracle: (isTapped ? crewOracle.replace(tapRe, "\n") : crewOracle).trim() }
+    ? { ...card, oracle: (isTapped ? shockStripped.replace(tapRe, "\n") : crewOracle).trim() }
     : card;
   // CREED — AN ADDITIONAL CAST COST ON A PERMANENT IS NOT ENFORCED (census slice 33). extractAdditionalCosts
   // is consumed ONLY on the spell program path (parser.js), so legalChoices gates and the dispatcher charges
