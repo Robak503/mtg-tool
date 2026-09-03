@@ -3,6 +3,47 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🪞 2026-09-03 — CAP-BRACERS: ILLUSIONIST'S BRACERS — the ability-ACTIVATED trigger event + COPY-THAT-ABILITY · **+6 corpus** (Cap 85 → 86) · Colton's day-order item 2 · corpus 13,842 / 34,245 (40.4%)
+> Suite **1356 / 15,372** green (one stale CREED guard re-seated, below); lint 0. Flip-diff **+6, zero LOST** —
+> Illusionist's Bracers + Battlemage's Bracers (body-only → native-mixed), Rings of Brighthearth, Kurkesh Onakke
+> Ancient, Crackdown Construct, Ceaseless Searblades (body-only → native-trigger) — every one audited whole-card;
+> the Bracers, the Construct and the Rings are runtime-witnessed, the other three share their exact atoms.
+> **14/14 killed** (a 15th, the splitter-verb edit, SURVIVED and was DELETED — see below).
+> · **A NEW TRIGGER EVENT — `abilityActivated`.** Fired by `checkAbilityActivatedTriggers` at the dispatcher's two
+>   activated-ability push sites (a permanent's ability, a loyalty ability — CR 606.1), enqueued and flushed ABOVE the
+>   ability so a copy resolves first (CR 603.3b). Two detector shapes: "an ability of equipped creature is activated"
+>   (scope equippedCreature — the SAME attached-linkage the Swords' riders use, so an Equip activation, which is the
+>   equipment's own ability, never fires it) and "you activate an ability [of a creature | of an artifact | of an
+>   artifact or creature | of an <Subtype>] [that isn't a mana ability]" (whose:"you"; the permanent filter rides
+>   `activatedTypeFilter`, threaded at the descriptor builder — its mutation is the one that would let the Construct
+>   fire off a LAND). A two-word planeswalker filter ("of a Sarkhan planeswalker") or "that targets…" stays
+>   UNDETECTED → Arbiter (safe FN — Sarkhan's Whelp, Ertha Jo, Elrond's once-per-turn stay parked).
+> · **"if it isn't a mana ability"** — a new intervening-if reader off `activatedIsManaAbility`; mana abilities never
+>   use the stack (CR 605.3b), so every stack activation stamps a definite false; a context without the field is
+>   null (never a fired guess). Spell-side unreadable by design.
+> · **`copy-activated-ability`** (stack.js): the referent is the trigger context's `activatedStackObjectId`; the copy
+>   is the same stack object under a fresh id, `isCopy`, the original's controller and targets ("you may choose new
+>   targets" honoured as a decline — legal under "may"; the retargeting choice is a later arm). An original already
+>   off the stack → logged no-op, never a guess at the top object (pinned). The Rings' "you may pay {2}. If you do,
+>   copy that ability" rides the EXISTING optional-mana-payment pause: paying spends the mana and copies; declining
+>   copies nothing (both pinned through the pause + resume — the activation context survives the resume).
+> · **Two honest corrections while building.** (1) My detectors were first written INSIDE the combat-damage detector's
+>   END-anchored guard — unreachable; the probe showed body-only and I moved them to classifyCondition's top level.
+>   (2) The retargeting sentence's "may" was marking the whole trigger OPTIONAL (the copy is mandatory — CR 707.10c);
+>   the optional derivation now strips "you may choose new targets for the copy" first (pinned: a mutation restoring
+>   the old line is killed by the `optional === false` assertion).
+> · **A surviving mutation, deleted:** I had taught the trigger splitter the "activated/activates" event verbs; the
+>   mutation removing them survived because the splitter's first-comma default already lands on the right boundary
+>   for every card in this family. Defensive dead weight — deleted per the hollow-gate law, not documented around.
+> · **Stale CREED guard re-seated:** equipRider.test.js held Illusionist's Bracers as "the unmodeled activated-ability
+>   payload that must park the card"; it is native now (asserted AS native so nothing re-parks it), and Deathrender's
+>   "put a creature card from your hand onto the battlefield and attach this Equipment to it" (real oracle,
+>   body-only) holds the guard seat.
+> · **Honest edges:** the event fires only for STACK activations (a "whenever you activate an ability" watcher that
+>   should also see a mana ability under-fires — Ceaseless Searblades on an Elemental's mana ability); a host that
+>   sacrificed itself as the cost is detached before the checker reads the linkage (under-fire); the copy keeps the
+>   original's targets (no retargeting UI).
+
 > ## 🛡️ 2026-09-03 — CAP-TP: TEFERI'S PROTECTION, WHOLE — a PLAYER shield + PHASING as a new subsystem + the self-exile stamp · **+1 corpus** (Cap 84 → 85) · Colton's day-order item 1
 > Suite **1355 / 15,363** green (one stale pin retired, below); lint 0. Flip-diff **+1, zero LOST** (Teferi's
 > Protection, arbiter-spell → native-spell). **14/14 killed.**

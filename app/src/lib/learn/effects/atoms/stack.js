@@ -1773,7 +1773,25 @@ function applyCounterCastSpell(state, atom, ctx) {
   return counterSpellById(state, spellId, { via: ctx?.cardName || null });
 }
 
+/**
+ * COPY-ACTIVATED-ABILITY (CAP-BRACERS, 2026-09-03 — CR 707.10): copy the activated ability whose activation fired this
+ * trigger. The referent is the trigger context's activatedStackObjectId; the copy is the same stack object under a
+ * fresh id, stamped isCopy, controlled by the original's controller, with the original's targets ("you may choose
+ * new targets" honoured as a decline — a legal choice; retargeting is a later arm). An ability already off the
+ * stack is a logged no-op, never a guess at another object.
+ */
+function applyCopyActivatedAbility(state, atom, ctx) {
+  const abilityId = ctx?.activatedStackObjectId;
+  const original = abilityId ? (state.stack || []).find((o) => o.id === abilityId && o.kind === "activated-ability") : null;
+  if (!original) return logEvent(state, { kind: "spell-effect", effect: "copy-activated-ability-fizzle", targetId: null, controller: ctx?.controller });
+  const { id: copyId, state: s2 } = mintId(state, "stk");
+  const copy = { ...original, id: copyId, isCopy: true, payload: { ...original.payload, params: { ...(original.payload?.params || {}) } } };
+  const next = { ...s2, stack: [...s2.stack, copy] };
+  return logEvent(next, { kind: "copy-ability", controller: original.controller, originalId: abilityId, copyId, sourceName: original.source?.name || null, via: ctx?.cardName || null });
+}
+
 export const stackResolvers = {
+  "copy-activated-ability": applyCopyActivatedAbility, // CAP-BRACERS (Illusionist's Bracers) — copy the ACTIVATED ability the trigger fired on (ctx.activatedStackObjectId)
   "counter-cast-spell": applyCounterCastSpell, // SG-13 (Vexing Bauble) — counter the CAST spell the trigger fired on (ctx.castStackObjectId)
   retarget: applyRetarget, // ⭐ RETARGET (Deflecting Swat, CR 115.7) — re-pick a stack object's own targets off the live board; decline = keep (CR 115.7d)
   "grant-dies-exile-to-cast-spell": applyGrantDiesExileToCastSpell, // RIVAZ RIDER — stamp the triggering cast spell; the permanent it becomes exiles on death

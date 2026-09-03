@@ -72,7 +72,7 @@ import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./le
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf } from "./layers.js";
 import { parseCrewCost, parseDiscardCostAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch
-import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers } from "./triggers.js";
+import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers
 import { setPendingSoftCounterChoice, setPendingOptionalLifePaymentChoice } from "./pendingChoice.js"; // setPendingOptionalLifePaymentChoice — the shockland pause (LANDS-TIER slice 2), raised from the play-land path
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
 import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js";
@@ -1396,6 +1396,12 @@ function applyActivateAbility(state, action) {
     cardName: perm.card?.name,
     abilityText: action.abilityText,
   });
+  // ABILITY-ACTIVATED (CAP-BRACERS, CR 603.2): "Whenever an ability of equipped creature is activated" / "Whenever
+  // you activate an ability" watchers — enqueued here, flushed by the γ1 flush just below (ABOVE the ability, so a
+  // copy resolves first — CR 603.3b). The pre-cost `perm` is the triggering permanent (its type line and id are
+  // what the watchers read); the equipment linkage is read live, so a host that sacrificed itself as the cost no
+  // longer carries its equipment and the watcher stays quiet (a safe under-fire).
+  next = checkAbilityActivatedTriggers(next, { permanent: perm, activatorId: action.playerId, stackObjectId: stkId });
   // γ1 — a self-sacrifice cost (above) enqueues dies triggers in pendingTriggers; flush them onto
   // the stack now (ABOVE the ability, so they resolve first — CR 603.3b), exactly as the cast path
   // flushes cast triggers. A no-op when nothing triggered (the pre-γ1 common case).
@@ -1606,6 +1612,9 @@ function applyActivateLoyalty(state, action) {
     costDelta: action.costDelta,
     abilityText: action.abilityText,
   });
+  // ABILITY-ACTIVATED (CAP-BRACERS): a loyalty ability IS an activated ability (CR 606.1) — "whenever you activate an
+  // ability [of a planeswalker]" watchers fire here too; flushed by the becomes-target flush just below.
+  next = checkAbilityActivatedTriggers(next, { permanent: perm, activatorId: action.playerId, stackObjectId: stkId });
   // BECOMES-TARGET (CR 603.2 — the Phantasmal Illusion family): a loyalty ability that TARGETS a permanent
   // carrying the sac trigger fires it too — a loyalty ability IS an activated ability (CR 606.1), so "a spell or
   // ability" covers it. Enqueued + flushed ABOVE the loyalty ability so it resolves first (CR 603.3b). No-op

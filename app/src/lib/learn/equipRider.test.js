@@ -245,8 +245,13 @@ describe("coverage — clean equipment flips and CREED negatives", () => {
     // zero. Asserted AS native so this pin can never silently re-park him.
     const CAP = "Throw ... — {3}, Unattach an Equipment from Captain America: He deals damage equal to that Equipment's mana value divided as you choose among one, two, or three targets.\n... Catch — At the beginning of combat on your turn, attach up to one target Equipment you control to Captain America.";
     expect(classifyCard({ name: "Captain America, First Avenger", type: "Legendary Creature — Human Soldier Hero", oracle: CAP })).toBe("native-mixed");
-    // ⭐ THE SURVIVING GUARD of the class this vacated — an UNMODELED activated-ability payload must still
-    // park the whole card. Illusionist's Bracers' ability-COPY is genuinely unmodeled, so it holds the seat.
-    expect(classifyCard(EQ("Illusionist's Bracers", "Whenever an ability of equipped creature is activated, if it isn't a mana ability, copy that ability. You may choose new targets for the copy.\nEquip {3}", "Artifact — Equipment"))).toBe("body-only");
+    // GRADUATED (CAP-BRACERS, 2026-09-03): Illusionist's Bracers' ability-COPY is modeled (the ability-activated
+    // trigger + the copy-activated-ability atom; illusionistsBracers.test.js owns the runtime witness). Asserted AS
+    // native so this pin can never silently re-park it.
+    expect(classifyCard(EQ("Illusionist's Bracers", "Whenever an ability of equipped creature is activated, if it isn't a mana ability, copy that ability. You may choose new targets for the copy.\nEquip {3}", "Artifact — Equipment"))).toBe("native-mixed");
+    // ⭐ THE SURVIVING GUARD of the class this vacated — an UNMODELED equipped-creature payload must still park the
+    // whole card. Deathrender's "put a creature card from your hand onto the battlefield and attach this Equipment
+    // to it" is genuinely unmodeled (real oracle, bundled snapshot 2026-09-03), so it holds the seat.
+    expect(classifyCard(EQ("Deathrender", "Equipped creature gets +2/+2.\nWhenever equipped creature dies, you may put a creature card from your hand onto the battlefield and attach this Equipment to it.\nEquip {2}", "Artifact — Equipment"))).toBe("body-only");
   });
 });

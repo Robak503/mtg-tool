@@ -232,6 +232,17 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
 ---
 
 ## §6 PARKED / NEEDS COLTON (append as you go — this is the morning report's raw material)
+
+- **[CAP-BRACERS family remainder, 2026-09-03 — Cindy lane, engine parks]** the `abilityActivated` event ships for
+  the plain / creature / artifact / artifact-or-creature / single-word-subtype filters. Still parked, each one a
+  small arm on the same checker: **Sarkhan's Whelp** + **Leori, Sparktouched Hunter** (a two-word planeswalker-type
+  filter "of a Sarkhan planeswalker" / "of a planeswalker of that type" — needs a planeswalker-subtype reader and,
+  for Leori, a chosen-type stamp); **Ertha Jo, Frontier Mentor** ("that targets a creature or player" — read the
+  activated stack object's targets); **Elrond, Moon-Reader** ("This ability triggers only once each turn" on the
+  abilityActivated event — the once-per-turn rider exists for other events; wire it here); **Ashnod the Uncaring**
+  ("if one or more permanents were sacrificed to activate it" — thread the cost's sacrifice list into the activation
+  context); **Verrak, Warped Sengir** ("if life was paid to activate it … pay that much life again" — thread the
+  paid-life amount). None needs Colton.
 - Squirrel Girl's Archidekt URL — not captured; the deck does not survive a box move until it is.
 - **Cap America (84/100) — every remaining card is multi-piece or a park:** Uthros, Titanic Godcore ·
   Station (a keyword subsystem — a charge-counter station action + a threshold-unlocked ability); Urza's
@@ -328,7 +339,13 @@ decks at large", then "the program work — all those cards are used lots of pla
    phasing cannot be modeled honestly the WHOLE card gates to the Arbiter with a ruling — never a half-native
    spell (the CREED). Reading of "gate the protection aspect": the protection/life-lock is the part to make
    native first; "the rest" = whatever a single slice cannot carry.
-2. **Illusionist's Bracers** — "Whenever an ability of equipped creature is activated, if it isn't a mana
+2. **Illusionist's Bracers** — ✅ **SHIPPED, 2026-09-03 (CAP-BRACERS)** — the `abilityActivated` trigger event (both
+   dispatcher push sites), the "isn't a mana ability" intervening-if, the `copy-activated-ability` atom (same targets;
+   retargeting = later arm). +6 with the family (Battlemage's Bracers, Rings, Kurkesh, Crackdown Construct, Ceaseless
+   Searblades). Cap 85 → 86. Parked from the family (§6): Sarkhan's Whelp / Leori (two-word planeswalker-type
+   filter), Ertha Jo ("that targets a creature or player"), Elrond (once-per-turn rider), Ashnod the Uncaring
+   ("if one or more permanents were sacrificed to activate it"), Verrak ("if life was paid to activate it").
+   Original brief: "Whenever an ability of equipped creature is activated, if it isn't a mana
    ability, copy that ability. You may choose new targets for the copy." — an ability-activated trigger event
    + a copy-ability resolution (re-run the activated program with retargeting).
 3. **Cap's remaining parks → Omnath** for Arbiter rulings + curated play-hints (COMMS [Q-CAP-ARBITER], 11:40).

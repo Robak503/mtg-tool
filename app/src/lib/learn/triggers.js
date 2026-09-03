@@ -2037,6 +2037,27 @@ function classifyCondition(condRaw, cardName, cardType) {
   // AFTER the clash ends (the printed reminder). Bare forms only; any rider on the condition → UNDETECTED.
   if (/^you clash$/.test(c)) return { event: "clash", scope: "you", whose: "any" };
   if (/^you clash and win$/.test(c)) return { event: "clash", scope: "you", whose: "any", winOnly: true };
+  // ABILITY-ACTIVATED (CAP-BRACERS, 2026-09-03 — CR 602 / 707.10): "Whenever an ability of equipped creature is
+  // activated, if it isn't a mana ability, copy that ability." (Illusionist's Bracers, Battlemage's Bracers). The
+  // watcher is the EQUIPMENT; the permanent whose ability went on the stack is the triggering permanent, so the
+  // SAME "equippedCreature" attached-linkage scope fires ONLY for the host's own abilities (an Equip activation
+  // is the equipment's ability, not the host's — it never fires this). Fired by checkAbilityActivatedTriggers
+  // at the dispatcher's activated-ability and loyalty push sites; mana abilities never reach the stack, so the
+  // "isn't a mana ability" intervening-if reads a definite false. whose:"any" — the host's controller activates.
+  if (/^an ability of equipped creature is activated$/.test(c)) return { event: "abilityActivated", scope: "equippedCreature", whose: "any" };
+  // "Whenever you activate an ability [of a creature | of an artifact | of an artifact or creature | of an
+  // <Subtype>] [that isn't a mana ability]" (Crackdown Construct, Elrond Moon-Reader, Ceaseless Searblades, Rings
+  // of Brighthearth, Rowan's emblem). whose:"you" — only the watcher's controller's own activations; the optional
+  // permanent filter rides `activatedTypeFilter` and is matched against the ACTIVATED permanent's type line in
+  // the checker (a single lowercase word = a subtype substring; "artifact or creature" = either). A filter this
+  // regex cannot read (a two-word planeswalker type, "that targets …") stays UNDETECTED → Arbiter (safe FN).
+  {
+    const ya = /^you activate an ability(?: of (a creature|an artifact|an artifact or creature|an? [a-z]+))?(?: that isn't a mana ability)?$/.exec(c);
+    if (ya) {
+      const filt = ya[1] ? ya[1].replace(/^an? /, "") : null;
+      return { event: "abilityActivated", scope: "you", whose: "you", ...(filt ? { activatedTypeFilter: filt } : {}) };
+    }
+  }
   // ===== COUNTERS-PLACED (CR 122.1 / 121.6) ===== "Whenever you put one or more +1/+1 counters on a
   // creature you control" (Terrasymbiosis, Stocking the Pantry, Casey Jones) / "…on a creature" (Earth
   // Kingdom General — ANY creature, not just yours). The TRIGGERING player is YOU (the source's controller),
@@ -4973,6 +4994,7 @@ export function detectTriggers(card) {
         sacAnother: cls.sacAnother,           // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
         onCreate: cls.onCreate,               // TOKEN-CHANGE: responds to a token being created (Mirkwood Bats)
         winOnly: cls.winOnly,                 // CLASH (STAGE ④-2): "whenever you clash AND WIN" fires only for the clash's winner
+        activatedTypeFilter: cls.activatedTypeFilter, // ABILITY-ACTIVATED (CAP-BRACERS): "of an artifact or creature" / "of a creature" / "of an <Subtype>" — checkAbilityActivatedTriggers matches it against the ACTIVATED permanent's type line. ⚠️ Unlisted here = dropped = Crackdown Construct fires on a LAND's ability too (an over-fire), with the detector looking correct.
         onSacrifice: cls.onSacrifice,         // TOKEN-CHANGE: responds to a token being sacrificed
         selfReturnKind: cls.selfReturnKind,   // SELF-LTB: "self" (Aura PiG) | "attached" (equipped-creature-dies)
         perCard: cls.perCard,                 // MILL-ON-EVENT: true = per-card ("mills a card"), false = once-per-event ("one or more … are milled")
@@ -4992,7 +5014,7 @@ export function detectTriggers(card) {
         etbMinMv: cls.etbMinMv,               // ETB FILTER: printed mana-value FLOOR ("with mana value 6 or greater" — Dragon Fangs). ⚠️ Unlisted here = dropped = the Aura returns on ANY creature entering, which is the whole restriction gone while the trigger still looks correctly detected.
         tokenFilter: cls.tokenFilter,         // "a CREATURE TOKEN you control …" (Curiosity Crafter, Anointer Priest). Unlisted here = silently dropped = the trigger fires on every creature, token or not.
         etbExcludeSelf: cls.etbExcludeSelf,   // "ANOTHER creature you control with power N or greater" (Garruk's Packleader). Unlisted here = silently dropped = the source fires on its OWN entry — a fabricated draw, the over-fire direction.
-        optional: /\bmay\b/.test(effectClause.toLowerCase()),
+        optional: /\bmay\b/.test(effectClause.toLowerCase().replace(/\byou may choose new targets for the cop(?:y|ies)\b/g, "")), // CAP-BRACERS: the retargeting "may" (CR 707.10c) never makes the copy itself optional
         // The condition slot gets the SAME self-name normalization discipline as the effect clause (one
         // anchored grammar — see rewriteSelfNameInterveningIf): "The Ozolith has counters on it" → the
         // "this permanent" form the interveningIf vocabulary reads. Every other condition passes untouched.
@@ -8466,6 +8488,38 @@ function prowessDescriptor() {
  * fabricated). Context carries the cast spell's name + type for future referential
  * effects. Pure — appends to pendingTriggers and returns new state.
  */
+/**
+ * ABILITY-ACTIVATED (CAP-BRACERS, 2026-09-03 — CR 602.2 / 603.2): a permanent's activated ability (a loyalty ability
+ * included, CR 606.1) was just put on the stack. Fires every "ability of equipped creature is activated" watcher
+ * whose host IS the activated permanent (scope equippedCreature), and every "you activate an ability [of …]"
+ * watcher controlled by the activator (whose:"you"), applying the descriptor's optional permanent filter against
+ * the activated permanent's type line. Context threads `activatedStackObjectId` (the copy atom's referent),
+ * `activatedIsManaAbility: false` (a mana ability never uses the stack — CR 605.3b) and the activator.
+ * Enqueued to pendingTriggers; the dispatcher flushes them ABOVE the ability so a copy resolves first (CR 603.3b).
+ */
+export function checkAbilityActivatedTriggers(state, { permanent, activatorId, stackObjectId }) {
+  if (!permanent || !activatorId) return state;
+  const typeLine = String(permanent.card?.type || "").toLowerCase();
+  const passesFilter = (filt) => {
+    if (!filt) return true;
+    return filt.split(" or ").some((tok) => typeLine.includes(tok.trim().toLowerCase()));
+  };
+  const triggeringContext = { activatedStackObjectId: stackObjectId, activatedIsManaAbility: false, activatorId, activatedPermanentId: permanent.id };
+  let fired = [];
+  for (const pid of Object.keys(state.players || {})) {
+    for (const watcher of triggerSourcesOf(state, pid)) {
+      const raw = triggersForEvent(state, { event: "abilityActivated", sourcePermanent: watcher, triggeringPermanent: permanent, triggeringContext });
+      fired = fired.concat(raw.filter((t) => {
+        const d = t?.descriptor || t;
+        if (d?.whose === "you" && activatorId !== watcher.controller) return false;
+        return passesFilter(d?.activatedTypeFilter);
+      }));
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
 export function checkCastTriggers(state, { spellCard, casterId, targets = [], xValue = null, stackObjectId = null, castFromZone = null, manaSpent = null }) {
   if (!spellCard) return state;
   // `castingPlayerId` carries the CASTER's seat into every cast-trigger's context (spread into the resolver ctx by

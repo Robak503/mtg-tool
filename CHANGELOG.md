@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Illusionist's Bracers works** — an ability of the equipped creature that isn't a mana ability is copied when
+  it's activated; the copy resolves first and keeps the original's targets. The same machinery makes
+  **Battlemage's Bracers**, **Rings of Brighthearth** and **Kurkesh, Onakke Ancient** (pay to copy — paying spends
+  the mana, declining copies nothing), **Crackdown Construct** and **Ceaseless Searblades** play natively.
 - **Teferi's Protection is fully native** — the whole card, not a half: until your next turn your life total
   can't change (losses and gains both hold), you have protection from everything (nothing another player
   controls can target you, and all damage to you is prevented, combat included), all your permanents phase

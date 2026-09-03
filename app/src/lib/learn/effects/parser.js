@@ -2387,6 +2387,18 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       return makeProgram({ confidence: "high", atoms: [{ op: "reveal-until-creature-attacking", targetType: null }], xSpell: false, unparsedTail: null });
     }
   }
+  // ===== COPY THAT ABILITY (CAP-BRACERS, 2026-09-03 — CR 707.10) ===== the payoff of an ability-activated
+  // trigger: "copy that ability. You may choose new targets for the copy." (Illusionist's Bracers, Rings of
+  // Brighthearth's "If you do" branch) / "copy it. You may choose new targets for the copy." (Rowan Kenrith's
+  // emblem). ONE atom; the referent is the trigger context's activatedStackObjectId, never a chosen target. The
+  // "may choose new targets" is honoured as a decline (the copy keeps the original's targets — legal under
+  // "may"); a retargeting choice is a later arm.
+  {
+    const ca = stripReminder(String(oracle)).trim().toLowerCase().replace(/\s+/g, " ").replace(/\.$/, "");
+    if (/^copy (?:that ability|it)(?:\. you may choose new targets for the copy)?$/.test(ca) && KNOWN.has("copy-activated-ability")) {
+      return makeProgram({ confidence: "high", atoms: [{ op: "copy-activated-ability", targetType: null }], xSpell: false, unparsedTail: null });
+    }
+  }
   // ===== TEFERI'S PROTECTION (CAP, 2026-09-03 — CR 702.16b / 119.6 / 702.26) ===== the body after the self-exile
   // sentence is stripped: "Until your next turn, your life total can't change and you gain protection from
   // everything. All permanents you control phase out." — two sentences, one deterministic atom (the shield +

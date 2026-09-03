@@ -735,6 +735,15 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     return context.manaSpent === false;
   }
 
+  // ===== NOT-A-MANA-ABILITY (CAP-BRACERS, 2026-09-03 — Illusionist's Bracers / Rings of Brighthearth, CR 605.3b)
+  // ===== "…, if it isn't a mana ability, …" on an ability-activated trigger. Reads the activation context's
+  // `activatedIsManaAbility` (threaded by checkAbilityActivatedTriggers — a mana ability never uses the stack,
+  // so every stack activation stamps a definite false): false → true; true → false; missing → null.
+  if (c === "it isn't a mana ability") {
+    if (typeof context?.activatedIsManaAbility !== "boolean") return null;
+    return context.activatedIsManaAbility === false;
+  }
+
   // ===== CLASH RESULT (STAGE ④-1, 2026-09-03 — CR 701.22) ===== "you won the clash": the parser's normalized
   // form of "If you win" after a clash atom. Reads the stamp the clash applier wrote for THIS controller
   // (`state.clashResult`); no stamp, another player's stamp, or a non-boolean → null (never a guess). The
@@ -1784,7 +1793,7 @@ export function interveningIfParseable(condition) {
   // the probe permanent has no counters → false, still a definite boolean.
   // `triggeringHadCounters` — the HAD-ANY-COUNTERS leave-look-back shape (The Ozolith) returns a boolean
   // here (the runtime stamps it off every leave event's counters snapshot); every other shape ignores it.
-  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringHadNoMinusCounters: true, triggeringHadCounters: true, triggeringPowerDifferedFromBase: true, defenderId: "__probe__", sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0, manaSpent: true }) !== null; // manaSpent: a definite boolean so the NO-MANA-SPENT shape (Vexing Bauble) probes as readable; the runtime threads the real value off every cast
+  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__", triggeringCardIsToken: false, triggeringWasCreature: true, triggeringHadNoPlusCounters: true, triggeringHadNoMinusCounters: true, triggeringHadCounters: true, triggeringPowerDifferedFromBase: true, defenderId: "__probe__", sourceCardId: "__probe_gy__", sourcePermanentId: "__entering__", xValue: 0, manaSpent: true, activatedIsManaAbility: false }) !== null; // activatedIsManaAbility: a definite boolean so the NOT-A-MANA-ABILITY shape (Illusionist's Bracers) probes as readable; the runtime threads false off every stack activation. manaSpent: a definite boolean so the NO-MANA-SPENT shape (Vexing Bauble) probes as readable; the runtime threads the real value off every cast
 }
 
 /**

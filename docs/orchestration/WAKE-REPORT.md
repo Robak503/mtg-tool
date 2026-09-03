@@ -7,6 +7,15 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🪞 2026-09-03 (day) — **CAP-BRACERS: Illusionist's Bracers is NATIVE** — Colton's day-order item 2 (plan §8) · suite **1356 / 15,372** green · Cap **85 → 86** · corpus 13,842 / 34,245 (40.4%) · flip-diff +6 / 0 lost (Battlemage's Bracers, Rings of Brighthearth, Kurkesh, Crackdown Construct, Ceaseless Searblades ride the same atoms) · 14/14 killed, one dead edit deleted · CI on the Teferi head 5bcfffed: **GREEN**
+
+> A new trigger event (`abilityActivated`, fired at the dispatcher's activated-ability + loyalty pushes, flushed above
+> the ability), the "isn't a mana ability" intervening-if, and a `copy-activated-ability` atom (same stack object,
+> fresh id, isCopy; the Rings' pay-{2} rides the existing optional-payment pause). The copy keeps the original's
+> targets — retargeting is a later arm. **Next runnable (plan §8):** ④ Cavern of Souls (choose a creature type on
+> entry + a spend-restricted any-colour source whose mana makes the creature spell uncounterable) → ⑤ Archdruid's
+> Charm / Tempt with Discovery. Cap's other parks sit with Omnath (COMMS [Q-CAP-ARBITER]).
+
 ## 🛡️ 2026-09-03 (day) — **CAP-TP: Teferi's Protection is NATIVE, whole** — Colton's day-order item 1 (plan §8) · suite **1355 / 15,363** green · Cap **84 → 85** · corpus 13,836 / 34,245 (40.4%) · 14/14 mutations killed · flip-diff +1 / 0 lost
 
 > A player shield (life lock + protection from everything at the life, targeting and both damage funnels),
