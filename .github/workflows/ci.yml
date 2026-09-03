@@ -22,6 +22,14 @@ jobs:
   test:
     runs-on: windows-2025
     timeout-minutes: 20
+    # 2026-09-03: the windows-2025 runner now exposes 2 CPUs / 9 GB (the "Runner facts" step below proved it),
+    # where the green runs earlier that day had four. vitest sizes its pool at CPUs-1, so the whole suite ran
+    # on ONE worker and could not finish inside the 900 s wall. Two shards, each on both cores, keep every job
+    # well inside the wall WITHOUT raising it — the wall stays a hang detector, not a speed budget.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -67,4 +75,4 @@ jobs:
         # to ignore red. 15 minutes still catches a real hang (which is unbounded) with honest headroom.
         env:
           VITEST_TIMEOUT_MS: "900000"
-        run: npm test
+        run: npm test -- --shard=${{ matrix.shard }}/2 --maxWorkers=2
