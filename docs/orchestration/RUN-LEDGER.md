@@ -3,6 +3,29 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-03 (night cron) — ④-AH: "target creature DEFENDING PLAYER / THAT PLAYER controls" joins the subject peel · **+2** · corpus 14,061 / 34,245 (41.1%)
+> Suite **1395 files / 15,565 tests** green; lint 0. Flip-diff **+2, zero LOST**. **5/5 killed (a sixth, the early stacked-referent stamp, had no carrier and was deleted).**
+> · **The shape:** the fifth qualifier family on the peel — the two event referents the legacy parser already emits
+>   (DP-TGT's defendingPlayer off ctx.defenderId, DT-1's damagedPlayer off ctx.damagedPlayerId), both fail-closed.
+>   Honesty is the ROUTING gate's job, not the peel's: triggerRouting refuses the referent on any event that does not
+>   supply it (only attacks / becomesBlocked / attacksAlone, and combatDamageToPlayer), coverage refuses it on a
+>   spell — an ETB, an upkeep trigger and an instant carrying the phrase all park (witness-pinned; the routing-gate
+>   mutation is KILLED).
+> · **Honest size:** the census counted ~75 carriers; only Spring Splasher and Skymark Roc flip. Ablation says why: The
+>   Wasp parks on "target Hero", Fear of Falling on "loses flying until your next turn", Blind Zealot on "you may
+>   sacrifice it. If you do", Alela / Seifer / Karazikar on goad, Etrata on the hit-counter clause, Aetherstorm Roc on
+>   "up to one … and put a +1/+1 counter on it". The peel is ready for them when those shapes land.
+> · **Fallback-first, by the suite's own pins:** the first cut peeled the referent EARLY like the other qualifiers and
+>   broke two lanes that already own the phrase whole (the SB-1 bounce stamps `who` + `optional`; the tap arm its
+>   scope). The referent alone is now tried on the arms FIRST and peeled only after every arm refuses (a wrapper
+>   around the core). Two pins rewritten: damagedPlayerTargetScope's "raw anaphor refused by design" now equals the
+>   sentinel (honesty moved to the routing gate); tapTargetCreature's "defending player controls → opponent" — a
+>   WIDER pool than printed in multiplayer (every opponent's creatures, not the seat being attacked) — is now the
+>   exact defendingPlayer referent in the tap arm too, an over-offer closed (mutation-proven).
+> · **Board-verified at the pool:** with ctx.defenderId the pool is exactly the defending player's creatures; without
+>   it, nothing; the other referent does not stand in.
+> · **CI:** ④-AF/④-AG's run (52cf87f5) still in flight at commit time; ④-AH pushes only after it is green
+
 > ## 📏 2026-09-03 (night cron) — ④-AG: "with POWER / TOUGHNESS / MANA VALUE N or less / greater" joins the subject peel · **+21** · corpus 14,059 / 34,245 (41.1%)
 > Suite **1394 files / 15,562 tests** green; lint 0. Flip-diff **+21, zero LOST**. **6/6 killed.**
 > · **The shape:** the fourth qualifier family on the peel — the bound comes off the subject and rides back as the

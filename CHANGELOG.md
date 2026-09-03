@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"Target creature defending player controls" on attack triggers works** — Spring Splasher and Skymark Roc pick from the attacked player's board.
 - **"Target creature with power 5 or greater" (and toughness / mana value bounds) works** — the Behemoth cycle, Goblin Smuggler, Wrangle, Claim the Firstborn, Eternal Isolation, Silkwrap and more read the bound off the creature's live stats.
 - **"Another target attacking creature" and "target creature with / without flying" work** — the Pegasus cycle, Herald of the Sun, Forced Landing, Stinging Shot, Quicksand and more offer exactly the creatures the card names.
 - **"Target attacking creature" and "target blocking creature" work** — Run Amok, Righteousness, Outflank, Most Valuable Slayer, Infantry Veteran, Serra Advocate and more only offer creatures in that combat role.

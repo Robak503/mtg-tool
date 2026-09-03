@@ -1228,8 +1228,13 @@ export function combatKeywordClauseParser(clause) {
   if (tapM) {
     const qual = tapM[1];
     const restrictions = [];
-    if (qual === "an opponent controls" || qual === "defending player controls" || qual === "you don't control")
+    if (qual === "an opponent controls" || qual === "you don't control")
       restrictions.push({ kind: "controller", who: "opponent" });
+    // ④-AH (2026-09-03): "defending player controls" is the EXACT referent (CR 509.1 — the one seat being attacked),
+    // read off ctx.defenderId; "opponent" was a wider pool in multiplayer (every opponent's creatures) — the forbidden
+    // direction. The routing gate credits it only on the events that supply the referent.
+    else if (qual === "defending player controls")
+      restrictions.push({ kind: "controller", who: "defendingPlayer" });
     else if (qual === "you control")
       restrictions.push({ kind: "controller", who: "you" });
     else if (tapM[2]) restrictions.push({ kind: "power", op: "<=", value: parseInt(tapM[2], 10) });

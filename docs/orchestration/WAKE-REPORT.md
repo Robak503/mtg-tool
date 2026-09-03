@@ -7,6 +7,20 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-03 (night cron) — **④-AH: "target creature defending player / that player controls" joins the subject peel (+2)** · suite **1395 files / 15,565 tests** green · corpus 14,061 / 34,245 (41.1%) · flip-diff +2 / 0 lost · 5/5 killed (a sixth, the early stacked-referent stamp, had no carrier and was deleted)
+
+> **Night tally (stage ④, thirty-four slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
+> J (+1) · K (+1, FP closed on 3) · L (+4) · M (+2) · N (+7) · O (+4) · P (+3) · Q (+6) · R (+2) · S (+2) · T (+12) · U (+2) ·
+> V (+2, Thrun 90) · W (+3, Thrun 91) · X (+1, Earth Bent 89) · Y (+1) · Z (+6, Veyran 89) · AA (+9, Mothman 88) · AB (+1) ·
+> AC (+12, Hulk 86) · AD (+2) · AE (+30; the combat window) · AF (+26) · AG (+21) · AH (+2) — corpus 13,862 → 14,061.
+> **The subject peel is complete for the printed subject grammar:** another · attacking/blocking · with/without <keyword>
+> · with a [+1/+1] counter · with power/toughness/mana value N or less/greater · defending player / that player controls.
+> What still parks near it is VERB-side: goad (Alela, Seifer, Karazikar — 3 cards on one atom), "loses <keyword> until
+> your next turn", "you may sacrifice it. If you do, …", "up to one target … and put a counter on it".
+> **CI:** ④-AF/④-AG's run (52cf87f5) still in flight at commit time; ④-AH pushes only after it is green
+> **Next runnable:** GOAD as an atom (the combat AI already models "must attack"? — probe first); the AI using combat-role
+> activations; Kessig Wolf Run ({X} pump on a land); Xenagos; Secluded Courtyard; the "up to N" non-targeted returns.
+
 ## 📏 2026-09-03 (night cron) — **④-AG: "with power / toughness / mana value N or less / greater" joins the subject peel (+21)** · suite **1394 files / 15,562 tests** green · corpus 14,059 / 34,245 (41.1%) · flip-diff +21 / 0 lost · 6/6 killed
 
 > **Night tally (stage ④, thirty-three slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·

@@ -456,7 +456,24 @@ function conditionReadableHere(condition, sourceScoped) {
   return spellConditionParseable(condition) || (!!sourceScoped && activationConditionParseable(condition));
 }
 
+/** The subject-qualifier peel's REFERENT-ONLY fallback (④-AH): "target creature that player / defending player
+ * controls" with no other qualifier is tried on the arms FIRST — several arms own the phrase whole and stamp more than a
+ * restriction (the SB-1 bounce's `who` + `optional`, the tap arm's scope). Only when every arm has refused does the
+ * referent peel off and the reduced clause get its turn. Everything else is byte-identical to the core. */
 function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false) {
+  const atom = parseClauseToAtomCore(cardType, clause, hasX, sourceScoped);
+  if (atom) return atom;
+  const s = stripReminder(clause);
+  const ref = /\b(target )(creature)( (defending player|that player) controls)\b/i.exec(s);
+  if (!ref) return null;
+  const inner = parseClauseToAtomCore(cardType, s.replace(ref[0], `${ref[1]}${ref[2]}`), hasX, sourceScoped);
+  const plainCreature = inner && KNOWN.has(inner.op) && inner.targetType === "creature"
+    && !(inner.role || inner.secondaryRole || inner.fighter || Array.isArray(inner.targets));
+  if (!plainCreature) return null;
+  return { ...inner, restrictions: [...(inner.restrictions || []), { kind: "controller", who: /^defending/i.test(ref[4]) ? "defendingPlayer" : "damagedPlayer" }] };
+}
+
+function parseClauseToAtomCore(cardType, clause, hasX = false, sourceScoped = false) {
   // "each of your opponents" ≡ "each opponent" (SHELF-TAIL SH5) — from the controller's own perspective the
   // two phrasings name the identical player set (CR 102.2), and the whole damage/life-loss/etc. vocabulary is
   // written against "each opponent". Normalize the longer form up front so every downstream matcher (deal N
@@ -511,6 +528,17 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
   // (counters.js) parsed HIGH before this peel existed, and returning null here dropped Tributary Instructor and
   // The Powerful Dragon out of native (caught by the flip-diff, 2 LOST). Below the peel the clause meets the arms
   // exactly as it always did, so a non-stamp is byte-identical to the pre-slice parse.
+  // ⭐ THE EVENT REFERENT JOINED (④-AH, 2026-09-03 — "whenever this creature attacks, tap target creature DEFENDING
+  // PLAYER controls" (The Wasp, Fear of Falling); "whenever … deals combat damage to a player, destroy target
+  // creature THAT PLAYER controls" (Blind Zealot, Etrata); ~75 carriers). The two referents the legacy parser
+  // already emits (DP-TGT / DT-1): who:"defendingPlayer" reads ctx.defenderId (the attacks / becomesBlocked /
+  // attacksAlone flushes), who:"damagedPlayer" reads ctx.damagedPlayerId (the combatDamageToPlayer flush); both
+  // fail CLOSED without it. Honesty is the ROUTING gate's job, not this peel's: triggerRouting refuses a referent
+  // restriction on any event that does not supply it, and coverage's atomCarriesEventReferent refuses it on a spell
+  // — so an ETB or an instant carrying the phrase parks as before (witness-pinned), and only the printed event credits.
+  // The referent is NOT read here: the arms get it first, and the wrapper above peels it only after they all refuse;
+  // a referent stacked with another qualifier (Skymark Roc "defending player controls with toughness 2 or less")
+  // reaches this peel through the wrapper's reduced clause, so it needs no group of its own.
   if (cbt && (cbt[3] || cbt[5] || cbt[8] || cbt[10])) {
     const reduced = s.replace(cbt[0], `${cbt[2]}${cbt[4]}`);
     const inner = parseClauseToAtom(cardType, reduced, hasX, sourceScoped);

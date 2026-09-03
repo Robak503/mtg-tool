@@ -33,9 +33,11 @@ describe("TAP-TARGET-CREATURE — parser", () => {
     expect(r).toMatchObject({ confidence: "high", atoms: [{ op: "tap", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }] }] });
   });
 
-  it("'defending player controls' → high, controller:opponent restriction", () => {
+  it("'defending player controls' → high, controller:defendingPlayer restriction (the exact referent since ④-AH, 2026-09-03)", () => {
+    // Pinned controller:opponent until ④-AH — a WIDER pool than printed in multiplayer (every opponent's creatures,
+    // not the one seat being attacked). The subject peel now stamps the exact referent, read off ctx.defenderId.
     const r = parseEffectClause("tap target creature defending player controls.", "Instant");
-    expect(r).toMatchObject({ confidence: "high", atoms: [{ op: "tap", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }] }] });
+    expect(r).toMatchObject({ confidence: "high", atoms: [{ op: "tap", targetType: "creature", restrictions: [{ kind: "controller", who: "defendingPlayer" }] }] });
   });
 
   it("'you don't control' → high, controller:opponent restriction", () => {

@@ -82,7 +82,11 @@ describe("the carriers", () => {
     const anaphor = parseEffectClause("it deals 3 damage to target creature that player controls", "Instant", { sourceScoped: true })?.atoms;
     console.log("  WITNESS damagedPlayerTwoGate", JSON.stringify({ sentinel, anaphor })); // vitest 4 needs --disable-console-intercept
     expect(sentinel).toEqual([{ op: "deal-damage", amount: 3, targetType: "creature", restrictions: [{ kind: "controller", who: "damagedPlayer" }] }]);
-    expect(anaphor).toEqual([]);   // refused by isCleanClause, by design
+    // ④-AH (2026-09-03): the raw anaphor is STILL refused by the arms' two gates (isCleanClause sees "that player") —
+    // and then the subject peel's referent fallback takes it: "that player controls" comes off the subject and rides
+    // back as the same damagedPlayer restriction. Honesty moved to the ROUTING gate, which refuses the referent on
+    // any event that does not supply it (referentControllerTarget.test.js pins the ETB / upkeep / spell forms parked).
+    expect(anaphor).toEqual(sentinel);
   });
 
   it("⛔ the regression cards from the widening attempts are all still native", () => {
