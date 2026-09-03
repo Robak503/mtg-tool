@@ -616,10 +616,11 @@ exist on branch `codex/omnath-phone-polish`.
   and supplies `HF_TOKEN`.
 - The corrected full-art ARM64 debug APK targets Android 36 with minimum SDK
   24, package id `com.colton.omnath.probe.debug`, and user-facing label
-  **Omnath MTG Assistant**. The Android-streaming and startup-gate corrections
-  through commit `cd273f11` produce a 749,194,368-byte full-art APK with
+  **Omnath MTG Assistant**. The Android-streaming, startup-gate, and blocking
+  load-screen corrections through commit `6299d485` produce a
+  749,195,392-byte full-art APK with
   SHA-256
-  `9193adb17e6b5d4cfb6682c9fb13cd4413e6080c30f361b741fe5bf441be7e4b`.
+  `7567f68275a6067af0bbf8d409a0742a993c8143ec29ecb893e571140f4fbc2a`.
   Its machine-generated receipt reports only 935 entries, no
   `android.permission.INTERNET`, no bundled `.litertlm`, no raw Oracle/rulings/CR
   input, and a matching staged enhanced-model hash. It also proves that the
@@ -629,9 +630,9 @@ exist on branch `codex/omnath-phone-polish`.
   Android now streams the packaged databases by their fixed asset identities
   into private app storage and verifies byte counts and hashes before atomic
   replacement. The only reported permission is Android's package-scoped
-  dynamic-receiver protection. The matching core-only APK is 244,966,717 bytes
+  dynamic-receiver protection. The matching core-only APK is 244,967,741 bytes
   with SHA-256
-  `36d5db9af30f32d25e25a3f01e7d58736648fb24b5cc99e7942fcc7241235eb9`.
+  `dba95a14e7e7a6a6ee276a4725cbc8eb2782049dca954ebac2c834f726293a15`.
 - The UI/controller JavaScript is 32,095 bytes (11,460 bytes gzip), and the
   LEYLINE stylesheet is 12,029 bytes (3,240 bytes gzip); the
   995,428-byte rules-engine witness is isolated in a lazy chunk. The release
@@ -711,6 +712,16 @@ exist on branch `codex/omnath-phone-polish`.
   and a privacy-safe failed-pack receipt, and stops labeling every knowledge
   error as a rules-runtime failure. The compressed replacement APK above now
   awaits Pixel art-readiness verification.
+- The next Pixel run verified the complete indexed-art path: startup reached
+  ready, the Omnath query returned canonical Oracle text and rulings, and the
+  packaged card image rendered without a freeze. The user correctly observed
+  that the working first-launch copy still exposed the underlying interface
+  without a clear completion signal. Commit `6299d485` adds a phone-sized,
+  full-screen, indeterminate startup gate with explicit first-launch guidance.
+  It blocks scrolling and all prompt/composer controls until both runtime and
+  repository startup finish, then unlocks only on ready; failures reveal the
+  existing recovery surface with inputs still disabled. Automated accessibility
+  checks and a 430-by-932 visual run verify both the blocked and ready states.
 
 - One chat surface.
 - One Omnath persona.

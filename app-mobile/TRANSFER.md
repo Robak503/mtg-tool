@@ -9,7 +9,7 @@ caches are deliberately excluded from Git.
 
 - Private repository: `https://github.com/Robak503/mtg-tool`
 - Source branch: `codex/omnath-android-transfer`
-- Tested application commit: `cd273f11`
+- Tested application commit: `6299d485`
 - Private draft release tag: `omnath-phone-v0.1.0-debug`
 - Private draft page:
   `https://github.com/Robak503/mtg-tool/releases/tag/untagged-f2df56826b760391705f`
@@ -23,10 +23,10 @@ git switch --track origin/codex/omnath-android-transfer
 gh release download omnath-phone-v0.1.0-debug --repo Robak503/mtg-tool --pattern "omnath-full-art-arm64-debug.apk"
 ```
 
-The banked full-art APK is 749,194,368 bytes with SHA-256
-`9193adb17e6b5d4cfb6682c9fb13cd4413e6080c30f361b741fe5bf441be7e4b`.
-The core-only APK is 244,966,717 bytes with SHA-256
-`36d5db9af30f32d25e25a3f01e7d58736648fb24b5cc99e7942fcc7241235eb9`.
+The banked full-art APK is 749,195,392 bytes with SHA-256
+`7567f68275a6067af0bbf8d409a0742a993c8143ec29ecb893e571140f4fbc2a`.
+The core-only APK is 244,967,741 bytes with SHA-256
+`dba95a14e7e7a6a6ee276a4725cbc8eb2782049dca954ebac2c834f726293a15`.
 Both are assets of the private draft release; neither APK is committed to Git.
 
 ## Included source
@@ -127,8 +127,8 @@ outputs below exceed that limit and are also generated artifacts:
 | `build/art/omnath-art.sqlite` | 580,046,848 | `npm run art:build` |
 | base model named in `model-catalog.json` | 1,678,542,365 | `npm run models:stage -- -Model base` |
 | enhanced model named in `model-catalog.json` | 3,113,545,589 | `npm run models:stage -- -Model enhanced` |
-| `build/releases/app-arm64-debug.apk` | 244,966,717 | `npm run android:build:debug` |
-| `build/releases/omnath-full-art-arm64-debug.apk` | 749,194,368 | `npm run android:build:art` |
+| `build/releases/app-arm64-debug.apk` | 244,967,741 | `npm run android:build:debug` |
+| `build/releases/omnath-full-art-arm64-debug.apk` | 749,195,392 | `npm run android:build:art` |
 
 The current ignored Oracle snapshot is 83,425,972 bytes and the rulings snapshot
 is 27,644,723 bytes. Although each is below GitHub's hard per-file limit, both
