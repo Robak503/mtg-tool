@@ -103,8 +103,8 @@ outputs below exceed that limit and are also generated artifacts:
 | `build/art/omnath-art.sqlite` | 580,046,848 | `npm run art:build` |
 | base model named in `model-catalog.json` | 1,678,542,365 | `npm run models:stage -- -Model base` |
 | enhanced model named in `model-catalog.json` | 3,113,545,589 | `npm run models:stage -- -Model enhanced` |
-| `build/releases/app-arm64-debug.apk` | 309,126,333 | `npm run android:build:debug` |
-| `build/releases/omnath-full-art-arm64-debug.apk` | 889,173,748 | `npm run android:build:art` |
+| `build/releases/app-arm64-debug.apk` | 244,966,521 | `npm run android:build:debug` |
+| `build/releases/omnath-full-art-arm64-debug.apk` | 749,194,176 | `npm run android:build:art` |
 
 The current ignored Oracle snapshot is 83,425,972 bytes and the rulings snapshot
 is 27,644,723 bytes. Although each is below GitHub's hard per-file limit, both

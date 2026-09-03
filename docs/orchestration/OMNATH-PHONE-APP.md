@@ -616,25 +616,26 @@ exist on branch `codex/omnath-phone-polish`.
   and supplies `HF_TOKEN`.
 - The corrected full-art ARM64 debug APK targets Android 36 with minimum SDK
   24, package id `com.colton.omnath.probe.debug`, and user-facing label
-  **Omnath MTG Assistant**. The indexed-art build from commit `0082b127` is
-  889,173,748 bytes with SHA-256
-  `4fd646cb894a9eeeafd1e2d1f445658bd698a747bf220bd332a3e9e4c3a594d5`.
+  **Omnath MTG Assistant**. The Android-streaming correction through commit
+  `3e66e625` is 749,194,176 bytes with SHA-256
+  `455b7d0b929d19828691b1d3016964b1694b9b3c2d46a94682aaf13d80f1da29`.
   Its machine-generated receipt reports only 935 entries, no
   `android.permission.INTERNET`, no bundled `.litertlm`, no raw Oracle/rulings/CR
   input, and a matching staged enhanced-model hash. It also proves that the
   105,324,544-byte SQLite pack is physically present at
   `assets/knowledge/omnath-knowledge.sqlite` and hashes to
   `d9dd2756c414123ab9934263496b043ef0225d5178314f5996f4efdca4dc3d75`.
-  Both packaged SQLite databases are stored without ZIP compression so Android
-  can expose direct file descriptors during verified first-run copying. The only
-  reported permission is Android's package-scoped dynamic-receiver protection.
-  The matching core-only APK is 309,126,333 bytes with SHA-256
-  `021dc8df1c5889912d9d10395d6b6a8c8d3f18f3b2d6a07558f6c72243c6c713`.
-- The UI/controller JavaScript is 31,894 bytes (11,400 bytes gzip), and the
+  Android now streams the packaged databases by their fixed asset identities
+  into private app storage and verifies byte counts and hashes before atomic
+  replacement. The only reported permission is Android's package-scoped
+  dynamic-receiver protection. The matching core-only APK is 244,966,521 bytes
+  with SHA-256
+  `34f14f4d161a45e7837c4fdb5f86bec38d95961df3113ab71a30e0b47140a364`.
+- The UI/controller JavaScript is 32,095 bytes (11,460 bytes gzip), and the
   LEYLINE stylesheet is 12,029 bytes (3,240 bytes gzip); the
   995,428-byte rules-engine witness is isolated in a lazy chunk. The release
   gate passed 31 mobile JS/data/security tests, 17 engine/WebView tests, three
-  Rust provisioning tests, and three Kotlin model-lifecycle tests before the
+  Rust provisioning tests, and four Kotlin model/copy-policy tests before the
   APK receipt was issued.
 - Installation, launch, and corrected first-run provisioning are proven on the
   Pixel 10 XL. The UI reached **Offline and ready** with the rules runtime and
@@ -692,6 +693,16 @@ exist on branch `codex/omnath-phone-polish`.
   pack cannot disable rules answers, and records art readiness in privacy-safe
   diagnostics. Source, native, model-lifecycle, pack, and APK receipt checks pass;
   the corrected full-art APK now awaits the final Pixel responsiveness test.
+- That Pixel retest returned a grounded Oracle answer without freezing, but its
+  diagnostic receipt reported `art.ready: false` with an art provisioning error.
+  The optimization that stored SQLite assets without ZIP compression caused
+  Android's asset file-descriptor bridge to expose the containing APK without
+  preserving the entry offset, so the first-copy hash could not match. Commit
+  `424d1186` replaces that bridge with a background Kotlin stream over the two
+  catalogued asset names only. It writes only a bounded temporary filename in
+  private app storage, emits copy progress, verifies size and SHA-256 before
+  Rust replaces the database, and rejects traversal or unknown asset names. The
+  compressed replacement APK above now awaits Pixel art-readiness verification.
 
 - One chat surface.
 - One Omnath persona.
