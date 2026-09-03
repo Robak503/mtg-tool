@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🩸 2026-09-03 — STAGE ④-5: RIDER-BEARING MANA LINES — pay-life lands charge the life · the "doesn't untap" duals · Grand Coliseum's painful any-colour · **+0 corpus by design** · a live FP on the Horizon cycle fixed
+> Suite **1354 / 15,356** green; lint 0. Flip-diff **0 / 0** (every carrier was already credited "land"; this is
+> a Law-6 slice — what the engine PLAYS changed). **6/6 killed.**
+> · **PAY-LIFE LANDS (a live FP).** The pay-life reader was gated `!isLandCard`, and for a land the
+>   activated-source return fired first anyway — so Horizon Canopy, Silent Clearing, the whole Horizon cycle
+>   and Mana Confluence produced their colours for FREE (measured: Mana Confluence → any colour, no cost).
+>   The cost is now read before that return and rides the product for lands as for rocks: gated on having
+>   more life than the cost in manaSources (pinned: not offered at 1 life), charged in commitManaTap (pinned:
+>   20 → 19).
+> · **THE "DOESN'T UNTAP" DUALS** (Mogg Hollows and the Tempest cycle ×10): the coloured second line is an
+>   extra record carrying `doesNotUntapNext`; the plan copies it, the commit stamps the permanent after the
+>   tap, and the untap step skips it ONCE (pinned through untapAll twice); the plain {C} line never locks.
+> · **GRAND COLISEUM** — the any-colour painland form, read FIRST in the Add parser so the generic any-colour
+>   branch cannot return the colours without the pain; the product carries painColors, so the honest-main
+>   rule keeps it (the ④-3 pin that expected the plain-{C} fallback was re-anchored on the painful product).
+> · Two witness rounds: the first exposed that lands never reached the pay-life block and that the painland
+>   form sat below the generic branch — both real ordering facts, both now pinned by mutation.
+
 > ## 🔋 2026-09-03 — STAGE ④-4: COUNTER-REMOVAL MANA — the storage lands spend their counters; the Mana Batteries flip · **+5 corpus** · corpus 40.4% (13,835/34,245) · LANDS-10's 13 storage lands are now HONEST at runtime
 > Suite **1353 / 15,351** green; lint 0. Flip-diff **+5, zero LOST** (the five Mana Batteries, body-only →
 > native-mana — their only mana line is the removal line, now a real product). **9/9 killed.**

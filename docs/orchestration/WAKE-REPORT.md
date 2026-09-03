@@ -41,8 +41,12 @@
 > pinned. The Gathering Place five flipped honestly (+6 with Tablet of Compleation). **And at 10:45 (STAGE
 > ④-4) the storage half closed too:** the tap-only counter-removal mana is a real source (the 11 storage lands
 > spend their counters — LANDS-10's credit is honest now; the five Mana Batteries flipped, +5), with a
-> two-pass planner that preserves stored counters unless the cost needs them (corpus 13,835; suite 1353 /
-> 15,351). Still fail-closed: rider-bearing second lines and the {1}-costed Steppe form.
+> two-pass planner that preserves stored counters unless the cost needs them. **And at 11:00 (STAGE ④-5) the
+> rider-bearing second lines:** the pay-life lands (Horizon Canopy, Silent Clearing, the Horizon cycle, Mana
+> Confluence) used to make their colours for FREE — a live FP, now charged and gated on life; the Tempest
+> "doesn't untap" duals tap for their colours and skip the next untap step; Grand Coliseum's any-colour tap
+> costs its damage (corpus 13,835; suite 1354 / 15,356). Still fail-closed: the {1}-costed Steppe form and
+> any other rider on a second mana line.
 >
 > **② DONE — the land-tier family table (every `land-partial` clause family with ≥3 corpus carriers, census
 > 05:45 scratch lands-census-0545.txt; land-partial 454 → 357, single-blockers 368 → 280):**

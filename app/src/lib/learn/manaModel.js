@@ -30,7 +30,7 @@
  * legalChoices, and layers imports none of these modules so that edge is acyclic too.
  */
 
-import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, creaturePower, removeCounter } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit
+import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, creaturePower, removeCounter, setDoesNotUntapNext } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
 import { checkSacrificeTriggers, checkLeavesTriggers, checkDiesTriggers } from "./triggers.js"; // SG-3: a sacrificed-creature mana cost dies through the chokepoint // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
 import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow, colorsOf } from "./layers.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
@@ -260,6 +260,19 @@ function parseManaMetric(tail, card) {
  */
 function parseAddClause(oracle, card) {
   if (!/\badd\b/i.test(oracle)) return null;
+
+  // STAGE ④-5 — the ANY-COLOUR painland (Grand Coliseum): "{T}: Add {C}.\n{T}: Add one mana of any color. This land
+  // deals 1 damage to you." — the two-colour painland shape (below) with all five colours painful. Read FIRST,
+  // before the generic any-colour branches, which would otherwise return the colours without the pain (the
+  // honest-main rule then demotes the card to its plain {C}). Admitted ONLY together with painColors.
+  {
+    const painAny = String(oracle || "").trim().match(
+      /^(?:This land enters tapped\.\n)?\{T\}: Add \{C\}\.\n\{T\}: Add one mana of any color\.[^\n]*? deals (\d+) damage to you\.$/i,
+    );
+    if (painAny) {
+      return { colors: ["C", "W", "U", "B", "R", "G"], amount: 1, painColors: ["W", "U", "B", "R", "G"], painAmount: parseInt(painAny[1], 10) };
+    }
+  }
 
   // ⭐ IMPRINTED-CARD COLORS (Chrome Mox) — "Add one mana of any of the exiled card's colors." A CHOICE of
   // one mana among the imprinted card's colors, so unlike the bundles below it needs no new product shape:
@@ -888,7 +901,7 @@ const MAX_SPEED_PREFIX = /^\s*max speed\s*[—–-]\s*/i;
  * counter-removal rider fails the anchor on purpose: its single-line product would silently drop the rider
  * (a painless painland tap), the forbidden direction. Never the main line itself. Memoized per card object.
  */
-const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.)$/i; // + STAGE ④-4: the tap-only counter-removal forms
+const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.)$/i; // + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals
 // A PLAIN tap line: complete, ungated, no sacrifice — the line a multi-line card can always tap for.
 const PLAIN_MANA_LINE_RE = /^\{T\}: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.$/i;
 
@@ -1304,6 +1317,15 @@ function manaProductionImpl(card) {
       return { colors: [crm[2]], amount: crm[3] ? 1 : 0, requiresTap: true, removesCounters: { type: crm[1], mode: crm[3] ? "plusOne" : "perCounter" } };
     }
   }
+  // ===== DOESN'T-UNTAP RIDER (STAGE ④-5, 2026-09-03 — CR 502.2) ===== "{T}: Add {A} or {B}. This land doesn't
+  // untap during your next untap step." (the Tempest duals — Mogg Hollows, Rootwater Depths, Caldera Lake …;
+  // 10 corpus lands, every one a SECOND line beside a plain "{T}: Add {C}."). Parsed here as a single line
+  // (the extra-line path hands it over alone); the rider rides the product as `doesNotUntapNext`, the plan
+  // carries it, and the commit stamps the permanent after the tap so the next untap step skips it.
+  {
+    const dnu = oracleForAdd.trim().match(/^\{T\}: Add \{([WUBRGC])\} or \{([WUBRGC])\}\. This land doesn't untap during your next untap step\.$/i);
+    if (dnu) return { colors: [dnu[1].toUpperCase(), dnu[2].toUpperCase()], amount: 1, requiresTap: true, doesNotUntapNext: true };
+  }
   const fromOracle = parseAddClause(oracleForAdd, card);
   // A NON-LAND activated mana ability must also be PAYABLE by the sim as a standing source. An ability whose
   // only cost is a CONSUMABLE/non-repeatable resource the sim can't spend — a non-self sacrifice (Utopia Mycon
@@ -1319,11 +1341,16 @@ function manaProductionImpl(card) {
   const exilesSelfFromHand = manaAbilityExilesSelfFromHand(oracleForAdd); // SG-6 — a hand-zone source (see the helper)
   const isActivatedSource =
     isLandCard || (activatedManaText(oracleForAdd) != null && (!manaAbilityCostUnpayable(oracleForAdd) || exilesGyCard || sacrificesCreature || exilesSelfFromHand));
+  // STAGE ④-5 (2026-09-03): the PAY-LIFE cost is read HERE, before the activated-source return, so a LAND's
+  // "{T}, Pay 1 life: Add …" carries it (Horizon Canopy / Silent Clearing / the Horizon cycle / Mana Confluence
+  // used to return from this block with their colours and NO cost — a free Mana Confluence, measured).
+  const payLife = parsePayLifeCost(oracleForAdd);
   if (fromOracle && isActivatedSource) {
     const requiresTap = manaAbilityRequiresTap(oracleForAdd);
+    const lifeRider = payLife ? { payLife: payLife.amount } : {};
     return manaAbilitySacrificesSelf(oracleForAdd)
-      ? { ...fromOracle, sacrifices: true, requiresTap }
-      : { ...fromOracle, requiresTap, ...(exilesGyCard ? { exilesGyCard: true } : {}), ...(sacrificesCreature ? { sacrificesCreature: true } : {}), ...(exilesSelfFromHand ? { fromHand: true } : {}) };
+      ? { ...fromOracle, sacrifices: true, requiresTap, ...lifeRider }
+      : { ...fromOracle, requiresTap, ...(exilesGyCard ? { exilesGyCard: true } : {}), ...(sacrificesCreature ? { sacrificesCreature: true } : {}), ...(exilesSelfFromHand ? { fromHand: true } : {}), ...lifeRider };
   }
 
   // ===== TAP-OTHER COST (CR 118.4 / 302.6) =====================================================
@@ -1349,8 +1376,8 @@ function manaProductionImpl(card) {
   // Blightsoil Druid) and the tapless "Pay 1 life: Add …" (Lord of the Forsaken, Kozilek's Translator).
   // Same graduation as tap-OTHER directly above: the cost is real state the sim can spend, so it is gated on
   // affordability in manaSources and actually paid in commitManaTap.
-  const payLife = parsePayLifeCost(oracleForAdd);
-  if (fromOracle && payLife && !isLandCard) {
+  // (`payLife` was read above, before the activated-source return, so lands carry it too — STAGE ④-5.)
+  if (fromOracle && payLife) {
     return { ...fromOracle, requiresTap: manaAbilityRequiresTap(oracleForAdd), payLife: payLife.amount };
   }
 
@@ -1765,7 +1792,7 @@ export function manaSources(state, playerId) {
       const exAmount = extra.removesCounters ? ((extra.removesCounters.mode === "plusOne" ? 1 : 0) + crCount) * manaMult
         : exFixed ? Object.values(exFixed).reduce((a, b) => a + b, 0) : (extra.amount ?? 1) * manaMult;
       if (exAmount <= 0) continue;
-      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: crCount } } : {}), extraLine: true });
+      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: crCount } } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), extraLine: true });
     }
   }
   // SG-6 — EXILE-FROM-HAND sources (Elvish / Simian Spirit Guide): a mana ability of a card in HAND. Offered
@@ -1921,6 +1948,7 @@ function planPaymentOnce(pool, sources, cost, spendContext = null) {
       exilesGyCard: !!s.exilesGyCard,
       fromHand: !!s.fromHand, // SG-6 — the source is a HAND card; the committer exiles it instead of tapping
       removesCounters: s.removesCounters || null, // STAGE ④-4 — the counters this tap removes (the commit removes exactly these)
+      doesNotUntapNext: !!s.doesNotUntapNext, // STAGE ④-5 — the tapped land skips its controller's next untap step
       used: false,
     }))
     .filter(s => s.amount > 0)
@@ -1997,7 +2025,7 @@ function planPaymentOnce(pool, sources, cost, spendContext = null) {
     // PAINLAND: stamp the life cost ONLY when the chosen colour is one of the painful ones — a tap for
     // the free {C} half costs nothing, exactly as printed.
     const painHit = s.painColors && s.painColors.includes(primaryColor) ? s.painAmount : 0;
-    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(bonusPicks.length && { bonus: bonusPicks }) });
+    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(s.doesNotUntapNext && { doesNotUntapNext: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
     return wantColor && assigned ? wantColor : primaryColor;
   };
 
@@ -2213,6 +2241,9 @@ export function commitManaTap(state, playerId, tap) {
     next = checkLeavesTriggers(next);
   } else {
     next = tapPermanent(next, tap.permanentId);
+    // STAGE ④-5 — the doesn't-untap rider: the land tapped through this line skips its controller's next untap
+    // step (CR 502.2 — the same flag the untap step already honours for every other "doesn't untap" source).
+    if (tap.doesNotUntapNext) next = setDoesNotUntapNext(next, tap.permanentId, true);
   }
   return next;
 }

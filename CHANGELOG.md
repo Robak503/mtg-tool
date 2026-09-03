@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Pay-life lands charge the life** — Horizon Canopy, Silent Clearing, the whole Horizon cycle and Mana
+  Confluence used to make their colours for free; now they cost the printed life and aren't offered at 1 life.
+  **The Tempest "doesn't untap" duals** (Mogg Hollows and kin) tap for their colours and skip the next untap
+  step; **Grand Coliseum**'s any-colour tap costs its 1 damage.
 - **Storage lands and Mana Batteries actually spend their counters** — Mage-Ring Network, Fountain of Cho,
   Subterranean Hangar and their kin tap for one mana per storage counter removed; the five Mana Batteries
   tap for one plus one per charge counter. The counters really come off when you pay.

@@ -285,6 +285,13 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
   counters (LANDS-10's credit is honest now) and the five Mana Batteries flipped (+5); a two-pass planner
   preserves stored counters unless the cost needs them. Still refused: the {1}-costed forms (the Saltcrusted
   Steppe cycle, Crucible of the Spirit Dragon, Petalmane Baku — no mana-costed mana source).
+  **→ ✅ STAGE ④-5 (11:00): the rider-bearing second lines.** Three shapes: (1) PAY-LIFE LANDS — the pay-life
+  reader excluded lands, so Horizon Canopy, Silent Clearing, the whole Horizon cycle and Mana Confluence
+  made their colours for FREE (a live FP, measured); a land pays life like a rock now, is not offered at 1
+  life, and the commit charges it. (2) The "doesn't untap during your next untap step" duals (Mogg Hollows
+  and the Tempest cycle ×10) — the coloured line is offered with its rider and the tapped land skips its
+  next untap step. (3) Grand Coliseum's any-colour painland form — read WITH the pain, first in the Add
+  parser. Still refused: any other rider on a second mana line.
 - **The Roads (5 — Reef/Wild/… Roads) · PARKED 05:50:** "{1}{U}, {T}, Sacrifice this land: Create a 1/1
   colorless Pilot creature token with 'This token saddles Mounts and crews Vehicles as though its power were
   2 greater.'" The token is a quoted STATIC on two verbs; crew is modeled (the crew power sum in legalChoices

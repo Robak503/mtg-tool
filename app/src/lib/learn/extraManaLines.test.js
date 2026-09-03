@@ -37,10 +37,13 @@ describe("which second lines are admitted", () => {
   it("a gated colour line (Tainted Isle) and a free colourless line beside a painful any-colour line (Grand Coliseum)", () => {
     expect(extraManaLineProducts(TAINTED_ISLE, manaProduction(TAINTED_ISLE)).map((p) => p.colors)).toEqual([["U", "B"]]);
     expect(extraManaLineProducts(TAINTED_ISLE, manaProduction(TAINTED_ISLE))[0].activationCondition).toBe("you control a Swamp");
-    // Grand Coliseum: the whole-card merge used to hand out a PAINLESS any-colour tap; the honest main is the plain
-    // {C} line, and the painful any-colour line stays unmodelled (its rider has no single-line reader) — FN-safe.
-    expect(manaProduction(GRAND_COLISEUM).colors).toEqual(["C"]);
-    expect(extraManaLineProducts(GRAND_COLISEUM, manaProduction(GRAND_COLISEUM))).toEqual([]);
+    // Grand Coliseum: the whole-card merge used to hand out a PAINLESS any-colour tap. Since STAGE ④-5 the
+    // any-colour painland form is read WITH its pain (riderManaLines.test.js); the product carries painColors,
+    // so the honest-main rule keeps it, and no extra record duplicates it.
+    const gc = manaProduction(GRAND_COLISEUM);
+    expect([...gc.colors].sort()).toEqual(["B", "C", "G", "R", "U", "W"]);
+    expect(gc.painColors).toEqual(["W", "U", "B", "R", "G"]);
+    expect(extraManaLineProducts(GRAND_COLISEUM, gc)).toEqual([]);
   });
 
   it("⛔ the honest main: Ancient Spring's plain tap is NOT a sacrifice; Shivan Reef's merged pain product is untouched", () => {
