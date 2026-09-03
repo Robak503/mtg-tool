@@ -2196,6 +2196,23 @@ export function assignsCombatDamageWithToughness(state, permanentId) {
  * untargeted effect are untouched — enumerateTargets is the single seam, which is exactly why this is
  * enforced there and nowhere else.
  */
+/**
+ * ④-V — the printed TARGET SHIELDS on a permanent ("can't be the target of nongreen spells … or abilities from nongreen
+ * sources …" — Thrun, Gaea's Revenge): every inert `targetShield` op whose SOURCE is this permanent, as
+ * [{ notColor, opponentsOnly }]. Read by spellEffects.canBeTargetedBy — the single targetability seam — beside
+ * shroud / hexproof / protection. Empty for every other permanent (byte-identical targeting).
+ */
+export function permanentTargetShields(state, permanentId) {
+  if (!permanentId) return [];
+  const out = [];
+  for (const e of collectContinuousEffects(state)) {
+    if (e.op?.layerOp !== "targetShield") continue;
+    if (e.source?.permanentId !== permanentId) continue;
+    out.push({ notColor: e.op.notColor, opponentsOnly: !!e.op.opponentsOnly });
+  }
+  return out;
+}
+
 export function playerHasHexproof(state, playerId) {
   if (!playerId || !state?.players?.[playerId]) return false;
   const board = collectContinuousEffects(state);

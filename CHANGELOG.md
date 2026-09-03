@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Thrun, Breaker of Silence and Gaea's Revenge work** — nongreen spells and abilities can't target them (Thrun's
+  shield only stops your opponents'). Thrun Voltron reaches 90/100.
 - **Palinchron and Great Whale work** — entering untaps up to seven of your lands.
 - **Graveyard abilities with a target work** — Gravestone Strider, Helica Glider, Rubblebelt Maverick, Placid Rottentail, Venom, Beetle, Bonebind Orator, Eerie Soultender, Soul of Innistrad and the four Renew cards: pay the cost from the graveyard and pick the target.
 - **Uneasy Alliance and Path to Redemption work** — sacrifice the Aura to exile the creature and get the token.

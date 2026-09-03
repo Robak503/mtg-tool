@@ -2139,6 +2139,24 @@ function parseClause(clause, out, selfName, selfType) {
   // <X> you control" are different cards; collapsing them would hand a controller a global exemption they
   // never paid for. A subtype-scoped form ("to Spiders you control" — Spider-Verse) is NOT matched and
   // parks: it needs a subtype test this op doesn't carry, and guessing would over-exempt.
+  // ⭐ TARGET SHIELD BY SOURCE COLOUR (④-V, 2026-09-03 — Thrun, Breaker of Silence: "Thrun can't be the target of nongreen
+  // spells your opponents control or abilities from nongreen sources your opponents control."; Gaea's Revenge: the
+  // everyone-form). Hexproof-from-quality in all but name (CR 702.11c): the shield refuses a targeting source that is
+  // NOT the named colour — a colourless source included. Same INERT layer-6 op family as playerHexproof: the layer
+  // engine skips it, and exactly one consumer reads it — spellEffects.canBeTargetedBy, the single targetability seam,
+  // which already carries the source spell's colours for protection. On a path that does not thread colours
+  // (triggers / abilities), the shield refuses OUTRIGHT: refusing a legal target is an under-offer, letting an
+  // opponent's nongreen ability through would be the illegal targeting the CREED forbids.
+  // ⛔ WHOLE-CLAUSE ANCHORED, both halves (spells AND abilities) with the SAME colour and the SAME scope; a
+  // one-sided or mixed print is a different card and parks.
+  {
+    const ts = c.match(/^(?:this creature|this permanent|it) can't be the target of non(white|blue|black|red|green) spells( your opponents control)? or abilities from non\1 sources( your opponents control)?$/);
+    if (ts && !!ts[2] === !!ts[3]) {
+      const letter = { white: "W", blue: "U", black: "B", red: "R", green: "G" }[ts[1]];
+      out.push({ layer: 6, op: { layerOp: "targetShield", notColor: letter, opponentsOnly: !!ts[2] }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+      return;
+    }
+  }
   {
     const lr = c.match(/^the "legend rule" doesn't apply(?: to (permanents|creatures|tokens) you control)?$/);
     if (lr) {

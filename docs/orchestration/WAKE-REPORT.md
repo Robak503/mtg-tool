@@ -7,6 +7,17 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🧌 2026-09-03 (night cron) — **④-V: Thrun, Breaker of Silence is native — Thrun Voltron 90/100, the bar (+2)** · suite **1383 / 15,513** green · corpus 13,946 / 34,245 (40.7%) · flip-diff +2 / 0 lost · 6/6 killed
+
+> **Night tally (stage ④, twenty-two slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
+> J (+1) · K (+1, FP closed on 3) · L (+4) · M (+2) · N (+7) · O (+4) · P (+3) · Q (+6) · R (+2) · S (+2) · T (+12) · U (+2) ·
+> V (+2, Thrun 90) — corpus 13,862 → 13,946. Shelf: Slivers 95 · Omnath 94 · Vihaan 93 · Zaxara 91 · Dragons 90 ·
+> Squirrel Girl 90 · **Thrun 90** · Earth Bent 88 · Mothman 87 · Veyran 87 · Cap 86 · Rashmi 85 · Wolverine / Jurassic /
+> Hulk / cdh 84 · Brago 74.
+> **⏸ CI:** the master head's attempt 3 also hit the wall; PR #465 (diagnostic-only) is running to read the runner's CPU count. Nine slices (④-N … ④-V) local, suites green, pushed the moment a run goes green.
+> **Next runnable:** Prowler's Helm ("Equipped creature can't be blocked except by Walls" — the except-by filter through
+> an Equipment grant; Thrun's next single-blocker), then Earth Bent's tail (88), Mothman (87), Veyran (87).
+
 ## 🐋 2026-09-03 (night cron) — **④-U: Palinchron and Great Whale — "untap up to seven lands" (+2)** · suite **1382 / 15,508** green · corpus 13,944 / 34,245 (40.7%) · flip-diff +2 / 0 lost · 2/2 killed
 
 > **Night tally (stage ④, twenty-one slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·

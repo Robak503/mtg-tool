@@ -49,7 +49,7 @@ import {
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, uncounterableCoversSpell } from "./staticAbilityParser.js";
 import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
-import { permanentHasKeyword, permanentProtectionColors, permanentIsCreature, playerHasHexproof } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam
+import { permanentHasKeyword, permanentProtectionColors, permanentIsCreature, playerHasHexproof, permanentTargetShields } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam
 import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
@@ -585,6 +585,15 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
   // false-negative — trigger/ability targeting). Read LAYER-AWARE so protection GRANTED by an attached
   // Equipment/Aura (the Captain America Swords) is honored, not just printed protection.
   if (sourceColors.length && protectionApplies(permanentProtectionColors(state, perm.id), sourceColors)) return false;
+  // ④-V TARGET SHIELD BY SOURCE COLOUR (Thrun, Breaker of Silence; Gaea's Revenge — CR 702.11c in all but name): the
+  // shield refuses a source that is NOT the named colour, colourless included; Thrun's form only against opponents.
+  // A path that does not thread `sourceColors` (triggers / abilities) is refused outright — an under-offer, never an
+  // illegal targeting (a colourless spell and an untracked path both read as []; both are refused, both correctly
+  // or safely). Read layer-aware off the same continuous-effects board as every other keyword.
+  for (const sh of permanentTargetShields(state, perm.id)) {
+    if (sh.opponentsOnly && casterId === controllerOfPerm) continue;
+    if (!sourceColors.includes(sh.notColor)) return false;
+  }
   return true;
 }
 

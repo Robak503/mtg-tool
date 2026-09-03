@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🧌 2026-09-03 (night cron) — ④-V: THRUN, BREAKER OF SILENCE — the deck's COMMANDER is native; **Thrun Voltron 89 → 90, the bar** · **+2** (Thrun / Gaea's Revenge) · corpus 13,946 / 34,245 (40.7%)
+> Suite **1383 / 15,513** green; lint 0. Flip-diff **+2, zero LOST**. **6/6 killed.**
+> · **The shape:** "Thrun can't be the target of nongreen spells your opponents control or abilities from nongreen
+>   sources your opponents control." — hexproof-from-quality in all but name (CR 702.11c), scoped to opponents; Gaea's
+>   Revenge prints the everyone-form. An inert layer-6 `targetShield` op (the playerHexproof / legendRuleOff family:
+>   the layer engine skips it, one consumer reads it) read at the SINGLE targetability seam, which already threads
+>   the source spell's colours for protection. A colourless source is nongreen and refused; a path that threads no
+>   colours (triggers / abilities) is refused outright — an under-offer, never an illegal targeting. Whole-clause
+>   anchored on BOTH halves with the same colour and scope; a one-sided or mismatched print parks (pinned).
+> · **Board-verified:** the opponent's Murder is offered on the Bear and not on Thrun; their green Beast Within reaches
+>   him; Thrun's own controller may Murder him (opponents-only); Gaea's Revenge refuses even its controller's black spell.
+> · **The deck:** Thrun Voltron was Colton's focus deck (memory: "Thrun (82) is the focus"); it reads **90/100** now —
+>   every deck on the shelf except Earth Bent (88), Mothman (87), Veyran (87), Cap (86) and the 84s is at the bar.
+>   Thrun's remaining ten: Abundance (draw replacement), Animist's Might, Band Together, Nazgûl Battle-Mace,
+>   Prowler's Helm ("except by Walls" through an Equipment grant — the next single-blocker), Strong Back, Kenrith's
+>   Transformation, Nyxborn Hydra, Professor Hojo, Zopandrel.
+> · **CI:** the master head's attempt 3 also hit the wall; PR #465 (diagnostic-only) is running to read the runner's CPU count. Nine slices (④-N … ④-V) local, suites green, pushed the moment a run goes green.
+
 > ## 🐋 2026-09-03 (night cron) — CORPUS ④-U: "untap up to SEVEN lands" — Palinchron and Great Whale · **+2** · corpus 13,944 / 34,245 (40.7%)
 > Suite **1382 / 15,508** green; lint 0. Flip-diff **+2, zero LOST**. **2/2 killed.**
 > · **The shape:** the untap-up-to-N-lands atom (Finale of Revelation, Peregrine Drake) knew one..five; both Whale-class

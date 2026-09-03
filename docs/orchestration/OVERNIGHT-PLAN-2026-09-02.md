@@ -183,6 +183,7 @@ the scratchpad). ✅ **④-A** — Aura-own cumulative upkeep composes with the 
 ✅ **④-S** — the self-sacrifice Aura composite: exile the host and make a token (+2; 1/3 killed (+2 documented redundant guards)).
 ✅ **④-T** — GY-3: targeted graveyard exile-cost abilities (+12; 5/5 killed).
 ✅ **④-U** — "untap up to seven lands": Palinchron / Great Whale (+2; 2/2).
+✅ **④-V** — Thrun, Breaker of Silence: the nongreen target shield (+2; 6/6 killed). **Thrun Voltron 90/100.**
 Queue = the census's two-flip / bug-signature leads (see WAKE-REPORT top).
 Only after ①–③'s DONE lines are met. Boot from the vault's `memory/orders/cindy-corpus-roadmap.md`
 (WHAT/WHY/ORDER) + the repo's `RESIDUE-GRIND-RUNBOOK.md` (HOW): fresh census, largest clause family with
