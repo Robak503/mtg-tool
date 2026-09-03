@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Relic of Progenitus, Scrabbling Claws and Merrow Bonegnawer work** — the targeted player picks which
+  card of their graveyard to exile (you get a picker when it's aimed at you).
 - **Break Ties, Fowl Strike, Hunting Triad and Earthbrawn work** — cast as printed (the reinforce option
   is simply not offered).
 - **Cooped Up, Dreadful Apathy, Redemption Arc, Sun Clasp, Sigarda's Imprisonment, Ghostly Wings and

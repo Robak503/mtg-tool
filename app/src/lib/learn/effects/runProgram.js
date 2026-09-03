@@ -1798,8 +1798,8 @@ export function resolveMilledPickChoice(state, cardId) {
     next = logEvent(next, { kind: "spell-effect", effect: "milled-pick", picked: null, controller: pc.controller });
     return resumeAfterChoice(next, pc);
   }
-  next = moveCardToZone(next, { playerId: pc.controller, fromZone: "graveyard", toZone: "hand", cardId: pick.id });
-  next = logEvent(next, { kind: "spell-effect", effect: "milled-pick", picked: pick.name, controller: pc.controller });
+  next = moveCardToZone(next, { playerId: pc.controller, fromZone: "graveyard", toZone: pc.toZone || "hand", cardId: pick.id }); // ④-P: exile for a forced graveyard pick
+  next = logEvent(next, { kind: "spell-effect", effect: "milled-pick", picked: pick.name, controller: pc.controller, toZone: pc.toZone || "hand" });
   return resumeAfterChoice(next, pc);
 }
 

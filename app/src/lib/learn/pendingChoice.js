@@ -683,12 +683,14 @@ export function setPendingOptionalDiscardPaymentChoice(state, { controller, avai
  * applier). The driver pauses a human and auto-picks the FIRST candidate for an AI (deterministic).
  * resolveMilledPickChoice moves the chosen card graveyard → hand. FIFO.
  */
-export function setPendingMilledPickChoice(state, { controller, candidates = [], sourceName = null }) {
+export function setPendingMilledPickChoice(state, { controller, candidates = [], sourceName = null, toZone = "hand" }) {
   if (state.pendingChoice) return state;
-  const next = logEvent(state, { kind: "milled-pick-pending", controller, count: candidates.length, sourceName });
+  const next = logEvent(state, { kind: "milled-pick-pending", controller, count: candidates.length, sourceName, toZone });
   return {
     ...next,
-    pendingChoice: { kind: "milled-pick", controller, candidates, sourceName },
+    // ④-P: `toZone` — "hand" (the milled-pick's own return) or "exile" (a target player's forced graveyard exile,
+    // Relic of Progenitus); the settler moves the pick there. Absent on a legacy pause → "hand".
+    pendingChoice: { kind: "milled-pick", controller, candidates, sourceName, toZone },
   };
 }
 

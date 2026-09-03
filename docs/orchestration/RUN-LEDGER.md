@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🕳️ 2026-09-03 (night cron) — CORPUS ④-P: "TARGET PLAYER EXILES A CARD FROM THEIR GRAVEYARD" — the target player's own pick · **+3** (Relic of Progenitus / Scrabbling Claws / Merrow Bonegnawer) · corpus 13,920 / 34,245 (40.6%)
+> Suite **1377 / 15,486** green; lint 0. Flip-diff **+3, zero LOST**. **6/6 killed.**
+> · **The shape:** "{T}: Target player exiles a card from their graveyard." — the chooser is the TARGET player, not the
+>   controller. No new choice kind: the atom resolves through the milled-pick pause aimed at THAT player with a
+>   destination (`toZone: "exile"`) the settler now honours; the same driver auto-picks for an AI target and pauses
+>   for a human one, and the panel re-labels for the exile form. Candidates are ORDERED least-valuable-first
+>   (lands, then ascending mana value) so the AI's deterministic first pick is the sensible give-up and a human
+>   sees the same order. 0 cards → a logged no-op; 1 → forced, no pause. The AI aims it at an opponent (intent
+>   "enemy", like mill). Graveyard Shovel's "If it's a creature card, you gain 2 life." rider stays parked.
+> · **Board-verified:** Relic tapped at the AI with Wurm / Forest / Shock in its graveyard — the pause belongs to
+>   the AI, aimed at exile, Forest first; settling exiles the Forest and the rest stay. Aimed at ourselves with one
+>   card: forced. Empty graveyard: nothing moves.
+> · **Relic of Progenitus** is a cEDH staple — its second line ("{1}, Exile this artifact: Exile all graveyards.
+>   Draw a card.") was already modeled; only the tap ability parked it.
+> · **CI note (the ④-L/④-M head, run 33793925874):** attempt 1 hit the 900 s wall with only 649 of 1,374 files done
+>   and tests STILL PROGRESSING (no deadlock — the last ✓ landed one second before teardown); the four green runs
+>   before it took 9–11 min each, and every local run tonight is flat at ~123 s. A slow runner, not a hang. Re-run
+>   once (attempt 2) rather than the wall raised; the outcome is recorded in the next entry. The wall stays a
+>   hang detector.
+
 > ## 🛡️ 2026-09-03 (night cron) — CORPUS ④-O: REINFORCE on a spell — the hand-zone option joins the cost-only keyword strip · **+4** (Break Ties / Fowl Strike / Hunting Triad / Earthbrawn) · corpus 13,917 / 34,245 (40.6%)
 > Suite **1376 / 15,481** green; lint 0. Flip-diff **+4, zero LOST**. **3/3 killed.**
 > · **The shape:** "Reinforce 2—{2}{G} ({2}{G}, Discard this card: Put two +1/+1 counters on target creature.)" on an

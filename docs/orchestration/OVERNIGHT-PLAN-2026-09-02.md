@@ -177,6 +177,7 @@ the scratchpad). ✅ **④-A** — Aura-own cumulative upkeep composes with the 
 ✅ **④-M** — annihilator + a routing trigger compose (+2; 3/3).
 ✅ **④-N** — the Aura's own one-shot on its host: exile / bounce (+7; 5/5).
 ✅ **④-O** — Reinforce on a spell: the hand-zone option joins the cost-only strip (+4; 3/3).
+✅ **④-P** — "target player exiles a card from their graveyard": the target player's own pick through the milled-pick pause (+3; 6/6).
 Queue = the census's two-flip / bug-signature leads (see WAKE-REPORT top).
 Only after ①–③'s DONE lines are met. Boot from the vault's `memory/orders/cindy-corpus-roadmap.md`
 (WHAT/WHY/ORDER) + the repo's `RESIDUE-GRIND-RUNBOOK.md` (HOW): fresh census, largest clause family with

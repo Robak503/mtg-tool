@@ -697,10 +697,14 @@ export function MilledPickPanel({ decision, onChoose }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
       <ChoiceBanner
-        icon="🃏"
-        title={`Take a card?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}
+        icon={decision.toZone === "exile" ? "🕳️" : "🃏"}
+        title={decision.toZone === "exile"
+          ? `Exile a card from your graveyard${decision.sourceName ? ` — ${decision.sourceName}` : ""}`
+          : `Take a card?${decision.sourceName ? ` — ${decision.sourceName}` : ""}`}
       >
-        Put one of these just-milled cards into your hand.
+        {decision.toZone === "exile"
+          ? "Their effect makes you exile one card from your graveyard. Choose which."
+          : "Put one of these just-milled cards into your hand."}
       </ChoiceBanner>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
         {(decision.candidates || []).map((c) => (

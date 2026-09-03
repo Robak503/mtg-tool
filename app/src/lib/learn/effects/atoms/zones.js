@@ -7,6 +7,7 @@ import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recor
 import { impositionEntersTapped } from "../../staticAbilityParser.js"; // KM-1 (CR 614.1c) — Kismet taxes non-cast entries too (leaf-safe: staticAbilityParser imports only keywords.js)
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
+import { setPendingMilledPickChoice } from "../../pendingChoice.js"; // ④-P — the target player's graveyard pick rides the milled-pick pause (toZone "exile"); library.js already imports the same module, so no new cycle
 import { parseGraveyardFilter, cardMatchesGraveyardFilter, parseCreatureTargetRestrictions } from "../../spellEffects.js"; // seam batch 16: graveyard card-type filter (leaf-safe, same as stack.js's spellEffects import) for graveyardReturnClauseParser. cardMatchesGraveyardFilter joins it for MASS-REANIMATE, which selects at RESOLUTION (no enumerated targets) — same import edge, no new module dependency.
 import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // MULTI-COUNT: number-word → int for "up to N target … cards"; parseCountSource: MASS-OPPONENT-BOUNCE toughness-threshold count (leaf, cycle-free)
 import { CR_CREATURE_TYPES } from "../creatureTypes.js"; // SUBTYPE RETURN (Atzocan Seer) — the closed CR subtype vocabulary (a zero-import leaf, cycle-free)
@@ -158,6 +159,34 @@ export function applyBlink(state, atom, ctx) {
     }
   }
   return logEvent(next, { kind: "spell-effect", effect: "blink", controller: ctx.controller, targets: blinked });
+}
+
+/**
+ * ④-P — TARGET-PLAYER GRAVEYARD PICK: "Target player exiles a card from their graveyard." The chooser is the TARGET
+ * player, not the controller. 0 cards → a logged no-op; 1 → forced, moved directly; 2+ → the milled-pick pause aimed
+ * at the target player with toZone:"exile" (the same picker/driver/panel the milled-pick uses, re-labelled). The
+ * candidates are ORDERED least-valuable-first (lands, then ascending mana value) so the AI's deterministic
+ * first-candidate auto-pick is the sensible give-up, and a human sees the same order. Single chosen target only
+ * (the corpus prints no multi-target form); a vanished target → no-op.
+ */
+export function applyExileGraveyardPick(state, atom, ctx) {
+  const t = (ctx.targets || []).find((x) => x.type === "player");
+  if (!t || !state.players?.[t.id]) return logEvent(state, { kind: "spell-effect", effect: "exile-graveyard-pick", controller: ctx.controller, target: null, picked: null });
+  const gy = state.players[t.id].graveyard || [];
+  if (gy.length === 0) return logEvent(state, { kind: "spell-effect", effect: "exile-graveyard-pick", controller: ctx.controller, target: t.id, picked: null });
+  const isLand = (c) => /\bLand\b/.test(String(c.type || c.type_line || "").split(" // ")[0]);
+  const mv = (c) => Number(c.cmc ?? 0) || 0;
+  const ordered = [...gy].sort((x, y) => (Number(isLand(y)) - Number(isLand(x))) || (mv(x) - mv(y)) || String(x.name).localeCompare(String(y.name)));
+  if (ordered.length === 1) {
+    const next = moveCardToZone(state, { playerId: t.id, fromZone: "graveyard", toZone: "exile", cardId: ordered[0].id });
+    return logEvent(next, { kind: "spell-effect", effect: "exile-graveyard-pick", controller: ctx.controller, target: t.id, picked: ordered[0].name });
+  }
+  return setPendingMilledPickChoice(state, {
+    controller: t.id,
+    candidates: ordered.map((c) => ({ id: c.id, name: c.name, type: c.type || c.type_line || "" })),
+    sourceName: ctx.cardName || null,
+    toZone: "exile",
+  });
 }
 
 export function applyExileGraveyard(state, atom, ctx) {
@@ -825,6 +854,12 @@ export function graveyardReturnClauseParser(clause) {
   // untap-exact-lands arm documents (one legal target ⇒ uncastable, never a half-cast).
   const blink3M = t.match(/^exile two target artifacts, creatures, and\/or lands you control, then return those cards to the battlefield under (your|their owner's) control$/);
   if (blink3M) return { op: "blink", targetType: "artifactCreatureOrLandYouControl", restrictions: [], returnTo: blink3M[1] === "your" ? "controller" : "owner", maxTargets: 2, minTargets: 2 };
+  // ④-P (2026-09-03 night) — "Target player exiles a card from their graveyard." (Relic of Progenitus / Scrabbling
+  // Claws / Merrow Bonegnawer): the TARGET PLAYER chooses the card (CR 601.2c targets; the choice is theirs at
+  // resolution). Resolved by applyExileGraveyardPick — a milled-pick pause aimed at THAT player with toZone "exile"
+  // (a human target picks on the panel; the AI target auto-picks its least valuable card). Whole-clause anchored:
+  // Graveyard Shovel's "If it's a creature card, you gain 2 life." rider falls through → Arbiter.
+  if (/^target player exiles a card from their graveyard$/.test(t)) return { op: "exile-graveyard-pick", who: "target", targetType: "player" };
   if (/^exile target player's graveyard$/.test(t)) return { op: "exile-graveyard", who: "targetPlayer", targetType: "player" };
   if (/^exile target opponent's graveyard$/.test(t)) return { op: "exile-graveyard", who: "targetPlayer", targetType: "opponent" };
   if (/^exile all graveyards$/.test(t)) return { op: "exile-graveyard", who: "eachPlayer", targetType: null };
@@ -1505,6 +1540,7 @@ export const zoneResolvers = {
   "reanimate": applyReanimate,
   "exile-from-graveyard": applyExileFromGraveyard,
   "exile-graveyard": applyExileGraveyard,   // WHOLE-ZONE graveyard hate (Bojuka Bog / Farewell / Rakdos Charm)
+  "exile-graveyard-pick": applyExileGraveyardPick, // ④-P — the TARGET player picks one of their graveyard cards to exile (Relic of Progenitus)
   "mass-reanimate": applyMassReanimate,     // "return ALL <type> cards from your graveyard to the battlefield[ tapped]"
   "mass-return-hand": applyMassReturnToHand, // the hand-destination mirror of the above
   "blink": applyBlink,                      // BLINK/FLICKER (CR 400.7) — Cloudshift / Ephemerate / Essence Flux

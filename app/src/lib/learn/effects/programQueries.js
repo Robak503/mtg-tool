@@ -339,6 +339,9 @@ export function atomTargetIntent(atom) {
       // The controller never targets themselves with a discard trigger.
       if (tt === "player" || tt === "opponent") return "enemy";
       return "ambiguous";
+    case "exile-graveyard-pick": // ④-P — "target player exiles a card from their graveyard": graveyard hate, enemy-side like mill
+      if (tt === "player" || tt === "opponent") return "enemy";
+      return "ambiguous";
     case "mill":
       // TARGET-MILL (BLITZ TM-1 — Tome Scour / Millstone / Returned Centaur class): "target player/
       // opponent mills N cards" is harmful, enemy-side like targeted discard — the flush chooser always
