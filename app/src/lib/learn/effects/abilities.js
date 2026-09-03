@@ -1253,6 +1253,10 @@ export function parseActivatedAbilities(card) {
       // Both require HIGH + non-modal (the activated X-choice × modal-mode cross-expansion isn't wired). Every
       // non-X ability keeps the original gate: HIGH, non-modal, non-X (a stray {X} effect under a non-X cost stays
       // parked). A mis-model (X paid, nothing consumes it) is a forbidden half-model — the gate forbids it.
+      // ④-AE (2026-09-03): a COMBAT-ROLE target ("target attacking creature") on an activated ability is playable
+      // ONLY through legalChoices' combat window (actionsActivateAbility) — the main-phase window's pool is empty by
+      // definition. That lane exists now, so the program is accepted here like any other; before it did, 28 archers
+      // (D'Avenant Archer and kin) were credited with an ability the runtime never offered.
       effectHigh = sacX
         ? (!!program && programConfidence(program) === "high" && !!program.xSpell && !program.modal)
         : costX

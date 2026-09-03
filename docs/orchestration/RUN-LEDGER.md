@@ -3,6 +3,36 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🏹 2026-09-03 (night cron) — ④-AE: "TARGET ATTACKING / BLOCKING CREATURE" + THE COMBAT WINDOW for activated abilities · **+30** · shelf unchanged (Hulk 86 · Dragons 91) · corpus 14,012 / 34,245 (40.9%)
+> Suite **1392 files / 15,551 tests** green; lint 0. Flip-diff **+30, zero LOST**. **8/8 killed.**
+> · **The shape:** the same subject peel as ④-AC, one qualifier further: the role word ("attacking" / "blocking" /
+>   "attacking or blocking") comes off the subject and rides back as the `combat` restriction the satisfier has read
+>   since BS-1 (either → "either"; the satisfier fails closed on anything else). ~75 carriers; splitClauses' keep-whole
+>   guard admits the role word so "gets +3/+3 and gains trample" (Run Amok) survives its " and ".
+> · **The peel FALLS THROUGH, never returns null:** the first flip-diff LOST Tributary Instructor and The Powerful
+>   Dragon — Mentor's "put a +1/+1 counter on target attacking creature with lesser power" is owned WHOLE by an arm in
+>   counters.js, and a peel that returned null on a reduced clause with no arm stole it. Now a non-stamp meets the
+>   arms exactly as before. (0 LOST after.)
+> · **⭐ THE HOLLOW POOL, found by the second flip-diff:** the runtime offered activated abilities only on the acting
+>   player's own MAIN phase (a v1 choice, "instant-speed timing is a later refinement"). Nothing attacks or blocks in
+>   a main phase — so every combat-role ACTIVATION had an always-empty pool, and 28 archers (D'Avenant Archer
+>   "{T}: deals 1 damage to target attacking or blocking creature" and kin: Gravel Slinger, Elite Archers, Heavy
+>   Ballista, Femeref Archers, Crossbow Infantry, Quilled Sliver, Nahiri's Machinations …) had been credited native
+>   on that pool since the damage lane learned the phrase. A gate that refused combat-role activations LOST all 28 —
+>   the honest number, and the CREED's direction — so instead the runtime half was built: **the combat window.**
+>   In a combat step, EITHER player holding priority may activate the combat-role abilities and nothing else (a
+>   plain pump still waits for its main phase; mutation-proven). The defender uses them on the attacker's turn
+>   (CR 602.2). The AI's picker skips targeted activations, so its play is unchanged (a safe FN, PR-later). The 28
+>   are now honestly credited; 13 more activations join them.
+> · **Board-verified:** Run Amok castable in the declare-blockers step at the attacker only (+3/+3 lands);
+>   Righteousness at the blocker only; the "either" form at both, never the idle bears; the defender's Infantry
+>   Veteran offered at the attacker in combat and taps; D'Avenant Archer deals its damage; a plain pump is NOT
+>   offered in combat; in a main phase the Veteran has no pool.
+> · **CI note:** ④-AC's run went red on `ffaSoleSurvivor` — 48 s against a 20 s per-test timeout, where the two prior
+>   green runs took 15 s and 17 s for the whole file and the local tree runs it in 6 s. Runner variance, not code;
+>   the failed shard was re-run.
+> · **CI:** ④-AC's run (c0458f7a) red on a runner timeout, failed shard re-running at commit time; ④-AE pushes only after it is green
+
 > ## 🪽 2026-09-03 (night cron) — ④-AD: the two-keyword grant keeps its counter-bearing subject whole (Steppe Glider, Ollenbock Escort) · **+2** · corpus 13,982 / 34,245 (40.8%)
 > Suite **1391 files / 15,543 tests** green; lint 0. Flip-diff **+2, zero LOST**. **2/2 killed.**
 > · **The shape:** ④-AC's peel lives in parseClauseToAtom, but "target creature with a +1/+1 counter on it gains

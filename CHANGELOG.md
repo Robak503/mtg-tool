@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"Target attacking creature" and "target blocking creature" work** — Run Amok, Righteousness, Outflank, Most Valuable Slayer, Infantry Veteran, Serra Advocate and more only offer creatures in that combat role.
+- **Combat-time activated abilities** — abilities that target an attacking or blocking creature (D'Avenant Archer, Kithkin Shielddare, Harpoon Sniper and their kin) can now be activated during combat, by either player, instead of only in a main phase where they had no legal target.
 - **"Target creature with a +1/+1 counter on it" works** — the graft cycle's grants, Razorfin Abolisher, Crumbling Ashes, Hidden Hideout, Liliana, Death Wielder, Steppe Glider, Ollenbock Escort and more only offer creatures that actually carry the counter.
 - **City of Brass works** — tapping it for mana deals you the damage.
 - **"Return a card from your graveyard to your hand" works** — Corpse Churn, Grapple with the Past, Takenuma's

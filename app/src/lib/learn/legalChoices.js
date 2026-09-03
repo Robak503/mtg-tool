@@ -1984,10 +1984,32 @@ function actionsCrewVehicle(state, playerId) {
   return out;
 }
 
+/** An activated ability whose effect targets a creature BY COMBAT ROLE ("target attacking creature", "target attacking
+ * or blocking creature") — the ④-AE combat window below exists for exactly these and nothing else. */
+function abilityTargetsCombatRole(ab) {
+  return (ab?.program?.atoms || []).some((a) => Array.isArray(a.restrictions) && a.restrictions.some((r) => r.kind === "combat"));
+}
+
+/** The combat steps in which a player holding priority may activate a COMBAT-ROLE ability (④-AE). */
+const COMBAT_WINDOW_STEPS = new Set(["beginning-of-combat", "declare-attackers", "declare-blockers", "combat-damage", "end-of-combat"]);
+
 function actionsActivateAbility(state, playerId) {
-  if (state.activePlayer !== playerId) return [];
   if (state.priorityHolder !== playerId) return [];
-  if (state.step !== "main") return [];
+  // ⭐ THE COMBAT WINDOW (④-AE, 2026-09-03 — Infantry Veteran "{T}: Target attacking creature gets +1/+1", D'Avenant
+  // Archer "{T}: This creature deals 1 damage to target attacking or blocking creature", Serra Advocate, Harpoon
+  // Sniper, Kithkin Shielddare … 41 cards). The v1 gate above this function surfaces activations only on the
+  // player's OWN main phase — deliberately, so the learner isn't spammed at every priority window. But an ability
+  // that targets a creature BY COMBAT ROLE is useless there (nothing is attacking or blocking in a main phase) and
+  // was being credited native with a pool that could never be non-empty — 28 archers and their kin, hollow since
+  // the day the damage lane learned the phrase. The narrowest honest lane: in a combat step, EITHER player holding
+  // priority (the defender uses these on the attacker's turn — CR 602.2 instant speed) may activate ONLY the
+  // combat-role abilities; every other activation keeps the v1 main-phase window byte-for-byte. The spam concern
+  // does not apply — the pool is exactly the attackers / blockers. The AI's picker (pickAction →
+  // pickSafeAbilityActivation) skips every TARGETED activation, so the AI's play is unchanged: an AI archer still
+  // never shoots (a safe FN, PR-later — the human learner is who this window is for).
+  const combatWindow = COMBAT_WINDOW_STEPS.has(state.step);
+  const mainWindow = state.activePlayer === playerId && state.step === "main";
+  if (!mainWindow && !combatWindow) return [];
   const player = state.players[playerId];
   const actions = [];
   // ACTIVATED-ABILITY COST-REDUCTION (Training Grounds, Biomancer's Familiar): the controller's battlefield may
@@ -2028,6 +2050,7 @@ function actionsActivateAbility(state, playerId) {
     const isCreaturePerm = isCreature(perm.card);
     for (const ab of abilities) {
       if (!ab.modeled) continue;
+      if (!mainWindow && !abilityTargetsCombatRole(ab)) continue; // ④-AE: the combat window is for combat-role abilities ONLY
       // PER-TURN ACTIVATION LIMIT (BLITZ ONCE-1, generalized to a count): an ability already activated its
       // limit-many times THIS turn is not offered again. Keyed permId:rawLine (raw is unique per ability,
       // printed OR granted — an index would collide across the two lists). The ledger records { turn, n };

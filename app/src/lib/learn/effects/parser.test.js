@@ -443,8 +443,12 @@ describe("parseEffectProgram — board-count damage (DMG-SCALE)", () => {
       .toMatchObject({ op: "deal-damage", targetType: "player", amountCount: { kind: "cardsInHand", who: "target" } });
   });
   it("MUST_DROP_TO_LOW: restricted target / unmodeled source / multiplier → Arbiter", () => {
-    // restricted target (would mis-resolve to the unrestricted set):
-    expect(conf("Outflank deals damage to target attacking creature equal to the number of creatures you control.")).toBe("low");
+    // restricted target — HIGH since ④-AE (2026-09-03): the combat-role subject peel reads "attacking" off the subject
+    // and stamps the `combat` restriction the enumeration enforces, so Outflank no longer mis-resolves to the
+    // unrestricted set — it resolves to the ATTACKERS. (Pinned low before, for exactly that mis-resolution.)
+    expect(conf("Outflank deals damage to target attacking creature equal to the number of creatures you control.")).toBe("high");
+    expect(atom0("Outflank deals damage to target attacking creature equal to the number of creatures you control."))
+      .toMatchObject({ op: "deal-damage", targetType: "creature", restrictions: [{ kind: "combat", value: "attacking" }] });
     expect(conf("Acidic Soil deals damage to each player equal to the number of lands you control.")).toBe("low"); // each-player damage not modeled
     // opponent-scoped PERMANENTS still low (only the target player's HAND is modeled — "that player's
     // hand", WALT-COUNT-OPP). Opponent permanents + other hand phrasings stay low:

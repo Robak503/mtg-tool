@@ -486,13 +486,30 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
   // refused → the card stays parked, as before. Counter vocabulary is limited to the counters the runtime
   // actually places (+1/+1, -1/-1, stun, or "a counter" = any); a printed type it never places (time,
   // bounty) would credit an ability that can never fire, so it is refused as well.
-  const cbt = /\b(target (?:attacking |blocking )?creature(?: you control| an opponent controls| you don't control)?) with (?:a|an|one or more) (?:([+-]1\/[+-]1|stun) )?counters? on it\b/i.exec(s);
-  if (cbt) {
-    const reduced = s.replace(cbt[0], cbt[1]);
+  // ⭐ COMBAT-ROLE SUBJECT JOINED (④-AE, 2026-09-03 — "target ATTACKING creature gets +2/+2 until end of turn",
+  // Infantry Veteran / Kithkin Shielddare / Serra Advocate / Balduvian Rage / Pegasus Courser; ~75 carriers, the
+  // largest subject-qualifier vein the census never named). The identical peel: the role word comes off the
+  // subject and rides back as the `combat` restriction the satisfier has read since BS-1 (attacking / blocking /
+  // either — "attacking or blocking" maps to "either"; the satisfier fails closed on any other value). A creature
+  // is attacking or blocking only inside combat (CR 506.3 / 509.1), so outside combat the pool is empty and the
+  // ability is simply not offered — the same enumeration that already serves the destroy / bounce lanes.
+  const cbt = /\b(target )(attacking or blocking |attacking |blocking )?(creature(?: you control| an opponent controls| you don't control)?)( with (?:a|an|one or more) (?:([+-]1\/[+-]1|stun) )?counters? on it)?\b/i.exec(s);
+  // ⛔ FALL THROUGH, NEVER RETURN NULL, when the reduced clause does not parse to a plain creature atom: an arm may
+  // own the printed phrase WHOLE — Mentor's "put a +1/+1 counter on target attacking creature with lesser power"
+  // (counters.js) parsed HIGH before this peel existed, and returning null here dropped Tributary Instructor and
+  // The Powerful Dragon out of native (caught by the flip-diff, 2 LOST). Below the peel the clause meets the arms
+  // exactly as it always did, so a non-stamp is byte-identical to the pre-slice parse.
+  if (cbt && (cbt[2] || cbt[4])) {
+    const reduced = s.replace(cbt[0], `${cbt[1]}${cbt[3]}`);
     const inner = parseClauseToAtom(cardType, reduced, hasX, sourceScoped);
-    if (!inner || !KNOWN.has(inner.op) || inner.targetType !== "creature") return null;
-    if (inner.role || inner.secondaryRole || inner.fighter || Array.isArray(inner.targets)) return null;
-    return { ...inner, restrictions: [...(inner.restrictions || []), { kind: "hasCounter", counterType: cbt[2] ? cbt[2].toLowerCase() : null }] };
+    const plainCreature = inner && KNOWN.has(inner.op) && inner.targetType === "creature"
+      && !(inner.role || inner.secondaryRole || inner.fighter || Array.isArray(inner.targets));
+    if (plainCreature) {
+      const extra = [];
+      if (cbt[2]) extra.push({ kind: "combat", value: /\bor\b/i.test(cbt[2]) ? "either" : cbt[2].trim().toLowerCase() });
+      if (cbt[4]) extra.push({ kind: "hasCounter", counterType: cbt[5] ? cbt[5].toLowerCase() : null });
+      return { ...inner, restrictions: [...(inner.restrictions || []), ...extra] };
+    }
   }
 
   // ⭐ IMPULSE-EXILE AS A CLAUSE (2026-08-03) — "Exile the top N cards of your library. Until the end of

@@ -7,6 +7,21 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🏹 2026-09-03 (night cron) — **④-AE: "target attacking / blocking creature" + the COMBAT WINDOW for activated abilities (+30)** · suite **1392 files / 15,551 tests** green · corpus 14,012 / 34,245 (40.9%) · flip-diff +30 / 0 lost · 8/8 killed · shelf unchanged (Hulk 86 · Dragons 91)
+
+> **Night tally (stage ④, thirty-one slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
+> J (+1) · K (+1, FP closed on 3) · L (+4) · M (+2) · N (+7) · O (+4) · P (+3) · Q (+6) · R (+2) · S (+2) · T (+12) · U (+2) ·
+> V (+2, Thrun 90) · W (+3, Thrun 91) · X (+1, Earth Bent 89) · Y (+1) · Z (+6, Veyran 89) · AA (+9, Mothman 88) · AB (+1) ·
+> AC (+12, Hulk 86) · AD (+2) · AE (+30; 28 hollow credits made honest by the combat window) — corpus 13,862 → 14,012.
+> **⭐ Runtime gained a lane:** activated abilities that target by combat role are now offered in combat steps to
+> whichever player holds priority (legalChoices.actionsActivateAbility's combat window). Before, they were credited
+> on an always-empty pool. The AI does not use them yet (its picker skips targeted activations) — a PR-later lead.
+> **CI:** ④-AC's run (c0458f7a) red on a runner timeout, failed shard re-running at commit time; ④-AE pushes only after it is green
+> **Next runnable:** Urdnan ("target attacking creature with a +1/+1 counter on it" — both qualifiers, one peel);
+> Kessig Wolf Run ({X} pump on a land — X-scaled magnitude activations are refused by design); Xenagos (+X/+X where
+> X is the target's power); Secluded Courtyard; the "up to N" non-targeted returns (a counted pick); the AI using
+> combat-role activations.
+
 ## 🪽 2026-09-03 (night cron) — **④-AD: the two-keyword grant keeps its counter-bearing subject whole (+2)** · suite **1391 files / 15,543 tests** green · corpus 13,982 / 34,245 (40.8%) · flip-diff +2 / 0 lost · 2/2 killed
 
 > **Night tally (stage ④, thirty slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·

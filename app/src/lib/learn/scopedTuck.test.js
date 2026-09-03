@@ -59,9 +59,13 @@ describe("the restriction reaches the atom", () => {
     expect(parse("put target creature on top of its owner's library").atoms).toEqual([{ op: "tuck", targetType: "creature", where: "top" }]);
   });
 
-  it("⛔ bare 'attacking' / 'blocking' stay REFUSED (no clean corpus carrier to serve)", () => {
-    expect(parse("put target attacking creature on top of its owner's library").atoms).toEqual([]);
-    expect(parse("put target blocking creature on the bottom of its owner's library").atoms).toEqual([]);
+  it("⭐ bare 'attacking' / 'blocking' now ride the ④-AE combat-role peel (2026-09-03) — the role word comes off the subject and back as the combat restriction", () => {
+    // Pinned REFUSED until ④-AE, "no clean corpus carrier to serve"; the subject peel in parseClauseToAtom now
+    // serves every arm at once, this one included — the same `combat` restriction Whisk Away's "either" form carries.
+    expect(parse("put target attacking creature on top of its owner's library").atoms)
+      .toEqual([{ op: "tuck", targetType: "creature", where: "top", restrictions: [{ kind: "combat", value: "attacking" }] }]);
+    expect(parse("put target blocking creature on the bottom of its owner's library").atoms)
+      .toEqual([{ op: "tuck", targetType: "creature", where: "bottom", restrictions: [{ kind: "combat", value: "blocking" }] }]);
   });
 
   it("⭐ the whole cards flip, both families", () => {

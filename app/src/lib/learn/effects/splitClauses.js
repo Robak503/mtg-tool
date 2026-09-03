@@ -367,7 +367,9 @@ export function splitClauses(oracle) {
     // again — parseClauseToAtom's ④-AC peel never saw the sentence because " and " had already split it. The
     // qualifier vocabulary here mirrors the peel's exactly (+1/+1, -1/-1, stun, or "a counter"); a type the peel
     // refuses (time) is not kept whole either, so it shatters and parks as before.
-    if (/^target (?:artifact )?creature (?:(?:you control|an opponent controls) )?(?:with (?:a|an|one or more) (?:(?:[+-]1\/[+-]1|stun) )?counters? on it )?(?:gets [+-](?:\d+|x)\/[+-](?:\d+|x) and )?gains\b.*\buntil end of turn(?: and untap it)?$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ⭐ THE COMBAT-ROLE SUBJECT JOINED 2026-09-03 (④-AE — "target attacking creature gets +2/+2 and gains trample until
+    // end of turn"): the role word sits BEFORE "creature", and rides the same peel in parseClauseToAtom.
+    if (/^target (?:artifact )?(?:attacking or blocking |attacking |blocking )?creature (?:(?:you control|an opponent controls) )?(?:with (?:a|an|one or more) (?:(?:[+-]1\/[+-]1|stun) )?counters? on it )?(?:gets [+-](?:\d+|x)\/[+-](?:\d+|x) and )?gains\b.*\buntil end of turn(?: and untap it)?$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ⭐ THE SAME BINDING FOR A PERMANENT SUBJECT (Tamiyo's Safekeeping — "Target permanent you control gains
     // hexproof and indestructible until end of turn."). The anchor above is nailed to "target creature", so a
     // permanent-subject grant SHATTERED on the internal " and " into "…gains hexproof" + "indestructible until
