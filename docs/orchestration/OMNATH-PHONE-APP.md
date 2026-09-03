@@ -624,9 +624,12 @@ exist on branch `codex/omnath-phone-polish`.
   gate passed 24 mobile JS/data/security tests, 17 engine/WebView tests, three
   Rust provisioning tests, and three Kotlin model-lifecycle tests before the
   APK receipt was issued.
-- Installation and launch are proven on the Pixel. First-run provisioning,
-  airplane-mode queries, the packaged Android WebView probe, and model
-  performance remain pending on the corrected APK.
+- Installation, launch, and corrected first-run provisioning are proven on the
+  Pixel 10 XL. The UI reached **Offline and ready** with the rules runtime and
+  knowledge pack verified using APK SHA-256
+  `6fb473f476106910661b12d18164a37362f73e1c0c6c9e89014e0976bf6bc032`.
+  Airplane-mode queries, the packaged Android WebView probe, and optional model
+  performance remain pending.
 
 - One chat surface.
 - One Omnath persona.
