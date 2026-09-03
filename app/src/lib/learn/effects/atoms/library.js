@@ -1301,6 +1301,42 @@ export function applyRevealUntilCreatureAttacking(state, atom, ctx) {
 }
 
 /**
+ * ===== CLASH (STAGE ④-1, 2026-09-03 — CR 701.22) ===== "clash with an opponent": this player and ONE opponent
+ * each reveal the top card of their library; a player wins the clash iff their card's mana value is GREATER
+ * (a tie wins for nobody). Each player may then put their card on the bottom (701.22a) — the engine's
+ * deterministic policy keeps it on top (always legal: a "may"). The opponent is the first opponent in seat
+ * order (the controller's choice in paper; deterministic here). The result is stamped on `state.clashResult`
+ * for the SAME program's "If you win" conditional (the interveningIf shape "you won the clash" reads it for
+ * this controller). A player with no card to reveal cannot win; no opponent at all → nobody wins (logged).
+ * "Whenever you clash" watchers are NOT fired here (no clash trigger event yet — those cards stay parked).
+ */
+function manaValueOfCard(card) {
+  if (Number.isFinite(card?.cmc)) return card.cmc;
+  if (Number.isFinite(card?.manaValue)) return card.manaValue;
+  const cost = String(card?.mana_cost ?? card?.mana ?? "");
+  let mv = 0;
+  for (const m of cost.matchAll(/\{([^}]+)\}/g)) {
+    const sym = m[1];
+    if (/^\d+$/.test(sym)) mv += parseInt(sym, 10);
+    else if (sym.toUpperCase() !== "X") mv += 1; // a coloured / hybrid / phyrexian pip is 1; X is 0 off the stack (CR 202.3b/e)
+  }
+  return mv;
+}
+export function applyClash(state, atom, ctx) {
+  const controller = ctx.controller;
+  const me = state.players?.[controller];
+  if (!me) return state;
+  const opp = opponentsOf(state, controller).find((pid) => state.players?.[pid]) ?? null;
+  const mine = me.library?.[0] ?? null;
+  const theirs = opp ? (state.players[opp].library?.[0] ?? null) : null;
+  const myMv = mine ? manaValueOfCard(mine) : -Infinity;
+  const theirMv = theirs ? manaValueOfCard(theirs) : -Infinity;
+  const won = !!opp && mine != null && myMv > theirMv;
+  const next = { ...state, clashResult: { controller, opponent: opp, won } };
+  return logEvent(next, { kind: "spell-effect", effect: "clash", controller, opponent: opp, revealed: mine?.name || null, revealedMv: mine ? myMv : null, opponentRevealed: theirs?.name || null, opponentRevealedMv: theirs ? theirMv : null, won });
+}
+
+/**
  * ===== SYLVAN LIBRARY (SG-15b, 2026-09-03 — CR 603.7c + 121.4) ===== the taken half of "you may draw N
  * additional cards. If you do, choose N cards in your hand drawn this turn. For each of those cards, pay
  * L life or put the card on top of your library." The optional-effect pause has already been answered
@@ -2445,6 +2481,7 @@ export const libraryResolvers = {
   "reveal-until-creature-to-hand": applyRevealUntilCreatureToHand, // SG-9 (Evolutionary Leap) — reveal until a creature → that card to HAND → bottom the rest random
   seek: applySeek, // LANDS-14b (the Alchemy Gates, CR 701.55) — a random matching library card to hand, no reveal, no shuffle
   "sylvan-library": applySylvanLibrary, // SG-15b — draw N extra, then per drawn card: pay L life or put it back on top (a chained pause)
+  clash: applyClash, // STAGE ④-1 (CR 701.22) — reveal tops vs one opponent, win iff greater MV; stamps state.clashResult for the "If you win" conditional
   "reveal-top-conditional": applyRevealTopConditional, // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== reveal top: creature → onto battlefield (fires ETB); else put on bottom (deterministic "you may", like explore).
   "animist-awakening": applyAnimistAwakening, // ===== ANIMIST'S AWAKENING ===== ({X} spell) reveal top X → put all LANDS onto battlefield tapped → bottom the rest random; spell-mastery (2+ IS in GY) untaps those lands. Animist's Awakening flips native-spell.
 };

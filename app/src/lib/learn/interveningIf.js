@@ -735,6 +735,16 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     return context.manaSpent === false;
   }
 
+  // ===== CLASH RESULT (STAGE ④-1, 2026-09-03 — CR 701.22) ===== "you won the clash": the parser's normalized
+  // form of "If you win" after a clash atom. Reads the stamp the clash applier wrote for THIS controller
+  // (`state.clashResult`); no stamp, another player's stamp, or a non-boolean → null (never a guess). The
+  // collapse always emits the clash atom immediately before this conditional, so the stamp is never stale.
+  if (c === "you won the clash") {
+    const r = state?.clashResult;
+    if (!r || r.controller !== controllerId || typeof r.won !== "boolean") return null;
+    return r.won;
+  }
+
   // ===== SELF TAP-STATE (CR 603.4 + 106.1) ===== "…, if this artifact is untapped, …" (Howling Mine #723,
   // Blinkmoth Urn, Genesis Chamber) and its inverse "if this artifact is tapped" (Mana Vault #145). The
   // source's own tap state is the most directly checkable condition there is — one boolean on the permanent
@@ -1741,7 +1751,9 @@ export function interveningIfParseable(condition) {
   // a boolean here (the runtime threads a real sourceCardId from the graveyard scan).
   // The probe ALSO carries a definite _impulseExiledTypes stamp so the BONEHOARD exiled-type shapes
   // return a boolean here (the runtime stamp is written by every impulse-exile resolution).
-  const probe = { players: { __probe__: { battlefield: [entering], graveyard: [{ id: "__probe_gy__" }] } }, _impulseExiledTypes: { land: false, nonland: false } };
+  // `clashResult`: a definite stamp so the CLASH-RESULT shape ("you won the clash", stage ④-1) probes as
+  // readable; the runtime stamps the real result on every clash.
+  const probe = { players: { __probe__: { battlefield: [entering], graveyard: [{ id: "__probe_gy__" }] } }, _impulseExiledTypes: { land: false, nonland: false }, clashResult: { controller: "__probe__", won: true } };
   // The probe context ALSO carries a definite numeric `xValue` so the X-VALUE THRESHOLD shape ("x is N or
   // more") returns a boolean here (the runtime stamps a real xValue on every {X}-cost entry via
   // checkEnterTriggers); every other shape ignores the extra field.
@@ -1775,7 +1787,7 @@ export function interveningIfParseable(condition) {
  * but with the SPELL context (no per-object probe fields), which is exactly what distinguishes the two.
  */
 export function spellConditionParseable(condition) {
-  const probe = { players: { __probe__: { battlefield: [], graveyard: [], hand: [], library: [], life: 20 } } };
+  const probe = { players: { __probe__: { battlefield: [], graveyard: [], hand: [], library: [], life: 20 } }, clashResult: { controller: "__probe__", won: true } }; // clashResult: the CLASH-RESULT shape (stage ④-1) is spell-readable (a spell can clash — Titan's Revenge)
   return evaluateInterveningIf(probe, condition, "__probe__", {}) !== null;
 }
 

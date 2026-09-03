@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚔️ 2026-09-03 — STAGE ④-1: CLASH — "clash with an opponent. If you win, <payoff>" · **+5 corpus** · corpus 40.4% (13,823/34,245)
+> Suite **1350 / 15,324** green; lint 0. Flip-diff **+5, zero LOST** — exactly the five ETB-counter carriers
+> (Nath's Elite, Oaken Brawler, Paperfin Rascal, Bog Hoodlums, Adder-Staff Boggart); Fire Juggler /
+> Ringskipper / Sentry Oak stay parked on their payoffs (not HIGH), Springjack Knight on its targeting
+> branch (pinned). **6/6 killed — after one survivor earned its pin:** the cost-derived mana value counting
+> X as a pip survived because the fixture's opponent card could not tell 2 from 3; the witness now ties
+> {X}{G}{G} against a 2 and beats a 1.
+> · **The clash atom (CR 701.22).** This player and the first opponent in seat order each reveal their top
+>   card; the controller wins iff their mana value is GREATER (a tie wins for nobody — pinned); both cards
+>   stay on top (a deterministic, always-legal "may"). No card to reveal → cannot win; no opponent → nobody
+>   wins. The result is stamped on `state.clashResult` for the same program's conditional.
+> · **"If you win" as a condition.** The parser collapses "[you may ]clash with an opponent. If you win,
+>   <payoff>" into the clash atom (optional when printed "you may") plus the existing `conditional` atom on
+>   the normalized "you won the clash", which the intervening-if vocabulary reads off the stamp for THIS
+>   controller only (another player's stamp → null, pinned). The payoff must be HIGH, non-modal, pause-free
+>   and non-targeting — the rung discipline. All three condition probes carry a definite stamp so the shape
+>   is readable at parse time.
+> · Not in this slice, on purpose: "whenever you clash [and win]" watchers (Rebellion of the Flamekin,
+>   Entangling Trap, Sylvan Echoes) need a clash trigger EVENT — the next clash arm.
+
 > ## 🌲 2026-09-03 — SG-16: Boseiju, Who Endures — the channel's union destroy + the opponent's typed-basic search · **+3 corpus** · Squirrel Girl 84→85 · corpus **40.4%** (13,818/34,245)
 > Suite **1349 / 15,317** green; lint 0. Flip-diff **+3, zero LOST** — Boseiju (land-partial → land) and two
 > riders audited against their real oracle: Volatile Fault ("Destroy target nonbasic land an opponent

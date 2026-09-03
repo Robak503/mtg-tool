@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Clash works** (Nath's Elite, Oaken Brawler, Paperfin Rascal, Bog Hoodlums, Adder-Staff Boggart and their
+  kin) — you and an opponent reveal your top cards, the greater mana value wins, and the "if you win" payoff
+  follows; a tie wins for nobody, and both cards stay on top.
 - **Boseiju, Who Endures works** — channel it to destroy an opponent's artifact, enchantment, or nonbasic land;
   they may fetch a land with a basic land type; each legendary creature you control knocks {1} off the cost.
 - **Sylvan Library works** — at your draw step you may draw two extra cards, then for each of them pay 4 life

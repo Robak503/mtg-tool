@@ -2387,6 +2387,29 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       return makeProgram({ confidence: "high", atoms: [{ op: "reveal-until-creature-attacking", targetType: null }], xSpell: false, unparsedTail: null });
     }
   }
+  // ===== CLASH + "IF YOU WIN" (STAGE ④-1, 2026-09-03 — CR 701.22) ===== "[you may ]clash with an opponent. If
+  // you win, <payoff>" (Nath's Elite / Oaken Brawler / Paperfin Rascal / Bog Hoodlums / Adder-Staff Boggart's
+  // ETB counter; Fire Juggler; Ringskipper …). Two atoms: the clash (optional when printed "you may" — the
+  // optional-effect pause), then a conditional on the normalized "you won the clash", evaluated by
+  // applyConditional through the same reader every intervening-if uses. The payoff must be HIGH, non-modal,
+  // pause-free and NON-TARGETING (the rung discipline — Springjack Knight's "target creature gains double
+  // strike" stays parked); anything else → low → Arbiter. Reminder text is stripped first.
+  {
+    const cl = stripReminder(String(oracle)).trim().replace(/[’]/g, "'").replace(/\s+/g, " ").match(/^(you may )?clash with an opponent\.\s+if you win, (.+?)\.?\s*$/i);
+    if (cl && KNOWN.has("clash")) {
+      const payoff = parseEffectClauseImpl(cl[2].trim(), cardType, { hasX: false });
+      const clean = payoff && programConfidence(payoff) === "high" && payoff.structure !== "modal" && payoff.atoms.length > 0
+        && !payoff.atoms.some((a) => PAUSING_ATOM_OPS.has(a.op))
+        && !payoff.atoms.some((a) => a.targetType && !isNonChosenTargetType(a.targetType));
+      if (clean) {
+        return makeProgram({
+          confidence: "high",
+          atoms: [{ op: "clash", ...(cl[1] ? { optional: true } : {}), targetType: null }, { op: "conditional", branchOn: "you won the clash", ifTrue: payoff.atoms, ifFalse: [], targetType: null }],
+          xSpell: false, unparsedTail: null,
+        });
+      }
+    }
+  }
   // ===== SYLVAN LIBRARY (SG-15b, 2026-09-03 — CR 603.7c + 121.4) ===== "you may draw two additional cards.
   // If you do, choose two cards in your hand drawn this turn. For each of those cards, pay 4 life or put the
   // card on top of your library." Three sentences with an "if you do" back-reference and a per-card

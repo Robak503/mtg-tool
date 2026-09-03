@@ -74,9 +74,10 @@
 > closed stage ② · SG-15a 915ac6a6 the drawn-this-turn ledger (0, substrate) · SG-15b 0f376ff1 Sylvan
 > Library end to end with its Academy panel (1) · SG-16 Boseiju's channel (3; **Squirrel Girl 85 — the
 > walk's honest end**; corpus **40.4%**, 13,818; suite 1349 / 15,317). Every slice: flip-diff zero LOST,
-> mutations seen-to-fail, full suite, CI. **Stage ④ opened at 07:15 with a banked scope verdict (plan §4):
-> clash is the first corpus slice — 35 carriers, 13 sole-blocked by the clash line, all machinery but the
-> clash atom itself exists.**
+> mutations seen-to-fail, full suite, CI. **Stage ④ opened at 07:15 with a banked scope verdict (plan §4)
+> and its first slice shipped at 07:45: CLASH — the atom + "if you win" as a condition; the five
+> ETB-counter carriers flipped (+5; corpus 13,823; suite 1350 / 15,324). Next clash arm: the "whenever
+> you clash" trigger event (3 more), then the parked payoffs.**
 >
 > **Where the walk stopped and why (05:10):** Squirrel Girl at 83 — everything left on her is a multi-slice
 > program (Sylvan Library's pending-choice stack, Boseiju's three-piece channel, Cavern of Souls, The One
