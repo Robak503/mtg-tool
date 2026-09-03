@@ -3,6 +3,53 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔋 2026-09-03 — LANDS-9: lands that ENTER WITH N COUNTERS (Vivid · depletion · Gemstone Mine) · **+12 corpus** · corpus 40.1% (13,728/34,245) · shipped with 7+8 in one commit
+> Suite **1327 / 15,186** green; lint 0. Flip-diff **+12, zero LOST, zero RETIERED** — the five Vivid lands,
+> the five depletion lands, Gemstone Mine, Tendo Ice Bridge. **4/4 killed.**
+> · **Ablation said the enters line was the ONLY blocker** — the remove-a-counter mana abilities (with their
+>   "if there are no <kind> counters on this land, sacrifice it" clause) were already modeled. The reader
+>   (`entersWithNamedCounters`) and the tutor-site placement (resolvers.enterPermanent) existed too; what
+>   was missing: the PLAY-LAND path placed no counters (a played Vivid Marsh arrived bare — an honest FN in
+>   play, a parked card in the metric), and `landFullyCovered` had no admission for the line.
+> · Both closed on the SAME reader with the SAME doubling seam (`applyCounterDoubling`) and the SAME
+>   counter-kind honesty gate the general path uses (`isHonestEnterCounterKind`); "depletion" and "mining"
+>   join the inert vocabulary with their census (their only readers are the modeled mana abilities). A
+>   made-up kind stays residue — pinned.
+> · Stage ② tally so far: reveal-lands 19 · typed-basic fetch 16 · enters-with-counters 12 (+ Channel 21,
+>   shocklands 10, "unless" 83 from stage ①). Next: "put a storage counter on this land" (16 carriers — one
+>   noun in the add-named-counter-self parser), then the Karoos / "sacrifice it unless you pay" ETB lands
+>   (14 — the `sac-unless-pay` atom already has mana / return-land costs; the land's own ETB says "it").
+
+> ## 🏞️ 2026-09-03 — STAGE ② opens: LANDS-7 the REVEAL-LANDS (+19) · LANDS-8 the TYPED-BASIC UNION fetch (+16) · corpus 40.1% (13,716/34,245) · Cap holds 84
+> Flip-diffs **+19 and +16, zero LOST, zero RETIERED** — the nineteen reveal-lands exactly, then the ten
+> Landscapes + five Panoramas + Quandrix Cultivator. Suite **1326 / 15,179** green; lint 0. Six OLD pins
+> re-anchored (ramp, rampMulti, parser ×2, landPartial, omnathRamp) — each kept its CREED half on a shape
+> the arms still refuse (a mixed "basic Forest or creature" union; the reveal-then-unless sentence).
+> · **THE STAGE ② CENSUS (scratch `lands-census.mjs`):** 454 corpus lands were `land-partial`; 368 park on
+>   ONE line. Buckets by that line: the reveal-lands (19) · "Sacrifice this land: search for a basic X, Y, or
+>   Z card" (15 + the 5 Overlooks) · storage-counter lands (12) · "enters tapped with two charge/depletion
+>   counters" (5+5+Gemstone Mine) · "enters tapped, as it enters choose a color" (6) · Karoos "sacrifice
+>   unless you return a land" (5+5) · the Gates' once-only draw (5) · "sacrifice unless you pay {1}" (4) ·
+>   bands (5, park). Cheapest-first by reach × pieces.
+> · **LANDS-7 = the reveal-lands** ("As this land enters, you may reveal a <Type> [or <Type>] card from your
+>   hand. If you don't, this land enters tapped."): the LANDS-1 shape exactly — one reader in
+>   `landEntersTapped.js` (`revealLandTypes` / `revealLandEntersTapped`), both enter sites, both classifier
+>   sites. THE WRITTEN POLICY: a matching hand card is always revealed (revealing is free — CR 701.15a — and
+>   an untapped land outweighs hiding one card); the hidden-information side is NOT modeled and is named
+>   as a limit. Front-face type line only (an MDFC's Forest back does not reveal). The two "…unless you
+>   revealed … or you control a Dragon" lands are a different sentence and stay parked. **6/6 killed.**
+> · **LANDS-8 = "basic Plains, Swamp, or Forest card"**: the union splitter left "basic" in the FIRST group
+>   only, and the battlefield-tutor admission rightly refused the half-basic read. `parseTutorFilter` now
+>   distributes "basic" — ONLY when the lead group is exactly "basic <basic type>" and every other member is
+>   a bare basic land type ("basic Plains or creature" stays split, stays refused). The shared matcher reads
+>   [basic, swamp] as "both words in the type line" — a nonbasic Swamp is refused, a Snow-Covered Swamp
+>   admitted. **3/3 killed.** Four OLD pins that asserted "the ambiguous-basic union stays low (the
+>   distribution is unproven)" were re-anchored — the real cards now native, each pin's CREED half moved to
+>   a MIXED union the distribution refuses. The five Overlooks (reflexive "When you do … and you gain 1
+>   life") and the five Monuments did not flip — other blockers, honest.
+> · ⚠️ **Gate hygiene banked:** a witness written under `src/` while a full suite was STARTING got globbed
+>   into that run and showed as its failure. Write new files under src only when no suite is queued.
+
 > ## 🌊 2026-09-03 — LANDS-TIER slices 5+6 (one commit): CHANNEL on the NEO lands (+21) · Mistrise's "next spell can't be countered" (+1) · Cap 82→84 · **corpus crosses 40.0% (13,681/34,245)**
 > Suite **1324 / 15,163** green; lint 0. Flip-diff **+22, zero LOST, zero RETIERED**. Cap's land tail is now
 > ONLY the parks: Uthros (Station) · Urza's Saga · 2 MDFC backs. Overnight stage ① lands: done to the parks.

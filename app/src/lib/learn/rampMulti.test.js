@@ -52,7 +52,8 @@ describe("parser — multi-land battlefield ramp (RAMP-MULTI)", () => {
     // (none in the corpus) still stays LOW → Arbiter (CREED — no wrong-cheat FP).
     expect(isHigh("Search your library for up to two creature cards, put them onto the battlefield, then shuffle.")).toBe(true);                               // plain creature — now native
     expect(isHigh("Search your library for up to two Dragon cards, put them onto the battlefield, then shuffle.")).toBe(false);                                // subtyped creature — stays Arbiter (CREED)
-    expect(isHigh("Search your library for up to two basic Forest or Island cards, put them onto the battlefield, then shuffle.")).toBe(false);                // ambiguous-basic union
+    expect(isHigh("Search your library for up to two basic Forest or Island cards, put them onto the battlefield, then shuffle.")).toBe(true);                 // typed-basic union — GRADUATED 2026-09-03 (LANDS-8: "basic" distributes across bare basic types)
+    expect(isHigh("Search your library for up to two basic Forest or Dragon cards, put them onto the battlefield, then shuffle.")).toBe(false);                // a MIXED union is still ambiguous → Arbiter (CREED)
     // GRADUATED 2026-07-29 — Hour of Promise. This asserted false BECAUSE a "Then if <cond>, <effect>" rider
     // had no route; that was a capability statement, not a refusal to keep. Both halves are now genuinely
     // modelled and VERIFIED, not assumed: the condition "you control three or more Deserts" evaluates

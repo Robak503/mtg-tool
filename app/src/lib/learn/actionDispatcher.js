@@ -57,13 +57,14 @@ import {
 import { tutorManaValue } from "./effects/atoms/library.js"; // γ1i (CAP14) — the shared MV reader the tutor / free-cast paths use, so "mana value" means ONE thing engine-wide
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
 import { manaSources, planPayment, sourcesExcludingOneShotVictim, commitPaymentPlan, commitManaTap, payManaCost } from "./manaModel.js";
-import { conditionalEntersTapped, paysLifeOrEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" + the shockland pay-life clause (a leaf over interveningIf; cycle-free)
+import { conditionalEntersTapped, paysLifeOrEntersTapped, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" + the shockland pay-life clause (a leaf over interveningIf; cycle-free)
 import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
 import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
-import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped, impositionEntersTapped, auraEnchantHostSpec } from "./staticAbilityParser.js";
+import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped, impositionEntersTapped, auraEnchantHostSpec, entersWithNamedCounters } from "./staticAbilityParser.js";
+import { applyCounterDoubling } from "./replacementEffects.js"; // LANDS-9: the same doubling seam resolvers.enterPermanent uses for enters-with counters
 // ORDEAL (BLITZ OC-1): the Theros Ordeal cast lane — the SAME gate legalChoices offers on and the metric
 // awards (single source of truth, no drift). Acyclic: coverage.js never imports actionDispatcher.js.
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
@@ -168,7 +169,7 @@ function applyPlayLand(state, action) {
   {
     const bf = next.players[action.playerId].battlefield;
     const entered = bf[bf.length - 1];
-    if (entered && (entersTapped(card) || impositionEntersTapped(next, card, action.playerId) || conditionalEntersTapped(next, card, action.playerId, entered.id))) { // KM-1: an opposing Kismet taxes the land drop too (CR 614.1c)
+    if (entered && (entersTapped(card) || impositionEntersTapped(next, card, action.playerId) || conditionalEntersTapped(next, card, action.playerId, entered.id) || revealLandEntersTapped(next, card, action.playerId))) { // KM-1: an opposing Kismet taxes the land drop too (CR 614.1c)
       next = tapPermanent(next, entered.id, { fromEnter: true }); // CR 701.26a: entering tapped is NOT "becoming tapped" — suppress the becomes-tapped event
     } else if (entered) {
       // THE SHOCKLAND CLAUSE (LANDS-TIER slice 2, CR 614.1c + 119.4): "you may pay N life. If you don't, it
@@ -195,6 +196,16 @@ function applyPlayLand(state, action) {
     const bf = next.players[action.playerId].battlefield;
     const entered = bf[bf.length - 1];
     if (entered) next = addCounter(next, { permanentId: entered.id, type: fade.type, amount: fade.n });
+  }
+  // LANDS-TIER slice 9 (2026-09-03) — a LAND that "enters [tapped] with N <kind> counters on it" (the Vivid
+  // lands, the depletion lands, Gemstone Mine): the tutor site (resolvers.enterPermanent) already places the
+  // named counters through the same reader and the same doubling seam; the play-land path did not, so a
+  // played Vivid Marsh arrived with no charge counters. Same reader, same doubling, same addCounter.
+  const namedLandCtr = entersWithNamedCounters(card);
+  if (namedLandCtr && namedLandCtr.n > 0) {
+    const bf = next.players[action.playerId].battlefield;
+    const entered = bf[bf.length - 1];
+    if (entered) next = addCounter(next, { permanentId: entered.id, type: namedLandCtr.type, amount: applyCounterDoubling(next, action.playerId, namedLandCtr.type, namedLandCtr.n) });
   }
   next = {
     ...next,

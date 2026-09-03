@@ -283,9 +283,13 @@ describe("OMNATH BUILD D — RAMP-MULTI-X (Traverse the Outlands)", () => {
     // creature-card fetch → not a land → low (would be a forbidden any-permanent search)
     expect(programConfidence(parseEffectProgram({ type: "Sorcery", mana: "{2}{G}", name: "Fake Creature Fetch",
       oracle: "Search your library for up to X creature cards, where X is the number of lands you control, put them onto the battlefield tapped, then shuffle." }))).toBe("low");
-    // ambiguous-basic union ("basic Forest or Island") → low, same guard as RAMP-MULTI
+    // typed-basic union ("basic Forest or Island") — GRADUATED 2026-09-03 (LANDS-8): "basic" distributes across
+    // bare basic land types, so the X-fetch of a basic Forest-or-Island is a guaranteed-land fetch → high.
+    expect(programConfidence(parseEffectProgram({ type: "Sorcery", mana: "{2}{G}", name: "Fake Typed Basic",
+      oracle: "Search your library for up to X basic Forest or Island cards, where X is the number of lands you control, put them onto the battlefield tapped, then shuffle." }))).toBe("high");
+    // a MIXED union ("basic Forest or creature") is still ambiguous → low, the same guard as RAMP-MULTI
     expect(programConfidence(parseEffectProgram({ type: "Sorcery", mana: "{2}{G}", name: "Fake Ambiguous",
-      oracle: "Search your library for up to X basic Forest or Island cards, where X is the number of lands you control, put them onto the battlefield tapped, then shuffle." }))).toBe("low");
+      oracle: "Search your library for up to X basic Forest or creature cards, where X is the number of lands you control, put them onto the battlefield tapped, then shuffle." }))).toBe("low");
   });
 
   it("runtime — greatest power 3 → fetches up to 3 basics, all tapped, library shrinks by 3", () => {

@@ -9,6 +9,14 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Lands that enter with counters work.** The Vivid lands, the depletion lands, Gemstone Mine and Tendo Ice
+  Bridge now actually arrive with their charge, depletion or mining counters when you play them.
+- **The reveal-lands work — all nineteen.** The Snarls, Game Trail, Port Town, Fortified Village and their
+  kin, and the Lorwyn tribal lands (Secluded Glen, Gilt-Leaf Palace, Murmuring Bosk …) now enter untapped
+  when you hold a card of the named type and tapped when you don't, instead of always entering untapped.
+- **Landscapes and Panoramas fetch the right land.** "Search for a basic Plains, Swamp, or Forest card"
+  now means a basic land of one of those types — the ten Landscapes, the five Panoramas and Quandrix
+  Cultivator search correctly (a nonbasic Swamp is never offered; a Snow-Covered Swamp is).
 - **Channel works.** Otawara, Eiganjo, the Ghost-Lit cycle, the Shinen, Twinshot Sniper and more can now be
   channeled from your hand; the legendary lands cost {1} less for each legendary creature you control,
   priced from the board at the moment you activate. Otawara bounces exactly an artifact, creature,

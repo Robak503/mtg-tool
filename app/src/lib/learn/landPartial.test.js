@@ -62,9 +62,13 @@ describe("lands that DEMOTE to land-partial — unmodeled text can no longer fre
       "{T}: Add {C}.\n{1}: This land becomes a 2/2 creature with all creature types until end of turn. It's still a land."))).toBe("land-partial");
   });
 
-  it("⛔ conditional tapland — the runtime never evaluates the reveal condition, so the metric must not call it modeled (Furycalm Snarl)", () => {
+  it("conditional tapland — GRADUATED 2026-09-03 (LANDS-7): the runtime now evaluates the reveal at both enter sites, so Furycalm Snarl is `land`; the unless-continuation shape is still unevaluated and still parks", () => {
     expect(classifyCard(L("Furycalm Snarl", "Land",
-      "As this land enters, you may reveal a Mountain or Plains card from your hand. If you don't, this land enters tapped.\n{T}: Add {R} or {W}."))).toBe("land-partial");
+      "As this land enters, you may reveal a Mountain or Plains card from your hand. If you don't, this land enters tapped.\n{T}: Add {R} or {W}."))).toBe("land");
+    // ⛔ The pin lives on where the runtime still cannot read: the reveal sentence that CONTINUES into an
+    // "unless you revealed … or you control a Dragon" gate (Temple of the Dragon Queen) is a different shape.
+    expect(classifyCard(L("Temple of the Dragon Queen", "Land",
+      "As this land enters, you may reveal a Dragon card from your hand. This land enters tapped unless you revealed a Dragon card this way or you control a Dragon.\n{T}: Add one mana of any color."))).toBe("land-partial");
   });
 });
 

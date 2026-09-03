@@ -605,6 +605,17 @@ export function parseTutorFilter(phrase) {
 
   const groups = rest.split(/,\s*or\s+|,\s*|\s+or\s+/).map((g) => g.trim().split(/\s+/).filter(Boolean));
   if (groups.length === 0 || groups.some((g) => g.length === 0)) return null;
+  // ===== TYPED-BASIC UNION (LANDS-TIER slice 8, 2026-09-03) — "basic Plains, Swamp, or Forest card" ========
+  // (the MH3 Landscapes, the Panoramas, the SNC Overlook cycle, the Monuments — 26 corpus cards). Printed
+  // English distributes the "basic" across the union: the card fetches a BASIC land of one of those types.
+  // The split above leaves "basic" in the FIRST group only, and the battlefield-tutor admission rightly
+  // refused that half-basic read as ambiguous. Distribute it — and ONLY when the lead group is exactly
+  // "basic <basic type>" and every other member is a bare basic land type; "basic Plains or creature" is
+  // left as split (still ambiguous, still refused downstream). The shared matcher reads a [basic, swamp]
+  // group as "type line contains both", so a nonbasic Swamp is refused and a Snow-Covered Swamp admitted.
+  const distribute = groups.length > 1 && groups[0][0] === "basic" && groups[0].length === 2 && BASIC_LAND_SUBTYPES.has(groups[0][1])
+    && groups.slice(1).every((g) => g.length === 1 && BASIC_LAND_SUBTYPES.has(g[0]));
+  if (distribute) for (let i = 1; i < groups.length; i++) groups[i] = ["basic", ...groups[i]];
   for (const g of groups) for (const w of g) if (!TUTOR_FILTER_WORDS.has(w)) return null;
   return { groups, ...(permanentOnly ? { permanentOnly } : {}), ...(colors ? { colors } : {}) };
 }

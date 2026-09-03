@@ -7,7 +7,25 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## 🌊 2026-09-03 — **OVERNIGHT STAGE ①: Cap's lands DONE to the parks — LANDS-5+6 shipped (+22), Cap 84%, corpus 40.0%** — suite **1324 / 15,163** green
+## 🏞️ 2026-09-03 — **OVERNIGHT STAGE ② OPEN: LANDS-7 reveal-lands (+19) · LANDS-8 typed-basic fetch (+16) · LANDS-9 enters-with-counters (+12) — corpus 40.1% (13,728), Cap 84** — suite **1327 / 15,186** green
+
+> **LANDS-9** (shipped in the same commit): the Vivid, depletion and mining lands — the reader and the
+> tutor-site placement existed; the play-land path now places the counters through the same doubling seam,
+> and the land classifier admits the line through the same reader + counter-kind honesty gate. 4/4 killed.
+
+> **Stage ② census** (454 land-partial corpus lands, 368 single-blockers, bucketed by blocking line —
+> table in the ledger and the plan's §2 progress line). **LANDS-7 = the reveal-lands** ("you may reveal a
+> <Type> [or <Type>] card from your hand. If you don't, this land enters tapped"): the LANDS-1 shape — one
+> reader, both enter sites, both classifier sites; auto-reveal-if-able is the written policy (revealing is
+> free), hidden-info side named as a limit. All 19 flipped, 6/6 mutations. **LANDS-8 = "basic Plains, Swamp,
+> or Forest card"**: the union splitter kept "basic" in the first group only; it now distributes across a
+> union of bare basic types and nothing else — Landscapes ×10, Panoramas ×5, Quandrix Cultivator; 3/3
+> mutations; six old "ambiguous-basic stays low" pins re-anchored with mixed-union CREED halves. Corpus
+> **40.1% (13,716/34,245)**. **Next (queued cheapest-first):** lands that enter with N counters (Vivid /
+> depletion / Gemstone Mine, 13 — reader exists, play-land path + land classifier don't apply it) → storage
+> counters (12) → choose-a-color (6) → Karoos (10) → Gates (5); then stage ③ Squirrel Girl.
+
+## 🌊 2026-09-03 — Cap's lands DONE to the parks — LANDS-5+6 shipped (+22), Cap 84%, corpus 40.0% — suite 1324 / 15,163 green
 
 > **LANDS-5 = Channel** (Otawara + 20 riders: the keyword prefix is the same from-hand discard ability;
 > a four-type bounce union that is NOT "nonland permanent"; the legendary-count rider re-derived from the

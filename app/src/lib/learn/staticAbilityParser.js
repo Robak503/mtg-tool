@@ -877,6 +877,11 @@ const _INERT_ENTER_COUNTER_KINDS = new Set([
   "charge", "oil", "javelin", "brick", "shell", "wish", "healing", "tide", "omen", "net", "ice",
   "page", "hour", "task", "dream", "soul", "credit", "ore", "arrowhead", "sleight", "polyp", "growth",
   "doom", "eyestalk", "cage", "reprieve", "film", "intervention", "resonance", "stroopwafel",
+  // LANDS-9 (2026-09-03): the land counter kinds — "depletion" (Hickory Woodlot, Remote Farm, Peat Bog,
+  // Sandstone Needle, Saprazzan Skerry) and "mining" (Gemstone Mine). Inert by CR 122.1; their ONLY
+  // readers are the printed "{T}, Remove a <kind> counter: Add … If there are no <kind> counters on this
+  // land, sacrifice it" mana abilities, which are modeled (ablation: only the enters line parked them).
+  "depletion", "mining",
 ]);
 // CR 122.1b legal keyword-counter kinds ∩ runtime-enforced (see keywords.js GRANTABLE_STATIC_KEYWORDS +
 // permanentHasKeyword). Two-word kinds ("first strike", "double strike") are reachable only via the CHOICE

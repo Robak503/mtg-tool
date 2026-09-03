@@ -63,7 +63,7 @@ import { isControlAura } from "./controlAura.js"; // the control-Aura delivery c
 import { auraEnchantRestrictions } from "./staticAbilityParser.js"; // the qualified-subject host filter, shared with legalChoices' cast lane so offer + metric read ONE source
 import { isNativeKira } from "./kiraTargetCounter.js";
 import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy, counterShieldPrevention, attachedPreventPutCountersOf, selfPreventPutCounters } from "./combatEvasion.js";
-import { entersTappedUnlessCondition, paysLifeOrEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — the conditional enters-tapped reader BOTH enter sites consult (metric and runtime read one function)
+import { entersTappedUnlessCondition, paysLifeOrEntersTapped, revealLandTypes } from "./landEntersTapped.js"; // LANDS-TIER — the conditional enters-tapped reader BOTH enter sites consult (metric and runtime read one function)
 import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
 // OMNATH — ground the classifier on the two RUNTIME registries the engine actually consults (never a
 // name-only credit): staticEffectsOf reads layers.STATIC_REGISTRY (the layer-7c dynamic +1/+1-per-green
@@ -1804,10 +1804,22 @@ function landFullyCovered(card) {
   const shockTapped = paysLifeOrEntersTapped(card);
   const shockLineRe = shockTapped ? /^as this land enters, you may pay \d+ life\. if you don't, it enters tapped\.?$/i : null;
   const discardAb = discardCostAbilityModeled(card); // LANDS-5 — the from-hand (Channel) ability, iff the runtime lane would offer it
+  // LANDS-TIER slice 7: the REVEAL-LANDS sentence, vouched by the same reader both enter sites consult
+  // (landEntersTapped.revealLandTypes — auto-reveal-if-able at both sites). Exactly the printed sentence.
+  const revealTypes = revealLandTypes(card);
+  const revealLineRe = revealTypes ? /^as this land enters, you may reveal an? [a-z]+(?: or [a-z]+)? card from your hand\. if you don't, (?:this land|it) enters tapped\.?$/i : null;
+  // LANDS-TIER slice 9: "enters [tapped] with N <kind> counters on it" on a LAND — admitted through the SAME
+  // reader both enter sites place the counters with (entersWithNamedCounters) AND the same honesty gate the
+  // general path applies to the counter KIND (isHonestEnterCounterKind — a kind whose only readers are
+  // modeled clauses; an unmodeled reader clause is residue that parks the card anyway).
+  const namedCtr = entersWithNamedCounters(card);
+  const namedCtrLineRe = namedCtr && isHonestEnterCounterKind(namedCtr.type) ? /^[^.]*\benters (?:the battlefield )?(?:tapped )?with (?:a|an|one|two|three|four|five|\d+) [a-z]+ counters? on (?:it|him|her)\.?$/i : null;
   for (const line of afterTriggers.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (tapped && /^[^.]*\benters (?:the battlefield )?tapped\.?$/i.test(line)) continue;
     if (condLineRe && condLineRe.test(line)) continue;
     if (shockLineRe && shockLineRe.test(line)) continue;
+    if (revealLineRe && revealLineRe.test(line)) continue;
+    if (namedCtrLineRe && namedCtrLineRe.test(line)) continue;
     if (isManaLine(line)) continue;
     if (isActivatedAbilityLine(line, card)) continue; // vouched modeled/gy/mana by the .every above
     // LANDS-TIER slice 5 — a FROM-HAND discard ability on a land ("Channel — {3}{U}, Discard this card: …",
@@ -3381,7 +3393,11 @@ export function classifyCard(card) {
   // first, on the same reader both enter sites consult (paysLifeOrEntersTapped).
   const shock = paysLifeOrEntersTapped(card);
   const shockRe = /^[ \t]*as this land enters, you may pay \d+ life\. if you don't, it enters tapped\.?[ \t]*$/gim;
-  const isTapped = entersTapped(card) || !!entersTappedUnlessCondition(card) || !!shock;
+  // LANDS-7: the REVEAL-LANDS sentence pair, stripped as ONE line the same way (tapRe alone spans only the
+  // "If you don't" half), on the same reader both enter sites consult.
+  const reveal = revealLandTypes(card);
+  const revealRe = /^[ \t]*as this land enters, you may reveal an? [a-z]+(?: or [a-z]+)? card from your hand\. if you don't, (?:this land|it) enters tapped\.?[ \t]*$/gim;
+  const isTapped = entersTapped(card) || !!entersTappedUnlessCondition(card) || !!shock || !!reveal;
   // CREW (BLITZ VH-1, CR 702.121): "Crew N" is a modeled special-activation line — legalChoices.
   // actionsCrewVehicle offers it (tap own creatures with total power ≥ N, auto-picked sick-first),
   // actionDispatcher.applyCrewVehicle taps + animates (a layer-4 endOfTurn Creature type-add; printed P/T
@@ -3411,7 +3427,8 @@ export function classifyCard(card) {
   const crewRe = /(?:^|\n)\s*crew \d+\b[^\n]*(?=\n|$)/gi;
   const hasCrew = /\bvehicle\b/.test(type) && parseCrewCost(card) != null;
   const crewOracle = hasCrew ? riotOracle.replace(crewRe, "\n") : riotOracle;
-  const shockStripped = shock ? crewOracle.replace(shockRe, "") : crewOracle;
+  const shockStripped0 = shock ? crewOracle.replace(shockRe, "") : crewOracle;
+  const shockStripped = reveal ? shockStripped0.replace(revealRe, "") : shockStripped0;
   const etOracle = isTapped ? shockStripped.replace(tapRe, "\n").trim() : crewOracle;
   const etCard = crewOracle !== oracle || isTapped
     ? { ...card, oracle: (isTapped ? shockStripped.replace(tapRe, "\n") : crewOracle).trim() }

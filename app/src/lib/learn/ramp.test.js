@@ -146,10 +146,14 @@ describe("parser — typed-basic battlefield ramp (RAMP-TYPED)", () => {
     expect(isHigh("Search your library for a Plains, Island, Swamp, Mountain, or Forest card and put that card onto the battlefield. Then shuffle.")).toBe(true);
   });
 
-  it("CREED: an AMBIGUOUS-basic union (Quandrix Cultivator) stays LOW → Arbiter", () => {
-    // "a basic Forest or Island card" — "basic" distributes to BOTH, but the split yields a bare "island"
-    // group that would over-permissively offer a NONBASIC dual. Drop to Arbiter rather than mis-fetch.
-    expect(isHigh("Search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.")).toBe(false);
+  it("the typed-basic union (Quandrix Cultivator) is HIGH — GRADUATED 2026-09-03 (LANDS-8); a MIXED union stays LOW → Arbiter", () => {
+    // "a basic Forest or Island card" — the split used to leave a bare "island" group that would have offered a
+    // NONBASIC dual, so this was pinned LOW. parseTutorFilter now DISTRIBUTES "basic" across a union of bare
+    // basic land types (and only such a union), and the matcher reads [basic, island] as both words in the
+    // type line — the fear this pin guarded is exactly what the LANDS-8 witness now proves cannot happen.
+    expect(isHigh("Search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.")).toBe(true);
+    // The CREED half lives on: a union whose later member is not a bare basic type is still ambiguous.
+    expect(isHigh("Search your library for a basic Forest or creature card, put it onto the battlefield, then shuffle.")).toBe(false);
     // NOTE: Skyshroud Claim ("up to two Forest cards → battlefield") is now MODELED by RAMP-MULTI.
   });
 
@@ -204,8 +208,11 @@ describe("coverage — typed-basic ramp flips native; the rider-shelled cards bo
   });
 
   it("CREED: typed-ramp cards wrapped in an unmodeled clause stay out of native", () => {
-    // Quandrix Cultivator — ambiguous-basic union → the clause itself drops to Arbiter.
-    expect(classifyCard(C("Creature — Turtle Druid", "When this creature enters, you may search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.", "Quandrix Cultivator"))).not.toBe("native-trigger");
+    // Quandrix Cultivator — the typed-basic union. GRADUATED 2026-09-03 (LANDS-8): "basic" now distributes
+    // across a union of bare basic land types, so the real card is native; the CREED pin moves to a MIXED
+    // union ("basic Forest or creature") the distribution deliberately refuses, which still parks.
+    expect(classifyCard(C("Creature — Turtle Druid", "When this creature enters, you may search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.", "Quandrix Cultivator"))).toBe("native-trigger");
+    expect(classifyCard(C("Creature — Turtle Druid", "When this creature enters, you may search your library for a basic Forest or creature card, put it onto the battlefield, then shuffle.", "Probe Mixed Union"))).not.toBe("native-trigger");
     // Karametra — the devotion gate ("isn't a creature") is NOW modeled (GOD-DEVOTION subsystem, a layer-4
     // conditional type-removal), and its Forest/Plains tutor trigger is modeled too, so the WHOLE card is
     // native — but as native-MIXED (gate static + tutor trigger together), never the single-mechanism

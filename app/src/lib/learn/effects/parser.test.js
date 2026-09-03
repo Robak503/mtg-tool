@@ -830,10 +830,12 @@ describe("parseEffectProgram — RAMP-SPLIT (Cultivate / Kodama's Reach)", () =>
     expect(programConfidence(p)).toBe("low");
     expect(p.atoms).toHaveLength(0);
   });
-  it("an AMBIGUOUS-basic union split stays low (the basic distribution is unproven)", () => {
+  it("the typed-basic union split is HIGH (LANDS-8, 2026-09-03: 'basic' distributes across bare basic types); a MIXED union still stays low", () => {
     const p = S("Search your library for up to two basic Forest or Island cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.");
-    expect(programConfidence(p)).toBe("low");
-    expect(p.atoms).toHaveLength(0);
+    expect(programConfidence(p)).toBe("high");
+    const mixed = S("Search your library for up to two basic Forest or creature cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.");
+    expect(programConfidence(mixed)).toBe("low");
+    expect(mixed.atoms).toHaveLength(0);
   });
 });
 
@@ -901,7 +903,7 @@ const MUST_DROP_TO_LOW = [
   //  block below. A SUBTYPED / typed / unioned multi-fetch still stays LOW here.)
   "Search your library for up to three Dragon cards, put them onto the battlefield tapped, then shuffle.", // subtyped creature multi-fetch keeps the guard → low (no wrong-cheat)
   "Search your library for up to two artifact cards, put them onto the battlefield, then shuffle.", // a non-creature typed multi-fetch to battlefield stays low → Arbiter
-  "Search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.",  // RAMP-TYPED: AMBIGUOUS-basic union (Quandrix Cultivator) — "basic" must distribute but the split can't prove it → Arbiter
+  "Search your library for a basic Forest or creature card, put it onto the battlefield, then shuffle.",  // RAMP-TYPED: a MIXED union — "basic" distributes only across bare basic land types (LANDS-8); this one stays ambiguous → Arbiter
   // RAMP-MULTI models the bare "up to N <land> → battlefield"; RAMP-SPLIT models the Cultivate "one … the
   // other" split (intrinsically two) — an "up to THREE" SPLIT (one-and-the-other) stays low.
   "Search your library for up to three basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.",  // RAMP-SPLIT is two-only; "up to three" split stays low

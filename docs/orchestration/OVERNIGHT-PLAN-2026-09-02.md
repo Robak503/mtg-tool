@@ -77,6 +77,17 @@ Stage ① builds the arms; stage ② is making them COMPLETE across the corpus a
 3. **DONE ②:** the wake report carries a table of every land-partial clause family with ≥3 carriers →
    `SHIPPED` or `PARKED (reason)`, and the corpus `land-partial` count is measured before/after.
 
+**Progress (2026-09-03, stage ② opened after Cap's lands reached the parks; census baseline: 454
+land-partial, 368 single-blockers):** ✅ reveal-lands (19, LANDS-7) · ✅ typed-basic union fetch — the
+Landscapes/Panoramas (16, LANDS-8) · ✅ Channel (shipped in stage ①, LANDS-5: +20 riders) · ✅ shocklands
+(LANDS-2) · ✅ "enters tapped unless" (LANDS-1, 83) · ✅ enters-with-N-counters lands (12, LANDS-9).
+**Queued, cheapest-first:** "Put a storage counter on this land" (16 — one noun in the named self-counter
+parser) · the Karoos / "sacrifice it unless you pay" ETB lands (14 — `sac-unless-pay` has the costs; the
+land's own ETB says "it") · "As it
+enters, choose a color" (6 — `chosenColor` exists for Auras) · the Karoos (10) · the Gates (5) · "sacrifice
+unless you pay {1}" (4). **Parks:** bands (5), the Overlooks' reflexive "When you do … and you gain 1 life"
+tail (5), Station (2).
+
 ---
 
 ## §3 STAGE ③ — Squirrel Girl to 90, COMMANDER FIRST

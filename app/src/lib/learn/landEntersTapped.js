@@ -112,3 +112,48 @@ export function autoPickOptionalLifePayment(state, controller, life) {
   if (!pl || !(life > 0)) return false;
   return (pl.life ?? 0) >= 10 && (pl.life ?? 0) >= life;
 }
+
+/**
+ * THE REVEAL-LANDS (LANDS-TIER slice 7, 2026-09-03; CR 614.1c): "As this land enters, you may reveal a
+ * <Type> [or <Type>] card from your hand. If you don't, this land enters tapped." — the Snarls, the SOI
+ * "shadow" lands (Game Trail, Port Town …), the Lorwyn tribal lands (Secluded Glen "a Faerie card", Gilt-Leaf
+ * Palace "an Elf card", Murmuring Bosk "a Treefolk card"). 19 corpus lands print exactly this sentence; the
+ * two whose sentence continues into an "unless" ("…this land enters tapped unless you revealed … or you
+ * control a Dragon", Temple of the Dragon Queen / Haven of the Spirit Dragon) are a different shape and stay
+ * outside (null — they park honestly, as LANDS-1 recorded).
+ *
+ * Returns the lowercased type words, e.g. ["mountain", "forest"] — or null. Whole-line anchored: the exact
+ * printed sentence, one or two type words, nothing more. Both a basic land type and a creature type are
+ * matched the same way at read time: `\b<Type>\b` against the hand card's FRONT-face type line.
+ */
+export function revealLandTypes(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  if (!/may reveal/i.test(oracle)) return null;
+  for (const raw of oracle.split("\n")) {
+    const m = raw.trim().match(/^as this land enters, you may reveal an? ([a-z]+)(?: or ([a-z]+))? card from your hand\. if you don't, (?:this land|it) enters tapped\.?$/i);
+    if (m) return [m[1].toLowerCase(), ...(m[2] ? [m[2].toLowerCase()] : [])];
+  }
+  return null;
+}
+
+/**
+ * Does this reveal-land enter TAPPED right now? True iff the card carries the printed reveal clause AND the
+ * controller's hand holds NO card of a named type. THE WRITTEN POLICY (both seats): a matching card is
+ * always revealed. Revealing is free (no cost, no zone change — CR 701.15a), the only price is information,
+ * and an untapped land on the turn it is played is worth more than hiding one card's identity in every
+ * position this engine models; so the reveal is automatic rather than a pause. The hidden-information side
+ * is NOT modeled (no opponent ever "sees" the revealed card) — a documented limit, never a fabricated gate.
+ *
+ * The entering land is never in the hand at either enter site (play-land moved it; a tutor took it from the
+ * library), so the scan is exactly the rest of the hand. No printed clause → false (untapped, FN-safe).
+ */
+export function revealLandEntersTapped(state, card, controller) {
+  const types = revealLandTypes(card);
+  if (!types) return false;
+  const hand = state?.players?.[controller]?.hand || [];
+  const has = hand.some((c) => {
+    const front = String(c?.type || c?.type_line || "").split(" // ")[0].toLowerCase();
+    return types.some((t) => new RegExp(`\\b${t}\\b`).test(front));
+  });
+  return !has;
+}
