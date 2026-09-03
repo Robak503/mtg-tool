@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Zhur-Taa Druid and Vorinclex, Voice of Hunger work** — tapping the Druid for mana pings each opponent;
+  Vorinclex locks an opponent's land that was tapped for mana out of its next untap.
 - **Kinnan, Bonder Prodigy works** — his dig looks at the top five, puts a non-Human creature straight onto the
   battlefield and bottoms the rest in a random order. Web of Life and Destiny and Ureni of the Unwritten use the
   same dig.

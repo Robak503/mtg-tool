@@ -1177,6 +1177,13 @@ export function combatKeywordClauseParser(clause) {
   if (/^the triggering creature doesn't untap during its controller's next untap step$/.test(t)) {
     return { op: "tap", target: "thatCreature", noUntapNext: true, lockOnly: true };
   }
+  // ④-D (Vorinclex) — the same lockOnly atom for a NON-creature triggering referent: "the triggering permanent" is
+  // the sentinel the tapForMana rewrite emits for "that land" (the land that was just tapped for mana). The referent
+  // is the PERMANENT-WIDE `thatPermanent` (triggeringPermanentTargets — Amulet of Vigor's precedent), NOT the
+  // creature-scoped `thatCreature`, which would drop a land (kept distinct on purpose in shared.js).
+  if (/^the triggering permanent doesn't untap during its controller's next untap step$/.test(t)) {
+    return { op: "tap", target: "thatPermanent", noUntapNext: true, lockOnly: true };
+  }
   // ⭐ TRIGGERING-REFERENT TAP-AND-LOCK — the same referent WITH the tap (the Kashi-Tribe Snake Warriors,
   // "Whenever this creature deals combat damage to a creature, tap that creature and it doesn't untap during
   // its controller's next untap step"). NO lockOnly: this family genuinely taps, which is why it is a

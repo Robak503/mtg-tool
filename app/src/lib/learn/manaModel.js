@@ -31,7 +31,7 @@
  */
 
 import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, creaturePower, removeCounter, setDoesNotUntapNext } from "./gameState.js"; // + removeCounter — STAGE ④-4: the counter-removal mana commit; + setDoesNotUntapNext — STAGE ④-5: the "doesn't untap during your next untap step" rider
-import { checkSacrificeTriggers, checkLeavesTriggers, checkDiesTriggers } from "./triggers.js"; // SG-3: a sacrificed-creature mana cost dies through the chokepoint // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
+import { checkSacrificeTriggers, checkLeavesTriggers, checkDiesTriggers, checkTapForManaTriggers } from "./triggers.js"; // + ④-D: "tapped for mana" watchers fire at the one tap commit // SG-3: a sacrificed-creature mana cost dies through the chokepoint // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
 import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow, colorsOf } from "./layers.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked, abilitiesAsThoughHasteFor } from "./staticAbilityParser.js"; // + SG-18: haste-for-abilities at the mana-source sick gate // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock
@@ -2299,6 +2299,10 @@ export function commitManaTap(state, playerId, tap) {
     // STAGE ④-5 — the doesn't-untap rider: the land tapped through this line skips its controller's next untap
     // step (CR 502.2 — the same flag the untap step already honours for every other "doesn't untap" source).
     if (tap.doesNotUntapNext) next = setDoesNotUntapNext(next, tap.permanentId, true);
+    // ④-D — TAPPED FOR MANA (CR 605.3): the permanent was tapped for mana; its own "you tap this … for mana" watcher
+    // and every "you tap a land / an opponent taps a land for mana" watcher enqueue here (a Treasure cracked for
+    // mana is a sacrifice, not a tap — the branch above never reaches this line).
+    if (!tap.fromHand) next = checkTapForManaTriggers(next, { permanentId: tap.permanentId, tapperId: playerId });
   }
   return next;
 }

@@ -2037,6 +2037,21 @@ function classifyCondition(condRaw, cardName, cardType) {
   // AFTER the clash ends (the printed reminder). Bare forms only; any rider on the condition → UNDETECTED.
   if (/^you clash$/.test(c)) return { event: "clash", scope: "you", whose: "any" };
   if (/^you clash and win$/.test(c)) return { event: "clash", scope: "you", whose: "any", winOnly: true };
+  // ===== TAPPED FOR MANA (CORPUS ④-D, 2026-09-03 night — CR 605.3 / 603.2) ===== "Whenever you tap this creature for
+  // mana, …" (Zhur-Taa Druid — scope self: the tapped permanent IS the watcher) / "Whenever you tap a land for mana"
+  // (a land-filtered watcher, whose:"you") / "Whenever an opponent taps a land for mana" (Vorinclex — whose:"opponent").
+  // Fired by checkTapForManaTriggers at the ONE mana-tap commit (manaModel.commitManaTap, after the source taps);
+  // a sacrificed-for-mana source (a Treasure) is not "tapped for mana" and never fires it. The optional permanent
+  // filter rides `tappedFilter` and is matched against the TAPPED permanent's type line in the checker. Any other
+  // subject ("a creature", "a Forest", "a nonland permanent") stays UNDETECTED → Arbiter (the mana-doubler statics
+  // that read those phrases are the mana model's own global-tap augment, not triggers).
+  // ⛔ NO "you tap a land for mana" detector on purpose: that sentence is the MANA DOUBLER family ("…, add one mana of
+  // any type that land produced" — Zendikar Resurgent, Mirari's Wake, Nikya, Vorinclex's own first line), which the
+  // mana model already plays as its global-tap augment STATIC; detecting it as a trigger with an unparseable effect
+  // would demote every one of them (measured: Vorinclex grew a second, LOW descriptor). Its non-doubler carriers
+  // (Savage Firecat's counter removal, Groundchuck's flat {G}) stay parked until their effects are modeled.
+  if (/^you tap this (?:creature|land|artifact|permanent) for mana$/.test(c)) return { event: "tapForMana", scope: "self", whose: "you" };
+  if (/^an opponent taps a land for mana$/.test(c)) return { event: "tapForMana", scope: "you", whose: "opponent", tappedFilter: "land" };
   // ABILITY-ACTIVATED (CAP-BRACERS, 2026-09-03 — CR 602 / 707.10): "Whenever an ability of equipped creature is
   // activated, if it isn't a mana ability, copy that ability." (Illusionist's Bracers, Battlemage's Bracers). The
   // watcher is the EQUIPMENT; the permanent whose ability went on the stack is the triggering permanent, so the
@@ -4705,6 +4720,12 @@ export function detectTriggers(card) {
         effectClause = cls.event === "dies"
           ? "you gain life equal to the dying creature's power"
           : "you gain life equal to the triggering creature's power";
+      } else if (cls.event === "tapForMana" && /^that land doesn't untap during its controller's next untap step$/i.test(effectClause)) {
+        // ===== TAPPED-LAND REFERENT (④-D — Vorinclex, Voice of Hunger) ===== "that land" is the permanent that was
+        // just tapped for mana — the trigger's triggering permanent (ctx.triggeringPermanentId), never a chosen
+        // target. Rewritten to the triggering-permanent sentinel the tap-lock parser binds (the same lockOnly atom
+        // the blocked-attacker lock uses). Event-gated: only a tapForMana trigger has a "that land" that means this.
+        effectClause = "the triggering permanent doesn't untap during its controller's next untap step";
       } else if (cls.scope === "self" && cls.event === "dies" && /^it deals damage equal to its power to (each opponent|any target)$/i.test(effectClause)) {
         // ===== "ITS POWER" DIES-DAMAGE (CORPUS ④-B, 2026-09-03 night — the census's two dies-damage shapes) =====
         // "When this creature dies, it deals damage equal to its power to each opponent" (Heartfire Hero, Flaming
@@ -5011,6 +5032,7 @@ export function detectTriggers(card) {
         sacAnother: cls.sacAnother,           // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
         onCreate: cls.onCreate,               // TOKEN-CHANGE: responds to a token being created (Mirkwood Bats)
         winOnly: cls.winOnly,                 // CLASH (STAGE ④-2): "whenever you clash AND WIN" fires only for the clash's winner
+        tappedFilter: cls.tappedFilter,       // TAPPED-FOR-MANA (④-D): "a land" — checkTapForManaTriggers matches it against the tapped permanent's type line. ⚠️ Unlisted = dropped = Vorinclex locks a tapped CREATURE too.
         activatedTypeFilter: cls.activatedTypeFilter, // ABILITY-ACTIVATED (CAP-BRACERS): "of an artifact or creature" / "of a creature" / "of an <Subtype>" — checkAbilityActivatedTriggers matches it against the ACTIVATED permanent's type line. ⚠️ Unlisted here = dropped = Crackdown Construct fires on a LAND's ability too (an over-fire), with the detector looking correct.
         onSacrifice: cls.onSacrifice,         // TOKEN-CHANGE: responds to a token being sacrificed
         selfReturnKind: cls.selfReturnKind,   // SELF-LTB: "self" (Aura PiG) | "attached" (equipped-creature-dies)
@@ -8519,6 +8541,37 @@ function prowessDescriptor() {
  * `activatedIsManaAbility: false` (a mana ability never uses the stack — CR 605.3b) and the activator.
  * Enqueued to pendingTriggers; the dispatcher flushes them ABOVE the ability so a copy resolves first (CR 603.3b).
  */
+/**
+ * TAPPED FOR MANA (CORPUS ④-D, 2026-09-03 — CR 605.3 / 603.2): a permanent was just tapped for mana (the mana model's
+ * commit, after the tap). Fires "you tap this <permanent> for mana" on the tapped permanent itself (scope self),
+ * "you tap a land for mana" on the tapper's own watchers (whose:"you") and "an opponent taps a land for mana" on
+ * the tapper's opponents' watchers (whose:"opponent"), applying the optional `tappedFilter` against the tapped
+ * permanent's type line. Enqueued to pendingTriggers — they reach the stack at the next flush (CR 605.3c: a mana
+ * ability's triggers wait for the next priority window), above whatever the mana paid for.
+ */
+export function checkTapForManaTriggers(state, { permanentId, tapperId }) {
+  const lk = permanentId ? findPermanent(state, permanentId) : null;
+  if (!lk?.permanent || !tapperId) return state;
+  const tapped = lk.permanent;
+  const typeLine = String(tapped.card?.type || tapped.card?.type_line || "").toLowerCase();
+  const passesFilter = (filt) => !filt || typeLine.split(/\s+/).includes(String(filt).toLowerCase()) || new RegExp(`\\b${String(filt).toLowerCase()}\\b`).test(typeLine);
+  const triggeringContext = { tappedPermanentId: permanentId, tapperId };
+  let fired = [];
+  for (const pid of Object.keys(state.players || {})) {
+    for (const watcher of triggerSourcesOf(state, pid)) {
+      const raw = triggersForEvent(state, { event: "tapForMana", sourcePermanent: watcher, triggeringPermanent: tapped, triggeringContext });
+      fired = fired.concat(raw.filter((t) => {
+        const d = t?.descriptor || t;
+        if (d?.whose === "you" && tapperId !== watcher.controller) return false;
+        if (d?.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(tapperId)) return false;
+        return passesFilter(d?.tappedFilter);
+      }));
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
 export function checkAbilityActivatedTriggers(state, { permanent, activatorId, stackObjectId }) {
   if (!permanent || !activatorId) return state;
   const typeLine = String(permanent.card?.type || "").toLowerCase();

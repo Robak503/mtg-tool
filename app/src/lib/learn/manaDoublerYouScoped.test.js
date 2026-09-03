@@ -84,10 +84,10 @@ describe("classification — what flips and what honestly doesn't", () => {
     expect(classifyCard(ZENDIKAR_RESURGENT)).toMatch(/^native/);
   });
 
-  it("Vorinclex stays PARKED — its opponent-land-doesn't-untap line is unmodeled residue", () => {
-    // The whole-card law working as intended: the doubler half is understood, the second half isn't, and
-    // half a Praetor is not a Praetor.
-    expect(classifyCard(VORINCLEX)).toBe("body-only");
+  it("GRADUATED (CORPUS ④-D, 2026-09-03): Vorinclex is native — his opponent-land lock rides the tapped-for-mana event (tapForMana.test.js owns the runtime witness)", () => {
+    // The whole-card law working as intended, the other way round now: the doubler half was understood, the
+    // second half is too (the event + the permanent-wide lock), so the whole Praetor is credited.
+    expect(classifyCard(VORINCLEX)).toBe("native-mixed");
   });
 });
 

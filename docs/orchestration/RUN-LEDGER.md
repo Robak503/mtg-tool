@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚡ 2026-09-03 (night cron) — CORPUS ④-D: the "TAPPED FOR MANA" trigger event · **+2** (Zhur-Taa Druid, Vorinclex Voice of Hunger) · corpus 13,876 / 34,245 (40.5%)
+> Suite **1365 / 15,425** green; lint 0. Flip-diff **+2, zero LOST**. **10/10 killed.**
+> · **The event:** `tapForMana`, fired by `checkTapForManaTriggers` at the ONE mana-tap commit (manaModel.commitManaTap,
+>   after the source taps; a Treasure cracked for mana is a sacrifice and never reaches it). Two detector shapes:
+>   "you tap this <permanent> for mana" (scope self — Zhur-Taa Druid pings each opponent when he taps for {G}) and
+>   "an opponent taps a land for mana" (whose:"opponent", `tappedFilter` land — threaded at the descriptor builder,
+>   its drop a killed mutation). The checker gates the tapper (you / an opponent) and the tapped permanent's type.
+>   The triggers enqueue and reach the stack at the next flush — ABOVE the spell the mana paid for (CR 605.3c),
+>   board-verified through a real payment.
+> · **Vorinclex's lock:** "that land doesn't untap during its controller's next untap step" — "that land" is the
+>   tapped permanent, rewritten (event-gated) to the triggering-PERMANENT sentinel and bound to the existing lockOnly
+>   tap atom on the permanent-wide `thatPermanent` referent (the creature-scoped one drops a land — a killed
+>   mutation). The opponent's Forest skips one untap and untaps the next (pinned).
+> · **⛔ NO "you tap a land for mana" detector, on purpose:** that sentence is the mana-DOUBLER family ("…add one
+>   mana of any type that land produced" — Zendikar Resurgent, Mirari's Wake, Nikya, Vorinclex's own first line),
+>   which the mana model already plays as its global-tap augment static. My first cut detected it and Vorinclex
+>   grew a second, LOW descriptor — every doubler would have demoted. Removed; reinstating it is a killed mutation.
+>   Savage Firecat (an unmodeled counter-removal effect) and Groundchuck's flat {G} stay parked.
+
 > ## 🐾 2026-09-03 (night cron) — CORPUS ④-C: KINNAN, BONDER PRODIGY — a dig that puts the pick ONTO THE BATTLEFIELD, the rest bottomed in a random order · **+3** (Kinnan, Web of Life and Destiny, Ureni of the Unwritten) · **Joe's Kinnan deck 69 → 71 with its COMMANDER native** · corpus 13,874 / 34,245 (40.5%)
 > Suite **1364 / 15,421** green (one stale pin graduated, below); lint 0. Flip-diff **+3, zero LOST**, each audited whole-card.
 > **9/9 killed.**
