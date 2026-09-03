@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Ashnod's Altar and Phyrexian Altar work** (and Thermopod): sacrificing a creature for mana now actually
+  sacrifices your cheapest other creature, its death triggers fire, and the ability is only offered while
+  you have a creature to feed it. Molt Tender's planned taps now really exile a graveyard card.
 - **Skullclamp works** — and Lead Pipe, Sylvok Lifestaff and every "whenever equipped creature dies" card
   with a modeled payoff. **Woodland Bellower** fetches a nonlegendary green creature (never Toski).
   **Altar of the Brood** mills each opponent when another permanent of yours enters, never on its own.

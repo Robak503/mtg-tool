@@ -42,8 +42,13 @@ describe("the cost is parsed", () => {
     expect(manaProduction({ name: "Sphere of the Suns", type: "Artifact", oracle: "{T}, Remove a charge counter from Sphere of the Suns: Add one mana of any color." })).toBe(null);
   });
 
-  it("⛔ a non-self SACRIFICE cost is still refused", () => {
-    expect(manaProduction({ name: "Ashnod's Altar", type: "Artifact", oracle: "Sacrifice a creature: Add {C}{C}." })).toBe(null);
+  it("⛔ a non-self SACRIFICE cost is still refused — except 'Sacrifice a creature', PAID since 2026-09-03 (SG-3: the Altars)", () => {
+    // Ashnod's Altar is a real source now: manaSources gates it on another creature and commitManaTap
+    // sacrifices that creature through the dies chokepoint (altarManaSac.test.js). Every OTHER non-self
+    // sacrifice is still phantom mana and still refused.
+    expect(manaProduction({ name: "Ashnod's Altar", type: "Artifact", oracle: "Sacrifice a creature: Add {C}{C}." })).toMatchObject({ sacrificesCreature: true });
+    expect(manaProduction({ name: "Artifact Altar", type: "Artifact", oracle: "Sacrifice an artifact: Add {C}{C}." })).toBe(null);
+    expect(manaProduction({ name: "Utopia Mycon-like", type: "Creature — Fungus", oracle: "Sacrifice a Saproling: Add {C}{C}." })).toBe(null);
   });
 
   it("⛔ an unmodeled PAYER FILTER refuses the card — never a tap of something the card didn't allow", () => {

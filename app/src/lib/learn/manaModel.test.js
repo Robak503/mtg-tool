@@ -142,7 +142,10 @@ describe("manaProduction", () => {
     // Utopia Mycon: "Sacrifice a Saproling: Add …" — sacrifices something ELSE, so it's NOT the self-sac
     // Treasure case (no `sacrifices` flag, requiresTap:false). The sim doesn't sac a Saproling → phantom mana.
     expect(manaProduction({ name: "Utopia Mycon", type: "Creature — Fungus", oracle: "At the beginning of your upkeep, put a spore counter on this creature.\nRemove three spore counters from this creature: Create a 1/1 green Saproling creature token.\nSacrifice a Saproling: Add one mana of any color." })).toBeNull();
-    expect(manaProduction({ name: "Ashnod's Altar", type: "Artifact", oracle: "Sacrifice a creature: Add {C}{C}." })).toBeNull();
+    // GRADUATED 2026-09-03 (SG-3): "Sacrifice a creature: Add …" is PAID now — a creature is fed through the
+    // dies chokepoint at commit and the source is offered only while one is there (altarManaSac.test.js) —
+    // so Ashnod's Altar is a real source carrying the flag; the artifact-sac and Saproling-sac forms stay phantom.
+    expect(manaProduction({ name: "Ashnod's Altar", type: "Artifact", oracle: "Sacrifice a creature: Add {C}{C}." })).toMatchObject({ colors: ["C"], amount: 2, sacrificesCreature: true });
     expect(manaProduction({ name: "Krark-Clan Ironworks", type: "Artifact", oracle: "Sacrifice an artifact: Add {C}{C}." })).toBeNull();
     // …and it isn't offered as a standing tappable source either (the runtime path, not just manaProduction).
     const um = permanent({ name: "Utopia Mycon", type: "Creature — Fungus", oracle: "Sacrifice a Saproling: Add one mana of any color." }, { id: "um" });

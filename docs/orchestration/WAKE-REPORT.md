@@ -7,7 +7,15 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## 🌰 2026-09-03 — **STAGE ③: SG-2 — Woodland Bellower · Altar of the Brood · Skullclamp (+6) — Squirrel Girl 71/100, corpus 40.2% (13,780)** — suite **1332 / 15,228** green
+## ⚙️ 2026-09-03 — **STAGE ③: SG-3 — the Altars pay for real (+3) — Squirrel Girl 72/100, corpus 40.2% (13,783)** — suite **1333 / 15,234** green
+
+> **SG-3** = "Sacrifice a creature: Add …" as a REAL mana payment (Ashnod's Altar, Phyrexian Altar,
+> Thermopod): the source is offered only while another creature is there, and paying sacrifices the
+> least-valuable one through the dies chokepoint. Found and fixed on the way: the payment planner had
+> never carried cost riders into its plan (a planned Molt Tender tap exiled nothing) — both riders ride
+> now. 7/7 killed; three phantom-mana pins re-anchored on the forms still refused. **Next:** Jaheira.
+
+## 🌰 2026-09-03 — SG-2 — Woodland Bellower · Altar of the Brood · Skullclamp (+6) — Squirrel Girl 71/100, corpus 40.2% (13,780) — suite 1332 / 15,228 green
 
 > **SG-2** = three cheap singles from her deck: a "nonlegendary" supertype-exclusion gate on the tutor
 > filter; "another permanent you control enters" (exclude-self on the permanent-wide scope); a general

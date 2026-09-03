@@ -3,6 +3,30 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚙️ 2026-09-03 — SG-3: the ALTARS — "Sacrifice a creature: Add …" PAID FOR REAL (Ashnod's · Phyrexian · Thermopod) · **+3 corpus** · Squirrel Girl deck 71→72 · corpus 40.2% (13,783/34,245)
+> Suite **1333 / 15,234** green; lint 0. Flip-diff **+3, zero LOST, zero RETIERED**. **7/7 killed.**
+> · **The refusal was right until the payment existed.** A non-self sacrifice mana cost was PHANTOM mana
+>   (the sim would have "paid" it free every turn — the manaReachability pins guard exactly that). The
+>   exile-from-graveyard cost (Molt Tender) was the template for a real payment; this slice mirrors it:
+>   `manaAbilitySacrificesCreature` → production flag → manaSources offers the source only while ANOTHER
+>   creature is on the board → commitManaTap sacrifices the least-valuable one (lowest MV, then name — never
+>   the source) THROUGH THE DIES CHOKEPOINT, so its dies triggers fire (CR 700.4). Exactly "Sacrifice a
+>   creature" (optionally after "{T},"); "Sacrifice an artifact" / "a Saproling" stay refused.
+> · **⚠️ Two holes the witness found on the way:**
+>   1. **The payment planner never copied cost riders into its plan** — `planPayment` rebuilt each source
+>      from a fixed field list, so `exilesGyCard` reached the committer only on the direct tap action; a
+>      PLANNED Molt Tender tap exiled nothing. Both riders are carried now (Molt Tender's own witness re-run
+>      green). A pre-existing, silent under-payment — fixed, not just extended.
+>   2. **Multi-line cards:** the production is parsed off the card's FIRST "Add", so a card with a free
+>      "{T}: Add {C}" beside "{T}, Sacrifice a creature: Add {B}{B}" (Phyrexian Tower) must NOT be stamped
+>      with the sacrifice — the flag is set only when EVERY mana line carries it (the sac line stays an
+>      honest under-offer). Pinned (M7).
+> · Three older pins re-anchored (manaReachability "Altar-like", tapOtherManaCost, manaModel): each keeps
+>   its phantom-mana half on the artifact-sac / Saproling-sac forms the lane still refuses.
+> · Deck tail: Jaheira next (a bare "Tokens you control have '{T}: Add {G}'" mana-grant selector; layers
+>   already has a `selector.token` predicate; a bare grant must NOT be the in-place UPGRADE the
+>   Treasure-subtype grants are), then Geier Reach Sanitarium, then the mediums.
+
 > ## 🌰 2026-09-03 — SG-2: Woodland Bellower · Altar of the Brood · Skullclamp (three one-word / one-scope blockers) · **+6 corpus** · Squirrel Girl deck 68→71 · corpus 40.2% (13,780/34,245)
 > Suite **1332 / 15,228** green; lint 0 errors. Flip-diff **+6, zero LOST, zero RETIERED** — the three
 > deck cards plus Original Skullclamp, Sylvok Lifestaff ("…dies, you gain 3 life") and Lead Pipe ("…dies,

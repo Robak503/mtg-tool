@@ -54,8 +54,13 @@ describe("cards the engine CANNOT tap are no longer tiered native-mana", () => {
     // now: a FINITE counter pool the sim would treat as infinite, and a non-self sacrifice it never spends.
     expect(classifyCard(card({ name: "Sphere-like", type: "Artifact", mana: "{2}",
       oracle: "{T}, Remove a charge counter from this artifact: Add one mana of any color." }))).not.toBe("native-mana");
+    // GRADUATED 2026-09-03 (SG-3): "Sacrifice a creature: Add …" is PAID now — manaSources gates the source on
+    // another creature and commitManaTap sacrifices it through the dies chokepoint — so Ashnod's Altar is
+    // reachable and native-mana. The unpayable pin moves to a sacrifice the engine still does not feed.
     expect(classifyCard(card({ name: "Altar-like", type: "Artifact", mana: "{2}",
-      oracle: "Sacrifice a creature: Add {C}{C}." }))).not.toBe("native-mana");
+      oracle: "Sacrifice a creature: Add {C}{C}." }))).toBe("native-mana");
+    expect(classifyCard(card({ name: "Artifact-Altar-like", type: "Artifact", mana: "{2}",
+      oracle: "Sacrifice an artifact: Add {C}{C}." }))).not.toBe("native-mana");
   });
 });
 

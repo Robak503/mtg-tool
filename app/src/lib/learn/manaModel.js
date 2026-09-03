@@ -30,8 +30,8 @@
  * legalChoices, and layers imports none of these modules so that edge is acyclic too.
  */
 
-import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent } from "./gameState.js";
-import { checkSacrificeTriggers, checkLeavesTriggers } from "./triggers.js"; // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
+import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermanent, findPermanent, loseLife, logEvent, creaturePower } from "./gameState.js";
+import { checkSacrificeTriggers, checkLeavesTriggers, checkDiesTriggers } from "./triggers.js"; // SG-3: a sacrificed-creature mana cost dies through the chokepoint // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
 import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow, colorsOf } from "./layers.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock
@@ -516,6 +516,28 @@ function manaAbilityExilesGyCard(oracle) {
  * the activated line specifically also fixes a card carrying BOTH an ETB "add" and a real "{T}: Add" (reads
  * the activated one, not the first). Per-line, mirroring manaAbilityRequiresTap.
  */
+/**
+ * SACRIFICE-A-CREATURE MANA COST (SG-3, 2026-09-03 — Ashnod's Altar "Sacrifice a creature: Add {C}{C}",
+ * Phyrexian Altar "Sacrifice a creature: Add one mana of any color"; the Squirrel Girl deck). Carved OUT of the
+ * phantom-mana refusal exactly as the exile-from-graveyard cost was, because it is now PAID for real:
+ * manaSources gates the source on ANOTHER creature the controller controls, and commitManaTap sacrifices the
+ * least-valuable one through the dies chokepoint (dies triggers fire — a sacrificed creature dies, CR 700.4).
+ * The cost must be exactly "Sacrifice a creature" (optionally after "{T},"); "Sacrifice an artifact" /
+ * "Sacrifice a Saproling" and any rider stay refused (the phantom-mana FN).
+ */
+function manaAbilitySacrificesCreature(oracle) {
+  // ⛔ EVERY activated mana line must carry the cost, not just one: the production is parsed off the card as a
+  // whole (the first "Add"), so a card with a FREE "{T}: Add {C}" line beside a "{T}, Sacrifice a creature:
+  // Add {B}{B}" line (Phyrexian Tower) keeps its free tap and must NOT be stamped with a sacrifice it never
+  // pays for — that flag would sacrifice a creature on every {C}. Such a card's sac line stays an under-offer.
+  const manaLines = String(oracle || "").split(/\n+/).filter((line) => {
+    const ci = line.indexOf(":");
+    return ci !== -1 && /\badd\b/i.test(line.slice(ci + 1));
+  });
+  if (!manaLines.length) return false;
+  return manaLines.every((line) => /^(?:\{t\},\s*)?sacrifice a creature\s*$/i.test(line.slice(0, line.indexOf(":")).trim()));
+}
+
 function activatedManaText(oracle) {
   for (const line of String(oracle || "").split(/\n+/)) {
     const ci = line.indexOf(":");
@@ -1170,13 +1192,14 @@ function manaProductionImpl(card) {
   // PAID for real: commitManaTap exiles a graveyard card on the tap, and manaSources gates the source on
   // a non-empty graveyard. The flag rides the production so both halves key off one read.
   const exilesGyCard = manaAbilityExilesGyCard(oracleForAdd);
+  const sacrificesCreature = manaAbilitySacrificesCreature(oracleForAdd); // SG-3 — paid for real (see the helper)
   const isActivatedSource =
-    isLandCard || (activatedManaText(oracleForAdd) != null && (!manaAbilityCostUnpayable(oracleForAdd) || exilesGyCard));
+    isLandCard || (activatedManaText(oracleForAdd) != null && (!manaAbilityCostUnpayable(oracleForAdd) || exilesGyCard || sacrificesCreature));
   if (fromOracle && isActivatedSource) {
     const requiresTap = manaAbilityRequiresTap(oracleForAdd);
     return manaAbilitySacrificesSelf(oracleForAdd)
       ? { ...fromOracle, sacrifices: true, requiresTap }
-      : { ...fromOracle, requiresTap, ...(exilesGyCard ? { exilesGyCard: true } : {}) };
+      : { ...fromOracle, requiresTap, ...(exilesGyCard ? { exilesGyCard: true } : {}), ...(sacrificesCreature ? { sacrificesCreature: true } : {}) };
   }
 
   // ===== TAP-OTHER COST (CR 118.4 / 302.6) =====================================================
@@ -1592,7 +1615,10 @@ export function manaSources(state, playerId) {
     // with — an empty graveyard means the cost can't be paid, so the source is never offered (the
     // availability half of the phantom-gate carve; commitManaTap is the payment half).
     if (prod.exilesGyCard && (player.graveyard || []).length === 0) continue;
-    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}) });
+    // SG-3 — a sacrifice-a-creature source needs ANOTHER creature to feed it (never the source itself, never
+    // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid).
+    if (prod.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")))) continue;
+    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}) });
   }
   return sources;
 }
@@ -1714,6 +1740,12 @@ export function planPayment(pool, sources, cost, spendContext = null) {
       // MIXED FIXED BUNDLE (karoo / signet): a per-color tally this source produces SIMULTANEOUSLY. When
       // present it REPLACES the primary component's "pick one color × amount" — see tapSource.
       fixed: s.fixed && Object.keys(s.fixed).length > 1 ? { ...s.fixed } : null,
+      // COST RIDERS carried into the plan so the committer pays what the planner priced (SG-3, 2026-09-03):
+      // the sacrifice-a-creature cost (the Altars) and — found while wiring it — the exile-from-graveyard
+      // cost (Molt Tender), which the direct tap action carried but this planned path silently dropped
+      // (a planned Molt Tender tap exiled nothing; now it does).
+      sacrificesCreature: !!s.sacrificesCreature,
+      exilesGyCard: !!s.exilesGyCard,
       used: false,
     }))
     .filter(s => s.amount > 0)
@@ -1787,7 +1819,7 @@ export function planPayment(pool, sources, cost, spendContext = null) {
     // PAINLAND: stamp the life cost ONLY when the chosen colour is one of the painful ones — a tap for
     // the free {C} half costs nothing, exactly as printed.
     const painHit = s.painColors && s.painColors.includes(primaryColor) ? s.painAmount : 0;
-    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
+    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
     return wantColor && assigned ? wantColor : primaryColor;
   };
 
@@ -1952,6 +1984,25 @@ export function commitManaTap(state, playerId, tap) {
   // a play-quality upgrade, never a rules question. An empty graveyard here (a same-plan earlier tap
   // drained it) exiles nothing and the tap still resolves — logged distinctly so the under-pay is VISIBLE,
   // never silent; the offer gate makes this vanishingly rare.
+  // SG-3 — SACRIFICE-A-CREATURE cost (Ashnod's / Phyrexian Altar): the least-valuable OTHER creature (lowest
+  // mana value, then name — never the source) goes to the graveyard through the dies chokepoint, so its dies
+  // triggers fire like any sacrifice (CR 700.4). No victim at commit time (a race the offer gate already
+  // refused) → the tap is logged unpaid rather than fabricated, mirroring the exile-cost branch below.
+  if (tap.sacrificesCreature) {
+    const bf = next.players[playerId]?.battlefield || [];
+    const victims = bf.filter((p) => p.id !== tap.permanentId && /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")));
+    const mvOf = (p) => { const cost = String(p.card?.mana_cost || p.card?.mana || ""); let n = 0; for (const m of cost.matchAll(/\{([^}]+)\}/g)) n += /^\d+$/.test(m[1]) ? parseInt(m[1], 10) : (m[1] === "X" ? 0 : 1); return n; };
+    victims.sort((a, b) => mvOf(a) - mvOf(b) || String(a.card?.name || "").localeCompare(String(b.card?.name || "")));
+    const victim = victims[0];
+    if (victim) {
+      const pw = creaturePower(victim, next);
+      next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: victim.id });
+      next = checkDiesTriggers(next, [{ controller: playerId, id: victim.id, name: victim.card?.name || "creature", card: victim.card, counters: { ...(victim.counters || {}) }, power: Number.isFinite(pw) ? pw : null, basePower: Number.isFinite(pw) ? pw : null, diesExileAfter: !!victim.grantDiesExile }]);
+      next = logEvent(next, { kind: "mana", event: "sacrifice-creature-cost", permanentId: tap.permanentId, playerId, victimId: victim.id, victimName: victim.card?.name });
+    } else {
+      next = logEvent(next, { kind: "mana", event: "sacrifice-creature-cost-unpaid", permanentId: tap.permanentId, playerId });
+    }
+  }
   if (tap.exilesGyCard) {
     const gy = next.players[playerId]?.graveyard || [];
     if (gy.length) {
