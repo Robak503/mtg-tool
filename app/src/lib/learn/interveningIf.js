@@ -745,6 +745,25 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     return r.won;
   }
 
+  // ===== ENTERED-THIS-TURN (STAGE ④-3, 2026-09-03 — Gathering Place / Dark Fortress and their siblings:
+  // "Activate only if this land entered this turn or if you control a basic land", CR 602.5) ===== the
+  // source permanent's own `enteredOnTurn` stamp (written by every enter path) against the current turn.
+  // No source, a source not on any battlefield, or an unstamped permanent → null ("can't confirm" — never
+  // an offered mana source on a guess). The noun is restricted to permanent-type words (a self-reference).
+  {
+    const etM = c.match(/^this (?:land|creature|permanent|artifact|enchantment) entered this turn$/);
+    if (etM) {
+      const sourceId = context?.sourcePermanentId;
+      if (!sourceId) return null;
+      let perm = null;
+      for (const pid of Object.keys(state.players || {})) {
+        perm = (state.players[pid]?.battlefield || []).find((p) => p.id === sourceId) || perm;
+      }
+      if (!perm || perm.enteredOnTurn == null || state.turn == null) return null;
+      return perm.enteredOnTurn === state.turn;
+    }
+  }
+
   // ===== SELF TAP-STATE (CR 603.4 + 106.1) ===== "…, if this artifact is untapped, …" (Howling Mine #723,
   // Blinkmoth Urn, Genesis Chamber) and its inverse "if this artifact is tapped" (Mana Vault #145). The
   // source's own tap state is the most directly checkable condition there is — one boolean on the permanent
@@ -1810,7 +1829,9 @@ export function spellConditionParseable(condition) {
  * false positive (CREED — false-negative safe, false-positive forbidden).
  */
 export function activationConditionParseable(condition) {
-  const src = { id: "__src__", card: { name: "__probe_name__", type: "Creature" } };
-  const probe = { players: { __probe__: { battlefield: [src], graveyard: [], hand: [], library: [], life: 20 } } };
+  // `enteredOnTurn: 0` + `turn: 0`: a definite stamp so the ENTERED-THIS-TURN shape (stage ④-3, Gathering
+  // Place) probes as readable; the runtime reads the real stamp every enter path writes.
+  const src = { id: "__src__", card: { name: "__probe_name__", type: "Creature" }, enteredOnTurn: 0 };
+  const probe = { turn: 0, players: { __probe__: { battlefield: [src], graveyard: [], hand: [], library: [], life: 20 } } };
   return evaluateInterveningIf(probe, condition, "__probe__", { sourcePermanentId: "__src__" }) !== null;
 }

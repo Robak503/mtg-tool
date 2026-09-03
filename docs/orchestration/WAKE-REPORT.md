@@ -33,6 +33,13 @@
 > (multi-product mana + variable counter-removal sources), a few hours with gates, and it is the first item
 > in the plan's §6 with the numbers. Nothing under-offered is wrong in the rules sense (a land that taps for
 > less is a safe under-play); the wrong thing was the claim, and it is now on the record.
+> **→ Runtime half SHIPPED by the cron at 10:20 (STAGE ④-3):** 41 lands now offer their second line (22
+> gated — the Tainted lands, the Verges, the Gathering Place five; 17 sacrifice rituals; 3 free colourless
+> taps), the planner never taps a permanent twice, and the slice's own census caught four live FPs in the old
+> main product (Ancient Spring / Spawning Bed's plain taps sacrificed the land; Grand Coliseum's painless
+> any-colour; Hall of Oracles' free {1}-costed any-colour; a Pathway's back face on the front) — all fixed and
+> pinned. The Gathering Place five flipped honestly (+6 with Tablet of Compleation; corpus 13,830; suite
+> 1352 / 15,343). Still fail-closed: rider-bearing second lines and the storage counter-removal mana.
 >
 > **② DONE — the land-tier family table (every `land-partial` clause family with ≥3 corpus carriers, census
 > 05:45 scratch lands-census-0545.txt; land-partial 454 → 357, single-blockers 368 → 280):**

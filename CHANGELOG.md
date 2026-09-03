@@ -9,6 +9,12 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Lands with two mana abilities tap for both** — the Tainted lands, the Verges, the Gathering Place cycle,
+  the free colourless tap beside an any-colour line, and the "Sacrifice this land" rituals now offer their
+  second line (gated exactly as printed), and a land is never tapped twice through two lines. Four wrong taps
+  fixed on the way: Ancient Spring's and Spawning Bed's plain taps no longer sacrifice the land, Grand
+  Coliseum no longer hands out a painless any-colour mana, Hall of Oracles no longer gives its {1}-costed
+  any-colour for free, and a double-faced land's back face never taps on the front.
 - **Clash works** (Nath's Elite, Oaken Brawler, Paperfin Rascal, Bog Hoodlums, Adder-Staff Boggart and their
   kin) — you and an opponent reveal your top cards, the greater mana value wins, and the "if you win" payoff
   follows; a tie wins for nobody, and both cards stay on top. **"Whenever you clash and win"** (Sylvan

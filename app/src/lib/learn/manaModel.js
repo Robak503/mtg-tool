@@ -40,7 +40,10 @@ import { evaluateInterveningIf } from "./interveningIf.js"; // CONDITION-GATED m
 
 // A board with one seat and empty zones — enough for evaluateInterveningIf to ANSWER a condition or admit it
 // cannot. Used only by conditionIsExpressible, never for a real verdict.
-const _PROBE_STATE = { players: { probe: { battlefield: [], graveyard: [], hand: [], library: [], life: 40 } } };
+// The probe carries ONE stamped permanent (the "probe-src" the context names, enteredOnTurn 0 on turn 0) so a
+// per-source condition — "this land entered this turn" (stage ④-3, Gathering Place) — probes as decidable;
+// every board-count condition still returns a boolean (a count of one is still a count).
+const _PROBE_STATE = { turn: 0, players: { probe: { battlefield: [{ id: "probe-src", card: { name: "__probe__", type: "Land" }, enteredOnTurn: 0 }], graveyard: [], hand: [], library: [], life: 40 } } };
 
 /**
  * Can `evaluateInterveningIf` actually DECIDE this condition? It returns a boolean when it understands the
@@ -874,6 +877,86 @@ const _prodMemo = new WeakMap();
 // KW-ENGINES (CR 702.179): "Max speed — <ability>" is live only while its controller's speed is 4.
 const MAX_SPEED_PREFIX = /^\s*max speed\s*[—–-]\s*/i;
 
+/**
+ * EXTRA MANA LINES (STAGE ④-3, 2026-09-03 — the multi-line-mana correction's runtime half). manaProduction
+ * models ONE product per card (the first Add line, with riders merged only where the whole-card detectors read
+ * them); a land printing a SECOND tap-mana ability never offered it — 114 lands, 55 of them credited "land".
+ * This admits a second line ONLY in its complete, rider-free forms — "{T}: Add …" or "{T}, Sacrifice this
+ * land: Add …", optionally "Activate only if <expressible condition>." — parsed through the SAME manaProduction
+ * on a single-line virtual card, and only when it adds what the main product does not already cover (a colour
+ * the main lacks, a gate, or a sacrifice cost). A line carrying a pain / pay-life / doesn't-untap /
+ * counter-removal rider fails the anchor on purpose: its single-line product would silently drop the rider
+ * (a painless painland tap), the forbidden direction. Never the main line itself. Memoized per card object.
+ */
+const EXTRA_MANA_LINE_RE = /^\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?$/i;
+// A PLAIN tap line: complete, ungated, no sacrifice — the line a multi-line card can always tap for.
+const PLAIN_MANA_LINE_RE = /^\{T\}: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.$/i;
+
+/**
+ * HONEST MAIN PRODUCT for a multi-line card (STAGE ④-3 — two live FPs the whole-card merge produced, both found
+ * by this slice's witness): (a) Ancient Spring / Havenwood Battleground — "{T}: Add {U}." beside "{T}, Sacrifice
+ * this land: Add {W}{B}." merged into ONE product carrying `sacrifices`, so the plain tap SACRIFICED the land;
+ * (b) Grand Coliseum / The Secret Lair — "{T}: Add {C}." beside an any-colour line with a rider ("This land
+ * deals 1 damage to you" / "Say the secret word … Scry 1") merged into a PAINLESS any-colour product. Rule:
+ * when the card prints a plain tap line and the merged product either carries a sacrifice or takes colours
+ * from a rider-bearing line without carrying that rider (no painColors / payLife / restriction), the main
+ * product is the plain line's own single-line product; the other lines ride as extra records (or stay
+ * unmodelled — FN-safe). A merge that DOES carry its rider (Shivan Reef's painColors) is untouched.
+ */
+function honestMultiLineMain(card, result) {
+  if (!result) return result;
+  const lines = frontFaceOracle(card).split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  // Every tap-mana line, INCLUDING a mana-costed one ("{1}, {T}: Add one mana of any color." — Hall of Oracles):
+  // that cost is exactly what the merge drops, so the line must count as a rider-bearing tap line here.
+  const tapLines = lines.filter((l) => /^[^:]*\{T\}[^:]*: Add\b/i.test(l));
+  // A merged `sacrifices` is checked even with ONE tap line: Spawning Bed's plain "{T}: Add {C}." picked up a
+  // sacrifice from its NON-mana line (the quoted "Sacrifice this token: Add {C}" in its token text) and the
+  // plain tap sacrificed the land — found by the corpus census of this slice.
+  if (tapLines.length < 2 && !result.sacrifices) return result;
+  const plain = tapLines.find((l) => PLAIN_MANA_LINE_RE.test(l));
+  if (!plain) return result;
+  const plainProd = manaProductionImpl({ ...card, oracle: plain, oracle_text: plain });
+  if (!plainProd || !plainProd.colors?.length) return result;
+  const plainColors = new Set(plainProd.colors);
+  const unsafeSac = !!result.sacrifices && !/sacrifice/i.test(plain);
+  const foreign = (result.colors || []).filter((c) => !plainColors.has(c));
+  const riderless = !result.painColors && result.payLife == null && !result.restriction;
+  const unsafeMerge = foreign.length > 0 && riderless && tapLines.some((l) => l !== plain && !EXTRA_MANA_LINE_RE.test(l) && foreign.some((c) => new RegExp(c === "C" ? "\\{C\\}" : `\\{${c}\\}|any color`, "i").test(l)));
+  if (!unsafeSac && !unsafeMerge) return result;
+  return { ...plainProd, ...(result.activationCondition && /activate only if/i.test(plain) ? { activationCondition: result.activationCondition } : {}) };
+}
+const _extraMemo = new WeakMap();
+/** A double-faced / split card's bundled oracle carries BOTH faces ("Name - Type" headers, a "//" line between).
+ *  Only the FRONT face is on the battlefield as this permanent (a Pathway's back-face colour must never be
+ *  offered on the front); the back face is its own object when it is played. */
+function frontFaceOracle(card) {
+  return oracleOf(card).split(/\n\/\/\n/)[0];
+}
+export function extraManaLineProducts(card, mainProd) {
+  if (!card || typeof card !== "object") return [];
+  if (_extraMemo.has(card)) return _extraMemo.get(card);
+  const lines = frontFaceOracle(card).split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  // No "which line is the main" guess: the main product's own colours decide. A complete line whose colours the
+  // main already covers (and that adds no gate or sacrifice) IS the main line, or a duplicate of it — skipped.
+  // A complete line adding a colour the main lacks is an extra even when it is printed FIRST (a plain
+  // "{T}: Add {C}." beside an any-colour line the merge chose — the free colourless tap the census counted).
+  const out = [];
+  for (const line of lines) {
+    if (!EXTRA_MANA_LINE_RE.test(line)) continue;
+    const prod = manaProduction({ ...card, oracle: line, oracle_text: line });
+    if (!prod || !prod.colors?.length) continue;
+    // Covered = the main already offers this: every colour, the same sacrifice cost, and the same gate (a card whose
+    // ONLY mana line is gated — Tablet of Compleation — has that line AS its main; it must not ride twice).
+    const covered = !!mainProd && prod.colors.every((c) => (mainProd.colors || []).includes(c))
+      && !!prod.sacrifices === !!mainProd.sacrifices
+      && (prod.activationCondition || null) === (mainProd.activationCondition || null);
+    if (covered) continue;
+    out.push({ ...prod, extraLine: line });
+  }
+  _extraMemo.set(card, out);
+  return out;
+}
+
 export function manaProduction(card) {
   if (!card) return null;
   if (typeof card === "object") {
@@ -933,6 +1016,7 @@ export function manaProduction(card) {
       .find((line) => /\badd\b/i.test(line));
     const gate = modelledManaLine && modelledManaLine.match(/\bactivate (?:this ability )?only if ([^.]+)\./i);
     if (gate) result = { ...result, activationCondition: gate[1].trim() };
+    result = honestMultiLineMain(card, result);
     _prodMemo.set(card, result);
     return result;
   }
@@ -1640,6 +1724,17 @@ export function manaSources(state, playerId) {
     // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid).
     if (prod.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")))) continue;
     sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}) });
+    // STAGE ④-3 — EXTRA MANA LINES: a second, complete "{T}: Add …" line the main product does not cover (a
+    // gated colour line — Tainted Isle / the Verges / Gathering Place; a free "{T}: Add {C}" beside a painful
+    // any-colour line — Grand Coliseum; a "{T}, Sacrifice this land: Add …" ritual line). Each is its own
+    // source record on the SAME permanent; the planner treats a permanent's records as mutually exclusive
+    // (one {T}, CR 605.3a). Gated live exactly like the main product, at this same chokepoint.
+    for (const extra of extraManaLineProducts(perm.card, manaProduction(perm.card))) {
+      if (extra.activationCondition && evaluateInterveningIf(state, extra.activationCondition, playerId, { sourcePermanentId: perm.id }) !== true) continue;
+      const exFixed = extra.fixed && Object.keys(extra.fixed).length > 1 ? extra.fixed : null;
+      const exAmount = exFixed ? Object.values(exFixed).reduce((a, b) => a + b, 0) : (extra.amount ?? 1) * manaMult;
+      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), extraLine: true });
+    }
   }
   // SG-6 — EXILE-FROM-HAND sources (Elvish / Simian Spirit Guide): a mana ability of a card in HAND. Offered
   // as a one-shot source keyed by the card's id (the committer exiles it); never a tap, never repeatable.
@@ -1814,6 +1909,9 @@ export function planPayment(pool, sources, cost, spendContext = null) {
   // mana the source genuinely produces — never fabricated; surplus floats.
   const tapSource = (s, wantColor) => {
     s.used = true;
+    // STAGE ④-3: a permanent's OTHER mana-line records are the same {T} — one tap, one line (CR 605.3a). Mark
+    // every sibling record of this permanent used so the planner can never tap it twice through two lines.
+    for (const o of avail) if (o !== s && o.permanentId === s.permanentId && !o.fromHand && !s.fromHand) o.used = true;
     // Components: the primary land mana (one chosen color from s.colors) + each bonus entry.
     const components = [{ colors: s.colors, amount: s.amount, primary: true }, ...s.bonus.map(b => ({ colors: b.colors, amount: b.amount, primary: false, sameAsProduced: !!b.sameAsProduced }))];
     let primaryColor = null;

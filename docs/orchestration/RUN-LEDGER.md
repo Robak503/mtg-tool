@@ -3,6 +3,31 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🏞️ 2026-09-03 — STAGE ④-3: EXTRA MANA LINES — the multi-line-mana correction's runtime half · **+6 corpus** · corpus 40.4% (13,830/34,245) · 41 lands now offer their second line · FOUR live FPs in the old main product fixed
+> Suite **1352 / 15,343** green; lint 0. Flip-diff **+6, zero LOST** — the Gathering Place five (land-partial
+> → land: their gated coloured line is now offered, so the credit is honest) and Tablet of Compleation
+> (body-only → native-mana: its only mana line is gated on its own oil counters; the expressibility probe
+> now carries a stamped permanent so the source-counter condition decides, and manaSources gates it live —
+> audited). **12/12 killed**, after two survivors earned their pins on the way (a duplicate-line check the
+> fixtures could not see; a covered-line check that turned out to be the load-bearing one).
+> · **What ships.** A land's second complete "{T}: Add …" / "{T}, Sacrifice this land: Add …" line
+>   (optionally "Activate only if <expressible>") is its own source record on the same permanent, parsed
+>   through the same manaProduction on a single-line virtual card and gated live at the one chokepoint; the
+>   planner marks a permanent's sibling records used on tap (one {T}, CR 605.3a — pinned: {U} from Tainted
+>   Isle is payable, {C}{U} from it alone is not); "this land entered this turn" joined the condition
+>   vocabulary (the Gathering Place gate). Fail-closed on purpose: a second line with a pain / pay-life /
+>   doesn't-untap / counter-removal rider is refused (its single-line product would drop the rider — pinned).
+>   Census (scratch census-extralines.mjs): **41 lands — 22 gated, 17 sacrifice rituals, 3 free colourless
+>   taps**; the remaining ~70 of the correction's 114 wait on their riders and on the storage lane.
+> · **Four live FPs found and fixed in the OLD main product** (the whole-card merge): Ancient Spring's and
+>   Spawning Bed's plain taps SACRIFICED the land (a sacrifice merged from another line — Spawning Bed's from
+>   its quoted token text); Grand Coliseum handed out a PAINLESS any-colour tap; Hall of Oracles gave its
+>   {1}-costed any-colour for free; a Pathway's back face tapped on the front. `honestMultiLineMain` refuses
+>   those merges (the plain line's own product wins; a merge that carries its rider — Shivan Reef's pain —
+>   is untouched, pinned) and both readers use the FRONT face only. Each pinned; each mutation-checked.
+> · Traps that fired: the Python-heredoc `\\n` collapse hit the witness TWICE (a JS string split across
+>   lines → "no tests" load error, which the law treats as a redo) — fixed with the Edit tool both times.
+
 > ## 🌿 2026-09-03 — STAGE ④-2: the CLASH trigger event — "Whenever you clash [and win]" · **+1 corpus** (Sylvan Echoes) · corpus 40.4% (13,824/34,245)
 > Suite **1351 / 15,329** green; lint 0. Flip-diff **+1, zero LOST**. **5/5 killed.**
 > · A `clash` trigger event (detector: the bare "you clash" and the win-only "you clash and win"; the

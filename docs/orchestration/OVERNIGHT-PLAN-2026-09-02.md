@@ -272,6 +272,16 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
   permanent as mutually exclusive (one {T} per permanent), every manaSources consumer re-gated. A real
   subsystem slice, a few hours with gates; it also makes the 55 credited lands honest. Your call on priority
   against stage ④'s subsystems (morph ~164, initiative/ring ~126, quoted-grant statics ~133).
+  **→ ✅ STAGE ④-3 (the cron, 09:00–10:15): the runtime half SHIPPED for every complete second line.** A land's
+  second "{T}: Add …" / "{T}, Sacrifice this land: Add …" line (optionally "Activate only if …") is its own
+  source record on the same permanent, gated live; the planner never taps a permanent twice; the "this land
+  entered this turn" condition is readable. Measured: **41 lands now offer an extra line — 22 gated (the
+  Tainted lands, the Verges, the Gathering Place five), 17 sacrifice rituals, 3 free colourless taps.** The
+  slice's witness and census also caught **four live FPs in the OLD main product and fixed them**: Ancient
+  Spring's and Spawning Bed's plain taps sacrificed the land; Grand Coliseum handed out a PAINLESS any-colour;
+  Hall of Oracles gave its {1}-costed any-colour for free; a Pathway's back face tapped on the front. Still
+  unmodelled (fail-closed, honest): a second line with a pain / pay-life / doesn't-untap rider, and the
+  storage/charge counter-removal mana (a variable-amount, mana-costed source — its own lane).
 - **The Roads (5 — Reef/Wild/… Roads) · PARKED 05:50:** "{1}{U}, {T}, Sacrifice this land: Create a 1/1
   colorless Pilot creature token with 'This token saddles Mounts and crews Vehicles as though its power were
   2 greater.'" The token is a quoted STATIC on two verbs; crew is modeled (the crew power sum in legalChoices
