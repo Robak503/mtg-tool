@@ -1369,6 +1369,14 @@ function applyActivateAbility(state, action) {
     // sourceId = the activating permanent — lets a "this creature gets …" self atom in an
     // activated ability ("{T}: This creature gets +1/+1 until end of turn") resolve to the source.
     const params = { program: action.program, controller: action.playerId, targets, cardId: perm.card?.id, sourceId: action.permanentId };
+    // ④-Q (2026-09-03 night) — HOST LKI for a SELF-SACRIFICED AURA (CR 113.7a): "Sacrifice this Aura: Exile / Regenerate /
+    // pump enchanted creature" (Choking Restraints, Thrull Retainer, Briar Shield …). The cost detaches the Aura
+    // BEFORE the ability resolves, so "enchanted creature" is read from the source's last known information — the
+    // host it was attached to as the cost was paid. `perm` here is the pre-cost permanent, so its attachedTo is that
+    // host; threaded through params.context → every atom's ctx (runProgram spreads it). enchantedTargets falls back
+    // to it ONLY when the Aura has left the battlefield; an Aura merely detached (still on the battlefield) has no
+    // referent and stays a no-op, exactly as before.
+    if (action.sacSelf && perm.attachedTo) params.context = { ...(params.context || {}), enchantedLkiId: perm.attachedTo };
     if (action.chosenMode != null) params.chosenMode = action.chosenMode;
     // γ1e — a "Sacrifice X <subtype>" ability threads the chosen X into resolution (ctx.xValue), so an X-scaled
     // effect (Grim Hireling's "-X/-X") applies the SAME X the player paid in sacrificed Treasures. Only the sac-X

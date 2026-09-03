@@ -397,7 +397,10 @@ export const atomTargets = (state, atom, ctx) => {
  */
 export function enchantedTargets(state, ctx) {
   const auraLk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
-  const hostId = auraLk?.permanent?.attachedTo;
+  // ④-Q — LAST KNOWN INFORMATION (CR 113.7a): the Aura LEFT the battlefield as its own activation cost ("Sacrifice
+  // this Aura: …"), so the host is the one stamped at activation (ctx.enchantedLkiId, actionDispatcher). Read ONLY
+  // when the source is gone: an Aura still on the battlefield but detached keeps the live (empty) answer.
+  const hostId = auraLk ? auraLk.permanent?.attachedTo : (ctx.enchantedLkiId || null);
   if (!hostId) return [];
   const hostLk = findPermanent(state, hostId);
   // LAYER-AWARE (census slice 23) — "enchanted creature" still requires the host to BE a creature, but that

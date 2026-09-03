@@ -67,13 +67,15 @@ describe("AURA-OWN-REGEN — recognition (classifyCard) on real oracle", () => {
       oracle: "Enchant creature\nEnchanted creature gets +1/+1.\nSacrifice a creature: Regenerate enchanted creature." })).toBe("native-aura");
   });
 
-  it("CREED (FN-safe): a SELF-SAC regen aura PARKS — the leaving cost detaches the host (GUARD-LEAVE)", () => {
-    // "Sacrifice this Aura" removes the Aura (and its attachment) as the cost, BEFORE the ability resolves;
-    // "regenerate enchanted creature" can't bind the now-detached host at resolution, so EQ-2 rejects it.
+  it("④-Q (2026-09-03): a SELF-SAC regen aura is NATIVE now — the host is read by last known information (CR 113.7a)", () => {
+    // "Sacrifice this Aura" removes the Aura as the cost, BEFORE the ability resolves; the dispatcher stamps the host
+    // it was attached to on the activation and enchantedTargets reads that stamp once the Aura is gone — the regen
+    // shield lands on the host (board-verified in hostSacLki.test.js). GUARD-LEAVE now guards exile-self costs,
+    // equipped referents and text-only host mentions.
     expect(classifyCard({ name: "Thrull Retainer", type: "Enchantment — Aura", mana: "{B}",
-      oracle: "Enchant creature\nEnchanted creature gets +1/+1.\nSacrifice this Aura: Regenerate enchanted creature." })).toBe("body-only");
+      oracle: "Enchant creature\nEnchanted creature gets +1/+1.\nSacrifice this Aura: Regenerate enchanted creature." })).toMatch(/^native/);
     expect(classifyCard({ name: "Stamina", type: "Enchantment — Aura", mana: "{2}{G}",
-      oracle: "Enchant creature\nEnchanted creature has vigilance.\nSacrifice this Aura: Regenerate enchanted creature." })).toBe("body-only");
+      oracle: "Enchant creature\nEnchanted creature has vigilance.\nSacrifice this Aura: Regenerate enchanted creature." })).toMatch(/^native/);
   });
   it("CREED (all-or-nothing): an unmodeled co-ability / rider keeps the whole card Arbiter", () => {
     // ⭐ PIN INVERTED (AU-ACT+TRIG, 2026-08-03): Strands of Undeath composes now — its aura-own ETB is

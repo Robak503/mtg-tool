@@ -3,6 +3,31 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🪦 2026-09-03 (night cron) — CORPUS ④-Q: "SACRIFICE THIS AURA: <effect on enchanted creature>" — the host by last known information (CR 113.7a) · **+6** (Choking Restraints / Phantom Wings / Thrull Retainer / Stamina / Carapace / Briar Shield) · corpus 13,926 / 34,245 (40.6%)
+> Suite **1378 / 15,492** green; lint 0. Flip-diff **+6, zero LOST**. **4/5 killed (+1 documented redundant guard) killed.**
+> · **The shape:** the Aura leaves as its OWN activation cost, so at resolution "enchanted creature" has no live
+>   referent — the GUARD-LEAVE that parked all 17 carriers was written for exactly the four FPs it caught (Briar
+>   Shield / Thrull Retainer / Stamina / Carapace: credited once with an effect that silently no-opped). The rules
+>   answer is last known information: the dispatcher now stamps the host's id on the activation AS the cost is paid
+>   (`ctx.enchantedLkiId`, threaded through the program context) and enchantedTargets reads it ONLY once the Aura
+>   has left the battlefield — an Aura merely detached still answers nothing. The two classifier guards admit a
+>   self-SACRIFICE whose atoms are all the enchanted referent; exile-self costs, equipped referents and text-only
+>   host mentions keep the guard (pinned, incl. a synthetic exile-self Aura).
+> · **Board-verified:** Choking Restraints ({3}{W}{W}, sacrifice) exiles the opponent's Bear with the Aura in our
+>   graveyard; Briar Shield on our own Bear — the +1/+1 static goes with the Aura, the +3/+3 pump lands, 5/5 this
+>   turn; Phantom Wings bounces the host; Thrull Retainer leaves a regeneration shield on it.
+> · **Three old pins rewritten** (auraOwnRegenerate / equipAuraSelfSacComposite / auraBonusSurvivesOwnAbility) —
+>   each had pinned the park as the FN-safe answer; each now pins the native with the runtime witness named.
+> · **Honest edge:** Kithkin Armor (prevention from a source of your choice), Coils of the Medusa (blockers of the
+>   host), the Crown cycle (share-a-type mass pump), Candletrap (coven), Uneasy Alliance / Path to Redemption
+>   (token + "activate only during…") stay parked on their effects.
+> · **Mutations:** the composite gate's widening survived TWICE — measured to have no carrier (the six are credited by
+>   the plain aura tier) — so it was DELETED, and the composite guard stays strict with a note saying why. The
+>   validator's exile-self refusal survived its mutation: redundant with an upstream gate; kept as defense in depth
+>   and NAMED as such in the code. Process slip, owned: the ④-R hunk in coverage.js was applied while this suite was
+>   running (a different function, an admission only — it cannot mask a failure here); it was reverted before this
+>   commit so the commit is pure, and ④-R runs its own full suite.
+
 > ## 🕳️ 2026-09-03 (night cron) — CORPUS ④-P: "TARGET PLAYER EXILES A CARD FROM THEIR GRAVEYARD" — the target player's own pick · **+3** (Relic of Progenitus / Scrabbling Claws / Merrow Bonegnawer) · corpus 13,920 / 34,245 (40.6%)
 > Suite **1377 / 15,486** green; lint 0. Flip-diff **+3, zero LOST**. **6/6 killed.**
 > · **The shape:** "{T}: Target player exiles a card from their graveyard." — the chooser is the TARGET player, not the

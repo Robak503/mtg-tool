@@ -89,9 +89,12 @@ describe("EQ-2 — recognition (classifyCard) on real oracle", () => {
 });
 
 describe("EQ-2 — CREED FP guards: near-misses stay body-only", () => {
-  it("GUARD-LEAVE — Briar Shield ('Enchanted creature gets +3/+3' after the Aura is sacrificed) parks", () => {
-    // The self-sac removes the Aura BEFORE the effect resolves, so target:'enchanted' can't bind → drop → park.
-    expect(classifyCard(BRIAR_SHIELD)).toBe("body-only");
+  it("GUARD-LEAVE re-scoped (④-Q, 2026-09-03) — Briar Shield composes: the sacrificed Aura's host is read by LKI (CR 113.7a)", () => {
+    // The self-sac removes the Aura BEFORE the effect resolves; the dispatcher stamps the host on the activation and
+    // target:'enchanted' binds it once the Aura is gone (hostSacLki.test.js drives the +3/+3 onto the host). The
+    // guard still parks an exile-self cost, an equipped referent, and a text-only host mention.
+    expect(classifyCard(BRIAR_SHIELD)).toMatch(/^native/);
+    expect(classifyCard({ ...BRIAR_SHIELD, oracle: "Enchant creature\nEnchanted creature gets +1/+1.\nExile this Aura: Enchanted creature gets +3/+3 until end of turn." })).toBe("body-only");
   });
   it("GUARD-QUOTE → EQ-3 (2026-08-03): Candlestick composes now — the quoted grant is validated, not dropped", () => {
     // ⭐ PIN INVERTED — this test pinned body-only while the quote reject was a blanket guard. The grant

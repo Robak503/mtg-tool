@@ -2366,6 +2366,11 @@ function nativeStaticGrantPlusActivated(card) {
   const refsHost = (a) =>
     (a.program?.atoms || []).some((at) => at.target === "enchanted" || at.target === "equipped") ||
     /\b(?:enchanted|equipped) creature\b/i.test(String(a.effectClause || ""));
+  // ④-Q note (2026-09-03): the self-SACRIFICE Auras whose effect is the enchanted referent (Briar Shield, Thrull
+  // Retainer …) are credited by the PLAIN aura tier now — isNativeAura's validator admits the line and the host is
+  // read by LKI at runtime — so they never reach this composite. This guard is left STRICT on purpose: widening it
+  // here was measured to have no carrier (the two mutations on it survived), and dead admissions are how a later
+  // shape slips through unverified.
   if (extra.some((a) => (a.sacSelf || a.exileSelf) && refsHost(a))) return null;
   // STRIP the extra activated-ability lines from the (reminder-preserved) oracle — every activated-ability
   // line that is NOT the Equip attach line (which the equipment gate still needs). Keyed on the SAME
@@ -3802,7 +3807,12 @@ function isModeledAuraOwnActivatedLine(line) {
   // any cost, Briar Shield / Thrull Retainer / Stamina / Carapace started skipping their self-sac line,
   // keeping their static half, and going native — four false positives, caught by the two GUARD-LEAVE pins
   // that already existed. The rule belongs on both paths, not one.
-  if (a.sacSelf || a.exileSelf) return false;
+  // ④-Q (2026-09-03): a self-SACRIFICE cost is LKI-resolvable now — the dispatcher stamps the host as the cost is
+  // paid and enchantedTargets reads it once the Aura is gone (CR 113.7a); the atom check below already demands every
+  // atom be target:"enchanted". An exile-self cost keeps the refusal (no stamp exists for it). ⚠️ MEASURED REDUNDANT:
+  // dropping this line alone flips nothing — a synthetic exile-self Aura still parks upstream (the mutation survived
+  // on hostSacLki.test.js). Kept as defense in depth, and named as such so nobody mistakes it for the live gate.
+  if (a.exileSelf) return false;
   const prog = a.program;
   return !!prog && Array.isArray(prog.atoms) && prog.atoms.length > 0 && prog.structure !== "modal"
     // REGENERATE joins tap/untap/pump: identical shape (one atom, `target:"enchanted"`, resolved onto the

@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Choking Restraints, Phantom Wings, Thrull Retainer, Stamina, Carapace and Briar Shield work** — sacrificing
+  the Aura still exiles, bounces, regenerates or pumps the creature it was on.
 - **Relic of Progenitus, Scrabbling Claws and Merrow Bonegnawer work** — the targeted player picks which
   card of their graveyard to exile (you get a picker when it's aimed at you).
 - **Break Ties, Fowl Strike, Hunting Triad and Earthbrawn work** — cast as printed (the reinforce option

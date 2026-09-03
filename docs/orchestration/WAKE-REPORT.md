@@ -7,6 +7,17 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🪦 2026-09-03 (night cron) — **④-Q: the self-sacrificed Aura's host by last known information (+6)** · suite **1378 / 15,492** green · corpus 13,926 / 34,245 (40.6%) · flip-diff +6 / 0 lost · 4/5 killed (+1 documented redundant guard) killed
+
+> **Night tally (stage ④, seventeen slices):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3) · D tapped-for-mana
+> (+2) · E Nikya (+1) · F opponent creature tokens (+7) · G flashback grant (+6) · H en-Kor redirect (+5) · I Savage
+> Firecat (+3) · J Bubble Snare (+1) · K control-aura bonus + Siren (+1, FP closed on 3) · L upkeep-tax Auras (+4) ·
+> M annihilator composite (+2) · N host exile/bounce Auras (+7) · O reinforce spells (+4) · P graveyard pick (+3) ·
+> Q self-sac Aura LKI (+6) — corpus 13,862 → 13,926. **Next runnable:** the fresh census's remaining ≥3 veins are
+> gimmick keywords (initiative / attractions / specialize / stickers / contraptions) — read the two-flip list next
+> (Witch's Mark, Abzan Devotee, Buried Treasure, Glorious Sunrise), or Uneasy Alliance / Path to Redemption (token +
+> "activate only during your turn" on the self-sac Aura), or Graveyard Shovel's life rider.
+
 ## 🕳️ 2026-09-03 (night cron) — **④-P: the target player's own graveyard pick — Relic of Progenitus (+3)** · suite **1377 / 15,486** green · corpus 13,920 / 34,245 (40.6%) · flip-diff +3 / 0 lost · 6/6 killed
 
 > **Night tally (stage ④, sixteen slices):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3) · D tapped-for-mana

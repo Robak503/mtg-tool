@@ -76,18 +76,20 @@ describe("THE FIX — the grant reaches the board, checked on the board", () => 
   });
 });
 
-describe("⛔ GUARD-LEAVE — a SELF-SAC cost detaches the host, so the card must still park", () => {
-  it("THE RE-OPENED FP — sacrificing the AURA itself is refused, on both shapes", () => {
-    // Widening the pre-filter to any cost made these skip their self-sac line, keep the static half, and
-    // go native — four false positives. Sacrificing the Aura removes the attachment as a COST, before the
-    // ability resolves, so nothing can bind "enchanted creature".
-    expect(classifyCard(THRULL_RETAINER)).toBe("body-only");
-    expect(classifyCard(BRIAR_SHIELD)).toBe("body-only");
+describe("GUARD-LEAVE re-scoped (④-Q, 2026-09-03) — a SELF-SAC cost no longer parks: the host is read by LKI", () => {
+  it("the four former FPs are honest natives now — sacrificing the Aura stamps its host on the activation (CR 113.7a)", () => {
+    // Widening the pre-filter to any cost once made these skip their self-sac line and go native while the effect
+    // could not bind the detached host — four false positives, caught here. The runtime half exists now: the
+    // dispatcher stamps the host as the cost is paid and enchantedTargets reads it once the Aura is gone
+    // (hostSacLki.test.js drives Briar Shield's +3/+3 and Thrull Retainer's regen onto the host). Exile-self costs,
+    // equipped referents and text-only host mentions still park.
+    expect(classifyCard(THRULL_RETAINER)).toMatch(/^native/);
+    expect(classifyCard(BRIAR_SHIELD)).toMatch(/^native/);
   });
 
-  it("…and their bonus parse stays empty, so nothing downstream can credit them either", () => {
-    expect(parseAuraBonus(THRULL_RETAINER)).toHaveLength(0);
-    expect(parseAuraBonus(BRIAR_SHIELD)).toHaveLength(0);
+  it("…and their static half survives the bonus parse, so the +1/+1 is applied while attached", () => {
+    expect(parseAuraBonus(THRULL_RETAINER)).toHaveLength(1);
+    expect(parseAuraBonus(BRIAR_SHIELD)).toHaveLength(1);
   });
 });
 
