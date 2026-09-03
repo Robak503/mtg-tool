@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0d1714" />
+    <meta name="theme-color" content="#010202" />
     <title>Omnath MTG Assistant</title>
     <script type="module" src="/src/main.js"></script>
   </head>
@@ -12,18 +12,19 @@
       <header class="topbar">
         <a class="brand" href="#top" aria-label="Omnath home">
           <span class="brand-mark" aria-hidden="true">O</span>
-          <span><strong>Omnath</strong><small>MTG rules assistant</small></span>
+          <span><strong>MTG Assistant</strong><small>Omnath phone edition</small></span>
         </a>
-        <span class="offline-pill"><i></i> Offline</span>
+        <span class="offline-pill"><i></i> Local</span>
       </header>
 
-      <section id="top" class="hero">
-        <p class="eyebrow">ONE OMNATH · ON YOUR PHONE</p>
-        <h1>Rules answers that stay at the table.</h1>
-        <p>Card text, official rulings, and the Comprehensive Rules—available without a signal.</p>
+      <section id="top" class="agent-strip" aria-label="Active assistant">
+        <span class="agent-mark" aria-hidden="true">Ω</span>
+        <span class="agent-copy"><strong>Omnath</strong><small>Offline rules specialist</small></span>
+        <span class="privacy-chip">No network</span>
       </section>
 
       <section class="quick-prompts" aria-label="Example questions">
+        <span class="quick-label">Try</span>
         <button type="button" data-question="What does Omnath, Locus of Creation do?">Omnath, Locus of Creation</button>
         <button type="button" data-question="Show CR 702.7">Show CR 702.7</button>
         <button type="button" data-question="How do triggered abilities work?">Triggered abilities</button>
@@ -31,7 +32,7 @@
 
       <section id="conversation" class="conversation" aria-live="polite">
         <article class="answer-card welcome-card">
-          <div class="answer-kicker"><span class="pulse"></span> Preparing local knowledge</div>
+          <div class="answer-kicker"><span class="pulse"></span> Omnath · preparing local knowledge</div>
           <h2 id="startup-title">Opening the offline rules pack…</h2>
           <p id="startup-copy">The first launch may take a moment while the verified database is placed in private app storage.</p>
         </article>
@@ -51,13 +52,13 @@
     </main>
 
     <form id="ask-form" class="composer" aria-describedby="composer-privacy">
-      <label for="question">Ask Omnath</label>
+      <label for="question">Ask Omnath <span>· stays on this device</span></label>
       <div class="composer-row">
         <textarea id="question" name="question" rows="1" maxlength="500" placeholder="Name the cards and game state…" required></textarea>
         <button id="ask-button" type="submit" aria-label="Ask question"><span aria-hidden="true">↑</span></button>
         <button id="stop-button" type="button" aria-label="Stop response" hidden>Stop</button>
       </div>
-      <p id="composer-privacy">Answers use only evidence stored on this device.</p>
+      <p id="composer-privacy">Local evidence only · no cloud connection</p>
     </form>
   </body>
 </html>

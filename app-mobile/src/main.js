@@ -86,8 +86,9 @@ function addFeedbackControls(article, answer) {
 function renderAnswer(answer, question) {
   ratingRecorded = false;
   lastQuestion = question;
+  questionInput.value = "";
   const article = element("article", `answer-card answer-${answer.status}`);
-  const labels = { grounded: "VERIFIED LOCAL EVIDENCE", matches: "RELATED EVIDENCE · NOT A RULING", insufficient: "MORE DETAIL NEEDED" };
+  const labels = { grounded: "OMNATH · VERIFIED LOCAL EVIDENCE", matches: "OMNATH · RELATED EVIDENCE · NOT A RULING", insufficient: "OMNATH · MORE DETAIL NEEDED" };
   article.append(element("p", "asked-question", question), element("div", "answer-kicker", labels[answer.status]), element("h2", "", answer.facts.heading));
   if (answer.facts.subheading) article.append(element("p", "card-line", answer.facts.subheading));
   article.append(element("p", "answer-message", answer.facts.message));
@@ -237,7 +238,7 @@ async function initialize() {
   app.setAttribute("aria-busy", "false");
   document.querySelector("#startup-title").textContent = "Offline and ready";
   document.querySelector("#startup-copy").textContent = "Ask with full card names for the strongest result. Omnath will quote local evidence or tell you when it needs more detail.";
-  document.querySelector(".welcome-card .answer-kicker").textContent = "VERIFIED RULES RUNTIME + KNOWLEDGE PACK";
+  document.querySelector(".welcome-card .answer-kicker").textContent = "OMNATH · VERIFIED RULES RUNTIME + KNOWLEDGE PACK";
   activityStatus.textContent = "Offline knowledge is ready.";
   if (fixture?.initialQuestion) {
     const pending = ask(fixture.initialQuestion);

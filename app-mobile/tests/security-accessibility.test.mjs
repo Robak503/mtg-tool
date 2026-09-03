@@ -28,6 +28,6 @@ test("the chat shell exposes recovery, live status, bounded input, and hidden-st
   assert.match(html, /textarea[^>]*maxlength="500"/);
   assert.match(html, /aria-describedby="composer-privacy"/);
   assert.match(css, /\[hidden\]\s*\{\s*display:\s*none\s*!important/);
-  assert.match(css, /min-height:\s*44px/);
+  assert.match(css, /min-height:\s*48px/);
   assert.match(css, /prefers-reduced-motion/);
 });
