@@ -78,13 +78,15 @@ try {
     } finally { $stream.Dispose() }
   }
   $knowledgePackaged = $null -ne $packagedDatabaseEntry -and $null -ne $packagedManifestEntry
+  $knowledgeDatabaseStored = $knowledgePackaged -and $packagedDatabaseEntry.CompressedLength -eq $packagedDatabaseEntry.Length
   $packagedKnowledgeMatches = $knowledgePackaged -and
+    $knowledgeDatabaseStored -and
     $packagedDatabaseEntry.Length -eq $knowledgeBytes -and
     $packagedDatabaseHash -eq $knowledgeHash -and
     $packagedManifestHash -eq $knowledgeManifestHash
 
   $packagedArtManifestEntry = $archive.GetEntry("assets/art/omnath-art.manifest.json")
-  $packagedArtEntries = @($archive.Entries | Where-Object { $_.FullName -match '^assets/art/images/.+\.jpg$' })
+  $packagedArtDatabaseEntry = $archive.GetEntry("assets/art/omnath-art.sqlite")
   $packagedArtManifestHash = $null
   if ($packagedArtManifestEntry) {
     $stream = $packagedArtManifestEntry.Open()
@@ -94,30 +96,22 @@ try {
       finally { $algorithm.Dispose() }
     } finally { $stream.Dispose() }
   }
-  $artFilesMatch = [bool]$artManifest -and $packagedArtEntries.Count -eq $artManifest.images
-  if ($artFilesMatch) {
-    $artByPath = @{}
-    foreach ($entry in $packagedArtEntries) { $artByPath[$entry.FullName] = $entry }
-    foreach ($record in $artManifest.records) {
-      $entry = $artByPath["assets/art/$($record.relativePath)"]
-      if (-not $entry -or $entry.Length -ne $record.bytes) {
-        $artFilesMatch = $false
-        break
-      }
-      $stream = $entry.Open()
-      try {
-        $algorithm = [System.Security.Cryptography.SHA256]::Create()
-        try { $entryHash = (($algorithm.ComputeHash($stream) | ForEach-Object { $_.ToString("x2") }) -join "") }
-        finally { $algorithm.Dispose() }
-      } finally { $stream.Dispose() }
-      if ($entryHash -ne $record.sha256) {
-        $artFilesMatch = $false
-        break
-      }
-    }
+  $packagedArtDatabaseHash = $null
+  if ($packagedArtDatabaseEntry) {
+    $stream = $packagedArtDatabaseEntry.Open()
+    try {
+      $algorithm = [System.Security.Cryptography.SHA256]::Create()
+      try { $packagedArtDatabaseHash = (($algorithm.ComputeHash($stream) | ForEach-Object { $_.ToString("x2") }) -join "") }
+      finally { $algorithm.Dispose() }
+    } finally { $stream.Dispose() }
   }
-  $artPackaged = $null -ne $packagedArtManifestEntry -and $packagedArtEntries.Count -gt 0
-  $packagedArtMatches = $artPackaged -and $artFilesMatch -and $packagedArtManifestHash -eq $artManifestHash
+  $artPackaged = $null -ne $packagedArtManifestEntry -and $null -ne $packagedArtDatabaseEntry
+  $artDatabaseStored = $artPackaged -and $packagedArtDatabaseEntry.CompressedLength -eq $packagedArtDatabaseEntry.Length
+  $packagedArtMatches = $artPackaged -and [bool]$artManifest -and
+    $artDatabaseStored -and
+    $packagedArtDatabaseEntry.Length -eq $artManifest.database.bytes -and
+    $packagedArtDatabaseHash -eq $artManifest.database.sha256 -and
+    $packagedArtManifestHash -eq $artManifestHash
 } finally { $archive.Dispose() }
 $permissions = @([regex]::Matches($permissionDump, "uses-permission: name='([^']+)'") | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
 $forbiddenEntries = @($entries | Where-Object {
@@ -156,7 +150,8 @@ $checks = [ordered]@{
   noBundledModel = [bool](-not ($entries | Where-Object { $_ -match '(?i)\.litertlm$' }))
   noRawCorpus = [bool]($forbiddenEntries.Count -eq 0)
   knowledgeHashMatches = [bool]$knowledgeVerified
-  knowledgePackaged = [bool]$knowledgePackaged
+    knowledgePackaged = [bool]$knowledgePackaged
+    knowledgeDatabaseStored = [bool]$knowledgeDatabaseStored
   packagedKnowledgeMatches = [bool]$packagedKnowledgeMatches
   stagedModelsMatchCatalog = [bool](-not ($models.Values | Where-Object { $_.present -and -not $_.verified }))
   artPackagedMatchesManifest = [bool]((-not $RequireArt) -or $packagedArtMatches)
@@ -197,7 +192,11 @@ $receipt = [ordered]@{
     packId = if ($artManifest) { $artManifest.packId } else { $null }
     images = if ($artManifest) { $artManifest.images } else { 0 }
     bytes = if ($artManifest) { $artManifest.bytes } else { 0 }
+    databaseBytes = if ($artManifest) { $artManifest.database.bytes } else { 0 }
+    databaseSha256 = if ($artManifest) { $artManifest.database.sha256 } else { $null }
     packaged = [bool]$artPackaged
+    databaseStored = [bool]$artDatabaseStored
+    packagedDatabaseSha256 = $packagedArtDatabaseHash
     packagedManifestSha256 = $packagedArtManifestHash
     verified = [bool]$packagedArtMatches
   }

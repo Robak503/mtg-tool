@@ -164,6 +164,10 @@ export async function planOfflineAnswer(repository, rawQuestion, verifiedInterpr
 
   if (card && intent === "card_lookup") {
     const rulings = (await repository.getRulings(card.oracleId)).slice(0, 4);
+    const faceIndex = Number.isInteger(card.matchedFaceIndex) ? card.matchedFaceIndex : -1;
+    const cardArtDataUrl = typeof repository.getCardArt === "function"
+      ? await repository.getCardArt(card.oracleId, faceIndex)
+      : null;
     return answerPlan("grounded", {
       heading: card.name,
       subheading: [card.manaCost, card.typeLine].filter(Boolean).join(" · "),
@@ -181,10 +185,7 @@ export async function planOfflineAnswer(repository, rawQuestion, verifiedInterpr
           oracleId: card.oracleId,
         })),
       ], {
-        cardArt: Object.freeze({
-          oracleId: card.oracleId,
-          faceIndex: Number.isInteger(card.matchedFaceIndex) ? card.matchedFaceIndex : -1,
-        }),
+        cardArt: cardArtDataUrl ? Object.freeze({ dataUrl: cardArtDataUrl }) : null,
       });
   }
 

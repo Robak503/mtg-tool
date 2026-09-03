@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -98,6 +99,52 @@ async function download(record, outputRoot, fetcher) {
   throw new Error(`Unable to download ${record.name}`);
 }
 
+export function buildArtDatabase(records, outputRoot, metadata) {
+  const databasePath = path.join(outputRoot, "omnath-art.sqlite");
+  if (fs.existsSync(databasePath)) fs.rmSync(databasePath, { force: true });
+  const database = new DatabaseSync(databasePath);
+  try {
+    database.exec(`
+      PRAGMA journal_mode = OFF;
+      PRAGMA synchronous = OFF;
+      CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL) WITHOUT ROWID;
+      CREATE TABLE card_art (
+        oracle_id TEXT NOT NULL,
+        face_index INTEGER NOT NULL,
+        mime_type TEXT NOT NULL,
+        image_bytes BLOB NOT NULL,
+        source_sha256 TEXT NOT NULL,
+        PRIMARY KEY (oracle_id, face_index)
+      ) WITHOUT ROWID;
+    `);
+    const insertMetadata = database.prepare("INSERT INTO metadata(key, value) VALUES (?, ?)");
+    for (const [key, value] of Object.entries(metadata)) insertMetadata.run(key, String(value));
+    const insertArt = database.prepare(`
+      INSERT INTO card_art(oracle_id, face_index, mime_type, image_bytes, source_sha256)
+      VALUES (?, ?, 'image/jpeg', ?, ?)
+    `);
+    database.exec("BEGIN IMMEDIATE");
+    try {
+      for (const record of records) {
+        insertArt.run(
+          record.oracleId,
+          record.faceIndex,
+          fs.readFileSync(path.join(outputRoot, record.relativePath)),
+          record.sha256,
+        );
+      }
+      database.exec("COMMIT");
+    } catch (error) {
+      database.exec("ROLLBACK");
+      throw error;
+    }
+    database.exec("VACUUM");
+  } finally {
+    database.close();
+  }
+  return databasePath;
+}
+
 export async function buildArtPack({
   oraclePath = DEFAULT_ORACLE_PATH,
   outputRoot = DEFAULT_OUTPUT_ROOT,
@@ -133,6 +180,16 @@ export async function buildArtPack({
     .update(`${oracleSha256}\nsmall-jpeg\n${completed.length}\n${totalBytes}`)
     .digest("hex")
     .slice(0, 24);
+  const databasePath = buildArtDatabase(completed, outputRoot, {
+    schema_version: 1,
+    pack_id: identity,
+    profile: "scryfall-small-jpeg",
+    oracle_sha256: oracleSha256,
+    images: completed.length,
+    image_bytes: totalBytes,
+  });
+  const databaseBytes = fs.statSync(databasePath).size;
+  const databaseSha256 = await sha256File(databasePath);
   const manifest = {
     schemaVersion: 1,
     packId: identity,
@@ -141,7 +198,11 @@ export async function buildArtPack({
     source: { file: path.basename(oraclePath), sha256: oracleSha256 },
     images: completed.length,
     bytes: totalBytes,
-    records: completed,
+    database: {
+      file: path.basename(databasePath),
+      bytes: databaseBytes,
+      sha256: databaseSha256,
+    },
   };
   const manifestPath = path.join(outputRoot, "omnath-art.manifest.json");
   fs.writeFileSync(manifestPath, `${JSON.stringify(manifest)}\n`);
@@ -171,6 +232,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       packId: result.packId,
       images: result.images,
       bytes: result.bytes,
+      database: result.database,
       manifestPath: result.manifestPath,
     })}\n`))
     .catch((error) => {

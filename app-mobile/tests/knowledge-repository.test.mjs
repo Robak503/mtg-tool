@@ -32,6 +32,27 @@ test("normalization and FTS input are deterministic and syntax-safe", () => {
   assert.equal(safeFtsQuery("?!"), "");
 });
 
+test("repository reads indexed card art without native asset calls", async () => {
+  const calls = [];
+  const core = { async close() {} };
+  const art = {
+    async select(sql, values) {
+      calls.push({ sql, values });
+      return values[1] === -1
+        ? [{ mimeType: "image/jpeg", imageBytes: [0xff, 0xd8, 0xff] }]
+        : [];
+    },
+    async close() {},
+  };
+  const repository = createKnowledgeRepository(core, {}, art);
+  assert.equal(
+    await repository.getCardArt("cd133d30-51ff-4114-a7d7-029345f0f0d7", -1),
+    "data:image/jpeg;base64,/9j/",
+  );
+  assert.equal(await repository.getCardArt("../../private", -1), null);
+  assert.equal(calls.length, 1);
+});
+
 test("repository reads cards, face aliases, rulings, and CR from the built pack", async () => {
   const database = new DatabaseSync(PACK_PATH, { readOnly: true });
   const metadata = Object.fromEntries(

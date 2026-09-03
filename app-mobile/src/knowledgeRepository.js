@@ -59,7 +59,23 @@ function hydrateRule(row) {
   return { ...rule, examples: parseJson(examplesJson, []) };
 }
 
-export function createKnowledgeRepository(database, status) {
+function validArtIdentity(oracleId, faceIndex) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(oracleId ?? ""))
+    && Number.isInteger(faceIndex)
+    && faceIndex >= -1
+    && faceIndex <= 9;
+}
+
+function bytesToDataUrl(bytes, mimeType = "image/jpeg") {
+  if (!Array.isArray(bytes) && !(bytes instanceof Uint8Array)) return null;
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 8192) {
+    binary += String.fromCharCode(...bytes.slice(offset, offset + 8192));
+  }
+  return `data:${mimeType};base64,${btoa(binary)}`;
+}
+
+export function createKnowledgeRepository(database, status, artDatabase = null) {
   return Object.freeze({
     status,
 
@@ -179,7 +195,25 @@ export function createKnowledgeRepository(database, status) {
       return rows.map(hydrateRule);
     },
 
+    async getCardArt(oracleId, faceIndex = -1) {
+      if (!artDatabase || !validArtIdentity(oracleId, faceIndex)) return null;
+      const candidates = faceIndex < 0 ? [-1, 0] : [faceIndex];
+      for (const candidate of candidates) {
+        const [row] = await artDatabase.select(
+          `SELECT mime_type AS mimeType, image_bytes AS imageBytes
+           FROM card_art
+           WHERE oracle_id = ? AND face_index = ?
+           LIMIT 1`,
+          [String(oracleId).toLocaleLowerCase("en-US"), candidate],
+        );
+        const dataUrl = bytesToDataUrl(row?.imageBytes, row?.mimeType);
+        if (dataUrl) return dataUrl;
+      }
+      return null;
+    },
+
     async close() {
+      await artDatabase?.close();
       await database.close();
     },
   });
@@ -196,7 +230,20 @@ export async function openKnowledgeRepository(onProgress) {
     throw new Error(status?.error || "The offline knowledge pack is not ready");
   }
   const database = await Database.load(status.databaseUrl);
-  const repository = createKnowledgeRepository(database, status);
+  let artDatabase = null;
+  let effectiveStatus = status;
+  if (status.artReady && status.artDatabaseUrl) {
+    try {
+      artDatabase = await Database.load(status.artDatabaseUrl);
+    } catch (error) {
+      effectiveStatus = {
+        ...status,
+        artReady: false,
+        artError: `Unable to open indexed art: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+  const repository = createKnowledgeRepository(database, effectiveStatus, artDatabase);
   await repository.verify();
   return repository;
 }

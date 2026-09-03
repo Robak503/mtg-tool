@@ -21,7 +21,17 @@ test("feedback persists aggregates without accepting conversation text", () => {
 test("diagnostic receipt whitelists receipts and excludes private fields", async () => {
   const receipt = buildDiagnosticReceipt({
     runtime: { passed: true, results: [{ id: "combat", passed: true }], private: "question" },
-    knowledge: { ready: true, packId: "pack-1", databaseSha256: "abc123", path: "C:\\secret" },
+    knowledge: {
+      ready: true,
+      packId: "pack-1",
+      databaseSha256: "abc123",
+      artReady: true,
+      artPackId: "art-1",
+      artDatabaseBytes: 1234,
+      artDatabaseSha256: "def456",
+      artError: "C:\\secret-art",
+      path: "C:\\secret",
+    },
     model: { state: "ready", modelId: "enhanced", prompt: "private prompt" },
     lastOutcome: { status: "grounded", modelRejection: null, answer: "private answer" },
     feedback: { schemaVersion: 1, totals: { helpful: 1 }, outcomes: {}, modelRejections: {} },
@@ -30,6 +40,13 @@ test("diagnostic receipt whitelists receipts and excludes private fields", async
   const text = JSON.stringify(receipt);
   assert.equal(text.includes("private"), false);
   assert.equal(text.includes("secret"), false);
+  assert.deepEqual(receipt.knowledge.art, {
+    ready: true,
+    packId: "art-1",
+    databaseBytes: 1234,
+    databaseSha256: "def456",
+    error: "unavailable",
+  });
   let copied = "";
   assert.equal((await copyDiagnosticReceipt(receipt, { async writeText(value) { copied = value; } })).copied, true);
   assert.equal(copied, JSON.stringify(receipt, null, 2));

@@ -1,4 +1,3 @@
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -16,6 +15,9 @@ use tauri_plugin_fs::{FsExt, OpenOptions};
 const DATABASE_FILE: &str = "omnath-knowledge.sqlite";
 const MANIFEST_FILE: &str = "omnath-knowledge.manifest.json";
 const DATABASE_URL: &str = "sqlite:omnath-knowledge.sqlite";
+const ART_DATABASE_FILE: &str = "omnath-art.sqlite";
+const ART_MANIFEST_FILE: &str = "omnath-art.manifest.json";
+const ART_DATABASE_URL: &str = "sqlite:omnath-art.sqlite";
 
 type BoxError = Box<dyn std::error::Error>;
 
@@ -44,6 +46,13 @@ struct KnowledgeStatus {
     database_url: String,
     database_bytes: u64,
     database_sha256: String,
+    art_ready: bool,
+    art_copied: bool,
+    art_pack_id: Option<String>,
+    art_database_url: Option<String>,
+    art_database_bytes: u64,
+    art_database_sha256: Option<String>,
+    art_error: Option<String>,
     error: Option<String>,
 }
 
@@ -57,6 +66,13 @@ impl KnowledgeStatus {
             database_url: DATABASE_URL.to_string(),
             database_bytes: 0,
             database_sha256: String::new(),
+            art_ready: false,
+            art_copied: false,
+            art_pack_id: None,
+            art_database_url: None,
+            art_database_bytes: 0,
+            art_database_sha256: None,
+            art_error: None,
             error: None,
         }
     }
@@ -70,6 +86,13 @@ impl KnowledgeStatus {
             database_url: DATABASE_URL.to_string(),
             database_bytes: 0,
             database_sha256: String::new(),
+            art_ready: false,
+            art_copied: false,
+            art_pack_id: None,
+            art_database_url: None,
+            art_database_bytes: 0,
+            art_database_sha256: None,
+            art_error: None,
             error: Some(error.into()),
         }
     }
@@ -86,68 +109,6 @@ struct KnowledgeProgress {
     phase: &'static str,
     copied_bytes: u64,
     total_bytes: u64,
-}
-
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct CardArt {
-    oracle_id: String,
-    face_index: i32,
-    data_url: String,
-}
-
-fn art_relative_path(oracle_id: &str, face_index: i32) -> Option<String> {
-    let normalized = oracle_id.to_ascii_lowercase();
-    let bytes = normalized.as_bytes();
-    let uuid_shape = bytes.len() == 36
-        && [8, 13, 18, 23].iter().all(|index| bytes[*index] == b'-')
-        && bytes
-            .iter()
-            .enumerate()
-            .all(|(index, value)| [8, 13, 18, 23].contains(&index) || value.is_ascii_hexdigit());
-    if !uuid_shape || !(-1..=9).contains(&face_index) {
-        return None;
-    }
-    let suffix = if face_index >= 0 {
-        format!("-{face_index}")
-    } else {
-        String::new()
-    };
-    Some(format!(
-        "art/images/{}/{}{}.jpg",
-        &normalized[..2],
-        normalized,
-        suffix
-    ))
-}
-
-#[tauri::command]
-fn read_card_art(
-    app: AppHandle,
-    oracle_id: String,
-    face_index: i32,
-) -> Result<Option<CardArt>, String> {
-    let mut candidates = vec![face_index];
-    if face_index < 0 {
-        candidates.push(0);
-    }
-    for candidate in candidates {
-        let Some(relative) = art_relative_path(&oracle_id, candidate) else {
-            return Err("Invalid card-art identity".to_string());
-        };
-        let path = app
-            .path()
-            .resolve(relative, BaseDirectory::Resource)
-            .map_err(|error| error.to_string())?;
-        if let Ok(bytes) = app.fs().read(&path) {
-            return Ok(Some(CardArt {
-                oracle_id: oracle_id.to_ascii_lowercase(),
-                face_index: candidate,
-                data_url: format!("data:image/jpeg;base64,{}", BASE64.encode(bytes)),
-            }));
-        }
-    }
-    Ok(None)
 }
 
 fn sha256_path(path: &Path) -> Result<String, BoxError> {
@@ -291,7 +252,7 @@ fn provision_knowledge(app: &AppHandle) -> Result<KnowledgeStatus, BoxError> {
         replace_file(&temp_manifest, &manifest_path)?;
     }
 
-    Ok(KnowledgeStatus {
+    let mut status = KnowledgeStatus {
         ready: true,
         copied,
         schema_version: manifest.schema_version,
@@ -299,8 +260,86 @@ fn provision_knowledge(app: &AppHandle) -> Result<KnowledgeStatus, BoxError> {
         database_url: DATABASE_URL.to_string(),
         database_bytes: manifest.database.bytes,
         database_sha256: manifest.database.sha256,
+        art_ready: false,
+        art_copied: false,
+        art_pack_id: None,
+        art_database_url: None,
+        art_database_bytes: 0,
+        art_database_sha256: None,
+        art_error: None,
         error: None,
-    })
+    };
+    match provision_art(app, &config_dir) {
+        Ok(Some(art)) => {
+            status.art_ready = true;
+            status.art_copied = art.copied;
+            status.art_pack_id = Some(art.manifest.pack_id);
+            status.art_database_url = Some(ART_DATABASE_URL.to_string());
+            status.art_database_bytes = art.manifest.database.bytes;
+            status.art_database_sha256 = Some(art.manifest.database.sha256);
+        }
+        Ok(None) => {}
+        Err(error) => status.art_error = Some(error.to_string()),
+    }
+    Ok(status)
+}
+
+struct ProvisionedArt {
+    copied: bool,
+    manifest: PackManifest,
+}
+
+fn provision_art(app: &AppHandle, config_dir: &Path) -> Result<Option<ProvisionedArt>, BoxError> {
+    let bundled_manifest_path = app
+        .path()
+        .resolve(format!("art/{ART_MANIFEST_FILE}"), BaseDirectory::Resource)?;
+    let bundled_database_path = app
+        .path()
+        .resolve(format!("art/{ART_DATABASE_FILE}"), BaseDirectory::Resource)?;
+    let Ok(manifest_text) = app.fs().read_to_string(&bundled_manifest_path) else {
+        return Ok(None);
+    };
+    let manifest: PackManifest = serde_json::from_str(&manifest_text)?;
+    let database_path = config_dir.join(ART_DATABASE_FILE);
+    let manifest_path = config_dir.join(ART_MANIFEST_FILE);
+    let copied = !existing_pack_matches(&database_path, &manifest_path, &manifest);
+
+    if copied {
+        let temp_database = temporary_path(&database_path);
+        let temp_manifest = temporary_path(&manifest_path);
+        for temp in [&temp_database, &temp_manifest] {
+            if temp.exists() {
+                fs::remove_file(temp)?;
+            }
+        }
+
+        let mut options = OpenOptions::new();
+        options.read(true);
+        let source = app.fs().open(&bundled_database_path, options)?;
+        if let Err(error) = stream_copy_verified(
+            source,
+            &temp_database,
+            &manifest.database,
+            |copied_bytes, total_bytes| {
+                let _ = app.emit(
+                    "knowledge-progress",
+                    KnowledgeProgress {
+                        phase: "copying-art",
+                        copied_bytes,
+                        total_bytes,
+                    },
+                );
+            },
+        ) {
+            let _ = fs::remove_file(&temp_database);
+            return Err(error);
+        }
+        fs::write(&temp_manifest, manifest_text.as_bytes())?;
+        replace_file(&temp_database, &database_path)?;
+        replace_file(&temp_manifest, &manifest_path)?;
+    }
+
+    Ok(Some(ProvisionedArt { copied, manifest }))
 }
 
 fn temporary_path(final_path: &Path) -> PathBuf {
@@ -389,8 +428,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             knowledge_status,
-            prepare_knowledge,
-            read_card_art
+            prepare_knowledge
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -470,19 +508,5 @@ mod tests {
             &manifest,
         ));
         fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn card_art_paths_are_identity_bounded() {
-        assert_eq!(
-            art_relative_path("cd133d30-51ff-4114-a7d7-029345f0f0d7", -1).as_deref(),
-            Some("art/images/cd/cd133d30-51ff-4114-a7d7-029345f0f0d7.jpg")
-        );
-        assert_eq!(
-            art_relative_path("cd133d30-51ff-4114-a7d7-029345f0f0d7", 1).as_deref(),
-            Some("art/images/cd/cd133d30-51ff-4114-a7d7-029345f0f0d7-1.jpg")
-        );
-        assert!(art_relative_path("../../private", -1).is_none());
-        assert!(art_relative_path("cd133d30-51ff-4114-a7d7-029345f0f0d7", 10).is_none());
     }
 }

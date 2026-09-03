@@ -19,6 +19,9 @@ function repository(overrides = {}) {
     async getRulings() {
       return [];
     },
+    async getCardArt() {
+      return null;
+    },
     async searchRules() {
       return [];
     },
@@ -47,13 +50,18 @@ test("quotes exact card text and ruling receipts when the full card is named", a
           { publishedAt: "2020-09-25", comment: "A verified ruling." },
         ];
       },
+      async getCardArt(oracleId, faceIndex) {
+        assert.equal(oracleId, "omnath-id");
+        assert.equal(faceIndex, -1);
+        return "data:image/jpeg;base64,/9j/";
+      },
     }),
     "What does Omnath, Locus of Creation do?",
   );
   assert.equal(answer.status, "grounded");
   assert.equal(answer.answerTrusted, true);
   assert.equal(answer.facts.message, omnath.oracleText);
-  assert.deepEqual(answer.cardArt, { oracleId: "omnath-id", faceIndex: -1 });
+  assert.deepEqual(answer.cardArt, { dataUrl: "data:image/jpeg;base64,/9j/" });
   assert.equal(answer.citations[0].kind, "oracle-card");
   assert.equal(answer.citations[1].kind, "official-ruling");
 });

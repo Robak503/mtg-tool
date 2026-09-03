@@ -34,7 +34,9 @@ function Test-ApkKnowledgeAssets {
   Add-Type -AssemblyName System.IO.Compression.FileSystem
   $archive = [System.IO.Compression.ZipFile]::OpenRead($apk)
   try {
-    return $null -ne $archive.GetEntry("assets/knowledge/omnath-knowledge.sqlite") -and
+    $database = $archive.GetEntry("assets/knowledge/omnath-knowledge.sqlite")
+    return $null -ne $database -and
+      $database.CompressedLength -eq $database.Length -and
       $null -ne $archive.GetEntry("assets/knowledge/omnath-knowledge.manifest.json")
   } finally {
     $archive.Dispose()
@@ -54,17 +56,19 @@ function Clear-AndroidArtAssets {
 
 function Sync-AndroidArtAssets {
   $manifestPath = Join-Path $artSourceDir "omnath-art.manifest.json"
-  if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+  $databasePath = Join-Path $artSourceDir "omnath-art.sqlite"
+  if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf) -or
+      -not (Test-Path -LiteralPath $databasePath -PathType Leaf)) {
     throw "Build the offline art pack before requesting an art APK: $manifestPath"
   }
   $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-  $sourceImages = @(Get-ChildItem -LiteralPath (Join-Path $artSourceDir "images") -Recurse -File -Filter "*.jpg")
-  if ($sourceImages.Count -ne $manifest.images) {
-    throw "Art image count mismatch: manifest $($manifest.images), files $($sourceImages.Count)"
+  if ((Get-Item -LiteralPath $databasePath).Length -ne $manifest.database.bytes) {
+    throw "Art database byte count does not match its manifest."
   }
   Clear-AndroidArtAssets
   New-Item -ItemType Directory -Path $androidArtDir -Force | Out-Null
-  Get-ChildItem -LiteralPath $artSourceDir | Copy-Item -Destination $androidArtDir -Recurse -Force
+  Copy-Item -LiteralPath $manifestPath -Destination $androidArtDir -Force
+  Copy-Item -LiteralPath $databasePath -Destination $androidArtDir -Force
 }
 
 function Test-ApkArtAssets {
@@ -75,9 +79,11 @@ function Test-ApkArtAssets {
   Add-Type -AssemblyName System.IO.Compression.FileSystem
   $archive = [System.IO.Compression.ZipFile]::OpenRead($apk)
   try {
-    $images = @($archive.Entries | Where-Object { $_.FullName -match '^assets/art/images/.+\.jpg$' })
+    $database = $archive.GetEntry("assets/art/omnath-art.sqlite")
     return $null -ne $archive.GetEntry("assets/art/omnath-art.manifest.json") -and
-      $images.Count -eq $manifest.images
+      $null -ne $database -and
+      $database.Length -eq $manifest.database.bytes -and
+      $database.CompressedLength -eq $database.Length
   } finally {
     $archive.Dispose()
   }

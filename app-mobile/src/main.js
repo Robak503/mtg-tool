@@ -1,5 +1,4 @@
 import "./styles.css";
-import { invoke } from "@tauri-apps/api/core";
 import { createAssistantController } from "./assistantController.js";
 import { buildDiagnosticReceipt, copyDiagnosticReceipt } from "./diagnostics.js";
 import { createFeedbackStore } from "./feedbackStore.js";
@@ -35,22 +34,14 @@ function renderList(items, className) {
 }
 
 function renderCardArt(article, answer) {
-  if (!answer.cardArt) return;
+  if (!answer.cardArt?.dataUrl) return;
   const figure = element("figure", "card-art");
-  figure.hidden = true;
   const picture = element("img");
   picture.alt = `${answer.facts.heading} card`;
   picture.decoding = "async";
+  picture.src = answer.cardArt.dataUrl;
   figure.append(picture);
   article.append(figure);
-  invoke("read_card_art", {
-    oracleId: answer.cardArt.oracleId,
-    faceIndex: answer.cardArt.faceIndex,
-  }).then((art) => {
-    if (!art?.dataUrl || !article.isConnected) return;
-    picture.src = art.dataUrl;
-    figure.hidden = false;
-  }).catch(() => {});
 }
 
 function diagnosticReceipt() {
@@ -241,12 +232,12 @@ async function initialize() {
   controller = createAssistantController(fixture ?? await productionDependencies());
   controller.subscribe((state) => {
     runtimeStatus.textContent = state.runtime?.passed ? "Verified" : state.phase === "error" ? "Failed" : "Checking";
-    if (state.knowledge?.packId) packStatus.textContent = `Verified · ${state.knowledge.packId}`;
+    if (state.knowledge?.packId) packStatus.textContent = `Verified · ${state.knowledge.packId}${state.knowledge.artReady ? " · Art ready" : ""}`;
     modelStatusNode.textContent = state.model?.state === "ready" ? `Ready · ${state.model.modelId}` : state.model?.state === "loading" ? "Loading if staged" : "Deterministic fallback";
   });
   const state = await controller.start((progress) => {
-    packStatus.textContent = progress.phase === "copying" && progress.totalBytes
-      ? `Preparing · ${Math.floor((progress.copiedBytes / progress.totalBytes) * 100)}%`
+    packStatus.textContent = ["copying", "copying-art"].includes(progress.phase) && progress.totalBytes
+      ? `${progress.phase === "copying-art" ? "Preparing card art" : "Preparing knowledge"} · ${Math.floor((progress.copiedBytes / progress.totalBytes) * 100)}%`
       : progress.phase === "verifying" ? "Verifying" : progress.phase;
   });
   if (state.phase === "error") {
