@@ -8,8 +8,10 @@
 >
 > **Status.** Phone-owned implementation is active. The browser-safe engine
 > boundary, full offline knowledge pack, grounded answer contract, Tauri Android
-> shell, and LiteRT-LM plugin now exist. Physical Pixel execution remains the
-> release-blocking proof. This document does not authorize implementation in
+> shell, and LiteRT-LM plugin now exist. Physical Pixel installation and
+> network-isolated knowledge retrieval are proven; the updated rule-section
+> presentation and optional model performance still need device execution.
+> This document does not authorize implementation in
 > the protected engine or corpus directories.
 >
 > **Reviewed upstream contract baseline.** The original cross-agent seam review
@@ -49,7 +51,7 @@
 | Native lifecycle and shell security | Complete | `cd app-mobile; npm run android:model:test; npm run shell:test` |
 | Automated build receipt | Complete | `cd app-mobile; npm run receipt` |
 | Final full-suite APK | Complete | Commit `96c4ecc9`; `cd app-mobile; npm run release:verify` |
-| Physical Pixel verification | Blocked on device | `npm run device:verify -- -AirplaneMode -PushModels -Model enhanced` |
+| Physical Pixel verification | In progress | Installation, provisioning, FTS, and exact CR lookup passed manually in airplane mode; updated section expansion and optional model performance remain |
 
 Each completed pre-phone checkpoint is committed separately. Generated packs,
 APKs, device reports, receipts, and model binaries remain ignored artifacts.
@@ -550,7 +552,7 @@ CR JSON nor the source Oracle/rulings envelopes are runtime APK inputs.
 
 ### Stage 4 — vertical-slice APK
 
-**Implementation receipt — 2026-09-03, corrected APK pending device execution.** The
+**Implementation receipt — 2026-09-03, updated APK pending device execution.** The
 deterministic vertical slice, local-model seam, and pre-phone alpha polish now
 exist on branch `codex/omnath-phone-polish`.
 
@@ -607,9 +609,9 @@ exist on branch `codex/omnath-phone-polish`.
   and supplies `HF_TOKEN`.
 - The authoritative full-suite ARM64 debug APK targets Android 36 with minimum
   SDK 24, package id `com.colton.omnath.probe.debug`, and user-facing label
-  **Omnath MTG Assistant**. The corrected knowledge-packaging build from commit
-  `ffb2a2a1` is 244,909,781 bytes with SHA-256
-  `6fb473f476106910661b12d18164a37362f73e1c0c6c9e89014e0976bf6bc032`.
+  **Omnath MTG Assistant**. The rule-section expansion build from commit
+  `fa9a6e9a` is 244,910,037 bytes with SHA-256
+  `7cc39a2131e0eaaf433e4751d96edee0f6112193e4350881d16547d0259e7596`.
   Its machine-generated receipt reports 933 entries, no
   `android.permission.INTERNET`, no bundled `.litertlm`, no raw Oracle/rulings/CR
   input, and a matching staged enhanced-model hash. It also proves that the
@@ -618,18 +620,24 @@ exist on branch `codex/omnath-phone-polish`.
   `d9dd2756c414123ab9934263496b043ef0225d5178314f5996f4efdca4dc3d75`.
   The only reported permission is Android's package-scoped dynamic-receiver
   protection.
-- The UI/controller JavaScript is 28,620 bytes (10,330 bytes gzip), and the
+- The UI/controller JavaScript is 29,674 bytes (10,600 bytes gzip), and the
   LEYLINE stylesheet is 11,809 bytes (3,180 bytes gzip); the
   995,428-byte rules-engine witness is isolated in a lazy chunk. The release
-  gate passed 24 mobile JS/data/security tests, 17 engine/WebView tests, three
+  gate passed 26 mobile JS/data/security tests, 17 engine/WebView tests, three
   Rust provisioning tests, and three Kotlin model-lifecycle tests before the
   APK receipt was issued.
 - Installation, launch, and corrected first-run provisioning are proven on the
   Pixel 10 XL. The UI reached **Offline and ready** with the rules runtime and
   knowledge pack verified using APK SHA-256
   `6fb473f476106910661b12d18164a37362f73e1c0c6c9e89014e0976bf6bc032`.
-  Airplane-mode queries, the packaged Android WebView probe, and optional model
-  performance remain pending.
+  With airplane mode enabled and no model installed, `Explain first strike`
+  returned local FTS evidence and `Show CR 702.7` returned a grounded exact CR
+  citation. The latter exposed that a section lookup displayed only its title.
+  Commit `fa9a6e9a` now expands a numbered section into its lettered subrules and
+  treats a natural-language definition as grounded only when its normalized
+  terms exactly match a local CR section title. Both cases have repository and
+  answer-planner regression coverage. Re-installing this updated APK, the
+  packaged Android WebView report, and optional model performance remain pending.
 
 - One chat surface.
 - One Omnath persona.
