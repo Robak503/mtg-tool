@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🌿 2026-09-03 — STAGE ④-2: the CLASH trigger event — "Whenever you clash [and win]" · **+1 corpus** (Sylvan Echoes) · corpus 40.4% (13,824/34,245)
+> Suite **1351 / 15,329** green; lint 0. Flip-diff **+1, zero LOST**. **5/5 killed.**
+> · A `clash` trigger event (detector: the bare "you clash" and the win-only "you clash and win"; the
+>   `winOnly` flag threaded through the descriptor builder — the first cut dropped it there and the
+>   witness caught the missing flag). Fired by the clash applier AFTER the stamp, for BOTH clashing players
+>   (CR 701.22a — each clashing player clashed), each with their OWN result: the opponent's Sylvan Echoes
+>   fires when the opponent's card was greater (pinned), nobody's on a tie (pinned), only the winner's
+>   win-only watcher ever fires (pinned).
+> · Entangling Trap and Rebellion of the Flamekin share the condition and stay parked on their riders
+>   ("If you won, THAT creature/token …" — a bound-referent conditional after a targeting / token payoff);
+>   Entangling Trap's is pinned as non-native.
+
 > ## ⚔️ 2026-09-03 — STAGE ④-1: CLASH — "clash with an opponent. If you win, <payoff>" · **+5 corpus** · corpus 40.4% (13,823/34,245)
 > Suite **1350 / 15,324** green; lint 0. Flip-diff **+5, zero LOST** — exactly the five ETB-counter carriers
 > (Nath's Elite, Oaken Brawler, Paperfin Rascal, Bog Hoodlums, Adder-Staff Boggart); Fire Juggler /

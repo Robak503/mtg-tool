@@ -13,7 +13,7 @@ import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_
 // "milled" trigger bind. checkDiesTriggers is imported by sibling atoms (counters/combat/manifest) without
 // a cycle, so importing checkMilledTriggers from the same leaf triggers.js module is equally safe (the
 // atoms barrel must NOT import effects/parser.js — that's the TDZ hazard; triggers.js is fine).
-import { checkMilledTriggers, checkUntapTriggers } from "../../triggers.js";
+import { checkMilledTriggers, checkUntapTriggers, checkClashTriggers } from "../../triggers.js"; // + STAGE ④-2: "whenever you clash" fires after the clash ends
 import { millMultiplier } from "../../replacementEffects.js"; // MILL-DOUBLER (Bruvac, SHELF M2) — leaf, cycle-free
 // GENESIS-WAVE — the mass reveal-top-X → put-permanents-onto-battlefield atom reuses the shared
 // enterCardFromZone helper (fires ETB / landfall / permanent-enters exactly like reanimation + library ramp),
@@ -1332,8 +1332,13 @@ export function applyClash(state, atom, ctx) {
   const myMv = mine ? manaValueOfCard(mine) : -Infinity;
   const theirMv = theirs ? manaValueOfCard(theirs) : -Infinity;
   const won = !!opp && mine != null && myMv > theirMv;
-  const next = { ...state, clashResult: { controller, opponent: opp, won } };
-  return logEvent(next, { kind: "spell-effect", effect: "clash", controller, opponent: opp, revealed: mine?.name || null, revealedMv: mine ? myMv : null, opponentRevealed: theirs?.name || null, opponentRevealedMv: theirs ? theirMv : null, won });
+  const oppWon = !!opp && theirs != null && theirMv > myMv;
+  let next = { ...state, clashResult: { controller, opponent: opp, won } };
+  next = logEvent(next, { kind: "spell-effect", effect: "clash", controller, opponent: opp, revealed: mine?.name || null, revealedMv: mine ? myMv : null, opponentRevealed: theirs?.name || null, opponentRevealedMv: theirs ? theirMv : null, won });
+  // STAGE ④-2: "Whenever you clash [and win]" — BOTH clashing players clashed (CR 701.22a); each fires their own
+  // watchers with their own result, after the clash ends (the printed reminder). No opponent → only the
+  // controller clashed (a solo reveal is still a clash they took part in).
+  return checkClashTriggers(next, opp ? [{ id: controller, won }, { id: opp, won: oppWon }] : [{ id: controller, won }]);
 }
 
 /**

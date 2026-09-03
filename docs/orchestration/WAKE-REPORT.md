@@ -76,8 +76,9 @@
 > walk's honest end**; corpus **40.4%**, 13,818; suite 1349 / 15,317). Every slice: flip-diff zero LOST,
 > mutations seen-to-fail, full suite, CI. **Stage ④ opened at 07:15 with a banked scope verdict (plan §4)
 > and its first slice shipped at 07:45: CLASH — the atom + "if you win" as a condition; the five
-> ETB-counter carriers flipped (+5; corpus 13,823; suite 1350 / 15,324). Next clash arm: the "whenever
-> you clash" trigger event (3 more), then the parked payoffs.**
+> ETB-counter carriers flipped (+5) — and its second arm at 08:10: the "whenever you clash" trigger event
+> (Sylvan Echoes, +1; corpus 13,824; suite 1351 / 15,329). The clash family is at its honest edge for one
+> night (6 of 13 sole-blocked flipped; the rest are their own payoff/rider shapes).**
 >
 > **Where the walk stopped and why (05:10):** Squirrel Girl at 83 — everything left on her is a multi-slice
 > program (Sylvan Library's pending-choice stack, Boseiju's three-piece channel, Cavern of Souls, The One

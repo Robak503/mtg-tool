@@ -2030,6 +2030,13 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^you create or sacrifice a token$/.test(c)) return { event: "tokenChange", scope: "you", whose: "any", onCreate: true, onSacrifice: true };
   if (/^you create a token$/.test(c)) return { event: "tokenChange", scope: "you", whose: "any", onCreate: true, onSacrifice: false };
   if (/^you sacrifice a token$/.test(c)) return { event: "tokenChange", scope: "you", whose: "any", onCreate: false, onSacrifice: true };
+  // ===== CLASH (STAGE ④-2, 2026-09-03 — CR 701.22) ===== "Whenever you clash [and win]" (Sylvan Echoes;
+  // Entangling Trap / Rebellion of the Flamekin carry the same condition with parked riders). BOTH clashing
+  // players clash (701.22a — "each clashing player"), so the clash applier fires checkClashTriggers for the
+  // controller AND the chosen opponent, each with their own won/lost; `winOnly` narrows to a won clash. Fires
+  // AFTER the clash ends (the printed reminder). Bare forms only; any rider on the condition → UNDETECTED.
+  if (/^you clash$/.test(c)) return { event: "clash", scope: "you", whose: "any" };
+  if (/^you clash and win$/.test(c)) return { event: "clash", scope: "you", whose: "any", winOnly: true };
   // ===== COUNTERS-PLACED (CR 122.1 / 121.6) ===== "Whenever you put one or more +1/+1 counters on a
   // creature you control" (Terrasymbiosis, Stocking the Pantry, Casey Jones) / "…on a creature" (Earth
   // Kingdom General — ANY creature, not just yours). The TRIGGERING player is YOU (the source's controller),
@@ -4965,6 +4972,7 @@ export function detectTriggers(card) {
         sacSubtype: cls.sacSubtype,           // TRIG-SACRIFICE SUBTYPE: capitalized subtype (e.g. "Treasure") — type-line scan
         sacAnother: cls.sacAnother,           // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
         onCreate: cls.onCreate,               // TOKEN-CHANGE: responds to a token being created (Mirkwood Bats)
+        winOnly: cls.winOnly,                 // CLASH (STAGE ④-2): "whenever you clash AND WIN" fires only for the clash's winner
         onSacrifice: cls.onSacrifice,         // TOKEN-CHANGE: responds to a token being sacrificed
         selfReturnKind: cls.selfReturnKind,   // SELF-LTB: "self" (Aura PiG) | "attached" (equipped-creature-dies)
         perCard: cls.perCard,                 // MILL-ON-EVENT: true = per-card ("mills a card"), false = once-per-event ("one or more … are milled")
@@ -7893,6 +7901,28 @@ export function checkTokenCreatedTriggers(state, creatingPlayerId, numCreated = 
     const descriptors = detectTriggers(watcher.card).filter((x) => x.event === "tokenChange" && x.onCreate);
     for (const d of descriptors) {
       for (let i = 0; i < numCreated; i++) fired.push(makePendingTrigger(d, watcher, watcher, {}));
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * CLASH on-event (STAGE ④-2, CR 701.22) — enqueue "Whenever you clash [and win]" for EVERY player who clashed.
+ * `clashers` is [{ id, won }] — the controller and the chosen opponent, each with their own result (701.22c: a
+ * player wins iff THEIR revealed card's mana value is greater, so at most one wins; a tie wins for nobody).
+ * Only each clasher's OWN watchers are scanned ("you clash"); a `winOnly` watcher fires only for the winner.
+ * Called by the clash applier AFTER the stamp (the printed "triggers after the clash ends"). Context carries
+ * `clashWon` for a payoff that reads it.
+ */
+export function checkClashTriggers(state, clashers) {
+  let fired = [];
+  for (const { id, won } of clashers || []) {
+    if (!id || !state.players?.[id]) continue;
+    for (const watcher of triggerSourcesOf(state, id)) {
+      for (const d of detectTriggers(watcher.card).filter((x) => x.event === "clash" && (!x.winOnly || won))) {
+        fired.push(makePendingTrigger(d, watcher, watcher, { clashWon: !!won }));
+      }
     }
   }
   if (!fired.length) return state;

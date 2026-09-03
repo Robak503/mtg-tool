@@ -174,8 +174,11 @@ higher) with a deterministic opponent pick + top/bottom policy, and "if you win/
 condition binding the payoff. Expected flip: the 5 ETB-counter cards first (one shape), the rest as the
 payoffs are confirmed modeled. ✅ **STAGE ④-1 shipped (07:45):** the clash atom + "if you win" as a
 condition — the five ETB-counter carriers flipped (+5, 6/6 killed); Fire Juggler / Ringskipper / Sentry
-Oak wait on their payoffs, Springjack Knight on a targeting branch, and the "whenever you clash" watchers
-(Rebellion of the Flamekin, Entangling Trap, Sylvan Echoes) on a clash trigger EVENT — the next clash arm.
+Oak wait on their payoffs, Springjack Knight on a targeting branch. ✅ **STAGE ④-2 shipped (08:10):** the
+clash trigger EVENT — Sylvan Echoes flipped (+1, 5/5 killed); Entangling Trap and Rebellion of the Flamekin
+stay on their bound-referent riders ("If you won, THAT creature/token …"). The clash family is now built
+to its honest edge for one night: 6 of its 13 sole-blocked cards flipped; the rest wait on payoffs and
+riders that are their own shapes.
 
 ---
 
