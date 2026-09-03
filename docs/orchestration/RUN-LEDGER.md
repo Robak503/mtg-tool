@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🐎 2026-09-03 (night cron) — ④-AF: "ANOTHER target … creature" + "with / without <keyword>" join the subject peel — the Pegasus cycle · **+26** · corpus 14,038 / 34,245 (41.0%)
+> Suite **1393 files / 15,556 tests** green; lint 0. Flip-diff **+26, zero LOST**. **5/5 killed.**
+> · **The shape:** two more qualifiers on the ④-AC/④-AE peel. "another" rides back as `notSource` (the satisfier fails
+>   CLOSED without ctx.sourceId, which the trigger and ability flushes thread — CR 109.5); "with / without <keyword>"
+>   as `hasKeyword` over the SAME curated vocabulary the legacy parser holds (KW-1's reason: an untracked keyword would
+>   fail OPEN on "without" and offer the whole board — mutation-proven). "another" ALONE never fires the peel, so the
+>   bare "another target creature …" arms keep their excludeSource shape byte-for-byte (mutation-proven).
+> · **Who flipped:** the Pegasus cycle (Pegasus Courser, Trusted Pegasus, Appa, Phyrexian Pegasus, Roc Charger,
+>   Aerial Guide, Gryffwing Cavalry, Blessed Hippogriff — "another target attacking creature [without flying] gains
+>   flying"), Bazaar Krovod, Avenging Huntbonder, Clammy Prowler / Phase Dolphin ("can't be blocked"), the energy
+>   payers (Eddytrail Hawk, Smelted Chargebug, Consul's Shieldguard), Herald of the Sun, Skyshroud / Tajuru Archer,
+>   Dauthi Cutthroat ("with shadow"), Stinging Shot, Forced Landing, Ground Rift, Seedpod Squire, Spire Mangler,
+>   High-Flying Ace, Quicksand (a land's combat-role sacrifice, offered through ④-AE's combat window).
+> · **Board-verified:** Herald of the Sun offers the OTHER flyer only — never itself, never a walker — and the counter
+>   lands; Forced Landing offers only flyers and tucks the chosen one to the library bottom; Quicksand is offered in
+>   the combat window at the non-flying attacker only and is sacrificed.
+>   Two stale pins in flyingRestriction.test.js ("with first strike stays low", "with shadow stays Arbiter") rewritten to the
+>   curated truth; the CREED pin moved to a keyword outside the list (ward).
+> · **CI:** ④-AD/④-AE's run (8574a7c4) was in flight at commit time; ④-AF pushes only after it is green
+
 > ## 🏹 2026-09-03 (night cron) — ④-AE: "TARGET ATTACKING / BLOCKING CREATURE" + THE COMBAT WINDOW for activated abilities · **+30** · shelf unchanged (Hulk 86 · Dragons 91) · corpus 14,012 / 34,245 (40.9%)
 > Suite **1392 files / 15,551 tests** green; lint 0. Flip-diff **+30, zero LOST**. **8/8 killed.**
 > · **The shape:** the same subject peel as ④-AC, one qualifier further: the role word ("attacking" / "blocking" /

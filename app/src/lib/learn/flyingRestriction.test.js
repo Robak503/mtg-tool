@@ -26,8 +26,13 @@ describe("flying-restriction — parser", () => {
     expect(programConfidence(p)).toBe("high");
     expect(p.atoms).toEqual([{ op: "destroy", targetType: "creature", restrictions: [{ kind: "hasKeyword", keyword: "flying", negate: true }] }]);
   });
-  it("CREED: another keyword restriction (with first strike) stays low → Arbiter", () => {
-    expect(programConfidence(parseEffectClause("Destroy target creature with first strike.", "Instant"))).toBe("low");
+  it("⭐ another CURATED keyword (with first strike) parses HIGH since ④-AF (2026-09-03); a keyword OUTSIDE the vocabulary stays low → Arbiter", () => {
+    // KW-1 widened the legacy vocabulary beyond flying; ④-AF's subject peel reads the same curated list for every
+    // effects-lane arm. The CREED pin moves to a keyword the list does not name — "without ward" would fail OPEN.
+    const fs = parseEffectClause("Destroy target creature with first strike.", "Instant");
+    expect(programConfidence(fs)).toBe("high");
+    expect(fs.atoms[0].restrictions).toEqual([{ kind: "hasKeyword", keyword: "first strike", negate: false }]);
+    expect(programConfidence(parseEffectClause("Destroy target creature with ward.", "Instant"))).toBe("low");
   });
 });
 
@@ -65,7 +70,8 @@ describe("flying-restriction — coverage", () => {
     expect(classifyCard(C("Centaur Archer", "{T}: This creature deals 1 damage to target creature with flying.", "Creature — Centaur Archer"))).toBe("native-activated");
     expect(classifyCard(C("Aerial Predation", "Destroy target creature with flying.\nYou gain 2 life.", "Sorcery"))).toBe("native-spell");
   });
-  it("CREED: an unmodeled keyword restriction stays Arbiter", () => {
-    expect(classifyCard(C("X", "Destroy target creature with shadow."))).not.toMatch(/^native/);
+  it("CREED: an UNMODELED keyword restriction stays Arbiter — shadow joined the curated list (④-AF), ward has not", () => {
+    expect(classifyCard(C("X", "Destroy target creature with shadow."))).toBe("native-spell");
+    expect(classifyCard(C("Y", "Destroy target creature with ward."))).not.toMatch(/^native/);
   });
 });

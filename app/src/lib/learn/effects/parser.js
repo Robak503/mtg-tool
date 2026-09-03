@@ -493,21 +493,30 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
   // either — "attacking or blocking" maps to "either"; the satisfier fails closed on any other value). A creature
   // is attacking or blocking only inside combat (CR 506.3 / 509.1), so outside combat the pool is empty and the
   // ability is simply not offered — the same enumeration that already serves the destroy / bounce lanes.
-  const cbt = /\b(target )(attacking or blocking |attacking |blocking )?(creature(?: you control| an opponent controls| you don't control)?)( with (?:a|an|one or more) (?:([+-]1\/[+-]1|stun) )?counters? on it)?\b/i.exec(s);
+  // ⭐ "ANOTHER" AND THE KEYWORD QUALIFIER JOINED (④-AF, 2026-09-03 — the Pegasus cycle "another target attacking
+  // creature [without flying] gains flying until end of turn": Pegasus Courser, Trusted Pegasus, Appa, Ebony Fly,
+  // Bazaar Krovod, Fey Steed; Pitfall Trap "destroy target attacking creature without flying"; ~60 carriers).
+  // "another" rides back as `notSource` (the satisfier fails CLOSED without ctx.sourceId, which the trigger and
+  // ability flushes thread — CR 109.5); "with / without <keyword>" as `hasKeyword` over the SAME curated vocabulary
+  // the legacy parser holds (KW-1's reason: an untracked keyword would fail OPEN on "without"). "another" ALONE never
+  // fires the peel — the bare "another target creature …" arms (excludeSource) keep their shape byte-for-byte.
+  const cbt = /\b(another )?(target )(attacking or blocking |attacking |blocking )?(creature(?: you control| an opponent controls| you don't control)?)( with(out)? (flying|defender|trample|shadow|first strike|double strike|vigilance|lifelink|deathtouch|menace|reach|haste|hexproof|indestructible))?( with (?:a|an|one or more) (?:([+-]1\/[+-]1|stun) )?counters? on it)?\b/i.exec(s);
   // ⛔ FALL THROUGH, NEVER RETURN NULL, when the reduced clause does not parse to a plain creature atom: an arm may
   // own the printed phrase WHOLE — Mentor's "put a +1/+1 counter on target attacking creature with lesser power"
   // (counters.js) parsed HIGH before this peel existed, and returning null here dropped Tributary Instructor and
   // The Powerful Dragon out of native (caught by the flip-diff, 2 LOST). Below the peel the clause meets the arms
   // exactly as it always did, so a non-stamp is byte-identical to the pre-slice parse.
-  if (cbt && (cbt[2] || cbt[4])) {
-    const reduced = s.replace(cbt[0], `${cbt[1]}${cbt[3]}`);
+  if (cbt && (cbt[3] || cbt[5] || cbt[8])) {
+    const reduced = s.replace(cbt[0], `${cbt[2]}${cbt[4]}`);
     const inner = parseClauseToAtom(cardType, reduced, hasX, sourceScoped);
     const plainCreature = inner && KNOWN.has(inner.op) && inner.targetType === "creature"
       && !(inner.role || inner.secondaryRole || inner.fighter || Array.isArray(inner.targets));
     if (plainCreature) {
       const extra = [];
-      if (cbt[2]) extra.push({ kind: "combat", value: /\bor\b/i.test(cbt[2]) ? "either" : cbt[2].trim().toLowerCase() });
-      if (cbt[4]) extra.push({ kind: "hasCounter", counterType: cbt[5] ? cbt[5].toLowerCase() : null });
+      if (cbt[1]) extra.push({ kind: "notSource" });
+      if (cbt[3]) extra.push({ kind: "combat", value: /\bor\b/i.test(cbt[3]) ? "either" : cbt[3].trim().toLowerCase() });
+      if (cbt[5]) extra.push({ kind: "hasKeyword", keyword: cbt[7].toLowerCase(), negate: !!cbt[6] });
+      if (cbt[8]) extra.push({ kind: "hasCounter", counterType: cbt[9] ? cbt[9].toLowerCase() : null });
       return { ...inner, restrictions: [...(inner.restrictions || []), ...extra] };
     }
   }

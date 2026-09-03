@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"Another target attacking creature" and "target creature with / without flying" work** — the Pegasus cycle, Herald of the Sun, Forced Landing, Stinging Shot, Quicksand and more offer exactly the creatures the card names.
 - **"Target attacking creature" and "target blocking creature" work** — Run Amok, Righteousness, Outflank, Most Valuable Slayer, Infantry Veteran, Serra Advocate and more only offer creatures in that combat role.
 - **Combat-time activated abilities** — abilities that target an attacking or blocking creature (D'Avenant Archer, Kithkin Shielddare, Harpoon Sniper and their kin) can now be activated during combat, by either player, instead of only in a main phase where they had no legal target.
 - **"Target creature with a +1/+1 counter on it" works** — the graft cycle's grants, Razorfin Abolisher, Crumbling Ashes, Hidden Hideout, Liliana, Death Wielder, Steppe Glider, Ollenbock Escort and more only offer creatures that actually carry the counter.
