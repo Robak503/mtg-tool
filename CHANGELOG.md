@@ -9,6 +9,12 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Channel works.** Otawara, Eiganjo, the Ghost-Lit cycle, the Shinen, Twinshot Sniper and more can now be
+  channeled from your hand; the legendary lands cost {1} less for each legendary creature you control,
+  priced from the board at the moment you activate. Otawara bounces exactly an artifact, creature,
+  enchantment or planeswalker — never a land or a battle.
+- **Mistrise Village works.** "The next spell you cast this turn can't be countered" now actually shields
+  your next spell from counters, and only that one.
 - **Abilities that exile cards from your graveyard as a cost work.** Mines of Moria, Grim Lavamancer,
   Graveyard Marshal, Psychatog, Cabal Surgeon, Hostile Desert and two dozen more now actually pay that
   cost — the right number of cards, of the right type, leave your graveyard before the ability resolves,

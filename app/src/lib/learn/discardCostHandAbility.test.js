@@ -163,7 +163,8 @@ describe("⚠️ THE EFFECT IS PARSED UNDER A LITERAL \"Instant\", NOT the card'
 
 describe("the parser is exact", () => {
   it("reads the cost and the effect text", () => {
-    expect(parseDiscardCostAbility(ULTIMO)).toEqual({ cost: "{2}{B}", effectText: "Each opponent sacrifices a creature of their choice." });
+    // LANDS-5 widened the record with the Channel flag and the reduction rider (both absent here); the exact shape stays pinned.
+    expect(parseDiscardCostAbility(ULTIMO)).toEqual({ cost: "{2}{B}", effectText: "Each opponent sacrifices a creature of their choice.", channel: false, reduction: null });
   });
 
   it("⛔ refuses a card carrying an unmodeled discard/cycle TRIGGER — the same gate cycling uses", () => {

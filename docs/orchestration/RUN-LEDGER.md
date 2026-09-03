@@ -3,6 +3,42 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🌊 2026-09-03 — LANDS-TIER slices 5+6 (one commit): CHANNEL on the NEO lands (+21) · Mistrise's "next spell can't be countered" (+1) · Cap 82→84 · **corpus crosses 40.0% (13,681/34,245)**
+> Suite **1324 / 15,163** green; lint 0. Flip-diff **+22, zero LOST, zero RETIERED**. Cap's land tail is now
+> ONLY the parks: Uthros (Station) · Urza's Saga · 2 MDFC backs. Overnight stage ① lands: done to the parks.
+> · **LANDS-5 = Channel (CR 702.33a).** Otawara parked on THREE things, none of them Channel machinery: the
+>   "Channel — " keyword prefix (CR 702.33a makes it the SAME from-hand discard ability, so
+>   `parseDiscardCostAbility` reads it as one, flagging `channel`); the four-type bounce union "target
+>   artifact, creature, enchantment, or planeswalker" (its own `artifactCreatureEnchantmentOrPlaneswalker`
+>   targetType + PERMANENT_PREDICATES entry — deliberately NOT "nonland permanent", which would also admit a
+>   Battle); and the rider "costs {1} less to activate for each legendary creature you control", peeled into
+>   `reduction` and RE-DERIVED from the live board by ONE function (`reduceDiscardAbilityCost`, layer-aware
+>   creature check) at BOTH the offer and the payment — the dispatcher never trusts the action's frozen
+>   cost for the amount (CR 601.2f). The land path admits the line through the same predicate the runtime
+>   offer uses (`discardCostAbilityModeled`) and a shared line regex. **Riders (+20):** the Ghost-Lit
+>   family, the five Shinen, Reinforced Ronin, Colossal Skyturtle, Twinshot Sniper, Eiganjo … every one a
+>   Channel line in front of an already-modeled effect. Sokenzan / Takenuma / Boseiju stay land-partial ON
+>   THEIR EFFECTS ("They gain haste" is a token-pronoun follow-up the program parser rates low) — pinned.
+>   Documented under-offer: Channel is instant-speed; the from-hand lane offers only in the owner's main phase.
+> · **LANDS-6 = "The next spell you cast this turn can't be countered."** A per-player per-turn FLAG
+>   (`nextSpellUncounterable`): armed by the resolving ability (a stack.js resolver), CONSUMED at the cast
+>   chokepoint (`applyCastSpell` — the one site that also records spellsCastThisTurn) which stamps that
+>   spell's stack object `uncounterable: true` (the mark Vexing Shusher's grant leaves and the counter-target
+>   enumeration already skips) and clears the flag in the same write; reset for every seat at untap with the
+>   other per-turn spell counters. Untyped sentence only ("the next creature spell …" → null, parked).
+>   ⚠️ **Caught by the witness:** `createStackObject` builds a FIXED shape and silently dropped an extra
+>   `uncounterable` field passed through it — the stamp is applied AFTER construction, as the grant atom does.
+>   Documented limit: a spell cast by an effect (the free-cast atoms) bypasses the chokepoint (the same gap
+>   spellsCastThisTurn already has), so the flag stays armed for the next dispatcher cast — one spell late.
+> · **Mutations 7/7 + 5/5 KILLED.** LANDS-5's "reducer counts all creatures" SURVIVED the first run —
+>   the fixture had only legendary creatures on the board; two plain bears and a legendary non-creature
+>   now sit on every rider board. LANDS-6: typed forms admitted · flag never set · cast not stamped · flag
+>   not consumed (every later spell shielded) · flag survives untap.
+> · Cap 84: 32 `land`, 4 `land-partial` (all parks), 10 body-only (Illusionist's Bracers = an
+>   ability-activation trigger + copy-ability lane, no "is activated" event exists; Iron Man = optional-sac
+>   filter "noncreature artifact" + MV = sacrificed+1 relational tutor + an ARTIFACT battlefield-tutor
+>   admission — three pieces), 2 arbiter-spell. Every remaining Cap card is multi-piece.
+
 > ## ⛏️ 2026-09-03 — LANDS-TIER slice 4: "Exile N [type] cards from your graveyard" as an ACTIVATED COST · **+31 corpus** · Cap 81→82 · corpus 39.9% (13,659/34,245)
 > Suite **1322 / 15,147** green; lint 0. Flip-diff **+31, zero LOST, zero RETIERED** — Mines of Moria
 > (Cap) + Hostile Desert · Moorland Haunt · Great Arashin City (lands) + 27 creatures/enchantments

@@ -2639,6 +2639,22 @@ function actionsCycleFromHand(state, playerId) {
  * the refusal that used to sit here was a documented FN until the targeting was wired. Zero legal
  * targets → no action (CR 602.2b via 601.2c — never a discarded card with a fizzled effect).
  */
+/**
+ * LANDS-TIER slice 5 — the live price of a from-hand discard ability under its printed reduction rider
+ * ("This ability costs {1} less to activate for each legendary creature you control", the NEO channel
+ * lands). Generic only, floored at zero (CR 601.2f — a reduction never touches colored pips and never goes
+ * below {0}). Layer-aware creature check (an animated legendary counts, a Legendary non-creature does not);
+ * the Legendary supertype is read off the printed type line. ONE function, called by BOTH the offer and the
+ * payment, so the two can never price the same board differently; a `null` reduction returns the cost as is.
+ */
+export function reduceDiscardAbilityCost(state, playerId, cost, reduction) {
+  if (!reduction || !(reduction.perLegendaryCreature > 0)) return cost;
+  const n = (state.players?.[playerId]?.battlefield || [])
+    .filter((p) => permanentTypes(state, p.id).types.includes("Creature") && /\bLegendary\b/.test(String(p.card?.type || p.card?.type_line || ""))).length;
+  const off = n * reduction.perLegendaryCreature;
+  return off > 0 ? { ...cost, generic: Math.max(0, (cost.generic || 0) - off) } : cost;
+}
+
 function actionsDiscardAbilityFromHand(state, playerId) {
   if (state.activePlayer !== playerId) return [];
   if (state.priorityHolder !== playerId) return [];
@@ -2648,7 +2664,7 @@ function actionsDiscardAbilityFromHand(state, playerId) {
   for (const card of player.hand) {
     const ab = parseDiscardCostAbility(card);
     if (!ab) continue;
-    const cost = parseManaCost(ab.cost);
+    const cost = reduceDiscardAbilityCost(state, playerId, parseManaCost(ab.cost), ab.reduction);
     if (cost.hasX) continue;                       // an X cost needs the X-choice expansion
     if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
     // ⚠️ PARSED UNDER A LITERAL "Instant", NOT the card's own type — the SAME correction

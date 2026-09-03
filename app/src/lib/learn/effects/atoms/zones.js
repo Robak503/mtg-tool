@@ -1055,6 +1055,11 @@ export function bounceClauseParser(clause) {
   // hand` — already native — demonstrably bounces a planeswalker today, so there was never a runtime question
   // about whether a planeswalker can be returned: only about whether the sentence could be said. Added on
   // that evidence, with no new targetType invented.
+  // LANDS-TIER slice 5 (Otawara, Soaring City): the FOUR-type union. Deliberately its own targetType rather
+  // than "nonland permanent" — that would also admit a Battle, which Otawara cannot target (an over-claim).
+  if (/^return target artifact, creature, enchantment, or planeswalker to its owner's hand$/.test(t)) {
+    return { op: "bounce", targetType: "artifactCreatureEnchantmentOrPlaneswalker", restrictions: [] };
+  }
   const bp = t.match(/^return (another )?target (nonland permanent|permanent|artifact or enchantment|creature or planeswalker|artifact|enchantment|land|planeswalker)(?: (an opponent controls|you don't control|you control))? to its owner's hand$/);
   if (bp) {
     const TT = {

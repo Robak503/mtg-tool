@@ -812,6 +812,8 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     // is excluded and a non-land never matches. Symmetric with nonbasicLand above.
     basicLand: (tl) => /\bLand\b/.test(tl) && /\bBasic\b/.test(tl),
     artifactOrEnchantment: (tl) => /\bArtifact\b|\bEnchantment\b/.test(tl),
+    // LANDS-5 (Otawara) — the four-type union; NOT nonlandPermanent, which would also admit a Battle.
+    artifactCreatureEnchantmentOrPlaneswalker: (tl) => /\bArtifact\b|\bCreature\b|\bEnchantment\b|\bPlaneswalker\b/.test(tl),
     // THREE-WAY union — "destroy target artifact, enchantment, or land" (Acidic Slime, Creeping Mold,
     // Reclaiming Vines, Dire-Strain Rampage, Hoodwink, World Breaker). A straight OR of the three printed
     // types, exactly as the card reads: no narrowing, and deliberately NOT mapped to "permanent", which

@@ -782,8 +782,26 @@ export function parseDiscardCostAbility(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "");
   if (/\b(?:when|whenever)\b[^.]*\b(?:cycle|discard)/i.test(oracle)) return null;
   for (const line of oracle.split("\n")) {
-    const m = line.trim().match(/^((?:\{[^}]+\})+), Discard this card: (.+)$/i);
-    if (m) return { cost: m[1], effectText: m[2].trim() };
+    // CHANNEL (CR 702.33a — "Channel [cost]: [effect]" means "[cost], Discard this card: [effect]", an
+    // activated ability of a card in hand; LANDS-TIER slice 5, Otawara / the NEO legendary lands): the
+    // keyword prefix is exactly that equivalence, so the line reads as the same from-hand ability with a
+    // `channel` flag. Nothing else about the lane changes.
+    const m = line.trim().match(/^(channel\s*[—–-]\s*)?((?:\{[^}]+\})+), Discard this card: (.+)$/i);
+    if (!m) continue;
+    let effectText = m[3].trim();
+    // THE LEGENDARY-COUNT RIDER (the five NEO channel lands): "This ability costs {1} less to activate for
+    // each legendary creature you control." — a cost modifier, not an effect, peeled off the effect text and
+    // returned as `reduction` so BOTH the offer (legalChoices) and the payment (the dispatcher) re-derive the
+    // price from the live board (CR 601.2f). Only this exact sentence is read; any other "costs … less"
+    // rider stays in the effect text, where it parks the ability (never a silent discount, never a silent
+    // full price on a card that promised less).
+    let reduction = null;
+    const rider = effectText.match(/^(.*?)\s*This ability costs \{1\} less to activate for each legendary creature you control\.$/i);
+    if (rider) {
+      effectText = rider[1].trim();
+      reduction = { perLegendaryCreature: 1 };
+    }
+    return { cost: m[2], effectText, channel: !!m[1], reduction };
   }
   return null;
 }

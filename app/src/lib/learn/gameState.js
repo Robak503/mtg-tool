@@ -422,6 +422,7 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
     extraLandsThisTurn: 0,    // ONE-SHOT-EXTRA-LAND (CR 505.5b / 305.2): the per-turn land-play budget RAISED by a resolving "you may play [N] additional land[s] this turn" effect (Explore → +1, Summer Bloom → +3). landDropAllowance adds it; resetTurnCounters zeroes it each of the player's turns.
     cardsDrawnThisTurn: 0,
     spellsCastThisTurn: 0,    // TRIG-CAST2: "cast your second spell each turn" — incremented at the cast chokepoint, reset for all seats at untap
+    nextSpellUncounterable: false, // LANDS-6 (Mistrise Village): "The next spell you cast this turn can't be countered" — armed by the resolving ability, consumed (and cleared) by the next cast at the chokepoint, reset for all seats at untap
     noncreatureSpellsCastThisTurn: 0, // FIRST-NONCREATURE-EACH-TURN (CR 603.2, Esper Sentinel): the noncreature subset of the count above — same chokepoint, same per-seat reset
     creaturesDiedThisTurn: 0, // DEATHS-THIS-TURN (CR 700.4): creatures that DIED (battlefield→graveyard) under this player's control this turn — incremented at the death chokepoint (checkDiesTriggers via recordCreatureDeaths), reset for all seats at untap. Read by "for each creature that died [under your control] this turn" (Mahadi sums all seats / Body Count reads the controller) + the "if a creature died this turn" intervening-if.
     attackedThisTurn: false, // RAID (CR 508.1): set true when this player declares an attacker (actionDispatcher.applyDeclareAttacker), reset for ALL seats at untap. Read by the "you attacked this turn" intervening-if.
@@ -2308,7 +2309,7 @@ export function resetSpellsCastAllPlayers(state) {
     // its turn would let the player cast at instant speed forever — an engine strictly MORE PERMISSIVE
     // than the card, the forbidden direction. One reset site for per-turn player state means a new turn
     // cannot half-clear it.
-    players[id] = { ...state.players[id], spellsCastThisTurn: 0, noncreatureSpellsCastThisTurn: 0, flashGrantsThisTurn: [] };
+    players[id] = { ...state.players[id], spellsCastThisTurn: 0, noncreatureSpellsCastThisTurn: 0, flashGrantsThisTurn: [], nextSpellUncounterable: false };
   }
   return { ...state, players };
 }

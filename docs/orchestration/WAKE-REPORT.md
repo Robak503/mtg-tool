@@ -7,7 +7,19 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ⛏️ 2026-09-03 — **OVERNIGHT STAGE ① IN FLIGHT: LANDS-4 shipped (+31 corpus), Cap 82%** — suite **1322 / 15,147** green
+## 🌊 2026-09-03 — **OVERNIGHT STAGE ①: Cap's lands DONE to the parks — LANDS-5+6 shipped (+22), Cap 84%, corpus 40.0%** — suite **1324 / 15,163** green
+
+> **LANDS-5 = Channel** (Otawara + 20 riders: the keyword prefix is the same from-hand discard ability;
+> a four-type bounce union that is NOT "nonland permanent"; the legendary-count rider re-derived from the
+> live board at offer AND payment). **LANDS-6 = "The next spell you cast this turn can't be countered"**
+> (Mistrise): a per-turn flag armed by the ability, consumed at the cast chokepoint into the same
+> `uncounterable` stamp the counter enumeration already skips, reset at untap. 7/7 + 5/5 mutations killed;
+> flip-diff +22, zero LOST. **Corpus 40.0% (13,681/34,245).** **Cap 82 → 84**: 32 `land`, 4 `land-partial`
+> — all parks (Uthros/Station · Urza's Saga · 2 MDFC backs) — 10 body-only, 2 arbiter-spell; every
+> remaining Cap card is multi-piece (ledger has Bracers' and Iron Man's piece lists). **Next per the plan:**
+> stage ② — the lands section corpus-wide (census script ready), then stage ③ Squirrel Girl.
+
+## ⛏️ 2026-09-03 — LANDS-4 shipped (+31 corpus), Cap 82% — suite 1322 / 15,147 green
 
 > **LANDS-4 = "Exile N [type] cards from your graveyard" as a battlefield activated COST** (Mines of
 > Moria; 63 corpus carriers). Modeled on the graveyard-recursion lane's `exileFromGy`: parse →

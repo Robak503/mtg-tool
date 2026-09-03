@@ -67,7 +67,7 @@ import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTap
 // ORDEAL (BLITZ OC-1): the Theros Ordeal cast lane — the SAME gate legalChoices offers on and the metric
 // awards (single source of truth, no drift). Acyclic: coverage.js never imports actionDispatcher.js.
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
-import { landDropAllowance } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses
+import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses · LANDS-5: the ONE discard-ability price reducer the offer uses too
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf } from "./layers.js";
 import { parseCrewCost, parseDiscardCostAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch
@@ -739,7 +739,12 @@ function applyCastSpell(state, action) {
   // Mint a deterministic stack id; thread the advanced state (working2) so idSeq
   // persists onto the result.
   const { id: stkId, state: working2 } = mintId(working, "stk");
-  const stackObject = createStackObject({
+  // LANDS-6 (Mistrise Village) — "The next spell you cast this turn can't be countered": the caster's armed
+  // per-turn flag is CONSUMED here, at the one cast chokepoint, and stamps this spell's stack object with the
+  // same `uncounterable` mark the make-uncounterable grant leaves (the counter-target enumeration skips it).
+  // The flag clears in the same write below, so exactly one spell is shielded.
+  const shieldNext = !!player.nextSpellUncounterable;
+  const builtSpell = createStackObject({
     id: stkId,
     kind: "spell",
     source: castCard, // ADVENTURE: the FACE being cast (its name drives cast-trigger matching + the log)
@@ -748,6 +753,9 @@ function applyCastSpell(state, action) {
     cost: action.cost,
     payload,
   });
+  // Stamped AFTER construction, exactly as the make-uncounterable atom marks a spell already on the stack —
+  // createStackObject builds a fixed shape and would drop an extra field passed through it.
+  const stackObject = shieldNext ? { ...builtSpell, uncounterable: true } : builtSpell;
 
   // CMD-CAST: a cast FROM the command zone bumps the commander's cast count → the {2} tax grows on each
   // recast (CR 903.8 counts casts from the zone, so the cast counts even if it's later countered).
@@ -762,6 +770,7 @@ function applyCastSpell(state, action) {
         ...player, // W1: `player` re-reads `working` AFTER commitPaymentPlan, so it already carries the deducted pool
         [fromZone]: nextSrc,
         ...bumpCount,
+        ...(shieldNext ? { nextSpellUncounterable: false } : {}),
       },
     },
     stack: [...working2.stack, stackObject],
@@ -1466,7 +1475,10 @@ function applyDiscardAbility(state, action) {
   const program = parseEffectClause(ab.effectText, "Instant");
   if (!program || programConfidence(program) !== "high") throw new DispatcherError("Ability effect is not modeled", "UNMODELED_EFFECT");
 
-  const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
+  // LANDS-5 — the price is RE-DERIVED from the live board (the printed cost under its reduction rider), never
+  // read off the action: an action's frozen cost could be stale, and CR 601.2f fixes the cost at activation.
+  const liveCost = reduceDiscardAbilityCost(state, action.playerId, parseManaCost(ab.cost), ab.reduction);
+  const plan = planPayment(player.manaPool, manaSources(state, action.playerId), liveCost);
   if (!plan) throw new DispatcherError("Cannot pay the ability cost", "MANA_SHORT");
   let working = commitPaymentPlan(state, action.playerId, plan);
 
@@ -1480,7 +1492,7 @@ function applyDiscardAbility(state, action) {
   const stackObject = createStackObject({
     id: stkId, kind: "activated-ability",
     source: { name: card.name, oracle: "" },
-    controller: action.playerId, targets: chosenTargets, cost: action.cost,
+    controller: action.playerId, targets: chosenTargets, cost: liveCost,
     payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program, controller: action.playerId, targets: chosenTargets } },
   });
   let next = { ...working2, stack: [...working2.stack, stackObject] };

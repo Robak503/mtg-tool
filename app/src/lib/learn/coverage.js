@@ -644,13 +644,16 @@ function discardCostAbilityModeled(card) {
   if (!(program.atoms || []).length) return null;
   return ab;
 }
+/** The printed from-hand discard-ability line, Channel prefix or not (CR 702.33a — the same ability). Shared by
+ *  the general path's strip below and the land path's admission (landFullyCovered) so the two cannot drift. */
+const DISCARD_ABILITY_LINE_RE = /^(?:channel\s*[—–-]\s*)?(?:\{[^}]+\})+, Discard this card: /i;
 /** Drop the whole "<mana>, Discard this card: <effect>" LINE when the engine really offers it. */
 function stripDiscardCostAbilityLine(oracle, card) {
   const ab = discardCostAbilityModeled({ ...(card || {}), oracle });
   if (!ab) return oracle;
   const raw = String(oracle || "");
   const lines = raw.split("\n");
-  const kept = lines.filter((ln) => !/^(?:\{[^}]+\})+, Discard this card: /i.test(ln.trim()));
+  const kept = lines.filter((ln) => !DISCARD_ABILITY_LINE_RE.test(ln.trim()));
   return kept.length === lines.length ? raw : kept.join("\n").trim();
 }
 function stripCounterShieldLine(oracle) {
@@ -1800,12 +1803,19 @@ function landFullyCovered(card) {
   // site applies the written auto-policy and charges the life). Exactly the printed sentence pair, whole line.
   const shockTapped = paysLifeOrEntersTapped(card);
   const shockLineRe = shockTapped ? /^as this land enters, you may pay \d+ life\. if you don't, it enters tapped\.?$/i : null;
+  const discardAb = discardCostAbilityModeled(card); // LANDS-5 — the from-hand (Channel) ability, iff the runtime lane would offer it
   for (const line of afterTriggers.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (tapped && /^[^.]*\benters (?:the battlefield )?tapped\.?$/i.test(line)) continue;
     if (condLineRe && condLineRe.test(line)) continue;
     if (shockLineRe && shockLineRe.test(line)) continue;
     if (isManaLine(line)) continue;
     if (isActivatedAbilityLine(line, card)) continue; // vouched modeled/gy/mana by the .every above
+    // LANDS-TIER slice 5 — a FROM-HAND discard ability on a land ("Channel — {3}{U}, Discard this card: …",
+    // Otawara and the NEO legendary lands): admitted through the SAME predicate the runtime offer uses
+    // (discardCostAbilityModeled — cost read, rider peeled, program HIGH), so the metric can never credit a
+    // Channel line the from-hand lane would refuse. The prefix-tolerant line regex is the one the general
+    // path's strip uses.
+    if (discardAb && DISCARD_ABILITY_LINE_RE.test(line)) continue;
     if (isKeywordOnly(line, card?.name)) continue;
     return false;
   }

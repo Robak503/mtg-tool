@@ -871,6 +871,23 @@ export function grantUncounterableClauseParser(clause) {
   return null;
 }
 
+/**
+ * ===== NEXT-SPELL UNCOUNTERABLE (Mistrise Village; LANDS-TIER slice 6) ===== "The next spell you cast this
+ * turn can't be countered." — a per-player, per-turn FLAG (`nextSpellUncounterable`) rather than a stack
+ * mark: nothing is on the stack yet. The cast chokepoint (actionDispatcher.applyCastSpell) consumes it on the
+ * player's very next cast and stamps THAT spell's stack object `uncounterable: true` — the same mark the
+ * make-uncounterable grant leaves and the counter-target enumeration already honours. The untyped sentence
+ * ONLY: "the next creature spell …" / "the next instant or sorcery spell …" need a type gate at the
+ * chokepoint this slice does not carry, so they return null and their cards stay parked (CREED FN-safe).
+ */
+export function nextSpellUncounterableClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "").trim();
+  if (t === "the next spell you cast this turn can't be countered") {
+    return { op: "next-spell-uncounterable" };
+  }
+  return null;
+}
+
 export function copySpellClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "").trim();
   if (t === "copy this spell for each spell cast before it this turn") {
@@ -1843,6 +1860,14 @@ export const stackResolvers = {
   // is later re-cast is a new object with no mark (CR 701.6a is about the object on the stack).
   // The kind is re-verified here (CR 608.2b): the targeted spell may have already resolved or been
   // countered in response, in which case this fizzles rather than marking some unrelated stack object.
+  // NEXT-SPELL UNCOUNTERABLE (Mistrise Village) — arm the controller's per-turn flag; the cast chokepoint
+  // consumes it (see nextSpellUncounterableClauseParser). Idempotent: arming twice is one shield.
+  "next-spell-uncounterable": (state, atom, ctx) => {
+    const p = state.players?.[ctx.controller];
+    if (!p) return state;
+    const armed = { ...state, players: { ...state.players, [ctx.controller]: { ...p, nextSpellUncounterable: true } } };
+    return logEvent(armed, { kind: "spell-effect", effect: "next-spell-uncounterable", controller: ctx.controller });
+  },
   "make-uncounterable": (state, atom, ctx) => {
     let next = state;
     for (const t of ctx.targets || []) {

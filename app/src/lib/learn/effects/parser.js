@@ -67,7 +67,7 @@ import { payOrLoseClauseParser } from "./atoms/winGame.js"; // PACT rider (CR 60
 import { adaptIgnoreCountersClauseParser } from "./atoms/counters.js"; // Biomancer's Familiar (CR 701.46a)
 import { conniveClauseParser } from "./atoms/connive.js"; // CONNIVE (BLITZ EK-1, CR 701.50a) — draw 1 → chosen discard → +1/+1 if nonland
 import { suspectClauseParser } from "./atoms/suspect.js"; // SUSPECT (BLITZ EK-1, CR 701.60) — the suspected designation (menace + can't block)
-import { grantUncounterableClauseParser, attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser, copyCreatureSpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell) + COPY-A-CREATURE-SPELL (Double Major)
+import { grantUncounterableClauseParser, nextSpellUncounterableClauseParser, attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser, copyCreatureSpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell) + COPY-A-CREATURE-SPELL (Double Major)
 import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser, earthbendReturnClauseParser, detainReturnClauseParser, czClauseParser, blinkReturnClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce) + EARTHBEND-RETURN (CR 603.7 delayed trigger) + DETAIN-RETURN (DT-1) + CZ-COMMANDER-VISIT (Hellkite Courser) + DELAYED-BLINK (Otherworldly Journey)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
 import { gainControlClauseParser } from "./atoms/control.js"; // GAIN-CONTROL — indefinite control-change of a target creature/subtype (Sliver Overlord)
@@ -3000,6 +3000,7 @@ registerClauseParser(cdmgMassToDamagedPlayerClauseParser); // CDMG-MASS-TO-DAMAG
 registerClauseParser(playerInvestigateClauseParser); // INVESTIGATE for a NAMED player (CR 701.17a) — recipient via whoCreates, the field the mint actually reads
 registerClauseParser(poisonClauseParser); // POISON (CR 122) — the track existed since KW-POISON; no clause ever parsed to it
 registerClauseParser(grantUncounterableClauseParser); // GRANT UNCOUNTERABILITY (Vexing Shusher) -- "target spell can't be countered"
+registerClauseParser(nextSpellUncounterableClauseParser); // NEXT-SPELL UNCOUNTERABLE (Mistrise Village, LANDS-6) -- "the next spell you cast this turn can't be countered"
 registerClauseParser(copySpellClauseParser); // STORM (CR 702.40) — the synthesized "copy this spell for each spell cast before it this turn" clause
 registerClauseParser(copyCreatureSpellClauseParser); // COPY-A-CREATURE-SPELL (Double Major, CR 707.10) — "copy target creature spell you control[, except it isn't legendary…]"
 // GRAVEYARD-RETURN (seam batch 16 / Wave C) — return-from-graveyard ⇄ reanimate co-extracted to
