@@ -616,9 +616,10 @@ exist on branch `codex/omnath-phone-polish`.
   and supplies `HF_TOKEN`.
 - The corrected full-art ARM64 debug APK targets Android 36 with minimum SDK
   24, package id `com.colton.omnath.probe.debug`, and user-facing label
-  **Omnath MTG Assistant**. The Android-streaming correction through commit
-  `3e66e625` is 749,194,176 bytes with SHA-256
-  `455b7d0b929d19828691b1d3016964b1694b9b3c2d46a94682aaf13d80f1da29`.
+  **Omnath MTG Assistant**. The Android-streaming and startup-gate corrections
+  through commit `cd273f11` produce a 749,194,368-byte full-art APK with
+  SHA-256
+  `9193adb17e6b5d4cfb6682c9fb13cd4413e6080c30f361b741fe5bf441be7e4b`.
   Its machine-generated receipt reports only 935 entries, no
   `android.permission.INTERNET`, no bundled `.litertlm`, no raw Oracle/rulings/CR
   input, and a matching staged enhanced-model hash. It also proves that the
@@ -628,9 +629,9 @@ exist on branch `codex/omnath-phone-polish`.
   Android now streams the packaged databases by their fixed asset identities
   into private app storage and verifies byte counts and hashes before atomic
   replacement. The only reported permission is Android's package-scoped
-  dynamic-receiver protection. The matching core-only APK is 244,966,521 bytes
+  dynamic-receiver protection. The matching core-only APK is 244,966,717 bytes
   with SHA-256
-  `34f14f4d161a45e7837c4fdb5f86bec38d95961df3113ab71a30e0b47140a364`.
+  `36d5db9af30f32d25e25a3f01e7d58736648fb24b5cc99e7942fcc7241235eb9`.
 - The UI/controller JavaScript is 32,095 bytes (11,460 bytes gzip), and the
   LEYLINE stylesheet is 12,029 bytes (3,240 bytes gzip); the
   995,428-byte rules-engine witness is isolated in a lazy chunk. The release
@@ -702,7 +703,14 @@ exist on branch `codex/omnath-phone-polish`.
   catalogued asset names only. It writes only a bounded temporary filename in
   private app storage, emits copy progress, verifies size and SHA-256 before
   Rust replaces the database, and rejects traversal or unknown asset names. The
-  compressed replacement APK above now awaits Pixel art-readiness verification.
+  next Pixel run then failed before provisioning began. The WebView had tried
+  to subscribe directly to the custom plug-in's optional progress event, but
+  that listener command was not part of the plug-in's allowed WebView surface.
+  Commit `cd273f11` removes that listener as a startup dependency, keeps the
+  standard native provisioning status path, preserves passed runtime witnesses
+  and a privacy-safe failed-pack receipt, and stops labeling every knowledge
+  error as a rules-runtime failure. The compressed replacement APK above now
+  awaits Pixel art-readiness verification.
 
 - One chat surface.
 - One Omnath persona.
