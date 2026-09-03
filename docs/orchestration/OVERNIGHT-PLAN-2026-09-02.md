@@ -178,7 +178,13 @@ Oak wait on their payoffs, Springjack Knight on a targeting branch. ✅ **STAGE 
 clash trigger EVENT — Sylvan Echoes flipped (+1, 5/5 killed); Entangling Trap and Rebellion of the Flamekin
 stay on their bound-referent riders ("If you won, THAT creature/token …"). The clash family is now built
 to its honest edge for one night: 6 of its 13 sole-blocked cards flipped; the rest wait on payoffs and
-riders that are their own shapes.
+riders that are their own shapes. **Bug-signature probes (08:20, runbook §2's two defect reports):** Savage
+Firecat, Floodchaser, Krovikan Whispers and Ray of Frost are MULTI-blockers under per-line ablation (every
+single deletion stays body-only — the census's "sole" count is relative to its own line-splitting);
+Bubble Snare (kicker + a kicked-ETB + a no-untap static: each alone native, together body-only) and
+Hypnotic Siren (bestow + "you control enchanted creature") are TIER-COMPOSITION failures — one card each,
+banked here for a composition-rule slice rather than built at 08:20. Next honest corpus levers after clash
+are subsystem-scale (morph ~164, initiative/ring ~126, quoted-grant statics ~133) — Colton's pick.
 
 ---
 
