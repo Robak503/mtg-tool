@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-09-03 — **THE MORNING REPORT (overnight run, 2026-09-02 → 09-03)** — suite **1345 / 15,294** green · **CI GREEN on the final master head db319854 (05:25)**, which carries every slice below (the SG-14 and correction runs were cancelled by concurrency, superseded by this one)
+## ☀️ 2026-09-03 — **THE MORNING REPORT (overnight run, 2026-09-02 → 09-03)** — suite **1351 / 15,329** green · **CI GREEN on the final master head 0e9f5c32 (08:40)**, which carries every slice below including the overnight cron's (LANDS-14b, SG-15a/b, SG-16, STAGE ④-1/2); intermediate runs cancelled by concurrency were each superseded by a green one
 
 > **The three stage numbers.** ① **Captain America 75 → 84/100** — its land tail is finished to the parks
 > (Uthros/Station, Urza's Saga, two MDFC backs); every remaining Cap card is multi-piece (§6 of the plan
