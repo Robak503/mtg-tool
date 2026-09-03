@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Elvish Spirit Guide and Simian Spirit Guide work** — exiled from your hand for a mana; never usable from
+  the battlefield.
 - **The Invasion lairs work** (Darigaaz's Caldera, Treva's Ruins, Dromar's Cavern, Rith's Grove, Crosis's
   Catacombs) — return a non-Lair land or lose the lair; another lair never pays for it.
 - **Geier Reach Sanitarium and Lore Broker work** — every player draws a card, then discards a card.

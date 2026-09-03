@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🐒 2026-09-03 — SG-6: Elvish / Simian Spirit Guide — an EXILE-FROM-HAND mana source · **+2 corpus** · Squirrel Girl deck 74→75 · corpus 40.3% (13,793/34,245)
+> Suite **1337 / 15,254** green; lint 0. Flip-diff **+2, zero LOST**. **5/5 killed** — after one survivor
+> earned its pin: loosening the cost regex so "from your hand" was optional survived because no fixture
+> printed a ZONELESS "Exile this card: Add {G}" (a battlefield ability, not a hand source); the probe now
+> exists and the words are the gate.
+> · A mana ability of a card IN HAND (CR 605.1a): the production carries `fromHand`; manaSources walks the
+>   HAND for such cards (keyed by the card id, one-shot) and never offers the same card as a battlefield tap
+>   (the ability does not exist there — pinned); the planner carries the rider; commitManaTap exiles the card
+>   instead of tapping a permanent. The effect half must be the bare "Add <symbols>." — a rider ("Activate
+>   only during your turn") would be silently dropped by the hand path, so the line is refused (pinned).
+> · Housekeeping: the SG-5 CI run (27fe2bd4) shows CANCELLED — GitHub's concurrency rule cancels an
+>   in-progress run when a newer push lands on the branch; the LANDS-13 run covers that code. Master is
+>   not red; the watch script now treats "cancelled" as "superseded", not "failed".
+
 > ## 🌋 2026-09-03 — LANDS-13: the Invasion lairs — "unless you return a NON-Lair land you control" · **+5 corpus** · land-partial 368→363 · corpus 40.3% (13,791/34,245)
 > Suite **1336 / 15,249** green; lint 0. Flip-diff **+5, zero LOST** (Darigaaz's Caldera, Treva's Ruins,
 > Dromar's Cavern, Rith's Grove, Crosis's Catacombs). **3/3 killed.**

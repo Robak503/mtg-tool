@@ -13,9 +13,10 @@
 > (Uthros/Station, Urza's Saga, two MDFC backs); every remaining Cap card is multi-piece (§6 of the plan
 > names each). ② **Land tier corpus-wide: land-partial 454 → 363** (single-blockers 368 → 291 before
 > the lairs); five 5-carrier families still open, listed honestly in the plan's §2 line (an earlier "all
-> shipped or parked" claim was corrected). ③ **Squirrel Girl 67 → 74/100, her commander NATIVE.** Corpus
-> **39.53% → 40.3% (13,791 / 34,245)**, +~255 cards in one night. (LANDS-13, the Invasion lairs, landed
-> after this block was first written — +5, 3/3 killed, suite 1336 / 15,249.)
+> shipped or parked" claim was corrected). ③ **Squirrel Girl 67 → 75/100, her commander NATIVE.** Corpus
+> **39.53% → 40.3% (13,793 / 34,245)**, +~257 cards in one night. (Landed after this block was first
+> written: LANDS-13 the Invasion lairs 8347efdd, +5; SG-6 the Spirit Guides, +2 — suite 1337 / 15,254.)
+> Note: the SG-5 CI run shows CANCELLED — GitHub's concurrency rule, superseded by the LANDS-13 push; not red.
 >
 > **Every slice on master (SHA · what · witness):** LANDS-1 37bb04b7 "enters tapped unless" (83) ·
 > LANDS-2 fce3397b shocklands (10, the optional-life-payment pause) · LANDS-3 3ee7890b self-name sacrifice +

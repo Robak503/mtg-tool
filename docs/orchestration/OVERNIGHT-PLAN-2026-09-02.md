@@ -107,9 +107,10 @@ SG-1 entry; 15 multis; 3 parks (Gemstone Caverns, Shifting Woodland, Evendo). �
 Bellower · Altar of the Brood · Skullclamp shipped (+6 with riders; 6/6 killed). ✅ **SG-3** — the
 Altars pay for real (+3; 7/7 killed; the payment planner's dropped cost riders fixed). ✅ **SG-4** —
 Jaheira's token mana grant (+1). ✅ **SG-5** — Geier Reach Sanitarium + Lore Broker (the each-player
-loot sentence, +2). **Deck 74/100.** The cheap singles are done; what remains on her deck is the mediums
-(Elvish Spirit Guide, Altar of Dementia, Peregrin Took, Dosan, Frenzied Baloth, Vexing Bauble,
-Evolutionary Leap, Sylvan Library, Homeward Path, Boseiju's channel effect) and the multis/parks in §6.
+loot sentence, +2). ✅ **SG-6** — Elvish Spirit Guide (an exile-from-hand mana source; Simian rides, +2).
+**Deck 75/100.** What remains on her deck is the mediums (Altar of Dementia, Peregrin Took, Dosan,
+Frenzied Baloth, Vexing Bauble, Evolutionary Leap, Sylvan Library, Homeward Path, Boseiju's channel
+effect) and the multis/parks in §6.
 
 Stored 09-02 on Colton's profile (100/0 unresolved). **67/100**: 14 native-mana · 10 native-spell ·
 5 native-trigger · 4 native-activated · 5 native-static · 1 native-mana-aura · 6 native-mixed ·

@@ -538,6 +538,25 @@ function manaAbilitySacrificesCreature(oracle) {
   return manaLines.every((line) => /^(?:\{t\},\s*)?sacrifice a creature\s*$/i.test(line.slice(0, line.indexOf(":")).trim()));
 }
 
+/**
+ * EXILE-FROM-HAND MANA (SG-6, 2026-09-03 — Elvish Spirit Guide "Exile this card from your hand: Add {G}", Simian
+ * Spirit Guide "… Add {R}"; 2 corpus cards). A mana ability of a card IN HAND (CR 605.1a — a mana ability may
+ * be activated from any zone its cost allows): the production carries `fromHand`, manaSources walks the HAND
+ * for such cards (and never offers the same card as a battlefield tap — the ability does not exist there),
+ * and commitManaTap exiles the card instead of tapping a permanent. Exactly "Exile this card/creature from
+ * your hand"; any other zone or rider stays refused (the phantom-mana FN).
+ */
+function manaAbilityExilesSelfFromHand(oracle) {
+  for (const line of String(oracle || "").split(/\n+/)) {
+    const ci = line.indexOf(":");
+    if (ci === -1) continue;
+    // The effect half must be the bare "Add <symbols>." — a rider after it ("Activate only during your turn")
+    // would be silently dropped by the hand-source path, so such a line is refused (the FN direction).
+    if (/^\s*add (?:\{[wubrgc]\})+\.?\s*$/i.test(line.slice(ci + 1)) && /^exile this (?:card|creature) from your hand$/i.test(line.slice(0, ci).trim())) return true;
+  }
+  return false;
+}
+
 function activatedManaText(oracle) {
   for (const line of String(oracle || "").split(/\n+/)) {
     const ci = line.indexOf(":");
@@ -1193,13 +1212,14 @@ function manaProductionImpl(card) {
   // a non-empty graveyard. The flag rides the production so both halves key off one read.
   const exilesGyCard = manaAbilityExilesGyCard(oracleForAdd);
   const sacrificesCreature = manaAbilitySacrificesCreature(oracleForAdd); // SG-3 — paid for real (see the helper)
+  const exilesSelfFromHand = manaAbilityExilesSelfFromHand(oracleForAdd); // SG-6 — a hand-zone source (see the helper)
   const isActivatedSource =
-    isLandCard || (activatedManaText(oracleForAdd) != null && (!manaAbilityCostUnpayable(oracleForAdd) || exilesGyCard || sacrificesCreature));
+    isLandCard || (activatedManaText(oracleForAdd) != null && (!manaAbilityCostUnpayable(oracleForAdd) || exilesGyCard || sacrificesCreature || exilesSelfFromHand));
   if (fromOracle && isActivatedSource) {
     const requiresTap = manaAbilityRequiresTap(oracleForAdd);
     return manaAbilitySacrificesSelf(oracleForAdd)
       ? { ...fromOracle, sacrifices: true, requiresTap }
-      : { ...fromOracle, requiresTap, ...(exilesGyCard ? { exilesGyCard: true } : {}), ...(sacrificesCreature ? { sacrificesCreature: true } : {}) };
+      : { ...fromOracle, requiresTap, ...(exilesGyCard ? { exilesGyCard: true } : {}), ...(sacrificesCreature ? { sacrificesCreature: true } : {}), ...(exilesSelfFromHand ? { fromHand: true } : {}) };
   }
 
   // ===== TAP-OTHER COST (CR 118.4 / 302.6) =====================================================
@@ -1462,6 +1482,7 @@ export function manaSources(state, playerId) {
       prod = applyAuraManaGrantSupplement(state, perm, prod);   // AURA-MANA-GRANT: a land's own tap upgrades to a dominating aura grant
     }
     if (!prod) continue;
+    if (prod.fromHand) continue; // SG-6 — an exile-from-HAND ability does not exist on the battlefield permanent
     // LANDS-12 — resolve the CHOSEN-COLOR leg against THIS permanent's stamp (see parseAddClause). Unstamped →
     // only the fixed option remains; a spec with no fixed option and no stamp produces nothing (never a guess).
     if (prod.chosenColor) {
@@ -1620,6 +1641,13 @@ export function manaSources(state, playerId) {
     if (prod.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")))) continue;
     sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}) });
   }
+  // SG-6 — EXILE-FROM-HAND sources (Elvish / Simian Spirit Guide): a mana ability of a card in HAND. Offered
+  // as a one-shot source keyed by the card's id (the committer exiles it); never a tap, never repeatable.
+  for (const card of player.hand || []) {
+    const prod = manaProduction(card);
+    if (!prod || !prod.fromHand) continue;
+    sources.push({ permanentId: card.id, colors: prod.colors, amount: prod.amount ?? 1, sacrifices: false, fromHand: true });
+  }
   return sources;
 }
 
@@ -1746,6 +1774,7 @@ export function planPayment(pool, sources, cost, spendContext = null) {
       // (a planned Molt Tender tap exiled nothing; now it does).
       sacrificesCreature: !!s.sacrificesCreature,
       exilesGyCard: !!s.exilesGyCard,
+      fromHand: !!s.fromHand, // SG-6 — the source is a HAND card; the committer exiles it instead of tapping
       used: false,
     }))
     .filter(s => s.amount > 0)
@@ -1819,7 +1848,7 @@ export function planPayment(pool, sources, cost, spendContext = null) {
     // PAINLAND: stamp the life cost ONLY when the chosen colour is one of the painful ones — a tap for
     // the free {C} half costs nothing, exactly as printed.
     const painHit = s.painColors && s.painColors.includes(primaryColor) ? s.painAmount : 0;
-    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
+    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
     return wantColor && assigned ? wantColor : primaryColor;
   };
 
@@ -2010,6 +2039,17 @@ export function commitManaTap(state, playerId, tap) {
     } else {
       next = logEvent(next, { kind: "mana", event: "exile-gy-cost-unpaid", permanentId: tap.permanentId, playerId });
     }
+  }
+  // SG-6 — EXILE-FROM-HAND source (the Spirit Guides): the "permanent" is a hand card; the cost is exiling it.
+  // Nothing taps. If the card has already left the hand (a race the offer can't see) the tap is logged unpaid
+  // rather than fabricated, mirroring the other cost riders.
+  if (tap.fromHand) {
+    const inHand = (next.players[playerId]?.hand || []).some((c) => c.id === tap.permanentId);
+    if (inHand) {
+      next = moveCardToZone(next, { playerId, fromZone: "hand", toZone: "exile", cardId: tap.permanentId });
+      return logEvent(next, { kind: "mana", event: "exile-from-hand-cost", cardId: tap.permanentId, playerId });
+    }
+    return logEvent(next, { kind: "mana", event: "exile-from-hand-cost-unpaid", cardId: tap.permanentId, playerId });
   }
   if (tap.sacrifices) {
     const sacPerm = next.players[playerId]?.battlefield?.find(p => p.id === tap.permanentId); // capture pre-move (for the type)
