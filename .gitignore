@@ -25,6 +25,7 @@ node_modules/
 # `.cto_sandbox/` was 41k untracked lines tempting a "Create PR" against master).
 .cto_sandbox/
 .claire/
+/.codex-remote-attachments/
 
 # Stray root-level scratch/debug probes. Coverage-grind sessions write ad-hoc
 # *.mjs sanity probes; a `git add -A` from the repo root once swept `cntprobe.mjs`

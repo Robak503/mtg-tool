@@ -1,3 +1,20 @@
 node_modules/
 dist/
 build/
+
+# Local Android/toolchain configuration and signing material
+**/local.properties
+**/key.properties
+**/keystore.properties
+android-env.local.ps1
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+
+# Generated installables and side-loaded model binaries
+*.apk
+*.aab
+*.apks
+*.litertlm
