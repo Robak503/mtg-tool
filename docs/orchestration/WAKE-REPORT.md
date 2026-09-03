@@ -7,6 +7,14 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🫧 2026-09-03 (night cron) — **④-J: Bubble Snare — kicker on the Aura lane (+1)** · suite **1371 / 15,448** green · corpus 13,899 / 34,245 (40.6%) · flip-diff +1 / 0 lost · 8/8 killed
+
+> **Night tally (stage ④, ten slices):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3) · D tapped-for-mana
+> (+2) · E Nikya (+1) · F opponent creature tokens (+7) · G flashback grant (+6) · H en-Kor redirect (+5) · I Savage
+> Firecat (+3) · J Bubble Snare (+1) — corpus 13,862 → 13,899 (+37). **Next runnable:** Relic of Progenitus /
+> Scrabbling Claws (an opponent-side graveyard pick + "exile all graveyards"), Hypnotic Siren (bestow-with-control),
+> Mind Extraction / Scapegoat (the sacrificed creature's colors; any-number self-bounce), or the next census read.
+
 ## 🐈 2026-09-03 (night cron) — **④-I: Savage Firecat (+3)** · suite **1370 / 15,443** green · corpus 13,898 / 34,245 (40.6%) · flip-diff +3 / 0 lost · 6/6 killed
 
 > **Night tally (stage ④, nine slices):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3) · D tapped-for-mana

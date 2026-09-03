@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🫧 2026-09-03 (night cron) — CORPUS ④-J: BUBBLE SNARE — KICKER on the Aura cast lane · **+1** · corpus 13,899 / 34,245 (40.6%)
+> Suite **1371 / 15,448** green; lint 0. Flip-diff **+1, zero LOST**. **8/8 killed.**
+> · **The shape:** "Kicker {2}{U} / Enchant creature / When this Aura enters, if it was kicked, tap enchanted creature.
+>   / Enchanted creature doesn't untap…" The body was native WITHOUT its Kicker line (the kicked-conditional ETB
+>   already reads the "it was kicked" intervening-if; the doesn't-untap static is modeled) — the LINE parked it,
+>   because the aura residue walk had no kicker admission and the aura lane had no kicked cast. Four small arms,
+>   every one the creature kicker's proven pattern: (1) the residue walk admits a clean Kicker line (unpaid = the
+>   printed base mode — coverage's reOptionalAddlCost policy for creatures; {X} kickers refused, multikicker never
+>   matches); (2) the native-aura lane emits a KICKED cast per legal host when the kicker is also affordable, pips
+>   folded into the cost, mana value counting the kicker (CR 202.3b); (3) the dispatcher threads `kicked` onto
+>   AURA_ETB; (4) the resolver hands it to enterPermanent, which stamps wasKicked — the Aura's own ETB then fires.
+> · **Board-verified:** with {2}{U}{U} the kicked Snare enters attached to the opposing Bear, its ETB fires and
+>   the Bear is tapped; with {U} only the plain cast attaches, the intervening-if drops the ETB and the Bear
+>   stays untapped. Each arm's drop is a killed mutation, as is a resolver that stamps every aura kicked.
+> · **Honest edge:** the vein is two cards wide — Gigantiform stays parked on its base-P/T static and its
+>   tutor-by-name (pinned off the tier). The AI's kicked-aura choice rides the existing targeted-kicked cascade
+>   (AI-F1) unchanged.
+
 > ## 🐈 2026-09-03 (night cron) — CORPUS ④-I: SAVAGE FIRECAT — the land-tap trigger with a NON-mana payoff, and the enters-with vocabulary to ten · **+3** (Savage Firecat / Spike Hatcher / Phantom Nishoba) · corpus 13,898 / 34,245 (40.6%)
 > Suite **1370 / 15,443** green; lint 0. Flip-diff **+3, zero LOST**. **6/6 killed** (+1 rebuilt pin, killed).
 > · **The shape:** "This creature enters with seven +1/+1 counters on it. Whenever you tap a land for mana, remove a

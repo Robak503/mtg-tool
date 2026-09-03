@@ -1518,6 +1518,24 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       for (const t of targets) {
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
       }
+      // KICKER on an Aura (④-J, Bubble Snare — CR 702.33): the SAME normal+kicked emission the creature kicker
+      // block below uses, one kicked cast per legal host, kicker pips folded into the cost so the dispatcher's
+      // normal mana plan pays it all. The dispatcher threads `kicked` onto AURA_ETB → enterPermanent stamps
+      // wasKicked → the Aura's "When this Aura enters, if it was kicked, …" trigger fires its payoff only on the
+      // kicked cast. A free-cast pays nothing, so no kicked option (the base Aura still resolves — safe).
+      // parseKickerCost is the one gate (clean single mana cost; multikicker / {X} → null → unkicked only).
+      if (!freeCast) {
+        const auraKicker = parseKickerCost(card);
+        if (auraKicker) {
+          const auraKickerCost = parseManaCost(auraKicker);
+          const auraKickedCost = mergeManaCost(cost, auraKickerCost);
+          if (canAfford(player.manaPool, manaSources(state, playerId), auraKickedCost)) {
+            for (const t of targets) {
+              actions.push({ ...base, cost: auraKickedCost, cmc: printedCmc + totalCmc(auraKickerCost), targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true, kicked: true, kickedName: "kicked" });
+            }
+          }
+        }
+      }
       continue;
     }
 

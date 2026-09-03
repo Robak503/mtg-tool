@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Bubble Snare works, kicked** — the Aura lane offers the kicked cast when you can pay it, and the kicked
+  Snare taps the creature it lands on.
 - **Savage Firecat works** — enters with its seven counters and sheds one each time you tap a land for
   mana; Spike Hatcher and Phantom Nishoba enter with their counters too.
 - **The en-Kor cycle works** — Warrior, Nomads, Lancers, Spirit and Outrider en-Kor redirect the next damage

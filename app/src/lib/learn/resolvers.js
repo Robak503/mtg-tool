@@ -848,7 +848,7 @@ export const RESOLVERS = Object.freeze({
   // resolve — it's put into its owner's graveyard by game rules (CR 608.3b) and never
   // enters (logged, never fabricated). The targetId is a battlefield permanent id.
   [RESOLVER_KEYS.AURA_ETB]: (state, obj) => {
-    const { card, controller, targetId, bestowed, enchantsPlayer, hostType } = obj.payload?.params || {};
+    const { card, controller, targetId, bestowed, enchantsPlayer, hostType, kicked } = obj.payload?.params || {};
     if (!card || !controller) return resolveManual(state, obj);
     // PLAYER-AURA (Fraying Sanity / the Curse class — SHELF S7, CR 303.4): the target is a PLAYER.
     // Re-check at resolution (CR 608.2b — the player may have been eliminated); gone → the Aura card
@@ -901,7 +901,9 @@ export const RESOLVERS = Object.freeze({
     }
     // BESTOW: thread `bestowed` so enterPermanent flags the permanent (layer-4 Creature-type removal while
     // attached + the falls-off SBA exemption). A printed Aura passes bestowed=undefined → identical path.
-    return enterPermanent(state, card, controller, { attachTo: targetId, bestowed });
+    // ④-J KICKER (CR 702.33b/e): a kicked Aura cast stamps wasKicked on the entering Aura (enterPermanent), so
+    // its own "When this Aura enters, if it was kicked, …" trigger fires (Bubble Snare taps the host).
+    return enterPermanent(state, card, controller, { attachTo: targetId, bestowed, ...(kicked ? { kicked: true } : {}) });
   },
 
   // P2.1: a recognized-but-unparseable instant/sorcery. No longer a silent

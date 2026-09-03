@@ -681,7 +681,10 @@ function applyCastSpell(state, action) {
     // which is exactly right for it.
     const targetId = targets[0]?.id;
     const hostSpec = auraEnchantHostSpec(castCard);
-    payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId, ...(hostSpec && { hostType: hostSpec.targetType }) } };
+    // ④-J (Bubble Snare): a KICKED aura cast threads the was-kicked flag exactly like the permanent lane below
+    // (PERMANENT_ETB) — the resolver hands it to enterPermanent, which stamps wasKicked for the "it was kicked"
+    // intervening-if. A normal cast leaves it unset.
+    payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId, ...(hostSpec && { hostType: hostSpec.targetType }), ...(action.kicked ? { kicked: true } : {}) } };
   } else if (action.enchantsPlayer && isPlayerAuraCard(castCard)) {
     // PLAYER-AURA (Fraying Sanity / the Curse class — SHELF S7, CR 303.4): the target is a PLAYER id;
     // AURA_ETB's player branch re-checks the player is still in the game at resolution and enters the

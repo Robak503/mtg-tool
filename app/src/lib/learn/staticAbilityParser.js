@@ -6075,6 +6075,15 @@ function auraResidueClauses(card) {
     // assumed. PURE MANA PIPS ONLY: an alternative cost ("{U} or {B}" — Krovikan Whispers) or a non-mana cost
     // ("Pay 1 life") is not what the synthesized trigger charges → stays residue → the card stays body-only.
     if (/^cumulative upkeep (?:\{[^}]+\})+$/.test(c)) continue;
+    // KICKER on the Aura ITSELF (④-J, Bubble Snare, 2026-09-03 night — CR 702.33): "Kicker {2}{U}" is an OPTIONAL
+    // additional cost. Unpaid, the printed base mode is the complete, real card (the creature-side policy coverage's
+    // reOptionalAddlCost already carries) — and the native-aura cast lane now OFFERS the kicked cast too (kicker
+    // pips folded into the cost, `kicked:true` threaded through AURA_ETB → enterPermanent stamps wasKicked → the
+    // Aura's own "if it was kicked" ETB reads it). A kicked-conditional clause in the body is judged on its OWN
+    // gate by this walk (an unmodeled one stays residue → body-only). Mirrors parseKickerCost's refusals: the
+    // `^kicker` anchor never matches multikicker, and an {X}/{Y}/{Z} kicker (a magnitude the lane can't bound) is
+    // refused here too, so the metric and the offer stand on one rule. PURE MANA PIPS ONLY, like cumulative upkeep.
+    if (/^kicker (?:\{[^}]+\})+$/.test(c) && !/\{[xyz]\}/.test(c)) continue;
     // An aura-own TRIGGER sentence starting with When/Whenever/At "touches" the enchanted creature but is NOT
     // a static bonus clause; admit it as non-residue ONLY when it is the modeled aura-own trigger (the runtime
     // fires it), else it stays residue → non-native (CREED). Checked BEFORE the generic touchesAttachedCreature
