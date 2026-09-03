@@ -1,7 +1,8 @@
 param(
   [string]$Apk,
   [string]$Output,
-  [switch]$VerificationPassed
+  [switch]$VerificationPassed,
+  [switch]$RequireArt
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,6 +47,11 @@ $knowledgeHash = Get-Sha256 $knowledgeDatabasePath
 $knowledgeBytes = (Get-Item -LiteralPath $knowledgeDatabasePath).Length
 $knowledgeManifestHash = Get-Sha256 $knowledgeManifestPath
 $knowledgeVerified = $knowledgeHash -eq $knowledge.database.sha256 -and $knowledgeBytes -eq $knowledge.database.bytes
+$artManifestPath = Join-Path $projectRoot "build\art\omnath-art.manifest.json"
+$artManifest = if (Test-Path -LiteralPath $artManifestPath -PathType Leaf) {
+  Get-Content -LiteralPath $artManifestPath -Raw | ConvertFrom-Json
+} else { $null }
+$artManifestHash = if ($artManifest) { Get-Sha256 $artManifestPath } else { $null }
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path -LiteralPath $Apk))
@@ -76,6 +82,42 @@ try {
     $packagedDatabaseEntry.Length -eq $knowledgeBytes -and
     $packagedDatabaseHash -eq $knowledgeHash -and
     $packagedManifestHash -eq $knowledgeManifestHash
+
+  $packagedArtManifestEntry = $archive.GetEntry("assets/art/omnath-art.manifest.json")
+  $packagedArtEntries = @($archive.Entries | Where-Object { $_.FullName -match '^assets/art/images/.+\.jpg$' })
+  $packagedArtManifestHash = $null
+  if ($packagedArtManifestEntry) {
+    $stream = $packagedArtManifestEntry.Open()
+    try {
+      $algorithm = [System.Security.Cryptography.SHA256]::Create()
+      try { $packagedArtManifestHash = (($algorithm.ComputeHash($stream) | ForEach-Object { $_.ToString("x2") }) -join "") }
+      finally { $algorithm.Dispose() }
+    } finally { $stream.Dispose() }
+  }
+  $artFilesMatch = [bool]$artManifest -and $packagedArtEntries.Count -eq $artManifest.images
+  if ($artFilesMatch) {
+    $artByPath = @{}
+    foreach ($entry in $packagedArtEntries) { $artByPath[$entry.FullName] = $entry }
+    foreach ($record in $artManifest.records) {
+      $entry = $artByPath["assets/art/$($record.relativePath)"]
+      if (-not $entry -or $entry.Length -ne $record.bytes) {
+        $artFilesMatch = $false
+        break
+      }
+      $stream = $entry.Open()
+      try {
+        $algorithm = [System.Security.Cryptography.SHA256]::Create()
+        try { $entryHash = (($algorithm.ComputeHash($stream) | ForEach-Object { $_.ToString("x2") }) -join "") }
+        finally { $algorithm.Dispose() }
+      } finally { $stream.Dispose() }
+      if ($entryHash -ne $record.sha256) {
+        $artFilesMatch = $false
+        break
+      }
+    }
+  }
+  $artPackaged = $null -ne $packagedArtManifestEntry -and $packagedArtEntries.Count -gt 0
+  $packagedArtMatches = $artPackaged -and $artFilesMatch -and $packagedArtManifestHash -eq $artManifestHash
 } finally { $archive.Dispose() }
 $permissions = @([regex]::Matches($permissionDump, "uses-permission: name='([^']+)'") | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
 $forbiddenEntries = @($entries | Where-Object {
@@ -117,6 +159,7 @@ $checks = [ordered]@{
   knowledgePackaged = [bool]$knowledgePackaged
   packagedKnowledgeMatches = [bool]$packagedKnowledgeMatches
   stagedModelsMatchCatalog = [bool](-not ($models.Values | Where-Object { $_.present -and -not $_.verified }))
+  artPackagedMatchesManifest = [bool]((-not $RequireArt) -or $packagedArtMatches)
 }
 
 $receipt = [ordered]@{
@@ -148,6 +191,15 @@ $receipt = [ordered]@{
     packagedPath = "assets/knowledge/omnath-knowledge.sqlite"
     packagedSha256 = $packagedDatabaseHash
     packaged = [bool]$knowledgePackaged
+  }
+  art = [ordered]@{
+    required = [bool]$RequireArt
+    packId = if ($artManifest) { $artManifest.packId } else { $null }
+    images = if ($artManifest) { $artManifest.images } else { 0 }
+    bytes = if ($artManifest) { $artManifest.bytes } else { 0 }
+    packaged = [bool]$artPackaged
+    packagedManifestSha256 = $packagedArtManifestHash
+    verified = [bool]$packagedArtMatches
   }
   models = $models
   webAssets = $chunks
