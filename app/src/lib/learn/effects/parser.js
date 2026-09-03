@@ -2387,6 +2387,18 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       return makeProgram({ confidence: "high", atoms: [{ op: "reveal-until-creature-attacking", targetType: null }], xSpell: false, unparsedTail: null });
     }
   }
+  // ===== TYPED TEAM BASE-P/T SET + TYPE ADD (SG-14, 2026-09-03 — Allosaurus Shepherd) ===== "Until end of
+  // turn, each Elf creature you control has base power and toughness 5/5 and becomes a Dinosaur in addition
+  // to its other types." The top-level " and " would shatter the sentence into two half-clauses that parse
+  // to nothing, so it is collapsed up front (the matchOpenTheWay convention) through the SAME clause parser
+  // the registry runs (setBasePtTeamClauseParser — one reader, no drift). EXACT whole-string anchor.
+  {
+    const sb = String(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+    if (/^until end of turn, each [a-z]+ creature you control has base power and toughness \d+\/\d+ and becomes an? [a-z]+ in addition to its other (?:creature )?types$/.test(sb) && KNOWN.has("set-base-pt-team")) {
+      const atom = setBasePtTeamClauseParser(sb, { hasX: false });
+      if (atom) return makeProgram({ confidence: "high", atoms: [atom], xSpell: false, unparsedTail: null });
+    }
+  }
   // ===== REVEAL-UNTIL-CREATURE-TO-HAND (SG-9, 2026-09-03 — Evolutionary Leap) ===== the INTO-HAND sibling of
   // the span above ("reveal … until you reveal a creature card. Put that card into your hand and the rest on
   // the bottom of your library in a random order"), collapsed up front for the same back-reference reason.

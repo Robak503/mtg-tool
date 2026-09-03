@@ -696,7 +696,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         // TYPE-FILTERED (Prowling Serpopard "CREATURE spells you control can't be countered") — the
         // coverage is per spell now, not per player: reading it as per-player would protect every spell
         // the controller casts, which is Chimil rather than the Serpopard.
-        if (uncounterableCoversSpell(uncounterablePlayers, obj.controller, obj.source?.type || obj.source?.type_line)) continue;
+        if (uncounterableCoversSpell(uncounterablePlayers, obj.controller, obj.source?.type || obj.source?.type_line, obj.source)) continue; // + the card, for a COLOUR-scoped static (SG-14, Allosaurus Shepherd)
       }
       // COPY-TARGET-OWN (Double Major — "copy target creature spell YOU CONTROL"): only the controller's own
       // stack spells are legal. effect.spellController:"you" (set by the copy atom's target spec) enforces it at

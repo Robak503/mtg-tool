@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Allosaurus Shepherd works** — your green spells can't be targeted by counters while it's out, and its
+  {4}{G}{G} turns every Elf you control into a 5/5 Dinosaur Elf until end of turn.
 - **Vexing Bauble works** — a spell cast for no mana at all (a free cast, a {0} spell) is countered; a paid
   spell is left alone, and an alternative-cost cast the engine can't judge is never countered on a guess.
 - **Peregrin Took works** — every batch of tokens you make brings one extra Food along (once per batch, never

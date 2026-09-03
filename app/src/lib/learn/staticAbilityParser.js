@@ -2758,6 +2758,14 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ cantBeCountered: { scope: "youControl", cardType: cbcTypeM[1].charAt(0).toUpperCase() + cbcTypeM[1].slice(1) } });
     return;
   }
+  // ⭐ CONTROLLER × COLOUR (SG-14, 2026-09-03 — Allosaurus Shepherd "GREEN spells you control can't be
+  // countered"): the colour axis of the same family. Enforced by uncounterableCoversSpell reading the stack
+  // spell's colours (its printed colours, else its mana-cost letters). Exact five colour words only.
+  const cbcColorM = c.match(/^(white|blue|black|red|green) spells you control can't be countered$/);
+  if (cbcColorM) {
+    out.push({ cantBeCountered: { scope: "youControl", color: { white: "W", blue: "U", black: "B", red: "R", green: "G" }[cbcColorM[1]] } });
+    return;
+  }
   const cbcM = c.match(/^([a-z]+) spells can't be countered$/);
   if (cbcM) {
     const word = cbcM[1];
@@ -5118,20 +5126,36 @@ export function uncounterablePlayersOnBattlefield(state) {
       for (const d of parseStaticAbilities(perm.card)) {
         if (d.cantBeCountered?.scope !== "youControl") continue;
         if (!players.has(pid)) players.set(pid, new Set());
-        players.get(pid).add(d.cantBeCountered.cardType ?? null);
+        // A COLOUR filter (SG-14, Allosaurus Shepherd) rides as an object entry beside the type strings.
+        players.get(pid).add(d.cantBeCountered.color ? { color: d.cantBeCountered.color } : (d.cantBeCountered.cardType ?? null));
       }
     }
   }
   return players;
 }
 
-/** Does `playerId`'s uncounterable-static coverage protect a spell with this type line? */
-export function uncounterableCoversSpell(uncounterablePlayers, playerId, typeLine) {
+/** A card's colours as letters: its printed `colors`, else the coloured letters of its mana cost (hybrid
+ *  halves included). Leaf — no layers read (a spell on the stack has no layer-derived colour anyway). */
+function cardColorLetters(card) {
+  if (Array.isArray(card?.colors) && card.colors.length) return card.colors.map((x) => String(x).toUpperCase());
+  const cost = String(card?.mana_cost ?? card?.mana ?? "");
+  const out = new Set();
+  for (const m of cost.matchAll(/\{([^}]+)\}/g)) for (const ch of m[1].toUpperCase().split("/")) if ("WUBRG".includes(ch)) out.add(ch);
+  return [...out];
+}
+
+/** Does `playerId`'s uncounterable-static coverage protect a spell with this type line (and, for a colour-
+ *  scoped static — SG-14 — with this card's colours)? */
+export function uncounterableCoversSpell(uncounterablePlayers, playerId, typeLine, card = null) {
   const filters = uncounterablePlayers?.get?.(playerId);
   if (!filters) return false;
   if (filters.has(null)) return true;                     // the unfiltered Chimil form covers everything
   const tl = String(typeLine || "");
-  for (const t of filters) if (t && new RegExp(`\\b${t}\\b`, "i").test(tl)) return true;
+  const colors = card ? cardColorLetters(card) : [];
+  for (const t of filters) {
+    if (t && typeof t === "object") { if (t.color && colors.includes(t.color)) return true; continue; }
+    if (t && new RegExp(`\\b${t}\\b`, "i").test(tl)) return true;
+  }
   return false;
 }
 

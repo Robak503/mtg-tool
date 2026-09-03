@@ -119,10 +119,13 @@ shields, the floating shields and the prevent-style replacement ops all inert fo
 killed). ✅ **SG-13** — Vexing Bauble (the dispatcher now knows whether mana was spent; a "no mana was
 spent to cast it" intervening-if; "counter that spell" on a cast trigger — rewritten at the trigger
 splitter so a spell's own "counter that spell instead" can never borrow it; Hesitation, Lunar Force and
-Jace's emblem rode along; +4, 8/8 killed). **Deck 82/100.** What remains on her deck: Sylvan Library
-(a pending-choice stack), Boseiju's channel (three pieces), Allosaurus Shepherd (two lanes: a colour-scoped
-"green spells you control can't be countered" static + a subtype-filtered base-P/T set with a type add),
-and the multis/parks in §6.
+Jace's emblem rode along; +4, 8/8 killed). ✅ **SG-14** — Allosaurus Shepherd (the colour axis of the
+"…spells you control can't be countered" family, enforced where counter targets are enumerated; a
+subtype-filtered base-P/T set with a same-turn Dinosaur add, collapsed ahead of the " and " split; +1,
+8/8 killed — and a fixture typed from memory caught by the flip-diff: the card prints "other CREATURE
+types"). **Deck 83/100.** What remains on her deck: Sylvan Library (a pending-choice stack), Boseiju's
+channel (three pieces), and the multis/parks in §6 — every one a multi-slice program or a park, so per
+Colton's order the walk moves to stage ④ (the corpus) from here.
 
 Stored 09-02 on Colton's profile (100/0 unresolved). **67/100**: 14 native-mana · 10 native-spell ·
 5 native-trigger · 4 native-activated · 5 native-static · 1 native-mana-aura · 6 native-mixed ·
@@ -209,7 +212,7 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
 - **Squirrel Girl (77/100) parks:** Gemstone Caverns (an opening-hand replacement — no pre-game seam);
   Shifting Woodland (becomes a copy of a graveyard permanent card); Evendo, Waking Haven (Station); the
   multis: Cavern of Souls (choose a creature type + an uncounterable-creature-spell mana source), The One
-  Ring, Endurance, Allosaurus Shepherd, Disruptor Flute, Shang-Chi, Tezzeret, Urza's Saga, and the X-spells
+  Ring, Endurance (evoke is not modeled), Disruptor Flute, Shang-Chi, Tezzeret, Urza's Saga, and the X-spells
   (Genesis Wave, Finale of Devastation, Green Sun's Zenith, Chord of Calling, Archdruid's Charm, Nature's
   Rhythm, Tempt with Discovery). Mediums still open: Sylvan Library (a pay-4-life-or-put-back pending
   choice — its own pending-choice stack, a full slice), Boseiju's channel effect (destroy + the opponent's

@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🦕 2026-09-03 — SG-14: Allosaurus Shepherd — green spells you control can't be countered · the Elf team becomes 5/5 Dinosaurs · **+1 corpus** · Squirrel Girl 82→83 · corpus 40.3% (13,806/34,245)
+> Suite **1345 / 15,294** green; lint 0. Flip-diff **+1, zero LOST** (body-only → native-mixed). **8/8 killed.**
+> SG-13 CI (2d99bdb6): success.
+> · **The colour axis** of the "…spells you control can't be countered" static family (Chimil = every spell,
+>   Serpopard = a card type, now Shepherd = a colour). The marker rides beside the type entries; the reader at
+>   counter-target enumeration takes the stack spell's card and reads its printed colours (else its mana-cost
+>   letters). Pinned end to end: the AI's Counterspell is not offered against the user's green spell while the
+>   Shepherd is out, still offered against a red one, and offered against the green one without the Shepherd.
+> · **The Elf pump.** The team base-P/T set atom (Biomass Mutation's) gains a SUBTYPE filter, a literal P/T
+>   pair and a same-turn ADDED subtype (layer 4, unioned). The sentence carries a top-level " and " that the
+>   clause splitter would shatter, so it is collapsed up front through the same clause parser. Pinned: the Elf
+>   (and the Shepherd, an Elf itself) reads 5/5 with the Dinosaur type; the Bear is untouched; "each NONLAND
+>   creature" fails the subtype allowlist.
+> · **A fixture typed from memory, caught by the flip-diff.** The first pass was witness-green with ZERO
+>   corpus gain: the fixture said "in addition to its other types" while the card prints "its other CREATURE
+>   types". The realism gate (the flip-diff's zero) did its job; the regex accepts the printed tail, the
+>   fixture is the printed text, and both tails are pinned. The lesson is the standing one
+>   (docs/gotchas + memory reference_realism_gate_in_worktree): pull the oracle before modeling a named card.
+> · **Squirrel Girl's walk ends here at 83/100.** What remains (Sylvan Library's pending-choice stack,
+>   Boseiju's three-piece channel, Cavern of Souls, The One Ring, Endurance/evoke, the X-spells, the DFCs,
+>   the parks) is multi-slice programs — per Colton's order, stage ④ (the corpus) is next.
+
 > ## 🔮 2026-09-03 — SG-13: Vexing Bauble — "if no mana was spent to cast it, counter that spell" · **+4 corpus** · Squirrel Girl 81→82 · corpus 40.3% (13,805/34,245)
 > Suite **1344 / 15,288** green; lint 0. Flip-diff **+4, zero LOST** — Vexing Bauble body-only → native-mixed,
 > and three riders audited against their real oracle: Hesitation and Lunar Force ("When a/an opponent casts

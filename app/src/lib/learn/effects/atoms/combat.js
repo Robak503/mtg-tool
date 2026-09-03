@@ -2259,20 +2259,33 @@ export function animateClauseParser(clause) {
 export function applySetBasePtTeam(state, atom, ctx) {
   let next = state;
   const value = Math.max(0, atom.amountX ? (ctx.xValue || 0) : (atom.value || 0));
+  // SG-14 (Allosaurus Shepherd): a literal P/T pair, else the single value; a SUBTYPE filter on the team; an
+  // ADDED subtype (layer 4, unioned — "becomes a Dinosaur in addition to its other types") for the same turn.
+  const power = atom.power != null ? Math.max(0, atom.power) : value;
+  const toughness = atom.toughness != null ? Math.max(0, atom.toughness) : value;
+  const subtypeRe = atom.subtype ? new RegExp(`\\b${atom.subtype}\\b`, "i") : null;
   const player = next.players?.[ctx.controller];
   if (!player) return next;
   // The controller's creatures, locked at resolution (CR 611.2c). Read the type line directly (a base-P/T set
-  // hits every creature you control — no subtype/other filter for the modeled forms).
-  const targets = (player.battlefield || []).filter((perm) => /\bCreature\b/.test(typeLineStr(perm.card))).map((perm) => perm.id);
+  // hits every creature you control; the Shepherd form narrows to a printed subtype).
+  const targets = (player.battlefield || []).filter((perm) => /\bCreature\b/.test(typeLineStr(perm.card)) && (!subtypeRe || subtypeRe.test(typeLineStr(perm.card)))).map((perm) => perm.id);
   const src = { kind: "resolution", permanentId: null, cardName: ctx.cardName || null };
   const dur = () => ({ kind: "endOfTurn", turn: next.turn });
   for (const id of targets) {
     next = addContinuousEffect(next, {
       layer: 7, sublayer: "7b",
-      op: { layerOp: "ptSet", power: value, toughness: value },
+      op: { layerOp: "ptSet", power, toughness },
       affects: { mode: "fixed", permanentIds: [id] },
       duration: dur(), source: src,
     }).state;
+    if (atom.addSubtype) {
+      next = addContinuousEffect(next, {
+        layer: 4,
+        op: { subtypes: [atom.addSubtype] },
+        affects: { mode: "fixed", permanentIds: [id] },
+        duration: dur(), source: src,
+      }).state;
+    }
   }
   // A 0/0 set (X=0) is lethal → run the SBA so those creatures die at resolution (CR 704.5f), mirroring pump/animate.
   const lethal = destroyLethalCreatures(next);
@@ -2288,8 +2301,22 @@ export function applySetBasePtTeam(state, atom, ctx) {
  * (CREED). hasX-gated by the caller (the clause carries the literal "x/x"). Pure. Registered via registerClauseParser.
  */
 export function setBasePtTeamClauseParser(clause, ctx = {}) {
-  if (!ctx.hasX) return null; // only an {X}-cost spell sets X/X here (the literal "x/x" comes from the cost)
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // SG-14 (2026-09-03 — Allosaurus Shepherd "{4}{G}{G}: Until end of turn, each Elf creature you control has
+  // base power and toughness 5/5 and becomes a Dinosaur in addition to its other types."): a SUBTYPE-filtered
+  // literal base-P/T set with a same-turn ADDED subtype. Exact shape — the subtype word must be a curated
+  // creature subtype (TARGET_SUBTYPES); a different frame or rider fails the anchor → null → Arbiter.
+  {
+    // The printed tail is "in addition to its other CREATURE types" (Allosaurus Shepherd); the bare "other
+    // types" wording is accepted alongside it — both are the same layer-4 subtype add.
+    const m = t.match(/^until end of turn, each ([a-z]+) creature you control has base power and toughness (\d+)\/(\d+) and becomes an? ([a-z]+) in addition to its other (?:creature )?types$/);
+    if (m) {
+      const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+      if (!TARGET_SUBTYPES.has(m[1]) || !TARGET_SUBTYPES.has(m[4])) return null;
+      return { op: "set-base-pt-team", scope: "youControl", subtype: cap(m[1]), power: parseInt(m[2], 10), toughness: parseInt(m[3], 10), addSubtype: cap(m[4]) };
+    }
+  }
+  if (!ctx.hasX) return null; // only an {X}-cost spell sets X/X here (the literal "x/x" comes from the cost)
   if (/^creatures you control have base power and toughness x\/x until end of turn$/.test(t)) {
     return { op: "set-base-pt-team", scope: "youControl", amountX: true };
   }
