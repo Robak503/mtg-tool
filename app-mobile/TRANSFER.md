@@ -5,6 +5,30 @@ offline-only Omnath MTG Assistant APK. Generated databases, art downloads,
 models, APKs, credentials, signing material, SDK paths, dependencies, and build
 caches are deliberately excluded from Git.
 
+## Banked checkpoint — 2026-09-03
+
+- Private repository: `https://github.com/Robak503/mtg-tool`
+- Source branch: `codex/omnath-android-transfer`
+- Tested application commit: `cd273f11`
+- Private draft release tag: `omnath-phone-v0.1.0-debug`
+- Private draft page:
+  `https://github.com/Robak503/mtg-tool/releases/tag/untagged-f2df56826b760391705f`
+
+On the destination computer, sign into the `Robak503` GitHub account and run:
+
+```powershell
+git clone https://github.com/Robak503/mtg-tool.git
+Set-Location mtg-tool
+git switch --track origin/codex/omnath-android-transfer
+gh release download omnath-phone-v0.1.0-debug --repo Robak503/mtg-tool --pattern "omnath-full-art-arm64-debug.apk"
+```
+
+The banked full-art APK is 749,194,368 bytes with SHA-256
+`9193adb17e6b5d4cfb6682c9fb13cd4413e6080c30f361b741fe5bf441be7e4b`.
+The core-only APK is 244,966,717 bytes with SHA-256
+`36d5db9af30f32d25e25a3f01e7d58736648fb24b5cc99e7942fcc7241235eb9`.
+Both are assets of the private draft release; neither APK is committed to Git.
+
 ## Included source
 
 - Tauri/Rust Android host and checked-in Gradle wrapper/project
@@ -103,8 +127,8 @@ outputs below exceed that limit and are also generated artifacts:
 | `build/art/omnath-art.sqlite` | 580,046,848 | `npm run art:build` |
 | base model named in `model-catalog.json` | 1,678,542,365 | `npm run models:stage -- -Model base` |
 | enhanced model named in `model-catalog.json` | 3,113,545,589 | `npm run models:stage -- -Model enhanced` |
-| `build/releases/app-arm64-debug.apk` | 244,966,521 | `npm run android:build:debug` |
-| `build/releases/omnath-full-art-arm64-debug.apk` | 749,194,176 | `npm run android:build:art` |
+| `build/releases/app-arm64-debug.apk` | 244,966,717 | `npm run android:build:debug` |
+| `build/releases/omnath-full-art-arm64-debug.apk` | 749,194,368 | `npm run android:build:art` |
 
 The current ignored Oracle snapshot is 83,425,972 bytes and the rulings snapshot
 is 27,644,723 bytes. Although each is below GitHub's hard per-file limit, both
