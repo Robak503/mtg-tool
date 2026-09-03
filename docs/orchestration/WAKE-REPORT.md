@@ -7,6 +7,14 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🔥 2026-09-03 (night cron) — **④-B: dies-damage-by-power (+7, Heartfire Hero)** · suite **1363 / 15,416** green · corpus 13,871 / 34,245 (40.5%) · flip-diff +7 / 0 lost · 5/5 killed
+
+> The dying-creature look-back (`ctx.dyingPower`) now feeds the damage atom for "when this creature dies, it deals
+> damage equal to its power to each opponent / any target". **Next runnable:** the census's remaining cheap leads —
+> the tap-for-mana trigger event (18 carriers, Savage Firecat), Relic of Progenitus's targeted graveyard exile (an
+> opponent-side pick), Snapcaster's flashback grant, the en-Kor damage redirect (5) — or the two-flip composition
+> leads (Bubble Snare needs kicker on the aura cast lane; Hypnotic Siren needs bestow-with-control at runtime).
+
 ## 🧩 2026-09-03 (night cron) — **STAGE ④ OPENED — census two-flip #1 shipped (Mind Harness)** · suite **1362 / 15,411** green · corpus 13,864 / 34,245 (40.5%) · flip-diff +1 / 0 lost · 2/2 killed · pushed only after ed551747's CI reports
 
 > Fresh residue census (night): 20,402 non-native · 11,127 one clause from flipping · no shape above 6 sole-blockers —

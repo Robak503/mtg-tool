@@ -182,8 +182,11 @@ describe("GATED-ARTIFACT — CREED: equipped gate false-negative guards", () => 
   it("equipped + a NON-grantable keyword (banding) stays body-only — banding not in GRANTABLE_STATIC_KEYWORDS", () => {
     expect(classifyCard({ name: "Test Equipped Banding", type: "Creature — Dwarf Warrior", power: 3, toughness: 3, oracle: "As long as this creature is equipped, it has banding." })).toBe("body-only");
   });
-  it("equipped + death trigger stays body-only — death trigger unmodeled", () => {
-    expect(classifyCard({ name: "Fireblade Charger", type: "Creature — Goblin Warrior", power: 2, toughness: 1, oracle: "As long as this creature is equipped, it has haste.\nWhen this creature dies, it deals damage equal to its power to any target." })).toBe("body-only");
+  it("GRADUATED (CORPUS ④-B, 2026-09-03): equipped + the dies-damage-by-power trigger is native now (diesDamageByPower.test.js owns the runtime witness)", () => {
+    expect(classifyCard({ name: "Fireblade Charger", type: "Creature — Goblin Warrior", power: 2, toughness: 1, oracle: "As long as this creature is equipped, it has haste.\nWhen this creature dies, it deals damage equal to its power to any target." })).toBe("native-mixed");
+  });
+  it("equipped + an UNMODELED death trigger stays body-only — the guard seat this class keeps", () => {
+    expect(classifyCard({ name: "Test Equipped Swapper", type: "Creature — Goblin Warrior", power: 2, toughness: 1, oracle: "As long as this creature is equipped, it has haste.\nWhen this creature dies, exchange control of two target creatures." })).toBe("body-only");
   });
 });
 

@@ -4705,6 +4705,16 @@ export function detectTriggers(card) {
         effectClause = cls.event === "dies"
           ? "you gain life equal to the dying creature's power"
           : "you gain life equal to the triggering creature's power";
+      } else if (cls.scope === "self" && cls.event === "dies" && /^it deals damage equal to its power to (each opponent|any target)$/i.test(effectClause)) {
+        // ===== "ITS POWER" DIES-DAMAGE (CORPUS ④-B, 2026-09-03 night — the census's two dies-damage shapes) =====
+        // "When this creature dies, it deals damage equal to its power to each opponent" (Heartfire Hero, Flaming
+        // Tyrannosaurus) / "…to any target" (Balduvian Berserker, Cacophony Scamp). The SAME referent discipline as
+        // the lifegain arm directly above: the creature is GONE by resolution, so "its power" is the CR 603.6e
+        // look-back number checkDiesTriggers stamps (ctx.dyingPower — triggerRouting pins that key to the dies
+        // event). Rewritten to the sentinel the damage parser binds to countContext:"dyingPower"; scope:"self" and
+        // event:"dies" are both required, exactly as above. The damage SOURCE is the dead creature (gone — no
+        // infect/lifelink read, a clean plain deal).
+        effectClause = effectClause.replace(/^it deals damage equal to its power to /i, "it deals damage equal to the dying creature's power to ");
       } else if (cls.event === "etb" && ETB_ENTERING_CREATURE_SCOPES.has(cls.scope) && STAT_PAYOFF_REF_RE.test(effectClause)) {
         // ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== an ETB trigger paying off "that creature's
         // power/toughness" — the ENTERING creature's stat (Terror of the Peaks damage, Verdant Sun's Avatar

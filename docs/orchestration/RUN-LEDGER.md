@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔥 2026-09-03 (night cron) — CORPUS ④-B: "when this creature dies, it deals damage equal to its power" — the dying-creature look-back on the damage atom · **+7** (Heartfire Hero ×2, Flaming Tyrannosaurus, Balduvian Berserker, Juri, Dreadhorde Butcher, Fireblade Charger) · corpus 13,871 / 34,245 (40.5%)
+> Suite **1363 / 15,416** green (one CREED guard graduated + re-seated, below); lint 0. Flip-diff **+7, zero LOST**, each audited
+> whole-card. **5/5 killed** (M2 — the rewrite firing for ANY self event — survived its first run and got the pin: an ETB
+> carrying the same words never receives the dying sentinel).
+> · **The census's two dies-damage shapes** ("…to each opponent", "…to any target"; 3 + 3 sole, Heartfire popular). The
+>   creature is GONE by resolution, so "its power" is the CR 603.6e look-back number checkDiesTriggers already stamps
+>   (`ctx.dyingPower` — the key the lifegain / rad / token dies-payoffs read, pinned to the dies event by
+>   triggerRouting). The self-dies rewrite maps "its power" to the dying-creature sentinel (scope self + event dies, the
+>   same discipline as the lifegain arm beside it) and a damage-parser arm binds it to `countContext:"dyingPower"`
+>   with the each-opponent or any-target enumeration. A live amountCount instead of the look-back key is a killed
+>   mutation (it would read 0 off a creature that left).
+> · **Board-verified:** a Hero that died at 4 power deals 4 to the opponent; a death with no captured power deals
+>   nothing (never a fabricated magnitude); the any-target shape aims the look-back power at a chosen target.
+> · **Riders audited:** Juri (a sacrifice-you trigger + this), Dreadhorde Butcher (combat-damage counter + this),
+>   Fireblade Charger (a conditional self-haste static + this), Balduvian Berserker (Enlist was already admitted
+>   before this slice — its ablation showed the dies line as the sole blocker), A-Heartfire Hero (the Alchemy twin).
+>   Cacophony Scamp stays body-only (its sacrifice-then-proliferate combat trigger).
+> · **A CREED guard graduated:** gatedArtifact.test.js held Fireblade Charger as "equipped + an unmodeled death
+>   trigger stays body-only"; asserted AS native now, and a synthetic equipped creature with an exchange-control
+>   death trigger holds the guard seat.
+
 > ## 🧩 2026-09-03 (night cron) — CORPUS ④-A: an Aura's OWN cumulative upkeep composes with the control-aura tier · **+1** (Mind Harness) · stage ④ opened from the fresh census's TWO-FLIP report · corpus 13,864 / 34,245 (40.5%)
 > Suite **1362 / 15,411** green; lint 0. Flip-diff **+1, zero LOST**. **2/2 killed.**
 > · **The census said "composition, not mechanic":** Mind Harness ("Enchant red or green creature / Cumulative upkeep

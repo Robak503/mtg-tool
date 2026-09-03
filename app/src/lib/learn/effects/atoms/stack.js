@@ -468,6 +468,14 @@ export function dealDamageScaledClauseParser(clause) {
   // the mds arms can't reach it; the amount rides countForSpec's totalMvPermanentsYouControl reader.
   const mvs = t.match(/^.+? deals? damage equal to the total mana value of (other )?permanents you control to (each opponent)$/);
   if (mvs) return { op: "deal-damage", targetType: "eachOpponent", amountCount: { kind: "totalMvPermanentsYouControl", ...(mvs[1] ? { excludeSource: true } : {}) } };
+  // DYING-CREATURE POWER damage (CORPUS ④-B, 2026-09-03 — CR 603.6e LKI): "it deals damage equal to the dying
+  // creature's power to each opponent / any target" — the sentinel detectTriggers rewrites a self-dies trigger's
+  // "its power" to. countContext (NOT amountCount): the creature has LEFT, so its power exists only as the number
+  // the death look-back captured (ctx.dyingPower — the same key the lifegain / rad / token dies-payoffs read, and
+  // pinned to the dies event by triggerRouting). "any target" enumerates a chosen target exactly as a fixed-amount
+  // deal; "each opponent" needs none.
+  const dyd = t.match(/^(?:it|this creature) deals damage equal to the dying creature's power to (each opponent|any target)$/);
+  if (dyd) return { op: "deal-damage", countContext: "dyingPower", targetType: dyd[1] === "each opponent" ? "eachOpponent" : "any" };
   // DMG-SCALE-3 — "where X is" word order: "<source> deals X damage to <target>, where X is [equal to] the
   // number of <count>" (Scourge of Valkas / Dragon Tempest "…to any target, where X is the number of Dragons
   // you control"; Tribal Flames, Profane Prayers, Sparksmith, Gempalm Incinerator, Tendrils of Corruption).

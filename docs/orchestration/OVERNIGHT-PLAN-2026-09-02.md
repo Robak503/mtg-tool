@@ -163,6 +163,7 @@ Stored 09-02 on Colton's profile (100/0 unresolved). **67/100**: 14 native-mana 
 ## §4 STAGE ④ — the corpus grind
 **Progress (night cron 2026-09-03):** stages ①–③ met/parked → ④ opened via RESIDUE-GRIND-RUNBOOK (fresh census in
 the scratchpad). ✅ **④-A** — Aura-own cumulative upkeep composes with the aura tier (Mind Harness, +1; 2/2 killed).
+✅ **④-B** — dies-damage-by-power on the dying-creature look-back (+7; 5/5 killed).
 Queue = the census's two-flip / bug-signature leads (see WAKE-REPORT top).
 Only after ①–③'s DONE lines are met. Boot from the vault's `memory/orders/cindy-corpus-roadmap.md`
 (WHAT/WHY/ORDER) + the repo's `RESIDUE-GRIND-RUNBOOK.md` (HOW): fresh census, largest clause family with
