@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     fs,
-    io::{Read, Write},
+    io::Read,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -10,9 +10,11 @@ use std::{
     },
 };
 use tauri::{path::BaseDirectory, AppHandle, Emitter, Manager, State};
-use tauri_plugin_fs::{FsExt, OpenOptions};
+use tauri_plugin_fs::FsExt;
 #[cfg(target_os = "android")]
 use tauri_plugin_omnath_model::{AssetCopyRequest, OmnathModelExt};
+#[cfg(not(target_os = "android"))]
+use {std::io::Write, tauri_plugin_fs::OpenOptions};
 
 const DATABASE_FILE: &str = "omnath-knowledge.sqlite";
 const MANIFEST_FILE: &str = "omnath-knowledge.manifest.json";
@@ -151,6 +153,7 @@ fn existing_pack_matches(
         && sha256_path(database_path).is_ok_and(|hash| hash == bundled.database.sha256)
 }
 
+#[cfg(not(target_os = "android"))]
 fn stream_copy_verified<R: Read>(
     mut source: R,
     destination: &Path,
