@@ -53,6 +53,12 @@ function hydrateCard(row) {
   };
 }
 
+function hydrateRule(row) {
+  if (!row) return null;
+  const { examplesJson, ...rule } = row;
+  return { ...rule, examples: parseJson(examplesJson, []) };
+}
+
 export function createKnowledgeRepository(database, status) {
   return Object.freeze({
     status,
@@ -132,10 +138,7 @@ export function createKnowledgeRepository(database, status) {
          LIMIT ?`,
         [query, Math.max(1, Math.min(20, Number(limit) || 6))],
       );
-      return rows.map(({ examplesJson, ...row }) => ({
-        ...row,
-        examples: parseJson(examplesJson, []),
-      }));
+      return rows.map(hydrateRule);
     },
 
     async getRuleExact(ruleNumber) {
@@ -148,9 +151,31 @@ export function createKnowledgeRepository(database, status) {
          LIMIT 1`,
         [String(ruleNumber ?? "").trim()],
       );
-      if (!row) return null;
-      const { examplesJson, ...rule } = row;
-      return { ...rule, examples: parseJson(examplesJson, []) };
+      return hydrateRule(row);
+    },
+
+    async getRuleSection(ruleNumber, limit = 12) {
+      const normalized = String(ruleNumber ?? "").trim();
+      const isSection = /^\d{3}\.\d+$/.test(normalized);
+      const rows = await database.select(
+        `SELECT rule_number AS ruleNumber, rule_text AS ruleText,
+                examples_json AS examplesJson, fragment,
+                previous_rule AS previousRule, next_rule AS nextRule
+         FROM cr_rules
+         WHERE rule_number = ?
+            OR (? = 1 AND rule_number GLOB ?)
+         ORDER BY CASE WHEN rule_number = ? THEN 0 ELSE 1 END,
+                  LENGTH(rule_number), rule_number
+         LIMIT ?`,
+        [
+          normalized,
+          isSection ? 1 : 0,
+          `${normalized}[a-z]*`,
+          normalized,
+          Math.max(1, Math.min(30, Number(limit) || 12)),
+        ],
+      );
+      return rows.map(hydrateRule);
     },
 
     async close() {

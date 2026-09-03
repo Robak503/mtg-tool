@@ -63,5 +63,11 @@ test("repository reads cards, face aliases, rulings, and CR from the built pack"
   const rules = await repository.searchRules("triggered ability", 5);
   assert.ok(rules.length > 0);
   assert.match(rules[0].ruleNumber, /^\d/);
+
+  const firstStrike = await repository.getRuleSection("702.7");
+  assert.equal(firstStrike[0].ruleNumber, "702.7");
+  assert.match(firstStrike[0].ruleText, /first strike/i);
+  assert.ok(firstStrike.some(({ ruleNumber }) => ruleNumber === "702.7a"));
+  assert.ok(firstStrike.every(({ ruleNumber }) => ruleNumber === "702.7" || /^702\.7[a-z]/.test(ruleNumber)));
   await repository.close();
 });

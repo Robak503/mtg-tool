@@ -7,6 +7,9 @@ function repository(overrides = {}) {
     async getRuleExact() {
       return null;
     },
+    async getRuleSection() {
+      return [];
+    },
     async findCardExact() {
       return null;
     },
@@ -73,6 +76,47 @@ test("quotes an exact CR rule when a number is supplied", async () => {
   assert.deepEqual(answer.citations.map(({ label }) => label), [
     "Comprehensive Rules 702.7",
   ]);
+});
+
+test("expands a numbered CR section into its verified subrules", async () => {
+  const section = [
+    { ruleNumber: "702.7", ruleText: "First Strike", examples: [] },
+    { ruleNumber: "702.7a", ruleText: "First strike is a static ability.", examples: [] },
+    { ruleNumber: "702.7b", ruleText: "A second combat damage step is created.", examples: [] },
+  ];
+  const answer = await planOfflineAnswer(
+    repository({
+      async getRuleExact() { return section[0]; },
+      async getRuleSection() { return section; },
+    }),
+    "Show CR 702.7",
+  );
+  assert.equal(answer.status, "grounded");
+  assert.equal(answer.facts.subheading, "First Strike");
+  assert.equal(answer.facts.message, `CR 702.7a — ${section[1].ruleText}`);
+  assert.deepEqual(answer.relatedRules.map(({ ruleNumber }) => ruleNumber), ["702.7b"]);
+  assert.deepEqual(answer.citations.map(({ ruleNumber }) => ruleNumber), ["702.7", "702.7a", "702.7b"]);
+});
+
+test("grounds a plain-language rule definition only when the CR title matches exactly", async () => {
+  const section = [
+    { ruleNumber: "702.7", ruleText: "First Strike", examples: [] },
+    { ruleNumber: "702.7a", ruleText: "First strike is a static ability.", examples: [] },
+  ];
+  const answer = await planOfflineAnswer(
+    repository({
+      async searchRules(text) {
+        assert.equal(text, "first strike");
+        return [section[0]];
+      },
+      async getRuleSection() { return section; },
+    }),
+    "Explain first strike",
+  );
+  assert.equal(answer.status, "grounded");
+  assert.equal(answer.answerTrusted, true);
+  assert.equal(answer.facts.heading, "Rule 702.7");
+  assert.equal(answer.facts.message, `CR 702.7a — ${section[1].ruleText}`);
 });
 
 test("fails closed when retrieved matches do not prove an answer", async () => {

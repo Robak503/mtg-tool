@@ -9,6 +9,7 @@ const QUESTION_STOP_WORDS = new Set([
   "card",
   "do",
   "does",
+  "explain",
   "for",
   "how",
   "i",
@@ -16,6 +17,8 @@ const QUESTION_STOP_WORDS = new Set([
   "is",
   "it",
   "me",
+  "mean",
+  "meaning",
   "of",
   "on",
   "or",
@@ -31,6 +34,8 @@ const QUESTION_STOP_WORDS = new Set([
   "work",
   "works",
 ]);
+
+const RULE_SECTION_NUMBER = /^\d{3}\.\d+$/;
 
 function searchTerms(question) {
   return (String(question).match(/[\p{L}\p{N}]+/gu) ?? [])
@@ -71,6 +76,29 @@ function ruleCitation(rule) {
   };
 }
 
+async function ruleSection(repository, rule) {
+  if (!rule || !RULE_SECTION_NUMBER.test(rule.ruleNumber) || typeof repository.getRuleSection !== "function") {
+    return rule ? [rule] : [];
+  }
+  const rules = await repository.getRuleSection(rule.ruleNumber);
+  return rules.length ? rules : [rule];
+}
+
+function ruleAnswer(rules) {
+  const [rule, ...children] = rules;
+  const primary = children[0] ?? rule;
+  const citations = rules.map(ruleCitation);
+  const relatedRules = children.slice(1);
+  return answerPlan("grounded", {
+    heading: `Rule ${rule.ruleNumber}`,
+    subheading: children.length ? rule.ruleText : undefined,
+    message: children.length ? `CR ${primary.ruleNumber} — ${primary.ruleText}` : primary.ruleText,
+    details: primary.examples,
+  }, citations, {
+    relatedRules: Object.freeze(relatedRules),
+  });
+}
+
 function answerPlan(status, facts, citations = [], extra = {}) {
   const answerTrusted = status === "grounded" && citations.length > 0;
   return Object.freeze({
@@ -102,11 +130,7 @@ export async function planOfflineAnswer(repository, rawQuestion, verifiedInterpr
   if (ruleNumber) {
     const rule = verifiedInterpretation?.rule ?? await repository.getRuleExact(ruleNumber);
     if (rule) {
-      return answerPlan("grounded", {
-        heading: `Rule ${rule.ruleNumber}`,
-        message: rule.ruleText,
-        details: rule.examples,
-      }, [ruleCitation(rule)]);
+      return ruleAnswer(await ruleSection(repository, rule));
     }
   }
 
@@ -171,6 +195,10 @@ export async function planOfflineAnswer(repository, rawQuestion, verifiedInterpr
 
   const rules = terms ? await repository.searchRules(terms, 4) : [];
   if (rules.length) {
+    const exactTitleRule = rules.find((rule) => comparable(rule.ruleText) === comparable(terms));
+    if (exactTitleRule) {
+      return ruleAnswer(await ruleSection(repository, exactTitleRule));
+    }
     return answerPlan("matches", {
       heading: "I found related rules, but not enough to rule on the interaction",
       message:
