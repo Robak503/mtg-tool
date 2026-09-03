@@ -2,6 +2,16 @@ import { addPluginListener, invoke } from "@tauri-apps/api/core";
 import { interpretationPrompt, validateInterpretation } from "./interpretationContract.js";
 import { renderNarration } from "./narrationContract.js";
 
+function settleWithin(promise, timeoutMs) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error("model bridge timed out")), timeoutMs);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 export function createModelClient({
   invokeCommand = invoke,
   listen = addPluginListener,
@@ -11,7 +21,7 @@ export function createModelClient({
     invokeCommand(`plugin:omnath-model|${name}`, payload ? { payload } : undefined);
 
   async function status() {
-    try { return await command("status"); } catch { return { state: "unavailable" }; }
+    try { return await settleWithin(command("status"), 2000); } catch { return { state: "unavailable" }; }
   }
 
   async function prepareDefault(modelId = "base") {

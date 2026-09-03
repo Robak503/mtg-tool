@@ -47,6 +47,28 @@ test("boots through runtime and knowledge while model failure stays recoverable"
   assert.equal(controller.getState().model.state, "unavailable");
 });
 
+test("does not call narration when the optional model is unavailable", async () => {
+  let narrationCalled = false;
+  const controller = createAssistantController({
+    verifyRuntime: async () => ({ passed: true }),
+    openRepository: async () => repository({
+      async findCardExact() { return omnath; },
+      async getRulings() { return []; },
+    }),
+    model: model({
+      async narrate() {
+        narrationCalled = true;
+        return new Promise(() => {});
+      },
+    }),
+  });
+  await controller.start();
+  const result = await controller.ask("What does Omnath, Locus of Creation do?");
+  assert.equal(result.answer.status, "grounded");
+  assert.equal(result.answer.facts.message, omnath.oracleText);
+  assert.equal(narrationCalled, false);
+});
+
 test("fails startup closed on a corrupt pack without leaking the exception", async () => {
   const controller = createAssistantController({
     verifyRuntime: async () => ({ passed: true }),

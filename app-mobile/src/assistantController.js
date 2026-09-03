@@ -75,8 +75,11 @@ export function createAssistantController({ verifyRuntime, openRepository, model
         }
       }
 
-      onActivity({ phase: "narrating", tokenCount: 0 });
-      const narration = await model.narrate(plan, (tokenCount) => onActivity({ phase: "narrating", tokenCount }));
+      let narration = { text: plan.fallback, usedModel: false, rejection: "unavailable" };
+      if (currentModel.state === "ready") {
+        onActivity({ phase: "narrating", tokenCount: 0 });
+        narration = await model.narrate(plan, (tokenCount) => onActivity({ phase: "narrating", tokenCount }));
+      }
       ensureCurrent(sequence);
       const outcome = Object.freeze({
         cancelled: false,
