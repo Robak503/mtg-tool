@@ -34,7 +34,7 @@ import { MANA_COLORS, addMana, cardSelfPreventsUntap, moveCardToZone, tapPermane
 import { checkSacrificeTriggers, checkLeavesTriggers, checkDiesTriggers } from "./triggers.js"; // SG-3: a sacrificed-creature mana cost dies through the chokepoint // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
 import { permanentHasKeyword, grantedManaSpecsFor, permanentTypes, summoningSickNow, colorsOf } from "./layers.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
-import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock
+import { parseAuraLandManaBonus, parseGlobalTapManaAugment, artifactActivationsLocked, abilitiesAsThoughHasteFor } from "./staticAbilityParser.js"; // + SG-18: haste-for-abilities at the mana-source sick gate // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only); NR-1: the artifact-activation lock
 import { manaMultiplier } from "./replacementEffects.js"; // MANA-MULTIPLIER: ×N tap-for-mana replacement (Mana Reflection/Nyxbloom; leaf, no cycle)
 import { evaluateInterveningIf } from "./interveningIf.js"; // CONDITION-GATED mana (CR 602.5) — interveningIf imports ONLY gameState, so this is a one-way edge with no cycle (checked before adding it)
 
@@ -1107,9 +1107,23 @@ export function parseSpendRestriction(oracle) {
   const clauses = [...text.matchAll(/spend this mana only ([^.]*)\./g)].map((m) => m[1]);
   if (!clauses.length) return null;
   const types = new Set();
+  const abilityOf = [];
   let chosenType = false;
   let uncounterableIfSpent = false;
   for (const clause of clauses) {
+    // ACTIVATION-ONLY (SG-18, 2026-09-03 — Shang-Chi "Spend this mana only to activate abilities of creature sources."):
+    // the ONE permission is ACTIVATING a creature's ability — no cast at all. Modeled as `abilityOf: ["creature"]`;
+    // spendRestrictionAllows honours it only when the payment site threads `activatingIsCreature` (the permanent
+    // activated-ability offer + its dispatch), so a spell or a non-creature's ability can never spend it. Only the
+    // "creature" word for now (the sole corpus form) — any other source word keeps the whole card refused.
+    {
+      const ao = /^to activate abilities of ([a-z]+) sources$/.exec(clause.trim());
+      if (ao) {
+        if (ao[1] !== "creature") return null;
+        abilityOf.push(ao[1]);
+        continue;
+      }
+    }
     // CHOSEN-TYPE (CAP-CAVERN, 2026-09-03 — CR 614.12 / 106.6): "Spend this mana only to cast a creature spell of
     // the chosen type[, and that spell can't be countered]." (Cavern of Souls, Unclaimed Territory, Secluded
     // Courtyard). The type word must be a vocabulary word; the CHOSEN type is unknown here (no permanent in
@@ -1160,7 +1174,8 @@ export function parseSpendRestriction(oracle) {
       }
     }
   }
-  return types.size ? { castTypes: [...types], ...(chosenType ? { chosenType: true } : {}), ...(uncounterableIfSpent ? { uncounterableIfSpent: true } : {}) } : null;
+  if (!types.size && !abilityOf.length) return null;
+  return { castTypes: [...types], ...(abilityOf.length ? { abilityOf } : {}), ...(chosenType ? { chosenType: true } : {}), ...(uncounterableIfSpent ? { uncounterableIfSpent: true } : {}) };
 }
 
 /**
@@ -1180,6 +1195,12 @@ export function resolveSourceRestriction(restriction, perm) {
 /** Does `card` satisfy a spend restriction? Used by the payment planner via its spend context. */
 export function spendRestrictionAllows(restriction, castCard, opts = {}) {
   if (!restriction) return true;                       // unrestricted source
+  // ACTIVATION-ONLY (SG-18): a cast never qualifies; an activation qualifies iff the site threaded the activating
+  // permanent's creature-ness (true). Missing context → refuse (the default-deny posture).
+  if (Array.isArray(restriction.abilityOf) && restriction.abilityOf.length) {
+    if (castCard) return false;
+    return opts.activatingIsCreature === true && restriction.abilityOf.includes("creature");
+  }
   if (!castCard) return false;                         // ⛔ NO CONTEXT ⇒ REFUSE (see planPayment)
   const typeLine = String(castCard.type || castCard.type_line || "").toLowerCase();
   for (const t of restriction.castTypes || []) {
@@ -1699,7 +1720,8 @@ export function manaSources(state, playerId) {
     // as before; a MASS-ANIMATED land played this turn is newly gated (its {T} mana ability is a sick
     // creature's); a Treasure/stolen non-creature keeps its old never-gated verdict.
     if ((isCreature ? !!perm.summoningSick : summoningSickNow(state, perm)) && !usableWhileSick
-        && !permanentHasKeyword(state, perm.id, "Haste")) continue;
+        && !permanentHasKeyword(state, perm.id, "Haste")
+        && !abilitiesAsThoughHasteFor(state, perm.controller)) continue; // SG-18 (Shang-Chi): abilities as though haste
     // MANA-VARIABLE: a count-derived amount (Gaea's Cradle "for each creature", Karametra "devotion",
     // Bighorner "greatest power", …) is resolved LIVE against the controller's board (CR 608.2g),
     // floored at 0 — never the parser's amount:0 placeholder. ctx.source = this permanent so an
@@ -1920,7 +1942,7 @@ function planPaymentOnce(pool, sources, cost, spendContext = null) {
   const entrySpends = [];
   const rEntries = (spendContext?.restrictedEntries || [])
     .map((e, i) => ({ e, i }))
-    .filter(({ e }) => e && spendRestrictionAllows(e.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander }));
+    .filter(({ e }) => e && spendRestrictionAllows(e.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander, activatingIsCreature: spendContext?.activatingIsCreature === true }));
   if (rEntries.length) {
     let effCost = { ...cost };
     for (const { e, i } of rEntries) {
@@ -1996,7 +2018,7 @@ function planPaymentOnce(pool, sources, cost, spendContext = null) {
     // The bound is the cost's total pip count: generic + colored + hybrid.
     .filter(s => {
       if (!s.restriction) return true;
-      if (!spendRestrictionAllows(s.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander })) return false;
+      if (!spendRestrictionAllows(s.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander, activatingIsCreature: spendContext?.activatingIsCreature === true })) return false;
       const totalPips = (cost.generic || 0)
         + MANA_COLORS.reduce((n, col) => n + (cost[col] || 0), 0)
         + (Array.isArray(cost.hybrid) ? cost.hybrid.length : 0);

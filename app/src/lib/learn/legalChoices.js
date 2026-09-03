@@ -34,7 +34,7 @@ import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapMan
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
-import { castOwnTurnOnlyLock } from "./staticAbilityParser.js"; // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
+import { castOwnTurnOnlyLock, abilitiesAsThoughHasteFor } from "./staticAbilityParser.js"; // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
 import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksOf, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund
@@ -1854,7 +1854,7 @@ function actionsTapForMana(state, playerId) {
     // CR 302.6): a MASS-ANIMATED land played this turn is a summoning-sick creature — its {T} mana
     // ability is off until its controller's next turn (summoningSickNow; printed creatures read their
     // stamped flag exactly as before).
-    if (summoningSickNow(state, perm) && !permanentHasKeyword(state, perm.id, "Haste")) continue;
+    if (summoningSickNow(state, perm) && !permanentHasKeyword(state, perm.id, "Haste") && !abilitiesAsThoughHasteFor(state, perm.controller)) continue; // + SG-18 (Shang-Chi)
     // MANA-VARIABLE: a count-derived amount (Gaea's Cradle / Karametra / Bighorner) is resolved LIVE
     // against the board (CR 608.2g), floored at 0. Skip the source entirely when it would tap for 0 —
     // never offer a pointless 0-mana tap (e.g. Gaea's Cradle with no creatures).
@@ -2057,7 +2057,8 @@ function actionsActivateAbility(state, playerId) {
         if (perm.tapped) continue; // can't tap an already-tapped source
         // CR 302.6: a creature's {T} ability needs it un-summoning-sick (granted Haste counts).
         // summoningSickNow (NV-1): layer-aware — a mass-animated land played this turn is gated too.
-        if (summoningSickNow(state, perm) && !permanentHasKeyword(state, perm.id, "Haste")) continue;
+        // SG-18 (Shang-Chi): "activate abilities of creatures you control as though those creatures had haste".
+        if (summoningSickNow(state, perm) && !permanentHasKeyword(state, perm.id, "Haste") && !abilitiesAsThoughHasteFor(state, perm.controller)) continue;
       }
       let cost = parseManaCost(ab.manaPips || "");
       // ACTIVATED-ABILITY COST-REDUCTION: shave the generic mana of an ability OF A CREATURE the player
@@ -2144,7 +2145,7 @@ function actionsActivateAbility(state, playerId) {
         const ceiling = Math.min(poolTotal + sourceTotal, X_CHOICE_CAP);
         for (let x = 1; x <= ceiling; x++) {
           const xCost = xResolvedCost(cost, x); // generic += xCount * X (CR 107.3; xCount = 1 for a single {X})
-          if (!canAfford(player.manaPool, xSources, xCost)) break; // monotonic in X → stop at the first shortfall
+          if (!canAfford(player.manaPool, xSources, xCost, { activatingIsCreature: permanentIsCreature(state, perm.id) })) break; // monotonic in X → stop at the first shortfall (SG-18: activation spend context)
           // Per-X target enumeration: exactly X distinct legal lands (targetCountX → expandAtoms min=max=X). An X
           // with too few legal lands (fewer than X untappable targets exist) yields no combos → that X is skipped.
           const combos = expandCastChoices(state, playerId, ab.program, colorsOf(perm.card), { xValue: x });
@@ -2245,7 +2246,7 @@ function actionsActivateAbility(state, playerId) {
       // W3: a γ1b sacOther ability's affordability is PER-VICTIM (a one-shot mana victim can't also
       // be cracked for the {mana} part) — checked inside the victim loop below; non-sac abilities
       // keep this fast path.
-      if (!ab.sacOther && !canAfford(player.manaPool, sources, cost)) continue;
+      if (!ab.sacOther && !canAfford(player.manaPool, sources, cost, { activatingIsCreature: permanentIsCreature(state, perm.id) })) continue; // SG-18: activation spend context
 
       // Equip {cost}: target a creature YOU control (CR 702.6e). Equip is SORCERY-SPEED
       // (CR 702.6f) — unlike other activated abilities (instant-speed, conservatively
@@ -2397,21 +2398,21 @@ function actionsActivateAbility(state, playerId) {
       for (const victim of sacVictims) {
         // W3 (two-sites invariant): exclude a ONE-SHOT mana victim from the sources for THIS victim's
         // affordability — mirrors the dispatcher's payment filter exactly.
-        if (ab.sacOther && !canAfford(player.manaPool, sourcesExcludingOneShotVictim(sources, victim?.id), cost)) continue;
+        if (ab.sacOther && !canAfford(player.manaPool, sourcesExcludingOneShotVictim(sources, victim?.id), cost, { activatingIsCreature: permanentIsCreature(state, perm.id) })) continue;
        for (const tapVictim of tapVictims) {
         // γ1f — a "Tap an untapped creature you control" cost: the chosen creature to tap can't ALSO tap for
         // mana (a mana-dork tapped for the cost is already tapped), so exclude it from THIS victim's mana
         // sources for the affordability check — mirrors the dispatcher's payment filter exactly. Earthcraft's
         // cost has no {mana} part, so this is trivially satisfied there, but the guard keeps a future
         // mana+tap-creature ability payable-only-when-truly-affordable (never an unpayable offer, CREED).
-        if (ab.tapCreature && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== tapVictim?.id), cost)) continue;
+        if (ab.tapCreature && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== tapVictim?.id), cost, { activatingIsCreature: permanentIsCreature(state, perm.id) })) continue;
        for (const unattachVictim of unattachVictims) {
        for (const returnLandVictim of returnLandVictims) {
         // γ1g — a "Return a land you control to its owner's hand" cost: the land bounced for the cost can't ALSO
         // tap for mana (it's gone before the {mana} is paid), so exclude it from THIS action's mana sources for
         // the affordability check — mirrors the dispatcher's payment filter exactly. This is the real gate for
         // Oboro: bouncing the land that would have paid the {2} must not be counted as still available.
-        if (ab.returnLand && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== returnLandVictim?.id), cost)) continue;
+        if (ab.returnLand && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== returnLandVictim?.id), cost, { activatingIsCreature: permanentIsCreature(state, perm.id) })) continue;
         for (const discardVictim of discardVictims) { // γ1h (DC-1) — one action per distinct hand card to pitch
         for (const ch of choices) {
           // Don't offer sacrificing the very permanent the effect targets — the victim is paid as a
@@ -2467,7 +2468,7 @@ function actionsActivateAbility(state, playerId) {
               const sourcesForX = manaSources(state, playerId).filter((s) =>
                 !((ab.tapSelf || ab.sacSelf || ab.exileSelf) && s.permanentId === perm.id) &&
                 !sacXExcluded.has(s.permanentId));
-              if (!canAfford(player.manaPool, sourcesForX, cost)) continue; // this X starves the {mana} part
+              if (!canAfford(player.manaPool, sourcesForX, cost, { activatingIsCreature: permanentIsCreature(state, perm.id) })) continue; // this X starves the {mana} part
               actions.push({
                 kind: "activate-ability",
                 playerId,

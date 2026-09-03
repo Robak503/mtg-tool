@@ -3,6 +3,33 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🥋 2026-09-03 (night cron) — SG-18: SHANG-CHI — haste for abilities + an ACTIVATION-ONLY spend restriction · **+2 corpus, −1 (a corrected FP)** · **Squirrel Girl 89 → 90 — STAGE ③'s DONE LINE IS MET** · corpus 13,863 / 34,245 (40.5%)
+> Suite **1361 / 15,408** green; lint 0. Flip-diff **+2 / −1**: Shang-Chi (native-mana) + Thousand-Year Elixir (the same
+> static beside an already-modeled untap; native-mixed); **LOST: Steelswarm Operator** — and that loss is a
+> CORRECTION, see below. **11/11 killed** (M11 — any source word accepted — survived its first run and got the pin).
+> · **Arm 1 — "You may activate abilities of creatures you control as though those creatures had haste."** A static
+>   MARKER (the Dosan pattern) read at every summoning-sick activation gate through ONE sentence reader
+>   (`abilitiesAsThoughHasteFor`): the {T} activated-ability offer, the {T} mana-ability offer, and the mana model's own
+>   source gate — a fresh pinger taps the turn it lands while Shang-Chi is out, and Shang-Chi's own tap is live the
+>   turn HE lands (he is a creature you control). Controller-scoped (an opponent's Shang-Chi hastes nothing of
+>   yours — pinned).
+> · **Arm 2 — "{T}: Add two mana of any one color. Spend this mana only to activate abilities of creature sources."**
+>   The spend model was cast-only by design (every "or activate …" tail deliberately ignored). This is the FIRST
+>   activation-only form: `abilityOf: ["creature"]`, honoured by the allow-check only when the payment site threads
+>   `activatingIsCreature` — the permanent activated-ability offer (every canAfford in that loop) and its dispatch
+>   both thread it (the two-sites invariant; each side's drop is a killed mutation). A spell can never spend it; a
+>   non-creature's ability can never spend it; a site that threads nothing gets the default-deny. The planner taps
+>   the source for ONE colour ("any one color" — a {W}{U} cost is unpayable off it alone, pinned).
+> · **THE LOST CARD IS A LIVE FP CLOSED.** Steelswarm Operator prints "{T}: Add {U}. Spend this mana only to cast an
+>   artifact spell." beside "{T}: Add {U}{U}. Spend this mana only to activate abilities of artifact sources." The
+>   old parser read the whole card as ONE restriction (castTypes: artifact) — so the {U}{U} activation-only line was
+>   spendable on CASTING an artifact, looser than printed. The new form refuses any activation source word but
+>   "creature" (the allow-check has no artifact context yet), which routes the whole card out. Un-crediting a card
+>   the engine over-used is the CREED's direction; the honest re-credit needs per-line restrictions on the ④-3
+>   extra-line machinery (§6).
+> · Stage ③'s DONE line (`measure-coverage.mjs squirrel` ≥ 90) is met at 90/100. The residue: Endurance (a non-mana
+>   evoke), Duskwatch Recruiter (transform — no machinery), Disruptor Flute, and the seven parks.
+
 > ## 💍 2026-09-03 (night cron) — SG-17: THE ONE RING — a named-counters-on-source count kind with honest LAST-KNOWN reads · **+15 corpus** (the Ring + 14 riders, every one audited whole-card) · Squirrel Girl 88 → 89 · corpus 13,862 / 34,245 (40.5%)
 > Suite **1360 / 15,402** green; lint 0. Flip-diff **+15, zero LOST**. **12/12 killed** (M12 — a stale self-sacrifice stamp
 > answering for another source — survived its first run and got the missing test).

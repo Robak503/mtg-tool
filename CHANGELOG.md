@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Shang-Chi, Master of Kung Fu works** — your creatures can use their abilities the turn they arrive, and his two
+  mana of one colour pay only for creature abilities. Thousand-Year Elixir rides along.
 - **The One Ring works** — cast it and you have protection from everything until your next turn (your life still
   moves), it taps for a burden counter and that many cards, and the burden costs you that much life each upkeep.
   Fourteen cards that count their own charge, oil, age, verse, lore, soul or pressure counters ride along
@@ -36,6 +38,8 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **Steelswarm Operator no longer spends its activation-only mana on artifact spells** — the card is routed to the
+  Arbiter until per-line restrictions land (it used to be credited with a looser restriction than printed).
 - **Pay-life lands charge the life** — Horizon Canopy, Silent Clearing, the whole Horizon cycle and Mana
   Confluence used to make their colours for free; now they cost the printed life and aren't offered at 1 life.
   **The Tempest "doesn't untap" duals** (Mogg Hollows and kin) tap for their colours and skip the next untap

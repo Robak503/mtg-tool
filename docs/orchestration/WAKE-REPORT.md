@@ -7,6 +7,14 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🥋 2026-09-03 (night cron) — **SQUIRREL GIRL HITS 90 — STAGE ③ DONE** (SG-18 Shang-Chi) · suite **1361 / 15,408** green · Squirrel Girl **89 → 90** · corpus 13,863 / 34,245 (40.5%) · flip-diff +2 / −1 (Steelswarm Operator un-credited: a live FP closed — its activation-only {U}{U} was spendable on casts) · 11/11 killed
+
+> Haste-for-abilities as a static marker read at all three summoning-sick activation gates, and the spend model's
+> first ACTIVATION-ONLY restriction (`abilityOf: ["creature"]`, threaded at the ability offer + dispatch). Stage ③'s
+> DONE line is met. **Next runnable: stage ④ — the corpus grind** (boot from the vault's cindy-corpus-roadmap), or
+> the §6 parks in order of reach: per-line restrictions for Steelswarm-class cards on the ④-3 extra-line machinery,
+> the Bracers-family remainder, the seven other tempting-offer payoffs.
+
 ## 💍 2026-09-03 (night cron) — **SG-17: The One Ring is NATIVE (+14 riders)** — stage ③ resumed at the residue · suite **1360 / 15,402** green · Squirrel Girl **88 → 89** · corpus 13,862 / 34,245 (40.5%) · flip-diff +15 / 0 lost · 12/12 killed
 
 > A `namedCountersOnSource` count kind (burden / charge / oil / age / verse … "on it / this <noun>") with honest

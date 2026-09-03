@@ -1200,7 +1200,9 @@ function applyActivateAbility(state, action) {
       !sacCountExcluded.has(s.permanentId)),
     action.sacCreatureId,
   );
-  const plan = planPayment(pool, sources, action.cost);
+  // SG-18 (Shang-Chi): the activation spend context — a source printed "Spend this mana only to activate abilities of
+  // creature sources" is offered here iff the activating permanent is a creature (layer-aware). Must MATCH legalChoices.
+  const plan = planPayment(pool, sources, action.cost, { activatingIsCreature: permanentIsCreature(state, perm.id) });
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
 
   let working = commitPaymentPlan(state, action.playerId, plan);

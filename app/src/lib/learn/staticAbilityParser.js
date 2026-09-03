@@ -2979,6 +2979,15 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ castOwnTurnOnly: true });
     return;
   }
+  // ── HASTE FOR ABILITIES (SG-18, 2026-09-03 — Shang-Chi, Master of Kung Fu, CR 302.6): "You may activate
+  // abilities of creatures you control as though those creatures had haste." A coverage MARKER (the castOwnTurnOnly
+  // pattern). The RUNTIME enforcement lives at every summoning-sick activation gate (legalChoices' {T} activated- and
+  // mana-ability offers, manaModel's own source gate), each reading the SAME sentence via abilitiesAsThoughHasteFor —
+  // one parser, no drift. Controller-scoped ("creatures you control"). Exact sentence only.
+  if (/^you may activate abilities of creatures you control as though those creatures had haste$/.test(c)) {
+    out.push({ abilitiesAsThoughHaste: true });
+    return;
+  }
   // ── CAST-LIMIT (BLITZ RL-1 — Rule of Law / Arcane Laboratory / Eidolon of Rhetoric, CR 604.2):
   // "Each player can't cast more than one spell each turn." Emitted as a coverage MARKER (the
   // blockRestriction pattern — no `affects`/`op`, the layer engine ignores it). The RUNTIME enforcement
@@ -5023,6 +5032,16 @@ export function cantCastDescriptorOf(card) {
 export function castOwnTurnOnlyLock(card) {
   const o = String(card?.oracle || card?.oracle_text || "");
   return /(?:^|[\n.;])\s*players can cast spells only during their own turns\s*(?:\.|$)/i.test(o);
+}
+
+/** HASTE FOR ABILITIES (SG-18): does this card print the sentence? The same read every activation gate consults. */
+export function abilitiesAsThoughHasteLock(card) {
+  const o = String(card?.oracle || card?.oracle_text || "");
+  return /(?:^|[\n.;])\s*you may activate abilities of creatures you control as though those creatures had haste\s*(?:\.|$)/i.test(o);
+}
+/** HASTE FOR ABILITIES (SG-18): does `controller` control a permanent printing it? (Shang-Chi covers himself too.) */
+export function abilitiesAsThoughHasteFor(state, controller) {
+  return (state?.players?.[controller]?.battlefield || []).some((perm) => abilitiesAsThoughHasteLock(perm.card));
 }
 
 export function extraLandDropsOf(card) {

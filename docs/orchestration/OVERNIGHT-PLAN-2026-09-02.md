@@ -137,7 +137,8 @@ killed). **Deck 85/100 — the walk's honest end:** every remaining card is a mu
 ✅ **SG-17** (night cron 2026-09-03) — The One Ring (+14 riders: a named-counters-on-source count kind with honest
 LKI reads; 12/12 killed). **Deck 89/100.** Remaining 11: Endurance · Duskwatch Recruiter · Shang-Chi · Disruptor
 Flute (arms) · Gemstone Caverns · Shifting Woodland · Evendo · Urza's Saga · Itlimoc · Invasion of Ikoria · Tezzeret
-(parks).
+(parks). ✅ **SG-18** — Shang-Chi (haste-for-abilities static + the first activation-only spend restriction;
+Thousand-Year Elixir rode; Steelswarm Operator un-credited as a closed FP). **Deck 90/100 — DONE ③ MET.**
 
 Stored 09-02 on Colton's profile (100/0 unresolved). **67/100**: 14 native-mana · 10 native-spell ·
 5 native-trigger · 4 native-activated · 5 native-static · 1 native-mana-aura · 6 native-mixed ·
@@ -236,6 +237,11 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
 ---
 
 ## §6 PARKED / NEEDS COLTON (append as you go — this is the morning report's raw material)
+
+- **[Per-line spend restrictions, 2026-09-03 night — Cindy lane]** Steelswarm Operator (and any card printing two
+  differently-restricted mana lines) needs each restricted line parsed on the ④-3 extra-line machinery with its OWN
+  restriction, instead of one whole-card restriction. Today the card is refused (honest). Also the activation-only
+  form for non-creature source words ("abilities of artifact sources") needs an `activatingIsArtifact`-style context.
 
 - **[TEMPTING OFFER family, 2026-09-03 — Cindy lane, engine parks]** the state machine ships for Tempt with
   Discovery's land payoff. The seven other tempting-offer cards (Tempt with Vengeance / Reflexes / Glory /
