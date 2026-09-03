@@ -2251,7 +2251,17 @@ function manaCardResidueModeled(card, oracle) {
   // law violated. Every NON-mana activated ability must now be modeled; the mana line itself is exempt
   // (isManaEffect — it is vouched by the manaProduction credit this tier stands on, and `modeled` is
   // deliberately false for every mana ability since they never ride the stack path).
-  return parseActivatedAbilities(card).every((a) => a.modeled || a.isManaEffect);
+  // ④-R (2026-09-03 night) — GRAVEYARD-ABILITY COMPOSITION on a MANA source (Abzan Devotee "{1}: Add {W}, {B}, or
+  // {G}. Activate only once each turn. / {2}{B}: Return this card from your graveyard to your hand."; Gravestone
+  // Strider; Buried Treasure): the graveyard line is modeled by its OWN lane (GY-1 / GY-2 — offered from the
+  // graveyard, never from the battlefield), so `modeled` is false here and the gate sank the whole card. The
+  // activated composition admitted exactly this on 2026-08 (census slice 56, the predicate below is its twin) on
+  // the zone argument: the two abilities can never apply to the same object at once. Same predicate, same lanes.
+  const isGraveyardAbility = (a) => {
+    const one = { ...card, oracle: a.raw };
+    return !!(parseGraveyardSelfRecursion(one) || parseGraveyardExileAbility(one));
+  };
+  return parseActivatedAbilities(card).every((a) => a.modeled || a.isManaEffect || isGraveyardAbility(a));
 }
 
 // ADDITIVE registry seam (WAVE 0): module-level list of extra coverage classifiers. A classifier is

@@ -7,6 +7,15 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ⚰️ 2026-09-03 (night cron) — **④-R: mana source + graveyard-zone ability compose (+2)** · suite **1379 / 15,496** green · corpus 13,928 / 34,245 (40.7%) · flip-diff +2 / 0 lost · 2/2 killed
+
+> **Night tally (stage ④, eighteen slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
+> J (+1) · K (+1, FP closed on 3) · L (+4) · M (+2) · N (+7) · O (+4) · P (+3) · Q (+6) · R (+2) — corpus 13,862 → 13,928.
+> **CI:** A control re-run of the last green head (33792869857) is in flight to separate runner from code; nothing further is pushed until it answers.
+> **Next runnable:** Gravestone Strider's once-per-turn any-colour mana line (also Abzan's shape with "any color"),
+> Uneasy Alliance / Path to Redemption (exile host + token on the self-sac Aura, "activate only during your turn"),
+> Graveyard Shovel's life rider, or the next census read.
+
 ## 🪦 2026-09-03 (night cron) — **④-Q: the self-sacrificed Aura's host by last known information (+6)** · suite **1378 / 15,492** green · corpus 13,926 / 34,245 (40.6%) · flip-diff +6 / 0 lost · 4/5 killed (+1 documented redundant guard) killed
 
 > **Night tally (stage ④, seventeen slices):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3) · D tapped-for-mana

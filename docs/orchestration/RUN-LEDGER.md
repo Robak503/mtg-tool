@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚰️ 2026-09-03 (night cron) — CORPUS ④-R: a MANA source with a GRAVEYARD-zone ability — the zone composition on the mana tier · **+2** (Abzan Devotee / Buried Treasure) · corpus 13,928 / 34,245 (40.7%)
+> Suite **1379 / 15,496** green; lint 0. Flip-diff **+2, zero LOST**. **2/2 killed.**
+> · **The shape:** "{1}: Add {W}, {B}, or {G}. Activate only once each turn. / {2}{B}: Return this card from your
+>   graveyard to your hand." The graveyard line is modeled by its OWN lane (GY-1 / GY-2: offered FROM the graveyard,
+>   never from the battlefield), so the battlefield parse reads it unmodeled and the mana tier's residue gate sank
+>   the whole card — the census's two-flip signature (each line native alone). The activated composition admitted
+>   exactly this in August on the zone argument (the two abilities can never apply to the same object at once);
+>   the mana gate now uses the same predicate. Board-verified: on the battlefield the Devotee is a mana source and
+>   its graveyard line is NOT offered; in the graveyard {2}{B} returns it to hand; unpayable → not offered.
+> · **Honest edges:** Jack-o'-Lantern stays parked (its graveyard line IS a mana ability — no lane produces mana from
+>   the graveyard); Gravestone Strider parks on its "add one mana of any color, once each turn" line, a separate gap.
+> · **CI (the ④-L/④-M head 98023534):** attempt 2 ALSO hit the 900 s wall (669/1,374 files). Diagnosed from the logs,
+>   not guessed: per-file durations match the last green run (median ratio 0.95), and the green run had ZERO
+>   completion gaps over 8 s while both failed attempts show exclusive gaps exactly the length of the long files —
+>   the runs executed on ONE worker, not four. A control re-run of the last green head (33792869857) is in flight to separate runner from code; nothing further is pushed until it answers.
+
 > ## 🪦 2026-09-03 (night cron) — CORPUS ④-Q: "SACRIFICE THIS AURA: <effect on enchanted creature>" — the host by last known information (CR 113.7a) · **+6** (Choking Restraints / Phantom Wings / Thrull Retainer / Stamina / Carapace / Briar Shield) · corpus 13,926 / 34,245 (40.6%)
 > Suite **1378 / 15,492** green; lint 0. Flip-diff **+6, zero LOST**. **4/5 killed (+1 documented redundant guard) killed.**
 > · **The shape:** the Aura leaves as its OWN activation cost, so at resolution "enchanted creature" has no live

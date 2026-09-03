@@ -179,6 +179,7 @@ the scratchpad). ✅ **④-A** — Aura-own cumulative upkeep composes with the 
 ✅ **④-O** — Reinforce on a spell: the hand-zone option joins the cost-only strip (+4; 3/3).
 ✅ **④-P** — "target player exiles a card from their graveyard": the target player's own pick through the milled-pick pause (+3; 6/6).
 ✅ **④-Q** — "Sacrifice this Aura: <effect on enchanted creature>": the host by last known information (+6; 4/5 killed (+1 documented redundant guard)).
+✅ **④-R** — a mana source with a graveyard-zone ability: the zone composition on the mana tier (+2; 2/2).
 Queue = the census's two-flip / bug-signature leads (see WAKE-REPORT top).
 Only after ①–③'s DONE lines are met. Boot from the vault's `memory/orders/cindy-corpus-roadmap.md`
 (WHAT/WHY/ORDER) + the repo's `RESIDUE-GRIND-RUNBOOK.md` (HOW): fresh census, largest clause family with

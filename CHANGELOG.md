@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Abzan Devotee and Buried Treasure work** — mana on the battlefield, the graveyard ability from the graveyard.
 - **Choking Restraints, Phantom Wings, Thrull Retainer, Stamina, Carapace and Briar Shield work** — sacrificing
   the Aura still exiles, bounces, regenerates or pumps the creature it was on.
 - **Relic of Progenitus, Scrabbling Claws and Merrow Bonegnawer work** — the targeted player picks which
