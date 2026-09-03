@@ -50,6 +50,7 @@ test("repository reads cards, face aliases, rulings, and CR from the built pack"
 
   const omnath = await repository.findCardExact("Omnath, Locus of Creation");
   assert.equal(omnath.name, "Omnath, Locus of Creation");
+  assert.notEqual(omnath.layout, "art_series");
   assert.match(omnath.oracleText, /land you control enters/i);
   assert.ok((await repository.getRulings(omnath.oracleId)).length >= 1);
 

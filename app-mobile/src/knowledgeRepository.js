@@ -90,7 +90,8 @@ export function createKnowledgeRepository(database, status) {
          FROM card_names n
          JOIN cards c ON c.oracle_id = n.oracle_id
          WHERE n.normalized_name = ?
-         ORDER BY n.face_index ASC
+         ORDER BY CASE WHEN c.layout = 'art_series' THEN 1 ELSE 0 END,
+                  n.face_index ASC
          LIMIT 1`,
         [normalizeCardName(name)],
       );

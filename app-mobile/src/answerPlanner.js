@@ -60,6 +60,23 @@ function questionNamesCard(question, card) {
     .some((name) => haystack.includes(` ${comparable(name)} `));
 }
 
+function cardLookupName(question) {
+  const value = String(question ?? "").trim();
+  const quotedName = value.match(/[“"]([^”"]{2,})[”"]/)?.[1];
+  if (quotedName) return quotedName;
+
+  const patterns = [
+    /^what does\s+(.+?)\s+do\s*[?.!]*$/iu,
+    /^show(?: me)?\s+(?:the\s+)?oracle text(?:\s+(?:for|of))?\s+(.+?)\s*[?.!]*$/iu,
+    /^oracle text(?:\s+(?:for|of))?\s+(.+?)\s*[?.!]*$/iu,
+  ];
+  for (const pattern of patterns) {
+    const match = value.match(pattern);
+    if (match) return match[1].trim();
+  }
+  return value;
+}
+
 function cardCitation(card) {
   return {
     kind: "oracle-card",
@@ -136,8 +153,7 @@ export async function planOfflineAnswer(repository, rawQuestion, verifiedInterpr
 
   const intent = verifiedInterpretation?.intent ?? deterministicIntent(question);
   const interpretedCards = verifiedInterpretation?.cards ?? [];
-  const quotedName = question.match(/[“"]([^”"]{2,})[”"]/)?.[1];
-  const exact = interpretedCards[0] ?? await repository.findCardExact(quotedName ?? question);
+  const exact = interpretedCards[0] ?? await repository.findCardExact(cardLookupName(question));
   const terms = searchTerms(question);
   const candidates = exact
     ? [exact]

@@ -57,6 +57,21 @@ test("quotes exact card text and ruling receipts when the full card is named", a
   assert.equal(answer.citations[1].kind, "official-ruling");
 });
 
+test("extracts the exact card name from a natural card question before searching", async () => {
+  const answer = await planOfflineAnswer(
+    repository({
+      async findCardExact(name) {
+        assert.equal(name, "Omnath, Locus of Creation");
+        return omnath;
+      },
+    }),
+    "What does Omnath, Locus of Creation do?",
+  );
+  assert.equal(answer.status, "grounded");
+  assert.equal(answer.facts.heading, "Omnath, Locus of Creation");
+  assert.equal(answer.facts.message, omnath.oracleText);
+});
+
 test("quotes an exact CR rule when a number is supplied", async () => {
   const answer = await planOfflineAnswer(
     repository({
