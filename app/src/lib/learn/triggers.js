@@ -331,6 +331,18 @@ const FLAVOR_TRIGGER_LABELS = [
   // Aberrant in the corpus (verified). Stripping it lets the boundary-anchored trigger regex see the bare
   // "Whenever" so the combat-damage destroy is detected; the effect's coverage is judged separately.
   "heavy power hammer",
+  // ④-AL (2026-09-03): thirty-four MEASURED flavor words (CR 207.2d — no rules meaning, and no list in the CR to trace,
+  // so each is verified against oracle-index.json: a flavor name before a fully written trigger, one card each). The
+  // census: 264 flavor-labelled trigger lines on parked cards, 263 distinct words; stripping each in turn flipped
+  // exactly these. Warhammer 40k (Necron dynasties, Astartes wargear), D&D monster abilities, Marvel, Final Fantasy.
+  // The strip stays trigger-anchored (the lookahead below), so a label before anything else is untouched.
+  "beacon of hope", "phalanx commander", "keen sight", "keen senses", "sense the good", "blood chalice", "martyrdom",
+  "no mercy", "crushing teeth", "combat inspiration", "dynastic codes", "benediction of the omnissiah", "exile cannon",
+  "concealed position", "flesh flayer", "divine intervention", "skilled outrider",
+  "fire breath", "cold breath", "acid breath",
+  "infesting spores", "dynastic advisor", "architect of deception", "natural recovery", "animate chains",
+  "rosarius", "suppressing fire",
+  "natural shelter", "lord of chaos", "rat tail", "devourer of souls", "hyperphase threshers", "enmitic exterminator", "tail spikes",
 ];
 const FLAVOR_LABEL_RE = new RegExp(
   // optional leading "... " (Cap's "... Catch"), then a flavor label, then the dash before a trigger keyword.

@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🏷️ 2026-09-03 (night cron) — ④-AL: thirty-four Universes-Beyond FLAVOR words join the measured trigger-label list · **+34** · corpus 14,105 / 34,245 (41.2%)
+> Suite **1399 files / 15,578 tests** green; lint 0. Flip-diff **+34, zero LOST**. **3/3 killed.**
+> · **The shape:** CR 207.2d — a flavor word "provide[s] a flavorful description" and has "no special rules meaning",
+>   but the CR lists none, so triggers.js keeps FLAVOR_TRIGGER_LABELS as a MEASURED list (its comment records why a
+>   blanket strip is forbidden: "Max speed", "Solved" and Saga chapters look the same and carry rules meaning). The
+>   census: 264 flavor-labelled trigger lines on parked cards, 263 distinct words — pure one-offs; stripping each in
+>   turn showed exactly 34 that park on the label ALONE (the rest park on their effects). Those 34 joined, each verified
+>   against oracle-index.json as a flavor word before a fully written trigger: the Warhammer 40k Necron / Astartes
+>   names (Phalanx Commander, Dynastic Codes, Exile Cannon, Hyperphase Threshers, Rosarius, Suppressing Fire …), the
+>   D&D monster abilities (Keen Senses, Acid / Cold / Fire Breath, Tail Spikes, Animate Chains, Rat Tail …), Alicia
+>   Masters' Sense the Good, Amarant Coral's No Mercy. The strip stays trigger-anchored (a lookahead for when /
+>   whenever / at), so a label before anything else is untouched (mutation-proven: opening the list to any label is
+>   KILLED by the rules-marker pin).
+> · **CI:** ④-AI/④-AJ's run (353bace9) in flight at commit time; ④-AK + ④-AL push only after it is green
+
 > ## 📜 2026-09-03 (night cron) — ④-AK: the rest of CR 207.2c's ability words join the shared label list · **+2** · corpus 14,071 / 34,245 (41.1%)
 > Suite **1398 files / 15,575 tests** green; lint 0. Flip-diff **+2, zero LOST**. **3/3 killed.**
 > · **The shape:** ABILITY_WORD_LABEL_RE (effects/textNormalize.js — one copy for the trigger path and the spell path)
