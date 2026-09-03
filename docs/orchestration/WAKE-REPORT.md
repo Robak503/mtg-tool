@@ -7,7 +7,20 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## 🏛️ 2026-09-03 — **OVERNIGHT STAGE ① IN FLIGHT: LANDS-3 shipped (+13 corpus), Cap 81%** — suite **1321 / 15,135** green
+## ⛏️ 2026-09-03 — **OVERNIGHT STAGE ① IN FLIGHT: LANDS-4 shipped (+31 corpus), Cap 82%** — suite **1322 / 15,147** green
+
+> **LANDS-4 = "Exile N [type] cards from your graveyard" as a battlefield activated COST** (Mines of
+> Moria; 63 corpus carriers). Modeled on the graveyard-recursion lane's `exileFromGy`: parse →
+> `exileGyCount`, legalChoices freezes exactly N least-valuable victims per target combo (never the
+> combo's own graveyard target — Cabal Surgeon), the dispatcher re-verifies and exiles them before the
+> ability stacks, a short list throws. Flip-diff +31, zero LOST (Grim Lavamancer, Graveyard Marshal,
+> Psychatog, Hostile Desert, Moorland Haunt …). 8/8 mutations killed after deleting a duplicate gate that
+> survived. Corpus 39.9% (13,659/34,245). **Cap 81 → 82**: 30 `land`, 6 `land-partial` (Mistrise Village
+> · Otawara · Uthros · Urza's Saga · 2 MDFC backs), 10 body-only, 2 arbiter-spell. **Next:** Otawara's
+> Channel (scoped: prefix + four-type bounce union + legendary-count rider; witness already written), then
+> Mistrise's uncounterable flag.
+
+## 🏛️ 2026-09-03 — LANDS-3 shipped (+13 corpus), Cap 81% — suite 1321 / 15,135 green
 
 > **LANDS-3 = two one-word blockers.** Inventors' Fair parked only on "Sacrifice Inventors' Fair" (its own
 > name as a cost — now the same `sacSelf` "Sacrifice this land" sets, self-name anchored like the

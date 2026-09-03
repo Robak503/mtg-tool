@@ -3,6 +3,38 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⛏️ 2026-09-03 — LANDS-TIER slice 4: "Exile N [type] cards from your graveyard" as an ACTIVATED COST · **+31 corpus** · Cap 81→82 · corpus 39.9% (13,659/34,245)
+> Suite **1322 / 15,147** green; lint 0. Flip-diff **+31, zero LOST, zero RETIERED** — Mines of Moria
+> (Cap) + Hostile Desert · Moorland Haunt · Great Arashin City (lands) + 27 creatures/enchantments
+> (Grim Lavamancer, Graveyard Marshal, Psychatog, Cabal Surgeon, Molten-Tail Masticore, Drivnod …), every
+> row read by oracle text: each carries exactly this cost shape in front of an effect that already ran.
+> · **The census chose the shape:** 63 corpus cards print the item as a battlefield activated cost — "a
+>   creature card" (31), "two cards" (10), "a card" (6), "three cards" (5), "two creature cards" (3), one
+>   each of "a land card" / "three creature cards" / "seven cards", plus tribal ("an Elf card") and "a
+>   permanent card" forms the reader REFUSES (no matcher for them → the whole cost parks, FN-safe).
+> · **The model is GR-2** (the graveyard-recursion lane's `exileFromGy`), one zone over: parseAbilityCost
+>   reads `exileGyCount {count, cardType}` (typed through the SAME `cardMatchesAddCostType` the spell-side
+>   ADDCOST-3 lane reads); legalChoices gathers the controller's own graveyard pool and freezes EXACTLY N
+>   victims on the action (`exileGyIds`, least-valuable first); the dispatcher re-verifies every id is still
+>   in the graveyard and moves it to exile BEFORE the ability stacks — a short list THROWS (CR 601.2h),
+>   never discounts. The per-X offer lanes (costX / sacX) refuse the combination rather than carry no
+>   victims (no corpus carrier prints it).
+> · **⭐ The overlap the audit caught:** Cabal Surgeon exiles two and RETURNS a third from the same
+>   graveyard — victims are picked per target combo, EXCLUDING the combo's targets (the γ1d sac-count
+>   guard, one zone over); too few left → that combo isn't offered. Pinned (M8/M9).
+> · **Mutations 8/8 KILLED** after one honest deletion: the offer-time "fewer than N → continue" gate
+>   SURVIVED because the per-combo pick already enforced it — a duplicate gate is a gate nobody can see
+>   fail, so it is gone and one enforcing line remains. M1 type dropped · M2 "permanent" admitted · M4
+>   victims not frozen · M5 exile loop inert · M6 short-list guard removed · M7 typed pool ignores type ·
+>   M8 victims include the target · M9 per-combo skip removed.
+> · **A LANDS-1 test re-anchored, not deleted:** its "a readable gate does NOT carry an unmodeled second
+>   ability" pin used Mines of Moria as the stays-partial fixture; Mines now honestly flips, so the pin
+>   moved to a probe whose second ability nothing will ever model ("Each opponent glorbulates"), and the
+>   real card is asserted `land` beside it.
+> · Cap tail now **6 land-partial**: Mistrise Village (next-spell-uncounterable — 3 corpus cards, a new
+>   flag lane) · Otawara (Channel — 38 corpus; three blockers scoped: the keyword prefix, the four-type
+>   bounce union, the legendary-count rider) · Uthros (Station) · Urza's Saga · 2 MDFC backs.
+
 > ## 🏛️ 2026-09-03 — LANDS-TIER slice 3: two ONE-WORD blockers (self-name sacrifice cost · `historic` filter) · **+13 corpus** · Cap 79→81 · corpus 39.8% (13,628/34,245)
 > Suite **1321 / 15,135** green; lint 0. Flip-diff **+13, zero LOST, zero RETIERED** — the two Cap lands
 > plus eleven riders, every row audited by oracle text below. Overnight stage ① item 3/4 done.

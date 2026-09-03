@@ -2111,6 +2111,11 @@ function actionsActivateAbility(state, playerId) {
       // (never offer a cost we can't pay). `count` defaults to 1 for the singular form and for any pre-CC-2
       // serialized descriptor (back-compat with saved states).
       if (ab.removeCounter && !((perm.counters?.[ab.removeCounter.type] || 0) >= (ab.removeCounter.count || 1))) continue;
+      // LANDS-4 — the exile-from-graveyard cost is frozen (exileGyIds) ONLY by the single-action push below; the
+      // per-X lanes (γ1f costX, γ1e sacX) build their own actions and would carry no victims, and the dispatcher
+      // pays only what the action names. An ability combining the two shapes is refused here rather than
+      // activated for free (FN-safe; no corpus carrier prints the combination — the census found none).
+      if (ab.exileGyCount && (ab.costX || ab.sacX)) continue;
       // γ1f — ACTIVATED-{X} (Candelabra of Tawnos "{X}, {T}: Untap X target lands."): a bare mana-{X} cost whose
       // effect's TARGET COUNT is the paid X (a targetCountX atom → program.xSpell). The PLAYER chooses X at
       // activation, so — exactly like the cast path's X-spell branch — enumerate every affordable X and, per X,
@@ -2184,6 +2189,23 @@ function actionsActivateAbility(state, playerId) {
           !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""),
         );
         if (sacCountPool.length < ab.sacCount.count) continue; // can't pay the sac → not offered
+      }
+      // LANDS-4 — "Exile N [<type>] cards from your graveyard" (Mines of Moria, Grim Lavamancer, Graveyard
+      // Marshal): the victims come from the controller's OWN graveyard, typed through the same
+      // cardMatchesAddCostType the spell-side ADDCOST-3 lane reads ("any" = every card), and EXACTLY N are
+      // frozen on the action by the same least-valuable policy the count-N discard/exile costs use. Fewer than
+      // N legal cards → the cost is unpayable and the ability is never offered (CR 601.2h). The dispatcher
+      // re-verifies every id against the graveyard at activation and exiles them before the ability stacks.
+      // The pool is gathered here; the EXACT pick — and the ONE "fewer than N → not offered" gate — happens
+      // per target combo below, excluding any graveyard card the effect targets (Cabal Surgeon exiles two and
+      // returns a third — a victim that is also the target would fizzle the ability, CR 608.2b). No early gate
+      // here on purpose: a duplicate gate survived mutation (the per-combo skip already enforced it), and one
+      // enforcing line is easier to keep honest than two.
+      let exileGyPool = null;
+      if (ab.exileGyCount) {
+        exileGyPool = (player.graveyard || []).filter((g) =>
+          !g.token && (ab.exileGyCount.cardType === "any" || cardMatchesAddCostType(g, ab.exileGyCount.cardType)))
+          .sort(leastValuableCardCmp);
       }
       // γ1e — "Sacrifice X <fungible subtype>": gather every legal victim of the subtype (same fungible-value-token
       // pool + leave-trigger fail-safe as γ1d). The PLAYER chooses X (1..available), so at least ONE must exist to
@@ -2410,6 +2432,16 @@ function actionsActivateAbility(state, playerId) {
             if (pick.length < ab.sacCount.count) continue;
             sacCountIds = pick.map((v) => v.id);
           }
+          // LANDS-4 — pick the N graveyard cards to exile for an "Exile N [<type>] cards from your graveyard"
+          // cost, EXCLUDING any graveyard card this combo targets (the γ1d no-op guard, one zone over). Too few
+          // left after the targets → this combo can't pay → skip it (another target may still be legal).
+          let exileGyIds = null;
+          if (ab.exileGyCount) {
+            const targetIds = new Set(ch.targets.map((t) => t.id));
+            const pick = exileGyPool.filter((g) => !targetIds.has(g.id)).slice(0, ab.exileGyCount.count);
+            if (pick.length < ab.exileGyCount.count) continue;
+            exileGyIds = pick.map((g) => g.id);
+          }
           // γ1e — "Sacrifice X <subtype>" (Grim Hireling): the PLAYER chooses X. Expand ONE action per legal X
           // (1..available), each paying exactly X fungible victims and threading xValue:X into the effect (the
           // "-X/-X" reads ctx.xValue). Victims exclude any the effect TARGETS (a sacrificed Treasure the ability
@@ -2484,6 +2516,7 @@ function actionsActivateAbility(state, playerId) {
             discardCardId: discardVictim?.id ?? null,    // γ1h (DC-1) — the chosen hand card to pitch (cost)
             discardCardName: discardVictim?.name ?? null,
             ...(ab.discardCardFilter ? { discardCardFilter: ab.discardCardFilter } : {}), // γ1h-TYPED — the dispatcher re-validates the pitch's front-face type
+            ...(exileGyIds ? { exileGyIds, exileGyCount: ab.exileGyCount } : {}), // LANDS-4 — the N graveyard cards to exile (cost); the dispatcher re-verifies each
             ...(ab.activationLimit ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key
             program: ab.program,
             targets: ch.targets,

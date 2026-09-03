@@ -203,9 +203,14 @@ describe("coverage — flips, and what honestly stays partial", () => {
   });
 
   it("⛔ a readable gate does NOT carry an unmodeled SECOND ability across (whole-card CREED)", () => {
-    // Mines of Moria's gate reads fine; its "{3}{R}, {T}, Exile three cards …" ability does not — it parks.
+    // Mines of Moria's gate reads fine. Its "{3}{R}, {T}, Exile three cards …" ability parked when this
+    // file was written and flipped on LANDS-4 (the exile-from-graveyard activated cost) — so the real card
+    // is now `land`, and the whole-card pin lives on a PROBE whose second ability nothing will ever model.
     expect(entersTappedUnlessCondition(MINES)).toBe("you control a legendary creature");
-    expect(classifyCard(MINES)).toBe("land-partial");
+    expect(classifyCard(MINES)).toBe("land");
+    const ALIEN = L("Probe Alien", "Probe Alien enters tapped unless you control a legendary creature.\n{T}: Add {R}.\n{3}{R}, {T}: Each opponent glorbulates.");
+    expect(entersTappedUnlessCondition(ALIEN)).toBe("you control a legendary creature");
+    expect(classifyCard(ALIEN)).toBe("land-partial");
   });
 
   it("the one NON-land gain in the flip-diff is legitimate: Platoon Dispenser's 'other creatures' if", () => {

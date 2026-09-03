@@ -380,6 +380,7 @@ export function parseAbilityCost(costStr, card = null) {
   let unattachEquipment = null; // γ1i — "Unattach an Equipment from <self>" (CAP14): a chosen attached Equipment
   let discardCard = 0;
   let discardCardFilter = null; // γ1h-TYPED — "Discard a creature card" (Tortured Existence)
+  let exileGyCount = null;      // LANDS-4 — "Exile N [<type>] cards from your graveyard" (Mines of Moria, Grim Lavamancer)
   for (const item of items) {
     if (/^\{t\}$/i.test(item)) { tapSelf = true; continue; }
     // γ1h — DISCARD-A-CARD cost (BLITZ DC-1 — Rummaging Goblin "{T}, Discard a card: Draw a card."; the
@@ -501,6 +502,22 @@ export function parseAbilityCost(costStr, card = null) {
     // sacrificeCreature lane already uses.
     // ⛔ ADDING A GROUP RENUMBERS THE CAPTURES (the CV-3 lesson): the noun moves from [2] to [3]. The
     // incumbent forms are pinned byte-identical in sacUnionCost.test.js / sacNontoken.test.js.
+    // LANDS-TIER slice 4 (Mines of Moria "{3}{R}, {T}, Exile three cards from your graveyard: …", 2026-09-03):
+    // "Exile N [<type>] card(s) from your graveyard" as a BATTLEFIELD activated cost (CR 601.2h / 602.2b) —
+    // 63 corpus carriers (Grim Lavamancer, Graveyard Marshal, Fungal Plots …). The graveyard-recursion
+    // lane's `exileFromGy` (GR-2, a card acting FROM the graveyard) is the model: legalChoices freezes N
+    // legal victims on the action, the dispatcher re-verifies each is still in the graveyard and moves it to
+    // exile BEFORE the ability goes on the stack. Type words are exactly the ones cardMatchesAddCostType
+    // reads (creature / artifact / land) or none ("cards" = any); "permanent card", a tribal word, "all",
+    // "X" → no match → the whole cost parks (FN-safe — never an under-paid cost).
+    const egM = /^exile (a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) (?:(creature|artifact|land) )?cards? from your graveyard$/i.exec(item);
+    if (egM) {
+      const W = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+      const n = W[egM[1].toLowerCase()] ?? parseInt(egM[1], 10);
+      if (!Number.isInteger(n) || n < 1) return null;
+      exileGyCount = { count: n, cardType: egM[2] ? egM[2].toLowerCase() : "any" };
+      continue;
+    }
     const sacOtherM = /^sacrifice (a|an|another) (nontoken )?(creature or enchantment|creature or planeswalker|creature or land|creature|permanent|artifact|enchantment|land)$/i.exec(item);
     if (sacOtherM) {
       const SAC_UNION_CANON = { "creature or enchantment": "creatureOrEnchantment", "creature or planeswalker": "creatureOrPlaneswalker", "creature or land": "creatureOrLand" };
@@ -575,7 +592,7 @@ export function parseAbilityCost(costStr, card = null) {
     if (!pips.every(pipIsMana)) return null;                      // {X}/{Q}/{E}/… → unmodeled ({S} IS mana, SN-1)
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
-  return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, unattachEquipment, discardCard, discardCardFilter, costX };
+  return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, unattachEquipment, discardCard, discardCardFilter, costX, exileGyCount };
 }
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
@@ -1226,6 +1243,7 @@ export function parseActivatedAbilities(card) {
       removeCounter: cost?.removeCounter ?? null, // γ1c — "Remove a <type> counter from this"
       tapCreature: cost?.tapCreature ?? null,  // γ1f — "Tap an untapped creature you control": legalChoices picks the creature
       discardCard: cost?.discardCard ?? 0,     // γ1h — "Discard a card": legalChoices expands per distinct hand card (DC-1)
+      exileGyCount: cost?.exileGyCount ?? null, // LANDS-4 — "Exile N [<type>] cards from your graveyard": legalChoices freezes N victims (exileGyIds)
       discardCardFilter: cost?.discardCardFilter ?? null, // γ1h-TYPED — "Discard a creature card" (Tortured Existence): the victim pool narrows to the front-face type
       returnLand: cost?.returnLand ?? null,    // γ1g — "Return a land you control to its owner's hand": legalChoices picks the land, dispatcher bounces it
       unattachEquipment: cost?.unattachEquipment ?? null, // γ1i (CAP14) — "Unattach an Equipment from <self>": legalChoices picks the Equipment, dispatcher unattaches it + threads its mana value

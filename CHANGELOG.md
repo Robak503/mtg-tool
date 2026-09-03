@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Abilities that exile cards from your graveyard as a cost work.** Mines of Moria, Grim Lavamancer,
+  Graveyard Marshal, Psychatog, Cabal Surgeon, Hostile Desert and two dozen more now actually pay that
+  cost — the right number of cards, of the right type, leave your graveyard before the ability resolves,
+  and the ability is only offered when you can pay it. Cabal Surgeon never exiles the card it's returning.
 - **Cards that sacrifice themselves by name work.** Inventors' Fair, Lunatic Pandora, Potatoes, Hakoda,
   Major Teroh, Toe-Breaking Helmet and their kin — abilities whose cost reads "Sacrifice <this card's name>"
   now actually pay that cost when activated.

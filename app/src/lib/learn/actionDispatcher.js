@@ -1221,6 +1221,21 @@ function applyActivateAbility(state, action) {
     working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.discardCardId });
     working = checkDiscardTriggers(working, action.playerId, 1);
   }
+  // LANDS-4 — "Exile N [<type>] cards from your graveyard" cost (Mines of Moria, Grim Lavamancer). Same
+  // re-verification posture as the GR-2 recursion loop and the discard cost above: legalChoices froze
+  // exactly N legal ids on `exileGyIds`; each must still be in the graveyard at dispatch, and a short list
+  // is an upstream bug, not a discount (CR 601.2h — never activate without paying the whole cost).
+  if (action.exileGyIds?.length || action.exileGyCount) {
+    const need = action.exileGyCount?.count ?? action.exileGyIds.length;
+    if (!Array.isArray(action.exileGyIds) || action.exileGyIds.length < need) {
+      throw new DispatcherError(`Ability requires exiling ${need} cards from your graveyard but ${action.exileGyIds?.length || 0} were chosen`, "ADDCOST_UNPAID");
+    }
+    for (const xid of action.exileGyIds) {
+      const inGy = (working.players[action.playerId]?.graveyard || []).some((c) => c.id === xid);
+      if (!inGy) throw new DispatcherError(`Exile-cost victim ${xid} not in graveyard`, "COST_UNPAYABLE");
+      working = moveCardToZone(working, { playerId: action.playerId, fromZone: "graveyard", toZone: "exile", cardId: xid });
+    }
+  }
   if (action.sacSelf) working = sacrificePermanentForCost(working, action.playerId, perm);
   if (action.sacCreatureId) {
     const victim = working.players[action.playerId]?.battlefield.find((p) => p.id === action.sacCreatureId);
