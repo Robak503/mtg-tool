@@ -61,9 +61,10 @@ describe("parse — the bfn fixed-MV battlefield fetch", () => {
     });
     expect(p.atoms[0].filter.permanentOnly).toBeUndefined();
   });
-  it("CREED — unmodeled filter words stay LOW (nonland, nonlegendary+color, or-greater comparator)", () => {
+  it("CREED — unmodeled filter words stay LOW (nonland, a tribal word, or-greater comparator); 'nonlegendary' GRADUATED 2026-09-03 (SG-2, Woodland Bellower)", () => {
     expect(programConfidence(parseEffectClause("Search your library for a nonland permanent card with mana value 3 or less, put it onto the battlefield, then shuffle.", "Creature"))).not.toBe("high");
-    expect(programConfidence(parseEffectClause("Search your library for a nonlegendary green creature card with mana value 3 or less, put it onto the battlefield, then shuffle.", "Creature"))).not.toBe("high");
+    expect(programConfidence(parseEffectClause("Search your library for a nonlegendary green creature card with mana value 3 or less, put it onto the battlefield, then shuffle.", "Creature"))).toBe("high");
+    expect(programConfidence(parseEffectClause("Search your library for a nonlegendary green Beast card with mana value 3 or less, put it onto the battlefield, then shuffle.", "Creature"))).not.toBe("high");
     expect(programConfidence(parseEffectClause("Search your library for a creature card with mana value 3 or greater, put it onto the battlefield, then shuffle.", "Sorcery"))).not.toBe("high");
   });
 });

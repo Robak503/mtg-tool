@@ -568,6 +568,15 @@ export function parseTutorFilter(phrase) {
   // but printed text means OR ("blue or black creature" = a creature that is blue OR black). Emitting both
   // would demand a card be BOTH — narrower than printed. Rather than silently under-deliver, a color UNION
   // parks the whole tutor (Kaito Shizuki), which is the honest read until the gate learns OR.
+  // ===== NONLEGENDARY (SG-2, 2026-09-03 — Woodland Bellower "a nonlegendary green creature card with mana value 3
+  // or less") — a SUPERTYPE exclusion gate (`filter.excludeLegendary`), peeled first so the color peel below
+  // still sees "green creature". Like the color and permanent gates it is enforced in cardMatchesTutorFilter;
+  // never a group word (no type line contains "nonlegendary" — the vacuous-filter FP).
+  let excludeLegendary = false;
+  if (/^nonlegendary\s+/i.test(rest)) {
+    excludeLegendary = true;
+    rest = rest.replace(/^nonlegendary\s+/i, "").trim();
+  }
   let colors = null;
   const cm = rest.match(/^((?:white|blue|black|red|green)(?:\s+or\s+(?:white|blue|black|red|green))+)\s+(.+)$/i);
   if (cm) return null; // a color UNION — see above
@@ -620,7 +629,7 @@ export function parseTutorFilter(phrase) {
     && groups.slice(1).every((g) => g.length === 1 && BASIC_LAND_SUBTYPES.has(g[0]));
   if (distribute) for (let i = 1; i < groups.length; i++) groups[i] = ["basic", ...groups[i]];
   for (const g of groups) for (const w of g) if (!TUTOR_FILTER_WORDS.has(w)) return null;
-  return { groups, ...(permanentOnly ? { permanentOnly } : {}), ...(colors ? { colors } : {}) };
+  return { groups, ...(permanentOnly ? { permanentOnly } : {}), ...(colors ? { colors } : {}), ...(excludeLegendary ? { excludeLegendary } : {}) };
 }
 // WAVE-2b TUTOR — UP-TO-N word→number for the multi-fetch ramp tutors ("up to two/three/four/five").
 export const UP_TO_N_WORD = { two: 2, three: 3, four: 4, five: 5 };

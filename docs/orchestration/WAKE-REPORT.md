@@ -7,7 +7,16 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## 🐿️ 2026-09-03 — **STAGE ③ OPEN: The Unbeatable Squirrel Girl is NATIVE (SG-1) — her deck 68/100, corpus 40.2% (13,774)** — suite **1331 / 15,217** green
+## 🌰 2026-09-03 — **STAGE ③: SG-2 — Woodland Bellower · Altar of the Brood · Skullclamp (+6) — Squirrel Girl 71/100, corpus 40.2% (13,780)** — suite **1332 / 15,228** green
+
+> **SG-2** = three cheap singles from her deck: a "nonlegendary" supertype-exclusion gate on the tutor
+> filter; "another permanent you control enters" (exclude-self on the permanent-wide scope); a general
+> equipped-creature-dies detector gated off the SELF-LTB return-it family. 6/6 killed; three equipment
+> riders; four old CREED pins re-anchored. **Her deck 68 → 71.** Next singles: the Altars (a real
+> sacrifice-on-tap mana payment), Jaheira (a bare "tokens you control" mana-grant selector), Geier Reach
+> Sanitarium — then the mediums (Elvish Spirit Guide, Altar of Dementia, Peregrin Took, Dosan …).
+
+## 🐿️ 2026-09-03 — STAGE ③ OPEN: The Unbeatable Squirrel Girl is NATIVE (SG-1) — her deck 68/100, corpus 40.2% (13,774) — suite 1331 / 15,217 green
 
 > **SG-1 = the commander.** Both abilities parked on vocabulary: a "?"-terminated flavor label (now a
 > generic rule — terminal punctuation is flavor by construction), a "!" in the activated label's

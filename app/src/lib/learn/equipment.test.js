@@ -63,7 +63,9 @@ describe("coverage — native-equipment tier", () => {
   });
   it("a complex Equipment (unmodeled rider / extra ability) stays body-only", () => {
     expect(classifyCard({ type: "Artifact — Equipment", oracle: "Equipped creature gets +1/+1 and can't be blocked.\nEquip {2}", name: "X" })).toBe("body-only");
-    expect(classifyCard({ type: "Artifact — Equipment", oracle: "Equipped creature gets +1/+1.\nWhenever equipped creature dies, draw a card.\nEquip {2}", name: "Y" })).toBe("body-only");
+    // (GRADUATED 2026-09-03, SG-2: "equipped creature dies, draw a card" is modeled now — the unmodeled-rider
+    // pin moves to an effect nothing models.)
+    expect(classifyCard({ type: "Artifact — Equipment", oracle: "Equipped creature gets +1/+1.\nWhenever equipped creature dies, each opponent glorbulates.\nEquip {2}", name: "Y" })).toBe("body-only");
     // An UNMODELED equip variant (a cheaper token-only or typed equip we don't offer) must
     // NOT be over-claimed as fully native — the residue keeps the unstripped equip line.
     expect(classifyCard({ type: "Artifact — Equipment", oracle: "Equipped creature gets +1/+1.\nEquip creature token {1}\nEquip {3}", name: "Team Pennant" })).toBe("body-only");

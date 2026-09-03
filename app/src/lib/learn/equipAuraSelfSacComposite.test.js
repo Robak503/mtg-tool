@@ -101,8 +101,11 @@ describe("EQ-2 — CREED FP guards: near-misses stay body-only", () => {
     // body / activated co-grant / aura twin all still park).
     expect(classifyCard(CANDLESTICK)).toBe("native-equipment");
   });
-  it("an unmodeled triggered rider parks — Lead Pipe ('Whenever equipped creature dies …')", () => {
-    expect(classifyCard(LEAD_PIPE)).toBe("body-only");
+  it("a triggered rider — Lead Pipe GRADUATED 2026-09-03 (SG-2: the general equipped-creature-dies detector); an UNMODELED rider still parks", () => {
+    expect(classifyCard(LEAD_PIPE)).toBe("native-equipment");
+    // ⛔ The guard's real job (an unmodeled triggered rider parks the whole composite) is re-pinned on an
+    // effect nothing models — the trigger is detected, the payload is residue, the card stays body-only.
+    expect(classifyCard({ ...LEAD_PIPE, name: "Probe Pipe", oracle: LEAD_PIPE.oracle.replace("each opponent loses 1 life", "each opponent glorbulates") })).toBe("body-only");
   });
   // ⭐ PIN INVERTED (2026-08-03): "Enchant green creature" became an EXPRESSIBLE subject (the layer-aware
   // `color` restriction kind), so this composite now composes AND its cast lane offers only green hosts —

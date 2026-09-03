@@ -344,7 +344,7 @@ const FLAVOR_LABEL_RE = new RegExp(
 // prefixes carry rules meaning (Max speed, Solved, Corrupted, Saga chapters) — and none of those, nor any CR
 // keyword or ability word, ends in a question or exclamation mark. That terminal punctuation is the gate:
 // a label that ends in "?"/"!" is flavor by construction, so this rule is generic where the list is exact.
-const PUNCTUATED_FLAVOR_LABEL_RE = /^[A-Za-z][A-Za-z' ,.!?\-]{1,40}[?!]\s*[—–-]\s*(?=(?:when|whenever|at)\b)/gim;
+const PUNCTUATED_FLAVOR_LABEL_RE = /^[A-Za-z][A-Za-z' ,.!?-]{1,40}[?!]\s*[—–-]\s*(?=(?:when|whenever|at)\b)/gim;
 
 /**
  * Strip a leading ability-word label that precedes a trigger keyword ("Landfall — Whenever …"). Ability
@@ -1664,10 +1664,14 @@ function classifyCondition(condRaw, cardName, cardType) {
   // siblings: a bare "a permanent enters" (no "you control") covers opponents' permanents too and stays
   // UNDETECTED → Arbiter.
   {
-    const pm = c.match(/^a permanent you control enters(?: the battlefield)?( tapped)?$/);
+    // SG-2 (2026-09-03, Altar of the Brood "Whenever ANOTHER permanent you control enters, each opponent mills a
+    // card"): the "another" form excludes the source's own entry (etbExcludeSelf — the Garruk's Packleader
+    // shape), so the Altar never mills on its own arrival.
+    const pm = c.match(/^(a|another) permanent you control enters(?: the battlefield)?( tapped)?$/);
     if (pm) {
       const desc = { event: "permanentEnters", scope: "permanentYouControl", whose: "any" };
-      if (pm[1]) desc.enteredTapped = true;
+      if (pm[2]) desc.enteredTapped = true;
+      if (pm[1] === "another") desc.etbExcludeSelf = true;
       return desc;
     }
   }
@@ -5895,7 +5899,10 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // predicate, because every permanent qualifies. The optional "entered TAPPED" narrowing is enforced as
       // a descriptor filter (enteredTapped) rather than here, so this scope stays a pure controller check and
       // composes with the filter the same way nontokenFilter/tokenFilter do.
-      return !!triggeringPermanent && triggeringPermanent.controller === sourcePermanent.controller;
+      // SG-2: the "ANOTHER permanent you control" form (Altar of the Brood) never fires on the source's own
+      // entry — the same etbExcludeSelf gate the power-threshold ETB scope carries.
+      return !!triggeringPermanent && triggeringPermanent.controller === sourcePermanent.controller
+        && !(descriptor.etbExcludeSelf && triggeringPermanent.id === sourcePermanent.id);
     case "tokenYouControl":
       // TOKEN-ENTERS (Junk Winder — "a token you control enters") — the entering permanent must be a TOKEN
       // (card.token, the token-factory convention, same gate as tokenYouControlLeaves) AND controlled by the
@@ -8808,6 +8815,19 @@ registerTriggerDetector(detectSelfCast);
 // must NOT also self-register — registering both here and there would push the detector twice.
 import { detectPhaseTrigger } from "./triggerScheduler.js";
 registerTriggerDetector(detectPhaseTrigger);
+
+// EQUIPPED-CREATURE DIES, general (SG-2, 2026-09-03 — Skullclamp "Whenever equipped creature dies, draw two
+// cards"; the Squirrel Girl deck). The equippedCreature dies SCOPE already existed for "enchanted creature
+// dies" and for the SELF-LTB family ("equipped creature dies → return it to its owner's hand", whose effect
+// is the EQUIPMENT returning and is owned by selfReturnTriggerDetector). This detector takes every OTHER
+// effect — gated on the effect NOT being that return-it clause, so the two lanes never overlap — and the
+// checker's look-back linkage (the host's attachedTo at death) does the firing. Registered AFTER the
+// self-return detector, and effect-gated besides, so priority never matters.
+function detectEquippedCreatureDies(cond, _name, _type, effect) {
+  if (/^equipped creature dies$/i.test(cond) && !SELF_RETURN_IT_RE.test(String(effect || ""))) return { event: "dies", scope: "equippedCreature", whose: "any" };
+  return null;
+}
+registerTriggerDetector(detectEquippedCreatureDies);
 // GLOBAL SUBTYPE combat-damage ("a <Subtype> deals combat damage to a player, its controller may …" —
 // Synapse/Brood Sliver). Registered here (defined above in this module, no import) so every importer —
 // runtime AND the coverage metric — sees it. Consulted only after the inline classifyCondition returns

@@ -155,6 +155,11 @@ export function cardMatchesTutorFilter(card, filter) {
     const frontType = String(card?.type || card?.type_line || "").toLowerCase().split(" // ")[0];
     if (!/\b(?:legendary|artifact|saga)\b/.test(frontType)) return false;
   }
+  // NONLEGENDARY gate (SG-2 — Woodland Bellower): the front face must NOT carry the Legendary supertype.
+  if (filter.excludeLegendary) {
+    const frontType = String(card?.type || card?.type_line || "").toLowerCase().split(" // ")[0];
+    if (/\blegendary\b/.test(frontType)) return false;
+  }
   const groups = Array.isArray(filter.groups) ? filter.groups : [];
   if (groups.length === 0) return true; // type-unfiltered (null filter handled above; MV-only / permanentOnly / historic fall here)
   // Match the FRONT face only: a library card has just its front-face characteristics

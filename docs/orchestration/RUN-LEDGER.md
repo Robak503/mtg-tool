@@ -3,6 +3,32 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🌰 2026-09-03 — SG-2: Woodland Bellower · Altar of the Brood · Skullclamp (three one-word / one-scope blockers) · **+6 corpus** · Squirrel Girl deck 68→71 · corpus 40.2% (13,780/34,245)
+> Suite **1332 / 15,228** green; lint 0 errors. Flip-diff **+6, zero LOST, zero RETIERED** — the three
+> deck cards plus Original Skullclamp, Sylvok Lifestaff ("…dies, you gain 3 life") and Lead Pipe ("…dies,
+> each opponent loses 1 life"), every rider an equipped-creature-dies trigger with an effect that already ran.
+> **6/6 killed.**
+> · **Woodland Bellower — "nonlegendary"**: a SUPERTYPE-exclusion gate on the tutor filter
+>   (`excludeLegendary`), peeled before the color and enforced in the shared matcher on the front face —
+>   never a group word (no type line prints it). Toski is refused, Grizzly Bears fetched.
+> · **Altar of the Brood — "another permanent you control enters"**: the permanent-wide enters scope knew
+>   "a permanent you control"; "another" now carries `etbExcludeSelf`, and the `permanentYouControl` scope
+>   match honours it — the Altar never mills on its own arrival (pinned both ways).
+> · **Skullclamp — "equipped creature dies, draw two"**: the equippedCreature dies scope existed (enchanted-
+>   creature dies; the SELF-LTB "return it" family owned by selfReturnTriggerDetector). A registered detector
+>   now takes every OTHER effect, gated off the return-it clause so the lanes never overlap; the checker's
+>   look-back linkage (the host's attachedTo at death) fires it. The +1/-1 kills a 1/1 through the real SBA
+>   path and the trigger draws two.
+> · **Four older CREED pins re-anchored** (selfReturn, equipment, recruiterTutor, equipAuraSelfSacComposite):
+>   each asserted one of these shapes "stays body-only / low"; each keeps its half on an effect or word
+>   nothing models ("each opponent glorbulates"; a tribal filter word).
+> · Squirrel Girl deck tail (29 non-native): next singles by cost — Phyrexian Altar / Ashnod's Altar (a
+>   real sacrifice-a-creature-on-tap payment: production flag → manaSources gate on another creature →
+>   commitManaTap sacrifices least-valuable through the dies chokepoint — the exile-from-graveyard cost is
+>   the template) · Jaheira ("Tokens you control have '{T}: Add {G}'" — the quoted mana-grant lane's token
+>   selector knows only mana-artifact subtypes; layers already has a `selector.token` predicate) · Geier
+>   Reach Sanitarium (a symmetric each-player draw-then-discard atom).
+
 > ## 🐿️ 2026-09-03 — STAGE ③ opens: SG-1 — **THE UNBEATABLE SQUIRREL GIRL IS NATIVE** (the deck's commander) · +2 corpus · Squirrel Girl deck 67→68 · corpus 40.2% (13,774/34,245)
 > Suite **1331 / 15,217** green; lint 0. Flip-diff **+2, zero LOST** (the commander + Drey Keeper, whose
 > "Squirrels you control" count rides the same word). **4/4 killed.**

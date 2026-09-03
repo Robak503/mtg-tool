@@ -203,9 +203,11 @@ describe("coverage", () => {
 });
 
 describe("CREED false-positive guards", () => {
-  it("'equipped creature dies, draw a card/two cards' stays body-only (only the return-it form flips)", () => {
-    expect(classifyCard({ name: "Skullclamp", type: "Artifact — Equipment", oracle: "Equipped creature gets +1/-1.\nWhenever equipped creature dies, draw two cards.\nEquip {1}" })).toBe("body-only");
-    expect(classifyCard({ name: "Transmogrant's Crown", type: "Artifact — Equipment", oracle: "Equipped creature gets +1/+1.\nWhenever equipped creature dies, draw a card.\nEquip {1}" })).toBe("body-only");
+  it("'equipped creature dies, draw a card/two cards' — GRADUATED 2026-09-03 (SG-2): a general equipped-creature-dies detector takes every effect BUT the return-it form; an unmodeled effect still parks", () => {
+    expect(classifyCard({ name: "Skullclamp", type: "Artifact — Equipment", oracle: "Equipped creature gets +1/-1.\nWhenever equipped creature dies, draw two cards.\nEquip {1}" })).toBe("native-equipment");
+    expect(classifyCard({ name: "Transmogrant's Crown", type: "Artifact — Equipment", oracle: "Equipped creature gets +1/+1.\nWhenever equipped creature dies, draw a card.\nEquip {1}" })).toBe("native-equipment");
+    // ⛔ The CREED half lives on: the trigger is detected, but an effect nothing models keeps the card parked.
+    expect(classifyCard({ name: "Probe Clamp", type: "Artifact — Equipment", oracle: "Equipped creature gets +1/+1.\nWhenever equipped creature dies, each opponent glorbulates.\nEquip {1}" })).toBe("body-only");
   });
 
   it("a LIVE self-bounce (Zephyr Spirit: 'When this creature blocks, return it…') is NOT rewritten to a graveyard self-return", () => {

@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Skullclamp works** — and Lead Pipe, Sylvok Lifestaff and every "whenever equipped creature dies" card
+  with a modeled payoff. **Woodland Bellower** fetches a nonlegendary green creature (never Toski).
+  **Altar of the Brood** mills each opponent when another permanent of yours enters, never on its own.
 - **The Unbeatable Squirrel Girl works.** Her enters-or-attacks Squirrel and her "I LOVE Squirrels!" X
   ability (one token per Squirrel you control, herself included) both resolve natively; Drey Keeper's
   Squirrel count rides along. Flavor labels ending in "?" or "!" no longer hide a card's triggers.
