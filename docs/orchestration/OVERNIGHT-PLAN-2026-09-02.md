@@ -292,6 +292,12 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
   and the Tempest cycle ×10) — the coloured line is offered with its rider and the tapped land skips its
   next untap step. (3) Grand Coliseum's any-colour painland form — read WITH the pain, first in the Add
   parser. Still refused: any other rider on a second mana line.
+  **The mana lane's honest edge for one night (11:10).** What remains is one shape: the MANA-COSTED mana
+  ability ("{1}, Remove X storage counters: Add X mana …" — the Saltcrusted Steppe cycle ×5, Crucible of the
+  Spirit Dragon, Petalmane Baku; and "{1}, {T}: Add one mana of any color" — Hall of Oracles). The planner
+  has no source that costs mana to make mana: paying the {1} from OTHER sources first is an ordering
+  problem inside a greedy planner, not a reader — its own slice (~2h with gates). PARKED here, not for
+  Colton's judgment but for a fresh seat's hours.
 - **The Roads (5 — Reef/Wild/… Roads) · PARKED 05:50:** "{1}{U}, {T}, Sacrifice this land: Create a 1/1
   colorless Pilot creature token with 'This token saddles Mounts and crews Vehicles as though its power were
   2 greater.'" The token is a quoted STATIC on two verbs; crew is modeled (the crew power sum in legalChoices
