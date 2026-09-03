@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Archdruid's Charm works** — all three modes: the creature-or-land search (a land enters tapped, a creature goes
+  to your hand), the +1/+1 counter and bite (the counter lands first, so the bite hits for one more), and the
+  artifact-or-enchantment exile.
 - **Cavern of Souls works** — it chooses a creature type as it enters (a land played from hand included), taps
   for {C} for anything and for any colour only toward a creature of that type, and a creature paid with that
   mana can't be countered. **Unclaimed Territory** and **Pillar of Origins** ride the same machinery.

@@ -3,6 +3,29 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🌿 2026-09-03 — X-PROGRAM ⑤a: ARCHDRUID'S CHARM — two modes on PROVEN atoms with one rider each · **+1 corpus** · Squirrel Girl 86 → 87 · Zaxara 91 · Colton's day-order item 5 (first half) · corpus 13,846 / 34,245 (40.4%)
+> Suite **1358 / 15,386** green; lint 0. Flip-diff **+1, zero LOST** (Archdruid's Charm, arbiter-spell → native-spell).
+> **10/10 killed.**
+> · **The probe corrected my memory first.** I had the card's modes wrong from recall (a hand-tutor with a "may put it
+>   onto the battlefield instead", a fight); the bundled oracle reads a REVEAL-tutor whose destination depends on the
+>   card's type, a one-way BITE with a counter placed first, and the artifact/enchantment exile. Built from the real
+>   text — the CLAUDE.md law, and the reason the probe comes before the arm.
+> · **Mode 1** — "Search your library for a creature or land card and reveal it. Put it onto the battlefield tapped if
+>   it's a land card. Otherwise, put it into your hand. Then shuffle." → the PROVEN tutor atom (filter creature|land,
+>   destination hand) with `landToBattlefieldTapped`: the settler (resolveTutorChoice) decides PER CHOSEN CARD off its
+>   own type line — a land enters tapped, anything else goes to the hand (both pinned; a creature routed to the
+>   battlefield and an untapped land are each a killed mutation). Threaded through applyTutor → setPendingTutorChoice
+>   → the choice, each an explicit naming site (the whitelist warning in that path means it — M6/M7 each killed).
+> · **Mode 2** — "Put a +1/+1 counter on target creature you control. It deals damage equal to its power to target
+>   creature you don't control." → the PROVEN one-way bite (damage-target-power, roles fighter/target) with
+>   `fighterCounterFirst`: the counter lands on the fighter BEFORE its power is read (printed order, CR 608.2c), so a
+>   2/2 bites for 3 and the 3/3 dies (pinned; reading power first is a killed mutation). A missing dealee still
+>   gets the counter placed (CR 608.2b); a missing fighter gets nothing.
+> · Both spans are WHOLE-STRING collapses in the effect parser (the clause splitter would shatter the multi-sentence
+>   modes); the modal parser hands each mode to it, so all three modes read HIGH and the card is native.
+> · **Honest edge:** the tutor's "reveal it" is not surfaced as a reveal event (the fetched card is public by the
+>   engine's zone move anyway — no hidden-information consumer exists to under-serve).
+
 > ## 🕳️ 2026-09-03 — CAP-CAVERN: CAVERN OF SOULS — the CHOSEN-TYPE spend restriction + "can't be countered" mana · **+3 corpus** (Cavern, Unclaimed Territory → land; Pillar of Origins → native-mana) · Squirrel Girl 85 → 86 · Colton's day-order item 4 · corpus 13,845 / 34,245 (40.4%)
 > Suite **1357 / 15,380** green (one stale refusal pin graduated, below); lint 0. Flip-diff **+3, zero LOST**, each
 > audited whole-card against the bundled oracle. **11/11 killed** (M10 survived its first run — the MAIN-record

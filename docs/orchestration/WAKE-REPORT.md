@@ -7,6 +7,15 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🌿 2026-09-03 (day) — **X-PROGRAM ⑤a: Archdruid's Charm is NATIVE** (all three modes) — Colton's day-order item 5, first half · suite **1358 / 15,386** green · Squirrel Girl **86 → 87** · Zaxara 91 · corpus 13,846 / 34,245 (40.4%) · flip-diff +1 / 0 lost · 10/10 killed
+
+> Two riders on proven atoms: the tutor's per-card destination (`landToBattlefieldTapped` — a land enters tapped,
+> anything else to hand, decided by the settler off the chosen card's type line) and the one-way bite's
+> `fighterCounterFirst` (the +1/+1 counter lands before power is read, so a 2/2 bites for 3). **Next runnable (plan
+> §8):** ⑤b **Tempt with Discovery** — a tempting offer: each opponent MAY search for a land; the caster searches
+> once more per accepting opponent. Needs the opponent-side choice (a pause whose controller is the opponent — the
+> taxed-payment precedent) plus the AI's accept policy. Cap's other parks sit with Omnath (COMMS [Q-CAP-ARBITER]).
+
 ## 🕳️ 2026-09-03 (day) — **CAP-CAVERN: Cavern of Souls is a fully covered LAND** — Colton's day-order item 4 (plan §8) · suite **1357 / 15,380** green · Squirrel Girl **85 → 86** · Cap 86 · corpus 13,845 / 34,245 (40.4%) · flip-diff +3 / 0 lost (Unclaimed Territory → land, Pillar of Origins → native-mana) · 11/11 killed · CI on the Bracers head 68f326e7: **GREEN**
 
 > The chosen-type spend restriction is read as its own form and resolved per permanent into the conjunctive

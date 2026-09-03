@@ -2387,6 +2387,27 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       return makeProgram({ confidence: "high", atoms: [{ op: "reveal-until-creature-attacking", targetType: null }], xSpell: false, unparsedTail: null });
     }
   }
+  // ===== ARCHDRUID'S CHARM (X-PROGRAM ⑤, 2026-09-03) ===== two of its three modes, each a multi-sentence span the
+  // clause splitter would shatter, collapsed whole. (1) "Search your library for a creature or land card and reveal
+  // it. Put it onto the battlefield tapped if it's a land card. Otherwise, put it into your hand. Then shuffle." →
+  // the PROVEN tutor atom with a per-card destination rider (`landToBattlefieldTapped` — the settler routes a land
+  // to the battlefield tapped and anything else to the hand; CR 701.19). (2) "Put a +1/+1 counter on target
+  // creature you control. It deals damage equal to its power to target creature you don't control." → the PROVEN
+  // one-way bite (damage-target-power, roles fighter/target) with `fighterCounterFirst` — the counter lands on the
+  // fighter BEFORE its power is read (CR 608.2c, in printed order), so the bite deals power+1. EXACT anchors.
+  {
+    const ac = String(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+    if (ac === "search your library for a creature or land card and reveal it. put it onto the battlefield tapped if it's a land card. otherwise, put it into your hand. then shuffle" && KNOWN.has("tutor")) {
+      return makeProgram({ confidence: "high", atoms: [{ op: "tutor", filter: { groups: [["creature"], ["land"]] }, filterLabel: "creature or land card", destination: "hand", landToBattlefieldTapped: true, targetType: null }], xSpell: false, unparsedTail: null });
+    }
+    if (ac === "put a +1/+1 counter on target creature you control. it deals damage equal to its power to target creature you don't control" && KNOWN.has("damage-target-power")) {
+      return makeProgram({ confidence: "high", atoms: [{
+        op: "damage-target-power", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], role: "target",
+        secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter",
+        fighterCounterFirst: { counterType: "+1/+1", amount: 1 },
+      }], xSpell: false, unparsedTail: null });
+    }
+  }
   // ===== COPY THAT ABILITY (CAP-BRACERS, 2026-09-03 — CR 707.10) ===== the payoff of an ability-activated
   // trigger: "copy that ability. You may choose new targets for the copy." (Illusionist's Bracers, Rings of
   // Brighthearth's "If you do" branch) / "copy it. You may choose new targets for the copy." (Rowan Kenrith's

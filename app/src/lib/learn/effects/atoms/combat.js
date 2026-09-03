@@ -680,7 +680,16 @@ export function applyFightPair(state, atom, ctx) {
  * applyDamageEffect player path (prevention/replacement/watchers all apply). A non-trampling dealer deals the
  * whole amount to the creature exactly as before — the rider simply doesn't apply.
  */
-export function applyDamageTargetPower(state, atom, ctx) {
+export function applyDamageTargetPower(state0, atom, ctx) {
+  let state = state0;
+  // ARCHDRUID'S CHARM (2026-09-03) — `fighterCounterFirst`: "Put a +1/+1 counter on target creature you control. It
+  // deals damage equal to its power to …" — the counter lands on the FIGHTER before its power is read (printed
+  // order, CR 608.2c), so the bite deals power+1. A missing fighter → no counter (nothing to put it on); a missing
+  // dealee still gets the counter placed (CR 608.2b — the legal part of the effect still happens).
+  if (atom.fighterCounterFirst) {
+    const { fighter: f0 } = fightPairRefs(state, ctx);
+    if (f0) state = addCounter(state, { permanentId: f0.permanent.id, type: atom.fighterCounterFirst.counterType || "+1/+1", amount: atom.fighterCounterFirst.amount || 1 });
+  }
   const { fighter, target } = fightPairRefs(state, ctx);
   if (!fighter || !target) {
     return logEvent(state, { kind: "spell-effect", effect: "damage-target-power", targets: [] });

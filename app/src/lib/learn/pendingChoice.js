@@ -82,7 +82,7 @@ export function setPendingCleanupDiscardChoice(state, { controller, candidates, 
  * library). FIFO: one pending choice at a time (the driver settles it before the
  * next atom/spell resolves, so this guard is belt-and-braces).
  */
-export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", sourceZones = null, destinations = null, mayFailToFind = null, fetchedGrants = null, fetchedGrantsUntil = null }) {
+export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", sourceZones = null, destinations = null, mayFailToFind = null, fetchedGrants = null, fetchedGrantsUntil = null, landToBattlefieldTapped = false }) {
   if (state.pendingChoice) return state;
   // RAMP-SPLIT (Cultivate / Kodama's Reach) — an ORDERED per-fetch destination sequence; its HEAD applies to
   // THIS pick (so the fetch path + picker label read destination/entersTapped unchanged), the tail rides on
@@ -117,6 +117,8 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
       // MV=3) — candidates are already filtered upstream by applyTutor, but threading the filter keeps the
       // auto-pick robust if a future caller ever populates candidates without pre-filtering. Null = no filter.
       filter: filter || null,
+      // ARCHDRUID'S CHARM (2026-09-03) — a LAND pick enters the battlefield tapped; anything else takes `destination`.
+      ...(landToBattlefieldTapped ? { landToBattlefieldTapped: true } : {}),
       // SAVAGE ORDER (2026-08-14) — the fetched-permanent UEOT/next-turn keyword grants, threaded through
       // this FOURTH naming site (the destination comment above warns exactly this: miss one and the path
       // silently under-delivers — the fetched Dino entered WITHOUT its printed indestructible until listed).

@@ -357,6 +357,9 @@ decks at large", then "the program work — all those cards are used lots of pla
    makes the creature spell uncounterable.
 5. **The X-spell program** — Genesis Wave, Finale of Devastation, Green Sun's Zenith, Chord of Calling,
    Archdruid's Charm, Nature's Rhythm, Tempt with Discovery — shelf-wide (Zaxara).
+   Status 2026-09-03: five were already native; **Archdruid's Charm ✅ SHIPPED (⑤a)** — tutor per-card destination
+   rider + bite counter-first rider; **Tempt with Discovery** = the tempting-offer choice (opponent-side pause +
+   AI accept policy), next.
 Every item through §5 in full; parks to §6 + COMMS.
 
 ## §7 WHAT THE MORNING REPORT MUST CONTAIN

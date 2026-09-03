@@ -374,11 +374,16 @@ export function resolveTutorChoice(state, cardId) {
   const destination = pc.destination === "battlefield" ? "battlefield"
     : pc.destination === "top" ? "top"
       : pc.destination === "graveyard" ? "graveyard" : "hand";
+  // ARCHDRUID'S CHARM (2026-09-03) — `landToBattlefieldTapped`: the destination is decided PER CHOSEN CARD — a land
+  // enters the battlefield tapped, anything else takes the choice's destination (the hand). Read off the card's
+  // own type line at settle time (CR 701.19 — the search's destination is whatever the card says).
+  const chosenCardObj = inSource ? (next.players?.[pc.controller]?.[sourceZone] || []).find((c) => c.id === cardId) : null;
+  const landPick = !!pc.landToBattlefieldTapped && !!chosenCardObj && /\bLand\b/i.test(String(chosenCardObj.type || chosenCardObj.type_line || ""));
   let topAlreadyShuffled = false;
   if (inSource) {
-    if (destination === "battlefield") {
+    if (destination === "battlefield" || landPick) {
       // RAMP-1 — the fetched card enters the battlefield (tapped per the card), firing ETB triggers.
-      next = enterCardFromZone(next, { playerId: pc.controller, cardId, fromZone: sourceZone, tapped: !!pc.entersTapped }).state;
+      next = enterCardFromZone(next, { playerId: pc.controller, cardId, fromZone: sourceZone, tapped: !!pc.entersTapped || landPick }).state;
       // SAVAGE ORDER (2026-08-14) — the fetched-permanent UEOT keyword grants ("It gains indestructible
       // until end of turn"): find the just-entered permanent by its card id (the newest such entry) and
       // attach one layer-6 addKeyword effect per granted keyword, endOfTurn duration (CR 611.2c).

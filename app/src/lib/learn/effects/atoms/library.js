@@ -284,6 +284,9 @@ export function applyTutor(state, atom, ctx) {
       : atom.destination === "top" ? "top"
         : atom.destination === "graveyard" ? "graveyard" : "hand",
     entersTapped: !!atom.entersTapped,
+    // ARCHDRUID'S CHARM (2026-09-03) — a LAND pick goes to the battlefield tapped, anything else to the hand; the
+    // settler decides per chosen card. Threaded EXPLICITLY (the whitelist warning above: unlisted = dropped).
+    ...(atom.landToBattlefieldTapped ? { landToBattlefieldTapped: true } : {}),
     // SAVAGE ORDER (2026-08-14) — the fetched-permanent UEOT keyword grants, threaded EXPLICITLY (the
     // whitelist warning above means it: unlisted = dropped = the fetched Dino enters without its
     // printed indestructible — the silent partial).
