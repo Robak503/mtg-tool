@@ -550,12 +550,18 @@ CR JSON nor the source Oracle/rulings envelopes are runtime APK inputs.
 
 ### Stage 4 — vertical-slice APK
 
-**Implementation receipt — 2026-08-31, pending device execution.** The
+**Implementation receipt — 2026-09-02, pending device execution.** The
 deterministic vertical slice, local-model seam, and pre-phone alpha polish now
 exist on branch `codex/omnath-phone-polish`.
 
 - The phone UI has one Omnath chat surface and no persona selector. It exposes
   the runtime and knowledge-pack receipt without requiring a network.
+- The phone shell now follows the desktop EXE's LEYLINE visual system: true
+  black surfaces, phosphor-green edges and primary action, cyan Omnath/evidence
+  accents, compact monospace metadata, and dark-glass chat geometry. It does
+  not copy desktop multi-agent or deck controls that the standalone assistant
+  does not implement. Browser QA passed at 412x915 and the 320px minimum with
+  no horizontal overflow, a fixed visible composer, and 48px controls.
 - The answer planner emits a formal `AnswerPlan` with status, explicit trust,
   immutable facts/citations, narration slots, and deterministic fallback. It quotes canonical Oracle text, official ruling records, or
   exact CR passages when it can prove the match. Ambiguous retrieval is labeled
@@ -594,14 +600,16 @@ exist on branch `codex/omnath-phone-polish`.
   and supplies `HF_TOKEN`.
 - The authoritative full-suite ARM64 debug APK targets Android 36 with minimum
   SDK 24, package id `com.colton.omnath.probe.debug`, and user-facing label
-  **Omnath MTG Assistant**. It is 203,770,366 bytes with SHA-256
-  `87f52fe36e121ee62a4b7976043d6594dfe3532e929e10801ae1d60bca7ac5f9`.
+  **Omnath MTG Assistant**. The LEYLINE UI build from commit `b1e39b5d` is
+  203,770,990 bytes with SHA-256
+  `bb6cac334756af97ca874f508f18ef1c7c6957016432880aa63d30ef6aa25942`.
   Its machine-generated receipt reports 931 entries, no
   `android.permission.INTERNET`, no bundled `.litertlm`, no raw Oracle/rulings/CR
   input, a matching knowledge-pack hash, and a matching staged enhanced-model
   hash. The only reported permission is Android's package-scoped
   dynamic-receiver protection.
-- The initial UI/controller JavaScript is 28,569 bytes (10,310 bytes gzip); the
+- The UI/controller JavaScript is 28,620 bytes (10,330 bytes gzip), and the
+  LEYLINE stylesheet is 11,809 bytes (3,180 bytes gzip); the
   995,428-byte rules-engine witness is isolated in a lazy chunk. The release
   gate passed 24 mobile JS/data/security tests, 17 engine/WebView tests, three
   Rust provisioning tests, and three Kotlin model-lifecycle tests before the
