@@ -226,10 +226,12 @@ Return this card from your graveyard to the battlefield tapped" (a graveyard-act
 its own subsystem). Otharri flips when THAT lands. Ocelot Pride / Windcrag Siege (upkeep), Zack
 Fair / Patrolling Peacemaker (enters-as), Glimmer Lens, Crumb and Get It.
 
-### 5.4 Captain America Shoot your Shot — ⚔️ FOCUS-FIRE ACTIVE (Colton 08-30: Joe's live deck) — **79/100 native**, CAP1-16 + LANDS-1/2 SHIPPED
-> **09-03 LAND TAIL (after LANDS-2, the shockland clause):** 9 land-partial left — the three shocklands
-> (Sacred Foundry · Hallowed Fountain · Steam Vents) ✅ flipped with the `optional-life-payment` pause.
-> **SIX are single-blockers:** ~~Sacred Foundry · Hallowed Fountain · Steam Vents~~ (✅ LANDS-2) · Mines of Moria ({3}{R},{T}, exile three GY
+### 5.4 Captain America Shoot your Shot — ⚔️ FOCUS-FIRE ACTIVE (Colton 08-30: Joe's live deck) — **81/100 native**, CAP1-16 + LANDS-1/2/3 SHIPPED
+> **09-03 LAND TAIL (after LANDS-3):** 7 land-partial left — the three shocklands ✅ (LANDS-2), Inventors'
+> Fair ✅ + Monumental Henge ✅ (LANDS-3, one word each). Remaining single-blockers: Mines of Moria
+> (exile-three-from-graveyard activated cost) · Mistrise Village (next-spell-uncounterable flag) · Otawara
+> (Channel) · Uthros (Station); multis: Urza's Saga + 2 MDFC backs.
+> **(historical, pre-LANDS-3) SIX were single-blockers:** ~~Sacred Foundry · Hallowed Fountain · Steam Vents~~ (✅ LANDS-2) · Mines of Moria ({3}{R},{T}, exile three GY
 > cards: two Treasures) · Mistrise Village ({U},{T}: next spell can't be countered) · Monumental Henge
 > ({2}{W}{W},{T}: look at top five, reveal a historic) · Otawara (Channel) · Inventors' Fair (sac-tutor with a
 > metalcraft activation gate — `evaluateInterveningIf` already speaks it) · Uthros (Station). **Three are

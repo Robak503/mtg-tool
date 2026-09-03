@@ -9,6 +9,11 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Cards that sacrifice themselves by name work.** Inventors' Fair, Lunatic Pandora, Potatoes, Hakoda,
+  Major Teroh, Toe-Breaking Helmet and their kin — abilities whose cost reads "Sacrifice <this card's name>"
+  now actually pay that cost when activated.
+- **"Historic" searches work.** Monumental Henge, Weatherlight and Board the Weatherlight now offer exactly
+  the legendary, artifact and Saga cards from the cards you look at, instead of being skipped.
 - **Shocklands work.** Sacred Foundry, Steam Vents, Hallowed Fountain and the rest of the ten now ask you
   whether to pay 2 life when you play one — pay and it enters untapped, decline and it enters tapped — and
   you're never asked when you can't afford it. A shockland put onto the battlefield by an effect pays when

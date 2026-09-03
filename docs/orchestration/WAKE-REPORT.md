@@ -7,7 +7,20 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## 🩸 2026-09-03 — **OVERNIGHT STAGE ① IN FLIGHT: LANDS-2 shipped (the shocklands, +10 corpus), Cap 79%** — suite **1320 / 15,123** green
+## 🏛️ 2026-09-03 — **OVERNIGHT STAGE ① IN FLIGHT: LANDS-3 shipped (+13 corpus), Cap 81%** — suite **1321 / 15,135** green
+
+> **LANDS-3 = two one-word blockers.** Inventors' Fair parked only on "Sacrifice Inventors' Fair" (its own
+> name as a cost — now the same `sacSelf` "Sacrifice this land" sets, self-name anchored like the
+> remove-counter item); Monumental Henge only on the word "historic" (CR 700.6 — now a GATE on the shared
+> tutor matcher, front-face, placed before the "no groups = anything" early-return). Flip-diff +13, zero
+> LOST: the two lands + nine "Sacrifice <own name>" riders (Lunatic Pandora, Potatoes, Hakoda …) + two
+> historic digs (Weatherlight, Board the Weatherlight). 7/7 mutations killed. Corpus 39.8% (13,628/34,245).
+> **Cap 79 → 81**: 29 `land`, 7 `land-partial` (Mines of Moria · Mistrise Village · Otawara · Uthros ·
+> Urza's Saga · 2 MDFC backs), 10 body-only, 2 arbiter-spell. **Next:** Mines of Moria's exile-three-from-
+> graveyard activated cost (the graveyard-recursion lane already has `exileFromGy`; the battlefield activated
+> lane needs the item + offer + pay), then Mistrise's "next spell can't be countered" flag.
+
+## 🩸 2026-09-03 — LANDS-2 shipped (the shocklands, +10 corpus), Cap 79% — suite 1320 / 15,123 green
 
 > **LANDS-2 = the shockland clause** "As this land enters, you may pay 2 life. If you don't, it enters
 > tapped." — all ten corpus shocklands flipped (flip-diff +10, zero LOST). It is a player CHOICE, so the

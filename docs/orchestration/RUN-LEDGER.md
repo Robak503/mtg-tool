@@ -3,6 +3,42 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🏛️ 2026-09-03 — LANDS-TIER slice 3: two ONE-WORD blockers (self-name sacrifice cost · `historic` filter) · **+13 corpus** · Cap 79→81 · corpus 39.8% (13,628/34,245)
+> Suite **1321 / 15,135** green; lint 0. Flip-diff **+13, zero LOST, zero RETIERED** — the two Cap lands
+> plus eleven riders, every row audited by oracle text below. Overnight stage ① item 3/4 done.
+> · **The ablation said "one word each."** Inventors' Fair parked ONLY on "Sacrifice Inventors' Fair" (its
+>   own name in its cost — the tutor, the metalcraft "Activate only if", the sacrifice machinery all ran);
+>   Monumental Henge ONLY on the word "historic" (the reveal-dig atom, the pause, the bottom-in-random-order
+>   all ran). Vocabulary in front of machinery, twice — the cheapest shape there is.
+> · **A. Self-name sacrifice cost** (`execSacrificeSelfName` in parseAbilityCost, beside the remove-counter
+>   and unattach self-name items and anchored the same way): "sacrifice <full name>" or "sacrifice <legendary
+>   short name>", whole item, never a substring — CR 201.5 makes the name mean "this object", so it sets the
+>   SAME `sacSelf` flag "Sacrifice this land" does and the activation payer sacrifices the source exactly as
+>   before. Requires `card` (both the runtime lane and the classifier pass it). A comma-bearing full name can
+>   never arrive whole (the cost string splits on commas first) — fine, Oracle only prints the short name.
+>   **Riders (all "Sacrifice <own name>" costs):** Lunatic Pandora · Professor Zei · Potatoes · Five Hundred
+>   Year Diary · Lieutenant Kirtar · Hakoda · Spectacular Spider-Man · Major Teroh · Toe-Breaking Helmet.
+> · **B. `historic` as a tutor/dig filter** (CR 700.6: legendary supertype OR artifact type OR Saga subtype).
+>   A GATE on `cardMatchesTutorFilter` (`filter.historic`), read off the FRONT face like the groups gate, and
+>   placed BEFORE the `groups.length === 0` "matches everything" early-return — a historic filter has no
+>   groups, so reaching that line with it attached would turn "reveal a historic card" into "reveal any card".
+>   Deliberately NOT a group word: group words match by containment against the type line, and no type line
+>   says "historic" — the vacuous-filter FP the parser's own color note names. Only the bare word is admitted
+>   ("historic creature" → null). The battlefield-tutor "guaranteed" analysis refuses a groups-less historic
+>   filter (FN-safe); hand/reveal destinations take it. **Riders:** Weatherlight (the combat-damage dig) ·
+>   Board the Weatherlight (the sorcery).
+> · **Mutations 7/7 KILLED:** M1 helper never matches · M2 anchoring loosened to a substring · M3 name
+>   recognised but `sacSelf` not set (cost never paid) · M4 historic gate removed (reveal ANY card) · M5 gate
+>   reads the combined type line (MDFC back leaks) · M6 parser admits a qualified form · M7 the Saga leg dropped.
+> · Witness `selfNameSacHistoricDig.test.js` (12): parse admits/refuses; the runtime offer gate withholds at
+>   two artifacts and offers at three; activating SACRIFICES the Fair as the cost and the resolved search
+>   offers only artifact cards (`tutor-search`); the historic matcher over six type lines + two MDFC faces;
+>   the Henge dig's candidates are exactly the historic three of five looked-at.
+> · Cap tail now **7 land-partial**: Mines of Moria (exile-three-from-graveyard activated COST — the
+>   graveyard-recursion lane has `exileFromGy` but the battlefield activated lane does not; three sites) ·
+>   Mistrise Village ("next spell can't be countered" — a new flag lane) · Otawara (Channel) · Uthros
+>   (Station) · Urza's Saga · 2 MDFC backs. Then 10 body-only, 2 arbiter-spell.
+
 > ## 🩸 2026-09-03 — LANDS-TIER slice 2: THE SHOCKLAND CLAUSE · **+10 corpus (all ten shocklands)** · Cap 76→79 · corpus 39.8% (13,615/34,245)
 > Suite **1320 / 15,123** green; lint 0. Flip-diff **+10, zero LOST, zero RETIERED** — exactly Stomping
 > Ground · Steam Vents · Breeding Pool · Blood Crypt · Sacred Foundry · Godless Shrine · Overgrown Tomb ·

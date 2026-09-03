@@ -293,6 +293,21 @@ function execRemoveCounterFromSelfName(item, card) {
   return new RegExp(`^remove ${RC_COUNT} ${RC_TYPE} (counters?) from (?:${alt})$`, "i").exec(item);
 }
 
+/** LANDS-TIER slice 3 — "Sacrifice <this card's own name>" as a cost item (Inventors' Fair). Same anchoring
+ *  as execRemoveCounterFromSelfName: full name or the legendary short name, whole item, nothing else. (A
+ *  comma-bearing full name can never arrive here whole — the cost string is split on commas first — which
+ *  is fine: a legendary names itself by its SHORT name in its own text, the only printed shape.) */
+function execSacrificeSelfName(item, card) {
+  if (!/^sacrifice /i.test(item)) return null;                // cheap gate — skip regex construction otherwise
+  const name = String(card?.name || "").trim();
+  if (!name) return null;
+  const forms = [name];
+  const short = name.split(",")[0].trim();
+  if (short && short !== name) forms.push(short);
+  const alt = forms.map(escapeRe).join("|");
+  return new RegExp(`^sacrifice (?:${alt})$`, "i").exec(item);
+}
+
 /**
  * γ1i (SHELF CAP14) — the "Unattach an Equipment from <SELF>" cost item, self-name anchored EXACTLY as
  * execRemoveCounterFromSelfName above is, and for the same reason: the printed card names itself (CR 201.5),
@@ -430,6 +445,13 @@ export function parseAbilityCost(costStr, card = null) {
     // forms: the source leaves the battlefield as the activation cost. Whole-item anchored ($) so a COMPOUND
     // cost ("Sacrifice this Aura and a creature") never prefix-matches and silently drops its trailing item.
     if (/^sacrifice (?:this|~)(?: creature| permanent| artifact| enchantment| land| aura| equipment| token| vehicle)?$/i.test(item)) { sacSelf = true; continue; }
+    // LANDS-TIER slice 3 (Inventors' Fair "{4}, {T}, Sacrifice Inventors' Fair: …", 2026-09-03): a LEGENDARY
+    // permanent names ITSELF in its sacrifice cost (CR 201.5 — the name means "this object"). Self-name
+    // anchored EXACTLY as execRemoveCounterFromSelfName / the γ1i unattach item are: the item must equal
+    // "sacrifice <full name>" or "sacrifice <legendary short name>" verbatim — never a substring, never
+    // "sacrifice a <name>" (a different object). Requires the caller to pass `card` (the runtime activated
+    // lane and the classifier both do); with no card there is no name and the item falls through to null.
+    if (execSacrificeSelfName(item, card)) { sacSelf = true; continue; }
     // γ1c — two more NO-CHOICE self costs:
     //   "Exile this[ <type>]"            → exile the SOURCE from the battlefield (NOT "dies"; no dies
     //                                      triggers). The `$` anchor excludes "Exile this card from your

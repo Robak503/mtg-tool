@@ -585,10 +585,22 @@ export function parseTutorFilter(phrase) {
     rest = rest.replace(/\s*\bpermanent$/i, "").trim();
   }
 
+  // ===== HISTORIC (CR 700.6 — "an object that has the legendary supertype, the artifact card type, or the
+  // Saga subtype"; LANDS-TIER slice 3, Monumental Henge "reveal a historic card") =========================
+  // A GATE (`filter.historic`), never a group word: group words are matched by containment against the
+  // type line and no type line contains "historic" — as a group word it would be the vacuous-filter FP
+  // this function's own color note warns about. Only the bare word is admitted ("historic card"); a
+  // qualified form ("historic creature") is not a printed shape this slice has a carrier for → null.
+  let historic = false;
+  if (/^historic$/i.test(rest)) {
+    historic = true;
+    rest = "";
+  }
+
   if (!rest) {
-    // A bare "permanent card" (optionally color-qualified) — no type groups to match, just the gates.
-    if (!permanentOnly) return null;
-    return { groups: [], permanentOnly, ...(colors ? { colors } : {}) };
+    // A bare "permanent card" / "historic card" (optionally color-qualified) — no type groups to match, just the gates.
+    if (!permanentOnly && !historic) return null;
+    return { groups: [], ...(permanentOnly ? { permanentOnly } : {}), ...(historic ? { historic } : {}), ...(colors ? { colors } : {}) };
   }
 
   const groups = rest.split(/,\s*or\s+|,\s*|\s+or\s+/).map((g) => g.trim().split(/\s+/).filter(Boolean));

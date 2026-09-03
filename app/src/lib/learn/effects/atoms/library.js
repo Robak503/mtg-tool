@@ -146,8 +146,17 @@ export function cardMatchesTutorFilter(card, filter) {
     const isPermanentType = /\b(?:artifact|creature|enchantment|land|planeswalker|battle)\b/.test(frontType);
     if (!isPermanentType) return false;
   }
+  // HISTORIC gate (CR 700.6 — legendary supertype, artifact card type, or the Saga subtype; LANDS-TIER slice 3,
+  // Monumental Henge). A composite quality no single type-line word names, so it is a gate like permanentOnly,
+  // read off the FRONT face exactly as the groups gate below is. Runs BEFORE the groups early-return for the
+  // same reason the name gates do: a historic filter has no groups, and reaching "matches everything" with
+  // it attached would turn "reveal a historic card" into "reveal any card".
+  if (filter.historic) {
+    const frontType = String(card?.type || card?.type_line || "").toLowerCase().split(" // ")[0];
+    if (!/\b(?:legendary|artifact|saga)\b/.test(frontType)) return false;
+  }
   const groups = Array.isArray(filter.groups) ? filter.groups : [];
-  if (groups.length === 0) return true; // type-unfiltered (null filter handled above; MV-only / permanentOnly fall here)
+  if (groups.length === 0) return true; // type-unfiltered (null filter handled above; MV-only / permanentOnly / historic fall here)
   // Match the FRONT face only: a library card has just its front-face characteristics
   // (CR 712.4a), but the enriched type line is the COMBINED "Front // Back" for an MDFC —
   // so a [artifact] tutor must NOT match a card whose FRONT is a land and back an artifact.
