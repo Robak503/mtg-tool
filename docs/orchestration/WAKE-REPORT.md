@@ -7,7 +7,7 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ☀️ 2026-09-03 — **THE MORNING REPORT (overnight run, 2026-09-02 → 09-03)** — suite **1345 / 15,294** green · CI green through SG-13 (2d99bdb6); SG-14 ce87d354 + the correction commit 7e28368b in flight at the final write (05:10)
+## ☀️ 2026-09-03 — **THE MORNING REPORT (overnight run, 2026-09-02 → 09-03)** — suite **1345 / 15,294** green · **CI GREEN on the final master head db319854 (05:25)**, which carries every slice below (the SG-14 and correction runs were cancelled by concurrency, superseded by this one)
 
 > **The three stage numbers.** ① **Captain America 75 → 84/100** — its land tail is finished to the parks
 > (Uthros/Station, Urza's Saga, two MDFC backs); every remaining Cap card is multi-piece (§6 of the plan
