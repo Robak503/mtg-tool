@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Cavern of Souls works** — it chooses a creature type as it enters (a land played from hand included), taps
+  for {C} for anything and for any colour only toward a creature of that type, and a creature paid with that
+  mana can't be countered. **Unclaimed Territory** and **Pillar of Origins** ride the same machinery.
 - **Illusionist's Bracers works** — an ability of the equipped creature that isn't a mana ability is copied when
   it's activated; the copy resolves first and keeps the original's targets. The same machinery makes
   **Battlemage's Bracers**, **Rings of Brighthearth** and **Kurkesh, Onakke Ancient** (pay to copy — paying spends

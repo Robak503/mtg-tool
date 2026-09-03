@@ -148,8 +148,15 @@ describe("⛔ the parser refuses everything it cannot honor", () => {
     for (const t of [
       "Spend this mana only to cast creature spells with mana value 4 or greater or creature spells with {X} in their mana costs.",
       "Spend this mana only to cast creature spells with no abilities.",
-      "Spend this mana only to cast a creature spell of the chosen type.",
+      // "…of the chosen type OR TO ACTIVATE an ability of a creature of the chosen type" (the Secluded Courtyard
+      // shape) — the activate tail keeps the whole clause refused (the cast-only asymmetry is the safety).
+      "Spend this mana only to cast a creature spell of the chosen type or to activate an ability of a creature of the chosen type.",
     ]) expect(parseSpendRestriction(t)).toBe(null);
+    // GRADUATED (CAP-CAVERN, 2026-09-03): the bare "of the chosen type" qualifier sat in the refused list above; it
+    // is now read as its OWN form — stamped `chosenType` and resolved per permanent by manaSources into the
+    // conjunctive "<chosen> creature" entry (cavernOfSouls.test.js owns the runtime witness). Asserted AS parsed so
+    // this pin can never silently re-refuse it.
+    expect(parseSpendRestriction("Spend this mana only to cast a creature spell of the chosen type.")).toEqual({ castTypes: ["creature"], chosenType: true });
   });
 
   it("⛔⭐ a QUOTED GRANT is not this card's mana — the granter is credited nothing", () => {

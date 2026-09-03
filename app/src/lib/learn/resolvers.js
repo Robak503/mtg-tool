@@ -95,7 +95,7 @@ function livingWeaponToken(card) {
 // replacement). NOT "choose a card type / land type / planeswalker type" (a different chooser the engine
 // doesn't model), and NOT an activated/spell-level "Choose a creature type" (those carry no "as ~ enters").
 const CHOOSE_CREATURE_TYPE_ETB_RE = /\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b/i;
-function choosesCreatureTypeOnEnter(card) {
+export function choosesCreatureTypeOnEnter(card) { // exported for the play-land drop (actionDispatcher.applyPlayLand — CAP-CAVERN)
   return CHOOSE_CREATURE_TYPE_ETB_RE.test(String(card?.oracle || card?.oracle_text || ""));
 }
 

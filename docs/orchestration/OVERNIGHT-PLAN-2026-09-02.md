@@ -349,7 +349,11 @@ decks at large", then "the program work — all those cards are used lots of pla
    ability, copy that ability. You may choose new targets for the copy." — an ability-activated trigger event
    + a copy-ability resolution (re-run the activated program with retargeting).
 3. **Cap's remaining parks → Omnath** for Arbiter rulings + curated play-hints (COMMS [Q-CAP-ARBITER], 11:40).
-4. **Cavern of Souls** — choose a creature type on entry + a spend-restricted any-colour source whose mana
+4. **Cavern of Souls** — ✅ **SHIPPED, 2026-09-03 (CAP-CAVERN)** — the chosen-type spend restriction (parsed as its
+   own form, resolved per permanent), the coloured line as an extra mana record, `uncounterableIfSpent` from the
+   plan's taps to the cast site's stamp, the chooser on a land drop. +3 (Unclaimed Territory, Pillar of Origins).
+   Squirrel Girl 85 → 86. Secluded Courtyard's "or to activate an ability" tail stays refused (§6).
+   Original brief: choose a creature type on entry + a spend-restricted any-colour source whose mana
    makes the creature spell uncounterable.
 5. **The X-spell program** — Genesis Wave, Finale of Devastation, Green Sun's Zenith, Chord of Calling,
    Archdruid's Charm, Nature's Rhythm, Tempt with Discovery — shelf-wide (Zaxara).

@@ -7,6 +7,16 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🕳️ 2026-09-03 (day) — **CAP-CAVERN: Cavern of Souls is a fully covered LAND** — Colton's day-order item 4 (plan §8) · suite **1357 / 15,380** green · Squirrel Girl **85 → 86** · Cap 86 · corpus 13,845 / 34,245 (40.4%) · flip-diff +3 / 0 lost (Unclaimed Territory → land, Pillar of Origins → native-mana) · 11/11 killed · CI on the Bracers head 68f326e7: **GREEN**
+
+> The chosen-type spend restriction is read as its own form and resolved per permanent into the conjunctive
+> "<chosen> creature" entry (an unchosen permanent is offered to nothing); the coloured line rides as an extra
+> record beside the {C} tap; "…and that spell can't be countered" rides the plan's taps to the cast site, which
+> stamps the spell with the mark the counter enumeration already skips; a land played from hand now chooses its
+> type as it enters. **Next runnable (plan §8):** ⑤ the X-spell program — Archdruid's Charm and Tempt with
+> Discovery are the two still off-native (the other five are native). Cap's other parks sit with Omnath (COMMS
+> [Q-CAP-ARBITER]).
+
 ## 🪞 2026-09-03 (day) — **CAP-BRACERS: Illusionist's Bracers is NATIVE** — Colton's day-order item 2 (plan §8) · suite **1356 / 15,372** green · Cap **85 → 86** · corpus 13,842 / 34,245 (40.4%) · flip-diff +6 / 0 lost (Battlemage's Bracers, Rings of Brighthearth, Kurkesh, Crackdown Construct, Ceaseless Searblades ride the same atoms) · 14/14 killed, one dead edit deleted · CI on the Teferi head 5bcfffed: **GREEN**
 
 > A new trigger event (`abilityActivated`, fired at the dispatcher's activated-ability + loyalty pushes, flushed above

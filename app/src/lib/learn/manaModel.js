@@ -901,7 +901,7 @@ const MAX_SPEED_PREFIX = /^\s*max speed\s*[—–-]\s*/i;
  * counter-removal rider fails the anchor on purpose: its single-line product would silently drop the rider
  * (a painless painland tap), the forbidden direction. Never the main line itself. Memoized per card object.
  */
-const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.)$/i; // + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals
+const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?\.)$/i; // + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory)
 // A PLAIN tap line: complete, ungated, no sacrifice — the line a multi-line card can always tap for.
 const PLAIN_MANA_LINE_RE = /^\{T\}: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.$/i;
 
@@ -1107,7 +1107,26 @@ export function parseSpendRestriction(oracle) {
   const clauses = [...text.matchAll(/spend this mana only ([^.]*)\./g)].map((m) => m[1]);
   if (!clauses.length) return null;
   const types = new Set();
+  let chosenType = false;
+  let uncounterableIfSpent = false;
   for (const clause of clauses) {
+    // CHOSEN-TYPE (CAP-CAVERN, 2026-09-03 — CR 614.12 / 106.6): "Spend this mana only to cast a creature spell of
+    // the chosen type[, and that spell can't be countered]." (Cavern of Souls, Unclaimed Territory, Secluded
+    // Courtyard). The type word must be a vocabulary word; the CHOSEN type is unknown here (no permanent in
+    // hand) — the restriction is stamped `chosenType` and manaSources resolves it per permanent
+    // (resolveSourceRestriction) into the conjunctive "<chosen> <word>" entry, or refuses the source when the
+    // permanent never chose. The "can't be countered" tail rides as `uncounterableIfSpent`, which the payment
+    // plan carries to the cast site (a spell that spent this mana is stamped uncounterable).
+    {
+      const ct = /^to cast an? ([a-z]+) spell of the chosen type(, and that spell can't be countered)?$/.exec(clause.trim());
+      if (ct) {
+        if (!SPEND_CAST_TYPE_WORDS.has(ct[1])) return null;
+        types.add(ct[1]);
+        chosenType = true;
+        if (ct[2]) uncounterableIfSpent = true;
+        continue;
+      }
+    }
     // COMMANDER (CR 903.3) — a designation, not a type-line word, so it gets its own token rather than
     // riding SPEND_CAST_TYPE_WORDS where it could never match a printed line (the vacuous-filter failure).
     if (/\bto cast your commander\b/.test(clause)) { types.add("@commander"); continue; }
@@ -1141,7 +1160,21 @@ export function parseSpendRestriction(oracle) {
       }
     }
   }
-  return types.size ? { castTypes: [...types] } : null;
+  return types.size ? { castTypes: [...types], ...(chosenType ? { chosenType: true } : {}), ...(uncounterableIfSpent ? { uncounterableIfSpent: true } : {}) } : null;
+}
+
+/**
+ * CHOSEN-TYPE RESOLUTION (CAP-CAVERN): a `chosenType` restriction is meaningless until the permanent has chosen —
+ * resolve it against the live permanent into the conjunctive "<chosen> <word>" entries spendRestrictionAllows
+ * already evaluates (every word on the type line). A permanent that never chose gets an EMPTY castTypes list
+ * (`unresolvedChosenType`), which spendRestrictionAllows can never satisfy — the source is offered to nothing,
+ * never laundered into unrestricted mana (null would mean UNRESTRICTED here — the forbidden direction).
+ */
+export function resolveSourceRestriction(restriction, perm) {
+  if (!restriction || !restriction.chosenType) return restriction;
+  const chosen = String(perm?.chosenType || "").trim().toLowerCase();
+  if (!chosen) return { ...restriction, castTypes: [], unresolvedChosenType: true };
+  return { ...restriction, castTypes: (restriction.castTypes || []).map((w) => `${chosen} ${w}`) };
 }
 
 /** Does `card` satisfy a spend restriction? Used by the payment planner via its spend context. */
@@ -1768,7 +1801,7 @@ export function manaSources(state, playerId) {
     if (prod.colorsFromImprint) {
       const imprintedColors = (perm.imprinted?.colors || []).filter((c) => MANA_COLORS.includes(c));
       if (!imprintedColors.length) continue;
-      sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}) });
+      sources.push({ permanentId: perm.id, colors: imprintedColors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}) });
       continue;
     }
     // EXILE-FROM-GY COST (Molt Tender): the source exists ONLY while the graveyard has a card to pay
@@ -1778,7 +1811,7 @@ export function manaSources(state, playerId) {
     // SG-3 — a sacrifice-a-creature source needs ANOTHER creature to feed it (never the source itself, never
     // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid).
     if (prod.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")))) continue;
-    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: prod.restriction } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}) });
+    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}) });
     // STAGE ④-3 — EXTRA MANA LINES: a second, complete "{T}: Add …" line the main product does not cover (a
     // gated colour line — Tainted Isle / the Verges / Gathering Place; a free "{T}: Add {C}" beside a painful
     // any-colour line — Grand Coliseum; a "{T}, Sacrifice this land: Add …" ritual line). Each is its own
@@ -1792,7 +1825,7 @@ export function manaSources(state, playerId) {
       const exAmount = extra.removesCounters ? ((extra.removesCounters.mode === "plusOne" ? 1 : 0) + crCount) * manaMult
         : exFixed ? Object.values(exFixed).reduce((a, b) => a + b, 0) : (extra.amount ?? 1) * manaMult;
       if (exAmount <= 0) continue;
-      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: crCount } } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), extraLine: true });
+      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: crCount } } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
     }
   }
   // SG-6 — EXILE-FROM-HAND sources (Elvish / Simian Spirit Guide): a mana ability of a card in HAND. Offered
@@ -2025,7 +2058,7 @@ function planPaymentOnce(pool, sources, cost, spendContext = null) {
     // PAINLAND: stamp the life cost ONLY when the chosen colour is one of the painful ones — a tap for
     // the free {C} half costs nothing, exactly as printed.
     const painHit = s.painColors && s.painColors.includes(primaryColor) ? s.painAmount : 0;
-    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(s.doesNotUntapNext && { doesNotUntapNext: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
+    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(s.doesNotUntapNext && { doesNotUntapNext: true }), ...(s.restriction?.uncounterableIfSpent && { uncounterableIfSpent: true }), ...(bonusPicks.length && { bonus: bonusPicks }) }); // + CAP-CAVERN: the cast site reads uncounterableIfSpent off the taps
     return wantColor && assigned ? wantColor : primaryColor;
   };
 

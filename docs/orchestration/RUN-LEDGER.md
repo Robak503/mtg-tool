@@ -3,6 +3,40 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🕳️ 2026-09-03 — CAP-CAVERN: CAVERN OF SOULS — the CHOSEN-TYPE spend restriction + "can't be countered" mana · **+3 corpus** (Cavern, Unclaimed Territory → land; Pillar of Origins → native-mana) · Squirrel Girl 85 → 86 · Colton's day-order item 4 · corpus 13,845 / 34,245 (40.4%)
+> Suite **1357 / 15,380** green (one stale refusal pin graduated, below); lint 0. Flip-diff **+3, zero LOST**, each
+> audited whole-card against the bundled oracle. **11/11 killed** (M10 survived its first run — the MAIN-record
+> resolution had no corpus witness because every printed carrier puts the line beside a plain {C} tap — and got the
+> missing test: a synthetic single-line chosen-type land, pinned on both the chosen and the unchosen side).
+> · **THE RESTRICTION.** "Spend this mana only to cast a creature spell of the chosen type[, and that spell can't be
+>   countered]." was a QUALIFIED clause the spend parser refused (correctly — reading the prefix would have modeled
+>   it LOOSER than printed). It is now read as its own form: `{ castTypes:["creature"], chosenType:true,
+>   uncounterableIfSpent }`. The chosen type is unknown at parse time (no permanent in hand), so **manaSources
+>   resolves it per permanent** (`resolveSourceRestriction`) into the CONJUNCTIVE "<chosen> creature" entry the
+>   existing allow-check already evaluates word-by-word (Rivaz's "dragon creature" precedent) — and a permanent that
+>   never chose gets an EMPTY castTypes list, which nothing satisfies (null would have meant UNRESTRICTED — the
+>   forbidden direction; pinned by M5).
+> · **THE LINE** rides as an EXTRA mana record (④-3's machinery; the admission regex learns the form) beside the
+>   plain {C} main — Cavern taps for {C} for anything and for any colour ONLY toward a creature of the chosen type;
+>   the Bear beside the Squirrel is not castable (pinned).
+> · **"…AND THAT SPELL CAN'T BE COUNTERED"** rides the restriction as `uncounterableIfSpent`, copied onto the plan's
+>   taps (and readable off a tagged pool entry), and the cast site stamps the spell `uncounterable` — the SAME mark
+>   Mistrise Village (LANDS-6) and Vexing Shusher leave, which the counter-target enumeration already skips. A
+>   Forest-paid Squirrel stays counterable (pinned). Read off the SAME plan the commit deducted — "counted" and
+>   "spent" cannot drift.
+> · **THE CHOOSER ON A LAND DROP.** resolvers.enterPermanent stamped `chosenType` for every entry path EXCEPT a land
+>   played from hand (applyPlayLand pushes the card straight onto the battlefield). The land drop now runs the same
+>   auto-pick (pinned: a Cavern played with a Squirrel on the board chooses Squirrel and its coloured line is live
+>   at once). The land tier admits the chooser sentence through that same reader.
+> · **A stale pin graduated:** spendRestrictedManaRuntime's "QUALIFIED restriction is refused" list held this exact
+>   sentence as a must-refuse; it is honoured now, so the row moves to the positive side (the other qualified forms
+>   — "with mana value 4 or greater", "with no abilities", "or to activate an ability of a creature of the chosen
+>   type" (Secluded Courtyard) — are still refused, unchanged).
+> · **Honest edges:** the "or to activate an ability…" tail (Secluded Courtyard) stays refused (the cast-only
+>   asymmetry is the safety); the auto-pick is the board-shaped self-play chooser (an interactive picker is a later
+>   arm); floating the Cavern's coloured mana outside a cast is not offered (no standalone tap lane for restricted
+>   sources — the default-deny posture).
+
 > ## 🪞 2026-09-03 — CAP-BRACERS: ILLUSIONIST'S BRACERS — the ability-ACTIVATED trigger event + COPY-THAT-ABILITY · **+6 corpus** (Cap 85 → 86) · Colton's day-order item 2 · corpus 13,842 / 34,245 (40.4%)
 > Suite **1356 / 15,372** green (one stale CREED guard re-seated, below); lint 0. Flip-diff **+6, zero LOST** —
 > Illusionist's Bracers + Battlemage's Bracers (body-only → native-mixed), Rings of Brighthearth, Kurkesh Onakke

@@ -62,7 +62,8 @@ import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT di
 import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
-import { RESOLVER_KEYS, isPermanentSpell, autoPickManaColor } from "./resolvers.js"; // LANDS-12: the ONE color auto-pick both enter sites stamp with
+import { RESOLVER_KEYS, isPermanentSpell, autoPickManaColor, choosesCreatureTypeOnEnter } from "./resolvers.js"; // LANDS-12: the ONE color auto-pick both enter sites stamp with; + CAP-CAVERN: the chosen-type chooser for a land drop
+import { autoPickCreatureType } from "./choicePolicy.js"; // CAP-CAVERN: the SAME auto-pick resolvers.enterPermanent stamps, for a land played from hand
 import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped, impositionEntersTapped, auraEnchantHostSpec, entersWithNamedCounters, choosesColorOnEnter } from "./staticAbilityParser.js";
 import { applyCounterDoubling } from "./replacementEffects.js"; // LANDS-9: the same doubling seam resolvers.enterPermanent uses for enters-with counters
 // ORDEAL (BLITZ OC-1): the Theros Ordeal cast lane — the SAME gate legalChoices offers on and the metric
@@ -169,6 +170,14 @@ function applyPlayLand(state, action) {
   {
     const bf = next.players[action.playerId].battlefield;
     const entered = bf[bf.length - 1];
+    // CHOSEN-TYPE on a LAND DROP (CAP-CAVERN, 2026-09-03 — CR 614.12): "As this land enters, choose a creature type."
+    // (Cavern of Souls, Unclaimed Territory). resolvers.enterPermanent stamps `chosenType` for every OTHER entry path
+    // (a fetched or ramped land); a land played from hand enters HERE, so the same auto-pick stamps it here. No
+    // pick (no creatures anywhere to read) → no stamp → the chosen-type mana line is offered to nothing.
+    if (entered && choosesCreatureTypeOnEnter(card)) {
+      const chosenType = autoPickCreatureType(state, action.playerId);
+      if (chosenType) next = { ...next, players: { ...next.players, [action.playerId]: { ...next.players[action.playerId], battlefield: bf.map((p) => (p.id === entered.id ? { ...p, chosenType } : p)) } } };
+    }
     if (entered && (entersTapped(card) || impositionEntersTapped(next, card, action.playerId) || conditionalEntersTapped(next, card, action.playerId, entered.id) || revealLandEntersTapped(next, card, action.playerId))) { // KM-1: an opposing Kismet taxes the land drop too (CR 614.1c)
       next = tapPermanent(next, entered.id, { fromEnter: true }); // CR 701.26a: entering tapped is NOT "becoming tapped" — suppress the becomes-tapped event
     } else if (entered) {
@@ -311,6 +320,7 @@ function applyCastSpell(state, action) {
   // KNOWS (a paid plan: any mana at all; a free cast: none), null where it does not (an alternative cost may
   // or may not include mana — unknown stays unknown, so the intervening-if never fires on a guess).
   let manaSpent = null;
+  let paidUncounterable = false; // CAP-CAVERN: the plan spent mana printed "…and that spell can't be countered" (Cavern of Souls)
   if (action.freeCast || action.altCost) {
     working = state;
     if (action.freeCast) manaSpent = false;
@@ -356,6 +366,12 @@ function applyCastSpell(state, action) {
     colorsSpent = ["W", "U", "B", "R", "G"].filter((c) => (plan.spend?.[c] || 0) > 0).length;
     // SG-13: read off the SAME plan — a {0} spell (or a cost reduced to nothing) spent no mana at all.
     manaSpent = Object.values(plan.spend || {}).some((n) => (n || 0) > 0);
+    // CAP-CAVERN (CR 106.6 / Cavern of Souls): mana whose restriction carries `uncounterableIfSpent` was spent on
+    // THIS spell — off the SAME plan (a tap, or a tagged pool entry priced by the plan). Stamped below with the
+    // mark the counter-target enumeration honours.
+    const rEntries = state.players[action.playerId]?.restrictedMana || [];
+    paidUncounterable = (plan.taps || []).some((t) => t.uncounterableIfSpent)
+      || (plan.entrySpends || []).some(({ entry }) => !!rEntries[entry]?.restriction?.uncounterableIfSpent);
   }
   // ⭐ CONVERGE — stamp the count on STATE, the same inter-atom channel `sacrificedForCost` uses, so a SPELL's
   // scaling atoms can read it at resolution (countForSpec's colorsSpentThisSpell kind). The permanent-ETB path
@@ -787,7 +803,7 @@ function applyCastSpell(state, action) {
   });
   // Stamped AFTER construction, exactly as the make-uncounterable atom marks a spell already on the stack —
   // createStackObject builds a fixed shape and would drop an extra field passed through it.
-  const stackObject = shieldNext ? { ...builtSpell, uncounterable: true } : builtSpell;
+  const stackObject = (shieldNext || paidUncounterable) ? { ...builtSpell, uncounterable: true } : builtSpell; // + CAP-CAVERN: paid with "can't be countered" mana
 
   // CMD-CAST: a cast FROM the command zone bumps the commander's cast count → the {2} tax grows on each
   // recast (CR 903.8 counts casts from the zone, so the cast counts even if it's later countered).

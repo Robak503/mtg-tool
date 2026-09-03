@@ -1821,6 +1821,12 @@ function landFullyCovered(card) {
   // the choose sentence is matched as a SENTENCE here (the line loop sees the whole line).
   const landCC = choosesColorOnEnter(card);
   const chooseColorLineRe = landCC ? /^(?:this land enters tapped\.\s*)?as (?:it|this land) enters, choose a color(?: other than (?:white|blue|black|red|green))?\.?$/i : null;
+  // CAP-CAVERN (2026-09-03): "As this land enters, choose a creature type." (Cavern of Souls, Unclaimed Territory) —
+  // admitted through the SAME chooser both enter sites stamp `chosenType` with (resolvers.choosesCreatureTypeOnEnter
+  // is this exact regex; the play-land drop stamps it too now). The chosen-type mana line itself is admitted by
+  // isManaLine — the spend parser reads its restriction and manaSources resolves it per permanent, offering the
+  // source to nothing until the type is chosen.
+  const chooseTypeLineRe = CHOSEN_TYPE_CHOOSER_RE.test(raw) ? /^as (?:it|this land) enters, choose a creature type\.?$/i : null;
   for (const line of afterTriggers.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (tapped && /^[^.]*\benters (?:the battlefield )?tapped\.?$/i.test(line)) continue;
     if (condLineRe && condLineRe.test(line)) continue;
@@ -1828,6 +1834,7 @@ function landFullyCovered(card) {
     if (revealLineRe && revealLineRe.test(line)) continue;
     if (namedCtrLineRe && namedCtrLineRe.test(line)) continue;
     if (chooseColorLineRe && chooseColorLineRe.test(line)) continue;
+    if (chooseTypeLineRe && chooseTypeLineRe.test(line)) continue; // CAP-CAVERN
     if (isManaLine(line)) continue;
     if (isActivatedAbilityLine(line, card)) continue; // vouched modeled/gy/mana by the .every above
     // LANDS-TIER slice 5 — a FROM-HAND discard ability on a land ("Channel — {3}{U}, Discard this card: …",
