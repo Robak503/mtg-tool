@@ -82,9 +82,16 @@ land-partial, 368 single-blockers):** ✅ reveal-lands (19, LANDS-7) · ✅ type
 Landscapes/Panoramas (16, LANDS-8) · ✅ Channel (shipped in stage ①, LANDS-5: +20 riders) · ✅ shocklands
 (LANDS-2) · ✅ "enters tapped unless" (LANDS-1, 83) · ✅ enters-with-N-counters lands (12, LANDS-9) ·
 ✅ storage-counter lands (13, LANDS-10) · ✅ the Karoos + pay-{1} lands (9 + Scythe Tiger, LANDS-11) ·
-✅ choose-a-color permanents (21, LANDS-12). **DONE ② as far as the ≥3-carrier families go** — remaining:
-the Gates' once-only draw (5, "{}{}, {T}: draw a nonland card. Activate only once" — a once-ever ledger),
-bands (5, PARK), Station (2, PARK). Original queue for reference: "As it
+✅ choose-a-color permanents (21, LANDS-12). **Measured after LANDS-12 (the DONE ② number): land-partial
+454 → 368 (single-blockers 368 → 291).** ⚠️ CORRECTION to an earlier line here: NOT every ≥3-carrier
+family is shipped or parked — six families of exactly 5 carriers remain OPEN: the Gates' once-only draw
+("… Activate only once" — a once-ever ledger); the Invasion lairs ("sacrifice it unless you return a
+NON-<type> land you control" — a negated-subtype return cost, a small LANDS-11 extension); the Roads
+("Sacrifice this land: create a Pilot token with a quoted sac ability"); the Gathering Place cycle ("Add
+{X} or {Y}. Activate only if this land entered this turn OR you control a basic land" — an OR condition
+the activation-gate vocabulary refuses structurally); the Overlooks (reflexive "When you do … and you gain
+1 life"); and bands (5, PARK). Below 5: the Ice Age "If this land would enter, sacrifice a <type> instead"
+(3), Station (2). Original queue for reference: "As it
 enters, choose a color" (6 — `chosenColor` exists for Auras) · the Karoos (10) · the Gates (5) · "sacrifice
 unless you pay {1}" (4). **Parks:** bands (5), the Overlooks' reflexive "When you do … and you gain 1 life"
 tail (5), Station (2).
@@ -99,8 +106,10 @@ Ablation of the 33 remaining non-native cards: 19 single-blockers, ranked cheape
 SG-1 entry; 15 multis; 3 parks (Gemstone Caverns, Shifting Woodland, Evendo). ✅ **SG-2** — Woodland
 Bellower · Altar of the Brood · Skullclamp shipped (+6 with riders; 6/6 killed). ✅ **SG-3** — the
 Altars pay for real (+3; 7/7 killed; the payment planner's dropped cost riders fixed). ✅ **SG-4** —
-Jaheira's token mana grant (+1). **Deck 73/100.** Next: Geier Reach Sanitarium (the each-player loot
-sentence), then the mediums.
+Jaheira's token mana grant (+1). ✅ **SG-5** — Geier Reach Sanitarium + Lore Broker (the each-player
+loot sentence, +2). **Deck 74/100.** The cheap singles are done; what remains on her deck is the mediums
+(Elvish Spirit Guide, Altar of Dementia, Peregrin Took, Dosan, Frenzied Baloth, Vexing Bauble,
+Evolutionary Leap, Sylvan Library, Homeward Path, Boseiju's channel effect) and the multis/parks in §6.
 
 Stored 09-02 on Colton's profile (100/0 unresolved). **67/100**: 14 native-mana · 10 native-spell ·
 5 native-trigger · 4 native-activated · 5 native-static · 1 native-mana-aura · 6 native-mixed ·
@@ -174,6 +183,28 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
 
 ## §6 PARKED / NEEDS COLTON (append as you go — this is the morning report's raw material)
 - Squirrel Girl's Archidekt URL — not captured; the deck does not survive a box move until it is.
+- **Cap America (84/100) — every remaining card is multi-piece or a park:** Uthros, Titanic Godcore ·
+  Station (a keyword subsystem — a charge-counter station action + a threshold-unlocked ability); Urza's
+  Saga (Saga chapters on a land); Hydroelectric Laboratory / Soporific Springs (MDFC backs); Illusionist's
+  Bracers (an "ability … is activated" trigger event + a copy-ability lane, neither exists); Iron Man
+  (three pieces: a "noncreature artifact" optional-sac filter, a MV = sacrificed+1 relational tutor, an
+  ARTIFACT battlefield-tutor admission); Teferi's Protection / We Say Thee Nay! (arbiter spells). Unpark =
+  each is its own multi-slice program; none is one word.
+- **Land tier (stage ②) parks, ≥3 carriers:** bands (5 — "bands with other legendary creatures", a retired
+  keyword); the Overlooks' reflexive "When you do … and you gain 1 life" tail (5 — the typed-basic fetch is
+  fixed, the reflexive-with-rider shape is not); Station (2). Every other family with ≥3 carriers shipped.
+- **Squirrel Girl (73/100) parks:** Gemstone Caverns (an opening-hand replacement — no pre-game seam);
+  Shifting Woodland (becomes a copy of a graveyard permanent card); Evendo, Waking Haven (Station); the
+  multis: Cavern of Souls (choose a creature type + an uncounterable-creature-spell mana source), The One
+  Ring, Endurance, Allosaurus Shepherd, Disruptor Flute, Shang-Chi, Tezzeret, Urza's Saga, and the X-spells
+  (Genesis Wave, Finale of Devastation, Green Sun's Zenith, Chord of Calling, Archdruid's Charm, Nature's
+  Rhythm, Tempt with Discovery). Mediums still open (one real lane each): Elvish Spirit Guide
+  (exile-from-hand mana source — 2 carriers), Altar of Dementia, Peregrin Took, Dosan, Frenzied Baloth,
+  Vexing Bauble, Evolutionary Leap, Sylvan Library, Boseiju's channel effect, Homeward Path.
+- **Two engine holes found and FIXED tonight, worth a human eye on old harness data:** (a) the payment
+  planner never carried cost riders — a planned Molt Tender tap exiled nothing until SG-3; (b) a played
+  Vivid/depletion/Gemstone land arrived with no counters until LANDS-9. Any self-play game before tonight
+  that involved those cards under-paid.
 - (append here: card · blocker · why it parks · what would unpark it)
 
 ## §7 WHAT THE MORNING REPORT MUST CONTAIN

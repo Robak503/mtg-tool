@@ -1726,8 +1726,24 @@ function matchDrawCounterCreaturesThenGrant(oracle, cardType, hasX) {
 }
 
 
+/**
+ * EACH-PLAYER LOOT (SG-5, 2026-09-03 — Geier Reach Sanitarium / Lore Broker "Each player draws a card, then
+ * discards a card."): the two halves already parse HIGH on their own ("Each player draws a card." → draw
+ * who:eachPlayer; "Each player discards a card." → discard who:eachPlayer), but the compound's second clause
+ * has no subject ("then discards a card" — third person, no "each player"), so the splitter could not bind
+ * it. Rewrite the whole sentence, pre-split, into the two sentences it means. Whole-sentence anchored; ONLY
+ * the "each player" subject (a "target player draws …, then discards" has no who:"target" discard atom, and
+ * rewriting it would hand the splitter two halves that LOOK parseable — the CREED half of the witness).
+ */
+function rewriteEachPlayerLoot(oracle) {
+  const m = String(oracle || "").trim().match(/^each player draws (a|an|one|two|three|four|\d+) cards?, then discards (a|an|one|two|three|four|\d+) cards?\.?$/i);
+  if (!m) return oracle;
+  return `Each player draws ${m[1]} card${m[1] === "a" || m[1] === "an" || m[1] === "one" || m[1] === "1" ? "" : "s"}. Each player discards ${m[2]} card${m[2] === "a" || m[2] === "an" || m[2] === "one" || m[2] === "1" ? "" : "s"}.`;
+}
+
 function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScoped = false } = {}) {
   if (!oracle) return null;
+  oracle = rewriteEachPlayerLoot(oracle);
   // MTG-001 — strip the "can't be regenerated" rider from the PARSE TEXT only, so the lead effect (the
   // board wipe / removal) still matches its anchored pattern instead of being forced low by the rider
   // clause. The rider's MEANING is NOT dropped: the exported parseEffectClause wrapper re-detects it on

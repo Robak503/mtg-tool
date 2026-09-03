@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Geier Reach Sanitarium and Lore Broker work** — every player draws a card, then discards a card.
 - **Jaheira, Friend of the Forest works.** Your tokens — Squirrels included — tap for green under her.
 - **Ashnod's Altar and Phyrexian Altar work** (and Thermopod): sacrificing a creature for mana now actually
   sacrifices your cheapest other creature, its death triggers fire, and the ability is only offered while

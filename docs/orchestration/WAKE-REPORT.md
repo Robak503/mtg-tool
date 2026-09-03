@@ -7,7 +7,37 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## 🌳 2026-09-03 — **STAGE ③: SG-4 — Jaheira's token mana grant (+1) — Squirrel Girl 73/100, corpus 40.3% (13,784)** — suite **1334 / 15,240** green
+## ☀️ 2026-09-03 — **THE MORNING REPORT (overnight run, 2026-09-02 → 09-03)** — suite **1335 / 15,244** green · CI green through SG-3 (SG-4/SG-5 in flight at write time)
+
+> **The three stage numbers.** ① **Captain America 75 → 84/100** — its land tail is finished to the parks
+> (Uthros/Station, Urza's Saga, two MDFC backs); every remaining Cap card is multi-piece (§6 of the plan
+> names each). ② **Land tier corpus-wide: land-partial 454 → 368** (single-blockers 368 → 291); six
+> 5-carrier families still open, listed honestly in the plan's §2 line (an earlier "all shipped or parked"
+> claim was corrected). ③ **Squirrel Girl 67 → 74/100, her commander NATIVE.** Corpus **39.53% → 40.3%
+> (13,786 / 34,245)**, +~250 cards in one night.
+>
+> **Every slice on master (SHA · what · witness):** LANDS-1 37bb04b7 "enters tapped unless" (83) ·
+> LANDS-2 fce3397b shocklands (10, the optional-life-payment pause) · LANDS-3 3ee7890b self-name sacrifice +
+> `historic` (13) · LANDS-4 bb367426 exile-N-from-graveyard cost (31) · LANDS-5+6 aae508fe Channel +
+> Mistrise (22) · LANDS-7/8/9 93e0b030 reveal-lands + typed-basic fetch + enters-with-counters (47) ·
+> LANDS-10/11 3664b15d storage lands + Karoos (23) · LANDS-12 b7ee895f choose-a-color (21) · SG-1 92f0bfd6
+> the commander (2) · SG-2 7a141f59 Bellower/Altar of the Brood/Skullclamp (6) · SG-3 113b7d42 the Altars pay
+> for real (3) · SG-4 b927adfe Jaheira (1) · SG-5 (this commit) Geier Reach/Lore Broker (2). Every slice:
+> flip-diff zero LOST, mutations seen-to-fail, full suite, CI.
+>
+> **Parks / needs you (plan §6):** Squirrel Girl's Archidekt URL is still uncaptured. Cap's multis. The
+> land tier's six open families + bands. Squirrel Girl's mediums and multis (Cavern of Souls, The One Ring,
+> Endurance, the X-spells …).
+>
+> **Traps that fired (and are banked):** the Bash heredoc collapsed backslashes (memory:
+> bash-heredoc-backslash-collapse); a flip-diff "before" taken from a stale main checkout (memory:
+> flipdiff-before-from-head); a witness written under src while a suite was starting got globbed into it;
+> `createStackObject` drops extra fields (stamp after construction); six-then-four-then-three older CREED
+> pins re-anchored as their shapes graduated. **Two engine holes found and fixed on the way** — the
+> payment planner never carried cost riders (a planned Molt Tender tap exiled nothing) and a played
+> Vivid/depletion land arrived bare; both are noted in §6 for anyone reading old harness data.
+
+## 🌳 2026-09-03 — SG-4 — Jaheira's token mana grant (+1) — Squirrel Girl 73/100, corpus 40.3% (13,784) — suite 1334 / 15,240 green
 
 > **SG-4** = a bare "tokens you control" selector on the quoted mana-grant lane: every Squirrel token taps
 > for {G}; Treasures keep their own ability (a single-color grant can never dominate any-color — a guard
@@ -49,9 +79,11 @@
 > permanent-type-agnostic reader for "As it enters, choose a color [other than X]", the play-land stamp,
 > and a `chosenColor` leg in the mana-spec parser resolved against the live permanent — admitted only
 > when the card prints the choice (the flip-diff caught an unreachable-source FP in the first cut; two
-> reachability pins re-anchored). 8/8 killed. **Stage ② land families ≥3 carriers are all shipped or
-> parked** (bands, Station). **Next: stage ③ — Squirrel Girl, commander first** (two one-line vocabulary
-> gaps + a punctuation-terminated flavor-label rule; scoped, mutation script written).
+> reachability pins re-anchored). 8/8 killed. **Stage ② measured: land-partial 454 → 368.** ⚠️ Corrected
+> later that morning: six 5-carrier families are still OPEN (the Gates' once-only draw, the Invasion lairs'
+> negated-subtype return cost, the Roads, the Gathering Place OR-condition, the Overlooks' reflexive
+> rider, bands) — the plan's §2 progress line has the honest list. **Next: stage ③ — Squirrel Girl,
+> commander first** (two one-line vocabulary gaps + a punctuation-terminated flavor-label rule).
 
 ## 🏗️ 2026-09-03 — LANDS-10 storage-counter lands · LANDS-11 the Karoos + pay-{1} lands (+23) — corpus 40.2% (13,751), Cap 84 — suite 1329 / 15,199 green
 

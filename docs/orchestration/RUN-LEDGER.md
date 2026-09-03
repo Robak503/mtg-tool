@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔁 2026-09-03 — SG-5: Geier Reach Sanitarium / Lore Broker — "Each player draws a card, then discards a card." · **+2 corpus** · Squirrel Girl deck 73→74 · corpus 40.3% (13,786/34,245)
+> Suite **1335 / 15,244** green; lint 0. Flip-diff **+2, zero LOST**. **3/3 killed.**
+> · Both halves already parsed HIGH on their own ("Each player draws a card." → draw who:eachPlayer;
+>   "Each player discards a card." → discard who:eachPlayer); the compound's second clause has no subject
+>   ("then discards a card"), so the splitter could not bind it. A pre-splitter rewrite
+>   (`rewriteEachPlayerLoot`) turns the whole sentence into the two it means. Whole-sentence anchored, "each
+>   player" only — "target player draws …, then discards" has no who:target discard atom and must stay
+>   low rather than be handed two halves that LOOK parseable (pinned).
+> · Runtime: activating the Sanitarium draws one and discards one for every player; libraries shrink by
+>   one each. The classifier flips both carriers (2 in the corpus).
+
 > ## 🌳 2026-09-03 — SG-4: Jaheira — "Tokens you control have '{T}: Add {G}'" · **+1 corpus** · Squirrel Girl deck 72→73 · corpus 40.3% (13,784/34,245)
 > Suite **1334 / 15,240** green; lint 0. Flip-diff **+1, zero LOST** (Jaheira → native-static). **2/2
 > killed after one honest deletion** — see below.
@@ -110,8 +121,13 @@
 >   four artifact/creature riders are honestly stamped. Two reachability pins re-anchored (Coldsteel Heart
 >   is reachable now; the CREED half moved to a "chosen color" mana line with no printed choice).
 > · Stage ② tally: reveal 19 · typed-basic 16 · enters-with-counters 12 · storage 13 · Karoo/pay 10 ·
->   choose-a-color 21. Remaining ≥3-carrier land families: the Gates' once-only draw (5), bands (5, park),
->   Station (2, park). **Stage ② is effectively done — moving to stage ③ (Squirrel Girl, commander first).**
+>   choose-a-color 21. **Measured after this slice: land-partial 454 → 368 (single-blockers 368 → 291).**
+>   ⚠️ CORRECTED the same morning — "every ≥3-carrier family shipped or parked" was wrong (I read the census
+>   top-40 by eye): six 5-carrier families remain OPEN — the Gates' once-only draw; the Invasion lairs
+>   ("unless you return a NON-<type> land" — a negated-subtype return cost, a small LANDS-11 extension); the
+>   Roads (sac-self → a Pilot token with a quoted sac ability); the Gathering Place cycle (an OR activation
+>   condition, refused structurally); the Overlooks (reflexive with a rider); bands (park). Stage ② moved
+>   to stage ③ on Colton's ordering (Squirrel Girl before the corpus), with those six named, not closed.
 
 > ## 🏗️ 2026-09-03 — LANDS-10 storage-counter lands (one noun) · LANDS-11 the Karoos + "sacrifice it unless you pay {1}" (two words) · **+23 corpus** · corpus 40.2% (13,751/34,245)
 > Suite **1329 / 15,199** green (one pre-existing pin re-anchored, test-only — see below); lint 0. Flip-diff
