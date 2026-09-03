@@ -8604,7 +8604,7 @@ export function checkAbilityActivatedTriggers(state, { permanent, activatorId, s
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
-export function checkCastTriggers(state, { spellCard, casterId, targets = [], xValue = null, stackObjectId = null, castFromZone = null, manaSpent = null }) {
+export function checkCastTriggers(state, { spellCard, casterId, targets = [], xValue = null, stackObjectId = null, castFromZone = null, manaSpent = null, manaSpentAmount = null }) {
   if (!spellCard) return state;
   // `castingPlayerId` carries the CASTER's seat into every cast-trigger's context (spread into the resolver ctx by
   // runEffectProgram). Load-bearing for OPPONENT-PAYS-TO-DENY (taxed-payment) — the pay-decision belongs to the
@@ -8619,7 +8619,9 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
   // manaSpent (SG-13, Vexing Bauble): a definite boolean from the dispatcher's payment plan (true / false),
   // or null when the cast path cannot say (an alternative cost) — the "no mana was spent to cast it"
   // intervening-if reads it and stays unfired on null.
-  const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard), castingPlayerId: casterId, castSpellMv: cascadingSpellManaValue(spellCard), castStackObjectId: stackObjectId, manaSpent };
+  // manaSpentAmount (④-Z, Opus): the plan's total, or null when unknown — read by the "N or more / fewer than N mana was
+  // spent to cast that spell" conditions the Opus payoffs stamp on their atoms; null leaves both halves unfired.
+  const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard), castingPlayerId: casterId, castSpellMv: cascadingSpellManaValue(spellCard), castStackObjectId: stackObjectId, manaSpent, manaSpentAmount };
   let fired = [];
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {

@@ -734,6 +734,22 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     if (typeof context?.manaSpent !== "boolean") return null;
     return context.manaSpent === false;
   }
+  // ===== MANA-SPENT AMOUNT (④-Z, 2026-09-03 — the Opus cycle: Thunderdrum Soloist, Tackle Artist, Spectacular
+  // Skywhale …) ===== "N or more mana was spent to cast that spell" and its complement "fewer than N mana was spent
+  // to cast that spell" (the base half of an "… instead" pair). Reads the cast context's `manaSpentAmount` (threaded
+  // by checkCastTriggers from the dispatcher's payment plan): a number → a definite answer; anything else (an
+  // alternative-cost cast, a non-cast context) → null, "can't confirm" — never a fired guess.
+  {
+    const ge = c.match(/^(\w+) or more mana was spent to cast that spell$/);
+    const lt = c.match(/^fewer than (\w+) mana was spent to cast that spell$/);
+    if (ge || lt) {
+      const w = (ge || lt)[1];
+      const n = NUM_WORD[w] ?? (/^\d+$/.test(w) ? parseInt(w, 10) : NaN);
+      if (!Number.isInteger(n)) return null;
+      if (typeof context?.manaSpentAmount !== "number") return null;
+      return ge ? context.manaSpentAmount >= n : context.manaSpentAmount < n;
+    }
+  }
 
   // ===== NOT-A-MANA-ABILITY (CAP-BRACERS, 2026-09-03 — Illusionist's Bracers / Rings of Brighthearth, CR 605.3b)
   // ===== "…, if it isn't a mana ability, …" on an ability-activated trigger. Reads the activation context's

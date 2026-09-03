@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **The Opus cycle works** — Thunderdrum Soloist, Tackle Artist, Spectacular Skywhale, Elemental Mascot, Deluge
+  Virtuoso and Colorstorm Stallion upgrade their payoff when five or more mana was spent on the spell.
 - **Aria of Flame works** — every opponent gains 10 on entry, and the verse counters burn as before.
 - **Command Beacon works** — sacrifice it to put your commander into your hand from the command zone.
 - **Prowler's Helm, Invisibility and Seeker work** — the creature wearing them can only be blocked by what the

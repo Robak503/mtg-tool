@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎺 2026-09-03 (night cron) — ④-Z: the OPUS cycle — "if five or more mana was spent to cast that spell, … instead" · **+6** (Thunderdrum Soloist / Tackle Artist / Spectacular Skywhale / Elemental Mascot / Deluge Virtuoso / Colorstorm Stallion) · Veyran Cantrips 89/100 · corpus 13,958 / 34,245 (40.7%)
+> Suite **1387 / 15,529** green; lint 0. Flip-diff **+6, zero LOST**. **6/6 killed.**
+> · **The shape:** "Opus — Whenever you cast an instant or sorcery spell, <X>. If five or more mana was spent to cast
+>   that spell, <Y> instead." The engine knew only the BOOLEAN of mana spent (Vexing Bauble's "no mana was spent");
+>   the dispatcher now records the AMOUNT off the same payment plan (a free cast is 0, an alternative cost stays
+>   unknown), the cast-trigger context carries it, two intervening-if readers compare it ("N or more" / "fewer than
+>   N"), and the effect parser splits the pair into a base stamped with the complement and an upgrade stamped with
+>   the threshold — exactly one half resolves, the kicked-magnitude discipline expressed as runtime conditions. The
+>   additive form (no "instead") stamps only the upgrade. Both halves must parse HIGH on their own.
+> · **Board-verified:** a one-mana Shock — the Soloist deals 1 (not 3), Tackle Artist gets ONE counter; a five-mana
+>   Lava Axe — 3 damage (not 1, not 4) and TWO counters. A reader without the amount answers null, never a guess.
+> · **Honest edges:** Muse Seeker ("discard a card UNLESS five or more…") and Molten-Core Maestro (a mana payoff) stay
+>   parked — different shapes. Mizzix's Mastery / Expressive Iteration / Arcane Denial are Veyran's remaining tail.
+> · **CI:** master 3ca711eb (twelve slices) is on GitHub; its sharded run is in flight (both shards started 21:05Z). ④-Z is local behind it.
+
 > ## 🎼 2026-09-03 (night cron) — ④-Y: "each opponent gains N life" — Aria of Flame · **+1** · Veyran Cantrips 88/100 · corpus 13,952 / 34,245 (40.7%)
 > Suite **1386 / 15,524** green; lint 0. Flip-diff **+1, zero LOST**. **3/3 killed.**
 > · **The shape:** the loss twin ("each opponent loses N life") and the targeted gain both existed; the each-opponent

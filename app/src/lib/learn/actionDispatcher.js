@@ -320,10 +320,14 @@ function applyCastSpell(state, action) {
   // KNOWS (a paid plan: any mana at all; a free cast: none), null where it does not (an alternative cost may
   // or may not include mana — unknown stays unknown, so the intervening-if never fires on a guess).
   let manaSpent = null;
+  // ④-Z (Opus, 2026-09-03): the AMOUNT spent, for "if five or more mana was spent to cast that spell" — a definite
+  // number where the engine knows (a paid plan: the plan's own total; a free cast: 0), null where it does not (an
+  // alternative cost). Read off the SAME plan as `manaSpent`, so the two can never disagree.
+  let manaSpentAmount = null;
   let paidUncounterable = false; // CAP-CAVERN: the plan spent mana printed "…and that spell can't be countered" (Cavern of Souls)
   if (action.freeCast || action.altCost) {
     working = state;
-    if (action.freeCast) manaSpent = false;
+    if (action.freeCast) { manaSpent = false; manaSpentAmount = 0; }
   } else {
     // Plan payment from the current pool PLUS untapped mana sources. planPayment
     // is pool-first, so a pre-filled pool pays with zero taps (preserving the
@@ -366,6 +370,7 @@ function applyCastSpell(state, action) {
     colorsSpent = ["W", "U", "B", "R", "G"].filter((c) => (plan.spend?.[c] || 0) > 0).length;
     // SG-13: read off the SAME plan — a {0} spell (or a cost reduced to nothing) spent no mana at all.
     manaSpent = Object.values(plan.spend || {}).some((n) => (n || 0) > 0);
+    manaSpentAmount = Object.values(plan.spend || {}).reduce((acc, n) => acc + (Number(n) || 0), 0); // ④-Z — the same plan
     // CAP-CAVERN (CR 106.6 / Cavern of Souls): mana whose restriction carries `uncounterableIfSpent` was spent on
     // THIS spell — off the SAME plan (a tap, or a tagged pool entry priced by the plan). Stamped below with the
     // mark the counter-target enumeration honours.
@@ -842,7 +847,7 @@ function applyCastSpell(state, action) {
   // not at a later checkpoint, so they resolve BEFORE the spell — correct order, and the
   // right thing for any future referential effect).
   next = recordSpellCast(next, { playerId: action.playerId, spellCard: castCard }); // TRIG-CAST2: count this cast BEFORE firing, so "your second spell each turn" sees the running total
-  next = checkCastTriggers(next, { spellCard: castCard, casterId: action.playerId, targets, xValue: action.xValue, stackObjectId: stkId, castFromZone: action.fromZone || "hand", manaSpent }); // SELF-CAST: thread the chosen X so a "When you cast this spell" half-X/X payoff (Hydroid Krasis) resolves at the real X; STORM: thread the spell's stack id so the storm trigger can snapshot its payload to copy; ADVENTURE: the FACE cast (so "cast an Adventure spell" matches); CAST-FROM-NONHAND (Vega, K1): the action's source zone gates the from-anywhere-but-hand watchers
+  next = checkCastTriggers(next, { spellCard: castCard, casterId: action.playerId, targets, xValue: action.xValue, stackObjectId: stkId, castFromZone: action.fromZone || "hand", manaSpent, manaSpentAmount }); // SELF-CAST: thread the chosen X so a "When you cast this spell" half-X/X payoff (Hydroid Krasis) resolves at the real X; STORM: thread the spell's stack id so the storm trigger can snapshot its payload to copy; ADVENTURE: the FACE cast (so "cast an Adventure spell" matches); CAST-FROM-NONHAND (Vega, K1): the action's source zone gates the from-anywhere-but-hand watchers
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // BECOMES-TARGET (CR 603.2 — the Phantasmal Illusion family): if this spell targets one or more permanents
   // that carry a "When this creature becomes the target of a spell or ability, sacrifice it." trigger, fire it

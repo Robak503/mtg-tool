@@ -2447,6 +2447,33 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       return makeProgram({ confidence: "high", atoms: [{ op: "player-protection-everything", targetType: null }], xSpell: false, unparsedTail: null });
     }
   }
+  // ===== OPUS — MANA-SPENT UPGRADE (④-Z, 2026-09-03 — the Opus cycle: Thunderdrum Soloist "deals 1 damage to each
+  // opponent. If five or more mana was spent to cast that spell, … deals 3 damage … instead", Tackle Artist, Spectacular
+  // Skywhale, Elemental Mascot …) ===== "<X>. If N or more mana was spent to cast that spell, <Y>[ instead]." Both halves
+  // must parse HIGH on their own; with "instead" the pair is a REPLACEMENT — the base stamped with the complement
+  // condition, the upgrade with the threshold — so exactly one half resolves (the kicked-magnitude discipline, here as
+  // conditions the runtime evaluates against the cast context's manaSpentAmount); without "instead" the upgrade is
+  // ADDITIVE and only it carries the condition. A half that already carries a condition, a modal or an X half → park.
+  {
+    const raw = stripReminder(String(oracle)).trim().replace(/\s+/g, " ").replace(/\.$/, "");
+    const om = raw.match(/^(.+?)\. if (\w+) or more mana was spent to cast that spell, (.+?)( instead)?$/i);
+    if (om) {
+      const base = parseEffectClauseImpl(om[1], cardType, { hasX, sourceScoped });
+      const up = parseEffectClauseImpl(om[3], cardType, { hasX, sourceScoped });
+      const clean = (p) => p && p.confidence === "high" && !p.xSpell && p.structure !== "modal" && (p.atoms || []).length > 0 && p.atoms.every((a) => !a.condition && !a.optional);
+      if (clean(base) && clean(up)) {
+        const word = om[2].toLowerCase();
+        const geCond = `${word} or more mana was spent to cast that spell`;
+        const ltCond = `fewer than ${word} mana was spent to cast that spell`;
+        const atoms = [
+          ...base.atoms.map((a) => (om[4] ? { ...a, condition: ltCond } : a)),
+          ...up.atoms.map((a) => ({ ...a, condition: geCond })),
+        ];
+        return makeProgram({ confidence: "high", atoms, xSpell: false, unparsedTail: null });
+      }
+      return makeProgram({ confidence: "low", atoms: [], xSpell: false, unparsedTail: raw });
+    }
+  }
   // ===== TEFERI'S PROTECTION (CAP, 2026-09-03 — CR 702.16b / 119.6 / 702.26) ===== the body after the self-exile
   // sentence is stripped: "Until your next turn, your life total can't change and you gain protection from
   // everything. All permanents you control phase out." — two sentences, one deterministic atom (the shield +
