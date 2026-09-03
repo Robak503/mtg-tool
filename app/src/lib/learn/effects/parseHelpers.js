@@ -65,7 +65,13 @@ export const NUM_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 
 //   • ripple   (CR 702.60a)  — "When you cast this spell, YOU MAY reveal the top N cards of your library…
 //                              Put the rest on the bottom." Declined, the library is untouched and nothing
 //                              else on the card changes.
-const COST_ONLY_KEYWORD_LINE = /^(?:convoke|improvise|delve|fuse|assist|affinity for [a-z]+|casualty \d+|ripple \d+|replicate (?:\{[^}]+\})+|sneak (?:\{[^}]+\})+|flashback (?:\{[^}]+\})+|transmute (?:\{[^}]+\})+)(?:\s*\([^)]*\))?\s*$/i;
+// ④-O (2026-09-03 night) adds REINFORCE (CR 702.71a) — "Reinforce N—{cost} ({cost}, Discard this card: Put N +1/+1
+//   counters on target creature.)": a HAND-zone activated option the engine never offers (exactly cycling's basis
+//   on the permanent side, reCyclingCost). Declined, the spell is cast and resolves as printed — a real, complete
+//   mode; not offering the discard-for-counters is an under-offer, the safe direction. Read off the printed corpus:
+//   Break Ties / Fowl Strike / Hunting Triad / Earthbrawn each parked on this line ALONE. The em-dash is load-bearing
+//   (the printed form), so reinforce-REFERENCING prose never matches.
+const COST_ONLY_KEYWORD_LINE = /^(?:convoke|improvise|delve|fuse|assist|affinity for [a-z]+|casualty \d+|ripple \d+|replicate (?:\{[^}]+\})+|sneak (?:\{[^}]+\})+|flashback (?:\{[^}]+\})+|transmute (?:\{[^}]+\})+|reinforce \d+[—–-](?:\{[^}]+\})+)(?:\s*\([^)]*\))?\s*$/i;
 
 /**
  * Strip standalone CONVOKE / AFFINITY cost-keyword lines from an oracle string (line-anchored). Returns the

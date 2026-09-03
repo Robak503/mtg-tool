@@ -176,6 +176,7 @@ the scratchpad). ✅ **④-A** — Aura-own cumulative upkeep composes with the 
 ✅ **④-L** — "sacrifice this Aura unless you pay": the upkeep tax on an Aura (+4; 2/2).
 ✅ **④-M** — annihilator + a routing trigger compose (+2; 3/3).
 ✅ **④-N** — the Aura's own one-shot on its host: exile / bounce (+7; 5/5).
+✅ **④-O** — Reinforce on a spell: the hand-zone option joins the cost-only strip (+4; 3/3).
 Queue = the census's two-flip / bug-signature leads (see WAKE-REPORT top).
 Only after ①–③'s DONE lines are met. Boot from the vault's `memory/orders/cindy-corpus-roadmap.md`
 (WHAT/WHY/ORDER) + the repo's `RESIDUE-GRIND-RUNBOOK.md` (HOW): fresh census, largest clause family with
@@ -253,6 +254,13 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
 ---
 
 ## §6 PARKED / NEEDS COLTON (append as you go — this is the morning report's raw material)
+
+- **[Grafted Identity — the additional-cost sacrifice on an AURA cast, 2026-09-03 night — Cindy lane]** Since ④-K
+  its body (control + a +1/+1 bonus) is native, and only "As an additional cost to cast this spell, sacrifice a
+  creature." parks it. Measured on a board: the additional-cost lane emits the cast with the victim chosen but
+  **no host target** (`targets: []`), because that lane's target expansion knows nothing of Aura hosts. Crediting it
+  as-is would offer an Aura cast that cannot attach (CREED). Fix = the AC expansion enumerates aura hosts
+  (isAuraSpell + one cast per legal host × victim) — a lane change for ONE card; parked, not forgotten.
 
 - **[Per-line spend restrictions, 2026-09-03 night — Cindy lane]** Steelswarm Operator (and any card printing two
   differently-restricted mana lines) needs each restricted line parsed on the ④-3 extra-line machinery with its OWN

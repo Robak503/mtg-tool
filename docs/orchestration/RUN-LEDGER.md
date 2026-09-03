@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🛡️ 2026-09-03 (night cron) — CORPUS ④-O: REINFORCE on a spell — the hand-zone option joins the cost-only keyword strip · **+4** (Break Ties / Fowl Strike / Hunting Triad / Earthbrawn) · corpus 13,917 / 34,245 (40.6%)
+> Suite **1376 / 15,481** green; lint 0. Flip-diff **+4, zero LOST**. **3/3 killed.**
+> · **The shape:** "Reinforce 2—{2}{G} ({2}{G}, Discard this card: Put two +1/+1 counters on target creature.)" on an
+>   instant/sorcery — a HAND-zone activated option the engine never offers (cycling's exact basis on the permanent
+>   side). Declined, the spell is cast and resolves as printed: a real, complete mode; not offering the discard-for-
+>   counters is an under-offer, the safe direction. One alternative in the spell-side cost-only keyword strip
+>   (beside transmute / flashback / convoke), em-dash load-bearing so reinforce-REFERENCING prose never matches.
+> · **Board-verified:** Fowl Strike cast from hand destroys the opponent's flier; nothing but the cast references
+>   the card in hand.
+> · **Read while sizing:** the typecycling permanents that still park (Eternal Dragon, Angel of the Ruins, Ice
+>   Flan …) park on OTHER lines — the cycling admit already exists; those are separate gaps.
+
 > ## 🚪 2026-09-03 (night cron) — CORPUS ④-N: the aura-own ONE-SHOT on the host — "Exile enchanted creature" / "Return enchanted creature to its owner's hand" · **+7** (Cooped Up / Dreadful Apathy / Redemption Arc / Sun Clasp + three audited riders) · corpus 13,913 / 34,245 (40.6%)
 > Suite **1375 / 15,478** green; lint 0. Flip-diff **+7, zero LOST**. **5/5 killed** (one survived first: the own-activated
 > gate's widening had no printed carrier — every real card has a static half and is credited through the residue walk —

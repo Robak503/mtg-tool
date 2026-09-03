@@ -7,6 +7,18 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🛡️ 2026-09-03 (night cron) — **④-O: Reinforce on a spell (+4)** · suite **1376 / 15,481** green · corpus 13,917 / 34,245 (40.6%) · flip-diff +4 / 0 lost · 3/3 killed
+
+> **Night tally (stage ④, fifteen slices):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3) · D tapped-for-mana
+> (+2) · E Nikya (+1) · F opponent creature tokens (+7) · G flashback grant (+6) · H en-Kor redirect (+5) · I Savage
+> Firecat (+3) · J Bubble Snare (+1) · K control-aura bonus + Siren (+1, FP closed on 3) · L upkeep-tax Auras (+4) ·
+> M annihilator composite (+2) · N host exile/bounce Auras (+7) · O reinforce spells (+4) — corpus 13,862 → 13,917.
+> **Next runnable:** Relic of Progenitus / Scrabbling Claws / Merrow Bonegnawer ("target player exiles a card from
+> their graveyard" — a new opponent-side pick, panel + driver), Serra Bestiary / Katabatic Winds ("activated abilities
+> with {T} in their costs can't be activated"), or the next census read.
+> **Parked (§6):** Grafted Identity — the additional-cost lane emits the Aura cast WITHOUT a host target (measured:
+> `targets: []`, sac chosen); crediting it needs the AC expansion to enumerate aura hosts (isAuraSpell) first.
+
 ## 🚪 2026-09-03 (night cron) — **④-N: the Aura's own one-shot on its host — exile / bounce (+7)** · suite **1375 / 15,478** green · corpus 13,913 / 34,245 (40.6%) · flip-diff +7 / 0 lost · 5/5 killed
 
 > **Night tally (stage ④, fourteen slices):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3) · D tapped-for-mana

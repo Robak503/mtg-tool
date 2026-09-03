@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Break Ties, Fowl Strike, Hunting Triad and Earthbrawn work** — cast as printed (the reinforce option
+  is simply not offered).
 - **Cooped Up, Dreadful Apathy, Redemption Arc, Sun Clasp, Sigarda's Imprisonment, Ghostly Wings and
   Caught in the Brights work** — the Aura's own ability (or Vehicle-attack trigger) exiles or bounces the
   creature it enchants.
