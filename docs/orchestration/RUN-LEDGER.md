@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⚠️ 2026-09-03 04:50 — CORRECTION (no code): the land tier credits mana lines the runtime never offers — 55 "land"-tier cards, INCLUDING tonight's 13 storage lands (LANDS-10)
+> Found while building the Gathering Place gate (the would-be LANDS-14, reverted unshipped). The mana model
+> reads ONE product per card (parseAddClause takes the first "Add" clause) and manaSources offers that
+> product only; the land tier's classifier admits EVERY "{T}…: Add" line it can read. So a land printing two
+> mana abilities is credited "fully covered" while its second line never fires. Measured (scratch
+> census-multiline-mana2.mjs, 04:35): **158 lands print ≥2 mana lines · 114 under-offer the second one at
+> runtime · 55 of those are credited tier "land".** Probed live: Mage-Ring Network with three storage
+> counters offers only its {C} tap; Saltcrusted Steppe the same.
+> · **The LANDS-10 entry's claim "the remove-counter mana abilities were already modeled" was WRONG.** They
+>   were already ADMITTED by the classifier; they were never offered by the mana model (an X / "any number"
+>   counter-removal cost is explicitly fail-closed in the activated-cost parser, and it is not a manaSources
+>   product either). The +13 flip was real as a METRIC move and vacuous at RUNTIME — the 13 lands make
+>   storage counters they can never spend. The tier numbers in tonight's report (land-partial 454 → 363)
+>   stand as measured; the "fully covered" meaning of tier "land" carries this gap, now on the record.
+> · Not fixed tonight, on purpose: the honest fix is the runtime (feedback_retired_fp_reevaluation — enforce,
+>   don't drop): multi-product mana (one source record per mana line; planner + commit treating a
+>   permanent's records as mutually exclusive), plus variable counter-removal sources and mana-costed mana
+>   abilities for the storage family. A few hours with gates and a planner change — not a 05:00 job with the
+>   morning report due. Parked at the top of the plan's §6 with the numbers; Colton's call on priority.
+
 > ## 🦕 2026-09-03 — SG-14: Allosaurus Shepherd — green spells you control can't be countered · the Elf team becomes 5/5 Dinosaurs · **+1 corpus** · Squirrel Girl 82→83 · corpus 40.3% (13,806/34,245)
 > Suite **1345 / 15,294** green; lint 0. Flip-diff **+1, zero LOST** (body-only → native-mixed). **8/8 killed.**
 > SG-13 CI (2d99bdb6): success.

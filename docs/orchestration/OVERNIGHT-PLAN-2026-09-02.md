@@ -81,7 +81,8 @@ Stage ① builds the arms; stage ② is making them COMPLETE across the corpus a
 land-partial, 368 single-blockers):** ✅ reveal-lands (19, LANDS-7) · ✅ typed-basic union fetch — the
 Landscapes/Panoramas (16, LANDS-8) · ✅ Channel (shipped in stage ①, LANDS-5: +20 riders) · ✅ shocklands
 (LANDS-2) · ✅ "enters tapped unless" (LANDS-1, 83) · ✅ enters-with-N-counters lands (12, LANDS-9) ·
-✅ storage-counter lands (13, LANDS-10) · ✅ the Karoos + pay-{1} lands (9 + Scythe Tiger, LANDS-11) ·
+✅⚠️ storage-counter lands (13, LANDS-10 — a METRIC flip only: their remove-counter mana is never offered at
+runtime; corrected 04:50, see the top of §6) · ✅ the Karoos + pay-{1} lands (9 + Scythe Tiger, LANDS-11) ·
 ✅ choose-a-color permanents (21, LANDS-12). **Measured after LANDS-12 (the DONE ② number): land-partial
 454 → 368 (single-blockers 368 → 291); after LANDS-13 (the lairs, +5): 363.** ⚠️ CORRECTION to an earlier
 line here: NOT every ≥3-carrier family is shipped or parked — five families of exactly 5 carriers remain
@@ -223,6 +224,21 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
   planner never carried cost riders — a planned Molt Tender tap exiled nothing until SG-3; (b) a played
   Vivid/depletion/Gemstone land arrived with no counters until LANDS-9. Any self-play game before tonight
   that involved those cards under-paid.
+- **⚠️ FOUND 04:20 — multi-line mana lands under-offer at runtime (a credited-native runtime gap, measured):**
+  the mana model reads ONE mana line per card (parseAddClause takes the first "Add" clause), so a land that
+  prints two "{T}: Add …" abilities only ever offers the first. Census (scratch census-multiline-mana2.mjs):
+  **114 lands** whose second mana line is never offered; **55 of them are credited tier "land"** (fully
+  covered) — Tainted Isle taps for {C} only (its Swamp-gated {U}/{B} never fires), the Verge cycle, the
+  Gathering Place five, Mogg Hollows' "doesn't untap" cycle (10), the pay-life duals (6), the sac-this-land
+  rituals (5), "Spend only on a creature spell" lands (5), and 28 whose FREE colourless line hides behind a
+  painful any-colour first line (Grand Coliseum pays life it never had to). Found while building the
+  Gathering Place gate (LANDS-14): the condition shape worked, the classifier admitted the line, and the
+  flip would have been runtime-vacuous — so it was NOT shipped (reverted; the honest fix is the runtime,
+  not the claim — feedback_retired_fp_reevaluation). **Unpark = multi-product mana:** one source record per
+  mana line (each parsed as its own single-line ability), planner + commit treating records of the same
+  permanent as mutually exclusive (one {T} per permanent), every manaSources consumer re-gated. A real
+  subsystem slice, a few hours with gates; it also makes the 55 credited lands honest. Your call on priority
+  against stage ④'s subsystems (morph ~164, initiative/ring ~126, quoted-grant statics ~133).
 - (append here: card · blocker · why it parks · what would unpark it)
 
 ## §7 WHAT THE MORNING REPORT MUST CONTAIN

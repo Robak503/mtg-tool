@@ -23,6 +23,17 @@
 > Note: the SG-5 and LANDS-13 CI runs show CANCELLED — GitHub's concurrency rule, each superseded by the
 > next push; the SG-6 run (which carries their code) is green. Not red.
 >
+> **⚠️ One correction, found at 04:20 and measured (read this before trusting "fully covered" on a land):**
+> the land tier credits every mana line the classifier can read, but the mana model offers ONE product per
+> card — a land printing two "{T}: Add …" abilities never fires its second one. 158 lands print two or
+> more; 114 under-offer at runtime; **55 of those are credited "land"**, and that includes tonight's 13
+> storage lands (LANDS-10 — its "remove-counter mana was already modeled" line was wrong: admitted, never
+> offered; they make storage counters they can't spend). The tier counts stand as measured; the meaning of
+> "fully covered" carries that gap. Not fixed tonight on purpose — the fix is a planner change
+> (multi-product mana + variable counter-removal sources), a few hours with gates, and it is the first item
+> in the plan's §6 with the numbers. Nothing under-offered is wrong in the rules sense (a land that taps for
+> less is a safe under-play); the wrong thing was the claim, and it is now on the record.
+>
 > **Every slice on master (SHA · what · witness):** LANDS-1 37bb04b7 "enters tapped unless" (83) ·
 > LANDS-2 fce3397b shocklands (10, the optional-life-payment pause) · LANDS-3 3ee7890b self-name sacrifice +
 > `historic` (13) · LANDS-4 bb367426 exile-N-from-graveyard cost (31) · LANDS-5+6 aae508fe Channel +
