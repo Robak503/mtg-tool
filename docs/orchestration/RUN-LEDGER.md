@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🐿️ 2026-09-03 — STAGE ③ opens: SG-1 — **THE UNBEATABLE SQUIRREL GIRL IS NATIVE** (the deck's commander) · +2 corpus · Squirrel Girl deck 67→68 · corpus 40.2% (13,774/34,245)
+> Suite **1331 / 15,217** green; lint 0. Flip-diff **+2, zero LOST** (the commander + Drey Keeper, whose
+> "Squirrels you control" count rides the same word). **4/4 killed.**
+> · **Both her abilities parked on VOCABULARY, not machinery.** Ablation: each line alone parked her (a true
+>   two-piece card). "Do You Like Squirrels? — Whenever … enters or attacks, create a 1/1 green Squirrel" —
+>   the flavor label ends in "?", which no allowlist carried; the enters-or-attacks split and the token
+>   already ran. "I LOVE Squirrels! — {1}{G}{G}{G}: Create X … where X is the number of Squirrels you
+>   control" — the activated label's "!" fell outside the strip's character class, and "squirrel" was not
+>   in the count-subtype vocabulary; the X-tokens-by-count atom already ran.
+> · **The trigger-side rule is GENERIC where the list is exact:** a label ending in "?" or "!" before a
+>   trigger word is flavor by construction — no CR keyword, ability word, or rules-bearing dash prefix
+>   (Max speed, Solved, Corrupted, Saga chapters) ends that way. 11 corpus cards print one (the Doctors,
+>   Barret, Dalek Drone, Spider-Man To the Rescue …). Pinned against a Saga chapter marker.
+> · **Her deck (34 non-native, ablated):** 19 single-blockers — cheapest next: Altar of the Brood ("another
+>   permanent you control enters"), Woodland Bellower ("nonlegendary" in the tutor filter), Skullclamp
+>   ("equipped creature dies → draw two"), Phyrexian Altar / Ashnod's Altar (a sacrifice-cost mana
+>   ability — neither is native today), Jaheira ("Tokens you control have '{T}: Add {G}'"), Geier Reach
+>   Sanitarium; medium: Elvish Spirit Guide (exile-from-hand mana), Altar of Dementia, Peregrin Took,
+>   Dosan, Frenzied Baloth, Vexing Bauble, Evolutionary Leap, Sylvan Library, Boseiju's channel effect,
+>   Homeward Path; parks: Gemstone Caverns, Shifting Woodland, Evendo. 15 multis (Cavern of Souls, The
+>   One Ring, Endurance, Allosaurus Shepherd, the X-spells …).
+
 > ## 🎨 2026-09-03 — LANDS-12: CHOOSE-A-COLOR permanents (the Thriving lands, the Gates, Night Market … + Coldsteel Heart, Sol Grail) · **+21 corpus** · corpus 40.2% (13,772/34,245)
 > Suite **1330 / 15,210** green; lint 0. Flip-diff **+21, zero LOST, zero RETIERED** — 17 lands (Thriving ×5,
 > the Gates ×6, Night Market, Uncharted Haven, Crossroads Village, Shimmerdrift Vale, Mirage Mesa,

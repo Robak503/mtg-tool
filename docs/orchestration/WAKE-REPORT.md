@@ -7,7 +7,17 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## 🎨 2026-09-03 — **STAGE ② DONE to the parks: LANDS-12 choose-a-color permanents (+21) — corpus 40.2% (13,772), Cap 84** — suite **1330 / 15,210** green
+## 🐿️ 2026-09-03 — **STAGE ③ OPEN: The Unbeatable Squirrel Girl is NATIVE (SG-1) — her deck 68/100, corpus 40.2% (13,774)** — suite **1331 / 15,217** green
+
+> **SG-1 = the commander.** Both abilities parked on vocabulary: a "?"-terminated flavor label (now a
+> generic rule — terminal punctuation is flavor by construction), a "!" in the activated label's
+> character class, and "squirrel" in the count-subtype list. Enters-or-attacks token + the X-by-count
+> tokens both run natively; 4/4 killed; Drey Keeper rides. **Her deck: 34 → 33 non-native — 19 single-
+> blockers ablated and ranked in the ledger** (Altar of the Brood, Woodland Bellower, Skullclamp, the
+> Altars, Jaheira first). Colton's ask was "as far as possible on Squirrel Girl" — the walk continues
+> cheapest-first from that list.
+
+## 🎨 2026-09-03 — STAGE ② DONE to the parks: LANDS-12 choose-a-color permanents (+21) — corpus 40.2% (13,772), Cap 84 — suite 1330 / 15,210 green
 
 > **LANDS-12**: the Thriving lands, the Gates, Night Market and kin (+ Coldsteel Heart, Sol Grail): a
 > permanent-type-agnostic reader for "As it enters, choose a color [other than X]", the play-land stamp,

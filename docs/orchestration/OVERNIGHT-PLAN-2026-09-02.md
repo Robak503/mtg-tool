@@ -93,6 +93,12 @@ tail (5), Station (2).
 
 ## §3 STAGE ③ — Squirrel Girl to 90, COMMANDER FIRST
 
+**Progress (2026-09-03):** ✅ **SG-1 — the commander is NATIVE** (a "?"-terminated flavor-label rule, a "!" in
+the activated label's character class, "squirrel" in the count vocabulary; 4/4 killed). Deck 67 → 68.
+Ablation of the 33 remaining non-native cards: 19 single-blockers, ranked cheapest-first in the ledger's
+SG-1 entry (Altar of the Brood · Woodland Bellower · Skullclamp · Phyrexian/Ashnod's Altar · Jaheira · Geier
+Reach Sanitarium …); 15 multis; 3 parks (Gemstone Caverns, Shifting Woodland, Evendo).
+
 Stored 09-02 on Colton's profile (100/0 unresolved). **67/100**: 14 native-mana · 10 native-spell ·
 5 native-trigger · 4 native-activated · 5 native-static · 1 native-mana-aura · 6 native-mixed ·
 22 land · **9 land-partial · 21 body-only · 2 arbiter-spell · 1 arbiter-pw**.

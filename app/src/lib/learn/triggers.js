@@ -337,6 +337,14 @@ const FLAVOR_LABEL_RE = new RegExp(
   `^(?:\\.\\.\\.\\s*)?(?:${FLAVOR_TRIGGER_LABELS.join("|")})\\s*[—–-]\\s*(?=(?:when|whenever|at)\\b)`,
   "gim",
 );
+// PUNCTUATION-TERMINATED FLAVOR LABEL (SG-1, 2026-09-03 — The Unbeatable Squirrel Girl's "Do You Like
+// Squirrels? — Whenever …"; 11 corpus cards print a label ending in "?" or "!" before a trigger word: Magitek
+// Scythe, Butch DeLoria, The Tenth/Eleventh Doctor, Company Commander, Starlight Spectacular, Barret,
+// Spider-Man To the Rescue, Dalek Drone, The Wise Sable). The allowlist above exists because SOME dash
+// prefixes carry rules meaning (Max speed, Solved, Corrupted, Saga chapters) — and none of those, nor any CR
+// keyword or ability word, ends in a question or exclamation mark. That terminal punctuation is the gate:
+// a label that ends in "?"/"!" is flavor by construction, so this rule is generic where the list is exact.
+const PUNCTUATED_FLAVOR_LABEL_RE = /^[A-Za-z][A-Za-z' ,.!?\-]{1,40}[?!]\s*[—–-]\s*(?=(?:when|whenever|at)\b)/gim;
 
 /**
  * Strip a leading ability-word label that precedes a trigger keyword ("Landfall — Whenever …"). Ability
@@ -540,7 +548,8 @@ export function stripTriggerAbilityLabel(oracle) {
     // appear in 207.2c. Stripping one would apply a gated effect unconditionally — a forbidden false
     // positive. The rule list in the bundled CR is the gate; a label that looks flavourful is not enough.
     .replace(ABILITY_WORD_LABEL_RE, "")  // ⭐ THE SHARED CR 207.2c list (effects/textNormalize.js) — one copy, so the trigger path and the spell path cannot drift
-    .replace(FLAVOR_LABEL_RE, "");
+    .replace(FLAVOR_LABEL_RE, "")
+    .replace(PUNCTUATED_FLAVOR_LABEL_RE, "");
 }
 
 // ─── Detection ────────────────────────────────────────────────────────────────

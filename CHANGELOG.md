@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **The Unbeatable Squirrel Girl works.** Her enters-or-attacks Squirrel and her "I LOVE Squirrels!" X
+  ability (one token per Squirrel you control, herself included) both resolve natively; Drey Keeper's
+  Squirrel count rides along. Flavor labels ending in "?" or "!" no longer hide a card's triggers.
 - **Choose-a-color lands and rocks work.** The Thriving lands, the Baldur's Gate Gates, Night Market,
   Uncharted Haven, Coldsteel Heart, Sol Grail and their kin now actually choose a color as they enter (the
   color your hand needs most, never one the card forbids) and tap for it.

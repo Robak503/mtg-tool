@@ -958,7 +958,10 @@ export function parseActivatedAbilities(card) {
     // safe are unchanged and are what bound the widen: the label must still be followed by a DASH and then
     // a BRACE COST (the `(?=\{)` lookahead), and any line whose reminder text mentions "activate" is skipped
     // above as a rules-bearing keyword. A dotted label with no brace cost after it still never matches.
-    return /\([^)]*activate/i.test(ln) ? ln : ln.replace(/^[A-Za-z][A-Za-z'.\- ]{0,40}\s[—–]\s*(?=\{)/, "");
+    // SG-1 (2026-09-03): the label's character class admits "!", "?" and "," — "I LOVE Squirrels! — {1}{G}{G}{G}:"
+    // (The Unbeatable Squirrel Girl). The brace-cost lookahead is still the gate; the reminder-"activate" guard
+    // above still keeps the rules-bearing dash keywords (Boast, Exhaust, Power-up) out.
+    return /\([^)]*activate/i.test(ln) ? ln : ln.replace(/^[A-Za-z][A-Za-z'.!?,\- ]{0,40}\s[—–]\s*(?=\{)/, "");
   }).join("\n");
   // ===== OUTLAST (CR 702.107a) — expand the keyword into the ability it IS ==========================
   // "Outlast [cost]" means "[cost], {T}: Put a +1/+1 counter on this creature. Activate only as a sorcery."
