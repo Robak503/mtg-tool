@@ -7,6 +7,13 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🐐 2026-09-03 (night cron) — **④-F: "target opponent creates … creature tokens" (+7: Forbidden Orchard, the Hunted cycle)** · suite **1367 / 15,432** green · corpus 13,884 / 34,245 (40.5%) · flip-diff +7 / 0 lost · 5/5 killed
+
+> **Night tally (stage ④):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3, Joe's commander) · D tapped-for-mana
+> (+2) · E Nikya (+1) · F opponent creature tokens (+7) — corpus 13,862 → 13,884. **Next runnable:** Relic of
+> Progenitus (an opponent-side graveyard pick — the tempting-offer pause pattern), Snapcaster's flashback grant, the
+> en-Kor damage redirect (5), Bubble Snare (kicker on the aura cast lane), Hypnotic Siren (bestow-with-control).
+
 ## 🔒 2026-09-03 (night cron) — **④-E: Nikya's noncreature cast lock (+1)** · suite **1366 / 15,428** green · corpus 13,877 / 34,245 (40.5%) · flip-diff +1 / 0 lost · 4/4 killed
 
 > **Night tally so far (stage ④):** ④-A Mind Harness · ④-B dies-damage-by-power (+7) · ④-C Kinnan (Joe's commander, +3)

@@ -117,6 +117,13 @@ export function applyCreateToken(state, atom, ctx) {
       return logEvent(state, { kind: "spell-effect", effect: "create-token", count: 0, oncePerTurnLatched: true, controller: ctx.controller });
     }
   }
+  // ④-F — TARGET-OPPONENT CREATES (CR 111.2): the effect names a different creator — the chosen opponent (the
+  // player target) mints, controls and owns the tokens, and THEIR doubler counts. An absent/gone target → nothing
+  // (no fabricated token). Every other create-token keeps ctx.controller, byte-identical.
+  const tokenCreatorId = atom.whoCreates === "target"
+    ? (ctx.targets?.find((t) => t.type === "player")?.id ?? null)
+    : ctx.controller;
+  if (tokenCreatorId == null || !state.players?.[tokenCreatorId]) return logEvent(state, { kind: "spell-effect", effect: "create-token", count: 0, controller: ctx.controller, noCreator: true });
   const { type, name: derivedName } = tokenTypeLine(atom.descriptor);
   // NAMED-TOKEN (CR 111.4): a parsed "named X" suffix (atom.name) overrides the subtype-derived name (Koma's
   // Coil, not "Serpent"). Cosmetic to the rules — the subtype on the type line still drives every interaction.
@@ -148,14 +155,14 @@ export function applyCreateToken(state, atom, ctx) {
   // Wave-3 token doubler (CR 616 — Doubling Season / Parallel Lives / Anointed Procession / Primal Vigor /
   // Mondrak): the NUMBER of tokens created under the controller's control is multiplied. Computed once here
   // (a minted token is never itself a doubler), so the count doubles without per-token recursion.
-  const count = baseCount * tokenMultiplier(next, ctx.controller);
+  const count = baseCount * tokenMultiplier(next, tokenCreatorId);
   // ENTERS-WITH-COUNTERS: a token that enters with N +1/+1 counters (Zaxara's "0/0 Hydra with X counters").
   // `amount` is a resolved count; `countX` reads the chosen {X} (ctx.xValue). Applied BEFORE the lethal SBA
   // so a 0/0 token with counters survives as a real N/N instead of dying immediately (CR 704.5f). The counters
   // bypass addCounter (the token is minted locally), so the Wave-3 counter doubler is applied here, once.
   const ewc = atom.entersWithCounters;
   const counterBase = ewc ? Math.max(0, ewc.countX ? (ctx.xValue || 0) : (ewc.amount || 0)) : 0;
-  const counterN = counterBase > 0 ? applyCounterDoubling(next, ctx.controller, ewc.type || "+1/+1", counterBase) : 0;
+  const counterN = counterBase > 0 ? applyCounterDoubling(next, tokenCreatorId, ewc.type || "+1/+1", counterBase) : 0;
   // X/X P/T (DOUBLE-X subsystem): a token whose printed P/T is the spell's {X} (Gelatinous Genesis "X X/X",
   // Slime Molding "an X/X") mints at xValue/xValue. CR 107.3 — an X of 0 makes a 0/0 that dies to the lethal
   // SBA below (the countX path already mints zero tokens at X=0, so this only bites a fixed-count X/X token).
@@ -174,10 +181,10 @@ export function applyCreateToken(state, atom, ctx) {
     next = minted.state;
     const card = { id: `tok-${minted.id}`, name, type, power: tokPower, toughness: tokToughness, oracle, keywords, token: true };
     // TAPPED (Tormod — "create a TAPPED 2/2…"): the same atom.tapped flag the Treasure-maker mints honored.
-    let perm = createPermanent({ id: minted.id, card, controller: ctx.controller, tapped: !!atom.tapped });
+    let perm = createPermanent({ id: minted.id, card, controller: tokenCreatorId, tapped: !!atom.tapped });
     if (counterN > 0) perm = { ...perm, counters: { ...perm.counters, [ewc.type || "+1/+1"]: (perm.counters?.[ewc.type || "+1/+1"] || 0) + counterN } };
-    const player = next.players[ctx.controller];
-    next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, perm] } } };
+    const player = next.players[tokenCreatorId];
+    next = { ...next, players: { ...next.players, [tokenCreatorId]: { ...player, battlefield: [...player.battlefield, perm] } } };
     mintedIds.push(minted.id);
   }
   // ATTACKING JOIN (Otharri O1 — CR 508.1c): a token minted "tapped and attacking" must be REGISTERED in
@@ -838,6 +845,18 @@ function createTokenClauseParserCore(clause) {
   // TAPPED creature token (Tormod, the Desecrator "create a TAPPED 2/2 black Zombie…", 2026-08-15): the
   // adjective rides the SAME atom.tapped flag the Treasure-maker already mints honored (createPermanent
   // tapped at the one mint chokepoint) — no new enforcement, one captured word.
+  // TARGET-OPPONENT CREATES A CREATURE TOKEN (CORPUS ④-F, 2026-09-03 — Forbidden Orchard, the Hunted cycle, Ox Drover, the
+  // Phelddagrifs; CR 111.2): the creature-token sibling of the treasure/food arm above. RECURSES on the "create …"
+  // form so every count / P/T / colour / keyword rule stays in ONE place, then stamps the chosen opponent as the
+  // creator (whoCreates:"target" — applyCreateToken mints under THAT player, their doubler applies). A rider the
+  // general arm can't read ("with protection from black" — Hunted Horror) returns null → the whole clause stays
+  // LOW → Arbiter, never a stub token.
+  const toc = t.match(/^target opponent creates? (.+)$/);
+  if (toc) {
+    const inner = createTokenClauseParser("create " + toc[1]);
+    if (inner && inner.op === "create-token") return { ...inner, targetType: "opponent", whoCreates: "target" };
+    return null;
+  }
   const m = t.match(/^create (a|an|one|two|three|four|five|\d+) (tapped )?(\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?: named ([a-z' ]+?))?(?: with (.+))?$/);
   if (m) {
     const entersTapped = !!m[2];

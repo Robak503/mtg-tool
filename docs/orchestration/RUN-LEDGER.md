@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🐐 2026-09-03 (night cron) — CORPUS ④-F: "target opponent creates <N> <P/T> … creature tokens" · **+7** (Forbidden Orchard → land; the Hunted cycle ×5; Ox Drover) · corpus 13,884 / 34,245 (40.5%)
+> Suite **1367 / 15,432** green; lint 0. Flip-diff **+7, zero LOST**, each audited whole-card. **5/5 killed.**
+> · **The arm RECURSES:** "target opponent creates X" is parsed by handing "create X" back to the creature-token parser
+>   (one place owns count / P/T / colour / keyword) and stamping the chosen opponent as the CREATOR (`whoCreates:
+>   "target"`, the treasure/food arm's precedent). A rider the general arm can't read (Hunted Horror's "with
+>   protection from black") stays LOW → Arbiter — a stub token is a killed mutation.
+> · **The applier mints under the CHOSEN player** (CR 111.2 — the effect names a different creator): their battlefield,
+>   their control, their token doubler; the caster's board is untouched (pinned both ways through a real payment for
+>   Forbidden Orchard's tapped-for-mana trigger and through Hunted Lammasu's ETB).
+> · **The router had to learn the sibling:** the trigger router classifies each atom's target intent, and the
+>   creature-token op had no entry — the whole family stayed Arbiter with a perfect parse. `create-token` now falls
+>   through to the named-token case (an opponent target is always an enemy-side pick). Its absence is a killed
+>   mutation.
+> · **Riders audited:** Hunted Dragon (Knights with first strike), Hunted Bonebrute (Dogs + the each-opponent life
+>   drain + disguise), Hunted Phantasm (unblockable + Goblins), Hunted Troll (regenerate), Ox Drover (the token then
+>   "you draw a card" — split by the conjunction, both atoms modeled; the can't-be-blocked-by-Oxen static was already
+>   admitted). Clackbridge Troll / Hungry Lynx / the Phelddagrifs / Dungeon Master keep other unmodeled lines.
+
 > ## 🔒 2026-09-03 (night cron) — CORPUS ④-E: "You can't cast noncreature spells." — a controller-scoped cast lock · **+1** (Nikya of the Old Ways) · corpus 13,877 / 34,245 (40.5%)
 > Suite **1366 / 15,428** green; lint 0. Flip-diff **+1, zero LOST**. **4/4 killed.**
 > · A static MARKER (the Dosan / Shang-Chi pattern) read at the cast offer's timing gate through one sentence reader

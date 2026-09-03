@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **The Hunted cycle and Forbidden Orchard work** — Hunted Troll, Dragon, Lammasu, Bonebrute and Phantasm hand
+  their tokens to the opponent you pick; Forbidden Orchard gives an opponent a Spirit each time it's tapped for
+  mana; Ox Drover too. (Hunted Horror's protection rider is still on the Arbiter.)
 - **Nikya of the Old Ways works** — you can't cast noncreature spells while she's out; opponents can.
 - **Zhur-Taa Druid and Vorinclex, Voice of Hunger work** — tapping the Druid for mana pings each opponent;
   Vorinclex locks an opponent's land that was tapped for mana out of its next untap.
