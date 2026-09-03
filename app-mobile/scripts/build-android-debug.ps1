@@ -6,7 +6,35 @@ $androidRoot = Join-Path $tauriRoot "gen\android"
 $nativeLib = Join-Path $tauriRoot "target\aarch64-linux-android\debug\libomnath_webview_probe_lib.so"
 $jniDir = Join-Path $androidRoot "app\src\main\jniLibs\arm64-v8a"
 $jniLib = Join-Path $jniDir "libomnath_webview_probe_lib.so"
+$knowledgeSourceDir = Join-Path $projectRoot "build\knowledge"
+$androidKnowledgeDir = Join-Path $androidRoot "app\src\main\assets\knowledge"
 $apk = Join-Path $androidRoot "app\build\outputs\apk\arm64\debug\app-arm64-debug.apk"
+
+function Sync-AndroidKnowledgeAssets {
+  $files = @("omnath-knowledge.sqlite", "omnath-knowledge.manifest.json")
+  foreach ($file in $files) {
+    $source = Join-Path $knowledgeSourceDir $file
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+      throw "Android knowledge resource was not built: $source"
+    }
+  }
+  New-Item -ItemType Directory -Path $androidKnowledgeDir -Force | Out-Null
+  foreach ($file in $files) {
+    Copy-Item -LiteralPath (Join-Path $knowledgeSourceDir $file) -Destination (Join-Path $androidKnowledgeDir $file) -Force
+  }
+}
+
+function Test-ApkKnowledgeAssets {
+  if (-not (Test-Path -LiteralPath $apk -PathType Leaf)) { return $false }
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $archive = [System.IO.Compression.ZipFile]::OpenRead($apk)
+  try {
+    return $null -ne $archive.GetEntry("assets/knowledge/omnath-knowledge.sqlite") -and
+      $null -ne $archive.GetEntry("assets/knowledge/omnath-knowledge.manifest.json")
+  } finally {
+    $archive.Dispose()
+  }
+}
 
 $jdkHome = [Environment]::GetEnvironmentVariable("JAVA_HOME", "User")
 if (-not $jdkHome -or -not (Test-Path -LiteralPath (Join-Path $jdkHome "bin\java.exe"))) {
@@ -56,8 +84,11 @@ if ($tauriExit -eq 0) {
   if (-not (Test-Path -LiteralPath $apk)) {
     throw "Tauri reported success but no debug APK was found at $apk"
   }
-  Write-Output $apk
-  exit 0
+  if (Test-ApkKnowledgeAssets) {
+    Write-Output $apk
+    exit 0
+  }
+  Write-Output "Tauri build omitted Android knowledge assets; rebuilding with explicit packaged resources."
 }
 
 if (-not (Test-Path -LiteralPath $nativeLib)) {
@@ -66,6 +97,7 @@ if (-not (Test-Path -LiteralPath $nativeLib)) {
 
 New-Item -ItemType Directory -Path $jniDir -Force | Out-Null
 Copy-Item -LiteralPath $nativeLib -Destination $jniLib -Force
+Sync-AndroidKnowledgeAssets
 
 & (Join-Path $androidRoot "gradlew.bat") --project-dir $androidRoot clean assembleArm64Debug -x rustBuildArm64Debug
 if ($LASTEXITCODE -ne 0) {
@@ -73,6 +105,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 if (-not (Test-Path -LiteralPath $apk)) {
   throw "Gradle reported success but no debug APK was found at $apk"
+}
+if (-not (Test-ApkKnowledgeAssets)) {
+  throw "Gradle reported success but the APK is missing its packaged knowledge assets."
 }
 
 Write-Output $apk

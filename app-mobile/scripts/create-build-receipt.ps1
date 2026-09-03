@@ -36,14 +36,6 @@ function Get-Sha256([string]$Path) {
   } finally { $stream.Dispose() }
 }
 
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path -LiteralPath $Apk))
-try { $entries = @($archive.Entries | ForEach-Object FullName) } finally { $archive.Dispose() }
-$permissions = @([regex]::Matches($permissionDump, "uses-permission: name='([^']+)'") | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
-$forbiddenEntries = @($entries | Where-Object {
-  $_ -match '(?i)\.litertlm$|(^|/)(cr_current|oracle[^/]*|rulings[^/]*)\.json$'
-})
-
 $knowledgeManifestPath = Join-Path $projectRoot "build\knowledge\omnath-knowledge.manifest.json"
 $knowledgeDatabasePath = Join-Path $projectRoot "build\knowledge\omnath-knowledge.sqlite"
 if (-not (Test-Path -LiteralPath $knowledgeManifestPath) -or -not (Test-Path -LiteralPath $knowledgeDatabasePath)) {
@@ -52,7 +44,43 @@ if (-not (Test-Path -LiteralPath $knowledgeManifestPath) -or -not (Test-Path -Li
 $knowledge = Get-Content -LiteralPath $knowledgeManifestPath -Raw | ConvertFrom-Json
 $knowledgeHash = Get-Sha256 $knowledgeDatabasePath
 $knowledgeBytes = (Get-Item -LiteralPath $knowledgeDatabasePath).Length
+$knowledgeManifestHash = Get-Sha256 $knowledgeManifestPath
 $knowledgeVerified = $knowledgeHash -eq $knowledge.database.sha256 -and $knowledgeBytes -eq $knowledge.database.bytes
+
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path -LiteralPath $Apk))
+try {
+  $entries = @($archive.Entries | ForEach-Object FullName)
+  $packagedDatabaseEntry = $archive.GetEntry("assets/knowledge/omnath-knowledge.sqlite")
+  $packagedManifestEntry = $archive.GetEntry("assets/knowledge/omnath-knowledge.manifest.json")
+  $packagedDatabaseHash = $null
+  $packagedManifestHash = $null
+  if ($packagedDatabaseEntry) {
+    $stream = $packagedDatabaseEntry.Open()
+    try {
+      $algorithm = [System.Security.Cryptography.SHA256]::Create()
+      try { $packagedDatabaseHash = (($algorithm.ComputeHash($stream) | ForEach-Object { $_.ToString("x2") }) -join "") }
+      finally { $algorithm.Dispose() }
+    } finally { $stream.Dispose() }
+  }
+  if ($packagedManifestEntry) {
+    $stream = $packagedManifestEntry.Open()
+    try {
+      $algorithm = [System.Security.Cryptography.SHA256]::Create()
+      try { $packagedManifestHash = (($algorithm.ComputeHash($stream) | ForEach-Object { $_.ToString("x2") }) -join "") }
+      finally { $algorithm.Dispose() }
+    } finally { $stream.Dispose() }
+  }
+  $knowledgePackaged = $null -ne $packagedDatabaseEntry -and $null -ne $packagedManifestEntry
+  $packagedKnowledgeMatches = $knowledgePackaged -and
+    $packagedDatabaseEntry.Length -eq $knowledgeBytes -and
+    $packagedDatabaseHash -eq $knowledgeHash -and
+    $packagedManifestHash -eq $knowledgeManifestHash
+} finally { $archive.Dispose() }
+$permissions = @([regex]::Matches($permissionDump, "uses-permission: name='([^']+)'") | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+$forbiddenEntries = @($entries | Where-Object {
+  $_ -match '(?i)\.litertlm$|(^|/)(cr_current|oracle[^/]*|rulings[^/]*)\.json$'
+})
 
 $catalog = Get-Content -LiteralPath (Join-Path $projectRoot "model-catalog.json") -Raw | ConvertFrom-Json
 $models = [ordered]@{}
@@ -86,6 +114,8 @@ $checks = [ordered]@{
   noBundledModel = [bool](-not ($entries | Where-Object { $_ -match '(?i)\.litertlm$' }))
   noRawCorpus = [bool]($forbiddenEntries.Count -eq 0)
   knowledgeHashMatches = [bool]$knowledgeVerified
+  knowledgePackaged = [bool]$knowledgePackaged
+  packagedKnowledgeMatches = [bool]$packagedKnowledgeMatches
   stagedModelsMatchCatalog = [bool](-not ($models.Values | Where-Object { $_.present -and -not $_.verified }))
 }
 
@@ -115,6 +145,9 @@ $receipt = [ordered]@{
     bytes = $knowledgeBytes
     sha256 = $knowledgeHash
     verified = [bool]$knowledgeVerified
+    packagedPath = "assets/knowledge/omnath-knowledge.sqlite"
+    packagedSha256 = $packagedDatabaseHash
+    packaged = [bool]$knowledgePackaged
   }
   models = $models
   webAssets = $chunks
