@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Nikya of the Old Ways works** — you can't cast noncreature spells while she's out; opponents can.
 - **Zhur-Taa Druid and Vorinclex, Voice of Hunger work** — tapping the Druid for mana pings each opponent;
   Vorinclex locks an opponent's land that was tapped for mana out of its next untap.
 - **Kinnan, Bonder Prodigy works** — his dig looks at the top five, puts a non-Human creature straight onto the

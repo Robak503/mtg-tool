@@ -166,6 +166,7 @@ the scratchpad). ✅ **④-A** — Aura-own cumulative upkeep composes with the 
 ✅ **④-B** — dies-damage-by-power on the dying-creature look-back (+7; 5/5 killed).
 ✅ **④-C** — Kinnan's dig-to-battlefield with a random rest and a negated-subtype filter (+3; Joe's commander; 9/9).
 ✅ **④-D** — the tapped-for-mana trigger event (+2: Zhur-Taa Druid, Vorinclex; 10/10).
+✅ **④-E** — Nikya's noncreature cast lock (+1; 4/4).
 Queue = the census's two-flip / bug-signature leads (see WAKE-REPORT top).
 Only after ①–③'s DONE lines are met. Boot from the vault's `memory/orders/cindy-corpus-roadmap.md`
 (WHAT/WHY/ORDER) + the repo's `RESIDUE-GRIND-RUNBOOK.md` (HOW): fresh census, largest clause family with

@@ -3,6 +3,15 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔒 2026-09-03 (night cron) — CORPUS ④-E: "You can't cast noncreature spells." — a controller-scoped cast lock · **+1** (Nikya of the Old Ways) · corpus 13,877 / 34,245 (40.5%)
+> Suite **1366 / 15,428** green; lint 0. Flip-diff **+1, zero LOST**. **4/4 killed.**
+> · A static MARKER (the Dosan / Shang-Chi pattern) read at the cast offer's timing gate through one sentence reader
+>   (`castNoncreatureLockFor`): while the caster controls a locker, no NON-creature card is offered (the front face's
+>   type line — an artifact creature is a creature spell and stays castable, pinned); opponents are untouched (pinned:
+>   an opponent's Nikya locks nothing of yours). Nikya's doubler line was already the mana model's augment static.
+> · Nullhide Ferox prints the same sentence but stays body-only on its "any player may activate" ability and its
+>   discard-replacement — honest.
+
 > ## ⚡ 2026-09-03 (night cron) — CORPUS ④-D: the "TAPPED FOR MANA" trigger event · **+2** (Zhur-Taa Druid, Vorinclex Voice of Hunger) · corpus 13,876 / 34,245 (40.5%)
 > Suite **1365 / 15,425** green; lint 0. Flip-diff **+2, zero LOST**. **10/10 killed.**
 > · **The event:** `tapForMana`, fired by `checkTapForManaTriggers` at the ONE mana-tap commit (manaModel.commitManaTap,

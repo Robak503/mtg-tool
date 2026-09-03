@@ -7,6 +7,14 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🔒 2026-09-03 (night cron) — **④-E: Nikya's noncreature cast lock (+1)** · suite **1366 / 15,428** green · corpus 13,877 / 34,245 (40.5%) · flip-diff +1 / 0 lost · 4/4 killed
+
+> **Night tally so far (stage ④):** ④-A Mind Harness · ④-B dies-damage-by-power (+7) · ④-C Kinnan (Joe's commander, +3)
+> · ④-D tapped-for-mana event (+2) · ④-E Nikya (+1) — corpus 13,862 → 13,877. **Next runnable:** the census leads
+> that need an opponent-side pick or a grant: Relic of Progenitus ("target player exiles a card from their graveyard"
+> — the tempting-offer pause pattern), Snapcaster's flashback grant, the en-Kor damage redirect (5), Forbidden
+> Orchard's opponent token; then the two-flip compositions (Bubble Snare, Hypnotic Siren).
+
 ## ⚡ 2026-09-03 (night cron) — **④-D: the tapped-for-mana trigger event (+2: Zhur-Taa Druid, Vorinclex)** · suite **1365 / 15,425** green · corpus 13,876 / 34,245 (40.5%) · flip-diff +2 / 0 lost · 10/10 killed
 
 > Fired at the one mana-tap commit; self and opponent-land shapes; the doubler sentence deliberately NOT detected

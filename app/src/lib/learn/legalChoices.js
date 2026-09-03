@@ -34,7 +34,7 @@ import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapMan
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
-import { castOwnTurnOnlyLock, abilitiesAsThoughHasteFor } from "./staticAbilityParser.js"; // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
+import { castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
 import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksOf, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund
@@ -998,6 +998,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       ? canCastSorcerySpeed(state, playerId)
       : canCastInstantSpeed(state, playerId);
     if (!freeCast && !timingOk) continue;
+    // ④-E (Nikya of the Old Ways / Nullhide Ferox — CR 604.2): "You can't cast noncreature spells." — the caster's
+    // own locker refuses every NON-creature card (the type line's front face; an artifact creature is a creature
+    // spell and stays castable). Read off the same sentence the static parser marks. Opponents are untouched.
+    if (castNoncreatureLockFor(state, playerId) && !/\bCreature\b/i.test(String(card?.type || card?.type_line || "").split(" // ")[0])) continue;
 
     // CR 202.1a — A CARD WITH NO MANA COST CAN'T BE CAST unless an effect allows it. manaCostOf correctly
     // returns "" for a genuinely costless card (a suspend-only spell — Ancestral Vision, Crashing Footfalls,

@@ -2988,6 +2988,14 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ abilitiesAsThoughHaste: true });
     return;
   }
+  // ── NONCREATURE CAST LOCK (CORPUS ④-E, 2026-09-03 — Nikya of the Old Ways / Nullhide Ferox, CR 604.2): "You can't cast
+  // noncreature spells." A coverage MARKER (the castOwnTurnOnly pattern). The RUNTIME enforcement lives at the cast
+  // offer's timing gate (legalChoices: a non-creature card is never offered while its controller controls a locker),
+  // reading the SAME sentence via castNoncreatureLockFor — one parser, no drift. Controller-scoped ("you").
+  if (/^you can't cast noncreature spells$/.test(c)) {
+    out.push({ castNoncreatureLock: true });
+    return;
+  }
   // ── CAST-LIMIT (BLITZ RL-1 — Rule of Law / Arcane Laboratory / Eidolon of Rhetoric, CR 604.2):
   // "Each player can't cast more than one spell each turn." Emitted as a coverage MARKER (the
   // blockRestriction pattern — no `affects`/`op`, the layer engine ignores it). The RUNTIME enforcement
@@ -5032,6 +5040,16 @@ export function cantCastDescriptorOf(card) {
 export function castOwnTurnOnlyLock(card) {
   const o = String(card?.oracle || card?.oracle_text || "");
   return /(?:^|[\n.;])\s*players can cast spells only during their own turns\s*(?:\.|$)/i.test(o);
+}
+
+/** NONCREATURE CAST LOCK (④-E): does this card print the sentence? */
+export function castNoncreatureLockLine(card) {
+  const o = String(card?.oracle || card?.oracle_text || "");
+  return /(?:^|[\n.;])\s*you can't cast noncreature spells\s*(?:\.|$)/i.test(o);
+}
+/** NONCREATURE CAST LOCK (④-E): does `controller` control a permanent printing it? */
+export function castNoncreatureLockFor(state, controller) {
+  return (state?.players?.[controller]?.battlefield || []).some((perm) => castNoncreatureLockLine(perm.card));
 }
 
 /** HASTE FOR ABILITIES (SG-18): does this card print the sentence? The same read every activation gate consults. */
