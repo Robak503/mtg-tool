@@ -243,8 +243,10 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
   small arm on the same checker: **Sarkhan's Whelp** + **Leori, Sparktouched Hunter** (a two-word planeswalker-type
   filter "of a Sarkhan planeswalker" / "of a planeswalker of that type" — needs a planeswalker-subtype reader and,
   for Leori, a chosen-type stamp); **Ertha Jo, Frontier Mentor** ("that targets a creature or player" — read the
-  activated stack object's targets); **Elrond, Moon-Reader** ("This ability triggers only once each turn" on the
-  abilityActivated event — the once-per-turn rider exists for other events; wire it here); **Ashnod the Uncaring**
+  activated stack object's targets); **Elrond, Moon-Reader** — CORRECTED after probing: his trigger already reads
+  whole (the once-per-turn rider is enforced at the universal flush chokepoint, event-agnostic); the park is his
+  {5}{U}{U} blink ("exile up to two other target nonland permanents you control, return them at the next end
+  step" — a two-target delayed return, unmodeled); **Ashnod the Uncaring**
   ("if one or more permanents were sacrificed to activate it" — thread the cost's sacrifice list into the activation
   context); **Verrak, Warped Sengir** ("if life was paid to activate it … pay that much life again" — thread the
   paid-life amount). None needs Colton.
