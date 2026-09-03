@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Mind Harness works** — steal a red or green creature, pay the growing upkeep each turn or hand it back.
 - **Shang-Chi, Master of Kung Fu works** — your creatures can use their abilities the turn they arrive, and his two
   mana of one colour pay only for creature abilities. Thousand-Year Elixir rides along.
 - **The One Ring works** — cast it and you have protection from everything until your next turn (your life still

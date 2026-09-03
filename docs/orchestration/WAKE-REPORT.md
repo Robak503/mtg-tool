@@ -7,6 +7,15 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🧩 2026-09-03 (night cron) — **STAGE ④ OPENED — census two-flip #1 shipped (Mind Harness)** · suite **1362 / 15,411** green · corpus 13,864 / 34,245 (40.5%) · flip-diff +1 / 0 lost · 2/2 killed · pushed only after ed551747's CI reports
+
+> Fresh residue census (night): 20,402 non-native · 11,127 one clause from flipping · no shape above 6 sole-blockers —
+> the queue is the BUG-SIGNATURE / TWO-FLIP reports, taken cheapest-first. Done: an Aura's own pure-pip cumulative
+> upkeep composes with the control/bonus aura tier. **Next runnable (two-flip / bug-signature leads, in order):**
+> Bubble Snare (kicker on an Aura — needs the aura cast lane to offer the kicked cast; scope first), Hypnotic Siren
+> (bestow + control — scope the bestow lane), Savage Firecat ("whenever you tap a land for mana" — a tap-for-mana
+> event, grep first), Stall for Time / Urborg Repossession ("if this spell was kicked" riders on a spell body).
+
 ## 🥋 2026-09-03 (night cron) — **SQUIRREL GIRL HITS 90 — STAGE ③ DONE** (SG-18 Shang-Chi) · suite **1361 / 15,408** green · Squirrel Girl **89 → 90** · corpus 13,863 / 34,245 (40.5%) · flip-diff +2 / −1 (Steelswarm Operator un-credited: a live FP closed — its activation-only {U}{U} was spendable on casts) · 11/11 killed
 
 > Haste-for-abilities as a static marker read at all three summoning-sick activation gates, and the spend model's

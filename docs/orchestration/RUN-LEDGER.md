@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🧩 2026-09-03 (night cron) — CORPUS ④-A: an Aura's OWN cumulative upkeep composes with the control-aura tier · **+1** (Mind Harness) · stage ④ opened from the fresh census's TWO-FLIP report · corpus 13,864 / 34,245 (40.5%)
+> Suite **1362 / 15,411** green; lint 0. Flip-diff **+1, zero LOST**. **2/2 killed.**
+> · **The census said "composition, not mechanic":** Mind Harness ("Enchant red or green creature / Cumulative upkeep
+>   {1} / You control enchanted creature.") classified native with EITHER half deleted and body-only with both. The
+>   control half is enforced (controlAura.js); the keyword's synthesized upkeep trigger fires on any battlefield
+>   permanent and the pay-or-sacrifice atom sacrifices the AURA — which detaches it and hands the creature back. The
+>   residue walk of the control/bonus aura tier simply never admitted the keyword line. It does now — PURE MANA PIPS
+>   ONLY (Krovikan Whispers' "{U} or {B}" and a "Pay 1 life" form are not what the synthesized trigger charges; they
+>   stay residue — pinned: the widened admit is a killed mutation).
+> · **Board-verified, not assumed:** cast on the opponent's red creature (never the blue one — "Enchant red or green
+>   creature"), control moves; at upkeep the age counter lands and a {1} sac-unless-pay pause opens; paying keeps
+>   the creature and spends the mana; declining sacrifices the Aura and the creature goes home to the AI.
+> · **The other seven Aura carriers audited:** Brand of Ill Omen ("controller can't cast creature spells"), Glacial
+>   Plating ("+3/+3 for each age counter"), Maddening Wind (an upkeep trigger keyed on the enchanted creature's
+>   controller), Mystic Might (a land host + granted tap ability) each keep a second, genuinely unmodeled line;
+>   Mana Chains / Decomposition GRANT the keyword to the host (a different mechanism); Krovikan's OR cost. None
+>   flipped — correct.
+> · **Process note (honest):** SG-18 (ed551747) was pushed while SG-17's run (a557b5de) was still in flight; that run
+>   shows cancelled-by-concurrency and ed551747's run carries both. This slice is committed locally and NOT pushed
+>   until ed551747 reports green.
+
 > ## 🥋 2026-09-03 (night cron) — SG-18: SHANG-CHI — haste for abilities + an ACTIVATION-ONLY spend restriction · **+2 corpus, −1 (a corrected FP)** · **Squirrel Girl 89 → 90 — STAGE ③'s DONE LINE IS MET** · corpus 13,863 / 34,245 (40.5%)
 > Suite **1361 / 15,408** green; lint 0. Flip-diff **+2 / −1**: Shang-Chi (native-mana) + Thousand-Year Elixir (the same
 > static beside an already-modeled untap; native-mixed); **LOST: Steelswarm Operator** — and that loss is a

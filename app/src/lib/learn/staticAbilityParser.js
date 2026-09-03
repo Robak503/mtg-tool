@@ -6049,6 +6049,14 @@ function auraResidueClauses(card) {
     // The dash is load-bearing: a clause beginning with the card NAME "Escape Velocity …" has no dash after
     // the keyword and can never match.
     if (/^escape\s*[—–-]/.test(c)) continue;
+    // CUMULATIVE UPKEEP on the Aura ITSELF (CR 702.24 — the census two-flip report, 2026-09-03 night: Mind Harness's
+    // control half and its cumulative-upkeep half each classified native ALONE and demoted together). The keyword's
+    // SYNTHESIZED upkeep trigger fires through checkStepTriggers on any battlefield permanent (an Aura included)
+    // and the pay-or-sacrifice atom sacrifices the AURA — which detaches it, so a control Aura hands the creature
+    // back (controlAura's detach hook) and a bonus Aura's bonus lifts. Board-verified (mindHarness.test.js), not
+    // assumed. PURE MANA PIPS ONLY: an alternative cost ("{U} or {B}" — Krovikan Whispers) or a non-mana cost
+    // ("Pay 1 life") is not what the synthesized trigger charges → stays residue → the card stays body-only.
+    if (/^cumulative upkeep (?:\{[^}]+\})+$/.test(c)) continue;
     // An aura-own TRIGGER sentence starting with When/Whenever/At "touches" the enchanted creature but is NOT
     // a static bonus clause; admit it as non-residue ONLY when it is the modeled aura-own trigger (the runtime
     // fires it), else it stays residue → non-native (CREED). Checked BEFORE the generic touchesAttachedCreature
