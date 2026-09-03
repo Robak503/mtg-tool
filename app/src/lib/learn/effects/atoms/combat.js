@@ -1123,6 +1123,13 @@ export function earthbendClauseParser(clause) {
  * controls") and bound pronouns ("goad it") stay LOW → Arbiter. */
 export function goadClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").trim().replace(/\.$/, "");
+  // BOUND PRONOUN (④-AJ, CR 608.2 — "Tap target creature an opponent controls. Goad it." Oceanus Dragon, Insufferable
+  // Balladeer, Bjorna, Kros, Killian): the referent shape the "Untap it" chain established — no target of its own, the
+  // runner hands it the nearest preceding atom's chosen target (referentSourceIndex). "them" after a multi-target
+  // clause rides the same slice (Coronation of Chaos). A bare "goad it" with NO targeting antecedent fails the
+  // parser's referentBindingOk gate → LOW → Arbiter.
+  const b = t.match(/^goad (?:it|that creature|them)$/);
+  if (b) return { op: "goad", bindPreviousTargets: true };
   const m = t.match(/^goad (up to one )?target creature( an opponent controls| you don't control)?$/);
   if (!m) return null;
   return {

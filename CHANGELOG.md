@@ -9,7 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
-- **Goad works** — Jeering Homunculus, Taunting Kobold, Goblin Racketeer, Coveted Peacock, Taunting Sliver and Glóin goad a creature until your next turn: it must attack, and not you.
+- **Goad works** — Jeering Homunculus, Taunting Kobold, Goblin Racketeer, Coveted Peacock, Taunting Sliver, Glóin, Oceanus Dragon and Bjorna goad a creature until your next turn: it must attack, and not you.
 - **"Target creature defending player controls" on attack triggers works** — Spring Splasher and Skymark Roc pick from the attacked player's board.
 - **"Target creature with power 5 or greater" (and toughness / mana value bounds) works** — the Behemoth cycle, Goblin Smuggler, Wrangle, Claim the Firstborn, Eternal Isolation, Silkwrap and more read the bound off the creature's live stats.
 - **"Another target attacking creature" and "target creature with / without flying" work** — the Pegasus cycle, Herald of the Sun, Forced Landing, Stinging Shot, Quicksand and more offer exactly the creatures the card names.

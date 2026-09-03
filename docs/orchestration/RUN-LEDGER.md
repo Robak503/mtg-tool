@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🪢 2026-09-03 (night cron) — ④-AJ: the bound-pronoun goad — "Tap target creature an opponent controls. Goad it." · **+2** · corpus 14,069 / 34,245 (41.1%)
+> Suite **1397 files / 15,573 tests** green; lint 0. Flip-diff **+2, zero LOST**. **2/2 killed.**
+> · **The shape:** "goad it / that creature / them" as a referent atom (CR 608.2) — the "Untap it" chain's shape: no target of
+>   its own, the runner hands it the nearest preceding atom's chosen target (referentSourceIndex). Oceanus Dragon (tap
+>   then goad) and Bjorna (1 damage then goad) flip. A bare "goad it" with no targeting antecedent fails the parser's
+>   referentBindingOk gate → parks.
+> · **Board-verified (four seats):** ONE target offered per opponent creature (the goad rides it, never a second pick);
+>   resolving taps AND goads the same creature, the caster as goader, the untargeted bear untouched.
+> · **Honest edges:** Insufferable Balladeer parks on its ABILITY WORD ("Vicious Mockery —": the trigger detector never
+>   sees past it, though the clause parses HIGH — an ability-word peel in triggers.js is its own slice); Besmirch's "Untap
+>   and goad that creature" shatters into a bare "Untap"; The Master's "power less than or equal to The Master's power".
+> · **CI:** ④-AH's run (9ec2ec36) still in flight at commit time; ④-AI + ④-AJ push only after it is green
+
 > ## 😈 2026-09-03 (night cron) — ④-AI: GOAD as an effect atom (CR 701.38) · **+6** · corpus 14,067 / 34,245 (41.1%)
 > Suite **1396 files / 15,570 tests** green; lint 0. Flip-diff **+6, zero LOST**. **7/7 killed.**
 > · **The shape:** "goad target creature [an opponent controls / defending player controls / that player controls]",

@@ -197,6 +197,7 @@ the scratchpad). ✅ **④-A** — Aura-own cumulative upkeep composes with the 
 ✅ **④-AG** — "with power / toughness / mana value N or less / greater" on the subject peel (+21; 6/6 killed).
 ✅ **④-AH** — "defending player / that player controls" on the subject peel; the routing gate keeps it honest (+2; 5/5 killed (a sixth, the early stacked-referent stamp, had no carrier and was deleted)).
 ✅ **④-AI** — goad as an effect atom: mustAttack + goaded until the goader's next turn, the goader on the source, "enemy" target intent for the flush (+6; 7/7 killed).
+✅ **④-AJ** — the bound-pronoun goad ("… Goad it.") as a referent atom (+2; 2/2 killed).
 Queue = the census's two-flip / bug-signature leads (see WAKE-REPORT top).
 Only after ①–③'s DONE lines are met. Boot from the vault's `memory/orders/cindy-corpus-roadmap.md`
 (WHAT/WHY/ORDER) + the repo's `RESIDUE-GRIND-RUNBOOK.md` (HOW): fresh census, largest clause family with

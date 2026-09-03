@@ -7,6 +7,17 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🪢 2026-09-03 (night cron) — **④-AJ: the bound-pronoun goad, "… Goad it." (+2)** · suite **1397 files / 15,573 tests** green · corpus 14,069 / 34,245 (41.1%) · flip-diff +2 / 0 lost · 2/2 killed
+
+> **Night tally (stage ④, thirty-six slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
+> J (+1) · K (+1, FP closed on 3) · L (+4) · M (+2) · N (+7) · O (+4) · P (+3) · Q (+6) · R (+2) · S (+2) · T (+12) · U (+2) ·
+> V (+2, Thrun 90) · W (+3, Thrun 91) · X (+1, Earth Bent 89) · Y (+1) · Z (+6, Veyran 89) · AA (+9, Mothman 88) · AB (+1) ·
+> AC (+12, Hulk 86) · AD (+2) · AE (+30; the combat window) · AF (+26) · AG (+21) · AH (+2) · AI (+6) · AJ (+2) — corpus 13,862 → 14,069.
+> **CI:** ④-AH's run (9ec2ec36) still in flight at commit time; ④-AI + ④-AJ push only after it is green
+> **Next runnable:** an ABILITY-WORD peel in the trigger detector ("Vicious Mockery —", "Rites of Banishment —", the Alchemy
+> and D&D ability words — count first); the batch combat-damage event on the referent gate (Alela); the AI using
+> combat-role activations; Kessig Wolf Run; Xenagos; Secluded Courtyard; the "up to N" non-targeted returns.
+
 ## 😈 2026-09-03 (night cron) — **④-AI: goad as an effect atom (+6)** · suite **1396 files / 15,570 tests** green · corpus 14,067 / 34,245 (41.1%) · flip-diff +6 / 0 lost · 7/7 killed
 
 > **Night tally (stage ④, thirty-five slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
