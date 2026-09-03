@@ -2387,6 +2387,16 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       return makeProgram({ confidence: "high", atoms: [{ op: "reveal-until-creature-attacking", targetType: null }], xSpell: false, unparsedTail: null });
     }
   }
+  // ===== TEFERI'S PROTECTION (CAP, 2026-09-03 — CR 702.16b / 119.6 / 702.26) ===== the body after the self-exile
+  // sentence is stripped: "Until your next turn, your life total can't change and you gain protection from
+  // everything. All permanents you control phase out." — two sentences, one deterministic atom (the shield +
+  // the phase-out end together at the controller's next untap). EXACT whole-string anchor; reminder stripped.
+  {
+    const tp = stripReminder(String(oracle)).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+    if (tp === "until your next turn, your life total can't change and you gain protection from everything. all permanents you control phase out" && KNOWN.has("teferi-protection")) {
+      return makeProgram({ confidence: "high", atoms: [{ op: "teferi-protection", targetType: null }], xSpell: false, unparsedTail: null });
+    }
+  }
   // ===== CLASH + "IF YOU WIN" (STAGE ④-1, 2026-09-03 — CR 701.22) ===== "[you may ]clash with an opponent. If
   // you win, <payoff>" (Nath's Elite / Oaken Brawler / Paperfin Rascal / Bog Hoodlums / Adder-Staff Boggart's
   // ETB counter; Fire Juggler; Ringskipper …). Two atoms: the clash (optional when printed "you may" — the

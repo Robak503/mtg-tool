@@ -50,6 +50,7 @@ import {
   moveCardToZone,
   findPermanent,
 } from "./gameState.js";
+import { phaseInAndExpireShield } from "./gameState.js"; // TEFERI'S PROTECTION - phase in + shield expiry at the active player's untap
 import { permanentValue, policyEvalEnabledFor } from "./boardEval.js"; // QUARTET PHASE 1 slice 3 — the shared evaluator (leaf-importing module, cycle-free)
 import { setPendingCleanupDiscardChoice } from "./pendingChoice.js";
 import { resolveCombatDamage } from "./combatResolution.js";
@@ -439,6 +440,10 @@ export function runStepActions(state) {
       next = resetBecameTargetThisTurnAllPlayers(next); // KIRA: "for the first time each turn" — clear every permanent's became-target flag at untap
       next = resetBecameTappedThisTurnAllPlayers(next); // CAP LIVING LEGEND: "first time that creature has become tapped this turn" — clear the per-permanent tap flag at untap
       next = { ...next, onceTriggersFiredThisTurn: {} }; // ONCE-PER-TURN: clear per-source discover gates (Pantlaza, etc.)
+      // TEFERI'S PROTECTION (CR 702.26c / "until your next turn"): the active player's phased-out permanents phase
+      // in BEFORE they untap (they return in the state they left, untapped by this same step if they were untapped),
+      // and the player's shield expires at the same moment.
+      next = phaseInAndExpireShield(next, state.activePlayer);
       next = untapAll(next, { playerId: state.activePlayer });
       // SEEDBORN-UNTAP (a targeted #319-style hook the trigger compiler can't reach): Seedborn Muse —
       // "Untap all permanents you control during each other player's untap step" — gives its controller an
@@ -1578,6 +1583,7 @@ export function chooseTriggerTargets(candidates, info) {
  * pick (an AI/Beginner-interactive chooser). A targeted trigger with no legal target
  * is dropped (logged, not silent).
  */
+export { phaseInAndExpireShield as _phaseInAndExpireShieldForTests }; // TEFERI'S PROTECTION — the untap-step hook, re-exported for the witness
 export function flushTriggers(state, { chooseTargets } = {}) {
   // GY-EVENT drain (SHELF S7): convert queued graveyard enter/leave events into pending triggers FIRST —
   // every settlement path funnels through this flush, so a recorded event always fires here (BEFORE the

@@ -313,6 +313,31 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
   pre-enter site with a sacrifice picker.
 - (append here: card · blocker · why it parks · what would unpark it)
 
+## §8 DAY ORDER — 2026-09-03 (Colton, 11:35, after the morning report)
+Colton's words, verbatim intent: Teferi's Protection — "gate the protection aspect and the rest going to
+arbiter"; Illusionist's Bracers — "a big win con in cap"; "whatever you can't do for cap make the arbiter
+ruling and doc update for those cards (or make a comms for omnath to handle that)"; "pro is a huge card so
+hard to not have that one done"; for Squirrel Girl "cavern is also big as it's used in sg and other tribal
+decks at large", then "the program work — all those cards are used lots of places like zaxara for the x spells".
+**The order:**
+1. **Teferi's Protection** — ✅ **SHIPPED WHOLE, 2026-09-03 (CAP-TP)** — player shield (life lock + protection
+   from everything at the life chokepoints, player targeting, both damage funnels), PHASING as a splice
+   (`phasedOut`, phase-in before untap at the controller's untap), self-exile via the program stamp. Cap 84 → 85.
+   Original brief: build every deterministic half (until your next turn: your life total can't
+   change; you gain protection from everything; all permanents you control phase out; exile the spell). If
+   phasing cannot be modeled honestly the WHOLE card gates to the Arbiter with a ruling — never a half-native
+   spell (the CREED). Reading of "gate the protection aspect": the protection/life-lock is the part to make
+   native first; "the rest" = whatever a single slice cannot carry.
+2. **Illusionist's Bracers** — "Whenever an ability of equipped creature is activated, if it isn't a mana
+   ability, copy that ability. You may choose new targets for the copy." — an ability-activated trigger event
+   + a copy-ability resolution (re-run the activated program with retargeting).
+3. **Cap's remaining parks → Omnath** for Arbiter rulings + curated play-hints (COMMS [Q-CAP-ARBITER], 11:40).
+4. **Cavern of Souls** — choose a creature type on entry + a spend-restricted any-colour source whose mana
+   makes the creature spell uncounterable.
+5. **The X-spell program** — Genesis Wave, Finale of Devastation, Green Sun's Zenith, Chord of Calling,
+   Archdruid's Charm, Nature's Rhythm, Tempt with Discovery — shelf-wide (Zaxara).
+Every item through §5 in full; parks to §6 + COMMS.
+
 ## §7 WHAT THE MORNING REPORT MUST CONTAIN
 The three stage numbers (Cap %, land-partial corpus count before/after, Squirrel Girl %), every slice
 shipped (SHA + card + tests), every park in §6, every trap that fired, and the suite/CI anchor. Facts

@@ -57,6 +57,7 @@ import { applyDestroyEffect } from "./spellEffects.js"; // DG-1 — the shared d
 import { protectionApplies } from "./protection.js";
 import { selfDamagePrevention, selfDamagePreventionBy, attachedDamagePrevention, mayAssignAsUnblocked, attackerMinBlockers, counterShieldPrevention, attachedPreventPutCounters, selfPreventPutCounters } from "./combatEvasion.js";
 import { boardHasDamageReplacement, consultDamageAmount, combatDamageUnpreventable } from "./damageReplacements.js"; // + SG-11 (Frenzied Baloth): "Combat damage can't be prevented."
+import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player takes no combat damage
 import { armDamageToCreatureFlag, marksDamageToCreature } from "./wolverine.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCombatDamageTriggers, checkCombatDamageToCreatureTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
 
@@ -665,6 +666,10 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
     }
   }
   for (const [pid, amount] of Object.entries(lifeLoss)) {
+    // TEFERI'S PROTECTION — protection from everything prevents all damage to the player (CR 702.16b); the life
+    // lock would also hold the total, but the DAMAGE itself is prevented, so no lifelink / dealt-damage watcher
+    // sees it either.
+    if (amount > 0 && playerProtectedFromEverything(next, pid)) { next = logEvent(next, { kind: "combat-damage-prevented", playerId: pid, amount, via: "protection from everything" }); continue; }
     if (amount > 0) next = loseLife(next, { playerId: pid, amount, combatDamage: true });
   }
   // KW-POISON (CR 702.90b infect / 702.80a wither): infect/wither combat damage to a creature is dealt

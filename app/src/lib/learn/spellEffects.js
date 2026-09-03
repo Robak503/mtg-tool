@@ -48,6 +48,7 @@ import {
 } from "./gameState.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, uncounterableCoversSpell } from "./staticAbilityParser.js";
+import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
 import { permanentHasKeyword, permanentProtectionColors, permanentIsCreature, playerHasHexproof } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam
 import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
@@ -774,7 +775,9 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   // ⛔ IT IS OPPONENT-SCOPED, NOT ABSOLUTE. "You can't be the target of spells or abilities your OPPONENTS
   // control" — a player with hexproof may still target THEMSELF (Leyline of Sanctity does not stop you
   // aiming your own effects at yourself). That is why the check is skipped when pid === controllerId.
-  const targetablePlayer = (pid) => pid === controllerId || !playerHasHexproof(state, pid);
+  // TEFERI'S PROTECTION — protection from everything (CR 702.16b): the shielded player can't be the target of
+  // anything another player controls; their own spells and abilities may still target them.
+  const targetablePlayer = (pid) => pid === controllerId || (!playerHasHexproof(state, pid) && !playerProtectedFromEverything(state, pid));
   const addOpponents = () => {
     for (const pid of Object.keys(state.players)) {
       if (pid === controllerId) continue;
@@ -1280,6 +1283,9 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
     // the form). 120.8: only deal if >0 after doubling.
     let dealt = dmgConsult(amount, "player", pid);
     if (dealt <= 0) return s;
+    // TEFERI'S PROTECTION — protection from everything prevents ALL damage to the player, from every source
+    // including the player's own (CR 702.16b); the deal never happens, so no dealt-by tally either.
+    if (playerProtectedFromEverything(s, pid)) return logEvent(s, { kind: "damage-prevented", targetKind: "player", targetId: pid, amount: dealt, via: "protection from everything" });
     // PV-1 (CR 615): floating prevent-next-N shields consume BEFORE the hit lands (after the doubler —
     // CR 616.1 ordering is the engine's deterministic simplification). Fast-pathed inside the helper.
     const pv = consumePreventionShields(s, { targetKind: "player", targetId: pid, amount: dealt });

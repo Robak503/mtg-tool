@@ -1671,9 +1671,76 @@ export function clearManaHolds(state) {
 let _lifeLossWatcher = null;
 export function registerLifeLossWatcher(fn) { _lifeLossWatcher = fn; }
 
+// ===== TEFERI'S PROTECTION (CAP, 2026-09-03 — CR 702.16 protection for a PLAYER · CR 119.6 / a life total that
+// can't change · CR 702.26 phasing) ===== "Until your next turn, your life total can't change and you gain
+// protection from everything. All permanents you control phase out." The shield is a PLAYER flag
+// (`teferiShield`), read at the three places it bites — player targeting (spellEffects.targetablePlayer),
+// damage to the player (applyDamageEffect + combat), and both life chokepoints below — and cleared at the
+// player's next untap step, the same moment their permanents phase back in (phaseInAndExpireShield).
+// Phasing is a SPLICE: the permanents leave `battlefield` for `phasedOut` untouched (tapped state, counters,
+// attachments among themselves) so every reader treats them as though they don't exist (702.26b), and return
+// in the same state without entering (702.26c — no ETB). An aura/equipment of ours on ANOTHER player's
+// permanent phases out directly (it is ours): it is unhooked from its host and re-hooked on return if the
+// host is still there, else it comes back unattached for the SBA to handle.
+export function playerProtectedFromEverything(state, playerId) {
+  return !!state?.players?.[playerId]?.teferiShield?.protection;
+}
+export function playerLifeLocked(state, playerId) {
+  return !!state?.players?.[playerId]?.teferiShield?.lifeLocked;
+}
+export function grantTeferiShield(state, playerId) {
+  assertPlayer(playerId);
+  return withPlayer(state, playerId, (p) => ({ ...p, teferiShield: { protection: true, lifeLocked: true } }));
+}
+export function phaseOutAllPermanents(state, playerId) {
+  assertPlayer(playerId);
+  const player = state.players[playerId];
+  const leaving = player.battlefield || [];
+  if (leaving.length === 0) return state;
+  const leavingIds = new Set(leaving.map((p) => p.id));
+  // Unhook our attached permanents from hosts that are NOT phasing out with them.
+  let next = state;
+  const players = { ...next.players };
+  for (const pid of Object.keys(players)) {
+    players[pid] = { ...players[pid], battlefield: (players[pid].battlefield || []).map((h) => (h.attachments?.some((a) => leavingIds.has(a)) ? { ...h, attachments: h.attachments.filter((a) => !leavingIds.has(a)) } : h)) };
+  }
+  players[playerId] = { ...players[playerId], battlefield: [], phasedOut: [...(player.phasedOut || []), ...leaving] };
+  next = { ...next, players };
+  return logEvent(next, { kind: "phase-out", playerId, count: leaving.length, permanentIds: leaving.map((p) => p.id) });
+}
+export function phaseInAndExpireShield(state, playerId) {
+  assertPlayer(playerId);
+  const player = state.players[playerId];
+  const returning = player.phasedOut || [];
+  const hadShield = !!player.teferiShield;
+  if (returning.length === 0 && !hadShield) return state;
+  const players = { ...state.players };
+  // Re-hook each returning attachment onto its host if the host is still on a battlefield; else it comes back unattached.
+  const findHost = (id) => { for (const pid of Object.keys(players)) { const h = (players[pid].battlefield || []).find((p) => p.id === id); if (h) return { pid, h }; } return null; };
+  const back = [];
+  for (const perm of returning) {
+    if (perm.attachedTo) {
+      const host = findHost(perm.attachedTo);
+      if (host) {
+        players[host.pid] = { ...players[host.pid], battlefield: players[host.pid].battlefield.map((h) => (h.id === host.h.id ? { ...h, attachments: [...(h.attachments || []), perm.id] } : h)) };
+        back.push(perm);
+      } else {
+        back.push({ ...perm, attachedTo: null });
+      }
+    } else back.push(perm);
+  }
+  const { teferiShield, ...rest } = players[playerId]; // eslint-disable-line no-unused-vars
+  players[playerId] = { ...rest, battlefield: [...(rest.battlefield || []), ...back], phasedOut: [] };
+  const next = { ...state, players };
+  return logEvent(next, { kind: "phase-in", playerId, count: back.length, shieldExpired: hadShield });
+}
+
 export function loseLife(state, { playerId, amount, combatDamage }) {
   assertPlayer(playerId);
   if (!Number.isInteger(amount) || amount < 0) throw new Error("loseLife: amount must be non-negative integer");
+  // TEFERI'S PROTECTION — "your life total can't change" (CR 119.6): every loss (damage, pay-life, drains) funnels
+  // here; while the shield holds, the total simply does not move (logged, never fabricated).
+  if (playerLifeLocked(state, playerId)) return logEvent(state, { kind: "life-locked", playerId, blocked: -amount });
   // LIFE-LOST-THIS-TURN ledger (Bloodchief Ascension "if an opponent lost 2 or more life this turn" —
   // SHELF S7, CR 603.4): tallied HERE at the single life-loss chokepoint (damage + pay-life + drains all
   // flow through loseLife — the same funnel the lifeLost watcher rides), reset for all seats at untap
@@ -1722,6 +1789,8 @@ export function loseLife(state, { playerId, amount, combatDamage }) {
 export function gainLife(state, { playerId, amount }) {
   assertPlayer(playerId);
   if (!Number.isInteger(amount) || amount < 0) throw new Error("gainLife: amount must be non-negative integer");
+  // TEFERI'S PROTECTION — "your life total can't change" (CR 119.6): the gain mirror of the loseLife lock.
+  if (playerLifeLocked(state, playerId)) return logEvent(state, { kind: "life-locked", playerId, blocked: amount });
   // LIFE-GAINED-THIS-TURN ledger (BLITZ LG-1, CR 119.3 + 603.4): the exact GAIN mirror of loseLife's
   // lifeLostThisTurn — tallied HERE at the single life-GAIN chokepoint. Every gain path (a "you gain N life"
   // spell/trigger, a drain's gain half, lifelink combat, the radiation life-gain replacement) funnels through

@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Teferi's Protection is fully native** — the whole card, not a half: until your next turn your life total
+  can't change (losses and gains both hold), you have protection from everything (nothing another player
+  controls can target you, and all damage to you is prevented, combat included), all your permanents phase
+  out (they leave the battlefield untouched — tapped stays tapped, counters stay — and phase back in before
+  you untap on your next turn, re-attaching to hosts that are still there), and the spell exiles itself.
+  Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
+
 ### Fixed
 - **Pay-life lands charge the life** — Horizon Canopy, Silent Clearing, the whole Horizon cycle and Mana
   Confluence used to make their colours for free; now they cost the printed life and aren't offered at 1 life.

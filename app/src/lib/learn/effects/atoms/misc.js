@@ -3,7 +3,7 @@
  */
 
 import { applyDrawEffect } from "../../spellEffects.js";
-import { logEvent, addEmblem, addMana, holdMana, opponentsOf, grantFlashThisTurn } from "../../gameState.js";
+import { logEvent, addEmblem, addMana, holdMana, opponentsOf, grantFlashThisTurn, grantTeferiShield, phaseOutAllPermanents } from "../../gameState.js"; // + TEFERI'S PROTECTION (CAP, 2026-09-03)
 import { parseFlashCastFilter } from "../../staticAbilityParser.js"; // the STATIC grant's own filter parser — reused so the turn-scoped twin cannot drift from it
 import { setPendingDivideChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, isCreatureCard, countForSpec } from "./shared.js";
@@ -701,7 +701,24 @@ function applyAddRestrictedMana(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "add-restricted-mana", controller: ctx.controller, amount: x, pool });
 }
 
+/**
+ * ===== TEFERI'S PROTECTION (CAP, 2026-09-03) ===== "Until your next turn, your life total can't change and you
+ * gain protection from everything. All permanents you control phase out." The shield (life lock + protection
+ * from everything) is a player flag read at the life chokepoints, player targeting and both damage funnels;
+ * the phase-out is a splice of every permanent the controller controls into `phasedOut`. Both end at the
+ * controller's next untap step (gameEngine → phaseInAndExpireShield). The spell's own "Exile ~" rides the
+ * program's selfExile stamp. Deterministic, choiceless — no pause.
+ */
+export function applyTeferiProtection(state, atom, ctx) {
+  const controller = ctx.controller;
+  if (!state.players?.[controller]) return state;
+  let next = grantTeferiShield(state, controller);
+  next = phaseOutAllPermanents(next, controller);
+  return logEvent(next, { kind: "spell-effect", effect: "teferi-protection", controller });
+}
+
 export const miscResolvers = {
+  "teferi-protection": applyTeferiProtection, // CAP — life lock + protection from everything + phase out all, until your next turn
   "add-restricted-mana": applyAddRestrictedMana, // Klauth — the pool-restricted sub-pool's first minter
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
   "extra-combat": applyExtraCombat, // ===== EXTRA-COMBAT ===== (CR 500.8) — queue one additional combat phase; advanceStep pops it leaving end-of-combat

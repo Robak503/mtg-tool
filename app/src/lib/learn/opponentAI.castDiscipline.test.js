@@ -10,7 +10,7 @@
  *
  * AI-F2 — a LOW-confidence instant/sorcery with ZERO runnable atoms resolves as
  * markPendingArbiter and VANISHES in self-play (the Tier-1 census's spell-unresolved
- * rows: Ember Island Production / Reality Shift / Teferi's Protection). The AI now
+ * rows: Ember Island Production / Reality Shift; Teferi's Protection graduated to native 2026-09-03). The AI now
  * HOLDS these (ranking only — the action stays offered; THE CREED gates no legality);
  * policy { unresolvable: "v1" } recovers the legacy cast-it-anyway for the A/B probe.
  *
@@ -36,8 +36,6 @@ const INTO_THE_ROIL = { name: "Into the Roil", type: "Instant", mana: "{1}{U}",
   oracle: "Kicker {1}{U} (You may pay an additional {1}{U} as you cast this spell.)\nReturn target nonland permanent to its owner's hand. If this spell was kicked, draw a card." };
 const HURLOON_BATTLE_HYMN = { name: "Hurloon Battle Hymn", type: "Instant", mana: "{2}{R}",
   oracle: "Kicker {W} (You may pay an additional {W} as you cast this spell.)\nHurloon Battle Hymn deals 4 damage to target creature or planeswalker. If this spell was kicked, you gain 4 life." };
-const TEFERIS_PROTECTION = { name: "Teferi's Protection", type: "Instant", mana: "{2}{W}",
-  oracle: "Until your next turn, your life total can't change and you gain protection from everything. All permanents you control phase out. (While they're phased out, they're treated as though they don't exist. They phase in before you untap during your untap step.)\nExile Teferi's Protection." };
 const REALITY_SHIFT = { name: "Reality Shift", type: "Instant", mana: "{1}{U}",
   oracle: "Exile target creature. Its controller manifests the top card of their library. (That player puts the top card of their library onto the battlefield face down as a 2/2 creature. If it's a creature card, it can be turned face up any time for its mana cost.)" };
 const EMBER_ISLAND_PRODUCTION = { name: "Ember Island Production", type: "Sorcery", mana: "{3}{U}{U}",
@@ -96,7 +94,8 @@ describe("AI-F1 — kicked targeted spells run the same target discipline as unk
 
 describe("AI-F2 — unresolvable LOW-confidence spells are HELD (they'd vanish via markPendingArbiter)", () => {
   const cases = [
-    { card: TEFERIS_PROTECTION, mana: { W: 1, C: 2 } },
+    // Teferi's Protection sat here until 2026-09-03 (CAP-TP): it is HIGH-confidence native now (player shield +
+    // phasing), so the "unresolvable" hold no longer applies to it — the row is retired, not weakened.
     { card: REALITY_SHIFT, mana: { U: 1, C: 1 } },
     { card: EMBER_ISLAND_PRODUCTION, mana: { U: 2, C: 3 } },
   ];

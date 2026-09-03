@@ -3,6 +3,33 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🛡️ 2026-09-03 — CAP-TP: TEFERI'S PROTECTION, WHOLE — a PLAYER shield + PHASING as a new subsystem + the self-exile stamp · **+1 corpus** (Cap 84 → 85) · Colton's day-order item 1
+> Suite **1355 / 15,363** green (one stale pin retired, below); lint 0. Flip-diff **+1, zero LOST** (Teferi's
+> Protection, arbiter-spell → native-spell). **14/14 killed.**
+> · **THE CREED said whole or nothing.** "Until your next turn, your life total can't change and you gain
+>   protection from everything. All permanents you control phase out. Exile ~." — no half-native spell. Three
+>   subsystems: (1) a PLAYER shield (`players[pid].teferiShield`) read at the two life chokepoints (loseLife /
+>   gainLife hold the total — CR 119.6), at player targeting (spellEffects.targetablePlayer — nothing another
+>   player controls can aim at the shielded player; their own spells still can — CR 702.16b), and at both damage
+>   funnels (applyDamageEffect's player hit, combatResolution's life-loss loop — all damage prevented, own
+>   sources included); (2) PHASING as a SPLICE (CR 702.26): the controller's battlefield moves to `phasedOut`
+>   untouched (tapped stays tapped, counters stay), our attachments on other players' permanents are unhooked
+>   from their hosts, and everything phases back in at the controller's untap step BEFORE untapAll (so a land
+>   that left tapped untaps that same step — pinned), re-hooking to a host that is still there and returning
+>   unattached otherwise (pinned); the shield expires at the same moment (pinned: the OTHER player's untap
+>   changes nothing); (3) the self-exile rides the program's existing `selfExile` stamp (the card-level retry
+>   path) — the spell ends in exile, not the graveyard (pinned).
+> · **The parser** collapses the exact stripped body to one atom (`teferi-protection`, misc.js); reminder
+>   text stripped, curly apostrophes normalized. Deterministic, choiceless — no pause, no panel.
+> · **A stale pin retired:** opponentAI.castDiscipline's AI-F2 row held Teferi's Protection as a LOW-confidence
+>   "unresolvable" spell the AI should refuse to cast (it used to vanish via markPendingArbiter). It is HIGH
+>   now, so the hold no longer applies — the row is removed; Reality Shift and Ember Island Production still
+>   carry the pin.
+> · **Honest edges:** phasing is modeled ONLY for this card's "all permanents you control phase out" (no
+>   per-permanent phasing keyword, no "phases out" targeting — those remain unmodeled, parked in §6); the shield
+>   is a flag, not a layer-7 continuous effect, so a card that grants protection from everything by another
+>   route still routes elsewhere.
+
 > ## 🩸 2026-09-03 — STAGE ④-5: RIDER-BEARING MANA LINES — pay-life lands charge the life · the "doesn't untap" duals · Grand Coliseum's painful any-colour · **+0 corpus by design** · a live FP on the Horizon cycle fixed
 > Suite **1354 / 15,356** green; lint 0. Flip-diff **0 / 0** (every carrier was already credited "land"; this is
 > a Law-6 slice — what the engine PLAYS changed). **6/6 killed.**
