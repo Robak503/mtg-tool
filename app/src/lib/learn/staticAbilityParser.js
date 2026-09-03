@@ -4534,6 +4534,16 @@ const TOKEN_ARTIFACT_MANA_SUBTYPES = new Set(["treasure", "gold", "clue", "food"
  * subject only: a determiner ("all"/"other"), a rider, or a non-token subtype leaves residue → null (safe FN).
  */
 function parseTokenArtifactManaSelector(c) {
+  // BARE TOKEN GRANT (SG-4, 2026-09-03 — Jaheira, Friend of the Forest "Tokens you control have \"{T}: Add
+  // {G}.\""): every token the controller controls, any type — a Squirrel with no mana ability becomes a G
+  // source through the granted-spec path. The grant is emitted with the same `upgrade` marker the
+  // Treasure-subtype grants carry, and that is HARMLESS here by construction: the supplement path only
+  // replaces a host's own production when the granted colors are a SUPERSET of the host's AND the amount is
+  // ≥ — a single-color "{T}: Add {G}" can never dominate a Treasure's any-color sacrifice, so a Treasure keeps
+  // its own ability (an honest under-offer). A separate guard for that survived mutation for exactly this
+  // reason — dead by construction — and was deleted. Layers' dynamic selector already carries a `token` predicate.
+  const bare = String(c).match(/^tokens you control(?:\s+have)?$/i);
+  if (bare) return { mode: "dynamic", selector: { controllerScope: "you", token: true } };
   const m = String(c).match(/^([a-z]+)\s+you control(?:\s+have)?$/i);
   if (!m) return null;
   let word = m[1].toLowerCase();

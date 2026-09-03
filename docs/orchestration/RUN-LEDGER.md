@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🌳 2026-09-03 — SG-4: Jaheira — "Tokens you control have '{T}: Add {G}'" · **+1 corpus** · Squirrel Girl deck 72→73 · corpus 40.3% (13,784/34,245)
+> Suite **1334 / 15,240** green; lint 0. Flip-diff **+1, zero LOST** (Jaheira → native-static). **2/2
+> killed after one honest deletion** — see below.
+> · **One selector.** The quoted mana-grant lane knew creature selectors and mana-ARTIFACT token subtypes
+>   ("Treasures you control have …" — Goldspan's in-place upgrade). A BARE "tokens you control" selector joins
+>   it through layers' existing `token` predicate: a Squirrel token becomes a {G} source (the granted-spec
+>   path), a non-token creature gains nothing, an opponent's token gains nothing.
+> · **The mutation that survived, and why it was right to:** I had guarded the bare grant from the
+>   in-place UPGRADE marker so a Treasure would keep its own sacrifice-for-any-color. Marking it an upgrade
+>   anyway changed nothing — the supplement only replaces a host's production when the granted colors are a
+>   SUPERSET of the host's AND the amount is ≥, and a single-color {G} can never dominate any-color. The guard
+>   was dead by construction; deleted, the reason written where the guard was. The Treasure still keeps its
+>   own ability (pinned) — an honest under-offer of the granted second tap.
+> · "Choose a Background" (her second line) was already tolerated by the classifier — ablation said the grant
+>   line alone parked her.
+
 > ## ⚙️ 2026-09-03 — SG-3: the ALTARS — "Sacrifice a creature: Add …" PAID FOR REAL (Ashnod's · Phyrexian · Thermopod) · **+3 corpus** · Squirrel Girl deck 71→72 · corpus 40.2% (13,783/34,245)
 > Suite **1333 / 15,234** green; lint 0. Flip-diff **+3, zero LOST, zero RETIERED**. **7/7 killed.**
 > · **The refusal was right until the payment existed.** A non-self sacrifice mana cost was PHANTOM mana

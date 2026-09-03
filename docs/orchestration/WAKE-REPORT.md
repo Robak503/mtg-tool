@@ -7,7 +7,16 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ⚙️ 2026-09-03 — **STAGE ③: SG-3 — the Altars pay for real (+3) — Squirrel Girl 72/100, corpus 40.2% (13,783)** — suite **1333 / 15,234** green
+## 🌳 2026-09-03 — **STAGE ③: SG-4 — Jaheira's token mana grant (+1) — Squirrel Girl 73/100, corpus 40.3% (13,784)** — suite **1334 / 15,240** green
+
+> **SG-4** = a bare "tokens you control" selector on the quoted mana-grant lane: every Squirrel token taps
+> for {G}; Treasures keep their own ability (a single-color grant can never dominate any-color — a guard
+> for that survived mutation because it was dead by construction, and was deleted with the reason).
+> **Next:** Geier Reach Sanitarium / Lore Broker (the each-player loot sentence — both halves already
+> parse; a pre-splitter rewrite joins them), then the mediums (Elvish Spirit Guide, Altar of Dementia,
+> Peregrin Took, Dosan, Frenzied Baloth, Vexing Bauble, Evolutionary Leap, Sylvan Library).
+
+## ⚙️ 2026-09-03 — SG-3 — the Altars pay for real (+3) — Squirrel Girl 72/100, corpus 40.2% (13,783) — suite 1333 / 15,234 green
 
 > **SG-3** = "Sacrifice a creature: Add …" as a REAL mana payment (Ashnod's Altar, Phyrexian Altar,
 > Thermopod): the source is offered only while another creature is there, and paying sacrifices the
