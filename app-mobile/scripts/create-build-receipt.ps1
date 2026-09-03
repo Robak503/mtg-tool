@@ -78,9 +78,7 @@ try {
     } finally { $stream.Dispose() }
   }
   $knowledgePackaged = $null -ne $packagedDatabaseEntry -and $null -ne $packagedManifestEntry
-  $knowledgeDatabaseStored = $knowledgePackaged -and $packagedDatabaseEntry.CompressedLength -eq $packagedDatabaseEntry.Length
   $packagedKnowledgeMatches = $knowledgePackaged -and
-    $knowledgeDatabaseStored -and
     $packagedDatabaseEntry.Length -eq $knowledgeBytes -and
     $packagedDatabaseHash -eq $knowledgeHash -and
     $packagedManifestHash -eq $knowledgeManifestHash
@@ -106,9 +104,7 @@ try {
     } finally { $stream.Dispose() }
   }
   $artPackaged = $null -ne $packagedArtManifestEntry -and $null -ne $packagedArtDatabaseEntry
-  $artDatabaseStored = $artPackaged -and $packagedArtDatabaseEntry.CompressedLength -eq $packagedArtDatabaseEntry.Length
   $packagedArtMatches = $artPackaged -and [bool]$artManifest -and
-    $artDatabaseStored -and
     $packagedArtDatabaseEntry.Length -eq $artManifest.database.bytes -and
     $packagedArtDatabaseHash -eq $artManifest.database.sha256 -and
     $packagedArtManifestHash -eq $artManifestHash
@@ -151,7 +147,6 @@ $checks = [ordered]@{
   noRawCorpus = [bool]($forbiddenEntries.Count -eq 0)
   knowledgeHashMatches = [bool]$knowledgeVerified
     knowledgePackaged = [bool]$knowledgePackaged
-    knowledgeDatabaseStored = [bool]$knowledgeDatabaseStored
   packagedKnowledgeMatches = [bool]$packagedKnowledgeMatches
   stagedModelsMatchCatalog = [bool](-not ($models.Values | Where-Object { $_.present -and -not $_.verified }))
   artPackagedMatchesManifest = [bool]((-not $RequireArt) -or $packagedArtMatches)
@@ -195,7 +190,6 @@ $receipt = [ordered]@{
     databaseBytes = if ($artManifest) { $artManifest.database.bytes } else { 0 }
     databaseSha256 = if ($artManifest) { $artManifest.database.sha256 } else { $null }
     packaged = [bool]$artPackaged
-    databaseStored = [bool]$artDatabaseStored
     packagedDatabaseSha256 = $packagedArtDatabaseHash
     packagedManifestSha256 = $packagedArtManifestHash
     verified = [bool]$packagedArtMatches

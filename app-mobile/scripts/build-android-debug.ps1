@@ -36,7 +36,6 @@ function Test-ApkKnowledgeAssets {
   try {
     $database = $archive.GetEntry("assets/knowledge/omnath-knowledge.sqlite")
     return $null -ne $database -and
-      $database.CompressedLength -eq $database.Length -and
       $null -ne $archive.GetEntry("assets/knowledge/omnath-knowledge.manifest.json")
   } finally {
     $archive.Dispose()
@@ -82,8 +81,7 @@ function Test-ApkArtAssets {
     $database = $archive.GetEntry("assets/art/omnath-art.sqlite")
     return $null -ne $archive.GetEntry("assets/art/omnath-art.manifest.json") -and
       $null -ne $database -and
-      $database.Length -eq $manifest.database.bytes -and
-      $database.CompressedLength -eq $database.Length
+      $database.Length -eq $manifest.database.bytes
   } finally {
     $archive.Dispose()
   }

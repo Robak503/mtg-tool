@@ -49,4 +49,12 @@ impl<R: Runtime> OmnathModel<R> {
             .run_mobile_plugin("benchmark", ())
             .map_err(Into::into)
     }
+    pub fn copy_bundled_asset(
+        &self,
+        payload: AssetCopyRequest,
+    ) -> crate::Result<serde_json::Value> {
+        self.0
+            .run_mobile_plugin("copyBundledAsset", payload)
+            .map_err(Into::into)
+    }
 }

@@ -11,6 +11,8 @@ use std::{
 };
 use tauri::{path::BaseDirectory, AppHandle, Emitter, Manager, State};
 use tauri_plugin_fs::{FsExt, OpenOptions};
+#[cfg(target_os = "android")]
+use tauri_plugin_omnath_model::{AssetCopyRequest, OmnathModelExt};
 
 const DATABASE_FILE: &str = "omnath-knowledge.sqlite";
 const MANIFEST_FILE: &str = "omnath-knowledge.manifest.json";
@@ -191,6 +193,62 @@ fn stream_copy_verified<R: Read>(
     Ok(())
 }
 
+#[cfg(target_os = "android")]
+fn copy_resource_verified(
+    app: &AppHandle,
+    _source_path: &Path,
+    destination: &Path,
+    expected: &DatabaseReceipt,
+    _phase: &'static str,
+    asset_kind: &'static str,
+) -> Result<(), BoxError> {
+    let destination_name = destination
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or("Invalid temporary database filename")?;
+    app.omnath_model().copy_bundled_asset(AssetCopyRequest {
+        asset_kind: asset_kind.to_string(),
+        destination_name: destination_name.to_string(),
+        expected_bytes: expected.bytes,
+        expected_sha256: expected.sha256.clone(),
+    })?;
+    if fs::metadata(destination)?.len() != expected.bytes
+        || sha256_path(destination)? != expected.sha256
+    {
+        return Err("Native bundled asset receipt mismatch".into());
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "android"))]
+fn copy_resource_verified(
+    app: &AppHandle,
+    source_path: &Path,
+    destination: &Path,
+    expected: &DatabaseReceipt,
+    phase: &'static str,
+    _asset_kind: &'static str,
+) -> Result<(), BoxError> {
+    let mut options = OpenOptions::new();
+    options.read(true);
+    let source = app.fs().open(source_path, options)?;
+    stream_copy_verified(
+        source,
+        destination,
+        expected,
+        |copied_bytes, total_bytes| {
+            let _ = app.emit(
+                "knowledge-progress",
+                KnowledgeProgress {
+                    phase,
+                    copied_bytes,
+                    total_bytes,
+                },
+            );
+        },
+    )
+}
+
 fn replace_file(temp_path: &Path, final_path: &Path) -> Result<(), BoxError> {
     if final_path.exists() {
         fs::remove_file(final_path)?;
@@ -226,23 +284,13 @@ fn provision_knowledge(app: &AppHandle) -> Result<KnowledgeStatus, BoxError> {
             }
         }
 
-        let mut options = OpenOptions::new();
-        options.read(true);
-        let source = app.fs().open(&bundled_database_path, options)?;
-        if let Err(error) = stream_copy_verified(
-            source,
+        if let Err(error) = copy_resource_verified(
+            app,
+            &bundled_database_path,
             &temp_database,
             &manifest.database,
-            |copied_bytes, total_bytes| {
-                let _ = app.emit(
-                    "knowledge-progress",
-                    KnowledgeProgress {
-                        phase: "copying",
-                        copied_bytes,
-                        total_bytes,
-                    },
-                );
-            },
+            "copying",
+            "knowledge",
         ) {
             let _ = fs::remove_file(&temp_database);
             return Err(error);
@@ -313,23 +361,13 @@ fn provision_art(app: &AppHandle, config_dir: &Path) -> Result<Option<Provisione
             }
         }
 
-        let mut options = OpenOptions::new();
-        options.read(true);
-        let source = app.fs().open(&bundled_database_path, options)?;
-        if let Err(error) = stream_copy_verified(
-            source,
+        if let Err(error) = copy_resource_verified(
+            app,
+            &bundled_database_path,
             &temp_database,
             &manifest.database,
-            |copied_bytes, total_bytes| {
-                let _ = app.emit(
-                    "knowledge-progress",
-                    KnowledgeProgress {
-                        phase: "copying-art",
-                        copied_bytes,
-                        total_bytes,
-                    },
-                );
-            },
+            "copying-art",
+            "art",
         ) {
             let _ = fs::remove_file(&temp_database);
             return Err(error);

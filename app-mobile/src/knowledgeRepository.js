@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { addPluginListener, invoke } from "@tauri-apps/api/core";
 import Database from "@tauri-apps/plugin-sql";
 
 export function normalizeCardName(name) {
@@ -221,11 +221,22 @@ export function createKnowledgeRepository(database, status, artDatabase = null) 
 
 export async function openKnowledgeRepository(onProgress) {
   let unlisten = null;
+  let nativeProgress = null;
   if (onProgress) {
     const { listen } = await import("@tauri-apps/api/event");
     unlisten = await listen("knowledge-progress", ({ payload }) => onProgress(payload));
+    nativeProgress = await addPluginListener("omnath-model", "asset-progress", (event) => {
+      onProgress({
+        phase: event.assetKind === "art" ? "copying-art" : "copying",
+        copiedBytes: Number(event.copiedBytes ?? 0),
+        totalBytes: Number(event.totalBytes ?? 0),
+      });
+    });
   }
-  const status = await invoke("prepare_knowledge").finally(() => unlisten?.());
+  const status = await invoke("prepare_knowledge").finally(() => {
+    unlisten?.();
+    nativeProgress?.unregister();
+  });
   if (!status?.ready) {
     throw new Error(status?.error || "The offline knowledge pack is not ready");
   }

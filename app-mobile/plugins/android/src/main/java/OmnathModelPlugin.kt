@@ -1,6 +1,7 @@
 package com.colton.omnathmodel
 
 import android.app.Activity
+import android.content.res.AssetManager
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
 import app.tauri.annotation.TauriPlugin
@@ -12,6 +13,7 @@ import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Conversation
 import java.io.File
+import java.io.FileOutputStream
 import java.security.MessageDigest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +25,12 @@ import kotlinx.coroutines.launch
 
 @InvokeArg class ModelArgs { var modelId: String? = null }
 @InvokeArg class GenerateArgs { var requestId: String? = null; var prompt: String? = null }
+@InvokeArg class AssetCopyArgs {
+    var assetKind: String? = null
+    var destinationName: String? = null
+    var expectedBytes: Long = 0
+    var expectedSha256: String? = null
+}
 
 private data class ModelSpec(val file: String, val bytes: Long, val sha256: String)
 
@@ -103,6 +111,58 @@ class OmnathModelPlugin(private val activity: Activity) : Plugin(activity) {
     @Command fun benchmark(invoke: Invoke) {
         val info = try { conversation?.javaClass?.methods?.firstOrNull { it.name == "getBenchmarkInfo" }?.invoke(conversation)?.toString() } catch (_: Throwable) { null }
         invoke.resolve(JSObject().apply { put("modelId", lifecycle.snapshot().modelId); put("benchmark", info ?: "unavailable") })
+    }
+
+    @Command fun copyBundledAsset(invoke: Invoke) {
+        val args = invoke.parseArgs(AssetCopyArgs::class.java)
+        val spec = AssetCopyPolicy.spec(args.assetKind)
+            ?: return invoke.reject("Unknown bundled asset")
+        if (!AssetCopyPolicy.acceptsDestination(spec, args.destinationName)) {
+            return invoke.reject("Invalid bundled asset destination")
+        }
+        val expectedSha256 = args.expectedSha256?.takeIf { it.matches(Regex("[0-9a-f]{64}")) }
+            ?: return invoke.reject("Invalid bundled asset receipt")
+        if (args.expectedBytes <= 0) return invoke.reject("Invalid bundled asset size")
+
+        scope.launch {
+            val destination = File(activity.dataDir, args.destinationName!!)
+            try {
+                require(destination.canonicalFile.parentFile == activity.dataDir.canonicalFile) {
+                    "Bundled asset destination escaped app storage"
+                }
+                val digest = MessageDigest.getInstance("SHA-256")
+                var copiedBytes = 0L
+                activity.assets.open(spec.assetPath, AssetManager.ACCESS_STREAMING).use { input ->
+                    FileOutputStream(destination, false).use { output ->
+                        val buffer = ByteArray(1024 * 1024)
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            output.write(buffer, 0, count)
+                            digest.update(buffer, 0, count)
+                            copiedBytes += count
+                            trigger("asset-progress", JSObject().apply {
+                                put("assetKind", spec.kind)
+                                put("copiedBytes", copiedBytes)
+                                put("totalBytes", args.expectedBytes)
+                            })
+                        }
+                        output.fd.sync()
+                    }
+                }
+                val actualSha256 = digest.digest().joinToString("") { "%02x".format(it) }
+                require(copiedBytes == args.expectedBytes) { "Bundled asset size mismatch" }
+                require(actualSha256 == expectedSha256) { "Bundled asset hash mismatch" }
+                invoke.resolve(JSObject().apply {
+                    put("assetKind", spec.kind)
+                    put("bytes", copiedBytes)
+                    put("sha256", actualSha256)
+                })
+            } catch (error: Throwable) {
+                destination.delete()
+                invoke.reject(error.message ?: error.javaClass.simpleName)
+            }
+        }
     }
 
     override fun onDestroy() { loading?.cancel(); generation?.cancel(); conversation?.close(); engine?.close(); lifecycle.unload(); scope.cancel(); super.onDestroy() }

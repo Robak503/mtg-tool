@@ -49,12 +49,6 @@ android {
     buildFeatures {
         buildConfig = true
     }
-    androidResources {
-        // The native startup copier needs direct file descriptors for these
-        // large, already-packed SQLite assets. Compression would force the
-        // Android bridge to duplicate them through a 1 KiB cache stream first.
-        noCompress += "sqlite"
-    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
