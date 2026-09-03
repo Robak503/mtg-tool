@@ -169,6 +169,7 @@ the scratchpad). ✅ **④-A** — Aura-own cumulative upkeep composes with the 
 ✅ **④-E** — Nikya's noncreature cast lock (+1; 4/4).
 ✅ **④-F** — "target opponent creates … creature tokens" (+7: Forbidden Orchard, the Hunted cycle, Ox Drover; 5/5).
 ✅ **④-G** — the flashback grant (+6: Snapcaster Mage and kin; 7/7). Corpus 40.6%.
+✅ **④-H** — the en-Kor damage redirect on the prevention shield (+5; 7/7).
 Queue = the census's two-flip / bug-signature leads (see WAKE-REPORT top).
 Only after ①–③'s DONE lines are met. Boot from the vault's `memory/orders/cindy-corpus-roadmap.md`
 (WHAT/WHY/ORDER) + the repo's `RESIDUE-GRIND-RUNBOOK.md` (HOW): fresh census, largest clause family with

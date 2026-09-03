@@ -1388,9 +1388,11 @@ export function preventionShieldsFor(state) {
 }
 
 /** Add a prevention shield. Purges stale/spent entries on write so the array never accumulates. */
-export function addPreventionShield(state, { targetKind, targetId, amount, turn }) {
+export function addPreventionShield(state, { targetKind, targetId, amount, turn, redirectTo = null }) {
   const live = preventionShieldsFor(state);
-  return { ...state, preventionShields: [...live, { targetKind, targetId, amount: Math.max(0, amount || 0), turn }] };
+  // ④-H (the en-Kor cycle, CR 615.7): a REDIRECT shield — the consumed damage is dealt to `redirectTo` (a creature)
+  // instead of being prevented. Absent on every plain shield (byte-identical).
+  return { ...state, preventionShields: [...live, { targetKind, targetId, amount: Math.max(0, amount || 0), turn, ...(redirectTo ? { redirectTo } : {}) }] };
 }
 
 /** Consume up to `amount` of matching shields. Returns { state, amount } — the unprevented remainder.
@@ -1401,18 +1403,20 @@ export function consumePreventionShields(state, { targetKind, targetId, amount }
   let rem = amount;
   let touched = false;
   const nextShields = [];
+  const redirects = []; // ④-H — { to, amount } per consumed REDIRECT shield (the caller deals it to `to`)
   for (const sh of live) {
     if (rem > 0 && sh.targetKind === targetKind && sh.targetId === targetId && sh.amount > 0) {
       const used = Math.min(sh.amount, rem);
       rem -= used;
       touched = true;
+      if (sh.redirectTo) redirects.push({ to: sh.redirectTo, amount: used });
       if (sh.amount - used > 0) nextShields.push({ ...sh, amount: sh.amount - used });
     } else {
       nextShields.push(sh);
     }
   }
-  if (!touched && nextShields.length === (state.preventionShields || []).length) return { state, amount };
-  return { state: { ...state, preventionShields: nextShields }, amount: rem };
+  if (!touched && nextShields.length === (state.preventionShields || []).length) return { state, amount, redirects: [] };
+  return { state: { ...state, preventionShields: nextShields }, amount: rem, redirects };
 }
 
 /**

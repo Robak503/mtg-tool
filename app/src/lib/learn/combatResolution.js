@@ -357,6 +357,10 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       const used = Math.min(sh.amount, rem);
       sh.amount -= used;
       rem -= used;
+      // ④-H (the en-Kor cycle, CR 615.7): a REDIRECT shield sends the consumed damage to the named creature instead —
+      // it joins the SAME accumulation every other combat deal uses (marked and lethal-checked with the rest). Dealt
+      // as plain damage: the dealer's deathtouch/infect is not carried (an under-kill — the FN-safe direction).
+      if (sh.redirectTo && findPermanent(state, sh.redirectTo)) addDmg(sh.redirectTo, used, false, false);
     }
     return rem;
   };

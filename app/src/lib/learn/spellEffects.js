@@ -1357,6 +1357,14 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
     // PV-1 (CR 615): floating prevent-next-N shields (Samite Healer on a creature) consume before the hit.
     const pv = consumePreventionShields(s, { targetKind: "creature", targetId: permId, amount: dealt });
     s = pv.state; dealt = pv.amount;
+    // ④-H (the en-Kor cycle, CR 615.7): a consumed REDIRECT shield deals its amount to the named creature instead —
+    // marked here and tallied so the effect's lethal pass and dealt-damage watchers see it. Plain damage (the
+    // source's infect/wither/deathtouch is not carried — an under-kill, the FN-safe direction).
+    for (const r of pv.redirects || []) {
+      if (!findPermanent(s, r.to) || r.amount <= 0) continue;
+      dealtToCreature[r.to] = (dealtToCreature[r.to] || 0) + r.amount;
+      s = markCombatDamage(s, { permanentId: r.to, amount: r.amount });
+    }
     if (dealt <= 0) return s;
     dealtToCreature[permId] = (dealtToCreature[permId] || 0) + dealt;
     sourceDealtTotal += dealt; // SL-1

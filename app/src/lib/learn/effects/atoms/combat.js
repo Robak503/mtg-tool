@@ -1554,6 +1554,13 @@ export function combatKeywordClauseParser(clause) {
   // referents through atomTargets, the same seam applyTapEffect uses.
   const pvSelf = t.match(/^prevent the next (\d+|one|two|three|four|five|six|seven|eight|nine|ten) damage that would be dealt to this creature this turn$/);
   if (pvSelf) return { op: "prevent-next-damage", amount: NUM_WORD[pvSelf[1]] ?? parseInt(pvSelf[1], 10), target: "self" };
+  // ④-H — REDIRECT (the en-Kor cycle, CR 615.7): "the next N damage that would be dealt to this creature this turn is
+  // dealt to target creature you control instead". The SAME self-referent shield (target:"self" — the fixed referent
+  // goes through atomTargets) plus a CHOSEN redirect creature (targetType creature, yours); the shield carries
+  // `redirectTo` and both damage funnels deal the consumed amount there. Choosing the source itself is a no-op
+  // (no shield — the damage lands where it was going).
+  const pvRedir = t.match(/^the next (\d+|one|two|three|four|five|six|seven|eight|nine|ten) damage that would be dealt to this creature this turn is dealt to target creature you control instead$/);
+  if (pvRedir) return { op: "prevent-next-damage", amount: NUM_WORD[pvRedir[1]] ?? parseInt(pvRedir[1], 10), target: "self", redirect: true, targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
   const pvType = t.match(/^prevent the next (\d+|one|two|three|four|five|six|seven|eight|nine|ten) damage that would be dealt to target (artifact) creature this turn$/);
   if (pvType) return { op: "prevent-next-damage", amount: NUM_WORD[pvType[1]] ?? parseInt(pvType[1], 10), targetType: "creature", restrictions: [{ kind: "cardType", type: pvType[2] }] };
   // PLAYERS-ONLY FOG (BLITZ FOG-1b — Defend the Hearth / Commencement of Festivities): "prevent all
@@ -2557,8 +2564,14 @@ function applyPreventNextDamage(state, atom, ctx) {
       else if ((t.type === "creature" || t.type === "planeswalker") && findPermanent(next, t.id)) entries.push({ targetKind: t.type, targetId: t.id });
     }
   }
-  for (const e of entries) next = addPreventionShield(next, { ...e, amount: atom.amount, turn: next.turn });
-  return logEvent(next, { kind: "spell-effect", effect: "prevent-next-damage", controller: ctx.controller, amount: atom.amount, shielded: entries.map((e) => e.targetId) });
+  // ④-H — REDIRECT: the chosen creature (ctx.targets) receives what the self shield consumes; the source itself
+  // as the choice is a no-op (no shield), never a self-loop.
+  const redirectTo = atom.redirect ? ((ctx.targets || []).find((t) => t.type === "creature")?.id ?? null) : null;
+  if (atom.redirect && (!redirectTo || !findPermanent(next, redirectTo) || entries.some((e) => e.targetId === redirectTo))) {
+    return logEvent(next, { kind: "spell-effect", effect: "prevent-next-damage", controller: ctx.controller, amount: atom.amount, shielded: [], redirect: null });
+  }
+  for (const e of entries) next = addPreventionShield(next, { ...e, amount: atom.amount, turn: next.turn, ...(redirectTo ? { redirectTo } : {}) });
+  return logEvent(next, { kind: "spell-effect", effect: "prevent-next-damage", controller: ctx.controller, amount: atom.amount, shielded: entries.map((e) => e.targetId), ...(redirectTo ? { redirect: redirectTo } : {}) });
 }
 
 /**

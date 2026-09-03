@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🛡️ 2026-09-03 (night cron) — CORPUS ④-H: the en-Kor DAMAGE REDIRECT — a prevention shield that deals its consumed amount elsewhere · **+5** (Warrior / Nomads / Lancers / Spirit / Outrider en-Kor) · corpus 13,895 / 34,245 (40.6%)
+> Suite **1369 / 15,440** green; lint 0. Flip-diff **+5, zero LOST**. **7/7 killed.**
+> · **The shape:** "{0}: The next 1 damage that would be dealt to this creature this turn is dealt to target creature you
+>   control instead." — the PROVEN self-referent prevent-next-N shield (target:"self" through atomTargets) plus a CHOSEN
+>   redirect creature; the shield store carries `redirectTo`, and BOTH damage funnels hand the consumed amount to that
+>   creature: the noncombat hit (consumePreventionShields now reports its redirects; the hit marks and tallies them
+>   for the effect's lethal pass and dealt-damage watchers) and the combat pool (the redirect joins the same
+>   per-creature accumulation every combat deal uses). Each funnel's drop is a killed mutation; so is a shield that
+>   forgets its redirect, and a self-choice that shields (it is a no-op — never a self-loop).
+> · **Board-verified:** a shielded Warrior pinged for 1 takes nothing and the Bear takes 1, then the spent shield lets
+>   the second ping land; blocking a 2/2, one damage is redirected and the other lands on the Warrior.
+> · **Honest edge:** the redirected damage is dealt PLAIN — the dealer's deathtouch / infect / wither is not carried to
+>   the redirect creature (an under-kill, the FN-safe direction). Shaman en-Kor keeps its second, unmodeled ability.
+
 > ## 🔁 2026-09-03 (night cron) — CORPUS ④-G: the FLASHBACK GRANT — "gains flashback until end of turn … equal to its mana cost" · **+6** (Snapcaster Mage, Stingcaster Mage, Slickshot Lockpicker, Katilda and Lier, Lost in Memories, the spell Flashback) · **corpus crosses 40.6%** (13,890 / 34,245)
 > Suite **1368 / 15,436** green; lint 0. Flip-diff **+6, zero LOST**, each audited whole-card. **7/7 killed.**
 > · **The shape:** a `grant-flashback` atom (a graveyard-card target, the caster's own graveyard, instant-or-sorcery

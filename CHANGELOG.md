@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **The en-Kor cycle works** — Warrior, Nomads, Lancers, Spirit and Outrider en-Kor redirect the next damage
+  they'd take to a creature you choose, in combat and out of it.
 - **Snapcaster Mage works** — the instant or sorcery you pick in your graveyard gains flashback for the turn at
   its own mana cost, and is exiled after you cast it. Stingcaster Mage, Slickshot Lockpicker, Katilda and Lier,
   Lost in Memories and the spell Flashback ride the same grant.
