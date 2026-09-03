@@ -616,9 +616,9 @@ exist on branch `codex/omnath-phone-polish`.
   and supplies `HF_TOKEN`.
 - The authoritative full-art ARM64 debug APK targets Android 36 with minimum
   SDK 24, package id `com.colton.omnath.probe.debug`, and user-facing label
-  **Omnath MTG Assistant**. The offline-art build from commit `a7e47e3e` is
-  767,182,782 bytes with SHA-256
-  `c0dff859e5420cd480a14d1c65089d883b3811557c0f5f5d4fc2e42709553e61`.
+  **Omnath MTG Assistant**. The model-free freeze correction from commit
+  `263474f6` is 767,182,842 bytes with SHA-256
+  `fb59ecea586caa16dbd608b6f45786ba8a4b9d0db0b8243077768695379a27b5`.
   Its machine-generated receipt reports 37,526 entries, no
   `android.permission.INTERNET`, no bundled `.litertlm`, no raw Oracle/rulings/CR
   input, and a matching staged enhanced-model hash. It also proves that the
@@ -627,10 +627,10 @@ exist on branch `codex/omnath-phone-polish`.
   `d9dd2756c414123ab9934263496b043ef0225d5178314f5996f4efdca4dc3d75`.
   The only reported permission is Android's package-scoped dynamic-receiver
   protection.
-- The UI/controller JavaScript is 30,487 bytes (10,870 bytes gzip), and the
+- The UI/controller JavaScript is 30,727 bytes (10,950 bytes gzip), and the
   LEYLINE stylesheet is 12,029 bytes (3,240 bytes gzip); the
   995,428-byte rules-engine witness is isolated in a lazy chunk. The release
-  gate passed 28 mobile JS/data/security tests, 17 engine/WebView tests, four
+  gate passed 29 mobile JS/data/security tests, 17 engine/WebView tests, four
   Rust provisioning/art-path tests, and three Kotlin model-lifecycle tests before the
   APK receipt was issued.
 - Installation, launch, and corrected first-run provisioning are proven on the
@@ -670,8 +670,17 @@ exist on branch `codex/omnath-phone-polish`.
   labeled related evidence rather than being promoted to a ruling. Privacy-safe
   receipts reported runtime passed, knowledge ready at pack
   `2ff865558090ad70c6d3f2c5`, the expected unavailable model, and outcome states
-  matching the visible `matches` and `grounded` cards. The full-art APK itself
-  remains pending installation and image-render verification on the Pixel.
+  matching the visible `matches` and `grounded` cards.
+- The first full-art installation reached the ready UI but hard-froze after
+  retrieval while the UI said
+  `Arranging the verified response locally`. The controller had already observed
+  that no model was available but still entered the model narration adapter,
+  which performed a second native status call before falling back. Commit
+  `263474f6` makes the unavailable-model path return the deterministic plan
+  directly and adds a two-second ceiling to model status probes. A regression
+  fixture supplies a narration promise that never settles and proves it is never
+  called when model status is unavailable. The replacement full-art APK retains
+  the byte-verified 36,592-image payload and now awaits Pixel retest.
 
 - One chat surface.
 - One Omnath persona.
