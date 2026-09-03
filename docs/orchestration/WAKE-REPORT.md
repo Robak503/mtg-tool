@@ -7,6 +7,16 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🐋 2026-09-03 (night cron) — **④-U: Palinchron and Great Whale — "untap up to seven lands" (+2)** · suite **1382 / 15,508** green · corpus 13,944 / 34,245 (40.7%) · flip-diff +2 / 0 lost · 2/2 killed
+
+> **Night tally (stage ④, twenty-one slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
+> J (+1) · K (+1, FP closed on 3) · L (+4) · M (+2) · N (+7) · O (+4) · P (+3) · Q (+6) · R (+2) · S (+2) · T (+12) · U (+2) —
+> corpus 13,862 → 13,944.
+> **⏸ CI:** attempt 3 of the master head ALSO hit the wall (20:03→20:18Z) — four identical failures counting the control run. A diagnostic-only PR (#465, branch ci/runner-facts off origin/master) prints cpus / availableParallelism before the tests; its CI run tells the next seat whether GitHub's windows-2025 runners are exposing 2 CPUs (vitest = 1 worker) or something else. Wall unchanged. Eight slices (④-N … ④-U) local, suites green.
+> **Next runnable:** the census's ≥3 veins are gone; what is left is 1–2 card composites (Wormfang Crab's opponent-chosen
+> exile, Tinker's artifact-to-battlefield tutor, Graveyard Shovel's life rider, Witch's Mark's Role token). Pick by
+> Colton's decks first (the roster in memory), then the two-flip list.
+
 ## 🎯 2026-09-03 (night cron) — **④-T: GY-3 — targeted graveyard exile-cost abilities (+12)** · suite **1381 / 15,505** green · corpus 13,942 / 34,245 (40.7%) · flip-diff +12 / 0 lost · 5/5 killed
 
 > **Night tally (stage ④, twenty slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·

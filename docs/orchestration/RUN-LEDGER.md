@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🐋 2026-09-03 (night cron) — CORPUS ④-U: "untap up to SEVEN lands" — Palinchron and Great Whale · **+2** · corpus 13,944 / 34,245 (40.7%)
+> Suite **1382 / 15,508** green; lint 0. Flip-diff **+2, zero LOST**. **2/2 killed.**
+> · **The shape:** the untap-up-to-N-lands atom (Finale of Revelation, Peregrine Drake) knew one..five; both Whale-class
+>   ETBs say seven — the Savage Firecat vocabulary gap again (a number word outside the alternation is a silent park).
+>   six..ten join the alternation off the shared number map; the applier is the same deterministic greedy untap of the
+>   controller's own tapped lands. Palinchron's "{2}{U}{U}: Return this creature to its owner's hand" was already
+>   modeled — the whole card plays (the Deadeye Navigator / Palinchron loop is a real line for the AI now).
+> · **Board-verified:** Great Whale cast with eight tapped Islands — the trigger untaps seven, the eighth stays tapped.
+> · **One pin rewritten:** Cloud of Faeries' "an out-of-vocabulary count ('up to six lands') stays LOW" — six is in the
+>   vocabulary now; the pin keeps its intent on "eleven".
+> · **Census read (late3):** the ≥3-carrier veins are exhausted — what remains at the top are gimmick keywords
+>   (initiative / attractions / specialize / stickers / contraptions / double team) and 1–2 card composites.
+
 > ## 🎯 2026-09-03 (night cron) — CORPUS ④-T: GY-3 — the TARGETED graveyard exile-cost ability · **+12** (Gravestone Strider, Helica Glider, Rubblebelt Maverick, Placid Rottentail, Venom, Beetle, Bonebind Orator, Eerie Soultender, Soul of Innistrad and the four Renew cards) · corpus 13,942 / 34,245 (40.7%)
 > Suite **1381 / 15,505** green; lint 0. Flip-diff **+12, zero LOST**. **5/5 killed.**
 > · **The shape:** "{2}, Exile this card from your graveyard: Exile target card from a graveyard." (Gravestone Strider),

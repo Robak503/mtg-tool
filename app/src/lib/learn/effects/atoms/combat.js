@@ -1415,9 +1415,11 @@ export function combatKeywordClauseParser(clause) {
   // (bare + "you control") route identically. Whole-clause anchored ($): a "target"/"of your"/qualified form
   // ("untap up to N target lands" — Krosan Restorer, Pip-Boy; "up to N of your lands") stays LOW → Arbiter (a
   // SAFE false-negative — those are a chosen-target family this bare-scope resolver doesn't model). N≥1.
-  const upN = t.match(/^untap up to (one|two|three|four|five) lands(?: you control)?$/);
+  // ④-U (2026-09-03 night): six..ten join the count — Palinchron / Great Whale "untap up to seven lands" (the Firecat
+  // lesson: a number word outside the alternation is a silent park, not a refusal). NUM_WORD is the shared map.
+  const upN = t.match(/^untap up to (one|two|three|four|five|six|seven|eight|nine|ten) lands(?: you control)?$/);
   if (upN) {
-    const n = SMALL_NUM[upN[1]];
+    const n = NUM_WORD[upN[1]];
     if (n >= 1) return { op: "untap-lands", uptoN: n, targetType: null };
   }
   // UNTAP-ALL-LANDS (Bear Umbra's granted attack trigger "untap all lands you control"; Sword of Feast and

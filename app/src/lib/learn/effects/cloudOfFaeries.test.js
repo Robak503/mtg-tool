@@ -149,10 +149,11 @@ describe("Cloud of Faeries — CREED near-misses (stay Arbiter / body-only)", ()
     expect(programConfidence(parseEffectClause("untap up to two of your lands", "Instant"))).toBe("low");
   });
 
-  it("an out-of-vocabulary count ('up to six lands') does not match → LOW (tight matcher)", () => {
-    // Only the spelled-out one..five map to a cap; a larger printed count is not in this bare-scope
-    // matcher's vocabulary, so it stays LOW → Arbiter rather than being silently mis-capped.
-    expect(programConfidence(parseEffectClause("untap up to six lands", "Instant"))).toBe("low");
+  it("the count vocabulary is one..ten since ④-U (Palinchron's seven); an out-of-vocabulary word still stays LOW (tight matcher)", () => {
+    // ④-U (2026-09-03): six..ten joined the alternation off the shared number map (a number word outside it was a
+    // silent park — Palinchron / Great Whale). A word BEYOND the alternation is still not silently mis-capped.
+    expect(parseEffectClause("untap up to six lands", "Instant").atoms).toEqual([{ op: "untap-lands", uptoN: 6, targetType: null }]);
+    expect(programConfidence(parseEffectClause("untap up to eleven lands", "Instant"))).toBe("low");
   });
 
   it("a card whose ETB carries a genuinely unmodeled rider does not flip (whole clause or nothing)", () => {
