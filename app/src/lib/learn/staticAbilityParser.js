@@ -5822,6 +5822,10 @@ export function parseAttachedBonus(card, subjectOverride) {
     // PZ-1: the attached tap-lock line is enforced in gameState.untapAll, not as a layer bonus — skip it
     // (the AP-1 wall-skip pattern) so a compound aura keeps its other half.
     if (subject === "enchanted" && ATT_NO_UNTAP_CLAUSE_RE.test(c.trim())) continue;
+    // ④-W: a GRANTED except-by evasion ("Equipped creature can't be blocked except by Walls") is enforced by the
+    // block gate off the attachment, not by a layer op — skip it so a sibling P/T bonus survives (the tap-lock
+    // and control-line skips' shape). Unregistered validator → it still poisons the parse (safe FN).
+    if (_attachedExceptByValidator && _attachedExceptByValidator({ oracle: clause })) continue;
     // ④-K CONTROL AURA (2026-09-03 night): "You control enchanted creature." is delivered by controlAura.js at the
     // attach chokepoint (gameState.attachPermanent), never by the layer engine — so it is not a bonus clause and must
     // not poison the parse. Before this it fell through to parseAttachedClause, returned null and DROPPED THE WHOLE
@@ -6100,6 +6104,9 @@ function auraResidueClauses(card) {
     // assumed. PURE MANA PIPS ONLY: an alternative cost ("{U} or {B}" — Krovikan Whispers) or a non-mana cost
     // ("Pay 1 life") is not what the synthesized trigger charges → stays residue → the card stays body-only.
     if (/^cumulative upkeep (?:\{[^}]+\})+$/.test(c)) continue;
+    // ④-W: the Aura's granted except-by evasion (Invisibility / Seeker / Canopy Cover) — enforced by the block gate
+    // through the attachment; admitted only when the registered validator vouches for the filter.
+    if (_attachedExceptByValidator && _attachedExceptByValidator({ oracle: clause })) continue;
     // KICKER on the Aura ITSELF (④-J, Bubble Snare, 2026-09-03 night — CR 702.33): "Kicker {2}{U}" is an OPTIONAL
     // additional cost. Unpaid, the printed base mode is the complete, real card (the creature-side policy coverage's
     // reOptionalAddlCost already carries) — and the native-aura cast lane now OFFERS the kicked cast too (kicker
@@ -6344,6 +6351,12 @@ export function registerAuraOwnTriggerValidator(fn) { _auraOwnTriggerValidator =
 // end of turn"). Registered from coverage; unregistered → the line stays residue (a safe FN).
 let _auraOwnActivatedValidator = null;
 export function registerAuraOwnActivatedValidator(fn) { _auraOwnActivatedValidator = fn; }
+// ④-W ATTACHED EXCEPT-BY validator (the same injection pattern; combatEvasion imports this module, so the reader
+// cannot be imported here): whether an "Equipped/Enchanted creature can't be blocked except by <filter>" line is
+// one the block gate enforces through the attachment (combatEvasion.attachedExceptByOf). Registered from coverage;
+// unregistered → the line stays residue / poisons the bonus (a safe FN).
+let _attachedExceptByValidator = null;
+export function registerAttachedExceptByValidator(fn) { _attachedExceptByValidator = fn; }
 /** The prevention walls one AURA CARD prints: { to: "all"|"combat"|null, by: "all"|"combat"|null }. */
 export function attachedPreventionOf(card) {
   const o = String(card?.oracle || card?.oracle_text || "");
@@ -6376,9 +6389,19 @@ export function isNativeAura(card) {
   // the PZ-1 lock, or (SL-1) a modeled AURA-OWN TRIGGER (Spirit Link / Vampiric Link — a trigger-ONLY aura
   // whose whole body is the admitted own-watcher is fully modeled: enter + attach + the trigger fires).
   if (!parseAuraBonus(card).length && !prev.to && !prev.by && !attachedNoUntapOf(card)
-    && !auraHasModeledOwnTrigger(card) && !auraGrantsControl(card)) return false;
+    && !auraHasModeledOwnTrigger(card) && !auraGrantsControl(card) && !auraGrantsExceptBy(card)) return false;
   if (!auraTouchClausesAllModeled(card)) return false;       // PZ-1 hardening — see below
   return auraResidueClauses(card).length === 0;
+}
+
+/** ④-W — does this Aura print a GRANTED except-by evasion the block gate enforces ("Enchanted creature can't be
+ *  blocked except by Walls" — Invisibility)? A deliverer in its own right (the tap-lock / control-line precedent):
+ *  the Aura's whole payload is a block restriction the layer engine never sees. Vouched by the registered
+ *  validator (combatEvasion.attachedExceptByOf); unregistered → false → the card parks (safe FN). */
+export function auraGrantsExceptBy(card) {
+  if (!_attachedExceptByValidator) return false;
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  return abilityClauses(oracle).some((cl) => _attachedExceptByValidator({ oracle: cl }));
 }
 
 /** CONTROL AURA — does this Aura print the modeled "You control enchanted creature." payload? */
@@ -6424,6 +6447,7 @@ function auraTouchClausesAllModeled(card) {
     if (ATT_NO_UNTAP_CLAUSE_RE.test(c)) continue;             // PZ-1 tap-lock — enforced in untapAll
     if (isTotemArmorClause(c)) continue;                      // totem armor — enforced at destruction
     if (AURA_CONTROL_CLAUSE_RE.test(c)) continue;             // CONTROL AURA — enforced in controlAura.js
+    if (_attachedExceptByValidator && _attachedExceptByValidator({ oracle: clause })) continue; // ④-W except-by — enforced at the block gate
     // AF-1: a validator-approved aura-own activated line — enumerated on the Aura, resolved on the host.
     if (/^[^:\n]+:/.test(c)      // any cost before the colon — the validator gates what it actually is
       && _auraOwnActivatedValidator && _auraOwnActivatedValidator(clause)) continue;

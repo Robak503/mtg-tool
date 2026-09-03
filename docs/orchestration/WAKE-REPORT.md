@@ -7,6 +7,16 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🪖 2026-09-03 (night cron) — **④-W: the granted except-by evasion — Prowler's Helm, Invisibility, Seeker (+3)** · suite **1384 / 15,519** green · corpus 13,949 / 34,245 (40.7%) · flip-diff +3 / 0 lost · 6/6 killed · Thrun Voltron 91/100
+
+> **Night tally (stage ④, twenty-three slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
+> J (+1) · K (+1, FP closed on 3) · L (+4) · M (+2) · N (+7) · O (+4) · P (+3) · Q (+6) · R (+2) · S (+2) · T (+12) · U (+2) ·
+> V (+2, Thrun 90) · W (+3) — corpus 13,862 → 13,949.
+> **⏸ CI:** the PR's runner-facts step measured the windows-2025 runner at 2 CPUs / 9 GB (four this morning); vitest = 1 worker; the suite cannot fit the wall. The fix on PR #465 (8de208aa): two shards, --maxWorkers=2, wall unchanged — its run is in flight. Ten slices (④-N … ④-W) local, suites green.
+> **Next runnable:** Thrun's tail (Abundance, Animist's Might, Band Together, Nazgûl Battle-Mace, Strong Back, Kenrith's
+> Transformation, Nyxborn Hydra, Professor Hojo, Zopandrel — each its own shape), or Earth Bent (88) / Mothman (87) /
+> Veyran (87) walked the same way: `measure-coverage.mjs <deck>` then ablate the non-natives.
+
 ## 🧌 2026-09-03 (night cron) — **④-V: Thrun, Breaker of Silence is native — Thrun Voltron 90/100, the bar (+2)** · suite **1383 / 15,513** green · corpus 13,946 / 34,245 (40.7%) · flip-diff +2 / 0 lost · 6/6 killed
 
 > **Night tally (stage ④, twenty-two slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·

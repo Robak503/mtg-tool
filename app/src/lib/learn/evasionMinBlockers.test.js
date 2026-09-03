@@ -138,8 +138,8 @@ describe("EV-3 CREED — whole-card-or-park (the evasion arm alone can't carry a
     // the composed negative this describe exists for.
     expect(classifyCard(HEXMARK)).toBe("body-only");
   });
-  it("compound/subtype carriers with unmodeled siblings or subjects park body-only", () => {
-    expect(classifyCard(SEEKER)).toBe("body-only");   // aura grant — no aura except-by plumbing exists
+  it("compound/subtype carriers with unmodeled siblings or subjects park body-only (Seeker composes since ④-W)", () => {
+    expect(classifyCard(SEEKER)).toBe("native-aura");  // ④-W (2026-09-03): the aura except-by GRANT is enforced at the block gate now (prowlersHelm.test.js)
     expect(classifyCard(DECKHAND)).toBe("body-only"); // targeted-sac trigger + activated except-grant
     expect(classifyCard(DRAGSTER)).toBe("body-only"); // "This Vehicle" subject + cast-from-their-GY trigger
   });

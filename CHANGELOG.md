@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Prowler's Helm, Invisibility and Seeker work** — the creature wearing them can only be blocked by what the
+  card names.
 - **Thrun, Breaker of Silence and Gaea's Revenge work** — nongreen spells and abilities can't target them (Thrun's
   shield only stops your opponents'). Thrun Voltron reaches 90/100.
 - **Palinchron and Great Whale work** — entering untaps up to seven of your lands.

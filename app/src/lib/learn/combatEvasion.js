@@ -1061,6 +1061,37 @@ function blockerMatchesExceptArm(state, blockerId, e) {
  * player whose lands gate landwalk, CR 509.1b)? PAIRWISE only — menace's ≥2 rule is a SET
  * constraint handled at resolution. Permissive on a missing permanent (never wedges resolution).
  */
+/**
+ * ④-W (2026-09-03 night) — a GRANTED except-by evasion: "Equipped creature can't be blocked except by Walls." (Prowler's
+ * Helm) / "Enchanted creature can't be blocked except by <filter>" (Invisibility, Seeker, Canopy Cover). The SAME
+ * fail-closed filter grammar the self-printed form uses (parseExceptBlockerFilters); the arms for ONE card's printed
+ * line, or null when the card prints no such line or an unvetted filter. Pure text — shared by the block gate
+ * (through grantedAttackerExceptions) and the classifier (coverage registers it as the parser's except-by validator),
+ * so recognition and enforcement flip together, the discipline this file runs on.
+ */
+export function attachedExceptByOf(cardOrLine) {
+  const t = String(cardOrLine?.oracle || "").replace(/\([^)]*\)/g, " ").toLowerCase().replace(/[’']/g, "'");
+  const m = t.match(/(?:^|[\n.;])\s*(?:equipped|enchanted) creature can't be blocked except by ([^.;\n]+?)(?:\.|$)/);
+  if (!m) return null;
+  const raw = m[1].trim();
+  if (/\bas long as\b|\bif\b|\buntil\b|\bthis turn\b/.test(raw)) return null; // a conditional rider → safe FN
+  const arms = parseExceptBlockerFilters(raw);
+  return arms ? (arms.length === 1 ? arms[0] : { kind: "or", arms }) : null;
+}
+
+/** The except-by evasions GRANTED to an attacker by its attachments (Equipment / Auras), live off the board. */
+export function grantedAttackerExceptions(state, attackerId) {
+  const aLook = findPermanent(state, attackerId);
+  const out = [];
+  for (const attId of aLook?.permanent?.attachments || []) {
+    const att = findPermanent(state, attId);
+    if (!att?.permanent || att.permanent.attachedTo !== attackerId) continue;
+    const e = attachedExceptByOf(att.permanent.card);
+    if (e) out.push(e);
+  }
+  return out;
+}
+
 export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   // DEFENDER-IDENTITY GATE (CR 509.1a) — a creature may block only an attacker "attacking THAT player"
   // (or a planeswalker/battle they control — the entry's `defender` is that permanent's controller, so
@@ -1213,7 +1244,8 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   // permIsSubtype — changeling included, CR 702.73a, so a changeling blocking Deathcult Rogue stays LEGAL). A
   // compound { kind:"or" } filter (Amrou Seekers) is satisfied by matching ANY arm. Cumulative with every
   // other restriction (CR 509.1b — a false here short-circuits the block).
-  const exceptions = parseAttackerExceptions(aCard);
+  // ④-W: the attacker's PRINTED except-by filters plus the ones its attachments GRANT (Prowler's Helm, Invisibility).
+  const exceptions = [...parseAttackerExceptions(aCard), ...grantedAttackerExceptions(state, attackerId)];
   for (const e of exceptions) {
     if (e.kind === "or") {
       if (!e.arms.some((a) => blockerMatchesExceptArm(state, blockerId, a))) return false;

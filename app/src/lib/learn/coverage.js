@@ -36,7 +36,7 @@ import { detectTriggers, stripTriggerAbilityLabel, foldTwoTriggerDetain, parseGr
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND no-cost credit — the same gate the runtime offers through (fading→triggers→… is already a loaded edge; no cycle)
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler, parseDiscardCostAbility } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, choosesColorOnEnter, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, registerAuraOwnTriggerValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, attachedNoUntapOf, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, choosesColorOnEnter, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, registerAuraOwnTriggerValidator, registerAttachedExceptByValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, attachedNoUntapOf, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
 import { spellConditionParseable } from "./interveningIf.js"; // EW-1 — the metric⇄runtime shared gate for a conditional enters-with counter (the resolver evaluates the SAME vocabulary via evaluateInterveningIf); acyclic (interveningIf imports only gameState)
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
@@ -62,7 +62,7 @@ import { isNativeGroupWard } from "./groupWard.js";
 import { isControlAura } from "./controlAura.js"; // the control-Aura delivery check, shared with the runtime attach/revert (controlAura imports only controlMove, a zero-import leaf, so this edge is acyclic)
 import { auraEnchantRestrictions } from "./staticAbilityParser.js"; // the qualified-subject host filter, shared with legalChoices' cast lane so offer + metric read ONE source
 import { isNativeKira } from "./kiraTargetCounter.js";
-import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy, counterShieldPrevention, attachedPreventPutCountersOf, selfPreventPutCounters } from "./combatEvasion.js";
+import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy, counterShieldPrevention, attachedPreventPutCountersOf, selfPreventPutCounters, attachedExceptByOf } from "./combatEvasion.js";
 import { entersTappedUnlessCondition, paysLifeOrEntersTapped, revealLandTypes } from "./landEntersTapped.js"; // LANDS-TIER — the conditional enters-tapped reader BOTH enter sites consult (metric and runtime read one function)
 import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
 // OMNATH — ground the classifier on the two RUNTIME registries the engine actually consults (never a
@@ -2145,9 +2145,16 @@ export function permanentEquipmentCovered(card) {
   // clause here keeps the credit anchored to the reader that proves the runtime plays it.
   // ⛔ HONEST ONLY BECAUSE THE PAYOUT IS ENFORCED: prevention alone would credit an Equipment whose whole
   // upside (the counters) the engine never delivers. See the payout loops in combatResolution/spellEffects.
-  const preStripped = attachedPreventPutCountersOf({ ...card, oracle })
+  const preStripped0 = attachedPreventPutCountersOf({ ...card, oracle })
     ? oracle.split("\n").filter((ln) => !attachedPreventPutCountersOf({ oracle: ln })).join("\n")
     : oracle;
+  // ④-W — the GRANTED except-by evasion line (Prowler's Helm "Equipped creature can't be blocked except by Walls."):
+  // enforced by the block gate off the attachment (combatEvasion.attachedExceptByOf — the same reader), never a
+  // layer bonus, so it is stripped here exactly like the prevent-and-put line above. Honest only because the block
+  // gate reads it: prowlersHelm.test.js drives a Wall blocking and a Bear refused.
+  const preStripped = attachedExceptByOf({ oracle: preStripped0 })
+    ? preStripped0.split("\n").filter((ln) => !attachedExceptByOf({ oracle: ln })).join("\n")
+    : preStripped0;
   const noTrig = { ...card, oracle: stripTriggerSentences(preStripped, " ").replace(/^\s*•[^\n]*$/gm, " ") };
   const abilities = parseActivatedAbilities(noTrig);
   if (abilities.length === 0 || !abilities.every((a) => a.isEquipAbility && a.modeled)) return false;
@@ -3844,6 +3851,9 @@ function isModeledAuraOwnActivatedLine(line) {
     && prog.atoms.every((at) => (at.op === "tap" || at.op === "untap" || at.op === "pump" || at.op === "regenerate" || at.op === "exile" || at.op === "bounce") && at.target === "enchanted");
 }
 registerAuraOwnActivatedValidator(isModeledAuraOwnActivatedLine);
+// ④-W — the GRANTED except-by evasion: the SAME reader the block gate enforces through the attachment, so a line is
+// credited exactly when the filter is one the gate can evaluate (an unvetted filter reads null → residue → parks).
+registerAttachedExceptByValidator((line) => !!attachedExceptByOf(line));
 
 // DIFFUSION SLIVER (group-ward analogue) — a card whose whole text is the modeled group-ward trigger
 // ("Whenever a Sliver creature you control becomes the target of a spell or ability an opponent controls,

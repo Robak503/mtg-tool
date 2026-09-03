@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🪖 2026-09-03 (night cron) — ④-W: the GRANTED except-by evasion — Prowler's Helm, Invisibility, Seeker · **+3** · Thrun Voltron 91/100 · corpus 13,949 / 34,245 (40.7%)
+> Suite **1384 / 15,519** green; lint 0. Flip-diff **+3, zero LOST**. **6/6 killed.**
+> · **The shape:** "Equipped creature can't be blocked except by Walls." / "Enchanted creature can't be blocked except by
+>   <filter>". The self-printed form was enforced (EV-2/EV-3, the fail-closed filter grammar); the granted form now
+>   rides the SAME grammar off the attacker's attachments at the block gate (combatEvasion.attachedExceptByOf —
+>   one reader, shared by the gate and, through the parser's injection seam, the classifier: the equipment gate
+>   pre-strips the line, the aura gates count it as a deliverer and skip it in the bonus walk and the touch check).
+>   An unvetted filter reads null and parks; a detached grant is gone.
+> · **Board-verified:** with Prowler's Helm the Wall may block the Bear, a Bear and a flier may not; Invisibility the
+>   same through an Aura; Seeker admits an artifact or white blocker only; detached, everyone may block again; a
+>   sibling +1/+1 bonus survives the line on both Equipment and Aura.
+> · **Honest edge:** Canopy Cover's second line (a granted untargetability) is a separate shape, pinned only as
+>   "wherever it lands". One pin rewritten: EV-3's "Seeker parks — no aura except-by plumbing exists" (there is now).
+>   One mutation survived first (the stale-link guard: the detached pin had cleared both ends of the link) and got
+>   its own stale-link pin, then died.
+> · **CI:** the PR's runner-facts step measured the windows-2025 runner at 2 CPUs / 9 GB (four this morning); vitest = 1 worker; the suite cannot fit the wall. The fix on PR #465 (8de208aa): two shards, --maxWorkers=2, wall unchanged — its run is in flight. Ten slices (④-N … ④-W) local, suites green.
+
 > ## 🧌 2026-09-03 (night cron) — ④-V: THRUN, BREAKER OF SILENCE — the deck's COMMANDER is native; **Thrun Voltron 89 → 90, the bar** · **+2** (Thrun / Gaea's Revenge) · corpus 13,946 / 34,245 (40.7%)
 > Suite **1383 / 15,513** green; lint 0. Flip-diff **+2, zero LOST**. **6/6 killed.**
 > · **The shape:** "Thrun can't be the target of nongreen spells your opponents control or abilities from nongreen
