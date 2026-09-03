@@ -22,6 +22,14 @@ jobs:
   test:
     runs-on: windows-2025
     timeout-minutes: 20
+    # 2026-09-03: the windows-2025 runner now exposes 2 CPUs / 9 GB (the "Runner facts" step below proved it),
+    # where the green runs earlier that day had four. vitest sizes its pool at CPUs-1, so the whole suite ran
+    # on ONE worker and could not finish inside the 900 s wall. Two shards, each on both cores, keep every job
+    # well inside the wall WITHOUT raising it — the wall stays a hang detector, not a speed budget.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -50,6 +58,13 @@ jobs:
         working-directory: app
         run: npm run lint
 
+      - name: Runner facts
+        # 2026-09-03: four consecutive runs (incl. a control re-run of a previously GREEN commit) hit the 900 s
+        # wall with a single-worker signature — per-file durations equal to green, zero parallelism. vitest sizes
+        # its pool from availableParallelism()-1, so a runner exposing 2 CPUs runs the suite on ONE worker and
+        # can never finish inside the wall. Print the facts before the tests so a red run says WHY, not just THAT.
+        run: node -e "const os=require('os');console.log('cpus',os.cpus().length,'availableParallelism',os.availableParallelism(),'totalmem',Math.round(os.totalmem()/1e9)+'GB','model',(os.cpus()[0]||{}).model)"
+
       - name: Run tests
         working-directory: app
         # The wrapper's wall exists to kill a HUNG run (a leaked handle once deadlocked a run for ~5
@@ -60,4 +75,4 @@ jobs:
         # to ignore red. 15 minutes still catches a real hang (which is unbounded) with honest headroom.
         env:
           VITEST_TIMEOUT_MS: "900000"
-        run: npm test
+        run: npm test -- --shard=${{ matrix.shard }}/2 --maxWorkers=2
