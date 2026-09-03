@@ -24,9 +24,13 @@
 > single-blockers once "enters tapped unless …" is modeled. Only **Urza's Saga** and the two MDFC backs
 > are genuinely hard. **Cap's realistic reach is ~90, not 87.**
 >
-> ### 🔴 COLTON'S ORDER (08-30, explicit): **finish Cap's CARDS first — lands only after. Target 90.**
-> The land vein below is real and banked, but it is NOT next. Grind the remaining non-land cards to the
-> floor first; the lands come after, and they are what carry Cap from ~87 to 90.
+> ### 🔴 COLTON'S OVERNIGHT ORDER (2026-09-02, supersedes the cards-first clause below) — **FOUR STAGES, IN ORDER**
+> **① Cap America WITH its lands to ≥90 or "damn close" → ② the LANDS SECTION done → ③ Squirrel Girl
+> (Colton's new mono-G, stored 09-02, 67%, commander body-only) to 90, commander FIRST → ④ then the
+> CORPUS grind.** A 5-minute session cron keeps the seat on task while he sleeps. **The executable plan is
+> [OVERNIGHT-PLAN-2026-09-02.md](OVERNIGHT-PLAN-2026-09-02.md)** — a fresh seat boots from THAT file.
+> (The earlier "cards first, lands after" clause is retired: Cap's cheap cards are gone, and the lands ARE
+> the path to 90, so the two collapse into stage ①.)
 >
 > ### ⏸ BANKED FOR AFTER THE CARDS: **conditional enters-tapped — 109 cards corpus-wide**
 > 10 pay-life shocklands ("As this land enters, you may pay N life. If you don't, it enters tapped") + 99

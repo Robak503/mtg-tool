@@ -1,0 +1,152 @@
+# OVERNIGHT PLAN — 2026-09-02 (Colton asleep; a 5-minute session cron keeps the seat working)
+
+> **THE ORDER (Colton, 2026-09-02, verbatim intent):** "focus on 3 things: getting Cap with lands over
+> the 90 percent mark or damn close; getting the lands section done; getting as far on Squirrel Girl as
+> possible making her native" — then: "if you get Cap to basically 90, the lands fix, and SG to 90, then
+> you move on to corpus." Earlier the same day: "I don't care how hard it is or slow."
+>
+> **A fresh seat boots from THIS file.** Read it, find the first stage whose DONE line is not met, take
+> its first unfinished item, and work it through §5 in full. Do not re-plan. Do not wait for Colton —
+> he is asleep; anything that needs him gets WRITTEN DOWN under §6 and you move to the next item.
+
+Measured starting state (2026-09-02 evening): suite **1318 files / 15,090** green · corpus **39.53%** ·
+**Cap America 75/100** · **Squirrel Girl 67/100** (just stored; the deck's engine is native, the
+commander is not). Every number below was measured, not estimated; re-measure before claiming a stage.
+
+---
+
+## §1 STAGE ① — Cap America, WITH its lands, to ≥90 (or "damn close")
+
+Cap has **25 non-native slots**: 13 land-partial · 10 body-only · 2 arbiter-spell. **The lands are the
+path to 90** — the cheap card arms are gone (16 shipped 08-30 → 09-02, CAP1–CAP16). Work the lands
+cheapest-first, then the two remaining single-blocker cards, then only if still short, the multis.
+
+### 1a. The lands (probed 08-30 by ablation — do NOT re-probe, build)
+| Slots | Card(s) | The ONE clause that blocks | Notes |
+|---|---|---|---|
+| **+3** | Sacred Foundry · Hallowed Fountain · Steam Vents | "As this land enters, you may pay 2 life. If you don't, it enters tapped." | **ONE arm, three slots.** A `may pay N life` enters-replacement with an else-tapped. Corpus: **10 shocklands** print it, plus MDFC backs with "pay 3 life". |
+| +1 | Spectator Seating | "This land enters tapped unless you have two or more opponents." | The `enters tapped unless <condition>` arm. Corpus: **99 cards** print "This land enters tapped unless …" (various conditions — build a closed condition vocabulary; refuse the rest). |
+| +3 (after the arm above) | Mines of Moria · Mistrise Village · Monumental Henge | each: "enters tapped unless you control <a legendary creature / a Mountain or a Forest / a Plains>" + ONE activated ability | The unless-arm makes each a single-blocker on its activated ability. Mistrise's "next spell can't be countered" and Henge's look-at-5 may still park — that is honest. |
+| +1 | Inventors' Fair | "{4}, {T}, Sacrifice ~: Search your library for an artifact card … Activate only if you control three or more artifacts." | sac-self tutor with a metalcraft activation condition — `evaluateInterveningIf` already speaks "you control three or more artifacts" (verified CAP12). |
+| +1 | Otawara, Soaring City | Channel — "{3}{U}, Discard this card: Return target … This ability costs {1} less … for each legendary creature you control." | a HAND-zone activated ability (the discard-cost hand-ability lane exists — Tortured Existence) + a dynamic cost reduction. Medium. |
+| +1 | Uthros, Titanic Godcore | Station | a keyword subsystem. Probably a park — say so if it is. |
+| hard | Urza's Saga · Hydroelectric Laboratory (MDFC back) · Soporific Springs (MDFC back) | Saga chapters on a land; two double-faced backs | genuine ceiling candidates — name them as such in §6 rather than sink the night into them |
+
+**Where the land gate lives:** `coverage.js landFullyCovered` — line-granular; an unconditional
+"enters tapped" line is admitted only when `staticAbilityParser.entersTapped(card)` is true, and that
+function DELIBERATELY returns false on any `unless / if / may / pay` sentence (its own doc says so).
+**The runtime half is the whole job:** find where the engine applies `entersTapped` at the enter
+chokepoint (`resolvers.js enterPermanent` / the land-play path), add the conditional evaluation THERE,
+and only then widen the classifier. A metric that credits a conditional the runtime never evaluates is
+the hollow credit — CREED-forbidden. The pay-life form needs a real CHOICE (pause kind or a
+deterministic policy documented as such: the AI pays life if it has ≥ N+2 and the land would otherwise
+enter tapped on a turn it wants the mana — write the policy down, don't fake it).
+
+### 1b. Cap's remaining cards (re-probed 09-02: only TWO single-blockers)
+- **Illusionist's Bracers** — "Whenever an ability of equipped creature is activated, if it isn't a mana
+  ability, copy that ability." An ability-COPY subsystem. Check whether a copy-ability atom exists for
+  spells (Twincast-class) before building; if none, this is a park.
+- **Iron Man, Titan of Innovation** — four pieces on one attack trigger: "noncreature artifact"
+  sacrifice cost · optional-sac conditional tail ("If you do, …") · an EXACT-mana-value tutor filter ·
+  that filter sized at 1 + the sacrificed artifact's MV. The dynamic-referent shape is CAP11/CAP14's
+  (`capFromCombatDamage` / `unattachedEquipmentMv`) — copy that threading. Do the four as ONE slice
+  only if each piece is ≤ ~40 lines; otherwise split and ship the exact-MV filter first (it is its
+  own corpus vein).
+- Multi-blockers (Mjölnir 3 lines, Zirda, Super-Soldier Serum, Sword of Wealth and Power, Forge Anew,
+  the 3 MDFCs, Teferi's Protection, We Say Thee Nay!) — LAST, and only if Cap is still short of 90.
+
+**DONE ①:** `measure-coverage.mjs captain` reads **≥90**, or every land + both singles above are shipped
+or written up as parks in §6 and the number is as high as the remaining multis allow. Record the final
+number in WAKE-REPORT.
+
+---
+
+## §2 STAGE ② — the LANDS SECTION done (corpus-wide)
+
+Stage ① builds the arms; stage ② is making them COMPLETE across the corpus and closing the land tier.
+1. Run the corpus flip-diff after each land arm — the LOST line is the whole point (a land arm touches
+   `landFullyCovered`, which every land in the corpus passes through).
+2. Census the remaining `land-partial` population by blocking clause (the census runbook:
+   `docs/orchestration/RESIDUE-GRIND-RUNBOOK.md`). Every clause family with **≥3 corpus carriers** gets
+   an arm or an explicit park entry in §6. Expected big families beyond stage ①: `enters tapped unless
+   you control two or more other lands` (the Ixalan/Bloomburrow cycles), "As this land enters, choose a
+   color" (the Cavern/Path family — Squirrel Girl has Cavern of Souls), the channel lands (Boseiju ×2 —
+   Squirrel Girl has both), the creature-lands (Shifting Woodland, Evendo).
+3. **DONE ②:** the wake report carries a table of every land-partial clause family with ≥3 carriers →
+   `SHIPPED` or `PARKED (reason)`, and the corpus `land-partial` count is measured before/after.
+
+---
+
+## §3 STAGE ③ — Squirrel Girl to 90, COMMANDER FIRST
+
+Stored 09-02 on Colton's profile (100/0 unresolved). **67/100**: 14 native-mana · 10 native-spell ·
+5 native-trigger · 4 native-activated · 5 native-static · 1 native-mana-aura · 6 native-mixed ·
+22 land · **9 land-partial · 21 body-only · 2 arbiter-spell · 1 arbiter-pw**.
+
+1. **The commander.** The Unbeatable Squirrel Girl is `body-only`. Probe her FULL oracle first (the
+   intake read truncated her second ability). Ability 1: "Do You Like Squirrels? — Whenever ~ enters or
+   attacks, create a 1/1 green Squirrel creature token." (an enters-OR-attacks disjunction — the Wise
+   Mothman split shape exists). Ability 2: "I LOVE Squirrels! — …" (read it). Make her native; a Joe-deck /
+   Colton-deck commander flipping is the highest-value single card on the shelf.
+2. Stage ② should already have taken most of the 9 partial lands (Cavern of Souls, Boseiju ×2, Evendo,
+   Shifting Woodland, Urza's Saga, Gemstone Caverns, Deserted Temple, Urza's Cave…). Re-measure.
+3. Then the 24 real cards by ablation (probe → the cheapest single-blocker first). Intake gap buckets:
+   8 ETB triggers (Altar of the Brood, Endurance, Itlimoc, Invasion of Ikoria, Tezzeret Cruel Captain,
+   The One Ring…) · 4 unclassified (Disruptor Flute, Dosan, Evolutionary Leap, Frenzied Baloth) · Archdruid's
+   Charm · Tempt with Discovery · Duskwatch Recruiter · Sylvan Library · Skullclamp · Vexing Bauble.
+4. **DONE ③:** `measure-coverage.mjs squirrel` reads **≥90**, or the remaining residue is named as
+   ceiling-class in §6 with the honest number.
+
+---
+
+## §4 STAGE ④ — the corpus grind
+Only after ①–③'s DONE lines are met. Boot from the vault's `memory/orders/cindy-corpus-roadmap.md`
+(WHAT/WHY/ORDER) + the repo's `RESIDUE-GRIND-RUNBOOK.md` (HOW): fresh census, largest clause family with
+existing machinery first, vein doctrine — build systems, register cards.
+
+---
+
+## §5 THE PER-SLICE DISCIPLINE — never skip a step (SHELF-TAIL-PLAN §2, plus what 09-02 re-taught)
+
+probe (print the FULL oracle + which line blocks — half the "gaps" are one missing arm on machinery that
+exists) → build the smallest honest arm → **flip-diff by tier snapshot** (audit every gained row
+whole-card; a LOST row is the whole point) → **witness file** with seen-to-fail controls → **mutations**
+(`false &&` each arm; the named test must die; restore) → **ONE sequential lint + FULL suite, exit codes
+unpiped** → RUN-LEDGER + CHANGELOG → measure the deck(s), update SHELF-TAIL-PLAN + WAKE-REPORT → commit,
+push, **CI green (`gh run list`) before the next push**. THE CREED: false-negative SAFE, false-positive
+FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a surviving guard-class control.
+
+**The 09-02 traps — each cost real time today, none may recur:**
+1. **Never script a rewrite whose payload contains a regex escape.** `\b` became a literal 0x08 byte
+   TWICE through the python/heredoc path; the source LOOKED right and matched nothing. Use the Edit tool
+   for anything with a backslash. After any scripted edit: `grep -c $'\b' <file>` must print 0.
+2. **Encode before opening for write, or temp-then-rename.** `open(p,'w')` truncates BEFORE the encode
+   error throws — it zeroed two tracked files today (git restored them). Emoji as literals, never `\uD83D`.
+3. **A mutation is not a mutation until you have SEEN it applied.** A `sed` that failed on `{}` left the
+   source untouched and the suite passed — that is not a gate. Assert the match count. A "no tests" result
+   is a LOAD ERROR, not a gate result — redo it with valid syntax.
+4. **Full suite after every slice, never the targeted run alone.** Three stale-pin classes today were
+   caught ONLY by the full suite.
+5. **Chain verification steps with `;`, never `&&`.** `grep -c … && npx eslint .` reported LINT_EXIT=1 when
+   grep found zero matches — lint never ran.
+6. **A surviving mutation gets one of three answers, always written down:** DOCUMENT it (a live early exit
+   that is real but redundant — CAP14 M4) · DELETE it (unreachable or duplicated — CAP15 M2, CAP16 M2) ·
+   **WRITE THE MISSING TEST** (a real behaviour nothing asserted — CAP16 M4, the log). Never ignore it.
+7. **COMMS feed:** every card PARKED gets a terse line in `memory/COMMS.md`, anchored on the exact
+   `## LOG (newest first)` line (never on another agent's entry), then `sync-brain.cjs`. Flips need no line.
+8. **Dates:** stamp entries with the real date (`date`). The 08-30 stamps on today's ledger entries are a
+   known drift (the box's clock read 09-02); do not propagate it.
+9. **Deck writes go through the app's own API** (`POST /api/decks`, server at 127.0.0.1:3000, `createBackup:
+   true`), never a direct AppData write — Claude Desktop is MSIX-packaged and direct writes land in a
+   private mirror the app never sees.
+
+---
+
+## §6 PARKED / NEEDS COLTON (append as you go — this is the morning report's raw material)
+- Squirrel Girl's Archidekt URL — not captured; the deck does not survive a box move until it is.
+- (append here: card · blocker · why it parks · what would unpark it)
+
+## §7 WHAT THE MORNING REPORT MUST CONTAIN
+The three stage numbers (Cap %, land-partial corpus count before/after, Squirrel Girl %), every slice
+shipped (SHA + card + tests), every park in §6, every trap that fired, and the suite/CI anchor. Facts
+exact; the voice wraps them.
