@@ -1305,6 +1305,13 @@ export function combatKeywordClauseParser(clause) {
   // through atomTargets. Whole-clause anchored ($) so any qualified/rider form falls through → low → Arbiter.
   if (/^tap enchanted creature$/.test(t)) return { op: "tap", target: "enchanted" };
   if (/^untap enchanted creature$/.test(t)) return { op: "untap", target: "enchanted" };
+  // ④-N (2026-09-03 night) — the aura-own ONE-SHOT on the host: "{2}{W}: Exile enchanted creature." (Cooped Up,
+  // Dreadful Apathy, Redemption Arc) and "{W}: Return enchanted creature to its owner's hand." (Sun Clasp). The
+  // SAME fixed referent (atomTargets target:"enchanted" → the Aura's host at resolution); the exile/bounce
+  // appliers are the ordinary zone moves, and the Aura then falls off by the SBA like any Aura whose host
+  // left. Whole-clause anchored — a rider ("…and you gain 2 life") falls through → Arbiter.
+  if (/^exile enchanted creature$/.test(t)) return { op: "exile", target: "enchanted" };
+  if (/^return enchanted creature to its owner's hand$/.test(t)) return { op: "bounce", target: "enchanted" };
   // AURA-OWN PUMP (BLITZ AF-1 — Armor of Faith / Stonehands / Firebreathing kin: "{M}: Enchanted creature
   // gets +N/+M until end of turn."): the enchanted host as a FIXED referent (atomTargets target:"enchanted"
   // → the Aura's attachedTo at resolution), an until-EOT pump — DISJOINT from the layer-engine static bonus

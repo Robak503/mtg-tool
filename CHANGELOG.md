@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Cooped Up, Dreadful Apathy, Redemption Arc, Sun Clasp, Sigarda's Imprisonment, Ghostly Wings and
+  Caught in the Brights work** — the Aura's own ability (or Vehicle-attack trigger) exiles or bounces the
+  creature it enchants.
 - **Artisan of Kozilek and Nulldrifter work** — the cast trigger and annihilator both fire.
 - **Melancholy, Thirst, Binding Grasp and Vapor Snare work** — the Aura asks for its upkeep payment each
   turn and is sacrificed if you decline (a stolen creature goes home).

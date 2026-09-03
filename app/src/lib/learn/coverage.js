@@ -2618,7 +2618,10 @@ function isNativeOwnActivatedAura(card) {
     // Runtime-verified before admission, both abilities on the printed card: the pump takes the host 2/2 →
     // 3/2, and the bounce really returns the Aura to hand AND clears the host's attachment list (no
     // orphaned link left behind). That detach is the part a parse check cannot see.
-    prog.atoms.every((a) => ((a.op === "tap" || a.op === "untap" || a.op === "pump" || a.op === "regenerate") && a.target === "enchanted")
+    // ④-N — the aura-own ONE-SHOT on the host joins the family: exile (Cooped Up / Dreadful Apathy / Redemption
+    // Arc) and bounce-to-owner's-hand (Sun Clasp), both on the fixed enchanted referent; the Aura falls off by
+    // the SBA once its host is gone. Board-verified before admission (hostExileAura.test.js).
+    prog.atoms.every((a) => ((a.op === "tap" || a.op === "untap" || a.op === "pump" || a.op === "regenerate" || a.op === "exile" || a.op === "bounce") && a.target === "enchanted")
       || (a.op === "bounce" && a.target === "self"));
   if (!abilities.every((a) => a.modeled && !a.isManaEffect && !a.isEquipAbility && isEnchantedTapProgram(a.program))) return false;
   // No body clause other than the Enchant keyword line and the printed activated-ability lines. An activated
@@ -3807,7 +3810,8 @@ function isModeledAuraOwnActivatedLine(line) {
     // Aura's own regenerate line was NOT skipped by parseAttachedBonus, so it poisoned the all-or-nothing
     // bonus parse and the card's printed "+N/+N" never reached the battlefield while the card still
     // classified native. See scripts/probe-dropped-attached-grants.mjs.
-    && prog.atoms.every((at) => (at.op === "tap" || at.op === "untap" || at.op === "pump" || at.op === "regenerate") && at.target === "enchanted");
+    // ④-N — exile / bounce on the host ride the same referent (see isNativeOwnActivatedAura's list; the two must move together).
+    && prog.atoms.every((at) => (at.op === "tap" || at.op === "untap" || at.op === "pump" || at.op === "regenerate" || at.op === "exile" || at.op === "bounce") && at.target === "enchanted");
 }
 registerAuraOwnActivatedValidator(isModeledAuraOwnActivatedLine);
 

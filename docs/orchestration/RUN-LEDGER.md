@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🚪 2026-09-03 (night cron) — CORPUS ④-N: the aura-own ONE-SHOT on the host — "Exile enchanted creature" / "Return enchanted creature to its owner's hand" · **+7** (Cooped Up / Dreadful Apathy / Redemption Arc / Sun Clasp + three audited riders) · corpus 13,913 / 34,245 (40.6%)
+> Suite **1375 / 15,478** green; lint 0. Flip-diff **+7, zero LOST**. **5/5 killed** (one survived first: the own-activated
+> gate's widening had no printed carrier — every real card has a static half and is credited through the residue walk —
+> so it got a SYNTHETIC activated-only pin, and died).
+> · **The three riders the flip-diff surfaced, each board-audited BEFORE it was credited:** Sigarda's Imprisonment
+>   ("Exile enchanted creature. Create a Blood token." — the Blood token is created with its printed ability),
+>   Ghostly Wings ("Discard a card: Return enchanted creature…" — offered only with a card in hand, the discard really
+>   paid), Caught in the Brights ("When a Vehicle you control attacks, exile enchanted creature." — fires for a
+>   Vehicle attacker, silent for a plain creature). All three pinned.
+> · **The shape:** an activated ability printed ON the Aura whose effect removes the host — "{2}{W}: Exile enchanted
+>   creature." / "{W}: Return enchanted creature to its owner's hand." The aura-own activated family (tap / untap /
+>   pump / regenerate on the FIXED enchanted referent) gains exile and bounce: two parser arms, and the two
+>   enchanted-referent allowlists (the own-activated tier gate + the bonus-walk validator, which must move
+>   together) admit the ops. The zone moves are the ordinary appliers; the Aura then falls off by the SBA.
+> · **Board-verified:** Cooped Up on the opponent's Bear — {2}{W} exiles the Bear and the Aura lands in our
+>   graveyard; Sun Clasp's {W} returns the Bear to its owner's hand. Sun Clasp's +1/+3 survives the bonus parse
+>   (the activated line no longer poisons it). Unaffordable → not offered.
+> · **Honest edge:** Utter Insignificance stays parked on "loses all abilities and has base power and toughness
+>   1/1" (pinned off the tier).
+
 > ## 🌀 2026-09-03 (night cron) — CORPUS ④-M: ANNIHILATOR + a routing trigger compose (a tier-composition fix) · **+2** (Artisan of Kozilek / Nulldrifter) · corpus 13,906 / 34,245 (40.6%)
 > Suite **1374 / 15,469** green; lint 0. Flip-diff **+2, zero LOST**. **3/3 killed.**
 > · **The shape:** the annihilator classifier demanded detectTriggers(card) be EMPTY, so Artisan of Kozilek (cast:

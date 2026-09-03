@@ -175,6 +175,7 @@ the scratchpad). ✅ **④-A** — Aura-own cumulative upkeep composes with the 
 ✅ **④-K** — control Auras carry their bonus (FP closed on Spirit Away / Yavimaya's Embrace / Corrupted Conscience) + Hypnotic Siren's bestow steal (+1; 7/7).
 ✅ **④-L** — "sacrifice this Aura unless you pay": the upkeep tax on an Aura (+4; 2/2).
 ✅ **④-M** — annihilator + a routing trigger compose (+2; 3/3).
+✅ **④-N** — the Aura's own one-shot on its host: exile / bounce (+7; 5/5).
 Queue = the census's two-flip / bug-signature leads (see WAKE-REPORT top).
 Only after ①–③'s DONE lines are met. Boot from the vault's `memory/orders/cindy-corpus-roadmap.md`
 (WHAT/WHY/ORDER) + the repo's `RESIDUE-GRIND-RUNBOOK.md` (HOW): fresh census, largest clause family with
