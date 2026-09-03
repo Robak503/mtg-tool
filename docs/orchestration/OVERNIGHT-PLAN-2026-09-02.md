@@ -25,8 +25,8 @@ cheapest-first, then the two remaining single-blocker cards, then only if still 
 | Slots | Card(s) | The ONE clause that blocks | Notes |
 |---|---|---|---|
 | **+3** | Sacred Foundry · Hallowed Fountain · Steam Vents | "As this land enters, you may pay 2 life. If you don't, it enters tapped." | **ONE arm, three slots.** A `may pay N life` enters-replacement with an else-tapped. Corpus: **10 shocklands** print it, plus MDFC backs with "pay 3 life". |
-| +1 | Spectator Seating | "This land enters tapped unless you have two or more opponents." | The `enters tapped unless <condition>` arm. Corpus: **99 cards** print "This land enters tapped unless …" (various conditions — build a closed condition vocabulary; refuse the rest). |
-| +3 (after the arm above) | Mines of Moria · Mistrise Village · Monumental Henge | each: "enters tapped unless you control <a legendary creature / a Mountain or a Forest / a Plains>" + ONE activated ability | The unless-arm makes each a single-blocker on its activated ability. Mistrise's "next spell can't be countered" and Henge's look-at-5 may still park — that is honest. |
+| ✅ +1 | Spectator Seating | "This land enters tapped unless you have two or more opponents." | **SHIPPED (LANDS-1, 2026-09-02):** `landEntersTapped.js` + six evaluator arms; **83 of 107 corpus lands flipped**, zero LOST. Cap 76. |
+| +3 (NOW single-blockers) | Mines of Moria · Mistrise Village · Monumental Henge | their "unless" gates evaluate live now; each parks ONLY on its one activated ability: Mines "{3}{R},{T}, Exile three cards from your graveyard: Create two Treasure tokens" · Mistrise "{U},{T}: The next spell you cast this turn can't be countered" · Henge "{2}{W}{W},{T}: Look at the top five cards … reveal a historic card" | Same shape in Reef Roads / Wild Roads ("unless you control a Mount or Vehicle" + a Pilot-token sac ability). Mistrise's uncounterable-next-spell and Henge's look-at-5 may still park — that is honest. |
 | +1 | Inventors' Fair | "{4}, {T}, Sacrifice ~: Search your library for an artifact card … Activate only if you control three or more artifacts." | sac-self tutor with a metalcraft activation condition — `evaluateInterveningIf` already speaks "you control three or more artifacts" (verified CAP12). |
 | +1 | Otawara, Soaring City | Channel — "{3}{U}, Discard this card: Return target … This ability costs {1} less … for each legendary creature you control." | a HAND-zone activated ability (the discard-cost hand-ability lane exists — Tortured Existence) + a dynamic cost reduction. Medium. |
 | +1 | Uthros, Titanic Godcore | Station | a keyword subsystem. Probably a park — say so if it is. |
@@ -139,6 +139,13 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
 9. **Deck writes go through the app's own API** (`POST /api/decks`, server at 127.0.0.1:3000, `createBackup:
    true`), never a direct AppData write — Claude Desktop is MSIX-packaged and direct writes land in a
    private mirror the app never sees.
+10. **A gate with no carrier in its own witness is unproven — when a mutation survives, first ask whether
+    ANY fixture reaches the line.** LANDS-1's M7 (the reader's parseable gate) survived not because the gate
+    was dead but because the park fixture's sentence shared a line with a preceding sentence, so the
+    LINE ANCHOR refused it before the gate ran. The fix was a fixture that is refused ONLY by the gate
+    (a single-line unreadable condition) plus a readable positive control. Write the carrier, re-run,
+    then record the kill. Sibling of trap 6: the survive → document / delete / test decision needs the
+    "does anything even reach it?" question answered first.
 
 ---
 

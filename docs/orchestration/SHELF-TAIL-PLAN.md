@@ -226,7 +226,16 @@ Return this card from your graveyard to the battlefield tapped" (a graveyard-act
 its own subsystem). Otharri flips when THAT lands. Ocelot Pride / Windcrag Siege (upkeep), Zack
 Fair / Patrolling Peacemaker (enters-as), Glimmer Lens, Crumb and Get It.
 
-### 5.4 Captain America Shoot your Shot — ⚔️ FOCUS-FIRE ACTIVE (Colton 08-30: Joe's live deck) — **73/100 native**, CAP1-14 SHIPPED
+### 5.4 Captain America Shoot your Shot — ⚔️ FOCUS-FIRE ACTIVE (Colton 08-30: Joe's live deck) — **76/100 native**, CAP1-16 + LANDS-1 SHIPPED
+> **09-02 LAND TAIL (re-probed after LANDS-1, the "enters tapped unless" arm):** 12 land-partial left.
+> **NINE are single-blockers:** Sacred Foundry · Hallowed Fountain · Steam Vents (all three = the ONE
+> shockland clause "you may pay 2 life. If you don't, it enters tapped" — a player CHOICE, so it needs the
+> optional-payment pause shape + an AI pay-if-able policy) · Mines of Moria ({3}{R},{T}, exile three GY
+> cards: two Treasures) · Mistrise Village ({U},{T}: next spell can't be countered) · Monumental Henge
+> ({2}{W}{W},{T}: look at top five, reveal a historic) · Otawara (Channel) · Inventors' Fair (sac-tutor with a
+> metalcraft activation gate — `evaluateInterveningIf` already speaks it) · Uthros (Station). **Three are
+> multi:** Urza's Saga, Hydroelectric Laboratory (MDFC back), Soporific Springs (MDFC back). Their
+> "unless" gates all evaluate live now — each parks ONLY on its activated ability.
 > ⚠️ **READ THE NUMBER CORRECTLY — an earlier heading here said "86 native cards" and that was MISLEADING.**
 > 86 = 73 native + 13 land-partial, i.e. it counted the land-partial slots as native. They are NOT native;
 > they are playable-but-not-fully-modeled, which is the whole point of the land gate. The honest figure is

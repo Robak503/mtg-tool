@@ -3,6 +3,60 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🏞️ 2026-09-02 — LANDS-TIER slice 1: "enters tapped unless <condition>" · **+84 corpus (83 lands)** · Cap 75→76 · corpus 39.53→39.78%
+> Suite **1319 / 15,111** green; lint 0; exit codes unpiped, chained with `;`. Flip-diff **+84, zero LOST**
+> (83 `land` + 1 `native-mixed`, the latter audited whole-card below). Overnight stage ① item 2 — done
+> BEFORE the shocklands on purpose: same reader, no player choice, larger corpus.
+> · **THE CENSUS CHOSE THE VOCABULARY, not me.** 107 corpus lands print the line (99 "This land enters
+>   tapped unless …", 6 by their own name, 0 "the battlefield", 3 reveal-lands with a preceding "may
+>   reveal" sentence). 34 distinct conditions; nine shapes cover ~90 of the 107 — "two or fewer/more
+>   OTHER lands" (fast/slow lands, 21), "two or more basic lands" (10), "a player has 13 or less life"
+>   (10), "two or more opponents" (10), "a legendary creature" (6), "your opponents control eight or more
+>   lands" (5), "a mount or vehicle" (5), and the twenty check/Castle "you control a <basic type> [or …]"
+>   forms. Each got an evaluator arm carried by real cards; nothing speculative.
+> · **ONE VOCABULARY, TWO CONSUMERS (the CAP12 discipline, made structural).** New leaf
+>   `landEntersTapped.js`: `entersTappedUnlessCondition(card)` admits a printed condition ONLY when
+>   `interveningIfParseable` says the shared evaluator can read it; `conditionalEntersTapped(state, card,
+>   controller, permId)` evaluates it. BOTH enter sites consult it (actionDispatcher's play-land path and
+>   `resolvers.enterPermanent`) and BOTH classifier sites admit the line through the same function — so a
+>   land the runtime can't gate is never native on paper. Why a leaf: interveningIf → layers →
+>   staticAbilityParser, so the evaluation could not live beside `entersTapped` without closing a cycle.
+> · **⭐ THE "OTHER" EXCLUSION IS THE SLICE'S LOAD-BEARING LINE.** On the play-land path the land is ALREADY
+>   on the battlefield when the gate is read, so "two or more OTHER lands" must not count it — the
+>   difference between a fast land entering untapped on turn three and turn two. The entering id rides
+>   `context.sourcePermanentId`; the new "other" arm excludes it and **fails closed (null) when no id is
+>   threaded** — a count that might include the object itself is the over-count FP. Pinned three ways
+>   (evaluator, play-land, and the one non-land gain).
+> · **Evaluator extensions** (interveningIf.js): `N or fewer/less` (≤); `other` + exclusion; `legendary`/
+>   `basic` supertype prefixes as CONJUNCTIONS (the snow-arm shape — a union would make "a legendary
+>   creature" true for any creature); `you have N or more opponents` (live seat count); `a player has N or
+>   less life` (existential over ALL seats incl. the controller); `your opponents control N or more <filter>`
+>   (SUM across opponents, not the per-opponent existential). Every one returns a boolean on the
+>   single-seat parseable probe board, which is what lets coverage admit the line.
+> · **The single non-land gain, audited: Platoon Dispenser** ("…if you control two or more OTHER creatures,
+>   draw a card") — its end-step intervening-if parses now via the "other" arm; verified on the REAL trigger
+>   path that `makePendingTrigger` threads `sourcePermanentId` = the Dispenser, so it excludes itself
+>   (0/1 others → false, 2 → true, no id → null). Legitimate.
+> · **Honest residue (24 still partial):** 20 carry a SECOND unmodeled ability (Mines of Moria / Minas
+>   Tirith / Mistrise Village / Monumental Henge / the Castles / Reef & Wild Roads' Pilot-token sac) — each
+>   is now a SINGLE-blocker on that ability; 4 are the reveal-lands (Temple of the Dragon Queen, Fortified
+>   Beachhead …) whose gate names a choice a preceding sentence makes — unreadable by design, parked.
+> · **⚠️ MUTATION M7 SURVIVED, THEN GOT ITS CARRIER.** Removing the reader's parseable gate killed nothing:
+>   the reveal-land fixture shares its line with the "may reveal" sentence, so the LINE ANCHOR refused it
+>   before the gate was reached — the gate had no carrier in the file. Wrote one (a single-line gate with an
+>   unreadable condition + a readable positive control); M7 now dies. Third answer of the three, again:
+>   write the missing test. **8 mutations, 8 seen to fail:** M1 "other" exclusion removed → 4 · M2 fail-closed
+>   removed → 2 · M3 ≤ forced to ≥ → 2 · M4 opponent count always true → 4 · M5 play-land site skips the gate
+>   → 4 · M6 enterPermanent skips it → 1 · M7 parseable gate removed → 0 then **1** · M8 coverage admission
+>   removed → 1.
+> · Pre-existing, not mine, recorded: `interveningIf.js` line 344 carries a stray 0x08 byte inside a comment
+>   on master (`grep -c $'\b'` = 1 at HEAD). Harmless; left alone tonight.
+> Witness: `landEntersTapped.test.js` (21). **Cap 76** (12 land-partial left: 3 shocklands = ONE clause ·
+> Mines / Mistrise / Henge / Otawara / Inventors' Fair / Uthros each a single-blocker on one activated
+> ability · Urza's Saga + 2 MDFCs multi). **Squirrel Girl 67** (unchanged; 6 of her 9 partial lands are
+> single-blockers on an activated ability — Boseiju channel, Evendo station, Geier Reach, Gemstone Caverns,
+> Homeward Path, Shifting Woodland).
+>
 > ## ⚔️ 2026-08-30 (cont.) — CAP16 Codsworth: the TWO-TARGET attach · +1 · Cap 74→75%
 > Suite **1318 / 15,090** green; lint 0; flip-diff **+1, zero LOST**.
 > · **The THIRD attach shape, and the only one where NEITHER end is the source.** `self-attach` moves the

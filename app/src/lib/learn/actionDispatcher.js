@@ -57,6 +57,7 @@ import {
 import { tutorManaValue } from "./effects/atoms/library.js"; // γ1i (CAP14) — the shared MV reader the tutor / free-cast paths use, so "mana value" means ONE thing engine-wide
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
 import { manaSources, planPayment, sourcesExcludingOneShotVictim, commitPaymentPlan, commitManaTap, payManaCost } from "./manaModel.js";
+import { conditionalEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" (a leaf over interveningIf; cycle-free)
 import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
 import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
@@ -159,10 +160,17 @@ function applyPlayLand(state, action) {
   // tapped, so it can't be tapped for mana the turn it's played. The freshly-minted land is the last
   // permanent on the battlefield (moveCardToZone pushes it). Only the BARE, unconditional form (entersTapped)
   // — a check/fast/reveal/shock land's gated tap is left untapped (the gate isn't evaluated; CREED-safe).
-  if (entersTapped(card) || impositionEntersTapped(next, card, action.playerId)) { // KM-1: an opposing Kismet taxes the land drop too (CR 614.1c)
+  // LANDS-TIER (2026-09-02): the CONDITIONAL "enters tapped unless <condition>" family joins the two reads
+  // here (conditionalEntersTapped — the fast/slow/check/"two or more opponents" cycles, 107 corpus lands).
+  // The entered land is ALREADY on the battlefield at this point, so its own id is threaded for the
+  // evaluator's "other lands" exclusion — without it a fast land would count itself and enter tapped a
+  // turn late. A condition the shared evaluator can't read leaves the land UNTAPPED (the FN-safe side).
+  {
     const bf = next.players[action.playerId].battlefield;
     const entered = bf[bf.length - 1];
-    if (entered) next = tapPermanent(next, entered.id, { fromEnter: true }); // CR 701.26a: entering tapped is NOT "becoming tapped" — suppress the becomes-tapped event
+    if (entered && (entersTapped(card) || impositionEntersTapped(next, card, action.playerId) || conditionalEntersTapped(next, card, action.playerId, entered.id))) { // KM-1: an opposing Kismet taxes the land drop too (CR 614.1c)
+      next = tapPermanent(next, entered.id, { fromEnter: true }); // CR 701.26a: entering tapped is NOT "becoming tapped" — suppress the becomes-tapped event
+    }
   }
   // KW-FADING / KW-VANISHING (CR 702.32a / 702.63a): a fading/vanishing LAND enters with N fade/time
   // counters via the play-land path too (the PERMANENT_ETB resolver only covers cast creature/artifact

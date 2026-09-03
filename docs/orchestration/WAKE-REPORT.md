@@ -7,7 +7,21 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9–CAP16 shipped, Cap 69% → 75% native** — suite **1316 / 15,065** green
+## 🏞️ 2026-09-02 — **OVERNIGHT STAGE ① IN FLIGHT: LANDS-1 shipped (+84 corpus), Cap 76%** — suite **1319 / 15,111** green
+
+> **LANDS-1 = "This land enters tapped unless <condition>"** — 83 of 107 corpus lands flipped to `land`
+> (flip-diff +84, zero LOST; the one non-land gain, Platoon Dispenser, audited on the real trigger path).
+> New leaf `landEntersTapped.js` is the ONE reader both enter sites and both classifier sites consult; six
+> evaluator arms added to interveningIf, each carried by real cards. Corpus 39.53 → 39.78%.
+> **Cap's land tail is now 9 single-blockers + 3 multis** (SHELF-TAIL-PLAN §5.4 has the exact list);
+> **next item = the shockland clause** (Sacred Foundry / Hallowed Fountain / Steam Vents — one arm, three
+> slots). It needs the optional-payment PAUSE shape (`setPendingOptionalManaPaymentChoice` is the
+> template) plus an AI pay-if-able policy; the plan's §1a carries the runtime notes.
+> ⚠️ Lesson banked in the plan (§5 #10): mutation M7 survived because NO fixture reached the line — the
+> reveal-land's sentence shares a line with its "may reveal" sentence, so the anchor refused it before the
+> gate. Write the carrier, then re-run. Eight of eight bite now.
+
+## ⚔️ 2026-08-30 — **CAP AMERICA FOCUS-FIRE: CAP9–CAP16 shipped, Cap 69% → 75% native** — suite **1318 / 15,090** green
 
 > ⚠️ **NUMBER HYGIENE (corrected 08-30, Colton caught it).** Earlier entries said "Cap 81→86 native
 > cards". That figure added the 13 LAND-PARTIAL slots to the native count, which inflates it — land-partial

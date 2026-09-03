@@ -324,6 +324,20 @@ function parseFilter(phrase) {
     const words = inner.kind === "all" ? ["Snow"] : [...(Array.isArray(inner.word) ? inner.word : [inner.word]), "Snow"];
     return { kind: "type", word: words, state: inner.state ?? state, allWords: true };
   }
+  // LEGENDARY / BASIC supertypes (CR 205.4a) — "a legendary creature" (Rivendell / Mines of Moria / Minas
+  // Tirith: "enters tapped unless you control a legendary creature", 6 corpus lands) and "two or more basic
+  // lands" (Sodden Verdure's cycle, 10 lands). Structurally the SNOW arm one more time: both words are
+  // printed in the type line ("Legendary Creature — …", "Basic Land — …"), so the conjunction is a two-word
+  // `allWords` scan — and it MUST be a conjunction, because a union would make "a legendary creature" true
+  // for any creature at all. Nested supertypes ("legendary snow …") fall through the inner parseFilter.
+  const superM = p.match(/^(legendary|basic) (.+)$/);
+  if (superM) {
+    const inner = parseFilter(superM[2]);
+    if (!inner) return null;
+    const sup = superM[1] === "legendary" ? "Legendary" : "Basic";
+    const words = inner.kind === "all" ? [sup] : [...(Array.isArray(inner.word) ? inner.word : [inner.word]), sup];
+    return { kind: "type", word: words, state: inner.state ?? state, allWords: true };
+  }
   // must be a single word now (no riders like "you control", "named ...", or an unmodeled power/toughness rider)
   if (!/^[a-z]+$/.test(p)) return null;
   // INVARIANT BASIC-LAND TYPES (CR 205.3i): "Plains" is spelled the same singular and plural — a naive
@@ -1283,14 +1297,69 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     return total >= need;
   }
 
-  // "you control a/an/<N> or more <filter>"
-  m = c.match(new RegExp(`^you control ${NUM_RE}(?: or more)? (.+)$`));
+  // "you control a/an/<N> [or more|or fewer|or less] [other] <filter>"
+  //
+  // LANDS-TIER EXTENSIONS (2026-09-02 — the "enters tapped unless …" family, 107 corpus lands):
+  //   · "or fewer" / "or less" → a ≤ comparator (the 11 fast lands: "unless you control two or fewer other
+  //     lands"). Previously only "or more" parsed, so those conditions were unreadable.
+  //   · "OTHER" → the entering / source permanent is EXCLUDED from the count (CR 109.5). At land entry the
+  //     land itself is already on the battlefield (the play-land path pushes it first), so "two or more
+  //     other lands" MUST not count it — that is the difference between a fast land entering untapped on
+  //     turn three and on turn two. The excluded id is threaded as context.sourcePermanentId (the same key
+  //     the equip-cost site already passes) with triggeringPermanentId as the trigger-side fallback.
+  //     ⛔ Fail closed: "other" with NO id to exclude → null → not evaluable (a count that might include the
+  //     object itself is the over-count FP), which is also what keeps the parseable probe honest.
+  m = c.match(new RegExp(`^you control ${NUM_RE}(?: or (more|fewer|less))? (other )?(.+)$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    const cmp = m[2] === "fewer" || m[2] === "less" ? "le" : "ge";
+    const other = !!m[3];
+    const filter = parseFilter(m[4]);
+    if (!filter) return null;
+    const excludeId = other ? (context?.sourcePermanentId ?? context?.triggeringPermanentId ?? null) : null;
+    if (other && !excludeId) return null;
+    const count = controllerBoard(state, controllerId)
+      .filter((p) => !(other && p.id === excludeId) && permMatchesFilter(p, filter, state)).length;
+    return cmp === "le" ? count <= n : count >= n;
+  }
+
+  // ===== OPPONENT COUNT (CR 800.1 — the multiplayer-gated cycle) ===== "you have N or more opponents"
+  // (Spectator Seating and the Battlebond/Commander land cycle — 10 corpus lands: "enters tapped unless you
+  // have two or more opponents"). A live seat count, never a board scan: opponentIds() is every seat that is
+  // not the controller, so a two-player game reads 1 and a four-seat pod reads 3. On the single-seat probe
+  // board this is 0 → a definite false, which is exactly what interveningIfParseable needs.
+  m = c.match(new RegExp(`^you have ${NUM_RE} or more opponents$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    return opponentIds(state, controllerId).length >= n;
+  }
+
+  // ===== ANY-PLAYER LIFE THRESHOLD ===== "a player has N or less life" (the Ixalan/Outlaws "13 or less"
+  // land cycle, 10 corpus lands). EXISTENTIAL over ALL seats INCLUDING the controller (CR 104.3a — "a player"
+  // is any player), which is what separates it from CTRL_LIFE_THRESHOLD ("you have …") and OPP_HAS_MORE
+  // ("an opponent has …"). A missing life field reads 0 (the probe board), a definite boolean either way.
+  m = c.match(new RegExp(`^a player has ${NUM_RE} or (?:less|fewer) life$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    return Object.values(state?.players || {}).some((pl) => (pl?.life || 0) <= n);
+  }
+
+  // ===== OPPONENTS' COLLECTIVE COUNT ===== "your opponents control N or more <filter>" (the "eight or more
+  // lands" cycle, 5 corpus lands). "Your opponents control" is the SUM across every opponent (CR 800.1 —
+  // a plural-subject count, not the per-opponent existential OPP_CONTROLS_N reads). Same parseFilter /
+  // permMatchesFilter machinery, so type / subtype / union filters all work; a malformed filter → null.
+  m = c.match(new RegExp(`^your opponents control ${NUM_RE} or more (.+)$`));
   if (m) {
     const n = parseCount(m[1]);
     if (n == null) return null;
     const filter = parseFilter(m[2]);
     if (!filter) return null;
-    return controllerBoard(state, controllerId).filter((p) => permMatchesFilter(p, filter, state)).length >= n;
+    const total = opponentIds(state, controllerId)
+      .reduce((sum, oid) => sum + (state.players[oid]?.battlefield || []).filter((p) => permMatchesFilter(p, filter, state)).length, 0);
+    return total >= n;
   }
 
   // ===== CORRUPTED (CR 122 / 704.5c) ===== "an opponent has <N> or more poison counters" — the dominant

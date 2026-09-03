@@ -30,6 +30,7 @@ import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopie
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
 import { addContinuousEffect } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); acyclic (layers imports only ptPrimitive/keywords/staticAbilityParser/protection, none of which reach resolvers)
+import { conditionalEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>"; a leaf over interveningIf (interveningIf → layers → staticAbilityParser, none reach resolvers) — acyclic
 import { autoPickCreatureType } from "./choicePolicy.js"; // CR 614.12 auto-choice policy — a zero-import LEAF, shared with the effect atoms (which cannot import resolvers: resolvers → runProgram → effectAtoms). One copy, so an ETB choice and an activated choice can never diverge on the same board.
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
 import { parseFabricate, decideFabricate, applyFabricateServos } from "./fabricate.js"; // KW-FABRICATE (CR 702.111a) — ETB choice: N +1/+1 counters OR N 1/1 Servo tokens
@@ -221,7 +222,11 @@ export function enterPermanent(state, card, controller, opts = {}) {
   const s3 = { ...s2, timestampCounter: ts + 1 };
   const typeStr = String(card?.type || card?.type_line || "");
   const perm = {
-    ...createPermanent({ id: permId, card, controller, tapped: entersTapped(card) || impositionEntersTapped(s3, card, controller), summoningSick: /Creature/.test(typeStr) }), // KM-1: an opposing Kismet forces the entry tapped (CR 614.1c)
+    // LANDS-TIER (2026-09-02): the CONDITIONAL "enters tapped unless <condition>" read joins the two here
+    // (a tutored / put-onto-the-battlefield land runs through this site, not the play-land path). The
+    // permanent is not on the battlefield yet, so an "other lands" count is already correct; its id is
+    // threaded anyway so both sites read the evaluator identically.
+    ...createPermanent({ id: permId, card, controller, tapped: entersTapped(card) || impositionEntersTapped(s3, card, controller) || conditionalEntersTapped(s3, card, controller, permId), summoningSick: /Creature/.test(typeStr) }), // KM-1: an opposing Kismet forces the entry tapped (CR 614.1c)
     enteredOnTurn: s3.turn,
     timestamp: ts,
     // A clone enters carrying a `card` that's the COPIED creature's copiable values, while its

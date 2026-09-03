@@ -9,6 +9,11 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **"Enters tapped unless …" lands work — 83 of them.** Fast lands, slow lands, the check lands and Castles,
+  the "two or more opponents" Commander cycle, the "13 or less life" cycle, Rivendell and its legendary-gated
+  kin, and more now actually check their condition when they enter — untapped when it holds, tapped when it
+  doesn't — instead of always entering untapped. A fast land correctly doesn't count itself.
+- **Platoon Dispenser works.** Its end-step draw now correctly counts your OTHER creatures.
 - **Codsworth, Handy Helper works.** His tap ability now actually moves an Aura or Equipment you control
   onto a creature you control — including pulling one off whatever it was attached to.
 - **Sword of Hearth and Home works.** Connecting now blinks a creature you own — including one an opponent

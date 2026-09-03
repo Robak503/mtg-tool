@@ -63,6 +63,7 @@ import { isControlAura } from "./controlAura.js"; // the control-Aura delivery c
 import { auraEnchantRestrictions } from "./staticAbilityParser.js"; // the qualified-subject host filter, shared with legalChoices' cast lane so offer + metric read ONE source
 import { isNativeKira } from "./kiraTargetCounter.js";
 import { isEnforcedEvasionClause, selfDamagePrevention, selfDamagePreventionBy, counterShieldPrevention, attachedPreventPutCountersOf, selfPreventPutCounters } from "./combatEvasion.js";
+import { entersTappedUnlessCondition } from "./landEntersTapped.js"; // LANDS-TIER — the conditional enters-tapped reader BOTH enter sites consult (metric and runtime read one function)
 import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
 // OMNATH — ground the classifier on the two RUNTIME registries the engine actually consults (never a
 // name-only credit): staticEffectsOf reads layers.STATIC_REGISTRY (the layer-7c dynamic +1/+1-per-green
@@ -1787,8 +1788,16 @@ function landFullyCovered(card) {
   // QUOTE-AWARE (Codex fix #4): the shared scanner strips whole sentences.
   const afterTriggers = stripTriggerSentences(stripTriggerAbilityLabel(foldTwoTriggerDetain(stripReminder(raw), card)), "\n");
   const tapped = entersTapped(card);
+  // LANDS-TIER (2026-09-02): the CONDITIONAL "enters tapped unless <condition>" line is vouched by the SAME
+  // reader both enter sites consult (landEntersTapped.entersTappedUnlessCondition), which itself admits a
+  // condition only when the shared evaluator can read it — so a land whose gate the runtime cannot
+  // evaluate stays land-partial here, never native-on-paper. The admitted line must be EXACTLY that
+  // sentence (whole line, ending at the condition); a compound or rider leaves residue as before.
+  const condTapped = entersTappedUnlessCondition(card);
+  const condLineRe = condTapped ? new RegExp(`^[^.]*\\benters tapped unless ${condTapped.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.?$`, "i") : null;
   for (const line of afterTriggers.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (tapped && /^[^.]*\benters (?:the battlefield )?tapped\.?$/i.test(line)) continue;
+    if (condLineRe && condLineRe.test(line)) continue;
     if (isManaLine(line)) continue;
     if (isActivatedAbilityLine(line, card)) continue; // vouched modeled/gy/mana by the .every above
     if (isKeywordOnly(line, card?.name)) continue;
@@ -3348,7 +3357,10 @@ export function classifyCard(card) {
   // though every one of its clauses is modeled. etCard now carries the counter-stripped oracle exactly as it
   // already carries the tap-stripped one.
   const tapRe = /[^\n.]*\benters (?:the battlefield )?tapped\b[^\n.]*\.?\n?/gi;
-  const isTapped = entersTapped(card);
+  // LANDS-TIER (2026-09-02): a CONDITIONAL "enters tapped unless <condition>" sentence is credited here
+  // too, on the same reader the enter sites consult (it vouches only conditions the shared evaluator can
+  // read). tapRe already spans the whole sentence through the condition, so the strip needs no change.
+  const isTapped = entersTapped(card) || !!entersTappedUnlessCondition(card);
   // CREW (BLITZ VH-1, CR 702.121): "Crew N" is a modeled special-activation line — legalChoices.
   // actionsCrewVehicle offers it (tap own creatures with total power ≥ N, auto-picked sick-first),
   // actionDispatcher.applyCrewVehicle taps + animates (a layer-4 endOfTurn Creature type-add; printed P/T
