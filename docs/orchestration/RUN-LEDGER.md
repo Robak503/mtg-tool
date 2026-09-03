@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🥷 2026-09-03 (night cron) — CORPUS ④-S: the self-sacrifice Aura COMPOSITE with a carrier — exile the host AND make a token · **+2** (Uneasy Alliance / Path to Redemption) · corpus 13,930 / 34,245 (40.7%)
+> Suite **1380 / 15,499** green; lint 0. Flip-diff **+2, zero LOST**. **1/3 killed (+2 documented redundant guards).**
+> · **The shape:** "{5}, Sacrifice this Aura: Exile enchanted creature. You create a 1/1 black Ninja creature token.
+>   Activate only during your turn." The plain aura tier's validator demands EVERY atom be the enchanted referent, so
+>   the token atom sends these to the static-grant + activated composite — whose GUARD-LEAVE refused every
+>   self-sacrifice. With ④-Q's host LKI at runtime, the composite now admits a self-SACRIFICE whose host-referencing
+>   atoms are all the enchanted referent (never "equipped" — no stamp for Equipment; exile-self keeps the guard). This
+>   is the SAME widening ④-Q deleted as carrier-less — it is back because these two cards are the carrier, and the
+>   witness drives the composite on the board. "Activate only during your turn" is implied by the main-phase gate.
+> · **Board-verified:** {5}, sacrifice — the opponent's Bear is exiled, the 1/1 Ninja arrives, the Aura is in our
+>   graveyard; on the opponent's turn the ability is not offered.
+
 > ## ⚰️ 2026-09-03 (night cron) — CORPUS ④-R: a MANA source with a GRAVEYARD-zone ability — the zone composition on the mana tier · **+2** (Abzan Devotee / Buried Treasure) · corpus 13,928 / 34,245 (40.7%)
 > Suite **1379 / 15,496** green; lint 0. Flip-diff **+2, zero LOST**. **2/2 killed.**
 > · **The shape:** "{1}: Add {W}, {B}, or {G}. Activate only once each turn. / {2}{B}: Return this card from your

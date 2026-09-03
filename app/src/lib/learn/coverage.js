@@ -2376,12 +2376,22 @@ function nativeStaticGrantPlusActivated(card) {
   const refsHost = (a) =>
     (a.program?.atoms || []).some((at) => at.target === "enchanted" || at.target === "equipped") ||
     /\b(?:enchanted|equipped) creature\b/i.test(String(a.effectClause || ""));
-  // ④-Q note (2026-09-03): the self-SACRIFICE Auras whose effect is the enchanted referent (Briar Shield, Thrull
-  // Retainer …) are credited by the PLAIN aura tier now — isNativeAura's validator admits the line and the host is
-  // read by LKI at runtime — so they never reach this composite. This guard is left STRICT on purpose: widening it
-  // here was measured to have no carrier (the two mutations on it survived), and dead admissions are how a later
-  // shape slips through unverified.
-  if (extra.some((a) => (a.sacSelf || a.exileSelf) && refsHost(a))) return null;
+  // ④-S (2026-09-03 night) — the self-SACRIFICE composite WITH a carrier this time: "{5}, Sacrifice this Aura: Exile
+  // enchanted creature. You create a 1/1 black Ninja creature token." (Uneasy Alliance; Path to Redemption's Ally).
+  // The plain aura tier's validator demands EVERY atom be the enchanted referent, so the token atom sends these
+  // here; the host is read by LKI at runtime (④-Q: the dispatcher stamps it as the cost is paid), so a self-SACRIFICE
+  // is admitted when every HOST-referencing atom is target:"enchanted" (never "equipped" — no stamp for Equipment)
+  // and the program has atoms at all (a text-only host mention still parks). Exile-self costs keep the guard. The
+  // ④-Q widening of this same line was DELETED as carrier-less; it is back only because these two cards need it, and
+  // the witness (uneasyAlliance.test.js) drives the composite on the board.
+  // ⚠️ MEASURED REDUNDANT, kept as defense in depth: the `!a.exileSelf` and `!== "equipped"` clauses each survived
+  // their mutation — an exile-self Aura and an Equipment self-sac twin both park UPSTREAM of this composite. They
+  // stay because this is the one place the composite states its own contract; nobody should read them as the gate.
+  const lkiSafe = (a) => a.sacSelf && !a.exileSelf
+    && (a.program?.atoms || []).length > 0
+    && (a.program?.atoms || []).every((at) => at.target !== "equipped")
+    && (a.program?.atoms || []).some((at) => at.target === "enchanted");
+  if (extra.some((a) => (a.sacSelf || a.exileSelf) && refsHost(a) && !lkiSafe(a))) return null;
   // STRIP the extra activated-ability lines from the (reminder-preserved) oracle — every activated-ability
   // line that is NOT the Equip attach line (which the equipment gate still needs). Keyed on the SAME
   // isActivatedAbilityLine the parser's own residue strips use, so the strip can't drift from detection.

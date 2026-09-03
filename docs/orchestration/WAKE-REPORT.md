@@ -7,6 +7,14 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🥷 2026-09-03 (night cron) — **④-S: the self-sac Aura composite — exile the host and make a token (+2)** · suite **1380 / 15,499** green · corpus 13,930 / 34,245 (40.7%) · flip-diff +2 / 0 lost · 1/3 killed (+2 documented redundant guards)
+
+> **Night tally (stage ④, nineteen slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
+> J (+1) · K (+1, FP closed on 3) · L (+4) · M (+2) · N (+7) · O (+4) · P (+3) · Q (+6) · R (+2) · S (+2) — corpus 13,862 → 13,930.
+> **CI:** the control re-run of the last green head (33792869857) is still in flight at 12 min — nothing pushed until it answers.
+> **Next runnable:** Gravestone Strider's graveyard "exile target card from a graveyard" on the GY-2 lane, Graveyard
+> Shovel's life rider, the Crown cycle's share-a-type mass pump, or the next census read.
+
 ## ⚰️ 2026-09-03 (night cron) — **④-R: mana source + graveyard-zone ability compose (+2)** · suite **1379 / 15,496** green · corpus 13,928 / 34,245 (40.7%) · flip-diff +2 / 0 lost · 2/2 killed
 
 > **Night tally (stage ④, eighteen slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
