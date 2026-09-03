@@ -3,7 +3,7 @@
  */
 
 import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintId, attachPermanent, moveCardToZone } from "../../gameState.js";
-import { tokenMultiplier, tokenAdditive, applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
+import { tokenMultiplier, tokenAdditive, tokenExtraKinds, applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec, halveAmount } from "./shared.js";
@@ -61,7 +61,41 @@ export function tokenTypeLine(descriptor) {
 // when no tokenChange watcher exists — the overwhelming common case), so it can never over-fire.
 export function fireTokenEnterTriggers(state, mintedIds) {
   let next = state;
-  for (const id of mintedIds) {
+  // ===== TOKEN-EXTRA-KIND (SG-10, 2026-09-03 — Peregrin Took, CR 614.1) ===== every mint site funnels its
+  // freshly created tokens through here, so this is the ONE place a "those tokens plus an additional Food
+  // token" replacement applies — once per creation EVENT (not per token), under the tokens' creator (the
+  // controller of what was minted — "under your control"), for each Took-like permanent that creator
+  // controls. The extra Food is minted RAW here (createPermanent, not applyCreateNamedToken) so it is part of
+  // this same event and never re-enters the replacement (CR 614.5); it then fires its own enter watchers with
+  // the rest of the batch. Greedy-max ordering with a token doubler (CR 616.1e): the extra Food is doubled too.
+  let ids = mintedIds;
+  if (mintedIds.length > 0) {
+    const first = findPermanent(next, mintedIds[0]);
+    const creatorId = first?.permanent?.controller ?? null;
+    const kinds = creatorId ? tokenExtraKinds(next, creatorId) : [];
+    if (kinds.length > 0) {
+      const extra = [];
+      const mult = tokenMultiplier(next, creatorId);
+      for (const kind of kinds) {
+        const spec = NAMED_TOKENS[kind];
+        if (!spec) continue;
+        for (let i = 0; i < mult; i++) {
+          const minted = mintId(next, "tok");
+          next = minted.state;
+          const card = { id: `tok-${minted.id}`, name: spec.name, type: spec.type, oracle: spec.oracle, token: true };
+          const perm = createPermanent({ id: minted.id, card, controller: creatorId });
+          const player = next.players[creatorId];
+          next = { ...next, players: { ...next.players, [creatorId]: { ...player, battlefield: [...player.battlefield, perm] } } };
+          extra.push(minted.id);
+        }
+      }
+      if (extra.length > 0) {
+        next = logEvent(next, { kind: "spell-effect", effect: "token-extra-kind", controller: creatorId, kinds, count: extra.length });
+        ids = [...mintedIds, ...extra];
+      }
+    }
+  }
+  for (const id of ids) {
     const found = findPermanent(next, id);
     if (!found?.permanent) continue;
     next = checkEnterTriggers(next, found.permanent);

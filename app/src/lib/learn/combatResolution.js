@@ -56,7 +56,7 @@ import { permanentHasKeyword, permanentColors, permanentProtectionColors, assign
 import { applyDestroyEffect } from "./spellEffects.js"; // DG-1 — the shared destroy primitive (indestructible/shield/regen/totem + dies-triggers); spellEffects never imports this module (cycle-safe)
 import { protectionApplies } from "./protection.js";
 import { selfDamagePrevention, selfDamagePreventionBy, attachedDamagePrevention, mayAssignAsUnblocked, attackerMinBlockers, counterShieldPrevention, attachedPreventPutCounters, selfPreventPutCounters } from "./combatEvasion.js";
-import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
+import { boardHasDamageReplacement, consultDamageAmount, combatDamageUnpreventable } from "./damageReplacements.js"; // + SG-11 (Frenzied Baloth): "Combat damage can't be prevented."
 import { armDamageToCreatureFlag, marksDamageToCreature } from "./wolverine.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCombatDamageTriggers, checkCombatDamageToCreatureTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
 
@@ -140,7 +140,10 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // short-circuit covers BOTH the first-strike and the regular step). No marks, no life loss, no
   // lifelink, no lethal SBA from combat — the step is a logged no-op. Self-expires: next turn's number
   // differs. (Non-combat damage is unaffected; this hook is only the combat-damage step.)
-  if (state.preventCombatDamageTurn === state.turn) {
+  // SG-11 (Frenzied Baloth, CR 615.12): while any battlefield permanent prints "Combat damage can't be
+  // prevented", the fog latch (and every other combat prevention below) is inert — the step runs in full.
+  const unpreventable = combatDamageUnpreventable(state);
+  if (state.preventCombatDamageTurn === state.turn && !unpreventable) {
     const fogged = logEvent(state, { kind: "combat-damage-prevented", turn: state.turn, firstStrikeStep });
     // DG-1: a fog prevents combat DAMAGE (CR 615.6) — a delayed end-of-combat DESTROY is not damage
     // and still happens (CR 511). Drain at the regular step's exit, the end-of-combat boundary.
@@ -344,7 +347,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // post-prevention amount (a shield-counter-style skip, but with a decrementing magnitude). The pool is a
   // LOCAL copy (the shieldConsumed pattern: state is the frozen pre-step board) written back to `next` after
   // the apply loops. Empty pool → zero allocations on the hot path → byte-identical.
-  const pvPool = preventionShieldsFor(state).map((s) => ({ ...s }));
+  const pvPool = unpreventable ? [] : preventionShieldsFor(state).map((s) => ({ ...s })); // SG-11: no shield consumes while combat damage can't be prevented
   const pvConsume = (targetKind, targetId, dealt) => {
     let rem = dealt;
     for (const sh of pvPool) {
@@ -361,14 +364,15 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // callers (addDmg's `n > 0`, spillToDefender's `amount <= 0`) AFTER this returns.
   // PLAYERS-ONLY FOG (BLITZ FOG-1b, CR 615 — Defend the Hearth): the players-scoped fog flag zeroes only
   // player-directed deals (the bare whole-turn fog short-circuits the whole step above, untouched).
-  const fogPlayers = state.preventCombatPlayersTurn === state.turn;
+  const fogPlayers = state.preventCombatPlayersTurn === state.turn && !unpreventable;
   const consultCombat = (rawAmount, sourcePerm, targetKind, targetId) => {
     let amt = rawAmount;
     if (amt > 0 && fogPlayers && targetKind === "player") return 0;
     // FOG-1 self statics: the damaged CREATURE's own printed prevent-all wall (Guard Gomazoa's combat
     // form and Dawn Elemental's all form both zero a combat deal). Read per hit, layer-free (a printed
-    // static — no granted form is modeled, so the card read is exact).
-    if (amt > 0 && targetKind === "creature") {
+    // static — no granted form is modeled, so the card read is exact). SG-11: every wall in this block and
+    // the dealer block below is inert while combat damage can't be prevented.
+    if (amt > 0 && !unpreventable && targetKind === "creature") {
       const lk = findPermanent(state, targetId);
       if (lk && selfDamagePrevention(lk.permanent.card)) return 0;
       // COUNTER-SHIELD: prevents like the flat walls above, but bills itself in +1/+1 counters (recorded
@@ -389,7 +393,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     // every combat deal it makes ("all" and "combat" both bind here — this IS combat damage). PV-1 adds the
     // DEALER's own printed self BY wall (Fog Bank "…dealt to and dealt by this creature") — it deals zero
     // combat damage, so a Fog Bank blocking a 6/6 takes none (TO wall, line above) AND marks none on it.
-    if (amt > 0 && sourcePerm?.id) {
+    if (amt > 0 && !unpreventable && sourcePerm?.id) {
       if (attachedDamagePrevention(state, sourcePerm.id).by) return 0;
       if (selfDamagePreventionBy(sourcePerm.card)) return 0;
     }

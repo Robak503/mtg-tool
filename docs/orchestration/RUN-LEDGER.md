@@ -3,6 +3,25 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🥧 2026-09-03 — SG-10 + SG-11: Peregrin Took (+1 Food per token event) · Frenzied Baloth (combat damage can't be prevented) · **+2 corpus** · Squirrel Girl 79→81 · corpus 40.3% (13,801/34,245)
+> Suite **1343 / 15,282** green; lint 0. Flip-diff **+2, zero LOST** (Took body-only → native-mixed; Baloth
+> body-only → native-static). **7/7 killed** first pass.
+> · **Took.** Xorn's additive was kind-FILTERED and same-kind ("+1 Treasure when you make Treasures"); Took
+>   is the passive, kind-UNFILTERED cousin that adds a DIFFERENT kind (one Food per token-creation EVENT
+>   under your control). There is exactly one place every mint site funnels through — `fireTokenEnterTriggers`
+>   — so the replacement lives there: the extra Food is minted raw (never through the named-token applier, so
+>   it cannot re-enter the replacement, CR 614.5), doubled under a token doubler (greedy-max, CR 616.1e), and
+>   fires its enter watchers with the batch. Pinned: once per event not per token (two Squirrels → one Food),
+>   the opponent's Took feeds nobody else, two events → two Foods.
+> · **Baloth.** "Combat damage can't be prevented" (CR 615.12) is a board-wide static read by ONE reader
+>   (`combatDamageUnpreventable`, damageReplacements) at every combat prevention site: the whole-turn fog
+>   latch, the players-only fog, the damaged creature's printed / attached / counter-shield / prevent-and-put
+>   walls, the dealer's printed / attached walls, the floating prevent-next-N shields, and the prevent /
+>   prevent-all-but replacement ops — the last gated on `event.isCombat` so Temple Altisaur still caps a
+>   noncombat burn (pinned, M7). The static parser marks the sentence for coverage off the same words.
+> · The new mutation scripts set `sys.stdout.reconfigure(encoding="utf-8")` at the top — the cp1252 print
+>   crash from SG-7/8 cannot recur.
+
 > ## 🌱 2026-09-03 — SG-9 + SG-12: Evolutionary Leap (reveal-until-creature INTO HAND) · Homeward Path (every creature goes home to its owner) · **+4 corpus** · Squirrel Girl 77→79 · corpus 40.3% (13,799/34,245)
 > Suite **1341 / 15,271** green; lint 0. Flip-diff **+4, zero LOST** — Evolutionary Leap body-only →
 > native-activated, Homeward Path land-partial → land, and two riders audited against their real oracle:

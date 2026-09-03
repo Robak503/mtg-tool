@@ -2954,6 +2954,14 @@ function parseClause(clause, out, selfName, selfType) {
     }
   }
 
+  // ── COMBAT DAMAGE UNPREVENTABLE (SG-11, 2026-09-03 — Frenzied Baloth, CR 615.12): "Combat damage can't be
+  // prevented." A coverage MARKER; the RUNTIME reads the same sentence via damageReplacements.
+  // combatDamageUnpreventable at the combat funnel (fog latch, printed/attached walls, counter shields,
+  // prevent ops). Board-wide, any controller. Exact sentence only.
+  if (/^combat damage can't be prevented$/.test(c)) {
+    out.push({ combatDamageUnpreventable: true });
+    return;
+  }
   // ── OWN-TURN CAST LOCK (SG-8, 2026-09-03 — Dosan the Falling Leaf, CR 604.2): "Players can cast spells
   // only during their own turns." Emitted as a coverage MARKER (the castLimit pattern — no `affects`/`op`).
   // The RUNTIME enforcement lives in legalChoices.canCastInstantSpeed, which reads the SAME line via

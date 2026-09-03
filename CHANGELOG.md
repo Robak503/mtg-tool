@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Peregrin Took works** — every batch of tokens you make brings one extra Food along (once per batch, never
+  for an opponent's tokens).
+- **Frenzied Baloth works** — while it's out, nothing prevents combat damage: not a Fog, not a printed
+  prevention wall, not a "prevent all but 1" cap. Noncombat prevention is untouched.
 - **Evolutionary Leap works** — sacrifice a creature, reveal until a creature card, it goes to your hand, the
   rest to the bottom in random order.
 - **Homeward Path works** — every stolen creature goes home to its owner, on both sides of the table.

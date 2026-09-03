@@ -112,9 +112,12 @@ loot sentence, +2). ✅ **SG-6** — Elvish Spirit Guide (an exile-from-hand man
 a sacrificed-power mill form) and Dosan (an own-turn cast lock at the instant-speed gate, symmetric; +2,
 6/6 killed). ✅ **SG-9 + SG-12** — Evolutionary Leap (the reveal-until-creature frame's INTO-HAND sibling)
 and Homeward Path (a mass "each player gains control of all creatures they own" reset; Vivien, Nature's
-Avenger and Trostani Discordant rode the same two sentences; +4, 6/6 killed). **Deck 79/100.** What remains
-on her deck is the mediums (Peregrin Took, Frenzied Baloth, Vexing Bauble, Sylvan Library, Boseiju's channel
-effect) and the multis/parks in §6.
+Avenger and Trostani Discordant rode the same two sentences; +4, 6/6 killed). ✅ **SG-10 + SG-11** —
+Peregrin Took (a passive "+1 Food per token event" replacement at the one token-enter chokepoint) and
+Frenzied Baloth ("Combat damage can't be prevented" — the fog latch, every printed/attached wall, the counter
+shields, the floating shields and the prevent-style replacement ops all inert for COMBAT damage; +2, 7/7
+killed). **Deck 81/100.** What remains on her deck is the mediums (Vexing Bauble, Sylvan Library, Boseiju's
+channel effect) and the multis/parks in §6.
 
 Stored 09-02 on Colton's profile (100/0 unresolved). **67/100**: 14 native-mana · 10 native-spell ·
 5 native-trigger · 4 native-activated · 5 native-static · 1 native-mana-aura · 6 native-mixed ·
@@ -203,12 +206,11 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
   multis: Cavern of Souls (choose a creature type + an uncounterable-creature-spell mana source), The One
   Ring, Endurance, Allosaurus Shepherd, Disruptor Flute, Shang-Chi, Tezzeret, Urza's Saga, and the X-spells
   (Genesis Wave, Finale of Devastation, Green Sun's Zenith, Chord of Calling, Archdruid's Charm, Nature's
-  Rhythm, Tempt with Discovery). Mediums still open (one real lane each): Peregrin Took (a passive "+1 Food"
-  token replacement), Frenzied Baloth ("Combat damage can't be prevented"), Vexing Bauble (a cast trigger
+  Rhythm, Tempt with Discovery). Mediums still open (one real lane each): Vexing Bauble (a cast trigger
   with a "no mana was spent" intervening-if), Sylvan Library (a pay-4-life-or-put-back pending choice),
   Boseiju's channel effect (destroy + the opponent's basic-typed search + a legendary-count cost reduction —
   three pieces). (Shipped since this line was first written: Elvish Spirit Guide SG-6, Altar of Dementia
-  SG-7, Dosan SG-8, Evolutionary Leap SG-9, Homeward Path SG-12.)
+  SG-7, Dosan SG-8, Evolutionary Leap SG-9, Peregrin Took SG-10, Frenzied Baloth SG-11, Homeward Path SG-12.)
 - **Two engine holes found and FIXED tonight, worth a human eye on old harness data:** (a) the payment
   planner never carried cost riders — a planned Molt Tender tap exiled nothing until SG-3; (b) a played
   Vivid/depletion/Gemstone land arrived with no counters until LANDS-9. Any self-play game before tonight

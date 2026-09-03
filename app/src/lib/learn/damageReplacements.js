@@ -236,6 +236,23 @@ export function collectDamageReplacements(state) {
  * whole consult on this so a no-doubler board runs the byte-identical path it
  * does today (the CREED negative-test guarantee).
  */
+/**
+ * COMBAT-DAMAGE-UNPREVENTABLE (SG-11, 2026-09-03 — Frenzied Baloth, CR 615.12): "Combat damage can't be
+ * prevented." A board-wide static (any controller — the sentence names no player): while ANY battlefield
+ * permanent prints it, every combat-damage prevention effect (a fog latch, a creature's printed or attached
+ * prevent wall, a counter shield, a prevent / prevent-all-but replacement op) does nothing to COMBAT damage.
+ * Noncombat prevention is untouched. Read off the exact sentence, own line.
+ */
+export function combatDamageUnpreventable(state) {
+  for (const pid of Object.keys(state?.players || {})) {
+    for (const perm of state.players[pid].battlefield || []) {
+      const o = String(perm?.card?.oracle || perm?.card?.oracle_text || "");
+      if (/(?:^|\n)\s*combat damage can't be prevented\.?\s*(?:\n|$)/i.test(o)) return true;
+    }
+  }
+  return false;
+}
+
 export function boardHasDamageReplacement(state) {
   for (const pid of Object.keys(state?.players || {})) {
     for (const perm of state.players[pid].battlefield || []) {
@@ -374,6 +391,7 @@ export function applyDamageReplacements(state, event) {
   // call → a separate set → the doubler fires again (correct double-strike doubling, never ×step-count).
   const applied = new Set();
   if (raw <= 0) return { amount: raw, prevented: false };
+  const skipPrevention = !!event?.isCombat && combatDamageUnpreventable(state);
 
   // Collect every applicable entry (both filter sides), then apply in 616.1 order. Deterministic default =
   // battlefield/registration order (collectDamageReplacements order); the affected controller's choice hook
@@ -385,6 +403,9 @@ export function applyDamageReplacements(state, event) {
   let prevented = false;
   for (const entry of entries) {
     if (applied.has(entry.permanentId)) continue; // 614.5 once-per-event-per-replacement
+    // SG-11 (Frenzied Baloth): a prevention op is inert against COMBAT damage while the board says it can't
+    // be prevented (CR 615.12). Multipliers / addends still apply — only prevention is switched off.
+    if (skipPrevention && (entry.op?.op === "prevent" || entry.op?.op === "preventAllBut")) continue;
     applied.add(entry.permanentId);
     const res = applyOp(amount, entry.op);
     amount = res.amount;

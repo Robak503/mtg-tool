@@ -78,6 +78,7 @@ export function doublerProfile(card) {
   let counter = null;
   let token = null;
   let tokenAdd = null;
+  let tokenExtra = null;
   let mill = null;
   let life = null;
   let halvesOpponents = false;
@@ -175,6 +176,16 @@ export function doublerProfile(card) {
     if (addM && addM[1] === addM[2]) {
       tokenAdd = { filter: addM[1], additive: 1, scope: "you" };
     }
+    // ── TOKEN-EXTRA-KIND (SG-10, 2026-09-03 — Peregrin Took, CR 614.1): the PASSIVE, kind-UNFILTERED cousin of
+    // Xorn — "If one or more tokens would be created under your control, those tokens plus an additional Food
+    // token are created instead." ANY token-creation event under the controller adds ONE token of a DIFFERENT,
+    // named kind (Food — a MODELED named token). Applied once per event at the token-enter chokepoint
+    // (tokens.fireTokenEnterTriggers via tokenExtraKinds); the minted Food is part of the same event and never
+    // re-enters the replacement (CR 614.5). Exact template; the "you" scope is intrinsic ("under YOUR control").
+    const extraM = s.match(/^if one or more tokens would be created under your control, those tokens plus an additional (food) token are created instead$/);
+    if (extraM) {
+      tokenExtra = { kind: extraM[1], scope: "you" };
+    }
     // ── MILL-DOUBLER (Bruvac the Grandiloquent, SHELF M2 — CR 614/616): "If an opponent would mill one or
     // more cards, they mill twice that many cards instead." OPPONENT-scoped from the doubler's controller —
     // millMultiplier applies it when the MILLED player is an opponent of the profile owner's. Anchored to the
@@ -191,8 +202,8 @@ export function doublerProfile(card) {
       playerCounterAdd = { additive: 1 };
     }
   }
-  if (!counter && !token && !tokenAdd && !mill && !life && !halvesOpponents && !playerCounterAdd) return null;
-  return { counter, token, tokenAdd, mill, life, halvesOpponents, playerCounterAdd };
+  if (!counter && !token && !tokenAdd && !tokenExtra && !mill && !life && !halvesOpponents && !playerCounterAdd) return null;
+  return { counter, token, tokenAdd, tokenExtra, mill, life, halvesOpponents, playerCounterAdd };
 }
 
 /**
@@ -248,6 +259,9 @@ export function isModeledDoublerSentence(s, shortName = null) {
   // Only the Treasure filter is modeled (Treasure is the only MODELED named token an additive can mint); a
   // hypothetical "additional Clue" is NOT matched here → its clause survives as residue → card stays non-native.
   if (/if you would create one or more treasure tokens?,? instead create those tokens plus an additional treasure token/.test(s)) return true;
+  // TOKEN-EXTRA-KIND (SG-10, Peregrin Took) — the exact passive "+1 additional Food" replacement the runtime applies
+  // (tokenExtraKinds at the token-enter chokepoint). Food only — the one modeled named kind this template prints.
+  if (/^if one or more tokens would be created under your control, those tokens plus an additional food token are created instead\.?$/.test(s)) return true;
   // MILL-DOUBLER (Bruvac, SHELF M2) — the exact opponent-mill doubling the runtime applies (millMultiplier).
   if (/^if an opponent would mill one or more cards, they mill twice that many cards instead\.?$/.test(s)) return true;
   // LIFE-GAIN REPLACEMENT — the exact two templates applyLifeGainReplacement honours, and nothing wider.
@@ -441,6 +455,20 @@ export function applyLifeGainReplacement(state, playerId, baseAmount) {
     else additive += l.additive;
   }
   return Math.max(0, (base + additive) * multiplier);
+}
+
+/**
+ * TOKEN-EXTRA-KIND reader (SG-10 — Peregrin Took): the named token kinds that ONE token-creation event under
+ * `creatorId` additionally mints ("those tokens plus an additional Food token"). One entry per Took-like
+ * permanent the creator controls ("you" scope — never an opponent's). Consumed by tokens.fireTokenEnterTriggers.
+ */
+export function tokenExtraKinds(state, creatorId) {
+  const out = [];
+  for (const { ownerId, profile } of allDoublers(state)) {
+    const te = profile.tokenExtra;
+    if (te && (te.scope === "global" || ownerId === creatorId)) out.push(te.kind);
+  }
+  return out;
 }
 
 export function tokenAdditive(state, recipientControllerId, tokenName) {
