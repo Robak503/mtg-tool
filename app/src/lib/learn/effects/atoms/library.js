@@ -163,6 +163,14 @@ export function cardMatchesTutorFilter(card, filter) {
     const frontType = String(card?.type || card?.type_line || "").toLowerCase().split(" // ")[0];
     if (!/\b(?:legendary|artifact|saga)\b/.test(frontType)) return false;
   }
+  // NEGATED SUBTYPE (CORPUS ④-C — Kinnan "a non-Human creature card"): the FRONT face's type line must NOT carry the
+  // subtype word; a changeling has every creature type (CR 702.73a) and is excluded too. Enforced in the shared
+  // matcher so the candidate pool and any re-check agree.
+  if (filter.notSubtype) {
+    const frontType = String(card?.type || card?.type_line || "").toLowerCase().split(" // ")[0];
+    if (new RegExp(`\\b${String(filter.notSubtype).toLowerCase()}\\b`).test(frontType)) return false;
+    if (/\bchangeling\b/i.test(String(card?.oracle || card?.oracle_text || "")) || (Array.isArray(card?.keywords) && card.keywords.some((k) => /^changeling$/i.test(k)))) return false;
+  }
   // NONLEGENDARY gate (SG-2 — Woodland Bellower): the front face must NOT carry the Legendary supertype.
   if (filter.excludeLegendary) {
     const frontType = String(card?.type || card?.type_line || "").toLowerCase().split(" // ")[0];
@@ -396,12 +404,12 @@ export function applyImpulseDigAtom(state, atom, ctx) {
   if (pool.length === 0) {
     // Looked at N, nothing matching to reveal → the whole set goes to the bottom (a clean reveal-nothing,
     // no picker — chosenId null disposes all of the top N). Only reachable on the filtered reveal-dig path.
-    const next = applyImpulseDig(state, { playerId: ctx.controller, n, chosenId: null, restTo: atom.restTo || "bottom" });
+    const next = applyImpulseDig(state, { playerId: ctx.controller, n, chosenId: null, restTo: atom.restTo || "bottom", restOrder: atom.restOrder || null });
     return logEvent(next, { kind: "spell-effect", effect: "impulse-dig", controller: ctx.controller, count: n, kept: 0 });
   }
   const cards = pool.map((c) => ({ id: c.id, name: c.name }));
   // `keep` defaults to 1, so every single-keep dig behaves exactly as before.
-  return setPendingImpulseDigChoice(state, { controller: ctx.controller, candidates: cards, restTo: atom.restTo || "bottom", sourceName: ctx.cardName || null, keep: Math.max(1, atom.keep || 1), lookedAt: n });
+  return setPendingImpulseDigChoice(state, { controller: ctx.controller, candidates: cards, restTo: atom.restTo || "bottom", sourceName: ctx.cardName || null, keep: Math.max(1, atom.keep || 1), lookedAt: n , chosenTo: atom.chosenTo || "hand", restOrder: atom.restOrder || null });
 }
 
 /**

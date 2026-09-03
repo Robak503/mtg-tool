@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🐾 2026-09-03 (night cron) — CORPUS ④-C: KINNAN, BONDER PRODIGY — a dig that puts the pick ONTO THE BATTLEFIELD, the rest bottomed in a random order · **+3** (Kinnan, Web of Life and Destiny, Ureni of the Unwritten) · **Joe's Kinnan deck 69 → 71 with its COMMANDER native** · corpus 13,874 / 34,245 (40.5%)
+> Suite **1364 / 15,421** green (one stale pin graduated, below); lint 0. Flip-diff **+3, zero LOST**, each audited whole-card.
+> **9/9 killed.**
+> · **Why this one:** the census's tap-for-mana carriers led to Kinnan; ablation showed his doubler line was already
+>   native and the {5}{G}{U} dig was the sole blocker — a Joe cEDH commander (the "Joe-deck flips are wins" law).
+> · **The shape:** "Look at the top five cards of your library. You may put a non-Human creature card from among them
+>   onto the battlefield. Put the rest on the bottom of your library in a random order." Two riders on the PROVEN
+>   impulse-dig pause: `chosenTo:"battlefield"` (the settler enters the pick from the library FIRST — a real permanent,
+>   ETBs fire — then bottoms the remaining looked-at cards, so the card under the five stays on top: pinned, M7) and
+>   `restOrder:"random"` (a seeded Fisher–Yates over the bottomed cards, deterministic for the harness: pinned, same
+>   board → same order). A NEGATED SUBTYPE filter (`notSubtype`, "non-Human") in the shared matcher — a changeling is
+>   every creature type (CR 702.73a) and is excluded too (pinned, M4). Every threading site is a killed mutation
+>   (the pause store, the atom, the settler's re-raise).
+> · **The land form yields:** a bare "put a land card … onto the battlefield" stays with the dig-land-to-battlefield
+>   lane (Silverback Elder — its own atom, tapped variant, settler); the first suite run caught my matcher stealing
+>   it (two Silverback pins red) → the matcher now returns null on "land" and the lane owns it again.
+> · **Riders audited:** Web of Life and Destiny (a combat-step trigger with the creature form) and Ureni of the
+>   Unwritten (enters-or-attacks, "Dragon creature" — the conjunctive filter) — same atom, both honest.
+> · **A stale pin graduated:** nonlandManaDoubler's "Kinnan stays body-only" asserted AS native.
+
 > ## 🔥 2026-09-03 (night cron) — CORPUS ④-B: "when this creature dies, it deals damage equal to its power" — the dying-creature look-back on the damage atom · **+7** (Heartfire Hero ×2, Flaming Tyrannosaurus, Balduvian Berserker, Juri, Dreadhorde Butcher, Fireblade Charger) · corpus 13,871 / 34,245 (40.5%)
 > Suite **1363 / 15,416** green (one CREED guard graduated + re-seated, below); lint 0. Flip-diff **+7, zero LOST**, each audited
 > whole-card. **5/5 killed** (M2 — the rewrite firing for ANY self event — survived its first run and got the pin: an ETB

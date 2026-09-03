@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Kinnan, Bonder Prodigy works** — his dig looks at the top five, puts a non-Human creature straight onto the
+  battlefield and bottoms the rest in a random order. Web of Life and Destiny and Ureni of the Unwritten use the
+  same dig.
 - **"When this creature dies, it deals damage equal to its power" works** — Heartfire Hero, Flaming Tyrannosaurus,
   Balduvian Berserker, Juri, Dreadhorde Butcher and Fireblade Charger deal the power they had as they died.
 - **Mind Harness works** — steal a red or green creature, pay the growing upkeep each turn or hand it back.

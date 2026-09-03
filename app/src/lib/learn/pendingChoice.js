@@ -277,7 +277,7 @@ export function setPendingImprintChoice(state, { controller, candidates, sourceI
  * tutor/scry, `runProgram` records the suspended-program continuation onto `pendingChoice.resume` when
  * it detects the pause. FIFO: one choice at a time.
  */
-export function setPendingImpulseDigChoice(state, { controller, candidates, restTo, sourceName = null, keep = 1, chosenIds = [], lookedAt = null }) {
+export function setPendingImpulseDigChoice(state, { controller, candidates, restTo, sourceName = null, keep = 1, chosenIds = [], lookedAt = null, chosenTo = "hand", restOrder = null }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "impulse-dig-pending", controller, count: candidates.length, restTo, sourceName, keep });
   return {
@@ -295,6 +295,10 @@ export function setPendingImpulseDigChoice(state, { controller, candidates, rest
       keep,
       chosenIds,
       lookedAt: lookedAt ?? candidates.length,
+      // CORPUS ④-C (Kinnan): where the pick goes ("hand" | "battlefield") and how the rest are bottomed (null = printed
+      // order | "random" = a seeded shuffle). Threaded explicitly — an unlisted field is a silent drop.
+      chosenTo: chosenTo === "battlefield" ? "battlefield" : "hand",
+      restOrder: restOrder === "random" ? "random" : null,
     },
   };
 }

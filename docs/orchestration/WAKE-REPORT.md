@@ -7,6 +7,14 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🐾 2026-09-03 (night cron) — **④-C: KINNAN is NATIVE — Joe's commander (+3)** · suite **1364 / 15,421** green · Kinnan Mana Overload **69 → 71** · corpus 13,874 / 34,245 (40.5%) · flip-diff +3 / 0 lost · 9/9 killed
+
+> The impulse-dig pause learned two riders (the pick enters the battlefield; the rest bottom in a seeded random
+> order) and the shared filter learned a negated subtype (non-Human, changeling excluded). **Next runnable:** the
+> tap-for-mana trigger event (Zhur-Taa Druid, Forbidden Orchard, Savage Firecat, Vorinclex's opponent-land lock),
+> Nikya's "can't cast noncreature spells" lock, then the rest of the census leads (Relic of Progenitus, Snapcaster's
+> flashback grant, the en-Kor redirect, Bubble Snare's kicker-on-aura, Hypnotic Siren's bestow-with-control).
+
 ## 🔥 2026-09-03 (night cron) — **④-B: dies-damage-by-power (+7, Heartfire Hero)** · suite **1363 / 15,416** green · corpus 13,871 / 34,245 (40.5%) · flip-diff +7 / 0 lost · 5/5 killed
 
 > The dying-creature look-back (`ctx.dyingPower`) now feeds the damage atom for "when this creature dies, it deals

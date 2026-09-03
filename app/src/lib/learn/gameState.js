@@ -965,7 +965,7 @@ export function applyScrySurveil(state, { playerId, n, keepIdsOrdered, mode }) {
  * puts nothing in hand and still disposes the rest — no card duplicated or lost. Mirrors
  * applyScrySurveil's eliminated-controller guard + immutable withPlayer shape.
  */
-export function applyImpulseDig(state, { playerId, n, chosenId, chosenIds, restTo }) {
+export function applyImpulseDig(state, { playerId, n, chosenId, chosenIds, restTo, restOrder = null }) {
   assertPlayer(playerId);
   if (!state.players[playerId]) return state; // controller eliminated mid-resolution → clean no-op
   // MULTI-KEEP (Stock Up "put TWO of them into your hand", Dig Through Time): the picks arrive as a SET.
@@ -977,7 +977,16 @@ export function applyImpulseDig(state, { playerId, n, chosenId, chosenIds, restT
     const top = player.library.slice(0, n);
     const rest = player.library.slice(n);
     const chosen = top.filter(c => keepSet.has(c.id));
-    const others = top.filter(c => !keepSet.has(c.id)); // every non-chosen looked-at card → bottom / graveyard
+    let others = top.filter(c => !keepSet.has(c.id)); // every non-chosen looked-at card → bottom / graveyard
+    // CORPUS ④-C (Kinnan) — "in a random order": a seeded Fisher–Yates over the bottomed cards (deterministic for
+    // the self-play harness; the seed mixes the turn, the seat and the library size so two digs never share it).
+    if (restOrder === "random" && others.length > 1) {
+      const seedStr = `${state.turn || 0}|${playerId}|${player.library.length}|${n}`;
+      let h = 2166136261; for (let i = 0; i < seedStr.length; i++) { h ^= seedStr.charCodeAt(i); h = Math.imul(h, 16777619); }
+      const rng = deterministicRng(h >>> 0);
+      others = [...others];
+      for (let i = others.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [others[i], others[j]] = [others[j], others[i]]; }
+    }
     const hand = chosen.length ? [...player.hand, ...chosen] : player.hand;
     if (restTo === "graveyard") discarded = others;
     return restTo === "graveyard"

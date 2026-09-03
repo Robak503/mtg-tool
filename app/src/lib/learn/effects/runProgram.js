@@ -643,11 +643,22 @@ export function resolveImpulseDigChoice(state, cardId) {
     return setPendingImpulseDigChoice(next, {
       controller: pc.controller, candidates: remaining, restTo: pc.restTo,
       sourceName: pc.sourceName, keep, chosenIds: picked, lookedAt,
+      chosenTo: pc.chosenTo, restOrder: pc.restOrder, // ④-C — the riders ride every re-raise
     });
+  }
+  // CORPUS ④-C (Kinnan) — a BATTLEFIELD pick enters from the library FIRST (enterCardFromZone: ETBs fire, the
+  // permanent is real); the remaining looked-at cards are then still the top (lookedAt − picks) and get bottomed
+  // below with chosenIds empty. A hand pick keeps the byte-identical path.
+  let toBottom = lookedAt;
+  let keptIds = picked;
+  if (pc.chosenTo === "battlefield" && picked.length) {
+    for (const id of picked) next = enterCardFromZone(next, { playerId: pc.controller, cardId: id, fromZone: "library" }).state;
+    toBottom = Math.max(0, lookedAt - picked.length);
+    keptIds = [];
   }
   // ⚠️ `n` is the ORIGINAL look size, never the shrunken candidate list — the disposal must cover every card
   // looked at, including the ones already moved to hand on earlier passes.
-  next = applyImpulseDig(next, { playerId: pc.controller, n: lookedAt, chosenIds: picked, restTo: pc.restTo });
+  next = applyImpulseDig(next, { playerId: pc.controller, n: toBottom, chosenIds: keptIds, restTo: pc.restTo, restOrder: pc.restOrder || null });
   next = logEvent(next, { kind: "spell-effect", effect: "impulse-dig", controller: pc.controller, kept: picked.length, restTo: pc.restTo });
   return resumeAfterChoice(next, pc);
 }

@@ -414,6 +414,27 @@ export function matchImpulseDig(oracle) {
     const label = chosen ? `${rd[2].trim()} card of the chosen type` : `${rd[2].trim()} card`;
     return { atom: { op: "impulse-dig", amount, restTo: "bottom", filter, filterLabel: label }, rest: oracle.slice(rd[0].length).trim() };
   }
+  // (2b) DIG-TO-BATTLEFIELD, RANDOM REST (CORPUS ④-C, 2026-09-03 night — Kinnan, Bonder Prodigy's "{5}{G}{U}: Look at
+  // the top five cards of your library. You may put a non-Human creature card from among them onto the battlefield.
+  // Put the rest on the bottom of your library in a random order."): the reveal-dig frame with TWO riders the
+  // settler enforces — the chosen card ENTERS THE BATTLEFIELD (enterCardFromZone, ETBs fire) instead of going to
+  // hand, and the rest go to the bottom in a RANDOM (seeded, deterministic) order. An optional leading
+  // "non-<Subtype>" negates a creature subtype (`notSubtype`; a changeling IS every type, so it is excluded too —
+  // CR 702.73a); the base type still goes through parseTutorFilter (an unlisted type word → Arbiter).
+  const rb = String(oracle).match(
+    /^look at the top (\w+) cards? of your library\. you may put an? (?:(non-([a-z]+)) )?([a-z][a-z ]*?) card from among them onto the battlefield\. put the rest on the bottom of your library in a random order\.?/i,
+  );
+  if (rb) {
+    // A bare "land card" belongs to the dig-land-to-battlefield lane below (Silverback Elder: its own atom, tapped
+    // variant, settler) — this matcher yields to it so the two never contend on the same clause.
+    if (rb[4].trim().toLowerCase() === "land") return null;
+    const amount = DIG_NUM[rb[1].toLowerCase()];
+    const filter = parseTutorFilter(rb[4].trim().toLowerCase());
+    if (!amount || !filter) return null;
+    if (rb[3]) filter.notSubtype = rb[3].toLowerCase();
+    const label = `${rb[2] ? rb[2].toLowerCase() + " " : ""}${rb[4].trim().toLowerCase()} card`;
+    return { atom: { op: "impulse-dig", amount, restTo: "bottom", filter, filterLabel: label, chosenTo: "battlefield", restOrder: "random" }, rest: oracle.slice(rb[0].length).trim() };
+  }
   // (3) MALEVOLENT RUMBLE (2026-08-14) — the REVEALED filtered keep with a GRAVEYARD rest: "Reveal the
   // top N cards of your library. You may put a <type> card from among them into your hand. Put the rest
   // into your graveyard." The whole set is revealed up front (public — cosmetically different from the

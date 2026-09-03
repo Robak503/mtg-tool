@@ -88,8 +88,8 @@ describe("MD-1 parser — the exact controller-scoped nonland-permanent same-typ
 });
 
 describe("MD-1 coverage — Kinnan PARKS (whole-card law); only a clean-body carrier flips native", () => {
-  it("Kinnan stays body-only — its {5}{G}{U} look-at-top-five activated ability is unmodeled (safe FN)", () => {
-    expect(classifyCard(KINNAN)).toBe("body-only");
+  it("GRADUATED (CORPUS ④-C, 2026-09-03): Kinnan is native — his {5}{G}{U} dig-to-battlefield is modeled (kinnanDig.test.js owns the runtime witness)", () => {
+    expect(classifyCard(KINNAN)).toBe("native-mixed");
   });
   it("Roxanne stays body-only too (its token-creation body + narrower subject both keep it parked)", () => {
     expect(classifyCard(ROXANNE)).toBe("body-only");
