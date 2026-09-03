@@ -28,7 +28,7 @@ import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js
 import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
-import { entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
+import { entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, choosesColorOnEnter, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
 import { addContinuousEffect } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); acyclic (layers imports only ptPrimitive/keywords/staticAbilityParser/protection, none of which reach resolvers)
 import { conditionalEntersTapped, paysLifeOrEntersTapped, autoPickOptionalLifePayment, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>"; a leaf over interveningIf (interveningIf → layers → staticAbilityParser, none reach resolvers) — acyclic
 import { autoPickCreatureType } from "./choicePolicy.js"; // CR 614.12 auto-choice policy — a zero-import LEAF, shared with the effect atoms (which cannot import resolvers: resolvers → runProgram → effectAtoms). One copy, so an ETB choice and an activated choice can never diverge on the same board.
@@ -140,7 +140,7 @@ function entersWithChosenTypeCounter(card) {
 // safe, always-useful default (and keeps the stamp well-formed so the boost is never dropped). Pure — reads
 // the PRE-entry `state` (the Aura isn't on the battlefield yet; it has no mana cost pips of interest anyway).
 const CHOOSE_COLOR_WUBRG = ["W", "U", "B", "R", "G"];
-function autoPickManaColor(state, controller) {
+export function autoPickManaColor(state, controller, exclude = null) {
   const player = state.players[controller];
   const tally = { W: 0, U: 0, B: 0, R: 0, G: 0 };
   const add = (cards) => {
@@ -158,6 +158,7 @@ function autoPickManaColor(state, controller) {
   let best = null;
   let bestN = 0;
   for (const c of CHOOSE_COLOR_WUBRG) {
+    if (exclude && c === exclude) continue; // LANDS-12: "choose a color other than <X>" (the Thriving lands, the Gates)
     if (tally[c] > bestN) { best = c; bestN = tally[c]; }
   }
   return best || "G";
@@ -489,6 +490,11 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // back by manaModel.landAuraManaBonus to resolve the "additional one mana of the chosen color" boost when
   // the enchanted Forest taps. Mirrors chosenType. A non-choosing Aura leaves chosenColor undefined.
   if (auraChoosesColorOnEnter(card)) perm.chosenColor = autoPickManaColor(state, controller);
+  // LANDS-12 — a LAND that chooses a color as it enters (the Thriving lands, the Gates, Night Market …): the
+  // same durable `chosenColor` stamp, honouring a printed "other than <color>" exclusion. Read back by the mana
+  // model's "one mana of the chosen color" leg (manaSources resolves it against THIS permanent).
+  const landCC = choosesColorOnEnter(card);
+  if (landCC) perm.chosenColor = autoPickManaColor(state, controller, landCC.exclude);
   // CHOSEN-TYPE ETB COUNTER (CR 614.1c + 122.6a) — Banner of Kinship enters with a <name> counter for each
   // creature the controller controls of the chosen type. Runs AFTER the chosenType auto-pick above so the
   // metric uses the just-picked type; `state` is pre-entry (the artifact isn't a creature, so it's never

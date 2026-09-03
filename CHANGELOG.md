@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Fixed
+- **Choose-a-color lands and rocks work.** The Thriving lands, the Baldur's Gate Gates, Night Market,
+  Uncharted Haven, Coldsteel Heart, Sol Grail and their kin now actually choose a color as they enter (the
+  color your hand needs most, never one the card forbids) and tap for it.
 - **Storage lands work.** Saltcrusted Steppe, Dreadship Reef, Calciform Pools, Molten Slagheap, Fungal
   Reaches, Mage-Ring Network, Fountain of Cho and their kin can now actually put storage counters on
   themselves (their remove-counters mana abilities already worked).

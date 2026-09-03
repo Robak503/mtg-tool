@@ -31,9 +31,15 @@ describe("cards the engine CANNOT tap are no longer tiered native-mana", () => {
     expect(classifyCard(card({ name: "Everflowing Chalice", type: "Artifact", mana: "{0}",
       oracle: "{T}: Add {C} for each charge counter on this artifact." }))).not.toBe("native-mana");
   });
-  it("a COLOUR chosen as the permanent entered", () => {
+  it("a COLOUR chosen as the permanent entered — GRADUATED 2026-09-03 (LANDS-12): the choice is stamped at entry and the mana model reads it back; a mana line with NO choice on the card still refuses", () => {
+    // Coldsteel Heart is reachable now: enterPermanent stamps `chosenColor` (the most-needed casting color)
+    // and manaSources resolves "one mana of the chosen color" against that stamp.
     expect(classifyCard(card({ name: "Coldsteel Heart", type: "Artifact", mana: "{2}",
-      oracle: "This artifact enters tapped.\nAs this artifact enters, choose a color.\n{T}: Add one mana of the chosen color." }))).not.toBe("native-mana");
+      oracle: "This artifact enters tapped.\nAs this artifact enters, choose a color.\n{T}: Add one mana of the chosen color." }))).toBe("native-mana");
+    // ⛔ The pin lives on where nothing can be read: a "chosen color" mana line with no choice printed has no
+    // stamp — the parser refuses it, so the card is never credited a source the runtime cannot produce.
+    expect(classifyCard(card({ name: "Probe Unchosen", type: "Artifact", mana: "{2}",
+      oracle: "{T}: Add one mana of the chosen color." }))).not.toBe("native-mana");
   });
   it("⭐⭐ RE-POINTED — tap-OTHER is a cost the engine CAN pay now; the unpayable ones still refuse", () => {
     // This file's subject is REACHABILITY: a card is credited native-mana only when the sim can actually pay
@@ -79,7 +85,7 @@ describe("the gate mirrors the runtime rather than guessing", () => {
     for (const o of [
       { name: "Goblin Clearcutter", type: "Creature — Goblin", oracle: "{T}, Sacrifice a Forest: Add three mana in any combination of {R} and/or {G}." },
       { name: "Everflowing Chalice", type: "Artifact", oracle: "{T}: Add {C} for each charge counter on this artifact." },
-      { name: "Coldsteel Heart", type: "Artifact", oracle: "This artifact enters tapped.\nAs this artifact enters, choose a color.\n{T}: Add one mana of the chosen color." },
+      { name: "Probe Unchosen", type: "Artifact", oracle: "{T}: Add one mana of the chosen color." }, // LANDS-12: the chosen-color leg needs the printed choice; Coldsteel Heart (which prints it) is accepted now
     ]) expect(manaProduction(o)).toBeFalsy();
   });
   it("and every card it still credits is one manaProduction accepts", () => {

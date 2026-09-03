@@ -5862,6 +5862,29 @@ export function auraEnchantSubject(card) {
 // resolvers.enterPermanent stamps the auto-picked `chosenColor` on the Aura permanent under the SAME gate
 // the native-mana-aura path uses — the metric + runtime can't drift.
 const AURA_CHOOSE_COLOR_ETB_RE = /^as this aura enters, choose a color$/i;
+/**
+ * LANDS-TIER slice 12 (2026-09-03) — a LAND that chooses a color as it enters: "As it enters, choose a color
+ * [other than <color>]." / "As this land enters, choose a color …" (the Thriving cycle, the Baldur's Gate
+ * Gates, Night Market, Uncharted Haven, Shimmerdrift Vale, Crossroads Village, Sunken Citadel … ~24 corpus
+ * lands). Returns { exclude: "W"|"U"|"B"|"R"|"G"|null } or null. Whole-clause anchored; the choice is stamped
+ * durably on the permanent as `chosenColor` at BOTH enter sites (the Aura precedent, CR 614.12b) and read
+ * back by the mana model's "one mana of the chosen color" leg.
+ */
+// ANY permanent type prints the sentence — lands ("As it / this land enters"), the mana rocks (Coldsteel Heart,
+// Sol Grail: "As this artifact enters"), a creature (Silhana Starfletcher: "As this creature enters"). The
+// stamp and the read-back are permanent-type-agnostic, so the reader is too; the tutor site stamps every
+// permanent, the play-land path stamps the lands (the only permanents that enter through it).
+const LAND_CHOOSE_COLOR_RE = /^as (?:it|this (?:land|artifact|creature|permanent|enchantment)) enters, choose a color(?: other than (white|blue|black|red|green))?$/i;
+const COLOR_WORD_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+export function choosesColorOnEnter(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  for (const c of abilityClauses(oracle)) {
+    const m = c.trim().match(LAND_CHOOSE_COLOR_RE);
+    if (m) return { exclude: m[1] ? COLOR_WORD_LETTER[m[1].toLowerCase()] : null };
+  }
+  return null;
+}
+
 export function auraChoosesColorOnEnter(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "");
   return abilityClauses(oracle).some((c) => AURA_CHOOSE_COLOR_ETB_RE.test(c.trim()));

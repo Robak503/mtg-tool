@@ -7,7 +7,17 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## 🏗️ 2026-09-03 — **STAGE ② rolling: LANDS-10 storage-counter lands · LANDS-11 the Karoos + pay-{1} lands (+23) — corpus 40.2% (13,751), Cap 84** — suite **1329 / 15,199** green
+## 🎨 2026-09-03 — **STAGE ② DONE to the parks: LANDS-12 choose-a-color permanents (+21) — corpus 40.2% (13,772), Cap 84** — suite **1330 / 15,210** green
+
+> **LANDS-12**: the Thriving lands, the Gates, Night Market and kin (+ Coldsteel Heart, Sol Grail): a
+> permanent-type-agnostic reader for "As it enters, choose a color [other than X]", the play-land stamp,
+> and a `chosenColor` leg in the mana-spec parser resolved against the live permanent — admitted only
+> when the card prints the choice (the flip-diff caught an unreachable-source FP in the first cut; two
+> reachability pins re-anchored). 8/8 killed. **Stage ② land families ≥3 carriers are all shipped or
+> parked** (bands, Station). **Next: stage ③ — Squirrel Girl, commander first** (two one-line vocabulary
+> gaps + a punctuation-terminated flavor-label rule; scoped, mutation script written).
+
+## 🏗️ 2026-09-03 — LANDS-10 storage-counter lands · LANDS-11 the Karoos + pay-{1} lands (+23) — corpus 40.2% (13,751), Cap 84 — suite 1329 / 15,199 green
 
 > **LANDS-10** = one noun ("this land") in the add-named-counter-self parser — 13 storage/charge lands whose
 > remove-counter mana abilities were already modeled. **LANDS-11** = two words — the self-ETB pronoun "it"

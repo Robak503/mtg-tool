@@ -412,6 +412,20 @@ function parseAddClause(oracle, card) {
     return { colors: ["W", "U", "B", "R", "G"], amount: 1 };
   }
 
+  // CHOSEN-COLOR LEG (LANDS-TIER slice 12, 2026-09-03) — "{T}: Add one mana of the chosen color." (Night Market,
+  // Uncharted Haven, Crossroads Village …) and "{T}: Add {U} or one mana of the chosen color." (the Thriving
+  // lands, the Gates). The color is not printed: it is the `chosenColor` stamped on the PERMANENT as it
+  // entered (both enter sites; CR 614.12b's durable choice). The spec carries `chosenColor: true` and only
+  // the FIXED option (if any) in `colors`; manaSources resolves the leg against the live permanent, and an
+  // unstamped permanent yields only its fixed option (or nothing) — never a fabricated color (CREED).
+  // ⛔ ONLY when the card itself prints the choice ("As … enters, choose a color") — the sentence the enter
+  // sites stamp from. A mana line that names "the chosen color" with no choice on the card has no stamp to
+  // read and must stay unparsed (an unreachable source credited native-mana is the FP the reachability pins
+  // guard). The check is a local regex, not the static reader, to keep this module a leaf.
+  const cc = oracle.match(/\bAdd (?:\{([WUBRG])\} or )?one mana of the chosen color\b/i);
+  if (cc && /\bas (?:it|this [a-z]+) enters, choose a color\b/i.test(oracle)) {
+    return { colors: cc[1] ? [cc[1].toUpperCase()] : [], amount: 1, chosenColor: true };
+  }
   const m = oracle.match(/Add ([^.]*)/i);
   if (!m) return null;
   const clause = m[1];
@@ -1425,6 +1439,14 @@ export function manaSources(state, playerId) {
       prod = applyAuraManaGrantSupplement(state, perm, prod);   // AURA-MANA-GRANT: a land's own tap upgrades to a dominating aura grant
     }
     if (!prod) continue;
+    // LANDS-12 — resolve the CHOSEN-COLOR leg against THIS permanent's stamp (see parseAddClause). Unstamped →
+    // only the fixed option remains; a spec with no fixed option and no stamp produces nothing (never a guess).
+    if (prod.chosenColor) {
+      const stamped = perm.chosenColor;
+      const colors = stamped ? [...new Set([...(prod.colors || []), stamped])] : [...(prod.colors || [])];
+      if (!colors.length) continue;
+      prod = { ...prod, colors };
+    }
     // ⛔ CONDITION-GATED SOURCE (CR 602.5) — "Activate only if you control three or more artifacts" (Mox Opal
     // #241, Fanatic of Rhonas #418). Evaluated LIVE here, at the ONE chokepoint every consumer of the source
     // list goes through; gating at each consumer instead would guarantee one of them forgets. `!== true` so a

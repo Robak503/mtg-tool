@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎨 2026-09-03 — LANDS-12: CHOOSE-A-COLOR permanents (the Thriving lands, the Gates, Night Market … + Coldsteel Heart, Sol Grail) · **+21 corpus** · corpus 40.2% (13,772/34,245)
+> Suite **1330 / 15,210** green; lint 0. Flip-diff **+21, zero LOST, zero RETIERED** — 17 lands (Thriving ×5,
+> the Gates ×6, Night Market, Uncharted Haven, Crossroads Village, Shimmerdrift Vale, Mirage Mesa,
+> Valgavoth's Lair, Tarnation Vista) and four non-lands the same sentence carries (Coldsteel Heart, Sol
+> Grail, Heraldic Banner, Silhana Starfletcher). **8/8 killed.**
+> · **The stamp existed** (Utopia Sprawl's Aura: `chosenColor` on the permanent, CR 614.12b, auto-picked as
+>   the controller's most-needed casting color). Three pieces were missing: a reader for "As it / this land /
+>   this artifact / this creature enters, choose a color [other than <X>]" (`choosesColorOnEnter`, with the
+>   printed exclusion honoured by the auto-pick); the play-land stamp (the tutor site stamps every permanent
+>   already); and a `chosenColor` LEG in the mana-spec parser — "{T}: Add [{U} or] one mana of the chosen
+>   color" — resolved at manaSources against the live permanent. An UNSTAMPED permanent yields only its
+>   fixed option, never a guessed color (pinned).
+> · **⛔ The FP the flip-diff caught:** the first cut read the mana line for ANY card, so an artifact that
+>   printed "one mana of the chosen color" with NO choice sentence would have been credited a source the
+>   runtime can never produce — exactly what the manaReachability pins guard. The parser now admits the leg
+>   only when the card itself prints the choice, and the reader was made permanent-type-agnostic so the
+>   four artifact/creature riders are honestly stamped. Two reachability pins re-anchored (Coldsteel Heart
+>   is reachable now; the CREED half moved to a "chosen color" mana line with no printed choice).
+> · Stage ② tally: reveal 19 · typed-basic 16 · enters-with-counters 12 · storage 13 · Karoo/pay 10 ·
+>   choose-a-color 21. Remaining ≥3-carrier land families: the Gates' once-only draw (5), bands (5, park),
+>   Station (2, park). **Stage ② is effectively done — moving to stage ③ (Squirrel Girl, commander first).**
+
 > ## 🏗️ 2026-09-03 — LANDS-10 storage-counter lands (one noun) · LANDS-11 the Karoos + "sacrifice it unless you pay {1}" (two words) · **+23 corpus** · corpus 40.2% (13,751/34,245)
 > Suite **1329 / 15,199** green (one pre-existing pin re-anchored, test-only — see below); lint 0. Flip-diff
 > **+23, zero LOST, zero RETIERED**: twelve storage/charge lands (Saltcrusted Steppe, Dreadship Reef,

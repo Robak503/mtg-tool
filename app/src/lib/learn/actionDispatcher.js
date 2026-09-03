@@ -62,8 +62,8 @@ import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT di
 import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
-import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
-import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped, impositionEntersTapped, auraEnchantHostSpec, entersWithNamedCounters } from "./staticAbilityParser.js";
+import { RESOLVER_KEYS, isPermanentSpell, autoPickManaColor } from "./resolvers.js"; // LANDS-12: the ONE color auto-pick both enter sites stamp with
+import { isAuraCard, isNativeAura, isNativeManaAura, isPlayerAuraCard, entersTapped, impositionEntersTapped, auraEnchantHostSpec, entersWithNamedCounters, choosesColorOnEnter } from "./staticAbilityParser.js";
 import { applyCounterDoubling } from "./replacementEffects.js"; // LANDS-9: the same doubling seam resolvers.enterPermanent uses for enters-with counters
 // ORDEAL (BLITZ OC-1): the Theros Ordeal cast lane — the SAME gate legalChoices offers on and the metric
 // awards (single source of truth, no drift). Acyclic: coverage.js never imports actionDispatcher.js.
@@ -206,6 +206,20 @@ function applyPlayLand(state, action) {
     const bf = next.players[action.playerId].battlefield;
     const entered = bf[bf.length - 1];
     if (entered) next = addCounter(next, { permanentId: entered.id, type: namedLandCtr.type, amount: applyCounterDoubling(next, action.playerId, namedLandCtr.type, namedLandCtr.n) });
+  }
+  // LANDS-TIER slice 12 (2026-09-03) — a LAND that "chooses a color as it enters" (the Thriving lands, the
+  // Gates, Night Market …): stamp the durable `chosenColor` the tutor site (resolvers.enterPermanent) already
+  // stamps, through the SAME auto-pick (most-needed casting color, honouring a printed "other than <X>").
+  // The mana model's "one mana of the chosen color" leg resolves it against this permanent; an unstamped
+  // land simply never yields that color (FN-safe).
+  const landCC = choosesColorOnEnter(card);
+  if (landCC) {
+    const bf = next.players[action.playerId].battlefield;
+    const entered = bf[bf.length - 1];
+    if (entered) {
+      const picked = autoPickManaColor(next, action.playerId, landCC.exclude);
+      next = updatePermanentSafe(next, entered.id, (p) => ({ ...p, chosenColor: picked }));
+    }
   }
   next = {
     ...next,

@@ -81,8 +81,10 @@ Stage ① builds the arms; stage ② is making them COMPLETE across the corpus a
 land-partial, 368 single-blockers):** ✅ reveal-lands (19, LANDS-7) · ✅ typed-basic union fetch — the
 Landscapes/Panoramas (16, LANDS-8) · ✅ Channel (shipped in stage ①, LANDS-5: +20 riders) · ✅ shocklands
 (LANDS-2) · ✅ "enters tapped unless" (LANDS-1, 83) · ✅ enters-with-N-counters lands (12, LANDS-9) ·
-✅ storage-counter lands (13, LANDS-10) · ✅ the Karoos + pay-{1} lands (9 + Scythe Tiger, LANDS-11).
-**Queued, cheapest-first:** "As it
+✅ storage-counter lands (13, LANDS-10) · ✅ the Karoos + pay-{1} lands (9 + Scythe Tiger, LANDS-11) ·
+✅ choose-a-color permanents (21, LANDS-12). **DONE ② as far as the ≥3-carrier families go** — remaining:
+the Gates' once-only draw (5, "{}{}, {T}: draw a nonland card. Activate only once" — a once-ever ledger),
+bands (5, PARK), Station (2, PARK). Original queue for reference: "As it
 enters, choose a color" (6 — `chosenColor` exists for Auras) · the Karoos (10) · the Gates (5) · "sacrifice
 unless you pay {1}" (4). **Parks:** bands (5), the Overlooks' reflexive "When you do … and you gain 1 life"
 tail (5), Station (2).
