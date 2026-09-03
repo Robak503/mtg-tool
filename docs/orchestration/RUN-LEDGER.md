@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🌋 2026-09-03 — LANDS-13: the Invasion lairs — "unless you return a NON-Lair land you control" · **+5 corpus** · land-partial 368→363 · corpus 40.3% (13,791/34,245)
+> Suite **1336 / 15,249** green; lint 0. Flip-diff **+5, zero LOST** (Darigaaz's Caldera, Treva's Ruins,
+> Dromar's Cavern, Rith's Grove, Crosis's Catacombs). **3/3 killed.**
+> · The Karoo arm (LANDS-11) built the return-land cost with a POSITIVE subtype; the lairs print the negated
+>   form. `notSubtype` rides the cost and the SHARED pool match (offer and payment read one function)
+>   refuses a land carrying it — a second Lair cannot pay for the first (pinned: with only another Lair on
+>   the board, "pay" ends in a sacrifice and the other Lair stays).
+> · Stage ② open families after this: the Gates' once-only draw (5) · the Roads (5) · the Gathering Place
+>   OR-condition (5) · the Overlooks' reflexive rider (5) · bands (5, park) · the Ice Age would-enter
+>   sacrifice (3) · Station (2, park).
+
 > ## 🔁 2026-09-03 — SG-5: Geier Reach Sanitarium / Lore Broker — "Each player draws a card, then discards a card." · **+2 corpus** · Squirrel Girl deck 73→74 · corpus 40.3% (13,786/34,245)
 > Suite **1335 / 15,244** green; lint 0. Flip-diff **+2, zero LOST**. **3/3 killed.**
 > · Both halves already parsed HIGH on their own ("Each player draws a card." → draw who:eachPlayer;

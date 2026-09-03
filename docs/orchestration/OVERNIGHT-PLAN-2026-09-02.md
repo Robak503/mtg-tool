@@ -83,10 +83,10 @@ Landscapes/Panoramas (16, LANDS-8) · ✅ Channel (shipped in stage ①, LANDS-5
 (LANDS-2) · ✅ "enters tapped unless" (LANDS-1, 83) · ✅ enters-with-N-counters lands (12, LANDS-9) ·
 ✅ storage-counter lands (13, LANDS-10) · ✅ the Karoos + pay-{1} lands (9 + Scythe Tiger, LANDS-11) ·
 ✅ choose-a-color permanents (21, LANDS-12). **Measured after LANDS-12 (the DONE ② number): land-partial
-454 → 368 (single-blockers 368 → 291).** ⚠️ CORRECTION to an earlier line here: NOT every ≥3-carrier
-family is shipped or parked — six families of exactly 5 carriers remain OPEN: the Gates' once-only draw
-("… Activate only once" — a once-ever ledger); the Invasion lairs ("sacrifice it unless you return a
-NON-<type> land you control" — a negated-subtype return cost, a small LANDS-11 extension); the Roads
+454 → 368 (single-blockers 368 → 291); after LANDS-13 (the lairs, +5): 363.** ⚠️ CORRECTION to an earlier
+line here: NOT every ≥3-carrier family is shipped or parked — five families of exactly 5 carriers remain
+OPEN: the Gates' once-only draw ("… Activate only once" — a once-ever ledger); ~~the Invasion lairs~~ (✅
+LANDS-13 — the negated-subtype return cost); the Roads
 ("Sacrifice this land: create a Pilot token with a quoted sac ability"); the Gathering Place cycle ("Add
 {X} or {Y}. Activate only if this land entered this turn OR you control a basic land" — an OR condition
 the activation-gate vocabulary refuses structurally); the Overlooks (reflexive "When you do … and you gain

@@ -40,6 +40,8 @@ import { isLandCard } from "./atoms/shared.js"; // SAC-UNLESS-RETURN-LAND — sh
 const returnLandPoolMatch = (cost, p) =>
   isLandCard(p.card)
   && (!cost.subtype || new RegExp(`\\b${cost.subtype}\\b`, "i").test(String(p.card?.type || p.card?.type_line || "")))
+  // LANDS-13 — the lairs' "a non-Lair land": a land carrying the excluded subtype cannot pay.
+  && (!cost.notSubtype || !new RegExp(`\\b${cost.notSubtype}\\b`, "i").test(String(p.card?.type || p.card?.type_line || "")))
   && (!cost.untapped || !p.tapped);
 import { evaluateInterveningIf } from "../interveningIf.js"; // CONDITIONAL SPELL RIDER (BLITZ CD-1) — the shared board-condition readers; runProgram → interveningIf → gameState is a leaf edge (no cycle)
 import { addContinuousEffect } from "../layers.js"; // SAVAGE ORDER — the fetched-permanent UEOT keyword grants; layers never imports runProgram (gameState itself imports layers), so this edge is cycle-free
