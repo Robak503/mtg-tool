@@ -111,8 +111,11 @@ describe("ARIXMETHES — remove-named-counter-self (cast trigger)", () => {
       .toEqual({ op: "remove-named-counter-self", counterType: "slumber", amount: 1 });
     expect(removeNamedCounterSelfClauseParser("remove a slumber counter from it"))
       .toEqual({ op: "remove-named-counter-self", counterType: "slumber", amount: 1 });
-    // a ±1/+1 form is NOT this atom (owned by the creature-self +1/+1 path)
-    expect(removeNamedCounterSelfClauseParser("remove a +1/+1 counter from this creature")).toBeNull();
+    // ④-I (Savage Firecat, 2026-09-03): the +1/+1 spelling IS this atom now (no other effect arm ever owned it —
+    // the old "creature-self +1/+1 path" note pointed at nothing); -1/-1 stays refused (no modeled carrier).
+    expect(removeNamedCounterSelfClauseParser("remove a +1/+1 counter from this creature"))
+      .toEqual({ op: "remove-named-counter-self", counterType: "+1/+1", amount: 1 });
+    expect(removeNamedCounterSelfClauseParser("remove a -1/-1 counter from this creature")).toBeNull();
   });
   it("the effect clause parses HIGH to the remove-named-counter-self atom", () => {
     const r = parseEffectClause("you may remove a slumber counter from this creature");

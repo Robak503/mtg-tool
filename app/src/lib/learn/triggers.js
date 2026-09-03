@@ -2051,6 +2051,10 @@ function classifyCondition(condRaw, cardName, cardType) {
   // would demote every one of them (measured: Vorinclex grew a second, LOW descriptor). Its non-doubler carriers
   // (Savage Firecat's counter removal, Groundchuck's flat {G}) stay parked until their effects are modeled.
   if (/^you tap this (?:creature|land|artifact|permanent) for mana$/.test(c)) return { event: "tapForMana", scope: "self", whose: "you" };
+  // ④-I (Savage Firecat): "you tap a land for mana" IS detected now — but the descriptor builder DROPS the doubler
+  // payoff ("…, add one mana of any type that land produced" / "add {G}"), which stays the mana model's augment
+  // static. Only a non-mana effect (Firecat's counter removal) becomes a trigger. See the builder's tapForMana gate.
+  if (/^you tap a land for mana$/.test(c)) return { event: "tapForMana", scope: "you", whose: "you", tappedFilter: "land" };
   if (/^an opponent taps a land for mana$/.test(c)) return { event: "tapForMana", scope: "you", whose: "opponent", tappedFilter: "land" };
   // ABILITY-ACTIVATED (CAP-BRACERS, 2026-09-03 — CR 602 / 707.10): "Whenever an ability of equipped creature is
   // activated, if it isn't a mana ability, copy that ability." (Illusionist's Bracers, Battlemage's Bracers). The
@@ -4980,6 +4984,11 @@ export function detectTriggers(card) {
       // over-fire this family exists to avoid — so the descriptor is DROPPED entirely and the card stays on
       // the Arbiter (a safe false-negative). Checked here because this is where the rider is known.
       if (cls.requiresOncePerTurn && !oncePerTurnTrigger) continue;
+      // ④-I — TAPPED-FOR-MANA + a MANA payoff ("add …") is the mana DOUBLER family, owned by the mana model's global-tap
+      // augment static (Zendikar Resurgent, Mirari's Wake, Nikya, Vorinclex's first line, Groundchuck's flat {G}): never
+      // a trigger here — detecting it would give every doubler a second, LOW descriptor and demote it (measured on
+      // 2026-09-03). Only a non-mana payoff (Savage Firecat's counter removal) rides the event.
+      if (cls.event === "tapForMana" && /^add\b/i.test(String(effectClause || "").trim())) continue;
       out.push({
         // ONCE-PER-TURN TRIGGER (M1a): flushTriggers drops re-fires within a turn.
         // ⚠️ THE `|| cls.oncePerTurnTrigger` IS LOAD-BEARING, not defensive. The local above is derived ONLY

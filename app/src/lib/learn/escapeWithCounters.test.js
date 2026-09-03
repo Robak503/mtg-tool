@@ -31,6 +31,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { classifyCard } from "./coverage.js";
 import { _resetIdsForTests } from "./gameState.js";
+import { entersWithPlusCounters } from "./staticAbilityParser.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -64,13 +65,17 @@ describe("⛔⛔ THE SENTENCE SCOPE — the load-bearing pin", () => {
     const escapeOnly = classifyCard({ ...base, oracle: "It escapes with twelve +1/+1 counters on it instead." });
     const fullLine = classifyCard({ ...base, oracle: POLUKRANOS_LINE });
     expect(escapeOnly).toBe("native-body");
-    expect(fullLine).not.toBe(escapeOnly); // the enters-with sentence is still there, and still read
-    // ⓘ SEPARATELY OBSERVED, NOT FIXED HERE: `fullLine` is body-only rather than native because the rider is
-    // written with the CARD NAME ("Polukranos enters with …"), and the enters-with arm wants "this creature"
-    // — the same self-name normalization gap the Elder Dragon post-mortem covers. The "This creature" form is
-    // native (pinned below with Sedge Scorpion). That is a different slice; recorded so it isn't mistaken for
-    // damage done here.
-    expect(fullLine).toBe("body-only");
+    // ④-I (2026-09-03): "six" joined the enters-with vocabulary in BOTH the runtime reader and the classifier's
+    // strip, so the full line is native now — and honestly so: the reader places exactly six (pinned here, so
+    // the credit can never outrun the placement again).
+    expect(fullLine).toBe("native-body");
+    expect(entersWithPlusCounters({ ...base, oracle: POLUKRANOS_LINE })).toBe(6);
+    // ⭐ THE DISCRIMINATOR, rebuilt: an UNMODELED sibling sentence after the escape sentence. Sentence-scoped,
+    // the strip leaves the fight sentence alive and the card parks; widened to the whole LINE, the strip would
+    // eat it and credit a card the engine cannot play.
+    expect(classifyCard({ ...base, oracle: "It escapes with twelve +1/+1 counters on it instead. Polukranos fights another target creature." })).toBe("body-only");
+    // …and BEFORE it (the side the strip's sentence anchor guards — widen that anchor to the line and this credits).
+    expect(classifyCard({ ...base, oracle: "Polukranos fights another target creature. It escapes with twelve +1/+1 counters on it instead." })).toBe("body-only");
   });
 
   it("⛔ the real Polukranos still PARKS on its damage-replacement clause (an honest FN)", () => {

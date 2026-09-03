@@ -7,6 +7,14 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🐈 2026-09-03 (night cron) — **④-I: Savage Firecat (+3)** · suite **1370 / 15,443** green · corpus 13,898 / 34,245 (40.6%) · flip-diff +3 / 0 lost · 6/6 killed
+
+> **Night tally (stage ④, nine slices):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3) · D tapped-for-mana
+> (+2) · E Nikya (+1) · F opponent creature tokens (+7) · G flashback grant (+6) · H en-Kor redirect (+5) · I Savage
+> Firecat (+3) — corpus 13,862 → 13,898 (+36). **Next runnable:** Relic of Progenitus / Scrabbling Claws (an
+> opponent-side graveyard pick + "exile all graveyards"), Bubble Snare + Gigantiform (kicker on the aura cast lane,
+> 2 cards), Hypnotic Siren (bestow-with-control), Mind Extraction / Scapegoat (sac-cost spells).
+
 ## 🛡️ 2026-09-03 (night cron) — **④-H: the en-Kor damage redirect (+5)** · suite **1369 / 15,440** green · corpus 13,895 / 34,245 (40.6%) · flip-diff +5 / 0 lost · 7/7 killed
 
 > **Night tally (stage ④, eight slices):** A Mind Harness (+1) · B dies-damage (+7) · C Kinnan (+3) · D tapped-for-mana

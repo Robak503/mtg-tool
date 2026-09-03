@@ -921,10 +921,13 @@ export function applyRemoveNamedCounterSelf(state, atom, ctx) {
 const _REMOVE_SELF_RESERVED_KINDS = new Set(["time", "fade", "loyalty"]);
 export function removeNamedCounterSelfClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").trim().replace(/^you may\s+/, "");
-  const m = t.match(/^remove (a|an|one|two|three|four|five|\d+) ([a-z]+) counters? from (?:this (?:permanent|creature|artifact|enchantment)|it)$/);
+  // ④-I (Savage Firecat, 2026-09-03): the +1/+1 spelling joins the kind alternation — "remove a +1/+1 counter from this
+  // creature" as an EFFECT (a cost-side "Remove a +1/+1 counter from this creature:" never reaches this effect parser).
+  // The applier removes by kind and is agnostic; only the reserved fading/PW kinds stay refused below.
+  const m = t.match(/^remove (a|an|one|two|three|four|five|\d+) (\+1\/\+1|[a-z]+) counters? from (?:this (?:permanent|creature|artifact|enchantment)|it)$/);
   if (!m) return null;
-  // ±1/+1 forms are spelled with digits + slash and never match [a-z]+; belt-and-suspenders guard.
-  if (/^[+-]?1\/[+-]?1$/.test(m[2])) return null;
+  // -1/-1 self-removal has no modeled carrier and stays refused (a safe FN); +1/+1 is admitted above.
+  if (/^-1\/-1$/.test(m[2])) return null;
   if (_REMOVE_SELF_RESERVED_KINDS.has(m[2])) return null; // owned by fading/PW — see RESERVED-KIND GUARD above
   return { op: "remove-named-counter-self", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10) };
 }

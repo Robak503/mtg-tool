@@ -747,7 +747,7 @@ export function selfNormalizeOracle(oracle, name, type) {
   return o;
 }
 
-const _ENTER_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
+const _ENTER_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 }; // ④-I: six..ten (Savage Firecat's "seven") — the SAME map the enter sites read, so the placement grows with the credit
 /**
  * TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a; static per 603.6d) — the FIXED number of +1/+1 counters a permanent "enters with N +1/+1
  * counters on it", or 0. ONLY the bare, unconditional, literal-N form: a kicker / "for each" / "where X" /
@@ -773,7 +773,7 @@ export function entersWithPlusCounters(card) {
     // "on him/her" — Marvel legends' gendered self-referent (Hulk, Strongest There Is: "Hulk enters with
     // a +1/+1 counter on him"), the same entering-creature referent as "it"; the coverage strips already
     // accepted all three, so the reader accepting only "it" was the one seam out of step (2026-08-14).
-    const m = sentence.match(/enters (?:the battlefield )?with (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on (?:it|him|her)/i);
+    const m = sentence.match(/enters (?:the battlefield )?with (a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) \+1\/\+1 counters? on (?:it|him|her)/i);
     if (!m) continue;
     if (/\b(?:if|for each|where|kicked|unless|equal to|plus)\b/i.test(sentence)) return 0; // conditional/variable → not modeled
     return _ENTER_NUM[m[1].toLowerCase()] ?? (parseInt(m[1], 10) || 0);

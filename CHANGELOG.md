@@ -9,6 +9,8 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Savage Firecat works** — enters with its seven counters and sheds one each time you tap a land for
+  mana; Spike Hatcher and Phantom Nishoba enter with their counters too.
 - **The en-Kor cycle works** — Warrior, Nomads, Lancers, Spirit and Outrider en-Kor redirect the next damage
   they'd take to a creature you choose, in combat and out of it.
 - **Snapcaster Mage works** — the instant or sorcery you pick in your graveyard gains flashback for the turn at

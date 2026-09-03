@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🐈 2026-09-03 (night cron) — CORPUS ④-I: SAVAGE FIRECAT — the land-tap trigger with a NON-mana payoff, and the enters-with vocabulary to ten · **+3** (Savage Firecat / Spike Hatcher / Phantom Nishoba) · corpus 13,898 / 34,245 (40.6%)
+> Suite **1370 / 15,443** green; lint 0. Flip-diff **+3, zero LOST**. **6/6 killed** (+1 rebuilt pin, killed).
+> · **The shape:** "This creature enters with seven +1/+1 counters on it. Whenever you tap a land for mana, remove a
+>   +1/+1 counter from this creature." Three small arms on proven seams: (1) the ④-D tapped-for-mana event grows the
+>   "you tap a land for mana" detector — but the descriptor builder DROPS any MANA payoff ("add …"), which stays the
+>   mana model's doubler static (④-D had to remove this detector because it demoted Vorinclex; the drop is the
+>   killed mutation that guards it now, and Groundchuck stays native in the witness); (2) the self counter-removal
+>   effect admits the +1/+1 spelling (−1/−1 stays refused — no carrier); (3) the enters-with reader AND the
+>   classifier's strip learn six..ten from the SAME number map, so the credit grows with the placement.
+> · **Board-verified:** cast from hand the Firecat enters with SEVEN counters; tapping a Forest to pay a spell
+>   fires the trigger and the cat sits at six.
+> · **Riders:** Spike Hatcher (enters with six; its costs were already read) and Phantom Nishoba (seven + the
+>   modeled Phantom counter-shield).
+> · **Two stale pins rewritten, both audited before touching:** arixmethes pinned the +1/+1 form as "owned by
+>   another path" — no such path exists (grep-proven), so the pin now asserts the atom; escapeWithCounters
+>   pinned Polukranos' "enters with six" as unread — the runtime reads 6 now (pinned, so the credit can never
+>   outrun the placement), and its sentence-scope discriminator was rebuilt on an UNMODELED sibling sentence on
+>   both sides of the escape sentence. Mutation-checked: the strip's sentence anchor widened to the line → the
+>   rebuilt pin fails (the first rebuild, trailing-side only, SURVIVED that widening and was extended — a
+>   discriminator that only guards one side is half a pin).
+
 > ## 🛡️ 2026-09-03 (night cron) — CORPUS ④-H: the en-Kor DAMAGE REDIRECT — a prevention shield that deals its consumed amount elsewhere · **+5** (Warrior / Nomads / Lancers / Spirit / Outrider en-Kor) · corpus 13,895 / 34,245 (40.6%)
 > Suite **1369 / 15,440** green; lint 0. Flip-diff **+5, zero LOST**. **7/7 killed.**
 > · **The shape:** "{0}: The next 1 damage that would be dealt to this creature this turn is dealt to target creature you
