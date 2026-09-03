@@ -473,6 +473,28 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
     .replace(/\bhave (this creature|it|that creature) deal\b/gi, (_m, subj) => `${subj} deals`);
   if (!s) return null;
 
+  // ⭐ COUNTER-BEARING TARGET (④-AC, 2026-09-03 — the graft cycle's "target creature with a +1/+1 counter on it
+  // gains …", Razorfin Abolisher, Crumbling Ashes, Tempered Veteran; 29 carriers, 16 of which park on this
+  // phrase ALONE). Every atom arm hard-codes its own subject ("^target creature gains …"), so the qualifier
+  // defeated all of them at once. Peel the " with a[n] [<type>] counter[s] on it" tail off the subject, parse
+  // the reduced clause on its own merits, and ride the qualifier back as a `hasCounter` restriction — the
+  // 17th kind of creatureSatisfiesRestrictions (a physical fact: perm.counters, no layer involved).
+  // ⛔ STAMPED ONLY ON A PLAIN `targetType:"creature"` ATOM. enumerateTargets' creature branch is the one
+  // pool that runs every restriction through the satisfier; the creatureYouControl branch does NOT (it
+  // filters by controller alone), so a stamp there would be silently ignored and the ability would target a
+  // counter-less creature — the forbidden direction. Such an inner atom (and any two-target pair shape) is
+  // refused → the card stays parked, as before. Counter vocabulary is limited to the counters the runtime
+  // actually places (+1/+1, -1/-1, stun, or "a counter" = any); a printed type it never places (time,
+  // bounty) would credit an ability that can never fire, so it is refused as well.
+  const cbt = /\b(target (?:attacking |blocking )?creature(?: you control| an opponent controls| you don't control)?) with (?:a|an|one or more) (?:([+-]1\/[+-]1|stun) )?counters? on it\b/i.exec(s);
+  if (cbt) {
+    const reduced = s.replace(cbt[0], cbt[1]);
+    const inner = parseClauseToAtom(cardType, reduced, hasX, sourceScoped);
+    if (!inner || !KNOWN.has(inner.op) || inner.targetType !== "creature") return null;
+    if (inner.role || inner.secondaryRole || inner.fighter || Array.isArray(inner.targets)) return null;
+    return { ...inner, restrictions: [...(inner.restrictions || []), { kind: "hasCounter", counterType: cbt[2] ? cbt[2].toLowerCase() : null }] };
+  }
+
   // ⭐ IMPULSE-EXILE AS A CLAUSE (2026-08-03) — "Exile the top N cards of your library. Until the end of
   // your next turn, you may play <them>." The whole-oracle collapse in parseEffectClauseImpl owns this
   // shape and returns a program of exactly ONE atom, so it only ever fired when the impulse WAS the whole

@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🧬 2026-09-03 (night cron) — ④-AC: "TARGET CREATURE WITH A [+1/+1] COUNTER ON IT" — the graft cycle · **+12** · Hulk Smash 86/100 · Dragons 91/100 · corpus 13,980 / 34,245 (40.8%)
+> Suite **1390 files / 15,540 tests** green; lint 0. Flip-diff **+12, zero LOST**. **5/5 killed.**
+> · **The shape:** 29 carriers, 16 parking on the phrase ALONE (the residue census never surfaced it because it hides
+>   inside a subject, not a verb). Every atom arm hard-codes its own subject ("^target creature gains …"), so one
+>   qualifier defeated all of them. parseClauseToAtom now peels " with a[n] [<type>] counter[s] on it" off the
+>   subject, parses the reduced clause on its own merits, and rides the qualifier back as `hasCounter` — the 17th
+>   restriction kind, read straight off perm.counters (CR 122.1; a physical fact, no layer).
+> · **Board-verified:** Razorfin Abolisher offers only the countered bears (a stun counter counts as "a counter") and
+>   bounces one; Sporeback Troll's +1/+1 typing refuses a -1/-1 counter and a zero-count entry; Hidden Hideout binds
+>   "you control" AND "with a counter" together.
+> · **The CREED guards, each with a killed mutation:** the stamp lands ONLY on a plain `targetType:"creature"` atom —
+>   enumerateTargets' creatureYouControl pool filters by controller alone and never consults restrictions, so the
+>   add-counter shape ("put a +1/+1 counter on target creature you control with …") is REFUSED rather than credited
+>   with an ignored restriction; counter vocabulary is limited to what the runtime places (+1/+1, -1/-1, stun, any) —
+>   a time / bounty counter would credit an ability that can never fire; fight pairs are not stamped.
+> · **Honest edges:** Steppe Glider / Sigardian Paladin / Ollenbock Escort ("gains A and B") take the two-keyword
+>   path ABOVE parseClauseToAtom and never reach the peel — a follow-up hook, not this slice; Urdnan ("target
+>   attacking creature gains …") has no arm even reduced; Cytoplast Manipulator's "gain control … for as long as"
+>   and Simic Basilisk's granted trigger are their own lines; Mutant's Prey is a fight pair.
+> · **CI:** ④-AB's run (604f333c, sharded) was in flight at commit time; ④-AC pushes only after it is green
+
 > ## 🏙️ 2026-09-03 (night cron) — ④-AB: CITY OF BRASS — "whenever this land becomes tapped" · **+1** · Hulk Smash 85/100 · corpus 13,968 / 34,245 (40.8%)
 > Suite **1389 files / 15,535 tests** green; lint 0. Flip-diff **+1, zero LOST**. **2/2 killed.**
 > · **The shape:** the becomes-tapped SELF watcher existed (creature / permanent / artifact / name forms) and a land's mana

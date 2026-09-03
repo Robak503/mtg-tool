@@ -7,6 +7,18 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🧬 2026-09-03 (night cron) — **④-AC: "target creature with a [+1/+1] counter on it" — the graft cycle (+12)** · suite **1390 files / 15,540 tests** green · corpus 13,980 / 34,245 (40.8%) · flip-diff +12 / 0 lost · 5/5 killed · Hulk Smash 86/100 · Dragons 91/100
+
+> **Night tally (stage ④, twenty-nine slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·
+> J (+1) · K (+1, FP closed on 3) · L (+4) · M (+2) · N (+7) · O (+4) · P (+3) · Q (+6) · R (+2) · S (+2) · T (+12) · U (+2) ·
+> V (+2, Thrun 90) · W (+3, Thrun 91) · X (+1, Earth Bent 89) · Y (+1) · Z (+6, Veyran 89) · AA (+9, Mothman 88) · AB (+1) ·
+> AC (+12) — corpus 13,862 → 13,980.
+> **CI:** ④-AB's run (604f333c, sharded) was in flight at commit time; ④-AC pushes only after it is green
+> **Next runnable:** the two-keyword grant path ("gains A and B" — Steppe Glider, Sigardian Paladin, Ollenbock Escort)
+> needs the same counter-qualifier peel where it splits, one hook; Kessig Wolf Run ({X} pump on a land — X-scaled
+> magnitude activations are refused by design); Xenagos (+X/+X where X is the target's power); Secluded Courtyard;
+> the "up to N" non-targeted returns (a counted pick).
+
 ## 🏙️ 2026-09-03 (night cron) — **④-AB: City of Brass — "whenever this land becomes tapped" (+1)** · suite **1389 files / 15,535 tests** green · corpus 13,968 / 34,245 (40.8%) · flip-diff +1 / 0 lost · 2/2 killed · Hulk Smash 85/100
 
 > **Night tally (stage ④, twenty-eight slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·

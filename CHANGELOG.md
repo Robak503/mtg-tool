@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"Target creature with a +1/+1 counter on it" works** — the graft cycle's grants, Razorfin Abolisher, Crumbling Ashes, Hidden Hideout, Liliana, Death Wielder and more only offer creatures that actually carry the counter.
 - **City of Brass works** — tapping it for mana deals you the damage.
 - **"Return a card from your graveyard to your hand" works** — Corpse Churn, Grapple with the Past, Takenuma's
   channel and their kin let you pick the card as the spell resolves.

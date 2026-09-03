@@ -77,6 +77,14 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       if (r.who === "you" && ownerId !== casterId) return false;
     } else if (r.kind === "tapped") {
       if (!!perm.tapped !== r.value) return false;
+    } else if (r.kind === "hasCounter") {
+      // COUNTER-BEARING (④-AC — "target creature with a +1/+1 counter on it", "… with a counter on it"): a
+      // physical fact read straight off perm.counters (CR 122.1 — counters are markers on the object; no
+      // layer touches them). counterType null = any counter at all (Razorfin Abolisher, Hidden Hideout);
+      // a named type must be that key with a positive count. An absent or empty map is simply "no".
+      const counters = perm.counters || {};
+      const has = r.counterType ? (counters[r.counterType] || 0) > 0 : Object.values(counters).some((n) => (n || 0) > 0);
+      if (!has) return false;
     } else if (r.kind === "modified") {
       // MODIFIED (CR 701.48 — Lion Umbra's "Enchant modified creature"): has a counter / Equipment / an Aura
       // its controller controls. Layer-aware via layers.isModifiedPermanent (the same predicate Kodama's
