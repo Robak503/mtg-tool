@@ -134,6 +134,10 @@ its Academy panel; +1, 7/7 killed). ✅ **SG-16** — Boseiju's channel (the uni
 player" rider connective, the typed-basic search; Volatile Fault and Dalek Drone rode along; +3, 6/6
 killed). **Deck 85/100 — the walk's honest end:** every remaining card is a multi-slice program or a park
 (§6). ③'s DONE line (≥90) is NOT met; the residue is named in §6 as ceiling-class for one night.
+✅ **SG-17** (night cron 2026-09-03) — The One Ring (+14 riders: a named-counters-on-source count kind with honest
+LKI reads; 12/12 killed). **Deck 89/100.** Remaining 11: Endurance · Duskwatch Recruiter · Shang-Chi · Disruptor
+Flute (arms) · Gemstone Caverns · Shifting Woodland · Evendo · Urza's Saga · Itlimoc · Invasion of Ikoria · Tezzeret
+(parks).
 
 Stored 09-02 on Colton's profile (100/0 unresolved). **67/100**: 14 native-mana · 10 native-spell ·
 5 native-trigger · 4 native-activated · 5 native-static · 1 native-mana-aura · 6 native-mixed ·

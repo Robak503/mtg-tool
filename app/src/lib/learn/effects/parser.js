@@ -2430,6 +2430,14 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       return makeProgram({ confidence: "high", atoms: [{ op: "copy-activated-ability", targetType: null }], xSpell: false, unparsedTail: null });
     }
   }
+  // ===== PLAYER PROTECTION FROM EVERYTHING (THE ONE RING, SG-17, 2026-09-03 — CR 702.16b) ===== "you gain protection
+  // from everything until your next turn" — Teferi's shield without the life lock (the Ring's cast-ETB).
+  {
+    const pe = stripReminder(String(oracle)).trim().toLowerCase().replace(/\s+/g, " ").replace(/\.$/, "");
+    if (pe === "you gain protection from everything until your next turn" && KNOWN.has("player-protection-everything")) {
+      return makeProgram({ confidence: "high", atoms: [{ op: "player-protection-everything", targetType: null }], xSpell: false, unparsedTail: null });
+    }
+  }
   // ===== TEFERI'S PROTECTION (CAP, 2026-09-03 — CR 702.16b / 119.6 / 702.26) ===== the body after the self-exile
   // sentence is stripped: "Until your next turn, your life total can't change and you gain protection from
   // everything. All permanents you control phase out." — two sentences, one deterministic atom (the shield +

@@ -3534,6 +3534,13 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
     // can never match this head+tail shape (the blanket-pass lesson, learned at the gate).
     const cm = eff.match(new RegExp(`^((?:you may )?put (?:a|an|one|two|three|four|five|\\d+|that many) \\+1\\/\\+1 counters? on )${esc}((?: and | then |, then ).+)$`, "i"));
     if (cm) return `${cm[1]}this creature${cm[2]}`;
+    // COUNTER-SCALED LIFE LOSS ON SELF-NAME (THE ONE RING, SG-17, 2026-09-03 — "At the beginning of your upkeep,
+    // you lose 1 life for each burden counter on The One Ring"): the name is the count source's referent at the
+    // clause END. Rewritten to "this creature" ONLY inside this exact whole-clause grammar (the life parser's
+    // "lose N life for each <count source>" form, the count source's named-counter-on-source kind); any other
+    // trailing name never matches (CREED). The parser re-gates the rewritten form.
+    const lm = eff.match(new RegExp(`^(you lose \\d+ life for each [a-z]+ counters? on )${esc}$`, "i"));
+    if (lm) return `${lm[1]}this creature`;
     // POSSESSIVE self-name (Tifa Lockhart — Landfall "double <Name>'s power until end of turn"): the card
     // names ITSELF in a mid-clause possessive. Rewrite "<Name>'s" → "this creature's" ONLY inside the exact
     // double-own-P/T grammar (whole-clause anchored on "double … power[ and toughness] until end of turn"),
@@ -6548,6 +6555,11 @@ export function checkDiesTriggers(state, dead) {
     // upkeep) moves its FULL total. Stamped only when the snapshot was captured; an entry without one leaves the
     // key undefined → resolveScaledAmount reads 0 → a clean no-op (never a fabricated count).
     if (d.counters) diesCtx.triggeringPlusCounterCount = d.counters["+1/+1"] || 0;
+    // NAMED-COUNTERS LKI (SG-17, 2026-09-03 — CR 603.10a): the dying object's WHOLE counter bag, for a self-dies
+    // payoff sized by a named kind ("draw cards equal to the number of oil counters on it" — Watchful Blisterzoa,
+    // the cumulative-upkeep age-counter payoffs). countForSpec's namedCountersOnSource reads it when the source
+    // is already gone. Same snapshot the +1/+1 count above reads; plain JSON, additive.
+    if (d.counters) diesCtx.triggeringDiesCounters = { ...d.counters };
     // COUNTER-TRANSFER (census slice 37, CR 603.6e LKI): the dying object's WHOLE counter bag, for
     // "put ITS counters on target creature you control" (Star Pupil, Essence Channeler, Spiteful Squad).
     // Distinct from triggeringPlusCounterCount above, which is only the +1/+1 magnitude the MODULAR payoff

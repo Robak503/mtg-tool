@@ -3,6 +3,32 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 💍 2026-09-03 (night cron) — SG-17: THE ONE RING — a named-counters-on-source count kind with honest LAST-KNOWN reads · **+15 corpus** (the Ring + 14 riders, every one audited whole-card) · Squirrel Girl 88 → 89 · corpus 13,862 / 34,245 (40.5%)
+> Suite **1360 / 15,402** green; lint 0. Flip-diff **+15, zero LOST**. **12/12 killed** (M12 — a stale self-sacrifice stamp
+> answering for another source — survived its first run and got the missing test).
+> · **The card:** three arms on proven pieces. (1) "When ~ enters, if you cast it, you gain protection from everything
+>   until your next turn" → the PROTECTION half of Teferi's shield alone (`grantTeferiShield(..., { lifeLocked:false })`,
+>   a new `player-protection-everything` atom) on the existing `wasCast` intervening-if — the burden still bites
+>   (pinned: life moves; a shield that locks life is a killed mutation). (2) "you lose 1 life for each burden counter
+>   on The One Ring" → a new count kind `namedCountersOnSource` (any lowercase counter word, "on it / this
+>   <noun>") read through the same ctx.sourceId the +1/+1 form uses; the trigger's self-name rewrite learned the
+>   "lose N life for each <kind> counter on <Name>" grammar (whole-clause anchored). (3) the tap → add-named-counter-
+>   self then draw per burden counter, already parseable once the count kind existed (1 then 2, pinned).
+> · **THE AUDIT THAT CHANGED THE BUILD.** The count kind flipped 14 riders. Seven of them read the counters of a source
+>   that is GONE at resolution — sacrificed as the ability's own cost (Heliophial, Magma Mine, Culling Dais, Torch Song,
+>   Midsummer Revel, Golden Urn, Ravenous Amulet) or dead/left (Watchful Blisterzoa, Revered Unicorn, Arctic Nishoba,
+>   Phyrexian Etchings' graveyard trigger). A live read would have resolved them to 0 — a card credited native that
+>   the runtime plays WRONG, the hollow credit. So the count kind reads LAST-KNOWN INFORMATION (CR 603.10a / 608.2h):
+>   the death look-back now carries the whole counter bag (`triggeringDiesCounters`; the leave path already had
+>   `triggeringLeaveCounters`), and a self-sacrifice cost stamps `sacrificedSelfLki` keyed by the permanent's id
+>   before the sacrifice. Both pinned at runtime (a 3-charge Vial deals 3 after sacrificing itself; a 2-oil creature
+>   draws 2 on death; a gone source with no look-back reads 0 — and, after M12, never another permanent's stamp).
+>   Mind Unbound, Insight Engine and Clearwater Goblet read a live source; Sunburst and cumulative upkeep were
+>   already enforced (the age counters are real).
+> · **Honest edge:** "on it" binds to the SOURCE, the same precedent the +1/+1 kind set; every corpus carrier that
+>   flipped is self-referential (audited above), but a future clause where "it" is a chosen target would need the
+>   count parser to see the target — the same known edge as plusCountersOnSource, now shared.
+
 > ## 🌱 2026-09-03 — X-PROGRAM ⑤b: TEMPT WITH DISCOVERY — the TEMPTING OFFER as an opponent-side pause · **+1 corpus** · Squirrel Girl 87 → 88 · Zaxara 91 · **Colton's day order (plan §8) COMPLETE on my lane** · corpus 13,847 / 34,245 (40.4%)
 > Suite **1359 / 15,394** green; lint 0 (engine, session, hook, panel, view). Flip-diff **+1, zero LOST** (Tempt with
 > Discovery, arbiter-spell → native-spell). **13/13 killed** (M3 + M7 survived their first run — the multi-acceptor

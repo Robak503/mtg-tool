@@ -9,6 +9,12 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **The One Ring works** — cast it and you have protection from everything until your next turn (your life still
+  moves), it taps for a burden counter and that many cards, and the burden costs you that much life each upkeep.
+  Fourteen cards that count their own charge, oil, age, verse, lore, soul or pressure counters ride along
+  (Heliophial, Magma Mine, Culling Dais, Insight Engine, Mind Unbound, Golden Urn, Clearwater Goblet, Torch Song,
+  Midsummer Revel, Ravenous Amulet, Watchful Blisterzoa, Revered Unicorn, Arctic Nishoba, Phyrexian Etchings) —
+  including the ones that sacrifice themselves or die first, which read the counters they had.
 - **Tempt with Discovery works** — you search for a land, each opponent is asked whether they'll search for one
   too (the AI decides by whether it's behind on lands; you get a real prompt when you're asked), and you search
   once more for every opponent who accepted.

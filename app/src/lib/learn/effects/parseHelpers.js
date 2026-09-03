@@ -292,6 +292,14 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   // "on this creature" — the explicit source self-reference (Red Hulk's reflexive via the gendered-pronoun
   // normalization, 2026-08-14): the SAME referent as "on it" in a source-scoped clause, same reader.
   if (/^\+1\/\+1 counters? on (?:it|this creature)$/.test(p)) return { kind: "plusCountersOnSource" };
+  // NAMED-COUNTERS-ON-SOURCE (THE ONE RING, SG-17, 2026-09-03): "for each burden counter on this creature/artifact/…"
+  // — the source's own bag of a NAMED counter kind, read live at resolution (CR 608.2h) through the same
+  // ctx.sourceId the +1/+1 form uses. The kind word is any lowercase counter name; the ±1/±1 spellings never
+  // match [a-z]+ so the +1/+1 arm above keeps its own kind. Source-relative — an absent source reads 0.
+  {
+    const nc = /^([a-z]+) counters? on (?:it|this (?:creature|artifact|permanent|enchantment|land))$/.exec(p);
+    if (nc) return { kind: "namedCountersOnSource", counterType: nc[1] };
+  }
   // ⭐ EQUIPMENT-ATTACHED-TO-SOURCE (SHELF CAP2 — Captain America, Liberator: "for each Equipment attached
   // to him, create a 1/1 white Soldier creature token", normalized by the trigger rewrite to the trailing
   // form with "this creature"). Counts the Equipment permanents whose attachedTo is the SOURCE permanent,

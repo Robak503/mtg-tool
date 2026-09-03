@@ -717,7 +717,21 @@ export function applyTeferiProtection(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "teferi-protection", controller });
 }
 
+/**
+ * PLAYER PROTECTION FROM EVERYTHING (THE ONE RING, SG-17, 2026-09-03 — CR 702.16b): "you gain protection from
+ * everything until your next turn" — the protection half of Teferi's shield alone (untargetable by anything
+ * another player controls, all damage to you prevented); the life total is NOT locked. Expires at the
+ * controller's next untap step with the rest of the shield machinery. Deterministic, choiceless.
+ */
+export function applyPlayerProtectionEverything(state, atom, ctx) {
+  const controller = ctx.controller;
+  if (!state.players?.[controller]) return state;
+  const next = grantTeferiShield(state, controller, { lifeLocked: false });
+  return logEvent(next, { kind: "spell-effect", effect: "player-protection-everything", controller });
+}
+
 export const miscResolvers = {
+  "player-protection-everything": applyPlayerProtectionEverything, // THE ONE RING — protection from everything until your next turn (no life lock)
   "teferi-protection": applyTeferiProtection, // CAP — life lock + protection from everything + phase out all, until your next turn
   "add-restricted-mana": applyAddRestrictedMana, // Klauth — the pool-restricted sub-pool's first minter
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player

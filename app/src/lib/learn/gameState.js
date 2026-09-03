@@ -1688,9 +1688,11 @@ export function playerProtectedFromEverything(state, playerId) {
 export function playerLifeLocked(state, playerId) {
   return !!state?.players?.[playerId]?.teferiShield?.lifeLocked;
 }
-export function grantTeferiShield(state, playerId) {
+export function grantTeferiShield(state, playerId, { lifeLocked = true } = {}) {
   assertPlayer(playerId);
-  return withPlayer(state, playerId, (p) => ({ ...p, teferiShield: { protection: true, lifeLocked: true } }));
+  // THE ONE RING (SG-17): "you gain protection from everything until your next turn" is the protection half
+  // ALONE — the life total still moves (lifeLocked:false). Same shield, same expiry at the player's next untap.
+  return withPlayer(state, playerId, (p) => ({ ...p, teferiShield: { protection: true, lifeLocked } }));
 }
 export function phaseOutAllPermanents(state, playerId) {
   assertPlayer(playerId);

@@ -1293,7 +1293,14 @@ function applyActivateAbility(state, action) {
       working = moveCardToZone(working, { playerId: action.playerId, fromZone: "graveyard", toZone: "exile", cardId: xid });
     }
   }
-  if (action.sacSelf) working = sacrificePermanentForCost(working, action.playerId, perm);
+  if (action.sacSelf) {
+    // NAMED-COUNTERS LKI (SG-17, 2026-09-03 — CR 608.2h + 603.10a): "Sacrifice this artifact: … equal to the number of
+    // charge counters on it" (Heliophial, Magma Mine, Culling Dais, Golden Urn …) reads the sacrificed source's counters
+    // as it LAST existed — stamped here, before the sacrifice, keyed by the permanent's id so a stale stamp can never
+    // answer for another source (the id is gone from the battlefield with the permanent).
+    working = { ...working, sacrificedSelfLki: { permanentId: perm.id, counters: { ...(perm.counters || {}) } } };
+    working = sacrificePermanentForCost(working, action.playerId, perm);
+  }
   if (action.sacCreatureId) {
     const victim = working.players[action.playerId]?.battlefield.find((p) => p.id === action.sacCreatureId);
     if (!victim) throw new DispatcherError(`Sacrifice victim ${action.sacCreatureId} not on battlefield`, "PERM_NOT_FOUND");

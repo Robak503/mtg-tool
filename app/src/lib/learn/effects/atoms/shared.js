@@ -742,6 +742,19 @@ export function countForSpec(state, ctx, spec) {
     const lk = ctx?.sourceId ? findPermanent(state, ctx.sourceId) : null;
     return Math.max(0, lk?.permanent?.counters?.["+1/+1"] || 0);
   }
+  // NAMED-COUNTERS-ON-SOURCE (THE ONE RING, SG-17): the source's live bag of the named kind (burden, quest, …).
+  if (spec.kind === "namedCountersOnSource") {
+    const lk = ctx?.sourceId ? findPermanent(state, ctx.sourceId) : null;
+    if (lk) return Math.max(0, lk.permanent?.counters?.[spec.counterType] || 0);
+    // LKI (CR 603.10a / 608.2h) — the source is gone: a SELF dies/leaves trigger reads the death/leave look-back's
+    // snapshot (the triggering object IS the source); an ability whose own cost sacrificed the source reads the
+    // stamp the dispatcher wrote before the sacrifice. Anything else → 0 (never a fabricated count).
+    const selfLookBack = ctx?.triggeringPermanentId && ctx.triggeringPermanentId === ctx?.sourceId;
+    if (selfLookBack && ctx?.triggeringDiesCounters) return Math.max(0, ctx.triggeringDiesCounters[spec.counterType] || 0);
+    if (selfLookBack && ctx?.triggeringLeaveCounters) return Math.max(0, ctx.triggeringLeaveCounters[spec.counterType] || 0);
+    if (state?.sacrificedSelfLki?.permanentId && state.sacrificedSelfLki.permanentId === ctx?.sourceId) return Math.max(0, state.sacrificedSelfLki.counters?.[spec.counterType] || 0);
+    return 0;
+  }
   // ===== TOTAL-ATTACKING-POWER (Klauth, QUARTET Phase 4, 2026-08-15 — CR 508.3) ===== "X is the total
   // power of attacking creatures": the LAYER-AWARE power sum over the declared attackers (an anthem'd
   // board adds more — the same powerAtLeast discipline). Fired at declaration (checkAttackTriggers), so

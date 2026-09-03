@@ -7,6 +7,17 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 💍 2026-09-03 (night cron) — **SG-17: The One Ring is NATIVE (+14 riders)** — stage ③ resumed at the residue · suite **1360 / 15,402** green · Squirrel Girl **88 → 89** · corpus 13,862 / 34,245 (40.5%) · flip-diff +15 / 0 lost · 12/12 killed
+
+> A `namedCountersOnSource` count kind (burden / charge / oil / age / verse … "on it / this <noun>") with honest
+> last-known reads for a source that died or sacrificed itself as the cost (the audit of the 14 riders forced it —
+> seven read a gone source), the protection-only half of Teferi's shield for the Ring's cast-ETB, and the trigger
+> rewrite's "lose N life for each <kind> counter on <Name>" grammar. **Next runnable (stage ③ residue, 11 slots):**
+> Endurance (a graveyard-to-library-bottom ETB + a non-mana evoke line), Duskwatch Recruiter (look-top-3 + a
+> transform condition), Shang-Chi (an activate-only spend restriction + haste-for-abilities), Disruptor Flute; the
+> parks stay parks (Gemstone Caverns, Shifting Woodland, Evendo, Urza's Saga, Itlimoc's transform, Invasion,
+> Tezzeret).
+
 ## 🌱 2026-09-03 (day) — **COLTON'S DAY ORDER IS COMPLETE ON MY LANE** — Tempt with Discovery NATIVE (⑤b) · suite **1359 / 15,394** green · Squirrel Girl **87 → 88** · Zaxara 91 · Cap 86 · corpus 13,847 / 34,245 (40.4%) · flip-diff +1 / 0 lost · 13/13 killed · **CI GREEN on 9af557d5** (carries Cavern 5d8cf317 and Archdruid 124d5707, both cancelled-by-concurrency) · dev server booted clean on :3011 with the Learn shell compiled
 
 > **The day in one line:** Teferi's Protection (5bcfffed) → Illusionist's Bracers +5 kin (68f326e7, CI green) → Cavern
