@@ -1244,6 +1244,54 @@ const SAFE_ABILITY_OPS = new Map([["draw", 0], ["create-token", 1], ["scry", 2],
 function isLevelUpAtomList(atoms) {
   return atoms.length === 1 && atoms[0].op === "add-named-counter-self" && atoms[0].counterType === "level";
 }
+/**
+ * COMBAT-ROLE ACTIVATIONS (④-AP, 2026-09-04 — the play-quality half of ④-AE's combat window). The generic picker below
+ * skips every TARGETED activation, so an AI archer never shot and an AI pumper never pumped. This picker takes exactly
+ * the abilities the combat window exists for — a program whose one atom targets a creature BY COMBAT ROLE — and places
+ * them on the provably-right side:
+ *   · an ENEMY-facing atom (deal-damage, a negative pump, cant-block, tap, destroy) goes on the biggest OPPOSING creature
+ *     in combat — an attacker attacking the AI, or a blocker of the AI's attacker;
+ *   · an OWN-facing atom (a positive pump / keyword grant, regenerate) goes on the biggest OWN creature in combat.
+ * Anything else (a mixed or unknown op, a target on the wrong side) is left alone — the generic picker's skip stands,
+ * never a wrong play. Deterministic: biggest power first, then id. Runs only in a combat step (the window itself
+ * only offers these there), so main-phase play is byte-identical.
+ */
+const COMBAT_ROLE_ENEMY_OPS = new Set(["deal-damage", "cant-block", "tap", "destroy", "exile", "cant-be-blocked"]);
+const COMBAT_ROLE_OWN_OPS = new Set(["regenerate"]);
+function pickCombatRoleActivation(state, aiPlayerId, abilityActions) {
+  if (!state?.combat || !new Set(["beginning-of-combat", "declare-attackers", "declare-blockers", "combat-damage", "end-of-combat"]).has(state.step)) return null;
+  const attackers = state.combat.attackers || [];
+  const blockers = state.combat.blockers || [];
+  const attackingMe = new Set(attackers.filter((a) => a.defender === aiPlayerId).map((a) => a.permanentId));
+  const myAttackers = new Set(attackers.filter((a) => a.attackingPlayer === aiPlayerId || findPermanent(state, a.permanentId)?.permanent?.controller === aiPlayerId).map((a) => a.permanentId));
+  const blockingMine = new Set(blockers.filter((b) => myAttackers.has(b.attackerId)).map((b) => b.blockerId));
+  const myBlockers = new Set(blockers.filter((b) => findPermanent(state, b.blockerId)?.permanent?.controller === aiPlayerId).map((b) => b.blockerId));
+  const power = (id) => permanentPower(state, id) ?? 0;
+  const ranked = [];
+  for (const a of abilityActions) {
+    const atoms = a.program?.atoms || [];
+    if (atoms.length !== 1 || a.program.structure === "modal" || (a.targets?.length || 0) !== 1) continue;
+    const atom = atoms[0];
+    if (!(atom.restrictions || []).some((r) => r.kind === "combat")) continue;
+    const t = a.targets[0];
+    const tPerm = findPermanent(state, t.id)?.permanent;
+    if (!tPerm) continue;
+    const enemyFacing = COMBAT_ROLE_ENEMY_OPS.has(atom.op) || (atom.op === "pump" && ((atom.ptDelta?.p ?? 0) < 0 || (atom.ptDelta?.t ?? 0) < 0));
+    const ownFacing = COMBAT_ROLE_OWN_OPS.has(atom.op) || (atom.op === "pump" && !enemyFacing && ((atom.ptDelta?.p ?? 0) > 0 || (atom.ptDelta?.t ?? 0) > 0 || (atom.grantKeywords?.length || 0) > 0));
+    if (enemyFacing) {
+      if (tPerm.controller === aiPlayerId) continue;
+      if (!attackingMe.has(t.id) && !blockingMine.has(t.id)) continue;
+    } else if (ownFacing) {
+      if (tPerm.controller !== aiPlayerId) continue;
+      if (!myAttackers.has(t.id) && !myBlockers.has(t.id)) continue;
+    } else continue;
+    ranked.push({ a, p: power(t.id), id: String(t.id) });
+  }
+  if (!ranked.length) return null;
+  ranked.sort((x, y) => (y.p - x.p) || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
+  return ranked[0].a;
+}
+
 function pickSafeAbilityActivation(abilityActions) {
   const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
   const safe = [];
@@ -1400,6 +1448,10 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
       // Slice 1 — EQUIP: move each equipment onto the AI's best body (strict improvement only).
       const equip = pickEquipAction(state, aiPlayerId, abilities.filter(a => a.isEquipAbility));
       if (equip) return equip;
+      // Slice 1b — COMBAT-ROLE activations in a combat step (④-AP): the archer shoots the biggest creature attacking
+      // the AI; the pumper pumps its own biggest attacker/blocker. Side-checked, so never a wrong play.
+      const combatRole = pickCombatRoleActivation(state, aiPlayerId, abilities.filter(a => !a.isEquipAbility));
+      if (combatRole) return combatRole;
       // Slice 2 — cost-safe generic abilities (a.program non-null; equip is program:null, so the
       // two slices are disjoint by construction).
       const generic = pickSafeAbilityActivation(abilities.filter(a => !a.isEquipAbility));

@@ -7,6 +7,13 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🤖 2026-09-04 (night cron) — **④-AP: the AI uses the combat window (archers shoot, pumpers pump; +0 cards)** · suite **1403 files / 15,596 tests** green · 4/4 killed
+
+> Play quality, not coverage: the AI's picker now places combat-role activations on the right side in combat. The
+> corpus stands at 14,127 / 34,245 (41.3%). **CI:** ④-AO's run (9fad25dd) in flight at commit time; ④-AP pushes only after it is green
+> **Next runnable:** the counted "up to N" pick (a pause with a Done button — Academy panel work); Feline Sovereign's
+> "up to one target <permanent> that player controls"; the X-effect remainder (parked, ≈ +2–3); a fresh deck walk.
+
 ## ✖️ 2026-09-04 (night cron) — **④-AO: X-scaled-magnitude activated abilities + "you gain X life" (+18)** · suite **1402 files / 15,592 tests** green · corpus 14,127 / 34,245 (41.3%) · flip-diff +18 / 0 lost · 6/6 killed
 
 > **Night tally (stage ④, forty-one slices):** … · AM (+2) · AN (+2) · AO (+18; a runtime lane — the activated {X}

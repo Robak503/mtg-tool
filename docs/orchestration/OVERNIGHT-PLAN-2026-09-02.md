@@ -301,6 +301,7 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
   bound pronoun), "you lose X life" (9, mostly beside an X cost rider — Skeletal Scrying's additional exile-X cost,
   Malicious Advice's "tap X target artifacts, creatures, and/or lands"), Profane Command's choose-two. Honest yield ≈ 2–3;
   the add-counter arm needs `ctx.hasX` gating like radClauseParser's. Park until a deck walk names one.
+- ✅ **[The AI and combat-role activations — SHIPPED as ④-AP, 2026-09-04 night (4/4 killed)]** (the sizing note follows for the record)
 - **[The AI and combat-role activations — 2026-09-03 night — Cindy lane]** ④-AE's combat window offers archers and pumps in
   combat to the human; `pickSafeAbilityActivation` skips every TARGETED activation, so the AI never shoots. A targeted
   picker (an attacker/blocker as target, the same side rules the flush chooser uses) is the play-quality half.

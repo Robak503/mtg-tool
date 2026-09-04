@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🤖 2026-09-04 (night cron) — ④-AP: the AI USES the combat window — archers shoot, pumpers pump (play quality; +0 cards)
+> Suite **1403 files / 15,596 tests** green; lint 0. Flip-diff **0 / 0** (no classification touched). **4/4 killed.**
+> · **The shape:** ④-AE opened combat-role activations to whichever player holds priority in combat, but the AI's generic
+>   activation picker skips every TARGETED activation, so an AI D'Avenant Archer never shot and an AI Infantry Veteran
+>   never pumped. `pickCombatRoleActivation` (opponentAI) takes exactly the combat-role abilities — one atom, one target,
+>   a `combat` restriction — and places them on the provably-right side: an ENEMY-facing atom (deal-damage, a negative
+>   pump, cant-block, tap, destroy) on the biggest creature attacking the AI or blocking its attacker; an OWN-facing atom
+>   (a positive pump / keyword grant, regenerate) on the AI's own biggest creature in combat. Anything else keeps the
+>   generic skip — never a wrong play. Deterministic (power, then id). Combat steps only; main-phase play is byte-identical.
+> · **Board-verified:** attacked by a 2/4 and a 4/4, the AI's archer shoots the 4/4; its Infantry Veteran is NOT pointed at
+>   the enemy's attacker (the only legal target) — it stays unactivated; attacking with its own Bear, the AI pumps the Bear.
+> · **Trajectory note for Omnath:** self-play games with archers / pumpers on the AI side now contain combat-time
+>   activations that did not exist before ④-AE + ④-AP.
+> · **CI:** ④-AO's run (9fad25dd) in flight at commit time; ④-AP pushes only after it is green
+
 > ## ✖️ 2026-09-04 (night cron) — ④-AO: X-SCALED-MAGNITUDE activated abilities + "you gain X life" · **+18** · corpus 14,127 / 34,245 (41.3%)
 > Suite **1402 files / 15,592 tests** green; lint 0. Flip-diff **+18, zero LOST**. **6/6 killed.**
 > · **The lane:** the activated {X} lane (γ1f) admitted only TARGETS-PER-X programs; an X-scaled magnitude ("deals X
