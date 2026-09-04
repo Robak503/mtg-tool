@@ -72,7 +72,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
-| Test | Teval, the Balanced Scale Test | 79 | 6 | 11 | ⬜ Phase 2 |
+| Test | Teval, the Balanced Scale Test | 80 | 5 | 10 | ⬜ Phase 2 |
 | Test | Brago Blink | 79 | 6 | 11 | ⬜ Phase 2 |
 | Test | Nekusar Wheels | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Shorikai Vehicles | 72 | 13 | 18 | ⬜ Phase 2 |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 65 | 20 | 25 | ⬜ Phase 2 |
 
-**14 decks below 85 · 181 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**14 decks below 85 · 180 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -243,7 +243,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | T1c | Boggart Trawler | ETB "exile target player's graveyard" | S | a player-target graveyard exile (Relic of Progenitus' target-player pick, whole graveyard) | ⬜ |
 | T1d | Multiversal Passage | "As this land enters, choose a basic land type. Then you may pay 2 life. If you don't, it enters tapped. / This land is the chosen type." | M | the chosen-basic-type land (a Cavern-style chooser stamping a subtype; the mana model reads the chosen type) + the pay-2-life shock rider | ⬜ |
 | T2 | Starting Town | enters tapped unless turn 1–3 | V2 | |✅ |
-| T3 | Field of the Dead | "whenever this land or another land you control enters, if you control seven or more lands with different names, create a 2/2 Zombie" | M | landfall (self-or-another land) + a distinct-land-names intervening-if + token | ⬜ |
+| T3 | Field of the Dead | "whenever this land or another land you control enters, if you control seven or more lands with different names, create a 2/2 Zombie" | M | landfall (self-or-another land) + a distinct-land-names intervening-if + token | ✅ (+1 corpus — the trigger already detected as a land-ETB watcher the play-land path fires, and the Zombie token parsed; the one cell was the intervening-if word "you control N or more lands with different names" — the controller's lands counted by DISTINCT name, layer-aware on land-ness.) |
 | T4 | Titania, Protector of Argoth | "whenever a land you control is put into a graveyard from the battlefield, create a 5/3 Elemental" | M | a land-dies event (the gyEnter machinery with cardType Land, fromZone battlefield) + token | ⬜ |
 | T5 | Thespian's Stage | "{2}, {T}: this land becomes a copy of target land, except it has this ability" | L | the copy lane on a land (Shifting Woodland / Mycosynth Gardens share it) | ⬜ |
 | T6 | Demolition Field | sac: destroy target nonbasic land an opponent controls; then each of you searches for a basic | M | destroy nonbasic land + the two-sided basic tutor rider | ⬜ |
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · T3 (Field of the Dead — Teval) ✅ +1 corpus · 4/4 mutations killed against a green witness (the arm removed, lands counted instead of names, non-lands counted, the threshold off by one) · suite 1434 files / 15,820 tests · corpus 14,338 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — V15 (the Light-Paws Auras) ✅ +10 corpus · Phase 1 vein rows complete · 6/6 mutations killed against a green witness (the Aura noun removed from the detain frame, the attach arm removed, the pool restricted to own creatures, the resolver keeping Equip's own-creature rule, the validator refusing the attach line, the current host offered as a move) · suite 1433 files / 15,813 tests · corpus 14,337 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 

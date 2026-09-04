@@ -1372,6 +1372,22 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   //     the equip-cost site already passes) with triggeringPermanentId as the trigger-side fallback.
   //     ⛔ Fail closed: "other" with NO id to exclude → null → not evaluable (a count that might include the
   //     object itself is the over-count FP), which is also what keeps the parseable probe honest.
+  // ===== LANDS WITH DIFFERENT NAMES (SHELF-85 Phase 2 · T3, 2026-09-05 — Field of the Dead "if you control seven or more
+  // lands with different names") ===== the number of DISTINCT card names among the controller's battlefield lands
+  // (land-ness read off the live type line — an animated land is still a land; a non-land never counts), compared to the
+  // printed threshold. Sits ABOVE the generic "you control <N> <filter>" family below, which would swallow "lands with
+  // different names" as an unparseable filter and return null. Whole-clause anchored.
+  m = c.match(new RegExp(`^you control ${NUM_RE} or more lands with different names$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    const names = new Set();
+    for (const perm of state?.players?.[controllerId]?.battlefield || []) {
+      if (/\bLand\b/.test(String(perm?.card?.type || perm?.card?.type_line || ""))) names.add(String(perm.card?.name || ""));
+    }
+    names.delete("");
+    return names.size >= n;
+  }
   m = c.match(new RegExp(`^you control ${NUM_RE}(?: or (more|fewer|less))? (other )?(.+)$`));
   if (m) {
     const n = parseCount(m[1]);

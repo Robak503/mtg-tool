@@ -3,6 +3,14 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-05 (day cron) — Phase 2 · T3: FIELD OF THE DEAD — "seven or more lands with different names" · **+1** · corpus 14,338 / 34,245 (41.8%)
+> Suite **1434 files / 15,820 tests** green; lint 0. Flip-diff **+1, zero LOST**. **4/4 mutations killed against a green witness (the arm removed, lands counted instead of names, non-lands counted, the threshold off by one).**
+> · **The shape:** "Whenever this land or another land you control enters, if you control seven or more lands with different
+>   names, create a 2/2 black Zombie creature token." — the trigger was already a land-ETB watcher (the play-land path fires
+>   checkEnterTriggers) and the token parsed; the one missing cell was the intervening-if word, now read as the number of
+>   DISTINCT names among the controller's lands (evaluated at flush and at resolution, CR 603.4).
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-05 (day cron) — V15: THE LIGHT-PAWS AURAS — the Aura noun on the detain frame, and an Aura re-attach ability · **+10** · corpus 14,337 / 34,245 (41.8%)
 > Suite **1433 files / 15,813 tests** green; lint 0. Flip-diff **+10, zero LOST**. **6/6 mutations killed against a green witness (the Aura noun removed from the detain frame, the attach arm removed, the pool restricted to own creatures, the resolver keeping Equip's own-creature rule, the validator refusing the attach line, the current host offered as a move).**
 > · **Chains of Custody / Sheltered by Ghosts:** "exile target nonland permanent an opponent controls until this AURA leaves
