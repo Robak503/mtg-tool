@@ -2229,6 +2229,16 @@ function classifyCondition(condRaw, cardName, cardType) {
     }
     return null; // restricted ("an opponent controls") / non-self form stays UNDETECTED → Arbiter (SAFE FN)
   }
+  // ⭐ BECOMES THE TARGET OF A SPELL, STANDALONE (SHELF-85 K9, 2026-09-04 — Fblthp "When Fblthp becomes the target of a
+  // spell, shuffle Fblthp into its owner's library"): its OWN event, fired only at the targeting site beside the compound
+  // above (never at attack declaration), so the compound's attack half can't leak into it. Self form only.
+  if (selfRef) {
+    const esc = (s) => String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const selfSubjects = ["this creature", "this permanent", ...(shortName ? [esc(shortName)] : []), ...(nameL ? [esc(nameL)] : [])];
+    if (new RegExp(`^(?:${selfSubjects.join("|")}) becomes the target of a spell$`).test(c)) {
+      return { event: "becomesTargetOfSpell", scope: "self", whose: "any" };
+    }
+  }
   // ===== ATTACKS-ALONE (BLITZ TR-2, CR 506.5 / 702.83b) ===== "attacks alone" = it's the ONLY creature
   // declared as an attacker. The sole-attacker gate now EXISTS at the runtime: checkAttackTriggers fires the
   // dedicated "attacksAlone" event ONLY when attackers.length === 1 (the KW-EXALTED seam — the same
@@ -3613,6 +3623,11 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
   for (const nm of candidates) {
     if (nm.length < 3) continue; // a 1-2 char "name" is too ambiguous to anchor on (never a real legend short name)
     const esc = nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // OBJECT-POSITION self-name (SHELF-85 K9, 2026-09-04 — Fblthp "shuffle Fblthp into its owner's library"): the name is
+    // the verb's OBJECT. Whole-clause anchored on exactly the shuffle-into-owner's-library grammar, so a filtered or
+    // multi-object clause never matches (CREED); the zones.js arm re-gates the rewritten form.
+    const om = eff.match(new RegExp(`^shuffle ${esc} into its owner's library$`, "i"));
+    if (om) return "shuffle this creature into its owner's library";
     const m = eff.match(new RegExp(`^${esc}\\s+(.+)$`, "i"));
     // Only rewrite when what FOLLOWS the name is a modeled self-effect verb — otherwise the name might be a
     // coincidental prefix of unrelated text and rewriting could mis-bind (CREED). The parser re-gates anyway.
@@ -7490,6 +7505,11 @@ export function checkBecomesTargetTriggers(state, stackObj) {
       triggeringContext: {},
     }).filter((tr) => !tr?.descriptor?.targeterIsController
       || (!!targeter && targeter === lk.permanent.controller)));
+    // K9 (Fblthp "becomes the target of a SPELL"): the spell-only sibling of becomesTarget — fired here, at the one
+    // chokepoint every stack object passes with its kind, and only for a spell (an ability targeting it never fires).
+    if (isSpell) {
+      fired = fired.concat(triggersForEvent(state, { event: "becomesTargetOfSpell", sourcePermanent: lk.permanent, triggeringPermanent: lk.permanent, triggeringContext: {} }));
+    }
     // GROUP fan-out (spell-only): a CREATURE the targeted creature's controller controls became a spell's
     // target → fire every "a creature you control becomes the target of a spell" watcher that controller has.
     // scopeMatches("creatureYouControl") requires the triggering creature and the watcher share a controller,

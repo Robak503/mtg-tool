@@ -1107,6 +1107,17 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     if (!entering) return null;
     return entering.wasCast === true && entering.castFromZone === "hand";
   }
+  // ⭐ ENTERED-OR-CAST FROM THE LIBRARY (SHELF-85 K9, 2026-09-04 — Fblthp "If it entered from your library or was cast from
+  // your library, draw two cards instead"): the entering permanent's two stamps — `castFromZone` (the cast lane's zone,
+  // "library" for the play-from-top lane) and `enteredFromZone` (enterCardFromZone's, for a put-onto-battlefield). A
+  // permanent that arrived any other way carries neither and reads false; no referent → null (unreadable).
+  if (/^it entered from your library or was cast from your library$/.test(c)) {
+    const triggeringId = context?.triggeringPermanentId;
+    if (!triggeringId) return null;
+    const entering = controllerBoard(state, controllerId).find((p) => p.id === triggeringId);
+    if (!entering) return null;
+    return entering.castFromZone === "library" || entering.enteredFromZone === "library";
+  }
 
   // X-VALUE THRESHOLD (CR 608.2h) — "x is N or more": read the paid {X} threaded into THIS trigger's
   // context (ctx.xValue, stamped by checkEnterTriggers from enteredPerm.xValue). A definite number for the

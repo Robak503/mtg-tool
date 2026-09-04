@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K9: Fblthp, the Lost (+5)** · suite **1467 files / 16,012 tests** green · corpus 14,403 (42.1%) / 34,245 · flip-diff +5 / 0 lost · 11/11 killed
+
+> The zone-stamped draw, the standalone becomes-target event, the shuffle-in with its graveyard form. Kellan **80** (needs 5; Fblthp is not in the measured deck). Next: The Key to the Vault (a combat-damage-sized dig with a free-cast permission — needs a per-card free flag on the impulse lane), then the K5/K6 top-of-library subsystem (L).
+> **CI:** GREEN on Make Your Own Luck (run 33916625282); this slice pushes and is watched
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K7: Make Your Own Luck (+1)** · suite **1466 files / 16,006 tests** green · corpus 14,398 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 7/7 killed (the seventh — the pause store's chosenTo whitelist — was found by the witness, not reasoning: the store silently dropped the new destination)
 
 > Look at three, plot one, keep the rest. Kellan **80** (needs 5) — the runbook's predicted ceiling without the top-of-library subsystem. Honest M rows left: Fblthp (ETB draw-two-instead on the cast-zone stamp + a self becomes-target shuffle-in), The Key to the Vault (a combat-damage-sized dig with a free-cast permission); then the K5/K6 subsystem (L, multi-slice) per the runbook's default.

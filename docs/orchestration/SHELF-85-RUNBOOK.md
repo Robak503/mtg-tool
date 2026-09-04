@@ -332,7 +332,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | K6 | Mind's Dilation | opponent's first spell each turn: exile their top card, you may cast it free | L | same wall (opponent's library) | ⬜ |
 | K7 | Make Your Own Luck ✅ (+1 — the impulse-dig pause with a PLOT destination and a HAND rest) · Unexpected Results · Portent of Calamity | look-at-top / reveal-and-cast shapes | M ✅ / M / L | | ⬜ |
 | K8 | Sakashima's Protege · Planar Nexus ✅ · Ellie and Alan · The Key to the Vault | clone / every-nonbasic-type / discover-X-from-graveyard / look-that-many | L / S ✅ / M / M | Planar Nexus = the ④-BE layer-4 subtype add with every nonbasic land type (S) | ⬜ |
-| K9 | COMPOSITE | Recurring Insight ✅ (+1 — the hand-size draw count; rebound was modeled) · Fblthp · Mystic Forge · Jace Reawakened · Bonny Pall · Doc Aurlock ✅ (+1 — the named-zone reducer + a plot-cost reduction at the offer) · Lock and Load ✅ (+1 — a per-turn instant/sorcery tally, the 'other' count, a splitter keep-whole for the type pair) · Savvy Trader ✅ (+2 with Sage of the Beyond — the play-while-exiled ETB on the extended impulse window; a cast-ZONE cost reducer, fromZone threaded through costReductionForSpell) · Step Between Worlds · Tezzeret the Seeker | size on approach | most sit on the K5 wall | ⬜ |
+| K9 | COMPOSITE | Recurring Insight ✅ (+1 — the hand-size draw count; rebound was modeled) · Fblthp ✅ (+5 with Angel of Fury / Cavalier of Gales / Alabaster Dragon / Livewire Lash — draw-two-instead on the zone stamps; the standalone becomes-target event; shuffle-self-into-library incl. the graveyard form) · Mystic Forge · Jace Reawakened · Bonny Pall · Doc Aurlock ✅ (+1 — the named-zone reducer + a plot-cost reduction at the offer) · Lock and Load ✅ (+1 — a per-turn instant/sorcery tally, the 'other' count, a splitter keep-whole for the type pair) · Savvy Trader ✅ (+2 with Sage of the Beyond — the play-while-exiled ETB on the extended impulse window; a cast-ZONE cost reducer, fromZone threaded through costReductionForSpell) · Step Between Worlds · Tezzeret the Seeker | size on approach | most sit on the K5 wall | ⬜ |
 
 **Ceiling note:** without the top-of-library-play subsystem Kellan tops out near 80. Decide at approach: build the
 subsystem as its own multi-slice L (it also pays in Omnath's shelf-neighbours: Courser/Oracle-class cards corpus-wide),
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · K9 Fblthp, the Lost (Kellan; four twins) ✅ +5 corpus · 11/11 killed · suite 1467 files / 16,012 tests · corpus 14,403 (42.1%) · shelf refreshed in §1 · CI: GREEN on Make Your Own Luck (run 33916625282); this slice pushes and is watched.
 
 - 2026-09-04 — Phase 2 · K7 Make Your Own Luck (Kellan) ✅ +1 corpus · 7/7 killed (the seventh — the pause store's chosenTo whitelist — was found by the witness, not reasoning: the store silently dropped the new destination) · suite 1466 files / 16,006 tests · corpus 14,398 (42.0%) · shelf refreshed in §1 · CI: GREEN on Doc Aurlock (run 33915685633); this slice pushes and is watched.
 

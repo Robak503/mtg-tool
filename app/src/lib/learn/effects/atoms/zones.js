@@ -3,7 +3,7 @@
  * reanimate). Also hosts the shared enterCardFromZone helper (reanimation + library ramp).
  */
 
-import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf } from "../../gameState.js"; // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
+import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf, shuffleSeededLibrary } from "../../gameState.js"; // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
 import { impositionEntersTapped } from "../../staticAbilityParser.js"; // KM-1 (CR 614.1c) — Kismet taxes non-cast entries too (leaf-safe: staticAbilityParser imports only keywords.js)
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
@@ -128,6 +128,46 @@ export function applyExileFromGraveyard(state, atom, ctx) {
     exiled.push(t.id);
   }
   return logEvent(next, { kind: "spell-effect", effect: "exile-from-graveyard", controller: ctx.controller, targets: exiled });
+}
+
+/**
+ * SHUFFLE SELF INTO LIBRARY (K9 — Fblthp): the ability's SOURCE permanent (ctx.sourceId) leaves the battlefield for its
+ * owner's library, which is then shuffled. A source that already left (CR 608.2b — the trigger outlives the permanent)
+ * is a logged no-op, never a throw. Owner = the permanent's stamped owner if it changed hands, else its controller.
+ */
+export function applyShuffleSelfIntoLibrary(state, atom, ctx) {
+  const lk = ctx?.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  if (!lk) {
+    // DIES-TRIGGER FORM (Angel of Fury / Cavalier of Gales / Alabaster Dragon "When this creature dies, shuffle it into its
+    // owner's library"): the source is no longer a permanent — it is the CARD in a graveyard (ctx.sourceCardId, the dies
+    // context's card id). Move it graveyard → that owner's library and shuffle. Nowhere → a logged no-op (CR 608.2b).
+    // The resolve context threads the SOURCE's permanent id, not its card id; a SELF dies trigger's triggering permanent IS
+    // the source, so its card id names the card in the yard. The equality guard keeps an "another creature dies" watcher
+    // from ever shuffling the OTHER creature's card.
+    const selfTriggered = !!ctx?.triggeringPermanentId && ctx.triggeringPermanentId === ctx?.sourceId;
+    const cardId = ctx?.sourceCardId || (selfTriggered ? ctx?.triggeringCardId : null) || null;
+    for (const pid of Object.keys(state.players || {})) {
+      if (cardId && (state.players[pid].graveyard || []).some((c) => c.id === cardId)) {
+        let next = moveCardToZone(state, { playerId: pid, fromZone: "graveyard", toZone: "library", cardId });
+        next = shuffleSeededLibrary(next, pid);
+        return logEvent(next, { kind: "spell-effect", effect: "shuffle-self-into-library", controller: ctx.controller, cardId, owner: pid, from: "graveyard" });
+      }
+    }
+    return logEvent(state, { kind: "spell-effect", effect: "shuffle-self-into-library", controller: ctx.controller, cardId: null, reason: "source-gone" });
+  }
+  const owner = lk.permanent.owner || lk.controller;
+  let next;
+  if (owner === lk.controller) {
+    next = moveCardToZone(state, { playerId: lk.controller, fromZone: "battlefield", toZone: "library", cardId: lk.permanent.id });
+  } else {
+    // Stolen: the permanent leaves the CONTROLLER's battlefield and the card joins the OWNER's library (CR 400.3).
+    const card = lk.permanent.card;
+    next = { ...state, players: { ...state.players,
+      [lk.controller]: { ...state.players[lk.controller], battlefield: (state.players[lk.controller].battlefield || []).filter((p) => p.id !== lk.permanent.id) } } };
+    next = { ...next, players: { ...next.players, [owner]: { ...next.players[owner], library: [...(next.players[owner]?.library || []), card] } } };
+  }
+  next = shuffleSeededLibrary(next, owner);
+  return logEvent(next, { kind: "spell-effect", effect: "shuffle-self-into-library", controller: ctx.controller, cardId: lk.permanent.card?.id || null, owner });
 }
 
 /**
@@ -277,7 +317,8 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   // card back to its OWNER's graveyard/hand/library when it dies / is bounced / is tucked (CR 404.1 — a
   // destroyed object "is put on top of its owner's graveyard"; CR 700.4 — dies = put into a graveyard
   // from the battlefield). The common same-player entry stamps nothing → byte-identical.
-  const perm = { ...createPermanent({ id: permId, card, controller: playerId, summoningSick: isCreatureCard, tapped: forcedTapped }), enteredOnTurn: s2.turn, timestamp: ts, ...(fromPlayerId !== playerId && { owner: fromPlayerId }) };
+  // K9 (Fblthp "if it entered from your library"): the zone this permanent arrived from, for ETB riders that ask.
+  const perm = { ...createPermanent({ id: permId, card, controller: playerId, summoningSick: isCreatureCard, tapped: forcedTapped }), enteredOnTurn: s2.turn, timestamp: ts, enteredFromZone: fromZone, ...(fromPlayerId !== playerId && { owner: fromPlayerId }) };
   // Remove the card from its OWNER's source zone (fromPlayerId), then add the new permanent to the
   // CONTROLLER's battlefield (playerId). Build both player updates from s2 so a same-player move (the
   // common case, fromPlayerId === playerId) composes into one object and a cross-player move (reanimation
@@ -967,6 +1008,9 @@ export function graveyardReturnClauseParser(clause) {
   // card for as long as it remains exiled" into this one clause): the OWN-graveyard exile whose card stays playable — the
   // resolver stamps the EXTENDED impulse window (`_impulseExtended`, the same flag the "for as long as it remains exiled"
   // library impulses ride), so legalChoices' impulse lane offers it from exile on any later turn.
+  // SHUFFLE SELF INTO LIBRARY (SHELF-85 K9, 2026-09-04 — Fblthp "shuffle this creature into its owner's library"): the
+  // source permanent leaves the battlefield for its OWNER's library, which is then shuffled (CR 701.24).
+  if (/^shuffle (?:this creature|this permanent|it) into its owner's library$/.test(t)) return { op: "shuffle-self-into-library", targetType: null };
   const gxPlayM = /^exile target (.*?)cards? from your graveyard and you may play (?:it|that card) for as long as it remains exiled$/.exec(t);
   if (gxPlayM) {
     const cardFilter = parseGraveyardFilter(gxPlayM[1]);
@@ -1674,4 +1718,5 @@ export const zoneResolvers = {
   "earthbend-return": applyEarthbendReturn, // EARTHBEND-RETURN (CR 603.7) — the animated land's dies/exile delayed return, tapped
   "detain-return": applyDetainReturn, // DETAIN-RETURN (DT-1, CR 610.3a) — the linked exiles return when the detainer leaves
   "gy-shuffle-into-library": applyGyShuffleIntoLibrary, // GY-SHUFFLE-IN (GS-1, CR 701.24) — chosen graveyard cards shuffle into their owner's library
+  "shuffle-self-into-library": applyShuffleSelfIntoLibrary, // K9 (Fblthp) — the source permanent shuffles into its owner's library
 };

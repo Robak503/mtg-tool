@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · K9: FBLTHP — the zone-stamped draw, the standalone target event, the shuffle-in · **+5** · corpus 14,403 (42.1%) / 34,245
+> Suite **1467 files / 16,012 tests** green; lint 0. Flip-diff **+5, zero LOST** (Fblthp; Angel of Fury / Cavalier of Gales / Alabaster Dragon — dies → shuffle it in; Livewire Lash — the granted becomes-target trigger). **11/11 killed.**
+> · **The ETB:** "draw a card. If it entered from your library or was cast from your library, draw two instead" — a draw with an
+>   amountUpgrade whose condition reads the entering permanent's two zone stamps: `castFromZone` (the cast lane's; "library"
+>   for the play-from-top lane) and the NEW `enteredFromZone` (enterCardFromZone's, for a put-onto-battlefield). The draw
+>   resolver already honoured amountUpgrade through resolveScaledAmount.
+> · **The second trigger:** a STANDALONE becomes-target-of-a-spell self event — its own name, fired only at the targeting site
+>   beside the Kira-class compound (never at attack declaration) — plus the object-position self-name rewrite ("shuffle
+>   Fblthp into…" → "shuffle this creature into…"; the head-form rewrite never reached a name after the verb).
+> · **The atom, and the FP it nearly was:** shuffle-self-into-library first looked only for the SOURCE PERMANENT. The flip-diff
+>   showed three DIES-trigger twins ("When this creature dies, shuffle it into its owner's library") — by then the source is
+>   the CARD in a graveyard, and the resolver would have no-opped: a credited-but-hollow class. The graveyard form was added
+>   (ctx.sourceCardId, the dies context's card id) BEFORE the witness, and the witness pins it end to end.
+> · **Two CREED pins graduated by design** (becomesTarget.test / triggers.test: "a bare 'becomes the target of a spell' stays
+>   undetected — no runtime models it"): a runtime models it now, so both repoint to "detected as the spell-only event", dated.
+> · **Kellan did not move (80):** Fblthp is not in the measured deck list — the K9 row named it; the +5 is corpus-wide.
+> · **CI:** GREEN on Make Your Own Luck (run 33916625282); this slice pushes and is watched
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · K7: MAKE YOUR OWN LUCK — look, plot one, keep the rest · **+1** · corpus 14,398 (42.0%) / 34,245 (42.0%)
 > Suite **1466 files / 16,006 tests** green; lint 0. Flip-diff **+1, zero LOST**. **7/7 killed (the seventh — the pause store's chosenTo whitelist — was found by the witness, not reasoning: the store silently dropped the new destination).**
 > · **The shape:** the impulse-dig pause with two new riders — a PLOT destination (the pick leaves the library for exile

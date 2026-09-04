@@ -168,10 +168,12 @@ describe("classifyCondition — compound self-event + LTB guard (CREED)", () => 
   it("still detects a bare self 'attacks, <effect>' — the list guard does not swallow a plain effect", () => {
     expect(detectTriggers(creature("Hellrider", "Whenever this creature attacks, it deals 1 damage to each opponent.")).map((t) => t.event)).toEqual(["attacks"]);
   });
-  // CREED near-miss #2 — the bare "becomes the target of a spell" alone (no "attacks") was already undetected
-  // (no runtime); it must STAY undetected (the guard change never accidentally starts modeling it).
-  it("does NOT detect a bare 'becomes the target of a spell' trigger — no general runtime models it", () => {
-    expect(detectTriggers(creature("Hypothetical", "Whenever this creature becomes the target of a spell, create a Treasure token."))).toHaveLength(0);
+  // CREED near-miss #2 — GRADUATED 2026-09-04 (SHELF-85 K9 — Fblthp): the bare "becomes the target of a spell" now has a
+  // runtime of its own (becomesTargetOfSpell, fired spell-only at the checkBecomesTargetTriggers chokepoint), so it is
+  // DETECTED as that event and never as the compound attacks-or-becomes-target one.
+  it("detects a bare 'becomes the target of a spell' trigger as the spell-only event, not the compound", () => {
+    const dets = detectTriggers(creature("Hypothetical", "Whenever this creature becomes the target of a spell, create a Treasure token."));
+    expect(dets.map((t) => t.event)).toEqual(["becomesTargetOfSpell"]);
   });
 });
 

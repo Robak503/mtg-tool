@@ -61,10 +61,14 @@ describe("detectTriggers — the becomesTarget self-sac event", () => {
     expect(classifyCard(pub(cursed))).toBe("body-only");
   });
 
-  it("CREED near-miss: 'becomes the target of a spell' (spell-only, no ability) stays UNDETECTED", () => {
+  // GRADUATED 2026-09-04 (SHELF-85 K9 — Fblthp): the spell-only form now has its OWN event, becomesTargetOfSpell, fired at
+  // the checkBecomesTargetTriggers chokepoint under the isSpell gate (an ability targeting it never fires). The pin flips
+  // from "stays undetected" to "detected as the spell-only event".
+  it("'becomes the target of a spell' (spell-only, no ability) is its OWN event, never the spell-or-ability one", () => {
     const spellOnly = bearCard("When this creature becomes the target of a spell, sacrifice it.");
-    expect(detectTriggers(pub(spellOnly))).toHaveLength(0);
-    expect(classifyCard(pub(spellOnly))).toBe("body-only");
+    const dets = detectTriggers(pub(spellOnly));
+    expect(dets).toHaveLength(1);
+    expect(dets[0].event).toBe("becomesTargetOfSpell");
   });
 
   it("CREED near-miss: the compound 'attacks or becomes the target of a spell' is NOT the bare becomesTarget self-event", () => {

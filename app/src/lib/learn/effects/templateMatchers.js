@@ -1213,6 +1213,11 @@ function insteadCondition(word, cond) {
 }
 export function matchInsteadAmountUpgrade(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  // ⭐ DRAW-N-INSTEAD ON A ZONE CONDITION (SHELF-85 K9, 2026-09-04 — Fblthp "Draw a card. If it entered from your library or
+  // was cast from your library, draw two cards instead."): the draw resolver already reads amountUpgrade through
+  // resolveScaledAmount; the condition is the interveningIf arm that reads the entering permanent's zone stamps.
+  const fb = t.match(/^draw a card\. if (it entered from your library or was cast from your library), draw (two|three) cards instead$/);
+  if (fb) return { atoms: [{ op: "draw", amount: 1, targetType: null, amountUpgrade: { condition: fb[1], amount: fb[2] === "two" ? 2 : 3 } }] };
   // Family 1 — self-name BURN (deal-damage). Galvanic Blast is caught by matchMetalcraftDamage first (its exact
   // {kind:"artifactsYouControl"} shape preserved); this catches Brimstone Volley / Cackling Flames / Firecannon Blast.
   let m = t.match(/^(.+?) deals (\d+) damage (to any target|to target creature)\. ([a-z][a-z ]*?) — \1 deals (\d+) damage instead if (.+)$/);
