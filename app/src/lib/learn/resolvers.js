@@ -966,11 +966,14 @@ export const RESOLVERS = Object.freeze({
   // battlefield, both controlled by the activating player, the target a creature; an
   // illegal target makes the ability do nothing (logged, never fabricated).
   [RESOLVER_KEYS.ATTACH]: (state, obj) => {
-    const { sourceId, targetId, controller } = obj.payload?.params || {};
+    const { sourceId, targetId, controller, aura = false } = obj.payload?.params || {};
     const src = findPermanent(state, sourceId);
     const tgt = findPermanent(state, targetId);
     const tgtType = String(tgt?.permanent?.card?.type || tgt?.permanent?.card?.type_line || "");
-    if (!src || !tgt || src.controller !== controller || tgt.controller !== controller || !/Creature/.test(tgtType)) {
+    // SHELF-85 V15 (Detainment Spell): an AURA re-attach ("Attach this Aura to target creature") may land on an
+    // opponent's creature — Equip's own-creature rule (CR 702.6a) is Equip's alone. The Aura still must be the
+    // activator's, and the target a creature (the printed "Enchant creature").
+    if (!src || !tgt || src.controller !== controller || (!aura && tgt.controller !== controller) || !/Creature/.test(tgtType)) {
       return resolveManual(state, obj);
     }
     return logEvent(attachPermanent(state, { equipId: sourceId, targetId }), {

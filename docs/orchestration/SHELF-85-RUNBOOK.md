@@ -80,9 +80,9 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Otharri Test | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 68 | 17 | 22 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
-| Test | Light-Paws Voltron | 61 | 24 | 29 | ⬜ Phase 2 |
+| Test | Light-Paws Voltron | 65 | 20 | 25 | ⬜ Phase 2 |
 
-**14 decks below 85 · 185 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**14 decks below 85 · 181 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -181,7 +181,7 @@ Ordered by slots paid across the 14 sub-85 decks, then by size. Every row: ⬜ o
 | V12 | **The extra-turn trio** — Final Fortune, Last Chance, Warrior's Oath: "Take an extra turn after this one. At the beginning of that turn's end step, you lose the game." | Killer Turts | 3 | **M** | extra turns exist (probe `extraTurns`); the delayed lose-the-game must fire on THAT turn's end step only (a `fireScope: "thatTurn"` on the delayed queue keyed to the extra turn's number) | ✅ (+4 corpus — the delayed timing "that turn's end step" → fireScope `thatTurn`; advanceStep stamps `extraTurnOf` when it pops an extra turn and clears it on a normal rotation; the drain fires a thatTurn record only at the end step of the controller's extra turn (never the casting turn's own end step); "you lose the game" is the win-game atom on the controller. The AI never casts a spell carrying a delayed loss.) |
 | V13 | **Maze of Ith** — "{T}: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn." | Atraxa (×2 slots) | 2 | **M** | untap in the combat window (④-AE) + a per-creature "prevent all combat damage to and by" flag for the turn (the `noCombatDamageTurn` stamp from ④-AU is the dealer half; add the receiver half) | ✅ (+3 corpus — the prevent sentence folds onto the untap (as "Untap it." folds onto a pump); the untap resolver stamps BOTH halves on the target for the turn (`noCombatDamageTurn` — the ④-AU dealer gate — and the new `takesNoCombatDamageTurn`); combat resolution prevents damage TO a stamped creature at both receiver sites exactly like protection (assignment still absorbs lethal, so a trampler spills only the excess). Offered in the combat window (④-AE); the AI aims it at an attacker attacking it (enemy-facing), never its own.) |
 | V14 | **Gingerbrute / Tough Cookie** | Bumble (×2 each) | 4 | S / M | Gingerbrute: "can't be blocked this turn except by creatures with haste" = the except-by keyword filter with `Haste` added to the allowlist (S). Tough Cookie: "target noncreature artifact you control becomes a 4/4 artifact creature until end of turn" = the animate lane on a chosen artifact (M) | ✅ (+4 corpus — Gingerbrute: the self "can't be blocked this turn except by creatures with <keyword>" effect as a `cantBeBlockedExceptBy:<Keyword>` grant read by grantedAttackerExceptions into the printed static's own keyword arm (a haste blocker may still block). Tough Cookie: the animate lane on a CHOSEN noncreature artifact you control (the layer-aware predicate + the controller restriction; the man-land resolver). Twins: Resilient Roadrunner, Alloy Animist.) |
-| V15 | **Chains of Custody / Sheltered by Ghosts / Detainment Spell** (Light-Paws ×2 each) | Light-Paws | 6 | M | Aura ETB "exile target nonland permanent an opponent controls until this Aura leaves" = the detain-exile lane with an AURA source (exists for creatures/enchantments; probe the aura path); Detainment Spell's "{1}{W}: attach this Aura to target creature" = a re-attach activated ability (the equip lane's aura twin) | ⬜ |
+| V15 | **Chains of Custody / Sheltered by Ghosts / Detainment Spell** (Light-Paws ×2 each) | Light-Paws | 6 | M | Aura ETB "exile target nonland permanent an opponent controls until this Aura leaves" = the detain-exile lane with an AURA source (exists for creatures/enchantments; probe the aura path); Detainment Spell's "{1}{W}: attach this Aura to target creature" = a re-attach activated ability (the equip lane's aura twin) | ✅ (+10 corpus — the detain frame learned the AURA noun ("until this Aura leaves the battlefield"); the ward {2} / lifelink grants were already read by the attached-clause grammar and are live in layers; Detainment Spell's "{1}{W}: Attach this Aura to target creature" rides the equip lane as an Aura re-attach (any creature, an opponent's included; the resolver waives Equip's own-creature rule for it) and the aura-own-activated validator admits it. **Phase 1's vein rows are complete.**) |
 
 ### 4.2 Phase 2 — deck by deck (§5 has every row)
 
@@ -237,7 +237,11 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 
 | Row | Card | Blocker (ledger) | Size | Note | Status |
 |---|---|---|---|---|---|
-| T1 | Sink into Stupor · Fell the Profane · Bridgeworks Battle · Boggart Trawler · Agadeem's Awakening · Multiversal Passage | MDFC | V1 | six slots from the vein | ⬜ |
+| T1 | Sink into Stupor · Fell the Profane · Bridgeworks Battle · Boggart Trawler · Agadeem's Awakening · Multiversal Passage | MDFC | V1 | six slots from the vein | ✅ V1 shipped Fell the Profane + Bridgeworks Battle (the land backs of all five MDFCs play); the four left park on their FRONTS and are the rows below |
+| T1a | Sink into Stupor | "return target spell or nonland permanent an opponent controls to its owner's hand" — the spell∪nonland-permanent target union on the bounce atom | M | the Venser spellOrPermanent union exists for the bounce; this one is spell ∪ NONLAND permanent an opponent controls | ⬜ |
+| T1b | Agadeem's Awakening | "any number of target creature cards that each have a different mana value X or less" from your graveyard | L | any-number reanimate with a pairwise distinct-MV constraint (the sharesCreatureType subset precedent, inverted) | ⬜ |
+| T1c | Boggart Trawler | ETB "exile target player's graveyard" | S | a player-target graveyard exile (Relic of Progenitus' target-player pick, whole graveyard) | ⬜ |
+| T1d | Multiversal Passage | "As this land enters, choose a basic land type. Then you may pay 2 life. If you don't, it enters tapped. / This land is the chosen type." | M | the chosen-basic-type land (a Cavern-style chooser stamping a subtype; the mana model reads the chosen type) + the pay-2-life shock rider | ⬜ |
 | T2 | Starting Town | enters tapped unless turn 1–3 | V2 | |✅ |
 | T3 | Field of the Dead | "whenever this land or another land you control enters, if you control seven or more lands with different names, create a 2/2 Zombie" | M | landfall (self-or-another land) + a distinct-land-names intervening-if + token | ⬜ |
 | T4 | Titania, Protector of Argoth | "whenever a land you control is put into a graveyard from the battlefield, create a 5/3 Elemental" | M | a land-dies event (the gyEnter machinery with cardType Land, fromZone battlefield) + token | ⬜ |
@@ -420,7 +424,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | L1 | Ishgard, the Holy See | MDFC | V1 | | ⬜ |
-| L2 | Chains of Custody ×2 · Sheltered by Ghosts ×2 · Detainment Spell ×2 | | V15 | | ⬜ |
+| L2 | Chains of Custody ×2 · Sheltered by Ghosts ×2 · Detainment Spell ×2 | | V15 | |✅ |
 | L3 | Light-Paws, Emperor's Voice | aura you cast enters → tutor an Aura with lesser MV onto the battlefield attached | M | the deck's engine; an aura-cast watcher + tutor-to-battlefield-attached | ⬜ |
 | L4 | Face of Divinity · Solid Footing · Gauntlets of Light · Greater Auramancy · Umbra Mystic · Shielded by Faith · Brilliant Wings · Sentinel's Mark · Shardmage's Rescue · Celestial Mantle · With Great Power · Mantle of the Ancients | aura statics and triggers | S–M | Gauntlets/Solid Footing = "assigns combat damage equal to its toughness" (the layer op EXISTS: assignsCombatDamageWithToughness — S); Greater Auramancy = team shroud on enchanted creatures (S); Shielded by Faith / Brilliant Wings = a re-attach on ETB (M) | ⬜ |
 | L5 | Winds of Rath · Karametra's Blessing · Enter the Avatar State · Deafening Silence · Drannith Magistrate | spells and statics | S / S / M / M / M | | ⬜ |
@@ -468,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — V15 (the Light-Paws Auras) ✅ +10 corpus · Phase 1 vein rows complete · 6/6 mutations killed against a green witness (the Aura noun removed from the detain frame, the attach arm removed, the pool restricted to own creatures, the resolver keeping Equip's own-creature rule, the validator refusing the attach line, the current host offered as a move) · suite 1433 files / 15,813 tests · corpus 14,337 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — V14 (Gingerbrute / Tough Cookie) ✅ +4 corpus · 6/6 mutations killed against a green witness (the except-by arm removed, the grant collapsing to flat unblockable, the block-time read removed, the artifact animate arm removed, the controller restriction dropped, the printed power ignored) · suite 1432 files / 15,807 tests · corpus 14,327 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 

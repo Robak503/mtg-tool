@@ -3868,6 +3868,10 @@ function isModeledAuraOwnActivatedLine(line) {
   if (abs.length !== 1) return false;
   const a = abs[0];
   if (!a.modeled || a.isManaEffect) return false;
+  // SHELF-85 V15 (2026-09-04 — Detainment Spell "{1}{W}: Attach this Aura to target creature."): the Aura re-attach is a
+  // modeled, program-less ability on the equip lane (isAuraAttach — the ATTACH resolver moves the Aura); it needs no
+  // "enchanted" referent, so it is admitted here as its own line. Equip proper never reaches an Aura's residue walk.
+  if (a.isAuraAttach) return true;
   // ⛔ GUARD-LEAVE, now needed HERE too. A cost that removes the AURA ITSELF (sacrifice/exile this Aura)
   // DETACHES the host, so an effect referencing "enchanted creature" has nothing to resolve onto — the
   // engine can't play it. nativeStaticGrantPlusActivated has always refused those; this validator did not

@@ -1433,7 +1433,7 @@ function applyActivateAbility(state, action) {
   const targets = action.targets || [];
   let payload;
   if (action.isEquipAbility) {
-    payload = { resolver: RESOLVER_KEYS.ATTACH, params: { sourceId: action.permanentId, targetId: targets[0]?.id, controller: action.playerId } };
+    payload = { resolver: RESOLVER_KEYS.ATTACH, params: { sourceId: action.permanentId, targetId: targets[0]?.id, controller: action.playerId, ...(action.isAuraAttach ? { aura: true } : {}) } }; // V15: an Aura re-attach may cross to an opponent's creature
   } else {
     // sourceId = the activating permanent — lets a "this creature gets …" self atom in an
     // activated ability ("{T}: This creature gets +1/+1 until end of turn") resolve to the source.

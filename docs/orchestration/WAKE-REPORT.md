@@ -7,6 +7,13 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-05 (day cron) — **SHELF-85 V15: the Light-Paws Auras (+10) — Phase 1's fifteen vein rows are complete** · suite **1433 files / 15,813 tests** green · corpus 14,337 / 34,245 (41.8%) · flip-diff +10 / 0 lost · 6/6 mutations killed against a green witness (the Aura noun removed from the detain frame, the attach arm removed, the pool restricted to own creatures, the resolver keeping Equip's own-creature rule, the validator refusing the attach line, the current host offered as a move)
+
+> **Stage boundary — Phase 1 done.** Chains of Custody and Sheltered by Ghosts detain until the Aura leaves; Detainment
+> Spell moves itself to any creature. The runbook's §2 now selects Phase 2: the per-deck residue walks, sub-85 decks in
+> the runbook's order.
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 V14: Gingerbrute / Tough Cookie (+4)** · suite **1432 files / 15,807 tests** green · corpus 14,327 / 34,245 (41.8%) · flip-diff +4 / 0 lost · 6/6 mutations killed against a green witness (the except-by arm removed, the grant collapsing to flat unblockable, the block-time read removed, the artifact animate arm removed, the controller restriction dropped, the printed power ignored)
 
 > An except-by-haste evasion effect and animating a chosen artifact. Next row by the runbook's §2: V15 (the Light-Paws

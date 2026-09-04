@@ -715,7 +715,11 @@ export function destroyExileClauseParser(clause) {
   // typeNeg:aura — a detained AURA would need attach-on-return modeling (CR 611.3c owner's choice); v1
   // excludes auras AT ENUMERATION (never offered, never a silent resolver skip) — a documented narrow FN.
   {
-    const dtm = t.match(/^exile (.+?) until this (?:enchantment|creature|artifact|permanent) leaves the battlefield$/);
+    // SHELF-85 V15 (2026-09-04 — Chains of Custody / Sheltered by Ghosts "When this Aura enters, exile target nonland
+    // permanent an opponent controls until this AURA leaves the battlefield"): the Aura noun joins the alternation — the
+    // detain link is keyed on the source permanent's id, so an Aura source returns the card on ANY exit exactly like an
+    // enchantment source (its host dying takes the Aura with it, CR 704.5m → the return fires).
+    const dtm = t.match(/^exile (.+?) until this (?:enchantment|creature|artifact|permanent|aura) leaves the battlefield$/);
     if (dtm) {
       let body = dtm[1];
       const extra = [{ kind: "typeNeg", type: "aura" }];

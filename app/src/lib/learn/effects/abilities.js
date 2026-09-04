@@ -1046,6 +1046,20 @@ export function parseActivatedAbilities(card) {
       });
       continue;
     }
+    // SHELF-85 V15 (2026-09-04 — Detainment Spell "{1}{W}: Attach this Aura to target creature."): the AURA twin of
+    // Equip — a mana cost, the ATTACH resolver (the Aura moves to the chosen host), no effect program. Rides the equip
+    // lane (isEquipAbility) with `isAuraAttach`: the offer enumerates ANY creature (an Aura may be moved onto an
+    // opponent's creature — "Enchant creature"), and the resolver waives Equip's own-creature rule for it.
+    const aam = line.match(/^((?:\{[^}]+\})+):\s*attach this aura to target creature\.?$/i);
+    if (aam) {
+      const cost = parseAbilityCost(aam[1]);
+      out.push({
+        index: index++, raw: line, costStr: aam[1], effectClause: "Attach this Aura to target creature.",
+        manaPips: cost?.manaPips ?? null, tapSelf: false, costModeled: !!cost,
+        isManaEffect: false, program: null, modeled: !!cost, needsTarget: true, isEquipAbility: true, isAuraAttach: true,
+      });
+      continue;
+    }
     // "Reconfigure {cost}" (CR 702.151) — an Equipment that is ALSO a creature. The ATTACH half is
     // mechanically identical to Equip (attach to a creature you control, sorcery speed), so it carries
     // isEquipAbility and rides the SAME attach resolver, legality path and target enumeration — no new

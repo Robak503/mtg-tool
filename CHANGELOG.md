@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Chains of Custody, Sheltered by Ghosts, Detainment Spell** — the two detain an opponent's permanent until the Aura leaves (with their ward and lifelink grants live); Detainment Spell can be moved onto any creature
 - **Gingerbrute, Resilient Roadrunner** — only haste creatures may block them after their evasion ability; **Tough Cookie, Alloy Animist** — animate one of your noncreature artifacts into a 4/4 for the turn
 - **Maze of Ith** — untaps an attacker and shields it from dealing or taking combat damage this turn; the AI points it at your attackers
 - **Final Fortune, Last Chance, Warrior's Oath** — take the extra turn and lose at its end step, as printed; the opponent AI never gambles on them

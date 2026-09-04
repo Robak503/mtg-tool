@@ -104,8 +104,11 @@ describe("AU-2 CREED — an unmodeled rider parks the whole card (body-only)", (
   it("Krasis Incubation (return-cost activated ability) stays body-only", () => {
     expect(classifyCard(KRASIS)).toBe("body-only");
   });
-  it("Detainment Spell (aura-own attach ability) stays body-only", () => {
-    expect(classifyCard(DETAINMENT)).toBe("body-only");
+  it("Detainment Spell (aura-own attach ability) is native-aura since SHELF-85 V15 (2026-09-04) — lightPawsAuras.test.js owns its pins", () => {
+    // "{1}{W}: Attach this Aura to target creature." rides the equip lane as an Aura re-attach (any creature, an
+    // opponent's included; the ATTACH resolver waives Equip's own-creature rule) and the aura-own-activated validator
+    // admits the program-less line. The tap-lock static was already modeled.
+    expect(classifyCard(DETAINMENT)).toBe("native-aura");
   });
   it("Bonds of Faith (conditional 'as long as'/Otherwise) stays body-only", () => {
     expect(parseAttachedBonus(BONDS)).toEqual([]);

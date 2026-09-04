@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-05 (day cron) — V15: THE LIGHT-PAWS AURAS — the Aura noun on the detain frame, and an Aura re-attach ability · **+10** · corpus 14,337 / 34,245 (41.8%)
+> Suite **1433 files / 15,813 tests** green; lint 0. Flip-diff **+10, zero LOST**. **6/6 mutations killed against a green witness (the Aura noun removed from the detain frame, the attach arm removed, the pool restricted to own creatures, the resolver keeping Equip's own-creature rule, the validator refusing the attach line, the current host offered as a move).**
+> · **Chains of Custody / Sheltered by Ghosts:** "exile target nonland permanent an opponent controls until this AURA leaves
+>   the battlefield" — the detain frame's noun alternation lacked "aura"; the link is keyed on the source permanent's id,
+>   so an Aura source returns the card on any exit (its host dying takes it along, CR 704.5m). Their "ward {2}" /
+>   "+1/+0 and has lifelink and ward {2}" grants were already read by the attached-clause grammar — verified live in
+>   layers (power 3, lifelink, ward {2} twice with both attached).
+> · **Detainment Spell:** "{1}{W}: Attach this Aura to target creature." — the Aura twin of Equip on the equip lane
+>   (`isAuraAttach`): the offer enumerates ANY creature (an opponent's obeys hexproof/shroud against the activator; its
+>   current host is not a move), the ATTACH resolver waives Equip's own-creature rule for an Aura, and the aura-own-
+>   activated validator admits the program-less attach line so the classifier and the offer agree.
+> · **Phase 1 of the runbook — the fifteen vein rows — is complete.** Phase 2 (per-deck walks) starts next.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — V14: GINGERBRUTE / TOUGH COOKIE — an except-by evasion effect, and animating a chosen artifact · **+4** · corpus 14,327 / 34,245 (41.8%)
 > Suite **1432 files / 15,807 tests** green; lint 0. Flip-diff **+4, zero LOST**. **6/6 mutations killed against a green witness (the except-by arm removed, the grant collapsing to flat unblockable, the block-time read removed, the artifact animate arm removed, the controller restriction dropped, the printed power ignored).**
 > · **Gingerbrute:** "{1}: This creature can't be blocked this turn except by creatures with haste." — the EXCEPT-BY twin

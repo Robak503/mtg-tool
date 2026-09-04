@@ -268,8 +268,10 @@ describe("AU-3 CREED — false-negative-SAFE parks stay on the Arbiter", () => {
     expect(classifyCard(cardOf("Soul Bleed"))).toMatch(/^native/);
   });
 
-  it("a linked exile-until-leaves ETB effect isn't modeled → body-only (On Thin Ice)", () => {
-    expect(classifyCard(cardOf("On Thin Ice"))).toBe("body-only");
+  it("a linked exile-until-leaves ETB effect on an AURA is modeled since SHELF-85 V15 (2026-09-04) — On Thin Ice is native-trigger; lightPawsAuras.test.js owns the detain-Aura pins", () => {
+    // The detain frame's noun alternation learned "aura" ("until this Aura leaves the battlefield"); the link is keyed on
+    // the source permanent's id, so the Aura's own exit (its host dying takes it along) returns the card.
+    expect(classifyCard(cardOf("On Thin Ice"))).toBe("native-trigger");
   });
 });
 

@@ -2352,8 +2352,14 @@ function actionsActivateAbility(state, playerId) {
       // in response to a spell already on the stack. One action per legal creature target.
       if (ab.isEquipAbility) {
         if ((state.stack?.length || 0) > 0) continue;
-        for (const t of player.battlefield) {
+        // SHELF-85 V15 (Detainment Spell's "Attach this Aura to target creature"): an Aura may be moved onto ANY
+        // creature ("Enchant creature"), an opponent's included — so the pool is every battlefield; Equip stays yours.
+        const pool = ab.isAuraAttach
+          ? Object.entries(state.players || {}).flatMap(([pid, pl]) => (pl?.battlefield || []).map((t) => ({ t, pid })))
+          : player.battlefield.map((t) => ({ t, pid: playerId }));
+        for (const { t, pid: tPid } of pool) {
           if (!isCreature(t.card)) continue;
+          if (ab.isAuraAttach && t.id === perm.attachedTo) continue; // already its host — moving it there is no move
           // EQUIP-[QUALITY] (CR 702.6c): a restricted equip ("Equip commander {3}" / "Equip legendary
           // creature {2}") may target only a creature you control that has the stated quality. Two qualities
           // are modeled: "commander" (CR 903.3 designation travels the card) and "legendary" (the target's
@@ -2364,12 +2370,12 @@ function actionsActivateAbility(state, playerId) {
           // KW-UNTARGET: Equip is a TARGETED ability (CR 702.6e), so it obeys targetability — a Shroud
           // creature (CR 702.18a) can't be targeted even by its controller. Route through the shared
           // guard (hexproof never blocks here, since Equip only targets your OWN creatures — CR 702.11b).
-          if (!canBeTargetedBy(state, t, playerId, playerId)) continue;
+          if (!canBeTargetedBy(state, t, tPid, playerId)) continue; // V15: an opponent's creature obeys hexproof/shroud against the activator
           actions.push({
             kind: "activate-ability", playerId, permanentId: perm.id, name: perm.card.name,
             abilityIndex: ab.index, cost, cmc: totalCmc(cost), tapSelf: false, program: null,
-            targets: [{ id: t.id, name: t.card?.name, type: "creature" }],
-            needsTargets: true, targetName: t.card?.name, abilityText: ab.costStr, isEquipAbility: true,
+            targets: [{ id: t.id, name: t.card?.name, type: "creature", controller: tPid }],
+            needsTargets: true, targetName: t.card?.name, abilityText: ab.costStr, isEquipAbility: true, ...(ab.isAuraAttach ? { isAuraAttach: true } : {}),
           });
         }
         continue;

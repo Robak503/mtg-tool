@@ -6144,6 +6144,10 @@ function auraResidueClauses(card) {
       continue;
     }
     if (isTotemArmorClause(c)) continue;                      // TOTEM ARMOR (Bear Umbra): the modeled destruction-replacement
+    // SHELF-85 V15 (2026-09-04 — Detainment Spell "{1}{W}: Attach this Aura to target creature."): the Aura re-attach is a
+    // modeled, program-less activated line on the equip lane; the registered aura-own-activated validator vouches for it
+    // (coverage admits isAuraAttach explicitly). Narrowed to that exact line so no other activated residue moves here.
+    if (/^[^:\n]+:\s*attach this aura to target creature\.?$/.test(c) && _auraOwnActivatedValidator && _auraOwnActivatedValidator(clause)) continue;
     // AN-1: read the touch against the Aura's OWN body noun, so "Enchanted permanent doesn't untap…"
     // counts as a host-bonus clause rather than falling through to residue. auraTouchClausesAllModeled
     // (the PZ-1 hardening) independently re-checks every clause admitted here, so widening the touch
