@@ -177,6 +177,7 @@ export function controllerCreatureTargets(state, controller, opts = {}) {
   return player.battlefield
     .filter((perm) => isCreatureCard(perm.card) || permanentIsCreature(state, perm.id))
     .filter((perm) => !(opts.excludeSource && perm.id === opts.sourceId))
+    .filter((perm) => !opts.legendaryOnly || /\bLegendary\b/.test(typeLineStr(perm.card)))  // Hajar's supertype gate
     .filter((perm) => !subRes || subRes.some((re) => re.test(typeLineStr(perm.card))))
     .filter((perm) => !negRe || !(negRe.test(typeLineStr(perm.card).split(" // ")[0]) || cardIsChangeling(perm.card)))
     .map((perm) => ({ type: "creature", id: perm.id, controller }));
@@ -306,7 +307,7 @@ export const atomTargets = (state, atom, ctx) => {
     const nm = findPermanent(state, chosen.id)?.permanent?.card?.name;
     return sameNameCreatureTargets(state, nm);
   }
-  if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller, { excludeSource: atom.excludeSource, sourceId: ctx.sourceId, subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate });
+  if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller, { excludeSource: atom.excludeSource, sourceId: ctx.sourceId, subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate, legendaryOnly: atom.legendaryOnly });
   // EACH-CREATURE-TARGET-PLAYER-CONTROLS (Contagion Engine — "put a -1/-1 counter on each creature target
   // player controls"): the CHOSEN target is a PLAYER (it rides ctx.targets via the shared player-target
   // enumeration); the effect's recipients are every creature THAT player controls, gathered AT RESOLUTION

@@ -471,7 +471,7 @@ export function splitClauses(oracle) {
     // to one team-pump instruction, not a top-level effect boundary. Keep the whole sentence so
     // the clause parse binds the controller-scoped pump + grant together (plural subject →
     // "gain", no trailing s).
-    if (/^creatures you control get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    if (/^(?:legendary )?creatures you control get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }  // "legendary" = Hajar
     // COND-X TEAM PUMP (Finale of Devastation) — "If X is N or more, creatures you control get +X/+X and gain
     // KW until end of turn". The "If X is N or more, " prefix conditions the WHOLE team pump on the chosen X;
     // the " and gain …" is INTERNAL to that one pump instruction (same as the unconditional form above), NOT a

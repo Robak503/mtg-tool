@@ -1098,6 +1098,7 @@ export function applyGrantKeywordsGroup(state, atom, ctx) {
   // Call). Read at resolution off the live counter bag (CR 611.2c snapshot), so a creature that loses its
   // counter before this resolves is excluded — faithful. Absent → no filter (the plain group grant).
   if (atom.requiresCounter) sel = sel.filter((p) => (p.counters?.[atom.requiresCounter] || 0) > 0);
+  if (atom.excludeSource && ctx.sourceId) sel = sel.filter((p) => p.id !== ctx.sourceId);  // Spider-Man's "each other"
   const ids = sel.map((p) => p.id);
   let next = state;
   const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
@@ -2110,6 +2111,15 @@ export function pumpClauseParser(clause) {
   if (nf) return { op: "pump", targetType: "creature", nameFanout: true, ptDelta: { p: parseInt(nf[1], 10), t: parseInt(nf[2], 10) } };
   let m = t.match(/^(?:all creatures|each creature) gets? ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (m) return { op: "pump", targetType: "eachCreature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
+  // LEGENDARY-ONLY team pump (Hajar, Loyal Bodyguard: "Legendary creatures you control get +1/+0 and gain
+  // indestructible until end of turn") — the youControl scope with a `legendaryOnly` supertype gate, honoured by
+  // controllerCreatureTargets. A non-legendary creature of yours is NOT pumped (pinned).
+  const tleg = t.match(/^legendary creatures you control get ([+-]\d+)\/([+-]\d+)(?: and gain (.+))? until end of turn$/);
+  if (tleg) {
+    const kws = tleg[3] ? parseGrantedKeywords(tleg[3]) : null;
+    if (tleg[3] && !kws) return null;
+    return { op: "pump", scope: "youControl", legendaryOnly: true, ptDelta: { p: parseInt(tleg[1], 10), t: parseInt(tleg[2], 10) }, ...(kws ? { grantKeywords: kws } : {}) };
+  }
   let tp = t.match(/^creatures you control get ([+-]\d+)\/([+-]\d+) and gain (.+) until end of turn$/);
   if (tp) {
     const kws = parseGrantedKeywords(tp[3]);

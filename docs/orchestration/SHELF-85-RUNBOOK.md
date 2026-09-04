@@ -76,13 +76,13 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Nekusar Wheels | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Shorikai Vehicles | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Shalai and Hallar Test | 77 | 8 | 13 | ⬜ Phase 2 |
+| Test | Shalai and Hallar Test | 79 | 6 | 11 | ⬜ Phase 2 |
 | Test | Otharri Test | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 69 | 16 | 21 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**9 decks below 85 · 125 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**9 decks below 85 · 123 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -348,10 +348,10 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | H4 | Ragavan | combat damage: Treasure + exile their top card, may cast it this turn | M | Treasure (exists) + impulse from an opponent's library (the impulse-exile lane with an owner switch) | ⬜ |
 | H5 | Krenko, Tin Street Kingpin | attacks: +1/+1 counter, then Goblins = its power | S | attacks trigger + add-counter self + tokens countFor sourcePower (④-AW's reader) | ✅ (+5 with Jacked Rabbit / Royal Talon Fighter Jet / Rampant Rejuvenator / Big Mother Mouser — the possessive rewrite, the source-power count phrase, the 'a number of … equal to' token form, and the DIES LOOK-BACK the two dying twins needed) |
 | H6 | Yoshimaru, Ever Faithful | another legendary permanent enters → counter on Yoshimaru | S | ETB watcher with a `legendary` filter | ✅ (+2 with Gimli — the another-permanent etb watcher gained a supertype filter, listed in the assembly, enforced at scopeMatches) |
-| H7 | Spider-Man, Miles Morales | enters or attacks: +1/+1 counter on each other creature you control; they gain flying? | S | | ⬜ |
+| H7 | Spider-Man, Miles Morales | enters or attacks: +1/+1 counter on each other creature you control; those creatures gain trample | S | the "those creatures" referent over an each-OTHER spray — a fourth mass-antecedent kind whose group grant carries excludeSource | ✅ (+1) |
 | H8 | Arwen, Weaver of Hope | each other creature you control enters with additional counters = … | M | an enters-with modifier static | ⬜ |
 | H9 | Damning Verdict | destroy all creatures with no counters on them | S | mass destroy + a `hasCounter` negation (④-AC's restriction, negated) | ✅ (+1 — the counter restriction joined the parser; the evaluator learned the negation) |
-| H10 | Hajar, Loyal Bodyguard · Boromir, Warden of the Tower | sacrifice self: team +1/+0 / indestructible | S | (Boromir's "the Ring tempts you" tail = the ring subsystem → 🅿 unless built) | ⬜ |
+| H10 | Hajar, Loyal Bodyguard · Boromir, Warden of the Tower | sacrifice self: team +1/+0 / indestructible | S | (Boromir's "the Ring tempts you" tail = the ring subsystem → 🅿 unless built) | ✅ Hajar (+1 — a legendary-only team pump; the splitter keep-whole takes the prefix) · 🅿 Boromir (the Ring tempts you = the ring subsystem, unbuilt) |
 | H11 | Kutzil, Malamet Exemplar · Skrelv · Incubation Druid · Uncivil Unrest · Shifting Woodland | | M / M / M / M / L | | ⬜ |
 | H12 | Chaos Warp | | M | shared with Nekusar N13 | ⬜ |
 | H13 | COMPOSITE | Winds of Abandon · Skyclave Apparition · Solitude · Kami of Celebration · Galadriel's Dismissal · Innkeeper's Talent · Cloud's Limit Break · Endurance · Trouble in Pairs · Clever Concealment | size on approach | Solitude/Endurance = evoke (the composition defect report of 09-03: build the evoke composition rule once, it pays in five decks) | ⬜ |
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · H10 + H7 Hajar + Spider-Man (Shalai) ✅ +2 corpus · 7/7 killed (M8 equivalent — no filtered other-spray parses; deleted with a note, FN pinned) · suite 1475 files / 16,053 tests · corpus 14,419 (42.1%) · shelf refreshed in §1 · CI: GREEN on Yoshimaru + Krenko (run 33926593975); this slice pushes and is watched.
 
 - 2026-09-04 — Phase 2 · H6 + H5 Yoshimaru + Krenko (Shalai; five twins) ✅ +7 corpus · 8/8 killed (M9/M10 deleted with dead code; M11 equivalent) · suite 1474 files / 16,048 tests · corpus 14,417 (42.1%) · shelf refreshed in §1 · CI: GREEN on Damning Verdict (run 33925136431); this slice pushes and is watched.
 

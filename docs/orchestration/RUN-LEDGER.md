@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · H10 + H7: HAJAR + SPIDER-MAN — the legendary team pump and the OTHER-set referent · **+2** · corpus 14,419 (42.1%) / 34,245
+> Suite **1475 files / 16,053 tests** green; lint 0. Flip-diff **+2, zero LOST**, no unplanned gains (the two cards themselves). **7/7 killed (M8 equivalent — no filtered other-spray parses; deleted with a note, FN pinned).**
+> · **Hajar:** "Legendary creatures you control get +1/+0 and gain indestructible until end of turn." The team pump took
+>   `creatures you control` only; the legendary form is the same youControl pump with a `legendaryOnly` supertype gate, honoured
+>   in controllerCreatureTargets (the one seam the resolver reaches through). The splitter's team-pump keep-whole admits the
+>   prefix so "get … and gain …" stays ONE clause — without it the sentence split at "and" and both halves went dark. A plain
+>   bear of yours is untouched (pinned). Boromir stays parked on the Ring subsystem.
+> · **Spider-Man:** "put a +1/+1 counter on each OTHER creature you control. Those creatures gain trample until end of turn."
+>   The mass-antecedent gate (CR 608.2 referents) admitted only the UNFILTERED spray, by exact key set. The other-set is a
+>   FOURTH antecedent kind — the unfiltered keys plus `excludeSource: true`, nothing else — whose rewritten group grant carries
+>   the exclusion, and applyGrantKeywordsGroup drops the source. Spider-Man never grows and never enters the grant's fixed
+>   permanent set (pinned by the set, since its printed trample would mask a keyword read).
+> · **Mutations:** 7/7 killed. An eighth (the gate admits ANY extra key) was EQUIVALENT: no filtered other-spray parses today,
+>   so nothing with an extra key can reach it — deleted with a note; the witness pins the filtered forms as UNPARSED (FN-safe),
+>   so the day such an arm lands is announced by a failing test and the gate must be re-proven.
+> · **Shalai 77 → 79** (79/100; needs 6). Next M rows: H4 Ragavan (three arms — the 'you may CAST that card' impulse verb, the that-player's-library owner switch, the Treasure conjunction), H8 Arwen (an enters-with modifier static over OTHER creatures, count = Arwen's toughness — a new replacement seam).
+> · **CI:** GREEN on Yoshimaru + Krenko (run 33926593975); this slice pushes and is watched
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · H6 + H5: YOSHIMARU + KRENKO — and the dies look-back the twins forced · **+7** · corpus 14,417 (42.1%) / 34,245
 > Suite **1474 files / 16,048 tests** green; lint 0. Flip-diff **+7, zero LOST** (Yoshimaru, Krenko; Gimli, Jacked Rabbit, Royal Talon Fighter Jet, Rampant Rejuvenator, Big Mother Mouser — all audited whole-card). **8/8 killed (M9/M10 deleted with dead code; M11 equivalent).**
 > · **Yoshimaru:** "another legendary permanent you control enters" — the another-<subtype> etb watcher's regex takes one word;

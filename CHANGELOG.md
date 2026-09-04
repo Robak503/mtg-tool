@@ -11,6 +11,8 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Hajar, Loyal Bodyguard** — sacrifice it to pump and shield only your legendary creatures
+- **Spider-Man, Miles Morales** — entering or attacking grows each other creature you control and gives them trample
 - **Yoshimaru, Ever Faithful** and **Gimli of the Glittering Caves** — grow when another legendary permanent or creature of yours enters
 - **Krenko, Tin Street Kingpin**, **Jacked Rabbit**, **Royal Talon Fighter Jet** — attack triggers that make tokens equal to their power or counters
 - **Rampant Rejuvenator** — its death trigger now fetches lands equal to the power it had as it died; **Big Mother Mouser** makes its Robots on death

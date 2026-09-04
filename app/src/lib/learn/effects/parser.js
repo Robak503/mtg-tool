@@ -237,6 +237,11 @@ function massAntecedentKind(prev) {
     && Object.keys(prev).every((k) => UNFILTERED_MASS_PUMP_KEYS.has(k))) return "creaturesYouControl";
   if (prev.op === "add-counter" && prev.scope === "youControl"
     && Object.keys(prev).every((k) => UNFILTERED_MASS_COUNTER_KEYS.has(k))) return "creaturesYouControl";
+  // "Put a +1/+1 counter on each OTHER creature you control. THOSE CREATURES gain trample …" (Spider-Man,
+  // Miles Morales): the same unfiltered set minus the source. The referent inherits the exclusion — the
+  // source never gains the keyword (pinned) — and NO other filter is admitted here.
+  if (prev.op === "add-counter" && prev.scope === "youControl" && prev.excludeSource === true
+    && Object.keys(prev).every((k) => k === "excludeSource" || UNFILTERED_MASS_COUNTER_KEYS.has(k))) return "otherCreaturesYouControl";
   if (prev.op === "untap-lands" && prev.all === true && prev.scope === "creature"
     && Object.keys(prev).every((k) => UNFILTERED_MASS_UNTAP_KEYS.has(k))) return "creaturesYouControl";
   // ⛔ create-token is NOT here and must not be. "Create two 1/1 Warrior tokens. THEY gain first strike"
@@ -274,7 +279,16 @@ function rebindToSelfAntecedent(atom, prev) {
 
 /** The referent atom rewritten as a mass atom over `prev`'s set, or null if that shape isn't modelled. */
 function rebindToMassAntecedent(atom, prev) {
-  if (!massAntecedentKind(prev)) return null;
+  const massKind = massAntecedentKind(prev);
+  if (!massKind) return null;
+  // The "each other creature" antecedent (Spider-Man): only the group grant is modelled over it, and it
+  // carries the exclusion. "Untap them" over an other-set has no printed carrier — unmodelled (CREED).
+  if (massKind === "otherCreaturesYouControl") {
+    if (atom.op === "pump" && atom.grantKeywords?.length && atom.ptDelta?.p === 0 && atom.ptDelta?.t === 0) {
+      return { op: "grant-keywords-group", scope: "creaturesYouControl", excludeSource: true, grantKeywords: atom.grantKeywords };
+    }
+    return null;
+  }
   // "Untap them." after a mass pump → the mass untap the engine already has.
   if (atom.op === "untap") return { op: "untap-lands", all: true, scope: "creature", targetType: null };
   // "They gain <kw> until end of turn." after a mass untap → the group keyword grant.

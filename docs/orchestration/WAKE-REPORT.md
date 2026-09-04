@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · H10 + H7: Hajar + Spider-Man (+2)** · suite **1475 files / 16,053 tests** green · corpus 14,419 (42.1%) / 34,245 · flip-diff +2 / 0 lost · 7/7 killed (M8 equivalent — no filtered other-spray parses; deleted with a note, FN pinned)
+
+> The legendary-only team pump and the "those creatures" referent over an each-OTHER spray. **Shalai 77 → 79** (79/100; needs 6). Next M rows: H4 Ragavan (three arms — the 'you may CAST that card' impulse verb, the that-player's-library owner switch, the Treasure conjunction), H8 Arwen (an enters-with modifier static over OTHER creatures, count = Arwen's toughness — a new replacement seam).
+> **CI:** GREEN on Yoshimaru + Krenko (run 33926593975); this slice pushes and is watched
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · H6 + H5: Yoshimaru + Krenko (+7)** · suite **1474 files / 16,048 tests** green · corpus 14,417 (42.1%) / 34,245 · flip-diff +7 / 0 lost · 8/8 killed (M9/M10 deleted with dead code; M11 equivalent)
 
 > The legendary etb watcher, Krenko's Goblins, and the dies look-back two twins forced. **Shalai 75 → 77** (77/100). Next: Hajar (a legendary-only team pump), Spider-Man (the 'other' counter spray with a bound trample grant), then H4 Ragavan.
