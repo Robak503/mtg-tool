@@ -2380,6 +2380,21 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ costReduction: { castFromNotHand: true, amount: parseInt(crZoneM[1], 10) } });
     return;
   }
+  // NAMED CAST ZONES (K9 — Doc Aurlock "Spells you cast from your graveyard or from exile cost {2} less to cast"): the same
+  // zone-keyed reducer with an explicit zone list; a cast from the library's top (the Future Sight lane) is NOT in it, so
+  // the list is honoured verbatim rather than widened to "not hand".
+  const crZonesM = c.match(/^spells you cast from your graveyard or from exile cost \{(\d+)\} less to cast$/);
+  if (crZonesM) {
+    out.push({ costReduction: { castFromZones: ["graveyard", "exile"], amount: parseInt(crZonesM[1], 10) } });
+    return;
+  }
+  // PLOT-COST REDUCER (K9 — Doc Aurlock "Plotting cards from your hand costs {2} less"): a marker the plot special action
+  // reads at the OFFER (legalChoices.actionsPlotFromHand); the dispatcher pays the action's carried cost, so the two agree.
+  const plotCrM = c.match(/^plotting cards from your hand costs \{(\d+)\} less$/);
+  if (plotCrM) {
+    out.push({ costReduction: { plot: true, amount: parseInt(plotCrM[1], 10) } });
+    return;
+  }
   const crNegM = c.match(/^non(creature|artifact|enchantment|land) spells (?:you cast )?cost \{(\d+)\} less to cast$/);
   if (crNegM) {
     out.push({ costReduction: { notCardType: crNegM[1], amount: parseInt(crNegM[2], 10) } });
@@ -4944,6 +4959,14 @@ export function costReductionForSpell(reducers, spellCard, fromZone = "hand") {
       total += r.amount || 0;
       continue;
     }
+    // NAMED CAST ZONES (Doc Aurlock): the zone must be one the card lists. A PLOT marker is not a spell reducer at all —
+    // the plot offer reads it — so it is skipped here and can never touch a cast.
+    if (Array.isArray(r.castFromZones)) {
+      if (!r.castFromZones.includes(fromZone)) continue;
+      total += r.amount || 0;
+      continue;
+    }
+    if (r.plot) continue;
     // ⭐ SUBTYPE UNION (the Banneret cycle — "Goblin spells and Rogue spells you cast cost {1} less"): the
     // spell is reduced if it carries EITHER subtype, and reduced ONCE. Emitting two separate reducers instead
     // would give a Goblin Rogue {2} off a card that says {1} — a cheaper spell than the card allows, which is

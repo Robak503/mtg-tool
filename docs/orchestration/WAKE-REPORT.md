@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K9: Doc Aurlock (+1)** · suite **1465 files / 16,002 tests** green · corpus 14,397 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 6/6 killed
+
+> Named cast zones and the plot discount. Kellan **79** (needs 6). Bonny Pall is L (a NAMED token with a quoted count-defined body); Monk Gyatso (airbend) and Transcendent Dragon (cast-from-exile-after-counter) are L; the honest S/M left: Make Your Own Luck, Unexpected Results, Fblthp, The Key to the Vault.
+> **CI:** run 33914892283 (Savvy Trader) still in flight at commit time — this slice pushes only after it reads green
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K9: Savvy Trader (+2)** · suite **1464 files / 15,996 tests** green · corpus 14,396 (42.0%) / 34,245 (42.0%) · flip-diff +2 / 0 lost · 7/7 killed (M7 — the call sites dropping the zone — SURVIVED the first pass: the witness had pinned the reducer through a direct call, not the OFFER; a one-Forest offer pin was added and it died)
 
 > Play-while-exiled on the extended impulse window; the cast-zone cost reducer. Kellan **78** (needs 7). Next: Doc Aurlock (the same cast-zone reducer narrowed to graveyard/exile + a plot-cost reduction at the offer, which the dispatcher honours because it pays the action's carried cost).

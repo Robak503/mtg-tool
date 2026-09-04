@@ -67,7 +67,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kinnan Mana Overload | 75 | 10 | 15 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Believe it! | 75 | 10 | 15 | ⬜ Phase 2 (cEDH — LAST) |
-| Joe | Kellan of the west | 78 | 7 | 12 | ⬜ Phase 2 |
+| Joe | Kellan of the west | 79 | 6 | 11 | ⬜ Phase 2 |
 | Joe | Halfshell heroes | 66 | 19 | 24 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**10 decks below 85 · 136 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**10 decks below 85 · 135 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -332,7 +332,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | K6 | Mind's Dilation | opponent's first spell each turn: exile their top card, you may cast it free | L | same wall (opponent's library) | ⬜ |
 | K7 | Make Your Own Luck · Unexpected Results · Portent of Calamity | look-at-top / reveal-and-cast shapes | M / M / L | | ⬜ |
 | K8 | Sakashima's Protege · Planar Nexus ✅ · Ellie and Alan · The Key to the Vault | clone / every-nonbasic-type / discover-X-from-graveyard / look-that-many | L / S ✅ / M / M | Planar Nexus = the ④-BE layer-4 subtype add with every nonbasic land type (S) | ⬜ |
-| K9 | COMPOSITE | Recurring Insight ✅ (+1 — the hand-size draw count; rebound was modeled) · Fblthp · Mystic Forge · Jace Reawakened · Bonny Pall · Doc Aurlock · Lock and Load ✅ (+1 — a per-turn instant/sorcery tally, the 'other' count, a splitter keep-whole for the type pair) · Savvy Trader ✅ (+2 with Sage of the Beyond — the play-while-exiled ETB on the extended impulse window; a cast-ZONE cost reducer, fromZone threaded through costReductionForSpell) · Step Between Worlds · Tezzeret the Seeker | size on approach | most sit on the K5 wall | ⬜ |
+| K9 | COMPOSITE | Recurring Insight ✅ (+1 — the hand-size draw count; rebound was modeled) · Fblthp · Mystic Forge · Jace Reawakened · Bonny Pall · Doc Aurlock ✅ (+1 — the named-zone reducer + a plot-cost reduction at the offer) · Lock and Load ✅ (+1 — a per-turn instant/sorcery tally, the 'other' count, a splitter keep-whole for the type pair) · Savvy Trader ✅ (+2 with Sage of the Beyond — the play-while-exiled ETB on the extended impulse window; a cast-ZONE cost reducer, fromZone threaded through costReductionForSpell) · Step Between Worlds · Tezzeret the Seeker | size on approach | most sit on the K5 wall | ⬜ |
 
 **Ceiling note:** without the top-of-library-play subsystem Kellan tops out near 80. Decide at approach: build the
 subsystem as its own multi-slice L (it also pays in Omnath's shelf-neighbours: Courser/Oracle-class cards corpus-wide),
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · K9 Doc Aurlock (Kellan) ✅ +1 corpus · 6/6 killed · suite 1465 files / 16,002 tests · corpus 14,397 (42.0%) · shelf refreshed in §1 · CI: run 33914892283 (Savvy Trader) still in flight at commit time — this slice pushes only after it reads green.
 
 - 2026-09-04 — Phase 2 · K9 Savvy Trader (Kellan; Sage of the Beyond twin) ✅ +2 corpus · 7/7 killed (M7 — the call sites dropping the zone — SURVIVED the first pass: the witness had pinned the reducer through a direct call, not the OFFER; a one-Forest offer pin was added and it died) · suite 1464 files / 15,996 tests · corpus 14,396 (42.0%) · shelf refreshed in §1 · CI: GREEN — run 33913617192 on cc1d1b0b (Lock and Load); this slice pushes and is watched.
 

@@ -3,6 +3,14 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · K9: DOC AURLOCK — named cast zones, and the plot discount · **+1** · corpus 14,397 (42.0%) / 34,245 (42.0%)
+> Suite **1465 files / 16,002 tests** green; lint 0. Flip-diff **+1, zero LOST**. **6/6 killed.**
+> · **The shape:** two markers on the Savvy Trader seam — a zone-keyed reducer with an EXPLICIT list (graveyard, exile; a cast off
+>   the library's top is not in it and stays full price — honoured verbatim, never widened to "not hand"), and a plot-cost
+>   marker the plot special action reads at the OFFER. The dispatcher pays the action's carried cost, so offer and dispatch
+>   agree without a second read. The plot marker is never a spell reducer: costReductionForSpell skips it by name.
+> · **CI:** run 33914892283 (Savvy Trader) still in flight at commit time — this slice pushes only after it reads green
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · K9: SAVVY TRADER — play-while-exiled, and the cast-zone reducer · **+2** · corpus 14,396 (42.0%) / 34,245 (42.0%)
 > Suite **1464 files / 15,996 tests** green; lint 0. Flip-diff **+2, zero LOST** (Savvy Trader; Sage of the Beyond — Flying + the same reducer + Foretell, audited). **7/7 killed (M7 — the call sites dropping the zone — SURVIVED the first pass: the witness had pinned the reducer through a direct call, not the OFFER; a one-Forest offer pin was added and it died).**
 > · **The ETB:** "exile target permanent card from your graveyard. You may play that card for as long as it remains exiled" — the

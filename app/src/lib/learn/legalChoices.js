@@ -2864,8 +2864,12 @@ function actionsPlotFromHand(state, playerId) {
   const actions = [];
   for (const card of player.hand) {
     if (!plotPlayable(card)) continue;
-    const cost = parseManaCost(parsePlotCost(card));
+    let cost = parseManaCost(parsePlotCost(card));
     if (cost.hasX) continue; // an X plot cost would need the X-choice expansion (none in the corpus)
+    // PLOT-COST REDUCER (K9 — Doc Aurlock "Plotting cards from your hand costs {2} less"): generic only, floored at 0, read
+    // off the controller's own board; the dispatcher pays the action's carried cost, so the reduction is honoured there too.
+    const plotReduction = collectCostReducers(player.battlefield || []).filter((r) => r.plot).reduce((sum, r) => sum + (r.amount || 0), 0);
+    if (plotReduction) cost = { ...cost, generic: Math.max(0, (cost.generic || 0) - plotReduction) };
     if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
     actions.push({ kind: "plot", playerId, cardId: card.id, name: card.name, cost, cmc: totalCmc(cost) });
   }
