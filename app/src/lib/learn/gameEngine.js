@@ -496,7 +496,9 @@ export function runStepActions(state) {
         // TRIG-DRAW (CR 121.1): the turn-based draw is a draw → fire "Whenever you draw a card". Guard on
         // the real delta so a decked-out draw step (drew 0) doesn't fire.
         if (next.players[state.activePlayer].cardsDrawnThisTurn > drawnBefore) {
-          next = checkCardDrawnTriggers(next, state.activePlayer, 1);
+          // V4 (2026-09-04): the turn-based draw is stamped as the draw step's FIRST draw — the one an "except the
+          // first one they draw in each of their draw steps" watcher (Orcish Bowmasters) skips.
+          next = checkCardDrawnTriggers(next, state.activePlayer, 1, { drawStepFirst: true });
         }
         next = logEvent(next, {
           kind: "step",

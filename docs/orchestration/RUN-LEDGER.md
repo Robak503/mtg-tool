@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — V4: ORCISH BOWMASTERS — the draw-step carve-out, and a compound-split FP closed · **+3** · corpus 14,286 / 34,245 (41.7%)
+> Suite **1421 files / 15,711 tests** green; lint 0. Flip-diff **+3, zero LOST**. **6/6 mutations killed against a green witness (the then/if tail dropped from the split, the arm removed, the flag dropped at descriptor assembly, the filter ignoring the flag, the draw step not stamping, the at-the-beginning tail dropped).**
+> · **The shape:** "whenever an opponent draws a card except the first one they draw in each of their draw steps" is
+>   the opponentDraw watcher with one flag; gameEngine's turn-based draw is the ONLY draw stamped `drawStepFirst`, and
+>   checkCardDrawnTriggers filters the flagged descriptor off that one draw (a batch's first card). The flag has to
+>   survive descriptor assembly — it was dropped there first; read the built descriptor, not the arm.
+> · **The FP the census caught:** the compound "When A and whenever B, E. Then R." split rewrote the FIRST half with E
+>   alone — Flaring Cinder and Giott, King of the Dwarves were credited native while their ETB half discarded a card
+>   with the "If you do, draw a card" payoff DROPPED. The shared effect now carries its trailing then/if sentences onto
+>   both halves (the at-the-beginning compound too). 12 carriers, 2 credited; both stay native with the rider whole.
+> · **Board-verified:** the opponent's untap → upkeep → draw step draws and fires nothing; a spell draw fires, the live
+>   chooser aims the 1 damage at the opponent, and an Orc Army with one counter is amassed.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — V3: MINAMO — the legendary lane on the untap-target arm · **+2** · corpus 14,283 / 34,245 (41.7%)
 > Suite **1420 files / 15,700 tests** green; lint 0. Flip-diff **+2, zero LOST**. **4/4 mutations killed against a green witness (the lane removed from the anchor, the restriction not emitted, the wrong supertype, the evaluator's type-line test removed).**
 > · **The shape:** the untap-target arm had `another` → notSource and ` you control` → controller and no lane for the

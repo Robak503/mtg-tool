@@ -1932,6 +1932,15 @@ function classifyCondition(condRaw, cardName, cardType) {
   // filtered variant leaves residue → null → Arbiter (SAFE false-negative). scope:"opponentDraw" matches in
   // scopeMatches like "milled"/"you" (returns true — the whose:"opponent" gate lives in the dedicated checker).
   if (/^an opponent draws a card$/.test(c)) return { event: "cardDrawn", scope: "opponentDraw", whose: "opponent" };
+  // ⭐ V4 (2026-09-04, Orcish Bowmasters): "Whenever an opponent draws a card EXCEPT THE FIRST ONE THEY DRAW IN EACH OF
+  // THEIR DRAW STEPS" — the opponentDraw watcher with one carve-out. The turn-based draw-step draw is the ONLY draw
+  // the engine stamps `drawStepFirst` (gameEngine's draw step → checkCardDrawnTriggers' opts), and it is always the
+  // drawer's own draw step, so the printed exception is exactly "skip the draw carrying that stamp". An extra draw
+  // during the draw step (a trigger's draw) carries no stamp and fires, as printed. checkCardDrawnTriggers filters
+  // the descriptor on the flag; everything else (scope, payer referent, the opponents-of-drawer scan) is the bare arm.
+  if (/^an opponent draws a card except the first one they draw in each of their draw steps$/.test(c)) {
+    return { event: "cardDrawn", scope: "opponentDraw", whose: "opponent", exceptFirstDrawStepDraw: true };
+  }
   // ANY-PLAYER DRAW (Spiteful Visions — SHELF-TAIL ND1) — "Whenever A PLAYER draws a card, …". The SYMMETRIC
   // twin of the opponentDraw arm above: fires for EVERY draw (the controller's own draws included, CR 121.2),
   // so scope:"anyDraw" is fired in BOTH checkCardDrawnTriggers scans (own + opponents-of-drawer). The "that
@@ -3871,7 +3880,15 @@ export function registerTriggerDetector(fn) {
 // SAFETY: coverage.allTriggerSentencesModeled bumps its shaped count by compoundTriggerCount (mirroring the Storm/
 // Cascade keyword bumps), so if EITHER half's event is unmodeled the detected count under-runs shaped → the whole
 // card routes to the Arbiter (a SAFE false-negative) — an unmodeled half is NEVER silently dropped (the cardinal FP).
-const COMPOUND_TRIGGER_SRC = "\\b(When|Whenever)\\s+(.+?)\\s+and\\s+when(?:ever)?\\s+(.+?),\\s+(.+?\\.)";
+// ⭐ V4 (2026-09-04, Orcish Bowmasters "When this creature enters and whenever an opponent draws a card …, this creature
+// deals 1 damage to any target. Then amass Orcs 1."): the shared effect INCLUDES its trailing then/if-led sentences
+// (a "Then …" / "If you do, …" sentence is this trigger's own effect — see isEffectContinuation). The capture used to
+// stop at the first period, so the FIRST half was rewritten with the lead sentence alone while the second half kept
+// the rider by position: Flaring Cinder's and Giott's ETB half discarded a card with the "If you do, draw a card"
+// payoff DROPPED — a live CREED FP, measured by the 2026-09-04 census (12 carriers, 2 credited). Both halves now
+// carry the whole effect. Non-capturing, so the replace callbacks and compoundTriggerCount are unchanged.
+const COMPOUND_EFFECT_TAIL_SRC = "(?:\\s+(?:Then|If)\\b[^\\n]*?\\.)*";
+const COMPOUND_TRIGGER_SRC = "\\b(When|Whenever)\\s+(.+?)\\s+and\\s+when(?:ever)?\\s+(.+?),\\s+(.+?\\." + COMPOUND_EFFECT_TAIL_SRC + ")";
 // "When A and AT THE BEGINNING OF B, E" (Crack in Time / Mystic Barrier / Noble Heritage — 53 corpus
 // carriers, most of them Planechase planes outside the real-card denominator): the SAME two-abilities-
 // sharing-one-effect shape as the "and when(ever)" connective above, with a phase/step timing as the
@@ -3881,7 +3898,7 @@ const COMPOUND_TRIGGER_SRC = "\\b(When|Whenever)\\s+(.+?)\\s+and\\s+when(?:ever)
 // runtime silently never fired the recurring half (a live CREED FP, masked on Crack in Time by the
 // vanishing-reminder phantom until 2026-07-24). Same safety contract as every split here: coverage bumps
 // shaped by compoundTriggerCount, so an unmodeled half under-runs detected → the whole card parks (FN-safe).
-const COMPOUND_AT_BEGINNING_SRC = "\\b(When|Whenever)\\s+(.+?)\\s+and\\s+at\\s+(the\\s+beginning\\s+of\\s+[^,\\n]+?),\\s+(.+?\\.)";
+const COMPOUND_AT_BEGINNING_SRC = "\\b(When|Whenever)\\s+(.+?)\\s+and\\s+at\\s+(the\\s+beginning\\s+of\\s+[^,\\n]+?),\\s+(.+?\\." + COMPOUND_EFFECT_TAIL_SRC + ")"; // V4: the then/if tail rides on both halves (see COMPOUND_EFFECT_TAIL_SRC)
 // ===== EVENT-DISJUNCTION SPLIT (SHELF C1 — "enters or attacks", CR 603.2b: an ability can trigger on
 // either of two events) ===== "When[ever] <subject> enters[ the battlefield] or attacks, <effect…>" →
 // TWO sentences, one per event, each carrying the WHOLE same-line effect (riders/follow-up sentences
@@ -5054,6 +5071,7 @@ export function detectTriggers(card) {
         scope: cls.scope,
         whose: cls.whose,
         spellFilter: cls.spellFilter,         // cast triggers only (undefined otherwise)
+        exceptFirstDrawStepDraw: cls.exceptFirstDrawStepDraw, // V4 (Orcish Bowmasters, Leela): opponentDraw watcher that SKIPS the draw-step's stamped first draw. ⚠️ Unlisted here = dropped = fires on every draw, an over-fire (the flag was lost here first — read the built descriptor, not the arm)
         firesOnCopy: cls.firesOnCopy,         // MAGECRAFT COPY HALF (BLITZ MC-1): magecraft's "cast OR copy" descriptor alone carries this; checkCopyTriggers fires ONLY firesOnCopy watchers at a copy site (a plain "whenever you cast" never fires on a copy — CR 707.10)
         alsoPlaneswalker: cls.alsoPlaneswalker, // PLAYER-OR-PLANESWALKER union (CAP5 — The Reaver Cleaver): the pw pass fires ONLY marked descriptors. Unlisted here = dropped = the union under-fires to player-only (a safe FN, but the modeled semantics is the full union).
         castNotFromHand: cls.castNotFromHand, // CAST-FROM-NONHAND (Vega, K1): checkCastTriggers gates on the cast's source zone
@@ -7844,8 +7862,12 @@ export function checkLifegainTriggers(state, gainingPlayerId, offeredAmount = 0)
  * Scans ONLY the drawing player's sources (whose:"any"; drawing is turn-agnostic, like lifegain — the
  * "yours"/activePlayer gate would drop off-turn draws). Pure — appends to pendingTriggers.
  */
-export function checkCardDrawnTriggers(state, drawingPlayerId, count = 1) {
+export function checkCardDrawnTriggers(state, drawingPlayerId, count = 1, { drawStepFirst = false } = {}) {
   if (!drawingPlayerId || !(count > 0) || !state.players?.[drawingPlayerId]) return state;
+  // V4 (2026-09-04): `drawStepFirst` is set ONLY by the turn-based draw-step draw (gameEngine) — the one draw an
+  // "except the first one they draw in each of their draw steps" watcher (Orcish Bowmasters) must skip. The stamp
+  // is per-batch and the draw step draws exactly one card, so the first card of the batch is the stamped one.
+  const skipsFirstDrawStepDraw = (i) => (d) => !(d.exceptFirstDrawStepDraw && drawStepFirst && i === 0);
   const drawnAfter = state.players[drawingPlayerId].cardsDrawnThisTurn;
   const crossedSecond = (drawnAfter - count) < 2 && drawnAfter >= 2; // the 2nd draw of the turn was in this batch
   let fired = [];
@@ -7888,7 +7910,7 @@ export function checkCardDrawnTriggers(state, drawingPlayerId, count = 1) {
   for (const oppId of opponentsOf(state, drawingPlayerId)) {
     for (const perm of triggerSourcesOf(state, oppId)) {
       for (let i = 0; i < count; i++) {
-        fired = fired.concat(triggersForEvent(state, { event: "cardDrawn", sourcePermanent: perm, triggeringContext: { drawingPlayerId }, scopeFilter: (scope) => scope === "opponentDraw" || scope === "anyDraw" }));
+        fired = fired.concat(triggersForEvent(state, { event: "cardDrawn", sourcePermanent: perm, triggeringContext: { drawingPlayerId }, scopeFilter: (scope) => scope === "opponentDraw" || scope === "anyDraw", descriptorFilter: skipsFirstDrawStepDraw(i) }));
       }
     }
   }

@@ -66,7 +66,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Joe | Jurassic Ramp | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kinnan Mana Overload | 74 | 11 | 16 | ⬜ Phase 2 (cEDH — LAST) |
-| Joe | Believe it! | 72 | 13 | 18 | ⬜ Phase 2 (cEDH — LAST) |
+| Joe | Believe it! | 73 | 12 | 17 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Kellan of the west | 74 | 11 | 16 | ⬜ Phase 2 |
 | Joe | Halfshell heroes | 64 | 21 | 26 | ⬜ Phase 2 |
 | Test | Slivers | 98 | — | — | ✅ at the bar |
@@ -74,7 +74,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Test Rashmi | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Test | Teval, the Balanced Scale Test | 79 | 6 | 11 | ⬜ Phase 2 |
 | Test | Brago Blink | 76 | 9 | 14 | ⬜ Phase 2 |
-| Test | Nekusar Wheels | 73 | 12 | 17 | ⬜ Phase 2 |
+| Test | Nekusar Wheels | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Shorikai Vehicles | 72 | 13 | 18 | ⬜ Phase 2 |
 | Test | Shalai and Hallar Test | 73 | 12 | 17 | ⬜ Phase 2 |
 | Test | Otharri Test | 73 | 12 | 17 | ⬜ Phase 2 |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 64 | 21 | 26 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 61 | 24 | 29 | ⬜ Phase 2 |
 
-**14 decks below 85 · 206 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**14 decks below 85 · 204 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -170,7 +170,7 @@ Ordered by slots paid across the 14 sub-85 decks, then by size. Every row: ⬜ o
 | V1 | **Modal double-faced cards (spell // land, land // land)** — Sink into Stupor, Witch Enchanter, Sundering Eruption, Shatterskull Smashing, Hydroelectric Specimen, Fell the Profane, Bridgeworks Battle, Boggart Trawler, Agadeem's Awakening, Sea Gate Restoration, Sejiri Shelter, Revitalizing Repast, Glasspool Mimic, Emeritus of Truce, Wandering Archaic; the five Pathways (Barkchannel, Hengegate, Branchloft, Needleverge, Blightstep) | Teval 6 · Believe 6 · Kellan 5 · Shalai 5 · Otharri 5 · Kinnan 4 · Shorikai 3 · Nekusar 3 · Brago 2 · Bumble/Halfshell/Turts/Light-Paws 1 each (+~15 more in the 85–89 decks) | **~43** | **L** (ship in slices) | PROBE FIRST: today these classify `land-partial` — the land drop plays the back face, so what is missing is (a) the classifier reading a `//` oracle as two faces, (b) the cast lane offering the FRONT face as a spell when its program parses HIGH, (c) the play-land lane offering the back face with its enter clause (pay 3 life or tapped). Slice 1 = the five Pathways (both faces plain lands; the face choice on the land drop; +7). Slice 2 = spell//land where the front is already a modeled spell (Sink into Stupor's bounce, Fell the Profane's destroy, Shatterskull's X damage…). Slice 3 = the rest. | 🔄 slice 1 ✅ (+10 corpus — the ten Pathways; the face-choice land drop is live: legalChoices.actionsPlayLand per-face actions, applyPlayLand enters the face with the combined card as printedCard, classifyCard credits a Land // Land iff both faces are covered; the Ixalan transform//land cards left the land bucket). Slice 2 ✅ (+19 corpus — the 19 spell//lands whose instant/sorcery front is native on its own view: cast as a face through the split-card lane, the back drops as a land; the 16 with unmodeled fronts (Sink into Stupor's spell-or-nonland-permanent target, Agadeem's Awakening, Sea Gate Restoration, Shatterskull Smashing …) stay land-partial and are their OWN rows now). Slice 3 ✅ (+9 — the nine permanent fronts: Witch Enchanter, Glasspool Mimic, Kazandu Mammoth, Skyclave Cleric, Pinnacle Monk, Blackbloom Rogue, Glasswing Grace, Tangled Florahedron, Akoum Warrior; the real card rides as printedCard on entry). **V1 DONE (+38 corpus)** — the 22 modal DFCs still land-partial park on their FRONT's own residue and are ordinary rows now (Sink into Stupor's spell-or-nonland-permanent union ×3 decks; Agadeem's Awakening / Sea Gate Restoration / Shatterskull Smashing / Hydroelectric Specimen / Boggart Trawler …); the Ixalan transform//lands and the Kaldheim gods are NOT modal and stay where they are. |
 | V2 | **Starting Town** — "enters tapped unless it's your first, second, or third turn of the game" + "{T}, Pay 1 life: Add one mana of any color" | Teval · Kellan · Shalai · Otharri | 4 | **S** | the enters-tapped-unless condition reads the controller's own turn ordinal (a per-player turn counter; if none exists, stamp `turnsTakenThisGame` at the untap step); the pay-life any-colour tap is the payLife mana spec (exists). | ✅ (+1 corpus — `player.turnsTaken` stamped at the untap step; the vocabulary reads the ordinal; the pay-life any-colour line is an honest EXTRA record carrying `payLife` and gated on life, and the whole-card merge no longer offers a free any-colour main beside it — that FP existed the moment the line became an extra and the witness caught it). |
 | V3 | **Minamo, School at Water's Edge** — "{U}, {T}: Untap target legendary permanent" | Kinnan · Shorikai (+cdh) | 2 (+1) | **S** | the untap atom + a `legendary` restriction on targetType permanent (matchesSelector already knows `legendary`; enumerateTargets' permanent pool needs the kind) | ✅ (+2 corpus — the word `legendary` on the untap-target arm emitting the existing `supertype` restriction; the permanent and creature pools already ran it. Unplanned twin: Patriar's Seal "untap target legendary creature you control", audited whole-card.) |
-| V4 | **Orcish Bowmasters** — ETB and "whenever an opponent draws a card except the first one they draw in each of their draw steps": 1 damage to any target, then amass Orcs 1 | Nekusar · Believe | 2 | **M** | an opponent-draw watcher with the first-draw-of-the-draw-step exception (the `drawnThisTurnIds` / draw-step ledger exists: stamp which draws are the turn's own); amass exists; "any target" chooser on a trigger = enemy intent | ⬜ |
+| V4 | **Orcish Bowmasters** — ETB and "whenever an opponent draws a card except the first one they draw in each of their draw steps": 1 damage to any target, then amass Orcs 1 | Nekusar · Believe | 2 | **M** | an opponent-draw watcher with the first-draw-of-the-draw-step exception (the `drawnThisTurnIds` / draw-step ledger exists: stamp which draws are the turn's own); amass exists; "any target" chooser on a trigger = enemy intent | ✅ (+3 corpus — a flagged opponentDraw arm; gameEngine's draw step stamps its draw `drawStepFirst` and checkCardDrawnTriggers skips the flagged descriptor on that one draw. **A live FP closed on the way:** the compound "When A and whenever B, E. Then R." split dropped R from the FIRST half — Flaring Cinder and Giott discarded on ETB with the "If you do, draw" payoff gone; both halves now carry the then/if tail. Leela, Sevateem Warrior rides the arm.) |
 | V5 | **Proft's Eidetic Memory** — beginning of combat, if you've drawn more than one card this turn, put X +1/+1 counters (X = cards drawn − 1) | Brago · Nekusar | 2 | **M** | combat-start trigger + intervening-if on `cardsDrawnThisTurn > 1` + countFor kind `cardsDrawnThisTurnMinusOne` | ⬜ |
 | V6 | **Peter Parker's Camera / Strionic Resonator / Kirol** — "copy target activated or triggered ability you control" | Brago (×2: Camera + Resonator) · Killer Turts · Otharri (Kirol) | 4 | **M** | CAP-BRACERS built `copy-activated-ability` on an event; this is a CHOSEN stack-object target of kind ability (enumerateTargets: the stack's non-spell objects you control) + the same copy resolver; Camera's film counter cost = removeCounter (exists) | ⬜ |
 | V7 | **Rosie Cotton of South Lane** — "whenever you create a token, put a +1/+1 counter on target creature you control other than Rosie" | Otharri · Bumble | 2 | **S/M** | the token-created event (Staff of the Storyteller / Splinter want it too — "whenever you create one or more tokens"); "target creature you control other than this creature" = creatureYouControl + excludeSource (the ④-AF `notSource` restriction on the peel) | ⬜ |
@@ -279,7 +279,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | N1 | Blightstep Pathway · Ojer Axonil · (Tergrid) | MDFC / transform | V1 | Ojer/Tergrid are TRANSFORM gods — L, not V1's land shape | ⬜ |
-| N2 | Orcish Bowmasters | | V4 | | ⬜ |
+| N2 | Orcish Bowmasters | | V4 | | ✅ |
 | N3 | Proft's Eidetic Memory | | V5 | | ⬜ |
 | N4 | Sheoldred, the Apocalypse | "whenever an opponent draws a card, they lose 2 life" (+ your draws gain 2) | S | the opponent-draw watcher exists (Phyrexian Tyranny is its unless-pay cousin) | ⬜ |
 | N5 | Forced Fruition | opponent casts → draws seven | S | cast watcher + draw-for-that-player (castingPlayer referent exists) | ⬜ |
@@ -445,7 +445,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | E1 | Sea Gate Restoration · Agadeem's Awakening · Sink into Stupor · Fell the Profane · Boggart Trawler · Hydroelectric | MDFC | V1 | six slots | ⬜ |
-| E2 | Orcish Bowmasters | | V4 | | ⬜ |
+| E2 | Orcish Bowmasters | | V4 | | ✅ |
 | E3 | Thassa's Oracle | | I3 | | ⬜ |
 | E4 | Thousand-Faced Shadow · Moon-Circuit Hacker · Shizo · Ingenious Prodigy · Nanogene Conversion · Roaming Throne · Satoru | | M / S / S / M / L / L / M | Roaming Throne = the extra-trigger family (Panharmonicon class — L) | ⬜ |
 | E5 | Commandeer | gain control of target spell | ⛔ THEFT | | ⛔ |
@@ -468,6 +468,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — V4 (Orcish Bowmasters) ✅ +3 corpus · the compound-split rider FP closed (Flaring Cinder, Giott) · 6/6 mutations killed against a green witness (the then/if tail dropped from the split, the arm removed, the flag dropped at descriptor assembly, the filter ignoring the flag, the draw step not stamping, the at-the-beginning tail dropped) · suite 1421 files / 15,711 tests · corpus 14,286 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — V3 (Minamo) ✅ +2 corpus · 4/4 mutations killed against a green witness (the lane removed from the anchor, the restriction not emitted, the wrong supertype, the evaluator's type-line test removed) · suite 1420 files / 15,700 tests · corpus 14,283 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 

@@ -7,6 +7,13 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 V4: Orcish Bowmasters (+3) — and a compound-split FP closed** · suite **1421 files / 15,711 tests** green · corpus 14,286 / 34,245 (41.7%) · flip-diff +3 / 0 lost · 6/6 mutations killed against a green witness (the then/if tail dropped from the split, the arm removed, the flag dropped at descriptor assembly, the filter ignoring the flag, the draw step not stamping, the at-the-beginning tail dropped)
+
+> The draw-step carve-out (a stamped first draw the flagged watcher skips). The census for the slice found the compound
+> split dropping the "Then/If" rider from the first half — Flaring Cinder and Giott discarded on ETB for nothing; fixed,
+> both halves carry the whole effect. Next row by the runbook's §2: V5 (Proft's Eidetic Memory, Brago · Nekusar).
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 V3: Minamo (+2)** · suite **1420 files / 15,700 tests** green · corpus 14,283 / 34,245 (41.7%) · flip-diff +2 / 0 lost · 4/4 mutations killed against a green witness (the lane removed from the anchor, the restriction not emitted, the wrong supertype, the evaluator's type-line test removed)
 
 > The word `legendary` on the untap-target arm, emitting the supertype restriction the pools already enforce. Patriar's

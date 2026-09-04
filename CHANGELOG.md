@@ -11,6 +11,8 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Orcish Bowmasters and Leela, Sevateem Warrior** — trigger on an opponent's extra draws but not the first draw of their draw step, as printed
+- **Fixed: compound triggers kept their follow-up** — "When this enters and whenever …, discard. If you do, draw" no longer discards for nothing on the enters half (Flaring Cinder, Giott, King of the Dwarves)
 - **Minamo, School at Water's Edge and Patriar's Seal** — their untap abilities target only legendary permanents, as printed
 - **Starting Town** — enters untapped through your third turn and tapped after; taps for colourless free or any colour for 1 life, and never offers the colour for free
 - **Modal double-faced creatures cast their front** — Witch Enchanter, Glasspool Mimic, Kazandu Mammoth, Skyclave Cleric, Pinnacle Monk and four more enter as their creature face and return to hand or graveyard as the whole card
