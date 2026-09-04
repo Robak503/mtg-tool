@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Aetherflux Reservoir's storm lifegain** — "you gain 1 life for each spell you've cast this turn"
 - **"Whenever this creature blocks a creature, return that creature to its owner's hand at end of combat"** — Wall of Tears, Aether Membrane, Kaijin of the Vanishing Touch
 - **"Target creature can't block this creature this turn"** — Spin Engine, Screeching Griffin, Duct Crawler, Kozilek's Pathfinder, Fearsome Temper
 - **Detain works** — Azorius Arrester, Isperia's Skywatch, Soulsworn Spirit, Lyev Skyknight, Martial Law, New Prahv Guildmage, Inaction Injunction

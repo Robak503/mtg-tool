@@ -7,6 +7,17 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (night cron) — **④-BC: Aetherflux Reservoir — "for each spell you've cast this turn" (+1)** · suite **1415 files / 15,661 tests** green · corpus 14,238 / 34,245 (41.6%) · flip-diff +1 / 0 lost · 3/3 mutations killed (the count kind, the reader, the reader's seat)
+
+> **Night tally (stage ④, fifty-five slices):** … · BA (+5) · BB (+3) · BC (+1) — corpus 13,862 → 14,238.
+> **Shelf (live, 05:15Z):** test/unassigned 73% · Joe 81% · Colton 87% — unchanged by tonight's corpus grind (no shelf card
+> sat in the census families); the shelf's own tail is the one-line-away list, whose top rows are each a real build
+> (Arcane Denial's delayed opponent draw ×3 decks, Arcade Cabinet, Ragavan, Scythecat Cub, Rosie Cotton, Valley
+> Floodcaller, Orcish Bowmasters).
+> **CI:** pushed after ④-BB's run 33840428373 is green; own run watched after push (result on the next entry's line)
+> **Next runnable:** the one-line-away shelf rows above (each 1–3 decks, each its own slice), the subsystem-scale
+> families (Colton's pick), a deck walk.
+
 ## 🎯 2026-09-04 (night cron) — **④-BB: blocks-a-creature → bounce that creature at end of combat (+3)** · suite **1414 files / 15,658 tests** green · corpus 14,237 / 34,245 (41.6%) · flip-diff +3 / 0 lost · 4/4 mutations killed (the detector rewrite, the parse arm, the enqueue, the referent)
 
 > **Night tally (stage ④, fifty-four slices):** … · AZ (+7) · BA (+5) · BB (+3) — corpus 13,862 → 14,237.

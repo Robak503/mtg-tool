@@ -621,6 +621,11 @@ export function countForSpec(state, ctx, spec) {
   if (spec.kind === "creaturesDiedThisTurn" && spec.scope === "all") {
     return Object.values(state?.players || {}).reduce((sum, pl) => sum + (pl.creaturesDiedThisTurn || 0), 0);
   }
+  // SPELLS CAST THIS TURN (④-BC, 2026-09-04 — Aetherflux Reservoir "Whenever you cast a spell, you gain 1 life for each
+  // spell you've cast this turn"): the controller's own per-turn cast tally (player.spellsCastThisTurn — incremented at
+  // the cast chokepoint, so the triggering spell itself is already counted when its trigger resolves, CR 608.2h; reset
+  // for every seat at untap). An absent tally → 0 (never a fabricated count).
+  if (spec.kind === "spellsCastThisTurn") return Math.max(0, state?.players?.[ctx?.controller]?.spellsCastThisTurn || 0);
   // ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== a count read off a single CREATURE referent's
   // LAYER-AWARE power/toughness AT RESOLUTION (CR 608.2h), NOT a player or board tally — the shared "equal to
   // its/that creature's power/toughness" count source that feeds tokens / counters / damage / life uniformly.

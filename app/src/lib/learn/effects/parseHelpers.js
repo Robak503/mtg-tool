@@ -285,6 +285,8 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   // ⓘ The Multikicker LINE itself is already accepted as a covered cost keyword (verified: the keyword plus a
   // vanilla body reads native today), so this rider was the only thing parking these cards.
   if (/^times? it was kicked$/.test(p)) return { kind: "timesKicked" };
+  // SPELLS CAST THIS TURN (④-BC — Aetherflux Reservoir): the controller's per-turn cast tally, read by countForSpec.
+  if (/^spells? you(?:'ve| have) cast this turn$/.test(p)) return { kind: "spellsCastThisTurn" };
   // ⭐ COUNTERS ON THE SOURCE (CR 603.6e) — "…for each +1/+1 counter ON IT" (Marketback Walker and
   // Bloodtracker's dies/leaves draw, Hooded Hydra's dies tokens, Embalmed Brawler's attacks life-loss).
   // ⛔⛔ ONE PHRASE, TWO SOURCES, AND THAT IS THE WHOLE DIFFICULTY. On a DIES / LEAVES trigger the permanent

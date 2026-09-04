@@ -3,6 +3,15 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — ④-BC: Aetherflux Reservoir — "for each spell you've cast this turn" · **+1** · corpus 14,238 / 34,245 (41.6%)
+> Suite **1415 files / 15,661 tests** green; lint 0. Flip-diff **+1, zero LOST**. **3/3 mutations killed (the count kind, the reader, the reader's seat).**
+> · **The shape:** the shelf's one-line-away probe (probe-shelf-one-line-away) after the census ran dry — Aetherflux Reservoir
+>   (Light-Paws Voltron). The cast watcher and the for-each lifegain arm existed; the count source "spell you've cast this
+>   turn" is new: parseCountSource → kind:"spellsCastThisTurn", countForSpec reads the CONTROLLER's per-turn cast tally
+>   (player.spellsCastThisTurn — incremented at the cast chokepoint, so the triggering spell is already counted, CR 608.2h).
+> · **Board-verified:** the third spell of the turn gains 3, the first gains 1; the AI's casts never inflate it.
+> · **CI:** pushed after ④-BB's run 33840428373 is green; own run watched after push (result on the next entry's line)
+
 > ## 🎯 2026-09-04 (night cron) — ④-BB: "blocks a creature → return THAT creature to its owner's hand at end of combat" · **+3** · corpus 14,237 / 34,245 (41.6%)
 > Suite **1414 files / 15,658 tests** green; lint 0. Flip-diff **+3, zero LOST**. **4/4 mutations killed (the detector rewrite, the parse arm, the enqueue, the referent).**
 > · **The shape:** the blocksCreature flush threads the blocked ATTACKER as the triggering permanent (the blocker is the
