@@ -73,7 +73,10 @@ function isCreature(card) {
 // front-face type-line containment; ANY other word (a creature subtype "goblin", a color "green", a
 // negation "nonland", an intersection "artifact creature", "historic"/"arcane") makes the filter
 // unmodeled → the recursion stays LOW → Arbiter, so we never silently mis-match a graveyard filter.
-const GY_FILTER_TYPES = new Set(["creature", "artifact", "enchantment", "land", "planeswalker", "battle", "instant", "sorcery"]);
+// "nonland" (SHELF-85 T7, 2026-09-04 — Tasigur "return a nonland card of an opponent's choice") is the ONE negation the
+// vocabulary admits: matched in matchesGyTypeToken as "the front face is not a Land" (CR 205.2a — a card is a land
+// card iff its type line carries the type), never through GY_TYPE_WORD.
+const GY_FILTER_TYPES = new Set(["creature", "artifact", "enchantment", "land", "planeswalker", "battle", "instant", "sorcery", "nonland"]);
 const GY_TYPE_WORD = { creature: "Creature", artifact: "Artifact", enchantment: "Enchantment", land: "Land", planeswalker: "Planeswalker", battle: "Battle", instant: "Instant", sorcery: "Sorcery" };
 
 /**
@@ -107,7 +110,7 @@ export function parseGraveyardFilter(phrase) {
 function matchesGyTypeToken(front, token) {
   if (!token || token === "any") return true;
   if (token === "permanent") return /\b(?:Creature|Artifact|Enchantment|Land|Planeswalker|Battle)\b/.test(front);
-  return token.split("|").some((tok) => GY_TYPE_WORD[tok] && front.includes(GY_TYPE_WORD[tok]));
+  return token.split("|").some((tok) => (tok === "nonland" ? !/\bLand\b/.test(front) : GY_TYPE_WORD[tok] && front.includes(GY_TYPE_WORD[tok])));
 }
 export function cardMatchesGraveyardFilter(card, cardFilter) {
   if (!cardFilter || cardFilter === "any") return true;

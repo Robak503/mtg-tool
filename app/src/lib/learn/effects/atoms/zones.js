@@ -3,7 +3,7 @@
  * reanimate). Also hosts the shared enterCardFromZone helper (reanimation + library ramp).
  */
 
-import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter } from "../../gameState.js";
+import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf } from "../../gameState.js"; // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
 import { impositionEntersTapped } from "../../staticAbilityParser.js"; // KM-1 (CR 614.1c) — Kismet taxes non-cast entries too (leaf-safe: staticAbilityParser imports only keywords.js)
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
@@ -508,28 +508,40 @@ function isPermanentReanimateFilter(typeFilter) {
  * anchor: a count ("up to two"), another zone or destination, or a rider is a different shape and parks.
  */
 export function graveyardReturnPickClauseParser(clause) {
-  const t = String(clause || "").trim().toLowerCase();
-  const m = /^return (?:a|an) (.*?)cards? from your graveyard to your hand$/.exec(t);
+  const t = String(clause || "").trim().toLowerCase().replace(/[’]/g, "'");
+  // SHELF-85 T7 (2026-09-04) — "of an opponent's choice" (Tasigur, the Golden Fang): the SAME resolution-time pick,
+  // made by an opponent instead of the controller (CR 608.2c — a choice the effect assigns to another player).
+  const m = /^return (?:a|an) (.*?)cards?( of an opponent's choice)? from your graveyard to your hand$/.exec(t);
   if (!m) return null;
   const cardFilter = parseGraveyardFilter(m[1].trim());
   if (!cardFilter) return null;
-  return { op: "return-from-graveyard-pick", cardFilter, targetType: null };
+  return { op: "return-from-graveyard-pick", cardFilter, targetType: null, ...(m[2] && { chooser: "opponent" }) };
 }
 
-/** ④-AA — resolve the non-targeted return: 0 candidates → a logged no-op; 1 → moved; 2+ → the milled-pick pause. */
+/**
+ * ④-AA — resolve the non-targeted return: 0 candidates → a logged no-op; 1 → moved; 2+ → the milled-pick pause.
+ * T7 — `chooser: "opponent"`: the pause is aimed at the controller's first opponent in turn order (the standard 1v1
+ * seat; the multi-seat "which opponent" pick is not modeled and takes the first), with `owner` = the controller so the
+ * pick still leaves the CONTROLLER's graveyard for the CONTROLLER's hand. Candidates are ordered worst-first (lowest
+ * mana value) so the AI driver's deterministic first pick is the card it would least want to hand back.
+ */
 export function applyReturnFromGraveyardPick(state, atom, ctx) {
   const player = state.players?.[ctx.controller];
   if (!player) return state;
   const mv = (c) => Number(c.cmc ?? c.mana_value ?? 0) || 0;
+  const opponentChooses = atom.chooser === "opponent";
   const candidates = (player.graveyard || []).filter((c) => cardMatchesGraveyardFilter(c, atom.cardFilter))
-    .sort((x, y) => (mv(y) - mv(x)) || String(x.name).localeCompare(String(y.name)));
+    .sort((x, y) => (opponentChooses ? mv(x) - mv(y) : mv(y) - mv(x)) || String(x.name).localeCompare(String(y.name)));
   if (candidates.length === 0) return logEvent(state, { kind: "spell-effect", effect: "return-from-graveyard-pick", picked: null, controller: ctx.controller });
   if (candidates.length === 1) {
     const next = moveCardToZone(state, { playerId: ctx.controller, fromZone: "graveyard", toZone: "hand", cardId: candidates[0].id });
     return logEvent(next, { kind: "spell-effect", effect: "return-from-graveyard-pick", picked: candidates[0].name, controller: ctx.controller });
   }
+  const chooser = opponentChooses ? (opponentsOf(state, ctx.controller)[0] || null) : ctx.controller;
+  if (!chooser) return logEvent(state, { kind: "spell-effect", effect: "return-from-graveyard-pick", picked: null, controller: ctx.controller });
   return setPendingMilledPickChoice(state, {
-    controller: ctx.controller,
+    controller: chooser,
+    ...(chooser !== ctx.controller && { owner: ctx.controller }),
     candidates: candidates.map((c) => ({ id: c.id, name: c.name, type: c.type || c.type_line || "" })),
     sourceName: ctx.cardName || null,
     toZone: "hand",

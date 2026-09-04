@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · T7: Tasigur, the Golden Fang (+1)** · suite **spellEffects.js ("nonland" graveyard filter) + effects/atoms/zones.js (opponent's-choice pick) + pendingChoice.js / effects/runProgram.js (milled-pick `owner` seat) + learnSession.js ("Give" label) + tasigur.test.js (8)** green · corpus 14,346 (41.9%) / 34,245 (41.9%) · flip-diff +1 / 0 lost · 5/5
+
+> The opponent's-choice graveyard return: the milled-pick pause gains an `owner` seat apart from its chooser. Next row by the runbook's §2: Teval's next open M row.
+> **CI:** HELD — GitHub billing blocks every run (plan §6; a rerun at 15:22Z died in 4s with 0 steps); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · T6: Demolition Field (+1)** · suite **effects/spanMatchers.js (matchRemovalControllerRider admits the possessive subject "that <noun>'s controller") + demolitionField.test.js (5)** green · corpus 14,345 (41.9%) / 34,245 (41.9%) · flip-diff +1 / 0 lost · 2/2
 
 > The land-destroy with both players' basic-land searches. Next row by the runbook's §2: Teval's next open M row.

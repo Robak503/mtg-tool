@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · T7: TASIGUR — "a nonland card of an opponent's choice" · **+1** · corpus 14,346 (41.9%) / 34,245 (41.9%)
+> Suite **spellEffects.js ("nonland" graveyard filter) + effects/atoms/zones.js (opponent's-choice pick) + pendingChoice.js / effects/runProgram.js (milled-pick `owner` seat) + learnSession.js ("Give" label) + tasigur.test.js (8)** green; lint 0. Flip-diff **+1, zero LOST**. **5/5.**
+> · **The shape:** "{2}{G/U}{G/U}: Mill two cards, then return a nonland card of an opponent's choice from your graveyard to
+>   your hand." — the non-targeted single return (④-AA) chose at resolution through the milled-pick pause aimed at the
+>   controller. Tasigur hands the choice to an OPPONENT (CR 608.2c): the pause is aimed at the controller's first opponent
+>   and carries a new `owner` seat, so the pick still leaves the controller's graveyard for the controller's hand (the
+>   resume reads `owner`; every prior pause is unchanged). Candidates are ordered worst-first (lowest mana value) so the
+>   AI driver's deterministic first pick is the least-wanted card; a human chooser sees "Give <card>". "nonland" joined the
+>   graveyard-filter vocabulary as the one admitted negation (front face is not a Land, CR 712.4a). Delve was credited.
+> · **One CREED pin graduated:** atzocanSeer.test.js pinned "return target nonland card …" LOW; it now reads HIGH by design
+>   (the targeted lane shares the vocabulary; flip-diff shows no real card carries that exact phrase). "noncreature" is
+>   the pin's parked negation now.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6; a rerun at 15:22Z died in 4s with 0 steps); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · T6: DEMOLITION FIELD — "that land's controller may search" · **+1** · corpus 14,345 (41.9%) / 34,245 (41.9%)
 > Suite **effects/spanMatchers.js (matchRemovalControllerRider admits the possessive subject "that <noun>'s controller") + demolitionField.test.js (5)** green; lint 0. Flip-diff **+1, zero LOST**. **2/2.**
 > · **The shape:** "Destroy target nonbasic land an opponent controls. That land's controller may search their library for a

@@ -1790,17 +1790,20 @@ export function resolveMilledPickChoice(state, cardId) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "milled-pick") return state;
   let next = clearPendingChoice(state);
-  if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → bail
-  const gy = next.players[pc.controller].graveyard || [];
+  // T7 (2026-09-04): `owner` — the seat whose graveyard holds the candidates and whose hand receives the pick — is the
+  // chooser unless the pause says otherwise (Tasigur: the OPPONENT chooses, the controller receives).
+  const owner = pc.owner || pc.controller;
+  if (!next.players?.[owner]) return next; // the receiving seat eliminated mid-pause → bail
+  const gy = next.players[owner].graveyard || [];
   const stillThere = (id) => gy.some((c) => c.id === id);
   const valid = (pc.candidates || []).filter((c) => stillThere(c.id));
   const pick = valid.find((c) => c.id === cardId) || valid[0] || null;
   if (!pick) {
-    next = logEvent(next, { kind: "spell-effect", effect: "milled-pick", picked: null, controller: pc.controller });
+    next = logEvent(next, { kind: "spell-effect", effect: "milled-pick", picked: null, controller: pc.controller, ...(pc.owner && { owner }) });
     return resumeAfterChoice(next, pc);
   }
-  next = moveCardToZone(next, { playerId: pc.controller, fromZone: "graveyard", toZone: pc.toZone || "hand", cardId: pick.id }); // ④-P: exile for a forced graveyard pick
-  next = logEvent(next, { kind: "spell-effect", effect: "milled-pick", picked: pick.name, controller: pc.controller, toZone: pc.toZone || "hand" });
+  next = moveCardToZone(next, { playerId: owner, fromZone: "graveyard", toZone: pc.toZone || "hand", cardId: pick.id }); // ④-P: exile for a forced graveyard pick
+  next = logEvent(next, { kind: "spell-effect", effect: "milled-pick", picked: pick.name, controller: pc.controller, ...(pc.owner && { owner }), toZone: pc.toZone || "hand" });
   return resumeAfterChoice(next, pc);
 }
 

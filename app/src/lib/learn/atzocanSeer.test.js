@@ -36,8 +36,11 @@ describe("parse + classify", () => {
     expect(row.tier).toBe("native-mana");
   });
 
-  it("seen-to-fail: a non-subtype word ('nonland') and a multi-word phrase still null the whole clause", () => {
-    expect(programConfidence(parseEffectClause("Return target nonland card from your graveyard to your hand.", "Instant"))).toBe("low");
+  it("seen-to-fail: an unmodeled negation ('noncreature') and a multi-word phrase still null the whole clause", () => {
+    // 'nonland' GRADUATED 2026-09-04 (SHELF-85 T7, Tasigur): it is the one negation the graveyard-filter vocabulary
+    // admits — front face is not a Land (tasigur.test.js pins the match). Every other negation still parks.
+    expect(programConfidence(parseEffectClause("Return target nonland card from your graveyard to your hand.", "Instant"))).toBe("high");
+    expect(programConfidence(parseEffectClause("Return target noncreature card from your graveyard to your hand.", "Instant"))).toBe("low");
     expect(programConfidence(parseEffectClause("Return target Dinosaur creature card from your graveyard to your hand.", "Instant"))).toBe("low");
   });
 });

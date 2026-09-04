@@ -2254,7 +2254,8 @@ export function advanceUntilDecision(
           seat: choiceSeat,
           pilot,
           recordDecision,
-          buildOffered: () => (pc.candidates || []).map((c) => ({ kind: "pending-choice", choiceKind: pc.kind, value: c.id, label: `Take ${c.name}` })),
+          // T7: a pause with an `owner` other than the chooser is an opponent's-choice pick (Tasigur) — the chooser GIVES.
+          buildOffered: () => (pc.candidates || []).map((c) => ({ kind: "pending-choice", choiceKind: pc.kind, value: c.id, label: pc.owner && pc.owner !== pc.controller ? `Give ${c.name}` : `Take ${c.name}` })),
           fallbackAction: {
             kind: "pending-choice",
             choiceKind: pc.kind,
