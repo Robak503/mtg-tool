@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · H9: Damning Verdict (+1)** · suite **1473 files / 16,040 tests** green · corpus 14,410 (42.1%) / 34,245 · flip-diff +1 / 0 lost · 5/5 killed
+
+> Shalai opens: the negated counter restriction on the mass destroy. **Shalai 75** (needs 10). Next: Yoshimaru (a legendary etb filter), Krenko (a possessive self-name rewrite + a source-power token count), Hajar, Spider-Man.
+> **CI:** GREEN on Step Between Worlds (run 33924122267); this slice pushes and is watched
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K9: Step Between Worlds (+1) — KELLAN AT 85 ✅** · suite **1472 files / 16,036 tests** green · corpus 14,409 (42.1%) / 34,245 · flip-diff +1 / 0 lost · 9/9 killed (a tenth — removing the side-sheet panel mount — was EQUIVALENT: LearnView renders the panel by two paths; deleted, documented)
 
 > The per-seat "may" wheel. **Kellan 85 ✅ — the fifth deck at the bar.** Next in §5 order: Shalai and Hallar (74) — Damning Verdict (a hasCounter restriction at the parser and the evaluator), Yoshimaru (a legendary etb filter), Krenko, Hajar, Spider-Man.

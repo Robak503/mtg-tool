@@ -73,12 +73,16 @@ describe("⛔ THE INCUMBENT MATCHERS ARE BYTE-IDENTICAL (the ordering rule)", ()
 describe("⛔ the CREED gate — an unmodeled qualifier parks the wipe", () => {
   const REFUSED = [
     "Destroy all creatures that dealt damage to you this turn.",
-    "Destroy all creatures with no counters on them.",
     "Destroy all creatures with power greater than target creature's power.",
   ];
   for (const clause of REFUSED) {
     it(`⛔ «${clause.slice(0, 56)}…» parks`, () => expect(atomOf(clause)).toBe(null));
   }
+  // GRADUATED 2026-09-04 (SHELF-85 H9 — Damning Verdict): the counters-on-it qualifier is modeled now — a hasCounter
+  // restriction, negated for "no", enforced by the shared evaluator — so the wipe no longer parks; it carries the restriction.
+  it("✅ «Destroy all creatures with no counters on them.» is modeled now (graduated from the refused list)", () => {
+    expect(atomOf("Destroy all creatures with no counters on them.")).toEqual({ op: "destroy", targetType: "eachCreature", restrictions: [{ kind: "hasCounter", negate: true }] });
+  });
   it("⛔ a non-creature mass recipient never reaches the creature grammar", () => {
     expect(atomOf("Destroy all nonland permanents.")).toBe(null);
   });

@@ -76,13 +76,13 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Nekusar Wheels | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Shorikai Vehicles | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Shalai and Hallar Test | 74 | 11 | 16 | ⬜ Phase 2 |
+| Test | Shalai and Hallar Test | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Otharri Test | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 69 | 16 | 21 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**9 decks below 85 · 129 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**9 decks below 85 · 128 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -350,7 +350,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | H6 | Yoshimaru, Ever Faithful | another legendary permanent enters → counter on Yoshimaru | S | ETB watcher with a `legendary` filter | ⬜ |
 | H7 | Spider-Man, Miles Morales | enters or attacks: +1/+1 counter on each other creature you control; they gain flying? | S | | ⬜ |
 | H8 | Arwen, Weaver of Hope | each other creature you control enters with additional counters = … | M | an enters-with modifier static | ⬜ |
-| H9 | Damning Verdict | destroy all creatures with no counters on them | S | mass destroy + a `hasCounter` negation (④-AC's restriction, negated) | ⬜ |
+| H9 | Damning Verdict | destroy all creatures with no counters on them | S | mass destroy + a `hasCounter` negation (④-AC's restriction, negated) | ✅ (+1 — the counter restriction joined the parser; the evaluator learned the negation) |
 | H10 | Hajar, Loyal Bodyguard · Boromir, Warden of the Tower | sacrifice self: team +1/+0 / indestructible | S | (Boromir's "the Ring tempts you" tail = the ring subsystem → 🅿 unless built) | ⬜ |
 | H11 | Kutzil, Malamet Exemplar · Skrelv · Incubation Druid · Uncivil Unrest · Shifting Woodland | | M / M / M / M / L | | ⬜ |
 | H12 | Chaos Warp | | M | shared with Nekusar N13 | ⬜ |
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · H9 Damning Verdict (Shalai) ✅ +1 corpus · 5/5 killed · suite 1473 files / 16,040 tests · corpus 14,410 (42.1%) · shelf refreshed in §1 · CI: GREEN on Step Between Worlds (run 33924122267); this slice pushes and is watched.
 
 - 2026-09-04 — Phase 2 · K9 Step Between Worlds (Kellan) ✅ +1 corpus · 9/9 killed (a tenth — removing the side-sheet panel mount — was EQUIVALENT: LearnView renders the panel by two paths; deleted, documented) · suite 1472 files / 16,036 tests · corpus 14,409 (42.1%) · **Kellan reaches 85** · shelf refreshed in §1 · CI: GREEN on Ellie and Alan (run 33922826480); this slice pushes and is watched.
 

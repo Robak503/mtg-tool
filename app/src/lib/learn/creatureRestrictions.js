@@ -84,7 +84,8 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // a named type must be that key with a positive count. An absent or empty map is simply "no".
       const counters = perm.counters || {};
       const has = r.counterType ? (counters[r.counterType] || 0) > 0 : Object.values(counters).some((n) => (n || 0) > 0);
-      if (!has) return false;
+      // H9 (Damning Verdict "with no counters on them"): the negated form — a creature WITH a counter is excluded.
+      if (r.negate ? has : !has) return false;
     } else if (r.kind === "modified") {
       // MODIFIED (CR 701.48 — Lion Umbra's "Enchant modified creature"): has a counter / Equipment / an Aura
       // its controller controls. Layer-aware via layers.isModifiedPermanent (the same predicate Kodama's

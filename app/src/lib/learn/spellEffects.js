@@ -399,6 +399,15 @@ export function parseCreatureTargetRestrictions(card, { allowPlaneswalkerUnion =
   if (/\buntapped\b/.test(t)) { restrictions.push({ kind: "tapped", value: false }); t = t.replace(/\buntapped\b/g, " "); }
   else if (/\btapped\b/.test(t)) { restrictions.push({ kind: "tapped", value: true }); t = t.replace(/\btapped\b/g, " "); }
 
+  // ⭐ COUNTERS-ON-IT (SHELF-85 H9, 2026-09-04 — Damning Verdict "destroy all creatures with no counters on them"): a
+  // hasCounter restriction — ANY counter kind ("no counters" / "a counter" / "counters" / "one or more counters") or a
+  // named kind ("a +1/+1 counter"). Negated for "no". Enforced by the shared evaluator off the live counter bag.
+  const ctrM = t.match(/\bwith (?:(no|a|an|one or more) )?(\+1\/\+1 |-1\/-1 )?counters? on (?:it|them)\b/);
+  if (ctrM) {
+    restrictions.push({ kind: "hasCounter", ...(ctrM[2] ? { counterType: ctrM[2].trim() } : {}), ...(ctrM[1] === "no" ? { negate: true } : {}) });
+    t = t.replace(/\bwith (?:(?:no|a|an|one or more) )?(?:\+1\/\+1 |-1\/-1 )?counters? on (?:it|them)\b/g, " ");
+  }
+
   // DISJUNCTIVE P/T BOUND (CR 208.1 / 208.2 — Warping Wail: "exile target creature with power or toughness
   // 1 or less"). Matched and stripped WHOLE and BEFORE the single-characteristic matchers below, because the
   // toughness matcher would otherwise consume "toughness 1 or less" out of the MIDDLE of the phrase and leave

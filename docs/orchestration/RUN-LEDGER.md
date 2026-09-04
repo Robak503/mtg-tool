@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · H9: DAMNING VERDICT — Shalai opens · **+1** · corpus 14,410 (42.1%) / 34,245
+> Suite **1473 files / 16,040 tests** green; lint 0. Flip-diff **+1, zero LOST**. **5/5 killed.**
+> · **The shape:** the mass destroy already routed its filter phrase through parseCreatureTargetRestrictions, and the shared
+>   evaluator already knew a hasCounter kind (from the targeted "+1/+1 counter" arm) — but the PARSER had no counter
+>   vocabulary and the evaluator no negation. Both added: "with [no|a|one or more] [+1/+1] counter(s) on it/them", negated
+>   for "no", enforced off the live counter bag (a zero-count entry is "no counters"). The older targeted arm is untouched,
+>   byte-identical. At runtime only the countered creatures survive, both sides.
+> · **One CREED pin graduated by design** (massRemovalFilterDelegation.test listed this exact sentence among the wipes that park);
+>   it carries the restriction now, so the pin moved out of the refused list, dated.
+> · **Shalai 75** (needs 10). Next: Yoshimaru (a legendary etb filter), Krenko (a possessive self-name rewrite + a source-power token count), Hajar, Spider-Man.
+> · **CI:** GREEN on Step Between Worlds (run 33924122267); this slice pushes and is watched
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · K9: STEP BETWEEN WORLDS — the per-seat "may" · **+1** · corpus 14,409 (42.1%) / 34,245 · **KELLAN 85 ✅**
 > Suite **1472 files / 16,036 tests** green; lint 0. Flip-diff **+1, zero LOST**. **9/9 killed (a tenth — removing the side-sheet panel mount — was EQUIVALENT: LearnView renders the panel by two paths; deleted, documented).**
 > · **The shape:** "Each player may shuffle their hand and graveyard into their library. Each player who does draws seven cards."
