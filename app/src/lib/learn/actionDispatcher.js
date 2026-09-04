@@ -1222,6 +1222,7 @@ function applyActivateAbility(state, action) {
     manaSources(state, action.playerId).filter(s =>
       !((action.tapSelf || action.sacSelf || action.exileSelf) && s.permanentId === action.permanentId) &&
       !(action.tapCreatureId && s.permanentId === action.tapCreatureId) &&
+      !(action.tapCountIds || []).includes(s.permanentId) && // V6 slice 2 — the N frozen tap victims can't tap for mana either
       // γ1g: a LAND returned to hand for a "Return a land you control" cost (Oboro) can't ALSO tap for mana —
       // it's gone before the {mana} is paid. Exclude it from the mana sources (mirrors legalChoices exactly).
       !(action.returnLandId && s.permanentId === action.returnLandId) &&
@@ -1255,6 +1256,15 @@ function applyActivateAbility(state, action) {
     if (!tv) throw new DispatcherError(`Tap-cost creature ${action.tapCreatureId} not on battlefield`, "PERM_NOT_FOUND");
     if (tv.tapped) throw new DispatcherError("Tap-cost creature is already tapped", "ALREADY_TAPPED");
     working = tapPermanent(working, action.tapCreatureId);
+  }
+  // V6 slice 2 — the COUNTED tap cost ("Tap two untapped creatures you control", Kirol): every frozen victim is
+  // re-resolved against the LIVE battlefield and tapped; a missing / already-tapped one is a hard error, so the cost
+  // is never silently under-paid (the single-victim discipline above, N times).
+  for (const id of action.tapCountIds || []) {
+    const tv = working.players[action.playerId]?.battlefield.find((p) => p.id === id);
+    if (!tv) throw new DispatcherError(`Tap-cost creature ${id} not on battlefield`, "PERM_NOT_FOUND");
+    if (tv.tapped) throw new DispatcherError("Tap-cost creature is already tapped", "ALREADY_TAPPED");
+    working = tapPermanent(working, id);
   }
   // γ1g — pay a "Return a land you control to its owner's hand" cost by moving the chosen land battlefield →
   // its OWNER's hand (CR 118 / 601.2b). The land is re-resolved against the LIVE battlefield; a missing victim

@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — V6 slice 2: THE COUNTED TAP COST — Kirol and eleven twins; V6 done · **+12** · corpus 14,303 / 34,245 (41.7%)
+> Suite **1424 files / 15,746 tests** green; lint 0. Flip-diff **+12, zero LOST**. **8/8 mutations killed against a green witness (the counted arm removed, the auto-pick freezing one body, the dispatcher not tapping the set, offer and dispatcher each counting the tappers as mana, the AI skip removed, the {T} source in its own set, the too-few check removed).**
+> · **The shape:** "Tap N untapped creatures you control:" as an activation cost, built like the counted sacrifice —
+>   parseAbilityCost reads two / three / four onto `tapCreature.count` (a subtype filter still defers); legalChoices
+>   freezes ONE action with N untapped creatures on `tapCountIds` (summoning-sick bodies first, a written policy; the
+>   {T} source never in its own set; fewer than N → not offered; the frozen set can't also pay the {mana} part);
+>   the dispatcher taps every frozen victim before the ability goes on the stack, hard-erroring on a tapped one.
+> · **The AI hole closed with it:** the safe-activation picker skips a counted tap cost the way it skips the single
+>   one — it taps real bodies, never auto-spent (pinned on a mana-costed draw that the picker would otherwise take).
+> · **Twins (all audited, every effect already modeled):** Sandsower, Nullmage Shepherd, Larder Zombie, Diversionary
+>   Tactics, Skaab Wrangler, Root-Kin Ally, Prosperous Partnership, Siege Zombie, Skirsdag High Priest, Tradewind
+>   Rider, Grove of the Guardian.
+> · **Board-verified:** Kirol on the opponent's upkeep taps the sick Bear and herself, the copy draws the second card,
+>   no re-offer that turn; Tradewind Rider taps itself and both Bears and bounces the opponent's creature; a
+>   {G}-plus-tap-two probe with only two Elves is not offered, and with a Forest the Forest pays and the Elves tap.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — V6 slice 1: COPY TARGET ABILITY — Peter Parker's Camera + Strionic Resonator, and the stack window · **+3** · corpus 14,291 / 34,245 (41.7%)
 > Suite **1423 files / 15,733 tests** green; lint 0. Flip-diff **+3, zero LOST**. **7/7 mutations killed against a green witness (the parser arm disabled, the pool's controller and kind filters dropped, the stack window removed, the resolver copying nothing, the target spec dropping the printed kinds, the copy keeping the original's id).**
 > · **The shape:** the CAP-BRACERS lane copied the ability a trigger fired on (a context referent); this is the chosen-target

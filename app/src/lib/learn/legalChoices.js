@@ -2407,7 +2407,19 @@ function actionsActivateAbility(state, playerId) {
       // Horn). Also excluded when the cost text says "another" (it never does for the modeled shape, but the
       // flag is honored). Without this, the dispatcher would throw ALREADY_TAPPED on an offered action.
       let tapVictims = [null];
-      if (ab.tapCreature) {
+      // V6 slice 2 — the COUNTED form ("Tap two untapped creatures you control", Kirol): ONE action paying a frozen set
+      // of N untapped creatures the player controls (the source itself may be one of them — the printed cost has no
+      // {T}, and CR 302.6 restricts only {T}/{Q}, so a summoning-sick body may pay it). Auto-picked like the counted
+      // sacrifice: summoning-sick creatures first (they can't attack this turn anyway), then battlefield order — a
+      // written policy, never a wrong play. Fewer than N untapped creatures → the cost can't be paid → not offered.
+      let tapCountIds = null;
+      if (ab.tapCreature && ab.tapCreature.count > 1) {
+        const selfExcluded = ab.tapSelf || ab.tapCreature.another;
+        const pool = player.battlefield.filter((v) => !v.tapped && isCreature(v.card) && !(selfExcluded && v.id === perm.id));
+        const ordered = [...pool.filter((v) => v.summoningSick), ...pool.filter((v) => !v.summoningSick)];
+        if (ordered.length < ab.tapCreature.count) continue;
+        tapCountIds = ordered.slice(0, ab.tapCreature.count).map((v) => v.id);
+      } else if (ab.tapCreature) {
         const selfExcluded = ab.tapSelf || ab.tapCreature.another;
         tapVictims = player.battlefield.filter((v) =>
           !v.tapped && isCreature(v.card) &&
@@ -2415,6 +2427,7 @@ function actionsActivateAbility(state, playerId) {
         );
         if (tapVictims.length === 0) continue; // no untapped creature to tap → the cost can't be paid
       }
+      const tapCountSet = tapCountIds ? new Set(tapCountIds) : null;
 
       // γ1g — a "Return a land you control to its owner's hand" cost (Oboro Breezecaller): the PLAYER picks
       // which LAND they control to bounce. Expand one action per legal land you control; a land that would
@@ -2500,7 +2513,7 @@ function actionsActivateAbility(state, playerId) {
         // sources for the affordability check — mirrors the dispatcher's payment filter exactly. Earthcraft's
         // cost has no {mana} part, so this is trivially satisfied there, but the guard keeps a future
         // mana+tap-creature ability payable-only-when-truly-affordable (never an unpayable offer, CREED).
-        if (ab.tapCreature && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== tapVictim?.id), cost, { activatingIsCreature: permanentIsCreature(state, perm.id) })) continue;
+        if (ab.tapCreature && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== tapVictim?.id && !tapCountSet?.has(s.permanentId)), cost, { activatingIsCreature: permanentIsCreature(state, perm.id) })) continue;
        for (const unattachVictim of unattachVictims) {
        for (const returnLandVictim of returnLandVictims) {
         // γ1g — a "Return a land you control to its owner's hand" cost: the land bounced for the cost can't ALSO
@@ -2520,6 +2533,7 @@ function actionsActivateAbility(state, playerId) {
           // a creature would need it). The tapped creature stays on the battlefield, so this is only a "don't
           // waste the tap on your own target" nicety, not a correctness gate.
           if (ab.tapCreature && tapVictim && ch.targets.some((t) => t.id === tapVictim.id)) continue;
+          if (tapCountSet && ch.targets.some((t) => tapCountSet.has(t.id))) continue; // V6 slice 2 — a frozen tap victim is never also the target
           // γ1g — don't offer bouncing the very land the effect targets: the land is returned to hand as a COST
           // (gone before the ability resolves), so an "untap target land" that targeted that same land would
           // fizzle to a no-op (CR 608.2b — the target is no longer on the battlefield). Drop that self-defeating
@@ -2612,6 +2626,7 @@ function actionsActivateAbility(state, playerId) {
             sacCountIds,                                  // γ1d — the N fungible victims to sacrifice (cost)
             tapCreatureId: tapVictim?.id ?? null,        // γ1f — the chosen untapped creature to tap (cost)
             tapCreatureName: tapVictim?.card?.name ?? null,
+            tapCountIds,                                  // V6 slice 2 — the N frozen untapped creatures to tap (cost)
             returnLandId: returnLandVictim?.id ?? null,  // γ1g — the chosen land to return to owner's hand (cost)
             returnLandName: returnLandVictim?.card?.name ?? null,
             unattachEquipmentId: unattachVictim?.id ?? null,     // γ1i (CAP14) — the chosen attached Equipment (cost)

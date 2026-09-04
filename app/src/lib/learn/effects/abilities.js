@@ -426,6 +426,13 @@ export function parseAbilityCost(costStr, card = null) {
     // COUNT ("tap two untapped creatures"), a subtype filter, or an "you control or a land" compound
     // doesn't match → null (deferred), keeping the all-or-nothing gate — a safe false-negative.
     if (/^tap an untapped creature you control$/i.test(item)) { tapCreature = { another: false }; continue; }
+    // SHELF-85 V6 slice 2 (2026-09-04 — Kirol, Attentive First-Year "Tap two untapped creatures you control: Copy target
+    // triggered ability you control"): the COUNTED form of the line above. legalChoices auto-picks N untapped creatures
+    // (the counted-sacrifice precedent — a written policy, summoning-sick bodies first) onto `tapCountIds`; the
+    // dispatcher taps every one of them before the ability goes on the stack and none of them may tap for mana.
+    // Whole-item anchored: a subtype filter ("two untapped Elves") or a compound still falls through → null (deferred).
+    const tapNM = item.match(/^tap (two|three|four) untapped creatures you control$/i);
+    if (tapNM) { tapCreature = { another: false, count: { two: 2, three: 3, four: 4 }[tapNM[1].toLowerCase()] }; continue; }
     // γ1g — RETURN-A-LAND cost (Oboro Breezecaller "{2}, Return a land you control to its owner's hand:
     // Untap target land."): a CHOICE cost — the player picks WHICH land they control to bounce to its owner's
     // hand (CR 601.2b / 118 — returning a permanent you control to hand as an activation cost). The parser only

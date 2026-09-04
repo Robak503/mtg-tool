@@ -1299,7 +1299,7 @@ function pickSafeAbilityActivation(abilityActions) {
     if (!a.program || a.program.structure === "modal") continue;
     if ((a.targets?.length || 0) > 0) continue;
     if (a.sacSelf || a.exileSelf || a.sacCreatureId || (a.sacCountIds?.length) || a.removeCounter
-      || (a.payLife || 0) > 0 || a.tapCreatureId || a.returnLandId || a.xValue != null || a.chosenMode != null) continue;
+      || (a.payLife || 0) > 0 || a.tapCreatureId || (a.tapCountIds?.length) || a.returnLandId || a.xValue != null || a.chosenMode != null) continue; // V6 slice 2: a counted tap cost taps real bodies — never auto-spent
     if (!a.tapSelf && (a.cmc || 0) < 1) continue;         // termination bound: tap or a real mana cost
     const atoms = a.program.atoms || [];
     if (atoms.length === 0) continue;                     // nothing runnable — activating burns the cost
