@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · B8: LORAN OF THE THIRD PATH — "you and target opponent each draw" · **+3** · corpus 14,357 (41.9%) / 34,245 (41.9%)
+> Suite **effects/atoms/misc.js (two-seat draw arm + applier branch) + effects/splitClauses.js (keep-whole guard) + loranOfTheThirdPath.test.js (6)** green; lint 0. Flip-diff **+3, zero LOST**. **5/5.**
+> · **The shape:** "{T}: You and target opponent each draw a card." — the draw atom knew controller / each player /
+>   target player / the upkeep player / the triggering permanent's controller; the two-seat form is new:
+>   who:`controllerAndTarget` draws for the controller, then for the targeted seat (CR 608.2c — the written order),
+>   targetType "opponent" (never the controller). The clause splitter's top-level " and " was severing the two
+>   SUBJECTS ("You" / "target opponent each draw …"), so a keep-whole guard joins the blink guard. Unplanned twins
+>   audited whole-card: Secret Rendezvous (the sentence is the card) and Sky Crier (flying, lifelink + the same draw on a {3}{W} ability).
+>   Loran's ETB ("destroy up to one target artifact or enchantment") already parsed.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · B7: UNQUESTIONED AUTHORITY — protection from CREATURES · **+3** · corpus 14,354 (41.9%) / 34,245 (41.9%)
 > Suite **protection.js (parseProtectionClasses) + layers.js (permanentProtectionClasses) + staticAbilityParser.js (Aura/Equipment class grant) + spellEffects.js (creature-sourced targeting) + combatEvasion.js (block) + combatResolution.js (damage) + protectionFromCreatures.test.js (7); one CREED pin graduated (runemarkConditionalKeyword)** green; lint 0. Flip-diff **+3, zero LOST**. **8/8.**
 > · **The shape:** "Enchanted creature has protection from creatures." — the protection seam (CR 702.16) was

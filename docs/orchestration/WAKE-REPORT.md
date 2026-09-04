@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · B8: Loran of the Third Path (+3)** · suite **effects/atoms/misc.js (two-seat draw arm + applier branch) + effects/splitClauses.js (keep-whole guard) + loranOfTheThirdPath.test.js (6)** green · corpus 14,357 (41.9%) / 34,245 (41.9%) · flip-diff +3 / 0 lost · 5/5
+
+> The two-seat draw. **Brago 83 (needs 2).** Next by §2: B12 Cryogen Relic (the last S row — the stun tap-lock already exists on the tap atom; a bare put-stun-counter arm on a tapped target), then the M rows (B4 Reflector Mage, B9 Riptide Gearhulk, B10 Brago, B11, B13, B14).
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · B7: Unquestioned Authority (+3)** · suite **protection.js (parseProtectionClasses) + layers.js (permanentProtectionClasses) + staticAbilityParser.js (Aura/Equipment class grant) + spellEffects.js (creature-sourced targeting) + combatEvasion.js (block) + combatResolution.js (damage) + protectionFromCreatures.test.js (7); one CREED pin graduated (runemarkConditionalKeyword)** green · corpus 14,354 (41.9%) / 34,245 (41.9%) · flip-diff +3 / 0 lost · 8/8
 
 > Protection from creatures, enforced on all three axes the colour form has. Next by §2: B8 Loran (the two-seat draw), then B12 Cryogen Relic (stun counters need an untap replacement — bigger than its row).

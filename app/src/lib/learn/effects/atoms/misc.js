@@ -51,6 +51,13 @@ function applyDrawAtom(state, atom, ctx) {
     for (const t of ctx.targets || []) {
       if (t.type === "player" && next.players[t.id]) next = applyDrawEffect(next, { controller: t.id, amount });
     }
+  } else if (atom.who === "controllerAndTarget") {
+    // B8 — "You and target opponent each draw N": the controller first, then the targeted seat (CR 608.2c — the
+    // order the text names them). A vanished target (eliminated mid-stack) draws nobody on that half.
+    next = applyDrawEffect(state, { controller: ctx.controller, amount });
+    for (const t of ctx.targets || []) {
+      if (t.type === "player" && t.id !== ctx.controller && next.players[t.id]) next = applyDrawEffect(next, { controller: t.id, amount });
+    }
   } else if (atom.who === "upkeepPlayer") {
     // UPKEEP-PLAYER DRAW (BLITZ TR-2 — Seizan's "… and draws two cards" half): the player whose upkeep it
     // is, ctx.upkeepPlayerId (threaded by checkStepTriggers). Absent / eliminated referent (a spell, a
@@ -432,6 +439,12 @@ export function drawEachPlayerClauseParser(clause) {
   // safe direction (reusing "player" would let the card be pointed at its own controller).
   m = t.match(/^target (player|opponent) draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "draw", amount: NUM_WORD[m[2]] ?? parseInt(m[2], 10), who: "target", targetType: m[1] };
+  // ⭐ TWO-SEAT DRAW (SHELF-85 B8, 2026-09-04 — Loran of the Third Path "{T}: You and target opponent each draw a card";
+  // Secret Rendezvous / Flumph / Sky Crier / Farsight Adept / Teyo — 10 corpus carriers): the controller AND the
+  // targeted opponent each draw N. who:"controllerAndTarget" — applyDrawAtom draws for ctx.controller and then for
+  // every targeted player; targetType "opponent" narrows the seat to a non-controller (the printed truth).
+  m = t.match(/^you and target (player|opponent) each draw (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "draw", amount: NUM_WORD[m[2]] ?? parseInt(m[2], 10), who: "controllerAndTarget", targetType: m[1] };
   // ===== UPKEEP-PLAYER DRAW (BLITZ TR-2, CR 503.1a / 121.1) ===== "the upkeep player draws N cards" — the
   // SENTINEL detectTriggers emits for an "each player's upkeep" trigger's "that player draws …" (Seizan's
   // draw half, split off the drain by the parser's upkeep-player normalizer). Corpus-clean phrase (only the
