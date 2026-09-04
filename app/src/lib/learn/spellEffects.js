@@ -854,6 +854,8 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     artifactOrEnchantment: (tl) => /\bArtifact\b|\bEnchantment\b/.test(tl),
     // LANDS-5 (Otawara) — the four-type union; NOT nonlandPermanent, which would also admit a Battle.
     artifactCreatureEnchantmentOrPlaneswalker: (tl) => /\bArtifact\b|\bCreature\b|\bEnchantment\b|\bPlaneswalker\b/.test(tl),
+    // (SHELF-85 N8 — Bedevil's "artifact, creature, or planeswalker" destroy rides the ES-2 artifactCreatureOrPlaneswalker
+    // entry below, the same three-type union Planar Disruption's enchant line already reads.)
     // THREE-WAY union — "destroy target artifact, enchantment, or land" (Acidic Slime, Creeping Mold,
     // Reclaiming Vines, Dire-Strain Rampage, Hoodwink, World Breaker). A straight OR of the three printed
     // types, exactly as the card reads: no narrowing, and deliberately NOT mapped to "permanent", which

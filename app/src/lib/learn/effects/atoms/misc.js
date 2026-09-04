@@ -69,6 +69,10 @@ function applyDrawAtom(state, atom, ctx) {
     // never the ability's controller (see the parse arm — that fallback is the wrong seat by construction).
     const pid = ctx.triggeringPermanentController;
     next = pid && state.players?.[pid] ? applyDrawEffect(state, { controller: pid, amount }) : state;
+  } else if (atom.who === "castingPlayer") {
+    // CASTING-PLAYER DRAW (N5 — Forced Fruition): ctx.castingPlayerId. Absent → draw nobody.
+    const pid = ctx.castingPlayerId;
+    next = pid && state.players?.[pid] ? applyDrawEffect(state, { controller: pid, amount }) : state;
   } else {
     next = applyDrawEffect(state, { controller: ctx.controller, amount });
   }
@@ -465,6 +469,12 @@ export function drawEachPlayerClauseParser(clause) {
   if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "triggeringPermanentController", targetType: null };
   m = t.match(/^the upkeep player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) (?:additional )?cards?$/);
   if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "upkeepPlayer", targetType: null };
+  // ⭐ CASTING-PLAYER DRAW (SHELF-85 N5, 2026-09-04 — Forced Fruition "Whenever an opponent casts a spell, that player
+  // draws seven cards"): detectTriggers rewrites "that player" to "the casting player" on a cast trigger; the same
+  // sentinel discipline as the upkeep / triggering-controller arms, reading ctx.castingPlayerId (threaded by
+  // checkCastTriggers). Absent referent → draw nobody (a clean no-op, never the ability's controller).
+  m = t.match(/^the casting player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "castingPlayer", targetType: null };
   return null;
 }
 

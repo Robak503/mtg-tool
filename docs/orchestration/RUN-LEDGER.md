@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · N4 + N5 + N8: NEKUSAR's small rows — Sheoldred / Forced Fruition / Bedevil · **+3** · corpus 14,362 (41.9%) / 34,245 (41.9%)
+> Suite **triggers.js (card-drawn pronoun referent) + effects/atoms/misc.js (casting-player draw) + effects/atoms/removal.js (three-type destroy) + effects/programQueries.js (flush-gate list) + spellEffects.js (note) + nekusarSRows.test.js (8)** green; lint 0. Flip-diff **+3, zero LOST**. **6/6.**
+> · **N4 Sheoldred, the Apocalypse** — "Whenever an opponent draws a card, they lose 2 life." The card-drawn trigger already
+>   rewrote "that player" to the drawing-player sentinel; the PRONOUN form is the same referent, rewritten only when it
+>   leads the clause (the verb re-agreed) so no other "they" is touched. The drawing-player lose-life arm existed.
+> · **N5 Forced Fruition** — "Whenever an opponent casts a spell, that player draws seven cards." The cast trigger already
+>   rewrote "that player" to "the casting player"; the draw atom gains that arm (who:`castingPlayer`, ctx.castingPlayerId —
+>   the upkeep / triggering-controller sentinel discipline). The applier draws for the caster, never the controller.
+> · **N8 Bedevil** — "Destroy target artifact, creature, or planeswalker." A destroy/exile arm on the three-type union;
+>   the predicate (artifactCreatureOrPlaneswalker) already existed for Planar Disruption's enchant line (a duplicate I
+>   wrote first was caught by lint and removed); registered on the trigger-flush gate's chosen-permanent list.
+> · **N9 Bojuka Bog** — closed by T1c (reads `land`); the row is marked.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · B4: REFLECTOR MAGE — the name-lock bounce · **+1** · corpus 14,359 (41.9%) / 34,245 (41.9%)
 > Suite **effects/splitClauses.js (sentinel fold) + effects/atoms/zones.js (name-lock bounce arm + applier) + gameState.js (nameCastLocked / expireNameCastLocks) + legalChoices.js (cast gate) + gameEngine.js (untap-step expiry) + reflectorMage.test.js (6)** green; lint 0. Flip-diff **+1, zero LOST**. **7/7.**
 > · **The shape:** "return target creature an opponent controls to its owner's hand. That creature's owner can't cast

@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · N4 + N5 + N8: Sheoldred / Forced Fruition / Bedevil (+3)** · suite **triggers.js (card-drawn pronoun referent) + effects/atoms/misc.js (casting-player draw) + effects/atoms/removal.js (three-type destroy) + effects/programQueries.js (flush-gate list) + spellEffects.js (note) + nekusarSRows.test.js (8)** green · corpus 14,362 (41.9%) / 34,245 (41.9%) · flip-diff +3 / 0 lost · 6/6
+
+> Nekusar's small rows in one slice (three witnesses in one file, mutations per arm). **Nekusar 79 (needs 6).** Next by §2: N10 (the wheel count-referent variants, S/M), then the M rows — N6 Painful Quandary, N7 Phyrexian Tyranny, N11 Peer into the Abyss, N12 Teferi's Puzzle Box, N13 Chaos Warp.
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · B4: Reflector Mage (+1)** · suite **effects/splitClauses.js (sentinel fold) + effects/atoms/zones.js (name-lock bounce arm + applier) + gameState.js (nameCastLocked / expireNameCastLocks) + legalChoices.js (cast gate) + gameEngine.js (untap-step expiry) + reflectorMage.test.js (6)** green · corpus 14,359 (41.9%) / 34,245 (41.9%) · flip-diff +1 / 0 lost · 7/7
 
 > The bounce with a name lock until your next turn. **Brago 85 — AT THE BAR the runbook sets for Phase 2 (§2: stop a deck at ≥85); its remaining M/L rows (B9/B10/B11/B13/B14/B15/B16, B1's MDFCs) stay ⬜ for Phase 3. Next deck in §5 order: Nekusar (76, needs 9).**

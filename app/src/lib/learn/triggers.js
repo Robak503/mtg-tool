@@ -4429,6 +4429,11 @@ export function detectTriggers(card) {
       // only the event and the ctx key differ. Same event-gated discipline, and for the same reason.
       if (cls.event === "cardDrawn") {
         effectClause = effectClause.replace(/\bthat player\b/gi, "the drawing player");
+        // SHELF-85 N4 (2026-09-04 — Sheoldred, the Apocalypse "Whenever an opponent draws a card, they lose 2 life"):
+        // the PRONOUN form of the same referent. Only the clause-leading "they lose N life" is rewritten (the verb
+        // re-agrees), so no other "they" anywhere in a longer clause is touched — an unresolved pronoun elsewhere
+        // still parks the clause as before.
+        effectClause = effectClause.replace(/^they lose (\d+) life$/i, "the drawing player loses $1 life");
       }
       // ⭐⭐ DAMAGED-PLAYER **CONTROLS** SENTINEL (DT-2, 2026-08-06 — Snapping Thragg, Skirk Commando,
       // Spark Mage: "you may have it deal N damage to target creature THAT PLAYER controls").

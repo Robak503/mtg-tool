@@ -760,6 +760,12 @@ export function destroyExileClauseParser(clause) {
   if (tripleM) {
     return { op: tripleM[1] === "destroy" ? "destroy" : "exile", targetType: "artifactOrEnchantmentOrFlyingCreature", restrictions: [] };
   }
+  // SHELF-85 N8 (2026-09-04 — Bedevil "Destroy target artifact, creature, or planeswalker"): the plain three-type
+  // union, a PERMANENT_PREDICATES entry (spellEffects) so the enumerator offers exactly those three types.
+  const acpM = t.match(/^(destroy|exile) target artifact, creature, or planeswalker$/);
+  if (acpM) {
+    return { op: acpM[1] === "destroy" ? "destroy" : "exile", targetType: "artifactCreatureOrPlaneswalker", restrictions: [] };
+  }
   // The two-type UNION list admits BOTH printed word-orders for the artifact/creature union — "creature or
   // artifact" (the order most cards print) AND "artifact or creature" (Putrefy: "Destroy target artifact or
   // creature. It can't be regenerated." — the cannotRegenerate rider is re-stamped by the parseEffectClause

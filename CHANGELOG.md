@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Sheoldred, the Apocalypse** — an opponent's draws cost them 2 life, as printed; **Forced Fruition** — the caster draws seven; **Bedevil** — destroys an artifact, creature or planeswalker
 - **Reflector Mage** — the bounced creature's owner can't recast it until your next turn, as printed
 - **Cryogen Relic** — sacrifice it to stun a tapped creature, as printed (it skips its next untap)
 - **Loran of the Third Path**, **Secret Rendezvous**, **Sky Crier** — "you and target opponent each draw" deals both seats their cards

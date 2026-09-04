@@ -63,6 +63,7 @@ export const PERMANENT_TARGET_TYPES = new Set([
   "creatureOrEnchantment", "creatureOrLand", "creatureOrArtifact", "artifactOrLand", "enchantmentOrLand", // β-2 unions
   "planeswalker", "creatureOrPlaneswalker", // PW-7 — gate triggered destroy/exile-PW out of first-legal flush
   "artifactOrEnchantmentOrFlyingCreature", // BW-1 triple union (Broken Wings / Shoot Down) — chosen-permanent removal, same flush gate
+  "artifactCreatureOrPlaneswalker", // SHELF-85 N8 (Bedevil) — the plain three-type union, same flush gate
 ]);
 
 /**
