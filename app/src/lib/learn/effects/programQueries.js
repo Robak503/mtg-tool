@@ -230,6 +230,12 @@ export function atomTargetIntent(atom) {
       return "own";
     case "double-all-counters": // SHELF-85 V8 (Arcade Cabinet) — doubling a creature's counters is a gift: own side
       return "own";
+    case "exile-graveyard":
+      // SHELF-85 Phase 2 · T1c (2026-09-05 — Boggart Trawler / Bojuka Bog "exile target player's graveyard"): a chosen
+      // PLAYER whose whole graveyard is exiled — harm, aimed at an opponent like the destroy / exile family. Without a
+      // side the atom read "ambiguous" and every trigger carrying it routed to the Arbiter (the creature front of the
+      // modal DFC parked the whole card).
+      return "enemy";
     case "explore":
       // CHOSEN-TARGET EXPLORE (BLITZ EX-1) — "target creature you control explores" (Miner's Guidewing's dies
       // trigger, Enter the Unknown, the Map token). The ONLY targeted explore form the parser emits carries

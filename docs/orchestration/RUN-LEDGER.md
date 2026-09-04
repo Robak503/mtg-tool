@@ -3,6 +3,15 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-05 (day cron) — Phase 2 · T1c: BOGGART TRAWLER — "exile target player's graveyard" gets a side · **+5** · corpus 14,343 / 34,245 (41.9%)
+> Suite **1435 files / 15,824 tests** green; lint 0. Flip-diff **+5, zero LOST**. **2/2 mutations killed against a green witness (the intent case removed — ambiguous again; the side flipped to own).**
+> · **The shape:** the ETB already parsed to the exile-graveyard atom on a chosen player, but atomTargetIntent had no case
+>   for it — "ambiguous" — so programTriggerTargetsResolvable refused every trigger carrying it and the card routed to
+>   the Arbiter (and, on the modal DFC, its creature front parked the whole card). Intent = enemy: exiling a graveyard
+>   is aimed at an opponent, exactly as the destroy / exile family is. Bojuka Bog (Nekusar) and the other
+>   "exile target player's graveyard" triggers ride the same case.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-05 (day cron) — Phase 2 · T3: FIELD OF THE DEAD — "seven or more lands with different names" · **+1** · corpus 14,338 / 34,245 (41.8%)
 > Suite **1434 files / 15,820 tests** green; lint 0. Flip-diff **+1, zero LOST**. **4/4 mutations killed against a green witness (the arm removed, lands counted instead of names, non-lands counted, the threshold off by one).**
 > · **The shape:** "Whenever this land or another land you control enters, if you control seven or more lands with different

@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-05 (day cron) — **SHELF-85 Phase 2 · T1c: Boggart Trawler (+5)** · suite **1435 files / 15,824 tests** green · corpus 14,343 / 34,245 (41.9%) · flip-diff +5 / 0 lost · 2/2 mutations killed against a green witness (the intent case removed — ambiguous again; the side flipped to own)
+
+> "Exile target player's graveyard" now has a side (enemy), so its triggers route natively. Next row by the runbook's §2:
+> T4 (Titania, Protector of Argoth).
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-05 (day cron) — **SHELF-85 Phase 2 · T3: Field of the Dead (+1)** · suite **1434 files / 15,820 tests** green · corpus 14,338 / 34,245 (41.8%) · flip-diff +1 / 0 lost · 4/4 mutations killed against a green witness (the arm removed, lands counted instead of names, non-lands counted, the threshold off by one)
 
 > Teval's first Phase 2 row: the distinct-land-names intervening-if. Next row by the runbook's §2: T1c (Boggart Trawler)

@@ -53,7 +53,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 |---|---|---|---|---|---|
 | Colton | Omnath, Locus of Mana | 94 | — | — | ✅ at the bar |
 | Colton | Vihaan, Goldwaker | 95 | — | — | ✅ at the bar |
-| Colton | Zaxara kinda X'ish | 92 | — | — | ✅ at the bar |
+| Colton | Zaxara kinda X'ish | 93 | — | — | ✅ at the bar |
 | Colton | Veyran Cantrips | 91 | — | — | ✅ at the bar (④-BD) |
 | Colton | The Unbeatable Squirrel Girl | 90 | — | — | ✅ at the bar |
 | Colton | cdh | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
@@ -66,15 +66,15 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kinnan Mana Overload | 75 | 10 | 15 | ⬜ Phase 2 (cEDH — LAST) |
-| Joe | Believe it! | 73 | 12 | 17 | ⬜ Phase 2 (cEDH — LAST) |
+| Joe | Believe it! | 74 | 11 | 16 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Kellan of the west | 74 | 11 | 16 | ⬜ Phase 2 |
 | Joe | Halfshell heroes | 66 | 19 | 24 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
-| Test | Teval, the Balanced Scale Test | 80 | 5 | 10 | ⬜ Phase 2 |
+| Test | Teval, the Balanced Scale Test | 81 | 4 | 9 | ⬜ Phase 2 |
 | Test | Brago Blink | 79 | 6 | 11 | ⬜ Phase 2 |
-| Test | Nekusar Wheels | 75 | 10 | 15 | ⬜ Phase 2 |
+| Test | Nekusar Wheels | 76 | 9 | 14 | ⬜ Phase 2 |
 | Test | Shorikai Vehicles | 72 | 13 | 18 | ⬜ Phase 2 |
 | Test | Shalai and Hallar Test | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Otharri Test | 75 | 10 | 15 | ⬜ Phase 2 |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 65 | 20 | 25 | ⬜ Phase 2 |
 
-**14 decks below 85 · 180 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**14 decks below 85 · 177 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -240,7 +240,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | T1 | Sink into Stupor · Fell the Profane · Bridgeworks Battle · Boggart Trawler · Agadeem's Awakening · Multiversal Passage | MDFC | V1 | six slots from the vein | ✅ V1 shipped Fell the Profane + Bridgeworks Battle (the land backs of all five MDFCs play); the four left park on their FRONTS and are the rows below |
 | T1a | Sink into Stupor | "return target spell or nonland permanent an opponent controls to its owner's hand" — the spell∪nonland-permanent target union on the bounce atom | M | the Venser spellOrPermanent union exists for the bounce; this one is spell ∪ NONLAND permanent an opponent controls | ⬜ |
 | T1b | Agadeem's Awakening | "any number of target creature cards that each have a different mana value X or less" from your graveyard | L | any-number reanimate with a pairwise distinct-MV constraint (the sharesCreatureType subset precedent, inverted) | ⬜ |
-| T1c | Boggart Trawler | ETB "exile target player's graveyard" | S | a player-target graveyard exile (Relic of Progenitus' target-player pick, whole graveyard) | ⬜ |
+| T1c | Boggart Trawler | ETB "exile target player's graveyard" | S | a player-target graveyard exile (Relic of Progenitus' target-player pick, whole graveyard) | ✅ (+5 corpus — the ETB already parsed to the exile-graveyard atom; its chosen-player target had NO side intent ("ambiguous"), so every trigger carrying it routed to the Arbiter. Intent = enemy: the flush chooser aims it at an opponent's graveyard. Bojuka Bog and the other exile-target-player's-graveyard triggers came with it.) |
 | T1d | Multiversal Passage | "As this land enters, choose a basic land type. Then you may pay 2 life. If you don't, it enters tapped. / This land is the chosen type." | M | the chosen-basic-type land (a Cavern-style chooser stamping a subtype; the mana model reads the chosen type) + the pay-2-life shock rider | ⬜ |
 | T2 | Starting Town | enters tapped unless turn 1–3 | V2 | |✅ |
 | T3 | Field of the Dead | "whenever this land or another land you control enters, if you control seven or more lands with different names, create a 2/2 Zombie" | M | landfall (self-or-another land) + a distinct-land-names intervening-if + token | ✅ (+1 corpus — the trigger already detected as a land-ETB watcher the play-land path fires, and the Zombie token parsed; the one cell was the intervening-if word "you control N or more lands with different names" — the controller's lands counted by DISTINCT name, layer-aware on land-ness.) |
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · T1c (Boggart Trawler — Teval) ✅ +5 corpus · 2/2 mutations killed against a green witness (the intent case removed — ambiguous again; the side flipped to own) · suite 1435 files / 15,824 tests · corpus 14,343 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-05 — Phase 2 · T3 (Field of the Dead — Teval) ✅ +1 corpus · 4/4 mutations killed against a green witness (the arm removed, lands counted instead of names, non-lands counted, the threshold off by one) · suite 1434 files / 15,820 tests · corpus 14,338 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
