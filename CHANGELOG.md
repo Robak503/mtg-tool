@@ -9,7 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
-- **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics and Harness by Force charge their extra cost per extra target, and offer only what you can pay.
+- **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal charge their extra cost per extra target, and offer only what you can pay.
 - **"Up to two / three target creatures" works** — Abandon the Post, Unearthly Blizzard, Markov Warlord, Glarewielder and Deadly Designs let you pick any number up to the printed count.
 - **"Up to one target creature" works** — Plunge into Winter, War Machine, Nebelgast Intruder, Moonsnare Specialist, Key to the City and more let you pick a creature or none.
 - **The AI shoots attackers and pumps its own creatures in combat** — abilities like D'Avenant Archer's and Infantry Veteran's are now used by the opponent, on the right side.

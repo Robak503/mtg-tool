@@ -1033,11 +1033,15 @@ export function bounceClauseParser(clause) {
   // without "up to", minTargets = maxTargets = N (CR 601.2c, the untap-exact-lands / Ghostly Flicker
   // discipline — one legal creature ⇒ the spell is UNCASTABLE, never a half-cast). The up-to form is
   // byte-identical (minTargets 0).
-  const multiB = t.match(/^return (up to )?(two|three|four|five) target (creatures|nonland permanents|permanents|artifacts|enchantments|lands)(?: (an opponent controls|you don't control|you control))? to their owners' hands$/);
-  if (multiB) {
+  // ④-AT (2026-09-04): "any number of" joined (Kiora's Dismissal "return any number of target enchantments to their owners'
+  // hands" — a STRIVE card; the per-target cost rides the cast lane off program.strivePerTarget): the unbounded count
+  // with `anyNumber` so the expander offers the largest subsets first; zero is legal (CR 601.2c).
+  const multiB = t.match(/^return (up to |any number of )?(two|three|four|five)? ?target (creatures|nonland permanents|permanents|artifacts|enchantments|lands)(?: (an opponent controls|you don't control|you control))? to their owners' hands$/);
+  if (multiB && (multiB[2] || /^any number of $/.test(multiB[1] || ""))) {
     const TTm = { "creatures": "creature", "permanents": "permanent", "nonland permanents": "nonlandPermanent", "artifacts": "artifact", "enchantments": "enchantment", "lands": "land" };
-    const n = SMALL_NUM[multiB[2]];
     const restrictions = multiB[4] ? [{ kind: "controller", who: /^you control$/.test(multiB[4]) ? "you" : "opponent" }] : [];
+    if (!multiB[2]) return { op: "bounce", targetType: TTm[multiB[3]], restrictions, maxTargets: 99, minTargets: 0, anyNumber: true };
+    const n = SMALL_NUM[multiB[2]];
     if (n >= 2) return { op: "bounce", targetType: TTm[multiB[3]], restrictions, maxTargets: n, minTargets: multiB[1] ? 0 : n };
   }
   // "return target creature[ you control | an opponent controls | you don't control | that player controls]

@@ -7,6 +7,15 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (night cron) — **④-AT: "any number of" on the permanent lane — the last two Strive cards (+2)** · suite **1407 files / 15,612 tests** green · corpus 14,178 / 34,245 (41.4%) · flip-diff +2 / 0 lost · 3/3 mutations killed (the destroy arm's any-number alternative, the bounce arm's any-number alternative, the any-number destroy capped at one target)
+
+> **Night tally (stage ④, forty-six slices):** … · AR (+16) · AS (+11) · AT (+2) — corpus 13,862 → 14,178. The Strive
+> cycle is complete (every Strive card whose effect the engine models is native; Hour of Need, Silence the Believers, Twinflame,
+> Nature's Panoply, Launch the Fleet, Setessan Tactics, Polymorphous Rush, Solidarity of Heroes, Call the Coppercoats park on
+> their riders).
+> **CI:** pushed behind ④-AS's run 33829313353; own run watched after push (result on the next entry's line)
+> **Next runnable:** the X-effect remainder (parked); the counted "up to N" pick UI; a fresh deck walk; a fresh residue census.
+
 ## 🎯 2026-09-04 (night cron) — **④-AS: Strive + "any number of target creatures" (+11)** · suite **1406 files / 15,608 tests** green · corpus 14,176 / 34,245 (41.4%) · flip-diff +11 / 0 lost · 5/5 killed
 
 > **Night tally (stage ④, forty-five slices):** … · AQ (+22) · AR (+16) · AS (+11; Strive's per-target cost on the cast

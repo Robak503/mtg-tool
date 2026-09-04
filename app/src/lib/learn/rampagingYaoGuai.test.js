@@ -74,10 +74,13 @@ describe("Rampaging Yao Guai — parse shape", () => {
     expect(p.atoms[0].maxTargets).toBeGreaterThan(1); // unbounded "any number"
   });
 
-  it("CREED near-miss — the SAME clause WITHOUT the 'total mana value X or less' tail stays LOW (Consign to Dust's base form is out of scope)", () => {
+  it("the SAME clause WITHOUT the 'total mana value X or less' tail is Consign to Dust's base form — HIGH since ④-AT (unbounded any-number destroy, no budget)", () => {
     const p = parseEffectClause("destroy any number of target artifacts and/or enchantments");
-    expect(p.confidence).toBe("low");
-    expect(p.atoms).toEqual([]);
+    expect(p.confidence).toBe("high");
+    expect(p.atoms).toHaveLength(1);
+    expect(p.atoms[0]).toMatchObject({ op: "destroy", targetType: "artifactOrEnchantment", minTargets: 0, anyNumber: true });
+    expect(p.atoms[0].maxTargets).toBeGreaterThan(1);
+    expect(p.atoms[0].totalMvXConstraint).toBeUndefined();
   });
 });
 

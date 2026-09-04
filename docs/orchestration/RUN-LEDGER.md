@@ -3,6 +3,16 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — ④-AT: "any number of" on the permanent lane — Consign to Dust, Kiora's Dismissal · **+2** · corpus 14,178 / 34,245 (41.4%)
+> Suite **1407 files / 15,612 tests** green; lint 0. Flip-diff **+2, zero LOST**. **3/3 mutations killed (the destroy arm's any-number alternative, the bounce arm's any-number alternative, the any-number destroy capped at one target).**
+> · **The shape:** the last two Strive cards sit on the PERMANENT lane, whose fixed-count arms ("destroy up to N target
+>   artifacts and/or enchantments", "return up to N target <permanents> to their owners' hands") never learned the
+>   unbounded count word. Each arm now reads "any number of" as maxTargets 99 / minTargets 0 / anyNumber; ④-AS's Strive
+>   stamp charges the extras on the cast lane unchanged.
+> · **Board-verified:** Consign to Dust with {G}{G}+{4} against three enchantments offers 0, 1 and 2 targets, never 3;
+>   the two-target cast destroys exactly those two.
+> · **CI:** pushed behind ④-AS's run 33829313353; own run watched after push (result on the next entry's line)
+
 > ## 🎯 2026-09-04 (night cron) — ④-AS: STRIVE (CR 702.106) + "any number of target creatures" · **+11** · corpus 14,176 / 34,245 (41.4%)
 > Suite **1406 files / 15,608 tests** green; lint 0. Flip-diff **+11, zero LOST**. **5/5 killed.**
 > · **The shape:** "This spell costs {N} more to cast for each target beyond the first" over an "any number of target creatures"

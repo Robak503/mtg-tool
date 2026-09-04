@@ -922,8 +922,8 @@ export function destroyExileClauseParser(clause) {
   // Enforced AT ENUMERATION, so the resolver (applyDestroyEffect over ctx.targets) destroys exactly a legal set —
   // never over-destroys past the X budget (a FORBIDDEN partial-model FP, CREED). The "and/or" union maps to the
   // SAME artifactOrEnchantment predicate the "artifact or enchantment" filter uses (order-free OR). Whole-clause
-  // anchored; a form WITHOUT the "with total mana value X or less" tail (Consign to Dust — a Strive instant whose
-  // count is bounded by its per-target cost) fails the `$` → stays LOW → Arbiter (out of scope, FN-safe).
+  // anchored; the form WITHOUT the "with total mana value X or less" tail (Consign to Dust — a Strive instant whose
+  // count is bounded by its per-target cost) rides the "any number of" alternative of the counted arm below (④-AT).
   if (/^destroy any number of target artifacts and\/or enchantments with total mana value x or less$/.test(t)) {
     return { op: "destroy", targetType: "artifactOrEnchantment", minTargets: 0, maxTargets: MULTI_COUNT_UNBOUNDED, totalMvXConstraint: true };
   }
@@ -933,10 +933,13 @@ export function destroyExileClauseParser(clause) {
   // (minTargets:0 → choosing zero is legal, CR 601.2c), same applyDestroyEffect over ctx.targets — with a
   // FIXED cap instead of the unbounded sentinel and no collective-MV constraint. "and/or" only: the plain
   // "artifacts or enchantments" print is a different wording that has not been probed → stays LOW (FN-safe).
-  const upM = t.match(/^destroy up to (one|two|three|four) target artifacts and\/or enchantments$/);
+  const upM = t.match(/^destroy (up to (one|two|three|four)|any number of) target artifacts and\/or enchantments$/);
   if (upM) {
     const N = { one: 1, two: 2, three: 3, four: 4 };
-    return { op: "destroy", targetType: "artifactOrEnchantment", minTargets: 0, maxTargets: N[upM[1]] };
+    // ④-AT (2026-09-04): "any number of" (Consign to Dust — a STRIVE card; its per-target cost rides the cast lane off
+    // program.strivePerTarget) — the unbounded sentinel with `anyNumber` so the expander offers the largest subsets first.
+    if (!upM[2]) return { op: "destroy", targetType: "artifactOrEnchantment", minTargets: 0, maxTargets: MULTI_COUNT_UNBOUNDED, anyNumber: true };
+    return { op: "destroy", targetType: "artifactOrEnchantment", minTargets: 0, maxTargets: N[upM[2]] };
   }
   if (/^destroy all creatures$/.test(t)) return { op: "destroy", targetType: "eachCreature" };
   if (/^exile all creatures$/.test(t)) return { op: "exile", targetType: "eachCreature" };
