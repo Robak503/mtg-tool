@@ -886,6 +886,9 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     // a permanent that is a creature only by LAYERS is simply not offered (a safe under-offer), and a
     // CREWED Vehicle matches the Vehicle arm regardless, so the practically-reachable pool is complete.
     creatureOrVehicle: (tl) => /\bCreature\b/.test(tl) || (/\bArtifact\b/.test(tl) && /\bVehicle\b/.test(tl)),
+    // SHELF-85 S6 (2026-09-04 — Peacewalker Colossus "another target Vehicle you control becomes an artifact creature"):
+    // the Vehicle subtype alone (an uncrewed Vehicle is not a creature, CR 301.7 — the plain creature pool can't reach it).
+    vehicle: (tl) => /\bVehicle\b/.test(tl),
     // ES-2 "Enchant artifact, creature, or planeswalker" (Planar Disruption) — the triple union, read
     // exactly as printed. Deliberately NOT mapped to nonlandPermanent, which would also offer an
     // ENCHANTMENT the printed card cannot touch (the same no-narrowing/no-widening discipline as the
@@ -903,6 +906,9 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         // DFCs: they're simply not offered to native non-creature removal (a SAFE omission, never a
         // wrong target). The spell still routes to the Arbiter if a DFC is its only would-be target.
         if (tl.includes(" // ")) continue;
+        // ANOTHER (CR 109.5) on a PERMANENT pool (SHELF-85 S6, 2026-09-04 — Peacewalker Colossus "another target Vehicle
+        // you control"): the same source exclusion the creature pools honor; a missing ctx.sourceId doesn't exclude.
+        if (effect.excludeSource && ctx?.sourceId && perm.id === ctx.sourceId) continue;
         // MV-FILTERED removal (Despark / Fragmentize) — a non-creature permanent target can now carry a
         // `manaValue` restriction (CR 202.3). Enforce the FULL restriction set via creatureSatisfiesRestrictions
         // (type-agnostic for the controller/manaValue/tapped kinds the permanent-removal parsers emit — it reads

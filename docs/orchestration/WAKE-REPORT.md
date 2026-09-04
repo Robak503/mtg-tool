@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · S6 + S16: Peacewalker Colossus / Dispatch (+2)** · suite **effects/parser.js (additive targeted conditional) + effects/atoms/removal.js (sentinel exile/destroy) + effects/atoms/combat.js (Vehicle animate + keepPrintedPt) + spellEffects.js (vehicle pool; source exclusion on permanent pools) + shorikaiS6S16.test.js (8)** green · corpus 14,376 (42.0%) / 34,245 (42.0%) · flip-diff +2 / 0 lost · 6/6
+
+> The chosen-Vehicle animate and the additive metalcraft conditional. **Shorikai 77 (needs 8); the one-arm S rows are done (S9 Sai parks on a real which-artifacts pick).** Next by §2: the M rows — S8 Shorikai (draw-discard + a quoted-grant Pilot token), S5 Prodigy's Prototype, S7 Mobilizer Mech, S11 Permission Denied, S12 Emry, S13 The Indomitable.
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · S3 + S4 + S10: Thunderhawk Gunship / Parhelion II / Surgehacker Mech (+5)** · suite **effects/atoms/combat.js (own-side attacker batch) + effects/atoms/tokens.js (attacking rider) + effects/atoms/stack.js (twice-the-count damage, opponent scope) + effects/parseHelpers.js (Vehicle count) + shorikaiSRows.test.js (8); four CREED pins graduated (teamPump / teamPumpScope / parser.test ×2)** green · corpus 14,374 (42.0%) / 34,245 (42.0%) · flip-diff +5 / 0 lost · 7/7
 
 > Shorikai's three one-arm rows in one slice. **Shorikai 75 (needs 10).** Next by §2: S6 Peacewalker Colossus (animate a target Vehicle — the crew layer effect on a chosen target), S16 Dispatch (the metalcraft conditional exile of the tapped target); S9 Sai's two-artifact sacrifice is a real which-permanents choice the cost lane refuses on purpose (M, needs a pick); then the M rows S5/S7/S8/S11/S12/S13.

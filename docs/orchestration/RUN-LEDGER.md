@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · S6 + S16: PEACEWALKER COLOSSUS / DISPATCH · **+2** · corpus 14,376 (42.0%) / 34,245 (42.0%)
+> Suite **effects/parser.js (additive targeted conditional) + effects/atoms/removal.js (sentinel exile/destroy) + effects/atoms/combat.js (Vehicle animate + keepPrintedPt) + spellEffects.js (vehicle pool; source exclusion on permanent pools) + shorikaiS6S16.test.js (8)** green; lint 0. Flip-diff **+2, zero LOST**. **6/6.**
+> · **S6 Peacewalker Colossus** — "{1}{W}: Another target Vehicle you control becomes an artifact creature until end of
+>   turn": crew's twin on a CHOSEN Vehicle — the animate lane gains a `vehicle` target pool (an uncrewed Vehicle is not a
+>   creature, CR 301.7), the "another" source exclusion (CR 109.5), and `keepPrintedPt` so the Vehicle keeps its printed
+>   P/T (a 7b set would read 0/0 and the lethal SBA would bin it — the same layer-4 grant the crew dispatch applies).
+> · **S16 Dispatch** — "Tap target creature. Metalcraft — If you control three or more artifacts, exile that creature.":
+>   the ADDITIVE targeted conditional (no "instead"): the tap always happens, the exile too when metalcraft holds
+>   (CR 608.2c). Narrow by design — a single chosen-creature base, an alternative naming "that creature" (the sentinel a
+>   new exile/destroy arm binds), the base riding inside both branches so ONE creature is chosen; any wider "X. If Y, Z."
+>   pairing stays LOW. The ability-word label is stripped on the program entry the cast lane uses.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · S3 + S4 + S10: SHORIKAI's small rows — Thunderhawk Gunship / Parhelion II / Surgehacker Mech · **+5** · corpus 14,374 (42.0%) / 34,245 (42.0%)
 > Suite **effects/atoms/combat.js (own-side attacker batch) + effects/atoms/tokens.js (attacking rider) + effects/atoms/stack.js (twice-the-count damage, opponent scope) + effects/parseHelpers.js (Vehicle count) + shorikaiSRows.test.js (8); four CREED pins graduated (teamPump / teamPumpScope / parser.test ×2)** green; lint 0. Flip-diff **+5, zero LOST**. **7/7.**
 > · **S3 Thunderhawk Gunship** — "attacking creatures you control gain flying until end of turn": the group-grant lane's

@@ -760,6 +760,12 @@ export function destroyExileClauseParser(clause) {
   if (tripleM) {
     return { op: tripleM[1] === "destroy" ? "destroy" : "exile", targetType: "artifactOrEnchantmentOrFlyingCreature", restrictions: [] };
   }
+  // SHELF-85 S16 (2026-09-04 — Dispatch): the targeted conditional's SENTINEL — "exile the conditional's chosen creature"
+  // is the base's own chosen target (bound at cast; the branch reads the same ctx.targets), never a fresh choice.
+  // chosenByBranch marks it for the parser's bind-only check (the counter arm's V8 convention).
+  if (/^(destroy|exile) the conditional's chosen creature$/.test(t)) {
+    return { op: /^destroy/.test(t) ? "destroy" : "exile", targetType: "creature", restrictions: [], chosenByBranch: true };
+  }
   // SHELF-85 N8 (2026-09-04 — Bedevil "Destroy target artifact, creature, or planeswalker"): the plain three-type
   // union, a PERMANENT_PREDICATES entry (spellEffects) so the enumerator offers exactly those three types.
   const acpM = t.match(/^(destroy|exile) target artifact, creature, or planeswalker$/);

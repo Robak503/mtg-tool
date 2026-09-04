@@ -416,12 +416,16 @@ export function applyAnimateEffect(state, atom, ctx) {
         duration: dur(), source: src,
       }).state;
     }
-    next = addContinuousEffect(next, {
-      layer: 7, sublayer: "7b",
-      op: { layerOp: "ptSet", power: atom.power || 0, toughness: atom.toughness || 0 },
-      affects: { mode: "fixed", permanentIds: [target.id] },
-      duration: dur(), source: src,
-    }).state;
+    // S6 — keepPrintedPt: a Vehicle animated by Peacewalker Colossus keeps its printed P/T (crew's own convention); a
+    // 7b set here would read 0/0 and the lethal SBA below would bin it.
+    if (!atom.keepPrintedPt) {
+      next = addContinuousEffect(next, {
+        layer: 7, sublayer: "7b",
+        op: { layerOp: "ptSet", power: atom.power || 0, toughness: atom.toughness || 0 },
+        affects: { mode: "fixed", permanentIds: [target.id] },
+        duration: dur(), source: src,
+      }).state;
+    }
     for (const kw of atom.grantKeywords || []) {
       next = addContinuousEffect(next, {
         layer: 6,
@@ -2447,6 +2451,15 @@ export function animateClauseParser(clause) {
   if (anmArt) {
     if (!anmArt[1] && !anmArt[4]) return null;
     return { op: "animate", targetType: "noncreatureArtifact", restrictions: [{ kind: "controller", who: "you" }], power: parseInt(anmArt[2], 10), toughness: parseInt(anmArt[3], 10), subtypes: [], cardTypes: ["Artifact"], grantKeywords: [], duration: "endOfTurn" };
+  }
+  // SHELF-85 S6 (2026-09-04 — Peacewalker Colossus "{1}{W}: Another target Vehicle you control becomes an artifact creature
+  // until end of turn"): crew's twin on a CHOSEN Vehicle — the same layer-4 Creature grant the crew dispatch applies, with
+  // the Vehicle's PRINTED power/toughness kept (keepPrintedPt — no 7b set; a set would read 0/0 and kill it). "another"
+  // excludes the source (CR 109.5 — Peacewalker is itself a Vehicle). The controller restriction and the `vehicle`
+  // predicate scope the pool to the controller's Vehicles.
+  const anmVeh = t.match(/^(another )?target vehicle you control becomes an artifact creature until end of turn$/);
+  if (anmVeh) {
+    return { op: "animate", targetType: "vehicle", restrictions: [{ kind: "controller", who: "you" }], ...(anmVeh[1] ? { excludeSource: true } : {}), keepPrintedPt: true, subtypes: [], cardTypes: ["Artifact"], grantKeywords: [], duration: "endOfTurn" };
   }
   const anmSelf = t.match(/^(until end of turn, )?this land becomes a (\d+)\/(\d+) (.*?)creature(?: with ([a-z, ]+?))?(?: in addition to its other types)?( until end of turn)?$/);
   if (anmSelf) {

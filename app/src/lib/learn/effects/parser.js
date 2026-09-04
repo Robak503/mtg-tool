@@ -1939,6 +1939,36 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   // Arbiter (a safe FN): Scythecat Cub's "if this is the second time this ability has resolved this turn"
   // is inexpressible and parks by design. Verified before writing this arm — evaluateInterveningIf already
   // answers "you control six or more lands" and "you control a creature with power 4 or greater".
+  // ===== SHELF-85 S16 (2026-09-04 — Dispatch "Tap target creature. Metalcraft — If you control three or more artifacts,
+  // exile that creature.") ===== the ADDITIVE targeted conditional: no "instead" — the base always happens, and the
+  // alternative happens too when the condition holds (CR 608.2c, in the written order). Deliberately NARROW: the base
+  // must be ONE chosen-creature atom (a single sentence) and the alternative must name "that creature" (bound to the
+  // same chosen target through the sentinel), so the whole program still chooses exactly one creature. The base rides
+  // INSIDE both branches (true = base then the alternative; false = base alone) so only the conditional node carries
+  // the targetType. Any "instead" sentence falls through to the replacement arm below; any wider "X. If Y, Z." pairing
+  // stays LOW (a safe miss — its own slice when a deck needs it).
+  {
+    const ca = oracle.match(/^([^.]+)\.\s*If ([^,]+),\s*(.+?)\.?\s*$/is);
+    if (ca && !/\binstead\b/i.test(ca[3]) && /\bthat creature\b/i.test(ca[3])) {
+      const [, baseText, condition, altRaw] = ca;
+      const inner = parseEffectClauseImpl(baseText.trim(), cardType, { hasX });
+      const baseTargetType = inner && inner.atoms.length === 1 && typeof inner.atoms[0].targetType === "string" && /^creature/i.test(inner.atoms[0].targetType) ? inner.atoms[0].targetType : null;
+      if (baseTargetType) {
+        const alt = parseEffectClauseImpl(altRaw.trim().replace(/\bthat creature\b/i, "the conditional's chosen creature"), cardType, { hasX });
+        const altBindsOnly = alt && alt.atoms.every((a) => !a.targetType || isNonChosenTargetType(a.targetType) || a.chosenByBranch);
+        const branchPauseSafe = (atoms) => !atoms.slice(0, -1).some((a) => PAUSING_ATOM_OPS.has(a.op));
+        if (alt && altBindsOnly && programConfidence(inner) === "high" && programConfidence(alt) === "high"
+          && inner.structure !== "modal" && alt.structure !== "modal" && alt.atoms.length > 0
+          && branchPauseSafe(inner.atoms) && branchPauseSafe(alt.atoms) && conditionIsDecidable(condition.trim())) {
+          return makeProgram({
+            confidence: "high",
+            atoms: [{ op: "conditional", branchOn: condition.trim().toLowerCase(), ifTrue: [...inner.atoms, ...alt.atoms], ifFalse: inner.atoms, targetType: baseTargetType, additive: true }],
+            unparsedTail: null,
+          });
+        }
+      }
+    }
+  }
   {
     const cond = oracle.match(/^(.+?)\.\s*If ([^,]+),\s*(?:instead\s+(.+?)|(.+?)\s+instead)\.?\s*$/is);
     if (cond) {
