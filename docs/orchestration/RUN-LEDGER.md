@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · H13: KAMI OF CELEBRATION — two gates on existing seams · **+1** · corpus 14,424 (42.1%) / 34,245
+> Suite **1478 files / 16,066 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **7/7 killed.**
+> · **"Whenever a MODIFIED creature you control attacks":** the attack twin of Kodama's combat-damage predicate — the same
+>   `requiresModified` descriptor field (already listed in the assembly, enforced at scopeMatches through layers'
+>   isModifiedPermanent, a live read of counters / equipment / own Auras). A plain bear attacking exiles nothing (pinned).
+> · **"Whenever you cast a spell from exile":** any spell with the Rivaz `castFromZoneOnly` gate on the cast's threaded
+>   source zone. A hand cast never fires it; an UNTHREADED cast (no zone) under-fires — the mutant that let it through was
+>   killed by the pin. Impulse, discover, cascade, plot and foretell casts all thread their zone.
+> · **H13 sized card by card** (in the row): Solitude / Endurance / Skyclave = M each (the evoke composition rule pays in
+>   five decks — still the right first build there); phasing is UNMODELED (two L rows); the rest L.
+> · **Shalai 82 → 83** (83/100; needs 2). Next: H12 Chaos Warp (M — one whole-oracle atom: owner tuck-shuffle then reveal-top-put; sized, reads done), then Incubation Druid (M-L), Solitude (M, evoke), Ragavan (L).
+> · **CI:** GREEN on Uncivil Unrest + Kutzil (run 33929591693); this slice pushes and is watched
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · H11: UNCIVIL UNREST + KUTZIL — a counter-gated doubler and a live-power batch · **+2** · corpus 14,423 (42.1%) / 34,245
 > Suite **1477 files / 16,063 tests** green; lint 0. Flip-diff **+2, zero LOST** (the two cards; any unplanned gains audited whole-card). **8/8 killed.**
 > · **Uncivil Unrest:** "If a creature you control WITH A +1/+1 COUNTER ON IT would deal damage … double." The creature

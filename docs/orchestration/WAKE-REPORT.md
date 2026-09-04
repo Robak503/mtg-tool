@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · H13: Kami of Celebration (+1)** · suite **1478 files / 16,066 tests** green · corpus 14,424 (42.1%) / 34,245 · flip-diff +1 / 0 lost · 7/7 killed
+
+> The modified-attack predicate and the cast-from-exile zone gate, both on existing seams. H13 sized card by card. **Shalai 82 → 83** (83/100; needs 2). Next: H12 Chaos Warp (M — one whole-oracle atom: owner tuck-shuffle then reveal-top-put; sized, reads done), then Incubation Druid (M-L), Solitude (M, evoke), Ragavan (L).
+> **CI:** GREEN on Uncivil Unrest + Kutzil (run 33929591693); this slice pushes and is watched
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · H11: Uncivil Unrest + Kutzil (+2)** · suite **1477 files / 16,063 tests** green · corpus 14,423 (42.1%) / 34,245 · flip-diff +2 / 0 lost · 8/8 killed
 
 > The counter-gated creature damage doubler (live counter read) and the above-base-power combat-damage batch (live layered dealer gate, carved out above the "with …" reject). **Shalai 80 → 82** (82/100; needs 3). Next: H12 Chaos Warp (M, shared with Nekusar N13), H11 Incubation Druid (M), then H4 Ragavan (L), Skrelv (L).

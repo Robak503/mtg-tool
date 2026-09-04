@@ -2315,6 +2315,10 @@ function classifyCondition(condRaw, cardName, cardType) {
     // payload parses. Now: the bare form matches exactly; the one CHECKABLE restriction below is modeled
     // explicitly; anything else stays UNDETECTED → Arbiter, the same safe-FN posture as every other guard).
     if (/^a creature you control attacks$/.test(c)) return { event: "attacks", scope: "creatureYouControl", whose: "any" };
+    // KAMI OF CELEBRATION (SHELF-85 H13, 2026-09-04) — "a MODIFIED creature you control attacks" (CR 700.9): the attack
+    // twin of Kodama's combat-damage predicate; the same requiresModified gate (scopeMatches → layers.isModifiedPermanent),
+    // LISTED in the descriptor assembly. An unmodified attacker never fires it (pinned).
+    if (/^a modified creature you control attacks$/.test(c)) return { event: "attacks", scope: "creatureYouControl", whose: "any", requiresModified: true };
     // ANY-CREATURE attacks (Caltrops — "Whenever a creature attacks, this artifact deals 1 damage to it.").
     // The watcher can sit on ANY battlefield (a defender's Caltrops fires on the attacker's declaration), so
     // the fire site adds a non-attacking-players scan gated to exactly this scope (the subtypeGlobal
@@ -2763,6 +2767,12 @@ function classifyCondition(condRaw, cardName, cardType) {
   // never over-fires, CREED). Exact printed sentence only.
   if (/^you cast a dragon creature spell from your graveyard$/.test(c)) {
     return { event: "cast", scope: "castWatcher", whose: "you", spellFilter: { kind: "typedAll", words: ["Dragon", "Creature"] }, castFromZoneOnly: "graveyard" };
+  }
+  // KAMI OF CELEBRATION (SHELF-85 H13, 2026-09-04) — "you cast a spell from exile": ANY spell, the same positive
+  // source-zone gate as Rivaz (castFromZoneOnly — an unthreaded caller under-fires, never over-fires). Impulse casts,
+  // discover, cascade, plot, foretell — every exile cast threads its zone through checkCastTriggers.
+  if (/^you cast a spell from exile$/.test(c)) {
+    return { event: "cast", scope: "castWatcher", whose: "you", spellFilter: "any", castFromZoneOnly: "exile" };
   }
   // ===== FIRST-<KIND>-SPELL-EACH-TURN (CR 603.2) ===== "Whenever an opponent casts their FIRST noncreature
   // spell EACH TURN" — Esper Sentinel, Shadow in the Warp, The Queen of Dale, The Frightful Four, and the
