@@ -13,9 +13,10 @@ import { classifyCard } from "./coverage.js";
 import { mdfcLandFaces, parseModalDfc } from "./modalDfc.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
+import { resolveTopOfStack } from "./gameEngine.js";
 import { manaSources } from "./manaModel.js";
 import { resolveOptionalLifePaymentChoice } from "./effects/runProgram.js";
-import { _resetIdsForTests, createGameState, findPermanent, moveCardToZone } from "./gameState.js";
+import { _resetIdsForTests, createGameState, createPermanent, findPermanent, moveCardToZone } from "./gameState.js";
 import { enrichDeckCard } from "../server/learnDeckEnrich.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -52,6 +53,43 @@ describe("the shape module", () => {
     // a Land // Land whose back is NOT covered is not credited (the runtime would play a face it cannot honour)
     const unc = { ...PATHWAY, oracle: "Barkchannel Pathway - Land \n{T}: Add {G}.\n//\nTidechannel Pathway - Land \n{T}: Add {U}.\n{2}, {T}: Untap target creature and it phases out until your next upkeep." };
     expect(classifyCard(unc)).toBe("land-partial");
+  });
+});
+
+const FELL = { id: "h-fell", name: "Fell the Profane // Fell Mire", type: "Instant // Land", mana: "{2}{B}{B}", mana_cost: "{2}{B}{B}", cmc: 4, keywords: [], layout: "modal_dfc",
+  oracle: "Fell the Profane - Instant {2}{B}{B}\nDestroy target creature or planeswalker.\n//\nFell Mire - Land \nAs this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {B}." };
+
+describe("slice 2 — the SPELL front is cast as a face (CR 712.8)", () => {
+  it("⭐ the tiers: a native front over a covered back is native-spell; an unmodeled front (Sink into Stupor) stays land-partial; an uncovered back parks the whole card", () => {
+    expect(classifyCard(FELL)).toBe("native-spell");
+    expect(classifyCard(SINK)).toBe("land-partial");
+    const uncoveredBack = { ...FELL, oracle: FELL.oracle.replace("{T}: Add {B}.", "{T}: Add {B}.\n{2}, {T}: Untap target creature and it phases out until your next upkeep.") };
+    expect(classifyCard(uncoveredBack)).toBe("land-partial");
+  });
+  it("⭐ Fell the Profane offers exactly ONE cast (the front face, never the combined card) beside its land drop; casting it destroys the target and the whole card goes to the graveyard", () => {
+    const s0 = createGameState({ userDeck: [], aiDeck: [] });
+    const bear = createPermanent({ id: "bear", card: { id: "card-bear", name: "Bear", type: "Creature — Bear", mana: "{1}{G}", cmc: 2, power: 2, toughness: 2, keywords: [], oracle: "" }, controller: "ai" });
+    let s = { ...s0, turn: 6, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0, stack: [],
+      players: { ...s0.players, user: { ...s0.players.user, hand: [FELL], battlefield: [], manaPool: { W: 0, U: 0, B: 2, R: 0, G: 0, C: 2 } }, ai: { ...s0.players.ai, battlefield: [bear] } } };
+    const acts = legalActionsForPlayer(s, "user");
+    const casts = acts.filter((a) => a.kind === "cast-spell" && a.cardId === "h-fell");
+    expect(casts).toHaveLength(1);
+    expect(casts[0].faceCard?.name).toBe("Fell the Profane");
+    expect((casts[0].targets || []).map((t) => t.id)).toEqual(["bear"]);
+    expect(acts.filter((a) => a.kind === "play-land").map((a) => a.name)).toEqual(["Fell Mire"]);
+    s = resolveTopOfStack(dispatchAction(s, casts[0]));
+    expect(findPermanent(s, "bear")).toBeNull();
+    expect(s.players.user.graveyard.map((c) => c.name)).toEqual([FELL.name]);
+    expect(s.players.user.hand).toHaveLength(0);
+    expect(s.players.user.manaPool).toMatchObject({ B: 0, C: 0 });
+  });
+  it("the unmodeled front (Sink into Stupor) is never offered as a cast, while its land back still drops", () => {
+    const s0 = createGameState({ userDeck: [], aiDeck: [] });
+    const s = { ...s0, turn: 6, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0, stack: [],
+      players: { ...s0.players, user: { ...s0.players.user, hand: [SINK], battlefield: [], manaPool: { W: 0, U: 3, B: 0, R: 0, G: 0, C: 3 } } } };
+    const acts = legalActionsForPlayer(s, "user");
+    expect(acts.filter((a) => a.kind === "cast-spell")).toHaveLength(0);
+    expect(acts.filter((a) => a.kind === "play-land").map((a) => a.name)).toEqual(["Soporific Springs"]);
   });
 });
 

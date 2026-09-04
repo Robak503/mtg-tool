@@ -3128,6 +3128,14 @@ export function classifyCard(card) {
       const [front, back] = mdfcFaceCards(card);
       return landFullyCovered(front) && landFullyCovered(back) ? "land" : "land-partial";
     }
+    // V1 slice 2 (2026-09-04): an INSTANT/SORCERY front cast as a face (legalChoices.actionsCastModalDfcFrontFromHand)
+    // — native-spell iff the front is native-spell on its OWN view AND the land back is fully covered; otherwise the
+    // back still plays as a land, so the card stays land-partial (never body-only, never a bare spell tier). A
+    // permanent front (creature // land) stays land-partial until slice 3 carries the printedCard restore on entry.
+    if (mdfc && /\b(Instant|Sorcery)\b/i.test(mdfc.front.type)) {
+      const [front, back] = mdfcFaceCards(card);
+      return classifyCard(front) === "native-spell" && landFullyCovered(back) ? "native-spell" : "land-partial";
+    }
   }
   // ⭐ LANDS ARE GATED NOW (Codex fix #3, 2026-08-30). This used to be an unconditional `return "land"` —
   // every card with Land on its type line counted fully native, including utility lands whose abilities

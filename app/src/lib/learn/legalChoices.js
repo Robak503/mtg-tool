@@ -82,7 +82,7 @@ import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, 
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
-import { isModalDfc, mdfcLandFaces } from "./modalDfc.js"; // MODAL DFC LANDS (CR 712.8, V1) — the land drop chooses a face; pure shape module
+import { isModalDfc, mdfcLandFaces, mdfcFaceCards } from "./modalDfc.js"; // MODAL DFC (CR 712.8, V1) — the land drop chooses a face; the spell front is cast as a face; pure shape module
 import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activate only if <cond>" — the offer gate reads the SAME vocabulary as the trigger + spell lanes
 import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — see permanentAdditionalCosts below
 import { isPermanentSpell } from "./resolvers.js";
@@ -998,6 +998,11 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // splits (parseSplitCard returns null for them) are NOT skipped here — they stay Arbiter spells whose
     // combined cast the generic path routes to the Arbiter, unchanged.
     if (isSplitCard(card)) continue;
+    // MODAL DFC (V1 slice 2, CR 712.8): the combined "<Spell> // Land" card is never cast as one object — its FRONT face
+    // is cast through actionsCastModalDfcFrontFromHand (a projected single face, exactly the split-card lane), and its
+    // back is a land drop. The same CREED reasoning as the split skip above: the mashed two-face oracle would parse to a
+    // malformed program.
+    if (isModalDfc(card)) continue;
 
     // FLASH-CAST-PERMISSION (CR 601.3e): a sorcery-speed card the player has flash permission for (Yeva → a
     // green creature; Vedalken Orrery → any spell) may be cast whenever the player has priority (instant
@@ -3245,6 +3250,34 @@ function actionsCastCreatureFromHand(state, playerId) {
  * the resolved half's card goes to the GRAVEYARD like a normal spell (CR 709.4 — no exile dance). The real
  * combined card is spliced out of hand by id, so it can't be double-cast.
  */
+/**
+ * MODAL DFC — cast the SPELL FRONT from hand (V1 slice 2, 2026-09-04; CR 712.8). Offered ONLY when the combined card
+ * classifies native (classifyCard's modal-DFC intercept: an instant/sorcery front that is native-spell on its own
+ * projected view AND a fully covered land back — the metric's own authority, so runtime and coverage cannot disagree).
+ * The front is projected onto its own face-view (same id; that face's name/type/oracle/mana) and run through the shared
+ * cast builder, so cost / X / modal / targets / timing are enumerated exactly like any instant/sorcery; each action
+ * carries `faceCard`, which the dispatcher already honours (the split/adventure path: the program and the cost are the
+ * face's). The resolved spell goes to the graveyard like any instant/sorcery (the split-card precedent: the graveyard
+ * object is the face view under the real id). Permanent fronts (creature // land) are slice 3 — a face-entered
+ * permanent needs the printedCard restore the land drop already carries.
+ */
+function actionsCastModalDfcFrontFromHand(state, playerId) {
+  const player = state.players[playerId];
+  const actions = [];
+  for (const card of player.hand) {
+    if (!isModalDfc(card)) continue;
+    if (!isNativeTier(classifyCard(card))) continue;            // CREED: both faces honest, else never offer
+    const faces = mdfcFaceCards(card);
+    if (!faces) continue;
+    const front = faces[0];
+    if (!/\b(Instant|Sorcery)\b/i.test(String(front.type || ""))) continue; // slice 2: spell fronts only
+    for (const a of castActionsFromZone(state, playerId, [front], "hand", null)) {
+      actions.push({ ...a, faceCard: front });
+    }
+  }
+  return actions;
+}
+
 function actionsCastSplitFromHand(state, playerId) {
   const player = state.players[playerId];
   const actions = [];
@@ -3761,6 +3794,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsActivateGraveyardRecursion(state, playerId)); // GY-1 (CR 602.2): "Return this card from your graveyard …" activated from the graveyard
     actions.push(...actionsActivateGraveyardExile(state, playerId)); // GY-2 (CR 602.2): "<mana>, Exile this card from your graveyard: <effect>"
     actions.push(...actionsCastSplitFromHand(state, playerId)); // SPLIT CARDS (CR 709.4): cast either half from hand
+    actions.push(...actionsCastModalDfcFrontFromHand(state, playerId)); // MODAL DFC (CR 712.8, V1 slice 2): cast the spell front from hand
     actions.push(...actionsCastAdventureFromHand(state, playerId)); // ADVENTURE step 1 (CR 715.3): cast the adventure (instant/sorcery) half
     actions.push(...actionsCastCreatureFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.2b): cast the creature half from hand at its own cost
     actions.push(...actionsCastCreatureFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3e): cast the creature half from exile

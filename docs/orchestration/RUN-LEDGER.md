@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — V1 slice 2: MODAL DFC — the SPELL front is cast as a face · **+19** · corpus 14,271 / 34,245 (41.7%)
+> Suite **1418 files / 15,680 tests** green; lint 0. Flip-diff **+19, zero LOST**. **11/11 mutations killed against a green witness (the eight of slice 1 plus the front lane, the combined-card exclusion, the classifier's back check).**
+> · **The shape:** actionsCastModalDfcFrontFromHand mirrors the split-card lane — the instant/sorcery front is projected
+>   onto its own face-view and run through the shared cast builder (cost, targets, timing all the face's), carrying
+>   `faceCard` for the dispatcher; castActionsFromZone skips the combined card (the mashed oracle). classifyCard credits
+>   native-spell iff the front is native-spell on its OWN view AND the land back is fully covered. The resolved card goes
+>   to the graveyard as the WHOLE card (the hand card by id). Fell the Profane, Bridgeworks Battle, Sundering Eruption,
+>   Sejiri Shelter, Revitalizing Repast, Stump Stomp, Bala Ged Recovery, Kabira Takedown, Jwari Disruption … (19).
+> · **Board-verified:** Fell the Profane offers exactly one cast (the front) beside its Fell Mire drop; the cast destroys
+>   the target and the whole card lands in the graveyard; Sink into Stupor (an unmodeled front) is never offered as a cast
+>   while its back still drops.
+> · **CI:** pushed after slice 1's run 33848843436 is green; own run watched after push (result on the next entry's line)
+
 > ## 🎯 2026-09-04 (night cron) — V1 slice 1: MODAL DFC LANDS — the face-choice land drop; the ten Pathways · **+10** · corpus 14,252 / 34,245 (41.6%)
 > Suite **1418 files / 15,677 tests** green; lint 0. Flip-diff **+10, zero LOST, 32 RETIERED** (every Ixalan transform//land card
 > — Treasure Map, Growing Rites of Itlimoc, the LCI Ojer gods … — leaves `land-partial` for `body-only`: they were
