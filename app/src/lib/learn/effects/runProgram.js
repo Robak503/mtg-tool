@@ -24,7 +24,8 @@
  */
 
 import { markPendingArbiter } from "../pendingArbiter.js";
-import { clearPendingChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice, setPendingTemptingOfferChoice } from "../pendingChoice.js"; // + TEMPTING OFFER (Tempt with Discovery) // + SG-15b: the Sylvan Library per-card pause is chained by its own settler
+import { wheelOnePlayer } from "./atoms/library.js"; // K9 (Step Between Worlds) — the per-player fold the each-player-may settler applies to the yes-seats
+import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice, setPendingTemptingOfferChoice } from "../pendingChoice.js"; // + TEMPTING OFFER (Tempt with Discovery) // + SG-15b: the Sylvan Library per-card pause is chained by its own settler
 import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
@@ -1264,6 +1265,26 @@ export function optionalAutoTakeValue(state, pc) {
   const taken = resolveOptionalChoice(state, true);
   const declined = resolveOptionalChoice(state, false);
   return evaluateBoard(taken, who) >= evaluateBoard(declined, who);
+}
+
+/**
+ * EACH-PLAYER-MAY settler (SHELF-85 K9 — Step Between Worlds): record this seat's answer; if seats remain, re-raise the
+ * pause for the next one (the program's `resume` rides along); after the last, apply the effect to every seat that said
+ * yes — the wheel folds them through the SAME per-player helper the mandatory wheel uses — and resume the program.
+ */
+export function resolveEachPlayerMayChoice(state, doIt) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "each-player-may") return state;
+  let next = clearPendingChoice(state);
+  const accepted = doIt && next.players?.[pc.controller] ? [...(pc.accepted || []), pc.controller] : [...(pc.accepted || [])];
+  next = logEvent(next, { kind: "spell-effect", effect: "each-player-may", controller: pc.controller, effectKind: pc.effect, taken: !!doIt });
+  const remaining = (pc.seatsRemaining || []).filter((pid) => next.players?.[pid]);
+  if (remaining.length) {
+    return setPendingEachPlayerMayChoice(next, { controller: remaining[0], seatsRemaining: remaining.slice(1), accepted, effect: pc.effect, draw: pc.draw, sourceName: pc.sourceName, resume: pc.resume || null });
+  }
+  if (pc.effect === "wheel") for (const pid of accepted) next = wheelOnePlayer(next, pid, pc.draw || 7);
+  next = logEvent(next, { kind: "spell-effect", effect: "each-player-may-applied", effectKind: pc.effect, seats: accepted });
+  return resumeAfterChoice(next, pc);
 }
 
 export function resolveOptionalChoice(state, doIt) {

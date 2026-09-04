@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · K9: STEP BETWEEN WORLDS — the per-seat "may" · **+1** · corpus 14,409 (42.1%) / 34,245 · **KELLAN 85 ✅**
+> Suite **1472 files / 16,036 tests** green; lint 0. Flip-diff **+1, zero LOST**. **9/9 killed (a tenth — removing the side-sheet panel mount — was EQUIVALENT: LearnView renders the panel by two paths; deleted, documented).**
+> · **The shape:** "Each player may shuffle their hand and graveyard into their library. Each player who does draws seven cards."
+>   is the Timetwister wheel with a PER-SEAT choice — no seat's answer is made for it. A new pause kind (each-player-may) is
+>   raised seat by seat in APNAP order (the controller first), the settler re-raises for the next seat carrying the
+>   program's resume, and after the last it folds only the yes-seats through the SAME per-player helper the mandatory wheel
+>   now uses (the wheel was refactored into `wheelOnePlayer` so the two can never disagree). The trailing "Exile Step Between
+>   Worlds." is the Finale self-exile strip; Plot was modeled. The session driver routes the pause to the deciding seat with
+>   optional-effect's yes/no actions (fallback "yes"; the pilot may decline), and the human path has its own apply.
+> · **Kellan reaches 85** — the fifth deck at the Phase 2 bar (Teval, Brago, Nekusar, Shorikai, Kellan). The runbook's
+>   "top-of-library wall" turned out to be a door: the play-from-top lane existed, and the two free-cast cards were the
+>   discover park. One card stays parked (Mind's Dilation — a spell-owner seam).
+> · **CI:** GREEN on Ellie and Alan (run 33922826480); this slice pushes and is watched
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · K8: ELLIE AND ALAN — discover sized by the cost · **+1** · corpus 14,408 (42.1%) / 34,245
 > Suite **1471 files / 16,030 tests** green; lint 0. Flip-diff **+1, zero LOST**. **4/4 killed.**
 > · **The shape:** the typed graveyard-exile cost already existed (the offer freezes the victim). The dispatcher now stamps the

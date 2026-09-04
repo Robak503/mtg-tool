@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Step Between Worlds** — each player chooses whether to shuffle up and draw seven
 - **Ellie and Alan, Paleontologists** — exile a creature from your graveyard to discover for its mana value
 - **Rashmi, Eternities Crafter** — your first spell each turn reveals the top card, and a cheaper one can be cast free
 - **Mystic Forge** and **Precognition Field** — cast the named kinds of spells off the top of your library; Forge's exile-top activation works

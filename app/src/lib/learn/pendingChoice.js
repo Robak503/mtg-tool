@@ -52,7 +52,33 @@ export const PENDING_CHOICE_KINDS = [
   "taxed-payment",
   "edict-mode",
   "cleanup-discard",
+  "each-player-may", // K9 (Step Between Worlds) — a per-seat yes/no, raised seat by seat; the effect applies to the seats that said yes
 ];
+
+/**
+ * EACH-PLAYER-MAY (SHELF-85 K9 — Step Between Worlds "Each player may shuffle their hand and graveyard into their library.
+ * Each player who does draws seven cards."): a yes/no pause for ONE seat at a time. `controller` is the seat deciding
+ * NOW; `seatsRemaining` the seats still to ask (APNAP order); `accepted` the seats that said yes so far; `effect` names
+ * what the yes-seats get (the settler applies it once every seat has answered). `resume` rides every re-raise so the
+ * program continues after the last seat. Fields are listed explicitly — an unlisted field is a silent drop.
+ */
+export function setPendingEachPlayerMayChoice(state, { controller, seatsRemaining = [], accepted = [], effect, draw = 7, sourceName = null, resume = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "each-player-may-pending", controller, effect, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "each-player-may",
+      controller,
+      seatsRemaining: [...seatsRemaining],
+      accepted: [...accepted],
+      effect,
+      draw,
+      sourceName,
+      ...(resume ? { resume } : {}),
+    },
+  };
+}
 
 /**
  * Flag the CR 514.1 cleanup-step hand-size discard (CR-remediation B3): the active player's hand

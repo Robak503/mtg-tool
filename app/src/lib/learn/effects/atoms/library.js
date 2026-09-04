@@ -6,7 +6,7 @@
 import { logEvent, opponentsOf, findPermanent, deterministicRng, shuffleSeededLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
 import { permanentIsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW
 import { hasKeyword } from "../../keywords.js"; // LK-1 chosen-type impulse-dig membership (keywords.js is a zero-import leaf — cycle-safe)
-import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice, setPendingLookTopTakeChoice, setPendingMilledPickChoice, setPendingSylvanLibraryChoice } from "../../pendingChoice.js";
+import { setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice, setPendingLookTopTakeChoice, setPendingMilledPickChoice, setPendingSylvanLibraryChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard, isInstantOrSorceryCard, resolveScaledAmount } from "./shared.js";
 import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource, TUTOR_COLOR_WORD } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers; TUTOR_COLOR_WORD for the color-qualified X-tutor (Green Sun's Zenith)
 // MILL-ON-EVENT (Wave 3b): the mill atom is one of the two real mill chokepoints, so it enqueues the
@@ -1794,21 +1794,38 @@ export function cascadeClauseParser(clause) {
  * Tokens can't exist in hand/graveyard-as-cards (the store excludes token rows), so no token filtering
  * is needed. Non-targeted; identical on a spell or a trigger.
  */
+/** ONE player's Timetwister fold: hand + graveyard into the library, shuffle, draw `draw`. Shared by the mandatory wheel
+ *  and the per-seat "may" wheel (K9 — Step Between Worlds), so the two can never disagree on what a fold is. */
+export function wheelOnePlayer(state, pid, draw = 7) {
+  const p = state.players?.[pid];
+  if (!p) return state;
+  const pool = [...(p.library || []), ...(p.hand || []), ...(p.graveyard || [])];
+  let next = { ...state, players: { ...state.players, [pid]: { ...p, library: pool, hand: [], graveyard: [] } } };
+  // GY-EVENT (SHELF S7): the player's graveyard cards LEAVE for the library in the fold.
+  next = recordGraveyardEvents(next, (p.graveyard || []).map((card) => ({ dir: "leave", card, gyOwner: pid, zone: "library" })));
+  next = shuffleControllerLibrary(next, pid);
+  const lib = next.players[pid].library || [];
+  const n = Math.min(draw, lib.length);
+  return { ...next, players: { ...next.players, [pid]: { ...next.players[pid], hand: lib.slice(0, n), library: lib.slice(n) } } };
+}
+
 export function applyTimetwisterWheel(state, atom, ctx) {
   let next = state;
-  for (const pid of Object.keys(next.players)) {
-    const p = next.players[pid];
-    if (!p) continue;
-    const pool = [...(p.library || []), ...(p.hand || []), ...(p.graveyard || [])];
-    next = { ...next, players: { ...next.players, [pid]: { ...p, library: pool, hand: [], graveyard: [] } } };
-    // GY-EVENT (SHELF S7): each player's graveyard cards LEAVE for the library in the fold.
-    next = recordGraveyardEvents(next, (p.graveyard || []).map((card) => ({ dir: "leave", card, gyOwner: pid, zone: "library" })));
-    next = shuffleControllerLibrary(next, pid);
-    const lib = next.players[pid].library || [];
-    const n = Math.min(atom.draw || 7, lib.length);
-    next = { ...next, players: { ...next.players, [pid]: { ...next.players[pid], hand: lib.slice(0, n), library: lib.slice(n) } } };
-  }
+  for (const pid of Object.keys(next.players)) next = wheelOnePlayer(next, pid, atom.draw || 7);
   return logEvent(next, { kind: "spell-effect", effect: "timetwister-wheel", controller: ctx.controller, draw: atom.draw || 7 });
+}
+
+/**
+ * EACH PLAYER MAY WHEEL (SHELF-85 K9 — Step Between Worlds): raise the per-seat yes/no for the FIRST seat in APNAP order
+ * (the controller, then the others in seat order); the settler (runProgram.resolveEachPlayerMayChoice) asks the rest one
+ * by one and folds only the seats that said yes. No seat's choice is made for it here.
+ */
+export function applyEachPlayerMayWheel(state, atom, ctx) {
+  const seats = Object.keys(state.players || {}).filter((pid) => state.players[pid]);
+  if (!seats.length) return state;
+  const start = seats.indexOf(ctx.controller);
+  const order = start >= 0 ? [...seats.slice(start), ...seats.slice(0, start)] : seats;
+  return setPendingEachPlayerMayChoice(state, { controller: order[0], seatsRemaining: order.slice(1), accepted: [], effect: "wheel", draw: atom.draw || 7, sourceName: ctx.cardName || null });
 }
 
 /**
@@ -2571,6 +2588,7 @@ export const libraryResolvers = {
   "mill": applyMill,
   "reveal-top-cast-or-hand": applyRevealTopCastOrHand, // K5 (Rashmi) — reveal the top; free-cast park if lesser than the cast spell, else hand
   "exile-top-of-library": applyExileTopOfLibrary, // ===== INGEST (CR 701.19a) ===== the EXILE twin of mill; a separate op because an ingested card leaves the graveyard unreachable
+  "each-player-may-wheel": applyEachPlayerMayWheel, // K9 (Step Between Worlds) — the per-seat "may" wheel; raises the seat-by-seat pause
   "timetwister-wheel": applyTimetwisterWheel, // TIMETWISTER WHEEL (Echo of Eons) — hand+GY fold into library, shuffle, draw 7, per player
   "winds-of-change": applyWindsOfChange, // WINDS OF CHANGE (Nekusar) — hand-only fold into library, shuffle, draw THAT MANY (per-player hand count), per player
   "explore": applyExplore, // ===== EXPLORE ===== (CR 701.44) reveal top: land→hand, else +1/+1 + keep-on-top. Ixalan ETB family flips native-trigger.

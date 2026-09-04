@@ -21,6 +21,7 @@ import { advanceUntilDecision, applyPendingChoice } from "./learnSession.js";
 import {
   PENDING_CHOICE_KINDS,
   setPendingTutorChoice,
+  setPendingEachPlayerMayChoice,
   setPendingCloneChoice,
   setPendingScryChoice,
   setPendingHandDiscardChoice,
@@ -63,6 +64,7 @@ function baseState() {
 // AUTO-DECIDE branch — exactly the self-play path the mission notes says never livelocks.
 const FIXTURES = {
   "tutor-search": (s) => setPendingTutorChoice(s, { controller: "ai", candidates: [] }),
+  "each-player-may": (s) => setPendingEachPlayerMayChoice(s, { controller: "ai", seatsRemaining: [], accepted: [], effect: "wheel", draw: 7 }), // K9 (Step Between Worlds) — the per-seat may; the AI seat auto-answers
   "clone-search": (s) => setPendingCloneChoice(s, { controller: "ai", candidates: [], resume: {} }),
   "scry-surveil": (s) => setPendingScryChoice(s, { controller: "ai", mode: "scry", cards: [] }),
   "optional-effect": (s) => ({

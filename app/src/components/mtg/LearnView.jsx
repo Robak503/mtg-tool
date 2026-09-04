@@ -57,6 +57,7 @@ import {
   DiscardChoicePanel,
   HandToLibraryTopPanel,
   OptionalChoicePanel,
+  EachPlayerMayPanel,
   CommanderReturnPanel,
   CloneCopyPanel,
   ScrySurveilPanel,
@@ -726,6 +727,7 @@ export default function LearnView({
               onCloneChoose={session.applyCloneChoice}
               onScryChoose={session.applyScryChoice}
               onOptionalChoose={session.applyOptionalChoice}
+              onEachPlayerMayChoose={session.applyEachPlayerMayChoice}
               onHandDiscardChoose={session.applyHandDiscardChoice}
               onImprintChoose={session.applyImprintChoice}
               onCleanupDiscardChoose={session.applyCleanupDiscardChoice}
@@ -811,6 +813,12 @@ export default function LearnView({
       {session.board && decision?.kind === "optional-effect" && (
         <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
           <OptionalChoicePanel decision={decision} onChoose={session.applyOptionalChoice} />
+        </div>
+      )}
+      {/* K9 (Step Between Worlds) — a per-player "may": your seat's yes/no. Same side-sheet. */}
+      {session.board && decision?.kind === "each-player-may" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <EachPlayerMayPanel decision={decision} onChoose={session.applyEachPlayerMayChoice} />
         </div>
       )}
       {/* CMD-RETURN (CR 903.9) — your commander died: return it to the command zone (recastable, taxed) or leave it. */}
@@ -1389,6 +1397,7 @@ function DecisionPrompt({
   onCloneChoose,
   onScryChoose,
   onOptionalChoose,
+  onEachPlayerMayChoose,
   onHandDiscardChoose,
   onImprintChoose,
   onCleanupDiscardChoose,
@@ -1432,6 +1441,9 @@ function DecisionPrompt({
   }
   if (decision.kind === "optional-effect") {
     return <OptionalChoicePanel decision={decision} onChoose={onOptionalChoose} />;
+  }
+  if (decision.kind === "each-player-may") {
+    return <EachPlayerMayPanel decision={decision} onChoose={onEachPlayerMayChoose} />;
   }
   if (decision.kind === "cleanup-discard") {
     return <CleanupDiscardPanel decision={decision} onChoose={onCleanupDiscardChoose} />;

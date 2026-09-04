@@ -68,6 +68,7 @@ import {
   resolveTutorChoice,
   resolveScryChoice,
   resolveOptionalChoice,
+  resolveEachPlayerMayChoice, // K9 (Step Between Worlds) — the per-seat "may" settler
   autoPickHandDiscardCandidate,
   resolveHandDiscardChoice,
   resolveImprintChoice,
@@ -949,6 +950,12 @@ function settleOptionalChoice(state, doIt) {
   const next = resolveOptionalChoice(state, doIt);
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
+// K9 (Step Between Worlds) — one seat's answer; the pause re-raises for the next seat or, after the last, applies the
+// effect to the yes-seats and resumes the program.
+function settleEachPlayerMayChoice(state, doIt) {
+  const next = resolveEachPlayerMayChoice(state, doIt);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
 
 /**
  * CMD-RETURN state-based action (CR 903.9a) — a commander sitting in a graveyard or exile MAY be put into
@@ -1764,6 +1771,25 @@ export function advanceUntilDecision(
           fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: optionalAutoTakeValue(current.state, pc) },
         });
         current = { ...current, state: settleOptionalChoice(current.state, picked.value) };
+        continue;
+      }
+      // K9 (Step Between Worlds) — the per-seat "may": the SAME yes/no shape as optional-effect, routed to the seat the
+      // pause names (choiceSeat = pc.controller). The fallback is "yes" (a fresh seven is the printed upside); the
+      // pilot / policy may decline. A human seat gets the panel like any other yes/no.
+      if (pc.kind === "each-player-may") {
+        if (pause) {
+          return { session: current, decision: { kind: "each-player-may", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: true },
+        });
+        current = { ...current, state: settleEachPlayerMayChoice(current.state, picked.value) };
         continue;
       }
       // CMD-RETURN (CR 903.9) — a commander in a dead zone: the human's OWN commander surfaces a yes/no
@@ -3572,6 +3598,32 @@ export function applyEdictModeChoice(session, choice, opts = {}) {
  * yes/no. Runs-or-skips the paused atom, resumes the program, then re-derives the next decision.
  * Returns { session, decision } like advanceUntilDecision.
  */
+/**
+ * K9 (Step Between Worlds) — the human seat's answer to an each-player-may pause: settle, log, re-derive the next
+ * decision. Mirrors applyOptionalChoice; the pause's own `controller` is the seat that answered.
+ */
+export function applyEachPlayerMayChoice(session, choice, opts = {}) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "each-player-may") {
+    return advanceUntilDecision(session, opts);
+  }
+  const take = choice?.take === true || choice === true;
+  let newState;
+  try {
+    newState = settleEachPlayerMayChoice(session.state, take);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+  const logEntry = {
+    ts: Date.now(), turn: session.state.turn, phase: session.state.phase, step: session.state.step,
+    actor: pc.controller, action: { kind: "each-player-may", effect: pc.effect, taken: take }, auto: false, reasoning: "user-chose-each-player-may",
+  };
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
+}
+
 export function applyOptionalChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
@@ -4135,6 +4187,7 @@ export function applyPendingChoice(session, choice, opts = {}) {
   if (kind === "clone-search") return applyCloneChoice(session, choice, opts);
   if (kind === "scry-surveil") return applyScryChoice(session, choice, opts);
   if (kind === "optional-effect") return applyOptionalChoice(session, choice, opts);
+  if (kind === "each-player-may") return applyEachPlayerMayChoice(session, choice, opts); // K9 (Step Between Worlds)
   if (kind === "commander-return") return applyCommanderReturnChoice(session, choice, opts);
   if (kind === "hand-discard") return applyHandDiscardChoice(session, choice, opts);
   if (kind === "imprint-exile") return applyImprintChoice(session, choice, opts);

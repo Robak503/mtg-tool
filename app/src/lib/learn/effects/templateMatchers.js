@@ -1024,6 +1024,19 @@ export function matchRadOrProliferate(oracle) {
 // graveyard into their library, then draws seven cards." The ", then" would shatter under the clause
 // splitter, so it's collapsed here into ONE atom (per player: fold hand+GY into the library, ONE
 // deterministic shuffle, draw 7 — see applyTimetwisterWheel). Exact printed sentence only.
+/**
+ * ⭐ EACH PLAYER MAY WHEEL (SHELF-85 K9, 2026-09-04 — Step Between Worlds "Each player may shuffle their hand and graveyard
+ * into their library. Each player who does draws seven cards." — the trailing "Exile Step Between Worlds." is the
+ * self-exile strip the Finale precedent already handles): the Timetwister wheel with a PER-SEAT "may". The resolver
+ * raises an each-player-may pause seat by seat (APNAP — the controller first), and only the seats that said yes fold and
+ * draw. Nothing about a seat's choice is decided for it.
+ */
+export function matchEachPlayerMayWheel(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  if (!/^each player may shuffle their hand and graveyard into their library\. each player who does draws seven cards$/.test(t)) return null;
+  return { atoms: [{ op: "each-player-may-wheel", draw: 7, targetType: null }] };
+}
+
 export function matchTimetwisterWheel(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   if (!/^each player shuffles their hand and graveyard into their library, then draws seven cards$/.test(t)) return null;

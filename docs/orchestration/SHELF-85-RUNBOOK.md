@@ -67,7 +67,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kinnan Mana Overload | 75 | 10 | 15 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Believe it! | 75 | 10 | 15 | ⬜ Phase 2 (cEDH — LAST) |
-| Joe | Kellan of the west | 84 | 1 | 6 | ⬜ Phase 2 |
+| Joe | Kellan of the west | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Halfshell heroes | 66 | 19 | 24 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**10 decks below 85 · 130 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**9 decks below 85 · 129 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -332,7 +332,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | K6 | Mind's Dilation | opponent's first spell each turn: exile their top card, you may cast it free | L | 🅿 PARKED 2026-09-04 — casting an OPPONENT's card needs a spell-owner seam (plan §6) | 🅿 |
 | K7 | Make Your Own Luck ✅ (+1 — the impulse-dig pause with a PLOT destination and a HAND rest) · Unexpected Results · Portent of Calamity | look-at-top / reveal-and-cast shapes | M ✅ / M / L | | ⬜ |
 | K8 | Sakashima's Protege · Planar Nexus ✅ · Ellie and Alan ✅ (+1 — the exiled cost card's mana value stamped like sacrificedForCost; discover reads it) · The Key to the Vault ✅ (+1 — a damage-sized dig parked behind the discover decision with a leave-exiled decline) | clone / every-nonbasic-type / discover-X-from-graveyard / look-that-many | L / S ✅ / M / M ✅ | Planar Nexus = the ④-BE layer-4 subtype add with every nonbasic land type (S) | ⬜ |
-| K9 | COMPOSITE | Recurring Insight ✅ (+1 — the hand-size draw count; rebound was modeled) · Fblthp ✅ (+5 with Angel of Fury / Cavalier of Gales / Alabaster Dragon / Livewire Lash — draw-two-instead on the zone stamps; the standalone becomes-target event; shuffle-self-into-library incl. the graveyard form) · Mystic Forge ✅ (+2 with Precognition Field — a FILTERED play-from-top with a colourless test, and the own exile-top activation) · Jace Reawakened · Bonny Pall · Doc Aurlock ✅ (+1 — the named-zone reducer + a plot-cost reduction at the offer) · Lock and Load ✅ (+1 — a per-turn instant/sorcery tally, the 'other' count, a splitter keep-whole for the type pair) · Savvy Trader ✅ (+2 with Sage of the Beyond — the play-while-exiled ETB on the extended impulse window; a cast-ZONE cost reducer, fromZone threaded through costReductionForSpell) · Step Between Worlds · Tezzeret the Seeker | size on approach | most sit on the K5 wall | ⬜ |
+| K9 | COMPOSITE | Recurring Insight ✅ (+1 — the hand-size draw count; rebound was modeled) · Fblthp ✅ (+5 with Angel of Fury / Cavalier of Gales / Alabaster Dragon / Livewire Lash — draw-two-instead on the zone stamps; the standalone becomes-target event; shuffle-self-into-library incl. the graveyard form) · Mystic Forge ✅ (+2 with Precognition Field — a FILTERED play-from-top with a colourless test, and the own exile-top activation) · Jace Reawakened · Bonny Pall · Doc Aurlock ✅ (+1 — the named-zone reducer + a plot-cost reduction at the offer) · Lock and Load ✅ (+1 — a per-turn instant/sorcery tally, the 'other' count, a splitter keep-whole for the type pair) · Savvy Trader ✅ (+2 with Sage of the Beyond — the play-while-exiled ETB on the extended impulse window; a cast-ZONE cost reducer, fromZone threaded through costReductionForSpell) · Step Between Worlds ✅ (+1 — a per-seat 'may' pause, APNAP, only the yes-seats fold; the 85th card) · Tezzeret the Seeker | size on approach | most sit on the K5 wall | ⬜ |
 
 **Ceiling note:** without the top-of-library-play subsystem Kellan tops out near 80. Decide at approach: build the
 subsystem as its own multi-slice L (it also pays in Omnath's shelf-neighbours: Courser/Oracle-class cards corpus-wide),
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · K9 Step Between Worlds (Kellan) ✅ +1 corpus · 9/9 killed (a tenth — removing the side-sheet panel mount — was EQUIVALENT: LearnView renders the panel by two paths; deleted, documented) · suite 1472 files / 16,036 tests · corpus 14,409 (42.1%) · **Kellan reaches 85** · shelf refreshed in §1 · CI: GREEN on Ellie and Alan (run 33922826480); this slice pushes and is watched.
 
 - 2026-09-04 — Phase 2 · K8 Ellie and Alan, Paleontologists (Kellan) ✅ +1 corpus · 4/4 killed · suite 1471 files / 16,030 tests · corpus 14,408 (42.1%) · Mind's Dilation PARKED · shelf refreshed in §1 · CI: run 33921961492 (Rashmi) in flight at commit time — this slice pushes only after it reads green.
 

@@ -2279,6 +2279,24 @@ function HandPickPanel({ decision, onChoose, title, promptLine, submitLabel }) {
  * onChoose(false) declines. Only ever shown for the human player's own optional (beginner/
  * intermediate); Expert + opponents auto-take it in the engine.
  */
+/** K9 (Step Between Worlds) — a per-player "may": YOUR seat's yes/no. The effect names what a yes does. */
+export function EachPlayerMayPanel({ decision, onChoose }) {
+  const effectLabel = { wheel: `shuffle your hand and graveyard into your library, then draw ${decision?.draw || 7} cards` }[decision?.effect] || "take the effect";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ley-text)" }}>Each player may…</div>
+      <div style={{ fontSize: 13, color: "var(--ley-text-dim)", lineHeight: 1.5 }}>
+        {decision?.sourceName ? <strong style={{ color: "var(--ley-text)" }}>{decision.sourceName}</strong> : "This effect"}{" "}
+        lets you <strong style={{ color: "var(--ley-green)" }}>{effectLabel}</strong>. Do it?
+      </div>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => onChoose(true)}>Yes, do it</button>
+        <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => onChoose(false)}>No, keep my cards</button>
+      </div>
+    </div>
+  );
+}
+
 export function OptionalChoicePanel({ decision, onChoose }) {
   const opLabel =
     {
