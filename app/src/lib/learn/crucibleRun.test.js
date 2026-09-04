@@ -106,7 +106,7 @@ describe("startCrucibleRun — bounded pod power-read", () => {
     await awaitDone();
     warn.mockRestore();
     log.mockRestore();
-  });
+  }, 90_000); // CI (2026-09-04): 24.9 s on a loaded 2-CPU runner against the 20 s default (run 33837232224, shard 2) — the wall is a hang detector, not a speed budget
 
   it("stops early on cancel (before target)", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
