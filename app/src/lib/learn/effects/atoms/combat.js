@@ -2459,9 +2459,12 @@ export function animateClauseParser(clause) {
   // predicate scope the pool to the controller's Vehicles.
   // S7 (Mobilizer Mech "up to one other target Vehicle you control …"): the up-to-one form rides the subset path
   // (maxTargets 1 / minTargets 0) with the same source exclusion.
-  const anmVeh = t.match(/^(another |up to one other )?target vehicle you control becomes an artifact creature until end of turn$/);
+  // S17 Mech Hangar ("{3}, {T}: Target Vehicle becomes an artifact creature until end of turn"): the UNSCOPED form — any
+  // Vehicle on the battlefield (no controller restriction), the same animate.
+  const anmVeh = t.match(/^(another |up to one other )?target vehicle( you control)? becomes an artifact creature until end of turn$/);
   if (anmVeh) {
-    return { op: "animate", targetType: "vehicle", restrictions: [{ kind: "controller", who: "you" }], ...(anmVeh[1] ? { excludeSource: true } : {}), ...(/^up to one/.test(anmVeh[1] || "") ? { maxTargets: 1, minTargets: 0 } : {}), keepPrintedPt: true, subtypes: [], cardTypes: ["Artifact"], grantKeywords: [], duration: "endOfTurn" };
+    if (anmVeh[1] && !anmVeh[2]) return null; // "another target Vehicle" without a scope is unprinted — park rather than guess
+    return { op: "animate", targetType: "vehicle", restrictions: anmVeh[2] ? [{ kind: "controller", who: "you" }] : [], ...(anmVeh[1] ? { excludeSource: true } : {}), ...(/^up to one/.test(anmVeh[1] || "") ? { maxTargets: 1, minTargets: 0 } : {}), keepPrintedPt: true, subtypes: [], cardTypes: ["Artifact"], grantKeywords: [], duration: "endOfTurn" };
   }
   const anmSelf = t.match(/^(until end of turn, )?this land becomes a (\d+)\/(\d+) (.*?)creature(?: with ([a-z, ]+?))?(?: in addition to its other types)?( until end of turn)?$/);
   if (anmSelf) {

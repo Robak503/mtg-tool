@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · S17: MECH HANGAR — the composite sized, its one small card taken · **+1** · corpus 14,382 (42.0%) / 34,245 (42.0%)
+> Suite **manaModel.js ("pilot" spend word + the fixed-type restricted any-colour extra line) + effects/atoms/combat.js (unscoped Vehicle animate) + mechHangar.test.js (4)** green; lint 0. Flip-diff **+1, zero LOST**. **4/4.**
+> · **The shape:** "{T}: Add one mana of any color. Spend this mana only to cast a Pilot or Vehicle spell. / {3}, {T}: Target
+>   Vehicle becomes an artifact creature until end of turn." — two small gaps: "pilot" joined the restricted-spend type
+>   words (a real creature-subtype word on the type line — the Shorikai / Prodigy tokens are Pilots), and the S6 animate
+>   arm gained the UNSCOPED form ("target Vehicle", any controller; printed P/T kept; a scope-less "another" is unprinted
+>   and parks). The witness then caught the HOLLOW half: the restricted any-colour line was credited but the runtime offered
+>   only {C} (the extra-line regex admitted only the chosen-type form) — it now rides as an extra record carrying its
+>   restriction, so the Pilot is castable off the Hangar and a Bear is not. Mech Hangar reads as a full land.
+> · **S17 sized:** Kotori M · Katsumasa M · Born to Drive M · Padeem M · Plaza of Heroes M · Mu Yanling L · Nautiloid Ship L
+>   · Windbrisk Heights L (hideaway) — on the row.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · S11: PERMISSION DENIED — the opponents' cast-type lock this turn · **+2** · corpus 14,381 (42.0%) / 34,245 (42.0%)
 > Suite **effects/atoms/misc.js (opponents-cast-lock-turn arm + applier) + legalChoices.js (the turn-stamped cast gate) + permissionDenied.test.js (4); one CREED pin graduated (triggerTierPins)** green; lint 0. Flip-diff **+2, zero LOST**. **5/5.**
 > · **The shape:** "Counter target noncreature spell. Your opponents can't cast noncreature spells this turn." — the counter
