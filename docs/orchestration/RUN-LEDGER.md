@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · K5: RASHMI — the "wall" that was a door · **+1** · corpus 14,407 (42.1%) / 34,245
+> Suite **1470 files / 16,025 tests** green; lint 0. Flip-diff **+1, zero LOST**. **6/6 killed.**
+> · **The shape:** the runbook sized Rashmi as the head of a multi-slice L ("the top-of-library-play subsystem"). It was one
+>   atom: the first-spell cast watcher already threads the triggering spell's mana value (castSpellMv), and "reveal the top
+>   card… you may cast it without paying its mana cost if it's a spell with lesser mana value… if you don't cast it, put it
+>   into your hand" is reveal-the-top + the DISCOVER park (cast it free as the ability resolves, or discover's default
+>   decline — the hand, exactly as printed). A land, an equal-or-greater card, or a missing cast mana value → hand, never a
+>   free cast. Strictly lesser (mutation M2 pins the boundary).
+> · **One CREED pin graduated by design** (castTriggerForms.test named Rashmi as the SAFE false-negative — "does NOT parse HIGH");
+>   it does now, so the pin flips to covered, dated.
+> · **CI:** GREEN on Mystic Forge (run 33920973171); this slice pushes and is watched
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · K9: MYSTIC FORGE — the filtered cast-from-top · **+2** · corpus 14,406 (42.1%) / 34,245
 > Suite **1469 files / 16,021 tests** green; lint 0. Flip-diff **+2, zero LOST** (Mystic Forge; Precognition Field — audited). **6/6 killed.**
 > · **The shape:** the play-from-top lane already existed (Future Sight / Bolas's Citadel — the "top-of-library wall" the runbook

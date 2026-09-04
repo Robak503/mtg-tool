@@ -260,9 +260,11 @@ describe("coverage — payoff must parse HIGH to flip native", () => {
     const sram = { name: "Sram, Senior Edificer", type: "Legendary Creature — Dwarf Advisor", power: 1, toughness: 1, oracle: "Whenever you cast an Aura, Equipment, or Vehicle spell, draw a card." };
     expect(permanentTriggersCovered(sram)).toBe(true);
   });
-  it("Rashmi's first-spell reveal/free-cast payoff does NOT parse HIGH → stays non-native (SAFE false-negative)", () => {
+  // GRADUATED 2026-09-04 (SHELF-85 K5): the reveal-top free cast is modeled now (the reveal-top-cast-or-hand atom on the
+  // discover park; castSpellMv threads from the cast watcher), so the payoff parses HIGH and the card is covered.
+  it("Rashmi's first-spell reveal/free-cast payoff parses HIGH → covered (graduated from the SAFE false-negative pin)", () => {
     const rashmi = { name: "Rashmi, Eternities Crafter", type: "Legendary Creature — Elf Druid", power: 2, toughness: 3, oracle: "Whenever you cast your first spell each turn, reveal the top card of your library. You may cast it without paying its mana cost if it's a spell with lesser mana value. If you don't cast it, put it into your hand." };
-    expect(permanentTriggersCovered(rashmi)).toBe(false);
+    expect(permanentTriggersCovered(rashmi)).toBe(true);
   });
   it("an X-spell trigger whose token-with-X-counters payoff isn't modeled stays non-native (Zaxara core)", () => {
     const zaxCore = { name: "ZaxCore", type: "Creature — Hydra", power: 0, toughness: 0, oracle: "Whenever you cast a spell with {X} in its mana cost, create a 0/0 green Hydra creature token, then put X +1/+1 counters on it." };

@@ -389,6 +389,32 @@ export function applyReorderTopAtom(state, atom, ctx) {
  * the `restTo` zone (bottom / graveyard), then resumes. An empty library is a logged no-op. Hidden-info
  * safe: it's the controller's OWN library, so the candidate names are theirs to see.
  */
+/**
+ * REVEAL-TOP, CAST IT FREE IF LESSER, ELSE HAND (SHELF-85 K5 — Rashmi): the top card is revealed; a NONLAND card whose
+ * mana value is strictly less than the triggering spell's (ctx.castSpellMv) is exiled and parked behind the discover
+ * decision — cast it free as the ability resolves, or (discover's default decline) put it into the hand. A land, a card
+ * that is not lesser, or a missing cast mana value → the card goes straight to the hand (never a free cast). An empty
+ * library is a logged no-op.
+ */
+export function applyRevealTopCastOrHand(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state;
+  const top = (player.library || [])[0];
+  if (!top) return logEvent(state, { kind: "spell-effect", effect: "reveal-top-cast-or-hand", controller, revealed: null });
+  const isLand = /\bLand\b/i.test(String(top.type || top.type_line || "").split(" // ")[0]);
+  const mv = tutorManaValue(top);
+  const cap = typeof ctx?.castSpellMv === "number" ? ctx.castSpellMv : null;
+  const castable = !isLand && cap !== null && mv < cap;
+  const rest = player.library.slice(1);
+  if (castable) {
+    const next = { ...state, players: { ...state.players, [controller]: { ...player, library: rest, exile: [...(player.exile || []), top] } }, pendingDiscover: { controller, cardId: top.id, mv } };
+    return logEvent(next, { kind: "spell-effect", effect: "reveal-top-cast-or-hand", controller, revealed: top.name, castable: true, mv, cap });
+  }
+  const next = { ...state, players: { ...state.players, [controller]: { ...player, library: rest, hand: [...(player.hand || []), top] } } };
+  return logEvent(next, { kind: "spell-effect", effect: "reveal-top-cast-or-hand", controller, revealed: top.name, castable: false, mv, cap });
+}
+
 export function applyImpulseDigAtom(state, atom, ctx) {
   const player = state.players[ctx.controller];
   if (!player) return state;
@@ -2541,6 +2567,7 @@ export const libraryResolvers = {
   "discover": applyDiscoverAtom, // ===== DISCOVER ===== exile-top-until-nonland-MV<=N → park for cast-free/hand (action layer). Pantlaza + Primordial Gnawer flip native-trigger (PR #325 + PANTLAZA PR2).
   "cascade": applyCascadeAtom, // ===== CASCADE (CR 702.85) ===== exile-top-until-nonland-MV<spell-MV → park for cast-free/decline (action layer). The Cascade keyword (Bloodbraid Elf, Shardless Agent, …) flips native via the synthesized selfCast trigger.
   "mill": applyMill,
+  "reveal-top-cast-or-hand": applyRevealTopCastOrHand, // K5 (Rashmi) — reveal the top; free-cast park if lesser than the cast spell, else hand
   "exile-top-of-library": applyExileTopOfLibrary, // ===== INGEST (CR 701.19a) ===== the EXILE twin of mill; a separate op because an ingested card leaves the graveyard unreachable
   "timetwister-wheel": applyTimetwisterWheel, // TIMETWISTER WHEEL (Echo of Eons) — hand+GY fold into library, shuffle, draw 7, per player
   "winds-of-change": applyWindsOfChange, // WINDS OF CHANGE (Nekusar) — hand-only fold into library, shuffle, draw THAT MANY (per-player hand count), per player

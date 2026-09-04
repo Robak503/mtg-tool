@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K5: Rashmi (+1)** · suite **1470 files / 16,025 tests** green · corpus 14,407 (42.1%) / 34,245 · flip-diff +1 / 0 lost · 6/6 killed
+
+> The reveal-top free cast on the discover park; the feared subsystem was one atom. Kellan **83** (needs 2). Mind's Dilation is PARKED (casting an opponent's card from exile needs a spell owner threaded through cast, resolve, and graveyard — nothing in the engine does; an L with correctness traps). Next: Ellie and Alan (the typed graveyard-exile cost exists; stamp the victim's mana value as the sacrificedForCost precedent does, and discover reads it), then Step Between Worlds (a per-seat may-decision).
+> **CI:** GREEN on Mystic Forge (run 33920973171); this slice pushes and is watched
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K9: Mystic Forge (+2)** · suite **1469 files / 16,021 tests** green · corpus 14,406 (42.1%) / 34,245 · flip-diff +2 / 0 lost · 6/6 killed
 
 > The filtered cast-from-top with a colourless test, and the own exile-top activation. Kellan **82** (needs 3). Next: Rashmi (the first-spell cast watcher already threads castSpellMv; one reveal-top atom ending in the discover park), then Mind's Dilation (M).

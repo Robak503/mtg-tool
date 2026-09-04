@@ -1211,6 +1211,20 @@ function insteadCondition(word, cond) {
   const canon = INSTEAD_ABILITY_WORD_CONDITION[word];
   return canon && cond === canon && spellConditionParseable(cond) ? cond : null;
 }
+/**
+ * ⭐ REVEAL-TOP, CAST IT FREE IF LESSER, ELSE HAND (SHELF-85 K5, 2026-09-04 — Rashmi, Eternities Crafter "reveal the top
+ * card of your library. You may cast it without paying its mana cost if it's a spell with lesser mana value. If you don't
+ * cast it, put it into your hand."): the cast watcher's context already carries the triggering spell's mana value
+ * (castSpellMv); the resolver reveals the top card and, when it is a nonland with STRICTLY lesser mana value, parks it
+ * behind the DISCOVER decision (cast it free now, or — discover's default decline — into the hand); otherwise the card
+ * goes straight to the hand. A missing castSpellMv reads as not-lesser (hand), never a free cast.
+ */
+export function matchRevealTopCastIfLesser(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  if (!/^reveal the top card of your library\. you may cast it without paying its mana cost if it's a spell with lesser mana value\. if you don't cast it, put it into your hand$/.test(t)) return null;
+  return { atoms: [{ op: "reveal-top-cast-or-hand", lesserThanCastMv: true, targetType: null }] };
+}
+
 export function matchInsteadAmountUpgrade(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   // ⭐ DRAW-N-INSTEAD ON A ZONE CONDITION (SHELF-85 K9, 2026-09-04 — Fblthp "Draw a card. If it entered from your library or
