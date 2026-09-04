@@ -379,6 +379,14 @@ export function discardClauseParser(clause) {
   // it all (atom.all → remaining Infinity). Unlocks the wheel (Wheel of Fortune / Reforge the Soul) when paired
   // with the existing each-player draw, and "discard your hand, then draw N" (Dangerous Wager). A rider
   // ("unless they pay 7 life" Tyrannize / "for each card discarded …") fails the `$` anchor → low → Arbiter.
+  // EACH-PLAYER WHEEL BY OWN COUNT (SHELF-85 N10, 2026-09-04 — Dark Deal "Each player discards all the cards in their
+  // hand, then draws that many cards minus one"; Incendiary Command's fourth mode, no minus): Tolarian Winds' composite
+  // (count BEFORE the discard, pitch through the shared discard-all path so watchers fire, then draw) for EVERY seat —
+  // each player's own count, all discards before any draw (CR 608.2c, the written order). `minus` floors at zero.
+  {
+    const wm = t.match(/^each player discards all the cards in their hand, then draws that many cards( minus one)?$/);
+    if (wm) return { op: "discard-hand-draw-same", who: "eachPlayer", minus: wm[1] ? 1 : 0, targetType: null };
+  }
   if (/^each player discards their hand$/.test(t)) return { op: "discard", who: "eachPlayer", targetType: null, all: true };
   if (/^target player discards their hand$/.test(t)) return { op: "discard", who: "target", targetType: "player", all: true };
   if (/^(?:you )?discard your hand$/.test(t)) return { op: "discard", who: "controller", targetType: null, all: true };
@@ -396,6 +404,21 @@ export function discardClauseParser(clause) {
  * keywords are unmodeled — a safe FN). An empty hand → discard nothing, draw nothing (a logged no-op).
  */
 export function applyDiscardHandDrawSame(state, atom, ctx) {
+  // N10 — the EVERY-SEAT form (Dark Deal / Incendiary Command's mode): each player's own hand count is read first, every
+  // hand is pitched (the shared each-player discard-all, so discard watchers fire), then each player draws their own
+  // count less `minus`, floored at zero. An empty hand draws nothing (a logged zero, never a fabricated draw).
+  if (atom.who === "eachPlayer") {
+    const pids = Object.keys(state.players || {});
+    const counts = Object.fromEntries(pids.map((p) => [p, (state.players[p]?.hand || []).length]));
+    let next = applyDiscard(state, { op: "discard", who: "eachPlayer", targetType: null, all: true }, ctx);
+    const drawn = {};
+    for (const p of pids) {
+      const k = Math.max(0, counts[p] - (atom.minus || 0));
+      drawn[p] = k;
+      if (k > 0 && next.players?.[p]) next = drawCards(next, { playerId: p, count: k });
+    }
+    return logEvent(next, { kind: "spell-effect", effect: "discard-hand-draw-same", controller: ctx.controller, who: "eachPlayer", minus: atom.minus || 0, drawn });
+  }
   const n = (state.players?.[ctx.controller]?.hand || []).length;
   let next = applyDiscard(state, { op: "discard", who: "controller", targetType: null, all: true }, ctx);
   if (n > 0) next = drawCards(next, { playerId: ctx.controller, count: n });

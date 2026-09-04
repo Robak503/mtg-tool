@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · N10: DARK DEAL + INCENDIARY COMMAND — the each-player wheel by own count · **+2** · corpus 14,364 (41.9%) / 34,245 (41.9%)
+> Suite **effects/splitClauses.js (keep-whole) + effects/atoms/hand.js (each-player wheel-by-count arm + applier) + darkDeal.test.js (5)** green; lint 0. Flip-diff **+2, zero LOST**. **5/5.**
+> · **The shape:** "Each player discards all the cards in their hand, then draws that many cards [minus one]." — "that many" is
+>   each player's OWN discarded count, so the ", then" split severed the draw from its referent. The splitter keeps the
+>   sentence whole; hand.js emits Tolarian Winds' composite for EVERY seat (discard-hand-draw-same, who:`eachPlayer`,
+>   `minus` 0|1): each count is read before any discard, every hand is pitched through the shared each-player discard-all
+>   (discard watchers fire), then each player draws its own count less the minus, floored at zero. Incendiary Command's
+>   "Choose two" modal already took the other three modes.
+> · **Parked:** Wheel and Deal — "any number of target opponents each discard their hands, then draw seven cards" is an
+>   any-number PLAYER target set the engine has no lane for (the anyNumber expander is permanent-side). Its own row if needed.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · N4 + N5 + N8: NEKUSAR's small rows — Sheoldred / Forced Fruition / Bedevil · **+3** · corpus 14,362 (41.9%) / 34,245 (41.9%)
 > Suite **triggers.js (card-drawn pronoun referent) + effects/atoms/misc.js (casting-player draw) + effects/atoms/removal.js (three-type destroy) + effects/programQueries.js (flush-gate list) + spellEffects.js (note) + nekusarSRows.test.js (8)** green; lint 0. Flip-diff **+3, zero LOST**. **6/6.**
 > · **N4 Sheoldred, the Apocalypse** — "Whenever an opponent draws a card, they lose 2 life." The card-drawn trigger already

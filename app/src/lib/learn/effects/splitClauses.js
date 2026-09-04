@@ -783,6 +783,15 @@ export function splitClauses(oracle) {
     // you control" parses HIGH as an optional exile, describing a card that MAY exile your creature and never
     // return it. The leading "you may" is peeled + stamped optional by the α2 wrapper AFTER keep-whole, so the
     // guard only has to admit the prefix; the inner blink parses exactly as the mandatory form does.
+    // EACH-PLAYER DISCARD-THEN-DRAW-THAT-MANY keep-whole (SHELF-85 N10, 2026-09-04 — Dark Deal "Each player discards all
+    // the cards in their hand, then draws that many cards minus one"; Incendiary Command's fourth mode without the
+    // "minus one"): "that many" is each player's OWN discarded count, so the ", then" split would sever the draw from
+    // its referent (the orphan "draws that many cards" has no count). Kept whole for the per-player composite arm in
+    // hand.js (discard-hand-draw-same, who:"eachPlayer" — Tolarian Winds' atom, every seat).
+    if (/^each player discards all the cards in their hand, then draws that many cards(?: minus one)?\.?$/i.test(sentence)) {
+      clauses.push(sentence);
+      continue;
+    }
     // TWO-SEAT DRAW keep-whole (SHELF-85 B8, 2026-09-04 — Loran of the Third Path / Secret Rendezvous / Flumph: "You
     // and target opponent each draw N cards"): the " and " here joins two SUBJECTS of one verb, not two effects; the
     // split would orphan "You" and hand the whole draw to the opponent (the second half parses as "target opponent
