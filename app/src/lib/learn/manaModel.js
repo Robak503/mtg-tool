@@ -1106,6 +1106,18 @@ const SPEND_CAST_TYPE_WORDS = new Set([
   // like every sibling.)
   "dragon",
 ]);
+/**
+ * MANA-SPENT RIDER (SHELF-85 V11, 2026-09-04 — Path of Ancestry): "When that mana is spent to cast a creature spell that
+ * shares a creature type with your commander, scry 1." — a reflexive trigger on the mana THIS source made. Parsed here
+ * so manaSources stamps it on the record, planPayment carries it on the tap, and the cast site (actionDispatcher)
+ * enqueues the trigger when the cast spell qualifies. Exactly this printing (one corpus carrier); anything wider → null.
+ */
+export function parseManaSpentRider(card) {
+  const text = String(card?.oracle || card?.oracle_text || "");
+  if (!/\bwhen that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1\./i.test(text)) return null;
+  return { kind: "scry", amount: 1, castType: "creature", sharesCommanderType: true };
+}
+
 export function parseSpendRestriction(oracle) {
   const text = String(oracle || "").toLowerCase();
   const clauses = [...text.matchAll(/spend this mana only ([^.]*)\./g)].map((m) => m[1]);
@@ -1877,7 +1889,7 @@ export function manaSources(state, playerId) {
     // SG-3 — a sacrifice-a-creature source needs ANOTHER creature to feed it (never the source itself, never
     // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid).
     if (prod.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")))) continue;
-    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}) });
+    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}) });
     // STAGE ④-3 — EXTRA MANA LINES: a second, complete "{T}: Add …" line the main product does not cover (a
     // gated colour line — Tainted Isle / the Verges / Gathering Place; a free "{T}: Add {C}" beside a painful
     // any-colour line — Grand Coliseum; a "{T}, Sacrifice this land: Add …" ritual line). Each is its own
@@ -2038,6 +2050,7 @@ function planPaymentOnce(pool, sources, cost, spendContext = null) {
       // the fixed-bundle and painland fields exist to hold.
       extraTaps: Array.isArray(s.extraTaps) ? [...s.extraTaps] : null,
       payLife: s.payLife ?? null,
+      spentRider: s.spentRider ?? null, // SHELF-85 V11 (Path of Ancestry): the "when that mana is spent" rider rides the tap to the cast site
       // PAINLAND: the colours that cost life, and how much. Carried so tapSource can stamp the tap.
       painColors: Array.isArray(s.painColors) ? s.painColors : null,
       painAmount: s.painAmount || 0,
@@ -2129,7 +2142,7 @@ function planPaymentOnce(pool, sources, cost, spendContext = null) {
     // PAINLAND: stamp the life cost ONLY when the chosen colour is one of the painful ones — a tap for
     // the free {C} half costs nothing, exactly as printed.
     const painHit = s.painColors && s.painColors.includes(primaryColor) ? s.painAmount : 0;
-    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(s.doesNotUntapNext && { doesNotUntapNext: true }), ...(s.restriction?.uncounterableIfSpent && { uncounterableIfSpent: true }), ...(bonusPicks.length && { bonus: bonusPicks }) }); // + CAP-CAVERN: the cast site reads uncounterableIfSpent off the taps
+    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.extraTaps ? { extraTaps: s.extraTaps } : {}), ...(s.payLife != null ? { payLifeCost: s.payLife } : {}), ...(painHit ? { painLife: painHit } : {}), ...(s.fixed && { fixed: { ...s.fixed } }), ...(s.sacrifices && { sacrifices: true }), ...(s.exilesGyCard && { exilesGyCard: true }), ...(s.sacrificesCreature && { sacrificesCreature: true }), ...(s.fromHand && { fromHand: true }), ...(s.removesCounters && { removesCounters: s.removesCounters }), ...(s.doesNotUntapNext && { doesNotUntapNext: true }), ...(s.restriction?.uncounterableIfSpent && { uncounterableIfSpent: true }), ...(s.spentRider && { spentRider: s.spentRider }), /* SHELF-85 V11 (Path of Ancestry): the "when that mana is spent" rider rides the tap to the cast site */ ...(bonusPicks.length && { bonus: bonusPicks }) }); // + CAP-CAVERN: the cast site reads uncounterableIfSpent off the taps
     return wantColor && assigned ? wantColor : primaryColor;
   };
 

@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — V11: PATH OF ANCESTRY — the "when that mana is spent" rider, built whole · **+1** · corpus 14,316 / 34,245 (41.8%)
+> Suite **1429 files / 15,783 tests** green; lint 0. Flip-diff **+1, zero LOST**. **7/7 mutations killed against a green witness (the rider never parsing, the planner projection dropping it, the type-sharing check ignored, the detector arm removed, the tap record dropping it, the command zone ignored, the creature-spell gate removed — pinned on a Kindred instant).**
+> · **The shape:** a reflexive trigger on the mana this source made, as one chain — manaModel.parseManaSpentRider stamps
+>   `spentRider` on the source record; the payment planner's projection AND its tap record carry it (the first draft lost
+>   it at the projection — an unlisted field there is a dropped field, measured); the cast site reads the riders off the
+>   same plan the commit deducted and, for a creature spell sharing a printed creature type with one of the caster's
+>   commanders (command zone or battlefield, CR 903.3 — a Kindred instant never qualifies), enqueues the land's scry,
+>   flushed with the cast triggers so it resolves ABOVE the spell into a real scry choice. detectTriggers recognises the
+>   sentence FIRST (ahead of the cast-family gates) so coverage's trigger reconciliation counts it; no event checker fires it.
+> · **Parked (§6 / the Omnath list):** the identity mana line itself — "any color in your commander's color identity" —
+>   still yields any colour (Command Tower is credited the same way; pre-existing, not this slice's FP to close).
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — V10: SCYTHECAT CUB — "the second time this ability has resolved this turn", and a targeted conditional · **+5** · corpus 14,315 / 34,245 (41.8%)
 > Suite **1428 files / 15,774 tests** green; lint 0. Flip-diff **+5, zero LOST**. **7/7 mutations killed against a green witness (the ledger never bumping, 'second' read as 'at least once', the key not stamped, the key not threaded into the branch evaluator, the sentinel arm removed, the branch node carrying no target, the chooser seeing the conditional as ambiguous).**
 > · **The shape:** the park said "inexpressible"; it was three cells. (1) A per-turn ledger, `abilityResolutionsThisTurn`,

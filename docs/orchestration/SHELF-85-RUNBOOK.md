@@ -60,16 +60,16 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Colton | Killer Turts | 66 | 19 | 24 | ⬜ Phase 2 |
 | Joe | Did you say Dragons? | 91 | — | — | ✅ at the bar |
 | Joe | Earth Bent | 91 | — | — | ✅ at the bar (④-BE) |
-| Joe | Mothman Cometh | 88 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
+| Joe | Mothman Cometh | 89 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Joe | Captain America Shoot your Shot | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Joe | Hulk Smash | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
-| Joe | Jurassic Ramp | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
+| Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kinnan Mana Overload | 75 | 10 | 15 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Believe it! | 73 | 12 | 17 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Kellan of the west | 74 | 11 | 16 | ⬜ Phase 2 |
-| Joe | Halfshell heroes | 65 | 20 | 25 | ⬜ Phase 2 |
-| Test | Slivers | 98 | — | — | ✅ at the bar |
+| Joe | Halfshell heroes | 66 | 19 | 24 | ⬜ Phase 2 |
+| Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Test | Teval, the Balanced Scale Test | 79 | 6 | 11 | ⬜ Phase 2 |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 64 | 21 | 26 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 61 | 24 | 29 | ⬜ Phase 2 |
 
-**14 decks below 85 · 192 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**14 decks below 85 · 191 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -177,7 +177,7 @@ Ordered by slots paid across the 14 sub-85 decks, then by size. Every row: ⬜ o
 | V8 | **Arcade Cabinet** — "double the number of each kind of counter on target creature" | Bumble · Halfshell | 2 | **S** | the Voracious Hydra doubler exists for +1/+1; generalize to every kind in the bag (`countersOnSource` all-kinds precedent) | ✅ (+5 corpus — two cells: the "Sacrifice a token" cost (sacOther type `token`, matched on the victim's token flag) and a `double-all-counters` atom on a chosen creature target (every kind on it, each through addCounter so Doubling Season composes). The ETB's up-to-four counter pick already parsed.) |
 | V9 | **Valley Floodcaller** — cast noncreature → "Birds, Frogs, Otters, and Rats you control get +1/+1 until end of turn. Untap them." | Kinnan (+cdh) | 1 (+1) | **S** | a four-subtype team pump (the dynamic selector takes a subtypes ARRAY) + untap the same set | ✅ (+1 corpus — a multi-subtype team-pump arm (a comma/and list of curated subtypes → `subtypeFilter` array; Frog and Otter joined the vocabulary) and the trailing "Untap them." folded onto the pump the way "Untap it." already was (`untap: true` — applyPumpEffect untaps each pumped creature). The flash-permission static and the noncreature cast watcher existed.) |
 | V10 | **Scythecat Cub** — landfall counter; "if this is the second time this ability has resolved this turn, double instead" | Shalai (+Earth Bent already at 90) | 1 | **M** | expressible after all: stamp `abilityResolutionsThisTurn[sourceId][abilityKey]` at trigger resolution, expose `thisAbilityResolvedNthTimeThisTurn` to evaluateInterveningIf, and lift the deliberate park in `effectAtoms.js` (repin its CREED test) | ✅ (+5 corpus — a per-turn ledger of each triggered ability's resolutions (`abilityResolutionsThisTurn`, keyed source:ability, bumped when the ability's stack object resolves), the intervening-if word "this is the second time this ability has resolved this turn" (reads the ledger through ctx.abilityKey — no key → false, FN-safe), the "double the number of +1/+1 counters on that creature" alternative bound to the base's chosen target, and a TARGETED conditional (the branch node carries the base's targetType so the trigger chooses one creature both branches see).) |
-| V11 | **Path of Ancestry** — commander-identity any-colour mana + "when that mana is spent to cast a creature spell that shares a type with your commander, scry 1" | Halfshell (+Mothman, Jurassic) | 1 (+2) | **M** | the mana half = colours from the commander's identity (the Cavern lane's chosen-type restriction is the sibling); the spent-rider needs the `uncounterableIfSpent`-style stamp on the cast site turned into a scry trigger — build whole or not at all (CREED) | ⬜ |
+| V11 | **Path of Ancestry** — commander-identity any-colour mana + "when that mana is spent to cast a creature spell that shares a type with your commander, scry 1" | Halfshell (+Mothman, Jurassic) | 1 (+2) | **M** | the mana half = colours from the commander's identity (the Cavern lane's chosen-type restriction is the sibling); the spent-rider needs the `uncounterableIfSpent`-style stamp on the cast site turned into a scry trigger — build whole or not at all (CREED) | ✅ (+1 corpus — built whole: `parseManaSpentRider` stamps the rider on the source, the planner's projection and tap carry it (an unlisted field there is a dropped field — the first draft lost it at the projection), the cast site reads it off the same plan the commit deducted and enqueues the land's scry for a creature spell sharing a printed creature type with a commander (command zone or battlefield; a Kindred instant never), flushed above the spell; detectTriggers recognises the sentence FIRST so coverage reconciles. **Parked beside it:** the identity mana line itself still yields any colour (Command Tower too — pre-existing).) |
 | V12 | **The extra-turn trio** — Final Fortune, Last Chance, Warrior's Oath: "Take an extra turn after this one. At the beginning of that turn's end step, you lose the game." | Killer Turts | 3 | **M** | extra turns exist (probe `extraTurns`); the delayed lose-the-game must fire on THAT turn's end step only (a `fireScope: "thatTurn"` on the delayed queue keyed to the extra turn's number) | ⬜ |
 | V13 | **Maze of Ith** — "{T}: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn." | Atraxa (×2 slots) | 2 | **M** | untap in the combat window (④-AE) + a per-creature "prevent all combat damage to and by" flag for the turn (the `noCombatDamageTurn` stamp from ④-AU is the dealer half; add the receiver half) | ⬜ |
 | V14 | **Gingerbrute / Tough Cookie** | Bumble (×2 each) | 4 | S / M | Gingerbrute: "can't be blocked this turn except by creatures with haste" = the except-by keyword filter with `Haste` added to the allowlist (S). Tough Cookie: "target noncreature artifact you control becomes a 4/4 artifact creature until end of turn" = the animate lane on a chosen artifact (M) | ⬜ |
@@ -398,7 +398,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | Q1 | Double Jump // Flying Kick | split | L (V1 slice 3) | | ⬜ |
-| Q2 | Arcade Cabinet · Path of Ancestry | | V8 / V11 | | 🔄 Arcade Cabinet ✅ · Path of Ancestry V11 |
+| Q2 | Arcade Cabinet · Path of Ancestry | | V8 / V11 | | ✅ |
 | Q3 | Casey Jones · Ray Fillet · Together Forever · Tokka & Rahzar · Baxter · Heroes in a Half Shell · Coin of Mastery · Raphael | counters-matter triggers and statics | S / S / M / S / S / M / M / M | Casey Jones = a counters-placed batch event (exists: countersPlaced) + damage; Ray Fillet = combat damage by a creature with a counter → draw; Raphael = a damage doubler filtered by "with counters" | ⬜ |
 | Q4 | Big Apple · Big Mother Mouser · Shellshock · Swift Demise · Wave Goodbye · Continue? · Exploding Barrel · Everything Pizza · Endless Foot Assault · Splinter · Foot Chopper · Mole Module · Bebop · Tempestra · Irma · Dimension X Pizzasaur · Donatello | | S–M | Shredder's per-opponent copies = M; Irma's combat-start copy = M; Donatello's Mutagen replacement shares F4's seam | ⬜ |
 | Q5 | COMPOSITE | Fast Forward · Rat King · Lita · Turtle Lair · Special Move · Vigor · Krang | size on approach | | ⬜ |
@@ -468,6 +468,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — V11 (Path of Ancestry) ✅ +1 corpus · 7/7 mutations killed against a green witness (the rider never parsing, the planner projection dropping it, the type-sharing check ignored, the detector arm removed, the tap record dropping it, the command zone ignored, the creature-spell gate removed — pinned on a Kindred instant) · suite 1429 files / 15,783 tests · corpus 14,316 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — V10 (Scythecat Cub) ✅ +5 corpus · 7/7 mutations killed against a green witness (the ledger never bumping, 'second' read as 'at least once', the key not stamped, the key not threaded into the branch evaluator, the sentinel arm removed, the branch node carrying no target, the chooser seeing the conditional as ambiguous) · suite 1428 files / 15,774 tests · corpus 14,315 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 

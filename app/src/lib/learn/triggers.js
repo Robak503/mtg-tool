@@ -803,6 +803,16 @@ function classifyCondition(condRaw, cardName, cardType) {
   // and is EXCLUDED — it routes as a normal ETB, which DOES fire on the face-up hard cast (correctly modeled).
   const firstCondClause = c.split(",")[0].trim();
   if (/\bis turned face up$/.test(firstCondClause) && !/\benters?\b/.test(firstCondClause)) return null;
+  // ===== MANA-SPENT RIDER (SHELF-85 V11, 2026-09-04 — Path of Ancestry "{T}: Add one mana of any color in your
+  // commander's color identity. When that mana is spent to cast a creature spell that shares a creature type with your
+  // commander, scry 1.") ===== a reflexive trigger on the mana this source made. NO event checker fires it: the mana
+  // model stamps `spentRider` on the source, the payment plan carries it on the tap, and the CAST SITE (actionDispatcher)
+  // enqueues the trigger when the cast spell qualifies. Detected here — FIRST, ahead of the cast-family gates that
+  // would otherwise refuse a condition mentioning "cast" — so coverage's trigger reconciliation sees the sentence as
+  // modeled. Exactly this printing, nothing wider.
+  if (/^that mana is spent to cast a creature spell that shares a creature type with your commander$/.test(c)) {
+    return { event: "manaSpentRider", scope: "self", whose: "any", manaSpentRider: true };
+  }
   // BECOMES-MONSTROUS (CR 701.32d — SHELF S7, the Alpha Deathclaw lift): the event now EXISTS —
   // applyMonstrosity fires checkBecomesMonstrousTriggers on the real transition, and the compound
   // "enters or becomes monstrous" splits via DISJUNCTION_MONSTROUS into two sentences pre-detection.

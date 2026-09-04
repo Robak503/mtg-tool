@@ -336,6 +336,7 @@ function applyCastSpell(state, action) {
   // alternative cost). Read off the SAME plan as `manaSpent`, so the two can never disagree.
   let manaSpentAmount = null;
   let paidUncounterable = false; // CAP-CAVERN: the plan spent mana printed "…and that spell can't be countered" (Cavern of Souls)
+  let spentRiders = []; // SHELF-85 V11 (Path of Ancestry): taps whose mana carries a "when that mana is spent" rider
   if (action.freeCast || action.altCost) {
     working = state;
     if (action.freeCast) { manaSpent = false; manaSpentAmount = 0; }
@@ -388,6 +389,7 @@ function applyCastSpell(state, action) {
     const rEntries = state.players[action.playerId]?.restrictedMana || [];
     paidUncounterable = (plan.taps || []).some((t) => t.uncounterableIfSpent)
       || (plan.entrySpends || []).some(({ entry }) => !!rEntries[entry]?.restriction?.uncounterableIfSpent);
+    spentRiders = (plan.taps || []).filter((t) => t.spentRider).map((t) => ({ permanentId: t.permanentId, rider: t.spentRider }));
   }
   // ⭐ CONVERGE — stamp the count on STATE, the same inter-atom channel `sacrificedForCost` uses, so a SPELL's
   // scaling atoms can read it at resolution (countForSpec's colorsSpentThisSpell kind). The permanent-ETB path
@@ -864,6 +866,34 @@ function applyCastSpell(state, action) {
   // not at a later checkpoint, so they resolve BEFORE the spell — correct order, and the
   // right thing for any future referential effect).
   next = recordSpellCast(next, { playerId: action.playerId, spellCard: castCard }); // TRIG-CAST2: count this cast BEFORE firing, so "your second spell each turn" sees the running total
+  // SHELF-85 V11 (2026-09-04 — Path of Ancestry): mana with a "when that mana is spent to cast a creature spell that
+  // shares a creature type with your commander, scry 1" rider was spent on THIS cast (read off the same plan the commit
+  // deducted). A qualifying spell — a creature sharing a printed creature type with one of the caster's commanders
+  // (command zone or battlefield, CR 903.3) — enqueues the land's reflexive scry, flushed with the cast triggers below.
+  if (spentRiders.length && /\bCreature\b/.test(String(castCard?.type || castCard?.type_line || ""))) {
+    const subtypesOf = (c) => { const tl = String(c?.type || c?.type_line || ""); const i = tl.indexOf("—"); return i < 0 ? [] : tl.slice(i + 1).split(" // ")[0].split(/\s+/).filter(Boolean); };
+    const caster = next.players[action.playerId];
+    const commanderCards = [...(caster.command || []), ...(caster.battlefield || []).filter((p) => p.card?.isCommander).map((p) => p.card)];
+    const commanderTypes = new Set(commanderCards.flatMap(subtypesOf));
+    const shares = subtypesOf(castCard).some((t) => commanderTypes.has(t));
+    if (shares) {
+      const fired = [];
+      for (const { permanentId, rider } of spentRiders) {
+        if (rider?.kind !== "scry") continue;
+        const src = (caster.battlefield || []).find((p) => p.id === permanentId);
+        const sourceText = "When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1";
+        fired.push({
+          event: "manaSpentRider",
+          source: { permanentId, cardId: src?.card?.id ?? null, name: src?.card?.name ?? "Path of Ancestry" },
+          controller: action.playerId,
+          descriptor: { event: "manaSpentRider", scope: "self", whose: "any", effectClause: `scry ${rider.amount}`, sourceText, interveningIf: null, optional: false, effectHasX: false, oncePerTurnTrigger: false },
+          context: { sourcePermanentId: permanentId },
+          targets: [], optional: false, payload: {},
+        });
+      }
+      if (fired.length) next = { ...next, pendingTriggers: [...(next.pendingTriggers || []), ...fired] };
+    }
+  }
   next = checkCastTriggers(next, { spellCard: castCard, casterId: action.playerId, targets, xValue: action.xValue, stackObjectId: stkId, castFromZone: action.fromZone || "hand", manaSpent, manaSpentAmount }); // SELF-CAST: thread the chosen X so a "When you cast this spell" half-X/X payoff (Hydroid Krasis) resolves at the real X; STORM: thread the spell's stack id so the storm trigger can snapshot its payload to copy; ADVENTURE: the FACE cast (so "cast an Adventure spell" matches); CAST-FROM-NONHAND (Vega, K1): the action's source zone gates the from-anywhere-but-hand watchers
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // BECOMES-TARGET (CR 603.2 — the Phantasmal Illusion family): if this spell targets one or more permanents
