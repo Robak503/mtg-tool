@@ -3,6 +3,15 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · S7: MOBILIZER MECH — the becomes-crewed event · **+1** · corpus 14,379 (42.0%) / 34,245 (42.0%)
+> Suite **triggers.js (becomesCrewed detector arm + checkBecomesCrewedTriggers) + actionDispatcher.js (fired from the crew dispatch) + effects/atoms/combat.js (up-to-one-other Vehicle animate) + mobilizerMech.test.js (5)** green; lint 0. Flip-diff **+1, zero LOST**. **4/4.**
+> · **The shape:** "Whenever this Vehicle becomes crewed, up to one other target Vehicle you control becomes an artifact
+>   creature until end of turn." — a NEW self-scoped event: the crew dispatch fires checkBecomesCrewedTriggers on the
+>   Vehicle that just became a creature (routed through triggersForEvent like every other event, so a granted
+>   becomes-crewed ability would be seen too; self scope only, the becomes-tapped discipline), and the S6 animate arm
+>   gains the "up to one other" form (the subset path + the source exclusion; printed P/T kept).
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · S5: PRODIGY'S PROTOTYPE — the Vehicles-attack batch · **+1** · corpus 14,378 (42.0%) / 34,245 (42.0%)
 > Suite **triggers.js (subtype-gated batch attack: detector arm, descriptor assembly, fire-site gate) + prodigysPrototype.test.js (6)** green; lint 0. Flip-diff **+1, zero LOST**. **3/3.**
 > · **The shape:** "Whenever one or more Vehicles you control attack, create a 1/1 colorless Pilot creature token with '…'"

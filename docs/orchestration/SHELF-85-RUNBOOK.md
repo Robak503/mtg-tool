@@ -75,14 +75,14 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Teval, the Balanced Scale Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Nekusar Wheels | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Shorikai Vehicles | 79 | 6 | 11 | ⬜ Phase 2 |
+| Test | Shorikai Vehicles | 80 | 5 | 10 | ⬜ Phase 2 |
 | Test | Shalai and Hallar Test | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Otharri Test | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 69 | 16 | 21 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 66 | 19 | 24 | ⬜ Phase 2 |
 
-**11 decks below 85 · 149 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**11 decks below 85 · 148 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -308,7 +308,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | S4 | Parhelion II | attacks → two 4/4 Angel tokens tapped and attacking | S | token ETB "tapped and attacking" rider (Endless Foot Assault wants it too) | ✅ (+2 corpus — the fixed-count token arm's trailing "that are [tapped and] attacking" rider, peeled before the main match; applyCreateToken registers the minted tokens as attackers against the trigger's defender. Unplanned twin audited whole-card: Leonin Warleader (the tapped form).) |
 | S5 | Prodigy's Prototype | "whenever one or more Vehicles you control attack" → Pilot token with a quoted crew ability | M | batch attack event by type + quoted-grant token | ✅ (+1 corpus — the once-per-combat batch (youAttack) gains a subtype gate: `attackerSubtype` on the descriptor (threaded through the assembly beside requireSelfAttacking — an unlisted field is dropped and a dropped gate fires on ANY attack), checked at the fire site against the declared attackers' type lines. The Pilot half is S8's gate. Curated to Vehicles; a creature-type batch is the same shape, its own slice.) |
 | S6 | Peacewalker Colossus | {1}{W}: another target Vehicle becomes an artifact creature until EOT | S | the animate lane on a chosen Vehicle (crew's twin) | ✅ (+1 corpus — a `vehicle` target pool, the "another" source exclusion, and `keepPrintedPt` on the animate applier (the Vehicle keeps its printed P/T; a 7b set would read 0/0 and bin it).) |
-| S7 | Mobilizer Mech | "whenever this Vehicle becomes crewed" → animate another Vehicle | M | a becomes-crewed event | ⬜ |
+| S7 | Mobilizer Mech | "whenever this Vehicle becomes crewed" → animate another Vehicle | M | a becomes-crewed event | ✅ (+1 corpus — a self-scoped `becomesCrewed` event fired by the crew dispatch (checkBecomesCrewedTriggers, the becomes-tapped discipline) and the S6 animate arm's "up to one other" form (subset path + source exclusion, printed P/T kept).) |
 | S8 | Shorikai, Genesis Engine | {1},{T}: draw two, discard one, create a Pilot token with a quoted crew ability | M | draw-discard + quoted-grant token | ✅ (+1 corpus — the draw-discard half already parsed; the Pilot token's QUOTED STATIC parked it: a third quoted-ability gate (parseTokenStaticAbility) canonicalizes "crews Vehicles as though its power were N greater" onto the minted token, and abilities.crewPowerBonus adds the boost at BOTH crew sites (offer + dispatch). Prodigy's Prototype mints the same Pilot and still parks on its batch attack event (S5).) |
 | S9 | Sai, Master Thopterist | {1}{U}, sacrifice two artifacts: draw | S | sacCount cost (exists) + draw | ⬜ |
 | S10 | Surgehacker Mech | ETB damage = twice the number of Vehicles you control | S | countFor permanentsYouControl subtype Vehicle × per 2 | ✅ (+2 corpus — the count-damage lane gains a `twice` multiplier (per 2), the Vehicle subtype on the curated count table, and the opponent-scoped creature-or-planeswalker target. Unplanned twin audited whole-card: Jet, Freedom Fighter (the plain creature count; its dies trigger was already modeled).) |
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · S7 (Mobilizer Mech — Shorikai) ✅ +1 corpus · 4/4 · suite triggers.js (becomesCrewed detector arm + checkBecomesCrewedTriggers) + actionDispatcher.js (fired from the crew dispatch) + effects/atoms/combat.js (up-to-one-other Vehicle animate) + mobilizerMech.test.js (5) · corpus 14,379 (42.0%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — Phase 2 · S5 (Prodigy's Prototype — Shorikai) ✅ +1 corpus · 3/3 · suite triggers.js (subtype-gated batch attack: detector arm, descriptor assembly, fire-site gate) + prodigysPrototype.test.js (6) · corpus 14,378 (42.0%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 

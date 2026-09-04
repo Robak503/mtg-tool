@@ -2457,9 +2457,11 @@ export function animateClauseParser(clause) {
   // the Vehicle's PRINTED power/toughness kept (keepPrintedPt — no 7b set; a set would read 0/0 and kill it). "another"
   // excludes the source (CR 109.5 — Peacewalker is itself a Vehicle). The controller restriction and the `vehicle`
   // predicate scope the pool to the controller's Vehicles.
-  const anmVeh = t.match(/^(another )?target vehicle you control becomes an artifact creature until end of turn$/);
+  // S7 (Mobilizer Mech "up to one other target Vehicle you control …"): the up-to-one form rides the subset path
+  // (maxTargets 1 / minTargets 0) with the same source exclusion.
+  const anmVeh = t.match(/^(another |up to one other )?target vehicle you control becomes an artifact creature until end of turn$/);
   if (anmVeh) {
-    return { op: "animate", targetType: "vehicle", restrictions: [{ kind: "controller", who: "you" }], ...(anmVeh[1] ? { excludeSource: true } : {}), keepPrintedPt: true, subtypes: [], cardTypes: ["Artifact"], grantKeywords: [], duration: "endOfTurn" };
+    return { op: "animate", targetType: "vehicle", restrictions: [{ kind: "controller", who: "you" }], ...(anmVeh[1] ? { excludeSource: true } : {}), ...(/^up to one/.test(anmVeh[1] || "") ? { maxTargets: 1, minTargets: 0 } : {}), keepPrintedPt: true, subtypes: [], cardTypes: ["Artifact"], grantKeywords: [], duration: "endOfTurn" };
   }
   const anmSelf = t.match(/^(until end of turn, )?this land becomes a (\d+)\/(\d+) (.*?)creature(?: with ([a-z, ]+?))?(?: in addition to its other types)?( until end of turn)?$/);
   if (anmSelf) {

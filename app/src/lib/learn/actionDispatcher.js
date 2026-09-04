@@ -73,7 +73,7 @@ import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./le
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf } from "./layers.js";
 import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost
-import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers
+import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers, checkBecomesCrewedTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers; S7 — becomes-crewed
 import { setPendingSoftCounterChoice, setPendingOptionalLifePaymentChoice } from "./pendingChoice.js"; // setPendingOptionalLifePaymentChoice — the shockland pause (LANDS-TIER slice 2), raised from the play-land path
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
 import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js";
@@ -1181,6 +1181,7 @@ function applyCrewVehicle(state, action) {
     source: { kind: "resolution", permanentId: vehicle.id, cardName: vehicle.card?.name || null },
   }).state;
   next = updatePermanentSafe(next, vehicle.id, (p) => ({ ...p, summoningSick: p.enteredOnTurn === next.turn }));
+  next = checkBecomesCrewedTriggers(next, vehicle.id); // S7 — "whenever this Vehicle becomes crewed" (Mobilizer Mech)
   return logEvent(next, { kind: "crew-vehicle", playerId: action.playerId, permanentId: vehicle.id, cardName: vehicle.card?.name, tapped: action.tapIds });
 }
 

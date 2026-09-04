@@ -1601,6 +1601,15 @@ function classifyCondition(condRaw, cardName, cardType) {
       || (nameL && subj === nameL) || (shortName && subj === shortName) || (firstWord && subj === firstWord);
     if (selfRef && isSelfSubj) return { event: "becomesTapped", scope: "self", whose: "any" };
   }
+  // BECOMES-CREWED SELF (SHELF-85 S7, 2026-09-04 — Mobilizer Mech "Whenever this Vehicle becomes crewed, …"): the
+  // crew dispatch (applyCrewVehicle) fires checkBecomesCrewedTriggers on the crewed Vehicle — self scope only, the
+  // becomes-tapped discipline. "this vehicle" joins the self nouns for this arm alone.
+  if (/ becomes crewed$/.test(c)) {
+    const subj = c.replace(/\s+becomes crewed\s*$/, "").trim();
+    const isSelfSubj = subj === "this vehicle" || subj === "this permanent" || subj === "this artifact"
+      || (nameL && subj === nameL) || (shortName && subj === shortName) || (firstWord && subj === firstWord);
+    if (selfRef && isSelfSubj) return { event: "becomesCrewed", scope: "self", whose: "any" };
+  }
   // COUNTERS-PUT-ON SELF (CR 122.6) — "Whenever one or more +1/+1 counters are put on <this creature>".
   // PLURAL FORM ONLY, deliberately: "one or more … are put on" fires ONCE for the whole placement however
   // many counters land. The older SINGULAR wording ("a +1/+1 counter is put on ~" — Fathom Mage) may fire
@@ -8390,6 +8399,26 @@ export function checkCounterTriggers(state) {
   }
   if (!fired.length) return cleared;
   return { ...cleared, pendingTriggers: [...(cleared.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * SHELF-85 S7 (2026-09-04) — BECOMES CREWED (Mobilizer Mech "Whenever this Vehicle becomes crewed, …"): fired by the
+ * crew dispatch on the Vehicle that just became a creature. Self-scoped by construction (the crewed Vehicle is both
+ * the source and the triggering permanent; only scope:"self" descriptors match), routed through triggersForEvent
+ * like every other event so a GRANTED becomes-crewed ability would be seen too. Queued onto pendingTriggers for the
+ * normal flush → stack → resolve path.
+ */
+export function checkBecomesCrewedTriggers(state, vehicleId) {
+  const lk = findPermanent(state, vehicleId);
+  if (!lk) return state;
+  const fired = triggersForEvent(state, {
+    event: "becomesCrewed",
+    sourcePermanent: lk.permanent,
+    triggeringPermanent: lk.permanent,
+    descriptorFilter: (d) => d.scope === "self",
+  });
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
 export function checkTapTriggers(state) {
