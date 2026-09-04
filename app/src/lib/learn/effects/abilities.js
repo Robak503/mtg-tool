@@ -817,10 +817,45 @@ export function parseCyclingCost(card) {
  * cost, or inside a permanent's ability, never matches. The EFFECT is returned as raw text and is gated by
  * the CALLER (legalChoices requires a HIGH, NON-TARGETED program) — this parser makes no claim about it.
  */
+/**
+ * T8 — the PRINTED mana value of a card (CR 202.3): the enriched `cmc` / `mana_value` when present, else read off the
+ * mana string — each `{…}` symbol: a number is itself, a hybrid with a numeric half ({2/W}) is that number, {X} is 0 in
+ * any zone but the stack (CR 202.3e), every other symbol is 1; no mana string at all (a land) → 0. Null only for a
+ * symbol this reader cannot price, so a caller never guesses. Local on purpose: this module is a pure leaf that must
+ * not import the mana model.
+ */
+function printedManaValue(card) {
+  const enriched = card?.cmc ?? card?.mana_value;
+  if (typeof enriched === "number" && Number.isFinite(enriched)) return enriched;
+  const mana = String(card?.mana ?? card?.mana_cost ?? "").trim();
+  if (!mana) return 0;
+  let total = 0;
+  for (const [, sym] of mana.matchAll(/\{([^}]+)\}/g)) {
+    const s = sym.toUpperCase();
+    if (/^\d+$/.test(s)) total += parseInt(s, 10);
+    else if (/^\d+\/[WUBRGC]$/.test(s)) total += parseInt(s, 10);
+    else if (s === "X" || s === "Y" || s === "Z") total += 0;
+    else if (/^(?:[WUBRGCS]|[WUBRG]\/[WUBRG]|[WUBRG]\/P|[WUBRG]\/[WUBRG]\/P|C\/[WUBRG])$/.test(s)) total += 1;
+    else return null;
+  }
+  return total;
+}
+
 export function parseDiscardCostAbility(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "");
   if (/\b(?:when|whenever)\b[^.]*\b(?:cycle|discard)/i.test(oracle)) return null;
   for (const line of oracle.split("\n")) {
+    // TRANSMUTE (CR 702.53a — "Transmute [cost]" means "[Cost], Discard this card: Search your library for a card with
+    // the same mana value as this card, reveal it, put it into your hand, then shuffle. Activate only as a sorcery.";
+    // SHELF-85 T8, Tolaria West / Muddle the Mixture): the keyword IS this from-hand discard ability, so the line reads
+    // as one with the printed search spelled out at THIS card's mana value (CR 202.3 — read off the printed cost; a
+    // land's is 0) and a `sorceryOnly` flag the offer site enforces (empty stack). The reminder text is ignored.
+    const tm = line.trim().match(/^transmute\s+((?:\{[^}]+\})+)(?:\s*\([^)]*\))?\s*$/i);
+    if (tm) {
+      const mv = printedManaValue(card);
+      if (mv === null) return null; // an unreadable printed cost — never a guessed mana value
+      return { cost: tm[1], effectText: `Search your library for a card with mana value ${mv}, reveal it, put it into your hand, then shuffle.`, channel: false, reduction: null, transmute: true, sorceryOnly: true };
+    }
     // CHANNEL (CR 702.33a — "Channel [cost]: [effect]" means "[cost], Discard this card: [effect]", an
     // activated ability of a card in hand; LANDS-TIER slice 5, Otawara / the NEO legendary lands): the
     // keyword prefix is exactly that equivalence, so the line reads as the same from-hand ability with a

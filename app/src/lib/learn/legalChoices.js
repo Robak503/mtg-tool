@@ -2791,6 +2791,9 @@ function actionsDiscardAbilityFromHand(state, playerId) {
   for (const card of player.hand) {
     const ab = parseDiscardCostAbility(card);
     if (!ab) continue;
+    // T8 — transmute is "Activate only as a sorcery" (CR 702.53a): main phase + priority are gated above; the
+    // remaining sorcery-timing condition is an EMPTY stack (CR 307.1 via 602.5d).
+    if (ab.sorceryOnly && (state.stack || []).length) continue;
     const cost = reduceDiscardAbilityCost(state, playerId, parseManaCost(ab.cost), ab.reduction);
     if (cost.hasX) continue;                       // an X cost needs the X-choice expansion
     if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;

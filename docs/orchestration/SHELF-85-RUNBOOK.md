@@ -72,7 +72,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
-| Test | Teval, the Balanced Scale Test | 84 | 1 | 6 | ⬜ Phase 2 |
+| Test | Teval, the Balanced Scale Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Brago Blink | 79 | 6 | 11 | ⬜ Phase 2 |
 | Test | Nekusar Wheels | 76 | 9 | 14 | ⬜ Phase 2 |
 | Test | Shorikai Vehicles | 72 | 13 | 18 | ⬜ Phase 2 |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 65 | 20 | 25 | ⬜ Phase 2 |
 
-**14 decks below 85 · 174 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**13 decks below 85 · 173 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -248,7 +248,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | T5 | Thespian's Stage | "{2}, {T}: this land becomes a copy of target land, except it has this ability" | L | the copy lane on a land (Shifting Woodland / Mycosynth Gardens share it) | ⬜ |
 | T6 | Demolition Field | sac: destroy target nonbasic land an opponent controls; then each of you searches for a basic | M | destroy nonbasic land + the two-sided basic tutor rider | ✅ (+1 corpus — the removal-rider fold learned the possessive subject ("that land's controller may search …", the Path to Exile rider untapped); the trailing "You may search …" is the optional basic tutor the fold already hands back as its own atom; the destroy-nonbasic-land target and the sacrifice-this-land cost existed.) |
 | T7 | Tasigur, the Golden Fang | mill two, return a nonland card of an opponent's choice | M | an opponent's-choice pick (the AI policy: worst card) | ✅ (+1 corpus — the non-targeted single return (④-AA) learned "of an opponent's choice": the milled-pick pause is aimed at the controller's first opponent with a new `owner` seat (the controller's graveyard → the controller's hand), candidates worst-first so the AI's deterministic first pick is the least-wanted card; "nonland" joined the graveyard-filter vocabulary as the one admitted negation. Delve was already credited.) |
-| T8 | Tolaria West | transmute | M | a discard-from-hand tutor by mana value (the channel lane's cousin) | ⬜ |
+| T8 | Tolaria West | transmute | M | a discard-from-hand tutor by mana value (the channel lane's cousin) | ✅ (+1 corpus — the from-hand discard lane (cycling generalized; the NEO Channel lands) reads a "Transmute {cost}" keyword line as the ability it is (CR 702.53a): the search is spelled out at THIS card's printed mana value (a land's is 0) and a `sorceryOnly` flag holds the offer to an empty stack. Tolaria West is a full land; the thirteen other transmute carriers gain the lane at runtime with no tier change.) |
 | T9 | Breach the Multiverse | each player mills ten; for each player choose a creature/planeswalker card from their graveyard, put onto the battlefield under your control… they're Phyrexian | L | mass mill + multi-graveyard picks + control | ⬜ |
 | T10 | Six | during your turn, nonland permanent cards in your graveyard have retrace | L | retrace (cast from graveyard by discarding a land) | ⬜ |
 | T11 | Overlord of the Balemurk | impending + mill four, return a non-Avatar creature or planeswalker card | L | impending is a subsystem | ⬜ |
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · T8 (Tolaria West — Teval) ✅ +1 corpus · 5/5 · suite effects/abilities.js (transmute arm + printedManaValue) + coverage.js (line regex) + legalChoices.js (sorcery-only stack gate) + tolariaWest.test.js (9) · corpus 14,347 (41.9%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — Phase 2 · T7 (Tasigur, the Golden Fang — Teval) ✅ +1 corpus · 5/5 · suite spellEffects.js ("nonland" graveyard filter) + effects/atoms/zones.js (opponent's-choice pick) + pendingChoice.js / effects/runProgram.js (milled-pick `owner` seat) + learnSession.js ("Give" label) + tasigur.test.js (8) · corpus 14,346 (41.9%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6; a rerun at 15:22Z died in 4s with 0 steps); pushed with the stack once a run can start.
 

@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · T8: TOLARIA WEST — transmute is the from-hand discard ability · **+1** · corpus 14,347 (41.9%) / 34,245 (41.9%)
+> Suite **effects/abilities.js (transmute arm + printedManaValue) + coverage.js (line regex) + legalChoices.js (sorcery-only stack gate) + tolariaWest.test.js (9)** green; lint 0. Flip-diff **+1, zero LOST**. **5/5.**
+> · **The shape:** "Transmute {1}{U}{U}" — CR 702.53a defines the keyword as "{cost}, Discard this card: Search your
+>   library for a card with the same mana value as this card, reveal it, put it into your hand, then shuffle. Activate
+>   only as a sorcery." The from-hand discard lane (cycling generalized; the NEO Channel lands) now reads the keyword
+>   line as that ability with the search spelled out at THIS card's printed mana value (a leaf-safe reader: enriched
+>   cmc, else the mana string; {X} = 0, CR 202.3e; a land = 0) and a `sorceryOnly` flag the offer site enforces as an
+>   empty stack. The coverage line regex admits the transmute line under the SAME predicate the offer uses. Spells
+>   already credited transmute as cost-only; they gain the lane at runtime with no tier change.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · T7: TASIGUR — "a nonland card of an opponent's choice" · **+1** · corpus 14,346 (41.9%) / 34,245 (41.9%)
 > Suite **spellEffects.js ("nonland" graveyard filter) + effects/atoms/zones.js (opponent's-choice pick) + pendingChoice.js / effects/runProgram.js (milled-pick `owner` seat) + learnSession.js ("Give" label) + tasigur.test.js (8)** green; lint 0. Flip-diff **+1, zero LOST**. **5/5.**
 > · **The shape:** "{2}{G/U}{G/U}: Mill two cards, then return a nonland card of an opponent's choice from your graveyard to
