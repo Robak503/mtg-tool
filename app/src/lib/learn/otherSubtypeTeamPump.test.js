@@ -53,9 +53,10 @@ describe("parsing — the printed word order, and the ones that already worked",
   });
 
   it("⛔ a NON-CURATED subtype still parks — the allowlist is the CREED gate", () => {
-    // "Otters" is not in COUNT_SUBTYPE. A generic [a-z]+ subtype would let any word become a type-line
-    // filter, which is the target-anything failure this allowlist exists to prevent.
-    expect(atomOf("other Otters you control get +1/+1 until end of turn")).toBeNull();
+    // "Wumpuses" is not in COUNT_SUBTYPE. A generic [a-z]+ subtype would let any word become a type-line
+    // filter, which is the target-anything failure this allowlist exists to prevent. (This pin used "Otters"
+    // until SHELF-85 V9, 2026-09-04, when Otter joined the curated vocabulary for Valley Floodcaller.)
+    expect(atomOf("other Wumpuses you control get +1/+1 until end of turn")).toBeNull();
   });
 });
 

@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 V9: Valley Floodcaller (+1)** · suite **1427 files / 15,766 tests** green · corpus 14,310 / 34,245 (41.8%) · flip-diff +1 / 0 lost · 6/6 mutations killed against a green witness (the fold removed, the keep-together rule removed, the untap not stamped, the curated-word gate removed, Frog/Otter removed, the tokenizer regressed)
+
+> A four-subtype team pump that also untaps the team. Next row by the runbook's §2: V10 (Scythecat Cub — Shalai).
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 V8: Arcade Cabinet (+5)** · suite **1426 files / 15,760 tests** green · corpus 14,309 / 34,245 (41.8%) · flip-diff +5 / 0 lost · 5/5 mutations killed against a green witness (token removed from the sacrifice types, the token branch matching any permanent, the doubler arm removed, the resolver doubling +1/+1 only, the resolver adding one instead of the current amount)
 
 > "Sacrifice a token" as a cost and the all-kinds counter doubler on a chosen creature. Next row by the runbook's §2:

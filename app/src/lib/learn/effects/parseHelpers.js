@@ -174,6 +174,9 @@ export const COUNT_SUBTYPE = {
   knight: "Knight", knights: "Knight", dragon: "Dragon", dragons: "Dragon", beast: "Beast", beasts: "Beast",
   merfolk: "Merfolk", wolf: "Wolf", wolves: "Wolf", bird: "Bird", birds: "Bird", snake: "Snake", snakes: "Snake",
   dog: "Dog", dogs: "Dog", elemental: "Elemental", elementals: "Elemental", rat: "Rat", rats: "Rat",
+  // SHELF-85 V9 (2026-09-04, Valley Floodcaller "Birds, Frogs, Otters, and Rats you control"): both words appear only
+  // in the creature-subtype half of a type line (no collision with a card type or supertype).
+  frog: "Frog", frogs: "Frog", otter: "Otter", otters: "Otter",
   // SG-1 (2026-09-03, The Unbeatable Squirrel Girl — "X is the number of Squirrels you control"): one corpus
   // carrier; "Squirrel" appears only in the creature-subtype half of a type line (no collision, verified).
   squirrel: "Squirrel", squirrels: "Squirrel",

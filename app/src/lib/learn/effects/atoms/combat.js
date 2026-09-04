@@ -2102,6 +2102,19 @@ export function pumpClauseParser(clause) {
   // corpus prints the trailing form with a subtype). Both halves already existed — the generic arm above
   // takes a leading "other", this arm takes the subtype — and only their COMBINATION was missing, so every
   // card printing it parked. Either spelling sets the same excludeSource flag; CR 113.7 draws no distinction.
+  // SHELF-85 V9 (2026-09-04 — Valley Floodcaller "Birds, Frogs, Otters, and Rats you control get +1/+1 until end of
+  // turn[ and untap them]"): a comma/and LIST of curated subtypes onto the `subtypeFilter` ARRAY the youControl
+  // gatherer already accepts (Whelming Wave's precedent). Every listed word must be curated (COUNT_SUBTYPE) or the whole
+  // clause is null → low → Arbiter. The optional " and untap them" tail is splitClauses' fold of the trailing
+  // "Untap them." sentence — the same untap:true applyPumpEffect honours for the single-target combat tricks, applied
+  // to each pumped creature of the set locked at resolution (CR 611.2c). No keyword grant, no exclusion: the exact shape.
+  const tl = t.match(/^([a-z]+(?:, [a-z]+)*,? and [a-z]+) you control get ([+-]\d+)\/([+-]\d+) until end of turn( and untap them)?$/);
+  if (tl) {
+    const words = tl[1].split(/\s*,\s*(?:and\s+)?|\s+and\s+/).map((w) => w.trim()).filter(Boolean); // the Oxford ", and" is one separator
+    const subtypes = words.map((w) => COUNT_SUBTYPE[w]);
+    if (words.length < 2 || subtypes.some((s) => !s)) return null;
+    return { op: "pump", scope: "youControl", subtypeFilter: subtypes, ptDelta: { p: parseInt(tl[2], 10), t: parseInt(tl[3], 10) }, ...(tl[4] ? { untap: true } : {}) };
+  }
   let ts = t.match(/^(?:(other) )?([a-z]+) you control(?: (other than this creature))? get ([+-]\d+)\/([+-]\d+)(?: and gain (.+))? until end of turn$/);
   if (ts) {
     const subtype = COUNT_SUBTYPE[ts[2]];

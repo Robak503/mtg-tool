@@ -3,6 +3,15 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — V9: VALLEY FLOODCALLER — the multi-subtype team pump and "Untap them." · **+1** · corpus 14,310 / 34,245 (41.8%)
+> Suite **1427 files / 15,766 tests** green; lint 0. Flip-diff **+1, zero LOST**. **6/6 mutations killed against a green witness (the fold removed, the keep-together rule removed, the untap not stamped, the curated-word gate removed, Frog/Otter removed, the tokenizer regressed).**
+> · **The shape:** the flash-permission static and the noncreature cast watcher existed. The team-pump arm took ONE
+>   curated subtype; it now takes a comma/and list ("Birds, Frogs, Otters, and Rats you control") onto the
+>   `subtypeFilter` ARRAY the gatherer already accepts (Frog and Otter joined the vocabulary). The trailing "Untap them."
+>   is folded onto the pump sentence exactly as "Untap it." is for the single-target combat tricks — the same
+>   `untap: true`, and applyPumpEffect untaps each pumped creature (the set locked at resolution, CR 611.2c).
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — V8: ARCADE CABINET — "Sacrifice a token" and the all-kinds counter doubler · **+5** · corpus 14,309 / 34,245 (41.8%)
 > Suite **1426 files / 15,760 tests** green; lint 0. Flip-diff **+5, zero LOST**. **5/5 mutations killed against a green witness (token removed from the sacrifice types, the token branch matching any permanent, the doubler arm removed, the resolver doubling +1/+1 only, the resolver adding one instead of the current amount).**
 > · **The shape:** two cells. The activation cost "Sacrifice a token" joins the sacrifice-other lane as type `token`,

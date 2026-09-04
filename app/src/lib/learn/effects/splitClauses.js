@@ -88,6 +88,11 @@ export function splitClauses(oracle) {
     // the untap to the SAME single target ("it" = the pumped creature) rather than orphaning it into a
     // separate, unbindable "untap it" clause. Only a +N/+N-with-keyword pump (the exact combat-trick shape).
     .replace(/(gets [+-]\d+\/[+-]\d+ and gains [^.]*?\buntil end of turn)\.\s+untap it\b\.?/gi, "$1 and untap it")
+    // SHELF-85 V9 (2026-09-04 — Valley Floodcaller "Birds, Frogs, Otters, and Rats you control get +1/+1 until end of
+    // turn. Untap them."): the TEAM twin of the fold above — a trailing "Untap them." binds to the subtype-listed team
+    // pump it follows, so pumpClauseParser's multi-subtype arm stamps untap:true on the same locked set. Only the
+    // exact "<Subtypes> you control get ±N/±N until end of turn" shape; anything else keeps its own boundary.
+    .replace(/((?:^|[\n.]\s*)[A-Za-z]+(?:, [A-Za-z]+)*,? and [A-Za-z]+ you control get [+-]\d+\/[+-]\d+ until end of turn)\.\s+untap them\b\.?/gi, "$1 and untap them")
     // HELD-MANA — fold the printed duration sentence onto the add that made the mana: "Add {R}. This mana
     // lasts until end of combat." → "add {R} lasting until end of combat". Without the fold the period splits
     // it in two and the duration is orphaned into an unbindable clause, which is precisely how a plain,
@@ -469,6 +474,12 @@ export function splitClauses(oracle) {
     // could do. The parser arm and this guard must recognize the SAME shapes; teaching only one of them is
     // how a form ends up parsing perfectly in isolation and failing on the actual card.
     if (/^(?:other )?[a-z]+s you control (?:other than this creature )?get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // SHELF-85 V9 (2026-09-04 — Valley Floodcaller "Birds, Frogs, Otters, and Rats you control get +1/+1 until end of
+    // turn[ and untap them]"): the SUBTYPE LIST is one team-pump subject — its commas and " and " are internal, not
+    // clause boundaries — and the folded " and untap them" tail belongs to the same instruction. Keep the whole
+    // sentence so pumpClauseParser's multi-subtype arm binds list + pump + untap together (the arm re-gates every
+    // listed word against the curated vocabulary; an uncurated word parks the card).
+    if (/^[a-z]+(?:, [a-z]+)*,? and [a-z]+ you control get [+-]\d+\/[+-]\d+ until end of turn(?: and untap them)?$/i.test(sentence)) { clauses.push(sentence); continue; }
     // TYPE-NEGATED TEAM PUMP + KEYWORD GRANT — the "non-<Subtype> creatures you control get +P/+T and gain KW …"
     // variant (Return of the Wildspeaker's +3/+3 mode has no keyword, so it never reaches this " and " guard;
     // this only protects the keyword-grant sibling form). The " and gain …" is INTERNAL to the one team-pump
