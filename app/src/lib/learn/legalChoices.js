@@ -55,7 +55,7 @@ function parseCastProgram(card) {
 }
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { counterClauseParser } from "./effects/atoms/stack.js";
-import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, castOnlyWhenAttacked, hasBeenAttackedThisStep, parseCyclingCost, parseCyclingLifeCost, parseDiscardCostAbility, parsePlotCost, parseCrewCost, isModeledGroupActivatedBody, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, castOnlyWhenAttacked, hasBeenAttackedThisStep, parseCyclingCost, parseCyclingLifeCost, parseDiscardCostAbility, parsePlotCost, parseCrewCost, crewPowerBonus, isModeledGroupActivatedBody, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
 // PLOT (CR 702.171): the runtime offers a card the plot special action ONLY when its NON-plot text is
 // fully native — i.e. classifyCard (which strips the plot line internally) returns a native tier. Reusing
 // the metric's OWN authority means the runtime and the coverage metric can never disagree about which plot
@@ -2010,7 +2010,7 @@ function actionsCrewVehicle(state, playerId) {
     for (const c of crewPool) {
       if (power >= n) break;
       tapIds.push(c.id);
-      power += Math.max(0, creaturePower(c, state)); // CR 107.1b — negative power contributes 0
+      power += Math.max(0, creaturePower(c, state) + crewPowerBonus(c.card)); // CR 107.1b — negative power contributes 0; S8 — "crews as though its power were N greater"
       if (!c.summoningSick || permanentHasKeyword(state, c.id, "Haste")) allSick = false;
     }
     if (power < n) continue; // can't meet the crew total

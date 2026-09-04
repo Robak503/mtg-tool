@@ -72,7 +72,7 @@ import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses · LANDS-5: the ONE discard-ability price reducer the offer uses too
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf } from "./layers.js";
-import { parseCrewCost, parseDiscardCostAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch
+import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost
 import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers
 import { setPendingSoftCounterChoice, setPendingOptionalLifePaymentChoice } from "./pendingChoice.js"; // setPendingOptionalLifePaymentChoice — the shockland pause (LANDS-TIER slice 2), raised from the play-land path
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
@@ -1161,7 +1161,7 @@ function applyCrewVehicle(state, action) {
     if (!c || c.controller !== action.playerId || c.permanent.tapped || !permanentIsCreature(state, id)) {
       throw new DispatcherError(`Crew member ${id} is not a live untapped creature you control`, "BAD_TARGET");
     }
-    power += Math.max(0, creaturePower(c.permanent, state));
+    power += Math.max(0, creaturePower(c.permanent, state) + crewPowerBonus(c.permanent.card)); // S8 — the Pilot's "as though its power were N greater"
   }
   if (power < n) throw new DispatcherError(`Crew total power ${power} < ${n}`, "CREW_SHORT");
   let next = state;

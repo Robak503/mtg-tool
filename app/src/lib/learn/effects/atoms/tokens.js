@@ -7,7 +7,7 @@ import { tokenMultiplier, tokenAdditive, tokenExtraKinds, applyCounterDoubling }
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec, halveAmount } from "./shared.js";
-import { SMALL_NUM, NUM_WORD, parseCountSource, parseTokenManaAbility, parseTokenTriggeredAbility, parseTokenKeywords, BASIC_LAND_SUBTYPES } from "../parseHelpers.js"; // seam batch 18/19: shared parse helpers (leaf, cycle-free) for create-named-token + create-token clause parsers
+import { SMALL_NUM, NUM_WORD, parseCountSource, parseTokenManaAbility, parseTokenTriggeredAbility, parseTokenStaticAbility, parseTokenKeywords, BASIC_LAND_SUBTYPES } from "../parseHelpers.js"; // seam batch 18/19: shared parse helpers (leaf, cycle-free) for create-named-token + create-token clause parsers
 
 /**
  * ===== TOKENS ===== Build a token's type line from its descriptor ("colorless thopter artifact"
@@ -892,7 +892,7 @@ function createTokenClauseParserCore(clause) {
     // fires them); a non-quoted phrase → the keyword path. The quote disambiguates ability-vs-keyword; a quoted
     // ability outside BOTH curated gates → null → low → Arbiter (CREED — never a token carrying an unfired ability).
     if (/^["“']/.test(m[6].trim())) {
-      const tokenOracle = parseTokenManaAbility(m[6]) || parseTokenTriggeredAbility(m[6]);
+      const tokenOracle = parseTokenManaAbility(m[6]) || parseTokenTriggeredAbility(m[6]) || parseTokenStaticAbility(m[6]); // S8: the Pilot's crew boost
       return tokenOracle ? { ...base, tokenOracle } : null;
     }
     // CHANGELING (CR 702.73a — the token is EVERY creature type): "with changeling" is an ability-defining

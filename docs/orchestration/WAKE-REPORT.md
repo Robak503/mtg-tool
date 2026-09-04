@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · S8: Shorikai, Genesis Engine (+1)** · suite **effects/parseHelpers.js (parseTokenStaticAbility) + effects/atoms/tokens.js (third quoted gate) + effects/abilities.js (crewPowerBonus) + legalChoices.js / actionDispatcher.js (the boost at both crew sites) + shorikaiGenesisEngine.test.js (4)** green · corpus 14,377 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 4/4
+
+> The deck's COMMANDER is native: the loot and a Pilot whose quoted static boosts crewing. **Shorikai 78 (needs 7).** Next by §2: S5 Prodigy's Prototype (the "one or more Vehicles you control attack" batch — the Pilot half is done), S7 Mobilizer Mech (a becomes-crewed event), S11 Permission Denied, S12 Emry, S13 The Indomitable.
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · S6 + S16: Peacewalker Colossus / Dispatch (+2)** · suite **effects/parser.js (additive targeted conditional) + effects/atoms/removal.js (sentinel exile/destroy) + effects/atoms/combat.js (Vehicle animate + keepPrintedPt) + spellEffects.js (vehicle pool; source exclusion on permanent pools) + shorikaiS6S16.test.js (8)** green · corpus 14,376 (42.0%) / 34,245 (42.0%) · flip-diff +2 / 0 lost · 6/6
 
 > The chosen-Vehicle animate and the additive metalcraft conditional. **Shorikai 77 (needs 8); the one-arm S rows are done (S9 Sai parks on a real which-artifacts pick).** Next by §2: the M rows — S8 Shorikai (draw-discard + a quoted-grant Pilot token), S5 Prodigy's Prototype, S7 Mobilizer Mech, S11 Permission Denied, S12 Emry, S13 The Indomitable.

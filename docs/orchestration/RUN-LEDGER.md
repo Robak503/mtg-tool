@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · S8: SHORIKAI, GENESIS ENGINE — the commander's loot and its Pilot · **+1** · corpus 14,377 (42.0%) / 34,245 (42.0%)
+> Suite **effects/parseHelpers.js (parseTokenStaticAbility) + effects/atoms/tokens.js (third quoted gate) + effects/abilities.js (crewPowerBonus) + legalChoices.js / actionDispatcher.js (the boost at both crew sites) + shorikaiGenesisEngine.test.js (4)** green; lint 0. Flip-diff **+1, zero LOST**. **4/4.**
+> · **The shape:** "{1}, {T}: Draw two cards, then discard a card. Create a 1/1 colorless Pilot creature token with 'This
+>   token crews Vehicles as though its power were 2 greater.'" — the draw-discard half already parsed (the activated
+>   lane parses under an instant type); the Pilot token's QUOTED STATIC parked the whole ability. A third quoted-ability
+>   gate (parseTokenStaticAbility, beside the mana and self-dies gates) canonicalizes the crew-boost line onto the minted
+>   token's oracle, and a leaf reader (abilities.crewPowerBonus) adds the boost at BOTH crew sites — the offer's crew pool
+>   and the dispatch's power check — so a 1/1 Pilot crews a Crew 3 Vehicle alone (CR 702.122c), the two never pricing a
+>   crew differently. Prodigy's Prototype mints the same Pilot and still parks on its "one or more Vehicles attack" batch.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · S6 + S16: PEACEWALKER COLOSSUS / DISPATCH · **+2** · corpus 14,376 (42.0%) / 34,245 (42.0%)
 > Suite **effects/parser.js (additive targeted conditional) + effects/atoms/removal.js (sentinel exile/destroy) + effects/atoms/combat.js (Vehicle animate + keepPrintedPt) + spellEffects.js (vehicle pool; source exclusion on permanent pools) + shorikaiS6S16.test.js (8)** green; lint 0. Flip-diff **+2, zero LOST**. **6/6.**
 > · **S6 Peacewalker Colossus** — "{1}{W}: Another target Vehicle you control becomes an artifact creature until end of

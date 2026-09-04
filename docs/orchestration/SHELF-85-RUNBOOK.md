@@ -75,14 +75,14 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Teval, the Balanced Scale Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Nekusar Wheels | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Shorikai Vehicles | 77 | 8 | 13 | ⬜ Phase 2 |
+| Test | Shorikai Vehicles | 78 | 7 | 12 | ⬜ Phase 2 |
 | Test | Shalai and Hallar Test | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Otharri Test | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 69 | 16 | 21 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 66 | 19 | 24 | ⬜ Phase 2 |
 
-**11 decks below 85 · 151 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**11 decks below 85 · 150 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -309,7 +309,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | S5 | Prodigy's Prototype | "whenever one or more Vehicles you control attack" → Pilot token with a quoted crew ability | M | batch attack event by type + quoted-grant token | ⬜ |
 | S6 | Peacewalker Colossus | {1}{W}: another target Vehicle becomes an artifact creature until EOT | S | the animate lane on a chosen Vehicle (crew's twin) | ✅ (+1 corpus — a `vehicle` target pool, the "another" source exclusion, and `keepPrintedPt` on the animate applier (the Vehicle keeps its printed P/T; a 7b set would read 0/0 and bin it).) |
 | S7 | Mobilizer Mech | "whenever this Vehicle becomes crewed" → animate another Vehicle | M | a becomes-crewed event | ⬜ |
-| S8 | Shorikai, Genesis Engine | {1},{T}: draw two, discard one, create a Pilot token with a quoted crew ability | M | draw-discard + quoted-grant token | ⬜ |
+| S8 | Shorikai, Genesis Engine | {1},{T}: draw two, discard one, create a Pilot token with a quoted crew ability | M | draw-discard + quoted-grant token | ✅ (+1 corpus — the draw-discard half already parsed; the Pilot token's QUOTED STATIC parked it: a third quoted-ability gate (parseTokenStaticAbility) canonicalizes "crews Vehicles as though its power were N greater" onto the minted token, and abilities.crewPowerBonus adds the boost at BOTH crew sites (offer + dispatch). Prodigy's Prototype mints the same Pilot and still parks on its batch attack event (S5).) |
 | S9 | Sai, Master Thopterist | {1}{U}, sacrifice two artifacts: draw | S | sacCount cost (exists) + draw | ⬜ |
 | S10 | Surgehacker Mech | ETB damage = twice the number of Vehicles you control | S | countFor permanentsYouControl subtype Vehicle × per 2 | ✅ (+2 corpus — the count-damage lane gains a `twice` multiplier (per 2), the Vehicle subtype on the curated count table, and the opponent-scoped creature-or-planeswalker target. Unplanned twin audited whole-card: Jet, Freedom Fighter (the plain creature count; its dies trigger was already modeled).) |
 | S11 | Permission Denied | counter noncreature; opponents can't cast noncreature spells this turn | M | a per-turn cast-type lock on opponents | ⬜ |
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · S8 (Shorikai, Genesis Engine — the COMMANDER) ✅ +1 corpus · 4/4 · suite effects/parseHelpers.js (parseTokenStaticAbility) + effects/atoms/tokens.js (third quoted gate) + effects/abilities.js (crewPowerBonus) + legalChoices.js / actionDispatcher.js (the boost at both crew sites) + shorikaiGenesisEngine.test.js (4) · corpus 14,377 (42.0%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — Phase 2 · S6 + S16 (Peacewalker Colossus / Dispatch — Shorikai) ✅ +2 corpus · 6/6 · suite effects/parser.js (additive targeted conditional) + effects/atoms/removal.js (sentinel exile/destroy) + effects/atoms/combat.js (Vehicle animate + keepPrintedPt) + spellEffects.js (vehicle pool; source exclusion on permanent pools) + shorikaiS6S16.test.js (8) · corpus 14,376 (42.0%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 

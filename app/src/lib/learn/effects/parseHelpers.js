@@ -758,3 +758,17 @@ export function parseTokenTriggeredAbility(quotedWithQuotes) {
   }
   return null;
 }
+
+/**
+ * SHELF-85 S8 / S5 (2026-09-04 — Shorikai, Genesis Engine / Prodigy's Prototype: the Pilot token "with 'This token crews
+ * Vehicles as though its power were 2 greater.'"): a token's quoted STATIC ability, canonicalized onto the minted
+ * token's oracle so the crew lane reads it (abilities.crewPowerBonus — the offer AND the dispatch add the boost, CR
+ * 702.122c "as though its power were N greater"). The one curated static; anything else → null → the token parks.
+ */
+export function parseTokenStaticAbility(quotedWithQuotes) {
+  const inner = String(quotedWithQuotes).trim()
+    .replace(/^["“'](.*)["”']$/s, "$1")
+    .trim().replace(/\.\s*$/, "");
+  const m = inner.match(/^this (?:token|creature) crews vehicles as though its power were (\d+) greater$/i);
+  return m ? `This creature crews Vehicles as though its power were ${m[1]} greater.` : null;
+}

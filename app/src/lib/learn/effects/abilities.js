@@ -950,6 +950,17 @@ export function parseWarpCost(card) {
  * (whole-card CREED). Only a Vehicle's own printed line matches; a granted/quoted "crew" never has the
  * line-anchored shape.
  */
+/**
+ * SHELF-85 S8 (2026-09-04) — CREW POWER BONUS (CR 702.122c): "This creature crews Vehicles as though its power were N
+ * greater" (the Pilot tokens Shorikai / Prodigy's Prototype mint — canonicalized by parseTokenStaticAbility). Read off
+ * the crewing permanent's card by BOTH the crew offer (legalChoices) and the crew dispatch, so the two never price a
+ * crew differently. 0 for every card without the line.
+ */
+export function crewPowerBonus(card) {
+  const m = String(card?.oracle || card?.oracle_text || "").match(/crews vehicles as though its power were (\d+) greater/i);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
 export function parseCrewCost(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "");
   const m = oracle.match(/(?:^|\n)\s*crew (\d+)\b/i);
