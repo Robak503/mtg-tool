@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · H11: Uncivil Unrest + Kutzil (+2)** · suite **1477 files / 16,063 tests** green · corpus 14,423 (42.1%) / 34,245 · flip-diff +2 / 0 lost · 8/8 killed
+
+> The counter-gated creature damage doubler (live counter read) and the above-base-power combat-damage batch (live layered dealer gate, carved out above the "with …" reject). **Shalai 80 → 82** (82/100; needs 3). Next: H12 Chaos Warp (M, shared with Nekusar N13), H11 Incubation Druid (M), then H4 Ragavan (L), Skrelv (L).
+> **CI:** GREEN on Arwen (run 33928602768); this slice pushes and is watched
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · H8: Arwen (+2)** · suite **1476 files / 16,058 tests** green · corpus 14,421 (42.1%) / 34,245 · flip-diff +2 / 0 lost · 8/8 killed (M4 survived → dead self-guard REMOVED with its parameter)
 
 > The first enters-with modifier on OTHER creatures (CR 614.1c), reader + resolver + coverage strip in lockstep. H4 Ragavan re-sized L (no mechanic casts an opponent's card). **Shalai 79 → 80** (80/100; needs 5). Next M rows: H11 (Kutzil · Skrelv · Incubation Druid · Uncivil Unrest), H12 Chaos Warp; then H4 Ragavan (L).

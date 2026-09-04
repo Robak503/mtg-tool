@@ -4639,8 +4639,11 @@ function classifyDamageReplacementBody(card) {
   const strippedCard = { ...card, oracle: stripped };
   if (detectTriggers(strippedCard).length > 0) return null;          // a trigger remains → Arbiter (CREED)
   if (parseActivatedAbilities(strippedCard).length > 0) return null; // an activated ability remains → Arbiter
-  if (!isKeywordOnly(stripped, card?.name)) return null;             // any other static/text residue → Arbiter
-  return "native-static";                                            // damage-replacement static + keyword body
+  // Residue must be keywords only — OR statics the static-cover checker models in full (SHELF-85 H11, Uncivil Unrest:
+  // the counter-gated doubler beside "Nontoken creatures you control have riot", a credited riot grant). Any other
+  // static/text residue → Arbiter.
+  if (!isKeywordOnly(stripped, card?.name) && !staticAbilitiesCoverCard(strippedCard, (c) => isKeywordOnly(c, card?.name))) return null;
+  return "native-static";                                            // damage-replacement static + keyword/modeled-static body
 }
 registerCoverageClassifier((card) => classifyDamageReplacementBody(card));
 

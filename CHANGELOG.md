@@ -11,6 +11,8 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Uncivil Unrest** — your creatures with +1/+1 counters now deal double damage
+- **Kutzil, Malamet Exemplar** — draws when your pumped or countered creatures connect
 - **Arwen, Weaver of Hope** and **Bramblewood Paragon** — your other creatures now enter with the extra +1/+1 counters they grant
 - **Hajar, Loyal Bodyguard** — sacrifice it to pump and shield only your legendary creatures
 - **Spider-Man, Miles Morales** — entering or attacking grows each other creature you control and gives them trample

@@ -76,13 +76,13 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Nekusar Wheels | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Shorikai Vehicles | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Shalai and Hallar Test | 80 | 5 | 10 | ⬜ Phase 2 |
+| Test | Shalai and Hallar Test | 82 | 3 | 8 | ⬜ Phase 2 |
 | Test | Otharri Test | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 69 | 16 | 21 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**9 decks below 85 · 122 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**9 decks below 85 · 120 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -352,7 +352,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | H8 | Arwen, Weaver of Hope | each other creature you control enters with additional counters = Arwen's toughness | M | an enters-with modifier static | ✅ (+2 with Bramblewood Paragon — the `othersEnterWithCounters` reader; the resolver reads every OTHER permanent's descriptor as a creature enters; coverage strips on the same reader. Renata stays body-only on her devotion CDA; Master Biomancer / Metallic Mimic unmatched by design) |
 | H9 | Damning Verdict | destroy all creatures with no counters on them | S | mass destroy + a `hasCounter` negation (④-AC's restriction, negated) | ✅ (+1 — the counter restriction joined the parser; the evaluator learned the negation) |
 | H10 | Hajar, Loyal Bodyguard · Boromir, Warden of the Tower | sacrifice self: team +1/+0 / indestructible | S | (Boromir's "the Ring tempts you" tail = the ring subsystem → 🅿 unless built) | ✅ Hajar (+1 — a legendary-only team pump; the splitter keep-whole takes the prefix) · 🅿 Boromir (the Ring tempts you = the ring subsystem, unbuilt) |
-| H11 | Kutzil, Malamet Exemplar · Skrelv · Incubation Druid · Uncivil Unrest · Shifting Woodland | | M / M / M / M / L | | ⬜ |
+| H11 | Kutzil, Malamet Exemplar · Skrelv · Incubation Druid · Uncivil Unrest · Shifting Woodland | | S / L / M / S / L | Kutzil = the above-base-power combat-damage BATCH (live layered dealer gate) · Uncivil Unrest = the counter-gated creature damage doubler (+ a residue the static checker models) · Incubation Druid = the "any type a land you control could produce" mana line (a new source kind) · Skrelv = colour choice + hexproof-from + can't-be-blocked-by colour · Shifting Woodland = delirium copy | ✅ Kutzil + Uncivil Unrest (+2) · ⬜ Druid (M) · ⬜ Skrelv (L) · ⬜ Woodland (L) |
 | H12 | Chaos Warp | | M | shared with Nekusar N13 | ⬜ |
 | H13 | COMPOSITE | Winds of Abandon · Skyclave Apparition · Solitude · Kami of Celebration · Galadriel's Dismissal · Innkeeper's Talent · Cloud's Limit Break · Endurance · Trouble in Pairs · Clever Concealment | size on approach | Solitude/Endurance = evoke (the composition defect report of 09-03: build the evoke composition rule once, it pays in five decks) | ⬜ |
 
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · H11 Uncivil Unrest + Kutzil (Shalai) ✅ +2 corpus · 8/8 killed · suite 1477 files / 16,063 tests · corpus 14,423 (42.1%) · shelf refreshed in §1 · CI: GREEN on Arwen (run 33928602768); this slice pushes and is watched.
 
 - 2026-09-04 — Phase 2 · H8 Arwen (Shalai; Bramblewood Paragon twin) ✅ +2 corpus · 8/8 killed (M4 survived → dead self-guard REMOVED with its parameter) · suite 1476 files / 16,058 tests · corpus 14,421 (42.1%) · shelf refreshed in §1 · H4 Ragavan re-sized L · CI: GREEN on Hajar + Spider-Man (run 33927431530); this slice pushes and is watched.
 

@@ -131,6 +131,14 @@ export function parseDamageReplacements(card) {
     out.push({ op: { op: "multiply", factor: 2 }, scope: { side: "source", controller: "you", sourceIsCreature: true } });
   }
 
+  // COUNTER-GATED creature doubler (SHELF-85 H11 — Uncivil Unrest, 2026-09-04): "If a creature you control WITH A +1/+1
+  // COUNTER ON IT would deal damage to a permanent or player, it deals double that damage instead." The plain creature arm
+  // above needs "you control would" contiguous, so this form is credited ONLY here; the filter reads the source's live
+  // counter bag at damage time (a creature that lost its counters deals single damage — pinned).
+  if (/if a creature you control with a \+1\/\+1 counter on it would deal damage[^.]*deals? double/i.test(oracle)) {
+    out.push({ op: { op: "multiply", factor: 2 }, scope: { side: "source", controller: "you", sourceIsCreature: true, sourceHasCounter: "+1/+1" } });
+  }
+
   // SELF combat-damage-to-a-player double (BLITZ CM-1 — Charging Tuskodon): "If this creature would deal combat
   // damage to a player, it deals double that damage to that player instead." Self-source, but scoped to COMBAT
   // damage dealt to a PLAYER only — its damage to blockers (creatures) and any noncombat damage are NOT doubled.
@@ -197,6 +205,7 @@ export function stripDamageReplacementClauses(oracle, card) {
   t = t.replace(/if a source you control would deal damage[^.]*deals? triple[^.]*\.?/i, " ");
   // CM-1 CREATURE-you-control double (Gratuitous Violence), whole sentence.
   t = t.replace(/if a creature you control would deal damage[^.]*deals? double[^.]*\.?/i, " ");
+  t = t.replace(/if a creature you control with a \+1\/\+1 counter on it would deal damage[^.]*deals? double[^.]*\.?/i, " "); // H11 Uncivil Unrest
   // TEMPLE ALTISAUR subtype-scoped partial prevention, whole sentence — mirrors the parse anchor.
   t = t.replace(/if a source would deal damage to another [A-Z][a-z]+ you control, prevent all but (?:\d+|one) of that damage\.?/i, " ");
   // CM-1 SELF combat-to-player double (Charging Tuskodon), whole sentence.
@@ -349,7 +358,9 @@ export function buildSourceFilter(entry, _state) {
         }
         if (!src) return false;
         const type = String(src.card?.type_line ?? src.card?.type ?? "").toLowerCase();
-        return /\bcreature\b/.test(type);
+        if (!/\bcreature\b/.test(type)) return false;
+        if (scope.sourceHasCounter && !((src.counters?.[scope.sourceHasCounter] || 0) > 0)) return false; // Uncivil Unrest's gate
+        return true;
       };
     }
     return (event) => event?.sourceController != null

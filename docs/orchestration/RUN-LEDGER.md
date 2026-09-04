@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · H11: UNCIVIL UNREST + KUTZIL — a counter-gated doubler and a live-power batch · **+2** · corpus 14,423 (42.1%) / 34,245
+> Suite **1477 files / 16,063 tests** green; lint 0. Flip-diff **+2, zero LOST** (the two cards; any unplanned gains audited whole-card). **8/8 killed.**
+> · **Uncivil Unrest:** "If a creature you control WITH A +1/+1 COUNTER ON IT would deal damage … double." The creature
+>   doubler existed; the counter form is its own reader entry with `sourceHasCounter`, checked against the source's LIVE
+>   counter bag at damage time (a creature that lost its counters deals single damage). Beside it sits "Nontoken creatures
+>   you control have riot" — a credited static — so the damage-replacement body classifier now accepts a residue the
+>   static-cover checker models in full, instead of only keyword residue. Both halves credited, both honoured.
+> · **Kutzil:** "Whenever one or more creatures you control EACH WITH POWER GREATER THAN ITS BASE POWER deals combat damage
+>   to a player, draw a card." The batch family had subtype / keyword / nontoken dealer gates; this one is a LIVE layered
+>   read (permanentPower > permanentBasePower — counters, anthems, pumps all count). Carved out ABOVE the generic "with …"
+>   reject, which had swallowed the condition silently (found by instrumenting the classifier, not by reading it — the
+>   printed singular "deals" also had to be admitted). The flag is LISTED in the descriptor assembly (the silent-drop trap).
+>   An unmodified attacker connecting alone never fires it; two modified dealers still draw exactly one card.
+> · **Shalai 80 → 82** (82/100; needs 3). Next: H12 Chaos Warp (M, shared with Nekusar N13), H11 Incubation Druid (M), then H4 Ragavan (L), Skrelv (L).
+> · **CI:** GREEN on Arwen (run 33928602768); this slice pushes and is watched
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · H8: ARWEN — the enters-with modifier on OTHER creatures · **+2** · corpus 14,421 (42.1%) / 34,245
 > Suite **1476 files / 16,058 tests** green; lint 0. Flip-diff **+2, zero LOST** (Arwen; Bramblewood Paragon — audited whole-card). **8/8 killed (M4 survived → dead self-guard REMOVED with its parameter).**
 > · **The seam:** "Each other creature you control enters with a number of additional +1/+1 counters on it equal to Arwen's

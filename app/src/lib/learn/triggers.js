@@ -24,7 +24,7 @@ import {
   logEvent, // GRANTED DIES-EXILE (Rivaz) — the graveyard→exile move logs at the dies chokepoint
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { grantedTriggeredQuotedFor, permanentHasKeyword, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, colorsOf, isModifiedPermanent } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition
+import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentPower, permanentBasePower, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, colorsOf, isModifiedPermanent } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 import { applyLifeGainReplacement } from "./replacementEffects.js"; // LIFE-GAIN replacement (CR 614.1) — read by checkLifegainTriggers so a trigger sees the life ACTUALLY gained. replacementEffects imports nothing at all, so this edge is one-way and cycle-free.
 import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
@@ -255,6 +255,7 @@ function batchDealerMatches(descriptor, dealerPerm, state = null) {
   // like the qualified-ETB keyword filter. Without state (defensive) the dealer can't be verified → no match
   // (an under-fire, never an over-fire).
   if (descriptor.batchKeyword) return state ? permanentHasKeyword(state, dealerPerm.id, descriptor.batchKeyword) : false;
+  if (descriptor.batchPowerAboveBase) return state ? permanentPower(state, dealerPerm.id) > permanentBasePower(state, dealerPerm.id) : false; // Kutzil (H11)
   return true; // unfiltered bare batch — any connecting creature qualifies
 }
 
@@ -1106,6 +1107,15 @@ function classifyCondition(condRaw, cardName, cardType) {
       }
       return null; // the batch shape with a keyword the engine can't check — Arbiter (never an over-fire)
     }
+  }
+  // ABOVE-BASE-POWER BATCH (SHELF-85 H11 — Kutzil, Malamet Exemplar, 2026-09-04): "Whenever one or more creatures you
+  // control each with power greater than its base power deals combat damage to a player, draw a card." The dealer filter
+  // is a LIVE layered read (power vs base power — counters, anthems, pumps all count; CR 208.1 base = printed/CDA), applied
+  // per connecting creature by batchDealerMatches, so an unmodified attacker connecting alone never fires it. Anchored to
+  // exactly this subject and the bare object; the printed singular "deals" is admitted alongside "deal". Carved out HERE,
+  // beside the keyword batch, because the generic "with …" reject below would otherwise swallow the condition.
+  if (/^one or more creatures you control each with power greater than its base power deals? combat damage to (?:a player|an opponent)$/.test(c)) {
+    return { event: "combatDamageBatch", scope: "you", whose: "any", batchPowerAboveBase: true };
   }
   // WITH-KEYWORD ATTACKS (BLITZ AT-1 — "Whenever a creature you control WITH <combat-kw> attacks, <effect>":
   // Stonebrow "with trample" → it gets +2/+2; Ognis "with haste" → create a tapped Treasure; Hooded Blightfang
@@ -5164,6 +5174,7 @@ export function detectTriggers(card) {
         batchNotSubtype: cls.batchNotSubtype, // NEGATED-SUBTYPE BATCH combat-damage only — lowercase creature type NOT to match (Keeper of Fables "non-Human"); layer-aware + changeling-aware dealer gate
         batchCommander: cls.batchCommander,   // COMMANDER BATCH combat-damage only (CR 903.3) — gated on the dealer's isCommander stamp, never a subtypeFilter ("Commander" is in no type line)
         batchKeyword: cls.batchKeyword,       // WITH-KEYWORD BATCH combat-damage only (Quartzwood — lowercase keyword; layer-aware dealer gate)
+        batchPowerAboveBase: cls.batchPowerAboveBase, // ABOVE-BASE-POWER BATCH (Kutzil) — live power > base power per dealer (H11)
         perDefender: cls.perDefender,         // WITH-KEYWORD BATCH only — fires once per damaged player with that pair's damage total in ctx
         attachedOnly: cls.attachedOnly,       // ATTACHED-ONLY attacks (Reyav) — the triggering attacker must carry ≥1 attachment
         minAttackers: cls.minAttackers,       // BATTALION (CR 702.101a) + "you attack with N or more creatures" — the minimum DECLARED attacker count, gated in checkAttackTriggers' once-per-combat pass. ⚠️ Unlisted here = dropped = the descriptor decays to a bare "whenever you attack" and fires off a SINGLE attacker — an over-fire, and exactly what happened on the first attempt at this slice (the trigger detected as youAttack with minAttackers undefined while looking perfectly correct).
