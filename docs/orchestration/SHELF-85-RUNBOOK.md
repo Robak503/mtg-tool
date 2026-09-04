@@ -71,8 +71,8 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Halfshell heroes | 66 | 19 | 24 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
-| Test | Test Rashmi | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
-| Test | Teval, the Balanced Scale Test | 82 | 3 | 8 | ⬜ Phase 2 |
+| Test | Test Rashmi | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
+| Test | Teval, the Balanced Scale Test | 83 | 2 | 7 | ⬜ Phase 2 |
 | Test | Brago Blink | 79 | 6 | 11 | ⬜ Phase 2 |
 | Test | Nekusar Wheels | 76 | 9 | 14 | ⬜ Phase 2 |
 | Test | Shorikai Vehicles | 72 | 13 | 18 | ⬜ Phase 2 |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 65 | 20 | 25 | ⬜ Phase 2 |
 
-**14 decks below 85 · 176 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**14 decks below 85 · 175 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -246,7 +246,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | T3 | Field of the Dead | "whenever this land or another land you control enters, if you control seven or more lands with different names, create a 2/2 Zombie" | M | landfall (self-or-another land) + a distinct-land-names intervening-if + token | ✅ (+1 corpus — the trigger already detected as a land-ETB watcher the play-land path fires, and the Zombie token parsed; the one cell was the intervening-if word "you control N or more lands with different names" — the controller's lands counted by DISTINCT name, layer-aware on land-ness.) |
 | T4 | Titania, Protector of Argoth | "whenever a land you control is put into a graveyard from the battlefield, create a 5/3 Elemental" | M | a land-dies event (the gyEnter machinery with cardType Land, fromZone battlefield) + token | ✅ (+1 corpus — the LAND twin of the artifact / enchantment "you control is put into a graveyard from the battlefield" watchers (scope `landYouControlPiG` on the permanentLeaves look-back, graveyard exit only — a bounced land never fires); the ETB land reanimate and the Elemental token already parsed.) |
 | T5 | Thespian's Stage | "{2}, {T}: this land becomes a copy of target land, except it has this ability" | L | the copy lane on a land (Shifting Woodland / Mycosynth Gardens share it) | ⬜ |
-| T6 | Demolition Field | sac: destroy target nonbasic land an opponent controls; then each of you searches for a basic | M | destroy nonbasic land + the two-sided basic tutor rider | ⬜ |
+| T6 | Demolition Field | sac: destroy target nonbasic land an opponent controls; then each of you searches for a basic | M | destroy nonbasic land + the two-sided basic tutor rider | ✅ (+1 corpus — the removal-rider fold learned the possessive subject ("that land's controller may search …", the Path to Exile rider untapped); the trailing "You may search …" is the optional basic tutor the fold already hands back as its own atom; the destroy-nonbasic-land target and the sacrifice-this-land cost existed.) |
 | T7 | Tasigur, the Golden Fang | mill two, return a nonland card of an opponent's choice | M | an opponent's-choice pick (the AI policy: worst card) | ⬜ |
 | T8 | Tolaria West | transmute | M | a discard-from-hand tutor by mana value (the channel lane's cousin) | ⬜ |
 | T9 | Breach the Multiverse | each player mills ten; for each player choose a creature/planeswalker card from their graveyard, put onto the battlefield under your control… they're Phyrexian | L | mass mill + multi-graveyard picks + control | ⬜ |
@@ -473,11 +473,13 @@ note and the Omnath list, and the run takes the next row.
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
 
-- 2026-09-05 — Phase 2 · T4 (Titania, Protector of Argoth — Teval) ✅ +1 corpus · 4/4 mutations killed against a green witness (the subject arm removed, the graveyard-exit gate removed, the controller gate removed, the type gate removed) · suite 1436 files / 15,830 tests · corpus 14,344 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
+- 2026-09-04 — Phase 2 · T6 (Demolition Field — Teval) ✅ +1 corpus · 2/2 · suite effects/spanMatchers.js (matchRemovalControllerRider admits the possessive subject "that <noun>'s controller") + demolitionField.test.js (5) · corpus 14,345 (41.9%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
-- 2026-09-05 — Phase 2 · T1c (Boggart Trawler — Teval) ✅ +5 corpus · 2/2 mutations killed against a green witness (the intent case removed — ambiguous again; the side flipped to own) · suite 1435 files / 15,824 tests · corpus 14,343 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
+- 2026-09-04 — Phase 2 · T4 (Titania, Protector of Argoth — Teval) ✅ +1 corpus · 4/4 mutations killed against a green witness (the subject arm removed, the graveyard-exit gate removed, the controller gate removed, the type gate removed) · suite 1436 files / 15,830 tests · corpus 14,344 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
-- 2026-09-05 — Phase 2 · T3 (Field of the Dead — Teval) ✅ +1 corpus · 4/4 mutations killed against a green witness (the arm removed, lands counted instead of names, non-lands counted, the threshold off by one) · suite 1434 files / 15,820 tests · corpus 14,338 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
+- 2026-09-04 — Phase 2 · T1c (Boggart Trawler — Teval) ✅ +5 corpus · 2/2 mutations killed against a green witness (the intent case removed — ambiguous again; the side flipped to own) · suite 1435 files / 15,824 tests · corpus 14,343 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
+
+- 2026-09-04 — Phase 2 · T3 (Field of the Dead — Teval) ✅ +1 corpus · 4/4 mutations killed against a green witness (the arm removed, lands counted instead of names, non-lands counted, the threshold off by one) · suite 1434 files / 15,820 tests · corpus 14,338 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — V15 (the Light-Paws Auras) ✅ +10 corpus · Phase 1 vein rows complete · 6/6 mutations killed against a green witness (the Aura noun removed from the detain frame, the attach arm removed, the pool restricted to own creatures, the resolver keeping Equip's own-creature rule, the validator refusing the attach line, the current host offered as a move) · suite 1433 files / 15,813 tests · corpus 14,337 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 

@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Demolition Field** — destroys a nonbasic land and gives both players their basic-land search, as printed
 - **Titania, Protector of Argoth** — makes her 5/3 Elemental whenever one of your lands hits the graveyard from the battlefield
 - **Boggart Trawler, Bojuka Bog** — their "exile target player's graveyard" triggers now aim at an opponent and resolve natively
 - **Field of the Dead** — makes its Zombie once you control seven or more differently named lands

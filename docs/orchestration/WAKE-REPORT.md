@@ -7,24 +7,29 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
-## 🎯 2026-09-05 (day cron) — **SHELF-85 Phase 2 · T4: Titania, Protector of Argoth (+1)** · suite **1436 files / 15,830 tests** green · corpus 14,344 / 34,245 (41.9%) · flip-diff +1 / 0 lost · 4/4 mutations killed against a green witness (the subject arm removed, the graveyard-exit gate removed, the controller gate removed, the type gate removed)
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · T6: Demolition Field (+1)** · suite **effects/spanMatchers.js (matchRemovalControllerRider admits the possessive subject "that <noun>'s controller") + demolitionField.test.js (5)** green · corpus 14,345 (41.9%) / 34,245 (41.9%) · flip-diff +1 / 0 lost · 2/2
+
+> The land-destroy with both players' basic-land searches. Next row by the runbook's §2: Teval's next open M row.
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · T4: Titania, Protector of Argoth (+1)** · suite **1436 files / 15,830 tests** green · corpus 14,344 / 34,245 (41.9%) · flip-diff +1 / 0 lost · 4/4 mutations killed against a green witness (the subject arm removed, the graveyard-exit gate removed, the controller gate removed, the type gate removed)
 
 > A land of yours going to the graveyard makes the Elemental. Next row by the runbook's §2: Teval's next open S/M row.
 > **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
 
-## 🎯 2026-09-05 (day cron) — **SHELF-85 Phase 2 · T1c: Boggart Trawler (+5)** · suite **1435 files / 15,824 tests** green · corpus 14,343 / 34,245 (41.9%) · flip-diff +5 / 0 lost · 2/2 mutations killed against a green witness (the intent case removed — ambiguous again; the side flipped to own)
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · T1c: Boggart Trawler (+5)** · suite **1435 files / 15,824 tests** green · corpus 14,343 / 34,245 (41.9%) · flip-diff +5 / 0 lost · 2/2 mutations killed against a green witness (the intent case removed — ambiguous again; the side flipped to own)
 
 > "Exile target player's graveyard" now has a side (enemy), so its triggers route natively. Next row by the runbook's §2:
 > T4 (Titania, Protector of Argoth).
 > **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
 
-## 🎯 2026-09-05 (day cron) — **SHELF-85 Phase 2 · T3: Field of the Dead (+1)** · suite **1434 files / 15,820 tests** green · corpus 14,338 / 34,245 (41.8%) · flip-diff +1 / 0 lost · 4/4 mutations killed against a green witness (the arm removed, lands counted instead of names, non-lands counted, the threshold off by one)
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · T3: Field of the Dead (+1)** · suite **1434 files / 15,820 tests** green · corpus 14,338 / 34,245 (41.8%) · flip-diff +1 / 0 lost · 4/4 mutations killed against a green witness (the arm removed, lands counted instead of names, non-lands counted, the threshold off by one)
 
 > Teval's first Phase 2 row: the distinct-land-names intervening-if. Next row by the runbook's §2: T1c (Boggart Trawler)
 > then T4 (Titania), inside Teval until it reads ≥85.
 > **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
 
-## 🎯 2026-09-05 (day cron) — **SHELF-85 V15: the Light-Paws Auras (+10) — Phase 1's fifteen vein rows are complete** · suite **1433 files / 15,813 tests** green · corpus 14,337 / 34,245 (41.8%) · flip-diff +10 / 0 lost · 6/6 mutations killed against a green witness (the Aura noun removed from the detain frame, the attach arm removed, the pool restricted to own creatures, the resolver keeping Equip's own-creature rule, the validator refusing the attach line, the current host offered as a move)
+## 🎯 2026-09-04 (day cron) — **SHELF-85 V15: the Light-Paws Auras (+10) — Phase 1's fifteen vein rows are complete** · suite **1433 files / 15,813 tests** green · corpus 14,337 / 34,245 (41.8%) · flip-diff +10 / 0 lost · 6/6 mutations killed against a green witness (the Aura noun removed from the detain frame, the attach arm removed, the pool restricted to own creatures, the resolver keeping Equip's own-creature rule, the validator refusing the attach line, the current host offered as a move)
 
 > **Stage boundary — Phase 1 done.** Chains of Custody and Sheltered by Ghosts detain until the Aura leaves; Detainment
 > Spell moves itself to any creature. The runbook's §2 now selects Phase 2: the per-deck residue walks, sub-85 decks in

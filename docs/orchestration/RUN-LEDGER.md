@@ -3,7 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
-> ## 🎯 2026-09-05 (day cron) — Phase 2 · T4: TITANIA, PROTECTOR OF ARGOTH — "a land you control is put into a graveyard from the battlefield" · **+1** · corpus 14,344 / 34,245 (41.9%)
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · T6: DEMOLITION FIELD — "that land's controller may search" · **+1** · corpus 14,345 (41.9%) / 34,245 (41.9%)
+> Suite **effects/spanMatchers.js (matchRemovalControllerRider admits the possessive subject "that <noun>'s controller") + demolitionField.test.js (5)** green; lint 0. Flip-diff **+1, zero LOST**. **2/2.**
+> · **The shape:** "Destroy target nonbasic land an opponent controls. That land's controller may search their library for a
+>   basic land card, put it onto the battlefield, then shuffle. You may search your library for a basic land card, put
+>   it onto the battlefield, then shuffle." — the removal-rider fold (Path to Exile / Assassin's Trophy) accepted only
+>   "its controller" / "that player" as the rider's subject; the possessive "that <noun>'s controller" is the same
+>   captured controller. The rider grammar already read the untapped form; the trailing "You may search …" comes back as
+>   `rest` and parses as the optional basic tutor. The destroy-nonbasic-land target and the sacrifice-this-land cost existed.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · T4: TITANIA, PROTECTOR OF ARGOTH — "a land you control is put into a graveyard from the battlefield" · **+1** · corpus 14,344 / 34,245 (41.9%)
 > Suite **1436 files / 15,830 tests** green; lint 0. Flip-diff **+1, zero LOST**. **4/4 mutations killed against a green witness (the subject arm removed, the graveyard-exit gate removed, the controller gate removed, the type gate removed).**
 > · **The shape:** the LAND twin of the artifact / enchantment "you control is put into a graveyard from the battlefield"
 >   watchers — scope `landYouControlPiG` on the permanentLeaves look-back (graveyard exit only: a fetch or a sacrifice
@@ -11,7 +21,7 @@
 >   and the 5/3 Elemental token already parsed.
 > · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
 
-> ## 🎯 2026-09-05 (day cron) — Phase 2 · T1c: BOGGART TRAWLER — "exile target player's graveyard" gets a side · **+5** · corpus 14,343 / 34,245 (41.9%)
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · T1c: BOGGART TRAWLER — "exile target player's graveyard" gets a side · **+5** · corpus 14,343 / 34,245 (41.9%)
 > Suite **1435 files / 15,824 tests** green; lint 0. Flip-diff **+5, zero LOST**. **2/2 mutations killed against a green witness (the intent case removed — ambiguous again; the side flipped to own).**
 > · **The shape:** the ETB already parsed to the exile-graveyard atom on a chosen player, but atomTargetIntent had no case
 >   for it — "ambiguous" — so programTriggerTargetsResolvable refused every trigger carrying it and the card routed to
@@ -20,7 +30,7 @@
 >   "exile target player's graveyard" triggers ride the same case.
 > · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
 
-> ## 🎯 2026-09-05 (day cron) — Phase 2 · T3: FIELD OF THE DEAD — "seven or more lands with different names" · **+1** · corpus 14,338 / 34,245 (41.8%)
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · T3: FIELD OF THE DEAD — "seven or more lands with different names" · **+1** · corpus 14,338 / 34,245 (41.8%)
 > Suite **1434 files / 15,820 tests** green; lint 0. Flip-diff **+1, zero LOST**. **4/4 mutations killed against a green witness (the arm removed, lands counted instead of names, non-lands counted, the threshold off by one).**
 > · **The shape:** "Whenever this land or another land you control enters, if you control seven or more lands with different
 >   names, create a 2/2 black Zombie creature token." — the trigger was already a land-ETB watcher (the play-land path fires
@@ -28,7 +38,7 @@
 >   DISTINCT names among the controller's lands (evaluated at flush and at resolution, CR 603.4).
 > · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
 
-> ## 🎯 2026-09-05 (day cron) — V15: THE LIGHT-PAWS AURAS — the Aura noun on the detain frame, and an Aura re-attach ability · **+10** · corpus 14,337 / 34,245 (41.8%)
+> ## 🎯 2026-09-04 (day cron) — V15: THE LIGHT-PAWS AURAS — the Aura noun on the detain frame, and an Aura re-attach ability · **+10** · corpus 14,337 / 34,245 (41.8%)
 > Suite **1433 files / 15,813 tests** green; lint 0. Flip-diff **+10, zero LOST**. **6/6 mutations killed against a green witness (the Aura noun removed from the detain frame, the attach arm removed, the pool restricted to own creatures, the resolver keeping Equip's own-creature rule, the validator refusing the attach line, the current host offered as a move).**
 > · **Chains of Custody / Sheltered by Ghosts:** "exile target nonland permanent an opponent controls until this AURA leaves
 >   the battlefield" — the detain frame's noun alternation lacked "aura"; the link is keyed on the source permanent's id,

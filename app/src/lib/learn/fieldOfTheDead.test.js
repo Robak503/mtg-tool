@@ -1,5 +1,5 @@
 /**
- * fieldOfTheDead.test.js — SHELF-85 runbook Phase 2 · T3 (2026-09-05): Field of the Dead (Teval).
+ * fieldOfTheDead.test.js — SHELF-85 runbook Phase 2 · T3 (2026-09-04): Field of the Dead (Teval).
  *
  *   "This land enters tapped.
  *    {T}: Add {C}.
@@ -11,7 +11,7 @@
  * names" — the number of DISTINCT card names among the controller's lands, placed ABOVE the generic "you control <N>
  * <filter>" family (which swallowed the phrase as an unparseable filter and returned null).
  *
- * Real oracle fixture (bundled Scryfall snapshot, verified in-session 2026-09-05).
+ * Real oracle fixture (bundled Scryfall snapshot, verified in-session 2026-09-04).
  */
 
 import { beforeEach, describe, expect, it } from "vitest";

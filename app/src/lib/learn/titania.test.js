@@ -1,5 +1,5 @@
 /**
- * titania.test.js — SHELF-85 runbook Phase 2 · T4 (2026-09-05): Titania, Protector of Argoth (Teval).
+ * titania.test.js — SHELF-85 runbook Phase 2 · T4 (2026-09-04): Titania, Protector of Argoth (Teval).
  *
  *   "When Titania enters, return target land card from your graveyard to the battlefield.
  *    Whenever a land you control is put into a graveyard from the battlefield, create a 5/3 green Elemental creature token."
@@ -9,7 +9,7 @@
  * permanentLeaves look-back: graveyard exit only (a bounce never fires), controller-gated, the type line read off the
  * look-back card.
  *
- * Real oracle fixture (bundled Scryfall snapshot, verified in-session 2026-09-05).
+ * Real oracle fixture (bundled Scryfall snapshot, verified in-session 2026-09-04).
  */
 
 import { beforeEach, describe, expect, it } from "vitest";

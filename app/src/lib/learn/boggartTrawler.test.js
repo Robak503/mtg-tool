@@ -1,5 +1,5 @@
 /**
- * boggartTrawler.test.js — SHELF-85 runbook Phase 2 · T1c (2026-09-05): Boggart Trawler // Boggart Bog (Teval) and
+ * boggartTrawler.test.js — SHELF-85 runbook Phase 2 · T1c (2026-09-04): Boggart Trawler // Boggart Bog (Teval) and
  * Bojuka Bog (Nekusar), plus the twins the flip-diff surfaced on the same atom (Agent of Erebos, Angel of Finality,
  * Elspeth's Nightmare).
  *
@@ -11,7 +11,7 @@
  * (on the modal DFC the creature front parked the whole card). Intent = enemy: exiling a graveyard is aimed at an
  * opponent, exactly as the destroy / exile family is.
  *
- * Real oracle fixtures (bundled Scryfall snapshot, verified in-session 2026-09-05).
+ * Real oracle fixtures (bundled Scryfall snapshot, verified in-session 2026-09-04).
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
