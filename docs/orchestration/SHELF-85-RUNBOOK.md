@@ -73,16 +73,16 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Test | Teval, the Balanced Scale Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Brago Blink | 81 | 4 | 9 | ⬜ Phase 2 |
+| Test | Brago Blink | 82 | 3 | 8 | ⬜ Phase 2 |
 | Test | Nekusar Wheels | 76 | 9 | 14 | ⬜ Phase 2 |
 | Test | Shorikai Vehicles | 72 | 13 | 18 | ⬜ Phase 2 |
 | Test | Shalai and Hallar Test | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Otharri Test | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 68 | 17 | 22 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
-| Test | Light-Paws Voltron | 65 | 20 | 25 | ⬜ Phase 2 |
+| Test | Light-Paws Voltron | 66 | 19 | 24 | ⬜ Phase 2 |
 
-**13 decks below 85 · 171 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**13 decks below 85 · 169 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -267,7 +267,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | B4 | Reflector Mage | ETB bounce target creature an opponent controls; its owner can't cast spells with the same name until your next turn | M | the name-lock rider ("can't cast spells with that name" — a per-player cast restriction until the flicker-er's next turn) | ⬜ |
 | B5 | Recruiter of the Guard | ETB tutor a creature with toughness ≤2 to hand | S | the tutor lane with a toughness filter | ✅ (+2 corpus — the tutor-to-hand arm reads "with toughness N [or less]" / "with power N [or less]" beside its mana-value cap, enforced in the shared matcher on the PRINTED stat (a "*" stat is never a candidate). Unplanned twin audited whole-card: Imperial Recruiter (power 2 or less — its whole text).) |
 | B6 | Teleportation Circle | end step: exile up to one target artifact or creature you control, then return it | S | the blink atom on a delayed self-return (Cloudshift's shape on an end-step trigger) | ✅ (+2 corpus — a blink arm for "[up to one] target artifact or creature you control, then return …" on a new own-side artifactOrCreature target union (spellEffects' enumerator, the Ghostly Flicker triple minus lands) and the splitter's keep-whole guard widened to the form. The end-step trigger existed. Unplanned twin audited whole-card: Against All Odds (choose one or both — the same blink + the modeled mana-value-≤3 artifact-or-creature reanimation).) |
-| B7 | Unquestioned Authority | enchanted creature has protection from creatures | S | protection-from-creatures grant (the protection layer op with a `creatures` source class) | ⬜ |
+| B7 | Unquestioned Authority | enchanted creature has protection from creatures | S | protection-from-creatures grant (the protection layer op with a `creatures` source class) | ✅ (+3 corpus — the protection seam gains its first SOURCE-CLASS quality: printed reader + the Aura/Equipment have-tail grant (addProtection `classes`) + a layer union, ENFORCED at block (no creature may block), combat damage (prevented) and creature-sourced ability targeting (the flush's ctx.sourceId, layer-aware). Holy Mantle / Spirit Mantle ride the same have-tail after their P/T peel. Also closes the interim-FP on the printed carriers (Beloved Chaplain, Commander Eesha, Teysa) — credited before, enforced now. Filtered classes still park.) |
 | B8 | Loran of the Third Path | {T}: you and target opponent each draw | S | a two-seat draw (Secret Rendezvous is the same shape ×3) | ⬜ |
 | B9 | Riptide Gearhulk | ETB: for each opponent, put up to one target nonland permanent they control into their library second from the top | M | per-opponent targeting + tuck-to-position | ⬜ |
 | B10 | Brago, King Eternal | combat damage: exile any number of target nonland permanents you control, then return them | M | mass self-blink with an any-number pick (the counted pick UI is parked — the AI policy can pick "all ETB-bearing") | ⬜ |
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · B7 (Unquestioned Authority — Brago) ✅ +3 corpus · 8/8 · suite protection.js (parseProtectionClasses) + layers.js (permanentProtectionClasses) + staticAbilityParser.js (Aura/Equipment class grant) + spellEffects.js (creature-sourced targeting) + combatEvasion.js (block) + combatResolution.js (damage) + protectionFromCreatures.test.js (7); one CREED pin graduated (runemarkConditionalKeyword) · corpus 14,354 (41.9%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — Phase 2 · B6 (Teleportation Circle — Brago) ✅ +2 corpus · 5/5 · suite effects/atoms/zones.js (artifact-or-creature blink arm) + spellEffects.js (artifactOrCreatureYouControl enumerator) + effects/splitClauses.js (keep-whole guard) + teleportationCircle.test.js (8) · corpus 14,351 (41.9%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 

@@ -52,7 +52,7 @@ import {
   consumeShieldCounter,
   preventionShieldsFor,
 } from "./gameState.js";
-import { permanentHasKeyword, permanentColors, permanentProtectionColors, assignsCombatDamageWithToughness } from "./layers.js";
+import { permanentHasKeyword, permanentColors, permanentProtectionColors, permanentProtectionClasses, assignsCombatDamageWithToughness } from "./layers.js";
 import { applyDestroyEffect } from "./spellEffects.js"; // DG-1 — the shared destroy primitive (indestructible/shield/regen/totem + dies-triggers); spellEffects never imports this module (cycle-safe)
 import { protectionApplies } from "./protection.js";
 import { selfDamagePrevention, selfDamagePreventionBy, attachedDamagePrevention, mayAssignAsUnblocked, attackerMinBlockers, counterShieldPrevention, attachedPreventPutCounters, selfPreventPutCounters } from "./combatEvasion.js";
@@ -352,7 +352,10 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // prevented blocker/attacker takes NO marked damage, NO -1/-1 counters, and grants NO lifelink — the
   // call sites skip dealing entirely (CR 702.16e + the trample assignment in 702.19e).
   const protectionPrevents = (targetId, sourceColors) => {
-    return protectionApplies(permanentProtectionColors(state, targetId), sourceColors);
+    // B7 — PROTECTION FROM CREATURES (CR 702.16e): every combat-damage source is a creature, so the class quality
+    // prevents the damage outright, beside the color check.
+    return protectionApplies(permanentProtectionColors(state, targetId), sourceColors)
+      || permanentProtectionClasses(state, targetId).has("creatures");
   };
 
   // ===== DAMAGE-REPLACEMENT consult (CR 614 — Wolverine "double all damage", Furnace of Rath …) =====

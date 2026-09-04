@@ -71,6 +71,31 @@ export function parseProtectionColors(card) {
   return set;
 }
 
+/**
+ * SHELF-85 B7 (2026-09-04) — the SOURCE-CLASS quality: "protection from creatures" (Beloved Chaplain, Commander
+ * Eesha, Teysa, Envoy of Ghosts; granted by Unquestioned Authority / Holy Mantle / Spirit Mantle). Returns the Set of
+ * printed, unconditional class qualities — today exactly {"creatures"}. The SAME skip rules as the color reader
+ * (a "gains …" grant and an "as long as" gate are not this creature's own quality), and the quality must be the
+ * WHOLE span: "creatures with no names" / "creatures of the chosen type" / "creatures your opponents control" are
+ * filtered classes the engine cannot evaluate and stay unenforced (a safe miss — the interim-FP the keyword
+ * credit already carries, not a new one). Enforced beside the color axis at the three sites (block / combat damage /
+ * targeting by an ability whose SOURCE is a creature) through layers.permanentProtectionClasses.
+ */
+export function parseProtectionClasses(card) {
+  const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
+  const set = new Set();
+  for (const m of oracle.matchAll(/protection from ([^.;,()\n]+)/gi)) {
+    const before = oracle.slice(Math.max(0, m.index - 16), m.index).toLowerCase();
+    if (/\bgains?\s+$/.test(before)) continue;
+    const periodIdx = oracle.indexOf(".", m.index);
+    const sentStart = Math.max(oracle.lastIndexOf(".", m.index), oracle.lastIndexOf("\n", m.index)) + 1;
+    const sentence = oracle.slice(sentStart, periodIdx >= 0 ? periodIdx : oracle.length).toLowerCase();
+    if (/\bas long as\b/.test(sentence)) continue;
+    if (m[1].toLowerCase().trim() === "creatures") set.add("creatures");
+  }
+  return set;
+}
+
 /** True if any of `sourceColors` (array/iterable of color letters) is in the protected-from Set. */
 export function protectionApplies(protColors, sourceColors) {
   if (!protColors || protColors.size === 0) return false;

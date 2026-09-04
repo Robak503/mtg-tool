@@ -49,7 +49,7 @@ import {
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield, uncounterablePlayersOnBattlefield, uncounterableCoversSpell } from "./staticAbilityParser.js";
 import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player is untargetable by others and takes no damage
-import { permanentHasKeyword, permanentProtectionColors, permanentIsCreature, playerHasHexproof, permanentTargetShields } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam
+import { permanentHasKeyword, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature, playerHasHexproof, permanentTargetShields } from "./layers.js"; // permanentColors moved out with creatureSatisfiesRestrictions (2026-07-30); playerHasHexproof = CR 702.11d, read at the target-enumeration seam
 import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
@@ -578,9 +578,14 @@ export function parseCreatureTargetRestrictions(card, { allowPlaneswalkerUnion =
 // untargetable by the caster's OPPONENTS (the controller may still target their own). Ward is NOT here
 // — it's a TAX the targeter pays (CR 702.21), not an exclusion, so modeling it as untargetable would be
 // a false positive; ward stays an interim-FP until its tax/counter is modeled exactly.
-export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceColors = []) {
+export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceColors = [], sourceIsCreature = false) {
   if (permanentHasKeyword(state, perm.id, "Shroud")) return false;
   if (permanentHasKeyword(state, perm.id, "Hexproof") && casterId !== controllerOfPerm) return false;
+  // SHELF-85 B7 — PROTECTION FROM CREATURES (CR 702.16b): can't be targeted by an ability whose SOURCE is a creature.
+  // `sourceIsCreature` is derived by enumerateTargets from ctx.sourceId (the ability/trigger flush threads it) read
+  // LAYER-AWARE; the cast path threads no source permanent (a creature SPELL that targets is not in this corpus's
+  // native lanes), so a spell reads false — an under-refusal on that path, never an illegal target elsewhere.
+  if (sourceIsCreature && permanentProtectionClasses(state, perm.id).has("creatures")) return false;
   // KW-PROTECTION (CR 702.16b): can't be targeted by a spell/ability of a color it has protection from.
   // QUALITY-based, not controller-based (unlike hexproof/ward) — a red spell can't target a creature with
   // protection from red even if cast by the creature's OWN controller. `sourceColors` is the casting
@@ -614,6 +619,9 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
 export function enumerateTargets(state, controllerId, effect, sourceColors = [], ctx = null) {
   if (!effectNeedsTarget(effect)) return [];
   const restrictions = Array.isArray(effect.restrictions) ? effect.restrictions : [];
+  // B7 — the source's creature-ness for "protection from creatures" (CR 702.16b), read layer-aware off the ability's
+  // source permanent when the flush threads one (ctx.sourceId); absent → false (see canBeTargetedBy).
+  const sourceIsCreature = !!(ctx?.sourceId && permanentIsCreature(state, ctx.sourceId));
   const out = [];
   const addCreatures = () => {
     for (const pid of Object.keys(state.players)) {
@@ -629,7 +637,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         // land, a crewed Vehicle) is a legal "target creature" right now. The printed-card check alone made
         // it UNTARGETABLE while combat happily let it attack — an invulnerable attacker, and the asymmetry
         // favours its controller, so it is not the safe direction a normal under-offer would be.
-        if ((isCreature(perm.card) || permanentIsCreature(state, perm.id)) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx)) {
+        if ((isCreature(perm.card) || permanentIsCreature(state, perm.id)) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors, sourceIsCreature) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx)) {
           out.push({ type: "creature", id: perm.id, controller: pid, owner: perm.owner || pid, name: perm.card?.name });
         }
       }
@@ -903,7 +911,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         // `perm` is passed as a SECOND argument so a predicate can be layer-aware (the noncreature-artifact
         // family needs the live creature-ness, not just the printed type line). Every pre-existing predicate
         // takes one parameter and ignores it, so this is inert for them.
-        if (pred(tl, perm) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors)) {
+        if (pred(tl, perm) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors, sourceIsCreature)) {
           // `owner` rides the enumerated object for the same reason `controller` does (see the
           // its-controller projection note in atoms/combat.js): "…to its owner's hand. Then THAT
           // PLAYER discards" must project the OWNER after the permanent has already left the
@@ -932,7 +940,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         const artifactOrEnchantment = /\bArtifact\b|\bEnchantment\b/.test(tl);
         const flyingCreature = /\bCreature\b/.test(tl) && permanentHasKeyword(state, perm.id, "flying");
         if (!artifactOrEnchantment && !flyingCreature) continue;
-        if (creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors)) {
+        if (creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors, sourceIsCreature)) {
           out.push({ type: "permanent", id: perm.id, controller: pid, owner: perm.owner || pid, name: perm.card?.name });
         }
       }
@@ -948,7 +956,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   const addPlaneswalkers = () => {
     for (const pid of Object.keys(state.players)) {
       for (const perm of state.players[pid].battlefield) {
-        if (perm.counters?.loyalty != null && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors)) {
+        if (perm.counters?.loyalty != null && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions, ctx) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors, sourceIsCreature)) {
           out.push({ type: "planeswalker", id: perm.id, controller: pid, owner: perm.owner || pid, name: perm.card?.name });
         }
       }
@@ -965,7 +973,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       // set and this permanent IS the source, skip it so the chooser never offers the source as a target. A
       // missing ctx.sourceId simply doesn't exclude (the plain form is unaffected — excludeSource is unset).
       if (effect.excludeSource && ctx?.sourceId && perm.id === ctx.sourceId) continue;
-      if (isCreature(perm.card) && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors)) {
+      if (isCreature(perm.card) && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors, sourceIsCreature)) {
         out.push({ type: "creature", id: perm.id, controller: controllerId, name: perm.card?.name });
       }
     }
@@ -977,7 +985,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   else if (effect.targetType === "equipmentYouControl") {
     for (const perm of state.players[controllerId]?.battlefield || []) {
       if (/\bEquipment\b/.test(String(perm.card?.type || perm.card?.type_line || ""))
-          && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors)) {
+          && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors, sourceIsCreature)) {
         out.push({ type: "permanent", id: perm.id, controller: controllerId, name: perm.card?.name });
       }
     }
@@ -991,7 +999,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     for (const perm of state.players[controllerId]?.battlefield || []) {
       const tl = String(perm.card?.type || perm.card?.type_line || "");
       if ((/\bEquipment\b/.test(tl) || /\bAura\b/.test(tl))
-          && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors)) {
+          && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors, sourceIsCreature)) {
         out.push({ type: "permanent", id: perm.id, controller: controllerId, name: perm.card?.name });
       }
     }
@@ -1003,7 +1011,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     for (const perm of state.players[controllerId]?.battlefield || []) {
       const tl = String(perm.card?.type || perm.card?.type_line || "");
       if ((/\bArtifact\b/.test(tl) || isCreature(perm.card) || /\bLand\b/.test(tl))
-          && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors)) {
+          && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors, sourceIsCreature)) {
         out.push({ type: "creature", id: perm.id, controller: controllerId, name: perm.card?.name });
       }
     }
@@ -1014,7 +1022,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
     for (const perm of state.players[controllerId]?.battlefield || []) {
       const tl = String(perm.card?.type || perm.card?.type_line || "");
       if ((/\bArtifact\b/.test(tl) || isCreature(perm.card))
-          && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors)) {
+          && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors, sourceIsCreature)) {
         out.push({ type: "creature", id: perm.id, controller: controllerId, name: perm.card?.name });
       }
     }

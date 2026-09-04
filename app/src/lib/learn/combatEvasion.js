@@ -61,7 +61,7 @@
  * the Sonorous Howlbonder team static ("Each creature you control with menace can't be blocked except by
  * three or more creatures" — corpus-unique, the Nightkin Ambusher targeted-matcher precedent).
  */
-import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentIsCreature } from "./layers.js";
+import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors, permanentProtectionClasses, permanentIsCreature } from "./layers.js";
 import { findPermanent, creaturePower } from "./gameState.js";
 import { hasKeyword } from "./keywords.js";
 import { parseGroupBlockRestriction, attachedPreventionOf } from "./staticAbilityParser.js";
@@ -1215,6 +1215,9 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
       if (attProtColors.has(c)) return false;
     }
   }
+  // SHELF-85 B7 — PROTECTION FROM CREATURES (CR 702.16f): every blocker is a creature, so an attacker with the class
+  // quality can't be blocked at all. Layer-aware (printed OR granted by Unquestioned Authority / the Mantles).
+  if (permanentProtectionClasses(state, attackerId).has("creatures")) return false;
 
   // Skulk — not blockable by a creature with greater power (CR 702.118b).
   if (permanentHasKeyword(state, attackerId, "Skulk")) {

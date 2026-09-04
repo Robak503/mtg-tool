@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · B7: UNQUESTIONED AUTHORITY — protection from CREATURES · **+3** · corpus 14,354 (41.9%) / 34,245 (41.9%)
+> Suite **protection.js (parseProtectionClasses) + layers.js (permanentProtectionClasses) + staticAbilityParser.js (Aura/Equipment class grant) + spellEffects.js (creature-sourced targeting) + combatEvasion.js (block) + combatResolution.js (damage) + protectionFromCreatures.test.js (7); one CREED pin graduated (runemarkConditionalKeyword)** green; lint 0. Flip-diff **+3, zero LOST**. **8/8.**
+> · **The shape:** "Enchanted creature has protection from creatures." — the protection seam (CR 702.16) was
+>   COLOR-only: parseProtectionColors, the layer-6 addProtection op's `colors`, and three enforcement sites. The
+>   first SOURCE-CLASS quality joins it end to end: parseProtectionClasses (printed, same gains/as-long-as skips,
+>   whole-span "creatures" only), the Aura/Equipment have-tail grant (addProtection `classes` — Holy / Spirit Mantle
+>   land on the same tail after their P/T peel), layers.permanentProtectionClasses (printed ∪ granted, gate-aware),
+>   and enforcement at block (CR 702.16f — no creature may block it), combat damage (702.16e — prevented) and
+>   targeting (702.16b — an ability whose SOURCE is a creature, read layer-aware off the flush's ctx.sourceId; the
+>   cast path threads no source permanent and reads false, an under-refusal). Filtered classes ("creatures with no
+>   names", "of the chosen type", "your opponents control") stay unenforced. Side effect: the printed carriers the
+>   keyword credit already counted (Beloved Chaplain, Commander Eesha, Teysa) are ENFORCED now — an interim-FP closed.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · B6: TELEPORTATION CIRCLE — the end-step artifact-or-creature blink · **+2** · corpus 14,351 (41.9%) / 34,245 (41.9%)
 > Suite **effects/atoms/zones.js (artifact-or-creature blink arm) + spellEffects.js (artifactOrCreatureYouControl enumerator) + effects/splitClauses.js (keep-whole guard) + teleportationCircle.test.js (8)** green; lint 0. Flip-diff **+2, zero LOST**. **5/5.**
 > · **The shape:** "At the beginning of your end step, exile up to one target artifact or creature you control, then

@@ -5347,6 +5347,16 @@ export function staticAbilitiesCoverCard(card, isKeywordOnlyClause) {
 // returns null so the whole attached bonus drops (all-or-nothing) — never a half-modeled grant. Only a
 // pure static color list flips. Anchored on "protection from …" through the end of the (already
 // clause-split, already reminder-free) tail.
+/**
+ * SHELF-85 B7 (2026-09-04) — the SOURCE-CLASS grant: a have-tail that is EXACTLY "protection from creatures"
+ * (Unquestioned Authority; the Holy / Spirit Mantle "+N/+N and has …" form lands here after the P/T peel). Returns
+ * ["creatures"] or null. Whole-anchored: a filtered class ("creatures with no names", "creatures of the chosen type")
+ * stays null → the whole bonus drops (CREED FN-safe). Emitted as addProtection { classes }, enforced by
+ * layers.permanentProtectionClasses at block / combat damage / creature-sourced targeting.
+ */
+function parseAttachedProtectionClasses(tail) {
+  return /^protection from creatures\.?$/i.test(String(tail).trim()) ? ["creatures"] : null;
+}
 function parseAttachedProtectionColors(tail) {
   const m = String(tail).match(/^protection from (.+)$/);
   if (!m) return null;
@@ -5691,6 +5701,14 @@ function parseAttachedClauseCore(c, subject, noun = "creature") {
     if (protColors) {
       if (condGate) return null;                       // a GATED protection is out of this slice — never an ungated FP
       out.push({ layer: 6, op: { layerOp: "addProtection", colors: protColors }, duration: { kind: "permanent" } });
+      return out.length ? out : null;
+    }
+    // B7 — "protection from creatures" (Unquestioned Authority; Holy / Spirit Mantle after their P/T peel): the
+    // source-class twin of the color grant, same all-or-nothing tail, same layer-6 op with `classes`.
+    const protClasses = parseAttachedProtectionClasses(haveMatch[1].trim());
+    if (protClasses) {
+      if (condGate) return null;                       // a GATED protection is out of this slice — never an ungated FP
+      out.push({ layer: 6, op: { layerOp: "addProtection", classes: protClasses }, duration: { kind: "permanent" } });
       return out.length ? out : null;
     }
     // EQUIP-PROTECTION-DYNAMIC: the SOLE modeled non-color quality — "protection from each color that's not

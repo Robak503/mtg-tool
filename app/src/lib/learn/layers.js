@@ -35,7 +35,7 @@ import {
 } from "./ptPrimitive.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { parseStaticAbilities, parseAttachedBonus, parseAuraGrantedManaAbility, parseSoulbondBond } from "./staticAbilityParser.js";
-import { parseProtectionColors } from "./protection.js";
+import { parseProtectionColors, parseProtectionClasses } from "./protection.js"; // B7: the "creatures" source-class quality rides the same layer-6 addProtection op (`classes`)
 
 // ─── Dynamic P/T functions (CR 613 CDA-style values; code, NEVER stored in state) ─
 
@@ -1824,6 +1824,26 @@ export function permanentProtectionColors(state, permanentId) {
       const identity = commanderColorIdentity(state, perm.controller);
       for (const c of ALL_WUBRG) if (!identity.has(c)) set.add(c);
     }
+  }
+  return set;
+}
+
+/**
+ * SHELF-85 B7 (2026-09-04) — the SOURCE-CLASS protection qualities a permanent has right now (today exactly
+ * "creatures"): PRINTED (protection.parseProtectionClasses) unioned with GRANTED layer-6 addProtection ops carrying
+ * `classes` (Unquestioned Authority / Holy Mantle / Spirit Mantle on the enchanted creature), gate-aware exactly like
+ * the color union above. Read at the three enforcement sites beside the color set; an op with only `colors`
+ * contributes nothing here, so every pre-existing grant is untouched.
+ */
+export function permanentProtectionClasses(state, permanentId) {
+  const perm = findPerm(state, permanentId);
+  if (!perm) return new Set();
+  const set = new Set(parseProtectionClasses(perm.card));
+  const l6 = l6IndexOf(state).protection;
+  for (const e of l6) {
+    if (!effectAffects(e, perm, state)) continue;
+    if (e.op.gate && !gateMet(state, perm, e.op.gate)) continue;
+    for (const k of e.op.classes || []) set.add(String(k).toLowerCase());
   }
   return set;
 }

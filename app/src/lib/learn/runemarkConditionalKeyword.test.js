@@ -104,9 +104,11 @@ describe("BLITZ AU-1 — recognition (real oracle)", () => {
     // creatures"), a gate shape this slice does not model → parseAsLongAsGate null → whole bonus drops.
     expect(isNativeAura(PREDATORS_GAMBIT)).toBe(false);
     expect(classifyCard(PREDATORS_GAMBIT)).toBe("body-only");
-    // Holy Mantle / Spirit Mantle: "protection from creatures" — protection-from-TYPE is unenforced.
-    expect(classifyCard(HOLY_MANTLE)).toBe("body-only");
-    expect(classifyCard(SPIRIT_MANTLE)).toBe("body-only");
+    // Holy Mantle / Spirit Mantle: "protection from creatures" GRADUATED 2026-09-04 (SHELF-85 B7 — the source-class
+    // quality is parsed, granted through addProtection `classes` and ENFORCED at block / combat damage / targeting;
+    // protectionFromCreatures.test.js is the witness). They are native-aura now, by design.
+    expect(classifyCard(HOLY_MANTLE)).toBe("native-aura");
+    expect(classifyCard(SPIRIT_MANTLE)).toBe("native-aura");
     // Eldrazi Conscription: annihilator is not a grantable keyword.
     expect(classifyCard(ELDRAZI_CONSCRIPTION)).toBe("body-only");
   });
