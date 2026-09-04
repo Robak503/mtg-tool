@@ -289,6 +289,13 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
 
 ## §6 PARKED / NEEDS COLTON (append as you go — this is the morning report's raw material)
 
+- 🚨 **[CI BLOCKED BY GITHUB BILLING — 2026-09-04 ~10:30Z — NEEDS COLTON]** Run 33871892017 (V2 Starting Town, c4ed02a5)
+  never started: both shards "failure" in 1–2 s with zero steps and the annotation "The job was not started because recent
+  account payments have failed or your spending limit needs to be increased." `gh repo view` reports the repo **PRIVATE**
+  (CLAUDE.md still says public), so Actions minutes are billed. A rerun failed identically. **Colton:** GitHub Settings →
+  Billing & plans (or the repo's visibility — your call, never mine). **Cindy's posture until then:** every slice still runs
+  its full local gates (suite · mutations · flip-diff · measure), commits LOCALLY, and pushes are HELD; one push of the
+  stack when a run can start, watched to green. The V2 push itself is on master and locally green (1419 / 15,692).
 - ✅ **[Per-defender BATCH combat damage — SHIPPED as ④-AN, 2026-09-04 night (+2; 4/4 killed)]** (the sizing note follows for the record)
 - **[Per-defender BATCH combat damage — 2026-09-03 night, sized, not started — Cindy lane]** `checkBatchCombatDamageTriggers`
   fires the bare and subject-filtered "whenever one or more <creatures> you control deal combat damage to a player" batches
