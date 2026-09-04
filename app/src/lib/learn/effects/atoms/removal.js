@@ -7,6 +7,7 @@
 
 import { applyDestroyEffect, applyDamageEffect, parseCreatureTargetRestrictions } from "../../spellEffects.js";
 import { logEvent, gainLife, loseLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower, creatureToughness, creatureBasePower } from "../../gameState.js";
+import { applyScheduleDelayed } from "./delayedTrigger.js"; // ④-BD — the counter rider's delayed "may draw up to N" (Arcane Denial); delayedTrigger imports only gameState (cycle-safe)
 import { checkDiesTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../../triggers.js";
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
 import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandCard, massCreatureTargets } from "./shared.js";
@@ -110,6 +111,13 @@ export function applyControllerRider(state, rider, cap, ctx) {
     // An Offer You Can't Refuse — N named artifact tokens (Treasure/Clue/Food/Gold) under the captured controller.
     const tokenAtom = { op: "create-named-token", token: rider.token, count: rider.count, targetType: null };
     return applyCreateNamedToken(state, tokenAtom, { ...ctx, controller: cap.controller });
+  }
+  if (rider.kind === "delayedMayDraw") {
+    // ④-BD (Arcane Denial) — schedule the countered spell's CONTROLLER (cap.controller, never the caster) a delayed trigger
+    // for the next upkeep whose effect is N optional single draws ("you may draw a card" × N ≡ "may draw up to N cards").
+    const n = Math.max(1, rider.count || 1);
+    const clause = Array.from({ length: n }, () => "you may draw a card").join(". ");
+    return applyScheduleDelayed(state, { delayedClause: clause, fireStep: rider.fireStep || "upkeep", fireScope: rider.fireScope || "any" }, { ...ctx, controller: cap.controller });
   }
   if (rider.kind === "casterGainLife") {
     // ⭐ "You gain life equal to its <toughness|mana value>." — the CASTER gains, scaled by a metric captured

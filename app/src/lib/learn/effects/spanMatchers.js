@@ -149,6 +149,12 @@ export function parseControllerRider(t) {
   // anchor unmatched → null → low → Arbiter. Used only on the counter-rider path (a removal never says "draws").
   m = t.match(/^draws (a|two|three|four|five) cards?$/);
   if (m) return { kind: "drawCards", count: RIDER_COUNT[m[1]] };
+  // ④-BD (2026-09-04 — Arcane Denial "Counter target spell. Its controller may draw up to two cards at the beginning of the
+  // next turn's upkeep."): a DELAYED optional draw for the countered spell's controller (CR 603.7). "Up to N" is realized as
+  // N separate "you may draw a card" decisions on the scheduled trigger — the same yes/no pause every optional draw already
+  // uses (the AI auto-takes, the learner is asked), so the choice space {0..N} is exact without a count picker.
+  m = t.match(/^may draw up to (two|three|four) cards at the beginning of the next turn's upkeep$/);
+  if (m) return { kind: "delayedMayDraw", count: RIDER_COUNT[m[1]], fireStep: "upkeep", fireScope: "any" };
   // Path to Exile / Assassin's Trophy — "may search their library for a basic land card, put it/that card
   // onto the battlefield[ tapped], then shuffle". Reuses the RAMP-1 battlefield tutor scoped to that player;
   // the optional "may" is the tutor's find-nothing (identical to how Farhaven Elf's "you may search" models).

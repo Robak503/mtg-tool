@@ -916,7 +916,7 @@ const MUST_DROP_TO_LOW = [
   // all-or-nothing card never fires the removal while silently dropping the rider).
   "Exile target nonland permanent. Its controller creates a 3/2 red, white, and blue Spirit creature token.", // RE-POINTED 2026-07-29: TWO-colour tokens are modeled now (the token builder always understood them — "and" is in TOKEN_COLOR_WORDS). Moved to a THREE-colour token, still unmodeled. The pin is the unmodeled-rider refusal, not the colour count.
   // SOFT-COUNTER-RIDER — soft-counter NOT hijacked, and delayed/conditional counter-riders stay low.
-  "Counter target spell. Its controller may draw up to two cards at the beginning of the next turn's upkeep. You draw a card at the beginning of the next turn's upkeep.", // Arcane Denial (delayed draw)
+  // Arcane Denial left this list 2026-09-04 (④-BD): the delayed "may draw up to two" is a counter rider on the CR 603.7 queue (arcaneDenial.test.js)
   "Counter target enchantment, instant, or sorcery spell. Its controller creates a 2/2 blue Bird creature token with flying and you gain 2 life.", // a rider tail past the keyword → low
   "Search your library for a basic land card, put it on top of your library, then shuffle.",       // top-of-library
   // NOTE (2026-07-24): "Search your library for up to N <type> cards[, reveal them,] put them into

@@ -7,6 +7,15 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (night cron) — **④-BD: Arcane Denial — Veyran Cantrips to 90% (+1)** · suite **1416 files / 15,663 tests** green · corpus 14,239 / 34,245 (41.6%) · flip-diff +1 / 0 lost · 5/5 mutations killed (the rider vocabulary, the scheduling, the rider's seat, the count, the optionality)
+
+> **Night tally (stage ④, fifty-six slices):** … · BB (+3) · BC (+1) · BD (+1) — corpus 13,862 → 14,239.
+> **Shelf move:** Veyran Cantrips (Colton) crosses the 1.0 bar — 90%. Colton's shelf: Omnath 94 · Vihaan 94 ·
+> Zaxara 91 · Squirrel Girl 90 · Veyran 90% · cdh 85 · Killer Turts 64.
+> **CI:** pushed after ④-BC's run 33841243464 is green; own run watched after push (result on the next entry's line)
+> **Next runnable:** Earth Bent (Joe, 89 — one card: Scythecat Cub's landfall counter with its second-resolution doubling
+> is the cheapest), Mothman (88), then the rest of the one-line-away rows; the subsystem-scale families stay Colton's pick.
+
 ## 🎯 2026-09-04 (night cron) — **④-BC: Aetherflux Reservoir — "for each spell you've cast this turn" (+1)** · suite **1415 files / 15,661 tests** green · corpus 14,238 / 34,245 (41.6%) · flip-diff +1 / 0 lost · 3/3 mutations killed (the count kind, the reader, the reader's seat)
 
 > **Night tally (stage ④, fifty-five slices):** … · BA (+5) · BB (+3) · BC (+1) — corpus 13,862 → 14,238.

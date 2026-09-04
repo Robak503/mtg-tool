@@ -47,7 +47,7 @@ describe("parser — counter + 'its controller' rider (SOFT-COUNTER-RIDER)", () 
   });
 
   it("CREED: an UNMODELED counter-rider keeps the card LOW → Arbiter", () => {
-    expect(isHigh("Counter target spell. Its controller may draw up to two cards at the beginning of the next turn's upkeep. You draw a card at the beginning of the next turn's upkeep.")).toBe(false); // Arcane Denial (delayed draw)
+    expect(isHigh("Counter target spell. Its controller may draw up to two cards at the beginning of the next turn's upkeep. You draw a card at the beginning of the next turn's upkeep.")).toBe(true); // Arcane Denial GRADUATED ④-BD (2026-09-04): the delayed may-draw rider (arcaneDenial.test.js)
     expect(isHigh("Counter target creature or battle spell unless its controller pays {4}. If they do, you incubate 2.")).toBe(false); // Assimilate Essence (incubate)
     expect(isHigh("Counter target enchantment, instant, or sorcery spell. Its controller creates a 2/2 blue Bird creature token with flying and you gain 2 life.")).toBe(false); // a rider tail past the keyword → low
   });
@@ -94,7 +94,9 @@ describe("coverage — SOFT-COUNTER-RIDER staples flip native; the unmodeled one
     expect(classifyCard(C("Sorcery", "Exile target nonland permanent. Its controller creates a Treasure token.", "Buy Your Silence"))).toBe("native-spell");
   });
   it("CREED: delayed / conditional counter-riders stay Arbiter-routed (Mana Drain GRADUATED 2026-08-14)", () => {
-    expect(classifyCard(C("Instant", "Counter target spell. Its controller may draw up to two cards at the beginning of the next turn's upkeep. You draw a card at the beginning of the next turn's upkeep.", "Arcane Denial"))).toBe("arbiter-spell");
+    // Arcane Denial left this pin 2026-09-04 (④-BD): its delayed "may draw up to two" rides the CR 603.7 queue for the
+    // countered spell's controller (the delayedMayDraw rider; witnesses in arcaneDenial.test.js).
+    expect(classifyCard(C("Instant", "Counter target spell. Its controller may draw up to two cards at the beginning of the next turn's upkeep. You draw a card at the beginning of the next turn's upkeep.", "Arcane Denial"))).toBe("native-spell");
     // Mana Drain left this pin 2026-08-14: its delayed payout rides the CR 603.7 queue now
     // (the MANA-DRAIN FOLD + delayedManaFromMv; witnesses in manaDrainDelayed.test.js).
     expect(classifyCard(C("Instant", "Counter target spell. At the beginning of your next main phase, add an amount of {C} equal to that spell's mana value.", "Mana Drain"))).toBe("native-spell");

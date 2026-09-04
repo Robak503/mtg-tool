@@ -145,9 +145,10 @@ describe("coverage — the three new counter-riders flip native-spell", () => {
 
 describe("CREED — genuinely-unmodeled counter-riders STAY Arbiter (anti-FP)", () => {
   const C = (oracle, name) => ({ type: "Instant", oracle, mana: "", name });
-  it("Arcane Denial (DELAYED draw at next upkeep) stays arbiter-spell", () => {
-    expect(isHigh(ORACLE.arcaneDenial)).toBe(false);
-    expect(classifyCard(C(ORACLE.arcaneDenial, "Arcane Denial"))).toBe("arbiter-spell");
+  it("Arcane Denial GRADUATED (④-BD, 2026-09-04): the delayed 'may draw up to two' rides the CR 603.7 queue for the countered spell's controller", () => {
+    // witnesses in arcaneDenial.test.js — the rider schedules N optional single draws at the next upkeep
+    expect(isHigh(ORACLE.arcaneDenial)).toBe(true);
+    expect(classifyCard(C(ORACLE.arcaneDenial, "Arcane Denial"))).toBe("native-spell");
   });
   it("Mana Drain GRADUATED (2026-08-14): the delayed mana is modeled on the CR 603.7 queue", () => {
     // Was a park pin ("delayed mana unmodeled → arbiter-spell"). The machine exists now — the

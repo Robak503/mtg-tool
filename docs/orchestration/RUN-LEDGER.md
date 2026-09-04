@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — ④-BD: Arcane Denial — the delayed "may draw up to two" for the countered spell's controller · **+1** · corpus 14,239 / 34,245 (41.6%) · **Veyran Cantrips 90%**
+> Suite **1416 files / 15,663 tests** green; lint 0. Flip-diff **+1, zero LOST**. **5/5 mutations killed (the rider vocabulary, the scheduling, the rider's seat, the count, the optionality).**
+> · **The shape:** the shelf's top one-line-away row (three decks: Shorikai Vehicles, Nekusar Wheels, Veyran Cantrips). The
+>   counter's controller-rider path (matchCounterControllerRider → applyControllerRider) learned a DELAYED optional draw:
+>   the rider schedules the countered spell's CONTROLLER a next-upkeep trigger (CR 603.7, the delayedTrigger queue) whose
+>   effect is "you may draw a card" × N — the exact {0..N} choice space of "up to N" on the yes/no pause every optional
+>   draw already uses (the AI auto-takes, the learner is asked). The caster's own "You draw a card at the beginning of the
+>   next turn's upkeep" parsed already.
+> · **Board-verified:** the AI's Bears are countered; at the next upkeep the AI is asked twice and draws two, the user draws
+>   one; declining both leaves the AI's hand as it was.
+> · **CI:** pushed after ④-BC's run 33841243464 is green; own run watched after push (result on the next entry's line)
+
 > ## 🎯 2026-09-04 (night cron) — ④-BC: Aetherflux Reservoir — "for each spell you've cast this turn" · **+1** · corpus 14,238 / 34,245 (41.6%)
 > Suite **1415 files / 15,661 tests** green; lint 0. Flip-diff **+1, zero LOST**. **3/3 mutations killed (the count kind, the reader, the reader's seat).**
 > · **The shape:** the shelf's one-line-away probe (probe-shelf-one-line-away) after the census ran dry — Aetherflux Reservoir
