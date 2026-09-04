@@ -139,7 +139,7 @@ describe("LANDFALL-COMPOSITE — a modeled landfall trigger + another modeled ab
     expect(classifyCard({ id: "c-scute", name: "Scute Swarm", type: "Creature — Insect", power: 1, toughness: 1, mana: "{2}{G}", oracle: "Landfall — Whenever a land you control enters, create a 1/1 green Insect creature token. If you control six or more lands, create a token that's a copy of this creature instead." })).toBe("native-trigger");
   });
 
-  it("CREED — Scythecat Cub (2nd-resolution doubler rider) stays body-only", () => {
+  it("Scythecat Cub (2nd-resolution doubler rider) is native-trigger since SHELF-85 V10 (2026-09-04) — scythecatCub.test.js owns the runtime pins", () => {
     // ⚠️ Lotus Cobra was the third card in this pin, on "a fabricated mana is a forbidden FP". That was true
     // when written and is not now: the trigger→effect bridge models "add one mana of any color" as exactly
     // ONE mana in a colour drawn from the controller's commander identity. The two riders below are still
@@ -148,7 +148,7 @@ describe("LANDFALL-COMPOSITE — a modeled landfall trigger + another modeled ab
     // modeled now. Scythecat Cub stays: its condition is genuinely inexpressible.)
     // Scythecat Cub — the "If this is the second time this ability has resolved this turn, double … instead"
     // per-turn-resolution-count rider is unmodeled → the payoff parses LOW → body-only.
-    expect(classifyCard({ id: "c-scythe", name: "Scythecat Cub", type: "Creature — Cat", power: 2, toughness: 2, mana: "{1}{G}", oracle: "Trample\nLandfall — Whenever a land you control enters, put a +1/+1 counter on target creature you control. If this is the second time this ability has resolved this turn, double the number of +1/+1 counters on that creature instead." })).toBe("body-only");
+    expect(classifyCard({ id: "c-scythe", name: "Scythecat Cub", type: "Creature — Cat", power: 2, toughness: 2, mana: "{1}{G}", oracle: "Trample\nLandfall — Whenever a land you control enters, put a +1/+1 counter on target creature you control. If this is the second time this ability has resolved this turn, double the number of +1/+1 counters on that creature instead." })).toBe("native-trigger"); // graduated 2026-09-04 (V10): the per-turn resolution ledger made the word decidable
   });
 
   // ── RUNTIME: the landfall genuinely FIRES + the effect happens (CREED — proves the wiring, not just the metric) ──

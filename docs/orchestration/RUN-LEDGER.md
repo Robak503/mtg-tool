@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — V10: SCYTHECAT CUB — "the second time this ability has resolved this turn", and a targeted conditional · **+5** · corpus 14,315 / 34,245 (41.8%)
+> Suite **1428 files / 15,774 tests** green; lint 0. Flip-diff **+5, zero LOST**. **7/7 mutations killed against a green witness (the ledger never bumping, 'second' read as 'at least once', the key not stamped, the key not threaded into the branch evaluator, the sentinel arm removed, the branch node carrying no target, the chooser seeing the conditional as ambiguous).**
+> · **The shape:** the park said "inexpressible"; it was three cells. (1) A per-turn ledger, `abilityResolutionsThisTurn`,
+>   keyed by source permanent + printed ability, bumped when a triggered ability's stack object finishes resolving —
+>   so DURING the resolution the count is the number of PRIOR resolutions ("second time" = exactly one). (2) The
+>   intervening-if word reads it through ctx.abilityKey (threaded from the flush); no key → false, the FN-safe side,
+>   and decidable at parse time. (3) "double the number of +1/+1 counters on that creature" as the alternative, bound
+>   to the base's chosen target — which needed the branch node itself to carry the base's targetType so the trigger
+>   chooses ONE creature that both branches read from the same ctx (the chooser's intent reads the base branch).
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — V9: VALLEY FLOODCALLER — the multi-subtype team pump and "Untap them." · **+1** · corpus 14,310 / 34,245 (41.8%)
 > Suite **1427 files / 15,766 tests** green; lint 0. Flip-diff **+1, zero LOST**. **6/6 mutations killed against a green witness (the fold removed, the keep-together rule removed, the untap not stamped, the curated-word gate removed, Frog/Otter removed, the tokenizer regressed).**
 > · **The shape:** the flash-permission static and the noncreature cast watcher existed. The team-pump arm took ONE

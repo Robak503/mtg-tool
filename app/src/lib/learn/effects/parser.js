@@ -1957,7 +1957,18 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       const replacedText = sentSplit ? sentSplit[2] : baseText;
       const prefix = prefixText ? parseEffectClauseImpl(prefixText.trim(), cardType, { hasX }) : null;
       const inner = parseEffectClauseImpl(replacedText.trim(), cardType, { hasX });
-      const alt = parseEffectClauseImpl(String(altLeading || altTrailing).trim(), cardType, { hasX });
+      // SHELF-85 V10 (2026-09-04 — Scythecat Cub): a TARGETED conditional. When the replaced base is ONE chosen-creature
+      // atom, the alternative's "that creature" is that same chosen target — rewritten to the sentinel phrase the
+      // counter arm binds to ctx.targets (never a standalone parse), and the branch node itself carries the base's
+      // targetType so the trigger / cast lane chooses ONE creature that both branches read from the same ctx.
+      const baseTargetType = inner && inner.atoms.length === 1 && typeof inner.atoms[0].targetType === "string" && /^creature/i.test(inner.atoms[0].targetType) ? inner.atoms[0].targetType : null;
+      const altRaw = String(altLeading || altTrailing).trim();
+      const altText = baseTargetType ? altRaw.replace(/\bthat creature\b/i, "the conditional's chosen creature") : altRaw;
+      const alt = parseEffectClauseImpl(altText, cardType, { hasX });
+      // The alt may bind to the chosen creature ONLY through the sentinel; any other chosen target in the alt would be a
+      // second, un-enumerated target → refuse the targeted form (the untargeted conditional below still applies).
+      const altBindsOnly = !alt || alt.atoms.every((a) => !a.targetType || isNonChosenTargetType(a.targetType) || a.chosenByBranch);
+      const condTargetType = baseTargetType && altBindsOnly ? baseTargetType : null;
       // WI-3 for the BRANCH LOOP: applyConditional resolves branch atoms inline, so a NON-LAST pausing
       // atom inside either branch would resolve its successors during the pause (FIFO no-ops / wrong
       // order). Reject → LOW → Arbiter (safe FN). A LAST-position pauser is fine — the program runner
@@ -1973,7 +1984,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       if (ok) {
         return makeProgram({
           confidence: "high",
-          atoms: [...(prefix ? prefix.atoms : []), { op: "conditional", branchOn: condition.trim().toLowerCase(), ifTrue: alt.atoms, ifFalse: inner.atoms, targetType: null }],
+          atoms: [...(prefix ? prefix.atoms : []), { op: "conditional", branchOn: condition.trim().toLowerCase(), ifTrue: alt.atoms, ifFalse: inner.atoms, targetType: condTargetType }],
           unparsedTail: null,
         });
       }

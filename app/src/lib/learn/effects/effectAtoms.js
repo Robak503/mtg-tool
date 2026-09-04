@@ -179,7 +179,9 @@ export function resolveAtom(state, atom, ctx) {
 function applyConditional(state, atom, ctx) {
   // triggeringPermanentId joined the context 2026-08-14 (the DAMAGE-RIDER predicate reads the entering
   // creature's damagedBy + subtype); every pre-existing shape ignores the extra field.
-  const verdict = evaluateInterveningIf(state, atom.branchOn, ctx.controller, { sourcePermanentId: ctx.sourceId, triggeringPermanentId: ctx.triggeringPermanentId });
+  // abilityKey joined 2026-09-04 (SHELF-85 V10): the per-turn resolution ledger's key ("the second time this ability
+  // has resolved this turn" — Scythecat Cub); every pre-existing shape ignores the extra field.
+  const verdict = evaluateInterveningIf(state, atom.branchOn, ctx.controller, { sourcePermanentId: ctx.sourceId, triggeringPermanentId: ctx.triggeringPermanentId, abilityKey: ctx.abilityKey });
   if (typeof verdict !== "boolean") return null;
   const branch = (verdict ? atom.ifTrue : atom.ifFalse) || [];
   let next = state;

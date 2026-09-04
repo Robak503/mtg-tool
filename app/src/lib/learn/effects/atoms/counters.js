@@ -528,6 +528,16 @@ export function addCounterClauseParser(clause) {
   // addCounter (so Doubling Season composes per kind, CR 616). Whole-clause anchored; "+1/+1 counters" alone is NOT
   // this arm (a single-kind double on a chosen target has no clean corpus carrier today and stays LOW).
   if (/^double the number of each kind of counter on target creature$/.test(t)) return { op: "double-all-counters", targetType: "creature" };
+  // ===== DOUBLE ON THE CONDITIONAL'S CHOSEN CREATURE (SHELF-85 V10, 2026-09-04 — Scythecat Cub "put a +1/+1 counter on
+  // target creature you control. If …, double the number of +1/+1 counters on THAT CREATURE instead") ===== "that
+  // creature" is the base branch's chosen target. The parser's conditional builder rewrites it to the SENTINEL phrase
+  // below (a phrase in ZERO printed oracle texts — the DT-2 discipline), so a standalone "…on that creature" can never
+  // parse through here. targetType "creature" reads ctx.targets at resolution — inside the branch that IS the
+  // conditional's chosen target (the branch node carries the base's targetType); perTargetDouble adds the creature's
+  // own current +1/+1 count again through addCounter (Doubling Season composes, CR 616).
+  if (/^double the number of \+1\/\+1 counters on the conditional's chosen creature$/.test(t)) {
+    return { op: "add-counter", counterType: "+1/+1", perTargetDouble: "+1/+1", targetType: "creature", chosenByBranch: true };
+  }
   // ===== ENRAGE / DAMAGE-RECEIVED self-scaled (CR 603.2) ===== "put that many +1/+1 counters on THIS CREATURE" —
   // the ENRAGE payoff (Hungering Hydra: "Whenever this creature is dealt damage, put that many +1/+1 counters on
   // it"). "that many" = the damage the creature just took, threaded by checkDealtDamageTriggers as

@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Scythecat Cub** — its second landfall each turn doubles the counters instead of adding one, as printed
 - **Valley Floodcaller** — each noncreature spell pumps and untaps your Birds, Frogs, Otters and Rats
 - **Arcade Cabinet** — sacrifice a token to double every kind of counter on a creature
 - **Rosie Cotton of South Lane** — every token you create grows another of your creatures, never Rosie herself

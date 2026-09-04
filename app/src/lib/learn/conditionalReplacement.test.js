@@ -91,9 +91,14 @@ describe("⭐ RUNTIME — the branch actually picks a side", () => {
 });
 
 describe("⭐ CREED — undecidable conditions park, and older machinery is not hijacked", () => {
-  it("an inexpressible condition parks (Scythecat Cub's \"second time this ability has resolved\")", () => {
+  it("a GENUINELY undecidable condition parks (Scythecat Cub's word graduated on SHELF-85 V10, 2026-09-04 — scythecatCub.test.js owns it)", () => {
+    // "this is the second time this ability has resolved this turn" is decidable now (the per-turn resolution
+    // ledger + ctx.abilityKey), and the targeted conditional parses HIGH. A condition outside the vocabulary
+    // still parks the whole replacement.
     const p = parseEffectClause("put a +1/+1 counter on target creature you control. if this is the second time this ability has resolved this turn, double the number of +1/+1 counters on that creature instead", "Creature", { hasX: false });
-    expect(p.confidence).toBe("low");
+    expect(p.confidence).toBe("high");
+    const q = parseEffectClause("put a +1/+1 counter on target creature you control. if the wumpus has been fed this turn, double the number of +1/+1 counters on that creature instead", "Creature", { hasX: false });
+    expect(q.confidence).toBe("low");
   });
 
   it("⭐ the exile-if-dies RIDER family is untouched (23 cards this arm must not claim)", () => {

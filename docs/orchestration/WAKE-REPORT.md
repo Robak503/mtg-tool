@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 V10: Scythecat Cub (+5)** · suite **1428 files / 15,774 tests** green · corpus 14,315 / 34,245 (41.8%) · flip-diff +5 / 0 lost · 7/7 mutations killed against a green witness (the ledger never bumping, 'second' read as 'at least once', the key not stamped, the key not threaded into the branch evaluator, the sentinel arm removed, the branch node carrying no target, the chooser seeing the conditional as ambiguous)
+
+> "The second time this ability has resolved this turn" is expressible after all: a per-turn resolution ledger, an
+> intervening-if word, and a targeted conditional. Next row by the runbook's §2: V11 (Path of Ancestry — Halfshell).
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 V9: Valley Floodcaller (+1)** · suite **1427 files / 15,766 tests** green · corpus 14,310 / 34,245 (41.8%) · flip-diff +1 / 0 lost · 6/6 mutations killed against a green witness (the fold removed, the keep-together rule removed, the untap not stamped, the curated-word gate removed, Frog/Otter removed, the tokenizer regressed)
 
 > A four-subtype team pump that also untaps the team. Next row by the runbook's §2: V10 (Scythecat Cub — Shalai).

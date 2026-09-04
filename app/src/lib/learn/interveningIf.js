@@ -1662,6 +1662,18 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // variant fails the anchor → null → Arbiter (CREED — never a mis-scoped draw-count read).
   if (/^you've drawn more than one card this turn$/.test(c)) return (state?.players?.[controllerId]?.cardsDrawnThisTurn || 0) > 1;
 
+  // ===== SECOND RESOLUTION THIS TURN (SHELF-85 V10, 2026-09-04 — Scythecat Cub "If this is the second time this ability
+  // has resolved this turn, double … instead") ===== read off the per-turn ledger gameEngine keeps for triggered
+  // abilities (`abilityResolutionsThisTurn`, keyed by the ability key the flush stamps into the trigger context and bumped
+  // AFTER each resolution), so during a resolution the count is the number of PRIOR resolutions: "second time" = exactly
+  // one. No key in the context (a spell, the parse-time probe) → false — the printed base half runs, the FN-safe side.
+  if (/^this is the second time this ability has resolved this turn$/.test(c)) {
+    const key = context?.abilityKey;
+    if (!key) return false;
+    const rec = state?.abilityResolutionsThisTurn?.[key];
+    return !!rec && rec.turn === state?.turn && rec.n === 1;
+  }
+
   // ===== SPELLS-CAST-THIS-TURN (CR 700.4) ===== "you've cast [a|N or more] spell(s) this turn" — read off the
   // controller's per-turn spellsCastThisTurn counter (bumped at the cast chokepoint, TRIG-CAST2; reset for all
   // seats at untap — the SAME source the native "cast your second spell" triggers read). Loan Shark's ETB

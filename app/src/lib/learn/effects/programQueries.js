@@ -101,6 +101,10 @@ export function atomTargetIntent(atom) {
   const tt = atom.targetType;
   if (!tt || isNonChosenTargetType(tt)) return null;
   switch (atom.op) {
+    case "conditional":
+      // TARGETED CONDITIONAL (SHELF-85 V10 — Scythecat Cub): the branch node carries the BASE branch's chosen target;
+      // its side is the base atom's side (the alternative binds to the same creature through the sentinel).
+      return atomTargetIntent(atom.ifFalse?.[0] || null);
     case "optional-mana-payment": {
       // OPTIONAL-MANA-PAYMENT (CR 603.7c) — the wrapper does NO targeting of its own. Its `targetType` is
       // copied up from the single chosen target type of its PAYOFF atoms (parser.matchOptionalManaPayment), and

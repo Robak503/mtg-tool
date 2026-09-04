@@ -1004,6 +1004,18 @@ export function resolveTopOfStack(state) {
     });
   }
 
+  // SHELF-85 V10 (2026-09-04): a TRIGGERED ability's resolution is counted per turn on its key (source permanent +
+  // printed sentence, stamped at flush). Bumped AFTER the resolver ran, so "if this is the second time this ability
+  // has resolved this turn" (evaluated during the resolution) reads the number of PRIOR resolutions — Scythecat Cub's
+  // second landfall of the turn sees exactly one. Keyed by turn; nothing to reset.
+  if (top.kind === "triggered-ability") {
+    const key = top.payload?.params?.context?.abilityKey ?? top.payload?.params?.abilityKey ?? null;
+    if (key) {
+      const rec = next.abilityResolutionsThisTurn?.[key];
+      const n = rec && rec.turn === next.turn ? rec.n + 1 : 1;
+      next = { ...next, abilityResolutionsThisTurn: { ...(next.abilityResolutionsThisTurn || {}), [key]: { turn: next.turn, n } } };
+    }
+  }
   // Flush any triggers that fired as a result of resolution, then
   // restart the priority loop with the active player.
   return finalizeStackResolution(next);
@@ -1647,7 +1659,12 @@ export function flushTriggers(state, { chooseTargets } = {}) {
         onceTriggersFiredThisTurn: { ...(s.onceTriggersFiredThisTurn || {}), [otKey]: true },
       };
     }
-    const built = buildTriggerStack(s, trigger, chooseTargets);
+    // SHELF-85 V10 (2026-09-04 — Scythecat Cub "if this is the second time this ability has resolved this turn"): every
+    // triggered ability carries a stable key (source permanent + printed sentence) in its context, so the resolution
+    // ledger (`abilityResolutionsThisTurn`, bumped in resolveTopOfStack) and the intervening-if word can meet.
+    const abilityKey = trigger.source?.permanentId && trigger.descriptor?.sourceText ? `${trigger.source.permanentId}:${trigger.descriptor.sourceText}` : null;
+    const keyed = abilityKey ? { ...trigger, context: { ...(trigger.context || {}), abilityKey } } : trigger;
+    const built = buildTriggerStack(s, keyed, chooseTargets);
     if (built === TRIGGER_CONDITION_NOT_MET) {
       // CR 603.4 — the intervening-if condition was false at trigger time; the ability CORRECTLY never goes on
       // the stack. This is EXPECTED (e.g. Garruk's Uprising's ETB "if you control a creature with power 4+, draw"
