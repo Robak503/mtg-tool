@@ -1970,6 +1970,21 @@ export function pumpClauseParser(clause) {
     if (actrl[3] && !kws) return null;
     return { op: "pump", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }, { kind: "cardType", type: "artifact" }], ptDelta: { p: parseInt(actrl[1], 10), t: parseInt(actrl[2], 10) }, ...(kws ? { grantKeywords: kws } : {}) };
   }
+  // SHELF-85 S17 (2026-09-04 — Kotori, Pilot Prodigy "target artifact creature you control gains lifelink and vigilance"):
+  // the KEYWORD-ONLY twin of the artifact-creature pump above — the same cardType restriction, no P/T.
+  const actrlKw = t.match(/^target artifact creature you control gains (.+) until end of turn$/);
+  if (actrlKw) {
+    const kws = parseGrantedKeywords(actrlKw[1]);
+    return kws ? { op: "pump", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }, { kind: "cardType", type: "artifact" }], ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
+  // SHELF-85 S17 (2026-09-04 — Plaza of Heroes "Target legendary creature gains hexproof and indestructible until end of
+  // turn"): the SUPERTYPE-restricted keyword grant, any controller (the printed shape — the Plaza protects a
+  // commander whoever controls it). The `supertype` restriction the untap / auto-attach lanes already read.
+  const legKw = t.match(/^target legendary creature gains (.+) until end of turn$/);
+  if (legKw) {
+    const kws = parseGrantedKeywords(legKw[1]);
+    return kws ? { op: "pump", targetType: "creature", restrictions: [{ kind: "supertype", value: "Legendary" }], ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
   let pctrl = t.match(/^target creature (you control|an opponent controls) gets ([+-]\d+)\/([+-]\d+)(?: and gains (.+))? until end of turn$/);
   if (pctrl) {
     const who = pctrl[1] === "you control" ? "you" : "opponent";

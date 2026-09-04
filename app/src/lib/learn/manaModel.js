@@ -341,6 +341,14 @@ function parseAddClause(oracle, card) {
   // Zaxara, Goldspan's Treasure). RUNTIME-ONLY: classifyCard never calls manaProduction, so the native-mana
   // tier is unchanged — this corrects only the runtime AMOUNT. The X-with-metric forms ("Add X mana …,
   // where X is …") already matched Shape B above (amountSpec), so they never reach here.
+  // SHELF-85 S17 (2026-09-04 — Plaza of Heroes "{T}: Add one mana of any color among legendary permanents you control"):
+  // ONE mana whose colour is drawn from the LIVE colours of the controller's legendary permanents. Placed BEFORE the
+  // free any-colour arm, which used to swallow this line and launder it into an unrestricted any-colour source (a
+  // colourless board still made every colour — the forbidden FP). `colorsAmongSpec` is resolved in manaSources; no
+  // legendary permanent with a colour → the source is not offered (produce nothing, never a fabricated colour).
+  if (/\badd one mana of any color among legendary permanents you control\b/i.test(oracle)) {
+    return { colors: ["W", "U", "B", "R", "G"], amount: 1, colorsAmongSpec: { kind: "legendaryPermanentsYouControl" } };
+  }
   let any = oracle.match(/add\b[^.]*?\b(\S+)\s+mana of any(?: one)? color/i);
   if (any) {
     const n = parseFixedQuantity(any[1]);
@@ -901,7 +909,7 @@ const MAX_SPEED_PREFIX = /^\s*max speed\s*[—–-]\s*/i;
  * counter-removal rider fails the anchor on purpose: its single-line product would silently drop the rider
  * (a painless painland tap), the forbidden direction. Never the main line itself. Memoized per card object.
  */
-const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Pay \d life: Add one mana of any color\.|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+(?: or [a-z]+)? spells?\.)$/i; // + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory); + SHELF-85 S17: the fixed-type restricted any-colour line (Mech Hangar "Spend this mana only to cast a Pilot or Vehicle spell.") — the per-line product carries its restriction (restrictedManaProduction), never a free colour
+const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Pay \d life: Add one mana of any color\.|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+(?: or [a-z]+)? spells?\.|\{T\}: Add one mana of any color among legendary permanents you control\.)$/i; // + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory); + SHELF-85 S17: the fixed-type restricted any-colour line (Mech Hangar "Spend this mana only to cast a Pilot or Vehicle spell.") — the per-line product carries its restriction (restrictedManaProduction), never a free colour
 // A PLAIN tap line: complete, ungated, no sacrifice — the line a multi-line card can always tap for.
 const PLAIN_MANA_LINE_RE = /^\{T\}: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.$/i;
 
@@ -966,6 +974,10 @@ export function extraManaLineProducts(card, mainProd) {
     // ONLY mana line is gated — Tablet of Compleation — has that line AS its main; it must not ride twice).
     const covered = !!mainProd && prod.colors.every((c) => (mainProd.colors || []).includes(c))
       && !!prod.sacrifices === !!mainProd.sacrifices
+      // S17 (Plaza of Heroes): a RESTRICTED line is never "the same" as an unrestricted main (nor vice versa), and a
+      // board-derived colour set (colorsAmongSpec) is not the placeholder five it parses to — both ride as extras.
+      && !!prod.restriction === !!mainProd.restriction
+      && (prod.colorsAmongSpec?.kind || null) === (mainProd.colorsAmongSpec?.kind || null)
       && (prod.activationCondition || null) === (mainProd.activationCondition || null)
       // STAGE ④-4: a counter-removal line is its own ability — covered only by a main that IS that same line
       // (the Batteries), never by a plain tap of the same colour (Mage-Ring Network's storage line rides).
@@ -1108,6 +1120,9 @@ const SPEND_CAST_TYPE_WORDS = new Set([
   // SHELF-85 S17 (2026-09-04 — Mech Hangar "Spend this mana only to cast a Pilot or Vehicle spell"): Pilot is a real
   // creature-subtype word on the type line (the Shorikai / Prodigy tokens are Pilots), word-bounded like every sibling.
   "pilot",
+  // SHELF-85 S17 (2026-09-04 — Plaza of Heroes "Spend this mana only to cast a legendary spell"): a supertype word
+  // (CR 205.4), verbatim on the type line, word-bounded like every sibling.
+  "legendary",
 ]);
 /**
  * MANA-SPENT RIDER (SHELF-85 V11, 2026-09-04 — Path of Ancestry): "When that mana is spent to cast a creature spell that
@@ -1867,6 +1882,15 @@ export function manaSources(state, playerId) {
     const dynFixed = prod.fixedSpec?.kind === "colorsAmongPermanents"
       ? Object.fromEntries([...new Set((player.battlefield || []).flatMap((p) => colorsOf(p.card)))].map((c) => [c, scale]))
       : null;
+    // S17 (Plaza of Heroes) — ONE mana of any colour AMONG the controller's legendary permanents: narrow the colour set to
+    // the live union of their colours (CR 608.2g); an empty union means no colour can be made → the MAIN record is not
+    // offered, but the card's EXTRA lines still are (a `continue` here would take Plaza's honest {C} line with it).
+    let dropMain = false;
+    if (prod.colorsAmongSpec?.kind === "legendaryPermanentsYouControl") {
+      const among = [...new Set((player.battlefield || []).filter((p) => /\bLegendary\b/i.test(String(p.card?.type || p.card?.type_line || "").split(" // ")[0])).flatMap((p) => colorsOf(p.card)))].filter((c) => c !== "C");
+      if (among.length) prod = { ...prod, colors: among };
+      else dropMain = true;
+    }
     const fixed = dynFixed || (prod.fixed ? Object.fromEntries(Object.entries(prod.fixed).map(([c, n]) => [c, n * scale])) : null);
     // A bundle's TOTAL is its own tally — for the printed karoo family this equals `amount` exactly (two
     // symbols × the multiplier), and for the board-derived VIVID form it is the live color count, replacing
@@ -1892,7 +1916,7 @@ export function manaSources(state, playerId) {
     // SG-3 — a sacrifice-a-creature source needs ANOTHER creature to feed it (never the source itself, never
     // offered on an empty board): no victim → no source (CR 601.2h — the cost cannot be paid).
     if (prod.sacrificesCreature && !(player.battlefield || []).some((p) => p.id !== perm.id && /\bCreature\b/.test(String(p.card?.type || p.card?.type_line || "")))) continue;
-    sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}) });
+    if (!dropMain) sources.push({ permanentId: perm.id, colors: fixed ? Object.keys(fixed) : prod.colors, amount: bundleTotal, sacrifices: !!prod.sacrifices, ...(parseManaSpentRider(perm.card) ? { spentRider: parseManaSpentRider(perm.card) } : {}), /* V11 */ ...(prod.exilesGyCard ? { exilesGyCard: true } : {}), ...(prod.sacrificesCreature ? { sacrificesCreature: true } : {}), ...(fixed ? { fixed } : {}), ...(prod.painColors ? { painColors: prod.painColors, painAmount: prod.painAmount } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(bonus.length ? { bonus } : {}), ...(prod.restriction ? { restriction: resolveSourceRestriction(prod.restriction, perm) } : {}), ...(extraTaps ? { extraTaps } : {}), ...(prod.payLife != null ? { payLife: prod.payLife } : {}), ...(prod.removesCountersLive ? { removesCounters: prod.removesCountersLive } : {}) });
     // STAGE ④-3 — EXTRA MANA LINES: a second, complete "{T}: Add …" line the main product does not cover (a
     // gated colour line — Tainted Isle / the Verges / Gathering Place; a free "{T}: Add {C}" beside a painful
     // any-colour line — Grand Coliseum; a "{T}, Sacrifice this land: Add …" ritual line). Each is its own

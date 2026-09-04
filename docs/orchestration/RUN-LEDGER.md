@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · S17: PLAZA OF HEROES — legendary mana, de-laundered, and the legendary grant · **+6** · corpus 14,388 (42.0%) / 34,245 (42.0%)
+> Suite **1458 files / 15,965 tests** green; lint 0. Flip-diff **+6, zero LOST**. **8/8 killed.**
+> · **The shape:** three lines — "Spend this mana only to cast a legendary spell" ("legendary" joined the restricted-spend
+>   type words, a supertype verbatim on the type line); "Add one mana of any color among legendary permanents you
+>   control" (the free any-colour arm used to LAUNDER this into an unrestricted source — a colourless board still made
+>   every colour; it now narrows to the live colours of the controller's legendary permanents, none → not offered); and
+>   "{3}, {T}, Exile this land: Target legendary creature gains hexproof and indestructible" (the keyword-grant lane's
+>   supertype-restricted form, any controller; the splitter's keep-whole widened so the pair survives). The extras
+>   builder now treats a restricted line as its own record (it was "covered" by the placeholder five colours).
+> · **Kotori's second half** rode along: "target artifact creature you control gains lifelink and vigilance" — the keyword-only
+>   twin of the artifact-creature pump. Kotori still parks on "Vehicles you control have crew 2".
+> · **Twins audited whole-card:** Shizo / Shinka / Daily Bugle Building (the legendary grant; sources honest), Untaidake (the
+>   spend word on its ONLY mana line, offered with its {T}, Pay 2 life cost). ⚠️ Great Hall of the Citadel and Daily Bugle
+>   Building each carry a MANA-COSTED line ("{1}, {T}: Add …") the runtime does not offer — the pre-existing
+>   credited-but-never-offered class (memory: multi-product mana). Their flips are FN-safe (the engine plays them as
+>   weaker lands) and are flagged, not claimed as wins.
+> · **CI:** HELD — GitHub Actions minutes for the month are exhausted (Colton, 09-04: pushes triggered runs until the quota died); resets with the billing month — build on local gates, push the stack once
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · S17: MECH HANGAR — the composite sized, its one small card taken · **+1** · corpus 14,382 (42.0%) / 34,245 (42.0%)
 > Suite **manaModel.js ("pilot" spend word + the fixed-type restricted any-colour extra line) + effects/atoms/combat.js (unscoped Vehicle animate) + mechHangar.test.js (4)** green; lint 0. Flip-diff **+1, zero LOST**. **4/4.**
 > · **The shape:** "{T}: Add one mana of any color. Spend this mana only to cast a Pilot or Vehicle spell. / {3}, {T}: Target

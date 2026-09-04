@@ -57,7 +57,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Colton | Veyran Cantrips | 91 | — | — | ✅ at the bar (④-BD) |
 | Colton | The Unbeatable Squirrel Girl | 90 | — | — | ✅ at the bar |
 | Colton | cdh | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
-| Colton | Killer Turts | 69 | 16 | 21 | ⬜ Phase 2 |
+| Colton | Killer Turts | 70 | 15 | 20 | ⬜ Phase 2 |
 | Joe | Did you say Dragons? | 91 | — | — | ✅ at the bar |
 | Joe | Earth Bent | 91 | — | — | ✅ at the bar (④-BE) |
 | Joe | Mothman Cometh | 89 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
@@ -66,7 +66,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kinnan Mana Overload | 75 | 10 | 15 | ⬜ Phase 2 (cEDH — LAST) |
-| Joe | Believe it! | 74 | 11 | 16 | ⬜ Phase 2 (cEDH — LAST) |
+| Joe | Believe it! | 75 | 10 | 15 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Kellan of the west | 74 | 11 | 16 | ⬜ Phase 2 |
 | Joe | Halfshell heroes | 66 | 19 | 24 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
@@ -75,14 +75,14 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Teval, the Balanced Scale Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Nekusar Wheels | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Shorikai Vehicles | 82 | 3 | 8 | ⬜ Phase 2 |
+| Test | Shorikai Vehicles | 83 | 2 | 7 | ⬜ Phase 2 |
 | Test | Shalai and Hallar Test | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Otharri Test | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 69 | 16 | 21 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
-| Test | Light-Paws Voltron | 66 | 19 | 24 | ⬜ Phase 2 |
+| Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**11 decks below 85 · 146 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**11 decks below 85 · 142 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -318,7 +318,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | S14 | Imposter Mech · Ironsoul Enforcer · Narset's Reversal · Mechtitan Core | | L / M / M / L | Narset's Reversal = copy + bounce-spell (M) | ⬜ |
 | S15 | Chain of Vapor | bounce + the sacrifice-a-land copy chain | 🅿 CEILING | the copy chain is a multi-player decision loop | 🅿 |
 | S16 | Dispatch | metalcraft exile | S | the metalcraft intervening-if exists (Molten Psyche shares it) | ✅ (+1 corpus — the ADDITIVE targeted conditional (no "instead"): tap always, exile too under metalcraft; narrow by design (a single chosen-creature base, an alternative naming "that creature" bound through the sentinel, the base inside both branches so ONE creature is chosen). The sentinel exile/destroy arm joined removal.js.) |
-| S17 | COMPOSITE | Born to Drive · Katsumasa · Kotori · Mech Hangar · Mu Yanling · Nautiloid Ship · Padeem · Plaza of Heroes · Windbrisk Heights | size on approach | sized 2026-09-04: Mech Hangar S ✅ · Kotori M ("Vehicles you control have crew 2" + a combat-begin targeted grant) · Katsumasa M (animate-with-flying + a 1/1 base unless Vehicle; up-to-three counters) · Born to Drive M (a gated dynamic-count pump on an Aura + channel) · Padeem M (a greatest-mana-value intervening-if) · Plaza of Heroes M (two restricted/legendary-scoped mana lines + an exile-self grant) · Mu Yanling L (planeswalker) · Nautiloid Ship L ("exiled with this Vehicle") · Windbrisk Heights L (hideaway) | 🔄 Mech Hangar ✅ (+1 corpus — "pilot" joined the restricted-spend type words; the S6 animate arm gained the UNSCOPED "target Vehicle" form (any controller, printed P/T kept; a scope-less "another" parks); and the fixed-type restricted any-colour line joined EXTRA_MANA_LINE_RE so the runtime OFFERS it (with its restriction) — without that the land credit was hollow, the credited-but-never-offered class the memory flags). |
+| S17 | COMPOSITE | Born to Drive · Katsumasa · Kotori · Mech Hangar · Mu Yanling · Nautiloid Ship · Padeem · Plaza of Heroes · Windbrisk Heights | size on approach | sized 2026-09-04: Mech Hangar S ✅ · Kotori M ("Vehicles you control have crew 2" + a combat-begin targeted grant) · Katsumasa M (animate-with-flying + a 1/1 base unless Vehicle; up-to-three counters) · Born to Drive M (a gated dynamic-count pump on an Aura + channel) · Padeem M (a greatest-mana-value intervening-if) · Plaza of Heroes ✅ (+6 with five twins — "legendary" spend word; the among-legendary colour line de-laundered; the legendary grant + the artifact-creature-you-control grant Kotori's second half needs; the extras builder keeps restricted lines) · Mu Yanling L (planeswalker) · Nautiloid Ship L ("exiled with this Vehicle") · Windbrisk Heights L (hideaway) | 🔄 Mech Hangar ✅ (+1 corpus — "pilot" joined the restricted-spend type words; the S6 animate arm gained the UNSCOPED "target Vehicle" form (any controller, printed P/T kept; a scope-less "another" parks); and the fixed-type restricted any-colour line joined EXTRA_MANA_LINE_RE so the runtime OFFERS it (with its restriction) — without that the land credit was hollow, the credited-but-never-offered class the memory flags). |
 
 ### 5.5 Kellan of the west — 70% · needs 15 · top-of-library deck (the wall: play-from-top)
 
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · S17 Plaza of Heroes (Shorikai; Shizo / Shinka / Untaidake / Daily Bugle Building / Great Hall of the Citadel audited) ✅ +6 corpus · 8/8 killed · suite 1458 files / 15,965 tests · corpus 14,388 (42.0%) · shelf refreshed in §1 · CI: HELD — GitHub Actions minutes for the month are exhausted (Colton, 09-04: pushes triggered runs until the quota died); resets with the billing month — build on local gates, push the stack once.
 
 - 2026-09-04 — Phase 2 · S17 Mech Hangar (Shorikai; the composite sized) ✅ +1 corpus · 4/4 · suite manaModel.js ("pilot" spend word + the fixed-type restricted any-colour extra line) + effects/atoms/combat.js (unscoped Vehicle animate) + mechHangar.test.js (4) · corpus 14,382 (42.0%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 

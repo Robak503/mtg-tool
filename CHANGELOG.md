@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Plaza of Heroes** — its legendary-only mana no longer makes free colours; the exile-to-protect ability works; **Shizo**, **Shinka**, **Daily Bugle Building** grant to legendary creatures; **Untaidake** makes its restricted mana
 - **Mech Hangar** — its Pilot-or-Vehicle mana and its animate-any-Vehicle ability, as printed
 - **Permission Denied** and **Ranger-Captain of Eos** — your opponents can't cast noncreature spells this turn, as printed
 - **Mobilizer Mech** — crewing it animates another Vehicle you control, as printed

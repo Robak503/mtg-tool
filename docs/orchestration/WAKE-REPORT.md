@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · S17: Plaza of Heroes (+6)** · suite **1458 files / 15,965 tests** green · corpus 14,388 (42.0%) / 34,245 (42.0%) · flip-diff +6 / 0 lost · 8/8 killed
+
+> Legendary mana de-laundered, the legendary grant, Kotori's grant half. Shorikai **83** (needs 2).
+> **CI:** HELD — GitHub Actions minutes for the month are exhausted (Colton, 09-04: pushes triggered runs until the quota died); resets with the billing month — build on local gates, push the stack once
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · S17: Mech Hangar (+1)** · suite **manaModel.js ("pilot" spend word + the fixed-type restricted any-colour extra line) + effects/atoms/combat.js (unscoped Vehicle animate) + mechHangar.test.js (4)** green · corpus 14,382 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 4/4
 
 > The composite sized; Mech Hangar taken. **Shorikai 82 (needs 3).** Next by §2: the M rows left — S12 Emry (a graveyard-cast lane), S9 Sai (a which-artifacts pick), S14 Narset's Reversal, then S17's M cards (Kotori, Katsumasa, Born to Drive, Padeem, Plaza of Heroes).
