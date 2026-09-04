@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — V14: GINGERBRUTE / TOUGH COOKIE — an except-by evasion effect, and animating a chosen artifact · **+4** · corpus 14,327 / 34,245 (41.8%)
+> Suite **1432 files / 15,807 tests** green; lint 0. Flip-diff **+4, zero LOST**. **6/6 mutations killed against a green witness (the except-by arm removed, the grant collapsing to flat unblockable, the block-time read removed, the artifact animate arm removed, the controller restriction dropped, the printed power ignored).**
+> · **Gingerbrute:** "{1}: This creature can't be blocked this turn except by creatures with haste." — the EXCEPT-BY twin
+>   of the self unblockable effect: a layer-6 `cantBeBlockedExceptBy:<Keyword>` grant until end of turn, which
+>   grantedAttackerExceptions reads at block time into the SAME keyword arm the printed static uses (the blocker must
+>   carry the keyword — CR 509.1b). Vetted words only (haste, flying). Resilient Roadrunner rides it.
+> · **Tough Cookie:** "{2}{G}: Until end of turn, target noncreature artifact you control becomes a 4/4 artifact creature."
+>   — the animate lane on a CHOSEN noncreature artifact of the controller's (the enumerator's layer-aware predicate + the
+>   controller restriction; the man-land resolver: layer-4 Creature, layer-7b base P/T, until end of turn). The Cookie
+>   itself and an opponent's artifact are never offered. Alloy Animist rides it.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — V13: MAZE OF ITH — untap the attacker and shield it both ways · **+3** · corpus 14,323 / 34,245 (41.8%)
 > Suite **1431 files / 15,801 tests** green; lint 0. Flip-diff **+3, zero LOST**. **8/8 mutations killed against a green witness (the fold, the keep-together rule, the arm, the stamps, the dealer half, both receiver gates — the blocker-side one pinned on a stamped blocker directly — and the AI's enemy-facing read).**
 > · **The shape:** "Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that

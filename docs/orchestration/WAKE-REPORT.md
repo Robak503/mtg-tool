@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 V14: Gingerbrute / Tough Cookie (+4)** · suite **1432 files / 15,807 tests** green · corpus 14,327 / 34,245 (41.8%) · flip-diff +4 / 0 lost · 6/6 mutations killed against a green witness (the except-by arm removed, the grant collapsing to flat unblockable, the block-time read removed, the artifact animate arm removed, the controller restriction dropped, the printed power ignored)
+
+> An except-by-haste evasion effect and animating a chosen artifact. Next row by the runbook's §2: V15 (the Light-Paws
+> Auras — Chains of Custody, Sheltered by Ghosts, Detainment Spell).
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 V13: Maze of Ith (+3)** · suite **1431 files / 15,801 tests** green · corpus 14,323 / 34,245 (41.8%) · flip-diff +3 / 0 lost · 8/8 mutations killed against a green witness (the fold, the keep-together rule, the arm, the stamps, the dealer half, both receiver gates — the blocker-side one pinned on a stamped blocker directly — and the AI's enemy-facing read)
 
 > The attacker untaps and deals and takes no combat damage this turn. Next row by the runbook's §2: V14 (Gingerbrute /

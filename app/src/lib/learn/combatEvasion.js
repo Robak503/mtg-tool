@@ -1108,6 +1108,12 @@ export function grantedAttackerExceptions(state, attackerId) {
     const e = attachedExceptByOf(att.permanent.card);
     if (e) out.push(e);
   }
+  // SHELF-85 V14 (2026-09-04 — Gingerbrute "can't be blocked this turn except by creatures with haste"): an effect-granted
+  // except-by, carried as a layer-6 `cantBeBlockedExceptBy:<Keyword>` keyword until end of turn (applyCantBeBlocked), read
+  // here into the SAME `keyword` arm the printed static uses — the blocker must carry that keyword. Vetted words only.
+  for (const kw of ["Haste", "Flying"]) {
+    if (permanentHasKeyword(state, attackerId, `cantBeBlockedExceptBy:${kw}`)) out.push({ kind: "keyword", keyword: kw });
+  }
   return out;
 }
 

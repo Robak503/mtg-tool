@@ -944,8 +944,10 @@ export function applyCantBeBlocked(state, atom, ctx) {
   const dur = { kind: "endOfTurn", turn: next.turn };
   for (const target of targets) {
     if (target.type !== "creature" || !findPermanent(next, target.id)) continue;
+    // SHELF-85 V14 (Gingerbrute): the except-by form grants `cantBeBlockedExceptBy:<Keyword>` instead of the flat
+    // unblockable — a blocker WITH that keyword may still block (CR 509.1b), enforced by grantedAttackerExceptions.
     next = addContinuousEffect(next, {
-      layer: 6, op: { layerOp: "addKeyword", keyword: "unblockable" },
+      layer: 6, op: { layerOp: "addKeyword", keyword: atom.exceptByKeyword ? `cantBeBlockedExceptBy:${atom.exceptByKeyword}` : "unblockable" },
       affects: { mode: "fixed", permanentIds: [target.id] },
       duration: dur, source: src,
     }).state;
@@ -1600,6 +1602,14 @@ export function combatKeywordClauseParser(clause) {
   // be blocked this turn"): the SOURCE as the fixed referent (atomTargets target:"self" → ctx.sourceId);
   // the same layer-6 endOfTurn unblockable grant as the targeted form. Whole-clause anchored.
   if (/^(?:this creature|it) can't be blocked this turn$/.test(t)) return { op: "cant-be-blocked", target: "self", targetType: null };
+  // SHELF-85 V14 (2026-09-04 — Gingerbrute "{1}: This creature can't be blocked this turn except by creatures with
+  // haste."): the EXCEPT-BY twin of the self form — a layer-6 `cantBeBlockedExceptBy:<Keyword>` grant until end of turn,
+  // read at block time by combatEvasion.grantedAttackerExceptions as the same `keyword` arm the printed static uses
+  // (the blocker must carry the keyword). Only the vetted keyword words; anything else → LOW.
+  {
+    const eb = t.match(/^(?:this creature|it) can't be blocked this turn except by creatures with (haste|flying)$/);
+    if (eb) return { op: "cant-be-blocked", target: "self", targetType: null, exceptByKeyword: eb[1].charAt(0).toUpperCase() + eb[1].slice(1) };
+  }
   if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
   // PAIRWISE CANT-BLOCK (④-BA, 2026-09-04 — "{R}: Target creature can't block THIS CREATURE this turn": Spin Engine,
   // Screeching Griffin, Duct Crawler, Kozilek's Pathfinder, Burning-Tree Bloodscale, Shrewd Hatchling; Fearsome Temper's
@@ -2417,6 +2427,15 @@ export function animateClauseParser(clause) {
     const atom = { op: "animate", targetType: "land", power: parseInt(anm[3], 10), toughness: parseInt(anm[4], 10), subtypes, grantKeywords, duration: "endOfTurn" };
     if (anm[2]) atom.restrictions = [{ kind: "controller", who: "you" }]; // "land you control" — enumerate own lands only
     return atom;
+  }
+  // SHELF-85 V14 (2026-09-04 — Tough Cookie "{2}{G}: Until end of turn, target noncreature artifact you control becomes
+  // a 4/4 artifact creature."): a CHOSEN noncreature artifact of the controller's (the enumerator's noncreatureArtifact
+  // predicate is layer-aware; the controller restriction is the same one the land form uses). The same animate resolver:
+  // layer-4 Creature (Artifact is already printed), layer-7b base P/T, until end of turn. Exactly this shape.
+  const anmArt = t.match(/^(until end of turn, )?target noncreature artifact you control becomes a (\d+)\/(\d+) artifact creature( until end of turn)?$/);
+  if (anmArt) {
+    if (!anmArt[1] && !anmArt[4]) return null;
+    return { op: "animate", targetType: "noncreatureArtifact", restrictions: [{ kind: "controller", who: "you" }], power: parseInt(anmArt[2], 10), toughness: parseInt(anmArt[3], 10), subtypes: [], cardTypes: ["Artifact"], grantKeywords: [], duration: "endOfTurn" };
   }
   const anmSelf = t.match(/^(until end of turn, )?this land becomes a (\d+)\/(\d+) (.*?)creature(?: with ([a-z, ]+?))?(?: in addition to its other types)?( until end of turn)?$/);
   if (anmSelf) {
