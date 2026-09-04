@@ -4555,6 +4555,12 @@ export function detectTriggers(card) {
         // (target:"thatCreature" + countFor triggeringCreaturePower — X read live at resolution,
         // CR 608.2h). Whole-clause anchored; a rider → unrewritten → LOW → Arbiter.
         effectClause = "put x +1/+1 counters on the triggering creature, where x is its power";
+      } else if (cls.event === "blocksCreature" && /^return that creature to its owner's hand at end of combat$/i.test(effectClause)) {
+        // ④-BB (2026-09-04 — Wall of Tears / Aether Membrane): the SAME blocked-attacker referent as the untap-lock branch
+        // directly below, rewritten to the sentinel removal.js's bounce-at-end-of-combat arm reads (target:"thatCreature" →
+        // ctx.triggeringPermanentId, enqueued on the end-of-combat queue). Event-gated and whole-clause anchored for the
+        // same reasons; the destroy twin (Deathgazer) keeps its own synthesized descriptor.
+        effectClause = "return the triggering creature to its owner's hand at end of combat";
       } else if (cls.event === "blocksCreature" && /^that creature doesn't untap during its controller's next untap step$/i.test(effectClause)) {
         // ⭐ BLOCKS-A-CREATURE REFERENT (CR 608.2c) — "that creature" is the BLOCKED ATTACKER, which the
         // blocksCreature fire site threads as the triggering permanent. Rewrite to the shared "the triggering

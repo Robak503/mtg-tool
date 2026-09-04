@@ -3,6 +3,16 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — ④-BB: "blocks a creature → return THAT creature to its owner's hand at end of combat" · **+3** · corpus 14,237 / 34,245 (41.6%)
+> Suite **1414 files / 15,658 tests** green; lint 0. Flip-diff **+3, zero LOST**. **4/4 mutations killed (the detector rewrite, the parse arm, the enqueue, the referent).**
+> · **The shape:** the blocksCreature flush threads the blocked ATTACKER as the triggering permanent (the blocker is the
+>   source); the detector rewrites the anaphor to the triggering-creature sentinel (beside the untap-lock rewrite), and a
+>   `bounce-at-end-of-combat` arm (target:"thatCreature") enqueues ④-AX's bounce entry on the end-of-combat queue. Wall of
+>   Tears, Aether Membrane, Kaijin of the Vanishing Touch.
+> · **Board-verified:** the AI's bear attacks into Wall of Tears; after combat damage the bear is in the AI's hand and the
+>   Wall stays (2 marked).
+> · **CI:** pushed after the ④-BA run is green; own run watched after push (result on the next entry's line)
+
 > ## 🎯 2026-09-04 (night cron) — ④-BA: "target creature can't block THIS creature this turn" · **+5** · corpus 14,234 / 34,245 (41.5%)
 > Suite **1413 files / 15,655 tests** green; lint 0. Flip-diff **+5, zero LOST**, every gain audited whole-card. **6/6 mutations killed (the parse arm, the source id in the grant, the pairwise gate, the duration, the source-less guard, the enemy-intent case).**
 > · **The shape:** a PAIRWISE block restriction — a layer-6 endOfTurn keyword grant keyed to the source's id

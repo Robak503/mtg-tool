@@ -7,6 +7,17 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (night cron) — **④-BB: blocks-a-creature → bounce that creature at end of combat (+3)** · suite **1414 files / 15,658 tests** green · corpus 14,237 / 34,245 (41.6%) · flip-diff +3 / 0 lost · 4/4 mutations killed (the detector rewrite, the parse arm, the enqueue, the referent)
+
+> **Night tally (stage ④, fifty-four slices):** … · AZ (+7) · BA (+5) · BB (+3) — corpus 13,862 → 14,237.
+> **CI note:** a second runner-variance red on shard 2 (crucibleRun's concurrent-run test, 24.9 s vs the 20 s default);
+> widened to 90 s (d680099d); the shard was re-run.
+> **CI:** pushed after the ④-BA run is green; own run watched after push (result on the next entry's line)
+> **Next runnable:** the census's ≥3 families with existing machinery are exhausted. Remaining: the subsystem-scale
+> families (morph, initiative/ring, quoted-grant statics — Colton's pick), a fresh deck walk, the X-effect remainder,
+> the counted "up to N" pick UI, the "target creature blocks this creature this turn if able" requirement (a lure seam
+> extension, 3 cards).
+
 ## 🎯 2026-09-04 (night cron) — **④-BA: "target creature can't block THIS creature this turn" (+5)** · suite **1413 files / 15,655 tests** green · corpus 14,234 / 34,245 (41.5%) · flip-diff +5 / 0 lost · 6/6 mutations killed (the parse arm, the source id in the grant, the pairwise gate, the duration, the source-less guard, the enemy-intent case)
 
 > **Night tally (stage ④, fifty-three slices):** … · AY (+3) · AZ (+7) · BA (+5) — corpus 13,862 → 14,234.

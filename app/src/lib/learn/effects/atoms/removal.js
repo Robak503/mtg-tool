@@ -687,6 +687,12 @@ export function destroyExileClauseParser(clause) {
   // basilisk touch uses, and combatResolution drains it at the end-of-combat boundary (after damage, the lethal SBA and
   // the dies look-backs). "it" is the SOURCE (scope self — CR 113.7); a source that already left combat-damage-dead is a
   // clean skip at the drain ("Return it only if it's on the battlefield" — the printed reminder).
+  // BLOCKED-CREATURE BOUNCE AT END OF COMBAT (④-BB, 2026-09-04 — Wall of Tears / Aether Membrane "Whenever this creature
+  // blocks a creature, return THAT creature to its owner's hand at end of combat"): the blocksCreature flush threads the
+  // blocked ATTACKER as the triggering permanent (checkBlockTriggers — the BLOCKER is the source, the attacker the
+  // referent, CR 509.1a), and the detector rewrites the anaphor to the sentinel below. Same queue, same drain, same stale
+  // guard as the self form; an attacker that died to combat damage is a clean skip.
+  if (/^return the triggering creature to its owner's hand at end of combat$/.test(t)) return { op: "bounce-at-end-of-combat", target: "thatCreature" };
   const seoc = t.match(/^(sacrifice|return) (?:it|this creature)( to its owner's hand)? at end of combat$/);
   if (seoc && (seoc[1] === "sacrifice") === !seoc[2]) return { op: "self-at-end-of-combat", action: seoc[1] === "sacrifice" ? "sacrifice" : "bounce", target: "self", targetType: null };
   // DETAIN (BLITZ DT-1, CR 610.3 — the Banishing Light / Banisher Priest / Oblivion-Ring-modern frame):
@@ -1104,7 +1110,17 @@ function applySelfAtEndOfCombat(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: `${entry.op}-at-end-of-combat-enqueued`, target: id, source: ctx.cardName || null });
 }
 
+// ④-BB — enqueue the TRIGGERING creature's end-of-combat bounce (the blocked attacker on a blocksCreature trigger).
+function applyBounceAtEndOfCombat(state, atom, ctx) {
+  const id = ctx.triggeringPermanentId;
+  if (!id || !findPermanent(state, id)) return state;
+  const entry = { op: "bounce", permanentId: id, turn: state.turn, sourceCardName: ctx.cardName || null };
+  const next = { ...state, endOfCombatEffects: [...(state.endOfCombatEffects || []), entry] };
+  return logEvent(next, { kind: "spell-effect", effect: "bounce-at-end-of-combat-enqueued", target: id, source: ctx.cardName || null });
+}
+
 export const removalResolvers = {
+  "bounce-at-end-of-combat": applyBounceAtEndOfCombat, // ④-BB — "return that creature to its owner's hand at end of combat" (Wall of Tears)
   "self-at-end-of-combat": applySelfAtEndOfCombat, // ④-AX — "sacrifice it / return it to its owner's hand at end of combat" (the attacks-or-blocks self class)
   "champion": applyChampion, // ===== CHAMPION (CR 702.71a) ===== exile ANOTHER own nontoken creature of the named type, linked to the source via the shared detain resolver (so the return is the one already proven); sacrifice the source when no legal offering exists
   "mass-destroy-treasure-per-nontoken": applyMassDestroyTreasurePerNontoken, // BLOOD-MONEY — destroy all creatures + a tapped Treasure per nontoken creature destroyed

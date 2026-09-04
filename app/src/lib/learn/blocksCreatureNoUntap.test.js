@@ -83,11 +83,13 @@ describe("detect + sentinel + classify", () => {
     for (const tail of [
       "that creature can't attack during its controller's next turn.",   // Wall of Dust
       "destroy that creature at end of combat.",                         // Infernal Medusa
-      "return that creature to its owner's hand at end of combat.",      // Wall of Tears / Aether Membrane
       "tap that creature. That creature doesn't untap during its controller's next untap step.", // Vertigo Spawn — two sentences
     ]) {
       expect(classifyCard(mk(tail))).not.toMatch(/^native/);
     }
+    // ④-BB (2026-09-04): the bounce-at-end-of-combat tail flipped NATIVE — the detector rewrites its anaphor to the
+    // triggering-creature sentinel and removal.js enqueues the ④-AX bounce entry (see blocksBounceAtEndOfCombat.test.js).
+    expect(classifyCard(mk("return that creature to its owner's hand at end of combat."))).toBe("native-trigger");
   });
 });
 
