@@ -492,6 +492,24 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
       && !(inner.role || inner.secondaryRole || inner.fighter || Array.isArray(inner.targets));
     if (plain) return { ...inner, minTargets: 0, maxTargets: 1 };
   }
+  // ⭐ "UP TO TWO / THREE / FOUR target creatures …" (④-AR, 2026-09-04 — Abandon the Post / Markov Warlord "up to two
+  // target creatures can't block this turn", Unearthly Blizzard "up to three", Deadly Designs "destroy up to two target
+  // creatures", "exile up to two target creatures", "up to two target creatures gain flying"): the bounce and pump arms
+  // carry their own multi-count; can't-block, destroy, exile and the keyword grant did not. The count comes off, the
+  // verb agrees back to the singular, the reduced clause parses on its own merits, and minTargets:0 / maxTargets:N lands
+  // on a plain creature-targeting atom — the appliers already loop their chosen targets (applyCantBlock / destroy /
+  // exile / pump all iterate atomTargets). Arms first, this last, exactly like the two fallbacks above.
+  const upToN = /\bup to (two|three|four) (target creatures)\b/i.exec(s);
+  if (upToN) {
+    const reduced = s.replace(upToN[0], "target creature")
+      .replace(/\btarget creature (gain|get|become|lose|have)\b/i, (_m, v) => `target creature ${v}s`)
+      .replace(/\btarget creature each (gains?|gets?)\b/i, (_m, v) => `target creature ${v.endsWith("s") ? v : v + "s"}`);
+    const innerN = parseClauseToAtom(cardType, reduced, hasX, sourceScoped);
+    const plainN = innerN && KNOWN.has(innerN.op) && (innerN.targetType === "creature" || innerN.targetType === "creatureYouControl")
+      && innerN.maxTargets == null && innerN.minTargets == null
+      && !(innerN.role || innerN.secondaryRole || innerN.fighter || Array.isArray(innerN.targets));
+    if (plainN) return { ...innerN, minTargets: 0, maxTargets: SMALL_NUM[upToN[1].toLowerCase()] };
+  }
   return null;
 }
 

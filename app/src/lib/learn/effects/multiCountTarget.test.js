@@ -127,9 +127,12 @@ describe("multi-count — tap (tap up to N target creatures)", () => {
     expect(prog("Tap up to two target creatures.").atoms[0]).toMatchObject({ op: "tap", targetType: "creature", maxTargets: 2, minTargets: 0 });
   });
 
-  it("a FILTERED multi-tap stays LOW → Arbiter (FN-safe, deferred)", () => {
+  it("⭐ a FILTERED multi-tap parses since ④-AR (2026-09-04) — the count peel reduces it to the single-target tap arm, whose controller restriction the enumeration enforces", () => {
+    // Pinned LOW ("deferred") until ④-AR: the multi-tap arm modeled the BARE forms only. The fallback peel now reads the
+    // count off, the single-target tap arm reads "you control" as a controller restriction, and the marker carries N.
     const p = prog("Tap up to two target creatures you control.");
-    expect(p.atoms).toHaveLength(0);
+    expect(p.atoms).toHaveLength(1);
+    expect(p.atoms[0]).toMatchObject({ op: "tap", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }], minTargets: 0, maxTargets: 2 });
   });
 
   it("resolving two chosen targets taps BOTH", () => {

@@ -203,6 +203,7 @@ the scratchpad). ✅ **④-A** — Aura-own cumulative upkeep composes with the 
 ✅ **④-AM** — the attack tax's second printing (Baird, Archon of Absolution) (+2; 3/3 killed (a fourth, {X} read as {1}, had no carrier — Sphere of Safety's 'where X' tail refuses it before the digit class does — and was deleted)).
 ✅ **④-AN** — batch combat damage once per damaged player + the referent (+2; 4/4 killed). ✅ **④-AO** — the X-magnitude activated lane + mixed-pip X cost + "gain X life" (+18; 6/6 killed). ✅ **④-AP** — the AI uses the combat window (+0; 4/4 killed).
 ✅ **④-AQ** — "up to one target creature" on the creature lane (+22; 3/3 killed).
+✅ **④-AR** — "up to two / three target creatures" on the creature lane (+16; 3/3 killed).
 Queue = the census's two-flip / bug-signature leads (see WAKE-REPORT top).
 Only after ①–③'s DONE lines are met. Boot from the vault's `memory/orders/cindy-corpus-roadmap.md`
 (WHAT/WHY/ORDER) + the repo's `RESIDUE-GRIND-RUNBOOK.md` (HOW): fresh census, largest clause family with
@@ -296,6 +297,14 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
   creature gets +X/+X" parses HIGH, but the activated lane admits {X} costs only for targets-per-X programs (`costXTargetCount`);
   an amountX magnitude has no runtime path (choose X from 1..affordable, thread xValue). The spell lane already does this for
   X spells — the activated twin is the work. Carriers: the {X} pumps on lands and creatures (count first).
+- **[STRIVE + "any number of target creatures" — sized 2026-09-04 night, NOT built — Cindy lane]** After ④-AR the last
+  count word on the creature lane is "any number of target creatures" (~60 carriers). The clean ones are the STRIVE cycle
+  (Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Colossal Heroics, Desperate Stand,
+  Ajani's Presence — "This spell costs {N} more to cast for each target beyond the first"): the peel alone would credit
+  them at their base cost for any number of targets — a FORBIDDEN over-offer — so Strive's per-target cost must ride the
+  cast expansion first (expandCastChoices: cost += striveIncrement × (targets − 1), affordability re-checked per subset;
+  the expander already has `anyNumber` / largestFirst). The non-Strive carriers park on riders (Energy Arc's prevention,
+  Morningtide's Light's delayed return) or on "divided as you choose" / "distribute" (its own subsystem). Yield ≈ +8–10.
 - **[The remaining {X} effect shapes — sized 2026-09-04 night, NOT built — Cindy lane]** After ④-AO the X lane reads any
   xSpell program, so what parks now is the EFFECT vocabulary: "put X +1/+1 counters on target creature / on it" (11 cards,
   but nearly all co-blocked — Repulsive Mutation's "unless its controller pays mana equal to the greatest power", Nova

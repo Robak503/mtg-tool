@@ -7,6 +7,13 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🔢 2026-09-04 (night cron) — **④-AR: "up to two / three target creatures" on the creature lane (+16)** · suite **1405 files / 15,603 tests** green · corpus 14,165 / 34,245 (41.4%) · flip-diff +16 / 0 lost · 3/3 killed
+
+> **Night tally (stage ④, forty-four slices):** … · AO (+18) · AP (+0) · AQ (+22) · AR (+16) — corpus 13,862 → 14,165.
+> **CI:** ④-AQ's run (d61dc528) in flight at commit time; ④-AR pushes only after it is green
+> **Next runnable:** "any number of target creatures" (14 parked — the same peel with an unbounded max; count the appliers first);
+> Feline Sovereign parks on "protection from Dogs"; the X-effect remainder (parked); a fresh deck walk.
+
 ## 1️⃣ 2026-09-04 (night cron) — **④-AQ: "up to one target creature" on the creature lane (+22)** · suite **1404 files / 15,600 tests** green · corpus 14,149 / 34,245 (41.3%) · flip-diff +22 / 0 lost · 3/3 killed
 
 > **Night tally (stage ④, forty-three slices):** … · AN (+2) · AO (+18) · AP (+0, the AI's combat activations) · AQ (+22) —

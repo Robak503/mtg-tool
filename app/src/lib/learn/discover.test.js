@@ -162,7 +162,10 @@ describe("discover — parser + coverage pins", () => {
     expect(isHigh("Discover 5. If the discovered card's mana value is less than 5, create a Treasure token.")).toBe(false); // Hit-the-Mother-Lode rider
     expect(isHigh("Discover 3, where X is that spell's mana value.")).toBe(false);                                          // count-scaled X (deferred)
     expect(isHigh("Discover 3. Draw a card.")).toBe(false); // discover-not-last → the decision resolves after the program (reorder guard)
-    expect(classifyCard(C("Sorcery", "Up to three target creatures can't block this turn. Discover 4.", "Daring Discovery"))).toBe("arbiter-spell"); // unmodeled lead clause
+    // Daring Discovery's lead clause ("up to three target creatures can't block this turn") parses since ④-AR (2026-09-04);
+    // discover is LAST here, so the reorder guard is satisfied and the card is native — pinned so the guard's "not
+    // last" sibling above stays the only LOW reason.
+    expect(classifyCard(C("Sorcery", "Up to three target creatures can't block this turn. Discover 4.", "Daring Discovery"))).toBe("native-spell");
   });
 
   // The discover engine GENERALIZES beyond Pantlaza — these pins lock the whole family's tier so a future

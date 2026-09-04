@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🔢 2026-09-04 (night cron) — ④-AR: "UP TO TWO / THREE target creatures …" on the creature lane · **+16** · corpus 14,165 / 34,245 (41.4%)
+> Suite **1405 files / 15,603 tests** green; lint 0. Flip-diff **+16, zero LOST**. **3/3 killed.**
+> · **The shape:** ④-AQ's fallback peel, one count word further — "up to two / three / four target creatures". The bounce and
+>   pump arms carried their own multi-count; can't-block, destroy, exile and the keyword grant did not. The count comes
+>   off, the verb agrees back to the singular ("gain" → "gains", "each get" → "gets", "can't" stays), the reduced clause
+>   parses on its own merits, and minTargets:0 / maxTargets:N lands on a plain creature-targeting atom — the appliers
+>   already loop their chosen targets (applyCantBlock, destroy, exile, pump). Arms first, peel last, as before.
+> · **Board-verified:** Unearthly Blizzard against three bears offers the zero-, one-, two- and three-target casts; the
+>   two-target cast locks exactly those two out of blocking.
+> · **Two stale pins rewritten:** multiCountTarget's "a FILTERED multi-tap stays LOW (deferred)" — "tap up to two target
+>   creatures you control" now reduces to the single tap arm whose controller restriction the enumeration enforces; discover's
+>   Daring Discovery pin (its lead clause parses; discover is last, so the reorder guard holds).
+> · **CI:** ④-AQ's run (d61dc528) in flight at commit time; ④-AR pushes only after it is green
+
 > ## 1️⃣ 2026-09-04 (night cron) — ④-AQ: "UP TO ONE target creature …" on the creature lane · **+22** · corpus 14,149 / 34,245 (41.3%)
 > Suite **1404 files / 15,600 tests** green; lint 0. Flip-diff **+22, zero LOST**. **3/3 killed.**
 > · **The shape:** CR 601.2c — the caster may choose zero. The PERMANENT lane stamped minTargets:0 / maxTargets:1 for "up to
