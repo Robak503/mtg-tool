@@ -1008,6 +1008,17 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       }
     }
   }
+  // TELEPORTATION CIRCLE union (SHELF-85 B6, 2026-09-04) — "target artifact or creature you control": the own-side
+  // artifact-or-creature pair, the Ghostly Flicker triple above minus lands. Same targeting gate.
+  else if (effect.targetType === "artifactOrCreatureYouControl") {
+    for (const perm of state.players[controllerId]?.battlefield || []) {
+      const tl = String(perm.card?.type || perm.card?.type_line || "");
+      if ((/\bArtifact\b/.test(tl) || isCreature(perm.card))
+          && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors)) {
+        out.push({ type: "creature", id: perm.id, controller: controllerId, name: perm.card?.name });
+      }
+    }
+  }
   else if (effect.targetType === "player") addPlayers();
   else if (effect.targetType === "any") { addCreatures(); addPlayers(); addPlaneswalkers(); }
   else if (effect.targetType === "creatureOrPlaneswalker") { addCreatures(); addPlaneswalkers(); }

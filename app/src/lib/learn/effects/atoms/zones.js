@@ -899,6 +899,13 @@ export function graveyardReturnClauseParser(clause) {
   // the same subset path as up-to-two (the [t]-or-[] expansion).
   const blink1M = t.match(/^exile up to one target nonland permanent you control, then return that card to the battlefield under (your|its owner's) control$/);
   if (blink1M) return { op: "blink", targetType: "nonlandPermanent", restrictions: [{ kind: "controller", who: "you" }], returnTo: blink1M[1] === "your" ? "controller" : "owner", maxTargets: 1, minTargets: 0 };
+  // TELEPORTATION CIRCLE (SHELF-85 B6, 2026-09-04) — "exile up to one target artifact or creature you control, then
+  // return that card to the battlefield under its owner's control" (the end-step blink; Escape Protocol / Against
+  // All Odds print the mandatory single form): the own-side ARTIFACT-OR-CREATURE union, enumerated in spellEffects
+  // beside the Ghostly Flicker triple. applyBlink returns whatever left, so the type mix is free. "up to one" rides
+  // the up-to-ONE subset path (maxTargets 1 / minTargets 0); the bare form is one mandatory target.
+  const blinkAcM = t.match(/^exile (up to one )?target artifact or creature you control, then return (?:that card|it) to the battlefield under (your|its owner's) control$/);
+  if (blinkAcM) return { op: "blink", targetType: "artifactOrCreatureYouControl", restrictions: [], returnTo: blinkAcM[2] === "your" ? "controller" : "owner", ...(blinkAcM[1] && { maxTargets: 1, minTargets: 0 }) };
   // GHOSTLY FLICKER (2026-08-14) — "Exile two target artifacts, creatures, and/or lands you control,
   // then return those cards…": the own-side TRIPLE-UNION targetType (enumerated in spellEffects) with
   // EXACTLY two targets — minTargets 2 = maxTargets 2, the CR 601.2c exact-N discipline the

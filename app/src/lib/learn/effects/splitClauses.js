@@ -777,7 +777,9 @@ export function splitClauses(oracle) {
     // you control" parses HIGH as an optional exile, describing a card that MAY exile your creature and never
     // return it. The leading "you may" is peeled + stamped optional by the α2 wrapper AFTER keep-whole, so the
     // guard only has to admit the prefix; the inner blink parses exactly as the mandatory form does.
-    if (/^(?:you may )?exile (?:target creature|up to one target nonland permanent|up to two target creatures|two target artifacts, creatures, and\/or lands) you control, then return (?:that card|it|those cards) to the battlefield under (?:your|its owner's|their owner's) control\.?$/i.test(sentence)) {
+    // ARTIFACT-OR-CREATURE (SHELF-85 B6, Teleportation Circle "up to one target artifact or creature you control"; the
+    // mandatory single form on Escape Protocol / Against All Odds) joined 2026-09-04 — the same severed-exile hazard.
+    if (/^(?:you may )?exile (?:target creature|(?:up to one )?target artifact or creature|up to one target nonland permanent|up to two target creatures|two target artifacts, creatures, and\/or lands) you control, then return (?:that card|it|those cards) to the battlefield under (?:your|its owner's|their owner's) control\.?$/i.test(sentence)) {
       clauses.push(sentence);
       continue;
     }

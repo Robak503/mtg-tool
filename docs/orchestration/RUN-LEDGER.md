@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · B6: TELEPORTATION CIRCLE — the end-step artifact-or-creature blink · **+2** · corpus 14,351 (41.9%) / 34,245 (41.9%)
+> Suite **effects/atoms/zones.js (artifact-or-creature blink arm) + spellEffects.js (artifactOrCreatureYouControl enumerator) + effects/splitClauses.js (keep-whole guard) + teleportationCircle.test.js (8)** green; lint 0. Flip-diff **+2, zero LOST**. **5/5.**
+> · **The shape:** "At the beginning of your end step, exile up to one target artifact or creature you control, then
+>   return that card to the battlefield under its owner's control." — the blink family read creature / nonland-permanent /
+>   the Ghostly Flicker triple; the ARTIFACT-OR-CREATURE own-side union is new (an enumerator branch beside the
+>   triple; the same targeting gate), with "up to one" on the up-to-one subset path and the bare form mandatory.
+>   The splitter's keep-whole guard (which stops ", then" severing the exile from its return) admits the form. The
+>   end-step trigger existed. Unplanned twin audited whole-card: Against All Odds ("Choose one or both" — this
+>   blink + the mana-value-≤3 artifact-or-creature reanimation, both modeled; arbiter-spell → native-spell).
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · B5: RECRUITER OF THE GUARD — the stat-capped tutor · **+2** · corpus 14,349 (41.9%) / 34,245 (41.9%)
 > Suite **effects/atoms/library.js (tutor-to-hand stat cap + the shared matcher's printed-stat gate) + recruiterOfTheGuard.test.js (6)** green; lint 0. Flip-diff **+2, zero LOST**. **4/4.**
 > · **The shape:** "you may search your library for a creature card with toughness 2 or less, reveal it, put it into
