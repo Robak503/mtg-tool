@@ -56,7 +56,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Colton | Zaxara kinda X'ish | 92 | — | — | ✅ at the bar |
 | Colton | Veyran Cantrips | 91 | — | — | ✅ at the bar (④-BD) |
 | Colton | The Unbeatable Squirrel Girl | 90 | — | — | ✅ at the bar |
-| Colton | cdh | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
+| Colton | cdh | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Colton | Killer Turts | 65 | 20 | 25 | ⬜ Phase 2 |
 | Joe | Did you say Dragons? | 91 | — | — | ✅ at the bar |
 | Joe | Earth Bent | 90 | — | — | ✅ at the bar (④-BE) |
@@ -65,7 +65,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Hulk Smash | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Joe | Jurassic Ramp | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Joe | Kinnan Mana Overload | 73 | 12 | 17 | ⬜ Phase 2 (cEDH — LAST) |
+| Joe | Kinnan Mana Overload | 74 | 11 | 16 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Believe it! | 72 | 13 | 18 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Kellan of the west | 74 | 11 | 16 | ⬜ Phase 2 |
 | Joe | Halfshell heroes | 64 | 21 | 26 | ⬜ Phase 2 |
@@ -75,14 +75,14 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Teval, the Balanced Scale Test | 79 | 6 | 11 | ⬜ Phase 2 |
 | Test | Brago Blink | 76 | 9 | 14 | ⬜ Phase 2 |
 | Test | Nekusar Wheels | 73 | 12 | 17 | ⬜ Phase 2 |
-| Test | Shorikai Vehicles | 71 | 14 | 19 | ⬜ Phase 2 |
+| Test | Shorikai Vehicles | 72 | 13 | 18 | ⬜ Phase 2 |
 | Test | Shalai and Hallar Test | 73 | 12 | 17 | ⬜ Phase 2 |
 | Test | Otharri Test | 73 | 12 | 17 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 64 | 21 | 26 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 64 | 21 | 26 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 61 | 24 | 29 | ⬜ Phase 2 |
 
-**14 decks below 85 · 208 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**14 decks below 85 · 206 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -169,7 +169,7 @@ Ordered by slots paid across the 14 sub-85 decks, then by size. Every row: ⬜ o
 |---|---|---|---|---|---|---|
 | V1 | **Modal double-faced cards (spell // land, land // land)** — Sink into Stupor, Witch Enchanter, Sundering Eruption, Shatterskull Smashing, Hydroelectric Specimen, Fell the Profane, Bridgeworks Battle, Boggart Trawler, Agadeem's Awakening, Sea Gate Restoration, Sejiri Shelter, Revitalizing Repast, Glasspool Mimic, Emeritus of Truce, Wandering Archaic; the five Pathways (Barkchannel, Hengegate, Branchloft, Needleverge, Blightstep) | Teval 6 · Believe 6 · Kellan 5 · Shalai 5 · Otharri 5 · Kinnan 4 · Shorikai 3 · Nekusar 3 · Brago 2 · Bumble/Halfshell/Turts/Light-Paws 1 each (+~15 more in the 85–89 decks) | **~43** | **L** (ship in slices) | PROBE FIRST: today these classify `land-partial` — the land drop plays the back face, so what is missing is (a) the classifier reading a `//` oracle as two faces, (b) the cast lane offering the FRONT face as a spell when its program parses HIGH, (c) the play-land lane offering the back face with its enter clause (pay 3 life or tapped). Slice 1 = the five Pathways (both faces plain lands; the face choice on the land drop; +7). Slice 2 = spell//land where the front is already a modeled spell (Sink into Stupor's bounce, Fell the Profane's destroy, Shatterskull's X damage…). Slice 3 = the rest. | 🔄 slice 1 ✅ (+10 corpus — the ten Pathways; the face-choice land drop is live: legalChoices.actionsPlayLand per-face actions, applyPlayLand enters the face with the combined card as printedCard, classifyCard credits a Land // Land iff both faces are covered; the Ixalan transform//land cards left the land bucket). Slice 2 ✅ (+19 corpus — the 19 spell//lands whose instant/sorcery front is native on its own view: cast as a face through the split-card lane, the back drops as a land; the 16 with unmodeled fronts (Sink into Stupor's spell-or-nonland-permanent target, Agadeem's Awakening, Sea Gate Restoration, Shatterskull Smashing …) stay land-partial and are their OWN rows now). Slice 3 ✅ (+9 — the nine permanent fronts: Witch Enchanter, Glasspool Mimic, Kazandu Mammoth, Skyclave Cleric, Pinnacle Monk, Blackbloom Rogue, Glasswing Grace, Tangled Florahedron, Akoum Warrior; the real card rides as printedCard on entry). **V1 DONE (+38 corpus)** — the 22 modal DFCs still land-partial park on their FRONT's own residue and are ordinary rows now (Sink into Stupor's spell-or-nonland-permanent union ×3 decks; Agadeem's Awakening / Sea Gate Restoration / Shatterskull Smashing / Hydroelectric Specimen / Boggart Trawler …); the Ixalan transform//lands and the Kaldheim gods are NOT modal and stay where they are. |
 | V2 | **Starting Town** — "enters tapped unless it's your first, second, or third turn of the game" + "{T}, Pay 1 life: Add one mana of any color" | Teval · Kellan · Shalai · Otharri | 4 | **S** | the enters-tapped-unless condition reads the controller's own turn ordinal (a per-player turn counter; if none exists, stamp `turnsTakenThisGame` at the untap step); the pay-life any-colour tap is the payLife mana spec (exists). | ✅ (+1 corpus — `player.turnsTaken` stamped at the untap step; the vocabulary reads the ordinal; the pay-life any-colour line is an honest EXTRA record carrying `payLife` and gated on life, and the whole-card merge no longer offers a free any-colour main beside it — that FP existed the moment the line became an extra and the witness caught it). |
-| V3 | **Minamo, School at Water's Edge** — "{U}, {T}: Untap target legendary permanent" | Kinnan · Shorikai (+cdh) | 2 (+1) | **S** | the untap atom + a `legendary` restriction on targetType permanent (matchesSelector already knows `legendary`; enumerateTargets' permanent pool needs the kind) | ⬜ |
+| V3 | **Minamo, School at Water's Edge** — "{U}, {T}: Untap target legendary permanent" | Kinnan · Shorikai (+cdh) | 2 (+1) | **S** | the untap atom + a `legendary` restriction on targetType permanent (matchesSelector already knows `legendary`; enumerateTargets' permanent pool needs the kind) | ✅ (+2 corpus — the word `legendary` on the untap-target arm emitting the existing `supertype` restriction; the permanent and creature pools already ran it. Unplanned twin: Patriar's Seal "untap target legendary creature you control", audited whole-card.) |
 | V4 | **Orcish Bowmasters** — ETB and "whenever an opponent draws a card except the first one they draw in each of their draw steps": 1 damage to any target, then amass Orcs 1 | Nekusar · Believe | 2 | **M** | an opponent-draw watcher with the first-draw-of-the-draw-step exception (the `drawnThisTurnIds` / draw-step ledger exists: stamp which draws are the turn's own); amass exists; "any target" chooser on a trigger = enemy intent | ⬜ |
 | V5 | **Proft's Eidetic Memory** — beginning of combat, if you've drawn more than one card this turn, put X +1/+1 counters (X = cards drawn − 1) | Brago · Nekusar | 2 | **M** | combat-start trigger + intervening-if on `cardsDrawnThisTurn > 1` + countFor kind `cardsDrawnThisTurnMinusOne` | ⬜ |
 | V6 | **Peter Parker's Camera / Strionic Resonator / Kirol** — "copy target activated or triggered ability you control" | Brago (×2: Camera + Resonator) · Killer Turts · Otharri (Kirol) | 4 | **M** | CAP-BRACERS built `copy-activated-ability` on an event; this is a CHOSEN stack-object target of kind ability (enumerateTargets: the stack's non-spell objects you control) + the same copy resolver; Camera's film counter cost = removeCounter (exists) | ⬜ |
@@ -299,7 +299,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | S1 | Emeritus of Truce · Hengegate Pathway · Cosima | MDFC / transform | V1 | Cosima is a transform god (L) | ⬜ |
-| S2 | Minamo | | V3 | | ⬜ |
+| S2 | Minamo | | V3 | | ✅ |
 | S3 | Thunderhawk Gunship | attacks → attacking creatures you control gain flying | S | attacks trigger + team keyword grant (exist) | ⬜ |
 | S4 | Parhelion II | attacks → two 4/4 Angel tokens tapped and attacking | S | token ETB "tapped and attacking" rider (Endless Foot Assault wants it too) | ⬜ |
 | S5 | Prodigy's Prototype | "whenever one or more Vehicles you control attack" → Pilot token with a quoted crew ability | M | batch attack event by type + quoted-grant token | ⬜ |
@@ -431,7 +431,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | I1 | Barkchannel · Sink into Stupor · Hydroelectric · Wandering Archaic | MDFC | V1 | | ⬜ |
-| I2 | Minamo · Valley Floodcaller | | V3 / V9 | | ⬜ |
+| I2 | Minamo · Valley Floodcaller | | V3 / V9 | | 🔄 Minamo ✅ · Floodcaller V9 |
 | I3 | Thassa's Oracle | ETB: look at top X (devotion), win if library ≤ X | M | devotion count + a look/win atom (the win-game family exists with strict evaluators) | ⬜ |
 | I4 | Transmute Artifact · Moonsilver Key · Treasure Vault · Cephalid Coliseum · The Mycosynth Gardens · Nezahal | | M / S / S / M / L / M | | ⬜ |
 | I5 | Copy Enchantment · Clever Impersonator · Imposter Mech | clone lane | L | one clone slice pays all three | ⬜ |
@@ -468,6 +468,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — V3 (Minamo) ✅ +2 corpus · 4/4 mutations killed against a green witness (the lane removed from the anchor, the restriction not emitted, the wrong supertype, the evaluator's type-line test removed) · suite 1420 files / 15,700 tests · corpus 14,283 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — V2 (Starting Town) ✅ +1 corpus · 7/7 mutations killed against a green witness (the turn counter never stamped, the predicate inverted and removed, the extra-line regex refusing pay-life again, the extra record's payLife and its life gate, the honest-main pay-life clause) · suite 1419 files / 15,692 tests · corpus 14,281 · shelf refreshed in §1.
 

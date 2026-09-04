@@ -1400,12 +1400,19 @@ export function combatKeywordClauseParser(clause) {
     // creatureSatisfiesRestrictions and already rides atom.restrictions through atomTargetSpec, so this adds
     // no targeting behaviour either — it composes with notSource, which is exactly what "ANOTHER target
     // permanent you control" means (CR 109.5 + a controller scope).
-    const upM = t.match(/^untap (another )?target (permanent|creature|artifact|enchantment|nonland permanent)( you control)?$/);
+    // ⭐ SHELF-85 V3 (2026-09-04, Minamo, School at Water's Edge "{U}, {T}: Untap target legendary permanent."): the
+    // LEGENDARY supertype is the THIRD missing cell on this arm, same shape as the first two. The `supertype`
+    // restriction already exists (creatureSatisfiesRestrictions tests the front-face type line, fail-closed) and the
+    // permanent pool already applies every restriction to every candidate (spellEffects' PERMANENT_PREDICATES lane),
+    // so admitting the word adds no targeting behaviour — it composes with `another` and ` you control` as printed.
+    // Only `legendary` is admitted (the shared target grammar's own rule): a "basic"/"snow"/"world" form stays LOW.
+    const upM = t.match(/^untap (another )?target (legendary )?(permanent|creature|artifact|enchantment|nonland permanent)( you control)?$/);
     if (upM) {
       const restrictions = [];
       if (upM[1]) restrictions.push({ kind: "notSource" });
-      if (upM[3]) restrictions.push({ kind: "controller", who: "you" });
-      return { op: "untap", targetType: upM[2] === "nonland permanent" ? "nonlandPermanent" : upM[2], restrictions };
+      if (upM[2]) restrictions.push({ kind: "supertype", value: "legendary" });
+      if (upM[4]) restrictions.push({ kind: "controller", who: "you" });
+      return { op: "untap", targetType: upM[3] === "nonland permanent" ? "nonlandPermanent" : upM[3], restrictions };
     }
     // ⭐ CREATURE-OR-LAND union (Saryth, the Viper's Fang — "{1},{T}: Untap another target creature or land
     // you control"). The union targetType already exists (SAC_UNION_CANON / the enumeration's creatureOrLand);

@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 V3: Minamo (+2)** · suite **1420 files / 15,700 tests** green · corpus 14,283 / 34,245 (41.7%) · flip-diff +2 / 0 lost · 4/4 mutations killed against a green witness (the lane removed from the anchor, the restriction not emitted, the wrong supertype, the evaluator's type-line test removed)
+
+> The word `legendary` on the untap-target arm, emitting the supertype restriction the pools already enforce. Patriar's
+> Seal came with it. Next row by the runbook's §2: V4 (Orcish Bowmasters, Nekusar · Believe).
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (night cron) — **SHELF-85 V2: Starting Town (+1)** · suite **1419 files / 15,692 tests** green · corpus 14,281 / 34,245 (41.7%) · flip-diff +1 / 0 lost · 7/7 mutations killed against a green witness (the turn counter never stamped, the predicate inverted and removed, the extra-line regex refusing pay-life again, the extra record's payLife and its life gate, the honest-main pay-life clause)
 
 > The turn-ordinal gate (`player.turnsTaken`, stamped at the untap step) and the pay-life any-colour line as an honest

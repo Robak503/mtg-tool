@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — V3: MINAMO — the legendary lane on the untap-target arm · **+2** · corpus 14,283 / 34,245 (41.7%)
+> Suite **1420 files / 15,700 tests** green; lint 0. Flip-diff **+2, zero LOST**. **4/4 mutations killed against a green witness (the lane removed from the anchor, the restriction not emitted, the wrong supertype, the evaluator's type-line test removed).**
+> · **The shape:** the untap-target arm had `another` → notSource and ` you control` → controller and no lane for the
+>   LEGENDARY supertype. The `supertype` restriction already existed (one emitter, the Mithril Coat self-attach;
+>   evaluated on the front-face type line, fail-closed) and both target pools already ran every restriction, so the
+>   word is the whole slice. Minamo (Kinnan · Shorikai · cdh) and the unplanned twin Patriar's Seal ("untap target
+>   legendary creature you control"), audited whole-card.
+> · **Board-verified:** Minamo's {U}, {T} pays with an Island, offers the legend, the opponent's legendary artifact and
+>   Minamo itself, never the Elf or a Forest; resolution untaps the legend and Minamo stays tapped.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (night cron) — V2: STARTING TOWN — the turn-ordinal gate + an honest pay-life extra line · **+1** · corpus 14,281 / 34,245 (41.7%)
 > Suite **1419 files / 15,692 tests** green; lint 0. Flip-diff **+1, zero LOST**. **7/7 mutations killed against a green witness (the turn counter never stamped, the predicate inverted and removed, the extra-line regex refusing pay-life again, the extra record's payLife and its life gate, the honest-main pay-life clause).**
 > · **The shape:** `player.turnsTaken` is stamped at the untap step (resetTurnCounters — extra turns count, CR 500.7);
