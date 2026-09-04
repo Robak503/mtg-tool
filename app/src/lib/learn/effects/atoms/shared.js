@@ -68,6 +68,11 @@ export function massCreatureTargets(state, opts = {}) {
     for (const perm of state.players[pid].battlefield) {
       // LAYER-AWARE (slice 27, CR 613): an animated land / crewed Vehicle IS a creature right now.
       if (!(isCreatureCard(perm.card) || permanentIsCreature(state, perm.id))) continue;
+      // "ALL OTHER creatures" (④-AV, 2026-09-04 — Shrieking Mogg / Thundermare / Timbermare "tap all other creatures"):
+      // CR 109.5 — the ability's own permanent is excluded when the atom says so. Fails CLOSED without a sourceId
+      // (nothing is excluded → the source is tapped too), so the parser arm is reached only from a source-bearing
+      // trigger; every existing mass atom passes no excludeSource and is byte-identical.
+      if (opts.excludeSource && opts.sourceId && perm.id === opts.sourceId) continue;
       if (subRes) {
         const face = typeLineStr(perm.card).split(" // ")[0]; // front face only (CR 712.4a)
         const has = subRes.some((re) => re.test(face)); // carries ANY listed subtype
@@ -262,7 +267,7 @@ export const atomTargets = (state, atom, ctx) => {
   // "destroy all creatures" wipe carries no subtypeFilter, so it passes EVERY creature (unchanged byte-for-byte).
   // `restrictions` is the SHARED grammar (2026-07-30) — the same array the damage side has always carried,
   // now readable here too, so a destroy/exile/bounce can say every filter a burn spell could.
-  if (atom.targetType === "eachCreature") return massCreatureTargets(state, { subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate, powerCmp: atom.powerCmp, powerVal: atom.powerVal, mvCmp: atom.mvCmp, mvVal: atom.mvVal, restrictions: atom.restrictions, casterId: ctx?.controller, ctx });
+  if (atom.targetType === "eachCreature") return massCreatureTargets(state, { subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate, powerCmp: atom.powerCmp, powerVal: atom.powerVal, mvCmp: atom.mvCmp, mvVal: atom.mvVal, restrictions: atom.restrictions, casterId: ctx?.controller, ctx, excludeSource: atom.excludeSource, sourceId: ctx?.sourceId });
   if (atom.targetType === "eachArtifact") return massPermanentTargets(state, isArtifactCard);
   if (atom.targetType === "eachEnchantment") return massPermanentTargets(state, isEnchantmentCard);
   if (atom.targetType === "eachLand") return massPermanentTargets(state, atom.landSubtype

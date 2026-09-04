@@ -163,6 +163,10 @@ function parseAttackerRestrictions(card) {
 
     // "creature tokens" (token creatures)
     if (/^creature tokens?$/.test(raw)) { restrictions.push({ kind: "token" }); continue; }
+    // "artifact creatures" (④-AV, 2026-09-04 — Argothian Sprite, Fen Hauler, Audacious Infiltrator, Clockwork Steed,
+    // Basalt Golem, Argothian Pixies): the blocker's EFFECTIVE type line carries Artifact (isArtifactPerm — the same
+    // layer-aware reader the except-by "artifact creatures" filter and the fear/intimidate gate trust).
+    if (/^artifact creatures?$/.test(raw)) { restrictions.push({ kind: "artifact" }); continue; }
 
     // "[Color] creatures"
     const colM = raw.match(/^(\w+) creatures?$/);
@@ -372,6 +376,11 @@ function permIsSubtype(state, permId, subtype) {
 const reBareUnblockable = /(?:^|[\n.;])\s*(?:this creature|it) can't be blocked\s*(?:\.|$)/;
 const reCantBlock = /(?:^|[\n.;])\s*(?:this creature|it) can't block\s*(?:\.|$)/;
 const reBlockOnlyFlying = /(?:^|[\n.;])\s*(?:this creature|it) can block only creatures with flying\s*(?:\.|$)/;
+// BLOCKER-SIDE POWER CAP (④-AV, 2026-09-04 — Ironclaw Orcs / Ironclaw Buzzardiers / Brassclaw Orcs "This creature can't
+// block creatures with power 2 or greater"; Goblin Mutant / Orgg "… power 3 or greater"): the blocker refuses any attacker
+// whose LIVE power (layer-aware, CR 613) meets the printed N. Fixed-N only — the relative form ("greater than this
+// creature's power") is reSelfPowerCantBlock's, an attacker-side reader. Same self-subject anchoring as the line above.
+const reBlockerMaxPower = /(?:^|[\n.;])\s*(?:this creature|it) can't block creatures with power (\d+) or greater\s*(?:\.|$)/;
 // KW-UNLEASH (CR 702.86a, census slice 50) — "You may have this creature enter with a +1/+1 counter on it.
 // It can't block as long as it has a +1/+1 counter on it."
 //
@@ -874,6 +883,11 @@ export function selfCantBlockNow(state, perm) {
   return lands < g.minLands;
 }
 export function isCanBlockOnlyFlyers(card) { return reBlockOnlyFlying.test(selfOracle(card)); }
+/** ④-AV — the printed N of "this creature can't block creatures with power N or greater", or null. */
+export function blockerCantBlockPowerAtLeast(card) {
+  const m = selfOracle(card).match(reBlockerMaxPower);
+  return m ? parseInt(m[1], 10) : null;
+}
 /**
  * SELF-POWER BLOCK GATE — "less" | "greater" | null: the comparison under which a creature may NOT block
  * this attacker, relative to the ATTACKER's power. Read live in canBlockAttacker (both powers layer-aware
@@ -917,6 +931,8 @@ const reEvasionQualifier = new RegExp(
     "|creatures? with power \\d+ or (?:less|greater)" +
     // token: "creature tokens"
     "|creature tokens?" +
+    // artifact: "artifact creatures" (④-AV — enforced by the kind:"artifact" restriction in canBlockAttacker)
+    "|artifact creatures?" +
     // subtype: "Walls/Dinosaurs/…" (bare plural/singular)
     `|(?:${[...BLOCKER_SUBTYPE_TOKENS].join("|")})s?` +
   ")$"
@@ -939,6 +955,9 @@ export function isEnforcedEvasionClause(clause) {
   // now that the attacker gate exists, which is the order that keeps it honest.
   if (selfCantAttackBlockGate({ oracle: c.endsWith(".") ? c : `${c}.` })) return true;
   if (/^(?:this creature |it )?can block only creatures with flying$/.test(c)) return true;
+  // BLOCKER-SIDE POWER CAP (④-AV) — the classifier mirror of blockerCantBlockPowerAtLeast; canBlockAttacker enforces it
+  // against the attacker's live power, so a body whose only non-keyword text is this static is honestly native.
+  if (/^(?:this creature |it )?can't block creatures with power \d+ or greater$/.test(c)) return true;
   // SELF-POWER BLOCK GATE (CR 509.1b) — the classifier mirror of selfPowerBlockGateOf; canBlockAttacker
   // enforces the comparison live, so a body whose only non-keyword text is this static is honestly native.
   // Same wording, same two directions, same "it" ending — the team-wide and ≤ variants stay uncredited.
@@ -1123,6 +1142,10 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   // nothing — correct, and every real such card (Cloud Elemental, …) carries flying. Do NOT "fix" this
   // to let it block a flier without flying/reach; that would permit an ILLEGAL block (a wrong play).
   if (isCanBlockOnlyFlyers(bCard) && !permanentHasKeyword(state, attackerId, "Flying")) return false;
+  // BLOCKER-SIDE POWER CAP (④-AV) — "can't block creatures with power N or greater": the ATTACKER's live power
+  // (layer-aware — a pumped 1/1 swinging as a 3/3 is refused) against the blocker's printed N.
+  const blockerMaxPower = blockerCantBlockPowerAtLeast(bCard);
+  if (blockerMaxPower != null && creaturePower(aLook.permanent, state) >= blockerMaxPower) return false;
 
   // Unblockable — the attacker's own "can't be blocked" OR a GRANTED unblockable (Herald of Secret
   // Streams: "each creature you control with a +1/+1 counter can't be blocked" → a layer-6 grant, read
@@ -1235,6 +1258,7 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
       }
       if (r.kind === "token" && bIsToken) return false;
       if (r.kind === "subtype" && bSubtypes.has(r.subtype.toLowerCase())) return false;
+      if (r.kind === "artifact" && isArtifactPerm(state, blockerId)) return false; // ④-AV — "can't be blocked by artifact creatures"
     }
   }
 

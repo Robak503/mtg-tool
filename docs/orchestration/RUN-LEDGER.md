@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — ④-AV: three small evasion/tap families on existing machinery · **+9** · corpus 14,194 / 34,245 (41.4%)
+> Suite **1409 files / 15,631 tests** green; lint 0. Flip-diff **+9, zero LOST**. **7/7 mutations killed (the artifact restriction's enforcement, its parser arm, its classifier mirror, the blocker power cap's enforcement, its classifier mirror, excludeSource in massCreatureTargets, the tap-all-other arm).**
+> · **The shapes:** (1) "can't be blocked by artifact creatures" — a kind:"artifact" restriction in the EVASION-QUALIFIER
+>   grammar (parseAttackerRestrictions → canBlockAttacker, the classifier mirror flips with it): Argothian Sprite, Fen
+>   Hauler, Audacious Infiltrator. (2) "can't block creatures with power N or greater" — a BLOCKER-side cap read against
+>   the attacker's live power: Ironclaw Orcs / Buzzardiers, Brassclaw Orcs (Goblin Mutant / Orgg park on their
+>   can't-attack line). (3) "When this creature enters, tap all other creatures" — the eachCreature mass tap with
+>   excludeSource, honored by massCreatureTargets against ctx.sourceId: Shrieking Mogg, Thundermare, Timbermare.
+> · **Board-verified:** an artifact Golem may not block the Infiltrator (a plain bear may; the Golem may still block a
+>   different attacker); the Orcs refuse a 2-power attacker and a countered 1/1, accept a 1/1; the Mogg enters and taps
+>   both boards, never itself.
+> · **CI:** pushed after ④-AU's run 33832257183 is green; own run watched after push (result on the next entry's line)
+
 > ## 🎯 2026-09-04 (night cron) — ④-AU: source-power damage + the Laccolith rider · "attacks and isn't blocked" is its own event · **+7** · corpus 14,185 / 34,245 (41.4%)
 > Suite **1408 files / 15,625 tests** green; lint 0. Flip-diff **+7, zero LOST**. **7/7 mutations killed (the source-power arm, the rider stamp, the dealsThisStep gate, the detector's unblocked arm, the unblocked fire site, the sacrifice-self CREED guard, the splitter's keep-whole guard).**
 > · **The shape:** the census's largest family with existing machinery — the Laccolith cycle (4 sole-blockers): "Whenever

@@ -76,8 +76,11 @@ describe("EVADE — classifier (which evasion bodies are honestly native)", () =
     expect(classifyCard({ type: "Creature — Lord", name: "X", oracle: "Other creatures you control can't be blocked." })).toBe("body-only");
     // Unblockable beside an UNMODELED activated ability — one bare evasion clause can't carry it.
     expect(classifyCard({ type: "Creature — Rogue", name: "X", oracle: "This creature can't be blocked.\n{2}: Draw a card for each Island an opponent controls." })).toBe("body-only");
-    // "can't be blocked by artifact creatures" — artifact is a CARD TYPE qualifier, not color/keyword/subtype in our set.
-    expect(classifyCard({ type: "Creature — Sprite", name: "X", oracle: "This creature can't be blocked by artifact creatures." })).toBe("body-only");
+    // "can't be blocked by artifact creatures" flipped NATIVE under ④-AV (2026-09-04): the kind:"artifact" restriction is
+    // enforced in canBlockAttacker via isArtifactPerm (see blockerPowerCapArtifactEvasion.test.js). Its enchantment
+    // sibling has no restriction kind and still parks.
+    expect(classifyCard({ type: "Creature — Sprite", name: "X", oracle: "This creature can't be blocked by artifact creatures." })).toBe("native-body");
+    expect(classifyCard({ type: "Creature — Sprite", name: "X", oracle: "This creature can't be blocked by enchantment creatures." })).toBe("body-only");
   });
 
   it("isEnforcedEvasionClause: exact-end matching, no over-broad catch", () => {

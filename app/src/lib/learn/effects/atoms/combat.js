@@ -1170,6 +1170,13 @@ export function combatKeywordClauseParser(clause) {
   if (/^tap all creatures your opponents control$/.test(t)) {
     return { op: "tap", targetType: "eachOpponentCreature" };
   }
+  // MASS TAP, ALL OTHER (④-AV, 2026-09-04 — Shrieking Mogg / Thundermare / Timbermare "When this creature enters, tap
+  // all other creatures"): the symmetric eachCreature set MINUS the ability's own permanent (CR 109.5 "other" →
+  // excludeSource, honored by massCreatureTargets against ctx.sourceId). Both boards are tapped — that IS the card; the
+  // haste bodies swing into a tapped-out table. The bare "tap all creatures" (no "other") is still not read.
+  if (/^tap all other creatures$/.test(t)) {
+    return { op: "tap", targetType: "eachCreature", excludeSource: true };
+  }
   const tapPermM = t.match(/^tap target permanent( and its activated abilities can't be activated this turn)?\.?$/);
   if (tapPermM) {
     return { op: "tap", targetType: "permanent", restrictions: [], ...(tapPermM[1] ? { lockActivated: true } : {}) };

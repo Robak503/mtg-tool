@@ -7,6 +7,15 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (night cron) — **④-AV: three small evasion/tap families — by-artifact evasion, the blocker power cap, "tap all other creatures" (+9)** · suite **1409 files / 15,631 tests** green · corpus 14,194 / 34,245 (41.4%) · flip-diff +9 / 0 lost · 7/7 mutations killed (the artifact restriction's enforcement, its parser arm, its classifier mirror, the blocker power cap's enforcement, its classifier mirror, excludeSource in massCreatureTargets, the tap-all-other arm)
+
+> **Night tally (stage ④, forty-eight slices):** … · AT (+2) · AU (+7) · AV (+9) — corpus 13,862 → 14,194.
+> **CI:** pushed after ④-AU's run 33832257183 is green; own run watched after push (result on the next entry's line)
+> **Next runnable:** the census is flat at ≤6-card families and every ≥3 cluster with existing machinery has now shipped or
+> parked. What remains: the Fling bodies (a look-back power stamp for sacrificed sources, 3 cards), the X-effect
+> remainder, the counted "up to N" pick UI, and the subsystem-scale families (morph, initiative/ring, quoted-grant
+> statics — Colton's pick). A fresh deck walk is the other honest lever.
+
 ## 🎯 2026-09-04 (night cron) — **④-AU: source-power damage + the Laccolith rider; "attacks and isn't blocked" becomes its own event (+7)** · suite **1408 files / 15,625 tests** green · corpus 14,185 / 34,245 (41.4%) · flip-diff +7 / 0 lost · 7/7 mutations killed (the source-power arm, the rider stamp, the dealsThisStep gate, the detector's unblocked arm, the unblocked fire site, the sacrifice-self CREED guard, the splitter's keep-whole guard)
 
 > **Night tally (stage ④, forty-seven slices):** … · AS (+11) · AT (+2) · AU (+7) — corpus 13,862 → 14,185.
