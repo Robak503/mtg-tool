@@ -144,7 +144,7 @@ describe("/api/self-play", () => {
     // no analyze flag → no reality field on the response
     const off = await runPost({ deckIds: ["a", "b", "c", "d"], mode: "commander" });
     expect((await off.json()).reality).toBeUndefined();
-  });
+  }, 90_000); // CI (2026-09-04): 22.6 s on a loaded 2-CPU runner against the 20 s default — the wall is a hang detector, not a speed budget
 });
 
 describe("/api/self-play GET — deck picker + history + stats", () => {
