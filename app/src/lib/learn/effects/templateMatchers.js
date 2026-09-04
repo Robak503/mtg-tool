@@ -772,6 +772,18 @@ export function matchDiscardHandDrawSame(oracle) {
  * cast / card-drawn rewrites turn "that player" into "the casting player" / "the drawing player"); `who` names the
  * referent so triggerRouting pins the atom to its event, and the applier reads the matching ctx seat. Fixed pips only.
  */
+/**
+ * SHELF-85 N11 (2026-09-04) — PEER INTO THE ABYSS: "Target player draws cards equal to half the number of cards in their
+ * library and loses half their life. Round up each time." ONE targeted composite (the " and " would sever the two
+ * halves and the rounding directive names both): the target draws ceil(library/2) and loses ceil(life/2), read off the
+ * live seat at resolution (CR 608.2h). Whole-oracle anchored; a "round down" or a different pair parks.
+ */
+export function matchPeerIntoTheAbyss(oracle) {
+  const s = String(oracle || "").trim().replace(/\s+/g, " ");
+  if (!/^target player draws cards equal to half the number of cards in their library and loses half their life\. round up each time\.?$/i.test(s)) return null;
+  return { atom: { op: "draw-half-library-lose-half-life", targetType: "player", roundUp: true } };
+}
+
 export function matchTaxedLoseLife(oracle) {
   const s = String(oracle || "").trim().replace(/\.$/, "");
   const m = s.match(/^(that player|the drawing player|the casting player) loses (\d+) life unless (?:they|that player) pays? (\{[^}]+\}(?:\{[^}]+\})*)$/i);

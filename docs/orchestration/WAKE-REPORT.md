@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · N11: Peer into the Abyss (+1)** · suite **effects/templateMatchers.js (matcher) + effects/parser.js (dispatch) + effects/atoms/misc.js (applier) + effects/programQueries.js (enemy intent) + peerIntoTheAbyss.test.js (6)** green · corpus 14,368 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 5/5
+
+> Half the library, half the life, rounded up. **Nekusar 84 (needs 1).** Next by §2: N12 Teferi's Puzzle Box (draw-step: hand to bottom, draw that many), then N13 Chaos Warp.
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · N6 + N7: Painful Quandary / Phyrexian Tyranny (+3)** · suite **effects/templateMatchers.js (two matchers) + effects/parser.js (dispatch) + effects/atoms/stack.js (two appliers) + pendingChoice.js (declineAmount / declineLoseLife) + effects/runProgram.js (the two decline branches) + effects/effectAtoms.js (ops) + nekusarUnless.test.js (7)** green · corpus 14,367 (42.0%) / 34,245 (42.0%) · flip-diff +3 / 0 lost · 6/6
 
 > The two "unless" choices on the referent seat, on the existing pauses. **Nekusar 83 (needs 2). Corpus crosses 42.0%.** Next by §2: N11 Peer into the Abyss, N12 Teferi's Puzzle Box, N13 Chaos Warp (M rows) until ≥85.

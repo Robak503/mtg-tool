@@ -3,6 +3,15 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · N11: PEER INTO THE ABYSS — half the library, half the life · **+1** · corpus 14,368 (42.0%) / 34,245 (42.0%)
+> Suite **effects/templateMatchers.js (matcher) + effects/parser.js (dispatch) + effects/atoms/misc.js (applier) + effects/programQueries.js (enemy intent) + peerIntoTheAbyss.test.js (6)** green; lint 0. Flip-diff **+1, zero LOST**. **5/5.**
+> · **The shape:** "Target player draws cards equal to half the number of cards in their library and loses half their life.
+>   Round up each time." — ONE targeted composite on a whole-oracle matcher (the " and " would sever the halves and the
+>   rounding sentence names both): the target draws ceil(library/2) through the single draw chokepoint (draw watchers
+>   fire — Nekusar's plan) and loses ceil(life/2) through loseLife, both read off the live seat at resolution
+>   (CR 608.2h). The intent query reads it as harm so the AI aims it at an opponent. Sole corpus carrier.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · N6 + N7: PAINFUL QUANDARY / PHYREXIAN TYRANNY — the "unless" choices on the referent seat · **+3** · corpus 14,367 (42.0%) / 34,245 (42.0%)
 > Suite **effects/templateMatchers.js (two matchers) + effects/parser.js (dispatch) + effects/atoms/stack.js (two appliers) + pendingChoice.js (declineAmount / declineLoseLife) + effects/runProgram.js (the two decline branches) + effects/effectAtoms.js (ops) + nekusarUnless.test.js (7)** green; lint 0. Flip-diff **+3, zero LOST**. **6/6.**
 > · **N7 Phyrexian Tyranny** — "Whenever a player draws a card, that player loses 2 life unless they pay {2}." The Rhystic

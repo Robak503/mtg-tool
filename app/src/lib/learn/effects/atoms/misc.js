@@ -3,7 +3,7 @@
  */
 
 import { applyDrawEffect } from "../../spellEffects.js";
-import { logEvent, addEmblem, addMana, holdMana, opponentsOf, grantFlashThisTurn, grantTeferiShield, phaseOutAllPermanents } from "../../gameState.js"; // + TEFERI'S PROTECTION (CAP, 2026-09-03)
+import { logEvent, addEmblem, addMana, holdMana, opponentsOf, grantFlashThisTurn, grantTeferiShield, phaseOutAllPermanents, loseLife } from "../../gameState.js"; // + TEFERI'S PROTECTION (CAP, 2026-09-03); loseLife — N11 Peer into the Abyss
 import { parseFlashCastFilter } from "../../staticAbilityParser.js"; // the STATIC grant's own filter parser — reused so the turn-scoped twin cannot drift from it
 import { setPendingDivideChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, isCreatureCard, countForSpec } from "./shared.js";
@@ -80,6 +80,27 @@ function applyDrawAtom(state, atom, ctx) {
   if (atom.oncePerTurn) {
     const gateKey = `${ctx.sourceId || ""}_draw`;
     next = { ...next, onceTriggersFiredThisTurn: { ...(next.onceTriggersFiredThisTurn || {}), [gateKey]: true } };
+  }
+  return next;
+}
+
+/**
+ * SHELF-85 N11 (2026-09-04) — PEER INTO THE ABYSS: "Target player draws cards equal to half the number of cards in their
+ * library and loses half their life. Round up each time." Both halves are read off the TARGET seat as the spell
+ * resolves (CR 608.2h): draw ceil(library/2) through the single draw chokepoint (draw watchers fire — Nekusar's plan),
+ * then lose ceil(life/2) through loseLife (life-loss watchers fire). A non-positive life total loses nothing; a
+ * vanished target does nothing (never a fabricated draw or loss).
+ */
+function applyDrawHalfLibraryLoseHalfLife(state, atom, ctx) {
+  let next = state;
+  for (const t of ctx.targets || []) {
+    if (t.type !== "player" || !next.players?.[t.id]) continue;
+    const p = next.players[t.id];
+    const draws = Math.ceil((p.library || []).length / 2);
+    const loss = Math.max(0, Math.ceil((p.life || 0) / 2));
+    if (draws > 0) next = applyDrawEffect(next, { controller: t.id, amount: draws });
+    if (loss > 0) next = loseLife(next, { playerId: t.id, amount: loss });
+    next = logEvent(next, { kind: "spell-effect", effect: "draw-half-library-lose-half-life", target: t.id, draws, loss, controller: ctx.controller });
   }
   return next;
 }
@@ -758,6 +779,7 @@ export const miscResolvers = {
   "teferi-protection": applyTeferiProtection, // CAP — life lock + protection from everything + phase out all, until your next turn
   "add-restricted-mana": applyAddRestrictedMana, // Klauth — the pool-restricted sub-pool's first minter
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
+  "draw-half-library-lose-half-life": applyDrawHalfLibraryLoseHalfLife, // SHELF-85 N11 — Peer into the Abyss (the target draws ceil(library/2), loses ceil(life/2))
   "extra-combat": applyExtraCombat, // ===== EXTRA-COMBAT ===== (CR 500.8) — queue one additional combat phase; advanceStep pops it leaving end-of-combat
   "grant-flash-this-turn": applyGrantFlashThisTurn, // CR 601.3e — the TURN-SCOPED twin of the static flash-cast permission
   "extra-turn": applyExtraTurn, // ===== EXTRA-TURN ===== (XT-1, CR 500.7) — "Take an extra turn after this one": a LIFO stack popped at advanceStep's end-of-turn branch

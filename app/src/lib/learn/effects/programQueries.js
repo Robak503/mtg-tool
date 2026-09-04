@@ -233,6 +233,10 @@ export function atomTargetIntent(atom) {
       return "own";
     case "double-all-counters": // SHELF-85 V8 (Arcade Cabinet) — doubling a creature's counters is a gift: own side
       return "own";
+    case "draw-half-library-lose-half-life":
+      // SHELF-85 N11 — Peer into the Abyss: half a life total is harm (the draws are the wheel deck's payoff, not the
+      // target's gift); aimed at an opponent like the drain family.
+      return "enemy";
     case "exile-graveyard":
       // SHELF-85 Phase 2 · T1c (2026-09-04 — Boggart Trawler / Bojuka Bog "exile target player's graveyard"): a chosen
       // PLAYER whose whole graveyard is exiled — harm, aimed at an opponent like the destroy / exile family. Without a
