@@ -842,6 +842,26 @@ export function applyCantBlock(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "cant-block", targets: targets.map(t => t.id) });
 }
 
+// PAIRWISE CANT-BLOCK (④-BA) — the same endOfTurn layer-6 grant as applyCantBlock, but the keyword names the SOURCE
+// (`cantBlockSource:<sourceId>`): canBlockAttacker refuses the pair (this blocker, that attacker) and nothing else.
+// No source (a spell / a context without one) → nothing granted — the target keeps every block it had (FN-safe).
+export function applyCantBlockSource(state, atom, ctx) {
+  if (!ctx.sourceId || !findPermanent(state, ctx.sourceId)) return state;
+  const targets = atomTargets(state, atom, ctx);
+  let next = state;
+  const src = { kind: "resolution", permanentId: ctx.sourceId, cardName: ctx.cardName || null };
+  const dur = { kind: "endOfTurn", turn: next.turn };
+  for (const target of targets) {
+    if (target.type !== "creature" || !findPermanent(next, target.id)) continue;
+    next = addContinuousEffect(next, {
+      layer: 6, op: { layerOp: "addKeyword", keyword: `cantBlockSource:${ctx.sourceId}` },
+      affects: { mode: "fixed", permanentIds: [target.id] },
+      duration: dur, source: src,
+    }).state;
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "cant-block-source", source: ctx.sourceId, targets: targets.map((t) => t.id) });
+}
+
 /**
  * PROTECTION-FROM-A-COLOUR grant (CR 702.16) — a layer-6 addProtection continuous effect on each chosen
  * creature, lasting until end of turn. Structurally identical to applyCantBlock above, and deliberately so:
@@ -1561,6 +1581,12 @@ export function combatKeywordClauseParser(clause) {
   // the same layer-6 endOfTurn unblockable grant as the targeted form. Whole-clause anchored.
   if (/^(?:this creature|it) can't be blocked this turn$/.test(t)) return { op: "cant-be-blocked", target: "self", targetType: null };
   if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
+  // PAIRWISE CANT-BLOCK (④-BA, 2026-09-04 — "{R}: Target creature can't block THIS CREATURE this turn": Spin Engine,
+  // Screeching Griffin, Duct Crawler, Kozilek's Pathfinder, Burning-Tree Bloodscale, Shrewd Hatchling; Fearsome Temper's
+  // granted copy): the target may still block OTHER attackers — a layer-6 endOfTurn keyword grant keyed to the SOURCE's id
+  // (`cantBlockSource:<id>`), read pairwise by canBlockAttacker against the attacker being blocked. Source-scoped by
+  // construction (the resolver grants nothing without ctx.sourceId), so a spell printing it could never over-restrict.
+  if (/^target creature can't block this creature this turn$/.test(t)) return { op: "cant-block-source", targetType: "creature" };
   // ⭐ PROTECTION-FROM-A-COLOUR grant (CR 702.16) — "Target creature gains protection from black until end
   // of turn." (Obsidian Acolyte, Crimson Acolyte) and the SELF form "This creature gains protection from red
   // …" (Keeper of Kookus).
@@ -2737,6 +2763,7 @@ export const combatResolvers = {
   "untap-lands": applyUntapLands, // UNTAP-UP-TO-N-LANDS (Finale of Revelation) — deterministic greedy untap of up to N of the controller's own tapped lands, condX-gated
   "untap-remove-from-combat": applyUntapRemoveFromCombat, // GUSTCLOAK ESCAPE (GC-1, CR 506.4/510.1c-d) — untap the trigger source + remove it from combat (flag + attacker-record drop; blockers stay in combat, deal nothing)
   "cant-block": applyCantBlock,
+  "cant-block-source": applyCantBlockSource, // PAIRWISE CANT-BLOCK (④-BA) — "target creature can't block THIS creature this turn"
   "goad": applyGoad, // GOAD (CR 701.38, ④-AI) — mustAttack + goaded until the goader's next turn; the goader on the source
   "detain": applyDetain, // DETAIN (CR 701.29, ④-AZ) — cantAttack + cantBlock + activatedAbilitiesLocked until the detainer's next turn
   "become-color": applyBecomeColor,            // COLOUR CHANGE (CR 105.1) — setColor had only the animate writer

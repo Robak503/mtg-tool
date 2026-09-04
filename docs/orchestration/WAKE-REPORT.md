@@ -7,6 +7,14 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (night cron) — **④-BA: "target creature can't block THIS creature this turn" (+5)** · suite **1413 files / 15,655 tests** green · corpus 14,234 / 34,245 (41.5%) · flip-diff +5 / 0 lost · 6/6 mutations killed (the parse arm, the source id in the grant, the pairwise gate, the duration, the source-less guard, the enemy-intent case)
+
+> **Night tally (stage ④, fifty-three slices):** … · AY (+3) · AZ (+7) · BA (+5) — corpus 13,862 → 14,234.
+> **CI:** pushed after run 33837232224 (④-AY/AZ) is green; own run watched after push (result on the next entry's line)
+> **Next runnable:** every ≥3-card census family with existing machinery has shipped or parked. Remaining levers: the
+> subsystem-scale families (morph ~164, initiative/ring ~126, quoted-grant statics ~133 — Colton's pick), a fresh deck
+> walk, the X-effect remainder, the counted "up to N" pick UI.
+
 ## 🎯 2026-09-04 (night cron) — **④-AZ: DETAIN (+7)** · suite **1412 files / 15,650 tests** green · corpus 14,229 / 34,245 (41.5%) · flip-diff +7 / 0 lost · 6/6 mutations killed (the parse arm, each of the three locks, the duration, the enemy-intent case)
 
 > **Night tally (stage ④, fifty-two slices):** … · AX (+12) · AY (+3) · AZ (+7) — corpus 13,862 → 14,229.

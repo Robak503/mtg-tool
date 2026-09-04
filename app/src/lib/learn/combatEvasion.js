@@ -1136,6 +1136,9 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   // trigger → a layer-6 endOfTurn "cantBlock" keyword). Layer-aware via permanentHasKeyword, so it tracks
   // the temporary grant exactly like the printed restriction above and wears off at cleanup (CR 514.2).
   if (permanentHasKeyword(state, blockerId, "cantBlock")) return false;
+  // PAIRWISE CANT-BLOCK (④-BA — "target creature can't block THIS creature this turn"): the grant names the attacker's
+  // id, so only THIS pair is refused; the blocker keeps every other block (CR 509.1b — a restriction on one attacker).
+  if (permanentHasKeyword(state, blockerId, `cantBlockSource:${attackerId}`)) return false;
   // "Can block only creatures with flying" is a RESTRICTION (this creature can't block non-flyers),
   // NOT a grant of reach: to actually block a FLYING attacker the blocker still needs flying/reach
   // (CR 702.9b, enforced below). So a non-flying/non-reach "can block only flyers" creature can block

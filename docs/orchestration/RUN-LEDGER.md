@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — ④-BA: "target creature can't block THIS creature this turn" · **+5** · corpus 14,234 / 34,245 (41.5%)
+> Suite **1413 files / 15,655 tests** green; lint 0. Flip-diff **+5, zero LOST**, every gain audited whole-card. **6/6 mutations killed (the parse arm, the source id in the grant, the pairwise gate, the duration, the source-less guard, the enemy-intent case).**
+> · **The shape:** a PAIRWISE block restriction — a layer-6 endOfTurn keyword grant keyed to the source's id
+>   (`cantBlockSource:<id>`), read by canBlockAttacker against the attacker being blocked; the target keeps every other
+>   block. Source-scoped by construction (nothing granted without ctx.sourceId). Spin Engine, Screeching Griffin, Duct
+>   Crawler, Kozilek's Pathfinder, Fearsome Temper (the granted copy on the host). Shrewd Hatchling / Burning-Tree Bloodscale
+>   park on their other lines.
+> · **Board-verified:** the targeted bear may not block Spin Engine but may still block the other attacker; the grant is
+>   gone after the turn's cleanup; a source-less resolution grants nothing.
+> · **CI:** pushed after run 33837232224 (④-AY/AZ) is green; own run watched after push (result on the next entry's line)
+
 > ## 🎯 2026-09-04 (night cron) — ④-AZ: DETAIN (CR 701.29) · **+7** · corpus 14,229 / 34,245 (41.5%)
 > Suite **1412 files / 15,650 tests** green; lint 0. Flip-diff **+7, zero LOST**, every gain audited whole-card. **6/6 mutations killed (the parse arm, each of the three locks, the duration, the enemy-intent case).**
 > · **The shape:** "detain target creature / nonland permanent an opponent controls" — three layer-6 grants the engine
