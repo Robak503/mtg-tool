@@ -3,6 +3,16 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · K8: ELLIE AND ALAN — discover sized by the cost · **+1** · corpus 14,408 (42.1%) / 34,245
+> Suite **1471 files / 16,030 tests** green; lint 0. Flip-diff **+1, zero LOST**. **4/4 killed.**
+> · **The shape:** the typed graveyard-exile cost already existed (the offer freezes the victim). The dispatcher now stamps the
+>   victim's mana value on state — `exiledForCost`, the same inter-atom channel sacrificedForCost uses — a countForSpec kind
+>   reads it, and "discover X, where X is the mana value of the exiled card" rides discover's existing amountCount. The found
+>   card lands behind the discover park; a zero-value victim discovers 0 (only a 0-drop can be found). Sorcery speed only.
+> · **PARKED — Mind's Dilation (K6):** casting an OPPONENT's card from exile needs a spell OWNER threaded through cast → resolve →
+>   graveyard/exile; no seam exists, and the exile-cast lane reads only the caster's own exile. Theft-adjacent. Plan §6.
+> · **CI:** run 33921961492 (Rashmi) in flight at commit time — this slice pushes only after it reads green
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · K5: RASHMI — the "wall" that was a door · **+1** · corpus 14,407 (42.1%) / 34,245
 > Suite **1470 files / 16,025 tests** green; lint 0. Flip-diff **+1, zero LOST**. **6/6 killed.**
 > · **The shape:** the runbook sized Rashmi as the head of a multi-slice L ("the top-of-library-play subsystem"). It was one

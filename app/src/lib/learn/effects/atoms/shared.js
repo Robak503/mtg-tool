@@ -753,6 +753,9 @@ export function countForSpec(state, ctx, spec) {
   if (spec.kind === "sacrificedPower") return Math.max(0, state?.sacrificedForCost?.power || 0);
   if (spec.kind === "sacrificedToughness") return Math.max(0, state?.sacrificedForCost?.toughness || 0);
   if (spec.kind === "sacrificedManaValue") return Math.max(0, state?.sacrificedForCost?.manaValue || 0);
+  // EXILED-FOR-COST MANA VALUE (K8 — Ellie and Alan "Discover X, where X is the mana value of the exiled card"): the
+  // graveyard card exiled as this activation's cost, stamped by the dispatcher at payment; absent → 0.
+  if (spec.kind === "exiledForCostManaValue") return Math.max(0, state?.exiledForCost?.manaValue || 0);
   // ⭐ CONVERGE (CR 702.117a) — "X is the number of COLORS of mana spent to cast this spell". Captured at
   // COST-PAYMENT time by actionDispatcher off the payment plan (the only moment the answer exists — the pool
   // is deducted immediately after) and read here off the SAME inter-atom state channel the sacrificed-*

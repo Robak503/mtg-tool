@@ -1727,6 +1727,8 @@ export function libraryKeywordClauseParser(clause) {
   const dsc = t.match(/^discover (\d+)$/);
   if (dsc) return { op: "discover", amount: parseInt(dsc[1], 10), targetType: null };
   if (/^discover x, where x is that creature's toughness$/.test(t)) return { op: "discover", amountToughnessOfTrigger: true, targetType: null };
+  // K8 (Ellie and Alan): X = the mana value of the card exiled as the cost — read off the dispatcher's exiledForCost stamp.
+  if (/^discover x, where x is the mana value of the exiled card$/.test(t)) return { op: "discover", amountCount: { kind: "exiledForCostManaValue" }, targetType: null };
   if (/^(?:then |and )?shuffle(?: your library)?$/.test(t)) return { op: "shuffle", targetType: null };
   let m = t.match(/^scry (\d+)$/);
   if (m) return { op: "scry", amount: parseInt(m[1], 10), targetType: null };

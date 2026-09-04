@@ -1359,8 +1359,11 @@ function applyActivateAbility(state, action) {
       throw new DispatcherError(`Ability requires exiling ${need} cards from your graveyard but ${action.exileGyIds?.length || 0} were chosen`, "ADDCOST_UNPAID");
     }
     for (const xid of action.exileGyIds) {
-      const inGy = (working.players[action.playerId]?.graveyard || []).some((c) => c.id === xid);
-      if (!inGy) throw new DispatcherError(`Exile-cost victim ${xid} not in graveyard`, "COST_UNPAYABLE");
+      const victim = (working.players[action.playerId]?.graveyard || []).find((c) => c.id === xid);
+      if (!victim) throw new DispatcherError(`Exile-cost victim ${xid} not in graveyard`, "COST_UNPAYABLE");
+      // K8 (Ellie and Alan "Discover X, where X is the mana value of the exiled card"): stamp the exiled cost card's mana
+      // value on STATE, the same inter-atom channel sacrificedForCost uses, so the effect can read it at resolution.
+      working = { ...working, exiledForCost: { manaValue: Math.max(0, victim?.cmc ?? 0), cardId: xid } };
       working = moveCardToZone(working, { playerId: action.playerId, fromZone: "graveyard", toZone: "exile", cardId: xid });
     }
   }

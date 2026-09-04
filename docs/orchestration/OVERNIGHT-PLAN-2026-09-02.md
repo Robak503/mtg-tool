@@ -289,6 +289,8 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
 
 ## §6 PARKED / NEEDS COLTON (append as you go — this is the morning report's raw material)
 
+- **PARK 2026-09-04 — Mind's Dilation (Kellan K6):** "that player exiles the top card of their library. If it's a nonland card, you may cast it without paying its mana cost" = casting an OPPONENT's card. Nothing in the engine threads a spell's OWNER through cast → resolve → graveyard/exile (a stolen card must return to its owner's zones), and the exile-cast lane reads only the caster's own exile. An L with correctness traps, and theft-adjacent (the play-AI theft veto stands). Unpark when a spell-owner seam exists.
+
 - 🚨 **[CI BLOCKED BY GITHUB BILLING — 2026-09-04 ~10:30Z — NEEDS COLTON]** Run 33871892017 (V2 Starting Town, c4ed02a5)
   never started: both shards "failure" in 1–2 s with zero steps and the annotation "The job was not started because recent
   account payments have failed or your spending limit needs to be increased." `gh repo view` reports the repo **PRIVATE**
