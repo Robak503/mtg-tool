@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — ④-AY: "draw an additional card" on the draw-step event · **+3** · corpus 14,222 / 34,245 (41.5%)
+> Suite **1411 files / 15,645 tests** green; lint 0. Flip-diff **+3, zero LOST**. **3/3 mutations killed (the singular normalization, the plural normalization, the plural count).**
+> · **The shape:** "At the beginning of your draw step, draw an additional card" — the draw-step event already fired
+>   (checkStepTriggers "draw", detected as event:"draw" scope:"you"); only the wording was unread. "additional" names the
+>   draw's relation to the turn's own draw (CR 504.1), not a different instruction, so parseClauseToAtomCore normalizes
+>   "draw an additional card" / "draw N additional cards" to the plain draw every arm reads. Grafted Skullcap, Avaricious
+>   Dragon, Overbeing of Myth (Gerrard is a Vanguard outside the index; Midnight Oil / The Immortal Sun / Heightened
+>   Awareness / Monastery Siege / Panopticon park on their other lines).
+> · **Board-verified:** with Grafted Skullcap out, the controller's draw step yields the turn's draw AND the extra card; the
+>   opponent's draw step yields nothing extra.
+> · **CI:** pushed after ④-AX's run 33835019772 is green; own run watched after push (result on the next entry's line)
+
 > ## 🎯 2026-09-04 (night cron) — ④-AX: "sacrifice it / return it at end of combat" + unblocked poison · **+12** · corpus 14,219 / 34,245 (41.5%)
 > Suite **1410 files / 15,642 tests** green; lint 0. Flip-diff **+12, zero LOST**, every gain audited whole-card. **7/7 mutations killed (the parse arm, the enqueue, the drain's op gate, bounce-vs-sacrifice, the stale-turn guard, the poison arm's defending player, the poison branch's seat).**
 > · **The shapes:** (1) "When this creature attacks or blocks, sacrifice it / return it to its owner's hand at end of

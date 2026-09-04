@@ -533,8 +533,14 @@ function parseClauseToAtomCore(cardType, clause, hasX = false, sourceScoped = fa
   // conjugate the causative "have <bound self> deal" → "<self> deals" so the existing damage matcher binds.
   // Scoped to the bound self-referents (this creature / it / that creature) — a chosen-target causative
   // ("have target creature deal …") is not this shape and is untouched.
+  // "DRAW AN ADDITIONAL CARD" (④-AY, 2026-09-04 — "At the beginning of your draw step, draw an additional card": Gerrard,
+  // Grafted Skullcap, Avaricious Dragon, Heightened Awareness, Overbeing of Myth, Midnight Oil, The Immortal Sun …): the
+  // word "additional" only names the draw's relation to the turn's own draw (CR 504.1 — a separate turn-based action); the
+  // instruction itself is "draw a card" (CR 121.1). Normalize the count word through so every draw arm reads it.
   const s = stripReminder(clause)
     .replace(/\beach of your opponents\b/gi, "each opponent")
+    .replace(/\bdraw an additional card\b/gi, "draw a card")
+    .replace(/\bdraw (two|three|four|five|\d+) additional cards\b/gi, (_m, n) => `draw ${n} cards`)
     .replace(/\bhave (this creature|it|that creature) deal\b/gi, (_m, subj) => `${subj} deals`);
   if (!s) return null;
 
