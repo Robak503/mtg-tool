@@ -52,37 +52,37 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Shelf | Deck | Native | Needs to 85 | Needs to 90 | Status |
 |---|---|---|---|---|---|
 | Colton | Omnath, Locus of Mana | 94 | — | — | ✅ at the bar |
-| Colton | Vihaan, Goldwaker | 94 | — | — | ✅ at the bar |
+| Colton | Vihaan, Goldwaker | 95 | — | — | ✅ at the bar |
 | Colton | Zaxara kinda X'ish | 92 | — | — | ✅ at the bar |
-| Colton | Veyran Cantrips | 90 | — | — | ✅ at the bar (④-BD) |
+| Colton | Veyran Cantrips | 91 | — | — | ✅ at the bar (④-BD) |
 | Colton | The Unbeatable Squirrel Girl | 90 | — | — | ✅ at the bar |
 | Colton | cdh | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Colton | Killer Turts | 64 | 21 | 26 | ⬜ Phase 2 |
+| Colton | Killer Turts | 65 | 20 | 25 | ⬜ Phase 2 |
 | Joe | Did you say Dragons? | 91 | — | — | ✅ at the bar |
 | Joe | Earth Bent | 90 | — | — | ✅ at the bar (④-BE) |
-| Joe | Mothman Cometh | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
+| Joe | Mothman Cometh | 88 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Joe | Captain America Shoot your Shot | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
-| Joe | Hulk Smash | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
+| Joe | Hulk Smash | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Joe | Wolverine, claws out! | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Jurassic Ramp | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Joe | Kinnan Mana Overload | 72 | 13 | 18 | ⬜ Phase 2 (cEDH — LAST) |
+| Joe | Kinnan Mana Overload | 73 | 12 | 17 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Believe it! | 71 | 14 | 19 | ⬜ Phase 2 (cEDH — LAST) |
-| Joe | Kellan of the west | 70 | 15 | 20 | ⬜ Phase 2 |
+| Joe | Kellan of the west | 73 | 12 | 17 | ⬜ Phase 2 |
 | Joe | Halfshell heroes | 64 | 21 | 26 | ⬜ Phase 2 |
-| Test | Slivers | 95 | — | — | ✅ at the bar |
+| Test | Slivers | 98 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
-| Test | Test Rashmi | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
+| Test | Test Rashmi | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Teval, the Balanced Scale Test | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Brago Blink | 74 | 11 | 16 | ⬜ Phase 2 |
-| Test | Nekusar Wheels | 71 | 14 | 19 | ⬜ Phase 2 |
-| Test | Shorikai Vehicles | 70 | 15 | 20 | ⬜ Phase 2 |
+| Test | Nekusar Wheels | 73 | 12 | 17 | ⬜ Phase 2 |
+| Test | Shorikai Vehicles | 71 | 14 | 19 | ⬜ Phase 2 |
 | Test | Shalai and Hallar Test | 69 | 16 | 21 | ⬜ Phase 2 |
-| Test | Otharri Test | 68 | 17 | 22 | ⬜ Phase 2 |
+| Test | Otharri Test | 69 | 16 | 21 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 64 | 21 | 26 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 64 | 21 | 26 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 61 | 24 | 29 | ⬜ Phase 2 |
 
-**14 decks below 85 · 233 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**14 decks below 85 · 224 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -167,7 +167,7 @@ Ordered by slots paid across the 14 sub-85 decks, then by size. Every row: ⬜ o
 
 | # | Vein | Decks (sub-85) | Slots | Size | What to build | Status |
 |---|---|---|---|---|---|---|
-| V1 | **Modal double-faced cards (spell // land, land // land)** — Sink into Stupor, Witch Enchanter, Sundering Eruption, Shatterskull Smashing, Hydroelectric Specimen, Fell the Profane, Bridgeworks Battle, Boggart Trawler, Agadeem's Awakening, Sea Gate Restoration, Sejiri Shelter, Revitalizing Repast, Glasspool Mimic, Emeritus of Truce, Wandering Archaic; the five Pathways (Barkchannel, Hengegate, Branchloft, Needleverge, Blightstep) | Teval 6 · Believe 6 · Kellan 5 · Shalai 5 · Otharri 5 · Kinnan 4 · Shorikai 3 · Nekusar 3 · Brago 2 · Bumble/Halfshell/Turts/Light-Paws 1 each (+~15 more in the 85–89 decks) | **~43** | **L** (ship in slices) | PROBE FIRST: today these classify `land-partial` — the land drop plays the back face, so what is missing is (a) the classifier reading a `//` oracle as two faces, (b) the cast lane offering the FRONT face as a spell when its program parses HIGH, (c) the play-land lane offering the back face with its enter clause (pay 3 life or tapped). Slice 1 = the five Pathways (both faces plain lands; the face choice on the land drop; +7). Slice 2 = spell//land where the front is already a modeled spell (Sink into Stupor's bounce, Fell the Profane's destroy, Shatterskull's X damage…). Slice 3 = the rest. | ⬜ |
+| V1 | **Modal double-faced cards (spell // land, land // land)** — Sink into Stupor, Witch Enchanter, Sundering Eruption, Shatterskull Smashing, Hydroelectric Specimen, Fell the Profane, Bridgeworks Battle, Boggart Trawler, Agadeem's Awakening, Sea Gate Restoration, Sejiri Shelter, Revitalizing Repast, Glasspool Mimic, Emeritus of Truce, Wandering Archaic; the five Pathways (Barkchannel, Hengegate, Branchloft, Needleverge, Blightstep) | Teval 6 · Believe 6 · Kellan 5 · Shalai 5 · Otharri 5 · Kinnan 4 · Shorikai 3 · Nekusar 3 · Brago 2 · Bumble/Halfshell/Turts/Light-Paws 1 each (+~15 more in the 85–89 decks) | **~43** | **L** (ship in slices) | PROBE FIRST: today these classify `land-partial` — the land drop plays the back face, so what is missing is (a) the classifier reading a `//` oracle as two faces, (b) the cast lane offering the FRONT face as a spell when its program parses HIGH, (c) the play-land lane offering the back face with its enter clause (pay 3 life or tapped). Slice 1 = the five Pathways (both faces plain lands; the face choice on the land drop; +7). Slice 2 = spell//land where the front is already a modeled spell (Sink into Stupor's bounce, Fell the Profane's destroy, Shatterskull's X damage…). Slice 3 = the rest. | 🔄 slice 1 ✅ (+10 corpus — the ten Pathways; the face-choice land drop is live: legalChoices.actionsPlayLand per-face actions, applyPlayLand enters the face with the combined card as printedCard, classifyCard credits a Land // Land iff both faces are covered; the Ixalan transform//land cards left the land bucket). Slice 2 next. |
 | V2 | **Starting Town** — "enters tapped unless it's your first, second, or third turn of the game" + "{T}, Pay 1 life: Add one mana of any color" | Teval · Kellan · Shalai · Otharri | 4 | **S** | the enters-tapped-unless condition reads the controller's own turn ordinal (a per-player turn counter; if none exists, stamp `turnsTakenThisGame` at the untap step); the pay-life any-colour tap is the payLife mana spec (exists). | ⬜ |
 | V3 | **Minamo, School at Water's Edge** — "{U}, {T}: Untap target legendary permanent" | Kinnan · Shorikai (+cdh) | 2 (+1) | **S** | the untap atom + a `legendary` restriction on targetType permanent (matchesSelector already knows `legendary`; enumerateTargets' permanent pool needs the kind) | ⬜ |
 | V4 | **Orcish Bowmasters** — ETB and "whenever an opponent draws a card except the first one they draw in each of their draw steps": 1 damage to any target, then amass Orcs 1 | Nekusar · Believe | 2 | **M** | an opponent-draw watcher with the first-draw-of-the-draw-step exception (the `drawnThisTurnIds` / draw-step ledger exists: stamp which draws are the turn's own); amass exists; "any target" chooser on a trigger = enemy intent | ⬜ |
@@ -468,5 +468,7 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — V1 slice 1 (the Pathways) ✅ +10 corpus · 8/8 mutations killed (the layout gate, the per-face branch, the dispatcher's face, the printedCard restore, the classifier's both-faces gate, isLand's front face, the land gate's front face, the saved-deck layout backfill) · suite 1418 files / 15,677 tests · corpus 14,252 · shelf refreshed in §1.
 
 - 2026-09-04 06:40Z — runbook written (Cindy). Baseline: 14 decks below 85, 233 slots. Last engine slice before it: ④-BE (Earth Bent → 90).

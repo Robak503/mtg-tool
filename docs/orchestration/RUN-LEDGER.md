@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — V1 slice 1: MODAL DFC LANDS — the face-choice land drop; the ten Pathways · **+10** · corpus 14,252 / 34,245 (41.6%)
+> Suite **1418 files / 15,677 tests** green; lint 0. Flip-diff **+10, zero LOST, 32 RETIERED** (every Ixalan transform//land card
+> — Treasure Map, Growing Rites of Itlimoc, the LCI Ojer gods … — leaves `land-partial` for `body-only`: they were
+> falsely "playable as a land"). **8/8 mutations killed (the layout gate, the per-face branch, the dispatcher's face, the printedCard restore, the classifier's both-faces gate, isLand's front face, the land gate's front face, the saved-deck layout backfill).**
+> · **The shape (SHELF-85 runbook, vein V1):** a new pure shape module `modalDfc.js` (parseModalDfc / mdfcFaceCards /
+>   mdfcLandFaces — Scryfall's `layout: "modal_dfc"` is the gate, now exposed by publicCard, because a TRANSFORM card
+>   with a land back prints the same type line). actionsPlayLand offers every LAND FACE as its own play-land action
+>   carrying the projected `faceCard`; applyPlayLand enters THAT face (every enter check reads the face) with the
+>   combined card as `printedCard`, the hook moveCardToZone already restores on leaving. classifyCard credits a
+>   "Land // Land" iff both faces are fully covered on their own views; a spell//land keeps land-partial until slice 2
+>   makes its front castable.
+> · **A pre-existing over-offer closed:** Ojer Axonil (transform, "… // Land") was being OFFERED AS A LAND DROP — isLand
+>   and the classifier's land gate now read the FRONT face of a non-modal "//" type line.
+> · **Board-verified:** a Pathway offers both faces; Tidechannel enters as itself, taps for U, and bounces back as the
+>   whole card; Soporific Springs enters with ITS pay-3-life clause; the transform god is not offered.
+> · **Two hollows closed on the way:** (1) the game's deck enrichment (learnDeckEnrich.mergeCardData) never carried
+>   `layout`, and an already-shaped saved-deck card skipped enrichment entirely — a real game would never have seen the
+>   face choice; `layout` now rides along and is backfilled on shaped cards. (2) measure-coverage's per-deck projection
+>   dropped `keywords` and `layout`, so it disagreed with deck-gap on the same deck (Kellan 70 vs 73); fixed — the shelf
+>   numbers moved honestly in both directions (Slivers 95 → 98 from keywords, Brago 76 → 74 from the modal gate).
+> · **CI:** pushed; own run watched after push (result on the next entry's line)
+
 > ## 🎯 2026-09-04 (night cron) — ④-BE: "Each land is a <basic type>" — Urborg / Yavimaya / Blanket of Night · **+3** · corpus 14,242 / 34,245 (41.6%) · **Earth Bent 90%**
 > Suite **1417 files / 15,669 tests** green; lint 0. Flip-diff **+3, zero LOST**. **5/5 mutations killed (the static arm, the selector's scope, the mana delivery, the complex-source guard, the classifier exemption); a sixth, the printed-subtype filter, survived and was deleted as unobservable.**
 > · **The shape:** a layer-4 subtype ADD on EVERY land, both seats (the all-lands dynamic selector the Kormus-class line

@@ -58,6 +58,9 @@ export function mergeCardData(deckCard, full) {
     type: deckCard.type || full.type || "",
     mana: deckCard.mana || full.mana || "",
     oracle: deckCard.oracle || full.oracle || "",
+    // V1 (2026-09-04): Scryfall's layout — the modal-DFC gate (modalDfc.js). A game deck without it never sees the
+    // face-choice land drop, which would make the classifier's credit hollow; so it rides along like keywords do.
+    layout: deckCard.layout || full.layout || "",
     cmc: deckCard.cmc ?? full.cmc ?? 0,
     power: deckCard.power ?? full.power ?? null,
     toughness: deckCard.toughness ?? full.toughness ?? null,
@@ -72,7 +75,15 @@ export function mergeCardData(deckCard, full) {
 
 /** Enrich one deck card by name (no-op when already shaped or name unknown). */
 export function enrichDeckCard(card, lookup = defaultCardLookup) {
-  if (!card || !card.name || alreadyShaped(card)) return card;
+  if (!card || !card.name) return card;
+  if (alreadyShaped(card)) {
+    // V1 (2026-09-04): an already-shaped deck card (the app's saved-deck snapshot carries type/oracle/mana from import
+    // time, before `layout` existed) is left as it is EXCEPT for a missing layout, which is backfilled from the index so
+    // a modal DFC in a saved deck reaches the engine with its gate intact. Nothing else is overwritten.
+    if (card.layout != null) return card;
+    const full = lookup(card.name);
+    return full && full.layout ? { ...card, layout: full.layout } : card;
+  }
   return mergeCardData(card, lookup(card.name));
 }
 

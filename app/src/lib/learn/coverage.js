@@ -87,6 +87,7 @@ import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the emin
 import { parseGlobalTapManaAugment, stripGlobalTapManaAugment } from "./staticAbilityParser.js"; // GLOBAL-TAP-AUGMENT: "Whenever you tap a <land|creature> for mana, add …" permanent
 import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the creature/adventure halves; pure shape module (no back-import, acyclic)
 import { parseSplitCard, splitFaceViews } from "./splitCard.js"; // SPLIT CARDS (CR 709) — the two-spell-halves shape module; pure leaf, acyclic
+import { parseModalDfc, mdfcFaceCards } from "./modalDfc.js"; // MODAL DFC LANDS (CR 712.8, V1) — the face-choice land drop; pure leaf, acyclic
 import { parseKickerCounterCreature, parseKickerEtbCreature, stripKickerText } from "./kicker.js"; // KICKER (CR 702.33) — optional cast cost + a was-kicked payoff (enters-with-counters OR a kicked ETB trigger); runtime hooks in legalChoices/actionDispatcher/resolvers. Leaf (no back-import, acyclic).
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — alt cast cost (sac a creature/artifact, pay the emerge cost reduced by its MV); runtime hooks in legalChoices/actionDispatcher. Leaf (no back-import, acyclic).
 import { parseTributeCreature } from "./tribute.js"; // TRIBUTE (CR 702.96) — ETB opponent-choice (pay N +1/+1 counters OR the "if tribute wasn't paid" effect); runtime hook in resolvers.enterPermanent. Leaf (no back-import, acyclic).
@@ -3116,6 +3117,18 @@ export function classifyCard(card) {
     if (splitTier) return splitTier;
     if (parseSplitCard(card)) return "arbiter-spell";
   }
+  // MODAL DFC with a LAND back (V1 slice 1, 2026-09-04 — CR 712.8): the land drop offers each land FACE and the
+  // permanent enters as that face (legalChoices.actionsPlayLand + actionDispatcher.applyPlayLand). A "Land // Land"
+  // (the Pathways) is native `land` iff BOTH faces are fully covered on their own projected views — the exact
+  // gate a single land passes. A "<spell> // Land" keeps today's tier below (land-partial: its back plays, its
+  // front is not castable until slice 2) — so nothing is credited that the runtime cannot play.
+  {
+    const mdfc = parseModalDfc(card);
+    if (mdfc && /\bLand\b/i.test(mdfc.front.type)) {
+      const [front, back] = mdfcFaceCards(card);
+      return landFullyCovered(front) && landFullyCovered(back) ? "land" : "land-partial";
+    }
+  }
   // ⭐ LANDS ARE GATED NOW (Codex fix #3, 2026-08-30). This used to be an unconditional `return "land"` —
   // every card with Land on its type line counted fully native, including utility lands whose abilities
   // the engine has never modeled (Mystifying Maze's untargeting exile, man-land animations, conditional
@@ -3123,7 +3136,12 @@ export function classifyCard(card) {
   // project steers by. A land is "land" (native) ONLY when landFullyCovered vouches every line of its
   // text; otherwise it's "land-partial" — PLAYABLE (the land drop + any modeled mana still work at
   // runtime, exactly like playable-pw) but NOT native, so it counts in the gap it belongs to.
-  if (/\bland\b/.test(type)) return landFullyCovered(card) ? "land" : "land-partial";
+  // V1 (2026-09-04): a TRANSFORM card with a land BACK ("Legendary Creature — God // Land" — the LCI gods) is NOT a land
+  // card — its back is never played directly (CR 712.4), so it must not read as land-partial ("playable as a land").
+  // Only the FRONT face decides for a non-modal "//" type line; a MODAL spell//land keeps the whole line (its back
+  // plays — land-partial until slice 2 makes the front castable), and a Land // Land was intercepted above.
+  const landGateType = type.includes("//") && !parseModalDfc(card) ? type.split(" // ")[0] : type;
+  if (/\bland\b/.test(landGateType)) return landFullyCovered(card) ? "land" : "land-partial";
   // A DFC with a planeswalker BACK face but a non-PW front (Jace, Vryn's Prodigy; Valki // Tibalt)
   // enters as its front at runtime; its transform + back face are unmodeled, so it's NEVER native.
   // Classify body-only directly — running the creature native classifiers on the combined oracle could

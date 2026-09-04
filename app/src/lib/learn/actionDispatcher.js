@@ -148,8 +148,13 @@ function applyPlayLand(state, action) {
   const fromZone = action.fromZone === "exile" ? "exile"
     : action.fromZone === "library" ? "library"
       : action.fromZone === "graveyard" ? "graveyard" : "hand";
-  const card = (state.players[action.playerId]?.[fromZone] || []).find(c => c.id === action.cardId) || null;
-  if (!card) throw new DispatcherError(`Card ${action.cardId} not in ${fromZone}`, "CARD_NOT_IN_ZONE");
+  const realCard = (state.players[action.playerId]?.[fromZone] || []).find(c => c.id === action.cardId) || null;
+  if (!realCard) throw new DispatcherError(`Card ${action.cardId} not in ${fromZone}`, "CARD_NOT_IN_ZONE");
+  // MODAL DFC LAND FACE (V1 slice 1, CR 712.8): the action names the FACE being played (`faceCard`, projected by
+  // legalChoices from modalDfc.mdfcLandFaces). Every enter check below — tapped, shock, reveal, chosen type, fade —
+  // reads the FACE; the permanent's `card` becomes the face and the combined card rides as `printedCard`, which is
+  // exactly the hook moveCardToZone restores when the permanent leaves the battlefield (the same restore a copy uses).
+  const card = action.faceCard ? { ...action.faceCard, id: realCard.id } : realCard;
 
   let next = moveCardToZone(state, {
     playerId: action.playerId,
@@ -158,6 +163,12 @@ function applyPlayLand(state, action) {
     cardId: action.cardId,
     becomePermanent: true,
   });
+  if (action.faceCard) {
+    const bf0 = next.players[action.playerId].battlefield;
+    const enteredId = bf0[bf0.length - 1]?.id;
+    next = { ...next, players: { ...next.players, [action.playerId]: { ...next.players[action.playerId],
+      battlefield: bf0.map((p) => (p.id === enteredId ? { ...p, card, printedCard: realCard } : p)) } } };
+  }
   // TRUNK-ENTERSTAPPED (CR 614.1c): a tapland (Temple / Triome / karoo / bounce land / tapped dual) enters
   // tapped, so it can't be tapped for mana the turn it's played. The freshly-minted land is the last
   // permanent on the battlefield (moveCardToZone pushes it). Only the BARE, unconditional form (entersTapped)

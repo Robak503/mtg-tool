@@ -7,6 +7,13 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (night cron) — **SHELF-85 V1 slice 1: modal DFC lands — the face-choice land drop (+10)** · suite **1418 files / 15,677 tests** green · corpus 14,252 / 34,245 (41.6%) · flip-diff +10 / 0 lost / 32 retiered · 8/8 mutations killed (the layout gate, the per-face branch, the dispatcher's face, the printedCard restore, the classifier's both-faces gate, isLand's front face, the land gate's front face, the saved-deck layout backfill)
+
+> **The runbook is running.** First row taken: V1 (modal double-faced cards), slice 1 = the ten Pathways. The land drop
+> now chooses a face; a transform card with a land back is no longer offered as a land (a pre-existing over-offer).
+> Slice 2 (a spell//land's FRONT castable through the split-card face lane) is next; the §1 table is refreshed.
+> **CI:** pushed; own run watched after push (result on the next entry's line)
+
 ## 🎯 2026-09-04 (night cron) — **④-BE: "Each land is a <basic type>" — Urborg / Yavimaya (+3) · Earth Bent 90%** · suite **1417 files / 15,669 tests** green · corpus 14,242 / 34,245 (41.6%) · flip-diff +3 / 0 lost · 5/5 mutations killed (the static arm, the selector's scope, the mana delivery, the complex-source guard, the classifier exemption); a sixth, the printed-subtype filter, survived and was deleted as unobservable
 
 > **Night tally (stage ④, fifty-seven slices):** … · BC (+1) · BD (+1) · BE (+3) — corpus 13,862 → 14,242.

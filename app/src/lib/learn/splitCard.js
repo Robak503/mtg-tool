@@ -30,7 +30,7 @@
 /** Peel the cardIndex header line "<Name> - <type line> {mana}" off a face block → { name, typeLine, mana,
  *  oracle } or null. (Identical shape to adventure.parseFaceBlock; duplicated so each shape module stays a
  *  standalone leaf with no cross-import.) */
-function parseFaceBlock(block) {
+export function parseFaceBlock(block) { // exported for modalDfc.js (V1 — the same "<name> - <type> {mana}" header shape)
   const text = String(block || "").trim();
   if (!text) return null;
   const nl = text.indexOf("\n");

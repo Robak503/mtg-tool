@@ -82,6 +82,7 @@ import { isNativeAura, isNativeManaAura, isPlayerAuraCard, entersWithXCounters, 
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
+import { isModalDfc, mdfcLandFaces } from "./modalDfc.js"; // MODAL DFC LANDS (CR 712.8, V1) — the land drop chooses a face; pure shape module
 import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activate only if <cond>" — the offer gate reads the SAME vocabulary as the trigger + spell lanes
 import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — see permanentAdditionalCosts below
 import { isPermanentSpell } from "./resolvers.js";
@@ -312,7 +313,11 @@ function typeLineOf(card) {
   return "";
 }
 
-function isLand(card)        { return typeLineOf(card).includes("Land"); }
+// ⛔ FRONT FACE ONLY for a multi-face card (V1, 2026-09-04): a TRANSFORM DFC with a land back (Ojer Axonil, Deepest
+// Might // Temple of Power) prints "… // Land" and was being offered as a LAND DROP — the back of a transform card is
+// never played directly (CR 712.4). A MODAL DFC's land faces are offered by actionsPlayLand's own branch (modalDfc.js),
+// so this predicate reads the FRONT face of any "//" type line and nothing else changes for single-face cards.
+function isLand(card)        { return String(typeLineOf(card)).split(" // ")[0].includes("Land"); }
 function isInstant(card)     { return typeLineOf(card).includes("Instant"); }
 function isCreature(card)    { return typeLineOf(card).includes("Creature"); }
 function isArtifact(card)    { return typeLineOf(card).includes("Artifact"); }
@@ -505,14 +510,22 @@ function actionsPlayLand(state, playerId) {
   const player = state.players[playerId];
   if (player.landsPlayedThisTurn >= landDropAllowance(state, playerId)) return [];
 
-  return player.hand
-    .filter(card => isLand(card))
-    .map(card => ({
-      kind: "play-land",
-      playerId,
-      cardId: card.id,
-      name: card.name,
-    }));
+  const actions = [];
+  for (const card of player.hand) {
+    // MODAL DFC with a land back (V1 slice 1, 2026-09-04 — the Pathways; the ZNR/MH3 spell//lands): the land drop
+    // chooses a FACE (CR 712.8), so each land face is its own play-land action carrying the projected `faceCard`, and
+    // the dispatcher enters that face. The combined card is never offered as a land any more — it used to enter as
+    // the mashed two-face card with only the FRONT's mana (a Pathway could never be its back face).
+    if (isModalDfc(card)) {
+      for (const face of mdfcLandFaces(card)) {
+        actions.push({ kind: "play-land", playerId, cardId: card.id, name: face.name, faceCard: face });
+      }
+      continue;
+    }
+    if (!isLand(card)) continue;
+    actions.push({ kind: "play-land", playerId, cardId: card.id, name: card.name });
+  }
+  return actions;
 }
 
 // Bounds the X choices surfaced for an X-spell (CR 107.3). The mana ceiling already

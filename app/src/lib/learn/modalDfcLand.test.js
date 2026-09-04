@@ -1,0 +1,116 @@
+/**
+ * modalDfcLand.test.js — SHELF-85 runbook vein V1, slice 1 (2026-09-04): MODAL DOUBLE-FACED CARDS with a LAND back
+ * (CR 712.8) on the LAND DROP. Every land face is its own play-land action carrying the projected `faceCard`; the
+ * permanent ENTERS AS THAT FACE (name, type, oracle, mana) with the combined card kept as `printedCard`, so leaving the
+ * battlefield restores the real card. A "Land // Land" (the ten Pathways) is native `land` iff both faces are covered on
+ * their own; a "<spell> // Land" keeps land-partial until slice 2 makes the front castable. Scryfall's `layout` is the
+ * gate — a TRANSFORM card with a land back (Ojer Axonil) is never a modal DFC and is no longer offered as a land drop at
+ * all (a pre-existing over-offer this slice closed). Real oracle fixtures (bundled Scryfall snapshot, 2026-09-04).
+ */
+
+import { beforeEach, describe, expect, it } from "vitest";
+import { classifyCard } from "./coverage.js";
+import { mdfcLandFaces, parseModalDfc } from "./modalDfc.js";
+import { legalActionsForPlayer } from "./legalChoices.js";
+import { dispatchAction } from "./actionDispatcher.js";
+import { manaSources } from "./manaModel.js";
+import { resolveOptionalLifePaymentChoice } from "./effects/runProgram.js";
+import { _resetIdsForTests, createGameState, findPermanent, moveCardToZone } from "./gameState.js";
+import { enrichDeckCard } from "../server/learnDeckEnrich.js";
+
+beforeEach(() => _resetIdsForTests());
+
+const PATHWAY = { id: "h-bark", name: "Barkchannel Pathway // Tidechannel Pathway", type: "Land // Land", mana: "", cmc: 0, keywords: [], layout: "modal_dfc",
+  oracle: "Barkchannel Pathway - Land \n{T}: Add {G}.\n//\nTidechannel Pathway - Land \n{T}: Add {U}." };
+const SINK = { id: "h-sink", name: "Sink into Stupor // Soporific Springs", type: "Instant // Land", mana: "{1}{U}{U}", mana_cost: "{1}{U}{U}", cmc: 3, keywords: [], layout: "modal_dfc",
+  oracle: "Sink into Stupor - Instant {1}{U}{U}\nReturn target spell or nonland permanent an opponent controls to its owner's hand.\n//\nSoporific Springs - Land \nAs this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {U}." };
+const OJER = { id: "h-ojer", name: "Ojer Axonil, Deepest Might // Temple of Power", type: "Legendary Creature — God // Land", mana: "{2}{R}{R}", mana_cost: "{2}{R}{R}", cmc: 4, power: 4, toughness: 4, keywords: ["Trample"], layout: "transform",
+  oracle: "Ojer Axonil, Deepest Might - Legendary Creature — God {2}{R}{R}\nTrample\nIf a red source you control would deal an amount of noncombat damage less than Ojer Axonil's power to an opponent, that source deals damage equal to Ojer Axonil's power instead.\nWhen Ojer Axonil dies, return it to the battlefield tapped and transformed under its owner's control.\n//\nTemple of Power - Land \n(Transforms from Ojer Axonil, Deepest Might.)\n{T}: Add {R}.\n{2}{R}, {T}: Transform Temple of Power. Activate only if an opponent lost life this turn and only as a sorcery." };
+const DELVER = { id: "h-delver", name: "Delver of Secrets // Insectile Aberration", type: "Creature — Human Wizard // Creature — Human Insect", mana: "{U}", cmc: 1, power: 1, toughness: 1, keywords: [], layout: "transform",
+  oracle: "Delver of Secrets - Creature — Human Wizard {U}\nAt the beginning of your upkeep, look at the top card of your library. You may reveal that card. If an instant or sorcery card is revealed this way, transform Delver of Secrets.\n//\nInsectile Aberration - Creature — Human Insect \nFlying" };
+
+describe("the shape module", () => {
+  it("⭐ a modal DFC with a land back parses into two faces; the land faces are the drop's choices", () => {
+    const p = parseModalDfc(PATHWAY);
+    expect(p.front).toMatchObject({ name: "Barkchannel Pathway", type: "Land", oracle: "{T}: Add {G}.", mana: "" });
+    expect(p.back).toMatchObject({ name: "Tidechannel Pathway", type: "Land", oracle: "{T}: Add {U}.", mana: "" });
+    expect(mdfcLandFaces(PATHWAY).map((f) => f.name)).toEqual(["Barkchannel Pathway", "Tidechannel Pathway"]);
+    expect(mdfcLandFaces(SINK).map((f) => f.name)).toEqual(["Soporific Springs"]);
+    expect(mdfcLandFaces(SINK)[0]).toMatchObject({ id: "h-sink", type: "Land", faceIndex: 1, mdfcOf: SINK.name });
+  });
+  it("⛔ the layout gate: a transform card with a land back is NOT a modal DFC; a modal card without a layout is refused", () => {
+    expect(parseModalDfc(OJER)).toBeNull();
+    expect(parseModalDfc(DELVER)).toBeNull();
+    expect(parseModalDfc({ ...PATHWAY, layout: "" })).toBeNull();
+    expect(parseModalDfc({ ...PATHWAY, layout: "transform" })).toBeNull();
+  });
+  it("the tiers: a Pathway is native land; a spell//land stays land-partial (its front is not castable yet); a transform god is no land at all", () => {
+    expect(classifyCard(PATHWAY)).toBe("land");
+    expect(classifyCard(SINK)).toBe("land-partial");
+    expect(classifyCard(OJER)).not.toMatch(/^land/);
+    expect(classifyCard(DELVER)).toBe("body-only");
+    // a Land // Land whose back is NOT covered is not credited (the runtime would play a face it cannot honour)
+    const unc = { ...PATHWAY, oracle: "Barkchannel Pathway - Land \n{T}: Add {G}.\n//\nTidechannel Pathway - Land \n{T}: Add {U}.\n{2}, {T}: Untap target creature and it phases out until your next upkeep." };
+    expect(classifyCard(unc)).toBe("land-partial");
+  });
+});
+
+describe("the game's deck enrichment carries the gate", () => {
+  it("⭐ an already-shaped saved-deck card (no layout) is backfilled with the index's layout; a card that has one is untouched", () => {
+    const lookup = (name) => (/Pathway/.test(name) ? { name, type: "Land // Land", oracle: PATHWAY.oracle, mana: "", layout: "modal_dfc" } : null);
+    const shaped = { id: "d1", name: PATHWAY.name, type: "Land // Land", oracle: PATHWAY.oracle, mana: "" };
+    const out = enrichDeckCard(shaped, lookup);
+    expect(out.layout).toBe("modal_dfc");
+    expect(out.type).toBe("Land // Land"); // nothing else overwritten
+    expect(enrichDeckCard({ ...shaped, layout: "" }, lookup).layout).toBe(""); // an explicit layout is respected
+    // a blank deck entry gets the full merge, layout included
+    expect(enrichDeckCard({ id: "d2", name: PATHWAY.name }, lookup)).toMatchObject({ type: "Land // Land", layout: "modal_dfc" });
+    // and the classifier + the land drop read the enriched card
+    expect(classifyCard(out)).toBe("land");
+    expect(mdfcLandFaces(out).map((f) => f.name)).toEqual(["Barkchannel Pathway", "Tidechannel Pathway"]);
+  });
+});
+
+describe("runtime — the land drop chooses a face", () => {
+  function hand(cards, life = 40) {
+    const s0 = createGameState({ userDeck: [], aiDeck: [] });
+    return { ...s0, turn: 6, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0, stack: [],
+      players: { ...s0.players, user: { ...s0.players.user, hand: cards, battlefield: [], life, landsPlayedThisTurn: 0 } } };
+  }
+  const drops = (s) => legalActionsForPlayer(s, "user").filter((a) => a.kind === "play-land").map((a) => [a.name, a.faceCard?.name ?? null]);
+  it("⭐ a Pathway offers BOTH faces, a spell//land offers its land back only, and the transform god is not offered as a land", () => {
+    expect(drops(hand([PATHWAY, SINK, OJER]))).toEqual([["Barkchannel Pathway", "Barkchannel Pathway"], ["Tidechannel Pathway", "Tidechannel Pathway"], ["Soporific Springs", "Soporific Springs"]]);
+  });
+  it("⭐ playing the BACK face enters that face (name, type, mana U), and leaving the battlefield restores the whole card", () => {
+    let s = hand([PATHWAY]);
+    const back = legalActionsForPlayer(s, "user").find((a) => a.kind === "play-land" && a.name === "Tidechannel Pathway");
+    s = dispatchAction(s, back);
+    const perm = s.players.user.battlefield[0];
+    expect(perm.card).toMatchObject({ id: "h-bark", name: "Tidechannel Pathway", type: "Land" });
+    expect(perm.printedCard?.name).toBe(PATHWAY.name);
+    expect(perm.tapped).toBe(false);
+    expect(s.players.user.landsPlayedThisTurn).toBe(1);
+    expect(manaSources({ ...s, turn: 7 }, "user").map((x) => x.colors)).toEqual([["U"]]);
+    const bounced = moveCardToZone(s, { playerId: "user", fromZone: "battlefield", toZone: "hand", cardId: perm.id });
+    expect(bounced.players.user.hand.map((c) => c.name)).toEqual([PATHWAY.name]);
+    expect(findPermanent(bounced, perm.id)).toBeNull();
+  });
+  it("playing the FRONT face enters Barkchannel and taps for G", () => {
+    let s = hand([PATHWAY]);
+    const front = legalActionsForPlayer(s, "user").find((a) => a.kind === "play-land" && a.name === "Barkchannel Pathway");
+    s = dispatchAction(s, front);
+    expect(s.players.user.battlefield[0].card.name).toBe("Barkchannel Pathway");
+    expect(manaSources({ ...s, turn: 7 }, "user").map((x) => x.colors)).toEqual([["G"]]);
+  });
+  it("the spell//land's back face enters with ITS shock clause: the pay-3-life choice is raised, declining taps it", () => {
+    let s = hand([SINK]);
+    const springs = legalActionsForPlayer(s, "user").find((a) => a.kind === "play-land" && a.name === "Soporific Springs");
+    s = dispatchAction(s, springs);
+    expect(s.players.user.battlefield[0].card.name).toBe("Soporific Springs");
+    expect(s.pendingChoice?.kind).toBeTruthy();
+    expect(s.pendingChoice.sourceName).toBe("Soporific Springs");
+    const declined = resolveOptionalLifePaymentChoice(s, false);
+    expect(declined.players.user.battlefield[0].tapped).toBe(true);
+    expect(declined.players.user.life).toBe(40);
+  });
+});

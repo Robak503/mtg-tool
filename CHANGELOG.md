@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Modal double-faced lands choose a face** — the ten Pathways play as either side; a spell//land's back plays as itself (with its own enter clause); transform cards with a land back are no longer offered as land drops
 - **Urborg, Tomb of Yawgmoth and Yavimaya, Cradle of Growth work** — every land on the table gains the basic type and taps for its colour (Blanket of Night too)
 - **Arcane Denial works** — the countered spell's controller may draw up to two cards at the next upkeep; you draw one
 - **Aetherflux Reservoir's storm lifegain** — "you gain 1 life for each spell you've cast this turn"

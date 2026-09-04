@@ -68,7 +68,7 @@ for (const [name, decks] of shelf) {
   const oracle = c.oracle_text || "";
   const lines = oracle.split("\n");
   if (lines.length < 2 || lines.length > 4) continue;
-  const base = { name: c.name, type: c.type_line, mana: c.mana_cost, oracle };
+  const base = { name: c.name, type: c.type_line, mana: c.mana_cost, oracle, keywords: c.keywords || [], layout: c.layout || "" }; // V1: layout rides along (the modal-DFC gate)
   const tier = classifyCard(base);
   if (tier.startsWith("native") || tier === "land") continue;
   for (let i = 0; i < lines.length; i++) {

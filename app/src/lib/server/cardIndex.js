@@ -370,6 +370,10 @@ export function publicCard(card, rulings = [], options = {}) {
     prices: card.prices || {},
     legalities: card.legalities || {},
     card_faces: card.card_faces || [],
+    // V1 (2026-09-04): the Scryfall layout ("normal" | "modal_dfc" | "transform" | "split" | "adventure" …) — the ONLY
+    // reliable way to tell a MODAL double-faced card (either face may be played) from a TRANSFORM one (the back face
+    // is never played directly). modalDfc.js refuses a card without it (a safe false-negative).
+    layout: card.layout || "",
     rulings,
   };
 }

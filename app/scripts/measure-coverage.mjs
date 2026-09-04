@@ -124,7 +124,9 @@ function enrich(dk) {
     // measure classified arbiter-pw regardless of its real tier (caught when Sarkhan, Fireblood
     // went native in the tier snapshot but not here). power/toughness ride for the same
     // shape-fidelity reason.
-    cards.push({ type: c.type, oracle: c.oracle, mana: c.mana, name: c.name, loyalty: c.loyalty, power: c.power, toughness: c.toughness, qty: entry.qty || 1 });
+    // V1 (2026-09-04): `keywords` and `layout` ride along — the classifier's modal-DFC gate reads `layout` (a projection
+    // that dropped it made this instrument disagree with deck-gap.mjs on the very same deck: 70% vs 73% on Kellan).
+    cards.push({ type: c.type, oracle: c.oracle, mana: c.mana, name: c.name, loyalty: c.loyalty, power: c.power, toughness: c.toughness, keywords: c.keywords, layout: c.layout, qty: entry.qty || 1 });
   }
   return cards;
 }
