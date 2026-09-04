@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Recurring Insight** — draws for the target opponent's hand size, then rebounds
 - **Planar Nexus** — counts as every nonbasic land type on the table
 - **Padeem, Consul of Innovation** and **Leonin Abunas** — your artifacts, creature or not, can't be targeted by opponents; Padeem's upkeep draw checks the biggest artifact on the table
 - **Kotori, Pilot Prodigy** — Vehicles you control crew for 2 while Kotori is out

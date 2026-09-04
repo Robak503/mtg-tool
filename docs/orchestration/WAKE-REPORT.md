@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K9: Recurring Insight (+1)** · suite **1462 files / 15,987 tests** green · corpus 14,393 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 3/3 killed (a fourth — widen the subject to 'your hand' — was an EQUIVALENT mutant: the older cardsInHand arm claims that sentence first; deleted and documented in the witness)
+
+> The hand-size draw count on a rebound spell. Kellan **76** (needs 9). Next: Lock and Load (a per-turn instant/sorcery cast tally + one draw arm; Plot is admitted).
+> **CI:** GREEN — run 33911568285 on 210fd2f6 (Planar Nexus); this slice pushes and is watched
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K8: Planar Nexus (+1)** · suite **1461 files / 15,982 tests** green · corpus 14,392 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 4/4 killed
 
 > Kellan opened: the self nonbasic-type add. Kellan **75** (needs 10). Monk Gyatso needs the airbend mechanic, Transcendent Dragon cast-from-exile; Recurring Insight (rebound is modeled) is the next honest S.

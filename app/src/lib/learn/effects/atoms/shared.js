@@ -570,6 +570,13 @@ export function countForSpec(state, ctx, spec) {
     return (state.players[pt.id].battlefield || [])
       .filter((perm) => perm.tapped && permanentIsCreature(state, perm.id)).length;
   }
+  // ===== CARDS IN TARGET OPPONENT'S HAND (K9 — Recurring Insight) ===== the chosen player target's LIVE hand
+  // length at resolution (CR 608.2h). An absent / vanished player target → 0 (a clean no-op, never a fabricated count).
+  if (spec.kind === "cardsInTargetOpponentHand") {
+    const pt = (ctx?.targets || []).find((t) => t.type === "player" && state?.players?.[t.id]);
+    if (!pt) return 0;
+    return (state.players[pt.id].hand || []).length;
+  }
   // ===== TRIGGERING-CREATURE POWER (Railway Brawler — "put X +1/+1 counters on it, where X is its
   // power") ===== the TRIGGERING permanent's LIVE layer-aware power, read at resolution (CR 608.2h — the
   // entering creature's power as the trigger resolves, BEFORE these counters land). An absent/vanished

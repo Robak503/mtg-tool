@@ -316,6 +316,13 @@ export function miscClauseParser(clause) {
   if (/^draw a card for each tapped creature target opponent controls$/.test(t)) {
     return { op: "draw", who: "controller", targetType: "opponent", amountCount: { kind: "tappedCreaturesOfTargetOpponent" } };
   }
+  // HAND-SIZE DRAW (SHELF-85 K9, 2026-09-04 — Recurring Insight "Draw cards equal to the number of cards in target
+  // opponent's hand"): the TD-1 shape one count over — the CONTROLLER draws, the chosen opponent target only supplies
+  // the count (countForSpec's cardsInTargetOpponentHand, the live hand length at resolution, CR 608.2h). Whole-clause
+  // anchored: "each opponent", "that player draws", or "your hand" never matches → low → Arbiter (FN-safe).
+  if (/^(?:you )?draw cards equal to the number of cards in target opponent's hand$/.test(t)) {
+    return { op: "draw", who: "controller", targetType: "opponent", amountCount: { kind: "cardsInTargetOpponentHand" } };
+  }
   // THIS-TURN LURE (BLITZ LU-2, CR 509.1c — Alluring Scent / Bloodscent / Taunting Challenge, and
   // Mortipede's activated self form): "All creatures able to block (target creature|this creature) this
   // turn do so." A turn-scoped BLOCK REQUIREMENT stamped on ONE creature (state.lureThisTurn[permId] =

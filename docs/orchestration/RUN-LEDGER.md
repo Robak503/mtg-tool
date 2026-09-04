@@ -3,6 +3,15 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · K9: RECURRING INSIGHT — the hand-size draw · **+1** · corpus 14,393 (42.0%) / 34,245 (42.0%)
+> Suite **1462 files / 15,987 tests** green; lint 0. Flip-diff **+1, zero LOST**. **3/3 killed (a fourth — widen the subject to 'your hand' — was an EQUIVALENT mutant: the older cardsInHand arm claims that sentence first; deleted and documented in the witness).**
+> · **The shape:** "Draw cards equal to the number of cards in target opponent's hand" — the TD-1 tapped-count draw one
+>   count over: the controller draws, the chosen opponent target only supplies the count (countForSpec's
+>   cardsInTargetOpponentHand — the LIVE hand length at resolution, CR 608.2h; an absent target reads 0). Rebound was
+>   already modeled, so the spell exiles itself on resolution as printed. Whole-clause anchored: "your hand" and "each
+>   opponent draws" stay low.
+> · **CI:** GREEN — run 33911568285 on 210fd2f6 (Planar Nexus); this slice pushes and is watched
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · K8: PLANAR NEXUS — every nonbasic land type · **+1** · corpus 14,392 (42.0%) / 34,245 (42.0%)
 > Suite **1461 files / 15,982 tests** green; lint 0. Flip-diff **+1, zero LOST**. **4/4 killed.**
 > · **The shape:** "This land is every nonbasic land type" — a SELF layer-4 subtype add of the ten types the card's own reminder
