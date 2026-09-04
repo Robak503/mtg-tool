@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Prodigy's Prototype** — a Pilot whenever your Vehicles attack, once per combat, as printed
 - **Shorikai, Genesis Engine** — the commander's loot works, and its Pilot tokens crew as though their power were 2 greater
 - **Peacewalker Colossus** — animates another Vehicle you control; **Dispatch** — taps, and exiles under metalcraft, as printed
 - **Thunderhawk Gunship** — your attackers gain flying; **Parhelion II** and **Leonin Warleader** — the tokens enter attacking; **Surgehacker Mech** and **Jet, Freedom Fighter** — count-scaled damage on an opponent's creature

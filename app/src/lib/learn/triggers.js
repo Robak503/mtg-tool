@@ -2150,6 +2150,14 @@ function classifyCondition(condRaw, cardName, cardType) {
   // event entirely, and the anchored "you control" requirement keeps it out. A variant with an OBJECT
   // ("…attack a player", "…attack an opponent") is likewise not claimed — the bare form only (safe FN).
   if (/^one or more creatures you control attack$/.test(c)) return { event: "youAttack", scope: "you", whose: "any" };
+  // SHELF-85 S5 (2026-09-04 — Prodigy's Prototype "Whenever one or more Vehicles you control attack"): the SAME
+  // once-per-combat batch, gated on at least one declared attacker carrying the subtype (checkAttackTriggers reads
+  // `attackerSubtype` off the live attacker set — a crewed Vehicle is still a Vehicle). Curated to the one word the
+  // row needs; a creature-type batch ("one or more Dinosaurs you control attack") is the same shape, its own slice.
+  {
+    const bm = c.match(/^one or more (vehicles) you control attack$/);
+    if (bm) return { event: "youAttack", scope: "you", whose: "any", attackerSubtype: "Vehicle" };
+  }
   // ===== BATTALION (CR 702.101a) + THE ATTACK-COUNT FAMILY =====
   // "Battalion — Whenever THIS CREATURE and at least two other creatures attack, …" (Legion Loyalist,
   // Boros Strike-Captain, Ordruun Veteran, 19 sole-blocked carriers) and its unlabelled sibling
@@ -5123,6 +5131,7 @@ export function detectTriggers(card) {
         attachedOnly: cls.attachedOnly,       // ATTACHED-ONLY attacks (Reyav) — the triggering attacker must carry ≥1 attachment
         minAttackers: cls.minAttackers,       // BATTALION (CR 702.101a) + "you attack with N or more creatures" — the minimum DECLARED attacker count, gated in checkAttackTriggers' once-per-combat pass. ⚠️ Unlisted here = dropped = the descriptor decays to a bare "whenever you attack" and fires off a SINGLE attacker — an over-fire, and exactly what happened on the first attempt at this slice (the trigger detected as youAttack with minAttackers undefined while looking perfectly correct).
         requireSelfAttacking: cls.requireSelfAttacking, // BATTALION only — "THIS CREATURE and at least two others attack", so the source must be among the declared attackers. Unlisted = dropped = a battalion creature sitting at home triggers off three OTHER attackers, strictly better than printed.
+        attackerSubtype: cls.attackerSubtype, // S5 — "one or more Vehicles you control attack": unlisted = dropped = the batch fires on ANY attack, an over-fire (the same drift class as requireSelfAttacking above).
         attacksWhileIf: cls.attacksWhileIf,    // ATTACKS-WHILE (Pugnacious Hammerskull) — the FIRE-TIME-ONLY event condition, evaluated in checkAttackTriggers at declaration (never interveningIf — no resolution re-check). Unlisted = dropped = the self-stun fires with a second Dinosaur out, strictly WORSE than printed for the player, but an over-fire all the same.
         itsController: cls.itsController,      // GLOBAL SUBTYPE combat-damage only ("its controller may …") — beneficiary = dealer's controller
         destroyThatCreature: cls.destroyThatCreature, // GLOBAL SUBTYPE combat-damage-to-CREATURE only (Toxin) — "destroy that creature"
@@ -7026,6 +7035,9 @@ export function checkAttackTriggers(state) {
         // A descriptor with neither field is an ordinary "whenever you attack" — unchanged, byte-for-byte.
         if (d?.minAttackers != null && attackerCount < d.minAttackers) return false;
         if (d?.requireSelfAttacking && !attackerIds.has(watcher.id)) return false;
+        // S5 — a subtype-gated batch ("one or more Vehicles you control attack"): at least one declared attacker must
+        // carry the subtype on its type line (a crewed Vehicle keeps its printed subtype).
+        if (d?.attackerSubtype && !attackers.some((a) => new RegExp(`\\b${d.attackerSubtype}\\b`).test(String(findPermanent(state, a.permanentId)?.permanent?.card?.type || "")))) return false;
         return true;
       }));
     }

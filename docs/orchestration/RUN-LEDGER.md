@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · S5: PRODIGY'S PROTOTYPE — the Vehicles-attack batch · **+1** · corpus 14,378 (42.0%) / 34,245 (42.0%)
+> Suite **triggers.js (subtype-gated batch attack: detector arm, descriptor assembly, fire-site gate) + prodigysPrototype.test.js (6)** green; lint 0. Flip-diff **+1, zero LOST**. **3/3.**
+> · **The shape:** "Whenever one or more Vehicles you control attack, create a 1/1 colorless Pilot creature token with '…'"
+>   — the once-per-combat batch ("one or more creatures you control attack" → the youAttack event) gains a SUBTYPE gate:
+>   the descriptor carries `attackerSubtype`, threaded through the assembly beside requireSelfAttacking (the probe
+>   showed the classifier crediting the card while the assembly DROPPED the field — a dropped gate would have fired on
+>   any attack; caught before the witness), and checkAttackTriggers fires only when at least one declared attacker
+>   carries the subtype on its type line (a crewed Vehicle keeps it). The Pilot half is S8's quoted-static gate.
+>   Curated to Vehicles; a creature-type batch ("one or more Dinosaurs you control attack") is the same shape, its own slice.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · S8: SHORIKAI, GENESIS ENGINE — the commander's loot and its Pilot · **+1** · corpus 14,377 (42.0%) / 34,245 (42.0%)
 > Suite **effects/parseHelpers.js (parseTokenStaticAbility) + effects/atoms/tokens.js (third quoted gate) + effects/abilities.js (crewPowerBonus) + legalChoices.js / actionDispatcher.js (the boost at both crew sites) + shorikaiGenesisEngine.test.js (4)** green; lint 0. Flip-diff **+1, zero LOST**. **4/4.**
 > · **The shape:** "{1}, {T}: Draw two cards, then discard a card. Create a 1/1 colorless Pilot creature token with 'This
