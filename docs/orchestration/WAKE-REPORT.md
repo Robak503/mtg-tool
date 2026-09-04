@@ -7,6 +7,16 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## ✖️ 2026-09-04 (night cron) — **④-AO: X-scaled-magnitude activated abilities + "you gain X life" (+18)** · suite **1402 files / 15,592 tests** green · corpus 14,127 / 34,245 (41.3%) · flip-diff +18 / 0 lost · 6/6 killed
+
+> **Night tally (stage ④, forty-one slices):** … · AM (+2) · AN (+2) · AO (+18; a runtime lane — the activated {X}
+> magnitude expansion — plus the mixed-pip X cost and "gain X life") — corpus 13,862 → 14,127.
+> **CI:** master green at e6016a68 when pushed; this run watched
+> **Next runnable:** the AI using combat-role activations (plan §6); the counted "up to N" pick; the remaining {X} activated
+> shapes — "X counters" (Waker of the Wilds, Figure of Destiny), "prevent the next X damage" (Panacea, Hazduhr), Talon of
+> Pain's "remove X charge counters" cost, Crypt Rats' "spend only black mana on X"; Feline Sovereign's "up to one target
+> <permanent> that player controls".
+
 ## 🎯 2026-09-04 (night cron) — **④-AN: batch combat damage fires once per damaged player, and carries the referent (+2)** · suite **1401 files / 15,586 tests** green · corpus 14,109 / 34,245 (41.2%) · flip-diff +2 / 0 lost · 4/4 killed
 
 > **Night tally (stage ④, forty slices):** … · AL (+34) · AM (+2) · AN (+2; a rules fix — the batch under-fired on

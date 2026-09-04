@@ -99,9 +99,15 @@ describe("parseActivatedAbilities — cost parsing (mana + {T} allowlist)", () =
     const abilities = one("When this creature dies, draw a card.\nRemove a +1/+1 counter from this creature: You gain 2 life.");
     expect(abilities.find((a) => a.removeCounter).modeled).toBe(true);
   });
-  it("does NOT model an {X} cost", () => {
+  it("⭐ models an {X} cost whose effect scales with X (since ④-AO, 2026-09-04); an {X} cost with an X-free effect stays out", () => {
+    // Pinned unmodeled until ④-AO: the activated {X} lane admitted only targets-per-X programs. An X-scaled magnitude
+    // ("deals X damage") now rides the same X expansion (legalChoices expandsMagnitudeX); an {X} cost whose effect
+    // never reads X is still a half-model → refused.
     const [a] = one("{X}: This creature deals X damage to any target.");
-    expect(a.modeled).toBe(false);
+    expect(a.modeled).toBe(true);
+    expect(a.costX).toBe(true);
+    const [b] = one("{X}: Draw a card.");
+    expect(b.modeled).toBe(false);
   });
   it("does NOT model a {Q} (untap-symbol) cost", () => {
     const [a] = one("{Q}: Draw a card.");

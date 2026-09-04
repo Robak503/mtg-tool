@@ -289,10 +289,18 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
   (goad), Popular Entertainer, Feline Sovereign flip; the other 12 batch-that-player carriers park on their effects
   (loses half life, exile the top of that player's library, manifest). Touches a shipped subsystem with its own
   once-per-controller pins — a fresh-session slice, not a night tail.
+- ✅ **[X-scaled-MAGNITUDE activated abilities — SHIPPED as ④-AO, 2026-09-04 night (+18; 6/6 killed)]** (the sizing note follows for the record)
 - **[X-scaled-MAGNITUDE activated abilities — sized 2026-09-03 night — Cindy lane]** Kessig Wolf Run's "{X}{R}{G}, {T}: target
   creature gets +X/+X" parses HIGH, but the activated lane admits {X} costs only for targets-per-X programs (`costXTargetCount`);
   an amountX magnitude has no runtime path (choose X from 1..affordable, thread xValue). The spell lane already does this for
   X spells — the activated twin is the work. Carriers: the {X} pumps on lands and creatures (count first).
+- **[The remaining {X} effect shapes — sized 2026-09-04 night, NOT built — Cindy lane]** After ④-AO the X lane reads any
+  xSpell program, so what parks now is the EFFECT vocabulary: "put X +1/+1 counters on target creature / on it" (11 cards,
+  but nearly all co-blocked — Repulsive Mutation's "unless its controller pays mana equal to the greatest power", Nova
+  Flame's "damage equal to its power to each other creature", the Fractal cycle's "create a 0/0 … put X counters on IT"
+  bound pronoun), "you lose X life" (9, mostly beside an X cost rider — Skeletal Scrying's additional exile-X cost,
+  Malicious Advice's "tap X target artifacts, creatures, and/or lands"), Profane Command's choose-two. Honest yield ≈ 2–3;
+  the add-counter arm needs `ctx.hasX` gating like radClauseParser's. Park until a deck walk names one.
 - **[The AI and combat-role activations — 2026-09-03 night — Cindy lane]** ④-AE's combat window offers archers and pumps in
   combat to the human; `pickSafeAbilityActivation` skips every TARGETED activation, so the AI never shoots. A targeted
   picker (an attacker/blocker as target, the same side rules the flush chooser uses) is the play-quality half.

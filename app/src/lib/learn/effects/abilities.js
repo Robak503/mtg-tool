@@ -606,7 +606,20 @@ export function parseAbilityCost(costStr, card = null) {
     const pips = [...item.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
     if (pips.length === 0) return null;                          // a wordy item we don't model → unmodeled
     if (item.replace(/\{[^}]+\}/g, "").trim() !== "") return null; // leftover text around the pips → unmodeled
-    if (!pips.every(pipIsMana)) return null;                      // {X}/{Q}/{E}/… → unmodeled ({S} IS mana, SN-1)
+    // ④-AO (2026-09-04): a MIXED run with exactly one {X} beside real mana pips — "{X}{G}{G}" (Silklash Spider),
+    // "{X}{R}" (Cinder Elemental), "{X}{R}{G}" (Kessig Wolf Run) — is the same generic-X cost as the lone item, with
+    // its fixed pips alongside: parseManaCost reads the {X} (hasX / xCount) and the pips as one cost, and the
+    // activated lane's X expansion resolves it per chosen X (xResolvedCost). A double {X} stays unmodeled (rare, and
+    // xCount>1 would need its own affordability walk).
+    const xPips = pips.filter((p) => /^x$/i.test(p.trim()));
+    if (xPips.length === 1 && pips.length > 1) {
+      const rest = pips.filter((p) => !/^x$/i.test(p.trim()));
+      if (!rest.every(pipIsMana)) return null;
+      costX = true;
+      manaPips += "{X}" + rest.map((p) => `{${p.trim().toUpperCase()}}`).join("");
+      continue;
+    }
+    if (!pips.every(pipIsMana)) return null;                      // {X}{X}/{Q}/{E}/… → unmodeled ({S} IS mana, SN-1)
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
   return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, unattachEquipment, discardCard, discardCardFilter, costX, exileGyCount };
@@ -1260,7 +1273,7 @@ export function parseActivatedAbilities(card) {
       effectHigh = sacX
         ? (!!program && programConfidence(program) === "high" && !!program.xSpell && !program.modal)
         : costX
-          ? (!!program && programConfidence(program) === "high" && costXTargetCount && !program.modal)
+          ? (!!program && programConfidence(program) === "high" && (costXTargetCount || !!program.xSpell) && !program.modal) // ④-AO: the magnitude lane exists now (legalChoices expandsMagnitudeX)
           : (!!program && programConfidence(program) === "high" && !program.xSpell);
     }
     out.push({

@@ -47,9 +47,11 @@ describe("γ1f — cost + ability shape", () => {
     expect(parseAbilityCost("{X}, {T}")).toMatchObject({ manaPips: "{X}", tapSelf: true, costX: true });
   });
 
-  it("a mixed {2}{X} activated cost item stays UNMODELED (deferred, CREED-safe)", () => {
-    // Comma-split leaves "{2}{X}" as one item → falls to the multi-pip run where pipIsMana('X') is false → null.
-    expect(parseAbilityCost("{2}{X}, {T}")).toBeNull();
+  it("⭐ a mixed {2}{X} activated cost item is the same generic-X cost since ④-AO (2026-09-04); a double {X} stays UNMODELED", () => {
+    // Pinned null until ④-AO: the comma-split left "{2}{X}" as one item that fell to the multi-pip run. A run with exactly
+    // one {X} beside real pips now reads as costX with the fixed pips alongside (Silklash Spider "{X}{G}{G}", Cinder
+    // Elemental "{X}{R}", Kessig Wolf Run "{X}{R}{G}"); the activated lane's X expansion resolves it per chosen X.
+    expect(parseAbilityCost("{2}{X}, {T}")).toMatchObject({ costX: true, manaPips: "{X}{2}", tapSelf: true });
     expect(parseAbilityCost("{X}{X}, {T}")).toBeNull(); // a double-X activated cost is not split → unmodeled
   });
 

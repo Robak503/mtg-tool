@@ -2178,7 +2178,14 @@ function actionsActivateAbility(state, playerId) {
       // targets-per-X program; ANY OTHER X-cost activated ability (an X-scaled magnitude, an unmodeled X body)
       // still falls through to the deferral below (a safe false-negative → Arbiter).
       const expandsTargetsPerX = ab.program && (ab.program.atoms || []).some((a) => a.targetCountX);
-      if (ab.costX && expandsTargetsPerX) {
+      // ⭐ X-SCALED MAGNITUDE (④-AO, 2026-09-04 — Oracle of Nectars "{X}, {T}: you gain X life", Silklash Spider "{X}{G}{G}:
+      // deals X damage to each creature with flying", Cinder Elemental, Kessig Wolf Run "+X/+0"): an {X}-cost ability whose
+      // EFFECT scales with X (an xSpell program — amountX / ptDelta X) rides the SAME expansion as targets-per-X: X from 1
+      // to the affordable ceiling, the chosen X on the action → params.xValue → ctx.xValue (the sacX precedent already
+      // resolves amountX off ctx.xValue; the spell lane has done this since P2.5). The classifier gate
+      // (abilities.js) admits xSpell beside targetCountX, so the metric and this lane cannot drift.
+      const expandsMagnitudeX = ab.costX && !!ab.program?.xSpell && !expandsTargetsPerX;
+      if (ab.costX && (expandsTargetsPerX || expandsMagnitudeX)) {
         // Mirror the dispatcher's payment sources: a source paying its own cost by tapping ({T}), sac, or exile
         // can't ALSO tap for mana — exclude it from the affordable-X ceiling and the per-X target expansion's
         // affordability. (Candelabra's {T} taps the artifact, which isn't a mana source anyway, but a future

@@ -199,7 +199,8 @@ describe("parseEffectProgram — X spells (cost has {X})", () => {
   // MUST DROP — near-misses that have an {X} cost but still aren't fully modeled.
   it.each([
     "Fireball deals X damage divided evenly, rounded down, among any number of targets.", // "divided" rider
-    "Comet deals X damage to any target. You gain X life.",        // gain-life atom not modeled (P2.7)
+    // ("Comet deals X damage to any target. You gain X life." GRADUATED 2026-09-04 — ④-AO gave the life atom its X
+    // form; Death Grasp / Sphinx's Revelation are pinned HIGH in xMagnitudeActivation.test.js.)
     "Demonfire deals X damage to target creature with power X or less.", // residual non-amount X
     "Exile the top X cards of your library.",                       // exile/mill not modeled
     "Draw X cards. You lose X life.",                               // lose-life not modeled

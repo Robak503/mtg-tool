@@ -335,8 +335,10 @@ export function lifeClauseParser(clause) {
     const src = parseCountSource(mfe[1].replace(/\bthey control$/i, "that player controls"), { allowScopes: true });
     return src ? { op: "lose-life", who: "damagedPlayer", amountCount: { ...src, per: 1 }, targetType: null } : null;
   }
-  let m = t.match(/^(?:you )?gain (\d+) life$/);
-  if (m) return { op: "gain-life", amount: parseInt(m[1], 10), targetType: null };
+  let m = t.match(/^(?:you )?gain (\d+|x) life$/);
+  // "you gain X life" (④-AO — Oracle of Nectars "{X}, {T}: You gain X life"): amountX resolves off ctx.xValue through
+  // effectiveAmount, exactly like the X-damage atoms; the program reads xSpell so only an X-bearing cost admits it.
+  if (m) return m[1] === "x" ? { op: "gain-life", amountX: true, targetType: null } : { op: "gain-life", amount: parseInt(m[1], 10), targetType: null };
   m = t.match(/^(?:you )?lose (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "controller", targetType: null };
   m = t.match(/^each opponent loses (\d+) life$/);

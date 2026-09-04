@@ -3,6 +3,31 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ✖️ 2026-09-04 (night cron) — ④-AO: X-SCALED-MAGNITUDE activated abilities + "you gain X life" · **+18** · corpus 14,127 / 34,245 (41.3%)
+> Suite **1402 files / 15,592 tests** green; lint 0. Flip-diff **+18, zero LOST**. **6/6 killed.**
+> · **The lane:** the activated {X} lane (γ1f) admitted only TARGETS-PER-X programs; an X-scaled magnitude ("deals X
+>   damage", "+X/+0", "draw X cards", "create X tokens") parsed xSpell but had no runtime path, so the gate refused it. Now
+>   legalChoices' X expansion (X from 1 to the affordable ceiling, the chosen X on the action → params.xValue → ctx.xValue)
+>   runs for a magnitude program too — the sacX precedent already resolved amountX off ctx.xValue — and the classifier
+>   gate admits xSpell beside targetCountX, so the metric and the runtime cannot drift (both directions mutation-proven).
+> · **The cost:** parseAbilityCost read only a LONE "{X}" item; "{X}{G}{G}" (Silklash Spider), "{X}{R}" (Cinder
+>   Elemental, Pain Kami, Goblin Dynamo), "{X}{R}{G}" (Kessig Wolf Run), "{X}{W}" (Ballista Squad — a combat-role
+>   target, offered through ④-AE's window), "{X}{B}" (Cackling Witch), "{X}{U}{U}" (Mindspring Merfolk) fell to the
+>   multi-pip run where an X pip is not mana → unmodeled. A mixed run with exactly one {X} beside real pips is the same
+>   generic-X cost; a double {X} stays out.
+> · **"You gain X life"** joined the life atom (amountX through effectiveAmount) — Oracle of Nectars, Alquist Proft, and the
+>   X SPELLS that were parked on that one clause: Sphinx's Revelation (EDHREC staple), Death Grasp, Overrule, Swallowing
+>   Plague, Battle at the Bridge.
+> · **Board-verified:** Oracle of Nectars with three mana offers X = 1..3 and X = 2 gains 2; Silklash Spider's X = 2 hits
+>   each flyer for 2 and the walker for 0; Cinder Elemental pays the sacrifice and lands X on the chosen target, and is not
+>   offered with {R} alone; Kessig Wolf Run's X = 3 gives +3/+0 and trample; Sphinx's Revelation cast for X = 2 draws 2
+>   and gains 2.
+> · **Three stale pins rewritten to the new truth:** activatedX's "a mixed {2}{X} cost stays unmodeled", abilities.test's
+>   "does NOT model an {X} cost" (now: an {X} cost with an X-FREE effect stays out), parser.test's X near-miss list entry
+>   for "gain X life".
+> · **Shelf:** Wolverine 84 → 85.
+> · **CI:** master green at e6016a68 when pushed; this run watched
+
 > ## 🎯 2026-09-04 (night cron) — ④-AN: BATCH combat damage fires once per DAMAGED PLAYER, and carries the referent · **+2** · corpus 14,109 / 34,245 (41.2%)
 > Suite **1401 files / 15,586 tests** green; lint 0. Flip-diff **+2, zero LOST**. **4/4 killed.**
 > · **The rules fix:** "whenever one or more [<filter>] creatures you control deal combat damage to a player" fired ONCE per

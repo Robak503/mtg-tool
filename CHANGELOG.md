@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **X-cost activated abilities that scale with X work** — Silklash Spider, Cinder Elemental, Kessig Wolf Run, Ballista Squad, Goblin Dynamo, Oracle of Nectars and more offer every affordable X; and "you gain X life" works, so Sphinx's Revelation, Death Grasp and Overrule play.
 - **"Whenever one or more creatures you control deal combat damage to a player" now triggers once per player hit** — a swing into two opponents fires twice, as the rules say; Alela, Cunning Conqueror and Popular Entertainer goad the right player's creature.
 - **Baird, Steward of Argive and Archon of Absolution tax attacks** — the "you or planeswalkers you control" printing of the attack tax is read like Ghostly Prison's.
 - **Thirty-four Universes Beyond creatures work** — the Warhammer 40,000 and Dungeons & Dragons flavor words (Fire Breath, Rosarius, Phalanx Commander, Keen Senses …) no longer hide the trigger behind them.
