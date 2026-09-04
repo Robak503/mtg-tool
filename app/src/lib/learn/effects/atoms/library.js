@@ -124,6 +124,17 @@ export function cardMatchesTutorFilter(card, filter) {
     if (typeof filter.mv.max === "number" && mv > filter.mv.max) return false;
     if (typeof filter.mv.exact === "number" && mv !== filter.mv.exact) return false;
   }
+  // PRINTED-STAT gate (B5 — "a creature card with toughness 2 or less" / "power 2 or less"): the card's printed
+  // power/toughness (CR 208.1). A non-numeric stat ("*", or a card with none) is unpriced → never a candidate.
+  for (const statKey of ["toughness", "power"]) {
+    const cap = filter[statKey];
+    if (!cap) continue;
+    const raw = card?.[statKey];
+    const v = raw === undefined || raw === null || raw === "" ? NaN : Number(raw);
+    if (!Number.isFinite(v)) return false;
+    if (typeof cap.max === "number" && v > cap.max) return false;
+    if (typeof cap.exact === "number" && v !== cap.exact) return false;
+  }
   // COLOR gate (PUT-FROM-HAND) — applied upstream like MV so applyTutor's candidate pool is already
   // color-filtered. Each entry is a single-color word ("green") or its negation ("nonwhite"). A positive
   // word requires membership in the card's colors; a "non<color>" requires absence. ALL listed constraints
@@ -2155,21 +2166,28 @@ export function tutorClauseParser(clause, ctx = {}) {
     };
   }
   // tm — fetch-to-HAND single card.
-  const tm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?(?: with mana value (\d+(?: or less)?))?,?(?: reveal (?:it|that card|the card),?)?(?: and)? put (?:it|that card|the card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  // SHELF-85 B5 (2026-09-04, Recruiter of the Guard "a creature card with toughness 2 or less"; Imperial Recruiter's
+  // "power 2 or less" is the identical shape): the stat cap beside the mana-value cap — the SAME "N [or less]"
+  // reader (parseTutorMv), stored under `toughness` / `power` and enforced in cardMatchesTutorFilter on the card's
+  // PRINTED stat (CR 208.1; a "*" stat reads as unpriced and is never a candidate — a safe miss).
+  const tm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?(?: with (mana value|toughness|power) (\d+(?: or less)?))?,?(?: reveal (?:it|that card|the card),?)?(?: and)? put (?:it|that card|the card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (tm) {
     const phrase = tm[1]; // undefined for an unfiltered "a card"
-    const mvCapture = tm[2]; // undefined when there's no "with mana value …"
-    const mv = parseTutorMv(mvCapture);
-    if (mvCapture !== undefined && mv === null) return null;
+    const stat = tm[2]; // "mana value" | "toughness" | "power" | undefined
+    const capCapture = tm[3]; // undefined when there's no "with <stat> …"
+    const cap = parseTutorMv(capCapture);
+    if (capCapture !== undefined && cap === null) return null;
+    const statKey = stat === "mana value" ? "mv" : stat; // the filter key the matcher reads
     if (phrase === undefined) {
-      const filter = mv ? { groups: [], mv } : null;
-      const label = mv ? `card with mana value ${mvCapture}` : "card";
+      if (cap && statKey !== "mv") return null; // a bare "card with toughness N" has no printed stat to read — unmodeled
+      const filter = cap ? { groups: [], mv: cap } : null;
+      const label = cap ? `card with mana value ${capCapture}` : "card";
       return { op: "tutor", filter, filterLabel: label, destination: "hand", targetType: null };
     }
     const base = parseTutorFilter(phrase);
     if (!base) return null;
-    const filter = mv ? { ...base, mv } : base;
-    const label = mv ? `${phrase} card with mana value ${mvCapture}` : `${phrase} card`;
+    const filter = cap ? { ...base, [statKey]: cap } : base;
+    const label = cap ? `${phrase} card with ${stat} ${capCapture}` : `${phrase} card`;
     return { op: "tutor", filter, filterLabel: label, destination: "hand", targetType: null };
   }
   // ===== tgm — fetch-to-GRAVEYARD, single card (CR 701.19a) =====================================

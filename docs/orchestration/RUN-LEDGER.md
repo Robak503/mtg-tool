@@ -3,6 +3,16 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · B5: RECRUITER OF THE GUARD — the stat-capped tutor · **+2** · corpus 14,349 (41.9%) / 34,245 (41.9%)
+> Suite **effects/atoms/library.js (tutor-to-hand stat cap + the shared matcher's printed-stat gate) + recruiterOfTheGuard.test.js (6)** green; lint 0. Flip-diff **+2, zero LOST**. **4/4.**
+> · **The shape:** "you may search your library for a creature card with toughness 2 or less, reveal it, put it into
+>   your hand, then shuffle" — the tutor-to-hand arm read only a mana-value cap. The same "N [or less]" reader now
+>   fills `toughness` / `power` on the filter, and the shared matcher (cardMatchesTutorFilter — the candidate pool AND
+>   the auto-pick's re-check) enforces it on the card's PRINTED stat (CR 208.1); a "*" or absent stat is unpriced and
+>   never a candidate (a safe miss). Unplanned twin audited whole-card: Imperial Recruiter ("power 2 or less" — its
+>   entire text). Brago's first row; deck order per §5.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · T8: TOLARIA WEST — transmute is the from-hand discard ability · **+1** · corpus 14,347 (41.9%) / 34,245 (41.9%)
 > Suite **effects/abilities.js (transmute arm + printedManaValue) + coverage.js (line regex) + legalChoices.js (sorcery-only stack gate) + tolariaWest.test.js (9)** green; lint 0. Flip-diff **+1, zero LOST**. **5/5.**
 > · **The shape:** "Transmute {1}{U}{U}" — CR 702.53a defines the keyword as "{cost}, Discard this card: Search your

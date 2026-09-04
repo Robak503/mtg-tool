@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · B5: Recruiter of the Guard (+2)** · suite **effects/atoms/library.js (tutor-to-hand stat cap + the shared matcher's printed-stat gate) + recruiterOfTheGuard.test.js (6)** green · corpus 14,349 (41.9%) / 34,245 (41.9%) · flip-diff +2 / 0 lost · 4/4
+
+> Brago's first row: the tutor lane learns a printed-stat cap. Next by §2: B6 Teleportation Circle (the end-step artifact-or-creature blink).
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · T8: Tolaria West (+1)** · suite **effects/abilities.js (transmute arm + printedManaValue) + coverage.js (line regex) + legalChoices.js (sorcery-only stack gate) + tolariaWest.test.js (9)** green · corpus 14,347 (41.9%) / 34,245 (41.9%) · flip-diff +1 / 0 lost · 5/5
 
 > Transmute rides the from-hand discard lane as the ability CR 702.53a says it is. **Teval 85 — AT THE BAR the runbook sets for Phase 2 (§2: stop a deck at ≥85); its L rows (T5/T9/T10/T11/T13) and M rows T12/T14 stay ⬜ for Phase 3. Next deck in §5 order: Brago.**
