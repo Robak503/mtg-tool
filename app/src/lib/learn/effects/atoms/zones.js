@@ -1697,6 +1697,39 @@ export function applyGrantFlashback(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "grant-flashback", controller: ctx.controller, targets: granted });
 }
 
+/**
+ * CHAOS WARP (SHELF-85 H12, 2026-09-04) — "The owner of target permanent shuffles it into their library, then reveals
+ * the top card of their library. If it's a permanent card, they put it onto the battlefield." The OWNER is read off the
+ * permanent BEFORE it moves (a stolen permanent's `owner`, else its controller — CR 608.2c); moveCardToZone routes the
+ * card home to that owner's library; the owner's library is shuffled (seeded); the new top card is revealed and, if it
+ * is a permanent card (creature / artifact / enchantment / land / planeswalker / battle), enters under the OWNER's
+ * control through the shared enter helper (ETB triggers, enters-with counters, replacement effects all apply). A
+ * nonpermanent top card stays on top, revealed. A vanished target does nothing (never a fabricated reveal).
+ */
+function applyOwnerTuckRevealPut(state, atom, ctx) {
+  let next = state;
+  const targets = atomTargets(state, atom, ctx);
+  const revealed = [];
+  for (const t of targets) {
+    if (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker") continue;
+    const lk = findPermanent(next, t.id);
+    if (!lk) continue;
+    const owner = (lk.permanent.owner && next.players?.[lk.permanent.owner]) ? lk.permanent.owner : lk.controller;
+    next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "library", cardId: t.id, toTop: false });
+    next = shuffleSeededLibrary(next, owner);
+    const top = next.players?.[owner]?.library?.[0] || null;
+    if (!top) { revealed.push({ owner, card: null, entered: false }); continue; }
+    const isPermanentCard = /\b(?:creature|artifact|enchantment|land|planeswalker|battle)\b/i.test(String(top.type || top.type_line || ""));
+    let entered = false;
+    if (isPermanentCard) {
+      const r = enterCardFromZone(next, { playerId: owner, cardId: top.id, fromZone: "library" });
+      if (r.entered) { next = r.state; entered = true; }
+    }
+    revealed.push({ owner, card: top.name || null, entered });
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "owner-tuck-reveal-put", targets: targets.map((t) => t.id), revealed });
+}
+
 export const zoneResolvers = {
   "grant-flashback": applyGrantFlashback, // ④-G (Snapcaster Mage) — a graveyard instant/sorcery gains flashback = its mana cost until end of turn
   "cz-commander-visit": applyCzCommanderVisit, // Hellkite Courser — the CZ fetch + haste + delayed return
@@ -1706,6 +1739,7 @@ export const zoneResolvers = {
   "blink-return": applyBlinkReturn,            // its delayed half's sentinel (re-enter from exile + optional +1/+1)
   "bounce": (state, atom, ctx) => (atom.nameLockUntilNextTurn ? applyBounceWithNameLock(state, atom, ctx) : applyZoneMove(state, atom, ctx, "hand")), // B4 — Reflector Mage's rider
   "tuck": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "library", atom.where === "top"),
+  "owner-tuck-reveal-put": applyOwnerTuckRevealPut, // CHAOS WARP (H12): owner tuck + shuffle → reveal top → permanent card onto the OWNER's battlefield
   "return-from-graveyard": applyReturnFromGraveyard,
   "return-from-graveyard-pick": applyReturnFromGraveyardPick, // ④-AA — the non-targeted "return a <filter> card" chosen at resolution
   "reanimate": applyReanimate,

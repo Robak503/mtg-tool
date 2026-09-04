@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · H12: Chaos Warp (+1)** · suite **1479 files / 16,071 tests** green · corpus 14,425 (42.1%) / 34,245 · flip-diff +1 / 0 lost · 6/6 killed (two survivors on the mixed library killed by a seed-driven pin: the shuffle is real, the permanent gate holds)
+
+> One whole-oracle atom: the owner tucks and shuffles, reveals the top, a permanent card enters under the OWNER. Shared with Nekusar N13. **Shalai 83 → 84** (84/100; needs 1) · **Nekusar 85 → 86.** Next: Solitude (M — 'other target creature' on the exile-with-lifegain atom + the card-exile evoke cost), then Incubation Druid (M-L), Ragavan (L).
+> **CI:** GREEN on Kami (run 33930303799); this slice pushes and is watched
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · H13: Kami of Celebration (+1)** · suite **1478 files / 16,066 tests** green · corpus 14,424 (42.1%) / 34,245 · flip-diff +1 / 0 lost · 7/7 killed
 
 > The modified-attack predicate and the cast-from-exile zone gate, both on existing seams. H13 sized card by card. **Shalai 82 → 83** (83/100; needs 2). Next: H12 Chaos Warp (M — one whole-oracle atom: owner tuck-shuffle then reveal-top-put; sized, reads done), then Incubation Druid (M-L), Solitude (M, evoke), Ragavan (L).

@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · H12: CHAOS WARP — the owner-tuck-reveal-put compound · **+1** · corpus 14,425 (42.1%) / 34,245
+> Suite **1479 files / 16,071 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **6/6 killed (two survivors on the mixed library killed by a seed-driven pin: the shuffle is real, the permanent gate holds).**
+> · **The shape:** "The owner of target permanent shuffles it into their library, then reveals the top card of their library.
+>   If it's a permanent card, they put it onto the battlefield." Neither sentence parsed alone — the second's "they/their" is
+>   the OWNER of the first's target, a referent a sentence split would orphan — so the compound collapses up front into ONE
+>   atom (the Blood Money / impulse discipline: a whole-oracle matcher anchored ^…$ on the exact printed text).
+> · **The resolver:** the owner is read off the permanent BEFORE it moves (a stolen permanent's `owner`, else its
+>   controller); moveCardToZone routes it home; the owner's library is shuffled (seeded); the new top card is revealed and,
+>   if a permanent card, enters under the OWNER through the shared enter helper (ETBs, enters-with counters, replacements
+>   all apply). A nonpermanent top stays on top; a vanished target does nothing. The log names the revealed card.
+> · **Pins:** an otherwise-empty library brings the tucked card straight back as a NEW permanent; a stolen creature leaves
+>   your battlefield and re-enters under its owner; a mixed library's two outcomes are each consistent with the log; Oblation
+>   ("… then draws two cards") stays unparsed (CREED).
+> · **Shalai 83 → 84** (84/100; needs 1) · **Nekusar 85 → 86.** Next: Solitude (M — 'other target creature' on the exile-with-lifegain atom + the card-exile evoke cost), then Incubation Druid (M-L), Ragavan (L).
+> · **CI:** GREEN on Kami (run 33930303799); this slice pushes and is watched
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · H13: KAMI OF CELEBRATION — two gates on existing seams · **+1** · corpus 14,424 (42.1%) / 34,245
 > Suite **1478 files / 16,066 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **7/7 killed.**
 > · **"Whenever a MODIFIED creature you control attacks":** the attack twin of Kodama's combat-damage predicate — the same

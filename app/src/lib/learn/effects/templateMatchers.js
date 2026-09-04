@@ -538,6 +538,24 @@ export function matchImpulseExilePlay(oracle) {
 }
 
 /**
+ * ===== CHAOS WARP (SHELF-85 H12 / Nekusar N13, 2026-09-04) ===== "The owner of target permanent shuffles it into their
+ * library, then reveals the top card of their library. If it's a permanent card, they put it onto the battlefield."
+ * ONE atom over the whole two-sentence text: the second sentence's "they/their" is the OWNER of the first sentence's
+ * target — a referent the top-level sentence split would orphan — so the compound collapses up front (the same
+ * anchored-fold discipline as Blood Money). The resolver tucks the permanent into its OWNER's library (moveCardToZone
+ * routes a stolen permanent home), shuffles that library, reveals its new top card and puts it onto the battlefield
+ * under the OWNER's control if it is a permanent card. Anchored ^…$ on the exact printed shape; Oblation's "nonland
+ * permanent … then draws two cards" leaves residue → unmatched → Arbiter (CREED). Returns { atom }.
+ */
+export function matchChaosWarp(oracle) {
+  const s = String(oracle || "").toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim();
+  if (/^the owner of target permanent shuffles it into their library, then reveals the top card of their library\. if it's a permanent card, they put it onto the battlefield\.?$/.test(s)) {
+    return { atom: { op: "owner-tuck-reveal-put", targetType: "permanent" } };
+  }
+  return null;
+}
+
+/**
  * ===== BLOOD-MONEY (mass destroy + Treasure-per-nontoken-destroyed) ===== "Destroy all creatures. For each
  * nontoken creature destroyed this way, you create a tapped Treasure token." The second sentence's count
  * ("destroyed this way") is the set the FIRST destroyed — a back-reference the top-level sentence split would
