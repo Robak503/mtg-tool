@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 V6 slice 1: copy target ability (+3) — and the stack window** · suite **1423 files / 15,733 tests** green · corpus 14,291 / 34,245 (41.7%) · flip-diff +3 / 0 lost · 7/7 mutations killed against a green witness (the parser arm disabled, the pool's controller and kind filters dropped, the stack window removed, the resolver copying nothing, the target spec dropping the printed kinds, the copy keeping the original's id)
+
+> Peter Parker's Camera and Strionic Resonator copy a chosen stack ability you control; the activation is offered at any
+> step while such an ability is on the stack. Adric came with it. Slice 2 = Kirol's tap-two-creatures cost.
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 V5: Proft's Eidetic Memory (+2)** · suite **1422 files / 15,721 tests** green · corpus 14,288 / 34,245 (41.7%) · flip-diff +2 / 0 lost · 5/5 mutations killed against a green witness (the intervening-if arm removed and loosened to one draw, the count source removed, the reader and the parser each dropping the printed minus)
 
 > The cards-drawn ledger read two new ways: an intervening-if and a count source (with the printed "minus one").

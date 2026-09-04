@@ -3,6 +3,23 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — V6 slice 1: COPY TARGET ABILITY — Peter Parker's Camera + Strionic Resonator, and the stack window · **+3** · corpus 14,291 / 34,245 (41.7%)
+> Suite **1423 files / 15,733 tests** green; lint 0. Flip-diff **+3, zero LOST**. **7/7 mutations killed against a green witness (the parser arm disabled, the pool's controller and kind filters dropped, the stack window removed, the resolver copying nothing, the target spec dropping the printed kinds, the copy keeping the original's id).**
+> · **The shape:** the CAP-BRACERS lane copied the ability a trigger fired on (a context referent); this is the chosen-target
+>   twin. Parser arm → `copy-ability` on `abilityYouControl` with the printed kinds threaded on the target spec (the
+>   generic tail drops unknown fields); the pool is the stack's ability objects of those kinds controlled by the
+>   activator, on the Stifle-class target shape; a target-keyed copy resolver (fresh id, isCopy, same controller and
+>   targets). And THE STACK WINDOW in actionsActivateAbility: a stack-ability copier is offered to the priority holder
+>   at any step while the stack holds an ability they control — gated per ability, every other activation unchanged.
+>   Adric, Mathematical Genius rides the arm (his second line is the existing Stifle-class counter).
+> · **Board-verified:** on the opponent's upkeep with the user's trigger stacked, the Resonator is offered exactly that
+>   ability, taps, pays {2}, and the copy draws a second card; an opponent's trigger is never offered (a mixed stack
+>   offers only the user's); the Camera copies an activated ability and spends a film counter; a target that left the
+>   stack first → the copy does nothing. The AI's picker still skips targeted activations (a safe FN, on record).
+> · **Slice 2 (Kirol, Attentive First-Year):** the "Tap two untapped creatures you control:" cost lane — parseAbilityCost
+>   reads a single creature today.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — V5: PROFT'S EIDETIC MEMORY — two cells on the cards-drawn ledger · **+2** · corpus 14,288 / 34,245 (41.7%)
 > Suite **1422 files / 15,721 tests** green; lint 0. Flip-diff **+2, zero LOST**. **5/5 mutations killed against a green witness (the intervening-if arm removed and loosened to one draw, the count source removed, the reader and the parser each dropping the printed minus).**
 > · **The shape:** `player.cardsDrawnThisTurn` (stamped at the one draw chokepoint, reset for every seat at untap) gains

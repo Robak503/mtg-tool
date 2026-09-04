@@ -2020,6 +2020,14 @@ function abilityTargetsCombatRole(ab) {
   return (ab?.program?.atoms || []).some((a) => Array.isArray(a.restrictions) && a.restrictions.some((r) => r.kind === "combat"));
 }
 
+/** An activated ability whose effect targets an ABILITY ON THE STACK ("copy target triggered ability you control" —
+ * Strionic Resonator, Peter Parker's Camera; SHELF-85 V6). Its only useful window is while such an ability is on the
+ * stack, which is never an empty-stack main phase — so, like the combat window above, it gets the narrowest honest
+ * lane: any step, the priority holder, ONLY while the stack holds an ability they control. */
+function abilityTargetsStackAbility(ab) {
+  return (ab?.program?.atoms || []).some((a) => a.targetType === "abilityYouControl");
+}
+
 /** The combat steps in which a player holding priority may activate a COMBAT-ROLE ability (④-AE). */
 const COMBAT_WINDOW_STEPS = new Set(["beginning-of-combat", "declare-attackers", "declare-blockers", "combat-damage", "end-of-combat"]);
 
@@ -2039,7 +2047,11 @@ function actionsActivateAbility(state, playerId) {
   // never shoots (a safe FN, PR-later — the human learner is who this window is for).
   const combatWindow = COMBAT_WINDOW_STEPS.has(state.step);
   const mainWindow = state.activePlayer === playerId && state.step === "main";
-  if (!mainWindow && !combatWindow) return [];
+  // THE STACK WINDOW (SHELF-85 V6): open only while the stack holds an ability THIS player controls — the sole moment a
+  // "copy target … ability you control" activation has a legal target. Gated per ability below (abilityTargetsStackAbility),
+  // so every other activation keeps its main / combat window byte-for-byte.
+  const stackWindow = (state.stack || []).some((o) => (o.kind === "triggered-ability" || o.kind === "activated-ability") && o.controller === playerId);
+  if (!mainWindow && !combatWindow && !stackWindow) return [];
   const player = state.players[playerId];
   const actions = [];
   // ACTIVATED-ABILITY COST-REDUCTION (Training Grounds, Biomancer's Familiar): the controller's battlefield may
@@ -2080,7 +2092,8 @@ function actionsActivateAbility(state, playerId) {
     const isCreaturePerm = isCreature(perm.card);
     for (const ab of abilities) {
       if (!ab.modeled) continue;
-      if (!mainWindow && !abilityTargetsCombatRole(ab)) continue; // ④-AE: the combat window is for combat-role abilities ONLY
+      // ④-AE: the combat window is for combat-role abilities ONLY; V6: the stack window for stack-ability copiers ONLY.
+      if (!mainWindow && !(combatWindow && abilityTargetsCombatRole(ab)) && !(stackWindow && abilityTargetsStackAbility(ab))) continue;
       // PER-TURN ACTIVATION LIMIT (BLITZ ONCE-1, generalized to a count): an ability already activated its
       // limit-many times THIS turn is not offered again. Keyed permId:rawLine (raw is unique per ability,
       // printed OR granted — an index would collide across the two lists). The ledger records { turn, n };

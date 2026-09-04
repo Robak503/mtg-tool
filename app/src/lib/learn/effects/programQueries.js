@@ -222,6 +222,8 @@ export function atomTargetIntent(atom) {
       return (typeof atom.counterType === "string" && atom.counterType.trim().startsWith("-")) ? "enemy" : "own";
     case "untap":
       return "own";
+    case "copy-ability": // SHELF-85 V6 — "copy target … ability YOU CONTROL": the pool is own-side by enumeration
+      return "own";
     case "explore":
       // CHOSEN-TARGET EXPLORE (BLITZ EX-1) — "target creature you control explores" (Miner's Guidewing's dies
       // trigger, Enter the Unknown, the Map token). The ONLY targeted explore form the parser emits carries

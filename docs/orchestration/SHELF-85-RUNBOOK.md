@@ -57,7 +57,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Colton | Veyran Cantrips | 91 | — | — | ✅ at the bar (④-BD) |
 | Colton | The Unbeatable Squirrel Girl | 90 | — | — | ✅ at the bar |
 | Colton | cdh | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
-| Colton | Killer Turts | 65 | 20 | 25 | ⬜ Phase 2 |
+| Colton | Killer Turts | 66 | 19 | 24 | ⬜ Phase 2 |
 | Joe | Did you say Dragons? | 91 | — | — | ✅ at the bar |
 | Joe | Earth Bent | 90 | — | — | ✅ at the bar (④-BE) |
 | Joe | Mothman Cometh | 88 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
@@ -73,7 +73,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Test | Teval, the Balanced Scale Test | 79 | 6 | 11 | ⬜ Phase 2 |
-| Test | Brago Blink | 77 | 8 | 13 | ⬜ Phase 2 |
+| Test | Brago Blink | 79 | 6 | 11 | ⬜ Phase 2 |
 | Test | Nekusar Wheels | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Shorikai Vehicles | 72 | 13 | 18 | ⬜ Phase 2 |
 | Test | Shalai and Hallar Test | 73 | 12 | 17 | ⬜ Phase 2 |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 64 | 21 | 26 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 61 | 24 | 29 | ⬜ Phase 2 |
 
-**14 decks below 85 · 202 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**14 decks below 85 · 199 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -172,7 +172,7 @@ Ordered by slots paid across the 14 sub-85 decks, then by size. Every row: ⬜ o
 | V3 | **Minamo, School at Water's Edge** — "{U}, {T}: Untap target legendary permanent" | Kinnan · Shorikai (+cdh) | 2 (+1) | **S** | the untap atom + a `legendary` restriction on targetType permanent (matchesSelector already knows `legendary`; enumerateTargets' permanent pool needs the kind) | ✅ (+2 corpus — the word `legendary` on the untap-target arm emitting the existing `supertype` restriction; the permanent and creature pools already ran it. Unplanned twin: Patriar's Seal "untap target legendary creature you control", audited whole-card.) |
 | V4 | **Orcish Bowmasters** — ETB and "whenever an opponent draws a card except the first one they draw in each of their draw steps": 1 damage to any target, then amass Orcs 1 | Nekusar · Believe | 2 | **M** | an opponent-draw watcher with the first-draw-of-the-draw-step exception (the `drawnThisTurnIds` / draw-step ledger exists: stamp which draws are the turn's own); amass exists; "any target" chooser on a trigger = enemy intent | ✅ (+3 corpus — a flagged opponentDraw arm; gameEngine's draw step stamps its draw `drawStepFirst` and checkCardDrawnTriggers skips the flagged descriptor on that one draw. **A live FP closed on the way:** the compound "When A and whenever B, E. Then R." split dropped R from the FIRST half — Flaring Cinder and Giott discarded on ETB with the "If you do, draw" payoff gone; both halves now carry the then/if tail. Leela, Sevateem Warrior rides the arm.) |
 | V5 | **Proft's Eidetic Memory** — beginning of combat, if you've drawn more than one card this turn, put X +1/+1 counters (X = cards drawn − 1) | Brago · Nekusar | 2 | **M** | combat-start trigger + intervening-if on `cardsDrawnThisTurn > 1` + countFor kind `cardsDrawnThisTurnMinusOne` | ✅ (+2 corpus — the intervening-if "you've drawn more than one card this turn" and the count source "cards you've drawn this turn [minus one]" (kind `cardsDrawnThisTurn`, `minus` floored at 0), both off `player.cardsDrawnThisTurn`. Unplanned twin: Thundering Djinn's attack damage counts the same tally, audited whole-card.) |
-| V6 | **Peter Parker's Camera / Strionic Resonator / Kirol** — "copy target activated or triggered ability you control" | Brago (×2: Camera + Resonator) · Killer Turts · Otharri (Kirol) | 4 | **M** | CAP-BRACERS built `copy-activated-ability` on an event; this is a CHOSEN stack-object target of kind ability (enumerateTargets: the stack's non-spell objects you control) + the same copy resolver; Camera's film counter cost = removeCounter (exists) | ⬜ |
+| V6 | **Peter Parker's Camera / Strionic Resonator / Kirol** — "copy target activated or triggered ability you control" | Brago (×2: Camera + Resonator) · Killer Turts · Otharri (Kirol) | 4 | **M** | CAP-BRACERS built `copy-activated-ability` on an event; this is a CHOSEN stack-object target of kind ability (enumerateTargets: the stack's non-spell objects you control) + the same copy resolver; Camera's film counter cost = removeCounter (exists) | 🔄 slice 1 ✅ (+3 corpus — Camera + Resonator + the unplanned Adric: the `copy-ability` atom on a CHOSEN stack target (`abilityYouControl`, printed kinds threaded on the target spec), the own-controller pool on the Stifle-class target shape, a target-keyed copy resolver, and THE STACK WINDOW — the priority holder may activate a stack-ability copier at any step while the stack holds an ability they control. Slice 2 = Kirol: the "Tap two untapped creatures you control:" cost lane (parseAbilityCost reads one creature only).) |
 | V7 | **Rosie Cotton of South Lane** — "whenever you create a token, put a +1/+1 counter on target creature you control other than Rosie" | Otharri · Bumble | 2 | **S/M** | the token-created event (Staff of the Storyteller / Splinter want it too — "whenever you create one or more tokens"); "target creature you control other than this creature" = creatureYouControl + excludeSource (the ④-AF `notSource` restriction on the peel) | ⬜ |
 | V8 | **Arcade Cabinet** — "double the number of each kind of counter on target creature" | Bumble · Halfshell | 2 | **S** | the Voracious Hydra doubler exists for +1/+1; generalize to every kind in the bag (`countersOnSource` all-kinds precedent) | ⬜ |
 | V9 | **Valley Floodcaller** — cast noncreature → "Birds, Frogs, Otters, and Rats you control get +1/+1 until end of turn. Untap them." | Kinnan (+cdh) | 1 (+1) | **S** | a four-subtype team pump (the dynamic selector takes a subtypes ARRAY) + untap the same set | ⬜ |
@@ -259,7 +259,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 |---|---|---|---|---|---|
 | B1 | Glasspool Mimic · Witch Enchanter | MDFC | V1 | | ⬜ |
 | B2 | Proft's Eidetic Memory | | V5 | | ✅ |
-| B3 | Peter Parker's Camera · Strionic Resonator | copy target ability | V6 | | ⬜ |
+| B3 | Peter Parker's Camera · Strionic Resonator | copy target ability | V6 | | ✅ |
 | B4 | Reflector Mage | ETB bounce target creature an opponent controls; its owner can't cast spells with the same name until your next turn | M | the name-lock rider ("can't cast spells with that name" — a per-player cast restriction until the flicker-er's next turn) | ⬜ |
 | B5 | Recruiter of the Guard | ETB tutor a creature with toughness ≤2 to hand | S | the tutor lane with a toughness filter | ⬜ |
 | B6 | Teleportation Circle | end step: exile up to one target artifact or creature you control, then return it | S | the blink atom on a delayed self-return (Cloudshift's shape on an end-step trigger) | ⬜ |
@@ -408,7 +408,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | X1 | Final Fortune · Last Chance · Warrior's Oath | | V12 | | ⬜ |
-| X2 | Peter Parker's Camera | | V6 | | ⬜ |
+| X2 | Peter Parker's Camera | | V6 | | ✅ |
 | X3 | Rite of Flame · Irencrag Feat · Geosurge | ritual mana with counts / spend restrictions | S / M / M | Geosurge/Irencrag = the QUARTET restricted-spend lane ("only artifact or creature spells"; "only one more spell this turn") | ⬜ |
 | X4 | Guttural Response · Avoid Fate · Pyroblast · Redirect Lightning · Ricochet Trap | filtered counters / redirects | S / M / M / L / L | Guttural Response = counter with a colour+type filter (S) | ⬜ |
 | X5 | Shinka · Port Razer · Last Night Together · Savage Beating · City of Traitors · Tibalt's Trickery · Scroll Rack · Carpet of Flowers | | S / S / S / M / S / M / M / M | | ⬜ |
@@ -468,6 +468,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — V6 slice 1 (Camera + Resonator) ✅ +3 corpus · 7/7 mutations killed against a green witness (the parser arm disabled, the pool's controller and kind filters dropped, the stack window removed, the resolver copying nothing, the target spec dropping the printed kinds, the copy keeping the original's id) · suite 1423 files / 15,733 tests · corpus 14,291 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — V5 (Proft's Eidetic Memory) ✅ +2 corpus · 5/5 mutations killed against a green witness (the intervening-if arm removed and loosened to one draw, the count source removed, the reader and the parser each dropping the printed minus) · suite 1422 files / 15,721 tests · corpus 14,288 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 

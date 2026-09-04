@@ -185,6 +185,7 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
       if (t.type === "creature" || t.type === "permanent") return !!findPermanent(state, t.id)?.permanent;
       if (t.type === "player") return !!state.players?.[t.id];
       if (t.type === "spell") return (state.stack || []).some((o) => o.id === t.id);
+      if (t.type === "stackAbility") return (state.stack || []).some((o) => o.id === t.id); // V6 — a targeted stack ability that already left the stack (copy / Stifle-class)
       if (t.type === "graveyardCard") {
         const owners = t.controller ? [t.controller] : Object.keys(state.players || {});
         return owners.some((pid) => (state.players?.[pid]?.graveyard || []).some((c) => c.id === t.id));

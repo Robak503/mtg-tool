@@ -1816,7 +1816,25 @@ function applyCopyActivatedAbility(state, atom, ctx) {
   return logEvent(next, { kind: "copy-ability", controller: original.controller, originalId: abilityId, copyId, sourceName: original.source?.name || null, via: ctx?.cardName || null });
 }
 
+/**
+ * COPY TARGET ABILITY (SHELF-85 V6, 2026-09-04 — CR 707.10): the CHOSEN-target twin of applyCopyActivatedAbility. The
+ * referent is the activation's chosen stack target ({ type: "ability", id }); the copy is the same stack object under
+ * a fresh id, stamped isCopy, controlled by the original's controller, with the original's targets ("you may choose
+ * new targets" honoured as a decline). A target already off the stack (resolved, countered) is a logged no-op — the
+ * ability fizzles under CR 608.2b, never a guess at another object.
+ */
+function applyCopyTargetAbility(state, atom, ctx) {
+  const t = (ctx?.targets || []).find((x) => x?.type === "stackAbility");
+  const original = t ? (state.stack || []).find((o) => o.id === t.id && /-ability$/.test(String(o.kind || ""))) : null;
+  if (!original) return logEvent(state, { kind: "spell-effect", effect: "copy-ability-fizzle", targetId: t?.id || null, controller: ctx?.controller });
+  const { id: copyId, state: s2 } = mintId(state, "stk");
+  const copy = { ...original, id: copyId, isCopy: true, payload: { ...original.payload, params: { ...(original.payload?.params || {}) } } };
+  const next = { ...s2, stack: [...s2.stack, copy] };
+  return logEvent(next, { kind: "copy-ability", controller: original.controller, originalId: original.id, copyId, sourceName: original.source?.name || null, via: ctx?.cardName || null });
+}
+
 export const stackResolvers = {
+  "copy-ability": applyCopyTargetAbility, // SHELF-85 V6 (Peter Parker's Camera / Strionic Resonator) — copy the CHOSEN stack ability you control
   "copy-activated-ability": applyCopyActivatedAbility, // CAP-BRACERS (Illusionist's Bracers) — copy the ACTIVATED ability the trigger fired on (ctx.activatedStackObjectId)
   "counter-cast-spell": applyCounterCastSpell, // SG-13 (Vexing Bauble) — counter the CAST spell the trigger fired on (ctx.castStackObjectId)
   retarget: applyRetarget, // ⭐ RETARGET (Deflecting Swat, CR 115.7) — re-pick a stack object's own targets off the live board; decline = keep (CR 115.7d)

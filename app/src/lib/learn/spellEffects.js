@@ -672,6 +672,19 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       out.push({ type: "stackAbility", id: obj.id, controller: obj.controller, name: obj.source?.name ? `${obj.source.name}'s ability` : "ability" });
     }
   };
+  // COPY TARGET ABILITY (SHELF-85 V6, 2026-09-04 — Peter Parker's Camera "target activated or triggered ability you
+  // control", Strionic Resonator "target triggered ability you control"): the legal pool is the stack's ABILITY objects
+  // of the printed kind(s) whose controller is the activator — never a spell, never an opponent's ability, never the
+  // copier's own ability (it is not on the stack while its targets are chosen — CR 602.2b). An unknown kind word
+  // matches nothing (an empty pool, the safe side). Same target shape as the Stifle-class pool above (type
+  // "stackAbility"), so the stack resolvers and the resolution-time legality check read one shape.
+  const addOwnStackAbilities = (kinds) => {
+    const wanted = new Set((kinds || []).map((k) => `${k}-ability`));
+    for (const obj of state.stack || []) {
+      if (!wanted.has(obj.kind) || obj.controller !== controllerId) continue;
+      out.push({ type: "stackAbility", id: obj.id, controller: obj.controller, name: obj.source?.name ? `${obj.source.name}'s ability` : "ability" });
+    }
+  };
   const addStackSpells = () => {
     for (const obj of state.stack || []) {
       if (obj.kind !== "spell") continue;
@@ -998,6 +1011,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   else if (effect.targetType === "playerOrPlaneswalker") { addPlayers(); addPlaneswalkers(); }
   else if (effect.targetType === "planeswalker") addPlaneswalkers();
   else if (effect.targetType === "spell") addStackSpells();
+  else if (effect.targetType === "abilityYouControl") addOwnStackAbilities(effect.abilityKinds); // V6 — copy target ability you control
   // VENSER — the STACK∪BATTLEFIELD union ("return target spell or permanent to its owner's hand").
   // The atom carries notCounter, so addStackSpells skips the CR 701.6a exclusions (a bounce is not a
   // counter — Venser legally bounces an uncounterable spell). The permanent half is the plain predicate.

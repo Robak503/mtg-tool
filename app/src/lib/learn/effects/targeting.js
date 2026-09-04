@@ -209,6 +209,11 @@ function atomTargetSpec(atom) {
   // MUST be threaded explicitly (same unlisted-=-dropped trap as the Venser arm above): retargeting is not
   // countering, so the CR 701.6a uncounterability exclusions never narrow Swat's legal pool.
   if (tt === "spellOrStackAbility") return { kind: "retarget", targetType: tt, notCounter: true };
+  // COPY TARGET ABILITY (SHELF-85 V6 — Peter Parker's Camera / Strionic Resonator): a stack ABILITY the activator
+  // controls, of the printed kind(s). `abilityKinds` MUST be threaded explicitly (the generic tail drops unknown
+  // atom fields — the unlisted-=-dropped trap); without it the enumerator would offer an activated ability to a
+  // "triggered ability" copier, an illegal target (CR 601.2c + CREED).
+  if (tt === "abilityYouControl") return { kind: "copy-ability", targetType: tt, abilityKinds: atom.abilityKinds || ["triggered"] };
   if (tt === "spell") return {
     kind: "counter", targetType: "spell", spellFilter: atom.spellFilter || "any",
     // ⭐ CNT-TARGETS-WHAT — the only counter filter that reads the target spell's CHOSEN TARGETS rather than

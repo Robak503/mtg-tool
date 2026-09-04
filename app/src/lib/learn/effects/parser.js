@@ -2597,6 +2597,21 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       return makeProgram({ confidence: "high", atoms: [{ op: "copy-activated-ability", targetType: null }], xSpell: false, unparsedTail: null });
     }
   }
+  // ===== COPY TARGET ABILITY (SHELF-85 V6, 2026-09-04 — CR 707.10) ===== the CHOSEN-target twin of the arm above:
+  // "Copy target activated or triggered ability you control. You may choose new targets for the copy." (Peter Parker's
+  // Camera) / "Copy target triggered ability you control. …" (Strionic Resonator, Kirol, Attentive First-Year). ONE atom
+  // whose target is a STACK OBJECT of the printed kind(s) controlled by the activator (targetType "abilityYouControl" →
+  // spellEffects.addStackAbilities), resolved by the target-keyed copy resolver. "May choose new targets" is honoured as
+  // a decline exactly like the trigger-referent arm. An opponent's ability, a spell, or the bare "target ability" (no
+  // controller scope) never anchors here → LOW → Arbiter.
+  {
+    const ct = stripReminder(String(oracle)).trim().toLowerCase().replace(/\s+/g, " ").replace(/\.$/, "");
+    const cm = ct.match(/^copy target (activated or triggered|triggered) ability you control(?:\. you may choose new targets for the copy)?$/);
+    if (cm && KNOWN.has("copy-ability")) {
+      const abilityKinds = cm[1] === "triggered" ? ["triggered"] : ["activated", "triggered"];
+      return makeProgram({ confidence: "high", atoms: [{ op: "copy-ability", targetType: "abilityYouControl", abilityKinds }], xSpell: false, unparsedTail: null });
+    }
+  }
   // ===== GRANT FLASHBACK (CORPUS ④-G, 2026-09-03 — Snapcaster Mage / Stingcaster Mage, CR 702.34) ===== two
   // sentences the splitter would separate ("The flashback cost is equal to its mana cost" is a rider on the grant,
   // not an effect of its own); ONE targeted atom on the caster's own graveyard, instant-or-sorcery filtered.
