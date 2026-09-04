@@ -53,7 +53,9 @@ const COMBAT_DAMAGE_AMOUNT_EVENTS = new Set(["combatDamageToPlayer", "combatDama
 // "attacksAlone" (BLITZ TR-2, CR 506.5): the sole-attacker event — checkAttackTriggers threads the sole
 // attacker's declared defender into the context exactly like the per-attacker "attacks" fire, so a
 // "defending player …" payoff (Nefarox, Overlord of Grixis' edict) genuinely has its referent there.
-const DEFENDING_PLAYER_EVENTS = new Set(["attacks", "becomesBlocked", "attacksAlone"]);
+// "attacksUnblocked" (④-AU, 2026-09-04): the declare-blockers-step complement of becomesBlocked — checkBlockTriggers
+// threads the unblocked attacker's declared defender exactly as it does for a blocked one.
+const DEFENDING_PLAYER_EVENTS = new Set(["attacks", "becomesBlocked", "attacksAlone", "attacksUnblocked"]);
 
 /**
  * Every atom a combat-referent gate must inspect — MODAL programs keep their atoms in

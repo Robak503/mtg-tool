@@ -178,6 +178,10 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   }
 
   const dealsThisStep = (perm) => {
+    // LACCOLITH (④-AU — "this creature assigns no combat damage this turn"): a creature stamped for THIS turn by the
+    // taken optional damage deals nothing in either damage step — attacker, sole blocker or divided multi-blocker
+    // (every dealer loop passes through here). It still RECEIVES combat damage. Self-expires: next turn's number differs.
+    if (perm.noCombatDamageTurn === state.turn) return false;
     const fs = permanentHasKeyword(state, perm.id, "First strike");
     const ds = permanentHasKeyword(state, perm.id, "Double strike");
     return firstStrikeStep ? (fs || ds) : (!fs || ds);

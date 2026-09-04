@@ -9,7 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
-- **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal charge their extra cost per extra target, and offer only what you can pay.
+- **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
+- **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **"Attacks and isn't blocked" fires at the right moment** — after blockers are declared, only for unblocked attackers (Abyssal Nightstalker, Merchant Ship, Dwarven Vigilantes, Wildfire Eternal, Eternal of Harsh Truths previously fired on the attack declaration) charge their extra cost per extra target, and offer only what you can pay.
 - **"Up to two / three target creatures" works** — Abandon the Post, Unearthly Blizzard, Markov Warlord, Glarewielder and Deadly Designs let you pick any number up to the printed count.
 - **"Up to one target creature" works** — Plunge into Winter, War Machine, Nebelgast Intruder, Moonsnare Specialist, Key to the City and more let you pick a creature or none.
 - **The AI shoots attackers and pumps its own creatures in combat** — abilities like D'Avenant Archer's and Infantry Veteran's are now used by the opponent, on the right side.

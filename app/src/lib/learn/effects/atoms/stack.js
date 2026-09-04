@@ -476,6 +476,20 @@ export function dealDamageScaledClauseParser(clause) {
   // deal; "each opponent" needs none.
   const dyd = t.match(/^(?:it|this creature) deals damage equal to the dying creature's power to (each opponent|any target)$/);
   if (dyd) return { op: "deal-damage", countContext: "dyingPower", targetType: dyd[1] === "each opponent" ? "eachOpponent" : "any" };
+  // SOURCE-POWER damage to a chosen creature (④-AU, 2026-09-04 — the Laccolith cycle: "Whenever this creature becomes
+  // blocked, you may have it deal damage equal to its power to target creature. If you do, this creature assigns no
+  // combat damage this turn."). "its power" is the LIVE, layer-aware power of the ability's own permanent at resolution
+  // (ctx.sourceId — the same sourcePower reader the scaled counter arms use, CR 608.2h); a becomes-blocked trigger
+  // resolves with its creature still on the battlefield, so the read is honest. The "If you do" rider is FOLDED onto the
+  // same atom (splitClauses keeps the pair whole): taking the optional damage stamps the source's noCombatDamageTurn,
+  // which combatResolution's dealsThisStep gate honors for the rest of the turn (the creature assigns no combat damage;
+  // it still receives it — CR 510.1). Declining the "may" skips the whole atom, so the rider never fires alone.
+  // ⛔ ANCHORED TO `target creature` ONLY. The "any target" form belongs to the sacrifice-as-cost Fling bodies
+  // (Skarrgan Skybreaker, Ghitu Fire-Eater "{1}, Sacrifice this creature: It deals damage equal to its power to any
+  // target"), whose source is GONE by resolution — this reader would return 0, the forbidden wrong-value native. The
+  // activated lane additionally refuses a sourcePower amount under a sacrifice-self cost (abilities.js).
+  const spd = t.match(/^(?:it|this creature) deals damage equal to its power to target creature(\. if you do, this creature assigns no combat damage this turn)?$/);
+  if (spd) return { op: "deal-damage", targetType: "creature", amountCount: { kind: "sourcePower" }, ...(spd[1] ? { sourceAssignsNoCombatDamage: true } : {}) };
   // DMG-SCALE-3 — "where X is" word order: "<source> deals X damage to <target>, where X is [equal to] the
   // number of <count>" (Scourge of Valkas / Dragon Tempest "…to any target, where X is the number of Dragons
   // you control"; Tribal Flames, Profane Prayers, Sparksmith, Gempalm Incinerator, Tendrils of Corruption).
@@ -1892,6 +1906,12 @@ export const stackResolvers = {
       // siblings, this arm is correct by construction instead.
       : (atom.targetType === "defendingPlayer" || atom.targetType === "damagedPlayer" || atom.targetType === "discardingPlayer") ? "player" : atom.targetType;
     let next = applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, targets, source: { id: ctx.sourceId }, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie });
+    // LACCOLITH RIDER (④-AU — "If you do, this creature assigns no combat damage this turn"): the optional damage was
+    // taken (a declined "may" never reaches this resolver), so the SOURCE is stamped for the current turn; the combat
+    // damage step's dealsThisStep gate reads the stamp. A source already gone is a clean no-op (updatePermanentSafe).
+    if (atom.sourceAssignsNoCombatDamage && ctx.sourceId) {
+      next = updatePermanentSafe(next, ctx.sourceId, (p) => ({ ...p, noCombatDamageTurn: state.turn }));
+    }
     // SELF-HIT (BLITZ OA-1 — Orcish Artillery "and M damage to you"): the printed self-hit lands on the
     // CONTROLLER through the same primitive, after the target damage (one sentence, resolved in print
     // order). Never conditional on the target damage landing — the sentence deals both unconditionally.

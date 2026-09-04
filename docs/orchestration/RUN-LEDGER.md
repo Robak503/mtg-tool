@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — ④-AU: source-power damage + the Laccolith rider · "attacks and isn't blocked" is its own event · **+7** · corpus 14,185 / 34,245 (41.4%)
+> Suite **1408 files / 15,625 tests** green; lint 0. Flip-diff **+7, zero LOST**. **7/7 mutations killed (the source-power arm, the rider stamp, the dealsThisStep gate, the detector's unblocked arm, the unblocked fire site, the sacrifice-self CREED guard, the splitter's keep-whole guard).**
+> · **The shape:** the census's largest family with existing machinery — the Laccolith cycle (4 sole-blockers): "Whenever
+>   this creature becomes blocked, you may have it deal damage equal to its power to target creature. If you do, this
+>   creature assigns no combat damage this turn." A `deal-damage` arm reading the source's LIVE power (the sourcePower
+>   reader the scaled counter arms already used), the rider folded onto the same optional atom (splitClauses keeps the
+>   pair whole), a `noCombatDamageTurn` stamp on the source that combatResolution's dealsThisStep gate honors. Riders:
+>   Flametongue Yearling's ETB, Sinstriker's Will's granted tap ability (the ④-AE combat window).
+> · **The FP closed:** auditing the unplanned gain Dwarven Vigilantes ("attacks and isn't blocked") found the detector
+>   reading that wording as plain `attacks` — five credited cards (Abyssal Nightstalker, Merchant Ship, Wildfire Eternal,
+>   Eternal of Harsh Truths, Vigilantes) fired on the attack declaration whether or not they were blocked. Now its own
+>   event `attacksUnblocked`, fired by checkBlockTriggers for every attacker without a blocker record (the declared
+>   defender threaded; DEFENDING_PLAYER_EVENTS knows it). 42 carriers; the other 37 park on their effects.
+> · **CREED holds:** the Fling bodies (Skarrgan Skybreaker, Ghitu Fire-Eater — "Sacrifice this creature: It deals damage
+>   equal to its power to any target") stay parked twice over: "any target" is not read, and the activated lane refuses a
+>   sourcePower amount under a sacrifice-self cost (the source is gone; the live reader would say 0).
+> · **Board-verified:** Grunt blocked by a 4/4 — taken: 2 marked on the blocker, the Grunt assigns nothing and still takes
+>   4; declined: the Grunt deals its 2. Vigilantes unblocked → trigger; blocked → none. Sinstriker's host taps for 3.
+> · **CI:** pushed behind ④-AT's run 33830560143 (green); own run watched after push (result on the next entry's line)
+
 > ## 🎯 2026-09-04 (night cron) — ④-AT: "any number of" on the permanent lane — Consign to Dust, Kiora's Dismissal · **+2** · corpus 14,178 / 34,245 (41.4%)
 > Suite **1407 files / 15,612 tests** green; lint 0. Flip-diff **+2, zero LOST**. **3/3 mutations killed (the destroy arm's any-number alternative, the bounce arm's any-number alternative, the any-number destroy capped at one target).**
 > · **The shape:** the last two Strive cards sit on the PERMANENT lane, whose fixed-count arms ("destroy up to N target

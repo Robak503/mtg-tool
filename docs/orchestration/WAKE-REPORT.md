@@ -7,6 +7,19 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (night cron) — **④-AU: source-power damage + the Laccolith rider; "attacks and isn't blocked" becomes its own event (+7)** · suite **1408 files / 15,625 tests** green · corpus 14,185 / 34,245 (41.4%) · flip-diff +7 / 0 lost · 7/7 mutations killed (the source-power arm, the rider stamp, the dealsThisStep gate, the detector's unblocked arm, the unblocked fire site, the sacrifice-self CREED guard, the splitter's keep-whole guard)
+
+> **Night tally (stage ④, forty-seven slices):** … · AS (+11) · AT (+2) · AU (+7) — corpus 13,862 → 14,185.
+> **An FP closed on the way:** "Whenever this creature attacks and isn't blocked" was detected as plain "attacks" — five
+> credited cards fired at the attack declaration regardless of blocks. It is now `attacksUnblocked`, fired at the
+> declare-blockers step for attackers with no blocker (Abyssal Nightstalker's defending-player discard, Merchant Ship's
+> lifegain, the Eternals, Dwarven Vigilantes all fire on the right event now).
+> **CI:** pushed behind ④-AT's run 33830560143 (green); own run watched after push (result on the next entry's line)
+> **Next runnable:** the census is flat at ≤6-card families; remaining ≥3 clusters with machinery: "tap all other
+> creatures" ETB (3), "can't be blocked by artifact creatures" (3), "can't block creatures with power N or greater" (3);
+> the Fling bodies need a look-back power stamp for sacrificed sources (3). Parked subsystems unchanged (X-effect
+> remainder, counted-pick UI).
+
 ## 🎯 2026-09-04 (night cron) — **④-AT: "any number of" on the permanent lane — the last two Strive cards (+2)** · suite **1407 files / 15,612 tests** green · corpus 14,178 / 34,245 (41.4%) · flip-diff +2 / 0 lost · 3/3 mutations killed (the destroy arm's any-number alternative, the bounce arm's any-number alternative, the any-number destroy capped at one target)
 
 > **Night tally (stage ④, forty-six slices):** … · AR (+16) · AS (+11) · AT (+2) — corpus 13,862 → 14,178. The Strive

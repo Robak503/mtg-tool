@@ -2226,6 +2226,19 @@ function classifyCondition(condRaw, cardName, cardType) {
       if (duoSubj === nameL || (shortNameRef && duoSubj === shortName)) return { event: "attacks", scope: "self", whose: "any" };
     }
   }
+  // ATTACKS-AND-ISN'T-BLOCKED (④-AU, 2026-09-04 — Abyssal Nightstalker, Dwarven Vigilantes, Merchant Ship, Wildfire
+  // Eternal, Eternal of Harsh Truths; 42 carriers): a DIFFERENT event from "attacks". It happens at the declare-blockers
+  // step, for an attacker no creature blocked (the complement of CR 509.1h's "becomes blocked"; checkBlockTriggers fires
+  // it, threading the declared defender). Read as plain "attacks" — which this arm's fall-through did until tonight — five
+  // credited cards fired on the attack DECLARATION whether or not they were later blocked: an over-fire, the forbidden
+  // direction. Only the SELF subject is modeled; any other subject stays undetected → Arbiter (a safe false-negative).
+  if (/\battacks and isn't blocked\b/.test(c)) {
+    const ubM = c.match(/^(.+?) attacks and isn't blocked$/);
+    const subj = ubM ? ubM[1].trim() : null;
+    const isSelfSubj = !!subj && (subj === "this creature" || subj === "this permanent"
+      || subj === nameL || (shortNameRef && subj === shortName) || (firstWordRef && subj === firstWord));
+    return isSelfSubj ? { event: "attacksUnblocked", scope: "self", whose: "any" } : null;
+  }
   if (/\battacks\b/.test(c)) {
     if (selfRef) return { event: "attacks", scope: "self", whose: "any" };
     // ANCHORED bare form (was a non-anchored substring test — any "a creature you control <restriction>
@@ -7124,8 +7137,21 @@ function basiliskPartnerMatches(state, filter, partnerId) {
  */
 export function checkBlockTriggers(state) {
   const blockers = state.combat?.blockers || [];
-  if (!blockers.length) return state;
   let fired = [];
+  // ATTACKS-AND-ISN'T-BLOCKED (④-AU, 2026-09-04 — CR 509.1h's complement): once blocks are declared, every attacker
+  // with NO blocker record fires its "whenever this creature attacks and isn't blocked" trigger, exactly once, with
+  // the declared defender threaded (the same `defender` stamp the becomesBlocked loop below reads). This runs BEFORE
+  // the no-blockers early return on purpose: a combat with zero blocks is the case where every attacker is unblocked.
+  // An attacker already removed from combat (a Gustcloak escape) has no record in combat.attackers and never fires.
+  const blockedAttackers = new Set(blockers.map((b) => b?.attackerId).filter(Boolean));
+  for (const att of state.combat?.attackers || []) {
+    if (!att?.permanentId || blockedAttackers.has(att.permanentId)) continue;
+    const lk = findPermanent(state, att.permanentId);
+    if (!lk) continue;
+    const context = att.defender ? { defenderId: att.defender } : {};
+    fired = fired.concat(triggersForEvent(state, { event: "attacksUnblocked", sourcePermanent: lk.permanent, triggeringPermanent: lk.permanent, triggeringContext: context }));
+  }
+  if (!blockers.length) return fired.length ? { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] } : state;
   const seenBlocker = new Set();
   for (const b of blockers) {
     if (!b?.blockerId || seenBlocker.has(b.blockerId)) continue;

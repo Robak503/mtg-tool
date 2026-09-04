@@ -249,6 +249,12 @@ export function splitClauses(oracle) {
     const prev = clauses.length ? clauses[clauses.length - 1] : null;
     if (prev && (
       (/^if you do,/i.test(sentence) && /^you may (?:discard a card|pay \{|sacrifice (?:a|an) )/i.test(prev))
+      // LACCOLITH (④-AU, 2026-09-04) — "You may have it deal damage equal to its power to target creature. If you do,
+      // this creature assigns no combat damage this turn." is ONE optional instruction with a rider on the taken
+      // choice; split, the rider is an orphan and the damage half would resolve WITHOUT the rider (a creature dealing
+      // its power twice — the forbidden direction). Both halves anchored, so only this exact pair reassembles.
+      || (/^if you do, this creature assigns no combat damage this turn$/i.test(sentence)
+          && /^you may have it deal damage equal to its power to target creature$/i.test(prev))
       || (/^(?:until the end of your next turn, you may play|you may play (?:that card|it|them|those cards|cards exiled this way) until the end of your next turn)/i.test(sentence)
           && /^exile the top (?:card|two cards|three cards|four cards|five cards) of your library$/i.test(prev))
       // CZ-COMMANDER-VISIT (Hellkite Courser, 2026-08-14) — the three-sentence ETB is ONE instruction
