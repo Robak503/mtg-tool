@@ -73,7 +73,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Test | Teval, the Balanced Scale Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Brago Blink | 83 | 2 | 7 | ⬜ Phase 2 |
+| Test | Brago Blink | 84 | 1 | 6 | ⬜ Phase 2 |
 | Test | Nekusar Wheels | 76 | 9 | 14 | ⬜ Phase 2 |
 | Test | Shorikai Vehicles | 72 | 13 | 18 | ⬜ Phase 2 |
 | Test | Shalai and Hallar Test | 74 | 11 | 16 | ⬜ Phase 2 |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 66 | 19 | 24 | ⬜ Phase 2 |
 
-**13 decks below 85 · 167 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**13 decks below 85 · 166 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -272,7 +272,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | B9 | Riptide Gearhulk | ETB: for each opponent, put up to one target nonland permanent they control into their library second from the top | M | per-opponent targeting + tuck-to-position | ⬜ |
 | B10 | Brago, King Eternal | combat damage: exile any number of target nonland permanents you control, then return them | M | mass self-blink with an any-number pick (the counted pick UI is parked — the AI policy can pick "all ETB-bearing") | ⬜ |
 | B11 | Anticausal Vestige | LTB: draw, then may put a permanent card with MV less than its power onto the battlefield | M | | ⬜ |
-| B12 | Cryogen Relic | sac: stun counter on up to one target tapped creature | S | stun counter + tapped restriction (exist) | ⬜ |
+| B12 | Cryogen Relic | sac: stun counter on up to one target tapped creature | S | stun counter + tapped restriction (exist) | ✅ (+1 corpus — a bare put-stun-counter arm ("put N stun counter(s) on [up to one] target [tapped] creature") on the counter lane; the stun kind is the one untapOrConsumeStun already consumes at the untap step, the tapped restriction the enumerator already honors; the intent query reads a stun counter as harm (enemy-facing). The ETB/LTB draw and the sacrifice cost existed.) |
 | B13 | Dour Port-Mage | "whenever one or more other creatures you control leave the battlefield without dying, draw" | M | leaves-without-dying batch event | ⬜ |
 | B14 | Elesh Norn, Mother of Machines | permanents entering don't cause opponents' abilities to trigger | M | the Torpor Orb class: a trigger-suppression static consulted at the ETB flush | ⬜ |
 | B15 | The Mightstone and Weakstone · The Mind Stone | restricted mana / harness | M / L | | ⬜ |
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · B12 (Cryogen Relic — Brago) ✅ +1 corpus · 5/5 · suite effects/atoms/counters.js (bare stun arm) + effects/programQueries.js (stun = enemy intent) + cryogenRelic.test.js (6); one CREED pin graduated (stunCounterCount) · corpus 14,358 (41.9%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — Phase 2 · B8 (Loran of the Third Path — Brago) ✅ +3 corpus · 5/5 · suite effects/atoms/misc.js (two-seat draw arm + applier branch) + effects/splitClauses.js (keep-whole guard) + loranOfTheThirdPath.test.js (6) · corpus 14,357 (41.9%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 

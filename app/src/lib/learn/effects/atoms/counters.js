@@ -588,6 +588,18 @@ export function addCounterClauseParser(clause) {
     const em = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on enchanted creature$/);
     if (em) return { op: "add-counter", counterType: em[2], amount: SMALL_NUM[em[1]] ?? parseInt(em[1], 10), target: "enchanted" };
   }
+  // STUN ON A CHOSEN TARGET (SHELF-85 B12, 2026-09-04 — Cryogen Relic "Put a stun counter on up to one target tapped
+  // creature"): the bare put-stun form, no tap of its own (the tap-and-stun fold lives in combat.js). The counter is
+  // the SAME "stun" kind untapOrConsumeStun consumes at the untap step (CR 122.1c — a tapped permanent with a stun
+  // counter skips its untap and loses one counter), so a bare placement on a TAPPED creature is enforced exactly like
+  // the folded form. "tapped" rides the target restriction the enumerator already honors; "up to one" the subset path.
+  {
+    const sm = t.match(/^put (a|an|one|two|three|\d+) stun counters? on (up to one )?target (tapped )?creature$/);
+    if (sm) {
+      return { op: "add-counter", counterType: "stun", amount: SMALL_NUM[sm[1]] ?? parseInt(sm[1], 10), targetType: "creature",
+        restrictions: sm[3] ? [{ kind: "tapped", value: true }] : [], ...(sm[2] && { maxTargets: 1, minTargets: 0 }) };
+    }
+  }
   let m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
   // ⭐⭐ CV-2 (2026-08-06) — the "creature or Vehicle" UNION on the counter lane (Seven-Tail Mentor, Grafted

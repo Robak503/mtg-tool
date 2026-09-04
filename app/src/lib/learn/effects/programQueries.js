@@ -223,6 +223,8 @@ export function atomTargetIntent(atom) {
       // (not an opponent's, as bare -1/-1 would). The restriction is authoritative; counterType is a
       // fallback for the UNFILTERED "target creature" form only.
       if (atom.targetType === "creatureYouControl") return "own";
+      // B12 — a STUN counter is harm (it skips the creature's untap, CR 122.1c): enemy-facing like a -1/-1.
+      if (atom.counterType === "stun") return "enemy";
       return (typeof atom.counterType === "string" && atom.counterType.trim().startsWith("-")) ? "enemy" : "own";
     case "untap":
       return "own";
@@ -231,7 +233,7 @@ export function atomTargetIntent(atom) {
     case "double-all-counters": // SHELF-85 V8 (Arcade Cabinet) — doubling a creature's counters is a gift: own side
       return "own";
     case "exile-graveyard":
-      // SHELF-85 Phase 2 · T1c (2026-09-05 — Boggart Trawler / Bojuka Bog "exile target player's graveyard"): a chosen
+      // SHELF-85 Phase 2 · T1c (2026-09-04 — Boggart Trawler / Bojuka Bog "exile target player's graveyard"): a chosen
       // PLAYER whose whole graveyard is exiled — harm, aimed at an opponent like the destroy / exile family. Without a
       // side the atom read "ambiguous" and every trigger carrying it routed to the Arbiter (the creature front of the
       // modal DFC parked the whole card).

@@ -64,10 +64,12 @@ describe("⛔ CREED — the anchor stays tight", () => {
     expect(atomOf("tap target creature an opponent controls and put four stun counters on it")).toBeNull();
   });
 
-  it("⛔ a stun placement with no tap is not this atom", () => {
-    // "put a stun counter on target creature" alone has no tap to ride, and the pronoun form has no
-    // referent — both stay out rather than inventing a tap.
-    expect(atomOf("put a stun counter on target creature")).toBeNull();
+  it("⛔ a stun placement with no tap is not this atom — it is the counter lane's own (GRADUATED 2026-09-04)", () => {
+    // "put a stun counter on target creature" alone has no tap to ride. SHELF-85 B12 (Cryogen Relic) gave the bare
+    // placement its own arm on the COUNTER lane (counters.js — add-counter, kind "stun", no tap invented, the
+    // untap step consumes it); cryogenRelic.test.js is the witness. The pin's point stands: nothing here fabricates
+    // a tap — the atom is a plain add-counter, not this tap-and-stun fold.
+    expect(atomOf("put a stun counter on target creature")).toEqual({ op: "add-counter", counterType: "stun", amount: 1, targetType: "creature", restrictions: [] });
   });
 });
 

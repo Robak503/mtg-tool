@@ -1809,7 +1809,7 @@ function classifyCondition(condRaw, cardName, cardType) {
     // HIGH and reference the SOURCE, not the leaving enchantment — no pronoun binding needed.
     if (pigSubj === "an enchantment you control")
       return { event: "permanentLeaves", scope: "enchantmentYouControlPiG", whose: "any" };
-    // SHELF-85 Phase 2 · T4 (2026-09-05 — Titania, Protector of Argoth "Whenever a land you control is put into a
+    // SHELF-85 Phase 2 · T4 (2026-09-04 — Titania, Protector of Argoth "Whenever a land you control is put into a
     // graveyard from the battlefield, create a 5/3 green Elemental creature token"): the LAND twin of the artifact /
     // enchantment PiG scopes. Graveyard exit only (a fetch or a sacrifice fires, a bounce never does), controller-gated.
     if (pigSubj === "a land you control")

@@ -244,7 +244,7 @@ export function matchRemovalControllerRider(oracle, parseLead = null) {
   // "That player" (SG-16 — Boseiju's channel "…an opponent controls. That player may search…") is the same
   // back-reference as "Its controller": the just-removed permanent's controller (CR 608.2c). Accepted only
   // here, on the removal lead, where that referent is captured; the counter-rider frames below keep theirs.
-  // SHELF-85 Phase 2 · T6 (2026-09-05 — Demolition Field "Destroy target nonbasic land an opponent controls. THAT LAND'S
+  // SHELF-85 Phase 2 · T6 (2026-09-04 — Demolition Field "Destroy target nonbasic land an opponent controls. THAT LAND'S
   // CONTROLLER may search their library for a basic land card, put it onto the battlefield, then shuffle. You may search
   // …"): the possessive "that <noun>'s controller" is the same captured controller as "its controller" / "that player";
   // the trailing "You may search …" comes back as `rest` (the optional basic tutor), exactly as before.

@@ -1372,7 +1372,7 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   //     the equip-cost site already passes) with triggeringPermanentId as the trigger-side fallback.
   //     ⛔ Fail closed: "other" with NO id to exclude → null → not evaluable (a count that might include the
   //     object itself is the over-count FP), which is also what keeps the parseable probe honest.
-  // ===== LANDS WITH DIFFERENT NAMES (SHELF-85 Phase 2 · T3, 2026-09-05 — Field of the Dead "if you control seven or more
+  // ===== LANDS WITH DIFFERENT NAMES (SHELF-85 Phase 2 · T3, 2026-09-04 — Field of the Dead "if you control seven or more
   // lands with different names") ===== the number of DISTINCT card names among the controller's battlefield lands
   // (land-ness read off the live type line — an animated land is still a land; a non-land never counts), compared to the
   // printed threshold. Sits ABOVE the generic "you control <N> <filter>" family below, which would swallow "lands with

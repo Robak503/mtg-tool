@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · B12: CRYOGEN RELIC — the bare stun counter · **+1** · corpus 14,358 (41.9%) / 34,245 (41.9%)
+> Suite **effects/atoms/counters.js (bare stun arm) + effects/programQueries.js (stun = enemy intent) + cryogenRelic.test.js (6); one CREED pin graduated (stunCounterCount)** green; lint 0. Flip-diff **+1, zero LOST**. **5/5.**
+> · **The shape:** "{1}{U}, Sacrifice this artifact: Put a stun counter on up to one target tapped creature." — the stun
+>   tap-lock existed on the TAP atom (Gilded Scuttler's "tap … and put a stun counter on it") and at the untap step
+>   (untapOrConsumeStun, CR 122.1c); what was missing was the bare placement without a tap. One arm on the counter
+>   lane: "put N stun counter(s) on [up to one] target [tapped] creature" — the same "stun" kind, the tapped
+>   restriction the enumerator already honors, "up to one" on the subset path; the intent query reads a stun counter
+>   as harm so the flush chooser and the AI aim it at an enemy. The ETB/LTB draw and the sacrifice cost existed.
+>   Also corrected the last three day-ahead (09-05) stamps in code comments.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · B8: LORAN OF THE THIRD PATH — "you and target opponent each draw" · **+3** · corpus 14,357 (41.9%) / 34,245 (41.9%)
 > Suite **effects/atoms/misc.js (two-seat draw arm + applier branch) + effects/splitClauses.js (keep-whole guard) + loranOfTheThirdPath.test.js (6)** green; lint 0. Flip-diff **+3, zero LOST**. **5/5.**
 > · **The shape:** "{T}: You and target opponent each draw a card." — the draw atom knew controller / each player /
