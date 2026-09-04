@@ -75,14 +75,14 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Teval, the Balanced Scale Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Nekusar Wheels | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Shorikai Vehicles | 84 | 1 | 6 | ⬜ Phase 2 |
+| Test | Shorikai Vehicles | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Shalai and Hallar Test | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Otharri Test | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 69 | 16 | 21 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**11 decks below 85 · 141 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**10 decks below 85 · 140 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -318,7 +318,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | S14 | Imposter Mech · Ironsoul Enforcer · Narset's Reversal · Mechtitan Core | | L / M / M / L | Narset's Reversal = copy + bounce-spell (M) | ⬜ |
 | S15 | Chain of Vapor | bounce + the sacrifice-a-land copy chain | 🅿 CEILING | the copy chain is a multi-player decision loop | 🅿 |
 | S16 | Dispatch | metalcraft exile | S | the metalcraft intervening-if exists (Molten Psyche shares it) | ✅ (+1 corpus — the ADDITIVE targeted conditional (no "instead"): tap always, exile too under metalcraft; narrow by design (a single chosen-creature base, an alternative naming "that creature" bound through the sentinel, the base inside both branches so ONE creature is chosen). The sentinel exile/destroy arm joined removal.js.) |
-| S17 | COMPOSITE | Born to Drive · Katsumasa · Kotori · Mech Hangar · Mu Yanling · Nautiloid Ship · Padeem · Plaza of Heroes · Windbrisk Heights | size on approach | sized 2026-09-04: Mech Hangar S ✅ · Kotori ✅ (+1 — a layer-6 crew-number grant read at both crew sites as min(printed, granted); the trigger's grant arm came with Plaza) · Katsumasa M (animate-with-flying + a 1/1 base unless Vehicle; up-to-three counters) · Born to Drive M (a gated dynamic-count pump on an Aura + channel) · Padeem M (a greatest-mana-value intervening-if) · Plaza of Heroes ✅ (+6 with five twins — "legendary" spend word; the among-legendary colour line de-laundered; the legendary grant + the artifact-creature-you-control grant Kotori's second half needs; the extras builder keeps restricted lines) · Mu Yanling L (planeswalker) · Nautiloid Ship L ("exiled with this Vehicle") · Windbrisk Heights L (hideaway) | 🔄 Mech Hangar ✅ (+1 corpus — "pilot" joined the restricted-spend type words; the S6 animate arm gained the UNSCOPED "target Vehicle" form (any controller, printed P/T kept; a scope-less "another" parks); and the fixed-type restricted any-colour line joined EXTRA_MANA_LINE_RE so the runtime OFFERS it (with its restriction) — without that the land credit was hollow, the credited-but-never-offered class the memory flags). |
+| S17 | COMPOSITE | Born to Drive · Katsumasa · Kotori · Mech Hangar · Mu Yanling · Nautiloid Ship · Padeem · Plaza of Heroes · Windbrisk Heights | size on approach | sized 2026-09-04: Mech Hangar S ✅ · Kotori ✅ (+1 — a layer-6 crew-number grant read at both crew sites as min(printed, granted); the trigger's grant arm came with Plaza) · Katsumasa M (animate-with-flying + a 1/1 base unless Vehicle; up-to-three counters) · Born to Drive M (a gated dynamic-count pump on an Aura + channel) · Padeem ✅ (+2 with Leonin Abunas — the noncreature-artifact hexproof shield + the greatest-artifact-MV intervening-if) · Plaza of Heroes ✅ (+6 with five twins — "legendary" spend word; the among-legendary colour line de-laundered; the legendary grant + the artifact-creature-you-control grant Kotori's second half needs; the extras builder keeps restricted lines) · Mu Yanling L (planeswalker) · Nautiloid Ship L ("exiled with this Vehicle") · Windbrisk Heights L (hideaway) | 🔄 Mech Hangar ✅ (+1 corpus — "pilot" joined the restricted-spend type words; the S6 animate arm gained the UNSCOPED "target Vehicle" form (any controller, printed P/T kept; a scope-less "another" parks); and the fixed-type restricted any-colour line joined EXTRA_MANA_LINE_RE so the runtime OFFERS it (with its restriction) — without that the land credit was hollow, the credited-but-never-offered class the memory flags). |
 
 ### 5.5 Kellan of the west — 70% · needs 15 · top-of-library deck (the wall: play-from-top)
 
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · S17 Padeem, Consul of Innovation (Shorikai; Leonin Abunas twin) ✅ +2 corpus · 7/7 killed · suite 1460 files / 15,977 tests · corpus 14,391 (42.0%) · **Shorikai reaches 85** · shelf refreshed in §1 · CI: UNBLOCKED — Colton made the repo PUBLIC (09-04, his order; Actions minutes unmetered on public repos; write access unchanged: Robak503 only). The held stack (42 commits) pushes with this commit; CI watched after..
 
 - 2026-09-04 — Phase 2 · S17 Kotori, Pilot Prodigy (Shorikai) ✅ +1 corpus · 6/6 killed · suite 1459 files / 15,971 tests · corpus 14,389 (42.0%) · shelf refreshed in §1 · CI: HELD — the month's Actions minutes are spent (Colton's screenshot, 09-04: 2,000/2,000, $0 budget); one push when the cycle resets.
 

@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Padeem, Consul of Innovation** and **Leonin Abunas** — your artifacts, creature or not, can't be targeted by opponents; Padeem's upkeep draw checks the biggest artifact on the table
 - **Kotori, Pilot Prodigy** — Vehicles you control crew for 2 while Kotori is out
 - **Plaza of Heroes** — its legendary-only mana no longer makes free colours; the exile-to-protect ability works; **Shizo**, **Shinka**, **Daily Bugle Building** grant to legendary creatures; **Untaidake** makes its restricted mana
 - **Mech Hangar** — its Pilot-or-Vehicle mana and its animate-any-Vehicle ability, as printed

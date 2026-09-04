@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · S17: PADEEM — the noncreature shield and the greatest artifact · **+2** · corpus 14,391 (42.0%) / 34,245 (42.0%) · **SHORIKAI 85 ✅**
+> Suite **1460 files / 15,977 tests** green; lint 0. Flip-diff **+2, zero LOST** (Padeem; Leonin Abunas — the same single line, audited). **7/7 killed.**
+> · **The shape:** "Artifacts you control have hexproof" produced NOTHING — the anthem lanes are creature-restricted on purpose
+>   (Aeronaut Admiral's flying on an uncrewed Vehicle is meaningless). Hexproof and shroud are the two keywords that bite
+>   on ANY permanent, because canBeTargetedBy reads the layered keyword for every permanent — so a new whole-line arm emits
+>   the addKeyword over the BARE card type (artifacts / enchantments / lands / planeswalkers), those two keywords only. An
+>   opponent's removal now refuses a Padeem-shielded Treasure; the owner still targets it.
+> · **The trigger:** "if you control the artifact with the greatest mana value or tied" — the greatest-power question one column
+>   over, asked of artifacts on every board; a self-contained mana-value reader (cmc, else the printed cost summed, X = 0)
+>   so a Treasure reads 0 and can still tie on an all-token board. Ties count, as printed.
+> · **The trap, again:** the first write of the evaluator arm went through a heredoc and the `\b` in `/\bArtifact\b/` landed as
+>   a BACKSPACE byte (§5 trap #1; `grep -c $'\b'` said 2 — the second was a pre-existing comment at line 363 from an
+>   earlier session, repaired in passing). Regex-bearing scripts go through Write-to-file, never a heredoc.
+> · **CI:** UNBLOCKED — Colton made the repo PUBLIC (09-04, his order; Actions minutes unmetered on public repos; write access unchanged: Robak503 only). The held stack (42 commits) pushes with this commit; CI watched after.
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · S17: KOTORI, PILOT PRODIGY — the crew-number grant · **+1** · corpus 14,389 (42.0%) / 34,245 (42.0%)
 > Suite **1459 files / 15,971 tests** green; lint 0. Flip-diff **+1, zero LOST**. **6/6 killed.**
 > · **The shape:** "Vehicles you control have crew 2" is a layer-6 ABILITY grant (CR 702.122 — a second crew ability), not a

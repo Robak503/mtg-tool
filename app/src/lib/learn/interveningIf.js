@@ -103,6 +103,25 @@ const CARD_TYPE_WORDS = ["artifact", "battle", "creature", "enchantment", "insta
 // with…") needs a referent this lane has no thread for, and an "each creature … with the greatest power"
 // universal is a different claim entirely — all fall through to null → Arbiter (CREED).
 const GREATEST_POWER_RE = /^you control (?:a creature with the greatest power among creatures on the battlefield|the creature with the greatest power or tied for the greatest power)$/;
+// ⭐ GREATEST MANA VALUE AMONG ARTIFACTS (SHELF-85 S17, 2026-09-04 — Padeem "you control the artifact with the greatest mana
+// value or tied for the greatest mana value"): the greatest-power question one column over, asked of ARTIFACTS on the
+// battlefield. Mana value is read from the card (cmc when the index carries it, else the printed cost summed: generic
+// digits at face value, X at 0, every other symbol — coloured, hybrid, phyrexian, snow — at 1, a numbered hybrid
+// {2/W} at its number, CR 202.3), so a Treasure token (no cost) reads 0 and can still tie on an all-token board.
+const GREATEST_ARTIFACT_MV_RE = /^you control the artifact with the greatest mana value or tied for the greatest mana value$/;
+function manaValueOfCardLocal(card) {
+  if (typeof card?.cmc === "number" && Number.isFinite(card.cmc)) return card.cmc;
+  const cost = String(card?.mana ?? card?.mana_cost ?? "");
+  let total = 0;
+  for (const sym of cost.match(/\{[^}]+\}/g) || []) {
+    const inner = sym.slice(1, -1);
+    if (/^\d+$/.test(inner)) total += Number(inner);
+    else if (/^x$/i.test(inner)) total += 0;
+    else if (/^(\d+)\/[wubrg]$/i.test(inner)) total += Number(inner.split("/")[0]);
+    else total += 1;
+  }
+  return total;
+}
 /** Distinct card types among the controller's graveyard. Reads only the type line's HEAD (before the em
  *  dash) so a subtype ("— Equipment") can never be miscounted as a card type. */
 function cardTypesInGraveyard(state, controllerId) {
@@ -341,7 +360,7 @@ function parseFilter(phrase) {
   // must be a single word now (no riders like "you control", "named ...", or an unmodeled power/toughness rider)
   if (!/^[a-z]+$/.test(p)) return null;
   // INVARIANT BASIC-LAND TYPES (CR 205.3i): "Plains" is spelled the same singular and plural — a naive
-  // trailing-s strip yields "Plain", whose Plain type-line scan matches NOTHING, so an intervening-if
+  // trailing-s strip yields "Plain", whose \bPlain\b type-line scan matches NOTHING, so an intervening-if
   // like "you control two or more Plains" would evaluate FALSE forever while interveningIfParseable still
   // returns true → a native-classified trigger that can never fire (Gwyllion / Duergar Hedge-Mage). Keep the
   // basic land types verbatim. (Island/Swamp/Mountain/Forest singularize correctly, but pinning all five is
@@ -1265,6 +1284,17 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     if (!everyone.length) return false;
     const max = Math.max(...everyone.map(({ p }) => creaturePower(p, state)));
     return everyone.some(({ p, pid }) => pid === controllerId && creaturePower(p, state) >= max);
+  }
+  // GREATEST MANA VALUE AMONG ARTIFACTS (Padeem) — every artifact on the battlefield, any controller; true when one of
+  // the controller's artifacts reaches the maximum (a tie counts, as printed). No artifacts anywhere → false.
+  if (GREATEST_ARTIFACT_MV_RE.test(c)) {
+    const everyone = [];
+    for (const pid of Object.keys(state.players || {})) {
+      for (const p of controllerBoard(state, pid)) if (/\bArtifact\b/.test(typeStr(p.card))) everyone.push({ p, pid });
+    }
+    if (!everyone.length) return false;
+    const max = Math.max(...everyone.map(({ p }) => manaValueOfCardLocal(p.card)));
+    return everyone.some(({ p, pid }) => pid === controllerId && manaValueOfCardLocal(p.card) >= max);
   }
 
   // ORDERING: this sits ABOVE the generic "you control <N> <filter>" family on purpose. That matcher

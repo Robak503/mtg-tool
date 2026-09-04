@@ -1915,6 +1915,18 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ layer: 6, op: { layerOp: "crewOverride", crew: Number(crewGrant[1]) }, affects: { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Artifact"], subtypes: ["Vehicle"] } }, duration: { kind: "permanent" } });
     return;
   }
+  // ⭐ NONCREATURE-PERMANENT TARGET SHIELD (SHELF-85 S17, 2026-09-04 — Padeem "Artifacts you control have hexproof"): the
+  // anthem lanes below are CREATURE-restricted by design (a keyword granted to a noncreature permanent is usually
+  // meaningless — Aeronaut Admiral's flying), so this line produced nothing and the card parked. Hexproof and shroud are
+  // the two keywords that DO bite on any permanent: canBeTargetedBy reads permanentHasKeyword, which the layer-6 derive
+  // answers for every permanent. So the selector is the bare card type — no Creature gate. Only those two keywords are
+  // admitted (an indestructible grant would need the destroy paths audited for noncreature reads first — CREED).
+  const shield = String(clause || "").match(/^(artifacts|enchantments|lands|planeswalkers) you control have (hexproof|shroud)\.?$/i);
+  if (shield) {
+    const type = shield[1][0].toUpperCase() + shield[1].slice(1, -1).toLowerCase();
+    out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: shield[2].toLowerCase() }, affects: { mode: "dynamic", selector: { controllerScope: "you", cardTypes: [type] } }, duration: { kind: "permanent" } });
+    return;
+  }
   // Strip flavor ability-word labels (CR 207.2c — they carry no rules meaning).
   // Metalcraft/Threshold/Delirium appear on STATIC clauses; the GY path re-strips
   // Threshold/Delirium below (no-op after this) for clarity. "Unlock Ability" is the

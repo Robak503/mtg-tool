@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · S17: Padeem (+2) — SHORIKAI AT 85 ✅** · suite **1460 files / 15,977 tests** green · corpus 14,391 (42.0%) / 34,245 (42.0%) · flip-diff +2 / 0 lost · 7/7 killed
+
+> The noncreature hexproof shield and the greatest-artifact intervening-if. **Shorikai 85 ✅ — the fourth deck at the Phase 2 bar** (Teval, Brago, Nekusar, Shorikai). Next deck in §5 order: Kellan of the west (74).
+> **CI:** UNBLOCKED — Colton made the repo PUBLIC (09-04, his order; Actions minutes unmetered on public repos; write access unchanged: Robak503 only). The held stack (42 commits) pushes with this commit; CI watched after.
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · S17: Kotori, Pilot Prodigy (+1)** · suite **1459 files / 15,971 tests** green · corpus 14,389 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 6/6 killed
 
 > The crew-number grant, read at both crew sites. Shorikai **84** (needs 1).
