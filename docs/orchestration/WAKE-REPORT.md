@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · N12: Teferi's Puzzle Box (+1)** · suite **effects/splitClauses.js (keep-whole) + effects/atoms/hand.js (hand-to-bottom-draw-same arm + applier; wheel draws through applyDrawEffect) + teferisPuzzleBox.test.js (6)** green · corpus 14,369 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 5/5
+
+> The draw-step hand tuck, drawing through the trigger-firing chokepoint. **NEKUSAR 85 — AT THE BAR the runbook sets for Phase 2 (§2: stop a deck at ≥85); its remaining rows (N1 transform gods, N13 Chaos Warp, N14, N15) stay ⬜ for Phase 3. Three decks at the bar today (Teval, Brago, Nekusar). Next deck in §5 order: Shorikai (72, needs 13).**
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · N11: Peer into the Abyss (+1)** · suite **effects/templateMatchers.js (matcher) + effects/parser.js (dispatch) + effects/atoms/misc.js (applier) + effects/programQueries.js (enemy intent) + peerIntoTheAbyss.test.js (6)** green · corpus 14,368 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 5/5
 
 > Half the library, half the life, rounded up. **Nekusar 84 (needs 1).** Next by §2: N12 Teferi's Puzzle Box (draw-step: hand to bottom, draw that many), then N13 Chaos Warp.

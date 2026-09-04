@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · N12: TEFERI'S PUZZLE BOX — hand to the bottom, draw that many · **+1** · corpus 14,369 (42.0%) / 34,245 (42.0%)
+> Suite **effects/splitClauses.js (keep-whole) + effects/atoms/hand.js (hand-to-bottom-draw-same arm + applier; wheel draws through applyDrawEffect) + teferisPuzzleBox.test.js (6)** green; lint 0. Flip-diff **+1, zero LOST**. **5/5.**
+> · **The shape:** "At the beginning of each player's draw step, that player puts the cards in their hand on the bottom of
+>   their library in any order, then draws that many cards." — the draw-step trigger's "that player" is the upkeep-player
+>   sentinel (the player whose step it is). The splitter keeps the sentence whole (", then" would sever the draw from
+>   its count); one composite atom tucks the hand to the bottom in the hand's current order ("in any order" is the
+>   player's unmade choice, never an illegal outcome) and draws that many THROUGH the trigger-firing draw chokepoint —
+>   Sheoldred / Phyrexian Tyranny see the draws (Nekusar's plan).
+> · **Follow-up on N10:** Dark Deal / Incendiary Command's wheel draws went through the silent drawCards; they now go
+>   through the same trigger-firing chokepoint (a wheel deck's whole point).
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · N11: PEER INTO THE ABYSS — half the library, half the life · **+1** · corpus 14,368 (42.0%) / 34,245 (42.0%)
 > Suite **effects/templateMatchers.js (matcher) + effects/parser.js (dispatch) + effects/atoms/misc.js (applier) + effects/programQueries.js (enemy intent) + peerIntoTheAbyss.test.js (6)** green; lint 0. Flip-diff **+1, zero LOST**. **5/5.**
 > · **The shape:** "Target player draws cards equal to half the number of cards in their library and loses half their life.

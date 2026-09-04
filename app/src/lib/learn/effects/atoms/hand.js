@@ -2,7 +2,7 @@
  * effects/atoms/hand.js — hand-disruption atoms (discard, discard-chosen).
  */
 
-import { handCardMatches } from "../../spellEffects.js";
+import { handCardMatches, applyDrawEffect } from "../../spellEffects.js"; // applyDrawEffect — the draw chokepoint that FIRES card-drawn triggers (N10 / N12 wheels)
 import { checkDiscardTriggers } from "../../triggers.js"; // TRIG-DISCARD (CR 701.9a) — fired at every discard site
 import { logEvent, opponentsOf, moveCardToZone, drawCards } from "../../gameState.js";
 import { setPendingHandDiscardChoice, setPendingDiscardChoice, setPendingImprintChoice, setPendingHandToLibraryTopChoice } from "../../pendingChoice.js";
@@ -379,6 +379,16 @@ export function discardClauseParser(clause) {
   // it all (atom.all → remaining Infinity). Unlocks the wheel (Wheel of Fortune / Reforge the Soul) when paired
   // with the existing each-player draw, and "discard your hand, then draw N" (Dangerous Wager). A rider
   // ("unless they pay 7 life" Tyrannize / "for each card discarded …") fails the `$` anchor → low → Arbiter.
+  // HAND-TO-BOTTOM, DRAW THAT MANY (SHELF-85 N12, 2026-09-04 — Teferi's Puzzle Box, on the draw-step trigger whose
+  // "that player" is the upkeep-player sentinel): the referent puts their whole hand on the bottom of their library, then
+  // draws that many. The count is read before the tuck; the tuck keeps the hand's current order ("in any order" is the
+  // player's choice — an unmade choice, never an illegal outcome); the draws go through the single draw chokepoint so
+  // draw watchers fire (Nekusar's plan).
+  {
+    if (/^the upkeep player puts the cards in their hand on the bottom of their library in any order, then draws that many cards$/.test(t)) {
+      return { op: "hand-to-bottom-draw-same", who: "upkeepPlayer", targetType: null };
+    }
+  }
   // EACH-PLAYER WHEEL BY OWN COUNT (SHELF-85 N10, 2026-09-04 — Dark Deal "Each player discards all the cards in their
   // hand, then draws that many cards minus one"; Incendiary Command's fourth mode, no minus): Tolarian Winds' composite
   // (count BEFORE the discard, pitch through the shared discard-all path so watchers fire, then draw) for EVERY seat —
@@ -403,6 +413,22 @@ export function discardClauseParser(clause) {
  * (Shattered Perception / Decaying Time Loop) breaks the match and the card stays parked (those alt-cost
  * keywords are unmodeled — a safe FN). An empty hand → discard nothing, draw nothing (a logged no-op).
  */
+/**
+ * SHELF-85 N12 (2026-09-04) — TEFERI'S PUZZLE BOX: the referent (ctx.upkeepPlayerId — the player whose draw step it is)
+ * puts every card in hand on the bottom of their library in the hand's current order, then draws that many. Absent
+ * referent → a clean no-op (never the ability's controller). An empty hand tucks nothing and draws nothing.
+ */
+export function applyHandToBottomDrawSame(state, atom, ctx) {
+  const pid = atom.who === "upkeepPlayer" ? ctx.upkeepPlayerId : ctx.controller;
+  if (!pid || !state.players?.[pid]) return state;
+  const hand = state.players[pid].hand || [];
+  const n = hand.length;
+  let next = state;
+  for (const c of hand) next = moveCardToZone(next, { playerId: pid, fromZone: "hand", toZone: "library", cardId: c.id }); // appended = the bottom (index 0 is the top)
+  if (n > 0) next = applyDrawEffect(next, { controller: pid, amount: n }); // through the trigger-firing chokepoint (Sheoldred / Tyranny see these draws)
+  return logEvent(next, { kind: "spell-effect", effect: "hand-to-bottom-draw-same", player: pid, amount: n, controller: ctx.controller });
+}
+
 export function applyDiscardHandDrawSame(state, atom, ctx) {
   // N10 — the EVERY-SEAT form (Dark Deal / Incendiary Command's mode): each player's own hand count is read first, every
   // hand is pitched (the shared each-player discard-all, so discard watchers fire), then each player draws their own
@@ -415,7 +441,7 @@ export function applyDiscardHandDrawSame(state, atom, ctx) {
     for (const p of pids) {
       const k = Math.max(0, counts[p] - (atom.minus || 0));
       drawn[p] = k;
-      if (k > 0 && next.players?.[p]) next = drawCards(next, { playerId: p, count: k });
+      if (k > 0 && next.players?.[p]) next = applyDrawEffect(next, { controller: p, amount: k }); // N12 follow-up: through the trigger-firing chokepoint, so a wheel's draws are seen by draw watchers
     }
     return logEvent(next, { kind: "spell-effect", effect: "discard-hand-draw-same", controller: ctx.controller, who: "eachPlayer", minus: atom.minus || 0, drawn });
   }
@@ -494,5 +520,6 @@ export const handResolvers = {
   "imprint": applyImprint, // IMPRINT (CR 207.2c) — the ETB exile-from-hand that STAMPS the permanent
   "discard": applyDiscard, // ===== EACH-PLAYER ===== target/each player discards N — victim chooses (CR 701.8)
   "discard-hand-draw-same": applyDiscardHandDrawSame, // TW-1 — Tolarian Winds' whole-hand cycle
+  "hand-to-bottom-draw-same": applyHandToBottomDrawSame, // SHELF-85 N12 — Teferi's Puzzle Box (the draw-step referent tucks their hand, draws that many)
   "look-at-hand": applyLookAtHand, // LOOK (CR 701.20e) — information only; the log carries the real contents
 };

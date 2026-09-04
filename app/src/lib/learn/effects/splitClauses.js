@@ -783,6 +783,14 @@ export function splitClauses(oracle) {
     // you control" parses HIGH as an optional exile, describing a card that MAY exile your creature and never
     // return it. The leading "you may" is peeled + stamped optional by the α2 wrapper AFTER keep-whole, so the
     // guard only has to admit the prefix; the inner blink parses exactly as the mandatory form does.
+    // HAND-TO-BOTTOM-THEN-DRAW-THAT-MANY keep-whole (SHELF-85 N12, 2026-09-04 — Teferi's Puzzle Box "At the beginning of
+    // each player's draw step, that player puts the cards in their hand on the bottom of their library in any order,
+    // then draws that many cards" — detectTriggers has already rewritten "that player" to the upkeep-player sentinel):
+    // "that many" is the hand count read BEFORE the tuck, so the ", then" split would sever the draw from its count.
+    if (/^the upkeep player puts the cards in their hand on the bottom of their library in any order, then draws that many cards\.?$/i.test(sentence)) {
+      clauses.push(sentence);
+      continue;
+    }
     // EACH-PLAYER DISCARD-THEN-DRAW-THAT-MANY keep-whole (SHELF-85 N10, 2026-09-04 — Dark Deal "Each player discards all
     // the cards in their hand, then draws that many cards minus one"; Incendiary Command's fourth mode without the
     // "minus one"): "that many" is each player's OWN discarded count, so the ", then" split would sever the draw from
