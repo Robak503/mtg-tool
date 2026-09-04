@@ -392,6 +392,7 @@ export function advanceStep(state) {
       ...emptied,
       extraTurns: xt.slice(0, -1),
       activePlayer: taker.player,
+      extraTurnOf: taker.player, // SHELF-85 V12: THIS turn is an extra turn of that player ("that turn's end step" delayed triggers read it)
       turn: state.turn + 1,
       phase: "beginning",
       step: "untap",
@@ -405,6 +406,7 @@ export function advanceStep(state) {
   return {
     ...emptied,
     activePlayer: nextActive,
+    extraTurnOf: null, // SHELF-85 V12: a normal rotation is nobody's extra turn
     turn: state.turn + 1,
     phase: "beginning",
     step: "untap",

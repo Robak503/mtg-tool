@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 V12: the extra-turn trio (+4)** · suite **1430 files / 15,790 tests** green · corpus 14,320 / 34,245 (41.8%) · flip-diff +4 / 0 lost · 8/8 mutations killed against a green witness (the timing word removed, 'that turn' read as 'any', the stamp never set, the stamp surviving rotation, the drain ignoring the stamp, 'you lose the game' unparsed, the controller never flagged, the AI guard removed)
+
+> Final Fortune, Last Chance and Warrior's Oath: the extra turn, then the loss at THAT turn's end step. Next row by the
+> runbook's §2: V13.
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 V11: Path of Ancestry (+1)** · suite **1429 files / 15,783 tests** green · corpus 14,316 / 34,245 (41.8%) · flip-diff +1 / 0 lost · 7/7 mutations killed against a green witness (the rider never parsing, the planner projection dropping it, the type-sharing check ignored, the detector arm removed, the tap record dropping it, the command zone ignored, the creature-spell gate removed — pinned on a Kindred instant)
 
 > The "when that mana is spent" scry rider rides the payment plan to the cast site. Parked beside it: the identity mana

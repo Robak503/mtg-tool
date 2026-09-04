@@ -596,10 +596,14 @@ export function matchChooseTypeDraw(oracle) {
  * a trigger there would need the special 514.3a extra-step handling this engine doesn't model) and
  * every "your next combat" wording (the engine's combat entry has its own combatBegin lane).
  */
-const DELAYED_TIMING = "(?:the next end step|your next end step|the next turn's upkeep|your next upkeep|the next turn's main phase|your next (?:precombat )?main phase)";
+// SHELF-85 V12 (2026-09-04 — Final Fortune / Last Chance / Warrior's Oath "Take an extra turn after this one. At the
+// beginning of THAT TURN'S end step, you lose the game."): "that turn" is the extra turn the same spell created —
+// fireScope `thatTurn`, which the drain honours only at the end step of the controller's extra turn (advanceStep stamps
+// `extraTurnOf` when it pops one), never the casting turn's own end step.
+const DELAYED_TIMING = "(?:the next end step|your next end step|that turn's end step|the next turn's upkeep|your next upkeep|the next turn's main phase|your next (?:precombat )?main phase)";
 function delayedTimingSpec(raw) {
   const t = String(raw).toLowerCase().trim();
-  const scope = /^your\b/.test(t) ? "yours" : "any";
+  const scope = /^that turn'?s\b/.test(t) ? "thatTurn" : /^your\b/.test(t) ? "yours" : "any";
   const step = /end step/.test(t) ? "end" : /upkeep/.test(t) ? "upkeep" : /main phase/.test(t) ? "main" : null;
   return step ? { fireStep: step, fireScope: scope } : null;
 }

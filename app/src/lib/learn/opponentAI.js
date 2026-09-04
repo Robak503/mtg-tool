@@ -782,6 +782,10 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     // single-target counters fire; counter+rider multi-target combos
     // (Suffocating Blast) and sub-threshold/unknown-cost targets stay held.
     // policy 'v1' recovers the legacy hold-everything for the A/B probe.
+    // SHELF-85 V12 (2026-09-04 — Final Fortune / Last Chance / Warrior's Oath): a spell that schedules its caster's OWN
+    // loss ("at the beginning of that turn's end step, you lose the game") is a gamble the AI never takes — it has no
+    // "I win this extra turn" oracle, and casting it otherwise is the one play that ends its game. A human may.
+    if ((actions[0].program?.atoms || []).some((a) => (a.op === "schedule-delayed" && /\byou lose the game\b/i.test(String(a.delayedClause || ""))) || (a.op === "win-game" && a.outcome === "lose" && a.who === "controller"))) continue; // + One with Death's immediate "you lose the game"
     if (programContainsCounter(actions[0].program)) {
       if (pol.counter === "v1") continue;
       const counterPick = pickCounterCast(state, aiPlayerId, actions);

@@ -150,6 +150,11 @@ export function applyWinGame(state, atom, ctx) {
     // "Target player loses the game" — flag every chosen player (Door to Nothingness targets one).
     let next = state;
     let any = false;
+    // SHELF-85 V12 — "you lose the game" (Final Fortune's delayed loss): the CONTROLLER is the one flagged.
+    if (atom.who === "controller" && next.players?.[ctx.controller]) {
+      next = { ...next, players: { ...next.players, [ctx.controller]: { ...next.players[ctx.controller], lostGame: true } } };
+      any = true;
+    }
     for (const t of ctx.targets || []) {
       if (t.type === "player" && next.players?.[t.id]) {
         next = { ...next, players: { ...next.players, [t.id]: { ...next.players[t.id], lostGame: true } } };
@@ -266,6 +271,11 @@ export function winGameClauseParser(clause /*, ctx */) {
   }
   if (t === "target player loses the game") {
     return { op: "win-game", who: "target", outcome: "lose", targetType: "player" };
+  }
+  // SHELF-85 V12 (2026-09-04 — Final Fortune's delayed "you lose the game"): the CONTROLLER loses — the Pact rider's flag,
+  // applied to "you". Exactly the bare sentence; a rider ("unless …") never anchors.
+  if (t === "you lose the game") {
+    return { op: "win-game", who: "controller", outcome: "lose", targetType: null };
   }
   return null;
 }

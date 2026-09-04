@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Final Fortune, Last Chance, Warrior's Oath** — take the extra turn and lose at its end step, as printed; the opponent AI never gambles on them
 - **Path of Ancestry** — spending its mana on a creature that shares a type with your commander now scries, as printed
 - **Scythecat Cub** — its second landfall each turn doubles the counters instead of adding one, as printed
 - **Valley Floodcaller** — each noncreature spell pumps and untaps your Birds, Frogs, Otters and Rats

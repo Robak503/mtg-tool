@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — V12: THE EXTRA-TURN TRIO — "at the beginning of that turn's end step, you lose the game" · **+4** · corpus 14,320 / 34,245 (41.8%)
+> Suite **1430 files / 15,790 tests** green; lint 0. Flip-diff **+4, zero LOST**. **8/8 mutations killed against a green witness (the timing word removed, 'that turn' read as 'any', the stamp never set, the stamp surviving rotation, the drain ignoring the stamp, 'you lose the game' unparsed, the controller never flagged, the AI guard removed).**
+> · **The shape:** the extra-turn atom and the delayed-trigger lane existed. New: the timing word "that turn's end step"
+>   (fireStep end, fireScope `thatTurn`); advanceStep stamps `extraTurnOf` on the turn it pops off the extra-turn stack
+>   and clears it on a normal rotation; the drain fires a thatTurn record only at the end step of the controller's extra
+>   turn — never the casting turn's own end step, never an opponent's — and "you lose the game" is the win-game atom
+>   with outcome lose on the controller (the Pact rider's flag, applied to "you"). Final Fortune, Last Chance,
+>   Warrior's Oath.
+> · **The AI never casts a spell carrying a delayed loss** (a written refusal beside the counter gate) — a human may.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — V11: PATH OF ANCESTRY — the "when that mana is spent" rider, built whole · **+1** · corpus 14,316 / 34,245 (41.8%)
 > Suite **1429 files / 15,783 tests** green; lint 0. Flip-diff **+1, zero LOST**. **7/7 mutations killed against a green witness (the rider never parsing, the planner projection dropping it, the type-sharing check ignored, the detector arm removed, the tap record dropping it, the command zone ignored, the creature-spell gate removed — pinned on a Kindred instant).**
 > · **The shape:** a reflexive trigger on the mana this source made, as one chain — manaModel.parseManaSpentRider stamps

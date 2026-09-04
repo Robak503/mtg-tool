@@ -85,7 +85,13 @@ export function drainDelayedTriggers(state, step, activePlayer) {
   const fired = [];
   for (const rec of queue) {
     const stepMatches = rec.fireStep === step;
-    const scopeMatches = rec.fireScope !== "yours" || rec.controller === activePlayer;
+    // SHELF-85 V12 — "that turn's end step" (Final Fortune): fires ONLY on a turn advanceStep stamped as the controller's
+    // extra turn. The casting turn is never stamped, so the loss cannot land on the turn the spell resolved; an
+    // opponent's turn or a normal later turn of the controller never matches either. (Two stacked extra turns: the
+    // record fires at the first one — a loss is a loss.)
+    const scopeMatches = rec.fireScope === "thatTurn"
+      ? (state.extraTurnOf != null && state.extraTurnOf === rec.controller && activePlayer === rec.controller)
+      : (rec.fireScope !== "yours" || rec.controller === activePlayer);
     if (!stepMatches || !scopeMatches) { keep.push(rec); continue; }
     // Matched → it ceases to exist either way; it only FIRES if its controller is still in the game.
     if (!state.players?.[rec.controller]) continue;
