@@ -394,6 +394,18 @@ export function matchImpulseDig(oracle) {
     if (!amount) return null;
     return { atom: { op: "impulse-dig", amount, keep: 1, restTo: "hand", chosenTo: "plotExile", filter: { nonland: true } }, rest: oracle.slice(lp[0].length).trim() };
   }
+  // ⭐ DAMAGE-SIZED DIG WITH A FREE CAST (SHELF-85 K8, 2026-09-04 — The Key to the Vault "look at that many cards from the top
+  // of your library. You may exile a nonland card from among them. Put the rest on the bottom of your library in a random
+  // order. You may cast the exiled card without paying its mana cost."): the impulse-dig pause sized by the trigger's
+  // combat damage (countContext, the same magnitude the rad/enrage counters read), a nonland pool, the rest bottomed at
+  // random, and the pick parked behind the DISCOVER decision (cast it free now, or leave it exiled — never to hand): the
+  // free cast happens as the ability resolves, which is exactly what the discover park models.
+  const kv = String(oracle).match(
+    /^look at that many cards from the top of your library\. you may exile a nonland card from among them\. put the rest on the bottom of your library in a random order\. you may cast the exiled card without paying its mana cost\.?/i,
+  );
+  if (kv) {
+    return { atom: { op: "impulse-dig", countContext: "combatDamageAmount", keep: 1, restTo: "bottom", restOrder: "random", chosenTo: "freeCastExile", filter: { nonland: true } }, rest: oracle.slice(kv[0].length).trim() };
+  }
   // (1) Plain keep-one dig — "put one of them into your hand and the rest|the other on the bottom|graveyard".
   const m = String(oracle).match(
     /^look at the top (\w+) cards? of your library\. put (one|two|three) of (?:them|those cards|these cards) into your hand and (?:put )?(?:the rest|the other) (on the bottom of your library(?: in (?:any|a random) order)?|into your graveyard)\.?/i,

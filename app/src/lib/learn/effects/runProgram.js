@@ -660,6 +660,17 @@ export function resolveImpulseDigChoice(state, cardId) {
   // K7 (Make Your Own Luck "it becomes plotted"): the pick leaves the library for EXILE carrying the plot stamp the plot
   // special action writes (`_plotted` + `_plottedTurn`, CR 702.171b — castable free on a LATER turn), then the rest are
   // disposed of by `restTo` (hand, for this card) exactly as any other dig.
+  // K8 (The Key to the Vault "you may cast the exiled card without paying its mana cost"): the pick leaves the library for
+  // exile and is parked behind the DISCOVER decision with a leave-exiled decline — the free cast is offered as the ability
+  // resolves (legalChoices.actionsDiscoverDecision), and declining leaves the card in exile, never in hand.
+  if (pc.chosenTo === "freeCastExile" && picked.length) {
+    const pl = next.players[pc.controller];
+    const moving = (pl.library || []).filter((c) => picked.includes(c.id));
+    next = { ...next, players: { ...next.players, [pc.controller]: { ...pl, library: (pl.library || []).filter((c) => !picked.includes(c.id)), exile: [...(pl.exile || []), ...moving] } } };
+    if (moving[0]) next = { ...next, pendingDiscover: { controller: pc.controller, cardId: moving[0].id, mv: null, declineTo: "exile" } };
+    toBottom = Math.max(0, lookedAt - picked.length);
+    keptIds = [];
+  }
   if (pc.chosenTo === "plotExile" && picked.length) {
     const pl = next.players[pc.controller];
     const moving = (pl.library || []).filter((c) => picked.includes(c.id)).map((c) => ({ ...c, _plotted: true, _plottedTurn: next.turn }));

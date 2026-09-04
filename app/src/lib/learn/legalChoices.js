@@ -585,7 +585,9 @@ function actionsDiscoverDecision(state, playerId) {
   const pd = state.pendingDiscover;
   if (!pd || pd.controller !== playerId) return [];
   const card = (state.players[playerId]?.exile || []).find((c) => c.id === pd.cardId);
-  const toHand = { kind: "discover-to-hand", playerId, cardId: pd.cardId, name: card?.name };
+  // K8 (The Key to the Vault): a park whose decline LEAVES the card exiled — the same action kind (so every driver's
+  // fallback still finds it), with the flag the dispatcher reads to skip the move to hand.
+  const toHand = { kind: "discover-to-hand", playerId, cardId: pd.cardId, name: card?.name, ...(pd.declineTo === "exile" ? { leaveExiled: true } : {}) };
   if (!card) return [toHand]; // defensive: the card vanished from exile → only the (no-op) hand option remains
   return [...castActionsFromZone(state, playerId, [card], "exile", null, true), toHand];
 }

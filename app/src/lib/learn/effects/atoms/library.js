@@ -392,7 +392,10 @@ export function applyReorderTopAtom(state, atom, ctx) {
 export function applyImpulseDigAtom(state, atom, ctx) {
   const player = state.players[ctx.controller];
   if (!player) return state;
-  const n = Math.min(Math.max(0, atom.amount || 0), player.library.length);
+  // K8 (The Key to the Vault "look at THAT MANY cards"): a trigger-context magnitude sizes the look (ctx[countContext] —
+  // the combat damage just dealt); absent → 0 → the clean no-op below, never a fabricated look.
+  const printed = atom.countContext ? Math.max(0, ctx?.[atom.countContext] || 0) : Math.max(0, atom.amount || 0);
+  const n = Math.min(printed, player.library.length);
   if (n === 0) {
     return logEvent(state, { kind: "spell-effect", effect: "impulse-dig", controller: ctx.controller, count: 0 });
   }

@@ -3,6 +3,16 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · K8: THE KEY TO THE VAULT — the damage-sized dig with a free cast · **+1** · corpus 14,404 (42.1%) / 34,245
+> Suite **1468 files / 16,016 tests** green; lint 0. Flip-diff **+1, zero LOST**. **6/6 killed.**
+> · **The shape:** the impulse-dig pause sized by a TRIGGER-CONTEXT magnitude (countContext "combatDamageAmount" — the same
+>   magnitude the rad/enrage counters read; absent → 0 → a clean no-op), a nonland pool, the rest bottomed at random, and
+>   the pick parked behind the DISCOVER decision with a leave-exiled decline. "You may cast the exiled card without paying
+>   its mana cost" happens AS THE ABILITY RESOLVES — a this-turn impulse window would have been an over-permission (CREED),
+>   and the discover park is exactly the cast-now-or-not decision, so it was reused with one flag: declining leaves the
+>   card in exile, never in hand. Same action kind, so every driver's fallback still finds it.
+> · **CI:** GREEN on Fblthp (run 33919024622); this slice pushes and is watched
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · K9: FBLTHP — the zone-stamped draw, the standalone target event, the shuffle-in · **+5** · corpus 14,403 (42.1%) / 34,245
 > Suite **1467 files / 16,012 tests** green; lint 0. Flip-diff **+5, zero LOST** (Fblthp; Angel of Fury / Cavalier of Gales / Alabaster Dragon — dies → shuffle it in; Livewire Lash — the granted becomes-target trigger). **11/11 killed.**
 > · **The ETB:** "draw a card. If it entered from your library or was cast from your library, draw two instead" — a draw with an

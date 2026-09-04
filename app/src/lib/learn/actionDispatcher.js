@@ -1961,7 +1961,8 @@ function applyFreeCastDecline(state, action) {
 // DISCOVER — put the parked (exiled) found card into the controller's hand; clear the pending decision.
 function applyDiscoverToHand(state, action) {
   let next = state;
-  if ((state.players[action.playerId]?.exile || []).some((c) => c.id === action.cardId)) {
+  // K8 (The Key to the Vault): a leave-exiled decline clears the park and moves nothing.
+  if (!action.leaveExiled && (state.players[action.playerId]?.exile || []).some((c) => c.id === action.cardId)) {
     next = moveCardToZone(state, { playerId: action.playerId, fromZone: "exile", toZone: "hand", cardId: action.cardId });
   }
   const { pendingDiscover: _drop, ...rest } = next;

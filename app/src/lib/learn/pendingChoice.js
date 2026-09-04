@@ -298,7 +298,7 @@ export function setPendingImpulseDigChoice(state, { controller, candidates, rest
       // CORPUS ④-C (Kinnan): where the pick goes ("hand" | "battlefield") and how the rest are bottomed (null = printed
       // order | "random" = a seeded shuffle). Threaded explicitly — an unlisted field is a silent drop.
       // K7 (Make Your Own Luck): "plotExile" — the pick leaves for exile carrying the plot stamp (runProgram settles it).
-      chosenTo: chosenTo === "battlefield" ? "battlefield" : chosenTo === "plotExile" ? "plotExile" : "hand",
+      chosenTo: chosenTo === "battlefield" ? "battlefield" : chosenTo === "plotExile" ? "plotExile" : chosenTo === "freeCastExile" ? "freeCastExile" : "hand",
       restOrder: restOrder === "random" ? "random" : null,
     },
   };
