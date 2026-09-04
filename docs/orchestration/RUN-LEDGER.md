@@ -3,6 +3,14 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-05 (day cron) — Phase 2 · T4: TITANIA, PROTECTOR OF ARGOTH — "a land you control is put into a graveyard from the battlefield" · **+1** · corpus 14,344 / 34,245 (41.9%)
+> Suite **1436 files / 15,830 tests** green; lint 0. Flip-diff **+1, zero LOST**. **4/4 mutations killed against a green witness (the subject arm removed, the graveyard-exit gate removed, the controller gate removed, the type gate removed).**
+> · **The shape:** the LAND twin of the artifact / enchantment "you control is put into a graveyard from the battlefield"
+>   watchers — scope `landYouControlPiG` on the permanentLeaves look-back (graveyard exit only: a fetch or a sacrifice
+>   fires, a bounce never does; controller-gated; the type line read off the look-back card). The ETB land reanimate
+>   and the 5/3 Elemental token already parsed.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-05 (day cron) — Phase 2 · T1c: BOGGART TRAWLER — "exile target player's graveyard" gets a side · **+5** · corpus 14,343 / 34,245 (41.9%)
 > Suite **1435 files / 15,824 tests** green; lint 0. Flip-diff **+5, zero LOST**. **2/2 mutations killed against a green witness (the intent case removed — ambiguous again; the side flipped to own).**
 > · **The shape:** the ETB already parsed to the exile-graveyard atom on a chosen player, but atomTargetIntent had no case

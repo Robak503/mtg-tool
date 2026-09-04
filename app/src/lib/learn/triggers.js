@@ -1809,6 +1809,11 @@ function classifyCondition(condRaw, cardName, cardType) {
     // HIGH and reference the SOURCE, not the leaving enchantment — no pronoun binding needed.
     if (pigSubj === "an enchantment you control")
       return { event: "permanentLeaves", scope: "enchantmentYouControlPiG", whose: "any" };
+    // SHELF-85 Phase 2 · T4 (2026-09-05 — Titania, Protector of Argoth "Whenever a land you control is put into a
+    // graveyard from the battlefield, create a 5/3 green Elemental creature token"): the LAND twin of the artifact /
+    // enchantment PiG scopes. Graveyard exit only (a fetch or a sacrifice fires, a bounce never does), controller-gated.
+    if (pigSubj === "a land you control")
+      return { event: "permanentLeaves", scope: "landYouControlPiG", whose: "any" };
   }
   // LEAVES (any zone): "a token you control leaves the battlefield" (Nadier's Nightblade) — fires on a token's
   // exit to ANY zone (death, sac, bounce, exile), CR 111.7. The token gate is on the leaving permanent's
@@ -6033,6 +6038,13 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // self-includes: an artifact-typed watcher (Summoning Station) firing on its OWN death is CR-correct.
       return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
         && /Artifact/.test(typeStr(triggeringPermanent.card));
+    case "landYouControlPiG":
+      // SHELF-85 Phase 2 · T4 (Titania) — "a land you control is put into a graveyard from the battlefield": the LAND
+      // analog of the artifact / enchantment PiG scopes. Graveyard exit only (leftToGraveyard) + controller gate; the
+      // type line read off the look-back card (a land animated at death is still a Land). The source self-includes.
+      return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
+        && triggeringPermanent.controller === sourcePermanent.controller
+        && /\bLand\b/.test(typeStr(triggeringPermanent.card));
     case "enchantmentYouControlPiG":
       // "an enchantment you control is put into a graveyard from the battlefield" (Wicked Visitor, Ashiok's
       // Reaper, Knight of Doves, Savior of the Sleeping) — the ENCHANTMENT analog of artifactYouControlPiG.
