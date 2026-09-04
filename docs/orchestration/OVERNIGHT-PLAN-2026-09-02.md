@@ -297,6 +297,7 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
   creature gets +X/+X" parses HIGH, but the activated lane admits {X} costs only for targets-per-X programs (`costXTargetCount`);
   an amountX magnitude has no runtime path (choose X from 1..affordable, thread xValue). The spell lane already does this for
   X spells — the activated twin is the work. Carriers: the {X} pumps on lands and creatures (count first).
+- ✅ **[STRIVE + "any number of target creatures" — SHIPPED as ④-AS, 2026-09-04 night (+11; 5/5 killed)]** (the sizing note follows for the record)
 - **[STRIVE + "any number of target creatures" — sized 2026-09-04 night, NOT built — Cindy lane]** After ④-AR the last
   count word on the creature lane is "any number of target creatures" (~60 carriers). The clean ones are the STRIVE cycle
   (Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Colossal Heroics, Desperate Stand,

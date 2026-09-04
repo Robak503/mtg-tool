@@ -1455,7 +1455,19 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         };
         // KICKED-SPELL-EFFECT: the NORMAL cast (kicked atoms skipped at resolution). For a kicked-spell, stamp
         // kicked:false explicitly so the dispatcher/AI distinguish it from the kicked variant.
-        actions.push(kickedSpell ? { ...common, kicked: false } : common);
+        // ⭐ STRIVE (CR 702.106 — ④-AS, 2026-09-04): "this spell costs {N} more to cast for each target beyond the first"
+        // rides the program as `strivePerTarget` (parseEffectProgram peels and stamps it). Each chosen subset pays the base
+        // cost plus N × (targets − 1), and a subset the player cannot fund is simply not offered — the printed card's
+        // own limit. A one-target (or zero-target) cast pays the base cost, exactly as printed.
+        let striven = common;
+        if (program.strivePerTarget && ch.targets.length > 1) {
+          const per = parseManaCost(program.strivePerTarget);
+          let cost = base.cost;
+          for (let i = 1; i < ch.targets.length; i++) cost = mergeManaCost(cost, per);
+          if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
+          striven = { ...common, cost, cmc: totalCmc(cost) };
+        }
+        actions.push(kickedSpell ? { ...striven, kicked: false } : striven);
         // The KICKED cast — kicker pips folded into the cost — when affordable on top of the base. Same target
         // combo (the kicked atoms are targetless), kicked:true → runEffectProgram runs the kickedOnly tail.
         if (kickedSpell && kickedSpellAffordable) {

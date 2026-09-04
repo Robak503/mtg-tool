@@ -499,16 +499,24 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
   // verb agrees back to the singular, the reduced clause parses on its own merits, and minTargets:0 / maxTargets:N lands
   // on a plain creature-targeting atom — the appliers already loop their chosen targets (applyCantBlock / destroy /
   // exile / pump all iterate atomTargets). Arms first, this last, exactly like the two fallbacks above.
-  const upToN = /\bup to (two|three|four) (target creatures)\b/i.exec(s);
+  // ⭐ "ANY NUMBER OF target creatures …" (④-AS, 2026-09-04 — the STRIVE cycle: Rouse the Mob, Blinding Flare, Aerial
+  // Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence): the same peel with an unbounded
+  // count — minTargets 0, maxTargets 99, `anyNumber` so targeting.expandAtoms offers the largest subsets first (capped
+  // by MAX_CAST_EXPANSIONS). The Strive COST rides the cast lane off program.strivePerTarget (parseEffectProgram).
+  const upToN = /\bup to (two|three|four) (target creatures)\b/i.exec(s) || /\b(any number of) (target creatures)\b/i.exec(s);
   if (upToN) {
     const reduced = s.replace(upToN[0], "target creature")
       .replace(/\btarget creature (gain|get|become|lose|have)\b/i, (_m, v) => `target creature ${v}s`)
-      .replace(/\btarget creature each (gains?|gets?)\b/i, (_m, v) => `target creature ${v.endsWith("s") ? v : v + "s"}`);
+      .replace(/\btarget creature each (gains?|gets?)\b/i, (_m, v) => `target creature ${v.endsWith("s") ? v : v + "s"}`)
+      .replace(/\b(gets? [+-]\d+\/[+-]\d+) and (gain|get)\b/i, (_m, head, v) => `${head} and ${v}s`); // "… each get +2/+0 and gain trample" → "gets … and gains trample"
     const innerN = parseClauseToAtom(cardType, reduced, hasX, sourceScoped);
     const plainN = innerN && KNOWN.has(innerN.op) && (innerN.targetType === "creature" || innerN.targetType === "creatureYouControl")
       && innerN.maxTargets == null && innerN.minTargets == null
       && !(innerN.role || innerN.secondaryRole || innerN.fighter || Array.isArray(innerN.targets));
-    if (plainN) return { ...innerN, minTargets: 0, maxTargets: SMALL_NUM[upToN[1].toLowerCase()] };
+    if (plainN) {
+      const anyNumber = /^any number of$/i.test(upToN[1]);
+      return anyNumber ? { ...innerN, minTargets: 0, maxTargets: 99, anyNumber: true } : { ...innerN, minTargets: 0, maxTargets: SMALL_NUM[upToN[1].toLowerCase()] };
+    }
   }
   return null;
 }
@@ -1249,11 +1257,29 @@ function stripDiscardCostAbilityForCast(oracle) {
   return kept.length === lines.length ? String(oracle || "") : kept.join("\n").trim();
 }
 
+/** STRIVE (CR 702.106 — ④-AS, 2026-09-04): "This spell costs {N} more to cast for each target beyond the first." The
+ * ability-word label is already stripped (④-AK); this reads the cost sentence off the oracle and hands back the
+ * per-extra-target cost string, or null. */
+const STRIVE_LINE = /^\s*this spell costs ((?:\{[^}]+\})+) more to cast for each target beyond the first\.?\s*$/im;
+function peelStriveLine(oracle) {
+  const m = STRIVE_LINE.exec(oracle);
+  if (!m) return { oracle, strive: null };
+  return { oracle: oracle.replace(m[0], "\n").replace(/^\s*\n/, "").trim(), strive: m[1] };
+}
+
 export function parseEffectProgram(card) {
   if (!isInstantOrSorcery(card) || !oracleOf(card)) return null;
   const stripped = stripDiscardCostAbilityForCast(oracleOf(card));
-  const subject = stripped === oracleOf(card) ? card : { ...card, oracle: stripped, oracle_text: stripped };
-  return parseEffectProgramWithSelfExileRetry(subject) ?? null;
+  // ⭐ STRIVE (④-AS): the cost sentence comes off and is STAMPED on the program as `strivePerTarget` — the cast lane
+  // (legalChoices' program-lane expansion) adds it once per chosen target beyond the first and re-checks affordability
+  // per subset. ⛔ THE STAMP IS THE POINT: peeling without stamping would credit Rouse the Mob at {R} for any number
+  // of targets — the forbidden over-offer (mutation-proven). A program that parses LOW stays LOW; the stamp never
+  // loosens anything.
+  const { oracle: destrived, strive } = peelStriveLine(stripAbilityWordLabel(stripped));
+  const body = strive ? destrived : stripped;
+  const subject = body === oracleOf(card) ? card : { ...card, oracle: body, oracle_text: body };
+  const prog = parseEffectProgramWithSelfExileRetry(subject) ?? null;
+  return prog && strive ? { ...prog, strivePerTarget: strive } : prog;
 }
 
 /**

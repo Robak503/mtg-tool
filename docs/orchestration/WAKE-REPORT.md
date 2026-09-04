@@ -7,6 +7,15 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (night cron) — **④-AS: Strive + "any number of target creatures" (+11)** · suite **1406 files / 15,608 tests** green · corpus 14,176 / 34,245 (41.4%) · flip-diff +11 / 0 lost · 5/5 killed
+
+> **Night tally (stage ④, forty-five slices):** … · AQ (+22) · AR (+16) · AS (+11; Strive's per-target cost on the cast
+> lane) — corpus 13,862 → 14,176.
+> **CI:** master green at f442c5c2 when pushed; this run watched
+> **Next runnable:** the count word on OTHER lanes ("any number of target enchantments" — Kiora's Dismissal; "destroy any number
+> of target artifacts and/or enchantments" — Consign to Dust, both Strive); the X-effect remainder (parked); the counted "up
+> to N" pick UI; a fresh deck walk.
+
 ## 🔢 2026-09-04 (night cron) — **④-AR: "up to two / three target creatures" on the creature lane (+16)** · suite **1405 files / 15,603 tests** green · corpus 14,165 / 34,245 (41.4%) · flip-diff +16 / 0 lost · 3/3 killed
 
 > **Night tally (stage ④, forty-four slices):** … · AO (+18) · AP (+0) · AQ (+22) · AR (+16) — corpus 13,862 → 14,165.

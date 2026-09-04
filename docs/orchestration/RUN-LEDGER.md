@@ -3,6 +3,26 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — ④-AS: STRIVE (CR 702.106) + "any number of target creatures" · **+11** · corpus 14,176 / 34,245 (41.4%)
+> Suite **1406 files / 15,608 tests** green; lint 0. Flip-diff **+11, zero LOST**. **5/5 killed.**
+> · **The shape:** "This spell costs {N} more to cast for each target beyond the first" over an "any number of target creatures"
+>   effect. Three seams, one slice: parseEffectProgram peels the cost sentence and STAMPS it on the program
+>   (`strivePerTarget`); the count peel reads "any number of target creatures" as minTargets 0 / maxTargets 99 / anyNumber
+>   (targeting.expandAtoms offers the largest subsets first); the program-lane cast expansion charges base + N × (targets − 1)
+>   per chosen subset and offers only what the player can fund. splitClauses' keep-whole guard admits the counted plural
+>   subject ("any number of target creatures each get +2/+0 and gain trample"). ⛔ Peeling WITHOUT stamping would have
+>   credited Rouse the Mob at {R} for any number of targets — the forbidden over-offer; the stamp-dropped and
+>   lane-ignored mutations are both KILLED by the "three targets for {R} is not offered" pin.
+> · **Who flipped:** the Strive cycle — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding,
+>   Desperate Stand, Ajani's Presence, Colossal Heroics (its "Untap those creatures" rides the referent chain), Harness by
+>   Force (gain control of any number, untap, haste) — plus Wild Pack Squad and Glade of the Pump Spells, whose "up to one
+>   target creature gains A and B" the widened keep-whole guard now delivers whole. Hour of Need, Silence the Believers,
+>   Twinflame, Nature's Panoply park on their riders.
+> · **Board-verified:** Rouse the Mob with {R}{R}+{2} against three bears offers 0 and 1 targets at {R}, 2 targets at
+>   {R}+{2}{R} (both get +2/+0 and trample; the third untouched; the pool emptied), and NEVER 3; with {R} alone only 0 or
+>   1; Blinding Flare ({R} per extra) with {R}{R}{R} reaches three targets, each paid, all three locked out of blocking.
+> · **CI:** master green at f442c5c2 when pushed; this run watched
+
 > ## 🔢 2026-09-04 (night cron) — ④-AR: "UP TO TWO / THREE target creatures …" on the creature lane · **+16** · corpus 14,165 / 34,245 (41.4%)
 > Suite **1405 files / 15,603 tests** green; lint 0. Flip-diff **+16, zero LOST**. **3/3 killed.**
 > · **The shape:** ④-AQ's fallback peel, one count word further — "up to two / three / four target creatures". The bounce and
