@@ -3,6 +3,28 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · H6 + H5: YOSHIMARU + KRENKO — and the dies look-back the twins forced · **+7** · corpus 14,417 (42.1%) / 34,245
+> Suite **1474 files / 16,048 tests** green; lint 0. Flip-diff **+7, zero LOST** (Yoshimaru, Krenko; Gimli, Jacked Rabbit, Royal Talon Fighter Jet, Rampant Rejuvenator, Big Mother Mouser — all audited whole-card). **8/8 killed (M9/M10 deleted with dead code; M11 equivalent).**
+> · **Yoshimaru:** "another legendary permanent you control enters" — the another-<subtype> etb watcher's regex takes one word;
+>   the supertype form rides the same otherSubtype scopes with a `legendaryFilter` (and a creature-only flag for Gimli's
+>   "another legendary creature"), LISTED in the descriptor assembly and enforced at scopeMatches. A plain artifact never fires it.
+> · **Krenko:** the possessive self-name rewrite anchored on exactly the counter-then-tokens grammar; "this creature's power" as a
+>   count phrase (the sourcePower kind); the vanilla token parser's "a number of P/T … tokens equal to <count>" form. Counter
+>   first, then Goblins equal to the NEW power.
+> · **The look-back the audit forced (the FP that nearly shipped):** Rampant Rejuvenator is a DIES trigger — "search for up to X
+>   basic lands, where X is this creature's power". By resolution the creature is gone; the source-power read fell back to
+>   last-known power only for a SACRIFICED source, so a creature that died to damage would have fetched ZERO lands — credited
+>   and hollow. The dies context already carried dyingPower; the read now uses it when the triggering permanent IS the source.
+>   A watcher of ANOTHER creature's death that dies alongside it never borrows the dying creature's power (pinned: 0 tokens,
+>   FN-safe). Big Mother Mouser's dies count rides its own plusCountersOnSource kind, which already looks back — a
+>   countersOnSource look-back I wrote first was unreachable for every card in the flip and was REMOVED, not kept.
+> · **Mutations:** 8/8 killed. Two arms deleted with the dead code they mutated (above); a third — dropping the self guard on
+>   the power look-back — was EQUIVALENT: the only path to the unguarded branch is a watcher that died in the same wrath as
+>   the creature it watches, and checkDiesTriggers does not fire a dead watcher's dies trigger. That is a CR 603.10a look-back
+>   the engine lacks — an FN (a Blood Artist that dies in a wrath sees nothing), recorded here, not fixed in this slice.
+> · **Shalai 75 → 77** (77/100). Next: Hajar (a legendary-only team pump), Spider-Man (the 'other' counter spray with a bound trample grant), then H4 Ragavan.
+> · **CI:** GREEN on Damning Verdict (run 33925136431); this slice pushes and is watched
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · H9: DAMNING VERDICT — Shalai opens · **+1** · corpus 14,410 (42.1%) / 34,245
 > Suite **1473 files / 16,040 tests** green; lint 0. Flip-diff **+1, zero LOST**. **5/5 killed.**
 > · **The shape:** the mass destroy already routed its filter phrase through parseCreatureTargetRestrictions, and the shared

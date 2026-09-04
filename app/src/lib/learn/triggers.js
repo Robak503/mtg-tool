@@ -1364,6 +1364,14 @@ function classifyCondition(condRaw, cardName, cardType) {
     // ⚠️ NON_SUBTYPE_ETB_WORDS is still checked on the SINGLE-word path: it is a DIFFERENT, ETB-specific
     // denylist from the one parseSubtypeList consults, so dropping it here would widen the single form as a
     // side effect of widening the list form. Both gates run.
+    // ⭐ ANOTHER LEGENDARY PERMANENT / CREATURE (SHELF-85 H6, 2026-09-04 — Yoshimaru "Whenever another legendary permanent
+    // you control enters"): the subtype watcher below takes ONE word and "legendary permanent" is two. The supertype form
+    // rides the SAME otherSubtype scopes with a `legendaryFilter` (and a creature-only flag for the creature form) — both
+    // LISTED in the descriptor assembly (an unlisted field is a silent drop) and enforced at scopeMatches off the type line.
+    const anotherLegM = etbSubj.match(/^another legendary (permanent|creature)( you control)?$/);
+    if (anotherLegM) {
+      return { event: "etb", scope: anotherLegM[2] ? "otherSubtypeYouControl" : "otherSubtypeAnywhere", whose: "any", subtypeFilter: "", legendaryFilter: true, ...(anotherLegM[1] === "creature" ? { legendaryCreatureOnly: true } : {}) };
+    }
     const anotherSubM = etbSubj.match(/^another (nontoken )?([a-z]+(?:(?:,\s*[a-z]{3,})*,?\s*(?:or|and)\s+[a-z]{3,})?)(?: you control)?$/);
     if (anotherSubM && (/(?:or|and)\s/.test(anotherSubM[2]) || !NON_SUBTYPE_ETB_WORDS.has(anotherSubM[2]))) {
       const sub = /(?:or|and)\s/.test(anotherSubM[2])
@@ -3662,6 +3670,11 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
     // pump parser re-gates the rewritten "double this creature's power …" form (→ doublePt self atom).
     if (new RegExp(`^double ${esc}['’]s power(?: and toughness)? until end of turn$`, "i").test(eff))
       return eff.replace(new RegExp(`${esc}['’]s`, "i"), "this creature's");
+    // H5 (Krenko, Tin Street Kingpin — "put a +1/+1 counter on it, then create a number of 1/1 red Goblin creature tokens
+    // equal to Krenko's power"): the possessive names the SOURCE in a token count. Whole-clause anchored on exactly this
+    // counter-then-tokens grammar, so it can never consume a possessive that names another permanent (CREED).
+    if (new RegExp(`^put a \\+1/\\+1 counter on (?:it|this creature), then create a number of \\d+/\\d+ [a-z ]+ creature tokens equal to ${esc}['’]s power$`, "i").test(eff))
+      return eff.replace(new RegExp(`${esc}['’]s power$`, "i"), "this creature's power").replace(/^put a \+1\/\+1 counter on it,/i, "put a +1/+1 counter on this creature,");
     // X-BY-OWN-POWER COUNTER GIFT (2026-08-12 — Halana and Alena, Partners: "put X +1/+1 counters on
     // another target creature you control, where X is <Name>'s power. That creature gains haste until
     // end of turn."): the SAME mid-clause possessive discipline as the Tifa arm directly above —
@@ -5162,6 +5175,8 @@ export function detectTriggers(card) {
         tapLockThatCreature: cls.tapLockThatCreature, // SELF combat-damage-to-CREATURE tap-and-lock (Kashi-Tribe family) — "tap that creature and it doesn't untap…". ⚠️ Unlisted here = dropped = the rewrite below never fires, the clause stays an unbindable "tap that creature and…" → LOW, and the card silently parks while the detector looks correct.
         exileThatCreature: cls.exileThatCreature, // SELF combat-damage-to-CREATURE exile (CAP4 — Kaldra Compleat's granted trigger). Same ⚠️ as its twins: unlisted = dropped = the rewrite never fires.
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
+        legendaryFilter: cls.legendaryFilter, // H6 (Yoshimaru) — "another legendary permanent/creature enters": scopeMatches gates on the supertype
+        legendaryCreatureOnly: cls.legendaryCreatureOnly, // H6 — the creature form of the above
         targeterIsController: cls.targeterIsController, // VALIANT becomesTarget only — "…a spell or ability YOU CONTROL"; checkBecomesTargetTriggers drops the trigger when the targeting stack object's controller isn't the targeted permanent's. ⚠️ Unlisted here = dropped = fires off an OPPONENT'S removal spell too, an over-fire, with the trigger looking correctly detected the whole time.
         requiresCounter: cls.requiresCounter, // COUNTER-PREDICATE dies/attacks scope only (BLITZ CNT-1 — "with a +1/+1 counter on it") — scopeMatches gate reads the triggering creature's live counter bag
         requiresModified: cls.requiresModified, // MODIFIED-PREDICATE combatDamageToPlayer (Kodama, W3 — CR 700.9) — scopeMatches gate via layers.isModifiedPermanent. ⚠️ Unlisted here = dropped = fires on EVERY connecting creature — the over-fire direction, with the detector looking correct.
@@ -6210,16 +6225,21 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // "another <SUBTYPE> you control enters" (Youthful Valkyrie / Champion of the Perished family).
       // Fires when a non-self permanent the source's controller controls carries the subtype in its type line.
       // Unlike subtypeYouControl (Pantlaza — "NAME or another SUBTYPE"), this NEVER self-triggers (id check).
+      // H6 (Yoshimaru): the supertype form gates on "Legendary" (and "Creature" for the creature form) instead.
       return !!triggeringPermanent
         && triggeringPermanent.id !== sourcePermanent.id
         && triggeringPermanent.controller === sourcePermanent.controller
-        && typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || "");
+        && typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || "")
+        && (!descriptor.legendaryFilter || /\bLegendary\b/.test(typeStr(triggeringPermanent.card)))
+        && (!descriptor.legendaryCreatureOnly || /\bCreature\b/.test(typeStr(triggeringPermanent.card)));
     case "otherSubtypeAnywhere":
       // "another <SUBTYPE> enters" — no controller restriction (Elvish Vanguard / Kavu Monarch / Arcbound Crusher).
       // Fires when any permanent from any controller carries the subtype, excluding the source itself.
       return !!triggeringPermanent
         && triggeringPermanent.id !== sourcePermanent.id
-        && typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || "");
+        && typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || "")
+        && (!descriptor.legendaryFilter || /\bLegendary\b/.test(typeStr(triggeringPermanent.card)))
+        && (!descriptor.legendaryCreatureOnly || /\bCreature\b/.test(typeStr(triggeringPermanent.card)));
     case "creatureYouControlPower":
       // POWER-THRESHOLD ETB — the entering creature you control with LAYER-RESOLVED power ≥ N (counters +
       // anthems included; checkEnterTriggers fires after the permanent + its enters-with counters are on

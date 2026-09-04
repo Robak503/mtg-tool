@@ -257,6 +257,10 @@ export function parseCountSource(phrase, opts = {}) {
 function baseCountSource(phrase, { allowTarget = false, allowScopes = false, allowBattlefield = false } = {}) {
   const p = String(phrase).trim().replace(/\.\s*$/, "");
   let m;
+  // SOURCE POWER (SHELF-85 H5, 2026-09-04 — Krenko, Tin Street Kingpin "create a number of 1/1 red Goblin creature tokens
+  // equal to Krenko's power", after the trigger rewrite names the source "this creature"): the ability's OWN permanent's
+  // live power, the countForSpec kind the source-stat block already reads (ctx.sourceId, layer-aware, sac-LKI aware).
+  if (/^this (?:creature|permanent)['’]s power$/.test(p)) return { kind: "sourcePower" };
   // SACRIFICED REFERENT (CR 608.2h + 603.6e LKI) — "the sacrificed creature's power / toughness / mana value"
   // (Fling, Tormented Thoughts, Reckoner's Bargain). The permanent is GONE by resolution, so the magnitude is
   // captured at COST-PAYMENT time by actionDispatcher and read from state by countForSpec. Placed in the SHARED

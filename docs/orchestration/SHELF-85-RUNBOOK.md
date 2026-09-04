@@ -68,7 +68,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Kinnan Mana Overload | 75 | 10 | 15 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Believe it! | 75 | 10 | 15 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Kellan of the west | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Joe | Halfshell heroes | 66 | 19 | 24 | ⬜ Phase 2 |
+| Joe | Halfshell heroes | 67 | 18 | 23 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 89 | 0 | 1 | ✅ at 85 · Phase 3 candidate |
@@ -76,13 +76,13 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Nekusar Wheels | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Shorikai Vehicles | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Shalai and Hallar Test | 75 | 10 | 15 | ⬜ Phase 2 |
+| Test | Shalai and Hallar Test | 77 | 8 | 13 | ⬜ Phase 2 |
 | Test | Otharri Test | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 69 | 16 | 21 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**9 decks below 85 · 128 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**9 decks below 85 · 125 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -346,8 +346,8 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | H2 | Starting Town | | V2 | |✅ |
 | H3 | Scythecat Cub | | V10 | |✅ |
 | H4 | Ragavan | combat damage: Treasure + exile their top card, may cast it this turn | M | Treasure (exists) + impulse from an opponent's library (the impulse-exile lane with an owner switch) | ⬜ |
-| H5 | Krenko, Tin Street Kingpin | attacks: +1/+1 counter, then Goblins = its power | S | attacks trigger + add-counter self + tokens countFor sourcePower (④-AW's reader) | ⬜ |
-| H6 | Yoshimaru, Ever Faithful | another legendary permanent enters → counter on Yoshimaru | S | ETB watcher with a `legendary` filter | ⬜ |
+| H5 | Krenko, Tin Street Kingpin | attacks: +1/+1 counter, then Goblins = its power | S | attacks trigger + add-counter self + tokens countFor sourcePower (④-AW's reader) | ✅ (+5 with Jacked Rabbit / Royal Talon Fighter Jet / Rampant Rejuvenator / Big Mother Mouser — the possessive rewrite, the source-power count phrase, the 'a number of … equal to' token form, and the DIES LOOK-BACK the two dying twins needed) |
+| H6 | Yoshimaru, Ever Faithful | another legendary permanent enters → counter on Yoshimaru | S | ETB watcher with a `legendary` filter | ✅ (+2 with Gimli — the another-permanent etb watcher gained a supertype filter, listed in the assembly, enforced at scopeMatches) |
 | H7 | Spider-Man, Miles Morales | enters or attacks: +1/+1 counter on each other creature you control; they gain flying? | S | | ⬜ |
 | H8 | Arwen, Weaver of Hope | each other creature you control enters with additional counters = … | M | an enters-with modifier static | ⬜ |
 | H9 | Damning Verdict | destroy all creatures with no counters on them | S | mass destroy + a `hasCounter` negation (④-AC's restriction, negated) | ✅ (+1 — the counter restriction joined the parser; the evaluator learned the negation) |
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · H6 + H5 Yoshimaru + Krenko (Shalai; five twins) ✅ +7 corpus · 8/8 killed (M9/M10 deleted with dead code; M11 equivalent) · suite 1474 files / 16,048 tests · corpus 14,417 (42.1%) · shelf refreshed in §1 · CI: GREEN on Damning Verdict (run 33925136431); this slice pushes and is watched.
 
 - 2026-09-04 — Phase 2 · H9 Damning Verdict (Shalai) ✅ +1 corpus · 5/5 killed · suite 1473 files / 16,040 tests · corpus 14,410 (42.1%) · shelf refreshed in §1 · CI: GREEN on Step Between Worlds (run 33924122267); this slice pushes and is watched.
 

@@ -686,6 +686,13 @@ export function countForSpec(state, ctx, spec) {
     if (!lk && spec.kind === "sourcePower" && refId && state?.sacrificedSelfLki?.permanentId === refId && typeof state.sacrificedSelfLki.power === "number") {
       return Math.max(0, state.sacrificedSelfLki.power);
     }
+    // DIED-SOURCE LOOK-BACK (SHELF-85 H5 twin — Rampant Rejuvenator "When this creature dies, search for up to X basic
+    // lands, where X is this creature's power", CR 608.2h / 603.10a): a self dies trigger reads the power the creature
+    // HAD as it left — the dies context's dyingPower — never 0 for a creature that died to damage. Only when the
+    // triggering permanent IS the source (a watcher of another creature's death keeps reading its own live power).
+    if (!lk && spec.kind === "sourcePower" && refId && ctx?.triggeringPermanentId === refId && typeof ctx?.dyingPower === "number") {
+      return Math.max(0, ctx.dyingPower);
+    }
     if (!lk || !/\bCreature\b/.test(String(lk.permanent.card?.type || lk.permanent.card?.type_line || ""))) return 0;
     return Math.max(0, stat.read(lk.permanent, state));
   }

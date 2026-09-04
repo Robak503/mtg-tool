@@ -797,6 +797,18 @@ function createTokenClauseParserCore(clause) {
   // X is [equal to] <count phrase>" — the count is a BOARD tally resolved at resolution (countForSpec),
   // never a cast {X}. The count phrase drops its "the [total] number of" lead and must map through
   // parseCountSource (an unmodeled source → null → Arbiter, never a fabricated count — CREED).
+  // "A NUMBER OF" DYNAMIC COUNT (SHELF-85 H5, 2026-09-04 — Krenko, Tin Street Kingpin "create a number of 1/1 red Goblin
+  // creature tokens equal to this creature's power"): the "X … where X is" form one wording over; the same parseCountSource
+  // gate (an unmodeled count → null → Arbiter, never a fabricated count).
+  const mnum = t.match(/^create a number of (\d+)\/(\d+) ([a-z/ ]+?) creature tokens equal to (.+)$/);
+  if (mnum) {
+    const toughness = parseInt(mnum[2], 10);
+    if (toughness < 1) return null;
+    const landMana = landTokenManaOracle(mnum[3]);
+    if (!landMana.ok || landMana.oracle) return null;
+    const countFor = parseCountSource(mnum[4].replace(/^the (?:total )?number of /, ""));
+    return countFor ? { op: "create-token", power: parseInt(mnum[1], 10), toughness, descriptor: mnum[3].trim(), countFor, targetType: null } : null;
+  }
   const mxw = t.match(/^create x (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?,? where x is (?:equal to )?(.+)$/);
   if (mxw) {
     const toughness = parseInt(mxw[2], 10);
