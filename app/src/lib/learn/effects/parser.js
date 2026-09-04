@@ -465,12 +465,34 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
   if (atom) return atom;
   const s = stripReminder(clause);
   const ref = /\b(target )(creature)( (defending player|that player) controls)\b/i.exec(s);
-  if (!ref) return null;
-  const inner = parseClauseToAtomCore(cardType, s.replace(ref[0], `${ref[1]}${ref[2]}`), hasX, sourceScoped);
-  const plainCreature = inner && KNOWN.has(inner.op) && inner.targetType === "creature"
-    && !(inner.role || inner.secondaryRole || inner.fighter || Array.isArray(inner.targets));
-  if (!plainCreature) return null;
-  return { ...inner, restrictions: [...(inner.restrictions || []), { kind: "controller", who: /^defending/i.test(ref[4]) ? "defendingPlayer" : "damagedPlayer" }] };
+  if (ref) {
+    const inner = parseClauseToAtomCore(cardType, s.replace(ref[0], `${ref[1]}${ref[2]}`), hasX, sourceScoped);
+    const plainCreature = inner && KNOWN.has(inner.op) && inner.targetType === "creature"
+      && !(inner.role || inner.secondaryRole || inner.fighter || Array.isArray(inner.targets));
+    if (plainCreature) return { ...inner, restrictions: [...(inner.restrictions || []), { kind: "controller", who: /^defending/i.test(ref[4]) ? "defendingPlayer" : "damagedPlayer" }] };
+  }
+  // ⭐ "UP TO ONE target creature …" (④-AQ, 2026-09-04 — "tap up to one target creature" (20 parked), "exile up to one
+  // target creature" (8), "return up to one target creature to its owner's hand" (5), "up to one target creature gets
+  // -N/-N"): CR 601.2c — the caster may choose zero. The PERMANENT lane already stamps minTargets:0 / maxTargets:1 for
+  // "up to one target artifact or enchantment" and the expanders honor it for any targetType (targeting.expandAtoms:
+  // maxTargets 1 with minTargets 0 → the zero-target subset is offered; the trigger flush takes the empty pick when
+  // the pool is empty). The CREATURE arms never learned the count word, so the whole clause fell to LOW. A FALLBACK
+  // (the arms first — the ETB-fight's optionalTarget and the optional single-target counter own their "up to one"
+  // whole): peel the count word, parse the reduced clause through the wrapper (so the referent fallback still
+  // applies), and stamp the same marker on a plain creature-targeting atom.
+  const upToOne = /\bup to one (target creature\b)/i.exec(s);
+  if (upToOne) {
+    const inner = parseClauseToAtom(cardType, s.replace(upToOne[0], upToOne[1]), hasX, sourceScoped);
+    // ⛔ CREATURE targets only (plain "creature", or "creatureYouControl" — targeting.expandAtoms' own-side branch reads
+    // the same marker). A reduced clause that lands elsewhere — "exile up to one target creature CARD from a graveyard"
+    // matches the same words but is a graveyardCard atom — is NOT stamped: that lane's zero-or-one expansion is its own
+    // slice, verified at its own expander first (mutation-proven: dropping this guard credits it unverified).
+    const plain = inner && KNOWN.has(inner.op) && (inner.targetType === "creature" || inner.targetType === "creatureYouControl")
+      && inner.maxTargets == null && inner.minTargets == null
+      && !(inner.role || inner.secondaryRole || inner.fighter || Array.isArray(inner.targets));
+    if (plain) return { ...inner, minTargets: 0, maxTargets: 1 };
+  }
+  return null;
 }
 
 function parseClauseToAtomCore(cardType, clause, hasX = false, sourceScoped = false) {
@@ -489,6 +511,19 @@ function parseClauseToAtomCore(cardType, clause, hasX = false, sourceScoped = fa
     .replace(/\beach of your opponents\b/gi, "each opponent")
     .replace(/\bhave (this creature|it|that creature) deal\b/gi, (_m, subj) => `${subj} deals`);
   if (!s) return null;
+
+  // ⭐ "UP TO ONE target creature …" (④-AQ, 2026-09-04 — "tap up to one target creature" (20 parked), "exile up to one
+  // target creature" (8), "return up to one target creature to its owner's hand" (5), "tap up to one target creature
+  // defending player controls" (3)): CR 601.2c — the caster may choose zero. The PERMANENT lane already stamps
+  // minTargets:0 / maxTargets:1 for "up to one target artifact or enchantment" and the expanders honor it for any
+  // targetType (targeting.expandAtoms: maxTargets 1 with minTargets 0 → the zero-target subset is offered; the trigger
+  // flush chooser takes the empty pick when the pool is empty). The CREATURE arms never learned the count word, so the
+  // whole clause fell to LOW. Peel it, parse the reduced clause on its own merits, and stamp the same marker on a
+  // plain single-target creature atom — the qualifier peel below then runs on the reduced text as usual.
+  // (The peel itself lives in the wrapper as a FALLBACK — see parseClauseToAtom: several arms own an "up to one" form
+  // whole with their own representation (the ETB-fight's optionalTarget, the optional single-target counter), and a
+  // peel that ran first stole those shapes — six suite files said so. The arms get the clause first; the peel runs
+  // only after every arm has refused.)
 
   // ⭐ COUNTER-BEARING TARGET (④-AC, 2026-09-03 — the graft cycle's "target creature with a +1/+1 counter on it
   // gains …", Razorfin Abolisher, Crumbling Ashes, Tempered Veteran; 29 carriers, 16 of which park on this

@@ -7,6 +7,15 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 1️⃣ 2026-09-04 (night cron) — **④-AQ: "up to one target creature" on the creature lane (+22)** · suite **1404 files / 15,600 tests** green · corpus 14,149 / 34,245 (41.3%) · flip-diff +22 / 0 lost · 3/3 killed
+
+> **Night tally (stage ④, forty-three slices):** … · AN (+2) · AO (+18) · AP (+0, the AI's combat activations) · AQ (+22) —
+> corpus 13,862 → 14,149.
+> **CI:** ④-AP's run (6bdcab76) in flight at commit time; ④-AQ pushes only after it is green
+> **Next runnable:** "up to one target creature" on the trigger-side referent forms already rides; the OTHER count words on the
+> creature lane ("up to two target creatures gets …" — count first); Feline Sovereign parks on "protection from Dogs";
+> the X-effect remainder (parked); a fresh deck walk.
+
 ## 🤖 2026-09-04 (night cron) — **④-AP: the AI uses the combat window (archers shoot, pumpers pump; +0 cards)** · suite **1403 files / 15,596 tests** green · 4/4 killed
 
 > Play quality, not coverage: the AI's picker now places combat-role activations on the right side in combat. The

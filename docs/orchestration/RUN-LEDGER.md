@@ -3,6 +3,29 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 1️⃣ 2026-09-04 (night cron) — ④-AQ: "UP TO ONE target creature …" on the creature lane · **+22** · corpus 14,149 / 34,245 (41.3%)
+> Suite **1404 files / 15,600 tests** green; lint 0. Flip-diff **+22, zero LOST**. **3/3 killed.**
+> · **The shape:** CR 601.2c — the caster may choose zero. The PERMANENT lane stamped minTargets:0 / maxTargets:1 for "up to
+>   one target artifact or enchantment" long ago and the expanders honor it for any targetType (the zero-target subset is
+>   offered; the trigger flush takes the empty pick when the pool is empty). The CREATURE arms never learned the count
+>   word — "tap up to one target creature" (20 parked), "exile up to one" (8), "return up to one … to its owner's hand"
+>   (5), "up to one target creature gets -N/-N", "up to one target creature can't be blocked" all fell to LOW. A peel in
+>   parseClauseToAtom reads the count word off, parses the reduced clause, and stamps the same marker on a plain
+>   single-target creature atom; the "up to N" multi-count tap keeps its own arm (falls through).
+> · **Who flipped:** the Marvel attack-tappers (War Machine, Baseball Bat, Greatsword of Tyr, Ant-Man's Air Force, Iceman and
+>   Firestar), the ETB bouncers (Moonsnare Specialist, Spider-Man 2099), the "up to one … gets -N/-N" ETBs (Nebelgast
+>   Intruder, Dubious Delicacy, Bleeding Edge, Dissection Practice, Offender at Large), Plunge into Winter, Vibrant
+>   Outburst, Key to the City, Aragorn King of Gondor, Timin, Host of the Hereafter, Zephyr Winder, High-Speed Hoverbike,
+>   Path to the World Tree.
+> · **Fallback-first, by the suite's own pins:** the first cut peeled EARLY and stole six files' shapes — the ETB-fight's
+>   `optionalTarget`, the optional single-target counter, the stun-counter "tap up to one target creature and put a stun
+>   counter on it". The peel now runs only after every arm has refused (the wrapper, beside the ④-AH referent fallback);
+>   the same 22 flip, every prior pin stands.
+> · **Board-verified:** Plunge into Winter offers the zero-target cast AND one cast per creature; the one-target cast taps
+>   it; the zero-target cast taps nothing (the "scry 1, then draw" tail pauses on the scry choice — a separate, shipped
+>   mechanism); Nebelgast Intruder's ETB into an empty board resolves cleanly with nothing on the stack.
+> · **CI:** ④-AP's run (6bdcab76) in flight at commit time; ④-AQ pushes only after it is green
+
 > ## 🤖 2026-09-04 (night cron) — ④-AP: the AI USES the combat window — archers shoot, pumpers pump (play quality; +0 cards)
 > Suite **1403 files / 15,596 tests** green; lint 0. Flip-diff **0 / 0** (no classification touched). **4/4 killed.**
 > · **The shape:** ④-AE opened combat-role activations to whichever player holds priority in combat, but the AI's generic
