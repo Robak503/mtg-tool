@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K8: Planar Nexus (+1)** · suite **1461 files / 15,982 tests** green · corpus 14,392 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 4/4 killed
+
+> Kellan opened: the self nonbasic-type add. Kellan **75** (needs 10). Monk Gyatso needs the airbend mechanic, Transcendent Dragon cast-from-exile; Recurring Insight (rebound is modeled) is the next honest S.
+> **CI:** GREEN — run 33910357246 on d17452a1 (the 42-commit stack; both shards, 11 steps each) after Colton made the repo PUBLIC; per-slice push + watch resumes
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · S17: Padeem (+2) — SHORIKAI AT 85 ✅** · suite **1460 files / 15,977 tests** green · corpus 14,391 (42.0%) / 34,245 (42.0%) · flip-diff +2 / 0 lost · 7/7 killed
 
 > The noncreature hexproof shield and the greatest-artifact intervening-if. **Shorikai 85 ✅ — the fourth deck at the Phase 2 bar** (Teval, Brago, Nekusar, Shorikai). Next deck in §5 order: Kellan of the west (74).

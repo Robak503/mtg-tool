@@ -67,7 +67,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kinnan Mana Overload | 75 | 10 | 15 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Believe it! | 75 | 10 | 15 | ⬜ Phase 2 (cEDH — LAST) |
-| Joe | Kellan of the west | 74 | 11 | 16 | ⬜ Phase 2 |
+| Joe | Kellan of the west | 75 | 10 | 15 | ⬜ Phase 2 |
 | Joe | Halfshell heroes | 66 | 19 | 24 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**10 decks below 85 · 140 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**10 decks below 85 · 139 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -331,7 +331,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | K5 | Rashmi, Eternities Crafter | first spell each turn: reveal top; if it costs less, cast it free | L | the top-of-library-play subsystem (One with the Multiverse, Eladamri, Mystic Forge, Fblthp, The Reality Chip share it) — THE WALL. Build as one L in its own slice or call the ceiling. | ⬜ |
 | K6 | Mind's Dilation | opponent's first spell each turn: exile their top card, you may cast it free | L | same wall (opponent's library) | ⬜ |
 | K7 | Make Your Own Luck · Unexpected Results · Portent of Calamity | look-at-top / reveal-and-cast shapes | M / M / L | | ⬜ |
-| K8 | Sakashima's Protege · Planar Nexus · Ellie and Alan · The Key to the Vault | clone / every-nonbasic-type / discover-X-from-graveyard / look-that-many | L / S / M / M | Planar Nexus = the ④-BE layer-4 subtype add with every nonbasic land type (S) | ⬜ |
+| K8 | Sakashima's Protege · Planar Nexus ✅ · Ellie and Alan · The Key to the Vault | clone / every-nonbasic-type / discover-X-from-graveyard / look-that-many | L / S ✅ / M / M | Planar Nexus = the ④-BE layer-4 subtype add with every nonbasic land type (S) | ⬜ |
 | K9 | COMPOSITE | Recurring Insight · Fblthp · Mystic Forge · Jace Reawakened · Bonny Pall · Doc Aurlock · Lock and Load · Savvy Trader · Step Between Worlds · Tezzeret the Seeker | size on approach | most sit on the K5 wall | ⬜ |
 
 **Ceiling note:** without the top-of-library-play subsystem Kellan tops out near 80. Decide at approach: build the
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · K8 Planar Nexus (Kellan) ✅ +1 corpus · 4/4 killed · suite 1461 files / 15,982 tests · corpus 14,392 (42.0%) · shelf refreshed in §1 · CI: GREEN — run 33910357246 on d17452a1 (the 42-commit stack; both shards, 11 steps each) after Colton made the repo PUBLIC; per-slice push + watch resumes.
 
 - 2026-09-04 — Phase 2 · S17 Padeem, Consul of Innovation (Shorikai; Leonin Abunas twin) ✅ +2 corpus · 7/7 killed · suite 1460 files / 15,977 tests · corpus 14,391 (42.0%) · **Shorikai reaches 85** · shelf refreshed in §1 · CI: UNBLOCKED — Colton made the repo PUBLIC (09-04, his order; Actions minutes unmetered on public repos; write access unchanged: Robak503 only). The held stack (42 commits) pushes with this commit; CI watched after..
 

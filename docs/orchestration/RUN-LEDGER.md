@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · K8: PLANAR NEXUS — every nonbasic land type · **+1** · corpus 14,392 (42.0%) / 34,245 (42.0%)
+> Suite **1461 files / 15,982 tests** green; lint 0. Flip-diff **+1, zero LOST**. **4/4 killed.**
+> · **The shape:** "This land is every nonbasic land type" — a SELF layer-4 subtype add of the ten types the card's own reminder
+>   text lists (CR 205.3i). Nothing intrinsic rides a nonbasic type (CR 305.6 is basic-only), so the runtime consequence is
+>   selector matching — "Gates you control", Urza's-land counts — which effectiveTypeIdentity already reads layer-aware.
+>   The land classifier admits the line only when the parser emitted that descriptor, the ④-BE vouch shape.
+> · ⚠️ **Flagged, not claimed:** the "{1}, {T}: Add one mana of any color" line is the credited-but-never-offered class
+>   (a mana-costed mana line; the runtime offers {C} only). The card was `land` on its mana lines before this slice; the
+>   witness pins that no free any-colour main is conjured. The multi-product fix is its own slice.
+> · **CI:** GREEN — run 33910357246 on d17452a1 (the 42-commit stack; both shards, 11 steps each) after Colton made the repo PUBLIC; per-slice push + watch resumes
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · S17: PADEEM — the noncreature shield and the greatest artifact · **+2** · corpus 14,391 (42.0%) / 34,245 (42.0%) · **SHORIKAI 85 ✅**
 > Suite **1460 files / 15,977 tests** green; lint 0. Flip-diff **+2, zero LOST** (Padeem; Leonin Abunas — the same single line, audited). **7/7 killed.**
 > · **The shape:** "Artifacts you control have hexproof" produced NOTHING — the anthem lanes are creature-restricted on purpose

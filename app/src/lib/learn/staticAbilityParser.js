@@ -3095,6 +3095,14 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ layer: 4, op: { subtypes: [Sub] }, affects: { mode: "dynamic", selector: { cardTypes: ["Land"] } }, duration: { kind: "permanent" } });
     return;
   }
+  // ⭐ THIS LAND IS EVERY NONBASIC LAND TYPE (SHELF-85 K8, 2026-09-04 — Planar Nexus; CR 205.3i lists the nonbasic land
+  // types, and the card's own reminder text names the ten): a SELF layer-4 subtype add. Nothing intrinsic rides a nonbasic
+  // type (CR 305.6 is basic types only), so the only runtime consequence is selector matching — "Gates you control",
+  // "Caves you control", Urza's-land counts — which effectiveTypeIdentity already reads layer-aware. Whole-clause anchored.
+  if (/^this land is every nonbasic land type\.?$/.test(c)) {
+    out.push({ layer: 4, op: { subtypes: ["Cave", "Desert", "Gate", "Lair", "Locus", "Mine", "Power-Plant", "Sphere", "Tower", "Urza's"] }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+    return;
+  }
   const mlaM = c.match(/^all lands are (\d+)\/(\d+) creatures that are still lands$/);
   if (mlaM) {
     out.push({ layer: 4, op: { types: ["Creature"] }, affects: { mode: "dynamic", selector: { cardTypes: ["Land"] } }, duration: { kind: "permanent" } });

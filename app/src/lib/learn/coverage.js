@@ -1836,6 +1836,9 @@ function landFullyCovered(card) {
   // enforcement flip together: the exemption is gated on that static actually being emitted for this card.
   const eachLandLineRe = /^each land is an? (?:plains|island|swamp|mountain|forest) in addition to its other land types\.?$/i;
   const grantsBasicType = parseStaticAbilities(card).some((e) => e?.layer === 4 && Array.isArray(e?.op?.subtypes) && e?.affects?.selector?.cardTypes?.includes("Land"));
+  // K8 (Planar Nexus) — a SELF layer-4 add carrying the nonbasic land types: the descriptor is the vouch, the same way
+  // grantsBasicType vouches ④-BE; the line is admitted only when the parser actually emitted it.
+  const selfNonbasicTypes = parseStaticAbilities(card).some((e) => e?.layer === 4 && e?.affects?.mode === "self" && Array.isArray(e?.op?.subtypes) && e.op.subtypes.includes("Urza's"));
   for (const line of afterTriggers.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (tapped && /^[^.]*\benters (?:the battlefield )?tapped\.?$/i.test(line)) continue;
     if (condLineRe && condLineRe.test(line)) continue;
@@ -1845,6 +1848,7 @@ function landFullyCovered(card) {
     if (chooseColorLineRe && chooseColorLineRe.test(line)) continue;
     if (chooseTypeLineRe && chooseTypeLineRe.test(line)) continue; // CAP-CAVERN
     if (grantsBasicType && eachLandLineRe.test(line)) continue; // ④-BE — the all-lands basic-type grant, enforced in manaSources
+    if (selfNonbasicTypes && /^this land is every nonbasic land type\.?$/i.test(line)) continue; // K8 — Planar Nexus, the self layer-4 add (effectiveTypeIdentity reads it)
     if (isManaLine(line)) continue;
     if (isActivatedAbilityLine(line, card)) continue; // vouched modeled/gy/mana by the .every above
     // LANDS-TIER slice 5 — a FROM-HAND discard ability on a land ("Channel — {3}{U}, Discard this card: …",
