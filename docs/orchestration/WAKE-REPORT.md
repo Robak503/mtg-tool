@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · S17: Kotori, Pilot Prodigy (+1)** · suite **1459 files / 15,971 tests** green · corpus 14,389 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 6/6 killed
+
+> The crew-number grant, read at both crew sites. Shorikai **84** (needs 1).
+> **CI:** HELD — the month's Actions minutes are spent (Colton's screenshot, 09-04: 2,000/2,000, $0 budget); one push when the cycle resets
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · S17: Plaza of Heroes (+6)** · suite **1458 files / 15,965 tests** green · corpus 14,388 (42.0%) / 34,245 (42.0%) · flip-diff +6 / 0 lost · 8/8 killed
 
 > Legendary mana de-laundered, the legendary grant, Kotori's grant half. Shorikai **83** (needs 2).

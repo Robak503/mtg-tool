@@ -71,7 +71,7 @@ import { applyCounterDoubling } from "./replacementEffects.js"; // LANDS-9: the 
 import { isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
 import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses · LANDS-5: the ONE discard-ability price reducer the offer uses too
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf } from "./layers.js";
+import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf, crewCostWithOverrides } from "./layers.js";
 import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost
 import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers, checkBecomesCrewedTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers; S7 — becomes-crewed
 import { setPendingSoftCounterChoice, setPendingOptionalLifePaymentChoice } from "./pendingChoice.js"; // setPendingOptionalLifePaymentChoice — the shockland pause (LANDS-TIER slice 2), raised from the play-land path
@@ -1153,7 +1153,7 @@ function applyCrewVehicle(state, action) {
   const vehicle = lk.permanent;
   if (!/\bVehicle\b/.test(String(vehicle.card?.type || ""))) throw new DispatcherError("Not a Vehicle", "BAD_TARGET");
   if (permanentIsCreature(state, vehicle.id)) throw new DispatcherError("Vehicle is already a creature", "BAD_TARGET");
-  const n = parseCrewCost(vehicle.card);
+  const n = crewCostWithOverrides(state, vehicle.id, parseCrewCost(vehicle.card)); // S17 — the crew-number grant, re-read at dispatch
   if (n == null) throw new DispatcherError("No crew cost", "BAD_TARGET");
   let power = 0;
   for (const id of action.tapIds || []) {

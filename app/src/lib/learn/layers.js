@@ -1889,6 +1889,21 @@ export function permanentTypes(state, permanentId) {
  * type layer only ADDS types (it never strips them — see applyTypeColorLayers),
  * so for an unanimated card this is exactly the printed type-line creature check.
  */
+/**
+ * CREW NUMBER WITH GRANTS (SHELF-85 S17, CR 702.122) — Kotori's "Vehicles you control have crew 2" is a layer-6 grant of
+ * a SECOND crew ability, so the Vehicle's cheapest crew is the minimum of its printed number and every live grant that
+ * selects it. `printed` is the caller's parseCrewCost read (abilities.js is upstream of this module, so it is passed
+ * in); null stays null — a grant never conjures crew onto a Vehicle that prints none, and a non-Vehicle never matches
+ * the grant's selector. The derive's appliedEffects already carry the op, so this is a read, never a new collection.
+ */
+export function crewCostWithOverrides(state, permanentId, printed) {
+  if (printed == null) return null;
+  const grants = (deriveCharacteristics(state, permanentId)?.appliedEffects || [])
+    .filter((e) => e.layer === 6 && e.op?.layerOp === "crewOverride" && Number.isInteger(e.op.crew))
+    .map((e) => e.op.crew);
+  return grants.length ? Math.min(printed, ...grants) : printed;
+}
+
 export function permanentIsCreature(state, permanentId) {
   return permanentTypes(state, permanentId).types.includes("Creature");
 }

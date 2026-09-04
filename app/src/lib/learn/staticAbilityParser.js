@@ -1902,6 +1902,19 @@ function termFor(word, excludeSelf) {
 }
 
 function parseClause(clause, out, selfName, selfType) {
+  // ⭐ CREW-NUMBER GRANT (SHELF-85 S17, 2026-09-04 — Kotori, Pilot Prodigy "Vehicles you control have crew 2", CR 702.122):
+  // a layer-6 ability grant, not a keyword: the Vehicle gains a SECOND crew ability with number N, so its cheapest crew
+  // is min(printed, N). Rides the SAME dynamic selector the tribal anthems use (Artifact + Vehicle subtype, your
+  // control), so an uncrewed Vehicle — an artifact, not a creature — is reached; keywordSet ignores an op with no
+  // `keyword`, and layers.crewCostWithOverrides reads it at both crew sites. Lives HERE, not in the outer loop, because
+  // staticAbilitiesCoverCard and clauseProducesStatic call parseClause directly — an arm above it is a runtime-only
+  // descriptor the classifier never sees. The NON_CREATURE_SUBTYPES exclusion (Aeronaut Admiral) is about
+  // CREATURE-restricted keyword grants and does not apply: crew is an ability of the artifact itself.
+  const crewGrant = String(clause || "").match(/^vehicles you control have crew (\d+)\.?$/i);
+  if (crewGrant) {
+    out.push({ layer: 6, op: { layerOp: "crewOverride", crew: Number(crewGrant[1]) }, affects: { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Artifact"], subtypes: ["Vehicle"] } }, duration: { kind: "permanent" } });
+    return;
+  }
   // Strip flavor ability-word labels (CR 207.2c — they carry no rules meaning).
   // Metalcraft/Threshold/Delirium appear on STATIC clauses; the GY path re-strips
   // Threshold/Delirium below (no-op after this) for clarity. "Unlock Ability" is the

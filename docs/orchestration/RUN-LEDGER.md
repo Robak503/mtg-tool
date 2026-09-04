@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · S17: KOTORI, PILOT PRODIGY — the crew-number grant · **+1** · corpus 14,389 (42.0%) / 34,245 (42.0%)
+> Suite **1459 files / 15,971 tests** green; lint 0. Flip-diff **+1, zero LOST**. **6/6 killed.**
+> · **The shape:** "Vehicles you control have crew 2" is a layer-6 ABILITY grant (CR 702.122 — a second crew ability), not a
+>   keyword: the descriptor carries `crewOverride: 2` over an Artifact + Vehicle selector under your control, keywordSet
+>   ignores it (no `keyword`), and a new layers.crewCostWithOverrides reads min(printed, granted) at BOTH crew sites —
+>   legalChoices' offer and the dispatcher's re-verify — so the Bear crews a Crew-4 Vehicle only while Kotori is out, and
+>   a Crew-1 Vehicle is never made dearer. Null printed stays null (a grant conjures no crew onto a Vehicle without one).
+> · **The trap:** the arm first sat in parseStaticAbilities' outer loop — the runtime saw it, the classifier did not, because
+>   staticAbilitiesCoverCard and clauseProducesStatic call parseClause DIRECTLY. Moved into parseClause; the tier flipped
+>   only then. The Aeronaut Admiral exclusion (creature-restricted keyword grants to Vehicles) is untouched and pinned.
+> · **CI:** HELD — the month's Actions minutes are spent (Colton's screenshot, 09-04: 2,000/2,000, $0 budget); one push when the cycle resets
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · S17: PLAZA OF HEROES — legendary mana, de-laundered, and the legendary grant · **+6** · corpus 14,388 (42.0%) / 34,245 (42.0%)
 > Suite **1458 files / 15,965 tests** green; lint 0. Flip-diff **+6, zero LOST**. **8/8 killed.**
 > · **The shape:** three lines — "Spend this mana only to cast a legendary spell" ("legendary" joined the restricted-spend
