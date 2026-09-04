@@ -237,6 +237,13 @@ are subsystem-scale (morph ~164, initiative/ring ~126, quoted-grant statics ~133
 
 ---
 
+### §4-END — where the grind goes next (Colton, 2026-09-04 06:20Z)
+The corpus census ran dry of ≥3-card families with existing machinery on the night of 09-04 (fifty-seven stage-④
+slices; corpus 13,862 → 14,242). Colton's new standing order supersedes the residue loop: **every shelf deck to ≥85%,
+then the hard wins, then the Omnath list** — the durable plan is
+[SHELF-85-RUNBOOK.md](SHELF-85-RUNBOOK.md). A cron that reaches this line with §1–§3 met opens that runbook and
+follows its §2 selection rule; §5 below stays the per-slice law for every slice it ships.
+
 ## §5 THE PER-SLICE DISCIPLINE — never skip a step (SHELF-TAIL-PLAN §2, plus what 09-02 re-taught)
 
 probe (print the FULL oracle + which line blocks — half the "gaps" are one missing arm on machinery that

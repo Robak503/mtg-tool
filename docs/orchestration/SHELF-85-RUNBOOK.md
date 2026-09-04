@@ -1,0 +1,472 @@
+# THE SHELF-85 RUNBOOK — every shelf deck to ≥85% native, then the hard wins, then the Omnath list
+
+> **Standing order (Colton, 2026-09-04 06:20Z):** bring EVERY shelf deck — the test shelf, Joe's and Colton's — to at
+> least 85% native coverage; after that, sweep for any hard wins still doable and take them; then hand Omnath a final
+> list of everything that stays parked. This file is the durable plan: a cron or loop boots from it, picks the next
+> item, ships it through the discipline, marks it in place, and stops at a stage boundary. It is written to be
+> executed by a chat that has read nothing else.
+>
+> **Written 2026-09-04 (Cindy).** Measured that night: 30 decks, 14 below 85, 233 card-slots short of the bar
+> in total. Live percentages beat the numbers here — re-measure in §0 before trusting a row.
+
+---
+
+## 0. BOOT RITUAL (a fresh chat starts here; under two minutes)
+
+1. Read this file top to bottom once. Then read the top block of [WAKE-REPORT.md](WAKE-REPORT.md) for the live state.
+2. Every engine command runs from `app/` with `MTG_APP_ROOT="C:\Users\colto\AppData\Roaming\com.colton.mtg-tool"`
+   (in bash: `MTG_APP_ROOT="C:/Users/colto/AppData/Roaming/com.colton.mtg-tool"`).
+3. Re-measure the shelf: `node scripts/measure-coverage.mjs` (whole shelf) — paste the PER-DECK table into §1's
+   live table if any number moved. Per deck: `node scripts/measure-coverage.mjs "<deck substring>"`.
+4. Take the session's corpus baseline BEFORE the first edit:
+   `node scripts/tier-snapshot.mjs --out=<scratch>/before.json`.
+5. Find the next item with the §2 selection rule. If a row is marked 🔄 (in flight), CONTINUE it — never restart.
+6. Ship it through §3 (the discipline), mark the row, update §1's table, push, confirm CI green, take the next row.
+7. Stop only at a stage boundary (§4 lists them) — update the wake report there. If nothing is actionable, write
+   that in one line in the wake report and stop.
+
+**The four instruments** (all in `app/scripts/`, all read the same `classifyCard` the metric uses, so they cannot
+disagree about "native"):
+
+| Instrument | Question it answers | Command |
+|---|---|---|
+| `measure-coverage.mjs [deck]` | how far is a deck from the bar; the mechanism histogram | `node scripts/measure-coverage.mjs "Teval"` |
+| `deck-gap.mjs <deck>` | WHICH cards in a deck are not native, with tier and bucket | `node scripts/deck-gap.mjs "Teval"` |
+| `shelf-gap-ledger.mjs --md` | the sized per-deck, per-card list: ONE-CARD vs COMPOSITE vs shared | `node scripts/shelf-gap-ledger.mjs --md > ledger.md` |
+| `probe-shelf-one-line-away.mjs --limit=200` | shelf cards exactly one oracle line from native, ranked by decks touched | `node scripts/probe-shelf-one-line-away.mjs --limit=200` |
+| `tier-snapshot.mjs --out / --diff` | the flip-diff (GAINED / LOST / RETIERED) — the zero-LOST gate | `node scripts/tier-snapshot.mjs --diff=before.json,after.json` |
+
+---
+
+## 1. DEFINITION OF DONE + THE LIVE TABLE
+
+**Done** = every deck in the table below reads ≥85% on `measure-coverage`, OR carries a written **CEILING** call
+in its §5 section (what is left, why it is unbuildable-class under the CREED, and the date Omnath was told).
+After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles the Omnath list.
+
+**The bar is per deck, not aggregate.** A slot is "native" only when the runtime actually plays the card
+(the CREED — false-negative safe, false-positive forbidden). Nothing is credited that the engine cannot play.
+
+### 1.1 Live table (update in place after every slice; measured 2026-09-04 06:15Z)
+
+| Shelf | Deck | Native | Needs to 85 | Needs to 90 | Status |
+|---|---|---|---|---|---|
+| Colton | Omnath, Locus of Mana | 94 | — | — | ✅ at the bar |
+| Colton | Vihaan, Goldwaker | 94 | — | — | ✅ at the bar |
+| Colton | Zaxara kinda X'ish | 92 | — | — | ✅ at the bar |
+| Colton | Veyran Cantrips | 90 | — | — | ✅ at the bar (④-BD) |
+| Colton | The Unbeatable Squirrel Girl | 90 | — | — | ✅ at the bar |
+| Colton | cdh | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
+| Colton | Killer Turts | 64 | 21 | 26 | ⬜ Phase 2 |
+| Joe | Did you say Dragons? | 91 | — | — | ✅ at the bar |
+| Joe | Earth Bent | 90 | — | — | ✅ at the bar (④-BE) |
+| Joe | Mothman Cometh | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
+| Joe | Captain America Shoot your Shot | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
+| Joe | Hulk Smash | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
+| Joe | Wolverine, claws out! | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
+| Joe | Jurassic Ramp | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
+| Joe | Kinnan Mana Overload | 72 | 13 | 18 | ⬜ Phase 2 (cEDH — LAST) |
+| Joe | Believe it! | 71 | 14 | 19 | ⬜ Phase 2 (cEDH — LAST) |
+| Joe | Kellan of the west | 70 | 15 | 20 | ⬜ Phase 2 |
+| Joe | Halfshell heroes | 64 | 21 | 26 | ⬜ Phase 2 |
+| Test | Slivers | 95 | — | — | ✅ at the bar |
+| Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
+| Test | Test Rashmi | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
+| Test | Teval, the Balanced Scale Test | 75 | 10 | 15 | ⬜ Phase 2 |
+| Test | Brago Blink | 74 | 11 | 16 | ⬜ Phase 2 |
+| Test | Nekusar Wheels | 71 | 14 | 19 | ⬜ Phase 2 |
+| Test | Shorikai Vehicles | 70 | 15 | 20 | ⬜ Phase 2 |
+| Test | Shalai and Hallar Test | 69 | 16 | 21 | ⬜ Phase 2 |
+| Test | Otharri Test | 68 | 17 | 22 | ⬜ Phase 2 |
+| Test | Bumble Flower Combo | 64 | 21 | 26 | ⬜ Phase 2 |
+| Test | Atraxa Superfriends | 64 | 21 | 26 | ⬜ Phase 2 |
+| Test | Light-Paws Voltron | 61 | 24 | 29 | ⬜ Phase 2 |
+
+**14 decks below 85 · 233 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
+most unbuildable-class residue (§5 marks it).
+
+### 1.2 Standing exclusions (never build these; they go straight to the Omnath list)
+
+- **Theft is never trained** (Colton, 2026-08-15): any card that takes or exchanges control stays parked ON PURPOSE —
+  Gilded Drake (Kinnan), Eriette's Tempting Apple (Bumble Flower), Commandeer (Believe it!), Kellogg. Mark ⛔ THEFT.
+- **cEDH decks grind LAST** (Colton, 2026-08-15): Believe it! and Kinnan are the final two Phase 2 decks. Their §5
+  sections are sized so the order is honest, not so they are skipped.
+- **Pre-game and hidden-information effects** (Gemstone Caverns' opening-hand clause, Doomsday's pile, Tainted Pact /
+  Demonic Consultation's reveal-until, Lim-Dûl's Vault) — no pregame seam exists; mark 🅿 CEILING unless a seam is built
+  deliberately as its own subsystem (not inside this runbook).
+- **A card the CREED cannot express** (Scythecat Cub's "second time this ability has resolved this turn" is the
+  reference — parked by design in `effectAtoms.js`) — mark 🅿 CREED unless the missing predicate is built honestly and
+  end-to-end (a per-source per-turn resolution counter is expressible; see §5 Shalai).
+
+---
+
+## 2. THE SELECTION RULE (what a wake-up does)
+
+1. If any row anywhere in §4 or §5 is marked **🔄** — that slice is mid-flight: continue it, never restart or re-probe.
+2. Otherwise take the FIRST row marked **⬜** in this order:
+   1. **Phase 1 — cross-deck veins** (§4.1), top to bottom. A vein pays in ≥2 decks; build the SHARED machinery once.
+   2. **Phase 2 — deck by deck, closest to the bar first** (§5 order: Teval → Brago → Nekusar → Shorikai → Kellan →
+      Shalai → Otharri → Bumble Flower → Atraxa → Halfshell → Killer Turts → Light-Paws → Kinnan → Believe it!).
+      Inside a deck: every **S** row, then **M** rows, then **L** rows; stop the deck the moment `measure-coverage`
+      reads ≥85 and move to the next deck (the remaining rows stay ⬜ for Phase 3).
+   3. **Phase 3 — hard wins** (§4.3): only after every deck reads ≥85 or carries a CEILING.
+   4. **Phase 4 — the Omnath list** (§4.4): only after Phase 3.
+3. A row's blocker text (from the ledger) IS the probe of record — do not re-probe it; probe only the machinery you
+   intend to touch (the arm, the resolver, the runtime lane) before writing code.
+4. Sizes are estimates by shape: **S** one arm on existing machinery (≤1 hour) · **M** a new atom / event / seam
+   (1–3 hours) · **L** a subsystem (multi-session; ship in slices) · **🅿** park with reason · **⛔** excluded.
+   If a row turns out a size larger than marked, note it in the row and keep going only if it still fits the session;
+   otherwise mark it and take the next row.
+5. Markers: ⬜ open · 🔄 in flight (write the slice id and the date beside it) · ✅ shipped (+N slots, commit hash) ·
+   🅿 parked (reason, COMMS date) · ⛔ excluded (rule).
+
+---
+
+## 3. THE PER-SLICE DISCIPLINE (never skip a step — the OVERNIGHT-PLAN §5 law, condensed)
+
+1. **Probe** the machinery you will touch — read the real oracle through `probe` scripts (never memory), the arm, the
+   resolver, the runtime lane (legalChoices / the flush). The blocker line in §5 is already the classifier probe.
+2. **Smallest honest arm.** The RUNTIME half before the classifier half: the engine must PLAY the card before the
+   metric credits it. A classifier-only flip is a hollow credit (the forbidden direction).
+3. **Flip-diff by tier snapshot** — `tier-snapshot.mjs --out` then `--diff=before,after`. **Zero LOST.** Every GAINED
+   card is audited whole-card (print its oracle; every line must be honest, not just the line you built — ④-AU found a
+   five-card over-fire this way, ④-AW a wrong-source read).
+4. **Witness file** — a `*.test.js` beside the engine with: the parse pin, the tier pins (real oracle fixtures), and a
+   RUNTIME pin that plays the card on a board (the taken and the declined path for optionals; the expiry for
+   durations; the opponent's seat for "each"/"defending player").
+5. **Mutations SEEN to fail** — a scratch `mutate-<slice>.py` that applies each mutation (`false &&` the arm, drop the
+   stamp, widen the scope, swap the seat), runs the witness, prints KILLED / SURVIVED / LOAD-ERROR, and RESTORES the
+   file. "No test files found" = load error = redo. A SURVIVED mutation is documented, deleted, or gets the missing
+   test — never ignored (④-BE deleted an unobservable guard this way).
+6. **Lint + FULL suite**, exit codes unpiped, chained with `;`:
+   `npx eslint <files>; echo "lint $?"; npm test > <scratch>/suite.log 2>&1; echo "suite exit $?"`.
+   Old CREED pins that flip are GRADUATED with the date and a comment (three did on ④-BD).
+7. **Docs**: RUN-LEDGER entry (newest first) · CHANGELOG line · this file's row + §1 table · WAKE-REPORT top block.
+   Stamp the real date. A park also gets a terse COMMS line in the vault (`memory/COMMS.md`, anchored on the exact
+   `## LOG (newest first)` line) and a `sync-brain.cjs` run.
+8. **Measure the deck(s)** touched; paste the new % into §1.
+9. **Commit** with explicit paths (never `git add -A`), Conventional Commits, the co-author trailer.
+10. **Push to master**, then **confirm CI green** (`gh run list --branch master`; `gh run watch <id> --exit-status`)
+    BEFORE the next push. A shard-2 timeout on a sim-heavy test is runner variance: re-run the failed jobs
+    (`gh run rerun <id> --failed`), and widen that test's timeout to 90 s in a `test(ci)` commit (the wall is a hang
+    detector, not a speed budget — the abBench / self-play P5 / crucibleRun precedent).
+
+**Nine traps (law):** no regex escapes through scripted rewrites (use the Edit tool; a heredoc collapses backslashes) ·
+encode-before-write / temp-then-rename · never write under `app/src` while a vitest suite runs · one gate run at a
+time · a surviving mutation is never ignored · deck writes only via the app API · stamp the real date · never `git
+stash` (the stack is shared) · the Write tool overwrites silently — glob the name first.
+
+---
+
+## 4. THE PHASES
+
+### 4.1 Phase 1 — cross-deck veins (build the shared machinery once; each pays in ≥2 decks)
+
+Ordered by slots paid across the 14 sub-85 decks, then by size. Every row: ⬜ open until shipped.
+
+| # | Vein | Decks (sub-85) | Slots | Size | What to build | Status |
+|---|---|---|---|---|---|---|
+| V1 | **Modal double-faced cards (spell // land, land // land)** — Sink into Stupor, Witch Enchanter, Sundering Eruption, Shatterskull Smashing, Hydroelectric Specimen, Fell the Profane, Bridgeworks Battle, Boggart Trawler, Agadeem's Awakening, Sea Gate Restoration, Sejiri Shelter, Revitalizing Repast, Glasspool Mimic, Emeritus of Truce, Wandering Archaic; the five Pathways (Barkchannel, Hengegate, Branchloft, Needleverge, Blightstep) | Teval 6 · Believe 6 · Kellan 5 · Shalai 5 · Otharri 5 · Kinnan 4 · Shorikai 3 · Nekusar 3 · Brago 2 · Bumble/Halfshell/Turts/Light-Paws 1 each (+~15 more in the 85–89 decks) | **~43** | **L** (ship in slices) | PROBE FIRST: today these classify `land-partial` — the land drop plays the back face, so what is missing is (a) the classifier reading a `//` oracle as two faces, (b) the cast lane offering the FRONT face as a spell when its program parses HIGH, (c) the play-land lane offering the back face with its enter clause (pay 3 life or tapped). Slice 1 = the five Pathways (both faces plain lands; the face choice on the land drop; +7). Slice 2 = spell//land where the front is already a modeled spell (Sink into Stupor's bounce, Fell the Profane's destroy, Shatterskull's X damage…). Slice 3 = the rest. | ⬜ |
+| V2 | **Starting Town** — "enters tapped unless it's your first, second, or third turn of the game" + "{T}, Pay 1 life: Add one mana of any color" | Teval · Kellan · Shalai · Otharri | 4 | **S** | the enters-tapped-unless condition reads the controller's own turn ordinal (a per-player turn counter; if none exists, stamp `turnsTakenThisGame` at the untap step); the pay-life any-colour tap is the payLife mana spec (exists). | ⬜ |
+| V3 | **Minamo, School at Water's Edge** — "{U}, {T}: Untap target legendary permanent" | Kinnan · Shorikai (+cdh) | 2 (+1) | **S** | the untap atom + a `legendary` restriction on targetType permanent (matchesSelector already knows `legendary`; enumerateTargets' permanent pool needs the kind) | ⬜ |
+| V4 | **Orcish Bowmasters** — ETB and "whenever an opponent draws a card except the first one they draw in each of their draw steps": 1 damage to any target, then amass Orcs 1 | Nekusar · Believe | 2 | **M** | an opponent-draw watcher with the first-draw-of-the-draw-step exception (the `drawnThisTurnIds` / draw-step ledger exists: stamp which draws are the turn's own); amass exists; "any target" chooser on a trigger = enemy intent | ⬜ |
+| V5 | **Proft's Eidetic Memory** — beginning of combat, if you've drawn more than one card this turn, put X +1/+1 counters (X = cards drawn − 1) | Brago · Nekusar | 2 | **M** | combat-start trigger + intervening-if on `cardsDrawnThisTurn > 1` + countFor kind `cardsDrawnThisTurnMinusOne` | ⬜ |
+| V6 | **Peter Parker's Camera / Strionic Resonator / Kirol** — "copy target activated or triggered ability you control" | Brago (×2: Camera + Resonator) · Killer Turts · Otharri (Kirol) | 4 | **M** | CAP-BRACERS built `copy-activated-ability` on an event; this is a CHOSEN stack-object target of kind ability (enumerateTargets: the stack's non-spell objects you control) + the same copy resolver; Camera's film counter cost = removeCounter (exists) | ⬜ |
+| V7 | **Rosie Cotton of South Lane** — "whenever you create a token, put a +1/+1 counter on target creature you control other than Rosie" | Otharri · Bumble | 2 | **S/M** | the token-created event (Staff of the Storyteller / Splinter want it too — "whenever you create one or more tokens"); "target creature you control other than this creature" = creatureYouControl + excludeSource (the ④-AF `notSource` restriction on the peel) | ⬜ |
+| V8 | **Arcade Cabinet** — "double the number of each kind of counter on target creature" | Bumble · Halfshell | 2 | **S** | the Voracious Hydra doubler exists for +1/+1; generalize to every kind in the bag (`countersOnSource` all-kinds precedent) | ⬜ |
+| V9 | **Valley Floodcaller** — cast noncreature → "Birds, Frogs, Otters, and Rats you control get +1/+1 until end of turn. Untap them." | Kinnan (+cdh) | 1 (+1) | **S** | a four-subtype team pump (the dynamic selector takes a subtypes ARRAY) + untap the same set | ⬜ |
+| V10 | **Scythecat Cub** — landfall counter; "if this is the second time this ability has resolved this turn, double instead" | Shalai (+Earth Bent already at 90) | 1 | **M** | expressible after all: stamp `abilityResolutionsThisTurn[sourceId][abilityKey]` at trigger resolution, expose `thisAbilityResolvedNthTimeThisTurn` to evaluateInterveningIf, and lift the deliberate park in `effectAtoms.js` (repin its CREED test) | ⬜ |
+| V11 | **Path of Ancestry** — commander-identity any-colour mana + "when that mana is spent to cast a creature spell that shares a type with your commander, scry 1" | Halfshell (+Mothman, Jurassic) | 1 (+2) | **M** | the mana half = colours from the commander's identity (the Cavern lane's chosen-type restriction is the sibling); the spent-rider needs the `uncounterableIfSpent`-style stamp on the cast site turned into a scry trigger — build whole or not at all (CREED) | ⬜ |
+| V12 | **The extra-turn trio** — Final Fortune, Last Chance, Warrior's Oath: "Take an extra turn after this one. At the beginning of that turn's end step, you lose the game." | Killer Turts | 3 | **M** | extra turns exist (probe `extraTurns`); the delayed lose-the-game must fire on THAT turn's end step only (a `fireScope: "thatTurn"` on the delayed queue keyed to the extra turn's number) | ⬜ |
+| V13 | **Maze of Ith** — "{T}: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn." | Atraxa (×2 slots) | 2 | **M** | untap in the combat window (④-AE) + a per-creature "prevent all combat damage to and by" flag for the turn (the `noCombatDamageTurn` stamp from ④-AU is the dealer half; add the receiver half) | ⬜ |
+| V14 | **Gingerbrute / Tough Cookie** | Bumble (×2 each) | 4 | S / M | Gingerbrute: "can't be blocked this turn except by creatures with haste" = the except-by keyword filter with `Haste` added to the allowlist (S). Tough Cookie: "target noncreature artifact you control becomes a 4/4 artifact creature until end of turn" = the animate lane on a chosen artifact (M) | ⬜ |
+| V15 | **Chains of Custody / Sheltered by Ghosts / Detainment Spell** (Light-Paws ×2 each) | Light-Paws | 6 | M | Aura ETB "exile target nonland permanent an opponent controls until this Aura leaves" = the detain-exile lane with an AURA source (exists for creatures/enchantments; probe the aura path); Detainment Spell's "{1}{W}: attach this Aura to target creature" = a re-attach activated ability (the equip lane's aura twin) | ⬜ |
+
+### 4.2 Phase 2 — deck by deck (§5 has every row)
+
+Order and the honest per-deck expectation after Phase 1's veins land (slots from veins in brackets):
+
+1. **Teval 75** — needs 10 [V1 ≈6, V2 1] → then 3 one-card rows (Field of the Dead, Titania, Thespian's Stage).
+2. **Brago 74** — needs 11 [V1 2, V5 1, V6 2] → 6 one-card rows (Reflector Mage, Recruiter, Teleportation Circle, Unquestioned Authority, Loran, Riptide Gearhulk).
+3. **Nekusar 71** — needs 14 [V1 3, V4 1, V5 1] → 9 (Bedevil, Bojuka Bog, Sheoldred, Forced Fruition, Painful Quandary, Phyrexian Tyranny, Dark Deal, Wheel and Deal, Peer into the Abyss).
+4. **Shorikai 70** — needs 15 [V1 3, V3 1] → 11 (the Vehicle vein: Thunderhawk Gunship, Parhelion II, Prodigy's Prototype, Peacewalker Colossus, Mobilizer Mech, Shorikai itself, Sai, Surgehacker Mech, Permission Denied, Emry, The Indomitable).
+5. **Kellan 70** — needs 15 [V1 5, V2 1] → 9 (Rashmi, Mind's Dilation, Transcendent Dragon, Monk Gyatso, Make Your Own Luck, Unexpected Results, Planar Nexus, Eladamri, The Key to the Vault) — the top-of-library-play subsystem (Future Sight class) is the wall here; call the ceiling honestly.
+6. **Shalai 69** — needs 16 [V1 5, V2 1, V10 1] → 9 (Krenko, Yoshimaru, Spider-Man, Arwen, Damning Verdict, Hajar, Boromir, Kutzil, Skrelv).
+7. **Otharri 68** — needs 17 [V1 5, V2 1, V6 1, V7 1] → 9 (Anim Pakal, Glimmer Lens, Minas Tirith, Tithe, Blacksmith's Skill, Zack Fair, Staff of the Storyteller, Inti, Diamond City).
+8. **Bumble Flower 64** — needs 21 [V1 1, V7 1, V8 1, V14 4] → 14 (Ms. Bumbleflower, Academy Manufactor, Study the Classics, Treebeard, Wave Goodbye, Secret Rendezvous, Riot Control, Heaped Harvest, Elanor Gardner, Kwain, Lembas, Sam, Samwise ×2, Hot Soup…).
+9. **Atraxa 64** — needs 21 [V13 2] → 19 — the planeswalker deck: loyalty abilities are modeled per card; every "COMPOSITE" planeswalker is its own two-to-three-line build. Expect a CEILING above ~80 unless the loyalty-ability parser gets a general pass (an L in its own right — size it as one slice: "the loyalty vocabulary sweep").
+10. **Halfshell 64** — needs 21 [V1 1, V8 1, V11 1] → 18 (the counters-matter vein: Casey Jones, Ray Fillet, Baxter, Together Forever, Tokka & Rahzar, Coin of Mastery, Heroes in a Half Shell, Big Apple, Big Mother Mouser, Shellshock, Swift Demise, Wave Goodbye, Continue?, Exploding Barrel, Everything Pizza, Endless Foot Assault, Splinter, Foot Chopper).
+11. **Killer Turts 64** — needs 21 [V1 1, V6 1, V12 3] → 16 (Rite of Flame, Irencrag Feat, Geosurge — restricted-spend mana (the QUARTET restricted-spend lane); Pyroblast/Guttural Response/Avoid Fate — filtered counters; Shinka; Scroll Rack; Port Razer; Last Night Together; Savage Beating; City of Traitors; Tibalt's Trickery; Carpet of Flowers).
+12. **Light-Paws 61** — needs 24 [V1 1, V15 6] → 17 — the Aura deck: Light-Paws' own tutor-on-aura-cast, Face of Divinity, Solid Footing, Gauntlets of Light (toughness-assigns), Greater Auramancy, Umbra Mystic, Shielded by Faith, Brilliant Wings, Mantle of the Ancients, Sentinel's Mark, Shardmage's Rescue, Celestial Mantle, With Great Power, Winds of Rath, Karametra's Blessing, Deafening Silence, Drannith Magistrate, Enter the Avatar State.
+13. **Kinnan 72 (cEDH, LAST)** — needs 13 [V1 4, V3 1, V9 1] → 7 — after the theft and pregame exclusions (Gilded Drake ⛔, Gemstone Caverns 🅿) the honest rows are Thassa's Oracle, Transmute Artifact, Moonsilver Key, Treasure Vault, Cephalid Coliseum, The Mycosynth Gardens, Copy Enchantment / Clever Impersonator (clone lane).
+14. **Believe it! 71 (cEDH, LAST)** — needs 14 [V1 6, V4 1] → 7 — after the exclusions (Commandeer ⛔, Gemstone Caverns / Doomsday / Tainted Pact / Demonic Consultation / Lim-Dûl's Vault 🅿) the honest rows are Thassa's Oracle, Thousand-Faced Shadow, Moon-Circuit Hacker, Shizo, Ingenious Prodigy, Nanogene Conversion, Roaming Throne, Satoru. Expect a CEILING near 85.
+
+### 4.3 Phase 3 — the hard-wins sweep (only after Phase 2)
+
+1. Re-run all four instruments; refresh §1 and the §5 rows (numbers move as veins land).
+2. Take every deck sitting 85–89 to 90 where ≤3 rows away: **Mothman 88 (2)**, Cap 86 (4), Hulk 86 (4), and the 85s
+   (Rashmi, Wolverine, Jurassic, cdh — 5 each). Their rows are in the ledger (`shelf-gap-ledger.mjs --md`); the cheap
+   ones by shape: Mothman — Nesting Grounds (move a counter: the ozolith move atom), Path of Ancestry (V11), The Master
+   (graveyard-milled-this-turn filter); Cap — Iron Man (attack trigger + sacrifice-a-noncreature-artifact rider),
+   Uthros (station ×2 — a subsystem); Hulk — Arena ×2 (fight-ish with an opponent's choice), Desert, Xenagos; Jurassic —
+   Ravenous Tyrannosaurus (④-AW's source-power damage + "up to one other" + excess-damage rider), Wrathful Raptors,
+   Descendants' Path, Secluded Courtyard (Cavern's activated-ability tail), Agonasaur Rex (cycling trigger).
+3. Re-run `probe-shelf-one-line-away.mjs --limit=200`: any row touching ≥2 decks that is S or M is a hard win — take it.
+4. Any Phase 2 row left ⬜ in a deck that already crossed 85 and is S — take it (it moves the deck toward 90).
+5. Stop Phase 3 when no S/M row touches ≥2 decks and every 85–89 deck is either at 90 or has only L/🅿 rows left.
+
+### 4.4 Phase 4 — the Omnath hand-off list
+
+1. Compile every 🅿 and ⛔ row from §4 and §5 into ONE list grouped by deck, each with the blocker line and the reason
+   (CREED / THEFT / PREGAME / SUBSYSTEM-L / CEILING).
+2. Post it as one COMMS entry (`memory/COMMS.md`, anchored on `## LOG (newest first)`), tagged `[Q-SHELF-85-OMNATH]`,
+   and run `node C:/Projects/omnath-vault/omnath-tools/sync-brain.cjs`.
+3. Omnath owns the Arbiter play-nuance backfill for those cards (the `note` field on `parked:true` entries in
+   `card-play-hints.json`); Cindy's lane is done when the list is posted and the wake report carries the final table.
+4. Final wake-report block: the §1 table at its end state, the ceilings called, the slice count, the corpus number.
+
+---
+
+## 5. PER-DECK RESIDUE (the ledger of 2026-09-04, sized; the blocker text is the probe of record)
+
+Legend: **S** small · **M** medium · **L** subsystem · **🅿** park (reason) · **⛔** excluded (rule) · **V#** paid by a
+Phase 1 vein · COMPOSITE rows list the card only — size on approach with `deck-gap.mjs` + the oracle probe.
+
+### 5.1 Teval, the Balanced Scale Test — 75% · needs 10 · lands deck (15 land-partial slots)
+
+| Row | Card | Blocker (ledger) | Size | Note | Status |
+|---|---|---|---|---|---|
+| T1 | Sink into Stupor · Fell the Profane · Bridgeworks Battle · Boggart Trawler · Agadeem's Awakening · Multiversal Passage | MDFC | V1 | six slots from the vein | ⬜ |
+| T2 | Starting Town | enters tapped unless turn 1–3 | V2 | | ⬜ |
+| T3 | Field of the Dead | "whenever this land or another land you control enters, if you control seven or more lands with different names, create a 2/2 Zombie" | M | landfall (self-or-another land) + a distinct-land-names intervening-if + token | ⬜ |
+| T4 | Titania, Protector of Argoth | "whenever a land you control is put into a graveyard from the battlefield, create a 5/3 Elemental" | M | a land-dies event (the gyEnter machinery with cardType Land, fromZone battlefield) + token | ⬜ |
+| T5 | Thespian's Stage | "{2}, {T}: this land becomes a copy of target land, except it has this ability" | L | the copy lane on a land (Shifting Woodland / Mycosynth Gardens share it) | ⬜ |
+| T6 | Demolition Field | sac: destroy target nonbasic land an opponent controls; then each of you searches for a basic | M | destroy nonbasic land + the two-sided basic tutor rider | ⬜ |
+| T7 | Tasigur, the Golden Fang | mill two, return a nonland card of an opponent's choice | M | an opponent's-choice pick (the AI policy: worst card) | ⬜ |
+| T8 | Tolaria West | transmute | M | a discard-from-hand tutor by mana value (the channel lane's cousin) | ⬜ |
+| T9 | Breach the Multiverse | each player mills ten; for each player choose a creature/planeswalker card from their graveyard, put onto the battlefield under your control… they're Phyrexian | L | mass mill + multi-graveyard picks + control | ⬜ |
+| T10 | Six | during your turn, nonland permanent cards in your graveyard have retrace | L | retrace (cast from graveyard by discarding a land) | ⬜ |
+| T11 | Overlord of the Balemurk | impending + mill four, return a non-Avatar creature or planeswalker card | L | impending is a subsystem | ⬜ |
+| T12 | Colossal Grave-Reaver | "whenever one or more creature cards are put into your graveyard from your library, put one onto the battlefield" | M | gyEnter batch from library + a pick | ⬜ |
+| T13 | Ardyn, the Usurper | Starscourge — exile up to one creature card from a graveyard, it becomes a copy… | L | | ⬜ |
+| T14 | Subterfuge | ETB grants flying + a quoted combat-damage trigger to target creature | M | the quoted-grant lane on a target (the quoted-grant statics family) | ⬜ |
+| T15 | COMPOSITE | Glacial Chasm · Animate Dead · Revitalizing Repast · Talon Gates of Madara · Dark Depths · River Kelpie | size on approach | Dark Depths + Thespian's Stage is the deck's combo — Dark Depths' cumulative-upkeep-ish ice counters + the Marit Lage token is an L | ⬜ |
+
+### 5.2 Brago Blink — 74% · needs 11 · flicker deck
+
+| Row | Card | Blocker | Size | Note | Status |
+|---|---|---|---|---|---|
+| B1 | Glasspool Mimic · Witch Enchanter | MDFC | V1 | | ⬜ |
+| B2 | Proft's Eidetic Memory | | V5 | | ⬜ |
+| B3 | Peter Parker's Camera · Strionic Resonator | copy target ability | V6 | | ⬜ |
+| B4 | Reflector Mage | ETB bounce target creature an opponent controls; its owner can't cast spells with the same name until your next turn | M | the name-lock rider ("can't cast spells with that name" — a per-player cast restriction until the flicker-er's next turn) | ⬜ |
+| B5 | Recruiter of the Guard | ETB tutor a creature with toughness ≤2 to hand | S | the tutor lane with a toughness filter | ⬜ |
+| B6 | Teleportation Circle | end step: exile up to one target artifact or creature you control, then return it | S | the blink atom on a delayed self-return (Cloudshift's shape on an end-step trigger) | ⬜ |
+| B7 | Unquestioned Authority | enchanted creature has protection from creatures | S | protection-from-creatures grant (the protection layer op with a `creatures` source class) | ⬜ |
+| B8 | Loran of the Third Path | {T}: you and target opponent each draw | S | a two-seat draw (Secret Rendezvous is the same shape ×3) | ⬜ |
+| B9 | Riptide Gearhulk | ETB: for each opponent, put up to one target nonland permanent they control into their library second from the top | M | per-opponent targeting + tuck-to-position | ⬜ |
+| B10 | Brago, King Eternal | combat damage: exile any number of target nonland permanents you control, then return them | M | mass self-blink with an any-number pick (the counted pick UI is parked — the AI policy can pick "all ETB-bearing") | ⬜ |
+| B11 | Anticausal Vestige | LTB: draw, then may put a permanent card with MV less than its power onto the battlefield | M | | ⬜ |
+| B12 | Cryogen Relic | sac: stun counter on up to one target tapped creature | S | stun counter + tapped restriction (exist) | ⬜ |
+| B13 | Dour Port-Mage | "whenever one or more other creatures you control leave the battlefield without dying, draw" | M | leaves-without-dying batch event | ⬜ |
+| B14 | Elesh Norn, Mother of Machines | permanents entering don't cause opponents' abilities to trigger | M | the Torpor Orb class: a trigger-suppression static consulted at the ETB flush | ⬜ |
+| B15 | The Mightstone and Weakstone · The Mind Stone | restricted mana / harness | M / L | | ⬜ |
+| B16 | COMPOSITE | Deadeye Navigator · Detention Sphere · Preston · Reality Acid · Skyclave Apparition · Soulherder · Thassa, Deep-Dwelling · Watcher for Tomorrow | size on approach | Skyclave = exile-until + token on leave (M); Soulherder/Thassa = end-step blink (S after B6) | ⬜ |
+
+### 5.3 Nekusar Wheels — 71% · needs 14 · wheels deck
+
+| Row | Card | Blocker | Size | Note | Status |
+|---|---|---|---|---|---|
+| N1 | Blightstep Pathway · Ojer Axonil · (Tergrid) | MDFC / transform | V1 | Ojer/Tergrid are TRANSFORM gods — L, not V1's land shape | ⬜ |
+| N2 | Orcish Bowmasters | | V4 | | ⬜ |
+| N3 | Proft's Eidetic Memory | | V5 | | ⬜ |
+| N4 | Sheoldred, the Apocalypse | "whenever an opponent draws a card, they lose 2 life" (+ your draws gain 2) | S | the opponent-draw watcher exists (Phyrexian Tyranny is its unless-pay cousin) | ⬜ |
+| N5 | Forced Fruition | opponent casts → draws seven | S | cast watcher + draw-for-that-player (castingPlayer referent exists) | ⬜ |
+| N6 | Painful Quandary | opponent casts → loses 5 unless they discard | M | an unless-discard choice on the opponent's seat | ⬜ |
+| N7 | Phyrexian Tyranny | draw → lose 2 unless pay {2} | M | the pay-or-lose choice (the taxed-payment infra) on a draw watcher | ⬜ |
+| N8 | Bedevil | destroy target artifact, creature, or planeswalker | S | a three-type union target | ⬜ |
+| N9 | Bojuka Bog | ETB exile target player's graveyard | S | | ⬜ |
+| N10 | Dark Deal · Incendiary Command (mode) · Wheel and Deal | discard-hand-then-draw-that-many(-minus-one) shapes | S/M | the wheel core is native; these are count-referent variants ("that many", "minus one", targeted opponents) | ⬜ |
+| N11 | Peer into the Abyss | target player draws half their library and loses half their life | M | | ⬜ |
+| N12 | Teferi's Puzzle Box | each draw step: that player puts hand on bottom, draws that many | M | draw-step event (exists since ④-AY) + hand-to-bottom + count | ⬜ |
+| N13 | Chaos Warp | shuffle target permanent in, reveal top, may put it onto the battlefield | M | | ⬜ |
+| N14 | Library of Leng · The Locust God · Molten Psyche · Ghyrson Starn · Wheel of Misfortune | | M / L / 🅿 | Wheel of Misfortune's secret bids = hidden-info 🅿 CEILING; Molten Psyche = metalcraft damage (M) | ⬜ |
+| N15 | COMPOSITE | Baleful Mastery · Dauthi Voidwalker · Insatiable Avarice · Razorkin Needlehead · Silent Arbiter · Solphim | size on approach | | ⬜ |
+
+### 5.4 Shorikai Vehicles — 70% · needs 15 · Vehicle deck (crew is native; the payoffs are not)
+
+| Row | Card | Blocker | Size | Note | Status |
+|---|---|---|---|---|---|
+| S1 | Emeritus of Truce · Hengegate Pathway · Cosima | MDFC / transform | V1 | Cosima is a transform god (L) | ⬜ |
+| S2 | Minamo | | V3 | | ⬜ |
+| S3 | Thunderhawk Gunship | attacks → attacking creatures you control gain flying | S | attacks trigger + team keyword grant (exist) | ⬜ |
+| S4 | Parhelion II | attacks → two 4/4 Angel tokens tapped and attacking | S | token ETB "tapped and attacking" rider (Endless Foot Assault wants it too) | ⬜ |
+| S5 | Prodigy's Prototype | "whenever one or more Vehicles you control attack" → Pilot token with a quoted crew ability | M | batch attack event by type + quoted-grant token | ⬜ |
+| S6 | Peacewalker Colossus | {1}{W}: another target Vehicle becomes an artifact creature until EOT | S | the animate lane on a chosen Vehicle (crew's twin) | ⬜ |
+| S7 | Mobilizer Mech | "whenever this Vehicle becomes crewed" → animate another Vehicle | M | a becomes-crewed event | ⬜ |
+| S8 | Shorikai, Genesis Engine | {1},{T}: draw two, discard one, create a Pilot token with a quoted crew ability | M | draw-discard + quoted-grant token | ⬜ |
+| S9 | Sai, Master Thopterist | {1}{U}, sacrifice two artifacts: draw | S | sacCount cost (exists) + draw | ⬜ |
+| S10 | Surgehacker Mech | ETB damage = twice the number of Vehicles you control | S | countFor permanentsYouControl subtype Vehicle × per 2 | ⬜ |
+| S11 | Permission Denied | counter noncreature; opponents can't cast noncreature spells this turn | M | a per-turn cast-type lock on opponents | ⬜ |
+| S12 | Emry, Lurker of the Loch | {T}: choose target artifact card in your graveyard; you may cast it this turn | M | the "may cast from graveyard this turn" permission (the Six/retrace family's cousin) | ⬜ |
+| S13 | The Indomitable | may cast from graveyard while you control three or more tapped Pirates/Vehicles | M | | ⬜ |
+| S14 | Imposter Mech · Ironsoul Enforcer · Narset's Reversal · Mechtitan Core | | L / M / M / L | Narset's Reversal = copy + bounce-spell (M) | ⬜ |
+| S15 | Chain of Vapor | bounce + the sacrifice-a-land copy chain | 🅿 CEILING | the copy chain is a multi-player decision loop | 🅿 |
+| S16 | Dispatch | metalcraft exile | S | the metalcraft intervening-if exists (Molten Psyche shares it) | ⬜ |
+| S17 | COMPOSITE | Born to Drive · Katsumasa · Kotori · Mech Hangar · Mu Yanling · Nautiloid Ship · Padeem · Plaza of Heroes · Windbrisk Heights | size on approach | | ⬜ |
+
+### 5.5 Kellan of the west — 70% · needs 15 · top-of-library deck (the wall: play-from-top)
+
+| Row | Card | Blocker | Size | Note | Status |
+|---|---|---|---|---|---|
+| K1 | Branchloft · Barkchannel · Hengegate Pathways · Aang · Yangchen | MDFC / transform | V1 | the two Avatar cards are transform DFCs (L) | ⬜ |
+| K2 | Starting Town | | V2 | | ⬜ |
+| K3 | Transcendent Dragon | ETB if cast: counter target spell; if countered, exile and you may cast it… | M | | ⬜ |
+| K4 | Monk Gyatso | "whenever another creature you control becomes the target…" you may untap it / copy? | M | the becomes-target event exists (Kira) | ⬜ |
+| K5 | Rashmi, Eternities Crafter | first spell each turn: reveal top; if it costs less, cast it free | L | the top-of-library-play subsystem (One with the Multiverse, Eladamri, Mystic Forge, Fblthp, The Reality Chip share it) — THE WALL. Build as one L in its own slice or call the ceiling. | ⬜ |
+| K6 | Mind's Dilation | opponent's first spell each turn: exile their top card, you may cast it free | L | same wall (opponent's library) | ⬜ |
+| K7 | Make Your Own Luck · Unexpected Results · Portent of Calamity | look-at-top / reveal-and-cast shapes | M / M / L | | ⬜ |
+| K8 | Sakashima's Protege · Planar Nexus · Ellie and Alan · The Key to the Vault | clone / every-nonbasic-type / discover-X-from-graveyard / look-that-many | L / S / M / M | Planar Nexus = the ④-BE layer-4 subtype add with every nonbasic land type (S) | ⬜ |
+| K9 | COMPOSITE | Recurring Insight · Fblthp · Mystic Forge · Jace Reawakened · Bonny Pall · Doc Aurlock · Lock and Load · Savvy Trader · Step Between Worlds · Tezzeret the Seeker | size on approach | most sit on the K5 wall | ⬜ |
+
+**Ceiling note:** without the top-of-library-play subsystem Kellan tops out near 80. Decide at approach: build the
+subsystem as its own multi-slice L (it also pays in Omnath's shelf-neighbours: Courser/Oracle-class cards corpus-wide),
+or write the ceiling and move on. The runbook's default: build it — it is the largest single lever left on the shelf.
+
+### 5.6 Shalai and Hallar Test — 69% · needs 16 · counters/legends deck
+
+| Row | Card | Blocker | Size | Note | Status |
+|---|---|---|---|---|---|
+| H1 | Shatterskull · Witch Enchanter · Sundering Eruption · Bridgeworks · Miles Morales | MDFC / transform | V1 | Miles Morales is a transform DFC (L) | ⬜ |
+| H2 | Starting Town | | V2 | | ⬜ |
+| H3 | Scythecat Cub | | V10 | | ⬜ |
+| H4 | Ragavan | combat damage: Treasure + exile their top card, may cast it this turn | M | Treasure (exists) + impulse from an opponent's library (the impulse-exile lane with an owner switch) | ⬜ |
+| H5 | Krenko, Tin Street Kingpin | attacks: +1/+1 counter, then Goblins = its power | S | attacks trigger + add-counter self + tokens countFor sourcePower (④-AW's reader) | ⬜ |
+| H6 | Yoshimaru, Ever Faithful | another legendary permanent enters → counter on Yoshimaru | S | ETB watcher with a `legendary` filter | ⬜ |
+| H7 | Spider-Man, Miles Morales | enters or attacks: +1/+1 counter on each other creature you control; they gain flying? | S | | ⬜ |
+| H8 | Arwen, Weaver of Hope | each other creature you control enters with additional counters = … | M | an enters-with modifier static | ⬜ |
+| H9 | Damning Verdict | destroy all creatures with no counters on them | S | mass destroy + a `hasCounter` negation (④-AC's restriction, negated) | ⬜ |
+| H10 | Hajar, Loyal Bodyguard · Boromir, Warden of the Tower | sacrifice self: team +1/+0 / indestructible | S | (Boromir's "the Ring tempts you" tail = the ring subsystem → 🅿 unless built) | ⬜ |
+| H11 | Kutzil, Malamet Exemplar · Skrelv · Incubation Druid · Uncivil Unrest · Shifting Woodland | | M / M / M / M / L | | ⬜ |
+| H12 | Chaos Warp | | M | shared with Nekusar N13 | ⬜ |
+| H13 | COMPOSITE | Winds of Abandon · Skyclave Apparition · Solitude · Kami of Celebration · Galadriel's Dismissal · Innkeeper's Talent · Cloud's Limit Break · Endurance · Trouble in Pairs · Clever Concealment | size on approach | Solitude/Endurance = evoke (the composition defect report of 09-03: build the evoke composition rule once, it pays in five decks) | ⬜ |
+
+### 5.7 Otharri Test — 68% · needs 17 · Rebels/tokens deck
+
+| Row | Card | Blocker | Size | Note | Status |
+|---|---|---|---|---|---|
+| O1 | Needleverge · Sejiri Shelter · Shatterskull · Witch Enchanter · Sundering Eruption | MDFC | V1 | | ⬜ |
+| O2 | Starting Town | | V2 | | ⬜ |
+| O3 | Kirol, Attentive First-Year | tap two creatures: copy target triggered ability | V6 | | ⬜ |
+| O4 | Rosie Cotton | | V7 | | ⬜ |
+| O5 | Anim Pakal | attack with non-Gnomes → counter on Anim, then Gnome tokens = counters | S | | ⬜ |
+| O6 | Glimmer Lens | equipped creature and at least one other creature attack → draw | S | an attacks-with-company condition on the equipment trigger | ⬜ |
+| O7 | Minas Tirith | {1}{W},{T}: draw; activate only if you attacked with two or more creatures this turn | S | an attackers-this-turn count condition (the RAID flag generalized to a count) | ⬜ |
+| O8 | Tithe | tutor a Plains; a second if target opponent controls more lands | S | | ⬜ |
+| O9 | Blacksmith's Skill | hexproof + indestructible until EOT; +2/+2 if artifact or enchantment | S | | ⬜ |
+| O10 | Zack Fair · Staff of the Storyteller · Inti · Diamond City · Patrolling Peacemaker · Otharri (self-reanimate) | | S / M (token-created event, V7) / M / M / 🅿 (crime) / M | | ⬜ |
+| O11 | COMPOSITE | Everflowing Chalice · Solitude · Hour of Reckoning · Neyali · Galadriel's Dismissal · Ocelot Pride · Talon Gates · Crumb and Get It · Divine Resilience · Windcrag Siege · Cloud's Limit Break · Reroute Systems · Clever Concealment | size on approach | | ⬜ |
+
+### 5.8 Bumble Flower Combo — 64% · needs 21 · Food/tokens deck
+
+| Row | Card | Blocker | Size | Note | Status |
+|---|---|---|---|---|---|
+| F1 | Dusk // Dawn | split card | L | split cards (Double Jump too) are their own composition rule — size with V1's slice 3 | ⬜ |
+| F2 | Rosie Cotton · Arcade Cabinet · Gingerbrute ×2 · Tough Cookie ×2 | | V7 / V8 / V14 | | ⬜ |
+| F3 | Ms. Bumbleflower | cast → target opponent draws; +1/+1 counter on target creature; it gains flying | S | | ⬜ |
+| F4 | Academy Manufactor | Clue/Food/Treasure → one of each | S | a token-minting replacement (the Donatello class shares the seam) | ⬜ |
+| F5 | Study the Classics · Treebeard · Wave Goodbye · Secret Rendezvous · Riot Control · Kwain | counters/lifegain/mass bounce/draw shapes | S each | Wave Goodbye = mass bounce with a no-counter filter | ⬜ |
+| F6 | Heaped Harvest · Elanor Gardner · Lembas · Sam, Loyal Attendant · Samwise Gamgee · Samwise the Stouthearted · Hot Soup · Field-Tested Frying Pan · Night of the Sweets' Revenge · Feasting Hobbit · Campsite Cuisine · Shoreline Looter · Archway of Innovation · Continue? | | S–M | the Food family: "when you sacrifice it" (S), "if you sacrificed a Food this turn" (S), devour Food (M), improvise grant (M) | ⬜ |
+| F7 | Eriette's Tempting Apple | gain control | ⛔ THEFT | | ⛔ |
+| F8 | COMPOSITE | Innkeeper's Talent · Killer Service · Long River's Pull · Mechanized Production · Peerless Recycling · Wear Down · Wedding Ring · Tamiyo, Field Researcher | size on approach | | ⬜ |
+
+### 5.9 Atraxa Superfriends — 64% · needs 21 · planeswalker deck
+
+| Row | Card | Blocker | Size | Note | Status |
+|---|---|---|---|---|---|
+| A1 | Maze of Ith ×2 | | V13 | | ⬜ |
+| A2 | Interplanar Beacon · Oath of Gideon · Sphere of Safety · Norn's Annex | cast-planeswalker lifegain / extra loyalty / attack tax | S / S / S / M | Sphere of Safety's tax is the ④-AK attack-tax family with a count-of-enchantments amount; Norn's Annex taxes {W/P} (life-or-mana) | ⬜ |
+| A3 | Arena Rector · Deploy the Gatewatch · Ashiok · Mutational Advantage | | M / M / M / S | | ⬜ |
+| A4 | Garruk Unleashed · Kiora · Teferi, Hero of Dominaria | single loyalty lines | S each | the loyalty-ability parser reads per line; each is one arm | ⬜ |
+| A5 | COMPOSITE (the planeswalkers) | Ajani Steadfast · Dovin Baan · Elspeth Resplendent · Kaya · Narset Transcendent · Narset, Parter of Veils · Oko · Sorin Markov · Sorin, Grim Nemesis · Tamiyo · Teferi, Master of Time · Teferi, Time Raveler · The Eternal Wanderer · Ugin · Vraska the Unseen · Carth · Astral Cornucopia · Avatar's Wrath · Dueling Grounds · Innkeeper's Talent · Oath of Nissa · Oath of Teferi · Primevals' Glorious Rebirth · Urza's Ruinous Blast | **L — "the loyalty vocabulary sweep"** | one slice: probe every loyalty line in the deck, build the missing arms as a family (emblems, static PW abilities, +1 team buffs, ultimates that need a subsystem get 🅿) | ⬜ |
+
+**Ceiling note:** Atraxa likely stops near 80–85 without the sweep; the sweep is the deck.
+
+### 5.10 Halfshell heroes — 64% · needs 21 · counters/Turtles deck
+
+| Row | Card | Blocker | Size | Note | Status |
+|---|---|---|---|---|---|
+| Q1 | Double Jump // Flying Kick | split | L (V1 slice 3) | | ⬜ |
+| Q2 | Arcade Cabinet · Path of Ancestry | | V8 / V11 | | ⬜ |
+| Q3 | Casey Jones · Ray Fillet · Together Forever · Tokka & Rahzar · Baxter · Heroes in a Half Shell · Coin of Mastery · Raphael | counters-matter triggers and statics | S / S / M / S / S / M / M / M | Casey Jones = a counters-placed batch event (exists: countersPlaced) + damage; Ray Fillet = combat damage by a creature with a counter → draw; Raphael = a damage doubler filtered by "with counters" | ⬜ |
+| Q4 | Big Apple · Big Mother Mouser · Shellshock · Swift Demise · Wave Goodbye · Continue? · Exploding Barrel · Everything Pizza · Endless Foot Assault · Splinter · Foot Chopper · Mole Module · Bebop · Tempestra · Irma · Dimension X Pizzasaur · Donatello | | S–M | Shredder's per-opponent copies = M; Irma's combat-start copy = M; Donatello's Mutagen replacement shares F4's seam | ⬜ |
+| Q5 | COMPOSITE | Fast Forward · Rat King · Lita · Turtle Lair · Special Move · Vigor · Krang | size on approach | | ⬜ |
+
+### 5.11 Killer Turts — 64% · needs 21 · extra turns / storm-ish red deck (23 arbiter-spells)
+
+| Row | Card | Blocker | Size | Note | Status |
+|---|---|---|---|---|---|
+| X1 | Final Fortune · Last Chance · Warrior's Oath | | V12 | | ⬜ |
+| X2 | Peter Parker's Camera | | V6 | | ⬜ |
+| X3 | Rite of Flame · Irencrag Feat · Geosurge | ritual mana with counts / spend restrictions | S / M / M | Geosurge/Irencrag = the QUARTET restricted-spend lane ("only artifact or creature spells"; "only one more spell this turn") | ⬜ |
+| X4 | Guttural Response · Avoid Fate · Pyroblast · Redirect Lightning · Ricochet Trap | filtered counters / redirects | S / M / M / L / L | Guttural Response = counter with a colour+type filter (S) | ⬜ |
+| X5 | Shinka · Port Razer · Last Night Together · Savage Beating · City of Traitors · Tibalt's Trickery · Scroll Rack · Carpet of Flowers | | S / S / S / M / S / M / M / M | | ⬜ |
+| X6 | Gemstone Caverns · Veil of Summer | pregame / three-effect protection | 🅿 PREGAME / M | | 🅿 / ⬜ |
+| X7 | COMPOSITE | Bolt Bend · Full Throttle · Great Train Heist · Grim Reaper's Sprint · Invasion of Ikoria · Jeweled Amulet · Not of This World · Open the Omenpaths · Overpowering Attack · Tezzeret, Cruel Captain · Untimely Malfunction · World at War · World War Hulk | size on approach | the extra-combat family (Full Throttle, World at War, Overpowering Attack) is one M vein | ⬜ |
+
+### 5.12 Light-Paws Voltron — 61% · needs 24 · Aura deck
+
+| Row | Card | Blocker | Size | Note | Status |
+|---|---|---|---|---|---|
+| L1 | Ishgard, the Holy See | MDFC | V1 | | ⬜ |
+| L2 | Chains of Custody ×2 · Sheltered by Ghosts ×2 · Detainment Spell ×2 | | V15 | | ⬜ |
+| L3 | Light-Paws, Emperor's Voice | aura you cast enters → tutor an Aura with lesser MV onto the battlefield attached | M | the deck's engine; an aura-cast watcher + tutor-to-battlefield-attached | ⬜ |
+| L4 | Face of Divinity · Solid Footing · Gauntlets of Light · Greater Auramancy · Umbra Mystic · Shielded by Faith · Brilliant Wings · Sentinel's Mark · Shardmage's Rescue · Celestial Mantle · With Great Power · Mantle of the Ancients | aura statics and triggers | S–M | Gauntlets/Solid Footing = "assigns combat damage equal to its toughness" (the layer op EXISTS: assignsCombatDamageWithToughness — S); Greater Auramancy = team shroud on enchanted creatures (S); Shielded by Faith / Brilliant Wings = a re-attach on ETB (M) | ⬜ |
+| L5 | Winds of Rath · Karametra's Blessing · Enter the Avatar State · Deafening Silence · Drannith Magistrate | spells and statics | S / S / M / M / M | | ⬜ |
+| L6 | COMPOSITE | Angelic Destiny · Benevolent Blessing · Darksteel Mutation · Daybreak Coronet · Galadriel's Dismissal · On Thin Ice · Pariah · Pearl-Ear · Plaza of Heroes · Restoration Magic · Reverent Mantra · Silent Arbiter · Spectra Ward · Spirit Mantle · Swift Reconfiguration · Trouble in Pairs | size on approach | | ⬜ |
+
+### 5.13 Kinnan Mana Overload — 72% · needs 13 · cEDH (LAST)
+
+| Row | Card | Blocker | Size | Note | Status |
+|---|---|---|---|---|---|
+| I1 | Barkchannel · Sink into Stupor · Hydroelectric · Wandering Archaic | MDFC | V1 | | ⬜ |
+| I2 | Minamo · Valley Floodcaller | | V3 / V9 | | ⬜ |
+| I3 | Thassa's Oracle | ETB: look at top X (devotion), win if library ≤ X | M | devotion count + a look/win atom (the win-game family exists with strict evaluators) | ⬜ |
+| I4 | Transmute Artifact · Moonsilver Key · Treasure Vault · Cephalid Coliseum · The Mycosynth Gardens · Nezahal | | M / S / S / M / L / M | | ⬜ |
+| I5 | Copy Enchantment · Clever Impersonator · Imposter Mech | clone lane | L | one clone slice pays all three | ⬜ |
+| I6 | Gilded Drake | exchange control | ⛔ THEFT | | ⛔ |
+| I7 | Gemstone Caverns | pregame | 🅿 PREGAME | | 🅿 |
+| I8 | Chain of Vapor · Veil of Summer · The Unagi of Kyoshi Island | | 🅿 / M / M | | ⬜ |
+| I9 | COMPOSITE | Tezzeret the Seeker · Mindbreak Trap · Flash Photography · Wan Shi Tong · Misdirection · Endurance · Hullbreaker Horror | size on approach | | ⬜ |
+
+### 5.14 Believe it! — 71% · needs 14 · cEDH (LAST)
+
+| Row | Card | Blocker | Size | Note | Status |
+|---|---|---|---|---|---|
+| E1 | Sea Gate Restoration · Agadeem's Awakening · Sink into Stupor · Fell the Profane · Boggart Trawler · Hydroelectric | MDFC | V1 | six slots | ⬜ |
+| E2 | Orcish Bowmasters | | V4 | | ⬜ |
+| E3 | Thassa's Oracle | | I3 | | ⬜ |
+| E4 | Thousand-Faced Shadow · Moon-Circuit Hacker · Shizo · Ingenious Prodigy · Nanogene Conversion · Roaming Throne · Satoru | | M / S / S / M / L / L / M | Roaming Throne = the extra-trigger family (Panharmonicon class — L) | ⬜ |
+| E5 | Commandeer | gain control of target spell | ⛔ THEFT | | ⛔ |
+| E6 | Gemstone Caverns · Doomsday · Tainted Pact · Demonic Consultation · Lim-Dûl's Vault | pregame / hidden-information piles | 🅿 PREGAME / CEILING | | 🅿 |
+| E7 | COMPOSITE | Misdirection · Mindbreak Trap · Subtlety · Flare of Malice · Contagion · Kaito · Force of Despair · Emrakul, the Promised End | size on approach | evoke/pitch alt costs are one composition rule | ⬜ |
+
+---
+
+## 6. STAGE BOUNDARIES (where a run reports and may stop)
+
+- **After Phase 1's veins** (V1–V15 each ✅ or 🅿): re-measure the whole shelf, update §1, wake-report block.
+- **After each Phase 2 deck crosses 85** (or its ceiling is written): update §1 + the deck's section header, wake-report line.
+- **After Phase 2** (every deck ≥85 or ceilinged): full wake-report block with the table.
+- **After Phase 3**: same.
+- **After Phase 4**: the final block — the table, the ceilings, the COMMS tag, the corpus number. Then stop.
+
+Between boundaries: keep working. Do not report. Do not wait for Colton — anything that needs him goes into a row's
+note and the Omnath list, and the run takes the next row.
+
+---
+
+## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 06:40Z — runbook written (Cindy). Baseline: 14 decks below 85, 233 slots. Last engine slice before it: ④-BE (Earth Bent → 90).
