@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K9: Mystic Forge (+2)** · suite **1469 files / 16,021 tests** green · corpus 14,406 (42.1%) / 34,245 · flip-diff +2 / 0 lost · 6/6 killed
+
+> The filtered cast-from-top with a colourless test, and the own exile-top activation. Kellan **82** (needs 3). Next: Rashmi (the first-spell cast watcher already threads castSpellMv; one reveal-top atom ending in the discover park), then Mind's Dilation (M).
+> **CI:** GREEN on The Key to the Vault (run 33919910199); this slice pushes and is watched
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K8: The Key to the Vault (+1)** · suite **1468 files / 16,016 tests** green · corpus 14,404 (42.1%) / 34,245 · flip-diff +1 / 0 lost · 6/6 killed
 
 > A damage-sized dig parked behind the discover decision, with a leave-exiled decline. Kellan **81** (needs 4). The top-of-library wall is thinner than the runbook feared: a play-from-top lane already exists, and Rashmi / Mind's Dilation both end in the discover park. Next: Mystic Forge (a filtered play-from-top + a pay-life exile-top activation — two S arms), then Rashmi (M).

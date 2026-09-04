@@ -1837,6 +1837,10 @@ export function millClauseParser(clause) {
   // their library", not "the top one card". An absent count is exactly one (CR 701.19a).
   m = t.match(/^(?:that player|they) exiles? the top (?:(\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) )?cards? of their library$/);
   if (m) return { op: "exile-top-of-library", amount: m[1] ? (NUM_WORD[m[1]] ?? parseInt(m[1], 10)) : 1, who: "damagedPlayer", targetType: null };
+  // OWN EXILE-TOP (SHELF-85 K9, 2026-09-04 — Mystic Forge "{T}, Pay 1 life: Exile the top card of your library"): the
+  // controller's own library, same op, who "controller". No play permission rides it (the printed line grants none).
+  m = t.match(/^exile the top (?:(\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) )?cards? of your library$/);
+  if (m) return { op: "exile-top-of-library", amount: m[1] ? (NUM_WORD[m[1]] ?? parseInt(m[1], 10)) : 1, who: "controller", targetType: null };
   // ===== UPKEEP-PLAYER MILL (BLITZ TR-2, CR 503.1a / 701.17) ===== "the upkeep player mills N cards" — the
   // SENTINEL detectTriggers emits for an "each player's upkeep" trigger's "that player mills …" (Worry
   // Beads). Corpus-clean phrase (only the event-gated rewrite produces it); who:"upkeepPlayer" reads

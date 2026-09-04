@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · K9: MYSTIC FORGE — the filtered cast-from-top · **+2** · corpus 14,406 (42.1%) / 34,245
+> Suite **1469 files / 16,021 tests** green; lint 0. Flip-diff **+2, zero LOST** (Mystic Forge; Precognition Field — audited). **6/6 killed.**
+> · **The shape:** the play-from-top lane already existed (Future Sight / Bolas's Citadel — the "top-of-library wall" the runbook
+>   feared is mostly built). Mystic Forge's line is the FILTERED form: no land permission, a spell filter of type words plus
+>   the special word "colorless", which castFromTopFilterAllows tests as the card's COLOURS (printed colours, else the cost's
+>   pips), never as a type-line word. The offer probe: an artifact and a colourless creature are offered off the top, a green
+>   creature and a land are not. The activation "{T}, Pay 1 life: Exile the top card of your library" is the controller's
+>   own exile-top — same op as ingest, who "controller", no play permission (the printed line grants none).
+> · **Two old pins graduated by design** (coverage.test's anthem-beside-an-unmodeled-trigger fixture and thenSplit's all-or-nothing
+>   pin both used "exile the top card of your library" as the UNMODELED stand-in — it is modeled now); both re-anchored on
+>   airbending, which the engine still refuses, and dated.
+> · **CI:** GREEN on The Key to the Vault (run 33919910199); this slice pushes and is watched
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · K8: THE KEY TO THE VAULT — the damage-sized dig with a free cast · **+1** · corpus 14,404 (42.1%) / 34,245
 > Suite **1468 files / 16,016 tests** green; lint 0. Flip-diff **+1, zero LOST**. **6/6 killed.**
 > · **The shape:** the impulse-dig pause sized by a TRIGGER-CONTEXT magnitude (countContext "combatDamageAmount" — the same

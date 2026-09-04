@@ -27,7 +27,8 @@ describe("', then' splits a top-level sequence", () => {
     expect(ops("Search your library for a creature card, put it into your hand, then shuffle.")).toEqual(["tutor"]);
   });
   it("an unmodeled second half still drops the whole program (all-or-nothing)", () => {
-    expect(programConfidence(parseEffectProgram(I("Scry 2, then exile the top card of your library.")))).toBe("low"); // impulse — unmodeled
+    // (the own exile-top became modeled 2026-09-04 — SHELF-85 K9 Mystic Forge — so the stand-in is airbending, still refused)
+    expect(programConfidence(parseEffectProgram(I("Scry 2, then airbend target creature you control.")))).toBe("low"); // airbend — unmodeled
     expect(programConfidence(parseEffectProgram(I("Scry 2, then create a Powerstone token.")))).toBe("low"); // Powerstone unmodeled (restricted mana defers it)
   });
 });

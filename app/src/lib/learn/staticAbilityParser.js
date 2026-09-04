@@ -2902,6 +2902,19 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ playFromTop: { lands: true, spellFilter: "any" } });
     return;
   }
+  // ⭐ FILTERED CAST-FROM-TOP (SHELF-85 K9, 2026-09-04 — Mystic Forge "You may cast artifact spells and colorless spells
+  // from the top of your library"): no land permission, and a spell filter of type words plus the special word
+  // "colorless" (castFromTopFilterAllows tests it as the card's colours, not its type line). Enforced at the offer by the
+  // same playFromTop lane, so the credit is never a paper permission.
+  const cftM = c.match(/^you may cast ([a-z]+) spells and ([a-z]+) spells from the top of your library$/);
+  if (cftM) {
+    const words = [cftM[1], cftM[2]];
+    const ok = (w) => w === "colorless" || COST_REDUCTION_CARDTYPE_WORDS.has(w);
+    if (words.every(ok)) {
+      out.push({ playFromTop: { lands: false, spellFilter: words } });
+      return;
+    }
+  }
   // ⭐ LANDS-ONLY (Oracle of Mul Daya #499 / Courser of Kruphix #1232) — the same permission with the SPELL
   // half absent. `spellFilter: null` is the load-bearing field, not a formality: without a gate on it,
   // actionsPlayFromTopOfLibrary offers the top NONLAND as a cast, and Courser of Kruphix starts casting
@@ -5329,7 +5342,14 @@ export function castFromTopFilterAllows(spellFilter, card) {
   if (!spellFilter) return false;
   if (spellFilter === "any") return true;
   const tl = `${card?.type || card?.type_line || ""}`;
-  return spellFilter.some((w) => new RegExp(`\\b${w}\\b`, "i").test(tl));
+  // "colorless" (Mystic Forge) is a COLOUR test, not a type-line word: a card with no colour — read off its printed
+  // colours, else its cost pips — passes; a land is never a spell and is refused by the caller's lands gate.
+  return spellFilter.some((w) => (w === "colorless" ? cardIsColorless(card) : new RegExp(`\\b${w}\\b`, "i").test(tl)));
+}
+function cardIsColorless(card) {
+  if (Array.isArray(card?.colors)) return card.colors.length === 0;
+  const cost = String(card?.mana ?? card?.mana_cost ?? "");
+  return !/\{[^}]*[WUBRG][^}]*\}/i.test(cost);
 }
 
 export function playFromTopPermission(state, playerId) {
