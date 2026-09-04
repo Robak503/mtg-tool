@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 V5: Proft's Eidetic Memory (+2)** · suite **1422 files / 15,721 tests** green · corpus 14,288 / 34,245 (41.7%) · flip-diff +2 / 0 lost · 5/5 mutations killed against a green witness (the intervening-if arm removed and loosened to one draw, the count source removed, the reader and the parser each dropping the printed minus)
+
+> The cards-drawn ledger read two new ways: an intervening-if and a count source (with the printed "minus one").
+> Thundering Djinn came with it. Next row by the runbook's §2: V6 (copy target ability — Brago ×2, Killer Turts, Otharri).
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 V4: Orcish Bowmasters (+3) — and a compound-split FP closed** · suite **1421 files / 15,711 tests** green · corpus 14,286 / 34,245 (41.7%) · flip-diff +3 / 0 lost · 6/6 mutations killed against a green witness (the then/if tail dropped from the split, the arm removed, the flag dropped at descriptor assembly, the filter ignoring the flag, the draw step not stamping, the at-the-beginning tail dropped)
 
 > The draw-step carve-out (a stamped first draw the flagged watcher skips). The census for the slice found the compound

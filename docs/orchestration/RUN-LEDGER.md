@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — V5: PROFT'S EIDETIC MEMORY — two cells on the cards-drawn ledger · **+2** · corpus 14,288 / 34,245 (41.7%)
+> Suite **1422 files / 15,721 tests** green; lint 0. Flip-diff **+2, zero LOST**. **5/5 mutations killed against a green witness (the intervening-if arm removed and loosened to one draw, the count source removed, the reader and the parser each dropping the printed minus).**
+> · **The shape:** `player.cardsDrawnThisTurn` (stamped at the one draw chokepoint, reset for every seat at untap) gains
+>   an intervening-if reader ("you've drawn more than one card this turn") and a count source ("cards you've drawn this
+>   turn [minus one]" → kind `cardsDrawnThisTurn`, the printed minus floored at 0). The combat-begin event, the ETB draw,
+>   the no-maximum-hand-size static and the where-X counter arm all existed. Thundering Djinn (attack damage equal to the
+>   cards drawn this turn) rides the count source.
+> · **Board-verified:** three draws this turn → entering combat puts two counters on the Bear through the live chooser;
+>   one draw → the gate is closed and nothing goes on the stack.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — V4: ORCISH BOWMASTERS — the draw-step carve-out, and a compound-split FP closed · **+3** · corpus 14,286 / 34,245 (41.7%)
 > Suite **1421 files / 15,711 tests** green; lint 0. Flip-diff **+3, zero LOST**. **6/6 mutations killed against a green witness (the then/if tail dropped from the split, the arm removed, the flag dropped at descriptor assembly, the filter ignoring the flag, the draw step not stamping, the at-the-beginning tail dropped).**
 > · **The shape:** "whenever an opponent draws a card except the first one they draw in each of their draw steps" is

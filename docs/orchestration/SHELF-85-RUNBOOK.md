@@ -73,8 +73,8 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Test | Teval, the Balanced Scale Test | 79 | 6 | 11 | ⬜ Phase 2 |
-| Test | Brago Blink | 76 | 9 | 14 | ⬜ Phase 2 |
-| Test | Nekusar Wheels | 74 | 11 | 16 | ⬜ Phase 2 |
+| Test | Brago Blink | 77 | 8 | 13 | ⬜ Phase 2 |
+| Test | Nekusar Wheels | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Shorikai Vehicles | 72 | 13 | 18 | ⬜ Phase 2 |
 | Test | Shalai and Hallar Test | 73 | 12 | 17 | ⬜ Phase 2 |
 | Test | Otharri Test | 73 | 12 | 17 | ⬜ Phase 2 |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 64 | 21 | 26 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 61 | 24 | 29 | ⬜ Phase 2 |
 
-**14 decks below 85 · 204 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**14 decks below 85 · 202 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -171,7 +171,7 @@ Ordered by slots paid across the 14 sub-85 decks, then by size. Every row: ⬜ o
 | V2 | **Starting Town** — "enters tapped unless it's your first, second, or third turn of the game" + "{T}, Pay 1 life: Add one mana of any color" | Teval · Kellan · Shalai · Otharri | 4 | **S** | the enters-tapped-unless condition reads the controller's own turn ordinal (a per-player turn counter; if none exists, stamp `turnsTakenThisGame` at the untap step); the pay-life any-colour tap is the payLife mana spec (exists). | ✅ (+1 corpus — `player.turnsTaken` stamped at the untap step; the vocabulary reads the ordinal; the pay-life any-colour line is an honest EXTRA record carrying `payLife` and gated on life, and the whole-card merge no longer offers a free any-colour main beside it — that FP existed the moment the line became an extra and the witness caught it). |
 | V3 | **Minamo, School at Water's Edge** — "{U}, {T}: Untap target legendary permanent" | Kinnan · Shorikai (+cdh) | 2 (+1) | **S** | the untap atom + a `legendary` restriction on targetType permanent (matchesSelector already knows `legendary`; enumerateTargets' permanent pool needs the kind) | ✅ (+2 corpus — the word `legendary` on the untap-target arm emitting the existing `supertype` restriction; the permanent and creature pools already ran it. Unplanned twin: Patriar's Seal "untap target legendary creature you control", audited whole-card.) |
 | V4 | **Orcish Bowmasters** — ETB and "whenever an opponent draws a card except the first one they draw in each of their draw steps": 1 damage to any target, then amass Orcs 1 | Nekusar · Believe | 2 | **M** | an opponent-draw watcher with the first-draw-of-the-draw-step exception (the `drawnThisTurnIds` / draw-step ledger exists: stamp which draws are the turn's own); amass exists; "any target" chooser on a trigger = enemy intent | ✅ (+3 corpus — a flagged opponentDraw arm; gameEngine's draw step stamps its draw `drawStepFirst` and checkCardDrawnTriggers skips the flagged descriptor on that one draw. **A live FP closed on the way:** the compound "When A and whenever B, E. Then R." split dropped R from the FIRST half — Flaring Cinder and Giott discarded on ETB with the "If you do, draw" payoff gone; both halves now carry the then/if tail. Leela, Sevateem Warrior rides the arm.) |
-| V5 | **Proft's Eidetic Memory** — beginning of combat, if you've drawn more than one card this turn, put X +1/+1 counters (X = cards drawn − 1) | Brago · Nekusar | 2 | **M** | combat-start trigger + intervening-if on `cardsDrawnThisTurn > 1` + countFor kind `cardsDrawnThisTurnMinusOne` | ⬜ |
+| V5 | **Proft's Eidetic Memory** — beginning of combat, if you've drawn more than one card this turn, put X +1/+1 counters (X = cards drawn − 1) | Brago · Nekusar | 2 | **M** | combat-start trigger + intervening-if on `cardsDrawnThisTurn > 1` + countFor kind `cardsDrawnThisTurnMinusOne` | ✅ (+2 corpus — the intervening-if "you've drawn more than one card this turn" and the count source "cards you've drawn this turn [minus one]" (kind `cardsDrawnThisTurn`, `minus` floored at 0), both off `player.cardsDrawnThisTurn`. Unplanned twin: Thundering Djinn's attack damage counts the same tally, audited whole-card.) |
 | V6 | **Peter Parker's Camera / Strionic Resonator / Kirol** — "copy target activated or triggered ability you control" | Brago (×2: Camera + Resonator) · Killer Turts · Otharri (Kirol) | 4 | **M** | CAP-BRACERS built `copy-activated-ability` on an event; this is a CHOSEN stack-object target of kind ability (enumerateTargets: the stack's non-spell objects you control) + the same copy resolver; Camera's film counter cost = removeCounter (exists) | ⬜ |
 | V7 | **Rosie Cotton of South Lane** — "whenever you create a token, put a +1/+1 counter on target creature you control other than Rosie" | Otharri · Bumble | 2 | **S/M** | the token-created event (Staff of the Storyteller / Splinter want it too — "whenever you create one or more tokens"); "target creature you control other than this creature" = creatureYouControl + excludeSource (the ④-AF `notSource` restriction on the peel) | ⬜ |
 | V8 | **Arcade Cabinet** — "double the number of each kind of counter on target creature" | Bumble · Halfshell | 2 | **S** | the Voracious Hydra doubler exists for +1/+1; generalize to every kind in the bag (`countersOnSource` all-kinds precedent) | ⬜ |
@@ -258,7 +258,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | B1 | Glasspool Mimic · Witch Enchanter | MDFC | V1 | | ⬜ |
-| B2 | Proft's Eidetic Memory | | V5 | | ⬜ |
+| B2 | Proft's Eidetic Memory | | V5 | | ✅ |
 | B3 | Peter Parker's Camera · Strionic Resonator | copy target ability | V6 | | ⬜ |
 | B4 | Reflector Mage | ETB bounce target creature an opponent controls; its owner can't cast spells with the same name until your next turn | M | the name-lock rider ("can't cast spells with that name" — a per-player cast restriction until the flicker-er's next turn) | ⬜ |
 | B5 | Recruiter of the Guard | ETB tutor a creature with toughness ≤2 to hand | S | the tutor lane with a toughness filter | ⬜ |
@@ -280,7 +280,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 |---|---|---|---|---|---|
 | N1 | Blightstep Pathway · Ojer Axonil · (Tergrid) | MDFC / transform | V1 | Ojer/Tergrid are TRANSFORM gods — L, not V1's land shape | ⬜ |
 | N2 | Orcish Bowmasters | | V4 | | ✅ |
-| N3 | Proft's Eidetic Memory | | V5 | | ⬜ |
+| N3 | Proft's Eidetic Memory | | V5 | | ✅ |
 | N4 | Sheoldred, the Apocalypse | "whenever an opponent draws a card, they lose 2 life" (+ your draws gain 2) | S | the opponent-draw watcher exists (Phyrexian Tyranny is its unless-pay cousin) | ⬜ |
 | N5 | Forced Fruition | opponent casts → draws seven | S | cast watcher + draw-for-that-player (castingPlayer referent exists) | ⬜ |
 | N6 | Painful Quandary | opponent casts → loses 5 unless they discard | M | an unless-discard choice on the opponent's seat | ⬜ |
@@ -468,6 +468,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — V5 (Proft's Eidetic Memory) ✅ +2 corpus · 5/5 mutations killed against a green witness (the intervening-if arm removed and loosened to one draw, the count source removed, the reader and the parser each dropping the printed minus) · suite 1422 files / 15,721 tests · corpus 14,288 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — V4 (Orcish Bowmasters) ✅ +3 corpus · the compound-split rider FP closed (Flaring Cinder, Giott) · 6/6 mutations killed against a green witness (the then/if tail dropped from the split, the arm removed, the flag dropped at descriptor assembly, the filter ignoring the flag, the draw step not stamping, the at-the-beginning tail dropped) · suite 1421 files / 15,711 tests · corpus 14,286 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 

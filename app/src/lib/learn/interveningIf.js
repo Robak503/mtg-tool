@@ -1655,6 +1655,13 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // list only — "first turn", "second or third" and every other span fail the anchor → null → Arbiter (CREED).
   if (/^it's your first, second, or third turn of the game$/.test(c)) return (state?.players?.[controllerId]?.turnsTaken || 0) <= 3;
 
+  // ===== CARDS-DRAWN-THIS-TURN (SHELF-85 V5, 2026-09-04 — Proft's Eidetic Memory "At the beginning of combat on your
+  // turn, if you've drawn more than one card this turn, …") ===== read off the controller's own per-turn draw tally
+  // (player.cardsDrawnThisTurn — bumped at the one draw chokepoint, drawCards; reset for every seat at untap — the same
+  // field the "draw your second card each turn" triggers read). "more than one" only; a numeric or opponent-scoped
+  // variant fails the anchor → null → Arbiter (CREED — never a mis-scoped draw-count read).
+  if (/^you've drawn more than one card this turn$/.test(c)) return (state?.players?.[controllerId]?.cardsDrawnThisTurn || 0) > 1;
+
   // ===== SPELLS-CAST-THIS-TURN (CR 700.4) ===== "you've cast [a|N or more] spell(s) this turn" — read off the
   // controller's per-turn spellsCastThisTurn counter (bumped at the cast chokepoint, TRIG-CAST2; reset for all
   // seats at untap — the SAME source the native "cast your second spell" triggers read). Loan Shark's ETB

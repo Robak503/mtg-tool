@@ -626,6 +626,10 @@ export function countForSpec(state, ctx, spec) {
   // the cast chokepoint, so the triggering spell itself is already counted when its trigger resolves, CR 608.2h; reset
   // for every seat at untap). An absent tally → 0 (never a fabricated count).
   if (spec.kind === "spellsCastThisTurn") return Math.max(0, state?.players?.[ctx?.controller]?.spellsCastThisTurn || 0);
+  // CARDS DRAWN THIS TURN (SHELF-85 V5, 2026-09-04 — Proft's Eidetic Memory): the controller's own per-turn draw tally
+  // (player.cardsDrawnThisTurn — stamped at the one draw chokepoint, reset for every seat at untap), less the printed
+  // "minus one", floored at 0 (never a negative or fabricated count).
+  if (spec.kind === "cardsDrawnThisTurn") return Math.max(0, (state?.players?.[ctx?.controller]?.cardsDrawnThisTurn || 0) - (spec.minus || 0));
   // ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== a count read off a single CREATURE referent's
   // LAYER-AWARE power/toughness AT RESOLUTION (CR 608.2h), NOT a player or board tally — the shared "equal to
   // its/that creature's power/toughness" count source that feeds tokens / counters / damage / life uniformly.

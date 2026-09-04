@@ -287,6 +287,11 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   if (/^times? it was kicked$/.test(p)) return { kind: "timesKicked" };
   // SPELLS CAST THIS TURN (④-BC — Aetherflux Reservoir): the controller's per-turn cast tally, read by countForSpec.
   if (/^spells? you(?:'ve| have) cast this turn$/.test(p)) return { kind: "spellsCastThisTurn" };
+  // CARDS DRAWN THIS TURN (SHELF-85 V5 — Proft's Eidetic Memory "put X +1/+1 counters on target creature you control,
+  // where X is the number of cards you've drawn this turn minus one"): the controller's per-turn draw tally, read by
+  // countForSpec; the printed "minus one" rides as `minus` and is floored at 0 there (never a negative count).
+  m = p.match(/^cards you(?:'ve| have) drawn this turn( minus one)?$/);
+  if (m) return { kind: "cardsDrawnThisTurn", ...(m[1] ? { minus: 1 } : {}) };
   // ⭐ COUNTERS ON THE SOURCE (CR 603.6e) — "…for each +1/+1 counter ON IT" (Marketback Walker and
   // Bloodtracker's dies/leaves draw, Hooded Hydra's dies tokens, Embalmed Brawler's attacks life-loss).
   // ⛔⛔ ONE PHRASE, TWO SOURCES, AND THAT IS THE WHOLE DIFFICULTY. On a DIES / LEAVES trigger the permanent
