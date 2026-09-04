@@ -659,14 +659,16 @@ export function setPendingOptionalDrawDiscardChoice(state, { controller, effectA
  * which-card choice); `effectAtoms` is the NON-pausing payoff, run by resolveOptionalDiscardPaymentChoice ONLY after
  * a real discard settles. `available` = the controller holds ≥1 non-token card to pitch. FIFO.
  */
-export function setPendingOptionalDiscardPaymentChoice(state, { controller, available, effectAtoms = [], sourceName = null, discardCount = 1 }) {
+export function setPendingOptionalDiscardPaymentChoice(state, { controller, available, effectAtoms = [], sourceName = null, discardCount = 1, declineLoseLife = null }) {
   if (state.pendingChoice) return state;
-  const next = logEvent(state, { kind: "optional-discard-payment-pending", controller, available, sourceName, discardCount });
+  const next = logEvent(state, { kind: "optional-discard-payment-pending", controller, available, sourceName, discardCount, ...(declineLoseLife != null && { declineLoseLife }) });
   return {
     ...next,
     // discardCount defaults to 1, so every existing caller is byte-identical; only the cost-bearing
     // graveyard self-return (Old One Eye, two cards) passes anything else.
-    pendingChoice: { kind: "optional-discard-payment", controller, available, effectAtoms, sourceName, discardCount },
+    // N6 (2026-09-04): `declineLoseLife` — "loses N life unless they discard a card" (Painful Quandary): declining, or an
+    // empty hand, costs the chooser N life at settle. Absent on every prior pause.
+    pendingChoice: { kind: "optional-discard-payment", controller, available, effectAtoms, sourceName, discardCount, ...(declineLoseLife != null && { declineLoseLife }) },
   };
 }
 
@@ -729,15 +731,17 @@ export function setPendingSacUnlessPayChoice(state, { controller, cost, sourceId
  * pay/decline to the payer's seat with NO special driver logic. `beneficiary` (the trigger's controller) draws when
  * the payer declines / can't afford. FIFO.
  */
-export function setPendingTaxedPaymentChoice(state, { payer, beneficiary, cost, sourceName = null, declinePayoff = "draw" }) {
+export function setPendingTaxedPaymentChoice(state, { payer, beneficiary, cost, sourceName = null, declinePayoff = "draw", declineAmount = null }) {
   if (state.pendingChoice) return state;
-  const next = logEvent(state, { kind: "taxed-payment-pending", payer, beneficiary, amount: wardCostHeadline(cost), sourceName, declinePayoff });
+  const next = logEvent(state, { kind: "taxed-payment-pending", payer, beneficiary, amount: wardCostHeadline(cost), sourceName, declinePayoff, ...(declineAmount != null && { declineAmount }) });
   return {
     ...next,
     // declinePayoff — what the BENEFICIARY gets when the payer declines / can't afford: "draw" (Rhystic Study —
     // draw a card) or "treasure" (Smothering Tithe — create a Treasure token). resolveTaxedPaymentChoice branches
     // on it. Defaults to "draw" so every existing taxed-draw caller is byte-for-byte unchanged.
-    pendingChoice: { kind: "taxed-payment", controller: payer, payer, beneficiary, cost, sourceName, declinePayoff },
+    // N7 (2026-09-04): "loseLife" — the decline lands on the PAYER as `declineAmount` life loss (Phyrexian Tyranny
+    // "loses 2 life unless they pay {2}"); the beneficiary gets nothing.
+    pendingChoice: { kind: "taxed-payment", controller: payer, payer, beneficiary, cost, sourceName, declinePayoff, ...(declineAmount != null && { declineAmount }) },
   };
 }
 

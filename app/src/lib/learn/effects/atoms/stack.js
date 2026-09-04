@@ -1106,6 +1106,43 @@ function applyOptionalSacPayment(state, atom, ctx) {
   });
 }
 
+// SHELF-85 N7 (2026-09-04) — TAXED LIFE LOSS (Phyrexian Tyranny "Whenever a player draws a card, that player loses 2 life
+// unless they pay {2}"): the taxed-payment pause aimed at the REFERENT seat (ctx.drawingPlayerId / ctx.castingPlayerId
+// by atom.who) with declinePayoff "loseLife" — decline or can't afford → THAT player loses `amount`. Unlike the Rhystic
+// lane the payer may be the controller (Tyranny hits every seat, its owner included). Missing referent → no-op.
+function applyTaxedLoseLife(state, atom, ctx) {
+  if (state.pendingChoice) return state; // FIFO — one choice at a time
+  const payer = atom.who === "drawingPlayer" ? ctx.drawingPlayerId : atom.who === "castingPlayer" ? ctx.castingPlayerId : null;
+  if (!payer || !state.players?.[payer]) return state;
+  return setPendingTaxedPaymentChoice(state, {
+    payer,
+    beneficiary: ctx.controller,
+    cost: atom.cost,
+    sourceName: ctx.cardName || null,
+    declinePayoff: "loseLife",
+    declineAmount: atom.amount,
+  });
+}
+
+// SHELF-85 N6 (2026-09-04) — LOSE LIFE UNLESS DISCARD (Painful Quandary "Whenever an opponent casts a spell, that player
+// loses 5 life unless they discard a card"): the optional-discard-payment pause aimed at the referent seat, with a
+// decline penalty of `amount` life (declineLoseLife). `available` counts the referent's non-token hand; an empty hand
+// still pauses (the seat must decline) and then pays the life. Missing referent → no-op.
+function applyLoseLifeUnlessDiscard(state, atom, ctx) {
+  if (state.pendingChoice) return state; // FIFO — one choice at a time
+  const payer = atom.who === "drawingPlayer" ? ctx.drawingPlayerId : atom.who === "castingPlayer" ? ctx.castingPlayerId : null;
+  if (!payer || !state.players?.[payer]) return state;
+  const available = (state.players[payer].hand || []).filter((c) => !c.token).length >= 1;
+  return setPendingOptionalDiscardPaymentChoice(state, {
+    controller: payer,
+    available,
+    discardCount: 1,
+    effectAtoms: [],
+    sourceName: ctx.cardName || null,
+    declineLoseLife: atom.amount,
+  });
+}
+
 // OPTIONAL DRAW-THEN-DISCARD — "you may draw a card. If you do, discard a card." Suspend on the yes/no; the
 // [draw, discard] payoff rides on the pause for the settle (resolveOptionalDrawDiscardChoice runs it on yes).
 function applyOptionalDrawDiscard(state, atom, ctx) {
@@ -1854,6 +1891,8 @@ export const stackResolvers = {
   "cumulative-upkeep": applyCumulativeUpkeep, // CUMULATIVE UPKEEP (CR 702.24) — add age counter, pay {cost}×age-counters or sacrifice (Mystic Remora)
   "echo": applyEcho, // ECHO (EC-1, CR 702.30) — the one-time first-upkeep pay-or-sacrifice (echoDone-stamped)
   "taxed-draw": applyTaxedDraw, // OPPONENT-PAYS-TO-DENY (CR 603.7c) — "you may draw a card unless that player pays {N}" (Rhystic Study)
+  "taxed-lose-life": applyTaxedLoseLife, // SHELF-85 N7 — "that player loses N life unless they pay {M}" (Phyrexian Tyranny)
+  "lose-life-unless-discard": applyLoseLifeUnlessDiscard, // SHELF-85 N6 — "that player loses N life unless they discard a card" (Painful Quandary)
   "taxed-treasure": applyTaxedTreasure, // OPPONENT-PAYS-TO-DENY (CR 603.7c) — "an opponent draws → that player may pay {N}, else you create a Treasure" (Smothering Tithe)
   "source-power-fanout": applySourcePowerFanout, // SOURCE-POWER-FANOUT (Chandra's Ignition) — chosen creature deals its power to each other creature + each opponent
   // SYMMETRIC SELF-DAMAGE (CR 119.3) — Rakdos Charm's "Each creature deals 1 damage to its controller".

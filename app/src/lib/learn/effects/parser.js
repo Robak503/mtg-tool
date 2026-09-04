@@ -34,7 +34,7 @@ import { splitClauses } from "./splitClauses.js"; // oracle → clause[] sentenc
 import { programNeedsChosenTarget } from "./programQueries.js"; // program-shape query leaf (slice 3) — imported for the assembly-time call sites; the full family is re-exported at the bottom of this file
 import { matchImprint, matchHandDisruption, matchRemovalControllerRider, matchRemovalCasterGainLife, matchRemovalDamageRider, matchCounterControllerRider, matchCounterExileInstead, matchCounterZoneRedirect, matchImpulseDig, matchReorderTop, matchDigLandToBattlefield, matchLookTopTake, matchChooseTypeDraw, matchChosenTypeRevealToHand, matchFixedTypeRevealToHand, matchDelayedTrigger } from "./spanMatchers.js"; // up-front multi-sentence span matchers (slice 4) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below (parseControllerRider now consumed by templateMatchers.js directly)
 import { extractAdditionalCosts, extractAltCost, stripSelfCostReduction, stripStormKeywordLine, stripDevoidLine, stripSelfShuffleIntoLibrary, stripSelfExileSentence, stripReboundLine, SUPPORTED_ADDITIONAL_COST_KINDS, SUPPORTED_ALT_COST_KINDS } from "./castModifiers.js"; // cast-cost extraction + disposition strips (slice 5) — zero-import leaf; the SUPPORTED_* kind sets feed programConfidence's LOW-until-vetted cost gates
-import { matchDiesGainDrawByPower, matchDrainEachOpponentX, matchIteratedEdict, matchRevealTopDrainByMv, matchReanimateDrain, matchDrainByCount, matchFinaleOfRevelation, matchGenesisWave, matchRevealThatManyPutFiltered, matchAnimistAwakening, matchOpenTheWay, matchExileXControllerRider, matchRevealTopConditional, matchImpulseExilePlay, matchMassDestroyTreasurePerNontoken, matchWindfallMaxDiscard, parseFixedManaPips, matchUpkeepSacUnlessPay, matchCumulativeUpkeep, matchEcho, matchDiscardHandDrawSame, matchTaxedDraw, matchTaxedTreasure, matchPumpThenFight, matchUntapThenPump, matchTwoTargetPump, matchDamagePowerTrampleExcess, matchCounterIfLegendaryThenFight, matchDrawOrCounterTriggering, matchRadOrProliferate, matchTimetwisterWheel, matchWindsOfChange, matchBlinkSubtypeCounter, matchDelayedBlink, matchRadTargetOrTreasure, matchFreeCastOrLand, matchGyOwnerDrain, matchDoubleOrResetCounters, matchMetalcraftDamage, matchInsteadAmountUpgrade, matchSelfHitDamage, matchCounterThenGrant, matchSpringheartLandfall, matchSwordHearthAndHome } from "./templateMatchers.js"; // collapsed-template whole-oracle matchers (slice 6) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below
+import { matchDiesGainDrawByPower, matchDrainEachOpponentX, matchIteratedEdict, matchRevealTopDrainByMv, matchReanimateDrain, matchDrainByCount, matchFinaleOfRevelation, matchGenesisWave, matchRevealThatManyPutFiltered, matchAnimistAwakening, matchOpenTheWay, matchExileXControllerRider, matchRevealTopConditional, matchImpulseExilePlay, matchMassDestroyTreasurePerNontoken, matchWindfallMaxDiscard, parseFixedManaPips, matchUpkeepSacUnlessPay, matchCumulativeUpkeep, matchEcho, matchDiscardHandDrawSame, matchTaxedDraw, matchTaxedLoseLife, matchLoseLifeUnlessDiscard, matchTaxedTreasure, matchPumpThenFight, matchUntapThenPump, matchTwoTargetPump, matchDamagePowerTrampleExcess, matchCounterIfLegendaryThenFight, matchDrawOrCounterTriggering, matchRadOrProliferate, matchTimetwisterWheel, matchWindsOfChange, matchBlinkSubtypeCounter, matchDelayedBlink, matchRadTargetOrTreasure, matchFreeCastOrLand, matchGyOwnerDrain, matchDoubleOrResetCounters, matchMetalcraftDamage, matchInsteadAmountUpgrade, matchSelfHitDamage, matchCounterThenGrant, matchSpringheartLandfall, matchSwordHearthAndHome } from "./templateMatchers.js"; // collapsed-template whole-oracle matchers (slice 6) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below
 // WAVE 1 — clause parsers for the new-module atoms. Imported here (not self-registered from the atoms
 // module) because effects/atoms/*.js must NOT import parser.js: parser.js → effectAtoms.js → atoms/*.js is
 // a one-way edge, and an atoms-module importing parser.js back would TDZ-crash at load (registerClauseParser
@@ -2907,6 +2907,18 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   const txd = matchTaxedDraw(oracle);
   if (txd && KNOWN.has(txd.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [txd.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== SHELF-85 N7 / N6 (2026-09-04) ===== "that player loses N life unless they pay {M}" (Phyrexian Tyranny) → ONE
+  // taxed-lose-life atom; "that player loses N life unless they discard a card" (Painful Quandary) → ONE
+  // lose-life-unless-discard atom. Both read the referent off the trigger's sentinel ("the drawing/casting player") and
+  // pause on THAT seat. Disjoint anchors from the two folds around them, so order-free.
+  const txl = matchTaxedLoseLife(oracle);
+  if (txl && KNOWN.has(txl.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [txl.atom], xSpell: false, unparsedTail: null });
+  }
+  const lud = matchLoseLifeUnlessDiscard(oracle);
+  if (lud && KNOWN.has(lud.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [lud.atom], xSpell: false, unparsedTail: null });
   }
   // ===== OPPONENT-PAYS-TO-DENY (taxed-treasure) ===== "that player may pay {N}. If the player doesn't, you create
   // a Treasure token" (Smothering Tithe's trigger effect) → ONE taxed-treasure atom (the payer = the opponent who

@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · N6 + N7: PAINFUL QUANDARY / PHYREXIAN TYRANNY — the "unless" choices on the referent seat · **+3** · corpus 14,367 (42.0%) / 34,245 (42.0%)
+> Suite **effects/templateMatchers.js (two matchers) + effects/parser.js (dispatch) + effects/atoms/stack.js (two appliers) + pendingChoice.js (declineAmount / declineLoseLife) + effects/runProgram.js (the two decline branches) + effects/effectAtoms.js (ops) + nekusarUnless.test.js (7)** green; lint 0. Flip-diff **+3, zero LOST**. **6/6.**
+> · **N7 Phyrexian Tyranny** — "Whenever a player draws a card, that player loses 2 life unless they pay {2}." The Rhystic
+>   Study pause (taxed-payment) aimed at the DRAWING seat, with the decline landing on the PAYER as life loss
+>   (declinePayoff `loseLife` / `declineAmount`) instead of on the beneficiary as a draw; every seat is hit, the
+>   controller included. The AI pays iff it can afford the tax (the lane's policy). Unplanned twin audited whole-card:
+>   Isolation Cell ("Whenever an opponent casts a creature spell, that player loses 2 life unless they pay {2}").
+> · **N6 Painful Quandary** — "Whenever an opponent casts a spell, that player loses 5 life unless they discard a card."
+>   The optional-discard-payment pause aimed at the CASTING seat with a decline penalty (`declineLoseLife`): declining,
+>   or holding no card, costs that player 5 at settle. The AI discards iff it can (the lane's policy).
+> · Both matchers read the trigger sentinels ("the drawing / casting player"), carry `who` so triggerRouting pins them to
+>   their event, and take fixed pips only ({X} parks). Two new pausing ops registered.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · N10: DARK DEAL + INCENDIARY COMMAND — the each-player wheel by own count · **+2** · corpus 14,364 (41.9%) / 34,245 (41.9%)
 > Suite **effects/splitClauses.js (keep-whole) + effects/atoms/hand.js (each-player wheel-by-count arm + applier) + darkDeal.test.js (5)** green; lint 0. Flip-diff **+2, zero LOST**. **5/5.**
 > · **The shape:** "Each player discards all the cards in their hand, then draws that many cards [minus one]." — "that many" is

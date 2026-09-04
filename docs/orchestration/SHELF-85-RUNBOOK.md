@@ -74,7 +74,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Test Rashmi | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Test | Teval, the Balanced Scale Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Nekusar Wheels | 81 | 4 | 9 | ⬜ Phase 2 |
+| Test | Nekusar Wheels | 83 | 2 | 7 | ⬜ Phase 2 |
 | Test | Shorikai Vehicles | 72 | 13 | 18 | ⬜ Phase 2 |
 | Test | Shalai and Hallar Test | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Otharri Test | 75 | 10 | 15 | ⬜ Phase 2 |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 66 | 19 | 24 | ⬜ Phase 2 |
 
-**12 decks below 85 · 160 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**12 decks below 85 · 158 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -287,8 +287,8 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | N3 | Proft's Eidetic Memory | | V5 | | ✅ |
 | N4 | Sheoldred, the Apocalypse | "whenever an opponent draws a card, they lose 2 life" (+ your draws gain 2) | S | the opponent-draw watcher exists (Phyrexian Tyranny is its unless-pay cousin) | ✅ (+1 corpus — the card-drawn trigger's PRONOUN referent: a clause-leading "they lose N life" rewrites to the drawing-player sentinel (the verb re-agreed), the same referent "that player" already took; the drawing-player lose-life arm existed.) |
 | N5 | Forced Fruition | opponent casts → draws seven | S | cast watcher + draw-for-that-player (castingPlayer referent exists) | ✅ (+1 corpus — the draw atom's who:`castingPlayer` arm ("the casting player draws N cards" — the cast trigger's sentinel), reading ctx.castingPlayerId; the applier draws for the caster, never the ability's controller.) |
-| N6 | Painful Quandary | opponent casts → loses 5 unless they discard | M | an unless-discard choice on the opponent's seat | ⬜ |
-| N7 | Phyrexian Tyranny | draw → lose 2 unless pay {2} | M | the pay-or-lose choice (the taxed-payment infra) on a draw watcher | ⬜ |
+| N6 | Painful Quandary | opponent casts → loses 5 unless they discard | M | an unless-discard choice on the opponent's seat | ✅ (+1 corpus — the optional-discard-payment pause aimed at the CASTING seat with a decline penalty (`declineLoseLife`): decline, or an empty hand, costs that player 5; the AI discards iff it can.) |
+| N7 | Phyrexian Tyranny | draw → lose 2 unless pay {2} | M | the pay-or-lose choice (the taxed-payment infra) on a draw watcher | ✅ (+2 corpus — the Rhystic Study pause aimed at the DRAWING seat with the decline landing on the PAYER as life loss (declinePayoff `loseLife`); every seat is hit, the controller included; the AI pays iff it can afford. Unplanned twin audited whole-card: Isolation Cell (an opponent's creature spell → the same pay-or-lose on the casting seat).) |
 | N8 | Bedevil | destroy target artifact, creature, or planeswalker | S | a three-type union target | ✅ (+1 corpus — a destroy/exile arm on "artifact, creature, or planeswalker"; the union predicate already existed for Planar Disruption's enchant line; registered on the trigger-flush gate's chosen-permanent list.) |
 | N9 | Bojuka Bog | ETB exile target player's graveyard | S | | ✅ (closed by T1c — "exile target player's graveyard" got its target side; Bojuka Bog reads `land`) |
 | N10 | Dark Deal · Incendiary Command (mode) · Wheel and Deal | discard-hand-then-draw-that-many(-minus-one) shapes | S/M | the wheel core is native; these are count-referent variants ("that many", "minus one", targeted opponents) | ✅ Dark Deal + Incendiary Command (+2 corpus — the splitter keeps "…, then draws that many cards [minus one]" whole; Tolarian Winds' composite (discard-hand-draw-same) gains who:`eachPlayer` + `minus`: every seat's own count read first, all hands pitched through the shared discard-all, then each draws its own count less the minus, floored at zero). 🅿 **Wheel and Deal** — "any number of target opponents each discard their hands, then draw seven" is an any-number PLAYER target set (no lane); stays arbiter, its own row if the deck needs it. |
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · N6 + N7 (Painful Quandary / Phyrexian Tyranny — Nekusar; Isolation Cell audited) ✅ +3 corpus · 6/6 · suite effects/templateMatchers.js (two matchers) + effects/parser.js (dispatch) + effects/atoms/stack.js (two appliers) + pendingChoice.js (declineAmount / declineLoseLife) + effects/runProgram.js (the two decline branches) + effects/effectAtoms.js (ops) + nekusarUnless.test.js (7) · corpus 14,367 (42.0%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — Phase 2 · N10 (Dark Deal + Incendiary Command — Nekusar; Wheel and Deal parked) ✅ +2 corpus · 5/5 · suite effects/splitClauses.js (keep-whole) + effects/atoms/hand.js (each-player wheel-by-count arm + applier) + darkDeal.test.js (5) · corpus 14,364 (41.9%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 

@@ -130,6 +130,8 @@ const PAUSING_OPS_LIST = [
   "echo", // stack.js applyEcho → setPendingSacUnlessPayChoice (the one-time first-upkeep pay-or-sacrifice — CR 702.30)
   "taxed-draw", // stack.js applyTaxedDraw → setPendingTaxedPaymentChoice (opponent pays or you draw — Rhystic Study)
   "taxed-treasure", // stack.js applyTaxedTreasure → setPendingTaxedPaymentChoice (opponent pays or you create a Treasure — Smothering Tithe)
+  "taxed-lose-life", // stack.js applyTaxedLoseLife → setPendingTaxedPaymentChoice (the referent player pays or loses N — Phyrexian Tyranny; SHELF-85 N7)
+  "lose-life-unless-discard", // stack.js applyLoseLifeUnlessDiscard → setPendingOptionalDiscardPaymentChoice (the referent player discards or loses N — Painful Quandary; SHELF-85 N6)
   "iterated-edict", // iteratedEdict.js applyIteratedEdict → advanceEdictChain → setPendingEdictModeChoice (Torment of Hailfire)
   "connive", // connive.js applyConnive → setPendingDiscardChoice (the chosen discard; the counter settles in resolveDiscardChoice)
   "conditional", // the barrel's applyConditional — an INNER branch atom can itself pause (Flow State's impulse-dig); the parser arms admit a pauser only in a branch's LAST slot (2026-08-12)

@@ -1776,6 +1776,9 @@ export function resolveOptionalDiscardPaymentChoice(state, doDiscard) {
     };
     return runEffectProgram(next, obj);
   }
+  // N6 (Painful Quandary) — "loses N life unless they discard a card": declining, or holding no card to pitch, costs
+  // the chooser N life (loseLife, so life-loss watchers fire). Absent on every prior pause → byte-identical.
+  if (pc.declineLoseLife > 0 && next.players?.[pc.controller]) next = loseLife(next, { playerId: pc.controller, amount: pc.declineLoseLife });
   return resumeAfterChoice(next, pc);
 }
 
@@ -1947,7 +1950,11 @@ export function resolveTaxedPaymentChoice(state, pay) {
     paid = r.paid;
   }
   next = logEvent(next, { kind: "spell-effect", effect: "taxed-payment", payer: pc.payer, beneficiary: pc.beneficiary, paid, declinePayoff: pc.declinePayoff || "draw", sourceName: pc.sourceName || null });
-  if (!paid && next.players?.[pc.beneficiary]) {
+  if (!paid && pc.declinePayoff === "loseLife") {
+    // N7 (Phyrexian Tyranny) — the decline lands on the PAYER: they lose `declineAmount` (CR 119.4 via loseLife, so
+    // life-loss watchers fire). The beneficiary gets nothing. A vanished payer loses nothing.
+    if (next.players?.[pc.payer] && pc.declineAmount > 0) next = loseLife(next, { playerId: pc.payer, amount: pc.declineAmount });
+  } else if (!paid && next.players?.[pc.beneficiary]) {
     if (pc.declinePayoff === "treasure") {
       // Smothering Tithe — the BENEFICIARY creates one functional Treasure token (create-named-token mints it under
       // ctx.controller = the beneficiary, with the printed tap-for-mana ability; fireTokenEnterTriggers runs inside).

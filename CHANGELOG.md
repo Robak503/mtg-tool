@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Phyrexian Tyranny** and **Isolation Cell** — pay {2} or lose 2, on the right player; **Painful Quandary** — discard or lose 5, as printed
 - **Dark Deal** and **Incendiary Command** — everyone discards their hand and draws that many (minus one for Dark Deal), as printed
 - **Sheoldred, the Apocalypse** — an opponent's draws cost them 2 life, as printed; **Forced Fruition** — the caster draws seven; **Bedevil** — destroys an artifact, creature or planeswalker
 - **Reflector Mage** — the bounced creature's owner can't recast it until your next turn, as printed

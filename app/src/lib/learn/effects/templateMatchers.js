@@ -765,6 +765,40 @@ export function matchDiscardHandDrawSame(oracle) {
  * unmodeled (SAFE FN). The bare "draw a card unless …" (no "you may") maps to the same atom (the payer's choice IS
  * the "may").
  */
+/**
+ * SHELF-85 N7 (2026-09-04) — TAXED LIFE LOSS: "that player loses N life unless they pay {M}." (Phyrexian Tyranny, on a
+ * card-drawn trigger: "Whenever a player draws a card, …"). The Rhystic Study pause (taxed-payment) with the decline
+ * landing on the PAYER as life loss instead of on the beneficiary as a draw. Both sentinel spellings are accepted (the
+ * cast / card-drawn rewrites turn "that player" into "the casting player" / "the drawing player"); `who` names the
+ * referent so triggerRouting pins the atom to its event, and the applier reads the matching ctx seat. Fixed pips only.
+ */
+export function matchTaxedLoseLife(oracle) {
+  const s = String(oracle || "").trim().replace(/\.$/, "");
+  const m = s.match(/^(that player|the drawing player|the casting player) loses (\d+) life unless (?:they|that player) pays? (\{[^}]+\}(?:\{[^}]+\})*)$/i);
+  if (!m) return null;
+  const who = /drawing/i.test(m[1]) ? "drawingPlayer" : /casting/i.test(m[1]) ? "castingPlayer" : null;
+  if (!who) return null; // a bare "that player" reached here un-rewritten — no referent, unmodeled
+  const pips = (m[3].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
+  if (!pips.length) return null;
+  const mana = parseFixedManaPips(pips);
+  if (!mana) return null;
+  return { atom: { op: "taxed-lose-life", amount: parseInt(m[2], 10), cost: { kind: "mana", mana }, who, targetType: null } };
+}
+
+/**
+ * SHELF-85 N6 (2026-09-04) — LOSE LIFE UNLESS DISCARD: "that player loses N life unless they discard a card." (Painful
+ * Quandary, on a cast trigger). The optional-discard-payment pause aimed at the referent seat, with a decline penalty:
+ * decline (or an empty hand) → that player loses N. Same sentinel discipline as matchTaxedLoseLife.
+ */
+export function matchLoseLifeUnlessDiscard(oracle) {
+  const s = String(oracle || "").trim().replace(/\.$/, "");
+  const m = s.match(/^(that player|the drawing player|the casting player) loses (\d+) life unless (?:they|that player) discards? a card$/i);
+  if (!m) return null;
+  const who = /drawing/i.test(m[1]) ? "drawingPlayer" : /casting/i.test(m[1]) ? "castingPlayer" : null;
+  if (!who) return null;
+  return { atom: { op: "lose-life-unless-discard", amount: parseInt(m[2], 10), who, targetType: null } };
+}
+
 export function matchTaxedDraw(oracle) {
   const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
   // ===== DYNAMIC TAX AMOUNT — "{X}, where X is this creature's power" (Esper Sentinel, rank 76) =====
