@@ -680,6 +680,15 @@ export function destroyExileClauseParser(clause) {
   // boundary (after the last damage sub-step's SBA + dies triggers). Only the trigger synthesis produces
   // this phrase — it appears in zero printed oracle text, so a spell anaphor can never reach it.
   if (/^destroy the triggering creature at end of combat$/.test(t)) return { op: "destroy-at-end-of-combat", target: "thatCreature" };
+  // SELF AT END OF COMBAT (④-AX, 2026-09-04 — CR 511 / 603.7): "When this creature attacks or blocks, SACRIFICE IT at end
+  // of combat" (Mardu Blazebringer, Runaway Carriage, Fog Elemental) and "… RETURN IT to its owner's hand at end of combat"
+  // (Windscouter, Phantom Whelp, Quicksilver Behemoth). The OR-1 split hands each half (attacks/self, blocks/self) this
+  // effect; the resolver does NOT act now — it enqueues a turn-stamped entry on the SAME state.endOfCombatEffects queue the
+  // basilisk touch uses, and combatResolution drains it at the end-of-combat boundary (after damage, the lethal SBA and
+  // the dies look-backs). "it" is the SOURCE (scope self — CR 113.7); a source that already left combat-damage-dead is a
+  // clean skip at the drain ("Return it only if it's on the battlefield" — the printed reminder).
+  const seoc = t.match(/^(sacrifice|return) (?:it|this creature)( to its owner's hand)? at end of combat$/);
+  if (seoc && (seoc[1] === "sacrifice") === !seoc[2]) return { op: "self-at-end-of-combat", action: seoc[1] === "sacrifice" ? "sacrifice" : "bounce", target: "self", targetType: null };
   // DETAIN (BLITZ DT-1, CR 610.3 — the Banishing Light / Banisher Priest / Oblivion-Ring-modern frame):
   // "exile <target …> until this <enchantment|creature|artifact|permanent> leaves the battlefield." The
   // TARGET vocabulary is delegated to THIS parser recursively (strip the until-tail, parse the bare exile) so
@@ -1085,7 +1094,18 @@ function applyDestroyAtEndOfCombat(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "destroy-at-end-of-combat-enqueued", target: id, source: ctx.cardName || null });
 }
 
+// ④-AX — enqueue the SOURCE's own end-of-combat sacrifice / bounce (see the parse arm above). Same entry shape and
+// turn stamp as the basilisk destroy, so the drain's stale guard covers it; a source already gone → nothing to enqueue.
+function applySelfAtEndOfCombat(state, atom, ctx) {
+  const id = ctx.sourceId;
+  if (!id || !findPermanent(state, id)) return state;
+  const entry = { op: atom.action === "bounce" ? "bounce" : "sacrifice", permanentId: id, turn: state.turn, sourceCardName: ctx.cardName || null };
+  const next = { ...state, endOfCombatEffects: [...(state.endOfCombatEffects || []), entry] };
+  return logEvent(next, { kind: "spell-effect", effect: `${entry.op}-at-end-of-combat-enqueued`, target: id, source: ctx.cardName || null });
+}
+
 export const removalResolvers = {
+  "self-at-end-of-combat": applySelfAtEndOfCombat, // ④-AX — "sacrifice it / return it to its owner's hand at end of combat" (the attacks-or-blocks self class)
   "champion": applyChampion, // ===== CHAMPION (CR 702.71a) ===== exile ANOTHER own nontoken creature of the named type, linked to the source via the shared detain resolver (so the return is the one already proven); sacrifice the source when no legal offering exists
   "mass-destroy-treasure-per-nontoken": applyMassDestroyTreasurePerNontoken, // BLOOD-MONEY — destroy all creatures + a tapped Treasure per nontoken creature destroyed
   "destroy-at-end-of-combat": applyDestroyAtEndOfCombat, // BASILISK TOUCH (DG-1, CR 511) — enqueue a turn-stamped delayed destroy; combatResolution drains it

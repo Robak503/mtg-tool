@@ -114,13 +114,18 @@ export function playerInvestigateClauseParser(clause) {
 
 export function poisonClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[\u2019]/g, "'").replace(/\.$/, "").trim();
-  const m = t.match(/^(each opponent|each player|target player|target opponent|you) gets? (a|an|one|two|three|\d+) poison counters?$/);
+  // "defending player" joined in ④-AX (2026-09-04 — Crypt Cobra / Swamp Mosquito / Suq'Ata Assassin "Whenever this creature
+  // attacks and isn't blocked, defending player gets a poison counter"): who:"defendingPlayer" reads ctx.defenderId, which
+  // only the attacks / attacksUnblocked / becomesBlocked flushes thread — triggerRouting refuses the referent on any other
+  // event and coverage refuses it on a spell (the same discipline the lose-life defendingPlayer arm rides).
+  const m = t.match(/^(each opponent|each player|target player|target opponent|you|defending player) gets? (a|an|one|two|three|\d+) poison counters?$/);
   if (!m) return null;
   const amount = /^\d+$/.test(m[2]) ? parseInt(m[2], 10) : { a: 1, an: 1, one: 1, two: 2, three: 3 }[m[2]];
   if (!amount) return null;
   const who = m[1] === "you" ? "controller"
     : m[1] === "each player" ? "eachPlayer"
     : m[1] === "each opponent" ? "eachOpponent"
+    : m[1] === "defending player" ? "defendingPlayer"
     : "target";
   const targetType = who !== "target" ? null : (m[1] === "target opponent" ? "opponent" : "player");
   return { op: "add-poison", amount, who, targetType };
@@ -146,6 +151,10 @@ export function applyAddPoison(state, atom, ctx) {
     }
   } else if (atom.who === "controller" && next.players[ctx.controller]) {
     next = addPoison(next, { playerId: ctx.controller, amount });
+  } else if (atom.who === "defendingPlayer") {
+    // ④-AX — the attacked player (CR 509.1), threaded as ctx.defenderId by the attack-side flushes; an absent id (any
+    // other event — the routing gate keeps the atom off those anyway) → no recipient → a clean no-op, never a guess.
+    if (ctx.defenderId && next.players[ctx.defenderId]) next = addPoison(next, { playerId: ctx.defenderId, amount });
   }
   return next;
 }

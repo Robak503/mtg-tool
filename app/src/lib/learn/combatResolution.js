@@ -57,7 +57,8 @@ import { applyDestroyEffect } from "./spellEffects.js"; // DG-1 — the shared d
 import { protectionApplies } from "./protection.js";
 import { selfDamagePrevention, selfDamagePreventionBy, attachedDamagePrevention, mayAssignAsUnblocked, attackerMinBlockers, counterShieldPrevention, attachedPreventPutCounters, selfPreventPutCounters } from "./combatEvasion.js";
 import { boardHasDamageReplacement, consultDamageAmount, combatDamageUnpreventable } from "./damageReplacements.js"; // + SG-11 (Frenzied Baloth): "Combat damage can't be prevented."
-import { playerProtectedFromEverything } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player takes no combat damage
+import { playerProtectedFromEverything, moveCardToZone } from "./gameState.js"; // TEFERI'S PROTECTION — a shielded player takes no combat damage; moveCardToZone — ④-AX end-of-combat self-bounce
+import { sacrificeCreatureEffect } from "./effects/atoms/removal.js"; // ④-AX — the shared sacrifice primitive for the end-of-combat self-sacrifice
 import { armDamageToCreatureFlag, marksDamageToCreature } from "./wolverine.js";
 import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCombatDamageTriggers, checkCombatDamageToCreatureTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers, checkDealtByTriggers } from "./triggers.js";
 
@@ -100,10 +101,24 @@ function drainEndOfCombatEffects(state) {
   if (queue.length === 0) return state;
   let next = { ...state, endOfCombatEffects: [] };
   for (const e of queue) {
-    if (e?.op !== "destroy") continue;                 // unknown entry kinds never fire (FN-safe)
+    if (e?.op !== "destroy" && e?.op !== "sacrifice" && e?.op !== "bounce") continue; // unknown entry kinds never fire (FN-safe)
     if (e.turn !== next.turn) continue;                // STALE (an earlier turn's leftover) → dropped, never fired
     const lk = findPermanent(next, e.permanentId);
     if (!lk) continue;                                 // already dead / gone → nothing to destroy
+    // ④-AX — the SOURCE's own delayed sacrifice / bounce ("When this creature attacks or blocks, sacrifice it / return it
+    // to its owner's hand at end of combat" — Mardu Blazebringer, Windscouter): the sacrifice rides the shared sacrifice
+    // primitive (dies triggers, death look-backs), the bounce the shared zone move; both skip a creature that already
+    // died to combat damage, exactly as the destroy above does.
+    if (e.op === "sacrifice") {
+      next = logEvent(next, { kind: "end-of-combat-sacrifice", turn: next.turn, target: e.permanentId, cardName: lk.permanent.card?.name, source: e.sourceCardName || null });
+      next = sacrificeCreatureEffect(next, lk.controller, e.permanentId);
+      continue;
+    }
+    if (e.op === "bounce") {
+      next = logEvent(next, { kind: "end-of-combat-bounce", turn: next.turn, target: e.permanentId, cardName: lk.permanent.card?.name, source: e.sourceCardName || null });
+      next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "hand", cardId: e.permanentId });
+      continue;
+    }
     next = logEvent(next, { kind: "end-of-combat-destroy", turn: next.turn, target: e.permanentId, cardName: lk.permanent.card?.name, source: e.sourceCardName || null });
     next = applyDestroyEffect(next, { controller: lk.controller, targets: [{ type: "creature", id: e.permanentId }] });
   }

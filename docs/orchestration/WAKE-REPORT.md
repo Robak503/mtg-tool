@@ -7,6 +7,15 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (night cron) — **④-AX: "sacrifice it / return it at end of combat" + unblocked poison (+12)** · suite **1410 files / 15,642 tests** green · corpus 14,219 / 34,245 (41.5%) · flip-diff +12 / 0 lost · 7/7 mutations killed (the parse arm, the enqueue, the drain's op gate, bounce-vs-sacrifice, the stale-turn guard, the poison arm's defending player, the poison branch's seat)
+
+> **Night tally (stage ④, fifty slices):** … · AV (+9) · AW (+13) · AX (+12) — corpus 13,862 → 14,219.
+> **CI:** pushed after ④-AW's run 33834188144 is green; own run watched after push (result on the next entry's line)
+> **Next runnable:** the fresh census (after ④-AW) is flat at ≤6; the ≥3 families with machinery left are "at the beginning
+> of your draw step, draw an additional card" (needs a draw-step trigger event — 10 carriers, ~5 sole), detain (3 — the
+> three keyword locks + the until-your-next-turn duration exist), "{C}: target creature can't block this creature this
+> turn" (3 — a pairwise block restriction). Then the subsystem-scale families (Colton's pick) or a deck walk.
+
 ## 🎯 2026-09-04 (night cron) — **④-AW: the Fling bodies — a sacrificed source's power as it last existed (+13)** · suite **1409 files / 15,634 tests** green · corpus 14,207 / 34,245 (41.5%) · flip-diff +13 / 0 lost · 6/6 mutations killed (the pre-sacrifice power stamp, the reader's look-back fallback, the look-back's id-keying, the any-target alternative, the non-self watcher guard, the guard's scope set)
 
 > **Night tally (stage ④, forty-nine slices):** … · AU (+7) · AV (+9) · AW (+13) — corpus 13,862 → 14,207.

@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — ④-AX: "sacrifice it / return it at end of combat" + unblocked poison · **+12** · corpus 14,219 / 34,245 (41.5%)
+> Suite **1410 files / 15,642 tests** green; lint 0. Flip-diff **+12, zero LOST**, every gain audited whole-card. **7/7 mutations killed (the parse arm, the enqueue, the drain's op gate, bounce-vs-sacrifice, the stale-turn guard, the poison arm's defending player, the poison branch's seat).**
+> · **The shapes:** (1) "When this creature attacks or blocks, sacrifice it / return it to its owner's hand at end of
+>   combat" — the OR-1 split hands each half a `self-at-end-of-combat` atom; its resolver enqueues a turn-stamped entry on
+>   the basilisk-touch queue (state.endOfCombatEffects) and combatResolution's drain now handles sacrifice (the shared
+>   primitive — dies triggers, look-backs) and bounce beside destroy. Mardu Blazebringer, Runaway Carriage, Fog Elemental,
+>   Crumbling Colossus (attacks only), Stoic Ephemera (blocks only), Windscouter, Phantom Whelp, Quicksilver Behemoth,
+>   Wall of Junk (blocks only). (2) "attacks and isn't blocked, defending player gets a poison counter" — ④-AU's
+>   attacksUnblocked event + the poison atom's who:"defendingPlayer" (ctx.defenderId; routing-gated like lose-life):
+>   Crypt Cobra, Swamp Mosquito, Suq'Ata Assassin.
+> · **Board-verified:** the Blazebringer deals its 4, then is sacrificed at the boundary; Windscouter returns to hand; a
+>   Whelp that died to its blocker is a clean skip; a stale entry never fires; the Cobra unblocked poisons the DEFENDER
+>   once, blocked not at all.
+> · **CI:** pushed after ④-AW's run 33834188144 is green; own run watched after push (result on the next entry's line)
+
 > ## 🎯 2026-09-04 (night cron) — ④-AW: the Fling bodies — a sacrificed source's power as it last existed · **+13** · corpus 14,207 / 34,245 (41.5%)
 > Suite **1409 files / 15,634 tests** green; lint 0. Flip-diff **+13, zero LOST**, every gain audited whole-card. **6/6 mutations killed (the pre-sacrifice power stamp, the reader's look-back fallback, the look-back's id-keying, the any-target alternative, the non-self watcher guard, the guard's scope set).**
 > · **The shape:** "{1}, Sacrifice this creature: It deals damage equal to its power to any target" (Skarrgan Skybreaker, Ghitu
