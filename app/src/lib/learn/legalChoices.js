@@ -1025,6 +1025,12 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     if (castNoncreatureLockFor(state, playerId) && !/\bCreature\b/i.test(String(card?.type || card?.type_line || "").split(" // ")[0])) continue;
     // B4 (Reflector Mage — CR 611.2b): a NAME cast lock on this player refuses the named spell until the setter's next turn.
     if (nameCastLocked(state, playerId, card?.name)) continue;
+    // S11 (Permission Denied — "your opponents can't cast noncreature spells this turn"): a turn-stamped cast-type lock on
+    // this seat refuses every non-creature card while the stamp's turn is the current one (self-expiring).
+    {
+      const lock = state.castLocksThisTurn?.[playerId];
+      if (lock && lock.turn === state.turn && lock.noncreature && !/\bCreature\b/i.test(String(card?.type || card?.type_line || "").split(" // ")[0])) continue;
+    }
 
     // CR 202.1a — A CARD WITH NO MANA COST CAN'T BE CAST unless an effect allows it. manaCostOf correctly
     // returns "" for a genuinely costless card (a suspend-only spell — Ancestral Vision, Crashing Footfalls,

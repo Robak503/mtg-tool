@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Permission Denied** and **Ranger-Captain of Eos** — your opponents can't cast noncreature spells this turn, as printed
 - **Mobilizer Mech** — crewing it animates another Vehicle you control, as printed
 - **Prodigy's Prototype** — a Pilot whenever your Vehicles attack, once per combat, as printed
 - **Shorikai, Genesis Engine** — the commander's loot works, and its Pilot tokens crew as though their power were 2 greater

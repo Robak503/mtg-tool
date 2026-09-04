@@ -40,7 +40,7 @@ describe("MUST_STAY_HIGH — trigger residue chain credits the whole card", () =
       "clean baseline: a single own ETB trigger"],
     ["Farfinder", "Creature — Fox",
       "Vigilance\nWhen this creature enters, you may search your library for a basic land card, reveal it, put it into your hand, then shuffle.",
-      "keyword + a single own ETB trigger (the Ranger-Captain near-twin below adds ONE more ability and flips body-only)"],
+      "keyword + a single own ETB trigger (the Ranger-Captain near-twin parked on its second ability until SHELF-85 S11 modeled it — 2026-09-04)"],
     ["Aesi, Tyrant of Gyre Strait", "Legendary Creature — Serpent",
       "You may play an additional land on each of your turns.\nLandfall — Whenever a land you control enters, you may draw a card.",
       "LANDFALL ABILITY-WORD LABEL: \"Landfall — Whenever\" sits mid-line, not at ^ — the label-strip fix lets the trigger-sentence regex still match it; extra-land static rides along as native-mixed"],
@@ -85,9 +85,9 @@ describe("MUST_NOT_OVER-CLAIM — trigger-shaped text with real unmodeled residu
   // reports a native tier, the runtime is ignoring real unmodeled text while the metric counts it
   // fully modeled — the exact over-claim the whole gate exists to prevent.
   const CASES = [
-    ["Ranger-Captain of Eos", "Creature — Human Soldier Ranger",
-      "When this creature enters, you may search your library for a creature card with mana value 1 or less, reveal it, put it into your hand, then shuffle.\nSacrifice this creature: Your opponents can't cast noncreature spells this turn.",
-      "near-twin of Farfinder's ETB search — but a second sacrifice-activated hoser ability is unmodeled residue, so CREED whole-card-or-nothing parks the ENTIRE card, ETB included"],
+    // Ranger-Captain of Eos GRADUATED 2026-09-04 (SHELF-85 S11 — "your opponents can't cast noncreature spells this
+    // turn" is the turn-stamped opponents' cast-type lock now; permissionDenied.test.js pins it native-mixed). The
+    // whole-card-or-nothing law it illustrated still holds: the card flipped only when BOTH abilities modeled.
     ["Notion Thief", "Creature — Human Rogue",
       "Flash\nIf an opponent would draw a card except the first one they draw in each of their draw steps, instead that player skips that draw and you draw a card.",
       "not a When/Whenever/At trigger at all — a REPLACEMENT effect (\"instead\") redirecting an opponent's draw; a different mechanism the trigger gate correctly doesn't credit"],

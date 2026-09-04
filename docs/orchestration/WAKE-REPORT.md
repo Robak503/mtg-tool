@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · S11: Permission Denied (+2)** · suite **effects/atoms/misc.js (opponents-cast-lock-turn arm + applier) + legalChoices.js (the turn-stamped cast gate) + permissionDenied.test.js (4); one CREED pin graduated (triggerTierPins)** green · corpus 14,381 (42.0%) / 34,245 (42.0%) · flip-diff +2 / 0 lost · 5/5
+
+> The turn-stamped opponents' cast-type lock. **Shorikai 81 (needs 4).** Next by §2: S12 Emry (a may-cast-from-graveyard-this-turn permission — a new cast lane), S13 The Indomitable (L), S9 Sai (a real which-artifacts pick), then S14/S17.
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · S7: Mobilizer Mech (+1)** · suite **triggers.js (becomesCrewed detector arm + checkBecomesCrewedTriggers) + actionDispatcher.js (fired from the crew dispatch) + effects/atoms/combat.js (up-to-one-other Vehicle animate) + mobilizerMech.test.js (5)** green · corpus 14,379 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 4/4
 
 > A new self-scoped becomes-crewed event. **Shorikai 80 (needs 5).** Next by §2: S11 Permission Denied (a this-turn opponents' cast-type lock), S12 Emry (a may-cast-from-graveyard-this-turn permission), S13 The Indomitable; S9 Sai (a real which-artifacts pick) and S14/S15/S17 remain.

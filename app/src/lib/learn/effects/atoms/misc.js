@@ -106,6 +106,18 @@ function applyDrawHalfLibraryLoseHalfLife(state, atom, ctx) {
 }
 
 /**
+ * SHELF-85 S11 (2026-09-04) — OPPONENTS' CAST-TYPE LOCK THIS TURN (Permission Denied "Your opponents can't cast noncreature
+ * spells this turn."): stamp `castLocksThisTurn[pid] = { turn, noncreature: true }` on every opponent of the controller.
+ * legalChoices' cast loop refuses a non-creature card for a locked seat while `turn === state.turn` (the stamp self-expires
+ * with the turn number, the FOG latch's discipline — no cleanup pass). Only the noncreature filter is printed on the row.
+ */
+function applyOpponentsCastLockTurn(state, atom, ctx) {
+  const locks = { ...(state.castLocksThisTurn || {}) };
+  for (const pid of opponentsOf(state, ctx.controller)) locks[pid] = { turn: state.turn, [atom.filter]: true };
+  return logEvent({ ...state, castLocksThisTurn: locks }, { kind: "spell-effect", effect: "opponents-cast-lock-turn", filter: atom.filter, controller: ctx.controller, turn: state.turn });
+}
+
+/**
  * ===== FOG ===== (FOG-1, CR 615 prevention) — "Prevent all combat damage that would be dealt this turn."
  * Stamp the current turn onto state.preventCombatDamageTurn; combatResolution.resolveCombatDamage skips
  * ALL combat damage (both the first-strike and regular steps) while that flag === state.turn, then it
@@ -230,6 +242,10 @@ export function applyDivideDamage(state, atom, ctx) {
 export function miscClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   if (/^prevent all combat damage that would be dealt this turn$/.test(t)) return { op: "fog", targetType: null };
+  // SHELF-85 S11 (2026-09-04 — Permission Denied): "Your opponents can't cast noncreature spells this turn." — a
+  // turn-stamped cast-type lock on every opponent (applyOpponentsCastLockTurn); the cast loop refuses non-creature cards
+  // for a locked seat while the turn matches. Only the printed filter word; "spells" (all) or "creature spells" park.
+  if (/^your opponents can't cast noncreature spells this turn$/.test(t)) return { op: "opponents-cast-lock-turn", filter: "noncreature", targetType: null };
   // EXTRA-TURN (BLITZ XT-1, CR 500.7 — Time Walk / Temporal Manipulation / Capture of Jingzhou / Time
   // Warp): "Take an extra turn after this one." The resolver pushes the CONTROLLER onto state.extraTurns;
   // gameEngine.advanceStep's end-of-turn branch POPS the stack (most-recently-created first, CR 500.7)
@@ -786,6 +802,7 @@ export const miscResolvers = {
   "lure-this-turn": applyLureThisTurn, // ===== THIS-TURN LURE ===== (LU-2, CR 509.1c) — a turn-scoped block requirement marker, enforced in opponentAI.pickBlockers at the LU-1 bar
   "add-mana": applyAddMana, // RITUAL-MANA — "Add {C}{C}{C}" adds basic mana to the controller's pool
   "fog": applyFog, // ===== FOG ===== (FOG-1) prevent all combat damage this turn — a turn-scoped latch
+  "opponents-cast-lock-turn": applyOpponentsCastLockTurn, // SHELF-85 S11 — "your opponents can't cast noncreature spells this turn" (Permission Denied)
   "force-attack": applyForceAttack, // ===== FORCED-ATTACK ===== (FORCE-ATTACK-1, CR 508.1a) — "Creatures your opponents control attack this turn if able" (Bident): a turn-scoped attack requirement enforced in opponentAI.pickAttackPlan
   "play-extra-land-this-turn": applyPlayExtraLandThisTurn, // ===== ONE-SHOT EXTRA-LAND ===== (CR 505.5b) bump the controller's per-turn land budget (Explore/Summer Bloom/Urban Evolution); reset each turn
   "create-emblem": applyCreateEmblem, // ===== EMBLEM ===== (PW-5) "you get an emblem with '[modeled static]'"

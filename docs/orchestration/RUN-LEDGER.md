@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · S11: PERMISSION DENIED — the opponents' cast-type lock this turn · **+2** · corpus 14,381 (42.0%) / 34,245 (42.0%)
+> Suite **effects/atoms/misc.js (opponents-cast-lock-turn arm + applier) + legalChoices.js (the turn-stamped cast gate) + permissionDenied.test.js (4); one CREED pin graduated (triggerTierPins)** green; lint 0. Flip-diff **+2, zero LOST**. **5/5.**
+> · **The shape:** "Counter target noncreature spell. Your opponents can't cast noncreature spells this turn." — the counter
+>   half already parsed; the second sentence is a TURN-STAMPED cast-type lock on every opponent
+>   (state.castLocksThisTurn[pid] = { turn, noncreature }): the cast loop refuses a non-creature card for a locked seat
+>   while the stamp's turn is the current one, and the stamp self-expires with the turn number (the FOG latch's
+>   discipline — no cleanup pass), beside the ④-E static lock and the B4 name lock. Only the printed filter word;
+>   "spells" / "creature spells" park. Unplanned twin audited whole-card: Ranger-Captain of Eos (the same sentence on a
+>   sacrifice ability; its ETB tutor was already modeled). One CREED pin graduated: triggerTierPins.test.js listed the
+>   card as the must-park near-twin of Farfinder; it flipped only when BOTH abilities modeled, the law it illustrated.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · S7: MOBILIZER MECH — the becomes-crewed event · **+1** · corpus 14,379 (42.0%) / 34,245 (42.0%)
 > Suite **triggers.js (becomesCrewed detector arm + checkBecomesCrewedTriggers) + actionDispatcher.js (fired from the crew dispatch) + effects/atoms/combat.js (up-to-one-other Vehicle animate) + mobilizerMech.test.js (5)** green; lint 0. Flip-diff **+1, zero LOST**. **4/4.**
 > · **The shape:** "Whenever this Vehicle becomes crewed, up to one other target Vehicle you control becomes an artifact
