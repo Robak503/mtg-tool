@@ -61,7 +61,7 @@ describe("parser — team pumps are HIGH; filtered / wrong-scope / unenforced-kw
     // (subtypeFilter) are now HIGH — see teamPumpScope.test.js (TEAM-PUMP-SCOPE). What stays LOW:
     low("Creatures you control with flying get +1/+1 until end of turn.");    // keyword-filtered subset
     low("White creatures you control get +1/+1 until end of turn.");          // color-filtered subset
-    low("Vehicles you control get +1/+1 until end of turn.");                 // a NON-curated subtype word → low
+    low("Kithkin you control get +1/+1 until end of turn.");                  // a NON-curated subtype word → low ("Vehicles" GRADUATED 2026-09-04, SHELF-85 S10 — Vehicle joined COUNT_SUBTYPE)
     low("Attacking creatures you control get +2/+0 until end of turn.");      // you-control-filtered attacking subset (bare "attacking creatures" IS native — COMBAT-TEAM-PUMP)
     low("Creatures you control get +1/+1 and gain banding until end of turn."); // pump path: banding un-grantable (shadow now IS — SLIVER INTERIORS SP-1)
     low("Creatures you control gain banding until end of turn.");             // GROUP-KEYWORD-GRANT: un-grantable keyword → low (forestwalk graduated — BLITZ EQ-1)

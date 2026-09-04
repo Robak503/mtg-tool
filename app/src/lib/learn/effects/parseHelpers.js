@@ -174,6 +174,9 @@ export const COUNT_SUBTYPE = {
   knight: "Knight", knights: "Knight", dragon: "Dragon", dragons: "Dragon", beast: "Beast", beasts: "Beast",
   merfolk: "Merfolk", wolf: "Wolf", wolves: "Wolf", bird: "Bird", birds: "Bird", snake: "Snake", snakes: "Snake",
   dog: "Dog", dogs: "Dog", elemental: "Elemental", elementals: "Elemental", rat: "Rat", rats: "Rat",
+  // SHELF-85 S10 (2026-09-04, Surgehacker Mech "twice the number of Vehicles you control"): the artifact subtype counted
+  // by the same "<Subtype>s you control" arm — the type-line word test is subtype-agnostic.
+  vehicle: "Vehicle", vehicles: "Vehicle",
   // SHELF-85 V9 (2026-09-04, Valley Floodcaller "Birds, Frogs, Otters, and Rats you control"): both words appear only
   // in the creature-subtype half of a type line (no collision with a card type or supertype).
   frog: "Frog", frogs: "Frog", otter: "Otter", otters: "Otter",

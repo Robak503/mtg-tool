@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · S3 + S4 + S10: Thunderhawk Gunship / Parhelion II / Surgehacker Mech (+5)** · suite **effects/atoms/combat.js (own-side attacker batch) + effects/atoms/tokens.js (attacking rider) + effects/atoms/stack.js (twice-the-count damage, opponent scope) + effects/parseHelpers.js (Vehicle count) + shorikaiSRows.test.js (8); four CREED pins graduated (teamPump / teamPumpScope / parser.test ×2)** green · corpus 14,374 (42.0%) / 34,245 (42.0%) · flip-diff +5 / 0 lost · 7/7
+
+> Shorikai's three one-arm rows in one slice. **Shorikai 75 (needs 10).** Next by §2: S6 Peacewalker Colossus (animate a target Vehicle — the crew layer effect on a chosen target), S16 Dispatch (the metalcraft conditional exile of the tapped target); S9 Sai's two-artifact sacrifice is a real which-permanents choice the cost lane refuses on purpose (M, needs a pick); then the M rows S5/S7/S8/S11/S12/S13.
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · N12: Teferi's Puzzle Box (+1)** · suite **effects/splitClauses.js (keep-whole) + effects/atoms/hand.js (hand-to-bottom-draw-same arm + applier; wheel draws through applyDrawEffect) + teferisPuzzleBox.test.js (6)** green · corpus 14,369 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 5/5
 
 > The draw-step hand tuck, drawing through the trigger-firing chokepoint. **NEKUSAR 85 — AT THE BAR the runbook sets for Phase 2 (§2: stop a deck at ≥85); its remaining rows (N1 transform gods, N13 Chaos Warp, N14, N15) stay ⬜ for Phase 3. Three decks at the bar today (Teval, Brago, Nekusar). Next deck in §5 order: Shorikai (72, needs 13).**

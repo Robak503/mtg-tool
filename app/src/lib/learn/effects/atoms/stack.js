@@ -461,6 +461,17 @@ export function dealDamageScaledClauseParser(clause) {
   // unmodeled count → parseCountSource null → low → Arbiter. Emits the SAME amountCount atom (resolver shared).
   // ("any other target" joined the alternation 2026-08-14 — Red Hulk's reflexive; build() stamps
   // excludeSource off the phrase, the TT entry maps it onto the same "any" enumeration.)
+  // SHELF-85 S10 (2026-09-04 — Surgehacker Mech "it deals damage equal to TWICE the number of Vehicles you control to
+  // target creature or planeswalker an opponent controls"): a multiplier on the count (amountCount.per = 2, the same
+  // scaled read the for-each arms use) and the OPPONENT-scoped creature-or-planeswalker target (the controller
+  // restriction the enumerator already honors on both halves). Placed before the modern-order arm so its wider
+  // target phrase is read here; the bare "the number of" form without the scope still falls through unchanged.
+  const mdsX = t.match(/^.+? deals? damage equal to (twice )?the number of (.+?) to (target creature or planeswalker|target creature) an opponent controls$/);
+  if (mdsX) {
+    const amountCount = parseCountSource(mdsX[2], { allowTarget: false, allowScopes: false });
+    if (!amountCount || amountCount.who) return null;
+    return { op: "deal-damage", targetType: mdsX[3] === "target creature" ? "creature" : "creatureOrPlaneswalker", restrictions: [{ kind: "controller", who: "opponent" }], amountCount: { ...amountCount, per: mdsX[1] ? 2 : 1 } };
+  }
   const mds2 = t.match(/^.+? deals? damage equal to the number of (.+?) to (target creature|any target|any other target|target player|target player or planeswalker|target creature or planeswalker|each opponent)$/);
   if (mds2) return build(mds2[2], mds2[1]);
   // TOTAL-MV damage (Summon: Bahamut's Mega Flare, 2026-08-14 — CR 202.3): "deals damage equal to the

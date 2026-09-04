@@ -1086,7 +1086,10 @@ export function applyGrantKeywordsGroup(state, atom, ctx) {
       // the "They" of "untap all attacking creatures. They gain first strike…" is exactly that batch.
       // Outside combat the set is empty → no grant (a clean no-op, never a fallback to the whole board).
       ? (state.combat?.attackers || []).map((a) => findPermanent(state, a.permanentId)?.permanent).filter(Boolean)
-      : bf.filter((p) => permanentIsCreature(state, p.id));           // creaturesYouControl
+      : atom.scope === "attackingCreaturesYouControl"
+        // S3 — the live attacker set, the CONTROLLER's only (Thunderhawk Gunship). Outside combat → empty → no grant.
+        ? (state.combat?.attackers || []).map((a) => findPermanent(state, a.permanentId)).filter((lk) => lk && lk.controller === ctrl).map((lk) => lk.permanent)
+        : bf.filter((p) => permanentIsCreature(state, p.id));         // creaturesYouControl
   // COUNTER-FILTERED ("those creatures" — the +1/+1-counter creatures the preceding draw counted; Inspiring
   // Call). Read at resolution off the live counter bag (CR 611.2c snapshot), so a creature that loses its
   // counter before this resolves is excluded — faithful. Absent → no filter (the plain group grant).
@@ -2349,6 +2352,14 @@ export function groupGrantClauseParser(clause) {
   if (am) {
     const akws = parseGroupGrantKeywords(am[1]);
     return akws ? { op: "grant-keywords-group", scope: "attackingCreatures", grantKeywords: akws } : null;
+  }
+  // SHELF-85 S3 (2026-09-04 — Thunderhawk Gunship "Whenever this Vehicle attacks, attacking creatures you control gain
+  // flying until end of turn"): the OWN-side attacker batch — the live attacker set filtered to the controller's
+  // creatures (on a multi-attacker board the batch is every attacker; "you control" keeps the scope printed-exact).
+  const amy = t.match(/^attacking creatures you control gains? (.+) until end of turn$/);
+  if (amy) {
+    const akws = parseGroupGrantKeywords(amy[1]);
+    return akws ? { op: "grant-keywords-group", scope: "attackingCreaturesYouControl", grantKeywords: akws } : null;
   }
   const m = t.match(/^(creatures|permanents) you control gains? (.+) until end of turn$/);
   if (!m) return null;

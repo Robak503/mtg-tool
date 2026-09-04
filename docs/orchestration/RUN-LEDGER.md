@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · S3 + S4 + S10: SHORIKAI's small rows — Thunderhawk Gunship / Parhelion II / Surgehacker Mech · **+5** · corpus 14,374 (42.0%) / 34,245 (42.0%)
+> Suite **effects/atoms/combat.js (own-side attacker batch) + effects/atoms/tokens.js (attacking rider) + effects/atoms/stack.js (twice-the-count damage, opponent scope) + effects/parseHelpers.js (Vehicle count) + shorikaiSRows.test.js (8); four CREED pins graduated (teamPump / teamPumpScope / parser.test ×2)** green; lint 0. Flip-diff **+5, zero LOST**. **7/7.**
+> · **S3 Thunderhawk Gunship** — "attacking creatures you control gain flying until end of turn": the group-grant lane's
+>   OWN-side attacker batch (scope `attackingCreaturesYouControl` — the live attacker set filtered to the controller).
+> · **S4 Parhelion II** — "create two 4/4 white Angel creature tokens with flying and vigilance THAT ARE ATTACKING": the
+>   fixed-count token arm's trailing "that are [tapped and] attacking" rider, peeled before the main match so the
+>   keyword list is untouched; applyCreateToken registers the minted tokens as attackers against the trigger's defender
+>   (the Otharri / mobilize convention). A first cut peeled the rider without stamping the disposition — the parse probe
+>   caught it before the witness did. Twin audited whole-card: Leonin Warleader (the tapped form).
+> · **S10 Surgehacker Mech** — "deals damage equal to TWICE the number of Vehicles you control to target creature or
+>   planeswalker an opponent controls": the count-damage lane gains a multiplier (per 2), the Vehicle subtype on the
+>   curated count table, and the opponent-scoped creature-or-planeswalker target (both halves honor the restriction).
+>   Twin audited whole-card: Jet, Freedom Fighter (a plain creature count; its dies trigger was already modeled).
+> · **Four CREED pins graduated:** "Vehicles you control get +1/+1 until end of turn" was the canonical non-curated word in
+>   teamPump / teamPumpScope / parser.test (×2); with Vehicle on the count table it reads HIGH (the team-pump subtype scope —
+>   no real card flipped). Repointed to "Kithkin", which stays outside the table.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · N12: TEFERI'S PUZZLE BOX — hand to the bottom, draw that many · **+1** · corpus 14,369 (42.0%) / 34,245 (42.0%)
 > Suite **effects/splitClauses.js (keep-whole) + effects/atoms/hand.js (hand-to-bottom-draw-same arm + applier; wheel draws through applyDrawEffect) + teferisPuzzleBox.test.js (6)** green; lint 0. Flip-diff **+1, zero LOST**. **5/5.**
 > · **The shape:** "At the beginning of each player's draw step, that player puts the cards in their hand on the bottom of

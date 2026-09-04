@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Thunderhawk Gunship** — your attackers gain flying; **Parhelion II** and **Leonin Warleader** — the tokens enter attacking; **Surgehacker Mech** and **Jet, Freedom Fighter** — count-scaled damage on an opponent's creature
 - **Teferi's Puzzle Box** — each draw step, that player tucks their hand and redraws; wheel draws (Dark Deal too) now trigger draw watchers like Sheoldred
 - **Peer into the Abyss** — the target draws half their library and loses half their life, rounded up
 - **Phyrexian Tyranny** and **Isolation Cell** — pay {2} or lose 2, on the right player; **Painful Quandary** — discard or lose 5, as printed

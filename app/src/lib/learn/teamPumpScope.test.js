@@ -67,7 +67,7 @@ describe("TEAM-PUMP-SCOPE — parser", () => {
     ]);
   });
   it("CREED: a non-curated subtype, a color/keyword filter, an un-grantable keyword, or a static (no-EOT) form stays LOW", () => {
-    expect(isHigh("Vehicles you control get +1/+1 until end of turn.")).toBe(false);   // not a curated subtype
+    expect(isHigh("Kithkin you control get +1/+1 until end of turn.")).toBe(false);    // not a curated subtype ("Vehicles" GRADUATED 2026-09-04, SHELF-85 S10)
     expect(isHigh("White creatures you control get +1/+1 until end of turn.")).toBe(false); // color filter
     expect(isHigh("Creatures you control with flying get +1/+1 until end of turn.")).toBe(false); // keyword filter
     expect(isHigh("Other creatures you control get +1/+1 and gain protection from red until end of turn.")).toBe(false); // un-grantable kw

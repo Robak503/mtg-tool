@@ -75,14 +75,14 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Teval, the Balanced Scale Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Nekusar Wheels | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Shorikai Vehicles | 72 | 13 | 18 | ⬜ Phase 2 |
+| Test | Shorikai Vehicles | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Shalai and Hallar Test | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Otharri Test | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 69 | 16 | 21 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 66 | 19 | 24 | ⬜ Phase 2 |
 
-**11 decks below 85 · 156 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**11 decks below 85 · 153 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -304,14 +304,14 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 |---|---|---|---|---|---|
 | S1 | Emeritus of Truce · Hengegate Pathway · Cosima | MDFC / transform | V1 | Cosima is a transform god (L) | ⬜ |
 | S2 | Minamo | | V3 | | ✅ |
-| S3 | Thunderhawk Gunship | attacks → attacking creatures you control gain flying | S | attacks trigger + team keyword grant (exist) | ⬜ |
-| S4 | Parhelion II | attacks → two 4/4 Angel tokens tapped and attacking | S | token ETB "tapped and attacking" rider (Endless Foot Assault wants it too) | ⬜ |
+| S3 | Thunderhawk Gunship | attacks → attacking creatures you control gain flying | S | attacks trigger + team keyword grant (exist) | ✅ (+1 corpus — the group-grant lane's OWN-side attacker batch: scope `attackingCreaturesYouControl` = the live attacker set filtered to the controller's creatures.) |
+| S4 | Parhelion II | attacks → two 4/4 Angel tokens tapped and attacking | S | token ETB "tapped and attacking" rider (Endless Foot Assault wants it too) | ✅ (+2 corpus — the fixed-count token arm's trailing "that are [tapped and] attacking" rider, peeled before the main match; applyCreateToken registers the minted tokens as attackers against the trigger's defender. Unplanned twin audited whole-card: Leonin Warleader (the tapped form).) |
 | S5 | Prodigy's Prototype | "whenever one or more Vehicles you control attack" → Pilot token with a quoted crew ability | M | batch attack event by type + quoted-grant token | ⬜ |
 | S6 | Peacewalker Colossus | {1}{W}: another target Vehicle becomes an artifact creature until EOT | S | the animate lane on a chosen Vehicle (crew's twin) | ⬜ |
 | S7 | Mobilizer Mech | "whenever this Vehicle becomes crewed" → animate another Vehicle | M | a becomes-crewed event | ⬜ |
 | S8 | Shorikai, Genesis Engine | {1},{T}: draw two, discard one, create a Pilot token with a quoted crew ability | M | draw-discard + quoted-grant token | ⬜ |
 | S9 | Sai, Master Thopterist | {1}{U}, sacrifice two artifacts: draw | S | sacCount cost (exists) + draw | ⬜ |
-| S10 | Surgehacker Mech | ETB damage = twice the number of Vehicles you control | S | countFor permanentsYouControl subtype Vehicle × per 2 | ⬜ |
+| S10 | Surgehacker Mech | ETB damage = twice the number of Vehicles you control | S | countFor permanentsYouControl subtype Vehicle × per 2 | ✅ (+2 corpus — the count-damage lane gains a `twice` multiplier (per 2), the Vehicle subtype on the curated count table, and the opponent-scoped creature-or-planeswalker target. Unplanned twin audited whole-card: Jet, Freedom Fighter (the plain creature count; its dies trigger was already modeled).) |
 | S11 | Permission Denied | counter noncreature; opponents can't cast noncreature spells this turn | M | a per-turn cast-type lock on opponents | ⬜ |
 | S12 | Emry, Lurker of the Loch | {T}: choose target artifact card in your graveyard; you may cast it this turn | M | the "may cast from graveyard this turn" permission (the Six/retrace family's cousin) | ⬜ |
 | S13 | The Indomitable | may cast from graveyard while you control three or more tapped Pirates/Vehicles | M | | ⬜ |
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · S3 + S4 + S10 (Thunderhawk Gunship / Parhelion II / Surgehacker Mech — Shorikai; Leonin Warleader + Jet audited) ✅ +5 corpus · 7/7 · suite effects/atoms/combat.js (own-side attacker batch) + effects/atoms/tokens.js (attacking rider) + effects/atoms/stack.js (twice-the-count damage, opponent scope) + effects/parseHelpers.js (Vehicle count) + shorikaiSRows.test.js (8); four CREED pins graduated (teamPump / teamPumpScope / parser.test ×2) · corpus 14,374 (42.0%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — Phase 2 · N12 (Teferi's Puzzle Box — Nekusar) ✅ +1 corpus · 5/5 · suite effects/splitClauses.js (keep-whole) + effects/atoms/hand.js (hand-to-bottom-draw-same arm + applier; wheel draws through applyDrawEffect) + teferisPuzzleBox.test.js (6) · corpus 14,369 (42.0%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 

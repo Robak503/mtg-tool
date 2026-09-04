@@ -778,7 +778,7 @@ function createTokenClauseParserCore(clause) {
   // (CR 111.1), so "you create …" ≡ "create …". The conjoined payload form ("you create a … token and …",
   // e.g. Sword of Body and Mind) carries it on the first sub-clause; strip it so the create anchors below
   // bind. Strictly a PROMOTION (can only let an already-low clause parse) — never changes a token's owner.
-  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/^you create /, "create ");
+  let t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/^you create /, "create ");
   // MILLED-COUNT sentinel (Screeching Scorchbeast, SHELF M1b) — "create that many milled[-nonland] N/N <desc>
   // creature tokens": the event-specific sentinel detectTriggers rewrites a milled trigger's "create that
   // many …" payoff to (a phrase in ZERO printed oracle text — the milledFilter picks which context count).
@@ -857,9 +857,19 @@ function createTokenClauseParserCore(clause) {
     if (inner && inner.op === "create-token") return { ...inner, targetType: "opponent", whoCreates: "target" };
     return null;
   }
+  // SHELF-85 S4 (2026-09-04 — Parhelion II "create two 4/4 white Angel creature tokens with flying and vigilance THAT ARE
+  // ATTACKING"): the trailing attacking disposition on the fixed-count arm. The rider is peeled BEFORE the main match
+  // (so the "with …" keyword list stays exactly what it was); `that are tapped and attacking` also taps. Combat state,
+  // not a characteristic — applyCreateToken registers the minted tokens as attackers against ctx.defenderId (the
+  // Otharri / mobilize convention); outside an attack context the flag is inert and the tokens simply enter.
+  let attackingRider = null;
+  {
+    const ar = t.match(/^(create .+?)( that are (tapped and )?attacking)$/);
+    if (ar) { attackingRider = { tapped: !!ar[3] }; t = ar[1]; }
+  }
   const m = t.match(/^create (a|an|one|two|three|four|five|\d+) (tapped )?(\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?: named ([a-z' ]+?))?(?: with (.+))?$/);
   if (m) {
-    const entersTapped = !!m[2];
+    const entersTapped = !!m[2] || !!attackingRider?.tapped;
     m.splice(2, 1); // drop the tapped group so every existing index below reads unchanged
     const power = parseInt(m[2], 10);
     const toughness = parseInt(m[3], 10);
@@ -875,7 +885,7 @@ function createTokenClauseParserCore(clause) {
     // guards a hypothetical "Forest Dryad land creature token with flying".
     if (landMana.oracle && m[6] !== undefined) return null;
     const tokenName = m[5] ? m[5].trim().split(/\s+/).map(cap).join(" ") : null; // title-case the parsed name (it was lowercased upstream)
-    const base = { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power, toughness, descriptor: m[4].trim(), ...(entersTapped ? { tapped: true } : {}), ...(tokenName ? { name: tokenName } : {}), ...(landMana.oracle ? { tokenOracle: landMana.oracle } : {}), targetType: null };
+    const base = { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power, toughness, descriptor: m[4].trim(), ...(entersTapped ? { tapped: true } : {}), ...(attackingRider ? { entersAttacking: true } : {}), ...(tokenName ? { name: tokenName } : {}), ...(landMana.oracle ? { tokenOracle: landMana.oracle } : {}), targetType: null };
     if (m[6] === undefined) return base;
     // A QUOTED inline ability → the clean-mana-ability gate (T4) OR the curated self-dies TRIGGERED-ability gate
     // (T5: a Pest's dies→gain-life, a Devil's dies→deal-damage — both minted as real oracle so checkDiesTriggers

@@ -978,7 +978,7 @@ const MUST_DROP_TO_LOW = [
   "Attacking creatures you control get +2/+0 until end of turn.",      // the you-control-filtered attacking subset isn't modeled (bare "attacking creatures" IS — COMBAT-TEAM-PUMP)
   "Creatures you control with flying get +1/+1 until end of turn.",    // keyword-filtered subset
   "White creatures you control get +1/+1 until end of turn.",          // color-filtered subset (a color is not a curated subtype)
-  "Vehicles you control get +1/+1 until end of turn.",                 // a NON-curated subtype word → low (only COUNT_SUBTYPE entries are admitted)
+  "Kithkin you control get +1/+1 until end of turn.",                  // a NON-curated subtype word → low (only COUNT_SUBTYPE entries are admitted; "Vehicles" GRADUATED 2026-09-04, SHELF-85 S10)
   "Other creatures you control get +1/+1 and gain protection from red until end of turn.", // un-grantable keyword on the OTHER-scope pump → low
   "Creatures you control get +1/+1 and gain banding until end of turn.", // pump-path grant: banding un-grantable → low (shadow now grantable — SLIVER INTERIORS SP-1)
   "Creatures you control gain banding until end of turn.",             // GROUP-KEYWORD-GRANT: an un-grantable keyword → still low (the bare "gain trample/hexproof/indestructible/forestwalk" form is now native — forestwalk graduated in EQ-1)
@@ -1517,7 +1517,7 @@ describe("parseEffectProgram — team pump (scope:youControl)", () => {
     expect(p).toMatchObject({ confidence: "high", atoms: [{ op: "pump", scope: "youControl", subtypeFilter: "Dinosaur", excludeSource: true, ptDelta: { p: 1, t: 1 }, grantKeywords: ["Flying"] }] });
   });
   it("a NON-curated subtype word stays low → Arbiter (only COUNT_SUBTYPE entries admitted)", () => {
-    expect(programConfidence(parseEffectProgram(I("Vehicles you control get +1/+1 until end of turn.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("Kithkin you control get +1/+1 until end of turn.")))).toBe("low"); // "Vehicles" GRADUATED 2026-09-04 (SHELF-85 S10 — Vehicle is a curated count subtype now)
   });
 });
 
