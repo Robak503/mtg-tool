@@ -28,8 +28,8 @@ import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js
 import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
-import { entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, choosesColorOnEnter, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
-import { addContinuousEffect } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); acyclic (layers imports only ptPrimitive/keywords/staticAbilityParser/protection, none of which reach resolvers)
+import { othersEnterWithCounters, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, sunburstCounterKind, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, choosesColorOnEnter, entersWithConditionalCounters, entersWithChoiceCounters, entersTapped, impositionEntersTapped, isNativeManaAura, auraChoosesColorOnEnter, riotKeywordCount, parseSoulbondBond } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + ENTERS-WITH-NAMED-COUNTERS (Arixmethes slumber) + ENTERS-WITH-CONDITIONAL/CHOICE (BLITZ EW-1: Morbid/Raid counters; Ikoria keyword-counter choice) + AURA-LAND-MANA-BOOST + CHOSEN-COLOR (Utopia Sprawl) + KW-RIOT (CR 702.136 — enters-with-choice: counter or haste)
+import { addContinuousEffect, permanentPower, permanentToughness } from "./layers.js"; // KW-RIOT haste branch — a layer-6 permanent-duration addKeyword Haste grant scoped to the entering permanent (the earthbend/animate precedent); acyclic (layers imports only ptPrimitive/keywords/staticAbilityParser/protection, none of which reach resolvers)
 import { conditionalEntersTapped, paysLifeOrEntersTapped, autoPickOptionalLifePayment, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>"; a leaf over interveningIf (interveningIf → layers → staticAbilityParser, none reach resolvers) — acyclic
 import { autoPickCreatureType } from "./choicePolicy.js"; // CR 614.12 auto-choice policy — a zero-import LEAF, shared with the effect atoms (which cannot import resolvers: resolvers → runProgram → effectAtoms). One copy, so an ETB choice and an activated choice can never diverge on the same board.
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
@@ -180,6 +180,28 @@ export function autoPickManaColor(state, controller, exclude = null) {
 //   • the clause is matched by the SAME anchored predicate the classifier credits, so metric and runtime
 //     cannot drift apart — a card whose text this scan does not recognise is not credited either.
 // CR 702.136b (multiple instances work separately) falls out for free: each grant counts once.
+/**
+ * The +1/+1 counters OTHER permanents' "each other creature you control enters with …" statics add to `card` as it enters.
+ * "Other" needs no explicit self-check here: the entering permanent is built AFTER this scan and is not on the battlefield
+ * yet (a self-exclusion written first was unreachable under mutation and was removed, not kept).
+ */
+function othersEnterWithCountersFor(state, controller, card) {
+  if (!card) return 0;
+  const tl = String(card.type || card.type_line || "");
+  if (!/\bCreature\b/i.test(tl)) return 0;
+  let n = 0;
+  for (const p of state?.players?.[controller]?.battlefield || []) {
+    if (!p) continue;
+    const d = othersEnterWithCounters(p.card);
+    if (!d) continue;
+    if (d.subtype && !new RegExp(`\\b${d.subtype}\\b`).test(tl)) continue;
+    const metric = d.metric === "sourceToughness" ? permanentToughness(state, p.id)
+      : d.metric === "sourcePower" ? permanentPower(state, p.id) : 0;
+    n += Math.max(0, d.fixed + metric);
+  }
+  return n;
+}
+
 function grantedRiotCount(state, controller, card) {
   if (!card || card.token) return 0;
   const tl = String(card.type || card.type_line || "");
@@ -471,6 +493,11 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // (CR 616 — Doubling Season doubles riot's entry counter too). CR 702.136b: multiple riot instances each
   // work separately, so N instances add N counters. The HASTE branch is a durable layer-6 addKeyword grant
   // applied AFTER the permanent is on the battlefield (below). A non-riot permanent leaves both untouched.
+  // OTHERS-ENTER-WITH (CR 614.1c — SHELF-85 H8, 2026-09-04): another permanent's static ("Each other creature you control
+  // enters with an additional +1/+1 counter on it" — Arwen / Renata / Bramblewood Paragon) adds counters as THIS one
+  // enters. Read from the controller's battlefield through the same reader coverage credits; the source never counts itself.
+  const othersExtra = othersEnterWithCountersFor(state, controller, card);
+  if (othersExtra > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", othersExtra) };
   const riotCount = riotKeywordCount(card) + grantedRiotCount(state, controller, card);
   const riotHaste = riotCount > 0 && riotPicksHaste(state, controller);
   if (riotCount > 0 && !riotHaste) {

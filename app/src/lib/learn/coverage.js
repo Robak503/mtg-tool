@@ -36,7 +36,7 @@ import { detectTriggers, stripTriggerAbilityLabel, foldTwoTriggerDetain, parseGr
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND no-cost credit — the same gate the runtime offers through (fading→triggers→… is already a loaded edge; no cycle)
 import { isSagaCard, parseSagaChapters } from "./saga.js"; // SAGA (CR 714, SHELF S7) — the all-or-nothing chapter gate
 import { parseActivatedAbilities, expandOutlastLines, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, parseCrewCost, foldModalBulletLines, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler, parseDiscardCostAbility } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, choosesColorOnEnter, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, registerAuraOwnTriggerValidator, registerAttachedExceptByValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, attachedNoUntapOf, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
+import { othersEnterWithCounters, staticAbilitiesCoverCard, clauseProducesStatic, abilityClauses, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isPlayerAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, parseAuraGrantedManaAbility, auraEnchantSubject, entersWithPlusCounters, entersWithMinusCounters, entersWithXCounters, convergeEntersCounters, entersWithMetricCounters, entersWithNamedCounters, entersWithConditionalCounters, entersWithChoiceCounters, isHonestEnterCounterKind, choosesColorOnEnter, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, registerLevelerCardValidator, registerAuraOwnEtbValidator, registerAuraOwnActivatedValidator, registerAuraGrantedAbilityValidator, registerAuraOwnTriggerValidator, registerAttachedExceptByValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature, isAttachedNoUntapLine, attachedNoUntapOf, riotKeywordCount, parseSoulbondBond, stripSoulbondText, selfNormalizeOracle } from "./staticAbilityParser.js";
 import { spellConditionParseable } from "./interveningIf.js"; // EW-1 — the metric⇄runtime shared gate for a conditional enters-with counter (the resolver evaluates the SAME vocabulary via evaluateInterveningIf); acyclic (interveningIf imports only gameState)
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
@@ -3468,9 +3468,14 @@ export function classifyCard(card) {
   const condEnterOracle = condEnterCtr && spellConditionParseable(condEnterCtr.condition)
     ? namedEnterOracle.replace(/[^.\n]*\benters with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on (?:it|him|her) if [^.\n]*\.?/i, " ")
     : namedEnterOracle;
-  const ewOracle = entersWithChoiceCounters(card)
+  const choiceEnterOracle = entersWithChoiceCounters(card)
     ? condEnterOracle.replace(/[^.\n]*\benters with your choice of [^.\n]*\.?/i, " ")
     : condEnterOracle;
+  // OTHERS-ENTER-WITH (SHELF-85 H8 — Arwen / Renata / Bramblewood Paragon): stripped ONLY when the reader the resolver
+  // honours (othersEnterWithCounters) confirms the whole line — the same single-source-of-truth gate as every branch above.
+  const ewOracle = othersEnterWithCounters(card)
+    ? choiceEnterOracle.replace(/^[ \t]*each other [^.\n]*creature you control enters with (?:an additional \+1\/\+1 counter|a number of additional \+1\/\+1 counters) on it[^.\n]*\.?[ \t]*$/im, " ")
+    : choiceEnterOracle;
   // ENTERS-TAPPED: actionDispatcher handles unconditional "enters tapped" via entersTapped() — credit it
   // here by stripping that sentence from the oracle so it doesn't block coverage on cards whose remaining
   // text is fully modeled (triggers / activated / static / mixed). etCard propagates the stripped oracle

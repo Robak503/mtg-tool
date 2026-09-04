@@ -30,7 +30,7 @@ import { CR_CREATURE_TYPES } from "./effects/creatureTypes.js"; // the closed cr
 // team-pump scope already share it). Imported straight from parseHelpers, which imports only keywords.js —
 // a zero-import leaf this file ALREADY imports — so the edge adds no new module-init ordering (verified with
 // the mandatory `node -e "import './src/lib/learn/legalChoices.js'"` graph check, per the run ledger).
-import { COUNT_SUBTYPE } from "./effects/parseHelpers.js";
+import { COUNT_SUBTYPE, TARGET_SUBTYPES } from "./effects/parseHelpers.js"; // TARGET_SUBTYPES: othersEnterWithCounters (H8) vets its "<Subtype> creature" word
 
 // The closed vocabulary a "cast <X> spells from the top of your library" filter word must belong to. Card
 // types (CR 205.2a) plus every printed creature type; anything else parks the clause. Built LAZILY on first
@@ -1150,6 +1150,36 @@ export function entersWithMetricCounters(card) {
       const hasPlus = /plus an additional \+1\/\+1 counter on it for each/i.test(s);
       return hasPlus ? { fixed: n, perUnit: 1, metric } : { fixed: 0, perUnit: n, metric };
     }
+  }
+  return null;
+}
+
+/**
+ * OTHERS-ENTER-WITH-COUNTERS (CR 614.1c — a replacement effect on ANOTHER permanent's entry; SHELF-85 H8, 2026-09-04).
+ * "Each other [<Subtype>] creature you control enters with an additional +1/+1 counter on it." (Renata, Called to the
+ * Hunt; Bramblewood Paragon's Warrior form) and "… enters with a number of additional +1/+1 counters on it equal to
+ * <this creature's | Name's> (power|toughness)." (Arwen, Weaver of Hope — toughness). The reader returns the descriptor
+ * the RESOLVER honours as each other creature enters (resolvers.othersEnterWithCountersFor), and coverage strips the
+ * sentence only when this same reader confirms it — single source of truth, so a card is never credited for a line the
+ * runtime won't apply. Anchored ^…$ per line: Master Biomancer's "… and as a Mutant in addition to its other types"
+ * and Metallic Mimic's "of the chosen type" leave residue → unmatched → body-only (CREED).
+ *   { subtype: "Warrior"|null, fixed: 1|0, metric: "sourcePower"|"sourceToughness"|null }
+ */
+export function othersEnterWithCounters(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  const full = String(card?.name || "");
+  const short = full.includes(",") ? full.split(",")[0].trim() : full;
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const selfAlt = [full, short].filter(Boolean).map(esc).join("|");
+  const re = new RegExp(`^each other (?:([A-Z][a-z]+) )?creature you control enters with (an additional \\+1\\/\\+1 counter|a number of additional \\+1\\/\\+1 counters) on it(?: equal to (?:this creature's|${selfAlt ? `(?:${selfAlt})'s` : "this creature's"}) (power|toughness))?\\.?\\s*$`, "i");
+  for (const line of oracle.split("\n")) {
+    const m = line.trim().match(re);
+    if (!m) continue;
+    const perMetric = m[2].startsWith("a number");
+    if (perMetric !== !!m[3]) return null; // "an additional" never takes a metric; "a number of" always does
+    const sub = m[1] ? m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase() : null;
+    if (sub && !TARGET_SUBTYPES.has(sub.toLowerCase())) return null;
+    return { subtype: sub, fixed: perMetric ? 0 : 1, metric: perMetric ? (m[3].toLowerCase() === "power" ? "sourcePower" : "sourceToughness") : null };
   }
   return null;
 }

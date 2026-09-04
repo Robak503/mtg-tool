@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · H8: Arwen (+2)** · suite **1476 files / 16,058 tests** green · corpus 14,421 (42.1%) / 34,245 · flip-diff +2 / 0 lost · 8/8 killed (M4 survived → dead self-guard REMOVED with its parameter)
+
+> The first enters-with modifier on OTHER creatures (CR 614.1c), reader + resolver + coverage strip in lockstep. H4 Ragavan re-sized L (no mechanic casts an opponent's card). **Shalai 79 → 80** (80/100; needs 5). Next M rows: H11 (Kutzil · Skrelv · Incubation Druid · Uncivil Unrest), H12 Chaos Warp; then H4 Ragavan (L).
+> **CI:** GREEN on Hajar + Spider-Man (run 33927431530); this slice pushes and is watched
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · H10 + H7: Hajar + Spider-Man (+2)** · suite **1475 files / 16,053 tests** green · corpus 14,419 (42.1%) / 34,245 · flip-diff +2 / 0 lost · 7/7 killed (M8 equivalent — no filtered other-spray parses; deleted with a note, FN pinned)
 
 > The legendary-only team pump and the "those creatures" referent over an each-OTHER spray. **Shalai 77 → 79** (79/100; needs 6). Next M rows: H4 Ragavan (three arms — the 'you may CAST that card' impulse verb, the that-player's-library owner switch, the Treasure conjunction), H8 Arwen (an enters-with modifier static over OTHER creatures, count = Arwen's toughness — a new replacement seam).

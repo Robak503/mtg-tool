@@ -3,6 +3,27 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · H8: ARWEN — the enters-with modifier on OTHER creatures · **+2** · corpus 14,421 (42.1%) / 34,245
+> Suite **1476 files / 16,058 tests** green; lint 0. Flip-diff **+2, zero LOST** (Arwen; Bramblewood Paragon — audited whole-card). **8/8 killed (M4 survived → dead self-guard REMOVED with its parameter).**
+> · **The seam:** "Each other creature you control enters with a number of additional +1/+1 counters on it equal to Arwen's
+>   toughness" is a replacement effect on ANOTHER permanent's entry (CR 614.1c). The engine had only SELF enters-with readers
+>   (fixed / X / metric / choice / conditional), each paired with a coverage strip gated on the same reader. The new reader
+>   `othersEnterWithCounters` follows that discipline exactly: { subtype, fixed, metric }; the resolver scans the controller's
+>   OTHER permanents as a creature enters and adds fixed + the LIVE metric (toughness/power through layers, so a counter on
+>   Arwen raises the gift); coverage strips the sentence only when the reader confirms it. Tokens count ("each other
+>   creature"); an entering artifact gets nothing; an opponent's Arwen gives nothing (pinned).
+> · **Twins:** Bramblewood Paragon's Warrior form (+1). Renata, Called to the Hunt reads and RESOLVES but stays body-only on
+>   her devotion CDA — an honest miss, not this slice's. Master Biomancer ("… and as a Mutant …") and Metallic Mimic ("of the
+>   chosen type") stay UNMATCHED by the anchored line (CREED); the "a number of" form demands a metric and the "an
+>   additional" form refuses one; a stranger's name is not this creature.
+> · **H4 Ragavan RE-SIZED to L:** sized before Arwen — "exile the top card of THAT PLAYER'S library. Until end of turn, you may
+>   CAST that card" has no precedent: nothing in the engine casts an opponent's card. Ownership would have to flow from the
+>   opponent's exile through the stack to the caster's battlefield and back to the OWNER's graveyard (the dispatcher's
+>   zone splice, createStackObject, both engine graveyard moves), plus the cast verb and a Treasure-conjunction fold. Seven
+>   sites; a Treasure-only credit would be an FP. Parked behind the M rows per §2, sized in the row.
+> · **Shalai 79 → 80** (80/100; needs 5). Next M rows: H11 (Kutzil · Skrelv · Incubation Druid · Uncivil Unrest), H12 Chaos Warp; then H4 Ragavan (L).
+> · **CI:** GREEN on Hajar + Spider-Man (run 33927431530); this slice pushes and is watched
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · H10 + H7: HAJAR + SPIDER-MAN — the legendary team pump and the OTHER-set referent · **+2** · corpus 14,419 (42.1%) / 34,245
 > Suite **1475 files / 16,053 tests** green; lint 0. Flip-diff **+2, zero LOST**, no unplanned gains (the two cards themselves). **7/7 killed (M8 equivalent — no filtered other-spray parses; deleted with a note, FN pinned).**
 > · **Hajar:** "Legendary creatures you control get +1/+0 and gain indestructible until end of turn." The team pump took
