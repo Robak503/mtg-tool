@@ -7,6 +7,13 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (night cron) — **SHELF-85 V1 complete: modal double-faced cards play both faces (+9 tonight's slice 3; +38 the vein)** · suite **1418 files / 15,682 tests** green · corpus 14,280 / 34,245 (41.7%) · flip-diff +9 / 0 lost · 13/13 mutations killed against a green witness (the twelve before plus the cast's printedCard thread and the classifier's permanent-front back check); a fourteenth — a Land-front cast skip — survived and was deleted as unobservable
+
+> **Stage boundary — V1 (Phase 1's first vein) is done.** The land drop chooses a face; a spell front casts as a face; a
+> permanent front enters as its face with the whole card restored on leaving. Next row by the runbook's §2: V2 (Starting
+> Town, four decks).
+> **CI:** pushed after slice 2's run 33850331173 is green; own run watched after push (result on the next entry's line)
+
 ## 🎯 2026-09-04 (night cron) — **SHELF-85 V1 slice 2: a spell//land's front is cast as a face (+19)** · suite **1418 files / 15,680 tests** green · corpus 14,271 / 34,245 (41.7%) · flip-diff +19 / 0 lost · 11/11 mutations killed against a green witness (the eight of slice 1 plus the front lane, the combined-card exclusion, the classifier's back check)
 
 > **V1 so far:** +29 corpus across the two slices (the ten Pathways, the nineteen native-front spell//lands). Slice 3 is

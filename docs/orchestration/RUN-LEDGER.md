@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — V1 slice 3: MODAL DFC — a PERMANENT front is cast as a face; V1 complete · **+9** · corpus 14,280 / 34,245 (41.7%)
+> Suite **1418 files / 15,682 tests** green; lint 0. Flip-diff **+9, zero LOST**. **13/13 mutations killed against a green witness (the twelve before plus the cast's printedCard thread and the classifier's permanent-front back check); a fourteenth — a Land-front cast skip — survived and was deleted as unobservable.**
+> · **The shape:** the face lane now offers creature / enchantment / artifact fronts too; applyCastSpell threads the REAL
+>   card as `printedCard` onto the PERMANENT_ETB / AURA_ETB payload (and the clone resume, for Glasspool Mimic), which
+>   enterPermanent already stamps (the clone precedent) — so dying, bouncing or tucking restores the whole two-face
+>   card. classifyCard gives the card its front's native tier iff the front is native on its own view and the back is
+>   covered. Witch Enchanter (×3 decks), Glasspool Mimic, Kazandu Mammoth, Skyclave Cleric, Pinnacle Monk, Blackbloom
+>   Rogue, Glasswing Grace, Tangled Florahedron, Akoum Warrior.
+> · **Board-verified:** Witch Enchanter casts as its creature face beside its Meadow drop, enters AS the face with the
+>   whole card as printedCard, its ETB destroys the opponent's artifact, and dying puts the whole card in the graveyard;
+>   a Pathway's land front is never offered as a cast.
+> · **V1 closes at +38 corpus** (10 Pathways, 19 spell fronts, 9 permanent fronts). The 22 modal DFCs still land-partial
+>   park on their front's own residue and are ordinary rows now.
+> · **CI:** pushed after slice 2's run 33850331173 is green; own run watched after push (result on the next entry's line)
+
 > ## 🎯 2026-09-04 (night cron) — V1 slice 2: MODAL DFC — the SPELL front is cast as a face · **+19** · corpus 14,271 / 34,245 (41.7%)
 > Suite **1418 files / 15,680 tests** green; lint 0. Flip-diff **+19, zero LOST**. **11/11 mutations killed against a green witness (the eight of slice 1 plus the front lane, the combined-card exclusion, the classifier's back check).**
 > · **The shape:** actionsCastModalDfcFrontFromHand mirrors the split-card lane — the instant/sorcery front is projected

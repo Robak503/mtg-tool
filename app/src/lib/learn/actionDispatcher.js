@@ -803,6 +803,12 @@ function applyCastSpell(state, action) {
     payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: castCard.name, reason: "instant-or-sorcery (no recognized effect)" } };
   }
 
+  // MODAL DFC FACE (V1 slice 3, CR 712.8): a PERMANENT front cast as a face enters as that face; the REAL card rides
+  // as `printedCard` (enterPermanent already takes it — the clone precedent), so dying / bouncing / tucking restores the
+  // whole two-face card exactly as the land drop's face does. Instants/sorceries never enter and need nothing here.
+  if (action.faceCard && payload?.params?.card && !payload.params.printedCard) {
+    payload = { ...payload, params: { ...payload.params, printedCard: card } };
+  }
   // Mint a deterministic stack id; thread the advanced state (working2) so idSeq
   // persists onto the result.
   const { id: stkId, state: working2 } = mintId(working, "stk");

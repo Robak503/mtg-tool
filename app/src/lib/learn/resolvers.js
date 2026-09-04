@@ -705,7 +705,7 @@ export function applyAdventureExile(state, { playerId, card }) {
 export function resolveCloneChoice(state, chosenPermId) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "clone-search") return state;
-  const { cloneCard, controller, riders = [], optional, scope } = pc.resume || {};
+  const { cloneCard, controller, riders = [], optional, scope, printedCard } = pc.resume || {}; // printedCard: V1 slice 3 (Glasspool Mimic's real two-face card)
   let next = clearPendingChoice(state);
   if (!cloneCard || !controller) return next;
 
@@ -755,10 +755,10 @@ export function resolveCloneChoice(state, chosenPermId) {
     // to enterPermanent so it's applied AS the permanent enters (before the lethal SBA + before ETB triggers
     // see it), exactly like every other enters-with-counter replacement. A non-matching condition adds nothing.
     const extraCounter = resolveCloneEntersCounter(riders, copied);
-    next = enterPermanent(next, copied, controller, { printedCard: cloneCard, extraCounter });
+    next = enterPermanent(next, copied, controller, { printedCard: printedCard || cloneCard, extraCounter });
   } else {
     // Declined, or the target is gone/illegal — the clone enters as itself (a 0/0).
-    next = enterPermanent(next, cloneCard, controller);
+    next = enterPermanent(next, cloneCard, controller, printedCard ? { printedCard } : {});
   }
   // A clone that copied nothing is a 0/0 and dies immediately (CR 704.5f) — run the lethal SBA
   // (the copy case finds nothing lethal, so this is a no-op for it).
@@ -807,7 +807,9 @@ function resolveManual(state, obj) {
 export const RESOLVERS = Object.freeze({
 
   [RESOLVER_KEYS.PERMANENT_ETB]: (state, obj) => {
-    const { card, controller, xValue, kicked, castFromZone, colorsSpent, grantDiesExile } = obj.payload?.params || {};
+    // `printedCard` (V1 slice 3): the REAL two-face card behind a modal-DFC FACE cast — stamped on the entering permanent
+    // so every zone move restores the whole card (moveCardToZone reads printedCard; the clone precedent).
+    const { card, controller, xValue, kicked, castFromZone, colorsSpent, grantDiesExile, printedCard } = obj.payload?.params || {};
     if (!card || !controller) return resolveManual(state, obj);
     // Clone (CR 707.9): the permanent enters AS A COPY of a creature chosen as it enters. Suspend
     // on a resolution-time choice (the player picks which creature; Expert/AI auto-pick) — the
@@ -831,15 +833,15 @@ export const RESOLVERS = Object.freeze({
           candidates,
           sourceName: card?.name || null,
           optional: spec.optional,
-          resume: { cloneCard: card, controller, riders: spec.riders, optional: spec.optional, scope: spec.scope },
+          resume: { cloneCard: card, controller, riders: spec.riders, optional: spec.optional, scope: spec.scope, ...(printedCard ? { printedCard } : {}) },
         });
       }
       // No creature to copy: the clone enters as itself (a 0/0) and dies (CR 704.5f).
-      const entered = enterPermanent(state, card, controller);
+      const entered = enterPermanent(state, card, controller, printedCard ? { printedCard } : {});
       const lethal = destroyLethalCreatures(entered);
       return checkDiesTriggers(lethal.state, lethal.dead);
     }
-    return enterPermanent(state, card, controller, { xValue, kicked, wasCast: true, castFromZone, colorsSpent, grantDiesExile });
+    return enterPermanent(state, card, controller, { xValue, kicked, wasCast: true, castFromZone, colorsSpent, grantDiesExile, ...(printedCard ? { printedCard } : {}) });
   },
 
   // Aura spell resolving (CR 303.4f): the Aura enters the battlefield attached to the
@@ -848,7 +850,7 @@ export const RESOLVERS = Object.freeze({
   // resolve — it's put into its owner's graveyard by game rules (CR 608.3b) and never
   // enters (logged, never fabricated). The targetId is a battlefield permanent id.
   [RESOLVER_KEYS.AURA_ETB]: (state, obj) => {
-    const { card, controller, targetId, bestowed, enchantsPlayer, hostType, kicked } = obj.payload?.params || {};
+    const { card, controller, targetId, bestowed, enchantsPlayer, hostType, kicked, printedCard } = obj.payload?.params || {}; // printedCard: V1 slice 3 (a modal-DFC Aura front — Glasswing Grace)
     if (!card || !controller) return resolveManual(state, obj);
     // PLAYER-AURA (Fraying Sanity / the Curse class — SHELF S7, CR 303.4): the target is a PLAYER.
     // Re-check at resolution (CR 608.2b — the player may have been eliminated); gone → the Aura card
@@ -858,7 +860,7 @@ export const RESOLVERS = Object.freeze({
       if (!state.players?.[targetId]) {
         return logEvent(finishSpellResolution(state, { playerId: controller, card }), { kind: "spell-fizzle", source: card?.name, reason: "enchanted player gone", controller });
       }
-      return enterPermanent(state, card, controller, { enchantedPlayerId: targetId });
+      return enterPermanent(state, card, controller, { enchantedPlayerId: targetId, ...(printedCard ? { printedCard } : {}) });
     }
     const tgt = findPermanent(state, targetId);
     const tgtType = String(tgt?.permanent?.card?.type || tgt?.permanent?.card?.type_line || "");
@@ -903,7 +905,7 @@ export const RESOLVERS = Object.freeze({
     // attached + the falls-off SBA exemption). A printed Aura passes bestowed=undefined → identical path.
     // ④-J KICKER (CR 702.33b/e): a kicked Aura cast stamps wasKicked on the entering Aura (enterPermanent), so
     // its own "When this Aura enters, if it was kicked, …" trigger fires (Bubble Snare taps the host).
-    return enterPermanent(state, card, controller, { attachTo: targetId, bestowed, ...(kicked ? { kicked: true } : {}) });
+    return enterPermanent(state, card, controller, { attachTo: targetId, bestowed, ...(kicked ? { kicked: true } : {}), ...(printedCard ? { printedCard } : {}) });
   },
 
   // P2.1: a recognized-but-unparseable instant/sorcery. No longer a silent

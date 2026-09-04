@@ -3270,7 +3270,12 @@ function actionsCastModalDfcFrontFromHand(state, playerId) {
     const faces = mdfcFaceCards(card);
     if (!faces) continue;
     const front = faces[0];
-    if (!/\b(Instant|Sorcery)\b/i.test(String(front.type || ""))) continue; // slice 2: spell fronts only
+    // ⛔ No "skip a Land front" guard here, deliberately: it was written, mutation-tested and found unobservable — the
+    // shared cast builder never emits a cast for a face whose type line is a Land (a Pathway's front yields nothing),
+    // so the guard was dead logic. Deleted rather than kept; if it ever returns it needs a test that can see it.
+    // slice 2: instant/sorcery fronts · slice 3 (2026-09-04): PERMANENT fronts too (creature / enchantment / artifact) —
+    // the dispatcher threads the real card as `printedCard` onto the entering permanent, so leaving the battlefield
+    // restores the whole card exactly as the land drop's face does.
     for (const a of castActionsFromZone(state, playerId, [front], "hand", null)) {
       actions.push({ ...a, faceCard: front });
     }

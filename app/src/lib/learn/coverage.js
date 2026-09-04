@@ -3136,6 +3136,14 @@ export function classifyCard(card) {
       const [front, back] = mdfcFaceCards(card);
       return classifyCard(front) === "native-spell" && landFullyCovered(back) ? "native-spell" : "land-partial";
     }
+    // V1 slice 3 (2026-09-04): a PERMANENT front (creature / enchantment / artifact — Witch Enchanter, Glasspool Mimic,
+    // Kazandu Mammoth …) cast as a face; the dispatcher threads the real card as printedCard onto the entering permanent.
+    // The card takes the FRONT's native tier iff the front is native on its own view AND the land back is covered.
+    if (mdfc) {
+      const [front, back] = mdfcFaceCards(card);
+      const frontTier = classifyCard(front);
+      return isNativeTier(frontTier) && landFullyCovered(back) ? frontTier : "land-partial";
+    }
   }
   // ⭐ LANDS ARE GATED NOW (Codex fix #3, 2026-08-30). This used to be an unconditional `return "land"` —
   // every card with Land on its type line counted fully native, including utility lands whose abilities

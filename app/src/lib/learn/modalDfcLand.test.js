@@ -13,7 +13,7 @@ import { classifyCard } from "./coverage.js";
 import { mdfcLandFaces, parseModalDfc } from "./modalDfc.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { resolveTopOfStack } from "./gameEngine.js";
+import { flushTriggers, resolveTopOfStack } from "./gameEngine.js";
 import { manaSources } from "./manaModel.js";
 import { resolveOptionalLifePaymentChoice } from "./effects/runProgram.js";
 import { _resetIdsForTests, createGameState, createPermanent, findPermanent, moveCardToZone } from "./gameState.js";
@@ -90,6 +90,40 @@ describe("slice 2 — the SPELL front is cast as a face (CR 712.8)", () => {
     const acts = legalActionsForPlayer(s, "user");
     expect(acts.filter((a) => a.kind === "cast-spell")).toHaveLength(0);
     expect(acts.filter((a) => a.kind === "play-land").map((a) => a.name)).toEqual(["Soporific Springs"]);
+  });
+});
+
+const WITCH = { id: "h-witch", name: "Witch Enchanter // Witch-Blessed Meadow", type: "Creature — Human Warlock // Land", mana: "{3}{W}", mana_cost: "{3}{W}", cmc: 4, power: "2", toughness: "2", keywords: [], layout: "modal_dfc",
+  oracle: "Witch Enchanter - Creature — Human Warlock {3}{W}\nWhen this creature enters, destroy target artifact or enchantment an opponent controls.\n//\nWitch-Blessed Meadow - Land \nAs this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {W}." };
+
+describe("slice 3 — a PERMANENT front is cast as a face and carries the real card as printedCard", () => {
+  it("⭐ the tiers: a native creature front over a covered back takes the front's tier; an uncovered back parks it", () => {
+    expect(classifyCard(WITCH)).toBe("native-trigger");
+    const uncoveredBack = { ...WITCH, oracle: WITCH.oracle.replace("{T}: Add {W}.", "{T}: Add {W}.\n{2}, {T}: Untap target creature and it phases out until your next upkeep.") };
+    expect(classifyCard(uncoveredBack)).toBe("land-partial");
+    // a Land // Land has no spell front: no cast action, only its two land drops
+    expect(mdfcLandFaces(PATHWAY)).toHaveLength(2);
+  });
+  it("⭐ Witch Enchanter casts as its creature face: it enters AS the face with the whole card as printedCard, its ETB destroys the relic, and dying restores the whole card to the graveyard", () => {
+    const s0 = createGameState({ userDeck: [], aiDeck: [] });
+    const relic = createPermanent({ id: "relic", card: { id: "card-relic", name: "Idle Relic", type: "Artifact", mana: "{1}", cmc: 1, keywords: [], oracle: "" }, controller: "ai" });
+    let s = { ...s0, turn: 6, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0, stack: [],
+      players: { ...s0.players, user: { ...s0.players.user, hand: [WITCH, PATHWAY], battlefield: [], manaPool: { W: 1, U: 0, B: 0, R: 0, G: 0, C: 3 } }, ai: { ...s0.players.ai, battlefield: [relic] } } };
+    const acts = legalActionsForPlayer(s, "user");
+    expect(acts.filter((a) => a.kind === "cast-spell").map((a) => a.faceCard?.name)).toEqual(["Witch Enchanter"]); // never the Pathway's land front
+    expect(acts.filter((a) => a.kind === "play-land").map((a) => a.name).sort()).toEqual(["Barkchannel Pathway", "Tidechannel Pathway", "Witch-Blessed Meadow"]);
+    const cast = acts.find((a) => a.kind === "cast-spell");
+    s = resolveTopOfStack(dispatchAction(s, cast));
+    if (!s.stack.length) s = flushTriggers(s);
+    expect(s.stack.map((o) => o.kind)).toEqual(["triggered-ability"]);
+    s = resolveTopOfStack(s);
+    const perm = s.players.user.battlefield[0];
+    expect(perm.card).toMatchObject({ id: "h-witch", name: "Witch Enchanter", type: "Creature — Human Warlock" });
+    expect(perm.printedCard?.name).toBe(WITCH.name);
+    expect(findPermanent(s, "relic")).toBeNull();
+    expect(s.players.ai.graveyard.map((c) => c.name)).toEqual(["Idle Relic"]);
+    const dead = moveCardToZone(s, { playerId: "user", fromZone: "battlefield", toZone: "graveyard", cardId: perm.id });
+    expect(dead.players.user.graveyard.map((c) => [c.id, c.name])).toEqual([["h-witch", WITCH.name]]);
   });
 });
 
