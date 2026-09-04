@@ -409,9 +409,12 @@ export function applyImpulseDigAtom(state, atom, ctx) {
     ? (findPermanent(state, ctx.sourceId)?.permanent?.chosenType ?? null)
     : null;
   const matchesChosen = (c) => cardHasChosenType(c, chosenType);
-  const pool = atom.filter
-    ? top.filter((c) => cardMatchesTutorFilter(c, atom.filter) && (!atom.filter.chosenTypeOfSource || matchesChosen(c)))
-    : top;
+  // K7 (Make Your Own Luck): a NONLAND pool is a local type-line test — the tutor-filter vocabulary refuses "nonland".
+  const pool = atom.filter?.nonland
+    ? top.filter((c) => !/\bLand\b/i.test(String(c?.type || c?.type_line || "").split(" // ")[0]))
+    : atom.filter
+      ? top.filter((c) => cardMatchesTutorFilter(c, atom.filter) && (!atom.filter.chosenTypeOfSource || matchesChosen(c)))
+      : top;
   if (pool.length === 0) {
     // Looked at N, nothing matching to reveal → the whole set goes to the bottom (a clean reveal-nothing,
     // no picker — chosenId null disposes all of the top N). Only reachable on the filtered reveal-dig path.

@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K7: Make Your Own Luck (+1)** · suite **1466 files / 16,006 tests** green · corpus 14,398 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 7/7 killed (the seventh — the pause store's chosenTo whitelist — was found by the witness, not reasoning: the store silently dropped the new destination)
+
+> Look at three, plot one, keep the rest. Kellan **80** (needs 5) — the runbook's predicted ceiling without the top-of-library subsystem. Honest M rows left: Fblthp (ETB draw-two-instead on the cast-zone stamp + a self becomes-target shuffle-in), The Key to the Vault (a combat-damage-sized dig with a free-cast permission); then the K5/K6 subsystem (L, multi-slice) per the runbook's default.
+> **CI:** GREEN on Doc Aurlock (run 33915685633); this slice pushes and is watched
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K9: Doc Aurlock (+1)** · suite **1465 files / 16,002 tests** green · corpus 14,397 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 6/6 killed
 
 > Named cast zones and the plot discount. Kellan **79** (needs 6). Bonny Pall is L (a NAMED token with a quoted count-defined body); Monk Gyatso (airbend) and Transcendent Dragon (cast-from-exile-after-counter) are L; the honest S/M left: Make Your Own Luck, Unexpected Results, Fblthp, The Key to the Vault.

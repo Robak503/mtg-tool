@@ -380,6 +380,20 @@ const DIG_NUM = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8
  * bottom" (Commune with Nature, Seek the Wilds, Peer Through Depths).
  */
 export function matchImpulseDig(oracle) {
+  // ⭐ LOOK-AND-PLOT (SHELF-85 K7, 2026-09-04 — Make Your Own Luck "Look at the top three cards of your library. You may
+  // exile a nonland card from among them. If you do, it becomes plotted. Put the rest into your hand."): the impulse-dig
+  // pause with a PLOT destination — the picked card goes to exile stamped `_plotted` (the same stamp the plot special
+  // action writes, so the plotted-cast lane offers it free on a later turn) and the REST go to hand, not the bottom. "You
+  // may" — declining (no pick) sends all three to hand. The pool is nonland only (a local test in the resolver; the
+  // tutor-filter vocabulary refuses "nonland" on purpose).
+  const lp = String(oracle).match(
+    /^look at the top (\w+) cards? of your library\. you may exile a nonland card from among them\. if you do, it becomes plotted\. put the rest into your hand\.?/i,
+  );
+  if (lp) {
+    const amount = DIG_NUM[lp[1].toLowerCase()];
+    if (!amount) return null;
+    return { atom: { op: "impulse-dig", amount, keep: 1, restTo: "hand", chosenTo: "plotExile", filter: { nonland: true } }, rest: oracle.slice(lp[0].length).trim() };
+  }
   // (1) Plain keep-one dig — "put one of them into your hand and the rest|the other on the bottom|graveyard".
   const m = String(oracle).match(
     /^look at the top (\w+) cards? of your library\. put (one|two|three) of (?:them|those cards|these cards) into your hand and (?:put )?(?:the rest|the other) (on the bottom of your library(?: in (?:any|a random) order)?|into your graveyard)\.?/i,

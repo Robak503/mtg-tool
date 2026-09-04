@@ -657,6 +657,17 @@ export function resolveImpulseDigChoice(state, cardId) {
     toBottom = Math.max(0, lookedAt - picked.length);
     keptIds = [];
   }
+  // K7 (Make Your Own Luck "it becomes plotted"): the pick leaves the library for EXILE carrying the plot stamp the plot
+  // special action writes (`_plotted` + `_plottedTurn`, CR 702.171b — castable free on a LATER turn), then the rest are
+  // disposed of by `restTo` (hand, for this card) exactly as any other dig.
+  if (pc.chosenTo === "plotExile" && picked.length) {
+    const pl = next.players[pc.controller];
+    const moving = (pl.library || []).filter((c) => picked.includes(c.id)).map((c) => ({ ...c, _plotted: true, _plottedTurn: next.turn }));
+    next = { ...next, players: { ...next.players, [pc.controller]: { ...pl, library: (pl.library || []).filter((c) => !picked.includes(c.id)), exile: [...(pl.exile || []), ...moving] } } };
+    next = logEvent(next, { kind: "plot", playerId: pc.controller, cardName: moving[0]?.name || null, cost: null, viaEffect: pc.sourceName || null });
+    toBottom = Math.max(0, lookedAt - picked.length);
+    keptIds = [];
+  }
   // ⚠️ `n` is the ORIGINAL look size, never the shrunken candidate list — the disposal must cover every card
   // looked at, including the ones already moved to hand on earlier passes.
   next = applyImpulseDig(next, { playerId: pc.controller, n: toBottom, chosenIds: keptIds, restTo: pc.restTo, restOrder: pc.restOrder || null });

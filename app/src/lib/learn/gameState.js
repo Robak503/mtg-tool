@@ -989,6 +989,8 @@ export function applyImpulseDig(state, { playerId, n, chosenId, chosenIds, restT
     }
     const hand = chosen.length ? [...player.hand, ...chosen] : player.hand;
     if (restTo === "graveyard") discarded = others;
+    // K7 (Make Your Own Luck "Put the rest into your hand"): a HAND rest — the non-chosen looked-at cards join the hand.
+    if (restTo === "hand") return { ...player, hand: [...hand, ...others], library: [...rest] };
     return restTo === "graveyard"
       ? { ...player, hand, library: [...rest], graveyard: [...player.graveyard, ...others] }
       : { ...player, hand, library: [...rest, ...others] };

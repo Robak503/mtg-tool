@@ -3,6 +3,16 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · K7: MAKE YOUR OWN LUCK — look, plot one, keep the rest · **+1** · corpus 14,398 (42.0%) / 34,245 (42.0%)
+> Suite **1466 files / 16,006 tests** green; lint 0. Flip-diff **+1, zero LOST**. **7/7 killed (the seventh — the pause store's chosenTo whitelist — was found by the witness, not reasoning: the store silently dropped the new destination).**
+> · **The shape:** the impulse-dig pause with two new riders — a PLOT destination (the pick leaves the library for exile
+>   carrying `_plotted` + `_plottedTurn`, the stamp the plot special action writes, so the plotted-cast lane offers it
+>   free on a LATER turn and never this one, CR 702.171b) and a HAND rest (the non-chosen looked-at cards join the hand
+>   instead of the bottom). The pool is nonland only — a local type-line test, because the tutor-filter vocabulary refuses
+>   "nonland" by design. Declining sends all three to hand; an all-land top never pauses.
+> · **Doc Aurlock's CI (the previous slice):** run 33915685633 — GREEN on Doc Aurlock (run 33915685633)
+> · **CI:** GREEN on Doc Aurlock (run 33915685633); this slice pushes and is watched
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · K9: DOC AURLOCK — named cast zones, and the plot discount · **+1** · corpus 14,397 (42.0%) / 34,245 (42.0%)
 > Suite **1465 files / 16,002 tests** green; lint 0. Flip-diff **+1, zero LOST**. **6/6 killed.**
 > · **The shape:** two markers on the Savvy Trader seam — a zone-keyed reducer with an EXPLICIT list (graveyard, exile; a cast off
