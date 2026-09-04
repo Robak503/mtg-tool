@@ -3,6 +3,17 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · B4: REFLECTOR MAGE — the name-lock bounce · **+1** · corpus 14,359 (41.9%) / 34,245 (41.9%)
+> Suite **effects/splitClauses.js (sentinel fold) + effects/atoms/zones.js (name-lock bounce arm + applier) + gameState.js (nameCastLocked / expireNameCastLocks) + legalChoices.js (cast gate) + gameEngine.js (untap-step expiry) + reflectorMage.test.js (6)** green; lint 0. Flip-diff **+1, zero LOST**. **7/7.**
+> · **The shape:** "return target creature an opponent controls to its owner's hand. That creature's owner can't cast
+>   spells with the same name as that creature until your next turn." — the bounce parsed; the second sentence is a
+>   RIDER (the owner and the name are the bounced card's) that the sentence split orphaned. The splitter folds the pair
+>   to a sentinel single clause; the bounce parser emits `nameLockUntilNextTurn`; the resolver bounces and records a
+>   per-player NAME cast lock (state.nameCastLocks — owner, name, who set it, on which turn); legalChoices' main cast
+>   loop refuses the named spell beside the ④-E noncreature lock (the same scope as that precedent); the setter's next
+>   untap step expires it (CR 611.2b — beside the Teferi shield expiry). Sole corpus carrier.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · B12: CRYOGEN RELIC — the bare stun counter · **+1** · corpus 14,358 (41.9%) / 34,245 (41.9%)
 > Suite **effects/atoms/counters.js (bare stun arm) + effects/programQueries.js (stun = enemy intent) + cryogenRelic.test.js (6); one CREED pin graduated (stunCounterCount)** green; lint 0. Flip-diff **+1, zero LOST**. **5/5.**
 > · **The shape:** "{1}{U}, Sacrifice this artifact: Put a stun counter on up to one target tapped creature." — the stun

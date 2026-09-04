@@ -50,7 +50,7 @@ import {
   moveCardToZone,
   findPermanent,
 } from "./gameState.js";
-import { phaseInAndExpireShield } from "./gameState.js"; // TEFERI'S PROTECTION - phase in + shield expiry at the active player's untap
+import { phaseInAndExpireShield, expireNameCastLocks } from "./gameState.js"; // TEFERI'S PROTECTION - phase in + shield expiry at the active player's untap; B4 — the name cast locks expire there too
 import { permanentValue, policyEvalEnabledFor } from "./boardEval.js"; // QUARTET PHASE 1 slice 3 — the shared evaluator (leaf-importing module, cycle-free)
 import { setPendingCleanupDiscardChoice } from "./pendingChoice.js";
 import { resolveCombatDamage } from "./combatResolution.js";
@@ -446,6 +446,8 @@ export function runStepActions(state) {
       // in BEFORE they untap (they return in the state they left, untapped by this same step if they were untapped),
       // and the player's shield expires at the same moment.
       next = phaseInAndExpireShield(next, state.activePlayer);
+      // B4 (Reflector Mage — "until your next turn", CR 611.2b): the name cast locks THIS player set on an earlier turn end here.
+      next = expireNameCastLocks(next, state.activePlayer);
       next = untapAll(next, { playerId: state.activePlayer });
       // SEEDBORN-UNTAP (a targeted #319-style hook the trigger compiler can't reach): Seedborn Muse —
       // "Untap all permanents you control during each other player's untap step" — gives its controller an

@@ -73,7 +73,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Test | Teval, the Balanced Scale Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Brago Blink | 84 | 1 | 6 | ⬜ Phase 2 |
+| Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Nekusar Wheels | 76 | 9 | 14 | ⬜ Phase 2 |
 | Test | Shorikai Vehicles | 72 | 13 | 18 | ⬜ Phase 2 |
 | Test | Shalai and Hallar Test | 74 | 11 | 16 | ⬜ Phase 2 |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 66 | 19 | 24 | ⬜ Phase 2 |
 
-**13 decks below 85 · 166 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**12 decks below 85 · 165 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -264,7 +264,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | B1 | Glasspool Mimic · Witch Enchanter | MDFC | V1 | | ⬜ |
 | B2 | Proft's Eidetic Memory | | V5 | | ✅ |
 | B3 | Peter Parker's Camera · Strionic Resonator | copy target ability | V6 | | ✅ |
-| B4 | Reflector Mage | ETB bounce target creature an opponent controls; its owner can't cast spells with the same name until your next turn | M | the name-lock rider ("can't cast spells with that name" — a per-player cast restriction until the flicker-er's next turn) | ⬜ |
+| B4 | Reflector Mage | ETB bounce target creature an opponent controls; its owner can't cast spells with the same name until your next turn | M | the name-lock rider ("can't cast spells with that name" — a per-player cast restriction until the flicker-er's next turn) | ✅ (+1 corpus — the splitter folds the two sentences to a sentinel the bounce parser reads (`nameLockUntilNextTurn`); the bounce records a per-player NAME cast lock (state.nameCastLocks — owner, name, setter, turn) that the main cast loop refuses beside the noncreature lock, and the setter's next untap step expires (CR 611.2b). Sole carrier.) |
 | B5 | Recruiter of the Guard | ETB tutor a creature with toughness ≤2 to hand | S | the tutor lane with a toughness filter | ✅ (+2 corpus — the tutor-to-hand arm reads "with toughness N [or less]" / "with power N [or less]" beside its mana-value cap, enforced in the shared matcher on the PRINTED stat (a "*" stat is never a candidate). Unplanned twin audited whole-card: Imperial Recruiter (power 2 or less — its whole text).) |
 | B6 | Teleportation Circle | end step: exile up to one target artifact or creature you control, then return it | S | the blink atom on a delayed self-return (Cloudshift's shape on an end-step trigger) | ✅ (+2 corpus — a blink arm for "[up to one] target artifact or creature you control, then return …" on a new own-side artifactOrCreature target union (spellEffects' enumerator, the Ghostly Flicker triple minus lands) and the splitter's keep-whole guard widened to the form. The end-step trigger existed. Unplanned twin audited whole-card: Against All Odds (choose one or both — the same blink + the modeled mana-value-≤3 artifact-or-creature reanimation).) |
 | B7 | Unquestioned Authority | enchanted creature has protection from creatures | S | protection-from-creatures grant (the protection layer op with a `creatures` source class) | ✅ (+3 corpus — the protection seam gains its first SOURCE-CLASS quality: printed reader + the Aura/Equipment have-tail grant (addProtection `classes`) + a layer union, ENFORCED at block (no creature may block), combat damage (prevented) and creature-sourced ability targeting (the flush's ctx.sourceId, layer-aware). Holy Mantle / Spirit Mantle ride the same have-tail after their P/T peel. Also closes the interim-FP on the printed carriers (Beloved Chaplain, Commander Eesha, Teysa) — credited before, enforced now. Filtered classes still park.) |
@@ -472,6 +472,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — Phase 2 · B4 (Reflector Mage — Brago) ✅ +1 corpus · 7/7 · suite effects/splitClauses.js (sentinel fold) + effects/atoms/zones.js (name-lock bounce arm + applier) + gameState.js (nameCastLocked / expireNameCastLocks) + legalChoices.js (cast gate) + gameEngine.js (untap-step expiry) + reflectorMage.test.js (6) · corpus 14,359 (41.9%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — Phase 2 · B12 (Cryogen Relic — Brago) ✅ +1 corpus · 5/5 · suite effects/atoms/counters.js (bare stun arm) + effects/programQueries.js (stun = enemy intent) + cryogenRelic.test.js (6); one CREED pin graduated (stunCounterCount) · corpus 14,358 (41.9%) · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 

@@ -157,6 +157,12 @@ export function splitClauses(oracle) {
     // with their EXISTING who:"target" atoms (draw + lose-life). A trailing rider (", and gets poison" /
     // ", loses … and gets") doesn't match the contiguous "and loses \d+ life" → stays Arbiter (FN-safe).
     .replace(/(target player draws \w+ cards?) and (loses \d+ life)/gi, "$1. Target player $2")
+    // NAME-LOCK BOUNCE (SHELF-85 B4, 2026-09-04 — Reflector Mage): "return target creature an opponent controls to its
+    // owner's hand. That creature's owner can't cast spells with the same name as that creature until your next turn."
+    // The second sentence is a RIDER on the bounce (the owner and the name are the bounced card's), so the sentence
+    // split would orphan it as an unmodeled clause and park the whole trigger. Folded to a SENTINEL single clause the
+    // bounce parser reads (`nameLockUntilNextTurn`); the sentinel phrase appears on no printed card.
+    .replace(/(return target creature an opponent controls to its owner's hand)\. that creature's owner can't cast spells with the same name as that creature until your next turn(?=\.|$)/gi, "$1 with a name lock until your next turn")
     // UPKEEP-PLAYER LOSE-DRAW (BLITZ TR-2 — Seizan, Perverter of Truth: "that player loses 2 life and draws
     // two cards", sentinel-rewritten to "the upkeep player …" by detectTriggers): the same shared-subject
     // conjunction as DRAW-LOSE-SUBJECT above, in the printed loses-then-draws order. Inject the subject into

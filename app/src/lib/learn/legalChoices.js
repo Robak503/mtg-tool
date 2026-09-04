@@ -29,7 +29,7 @@
  * no fetch.
  */
 
-import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower } from "./gameState.js";
+import { getZone, opponentsOf, totalAvailableMana, findPermanent, creaturePower, nameCastLocked } from "./gameState.js"; // B4: the Reflector Mage name cast lock
 import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapManaAugment, applyAuraManaGrantSupplement, sourcesExcludingOneShotVictim } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
@@ -1023,6 +1023,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // own locker refuses every NON-creature card (the type line's front face; an artifact creature is a creature
     // spell and stays castable). Read off the same sentence the static parser marks. Opponents are untouched.
     if (castNoncreatureLockFor(state, playerId) && !/\bCreature\b/i.test(String(card?.type || card?.type_line || "").split(" // ")[0])) continue;
+    // B4 (Reflector Mage — CR 611.2b): a NAME cast lock on this player refuses the named spell until the setter's next turn.
+    if (nameCastLocked(state, playerId, card?.name)) continue;
 
     // CR 202.1a — A CARD WITH NO MANA COST CAN'T BE CAST unless an effect allows it. manaCostOf correctly
     // returns "" for a genuinely costless card (a suspend-only spell — Ancestral Vision, Crashing Footfalls,

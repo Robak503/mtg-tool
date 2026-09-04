@@ -1723,6 +1723,26 @@ export function phaseOutAllPermanents(state, playerId) {
   next = { ...next, players };
   return logEvent(next, { kind: "phase-out", playerId, count: leaving.length, permanentIds: leaving.map((p) => p.id) });
 }
+/**
+ * NAME CAST LOCK (SHELF-85 B4, 2026-09-04 — Reflector Mage "that creature's owner can't cast spells with the same name
+ * as that creature until your next turn"): state.nameCastLocks = [{ playerId, name, lockedBy, setTurn }]. A lock
+ * refuses `playerId` casting any spell named `name` (case-insensitive exact name, CR 201.2) and expires at the start of
+ * `lockedBy`'s next turn (the untap step, beside the Teferi shield expiry — CR 611.2b). No locks → no cost.
+ */
+export function nameCastLocked(state, playerId, name) {
+  const locks = state?.nameCastLocks;
+  if (!Array.isArray(locks) || locks.length === 0) return false;
+  const n = String(name || "").toLowerCase();
+  return locks.some((l) => l.playerId === playerId && String(l.name).toLowerCase() === n);
+}
+export function expireNameCastLocks(state, playerId) {
+  const locks = state?.nameCastLocks;
+  if (!Array.isArray(locks) || locks.length === 0) return state;
+  const kept = locks.filter((l) => !(l.lockedBy === playerId && l.setTurn < state.turn));
+  if (kept.length === locks.length) return state;
+  return logEvent({ ...state, nameCastLocks: kept }, { kind: "name-cast-lock-expired", playerId, count: locks.length - kept.length });
+}
+
 export function phaseInAndExpireShield(state, playerId) {
   assertPlayer(playerId);
   const player = state.players[playerId];

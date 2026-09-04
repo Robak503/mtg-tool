@@ -46,6 +46,29 @@ export function applyZoneMove(state, atom, ctx, toZone, toTop = false) {
 }
 
 /**
+ * B4 (2026-09-04) — Reflector Mage: the bounce, then a NAME CAST LOCK on the bounced card's owner. The name and the
+ * owner are read off the permanent BEFORE it moves (CR 608.2c — "that creature" is the object that left); the lock
+ * records who set it and on which turn so the setter's next untap step can expire it (gameEngine → expireNameCastLocks).
+ * A vanished target locks nothing (never a fabricated lock). Same zone move as the plain bounce.
+ */
+function applyBounceWithNameLock(state, atom, ctx) {
+  const targets = atomTargets(state, atom, ctx);
+  const locks = [];
+  for (const t of targets) {
+    if (t.type !== "creature" && t.type !== "permanent") continue;
+    const lk = findPermanent(state, t.id);
+    if (!lk) continue;
+    const owner = lk.permanent.owner || lk.controller;
+    const name = String(lk.permanent.card?.name || "");
+    if (owner && name) locks.push({ playerId: owner, name, lockedBy: ctx.controller, setTurn: state.turn });
+  }
+  let next = applyZoneMove(state, atom, ctx, "hand");
+  if (!locks.length) return next;
+  next = { ...next, nameCastLocks: [...(next.nameCastLocks || []), ...locks] };
+  return logEvent(next, { kind: "name-cast-lock", locks: locks.map((l) => ({ playerId: l.playerId, name: l.name })), controller: ctx.controller });
+}
+
+/**
  * Graveyard recursion (CR 608) — move the targeted card(s) from the CASTER'S graveyard to their
  * hand (Raise Dead / Regrowth). The target was chosen at cast time from the caster's own
  * graveyard (a public zone). GY-TO-BOTTOM (AR-1): the anyGraveyard form ("put target card from a
@@ -1115,6 +1138,14 @@ export function bounceClauseParser(clause) {
   if (/^return target spell or permanent to its owner's hand$/.test(t)) {
     return { op: "bounce-spell-or-permanent", targetType: "spellOrPermanent", notCounter: true };
   }
+  // NAME-LOCK BOUNCE (SHELF-85 B4, 2026-09-04 — Reflector Mage): the splitter's sentinel for "… to its owner's hand.
+  // That creature's owner can't cast spells with the same name as that creature until your next turn." The bounce is
+  // the plain opponent-scoped creature bounce; the rider records a per-player NAME cast lock (gameState.nameCastLocks)
+  // that legalChoices' cast loop refuses and the lock-setter's next untap step expires (CR 611.2b — "until your next
+  // turn" ends as that turn begins).
+  if (/^return target creature an opponent controls to its owner's hand with a name lock until your next turn$/.test(t)) {
+    return { op: "bounce", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], nameLockUntilNextTurn: true };
+  }
   const cb = t.match(/^return (another )?target (tapped |attacking |blocking )?creature( or vehicle)?(?: (an opponent controls|you don't control|you control|that player controls|the damaged player controls))? to its owner's hand$/);
   if (cb) {
     const who = /^you control$/.test(cb[4] || "") ? "you"
@@ -1614,7 +1645,7 @@ export const zoneResolvers = {
   "cz-return": applyCzReturn,                  // the delayed half's sentinel
   "delayed-blink": applyDelayedBlink,          // DELAYED-RETURN BLINK (Otherworldly Journey / Long Road Home) — exile now, return at next end step
   "blink-return": applyBlinkReturn,            // its delayed half's sentinel (re-enter from exile + optional +1/+1)
-  "bounce": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "hand"),
+  "bounce": (state, atom, ctx) => (atom.nameLockUntilNextTurn ? applyBounceWithNameLock(state, atom, ctx) : applyZoneMove(state, atom, ctx, "hand")), // B4 — Reflector Mage's rider
   "tuck": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "library", atom.where === "top"),
   "return-from-graveyard": applyReturnFromGraveyard,
   "return-from-graveyard-pick": applyReturnFromGraveyardPick, // ④-AA — the non-targeted "return a <filter> card" chosen at resolution

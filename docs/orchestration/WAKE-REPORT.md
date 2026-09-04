@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · B4: Reflector Mage (+1)** · suite **effects/splitClauses.js (sentinel fold) + effects/atoms/zones.js (name-lock bounce arm + applier) + gameState.js (nameCastLocked / expireNameCastLocks) + legalChoices.js (cast gate) + gameEngine.js (untap-step expiry) + reflectorMage.test.js (6)** green · corpus 14,359 (41.9%) / 34,245 (41.9%) · flip-diff +1 / 0 lost · 7/7
+
+> The bounce with a name lock until your next turn. **Brago 85 — AT THE BAR the runbook sets for Phase 2 (§2: stop a deck at ≥85); its remaining M/L rows (B9/B10/B11/B13/B14/B15/B16, B1's MDFCs) stay ⬜ for Phase 3. Next deck in §5 order: Nekusar (76, needs 9).**
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · B12: Cryogen Relic (+1)** · suite **effects/atoms/counters.js (bare stun arm) + effects/programQueries.js (stun = enemy intent) + cryogenRelic.test.js (6); one CREED pin graduated (stunCounterCount)** green · corpus 14,358 (41.9%) / 34,245 (41.9%) · flip-diff +1 / 0 lost · 5/5
 
 > The bare stun counter on a tapped target. **Brago 84 (needs 1); the S rows are done.** Next by §2: the M rows — B4 Reflector Mage (the name-lock rider), B9 Riptide Gearhulk, B10 Brago, B11 Anticausal Vestige, B13 Dour Port-Mage, B14 Elesh Norn — until ≥85.
