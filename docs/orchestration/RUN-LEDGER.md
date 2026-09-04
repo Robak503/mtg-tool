@@ -3,6 +3,15 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — V8: ARCADE CABINET — "Sacrifice a token" and the all-kinds counter doubler · **+5** · corpus 14,309 / 34,245 (41.8%)
+> Suite **1426 files / 15,760 tests** green; lint 0. Flip-diff **+5, zero LOST**. **5/5 mutations killed against a green witness (token removed from the sacrifice types, the token branch matching any permanent, the doubler arm removed, the resolver doubling +1/+1 only, the resolver adding one instead of the current amount).**
+> · **The shape:** two cells. The activation cost "Sacrifice a token" joins the sacrifice-other lane as type `token`,
+>   matched on the victim's token flag (any token permanent you control; the leave-trigger fail-safe still applies).
+>   "Double the number of each kind of counter on target creature" is a `double-all-counters` atom on a chosen
+>   creature: every kind on the target is added again through addCounter, so Doubling Season composes per kind and
+>   a creature with no counters is a clean no-op. The ETB's "up to four target creatures" pick already parsed.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — V7: ROSIE COTTON — the "other than <Name>" exclusion, and the "X of Y" self-name · **+1** · corpus 14,304 / 34,245 (41.8%)
 > Suite **1425 files / 15,753 tests** green; lint 0. Flip-diff **+1, zero LOST**. **4/4 mutations killed against a green witness (the nickname candidate removed, the other-than rewrite arm removed, the counter arm's new form removed, the exclusion dropped).**
 > · **The shape:** the token-created event, the Food token and the own-creature counter gift all existed. A "<Name> of

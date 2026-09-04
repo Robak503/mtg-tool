@@ -523,6 +523,11 @@ export function addCounterClauseParser(clause) {
   if (dm) return dynCounter(dm[1], dm[2], dm[3]);
   dm = t.match(/^put (?:x|a number of) ([+-]1\/[+-]1) counters? on (target creature you control|target creature|each creature you control) equal to the number of (.+)$/);
   if (dm) return dynCounter(dm[1], dm[2], dm[3]);
+  // ===== DOUBLE EVERY KIND (SHELF-85 V8, 2026-09-04 — Arcade Cabinet "Double the number of each kind of counter on
+  // target creature", CR 122) ===== a chosen creature target; the resolver adds each kind on it again through
+  // addCounter (so Doubling Season composes per kind, CR 616). Whole-clause anchored; "+1/+1 counters" alone is NOT
+  // this arm (a single-kind double on a chosen target has no clean corpus carrier today and stays LOW).
+  if (/^double the number of each kind of counter on target creature$/.test(t)) return { op: "double-all-counters", targetType: "creature" };
   // ===== ENRAGE / DAMAGE-RECEIVED self-scaled (CR 603.2) ===== "put that many +1/+1 counters on THIS CREATURE" —
   // the ENRAGE payoff (Hungering Hydra: "Whenever this creature is dealt damage, put that many +1/+1 counters on
   // it"). "that many" = the damage the creature just took, threaded by checkDealtDamageTriggers as
@@ -1219,7 +1224,25 @@ export function endureClauseParser(clause) {
   return null;
 }
 
+/**
+ * DOUBLE EVERY KIND (SHELF-85 V8 — Arcade Cabinet, CR 122): for the chosen creature target, every counter kind on it is
+ * added again in its current amount — each through gameState.addCounter, the one counter-mutation chokepoint, so the
+ * recipient controller's doublers (Doubling Season, Hardened Scales for +1/+1) replace per kind exactly as any other
+ * placement (CR 616). Read against the PRE-mutation state so a kind's own arriving counters never inflate a later read.
+ * A vanished target or a creature with no counters is a logged no-op — never a fabricated placement.
+ */
+function applyDoubleAllCounters(state, atom, ctx) {
+  const t = (ctx?.targets || []).find((x) => x?.type === "creature" || x?.type === "permanent");
+  const lk = t ? findPermanent(state, t.id) : null;
+  if (!lk) return logEvent(state, { kind: "spell-effect", effect: "double-all-counters-fizzle", targetId: t?.id || null, controller: ctx?.controller });
+  const snapshot = Object.entries(lk.permanent.counters || {}).filter(([, n]) => Number.isInteger(n) && n > 0);
+  let next = state;
+  for (const [type, n] of snapshot) next = addCounter(next, { permanentId: t.id, type, amount: n });
+  return logEvent(next, { kind: "spell-effect", effect: "double-all-counters", targetId: t.id, kinds: snapshot.map(([k, n]) => `${k}:${n}`), controller: ctx?.controller });
+}
+
 export const counterResolvers = {
+  "double-all-counters": applyDoubleAllCounters, // SHELF-85 V8 (Arcade Cabinet) — every kind on the chosen creature, doubled
   "add-counter": applyAddCounter,
   "transfer-counters": applyTransferCounters, // slice 37 — the dying object's LKI counter bag onto a chosen creature
   "endure": applyEndure, // ENDURE N (CR 701.63 — BLITZ KW-1) — modal keyword action: N +1/+1 counters on the source, or an N/N white Spirit token when the source has left

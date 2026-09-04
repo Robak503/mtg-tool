@@ -542,7 +542,9 @@ export function parseAbilityCost(costStr, card = null) {
       exileGyCount = { count: n, cardType: egM[2] ? egM[2].toLowerCase() : "any" };
       continue;
     }
-    const sacOtherM = /^sacrifice (a|an|another) (nontoken )?(creature or enchantment|creature or planeswalker|creature or land|creature|permanent|artifact|enchantment|land)$/i.exec(item);
+    // SHELF-85 V8 (2026-09-04 — Arcade Cabinet "{2}, {T}, Sacrifice a token: …"): `token` joins the sacrifice-other
+    // types — any token permanent you control (legalChoices' sacTypeMatches reads the victim's token flag).
+    const sacOtherM = /^sacrifice (a|an|another) (nontoken )?(creature or enchantment|creature or planeswalker|creature or land|creature|permanent|artifact|enchantment|land|token)$/i.exec(item);
     if (sacOtherM) {
       const SAC_UNION_CANON = { "creature or enchantment": "creatureOrEnchantment", "creature or planeswalker": "creatureOrPlaneswalker", "creature or land": "creatureOrLand" };
       const rawType = sacOtherM[3].toLowerCase();

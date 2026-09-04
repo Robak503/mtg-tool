@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Arcade Cabinet** — sacrifice a token to double every kind of counter on a creature
 - **Rosie Cotton of South Lane** — every token you create grows another of your creatures, never Rosie herself
 - **Tap-N-creatures costs** — Kirol, Attentive First-Year, Tradewind Rider, Siege Zombie, Nullmage Shepherd, Sandsower, Skaab Wrangler, Diversionary Tactics, Larder Zombie, Root-Kin Ally, Skirsdag High Priest, Prosperous Partnership and Grove of the Guardian pay their "tap two/three/four untapped creatures" cost for real; the AI leaves those activations to you
 - **Peter Parker's Camera, Strionic Resonator, Adric** — copy one of your own triggered (or, for the Camera and Adric, activated) abilities while it waits on the stack; the activation is offered whenever such an ability is stacked, on any turn

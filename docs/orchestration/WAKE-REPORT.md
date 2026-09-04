@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 V8: Arcade Cabinet (+5)** · suite **1426 files / 15,760 tests** green · corpus 14,309 / 34,245 (41.8%) · flip-diff +5 / 0 lost · 5/5 mutations killed against a green witness (token removed from the sacrifice types, the token branch matching any permanent, the doubler arm removed, the resolver doubling +1/+1 only, the resolver adding one instead of the current amount)
+
+> "Sacrifice a token" as a cost and the all-kinds counter doubler on a chosen creature. Next row by the runbook's §2:
+> V9 (Valley Floodcaller — Kinnan, cdh).
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 V7: Rosie Cotton (+1)** · suite **1425 files / 15,753 tests** green · corpus 14,304 / 34,245 (41.8%) · flip-diff +1 / 0 lost · 4/4 mutations killed against a green witness (the nickname candidate removed, the other-than rewrite arm removed, the counter arm's new form removed, the exclusion dropped)
 
 > The "other than <Name>" exclusion on a counter gift, with the "X of Y" legends' self-name. Next row by the runbook's

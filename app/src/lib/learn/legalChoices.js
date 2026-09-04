@@ -352,6 +352,9 @@ function sacTypeMatches(card, type, subtype = null) {
     type === "artifact" ? t.includes("Artifact") :
     type === "enchantment" ? t.includes("Enchantment") :
     type === "land" ? t.includes("Land") :
+    // SHELF-85 V8 — "Sacrifice a token" (Arcade Cabinet): the victim is any TOKEN permanent (CR 111.1 — the token flag
+    // the mint stamps), never a card; a type line alone can't tell them apart.
+    type === "token" ? !!card?.token :
     // ADDCOST-1 union — "sacrifice an artifact or creature" (Deadly Dispute): a victim matching EITHER type.
     type === "artifactOrCreature" ? (t.includes("Artifact") || t.includes("Creature")) :
     // SAC-UNION (2026-08-07) — the three remaining printed sac-cost unions, measured at 11 carriers across

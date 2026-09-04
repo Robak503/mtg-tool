@@ -68,7 +68,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Kinnan Mana Overload | 74 | 11 | 16 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Believe it! | 73 | 12 | 17 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Kellan of the west | 74 | 11 | 16 | ⬜ Phase 2 |
-| Joe | Halfshell heroes | 64 | 21 | 26 | ⬜ Phase 2 |
+| Joe | Halfshell heroes | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Slivers | 98 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
@@ -78,11 +78,11 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Shorikai Vehicles | 72 | 13 | 18 | ⬜ Phase 2 |
 | Test | Shalai and Hallar Test | 73 | 12 | 17 | ⬜ Phase 2 |
 | Test | Otharri Test | 75 | 10 | 15 | ⬜ Phase 2 |
-| Test | Bumble Flower Combo | 65 | 20 | 25 | ⬜ Phase 2 |
+| Test | Bumble Flower Combo | 66 | 19 | 24 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 64 | 21 | 26 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 61 | 24 | 29 | ⬜ Phase 2 |
 
-**14 decks below 85 · 196 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**14 decks below 85 · 194 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -174,7 +174,7 @@ Ordered by slots paid across the 14 sub-85 decks, then by size. Every row: ⬜ o
 | V5 | **Proft's Eidetic Memory** — beginning of combat, if you've drawn more than one card this turn, put X +1/+1 counters (X = cards drawn − 1) | Brago · Nekusar | 2 | **M** | combat-start trigger + intervening-if on `cardsDrawnThisTurn > 1` + countFor kind `cardsDrawnThisTurnMinusOne` | ✅ (+2 corpus — the intervening-if "you've drawn more than one card this turn" and the count source "cards you've drawn this turn [minus one]" (kind `cardsDrawnThisTurn`, `minus` floored at 0), both off `player.cardsDrawnThisTurn`. Unplanned twin: Thundering Djinn's attack damage counts the same tally, audited whole-card.) |
 | V6 | **Peter Parker's Camera / Strionic Resonator / Kirol** — "copy target activated or triggered ability you control" | Brago (×2: Camera + Resonator) · Killer Turts · Otharri (Kirol) | 4 | **M** | CAP-BRACERS built `copy-activated-ability` on an event; this is a CHOSEN stack-object target of kind ability (enumerateTargets: the stack's non-spell objects you control) + the same copy resolver; Camera's film counter cost = removeCounter (exists) | ✅ slice 1 (+3 corpus — Camera + Resonator + the unplanned Adric: the `copy-ability` atom on a CHOSEN stack target (`abilityYouControl`, printed kinds threaded on the target spec), the own-controller pool on the Stifle-class target shape, a target-keyed copy resolver, and THE STACK WINDOW — the priority holder may activate a stack-ability copier at any step while the stack holds an ability they control. Slice 2 = Kirol: the "Tap two untapped creatures you control:" cost lane (parseAbilityCost reads one creature only).) **Slice 2 ✅ (+12 — Kirol and ELEVEN twins on the counted "Tap N untapped creatures you control" cost: parseAbilityCost reads the count, legalChoices freezes N untapped creatures (sick bodies first, the {T} source excluded) onto `tapCountIds`, the dispatcher taps the set and neither site lets it pay mana; the AI never auto-spends it. Twins: Sandsower, Nullmage Shepherd, Larder Zombie, Diversionary Tactics, Skaab Wrangler, Root-Kin Ally, Prosperous Partnership, Siege Zombie, Skirsdag High Priest, Tradewind Rider, Grove of the Guardian — every effect already modeled.) V6 DONE (+15).** |
 | V7 | **Rosie Cotton of South Lane** — "whenever you create a token, put a +1/+1 counter on target creature you control other than Rosie" | Otharri · Bumble | 2 | **S/M** | the token-created event (Staff of the Storyteller / Splinter want it too — "whenever you create one or more tokens"); "target creature you control other than this creature" = creatureYouControl + excludeSource (the ④-AF `notSource` restriction on the peel) | ✅ (+1 corpus — the token-created event and the Food token existed; two cells were missing: the "<Name> of <Place>" self-name candidate on detectTriggers' anchored rewrites plus a whole-clause arm for the trailing "other than <Name>" exclusion, and the counter parser's "target creature you control other than this creature" form = the excludeSource atom. Rosie is never a legal target of her own gift.) |
-| V8 | **Arcade Cabinet** — "double the number of each kind of counter on target creature" | Bumble · Halfshell | 2 | **S** | the Voracious Hydra doubler exists for +1/+1; generalize to every kind in the bag (`countersOnSource` all-kinds precedent) | ⬜ |
+| V8 | **Arcade Cabinet** — "double the number of each kind of counter on target creature" | Bumble · Halfshell | 2 | **S** | the Voracious Hydra doubler exists for +1/+1; generalize to every kind in the bag (`countersOnSource` all-kinds precedent) | ✅ (+5 corpus — two cells: the "Sacrifice a token" cost (sacOther type `token`, matched on the victim's token flag) and a `double-all-counters` atom on a chosen creature target (every kind on it, each through addCounter so Doubling Season composes). The ETB's up-to-four counter pick already parsed.) |
 | V9 | **Valley Floodcaller** — cast noncreature → "Birds, Frogs, Otters, and Rats you control get +1/+1 until end of turn. Untap them." | Kinnan (+cdh) | 1 (+1) | **S** | a four-subtype team pump (the dynamic selector takes a subtypes ARRAY) + untap the same set | ⬜ |
 | V10 | **Scythecat Cub** — landfall counter; "if this is the second time this ability has resolved this turn, double instead" | Shalai (+Earth Bent already at 90) | 1 | **M** | expressible after all: stamp `abilityResolutionsThisTurn[sourceId][abilityKey]` at trigger resolution, expose `thisAbilityResolvedNthTimeThisTurn` to evaluateInterveningIf, and lift the deliberate park in `effectAtoms.js` (repin its CREED test) | ⬜ |
 | V11 | **Path of Ancestry** — commander-identity any-colour mana + "when that mana is spent to cast a creature spell that shares a type with your commander, scry 1" | Halfshell (+Mothman, Jurassic) | 1 (+2) | **M** | the mana half = colours from the commander's identity (the Cavern lane's chosen-type restriction is the sibling); the spent-rider needs the `uncounterableIfSpent`-style stamp on the cast site turned into a scry trigger — build whole or not at all (CREED) | ⬜ |
@@ -373,7 +373,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | F1 | Dusk // Dawn | split card | L | split cards (Double Jump too) are their own composition rule — size with V1's slice 3 | ⬜ |
-| F2 | Rosie Cotton · Arcade Cabinet · Gingerbrute ×2 · Tough Cookie ×2 | | V7 / V8 / V14 | | 🔄 Rosie ✅ · Arcade Cabinet V8 · Gingerbrute / Tough Cookie V14 |
+| F2 | Rosie Cotton · Arcade Cabinet · Gingerbrute ×2 · Tough Cookie ×2 | | V7 / V8 / V14 | | 🔄 Rosie ✅ · Arcade Cabinet ✅ · Gingerbrute / Tough Cookie V14 |
 | F3 | Ms. Bumbleflower | cast → target opponent draws; +1/+1 counter on target creature; it gains flying | S | | ⬜ |
 | F4 | Academy Manufactor | Clue/Food/Treasure → one of each | S | a token-minting replacement (the Donatello class shares the seam) | ⬜ |
 | F5 | Study the Classics · Treebeard · Wave Goodbye · Secret Rendezvous · Riot Control · Kwain | counters/lifegain/mass bounce/draw shapes | S each | Wave Goodbye = mass bounce with a no-counter filter | ⬜ |
@@ -398,7 +398,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | Q1 | Double Jump // Flying Kick | split | L (V1 slice 3) | | ⬜ |
-| Q2 | Arcade Cabinet · Path of Ancestry | | V8 / V11 | | ⬜ |
+| Q2 | Arcade Cabinet · Path of Ancestry | | V8 / V11 | | 🔄 Arcade Cabinet ✅ · Path of Ancestry V11 |
 | Q3 | Casey Jones · Ray Fillet · Together Forever · Tokka & Rahzar · Baxter · Heroes in a Half Shell · Coin of Mastery · Raphael | counters-matter triggers and statics | S / S / M / S / S / M / M / M | Casey Jones = a counters-placed batch event (exists: countersPlaced) + damage; Ray Fillet = combat damage by a creature with a counter → draw; Raphael = a damage doubler filtered by "with counters" | ⬜ |
 | Q4 | Big Apple · Big Mother Mouser · Shellshock · Swift Demise · Wave Goodbye · Continue? · Exploding Barrel · Everything Pizza · Endless Foot Assault · Splinter · Foot Chopper · Mole Module · Bebop · Tempestra · Irma · Dimension X Pizzasaur · Donatello | | S–M | Shredder's per-opponent copies = M; Irma's combat-start copy = M; Donatello's Mutagen replacement shares F4's seam | ⬜ |
 | Q5 | COMPOSITE | Fast Forward · Rat King · Lita · Turtle Lair · Special Move · Vigor · Krang | size on approach | | ⬜ |
@@ -468,6 +468,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — V8 (Arcade Cabinet) ✅ +5 corpus · 5/5 mutations killed against a green witness (token removed from the sacrifice types, the token branch matching any permanent, the doubler arm removed, the resolver doubling +1/+1 only, the resolver adding one instead of the current amount) · suite 1426 files / 15,760 tests · corpus 14,309 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — V7 (Rosie Cotton) ✅ +1 corpus · 4/4 mutations killed against a green witness (the nickname candidate removed, the other-than rewrite arm removed, the counter arm's new form removed, the exclusion dropped) · suite 1425 files / 15,753 tests · corpus 14,304 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
