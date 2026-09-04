@@ -2321,6 +2321,10 @@ export function resetTurnCounters(state, { playerId }) {
   assertPlayer(playerId);
   return withPlayer(state, playerId, p => ({
     ...p,
+    // TURNS TAKEN (V2, 2026-09-04 — Starting Town "enters tapped unless it's your first, second, or third turn of the
+    // game"): this seat's own turn ordinal, incremented at the untap step of each of ITS turns (the one place
+    // resetTurnCounters runs for the active player). Extra turns count, as CR 500.7 says they should.
+    turnsTaken: (p.turnsTaken || 0) + 1,
     landsPlayedThisTurn: 0,
     extraLandsThisTurn: 0,  // ONE-SHOT-EXTRA-LAND: the resolving "additional land this turn" budget is per-turn; reset alongside landsPlayedThisTurn so it never carries into a later turn (CR 505.5b — "this turn" only).
     cardsDrawnThisTurn: 0,

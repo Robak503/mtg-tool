@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Starting Town** — enters untapped through your third turn and tapped after; taps for colourless free or any colour for 1 life, and never offers the colour for free
 - **Modal double-faced creatures cast their front** — Witch Enchanter, Glasspool Mimic, Kazandu Mammoth, Skyclave Cleric, Pinnacle Monk and four more enter as their creature face and return to hand or graveyard as the whole card
 - **Modal double-faced spells cast their front** — Fell the Profane, Bridgeworks Battle, Sundering Eruption, Sejiri Shelter, Bala Ged Recovery and fourteen more cast as the spell or drop as the land
 - **Modal double-faced lands choose a face** — the ten Pathways play as either side; a spell//land's back plays as itself (with its own enter clause); transform cards with a land back are no longer offered as land drops

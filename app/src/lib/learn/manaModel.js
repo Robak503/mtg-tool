@@ -901,7 +901,7 @@ const MAX_SPEED_PREFIX = /^\s*max speed\s*[—–-]\s*/i;
  * counter-removal rider fails the anchor on purpose: its single-line product would silently drop the rider
  * (a painless painland tap), the forbidden direction. Never the main line itself. Memoized per card object.
  */
-const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?\.)$/i; // + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory)
+const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Pay \d life: Add one mana of any color\.|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?\.)$/i; // + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory)
 // A PLAIN tap line: complete, ungated, no sacrifice — the line a multi-line card can always tap for.
 const PLAIN_MANA_LINE_RE = /^\{T\}: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.$/i;
 
@@ -934,7 +934,11 @@ function honestMultiLineMain(card, result) {
   const unsafeSac = !!result.sacrifices && !/sacrifice/i.test(plain);
   const foreign = (result.colors || []).filter((c) => !plainColors.has(c));
   const riderless = !result.painColors && result.payLife == null && !result.restriction;
-  const unsafeMerge = foreign.length > 0 && riderless && tapLines.some((l) => l !== plain && !EXTRA_MANA_LINE_RE.test(l) && foreign.some((c) => new RegExp(c === "C" ? "\\{C\\}" : `\\{${c}\\}|any color`, "i").test(l)));
+  // V2 (2026-09-04): a PAY-LIFE line is unsafe to merge even though it is now an honest extra record (Starting
+  // Town "{T}: Add {C}." + "{T}, Pay 1 life: Add one mana of any color." — the whole-card merge read the pay-life
+  // cost off the FIRST add line, found none, and offered a FREE any-colour main; the plain line is the main, the
+  // pay-life line rides as an extra carrying its cost).
+  const unsafeMerge = foreign.length > 0 && riderless && tapLines.some((l) => l !== plain && (!EXTRA_MANA_LINE_RE.test(l) || /\bPay \d+ life\b/i.test(l)) && foreign.some((c) => new RegExp(c === "C" ? "\\{C\\}" : `\\{${c}\\}|any color`, "i").test(l)));
   if (!unsafeSac && !unsafeMerge) return result;
   return { ...plainProd, ...(result.activationCondition && /activate only if/i.test(plain) ? { activationCondition: result.activationCondition } : {}) };
 }
@@ -1887,7 +1891,12 @@ export function manaSources(state, playerId) {
       const exAmount = extra.removesCounters ? ((extra.removesCounters.mode === "plusOne" ? 1 : 0) + crCount) * manaMult
         : exFixed ? Object.values(exFixed).reduce((a, b) => a + b, 0) : (extra.amount ?? 1) * manaMult;
       if (exAmount <= 0) continue;
-      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: crCount } } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
+      // V2 (2026-09-04 — Starting Town "{T}, Pay 1 life: Add one mana of any color" beside a free "{T}: Add {C}"): a
+      // pay-life extra line carries its life cost onto the record (the planner and commitPaymentPlan already honour
+      // `payLife` on a source — the painland/City-of-Brass lane) and is gated exactly like the main product: no life,
+      // no source. Without both halves the any-colour tap would be free — the forbidden direction.
+      if (extra.payLife != null && !((player.life ?? 0) > extra.payLife)) continue;
+      sources.push({ permanentId: perm.id, colors: exFixed ? Object.keys(exFixed) : extra.colors, amount: exAmount, sacrifices: !!extra.sacrifices, ...(extra.payLife != null ? { payLife: extra.payLife } : {}), ...(exFixed ? { fixed: exFixed } : {}), ...(isSnowPermanent(perm.card) ? { snow: true } : {}), ...(extra.removesCounters ? { removesCounters: { type: extra.removesCounters.type, count: crCount } } : {}), ...(extra.doesNotUntapNext ? { doesNotUntapNext: true } : {}), ...(extra.restriction ? { restriction: resolveSourceRestriction(extra.restriction, perm) } : {}), extraLine: true }); // + CAP-CAVERN: a restricted extra line carries its (resolved) restriction
     }
   }
   // SG-6 — EXILE-FROM-HAND sources (Elvish / Simian Spirit Guide): a mana ability of a card in HAND. Offered

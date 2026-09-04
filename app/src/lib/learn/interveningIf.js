@@ -1649,6 +1649,12 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // creature" qualifier, or a negated form fails the anchor → null → Arbiter (CREED — never a mis-scoped Raid read).
   if (/^you attacked this turn$/.test(c)) return state?.players?.[controllerId]?.attackedThisTurn === true;
 
+  // ===== YOUR FIRST THREE TURNS (V2, 2026-09-04 — Starting Town "This land enters tapped unless it's your first,
+  // second, or third turn of the game") ===== read off the controller's own turn ordinal (player.turnsTaken, stamped at
+  // the untap step of each of that seat's turns; 0 before the first untap counts as the first turn). The exact printed
+  // list only — "first turn", "second or third" and every other span fail the anchor → null → Arbiter (CREED).
+  if (/^it's your first, second, or third turn of the game$/.test(c)) return (state?.players?.[controllerId]?.turnsTaken || 0) <= 3;
+
   // ===== SPELLS-CAST-THIS-TURN (CR 700.4) ===== "you've cast [a|N or more] spell(s) this turn" — read off the
   // controller's per-turn spellsCastThisTurn counter (bumped at the cast chokepoint, TRIG-CAST2; reset for all
   // seats at untap — the SAME source the native "cast your second spell" triggers read). Loan Shark's ETB

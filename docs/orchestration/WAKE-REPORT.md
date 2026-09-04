@@ -7,6 +7,13 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (night cron) — **SHELF-85 V2: Starting Town (+1)** · suite **1419 files / 15,692 tests** green · corpus 14,281 / 34,245 (41.7%) · flip-diff +1 / 0 lost · 7/7 mutations killed against a green witness (the turn counter never stamped, the predicate inverted and removed, the extra-line regex refusing pay-life again, the extra record's payLife and its life gate, the honest-main pay-life clause)
+
+> The turn-ordinal gate (`player.turnsTaken`, stamped at the untap step) and the pay-life any-colour line as an honest
+> extra mana record (carries `payLife`, gated on life). The whole-card merge tried to hand out a FREE any-colour main
+> beside it; the witness caught it and the plain line is the main. Next row by the runbook's §2: V3 (Minamo).
+> **CI:** V1 slice 3's run 33851913133 green; this push's run is watched before the next
+
 ## 🎯 2026-09-04 (night cron) — **SHELF-85 V1 complete: modal double-faced cards play both faces (+9 tonight's slice 3; +38 the vein)** · suite **1418 files / 15,682 tests** green · corpus 14,280 / 34,245 (41.7%) · flip-diff +9 / 0 lost · 13/13 mutations killed against a green witness (the twelve before plus the cast's printedCard thread and the classifier's permanent-front back check); a fourteenth — a Land-front cast skip — survived and was deleted as unobservable
 
 > **Stage boundary — V1 (Phase 1's first vein) is done.** The land drop chooses a face; a spell front casts as a face; a

@@ -67,22 +67,22 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Jurassic Ramp | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kinnan Mana Overload | 73 | 12 | 17 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Believe it! | 72 | 13 | 18 | ⬜ Phase 2 (cEDH — LAST) |
-| Joe | Kellan of the west | 73 | 12 | 17 | ⬜ Phase 2 |
+| Joe | Kellan of the west | 74 | 11 | 16 | ⬜ Phase 2 |
 | Joe | Halfshell heroes | 64 | 21 | 26 | ⬜ Phase 2 |
 | Test | Slivers | 98 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
-| Test | Teval, the Balanced Scale Test | 78 | 7 | 12 | ⬜ Phase 2 |
+| Test | Teval, the Balanced Scale Test | 79 | 6 | 11 | ⬜ Phase 2 |
 | Test | Brago Blink | 76 | 9 | 14 | ⬜ Phase 2 |
 | Test | Nekusar Wheels | 73 | 12 | 17 | ⬜ Phase 2 |
 | Test | Shorikai Vehicles | 71 | 14 | 19 | ⬜ Phase 2 |
-| Test | Shalai and Hallar Test | 72 | 13 | 18 | ⬜ Phase 2 |
-| Test | Otharri Test | 72 | 13 | 18 | ⬜ Phase 2 |
+| Test | Shalai and Hallar Test | 73 | 12 | 17 | ⬜ Phase 2 |
+| Test | Otharri Test | 73 | 12 | 17 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 64 | 21 | 26 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 64 | 21 | 26 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 61 | 24 | 29 | ⬜ Phase 2 |
 
-**14 decks below 85 · 212 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**14 decks below 85 · 208 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -168,7 +168,7 @@ Ordered by slots paid across the 14 sub-85 decks, then by size. Every row: ⬜ o
 | # | Vein | Decks (sub-85) | Slots | Size | What to build | Status |
 |---|---|---|---|---|---|---|
 | V1 | **Modal double-faced cards (spell // land, land // land)** — Sink into Stupor, Witch Enchanter, Sundering Eruption, Shatterskull Smashing, Hydroelectric Specimen, Fell the Profane, Bridgeworks Battle, Boggart Trawler, Agadeem's Awakening, Sea Gate Restoration, Sejiri Shelter, Revitalizing Repast, Glasspool Mimic, Emeritus of Truce, Wandering Archaic; the five Pathways (Barkchannel, Hengegate, Branchloft, Needleverge, Blightstep) | Teval 6 · Believe 6 · Kellan 5 · Shalai 5 · Otharri 5 · Kinnan 4 · Shorikai 3 · Nekusar 3 · Brago 2 · Bumble/Halfshell/Turts/Light-Paws 1 each (+~15 more in the 85–89 decks) | **~43** | **L** (ship in slices) | PROBE FIRST: today these classify `land-partial` — the land drop plays the back face, so what is missing is (a) the classifier reading a `//` oracle as two faces, (b) the cast lane offering the FRONT face as a spell when its program parses HIGH, (c) the play-land lane offering the back face with its enter clause (pay 3 life or tapped). Slice 1 = the five Pathways (both faces plain lands; the face choice on the land drop; +7). Slice 2 = spell//land where the front is already a modeled spell (Sink into Stupor's bounce, Fell the Profane's destroy, Shatterskull's X damage…). Slice 3 = the rest. | 🔄 slice 1 ✅ (+10 corpus — the ten Pathways; the face-choice land drop is live: legalChoices.actionsPlayLand per-face actions, applyPlayLand enters the face with the combined card as printedCard, classifyCard credits a Land // Land iff both faces are covered; the Ixalan transform//land cards left the land bucket). Slice 2 ✅ (+19 corpus — the 19 spell//lands whose instant/sorcery front is native on its own view: cast as a face through the split-card lane, the back drops as a land; the 16 with unmodeled fronts (Sink into Stupor's spell-or-nonland-permanent target, Agadeem's Awakening, Sea Gate Restoration, Shatterskull Smashing …) stay land-partial and are their OWN rows now). Slice 3 ✅ (+9 — the nine permanent fronts: Witch Enchanter, Glasspool Mimic, Kazandu Mammoth, Skyclave Cleric, Pinnacle Monk, Blackbloom Rogue, Glasswing Grace, Tangled Florahedron, Akoum Warrior; the real card rides as printedCard on entry). **V1 DONE (+38 corpus)** — the 22 modal DFCs still land-partial park on their FRONT's own residue and are ordinary rows now (Sink into Stupor's spell-or-nonland-permanent union ×3 decks; Agadeem's Awakening / Sea Gate Restoration / Shatterskull Smashing / Hydroelectric Specimen / Boggart Trawler …); the Ixalan transform//lands and the Kaldheim gods are NOT modal and stay where they are. |
-| V2 | **Starting Town** — "enters tapped unless it's your first, second, or third turn of the game" + "{T}, Pay 1 life: Add one mana of any color" | Teval · Kellan · Shalai · Otharri | 4 | **S** | the enters-tapped-unless condition reads the controller's own turn ordinal (a per-player turn counter; if none exists, stamp `turnsTakenThisGame` at the untap step); the pay-life any-colour tap is the payLife mana spec (exists). | ⬜ |
+| V2 | **Starting Town** — "enters tapped unless it's your first, second, or third turn of the game" + "{T}, Pay 1 life: Add one mana of any color" | Teval · Kellan · Shalai · Otharri | 4 | **S** | the enters-tapped-unless condition reads the controller's own turn ordinal (a per-player turn counter; if none exists, stamp `turnsTakenThisGame` at the untap step); the pay-life any-colour tap is the payLife mana spec (exists). | ✅ (+1 corpus — `player.turnsTaken` stamped at the untap step; the vocabulary reads the ordinal; the pay-life any-colour line is an honest EXTRA record carrying `payLife` and gated on life, and the whole-card merge no longer offers a free any-colour main beside it — that FP existed the moment the line became an extra and the witness caught it). |
 | V3 | **Minamo, School at Water's Edge** — "{U}, {T}: Untap target legendary permanent" | Kinnan · Shorikai (+cdh) | 2 (+1) | **S** | the untap atom + a `legendary` restriction on targetType permanent (matchesSelector already knows `legendary`; enumerateTargets' permanent pool needs the kind) | ⬜ |
 | V4 | **Orcish Bowmasters** — ETB and "whenever an opponent draws a card except the first one they draw in each of their draw steps": 1 damage to any target, then amass Orcs 1 | Nekusar · Believe | 2 | **M** | an opponent-draw watcher with the first-draw-of-the-draw-step exception (the `drawnThisTurnIds` / draw-step ledger exists: stamp which draws are the turn's own); amass exists; "any target" chooser on a trigger = enemy intent | ⬜ |
 | V5 | **Proft's Eidetic Memory** — beginning of combat, if you've drawn more than one card this turn, put X +1/+1 counters (X = cards drawn − 1) | Brago · Nekusar | 2 | **M** | combat-start trigger + intervening-if on `cardsDrawnThisTurn > 1` + countFor kind `cardsDrawnThisTurnMinusOne` | ⬜ |
@@ -238,7 +238,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | Row | Card | Blocker (ledger) | Size | Note | Status |
 |---|---|---|---|---|---|
 | T1 | Sink into Stupor · Fell the Profane · Bridgeworks Battle · Boggart Trawler · Agadeem's Awakening · Multiversal Passage | MDFC | V1 | six slots from the vein | ⬜ |
-| T2 | Starting Town | enters tapped unless turn 1–3 | V2 | | ⬜ |
+| T2 | Starting Town | enters tapped unless turn 1–3 | V2 | |✅ |
 | T3 | Field of the Dead | "whenever this land or another land you control enters, if you control seven or more lands with different names, create a 2/2 Zombie" | M | landfall (self-or-another land) + a distinct-land-names intervening-if + token | ⬜ |
 | T4 | Titania, Protector of Argoth | "whenever a land you control is put into a graveyard from the battlefield, create a 5/3 Elemental" | M | a land-dies event (the gyEnter machinery with cardType Land, fromZone battlefield) + token | ⬜ |
 | T5 | Thespian's Stage | "{2}, {T}: this land becomes a copy of target land, except it has this ability" | L | the copy lane on a land (Shifting Woodland / Mycosynth Gardens share it) | ⬜ |
@@ -321,7 +321,7 @@ Phase 1 vein · COMPOSITE rows list the card only — size on approach with `dec
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | K1 | Branchloft · Barkchannel · Hengegate Pathways · Aang · Yangchen | MDFC / transform | V1 | the two Avatar cards are transform DFCs (L) | ⬜ |
-| K2 | Starting Town | | V2 | | ⬜ |
+| K2 | Starting Town | | V2 | |✅ |
 | K3 | Transcendent Dragon | ETB if cast: counter target spell; if countered, exile and you may cast it… | M | | ⬜ |
 | K4 | Monk Gyatso | "whenever another creature you control becomes the target…" you may untap it / copy? | M | the becomes-target event exists (Kira) | ⬜ |
 | K5 | Rashmi, Eternities Crafter | first spell each turn: reveal top; if it costs less, cast it free | L | the top-of-library-play subsystem (One with the Multiverse, Eladamri, Mystic Forge, Fblthp, The Reality Chip share it) — THE WALL. Build as one L in its own slice or call the ceiling. | ⬜ |
@@ -339,7 +339,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | H1 | Shatterskull · Witch Enchanter · Sundering Eruption · Bridgeworks · Miles Morales | MDFC / transform | V1 | Miles Morales is a transform DFC (L) | ⬜ |
-| H2 | Starting Town | | V2 | | ⬜ |
+| H2 | Starting Town | | V2 | |✅ |
 | H3 | Scythecat Cub | | V10 | | ⬜ |
 | H4 | Ragavan | combat damage: Treasure + exile their top card, may cast it this turn | M | Treasure (exists) + impulse from an opponent's library (the impulse-exile lane with an owner switch) | ⬜ |
 | H5 | Krenko, Tin Street Kingpin | attacks: +1/+1 counter, then Goblins = its power | S | attacks trigger + add-counter self + tokens countFor sourcePower (④-AW's reader) | ⬜ |
@@ -357,7 +357,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | O1 | Needleverge · Sejiri Shelter · Shatterskull · Witch Enchanter · Sundering Eruption | MDFC | V1 | | ⬜ |
-| O2 | Starting Town | | V2 | | ⬜ |
+| O2 | Starting Town | | V2 | |✅ |
 | O3 | Kirol, Attentive First-Year | tap two creatures: copy target triggered ability | V6 | | ⬜ |
 | O4 | Rosie Cotton | | V7 | | ⬜ |
 | O5 | Anim Pakal | attack with non-Gnomes → counter on Anim, then Gnome tokens = counters | S | | ⬜ |
@@ -468,6 +468,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — V2 (Starting Town) ✅ +1 corpus · 7/7 mutations killed against a green witness (the turn counter never stamped, the predicate inverted and removed, the extra-line regex refusing pay-life again, the extra record's payLife and its life gate, the honest-main pay-life clause) · suite 1419 files / 15,692 tests · corpus 14,281 · shelf refreshed in §1.
 
 - 2026-09-04 — V1 slice 3 (permanent fronts) ✅ +9 corpus · V1 complete (+38) · 13/13 mutations killed against a green witness (the twelve before plus the cast's printedCard thread and the classifier's permanent-front back check); a fourteenth — a Land-front cast skip — survived and was deleted as unobservable · suite 1418 files / 15,682 tests · corpus 14,280 · shelf refreshed in §1.
 

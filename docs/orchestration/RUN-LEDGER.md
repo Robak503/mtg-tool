@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — V2: STARTING TOWN — the turn-ordinal gate + an honest pay-life extra line · **+1** · corpus 14,281 / 34,245 (41.7%)
+> Suite **1419 files / 15,692 tests** green; lint 0. Flip-diff **+1, zero LOST**. **7/7 mutations killed against a green witness (the turn counter never stamped, the predicate inverted and removed, the extra-line regex refusing pay-life again, the extra record's payLife and its life gate, the honest-main pay-life clause).**
+> · **The shape:** `player.turnsTaken` is stamped at the untap step (resetTurnCounters — extra turns count, CR 500.7);
+>   the intervening-if vocabulary reads "it's your first, second, or third turn of the game" off it, so both enter
+>   sites (already through conditionalEntersTapped) tap the Town from the controller's fourth turn. The pay-life
+>   any-colour line joins EXTRA_MANA_LINE_RE and the extra push now carries `payLife` and is gated on life like a
+>   main product — the reason the regex refused the line before.
+> · **The FP the witness caught:** once the pay-life line counted as an extra, honestMultiLineMain's merge check
+>   treated it as safe and the whole-card merge (which reads the pay-life cost off the FIRST add line — none) offered a
+>   FREE any-colour main. A pay-life line is now always an unsafe merge partner: the plain {C} line is the main.
+> · **Board-verified:** at 40 life the Town offers {C} free and any colour for 1 life (paying {G} taps it and costs
+>   exactly 1 life; paying {C} costs none); at 1 life only {C} is offered.
+> · **CI:** V1 slice 3's run 33851913133 green; this push's run is watched before the next
+
 > ## 🎯 2026-09-04 (night cron) — V1 slice 3: MODAL DFC — a PERMANENT front is cast as a face; V1 complete · **+9** · corpus 14,280 / 34,245 (41.7%)
 > Suite **1418 files / 15,682 tests** green; lint 0. Flip-diff **+9, zero LOST**. **13/13 mutations killed against a green witness (the twelve before plus the cast's printedCard thread and the classifier's permanent-front back check); a fourteenth — a Land-front cast skip — survived and was deleted as unobservable.**
 > · **The shape:** the face lane now offers creature / enchantment / artifact fronts too; applyCastSpell threads the REAL
