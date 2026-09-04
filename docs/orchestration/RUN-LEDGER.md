@@ -3,6 +3,24 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — ④-AN: BATCH combat damage fires once per DAMAGED PLAYER, and carries the referent · **+2** · corpus 14,109 / 34,245 (41.2%)
+> Suite **1401 files / 15,586 tests** green; lint 0. Flip-diff **+2, zero LOST**. **4/4 killed.**
+> · **The rules fix:** "whenever one or more [<filter>] creatures you control deal combat damage to a player" fired ONCE per
+>   attacking player, with a context that named no defender. CR 603.2 and the Anowon, the Ruin Thief ruling say once per
+>   player dealt damage — so a swing into two players under-fired (FN-safe, and invisible in every two-player fixture).
+>   checkBatchCombatDamageTriggers now fires once per (controller, damaged player) pair: the pair's DEALERS gate the
+>   filter (a player hit only by non-matching dealers does not fire a filtered batch — mutation-proven), and the pair's
+>   damage total and damagedPlayerId ride the context, exactly the shape the keyword batches carried since perDefender.
+> · **The referent:** with the context in place, the routing gate admits the batch event for `damagedPlayer` and for
+>   `combatDamageAmount`. Alela, Cunning Conqueror (goad target creature that player controls) and Popular Entertainer
+>   (the same goad, granted to your commanders) flip; Feline Sovereign parks on its "up to one target artifact or
+>   enchantment" permanent-lane form, Anowon on "mills a card for each 1 damage dealt to them".
+> · **Board-verified:** two defenders hit by Grim Hireling's batch → TWO pending triggers, each naming its own damaged
+>   player and total; one defender hit by two attackers → ONE (the old pins, all single-defender, stand unchanged); a
+>   filtered batch fires only for the player its matching dealer hit; the pool for "that player controls" is exactly the
+>   damaged player's creatures.
+> · **CI:** master green at 5a9e1705 when pushed; this run watched
+
 > ## ⏱️ 2026-09-04 (night cron, 00:15Z) — CI: two self-play hang detectors widened after two variance reds in one night
 > ④-AC's run went red on `ffaSoleSurvivor` (48 s against the default 20 s per-test timeout; prior greens 15–17 s, local 6 s)
 > and ④-AM's on `abBench` (51 s against its 40 s awaitDone bound; prior greens 17–24 s, local 7 s). Both re-runs passed

@@ -7,6 +7,14 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (night cron) — **④-AN: batch combat damage fires once per damaged player, and carries the referent (+2)** · suite **1401 files / 15,586 tests** green · corpus 14,109 / 34,245 (41.2%) · flip-diff +2 / 0 lost · 4/4 killed
+
+> **Night tally (stage ④, forty slices):** … · AL (+34) · AM (+2) · AN (+2; a rules fix — the batch under-fired on
+> two-player swings) — corpus 13,862 → 14,109.
+> **CI:** master green at 5a9e1705 when pushed; this run watched
+> **Next runnable:** X-scaled-magnitude activated abilities (plan §6); the AI using combat-role activations (plan §6); the
+> counted "up to N" pick; Feline Sovereign's "up to one target <permanent> that player controls" on the permanent lane.
+
 ## 🏰 2026-09-03 (night cron) — **④-AM: the attack tax's second printing (Baird, Archon of Absolution) (+2)** · suite **1400 files / 15,582 tests** green · corpus 14,107 / 34,245 (41.2%) · flip-diff +2 / 0 lost · 3/3 killed (a fourth, {X} read as {1}, had no carrier — Sphere of Safety's 'where X' tail refuses it before the digit class does — and was deleted)
 
 > **Night tally (stage ④, thirty-nine slices):** A (+1) · B (+7) · C (+3) · D (+2) · E (+1) · F (+7) · G (+6) · H (+5) · I (+3) ·

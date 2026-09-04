@@ -34,8 +34,11 @@ import { detectTriggers } from "./triggers.js";
  * Both the metric (triggerRoutesNatively) and the runtime (gameEngine.buildTriggerStack) consult this, so they
  * can't drift. A trigger whose event can't supply a referent stays on the Arbiter (a SAFE false-negative). Pure.
  */
-const DAMAGED_PLAYER_EVENTS = new Set(["combatDamageToPlayer"]);
-const COMBAT_DAMAGE_AMOUNT_EVENTS = new Set(["combatDamageToPlayer", "dealtDamage",
+// ④-AN (2026-09-04): the BATCH event joined both sets — checkBatchCombatDamageTriggers now fires once per
+// (controller, damaged player) pair and threads damagedPlayerId + combatDamageAmount for EVERY batch descriptor (the
+// keyword batches always did; the bare and subject-filtered ones fired once per controller with no referent).
+const DAMAGED_PLAYER_EVENTS = new Set(["combatDamageToPlayer", "combatDamageBatch"]);
+const COMBAT_DAMAGE_AMOUNT_EVENTS = new Set(["combatDamageToPlayer", "combatDamageBatch", "dealtDamage",
   // SL-1 — the DEALT-BY lifegain link ("Whenever this creature deals damage, you gain that much life"):
   // checkDealtByTriggers threads combatDamageAmount = the source's per-event dealt total at BOTH damage
   // paths, so the referent is genuinely satisfied on this event.

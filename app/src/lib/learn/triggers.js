@@ -7656,7 +7656,8 @@ export function checkDealtDamageTriggers(state, events) {
 
 /**
  * BATCH combat-damage (CR 510.4) — "Whenever one or more [<FILTER>] creatures you control deal combat damage
- * to a player" fires ONCE per combat per controller who connected, NOT once per attacker. From the same
+ * to a player" fires ONCE per (controller, DAMAGED PLAYER) pair, NOT once per attacker (④-AN: once per damaged
+ * player, per CR 603.2 and the Anowon ruling — the first cut fired once per controller). From the same
  * `playerEvents` checkCombatDamageTriggers reads, collect each attacking player's CONNECTING attacker
  * permanents, then fire each "combatDamageBatch" watcher that player controls exactly once (triggeringPermanent
  * is null — it's a batch event, not a single creature). A SUBTYPE/PROPERTY-FILTERED batch (Olivia — "outlaws";
@@ -7675,22 +7676,38 @@ export function checkBatchCombatDamageTriggers(state, playerEvents) {
   // batch (Grim Hireling) fires whenever the set is non-empty (any connection). This is the load-bearing CREED
   // gate: a non-matching attacker connecting alone (a non-outlaw beside Olivia, all else blocked) must NOT fire
   // the filtered batch — the filter is checked on the actual DEALERS, never assumed.
-  const connectingByPlayer = new Map();
+  // ⭐ ONCE PER DAMAGED PLAYER (④-AN, 2026-09-04 — CR 603.2 + the Anowon, the Ruin Thief ruling: "if Rogues you
+  // control deal combat damage to more than one player at the same time, the ability triggers once for each of
+  // those players"). The first cut fired the bare and subject-filtered batches ONCE per attacking player with a
+  // context that named no defender — an under-fire whenever two players were hit (FN-safe, and invisible in every
+  // two-player fixture), and the reason "that player" payoffs on these batches (Alela's goad, Popular Entertainer,
+  // Feline Sovereign) could never route: the referent gate had nothing to read. Now each (controller, defender)
+  // pair fires once, with the pair's DEALERS gating the filter and the pair's damage total in the context —
+  // exactly the shape the keyword batches below have carried since perDefender shipped.
+  const connectingByPair = new Map(); // pid -> Map(defenderId -> { perms: [], total })
   for (const e of hits) {
     const lk = findPermanent(state, e.attackerId);
     if (!lk) continue; // a trading attacker already gone before this fire — can't bind its card; skip for the gate
-    if (!connectingByPlayer.has(e.attackingPlayer)) connectingByPlayer.set(e.attackingPlayer, []);
-    connectingByPlayer.get(e.attackingPlayer).push(lk.permanent);
+    if (e.defender == null) continue; // a "combat-damage-player" event always names its player; defensive
+    if (!connectingByPair.has(e.attackingPlayer)) connectingByPair.set(e.attackingPlayer, new Map());
+    const byDef = connectingByPair.get(e.attackingPlayer);
+    if (!byDef.has(e.defender)) byDef.set(e.defender, { perms: [], total: 0 });
+    const slot = byDef.get(e.defender);
+    slot.perms.push(lk.permanent);
+    slot.total += e.amount;
   }
   let fired = [];
-  for (const [pid, connecting] of connectingByPlayer) {
-    // The descriptor gate: a filtered batch keeps only if SOME connecting creature matches; a bare batch (no
-    // filter fields) always passes via batchDealerMatches's any-creature fall-through. detectTriggers caches
-    // descriptors, so this is cheap per watcher. perDefender descriptors are EXCLUDED here — they fire in
-    // the per-defender pass below (once per damaged player, with the pair's damage total), never twice.
-    const descriptorFilter = (d) => !d.perDefender && connecting.some((perm) => batchDealerMatches(d, perm, state));
-    for (const watcher of triggerSourcesOf(state, pid)) {
-      fired = fired.concat(triggersForEvent(state, { event: "combatDamageBatch", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: { batchController: pid }, descriptorFilter }));
+  for (const [pid, byDef] of connectingByPair) {
+    for (const [defenderId, { perms: connecting, total }] of byDef) {
+      // The descriptor gate: a filtered batch keeps only if SOME creature connecting with THIS defender matches; a
+      // bare batch (no filter fields) always passes via batchDealerMatches's any-creature fall-through. detectTriggers
+      // caches descriptors, so this is cheap per watcher. perDefender descriptors are EXCLUDED here — they fire in
+      // the keyword pass below (per keyword class, with that class's total), never twice.
+      const descriptorFilter = (d) => !d.perDefender && connecting.some((perm) => batchDealerMatches(d, perm, state));
+      const ctx = { batchController: pid, damagedPlayerId: defenderId, combatDamageAmount: total };
+      for (const watcher of triggerSourcesOf(state, pid)) {
+        fired = fired.concat(triggersForEvent(state, { event: "combatDamageBatch", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: ctx, descriptorFilter }));
+      }
     }
   }
   // PER-DEFENDER pass (Quartzwood Crasher's ruling: the ability triggers once for EACH player dealt damage) —

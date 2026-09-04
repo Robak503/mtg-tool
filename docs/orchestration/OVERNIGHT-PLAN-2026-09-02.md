@@ -279,6 +279,7 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
 
 ## §6 PARKED / NEEDS COLTON (append as you go — this is the morning report's raw material)
 
+- ✅ **[Per-defender BATCH combat damage — SHIPPED as ④-AN, 2026-09-04 night (+2; 4/4 killed)]** (the sizing note follows for the record)
 - **[Per-defender BATCH combat damage — 2026-09-03 night, sized, not started — Cindy lane]** `checkBatchCombatDamageTriggers`
   fires the bare and subject-filtered "whenever one or more <creatures> you control deal combat damage to a player" batches
   ONCE per attacking player (documented as the design), with a context that names no defender. CR-wise it triggers once per
