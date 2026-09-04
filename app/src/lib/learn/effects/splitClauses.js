@@ -828,6 +828,11 @@ export function splitClauses(oracle) {
       clauses.push(sentence);
       continue;
     }
+    // ⭐ "INSTANT AND SORCERY" IS A TYPE PAIR, NOT A CONJUNCTION (SHELF-85 K9, 2026-09-04 — Lock and Load "Draw a card,
+    // then draw a card for each other instant and sorcery spell you've cast this turn"): the split below would sever the
+    // count clause at its internal " and ". Hand the two ", then" halves over whole; each is its own atom.
+    const llM = sentence.match(/^(draw a card), then (draw a card for each other instant and sorcery spell you[’']ve cast this turn)\.?$/i);
+    if (llM) { clauses.push(llM[1], llM[2]); continue; }
     // Split on a top-level " and " OR a ", then " sequence ("Scry 2, then draw a card" — Preordain;
     // "Draw a card, then discard a card" — loot). The comma is required so an in-effect "then" (a
     // rarity) isn't severed; each split piece is still re-parsed on its own merits, so a mis-split

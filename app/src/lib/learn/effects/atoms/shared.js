@@ -633,6 +633,10 @@ export function countForSpec(state, ctx, spec) {
   // the cast chokepoint, so the triggering spell itself is already counted when its trigger resolves, CR 608.2h; reset
   // for every seat at untap). An absent tally → 0 (never a fabricated count).
   if (spec.kind === "spellsCastThisTurn") return Math.max(0, state?.players?.[ctx?.controller]?.spellsCastThisTurn || 0);
+  // INSTANT/SORCERY SPELLS CAST THIS TURN (K9 — Lock and Load "for each OTHER instant and sorcery spell you've cast this
+  // turn"): the controller's own tally (player.instantSorcerySpellsCastThisTurn, stamped at the cast chokepoint, reset at
+  // untap), less `minus` for the printed "other" — the resolving spell itself is already counted (CR 608.2h). Floored at 0.
+  if (spec.kind === "instantSorcerySpellsCastThisTurn") return Math.max(0, (state?.players?.[ctx?.controller]?.instantSorcerySpellsCastThisTurn || 0) - (spec.minus || 0));
   // CARDS DRAWN THIS TURN (SHELF-85 V5, 2026-09-04 — Proft's Eidetic Memory): the controller's own per-turn draw tally
   // (player.cardsDrawnThisTurn — stamped at the one draw chokepoint, reset for every seat at untap), less the printed
   // "minus one", floored at 0 (never a negative or fabricated count).

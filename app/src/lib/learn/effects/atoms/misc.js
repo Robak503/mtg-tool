@@ -323,6 +323,12 @@ export function miscClauseParser(clause) {
   if (/^(?:you )?draw cards equal to the number of cards in target opponent's hand$/.test(t)) {
     return { op: "draw", who: "controller", targetType: "opponent", amountCount: { kind: "cardsInTargetOpponentHand" } };
   }
+  // OTHER-INSTANT/SORCERY DRAW (SHELF-85 K9, 2026-09-04 — Lock and Load "draw a card for each other instant and sorcery
+  // spell you've cast this turn", the second clause after the splitter's ", then"): the controller's per-turn
+  // instant/sorcery tally less one for the printed "other" (this spell is already counted at the cast chokepoint).
+  if (/^(?:you )?draw a card for each other instant (?:and|or) sorcery spell you've cast this turn$/.test(t)) {
+    return { op: "draw", amountCount: { kind: "instantSorcerySpellsCastThisTurn", minus: 1, per: 1 }, targetType: null };
+  }
   // THIS-TURN LURE (BLITZ LU-2, CR 509.1c — Alluring Scent / Bloodscent / Taunting Challenge, and
   // Mortipede's activated self form): "All creatures able to block (target creature|this creature) this
   // turn do so." A turn-scoped BLOCK REQUIREMENT stamped on ONE creature (state.lureThisTurn[permId] =

@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K9: Lock and Load (+1)** · suite **1463 files / 15,991 tests** green · corpus 14,394 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 6/6 killed
+
+> The other-instant/sorcery draw on a Plot spell. Kellan **77** (needs 8). Next: Savvy Trader (the ETB rides the extended impulse stamp on a graveyard-card exile; the cast-zone cost reduction needs the zone threaded through costReductionForSpell — M).
+> **CI:** GREEN — run 33912553233 on 7fa0e8bf (Recurring Insight); this slice pushes and is watched
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K9: Recurring Insight (+1)** · suite **1462 files / 15,987 tests** green · corpus 14,393 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 3/3 killed (a fourth — widen the subject to 'your hand' — was an EQUIVALENT mutant: the older cardsInHand arm claims that sentence first; deleted and documented in the witness)
 
 > The hand-size draw count on a rebound spell. Kellan **76** (needs 9). Next: Lock and Load (a per-turn instant/sorcery cast tally + one draw arm; Plot is admitted).

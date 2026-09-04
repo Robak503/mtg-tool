@@ -2386,10 +2386,14 @@ export function recordSpellCast(state, { playerId, spellCard = null }) {
   // That makes an unthreaded path UNDER-fire the first-noncreature watchers, never over-fire — the same
   // direction castNotFromHand takes for an unthreaded zone (CREED).
   const isNoncreature = spellCard != null && !/\bcreature\b/i.test(String(spellCard?.type || spellCard?.type_line || "").split(" // ")[0]);
+  // K9 (Lock and Load "for each other instant and sorcery spell you've cast this turn"): the instant/sorcery tally, kept
+  // beside the noncreature one on the same chokepoint and reset with it at untap.
+  const isInstantOrSorcery = spellCard != null && /\b(?:instant|sorcery)\b/i.test(String(spellCard?.type || spellCard?.type_line || "").split(" // ")[0]);
   return withPlayer(state, playerId, p => ({
     ...p,
     spellsCastThisTurn: (p.spellsCastThisTurn || 0) + 1,
     ...(isNoncreature ? { noncreatureSpellsCastThisTurn: (p.noncreatureSpellsCastThisTurn || 0) + 1 } : {}),
+    ...(isInstantOrSorcery ? { instantSorcerySpellsCastThisTurn: (p.instantSorcerySpellsCastThisTurn || 0) + 1 } : {}),
   }));
 }
 
@@ -2423,7 +2427,7 @@ export function resetSpellsCastAllPlayers(state) {
     // its turn would let the player cast at instant speed forever — an engine strictly MORE PERMISSIVE
     // than the card, the forbidden direction. One reset site for per-turn player state means a new turn
     // cannot half-clear it.
-    players[id] = { ...state.players[id], spellsCastThisTurn: 0, noncreatureSpellsCastThisTurn: 0, flashGrantsThisTurn: [], nextSpellUncounterable: false };
+    players[id] = { ...state.players[id], spellsCastThisTurn: 0, noncreatureSpellsCastThisTurn: 0, instantSorcerySpellsCastThisTurn: 0, flashGrantsThisTurn: [], nextSpellUncounterable: false };
   }
   return { ...state, players };
 }

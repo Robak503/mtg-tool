@@ -3,6 +3,14 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · K9: LOCK AND LOAD — the other-instant/sorcery draw · **+1** · corpus 14,394 (42.0%) / 34,245 (42.0%)
+> Suite **1463 files / 15,991 tests** green; lint 0. Flip-diff **+1, zero LOST**. **6/6 killed.**
+> · **The shape:** three pieces — a per-turn instant/sorcery cast tally stamped at the one cast chokepoint beside the
+>   noncreature tally (reset with it at untap); a countForSpec kind reading it less the printed "other" (the resolving spell
+>   is already counted, CR 608.2h; floored at 0); and a splitter keep-whole, because "instant and sorcery" is a TYPE PAIR the
+>   top-level " and " split severed into "…for each other instant" + "sorcery spell you've cast this turn". Plot was modeled.
+> · **CI:** GREEN — run 33912553233 on 7fa0e8bf (Recurring Insight); this slice pushes and is watched
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · K9: RECURRING INSIGHT — the hand-size draw · **+1** · corpus 14,393 (42.0%) / 34,245 (42.0%)
 > Suite **1462 files / 15,987 tests** green; lint 0. Flip-diff **+1, zero LOST**. **3/3 killed (a fourth — widen the subject to 'your hand' — was an EQUIVALENT mutant: the older cardsInHand arm claims that sentence first; deleted and documented in the witness).**
 > · **The shape:** "Draw cards equal to the number of cards in target opponent's hand" — the TD-1 tapped-count draw one
