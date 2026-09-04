@@ -93,6 +93,10 @@ export function splitClauses(oracle) {
     // pump it follows, so pumpClauseParser's multi-subtype arm stamps untap:true on the same locked set. Only the
     // exact "<Subtypes> you control get ±N/±N until end of turn" shape; anything else keeps its own boundary.
     .replace(/((?:^|[\n.]\s*)[A-Za-z]+(?:, [A-Za-z]+)*,? and [A-Za-z]+ you control get [+-]\d+\/[+-]\d+ until end of turn)\.\s+untap them\b\.?/gi, "$1 and untap them")
+    // SHELF-85 V13 (2026-09-04 — Maze of Ith "Untap target attacking creature. Prevent all combat damage that would be
+    // dealt to and dealt by that creature this turn."): the prevent sentence's "that creature" is the just-untapped
+    // target — folded onto the untap so ONE atom carries both halves (preventCombatDamageTurn), never an orphan.
+    .replace(/(untap target attacking creature)\.\s+prevent all combat damage that would be dealt to and dealt by that creature this turn\.?/gi, "$1 and prevent all combat damage that would be dealt to and dealt by that creature this turn")
     // HELD-MANA — fold the printed duration sentence onto the add that made the mana: "Add {R}. This mana
     // lasts until end of combat." → "add {R} lasting until end of combat". Without the fold the period splits
     // it in two and the duration is orphaned into an unbindable clause, which is precisely how a plain,
@@ -480,6 +484,10 @@ export function splitClauses(oracle) {
     // sentence so pumpClauseParser's multi-subtype arm binds list + pump + untap together (the arm re-gates every
     // listed word against the curated vocabulary; an uncurated word parks the card).
     if (/^[a-z]+(?:, [a-z]+)*,? and [a-z]+ you control get [+-]\d+\/[+-]\d+ until end of turn(?: and untap them)?$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // SHELF-85 V13 (2026-09-04 — Maze of Ith, after the fold above): "untap target attacking creature and prevent all
+    // combat damage that would be dealt to and dealt by that creature this turn" is ONE instruction — both " and "s are
+    // internal (the fold's join, and the printed "dealt to and dealt by"). Keep it whole for the untap arm.
+    if (/^untap target (?:attacking )?creature and prevent all combat damage that would be dealt to and dealt by that creature this turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // TYPE-NEGATED TEAM PUMP + KEYWORD GRANT — the "non-<Subtype> creatures you control get +P/+T and gain KW …"
     // variant (Return of the Wildspeaker's +3/+3 mode has no keyword, so it never reaches this " and " guard;
     // this only protects the keyword-grant sibling form). The " and gain …" is INTERNAL to the one team-pump

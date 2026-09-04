@@ -1280,7 +1280,7 @@ function pickCombatRoleActivation(state, aiPlayerId, abilityActions) {
     const t = a.targets[0];
     const tPerm = findPermanent(state, t.id)?.permanent;
     if (!tPerm) continue;
-    const enemyFacing = COMBAT_ROLE_ENEMY_OPS.has(atom.op) || (atom.op === "pump" && ((atom.ptDelta?.p ?? 0) < 0 || (atom.ptDelta?.t ?? 0) < 0));
+    const enemyFacing = COMBAT_ROLE_ENEMY_OPS.has(atom.op) || (atom.op === "untap" && atom.preventCombatDamageTurn) /* SHELF-85 V13: Maze of Ith fogs an ENEMY attacker */ || (atom.op === "pump" && ((atom.ptDelta?.p ?? 0) < 0 || (atom.ptDelta?.t ?? 0) < 0));
     const ownFacing = COMBAT_ROLE_OWN_OPS.has(atom.op) || (atom.op === "pump" && !enemyFacing && ((atom.ptDelta?.p ?? 0) > 0 || (atom.ptDelta?.t ?? 0) > 0 || (atom.grantKeywords?.length || 0) > 0));
     if (enemyFacing) {
       if (tPerm.controller === aiPlayerId) continue;

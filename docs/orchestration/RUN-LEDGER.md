@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — V13: MAZE OF ITH — untap the attacker and shield it both ways · **+3** · corpus 14,323 / 34,245 (41.8%)
+> Suite **1431 files / 15,801 tests** green; lint 0. Flip-diff **+3, zero LOST**. **8/8 mutations killed against a green witness (the fold, the keep-together rule, the arm, the stamps, the dealer half, both receiver gates — the blocker-side one pinned on a stamped blocker directly — and the AI's enemy-facing read).**
+> · **The shape:** "Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that
+>   creature this turn." — the prevent sentence folds onto the untap sentence the way "Untap it." folds onto a pump;
+>   the untap resolver stamps both halves on the target for the turn: `noCombatDamageTurn` (the ④-AU dealer gate,
+>   already honoured by every dealer loop) and the new `takesNoCombatDamageTurn`, which combat resolution honours at
+>   both receiver sites exactly like protection — assignment still absorbs the lethal share, the damage is 0, so a
+>   trampler spills only the excess. Both stamps self-expire with the turn number.
+> · **Play:** offered in the ④-AE combat window (the untap targets by combat role); the AI's combat-role picker treats
+>   the prevent-untap as ENEMY-facing (an attacker attacking it), never its own attacker.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — V12: THE EXTRA-TURN TRIO — "at the beginning of that turn's end step, you lose the game" · **+4** · corpus 14,320 / 34,245 (41.8%)
 > Suite **1430 files / 15,790 tests** green; lint 0. Flip-diff **+4, zero LOST**. **8/8 mutations killed against a green witness (the timing word removed, 'that turn' read as 'any', the stamp never set, the stamp surviving rotation, the drain ignoring the stamp, 'you lose the game' unparsed, the controller never flagged, the AI guard removed).**
 > · **The shape:** the extra-turn atom and the delayed-trigger lane existed. New: the timing word "that turn's end step"

@@ -79,10 +79,10 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Shalai and Hallar Test | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Otharri Test | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 66 | 19 | 24 | ⬜ Phase 2 |
-| Test | Atraxa Superfriends | 64 | 21 | 26 | ⬜ Phase 2 |
+| Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 61 | 24 | 29 | ⬜ Phase 2 |
 
-**14 decks below 85 · 188 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**14 decks below 85 · 187 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -179,7 +179,7 @@ Ordered by slots paid across the 14 sub-85 decks, then by size. Every row: ⬜ o
 | V10 | **Scythecat Cub** — landfall counter; "if this is the second time this ability has resolved this turn, double instead" | Shalai (+Earth Bent already at 90) | 1 | **M** | expressible after all: stamp `abilityResolutionsThisTurn[sourceId][abilityKey]` at trigger resolution, expose `thisAbilityResolvedNthTimeThisTurn` to evaluateInterveningIf, and lift the deliberate park in `effectAtoms.js` (repin its CREED test) | ✅ (+5 corpus — a per-turn ledger of each triggered ability's resolutions (`abilityResolutionsThisTurn`, keyed source:ability, bumped when the ability's stack object resolves), the intervening-if word "this is the second time this ability has resolved this turn" (reads the ledger through ctx.abilityKey — no key → false, FN-safe), the "double the number of +1/+1 counters on that creature" alternative bound to the base's chosen target, and a TARGETED conditional (the branch node carries the base's targetType so the trigger chooses one creature both branches see).) |
 | V11 | **Path of Ancestry** — commander-identity any-colour mana + "when that mana is spent to cast a creature spell that shares a type with your commander, scry 1" | Halfshell (+Mothman, Jurassic) | 1 (+2) | **M** | the mana half = colours from the commander's identity (the Cavern lane's chosen-type restriction is the sibling); the spent-rider needs the `uncounterableIfSpent`-style stamp on the cast site turned into a scry trigger — build whole or not at all (CREED) | ✅ (+1 corpus — built whole: `parseManaSpentRider` stamps the rider on the source, the planner's projection and tap carry it (an unlisted field there is a dropped field — the first draft lost it at the projection), the cast site reads it off the same plan the commit deducted and enqueues the land's scry for a creature spell sharing a printed creature type with a commander (command zone or battlefield; a Kindred instant never), flushed above the spell; detectTriggers recognises the sentence FIRST so coverage reconciles. **Parked beside it:** the identity mana line itself still yields any colour (Command Tower too — pre-existing).) |
 | V12 | **The extra-turn trio** — Final Fortune, Last Chance, Warrior's Oath: "Take an extra turn after this one. At the beginning of that turn's end step, you lose the game." | Killer Turts | 3 | **M** | extra turns exist (probe `extraTurns`); the delayed lose-the-game must fire on THAT turn's end step only (a `fireScope: "thatTurn"` on the delayed queue keyed to the extra turn's number) | ✅ (+4 corpus — the delayed timing "that turn's end step" → fireScope `thatTurn`; advanceStep stamps `extraTurnOf` when it pops an extra turn and clears it on a normal rotation; the drain fires a thatTurn record only at the end step of the controller's extra turn (never the casting turn's own end step); "you lose the game" is the win-game atom on the controller. The AI never casts a spell carrying a delayed loss.) |
-| V13 | **Maze of Ith** — "{T}: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn." | Atraxa (×2 slots) | 2 | **M** | untap in the combat window (④-AE) + a per-creature "prevent all combat damage to and by" flag for the turn (the `noCombatDamageTurn` stamp from ④-AU is the dealer half; add the receiver half) | ⬜ |
+| V13 | **Maze of Ith** — "{T}: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn." | Atraxa (×2 slots) | 2 | **M** | untap in the combat window (④-AE) + a per-creature "prevent all combat damage to and by" flag for the turn (the `noCombatDamageTurn` stamp from ④-AU is the dealer half; add the receiver half) | ✅ (+3 corpus — the prevent sentence folds onto the untap (as "Untap it." folds onto a pump); the untap resolver stamps BOTH halves on the target for the turn (`noCombatDamageTurn` — the ④-AU dealer gate — and the new `takesNoCombatDamageTurn`); combat resolution prevents damage TO a stamped creature at both receiver sites exactly like protection (assignment still absorbs lethal, so a trampler spills only the excess). Offered in the combat window (④-AE); the AI aims it at an attacker attacking it (enemy-facing), never its own.) |
 | V14 | **Gingerbrute / Tough Cookie** | Bumble (×2 each) | 4 | S / M | Gingerbrute: "can't be blocked this turn except by creatures with haste" = the except-by keyword filter with `Haste` added to the allowlist (S). Tough Cookie: "target noncreature artifact you control becomes a 4/4 artifact creature until end of turn" = the animate lane on a chosen artifact (M) | ⬜ |
 | V15 | **Chains of Custody / Sheltered by Ghosts / Detainment Spell** (Light-Paws ×2 each) | Light-Paws | 6 | M | Aura ETB "exile target nonland permanent an opponent controls until this Aura leaves" = the detain-exile lane with an AURA source (exists for creatures/enchantments; probe the aura path); Detainment Spell's "{1}{W}: attach this Aura to target creature" = a re-attach activated ability (the equip lane's aura twin) | ⬜ |
 
@@ -385,7 +385,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
-| A1 | Maze of Ith ×2 | | V13 | | ⬜ |
+| A1 | Maze of Ith ×2 | | V13 | |✅ |
 | A2 | Interplanar Beacon · Oath of Gideon · Sphere of Safety · Norn's Annex | cast-planeswalker lifegain / extra loyalty / attack tax | S / S / S / M | Sphere of Safety's tax is the ④-AK attack-tax family with a count-of-enchantments amount; Norn's Annex taxes {W/P} (life-or-mana) | ⬜ |
 | A3 | Arena Rector · Deploy the Gatewatch · Ashiok · Mutational Advantage | | M / M / M / S | | ⬜ |
 | A4 | Garruk Unleashed · Kiora · Teferi, Hero of Dominaria | single loyalty lines | S each | the loyalty-ability parser reads per line; each is one arm | ⬜ |
@@ -468,6 +468,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-04 — V13 (Maze of Ith) ✅ +3 corpus · 8/8 mutations killed against a green witness (the fold, the keep-together rule, the arm, the stamps, the dealer half, both receiver gates — the blocker-side one pinned on a stamped blocker directly — and the AI's enemy-facing read) · suite 1431 files / 15,801 tests · corpus 14,323 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 
 - 2026-09-04 — V12 (the extra-turn trio) ✅ +4 corpus · 8/8 mutations killed against a green witness (the timing word removed, 'that turn' read as 'any', the stamp never set, the stamp surviving rotation, the drain ignoring the stamp, 'you lose the game' unparsed, the controller never flagged, the AI guard removed) · suite 1430 files / 15,790 tests · corpus 14,320 · shelf refreshed in §1 · CI: HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start.
 

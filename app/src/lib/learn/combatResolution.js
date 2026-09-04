@@ -535,6 +535,12 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
           remaining -= Math.min(remaining, lethalNeed);
           continue;
         }
+        // MAZE OF ITH (SHELF-85 V13, CR 615): a blocker stamped "takes no combat damage this turn" is dealt 0 — exactly
+        // the protection shape above: assignment still absorbs its lethal share, so a trampler spills only the excess.
+        if (blk.permanent.takesNoCombatDamageTurn === state.turn) {
+          remaining -= Math.min(remaining, lethalNeed);
+          continue;
+        }
         const give = Math.min(remaining, lethalNeed);
         // CR 122.1c — a SHIELD COUNTER on the blocker PREVENTS the damage (0 dealt: no mark, no lifelink, no
         // Wolverine/Toxin combat-damage-to-creature trigger) and removes one shield. Like protection, ASSIGNMENT
@@ -624,6 +630,8 @@ const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCa
       // KW-PROTECTION (CR 702.16e): if the attacker has protection from the blocker's color, the blocker's
       // damage back to it is prevented — 0 dealt, and no lifelink for the blocker.
       if (protectionPrevents(att.permanentId, permanentColors(state, blk.permanent.id))) continue;
+      // MAZE OF ITH (SHELF-85 V13): an attacker stamped "takes no combat damage this turn" is dealt 0 by its blockers.
+      if (attLookup.permanent.takesNoCombatDamageTurn === state.turn) continue;
       // CR 122.1c — a SHIELD COUNTER on the ATTACKER (the recipient here) PREVENTS the blocker's damage (0 dealt:
       // no mark, no blocker lifelink, no Wolverine/Toxin trigger) and removes one shield. No trample math applies
       // to a creature dealing damage back, so this is a clean skip (mirrors the protection skip above).

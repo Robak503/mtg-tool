@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 V13: Maze of Ith (+3)** · suite **1431 files / 15,801 tests** green · corpus 14,323 / 34,245 (41.8%) · flip-diff +3 / 0 lost · 8/8 mutations killed against a green witness (the fold, the keep-together rule, the arm, the stamps, the dealer half, both receiver gates — the blocker-side one pinned on a stamped blocker directly — and the AI's enemy-facing read)
+
+> The attacker untaps and deals and takes no combat damage this turn. Next row by the runbook's §2: V14 (Gingerbrute /
+> Tough Cookie — Bumble).
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 V12: the extra-turn trio (+4)** · suite **1430 files / 15,790 tests** green · corpus 14,320 / 34,245 (41.8%) · flip-diff +4 / 0 lost · 8/8 mutations killed against a green witness (the timing word removed, 'that turn' read as 'any', the stamp never set, the stamp surviving rotation, the drain ignoring the stamp, 'you lose the game' unparsed, the controller never flagged, the AI guard removed)
 
 > Final Fortune, Last Chance and Warrior's Oath: the extra turn, then the loss at THAT turn's end step. Next row by the

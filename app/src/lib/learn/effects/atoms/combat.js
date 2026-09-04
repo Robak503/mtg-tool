@@ -87,6 +87,12 @@ export function applyTapEffect(state, atom, ctx, tap) {
     // but must NOT change the target's tapped state. Skipping the mutation here leaves the riders below —
     // which is the entire effect — to run on their own.
     if (!atom?.lockOnly) next = tap ? tapPermanent(next, t.id) : untapPermanent(next, t.id);
+    // MAZE OF ITH (SHELF-85 V13): "Prevent all combat damage that would be dealt to and dealt by that creature this
+    // turn" — both halves stamped on the just-untapped creature for THIS turn number (self-expiring): the dealer gate
+    // every combat dealer loop already honours, and the receiver gate combat resolution honours like protection.
+    if (!tap && atom?.preventCombatDamageTurn) {
+      next = updatePermanentSafe(next, t.id, (p) => ({ ...p, noCombatDamageTurn: next.turn, takesNoCombatDamageTurn: next.turn }));
+    }
     if (tap && atom?.lockActivated) {
       next = addContinuousEffect(next, {
         layer: 6,
@@ -1362,6 +1368,13 @@ export function combatKeywordClauseParser(clause) {
     else if (qual === "with flying") restrictions.push({ kind: "hasKeyword", keyword: "flying", negate: false });
     // qual undefined → bare "tap target creature" → no restrictions (any creature)
     return { op: "tap", targetType: "creature", restrictions };
+  }
+  // SHELF-85 V13 (2026-09-04 — Maze of Ith): the folded "untap target [attacking] creature and prevent all combat damage
+  // that would be dealt to and dealt by that creature this turn" (the ④-AE peel has already lifted "attacking" into the
+  // combat restriction). ONE atom: the untap, plus preventCombatDamageTurn — applyTapEffect stamps the target's
+  // dealer half (noCombatDamageTurn, the ④-AU gate) AND receiver half (takesNoCombatDamageTurn) for this turn.
+  if (/^untap target creature and prevent all combat damage that would be dealt to and dealt by that creature this turn$/.test(t)) {
+    return { op: "untap", targetType: "creature", preventCombatDamageTurn: true };
   }
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
   // BOUND REFERENT, OBJECT-FIRST — "Untap it." / "Untap them." (Savage Surge, Veteran's Reflexes,
