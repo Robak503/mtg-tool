@@ -17,7 +17,11 @@ function deck(name) {
   for (let i = 0; i < 59; i++) c.push(bear(`${name}-${i}`));
   return { id: name, name, cards: c, commanders: [cmdr(name)] };
 }
-async function awaitDone(maxMs = 40000) {
+// ⚠️ A HANG DETECTOR, NOT A SPEED BUDGET (2026-09-03 night): the 2-CPU CI runner took 51 s for this bench where the two
+// prior green runs took 17 s and 24 s and the local tree takes 7 s — the 40 s bound tripped on runner variance alone
+// (the same night ffaSoleSurvivor tripped its 20 s per-test timeout at 48 s). 120 s still catches a real hang; it no
+// longer fails a slow-but-finishing run.
+async function awaitDone(maxMs = 120000) {
   const t0 = Date.now();
   while (abBenchStatus().running && Date.now() - t0 < maxMs) await new Promise((r) => setTimeout(r, 15));
   return abBenchStatus();

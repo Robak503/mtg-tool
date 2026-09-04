@@ -91,7 +91,8 @@ describe("runSelfPlayGame — commander pods play to the sole survivor (default)
       }
     }
     expect(decisive).toBeGreaterThan(0); // the sweep must actually exercise the semantics
-  });
+  }, 90000); // ⚠️ a hang detector, not a speed budget: the 2-CPU CI runner took 48 s for this six-seed sweep where the prior
+             // green runs took 15–17 s and the local tree 6 s (2026-09-03 night) — the default 20 s tripped on variance alone
 
   it("the game CONTINUES past user death (some game in the sweep ends with a non-user winner)", () => {
     // Under legacy semantics a dead user ends the pod instantly; under FFA the pod plays on and

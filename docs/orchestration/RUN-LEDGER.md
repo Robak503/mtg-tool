@@ -3,6 +3,12 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## ⏱️ 2026-09-04 (night cron, 00:15Z) — CI: two self-play hang detectors widened after two variance reds in one night
+> ④-AC's run went red on `ffaSoleSurvivor` (48 s against the default 20 s per-test timeout; prior greens 15–17 s, local 6 s)
+> and ④-AM's on `abBench` (51 s against its 40 s awaitDone bound; prior greens 17–24 s, local 7 s). Both re-runs passed
+> unchanged. The 2-CPU windows-2025 runner sits near those bounds on a bad minute, so the bounds now read as what they
+> are — hang detectors, not speed budgets: the six-seed sweep gets 90 s, the bench 120 s. The 900 s job wall is unchanged.
+
 > ## 🏰 2026-09-03 (night cron) — ④-AM: the attack tax's second printing — "you or planeswalkers you control … for each of those creatures" · **+2** · corpus 14,107 / 34,245 (41.2%)
 > Suite **1400 files / 15,582 tests** green; lint 0. Flip-diff **+2, zero LOST**. **3/3 killed (a fourth, {X} read as {1}, had no carrier — Sphere of Safety's 'where X' tail refuses it before the digit class does — and was deleted).**
 > · **The shape:** attackTax.js read only Ghostly Prison's sentence. Baird, Steward of Argive (EDHREC #2539) and Archon
