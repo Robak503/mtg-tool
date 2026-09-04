@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K9: Savvy Trader (+2)** · suite **1464 files / 15,996 tests** green · corpus 14,396 (42.0%) / 34,245 (42.0%) · flip-diff +2 / 0 lost · 7/7 killed (M7 — the call sites dropping the zone — SURVIVED the first pass: the witness had pinned the reducer through a direct call, not the OFFER; a one-Forest offer pin was added and it died)
+
+> Play-while-exiled on the extended impulse window; the cast-zone cost reducer. Kellan **78** (needs 7). Next: Doc Aurlock (the same cast-zone reducer narrowed to graveyard/exile + a plot-cost reduction at the offer, which the dispatcher honours because it pays the action's carried cost).
+> **CI:** GREEN — run 33913617192 on cc1d1b0b (Lock and Load); this slice pushes and is watched
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · K9: Lock and Load (+1)** · suite **1463 files / 15,991 tests** green · corpus 14,394 (42.0%) / 34,245 (42.0%) · flip-diff +1 / 0 lost · 6/6 killed
 
 > The other-instant/sorcery draw on a Plot spell. Kellan **77** (needs 8). Next: Savvy Trader (the ETB rides the extended impulse stamp on a graveyard-card exile; the cast-zone cost reduction needs the zone threaded through costReductionForSpell — M).

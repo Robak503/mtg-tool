@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Savvy Trader** and **Sage of the Beyond** — exile a permanent from your graveyard and keep playing it; spells cast from exile or the graveyard cost less
 - **Lock and Load** — draws one, plus one per other instant or sorcery cast this turn
 - **Recurring Insight** — draws for the target opponent's hand size, then rebounds
 - **Planar Nexus** — counts as every nonbasic land type on the table

@@ -174,6 +174,11 @@ export function splitClauses(oracle) {
     // of Fate): the ", then" split orphans "draws N cards" of its "each player" subject. Inject it so the draw
     // half parses with the EXISTING draw who:"eachPlayer" atom (the discard-hand half is a new all-mode atom).
     .replace(/(each player discards their hand), then (draws \w+ cards?)/gi, "$1. Each player $2")
+    // PLAY-WHILE-EXILED (SHELF-85 K9, 2026-09-04 — Savvy Trader "Exile target permanent card from your graveyard. You may
+    // play that card for as long as it remains exiled."): the permission is its OWN SENTENCE bound to the previous
+    // sentence's target, so the sentence split severs it. Fold the pair into one clause the exile-from-graveyard arm
+    // reads whole (zones.js — `playableWhileExiled`, stamped as an EXTENDED impulse window on the exiled card).
+    .replace(/(exile target [a-z' ]*cards? from your graveyard)\. you may play that card for as long as it remains exiled/gi, "$1 and you may play it for as long as it remains exiled")
     // COPY-RETARGET (CR 707.10c — Reverberate, Narset's Reversal, the Fork family): "You may choose new
     // targets for the copy." is its OWN SENTENCE, so it is severed by the sentence split above the clause
     // loop — a keep-whole guard down there cannot reach it, only a normalize fold up here can.
@@ -833,6 +838,9 @@ export function splitClauses(oracle) {
     // count clause at its internal " and ". Hand the two ", then" halves over whole; each is its own atom.
     const llM = sentence.match(/^(draw a card), then (draw a card for each other instant and sorcery spell you[’']ve cast this turn)\.?$/i);
     if (llM) { clauses.push(llM[1], llM[2]); continue; }
+    // PLAY-WHILE-EXILED (K9 — Savvy Trader): the normalize fold above joined the exile and its permission with " and "; keep
+    // the joined clause whole so the zones.js arm reads both halves as ONE atom.
+    if (/^exile target [a-z' ]*cards? from your graveyard and you may play it for as long as it remains exiled\.?$/i.test(sentence)) { clauses.push(sentence); continue; }
     // Split on a top-level " and " OR a ", then " sequence ("Scry 2, then draw a card" — Preordain;
     // "Draw a card, then discard a card" — loot). The comma is required so an in-effect "then" (a
     // rarity) isn't severed; each split piece is still re-parsed on its own merits, so a mis-split

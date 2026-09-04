@@ -2372,6 +2372,14 @@ function parseClause(clause, out, selfName, selfType) {
   // match for these would NEVER fire, so claiming the reducer native while it silently reduces nothing is
   // a CREED false positive." Exactly right — so this emits a real NEGATION predicate (notCardType) rather
   // than a word scan, and the word stays excluded from the scan-based arm below.
+  // CAST-ZONE REDUCER (SHELF-85 K9, 2026-09-04 — Savvy Trader "Spells you cast from anywhere other than your hand cost {1}
+  // less to cast"): keyed on the zone the cast lane is offering from (castActionsFromZone's fromZone — exile for an
+  // impulsed card, graveyard for a flashback), never on the spell's own text. Whole-clause anchored.
+  const crZoneM = c.match(/^spells you cast from anywhere other than your hand cost \{(\d+)\} less to cast$/);
+  if (crZoneM) {
+    out.push({ costReduction: { castFromNotHand: true, amount: parseInt(crZoneM[1], 10) } });
+    return;
+  }
   const crNegM = c.match(/^non(creature|artifact|enchantment|land) spells (?:you cast )?cost \{(\d+)\} less to cast$/);
   if (crNegM) {
     out.push({ costReduction: { notCardType: crNegM[1], amount: parseInt(crNegM[2], 10) } });
@@ -4920,7 +4928,7 @@ function spellHasChosenType(spellCard, chosenType) {
  * spell that merely NAMES the subtype (e.g. "Beast Within") never does. Generic-only and floored by the caller
  * at the cast site (CR 601.2f); the mana value is never touched (CR 202.3). Pure; 0 when nothing applies.
  */
-export function costReductionForSpell(reducers, spellCard) {
+export function costReductionForSpell(reducers, spellCard, fromZone = "hand") {
   if (!reducers?.length || !spellCard) return 0;
   const typeLine = String(spellCard?.type || spellCard?.type_line || "").toLowerCase();
   const spellName = spellCard?.name;
@@ -4929,6 +4937,13 @@ export function costReductionForSpell(reducers, spellCard) {
   for (const r of reducers) {
     // EMINENCE "OTHER <subtype> spells": never reduce the source card's own cast (The Ur-Dragon casting itself).
     if (r.excludeSelf && r.sourceName && spellName && r.sourceName === spellName) continue;
+    // CAST-ZONE REDUCER (SHELF-85 K9 — Savvy Trader): applies iff the cast lane is offering from somewhere other than
+    // the hand. The default "hand" keeps every caller that never passed a zone byte-identical.
+    if (r.castFromNotHand) {
+      if (fromZone === "hand") continue;
+      total += r.amount || 0;
+      continue;
+    }
     // ⭐ SUBTYPE UNION (the Banneret cycle — "Goblin spells and Rogue spells you cast cost {1} less"): the
     // spell is reduced if it carries EITHER subtype, and reduced ONCE. Emitting two separate reducers instead
     // would give a Goblin Rogue {2} off a card that says {1} — a cheaper spell than the card allows, which is

@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — Phase 2 · K9: SAVVY TRADER — play-while-exiled, and the cast-zone reducer · **+2** · corpus 14,396 (42.0%) / 34,245 (42.0%)
+> Suite **1464 files / 15,996 tests** green; lint 0. Flip-diff **+2, zero LOST** (Savvy Trader; Sage of the Beyond — Flying + the same reducer + Foretell, audited). **7/7 killed (M7 — the call sites dropping the zone — SURVIVED the first pass: the witness had pinned the reducer through a direct call, not the OFFER; a one-Forest offer pin was added and it died).**
+> · **The ETB:** "exile target permanent card from your graveyard. You may play that card for as long as it remains exiled" — the
+>   permission is its OWN SENTENCE bound to the previous target, so the sentence split severed it. A normalize fold joins the
+>   pair, a keep-whole carries the joined clause past the " and " split, and the exile-from-graveyard arm reads
+>   `playableWhileExiled`; the resolver stamps the EXTENDED impulse window (`_impulseExtended` — the flag the library impulses
+>   already ride), so the ONE legalChoices impulse lane offers the card from exile, spell or land, on any later turn.
+> · **The static:** "spells you cast from anywhere other than your hand cost {1} less" — a reducer keyed on the CAST ZONE, which
+>   the spell's text cannot tell you. costReductionForSpell gained `fromZone` (default "hand" — every caller that never passed
+>   one is byte-identical) and castActionsFromZone passes its zone at both reduction sites.
+> · **CI:** GREEN — run 33913617192 on cc1d1b0b (Lock and Load); this slice pushes and is watched
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · K9: LOCK AND LOAD — the other-instant/sorcery draw · **+1** · corpus 14,394 (42.0%) / 34,245 (42.0%)
 > Suite **1463 files / 15,991 tests** green; lint 0. Flip-diff **+1, zero LOST**. **6/6 killed.**
 > · **The shape:** three pieces — a per-turn instant/sorcery cast tally stamped at the one cast chokepoint beside the

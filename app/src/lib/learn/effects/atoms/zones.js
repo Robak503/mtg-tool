@@ -119,6 +119,12 @@ export function applyExileFromGraveyard(state, atom, ctx) {
     const gy = next.players[owner]?.graveyard || [];
     if (!gy.some((c) => c.id === t.id)) continue; // target left the graveyard — no-op (CR 608.2b)
     next = moveCardToZone(next, { playerId: owner, fromZone: "graveyard", toZone: "exile", cardId: t.id });
+    // PLAY-WHILE-EXILED (Savvy Trader): stamp the EXTENDED impulse window on the card now in exile — the same flags the
+    // library impulse stamps, so the one legalChoices lane offers it (spell or land) on any later turn until it leaves.
+    if (atom.playableWhileExiled) {
+      const stamp = (c) => (c.id === t.id ? { ...c, _impulse: true, _impulseTurn: next.turn, _impulseExtended: true, _impulseOwner: ctx.controller } : c);
+      next = { ...next, players: { ...next.players, [owner]: { ...next.players[owner], exile: (next.players[owner].exile || []).map(stamp) } } };
+    }
     exiled.push(t.id);
   }
   return logEvent(next, { kind: "spell-effect", effect: "exile-from-graveyard", controller: ctx.controller, targets: exiled });
@@ -957,6 +963,15 @@ export function graveyardReturnClauseParser(clause) {
   // ⛔ `parseGraveyardFilter` is REUSED rather than re-implemented, so the exile lane and the return lane
   // cannot drift into two different ideas of what "creature card" means — and an unmodeled filter word
   // returns null here, parking the card (FN-safe) instead of exiling the wrong card.
+  // PLAY-WHILE-EXILED (SHELF-85 K9, 2026-09-04 — Savvy Trader; the splitter folded "…from your graveyard. You may play that
+  // card for as long as it remains exiled" into this one clause): the OWN-graveyard exile whose card stays playable — the
+  // resolver stamps the EXTENDED impulse window (`_impulseExtended`, the same flag the "for as long as it remains exiled"
+  // library impulses ride), so legalChoices' impulse lane offers it from exile on any later turn.
+  const gxPlayM = /^exile target (.*?)cards? from your graveyard and you may play (?:it|that card) for as long as it remains exiled$/.exec(t);
+  if (gxPlayM) {
+    const cardFilter = parseGraveyardFilter(gxPlayM[1]);
+    if (cardFilter) return { op: "exile-from-graveyard", targetType: "graveyardCard", cardFilter, playableWhileExiled: true };
+  }
   const gxM = /^exile target (.*?)cards? from (a|your|an opponent's) graveyard$/.exec(t);
   if (gxM) {
     const cardFilter = parseGraveyardFilter(gxM[1]);

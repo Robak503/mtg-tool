@@ -1066,7 +1066,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       // floor the GENERIC at 0. The pips and the mana value are never touched (CR 202.3).
       const staticTax = costTaxForSpell(costTaxers, card, playerId);
       if (staticTax) cost = { ...cost, generic: (cost.generic || 0) + staticTax };
-      const reduction = costReductionForSpell(costReducers, card) + selfCostReductionForSpell(state, playerId, card);
+      const reduction = costReductionForSpell(costReducers, card, fromZone) + selfCostReductionForSpell(state, playerId, card);
       if (reduction) cost = { ...cost, generic: Math.max(0, (cost.generic || 0) - reduction) };
       cost = applyColoredPipReduction(cost, costReducers, card);
     }
@@ -1613,7 +1613,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       if (!freeCast) {
         const staticTax = costTaxForSpell(costTaxers, card, playerId);   // increases before decreases (CR 601.2f)
         if (staticTax) bestowCost = { ...bestowCost, generic: (bestowCost.generic || 0) + staticTax };
-        const reduction = costReductionForSpell(costReducers, card) + selfCostReductionForSpell(state, playerId, card);
+        const reduction = costReductionForSpell(costReducers, card, fromZone) + selfCostReductionForSpell(state, playerId, card);
         if (reduction) bestowCost = { ...bestowCost, generic: Math.max(0, (bestowCost.generic || 0) - reduction) };
         bestowCost = applyColoredPipReduction(bestowCost, costReducers, card);
       }
