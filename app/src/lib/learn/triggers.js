@@ -3425,6 +3425,12 @@ const STAT_PAYOFF_REF_RE = /\bdeals? damage equal to that creature's (?:power|to
 // ===== "ITS POWER" LIFEGAIN ===== the SELF-referential sibling of STAT_PAYOFF_REF_RE above. Whole-clause
 // anchored: any rider leaves residue → no rewrite → body-only (a SAFE FN), exactly like the sentinels below.
 const ITS_POWER_LIFEGAIN_RE = /^you gain life equal to its power$/i;
+// ④-AW — scopes whose trigger threads NO permanent other than the source: the watcher's own "it" can only mean the source
+// (self), or the event is a player/zone fact (a cast, a draw, a discard, a mill, life lost, a graveyard move, a sacrifice
+// by any player). The "its power" non-self guard (the Warstorm Surge class) skips exactly these.
+const SOURCE_ONLY_REFERENT_SCOPES = new Set([
+  "self", "you", "castWatcher", "gyWatcher", "youDiscard", "opponentDraw", "opponentDiscard", "lifeLost", "milled", "anyPlayerSac",
+]);
 const ETB_ENTERING_CREATURE_SCOPES = new Set([
   "creatureYouControl", "otherCreatureYouControl", "subtypeYouControl",
   "eachCreature", "eachOtherCreature", "creatureOpponentControls",
@@ -4768,6 +4774,17 @@ export function detectTriggers(card) {
         // event:"dies" are both required, exactly as above. The damage SOURCE is the dead creature (gone — no
         // infect/lifelink read, a clean plain deal).
         effectClause = effectClause.replace(/^it deals damage equal to its power to /i, "it deals damage equal to the dying creature's power to ");
+      } else if (!SOURCE_ONLY_REFERENT_SCOPES.has(cls.scope) && /\b(?:it|this creature) deals damage equal to its power to\b/i.test(effectClause)) {
+        // ===== "ITS POWER" ON AN OTHER-PERMANENT WATCHER (④-AW, 2026-09-04 — Warstorm Surge "Whenever a creature you
+        // control enters, IT deals damage equal to ITS power to any target") ===== the scope threads a triggering
+        // PERMANENT other than the watcher, so "it" is that creature — but the sourcePower reader the damage arm binds
+        // reads the WATCHER (an enchantment → 0 damage) and the damage SOURCE would be the watcher too (the entering
+        // creature's lifelink / infect / deathtouch lost). Neither half is modeled for a non-self referent, so the clause
+        // is rewritten to an unread sentinel and the card parks (LOW → Arbiter, a safe false-negative) instead of
+        // resolving the wrong amount from the wrong source. Scopes with NO other permanent — self, the player/event
+        // watchers (SOURCE_ONLY_REFERENT_SCOPES: Murderous Redcap's self ETB, Captain Ripley Vance's cast watcher) —
+        // never reach here: their "it" can only be the source, and the live read is right.
+        effectClause = effectClause.replace(/\b(?:it|this creature) deals damage equal to its power to\b/gi, "the triggering creature deals damage equal to its own power to");
       } else if (cls.event === "etb" && ETB_ENTERING_CREATURE_SCOPES.has(cls.scope) && STAT_PAYOFF_REF_RE.test(effectClause)) {
         // ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== an ETB trigger paying off "that creature's
         // power/toughness" — the ENTERING creature's stat (Terror of the Peaks damage, Verdant Sun's Avatar

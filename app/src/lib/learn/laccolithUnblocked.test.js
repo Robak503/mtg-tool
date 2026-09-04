@@ -22,6 +22,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { classifyCard } from "./coverage.js";
 import { parseEffectClause } from "./effects/parser.js";
 import { parseActivatedAbilities } from "./effects/abilities.js";
+import { countForSpec } from "./effects/atoms/shared.js";
 import { detectTriggers } from "./triggers.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
@@ -43,6 +44,12 @@ const SINSTRIKER = { id: "c-sw", name: "Sinstriker's Will", type: "Enchantment �
   oracle: "Enchant creature\nEnchanted creature has \"{T}: This creature deals damage equal to its power to target attacking or blocking creature.\"" };
 const SKARRGAN = { id: "c-sk", name: "Skarrgan Skybreaker", type: "Creature — Giant Shaman", mana: "{4}{R}{R}{G}", cmc: 7, power: 3, toughness: 3, keywords: ["Bloodthirst"],
   oracle: "Bloodthirst 3 (If an opponent was dealt damage this turn, this creature enters with three +1/+1 counters on it.)\n{1}, Sacrifice this creature: It deals damage equal to its power to any target." };
+const GHITU = { id: "c-gfe", name: "Ghitu Fire-Eater", type: "Creature — Human Nomad", mana: "{2}{R}", cmc: 3, power: 2, toughness: 2, keywords: [],
+  oracle: "{T}, Sacrifice this creature: It deals damage equal to its power to any target." };
+const WARSTORM = { id: "c-ws", name: "Warstorm Surge", type: "Enchantment", mana: "{5}{R}", cmc: 6, keywords: [],
+  oracle: "Whenever a creature you control enters, it deals damage equal to its power to any target." };
+const VANCE = { id: "c-crv", name: "Captain Ripley Vance", type: "Legendary Creature — Human Pirate", mana: "{2}{R}", cmc: 3, power: 2, toughness: 2, keywords: [],
+  oracle: "Whenever you cast your third spell each turn, put a +1/+1 counter on Captain Ripley Vance, then it deals damage equal to its power to any target." };
 const VIGILANTES = { id: "c-dv", name: "Dwarven Vigilantes", type: "Creature — Dwarf", mana: "{2}{R}", cmc: 3, power: 2, toughness: 2, keywords: [],
   oracle: "Whenever this creature attacks and isn't blocked, you may have it deal damage equal to its power to target creature. If you do, this creature assigns no combat damage this turn." };
 const NIGHTSTALKER = { id: "c-an", name: "Abyssal Nightstalker", type: "Creature — Nightstalker", mana: "{3}{B}", cmc: 4, power: 2, toughness: 2, keywords: [],
@@ -75,18 +82,41 @@ describe("the parse", () => {
     expect(p.atoms[0]).toMatchObject({ op: "deal-damage", targetType: "creature", amountCount: { kind: "sourcePower" } });
     expect(p.atoms[0].sourceAssignsNoCombatDamage).toBeUndefined();
   });
-  it("CREED — the Fling form 'it deals damage equal to its power to any target' stays LOW (the source is sacrificed; its power is gone)", () => {
+  it("④-AW — the Fling form 'it deals damage equal to its power to any target' parses (the sacrificed source's power is a look-back stamp)", () => {
     const p = parseEffectClause("it deals damage equal to its power to any target", "Instant", { sourceScoped: true });
-    expect(p.confidence).toBe("low");
-    expect(p.atoms).toEqual([]);
+    expect(p.confidence).toBe("high");
+    expect(p.atoms).toEqual([{ op: "deal-damage", targetType: "any", amountCount: { kind: "sourcePower" } }]);
+    // the Laccolith rider never rides the any-target form (no printed card does)
+    expect(parseEffectClause("it deals damage equal to its power to any target. If you do, this creature assigns no combat damage this turn", "Instant", { sourceScoped: true }).confidence).toBe("low");
   });
-  it("CREED — the activated lane refuses a source-power amount under a sacrifice-self cost, even on the creature target", () => {
+  it("④-AW — the activated lane models a source-power amount under a sacrifice-self cost (and under a tap cost)", () => {
     const abs = parseActivatedAbilities({ name: "Synthetic Flinger", type: "Creature — Test", oracle: "{1}, Sacrifice this creature: It deals damage equal to its power to target creature." });
     expect(abs).toHaveLength(1);
-    expect(abs[0].modeled).toBe(false);
-    // …while the same effect under a tap cost (the creature stays) IS modeled
+    expect(abs[0].modeled).toBe(true);
+    expect(abs[0].sacSelf).toBe(true);
     const tap = parseActivatedAbilities({ name: "Synthetic Pinger", type: "Creature — Test", oracle: "{T}: This creature deals damage equal to its power to target creature." });
     expect(tap[0].modeled).toBe(true);
+  });
+  it("CREED — 'its power' on a NON-self watcher (Warstorm Surge) is rewritten to an unread sentinel and the card parks", () => {
+    const d = detectTriggers(WARSTORM);
+    expect(d).toHaveLength(1);
+    expect(d[0].scope).toBe("creatureYouControl");
+    expect(d[0].effectClause).toBe("the triggering creature deals damage equal to its own power to any target");
+    expect(parseEffectClause(d[0].effectClause, "Instant", { sourceScoped: true }).confidence).toBe("low");
+    expect(classifyCard(WARSTORM)).toBe("body-only");
+    // …while a player/event watcher (Captain Ripley Vance's cast watcher) keeps its live self read — "it" can only be the source
+    const v = detectTriggers(VANCE);
+    expect(v).toHaveLength(1);
+    expect(v[0].scope).toBe("castWatcher");
+    expect(v[0].effectClause).toBe("put a +1/+1 counter on this creature, then it deals damage equal to its power to any target");
+    expect(classifyCard(VANCE)).toBe("native-trigger");
+  });
+  it("CREED — the sacrificed-source look-back answers ONLY for the stamped id; any other gone source still reads 0", () => {
+    const s0 = createGameState({ userDeck: [], aiDeck: [] });
+    const s = { ...s0, sacrificedSelfLki: { permanentId: "stamped", counters: {}, power: 5 } };
+    expect(countForSpec(s, { sourceId: "stamped" }, { kind: "sourcePower" })).toBe(5);
+    expect(countForSpec(s, { sourceId: "someone-else" }, { kind: "sourcePower" })).toBe(0);
+    expect(countForSpec(s0, { sourceId: "stamped" }, { kind: "sourcePower" })).toBe(0);
   });
   it("⭐ 'attacks and isn't blocked' is its own event, never plain 'attacks'", () => {
     expect(detectTriggers(VIGILANTES).map((d) => d.event)).toEqual(["attacksUnblocked"]);
@@ -98,7 +128,25 @@ describe("the parse", () => {
   it("the tiers", () => {
     for (const c of [GRUNT, TITAN, WHELP, WARRIOR, YEARLING, VIGILANTES, NIGHTSTALKER]) expect(classifyCard(c), c.name).toBe("native-trigger");
     expect(classifyCard(SINSTRIKER)).toBe("native-activated");
-    expect(classifyCard(SKARRGAN)).toBe("body-only");
+    expect(classifyCard(SKARRGAN)).toBe("native-activated"); // ④-AW — the sacrificed-source look-back made the Fling bodies honest
+    expect(classifyCard(GHITU)).toBe("native-activated");
+  });
+});
+
+describe("runtime — ④-AW: the sacrificed source's power is read as it last existed", () => {
+  it("⭐ Ghitu Fire-Eater wearing a +1/+1 counter taps and sacrifices itself: the opponent loses 3 (its pre-sacrifice, layer-aware power), never 0", () => {
+    const s0 = createGameState({ userDeck: [], aiDeck: [] });
+    const ghitu = { ...createPermanent({ id: "ghitu", card: GHITU, controller: "user" }), summoningSick: false, counters: { "+1/+1": 1 } };
+    let s = { ...s0, turn: 6, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
+      players: { ...s0.players, user: { ...s0.players.user, hand: [], battlefield: [ghitu] }, ai: { ...s0.players.ai, battlefield: [] } } };
+    const before = s.players.ai.life;
+    const act = legalActionsForPlayer(s, "user").find((a) => a.kind === "activate-ability" && a.permanentId === "ghitu" && (a.targets || []).some((t) => t.type === "player" && t.id === "ai"));
+    expect(act).toBeTruthy();
+    expect(act.sacSelf).toBe(true);
+    s = resolveTopOfStack(dispatchAction(s, act));
+    expect(findPermanent(s, "ghitu")).toBeNull();
+    expect(s.players.user.graveyard.map((c) => c.name)).toContain("Ghitu Fire-Eater");
+    expect(before - s.players.ai.life).toBe(3);
   });
 });
 

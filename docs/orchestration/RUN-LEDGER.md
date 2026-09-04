@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — ④-AW: the Fling bodies — a sacrificed source's power as it last existed · **+13** · corpus 14,207 / 34,245 (41.5%)
+> Suite **1409 files / 15,634 tests** green; lint 0. Flip-diff **+13, zero LOST**, every gain audited whole-card. **6/6 mutations killed (the pre-sacrifice power stamp, the reader's look-back fallback, the look-back's id-keying, the any-target alternative, the non-self watcher guard, the guard's scope set).**
+> · **The shape:** "{1}, Sacrifice this creature: It deals damage equal to its power to any target" (Skarrgan Skybreaker, Ghitu
+>   Fire-Eater, Voldaren Thrillseeker, Flame Elemental, Cinder Shade, Minotaur Illusionist, Aerie Ouphes) — the source is
+>   gone when the ability resolves. actionDispatcher's sacrifice-self LKI stamp (SG-17's counters) now carries the
+>   source's LAYER-AWARE power measured before the sacrifice; countForSpec's sourcePower reader answers from it for that
+>   exact id when the permanent is gone (CR 608.2h). ④-AU's two guards (the `target creature`-only anchor, the activated
+>   lane's sacrifice-self refusal) retired together. The live-source forms ride along: Spikeshot Goblin / Elder, Rust
+>   Harvester, Burning Anger, Murderous Redcap, Captain Ripley Vance.
+> · **The FP caught in audit:** Warstorm Surge ("Whenever a creature you control enters, IT deals damage equal to ITS power")
+>   flipped too — "it" is the ENTERING creature, not the watcher; the reader would have read the enchantment (0) from the
+>   wrong source. A non-self watcher's "its power" self-damage is now rewritten to an unread sentinel → parks (safe FN).
+> · **Board-verified:** Ghitu Fire-Eater wearing a +1/+1 counter taps and sacrifices itself; the opponent loses 3.
+> · **CI:** pushed after ④-AV's run 33833226117 is green; own run watched after push (result on the next entry's line)
+
 > ## 🎯 2026-09-04 (night cron) — ④-AV: three small evasion/tap families on existing machinery · **+9** · corpus 14,194 / 34,245 (41.4%)
 > Suite **1409 files / 15,631 tests** green; lint 0. Flip-diff **+9, zero LOST**. **7/7 mutations killed (the artifact restriction's enforcement, its parser arm, its classifier mirror, the blocker power cap's enforcement, its classifier mirror, excludeSource in massCreatureTargets, the tap-all-other arm).**
 > · **The shapes:** (1) "can't be blocked by artifact creatures" — a kind:"artifact" restriction in the EVASION-QUALIFIER

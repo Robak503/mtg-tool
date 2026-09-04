@@ -1246,11 +1246,10 @@ export function parseActivatedAbilities(card) {
       // CR 201.4: rewrite the card's own name → "this creature" so a self-referential effect
       // ("Regenerate Wolverine.") matches the engine's self-anchored atoms.
       program = parseEffectClause(normalizeSelfName(effectClause, card), "Instant", { hasX: !!sacX || costX });
-      // ④-AU CREED guard — a SOURCE-POWER amount ("it deals damage equal to its power …") under a SACRIFICE-SELF cost
-      // (Skarrgan Skybreaker, Ghitu Fire-Eater — the Fling bodies): the source is gone when the ability resolves and the
-      // live sourcePower reader would return 0 — a wrong-value native, the forbidden direction. Such an ability parks
-      // (Arbiter, FN-safe) until a look-back power stamp exists for sacrificed sources.
-      if (cost.sacSelf && program && (program.atoms || []).some((a) => a.amountCount?.kind === "sourcePower")) program = null;
+      // (④-AU's CREED guard — "refuse a sourcePower amount under a sacrifice-self cost, the live reader would say 0" —
+      // was retired in ④-AW: actionDispatcher stamps the sacrificed source's layer-aware power on sacrificedSelfLki
+      // before the sacrifice, and countForSpec's sourcePower reader answers from it for that id. The Fling bodies
+      // (Skarrgan Skybreaker, Ghitu Fire-Eater) resolve with the power they had as the cost was paid — CR 608.2h.)
       // γ1f — the ONLY X-payoff the activated-{X} RUNTIME wires (legalChoices.actionsActivateAbility) is a
       // TARGET-COUNT = X set (a targetCountX atom, expanded per-X). An {X}-cost ability whose effect scales X some
       // OTHER way (an amountX magnitude — "{X}: deal X damage") parses xSpell:true but has NO runtime path here,

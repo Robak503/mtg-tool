@@ -484,12 +484,16 @@ export function dealDamageScaledClauseParser(clause) {
   // same atom (splitClauses keeps the pair whole): taking the optional damage stamps the source's noCombatDamageTurn,
   // which combatResolution's dealsThisStep gate honors for the rest of the turn (the creature assigns no combat damage;
   // it still receives it — CR 510.1). Declining the "may" skips the whole atom, so the rider never fires alone.
-  // ⛔ ANCHORED TO `target creature` ONLY. The "any target" form belongs to the sacrifice-as-cost Fling bodies
-  // (Skarrgan Skybreaker, Ghitu Fire-Eater "{1}, Sacrifice this creature: It deals damage equal to its power to any
-  // target"), whose source is GONE by resolution — this reader would return 0, the forbidden wrong-value native. The
-  // activated lane additionally refuses a sourcePower amount under a sacrifice-self cost (abilities.js).
-  const spd = t.match(/^(?:it|this creature) deals damage equal to its power to target creature(\. if you do, this creature assigns no combat damage this turn)?$/);
-  if (spd) return { op: "deal-damage", targetType: "creature", amountCount: { kind: "sourcePower" }, ...(spd[1] ? { sourceAssignsNoCombatDamage: true } : {}) };
+  // "any target" joined in ④-AW (2026-09-04) for the sacrifice-as-cost Fling bodies (Skarrgan Skybreaker, Ghitu
+  // Fire-Eater "{1}, Sacrifice this creature: It deals damage equal to its power to any target"): the source is GONE by
+  // resolution, and the sourcePower reader now answers from the dispatcher's pre-sacrifice look-back stamp
+  // (sacrificedSelfLki.power, id-keyed — CR 608.2h). Before that stamp existed the arm was anchored to `target creature`
+  // and the activated lane refused a sourcePower amount under a sacrifice-self cost; both guards are retired together.
+  // The Laccolith rider stays a `target creature`-only shape (no printed "any target" form carries it).
+  const spd = t.match(/^(?:it|this creature) deals damage equal to its power to (target creature|any target)(\. if you do, this creature assigns no combat damage this turn)?$/);
+  if (spd && !(spd[2] && spd[1] === "any target")) {
+    return { op: "deal-damage", targetType: spd[1] === "any target" ? "any" : "creature", amountCount: { kind: "sourcePower" }, ...(spd[2] ? { sourceAssignsNoCombatDamage: true } : {}) };
+  }
   // DMG-SCALE-3 — "where X is" word order: "<source> deals X damage to <target>, where X is [equal to] the
   // number of <count>" (Scourge of Valkas / Dragon Tempest "…to any target, where X is the number of Dragons
   // you control"; Tribal Flames, Profane Prayers, Sparksmith, Gempalm Incinerator, Tendrils of Corruption).

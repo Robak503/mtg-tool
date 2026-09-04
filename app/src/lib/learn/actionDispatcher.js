@@ -1311,7 +1311,11 @@ function applyActivateAbility(state, action) {
     // charge counters on it" (Heliophial, Magma Mine, Culling Dais, Golden Urn …) reads the sacrificed source's counters
     // as it LAST existed — stamped here, before the sacrifice, keyed by the permanent's id so a stale stamp can never
     // answer for another source (the id is gone from the battlefield with the permanent).
-    working = { ...working, sacrificedSelfLki: { permanentId: perm.id, counters: { ...(perm.counters || {}) } } };
+    // ④-AW (2026-09-04) — the sacrificed source's LAYER-AWARE POWER joins the stamp (CR 608.2h look-back): "{1}, Sacrifice
+    // this creature: It deals damage equal to its power to any target" (Skarrgan Skybreaker, Ghitu Fire-Eater) reads the
+    // power the creature had as the cost was paid — counters and anthems included — never the 0 a live read of a gone
+    // permanent would give. Same id-keying: countForSpec's sourcePower reader answers from it ONLY for this exact id.
+    working = { ...working, sacrificedSelfLki: { permanentId: perm.id, counters: { ...(perm.counters || {}) }, power: Math.max(0, creaturePower(perm, working) ?? 0) } };
     working = sacrificePermanentForCost(working, action.playerId, perm);
   }
   if (action.sacCreatureId) {

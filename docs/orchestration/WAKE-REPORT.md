@@ -7,6 +7,16 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (night cron) — **④-AW: the Fling bodies — a sacrificed source's power as it last existed (+13)** · suite **1409 files / 15,634 tests** green · corpus 14,207 / 34,245 (41.5%) · flip-diff +13 / 0 lost · 6/6 mutations killed (the pre-sacrifice power stamp, the reader's look-back fallback, the look-back's id-keying, the any-target alternative, the non-self watcher guard, the guard's scope set)
+
+> **Night tally (stage ④, forty-nine slices):** … · AU (+7) · AV (+9) · AW (+13) — corpus 13,862 → 14,207.
+> **A wrong-source FP caught in audit:** Warstorm Surge's "it deals damage equal to its power" (a NON-self watcher) would
+> have read the enchantment's power (0) from the wrong source; it is rewritten to an unread sentinel and parks.
+> **CI:** pushed after ④-AV's run 33833226117 is green; own run watched after push (result on the next entry's line)
+> **Next runnable:** the census is exhausted at ≥3-card families with existing machinery. Remaining levers: a fresh
+> residue census (tonight's slices moved the tail), a fresh deck walk, the X-effect remainder, the counted "up to N"
+> pick UI, and the subsystem-scale families (morph, initiative/ring, quoted-grant statics — Colton's pick).
+
 ## 🎯 2026-09-04 (night cron) — **④-AV: three small evasion/tap families — by-artifact evasion, the blocker power cap, "tap all other creatures" (+9)** · suite **1409 files / 15,631 tests** green · corpus 14,194 / 34,245 (41.4%) · flip-diff +9 / 0 lost · 7/7 mutations killed (the artifact restriction's enforcement, its parser arm, its classifier mirror, the blocker power cap's enforcement, its classifier mirror, excludeSource in massCreatureTargets, the tap-all-other arm)
 
 > **Night tally (stage ④, forty-eight slices):** … · AT (+2) · AU (+7) · AV (+9) — corpus 13,862 → 14,194.

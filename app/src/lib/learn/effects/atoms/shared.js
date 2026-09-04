@@ -659,6 +659,13 @@ export function countForSpec(state, ctx, spec) {
   if (stat) {
     const refId = ctx?.[stat.id];
     const lk = refId ? findPermanent(state, refId) : null;
+    // SACRIFICED-SOURCE LOOK-BACK (④-AW, 2026-09-04 — CR 608.2h): a sourcePower read whose source was sacrificed AS THE
+    // COST of this very ability answers from the dispatcher's pre-sacrifice stamp (sacrificedSelfLki, keyed by the
+    // permanent's id — a stale stamp can never answer for another source). Only the GONE case falls back; a live source
+    // still reads live. Any other absent referent stays 0 (never a fabricated count).
+    if (!lk && spec.kind === "sourcePower" && refId && state?.sacrificedSelfLki?.permanentId === refId && typeof state.sacrificedSelfLki.power === "number") {
+      return Math.max(0, state.sacrificedSelfLki.power);
+    }
     if (!lk || !/\bCreature\b/.test(String(lk.permanent.card?.type || lk.permanent.card?.type_line || ""))) return 0;
     return Math.max(0, stat.read(lk.permanent, state));
   }
