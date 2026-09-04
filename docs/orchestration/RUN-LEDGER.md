@@ -3,6 +3,21 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — ④-BE: "Each land is a <basic type>" — Urborg / Yavimaya / Blanket of Night · **+3** · corpus 14,242 / 34,245 (41.6%) · **Earth Bent 90%**
+> Suite **1417 files / 15,669 tests** green; lint 0. Flip-diff **+3, zero LOST**. **5/5 mutations killed (the static arm, the selector's scope, the mana delivery, the complex-source guard, the classifier exemption); a sixth, the printed-subtype filter, survived and was deleted as unobservable.**
+> · **The shape:** a layer-4 subtype ADD on EVERY land, both seats (the all-lands dynamic selector the Kormus-class line
+>   used), plus the delivery that makes it real: manaModel.manaSources gives a land that GAINED a basic type that type's
+>   intrinsic mana ability (CR 305.6) — merged into the land's own one-mana tap (one tap, one mana, more colours) or
+>   synthesized when the land prints none; anything more complex than a plain single-mana tap is left alone (safe FN).
+>   The land classifier's line exemption is gated on the SAME static being emitted, so credit and enforcement flip
+>   together. The controller-scoped cousin ("Lands you control are Swamps…", Swampbenders) stays out.
+> · **A guard deleted, not ignored:** the "skip the printed subtypes" filter survived its mutation — every printed basic
+>   type already reaches manaProduction (Dryad Arbor / Murmuring Bosk through reminder text), so it was unobservable;
+>   deleted with the reason in the code.
+> · **Board-verified:** Urborg makes a Forest and a colourless land both tap for B (one mana each), reaches the opponent's
+>   Forest, and leaves Ancient Tomb's two-mana tap alone.
+> · **CI:** pushed after ④-BD's run 33843261316 is green; own run watched after push (result on the next entry's line)
+
 > ## 🎯 2026-09-04 (night cron) — ④-BD: Arcane Denial — the delayed "may draw up to two" for the countered spell's controller · **+1** · corpus 14,239 / 34,245 (41.6%) · **Veyran Cantrips 90%**
 > Suite **1416 files / 15,663 tests** green; lint 0. Flip-diff **+1, zero LOST**. **5/5 mutations killed (the rider vocabulary, the scheduling, the rider's seat, the count, the optionality).**
 > · **The shape:** the shelf's top one-line-away row (three decks: Shorikai Vehicles, Nekusar Wheels, Veyran Cantrips). The

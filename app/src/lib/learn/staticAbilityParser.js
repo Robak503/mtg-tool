@@ -3058,6 +3058,18 @@ function parseClause(clause, out, selfName, selfType) {
   // admitted — its layer-5 color set has no delivery into selector color reads (matchesSelector reads
   // printed colors), so admitting it would silently drop the "black" half (a CREED half-enforcement);
   // it stays body-only (a safe FN).
+  // ⭐ EACH LAND IS A <BASIC TYPE> (④-BE, 2026-09-04 — Urborg, Tomb of Yawgmoth; Yavimaya, Cradle of Growth; Blanket of
+  // Night; CR 305.6 + 205.1b): a layer-4 subtype ADD on EVERY land on the battlefield, both seats (the printed subject is
+  // "each land", so no controllerScope — the same all-lands dynamic selector the Kormus-class line below uses). The
+  // subtype carries its INTRINSIC mana ability (CR 305.6), which manaModel.manaSources delivers layer-aware: a land whose
+  // effective subtypes gained a basic type taps for that colour too. Anchored whole-clause; the colour-carrying and
+  // controller-scoped cousins ("Lands you control are Swamps…") stay out until their own seams exist (safe FN).
+  const eachLandM = c.match(/^each land is an? (plains|island|swamp|mountain|forest) in addition to its other land types$/);
+  if (eachLandM) {
+    const Sub = eachLandM[1][0].toUpperCase() + eachLandM[1].slice(1);
+    out.push({ layer: 4, op: { subtypes: [Sub] }, affects: { mode: "dynamic", selector: { cardTypes: ["Land"] } }, duration: { kind: "permanent" } });
+    return;
+  }
   const mlaM = c.match(/^all lands are (\d+)\/(\d+) creatures that are still lands$/);
   if (mlaM) {
     out.push({ layer: 4, op: { types: ["Creature"] }, affects: { mode: "dynamic", selector: { cardTypes: ["Land"] } }, duration: { kind: "permanent" } });

@@ -1827,6 +1827,12 @@ function landFullyCovered(card) {
   // isManaLine — the spend parser reads its restriction and manaSources resolves it per permanent, offering the
   // source to nothing until the type is chosen.
   const chooseTypeLineRe = CHOSEN_TYPE_CHOOSER_RE.test(raw) ? /^as (?:it|this land) enters, choose a creature type\.?$/i : null;
+  // ④-BE (2026-09-04 — Urborg, Tomb of Yawgmoth; Yavimaya, Cradle of Growth): "Each land is a <basic type> in addition to
+  // its other land types." Admitted through the SAME reader the runtime uses — parseStaticAbilities emits the layer-4
+  // all-lands subtype ADD, and manaModel.manaSources delivers the granted type's intrinsic mana (CR 305.6). Credit and
+  // enforcement flip together: the exemption is gated on that static actually being emitted for this card.
+  const eachLandLineRe = /^each land is an? (?:plains|island|swamp|mountain|forest) in addition to its other land types\.?$/i;
+  const grantsBasicType = parseStaticAbilities(card).some((e) => e?.layer === 4 && Array.isArray(e?.op?.subtypes) && e?.affects?.selector?.cardTypes?.includes("Land"));
   for (const line of afterTriggers.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (tapped && /^[^.]*\benters (?:the battlefield )?tapped\.?$/i.test(line)) continue;
     if (condLineRe && condLineRe.test(line)) continue;
@@ -1835,6 +1841,7 @@ function landFullyCovered(card) {
     if (namedCtrLineRe && namedCtrLineRe.test(line)) continue;
     if (chooseColorLineRe && chooseColorLineRe.test(line)) continue;
     if (chooseTypeLineRe && chooseTypeLineRe.test(line)) continue; // CAP-CAVERN
+    if (grantsBasicType && eachLandLineRe.test(line)) continue; // ④-BE — the all-lands basic-type grant, enforced in manaSources
     if (isManaLine(line)) continue;
     if (isActivatedAbilityLine(line, card)) continue; // vouched modeled/gy/mana by the .every above
     // LANDS-TIER slice 5 — a FROM-HAND discard ability on a land ("Channel — {3}{U}, Discard this card: …",

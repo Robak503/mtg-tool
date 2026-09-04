@@ -7,6 +7,13 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (night cron) — **④-BE: "Each land is a <basic type>" — Urborg / Yavimaya (+3) · Earth Bent 90%** · suite **1417 files / 15,669 tests** green · corpus 14,242 / 34,245 (41.6%) · flip-diff +3 / 0 lost · 5/5 mutations killed (the static arm, the selector's scope, the mana delivery, the complex-source guard, the classifier exemption); a sixth, the printed-subtype filter, survived and was deleted as unobservable
+
+> **Night tally (stage ④, fifty-seven slices):** … · BC (+1) · BD (+1) · BE (+3) — corpus 13,862 → 14,242.
+> **CI:** pushed after ④-BD's run 33843261316 is green; own run watched after push (result on the next entry's line)
+> **Next:** Colton's 06:20Z order — a durable multi-phase runbook to bring EVERY shelf deck to ≥85%, then the remaining
+> hard wins, then the Omnath hand-off list: [docs/orchestration/SHELF-85-RUNBOOK.md](SHELF-85-RUNBOOK.md).
+
 ## 🎯 2026-09-04 (night cron) — **④-BD: Arcane Denial — Veyran Cantrips to 90% (+1)** · suite **1416 files / 15,663 tests** green · corpus 14,239 / 34,245 (41.6%) · flip-diff +1 / 0 lost · 5/5 mutations killed (the rider vocabulary, the scheduling, the rider's seat, the count, the optionality)
 
 > **Night tally (stage ④, fifty-six slices):** … · BB (+3) · BC (+1) · BD (+1) — corpus 13,862 → 14,239.

@@ -1623,6 +1623,30 @@ export function applyAuraManaGrantSupplement(state, perm, prod) {
  * — the additional mana that appears INLINE when this source taps (it doesn't tap the Aura). The
  * planner (planPayment) credits it on tap; the bonus is NOT a separate tappable source.
  */
+/**
+ * ④-BE (CR 305.6) — the colours a LAND permanent taps for because of a basic land type it was GRANTED (Urborg's Swamp,
+ * Yavimaya's Forest) rather than printed. Returns [] for a non-land, for a land with no granted basic type, and for every
+ * board with no such static in play (the printed subtypes are subtracted, so a real Forest gains nothing here).
+ */
+function grantedBasicTypeColors(state, perm) {
+  const printedLine = String(perm?.card?.type || perm?.card?.type_line || "");
+  if (!/\bLand\b/i.test(printedLine)) return [];
+  const eff = permanentTypes(state, perm.id);
+  if (!eff.types.includes("Land")) return [];
+  const out = [];
+  for (const [Sub, colors] of Object.entries(BASIC_LAND_MANA)) {
+    if (Sub === "Wastes") continue; // a granted "Wastes" is not a real subtype (CR 305.6 lists the five basic types)
+    if (!eff.subtypes.some((s) => String(s).toLowerCase() === Sub.toLowerCase())) continue;
+    // ⛔ NO "skip the PRINTED subtypes" filter here, deliberately: it was written, mutation-tested, and found to be
+    // unobservable — every printed basic type in the corpus already reaches manaProduction (a basic by name, a typed
+    // nonbasic through its own printed or reminder "{T}: Add …" line, e.g. Dryad Arbor and Murmuring Bosk), so the
+    // Set-merge below de-duplicates it to the same colours and the complex-source guard blocks any inflation. Deleted
+    // rather than kept as dead logic; if it ever returns it needs a test that can see it.
+    out.push(...colors);
+  }
+  return [...new Set(out)];
+}
+
 export function manaSources(state, playerId) {
   const player = state?.players?.[playerId];
   if (!player) return [];
@@ -1653,6 +1677,22 @@ export function manaSources(state, playerId) {
     if (permanentHasKeyword(state, perm.id, "activatedAbilitiesLocked")) continue; // AU-2
     if (artLocked && permanentTypes(state, perm.id).types.includes("Artifact")) continue; // NR-1
     let prod = manaProduction(perm.card);
+    // ⭐ GRANTED BASIC LAND TYPE (④-BE, CR 305.6 — Urborg / Yavimaya / Blanket of Night): a land whose EFFECTIVE subtypes
+    // include a basic type it does not print has that type's INTRINSIC mana ability, "{T}: Add <colour>". Merged into the
+    // land's own one-mana tap source (so it stays ONE tap for one mana, just with more colour choices), or synthesized when
+    // the land prints no mana ability at all. Anything more complex than a plain single-mana tap — an amount ≠ 1, a
+    // no-tap/conditional/restricted/chosen-colour source, a cost rider — is left untouched (a safe FN, never an inflated
+    // pool). Gated on layer-4 subtypes actually GRANTED, so a printed basic keeps its own production byte-for-byte.
+    const grantedLandColors = grantedBasicTypeColors(state, perm);
+    if (grantedLandColors.length) {
+      if (!prod) {
+        prod = { colors: grantedLandColors, amount: 1, requiresTap: true };
+      } else if (prod.amount === 1 && prod.requiresTap !== false && !prod.chosenColor && !prod.restriction
+                 && !prod.activationCondition && !prod.removesCounters && !prod.extraTap && !prod.payLife && !prod.fromHand) {
+        const merged = [...new Set([...(prod.colors || []), ...grantedLandColors])];
+        if (merged.length !== (prod.colors || []).length) prod = { ...prod, colors: merged };
+      }
+    }
     // GROUP-GRANT: a permanent with NO own mana ability can have a {T}: Add … MANA ability GRANTED by a lord
     // (Gemhide/Manaweft "All Slivers have \"{T}: Add one mana of any color\"" — every OTHER Sliver gains it).
     // DEDUP (the double-grant landmine): when the permanent ALREADY produces mana from its OWN card, keep the
