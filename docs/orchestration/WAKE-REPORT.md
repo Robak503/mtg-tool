@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (day cron) — **SHELF-85 V7: Rosie Cotton (+1)** · suite **1425 files / 15,753 tests** green · corpus 14,304 / 34,245 (41.8%) · flip-diff +1 / 0 lost · 4/4 mutations killed against a green witness (the nickname candidate removed, the other-than rewrite arm removed, the counter arm's new form removed, the exclusion dropped)
+
+> The "other than <Name>" exclusion on a counter gift, with the "X of Y" legends' self-name. Next row by the runbook's
+> §2: V8 (Arcade Cabinet — Bumble · Halfshell).
+> **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 V6 slice 2: the counted tap cost (+12) — V6 done at +15** · suite **1424 files / 15,746 tests** green · corpus 14,303 / 34,245 (41.7%) · flip-diff +12 / 0 lost · 8/8 mutations killed against a green witness (the counted arm removed, the auto-pick freezing one body, the dispatcher not tapping the set, offer and dispatcher each counting the tappers as mana, the AI skip removed, the {T} source in its own set, the too-few check removed)
 
 > "Tap N untapped creatures you control:" pays like the counted sacrifice; Kirol and eleven twins flip; the AI never

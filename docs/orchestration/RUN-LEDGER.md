@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (day cron) — V7: ROSIE COTTON — the "other than <Name>" exclusion, and the "X of Y" self-name · **+1** · corpus 14,304 / 34,245 (41.8%)
+> Suite **1425 files / 15,753 tests** green; lint 0. Flip-diff **+1, zero LOST**. **4/4 mutations killed against a green witness (the nickname candidate removed, the other-than rewrite arm removed, the counter arm's new form removed, the exclusion dropped).**
+> · **The shape:** the token-created event, the Food token and the own-creature counter gift all existed. A "<Name> of
+>   <Place>" legend calls itself by the part before " of " — one more EXACT candidate for detectTriggers' anchored
+>   self-name rewrites (never a global rename; the −25/−29 lesson stands), plus a new whole-clause arm turning the
+>   trailing "… other than <Name>" into "… other than this creature". The counter parser accepts that printed twin of
+>   "another target creature you control" as the same excludeSource atom (CR 109.5), so Rosie is never a legal target
+>   of her own gift — with no other creature the trigger has no target and she stays uncountered.
+> · **Board-verified:** a Food beside a Bear → the Bear gets the counter, Rosie none; two Treasures → two counters;
+>   Rosie alone → nothing.
+> · **CI:** HELD — GitHub billing blocks every run (plan §6); pushed with the stack once a run can start
+
 > ## 🎯 2026-09-04 (day cron) — V6 slice 2: THE COUNTED TAP COST — Kirol and eleven twins; V6 done · **+12** · corpus 14,303 / 34,245 (41.7%)
 > Suite **1424 files / 15,746 tests** green; lint 0. Flip-diff **+12, zero LOST**. **8/8 mutations killed against a green witness (the counted arm removed, the auto-pick freezing one body, the dispatcher not tapping the set, offer and dispatcher each counting the tappers as mana, the AI skip removed, the {T} source in its own set, the too-few check removed).**
 > · **The shape:** "Tap N untapped creatures you control:" as an activation cost, built like the counted sacrifice —

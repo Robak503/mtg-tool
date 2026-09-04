@@ -3573,6 +3573,11 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
   // Candidate self-references, longest first (so the full name wins over the short name when both lead).
   const shortName = fullName.split(",")[0].trim();
   const candidates = shortName && shortName !== fullName ? [fullName, shortName] : [fullName];
+  // SHELF-85 V7 (2026-09-04 — Rosie Cotton of South Lane "… other than Rosie Cotton"): the "<Name> of <Place>" legends
+  // (the LTR / Middle-earth naming) refer to themselves by the part BEFORE " of " (CR 201.4's short-name convention for
+  // a name without a comma). One more exact candidate for the anchored arms below — never a global rename.
+  const ofPrefix = fullName.split(/\s+of\s+/)[0].trim();
+  if (ofPrefix && ofPrefix !== fullName && !candidates.includes(ofPrefix)) candidates.push(ofPrefix);
   for (const nm of candidates) {
     if (nm.length < 3) continue; // a 1-2 char "name" is too ambiguous to anchor on (never a real legend short name)
     const esc = nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -3626,6 +3631,13 @@ function rewriteSelfNameToThisCreature(effectClause, cardName) {
     // double-or-reset-counters collapse matcher) anyway.
     if (new RegExp(`^double the number of \\+1\\/\\+1 counters on ${esc} if its power is \\d+ or less\\.\\s*otherwise, remove all but one \\+1\\/\\+1 counter from it, then you gain 1 life for each \\+1\\/\\+1 counter removed this way$`, "i").test(eff))
       return eff.replace(new RegExp(`\\b${esc}\\b`, "i"), "this creature");
+    // OTHER-THAN-SELF COUNTER GIFT (SHELF-85 V7, 2026-09-04 — Rosie Cotton of South Lane "Whenever you create a token,
+    // put a +1/+1 counter on target creature you control other than Rosie Cotton"): the self-name sits at the clause END
+    // as the excluded object. Rewrite it to "this creature" ONLY inside this exact whole-clause grammar (the fixed-N
+    // counter gift with the trailing exclusion), so the counter parser's "other than this creature" form binds the
+    // exclusion to ctx.sourceId (excludeSource — CR 109.5). Any rider → unmatched → the card parks (CREED).
+    if (new RegExp(`^put (?:a|an|one|two|three|four|five|\\d+) [+-]1\\/[+-]1 counters? on target creature you control other than ${esc}\\.?$`, "i").test(eff))
+      return eff.replace(new RegExp(`other than ${esc}(\\.?)$`, "i"), "other than this creature$1");
     // ⭐ SACRIFICE-SELF-UNLESS-PAY (the Elder Dragons — Palladia-Mors, Chromium, Vaevictis Asmadi, Arcades
     // Sabboth, Nicol Bolas, Piru, Eldest Dragon Highlander; plus Kuro, Pitlord). The self-name sits MID-
     // clause, right after the verb: "sacrifice <Name> unless you pay {R}{G}{W}."

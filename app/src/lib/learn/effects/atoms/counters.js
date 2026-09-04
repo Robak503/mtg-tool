@@ -663,7 +663,9 @@ export function addCounterClauseParser(clause) {
   // excludeSource (threaded through atomTargetSpec); the SELF form ("on this creature") is a distinct atom
   // below. FN-safe: absent ctx.sourceId, the source can't be identified so it's simply not excluded — but the
   // activated-dispatcher always threads sourceId, so this never mis-targets in practice.
-  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on another target creature you control$/);
+  // SHELF-85 V7 (2026-09-04): the printed twin "target creature you control OTHER THAN THIS CREATURE" (Rosie Cotton of
+  // South Lane, after detectTriggers rewrites the trailing self-name) is the same atom — CR 109.5 either way.
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on (?:another target creature you control|target creature you control other than this creature)$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureYouControl", excludeSource: true };
   // X-BY-SOURCE-POWER (2026-08-12 — Halana and Alena, Partners: "put X +1/+1 counters on another target
   // creature you control, where X is this creature's power. That creature gains haste until end of
