@@ -789,6 +789,43 @@ export function applyGoad(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "goad", targets: targets.map(t => t.id) });
 }
 
+// ===== DETAIN (CR 701.29, ④-AZ 2026-09-04 — Azorius Arrester, Isperia's Skywatch, Soulsworn Spirit "When this creature
+// enters, detain target creature an opponent controls") ===== "Until your next turn, that creature can't attack or block
+// and its activated abilities can't be activated." Three layer-6 grants the engine already enforces — cantAttack (the
+// Pacifism-class attacker gate), cantBlock (canBlockAttacker), activatedAbilitiesLocked (lockedActivationSource, mana
+// abilities included via manaSources) — under the SAME untilOwnersNextTurn duration goad rides (owner = the detainer;
+// it expires as the detainer's next turn begins). Nothing is moved or exiled: detain is a restriction, not a removal —
+// the older "exile until this leaves" fold in removal.js is a different mechanic that borrowed the word.
+export function detainClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").trim().replace(/\.$/, "");
+  const m = t.match(/^detain (up to one )?target (creature|artifact or creature|nonland permanent)( an opponent controls| you don't control)?$/);
+  if (!m) return null;
+  const targetType = m[2] === "creature" ? "creature" : m[2] === "artifact or creature" ? "artifactOrCreature" : "nonlandPermanent";
+  return {
+    op: "detain", targetType,
+    restrictions: m[3] ? [{ kind: "controller", who: "opponent" }] : [],
+    ...(m[1] ? { maxTargets: 1, minTargets: 0 } : {}),
+  };
+}
+
+export function applyDetain(state, atom, ctx) {
+  const targets = atomTargets(state, atom, ctx);
+  let next = state;
+  const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null, controller: ctx.controller || null };
+  const dur = { kind: "untilOwnersNextTurn", owner: ctx.controller, turn: next.turn };
+  for (const target of targets) {
+    if (!findPermanent(next, target.id)) continue;
+    for (const keyword of ["cantAttack", "cantBlock", "activatedAbilitiesLocked"]) {
+      next = addContinuousEffect(next, {
+        layer: 6, op: { layerOp: "addKeyword", keyword },
+        affects: { mode: "fixed", permanentIds: [target.id] },
+        duration: dur, source: src,
+      }).state;
+    }
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "detain", targets: targets.map((t) => t.id) });
+}
+
 export function applyCantBlock(state, atom, ctx) {
   const targets = atomTargets(state, atom, ctx);
   let next = state;
@@ -2701,6 +2738,7 @@ export const combatResolvers = {
   "untap-remove-from-combat": applyUntapRemoveFromCombat, // GUSTCLOAK ESCAPE (GC-1, CR 506.4/510.1c-d) — untap the trigger source + remove it from combat (flag + attacker-record drop; blockers stay in combat, deal nothing)
   "cant-block": applyCantBlock,
   "goad": applyGoad, // GOAD (CR 701.38, ④-AI) — mustAttack + goaded until the goader's next turn; the goader on the source
+  "detain": applyDetain, // DETAIN (CR 701.29, ④-AZ) — cantAttack + cantBlock + activatedAbilitiesLocked until the detainer's next turn
   "become-color": applyBecomeColor,            // COLOUR CHANGE (CR 105.1) — setColor had only the animate writer
   "grant-protection": applyGrantProtection,   // PROTECTION-FROM-A-COLOUR (CR 702.16) — the layer op existed; nothing parsed to it // CANT-BLOCK — "target creature can't block this turn" → layer-6 endOfTurn cantBlock grant
   "cant-be-blocked": applyCantBeBlocked, // CANT-BE-BLOCKED — "target creature can't be blocked this turn" → layer-6 endOfTurn unblockable grant

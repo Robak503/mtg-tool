@@ -129,6 +129,7 @@ export function atomTargetIntent(atom) {
     case "destroy":
     case "exile":
     case "counter":
+    case "detain": // DETAIN (CR 701.29, ④-AZ) — you detain an OPPONENT's permanent; enemy-side like goad
     case "goad": // GOAD (CR 701.38, ④-AI) — you goad an OPPONENT's creature; the flush chooser places it enemy-side
     case "fight":
       // ETB-FIGHT — the target is "target creature you DON'T control" (enemy-side). LOAD-BEARING for the

@@ -3,6 +3,18 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-04 (night cron) — ④-AZ: DETAIN (CR 701.29) · **+7** · corpus 14,229 / 34,245 (41.5%)
+> Suite **1412 files / 15,650 tests** green; lint 0. Flip-diff **+7, zero LOST**, every gain audited whole-card. **6/6 mutations killed (the parse arm, each of the three locks, the duration, the enemy-intent case).**
+> · **The shape:** "detain target creature / nonland permanent an opponent controls" — three layer-6 grants the engine
+>   already enforced (cantAttack — the Pacifism-class attacker gate; cantBlock — canBlockAttacker; activatedAbilitiesLocked
+>   — lockedActivationSource, mana abilities included) under goad's untilOwnersNextTurn duration (owner = the detainer).
+>   A `detain` atom + resolver in combat.js, enemy intent beside goad. Azorius Arrester, Isperia's Skywatch, Soulsworn Spirit
+>   (the census family), Lyev Skyknight, Martial Law (upkeep), New Prahv Guildmage (activated), Inaction Injunction (a spell:
+>   arbiter-spell → native-spell).
+> · **Board-verified:** a detained bear can't be declared as an attacker on its controller's turn, can't block, and its
+>   pump ability is not offered; the lock lifts as the detainer's next turn begins.
+> · **CI:** pushed after ④-AX's re-run 33835019772 is green; own run watched after push (result on the next entry's line)
+
 > ## 🎯 2026-09-04 (night cron) — ④-AY: "draw an additional card" on the draw-step event · **+3** · corpus 14,222 / 34,245 (41.5%)
 > Suite **1411 files / 15,645 tests** green; lint 0. Flip-diff **+3, zero LOST**. **3/3 mutations killed (the singular normalization, the plural normalization, the plural count).**
 > · **The shape:** "At the beginning of your draw step, draw an additional card" — the draw-step event already fired

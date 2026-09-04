@@ -7,6 +7,16 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-04 (night cron) — **④-AZ: DETAIN (+7)** · suite **1412 files / 15,650 tests** green · corpus 14,229 / 34,245 (41.5%) · flip-diff +7 / 0 lost · 6/6 mutations killed (the parse arm, each of the three locks, the duration, the enemy-intent case)
+
+> **Night tally (stage ④, fifty-two slices):** … · AX (+12) · AY (+3) · AZ (+7) — corpus 13,862 → 14,229.
+> **CI note:** ④-AX's run 33835019772 went red on shard 2 — the self-play P5 reality-report test took 22.6 s against the
+> 20 s default on the loaded runner (sub-second locally). Widened to 90 s (a41c94e4, the abBench posture); the shard was
+> re-run.
+> **CI:** pushed after ④-AX's re-run 33835019772 is green; own run watched after push (result on the next entry's line)
+> **Next runnable:** "{C}: target creature can't block this creature this turn" (3 — a pairwise block restriction), then the
+> subsystem-scale families (Colton's pick) or a deck walk. The census tail is otherwise Alchemy / Un-set / ≤2-card shapes.
+
 ## 🎯 2026-09-04 (night cron) — **④-AY: "draw an additional card" on the draw-step event (+3)** · suite **1411 files / 15,645 tests** green · corpus 14,222 / 34,245 (41.5%) · flip-diff +3 / 0 lost · 3/3 mutations killed (the singular normalization, the plural normalization, the plural count)
 
 > **Night tally (stage ④, fifty-one slices):** … · AW (+13) · AX (+12) · AY (+3) — corpus 13,862 → 14,222.
