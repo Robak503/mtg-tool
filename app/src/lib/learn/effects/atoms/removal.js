@@ -1040,6 +1040,12 @@ export function destroyExileClauseParser(clause) {
   // flag every token-creating path stamps). Sits BEFORE the subtype arm below, which would otherwise read the
   // word as "non" + "token" (it nulled safely — "token" is no curated subtype — but it must never CLAIM it).
   if (/^destroy all nontoken creatures$/.test(t)) return { op: "destroy", targetType: "eachCreature", restrictions: [{ kind: "token", negate: true }] };
+  // OPPONENT-CREATURE MASS DESTROY (SHELF-85 · Halfshell Q4 — Swift Demise, 2026-09-05): "destroy each creature you don't
+  // control [that was dealt damage this turn]" — the mass BOUNCE family's eachOpponentCreature scope on the destroy op
+  // (an asymmetric sweep: never the caster's own creatures), with the optional dealt-damage rider as the shared
+  // dealtDamageThisTurn restriction the enumerator applies to every mass scope. Exactly these two sentences.
+  const dyc = t.match(/^destroy each creature you don't control( that was dealt damage this turn)?$/);
+  if (dyc) return { op: "destroy", targetType: "eachOpponentCreature", ...(dyc[1] ? { restrictions: [{ kind: "dealtDamageThisTurn", value: true }] } : {}) };
   const mc = t.match(/^destroy all (non-?)?([a-z]+) creatures$/);
   if (mc) {
     const sub = MASS_CREATURE_SUBTYPES[mc[2]];

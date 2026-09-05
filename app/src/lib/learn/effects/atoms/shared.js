@@ -293,7 +293,15 @@ export const atomTargets = (state, atom, ctx) => {
   }
   if (atom.targetType === "eachOpponentCreature") {
     const cap = atom.toughnessAtMostCount ? countForSpec(state, ctx, atom.toughnessAtMostCount) : undefined;
-    return opponentCreatureTargets(state, ctx.controller, { toughnessAtMost: cap });
+    const set = opponentCreatureTargets(state, ctx.controller, { toughnessAtMost: cap });
+    // RESTRICTIONS on the opponent-creature sweep (SHELF-85 · Halfshell Q4 — Swift Demise "destroy each creature you don't
+    // control THAT WAS DEALT DAMAGE THIS TURN", 2026-09-05): the shared satisfier, applied per member — without it a
+    // restricted atom on this scope swept EVERY opponent creature (the witness caught the undamaged one dying).
+    if (!atom.restrictions?.length) return set;
+    return set.filter((t) => {
+      const lk = findPermanent(state, t.id);
+      return !!lk && creatureSatisfiesRestrictions(state, lk.permanent, lk.controller, ctx.controller, atom.restrictions, ctx);
+    });
   }
   // SAME-NAME MASS PUMP (BLITZ BB-1, CR 611.2c — Bile Blight / Echoing Decay / Echoing Courage) — the atom carries
   // ONE chosen target (ctx.targets, targetType:"creature"); read its NAME AT RESOLUTION and fan the ±N/±N out to

@@ -16,6 +16,22 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · Q4: SWIFT DEMISE — the opponent-creature mass destroy · **+1** · corpus 14,576 / 34,245
+> Suite **1540 files / 16303** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · "Swift Demise deals 1 damage to target creature. Then destroy each creature you don't control that was dealt damage
+>   this turn." The ping and the "then" sequence were modelled; "destroy all creatures that were dealt damage this turn"
+>   already parsed HIGH (the shared dealtDamageThisTurn restriction — two witnesses, marked damage or a named dealer);
+>   the mass BOUNCE family already enumerates "each creature you don't control" (eachOpponentCreature). Only the destroy
+>   op lacked that scope: one arm, the bounce family's scope on the destroy op with the optional dealt-damage rider as
+>   the restriction the enumerator already applies to every mass scope. Exactly these two sentences.
+> · **Pins:** the atom (opponent-creature scope + the restriction) and the bare form without the rider; the whole two-
+>   sentence program HIGH; Swift Demise native; RUNTIME — the ping marks the target and the destroy takes exactly the
+>   opponent's damaged creatures: the pinged one dies, an undamaged opponent creature lives, your own damaged creature
+>   lives. Mutants: the arm gone, the rider dropped (every opponent creature dies), the scope widened to every creature
+>   (your own damaged creature dies) — mutants 4/4 killed.
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Halfshell 75 → **76** (9 to the bar); a resolution gap closed on the way — the opponent-creature sweep ignored the atom's restrictions
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · Q5: LITA, LITTLE ORPHAN AMPHIBIAN — the period-form mode-memory lead · **+2** · corpus 14,575 / 34,245
 > Suite **1539 files / 16,301** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
 > · "Alliance — Whenever another creature you control enters, choose one that hasn't been chosen this turn. / • Put a
