@@ -19,7 +19,7 @@
 |---|---|---|---|---|
 | Killer Turts | ✅ **85/100** (2026-09-05; was 70) | 15 | **0** | extra-combat red-green aggro-storm |
 | Kinnan Mana Overload | ✅ **85/100** (2026-09-05; was 75) | 15 | **0** | cEDH big-mana / copy / Thoracle |
-| Believe it! | 76/100 | 24 | **9** | cEDH ninjas + Thoracle-Consultation |
+| Believe it! | 79/100 | 21 | **6** | cEDH ninjas + Thoracle-Consultation |
 
 **35 slots across the three.** Shared cards: Thassa's Oracle (Kinnan + Believe it!), Mindbreak Trap (both),
 Misdirection (both), Gemstone Caverns (all three — PARKED, pregame), Veil of Summer (Turts + Kinnan), Sink into
@@ -88,7 +88,7 @@ Real cards probed for their live tier, standing in for whole families:
 | **S-D Extra-combat forms** | Full Throttle, Overpowering Attack, World at War, Grim Reaper's Sprint, Great Train Heist mode, Savage Beating mode (Turts) | M | `extra-combat` exists; the arms: "untap all creatures you control THAT ATTACKED THIS TURN", "two additional combat phases", "at the beginning of each combat this turn, untap all creatures that attacked" (a delayed trigger), "if it's your main phase" conditional, "followed by an additional main phase" |
 | **S-E Ritual riders** | Rite of Flame, Irencrag Feat, Geosurge, Open the Omenpaths (Turts) | S+S+M+M | the word-number pip form; the cast-lock rider; restricted spend on a spell's add-mana |
 | **S-F Two-filter counters** | Guttural Response, Pyroblast (Turts), REB-family corpus | S | `colorFilter` AND `spellFilter` together; the "if it's blue" mode form |
-| **S-G Exile-until-named** | Demonic Consultation, Tainted Pact (Believe it!) | M | choose a name (AI policy: the deck's known combo piece) → exile top six → reveal until the name; Tainted Pact's "same name as another exiled" stop |
+| **S-G Exile-until-named** | ✅ DONE 2026-09-05 (BI-2): Demonic Consultation (the name via the tutor pause in consultation mode; decline = exile all) + Tainted Pact (a new chained take-or-continue pause; duplicate-name stop) — the Believe it! win is playable end to end with Thassa's Oracle | — | — |
 | **S-H Redirect** | Misdirection ×2, Bolt Bend, Redirect Lightning, Ricochet Trap, Untimely Malfunction, Hydroelectric Specimen | **L** | retargeting a stack object with a single target; LAST across all three decks — the pod sim loses little if these stay on the Arbiter |
 | 🅿 **Pregame** | Gemstone Caverns ×3 | park | no pregame phase in the runtime |
 

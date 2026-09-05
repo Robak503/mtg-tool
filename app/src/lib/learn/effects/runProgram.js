@@ -24,7 +24,7 @@
  */
 
 import { markPendingArbiter } from "../pendingArbiter.js";
-import { wheelOnePlayer } from "./atoms/library.js"; // K9 (Step Between Worlds) — the per-player fold the each-player-may settler applies to the yes-seats
+import { taintedPactStep, wheelOnePlayer } from "./atoms/library.js"; // K9 (Step Between Worlds) — the per-player fold the each-player-may settler applies to the yes-seats
 import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice, setPendingTemptingOfferChoice } from "../pendingChoice.js"; // + TEMPTING OFFER (Tempt with Discovery) // + SG-15b: the Sylvan Library per-card pause is chained by its own settler
 import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
@@ -356,6 +356,7 @@ export function resolveTutorChoice(state, cardId) {
   // Old saves / legacy callers carry mayFailToFind null → unchanged behavior (non-breaking).
   if (cardId == null && pc.mayFailToFind === false && (pc.candidates || []).length > 0) return state;
   let next = clearPendingChoice(state);
+  if (pc.consultation) return resolveConsultation(next, pc, cardId); // DEMONIC CONSULTATION (BI-2): the pick is a NAME, not a card to fetch
 
   // Apply the fetch (cardId null = the player chose to find nothing, or no candidate). LAND-FROM-HAND —
   // `sourceZone` is the zone the card moves FROM: "hand" (Growth Spiral) or "library" (every search).
@@ -1462,6 +1463,52 @@ export function resolveSoftCounterChoice(state, pay) {
  * chain the next card under the same continuation, or resume the program after the last one. A card that
  * already left the hand (a mid-pause effect) is skipped — never a phantom move, never a charge for nothing.
  */
+/** DEMONIC CONSULTATION (POD-SIM THREE · BI-2, 2026-09-05) — the settle of the name choice: exile the top six, then reveal
+ *  from the top until a card with the chosen name (to hand); every other revealed card is exiled. A name not in the library
+ *  (the decline) exiles the whole library. NOT a search — no library-search event. */
+export function resolveConsultation(next, pc, cardId) {
+  const controller = pc.controller;
+  if (!next.players?.[controller]) return next;
+  const chosen = cardId ? (pc.candidates || []).find((c) => c.id === cardId) : null;
+  const name = chosen ? String(chosen.name || "") : null;
+  let exiled = 0;
+  let found = null;
+  const topSix = (next.players[controller].library || []).slice(0, 6).map((c) => c.id);
+  for (const id of topSix) { next = moveCardToZone(next, { playerId: controller, fromZone: "library", toZone: "exile", cardId: id }); exiled++; }
+  for (;;) {
+    const lib = next.players[controller].library || [];
+    if (!lib.length) break;
+    const top = lib[0];
+    if (name && String(top.name || "").toLowerCase() === name.toLowerCase()) {
+      next = moveCardToZone(next, { playerId: controller, fromZone: "library", toZone: "hand", cardId: top.id });
+      found = top.name;
+      break;
+    }
+    next = moveCardToZone(next, { playerId: controller, fromZone: "library", toZone: "exile", cardId: top.id });
+    exiled++;
+  }
+  next = logEvent(next, { kind: "spell-effect", effect: "demonic-consultation", controller, name, found: !!found, exiled });
+  return pc.resume ? resumeAfterChoice(next, pc) : next;
+}
+
+/** TAINTED PACT (BI-2) — take the exiled card into hand (the loop ends) or continue: the next top card is exiled, a
+ *  duplicate name ends the loop, otherwise the pause is raised again with the resume threaded. */
+export function resolveTaintedPactChoice(state, take) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "tainted-pact") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return next;
+  if (take) {
+    const inExile = (next.players[pc.controller].exile || []).some((c) => c.id === pc.cardId);
+    if (inExile) next = moveCardToZone(next, { playerId: pc.controller, fromZone: "exile", toZone: "hand", cardId: pc.cardId });
+    next = logEvent(next, { kind: "spell-effect", effect: "tainted-pact", controller: pc.controller, ended: "taken", cardName: pc.cardName, exiled: (pc.exiledNames || []).length - 1 });
+    return pc.resume ? resumeAfterChoice(next, pc) : next;
+  }
+  const stepped = taintedPactStep(next, { controller: pc.controller, exiledNames: pc.exiledNames || [], sourceName: pc.sourceName || null, ...(pc.resume !== undefined ? { resume: pc.resume } : {}) });
+  if (stepped.pendingChoice) return stepped;
+  return pc.resume ? resumeAfterChoice(stepped, pc) : stepped;
+}
+
 export function resolveSylvanLibraryChoice(state, pay) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "sylvan-library") return state;

@@ -1127,6 +1127,31 @@ export function matchBlinkSubtypeCounter(oracle) {
 // counter. ONE collapse atom — the delayed-blink applier exiles now and schedules the `[blink-return …]`
 // sentinel (the general matchDelayedTrigger can't bind "that card" to the specific exiled card). Whole-oracle
 // anchored; any variant (no counter, "you control", a different delay) → null → LOW → Arbiter (a SAFE FN).
+/** DEMONIC CONSULTATION (POD-SIM THREE · BI-2, 2026-09-05 — S-G exile-until-named): "Choose a card name. Exile the top six
+ *  cards of your library, then reveal cards from the top of your library until you reveal a card with the chosen name.
+ *  Put that card into your hand and exile all other cards revealed this way." ONE atom; the NAME is chosen at resolution
+ *  through the tutor pause (each distinct library name is a candidate; declining = a name not in the library, which
+ *  exiles the whole library — the actual Thassa's Oracle line). */
+export function matchDemonicConsultation(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  if (/^choose a card name\. exile the top six cards of your library, then reveal cards from the top of your library until you reveal a card with the chosen name\. put that card into your hand and exile all other cards revealed this way$/.test(t)) {
+    return { atoms: [{ op: "demonic-consultation", targetType: null }] };
+  }
+  return null;
+}
+
+/** TAINTED PACT (BI-2): "Exile the top card of your library. You may put that card into your hand unless it has the same
+ *  name as another card exiled this way. Repeat this process until you put a card into your hand or you exile two cards
+ *  with the same name, whichever comes first." ONE atom; each exiled card raises a take-or-continue pause (the chained
+ *  yes/no); a duplicate name ends the loop with nothing taken. */
+export function matchTaintedPact(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  if (/^exile the top card of your library\. you may put that card into your hand unless it has the same name as another card exiled this way\. repeat this process until you put a card into your hand or you exile two cards with the same name, whichever comes first$/.test(t)) {
+    return { atoms: [{ op: "tainted-pact", targetType: null }] };
+  }
+  return null;
+}
+
 export function matchDelayedBlink(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   // DELAY-FIRST + a +1/+1 counter (Otherworldly Journey, Long Road Home): "… At the beginning of the next end

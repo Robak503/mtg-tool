@@ -649,6 +649,55 @@ export default function useLearnSession() {
     [state.sessionId],
   );
 
+  // TAINTED PACT (BI-2) — answer one exiled card's "take it or continue". Mirrors applySylvanLibraryChoice.
+  const applyTaintedPactChoice = useCallback(
+    async (take) => {
+      if (inFlightRef.current || !state.sessionId) return null;
+      inFlightRef.current = true;
+
+      try {
+        const response = await fetch("/api/learn/choose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: state.sessionId,
+            choice: { kind: "tainted-pact", take: take === true },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || `Choose failed: ${response.status}`,
+          }));
+          return null;
+        }
+        const isOver = data.decision?.kind === "game-over";
+        setState((prev) => ({
+          ...prev,
+          decision: data.decision,
+          status: isOver ? "ended" : "active",
+          difficulty: data.difficulty ?? prev.difficulty,
+          turn: data.turn,
+          activePlayer: data.activePlayer,
+          step: data.step,
+          table: data.table || prev.table,
+          board: data.board || prev.board,
+          decisionLogTail: data.decisionLogTail || [],
+          error: null,
+        }));
+        return data.decision;
+      } catch (error) {
+        setState((prev) => ({ ...prev, status: "error", error: error.message || "network error" }));
+        return null;
+      } finally {
+        inFlightRef.current = false;
+      }
+    },
+    [state.sessionId],
+  );
+
   const applyOptionalLifePaymentChoice = useCallback(
     async (pay) => {
       if (inFlightRef.current || !state.sessionId) return null;
@@ -1661,6 +1710,7 @@ export default function useLearnSession() {
     applyOptionalManaPaymentChoice,
     applyOptionalLifePaymentChoice,
     applySylvanLibraryChoice,
+    applyTaintedPactChoice,
     applyTemptingOfferChoice,
     applyOptionalSacChoice,
     applyCommanderReturnChoice,

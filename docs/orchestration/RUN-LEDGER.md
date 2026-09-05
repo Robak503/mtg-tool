@@ -16,6 +16,32 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · BI-2: DEMONIC CONSULTATION + TAINTED PACT — the Believe it! win · **+3** · corpus 14474 / 34,245
+> Suite **1499/16156** green; lint 0. Flip-diff **+3, zero LOST** — one unplanned twin audited whole-card: Divining Witch
+> (Consultation's exact text behind a "{1}{B}, {T}, Discard a card" activation). **11/11 killed** — the five-not-six mutant
+> first SURVIVED behind a library where either count met the same names; a sixth-card pin (the exact sixth is never
+> revealed; the seventh is the first found) now kills it.
+> · Demonic Consultation — "Choose a card name. Exile the top six cards of your library, then reveal cards from the top of
+>   your library until you reveal a card with the chosen name. Put that card into your hand and exile all other cards
+>   revealed this way." ONE atom. The NAME is a real decision, so it rides the existing tutor pause in a consultation
+>   mode: one candidate per DISTINCT library name (the first card of each name stands for it), and the tutor panel's
+>   decline is "a name not in your library" — which exiles the whole library, the actual Thassa's Oracle line. The settle
+>   branches before any tutor semantics: exile six, reveal until the name (to hand), exile the rest. NOT a search: the
+>   library-search event is never emitted (pinned against an opponent's Wan Shi Tong).
+> · Tainted Pact — "Exile the top card of your library. You may put that card into your hand unless it has the same name
+>   as another card exiled this way. Repeat…" ONE atom and a NEW pause kind, `tainted-pact` (the Sylvan chain's shape):
+>   each exiled card asks take-or-continue; a duplicate name ends the dig with nothing; an empty library ends it quietly.
+>   Wired on every half — the server settle, the AI driver branch (fallback: take a nonland), the session apply, the hook
+>   callback and the side-sheet panel — so the human path and the pod sim both settle it. (Not added to
+>   PENDING_CHOICE_KINDS, exactly like the Sylvan kind — the wire passes the whole decision.)
+> · **Pins:** nine distinct names offered from ten cards; the Oracle behind the six is found with seven exiled and two
+>   untouched; declining exiles all ten; a name inside the six exiles everything; continue-continue-take; the duplicate
+>   Alpha ends the dig with the Oracle still in the library; the AI seat settles by policy and never spins. Mutants: both
+>   templates, duplicate candidates, five-not-six, a reveal that never stops, consultation-blind settle, the lost
+>   duplicate stop, a take that never moves, forgotten names, a land-taking policy and the missing driver branch.
+> · **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+> · **Believe it! 77 → 79 (needs 6)** — the win is playable end to end. Killer Turts 85 ✅ · Kinnan 85 ✅ · Shalai 84. Next: BI-3 Force of Despair + Sea Gate Restoration.
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KN-5b: WAN SHI TONG — an X-reading ETB + the library-search event · **+2** · corpus 14471 / 34,245
 > Suite **1498/16148** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **7/8 killed + 1 documented survivor.**
 > · "When Wan Shi Tong enters, put X +1/+1 counters on him. Then draw half X cards, rounded down. / Whenever an opponent

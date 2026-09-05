@@ -6,7 +6,7 @@
 import { logEvent, opponentsOf, findPermanent, deterministicRng, shuffleSeededLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
 import { permanentIsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW
 import { hasKeyword } from "../../keywords.js"; // LK-1 chosen-type impulse-dig membership (keywords.js is a zero-import leaf — cycle-safe)
-import { setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice, setPendingLookTopTakeChoice, setPendingMilledPickChoice, setPendingSylvanLibraryChoice } from "../../pendingChoice.js";
+import { setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice, setPendingLookTopTakeChoice, setPendingMilledPickChoice, setPendingSylvanLibraryChoice, setPendingTaintedPactChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard, isInstantOrSorceryCard, resolveScaledAmount } from "./shared.js";
 import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource, TUTOR_COLOR_WORD } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers; TUTOR_COLOR_WORD for the color-qualified X-tutor (Green Sun's Zenith)
 // MILL-ON-EVENT (Wave 3b): the mill atom is one of the two real mill chokepoints, so it enqueues the
@@ -1441,6 +1441,44 @@ export function applyClash(state, atom, ctx) {
  * a deck-out draws fewer and chooses fewer, CR 121.4), and the per-card pay-or-put-back pause is raised
  * for the first of them; the settler chains the rest, then resumes the program.
  */
+/** DEMONIC CONSULTATION (POD-SIM THREE · BI-2, 2026-09-05): raise the NAME choice as a tutor pause — one candidate per
+ *  distinct library name (the first card of that name stands for it); declining = a name not in the library. The settle
+ *  (runProgram.resolveConsultation) exiles the top six, then reveals until the name — never a search (no search event). */
+export function applyDemonicConsultation(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state;
+  const seen = new Set();
+  const candidates = [];
+  for (const c of player.library || []) {
+    const key = String(c.name || "").toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    candidates.push({ id: c.id, name: c.name });
+  }
+  return setPendingTutorChoice(state, { controller, candidates, sourceZone: "library", sourceName: ctx.cardName || null, filterLabel: "a card name — the reveal stops at the first card with that name (decline = a name not in your library: everything is exiled)", consultation: true });
+}
+
+/** TAINTED PACT (BI-2) — one step of the loop: exile the top card; a duplicate name ends it; otherwise the take-or-continue
+ *  pause. Shared by the atom (first step) and the settle (every later step). */
+export function taintedPactStep(state, { controller, exiledNames = [], sourceName = null, resume }) {
+  const player = state.players?.[controller];
+  if (!player) return state;
+  const lib = player.library || [];
+  if (!lib.length) return logEvent(state, { kind: "spell-effect", effect: "tainted-pact", controller, ended: "empty-library", exiled: exiledNames.length });
+  const top = lib[0];
+  const name = String(top.name || "");
+  const next = moveCardToZone(state, { playerId: controller, fromZone: "library", toZone: "exile", cardId: top.id });
+  if (exiledNames.some((n) => n.toLowerCase() === name.toLowerCase())) {
+    return logEvent(next, { kind: "spell-effect", effect: "tainted-pact", controller, ended: "duplicate-name", cardName: name, exiled: exiledNames.length + 1 });
+  }
+  return setPendingTaintedPactChoice(next, { controller, cardId: top.id, cardName: name, cardType: String(top.type || top.type_line || ""), exiledNames: [...exiledNames, name], sourceName, ...(resume !== undefined ? { resume } : {}) });
+}
+
+export function applyTaintedPact(state, atom, ctx) {
+  return taintedPactStep(state, { controller: ctx.controller, exiledNames: [], sourceName: ctx.cardName || null });
+}
+
 export function applySylvanLibrary(state, atom, ctx) {
   const controller = ctx.controller;
   if (!state.players?.[controller]) return state;
@@ -2645,6 +2683,8 @@ export const libraryResolvers = {
   "reveal-until-creature-attacking": applyRevealUntilCreatureAttacking, // W10 (Raph & Mikey) — reveal until a creature → enter it tapped + JOIN the attack (the mobilize convention) → bottom the rest random
   "reveal-until-creature-to-hand": applyRevealUntilCreatureToHand, // SG-9 (Evolutionary Leap) — reveal until a creature → that card to HAND → bottom the rest random
   seek: applySeek, // LANDS-14b (the Alchemy Gates, CR 701.55) — a random matching library card to hand, no reveal, no shuffle
+  "demonic-consultation": applyDemonicConsultation, // BI-2 — the name choice (a tutor pause in consultation mode), then exile six + reveal until the name
+  "tainted-pact": applyTaintedPact, // BI-2 — exile the top card; take it or continue; a duplicate name ends the loop
   "sylvan-library": applySylvanLibrary, // SG-15b — draw N extra, then per drawn card: pay L life or put it back on top (a chained pause)
   clash: applyClash, // STAGE ④-1 (CR 701.22) — reveal tops vs one opponent, win iff greater MV; stamps state.clashResult for the "If you win" conditional
   "reveal-top-conditional": applyRevealTopConditional, // ===== REVEAL-TOP-CONDITIONAL (Lurking Predators) ===== reveal top: creature → onto battlefield (fires ETB); else put on bottom (deterministic "you may", like explore).

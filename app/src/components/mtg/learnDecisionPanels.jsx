@@ -1831,6 +1831,44 @@ export function OptionalLifePaymentPanel({ decision, onChoose }) {
  * card). "Pay" is disabled when `decision.affordable` is false (life below L — CR 119.4 lets you pay down to 0,
  * never below). Submits the boolean via applySylvanLibraryChoice. Structurally the OptionalLifePaymentPanel.
  */
+/** TAINTED PACT (POD-SIM THREE · BI-2, 2026-09-05) — the exiled top card: take it into hand (the dig ends) or continue
+ *  (the next card is exiled; a name already exiled this way ends the dig with nothing). Two-button, like Sylvan. */
+export function TaintedPactPanel({ decision, onChoose }) {
+  const exiled = Array.isArray(decision.exiledNames) ? decision.exiledNames.length : 0;
+  const [submitting, setSubmitting] = useState(false);
+  const submit = async (take) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onChoose?.(take);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <div style={{ padding: "12px 14px", background: "var(--ley-green-faint)", border: "1px solid var(--ley-line-bright)", borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ley-green)" }}>
+          🕳 Take {decision.cardName || "this card"}?
+          {decision.sourceName ? ` — ${decision.sourceName}` : ""}
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--ley-text)", lineHeight: 1.5, marginTop: 4 }}>
+          Put it into your hand and stop, or leave it exiled and exile the next card. A card whose name was already exiled this way ends the dig with nothing.
+          {exiled > 1 && <span> {exiled} cards exiled so far.</span>}
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => submit(true)} disabled={submitting}>
+          Take it
+        </button>
+        <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => submit(false)} disabled={submitting}>
+          Continue
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function SylvanLibraryPanel({ decision, onChoose }) {
   const life = Number(decision.life) || 0;
   const affordable = decision.affordable !== false;

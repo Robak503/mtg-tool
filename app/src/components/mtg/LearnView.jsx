@@ -51,6 +51,7 @@ import {
   OptionalManaPaymentPanel,
   OptionalLifePaymentPanel,
   SylvanLibraryPanel,
+  TaintedPactPanel,
   TemptingOfferPanel,
   OptionalSacPanel,
   SacrificeChoicePanel,
@@ -750,6 +751,7 @@ export default function LearnView({
               onOptionalManaPaymentChoose={session.applyOptionalManaPaymentChoice}
               onOptionalLifePaymentChoose={session.applyOptionalLifePaymentChoice}
               onSylvanLibraryChoose={session.applySylvanLibraryChoice}
+              onTaintedPactChoose={session.applyTaintedPactChoice}
               onTemptingOfferChoose={session.applyTemptingOfferChoice}
               onOptionalSacChoose={session.applyOptionalSacChoice}
               onCommanderReturnChoose={session.applyCommanderReturnChoice}
@@ -981,6 +983,15 @@ export default function LearnView({
           <SylvanLibraryPanel
             decision={decision}
             onChoose={session.applySylvanLibraryChoice}
+          />
+        </div>
+      )}
+      {/* TAINTED PACT (BI-2) — one exiled card at a time: take it, or continue the dig. Same side-sheet. */}
+      {session.board && decision?.kind === "tainted-pact" && (
+        <div className="ley-glass-strong ley-glass-lit" style={tutorSheetStyle()}>
+          <TaintedPactPanel
+            decision={decision}
+            onChoose={session.applyTaintedPactChoice}
           />
         </div>
       )}
@@ -1420,6 +1431,7 @@ function DecisionPrompt({
   onOptionalManaPaymentChoose,
   onOptionalLifePaymentChoose,
   onSylvanLibraryChoose,
+  onTaintedPactChoose,
   onTemptingOfferChoose,
   onOptionalSacChoose,
   onCommanderReturnChoose,
@@ -1513,6 +1525,9 @@ function DecisionPrompt({
   }
   if (decision.kind === "sylvan-library") {
     return <SylvanLibraryPanel decision={decision} onChoose={onSylvanLibraryChoose} />;
+  }
+  if (decision.kind === "tainted-pact") {
+    return <TaintedPactPanel decision={decision} onChoose={onTaintedPactChoose} />;
   }
   if (decision.kind === "tempting-offer") {
     return <TemptingOfferPanel decision={decision} onChoose={onTemptingOfferChoose} />;

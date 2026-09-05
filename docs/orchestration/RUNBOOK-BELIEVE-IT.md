@@ -22,8 +22,8 @@ protects the combo turn. Ninjutsu itself is ALREADY native (Ninja of the Deep Ho
 | # | Card | Oracle gist | Blocker (probed) | Size | CREED note |
 |---|---|---|---|---|---|
 | B1 | **Thassa's Oracle** | (see Kinnan K1) | devotion count kind + the look/order/win ETB | **M** (lands FREE if Kinnan's slice is built first) | X read at resolution |
-| B2 | **Demonic Consultation** | choose a name; exile top six; reveal until the name; that card to hand, exile the rest | S-G exile-until-named: a NAME choice (AI policy: name the deck's combo piece, or name a card NOT in the library when Oracle is in hand — the actual line) + the reveal loop | **M** | naming is a real decision — the policy must be legible and the pause kind must exist for the human path |
-| B3 | **Tainted Pact** | exile the top card; may put it in hand unless it shares a name with another card exiled this way; repeat until a card is taken or two names match | the same loop with a different stop rule (a duplicate name ends it); singleton Commander decks make it a full-library dig | **M** | rides B2's loop; the "may put into hand" is a choice per card (an auto-policy: take it when it is the named target / Oracle) |
+| B2 | **Demonic Consultation** | ✅ DONE 2026-09-05 (BI-2): ONE atom; the NAME is chosen through the tutor pause in consultation mode — one candidate per DISTINCT library name, declining = a name not in the library (the whole library is exiled: the Thassa's Oracle line); the settle exiles the top six then reveals until the name (to hand), every other revealed card exiled; never a search (no library-search event) | **M** | pinned: nine distinct names offered from a ten-card library; naming the Oracle behind the six exiles seven and puts it in hand with two untouched; declining exiles all ten; naming a card inside the top six exiles everything; an opponent's Wan Shi Tong does not fire |
+| B3 | **Tainted Pact** | ✅ DONE 2026-09-05 (BI-2): ONE atom; each exiled card raises a NEW take-or-continue pause (`tainted-pact`, the Sylvan chain's shape — server settle, AI driver branch with a nonland-takes fallback, session apply, hook callback, side-sheet panel); a duplicate name ends the dig with nothing; an empty library ends it quietly | **M** | pinned: continue-continue-take lands the third card in hand with two exiled; the second Alpha ends the dig with nothing taken and the rest untouched; an empty library ends quietly; the AI seat settles the pause by policy (never spins) |
 
 ### 1b. The cheap fills (S / S-M)
 
@@ -69,7 +69,7 @@ protects the combo turn. Ninjutsu itself is ALREADY native (Ninja of the Deep Ho
 | Slice | Cards | Seam | Expected | Running |
 |---|---|---|---|---|
 | BI-1 | Thassa's Oracle | S-A (built under Kinnan KN-1 — verify it flips here, +0 cost) | +1 | 1 |
-| BI-2 | Demonic Consultation · Tainted Pact | S-G exile-until-named (the name choice: a pause kind for the human path + an honest AI policy; the reveal loop; both stop rules) — THE WIN | +2 | 3 |
+| BI-2 | Demonic Consultation · Tainted Pact | S-G exile-until-named — THE WIN | ✅ +3 | 3 |
 | BI-3 | Force of Despair · Sea Gate Restoration | entered-this-turn mass destroy + the not-your-turn pitch gate; hand-count draw + the no-max-hand-size flag | +2 | 5 |
 | BI-4 | Flare of Malice · Contagion | greatest-MV edict + sac alt cost; distribute-counters split | +2 | 7 |
 | BI-5 | Moon-Circuit Hacker · Satoru | optional draw with a conditional discard rider; the uncast/no-mana batched ETB watcher | +2 | 9 |

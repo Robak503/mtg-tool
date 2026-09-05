@@ -108,7 +108,7 @@ export function setPendingCleanupDiscardChoice(state, { controller, candidates, 
  * library). FIFO: one pending choice at a time (the driver settles it before the
  * next atom/spell resolves, so this guard is belt-and-braces).
  */
-export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", sourceZones = null, destinations = null, mayFailToFind = null, fetchedGrants = null, fetchedGrantsUntil = null, landToBattlefieldTapped = false, temptingOffer = null }) {
+export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", sourceZones = null, destinations = null, mayFailToFind = null, fetchedGrants = null, fetchedGrantsUntil = null, landToBattlefieldTapped = false, temptingOffer = null, consultation = false }) {
   if (state.pendingChoice) return state;
   // RAMP-SPLIT (Cultivate / Kodama's Reach) — an ORDERED per-fetch destination sequence; its HEAD applies to
   // THIS pick (so the fetch path + picker label read destination/entersTapped unchanged), the tail rides on
@@ -138,6 +138,7 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
       candidates,
       sourceName,
       filterLabel,
+      ...(consultation ? { consultation: true, mayFailToFind: true } : {}), // DEMONIC CONSULTATION (BI-2): the pick is a NAME; declining names a card not in the library
       // WAVE-2b TUTOR — the STRUCTURED filter (`{ groups, mv? }`, plain JSON) carried alongside candidates
       // so autoPickTutorCandidate can DEFENSIVELY re-apply the type/MV gate (Spellseeker MV<=2, Trophy Mage
       // MV=3) — candidates are already filtered upstream by applyTutor, but threading the filter keeps the
@@ -621,6 +622,17 @@ export function setPendingOptionalManaPaymentChoice(state, { controller, cost, e
  * the SAME resume, and resumes the program after the last one. `cardId` is the card in hand this decision
  * is about; `cardName` for the picker. FIFO: one choice at a time (the family rule).
  */
+/** TAINTED PACT (POD-SIM THREE · BI-2, 2026-09-05) — the exiled top card: take it into hand, or continue (exile the next).
+ *  `exiledNames` carries every name exiled this way so far (the duplicate stop rule). Mirrors the Sylvan chain. */
+export function setPendingTaintedPactChoice(state, { controller, cardId, cardName = null, cardType = "", exiledNames = [], sourceName = null, resume = undefined }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "tainted-pact-pending", controller, cardId, cardName, exiled: exiledNames.length, sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "tainted-pact", controller, cardId, cardName, cardType, exiledNames: [...exiledNames], sourceName, ...(resume !== undefined ? { resume } : {}) },
+  };
+}
+
 export function setPendingSylvanLibraryChoice(state, { controller, cardId, cardName = null, life, remaining = [], sourceName = null, resume = undefined }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "sylvan-library-pending", controller, cardId, cardName, amount: life, sourceName });

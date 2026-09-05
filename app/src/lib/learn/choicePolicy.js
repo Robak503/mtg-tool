@@ -93,6 +93,12 @@ export function autoPickCreatureType(state, controller, { excludePermanentId = n
  * would keep at least 8 life afterwards (a deterministic buffer — cards are worth life while life is not
  * the constraint; never below L itself, CR 119.4). A human decides at the panel; this is the fallback only.
  */
+/** TAINTED PACT (BI-2) fallback — take the exiled card iff it is a nonland (the pilot decides in the sim; this is the
+ *  policy that fires only when no pilot answers). */
+export function autoPickTaintedPactTake(state, controller, cardName, cardType) {
+  return !/\bLand\b/i.test(String(cardType || ""));
+}
+
 export function autoPickSylvanLibraryPayment(state, controller, life) {
   const cur = state?.players?.[controller]?.life ?? 0;
   const l = Math.max(0, life || 0);

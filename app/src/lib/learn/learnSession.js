@@ -31,8 +31,8 @@
 import { createGameState, loseLife, logEvent, moveCardToZone, MODES } from "./gameState.js";
 import { setPendingCommanderReturnChoice, clearPendingChoice } from "./pendingChoice.js";
 import { autoPickOptionalLifePayment } from "./landEntersTapped.js"; // LANDS-TIER slice 2 — the shockland auto-policy (pay iff life >= 10)
-import { autoPickSylvanLibraryPayment, autoPickTemptingOffer } from "./choicePolicy.js"; // + TEMPTING OFFER (Tempt with Discovery) — the asked opponent's auto-answer // SG-15b — Sylvan Library's per-card pay-or-put-back auto-policy (pay iff ≥8 life would remain)
-import { resolveSylvanLibraryChoice, resolveTemptingOfferChoice } from "./effects/runProgram.js"; // + TEMPTING OFFER — the asked opponent's settler // SG-15b — the per-card settler (chains the next card, then resumes)
+import { autoPickSylvanLibraryPayment, autoPickTemptingOffer, autoPickTaintedPactTake } from "./choicePolicy.js"; // + TEMPTING OFFER (Tempt with Discovery) — the asked opponent's auto-answer // SG-15b — Sylvan Library's per-card pay-or-put-back auto-policy (pay iff ≥8 life would remain)
+import { resolveSylvanLibraryChoice, resolveTemptingOfferChoice, resolveTaintedPactChoice } from "./effects/runProgram.js"; // + TEMPTING OFFER — the asked opponent's settler // SG-15b — the per-card settler (chains the next card, then resumes)
 import {
   startGame,
   prepareStart,
@@ -873,6 +873,12 @@ function settleOptionalLifePaymentChoice(state, pay) {
 // suspended; decline → the offer moves on). The settler returns the next pause, which the driver loop drains.
 function settleTemptingOfferChoice(state, accept) {
   return resolveTemptingOfferChoice(state, accept === true);
+}
+
+function settleTaintedPactChoice(state, take) { // TAINTED PACT (BI-2) — mirrors the Sylvan chain
+  const next = resolveTaintedPactChoice(state, take);
+  if (next.pendingChoice) return next;
+  return finalizeStackResolution(next);
 }
 
 function settleSylvanLibraryChoice(state, pay) {
@@ -2179,6 +2185,26 @@ export function advanceUntilDecision(
       // top". A human decides at the panel (with `affordable` — CR 119.4 lets you pay down to 0, never below);
       // the autopilot pays iff at least 8 life would remain (autoPickSylvanLibraryPayment). The settler chains
       // the next card, then resumes the program.
+      if (pc.kind === "tainted-pact") { // TAINTED PACT (BI-2): take the exiled card or continue — the same yes/no shape as Sylvan
+        if (pause) {
+          return { session: current, decision: { kind: "tainted-pact", ...pc, resume: undefined } };
+        }
+        const picked = decidePendingChoice({
+          decide,
+          state: current.state,
+          seat: choiceSeat,
+          pilot,
+          recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: {
+            kind: "pending-choice",
+            choiceKind: pc.kind,
+            value: autoPickTaintedPactTake(current.state, pc.controller, pc.cardName, pc.cardType),
+          },
+        });
+        current = { ...current, state: settleTaintedPactChoice(current.state, picked.value) };
+        continue;
+      }
       if (pc.kind === "sylvan-library") {
         if (pause) {
           const affordable = (current.state.players?.[pc.controller]?.life ?? 0) >= (pc.life || 0);
@@ -3240,6 +3266,28 @@ function applyTemptingOfferChoice(session, choice, opts = {}) {
   );
 }
 
+function applyTaintedPactChoice(session, choice, opts = {}) { // TAINTED PACT (BI-2) — the human's take-or-continue
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "tainted-pact") {
+    return advanceUntilDecision(session, opts);
+  }
+  const take = choice?.take === true || choice === true;
+  let newState;
+  try {
+    newState = settleTaintedPactChoice(session.state, take);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+  const logEntry = {
+    ts: Date.now(), turn: session.state.turn, phase: session.state.phase, step: session.state.step, actor: "user",
+    action: { kind: "tainted-pact-choice", cardId: pc.cardId, taken: take }, auto: false, reasoning: "user-chose-tainted-pact",
+  };
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] }, opts);
+}
+
 function applySylvanLibraryChoice(session, choice, opts = {}) {
   if (session.status !== "active") {
     return { session, decision: { kind: "game-over", reason: session.status } };
@@ -4205,6 +4253,7 @@ export function applyPendingChoice(session, choice, opts = {}) {
     return applyOptionalManaPaymentChoice(session, choice, opts);
   if (kind === "optional-life-payment") return applyOptionalLifePaymentChoice(session, choice, opts);
   if (kind === "sylvan-library") return applySylvanLibraryChoice(session, choice, opts);
+  if (kind === "tainted-pact") return applyTaintedPactChoice(session, choice, opts); // BI-2
   if (kind === "tempting-offer") return applyTemptingOfferChoice(session, choice, opts); // Tempt with Discovery — the asked opponent's answer
   if (kind === "optional-sac-payment") return applyOptionalSacChoice(session, choice, opts);
   if (kind === "optional-draw-discard")

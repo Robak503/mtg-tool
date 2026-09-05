@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Demonic Consultation, Tainted Pact** — name a card (or none) and dig until it; exile-until-named with the take-or-continue loop and the duplicate-name stop
 - **Wan Shi Tong, Librarian** — enters for X with X counters and half-X cards, and grows whenever an opponent searches their library
 - **Sink into Stupor** — bounces an opponent's spell or nonland permanent (the land side was already playable)
 - **Treasure Vault, Moonsilver Key, Cephalid Coliseum** — X Treasures for XX, the mana-rock-or-basic tutor, and the threshold draw-three-discard-three
