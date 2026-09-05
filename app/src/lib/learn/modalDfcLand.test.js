@@ -45,9 +45,9 @@ describe("the shape module", () => {
     expect(parseModalDfc({ ...PATHWAY, layout: "" })).toBeNull();
     expect(parseModalDfc({ ...PATHWAY, layout: "transform" })).toBeNull();
   });
-  it("the tiers: a Pathway is native land; a spell//land stays land-partial (its front is not castable yet); a transform god is no land at all", () => {
+  it("the tiers: a Pathway is native land; a spell//land with a native front is native-spell (GRADUATED KN-6a, 2026-09-05: Sink into Stupor's front is modeled); a transform god is no land at all", () => {
     expect(classifyCard(PATHWAY)).toBe("land");
-    expect(classifyCard(SINK)).toBe("land-partial");
+    expect(classifyCard(SINK)).toBe("native-spell"); // GRADUATED (POD-SIM THREE · KN-6a, 2026-09-05): the front's opponent-nonland union bounce is modeled — sinkIntoStupor.test.js
     expect(classifyCard(OJER)).not.toMatch(/^land/);
     expect(classifyCard(DELVER)).toBe("body-only");
     // a Land // Land whose back is NOT covered is not credited (the runtime would play a face it cannot honour)
@@ -60,9 +60,9 @@ const FELL = { id: "h-fell", name: "Fell the Profane // Fell Mire", type: "Insta
   oracle: "Fell the Profane - Instant {2}{B}{B}\nDestroy target creature or planeswalker.\n//\nFell Mire - Land \nAs this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {B}." };
 
 describe("slice 2 — the SPELL front is cast as a face (CR 712.8)", () => {
-  it("⭐ the tiers: a native front over a covered back is native-spell; an unmodeled front (Sink into Stupor) stays land-partial; an uncovered back parks the whole card", () => {
+  it("⭐ the tiers: a native front over a covered back is native-spell (Sink into Stupor GRADUATED KN-6a); an uncovered back parks the whole card", () => {
     expect(classifyCard(FELL)).toBe("native-spell");
-    expect(classifyCard(SINK)).toBe("land-partial");
+    expect(classifyCard(SINK)).toBe("native-spell"); // GRADUATED (POD-SIM THREE · KN-6a, 2026-09-05): the front's opponent-nonland union bounce is modeled — sinkIntoStupor.test.js
     const uncoveredBack = { ...FELL, oracle: FELL.oracle.replace("{T}: Add {B}.", "{T}: Add {B}.\n{2}, {T}: Untap target creature and it phases out until your next upkeep.") };
     expect(classifyCard(uncoveredBack)).toBe("land-partial");
   });
@@ -83,13 +83,18 @@ describe("slice 2 — the SPELL front is cast as a face (CR 712.8)", () => {
     expect(s.players.user.hand).toHaveLength(0);
     expect(s.players.user.manaPool).toMatchObject({ B: 0, C: 0 });
   });
-  it("the unmodeled front (Sink into Stupor) is never offered as a cast, while its land back still drops", () => {
+  it("GRADUATED (KN-6a, 2026-09-05): the front (Sink into Stupor) IS offered as a cast aimed at an opponent's nonland permanent, and its land back still drops; with nothing to target the front is not offered", () => {
     const s0 = createGameState({ userDeck: [], aiDeck: [] });
-    const s = { ...s0, turn: 6, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0, stack: [],
-      players: { ...s0.players, user: { ...s0.players.user, hand: [SINK], battlefield: [], manaPool: { W: 0, U: 3, B: 0, R: 0, G: 0, C: 3 } } } };
-    const acts = legalActionsForPlayer(s, "user");
-    expect(acts.filter((a) => a.kind === "cast-spell")).toHaveLength(0);
+    const ogre = { id: "ogre", card: { id: "c-ogre", name: "Ogre", type: "Creature — Ogre", power: 4, toughness: 4, oracle: "" }, controller: "ai", tapped: false, summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null };
+    const mk = (aiBf) => ({ ...s0, turn: 6, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0, stack: [],
+      players: { ...s0.players, user: { ...s0.players.user, hand: [SINK], battlefield: [], manaPool: { W: 0, U: 3, B: 0, R: 0, G: 0, C: 3 } }, ai: { ...s0.players.ai, battlefield: aiBf } } });
+    const acts = legalActionsForPlayer(mk([ogre]), "user");
+    const casts = acts.filter((a) => a.kind === "cast-spell");
+    expect(casts).toHaveLength(1);
+    expect(casts[0].faceCard?.name).toBe("Sink into Stupor");
+    expect(casts[0].targets.map((t) => t.id)).toEqual(["ogre"]);
     expect(acts.filter((a) => a.kind === "play-land").map((a) => a.name)).toEqual(["Soporific Springs"]);
+    expect(legalActionsForPlayer(mk([]), "user").filter((a) => a.kind === "cast-spell")).toHaveLength(0); // no legal target → not offered (never a targetless cast)
   });
 });
 

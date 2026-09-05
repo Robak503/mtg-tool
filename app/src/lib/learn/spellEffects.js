@@ -747,6 +747,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
       // enumeration so an opponent's spell is never offered (CR 601.2c + CREED FP-forbidden). The counter family
       // never sets it (its "target spell" is any controller), so counters are byte-identical.
       if (effect.spellController === "you" && obj.controller !== controllerId) continue;
+      if (effect.spellController === "opponent" && obj.controller === controllerId) continue; // SINK INTO STUPOR (KN-6): an opponent's spell only
       // `effect` rides in so CNT-MV-EXACT (Mental Misstep / Spell Snare) can require the target spell's mana
       // value EQUAL effect.exactMv at enumeration — an MV-mismatched spell is simply not offered as a target.
       if (!spellMatchesCounterFilter(obj, effect.spellFilter, effect)) continue;

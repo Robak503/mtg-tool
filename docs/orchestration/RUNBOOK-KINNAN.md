@@ -72,7 +72,7 @@ Mox Diamond, Mana Vault, Sol Ring, LED all native-mana; Mana Crypt is body-only 
 | KN-3 | Flash Photography · Imposter Mech | S-C token-copy-of-permanent + the Vehicle "except" rider | ✅ +3 | 5 |
 | KN-4 | Treasure Vault · Moonsilver Key · Cephalid Coliseum | the three S fills | ✅ +7 | 8 |
 | KN-5 | Nezahal (line 4) · Wan Shi Tong | discard-three blink with a delayed return; X-ETB derived draw + the search event | +2 | **10** |
-| KN-6 (reserve) | Hullbreaker Horror · Gilded Drake · Endurance (S-B) · Sink into Stupor | if any KN slice lands short | +1 each | |
+| KN-6 (reserve) | Hullbreaker Horror · Gilded Drake · Endurance (S-B) · Sink into Stupor | if any KN slice lands short | ✅ Sink into Stupor +1 (KN-6a: the Venser union narrowed by spell controller + nonland/opponent restrictions — threaded through the targeting spec, unlisted = dropped) · the rest ⬜ (Hullbreaker M/L modal cast trigger · Gilded Drake L control exchange · Endurance M+ evoke composition) | |
 
 Stop the deck at ≥85. Below the line → the Omnath arbiter list (Tezzeret, Transmute Artifact, Mindbreak Trap,
 Chain of Vapor, Veil of Summer, Misdirection, Wandering Archaic, Hydroelectric, Mycosynth Gardens, Unagi's ward,

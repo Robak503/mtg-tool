@@ -1197,6 +1197,11 @@ export function bounceClauseParser(clause) {
   if (/^return target spell or permanent to its owner's hand$/.test(t)) {
     return { op: "bounce-spell-or-permanent", targetType: "spellOrPermanent", notCounter: true };
   }
+  // SINK INTO STUPOR (POD-SIM THREE · KN-6, 2026-09-05): the Venser union narrowed to an OPPONENT's spell or an opponent's
+  // NONLAND permanent — the spell half by controller, the battlefield half by the shared restriction satisfier.
+  if (/^return target spell or nonland permanent an opponent controls to its owner's hand$/.test(t)) {
+    return { op: "bounce-spell-or-permanent", targetType: "spellOrPermanent", notCounter: true, spellController: "opponent", restrictions: [{ kind: "typeNeg", type: "land" }, { kind: "controller", who: "opponent" }] };
+  }
   // NAME-LOCK BOUNCE (SHELF-85 B4, 2026-09-04 — Reflector Mage): the splitter's sentinel for "… to its owner's hand.
   // That creature's owner can't cast spells with the same name as that creature until your next turn." The bounce is
   // the plain opponent-scoped creature bounce; the rider records a per-player NAME cast lock (gameState.nameCastLocks)

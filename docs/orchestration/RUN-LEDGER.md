@@ -16,6 +16,20 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KN-6a: SINK INTO STUPOR — the union bounce narrowed · **+1** · corpus 14469 / 34,245
+> Suite **1497/16143** green; lint 0. Flip-diff **+1, zero LOST**. **5/5 killed.**
+> · "Return target spell or nonland permanent an opponent controls to its owner's hand." (the modal card's instant face —
+>   the land back, Soporific Springs, was already whole; the front was the only park.) The Venser stack-or-battlefield
+>   union knew one shape; the narrowed twin carries a spell-controller filter (an OPPONENT's spell only — the mirror of the
+>   existing "you" filter) and battlefield restrictions (nonland, opponent-controlled) evaluated by the shared satisfier.
+>   Both had to be THREADED through the union's targeting spec — the unlisted-equals-dropped trap the Venser arm itself
+>   documents — or the card would have bounced a land or its caster's own spell.
+> · **Pins:** offered targets are exactly the opponent's spell, Ogre and Sol Ring — never their Island, my bear, or my own
+>   spell on the stack; the Ogre bounces to THEIR hand; the spell leaves the stack into their hand. Mutants: the arm, the
+>   dropped restrictions, the dropped controller filter, the blind enumerator and the missing nonland — all died.
+> · **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+> · **Kinnan 83 → 84 (needs 1)** · Believe it! 76 · Killer Turts 85 ✅ · Shalai 84. (Full suite: the modal-land witness used Sink into Stupor as its 'unmodeled front' example — two tier guards graduated and its cast test rewritten into a positive pin; every other file green.) Next: KN-5b Wan Shi Tong — the last slot.
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KN-4: TREASURE VAULT + MOONSILVER KEY + CEPHALID COLISEUM — three fills · **+7** · corpus 14468 / 34,245
 > Suite **1496/16140** green; lint 0. Flip-diff **+7, zero LOST** — four unplanned twins of the draw-then-discard fold
 > audited whole-card: Cephalid Broker (two/two), Cephalid Looter and Reckless Scholar (a card / a card), Wistful Thinking

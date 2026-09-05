@@ -61,18 +61,18 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Did you say Dragons? | 91 | — | — | ✅ at the bar |
 | Joe | Earth Bent | 91 | — | — | ✅ at the bar (④-BE) |
 | Joe | Mothman Cometh | 89 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
-| Joe | Captain America Shoot your Shot | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
+| Joe | Captain America Shoot your Shot | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Joe | Hulk Smash | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
-| Joe | Kinnan Mana Overload | 83 | 2 | 7 | ⬜ Phase 2 (cEDH — LAST) |
-| Joe | Believe it! | 76 | 9 | 14 | ⬜ Phase 2 (cEDH — LAST) |
+| Joe | Kinnan Mana Overload | 84 | 1 | 6 | ⬜ Phase 2 (cEDH — LAST) |
+| Joe | Believe it! | 77 | 8 | 13 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Kellan of the west | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Halfshell heroes | 67 | 18 | 23 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
-| Test | Test Rashmi | 89 | 0 | 1 | ✅ at 85 · Phase 3 candidate |
-| Test | Teval, the Balanced Scale Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
+| Test | Test Rashmi | 90 | — | — | ✅ at the bar |
+| Test | Teval, the Balanced Scale Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Nekusar Wheels | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**8 decks below 85 · 93 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**8 decks below 85 · 91 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — POD-SIM THREE · KN-6a Sink into Stupor (Kinnan) ✅ +1 corpus (the Venser stack-or-battlefield bounce narrowed to an opponent's spell / an opponent's nonland permanent — the modal card's only park; the land back was whole) · 5/5 killed · suite 1497/16143 · **Kinnan 83 → 84 (needs 1)** · Believe it! 76 · Killer Turts 85 ✅ · Shalai 84. (Full suite: the modal-land witness used Sink into Stupor as its 'unmodeled front' example — two tier guards graduated and its cast test rewritten into a positive pin; every other file green.) Next: KN-5b Wan Shi Tong — the last slot.
 
 - 2026-09-05 — POD-SIM THREE · KN-4 Treasure Vault + Moonsilver Key + Cephalid Coliseum (Kinnan) ✅ +7 corpus (a {X}{X} activation cost owing 2X + bare "Create X Treasures"; the artifact-with-a-mana-ability tutor filter; threshold "N or more cards in your graveyard" + one draw-then-discard atom for the same player) · 8/8 killed · suite 1496/16140 · **Kinnan 80 → 83 (needs 2)** · Believe it! 76 · Killer Turts 85 ✅ · Shalai 84. (Full suite: three pre-existing guards asserted the double-X cost and the draw-then-discard sentence UNMODELED — graduated and re-run green; every other file green.) Next: KN-5/6 — the last two slots.
 
