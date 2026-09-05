@@ -79,10 +79,10 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Shalai and Hallar Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Otharri Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Bumble Flower Combo | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
-| Test | Atraxa Superfriends | 72 | 13 | 18 | ⬜ Phase 2 |
+| Test | Atraxa Superfriends | 73 | 12 | 17 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 71 | 14 | 19 | ⬜ Phase 2 |
 
-**3 decks below 85 · 33 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**3 decks below 85 · 32 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -396,9 +396,9 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 |---|---|---|---|---|---|
 | A1 | Maze of Ith ×2 | | V13 | |✅ |
 | A2 | Interplanar Beacon (sized UP — "planeswalker" sits in the cast filter's denylist AND the {1},{T} two-different-colours line is a paid production the mana model has no field for) · Oath of Gideon ✅ (+1 — the extra loyalty on entry) · Sphere of Safety ✅ (+1 — the counted tax) · Norn's Annex ✅ (+1 — the Phyrexian tax) | cast-planeswalker lifegain / extra loyalty / attack tax | L / S / S / M | Sphere of Safety's tax is the ④-AK attack-tax family with a count-of-enchantments amount; Norn's Annex taxes {W/P} (life-or-mana) | ⬜ |
-| A3 | Arena Rector (sized M — a dies-then-may-exile reflexive tutoring a walker onto the battlefield) · Deploy the Gatewatch ✅ (+1 — the counted dig) · Ashiok (sized L — a static that forbids opponents' searches) · Mutational Advantage (sized M — a counters-scoped team grant + a damage shield on those permanents + proliferate; no counters-scoped grant exists) | | M / S / L / M | | 🔶 |
+| A3 | Arena Rector ✅ (+2 — the "If you do" optional exile-self payment + the planeswalker fetch onto the battlefield; Academy Rector's enchantment form stays parked on purpose) · Deploy the Gatewatch ✅ (+1 — the counted dig) · Ashiok (sized L — a static that forbids opponents' searches) · Mutational Advantage (sized M — a counters-scoped team grant + a damage shield on those permanents + proliferate; no counters-scoped grant exists) | | M / S / L / M | | 🔶 |
 | A4 | Garruk, Unleashed ✅ (+1 — the self-named loyalty counter) · Kiora, the Crashing Wave (sized M — a to-AND-by damage shield on a permanent until your next turn) · Teferi, Hero of Dominaria ✅ (+1 — the positional tuck) | single loyalty lines | S / M / M | the loyalty-ability parser reads per line; each is one arm | 🔶 |
-| A5b | Dueling Grounds ✅ (+{GAIN} — the global combat cap; Silent Arbiter rode along) | attack / block cap | S | | ✅ |
+| A5b | Dueling Grounds ✅ (+3 — the global combat cap; Silent Arbiter and Caverns of Despair rode along) | attack / block cap | S | | ✅ |
 | A5 | COMPOSITE (the planeswalkers) | Ajani Steadfast · Dovin Baan · Elspeth Resplendent · Kaya · Narset Transcendent · Narset, Parter of Veils · Oko · Sorin Markov · Sorin, Grim Nemesis · Tamiyo · Teferi, Master of Time · Teferi, Time Raveler · The Eternal Wanderer · Ugin · Vraska the Unseen · Carth · Astral Cornucopia · Avatar's Wrath · Dueling Grounds · Innkeeper's Talent · Oath of Nissa · Oath of Teferi · Primevals' Glorious Rebirth · Urza's Ruinous Blast | **L — "the loyalty vocabulary sweep"** | one slice: probe every loyalty line in the deck, build the missing arms as a family (emblems, static PW abilities, +1 team buffs, ultimates that need a subsystem get 🅿) | ⬜ |
 
 **Ceiling note:** Atraxa likely stops near 80–85 without the sweep; the sweep is the deck.
@@ -478,6 +478,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · A3 Arena Rector (Atraxa) ✅ +2 corpus (the optional-exile-self payment reads the "IF you do" wording beside "when you do" — Greenwarden of Murasa rides along — and the battlefield tutor admits a GUARANTEED-PLANESWALKER fetch; enchantments stay out: an un-cast Aura would land unattached, CR 303.4f) · mutants 3/3 killed (a 4th survived and its redundant guard word was deleted) · suite 1547 files / 16,320 · Atraxa 72 → **73** (73/100; 12 to the bar) — its remaining rows are M+/L; next = A3 Mutational Advantage (M: the counters-scoped PERMANENT grant + the group all-damage shield on those permanents + proliferate).
 
 - 2026-09-05 — Phase 2 · L4 Gauntlets of Light (Light-Paws) ✅ +2 corpus (the toughness-assigns ATTACHED grant — "gets +0/+2 and assigns combat damage equal to its toughness rather than its power" on an Aura — the pump plus the existing layer-6 op, scoped to the host by the attached-bonus path) · mutants 3/3 killed · suite 1546 files / 16,315 · Light-Paws 70 → **71** (14 to the bar) — LIGHT-PAWS' S ROWS DONE; every remaining row sizes M+ (Karametra's Blessing's enchanted-or-enchantment rider, Face of Divinity / Solid Footing's as-long-as conditionals, Deafening Silence's per-turn cast count, Drannith's cast-zone lock, Umbra Mystic's granted umbra armor, Shielded by Faith / Brilliant Wings' re-attach ETBs, Sentinel's Mark's addendum, Celestial Mantle's life doubling, Light-Paws itself) or L (Mantle of the Ancients, With Great Power, Enter the Avatar State, Ishgard, the L6 composite)
 

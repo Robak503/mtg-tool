@@ -2452,10 +2452,18 @@ export function tutorClauseParser(clause, ctx = {}) {
     // creature card"). The destination-battlefield resolver already enters via enterCardFromZone (ETBs
     // fire, same as reanimation), so the only thing that gated creatures was this admission list.
     const guaranteedCreature = (g) => g.includes("creature");
+    // ARENA RECTOR (SHELF-85 · Atraxa A3, 2026-09-05) — the fourth admission arm: a GUARANTEED-PLANESWALKER fetch
+    // ("a planeswalker card, put it onto the battlefield"). enterCardFromZone stamps entry loyalty for a walker
+    // arriving from any zone (planeswalkerEntryLoyalty — printed loyalty plus Oath of Gideon's extra), so the
+    // only gate was, again, this list. Enchantments stay OUT on purpose: an Aura entering un-cast must choose
+    // what it enchants (CR 303.4f), and the battlefield path has no such choice — admitting "enchantment card"
+    // (Academy Rector) would land an Aura unattached, the wrong-cheat FP the CREED forbids.
+    const guaranteedPlaneswalker = (g) => g.includes("planeswalker");
     const admitted = filter && (
       (filter.permanentOnly && filter.groups.length === 0) ||
       (filter.groups.length > 0 && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) ||
-      (filter.groups.length > 0 && filter.groups.every(guaranteedCreature))
+      (filter.groups.length > 0 && filter.groups.every(guaranteedCreature)) ||
+      (filter.groups.length > 0 && filter.groups.every(guaranteedPlaneswalker))
     );
     if (admitted) {
       return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!bfm[2], targetType: null };

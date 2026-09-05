@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Arena Rector** — exile it as it dies to fetch a planeswalker straight onto the battlefield (Greenwarden of Murasa's "If you do" return rides along)
 - **Gauntlets of Light** — the enchanted creature gets +0/+2 and hits with its toughness
 - **Greater Auramancy** — your enchanted creatures have shroud
 - **Winds of Rath** — destroys every creature without an Aura

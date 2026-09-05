@@ -1921,9 +1921,14 @@ function matchOptionalReflexiveTrigger(oracle, cardType, hasX) {
  */
 function matchOptionalExileSelfReflexive(oracle, cardType) {
   const s = stripReminder(oracle).trim();
-  const m = s.match(/^you may exile it\.\s+when you do(?:\s+this|\s+so)?\s*,?\s+(.+?)\.?$/i);
+  // "When you do" (Undead Butler — the reflexive) and "If you do" (Arena Rector, Greenwarden of Murasa — the
+  // conditional, SHELF-85 Atraxa A3 2026-09-05) share one runtime: the exile is the cost, paid at settle by a real
+  // graveyard → exile move, and the payoff runs only on that move (CR 603.7 / CR 117.12). Same atom, both words.
+  const m = s.match(/^you may exile it\.\s+(?:when|if) you do(?:\s+this|\s+so)?\s*,?\s+(.+?)\.?$/i);
   if (!m) return null;
-  if (/\bwhen you do\b/i.test(m[1])) return null; // a chained 2nd reflexive — not modeled
+  // A chained 2nd reflexive — not modeled. (A chained "if you do" needs no guard: the bare back-reference clause parses
+  // LOW on its own, so the payoff gate below already refuses it — a widened guard SURVIVED its mutant and was removed.)
+  if (/\bwhen you do\b/i.test(m[1])) return null;
   const payoff = parseEffectClauseImpl(m[1].trim(), cardType, { hasX: false });
   if (!payoff || programConfidence(payoff) !== "high" || payoff.structure === "modal" || payoff.xSpell) return null;
   const inner = (payoff.atoms || []).map((a) => (a.targetType === "graveyardCard" ? { ...a, excludeTriggeringCard: true } : a));

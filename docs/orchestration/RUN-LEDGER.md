@@ -16,6 +16,36 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · A3: ARENA RECTOR — "if you do" exile-self + the walker fetch onto the battlefield · **+2** · corpus 14,587 (42.6%) / 34,245
+> Suite **1547 files / 16,320** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed (a 4th survived and its redundant guard word was deleted).**
+> · "When this creature dies, you may exile it. If you do, search your library for a planeswalker card, put it onto the
+>   battlefield, then shuffle." Two seams, one card. (1) The optional-exile-self payment (Undead Butler's lane) anchored
+>   on "When you do" only; the conditional "If you do" has the same runtime — the exile IS the cost, paid at settle by a
+>   real graveyard → exile move, the payoff only on that move (CR 603.7 / CR 117.12) — so the matcher reads both words,
+>   while the chained-clause guard keeps its single word — a chained "If you do" is already refused by the payoff
+>   gate (the bare back-reference parses LOW on its own). (2) The battlefield tutor's admission list (bare permanent ·
+>   land · creature) gains a GUARANTEED-PLANESWALKER arm: enterCardFromZone stamps a walker's entry loyalty from any zone
+>   (the Deploy the Gatewatch slice), so the list was the only gate. Enchantments stay OUT on purpose — an Aura entering
+>   un-cast must choose what it enchants (CR 303.4f), the battlefield path offers no such choice, and admitting "an
+>   enchantment card" (Academy Rector) would land an Aura unattached: the wrong-cheat FP the CREED forbids.
+> · **Pins:** the whole clause parses to ONE pausing wrapper with the walker tutor nested (targetType null — nothing to
+>   lock at flush); the "If you do" graveyard-return form (Greenwarden) parses with the self-exclusion stamp; a chained
+>   second "If you do" nulls; the enchantment battlefield fetch stays low and Academy Rector parks; RUNTIME — the Rector
+>   dies through the lethal pipeline, the flush pauses on the exile choice (available, cardId set); PAY moves it to exile
+>   and opens a tutor-search offering ONLY the planeswalker (the bear in the same library is never a candidate); the pick
+>   enters the battlefield with loyalty 6 and the bear stays in the library; DECLINE leaves everything put; a Rector that
+>   vanished mid-pause pays nothing and no search opens. Mutants: the wording reverted, the walker arm gone, the walker
+>   arm relaxed to any typed group — mutants 3/3 killed (a 4th survived and its redundant guard word was deleted). **A fourth mutant SURVIVED and was acted on:** the first cut also taught the
+>   chained-clause guard the word "if"; reverting that word changed nothing, because the payoff gate already refuses a
+>   chained "If you do" on its own — the redundant word was deleted (the guard is back to "when"), the chained pin stays
+>   as the seen-to-fail witness of the gate that actually does the work.
+> · **Whole-card:** Greenwarden of Murasa (unplanned gain) — its ETB "you may return target card from your graveyard to
+>   your hand" was already modelled; the dies line was the parked half. The Legend of Arena (Saga, chapter III carries
+>   the same fetch) does not flip — its chapters park elsewhere; The Master, Gallifrey's End and the other eleven
+>   dies-may-exile carriers keep parking on their own payoffs (copies-as-tokens, Spirit-typed returns, top-of-library).
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Atraxa 72 → **73** (73/100; 12 to the bar) — its remaining rows are M+/L; next = A3 Mutational Advantage (M: the counters-scoped PERMANENT grant + the group all-damage shield on those permanents + proliferate).
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · L4: GAUNTLETS OF LIGHT — the toughness-assigns attached grant · **+2** · corpus 14,585 / 34,245
 > Suite **1546 files / 16,315** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
 > · "Enchanted creature gets +0/+2 and assigns combat damage equal to its toughness rather than its power." The self and

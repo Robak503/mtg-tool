@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · A3: Arena Rector (+2)** · suite **1547 files / 16,320** green · corpus 14,587 (42.6%) / 34,245 · flip-diff +2 / 0 lost · mutants 3/3 killed (a 4th survived and its redundant guard word was deleted)
+
+> The optional-exile-self payment reads "If you do" beside "When you do", and the battlefield tutor fetches a planeswalker (entry loyalty stamped) — enchantments stay parked on purpose (an un-cast Aura would land unattached). Atraxa 72 → **73** (73/100; 12 to the bar) — its remaining rows are M+/L; next = A3 Mutational Advantage (M: the counters-scoped PERMANENT grant + the group all-damage shield on those permanents + proliferate).
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🏁 2026-09-05 (cron) — **OVERNIGHT CLOSE** · Bumble 70 → 88 · Atraxa 65 → 72 · Halfshell 69 → 79 · Light-Paws 68 → 71 · corpus **14,585 / 34,245 (42.6%)** · suite **1546 files / 16,315** · 67 local commits HELD (repo private, CI billing-blocked)
 
 > Every open §5 deck sits at its Phase 2 S-row ceiling; every remaining row is sized and noted in §5.9 / §5.10 / §5.12 (all M+ / L — the decks' engine seams). Two hollows closed (the self-ETB disjunction; the non-cast walker loyalty stamp) and two resolution gaps (the opponent-creature sweep's restrictions; the active/passive counter count fields). Question to Omnath in COMMS [Q-CEIL]: Phase 3 seam-first, or the pod-sim consumers first. **On resume:** check CI/billing → push the held stack on the first green run (never flip visibility) → then [Q-CEIL]'s answer, or absent one, Phase 3 seam #1 = the "you may <cost>. If you do, <effect>" lane.
