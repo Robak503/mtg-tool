@@ -48,7 +48,7 @@ Legend: **S** one arm on an existing seam · **M** a new arm plus a runtime seam
 |---|---|---|---|---|---|
 | C1 | **Guttural Response** | counter target blue instant spell | ✅ DONE 2026-09-05 (KT-2): the two-filter counter atom; both filters enforced by the enumerator and the resolver | **S** | pinned: a red instant and a blue creature spell are never targets |
 | C2 | **Pyroblast** | modes: counter target spell if it's blue / destroy target permanent if it's blue | ✅ DONE 2026-09-05 (KT-2): the "if it's <colour>" mode form is read as its RESTRICTED twin (REB's printed wording) — an honest UNDER-offer; Hydroblast rides the same rewrite | **S** | the legal-but-idle cast at a non-blue object is NOT modelled rather than mis-modelled; the sim never wastes it |
-| C3 | **Avoid Fate** | counter target instant or Aura spell that targets a permanent you control | a "targets a permanent you control" predicate on stack objects | **M** | pays Not of This World too |
+| C3 | **Avoid Fate** | counter target instant or Aura spell that targets a permanent you control | ✅ DONE 2026-09-05 (KT-9a): the targets-what predicate ALREADY existed ("a permanent you control"); the typed form adds a spell-type filter in front (`instantOrAura`, known to both evaluators) | **S** | pinned: an instant aimed at your creature is countered; a sorcery aimed at it and an instant aimed at the opponent's are never targets |
 | C4 | **Not of This World** | counter target spell or ability that targets a permanent you control; costs {7} less if the target targets your 7-power creature | the same predicate + an ability target + a conditional reducer | **M** | rides C3 |
 | C5 | **Veil of Summer** | draw if an opponent cast blue/black this turn; your spells can't be countered this turn; you and your permanents gain hexproof from blue and black | three effects: a colour-cast-this-turn draw, an uncounterable-this-turn flag, colour-scoped hexproof (from-colour exists? probe) | **M/L** | shared with Kinnan; each of the three halves must be real |
 
@@ -97,7 +97,7 @@ Ordered by plan-criticality, then cost. Running total assumes each slice lands w
 | KT-6 | Savage Beating | combat-only timing restriction (+ entwine honoured) | ✅ +1 | 9 |
 | KT-7 | Overpowering Attack · Full Throttle · World at War | S-D: attacked-this-turn untap, two additional combats, delayed per-combat untap, after-second-main insertion; rebound + freerunning sized on approach | ✅ Overpowering Attack +1 · Full Throttle ⬜ (a per-combat delayed untap = a new fire step) · World at War ⬜ (rebound unmodeled) | 10 |
 | KT-8 | Grim Reaper's Sprint | aura ETB extra combat + morbid reducer | ✅ +3 | 11 |
-| KT-9 | Avoid Fate · Not of This World | targets-a-permanent-you-control predicate | +2 | 14–15 |
+| KT-9 | Avoid Fate · Not of This World | targets-a-permanent-you-control predicate | ✅ Avoid Fate +2 · Not of This World ⬜ (spell-OR-ability target union + a target-conditional reducer — M) | 12 |
 | KT-10 | Carpet of Flowers · Jeweled Amulet · Great Train Heist (spree) · World War Hulk | whichever lands cleanest | +1 to +3 | **≥15** |
 
 Stop the deck at ≥85. Everything unbuilt below the line (redirects, Tezzeret, Invasion, Tibalt's Trickery,

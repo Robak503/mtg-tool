@@ -16,6 +16,17 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-9a: AVOID FATE — the typed counter-that-targets · **+2** · corpus 14,443 (42.2%) / 34,245
+> Suite **1489 files / 16,104 tests** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **4/4 killed + 1 EQUIVALENT documented (the resolution-side mirror line: unknown filters are permissive there by design).**
+> · "Counter target instant or Aura spell that targets a permanent you control." The runbook sized this M for a new
+>   stack-object predicate — the predicate already existed (the CNT-TARGETS-WHAT family reads a spell's RECORDED targets;
+>   "a permanent you control" was on its table). The miss was only the spell-TYPE prefix: a typed arm with a new
+>   `instantOrAura` filter value that both evaluators (the enumerator's and the resolver's) know. A sorcery aimed at your
+>   permanent, or an instant aimed at the opponent's, is never a target (the mutants that dropped either filter died; the
+>   evaluators that matched anything died).
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Killer Turts 81 → 82** (82/100; needs 3). Unplanned gain audited: Ring of Immortals (Avoid Fate's sentence as an activated ability). Next: the last three — Carpet of Flowers / Jeweled Amulet / Full Throttle / Not of This World, cheapest first.
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-8: GRIM REAPER'S SPRINT — morbid joins the self-metric seam · **+3** · corpus 14,441 (42.2%) / 34,245
 > Suite **1488 files / 16,101 tests** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **6/6 killed.**
 > · The aura's ETB ("untap each creature you control. If it's your main phase, there is an additional combat phase after

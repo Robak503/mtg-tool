@@ -84,6 +84,7 @@ export function counterFilterMatches(card, filter, atom = null) {
   if (filter === "creatureOrAura") return /\bCreature\b/.test(type) || /\bAura\b/.test(type);
   // CNT-IS (Flusterstorm's soft-counter — "instant or sorcery spell") — the 2-type union (front-face).
   if (filter === "instantSorcery") return /\b(?:Instant|Sorcery)\b/.test(type);
+  if (filter === "instantOrAura") return /\bInstant\b/.test(type) || /\bAura\b/.test(type); // Avoid Fate (KT-9)
   // SOFT-COUNTER-RIDER — Swan Song's 3-way filter (mirrors spellMatchesCounterFilter for enumeration).
   if (filter === "enchantmentInstantSorcery") return /\b(?:Enchantment|Instant|Sorcery)\b/.test(type);
   // CNT-ACP (WAVE 2b) — Strix Serenade's 3-way "artifact, creature, or planeswalker" union (front-face).
@@ -593,6 +594,15 @@ export function counterClauseParser(clause) {
       const f = parseSpellTargetsFilter(tw[1]);
       if (f) return { op: "counter", spellFilter: "any", targetType: "spell", targetsFilter: f };
       return null; // an unvetted filter → LOW → Arbiter (CREED: never guess what a spell must point at)
+    }
+    // AVOID FATE (POD-SIM THREE · KT-9, 2026-09-05): "Counter target instant or Aura spell that targets a permanent you
+    // control" — the same targets-what predicate with a spell-TYPE filter in front (a new `instantOrAura` value both
+    // evaluators know). A creature spell aimed at your permanent, or an instant aimed elsewhere, is never a target.
+    const twTyped = /^counter target instant or aura spell that targets (.+)$/.exec(t);
+    if (twTyped) {
+      const f = parseSpellTargetsFilter(twTyped[1]);
+      if (f) return { op: "counter", spellFilter: "instantOrAura", targetType: "spell", targetsFilter: f };
+      return null;
     }
   }
   if (/^counter target spell$/.test(t)) return { op: "counter", spellFilter: "any", targetType: "spell" };

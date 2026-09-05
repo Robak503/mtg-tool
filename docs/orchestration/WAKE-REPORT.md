@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-9a: Avoid Fate (+2)** · suite **1489 files / 16,104 tests** green · corpus 14,443 (42.2%) / 34,245 · flip-diff +2 / 0 lost · 4/4 killed + 1 EQUIVALENT documented (the resolution-side mirror line: unknown filters are permissive there by design)
+
+> The typed counter-that-targets: a spell-type filter in front of the existing targets-what predicate. **Killer Turts 81 → 82** (82/100; needs 3). Unplanned gain audited: Ring of Immortals (Avoid Fate's sentence as an activated ability). Next: the last three — Carpet of Flowers / Jeweled Amulet / Full Throttle / Not of This World, cheapest first.
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-8: Grim Reaper's Sprint (+3)** · suite **1488 files / 16,101 tests** green · corpus 14,441 (42.2%) / 34,245 · flip-diff +3 / 0 lost · 6/6 killed
 
 > Morbid as a fixed self cost-reduction on the cast lane's self-metric seam. **Killer Turts 80 → 81** (81/100; needs 4). Unplanned gains audited: Purple Worm and Bone Picker (the unlabelled morbid sentence + keywords only). Next: KT-9 Avoid Fate (the typed counter-that-targets), then KT-7b Full Throttle, then Not of This World / Carpet of Flowers.

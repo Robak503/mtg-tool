@@ -1165,6 +1165,7 @@ function spellMatchesCounterFilter(stackObj, filter, atom = null) {
   if (filter === "creatureOrAura") return /\bCreature\b/.test(type) || /\bAura\b/.test(type);
   // CNT-IS (Flusterstorm's soft-counter — "instant or sorcery spell") — mirrors counterFilterMatches.
   if (filter === "instantSorcery") return /\b(?:Instant|Sorcery)\b/.test(type);
+  if (filter === "instantOrAura") return /\bInstant\b/.test(type) || /\bAura\b/.test(type); // Avoid Fate (KT-9)
   // SOFT-COUNTER-RIDER — Swan Song's 3-way filter (mirrors counterFilterMatches at resolution).
   if (filter === "enchantmentInstantSorcery") return /\b(?:Enchantment|Instant|Sorcery)\b/.test(type);
   // CNT-ACP (WAVE 2b) — Strix Serenade's "artifact, creature, or planeswalker" union (front-face).
