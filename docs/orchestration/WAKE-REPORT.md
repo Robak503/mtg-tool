@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-3: Irencrag Feat + Rite of Flame (+3)** · suite **1482 files / 16,083 tests** green · corpus 14,432 (42.1%) / 34,245 · flip-diff +3 / 0 lost · 10/10 killed
+
+> The word-number ritual, the self cast limit, and the every-graveyard name count. **Killer Turts 73 → 75** (75/100; needs 10). Unplanned gain audited: The Flux (a Saga whose chapter VI is 'Add six {R}' — every other chapter was already native). Next: KT-4 Geosurge + Open the Omenpaths (restricted spend on a spell's add-mana).
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-2: Guttural Response + Pyroblast (+3)** · suite **1481 files / 16,079 tests** green · corpus 14,429 (42.1%) / 34,245 · flip-diff +3 / 0 lost · 5/5 killed; the 08 CREED pin on Pyroblast GRADUATED (repointed: native + the colour survives on both modes)
 
 > The two-filter counter and the "if it's blue" reading (an honest under-offer). **Killer Turts 71 → 73** (73/100; needs 12). Next: KT-3 Irencrag Feat + Rite of Flame (word-number pips; the self cast limit; the all-graveyards name count).

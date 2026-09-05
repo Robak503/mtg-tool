@@ -1032,6 +1032,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     {
       const lock = state.castLocksThisTurn?.[playerId];
       if (lock && lock.turn === state.turn && lock.noncreature && !/\bCreature\b/i.test(String(card?.type || card?.type_line || "").split(" // ")[0])) continue;
+      // KT-3 (Irencrag Feat): the controller's own "only N more spells this turn" — spells cast since the stamp vs the allowance
+      if (lock && lock.turn === state.turn && lock.spellLimit
+          && ((state.players[playerId]?.spellsCastThisTurn || 0) - lock.spellLimit.spellsCastAtLock) >= lock.spellLimit.more) continue;
     }
 
     // CR 202.1a — A CARD WITH NO MANA COST CAN'T BE CAST unless an effect allows it. manaCostOf correctly

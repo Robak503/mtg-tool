@@ -11,6 +11,7 @@ summarizes the notable changes.
 ### Added
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
+- **Irencrag Feat** and **Rite of Flame** — the red rituals now resolve natively, including Irencrag's one-more-spell limit
 - **Guttural Response**, **Pyroblast**, **Hydroblast** — the colour-hate counters are now cast natively
 - **Port Razer** — its extra combats now respect "can't attack a player it has already attacked this turn"
 - **Chaos Warp** — shuffles the target into its owner's library and flips their top card onto the battlefield if it's a permanent

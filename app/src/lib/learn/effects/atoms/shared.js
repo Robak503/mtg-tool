@@ -560,6 +560,13 @@ function chosenTypePermanentsCount(player) {
   return best;
 }
 export function countForSpec(state, ctx, spec) {
+  if (spec.kind === "cardsNamedInAllGraveyards") { // Rite of Flame (KT-3): every player's graveyard, by name
+    const want = String(spec.name || "").toLowerCase();
+    if (!want) return 0;
+    let n = 0;
+    for (const pid of Object.keys(state?.players || {})) for (const c of state.players[pid]?.graveyard || []) if (String(c?.name || "").toLowerCase() === want) n++;
+    return n;
+  }
   // ===== TAPPED-CREATURES-OF-TARGET-OPPONENT (BLITZ TD-1 — Theft of Dreams / Borrowing 100,000 Arrows:
   // "Draw a card for each tapped creature target opponent controls") ===== the count is read off the
   // CHOSEN player target's battlefield AT RESOLUTION (CR 608.2h): every permanent that IS a creature

@@ -111,6 +111,22 @@ function applyDrawHalfLibraryLoseHalfLife(state, atom, ctx) {
  * legalChoices' cast loop refuses a non-creature card for a locked seat while `turn === state.turn` (the stamp self-expires
  * with the turn number, the FOG latch's discipline — no cleanup pass). Only the noncreature filter is printed on the row.
  */
+/**
+ * SELF CAST LIMIT THIS TURN (POD-SIM THREE · KT-3, 2026-09-05 — Irencrag Feat "You can cast only one more spell this
+ * turn."): stamp `castLocksThisTurn[controller].spellLimit = { spellsCastAtLock, more }` — the controller's own
+ * spellsCastThisTurn at RESOLUTION (the ritual itself was counted at its cast, so the NEXT spell is the "one more").
+ * legalChoices' cast loop refuses a cast once `spellsCastThisTurn - spellsCastAtLock >= more` while `turn === state.turn`
+ * (the stamp self-expires with the turn number). Other seats are untouched; abilities are never locked.
+ */
+function applySelfCastLimitTurn(state, atom, ctx) {
+  const player = state.players?.[ctx.controller];
+  if (!player) return state;
+  const locks = { ...(state.castLocksThisTurn || {}) };
+  const prev = locks[ctx.controller] && locks[ctx.controller].turn === state.turn ? locks[ctx.controller] : {};
+  locks[ctx.controller] = { ...prev, turn: state.turn, spellLimit: { spellsCastAtLock: player.spellsCastThisTurn || 0, more: Math.max(0, atom.moreSpells | 0) } };
+  return logEvent({ ...state, castLocksThisTurn: locks }, { kind: "spell-effect", effect: "self-cast-limit-turn", controller: ctx.controller, more: atom.moreSpells, turn: state.turn });
+}
+
 function applyOpponentsCastLockTurn(state, atom, ctx) {
   const locks = { ...(state.castLocksThisTurn || {}) };
   for (const pid of opponentsOf(state, ctx.controller)) locks[pid] = { turn: state.turn, [atom.filter]: true };
@@ -378,6 +394,24 @@ export function miscClauseParser(clause) {
   // targetType opponent rides the normal enumeration.
   const mth = t.match(/^add \{([wubrgc])\} for each card in target opponent's hand$/);
   if (mth) return { op: "add-mana", manaPerTargetHand: mth[1].toUpperCase(), targetType: "opponent" };
+  // RITUAL RIDERS (POD-SIM THREE · KT-3, 2026-09-05):
+  //  · the WORD-number pip form — Irencrag Feat "Add seven {R}" (the pip form below already parsed);
+  //  · the per-count add — Rite of Flame "add {R} for each card named Rite of Flame in each graveyard": a count kind over
+  //    EVERY graveyard by name (shared.countForSpec cardsNamedInAllGraveyards), resolved at resolution;
+  //  · the SELF cast limit — Irencrag Feat "You can cast only one more spell this turn": a castLocksThisTurn stamp on the
+  //    controller keyed on their spellsCastThisTurn at resolution (the ritual itself was counted at its cast), read by the
+  //    cast loop, self-expiring with the turn number. Spells only (CR 601) — abilities are never locked.
+  const ritWord = t.match(/^add (one|two|three|four|five|six|seven|eight|nine|ten) \{([wubrgc])\}$/);
+  if (ritWord) {
+    const NUM = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+    const mana = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+    mana[ritWord[2].toUpperCase()] = NUM[ritWord[1]];
+    return { op: "add-mana", mana, targetType: null };
+  }
+  const ritPer = t.match(/^add \{([wubrgc])\} for each card named (.+?) in each graveyard$/);
+  if (ritPer) return { op: "add-mana", manaPerCount: ritPer[1].toUpperCase(), countSpec: { kind: "cardsNamedInAllGraveyards", name: ritPer[2].trim() }, targetType: null };
+  const oneMore = t.match(/^you can cast only (one|two|three) more spells? this turn$/);
+  if (oneMore) return { op: "self-cast-limit-turn", moreSpells: { one: 1, two: 2, three: 3 }[oneMore[1]], targetType: null };
   const rit = t.match(/^add ((?:\{[wubrgc]\})+)$/);
   if (rit) {
     const mana = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
@@ -655,6 +689,11 @@ function anyColorChoice(state, ctx) {
 
 export function applyAddMana(state, atom, ctx) {
   let next = state;
+  if (atom.manaPerCount) { // Rite of Flame (KT-3): {R} per card named X in EVERY graveyard, counted at resolution
+    const n = Math.max(0, countForSpec(state, ctx, atom.countSpec) || 0);
+    if (n > 0) next = addMana(next, { playerId: ctx.controller, color: atom.manaPerCount, amount: n });
+    return logEvent(next, { kind: "spell-effect", effect: "add-mana", controller: ctx.controller, mana: { [atom.manaPerCount]: n } });
+  }
   // JESKA'S WILL (2026-08-14) — "Add {R} for each card in target opponent's hand": the amount is the
   // TARGETED opponent's LIVE hand size at resolution (CR 608.2h). A departed/absent target → 0 added
   // (a clean no-op, never a fabricated count).
@@ -814,6 +853,7 @@ export const miscResolvers = {
   "extra-turn": applyExtraTurn, // ===== EXTRA-TURN ===== (XT-1, CR 500.7) — "Take an extra turn after this one": a LIFO stack popped at advanceStep's end-of-turn branch
   "lure-this-turn": applyLureThisTurn, // ===== THIS-TURN LURE ===== (LU-2, CR 509.1c) — a turn-scoped block requirement marker, enforced in opponentAI.pickBlockers at the LU-1 bar
   "add-mana": applyAddMana, // RITUAL-MANA — "Add {C}{C}{C}" adds basic mana to the controller's pool
+  "self-cast-limit-turn": applySelfCastLimitTurn, // KT-3 (Irencrag Feat) — "you can cast only one more spell this turn" on the CONTROLLER
   "fog": applyFog, // ===== FOG ===== (FOG-1) prevent all combat damage this turn — a turn-scoped latch
   "opponents-cast-lock-turn": applyOpponentsCastLockTurn, // SHELF-85 S11 — "your opponents can't cast noncreature spells this turn" (Permission Denied)
   "force-attack": applyForceAttack, // ===== FORCED-ATTACK ===== (FORCE-ATTACK-1, CR 508.1a) — "Creatures your opponents control attack this turn if able" (Bident): a turn-scoped attack requirement enforced in opponentAI.pickAttackPlan

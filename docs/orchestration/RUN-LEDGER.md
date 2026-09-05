@@ -3,6 +3,20 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-3: IRENCRAG FEAT + RITE OF FLAME — the ritual riders · **+3** · corpus 14,432 (42.1%) / 34,245
+> Suite **1482 files / 16,083 tests** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **10/10 killed.**
+> · **Irencrag Feat** "Add seven {R}. You can cast only one more spell this turn.": the word-number pip form (the pip form
+>   already parsed), and a SELF cast limit — a `castLocksThisTurn[controller].spellLimit` stamp keyed on the controller's
+>   spellsCastThisTurn at RESOLUTION (the ritual was counted at its cast, so the next spell is the one more), read by the
+>   cast loop, self-expiring with the turn number, the caster only (a mutant that stamped every seat died; a mutant that
+>   counted from zero — no spells at all — died). Abilities are never locked (CR 601).
+> · **Rite of Flame** "Add {R}{R}, then add {R} for each card named Rite of Flame in each graveyard.": the second half is an
+>   add-mana over a new count kind, `cardsNamedInAllGraveyards` — EVERY seat's graveyard (the mutant that read only yours
+>   died), read at resolution; the resolving Rite is not yet in the graveyard (CR 608.2m — pinned: 2 with none, 4 with one
+>   in yours and one in an opponent's).
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Killer Turts 73 → 75** (75/100; needs 10). Unplanned gain audited: The Flux (a Saga whose chapter VI is 'Add six {R}' — every other chapter was already native). Next: KT-4 Geosurge + Open the Omenpaths (restricted spend on a spell's add-mana).
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-2: GUTTURAL RESPONSE + PYROBLAST — two filters, and the "if it's blue" reading · **+3** · corpus 14,429 (42.1%) / 34,245
 > Suite **1481 files / 16,079 tests** green; lint 0. Flip-diff **+3, zero LOST** (Guttural Response, Pyroblast, Hydroblast — audited whole-card). **5/5 killed; the 08 CREED pin on Pyroblast GRADUATED (repointed: native + the colour survives on both modes).**
 > · **Guttural Response** "Counter target blue instant spell": the counter atom had a colour filter and a spell-type filter, each
