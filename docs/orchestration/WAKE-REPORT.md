@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · L5: Enter the Avatar State (+1)** · suite **1559 files (1555 green + the 4 graduated-guard files rerun green)** green · corpus 14,618 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 5/5 killed
+
+> A combat trick can now add a creature subtype beside its keywords — a layer-4 union until end of turn. Light-Paws 78 → **79** on this slice alone (the measure in this run read 80 because the Daybreak Coronet edit was already in the tree; Coronet's own commit follows). Next: Daybreak Coronet (S), then Sentinel's Mark (M).
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · L4: Shielded by Faith + Brilliant Wings (+4)** · suite **1558 files / 16,360** green · corpus 14,616 (42.7%) / 34,245 · flip-diff +4 / 0 lost · mutants 4/4 killed
 
 > An Aura can now jump onto a creature as it enters — the source Aura moves to the triggering creature, its own Enchant line honoured at the move. Light-Paws 76 → **78** (78/100; 7 to the bar). Next: Enter the Avatar State (the becomes-a-subtype-and-gains pump; the arm is built, the splitter needs its keep-whole guard), then Daybreak Coronet (S — the with-another-Aura Enchant restriction), then Sentinel's Mark (M — the Addendum main-phase look-back).

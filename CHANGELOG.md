@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Enter the Avatar State** — your creature becomes an Avatar with flying, first strike, lifelink and hexproof for the turn
 - **Shielded by Faith / Brilliant Wings** — the Aura hops onto a creature as it enters (Wings for {1})
 - **Face of Divinity / Shardmage's Rescue** — Aura bonuses that switch on with a second Aura, or only on the turn the Aura arrived
 - **Karametra's Blessing** — +2/+2, and hexproof + indestructible when the target wears an Aura or is an enchantment creature

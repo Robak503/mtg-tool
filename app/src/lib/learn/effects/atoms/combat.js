@@ -376,6 +376,16 @@ export function applyPumpEffect(state, atom, ctx) {
         duration: dur(), source: src,
       }).state;
     }
+    // SUBTYPE-ADD rider (Enter the Avatar State — "becomes an Avatar in addition to its other types"): a layer-4 subtype
+    // union on the pumped target, the same endOfTurn duration (the set-base-pt-team arm's rider, per target).
+    if (atom.addSubtype) {
+      next = addContinuousEffect(next, {
+        layer: 4,
+        op: { subtypes: [atom.addSubtype] },
+        affects: { mode: "fixed", permanentIds: [target.id] },
+        duration: dur(), source: src,
+      }).state;
+    }
     // PUMP-UNTAP — a combat trick that also untaps its target ("…until end of turn. Untap it." — Vines of
     // the Recluse, Acrobatic Leap, ambush tricks). The untap is part of the SAME single-target atom (no
     // second target), so it lands on the pumped creature; a one-shot untap, not a continuous effect.
@@ -1899,6 +1909,16 @@ export function pumpClauseParser(clause) {
   }
   cg = t.match(/^have target creature get ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (cg) return { op: "pump", targetType: "creature", ptDelta: { p: parseInt(cg[1], 10), t: parseInt(cg[2], 10) } };
+  // BECOMES-A-SUBTYPE-AND-GAINS (SHELF-85 · Light-Paws L5 Enter the Avatar State, 2026-09-05) — "Until end of turn, target
+  // creature you control becomes an Avatar in addition to its other types and gains flying, first strike, lifelink, and
+  // hexproof." The keyword pump with a layer-4 SUBTYPE-ADD rider (the set-base-pt-team arm's `addSubtype` shape), both
+  // until end of turn. Only the ADDITIVE form is admitted — a replacing "becomes a Dragon" would need the
+  // setCreatureSubtypes op and parks (CREED). The keywords go through the shared parseGrantedKeywords vocabulary.
+  const bst = t.match(/^(?:until end of turn, )?target creature( you control)? becomes an? ([a-z]+) in addition to its other types and gains (.+?)(?: until end of turn)?$/);
+  if (bst) {
+    const kws = parseGrantedKeywords(bst[3]);
+    return kws ? { op: "pump", targetType: "creature", restrictions: bst[1] ? [{ kind: "controller", who: "you" }] : [], ptDelta: { p: 0, t: 0 }, grantKeywords: kws, addSubtype: cap(bst[2]) } : null;
+  }
   let pg = t.match(/^target creature gets ([+-]\d+)\/([+-]\d+) and gains (.+) until end of turn$/);
   if (pg) {
     const kws = parseGrantedKeywords(pg[3]);

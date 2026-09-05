@@ -437,6 +437,11 @@ export function splitClauses(oracle) {
     // subject, so the sentence would shatter on " and " and never reach the anotherPt pump matcher. Keep it whole
     // so the pump + grant bind to the SAME excluded-source own target. POSITIVE deltas only (matches the matcher).
     if (/^another target creature you control gets \+\d+\/\+\d+ and gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // BECOMES-A-SUBTYPE-AND-GAINS (SHELF-85 · Light-Paws L5 Enter the Avatar State, 2026-09-05 — "Until end of turn, target
+    // creature you control becomes an Avatar in addition to its other types and gains flying, first strike, lifelink, and
+    // hexproof."): the pump parser owns the whole sentence (a keyword pump with a subtype-add rider); its two internal
+    // " and "s would otherwise shatter it. Kept whole, like the pump-and-gains guards above.
+    if (/^(?:until end of turn, )?target creature(?: you control)? becomes an? [a-z]+ in addition to its other types and gains [a-z ,]+(?: until end of turn)?$/i.test(sentence)) { clauses.push(sentence); continue; }
     // BOUND-REFERENT, ENCHANTED-OR-ENCHANTMENT-CREATURE keyword rider (SHELF-85 · Light-Paws L5 Karametra's Blessing,
     // 2026-09-05 — "If it's an enchanted creature or enchantment creature, it also gains hexproof and indestructible until
     // end of turn."): the SAME internal " and " binding as the rules above, under a leading per-object condition the

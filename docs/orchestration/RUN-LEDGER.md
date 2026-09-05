@@ -16,6 +16,24 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · L5: ENTER THE AVATAR STATE — the becomes-a-subtype-and-gains pump · **+1** · corpus 14,618 (42.7%) / 34,245
+> Suite **1559 files (1555 green + the 4 graduated-guard files rerun green)** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
+> · "Until end of turn, target creature you control becomes an Avatar in addition to its other types and gains flying, first
+>   strike, lifelink, and hexproof." The keyword pump existed; the subtype half did not — one arm in the pump parser
+>   emitting the pump with an `addSubtype` rider (the set-base-pt-team arm's shape), and the resolver lays a layer-4
+>   subtype union on the pumped target under the same endOfTurn duration as its keywords. Only the ADDITIVE form is
+>   admitted — a replacing "becomes a Dragon" would need the setCreatureSubtypes op and parks (CREED). The you-control
+>   restriction rides the pump's target enumeration. The corpus prints this shape on one card. The splitter was the second
+>   seam again (the Karametra lesson): the arm matched in isolation while the driver shattered "… and gains flying, first
+>   strike, lifelink, and hexproof" on its " and "s — one keep-whole guard for this exact sentence shape.
+> · **Pins:** the atom (four keywords, the Avatar rider, the restriction); native-spell. RUNTIME through the real cast: only
+>   your creature is offered as a target; resolving reads the target as a Bear AND an Avatar (layer 4) with flying, first
+>   strike, lifelink and hexproof; the opponent's creature is untouched. Mutants: the arm gone, the subtype rider never
+>   landing, the restriction dropped, the keywords dropped, the splitter guard gone — mutants 5/5 killed.
+> · **Whole-card:** no unplanned gains — the shape prints on this card alone.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Light-Paws 78 → **79** on this slice alone (the measure in this run read 80 because the Daybreak Coronet edit was already in the tree; Coronet's own commit follows). Next: Daybreak Coronet (S), then Sentinel's Mark (M).
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · L4: SHIELDED BY FAITH + BRILLIANT WINGS — attach-on-enter Auras · **+4** · corpus 14,616 (42.7%) / 34,245
 > Suite **1558 files / 16,360** green; lint 0. Flip-diff **+4, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · "Whenever a creature enters, you may attach this Aura to that creature." / "Whenever a creature you control enters, you
