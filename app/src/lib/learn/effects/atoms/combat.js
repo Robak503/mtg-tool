@@ -1114,7 +1114,9 @@ export function applyGrantKeywordsGroup(state, atom, ctx) {
   // COUNTER-FILTERED ("those creatures" — the +1/+1-counter creatures the preceding draw counted; Inspiring
   // Call). Read at resolution off the live counter bag (CR 611.2c snapshot), so a creature that loses its
   // counter before this resolves is excluded — faithful. Absent → no filter (the plain group grant).
-  if (atom.requiresCounter) sel = sel.filter((p) => (p.counters?.[atom.requiresCounter] || 0) > 0);
+  // "any" (Baxter — "each creature you control with a counter on it", SHELF-85 · Halfshell Q3): at least one counter of ANY
+  // kind; a kind string keeps Inspiring Call's read of that one pile.
+  if (atom.requiresCounter) sel = sel.filter((p) => atom.requiresCounter === "any" ? Object.values(p.counters || {}).some((n) => Number(n) > 0) : (p.counters?.[atom.requiresCounter] || 0) > 0);
   if (atom.excludeSource && ctx.sourceId) sel = sel.filter((p) => p.id !== ctx.sourceId);  // Spider-Man's "each other"
   const ids = sel.map((p) => p.id);
   let next = state;

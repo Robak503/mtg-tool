@@ -1941,6 +1941,20 @@ function matchOptionalExileSelfReflexive(oracle, cardType) {
 // grant keyword runs through the grantable-keyword allowlist (an un-grantable keyword → the grant clause returns
 // null → the whole card stays LOW), the exact "for each creature you control with a +1/+1 counter" anchor can't
 // over-match, and BOTH atoms must be KNOWN (draw + grant-keywords-group) or it's LOW (no partial — CREED).
+// COUNTER-FILTERED GROUP GRANT (SHELF-85 · Halfshell Q3 — Baxter, Fly in the Ointment, 2026-09-05): "Each creature you
+// control with a counter on it gains <grantable keyword[s]> until end of turn." The group grant's resolver already
+// carries a counter filter (Inspiring Call binds it with the kind "+1/+1"); this is the same grant parsed through the same
+// allowlisted keyword path, stamped with the filter value "any" — at least one counter of ANY kind, read live at
+// resolution. Whole-clause anchored; a counted variant ("with two or more counters") never matches (CREED).
+function matchCounterCreaturesGrant(oracle, cardType, hasX) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").trim();
+  const m = t.match(/^each creature you control with a counter on it gains (.+) until end of turn\.?$/);
+  if (!m) return null;
+  const grantAtom = parseClauseToAtom(cardType, `creatures you control gain ${m[1]} until end of turn`, hasX);
+  if (!grantAtom || grantAtom.op !== "grant-keywords-group") return null;
+  return { atoms: [{ ...grantAtom, requiresCounter: "any" }] };
+}
+
 function matchDrawCounterCreaturesThenGrant(oracle, cardType, hasX) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").trim();
   const m = t.match(/^draw a card for each creature you control with a \+1\/\+1 counter on it\. those creatures gain (.+) until end of turn\.$/);
@@ -2435,6 +2449,11 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   const dcg = matchDrawCounterCreaturesThenGrant(oracle, cardType, hasX);
   if (dcg && dcg.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: dcg.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== BAXTER ===== the counter-filtered group grant — see matchCounterCreaturesGrant. One KNOWN atom → HIGH.
+  const ccg = matchCounterCreaturesGrant(oracle, cardType, hasX);
+  if (ccg && ccg.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: ccg.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== DRAIN-X (Exsanguinate) ===== "Each opponent loses X life. You gain life equal to the life lost this
   // way." → ONE drain-each-opponent atom (the lifegain is the actual total drained, computed at resolution).

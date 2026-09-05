@@ -16,6 +16,23 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · Q3: BAXTER, FLY IN THE OINTMENT — the counter-filtered group grant · **+1** · corpus 14,581 / 34,245
+> Suite **1543 files / 16309** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
+> · "Whenever Baxter enters or attacks, each creature you control with a counter on it gains flying until end of turn."
+>   The compound head, the draw-a-card counter trigger and the plain "creatures you control gain <kw>" grant were all
+>   native; the FILTERED grant had no arm. The group keyword grant's resolver already carries a counter filter —
+>   Inspiring Call's "those creatures" binds it with the kind "+1/+1" — so the filtered sentence is one whole-clause
+>   matcher: it parses the unfiltered grant through the same allowlisted keyword path and stamps the filter with the
+>   value "any", and the resolver reads "any" as at least one counter of any kind (the kind-string read unchanged).
+>   Exactly this sentence; a counted variant ("with two or more counters") stays refused.
+> · **Pins:** the atom (scope, keywords, the "any" filter); an un-grantable keyword refused; Baxter native; RUNTIME —
+>   through the real ETB flush a creature with a charge counter gains flying, an unmarked one does not, an opponent's
+>   marked creature does not; the +1/+1-kind filter (Inspiring Call) unchanged. Mutants: the matcher gone, the filter
+>   stamped as "+1/+1" instead of "any" (a charge counter no longer qualifies), the resolver's "any" branch reading
+>   every creature — mutants 3/3 killed.
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Halfshell 78 → **79** (6 to the bar) — HALFSHELL CEILING for Phase 2: every remaining row sizes M+ (Turtle Lair's subtype-union unblockable + spend words, Endless Foot Assault's per-opponent attacking tokens, Exploding Barrel, Mole Module, Coin of Mastery, Raphael, Special Move's two low modes) or L (Heroes in a Half Shell's plural subject list + batch referent, Foot Chopper / Bebop / Together Forever / Dimension X's if-you-do and reflexive lanes, Vigor, Krang, Shredder, Irma, Tempestra, Fast Forward, Shellshock, Double Jump); per §2.4 the order moves to Light-Paws (68)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · Q4: BIG APPLE, 3 A.M. — the opponent count · **+3** · corpus 14,580 / 34,245
 > Suite **1542 files / 16,307** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
 > · "{5}, {T}: Create a 1/1 black Rat creature token for each opponent you have." The land's enters-tapped, choose-a-colour
