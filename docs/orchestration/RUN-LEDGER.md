@@ -16,6 +16,32 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · H13b: SOLITUDE — the other-target qualifier and EVOKE · **+3** · corpus 14489 / 34,245
+> Suite **1503/16176** green; lint 0. Flip-diff **+3, zero LOST** — two unplanned twins audited whole-card: Grief (an
+> already-native ETB behind the same pitch-evoke line — it gains a REAL evoke cast) and White Orchid Phantom (an up-to-one
+> destroy with the known ramp-basic controller rider, admitted by the widened rider lead). **10/10 killed.**
+> · ⚠️ **ALT COSTS ON PERMANENTS:** the alt-cast spec demanded a HIGH cast program, which a creature never has (its text is
+>   a body plus triggers) — so no permanent had ever been offered an alt cost. For the evoke shape the spec now reads the
+>   alt cost straight off the oracle for a permanent card (the spell-side alt costs keep their program gate); a mutant that
+>   removed the gate was seen to fail.
+> · "When this creature enters, exile up to one other target creature. That creature's controller gains life equal to its
+>   power. / Evoke—Exile a white card from your hand." Two seams. (1) Targeted removal did not know "other"/"another": a
+>   recursive peel at the removal parser's head parses the plain form and adds the not-source restriction, stamping the
+>   "up to one" bounds itself (the program parser's own up-to-one peel never reaches a rider lead); the controller-rider
+>   matcher's lead admits the up-to-one / other forms. (2) EVOKE (CR 702.74) modelled end to end: a cast-modifier entry
+>   makes the pitch the exile-a-colour-card alt cost with an `evoke` flag; the flag rides the cast action, the dispatcher
+>   stamps the cast, the entry resolver stamps the permanent and queues the "sacrifice it" trigger at the FRONT of the
+>   pending triggers — under the card's own ETB, so the exile resolves and then the evoked body dies (a mutant that queued
+>   it on top was seen to fail). The classifier admits the pitch-evoke line as modelled residue (the mana-cost evoke line
+>   stays the inert allowance it was).
+> · **Pins:** the hard cast exiles their Ogre, they gain 4, Solitude stays; the evoke cast is offered with no mana and a
+>   white card, the pitch is exiled, the Ogre is exiled and they gain 4, THEN Solitude is in the graveyard; the evoked stamp
+>   and the queue order; no white card → no evoke cast. Mutants: the peel, the dropped not-source, the rider lead, the
+>   modifier, the unthreaded flag, the dispatcher memo, the unqueued sacrifice, the wrong queue order, the classifier line.
+> · Subtlety and Endurance (Believe it! / Kinnan leftovers) now park only on their own ETB atoms — evoke no longer blocks them.
+> · **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+> · **🏁 SHALAI 84 → 85 — AT THE BAR (85/100).** Killer Turts 85 ✅ · Kinnan 85 ✅ · Believe it! 85 ✅. Next: the §5 shelf order.
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · BI-5: MOON-CIRCUIT HACKER + SATORU — the ninja draw engine · **+2** · corpus 14486 / 34,245
 > Suite **1502/16171** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **10/10 killed.**
 > · Moon-Circuit Hacker — "…you may draw a card. If you do, discard a card unless this creature entered this turn." The

@@ -76,13 +76,13 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Nekusar Wheels | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
-| Test | Shalai and Hallar Test | 84 | 1 | 6 | ⬜ Phase 2 |
-| Test | Otharri Test | 75 | 10 | 15 | ⬜ Phase 2 |
+| Test | Shalai and Hallar Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
+| Test | Otharri Test | 76 | 9 | 14 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 70 | 15 | 20 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**6 decks below 85 · 82 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**5 decks below 85 · 80 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -359,7 +359,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | H10 | Hajar, Loyal Bodyguard · Boromir, Warden of the Tower | sacrifice self: team +1/+0 / indestructible | S | (Boromir's "the Ring tempts you" tail = the ring subsystem → 🅿 unless built) | ✅ Hajar (+1 — a legendary-only team pump; the splitter keep-whole takes the prefix) · 🅿 Boromir (the Ring tempts you = the ring subsystem, unbuilt) |
 | H11 | Kutzil, Malamet Exemplar · Skrelv · Incubation Druid · Uncivil Unrest · Shifting Woodland | | S / L / M / S / L | Kutzil = the above-base-power combat-damage BATCH (live layered dealer gate) · Uncivil Unrest = the counter-gated creature damage doubler (+ a residue the static checker models) · Incubation Druid = the "any type a land you control could produce" mana line (a new source kind) · Skrelv = colour choice + hexproof-from + can't-be-blocked-by colour · Shifting Woodland = delirium copy | ✅ Kutzil + Uncivil Unrest (+2) · ⬜ Druid (M) · ⬜ Skrelv (L) · ⬜ Woodland (L) |
 | H12 | Chaos Warp | owner tucks target permanent, shuffles, reveals top; permanent card → battlefield | M | shared with Nekusar N13 | ✅ (+1 — ONE whole-oracle atom `owner-tuck-reveal-put`; the owner read BEFORE the move, a stolen permanent goes home; Oblation's shape stays unparsed) |
-| H13 | COMPOSITE | Winds of Abandon · Skyclave Apparition · Solitude · Kami of Celebration · Galadriel's Dismissal · Innkeeper's Talent · Cloud's Limit Break · Endurance · Trouble in Pairs · Clever Concealment | SIZED 09-04: Kami S ✅ · Solitude M (the "that creature's controller gains life equal to its power" referent + evoke) · Endurance M (target player tucks their graveyard + evoke) · Skyclave M (mv-capped exile + linked-exile token on leave) · phasing UNMODELED (Galadriel's Dismissal, Clever Concealment = L) · Winds of Abandon L (overload + per-controller basic search) · Cloud's Limit Break L (tiered) · Innkeeper's Talent L (Class) · Trouble in Pairs L | Solitude/Endurance = evoke (the composition defect report of 09-03: build the evoke composition rule once, it pays in five decks) | ✅ Kami (+1 — the modified-attack predicate + the cast-from-exile zone gate) · rest ⬜ |
+| H13 | COMPOSITE | Winds of Abandon · Skyclave Apparition · Solitude · Kami of Celebration · Galadriel's Dismissal · Innkeeper's Talent · Cloud's Limit Break · Endurance · Trouble in Pairs · Clever Concealment | SIZED 09-04: Kami S ✅ · Solitude ✅ 2026-09-05 (H13b: the other-target qualifier + the controller rider; EVOKE built — the pitch alt cost, the evoked stamp, the sacrifice queued under the ETB) · Endurance M (target player tucks their graveyard + evoke) · Skyclave M (mv-capped exile + linked-exile token on leave) · phasing UNMODELED (Galadriel's Dismissal, Clever Concealment = L) · Winds of Abandon L (overload + per-controller basic search) · Cloud's Limit Break L (tiered) · Innkeeper's Talent L (Class) · Trouble in Pairs L | Solitude/Endurance = evoke (the composition defect report of 09-03: build the evoke composition rule once, it pays in five decks) | ✅ Kami (+1 — the modified-attack predicate + the cast-from-exile zone gate) · rest ⬜ |
 
 ### 5.7 Otharri Test — 68% · needs 17 · Rebels/tokens deck
 
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · H13b Solitude (Shalai) ✅ +3 corpus (the OTHER-target qualifier on targeted removal + the gain-life-power controller rider; EVOKE modelled end to end — the pitch alt cost rides the cast, the entering body is stamped and its sacrifice is queued UNDER its own ETB) · 10/10 killed · suite 1503/16176 · **🏁 SHALAI 84 → 85 — AT THE BAR (85/100).** Killer Turts 85 ✅ · Kinnan 85 ✅ · Believe it! 85 ✅. Next: the §5 shelf order.
 
 - 2026-09-05 — POD-SIM THREE · BI-5 Moon-Circuit Hacker + Satoru (Believe it!) ✅ +2 corpus (the unless-entered-this-turn rider on the optional draw-then-discard; a self-or-other batched enter watcher deduped ONCE PER BATCH with the not-cast-or-no-mana predicate off new arrival stamps; the trigger splitter learned the plural "enter") · 10/10 killed · suite 1502/16171 · **🏁 BELIEVE IT! 83 → 85 — AT THE BAR (85/100). ALL THREE POD-SIM DECKS AT 85: Killer Turts 85 · Kinnan 85 · Believe it! 85.** Shalai 84. (Full suite: the saboteur witness's Hacker guard graduated; every other file green.) Next: Colton's second order — the three decks' Arbiter leftovers to Omnath's nuance queue; then Shalai's last card.
 

@@ -678,6 +678,14 @@ function applyOrdealThresholdSac(state, atom, ctx) {
  */
 export function destroyExileClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // SOLITUDE (SHELF-85 · Shalai's last card, 2026-09-05): "exile up to one OTHER target creature" / "exile ANOTHER target
+  // creature" — the other/another qualifier is the not-source restriction on whatever the plain form parses to (the
+  // creature lane is several arms below; a recursive peel keeps every one of them untouched).
+  const om = t.match(/^(destroy|exile) (up to one )?(?:other|another) target (creature.*)$/);
+  if (om) {
+    const inner = destroyExileClauseParser(`${om[1]} target ${om[3]}`); // the plain form; "up to one" is stamped here (the program parser's peel does not reach a rider lead)
+    return inner ? { ...inner, restrictions: [...(inner.restrictions || []), { kind: "notSource" }], ...(om[2] ? { minTargets: 0, maxTargets: 1 } : {}) } : null;
+  }
   // TRIG-PRONOUN destroy (the triggering permanent, CR 608.2c) — "destroy the triggering creature" (Toxin
   // Sliver's "destroy that creature"; detectTriggers rewrites the non-self pronoun → this sentinel before it
   // reaches here, mirroring bounceClauseParser's "return the triggering creature …" form). target:"thatCreature"

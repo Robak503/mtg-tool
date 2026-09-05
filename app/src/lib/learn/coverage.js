@@ -747,6 +747,7 @@ export function isKeywordOnly(oracle, name) {
     rePartnerBare.test(c) ||
     // ZONE-OPTION / OPTIONAL-COST family (census slice 2026-07-24 — see the block comment above the consts)
     reGyZoneOptionCost.test(c) ||
+    rePitchEvokeCost.test(c) || // PITCH EVOKE (Solitude) — modelled end to end
     reReinforceCost.test(c) ||
     reBloodthirstFixed.test(c) ||
     reDevourFixed.test(c) ||
@@ -945,6 +946,10 @@ const rePrototypeCost = /^prototype (?:\{[^}]+\})+ [—–-] \d+\/\d+$/;
 //   the line is inert. Audited per the suspend rule: ALL 26 carriers are creatures with a printed mana cost
 //   (zero exceptions, not even a land), so every one is normally castable and encore is a pure extra option.
 const reGyZoneOptionCost = /^(?:evoke|unearth|disturb|embalm|eternalize|scavenge|mayhem|encore) (?:\{[^}]+\})+$/;
+// PITCH EVOKE (CR 702.74 — SHELF-85 · Solitude, 2026-09-05): "Evoke—Exile a <color> card from your hand." — NOT an inert line:
+// the cast lane offers the evoke cast (castModifiers' evoke entry), the dispatcher pays the pitch and stamps the cast, and
+// the entry resolver queues the sacrifice under the card's own ETB. Modelled, so the line is covered residue.
+const rePitchEvokeCost = /^evoke\s*[—–-]\s*exile an? (?:white|blue|black|red|green) card from your hand\.?$/;
 // REINFORCE N—{cost} (CR 702.77) — a HAND-only discard-activated ability ("{cost}, Discard this card: Put N
 // +1/+1 counters on target creature"), the cycling/typecycling class: an option from hand the engine never
 // offers, so the card on the battlefield plays exactly as printed. Same castability audit as eternalize —

@@ -112,7 +112,7 @@ import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventur
 import { isSplitCard, splitFaceCards } from "./splitCard.js"; // SPLIT CARDS (CR 709) — cast either half; pure shape module
 import { isModalDfc, mdfcLandFaces, mdfcFaceCards } from "./modalDfc.js"; // MODAL DFC (CR 712.8, V1) — the land drop chooses a face; the spell front is cast as a face; pure shape module
 import { evaluateInterveningIf } from "./interveningIf.js"; // CR 602.5d "Activate only if <cond>" — the offer gate reads the SAME vocabulary as the trigger + spell lanes
-import { extractAdditionalCosts } from "./effects/castModifiers.js"; // AC-PERMANENT — see permanentAdditionalCosts below
+import { extractAdditionalCosts, extractAltCost } from "./effects/castModifiers.js"; // AC-PERMANENT — see permanentAdditionalCosts below; + extractAltCost (EVOKE on a permanent, Solitude)
 import { isPermanentSpell } from "./resolvers.js";
 import { parseSuspendNoCost } from "./fading.js"; // KW-SUSPEND — the one gate offer/dispatch/classifier all read
 
@@ -836,7 +836,7 @@ const OFFERED_ALT_COST_KINDS = new Set(["free", "payLife", "payLifeExilePitch", 
 // Cheap oracle pre-screen so the offer layer never adds a parseEffectProgram call for a non-carrier
 // (castActionsFromZone otherwise parses programs only past the affordability gate). Curly apostrophes are
 // matched via the dot ("spell's"/"spell’s" — the parser normalizes, raw oracle may not).
-const ALT_COST_OFFER_HINT = /rather than pay this spell.s mana cost|without paying its mana cost/i;
+const ALT_COST_OFFER_HINT = /rather than pay this spell.s mana cost|without paying its mana cost|evoke\s*[—–-]/i; // + evoke (Solitude)
 
 const ALT_COST_COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
 
@@ -941,9 +941,18 @@ function altCastName(alt, pay) {
 // Arbiter-routed spell for an engine-paid cost. Returns { alt, payments } or null.
 function computeAltCastSpec(state, playerId, card) {
   const program = parseCastProgram(card); // S1.1 — stripped parse (a Convoke+altCost carrier gated on the raw LOW parse)
-  const alt = program?.altCost;
+  let alt = program?.altCost;
+  let needHigh = true;
+  // EVOKE ON A PERMANENT (SHELF-85 · Solitude, 2026-09-05): a creature has no cast PROGRAM (its text is a body plus triggers),
+  // so the alt cost is read straight off the oracle and the high-program demand — which guards a SPELL's effect — does not
+  // apply; the card's playability is the permanent lane's business. Only the evoke shape is admitted this way (the spell-
+  // side alt costs keep their program gate).
+  if (!alt && /\b(?:creature|artifact|enchantment|planeswalker)\b/i.test(String(card?.type || card?.type_line || "").split(" // ")[0])) {
+    const off = extractAltCost(String(card?.oracle ?? card?.oracle_text ?? "")).altCost;
+    if (off && off.evoke) { alt = off; needHigh = false; }
+  }
   if (!alt || !OFFERED_ALT_COST_KINDS.has(alt.kind)) return null;
-  if (!program || programConfidence(program) !== "high") return null;
+  if (needHigh && (!program || programConfidence(program) !== "high")) return null;
   if (!altCostConditionHolds(state, playerId, alt.condition)) return null;
   const payments = enumerateAltPayments(state, playerId, card, alt);
   return payments.length ? { alt, payments } : null;
@@ -1892,7 +1901,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // Never sacrifice the very permanent the spell targets — the cost is paid before resolution, so the
         // target would fizzle (CR 608.2b). Mirrors the additional-cost sacrifice exclusion.
         if (pay.sacId && (a.targets || []).some((t) => t.id === pay.sacId)) continue;
-        out.push({ ...a, cost: { generic: 0 }, altCost: { kind: spec.alt.kind, ...pay }, altName: altCastName(spec.alt, pay) });
+        out.push({ ...a, cost: { generic: 0 }, altCost: { kind: spec.alt.kind, ...(spec.alt.evoke ? { evoke: true } : {}), ...pay }, altName: altCastName(spec.alt, pay) }); // + evoke flag (Solitude)
       }
     }
     return out;

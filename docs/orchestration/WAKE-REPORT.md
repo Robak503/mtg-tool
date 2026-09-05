@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · H13b: Solitude (+3) — 🏁 SHALAI AT THE BAR** · suite **1503/16176** green · corpus 14489 / 34,245 · flip-diff +3 / 0 lost · 10/10 killed
+
+> The other-target qualifier on targeted removal with the gain-life-power rider, and EVOKE modelled end to end (the pitch alt cost, the evoked stamp, the sacrifice queued under the card's own ETB). **🏁 SHALAI 84 → 85 — AT THE BAR (85/100).** Killer Turts 85 ✅ · Kinnan 85 ✅ · Believe it! 85 ✅. Next: the §5 shelf order.
+> **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+
 ## 🏁 2026-09-05 (cron) — **POD-SIM THREE — DONE. Killer Turts 85 · Kinnan 85 · Believe it! 85.** Colton's second order delivered.
 
 > **The order (2026-09-05):** "the next 3 i want you to work on to 85 is killer turt kinnan and believe … i need them to be accurate for [a pod sim]" → done in twenty-six local slices (KT-1…KT-10a, KN-1…KN-6a, BI-2…BI-5), every one a full §5 slice (probe → arm → runtime → flip-diff zero-lost → witness → mutants seen to fail → lint + full suite → docs → measure → local commit). Corpus 14,425 → **14,486**. Suite 1480/16,075 → **1502/16,171**.

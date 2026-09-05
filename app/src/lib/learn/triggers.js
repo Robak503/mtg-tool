@@ -8259,6 +8259,16 @@ export function checkTokenCreatedTriggers(state, creatingPlayerId, numCreated = 
  */
 /** LIBRARY SEARCH (KN-5b): `searcherId` just searched their library — fire every opponent's "whenever an opponent
  *  searches their library" watcher (scope opponent = a watcher NOT controlled by the searcher). */
+/** EVOKE (CR 702.74 — SHELF-85 · Solitude, 2026-09-05): "When this permanent enters, if its evoke cost was paid, sacrifice it."
+ *  Queued at the FRONT of the pending triggers so the flush pushes it first — under the card's own ETB, which resolves first
+ *  (the exile happens, then the evoked body is sacrificed). A synthetic descriptor: its effect is the plain self-sacrifice. */
+export function queueEvokeSacrifice(state, perm) {
+  if (!perm || !state?.players?.[perm.controller]) return state;
+  const d = { event: "etb", scope: "self", whose: "any", effectClause: "sacrifice this creature", sourceText: "Evoke — sacrifice this creature", interveningIf: null, optional: false, effectHasX: false, evokeSacrifice: true };
+  const t = makePendingTrigger(d, perm, perm, {});
+  return { ...state, pendingTriggers: [t, ...(state.pendingTriggers || [])] };
+}
+
 export function checkLibrarySearchTriggers(state, searcherId) {
   if (!searcherId || !state?.players?.[searcherId]) return state;
   const fired = [];

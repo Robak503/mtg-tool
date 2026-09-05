@@ -801,6 +801,7 @@ function applyCastSpell(state, action) {
     // any other way never reaches this line and stays unstamped.
     params.colorsSpent = colorsSpent;
     params.manaSpent = manaSpent; // SATORU (BI-5): whether ANY mana was spent — a free / alt-cost cast stamps `castForNoMana`
+    params.evoked = !!(action.altCost && action.altCost.evoke); // EVOKE (Solitude): the entering permanent sacrifices itself after its ETB
     payload = { resolver: RESOLVER_KEYS.PERMANENT_ETB, params };
   } else {
     payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: castCard.name, reason: "instant-or-sorcery (no recognized effect)" } };

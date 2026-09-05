@@ -315,6 +315,11 @@ function parseAltCostCondition(phrase) {
 // builds non-null wins. Only the FREE kind waives mana entirely (a future offer reuses action.freeCast); the
 // pitch/sac/return kinds pay their own printed cost. All are recorded as metadata only for now (§ extractAltCost).
 const ALT_COST_MATCHERS = [
+  // EVOKE (CR 702.74 — SHELF-85 · Solitude, 2026-09-05): "Evoke—Exile a <color> card from your hand." The pitch half is the
+  // exile-a-colour-card alt cost; the `evoke` flag rides the cast so the entering permanent is stamped and its
+  // "when this enters, if its evoke cost was paid, sacrifice it" trigger is queued UNDER the card's own ETB.
+  { re: /(?:^|\n)\s*evoke\s*[—–-]\s*exile an? (\w+) card from your hand\.?\s*/i,
+    build: (m) => ({ kind: "exileColorCard", color: m[1].toLowerCase(), condition: "always", evoke: true }) },
   // FREE — "[if <cond>, ]you may cast this spell without paying its mana cost." (Fierce Guardianship, Submerge).
   { re: /(?:^|\n)\s*(?:if ([^,.\n]+), )?you may cast this spell without paying its mana cost\.\s*/i,
     build: (m) => { const c = parseAltCostCondition(m[1]); return c && { kind: "free", condition: c }; } },

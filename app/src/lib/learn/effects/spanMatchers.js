@@ -248,7 +248,7 @@ export function matchRemovalControllerRider(oracle, parseLead = null) {
   // CONTROLLER may search their library for a basic land card, put it onto the battlefield, then shuffle. You may search
   // …"): the possessive "that <noun>'s controller" is the same captured controller as "its controller" / "that player";
   // the trailing "You may search …" comes back as `rest` (the optional basic tutor), exactly as before.
-  const m = stripReminder(oracle).trim().match(/^((?:exile|destroy) target .+?)\.\s+(?:its controller|that player|that (?:land|creature|permanent|artifact|enchantment)'s controller) ([^.]+)\.?(?:\s+([\s\S]+))?$/i);
+  const m = stripReminder(oracle).trim().match(/^((?:exile|destroy) (?:up to one )?(?:other |another )?target .+?)\.\s+(?:its controller|that player|that (?:land|creature|permanent|artifact|enchantment)'s controller) ([^.]+)\.?(?:\s+([\s\S]+))?$/i); // + up-to-one / other leads (Solitude)
   if (!m) return null;
   // The bare destroy/exile lead lives in atoms/removal.destroyExileClauseParser (seam batch 27), so resolve
   // the rider-stripped lead via that clause parser directly. (The old parseExtendedAtom() || fallback was
