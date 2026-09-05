@@ -1833,16 +1833,30 @@ export function libraryKeywordClauseParser(clause) {
   // (CR 608.2b). The type phrase is a single basic type or an or-union ("an artifact, creature, or
   // land card"), EVERY word validated against the closed basic-type list — one stranger word nulls the
   // whole clause (CREED FN-safe, never a guessed filter). No phrase → any card.
-  m = t.match(/^put (?:a|an|one) (?:([a-z, /]+?) )?card from among (?:them|those cards|the milled cards) into your hand$/);
+  // MOLE MODULE (SHELF-85 · Halfshell Q4, 2026-09-05) — the BATTLEFIELD destination: "mill four cards. You may put a
+  // permanent card from among them onto the battlefield." Same candidate set (the stamp ∩ the live graveyard), same pause;
+  // the pick enters via enterCardFromZone (ETBs fire, a walker gets its loyalty). "permanent" is the CR 110.4a gate
+  // (`permanentOnly` — a positive front-face permanent-type match), not a group word. ⛔ AURAS ARE NEVER OFFERED for the
+  // battlefield destination: an Aura entering un-cast must choose what it enchants (CR 303.4f) and this path has no such
+  // choice — it would land unattached (the wrong-cheat FP). Withholding the Aura is a documented UNDER-offer.
+  m = t.match(/^put (?:a|an|one) (?:([a-z, /]+?) )?card from among (?:them|those cards|the milled cards) (into your hand|onto the battlefield)$/);
   if (m) {
+    const toBattlefield = m[2] === "onto the battlefield";
     let cardFilter = null;
-    if (m[1]) {
+    let permanentOnly = false;
+    if (m[1] === "permanent") {
+      if (!toBattlefield) return null; // "a permanent card … into your hand" — unprinted; keep the hand form's closed vocabulary
+      permanentOnly = true;
+    } else if (m[1]) {
       const MILL_PICK_TYPES = new Set(["artifact", "creature", "enchantment", "land", "instant", "sorcery", "planeswalker", "battle"]);
       const words = m[1].split(/\s*(?:,|\bor\b|\/)\s*/).map((w) => w.trim()).filter(Boolean);
       if (!words.length || !words.every((w) => MILL_PICK_TYPES.has(w))) return null;
+      if (toBattlefield && words.some((w) => w === "instant" || w === "sorcery")) return null; // a non-permanent can't be put onto the battlefield (CR 110.4)
       cardFilter = [...new Set(words)].sort().join("|");
+    } else if (toBattlefield) {
+      return null; // an unfiltered "a card … onto the battlefield" is unprinted — an instant could be offered; park
     }
-    return { op: "pick-milled-to-hand", ...(cardFilter ? { cardFilter } : {}), targetType: null };
+    return { op: toBattlefield ? "pick-milled-to-battlefield" : "pick-milled-to-hand", ...(cardFilter ? { cardFilter } : {}), ...(permanentOnly ? { permanentOnly: true } : {}), targetType: null };
   }
   return null;
 }
@@ -2645,8 +2659,16 @@ export function applyPickMilledToHand(state, atom, ctx) {
   if (!owner || !state.players?.[owner]) return state;
   const stamped = new Set(state._lastMilledIds || []);
   const gy = state.players[owner].graveyard || [];
+  // MOLE MODULE — the battlefield destination (op pick-milled-to-battlefield): the pick ENTERS via enterCardFromZone; the
+  // `permanentOnly` gate is a positive front-face permanent-type match (CR 110.4a); an Aura is withheld (CR 303.4f — see the
+  // parse arm). The hand form is byte-identical to before.
+  const toBattlefield = atom.op === "pick-milled-to-battlefield";
+  const PERMANENT_TYPE_RE = /\b(?:Artifact|Creature|Enchantment|Land|Planeswalker|Battle)\b/;
   const candidates = gy.filter((c) => {
     if (!stamped.has(c.id)) return false;
+    const front = String(c.type || c.type_line || "").split(" // ")[0];
+    if (toBattlefield && /\bAura\b/.test(front)) return false;
+    if (atom.permanentOnly && !PERMANENT_TYPE_RE.test(front)) return false;
     if (atom.cardFilter) {
       // A "|"-union of basic type words (the parse arm's closed vocabulary) — the front face must
       // carry ANY listed type, cap-cased word test (CR 712.4a front-face discipline).
@@ -2660,13 +2682,16 @@ export function applyPickMilledToHand(state, atom, ctx) {
     return logEvent(state, { kind: "spell-effect", effect: "milled-pick", picked: null, controller: owner });
   }
   if (candidates.length === 1) {
-    const next = moveCardToZone(state, { playerId: owner, fromZone: "graveyard", toZone: "hand", cardId: candidates[0].id });
-    return logEvent(next, { kind: "spell-effect", effect: "milled-pick", picked: candidates[0].name, controller: owner });
+    const next = toBattlefield
+      ? enterCardFromZone(state, { playerId: owner, cardId: candidates[0].id, fromZone: "graveyard" }).state
+      : moveCardToZone(state, { playerId: owner, fromZone: "graveyard", toZone: "hand", cardId: candidates[0].id });
+    return logEvent(next, { kind: "spell-effect", effect: "milled-pick", picked: candidates[0].name, controller: owner, ...(toBattlefield ? { toZone: "battlefield" } : {}) });
   }
   return setPendingMilledPickChoice(state, {
     controller: owner,
     candidates: candidates.map((c) => ({ id: c.id, name: c.name, type: c.type || c.type_line || "" })),
     sourceName: ctx.cardName || null,
+    ...(toBattlefield ? { toZone: "battlefield" } : {}),
   });
 }
 
@@ -2702,6 +2727,7 @@ export function applyTemptingOfferLand(state, atom, ctx) {
 export const libraryResolvers = {
   "tempting-offer-land": applyTemptingOfferLand, // Tempt with Discovery — the offerer's first land search; the settler chains the offer
   "pick-milled-to-hand": applyPickMilledToHand, // MILLED-REFERENT PICK (Ripples / Six) — the _lastMilledIds ∩ live-GY choice
+  "pick-milled-to-battlefield": applyPickMilledToHand, // MOLE MODULE — the same pick, the pick ENTERS the battlefield (enterCardFromZone); Auras withheld
   "tutor": applyTutor,
   "shuffle": applyShuffle,
   "enchanted-gy-mill": applyEnchantedGyMill, // ENCHANTED-PLAYER GY-COUNT mill (Fraying Sanity — SHELF S7)

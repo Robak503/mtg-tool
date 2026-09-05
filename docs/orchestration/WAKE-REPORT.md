@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · Q4: Mole Module (+2)** · suite **1551 files / 16,336** green · corpus 14,596 (42.6%) / 34,245 · flip-diff +2 / 0 lost · mutants 5/5 killed
+
+> The milled-referent pick learned the BATTLEFIELD destination — a permanent card from among the milled cards enters through enterCardFromZone; Auras are withheld (an un-cast Aura would land unattached). Halfshell 80 → **81** (81/100; 4 to the bar). Remaining Halfshell rows: Fast Forward (M — a MASS goad arm + a per-opponent-attacked cast discount: two arms, next), Endless Foot Assault (M+ — per-opponent tokens each attacking THAT opponent), the rest L (Coin of Mastery, Special Move, Everything Pizza, Turtle Lair, Heroes in a Half Shell, Together Forever, Shellshock, Raphael the Muscle, Bebop, Tempestra, Double Jump).
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · Q3: Raphael, Fiendish Savior (+2)** · suite **1550 files / 16,332** green · corpus 14,594 (42.6%) / 34,245 · flip-diff +2 / 0 lost · mutants 4/4 killed
 
 > The condition reader learned "a creature card was put into your graveyard from anywhere this turn" — a per-player look-back stamped at the graveyard chokepoint (cards only, CR 111.1), read against the live turn. Halfshell UNCHANGED at 80 — ⚠️ MIS-AIMED ROW: the Q3 row's bare 'Raphael' is Raphael, the Muscle (a Mutant Ninja Turtle: a counters-filtered damage doubler — sized L, no doubling machinery — + a Mutagen ETB + Partner—Character select); I read it as Fiendish Savior. The +2 is corpus-only. Lesson: resolve a bare name against the deck's leftovers dump BEFORE sizing (the runbook row now names the Muscle in full). Next Halfshell M row = Mole Module (the milled-pick's battlefield destination — the hand form's machinery exists).

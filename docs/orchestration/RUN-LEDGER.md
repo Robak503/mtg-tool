@@ -16,6 +16,29 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · Q4: MOLE MODULE — the milled-pick's battlefield destination · **+2** · corpus 14,596 (42.6%) / 34,245
+> Suite **1551 files / 16,336** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
+> · "Whenever this Vehicle deals combat damage to a player, mill four cards. You may put a permanent card from among them
+>   onto the battlefield." The HAND form (Ripples of Undeath, Six) already owned the machinery — the candidate set is the
+>   mill's `_lastMilledIds` stamp ∩ the controller's live graveyard (CR 608.2b), one candidate moves directly, two or more
+>   pause on the milled-pick choice. The battlefield destination reuses all of it under a sibling op
+>   (pick-milled-to-battlefield, same resolver) and ENTERS the pick through enterCardFromZone — ETBs fire, a walker gets
+>   its loyalty — at both the direct path and the pause's settle (toZone "battlefield"). "permanent" is the CR 110.4a gate
+>   (a positive front-face permanent type), not a group word; an instant/sorcery-filtered or unfiltered battlefield form
+>   parks (a non-permanent can't be put onto the battlefield); "a permanent card … into your hand" is unprinted and parks.
+>   ⛔ AURAS ARE WITHHELD for the battlefield destination: entering un-cast an Aura must choose what it enchants (CR 303.4f)
+>   and this path has no such choice — it would land unattached. Withholding is a documented UNDER-offer (the Academy
+>   Rector refusal, applied to a pick). The hand form is byte-identical (Ripples' atom pinned).
+> · **Pins:** mill + the battlefield pick (permanentOnly, optional); the three refusals; Ripples unchanged; Mole Module
+>   native-trigger (Menace + Crew 2 already native). RUNTIME — a bear, an instant, an Aura and a rock milled: the pause
+>   offers ONLY the bear and the rock; picking the bear ENTERS it (a permanent on the battlefield, gone from the graveyard),
+>   the rock, the Aura and the instant stay milled; three instants and a rock: no pause, the rock enters directly; four
+>   instants: no pause, nothing enters, all four stay milled. Mutants: the arm refusing the destination, the permanent gate
+>   dropped, the Aura exclusion dropped, the settle demoted to a plain zone move, the direct path sent to hand — mutants 5/5 killed.
+> · **Whole-card:** Bramble Familiar // Fetch Quest (unplanned gain) — the adventure face "Mill seven cards. Then put a creature, enchantment, or land card from among the milled cards onto the battlefield." rides the same pick with a type-union filter (mandatory, no 'you may'); an Aura among the milled cards is withheld exactly as on Mole Module (the enchantment word admits only non-Aura enchantments to the battlefield); the creature face (a mana ability + a discard-bounce ability) was native already.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Halfshell 80 → **81** (81/100; 4 to the bar). Remaining Halfshell rows: Fast Forward (M — a MASS goad arm + a per-opponent-attacked cast discount: two arms, next), Endless Foot Assault (M+ — per-opponent tokens each attacking THAT opponent), the rest L (Coin of Mastery, Special Move, Everything Pizza, Turtle Lair, Heroes in a Half Shell, Together Forever, Shellshock, Raphael the Muscle, Bebop, Tempestra, Double Jump).
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · Q3: RAPHAEL, FIENDISH SAVIOR — the from-anywhere graveyard look-back · **+2** · corpus 14,594 (42.6%) / 34,245
 > Suite **1550 files / 16,332** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · "At the beginning of each end step, if a creature card was put into your graveyard from anywhere this turn, create a

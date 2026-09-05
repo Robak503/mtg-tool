@@ -125,6 +125,7 @@ const PAUSING_OPS_LIST = [
   "optional-discard-payment", // stack.js applyOptionalDiscardPayment → setPendingOptionalDiscardPaymentChoice (the cost-discard pause; payoff is non-pausing)
   "optional-exile-self-payment", // stack.js applyOptionalExileSelfPayment → setPendingOptionalExileSelfChoice (Undead Butler — the dies self-exile cost pause)
   "pick-milled-to-hand", // library.js applyPickMilledToHand → setPendingMilledPickChoice (Ripples/Six — the milled-referent pick; pauses only on 2+ candidates)
+  "pick-milled-to-battlefield", // library.js applyPickMilledToHand (Mole Module — the same pick, entering the battlefield; pauses only on 2+ candidates)
   "sac-unless-pay", // stack.js applyUpkeepSacUnlessPay → setPendingSacUnlessPayChoice (upkeep pay-or-sacrifice)
   "cumulative-upkeep", // stack.js applyCumulativeUpkeep → setPendingSacUnlessPayChoice (age counter + scaled pay-or-sacrifice — CR 702.24)
   "echo", // stack.js applyEcho → setPendingSacUnlessPayChoice (the one-time first-upkeep pay-or-sacrifice — CR 702.30)

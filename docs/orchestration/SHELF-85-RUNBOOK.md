@@ -68,7 +68,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Kinnan Mana Overload | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Believe it! | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kellan of the west | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Joe | Halfshell heroes | 80 | 5 | 10 | ⬜ Phase 2 |
+| Joe | Halfshell heroes | 81 | 4 | 9 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 91 | — | — | ✅ at the bar |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 71 | 14 | 19 | ⬜ Phase 2 |
 
-**3 decks below 85 · 30 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**3 decks below 85 · 29 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -412,7 +412,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | Q1 | Double Jump // Flying Kick | split | L (V1 slice 3) | | ⬜ |
 | Q2 | Arcade Cabinet · Path of Ancestry | | V8 / V11 | | ✅ |
 | Q3 | Casey Jones ✅ (+1 — the active counters-placed damage payoff) · Ray Fillet ✅ (+1 — the with-a-counter dealer filter) · Together Forever · Tokka & Rahzar ✅ (+1 — the nontoken leaves scope; Splinter, the Mentor rode along on its self-inclusive union) · Baxter ✅ (+{GAIN} — the counter-filtered group grant) · Heroes in a Half Shell · Coin of Mastery · Raphael, the Muscle (sized L — a counters-filtered DAMAGE DOUBLER; no damage-doubling machinery exists; ⚠️ the deck's Raphael is NOT Fiendish Savior — sk100 read the bare name wrong and landed Fiendish Savior as a corpus gain) | counters-matter triggers and statics | S / S / M / S / S / M / M / M | Casey Jones = a counters-placed batch event (exists: countersPlaced) + damage; Ray Fillet = combat damage by a creature with a counter → draw; Raphael = a damage doubler filtered by "with counters" | ⬜ |
-| Q4 | Big Apple ✅ (+3 — the opponent count; Inspired Sphinx and Chittering Witch rode along) · Big Mother Mouser ✅ · Shellshock · Swift Demise ✅ (+1 — the opponent-creature mass destroy) · Wave Goodbye · Continue? · Exploding Barrel ✅ (+4 — the per-counter activation discount rider) · Everything Pizza · Endless Foot Assault · Splinter ✅ (rode along with Q3's nontoken leaves) · Foot Chopper (sized L — an optional sacrifice with no if-you-do lane) · Mole Module · Bebop (sized L — the same if-you-do lane) · Tempestra · Irma · Dimension X Pizzasaur · Donatello ✅ (+{GAIN} — the Took extra-token replacement, Mutagen printing) | | S–M | Shredder's per-opponent copies = M; Irma's combat-start copy = M; Donatello's Mutagen replacement shares F4's seam | ⬜ |
+| Q4 | Big Apple ✅ (+3 — the opponent count; Inspired Sphinx and Chittering Witch rode along) · Big Mother Mouser ✅ · Shellshock · Swift Demise ✅ (+1 — the opponent-creature mass destroy) · Wave Goodbye · Continue? · Exploding Barrel ✅ (+4 — the per-counter activation discount rider) · Everything Pizza · Endless Foot Assault · Splinter ✅ (rode along with Q3's nontoken leaves) · Foot Chopper (sized L — an optional sacrifice with no if-you-do lane) · Mole Module ✅ (+2 — the milled-pick's battlefield destination) · Bebop (sized L — the same if-you-do lane) · Tempestra · Irma · Dimension X Pizzasaur · Donatello ✅ (+{GAIN} — the Took extra-token replacement, Mutagen printing) | | S–M | Shredder's per-opponent copies = M; Irma's combat-start copy = M; Donatello's Mutagen replacement shares F4's seam | ⬜ |
 | Q5 | COMPOSITE | Fast Forward · Rat King ✅ (rode along with Q3's nontoken leaves) · Lita ✅ (+1 — the period-form mode-memory lead) · Turtle Lair · Special Move · Vigor · Krang | size on approach | | 🔶 |
 
 ### 5.11 Killer Turts — 64% · needs 21 · extra turns / storm-ish red deck (23 arbiter-spells)
@@ -480,6 +480,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · Q4 Mole Module (Halfshell) ✅ +2 corpus (the milled-pick's BATTLEFIELD destination — "mill four cards. You may put a permanent card from among them onto the battlefield" — the hand form's stamp ∩ live-graveyard pick, entering via enterCardFromZone; permanent gate CR 110.4a; Auras withheld CR 303.4f) · mutants 5/5 killed · suite 1551 files / 16,336 · Halfshell 80 → **81** (81/100; 4 to the bar). Remaining Halfshell rows: Fast Forward (M — a MASS goad arm + a per-opponent-attacked cast discount: two arms, next), Endless Foot Assault (M+ — per-opponent tokens each attacking THAT opponent), the rest L (Coin of Mastery, Special Move, Everything Pizza, Turtle Lair, Heroes in a Half Shell, Together Forever, Shellshock, Raphael the Muscle, Bebop, Tempestra, Double Jump).
 
 - 2026-09-05 — Phase 2 · Q3 Raphael, Fiendish Savior (CORPUS — mis-aimed: the Halfshell row's bare Raphael is Raphael, the Muscle) ✅ +2 corpus (the from-anywhere graveyard LOOK-BACK — "if a creature card was put into your graveyard from anywhere this turn" — a per-player turn stamp at the graveyard chokepoint, cards only (CR 111.1), plus one condition reader) · mutants 4/4 killed · suite 1550 files / 16,332 · Halfshell UNCHANGED at 80 — ⚠️ MIS-AIMED ROW: the Q3 row's bare 'Raphael' is Raphael, the Muscle (a Mutant Ninja Turtle: a counters-filtered damage doubler — sized L, no doubling machinery — + a Mutagen ETB + Partner—Character select); I read it as Fiendish Savior. The +2 is corpus-only. Lesson: resolve a bare name against the deck's leftovers dump BEFORE sizing (the runbook row now names the Muscle in full). Next Halfshell M row = Mole Module (the milled-pick's battlefield destination — the hand form's machinery exists).
 

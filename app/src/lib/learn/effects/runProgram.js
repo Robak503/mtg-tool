@@ -1928,7 +1928,11 @@ export function resolveMilledPickChoice(state, cardId) {
     next = logEvent(next, { kind: "spell-effect", effect: "milled-pick", picked: null, controller: pc.controller, ...(pc.owner && { owner }) });
     return resumeAfterChoice(next, pc);
   }
-  next = moveCardToZone(next, { playerId: owner, fromZone: "graveyard", toZone: pc.toZone || "hand", cardId: pick.id }); // ④-P: exile for a forced graveyard pick
+  // MOLE MODULE (2026-09-05): toZone "battlefield" ENTERS the pick (enterCardFromZone — ETBs fire, a walker gets its loyalty);
+  // every other destination is the plain zone move. ④-P: exile for a forced graveyard pick.
+  next = pc.toZone === "battlefield"
+    ? enterCardFromZone(next, { playerId: owner, cardId: pick.id, fromZone: "graveyard" }).state
+    : moveCardToZone(next, { playerId: owner, fromZone: "graveyard", toZone: pc.toZone || "hand", cardId: pick.id });
   next = logEvent(next, { kind: "spell-effect", effect: "milled-pick", picked: pick.name, controller: pc.controller, ...(pc.owner && { owner }), toZone: pc.toZone || "hand" });
   return resumeAfterChoice(next, pc);
 }
