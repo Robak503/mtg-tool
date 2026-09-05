@@ -1017,6 +1017,13 @@ function parseModal(cardType, oracle, hasX = false) {
   // trailing period from each mode before parsing its effect clauses.
   const parts = rawModes
     .map(p => stripModeNamePrefix(p.replace(/^[•\s]+/, "").trim()).replace(/\.\s*$/, "").trim())
+    // PYROBLAST / HYDROBLAST (POD-SIM THREE · KT-2, 2026-09-05): "Counter target spell if it's blue" / "Destroy target
+    // permanent if it's blue" (CR 608.2b — any target is legal, the effect does nothing unless the colour matches) is
+    // read as its RESTRICTED twin ("counter target blue spell" — Red Elemental Blast's printed form, already native). An
+    // honest UNDER-offer: the sim never aims it at a non-blue object, which is never the winning play; a legal-but-idle
+    // cast is not modelled rather than mis-modelled (CREED).
+    .map(p => p.replace(/^(counter target spell|destroy target permanent) if it's (white|blue|black|red|green)$/i,
+      (_m, verb, colour) => (/^counter/i.test(verb) ? `counter target ${colour.toLowerCase()} spell` : `destroy target ${colour.toLowerCase()} permanent`)))
     .filter(Boolean);
   if (parts.length < 2) return null;
   // chooseCount = the MAX modes pickable: 2 for "two"/"one or both"/the conditional-both lead; ALL modes

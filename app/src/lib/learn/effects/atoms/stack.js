@@ -634,6 +634,11 @@ export function counterClauseParser(clause) {
   if (/^counter target multicolored spell$/.test(t)) return { op: "counter", spellFilter: "any", targetType: "spell", colorFilter: { multicolored: true } };
   const col = /^counter target (non)?(white|blue|black|red|green) spell$/.exec(t);
   if (col) return { op: "counter", spellFilter: "any", targetType: "spell", colorFilter: { color: COLOR_LETTER[col[2]], negate: !!col[1] } };
+  // TWO-FILTER counter (POD-SIM THREE · KT-2, 2026-09-05 — Guttural Response "counter target blue instant spell"): a
+  // colour AND a spell type at once. Both filters are enforced independently by the enumerator (targeting.js) and the
+  // resolver (spellEffects.js), so the atom simply carries both; a red instant or a blue creature spell is never a target.
+  const colType = /^counter target (white|blue|black|red|green) (instant|sorcery|creature|artifact|enchantment) spell$/.exec(t);
+  if (colType) return { op: "counter", spellFilter: colType[2], targetType: "spell", colorFilter: { color: COLOR_LETTER[colType[1]], negate: false } };
   if (/^counter target artifact, creature, or planeswalker spell$/.test(t)) return { op: "counter", spellFilter: "artifactCreaturePlaneswalker", targetType: "spell" };
   const sc = /^counter target (noncreature |creature |instant or sorcery )?spell unless its controller pays \{(\d+)\}$/.exec(t);
   if (sc) return { op: "counter", spellFilter: sc[1] ? (sc[1].trim() === "instant or sorcery" ? "instantSorcery" : sc[1].trim()) : "any", targetType: "spell", unlessPay: parseInt(sc[2], 10) };

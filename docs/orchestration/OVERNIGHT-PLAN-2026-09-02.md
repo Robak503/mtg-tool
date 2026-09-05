@@ -289,6 +289,8 @@ FORBIDDEN. Stale MUST-STAY-LOW pins that flip are GRADUATED with the date + a su
 
 ## §6 PARKED / NEEDS COLTON (append as you go — this is the morning report's raw material)
 
+- **2026-09-05 ~13:00Z — CI BLOCKED AGAIN (repo PRIVATE again → billing).** KT-1 cf939cef's run died in 2 s, zero steps; the rerun too. Visibility is Colton's call (CLAUDE.md §8.14) — NOT flipped. Pushes HOLD; slices keep landing locally on the full gates (the 09-04 protocol). Resume pushing on the first green run. Needs Colton: public again, or billing.
+
 - **PARK 2026-09-04 — Mind's Dilation (Kellan K6):** "that player exiles the top card of their library. If it's a nonland card, you may cast it without paying its mana cost" = casting an OPPONENT's card. Nothing in the engine threads a spell's OWNER through cast → resolve → graveyard/exile (a stolen card must return to its owner's zones), and the exile-cast lane reads only the caster's own exile. An L with correctness traps, and theft-adjacent (the play-AI theft veto stands). Unpark when a spell-owner seam exists.
 
 - 🚨 **[CI BLOCKED BY GITHUB BILLING — 2026-09-04 ~10:30Z — NEEDS COLTON]** Run 33871892017 (V2 Starting Town, c4ed02a5)

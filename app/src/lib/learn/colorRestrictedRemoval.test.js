@@ -25,7 +25,7 @@ import { describe, expect, it } from "vitest";
 
 import { classifyCard } from "./coverage.js";
 import { enumerateTargets } from "./spellEffects.js";
-import { parseEffectClause } from "./effects/parser.js";
+import { parseEffectClause, parseEffectProgram } from "./effects/parser.js";
 
 const perm = (id, name, type, colors, controller = "ai1") => ({
   id, controller, card: { id: `c-${id}`, name, type, oracle: "", colors },
@@ -121,11 +121,18 @@ describe("classification — the staples this unblocks", () => {
       .toMatch(/^native/);
   });
 
-  it("CREED — the 'if it's blue' conditional template is NOT claimed (Pyroblast stays parked)", () => {
-    // Pyroblast/Hydroblast word the colour as a post-hoc condition on an unrestricted target rather than as
-    // an adjective on it. That is a different rule (the target is legal regardless; the EFFECT checks colour
-    // on resolution), so this slice must not sweep it in on surface similarity.
+  it("GRADUATED 2026-09-05 (POD-SIM KT-2) — the 'if it's blue' conditional form is read as its RESTRICTED twin; the colour SURVIVES on both modes", () => {
+    // The original pin (2026-08): Pyroblast/Hydroblast word the colour as a post-hoc condition on an unrestricted
+    // target (CR 608.2b — the target is legal regardless; the EFFECT checks colour on resolution), so the colour-
+    // restricted slice must not sweep it in on surface similarity. KT-2 claims it DELIBERATELY: the modal mode text is
+    // rewritten to the restricted twin (Red Elemental Blast's printed wording) — an honest UNDER-offer (the sim never
+    // aims it at a non-blue object, never the winning play). The pin's real worry — a colour lost on the way, i.e. an
+    // unrestricted counter/destroy credited — is what this graduated pin now guards.
+    const prog = parseEffectProgram(spell("Pyroblast", "Choose one —\n• Counter target spell if it's blue.\n• Destroy target permanent if it's blue."));
+    expect(prog.confidence).toBe("high");
+    expect(prog.modal.modes[0].atoms[0]).toMatchObject({ op: "counter", colorFilter: { color: "U" } });
+    expect(prog.modal.modes[1].atoms[0]).toMatchObject({ op: "destroy", restrictions: [{ kind: "color", color: "U" }] });
     expect(classifyCard(spell("Pyroblast", "Choose one —\n• Counter target spell if it's blue.\n• Destroy target permanent if it's blue.")))
-      .not.toMatch(/^native/);
+      .toMatch(/^native/);
   });
 });

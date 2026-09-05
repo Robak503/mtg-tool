@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-2: GUTTURAL RESPONSE + PYROBLAST — two filters, and the "if it's blue" reading · **+3** · corpus 14,429 (42.1%) / 34,245
+> Suite **1481 files / 16,079 tests** green; lint 0. Flip-diff **+3, zero LOST** (Guttural Response, Pyroblast, Hydroblast — audited whole-card). **5/5 killed; the 08 CREED pin on Pyroblast GRADUATED (repointed: native + the colour survives on both modes).**
+> · **Guttural Response** "Counter target blue instant spell": the counter atom had a colour filter and a spell-type filter, each
+>   alone. The two-filter form now carries both; the enumerator (targeting.js) and the resolver (spellEffects.js) already
+>   enforced each independently, so a red instant and a blue creature spell are never targets (pinned; the mutants that
+>   dropped either filter were killed).
+> · **Pyroblast / Hydroblast** "Counter target spell if it's blue" / "Destroy target permanent if it's blue": CR 608.2b lets
+>   the spell target anything and do nothing unless the colour matches. Read as the RESTRICTED twin — Red Elemental Blast's
+>   printed wording, already native — inside the modal mode list. An honest UNDER-offer, stated in the code: the sim never
+>   aims it at a non-blue object, which is never the winning play; a legal-but-idle cast is unmodelled, never mis-modelled.
+> · **CI:** BLOCKED — repo PRIVATE again (billing); KT-1 cf939cef's run died in 2 s with zero steps; pushes HOLD, this slice is LOCAL on the full gates
+> · **Killer Turts 71 → 73** (73/100; needs 12). Next: KT-3 Irencrag Feat + Rite of Flame (word-number pips; the self cast limit; the all-graveyards name count).
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-1: PORT RAZER — the attacked-players memo · **+1** · corpus 14,426 (42.1%) / 34,245
 > Suite **1480 files / 16,075 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **7/7 killed.**
 > · **The order this serves:** Colton (mid-cron, 2026-09-05) — Killer Turts → Kinnan → Believe it! to 85, accurate for a pod

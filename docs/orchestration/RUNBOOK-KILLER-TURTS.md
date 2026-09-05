@@ -46,8 +46,8 @@ Legend: **S** one arm on an existing seam · **M** a new arm plus a runtime seam
 
 | # | Card | Oracle gist | Blocker (probed) | Size | CREED note |
 |---|---|---|---|---|---|
-| C1 | **Guttural Response** | counter target blue instant spell | `colorFilter` + `spellFilter` at once (each alone parses) | **S** | both filters must hold |
-| C2 | **Pyroblast** | modes: counter target spell if it's blue / destroy target permanent if it's blue | the "if it's blue" MODE form (targets anything, does nothing unless blue — CR 608.2b) | **S** | the spell must be castable at a non-blue target and fizzle-do-nothing; the AI should not waste it |
+| C1 | **Guttural Response** | counter target blue instant spell | ✅ DONE 2026-09-05 (KT-2): the two-filter counter atom; both filters enforced by the enumerator and the resolver | **S** | pinned: a red instant and a blue creature spell are never targets |
+| C2 | **Pyroblast** | modes: counter target spell if it's blue / destroy target permanent if it's blue | ✅ DONE 2026-09-05 (KT-2): the "if it's <colour>" mode form is read as its RESTRICTED twin (REB's printed wording) — an honest UNDER-offer; Hydroblast rides the same rewrite | **S** | the legal-but-idle cast at a non-blue object is NOT modelled rather than mis-modelled; the sim never wastes it |
 | C3 | **Avoid Fate** | counter target instant or Aura spell that targets a permanent you control | a "targets a permanent you control" predicate on stack objects | **M** | pays Not of This World too |
 | C4 | **Not of This World** | counter target spell or ability that targets a permanent you control; costs {7} less if the target targets your 7-power creature | the same predicate + an ability target + a conditional reducer | **M** | rides C3 |
 | C5 | **Veil of Summer** | draw if an opponent cast blue/black this turn; your spells can't be countered this turn; you and your permanents gain hexproof from blue and black | three effects: a colour-cast-this-turn draw, an uncounterable-this-turn flag, colour-scoped hexproof (from-colour exists? probe) | **M/L** | shared with Kinnan; each of the three halves must be real |
@@ -90,7 +90,7 @@ Ordered by plan-criticality, then cost. Running total assumes each slice lands w
 | Slice | Cards | Seam | Expected | Running |
 |---|---|---|---|---|
 | KT-1 | Port Razer (line 2) | attacked-players memo at declare-attackers | ✅ +1 | 1 |
-| KT-2 | Guttural Response · Pyroblast | S-F two-filter counters + the "if it's blue" mode | +2 | 3 |
+| KT-2 | Guttural Response · Pyroblast | S-F two-filter counters + the "if it's blue" mode | ✅ +3 (Hydroblast too) | 3 |
 | KT-3 | Irencrag Feat · Rite of Flame | S-E word-number pips + cast-lock rider; all-graveyards name count | +2 | 5 |
 | KT-4 | Geosurge · Open the Omenpaths | S-E restricted spend on a spell's add-mana (+ two-colour choice) | +2 | 7 |
 | KT-5 | City of Traitors | land-play watcher on a land | +1 | 8 |

@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-2: Guttural Response + Pyroblast (+3)** · suite **1481 files / 16,079 tests** green · corpus 14,429 (42.1%) / 34,245 · flip-diff +3 / 0 lost · 5/5 killed; the 08 CREED pin on Pyroblast GRADUATED (repointed: native + the colour survives on both modes)
+
+> The two-filter counter and the "if it's blue" reading (an honest under-offer). **Killer Turts 71 → 73** (73/100; needs 12). Next: KT-3 Irencrag Feat + Rite of Flame (word-number pips; the self cast limit; the all-graveyards name count).
+> **CI:** BLOCKED — repo PRIVATE again (billing); KT-1 cf939cef's run died in 2 s with zero steps; pushes HOLD, this slice is LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-1: Port Razer (+1)** · suite **1480 files / 16,075 tests** green · corpus 14,426 (42.1%) / 34,245 · flip-diff +1 / 0 lost · 7/7 killed
 
 > The attacked-players memo: Port Razer never attacks the same player twice in one turn. **Killer Turts 70 → 71** (71/100; needs 14). Next: KT-2 Guttural Response + Pyroblast (the two-filter counter; the 'if it's blue' mode form mapped to its restricted twin — an honest under-offer).
