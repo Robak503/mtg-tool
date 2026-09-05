@@ -409,7 +409,10 @@ export function splitClauses(oracle) {
     // end of turn" and never reached the matcher. Found the hard way: the clause parser returned the right atom
     // when called DIRECTLY and nothing at all through parseEffectClause — when a parser works in isolation but
     // not through its driver, the driver is doing something to the input. Here the driver was the SPLITTER.
-    if (/^target permanent you control gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ⭐ THE BARE PERMANENT SUBJECT JOINED 2026-09-05 (SHELF-85 · Otharri O9 Blacksmith's Skill "Target permanent gains hexproof
+    // and indestructible until end of turn."; Renegade's Getaway): the same shatter one qualifier down — "you control" is
+    // optional here, and the clause parser's permanent-scoped grant arm (combat.js) owns the reduced shape.
+    if (/^target permanent (?:you control )?gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ANOTHER-TARGET pump + keyword grant ("another target creature you control gets +2/+2 and gains trample
     // until end of turn" — Gladiolus Amicitia's landfall, Hardened Escort). Same internal-" and " binding as the
     // "target creature …" rule above, but the "^target creature" anchor there doesn't reach the "another …"

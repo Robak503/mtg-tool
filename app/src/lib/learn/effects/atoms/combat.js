@@ -3,7 +3,7 @@
  * regenerate). Hosts applyTapEffect (tap/untap).
  */
 
-import { addContinuousEffect, permanentIsCreature, permanentHasKeyword } from "../../layers.js";
+import { addContinuousEffect, permanentIsCreature, permanentHasKeyword, permanentTypes } from "../../layers.js"; // permanentTypes — BLACKSMITH'S SKILL (O9): the "if it's an artifact creature" rider reads the LAYER-4 types (an animated artifact counts)
 import { applyDamageEffect } from "../../spellEffects.js"; // TRAMPLE-EXCESS (Ram Through) — the shared player-damage path (removal.js precedent; call-time binding, cycle-safe)
 import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe, addPreventionShield, addMana } from "../../gameState.js";
 import { checkDiesTriggers, checkUntapTriggers } from "../../triggers.js";
@@ -319,7 +319,19 @@ export function applyPumpEffect(state, atom, ctx) {
     // NOTHING. Opened ONLY for a permanent-scoped atom, so every existing creature pump is byte-identical
     // (a stray "permanent"-tagged target on a creature-scoped pump is still dropped). `findPermanent` stays
     // the real guard: a target that left the battlefield gets nothing (CR 608.2b fizzle).
-    if ((atom?.targetType !== "permanent" && target.type !== "creature") || !findPermanent(next, target.id)) continue;
+    // ⛔ The creature gate ALSO steps aside for a TYPE-CONDITIONAL bound pump (ifBoundTypes): its target slice is the
+    // previous PERMANENT-scoped atom's, whose enumerator tags every pick type:"permanent" — an artifact creature
+    // included — so the printed-type gate below is the real guard there (Blacksmith's Skill's golem stayed 3/3 on
+    // the first witness run because this line dropped it before the type check ever ran).
+    if ((atom?.targetType !== "permanent" && !atom?.ifBoundTypes?.length && target.type !== "creature") || !findPermanent(next, target.id)) continue;
+    // TYPE-CONDITIONAL bound pump (Blacksmith's Skill — "If it's an artifact creature, it gets +2/+2"): the pump lands
+    // only when the target carries EVERY listed card type after layer 4 (an animated artifact counts; a plain creature
+    // does not). Read at resolution (CR 608.2). A target missing any type is skipped — no P/T, no grant — exactly as
+    // printed; nothing else in this loop changes for an atom without the field.
+    if (atom.ifBoundTypes?.length) {
+      const have = new Set((permanentTypes(next, target.id)?.types || []).map((x) => String(x).toLowerCase()));
+      if (!atom.ifBoundTypes.every((ty) => have.has(String(ty).toLowerCase()))) continue;
+    }
     // DOUBLE-P/T (Unnatural Growth / Reckless Amplimancer / Tifa Lockhart) — "double the power [and toughness]"
     // is a PER-TARGET one-shot doubling (CR 701.10b — the bonus modifies, doesn't set; X = the creature's power/
     // toughness as the effect resolves): snapshot THIS target's current layer-aware P/T at resolution and add
@@ -1875,6 +1887,16 @@ export function pumpClauseParser(clause) {
     const kws = parseGrantedKeywords(pg[1]);
     return kws ? { op: "pump", targetType: "creature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
+  // PERMANENT-scoped keyword grant (SHELF-85 · Otharri O9 Blacksmith's Skill, 2026-09-05 — "Target permanent gains
+  // hexproof and indestructible until end of turn."; Renegade's Getaway is the other printing). The SAME atom as the
+  // creature twin above with targetType "permanent": the cast path already enumerates any permanent for that scope
+  // (the tap-target-permanent arm), and applyPumpEffect's target gate is already open for a permanent-scoped atom (a
+  // non-creature target tagged type:"permanent" is kept, so the grant lands on a land or an artifact as printed).
+  pg = t.match(/^target permanent gains (.+) until end of turn$/);
+  if (pg) {
+    const kws = parseGrantedKeywords(pg[1]);
+    return kws ? { op: "pump", targetType: "permanent", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
   // ⭐ BOUND REFERENT keyword grant — "It gains flying until end of turn." / "That creature gains
   // indestructible until end of turn." The SAME grant as the targeted arm directly above, except the
   // recipient is not chosen here: it is whatever the PRECEDING clause already targeted (CR 608.2 — the
@@ -1903,6 +1925,18 @@ export function pumpClauseParser(clause) {
   pg = t.match(/^(?:it|they|them|that creature|those creatures) gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (pg) {
     return { op: "pump", ptDelta: { p: parseInt(pg[1], 10), t: parseInt(pg[2], 10) }, grantKeywords: [], bindPreviousTargets: true };
+  }
+  // BOUND REFERENT, TYPE-CONDITIONAL P/T form (SHELF-85 · Otharri O9 Blacksmith's Skill, 2026-09-05) — "If it's an
+  // artifact creature, it gets +2/+2 until end of turn." (Griffin Canyon: "If it's a creature, it gets +1/+1 …"). The
+  // leading-if peel in parser.js steps aside here on purpose: "it's an artifact creature" is a PER-OBJECT condition
+  // no board reader can evaluate, so the clause falls through to this arm. The recipient is the previous atom's
+  // target (bindPreviousTargets), and the condition rides the atom as `ifBoundTypes` — applyPumpEffect reads the
+  // target's LAYER-4 types at resolution (CR 608.2 — checked as the instruction resolves; an artifact animated into a
+  // creature counts) and pumps only when EVERY listed type is present. Card types only (the printed list is closed);
+  // a subtype/supertype form leaves residue → null → low → Arbiter (CREED).
+  pg = t.match(/^if it's an? ((?:artifact|creature|enchantment|land|planeswalker|battle)(?: (?:artifact|creature|enchantment|land|planeswalker|battle))?), it gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
+  if (pg) {
+    return { op: "pump", ptDelta: { p: parseInt(pg[2], 10), t: parseInt(pg[3], 10) }, grantKeywords: [], bindPreviousTargets: true, ifBoundTypes: pg[1].split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)) };
   }
   // ⭐ BOUND REFERENT, PLAYER form — "Destroy target creature. ITS CONTROLLER discards a card." (Nature's
   // Claim, Assassin's Strike) and "… THAT PLAYER loses 2 life." The permanent-referent arms above bind to

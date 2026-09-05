@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Blacksmith's Skill** — hexproof and indestructible on any permanent; the +2/+2 lands only on an artifact creature (an animated artifact counts)
 - **Glimmer Lens** — draws when the equipped creature attacks alongside another
 - **Minas Tirith** — draws only after you attacked with two or more creatures
 - **Solitude** — exile another creature as it enters (its controller gains life equal to its power), and evoke it by exiling a white card

@@ -16,6 +16,28 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · O9: BLACKSMITH'S SKILL — the permanent grant + the type-conditional rider · **+2** · corpus 14497 / 34,245
+> Suite **1506 files / 16,185** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 7/7 killed.**
+> · "Target permanent gains hexproof and indestructible until end of turn. If it's an artifact creature, it gets +2/+2
+>   until end of turn." Two seams. (1) The keyword grant on a target PERMANENT: the creature arm's twin with
+>   targetType "permanent" (the cast path and the resolver's target gate already served that scope) — but the clause
+>   never reached it because splitClauses' permanent-subject keep-whole was nailed to "target permanent YOU CONTROL",
+>   so the bare form shattered on the " and " inside "hexproof and indestructible" (found by the DBG-at-the-arm probe:
+>   the arm saw "target permanent gains hexproof"). (2) The rider: "it's an artifact creature" is a per-object
+>   condition no board reader can evaluate, so the leading-if peel steps aside and a dedicated bound-referent arm
+>   carries it as `ifBoundTypes`; applyPumpEffect reads the target's LAYER-4 types at resolution (CR 608.2) and pumps
+>   only when every listed type is present — an artifact animated into a creature counts.
+> · **Found on the first witness run:** the pump loop's creature gate dropped the golem before the type check ran —
+>   the permanent pool tags every pick type:"permanent", and the rider atom has no targetType of its own. Opened for
+>   an atom carrying ifBoundTypes only; every other pump is byte-identical.
+> · **Pins:** the program parses HIGH with the two atoms and classifies native-spell; a plain creature keeps 2/2
+>   with both keywords, an artifact creature goes 3/3 → 5/5, a non-creature artifact gets the keywords and no pump,
+>   an animated artifact (layer-4 Creature grant, printed line still "Artifact") goes 1/1 → 3/3. Mutants: the two
+>   arms, the unlisted condition, any-vs-every, the printed-line read, the closed gate, the "you control" keep-whole
+>   — mutants 7/7 killed.
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Otharri 78 → **79** (6 to the bar); Renegade's Getaway the unplanned gain, audited whole-card (permanent grant + Servo token, both modelled)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · O6: GLIMMER LENS — the company condition · **+5** · corpus 14495 / 34,245
 > Suite **1505 files / 16,182** green; lint 0. Flip-diff **+5, zero LOST** (any unplanned gains audited whole-card). **mutants 8/8 killed.**
 > · "Whenever equipped creature and at least one other creature attack, draw a card." The equipped-creature attack
