@@ -436,7 +436,7 @@ const CTRL_HAND_THRESHOLD_RE = new RegExp(`^you have ${NUM_RE}(?: or (less|fewer
 const CTRL_LIBRARY_THRESHOLD_RE = new RegExp(`^you have ${NUM_RE} or (less|fewer|more) cards in your library$`);
 const CTRL_LIFE_EXACT_RE = /^you have exactly (\d+) life$/;
 
-function controllerMetric(state, controllerId, kind) {
+export function controllerMetric(state, controllerId, kind) { // exported 2026-09-05 — TITHE's targeted-opponent compare (library.js) reads the same tally
   const player = state?.players?.[controllerId];
   if (!player) return 0;
   if (kind === "life") return player.life || 0;

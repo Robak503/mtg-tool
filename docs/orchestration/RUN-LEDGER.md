@@ -16,6 +16,29 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · O8: TITHE — the targeted-opponent compare on a tutor's count · **+1** · corpus 14501 / 34,245
+> Suite **1509 files / 16,193** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 6/6 killed (a 7th, the intent arm, survived and was deleted as dead).**
+> · "Search your library for a Plains card. If target opponent controls more lands than you, you may search your
+>   library for an additional Plains card. Reveal those cards, put them into your hand, then shuffle." Split, the
+>   middle sentence is a leading-if the peel refuses (a TARGETED compare — no board reader) and the last is an
+>   unbindable "reveal those cards", so the card parked whole. The splitter now folds the three sentences into ONE
+>   clause (anchored to the exact shape) and a tutor arm emits ONE atom: the printed hand fetch, targetType
+>   "opponent", `remaining` 1, and a compare rider. applyTutor reads the chosen opponent's tally against the
+>   controller's at resolution (CR 608.2 — the shared `controllerMetric`, now exported from interveningIf) and adds the
+>   extra pick when STRICTLY greater. The "you may" needs no new machinery: a filtered search may fail to find (CR
+>   701.19b) and the chain carries that optionality to every pick, so the second Plains can be declined.
+> · The target intent is "enemy" — and a survivor taught me it already was: I added an intent arm for the targeted
+>   tutor, its mutant SURVIVED, and the reason is that the generic opponent-pool rule at the top of atomTargetIntent
+>   answers "enemy" before any case runs. The duplicate arm was deleted (a comment marks the spot); the cast is
+>   offered only at the opponent.
+> · **Pins:** the program parses HIGH as one atom with the rider, enemy intent, native-spell; opponent ahead 2 vs 1 →
+>   the search suspends with remaining 2 and both Plains reach the hand through the chain; ahead but the second pick
+>   declined → one Plains and the chain ends; equal 2 vs 2 → a single pick (strictly greater is the printed test).
+>   Mutants: the arm, the fold, the unlisted rider, >= for >, the extra dropped from remaining, the controller's own
+>   tally on both sides, the ambiguous intent — mutants 6/6 killed (a 7th, the intent arm, survived and was deleted as dead).
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Otharri 81 → **82** (3 to the bar)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · O10: REROUTE SYSTEMS — the artifact-or-creature grant · **+2** · corpus 14500 / 34,245
 > Suite **1508 files / 16,189** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · "Choose one — • Target artifact or creature gains indestructible until end of turn. • Reroute Systems deals 2

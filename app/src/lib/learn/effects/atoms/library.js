@@ -5,6 +5,7 @@
 
 import { logEvent, opponentsOf, findPermanent, deterministicRng, shuffleSeededLibrary, millCards, applyImpulseDig, creatureToughness, addCounter, untapPermanent, moveCardToZone, recordGraveyardEvents } from "../../gameState.js";
 import { permanentIsCreature } from "../../layers.js"; // CR 613 — an animated permanent is a creature RIGHT NOW
+import { controllerMetric } from "../../interveningIf.js"; // TITHE (O8, 2026-09-05) — "target opponent controls more lands than you" read at resolution (interveningIf → gameState only: cycle-free)
 import { hasKeyword } from "../../keywords.js"; // LK-1 chosen-type impulse-dig membership (keywords.js is a zero-import leaf — cycle-safe)
 import { setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice, setPendingDigLandChoice, setPendingLookTopTakeChoice, setPendingMilledPickChoice, setPendingSylvanLibraryChoice, setPendingTaintedPactChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard, isInstantOrSorceryCard, resolveScaledAmount } from "./shared.js";
@@ -270,6 +271,14 @@ export function applyTutor(state, atom, ctx) {
   // by setPendingTutorChoice's Math.max(1, …) RAMP guard. A static-`remaining` / non-countFor tutor is
   // untouched (this branch is countFor-only).
   const dynCount = atom.countFor ? Math.max(0, countForSpec(state, ctx, atom.countFor)) : null;
+  // TITHE (O8) — the targeted-opponent compare rider: one extra pick when the CHOSEN opponent's tally strictly
+  // exceeds the controller's at resolution (CR 608.2). No chosen opponent (an old save, a fizzled target) → no extra
+  // — the printed base search still happens; never a fabricated second card.
+  let extraCount = 0;
+  if (atom.extraIfTargetControlsMore) {
+    const tgt = (ctx.targets || []).find((t) => t.type === "player" && state.players[t.id] && t.id !== controller);
+    if (tgt && controllerMetric(state, tgt.id, atom.extraIfTargetControlsMore.metric) > controllerMetric(state, controller, atom.extraIfTargetControlsMore.metric)) extraCount = atom.extraIfTargetControlsMore.count || 0;
+  }
   // A library search always shuffles afterward (CR 701.19e); a multi-zone search that includes the library
   // (bfxg) shuffles too. A from-hand / graveyard-only search never touches the library.
   const searchesLibrary = sourceZones ? sourceZones.includes("library") : sourceZone === "library";
@@ -322,7 +331,7 @@ export function applyTutor(state, atom, ctx) {
     // RAMP-MULTI-X — `countFor` resolves the fetch cardinality (computed above as dynCount; a 0 short-circuits
     // to the no-op return before this point, so here dynCount is ≥1). A static `remaining` wins when present;
     // otherwise the dynamic count; otherwise the default 1.
-    remaining: dynCount ?? (atom.remaining ?? 1),
+    remaining: (dynCount ?? (atom.remaining ?? 1)) + extraCount, // + TITHE's conditional extra pick (0 for every other tutor)
     // RAMP-SPLIT (Cultivate / Kodama's Reach) — an ordered per-fetch destination sequence; setPendingTutorChoice
     // derives this pick's destination from its head and carries the tail to the next chained fetch.
     destinations: Array.isArray(atom.destinations) ? atom.destinations : null,
@@ -2305,6 +2314,20 @@ export function tutorClauseParser(clause, ctx = {}) {
   const mk = t.match(/^search your library for an artifact card with a mana ability or a basic land card,?(?: reveal (?:it|that card),?)? put (?:it|that card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (mk) {
     return { op: "tutor", filter: { groups: [["artifact"], ["basic", "land"]], manaAbilityGroup: 0 }, filterLabel: "artifact card with a mana ability or basic land card", destination: "hand", targetType: null };
+  }
+  // ===== tth — TITHE (SHELF-85 · Otharri O8, 2026-09-05): "Search your library for a Plains card. If target opponent
+  // controls more lands than you, you may search your library for an additional Plains card. Reveal those cards, put
+  // them into your hand, then shuffle." The splitter folds the three sentences into ONE clause (its Tithe fold), so
+  // the whole shape reaches this arm. ONE tutor atom: a hand fetch of the printed filter, `remaining` 1, plus a
+  // TARGETED-OPPONENT compare rider — applyTutor reads the chosen opponent's tally against the controller's at
+  // resolution (CR 608.2) and adds the extra pick when it is strictly greater. The "you may" is honoured by the
+  // chain itself: a filtered search may fail to find (CR 701.19b), so the second pick can be declined. The spell
+  // is TARGETED (targetType "opponent") — only opponents are legal picks; the searcher is still the controller.
+  const tth = t.match(/^search your library for an? ([a-z][a-z ]*?) card, if target opponent controls more (lands|creatures|artifacts|enchantments) than you, you may search your library for an additional \1 card, reveal those cards, put them into your hand, then shuffle$/);
+  if (tth) {
+    const base = parseTutorFilter(tth[1]);
+    if (!base) return null; // an unmodeled filter word → LOW → Arbiter (never an over-fetch)
+    return { op: "tutor", filter: base, filterLabel: `${tth[1]} card`, destination: "hand", targetType: "opponent", remaining: 1, extraIfTargetControlsMore: { metric: tth[2], count: 1 } };
   }
   const tm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?(?: with (mana value|toughness|power) (\d+(?: or less)?))?,?(?: reveal (?:it|that card|the card),?)?(?: and)? put (?:it|that card|the card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (tm) {

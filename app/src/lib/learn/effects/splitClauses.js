@@ -244,6 +244,16 @@ export function splitClauses(oracle) {
     .replace(
       /^(sacrifice this (?:creature|permanent|token|land|artifact|enchantment|aura|equipment|vehicle)), (search your library)/i,
       "$1. $2",
+    )
+    // TITHE THREE-SENTENCE FOLD (SHELF-85 · Otharri O8, 2026-09-05) — "Search your library for a Plains card. If target
+    // opponent controls more lands than you, you may search your library for an additional Plains card. Reveal those
+    // cards, put them into your hand, then shuffle." is ONE instruction with a conditional cardinality; split, the middle
+    // sentence is a leading-if the peel refuses (a targeted compare) and the last is an unbindable "reveal those cards".
+    // Folded to one clause (the search anchor keeps it whole), which the tth tutor arm parses as ONE atom. Anchored
+    // to the exact shape, so it can only PROMOTE this already-low pair; every other search sentence is untouched.
+    .replace(
+      /^(search your library for an? [a-z][a-z ]*? card)\. (if target opponent controls more (?:lands|creatures|artifacts|enchantments) than you, you may search your library for an additional [a-z][a-z ]*? card)\. (reveal those cards, put them into your hand, then shuffle)/i,
+      "$1, $2, $3",
     );
   // QUOTE-CLOSING SENTENCE BOUNDARY (2026-08-04) — a sentence whose final period sits INSIDE a quoted
   // ability ("… gains \"When this creature dies, return it to its owner's hand.\"") is followed by `."`,

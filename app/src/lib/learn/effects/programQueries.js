@@ -426,6 +426,8 @@ export function atomTargetIntent(atom) {
       // the `!tt` guard at the top), so this case is reached only by the targeted named form. A future
       // targeted tutor of some other shape must decide its own side rather than inherit this one.
       if (tt === "player" && atom.searcherIsTarget) return "own";
+      // (TITHE's targeted tutor — targetType "opponent" — never reaches this case: the generic opponent-pool rule
+      // at the top of this function already answers "enemy". A duplicate arm here survived its mutant and was deleted.)
       return "ambiguous";
     case "grant-flashback": // ④-G (Snapcaster) — a card in the CASTER's own graveyard: always an own-side pick
       return "own";
