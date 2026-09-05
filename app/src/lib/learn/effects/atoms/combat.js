@@ -355,7 +355,8 @@ export function applyPumpEffect(state, atom, ctx) {
     if (atom.doublePt) {
       const lp = findPermanent(next, target.id).permanent;
       addP = creaturePower(lp, next);
-      addT = atom.doublePt === "p" ? 0 : creatureToughness(lp, next);
+      // "powerToBoth" (Xenagos): +X/+X where X is the creature's POWER — the power lands on both halves.
+      addT = atom.doublePt === "p" ? 0 : atom.doublePt === "powerToBoth" ? creaturePower(lp, next) : creatureToughness(lp, next);
     }
     if (addP !== 0 || addT !== 0) {
       next = addContinuousEffect(next, {
@@ -2138,6 +2139,15 @@ export function pumpClauseParser(clause) {
     const kws = anotherPt[3] ? parseGrantedKeywords(anotherPt[3]) : null;
     if (anotherPt[3] && !kws) return null;
     return { op: "pump", targetType: "creatureYouControl", excludeSource: true, ptDelta: { p: parseInt(anotherPt[1], 10), t: parseInt(anotherPt[2], 10) }, ...(kws ? { grantKeywords: kws } : {}) };
+  }
+  // ANOTHER-TARGET, POWER-TO-BOTH (SHELF-85 Phase 3 · Xenagos, God of Revels, 2026-09-05 — "another target creature you
+  // control gains haste and gets +X/+X until end of turn, where X is that creature's power"): the another-target pump
+  // above with the double-P/T mechanism's THIRD mode — the target's own power added to BOTH halves (`doublePt:
+  // "powerToBoth"`, read layer-aware per target at resolution, CR 608.2h). Keywords through the shared vocabulary.
+  const anotherPowerBoth = t.match(/^another target creature you control gains (.+) and gets \+x\/\+x until end of turn, where x is that creature's power$/);
+  if (anotherPowerBoth) {
+    const kws = parseGrantedKeywords(anotherPowerBoth[1]);
+    return kws ? { op: "pump", targetType: "creatureYouControl", excludeSource: true, ptDelta: { p: 0, t: 0 }, grantKeywords: kws, doublePt: "powerToBoth" } : null;
   }
   // ===== MULTI-COUNT PUMP (VERIFY PROTOTYPE) ===== "up to N target creatures[ you control] each get ±P/±T[ and gain KW] until end of turn"
   let mc = t.match(/^up to (two|three|four|five) target creatures(?: (you control))? each get ([+-]\d+)\/([+-]\d+)(?: and gain (.+))? until end of turn$/);

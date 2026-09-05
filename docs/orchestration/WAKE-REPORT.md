@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **PHASE 3 · Xenagos, God of Revels (+1)** · suite **1564 files / 16,376** green · corpus 14,623 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
+
+> A pump can now add a creature's own power to both halves — "+X/+X where X is that creature's power" — beside a granted keyword, on another creature you control at the start of combat. Hulk 88 → **89** (89/100; 1 to 90). Hulk's remaining rows: Fire Nation Palace (M — a granted firebending N the trigger side must read), Moonmist / Arena / Balduvian Trading Post (L). Next: Wheel and Deal (Nekusar) — the any-number opponent wheel, staged.
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **PHASE 3 · Desert (+1)** · suite **1563 files / 16,373** green · corpus 14,622 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 3/3 killed
 
 > An activated ability can now print "Activate only during the <step> step" — peeled into the engine's step key and offered only there, inside the combat window. Hulk 87 → **88** (88/100; 2 to 90). Next Hulk row: Xenagos, God of Revels (the power-to-both pump — staged), then Fire Nation Palace (firebending — a keyword lane question) / Moonmist / Arena / Balduvian Trading Post (L).

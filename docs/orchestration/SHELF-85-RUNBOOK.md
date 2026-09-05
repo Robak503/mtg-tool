@@ -62,7 +62,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Earth Bent | 91 | — | — | ✅ at the bar (④-BE) |
 | Joe | Mothman Cometh | 90 | — | — | ✅ at the bar |
 | Joe | Captain America Shoot your Shot | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
-| Joe | Hulk Smash | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
+| Joe | Hulk Smash | 89 | 0 | 1 | ✅ at 85 · Phase 3 candidate |
 | Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kinnan Mana Overload | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
@@ -484,6 +484,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — **Phase 3** (§4.3 step 2, Hulk → 90 sweep) · Xenagos, God of Revels ✅ +1 corpus (the ANOTHER-target haste + "+X/+X where X is that creature's power" pump — the double-P/T mechanism's third mode, power added to both halves, read per target at resolution) · mutants 4/4 killed · suite 1564 files / 16,376 · Hulk 88 → **89** (89/100; 1 to 90). Hulk's remaining rows: Fire Nation Palace (M — a granted firebending N the trigger side must read), Moonmist / Arena / Balduvian Trading Post (L). Next: Wheel and Deal (Nekusar) — the any-number opponent wheel, staged.
 
 - 2026-09-05 — **Phase 3** (§4.3 step 2, Hulk 87 → 90 sweep) · Desert ✅ +1 corpus (the COMBAT-STEP activation rider — "Activate only during the end of combat step" — peeled into the engine's step key and enforced at the offer inside ④-AE's combat window) · mutants 3/3 killed · suite 1563 files / 16,373 · Hulk 87 → **88** (88/100; 2 to 90). Next Hulk row: Xenagos, God of Revels (the power-to-both pump — staged), then Fire Nation Palace (firebending — a keyword lane question) / Moonmist / Arena / Balduvian Trading Post (L).
 

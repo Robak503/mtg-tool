@@ -437,6 +437,10 @@ export function splitClauses(oracle) {
     // subject, so the sentence would shatter on " and " and never reach the anotherPt pump matcher. Keep it whole
     // so the pump + grant bind to the SAME excluded-source own target. POSITIVE deltas only (matches the matcher).
     if (/^another target creature you control gets \+\d+\/\+\d+ and gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ANOTHER-TARGET POWER-TO-BOTH (SHELF-85 Phase 3 · Xenagos, God of Revels, 2026-09-05 — "another target creature you
+    // control gains haste and gets +X/+X until end of turn, where X is that creature's power"): the pump parser owns the
+    // whole sentence (a keyword grant + the power-scaled pump on one target); its " and " would otherwise sever the two.
+    if (/^another target creature you control gains [a-z ,]+ and gets \+x\/\+x until end of turn, where x is that creature's power$/i.test(sentence)) { clauses.push(sentence); continue; }
     // BECOMES-A-SUBTYPE-AND-GAINS (SHELF-85 · Light-Paws L5 Enter the Avatar State, 2026-09-05 — "Until end of turn, target
     // creature you control becomes an Avatar in addition to its other types and gains flying, first strike, lifelink, and
     // hexproof."): the pump parser owns the whole sentence (a keyword pump with a subtype-add rider); its two internal

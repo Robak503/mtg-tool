@@ -16,6 +16,26 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — PHASE 3 · XENAGOS, GOD OF REVELS — the power-to-both pump · **+1** · corpus 14,623 (42.7%) / 34,245
+> Suite **1564 files / 16,376** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · Phase 3 step 2 — Hulk Smash's next row: "At the beginning of combat on your turn, another target creature you control
+>   gains haste and gets +X/+X until end of turn, where X is that creature's power." The combat-start trigger, the
+>   another-target-you-control pump (excludeSource) and the double-P/T mechanism all existed; the mechanism knew "double
+>   the power and toughness" (each half from its own value) and "double the power" (toughness untouched), never "+X/+X
+>   where X is the power" — the POWER added to BOTH halves. One arm (the haste + the power-scaled pump) and a third mode
+>   (`doublePt: "powerToBoth"`) in the resolver: the target's layer-aware power at resolution (CR 608.2h) lands as +P/+P
+>   beside the granted haste, per target, no 0-floor (the mechanism's signed discipline). Xenagos's devotion static and
+>   indestructible were native already. The splitter was the second seam once more (the Karametra / Avatar State lesson):
+>   the arm matched in isolation while the driver severed "gains haste and gets +X/+X …" at its " and " — one keep-whole
+>   guard for the exact sentence.
+> · **Pins:** the combat-begin trigger with the atom (creatureYouControl, excludeSource, haste, powerToBoth); native-mixed.
+>   RUNTIME through the real step trigger + chooser: a 3/1 becomes 6/4 with haste at the beginning of your combat; a
+>   creature-typed source with the same sentence never targets itself; nothing fires on an opponent's combat. Mutants:
+>   the arm gone, the mode read as double-P/T, the source exclusion dropped, the splitter guard gone — mutants 4/4 killed.
+> · **Whole-card:** no unplanned gains — the shape prints on Xenagos alone (the creature-typed carrier in the witness is synthetic).
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Hulk 88 → **89** (89/100; 1 to 90). Hulk's remaining rows: Fire Nation Palace (M — a granted firebending N the trigger side must read), Moonmist / Arena / Balduvian Trading Post (L). Next: Wheel and Deal (Nekusar) — the any-number opponent wheel, staged.
+
 > ## 🎯 2026-09-05 (cron) — PHASE 3 · DESERT — the combat-step activation rider · **+1** · corpus 14,622 (42.7%) / 34,245
 > Suite **1563 files / 16,373** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
 > · Phase 3 step 2 — Hulk Smash sits at 87 with three rows to 90; Desert is the cheapest: "{T}: This land deals 1 damage to
