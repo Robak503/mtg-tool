@@ -16,6 +16,26 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · BI-3: FORCE OF DESPAIR + SEA GATE RESTORATION — two fills · **+3** · corpus 14477 / 34,245
+> Suite **1500/16160** green; lint 0. Flip-diff **+3, zero LOST** — one unplanned twin audited whole-card: Praetor's Counsel
+> (return all from graveyard + exile itself + the same rest-of-game rider, now the flag atom behind its self-exile). **7/7 killed.**
+> · Force of Despair — "Destroy all creatures that entered this turn." The generic mass-destroy arm could not read the
+>   phrase; a dedicated arm narrows the each-creature destroy by the shared entered-this-turn restriction (the
+>   `enteredOnTurn` stamp the damage doubler already reads). The "if it's not your turn, exile a black card" pitch was
+>   already modeled and composes (pinned both ways).
+> · Sea Gate Restoration — "Draw cards equal to the number of cards in your hand plus one. You have no maximum hand size
+>   for the rest of the game." The hand-count draw gains a PLUS constant through the shared scaled-amount reader. The
+>   rest-of-game rider had been STRIPPED at the clause level since before cleanup discard existed ("cleanup discard is
+>   unimplemented" in the strip's own comment); the cleanup step is real now, so the program-level peel appends a FLAG
+>   atom that sets a player flag the cleanup read honours for the rest of the game — a fidelity gap closed for every
+>   spell that prints the rider, not only this one (the modal card's land back was already whole).
+> · **Pins:** only the two creatures that entered this turn die (mine and theirs), the two older ones live; castable on the
+>   opponent's turn with no mana by exiling a black card, not on my own; three other cards in hand draw four; the flag is
+>   set; cleanup keeps twelve with the flag and would discard six without it. Mutants: the arm, the dropped restriction,
+>   plus-as-zero, the plus-blind reader, the unappended flag, the flag-less resolver and the flag-blind cleanup — all died.
+> · **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+> · **Believe it! 79 → 81 (needs 4)** · Killer Turts 85 ✅ · Kinnan 85 ✅ · Shalai 84. Next: BI-4 Flare of Malice + Contagion.
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · BI-2: DEMONIC CONSULTATION + TAINTED PACT — the Believe it! win · **+3** · corpus 14474 / 34,245
 > Suite **1499/16156** green; lint 0. Flip-diff **+3, zero LOST** — one unplanned twin audited whole-card: Divining Witch
 > (Consultation's exact text behind a "{1}{B}, {T}, Discard a card" activation). **11/11 killed** — the five-not-six mutant

@@ -1322,10 +1322,19 @@ export function parseEffectProgram(card) {
   const TCR_RE = /^[ \t]*this spell costs \{(\d+)\} less to cast if it targets a spell or ability that targets a creature you control with power (\d+) or greater\.?[ \t]*(?:\n|$)/im;
   const tcr = afterWindow.match(TCR_RE);
   const targetConditionalReduction = tcr ? { amount: Number(tcr[1]), targetsCreatureYouControlPowerAtLeast: Number(tcr[2]) } : null;
-  const body = tcr ? afterWindow.replace(TCR_RE, "") : afterWindow;
+  const afterTcr = tcr ? afterWindow.replace(TCR_RE, "") : afterWindow;
+  // NO MAXIMUM HAND SIZE FOR THE REST OF THE GAME (SEA GATE RESTORATION — POD-SIM THREE · BI-3, 2026-09-05): the clause-level
+  // strip (stripNoMaxHandSizeRider) predates cleanup discard; the cleanup step is real now, so the sentence is a FLAG atom
+  // appended after the spell's other atoms — the player keeps every card at cleanup for the rest of the game.
+  const NOMAX_GAME_RE = /(?:^|(?<=[.!?]\s))[ \t]*you have no maximum hand size for the rest of the game\.?[ \t]*(?=\n|$)/im; // a sentence boundary, not only a line start (Sea Gate's rider shares the draw's line)
+  const noMaxGame = NOMAX_GAME_RE.test(afterTcr);
+  const body = noMaxGame ? afterTcr.replace(NOMAX_GAME_RE, "") : afterTcr;
   const subject = body === oracleOf(card) ? card : { ...card, oracle: body, oracle_text: body };
-  const prog = parseEffectProgramWithSelfExileRetry(subject) ?? null;
-  if (!prog) return prog;
+  const prog0 = parseEffectProgramWithSelfExileRetry(subject) ?? null;
+  if (!prog0) return prog0;
+  const prog = noMaxGame && programConfidence(prog0) === "high" && prog0.structure !== "modal"
+    ? { ...prog0, atoms: [...(prog0.atoms || []), { op: "no-max-hand-size-game", targetType: null }] }
+    : prog0;
   return { ...prog, ...(strive ? { strivePerTarget: strive } : {}), ...(castTiming ? { castTiming } : {}), ...(targetConditionalReduction ? { targetConditionalReduction } : {}) };
 }
 

@@ -661,6 +661,10 @@ export function drawForEachClauseParser(clause) {
     const src = parseCountSource(mfe[2]);
     return src ? { op: "draw", amountCount: { ...src, per: mfe[1] === "a" ? 1 : parseInt(mfe[1], 10) }, targetType: null } : null;
   }
+  // SEA GATE RESTORATION (BI-3): "draw cards equal to the number of cards in your hand plus one" — the hand count PLUS a constant
+  // (the hand is read at resolution, the spell itself already on the stack — CR 608.2h).
+  const hp = t.match(/^(?:you )?draw cards equal to the number of cards in your hand plus (one|two|three|\d+)$/);
+  if (hp) return { op: "draw", amountCount: { kind: "cardsInHand", plus: NUM_WORD[hp[1]] ?? parseInt(hp[1], 10) }, targetType: null };
   mfe = t.match(/^(?:you )?draw cards equal to the number of (.+)$/);
   if (mfe) {
     const src = parseCountSource(mfe[1]);

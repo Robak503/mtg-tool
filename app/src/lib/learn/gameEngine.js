@@ -800,6 +800,7 @@ export function cleanupDiscardExcess(state, playerId) {
   const player = state.players?.[playerId];
   if (!player) return 0;
   const oracleOf = (p) => String(p?.card?.oracle || p?.card?.oracle_text || "");
+  if (player.noMaxHandSizeForGame) return 0; // SEA GATE RESTORATION (BI-3): the spell-granted flag, for the rest of the game
   if ((player.battlefield || []).some((p) => NO_MAX_HAND_RE.test(oracleOf(p)))) return 0;
   // ⛔⛔ THE SUSPENSION IS NOW NARROW. It used to fire on ANY "maximum hand size" text anywhere on the
   // table and returned 0 for EVERY player — so a single Cursed Rack handed its OWN controller an unlimited

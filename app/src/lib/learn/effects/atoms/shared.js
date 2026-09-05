@@ -1033,6 +1033,6 @@ export const resolveScaledAmount = (state, atom, ctx) => {
     return atom.amountUpgrade.amount;
   }
   return atom.countContext ? halveAmount(ctx[atom.countContext] || 0, atom.halve)
-    : atom.amountCount ? halveAmount(countForSpec(state, ctx, atom.amountCount) * (atom.amountCount.per ?? 1), atom.halve)
+    : atom.amountCount ? halveAmount(countForSpec(state, ctx, atom.amountCount) * (atom.amountCount.per ?? 1) + (atom.amountCount.plus ?? 0), atom.halve) // + plus (Sea Gate Restoration, BI-3)
       : effectiveAmount(atom, ctx);
 };

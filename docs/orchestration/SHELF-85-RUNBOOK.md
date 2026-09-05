@@ -66,12 +66,12 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kinnan Mana Overload | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Joe | Believe it! | 79 | 6 | 11 | ⬜ Phase 2 (cEDH — LAST) |
+| Joe | Believe it! | 81 | 4 | 9 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Kellan of the west | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Halfshell heroes | 67 | 18 | 23 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
-| Test | Test Rashmi | 90 | — | — | ✅ at the bar |
+| Test | Test Rashmi | 91 | — | — | ✅ at the bar |
 | Test | Teval, the Balanced Scale Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Nekusar Wheels | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**7 decks below 85 · 88 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**7 decks below 85 · 86 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — POD-SIM THREE · BI-3 Force of Despair + Sea Gate Restoration (Believe it!) ✅ +3 corpus (a mass destroy narrowed to entered-this-turn; a hand-count-plus draw; the rest-of-game no-max-hand-size rider as a FLAG atom the cleanup step reads) · 7/7 killed · suite 1500/16160 · **Believe it! 79 → 81 (needs 4)** · Killer Turts 85 ✅ · Kinnan 85 ✅ · Shalai 84. Next: BI-4 Flare of Malice + Contagion.
 
 - 2026-09-05 — POD-SIM THREE · BI-2 Demonic Consultation + Tainted Pact (Believe it! — THE WIN) ✅ +3 corpus (the name choice through the tutor pause in consultation mode; a new take-or-continue chained pause for the Pact, wired server + driver + hook + panel; neither is a search) · 11/11 killed · suite 1499/16156 · **Believe it! 77 → 79 (needs 6)** — the win is playable end to end. Killer Turts 85 ✅ · Kinnan 85 ✅ · Shalai 84. Next: BI-3 Force of Despair + Sea Gate Restoration.
 

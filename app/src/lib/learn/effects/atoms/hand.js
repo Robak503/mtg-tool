@@ -522,6 +522,12 @@ export function lookAtHandClauseParser(clause) {
 }
 
 export const handResolvers = {
+  "no-max-hand-size-game": (state, atom, ctx) => { // SEA GATE RESTORATION (BI-3): a permanent player flag the cleanup step reads
+    const player = state.players?.[ctx.controller];
+    if (!player) return state;
+    const next = { ...state, players: { ...state.players, [ctx.controller]: { ...player, noMaxHandSizeForGame: true } } };
+    return logEvent(next, { kind: "spell-effect", effect: "no-max-hand-size-game", controller: ctx.controller });
+  },
   "draw-then-discard": (state, atom, ctx) => { // CEPHALID COLISEUM (KN-4): the chosen player draws N, then discards M (the discard pause / auto-policy as usual)
     const pid = (ctx.targets || []).find((t) => t?.type === "player" && state.players?.[t.id])?.id || null;
     if (!pid) return logEvent(state, { kind: "spell-effect", effect: "draw-then-discard", applied: false, reason: "no-player-target" });

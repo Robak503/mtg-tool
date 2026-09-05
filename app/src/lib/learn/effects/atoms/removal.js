@@ -981,6 +981,9 @@ export function destroyExileClauseParser(clause) {
     return { op: "destroy", targetType: "artifactOrEnchantment", minTargets: 0, maxTargets: N[upM[2]] };
   }
   if (/^destroy all creatures$/.test(t)) return { op: "destroy", targetType: "eachCreature" };
+  // FORCE OF DESPAIR (POD-SIM THREE · BI-3, 2026-09-05): "Destroy all creatures that entered this turn." — the mass destroy
+  // narrowed by the shared entered-this-turn restriction (the `enteredOnTurn` stamp the damage doubler already reads).
+  if (/^destroy all creatures that entered (?:the battlefield )?this turn$/.test(t)) return { op: "destroy", targetType: "eachCreature", restrictions: [{ kind: "enteredThisTurn" }] };
   if (/^exile all creatures$/.test(t)) return { op: "exile", targetType: "eachCreature" };
   // MASS-EXILE PARITY (CR 701.8a destroy / 701.10a exile) — the typed mass list was bound to the DESTROY verb
   // while exile only ever got "all creatures", so "Exile all artifacts" (Farewell, EDHREC #163) parsed low even

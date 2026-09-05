@@ -29,8 +29,8 @@ protects the combo turn. Ninjutsu itself is ALREADY native (Ninja of the Deep Ho
 
 | # | Card | Oracle gist | Blocker (probed) | Size | CREED note |
 |---|---|---|---|---|---|
-| B4 | **Sea Gate Restoration // Sea Gate, Reborn** | front: draw cards = hand size + 1; no maximum hand size for the rest of the game | "draw cards equal to the number of cards in your hand plus one" (a hand-count draw) + a no-max-hand-size FLAG (Nezahal's line is credited, so the static exists — here it is a spell-granted permanent flag) | **S/M** | the land back is already credited (land-partial) |
-| B5 | **Force of Despair** | pitch (if not your turn, exile a black card); destroy all creatures that ENTERED THIS TURN | mass destroy with an entered-this-turn filter (the `enteredOnTurn` stamp exists — the damage doubler reads it) | **S** | the pitch's "if it's not your turn" condition must gate the alt cost |
+| B4 | **Sea Gate Restoration // Sea Gate, Reborn** | ✅ DONE 2026-09-05 (BI-3): "draw cards equal to the number of cards in your hand plus one" = the hand count PLUS a constant through the shared scaled-amount reader (the spell itself is on the stack, CR 608.2h); "you have no maximum hand size for the rest of the game" is no longer stripped — the program-level peel appends a FLAG atom that sets a player flag the cleanup step reads (cleanup discard is real now; the old clause-level strip predated it) | **S/M** | pinned: three other cards in hand → draws four; the flag is set; cleanup keeps twelve cards with the flag and would discard six without it; the land back was already whole |
+| B5 | **Force of Despair** | ✅ DONE 2026-09-05 (BI-3): "Destroy all creatures that entered this turn" = the mass destroy narrowed by the shared entered-this-turn restriction (the `enteredOnTurn` stamp); the not-your-turn black pitch was already modeled and composes | **S** | pinned: only the two creatures that entered this turn die (mine and theirs), the older two live; castable on the opponent's turn with no mana by exiling a black card, not on my own |
 | B6 | **Flare of Malice** | alt cost: sacrifice a nontoken black creature; each opponent sacrifices a creature or planeswalker with the GREATEST mana value among theirs | an edict with a greatest-MV selector (the opponent chooses among ties) + a sac-a-creature alt cost (the pitch seam's sac variant) | **M** | the greatest-MV set is per opponent |
 | B7 | **Contagion** | pitch (pay 1 life + exile a black card); distribute two −2/−1 counters among one or two targets | "distribute N counters among one or two targets" (a split choice) | **M** | |
 
@@ -70,7 +70,7 @@ protects the combo turn. Ninjutsu itself is ALREADY native (Ninja of the Deep Ho
 |---|---|---|---|---|
 | BI-1 | Thassa's Oracle | S-A (built under Kinnan KN-1 — verify it flips here, +0 cost) | +1 | 1 |
 | BI-2 | Demonic Consultation · Tainted Pact | S-G exile-until-named — THE WIN | ✅ +3 | 3 |
-| BI-3 | Force of Despair · Sea Gate Restoration | entered-this-turn mass destroy + the not-your-turn pitch gate; hand-count draw + the no-max-hand-size flag | +2 | 5 |
+| BI-3 | Force of Despair · Sea Gate Restoration | entered-this-turn mass destroy + the not-your-turn pitch gate; hand-count draw + the no-max-hand-size flag | ✅ +3 | 5 |
 | BI-4 | Flare of Malice · Contagion | greatest-MV edict + sac alt cost; distribute-counters split | +2 | 7 |
 | BI-5 | Moon-Circuit Hacker · Satoru | optional draw with a conditional discard rider; the uncast/no-mana batched ETB watcher | +2 | 9 |
 | BI-6 | Subtlety (S-B) or Thousand-Faced Shadow or Roaming Throne or Ingenious Prodigy | whichever lands cleanest | +1 | **10** |
