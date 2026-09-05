@@ -106,6 +106,10 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
+- 2026-09-06 — **PHASE 4 step 3 — the NEGATIVE form + the Powerstone token** (+18 corpus). "This mana can't be spent to cast a
+  nonartifact spell" reads as artifact casts + every ability (abilityOf "@any"); the token joins NAMED_TOKENS; "create a tapped
+  Powerstone token" parses. mutants 4/4 killed. Remaining step-3 classes: colour words ("colorless spells"), the chosen-type-plus-tail.
+
 - 2026-09-06 — **PHASE 4 step 3 — the ABILITY tail** ("… or to activate an ability of a <Subtype> source"; +0 corpus). abilityOf
   now carries subtypes beside "creature"; spendRestrictionAllows matches the activating source's type line (every activation
   site passes activatingTypeLine); the extra-mana-line regex admits the tail and comma lists — which also closed a dead-mana

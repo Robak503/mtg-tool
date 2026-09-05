@@ -302,8 +302,8 @@ export function applyCreateToken(state, atom, ctx) {
 // targeted-explore effect (the "Activate only as a sorcery" rider stripped + enforced at the offer gate via
 // stripEnforcedTimingRider — identical to Olivia's sac-Treasure sorcery ability). legalChoices offers it
 // sorcery-speed with per-target enumeration; applyActivateAbility → runProgram → applyExplore explores the
-// chosen creature. Powerstone (restricted mana, explicitly unmodeled — manaModel.js) / Incubator (transform)
-// stay unmodeled → low → Arbiter.
+// chosen creature. Powerstone joined 2026-09-06 (its restricted mana parses now — see its entry); Incubator (transform)
+// stays unmodeled → low → Arbiter.
 export const NAMED_TOKENS = {
   treasure: { name: "Treasure", type: "Token Artifact — Treasure", oracle: "{T}, Sacrifice this artifact: Add one mana of any color." },
   clue: { name: "Clue", type: "Token Artifact — Clue", oracle: "{2}, Sacrifice this artifact: Draw a card." },
@@ -320,6 +320,11 @@ export const NAMED_TOKENS = {
   // new costume: a card credited native whose payoff silently does nothing.
   lander: { name: "Lander", type: "Token Artifact — Lander", oracle: "{2}, {T}, Sacrifice this token: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle." },
   mutagen: { name: "Mutagen", type: "Token Artifact — Mutagen", oracle: "{1}, {T}, Sacrifice this token: Put a +1/+1 counter on target creature. Activate only as a sorcery." },
+  // POWERSTONE (QUARTET Phase 4 step 3, 2026-09-06 — Koilos Roc, Stone Retrieval Unit, the Brothers' War cycle): the printed
+  // reminder text, verbatim. Its mana is RESTRICTED — the negative "can't be spent to cast a nonartifact spell" now parses
+  // (manaModel.parseSpendRestriction: artifact casts + every ability), so the token taps for a {C} the planner spends only where
+  // the card allows — the same bar the other entries meet: the ability PARSES AND RUNS, never a phantom-mana rock.
+  powerstone: { name: "Powerstone", type: "Token Artifact — Powerstone", oracle: "{T}: Add {C}. This mana can't be spent to cast a nonartifact spell." },
   junk: { name: "Junk", type: "Token Artifact — Junk", oracle: "{T}, Sacrifice this token: Exile the top card of your library. You may play that card this turn. Activate only as a sorcery." },
   // ── ROLE TOKENS (Wilds of Eldraine; CR 303.4 Auras). ⛔ NOT artifacts like every entry above: a Role is an
   // AURA token that enters ATTACHED to a creature, which is why applyCreateNamedToken grew an attach path and
@@ -687,7 +692,7 @@ export function createNamedTokenClauseParser(clause) {
   // deriving this alternation from Object.keys(NAMED_TOKENS) would have been one line and would have opened
   // token/form pairs no card prints — harmless to coverage, but it discards the evidence the narrow anchors
   // encode, and this file's standard is that an anchor states what was measured.
-  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (tapped )?(treasure|clue|food|gold|blood|map|lander|mutagen|junk) tokens?$/);
+  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (tapped )?(treasure|clue|food|gold|blood|map|lander|mutagen|junk|powerstone) tokens?$/); // + powerstone (2026-09-06)
   if (m) {
     const atom = { op: "create-named-token", token: m[3], count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: null };
     if (m[2]) atom.tapped = true; // only stamp the flag when present, so the untapped atom shape is unchanged

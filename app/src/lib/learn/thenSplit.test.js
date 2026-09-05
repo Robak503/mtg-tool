@@ -29,6 +29,6 @@ describe("', then' splits a top-level sequence", () => {
   it("an unmodeled second half still drops the whole program (all-or-nothing)", () => {
     // (the own exile-top became modeled 2026-09-04 — SHELF-85 K9 Mystic Forge — so the stand-in is airbending, still refused)
     expect(programConfidence(parseEffectProgram(I("Scry 2, then airbend target creature you control.")))).toBe("low"); // airbend — unmodeled
-    expect(programConfidence(parseEffectProgram(I("Scry 2, then create a Powerstone token.")))).toBe("low"); // Powerstone unmodeled (restricted mana defers it)
+    expect(programConfidence(parseEffectProgram(I("Scry 2, then create an Incubator token with two +1/+1 counters on it.")))).toBe("low"); // Incubator unmodeled (transform) — Powerstone graduated 2026-09-06
   });
 });

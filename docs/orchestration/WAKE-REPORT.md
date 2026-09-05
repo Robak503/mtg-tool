@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-06 (cron) — **QUARTET Phase 4 step 3 · the negative spend form + the Powerstone token (+18)** · suite **1582 files / 16421 tests** green · corpus 14,760 (43.1%) / 34,245 · flip-diff +18 / 0 lost · mutants 4/4 killed
+
+> **Runnable next:** Phase 4 step 3's last named classes — colour words in the cast filter ("colorless spells" / "colorless Eldrazi spells": Shrine of the Forsaken Gods, Eldrazi Temple — a colour predicate on the cast card beside the type words) · Secluded Courtyard's chosen-type-plus-tail. Then re-run the residue census (the Powerstone rows are gone from it). **Brago Blink 85 → 86** (Static Net); Halfshell 84, Cap 87 unchanged
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-06 (cron) — **QUARTET Phase 4 step 3 · the ability tail (+0)** · suite **1581 files / 16418 tests** green · corpus 14,742 (43.1%) / 34,245 · flip-diff +0 / 0 lost · mutants 5/5 killed (one survivor got its missing test — the end-to-end offer pin through legalActionsForPlayer)
 
 > **Runnable next:** Phase 4 step 3 continues per carrier class — colour words in the cast filter ("colorless spells": Eldrazi Temple, Shrine of the Forsaken Gods) · the Powerstone token's negative form ("can't be spent to cast a nonartifact spell" — Koilos Roc, Stone Retrieval Unit) · Secluded Courtyard's "of the chosen type or activate an ability of a source of the chosen type" (the chosen-type arm + the tail). Avengers Tower itself still waits on its Hero-tutor activation ("look at the top three, reveal a Hero card" — a typed impulse pick). no deck moves (a runtime correction: the four tribal lands' restricted lines now produce, and tribal abilities are payable); Cap 87 waits on Avengers Tower's tutor line

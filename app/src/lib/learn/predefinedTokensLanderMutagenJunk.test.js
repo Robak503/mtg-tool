@@ -106,18 +106,23 @@ describe("⛔ POWERSTONE IS NOT NEXT — the trap this slice sets for whoever re
    * These assertions fail the moment someone registers it, which is the point: the objection arrives at the
    * edit, not in a doc nobody opens.
    */
-  it("Powerstone is deliberately ABSENT from the registry", () => {
-    expect(NAMED_TOKENS.powerstone).toBeUndefined();
+  // 2026-09-06 — THE TRAP SPRANG AS DESIGNED, and the objection was answered at the edit: the precondition ("no restriction
+  // tracking") stopped being true when the quartet's Phase 4 core shipped (08-15), and its step 3 read the NEGATIVE sentence
+  // ("can't be spent to cast a nonartifact spell" = artifact casts + every ability). The registry entry carries the printed
+  // text and its mana IS restricted — the assertions below now pin that, so a registration WITHOUT the restriction fails here.
+  it("Powerstone is in the registry WITH its restriction (never an unrestricted colorless rock)", () => {
+    expect(NAMED_TOKENS.powerstone).toMatchObject({ name: "Powerstone", type: "Token Artifact — Powerstone" });
+    expect(NAMED_TOKENS.powerstone.oracle).toMatch(/can't be spent to cast a nonartifact spell/);
   });
 
-  it("a Powerstone carrier stays parked", () => {
+  it("a Powerstone carrier flips", () => {
     const card = { name: "X", type: "Creature — Human Artificer", mana: "{2}", power: 2, toughness: 2, keywords: [],
       oracle: "When this creature enters, create a Powerstone token." };
-    expect(classifyCard(card)).not.toMatch(/^native/);
+    expect(classifyCard(card)).toMatch(/^native/);
   });
 
-  it("…and the clause does not parse to an atom", () => {
-    expect(createNamedTokenClauseParser("create a powerstone token")).toBeNull();
+  it("…and the clause parses to its atom", () => {
+    expect(createNamedTokenClauseParser("create a powerstone token")).toMatchObject({ token: "powerstone" });
   });
 });
 

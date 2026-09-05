@@ -39,8 +39,9 @@ describe("a spend restriction routes the whole card out", () => {
     expect(prod.restriction).toEqual({ castTypes: ["artifact"] });
   });
 
-  it("the \"can't be spent to\" phrasing is covered too", () => {
-    expect(manaProduction(artifact("{T}: Add {C}. This mana can't be spent to cast a nonartifact spell."))).toBe(null);
+  it("the \"can't be spent to\" phrasing is covered too — GRADUATED 2026-09-06: it now produces WITH its restriction (artifact casts + every ability), never a bare pool", () => {
+    expect(manaProduction(artifact("{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.")))
+      .toMatchObject({ colors: ["C"], amount: 1, restriction: { castTypes: ["artifact"], abilityOf: ["@any"] } });
   });
 
   it("and the card classifies native-mana ONLY because the restriction now rides with it", () => {

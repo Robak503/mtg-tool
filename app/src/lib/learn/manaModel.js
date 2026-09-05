@@ -1093,7 +1093,7 @@ function restrictedManaProduction(card) {
   if (!/\b(?:spend this mana only|can't be spent to)\b/i.test(unquoted)) return null;
   const restriction = parseSpendRestriction(oracleOf(card));
   if (!restriction) return null;
-  const stripped = oracleOf(card).replace(/\s*Spend this mana only[^.]*\./gi, "");
+  const stripped = oracleOf(card).replace(/\s*Spend this mana only[^.]*\./gi, "").replace(/\s*This mana can't be spent to[^.]*\./gi, ""); // + the negative form (Powerstone, 2026-09-06)
   if (!/\badd\b/i.test(stripped)) return null;
   const prod = manaProductionImpl({ ...card, oracle: stripped, oracle_text: stripped });
   if (!prod) return null;
@@ -1149,9 +1149,19 @@ export function parseManaSpentRider(card) {
 export function parseSpendRestriction(oracle) {
   const text = String(oracle || "").toLowerCase();
   const clauses = [...text.matchAll(/spend this mana only ([^.]*)\./g)].map((m) => m[1]);
-  if (!clauses.length) return null;
+  // THE NEGATIVE FORM (QUARTET Phase 4 step 3, 2026-09-06 — the Powerstone token "This mana can't be spent to cast a nonartifact
+  // spell.", Battery Bearer's grant): "can't be spent to cast a non<Type> spell" = casts of that type ONLY, and — because the
+  // sentence restricts CASTING alone — every ability spend stays legal (abilityOf "@any"). A negated word outside the
+  // vocabulary refuses the whole restriction (null → a safe FN, never a laundered pool).
+  const negatives = [...text.matchAll(/this mana can't be spent to cast (?:a |an )?non([a-z]+) spells?\./g)].map((m) => m[1]);
+  if (!clauses.length && !negatives.length) return null;
   const types = new Set();
   const abilityOf = [];
+  for (const neg of negatives) {
+    if (!SPEND_CAST_TYPE_WORDS.has(neg)) return null;
+    types.add(neg);
+    if (!abilityOf.includes("@any")) abilityOf.push("@any");
+  }
   let chosenType = false;
   let uncounterableIfSpent = false;
   for (const clause of clauses) {
@@ -1262,6 +1272,7 @@ export function spendRestrictionAllows(restriction, castCard, opts = {}) {
   // line (activatingTypeLine). A record with BOTH cast types and ability types (Avengers Tower) pays either purpose.
   if (!castCard) {
     for (const t of restriction.abilityOf || []) {
+      if (t === "@any") return true;                   // the negative cast-only form (Powerstone): every ability spend is legal
       if (t === "creature") { if (opts.activatingIsCreature === true) return true; continue; }
       if (opts.activatingTypeLine && new RegExp(`\\b${t}\\b`, "i").test(String(opts.activatingTypeLine))) return true;
     }

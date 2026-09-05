@@ -630,8 +630,9 @@ describe("parseEffectProgram — named artifact tokens (TOK-2)", () => {
     expect(p.confidence).toBe("high");
     expect(p.atoms.map(a => a.op)).toEqual(["draw", "create-named-token"]);
   });
-  it("MUST_DROP_TO_LOW: unmodeled named tokens (Powerstone/Incubator) + an unmodeled count source", () => {
-    expect(programConfidence(parseEffectProgram(I("Create a Powerstone token.")))).toBe("low"); // restricted mana unmodeled
+  it("MUST_DROP_TO_LOW: an unmodeled named token (Incubator) + an unmodeled count source", () => {
+    // Powerstone left this gate on 2026-09-06 — its restricted mana parses (the quartet's Phase 4); pins: powerstone.test.js.
+    expect(programConfidence(parseEffectProgram(I("Create a Powerstone token.")))).toBe("high");
     expect(programConfidence(parseEffectProgram(I("Create an Incubator token.")))).toBe("low"); // transform unmodeled
     // ===== TREASURE-MAKER ===== "for each <unmodeled source>" matches the shape but the source ("opponent")
     // isn't a count source → null → low (never a fabricated count); same for a bare "where X is …" gibberish.

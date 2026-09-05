@@ -75,7 +75,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 92 | — | — | ✅ at the bar |
 | Test | Teval, the Balanced Scale Test | 86 | 0 | 4 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
-| Test | Brago Blink | 85 | 0 | 5 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Test | Brago Blink | 86 | 0 | 4 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
 | Test | Nekusar Wheels | 90 | — | — | ✅ at the bar |
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
 | Test | Shalai and Hallar Test | 87 | 0 | 3 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
@@ -488,6 +488,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-06 — **QUARTET Phase 4 step 3 — the NEGATIVE spend form + the Powerstone token** · "This mana can't be spent to cast a nonartifact spell" = artifact casts + every ability; the token joins the registry with its printed text; "create a tapped Powerstone token" parses · +18 corpus · mutants 4/4 killed · suite 1582 files / 16421 tests · **Brago Blink 85 → 86** (Static Net); Halfshell 84, Cap 87 unchanged
 
 - 2026-09-06 — **QUARTET Phase 4 step 3 — the ability tail** · "… or to activate an ability of a <Subtype> source" recorded in abilityOf and matched against the ACTIVATING source's type line at payment (every activation site passes it); the extra-mana-line regex admits the tail and comma lists, so Base Camp / Jasmine / Villainous / Brotherhood's any-colour lines now PRODUCE (they were credited land with a dead line) · +0 corpus · mutants 5/5 killed (one survivor got its missing test — the end-to-end offer pin through legalActionsForPlayer) · suite 1581 files / 16418 tests · no deck moves (a runtime correction: the four tribal lands' restricted lines now produce, and tribal abilities are payable); Cap 87 waits on Avengers Tower's tutor line
 

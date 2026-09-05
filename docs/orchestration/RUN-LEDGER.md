@@ -16,6 +16,22 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-06 (cron) — QUARTET Phase 4 step 3 · THE NEGATIVE SPEND FORM + THE POWERSTONE TOKEN (Koilos Roc / Stone Retrieval Unit …) · **+18** · corpus 14,760 (43.1%) / 34,245
+> Suite **1582 files / 16421 tests** green; lint 0. Flip-diff **+18, zero LOST** (every unplanned gain audited whole-card). **mutants 4/4 killed.**
+> · The carrier class the residue census had banked twice: the Powerstone token was kept out of the registry ON PURPOSE because
+>   its mana is restricted by a NEGATIVE sentence the model could not read — "This mana can't be spent to cast a nonartifact
+>   spell." parseSpendRestriction now reads "can't be spent to cast a non<Type> spell" as casts of that type ONLY plus every
+>   ability spend (abilityOf "@any" — the sentence restricts casting alone; CR 106.6); a negated word outside the vocabulary
+>   refuses the whole restriction. restrictedManaProduction strips the sentence before the production parse; the token joins
+>   NAMED_TOKENS with its printed reminder text; the named-token creator accepts "powerstone" (the tapped form rides the flag).
+> · **Pins:** the parse (castTypes [artifact], abilityOf [@any]); Koilos Roc and Stone Retrieval Unit native. RUNTIME: a Powerstone
+>   taps for a {C} that pays an artifact spell and any ability and never a creature spell; the Roc's ETB creates the token TAPPED
+>   through the real flush and stack. Mutants: the negative parse gone (the laundering FP), the @any branch gone, the creator
+>   forgetting the word, the sentence not stripped (dead mana) — mutants 4/4 killed.
+> · **Whole-card:** 18 flips, each read whole-card: every one creates a tapped Powerstone (an ETB, a dies trigger, an end-step trigger, a modal mode, a spell tail, Hall of Tagsin's activation) or prints the negative sentence on its own mana line (Hydraulic Helper's {U}, The Mightstone and Weakstone's {C}{C} with the plural 'spells'); Horned Stoneseeker's 'sacrifice a Powerstone' leaves rides the fungible-type sacrifice lane; the base Splitting the Powerstone stays parked on its sacrificed-artifact-was-legendary rider. SIX CREED park guards GRADUATED on their own evidence — the '⛔ POWERSTONE IS NOT NEXT' trap sprang exactly as its author designed (the objection arrived at the edit): its precondition ('no restriction tracking') ended with the quartet's Phase 4 core, and its assertions now pin the token's RESTRICTION instead; bloodToken / thenSplit / effectAtoms / parser.test's negatives moved to Incubator (transform, still unmodeled); spendRestrictedMana's 'can't be spent to' pin now expects the restricted production. The first suite showed all nine red; the rerun is the green of record; zero LOST, zero retiered
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Brago Blink 85 → 86** (Static Net); Halfshell 84, Cap 87 unchanged
+
 > ## 🎯 2026-09-06 (cron) — QUARTET Phase 4 step 3 · THE ABILITY TAIL of a spend restriction (Avengers Tower's shape) · **+0** · corpus 14,742 (43.1%) / 34,245
 > Suite **1581 files / 16418 tests** green; lint 0. Flip-diff **+0, zero LOST** (every unplanned gain audited whole-card). **mutants 5/5 killed (one survivor got its missing test — the end-to-end offer pin through legalActionsForPlayer).**
 > · The carrier class named by the previous slice: "Spend this mana only to cast a Hero spell OR TO ACTIVATE AN ABILITY OF A

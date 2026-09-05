@@ -72,19 +72,19 @@ describe("BLITZ TOK-1 — Blood makers classify native (real oracle fixtures)", 
 });
 
 // ─── 2. FN guards — un-wired predefined tokens stay parked (CREED: park, never a stub) ─────
-describe("BLITZ TOK-1 — CREED: Powerstone / Incubator makers stay non-native", () => {
+describe("BLITZ TOK-1 — CREED: an Incubator maker stays non-native (Powerstone GRADUATED 2026-09-06 — its restricted mana parses)", () => {
   const C = (name, type, oracle) => ({ name, type, oracle });
 
   it("a Blood ETB PLUS an un-wired token rider still parks (whole-card law)", () => {
-    // Blood is wired, but the second line makes a POWERSTONE (still unmodeled — restricted mana), so the
-    // whole card stays body-only. (Map is NO LONGER an un-wired example — EX-1 wired it; this uses Powerstone.)
+    // Blood is wired, but the second line makes an INCUBATOR (still unmodeled — transform), so the whole card stays
+    // body-only. (Powerstone is NO LONGER an un-wired example — the quartet's Phase 4 read its restriction on 2026-09-06.)
     expect(classifyCard(C("Fake Blood Weirdo", "Creature — Vampire",
-      "When this creature enters, create a Blood token.\nWhenever this creature attacks, create a Powerstone token.")))
+      "When this creature enters, create a Blood token.\nWhenever this creature attacks, create an Incubator token with two +1/+1 counters on it.")))
       .not.toMatch(/^native/);
   });
-  it("Powerstone / Incubator make no create-named-token atom (restricted mana / transform)", () => {
+  it("Powerstone makes its atom now (restricted mana modeled); Incubator still makes none (transform)", () => {
     expect(classifyCard(C("Fake Powerstone Maker", "Artifact",
-      "When this artifact enters, create a Powerstone token."))).not.toMatch(/^native/);
+      "When this artifact enters, create a Powerstone token."))).toMatch(/^native/);
     expect(classifyCard(C("Fake Incubator Maker", "Artifact",
       "When this artifact enters, create an Incubator token with two +1/+1 counters on it."))).not.toMatch(/^native/);
   });
