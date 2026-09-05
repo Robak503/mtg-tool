@@ -533,7 +533,9 @@ export function runStepActions(state) {
         });
       } else {
         const drawnBefore = next.players[state.activePlayer].cardsDrawnThisTurn;
-        next = drawCards(next, { playerId: state.activePlayer, count: 1 });
+        // `drawStep: true` — the turn-based draw is the one a draw doubler ("except the first one you draw in each of your
+        // draw steps") leaves alone; gameState.drawCards reads the flag (2026-09-05).
+        next = drawCards(next, { playerId: state.activePlayer, count: 1, drawStep: true });
         // TRIG-DRAW (CR 121.1): the turn-based draw is a draw → fire "Whenever you draw a card". Guard on
         // the real delta so a decked-out draw step (drew 0) doesn't fire.
         if (next.players[state.activePlayer].cardsDrawnThisTurn > drawnBefore) {

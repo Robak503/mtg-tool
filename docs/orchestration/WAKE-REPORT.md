@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-05 (cron) — **RESIDUE GRIND RG-1 · the draw doubler (+3)** · suite **1572 files / 16397 tests** green · corpus 14,699 (42.9%) / 34,245 · flip-diff +3 / 0 lost · mutants 5/5 killed
+
+> **Runnable next:** the residue grind continues from the fresh census (`scratchpad/residue-census.json`, 2026-09-05): next buildable families by BLEND — Torpor Orb / Hushwing Gryff ("creatures entering don't cause abilities to trigger", 3 sole, popular) · Fist of Suns / Jodah (the WUBRG alternative cost, 3 sole, popular) · "spells you cast from your graveyard cost {1} less" (3 sole, popular) · "skip your draw step" (4 sole + 10 co). The sub-game families at the top (initiative, double team, attractions, specialize, stickers, contraptions, the Ring) are banked.
+> Teferi's Ageless Insight, Alhammarret's Archive and Bard, King of Dale draw two for one at the draw chokepoint — the draw step's first draw excepted.
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🏁 2026-09-05 (cron) — **SHELF-85 RUNBOOK: PHASE 3 CLOSED · PHASE 4 POSTED — Cindy's lane on this runbook is DONE** · corpus **14,696 (42.9%) / 34,245** · 94 slice commits (95 with this docs commit) commits held (CI billing-blocked)
 
 > **Runnable next for a booting seat:** the overnight plan's stage list is exhausted on this seat (§1–§3 met; §4-END routed to SHELF-85, now done through Phase 4) — boot the corpus roadmap (`memory/orders/cindy-corpus-roadmap.md`, the BLEND ladder) unless Colton's next order lands; re-probe §6 parks that the subtype-noun peel may have unparked; and push the held stack the moment `gh run list` shows a green run

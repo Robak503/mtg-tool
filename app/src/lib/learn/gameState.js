@@ -30,7 +30,7 @@ import { printedPower, printedToughness, counterPowerDelta, counterToughnessDelt
 import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE } from "./layers.js";
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
-import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
+import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement, drawMultiplier } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
 import { auraHasTotemArmor, othersEnterWithCounters } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.116) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
 import { applyControlAuraAttach, revertControlAura } from "./controlAura.js"; // CR 613.1b control Auras — a ZERO-IMPORT leaf, so this lowest-layer module can call it without a cycle
 import { moveControl } from "./controlMove.js"; // THE one control move, shared by the control Auras and the gain-control atom; controlMove imports nothing, so this stays acyclic
@@ -887,9 +887,16 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
  * either way: with both statics live the player neither wins nor decks out, the printed CR 614.1
  * behaviour. This is the ONE draw chokepoint — draw step, spells, triggers, wheels all route here.
  */
-export function drawCards(state, { playerId, count }) {
+export function drawCards(state, { playerId, count: requested, drawStep = false }) {
   assertPlayer(playerId);
-  if (!Number.isInteger(count) || count < 0) throw new Error(`drawCards: count must be a non-negative integer, got ${count}`);
+  if (!Number.isInteger(requested) || requested < 0) throw new Error(`drawCards: count must be a non-negative integer, got ${requested}`);
+  // DRAW DOUBLER (CR 614.1 — Teferi's Ageless Insight / Alhammarret's Archive / Bard, King of Dale, 2026-09-05): "If you would
+  // draw a card except the first one you draw in each of your draw steps, draw two cards instead." Every draw becomes `mult`
+  // draws EXCEPT the draw step's first (`drawStep` — passed only by the draw-step site), so a draw-step draw of one stays
+  // one and any other draw of N becomes N × mult. The multiplier is read here, the ONE draw chokepoint, so every path (a
+  // spell, a trigger, a loot, a wheel) is covered once; no doubler → byte-identical.
+  const mult = drawMultiplier(state, playerId);
+  const count = mult > 1 ? (drawStep ? 1 + (requested - 1) * mult : requested * mult) : requested;
 
   const shortfall = count > (state.players[playerId]?.library.length ?? 0);
   const winsInstead = shortfall && playerEmptyDrawWins(state, playerId);

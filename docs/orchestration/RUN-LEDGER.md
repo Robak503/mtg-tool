@@ -16,6 +16,26 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — RESIDUE GRIND RG-1 · THE DRAW DOUBLER (Teferi's Ageless Insight / Alhammarret's Archive / Bard, King of Dale) · **+3** · corpus 14,699 (42.9%) / 34,245
+> Suite **1572 files / 16397 tests** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
+> · The overnight plan's stages are met and SHELF-85 is through Phase 4, so this seat returned to the census-driven residue
+>   grind (RESIDUE-GRIND-RUNBOOK §2): a fresh deletion-probe census (34,245 scanned · 19,605 non-native · 10,673 sole-blocker
+>   cards · 99,055 probes in 100 s). The top of the list is sub-game machinery (initiative, double team, attractions,
+>   specialize, stickers, contraptions, the Ring) — banked, not sliced. The first buildable family by BLEND: "If you would
+>   draw a card except the first one you draw in each of your draw steps, draw two cards instead" — three sole blockers, two
+>   of them EDHREC-popular Commander staples, ONE sentence.
+> · THE BUILD: a `draw` entry on replacementEffects.doublerProfile (the Rhox Faithmender / Bruvac discipline) + drawMultiplier
+>   (scope: the controller only; two stack ×4); read at the ONE draw chokepoint, gameState.drawCards, which now takes a
+>   `drawStep` flag the draw-step site passes — the turn-based draw stays one card, every other draw of N becomes N × mult.
+>   The classifier's modeled-doubler gate and isPureDoubler learn the sentence, so Alhammarret's life half (already
+>   modeled) and Bard's token half (already modeled) compose whole-card.
+> · **Pins:** the three carriers native. RUNTIME: a spell draw of 1 → 2 (cardsDrawnThisTurn 2, so draw watchers fire twice —
+>   CR 121.2); the draw step's first → 1; a draw-step draw of 3 → 1 + 2×2; an opponent's draw → 1; Insight + Archive → 4.
+>   Mutants: the profile arm gone, the chokepoint ignoring the multiplier, the draw-step exemption gone (the over-read), the
+>   owner scope gone, the classifier gate forgetting the shape — mutants 5/5 killed.
+> · **Whole-card:** flip-diff exactly the three carriers (Teferi's Ageless Insight, Bard, King of Dale, Alhammarret's Archive); Alhammarret's life doubler and Bard's token doubler were already modeled on the same profile; zero LOST, zero retiered
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 > ## 🏁 2026-09-05 (cron) — SHELF-85 · PHASE 3 CLOSED · PHASE 4 POSTED — the Omnath hand-off list · corpus 14,696 / 34,245 (42.9%)
 > · Phase 3 ran ten slices after the 14:15Z Phase 2 close (Endurance, Desert, Xenagos, Wheel and Deal, Molten Psyche, Solid
 >   Footing, Razorkin Needlehead, Field-Tested Frying Pan, Treebeard + the subtype target-noun vein, Incubation Druid) —

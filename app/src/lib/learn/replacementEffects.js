@@ -84,9 +84,17 @@ export function doublerProfile(card) {
   let life = null;
   let halvesOpponents = false;
   let playerCounterAdd = null;
+  let draw = null; // DRAW DOUBLER (residue census 2026-09-05 — Teferi's Ageless Insight / Alhammarret's Archive / Bard, King of Dale)
   for (const raw of o.split(".")) {
     const s = raw.trim();
     if (!s) continue;
+    // "If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead." (CR 614.1)
+    // — EVERY draw of the controller's becomes two, except the turn-based draw of their own draw step. Read at the one draw
+    // chokepoint (gameState.drawCards, `drawStep` flag from the draw-step site). Scope is the CONTROLLER only.
+    if (/^if you would draw a card except the first one you draw in each of your draw steps, draw two cards instead$/i.test(s)) {
+      draw = { factor: 2, exceptFirstDrawStep: true, scope: "you" };
+      continue;
+    }
     // Temporal/date-gated clause (Hosting Season Secret Lair "While it's October …") — the layer can't evaluate
     // the calendar gate, so applying the doubler unconditionally is an FP. Skip the sentence (FN-safe).
     if (/while it'?s /.test(s)) continue;
@@ -211,8 +219,23 @@ export function doublerProfile(card) {
       playerCounterAdd = { additive: 1 };
     }
   }
-  if (!counter && !token && !tokenAdd && !tokenExtra && !tokenOneOfEach && !mill && !life && !halvesOpponents && !playerCounterAdd) return null;
-  return { counter, token, tokenAdd, tokenExtra, tokenOneOfEach, mill, life, halvesOpponents, playerCounterAdd };
+  if (!counter && !token && !tokenAdd && !tokenExtra && !tokenOneOfEach && !mill && !life && !halvesOpponents && !playerCounterAdd && !draw) return null;
+  return { counter, token, tokenAdd, tokenExtra, tokenOneOfEach, mill, life, halvesOpponents, playerCounterAdd, draw };
+}
+
+/**
+ * DRAW DOUBLER (CR 614.1 — Teferi's Ageless Insight / Alhammarret's Archive / Bard, King of Dale, 2026-09-05): the factor
+ * every draw of `drawingPlayerId`'s becomes, read off the doublers THEY control (scope "you"). The draw-step exemption is
+ * the CALLER's (gameState.drawCards applies the factor to every draw but the draw step's first — the `drawStep` flag the
+ * draw-step site passes). Two such permanents stack (×4), as printed. No doubler → 1.
+ */
+export function drawMultiplier(state, drawingPlayerId) {
+  let mult = 1;
+  for (const { ownerId, profile } of allDoublers(state)) {
+    const d = profile.draw;
+    if (d && d.scope === "you" && ownerId === drawingPlayerId) mult *= d.factor;
+  }
+  return mult;
 }
 
 /**
@@ -237,7 +260,8 @@ export function isPureDoubler(card) {
     const tokenClause = (/(?:create|creates) one or more tokens?/.test(s) || /one or more tokens? would be created/.test(s)) &&
       /twice that many/.test(s);
     const millClause = /^if an opponent would mill one or more cards, they mill twice that many cards instead$/.test(s); // Bruvac shape (M2)
-    if (!counterClause && !tokenClause && !millClause) return false; // an unmodeled non-doubling sentence → not a pure doubler
+    const drawClause = /^if you would draw a card except the first one you draw in each of your draw steps, draw two cards instead$/i.test(s); // Teferi's Ageless Insight (2026-09-05)
+    if (!counterClause && !tokenClause && !millClause && !drawClause) return false; // an unmodeled non-doubling sentence → not a pure doubler
   }
   return true;
 }
@@ -274,6 +298,8 @@ export function isModeledDoublerSentence(s, shortName = null) {
   if (/^if you would create a clue, food, or treasure token, instead create one of each\.?$/.test(s)) return true; // Academy Manufactor (F4)
   // MILL-DOUBLER (Bruvac, SHELF M2) — the exact opponent-mill doubling the runtime applies (millMultiplier).
   if (/^if an opponent would mill one or more cards, they mill twice that many cards instead\.?$/.test(s)) return true;
+  // DRAW DOUBLER (2026-09-05) — the exact draw doubling the runtime applies (drawMultiplier at gameState.drawCards).
+  if (/^if you would draw a card except the first one you draw in each of your draw steps, draw two cards instead\.?$/.test(s)) return true; // draw doubler (2026-09-05)
   // LIFE-GAIN REPLACEMENT — the exact two templates applyLifeGainReplacement honours, and nothing wider.
   // A different multiplier word ("three times"), an opponent scope, or a non-numeric bonus stays residue and
   // keeps its card off the native tier, which is the point of matching the runtime exactly rather than loosely.
