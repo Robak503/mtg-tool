@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · O6: Glimmer Lens (+5)** · suite **1505 files / 16,182** green · corpus 14495 / 34,245 · flip-diff +5 / 0 lost · mutants 8/8 killed
+
+> The equipped-creature attack trigger with a company condition, gated in the attack checker; the flip-diff caught Sokka / Paired Tactician over-firing alone → a self-and-company arm with a subtype gate; a dead splitter widening deleted on a surviving mutant. Otharri 77 → **78** (7 to the bar)
+> **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · O7: Minas Tirith (+1)** · suite **1504/16178** green · corpus 14490 / 34,245 · flip-diff +1 / 0 lost · 3/3 killed
 
 > The raid flag generalised to a count on the activation gate. **Otharri 76 → 77 (needs 8)** · four decks at 85 (Killer Turts · Kinnan · Believe it! · Shalai). Next: O6 Glimmer Lens (the company condition), then O5 Anim Pakal, O9 Blacksmith's Skill, O8 Tithe.

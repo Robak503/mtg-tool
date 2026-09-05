@@ -681,9 +681,12 @@ function splitTriggerSentence(inner) {
   // "dealt" (ENRAGE / DAMAGE-RECEIVED: "this creature is dealt damage") is a CONDITION verb — without it
   // the advance-past-name-commas loop would skip the real "…is dealt damage," boundary and swallow the
   // first effect sentence into the condition. (Distinct from "deals" — that's the SOURCE-side event.)
-  const hasEventVerb = (s) => /\b(?:enters?|dies|attacks|blocks|deals|dealt|casts?|sacrifice[sd]?|gain(?:s)? life|draws? (?:a|your)|beginning|milled|mills)\b/.test(s);
-  // ^ `enters?` — the PLURAL "…creatures you control enter" (a batched subject — Satoru, BI-5) is an event verb too; without
-  //   it the first comma was passed over and the split landed inside the intervening-if ("…were cast" read as a cast event).
+  const hasEventVerb = (s) => /\b(?:enters?|dies|attacks?|blocks|deals|dealt|casts?|sacrifice[sd]?|gain(?:s)? life|draws? (?:a|your)|beginning|milled|mills)\b/.test(s);
+  // ^ `enters?` / `attacks?` — the PLURAL / base forms "…creatures you control enter" (a batched subject — Satoru, BI-5) and
+  //   "Whenever you attack, draw a card, then discard a card." (Temmet, Boosted Sloop — O6) are event verbs too; without
+  //   them the first comma was passed over and the split landed at the NEXT comma — the intervening-if read as a cast
+  //   event (Satoru), the draw swallowed into the condition (Temmet). The Glimmer Lens shape itself has one comma and
+  //   never needs this; the flip-diff (Temmet/Sloop lost when it was removed) is what proved the widening load-bearing.
   let splitIdx = inner.indexOf(",");
   if (splitIdx === -1) return null;
   if (!hasEventVerb(inner.slice(0, splitIdx))) {
@@ -2336,7 +2339,21 @@ function classifyCondition(condRaw, cardName, cardType) {
       || subj === nameL || (shortNameRef && subj === shortName) || (firstWordRef && subj === firstWord));
     return isSelfSubj ? { event: "attacksUnblocked", scope: "self", whose: "any" } : null;
   }
-  if (/\battacks\b/.test(c)) {
+  if (/\battacks?\b/.test(c)) { // `attacks?` — the plural "…and at least one other creature attack" (Glimmer Lens, O6) enters this block too
+    // SELF + COMPANY (SHELF-85 · O6 twins Sokka / Paired Tactician, 2026-09-05): "~ and at least one other creature attack" /
+    // "this creature and at least one other Warrior attack" — the source's own attack trigger with a COMPANY condition, an
+    // optional SUBTYPE on the company. Sits FIRST so the looser self arms below never read it as a plain "attacks" (which
+    // would fire on a lone attacker — the flip-diff caught exactly that over-fire).
+    {
+      const scm = c.match(/^(.+?) and at least one other ([a-z]+) attack$/);
+      if (scm && scm[1].trim() !== "equipped creature") { // the equipped-creature form has its own arm below (Glimmer Lens)
+        const nm = cardName ? String(cardName).toLowerCase().trim() : "";
+        const selfNames = new Set(["~", "this creature", "this permanent", ...(nm ? [nm, nm.split(",")[0].trim()] : [])]);
+        if (!selfNames.has(scm[1].trim())) return null; // a non-self subject with company → unmodeled (park)
+        const kind = scm[2];
+        return { event: "attacks", scope: "self", whose: "any", withCompany: true, ...(kind === "creature" ? {} : { companySubtype: kind.charAt(0).toUpperCase() + kind.slice(1) }) };
+      }
+    }
     if (selfRef) return { event: "attacks", scope: "self", whose: "any" };
     // ANCHORED bare form (was a non-anchored substring test — any "a creature you control <restriction>
     // attacks" matched it and silently DROPPED the restriction: a latent over-fire the moment such a card's
@@ -2370,6 +2387,10 @@ function classifyCondition(condRaw, cardName, cardType) {
     // never an over-fire across the 57 corpus "equipped creature attacks" cards). whose:"any" — combat is
     // not turn-scoped here; checkAttackTriggers only sources the active player's permanents anyway.
     if (/^equipped creature attacks$/.test(c)) return { event: "attacks", scope: "equippedCreature", whose: "any" };
+    // GLIMMER LENS (SHELF-85 · Otharri O6, 2026-09-05): "equipped creature and at least one other creature attack" — the
+    // equipped-creature attack trigger with a COMPANY condition: checkAttackTriggers drops it when the declaration held a
+    // single attacker (CR 508.1 — one declaration, one batch).
+    if (/^equipped creature and at least one other creature attack$/.test(c)) return { event: "attacks", scope: "equippedCreature", whose: "any", withCompany: true };
     // AURA-RIDER attacks (BLITZ OC-1, the Ordeal cycle) — "Whenever ENCHANTED CREATURE attacks, <effect>"
     // (CR 508.3a — the enchanted creature being declared as an attacker). The watcher is the AURA; the
     // attacker is the triggering permanent, so the SAME "equippedCreature" attached-linkage scope fires
@@ -5217,6 +5238,8 @@ export function detectTriggers(card) {
         attachedOnly: cls.attachedOnly,       // ATTACHED-ONLY attacks (Reyav) — the triggering attacker must carry ≥1 attachment
         minAttackers: cls.minAttackers,       // BATTALION (CR 702.101a) + "you attack with N or more creatures" — the minimum DECLARED attacker count, gated in checkAttackTriggers' once-per-combat pass. ⚠️ Unlisted here = dropped = the descriptor decays to a bare "whenever you attack" and fires off a SINGLE attacker — an over-fire, and exactly what happened on the first attempt at this slice (the trigger detected as youAttack with minAttackers undefined while looking perfectly correct).
         requireSelfAttacking: cls.requireSelfAttacking, // BATTALION only — "THIS CREATURE and at least two others attack", so the source must be among the declared attackers. Unlisted = dropped = a battalion creature sitting at home triggers off three OTHER attackers, strictly better than printed.
+        withCompany: cls.withCompany,           // GLIMMER LENS (O6) — "and at least one other creature attack": unlisted = dropped = fires on a lone attacker
+        companySubtype: cls.companySubtype,     // PAIRED TACTICIAN — the company must be a <Subtype> (unlisted = dropped = any creature counts)
         attackerSubtype: cls.attackerSubtype, // S5 — "one or more Vehicles you control attack": unlisted = dropped = the batch fires on ANY attack, an over-fire (the same drift class as requireSelfAttacking above).
         attacksWhileIf: cls.attacksWhileIf,    // ATTACKS-WHILE (Pugnacious Hammerskull) — the FIRE-TIME-ONLY event condition, evaluated in checkAttackTriggers at declaration (never interveningIf — no resolution re-check). Unlisted = dropped = the self-stun fires with a second Dinosaur out, strictly WORSE than printed for the player, but an over-fire all the same.
         itsController: cls.itsController,      // GLOBAL SUBTYPE combat-damage only ("its controller may …") — beneficiary = dealer's controller
@@ -7225,6 +7248,17 @@ export function checkAttackTriggers(state) {
   // (sourcePermanent = triggeringPermanent = the attacker, so "this creature" binds to it — behaviorally
   // identical to N separate +1/+1 triggers for the symmetric until-EOT pump). The "exalted" event name has
   // no generic firing site (coverage-only elsewhere), so nothing double-fires.
+  // GLIMMER LENS (O6): a "…and at least one other creature attack" watcher needs COMPANY — with a single declared attacker
+  // its firing is dropped here, after every lane above has fired it (the descriptor rides the pending trigger).
+  fired = fired.filter((t) => {
+    const d = t?.descriptor;
+    if (!d?.withCompany) return true;
+    const own = t?.context?.triggeringPermanentId ?? t?.context?.sourcePermanentId ?? null; // the attacking creature the trigger is about (the equipped creature for an Equipment, itself for a creature)
+    const others = attackers.filter((a) => a.permanentId !== own);
+    if (!d.companySubtype) return others.length > 0;
+    const re = new RegExp(`\\b${d.companySubtype}\\b`, "i");
+    return others.some((a) => re.test(String(findPermanent(state, a.permanentId)?.permanent?.card?.type || "")));
+  });
   if (attackers.length === 1) {
     const soleLk = findPermanent(state, attackers[0].permanentId);
     const atkPlayer = attackers[0].attackingPlayer;

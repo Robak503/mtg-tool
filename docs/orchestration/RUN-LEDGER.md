@@ -16,6 +16,31 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · O6: GLIMMER LENS — the company condition · **+5** · corpus 14495 / 34,245
+> Suite **1505 files / 16,182** green; lint 0. Flip-diff **+5, zero LOST** (any unplanned gains audited whole-card). **mutants 8/8 killed.**
+> · "Whenever equipped creature and at least one other creature attack, draw a card." The equipped-creature attack
+>   trigger carries a `withCompany` flag; the attack checker drops the firing unless ANOTHER attacker beyond the
+>   trigger's own creature was declared (one declaration, one batch — CR 508.1). The attack block's guard knew only the
+>   singular "attacks", so the plural "…creature attack" never reached the classifier — it reads `attacks?` now.
+>   For Mirrodin! was already modelled.
+> · **The flip-diff caught an over-fire and the arm grew a SELF form:** Sokka ("~ and at least one other creature
+>   attack") and Paired Tactician ("this creature and at least one other Warrior attack") first flipped as PLAIN
+>   self-attack triggers — firing on a lone attacker. A self-and-company arm now sits first in the attack block, with an
+>   optional `companySubtype`; the gate excludes the trigger's own creature and matches the company's printed subtype.
+>   Temmet and Boosted Sloop ("Whenever you attack, draw…") flipped because the plural-blind block had mis-split them.
+> · **A survivor that turned out load-bearing:** the splitter's event-verb list was widened to the base-form "attack"
+>   and its mutant SURVIVED the Glimmer pins (that sentence has one comma). I deleted it — and the re-snapshot LOST
+>   Temmet and Boosted Sloop: "Whenever you attack, draw a card, then discard a card." has the second comma, and
+>   without the base form the draw was swallowed into the condition. Restored, pinned on Temmet (the mutant dies now).
+>   Lesson written into the comment: the flip-diff, not the witness, is what proved it.
+> · **Pins:** the equipped bear attacking with another creature fires once and draws; alone it does not; two others
+>   attacking without the equipped bear does not; Sokka alone 0 / with a bear 1; Paired Tactician alone 0 / with a bear
+>   0 / with a Warrior 1; Temmet splits into its two triggers (you-attack, card-drawn) and classifies native-trigger.
+>   Mutants: the descriptor, the unlisted flag, the missing gate, the self arm, the own-creature counted as company,
+>   the dropped subtype gate, the singular-only block, the base-form-blind splitter — 8/8 died.
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Otharri 77 → **78** (7 to the bar)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · O7: MINAS TIRITH — the raid flag as a count · **+1** · corpus 14490 / 34,245
 > Suite **1504/16178** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **3/3 killed.**
 > · "{1}{W}, {T}: Draw a card. Activate only if you attacked with two or more creatures this turn." The activation gate
