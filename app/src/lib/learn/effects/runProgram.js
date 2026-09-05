@@ -27,11 +27,12 @@ import { markPendingArbiter } from "../pendingArbiter.js";
 import { taintedPactStep, wheelOnePlayer } from "./atoms/library.js"; // K9 (Step Between Worlds) — the per-player fold the each-player-may settler applies to the yes-seats
 import { clearPendingChoice, setPendingEachPlayerMayChoice, setPendingTutorChoice, setPendingImpulseDigChoice, setPendingSylvanLibraryChoice, setPendingTemptingOfferChoice } from "../pendingChoice.js"; // + TEMPTING OFFER (Tempt with Discovery) // + SG-15b: the Sylvan Library per-card pause is chained by its own settler
 import { updatePermanentSafe } from "../gameState.js"; // IMPRINT (CR 207.2c): the stamp is written onto the imprinting permanent
-import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
+import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife, gainLife, drawCards, hasEnergy, spendEnergy, recordGraveyardEvents, getCounter, removeCounter, destroyLethalCreatures, tapPermanent } from "../gameState.js"; // tapPermanent — the shockland decline (LANDS-TIER slice 2) taps the entered land with fromEnter
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, sacrificePoolMatch, advanceDiscardChain, advanceHandToLibraryTopChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch, bottomLibraryCardsByIds, advanceEdictChain, applyEdictMode, EDICT_LIFE_LOSS, applyConniveCounter, pitchRandomDiscard } from "./effectAtoms.js";
 import { evalLeastValuableCmp, evalLeastValuableCardCmp, evaluateBoard, policyEvalEnabledFor } from "../boardEval.js"; // QUARTET PHASE 1 — the shared evaluator rankings (boardEval imports only leaves; one-way edge, cycle-free)
 import { programConfidence } from "./parser.js";
-import { checkDiscardTriggers, checkDiesTriggers, checkLibrarySearchTriggers } from "../triggers.js"; // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event; checkDiesTriggers — the move-from-self settle's lethal sweep (W1)
+import { checkDiscardTriggers, checkDiesTriggers, checkLibrarySearchTriggers, checkLifegainTriggers } from "../triggers.js"; // + checkLifegainTriggers — Kwain's per-drawer life (2026-09-05)
+import { applyDrawEffect } from "../spellEffects.js"; // Kwain (2026-09-05) — the trigger-threading draw for the each-player-may DRAW fold // TRIG-DISCARD (CR 701.9a) — both pending-choice discard settles fire the event; checkDiesTriggers — the move-from-self settle's lethal sweep (W1)
 import { isLandCard } from "./atoms/shared.js"; // SAC-UNLESS-RETURN-LAND — shared.js is a strict leaf, so this edge is DAG-safe
 
 // SAC-UNLESS-RETURN-LAND (2026-08-12) — the ONE pool predicate for a return-a-land upkeep cost
@@ -1307,9 +1308,15 @@ export function resolveEachPlayerMayChoice(state, doIt) {
   next = logEvent(next, { kind: "spell-effect", effect: "each-player-may", controller: pc.controller, effectKind: pc.effect, taken: !!doIt });
   const remaining = (pc.seatsRemaining || []).filter((pid) => next.players?.[pid]);
   if (remaining.length) {
-    return setPendingEachPlayerMayChoice(next, { controller: remaining[0], seatsRemaining: remaining.slice(1), accepted, effect: pc.effect, draw: pc.draw, sourceName: pc.sourceName, resume: pc.resume || null });
+    return setPendingEachPlayerMayChoice(next, { controller: remaining[0], seatsRemaining: remaining.slice(1), accepted, effect: pc.effect, draw: pc.draw, lifePerDrawer: pc.lifePerDrawer || 0, sourceName: pc.sourceName, resume: pc.resume || null });
   }
   if (pc.effect === "wheel") for (const pid of accepted) next = wheelOnePlayer(next, pid, pc.draw || 7);
+  // EACH PLAYER MAY DRAW (Kwain, 2026-09-05): every yes-seat draws through the trigger-threading draw path, then gains the
+  // per-drawer life through the lifegain-trigger path (CR 119.3) — the printed order, "draw, then … gains".
+  if (pc.effect === "draw") {
+    for (const pid of accepted) next = applyDrawEffect(next, { controller: pid, amount: pc.draw || 1 });
+    if (pc.lifePerDrawer > 0) for (const pid of accepted) { next = gainLife(next, { playerId: pid, amount: pc.lifePerDrawer }); next = checkLifegainTriggers(next, pid, pc.lifePerDrawer); }
+  }
   next = logEvent(next, { kind: "spell-effect", effect: "each-player-may-applied", effectKind: pc.effect, seats: accepted });
   return resumeAfterChoice(next, pc);
 }

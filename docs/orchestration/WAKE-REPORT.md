@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · F5: Kwain (+1)** · suite **1524 files / 16,242** green · corpus 14537 / 34,245 · flip-diff +1 / 0 lost · mutants 6/6 killed
+
+> The per-seat "may" pause grew a draw effect with a per-drawer life gain; each seat answers for itself. Bumble Flower 82 → **83** (2 to the bar)
+> **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · F6: Lembas (+1)** · suite **1523 files / 16,239** green · corpus 14536 / 34,245 · flip-diff +1 / 0 lost · mutants 3/3 killed
 
 > One wording: "its owner shuffles it into their library" joins the shuffle-self op the leave event already routed. Bumble Flower 81 → **82** (3 to the bar)

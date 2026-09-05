@@ -1060,6 +1060,17 @@ export function matchRadOrProliferate(oracle) {
  * raises an each-player-may pause seat by seat (APNAP — the controller first), and only the seats that said yes fold and
  * draw. Nothing about a seat's choice is decided for it.
  */
+/**
+ * ⭐ EACH PLAYER MAY DRAW (SHELF-85 · Bumble F5 Kwain, Itinerant Meddler, 2026-09-05 — "{T}: Each player may draw a card, then
+ * each player who drew a card this way gains 1 life."): the Step Between Worlds per-seat "may" with a DRAW fold and a
+ * per-drawer life gain. The ", then" would shatter under the splitter; collapsed here into ONE atom. Exact sentence only.
+ */
+export function matchEachPlayerMayDraw(oracle) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
+  const m = t.match(/^each player may draw a card, then each player who drew a card this way gains (\d+) life$/);
+  if (!m) return null;
+  return { atoms: [{ op: "each-player-may-draw", draw: 1, lifePerDrawer: parseInt(m[1], 10), targetType: null }] };
+}
 export function matchEachPlayerMayWheel(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").trim().replace(/\.\s*$/, "");
   if (!/^each player may shuffle their hand and graveyard into their library\. each player who does draws seven cards$/.test(t)) return null;

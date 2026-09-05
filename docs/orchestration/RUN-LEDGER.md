@@ -16,6 +16,22 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · F5: KWAIN — each player may draw · **+1** · corpus 14537 / 34,245
+> Suite **1524 files / 16,242** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 6/6 killed.**
+> · "{T}: Each player may draw a card, then each player who drew a card this way gains 1 life." The per-seat "may" pause
+>   already existed for the Step Between Worlds wheel (APNAP — the controller first, each seat answers for itself, only
+>   the yes-seats fold). A DRAW effect kind joins it: one template atom (the ", then" would shatter under the splitter),
+>   the resolver raises the same pause with effect "draw" and a per-drawer life, the pause carries the field (a
+>   whitelist — unlisted = dropped), the re-suspend passes it seat to seat, and the settler has each yes-seat draw
+>   through the trigger-threading draw path and then gain through the lifegain-trigger path (CR 119.3) — the printed
+>   order. No seat's choice is made for it.
+> · **Pins:** the body parses to ONE each-player-may-draw atom with lifePerDrawer 1, native-activated; activating pauses
+>   for the controller then the opponent, both yes → both draw one and gain one; the controller declining and the
+>   opponent accepting → only the opponent draws and gains. Mutants: the template, the dropped life, the pause
+>   forgetting the field, the re-suspend dropping it, folding every seat, the settler blind to the effect — mutants 6/6 killed.
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Bumble Flower 82 → **83** (2 to the bar)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · F6: LEMBAS — its owner shuffles it into their library · **+1** · corpus 14536 / 34,245
 > Suite **1523 files / 16,239** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
 > · "When this artifact is put into a graveyard from the battlefield, its owner shuffles it into their library." The ETB

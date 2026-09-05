@@ -1910,6 +1910,16 @@ export function applyTimetwisterWheel(state, atom, ctx) {
  * (the controller, then the others in seat order); the settler (runProgram.resolveEachPlayerMayChoice) asks the rest one
  * by one and folds only the seats that said yes. No seat's choice is made for it here.
  */
+/** EACH PLAYER MAY DRAW (Kwain, 2026-09-05) — the same seat-by-seat pause as the wheel, effect "draw": the settler
+ *  (runProgram.resolveEachPlayerMayChoice) has each yes-seat draw `draw` through the trigger-threading draw path and, when
+ *  `lifePerDrawer` is set, gain that much life through the lifegain-trigger path. No seat's choice is made for it. */
+export function applyEachPlayerMayDraw(state, atom, ctx) {
+  const seats = Object.keys(state.players || {}).filter((pid) => state.players[pid]);
+  if (!seats.length) return state;
+  const start = seats.indexOf(ctx.controller);
+  const order = start >= 0 ? [...seats.slice(start), ...seats.slice(0, start)] : seats;
+  return setPendingEachPlayerMayChoice(state, { controller: order[0], seatsRemaining: order.slice(1), accepted: [], effect: "draw", draw: atom.draw || 1, lifePerDrawer: atom.lifePerDrawer || 0, sourceName: ctx.cardName || null });
+}
 export function applyEachPlayerMayWheel(state, atom, ctx) {
   const seats = Object.keys(state.players || {}).filter((pid) => state.players[pid]);
   if (!seats.length) return state;
@@ -2700,6 +2710,7 @@ export const libraryResolvers = {
   "mill": applyMill,
   "reveal-top-cast-or-hand": applyRevealTopCastOrHand, // K5 (Rashmi) — reveal the top; free-cast park if lesser than the cast spell, else hand
   "exile-top-of-library": applyExileTopOfLibrary, // ===== INGEST (CR 701.19a) ===== the EXILE twin of mill; a separate op because an ingested card leaves the graveyard unreachable
+  "each-player-may-draw": applyEachPlayerMayDraw, // Kwain (2026-09-05) — the per-seat "may" draw (+ per-drawer life); raises the seat-by-seat pause
   "each-player-may-wheel": applyEachPlayerMayWheel, // K9 (Step Between Worlds) — the per-seat "may" wheel; raises the seat-by-seat pause
   "timetwister-wheel": applyTimetwisterWheel, // TIMETWISTER WHEEL (Echo of Eons) — hand+GY fold into library, shuffle, draw 7, per player
   "winds-of-change": applyWindsOfChange, // WINDS OF CHANGE (Nekusar) — hand-only fold into library, shuffle, draw THAT MANY (per-player hand count), per player

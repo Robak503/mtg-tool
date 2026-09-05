@@ -62,7 +62,7 @@ export const PENDING_CHOICE_KINDS = [
  * what the yes-seats get (the settler applies it once every seat has answered). `resume` rides every re-raise so the
  * program continues after the last seat. Fields are listed explicitly — an unlisted field is a silent drop.
  */
-export function setPendingEachPlayerMayChoice(state, { controller, seatsRemaining = [], accepted = [], effect, draw = 7, sourceName = null, resume = null }) {
+export function setPendingEachPlayerMayChoice(state, { controller, seatsRemaining = [], accepted = [], effect, draw = 7, lifePerDrawer = 0, sourceName = null, resume = null }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "each-player-may-pending", controller, effect, sourceName });
   return {
@@ -74,6 +74,7 @@ export function setPendingEachPlayerMayChoice(state, { controller, seatsRemainin
       accepted: [...accepted],
       effect,
       draw,
+      ...(lifePerDrawer ? { lifePerDrawer } : {}), // Kwain (2026-09-05) — the "draw" effect's per-drawer life gain; unlisted = dropped
       sourceName,
       ...(resume ? { resume } : {}),
     },
