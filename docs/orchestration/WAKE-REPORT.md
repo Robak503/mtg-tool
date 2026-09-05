@@ -12,6 +12,14 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🏁 2026-09-05 (cron) — **POD-SIM THREE — DONE. Killer Turts 85 · Kinnan 85 · Believe it! 85.** Colton's second order delivered.
+
+> **The order (2026-09-05):** "the next 3 i want you to work on to 85 is killer turt kinnan and believe … i need them to be accurate for [a pod sim]" → done in twenty-six local slices (KT-1…KT-10a, KN-1…KN-6a, BI-2…BI-5), every one a full §5 slice (probe → arm → runtime → flip-diff zero-lost → witness → mutants seen to fail → lint + full suite → docs → measure → local commit). Corpus 14,425 → **14,486**. Suite 1480/16,075 → **1502/16,171**.
+> **The second order ("after these decks are done get all the cards needed added to omnaths arbiter list"):** the 39 unique leftovers (45 slots) of the three decks are in `memory/orders/arbiter-nuance-queue.md` as the "POD-SIM THREE — parked on the Arbiter" section — tier, engine-term blocker and a play nuance written against the printed text; Omnath writes the ✍ notes. COMMS line posted, brain synced.
+> **Engine truths found on the way (each fixed + pinned):** after-main extra combats dropped the normal combat; opponent-targeted trigger effects were unresolvable; Flash-line clones were credited but never cloned at runtime; the distribute resolver ignored its any-creature group; the engine's counter delta knew only ±1/±1; "no maximum hand size for the rest of the game" was stripped though cleanup discard exists; the trigger splitter did not know the plural "enter"; a self-counter resolver put one counter for any X.
+> **CI:** still billing-blocked — the repo is PRIVATE again; twenty-six commits held on `claude/cindy-grind-1482df` since 78ca923d, every one gated locally. They push on the first green run; **never flipping visibility myself** (CLAUDE.md §8.14) — [Q-CI2].
+> **Next:** Shalai's last card (Solitude — the S-B evoke composition that also unlocks Subtlety and Endurance from this batch), then the §5 shelf order.
+
 ## 🎯 2026-09-05 (cron) — **POD-SIM THREE · BI-5: Moon-Circuit Hacker + Satoru (+2)** · suite **1502/16171** green · corpus 14486 / 34,245 · flip-diff +2 / 0 lost · 10/10 killed
 
 > The unless-entered-this-turn rider on the optional loot, and Satoru's self-or-other enter watcher deduped once per batch with a not-cast-or-no-mana predicate off new arrival stamps. **🏁 BELIEVE IT! 83 → 85 — AT THE BAR (85/100). ALL THREE POD-SIM DECKS AT 85: Killer Turts 85 · Kinnan 85 · Believe it! 85.** Shalai 84. (Full suite: the saboteur witness's Hacker guard graduated; every other file green.) Next: Colton's second order — the three decks' Arbiter leftovers to Omnath's nuance queue; then Shalai's last card.

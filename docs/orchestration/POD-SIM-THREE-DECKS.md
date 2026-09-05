@@ -113,6 +113,11 @@ before the next push). The nine traps are law.
 
 ## 5. THE CLOSING STEP — OMNATH'S ARBITER LIST
 
+> ✅ **DELIVERED 2026-09-05.** All three decks at 85; the 39 unique leftovers (45 slots) were dumped from the live tree
+> (`leftovers-pod-sim.txt`, the `dump-decks.mjs` shape) and appended to `memory/orders/arbiter-nuance-queue.md` as the
+> "🎯 POD-SIM THREE — parked on the Arbiter" section (tier · engine-term blocker · play nuance against the printed text);
+> COMMS line posted, brain synced. Omnath writes the ✍ notes.
+
 When all three decks read ≥85: dump each deck's remaining non-native cards (the `dump-decks.mjs` probe shape:
 name, type, mana, tier, oracle) and append them, deck by deck, to `memory/orders/arbiter-nuance-queue.md` as a
 new batch ("Pod-sim three — parked on the Arbiter"), one line per card with the blocker in engine terms and
