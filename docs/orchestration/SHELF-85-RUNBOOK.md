@@ -65,7 +65,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Hulk Smash | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
-| Joe | Kinnan Mana Overload | 78 | 7 | 12 | ⬜ Phase 2 (cEDH — LAST) |
+| Joe | Kinnan Mana Overload | 80 | 5 | 10 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Believe it! | 76 | 9 | 14 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Kellan of the west | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Halfshell heroes | 67 | 18 | 23 | ⬜ Phase 2 |
@@ -75,14 +75,14 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Teval, the Balanced Scale Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Nekusar Wheels | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
-| Test | Shorikai Vehicles | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
+| Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shalai and Hallar Test | 84 | 1 | 6 | ⬜ Phase 2 |
 | Test | Otharri Test | 75 | 10 | 15 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 70 | 15 | 20 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**8 decks below 85 · 98 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**8 decks below 85 · 96 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — POD-SIM THREE · KN-3 Flash Photography + Imposter Mech (Kinnan) ✅ +3 corpus (a token copy of target PERMANENT, Auras/Sagas never targets; the opponent-creature clone scope + a become-Vehicle rider with Crew N) · 11/11 killed · suite 1495/16136 · **Kinnan 78 → 80 (needs 5)** · Believe it! 76 · Killer Turts 85 ✅ · Shalai 84. Next: KN-4 Treasure Vault · Moonsilver Key · Cephalid Coliseum.
 
 - 2026-09-05 — POD-SIM THREE · KN-2 Clever Impersonator + Copy Enchantment (Kinnan) ✅ +2 corpus (the native-clone family widened to "any nonland permanent" / "any enchantment"; a copied anthem APPLIES; Auras + Sagas never offered) · 6/6 killed · suite 1494/16129 · **Kinnan 76 → 78 (needs 7)** · Believe it! 76 · Killer Turts 85 ✅ · Shalai 84. Next: KN-3 Flash Photography + Imposter Mech. (Full suite: one pre-existing clone guard asserted the enchantment scope PARKED — graduated to native and re-run green; every other file green.)
 

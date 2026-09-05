@@ -169,6 +169,14 @@ export function parseCloneRider(clause) {
   if (m) return { kind: "setPT", power: parseInt(m[1], 10), toughness: parseInt(m[2], 10) };
 
   // "it has vanishing N if that creature doesn't have vanishing" (Flesh Duplicate). CR 707.9a + 702.63a.
+  // IMPOSTER MECH (KN-3): "except it's a Vehicle artifact with crew 3 and it loses all other card types" — the copy's type
+  // line becomes exactly "Artifact — Vehicle" (a non-creature keeps no creature subtypes, CR 205.3d) with the printed P/T
+  // (a Vehicle's) and a Crew N line the crew parser reads like any printed one. The trailing "it loses all other card
+  // types" is the same instruction restated — applied as the same rewrite (idempotent).
+  m = cl.match(/^it'?s a vehicle artifact with crew (\d+)$/);
+  if (m) return { kind: "becomeVehicle", crew: parseInt(m[1], 10) };
+  if (/^it loses all other card types$/.test(cl)) return { kind: "becomeVehicle", crew: null };
+
   m = cl.match(/^it has vanishing (\d+) if that creature doesn'?t have vanishing$/);
   if (m) return { kind: "grantVanishing", n: parseInt(m[1], 10) };
 
@@ -314,6 +322,9 @@ export function parseCloneSpec(card) {
   // own-ability clause is UNmodeled, `own` is null and the copy clause won't `$`-anchor → PARK.
   const { head: headText, own } = stripOwnAbilityTail(t, card);
   t = headText;
+  // KN-3 (Imposter Mech): the Vehicle's own printed "Crew N" line is a keyword line, not clone text — drop it before
+  // the head match (the classifier's keyword-stripped retry does not know crew).
+  t = t.replace(/\s*\bcrew \d+\s*$/, "").trim(); // TRAILING only — the rider's own "with crew 3" must survive (the normalizer folds the line break to a space)
   // Consume modeled printed keyword tokens AHEAD of the copy clause (Mockingbird's "flying ").
   // Each must be a modeled combat keyword; an unmodeled pre-copy keyword/ability (ninjutsu,
   // changeling, convoke, improvise, flash, prototype…) is NOT consumed → the head won't anchor →
@@ -341,7 +352,7 @@ export function parseCloneSpec(card) {
   // artifact/Equipment scopes are runtime-safe; enchantment / nonland-permanent scopes are NOT modeled yet →
   // they don't match here → PARK (Copy Enchantment, Clever Impersonator stay Arbiter, a safe false-negative).
   const m = t.match(
-    /^(?:you may have (?:~|this (?:creature|artifact|equipment|enchantment)) enter|(?:~|this (?:creature|artifact|equipment|enchantment)) enters?)(?: the battlefield)? as a copy of (any creature on the battlefield|any artifact or creature on the battlefield|any artifact on the battlefield|any equipment on the battlefield|any nonland permanent on the battlefield|any enchantment on the battlefield|a creature you control|another creature you control|a creature or planeswalker you control)( with mana value less than or equal to the amount of mana spent to cast this creature)?(?:, except (.+?))?\.?$/,
+    /^(?:you may have (?:~|this (?:creature|artifact|equipment|enchantment|vehicle)) enter|(?:~|this (?:creature|artifact|equipment|enchantment|vehicle)) enters?)(?: the battlefield)? as a copy of (any creature on the battlefield|any artifact or creature on the battlefield|any artifact on the battlefield|any equipment on the battlefield|any nonland permanent on the battlefield|any enchantment on the battlefield|a creature an opponent controls|a creature you control|another creature you control|a creature or planeswalker you control)( with mana value less than or equal to the amount of mana spent to cast this creature)?(?:, except (.+?))?\.?$/,
   );
   if (!m) return null;
 
@@ -382,6 +393,8 @@ export function parseCloneSpec(card) {
               // attach choice the entry path does not raise — CR 303.4f; a Saga copy needs its lore counter on entry —
               // CR 714.2, unmodeled): a narrower pool is a false negative, a copy that enters wrong is an FP.
               : m[1] === "any nonland permanent on the battlefield" ? "anyNonlandPermanent"
+                // IMPOSTER MECH (KN-3): "a creature an opponent controls" — creatures only, never your own.
+                : m[1] === "a creature an opponent controls" ? "opponentCreature"
                 : m[1] === "any enchantment on the battlefield" ? "anyEnchantment"
                   : "any",
     mvLimit: !!m[2],
@@ -450,7 +463,11 @@ function stripOwnAbilityTail(normalized, card) {
 function stripLeadingKeywords(t) {
   let s = t;
   // Sort longest-first so "first strike"/"double strike" match before "first"/"double".
-  const kws = [...RIDER_KEYWORDS].sort((a, b) => b.length - a.length);
+  // + "flash" (POD-SIM THREE · KN-3, 2026-09-05): a printed Flash line before the copy clause (Stunt Double, Malleable
+  // Impostor) is consumed in THIS clone-shape view only — the card keeps its Flash for the cast path. Until now the
+  // classifier credited these through a keyword-stripped retry while the RUNTIME gate read the raw text and never
+  // raised the copy pause (a hollow native); one shared view closes that.
+  const kws = [...RIDER_KEYWORDS, "flash"].sort((a, b) => b.length - a.length);
   let changed = true;
   while (changed) {
     changed = false;
@@ -475,6 +492,9 @@ export function isCloneCard(card) {
   // non-creature card). A creature-copy scope on a non-creature card would become a creature — not modeled → PARK.
   // + KN-2 (POD-SIM THREE, 2026-09-05): the ENCHANTMENT scope (Copy Enchantment — an enchantment copying an enchantment stays
   // an enchantment) and the NONLAND scope on a non-creature card (none on the shelf; Auras/Sagas never offered).
+  // + KN-3 (Imposter Mech): a NON-creature card copying a creature is native only when a become-Vehicle rider keeps the
+  // copy a non-creature artifact (the creature-becoming case above stays parked).
+  if (spec.scope === "opponentCreature") return (spec.riders || []).some((r) => r.kind === "becomeVehicle" && r.crew != null);
   return spec.scope === "anyArtifact" || spec.scope === "anyEquipment" || spec.scope === "anyEnchantment" || spec.scope === "anyNonlandPermanent";
 }
 
@@ -525,6 +545,7 @@ export function cloneMvCap(cloneCard, spec, xValue = 0) {
 export function cloneCandidates(state, controller, scope, mvCap = null) {
   const out = [];
   const youControlOnly = scope === "youControl" || scope === "youControlCreatureOrPw";
+  const opponentOnly = scope === "opponentCreature"; // KN-3 (Imposter Mech)
   const allowPw = scope === "youControlCreatureOrPw";
   const allowArtifact = scope === "anyArtifactOrCreature";
   // ARTIFACT-ONLY / EQUIPMENT-ONLY scopes (Sculpting Steel / Copy Artifact = anyArtifact; Masterwork of
@@ -536,6 +557,7 @@ export function cloneCandidates(state, controller, scope, mvCap = null) {
   const enchantmentOnly = scope === "anyEnchantment"; // KN-2 (Copy Enchantment)
   for (const pid of Object.keys(state.players)) {
     if (youControlOnly && pid !== controller) continue;
+    if (opponentOnly && pid === controller) continue;
     for (const perm of state.players[pid].battlefield) {
       const copiable = (nonlandAny || enchantmentOnly)
         ? cloneWidenedCopiable(perm.card, scope)
@@ -627,6 +649,14 @@ export function snapshotCopiedCard(sourcePerm, cloneCard, riders = []) {
       card = { ...card, keywords: [...(Array.isArray(card.keywords) ? card.keywords : []), ...add] };
     } else if (r.kind === "setPT") {
       card = { ...card, power: r.power, toughness: r.toughness };
+    } else if (r.kind === "becomeVehicle") { // KN-3 (Imposter Mech)
+      card = { ...card, type: "Artifact — Vehicle" };
+      if (card.type_line) card.type_line = "Artifact — Vehicle";
+      if (r.crew != null) {
+        const oracle = String(card.oracle || card.oracle_text || "");
+        if (!/(?:^|\n)crew\s+\d+/i.test(oracle)) card = { ...card, oracle: (oracle ? oracle.replace(/\s*$/, "") + "\n" : "") + "Crew " + r.crew };
+        if (card.oracle_text != null) card.oracle_text = card.oracle;
+      }
     } else if (r.kind === "setName") {
       // NAME RIDER (CR 707.9a) — "except its name is <X>". The copy keeps the copying card's OWN name
       // (Sarkhan, Soul Aflame; Impossible Man; Hulkling). NOT cosmetic: names are read by name-matching

@@ -65,6 +65,12 @@ const ADDABLE_CARD_TYPES = new Set(["artifact", "enchantment"]);
 // + the you-control restriction so the cast path / enumerateTargets offers ONLY the controller's own
 // creatures (never an opponent's, which would be illegal).
 const TOKEN_COPY_TARGET_RE = /^create a token that(?:'s| is) a copy of target creature you control(, except it isn't legendary)?$/;
+// FLASH PHOTOGRAPHY (POD-SIM THREE · KN-3, 2026-09-05): "Create a token that's a copy of target permanent." — any permanent, any
+// controller. An Aura or a Saga is never a legal target here (an Aura token needs an attach choice the token path does not
+// raise — CR 303.4f; a Saga token needs its lore counter — CR 714.2): a narrower target pool is a false negative, a token
+// that enters wrong is an FP. The card's own "as though it had flash if it targets a permanent you control" line is
+// stripped by the normalizer and NOT honored at runtime — sorcery-speed only (a false negative, documented).
+const TOKEN_COPY_TARGET_PERMANENT_RE = /^create a token that(?:'s| is) a copy of target permanent$/;
 // TOKEN-COPY-UPTOONE-MVX — "create a token that's a copy of up to one target creature with mana value X or
 // less" (Here Comes a New Hero!, an {X} sorcery). CR 601.2c — the target is OPTIONAL (0-or-1: `optionalTarget`),
 // and its legality is bounded by the spell's chosen X (CR 202.3b — X is bound at cast). The copy is UNRESTRICTED
@@ -132,6 +138,9 @@ export function tokenCopyParser(clause) {
       return { op: "create-token-copy", copySource, count: 1, targetType: null, addCardTypes: [Cap] };
     }
     return null; // an un-addable card type → Arbiter (no partial copy)
+  }
+  if (TOKEN_COPY_TARGET_PERMANENT_RE.test(t)) { // KN-3 (Flash Photography)
+    return { op: "create-token-copy", copySource: "target", count: 1, targetType: "permanent", restrictions: [{ kind: "typeNeg", type: "aura" }, { kind: "typeNeg", type: "saga" }] };
   }
   const tm = t.match(TOKEN_COPY_TARGET_RE);
   if (tm) {

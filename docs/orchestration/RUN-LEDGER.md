@@ -16,6 +16,37 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KN-3: FLASH PHOTOGRAPHY + IMPOSTER MECH — the copy family whole · **+3** · corpus 14461 / 34,245
+> Suite **1495/16136** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **11/11 killed.**
+> · Flash Photography — "Create a token that's a copy of target permanent." The token-copy atom knew "target creature you
+>   control"; a `target permanent` arm now copies any permanent of any controller through the same snapshot path (a token
+>   Sol Ring, a token land, a second bear). An Aura or a Saga is never a legal TARGET (an Aura token needs an attach choice
+>   the token path does not raise, CR 303.4f; a Saga token needs its lore counter, CR 714.2) — the pool is narrower than
+>   printed rather than a token that enters wrong. The card's own "as though it had flash if it targets a permanent you
+>   control" line is stripped by the normalizer and NOT honored — sorcery-speed only, a documented false negative.
+> · Imposter Mech — "You may have this Vehicle enter as a copy of a creature an opponent controls, except it's a Vehicle
+>   artifact with crew 3 and it loses all other card types." Three misses: the head did not know "this vehicle"; no
+>   opponent-creature scope (added — the enumerator skips your own seat, the settle re-checks the controller); no rider for
+>   the Vehicle rewrite (added — the type line becomes exactly `Artifact — Vehicle`, a non-creature keeps no creature
+>   subtypes per CR 205.3d, the creature's P/T stays, a Crew N line is appended that the crew parser reads like a printed
+>   one; "it loses all other card types" is the same rewrite, idempotent). And the printed trailing Crew line defeated the
+>   head's end anchor — stripped before the match (TRAILING only: a first, wider strip ate the rider's own "with crew 3" and
+>   was seen to fail). The non-creature clone gate admits the opponent scope only when a become-Vehicle rider keeps the
+>   copy a non-creature — a creature-becoming non-creature card stays parked.
+> · ⚠️ **HOLLOW NATIVE CLOSED (found by the twin audit):** the flip-diff's unplanned gain, Malleable Impostor ("Flash /
+>   Flying / …enter as a copy of a creature an opponent controls, except…"), was credited by the classifier through its
+>   keyword-stripped retry (the 08-04 Stunt Double allowance) while the RUNTIME clone gate read the raw text and never
+>   raised the copy pause — a credited card that entered as a plain body. The clone-shape view now consumes a leading
+>   "flash" token itself (the card keeps its Flash for the cast path), so classifier and runtime share one view; pinned
+>   at runtime (the pause is raised, the copy is a flying Faerie Shapeshifter Ogre) and the token's removal was seen to fail.
+> · **Pins:** Photography's targets are exactly Ogre + Sol Ring + Island + my bear; their Sol Ring copied is MY artifact
+>   token, not a creature, theirs untouched; the Mech's pause offers only the Ogre, becomes a 4/4 Artifact — Vehicle with
+>   crew 3 that is not a creature, and refuses my own bear (enters as itself; declining likewise). Mutants: the Photography
+>   regex, its exclusions, the head scope, the scope map, the own-seat skip, the type rewrite, the Crew line, the clone
+>   gate, the settle's controller check and the trailing strip — all died.
+> · **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+> · **Kinnan 78 → 80 (needs 5)** · Believe it! 76 · Killer Turts 85 ✅ · Shalai 84. Next: KN-4 Treasure Vault · Moonsilver Key · Cephalid Coliseum.
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KN-2: CLEVER IMPERSONATOR + COPY ENCHANTMENT — the clone family widened · **+2** · corpus 14,458 / 34,245
 > Suite **1494/16129** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **6/6 killed.**
 > · "You may have this creature enter as a copy of any nonland permanent on the battlefield." / "…this enchantment enter as

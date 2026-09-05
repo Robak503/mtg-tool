@@ -757,6 +757,7 @@ export function resolveCloneChoice(state, chosenPermId) {
     if (scope === "anyEquipment") return /Artifact/.test(tl) && /\bEquipment\b/.test(tl);
     if (scope === "anyArtifact") return /Artifact/.test(tl);
     if (scope === "anyEnchantment" || scope === "anyNonlandPermanent") return cloneWidenedCopiable(c.permanent.card, scope); // KN-2
+    if (scope === "opponentCreature") return /Creature/.test(tl) && c.permanent.controller !== controller; // KN-3 (Imposter Mech): never your own
     return /Creature/.test(tl) || (scope === "youControlCreatureOrPw" && /Planeswalker/.test(tl)) || (scope === "anyArtifactOrCreature" && /Artifact/.test(tl));
   };
   let chosen = chosenPermId ? findPermanent(next, chosenPermId) : null;
