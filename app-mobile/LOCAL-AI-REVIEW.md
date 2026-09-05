@@ -230,6 +230,15 @@ correctness, usefulness, responsiveness, and privacy as separate measured gates.
 
 ## Verification and transfer
 
+**2026-09-05 completion receipt:** source commit `8123292b` passed 48 JavaScript
+tests, six browser smoke scenario groups, Android model-plugin tests, 17
+engine/WebView tests, and three Rust provisioning tests. The full-art Android
+debug APK built successfully (749,199,168 bytes; SHA-256
+`9eaf2ce73bb0ac1970c68a7f12944d6a9c1acce2a4581a7d13582c2710492422`).
+The Pixel is now ADB-authorized; this new APK still needs physical-device
+installation and validation. See `HANDOFF-PRO.md` for the exact existing local
+folder/artifact and same-computer continuation steps.
+
 Automated regression coverage includes request cancellation/stale completions,
 lookup/model deadlines, model listener failure, direct-lookup bypass, grounded
 versus related intent, full rulings, art failure fallback, contextual follow-up,

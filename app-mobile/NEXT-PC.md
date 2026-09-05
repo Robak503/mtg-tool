@@ -2,6 +2,11 @@
 
 Last reconciled: 2026-09-04
 
+**Same-computer account handoff, 2026-09-05:** start with `HANDOFF-PRO.md`.
+The new full-art review APK has built successfully and the Pixel is now USB
+debugging-authorized. Device validation is next; do not repeat the old download
+or fresh-install/reset instructions below for this continuation.
+
 **2026-09-05 review:** `LOCAL-AI-REVIEW.md` now contains the complete audit,
 recovered July feature ideas, new companion proposals, and revised build order.
 Implementation from that pass is on `codex/omnath-local-companion-review`.

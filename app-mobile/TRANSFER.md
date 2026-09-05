@@ -11,6 +11,10 @@ ordered alpha/pilot backlog.
 
 ## Local companion review — 2026-09-05
 
+For the immediate **same-computer account switch**, use `HANDOFF-PRO.md`.
+The full-art review APK is already built locally; no clone, SDK reinstall,
+model redownload, or destructive phone reset is needed to resume testing.
+
 The newer improvement pass is on `codex/omnath-local-companion-review`.
 Read `LOCAL-AI-REVIEW.md` for implemented changes and the expanded idea catalog.
 Fetch and switch to that branch to continue the review version. The draft APK
