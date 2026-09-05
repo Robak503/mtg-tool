@@ -7,6 +7,13 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🧭 2026-09-05 (cron, Colton awake mid-run) — **QUEUE CHANGE: Killer Turts → Kinnan → Believe it! to 85, for a POD SIM** · four runbooks written
+
+> Colton's order (mid-cron): the next three decks to 85 are Killer Turts (70, needs 15), Kinnan (75, needs 10), Believe it! (75, needs 10) — "I need them to be accurate for a pod sim." The cEDH-last steer of 08-15 is superseded (memory updated). Shalai (84, needs 1 — Solitude) waits behind them.
+> **Written:** [POD-SIM-THREE-DECKS.md](POD-SIM-THREE-DECKS.md) (what "accurate" means, the live engine-capability map — probed, not remembered — the eight shared seams, the global order, the Omnath hand-off) + [RUNBOOK-KILLER-TURTS.md](RUNBOOK-KILLER-TURTS.md) · [RUNBOOK-KINNAN.md](RUNBOOK-KINNAN.md) · [RUNBOOK-BELIEVE-IT.md](RUNBOOK-BELIEVE-IT.md) — every non-native card dumped with its real oracle and live tier, sized in engine terms, with the CREED note per card and a slice plan to 85 per deck.
+> **After the three:** every card still on the Arbiter in those lists → Omnath's arbiter play-nuance list (Colton's second order).
+> **Findings worth knowing:** redirects and devotion do not exist in the engine at all; card-exile evoke is unmodeled (mana evoke is credited hard-cast only, by design); the clone seam is creature-only; the extra-combat and pitch-cost seams DO exist, so Killer Turts' plan and Believe it!'s free interaction are arms, not subsystems.
+
 ## 🎯 2026-09-04 (day cron) — **SHELF-85 Phase 2 · H12: Chaos Warp (+1)** · suite **1479 files / 16,071 tests** green · corpus 14,425 (42.1%) / 34,245 · flip-diff +1 / 0 lost · 6/6 killed (two survivors on the mixed library killed by a seed-driven pin: the shuffle is real, the permanent gate holds)
 
 > One whole-oracle atom: the owner tucks and shuffles, reveals the top, a permanent card enters under the OWNER. Shared with Nekusar N13. **Shalai 83 → 84** (84/100; needs 1) · **Nekusar 85 → 86.** Next: Solitude (M — 'other target creature' on the exile-with-lifegain atom + the card-exile evoke cost), then Incubation Druid (M-L), Ragavan (L).

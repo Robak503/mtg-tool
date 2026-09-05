@@ -108,6 +108,11 @@ most unbuildable-class residue (§5 marks it).
    1. **Phase 1 — cross-deck veins** (§4.1), top to bottom. A vein pays in ≥2 decks; build the SHARED machinery once.
    2. **Phase 2 — deck by deck, closest to the bar first** (§5 order: Teval → Brago → Nekusar → Shorikai → Kellan →
       Shalai → Otharri → Bumble Flower → Atraxa → Halfshell → Killer Turts → Light-Paws → Kinnan → Believe it!).
+      **OVERRIDE (Colton, 2026-09-05, for a pod sim): Killer Turts → Kinnan → Believe it! are the NEXT THREE to 85, ahead of
+      everything else; Shalai (84, needs 1) waits behind them. Then the order above resumes.**
+      Their in-depth runbooks: [POD-SIM-THREE-DECKS.md](POD-SIM-THREE-DECKS.md) (umbrella: capability map, shared seams, order)
+      · [RUNBOOK-KILLER-TURTS.md](RUNBOOK-KILLER-TURTS.md) · [RUNBOOK-KINNAN.md](RUNBOOK-KINNAN.md) · [RUNBOOK-BELIEVE-IT.md](RUNBOOK-BELIEVE-IT.md).
+      After the three: every card still on the Arbiter in those lists → Omnath's arbiter play-nuance list (Colton 09-05).
       Inside a deck: every **S** row, then **M** rows, then **L** rows; stop the deck the moment `measure-coverage`
       reads ≥85 and move to the next deck (the remaining rows stay ⬜ for Phase 3).
    3. **Phase 3 — hard wins** (§4.3): only after every deck reads ≥85 or carries a CEILING.
@@ -430,7 +435,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | L5 | Winds of Rath · Karametra's Blessing · Enter the Avatar State · Deafening Silence · Drannith Magistrate | spells and statics | S / S / M / M / M | | ⬜ |
 | L6 | COMPOSITE | Angelic Destiny · Benevolent Blessing · Darksteel Mutation · Daybreak Coronet · Galadriel's Dismissal · On Thin Ice · Pariah · Pearl-Ear · Plaza of Heroes · Restoration Magic · Reverent Mantra · Silent Arbiter · Spectra Ward · Spirit Mantle · Swift Reconfiguration · Trouble in Pairs | size on approach | | ⬜ |
 
-### 5.13 Kinnan Mana Overload — 72% · needs 13 · cEDH (LAST)
+### 5.13 Kinnan Mana Overload — 72% · needs 13 · cEDH (NEXT after Killer Turts — Colton 09-05 override)
 
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
