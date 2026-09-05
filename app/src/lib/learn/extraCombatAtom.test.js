@@ -54,8 +54,12 @@ describe("parsing — both printed word orders", () => {
     expect(p.atoms.find((a) => a.op === "extra-combat").insertAfter).toBe("main");
   });
 
-  it("⛔ and so does a COUNTED grant (Full Throttle's two)", () => {
-    expect(opsOf("After this main phase, there are two additional combat phases.")).not.toContain("extra-combat");
+  it("GRADUATED 2026-09-05 (POD-SIM KT-7b) — a COUNTED grant (Full Throttle's two) parses with its count and NO main between", () => {
+    // The original pin refused the counted form while the queue took one entry per grant. KT-7b models it: the atom carries
+    // `count: 2` (the resolver queues two entries) and `followedByMain: false` — the printed sentence grants combats only, so
+    // an extra main between them would be an unprinted sorcery window (the forbidden direction; pinned in fullThrottle.test).
+    const p = parseEffectProgram({ type: "Sorcery", name: "X", oracle: "After this main phase, there are two additional combat phases." });
+    expect(p.atoms).toEqual([{ op: "extra-combat", insertAfter: "main", count: 2, followedByMain: false, targetType: null }]);
   });
 });
 

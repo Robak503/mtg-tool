@@ -311,6 +311,25 @@ export function advanceStep(state) {
   //
   // ⛔ THE NON-TERMINATION TRAP: the run is popped as it is taken (never re-queued), so N grants give
   // exactly N extra combats. Without the pop, Relentless Assault loops the turn forever.
+  if (state.step === "end-of-combat" && state.currentExtraCombat && state.currentExtraCombat.withMain === false) {
+    // AFTER-MAIN FIDELITY (KT-7b): this extra combat had NO main after it (Full Throttle, Grim Reaper's Sprint) — chain straight
+    // to the next after-main combat if one is queued, else to the OWED normal combat; only then does a main follow.
+    const queued = state.extraPhases || [];
+    const bocIdx = TURN_SEQUENCE.findIndex((e) => e.step === "beginning-of-combat");
+    const nextIdx = queued.length ? [...queued].map((e, i) => [e, i]).filter(([e]) => e.after === "main").map(([, i]) => i).pop() : undefined;
+    if (bocIdx !== -1 && nextIdx !== undefined) {
+      return enterCombatPostProcess({
+        ...emptied, extraPhases: queued.filter((_, i) => i !== nextIdx), currentExtraCombat: { withMain: queued[nextIdx].withMain !== false },
+        phase: TURN_SEQUENCE[bocIdx].phase, step: TURN_SEQUENCE[bocIdx].step, combat: null, priorityHolder: null, consecutivePasses: 0,
+      });
+    }
+    if (bocIdx !== -1 && state.normalCombatOwed) {
+      return enterCombatPostProcess({
+        ...emptied, normalCombatOwed: false, currentExtraCombat: null,
+        phase: TURN_SEQUENCE[bocIdx].phase, step: TURN_SEQUENCE[bocIdx].step, combat: null, priorityHolder: null, consecutivePasses: 0,
+      });
+    }
+  }
   if (state.step === "end-of-combat") {
     const queued = state.extraPhases || [];
     // CLASS-AWARE POP (Increment 3, 2026-08-12): this site consumes only the AFTER-COMBAT entries
@@ -347,14 +366,30 @@ export function advanceStep(state) {
     if (idx !== undefined) {
       const bocIdx = TURN_SEQUENCE.findIndex((e) => e.step === "beginning-of-combat");
       if (bocIdx !== -1) {
+        // AFTER-MAIN FIDELITY (KT-7b, CR 500.8): leaving the PRECOMBAT main into an extra combat means the turn's NORMAL
+        // combat has not happened yet — it is OWED and comes after the extra sequence. The entry remembers whether a main
+        // follows it (`withMain`); a no-main extra combat chains to the next combat at its end (see end-of-combat).
         return enterCombatPostProcess({
           ...emptied,
           extraPhases: queued.filter((_, i) => i !== idx),
+          normalCombatOwed: state.phase === "precombat-main" ? true : !!state.normalCombatOwed,
+          currentExtraCombat: { withMain: queued[idx].withMain !== false },
           phase: TURN_SEQUENCE[bocIdx].phase,
           step: TURN_SEQUENCE[bocIdx].step,
           combat: null,
           priorityHolder: null,
           consecutivePasses: 0,
+        });
+      }
+    }
+    // The owed NORMAL combat: leaving a postcombat main with nothing queued and the normal combat still owed → it happens now
+    // (then the forward transition lands on a postcombat main again). Never from the precombat main — that is the normal path.
+    if (state.phase === "postcombat-main" && state.normalCombatOwed) {
+      const bocIdx = TURN_SEQUENCE.findIndex((e) => e.step === "beginning-of-combat");
+      if (bocIdx !== -1) {
+        return enterCombatPostProcess({
+          ...emptied, normalCombatOwed: false, currentExtraCombat: null,
+          phase: TURN_SEQUENCE[bocIdx].phase, step: TURN_SEQUENCE[bocIdx].step, combat: null, priorityHolder: null, consecutivePasses: 0,
         });
       }
     }
@@ -394,6 +429,7 @@ export function advanceStep(state) {
       activePlayer: taker.player,
       extraTurnOf: taker.player, // SHELF-85 V12: THIS turn is an extra turn of that player ("that turn's end step" delayed triggers read it)
       turn: state.turn + 1,
+      normalCombatOwed: false, currentExtraCombat: null, // AFTER-MAIN FIDELITY (KT-7b): per-turn flags reset
       phase: "beginning",
       step: "untap",
       priorityHolder: null,
@@ -408,6 +444,7 @@ export function advanceStep(state) {
     activePlayer: nextActive,
     extraTurnOf: null, // SHELF-85 V12: a normal rotation is nobody's extra turn
     turn: state.turn + 1,
+    normalCombatOwed: false, currentExtraCombat: null, // AFTER-MAIN FIDELITY (KT-7b): per-turn flags reset
     phase: "beginning",
     step: "untap",
     priorityHolder: null,

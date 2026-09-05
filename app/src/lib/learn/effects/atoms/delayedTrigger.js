@@ -58,6 +58,7 @@ export function applyScheduleDelayed(state, atom, ctx) {
     sourceCardId: ctx.sourceCardId || null,
     sourcePermanentId: ctx.sourceId || null,
     createdTurn: state.turn || 0,
+    ...(atom.repeatThisTurn ? { repeatThisTurn: true } : {}), // Full Throttle (KT-7b)
   };
   const next = { ...state, delayedTriggers: [...queue, record] };
   return logEvent(next, {
@@ -92,9 +93,13 @@ export function drainDelayedTriggers(state, step, activePlayer) {
     const scopeMatches = rec.fireScope === "thatTurn"
       ? (state.extraTurnOf != null && state.extraTurnOf === rec.controller && activePlayer === rec.controller)
       : (rec.fireScope !== "yours" || rec.controller === activePlayer);
+    // FULL THROTTLE (POD-SIM THREE · KT-7b, 2026-09-05): a "this turn, each <step>" record fires at EVERY matching step of
+    // the turn it was created in (each combat of the turn — the extra combats too) and lapses silently once the turn moves on.
+    if (rec.repeatThisTurn && rec.createdTurn !== (state.turn || 0)) continue;
     if (!stepMatches || !scopeMatches) { keep.push(rec); continue; }
     // Matched → it ceases to exist either way; it only FIRES if its controller is still in the game.
     if (!state.players?.[rec.controller]) continue;
+    if (rec.repeatThisTurn) keep.push(rec); // … except the repeating kind, which stays for the next matching step this turn
     fired.push({
       event: "delayed",
       source: { permanentId: rec.sourcePermanentId, cardId: rec.sourceCardId, name: rec.sourceName },

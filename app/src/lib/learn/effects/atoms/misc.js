@@ -321,15 +321,25 @@ export function miscClauseParser(clause) {
   // model jumps main → extra combat → postcombat main and the turn's NORMAL combat is not replayed — one
   // FEWER combat than CR 500.8 grants in that corner. Under-delivery (FN-safe), never an extra combat the
   // card didn't pay for; the AI line (activate in the postcombat main) is modeled exactly.
-  if (/^after this main phase, there is an additional combat phase(,? followed by an additional main phase)?$/.test(t)) {
-    return { op: "extra-combat", insertAfter: "main", targetType: null };
+  // AFTER-MAIN FIDELITY (POD-SIM THREE · KT-7b, 2026-09-05): the printed "followed by an additional main phase" is now
+  // CARRIED (`followedByMain`). The engine's after-main pop used to feed every extra combat into the postcombat main and
+  // drop the turn's NORMAL combat; it now owes the normal combat (CR 500.8 — extra phases go directly after the named
+  // phase, the rest of the turn follows) and, for a no-main extra combat, chains straight to the next combat.
+  {
+    const afterMain = t.match(/^after this main phase, there is an additional combat phase(,? followed by an additional main phase)?$/);
+    if (afterMain) return { op: "extra-combat", insertAfter: "main", ...(afterMain[1] ? { followedByMain: true } : { followedByMain: false }), targetType: null };
   }
+  // FULL THROTTLE (POD-SIM THREE · KT-7b, 2026-09-05): "After this main phase, there are two additional combat phases."
+  // — the after-main extra combat with a COUNT; the resolver queues that many entries (CR 500.8, LIFO within the class).
+  const twoCombats = t.match(/^after this main phase, there are (two|three) additional combat phases$/);
+  if (twoCombats) return { op: "extra-combat", insertAfter: "main", count: twoCombats[1] === "three" ? 3 : 2, followedByMain: false, targetType: null };
   // OVERPOWERING ATTACK / GRIM REAPER'S SPRINT (POD-SIM THREE · KT-7a, 2026-09-05): "If it's your main phase, there is an
   // additional combat phase after this phase(, followed by an additional main phase)." — the after-main extra combat with
   // a RESOLUTION-TIME gate: outside your main phase (an instant-speed cast in combat, an aura entering on an opponent's
   // turn) nothing is queued (pinned) — never an extra combat the card does not grant.
-  if (/^if it's your main phase, there is an additional combat phase after this phase(,? followed by an additional main phase)?$/.test(t)) {
-    return { op: "extra-combat", insertAfter: "main", onlyIfYourMainPhase: true, targetType: null };
+  {
+    const condMain = t.match(/^if it's your main phase, there is an additional combat phase after this phase(,? followed by an additional main phase)?$/);
+    if (condMain) return { op: "extra-combat", insertAfter: "main", onlyIfYourMainPhase: true, followedByMain: !!condMain[1], targetType: null };
   }
   // TAPPED-COUNT DRAW (BLITZ TD-1 — Theft of Dreams / Borrowing 100,000 Arrows): "Draw a card for each
   // tapped creature target opponent controls." The CONTROLLER draws; the chosen OPPONENT target only
@@ -793,7 +803,8 @@ export function applyExtraCombat(state, atom, ctx) {
   // atom.controller (undefined). The queueing behavior was always right; only the log line lied.
   // AFTER-MAIN (Increment 3): the entry carries its insertion point — advanceStep pops after:"main"
   // entries when a MAIN phase ends, and the classic entries (after absent ⇒ "combat") at end-of-combat.
-  const next = { ...state, extraPhases: [...(state.extraPhases || []), { kind: "combat", ...(atom?.insertAfter === "main" ? { after: "main" } : {}) }] };
+  const entries = Array.from({ length: Math.max(1, atom?.count | 0 || 1) }, () => ({ kind: "combat", ...(atom?.insertAfter === "main" ? { after: "main", ...(atom?.followedByMain === false ? { withMain: false } : {}) } : {}) })); // Full Throttle (KT-7b): a COUNT; withMain:false = no main follows this extra combat
+  const next = { ...state, extraPhases: [...(state.extraPhases || []), ...entries] };
   return logEvent(next, { kind: "spell-effect", effect: "extra-combat", controller: ctx?.controller, after: atom?.insertAfter || "combat", queued: next.extraPhases.length });
 }
 

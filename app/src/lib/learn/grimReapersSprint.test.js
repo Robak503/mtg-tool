@@ -61,7 +61,7 @@ describe("runtime — the aura ETB rides the gated extra-combat arm", () => {
     s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [...s.players.user.battlefield, aura] } } };
     s = settle(flushTriggers(checkEnterTriggers(s, aura), { chooseTargets: chooseTriggerTargets }));
     expect(s.players.user.battlefield.find((p) => p.id === "B").tapped).toBe(false);
-    expect(s.extraPhases).toEqual([{ kind: "combat", after: "main" }]);
+    expect(s.extraPhases).toEqual([{ kind: "combat", after: "main", withMain: false }]); // the Aura grants no main after its combat
     let c = mainState({ phase: "combat", step: "declare-blockers" });
     const aura2 = { ...createPermanent({ id: "A2", card: SPRINT, controller: "user" }), attachedTo: "B" };
     c = { ...c, players: { ...c.players, user: { ...c.players.user, battlefield: [...c.players.user.battlefield, aura2] } } };

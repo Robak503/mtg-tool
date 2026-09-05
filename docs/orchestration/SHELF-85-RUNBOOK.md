@@ -57,7 +57,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Colton | Veyran Cantrips | 91 | — | — | ✅ at the bar (④-BD) |
 | Colton | The Unbeatable Squirrel Girl | 90 | — | — | ✅ at the bar |
 | Colton | cdh | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
-| Colton | Killer Turts | 82 | 3 | 8 | ⬜ Phase 2 |
+| Colton | Killer Turts | 83 | 2 | 7 | ⬜ Phase 2 |
 | Joe | Did you say Dragons? | 91 | — | — | ✅ at the bar |
 | Joe | Earth Bent | 91 | — | — | ✅ at the bar (④-BE) |
 | Joe | Mothman Cometh | 89 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**9 decks below 85 · 106 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**9 decks below 85 · 105 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — POD-SIM THREE · KT-7b Full Throttle (Killer Turts) ✅ +1 corpus · 9/9 killed + 1 dead-code deletion (a re-entry drain the step-actions drain already covered); the 08 extraCombatAtom pin on the counted grant GRADUATED · suite 1490 files / 16,106 tests · corpus 14,444 (42.2%) · shelf refreshed in §1 · CI: BLOCKED (repo private → billing); LOCAL on the full gates.
 
 - 2026-09-05 — POD-SIM THREE · KT-9a Avoid Fate (Killer Turts) ✅ +2 corpus · 4/4 killed + 1 EQUIVALENT documented (the resolution-side mirror line: unknown filters are permissive there by design) · suite 1489 files / 16,104 tests · corpus 14,443 (42.2%) · shelf refreshed in §1 · CI: BLOCKED (repo private → billing); LOCAL on the full gates.
 

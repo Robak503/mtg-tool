@@ -630,9 +630,12 @@ export function matchChooseTypeDraw(oracle) {
 // beginning of THAT TURN'S end step, you lose the game."): "that turn" is the extra turn the same spell created —
 // fireScope `thatTurn`, which the drain honours only at the end step of the controller's extra turn (advanceStep stamps
 // `extraTurnOf` when it pops one), never the casting turn's own end step.
-const DELAYED_TIMING = "(?:the next end step|your next end step|that turn's end step|the next turn's upkeep|your next upkeep|the next turn's main phase|your next (?:precombat )?main phase)";
+const DELAYED_TIMING = "(?:the next end step|your next end step|that turn's end step|the next turn's upkeep|your next upkeep|the next turn's main phase|your next (?:precombat )?main phase|each combat this turn)";
 function delayedTimingSpec(raw) {
   const t = String(raw).toLowerCase().trim();
+  // FULL THROTTLE (POD-SIM THREE · KT-7b, 2026-09-05): "at the beginning of each combat this turn" — a REPEATING record for
+  // the turn it was created in, firing at every beginning-of-combat step (the extra combats included), yours only.
+  if (/^each combat this turn$/.test(t)) return { fireStep: "beginning-of-combat", fireScope: "yours", repeatThisTurn: true };
   const scope = /^that turn'?s\b/.test(t) ? "thatTurn" : /^your\b/.test(t) ? "yours" : "any";
   const step = /end step/.test(t) ? "end" : /upkeep/.test(t) ? "upkeep" : /main phase/.test(t) ? "main" : null;
   return step ? { fireStep: step, fireScope: scope } : null;

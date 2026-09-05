@@ -16,6 +16,26 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-7b: FULL THROTTLE — a count and a repeating delayed record · **+1** · corpus 14,444 (42.2%) / 34,245
+> Suite **1490 files / 16,106 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **9/9 killed + 1 dead-code deletion (a re-entry drain the step-actions drain already covered); the 08 extraCombatAtom pin on the counted grant GRADUATED.**
+> · "After this main phase, there are two additional combat phases." — the after-main extra combat with a COUNT; the resolver
+>   queues that many entries (CR 500.8).
+> · "At the beginning of each combat this turn, untap all creatures that attacked this turn." — the delayed-trigger scheduler
+>   knew upkeep / end / main / cleanup and consumed each record. It gains a REPEATING record: fire step beginning-of-combat,
+>   yours only, KEPT for every matching step of the turn it was created in and lapsing silently once the turn moves on.
+>   runStepActions drains the new step on EVERY advance, the re-entered beginning-of-combat of an extra combat included — a
+>   second drain I wrote on the re-entry path survived its mutant, was dead code (a double fire), and was removed.
+> · **AFTER-MAIN FIDELITY (the engine change this slice forced):** the after-main pop fed EVERY extra combat into the postcombat
+>   main and DROPPED the turn's normal combat — Full Throttle gave two combats, and Relentless Assault's after-main form gave
+>   one where the card says two. The extra-combat entry now carries whether a main follows it (`withMain`, from the printed
+>   "followed by an additional main phase"); leaving the precombat main into an extra sequence marks the normal combat as
+>   OWED; a no-main extra combat chains straight to the next combat at its end; the owed normal combat happens after the
+>   sequence (CR 500.8), and the flags reset with the turn. Existing pins re-anchored on the carried flags.
+> · **Pins:** three combats in the turn with the attacker untapped at the start of each; the record gone next turn; the
+>   fire-once, count-ignored, next-turn-survivor, owed-never-marked, no-chain and main-slips-between mutants all died.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Killer Turts 82 → 83** (83/100; needs 2). Next: the last two — Carpet of Flowers / World War Hulk / Veil of Summer / Not of This World, cheapest first.
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-9a: AVOID FATE — the typed counter-that-targets · **+2** · corpus 14,443 (42.2%) / 34,245
 > Suite **1489 files / 16,104 tests** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **4/4 killed + 1 EQUIVALENT documented (the resolution-side mirror line: unknown filters are permissive there by design).**
 > · "Counter target instant or Aura spell that targets a permanent you control." The runbook sized this M for a new

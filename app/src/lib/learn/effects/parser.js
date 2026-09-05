@@ -2378,6 +2378,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
       const scheduleAtom = {
         op: "schedule-delayed", fireStep: dly.fireStep, fireScope: dly.fireScope,
         delayedClause: dly.delayedClause, targetType: null,
+        ...(dly.repeatThisTurn ? { repeatThisTurn: true } : {}), // Full Throttle (KT-7b): "each combat this turn"
       };
       // No leading sentence → the whole clause is the delayed ability.
       if (!dly.immediateClause) {

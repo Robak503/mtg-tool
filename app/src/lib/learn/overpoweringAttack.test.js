@@ -44,7 +44,7 @@ describe("parser + classifier", () => {
     expect(p.confidence).toBe("high");
     expect(p.atoms).toEqual([
       { op: "untap-lands", all: true, scope: "creature", attackedThisTurnOnly: true, targetType: null },
-      { op: "extra-combat", insertAfter: "main", onlyIfYourMainPhase: true, targetType: null },
+      { op: "extra-combat", insertAfter: "main", onlyIfYourMainPhase: true, followedByMain: true, targetType: null },
     ]);
     expect(classifyCard(OPA)).toBe("native-spell");
   });
