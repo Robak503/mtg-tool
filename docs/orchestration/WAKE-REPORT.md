@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · F6: Feasting Hobbit (+2)** · suite **1527 files / 16,249** green · corpus 14,539 / 34,245 · flip-diff +2 / 0 lost · mutants 3/3 killed
+
+> The typed devour ("Devour Food 3", artifact, land) joins the optional-mode credit on the family's own law — sacrificing zero is the printed creature; the type word is curated and the digit anchor holds. Bumble Flower 84 → **85, AT THE BAR**; Caprichrome the unplanned gain, audited whole-card (flash + vigilance + Devour artifact 1); Famished Worldsire stays parked on its own look-at-top-X ETB
+> **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+
 ## 🎯 2026-09-05 (cron) — **HARDENING: the self-ETB fallback's disjoint subject (2 lost on purpose)** · suite **1526 files / 16,246** green · mutants 4/4 killed
 
 > "This X or a <filter> enters" no longer reads as a plain self-ETB with the second subject dropped; the unmodelled disjunction parks (Arbiter). Losses are hollows removed: Tomebound Lich ('enters or deals combat damage to a player') and Shield Mare ('enters or becomes the target of a spell or ability an opponent controls') — each had its second, PRODUCIBLE event silently dropped; the six vacuous-event compounds (turned face up / specializes) keep their ETB by the exemption.

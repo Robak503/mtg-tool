@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Feasting Hobbit** — Devour Food 3 (and the Devour artifact / Devour land printings): the creature you get when you sacrifice nothing
 - **Sam, Loyal Attendant** — Foods' abilities cost {1} less (and the lands / artifact-token printings of the same line)
 - **Kwain, Itinerant Meddler** — each player may draw; those who do gain a life
 - **Lembas** — shuffles itself back into its owner's library when it leaves for the graveyard

@@ -16,6 +16,26 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · F6: FEASTING HOBBIT — the typed devour · **+2** · corpus 14,539 / 34,245
+> Suite **1527 files / 16,249** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
+> · "Devour Food 3 (As this creature enters, you may sacrifice any number of Foods. It enters with three times that
+>   many +1/+1 counters on it.)" + the self-power block gate (slice 43, already modelled). Plain "Devour N" has been
+>   credited since census slice 53 on the optional-mode family's purest reasoning — sacrificing ZERO is a legal
+>   choice, "that many" is then zero, the creature enters exactly as printed. The typed form is the same ability
+>   with a narrower sacrifice pool; the same zero choice exists. The gate admits exactly the three printed type words
+>   (artifact — Caprichrome; Food — Feasting Hobbit; land — Famished Worldsire) and keeps the digit anchor: "Devour
+>   Food X" would be an amount nobody computes and stays refused, as does an unlisted word.
+> · Sized while looking for Bumble's last slot: Killer Service is LARGER than marked (the ETB count "equal to the
+>   number of opponents you have" is an unmodelled source AND the end-step line is an optional pay+sacrifice
+>   reflexive); Campsite Cuisine likewise (the union head now parks by design, and the attack line is an optional
+>   X-sacrifice reflexive); Samwise the Stouthearted's ETB is native but "Then the Ring tempts you" is an unmodelled
+>   mechanic. All three noted in §5 and skipped per §2.4.
+> · **Pins:** Feasting Hobbit native; Devour artifact 1 / Devour land 3 credited as lines; plain Devour 2 unchanged;
+>   "Devour Food X" refused; "devour widget 3" refused. Mutants: the typed alternative dropped, the type word
+>   widened to any word, the digit anchor dropped — mutants 3/3 killed.
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Bumble Flower 84 → **85, AT THE BAR**; Caprichrome the unplanned gain, audited whole-card (flash + vigilance + Devour artifact 1); Famished Worldsire stays parked on its own look-at-top-X ETB
+
 > ## 🎯 2026-09-05 (cron) — HARDENING: the self-ETB fallback's disjoint subject · **2 LOST on purpose** (hollows removed) · corpus 14,537 / 34,245
 > Suite **1526 files / 16,246** green; lint 0. Flip-diff **0 gained / 2 LOST** — every loss audited as a dropped-half credit: Tomebound Lich ('enters or deals combat damage to a player') and Shield Mare ('enters or becomes the target of a spell or ability an opponent controls') — each had its second, PRODUCIBLE event silently dropped; the six vacuous-event compounds (turned face up / specializes) keep their ETB by the exemption. **mutants 4/4 killed.**
 > · Surfaced while sizing Campsite Cuisine: "Whenever this enchantment or a legendary creature you control enters, create

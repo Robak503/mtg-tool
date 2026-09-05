@@ -970,7 +970,11 @@ const reBloodthirstFixed = /^bloodthirst \d+$/;
 //
 // Digit-anchored for the same reason as bloodthirst directly above: a hypothetical "Devour X" would be a
 // dynamic amount, and the anchor must keep refusing it rather than crediting a number nobody can compute.
-const reDevourFixed = /^devour \d+$/;
+// TYPED DEVOUR (CR 702.82a as printed — SHELF-85 · Feasting Hobbit, 2026-09-05): "Devour Food 3", "Devour artifact 1"
+// (Caprichrome), "Devour land 3" (Famished Worldsire) — the same ability with a narrower sacrifice pool, and the same
+// zero choice: sacrifice none, enter as printed. The type word is the CURATED set of the three printed forms (an
+// unlisted word stays refused) and the digit anchor still holds ("Devour Food X" is nobody's number).
+const reDevourFixed = /^devour (?:(?:artifact|land|food) )?\d+$/;
 // amplify N (CR 702.37a, census slice 53) — "As this creature enters, REVEAL ANY NUMBER of cards from your
 // hand that share a creature type with it. This creature enters with N +1/+1 counters on it for each card
 // revealed this way." Devour's hand-side twin: revealing zero is a legal choice, "for each card revealed"
