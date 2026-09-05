@@ -208,7 +208,12 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
     // board readers verbatim (evaluateInterveningIf). The parser attaches `condition` ONLY for spell-readable
     // board queries, so a real game state yields true/false here; a defensive null (never expected) is treated
     // as not-met → SKIP (the false-negative-safe direction — a rider is dropped, never fabricated; CREED).
-    if (atom.condition && evaluateInterveningIf(next, atom.condition, controller, context) !== true) continue;
+    if (atom.condition) {
+      // UNLESS (Shoreline Looter, 2026-09-05): a negated rider runs only when the condition is DEFINITELY false; a
+      // null read (never expected) still skips — the rider is dropped, never fabricated, in both polarities (CREED).
+      const read = evaluateInterveningIf(next, atom.condition, controller, context);
+      if (atom.conditionNegate ? read !== false : read !== true) continue;
+    }
     // KICKED-SPELL-EFFECT (CR 702.33e) — a `kickedOnly` atom (the "If this spell was kicked, <extra>" payoff)
     // runs ONLY when the spell was cast kicked (params.kicked). On a normal cast it's SKIPPED — never resolved,
     // never a fabricated effect (the cardinal CREED guarantee for the not-kicked path). The base atoms (no

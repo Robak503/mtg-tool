@@ -16,6 +16,29 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · F6: SHORELINE LOOTER + NIGHT OF THE SWEETS' REVENGE — "unless" and the bare Overrun-X · **+8** · corpus 14521 / 34,245
+> Suite **1516 files / 16,221** green; lint 0. Flip-diff **+8, zero LOST** (any unplanned gains audited whole-card). **mutants 6/6 killed (one survivor got its missing test).**
+> · **Shoreline Looter** — "Threshold — Whenever this creature deals combat damage to a player, draw a card. Then discard a
+>   card unless there are seven or more cards in your graveyard." The trailing conditional rider (CD-2, "<effect> if
+>   <board-condition>") grew its NEGATED connective: "<effect> unless <cond>" rides as `condition` + `conditionNegate`,
+>   and the program runner runs the atom only when the condition reads DEFINITELY false — a null read still skips, so
+>   the rider is dropped, never fabricated, in both polarities (CREED). The threshold reader ("there are seven or more
+>   cards in your graveyard") was already board-readable. Everything else is the CD-2 gate verbatim.
+> · **Night of the Sweets' Revenge** — "{5}{G}{G}, Sacrifice this enchantment: Creatures you control get +X/+X until end of
+>   turn, where X is the number of Foods you control. Activate only as a sorcery." The Overrun-X team pump existed only
+>   with a keyword grant ("gain trample and get +X/+X"); the keyword-less twin joins, its count source read at
+>   resolution through parseCountSource with the scope option ("Foods you control" is a subtype count). Ten printings,
+>   each with its own count source — the others flip only if theirs parses (audited at the flip-diff).
+> · **Pins:** the unless-tail parses to a discard with the negated condition and the bare Overrun-X to a Food-count team
+>   pump; Looter native-trigger, Sweets native-mixed; at resolution Looter below threshold draws then PAUSES on the
+>   discard pick, at threshold draws and skips the discard; Sweets with two Foods pumps each creature +2/+2 and is gone.
+>   A survivor got its missing test: the runner's null-read guard for the negated polarity was unwitnessed (the parser
+>   never attaches an unreadable condition), so a hand-built atom with an unreadable negated condition now pins that
+>   the rider does NOT run. Mutants: the connective, the dropped flag, the runner ignoring negation, a null read running
+>   the negated rider, the bare arm, the dropped count — mutants 6/6 killed (one survivor got its missing test).
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Bumble Flower 74 → **76** (9 to the bar); six unplanned gains audited whole-card — Chart a Course, Chakra Meditation, The Spot's Portal, Mindwrack Demon, Bellowing Saddlebrute (all 'unless' riders on conditions the reader already accepted under 'if'), Become the Avalanche (the bare Overrun-X with cards in hand)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · F5: WAVE GOODBYE + RIOT CONTROL — four small arms on shared grammar · **+3** · corpus 14513 / 34,245
 > Suite **1515 files / 16,217** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 7/7 killed.**
 > · **Wave Goodbye** — "Return each creature without a +1/+1 counter on it to its owner's hand." Two gaps: the mass bounce

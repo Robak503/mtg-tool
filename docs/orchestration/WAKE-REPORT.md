@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · F6: Shoreline Looter + Night of the Sweets' Revenge (+8)** · suite **1516 files / 16,221** green · corpus 14521 / 34,245 · flip-diff +8 / 0 lost · mutants 6/6 killed (one survivor got its missing test)
+
+> The trailing rider's negated connective ("discard a card unless …", run only when the condition reads definitely false) and the keyword-less Overrun-X team pump with a count source. Bumble Flower 74 → **76** (9 to the bar); six unplanned gains audited whole-card — Chart a Course, Chakra Meditation, The Spot's Portal, Mindwrack Demon, Bellowing Saddlebrute (all 'unless' riders on conditions the reader already accepted under 'if'), Become the Avalanche (the bare Overrun-X with cards in hand)
+> **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · F5: Wave Goodbye + Riot Control (+3)** · suite **1515 files / 16,217** green · corpus 14513 / 34,245 · flip-diff +3 / 0 lost · mutants 7/7 killed
 
 > Four small arms on shared grammar: the "each creature <filter>" mass bounce, the negated named-counter form, the scoped life-per-count, the all-damage-to-you shield. Bumble Flower 72 → **74** (11 to the bar); Emissary of Hope the unplanned gain, audited by RUNTIME probe (its 'that player' count reads the damaged player through the resolver's designed fallback — three artifacts, three life)

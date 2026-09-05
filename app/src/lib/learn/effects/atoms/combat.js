@@ -2252,6 +2252,15 @@ export function pumpClauseParser(clause) {
   // ("creatures your opponents control with flying"), a rider, or a non-opponent scope fails the `$` → low → Arbiter.
   const od = t.match(/^creatures your opponents control get ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (od) return { op: "pump", scope: "eachOpponentCreature", ptDelta: { p: parseInt(od[1], 10), t: parseInt(od[2], 10) } };
+  // BARE OVERRUN-X (SHELF-85 · Bumble F6 Night of the Sweets' Revenge, 2026-09-05 — "Creatures you control get +X/+X until
+  // end of turn, where X is the number of Foods you control"; 10 printings, each with its own count source): the
+  // keyword-less twin of the Overrun-X form below — the same youControl team pump with ptDeltaCount, resolved at
+  // resolution (CR 608.2h). An unmodeled count source → null → low → Arbiter (CREED).
+  const bx = t.match(/^creatures you control get \+x\/\+x until end of turn, where x is (.+?)$/);
+  if (bx) {
+    const countSpec = parseCountSource(bx[1].replace(/^the /, "").replace(/^number of /, ""), { allowScopes: true });
+    return countSpec ? { op: "pump", scope: "youControl", ptDeltaCount: countSpec } : null;
+  }
   const ox = t.match(/^(?:until end of turn, )?creatures you control gain (.+?) and get \+x\/\+x(?: until end of turn)?, where x is (.+?)$/);
   if (ox) {
     const kws = parseGrantedKeywords(ox[1]);

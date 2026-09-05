@@ -765,8 +765,13 @@ function parseClauseToAtomCore(cardType, clause, hasX = false, sourceScoped = fa
   // player …"), an "instead" replacement, or an ability-word-prefixed effect ("Ferocious — …") fails the
   // clean-atom parse below → parks (never a mis-scoped native).
   {
-    const cond = s.match(/^(.+?) if (.+)$/i);
-    if (cond && conditionReadableHere(cond[2], sourceScoped)) {
+    // ⭐ "UNLESS" JOINED 2026-09-05 (SHELF-85 · Bumble F6 Shoreline Looter — "Then discard a card unless there are seven or
+    // more cards in your graveyard."): the SAME trailing rider with the condition NEGATED (CR 608.2 — the instruction
+    // applies only when the board condition does NOT hold as it resolves). `conditionNegate` rides beside `condition`;
+    // runProgram flips the skip. Everything else is the CD-2 gate verbatim — the same board-readable shape, the same
+    // single non-targeting non-optional atom, the same park on anything wider.
+    const cond = s.match(/^(.+?) (if|unless) (.+)$/i);
+    if (cond && conditionReadableHere(cond[3], sourceScoped)) {
       const gated = cond[1];
       if (/\s+\band\b\s+|,\s+then\s+/i.test(gated)) return null; // compound / scope-ambiguous left side → park (this slice)
       const inner = parseClauseToAtom(cardType, gated, hasX, sourceScoped);
@@ -775,7 +780,7 @@ function parseClauseToAtomCore(cardType, clause, hasX = false, sourceScoped = fa
         && !inner.condition                 // no nested conditional (the effect can't itself re-carry a condition)
         && !inner.optional                  // park an optional-gated rider (a fast-follow) — never double-gate here
         && (!inner.targetType || isNonChosenTargetType(inner.targetType))) { // non-targeting gated atom only (this slice)
-        return { ...inner, condition: cond[2].toLowerCase() };
+        return { ...inner, condition: cond[3].toLowerCase(), ...(cond[2].toLowerCase() === "unless" ? { conditionNegate: true } : {}) };
       }
       return null; // gated effect isn't a clean single non-targeting atom → park (CREED)
     }
