@@ -105,6 +105,11 @@ export function atomTargetIntent(atom) {
   // the trigger chooser needs only the side; which opponent (the one with the most Islands) is a play-quality choice.
   if (tt === "opponent") return "enemy";
   switch (atom.op) {
+    case "gy-to-library-bottom":
+      // ENDURANCE (SHELF-85 Phase 3, 2026-09-05): "up to one target player puts all the cards from their graveyard on the
+      // bottom of their library" — graveyard denial aimed at an OPPONENT is the play, and aiming there can never harm the
+      // controller; the "up to one" lets the chooser decline when no opponent has a graveyard worth denying.
+      return "enemy";
     case "conditional":
       // TARGETED CONDITIONAL (SHELF-85 V10 — Scythecat Cub): the branch node carries the BASE branch's chosen target;
       // its side is the base atom's side (the alternative binds to the same creature through the sentinel).

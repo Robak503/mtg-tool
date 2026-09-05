@@ -16,6 +16,28 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — PHASE 3 · ENDURANCE — a chosen player's graveyard to the bottom of their library · **+1** · corpus 14,621 (42.7%) / 34,245
+> Suite **1562 files / 16,371** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
+> · Phase 2 closed with every open deck at its ceiling; Phase 3 (§4.3) opened on the runbook's own gate. Step 3's one-line-away
+>   probe put Endurance first — one line from native in FOUR shelf decks (Shalai, Rashmi, Kinnan, Squirrel Girl): "When this
+>   creature enters, up to one target player puts all the cards from their graveyard on the bottom of their library in a
+>   random order." One atom (gy-to-library-bottom): a chosen player — optional, the "up to one" riding the same maxTargets 1 /
+>   minTargets 0 subset path a creature "up to one" takes — whose WHOLE graveyard moves to the BOTTOM of their library. Not a
+>   shuffle (CR 701.24 does not apply): each card is appended through moveCardToZone's default bottom placement in an order
+>   drawn from the state's seeded RNG (deterministicRng + advanceRngSeed, the shuffleSeededLibrary discipline — never
+>   Math.random), so the library above the moved cards is untouched and a known top card stays known. The atom's intent is
+>   ENEMY (atomTargetIntent) so the trigger chooser can place it: graveyard denial aimed at an opponent is the play and can
+>   never harm the controller. Flash, Reach and the exile-a-green-card Evoke were native already.
+> · **Pins:** the ETB detected; the atom (targetType player, up to one); enemy intent; native-trigger. RUNTIME through
+>   checkEnterTriggers + the real trigger chooser: three cards in the opponent's graveyard → their yard empties, all three
+>   sit at the BOTTOM of their library, the known top and second cards stay put, the controller's own yard is untouched, the
+>   log names the player and the count; the same seed gives the same bottom order and the seed advances; an empty opponent
+>   graveyard is a logged no-op with the library untouched. Mutants: the arm gone, the resolver moving nothing, the cards
+>   placed on top, the seed frozen, the intent made ambiguous — mutants 5/5 killed.
+> · **Whole-card:** no unplanned gains — the sentence prints on Endurance alone; its Flash, Reach and exile-a-green-card Evoke were native already.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Shalai 85 → **86** · Kinnan 85 → **86** (Rashmi and Squirrel Girl carry it too). Next Phase 3 rows: Desert (Hulk 87 → the combat-step activation rider, S), then Wheel and Deal (Nekusar — a player-side any-number wrapper + a bound draw, M), Treebeard / Xenagos / Molten Psyche / Iron Man (M+).
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · L4: SENTINEL'S MARK — the Addendum main-phase look-back · **+2** · corpus 14,620 (42.7%) / 34,245
 > Suite **1561 files / 16,367** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
 > · "Addendum — When this Aura enters, if you cast it during your main phase, enchanted creature gains lifelink until end

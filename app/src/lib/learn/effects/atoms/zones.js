@@ -3,7 +3,7 @@
  * reanimate). Also hosts the shared enterCardFromZone helper (reanimation + library ramp).
  */
 
-import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf, shuffleSeededLibrary, planeswalkerEntryLoyalty } from "../../gameState.js"; // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
+import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf, shuffleSeededLibrary, planeswalkerEntryLoyalty, deterministicRng, advanceRngSeed } from "../../gameState.js"; // deterministicRng / advanceRngSeed — ENDURANCE's "in a random order" (seeded, never Math.random) // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
 import { impositionEntersTapped } from "../../staticAbilityParser.js"; // KM-1 (CR 614.1c) — Kismet taxes non-cast entries too (leaf-safe: staticAbilityParser imports only keywords.js)
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
@@ -1106,6 +1106,16 @@ export function graveyardReturnClauseParser(clause) {
   // a mandatory count (no "up to"), a filtered form, "a graveyard"/cross-zone scopes, or riders → LOW →
   // Arbiter (FN-safe). atomTargetIntent: the op takes the AMBIGUOUS default, so a TRIGGER carrying either
   // form (Covetous Castaway's ETB) routes to the Arbiter — only player-driven cast/activated paths run it.
+  // GRAVEYARD-TO-LIBRARY-BOTTOM, TARGETED PLAYER (SHELF-85 Phase 3 · Endurance, 2026-09-05 — "up to one target player puts all
+  // the cards from their graveyard on the bottom of their library in a random order"; four shelf decks). ONE chosen player,
+  // optional ("up to one" — maxTargets 1 / minTargets 0, the same subset path a creature "up to one" takes); the resolver
+  // moves that player's WHOLE graveyard to the bottom of their library in a seeded random order (the library above it is
+  // untouched — this is not a shuffle, CR 701.24 does not apply; a known top card stays known). The intent is ENEMY
+  // (programQueries.atomTargetIntent) so the trigger chooser can place it — graveyard denial is the play, and aiming at an
+  // opponent can never harm the controller.
+  if (/^up to one target player puts all the cards from their graveyard on the bottom of their library in a random order$/.test(t)) {
+    return { op: "gy-to-library-bottom", targetType: "player", maxTargets: 1, minTargets: 0 };
+  }
   const shufP = /^target player shuffles up to (one|two|three|four|five) target cards? from their graveyard into their library$/.exec(t);
   if (shufP) {
     const n = SMALL_NUM[shufP[1]];
@@ -1129,6 +1139,35 @@ export function graveyardReturnClauseParser(clause) {
  * is the deterministic rngSeed shuffle (shuffleControllerLibrary — serialize-stable, no Math.random).
  * Hidden-info safe: graveyards are public, and the shuffle randomizes a hidden zone's ORDER only.
  */
+/**
+ * GRAVEYARD-TO-LIBRARY-BOTTOM (Endurance, 2026-09-05) — the chosen player's whole graveyard goes to the BOTTOM of their
+ * library in a random order. The order is drawn from the state's seeded RNG (deterministicRng + advanceRngSeed — the same
+ * discipline shuffleSeededLibrary keeps; never Math.random), and each card is appended through moveCardToZone's default
+ * bottom placement, so the library ABOVE the moved cards is untouched (not a shuffle — CR 701.24 does not apply). No chosen
+ * player (the "up to one" declined) or an empty graveyard → a logged no-op.
+ */
+export function applyGyToLibraryBottom(state, atom, ctx) {
+  const playerT = (ctx.targets || []).find((t) => t.type === "player");
+  if (!playerT || !state.players?.[playerT.id]) {
+    return logEvent(state, { kind: "spell-effect", effect: "gy-to-library-bottom", controller: ctx.controller, player: playerT?.id ?? null, moved: 0 });
+  }
+  const pid = playerT.id;
+  const ids = (state.players[pid].graveyard || []).map((c) => c.id);
+  if (ids.length === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "gy-to-library-bottom", controller: ctx.controller, player: pid, moved: 0 });
+  }
+  const seed = (state.rngSeed ?? 0) >>> 0;
+  const rng = deterministicRng(seed);
+  const order = [...ids];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  let next = { ...state, rngSeed: advanceRngSeed(seed) };
+  for (const id of order) next = moveCardToZone(next, { playerId: pid, fromZone: "graveyard", toZone: "library", cardId: id });
+  return logEvent(next, { kind: "spell-effect", effect: "gy-to-library-bottom", controller: ctx.controller, player: pid, moved: order.length });
+}
+
 export function applyGyShuffleIntoLibrary(state, atom, ctx) {
   const playerT = (ctx.targets || []).find((t) => t.type === "player");
   const pid = playerT ? playerT.id : ctx.controller;
@@ -1803,6 +1842,7 @@ export const zoneResolvers = {
   "blink": applyBlink,                      // BLINK/FLICKER (CR 400.7) — Cloudshift / Ephemerate / Essence Flux
   "earthbend-return": applyEarthbendReturn, // EARTHBEND-RETURN (CR 603.7) — the animated land's dies/exile delayed return, tapped
   "detain-return": applyDetainReturn, // DETAIN-RETURN (DT-1, CR 610.3a) — the linked exiles return when the detainer leaves
+  "gy-to-library-bottom": applyGyToLibraryBottom, // ENDURANCE — a chosen player's whole graveyard to the bottom of their library in a seeded random order
   "gy-shuffle-into-library": applyGyShuffleIntoLibrary, // GY-SHUFFLE-IN (GS-1, CR 701.24) — chosen graveyard cards shuffle into their owner's library
   "shuffle-self-into-library": applyShuffleSelfIntoLibrary, // K9 (Fblthp) — the source permanent shuffles into its owner's library
 };

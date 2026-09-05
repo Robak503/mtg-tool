@@ -55,7 +55,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Colton | Vihaan, Goldwaker | 95 | — | — | ✅ at the bar |
 | Colton | Zaxara kinda X'ish | 94 | — | — | ✅ at the bar |
 | Colton | Veyran Cantrips | 91 | — | — | ✅ at the bar (④-BD) |
-| Colton | The Unbeatable Squirrel Girl | 90 | — | — | ✅ at the bar |
+| Colton | The Unbeatable Squirrel Girl | 91 | — | — | ✅ at the bar |
 | Colton | cdh | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Colton | Killer Turts | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Did you say Dragons? | 91 | — | — | ✅ at the bar |
@@ -65,18 +65,18 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Hulk Smash | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
-| Joe | Kinnan Mana Overload | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
+| Joe | Kinnan Mana Overload | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Joe | Believe it! | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kellan of the west | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Halfshell heroes | 83 | 2 | 7 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
-| Test | Test Rashmi | 91 | — | — | ✅ at the bar |
+| Test | Test Rashmi | 92 | — | — | ✅ at the bar |
 | Test | Teval, the Balanced Scale Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Nekusar Wheels | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
-| Test | Shalai and Hallar Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
+| Test | Shalai and Hallar Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Otharri Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Bumble Flower Combo | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Test | Atraxa Superfriends | 74 | 11 | 16 | ⬜ Phase 2 |
@@ -484,6 +484,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — **Phase 3** (§4.3 step 3, the one-line-away probe) · Endurance (4 decks) ✅ +1 corpus (a chosen player's WHOLE graveyard to the BOTTOM of their library in a seeded random order — not a shuffle; "up to one" on the player; enemy intent for the trigger chooser) · mutants 5/5 killed · suite 1562 files / 16,371 · Shalai 85 → **86** · Kinnan 85 → **86** (Rashmi and Squirrel Girl carry it too). Next Phase 3 rows: Desert (Hulk 87 → the combat-step activation rider, S), then Wheel and Deal (Nekusar — a player-side any-number wrapper + a bound draw, M), Treebeard / Xenagos / Molten Psyche / Iron Man (M+).
 
 - 2026-09-05 — Phase 2 · L4 Sentinel's Mark (Light-Paws) ✅ +2 corpus (the ADDENDUM look-back — "if you cast it during your main phase" — a main-phase stamp at the cast chokepoint, carried onto the entering Aura beside castFromZone, read by one condition arm) · mutants 5/5 killed · suite 1561 files / 16,367 · Light-Paws 80 → **81** (81/100; 4 to the bar) — LIGHT-PAWS CEILING for Phase 2 (noted in §5.12): every remaining row sizes L. Every open §5 deck now carries a ceiling (Atraxa 74 · Halfshell 83 · Light-Paws 81 · Bumble 88) → Phase 3 (§4.3, the hard-wins sweep) opens: instruments re-run, the 85–89 decks ≤3 rows from 90, the one-line-away probe for multi-deck S/M rows.
 

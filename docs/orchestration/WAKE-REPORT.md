@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **PHASE 3 · Endurance (+1)** · suite **1562 files / 16,371** green · corpus 14,621 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 5/5 killed
+
+> Phase 3 opened (every open deck at its ceiling). A chosen player's whole graveyard can now go to the bottom of their library in a seeded random order — Endurance, one line from native in four shelf decks. Shalai 85 → **86** · Kinnan 85 → **86** (Rashmi and Squirrel Girl carry it too). Next Phase 3 rows: Desert (Hulk 87 → the combat-step activation rider, S), then Wheel and Deal (Nekusar — a player-side any-number wrapper + a bound draw, M), Treebeard / Xenagos / Molten Psyche / Iron Man (M+).
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · L4: Sentinel's Mark (+2)** · suite **1561 files / 16,367** green · corpus 14,620 (42.7%) / 34,245 · flip-diff +2 / 0 lost · mutants 5/5 killed
 
 > A permanent now remembers whether it was cast during its controller's main phase — the Addendum look-back reads it on the Aura's own ETB. Light-Paws 80 → **81** (81/100; 4 to the bar) — LIGHT-PAWS CEILING for Phase 2 (noted in §5.12): every remaining row sizes L. Every open §5 deck now carries a ceiling (Atraxa 74 · Halfshell 83 · Light-Paws 81 · Bumble 88) → Phase 3 (§4.3, the hard-wins sweep) opens: instruments re-run, the 85–89 decks ≤3 rows from 90, the one-line-away probe for multi-deck S/M rows.
