@@ -13,6 +13,12 @@
 > **State at the bank:** suite **1584 files / 16,426 tests** green · lint 0 · corpus **14,767 / 34,245 (43.1%)** · shelf 13 ≥90 · 14 at 85–89 · 3 ceilings · **111 commits held** (CI billing-blocked; push on the first green run; never flip visibility) · worktree CLEAN.
 > **Since the last handoff (the 09-02 plan's close):** SHELF-85 through Phase 4 (Nekusar and Bumble crossed 90; the Omnath hand-off posted), nine residue families (+56), the quartet's Phase 4 step 3 in four classes (+28), the domain count (+6). Every slice witnessed, mutation-checked, full-suite green; eleven CREED park guards graduated on their own evidence; two hollows caught by the flip-diff's runtime audit before commit.
 
+## 🎯 2026-09-06 (cron) — **QUARTET Phase 4 step 3 · colour words — the last class; step 3 CLOSES (+5)** · suite **1585 files / 16429 tests** green · corpus 14,772 (43.1%) / 34,245 · flip-diff +5 / 0 lost · mutants 5/5 killed
+
+> **Runnable next (the 09-06 plan's stage ②):** the tap-a-creature alternative cost (Ramosian Rally, Angelic Favor — a new alt kind `tapCreature`; M-small), then the party-count cost reducer (S/M). The 09-06 plan's stage ① DONE line is met.
+> Shrine of the Forsaken Gods and Eldrazi Temple spend only on colourless spells (and, for the Temple, colourless Eldrazi abilities).
+> **CI:** repo flipped PUBLIC on Colton's order (2026-09-05, chat); the held stack pushed with this commit
+
 ## 🎯 2026-09-06 (cron) — **RESIDUE GRIND RG-9 · the domain count (+6)** · suite **1584 files / 16426 tests** green · corpus 14,767 (43.1%) / 34,245 · flip-diff +6 / 0 lost · mutants 5/5 killed
 
 > **Runnable next:** ② the tap-a-creature alternative cost ("If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost": Ramosian Rally, Angelic Favor — a new alt kind `tapCreature` with an untapped-creature enumeration and a tap at dispatch; the condition parser already reads "you control a Plains"; M-small) · ③ colour words in a spend restriction (Shrine of the Forsaken Gods, Eldrazi Temple; M).

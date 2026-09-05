@@ -21,7 +21,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { manaProduction, manaSources, planPayment, canAfford, parseSpendRestriction } from "./manaModel.js";
+import { manaProduction, manaSources, planPayment, canAfford, parseSpendRestriction, spendRestrictionAllows } from "./manaModel.js";
 import { createGameState, createPermanent, _resetIdsForTests } from "./gameState.js";
 
 // ⚠️ VERBATIM PRINTED ORACLE, verified against the bundled Scryfall snapshot. The first draft of this file
@@ -127,11 +127,14 @@ describe("⛔ the parser refuses everything it cannot honor", () => {
     ]) expect(parseSpendRestriction(t)).toBe(null);
   });
 
-  it("⭐ an 'or activate …' tail is IGNORED, not approximated — the cast half only", () => {
-    // Modeling a SUBSET of what the card permits under-uses it (a safe FN). Approximating the activate half
-    // would be the FP direction. Dalakos permits both; the engine takes only the cast.
-    expect(parseSpendRestriction("Spend this mana only to cast artifact spells or activate abilities of artifacts."))
-      .toEqual({ castTypes: ["artifact"] });
+  it("⭐ an 'or activate …' tail is HONOURED against the activating source's type line (QUARTET Phase 4 step 3, 2026-09-06)", () => {
+    // Until 2026-09-06 the tail was IGNORED (a safe FN — the allow-check had no artifact context). Every activation site now
+    // passes activatingTypeLine, so the ability half is real: an artifact's ability pays, a creature's does not, no context refuses.
+    const r = parseSpendRestriction("Spend this mana only to cast artifact spells or activate abilities of artifacts.");
+    expect(r).toEqual({ castTypes: ["artifact"], abilityOf: ["artifact"] });
+    expect(spendRestrictionAllows(r, null, { activatingIsCreature: false, activatingTypeLine: "Artifact", activatingColors: [] })).toBe(true);
+    expect(spendRestrictionAllows(r, null, { activatingIsCreature: true, activatingTypeLine: "Creature — Elf", activatingColors: ["G"] })).toBe(false);
+    expect(spendRestrictionAllows(r, null, {})).toBe(false);
   });
 
   it("⛔ one unrecognised word in the list refuses the WHOLE card", () => {

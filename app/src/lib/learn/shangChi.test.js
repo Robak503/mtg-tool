@@ -51,8 +51,14 @@ describe("the parses + the tier", () => {
     expect(abilitiesAsThoughHasteFor(board({ shang: false }), "user")).toBe(false);
     expect(abilitiesAsThoughHasteFor(board(), "ai")).toBe(false);
     expect(parseSpendRestriction(SHANG.oracle)).toEqual({ castTypes: [], abilityOf: ["creature"] });
-    expect(parseSpendRestriction("Spend this mana only to activate abilities of artifact sources or creature sources.")).toBeNull();
-    expect(parseSpendRestriction("Spend this mana only to activate abilities of artifact sources.")).toBeNull(); // only the creature word is honoured (the allow-check has no artifact context) — a credited-but-unplayable card is the forbidden direction
+    // QUARTET Phase 4 step 3 (2026-09-06): the plural ability tail now parses beside the singular, and a CARD-TYPE word is honoured
+    // at payment against the activating source's type line (activatingTypeLine, passed by every site) — no longer refused.
+    expect(parseSpendRestriction("Spend this mana only to activate abilities of artifact sources or creature sources.")).toEqual({ castTypes: [], abilityOf: ["artifact", "creature"] });
+    const artifactOnly = parseSpendRestriction("Spend this mana only to activate abilities of artifact sources.");
+    expect(artifactOnly).toEqual({ castTypes: [], abilityOf: ["artifact"] });
+    expect(spendRestrictionAllows(artifactOnly, null, { activatingIsCreature: false, activatingTypeLine: "Artifact", activatingColors: [] })).toBe(true);
+    expect(spendRestrictionAllows(artifactOnly, null, { activatingIsCreature: true, activatingTypeLine: "Creature — Human", activatingColors: [] })).toBe(false); // a creature is not an artifact source
+    expect(spendRestrictionAllows(artifactOnly, null, {})).toBe(false); // no context ⇒ refuse
     expect(classifyCard(SHANG)).toMatch(/^native/);
   });
   it("the allow-check: a creature's ability yes; a spell no; a non-creature's ability no; no context no", () => {

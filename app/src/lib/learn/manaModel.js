@@ -919,7 +919,7 @@ const MAX_SPEED_PREFIX = /^\s*max speed\s*[—–-]\s*/i;
  * counter-removal rider fails the anchor on purpose: its single-line product would silently drop the rider
  * (a painless painland tap), the forbidden direction. Never the main line itself. Memoized per card object.
  */
-const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Pay \d life: Add one mana of any color\.|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?(?: or (?:to )?activate an ability of an? (?:[a-z]+ )?source of the chosen type)?\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)? spells?(?: or (?:to )?activate an ability of an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)?(?: source)?)?\.|\{T\}: Add one mana of any color among legendary permanents you control\.)$/i; // + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory); + SHELF-85 S17: the fixed-type restricted any-colour line (Mech Hangar "Spend this mana only to cast a Pilot or Vehicle spell.") — the per-line product carries its restriction (restrictedManaProduction), never a free colour
+const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Pay \d life: Add one mana of any color\.|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?(?: or (?:to )?activate an ability of an? (?:[a-z]+ )?source of the chosen type)?\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)? spells?(?: or (?:to )?activate an ability of an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)?(?: source)?)?\.|\{T\}: Add (?:\{[WUBRGC]\})+\. Spend this mana only to cast [^.]+\.(?: Activate only if [^.]+\.)?|\{T\}: Add one mana of any color among legendary permanents you control\.)$/i; // + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory); + SHELF-85 S17: the fixed-type restricted any-colour line (Mech Hangar "Spend this mana only to cast a Pilot or Vehicle spell.") — the per-line product carries its restriction (restrictedManaProduction), never a free colour
 // A PLAIN tap line: complete, ungated, no sacrifice — the line a multi-line card can always tap for.
 const PLAIN_MANA_LINE_RE = /^\{T\}: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.$/i;
 
@@ -1164,20 +1164,20 @@ export function parseSpendRestriction(oracle) {
   }
   let chosenType = false;
   let uncounterableIfSpent = false;
+  // COLOUR WORDS (QUARTET Phase 4 step 3's last class, 2026-09-06 — Shrine of the Forsaken Gods "only to cast colorless spells",
+  // Eldrazi Temple "colorless Eldrazi spells or activate abilities of colorless Eldrazi"): a colour PREDICATE beside the type
+  // words — the cast card's colours (castColorless) and the activating source's colours (abilityColorless), both checked by
+  // spendRestrictionAllows against context the sites pass (castCard / activatingColors).
+  let castColorless = false;
+  let abilityColorless = false;
   for (const clause of clauses) {
     // ACTIVATION-ONLY (SG-18, 2026-09-03 — Shang-Chi "Spend this mana only to activate abilities of creature sources."):
     // the ONE permission is ACTIVATING a creature's ability — no cast at all. Modeled as `abilityOf: ["creature"]`;
     // spendRestrictionAllows honours it only when the payment site threads `activatingIsCreature` (the permanent
     // activated-ability offer + its dispatch), so a spell or a non-creature's ability can never spend it. Only the
     // "creature" word for now (the sole corpus form) — any other source word keeps the whole card refused.
-    {
-      const ao = /^to activate abilities of ([a-z]+) sources$/.exec(clause.trim());
-      if (ao) {
-        if (ao[1] !== "creature") return null;
-        abilityOf.push(ao[1]);
-        continue;
-      }
-    }
+    // (2026-09-06, QUARTET Phase 4 step 3: the plain form now rides the LIST loop below — any vocabulary word, matched at
+    // payment against the activating source's type line; "creature" still reads the layer-aware flag.)
     // CHOSEN-TYPE (CAP-CAVERN, 2026-09-03 — CR 614.12 / 106.6): "Spend this mana only to cast a creature spell of
     // the chosen type[, and that spell can't be countered]." (Cavern of Souls, Unclaimed Territory, Secluded
     // Courtyard). The type word must be a vocabulary word; the CHOSEN type is unknown here (no permanent in
@@ -1230,8 +1230,28 @@ export function parseSpendRestriction(oracle) {
     // So "spell(s)" must be followed by the END of the permission or another permission — never by a
     // qualifier ("with …", "that …", "of the chosen type", "with no abilities"). A qualified restriction
     // yields no types and the card stays refused, exactly as before.
+    // the plural ability tail with a colour word (Eldrazi Temple "activate abilities of colorless Eldrazi") — the singular
+    // "an ability of a <Subtype> source" tail is handled below; "abilities of creature sources" above.
+    // The tail is a LIST ("abilities of artifact sources or creature sources"): every item is honoured or the whole clause is
+    // refused — never a silent subset. A continuation that is another permission ("or cast …", "or pay …") ends the list.
+    for (const pa of clause.matchAll(/\bactivate abilities of ((?:colorless )?[a-z]+(?: sources?)?(?:(?:,\s*|\s+or\s+|\s+and\s+)(?!(?:cast|pay|to)\b)(?:colorless )?[a-z]+(?: sources?)?)*)/g)) {
+      for (const item of pa[1].split(/\s*(?:,|\bor\b|\band\b)\s*/)) {
+        const colorless = /^colorless\s+/.test(item);
+        const word = item.replace(/^colorless\s+/, "").replace(/\s+sources?$/, "").replace(/s$/, "");
+        if (!word) continue;
+        if (!(SPEND_CAST_TYPE_WORDS.has(word) || CR_CREATURE_TYPES.has(word))) return null;
+        if (!abilityOf.includes(word)) abilityOf.push(word); // the plain "abilities of creature sources" arm above may already hold it
+        if (colorless) abilityColorless = true;
+      }
+    }
     for (const cm of clause.matchAll(/\bcast ([a-z, /]*?)\s*spells?(?=$|[,.]|\s+(?:or|and)\b)/g)) {
-      for (const w of cm[1].split(/\s*(?:,|\/|\bor\b|\band\b)\s*/)) {
+      let list = cm[1];
+      if (/^\s*colorless\b/.test(list)) {
+        castColorless = true;
+        list = list.replace(/^\s*colorless\s*/, "");
+        if (!list.trim()) { types.add("@any-spell"); continue; } // bare "colorless spells" — any COLOURLESS spell (the colour check runs first)
+      }
+      for (const w of list.split(/\s*(?:,|\/|\bor\b|\band\b)\s*/)) {
         const phrase = w.trim().replace(/^(?:a|an|the)\s+/, "").trim();
         if (!phrase) continue;
         // CONJUNCTIVE PHRASE (QUARTET Phase 4, 2026-08-15 — Rivaz "Dragon CREATURE spells"): a multi-word
@@ -1248,8 +1268,9 @@ export function parseSpendRestriction(oracle) {
       }
     }
   }
-  if (!types.size && !abilityOf.length) return null;
-  return { castTypes: [...types], ...(abilityOf.length ? { abilityOf } : {}), ...(chosenType ? { chosenType: true } : {}), ...(uncounterableIfSpent ? { uncounterableIfSpent: true } : {}) };
+  if (!types.size && !abilityOf.length && !castColorless) return null;
+  return { castTypes: [...types], ...(abilityOf.length ? { abilityOf } : {}), ...(chosenType ? { chosenType: true } : {}), ...(uncounterableIfSpent ? { uncounterableIfSpent: true } : {}),
+    ...(castColorless ? { castColorless: true } : {}), ...(abilityColorless ? { abilityColorless: true } : {}) };
 }
 
 /**
@@ -1277,6 +1298,9 @@ export function spendRestrictionAllows(restriction, castCard, opts = {}) {
   // layer-aware flag the sites already pass; a SUBTYPE (Hero, Ally, Villain, Assassin …) reads the activating source's type
   // line (activatingTypeLine). A record with BOTH cast types and ability types (Avengers Tower) pays either purpose.
   if (!castCard) {
+    // COLOUR WORDS (Eldrazi Temple): the activating source must be colourless — read off activatingColors (layer-aware, passed
+    // by every activation site); no colour context ⇒ REFUSE.
+    if (restriction.abilityColorless && (!Array.isArray(opts.activatingColors) || opts.activatingColors.length)) return false;
     for (const t of restriction.abilityOf || []) {
       if (t === "@any") return true;                   // the negative cast-only form (Powerstone): every ability spend is legal
       if (t === "creature") { if (opts.activatingIsCreature === true) return true; continue; }
@@ -1285,6 +1309,9 @@ export function spendRestrictionAllows(restriction, castCard, opts = {}) {
     return false;                                      // no context / no matching source ⇒ REFUSE (the default-deny posture)
   }
   if (!castCard) return false;                         // ⛔ NO CONTEXT ⇒ REFUSE (see planPayment)
+  // COLOUR WORDS (Shrine of the Forsaken Gods / Eldrazi Temple): a coloured spell never qualifies for a colourless-only record —
+  // checked BEFORE the type walk so the bare "@any-spell" of "colorless spells" cannot short-circuit past it.
+  if (restriction.castColorless && colorsOf(castCard).length) return false;
   const typeLine = String(castCard.type || castCard.type_line || "").toLowerCase();
   for (const t of restriction.castTypes || []) {
     if (t === "@commander") { if (opts.isCommander) return true; continue; }
@@ -2094,7 +2121,7 @@ function planPaymentOnce(pool, sources, cost, spendContext = null) {
   const entrySpends = [];
   const rEntries = (spendContext?.restrictedEntries || [])
     .map((e, i) => ({ e, i }))
-    .filter(({ e }) => e && spendRestrictionAllows(e.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander, activatingIsCreature: spendContext?.activatingIsCreature === true, activatingTypeLine: spendContext?.activatingTypeLine || null }));
+    .filter(({ e }) => e && spendRestrictionAllows(e.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander, activatingIsCreature: spendContext?.activatingIsCreature === true, activatingTypeLine: spendContext?.activatingTypeLine || null, activatingColors: spendContext?.activatingColors ?? null }));
   if (rEntries.length) {
     let effCost = { ...cost };
     for (const { e, i } of rEntries) {
@@ -2171,7 +2198,7 @@ function planPaymentOnce(pool, sources, cost, spendContext = null) {
     // The bound is the cost's total pip count: generic + colored + hybrid.
     .filter(s => {
       if (!s.restriction) return true;
-      if (!spendRestrictionAllows(s.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander, activatingIsCreature: spendContext?.activatingIsCreature === true, activatingTypeLine: spendContext?.activatingTypeLine || null })) return false;
+      if (!spendRestrictionAllows(s.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander, activatingIsCreature: spendContext?.activatingIsCreature === true, activatingTypeLine: spendContext?.activatingTypeLine || null, activatingColors: spendContext?.activatingColors ?? null })) return false;
       const totalPips = (cost.generic || 0)
         + MANA_COLORS.reduce((n, col) => n + (cost[col] || 0), 0)
         + (Array.isArray(cost.hybrid) ? cost.hybrid.length : 0);

@@ -16,6 +16,25 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-06 (cron) — QUARTET Phase 4 step 3 · COLOUR WORDS in a spend restriction — the LAST class; step 3 CLOSES · **+5** · corpus 14,772 (43.1%) / 34,245
+> Suite **1585 files / 16429 tests** green; lint 0. Flip-diff **+5, zero LOST** (every unplanned gain audited whole-card). **mutants 5/5 killed.**
+> · The 09-06 plan's stage ①: Shrine of the Forsaken Gods ("Spend this mana only to cast colorless spells. Activate only if you
+>   control seven or more lands.") and Eldrazi Temple ("colorless Eldrazi spells or activate abilities of colorless Eldrazi").
+>   A colour PREDICATE beside the type words: `castColorless` (checked against the cast card's colours BEFORE the type walk, so
+>   the bare "@any-spell" of "colorless spells" cannot short-circuit past it) and `abilityColorless` (checked against the
+>   activating source's layer-aware colours — every activation site now passes activatingColors beside the creature flag and
+>   the type line; no colour context ⇒ refuse). The plural ability tail "activate abilities of colorless Eldrazi" parses beside
+>   the singular "an ability of a <Subtype> source" form. The extra-mana-line regex admits a restricted PIP line with an
+>   activation gate; Shrine's "seven or more lands" rides the existing activationCondition read (the record exists only with
+>   seven lands — pinned).
+> · **Pins:** both restrictions' shapes; both lands `land`. RUNTIME through manaSources + canAfford: Temple's {C}{C} pays a
+>   colourless Eldrazi spell and a colourless Eldrazi source's ability, never a red Eldrazi's, a colourless Bear's, or a
+>   context-less spend; Shrine's pays a colourless spell of any type and never a coloured one. Mutants: the cast colour check
+>   gone, the activation colour check gone, the regex refusing the line (dead mana), the colour word dropped without the flag,
+>   the planner not forwarding the colours — mutants 5/5 killed.
+> · **Whole-card:** five flips, each read whole-card: Shrine of the Forsaken Gods, Eldrazi Temple, and the plural ability tail as a LIST with card-type words (Soldevi Machinist 'abilities of artifacts', Steelswarm Operator 'abilities of artifact sources', Sunken Citadel 'abilities of land sources' — matched at payment against the activating source's type line; the Shang-Chi-era arm that refused any non-creature form is retired; two older pins that asserted the tail was IGNORED now assert it is HONOURED with allow-check negatives); zero LOST, zero retiered
+> · **CI:** repo flipped PUBLIC on Colton's order (2026-09-05, chat); the held stack pushed with this commit
+
 > ## 🎯 2026-09-06 (cron) — RESIDUE GRIND RG-9 · THE DOMAIN COUNT (Stratadon and kin) · **+6** · corpus 14,767 (43.1%) / 34,245
 > Suite **1584 files / 16426 tests** green; lint 0. Flip-diff **+6, zero LOST** (every unplanned gain audited whole-card). **mutants 5/5 killed.**
 > · The first of the three rows the 04:20Z census left with existing machinery: "Domain — This spell costs {1} less to cast for

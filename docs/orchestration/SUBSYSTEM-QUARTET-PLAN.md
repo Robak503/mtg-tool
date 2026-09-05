@@ -106,6 +106,12 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
+- 2026-09-06 — **🏁 PHASE 4 step 3 COMPLETE — the last class, COLOUR WORDS** (Shrine of the Forsaken Gods, Eldrazi Temple; +5).
+  castColorless / abilityColorless predicates beside the type words; every activation site passes activatingColors (layer-aware)
+  beside the creature flag and the type line; the extra-mana-line regex admits a restricted pip line with an activation gate.
+  mutants 5/5 killed. Phase 4's gate holds per carrier across all five classes. Step 4 (Klauth's pool persistence) rides the existing
+  machinery per the plan — Phase 4 stands COMPLETE.
+
 - 2026-09-06 — **PHASE 4 step 3 — four carrier classes shipped this night** (CR creature types · the ability tail · the negative
   form + the Powerstone token · the chosen-type form with its tail; +28 corpus across them, every carrier witnessed end to end,
   every flip-diff audited). ONE class remains and is banked with its verdict: colour words ("colorless spells" / "colorless

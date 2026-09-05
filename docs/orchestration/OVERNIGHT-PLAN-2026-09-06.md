@@ -60,7 +60,7 @@ activate abilities of colorless Eldrazi."). Sized **M**: a colour predicate on B
    colourless Eldrazi's ability and refuses a red Eldrazi's (a coloured Eldrazi exists — Eldrazi Displacer is colourless; use a
    made-up red Eldrazi as the negative) and a colourless non-Eldrazi's.
 
-**DONE ①:** both carriers `land`, witnessed as above, mutants killed, the quartet ledger updated — Phase 4 step 3 CLOSES.
+**DONE ①:** both carriers `land`, witnessed as above, mutants killed, the quartet ledger updated — Phase 4 step 3 CLOSES. ✅ **MET 2026-09-06** (+5; mutants 5/5 killed).
 
 ---
 
