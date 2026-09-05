@@ -16,6 +16,35 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · F6: HEAPED HARVEST — "when you sacrifice it" · **+2** · corpus 14510 / 34,245
+> Suite **1514 files / 16,213** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed (after two survivors collapsed into one strip).**
+> · "When this artifact enters and when you sacrifice it, you may search your library for a basic land card, put it onto
+>   the battlefield tapped, then shuffle. / {2}, {T}, Sacrifice this artifact: You gain 3 life." Two gates, one behind
+>   the other. (1) The compound head already split into two triggers, but "you sacrifice it" had no condition arm — the
+>   self-sacrifice form was gated to auras (the Ordeal cycle). Widened to every self-noun and the bare "it" (in a trigger
+>   CONDITION it can only be the source, CR 201.4); the sacrifice checker already fires youSacrificeThis from the
+>   sacrificed card whatever its type. (2) Both heads then detected and ROUTED — and the card still parked, because the
+>   activated parser refused the Food's own self-sacrifice cost: the γ1 fail-safe refuses a self-sac cost on any card
+>   carrying a "when you sacrifice" trigger or an embedded "and when" head, on the premise that the sacrifice would drop a
+>   trigger the leave paths never fire. For the SELF-sacrifice head that premise is false — the cost path's sacrifice
+>   chokepoint fires exactly that trigger — so the sac-scoped guard now excises the self-sacrifice HEAD (not the effect)
+>   wherever it sits, standalone or embedded, before the drop check (verified by RUNTIME probe, the discipline the
+>   guard's other exemptions were earned with). Three printed pairings: Heaped Harvest, Carrot Cake, Esoteric Duplicator.
+> · **Two survivors that collapsed into one strip:** I first wrote two strips (embedded head, standalone head); each
+>   survived its mutant, because the case-insensitive standalone form also matched the embedded mid-sentence "when" —
+>   either alone covered the witnessed compound. One honest strip replaced both, with a standalone-head pin (a synthetic
+>   Food: "When you sacrifice this artifact, draw a card." beside its own sac cost) and a mutant proving an UNRELATED
+>   embedded head ("…and when an opponent draws a card") still refuses.
+> · Read on the way: legal choices offer activated abilities ONLY on a native-tier card (the lockstep gate), which is why
+>   the Food line vanished the moment the trigger line sat beside it — the tier, not the line, was the switch.
+> · **Pins:** both heads detect for Heaped Harvest and Carrot Cake, both native-mixed; the guard admits the standalone
+>   self-sac head and still refuses an unrelated embedded head; paying the Food's own cost fires the trigger ABOVE the
+>   ability (life still 20 at the pause — CR 603.3), the printed "you may" pauses, a yes suspends the search on the
+>   Forest, the pick lands it tapped, then the life resolves to 23 with an empty stack. Mutants: the aura-only arm, the
+>   strip gone, the strip widened to any head, the cost path no longer firing the checker — mutants 4/4 killed (after two survivors collapsed into one strip).
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Bumble Flower 71 → **72** (13 to the bar); two suite guards graduated — selfLtbCostSac and abilities.test had pinned the exact refusal this slice inverted, the Carrot Cake pin by name
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · F4: ACADEMY MANUFACTOR — one of each · **+1** · corpus 14508 / 34,245
 > Suite **1513 files / 16,209** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 7/7 killed.**
 > · Bumble Flower's first slice (70 → the §5 order after Otharri). "If you would create a Clue, Food, or Treasure token,

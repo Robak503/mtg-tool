@@ -57,8 +57,12 @@ describe("the SAC-SCOPED self-LTB exception (the card-level guard is UNCHANGED)"
     expect(sacrificeDropsTriggerIgnoringSelfLtb("Whenever a creature leaves the battlefield, each opponent loses 1 life.")).toBe(true);
     expect(sacrificeDropsTriggerIgnoringSelfLtb("When you sacrifice a Clue, draw a card.")).toBe(true);
     expect(sacrificeDropsTriggerIgnoringSelfLtb("When another creature is put into a graveyard from the battlefield, gain 1 life.")).toBe(true);
-    // A self-LTB clause does NOT launder a second, genuinely-unsafe trigger on the same card.
-    expect(sacrificeDropsTriggerIgnoringSelfLtb(`${LTB_LINE}\nWhen you sacrifice this artifact, draw a card.`)).toBe(true);
+    // A self-LTB clause does NOT launder a second, genuinely-unsafe trigger on the same card (an OTHER-object sacrifice).
+    expect(sacrificeDropsTriggerIgnoringSelfLtb(`${LTB_LINE}\nWhen you sacrifice a Clue, draw a card.`)).toBe(true);
+    // INVERTED 2026-09-05 (Heaped Harvest, heapedHarvest.test.js — verified by RUNTIME probe): the SELF-sacrifice head
+    // ("When you sacrifice this artifact / it") is the one trigger a self-sac cost cannot drop — the cost path's
+    // sacrifice chokepoint fires youSacrificeThis from the sacrificed card — so the sac-scoped guard now admits it.
+    expect(sacrificeDropsTriggerIgnoringSelfLtb(`${LTB_LINE}\nWhen you sacrifice this artifact, draw a card.`)).toBe(false);
   });
 });
 

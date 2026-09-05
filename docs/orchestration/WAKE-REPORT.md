@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · F6: Heaped Harvest (+2)** · suite **1514 files / 16,213** green · corpus 14510 / 34,245 · flip-diff +2 / 0 lost · mutants 4/4 killed (after two survivors collapsed into one strip)
+
+> "When you sacrifice it" as a trigger head on any permanent, and the self-sac cost guard exempting the one trigger the cost path itself fires; Carrot Cake rode along. Bumble Flower 71 → **72** (13 to the bar); two suite guards graduated — selfLtbCostSac and abilities.test had pinned the exact refusal this slice inverted, the Carrot Cake pin by name
+> **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · F4: Academy Manufactor (+1)** · suite **1513 files / 16,209** green · corpus 14508 / 34,245 · flip-diff +1 / 0 lost · mutants 7/7 killed
 
 > Bumble Flower begins: a one-of-each token replacement on the doubler profile, per pass at the mint chokepoint (two Manufactors → three of each; beside a doubler two of each, not re-doubled). Bumble Flower 70 → **71** (14 to the bar)

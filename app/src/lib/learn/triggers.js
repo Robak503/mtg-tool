@@ -2093,7 +2093,12 @@ function classifyCondition(condRaw, cardName, cardType) {
   // state-based action (host died, CR 704.5m) or destroyed/bounced is NOT sacrificed, and none of those
   // paths call the sacrifice chokepoint. BARE self form only ("this aura"/"this enchantment"); any other
   // subject ("you sacrifice it" mid-compound, a named subject) stays UNDETECTED → Arbiter (SAFE FN).
-  if (/^you sacrifice this (?:aura|enchantment)$/.test(c)) return { event: "youSacrificeThis", scope: "self", whose: "any" };
+  // SELF-SACRIFICE, widened (SHELF-85 · Bumble F6 Heaped Harvest, 2026-09-05 — "When this artifact enters and when you
+  // sacrifice it, …"; Carrot Cake prints the same head): the compound-head splitter hands over "you sacrifice it", and
+  // in a trigger CONDITION "it" can only be the source (CR 201.4 — the card refers to itself). Every self-noun joins the
+  // aura/enchantment form; the checker (checkSacrificeTriggers) already fires youSacrificeThis from the sacrificed card
+  // regardless of its type, including a cost-sacrifice (the Food's own "{2}, {T}, Sacrifice this artifact" line).
+  if (/^you sacrifice (?:this (?:aura|enchantment|artifact|creature|permanent|token|land)|it)$/.test(c)) return { event: "youSacrificeThis", scope: "self", whose: "any" };
   // TRIG-SACRIFICE SUBTYPE — "Whenever you sacrifice a <Subtype>" (Captain Lannery Storm "sacrifice a
   // Treasure"; the artifact-token subtypes Clue/Food/Gold; tribal "sacrifice a Goblin/Saproling"). The sac'd
   // permanent's TYPE LINE is checked for the subtype word in checkSacrificeTriggers (sacScopeMatches' subtype

@@ -120,11 +120,17 @@ describe("parseActivatedAbilities — cost parsing (mana + {T} allowlist)", () =
   // γ1 fail-safe: a self-sac cost is UNMODELED when sacrificing would silently drop one of the card's
   // own triggers (an LTB / "when you sacrifice" / compound condition the dies path can't fire), so the
   // whole card routes to the Arbiter rather than partially applying.
-  it("does NOT model a self-sac whose card has a compound 'and when you sacrifice it' trigger (Carrot Cake)", () => {
+  it("DOES model a self-sac whose card has a compound 'and when you sacrifice it' trigger (Carrot Cake — INVERTED 2026-09-05: the sac path fires youSacrificeThis from the sacrificed card, heapedHarvest.test.js)", () => {
     const abilities = one("When this artifact enters and when you sacrifice it, create a 1/1 white Rabbit creature token and scry 1.\n{2}, {T}, Sacrifice this artifact: You gain 3 life.", { type: "Artifact" });
     const sac = abilities.find((a) => a.sacSelf);
     expect(sac.costModeled).toBe(true);   // the COST parses…
-    expect(sac.modeled).toBe(false);      // …but offering it would drop the sacrifice token-trigger
+    expect(sac.modeled).toBe(true);       // …and offering it no longer drops the sacrifice trigger — the cost path fires it (verified by runtime probe)
+  });
+  it("still does NOT model a self-sac whose card has an UNRELATED compound second head (the guard's other refusals are intact)", () => {
+    const abilities = one("When this artifact enters and when an opponent draws a card, create a 1/1 white Rabbit creature token.\n{2}, {T}, Sacrifice this artifact: You gain 3 life.", { type: "Artifact" });
+    const sac = abilities.find((a) => a.sacSelf);
+    expect(sac.costModeled).toBe(true);
+    expect(sac.modeled).toBe(false);
   });
   it("DOES model a self-sac beside a SELF 'enters or leaves the battlefield' trigger (INVERTED 2026-08-02 — the sac path provably fires it)", () => {
     // The refusal this pin carried was right until the runtime was PROBED: the sacrifice path fires a

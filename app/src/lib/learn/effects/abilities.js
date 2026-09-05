@@ -779,7 +779,17 @@ export function sacrificeDropsTriggerIgnoringSelfLtb(oracle) {
   const withoutSelfLtb = String(oracle || "").replace(
     /(?:When|Whenever)\b[^.]*\bthis (?:artifact|creature|enchantment|permanent|land|aura|equipment|vehicle) (?:enters or )?leaves the battlefield\b[^.]*\.?/gi,
     " ",
-  );
+  )
+    // SELF-SACRIFICE TRIGGER EXEMPTION (SHELF-85 · Bumble F6 Heaped Harvest, 2026-09-05 — verified by RUNTIME probe,
+    // heapedHarvest.test.js, the same discipline as the self-LTB exception above). "When you sacrifice it" / "when you
+    // sacrifice this artifact" is the ONE trigger a self-sacrifice cost cannot drop: the cost path's sacrifice
+    // chokepoint (actionDispatcher → checkSacrificeTriggers) fires youSacrificeThis from the sacrificed card itself.
+    // ONE strip excises the HEAD itself (not the effect) wherever it sits — standalone ("When you sacrifice this
+    // artifact, …") or EMBEDDED in a compound ("When this artifact enters and when you sacrifice it, …" — Heaped
+    // Harvest, Carrot Cake, Esoteric Duplicator), which the "second embedded when-clause" rule would otherwise refuse
+    // wholesale. Any OTHER embedded head still refuses. (Two separate strips were tried first; each survived its mutant
+    // because the case-insensitive standalone form also matched the embedded head — so one honest strip it is.)
+    .replace(/\bwhen(?:ever)? you sacrifice (?:it|this (?:artifact|creature|enchantment|permanent|land|aura|token))\b,?/gi, " ");
   return sacrificeDropsTrigger(withoutSelfLtb);
 }
 
