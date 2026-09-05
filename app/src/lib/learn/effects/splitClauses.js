@@ -413,6 +413,9 @@ export function splitClauses(oracle) {
     // and indestructible until end of turn."; Renegade's Getaway): the same shatter one qualifier down — "you control" is
     // optional here, and the clause parser's permanent-scoped grant arm (combat.js) owns the reduced shape.
     if (/^target permanent (?:you control )?gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ⭐ THE ARTIFACT-OR-CREATURE SUBJECT JOINED 2026-09-05 (SHELF-85 · Otharri O10 — Loran's Escape "Target artifact or creature
+    // gains hexproof and indestructible until end of turn."; Reroute Systems' single keyword never shattered). Same shatter, same cure.
+    if (/^target (?:artifact or creature|creature or artifact) gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ANOTHER-TARGET pump + keyword grant ("another target creature you control gets +2/+2 and gains trample
     // until end of turn" — Gladiolus Amicitia's landfall, Hardened Escort). Same internal-" and " binding as the
     // "target creature …" rule above, but the "^target creature" anchor there doesn't reach the "another …"

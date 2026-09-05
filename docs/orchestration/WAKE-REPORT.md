@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · O10: Reroute Systems (+2)** · suite **1508 files / 16,189** green · corpus 14500 / 34,245 · flip-diff +2 / 0 lost · mutants 4/4 killed
+
+> A keyword grant on the artifact-or-creature union (the β-2 pool; the pump gate admits it beside the permanent scope); Loran's Escape rides along through a splitter keep-whole. Otharri 80 → **81** (4 to the bar); Loran's Escape the second printed carrier, audited whole-card (union grant + scry)
+> **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · O11: Hour of Reckoning (+1)** · suite **1507 files / 16,187** green · corpus 14498 / 34,245 · flip-diff +1 / 0 lost · mutants 5/5 killed
 
 > The each-creature wipe narrowed by token-ness — a new `token` restriction kind in the shared satisfier; nontoken creatures on both sides die, tokens survive. Otharri 79 → **80** (5 to the bar)

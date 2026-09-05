@@ -16,6 +16,26 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · O10: REROUTE SYSTEMS — the artifact-or-creature grant · **+2** · corpus 14500 / 34,245
+> Suite **1508 files / 16,189** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · "Choose one — • Target artifact or creature gains indestructible until end of turn. • Reroute Systems deals 2
+>   damage to target tapped creature." The burn mode already parsed (a tapped restriction). The grant mode needed the
+>   keyword grant on the ARTIFACT-OR-CREATURE union: the proven β-2 pool (enumerateTargets' creatureOrArtifact
+>   predicate, every pick tagged type:"permanent") carries it, and the pump resolver's creature gate — opened for the
+>   bare permanent scope one slice ago — now names the union beside it (a small PUMP_PERMANENT_SCOPES set; every
+>   creature-scoped pump keeps the creature-only gate). Loran's Escape ("… gains hexproof and indestructible … Scry 1.")
+>   is the second printed carrier and rides through a splitter keep-whole for the union subject (its keyword list
+>   shattered on " and " exactly like the permanent subject did).
+> · A pin I wrote wrong and the engine corrected: the grant mode is offered at the OPPONENT'S creature too — the
+>   printed target has no controller clause — and the aura is out. Recorded as printed.
+> · **Pins:** both modes parse HIGH (the union grant + the tapped burn), native-spell; Loran's Escape HIGH with the
+>   two-keyword union grant and the scry, native-spell; at cast the grant mode is offered at the artifact and both
+>   creatures but not the aura; cast at the artifact it gains indestructible (a non-creature pick kept by the gate),
+>   cast at the creature the creature gains it and the artifact does not. Mutants: the arm, the creature-scope emit,
+>   the closed gate, the missing keep-whole — mutants 4/4 killed.
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Otharri 80 → **81** (4 to the bar); Loran's Escape the second printed carrier, audited whole-card (union grant + scry)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · O11: HOUR OF RECKONING — the nontoken wipe · **+1** · corpus 14498 / 34,245
 > Suite **1507 files / 16,187** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
 > · "Convoke. Destroy all nontoken creatures." Convoke is a stripped cost-only keyword (the engine hard-casts at full

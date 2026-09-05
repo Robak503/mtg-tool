@@ -77,12 +77,12 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Nekusar Wheels | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shalai and Hallar Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Otharri Test | 80 | 5 | 10 | ⬜ Phase 2 |
+| Test | Otharri Test | 81 | 4 | 9 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 70 | 15 | 20 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**5 decks below 85 · 76 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**5 decks below 85 · 75 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -374,8 +374,8 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | O7 | Minas Tirith | {1}{W},{T}: draw; activate only if you attacked with two or more creatures this turn | S | an attackers-this-turn count condition (the RAID flag generalized to a count) | ✅ (+1 — the count arm on the intervening-if evaluator reads the per-permanent attacked-this-turn memo over the controller's board; a lower bound when an attacker has left; the tapped-unless static and the mana line were already whole; pinned: two attackers → offered and draws, one attacker with bystanders → not offered) |
 | O8 | Tithe | tutor a Plains; a second if target opponent controls more lands | S | | ⬜ |
 | O9 | Blacksmith's Skill | target permanent gains hexproof + indestructible; if it's an artifact creature +2/+2 | M | permanent-scoped grant + a type-conditional rider | ✅ (+2 — the creature grant arm's PERMANENT twin (the splitter's keep-whole was nailed to "target permanent you control"); the rider is a bound-referent pump carrying `ifBoundTypes`, which applyPumpEffect checks against the target's LAYER-4 types at resolution — a plain creature and a non-creature artifact get the grant only, an artifact creature and an ANIMATED artifact get +2/+2; the loop's creature gate opened for the bound rider (the permanent pool tags every pick "permanent"); pinned all four) |
-| O10 | Zack Fair · Staff of the Storyteller · Inti · Diamond City · Patrolling Peacemaker · Otharri (self-reanimate) | | S / M (token-created event, V7) / M / M / 🅿 (crime) / M | | ⬜ |
-| O11 | COMPOSITE | Everflowing Chalice · Solitude ✅ · Hour of Reckoning ✅ (+1 — nontoken wipe) · Neyali · Galadriel's Dismissal · Ocelot Pride · Talon Gates · Crumb and Get It · Divine Resilience · Windcrag Siege · Cloud's Limit Break · Reroute Systems · Clever Concealment | size on approach | | ⬜ |
+| O10 | Zack Fair · Staff of the Storyteller · Inti · Diamond City · Patrolling Peacemaker · Otharri (self-reanimate) | | M+ (LKI counters + Equipment reattach) / M+ (no tokens-created event exists) / M+ (no "until your next end step" play window exists) / M+ (a land entering with a shield counter, a move-counter op, and an entered-count condition — none exist; sized up 2026-09-05) / 🅿 (crime) / M | | ⬜ (all sized up on probe, 2026-09-05 — Reroute Systems, the one S in this deck's tail, shipped under O11's composite) |
+| O11 | COMPOSITE | Everflowing Chalice · Solitude ✅ · Hour of Reckoning ✅ (+1 — nontoken wipe) · Reroute Systems ✅ (+2 with Loran's Escape — the artifact-or-creature grant) · Neyali · Galadriel's Dismissal · Ocelot Pride · Talon Gates · Crumb and Get It · Divine Resilience · Windcrag Siege · Cloud's Limit Break · Reroute Systems · Clever Concealment | size on approach | | ⬜ |
 
 ### 5.8 Bumble Flower Combo — 64% · needs 21 · Food/tokens deck
 
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · O10 Reroute Systems (Otharri) ✅ +2 corpus (a keyword grant on the ARTIFACT-OR-CREATURE union — the β-2 pool carries it, the pump gate admits it beside the permanent scope; Loran's Escape rides through a splitter keep-whole) · mutants 4/4 killed · suite 1508 files / 16,189 · Otharri 80 → **81** (4 to the bar); Loran's Escape the second printed carrier, audited whole-card (union grant + scry)
 
 - 2026-09-05 — Phase 2 · O11 Hour of Reckoning (Otharri) ✅ +1 corpus (the each-creature wipe narrowed by TOKEN-NESS — a new `token` restriction kind in the shared satisfier; convoke was already a stripped cost keyword) · mutants 5/5 killed · suite 1507 files / 16,187 · Otharri 79 → **80** (5 to the bar)
 

@@ -249,6 +249,10 @@ export function applyRegenerate(state, atom, ctx) {
  * pump shows up everywhere. The mechanism was built + tested in Phase 1; this
  * atom just emits the record.
  */
+// The pump scopes whose enumerated picks are tagged type:"permanent" (a non-creature pick is REAL there): the bare
+// permanent grant (Blacksmith's Skill) and the artifact-or-creature union (Reroute Systems / Loran's Escape). Every
+// creature-scoped pump keeps the creature-only gate below byte-for-byte.
+const PUMP_PERMANENT_SCOPES = new Set(["permanent", "creatureOrArtifact"]);
 export function applyPumpEffect(state, atom, ctx) {
   let next = state;
   // COND-X GATE (Finale of Devastation — "If X is N or more, …"): the pump applies ONLY when the chosen X
@@ -323,7 +327,7 @@ export function applyPumpEffect(state, atom, ctx) {
     // previous PERMANENT-scoped atom's, whose enumerator tags every pick type:"permanent" — an artifact creature
     // included — so the printed-type gate below is the real guard there (Blacksmith's Skill's golem stayed 3/3 on
     // the first witness run because this line dropped it before the type check ever ran).
-    if ((atom?.targetType !== "permanent" && !atom?.ifBoundTypes?.length && target.type !== "creature") || !findPermanent(next, target.id)) continue;
+    if ((!PUMP_PERMANENT_SCOPES.has(atom?.targetType) && !atom?.ifBoundTypes?.length && target.type !== "creature") || !findPermanent(next, target.id)) continue;
     // TYPE-CONDITIONAL bound pump (Blacksmith's Skill — "If it's an artifact creature, it gets +2/+2"): the pump lands
     // only when the target carries EVERY listed card type after layer 4 (an animated artifact counts; a plain creature
     // does not). Read at resolution (CR 608.2). A target missing any type is skipped — no P/T, no grant — exactly as
@@ -1896,6 +1900,15 @@ export function pumpClauseParser(clause) {
   if (pg) {
     const kws = parseGrantedKeywords(pg[1]);
     return kws ? { op: "pump", targetType: "permanent", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
+  // ARTIFACT-OR-CREATURE keyword grant (SHELF-85 · Otharri O10 Reroute Systems "Target artifact or creature gains
+  // indestructible until end of turn."; Loran's Escape is the other printing). The proven β-2 union pool
+  // (enumerateTargets' creatureOrArtifact predicate — every pick tagged type:"permanent", the destroy/exile
+  // convention) carries the grant; applyPumpEffect's target gate admits the union beside the permanent scope.
+  pg = t.match(/^target (?:artifact or creature|creature or artifact) gains (.+) until end of turn$/);
+  if (pg) {
+    const kws = parseGrantedKeywords(pg[1]);
+    return kws ? { op: "pump", targetType: "creatureOrArtifact", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
   // ⭐ BOUND REFERENT keyword grant — "It gains flying until end of turn." / "That creature gains
   // indestructible until end of turn." The SAME grant as the targeted arm directly above, except the
