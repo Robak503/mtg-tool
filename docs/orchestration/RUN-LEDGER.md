@@ -16,6 +16,26 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — PHASE 3 · WHEEL AND DEAL — any number of target opponents wheel · **+1** · corpus 14,624 (42.7%) / 34,245
+> Suite **1565 files / 16,379 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · Phase 3 step 2 — Nekusar Wheels sits at 87 with three rows to 90; Wheel and Deal is the cheapest: "Any number of target
+>   opponents each discard their hands, then draw seven cards. Draw a card." Three pieces already existed: the whole-hand
+>   discard for a targeted player, the draw for targeted players, and the bound-referent mechanism (an atom whose targets
+>   are the previous atom's). What was missing was the composition on a PLAYER subset — the "any number of target …" wrapper
+>   was creature-only. One composite matcher: the whole-hand discard on `targetType: "opponent"` with the any-number subset
+>   fields (minTargets 0 / maxTargets 99 / anyNumber — the same subset path a creature "any number of" takes; the cast lane
+>   enumerates every subset of the opponents, the empty one included), then the seven-card draw with bindPreviousTargets so
+>   it lands on exactly the chosen players. The opponent target type keeps the caster out of the pool and gives the atom its
+>   enemy intent for free. The second sentence's "Draw a card" was native.
+> · **Pins:** the three atoms in order (the discard's subset fields, the bound draw, the controller's draw); native-spell.
+>   RUNTIME through the real cast on a THREE-seat table: the offer enumerates exactly the four opponent subsets (none, each
+>   one, both — never the caster); choosing both, each opponent's hand (2 and 3 cards) hits the graveyard and refills to
+>   seven while the caster draws one; choosing one, only that opponent wheels. Mutants: the matcher gone, the draw unbound,
+>   the discard demoted to one card, the targets widened to players — mutants 4/4 killed.
+> · **Whole-card:** no unplanned gains; darkDeal.test.js's CREED park guard for Wheel and Deal GRADUATED (its negatives moved to the still-real 'minus two' shape)
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Nekusar Wheels 87 → 88** (Phase 3 step 2 — the ≤3-row decks; Molten Psyche next)
+
 > ## 🎯 2026-09-05 (cron) — PHASE 3 · XENAGOS, GOD OF REVELS — the power-to-both pump · **+1** · corpus 14,623 (42.7%) / 34,245
 > Suite **1564 files / 16,376** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · Phase 3 step 2 — Hulk Smash's next row: "At the beginning of combat on your turn, another target creature you control

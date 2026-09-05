@@ -74,7 +74,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Test Rashmi | 92 | — | — | ✅ at the bar |
 | Test | Teval, the Balanced Scale Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Nekusar Wheels | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
+| Test | Nekusar Wheels | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shalai and Hallar Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Otharri Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
@@ -438,7 +438,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | L1 | Ishgard, the Holy See | MDFC | V1 | | ⬜ |
 | L2 | Chains of Custody ×2 · Sheltered by Ghosts ×2 · Detainment Spell ×2 | | V15 | |✅ |
 | L3 | Light-Paws, Emperor's Voice | aura you cast enters → tutor an Aura with lesser MV onto the battlefield attached | M | the deck's engine; an aura-cast watcher + tutor-to-battlefield-attached | ⬜ |
-| L4 | Face of Divinity ✅ (sk107 — the another-Aura gate) · Solid Footing (sized M — an "as long as … has vigilance" conditional) · Gauntlets of Light ✅ (+2 — the toughness-assigns attached grant; Treefolk Umbra rode along) · Greater Auramancy ✅ (+1 — the enchanted-creatures selector) · Umbra Mystic · Shielded by Faith ✅ (sk108 — attach to the entering creature) · Brilliant Wings ✅ (sk108 — the same behind "you may pay {1}") · Sentinel's Mark ✅ (+2 — the Addendum main-phase look-back) · Shardmage's Rescue ✅ (sk107 — the entered-this-turn gate) · Celestial Mantle · With Great Power · Mantle of the Ancients | aura statics and triggers | S–M | Gauntlets/Solid Footing = "assigns combat damage equal to its toughness" (the layer op EXISTS: assignsCombatDamageWithToughness — S); Greater Auramancy = team shroud on enchanted creatures (S); Shielded by Faith / Brilliant Wings = a re-attach on ETB (M) | ⬜ |
+| L4 | Face of Divinity ✅ (sk107 — the another-Aura gate) · Solid Footing 🔄 (sk117, 2026-09-05 — the conditional attached-bonus gate on a PRINTED host keyword) · Gauntlets of Light ✅ (+2 — the toughness-assigns attached grant; Treefolk Umbra rode along) · Greater Auramancy ✅ (+1 — the enchanted-creatures selector) · Umbra Mystic · Shielded by Faith ✅ (sk108 — attach to the entering creature) · Brilliant Wings ✅ (sk108 — the same behind "you may pay {1}") · Sentinel's Mark ✅ (+2 — the Addendum main-phase look-back) · Shardmage's Rescue ✅ (sk107 — the entered-this-turn gate) · Celestial Mantle · With Great Power · Mantle of the Ancients | aura statics and triggers | S–M | Gauntlets/Solid Footing = "assigns combat damage equal to its toughness" (the layer op EXISTS: assignsCombatDamageWithToughness — S); Greater Auramancy = team shroud on enchanted creatures (S); Shielded by Faith / Brilliant Wings = a re-attach on ETB (M) | ⬜ |
 | L5 | Winds of Rath ✅ (+1 — the enchanted predicate) · Karametra's Blessing ✅ (+1 — the enchanted-or-enchantment-creature keyword rider) · Enter the Avatar State ✅ (+1 — the becomes-a-subtype-and-gains pump) · Deafening Silence ✅ (+1 — the noncreature cast limit) · Drannith Magistrate ✅ (+1 — the cast-from-hand-only lock) | spells and statics | S / M / M / M / M | | 🔶 |
 | L6 | COMPOSITE | Angelic Destiny · Benevolent Blessing · Darksteel Mutation (L — a base-P/T + type-set Aura) · Daybreak Coronet ✅ (+1 — the with-another-Aura Enchant restriction) · Galadriel's Dismissal (L — phasing) · On Thin Ice · Pariah · Pearl-Ear · Plaza of Heroes · Restoration Magic · Reverent Mantra · Silent Arbiter · Spectra Ward · Spirit Mantle · Swift Reconfiguration · Trouble in Pairs | size on approach | | ⬜ |
 
@@ -484,6 +484,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — **Phase 3** (§4.3 step 2, Nekusar 87 → 90 sweep) · Wheel and Deal ✅ +1 corpus (ANY NUMBER of target OPPONENTS each discard their hands, then draw seven — the whole-hand discard on a player-target subset + a draw BOUND to the same players) · mutants 4/4 killed · suite 1565 files / 16,379 tests · **Nekusar Wheels 87 → 88** (Phase 3 step 2 — the ≤3-row decks; Molten Psyche next)
 
 - 2026-09-05 — **Phase 3** (§4.3 step 2, Hulk → 90 sweep) · Xenagos, God of Revels ✅ +1 corpus (the ANOTHER-target haste + "+X/+X where X is that creature's power" pump — the double-P/T mechanism's third mode, power added to both halves, read per target at resolution) · mutants 4/4 killed · suite 1564 files / 16,376 · Hulk 88 → **89** (89/100; 1 to 90). Hulk's remaining rows: Fire Nation Palace (M — a granted firebending N the trigger side must read), Moonmist / Arena / Balduvian Trading Post (L). Next: Wheel and Deal (Nekusar) — the any-number opponent wheel, staged.
 

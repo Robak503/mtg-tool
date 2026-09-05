@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Wheel and Deal** — pick any opponents to discard their hands and draw seven; you draw one
 - **Xenagos, God of Revels** — at the start of your combat, another creature gains haste and grows by its own power
 - **Desert** — pings an attacker, but only in the end of combat step as printed
 - **Endurance** — its arrival tucks a player's whole graveyard to the bottom of their library

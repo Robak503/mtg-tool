@@ -1980,6 +1980,34 @@ function matchCountersPermanentsGrantShieldProliferate(oracle, cardType, hasX) {
   return { atoms: [{ ...grantAtom, requiresCounter: "any" }, shield, prolif] };
 }
 
+// WHEEL, ANY NUMBER OF TARGET OPPONENTS (SHELF-85 Phase 3 · Wheel and Deal, 2026-09-05) — "Any number of target opponents
+// each discard their hands, then draw seven cards." Three pieces existed — the whole-hand discard for a targeted player, the
+// draw for targeted players, the bound-referent mechanism (an atom whose targets are the previous atom's) — but the
+// "any number of target …" wrapper was creature-only. ONE composite: the whole-hand discard on `targetType: "opponent"` with
+// the any-number subset fields (the cast lane enumerates every subset of the opponents, the empty one included), then the
+// draw with bindPreviousTargets so it lands on exactly the chosen players. "Opponent" keeps the caster out of the pool and
+// gives the atom its enemy intent. The number word is read from a closed map (a stranger word nulls the arm).
+function matchWheelTargetOpponents(oracle, cardType) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").trim();
+  // The wheel sentence leads; any TAIL ("Draw a card.") must parse HIGH on its own and rides behind the two bound atoms —
+  // the optional-exile matcher's payoff discipline (an unparsed tail parks the whole card, never a dropped sentence).
+  const m = t.match(/^any number of target opponents each discard their hands, then draw (\w+) cards\.?(?:\s+(.+))?$/);
+  if (!m) return null;
+  const n = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7 }[m[1]];
+  if (!n) return null;
+  let tailAtoms = [];
+  if (m[2]) {
+    const tail = parseEffectClauseImpl(m[2].trim(), cardType, { hasX: false });
+    if (!tail || programConfidence(tail) !== "high" || tail.structure === "modal" || tail.xSpell) return null;
+    tailAtoms = tail.atoms || [];
+  }
+  return { atoms: [
+    { op: "discard", who: "target", targetType: "opponent", all: true, minTargets: 0, maxTargets: 99, anyNumber: true },
+    { op: "draw", who: "target", amount: n, bindPreviousTargets: true },
+    ...tailAtoms,
+  ] };
+}
+
 function matchDrawCounterCreaturesThenGrant(oracle, cardType, hasX) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").trim();
   const m = t.match(/^draw a card for each creature you control with a \+1\/\+1 counter on it\. those creatures gain (.+) until end of turn\.$/);
@@ -2485,6 +2513,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   const mpg = matchCountersPermanentsGrantShieldProliferate(oracle, cardType, hasX);
   if (mpg && mpg.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: mpg.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== WHEEL AND DEAL ===== any number of target opponents each discard their hands, then draw N — see
+  // matchWheelTargetOpponents. Two KNOWN atoms (the second bound to the first's players) → HIGH.
+  const wto = matchWheelTargetOpponents(oracle, cardType);
+  if (wto && wto.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: wto.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== DRAIN-X (Exsanguinate) ===== "Each opponent loses X life. You gain life equal to the life lost this
   // way." → ONE drain-each-opponent atom (the lifegain is the actual total drained, computed at resolution).

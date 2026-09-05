@@ -52,9 +52,13 @@ describe("parse", () => {
     expect(m.modal.chooseCount).toBe(2);
     expect(m.modal.modes[3].atoms).toEqual([{ op: "discard-hand-draw-same", who: "eachPlayer", minus: 0, targetType: null }]);
   });
-  it("seen-to-fail: 'minus two' and the targeted-opponents form are not this arm", () => {
+  it("seen-to-fail: 'minus two' is not this arm; the targeted-opponents form (Wheel and Deal) GRADUATED to its own composite", () => {
     expect(parseEffectClause("Each player discards all the cards in their hand, then draws that many cards minus two.", "Sorcery").atoms).toEqual([]);
-    expect(programConfidence(parseEffectClause(WHEEL_AND_DEAL.oracle, "Instant"))).toBe("low");
+    // 2026-09-05 (SHELF-85 Phase 3): Wheel and Deal parses HIGH now — through matchWheelTargetOpponents (the any-number
+    // opponent subset + a bound draw; wheelAndDeal.test.js holds its pins), NOT through this each-player arm.
+    const wad = parseEffectClause(WHEEL_AND_DEAL.oracle, "Instant");
+    expect(programConfidence(wad)).toBe("high");
+    expect(wad.atoms.map((a) => a.op)).toEqual(["discard", "draw", "draw"]);
   });
 });
 
@@ -86,9 +90,9 @@ describe("runtime — Dark Deal", () => {
 });
 
 describe("classifier", () => {
-  it("Dark Deal and Incendiary Command are native spells; Wheel and Deal stays arbiter", () => {
+  it("Dark Deal, Incendiary Command and (since 2026-09-05) Wheel and Deal are native spells", () => {
     expect(classifyCard(DARK_DEAL)).toBe("native-spell");
     expect(classifyCard(COMMAND)).toBe("native-spell");
-    expect(classifyCard(WHEEL_AND_DEAL)).toBe("arbiter-spell");
+    expect(classifyCard(WHEEL_AND_DEAL)).toBe("native-spell"); // graduated — the any-number opponent wheel composite
   });
 });
