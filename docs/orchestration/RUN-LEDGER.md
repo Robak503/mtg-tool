@@ -16,6 +16,29 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · Q4: EXPLODING BARREL — the per-counter activation discount · **+4** · corpus 14,592 (42.6%) / 34,245
+> Suite **1549 files / 16,328** green; lint 0. Flip-diff **+4, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · "{8}, {T}, Sacrifice this artifact: It deals 20 damage to target creature. This ability costs {1} less to activate for
+>   each pressure counter on this artifact." The mana line was native; the sacrifice ability parked on its trailing rider —
+>   a COST modifier sitting in the effect text, dragging the whole clause LOW. The ability parser now peels the frame
+>   "This ability costs {N} less to activate for each <kind> counter on this <noun>." (after the condition rider, before the
+>   limit rider, so a limit printed ahead of it keeps its end anchor) into `reduction.perCounterOnSelf`, and the offer
+>   (legalChoices.actionsActivateAbility) prices the ability FIRST through one reducer that reads the source's own
+>   counter bag for exactly the named kind — generic only, floored at {0} (CR 601.2f) — before the static reducers and
+>   the affordability gate. The action carries the priced cost; the dispatcher pays exactly that, so offer and payment
+>   cannot disagree. The channel lands' legendary-count rider keeps its own reader (a different count source). Any
+>   other "costs … less" rider still parks the ability — never a silent discount, never a silent full price.
+> · **Pins:** two abilities parsed, the sacrifice one carrying `{ perCounterOnSelf: { kind: "pressure", amount: 1 } }` with
+>   its effect text clean; a "for each artifact you control" rider still parks; the reducer alone (3 pressure + 2 charge →
+>   {5}; charge only → {8}; 10 pressure → {0}; no rider → {8}). RUNTIME through the real offer + dispatcher: three
+>   pressure counters and five Forests → ONE action at generic 5 targeting the opponent's 5/5; resolving kills it and
+>   the Barrel is in the graveyard; zero counters + five Forests → the printed {8} is unaffordable, nothing offered; ten
+>   counters and NO lands → offered at {0}. Mutants: the peel gone, the offer ignoring the reduction, the floor gone,
+>   the reducer counting every kind — mutants 4/4 killed.
+> · **Whole-card:** Quest for the Necropolis (a landfall quest-counter trigger + the sacrifice reanimate, both already modelled; the rider was the park), Vindictive Flamestoker (the noncreature-cast oil trigger + the discard-hand-draw-four sacrifice ability), Diary of Dreams (the instant-or-sorcery page trigger + the draw) — each parked on this rider ALONE, all other lines native before today. The first cut's end-anchored regex missed every REAL carrier (the printed rider sits BEFORE 'Activate only as a sorcery.' on the Barrel and the Quest — my truncated probe had hidden the tail); the peel is sentence-anchored and the timing rider is pinned to survive it.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Halfshell 79 → **80** (80/100; 5 to the bar) — next Halfshell M row = Raphael, Fiendish Savior (a per-player 'creature card put into your graveyard this turn' flag + one condition reader; the payoff already parses).
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · A3: MUTATIONAL ADVANTAGE — the group shield on "those permanents" · **+1** · corpus 14,588 (42.6%) / 34,245
 > Suite **1548 files / 16,323** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · "Permanents you control with counters on them gain hexproof and indestructible until end of turn. Prevent all damage

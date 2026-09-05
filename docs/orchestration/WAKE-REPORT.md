@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · Q4: Exploding Barrel (+4)** · suite **1549 files / 16,328** green · corpus 14,592 (42.6%) / 34,245 · flip-diff +4 / 0 lost · mutants 4/4 killed
+
+> An activated ability can now print "costs {1} less to activate for each <kind> counter on this <noun>" — peeled as a cost modifier and priced live at the offer, floored at {0}. Halfshell 79 → **80** (80/100; 5 to the bar) — next Halfshell M row = Raphael, Fiendish Savior (a per-player 'creature card put into your graveyard this turn' flag + one condition reader; the payoff already parses).
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · A3: Mutational Advantage (+1)** · suite **1548 files / 16,323** green · corpus 14,588 (42.6%) / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
 
 > The all-damage shield learned a GROUP selector — "those permanents", the counter-bearing creatures and walkers you control, read at resolution — beside the counter-filtered permanent grant and proliferate. Atraxa 73 → **74** (74/100; 11 to the bar) — ATRAXA CEILING for Phase 2: every remaining row now sizes L (Interplanar Beacon, Ashiok, Kiora — resized L today: an until-your-next-turn shield expiry plus a source-side 'dealt by' prevention — and the A5 loyalty-vocabulary sweep); the §5 order moves to Halfshell's M rows (Exploding Barrel first — only its per-counter activation discount rider parks it).

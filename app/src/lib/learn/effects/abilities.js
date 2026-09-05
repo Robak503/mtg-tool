@@ -87,6 +87,17 @@ const PRECOMBAT_RIDER = /\.?\s*Activate (?:this ability )?only (?:during your tu
  * without enforcement would hand the engine an unconditional ability the card never printed.
  */
 const CONDITION_RIDER = /\.?\s*Activate (?:this ability )?only if ([^.]+)\.\s*$/i;
+// PER-COUNTER ACTIVATION DISCOUNT (SHELF-85 · Halfshell Q4, 2026-09-05 — Exploding Barrel "This ability costs {1} less to
+// activate for each pressure counter on this artifact."; Quest for the Necropolis, Vindictive Flamestoker, Diary of
+// Dreams print the same frame on their own noun): a COST modifier, not an effect — peeled off the effect text and carried
+// as `reduction.perCounterOnSelf` so the offer prices the ability off the source's LIVE counter bag (CR 601.2f; generic
+// only, floored at {0}). Strippable ONLY because legalChoices.reduceActivatedAbilityCost enforces it — a rider stripped
+// without the discount would be a silent full price on a card that promised less; any other "costs … less" rider stays
+// in the effect text and parks the ability (never a silent discount).
+// SENTENCE-anchored, not end-anchored: the printed rider sits BEFORE a timing rider ("… on this artifact. Activate only as a
+// sorcery." — Exploding Barrel, Quest for the Necropolis), so the whole sentence is cut out of the middle and the
+// preceding sentence's period is restored (group 1).
+const PER_COUNTER_REDUCTION_RIDER = /(\.)?\s*This ability costs \{(\d+)\} less to activate for each ([a-z][a-z+/0-9-]*) counter on this (?:artifact|creature|enchantment|land|permanent|planeswalker)\.(?=\s|$)/i;
 const OPPONENT_TURN_RIDER = /Activate (?:this ability )?only during an opponent's turn/i;
 
 // CR 602.5i — "Activate only as a sorcery" means own main, priority, AND AN EMPTY STACK. The generic offer
@@ -1284,7 +1295,12 @@ export function parseActivatedAbilities(card) {
     // own tail. Stripped only when the offer gate can read it (the shared metric⇄runtime gate).
     const condM = CONDITION_RIDER.exec(rawEffect);
     const condition = condM && activationConditionParseable(condM[1].trim()) ? condM[1].trim() : null;
-    const afterCondition = condition ? rawEffect.replace(CONDITION_RIDER, "").trim() : rawEffect;
+    const afterConditionRaw = condition ? rawEffect.replace(CONDITION_RIDER, "").trim() : rawEffect;
+    // PER-COUNTER DISCOUNT rider — peeled after the condition and before the limit, so a limit rider printed ahead of it
+    // still finds its own end anchor. `reduction` rides the ability to the offer (legalChoices prices it live).
+    const redM = PER_COUNTER_REDUCTION_RIDER.exec(afterConditionRaw);
+    const reduction = redM ? { perCounterOnSelf: { kind: redM[3].toLowerCase(), amount: parseInt(redM[2], 10) } } : null;
+    const afterCondition = reduction ? afterConditionRaw.replace(PER_COUNTER_REDUCTION_RIDER, (m, dot) => (dot ? "." : "")).trim() : afterConditionRaw;
     const limitM = afterCondition.match(LIMIT_RIDER);
     // A matched count word is always a LIMIT_WORDS key (the alternation is built from it), but fall back to
     // "no limit, don't strip" rather than NaN if that ever drifts — a safe false negative.
@@ -1392,6 +1408,7 @@ export function parseActivatedAbilities(card) {
 
       boast: isBoast, // CR 702.135 — offer gate requires perm.attackedThisTurn (per-permanent, not per-seat)
       condition, // CR 602.5d "Activate only if <cond>" — legalChoices evaluates it; null when absent OR unreadable
+      reduction, // PER-COUNTER DISCOUNT — { perCounterOnSelf: { kind, amount } } or null; legalChoices.reduceActivatedAbilityCost prices it
       manaPips: cost?.manaPips ?? null,
       tapSelf: cost?.tapSelf ?? false,
       payLife: cost?.payLife ?? 0,     // γ1 — "Pay N life" cost item (the runtime deducts it)

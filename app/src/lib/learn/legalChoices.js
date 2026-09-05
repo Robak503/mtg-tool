@@ -2220,7 +2220,9 @@ function actionsActivateAbility(state, playerId) {
         // SG-18 (Shang-Chi): "activate abilities of creatures you control as though those creatures had haste".
         if (summoningSickNow(state, perm) && !permanentHasKeyword(state, perm.id, "Haste") && !abilitiesAsThoughHasteFor(state, perm.controller)) continue;
       }
-      let cost = parseManaCost(ab.manaPips || "");
+      // PER-COUNTER DISCOUNT rider (Exploding Barrel) — priced FIRST off the source's live counter bag, so the static
+      // reducers below and the affordability gate all see the printed card's own price (CR 601.2f).
+      let cost = reduceActivatedAbilityCost(perm, parseManaCost(ab.manaPips || ""), ab.reduction);
       // ACTIVATED-ABILITY COST-REDUCTION: shave the generic mana of an ability OF A CREATURE the player
       // controls (Training Grounds "activated abilities of creatures you control cost {N} less to activate"),
       // floored at one mana. Gated to isCreaturePerm so a non-creature's ability (an artifact/enchantment
@@ -2846,6 +2848,21 @@ function actionsCycleFromHand(state, playerId) {
  * the Legendary supertype is read off the printed type line. ONE function, called by BOTH the offer and the
  * payment, so the two can never price the same board differently; a `null` reduction returns the cost as is.
  */
+/**
+ * PER-COUNTER ACTIVATION DISCOUNT (SHELF-85 · Halfshell Q4, 2026-09-05 — Exploding Barrel "This ability costs {1} less to
+ * activate for each pressure counter on this artifact."): the live price of an activated ability under its printed
+ * per-counter rider. Reads the SOURCE permanent's own counter bag for exactly the named kind (a charge counter never
+ * discounts a pressure rider); generic only, floored at zero (CR 601.2f). Called by the offer; the action carries the
+ * priced cost and the dispatcher pays exactly that, so the two can never disagree. A `null` reduction returns the cost as is.
+ */
+export function reduceActivatedAbilityCost(perm, cost, reduction) {
+  const r = reduction?.perCounterOnSelf;
+  if (!r || !(r.amount > 0) || !r.kind) return cost;
+  const n = Number(perm?.counters?.[r.kind] || 0);
+  const off = n * r.amount;
+  return off > 0 ? { ...cost, generic: Math.max(0, (cost.generic || 0) - off) } : cost;
+}
+
 export function reduceDiscardAbilityCost(state, playerId, cost, reduction) {
   if (!reduction || !(reduction.perLegendaryCreature > 0)) return cost;
   const n = (state.players?.[playerId]?.battlefield || [])

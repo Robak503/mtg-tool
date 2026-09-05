@@ -68,7 +68,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Kinnan Mana Overload | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Believe it! | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kellan of the west | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Joe | Halfshell heroes | 79 | 6 | 11 | ⬜ Phase 2 |
+| Joe | Halfshell heroes | 80 | 5 | 10 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 91 | — | — | ✅ at the bar |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 71 | 14 | 19 | ⬜ Phase 2 |
 
-**3 decks below 85 · 31 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**3 decks below 85 · 30 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -392,6 +392,8 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 
 ### 5.9 Atraxa Superfriends — 64% · needs 21 · planeswalker deck
 
+> ⛔ **ATRAXA CEILING at 74 (2026-09-05, 11 to the bar):** every remaining row sizes L — Interplanar Beacon (the cast filter's planeswalker denylist + a two-colour paid production), Ashiok (a static forbidding opponents' searches), Kiora (an until-your-next-turn shield expiry + a source-side "dealt by" prevention), and the A5 loyalty-vocabulary sweep. Phase 3 material; the §5 order moved on to Halfshell.
+
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | A1 | Maze of Ith ×2 | | V13 | |✅ |
@@ -410,7 +412,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | Q1 | Double Jump // Flying Kick | split | L (V1 slice 3) | | ⬜ |
 | Q2 | Arcade Cabinet · Path of Ancestry | | V8 / V11 | | ✅ |
 | Q3 | Casey Jones ✅ (+1 — the active counters-placed damage payoff) · Ray Fillet ✅ (+1 — the with-a-counter dealer filter) · Together Forever · Tokka & Rahzar ✅ (+1 — the nontoken leaves scope; Splinter, the Mentor rode along on its self-inclusive union) · Baxter ✅ (+{GAIN} — the counter-filtered group grant) · Heroes in a Half Shell · Coin of Mastery · Raphael | counters-matter triggers and statics | S / S / M / S / S / M / M / M | Casey Jones = a counters-placed batch event (exists: countersPlaced) + damage; Ray Fillet = combat damage by a creature with a counter → draw; Raphael = a damage doubler filtered by "with counters" | ⬜ |
-| Q4 | Big Apple ✅ (+{GAIN} — the opponent count) · Big Mother Mouser ✅ · Shellshock · Swift Demise ✅ (+1 — the opponent-creature mass destroy) · Wave Goodbye · Continue? · Exploding Barrel · Everything Pizza · Endless Foot Assault · Splinter ✅ (rode along with Q3's nontoken leaves) · Foot Chopper (sized L — an optional sacrifice with no if-you-do lane) · Mole Module · Bebop (sized L — the same if-you-do lane) · Tempestra · Irma · Dimension X Pizzasaur · Donatello ✅ (+{GAIN} — the Took extra-token replacement, Mutagen printing) | | S–M | Shredder's per-opponent copies = M; Irma's combat-start copy = M; Donatello's Mutagen replacement shares F4's seam | ⬜ |
+| Q4 | Big Apple ✅ (+3 — the opponent count; Inspired Sphinx and Chittering Witch rode along) · Big Mother Mouser ✅ · Shellshock · Swift Demise ✅ (+1 — the opponent-creature mass destroy) · Wave Goodbye · Continue? · Exploding Barrel ✅ (+4 — the per-counter activation discount rider) · Everything Pizza · Endless Foot Assault · Splinter ✅ (rode along with Q3's nontoken leaves) · Foot Chopper (sized L — an optional sacrifice with no if-you-do lane) · Mole Module · Bebop (sized L — the same if-you-do lane) · Tempestra · Irma · Dimension X Pizzasaur · Donatello ✅ (+{GAIN} — the Took extra-token replacement, Mutagen printing) | | S–M | Shredder's per-opponent copies = M; Irma's combat-start copy = M; Donatello's Mutagen replacement shares F4's seam | ⬜ |
 | Q5 | COMPOSITE | Fast Forward · Rat King ✅ (rode along with Q3's nontoken leaves) · Lita ✅ (+1 — the period-form mode-memory lead) · Turtle Lair · Special Move · Vigor · Krang | size on approach | | 🔶 |
 
 ### 5.11 Killer Turts — 64% · needs 21 · extra turns / storm-ish red deck (23 arbiter-spells)
@@ -478,6 +480,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · Q4 Exploding Barrel (Halfshell) ✅ +4 corpus (the PER-COUNTER activation discount rider — "This ability costs {1} less to activate for each pressure counter on this artifact" — peeled as a cost modifier and priced live at the offer off the source's own counter bag, floored at {0}) · mutants 4/4 killed · suite 1549 files / 16,328 · Halfshell 79 → **80** (80/100; 5 to the bar) — next Halfshell M row = Raphael, Fiendish Savior (a per-player 'creature card put into your graveyard this turn' flag + one condition reader; the payoff already parses).
 
 - 2026-09-05 — Phase 2 · A3 Mutational Advantage (Atraxa) ✅ +1 corpus (one composite: the counter-filtered group grant on the PERMANENT scope + the all-damage shield with a GROUP selector — the counter-bearing creatures and planeswalkers you control, read at resolution — + proliferate) · mutants 4/4 killed · suite 1548 files / 16,323 · Atraxa 73 → **74** (74/100; 11 to the bar) — ATRAXA CEILING for Phase 2: every remaining row now sizes L (Interplanar Beacon, Ashiok, Kiora — resized L today: an until-your-next-turn shield expiry plus a source-side 'dealt by' prevention — and the A5 loyalty-vocabulary sweep); the §5 order moves to Halfshell's M rows (Exploding Barrel first — only its per-counter activation discount rider parks it).
 
