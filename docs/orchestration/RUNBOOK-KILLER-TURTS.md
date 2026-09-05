@@ -26,7 +26,7 @@ Legend: **S** one arm on an existing seam · **M** a new arm plus a runtime seam
 | # | Card | Oracle gist | Blocker (probed) | Size | CREED note |
 |---|---|---|---|---|---|
 | T1 | **Port Razer** | combat damage → untap each creature you control + additional combat; can't attack a player it already attacked this turn | ✅ DONE 2026-09-05 (KT-1): a `notAlreadyAttacked` defender requirement keyed on the attacker's `attackedPlayersThisTurn` memo (stamped at declare-attacker, cleared at untap); fails closed without the memo | **S** | pinned: not offered in the second combat against the same player; a plain bear still is; offered again after untap |
-| T2 | **Savage Beating** | cast only during combat on your turn; modes: double strike / untap + extra combat; entwine | both modes parse natively; the miss is the TIMING restriction "Cast this spell only during combat on your turn" (+ entwine must be honoured) | **S/M** | offering it outside combat = an illegal cast → forbidden; the restriction gates the offer |
+| T2 | **Savage Beating** | cast only during combat on your turn; modes: double strike / untap + extra combat; entwine | ✅ DONE 2026-09-05 (KT-6): the cast window is peeled and STAMPED on the program (`castTiming`, the strive discipline); legalChoices' offer loop refuses the cast outside your combat | **S/M** | pinned: offered in your combat; never in your main phase; never in the opponent's combat; the peel-without-stamp mutant (the over-offer) died |
 | T3 | **Full Throttle** | after this main phase, TWO additional combat phases; at the beginning of each combat this turn, untap all creatures that attacked this turn | "two additional" count + a DELAYED per-combat untap trigger | **M** | the delayed untap fires at each combat's beginning, not once |
 | T4 | **World at War** | after the SECOND main phase, an additional combat + main; at that combat's beginning untap attackers; Rebound | "after the second main phase" insertion point + the delayed untap + rebound | **M** | rebound must actually re-offer the cast next upkeep or stay unmodeled for that line |
 | T5 | **Overpowering Attack** | untap creatures that attacked this turn; if main phase, extra combat + extra main; Freerunning | "that attacked this turn" untap filter + freerunning alt cost | **M** | freerunning's condition (dealt combat damage with an Assassin or commander) must be checked, never assumed |
@@ -94,7 +94,7 @@ Ordered by plan-criticality, then cost. Running total assumes each slice lands w
 | KT-3 | Irencrag Feat · Rite of Flame | S-E word-number pips + cast-lock rider; all-graveyards name count | ✅ +3 | 5 |
 | KT-4 | Geosurge · Open the Omenpaths | S-E restricted spend on a spell's add-mana (+ two-colour choice) | ✅ Geosurge +2 · Omenpaths +1 | 8 |
 | KT-5 | City of Traitors | land-play watcher on a land | ✅ +1 | 8 |
-| KT-6 | Savage Beating | combat-only timing restriction (+ entwine honoured) | +1 | 9 |
+| KT-6 | Savage Beating | combat-only timing restriction (+ entwine honoured) | ✅ +1 | 9 |
 | KT-7 | Overpowering Attack · Full Throttle · World at War | S-D: attacked-this-turn untap, two additional combats, delayed per-combat untap, after-second-main insertion; rebound + freerunning sized on approach | +2 to +3 | 11–12 |
 | KT-8 | Grim Reaper's Sprint | aura ETB extra combat + morbid reducer | +1 | 12–13 |
 | KT-9 | Avoid Fate · Not of This World | targets-a-permanent-you-control predicate | +2 | 14–15 |

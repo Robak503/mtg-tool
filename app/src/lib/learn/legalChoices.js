@@ -53,6 +53,19 @@ import { evalLeastValuableCmp, policyEvalEnabledFor } from "./boardEval.js"; // 
 function parseCastProgram(card) {
   return parseEffectProgram({ ...card, oracle: stripCostOnlyKeywordLines(card?.oracle ?? card?.oracle_text ?? "") });
 }
+/**
+ * SAVAGE BEATING (POD-SIM THREE · KT-6, 2026-09-05) — the program-level cast window the parser stamps as `castTiming`
+ * ("Cast this spell only during combat on your turn." → { phase: "combat", yourTurn: true }). No stamp → no restriction.
+ * A stamped spell is offered ONLY when every named condition holds (CR 601.3 — a restriction on when the spell may be
+ * cast); fails closed on an unreadable card.
+ */
+function castTimingAllows(state, playerId, card) {
+  const ct = parseCastProgram(card)?.castTiming;
+  if (!ct) return true;
+  if (ct.yourTurn && state.activePlayer !== playerId) return false;
+  if (ct.phase && state.phase !== ct.phase) return false;
+  return true;
+}
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { counterClauseParser } from "./effects/atoms/stack.js";
 import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, castOnlyWhenAttacked, hasBeenAttackedThisStep, parseCyclingCost, parseCyclingLifeCost, parseDiscardCostAbility, parsePlotCost, parseCrewCost, crewPowerBonus, isModeledGroupActivatedBody, parseGraveyardSelfRecursion, parseGraveyardExileAbility, modeledLeveler } from "./effects/abilities.js";
@@ -1021,6 +1034,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       ? canCastSorcerySpeed(state, playerId)
       : canCastInstantSpeed(state, playerId);
     if (!freeCast && !timingOk) continue;
+    // SAVAGE BEATING (KT-6): a program-level cast window ("Cast this spell only during combat on your turn") — unmet → never offered
+    if (!castTimingAllows(state, playerId, card)) continue;
     // ④-E (Nikya of the Old Ways / Nullhide Ferox — CR 604.2): "You can't cast noncreature spells." — the caster's
     // own locker refuses every NON-creature card (the type line's front face; an artifact creature is a creature
     // spell and stays castable). Read off the same sentence the static parser marks. Opponents are untouched.

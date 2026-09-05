@@ -16,6 +16,18 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-6: SAVAGE BEATING — the cast window · **+1** · corpus 14,437 (42.2%) / 34,245
+> Suite **1486 files / 16,095 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **6/6 killed.**
+> · "Cast this spell only during combat on your turn." Both modes and entwine already parsed; the sentence itself was residue
+>   that kept the whole spell on the Arbiter. It now comes off the way strive does and is STAMPED on the program as
+>   `castTiming: { phase: "combat", yourTurn: true }`; legalChoices' offer loop refuses the cast outside the window (CR 601.3).
+>   ⛔ The stamp is the point — peeling without stamping would offer Savage Beating in a main phase, the forbidden over-offer;
+>   that mutant, the ignored-stamp mutant, the wrong-turn mutant and the wrong-phase mutant all died.
+> · **Pins:** offered during your combat; never in your main phase; never during the opponent's combat; cast in combat,
+>   the double-strike mode resolves.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Killer Turts 78 → 79** (79/100; needs 6). Next: KT-7a Overpowering Attack (the attacked-this-turn untap + a main-phase-only extra combat), then KT-7b Full Throttle (a per-combat delayed untap — a new fire step).
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-4b: OPEN THE OMENPATHS — the two-colour restricted add · **+1** · corpus 14,436 (42.2%) / 34,245
 > Suite **1485 files / 16,092 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **5/5 killed.**
 > · Mode 1 "Add two mana of any one color and two mana of any other color. Spend this mana only to cast creature or enchantment

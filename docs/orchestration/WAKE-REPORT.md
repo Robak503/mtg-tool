@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-6: Savage Beating (+1)** · suite **1486 files / 16,095 tests** green · corpus 14,437 (42.2%) / 34,245 · flip-diff +1 / 0 lost · 6/6 killed
+
+> A program-level cast window, stamped by the parser and honoured by the offer loop. **Killer Turts 78 → 79** (79/100; needs 6). Next: KT-7a Overpowering Attack (the attacked-this-turn untap + a main-phase-only extra combat), then KT-7b Full Throttle (a per-combat delayed untap — a new fire step).
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-4b: Open the Omenpaths (+1)** · suite **1485 files / 16,092 tests** green · corpus 14,436 (42.2%) / 34,245 · flip-diff +1 / 0 lost · 5/5 killed
 
 > The two-colour restricted add with a documented colour policy. **Killer Turts 77 → 78** (78/100; needs 7). Next: KT-6 Savage Beating (a cast-timing restriction: combat, your turn), then KT-7 the extra-combat forms.

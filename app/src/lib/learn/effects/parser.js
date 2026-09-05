@@ -136,13 +136,16 @@ function legacyToAtom(effect) {
   return null;
 }
 
-function makeProgram({ confidence, structure = "sequence", atoms = [], modal = null, xSpell = false, unparsedTail = null, selfExile = false, selfShuffle = false }) {
+function makeProgram({ confidence, structure = "sequence", atoms = [], modal = null, xSpell = false, unparsedTail = null, selfExile = false, selfShuffle = false, castTiming = null }) {
+  // `castTiming` (SAVAGE BEATING — POD-SIM THREE · KT-6, 2026-09-05: "Cast this spell only during combat on your turn."):
+  // a program-level cast restriction the offer loop reads (legalChoices) — the spell is never offered outside the named
+  // window. Omitted when null so every other program is byte-identical.
   // `selfExile` (Finale of Revelation "Exile <this>.") — the resolved spell exiles ITSELF instead of going to
   // the graveyard (runEffectProgram honors it at GY-1). `selfShuffle` (Green Sun's Zenith / the Sun's Zenith +
   // Beacon family "Shuffle <this> into its owner's library.") — the resolved spell shuffles ITSELF into its
   // owner's library instead of the graveyard (also honored at GY-1). Both are omitted from the object when false
   // so the vast majority of programs are byte-identical to before (no shape churn).
-  return { version: 1, source: "parser", confidence, structure, atoms, modal, xSpell, unparsedTail: unparsedTail ?? null, ...(selfExile ? { selfExile: true } : {}), ...(selfShuffle ? { selfShuffle: true } : {}) };
+  return { version: 1, source: "parser", confidence, structure, atoms, modal, xSpell, unparsedTail: unparsedTail ?? null, ...(selfExile ? { selfExile: true } : {}), ...(selfShuffle ? { selfShuffle: true } : {}), ...(castTiming ? { castTiming } : {}) };
 }
 
 // α2 optional-scope invariant — an `optional` atom ("you may <effect>") scopes ONLY its own clause, so an
@@ -1303,10 +1306,18 @@ export function parseEffectProgram(card) {
   // of targets — the forbidden over-offer (mutation-proven). A program that parses LOW stays LOW; the stamp never
   // loosens anything.
   const { oracle: destrived, strive } = peelStriveLine(stripAbilityWordLabel(stripped));
-  const body = strive ? destrived : stripped;
+  // ⭐ CAST WINDOW (SAVAGE BEATING — POD-SIM THREE · KT-6, 2026-09-05): "Cast this spell only during combat on your turn."
+  // comes off the same way strive does and is STAMPED on the program as `castTiming`; legalChoices' offer loop refuses
+  // the cast outside the window. ⛔ THE STAMP IS THE POINT: peeling without stamping would offer Savage Beating in a main
+  // phase — the forbidden over-offer (mutation-proven). A program that parses LOW stays LOW; the stamp never loosens.
+  const CAST_WINDOW_RE = /^[ \t]*cast this spell only during combat on your turn\.?[ \t]*(?:\n|$)/im;
+  const withStrive = strive ? destrived : stripped;
+  const castTiming = CAST_WINDOW_RE.test(withStrive) ? { phase: "combat", yourTurn: true } : null;
+  const body = castTiming ? withStrive.replace(CAST_WINDOW_RE, "") : withStrive;
   const subject = body === oracleOf(card) ? card : { ...card, oracle: body, oracle_text: body };
   const prog = parseEffectProgramWithSelfExileRetry(subject) ?? null;
-  return prog && strive ? { ...prog, strivePerTarget: strive } : prog;
+  if (!prog) return prog;
+  return { ...prog, ...(strive ? { strivePerTarget: strive } : {}), ...(castTiming ? { castTiming } : {}) };
 }
 
 /**
