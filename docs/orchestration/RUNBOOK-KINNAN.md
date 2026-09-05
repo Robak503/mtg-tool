@@ -20,7 +20,7 @@ Mox Diamond, Mana Vault, Sol Ring, LED all native-mana; Mana Crypt is body-only 
 
 | # | Card | Oracle gist | Blocker (probed) | Size | CREED note |
 |---|---|---|---|---|---|
-| K1 | **Thassa's Oracle** | ETB: look at top X (devotion to blue), up to one on top, rest bottom random; win if X ≥ library | devotion = a NEW count kind (Gray Merchant body-only proves it); the win branch rides the Lab Man family (native-static); the look-and-order choice needs a pause or an honest auto-policy | **M** | X must be the LIVE devotion at resolution; the win must check library size at resolution (CR 608.2c) — a stale X is the FP |
+| K1 | **Thassa's Oracle** | ✅ DONE 2026-09-05 (KN-1): the three sentences fold into ONE `devotion-dig-win` atom because they share X — read at RESOLUTION (CR 608.2c) through the existing devotion count (hybrid pips count, the Oracle's own {U}{U} included); X ≥ library → the win-game stamp (CR 104.2a), look skipped; else the impulse-dig pause with a new TOP destination (the pick stays on top, the rest bottom in the mover's seeded random order) and a decline for "up to one" | **M** | pinned: devotion 4 over six cards = four candidates, pick on top, three under the untouched two; decline bottoms all four; devotion 4 over three = win, no pause; ⭐ LIVE X — a two-pip permanent arriving after the trigger and before resolution turns a look into a win (the stale-X FP, seen to fail); the Oracle gone in response: X = 0 still wins an EMPTY library (0 ≥ 0, the Consultation line) and looks at nothing over one card |
 | K2 | **Clever Impersonator** | enter as a copy of ANY NONLAND PERMANENT | native-clone admits creatures only | **M** (widening) | copying a non-creature must copy its statics/abilities, not just its type line — if the copied enchantment's static does not apply, the credit is hollow |
 | K3 | **Copy Enchantment** | enter as a copy of any enchantment | same widening, enchantments | **S** after K2 | same |
 | K4 | **Flash Photography** | token copy of target PERMANENT (flash if your own; flashback) | the token-copy atom's target widening + flashback (exists) + conditional flash | **M** | |
@@ -67,7 +67,7 @@ Mox Diamond, Mana Vault, Sol Ring, LED all native-mana; Mana Crypt is body-only 
 
 | Slice | Cards | Seam | Expected | Running |
 |---|---|---|---|---|
-| KN-1 | Thassa's Oracle | S-A devotion count + the look/order/win ETB | +1 (+1 more on Believe it!) | 1 |
+| KN-1 | Thassa's Oracle | S-A devotion count + the look/order/win ETB | ✅ +1 (Kinnan +1, Believe it! +1) | 1 |
 | KN-2 | Clever Impersonator · Copy Enchantment | S-C clone widening to nonland permanents / enchantments (the copied statics must APPLY — witness a copied anthem) | +2 | 3 |
 | KN-3 | Flash Photography · Imposter Mech | S-C token-copy-of-permanent + the Vehicle "except" rider | +2 | 5 |
 | KN-4 | Treasure Vault · Moonsilver Key · Cephalid Coliseum | the three S fills (X-sac land ability; artifact-with-mana-ability tutor filter; threshold sac) | +3 | 8 |

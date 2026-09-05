@@ -380,6 +380,17 @@ const DIG_NUM = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8
  * bottom" (Commune with Nature, Seek the Wilds, Peer Through Depths).
  */
 export function matchImpulseDig(oracle) {
+  // THASSA'S ORACLE (POD-SIM THREE · KN-1, 2026-09-05): "Look at the top X cards of your library, where X is your devotion
+  // to blue. Put up to one of them on top of your library and the rest on the bottom of your library in a random order.
+  // If X is greater than or equal to the number of cards in your library, you win the game." ONE atom for the three
+  // sentences because they share X, read LIVE at resolution (CR 608.2c): the win compares that devotion to the library
+  // size; otherwise the look is the impulse-dig pause with a TOP destination and a decline ("up to one").
+  const th = String(oracle).match(
+    /^look at the top x cards of your library, where x is your devotion to (white|blue|black|red|green)\. put up to one of them on top of your library and the rest on the bottom of your library in a random order\. if x is greater than or equal to the number of cards in your library, you win the game\.?/i,
+  );
+  if (th) {
+    return { atom: { op: "devotion-dig-win", color: { white: "W", blue: "U", black: "B", red: "R", green: "G" }[th[1].toLowerCase()] }, rest: oracle.slice(th[0].length).trim() };
+  }
   // ⭐ LOOK-AND-PLOT (SHELF-85 K7, 2026-09-04 — Make Your Own Luck "Look at the top three cards of your library. You may
   // exile a nonland card from among them. If you do, it becomes plotted. Put the rest into your hand."): the impulse-dig
   // pause with a PLOT destination — the picked card goes to exile stamped `_plotted` (the same stamp the plot special

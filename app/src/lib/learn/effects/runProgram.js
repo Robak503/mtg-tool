@@ -682,6 +682,19 @@ export function resolveImpulseDigChoice(state, cardId) {
   }
   // ⚠️ `n` is the ORIGINAL look size, never the shrunken candidate list — the disposal must cover every card
   // looked at, including the ones already moved to hand on earlier passes.
+  if (pc.chosenTo === "top") { // THASSA'S ORACLE (KN-1): the pick stays ON TOP; the other looked-at cards bottom (random when the atom says so)
+    const pl = next.players[pc.controller];
+    const lib = pl.library || [];
+    const looked = lib.slice(0, lookedAt);
+    const kept = looked.filter((c) => picked.includes(c.id));
+    const others = looked.filter((c) => !picked.includes(c.id));
+    // Re-stack as [others, kept, rest] and bottom the top `others.length` through the shared mover — the seeded random
+    // order is the mover's, not a second shuffle; the kept card is then the new top.
+    next = { ...next, players: { ...next.players, [pc.controller]: { ...pl, library: [...others, ...kept, ...lib.slice(lookedAt)] } } };
+    next = applyImpulseDig(next, { playerId: pc.controller, n: others.length, chosenIds: [], restTo: "bottom", restOrder: pc.restOrder || null });
+    toBottom = 0;
+    keptIds = [];
+  }
   next = applyImpulseDig(next, { playerId: pc.controller, n: toBottom, chosenIds: keptIds, restTo: pc.restTo, restOrder: pc.restOrder || null });
   next = logEvent(next, { kind: "spell-effect", effect: "impulse-dig", controller: pc.controller, kept: picked.length, restTo: pc.restTo });
   return resumeAfterChoice(next, pc);

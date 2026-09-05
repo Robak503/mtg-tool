@@ -65,8 +65,8 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Hulk Smash | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
-| Joe | Kinnan Mana Overload | 75 | 10 | 15 | ⬜ Phase 2 (cEDH — LAST) |
-| Joe | Believe it! | 75 | 10 | 15 | ⬜ Phase 2 (cEDH — LAST) |
+| Joe | Kinnan Mana Overload | 76 | 9 | 14 | ⬜ Phase 2 (cEDH — LAST) |
+| Joe | Believe it! | 76 | 9 | 14 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Kellan of the west | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Halfshell heroes | 67 | 18 | 23 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**8 decks below 85 · 102 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**8 decks below 85 · 100 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — POD-SIM THREE · KN-1 Thassa's Oracle (Kinnan + Believe it!) ✅ +1 corpus (one devotion-dig-win atom: X = LIVE devotion at resolution, win if X ≥ library, else the impulse-dig pause with a TOP destination + decline) · 8/8 killed · suite 1493/16,124 · **Kinnan 75 → 76 (needs 9) · Believe it! 75 → 76 (needs 9)** — Thoracle native in both. Killer Turts 85 ✅ · Shalai 84. Next: KN-2 Clever Impersonator + Copy Enchantment (clone scope widening).
 
 - 2026-09-05 — POD-SIM THREE · KT-9b Not of This World (Killer Turts) ✅ +3 corpus (the spell-OR-ability counter union with the targets-what predicate + a TARGET-CONDITIONAL cost reduction settled per chosen target; twins Diplomatic Escort, Siren Stormtamer) · 8/8 killed · suite 1492/16,117 · **Killer Turts 84 → 85 — AT THE BAR (85/100), the first of the pod-sim three.** Kinnan 75 · Believe it! 75 · Shalai 84 (Solitude). Next: Kinnan per RUNBOOK-KINNAN (KN-1 Thassa's Oracle).
 

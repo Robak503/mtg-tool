@@ -16,6 +16,26 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KN-1: THASSA'S ORACLE — one atom, X read live · **+1** · corpus 14,456 / 34,245
+> Suite **1493/16,124** green; lint 0. Flip-diff **+1, zero LOST**. **8/8 killed.**
+> · "When this creature enters, look at the top X cards of your library, where X is your devotion to blue. Put up to one of
+>   them on top of your library and the rest on the bottom of your library in a random order. If X is greater than or equal
+>   to the number of cards in your library, you win the game." The three sentences share X, so they are ONE atom
+>   (`devotion-dig-win`): X is the existing devotion count (the Gods' — hybrid pips count, the Oracle's own {U}{U}
+>   included) read at RESOLUTION, CR 608.2c — the runbook's named FP was a stale X. X ≥ library → the win-game stamp
+>   (CR 104.2a, state-based end) and the look is skipped (nothing downstream can read the order once the game is over);
+>   otherwise the impulse-dig pause with a new TOP destination — the pick stays on top, the other looked-at cards bottom in
+>   the shared mover's seeded random order (re-stacked as [others, kept, rest] so the mover's own shuffle does the work) —
+>   and a non-candidate answer declines ("up to one"). A devotion of zero looks at nothing; an EMPTY library with X = 0 still
+>   wins (0 ≥ 0 — the Demonic Consultation line, the win the pod sim exists to reproduce).
+> · **Pins:** four candidates over six cards, the pick on top, three under the untouched two; decline bottoms all four; four
+>   over three wins with no pause; a two-pip permanent arriving between trigger and resolution turns a look into a win while
+>   the control only looks; the Oracle bounced in response wins an empty library and looks at nothing over one card.
+>   Mutants: the colour map, strict-greater, a constant X, an unstamped win, top-downgraded-to-hand, kept-bottomed, bottoms-
+>   nothing and a zero-look pause — all died.
+> · **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+> · **Kinnan 75 → 76 (needs 9) · Believe it! 75 → 76 (needs 9)** — Thoracle native in both. Killer Turts 85 ✅ · Shalai 84. Next: KN-2 Clever Impersonator + Copy Enchantment (clone scope widening).
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-9b: NOT OF THIS WORLD — the spell-or-ability counter union + a TARGET-CONDITIONAL cost · **+3** · corpus 14,455 / 34,245
 > Suite **1492/16,117** green; lint 0. Flip-diff **+3, zero LOST** (twins Diplomatic Escort + Siren Stormtamer audited whole-card). **8/8 killed.**
 > · "Counter target spell or ability that targets a permanent you control. This spell costs {7} less to cast if it targets a

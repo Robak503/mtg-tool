@@ -18,8 +18,8 @@
 | Deck | Native | Non-native | Needs for 85 | Role in the pod |
 |---|---|---|---|---|
 | Killer Turts | ✅ **85/100** (2026-09-05; was 70) | 15 | **0** | extra-combat red-green aggro-storm |
-| Kinnan Mana Overload | 75/100 | 25 | **10** | cEDH big-mana / copy / Thoracle |
-| Believe it! | 75/100 | 25 | **10** | cEDH ninjas + Thoracle-Consultation |
+| Kinnan Mana Overload | 76/100 | 24 | **9** | cEDH big-mana / copy / Thoracle |
+| Believe it! | 76/100 | 24 | **9** | cEDH ninjas + Thoracle-Consultation |
 
 **35 slots across the three.** Shared cards: Thassa's Oracle (Kinnan + Believe it!), Mindbreak Trap (both),
 Misdirection (both), Gemstone Caverns (all three — PARKED, pregame), Veil of Summer (Turts + Kinnan), Sink into
@@ -82,7 +82,7 @@ Real cards probed for their live tier, standing in for whole families:
 
 | Seam | Pays | Size | Notes |
 |---|---|---|---|
-| **S-A Devotion count + Thassa's Oracle ETB** | Thoracle (Kinnan, Believe it!) = 2 slots; Gray Merchant / Nykthos-style corpus twins | M | the count kind `devotionTo(colour)` over permanents you control; the ETB = look at top X, put up to one on top, rest on the bottom random, win if X ≥ library size (the Lab Man win family) |
+| **S-A Devotion count + Thassa's Oracle ETB** | ✅ DONE 2026-09-05 (KN-1) — the devotion count already existed (the Gods); the ETB is one `devotion-dig-win` atom (live X, win-if, else a keep-one-on-top dig pause) | — | Thoracle native in both decks |
 | **S-B Card-exile evoke composition** | Subtlety (Believe it!), Endurance (Kinnan), Solitude (Shalai), Fury/Grief corpus | M | an alternative cost "exile a <colour> card from your hand" at cast + sac-on-ETB when evoked; the mana-evoke option-cost line becomes offerable by the same rule |
 | **S-C Copy widening** | Clever Impersonator, Copy Enchantment, Imposter Mech, Flash Photography (all Kinnan); Mirrormade corpus | M | the native-clone seam admits "any nonland permanent" / "any enchantment"; the token-copy atom admits "target permanent"; Imposter Mech's "except it's a Vehicle artifact with crew 3" rider is its own arm |
 | **S-D Extra-combat forms** | Full Throttle, Overpowering Attack, World at War, Grim Reaper's Sprint, Great Train Heist mode, Savage Beating mode (Turts) | M | `extra-combat` exists; the arms: "untap all creatures you control THAT ATTACKED THIS TURN", "two additional combat phases", "at the beginning of each combat this turn, untap all creatures that attacked" (a delayed trigger), "if it's your main phase" conditional, "followed by an additional main phase" |

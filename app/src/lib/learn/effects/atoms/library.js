@@ -21,6 +21,7 @@ import { millMultiplier } from "../../replacementEffects.js"; // MILL-DOUBLER (B
 // ONE-WAY atom-module edge (zones.js does NOT import library.js), so it's cycle-free — the atoms barrel must
 // not be imported here (that would TDZ-cycle, since the barrel imports library.js). Direct sibling import only.
 import { enterCardFromZone } from "./zones.js";
+import { winGameResolvers } from "./winGame.js"; // THASSA'S ORACLE (KN-1) — the win stamp (winGame imports gameState + manaModel only: cycle-free)
 // Router v2 "draw" route — the SAME applyDrawEffect edge misc.js's draw atom rides (count bump + draw
 // watchers), so the router's real-draw semantics can't drift from the draw atom's.
 import { applyDrawEffect } from "../../spellEffects.js";
@@ -475,6 +476,34 @@ export function applyImpulseDigAtom(state, atom, ctx) {
  * membership (front-face subtype OR changeling, CR 702.73a); an unset chosenType matches nothing → a SAFE no-op
  * (the card stays on top, never a fabricated keep). Pure; a pause is plain JSON (serialize-safe).
  */
+/**
+ * THASSA'S ORACLE (POD-SIM THREE · KN-1, 2026-09-05) — "look at the top X cards of your library, where X is your devotion to
+ * <colour>. Put up to one of them on top of your library and the rest on the bottom of your library in a random order. If X
+ * is greater than or equal to the number of cards in your library, you win the game."
+ * X is read at RESOLUTION (CR 608.2c) — devotion counted over the permanents you control right now, the Oracle itself
+ * included. When X ≥ the library size the win is stamped through the win-game resolver (a state-based end, CR 104.2a) and
+ * the look is skipped — the game is over and nothing downstream can read the order. Otherwise the look is the impulse-dig
+ * pause with a TOP destination: the pick stays on top, the rest bottom at random; declining (a non-candidate id) bottoms
+ * them all ("up to one"). A devotion of zero looks at nothing.
+ */
+export function applyDevotionDigWin(state, atom, ctx) {
+  const player = state.players[ctx.controller];
+  if (!player) return state; // controller eliminated mid-resolution → clean no-op (CR 800.4a)
+  const x = countForSpec(state, ctx, { kind: "devotion", color: atom.color });
+  const libSize = (player.library || []).length;
+  if (x >= libSize) {
+    const won = winGameResolvers["win-game"](state, { op: "win-game", who: "controller", targetType: null }, ctx);
+    return logEvent(won, { kind: "spell-effect", effect: "devotion-dig-win", controller: ctx.controller, devotion: x, library: libSize, won: true });
+  }
+  const n = Math.min(x, libSize);
+  if (n === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "devotion-dig-win", controller: ctx.controller, devotion: x, library: libSize, won: false, looked: 0 });
+  }
+  const cards = player.library.slice(0, n).map((c) => ({ id: c.id, name: c.name }));
+  const next = logEvent(state, { kind: "spell-effect", effect: "devotion-dig-win", controller: ctx.controller, devotion: x, library: libSize, won: false, looked: n });
+  return setPendingImpulseDigChoice(next, { controller: ctx.controller, candidates: cards, restTo: "bottom", restOrder: "random", sourceName: ctx.cardName || null, keep: 1, lookedAt: n, chosenTo: "top" });
+}
+
 export function applyLookTopTakeAtom(state, atom, ctx) {
   const player = state.players[ctx.controller];
   if (!player) return state; // controller eliminated mid-resolution → clean no-op (CR 800.4a)
@@ -2581,6 +2610,7 @@ export const libraryResolvers = {
   "surveil": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "surveil"),
   "reorder-top": applyReorderTopAtom, // ===== REORDER-TOP (Ponder) ===== look at top N, put them ALL back in any order (reuses the scry-surveil choice in reorder mode — nothing bottomed), with an optional shuffle. Ponder flips native-spell.
   "impulse-dig": applyImpulseDigAtom,
+  "devotion-dig-win": applyDevotionDigWin, // THASSA'S ORACLE (KN-1) — X = LIVE devotion; X ≥ library → win; else look-top-X with a keep-one-on-top pause
   "look-top-take": applyLookTopTakeAtom, // TOP-CARD TAKE-OR-LEAVE-ON-TOP (BLITZ LK-2) — look top 1; if it matches the quality, take-or-leave (declined/non-match stays ON TOP, no disposal). Dryad Greenseeker / Frost Augur (activated) + Herald's Horn (upkeep trigger, chosen-type). Settled by resolveLookTopTakeChoice.
   "dig-land-to-battlefield": applyDigLandToBattlefieldAtom, // DIG-LAND-TO-BATTLEFIELD (Silverback Elder) — look top N, put a land onto the battlefield, rest → bottom random. Settled by resolveDigLandChoice.
   "discover": applyDiscoverAtom, // ===== DISCOVER ===== exile-top-until-nonland-MV<=N → park for cast-free/hand (action layer). Pantlaza + Primordial Gnawer flip native-trigger (PR #325 + PANTLAZA PR2).
