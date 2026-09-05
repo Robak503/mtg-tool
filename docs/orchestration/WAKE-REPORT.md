@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-4b: Open the Omenpaths (+1)** · suite **1485 files / 16,092 tests** green · corpus 14,436 (42.2%) / 34,245 · flip-diff +1 / 0 lost · 5/5 killed
+
+> The two-colour restricted add with a documented colour policy. **Killer Turts 77 → 78** (78/100; needs 7). Next: KT-6 Savage Beating (a cast-timing restriction: combat, your turn), then KT-7 the extra-combat forms.
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-4a: Geosurge (+2)** · suite **1483 files / 16,085 tests** green · corpus 14,434 (42.1%) / 34,245 · flip-diff +2 / 0 lost · 6/6 killed
 
 > Restricted spend on a spell's pip pool — the splitter fold that stops the add from parsing alone as unrestricted mana. **Killer Turts 75 → 76** (76/100; needs 9). Unplanned gain audited: Abstract Paintmage (a first-main-phase trigger whose effect is the same pip-pool restricted add, instant-and-sorcery restriction). Next: KT-4b Open the Omenpaths, then KT-5 City of Traitors.

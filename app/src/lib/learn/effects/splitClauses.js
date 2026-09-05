@@ -297,7 +297,7 @@ export function splitClauses(oracle) {
       // UNRESTRICTED mana. The continuation folds only onto the exact fixed-amount any-combination lead
       // (the word-set guard on the atom arm keeps unknown type phrases LOW → Arbiter).
       || (/^spend this mana only to cast [a-z][a-z ]*? spells$/i.test(sentence)
-          && /^add (?:(?:one|two|three|four|five) mana in any combination of colors|(?:\{[wubrgc]\})+)$/i.test(prev)) // + the pip-pool lead (Geosurge, KT-4)
+          && /^add (?:(?:one|two|three|four|five) mana in any combination of colors|(?:\{[wubrgc]\})+|two mana of any one color and two mana of any other color)$/i.test(prev)) // + the pip-pool lead (Geosurge, KT-4a) + the two-colour lead (Open the Omenpaths, KT-4b)
       // RIVAZ RIDER (2026-08-15) — the quoted dies-exile grant's period sits INSIDE the quotes, so the
       // sentence split strands the closing quote as its own "clause". Fold it back onto the exact lead
       // (anchored-fold discipline: this can only ever reassemble the one quoted grant the arm claims).
@@ -472,6 +472,9 @@ export function splitClauses(oracle) {
     // the clause parse binds the controller-scoped pump + grant together (plural subject →
     // "gain", no trailing s).
     if (/^(?:legendary )?creatures you control get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }  // "legendary" = Hajar
+    // OPEN THE OMENPATHS (KT-4b): the two-colour lead is ONE add — its " and " is inside the sentence, not a clause boundary;
+    // kept whole so the spend-rider fold below sees the full lead as `prev`.
+    if (/^add two mana of any one color and two mana of any other color$/i.test(sentence)) { clauses.push(sentence); continue; }
     // COND-X TEAM PUMP (Finale of Devastation) — "If X is N or more, creatures you control get +X/+X and gain
     // KW until end of turn". The "If X is N or more, " prefix conditions the WHOLE team pump on the chosen X;
     // the " and gain …" is INTERNAL to that one pump instruction (same as the unconditional form above), NOT a

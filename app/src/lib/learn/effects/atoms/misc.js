@@ -466,6 +466,16 @@ export function miscClauseParser(clause) {
       return { op: "add-restricted-mana", pool, restriction, targetType: null };
     }
   }
+  // OPEN THE OMENPATHS (POD-SIM THREE · KT-4b, 2026-09-05): "Add two mana of any one color and two mana of any other color.
+  // Spend this mana only to cast creature or enchantment spells." A restricted add whose colours are a CHOICE — resolved by
+  // a documented policy in applyAddRestrictedMana (two DISTINCT colours from the commander's identity, else WUBRG order).
+  const twoTwo = t.match(/^add two mana of any one color and two mana of any other color\. (spend this mana only to cast [a-z][a-z ]*? spells)$/);
+  if (twoTwo) {
+    const restriction = parseSpendRestriction(`${twoTwo[1]}.`);
+    if (restriction) {
+      return { op: "add-restricted-mana", twoColorsTwoEach: true, restriction, targetType: null };
+    }
+  }
   const restrictedAdd = t.match(/^add (one|two|three|four|five) mana in any combination of colors\. (spend this mana only to cast [a-z][a-z ]*? spells)$/);
   if (restrictedAdd) {
     const restriction = parseSpendRestriction(`${restrictedAdd[2]}.`);
@@ -804,6 +814,20 @@ export function applyLureThisTurn(state, atom, ctx) {
  * planner treats the entry's colors as generic-payable too, and the mana can never exceed X (CREED).
  */
 function applyAddRestrictedMana(state, atom, ctx) {
+  if (atom.twoColorsTwoEach) { // OPEN THE OMENPATHS (KT-4b): two of one colour and two of ANOTHER — a documented, deterministic policy
+    const player = state.players[ctx.controller];
+    if (!player) return state;
+    const identity = [];
+    for (const c of player.command || []) for (const letter of (c?.colorIdentity ?? c?.color_identity ?? [])) { const u = String(letter).toUpperCase(); if (WUBRG.includes(u) && !identity.includes(u)) identity.push(u); }
+    identity.sort((a, b) => WUBRG.indexOf(a) - WUBRG.indexOf(b));
+    const first = identity[0] || anyColorChoice(state, ctx) || "W";
+    const second = identity.find((c) => c !== first) || WUBRG.find((c) => c !== first);
+    const pool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, [first]: 2 };
+    pool[second] = (pool[second] || 0) + 2;
+    const entry = { pool, restriction: atom.restriction };
+    const next = { ...state, players: { ...state.players, [ctx.controller]: { ...player, restrictedMana: [...(player.restrictedMana || []), entry] } } };
+    return logEvent(next, { kind: "spell-effect", effect: "add-restricted-mana", controller: ctx.controller, amount: 4, pool });
+  }
   if (atom.pool) { // GEOSURGE (KT-4): an explicit pip pool — no colour policy, the printed pips exactly
     const player = state.players[ctx.controller];
     if (!player) return state;

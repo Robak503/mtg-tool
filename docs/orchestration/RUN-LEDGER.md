@@ -16,6 +16,20 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-4b: OPEN THE OMENPATHS — the two-colour restricted add · **+1** · corpus 14,436 (42.2%) / 34,245
+> Suite **1485 files / 16,092 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **5/5 killed.**
+> · Mode 1 "Add two mana of any one color and two mana of any other color. Spend this mana only to cast creature or enchantment
+>   spells." — a restricted add whose colours are a CHOICE. House policy, deterministic and documented (the riot discipline):
+>   the first colour is the any-colour policy's pick (the commander's colour identity in WUBRG order), the second the next
+>   DISTINCT identity colour, else the next WUBRG colour that is not the first. ONE tagged `restrictedMana` entry {c1: 2, c2: 2}
+>   the planner honours; a suboptimal pair is a play-quality loss only, never more mana than printed. Mode 2 (the team
+>   pump) already parsed.
+> · **Pins:** R/G under a red-green commander; W/R under mono-red (two distinct colours always); four mana, never more; the
+>   entry pays a creature and never an instant. Mutants: the same-colour-twice, the 3+1 split, the dropped restriction, and
+>   the unrestricted any-colour arm all died.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Killer Turts 77 → 78** (78/100; needs 7). Next: KT-6 Savage Beating (a cast-timing restriction: combat, your turn), then KT-7 the extra-combat forms.
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-4a: GEOSURGE — restricted spend on a spell's pips · **+2** · corpus 14,434 (42.1%) / 34,245
 > Suite **1483 files / 16,085 tests** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **6/6 killed.**
 > · "Add {R}{R}{R}{R}{R}{R}{R}. Spend this mana only to cast artifact or creature spells." The QUARTET's restricted-spend lane had
