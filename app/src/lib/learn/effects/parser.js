@@ -29,7 +29,8 @@
 import { parseSpellEffect, parseCreatureTargetRestrictions } from "../spellEffects.js"; // parseGraveyardFilter moved to atoms/zones.graveyardReturnClauseParser (seam batch 16)
 import { isNonChosenTargetType } from "../targetTypes.js"; // MASS_WIPE_SCOPES (the centralized wipe partition) now consumed by ./programQueries.js (slice 3), not here
 import { ATOM_RESOLVERS, PAUSING_ATOM_OPS } from "./effectAtoms.js"; // PAUSING_ATOM_OPS (WI-3) — ops whose resolver can set pendingChoice; gates optional-payment payoffs
-import { typeOf, isInstantOrSorcery, oracleOf, stripAbilityWordLabel, hasXCost, stripReminder, stripRegenerationRider, stripUncounterableRider, stripNoMaxHandSizeRider, stripCastKeywordLines, rewriteAmountX, CANT_REGEN_TEST, DISCARD_COST_ABILITY_LINE } from "./textNormalize.js"; // oracle-text normalization + card-field leaf (parser decomposition slice 1) — pure String|card→String|bool, no cycle
+import { typeOf, isInstantOrSorcery, oracleOf, stripAbilityWordLabel, hasXCost, stripReminder, stripRegenerationRider, stripUncounterableRider, stripNoMaxHandSizeRider, stripCastKeywordLines, rewriteAmountX, CANT_REGEN_TEST, DISCARD_COST_ABILITY_LINE } from "./textNormalize.js";
+import { CR_CREATURE_TYPES } from "./creatureTypes.js"; // SUBTYPE TARGET NOUN peel (SHELF-85 Phase 3, 2026-09-05) — the closed CR creature-type vocabulary (a zero-import leaf) // oracle-text normalization + card-field leaf (parser decomposition slice 1) — pure String|card→String|bool, no cycle
 import { splitClauses } from "./splitClauses.js"; // oracle → clause[] sentence splitter (parser decomposition slice 2) — leaf; sole caller is parser.js
 import { programNeedsChosenTarget } from "./programQueries.js"; // program-shape query leaf (slice 3) — imported for the assembly-time call sites; the full family is re-exported at the bottom of this file
 import { matchImprint, matchHandDisruption, matchRemovalControllerRider, matchRemovalCasterGainLife, matchRemovalDamageRider, matchCounterControllerRider, matchCounterExileInstead, matchCounterZoneRedirect, matchImpulseDig, matchReorderTop, matchDigLandToBattlefield, matchLookTopTake, matchChooseTypeDraw, matchChosenTypeRevealToHand, matchFixedTypeRevealToHand, matchDelayedTrigger } from "./spanMatchers.js"; // up-front multi-sentence span matchers (slice 4) — definitions only; the dispatch ORDER stays in parseEffectClauseImpl below (parseControllerRider now consumed by templateMatchers.js directly)
@@ -487,6 +488,27 @@ function parseClauseToAtom(cardType, clause, hasX = false, sourceScoped = false)
     const plainCreature = inner && KNOWN.has(inner.op) && inner.targetType === "creature"
       && !(inner.role || inner.secondaryRole || inner.fighter || Array.isArray(inner.targets));
     if (plainCreature) return { ...inner, restrictions: [...(inner.restrictions || []), { kind: "controller", who: /^defending/i.test(ref[4]) ? "defendingPlayer" : "damagedPlayer" }] };
+  }
+  // ⭐ SUBTYPE TARGET NOUN (SHELF-85 Phase 3, 2026-09-05 — Treebeard, Gracious Host "put that many +1/+1 counters on target
+  // Halfling or Treefolk"; 238 bundled cards print a bare creature-subtype noun as a target — "Destroy target Elf",
+  // "target Wolf or Werewolf gets +2/+2"): CR 205.3d — the noun names the creatures of that subtype. The same fallback
+  // discipline as the referent peel above: every arm gets the clause whole first; only when all refuse does the noun
+  // reduce to "target creature[ you control]" and the arms get the reduced clause, and the peel is honoured ONLY when the
+  // result is a PLAIN creature-targeting atom (no role, no fighter, no multi-target list) — then the subtype rides as a
+  // restriction the enumerator and the resolver both enforce through creatureSatisfiesRestrictions (a union for "A or B").
+  // CLOSED vocabulary: both words must be CR creature types (CR_CREATURE_TYPES — "target Saga" / "target Room" / a land
+  // subtype never peels), so an unlisted word can only leave a card parked (CREED). Case-sensitive on the capital: the
+  // oracle prints subtypes capitalised, so a lower-case common word ("target creature") never matches the noun slot.
+  // ⛔ The noun must END the target phrase: "target Cleric CARD from your graveyard" (Misery Charm), "target Elf SPELL",
+  // "target Goblin TOKEN" name a card / spell / token, not a creature on the battlefield — reducing them to "target creature
+  // card" would widen a Cleric-only return to any creature card (a forbidden FP). The lookahead refuses those tails.
+  const subM = /\b[Tt]arget ([A-Z][a-z]+)(?: or ([A-Z][a-z]+))?(?: creature)?( you control)?\b(?!\s+(?:creature )?(?:cards?|spells?|permanents?|tokens?)\b)/.exec(s);
+  if (subM && CR_CREATURE_TYPES.has(subM[1].toLowerCase()) && (!subM[2] || CR_CREATURE_TYPES.has(subM[2].toLowerCase()))) {
+    const subs = [subM[1].toLowerCase(), ...(subM[2] ? [subM[2].toLowerCase()] : [])];
+    const inner = parseClauseToAtomCore(cardType, s.replace(subM[0], `target creature${subM[3] || ""}`), hasX, sourceScoped);
+    const plainCreature = inner && KNOWN.has(inner.op) && (inner.targetType === "creature" || inner.targetType === "creatureYouControl")
+      && !(inner.role || inner.secondaryRole || inner.fighter || Array.isArray(inner.targets));
+    if (plainCreature) return { ...inner, restrictions: [...(inner.restrictions || []), { kind: "subtype", subtype: subs[0], subtypes: subs }] };
   }
   // ⭐ "UP TO ONE target creature …" (④-AQ, 2026-09-04 — "tap up to one target creature" (20 parked), "exile up to one
   // target creature" (8), "return up to one target creature to its owner's hand" (5), "up to one target creature gets

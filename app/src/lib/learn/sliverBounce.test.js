@@ -24,6 +24,8 @@ describe("the carrier and the shape", () => {
       oracle: "Flash (You may cast this spell any time you could cast an instant.)\nWhen this creature enters, return target Sliver to its owner's hand.\nWizardcycling {3} ({3}, Discard this card: Search your library for a Wizard card, reveal it, put it into your hand, then shuffle.)" })).toMatch(/^native/);
     const p = parseEffectClause("return target Sliver to its owner's hand", "Creature");
     expect(p.atoms[0]).toMatchObject({ op: "bounce", targetType: "creature", restrictions: [{ kind: "subtype", subtype: "Sliver" }] });
-    expect(parseEffectClause("return target Wombat to its owner's hand", "Creature")?.confidence ?? "low").toBe("low");
+    // 2026-09-05 (sk120): Wombat IS a CR creature type, and the subtype target-noun peel now reduces any CR type — the
+    // uncurated-noun negative moves to a word outside the closed vocabulary.
+    expect(parseEffectClause("return target Blorb to its owner's hand", "Creature")?.confidence ?? "low").toBe("low");
   });
 });

@@ -579,6 +579,12 @@ export function addCounterClauseParser(clause) {
   // can never over-place. +1/+1 only (the enforced kind); anchored ^…$ — a rider → low → Arbiter.
   const lgSelfM = t.match(/^put that many lifegain \+1\/\+1 counters? on this creature$/);
   if (lgSelfM) return { op: "add-counter", counterType: "+1/+1", countContext: "lifegainAmount", target: "self" };
+  // The TARGETED twin (Treebeard, Gracious Host — SHELF-85 Phase 3, 2026-09-05): "put that many +1/+1 counters on target
+  // Halfling or Treefolk" reaches here as "… lifegain +1/+1 counters on target creature" — the detector inserts the sentinel,
+  // the subtype target-noun peel (parser.parseClauseToAtom) reduces the noun and appends the subtype restriction. The amount
+  // rides resolveScaledAmount's generic ctx[countContext] read; the routing pin keeps it on the lifegain event.
+  const lgTgtM = t.match(/^put that many lifegain \+1\/\+1 counters? on target creature$/);
+  if (lgTgtM) return { op: "add-counter", counterType: "+1/+1", countContext: "lifegainAmount", targetType: "creature" };
   // ===== DICE-ROLL multi-target (CR 603.7 reflexive payoff — Ancient Bronze Dragon) ===== "put X +1/+1
   // counters on each of up to two target creatures, where X is the result" — X is the just-rolled d20 value
   // (countFor diceResult, read off state.diceRoll, paired with a preceding roll-d20 by the parser's CREED

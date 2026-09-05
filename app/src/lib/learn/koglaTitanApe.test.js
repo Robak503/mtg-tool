@@ -77,9 +77,15 @@ describe("Kogla parse — the two new seams", () => {
   });
 
   it("CREED: non-curated subtype / mis-scoped / unscoped bounce & bare-creature destroy all stay LOW", () => {
-    expect(conf("Return target Dragon you control to its owner's hand")).toBe("low");        // non-curated subtype
-    expect(conf("Return target Human an opponent controls to its owner's hand")).toBe("low"); // opponent scope unmatched
-    expect(conf("Return target Human to its owner's hand")).toBe("low");                      // no control scope
+    // 2026-09-05 (sk120): "target Dragon" GRADUATED — the subtype target-noun peel (parser.parseClauseToAtom) reduces ANY CR
+    // creature type to "target creature" + a subtype restriction, so the bounce arm's curated list is no longer the fence;
+    // the closed CR vocabulary is. The CREED negative moves to a word that is not a creature type at all.
+    expect(conf("Return target Blorb you control to its owner's hand")).toBe("low");         // not a CR creature type
+    // The two Human forms GRADUATED with it (2026-09-05): the peel reduces the noun and the bounce arms already owned the
+    // opponent-scoped and unscoped "target creature" forms — each carries the subtype restriction beside its scope.
+    expect(conf("Return target Human an opponent controls to its owner's hand")).toBe("high"); // opponent scope + subtype
+    expect(conf("Return target Human to its owner's hand")).toBe("high");                      // unscoped + subtype
+    expect(conf("Return target Blorb an opponent controls to its owner's hand")).toBe("low");  // the fence is the vocabulary
     // ⚠️ THE FOURTH LINE HERE ASSERTED `destroy target creature defending player controls` STAYS LOW,
     // reason given: "creature not in destroy typelist". That was true of the PERMANENT lane's type map and
     // is no longer the whole story — DP-TGT taught parseCreatureTargetRestrictions the defending-player
@@ -125,9 +131,10 @@ describe("classifyCard — Kogla flips whole-card to native-mixed", () => {
       .toBe("native-activated");
   });
 
-  it("CREED: a non-curated-subtype bounce ability keeps the card body-only", () => {
-    // "Return target Dragon you control …" is not in the curated allowlist → the activated ability is unmodeled.
-    expect(classifyCard({ name: "Fake Drake Herder", type: "Creature — Human Wizard", oracle: "{1}{U}: Return target Dragon you control to its owner's hand.", mana: "{2}{U}", power: "2", toughness: "2" }))
+  it("CREED: a bounce ability naming a word that is no CR creature type keeps the card body-only", () => {
+    // 2026-09-05 (sk120): "target Dragon" graduated through the subtype target-noun peel (closed CR vocabulary); the negative
+    // moves to a word outside that vocabulary → the activated ability stays unmodeled.
+    expect(classifyCard({ name: "Fake Drake Herder", type: "Creature — Human Wizard", oracle: "{1}{U}: Return target Blorb you control to its owner's hand.", mana: "{2}{U}", power: "2", toughness: "2" }))
       .toBe("body-only");
   });
 });

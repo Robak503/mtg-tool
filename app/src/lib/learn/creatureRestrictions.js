@@ -245,7 +245,10 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       // `negate` flips it to "every creature that is NOT that subtype" (Breath Weapon's "each non-Dragon
       // creature"), mirroring massCreatureTargets' subtypeNegate so the same printed filter means the same
       // set on the damage side as on the destroy side.
-      const hasSub = new RegExp(`\\b${r.subtype}\\b`, "i").test(tl);
+      // `subtypes` (a UNION — "target Wolf or Werewolf", "target Halfling or Treefolk"; SHELF-85 Phase 3, 2026-09-05) is
+      // satisfied by ANY listed word; the single `subtype` form is unchanged.
+      const subs = Array.isArray(r.subtypes) && r.subtypes.length ? r.subtypes : [r.subtype];
+      const hasSub = subs.some((sub) => new RegExp(`\\b${sub}\\b`, "i").test(tl));
       if (r.negate ? hasSub : !hasSub) return false;
     } else if (r.kind === "supertype") {
       // SUPERTYPE-TARGET (CR 205.4) — "target legendary creature you control" (Mithril Coat / Mjölnir ETB

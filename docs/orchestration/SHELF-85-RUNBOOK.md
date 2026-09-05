@@ -78,7 +78,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shalai and Hallar Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Otharri Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
-| Test | Bumble Flower Combo | 89 | 0 | 1 | ✅ at 85 · Phase 3 candidate |
+| Test | Bumble Flower Combo | 90 | — | — | ✅ at the bar |
 | Test | Atraxa Superfriends | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 82 | 3 | 8 | ⬜ Phase 2 |
 
@@ -484,6 +484,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — **Phase 3** (§4.3 step 2 + step 3, Bumble → 90 AND a corpus vein) · Treebeard, Gracious Host ✅ +66 corpus (the SUBTYPE TARGET NOUN — "target Halfling or Treefolk", "Destroy target Elf": a closed-vocabulary peel to "target creature" + a union-aware subtype restriction the enumerator and resolver both enforce; plus the lifegain "that many" counters on a TARGET) · mutants 6/6 killed · suite 1570 files / 16393 tests · **Bumble Flower Combo 89 → 90 — AT THE BAR** (with Nekusar 90: two decks crossed 90 this Phase 3). Hulk stays 89 (L rows only); Wolverine 88 / cdh 88 / Cap 87 carry only composites, L, 🅿 or a subsystem — §4.3 step 5 closes them. The re-run one-line-away instrument shows ONE multi-deck S/M row left: Incubation Druid (Shalai + Zaxara) — next, then Phase 3 closes
 
 - 2026-09-05 — **Phase 3** (§4.3 step 2, Bumble → 90) · Field-Tested Frying Pan ✅ +1 corpus (the granted lifegain pump scaled by the life just gained — "+X/+X … where X is the amount of life you gained" → the lifegain-amount sentinel + countContext on the self pump) · mutants 5/5 killed · suite 1569 files / 16392 tests · **Bumble Flower Combo 88 → 89** (one row to the bar: Treebeard — the lifegain "that many" counters on a SUBTYPE target, "target Halfling or Treefolk"; the probe shows "target <Subtype>" is unmodeled as a target noun everywhere — even "Destroy target Elf" is Arbiter — so that is the next slice, sized M, a corpus vein)
 

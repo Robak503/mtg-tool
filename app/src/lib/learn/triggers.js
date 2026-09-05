@@ -5164,6 +5164,11 @@ export function detectTriggers(card) {
         // lifegain event so no other event/spell can ever read an absent referent (the counters-placed
         // discipline exactly). Whole-clause anchored — a rider leaves residue → no rewrite → LOW → Arbiter.
         effectClause = "put that many lifegain +1/+1 counters on this creature";
+      } else if (cls.event === "lifegain" && /^put that many \+1\/\+1 counters? on target /i.test(effectClause)) {
+        // ===== LIFEGAIN-SCALED TARGETED COUNTERS (SHELF-85 Phase 3, 2026-09-05 — Treebeard, Gracious Host "Whenever you
+        // gain life, put that many +1/+1 counters on target Halfling or Treefolk") ===== the TARGETED twin of the self
+        // accumulator above: the same sentinel, the target noun left for the clause parser (and its subtype peel).
+        effectClause = effectClause.replace(/^put that many \+1\/\+1 counters? on target /i, "put that many lifegain +1/+1 counters on target ");
       } else if (cls.event === "lifegain" && LIFEGAIN_SELF_PUMP_X_RE.test(effectClause)) {
         // ===== LIFEGAIN-AMOUNT SELF PUMP (Field-Tested Frying Pan, 2026-09-05) ===== see LIFEGAIN_SELF_PUMP_X_RE.
         effectClause = "this creature gets +x/+x until end of turn, where x is the lifegain amount";

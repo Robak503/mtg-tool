@@ -16,6 +16,40 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — PHASE 3 · TREEBEARD, GRACIOUS HOST — the SUBTYPE TARGET NOUN (a corpus vein) + lifegain counters on a target · **+66** · corpus 14,694 (42.9%) / 34,245
+> Suite **1570 files / 16393 tests** green; lint 0. Flip-diff **+66, zero LOST** (every unplanned gain audited whole-card — see below). **mutants 6/6 killed.**
+> · Phase 3 step 2 (Bumble Flower's last row to the bar) that turned out to be step 3 material: "Whenever you gain life, put
+>   that many +1/+1 counters on target Halfling or Treefolk." The probe showed the real blocker was not the amount — it was
+>   the NOUN. "target <Subtype>" was unmodeled as a target everywhere: "Destroy target Elf", "Tap target Merfolk", "target
+>   Wolf or Werewolf gets +2/+2" all sat on the Arbiter. 238 bundled cards print a bare creature-subtype noun as a target.
+> · THE PEEL (parser.parseClauseToAtom's fallback, beside the referent peel): every arm gets the clause whole first; only when
+>   all refuse does "[Tt]arget <Sub>[ or <Sub>][ creature][ you control]" reduce to "target creature[ you control]" and the
+>   arms get the reduced clause — honoured ONLY when the result is a PLAIN creature-targeting atom (no role / fighter /
+>   multi-target list), which then carries {kind:"subtype", subtypes:[…]} — a restriction creatureSatisfiesRestrictions
+>   enforces at BOTH the enumerator (targeting.expandAtoms) and the resolver, now union-aware ("A or B" = either). CLOSED
+>   vocabulary: both words must be CR creature types (CR_CREATURE_TYPES) — "target Saga" / "target Elf creature card" never
+>   peel (pinned). CR 205.3d.
+> · ⛔ THE WHOLE-CARD AUDIT OF 66 FLIPS: the snapshot flipped 66 cards, and the audit flagged Misery Charm — "Return target
+>   Cleric CARD from your graveyard to your hand" looked like a noun the peel could widen to "target creature card" (a
+>   Cleric-only return becoming any creature card: an FP). It was NOT the peel: that mode was already native through zones'
+>   SUBTYPE RETURN lane (its own closed-vocabulary card filter); the Charm's blocker had been mode 1, "Destroy target
+>   Cleric". The peel still gained the fence the audit asked for — the noun must END the target phrase, a lookahead refuses a
+>   card / spell / permanent / token tail — pinned on a noun the engine does not model ("Counter target Elf spell" parks).
+>   The other 65 were read one by one — every one is a battlefield creature target ("another target Vampire you control",
+>   "target Elf or Soldier creature", "up to one target Zombie you control", "Destroy target Wall") on an arm that was
+>   already native for the plain noun; the "another" forms keep their existing source-exclusion.
+> · THE COUNTERS: the lifegain "that many" accumulator knew only its SELF form (Sunbond); the detector now inserts the same
+>   sentinel on the targeted form and counters.js gains the targeted twin (countContext:"lifegainAmount", targetType:
+>   "creature" — resolveScaledAmount's generic ctx read, the existing routing pin).
+> · **Pins:** Treebeard native-trigger; "Destroy target Elf" / the "Wolf or Werewolf" pump / "Put two +1/+1 counters on target
+>   Halfling or Treefolk" native; "Destroy target Saga" and "target Elf creature card" parked. RUNTIME through the real
+>   lifegain trigger, flush and stack: the trigger offers the Halfling AND Treebeard itself (a Treefolk) and never the Bear;
+>   a gain of 2 puts two counters on the chosen Halfling. Mutants: the vocabulary gone, the union collapsed, the targeted
+>   arm gone, the rewrite gone, the sentence-initial "Target" refused, the plain-creature guard gone — mutants 6/6 killed.
+> · **Whole-card:** 66 flips audited one by one — every one a battlefield creature-subtype target on an already-native arm (Dwarven Lieutenant, Shining Armor, Swift Warden, Advocate of the Beast, Wirewood Lodge, Aeronaut Cavalry, Merfolk Sovereign, Crawl from the Cellar, Stromkirk Mentor, Private Eye, Kitsune Diviner, Patagia Tiger, Halo Hunter, Garrison Griffin, Sanguine Glorifier, Earth Kingdom Protectors, Nezumi Shadow-Watcher, Ezekiel Sims, Blinkmoth Nexus, Captain Storm, Brallin, Misery Charm, The Wasp, Cleansing Ray, Anointed Deacon, Arashin Foremost, Lady Spider, Vinebred Brawler, Poison-Blade Mentor, Daughter of the Deep, Nectar Faerie, Safewright Cavalry, Jade Bearer, Sygg, Deeproot Elite, Intrepid Provisioner, Tunnel, Treebeard, Guy in the Chair, Goblin Digging Team, Jade Guardian, Goblin Wizard, King Suleiman, Tributary Vaulter, Howling Moon, Pirate's Cutlass, Grassland Crusader, Chaos Charm, Griffin Canyon, Tivadar of Thorn, Stromkirk Bloodthief, Deepchannel Duelist, Dwarven Demolition Team, Rend Spirit, Goblin Masons, Majestic Heliopterus, Coastal Drake, Aquatic Incursion, Blaster Mage, One-Clown Band + 6 more in the diff file); zero LOST, zero retiered. Three CREED park guards GRADUATED and moved to a word outside the CR vocabulary (koglaTitanApe: 'target Dragon' / the two Human forms now HIGH with their restrictions; sliverBounce: 'target Wombat' — Wombat IS a CR type; parser.test's must-drop gate: Huatli's 'up to one target Dinosaur you control' moved out with a note). The first full suite showed those four (red); the rerun is the green of record
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Bumble Flower Combo 89 → 90 — AT THE BAR** (with Nekusar 90: two decks crossed 90 this Phase 3). Hulk stays 89 (L rows only); Wolverine 88 / cdh 88 / Cap 87 carry only composites, L, 🅿 or a subsystem — §4.3 step 5 closes them. The re-run one-line-away instrument shows ONE multi-deck S/M row left: Incubation Druid (Shalai + Zaxara) — next, then Phase 3 closes
+
 > ## 🎯 2026-09-05 (cron) — PHASE 3 · FIELD-TESTED FRYING PAN — the granted pump scaled by the life just gained · **+1** · corpus 14,628 (42.7%) / 34,245
 > Suite **1569 files / 16392 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
 > · Phase 3 step 2 — Bumble Flower Combo at 88, two rows from the bar; this is the first: the Equipment's ETB (Food + a

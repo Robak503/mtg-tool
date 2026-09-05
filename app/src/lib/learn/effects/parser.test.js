@@ -1113,7 +1113,9 @@ const MUST_DROP_TO_LOW = [
   // "you control" own-side form are now modeled (addCounterClauseParser); a creature-SUBTYPE filter OR the
   // OPPONENT-controlled form OR the multi-target "each of up to two" / "distribute" forms leave trailing text
   // the resolver can't enforce → must still drop (deferred to a later CNT-2 sub-slice / the Arbiter). ──
-  "Put a +1/+1 counter on up to one target Dinosaur you control.",          // Huatli — creature-subtype filter
+  // NOTE: "Put a +1/+1 counter on up to one target Dinosaur you control." (Huatli) moved OUT of this drop-to-low gate on
+  // 2026-09-05 (sk120) — the subtype target-noun peel now reduces "target Dinosaur" to "target creature" + a subtype
+  // restriction the enumerator and resolver enforce (closed CR vocabulary). Positive pins: treebeard.test.js.
   "Put a +1/+1 counter on up to one target creature an opponent controls.", // opponent-controlled filter
   // NOTE: "Put a +1/+1 counter on each of up to two target creatures" is now NATIVE (MULTI-COUNT slice C — real
   // runtime via targeting.expandAtoms subset enumeration + applyAddCounter's per-target loop). Pinned in multiCountTarget.test.js.

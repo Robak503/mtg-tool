@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **PHASE 3 · Treebeard + the SUBTYPE TARGET NOUN (+66)** · suite **1570 files / 16393 tests** green · corpus 14,694 (42.9%) / 34,245 · flip-diff +66 / 0 lost · mutants 6/6 killed
+
+> "Destroy target Elf", "Tap target Merfolk", "target Wolf or Werewolf gets +2/+2" — a bare creature-subtype noun as a target now peels to "target creature" with a subtype restriction the engine enforces at the offer and at resolution (closed CR vocabulary). Treebeard's lifegain counters ride it. **Bumble Flower Combo 89 → 90 — AT THE BAR** (with Nekusar 90: two decks crossed 90 this Phase 3). Hulk stays 89 (L rows only); Wolverine 88 / cdh 88 / Cap 87 carry only composites, L, 🅿 or a subsystem — §4.3 step 5 closes them. The re-run one-line-away instrument shows ONE multi-deck S/M row left: Incubation Druid (Shalai + Zaxara) — next, then Phase 3 closes
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **PHASE 3 · Field-Tested Frying Pan (+1)** · suite **1569 files / 16392 tests** green · corpus 14,628 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 5/5 killed
 
 > A lifegain trigger's pump can now scale by the life just gained — the amount the counters and drain payoffs already read, now on the self pump. **Bumble Flower Combo 88 → 89** (one row to the bar: Treebeard — the lifegain "that many" counters on a SUBTYPE target, "target Halfling or Treefolk"; the probe shows "target <Subtype>" is unmodeled as a target noun everywhere — even "Destroy target Elf" is Arbiter — so that is the next slice, sized M, a corpus vein)
