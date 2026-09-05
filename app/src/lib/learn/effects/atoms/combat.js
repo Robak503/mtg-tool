@@ -1709,6 +1709,11 @@ export function combatKeywordClauseParser(clause) {
       const kw = cw[2].replace(/\b[a-z]/g, (ch) => ch.toUpperCase());
       return { op: "become-color", targetType: "creature", colors: [color], grantKeywords: [kw] };
     }
+    // BECOMES COLORLESS (residue grind RG-6, 2026-09-05 — Raging Spirit / Ancient Kavu "{1}: This creature becomes colorless
+    // until end of turn"): the same layer-5 setColor write with an EMPTY colour set (CR 105.2c — colourless is "no colours",
+    // so the animate/colour-change op already expresses it). Self and targeted forms; the duration is the same end-of-turn.
+    if (/^(?:this creature|it) becomes colorless until end of turn$/.test(t)) return { op: "become-color", target: "self", colors: [] };
+    if (/^target creature becomes colorless until end of turn$/.test(t)) return { op: "become-color", targetType: "creature", colors: [] };
     const cm = t.match(/^(target creature|that creature) becomes (white|blue|black|red|green) until end of turn$/);
     if (cm) {
       const color = { white: "W", blue: "U", black: "B", red: "R", green: "G" }[cm[2]];

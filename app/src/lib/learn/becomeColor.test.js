@@ -88,8 +88,9 @@ describe("parse", () => {
     expect(atomsOf("Target creature becomes blue in addition to its other colors until end of turn.")).toEqual([]);
   });
 
-  it("⛔ a non-colour quality is not a colour change", () => {
-    expect(atomsOf("Target creature becomes colorless until end of turn.")).toEqual([]);
+  it("⛔ a non-colour quality is not a colour change (colourless GRADUATED 2026-09-05 — RG-6: the empty colour set IS a colour change, CR 105.2c; pinned in becomesColorless.test.js)", () => {
+    expect(atomsOf("Target creature becomes colorless until end of turn.")).toEqual([{ op: "become-color", targetType: "creature", colors: [] }]);
+    expect(atomsOf("Target creature becomes an artifact until end of turn.")).toEqual([]); // a TYPE, not a colour — still refused here
   });
 });
 

@@ -16,6 +16,21 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — RESIDUE GRIND RG-6 · BECOMES COLORLESS (Raging Spirit / Ancient Kavu / Blazing Blade Askari) · **+3** · corpus 14,714 (43.0%) / 34,245
+> Suite **1577 files / 16407 tests** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 2/2 killed.**
+> · Scoped and BANKED before this one (the triage ledger, per RESIDUE-GRIND-RUNBOOK §3.5): the tapped Powerstone ETB (the
+>   Powerstone token is unmodeled ON PURPOSE — its "can't be spent to cast a nonartifact spell" mana is the QUARTET's
+>   restricted-spend subsystem, not a residue slice); "sacrifice it unless {G} was spent to cast it" (a new stamp threaded
+>   from the dispatcher's payment plan onto the entering permanent — a new value path between objects); "{C}: becomes the
+>   color of your choice" (a choice — the choice-eval subsystem). Three banked in a row; the fourth is a slice:
+> · "{2}: This creature becomes colorless until end of turn." — CR 105.2c: colourless is the EMPTY colour set, and the
+>   become-color atom (a layer-5 setColor write until end of turn) already expresses any colour set; only the "colorless"
+>   spelling had no arm. Two arms (self + targeted), no new op, no new gate.
+> · **Pins:** the carriers native. RUNTIME through the real activation and stack: a red Kavu reads colourless after the ability
+>   resolves. Mutants: the self arm gone, the colour set not empty — mutants 2/2 killed.
+> · **Whole-card:** flip-diff exactly the three carriers (Raging Spirit, Ancient Kavu, Blazing Blade Askari — its flanking line was already modeled); zero LOST, zero retiered. becomeColor.test.js's CREED negative ('colorless is not a colour change') GRADUATED — the first suite showed it red; the negative moved to a TYPE quality ('becomes an artifact'), and the rerun is the green of record
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 > ## 🎯 2026-09-05 (cron) — RESIDUE GRIND RG-5 · FIST OF SUNS (Fist of Suns / Jodah, Archmage Eternal) · **+3** · corpus 14,711 (43.0%) / 34,245
 > Suite **1576 files / 16405 tests** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
 > · The census's next buildable family: "You may pay {W}{U}{B}{R}{G} rather than pay the mana cost for spells you cast." — a

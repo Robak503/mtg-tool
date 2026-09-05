@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-05 (cron) — **RESIDUE GRIND RG-6 · becomes colorless (+3)** · suite **1577 files / 16407 tests** green · corpus 14,714 (43.0%) / 34,245 · flip-diff +3 / 0 lost · mutants 2/2 killed
+
+> **Runnable next:** the "discard a card at random" COST — one mechanism (a seeded random pick at payment) that pays across the census's additional-cost row (Sonic Burst family, 3 sole), the activated-cost rows ("{C}, discard a card at random: …" — Frenetic Ogre, Ogre Shaman, Pyromania, Stormbind, Amok, Coral Helm… ~10 sole across shapes) and the ETB "sacrifice it unless you discard a card at random" (3 sole). Banked this pass: the Powerstone token (the quartet's restricted-spend lane), "unless {G} was spent" (a new payment stamp), "the color of your choice" (a choice).
+> Raging Spirit and Ancient Kavu go colourless for {2} — the colour-change atom with an empty set.
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **RESIDUE GRIND RG-5 · Fist of Suns (+3)** · suite **1576 files / 16405 tests** green · corpus 14,711 (43.0%) / 34,245 · flip-diff +3 / 0 lost · mutants 5/5 killed
 
 > **Runnable next:** the residue grind continues from the 2026-09-05 census — the remaining 3-sole rows with existing machinery ("sacrifice it unless {C} was spent to cast it" ETB · the tapped Powerstone ETB · "{C}: this creature becomes the color of your choice") — or re-run the census (five slices have landed since it was taken).
