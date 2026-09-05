@@ -123,7 +123,7 @@ describe("EQ-2 — CREED FP guards: near-misses stay body-only", () => {
     // cannot filter hosts for must park the whole composite. Re-pointed at a subject that still has no
     // predicate at all, never softened.
     expect(classifyCard({ ...WURMWEAVER_COIL, name: "Wurmweaver Probe",
-      oracle: WURMWEAVER_COIL.oracle.replace("Enchant green creature", "Enchant creature with another Aura attached to it") })).toBe("body-only");
+      oracle: WURMWEAVER_COIL.oracle.replace("Enchant green creature", "Enchant creature with a shield counter on it") })).toBe("body-only"); // (2026-09-05: the another-Aura subject graduated with Daybreak Coronet)
   });
   it("a self-sac that would DROP an LTB trigger parks — Krovod Haunch ('put into a graveyard …')", () => {
     // sacrificeDropsTrigger flags the LTB trigger → the self-sac ability is unmodeled → the whole card parks.

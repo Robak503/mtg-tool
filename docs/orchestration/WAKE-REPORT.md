@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · L6: Daybreak Coronet (+1)** · suite **1560 files / 16,364** green · corpus 14,618 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 2/2 killed
+
+> An Enchant line can now demand a host that already wears an Aura — the existing enchanted restriction, read at the cast. Light-Paws 79 → **80** (80/100; 5 to the bar). Next: Sentinel's Mark (the Addendum main-phase look-back — the stamp, the reader and the Aura resolver are built; the CR 207.2c label strip in the Aura walks is the last piece). After it every remaining Light-Paws row sizes L (the commander's conditional Aura tutor-attached, With Great Power's per-attachment pump + redirection, Umbra Mystic's group umbra armor, Celestial Mantle, Mantle of the Ancients, the rest of L6).
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · L5: Enter the Avatar State (+1)** · suite **1559 files (1555 green + the 4 graduated-guard files rerun green)** green · corpus 14,618 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 5/5 killed
 
 > A combat trick can now add a creature subtype beside its keywords — a layer-4 union until end of turn. Light-Paws 78 → **79** on this slice alone (the measure in this run read 80 because the Daybreak Coronet edit was already in the tree; Coronet's own commit follows). Next: Daybreak Coronet (S), then Sentinel's Mark (M).

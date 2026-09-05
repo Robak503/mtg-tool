@@ -6825,6 +6825,11 @@ function creatureEnchantRestrictions(card) {
   const subject = auraEnchantSubject(card);
   if (subject === "creature") return [];
   if (subject === "creature you control") return [{ kind: "controller", who: "you" }];
+  // WITH ANOTHER AURA ATTACHED (SHELF-85 · Light-Paws L6 Daybreak Coronet, 2026-09-05 — "Enchant creature with another Aura
+  // attached to it"): the existing `enchanted` restriction kind (an Aura attached, whoever controls it — the Winds of Rath
+  // predicate), which the cast-target enumeration already honours. "Another" is automatic at the cast: this Aura is not yet
+  // attached to anything when its host is chosen (CR 303.4 / 601.2c).
+  if (subject === "creature with another aura attached to it") return [{ kind: "enchanted", value: true }];
   // QUALIFIED SUBJECTS (CR 303.4a) — three more restrictions, admitted because each maps EXACTLY onto a
   // restriction creatureSatisfiesRestrictions already enforces, layer-aware and fail-closed. No new
   // targeting machinery: this is wiring, which is why it can't introduce a wrongly-legal target.

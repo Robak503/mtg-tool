@@ -16,6 +16,20 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · L6: DAYBREAK CORONET — the with-another-Aura Enchant restriction · **+1** · corpus 14,618 (42.7%) / 34,245
+> Suite **1560 files / 16,364** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 2/2 killed.**
+> · "Enchant creature with another Aura attached to it / Enchanted creature gets +3/+3 and has first strike, vigilance, and
+>   lifelink." The bonus parsed all along; the ENCHANT line's subject had no restriction reading, so the host spec was null
+>   and the cast lane could enumerate no host — the whole card parked on one phrase. creatureEnchantRestrictions gains the
+>   phrase → the existing `enchanted` restriction kind (an Aura attached, whoever controls it — the predicate Winds of
+>   Rath, Greater Auramancy and Karametra's Blessing read), which the cast-target enumeration already honours.
+> · **Pins:** the host spec (creature + the enchanted restriction); native-aura. RUNTIME through the real offer: a bare
+>   creature of yours, a bare creature of theirs and an Aura-wearing creature of theirs on the board — only the wearer is
+>   offered as a host. Mutants: the phrase gone, the phrase read as a bare creature — mutants 2/2 killed.
+> · **Whole-card:** no unplanned gains. Five CREED park guards graduated (they had pinned this exact subject as inexpressible): their pins moved to 'creature with a shield counter on it' — a counter kind no restriction reads — so the negatives stay real.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Light-Paws 79 → **80** (80/100; 5 to the bar). Next: Sentinel's Mark (the Addendum main-phase look-back — the stamp, the reader and the Aura resolver are built; the CR 207.2c label strip in the Aura walks is the last piece). After it every remaining Light-Paws row sizes L (the commander's conditional Aura tutor-attached, With Great Power's per-attachment pump + redirection, Umbra Mystic's group umbra armor, Celestial Mantle, Mantle of the Ancients, the rest of L6).
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · L5: ENTER THE AVATAR STATE — the becomes-a-subtype-and-gains pump · **+1** · corpus 14,618 (42.7%) / 34,245
 > Suite **1559 files (1555 green + the 4 graduated-guard files rerun green)** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
 > · "Until end of turn, target creature you control becomes an Avatar in addition to its other types and gains flying, first

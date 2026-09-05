@@ -61,8 +61,9 @@ describe("the subject maps onto an already-enforced restriction", () => {
     // restriction (CD-1) once the evaluator learned OR. Each is now pinned POSITIVELY in its own file.
     // What remains here is still genuinely inexpressible: no predicate exists for either.
     // "modified creature" GRADUATED (SH20, 2026-08-16 — Lion Umbra; it maps onto the layer-aware
-    // isModifiedPermanent predicate now). "creature with another Aura attached to it" still has no predicate.
-    for (const subject of ["creature with another Aura attached to it"]) {
+    // isModifiedPermanent predicate now). "creature with another Aura attached to it" GRADUATED too (SHELF-85 · Daybreak
+    // Coronet, 2026-09-05 — it maps onto the `enchanted` restriction kind). A counter KIND no restriction reads keeps the pin.
+    for (const subject of ["creature with a shield counter on it"]) {
       expect(auraEnchantRestrictions({ name: "X", type: "Enchantment — Aura", oracle: `Enchant ${subject}\nEnchanted creature gets +1/+1.` })).toBeNull();
     }
   });
