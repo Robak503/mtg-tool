@@ -1172,8 +1172,17 @@ export function entersWithMetricCounters(card) {
  * and Metallic Mimic's "of the chosen type" leave residue → unmatched → body-only (CREED).
  *   { subtype: "Warrior"|null, fixed: 1|0, metric: "sourcePower"|"sourceToughness"|null }
  */
+// PLANESWALKER PRINTING (SHELF-85 · Atraxa A2 — Oath of Gideon, 2026-09-05): "Each planeswalker you control enters with an
+// additional loyalty counter on it." — the family's one non-creature carrier. Returned with an explicit subject + counter
+// kind; the creature shape carries neither (its descriptor is byte-identical, so every existing consumer and pin is
+// untouched) and the entry site treats an absent subject as the creature/+1/+1 default. Exactly this sentence.
+const PW_ENTERS_WITH_LOYALTY_RE = /^each planeswalker you control enters with an additional loyalty counter on it\.?\s*$/i;
 export function othersEnterWithCounters(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  for (const line of oracle.split("\n")) {
+    const pw = line.trim().match(PW_ENTERS_WITH_LOYALTY_RE);
+    if (pw) return { subtype: null, fixed: 1, metric: null, subject: "planeswalker", counter: "loyalty" };
+  }
   const full = String(card?.name || "");
   const short = full.includes(",") ? full.split(",")[0].trim() : full;
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · A2: Oath of Gideon (+1)** · suite **1530 files / 16,266** green · corpus 14,542 / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
+
+> The others-enter-with static learned its planeswalker printing: every walker you control enters with one more loyalty counter, added before a doubler as the controller would order it. Atraxa 67 → **68** (17 to the bar)
+> **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · A2: Sphere of Safety (+1)** · suite **1529 files / 16,261** green · corpus 14,541 / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
 
 > The attack tax learned a COUNTED amount: {X} = the defender's enchantments, resolved live at every declaration through the shared count source; restriction and payment still ship together. Atraxa 66 → **67** (18 to the bar); one suite guard graduated — attackTaxPlaneswalkers had pinned Sphere of Safety as refused by name (the life-payment and domain refusals stay pinned)

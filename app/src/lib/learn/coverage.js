@@ -3483,7 +3483,7 @@ export function classifyCard(card) {
   // OTHERS-ENTER-WITH (SHELF-85 H8 — Arwen / Renata / Bramblewood Paragon): stripped ONLY when the reader the resolver
   // honours (othersEnterWithCounters) confirms the whole line — the same single-source-of-truth gate as every branch above.
   const ewOracle = othersEnterWithCounters(card)
-    ? choiceEnterOracle.replace(/^[ \t]*each other [^.\n]*creature you control enters with (?:an additional \+1\/\+1 counter|a number of additional \+1\/\+1 counters) on it[^.\n]*\.?[ \t]*$/im, " ")
+    ? choiceEnterOracle.replace(/(?:^[ \t]*each other [^.\n]*creature you control enters with (?:an additional \+1\/\+1 counter|a number of additional \+1\/\+1 counters) on it[^.\n]*\.?[ \t]*$|^[ \t]*each planeswalker you control enters with an additional loyalty counter on it\.?[ \t]*$)/im, " ")
     : choiceEnterOracle;
   // ENTERS-TAPPED: actionDispatcher handles unconditional "enters tapped" via entersTapped() — credit it
   // here by stripping that sentence from the oracle so it doesn't block coverage on cards whose remaining

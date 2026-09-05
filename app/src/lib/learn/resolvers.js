@@ -194,10 +194,30 @@ function othersEnterWithCountersFor(state, controller, card) {
     if (!p) continue;
     const d = othersEnterWithCounters(p.card);
     if (!d) continue;
+    if (d.subject === "planeswalker") continue; // Oath of Gideon's loyalty shape — a creature never reads it (othersEnterWithLoyaltyFor)
     if (d.subtype && !new RegExp(`\\b${d.subtype}\\b`).test(tl)) continue;
     const metric = d.metric === "sourceToughness" ? permanentToughness(state, p.id)
       : d.metric === "sourcePower" ? permanentPower(state, p.id) : 0;
     n += Math.max(0, d.fixed + metric);
+  }
+  return n;
+}
+
+/**
+ * The extra LOYALTY counters OTHER permanents' "each planeswalker you control enters with an additional loyalty counter"
+ * statics (Oath of Gideon — SHELF-85 · Atraxa A2, 2026-09-05) add to a planeswalker as it enters. Read through the SAME
+ * reader coverage credits (othersEnterWithCounters, subject "planeswalker"); the creature/+1/+1 shape is skipped here
+ * exactly as the loyalty shape is skipped in othersEnterWithCountersFor. Two Oaths stack (each is its own replacement).
+ */
+function othersEnterWithLoyaltyFor(state, controller, card) {
+  if (!card) return 0;
+  let n = 0;
+  for (const p of state?.players?.[controller]?.battlefield || []) {
+    if (!p) continue;
+    const d = othersEnterWithCounters(p.card);
+    if (!d) continue;
+    if (d.subject !== "planeswalker") continue;
+    n += Math.max(0, d.fixed);
   }
   return n;
 }
@@ -326,7 +346,9 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // controller. A "+1/+1"-only doubler is skipped for loyalty/fade; Doubling Season (any counter) doubles them.
   if (castsAsPlaneswalker(card)) {
     const loy = startingLoyalty(card);
-    if (loy != null) perm.counters = { ...perm.counters, loyalty: applyCounterDoubling(state, controller, "loyalty", loy) };
+    // OTHERS-ENTER-WITH LOYALTY (Oath of Gideon): the extra counter joins the printed starting loyalty BEFORE the doubler —
+    // both are enters-with replacements and the controller orders them (CR 616.1), so Doubling Season gives 2 × (N + 1).
+    if (loy != null) perm.counters = { ...perm.counters, loyalty: applyCounterDoubling(state, controller, "loyalty", loy + othersEnterWithLoyaltyFor(state, controller, card)) };
   }
   // CLONE CONDITIONAL ENTERS-WITH-COUNTER (Spark Double, CR 707.9a + 614.1c + 122.6a) — an ADDITIONAL counter
   // the clone-resolution path resolved against the copy's type (+1/+1 for a creature copy, loyalty for a

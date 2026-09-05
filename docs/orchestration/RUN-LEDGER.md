@@ -16,6 +16,24 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · A2: OATH OF GIDEON — the extra loyalty on entry · **+1** · corpus 14,542 / 34,245
+> Suite **1530 files / 16,266** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · "When Oath of Gideon enters, create two 1/1 white Kor Ally creature tokens. / Each planeswalker you control enters
+>   with an additional loyalty counter on it." The ETB was native; the static is the OTHERS-ENTER-WITH family (Renata /
+>   Arwen / Bramblewood Paragon — "each other <Subtype> creature you control enters with an additional +1/+1 counter")
+>   in its one planeswalker printing. The reader (othersEnterWithCounters — the single source the entry site honours
+>   and coverage strips on) now returns a subject and a counter kind: the creature/+1/+1 shape is byte-identical
+>   (defaults), and the planeswalker/loyalty shape is admitted exactly as printed. At the entry site the extra
+>   loyalty is added to the printed starting loyalty BEFORE the counter doubler runs — with Doubling Season out the
+>   controller orders the replacements to get 2 × (N + 1), the ruling — and the creature path is untouched.
+> · **Pins:** the descriptor for both shapes, a nonsense counter word refused; Oath native; RUNTIME — a 4-loyalty walker
+>   enters with 5 under Oath, 4 without, 10 under Oath + Doubling Season; two Oaths give 6; a creature entering under
+>   Oath gets nothing; a walker entering under Renata gets nothing. Mutants: the planeswalker shape gone, the loyalty
+>   added after the doubler (9 instead of 10), the subject gate dropped (a creature under Oath gets a loyalty counter),
+>   the coverage strip not widened — mutants 4/4 killed.
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Atraxa 67 → **68** (17 to the bar)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · A2: SPHERE OF SAFETY — the counted attack tax · **+1** · corpus 14,541 / 34,245
 > Suite **1529 files / 16,261** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · "Creatures can't attack you or planeswalkers you control unless their controller pays {X} for each of those
