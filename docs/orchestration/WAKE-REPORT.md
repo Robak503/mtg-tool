@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · L4: Face of Divinity + Shardmage's Rescue (+2)** · suite **1557 files / 16,356** green · corpus 14,612 (42.7%) / 34,245 · flip-diff +2 / 0 lost · mutants 6/6 killed
+
+> An Aura's bonus line can now sit under a condition about the Aura itself — another Aura on the host, or this Aura having entered this turn — as a source-aware layer gate. Light-Paws 74 → **76** (76/100; 9 to the bar). Next: Shielded by Faith + Brilliant Wings in ONE slice (attach-on-enter Auras — the source Aura moves onto the triggering creature).
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · L5: Karametra's Blessing (+1)** · suite **1556 files / 16,353** green · corpus 14,610 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 5/5 killed
 
 > A bound rider can now grant keywords under an "enchanted creature or enchantment creature" condition — the Aura-attached predicate or the layer-4 types, read as the spell resolves. Light-Paws 73 → **74** (74/100; 11 to the bar). Next: Face of Divinity + Shardmage's Rescue in ONE slice (the conditional attached-bonus gate — the during-your-turn arm's shape with two new gate kinds).

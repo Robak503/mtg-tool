@@ -16,6 +16,27 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · L4: FACE OF DIVINITY + SHARDMAGE'S RESCUE — the conditional attached bonus · **+2** · corpus 14,612 (42.7%) / 34,245
+> Suite **1557 files / 16,356** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 6/6 killed.**
+> · "As long as another Aura is attached to enchanted creature, it has first strike and lifelink." / "As long as this Aura
+>   entered this turn, enchanted creature has hexproof." The during-your-turn attachment bonus had already shown the shape
+>   (strip a condition, run the rest through the existing attached-clause parser, stamp a gate the layer engine re-evaluates
+>   every derive pass); these two conditions differ in needing the SOURCE Aura — to exclude itself from "another", to read
+>   its own entry turn. The attached-bonus parse is per CARD and memoized, so no id can live in it: the gate carries
+>   `needsSource`, and layers.staticEffectsOf stamps `sourcePermanentId` where the bonus is fixed to its host. Two gate
+>   kinds in gateMet: another Aura on the host (the isEnchanted scan minus the source) and the source's enteredOnTurn
+>   against the live turn (an unstamped source reads closed — a safe FN). Keyword grants only, all-or-nothing (a P/T form
+>   under either condition would need the gated P/T twin and is refused). The classifier's Aura residue walk gained the
+>   matching allowance, vouched for by the all-or-nothing whole-card parse.
+> · **Pins:** both parses (the plain pump + gated keyword grants, the gate kinds); both cards native. RUNTIME through the
+>   layer engine: Face of Divinity alone → 4/4 and NO first strike; with a second Aura on the host → 5/5 with first strike
+>   + lifelink; Shardmage's Rescue that entered THIS turn → hexproof; the same Aura from an earlier turn → +1/+1 only.
+>   Mutants: each arm gone, the gate counting its own Aura, the gate ignoring the turn, the source stamp dropped, the
+>   classifier allowance dropped — mutants 6/6 killed.
+> · **Whole-card:** no unplanned gains — both conditional lines print on these two cards alone.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Light-Paws 74 → **76** (76/100; 9 to the bar). Next: Shielded by Faith + Brilliant Wings in ONE slice (attach-on-enter Auras — the source Aura moves onto the triggering creature).
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · L5: KARAMETRA'S BLESSING — the enchanted-or-enchantment-creature rider · **+1** · corpus 14,610 (42.7%) / 34,245
 > Suite **1556 files / 16,353** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
 > · "Target creature gets +2/+2 until end of turn. If it's an enchanted creature or enchantment creature, it also gains

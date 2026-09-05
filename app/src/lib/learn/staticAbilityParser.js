@@ -6109,6 +6109,26 @@ export function parseAttachedBonus(card, subjectOverride) {
     // ⛔ ALL-OR-NOTHING (CREED): every inner descriptor must be one of those two known shapes, else NOTHING
     // is emitted and the clause stays residue → body-only. A form this can't gate honestly must not be
     // silently ungated.
+    // CONDITIONAL ATTACHED BONUS (SHELF-85 · Light-Paws L4 Face of Divinity / Shardmage's Rescue, 2026-09-05) — the
+    // during-your-turn arm's shape (below) with two SOURCE-aware gates: "As long as another Aura is attached to enchanted
+    // creature, it has first strike and lifelink." and "As long as this Aura entered this turn, enchanted creature has
+    // hexproof." Strip the condition, run the rest through the EXISTING attached-clause parser, stamp the gate. Both gates
+    // need the SOURCE Aura — to exclude itself from "another Aura", to read its own enteredOnTurn — so `needsSource` tells
+    // layers.staticEffectsOf to stamp the permanent id where the bonus is fixed to its host (this parse is per CARD and
+    // memoized, so no id can live here). KEYWORD grants only, all-or-nothing (CREED): a P/T form under either condition
+    // would need the gated P/T twin and is refused until it is built.
+    const faceM = subject === "enchanted" ? c.match(/^as long as another aura is attached to enchanted creature, it (has .+)$/) : null;
+    const rescueM = subject === "enchanted" ? c.match(/^as long as this aura entered this turn, (enchanted creature has .+)$/) : null;
+    const condAttached = faceM ? { rest: `enchanted creature ${faceM[1]}`, gate: { kind: "hostOtherAuraAttached", needsSource: true } }
+      : rescueM ? { rest: rescueM[1], gate: { kind: "auraEnteredThisTurn", needsSource: true } } : null;
+    if (condAttached) {
+      const inner = parseAttachedClause(condAttached.rest, subject, noun);
+      const gateable = inner && inner.length && inner.every((d) => d?.layer === 6 && d?.op?.layerOp === "addKeyword" && !d.op.gate);
+      if (!gateable) { if (slot) slot[slotKey] = []; return []; }
+      for (const d of inner) out.push({ ...d, op: { ...d.op, gate: { ...condAttached.gate } } });
+      saw = true;
+      continue;
+    }
     const dtAttached = /^during your turn, /i.test(c) ? c.replace(/^during your turn,\s*/i, "") : null;
     if (dtAttached && dtAttached.startsWith(`${subject} ${noun}`)) {
       const inner = parseAttachedClause(dtAttached, subject, noun);
@@ -6719,6 +6739,10 @@ function auraTouchClausesAllModeled(card) {
       && _auraOwnActivatedValidator && _auraOwnActivatedValidator(clause)) continue;
     const noun = attachedBodyNoun(card, "enchanted");          // AN-1 — the host noun this Aura's body uses
     if (!touchesAttachedCreature(c, "enchanted", noun)) continue; // non-touch residue → auraResidueClauses catches it
+    // CONDITIONAL ATTACHED BONUS (Face of Divinity / Shardmage's Rescue, 2026-09-05): the two gated shapes parseAttachedBonus
+    // owns. The whole-card parse is all-or-nothing, so a non-empty bonus VOUCHES for this clause having parsed under its gate.
+    if ((/^as long as another aura is attached to enchanted creature, it has /.test(c) || /^as long as this aura entered this turn, enchanted creature has /.test(c))
+      && parseAttachedBonus(card, "enchanted").length) continue;
     if (!(c.startsWith(`enchanted ${noun}`) && parseAttachedClause(c, "enchanted", noun))) return false;
   }
   return true;

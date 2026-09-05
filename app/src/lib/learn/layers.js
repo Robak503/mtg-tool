@@ -472,6 +472,27 @@ function gateMet(state, perm, gate) {
     }
     return false;
   }
+  // HOST-OTHER-AURA gate (SHELF-85 · Light-Paws L4 Face of Divinity, 2026-09-05 — "As long as ANOTHER Aura is attached to
+  // enchanted creature, it has first strike and lifelink"): the isEnchanted scan with the gate's own SOURCE Aura excluded
+  // (sourcePermanentId, stamped in staticEffectsOf where the bonus is fixed to its host). `perm` is the HOST. A pure
+  // battlefield scan — no derive, no recursion.
+  if (gate.kind === "hostOtherAuraAttached") {
+    for (const pid of Object.keys(state?.players || {})) {
+      const bf = state.players[pid]?.battlefield || [];
+      if (bf.some(p => p.attachedTo === perm.id && p.id !== gate.sourcePermanentId && /\baura\b/i.test(p.card?.type || ""))) return true;
+    }
+    return false;
+  }
+  // AURA-ENTERED-THIS-TURN gate (Shardmage's Rescue — "As long as this Aura entered this turn, enchanted creature has
+  // hexproof"): the SOURCE Aura's own enteredOnTurn stamp against the live turn (CR 611.3a — re-read every derive pass, so
+  // the grant drops at the next turn's first derive). An unstamped source (a legacy state) reads closed — a safe FN.
+  if (gate.kind === "auraEnteredThisTurn") {
+    for (const pid of Object.keys(state?.players || {})) {
+      const src = (state.players[pid]?.battlefield || []).find(p => p.id === gate.sourcePermanentId);
+      if (src) return src.enteredOnTurn != null && src.enteredOnTurn === state.turn;
+    }
+    return false;
+  }
   // CONTROL-YOUR-COMMANDER gate (LIEUTENANT cycle — Thunderfoot Baloth "As long as you control your
   // commander, this creature gets +2/+2 and other creatures you control get +2/+2 and have trample"; CR 903):
   // open exactly while the gate subject's CONTROLLER has any permanent flagged card.isCommander on their
@@ -748,7 +769,11 @@ export function staticEffectsOf(state, permanent) {
     // fixing, it needs a SHALLOW host-type read off state.continuousEffects (crew stores a layer-4 type add
     // scoped to the vehicle — see actionDispatcher.applyCrewVehicle), never the derive.
     for (const e of parseAttachedBonus(card)) {
-      partials.push({ ...e, affects: { mode: "fixed", permanentIds: [permanent.attachedTo] } });
+      // SOURCE-AWARE GATES (Face of Divinity / Shardmage's Rescue, 2026-09-05): the attached-bonus parse is per CARD, so a
+      // gate that must know WHICH Aura it rides (to exclude itself, to read its own entry turn) is stamped with the
+      // permanent id here, where the bonus is fixed to its host. Every other bonus passes through unchanged.
+      const op = e.op?.gate?.needsSource ? { ...e.op, gate: { ...e.op.gate, sourcePermanentId: permanent.id } } : e.op;
+      partials.push({ ...e, op, affects: { mode: "fixed", permanentIds: [permanent.attachedTo] } });
     }
     // BESTOW (CR 702.103e): a bestow permanent is an AURA — NOT a creature — while it's attached. Emit a
     // layer-4 self removal of the Creature type so combat / the lethal-damage SBA / "creatures you control"

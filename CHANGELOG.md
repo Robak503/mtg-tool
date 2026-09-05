@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Face of Divinity / Shardmage's Rescue** — Aura bonuses that switch on with a second Aura, or only on the turn the Aura arrived
 - **Karametra's Blessing** — +2/+2, and hexproof + indestructible when the target wears an Aura or is an enchantment creature
 - **Drannith Magistrate** — your opponents may cast only from their hands (their commanders included)
 - **Deafening Silence** — one noncreature spell per player per turn, creatures unaffected
