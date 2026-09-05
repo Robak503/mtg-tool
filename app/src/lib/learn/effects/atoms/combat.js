@@ -2865,6 +2865,21 @@ function applyPreventNextDamage(state, atom, ctx) {
   const entries = [];
   if (atom.who === "you") {
     if (next.players?.[ctx.controller]) entries.push({ targetKind: "player", targetId: ctx.controller });
+  } else if (atom.group) {
+    // MUTATIONAL ADVANTAGE (SHELF-85 · Atraxa A3, 2026-09-05) — a GROUP shield: "prevent all damage that would be dealt
+    // to those permanents this turn", where "those permanents" is the counter-bearing permanents you control, read at
+    // resolution off the live counter bags (CR 611.2c — the same read the counter-filtered group grant makes). Only a
+    // creature or a planeswalker can be dealt damage (CR 120.1), so only they receive entries — an entry on an artifact
+    // or a land would be vacuous, never consumed. The kind is what the damage paths consume by: a creature's entry
+    // reads "creature", a non-creature walker's reads "planeswalker" (spellEffects' planeswalker paths).
+    const bf = atom.group.scope === "permanentsYouControl" ? (next.players?.[ctx.controller]?.battlefield || []) : [];
+    for (const p of bf) {
+      const rc = atom.group.requiresCounter;
+      const hasCounter = rc === "any" ? Object.values(p.counters || {}).some((n) => Number(n) > 0) : (p.counters?.[rc] || 0) > 0;
+      if (rc && !hasCounter) continue;
+      if (permanentIsCreature(next, p.id)) entries.push({ targetKind: "creature", targetId: p.id });
+      else if (/\bPlaneswalker\b/i.test(String(p.card?.type || p.card?.type_line || ""))) entries.push({ targetKind: "planeswalker", targetId: p.id });
+    }
   } else {
     // ⛔ FIXED REFERENTS MUST GO THROUGH atomTargets. This loop used to read ctx.targets unconditionally,
     // which is right for a CHOSEN target but silently wrong for `target:"self"` (Rock Hydra's "prevent the

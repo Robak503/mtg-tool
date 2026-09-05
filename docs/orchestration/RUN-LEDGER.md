@@ -16,6 +16,29 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · A3: MUTATIONAL ADVANTAGE — the group shield on "those permanents" · **+1** · corpus 14,588 (42.6%) / 34,245
+> Suite **1548 files / 16,323** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · "Permanents you control with counters on them gain hexproof and indestructible until end of turn. Prevent all damage
+>   that would be dealt to those permanents this turn. Proliferate." Three sentences, one anaphora, one composite matcher
+>   (Inspiring Call's shape). The grant is Baxter's counter-filtered group grant on the PERMANENT scope (Heroic
+>   Intervention's scope, "any counter"). The shield is the existing all-damage prevention shield with a `group`
+>   selector: applyPreventNextDamage enumerates the counter-bearing permanents you control AT RESOLUTION (CR 611.2c — the
+>   same live read the grant makes; nothing changes between the two sentences, the proliferate comes after both) and
+>   writes one entry per creature and per non-creature planeswalker — the only permanents damage can reach (CR 120.1);
+>   an artifact with a charge counter gets no vacuous entry. Proliferate is its own deterministic atom (never-harmful
+>   picks). Whole-clause anchored: the single-sentence grant alone still parks (no spell prints it; Innkeeper's Talent's
+>   is a static "have ward {1}").
+> · **Pins:** three atoms in order with the filters and the group selector; the single sentence low; native-spell.
+>   RUNTIME — cast through legalActions/dispatch/resolve on a mixed board: the countered creature and the walker gain
+>   hexproof + indestructible (layer reader) and hold shields ("creature:cnt", "planeswalker:walker"); the counterless
+>   creature, the opponent's countered creature, and the charged rock get neither; proliferate adds one to the bear's
+>   +1/+1, the walker's loyalty and the rock's charge, none to the counterless bear or the opponent's; then the REAL
+>   consumer — consumePreventionShields — prevents all 7 to the bear and the walker, none of the 7 to the counterless
+>   bear. Mutants: the composite gone, the shield's counter filter dropped, the walker entries dropped, the grant's
+>   filter dropped — mutants 4/4 killed.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Atraxa 73 → **74** (74/100; 11 to the bar) — ATRAXA CEILING for Phase 2: every remaining row now sizes L (Interplanar Beacon, Ashiok, Kiora — resized L today: an until-your-next-turn shield expiry plus a source-side 'dealt by' prevention — and the A5 loyalty-vocabulary sweep); the §5 order moves to Halfshell's M rows (Exploding Barrel first — only its per-counter activation discount rider parks it).
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · A3: ARENA RECTOR — "if you do" exile-self + the walker fetch onto the battlefield · **+2** · corpus 14,587 (42.6%) / 34,245
 > Suite **1547 files / 16,320** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed (a 4th survived and its redundant guard word was deleted).**
 > · "When this creature dies, you may exile it. If you do, search your library for a planeswalker card, put it onto the

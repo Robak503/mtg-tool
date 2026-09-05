@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · A3: Mutational Advantage (+1)** · suite **1548 files / 16,323** green · corpus 14,588 (42.6%) / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
+
+> The all-damage shield learned a GROUP selector — "those permanents", the counter-bearing creatures and walkers you control, read at resolution — beside the counter-filtered permanent grant and proliferate. Atraxa 73 → **74** (74/100; 11 to the bar) — ATRAXA CEILING for Phase 2: every remaining row now sizes L (Interplanar Beacon, Ashiok, Kiora — resized L today: an until-your-next-turn shield expiry plus a source-side 'dealt by' prevention — and the A5 loyalty-vocabulary sweep); the §5 order moves to Halfshell's M rows (Exploding Barrel first — only its per-counter activation discount rider parks it).
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · A3: Arena Rector (+2)** · suite **1547 files / 16,320** green · corpus 14,587 (42.6%) / 34,245 · flip-diff +2 / 0 lost · mutants 3/3 killed (a 4th survived and its redundant guard word was deleted)
 
 > The optional-exile-self payment reads "If you do" beside "When you do", and the battlefield tutor fetches a planeswalker (entry loyalty stamped) — enchantments stay parked on purpose (an un-cast Aura would land unattached). Atraxa 72 → **73** (73/100; 12 to the bar) — its remaining rows are M+/L; next = A3 Mutational Advantage (M: the counters-scoped PERMANENT grant + the group all-damage shield on those permanents + proliferate).

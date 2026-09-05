@@ -60,7 +60,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Colton | Killer Turts | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Did you say Dragons? | 91 | — | — | ✅ at the bar |
 | Joe | Earth Bent | 91 | — | — | ✅ at the bar (④-BE) |
-| Joe | Mothman Cometh | 89 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
+| Joe | Mothman Cometh | 90 | — | — | ✅ at the bar |
 | Joe | Captain America Shoot your Shot | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Joe | Hulk Smash | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
@@ -79,10 +79,10 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Shalai and Hallar Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Otharri Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Bumble Flower Combo | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
-| Test | Atraxa Superfriends | 73 | 12 | 17 | ⬜ Phase 2 |
+| Test | Atraxa Superfriends | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 71 | 14 | 19 | ⬜ Phase 2 |
 
-**3 decks below 85 · 32 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**3 decks below 85 · 31 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -396,8 +396,8 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 |---|---|---|---|---|---|
 | A1 | Maze of Ith ×2 | | V13 | |✅ |
 | A2 | Interplanar Beacon (sized UP — "planeswalker" sits in the cast filter's denylist AND the {1},{T} two-different-colours line is a paid production the mana model has no field for) · Oath of Gideon ✅ (+1 — the extra loyalty on entry) · Sphere of Safety ✅ (+1 — the counted tax) · Norn's Annex ✅ (+1 — the Phyrexian tax) | cast-planeswalker lifegain / extra loyalty / attack tax | L / S / S / M | Sphere of Safety's tax is the ④-AK attack-tax family with a count-of-enchantments amount; Norn's Annex taxes {W/P} (life-or-mana) | ⬜ |
-| A3 | Arena Rector ✅ (+2 — the "If you do" optional exile-self payment + the planeswalker fetch onto the battlefield; Academy Rector's enchantment form stays parked on purpose) · Deploy the Gatewatch ✅ (+1 — the counted dig) · Ashiok (sized L — a static that forbids opponents' searches) · Mutational Advantage (sized M — a counters-scoped team grant + a damage shield on those permanents + proliferate; no counters-scoped grant exists) | | M / S / L / M | | 🔶 |
-| A4 | Garruk, Unleashed ✅ (+1 — the self-named loyalty counter) · Kiora, the Crashing Wave (sized M — a to-AND-by damage shield on a permanent until your next turn) · Teferi, Hero of Dominaria ✅ (+1 — the positional tuck) | single loyalty lines | S / M / M | the loyalty-ability parser reads per line; each is one arm | 🔶 |
+| A3 | Arena Rector ✅ (+2 — the "If you do" optional exile-self payment + the planeswalker fetch onto the battlefield; Academy Rector's enchantment form stays parked on purpose) · Deploy the Gatewatch ✅ (+1 — the counted dig) · Ashiok (sized L — a static that forbids opponents' searches) · Mutational Advantage ✅ (+1 — the counters-scoped PERMANENT grant + the GROUP all-damage shield + proliferate, one composite) | | M / S / L / M | | 🔶 |
+| A4 | Garruk, Unleashed ✅ (+1 — the self-named loyalty counter) · Kiora, the Crashing Wave (sized UP to L, 2026-09-05 — the +1 needs an UNTIL-YOUR-NEXT-TURN shield expiry (the store keys shields to the current turn only) AND a source-side "dealt BY" prevention that neither damage path has; the −1 and the −5 emblem already parse) · Teferi, Hero of Dominaria ✅ (+1 — the positional tuck) | single loyalty lines | S / M / M | the loyalty-ability parser reads per line; each is one arm | 🔶 |
 | A5b | Dueling Grounds ✅ (+3 — the global combat cap; Silent Arbiter and Caverns of Despair rode along) | attack / block cap | S | | ✅ |
 | A5 | COMPOSITE (the planeswalkers) | Ajani Steadfast · Dovin Baan · Elspeth Resplendent · Kaya · Narset Transcendent · Narset, Parter of Veils · Oko · Sorin Markov · Sorin, Grim Nemesis · Tamiyo · Teferi, Master of Time · Teferi, Time Raveler · The Eternal Wanderer · Ugin · Vraska the Unseen · Carth · Astral Cornucopia · Avatar's Wrath · Dueling Grounds · Innkeeper's Talent · Oath of Nissa · Oath of Teferi · Primevals' Glorious Rebirth · Urza's Ruinous Blast | **L — "the loyalty vocabulary sweep"** | one slice: probe every loyalty line in the deck, build the missing arms as a family (emblems, static PW abilities, +1 team buffs, ultimates that need a subsystem get 🅿) | ⬜ |
 
@@ -478,6 +478,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · A3 Mutational Advantage (Atraxa) ✅ +1 corpus (one composite: the counter-filtered group grant on the PERMANENT scope + the all-damage shield with a GROUP selector — the counter-bearing creatures and planeswalkers you control, read at resolution — + proliferate) · mutants 4/4 killed · suite 1548 files / 16,323 · Atraxa 73 → **74** (74/100; 11 to the bar) — ATRAXA CEILING for Phase 2: every remaining row now sizes L (Interplanar Beacon, Ashiok, Kiora — resized L today: an until-your-next-turn shield expiry plus a source-side 'dealt by' prevention — and the A5 loyalty-vocabulary sweep); the §5 order moves to Halfshell's M rows (Exploding Barrel first — only its per-counter activation discount rider parks it).
 
 - 2026-09-05 — Phase 2 · A3 Arena Rector (Atraxa) ✅ +2 corpus (the optional-exile-self payment reads the "IF you do" wording beside "when you do" — Greenwarden of Murasa rides along — and the battlefield tutor admits a GUARANTEED-PLANESWALKER fetch; enchantments stay out: an un-cast Aura would land unattached, CR 303.4f) · mutants 3/3 killed (a 4th survived and its redundant guard word was deleted) · suite 1547 files / 16,320 · Atraxa 72 → **73** (73/100; 12 to the bar) — its remaining rows are M+/L; next = A3 Mutational Advantage (M: the counters-scoped PERMANENT grant + the group all-damage shield on those permanents + proliferate).
 

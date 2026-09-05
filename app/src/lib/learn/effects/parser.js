@@ -59,7 +59,7 @@ import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tuto
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
 import { parseTokenKeywords, parseGrantedKeywords, SMALL_NUM } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher); parseGrantedKeywords (COUNTER-THEN-GRANT + the SAVAGE ORDER fetched-grants fold); SMALL_NUM for MULTI-COUNT damage count words; parseCountSource for FE-1 DRAIN-BY-COUNT fused matcher
 import { proliferateClauseParser, gainExperienceClauseParser, gainEnergyClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser, removeNamedCounterSelfClauseParser, shieldCounterClauseParser, evolveCounterSelfClauseParser, renownClauseParser, endureClauseParser, transferCountersClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact) + ARIXMETHES (remove named counter from self) + SHIELD-COUNTER (CR 122.1c protective counter) + KW-EVOLVE sentinel (SHELF S7)
-import { earthbendClauseParser, goadClauseParser, detainClauseParser, combatKeywordClauseParser, massBlockLockClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, groupLoseKeywordsClauseParser, setBasePtTeamClauseParser, setBasePtTargetClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + FT-1 (mass-block-lock) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation) + SET-BASE-PT-TARGET (SU-1 — Diminish/Square Up)
+import { ALL_DAMAGE_SHIELD, earthbendClauseParser, goadClauseParser, detainClauseParser, combatKeywordClauseParser, massBlockLockClauseParser, pumpClauseParser, condPumpXClauseParser, animateClauseParser, groupGrantClauseParser, groupLoseKeywordsClauseParser, setBasePtTeamClauseParser, setBasePtTargetClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + FT-1 (mass-block-lock) + 12c (pump) + COND-X TEAM PUMP (Finale of Devastation) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation) + SET-BASE-PT-TARGET (SU-1 — Diminish/Square Up)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
 import { discardClauseParser, lookAtHandClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family) + the look-at-hand info clause
@@ -1960,6 +1960,26 @@ function matchCounterCreaturesGrant(oracle, cardType, hasX) {
   return { atoms: [{ ...grantAtom, requiresCounter: "any" }] };
 }
 
+// MUTATIONAL ADVANTAGE (SHELF-85 · Atraxa A3, 2026-09-05) — "Permanents you control with counters on them gain <kws>
+// until end of turn. Prevent all damage that would be dealt to those permanents this turn. Proliferate." Three sentences,
+// one anaphora: "those permanents" is the same counter-bearing set, read again at resolution (nothing changes between
+// the first two sentences — the proliferate comes AFTER both). The grant is Baxter's counter-filtered group grant on the
+// PERMANENT scope; the shield is the all-damage shield with a `group` selector (applyPreventNextDamage enumerates the
+// counter-bearing creatures and planeswalkers — the only permanents damage can reach); the proliferate is its own atom.
+// Whole-clause anchored — a single-sentence "permanents you control with counters on them gain …" (none printed as a
+// spell; Innkeeper's Talent's is a static "have ward {1}") still falls through.
+function matchCountersPermanentsGrantShieldProliferate(oracle, cardType, hasX) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").trim();
+  const m = t.match(/^permanents you control with counters on them gain (.+?) until end of turn\. prevent all damage that would be dealt to those permanents this turn\. proliferate\.?$/);
+  if (!m) return null;
+  const grantAtom = parseClauseToAtom(cardType, `permanents you control gain ${m[1]} until end of turn`, hasX);
+  if (!grantAtom || grantAtom.op !== "grant-keywords-group" || grantAtom.scope !== "permanentsYouControl") return null;
+  const prolif = parseClauseToAtom(cardType, "proliferate", hasX);
+  if (!prolif || prolif.op !== "proliferate") return null;
+  const shield = { op: "prevent-next-damage", amount: ALL_DAMAGE_SHIELD, group: { scope: "permanentsYouControl", requiresCounter: "any" }, targetType: null };
+  return { atoms: [{ ...grantAtom, requiresCounter: "any" }, shield, prolif] };
+}
+
 function matchDrawCounterCreaturesThenGrant(oracle, cardType, hasX) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").trim();
   const m = t.match(/^draw a card for each creature you control with a \+1\/\+1 counter on it\. those creatures gain (.+) until end of turn\.$/);
@@ -2459,6 +2479,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false, sourceScop
   const ccg = matchCounterCreaturesGrant(oracle, cardType, hasX);
   if (ccg && ccg.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: ccg.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== MUTATIONAL ADVANTAGE ===== counter-filtered PERMANENT grant + group all-damage shield + proliferate — see
+  // matchCountersPermanentsGrantShieldProliferate. Three KNOWN atoms → HIGH.
+  const mpg = matchCountersPermanentsGrantShieldProliferate(oracle, cardType, hasX);
+  if (mpg && mpg.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: mpg.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== DRAIN-X (Exsanguinate) ===== "Each opponent loses X life. You gain life equal to the life lost this
   // way." → ONE drain-each-opponent atom (the lifegain is the actual total drained, computed at resolution).
