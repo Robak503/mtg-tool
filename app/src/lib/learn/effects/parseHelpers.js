@@ -297,6 +297,10 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   if (/^times? it was kicked$/.test(p)) return { kind: "timesKicked" };
   // SPELLS CAST THIS TURN (④-BC — Aetherflux Reservoir): the controller's per-turn cast tally, read by countForSpec.
   if (/^spells? you(?:'ve| have) cast this turn$/.test(p)) return { kind: "spellsCastThisTurn" };
+  // OPPONENT COUNT (SHELF-85 · Halfshell Q4 — Big Apple, 3 a.m. "for each opponent you have", 2026-09-05; the same absence
+  // sized Killer Service's ETB up): the seat's live opponents (countForSpec → opponentsOf). Exactly the printed phrase —
+  // "each opponent" as a SCOPE is a different thing and untouched.
+  if (/^opponents? you have$/.test(p)) return { kind: "opponents" };
   // CARDS DRAWN THIS TURN (SHELF-85 V5 — Proft's Eidetic Memory "put X +1/+1 counters on target creature you control,
   // where X is the number of cards you've drawn this turn minus one"): the controller's per-turn draw tally, read by
   // countForSpec; the printed "minus one" rides as `minus` and is floored at 0 there (never a negative count).

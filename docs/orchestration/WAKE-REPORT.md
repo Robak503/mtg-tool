@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · Q4: Big Apple, 3 a.m. (+3)** · suite **1542 files / 16,307** green · corpus 14,580 / 34,245 · flip-diff +3 / 0 lost · mutants 3/3 killed
+
+> "For each opponent you have" is a count source now — read live off the seat's opponents, inherited by every for-each effect. Halfshell 76 → **78** across this and the Donatello slice (7 to the bar); Inspired Sphinx and Chittering Witch the unplanned gains, audited whole-card
+> **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · Q4: Donatello, the Brains (+1)** · suite **1542 files / 16,307** green · corpus 14,580 / 34,245 · flip-diff +1 / 0 lost · mutants 3/3 killed
 
 > The Took extra-token replacement learned its Mutagen printing — every token batch you make brings a Mutagen along, once per event at the mint chokepoint. Halfshell 76 → **78** across this and the Big Apple slice (7 to the bar); the shared suite run covers both

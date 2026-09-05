@@ -655,6 +655,9 @@ export function countForSpec(state, ctx, spec) {
   // the cast chokepoint, so the triggering spell itself is already counted when its trigger resolves, CR 608.2h; reset
   // for every seat at untap). An absent tally → 0 (never a fabricated count).
   if (spec.kind === "spellsCastThisTurn") return Math.max(0, state?.players?.[ctx?.controller]?.spellsCastThisTurn || 0);
+  // OPPONENT COUNT (Big Apple, 3 a.m. — "for each opponent you have"): the seat's live opponents, the same read every
+  // "each opponent" effect makes (opponentsOf). An eliminated seat is not an opponent you have.
+  if (spec.kind === "opponents") return opponentsOf(state, ctx?.controller).length;
   // INSTANT/SORCERY SPELLS CAST THIS TURN (K9 — Lock and Load "for each OTHER instant and sorcery spell you've cast this
   // turn"): the controller's own tally (player.instantSorcerySpellsCastThisTurn, stamped at the cast chokepoint, reset at
   // untap), less `minus` for the printed "other" — the resolving spell itself is already counted (CR 608.2h). Floored at 0.

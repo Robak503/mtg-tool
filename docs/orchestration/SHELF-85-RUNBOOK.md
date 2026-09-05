@@ -410,7 +410,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | Q1 | Double Jump // Flying Kick | split | L (V1 slice 3) | | ⬜ |
 | Q2 | Arcade Cabinet · Path of Ancestry | | V8 / V11 | | ✅ |
 | Q3 | Casey Jones ✅ (+1 — the active counters-placed damage payoff) · Ray Fillet ✅ (+1 — the with-a-counter dealer filter) · Together Forever · Tokka & Rahzar ✅ (+1 — the nontoken leaves scope; Splinter, the Mentor rode along on its self-inclusive union) · Baxter (sized M — a with-a-counter team grant) · Heroes in a Half Shell · Coin of Mastery · Raphael | counters-matter triggers and statics | S / S / M / S / S / M / M / M | Casey Jones = a counters-placed batch event (exists: countersPlaced) + damage; Ray Fillet = combat damage by a creature with a counter → draw; Raphael = a damage doubler filtered by "with counters" | ⬜ |
-| Q4 | Big Apple · Big Mother Mouser · Shellshock · Swift Demise ✅ (+1 — the opponent-creature mass destroy) · Wave Goodbye · Continue? · Exploding Barrel · Everything Pizza · Endless Foot Assault · Splinter ✅ (rode along with Q3's nontoken leaves) · Foot Chopper (sized L — an optional sacrifice with no if-you-do lane) · Mole Module · Bebop (sized L — the same if-you-do lane) · Tempestra · Irma · Dimension X Pizzasaur · Donatello ✅ (+{GAIN} — the Took extra-token replacement, Mutagen printing) | | S–M | Shredder's per-opponent copies = M; Irma's combat-start copy = M; Donatello's Mutagen replacement shares F4's seam | ⬜ |
+| Q4 | Big Apple ✅ (+{GAIN} — the opponent count) · Big Mother Mouser ✅ · Shellshock · Swift Demise ✅ (+1 — the opponent-creature mass destroy) · Wave Goodbye · Continue? · Exploding Barrel · Everything Pizza · Endless Foot Assault · Splinter ✅ (rode along with Q3's nontoken leaves) · Foot Chopper (sized L — an optional sacrifice with no if-you-do lane) · Mole Module · Bebop (sized L — the same if-you-do lane) · Tempestra · Irma · Dimension X Pizzasaur · Donatello ✅ (+{GAIN} — the Took extra-token replacement, Mutagen printing) | | S–M | Shredder's per-opponent copies = M; Irma's combat-start copy = M; Donatello's Mutagen replacement shares F4's seam | ⬜ |
 | Q5 | COMPOSITE | Fast Forward · Rat King ✅ (rode along with Q3's nontoken leaves) · Lita ✅ (+1 — the period-form mode-memory lead) · Turtle Lair · Special Move · Vigor · Krang | size on approach | | 🔶 |
 
 ### 5.11 Killer Turts — 64% · needs 21 · extra turns / storm-ish red deck (23 arbiter-spells)
@@ -478,6 +478,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · Q4 Big Apple, 3 a.m. (Halfshell) ✅ +3 corpus (the OPPONENT COUNT as a count source — "for each opponent you have" — read live off the seat's opponents; every for-each consumer inherits it) · mutants 3/3 killed · suite 1542 files / 16,307 · Halfshell 76 → **78** across this and the Donatello slice (7 to the bar); Inspired Sphinx and Chittering Witch the unplanned gains, audited whole-card
 
 - 2026-09-05 — Phase 2 · Q4 Donatello, the Brains (Halfshell) ✅ +1 corpus (the Took extra-token replacement's Mutagen printing — "those tokens plus a Mutagen token are created instead" — the same profile, the second modelled named kind, applied once per creation event at the mint chokepoint) · mutants 3/3 killed · suite 1542 files / 16,307 · Halfshell 76 → **78** across this and the Big Apple slice (7 to the bar); the shared suite run covers both
 

@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Big Apple, 3 a.m.** — a Rat per opponent (and "for each opponent you have" everywhere)
 - **Donatello, the Brains** — your token batches bring a Mutagen along
 - **Swift Demise** — pings, then destroys each opponent's creature dealt damage this turn
 - **Lita, Little Orphan Amphibian** — the alliance modal picks a different mode each time this turn

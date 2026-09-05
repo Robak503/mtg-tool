@@ -16,6 +16,24 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · Q4: BIG APPLE, 3 A.M. — the opponent count · **+3** · corpus 14,580 / 34,245
+> Suite **1542 files / 16,307** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
+> · "{5}, {T}: Create a 1/1 black Rat creature token for each opponent you have." The land's enters-tapped, choose-a-colour
+>   and chosen-colour mana lines were the LANDS-12 lane; the Rat line parked on its COUNT — "opponent(s) you have" was
+>   not a count source (the same absence that sized Killer Service's ETB up in Bumble). One kind: the count-source
+>   parser reads the exact phrase to `opponents`, and the shared evaluator answers it with the seat's live opponents
+>   (opponentsOf — the same read every "each opponent" effect uses), so every for-each consumer (tokens, life, draw)
+>   inherits it. Exactly the printed phrase; "each opponent" as a SCOPE is a different thing and untouched.
+> · **Pins:** the spec; an unrelated phrase refused; Big Apple flips to land; RUNTIME — the ability offered with five
+>   mana up and, activated in a four-seat game, three Rats; in a two-seat game, one. Mutants: the arm gone, the count
+>   read as every player, the evaluator branch gone — mutants 3/3 killed.
+> · **Unplanned gains audited whole-card:** Inspired Sphinx (flying + "draw cards equal to the number of opponents you have"
+>   + a Thopter maker) and Chittering Witch (Rats equal to the number of opponents + a sacrifice-a-creature debuff) — the
+>   "equal to the number of …" prefix strips before the count source, so the same kind serves them. Killer Service's ETB
+>   reads it too now; its optional pay-and-sacrifice end step still parks the card (Bumble unchanged).
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Halfshell 76 → **78** across this and the Donatello slice (7 to the bar); Inspired Sphinx and Chittering Witch the unplanned gains, audited whole-card
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · Q4: DONATELLO, THE BRAINS — the Took replacement's Mutagen printing · **+1** · corpus 14,580 / 34,245
 > Suite **1542 files / 16,307** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
 > · "If one or more tokens would be created under your control, those tokens plus a Mutagen token are created instead."
