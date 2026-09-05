@@ -16,6 +16,23 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · O11: HOUR OF RECKONING — the nontoken wipe · **+1** · corpus 14498 / 34,245
+> Suite **1507 files / 16,187** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
+> · "Convoke. Destroy all nontoken creatures." Convoke is a stripped cost-only keyword (the engine hard-casts at full
+>   cost — the Ninjutsu precedent). The wipe is the each-creature destroy NARROWED by token-ness through the shared
+>   restrictions grammar: a new satisfier kind `token` (negate:true keeps the nontoken creatures) reading the
+>   `card.token` flag every token-creating path stamps — the same field the sacrifice pools read. The subtype arm
+>   used to read the word as non-"token" and null (a safe park — "token" is no curated subtype); the new arm sits
+>   before it so the subtype arm can never claim it. One printed carrier of the creature form.
+> · The satisfier's fail-closed audit note (CD-1 hardening) named `token` as a kind that never reached it — amended:
+>   a restriction kind:"token" now has a branch; interveningIf's own `token` condition shape is unrelated.
+> · **Pins:** the stripped program parses HIGH as destroy/eachCreature with the token:negate restriction, native-spell;
+>   at resolution every nontoken creature on BOTH sides dies while every token creature and a non-creature artifact
+>   survive. Mutants: the arm, the dropped restriction, the un-negated kind, the missing satisfier branch, the
+>   inverted flag — mutants 5/5 killed.
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Otharri 79 → **80** (5 to the bar)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · O9: BLACKSMITH'S SKILL — the permanent grant + the type-conditional rider · **+2** · corpus 14497 / 34,245
 > Suite **1506 files / 16,185** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 7/7 killed.**
 > · "Target permanent gains hexproof and indestructible until end of turn. If it's an artifact creature, it gets +2/+2

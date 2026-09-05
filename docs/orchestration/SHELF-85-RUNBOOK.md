@@ -77,12 +77,12 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Nekusar Wheels | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shalai and Hallar Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Otharri Test | 79 | 6 | 11 | ⬜ Phase 2 |
+| Test | Otharri Test | 80 | 5 | 10 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 70 | 15 | 20 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**5 decks below 85 · 77 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**5 decks below 85 · 76 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -375,7 +375,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | O8 | Tithe | tutor a Plains; a second if target opponent controls more lands | S | | ⬜ |
 | O9 | Blacksmith's Skill | target permanent gains hexproof + indestructible; if it's an artifact creature +2/+2 | M | permanent-scoped grant + a type-conditional rider | ✅ (+2 — the creature grant arm's PERMANENT twin (the splitter's keep-whole was nailed to "target permanent you control"); the rider is a bound-referent pump carrying `ifBoundTypes`, which applyPumpEffect checks against the target's LAYER-4 types at resolution — a plain creature and a non-creature artifact get the grant only, an artifact creature and an ANIMATED artifact get +2/+2; the loop's creature gate opened for the bound rider (the permanent pool tags every pick "permanent"); pinned all four) |
 | O10 | Zack Fair · Staff of the Storyteller · Inti · Diamond City · Patrolling Peacemaker · Otharri (self-reanimate) | | S / M (token-created event, V7) / M / M / 🅿 (crime) / M | | ⬜ |
-| O11 | COMPOSITE | Everflowing Chalice · Solitude · Hour of Reckoning · Neyali · Galadriel's Dismissal · Ocelot Pride · Talon Gates · Crumb and Get It · Divine Resilience · Windcrag Siege · Cloud's Limit Break · Reroute Systems · Clever Concealment | size on approach | | ⬜ |
+| O11 | COMPOSITE | Everflowing Chalice · Solitude ✅ · Hour of Reckoning ✅ (+1 — nontoken wipe) · Neyali · Galadriel's Dismissal · Ocelot Pride · Talon Gates · Crumb and Get It · Divine Resilience · Windcrag Siege · Cloud's Limit Break · Reroute Systems · Clever Concealment | size on approach | | ⬜ |
 
 ### 5.8 Bumble Flower Combo — 64% · needs 21 · Food/tokens deck
 
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · O11 Hour of Reckoning (Otharri) ✅ +1 corpus (the each-creature wipe narrowed by TOKEN-NESS — a new `token` restriction kind in the shared satisfier; convoke was already a stripped cost keyword) · mutants 5/5 killed · suite 1507 files / 16,187 · Otharri 79 → **80** (5 to the bar)
 
 - 2026-09-05 — Phase 2 · O9 Blacksmith's Skill (Otharri) ✅ +2 corpus (a keyword grant on a target PERMANENT + a type-conditional bound pump read layer-aware at resolution; the splitter's permanent-subject keep-whole freed from "you control") · mutants 7/7 killed · suite 1506 files / 16,185 · Otharri 78 → **79** (6 to the bar); Renegade's Getaway the unplanned gain, audited whole-card (permanent grant + Servo token, both modelled)
 

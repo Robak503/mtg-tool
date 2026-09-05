@@ -216,6 +216,12 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       const hasKw = permanentHasKeyword(state, perm.id, r.keyword);
       if (r.negate && hasKw) return false;  // "without flying" → must NOT have flying
       if (!r.negate && !hasKw) return false; // "with flying" → must have flying
+    } else if (r.kind === "token") {
+      // TOKEN-NESS (SHELF-85 · O10 Hour of Reckoning "destroy all nontoken creatures", 2026-09-05): `perm.card.token`
+      // is the flag every token-creating path stamps (the sacrifice pools read the same field). negate:true keeps
+      // the NONTOKEN creatures; a bare kind:"token" keeps the tokens. (interveningIf still owns its OWN `token`
+      // condition shape — that one never reaches this function; the audit note below is amended accordingly.)
+      if (!!perm.card?.token === !!r.negate) return false;
     } else if (r.kind === "subtype") {
       // SUBTYPE-TARGET (CR 205.3) — "target <Subtype>" (e.g. "Regenerate target Sliver", Crypt Sliver's
       // group-granted ability). A creature subtype is a proper noun appearing verbatim ONLY in the subtype
@@ -248,9 +254,10 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       //
       // ⭐ AUDITED BEFORE FLIPPING, so this is a guard rather than a behaviour change: every `kind` emitted
       // into a restriction array anywhere in learn/ was compared against the branches above. Only `keyword`
-      // and `token` came back unhandled, and NEITHER reaches this function — combatEvasion evaluates its own
-      // `keyword` arms (canBlockAttacker) and interveningIf owns `token`. The corpus flip-diff confirmed it:
-      // 0 gained, 0 lost, 0 retiered.
+      // and `token` came back unhandled, and NEITHER reached this function — combatEvasion evaluates its own
+      // `keyword` arms (canBlockAttacker) and interveningIf owns its own `token` condition. The corpus flip-diff
+      // confirmed it: 0 gained, 0 lost, 0 retiered. (2026-09-05: a restriction kind:"token" now has a branch
+      // above — the nontoken wipe emits it; interveningIf's shape is unrelated and still never comes here.)
       //
       // Refusing is the CREED-correct direction: an unrecognised restriction becomes a dropped legal target
       // (safe, and visible as a missing option) instead of an illegal one that plays fine and is wrong.

@@ -1034,6 +1034,12 @@ export function destroyExileClauseParser(clause) {
   // no left-of-dash collision — so the `\b` match selects exactly the subtyped creatures, CR 205.3m). A
   // non-curated word fails → null → low → Arbiter (CREED: never a fabricated/mis-scoped wipe). The cannotRegenerate
   // re-stamp (a "can't be regenerated" rider) is applied by the parseEffectClause wrapper, unchanged.
+  // NONTOKEN WIPE (SHELF-85 · Otharri O10 Hour of Reckoning, 2026-09-05 — "Destroy all nontoken creatures."; the only
+  // printed carrier of the creature form). The each-creature destroy NARROWED by token-ness through the SHARED
+  // restrictions grammar (kind:"token", negate:true — creatureSatisfiesRestrictions reads perm.card.token, the
+  // flag every token-creating path stamps). Sits BEFORE the subtype arm below, which would otherwise read the
+  // word as "non" + "token" (it nulled safely — "token" is no curated subtype — but it must never CLAIM it).
+  if (/^destroy all nontoken creatures$/.test(t)) return { op: "destroy", targetType: "eachCreature", restrictions: [{ kind: "token", negate: true }] };
   const mc = t.match(/^destroy all (non-?)?([a-z]+) creatures$/);
   if (mc) {
     const sub = MASS_CREATURE_SUBTYPES[mc[2]];
