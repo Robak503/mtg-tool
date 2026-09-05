@@ -106,6 +106,13 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
+- 2026-09-06 — **PHASE 4 step 3 — four carrier classes shipped this night** (CR creature types · the ability tail · the negative
+  form + the Powerstone token · the chosen-type form with its tail; +28 corpus across them, every carrier witnessed end to end,
+  every flip-diff audited). ONE class remains and is banked with its verdict: colour words ("colorless spells" / "colorless
+  Eldrazi" — Shrine of the Forsaken Gods, Eldrazi Temple): a colour predicate on BOTH purposes (the cast card's colours and the
+  activating source's colours — a third piece of activation context beside the creature flag and the type line); two carriers,
+  M. Step 4 (Klauth's pool persistence) rides the existing machinery per the plan. Phase 4's gate holds per carrier.
+
 - 2026-09-06 — **PHASE 4 step 3 — the chosen-type form WITH its ability tail** (Secluded Courtyard; +1 corpus). An @chosenType
   placeholder in abilityOf, swapped for the land's chosen word at the source; an unresolved choice pays nothing. mutants 4/4 killed.
   Remaining step-3 class: colour words ("colorless spells") — two carriers, a colour predicate on both purposes.
