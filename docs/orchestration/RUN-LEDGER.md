@@ -16,6 +16,29 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — HARDENING: the self-ETB fallback's disjoint subject · **2 LOST on purpose** (hollows removed) · corpus 14,537 / 34,245
+> Suite **1526 files / 16,246** green; lint 0. Flip-diff **0 gained / 2 LOST** — every loss audited as a dropped-half credit: Tomebound Lich ('enters or deals combat damage to a player') and Shield Mare ('enters or becomes the target of a spell or ability an opponent controls') — each had its second, PRODUCIBLE event silently dropped; the six vacuous-event compounds (turned face up / specializes) keep their ETB by the exemption. **mutants 4/4 killed.**
+> · Surfaced while sizing Campsite Cuisine: "Whenever this enchantment or a legendary creature you control enters, create
+>   a Food token." detected as a plain SELF-ETB — the "or a legendary creature you control" half silently dropped — and
+>   that line alone classified native-trigger. A card credited native that fires on its own entry and never on the
+>   legendary creature's: a confident partial, the forbidden direction. 66 printed heads carry the "this <noun> or
+>   a/another <filter> … enters" shape; the modelled ones return from their own arms (Kor Celebrant's "or another
+>   creature you control" → the creature scope, which includes the source's own entry; Satoru's "and/or one or more
+>   other … enter" batch) and never reach the fallback.
+> · The gate: the bare self-ETB fallback refuses a self reference whose condition still carries " or " — a disjunction
+>   no arm modelled → UNDETECTED → Arbiter (a safe false-negative). The plain self-ETB is byte-identical.
+> · **The first snapshot lost eight, and six of them were EVENT disjunctions with a VACUOUS second event** — "enters
+>   or is turned face up" (five disguise/morph cards) and "enters or specializes": the engine has no face-up or
+>   specialize action, so the ETB half IS the whole working ability (turnedFaceUpVacuous.test.js already pinned the
+>   compound keeps its ETB). The gate exempts exactly those two phrases. The other two — Tomebound Lich ("or deals
+>   combat damage to a player") and Shield Mare ("or becomes the target of …") — were credited with a trigger the
+>   engine DOES fire silently dropped: hollows, and they stay parked.
+> · **Pins:** Campsite's head detects nothing and the card parks; Kor Celebrant and Satoru keep their scopes and stay
+>   native-trigger; a plain "When this creature enters" stays a self-ETB and native; Gadget Technician and Lae'zel
+>   keep their ETB and stay native; Tomebound Lich and Shield Mare park. Mutants: the guard gone, the guard refusing
+>   every self reference, the vacuous exemption dropped, the exemption widened to any event — mutants 4/4 killed.
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · F6: SAM, LOYAL ATTENDANT — Foods cost {1} less to activate · **+2** · corpus 14539 / 34,245
 > Suite **1525 files / 16,245** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
 > · "Activated abilities of Foods you control cost {1} less to activate." The partner line and the combat-begin Food

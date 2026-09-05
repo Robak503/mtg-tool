@@ -1352,6 +1352,18 @@ function classifyCondition(condRaw, cardName, cardType) {
   // we never over-fire on a restriction we can't check (CLAUDE.md §1.2). `subjectBefore` is the
   // exact text before the event verb.
   if (/\benters\b/.test(c) && !/\benters (the battlefield )?(tapped|with|as)\b/.test(c)) {
+    // ⛔ A DISJOINT SUBJECT IS NOT A SELF-ETB (hollow closed 2026-09-05 — Campsite Cuisine "this enchantment OR a legendary
+    // creature you control enters" detected as a plain self-ETB, the second subject silently dropped: the card would
+    // fire on its own entry and never on the legendary creature's — a confident partial, the forbidden direction).
+    // Every modelled "X or Y" head (Kor Celebrant's "this creature or another creature you control" → the creature
+    // scope; Satoru's "~ and/or one or more other …") returns from its own arm ABOVE this line; a self reference that
+    // still carries " or " here is a disjunction no arm modelled → null → UNDETECTED → Arbiter (a safe false-negative).
+    // ⭐ EXCEPT the two VACUOUS event alternatives the engine can never produce — "or is turned face up" (no face-up
+    // action exists: morph/disguise are cost-only strips) and "or specializes" — where the ETB half is the whole
+    // working ability (turnedFaceUpVacuous.test.js pins this: the compound keeps its ETB). A PRODUCIBLE second event
+    // ("or deals combat damage to a player", "or becomes the target of …") stays refused: crediting the ETB alone
+    // would drop a trigger the engine does fire (Tomebound Lich, Shield Mare — both were credited that way; hollows).
+    if (selfRef && /\bor\b/.test(c) && !/\benters(?: the battlefield)? or (?:is turned face up|specializes)$/.test(c)) return null;
     if (selfRef) return { event: "etb", scope: "self", whose: "any" };
     // NONTOKEN-SUBJECT ETB (wave3b) — "a nontoken creature you control enters" (Guardian Project / The
     // Great Henge / Blessed Sanctuary) and "a nontoken <Subtype> you control enters" (Sosuke's Summons —

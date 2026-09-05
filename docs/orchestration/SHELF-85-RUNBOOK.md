@@ -478,6 +478,8 @@ note and the Omnath list, and the run takes the next row.
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
 
+- 2026-09-05 — HARDENING · the self-ETB fallback swallowed a disjoint subject ("this X OR a <filter> enters" read as a plain self-ETB, the second subject dropped — surfaced sizing Campsite Cuisine): the fallback now refuses a self reference carrying an unmodelled " or " · 2 lost (each a hollow removed: Tomebound Lich ('enters or deals combat damage to a player') and Shield Mare ('enters or becomes the target of a spell or ability an opponent controls') — each had its second, PRODUCIBLE event silently dropped; the six vacuous-event compounds (turned face up / specializes) keep their ETB by the exemption) · mutants 4/4 killed · suite 1526 files / 16,246
+
 - 2026-09-05 — Phase 2 · F6 Sam, Loyal Attendant (Bumble Flower) ✅ +2 corpus (the activated-cost reduction's subject grew: lands, artifact tokens, a validated subtype plural — each its own descriptor and runtime gate) · mutants 5/5 killed · suite 1525 files / 16,245 · Bumble Flower 83 → **84** (1 to the bar); Blossoming Tortoise the unplanned gain (the 'lands' subject; its other lines were already required modelled by the whole-card check); one suite guard graduated — artifactActivatedCostReduction had pinned 'lands you control' as refused by name
 
 - 2026-09-05 — Phase 2 · F5 Kwain (Bumble Flower) ✅ +1 corpus (the per-seat "may" pause grew a DRAW effect with a per-drawer life gain — the yes-seats draw through the trigger-threading path and gain through the lifegain path) · mutants 6/6 killed · suite 1524 files / 16,242 · Bumble Flower 82 → **83** (2 to the bar)
