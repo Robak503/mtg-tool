@@ -78,11 +78,11 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shalai and Hallar Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Otharri Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Bumble Flower Combo | 70 | 15 | 20 | ⬜ Phase 2 |
+| Test | Bumble Flower Combo | 71 | 14 | 19 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**4 decks below 85 · 71 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**4 decks below 85 · 70 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -384,7 +384,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | F1 | Dusk // Dawn | split card | L | split cards (Double Jump too) are their own composition rule — size with V1's slice 3 | ⬜ |
 | F2 | Rosie Cotton · Arcade Cabinet · Gingerbrute ×2 · Tough Cookie ×2 | | V7 / V8 / V14 | | ✅ |
 | F3 | Ms. Bumbleflower | cast → target opponent draws; +1/+1 counter on target creature; it gains flying | S | | ⬜ |
-| F4 | Academy Manufactor | Clue/Food/Treasure → one of each | S | a token-minting replacement (the Donatello class shares the seam) | ⬜ |
+| F4 | Academy Manufactor | Clue/Food/Treasure → one of each | S | a token-minting replacement (the Donatello class shares the seam) | ✅ (+1 — `tokenOneOfEach` on the doubler profile (the Took extra-Food seam); at the mint chokepoint each Clue/Food/Treasure in the batch spawns the two missing kinds raw in the same event, one pass per Manufactor the creator controls (two → three of each, the printed ruling); NOT multiplied by a token doubler — with Anointed Procession one Food is two of each in either replacement order; pinned: one Manufactor 1/1/1, a Soldier untouched, the opponent's Manufactor inert, two Manufactors 3/3/3, doubler 2/2/2) |
 | F5 | Study the Classics · Treebeard · Wave Goodbye · Secret Rendezvous · Riot Control · Kwain | counters/lifegain/mass bounce/draw shapes | S each | Wave Goodbye = mass bounce with a no-counter filter | ⬜ |
 | F6 | Heaped Harvest · Elanor Gardner · Lembas · Sam, Loyal Attendant · Samwise Gamgee · Samwise the Stouthearted · Hot Soup · Field-Tested Frying Pan · Night of the Sweets' Revenge · Feasting Hobbit · Campsite Cuisine · Shoreline Looter · Archway of Innovation · Continue? | | S–M | the Food family: "when you sacrifice it" (S), "if you sacrificed a Food this turn" (S), devour Food (M), improvise grant (M) | ⬜ |
 | F7 | Eriette's Tempting Apple | gain control | ⛔ THEFT | | ⛔ |
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · F4 Academy Manufactor (Bumble Flower) ✅ +1 corpus (a one-of-each token-creation replacement on the doubler profile, applied per pass at the mint chokepoint; NOT re-doubled — either replacement order gives two of each beside a doubler) · mutants 7/7 killed · suite 1513 files / 16,209 · Bumble Flower 70 → **71** (14 to the bar)
 
 - 2026-09-05 — Phase 2 · O10 Staff of the Storyteller (Otharri) ✅ +1 corpus (the batched CREATURE-token creation event — once per create event, creature tokens only; the mint tail hands the token's card to the checker) · mutants 6/6 killed · suite 1512 files / 16,206 · Otharri 84 → **85 — AT THE BAR** (the deck is done for Phase 2; the remaining rows stay ⬜ for Phase 3)
 

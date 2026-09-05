@@ -79,6 +79,7 @@ export function doublerProfile(card) {
   let token = null;
   let tokenAdd = null;
   let tokenExtra = null;
+  let tokenOneOfEach = null; // ACADEMY MANUFACTOR (SHELF-85 · Bumble F4, 2026-09-05): "If you would create a Clue, Food, or Treasure token, instead create one of each."
   let mill = null;
   let life = null;
   let halvesOpponents = false;
@@ -186,6 +187,12 @@ export function doublerProfile(card) {
     if (extraM) {
       tokenExtra = { kind: extraM[1], scope: "you" };
     }
+    // ONE-OF-EACH (Academy Manufactor, CR 614.1 — the printed ruling: EACH Clue/Food/Treasure token that would be created
+    // becomes one of each; two Manufactors apply in turn, so one Food → 3 of each). Applied at the mint chokepoint
+    // (tokens.fireTokenEnterTriggers via tokenOneOfEachPasses), once per creation event per Manufactor the creator controls.
+    if (/^if you would create a clue, food, or treasure token, instead create one of each$/.test(s)) {
+      tokenOneOfEach = { kinds: ["clue", "food", "treasure"], scope: "you" };
+    }
     // ── MILL-DOUBLER (Bruvac the Grandiloquent, SHELF M2 — CR 614/616): "If an opponent would mill one or
     // more cards, they mill twice that many cards instead." OPPONENT-scoped from the doubler's controller —
     // millMultiplier applies it when the MILLED player is an opponent of the profile owner's. Anchored to the
@@ -202,8 +209,8 @@ export function doublerProfile(card) {
       playerCounterAdd = { additive: 1 };
     }
   }
-  if (!counter && !token && !tokenAdd && !tokenExtra && !mill && !life && !halvesOpponents && !playerCounterAdd) return null;
-  return { counter, token, tokenAdd, tokenExtra, mill, life, halvesOpponents, playerCounterAdd };
+  if (!counter && !token && !tokenAdd && !tokenExtra && !tokenOneOfEach && !mill && !life && !halvesOpponents && !playerCounterAdd) return null;
+  return { counter, token, tokenAdd, tokenExtra, tokenOneOfEach, mill, life, halvesOpponents, playerCounterAdd };
 }
 
 /**
@@ -262,6 +269,7 @@ export function isModeledDoublerSentence(s, shortName = null) {
   // TOKEN-EXTRA-KIND (SG-10, Peregrin Took) — the exact passive "+1 additional Food" replacement the runtime applies
   // (tokenExtraKinds at the token-enter chokepoint). Food only — the one modeled named kind this template prints.
   if (/^if one or more tokens would be created under your control, those tokens plus an additional food token are created instead\.?$/.test(s)) return true;
+  if (/^if you would create a clue, food, or treasure token, instead create one of each\.?$/.test(s)) return true; // Academy Manufactor (F4)
   // MILL-DOUBLER (Bruvac, SHELF M2) — the exact opponent-mill doubling the runtime applies (millMultiplier).
   if (/^if an opponent would mill one or more cards, they mill twice that many cards instead\.?$/.test(s)) return true;
   // LIFE-GAIN REPLACEMENT — the exact two templates applyLifeGainReplacement honours, and nothing wider.
@@ -469,6 +477,18 @@ export function tokenExtraKinds(state, creatorId) {
     if (te && (te.scope === "global" || ownerId === creatorId)) out.push(te.kind);
   }
   return out;
+}
+
+/** ACADEMY MANUFACTOR — how many "one of each" passes apply to tokens created under `creatorId` (one per Manufactor
+ *  the creator controls; each pass turns every Clue/Food/Treasure in the batch into one of each — CR 614.1, the
+ *  printed ruling that two Manufactors make three of each from one). Returns 0 when none. */
+export function tokenOneOfEachPasses(state, creatorId) {
+  let n = 0;
+  for (const { ownerId, profile } of allDoublers(state)) {
+    const oe = profile.tokenOneOfEach;
+    if (oe && (oe.scope === "global" || ownerId === creatorId)) n += 1;
+  }
+  return n;
 }
 
 export function tokenAdditive(state, recipientControllerId, tokenName) {

@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · F4: Academy Manufactor (+1)** · suite **1513 files / 16,209** green · corpus 14508 / 34,245 · flip-diff +1 / 0 lost · mutants 7/7 killed
+
+> Bumble Flower begins: a one-of-each token replacement on the doubler profile, per pass at the mint chokepoint (two Manufactors → three of each; beside a doubler two of each, not re-doubled). Bumble Flower 70 → **71** (14 to the bar)
+> **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · O10: Staff of the Storyteller (+1)** · suite **1512 files / 16,206** green · corpus 14507 / 34,245 · flip-diff +1 / 0 lost · mutants 6/6 killed
 
 > The batched creature-token creation event — once per create event, creature tokens only. Otharri 84 → **85 — AT THE BAR** (the deck is done for Phase 2; the remaining rows stay ⬜ for Phase 3)

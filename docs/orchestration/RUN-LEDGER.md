@@ -16,6 +16,26 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · F4: ACADEMY MANUFACTOR — one of each · **+1** · corpus 14508 / 34,245
+> Suite **1513 files / 16,209** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 7/7 killed.**
+> · Bumble Flower's first slice (70 → the §5 order after Otharri). "If you would create a Clue, Food, or Treasure token,
+>   instead create one of each." A token-creation REPLACEMENT (CR 614.1) on the doubler profile — the seam the Peregrin
+>   Took "extra Food" already uses. At the single mint chokepoint each Clue / Food / Treasure in the batch spawns the
+>   two MISSING kinds, raw, as part of the same creation event (CR 614.5); one pass per Manufactor the creator controls,
+>   passes applied in turn (two Manufactors: one Food → three of each — the printed ruling); the strip predicate (the
+>   single source of truth for the whole-card residue check) learned the sentence.
+> · **Caught by the first witness run:** I had multiplied the spawn by the creator's token doubler, the Took
+>   convention — WRONG here. Manufactor REPLACES each token with one of each, so beside Anointed Procession one Food is
+>   two of each in EITHER replacement order (double first → two Foods → each one of each; Manufactor first → one of
+>   each → doubled); doubling the spawn again gave 2/4/4. The Took extra is ADDITIVE, which is why it is doubled.
+>   The other two first-run failures were my fixture (every permanent on the user's battlefield — fixed per seat).
+> · **Pins:** the profile, the strip, one pass per YOUR Manufactor (the opponent's inert), native-static; one
+>   Manufactor 1/1/1, a Soldier untouched, the opponent's Manufactor does nothing to your Treasure; two Manufactors
+>   3/3/3; a doubler beside one 2/2/2. Mutants: the arm, the dropped field, the strip, the owner-blind pass count,
+>   a single pass, the own-kind guard, the unread passes — mutants 7/7 killed.
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Bumble Flower 70 → **71** (14 to the bar)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · O10: STAFF OF THE STORYTELLER — the batched creature-token event · **+1** · corpus 14507 / 34,245
 > Suite **1512 files / 16,206** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 6/6 killed.**
 > · "Whenever you create one or more creature tokens, put a story counter on this artifact." The ETB Spirit and the

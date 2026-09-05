@@ -3,7 +3,7 @@
  */
 
 import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintId, attachPermanent, moveCardToZone } from "../../gameState.js";
-import { tokenMultiplier, tokenAdditive, tokenExtraKinds, applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
+import { tokenMultiplier, tokenAdditive, tokenExtraKinds, tokenOneOfEachPasses, applyCounterDoubling } from "../../replacementEffects.js"; // + tokenOneOfEachPasses — Academy Manufactor (Bumble F4) // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec, halveAmount } from "./shared.js";
@@ -92,6 +92,46 @@ export function fireTokenEnterTriggers(state, mintedIds) {
       if (extra.length > 0) {
         next = logEvent(next, { kind: "spell-effect", effect: "token-extra-kind", controller: creatorId, kinds, count: extra.length });
         ids = [...mintedIds, ...extra];
+      }
+    }
+  }
+  // ===== ONE-OF-EACH (Academy Manufactor — SHELF-85 · Bumble F4, 2026-09-05; CR 614.1) ===== each pass turns every
+  // Clue / Food / Treasure token in the batch into one of each: for each such token, the two MISSING kinds are minted
+  // RAW here (part of the same creation event, never re-entering the replacement — CR 614.5), under the tokens'
+  // creator. ⛔ NOT multiplied by a token doubler, unlike the Took extra above: Manufactor REPLACES each token with
+  // one of each, so with Anointed Procession beside it one Food is two of each in EITHER replacement order (double
+  // first → two Foods → each becomes one of each; Manufactor first → one of each → doubled) — the doubler has already
+  // acted on the batch this pass reads, and doubling the spawn again gave 2/4/4 (caught by the first witness run).
+  // Passes apply in turn (two Manufactors: one Food → three of each — the printed ruling), so each pass reads the
+  // batch the previous pass left. The spawned tokens then fire their own enter watchers with the rest of the batch.
+  if (ids.length > 0) {
+    const first = findPermanent(next, ids[0]);
+    const creatorId = first?.permanent?.controller ?? null;
+    const passes = creatorId ? tokenOneOfEachPasses(next, creatorId) : 0;
+    if (passes > 0) {
+      const KINDS = ["clue", "food", "treasure"];
+      for (let p = 0; p < passes; p++) {
+        const spawned = [];
+        for (const id of ids) {
+          const kindOf = String(findPermanent(next, id)?.permanent?.card?.name || "").toLowerCase();
+          if (!KINDS.includes(kindOf)) continue;
+          for (const kind of KINDS) {
+            if (kind === kindOf) continue;
+            const spec = NAMED_TOKENS[kind];
+            if (!spec) continue;
+            const minted = mintId(next, "tok");
+            next = minted.state;
+            const card = { id: `tok-${minted.id}`, name: spec.name, type: spec.type, oracle: spec.oracle, token: true };
+            const perm = createPermanent({ id: minted.id, card, controller: creatorId });
+            const player = next.players[creatorId];
+            next = { ...next, players: { ...next.players, [creatorId]: { ...player, battlefield: [...player.battlefield, perm] } } };
+            spawned.push(minted.id);
+          }
+        }
+        if (spawned.length > 0) {
+          next = logEvent(next, { kind: "spell-effect", effect: "token-one-of-each", controller: creatorId, pass: p + 1, count: spawned.length });
+          ids = [...ids, ...spawned];
+        }
       }
     }
   }
