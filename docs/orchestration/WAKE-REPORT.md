@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-7a: Overpowering Attack (+1)** · suite **1487 files / 16,098 tests** green · corpus 14,438 (42.2%) / 34,245 · flip-diff +1 / 0 lost · 7/7 killed
+
+> The attacked-this-turn untap and the your-main-phase-gated extra combat. **Killer Turts 79 → 80** (80/100; needs 5). Next: KT-8 Grim Reaper's Sprint (its aura ETB now rides the gated arm; only the MORBID cost reducer is missing), then KT-7b Full Throttle, KT-9 Avoid Fate + Not of This World.
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-6: Savage Beating (+1)** · suite **1486 files / 16,095 tests** green · corpus 14,437 (42.2%) / 34,245 · flip-diff +1 / 0 lost · 6/6 killed
 
 > A program-level cast window, stamped by the parser and honoured by the offer loop. **Killer Turts 78 → 79** (79/100; needs 6). Next: KT-7a Overpowering Attack (the attacked-this-turn untap + a main-phase-only extra combat), then KT-7b Full Throttle (a per-combat delayed untap — a new fire step).

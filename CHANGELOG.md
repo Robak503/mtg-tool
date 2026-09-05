@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Overpowering Attack** — untaps only the creatures that attacked and grants its extra combat only from your main phase
 - **Savage Beating** — castable natively, and only during combat on your turn
 - **Open the Omenpaths** — its two-colour mana mode now resolves natively, spendable only on creature and enchantment spells
 - **Geosurge** — its seven red now resolve natively and can only be spent on artifact or creature spells

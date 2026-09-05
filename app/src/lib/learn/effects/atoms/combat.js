@@ -156,6 +156,7 @@ export function applyUntapLands(state, atom, ctx) {
     // board sees it, not as its printed line reads.
     if (atom?.scope === "creature") {
       if (!(/\bcreature\b/i.test(typeLineStr(perm.card)) || permanentIsCreature(state, perm.id))) continue;
+      if (atom.attackedThisTurnOnly && !perm.attackedThisTurn) continue; // Overpowering Attack (KT-7a): only those that attacked this turn
     } else if (atom?.scope === "attacking") {
       // ATTACKING-ONLY (CR 506.3) — Karlach #1039, Hellkite Charger #2125, Scourge of the Throne #1277,
       // Najeela. A strict SUBSET of the creature scope: the permanent must be in the live attacker set.
@@ -1596,6 +1597,10 @@ export function combatKeywordClauseParser(clause) {
   // ⛔ "untap all creatures" WITHOUT "you control" is NOT this atom — that is a symmetric untap that also
   // untaps opponents' blockers, which is a different effect and a real downside. It falls through to LOW.
   if (/^(?:you )?untap (?:all|each) creatures? you control$/.test(t)) return { op: "untap-lands", all: true, scope: "creature", targetType: null };
+  // OVERPOWERING ATTACK / WORLD AT WAR (POD-SIM THREE · KT-7a, 2026-09-05): "untap all creatures you control that attacked this
+  // turn" — the creature untap filtered on the per-permanent attackedThisTurn flag (stamped at declare-attacker, cleared at
+  // untap). A creature that stayed home this turn is never untapped by it (pinned).
+  if (/^(?:you )?untap (?:all|each) creatures? you control that attacked this turn$/.test(t)) return { op: "untap-lands", all: true, scope: "creature", attackedThisTurnOnly: true, targetType: null };
   // ATTACKING-ONLY mass untap (CR 506.3) — "untap all attacking creatures" (Karlach #1039, Hellkite
   // Charger #2125, Scourge of the Throne #1277, Najeela, Take the Bait). The same resolver with a narrower
   // scope: only permanents in the LIVE attacker set. Every carrier is an attack trigger, so the set is

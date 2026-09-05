@@ -324,6 +324,13 @@ export function miscClauseParser(clause) {
   if (/^after this main phase, there is an additional combat phase(,? followed by an additional main phase)?$/.test(t)) {
     return { op: "extra-combat", insertAfter: "main", targetType: null };
   }
+  // OVERPOWERING ATTACK / GRIM REAPER'S SPRINT (POD-SIM THREE · KT-7a, 2026-09-05): "If it's your main phase, there is an
+  // additional combat phase after this phase(, followed by an additional main phase)." — the after-main extra combat with
+  // a RESOLUTION-TIME gate: outside your main phase (an instant-speed cast in combat, an aura entering on an opponent's
+  // turn) nothing is queued (pinned) — never an extra combat the card does not grant.
+  if (/^if it's your main phase, there is an additional combat phase after this phase(,? followed by an additional main phase)?$/.test(t)) {
+    return { op: "extra-combat", insertAfter: "main", onlyIfYourMainPhase: true, targetType: null };
+  }
   // TAPPED-COUNT DRAW (BLITZ TD-1 — Theft of Dreams / Borrowing 100,000 Arrows): "Draw a card for each
   // tapped creature target opponent controls." The CONTROLLER draws; the chosen OPPONENT target only
   // supplies the count (countForSpec's tappedCreaturesOfTargetOpponent — layer-aware creature read at
@@ -778,6 +785,9 @@ export function applyExtraTurn(state, atom, ctx) {
  * run is popped as it is taken, so N grants give exactly N extra combats and the turn always terminates.
  */
 export function applyExtraCombat(state, atom, ctx) {
+  if (atom?.onlyIfYourMainPhase && !(/main/.test(String(state.phase || "")) && state.activePlayer === ctx?.controller)) {
+    return logEvent(state, { kind: "spell-effect", effect: "extra-combat", controller: ctx?.controller, after: "main", queued: (state.extraPhases || []).length, skipped: "not your main phase" }); // Overpowering Attack (KT-7a)
+  }
   // SIGNATURE FIX (2026-08-12, found adding the after-main arm): this resolver was (state, ctx) while the
   // registry calls (state, atom, ctx) — the atom landed in the ctx slot and the log's `controller` read
   // atom.controller (undefined). The queueing behavior was always right; only the log line lied.

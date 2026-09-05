@@ -16,6 +16,20 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-7a: OVERPOWERING ATTACK — the attacked-this-turn untap and the gated extra combat · **+1** · corpus 14,438 (42.2%) / 34,245
+> Suite **1487 files / 16,098 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **7/7 killed.**
+> · "Untap all creatures you control that attacked this turn." — the creature untap filtered on the per-permanent
+>   attackedThisTurn flag (stamped at declare-attacker, cleared at untap); a creature that stayed home never untaps (pinned).
+> · "If it's your main phase, there is an additional combat phase after this phase, followed by an additional main phase." —
+>   the after-main extra combat with a RESOLUTION-TIME gate: outside your main phase (or in an opponent's) nothing is queued —
+>   never an extra combat the card does not grant. The same arm will carry Grim Reaper's Sprint's aura ETB (KT-8).
+> · Freerunning is credited hard-cast only (the foretell/blitz alt-cast precedent) — a known, documented under-offer.
+> · **Sized in passing:** Full Throttle's "at the beginning of each combat this turn, untap all creatures that attacked" needs a
+>   NEW delayed-trigger fire step (the scheduler knows upkeep / end / main / cleanup and consumes each record) — an M row;
+>   World at War's rebound is unmodeled — parked within KT-7.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Killer Turts 79 → 80** (80/100; needs 5). Next: KT-8 Grim Reaper's Sprint (its aura ETB now rides the gated arm; only the MORBID cost reducer is missing), then KT-7b Full Throttle, KT-9 Avoid Fate + Not of This World.
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-6: SAVAGE BEATING — the cast window · **+1** · corpus 14,437 (42.2%) / 34,245
 > Suite **1486 files / 16,095 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **6/6 killed.**
 > · "Cast this spell only during combat on your turn." Both modes and entwine already parsed; the sentence itself was residue
