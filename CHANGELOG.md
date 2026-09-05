@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Torpor Orb, Hushwing Gryff, Tocatli Honor Guard** — creatures entering trigger nothing
 - **Teferi's Ageless Insight, Alhammarret's Archive, Bard, King of Dale** — every draw after the draw step's first becomes two
 - **Incubation Druid** — taps for any type your lands could make
 - **Treebeard, Gracious Host** and every "target <creature type>" card — "Destroy target Elf" and its kin now play natively

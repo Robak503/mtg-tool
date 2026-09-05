@@ -29,7 +29,7 @@ import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentPower, permane
 import { parseSagaChapters } from "./saga.js"; // SAGA chapter synthesis (CR 714 — Vault 12, SHELF S7); a pure leaf
 import { applyLifeGainReplacement } from "./replacementEffects.js"; // LIFE-GAIN replacement (CR 614.1) — read by checkLifegainTriggers so a trigger sees the life ACTUALLY gained. replacementEffects imports nothing at all, so this edge is one-way and cycle-free.
 import { interveningIfParseable, evaluateInterveningIf } from "./interveningIf.js"; // STATE TRIGGERS (CR 603.8): the shared condition reader/evaluator. interveningIf imports ONLY gameState, so this edge is one-way and cycle-free.
-import { ABILITY_WORD_LABEL_RE } from "./effects/textNormalize.js"; // CR 207.2c label list — the SINGLE copy, shared with the spell path (textNormalize is a zero-import leaf, so no cycle)
+import { ABILITY_WORD_LABEL_RE, creatureEntersSuppressed } from "./effects/textNormalize.js"; // + TORPOR ORB (RG-2, 2026-09-05): the enters-event suppression reader // CR 207.2c label list — the SINGLE copy, shared with the spell path (textNormalize is a zero-import leaf, so no cycle)
 import { CR_CREATURE_TYPES } from "./effects/targeting.js"; // BC-1: closed creature-subtype vocabulary for the NEGATED-SUBTYPE batch filter (read ONLY inside parseBatchSubjectFilter — a function — so the triggers→targeting→spellEffects→triggers cycle stays init-safe: CR_CREATURE_TYPES is never referenced at module-init time)
 
 function oracleOf(card) {
@@ -6719,6 +6719,9 @@ function triggerSourcesOf(state, pid) {
  */
 export function checkEnterTriggers(state, enteredPerm) {
   if (!enteredPerm) return state;
+  // TORPOR ORB (CR 603.2 — RG-2, 2026-09-05): while a carrier is on any battlefield, a CREATURE entering raises no enters
+  // events — its own ETB and every watcher's. The abilities never trigger (nothing to counter, nothing on the stack).
+  if (creatureEntersSuppressed(state, enteredPerm)) return state; // TORPOR ORB (CR 603.2)
   // (The Wise Mothman's ETB rad hook is GONE — SHELF C1's "enters or attacks" disjunction split binds the
   // trigger generically through detectTriggers, so both halves ride the normal etb/attacks fire paths.
   // Keeping the hook would double-fire the rad — the coordination note mothmanRad.js carried from day one.)
@@ -6839,6 +6842,7 @@ export function checkLandfallTriggers(state, enteredLand, { played = false } = {
  */
 export function checkPermanentEntersTriggers(state, enteredPerm) {
   if (!enteredPerm) return state;
+  if (creatureEntersSuppressed(state, enteredPerm)) return state; // TORPOR ORB (CR 603.2) — the permanentEnters event too
   let fired = [];
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {

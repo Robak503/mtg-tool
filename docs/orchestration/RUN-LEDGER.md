@@ -16,6 +16,23 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — RESIDUE GRIND RG-2 · TORPOR ORB (Torpor Orb / Hushwing Gryff / Tocatli Honor Guard) · **+3** · corpus 14,702 (42.9%) / 34,245
+> Suite **1573 files / 16,399 tests** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
+> · The census's next buildable family by BLEND: "Creatures entering don't cause abilities to trigger." — three sole blockers,
+>   the Orb EDHREC-popular, one sentence, one CR rule (603.2 — the ability never triggers; nothing is countered).
+> · THE BUILD: a static marker in parseStaticAbilities (the artifact-lock discipline) so the classifier credits the line; the
+>   reader lives in effects/textNormalize.js (a leaf both sides import — one regex, no drift): `creatureEntersSuppressed(state,
+>   enteredPerm)` = a live scan of EVERY battlefield for the sentence AND the entering permanent is a creature by its printed
+>   front-face type line. Both enters-event dispatchers (checkEnterTriggers — the "etb" event every ETB and "whenever a creature
+>   enters" watcher rides — and checkPermanentEntersTriggers) return early under it, so the creature's own ETB and every
+>   watcher's trigger never exist. A noncreature entering is untouched. The carrier's own arrival counts (Hushwing Gryff
+>   silences its own entrance — the published ruling), because the scan runs once the carrier is already on the battlefield.
+> · **Pins:** the three carriers native. RUNTIME: under the Orb a creature's ETB and a Soul Warden watcher raise nothing; without
+>   it both fire; an artifact's ETB still fires under the Orb. Mutants: the marker gone, the dispatcher ignoring the carrier,
+>   the creature check gone (the over-read) — mutants 3/3 killed.
+> · **Whole-card:** flip-diff exactly the three carriers (Torpor Orb, Hushwing Gryff, Tocatli Honor Guard); zero LOST, zero retiered
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 > ## 🎯 2026-09-05 (cron) — RESIDUE GRIND RG-1 · THE DRAW DOUBLER (Teferi's Ageless Insight / Alhammarret's Archive / Bard, King of Dale) · **+3** · corpus 14,699 (42.9%) / 34,245
 > Suite **1572 files / 16397 tests** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
 > · The overnight plan's stages are met and SHELF-85 is through Phase 4, so this seat returned to the census-driven residue

@@ -3213,6 +3213,14 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ artifactActivationLock: true });
     return;
   }
+  // ── TORPOR ORB (residue grind RG-2, 2026-09-05 — Torpor Orb / Hushwing Gryff / Tocatli Honor Guard): "Creatures
+  // entering don't cause abilities to trigger." The marker credits the line; the runtime reads the SAME sentence through
+  // effects/textNormalize.creatureEntersSuppressed at both enters-event dispatchers (triggers.checkEnterTriggers /
+  // checkPermanentEntersTriggers). Exact line only — a variant leaves residue → body-only (a safe FN).
+  if (/^creatures entering don't cause abilities to trigger$/.test(c)) {
+    out.push({ entersDontTrigger: true });
+    return;
+  }
 
   // ── MASS LAND ANIMATION (BLITZ NV-1 — Nature's Revolt "All lands are 2/2 creatures that are still
   // lands." / Living Plane "…1/1…"): TWO real layer descriptors on a dynamic selector over EVERY land,

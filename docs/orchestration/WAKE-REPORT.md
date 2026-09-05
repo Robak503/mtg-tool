@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-05 (cron) — **RESIDUE GRIND RG-2 · Torpor Orb (+3)** · suite **1573 files / 16,399 tests** green · corpus 14,702 (42.9%) / 34,245 · flip-diff +3 / 0 lost · mutants 3/3 killed
+
+> **Runnable next:** the residue grind continues from the 2026-09-05 census — Fist of Suns / Jodah (the WUBRG alternative cost, 3 sole, popular) · "spells you cast from your graveyard cost {1} less" (3 sole, popular) · "skip your draw step" (4 sole + 10 co).
+> Under Torpor Orb, Hushwing Gryff or Tocatli Honor Guard, a creature entering raises no triggers at all — its own or anyone's watcher; noncreatures still do.
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **RESIDUE GRIND RG-1 · the draw doubler (+3)** · suite **1572 files / 16397 tests** green · corpus 14,699 (42.9%) / 34,245 · flip-diff +3 / 0 lost · mutants 5/5 killed
 
 > **Runnable next:** the residue grind continues from the fresh census (`scratchpad/residue-census.json`, 2026-09-05): next buildable families by BLEND — Torpor Orb / Hushwing Gryff ("creatures entering don't cause abilities to trigger", 3 sole, popular) · Fist of Suns / Jodah (the WUBRG alternative cost, 3 sole, popular) · "spells you cast from your graveyard cost {1} less" (3 sole, popular) · "skip your draw step" (4 sole + 10 co). The sub-game families at the top (initiative, double team, attractions, specialize, stickers, contraptions, the Ring) are banked.

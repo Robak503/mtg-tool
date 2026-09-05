@@ -349,3 +349,23 @@ export function rewriteAmountX(clause) {
   if (pumpXT.test(clause)) return { clause: clause.replace(pumpXT, (_, a) => `${a}1`), xSlot: "t" };
   return null;
 }
+
+// ── TORPOR ORB (residue grind RG-2, 2026-09-05 — Torpor Orb / Hushwing Gryff / Tocatli Honor Guard): "Creatures entering
+// don't cause abilities to trigger." CR 603.2 — while a carrier is on ANY battlefield, a CREATURE entering raises no
+// enters events at all (its own ETB, every "whenever a creature enters" watcher). ONE reader in this leaf, imported by the
+// static parser's marker (the classifier side) and by the enters-event dispatchers (the runtime side) — no drift. A live
+// scan (the carrier leaving lifts it), symmetric (CR 109.2), and the carrier's own arrival counts (Hushwing Gryff silences
+// its own entrance — the published ruling) because the scan runs once the carrier is already on the battlefield.
+export const ENTERS_DONT_TRIGGER_RE = /(?:^|[\n.;])\s*creatures entering don't cause abilities to trigger\s*(?:\.|$)/i;
+export function entersDontTriggerOf(card) {
+  return ENTERS_DONT_TRIGGER_RE.test(String(card?.oracle || card?.oracle_text || "").replace(/[’]/g, "'"));
+}
+export function creatureEntersSuppressed(state, enteredPerm) {
+  // Only a CREATURE entering is silenced — read off the printed front-face type line at entry (an artifact, an enchantment,
+  // a land entering still triggers everything). An animated-later permanent entered as whatever it was printed as.
+  if (!/\bCreature\b/i.test(String(enteredPerm?.card?.type || enteredPerm?.card?.type_line || "").split(" // ")[0])) return false;
+  for (const pl of Object.values(state?.players || {})) {
+    for (const perm of (pl.battlefield || [])) if (entersDontTriggerOf(perm.card)) return true;
+  }
+  return false;
+}
