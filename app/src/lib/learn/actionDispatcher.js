@@ -263,7 +263,7 @@ function applyPlayLand(state, action) {
   {
     const bf = next.players[action.playerId].battlefield;
     const enteredLand = bf[bf.length - 1];
-    next = checkLandfallTriggers(next, enteredLand);
+    next = checkLandfallTriggers(next, enteredLand, { played: true }); // the PLAY-LAND path is the only source of `played` (City of Traitors, KT-5)
     // ETB on the play-land path (CR 603.6a) — a played land also fires "enters" triggers, NOT just
     // landfall. Without this a land's OWN ETB (Bojuka Bog "exile a graveyard", a Temple's "scry 1",
     // Radiant Fountain "gain 2 life") silently never fired when PLAYED (the cast path's enterPermanent

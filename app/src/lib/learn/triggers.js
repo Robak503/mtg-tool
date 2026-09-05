@@ -1700,6 +1700,13 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^a land you control enters$/.test(c) || /^a land enters(?: the battlefield)? under your control$/.test(c)) {
     return { event: "landfall", scope: "landYouControl", whose: "any" };
   }
+  // CITY OF TRAITORS (POD-SIM THREE · KT-5, 2026-09-05) — "When you play another land": the landfall family with two gates
+  // it lacked. PLAYED only (CR 305.1 — the special action; a land an EFFECT puts onto the battlefield is not played): the
+  // play-land dispatcher threads `played: true` into checkLandfallTriggers and the effect path does not, so the descriptor
+  // fails CLOSED there. ANOTHER: the watcher never fires on its own entry. Both fields LISTED in the assembly.
+  if (/^you play another land$/.test(c)) {
+    return { event: "landfall", scope: "landYouControl", whose: "any", playedOnly: true, landfallExcludeSelf: true };
+  }
   // PERM-ENTERS — "Whenever an artifact you control enters" (affinity/improvise payoffs — Reckless
   // Fireweaver, Salivating Gremlins, Thopter Architect) and "Whenever an enchantment you control
   // enters" (Constellation payoffs — Setessan Champion, Nexus Wardens, Favored of Iroas). The
@@ -5218,6 +5225,8 @@ export function detectTriggers(card) {
         perCard: cls.perCard,                 // MILL-ON-EVENT: true = per-card ("mills a card"), false = once-per-event ("one or more … are milled")
         milledFilter: cls.milledFilter,       // MILL-ON-EVENT: "nonland" | null (which milled cards count)
         functionsFromGraveyard: cls.functionsFromGraveyard, // GY-FUNCTIONING milled trigger (Radroach) — fired by checkMilledTriggers' graveyard scan, never the battlefield scan
+        playedOnly: cls.playedOnly,               // CITY OF TRAITORS (KT-5): landfall fires only from the PLAY-LAND path (a threaded `played` marker)
+        landfallExcludeSelf: cls.landfallExcludeSelf, // CITY OF TRAITORS (KT-5): "another land" — never the watcher's own entry
         eachPlayersUpkeep: cls.eachPlayersUpkeep, // EACH-PLAYER'S UPKEEP (BLITZ TR-2): gates the "that player" → "the upkeep player" sentinel rewrite; whose:"any" carries the fire-on-every-upkeep semantics
         eachPlayersDrawStep: cls.eachPlayersDrawStep, // EACH-PLAYER'S DRAW STEP (CR 504.1): the structural twin, sharing that sentinel and its atoms
         enchantedControllersUpkeep: cls.enchantedControllersUpkeep, // ENCHANTED-CONTROLLER'S UPKEEP (2026-08-12): host-controller firing gate + the same sentinel. ⚠️ Unlisted here = dropped = the aura would fire on EVERY upkeep — an over-fire, not a miss.
@@ -6595,14 +6604,17 @@ export function checkEnterTriggers(state, enteredPerm) {
  * appends to pendingTriggers. Called from the play-land path (applyPlayLand); a future slice fires it on
  * the ramp/fetch land-entry path too (a missed landfall there is a SAFE under-fire, never a wrong fire).
  */
-export function checkLandfallTriggers(state, enteredLand) {
+export function checkLandfallTriggers(state, enteredLand, { played = false } = {}) {
   if (!enteredLand) return state;
   let fired = [];
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {
       // A GY-FUNCTIONING landfall descriptor (Bloodghast) never fires from the battlefield —
       // the Radroach/milled discipline: the flag routes the two scans off one detectTriggers cache.
-      fired = fired.concat(triggersForEvent(state, { event: "landfall", sourcePermanent: watcher, triggeringPermanent: enteredLand, descriptorFilter: (d) => !d.functionsFromGraveyard }));
+      // CITY OF TRAITORS (KT-5): a `playedOnly` descriptor needs the play-land path's marker (fails closed on the effect
+      // path); a `landfallExcludeSelf` descriptor never fires on the watcher's own entry.
+      const descriptorFilter = (d) => !d.functionsFromGraveyard && !(d.playedOnly && !played) && !(d.landfallExcludeSelf && watcher.id === enteredLand.id);
+      fired = fired.concat(triggersForEvent(state, { event: "landfall", sourcePermanent: watcher, triggeringPermanent: enteredLand, descriptorFilter }));
     }
     // GRAVEYARD scan (Bloodghast — CR 603.3d): the landfall self-return functions FROM the graveyard;
     // the card itself is the source, sourceCardId threads the exact card for the battlefield return.

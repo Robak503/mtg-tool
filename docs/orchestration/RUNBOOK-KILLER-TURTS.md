@@ -66,7 +66,7 @@ Legend: **S** one arm on an existing seam · **M** a new arm plus a runtime seam
 
 | # | Card | Blocker | Size | CREED note |
 |---|---|---|---|---|
-| E1 | **City of Traitors** | "When you play another land, sacrifice this land" — a land-play watcher on a land | **S** | the sac must fire on the NEXT land play, never on its own entry |
+| E1 | **City of Traitors** | ✅ DONE 2026-09-05 (KT-5): a landfall watcher with two new gates — `playedOnly` (the play-land dispatcher threads a `played` marker; the effect path does not, so a fetched or ramped land never fires it) and `landfallExcludeSelf` (never its own entry); both listed in the assembly | **S** | pinned: a played Mountain sacrifices City; an effect-placed Mountain does not; playing City itself does not |
 | E2 | **Jeweled Amulet** | note the mana TYPE spent on the charge; later add that type | **M** | the noted type is state on the permanent |
 | E3 | **Carpet of Flowers** | each main phase, once per turn, add X of one colour = target opponent's Islands | **M** | the once-per-turn latch + "Islands" = subtype count on an opponent's lands |
 | E4 | **Gemstone Caverns** | pregame | 🅿 | umbrella §6 |
@@ -93,7 +93,7 @@ Ordered by plan-criticality, then cost. Running total assumes each slice lands w
 | KT-2 | Guttural Response · Pyroblast | S-F two-filter counters + the "if it's blue" mode | ✅ +3 (Hydroblast too) | 3 |
 | KT-3 | Irencrag Feat · Rite of Flame | S-E word-number pips + cast-lock rider; all-graveyards name count | ✅ +3 | 5 |
 | KT-4 | Geosurge · Open the Omenpaths | S-E restricted spend on a spell's add-mana (+ two-colour choice) | ✅ Geosurge +2 · Omenpaths ⬜ (its two-colour choice mode is next) | 6 |
-| KT-5 | City of Traitors | land-play watcher on a land | +1 | 8 |
+| KT-5 | City of Traitors | land-play watcher on a land | ✅ +1 | 8 |
 | KT-6 | Savage Beating | combat-only timing restriction (+ entwine honoured) | +1 | 9 |
 | KT-7 | Overpowering Attack · Full Throttle · World at War | S-D: attacked-this-turn untap, two additional combats, delayed per-combat untap, after-second-main insertion; rebound + freerunning sized on approach | +2 to +3 | 11–12 |
 | KT-8 | Grim Reaper's Sprint | aura ETB extra combat + morbid reducer | +1 | 12–13 |

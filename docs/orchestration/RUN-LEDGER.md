@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-5: CITY OF TRAITORS — landfall learns "played" · **+1** · corpus 14,435 (42.2%) / 34,245
+> Suite **1484 files / 16,089 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **7/7 killed.**
+> · "When you play another land, sacrifice this land." The landfall family fired on ANY land entering under your control —
+>   correct for "a land enters", wrong for "you play a land" (CR 305.1: playing a land is the special action; a land an
+>   effect puts onto the battlefield is not played). The play-land dispatcher now threads `played: true` into the landfall
+>   check and the effect path does not, so a `playedOnly` descriptor fails CLOSED there (a mutant that defaulted the
+>   marker to true died; so did the one that dropped it from the dispatcher). "Another" is a second gate — the watcher never
+>   fires on its own entry. Both fields listed in the descriptor assembly (the silent-drop mutants died).
+> · **Pins:** a played Mountain sacrifices City; a Mountain put onto the battlefield from the library does not; playing
+>   City itself does not.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-4a: GEOSURGE — restricted spend on a spell's pips · **+2** · corpus 14,434 (42.1%) / 34,245
 > Suite **1483 files / 16,085 tests** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **6/6 killed.**
 > · "Add {R}{R}{R}{R}{R}{R}{R}. Spend this mana only to cast artifact or creature spells." The QUARTET's restricted-spend lane had
