@@ -295,7 +295,7 @@ export function extractAdditionalCosts(oracle) {
 // Maneuver — the "free if you control a commander" cycle); pitch/sac/return kinds + other conditions land next.
 // Anchored to a whole sentence at oracle start or after a newline; the condition capture forbids commas /
 // periods / newlines so it can never span into the effect body.
-export const SUPPORTED_ALT_COST_KINDS = new Set(["free", "payLifeExilePitch", "exileColorCard", "sacrificeCreature", "payLife", "returnLandsToHand"]);
+export const SUPPORTED_ALT_COST_KINDS = new Set(["free", "payLifeExilePitch", "exileColorCard", "sacrificeCreature", "payLife", "returnLandsToHand", "fixedMana"]); // + fixedMana (RG-8, 2026-09-05): its strip is the whole sentence; the offer lane emits the pip cost-variant (legalChoices), so a spell reading HIGH with it IS castable both ways
 
 // Map a captured "if <cond>," phrase → a condition enum (a STRING — inert metadata today, since the alt-cost is
 // recorded but not yet OFFERED; the future cast-path offer will evaluate it). An UNRECOGNIZED condition → null,
@@ -320,6 +320,10 @@ function parseAltCostCondition(phrase) {
 // builds non-null wins. Only the FREE kind waives mana entirely (a future offer reuses action.freeCast); the
 // pitch/sac/return kinds pay their own printed cost. All are recorded as metadata only for now (§ extractAltCost).
 const ALT_COST_MATCHERS = [
+  // FIXED-MANA (RG-8, 2026-09-05 — the Bringers): the sentence is stripped for the program parse; the cast lane offers the pip
+  // variant through legalChoices (a cost-variant action, never the altCost branch — the kind is not in OFFERED_ALT_COST_KINDS).
+  { re: /(?:^|\n)\s*you may pay ((?:\{[WUBRG]\})+) rather than pay this spell's mana cost\.\s*/i,
+    build: (m) => ({ kind: "fixedMana", pips: m[1].toUpperCase(), condition: "always" }) },
   // EVOKE (CR 702.74 — SHELF-85 · Solitude, 2026-09-05): "Evoke—Exile a <color> card from your hand." The pitch half is the
   // exile-a-colour-card alt cost; the `evoke` flag rides the cast so the entering permanent is stamped and its
   // "when this enters, if its evoke cost was paid, sacrifice it" trigger is queued UNDER the card's own ETB.

@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Bringer of the Blue / Green / White / Black Dawn** — cast for {W}{U}{B}{R}{G} instead of nine
 - **Frenetic Ogre, Ogre Shaman, Pyromania, Sonic Burst and kin** — "discard a card at random" as a cost
 - **Raging Spirit, Ancient Kavu** — "becomes colorless until end of turn"
 - **Fist of Suns, Jodah, Archmage Eternal** — cast any spell for {W}{U}{B}{R}{G}

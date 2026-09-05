@@ -384,6 +384,15 @@ export function grantsWubrgAltCost(state, playerId) {
   for (const perm of (state?.players?.[playerId]?.battlefield || [])) if (grantsWubrgAltCostOf(perm.card)) return true;
   return false;
 }
+// ── THE SPELL'S OWN FIXED-MANA ALTERNATIVE COST (residue grind RG-8, 2026-09-05 — the Bringers "You may pay {W}{U}{B}{R}{G}
+// rather than pay this spell's mana cost."): the pips, or null. The hand-cast enumeration emits the same cost-VARIANT action
+// RG-5 built for Fist of Suns (the ordinary payment path pays the pips; never the altCost branch, which pays no mana); the
+// classifier's permanent lane covers the sentence as modelled residue; castModifiers strips it for a spell's program parse.
+export const FIXED_MANA_ALT_COST_RE = /(?:^|\n)\s*you may pay ((?:\{[WUBRG]\})+) rather than pay this spell's mana cost\.?\s*(?:\n|$)/i;
+export function fixedManaAltCostOf(card) {
+  const m = FIXED_MANA_ALT_COST_RE.exec(String(card?.oracle || card?.oracle_text || ""));
+  return m ? m[1].toUpperCase() : null;
+}
 export function creatureEntersSuppressed(state, enteredPerm) {
   // Only a CREATURE entering is silenced — read off the printed front-face type line at entry (an artifact, an enchantment,
   // a land entering still triggers everything). An animated-later permanent entered as whatever it was printed as.

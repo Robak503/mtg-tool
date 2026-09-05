@@ -748,6 +748,7 @@ export function isKeywordOnly(oracle, name) {
     // ZONE-OPTION / OPTIONAL-COST family (census slice 2026-07-24 — see the block comment above the consts)
     reGyZoneOptionCost.test(c) ||
     rePitchEvokeCost.test(c) || // PITCH EVOKE (Solitude) — modelled end to end
+    reFixedManaAltCost.test(c) || // THE SPELL'S OWN FIXED-MANA ALT COST (the Bringers, RG-8 2026-09-05) — the hand-cast lane offers the pip variant
     reReinforceCost.test(c) ||
     reBloodthirstFixed.test(c) ||
     reDevourFixed.test(c) ||
@@ -950,6 +951,11 @@ const reGyZoneOptionCost = /^(?:evoke|unearth|disturb|embalm|eternalize|scavenge
 // the cast lane offers the evoke cast (castModifiers' evoke entry), the dispatcher pays the pitch and stamps the cast, and
 // the entry resolver queues the sacrifice under the card's own ETB. Modelled, so the line is covered residue.
 const rePitchEvokeCost = /^evoke\s*[—–-]\s*exile an? (?:white|blue|black|red|green) card from your hand\.?$/;
+// FIXED-MANA ALTERNATIVE COST (CR 118.9 — residue grind RG-8, 2026-09-05 — the five Bringers "You may pay {W}{U}{B}{R}{G} rather
+// than pay this spell's mana cost."): NOT inert — legalChoices' hand-cast lane offers a second cast action whose cost IS the
+// pips (the RG-5 cost-variant emission, keyed on the card's own text through textNormalize.fixedManaAltCostOf), paid by the
+// ordinary payment path. Modelled, so the line is covered residue. Pips only; any rider fails the anchor (a safe FN).
+const reFixedManaAltCost = /^you may pay (?:\{[wubrg]\})+ rather than pay this spell's mana cost\.?$/;
 // REINFORCE N—{cost} (CR 702.77) — a HAND-only discard-activated ability ("{cost}, Discard this card: Put N
 // +1/+1 counters on target creature"), the cycling/typecycling class: an option from hand the engine never
 // offers, so the card on the battlefield plays exactly as printed. Same castability audit as eternalize —

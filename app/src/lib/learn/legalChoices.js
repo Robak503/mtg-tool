@@ -35,7 +35,7 @@ import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: reso
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor, crewCostWithOverrides } from "./layers.js";
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
-import { grantsWubrgAltCost } from "./effects/textNormalize.js"; // FIST OF SUNS (RG-5, 2026-09-05) — the board-granted WUBRG alternative cost, a leaf reader
+import { grantsWubrgAltCost, fixedManaAltCostOf } from "./effects/textNormalize.js"; // FIST OF SUNS (RG-5) — the board-granted WUBRG alternative cost; + RG-8 — the spell's OWN fixed-mana alternative cost (the Bringers); leaf readers
 import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksOf, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund (+ the Phyrexian life lane, Norn's Annex)
@@ -1138,9 +1138,13 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     const affordable = freeCast || canAfford(player.manaPool, manaSources(state, playerId), cost, spendContext);
     // FIST OF SUNS (RG-5): the five-pip alternative — hand casts only, never a free cast, never an X spell (the X would be 0
     // under an alternative cost — a different, unmodeled line), payable right now.
-    const wubrgAffordable = !!wubrgAlt && !freeCast && fromZone === "hand" && !cost.hasX
-      && canAfford(player.manaPool, manaSources(state, playerId), WUBRG_COST, spendContext);
-    if (wubrgAffordable) wubrgSpecs.set(card.id, { baseAffordable: affordable });
+    // RG-8 (2026-09-05 — the Bringers): the card's OWN "You may pay <pips> rather than pay this spell's mana cost" is the
+    // same cost-variant; the card's own pips take precedence over a Fist of Suns grant (for the Bringers they coincide).
+    const ownPips = (!freeCast && fromZone === "hand") ? fixedManaAltCostOf(card) : null;
+    const fixedAltCost = ownPips ? parseManaCost(ownPips) : (wubrgAlt ? WUBRG_COST : null);
+    const wubrgAffordable = !!fixedAltCost && !freeCast && fromZone === "hand" && !cost.hasX
+      && canAfford(player.manaPool, manaSources(state, playerId), fixedAltCost, spendContext);
+    if (wubrgAffordable) wubrgSpecs.set(card.id, { baseAffordable: affordable, cost: fixedAltCost, altManaCost: ownPips ? "own" : "wubrg", altName: `pay ${ownPips || "{W}{U}{B}{R}{G}"} rather than its mana cost` });
     // EMERGE (CR 702.97): the whole POINT of emerge is casting the Eldrazi when the FULL printed cost is out
     // of reach — sacrificing a creature cuts the cost by its mana value. So when the normal cast is NOT
     // affordable, do NOT skip the card outright (the old `if (!affordable) continue`): an emerge cast may
@@ -1917,7 +1921,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         && !a.sacCreatureId && !a.payLifeCost && !a.discardCardId) ? wubrgSpecs.get(a.cardId) : undefined;
       if (!spec) { out.push(a); continue; }
       if (spec.baseAffordable) out.push(a);
-      out.push({ ...a, cost: WUBRG_COST, altManaCost: "wubrg", altName: "pay {W}{U}{B}{R}{G} rather than its mana cost" });
+      out.push({ ...a, cost: spec.cost, altManaCost: spec.altManaCost, altName: spec.altName });
     }
     actions.length = 0;
     actions.push(...out);

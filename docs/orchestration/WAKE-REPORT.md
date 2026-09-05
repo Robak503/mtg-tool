@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-06 (cron) — **RESIDUE GRIND RG-8 · the Bringers' own five-pip alternative cost (+3)** · suite **1579 files / 16413 tests** green · corpus 14,733 (43.0%) / 34,245 · flip-diff +3 / 0 lost · mutants 5/5 killed
+
+> **Runnable next:** "Buyback—Sacrifice a land" (3 sole, popular — buyback with a non-mana cost) and the Clockwork family ("whenever this creature attacks or blocks, remove a +1/+1 counter from it at end of combat", 4 sole). Then re-run the census.
+> The Bringers cast for {W}{U}{B}{R}{G} through a second cast action; Red Dawn stays parked on its gain-control upkeep.
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **RESIDUE GRIND RG-7 · discard a card at random (+16)** · suite **1578 files / 16411 tests** green · corpus 14,730 (43.0%) / 34,245 · flip-diff +16 / 0 lost · mutants 5/5 killed (one survivor resolved: the compound-half parser's copy of the arm had no printed carrier — deleted, not left dead)
 
 > **Runnable next (census re-run 2026-09-05 ~21:30Z — 34,245 scanned · 19,571 non-native · 10,645 sole-blocker cards):** the top of the list is still sub-game / subsystem machinery (initiative, double team, attractions, specialize, stickers, contraptions, the Ring, planechase, incubate, manifest dread; exert / "the color of your choice" / "the basic land type of your choice" / "tap or untap" are CHOICES for the choice-eval subsystem). First buildable family: **RG-8 — the Bringers' own five-pip alternative cost** ("You may pay {W}{W}{W}{W}{W} rather than pay this spell's mana cost", 3 sole + 2 co) — the same cost-variant emission RG-5 built for Fist of Suns, keyed on the spell's own text instead of a board carrier (the alt-cost lane's kinds cannot carry a MANA payment; the variant's cost must be the pips). Then "Buyback—Sacrifice a land" (3 sole, popular) and the Clockwork "remove a +1/+1 counter at end of combat" family (4 sole). Still banked from this pass: the Powerstone token (the quartet's restricted-spend lane), "unless {G} was spent to cast it" (a payment stamp onto the entering permanent), "the color of your choice" (a choice), the ETB "sacrifice it unless you discard a card at random" (the sac-unless lane's cost payment — the same random pick, a follow-up).

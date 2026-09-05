@@ -16,6 +16,23 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-06 (cron) — RESIDUE GRIND RG-8 · THE BRINGERS' OWN FIVE-PIP ALTERNATIVE COST · **+3** · corpus 14,733 (43.0%) / 34,245
+> Suite **1579 files / 16413 tests** green; lint 0. Flip-diff **+3, zero LOST** (every unplanned gain audited whole-card). **mutants 5/5 killed.**
+> · The 21:30Z census's first buildable family: "You may pay {W}{U}{B}{R}{G} rather than pay this spell's mana cost." (the five
+>   Bringers; 3 sole + 2 co). CR 118.9 — the card's OWN fixed-mana alternative cost. The alt-cost lane's kinds cannot carry a
+>   MANA payment (its dispatcher branch pays no mana), so this rides the cost-VARIANT emission RG-5 built for Fist of Suns,
+>   keyed on the card's own text (textNormalize.fixedManaAltCostOf): a second cast action whose cost IS the pips, the ordinary
+>   payment path pays it, the printed-cost action survives beside it only when payable. The card's own pips take precedence
+>   over a Fist grant (for the Bringers they coincide). The classifier's permanent lane covers the sentence as modelled residue
+>   (beside the evoke allowance); castModifiers strips it for a spell's program parse (a "fixedMana" alt kind the offer lane
+>   deliberately does not enumerate).
+> · **Pins:** Blue and Green Bringers native; a spell-lane SHAPE pin ({R}{R}{R}) native; Bringer of the Red Dawn PARKED — its upkeep
+>   is gain-control (Colton's theft veto). RUNTIME: five basics → the nine-drop castable only through its own variant (cost
+>   W/U/B/R/G), dispatching taps all five; four basics → nothing. Mutants: the allowance gone, the own-pips read gone, the
+>   spell-lane matcher gone, the variant mispriced — mutants 5/5 killed.
+> · **Whole-card:** flip-diff exactly Blue, White and Green Dawn (their upkeeps — draw two, return an artifact card, a Beast token — were already modeled); Black Dawn stays parked on its pay-2-life tutor-to-top upkeep, Red Dawn on its gain-control upkeep (the theft veto); zero LOST, zero retiered
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 > ## 🎯 2026-09-05 (cron) — RESIDUE GRIND RG-7 · DISCARD A CARD AT RANDOM (the cost — Frenetic Ogre / Ogre Shaman / Pyromania / Sonic Burst …) · **+16** · corpus 14,730 (43.0%) / 34,245
 > Suite **1578 files / 16411 tests** green; lint 0. Flip-diff **+16, zero LOST** (every unplanned gain audited whole-card). **mutants 5/5 killed (one survivor resolved: the compound-half parser's copy of the arm had no printed carrier — deleted, not left dead).**
 > · One mechanism the census printed as a dozen rows: "discard a card at random" as a COST — the activated form ("{R},
