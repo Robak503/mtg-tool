@@ -727,6 +727,8 @@ function selfCostReductionForSpell(state, playerId, card) {
       // (the printed "if less than" condition is exactly the floor). startingLife is stamped per player at
       // game creation; a legacy state without it falls back to the current life → reduction 0 (never over-cut).
       return Math.max(0, (player.startingLife ?? player.life) - player.life);
+    case "creatureDiedThisTurn": // MORBID (KT-8): a fixed reduction if ANY creature died this turn — every seat's count (CR 700.4)
+      return Object.values(state.players || {}).some((pl) => (pl?.creaturesDiedThisTurn || 0) > 0) ? metric.amount : 0;
     case "greatestArtifactsAnOpponentControls": {
       let best = 0;
       for (const oppId of opponentsOf(state, playerId)) {

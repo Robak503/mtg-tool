@@ -1211,8 +1211,13 @@ export function selfCostReductionMetric(card) {
   // and must be stripped before the anchored match, else the trailing reminder breaks the `$` anchor.
   const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
   for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
-    const s = sentence.trim().toLowerCase().replace(/\.\s*$/, "");
+    // MORBID (POD-SIM THREE · KT-8, 2026-09-05 — Grim Reaper's Sprint "Morbid — This spell costs {3} less to cast if a
+    // creature died this turn."): the ability-word label comes off (CR 207.2c, flavour) so the bare sentence reaches the
+    // table; the metric is a FIXED amount gated on any creature having died this turn (every seat's count, CR 700.4).
+    const s = sentence.trim().toLowerCase().replace(/^morbid\s*[—–-]\s*/, "").replace(/\.\s*$/, "");
     if (!s.startsWith("this spell costs") && !s.startsWith("if your life total is less than your starting life total, this spell costs")) continue;
+    const morbid = s.match(/^this spell costs \{(\d+)\} less to cast if a creature died this turn$/);
+    if (morbid) return { kind: "creatureDiedThisTurn", amount: Number(morbid[1]) };
     for (const [re, metric] of SELF_COST_METRICS) {
       if (re.test(s)) return metric;
     }
@@ -6183,9 +6188,13 @@ function auraResidueClauses(card) {
   // own commas, so abilityClauses would shred it into fragments that no clause pattern could ever admit.
   const oracle = stripFlashPermissionLine(String(card?.oracle || card?.oracle_text || ""));
   const out = [];
+  // MORBID (POD-SIM THREE · KT-8, 2026-09-05 — Grim Reaper's Sprint): a self cost-reduction sentence the same reader the
+  // cast lane honours has MODELED is not residue (the runtime reduces the cast; the Aura still does its printed thing).
+  const selfCost = selfCostReductionMetric(card);
   for (const clause of abilityClauses(oracle)) {
     const c = clause.toLowerCase().trim();
     if (/^enchant\b/.test(c)) continue;                       // the Enchant keyword line
+    if (selfCost && /^(?:morbid\s*[—–-]\s*)?this spell costs \{\d+\} less to cast if a creature died this turn$/.test(c.replace(/\.\s*$/, ""))) continue;
     // FLASH (BLITZ FA-1 — Tiger Claws / Frantic Strength / Epic Proportions): the Aura's own cast-timing
     // keyword is NOT residue — the engine hard-casts at the main-phase window (the flash speed simply goes
     // unused: the card still does exactly its printed thing at sorcery speed, the bloodrush-inverse — an

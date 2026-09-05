@@ -16,6 +16,19 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-8: GRIM REAPER'S SPRINT — morbid joins the self-metric seam · **+3** · corpus 14,441 (42.2%) / 34,245
+> Suite **1488 files / 16,101 tests** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **6/6 killed.**
+> · The aura's ETB ("untap each creature you control. If it's your main phase, there is an additional combat phase after
+>   this phase") already rode KT-7a's gated arm; only "Morbid — This spell costs {3} less to cast if a creature died this turn"
+>   stood in the way. The cast lane's self-metric reader (Ghalta / Shadow of Mortality) gains a FIXED kind gated on any
+>   creature having died this turn — every seat's counter (CR 700.4: the card says "a creature", not "a creature you
+>   control"; the your-deaths-only mutant died). The ability-word label is peeled so the sentence reaches the table; the
+>   aura residue check treats the modeled sentence as not-residue; coverage strips it by the same reader.
+> · **Pins:** for {R}{R} the Aura is not castable with no death this turn and IS castable after a death under either seat;
+>   the full cost still works; entering in your main phase untaps and queues the extra combat, entering in combat queues none.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Killer Turts 80 → 81** (81/100; needs 4). Unplanned gains audited: Purple Worm and Bone Picker (the unlabelled morbid sentence + keywords only). Next: KT-9 Avoid Fate (the typed counter-that-targets), then KT-7b Full Throttle, then Not of This World / Carpet of Flowers.
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-7a: OVERPOWERING ATTACK — the attacked-this-turn untap and the gated extra combat · **+1** · corpus 14,438 (42.2%) / 34,245
 > Suite **1487 files / 16,098 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **7/7 killed.**
 > · "Untap all creatures you control that attacked this turn." — the creature untap filtered on the per-permanent

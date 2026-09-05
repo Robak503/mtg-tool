@@ -30,7 +30,7 @@ Legend: **S** one arm on an existing seam · **M** a new arm plus a runtime seam
 | T3 | **Full Throttle** | after this main phase, TWO additional combat phases; at the beginning of each combat this turn, untap all creatures that attacked this turn | "two additional" count + a DELAYED per-combat untap trigger | **M** | the delayed untap fires at each combat's beginning, not once |
 | T4 | **World at War** | after the SECOND main phase, an additional combat + main; at that combat's beginning untap attackers; Rebound | "after the second main phase" insertion point + the delayed untap + rebound | **M** | rebound must actually re-offer the cast next upkeep or stay unmodeled for that line |
 | T5 | **Overpowering Attack** | untap creatures that attacked this turn; if main phase, extra combat + extra main; Freerunning | ✅ DONE 2026-09-05 (KT-7a): the creature untap with an attacked-this-turn filter (the declare-attacker flag); the after-main extra combat with a RESOLUTION-TIME your-main-phase gate; freerunning credited hard-cast only (the foretell/blitz precedent — a known under-offer) | **S** | pinned: the homebody stays tapped; nothing queued outside your main phase, nor in the opponent's |
-| T6 | **Grim Reaper's Sprint** | Morbid cost reduction; Aura; ETB untap each creature + extra combat if main phase; +2/+2 haste | aura ETB trigger with the conditional extra combat (the untap + `insertAfter: main` arms exist); morbid reducer | **M** | morbid's "a creature died this turn" read must be live |
+| T6 | **Grim Reaper's Sprint** | Morbid cost reduction; Aura; ETB untap each creature + extra combat if main phase; +2/+2 haste | ✅ DONE 2026-09-05 (KT-8): the aura ETB rides KT-7a's gated arm; MORBID = a fixed self cost-reduction gated on any creature having died this turn (every seat's counter, CR 700.4), read by the cast lane's self-metric seam; the aura residue check treats the modeled sentence as not-residue | **S** | pinned: castable for {R}{R} only after a death under either seat; the unconditional and your-deaths-only mutants died |
 | T7 | **Great Train Heist** | Spree: untap all + extra combat if combat; +1/+0 first strike; Treasure-on-damage to target opponent this turn | spree (choose-one-or-more additional costs) + a turn-scoped delayed trigger | **M/L** | modes 1–2 parse natively as bare text; spree's cost structure is the seam — sized on approach |
 
 ### 1b. Ritual mana (4 cards · seam S-E)
@@ -96,7 +96,7 @@ Ordered by plan-criticality, then cost. Running total assumes each slice lands w
 | KT-5 | City of Traitors | land-play watcher on a land | ✅ +1 | 8 |
 | KT-6 | Savage Beating | combat-only timing restriction (+ entwine honoured) | ✅ +1 | 9 |
 | KT-7 | Overpowering Attack · Full Throttle · World at War | S-D: attacked-this-turn untap, two additional combats, delayed per-combat untap, after-second-main insertion; rebound + freerunning sized on approach | ✅ Overpowering Attack +1 · Full Throttle ⬜ (a per-combat delayed untap = a new fire step) · World at War ⬜ (rebound unmodeled) | 10 |
-| KT-8 | Grim Reaper's Sprint | aura ETB extra combat + morbid reducer | +1 | 12–13 |
+| KT-8 | Grim Reaper's Sprint | aura ETB extra combat + morbid reducer | ✅ +3 | 11 |
 | KT-9 | Avoid Fate · Not of This World | targets-a-permanent-you-control predicate | +2 | 14–15 |
 | KT-10 | Carpet of Flowers · Jeweled Amulet · Great Train Heist (spree) · World War Hulk | whichever lands cleanest | +1 to +3 | **≥15** |
 
