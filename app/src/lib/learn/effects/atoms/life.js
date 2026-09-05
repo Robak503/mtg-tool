@@ -294,7 +294,7 @@ export function lifeClauseParser(clause) {
   }
   let mfe = t.match(/^(?:you )?gain (\d+) life for each (.+)$/);
   if (mfe) {
-    const src = parseCountSource(mfe[2]);
+    const src = parseCountSource(mfe[2], { allowScopes: true }); // + allowScopes (Riot Control "creature your opponents control", 2026-09-05) — a board count like the token/library arms read
     return src ? { op: "gain-life", amountCount: { ...src, per: parseInt(mfe[1], 10) }, targetType: null } : null;
   }
   mfe = t.match(/^(?:you )?gain life equal to the number of (.+)$/);

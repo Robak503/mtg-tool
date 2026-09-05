@@ -407,6 +407,15 @@ export function parseCreatureTargetRestrictions(card, { allowPlaneswalkerUnion =
     restrictions.push({ kind: "hasCounter", ...(ctrM[2] ? { counterType: ctrM[2].trim() } : {}), ...(ctrM[1] === "no" ? { negate: true } : {}) });
     t = t.replace(/\bwith (?:(?:no|a|an|one or more) )?(?:\+1\/\+1 |-1\/-1 )?counters? on (?:it|them)\b/g, " ");
   }
+  // ⭐ "WITHOUT a <type> counter on it" (SHELF-85 · Bumble F5 Wave Goodbye, 2026-09-05 — "each creature without a +1/+1
+  // counter on it"): the negated NAMED form. Only the counter kinds the runtime actually places (+1/+1, -1/-1, stun)
+  // are admitted — the ④-AC discipline: a printed type it never places (fate, egg, rope, blaze — Oblivion Stone's
+  // kin) would make the negation ALWAYS true and credit a sweep that can never be narrowed, so it stays residue → Arbiter.
+  const ctrW = t.match(/\bwithout an? (\+1\/\+1|-1\/-1|stun) counter on (?:it|them)\b/);
+  if (ctrW) {
+    restrictions.push({ kind: "hasCounter", counterType: ctrW[1], negate: true });
+    t = t.replace(/\bwithout an? (?:\+1\/\+1|-1\/-1|stun) counter on (?:it|them)\b/g, " ");
+  }
 
   // DISJUNCTIVE P/T BOUND (CR 208.1 / 208.2 — Warping Wail: "exile target creature with power or toughness
   // 1 or less"). Matched and stripped WHOLE and BEFORE the single-characteristic matchers below, because the

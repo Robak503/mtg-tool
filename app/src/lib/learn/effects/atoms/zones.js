@@ -1388,6 +1388,17 @@ export function bounceClauseParser(clause) {
   //     via creatureToughness), so a creature buffed above X is spared. An UNMODELED count source (a non-curated
   //     "where X is …") → null → low → Arbiter (CREED: never a silently mis-scoped sweep). ANCHORED to the exact
   //     "your opponents control" scope so the you-control/no-scope bounces above are untouched.
+  // ⭐ "RETURN EACH CREATURE <filter> TO ITS OWNER'S HAND" (SHELF-85 · Bumble F5 Wave Goodbye, 2026-09-05 — "each creature
+  // without a +1/+1 counter on it"; Restore the Peace "each creature that dealt damage this turn"): the singular-"each"
+  // twin of the filtered "return all …" arm above, delegated to the SAME shared restriction grammar through the same
+  // damage-sentence disguise. A filter the grammar cannot read leaves residue → not clean → null → low → Arbiter.
+  // Placed BEFORE the exact opponents-control form below (which stays byte-identical: its phrase parses to the
+  // controller restriction here too, but the exact arm's dedicated eachOpponentCreature pool is the one witnessed).
+  const be = t.match(/^return each (creature .+?) to its owner's hand$/);
+  if (be && !/^creature your opponents control$/.test(be[1])) {
+    const { restrictions, clean } = parseCreatureTargetRestrictions({ oracle: `~ deals 1 damage to each ${be[1]}` });
+    if (clean && restrictions.length) return { op: "bounce", targetType: "eachCreature", restrictions };
+  }
   if (/^return each creature your opponents control to its owner's hand$/.test(t)) {
     return { op: "bounce", targetType: "eachOpponentCreature" };
   }

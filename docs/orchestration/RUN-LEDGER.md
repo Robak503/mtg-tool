@@ -16,6 +16,28 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · F5: WAVE GOODBYE + RIOT CONTROL — four small arms on shared grammar · **+3** · corpus 14513 / 34,245
+> Suite **1515 files / 16,217** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 7/7 killed.**
+> · **Wave Goodbye** — "Return each creature without a +1/+1 counter on it to its owner's hand." Two gaps: the mass bounce
+>   knew "return ALL <filter> creatures" but not the singular "return EACH creature <filter>" (a new arm delegating to the
+>   same shared restriction grammar through the same damage-sentence disguise — Restore the Peace's "each creature that
+>   dealt damage this turn" rides the same road), and the grammar knew "with no counters" but not the negated NAMED
+>   form "without a <type> counter on it". Tracked kinds only (+1/+1, -1/-1, stun — the ④-AC discipline): a printed
+>   type the runtime never places (fate, egg, rope, blaze — Oblivion Stone's kin) would make the negation ALWAYS true
+>   and credit a sweep that can never be narrowed, so it stays residue (pinned).
+> · **Riot Control** — "You gain 1 life for each creature your opponents control. Prevent all damage that would be dealt
+>   to you this turn." The gain-life-for-each arm called the count-source parser WITHOUT the scope option the token and
+>   library count arms already pass, so "creature your opponents control" parked; passed now (a board count a resolving
+>   spell can read). "Prevent all damage … to you" is the controller's this-turn shield with a FINITE amount no hit
+>   exhausts — not Infinity, because the shield is plain JSON and a saved game would restore it as null.
+> · **Pins:** Wave Goodbye parses to the negated +1/+1 hasCounter mass bounce and Riot Control to the scoped count +
+>   the shield, both native-spell; an untracked counter type stays residue; at resolution Wave Goodbye bounces every
+>   counter-less creature on BOTH sides and spares the countered ones; Riot Control gains 1 per OPPONENT creature (own
+>   creatures don't count) and a later 9-damage hit through the real damage path is prevented. Mutants: the without-form,
+>   its negate, its widening to any word, the each-arm, the scope option, the prevention arm, a small shield — mutants 7/7 killed.
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Bumble Flower 72 → **74** (11 to the bar); Emissary of Hope the unplanned gain, audited by RUNTIME probe (its 'that player' count reads the damaged player through the resolver's designed fallback — three artifacts, three life)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · F6: HEAPED HARVEST — "when you sacrifice it" · **+2** · corpus 14510 / 34,245
 > Suite **1514 files / 16,213** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed (after two survivors collapsed into one strip).**
 > · "When this artifact enters and when you sacrifice it, you may search your library for a basic land card, put it onto

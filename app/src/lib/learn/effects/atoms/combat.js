@@ -1737,6 +1737,11 @@ export function combatKeywordClauseParser(clause) {
   if (pvc) return { op: "prevent-next-damage", amount: NUM_WORD[pvc[1]] ?? parseInt(pvc[1], 10), targetType: "creature" };
   const pvy = t.match(/^prevent the next (\d+|one|two|three|four|five|six|seven|eight|nine|ten) damage that would be dealt to you this turn$/);
   if (pvy) return { op: "prevent-next-damage", amount: NUM_WORD[pvy[1]] ?? parseInt(pvy[1], 10), who: "you", targetType: null };
+  // "PREVENT ALL damage that would be dealt to you this turn" (SHELF-85 · Bumble F5 Riot Control, 2026-09-05): the SAME
+  // this-turn shield on the controller with an amount no hit can exhaust. A large FINITE amount, not Infinity — the
+  // shield is plain JSON (a saved game must restore byte-identical; JSON turns Infinity into null and the shield would
+  // vanish). ALL_DAMAGE_SHIELD is consumed like any other (min(amount, hit)) and expires with the turn stamp.
+  if (/^prevent all damage that would be dealt to you this turn$/.test(t)) return { op: "prevent-next-damage", amount: ALL_DAMAGE_SHIELD, who: "you", targetType: null };
   // ⭐ …and the two remaining cells of the SAME target vocabulary, found by tier-splitting the phrase again.
   // The family is native on ~48 carriers across "any target" / "target creature" / "you"; these two wordings
   // were native on ZERO.
@@ -2842,6 +2847,8 @@ export function fightClauseParser(clause) {
  * lives in state.preventionShields (plain JSON, self-expiring by turn stamp); the two damage paths
  * consume it before a hit lands. A vanished target shields nobody (a clean no-op, never fabricated).
  */
+// "Prevent ALL damage … this turn" as a shield amount: finite (JSON-safe), larger than any damage a game can deal.
+export const ALL_DAMAGE_SHIELD = 1000000;
 function applyPreventNextDamage(state, atom, ctx) {
   let next = state;
   const entries = [];
