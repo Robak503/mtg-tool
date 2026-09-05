@@ -80,9 +80,9 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Otharri Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Bumble Flower Combo | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Test | Atraxa Superfriends | 74 | 11 | 16 | ⬜ Phase 2 |
-| Test | Light-Paws Voltron | 81 | 4 | 9 | ⬜ Phase 2 |
+| Test | Light-Paws Voltron | 82 | 3 | 8 | ⬜ Phase 2 |
 
-**3 decks below 85 · 17 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**3 decks below 85 · 16 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -438,7 +438,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | L1 | Ishgard, the Holy See | MDFC | V1 | | ⬜ |
 | L2 | Chains of Custody ×2 · Sheltered by Ghosts ×2 · Detainment Spell ×2 | | V15 | |✅ |
 | L3 | Light-Paws, Emperor's Voice | aura you cast enters → tutor an Aura with lesser MV onto the battlefield attached | M | the deck's engine; an aura-cast watcher + tutor-to-battlefield-attached | ⬜ |
-| L4 | Face of Divinity ✅ (sk107 — the another-Aura gate) · Solid Footing 🔄 (sk117, 2026-09-05 — the conditional attached-bonus gate on a PRINTED host keyword) · Gauntlets of Light ✅ (+2 — the toughness-assigns attached grant; Treefolk Umbra rode along) · Greater Auramancy ✅ (+1 — the enchanted-creatures selector) · Umbra Mystic · Shielded by Faith ✅ (sk108 — attach to the entering creature) · Brilliant Wings ✅ (sk108 — the same behind "you may pay {1}") · Sentinel's Mark ✅ (+2 — the Addendum main-phase look-back) · Shardmage's Rescue ✅ (sk107 — the entered-this-turn gate) · Celestial Mantle · With Great Power · Mantle of the Ancients | aura statics and triggers | S–M | Gauntlets/Solid Footing = "assigns combat damage equal to its toughness" (the layer op EXISTS: assignsCombatDamageWithToughness — S); Greater Auramancy = team shroud on enchanted creatures (S); Shielded by Faith / Brilliant Wings = a re-attach on ETB (M) | ⬜ |
+| L4 | Face of Divinity ✅ (sk107 — the another-Aura gate) · Solid Footing ✅ (+1 — the printed-host-keyword attached gate) · Gauntlets of Light ✅ (+2 — the toughness-assigns attached grant; Treefolk Umbra rode along) · Greater Auramancy ✅ (+1 — the enchanted-creatures selector) · Umbra Mystic · Shielded by Faith ✅ (sk108 — attach to the entering creature) · Brilliant Wings ✅ (sk108 — the same behind "you may pay {1}") · Sentinel's Mark ✅ (+2 — the Addendum main-phase look-back) · Shardmage's Rescue ✅ (sk107 — the entered-this-turn gate) · Celestial Mantle · With Great Power · Mantle of the Ancients | aura statics and triggers | S–M | Gauntlets/Solid Footing = "assigns combat damage equal to its toughness" (the layer op EXISTS: assignsCombatDamageWithToughness — S); Greater Auramancy = team shroud on enchanted creatures (S); Shielded by Faith / Brilliant Wings = a re-attach on ETB (M) | ⬜ |
 | L5 | Winds of Rath ✅ (+1 — the enchanted predicate) · Karametra's Blessing ✅ (+1 — the enchanted-or-enchantment-creature keyword rider) · Enter the Avatar State ✅ (+1 — the becomes-a-subtype-and-gains pump) · Deafening Silence ✅ (+1 — the noncreature cast limit) · Drannith Magistrate ✅ (+1 — the cast-from-hand-only lock) | spells and statics | S / M / M / M / M | | 🔶 |
 | L6 | COMPOSITE | Angelic Destiny · Benevolent Blessing · Darksteel Mutation (L — a base-P/T + type-set Aura) · Daybreak Coronet ✅ (+1 — the with-another-Aura Enchant restriction) · Galadriel's Dismissal (L — phasing) · On Thin Ice · Pariah · Pearl-Ear · Plaza of Heroes · Restoration Magic · Reverent Mantra · Silent Arbiter · Spectra Ward · Spirit Mantle · Swift Reconfiguration · Trouble in Pairs | size on approach | | ⬜ |
 
@@ -484,6 +484,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — **Phase 3** (§4.3 step 4, an S row left in Light-Paws) · Solid Footing ✅ +1 corpus (the conditional attached-bonus gate on a PRINTED host keyword — "as long as enchanted creature has vigilance, it assigns combat damage equal to its toughness" — the third condition kind on the Face of Divinity lane; a granted keyword is a documented under-read) · mutants 6/6 killed · suite 1567 files / 16,385 tests · **Light-Paws Voltron 81 → 82** (ceiling stands — every other row L; the Phase 4 list already names the rest). Sai (Shorikai) probed: its "Sacrifice two artifacts" cost is a non-fungible CHOICE the auto-pick refuses by design → 🅿 CHOICE-EVAL (the quartet), not an S row
 
 - 2026-09-05 — **Phase 3** (§4.3 step 2, Nekusar → 90 sweep) · Molten Psyche ✅ +1 corpus (metalcraft damage to each opponent EQUAL TO THAT PLAYER'S OWN draws this turn — a per-opponent amount kind on the each-opponent damage, read after the wheel's redraw) · mutants 8/8 killed · suite 1566 files / 16,383 tests · **Nekusar Wheels 88 → 89** (Phase 3 step 2; the ≤3-row decks — Bumble 88 / Wolverine / Cap remain; Solid Footing next in Light-Paws)
 

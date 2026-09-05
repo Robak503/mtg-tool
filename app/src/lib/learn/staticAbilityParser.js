@@ -5678,12 +5678,17 @@ function parseAttachedClauseCore(c, subject, noun = "creature") {
   // TOUGHNESS-ASSIGNS attached grant (SHELF-85 · Light-Paws L4 — Gauntlets of Light "gets +0/+2 and assigns combat damage equal
   // to its toughness rather than its power", 2026-09-05): the pump plus the SAME layer-6 op the printed self / team forms emit
   // (assignsCombatDamageWithToughness — combat resolution reads it layer-aware), both fixed to the host by the attached-bonus
-  // path (they arrive with the Aura and leave with it). Whole-clause anchored ($): Solid Footing's conditional "as long as
-  // enchanted creature has vigilance, it assigns …" never matches — it falls through → the bonus drops → the card parks.
+  // path (they arrive with the Aura and leave with it). Whole-clause anchored ($). The BARE form ("enchanted creature assigns
+  // combat damage equal to its toughness rather than its power") is what the conditional attached-bonus arm hands down for
+  // Solid Footing (2026-09-05) once its "as long as enchanted creature has vigilance" is peeled into the printed-keyword gate.
   {
     const tPt = rest.match(/^gets ([+-]\d+)\/([+-]\d+) and assigns combat damage equal to its toughness rather than its power\.?$/);
     if (tPt) {
       out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModify", power: signed(tPt[1]), toughness: signed(tPt[2]) }, duration: { kind: "permanent" } });
+      out.push({ layer: 6, op: { layerOp: "assignsCombatDamageWithToughness" }, duration: { kind: "permanent" } });
+      return out;
+    }
+    if (/^assigns combat damage equal to its toughness rather than its power\.?$/.test(rest)) {
       out.push({ layer: 6, op: { layerOp: "assignsCombatDamageWithToughness" }, duration: { kind: "permanent" } });
       return out;
     }
@@ -6122,11 +6127,17 @@ export function parseAttachedBonus(card, subjectOverride) {
     // would need the gated P/T twin and is refused until it is built.
     const faceM = subject === "enchanted" ? c.match(/^as long as another aura is attached to enchanted creature, it (has .+)$/) : null;
     const rescueM = subject === "enchanted" ? c.match(/^as long as this aura entered this turn, (enchanted creature has .+)$/) : null;
+    // HOST-HAS-PRINTED-KEYWORD (Solid Footing, 2026-09-05 — "As long as enchanted creature has vigilance, it assigns combat damage
+    // equal to its toughness rather than its power"): the third condition kind. No source needed — the gate reads the HOST's
+    // printed keyword line (layers.gateMet, never the derive: a granted keyword is a documented under-read). The gateable set
+    // widens to the inert layer-6 toughness-assigns op (its reader honours op.gate).
+    const footM = subject === "enchanted" ? c.match(/^as long as enchanted creature has (vigilance|flying|first strike|trample|lifelink|deathtouch|reach|menace|haste), (it (?:has|assigns) .+)$/) : null;
     const condAttached = faceM ? { rest: `enchanted creature ${faceM[1]}`, gate: { kind: "hostOtherAuraAttached", needsSource: true } }
-      : rescueM ? { rest: rescueM[1], gate: { kind: "auraEnteredThisTurn", needsSource: true } } : null;
+      : rescueM ? { rest: rescueM[1], gate: { kind: "auraEnteredThisTurn", needsSource: true } }
+      : footM ? { rest: `enchanted creature ${footM[2].replace(/^it /, "")}`, gate: { kind: "hostHasPrintedKeyword", keyword: footM[1] } } : null;
     if (condAttached) {
       const inner = parseAttachedClause(condAttached.rest, subject, noun);
-      const gateable = inner && inner.length && inner.every((d) => d?.layer === 6 && d?.op?.layerOp === "addKeyword" && !d.op.gate);
+      const gateable = inner && inner.length && inner.every((d) => d?.layer === 6 && (d?.op?.layerOp === "addKeyword" || d?.op?.layerOp === "assignsCombatDamageWithToughness") && !d.op.gate);
       if (!gateable) { if (slot) slot[slotKey] = []; return []; }
       for (const d of inner) out.push({ ...d, op: { ...d.op, gate: { ...condAttached.gate } } });
       saw = true;
@@ -6744,7 +6755,7 @@ function auraTouchClausesAllModeled(card) {
     if (!touchesAttachedCreature(c, "enchanted", noun)) continue; // non-touch residue → auraResidueClauses catches it
     // CONDITIONAL ATTACHED BONUS (Face of Divinity / Shardmage's Rescue, 2026-09-05): the two gated shapes parseAttachedBonus
     // owns. The whole-card parse is all-or-nothing, so a non-empty bonus VOUCHES for this clause having parsed under its gate.
-    if ((/^as long as another aura is attached to enchanted creature, it has /.test(c) || /^as long as this aura entered this turn, enchanted creature has /.test(c))
+    if ((/^as long as another aura is attached to enchanted creature, it has /.test(c) || /^as long as this aura entered this turn, enchanted creature has /.test(c) || /^as long as enchanted creature has (?:vigilance|flying|first strike|trample|lifelink|deathtouch|reach|menace|haste), it (?:has|assigns) /.test(c))
       && parseAttachedBonus(card, "enchanted").length) continue;
     if (!(c.startsWith(`enchanted ${noun}`) && parseAttachedClause(c, "enchanted", noun))) return false;
   }

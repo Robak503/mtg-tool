@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **PHASE 3 · Solid Footing (+1)** · suite **1567 files / 16,385 tests** green · corpus 14,626 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 6/6 killed
+
+> An Aura's bonus line can now switch on a printed keyword of its host — the third condition on the conditional attached-bonus lane, read without re-entering the layer derive. **Light-Paws Voltron 81 → 82** (ceiling stands — every other row L; the Phase 4 list already names the rest). Sai (Shorikai) probed: its "Sacrifice two artifacts" cost is a non-fungible CHOICE the auto-pick refuses by design → 🅿 CHOICE-EVAL (the quartet), not an S row
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **PHASE 3 · Molten Psyche (+1)** · suite **1566 files / 16,383 tests** green · corpus 14,625 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 8/8 killed
 
 > Each-opponent damage can now scale per player — "equal to the number of cards that player has drawn this turn" — read after the wheel that precedes it. **Nekusar Wheels 88 → 89** (Phase 3 step 2; the ≤3-row decks — Bumble 88 / Wolverine / Cap remain; Solid Footing next in Light-Paws)

@@ -16,6 +16,25 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — PHASE 3 · SOLID FOOTING — the attached bonus gated on a printed host keyword · **+1** · corpus 14,626 (42.7%) / 34,245
+> Suite **1567 files / 16,385 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 6/6 killed.**
+> · Phase 3 step 4 — an S row left in a deck at its ceiling (Light-Paws): "As long as enchanted creature has vigilance, it
+>   assigns combat damage equal to its toughness rather than its power." The conditional attached-bonus lane (Face of
+>   Divinity's another-Aura gate, Shardmage's Rescue's entered-this-turn gate) gains its third condition — the HOST has a
+>   keyword — and its gateable set widens from keyword grants to the toughness-assigns layer-6 op (the Gauntlets of Light
+>   op). ⛔ THE GATE READS THE HOST'S PRINTED KEYWORD LINE, NEVER THE LAYER DERIVE: gateMet runs inside the continuous-effect
+>   collection, and permanentHasKeyword would re-enter it (the ES-1 trap the attached-bonus code already documents). So a
+>   GRANTED vigilance never switches the assignment on — a documented UNDER-read, the safe direction (the host keeps
+>   assigning its power). The classifier's Aura residue walk gained the matching allowance.
+> · **Pins:** the bonus (the pump + the gated op, the gate carrying the keyword); native. RUNTIME through the layer engine: a
+>   vigilant 2/4 host under Solid Footing reads toughness 5 and assigns with it; a host without vigilance keeps the +1/+1 and
+>   assigns its power. Mutants: the condition arm gone, the gate ignoring the keyword, the classifier allowance forgetting the
+>   condition, the toughness-assigns READER ignoring op.gate (the FP the whole slice hinges on — that reader had never seen a
+>   gated op), the bare attached form gone, the gateable set refusing the toughness op — mutants 6/6 killed.
+> · **Whole-card:** no unplanned gains (flip-diff exactly Solid Footing); Face of Divinity / Shardmage's Rescue keep their gates (the widened gateable set admits only the toughness op, whose reader now honours gates)
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Light-Paws Voltron 81 → 82** (ceiling stands — every other row L; the Phase 4 list already names the rest). Sai (Shorikai) probed: its "Sacrifice two artifacts" cost is a non-fungible CHOICE the auto-pick refuses by design → 🅿 CHOICE-EVAL (the quartet), not an S row
+
 > ## 🎯 2026-09-05 (cron) — PHASE 3 · MOLTEN PSYCHE — per-opponent damage from each player's own draws · **+1** · corpus 14,625 (42.7%) / 34,245
 > Suite **1566 files / 16,383 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 8/8 killed.**
 > · Phase 3 step 2 — Nekusar Wheels' next row: "Each player shuffles the cards from their hand into their library, then

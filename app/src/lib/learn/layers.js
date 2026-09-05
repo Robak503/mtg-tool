@@ -486,6 +486,17 @@ function gateMet(state, perm, gate) {
   // AURA-ENTERED-THIS-TURN gate (Shardmage's Rescue — "As long as this Aura entered this turn, enchanted creature has
   // hexproof"): the SOURCE Aura's own enteredOnTurn stamp against the live turn (CR 611.3a — re-read every derive pass, so
   // the grant drops at the next turn's first derive). An unstamped source (a legacy state) reads closed — a safe FN.
+  // HOST-HAS-PRINTED-KEYWORD gate (SHELF-85 · Light-Paws L4 Solid Footing, 2026-09-05 — "As long as enchanted creature has
+  // vigilance, it assigns combat damage equal to its toughness rather than its power"): `perm` is the HOST; the gate reads
+  // its PRINTED keyword line (card.keywords, else a line-anchored scan of the printed oracle) — NEVER permanentHasKeyword,
+  // which derives through collectContinuousEffects, the very collection this gate is evaluated inside (the ES-1 re-entrancy
+  // trap). So a GRANTED keyword never opens it: a documented UNDER-read, the safe direction (the host keeps assigning power).
+  if (gate.kind === "hostHasPrintedKeyword") {
+    const kw = String(gate.keyword || "").toLowerCase();
+    if (!kw) return false;
+    if ((perm.card?.keywords || []).some((k) => String(k).toLowerCase() === kw)) return true;
+    return new RegExp("(^|\\n)" + kw.replace(/ /g, "\\s+") + "\\b", "i").test(String(perm.card?.oracle || ""));
+  }
   if (gate.kind === "auraEnteredThisTurn") {
     for (const pid of Object.keys(state?.players || {})) {
       const src = (state.players[pid]?.battlefield || []).find(p => p.id === gate.sourcePermanentId);
@@ -2250,6 +2261,9 @@ export function assignsCombatDamageWithToughness(state, permanentId) {
   if (board.length === 0) return false;
   for (const e of board) {
     if (e.op?.layerOp !== "assignsCombatDamageWithToughness") continue;
+    // A GATED toughness-assigns op (Solid Footing's "as long as enchanted creature has vigilance", 2026-09-05) is honoured
+    // only while its gate holds — the same gateMet read the keyword and P/T paths make. An ungated op is unchanged.
+    if (e.op.gate && !gateMet(state, perm, e.op.gate)) continue;
     if (effectAffects(e, perm, state)) return true;
   }
   return false;
