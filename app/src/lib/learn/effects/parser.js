@@ -1749,7 +1749,9 @@ function matchOptionalSacBySubtype(oracle, cardType) {
  */
 function matchOptionalDrawDiscard(oracle) {
   const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
-  const m = s.match(/^you may draw (a card|\w+ cards?)\.\s*if you do,?\s+(discard (?:a|an|one|two|three|four|five|\w+) cards?)$/i);
+  // + MOON-CIRCUIT HACKER (POD-SIM THREE · BI-5, 2026-09-05): an optional "unless this creature entered this turn" tail on the
+  // discard — the resolver drops the discard when the source's entered-this-turn stamp matches the current turn.
+  const m = s.match(/^you may draw (a card|\w+ cards?)\.\s*if you do,?\s+(discard (?:a|an|one|two|three|four|five|\w+) cards?)( unless this creature entered this turn)?$/i);
   if (!m) return null;
   // LOAD-BEARING: compose + parse the payoff under LITERAL "Instant", NOT cardType — the draw atom's legacy gate
   // returns HIGH only for Instant/Sorcery; passing the card's own type (creature/artifact) → LOW → zero flips.
@@ -1760,7 +1762,7 @@ function matchOptionalDrawDiscard(oracle) {
   if (!(inner[1].who == null || inner[1].who === "controller")) return null;                     // "each opponent discards" → out
   if (!inner.every((a) => KNOWN.has(a.op)) || programNeedsChosenTarget(payoff)) return null;
   if (inner.slice(0, -1).some((a) => PAUSING_ATOM_OPS.has(a.op))) return null;                    // only the LAST (discard) may pause
-  return { atom: { op: "optional-draw-discard", effectAtoms: inner, targetType: null } };
+  return { atom: { op: "optional-draw-discard", effectAtoms: inner, targetType: null, ...(m[3] ? { unlessSourceEnteredThisTurn: true } : {}) } };
 }
 
 /**

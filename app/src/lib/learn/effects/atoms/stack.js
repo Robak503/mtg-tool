@@ -1183,9 +1183,16 @@ function applyLoseLifeUnlessDiscard(state, atom, ctx) {
 // [draw, discard] payoff rides on the pause for the settle (resolveOptionalDrawDiscardChoice runs it on yes).
 function applyOptionalDrawDiscard(state, atom, ctx) {
   if (state.pendingChoice) return state; // FIFO — one choice at a time
+  // MOON-CIRCUIT HACKER (BI-5): "discard a card unless this creature entered this turn" — read the source's entered-this-turn
+  // stamp at resolution; when it matches, the pause carries the draw alone (a fresh ninja keeps its card).
+  let effectAtoms = atom.effectAtoms || [];
+  if (atom.unlessSourceEnteredThisTurn) {
+    const src = ctx.sourceId ? findPermanent(state, ctx.sourceId)?.permanent : null;
+    if (src && src.enteredOnTurn === (state.turn || 0)) effectAtoms = effectAtoms.filter((a) => a.op !== "discard");
+  }
   return setPendingOptionalDrawDiscardChoice(state, {
     controller: ctx.controller,
-    effectAtoms: atom.effectAtoms || [],
+    effectAtoms,
     sourceName: ctx.cardName || null,
   });
 }

@@ -995,6 +995,16 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   }
 
   // SAME-NAME ETB (Guardian Project) — needs the entering permanent from the trigger context.
+  // SATORU (POD-SIM THREE · BI-5, 2026-09-05): "if none of them were cast or no mana was spent to cast them" — read off the
+  // ENTERING permanent's arrival stamps: not cast at all (ninjutsu, reanimation, a put), or cast for no mana (a free or
+  // alt-cost cast — `castForNoMana`, threaded from the dispatcher's payment plan). No entering permanent → can't confirm.
+  if (/^none of them were cast or no mana was spent to cast them$/.test(c)) {
+    const triggeringId = context?.triggeringPermanentId;
+    if (!triggeringId) return null;
+    const entering = controllerBoard(state, controllerId).find((p) => p.id === triggeringId);
+    if (!entering) return null;
+    return !entering.wasCast || entering.castForNoMana === true;
+  }
   if (SAME_NAME_ETB_RE.test(c)) {
     const triggeringId = context?.triggeringPermanentId;
     if (!triggeringId) return null; // no entering permanent in context → can't confirm (FN-safe; never fail-open)

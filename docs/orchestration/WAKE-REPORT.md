@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **POD-SIM THREE · BI-5: Moon-Circuit Hacker + Satoru (+2)** · suite **1502/16171** green · corpus 14486 / 34,245 · flip-diff +2 / 0 lost · 10/10 killed
+
+> The unless-entered-this-turn rider on the optional loot, and Satoru's self-or-other enter watcher deduped once per batch with a not-cast-or-no-mana predicate off new arrival stamps. **🏁 BELIEVE IT! 83 → 85 — AT THE BAR (85/100). ALL THREE POD-SIM DECKS AT 85: Killer Turts 85 · Kinnan 85 · Believe it! 85.** Shalai 84. (Full suite: the saboteur witness's Hacker guard graduated; every other file green.) Next: Colton's second order — the three decks' Arbiter leftovers to Omnath's nuance queue; then Shalai's last card.
+> **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **POD-SIM THREE · BI-4: Flare of Malice + Contagion (+7)** · suite **1501/16165** green · corpus 14484 / 34,245 · flip-diff +7 / 0 lost · 10/10 killed
 
 > A greatest-mana-value edict over creatures and planeswalkers, and per-axis counter deltas so -2/-1 counters shrink real creatures (the engine knew only ±1/±1). **Believe it! 81 → 83 (needs 2)** · Killer Turts 85 ✅ · Kinnan 85 ✅ · Shalai 84. (Full suite: three guards graduated — the distribute parks, Biogenic Upgrade's first sentence, and the simplified Flytrap fixture; the PRINTED Flytrap still parks on its doubling sentence and is now pinned as such.) Next: BI-5 Moon-Circuit Hacker + Satoru — the last two slots.

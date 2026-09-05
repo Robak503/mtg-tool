@@ -147,9 +147,9 @@ describe("SB-1 classification — the saboteur flips (ninjutsu cost lines are ke
     expect(classifyCard(sigil)).toBe("native-trigger");
   });
 
-  it("CREED: Moon-Circuit Hacker stays body-only (the 'unless this creature entered this turn' rider is unmodeled)", () => {
+  it("GRADUATED (BI-5, 2026-09-05): Moon-Circuit Hacker is native-trigger (the 'unless this creature entered this turn' rider is unmodeled)", () => {
     const moon = cr("Moon-Circuit Hacker", `${NINJUTSU("{U}")}\nWhenever this creature deals combat damage to a player, you may draw a card. If you do, discard a card unless this creature entered this turn.`, "Enchantment Creature — Human Ninja");
-    expect(classifyCard(moon)).toBe("body-only");
+    expect(classifyCard(moon)).toBe("native-trigger") /* GRADUATED (POD-SIM THREE · BI-5, 2026-09-05): the "unless this creature entered this turn" rider is modeled — believeItFillsBi5.test.js */;
   });
 
   it("CREED: a SPELL carrying either damagedPlayer payoff stays arbiter-spell (no event referent at cast)", () => {

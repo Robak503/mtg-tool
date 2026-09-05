@@ -16,6 +16,29 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · BI-5: MOON-CIRCUIT HACKER + SATORU — the ninja draw engine · **+2** · corpus 14486 / 34,245
+> Suite **1502/16171** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **10/10 killed.**
+> · Moon-Circuit Hacker — "…you may draw a card. If you do, discard a card unless this creature entered this turn." The
+>   optional draw-then-discard arm accepts the unless-tail; the resolver reads the source's entered-this-turn stamp at
+>   resolution and raises the draw alone for a fresh ninja.
+> · Satoru — "Whenever Satoru and/or one or more other nontoken creatures you control enter, if none of them were cast or no
+>   mana was spent to cast them, draw a card." Four seams. (1) The "one or more … enter" batch form is refused by design
+>   unless the card prints its own once-per-turn rider (the approximation would over-fire); Satoru prints none, so a real
+>   ONCE PER BATCH: the enter checker drops a second firing while an unflushed pending trigger from the same watcher and
+>   descriptor waits — simultaneous entries fire once, separate resolutions fire separately. (2) A self-or-other scope that
+>   accepts the card's printed short name ("satoru") as the self half — the condition keeps it. (3) The predicate reads the
+>   ENTERING permanent's arrival stamps: `wasCast` was there; `castForNoMana` is new, threaded from the dispatcher's payment
+>   plan through the entry resolver onto the permanent — a free or alt-cost cast counts as no mana spent. (4) The trigger
+>   splitter did not know the plural "enter" as an event verb, passed over the first comma, and split inside the
+>   intervening-if where "…were cast" read as a cast event — `enters?` now.
+> · **Pins:** a creature put from hand fires (the ninjutsu shape) and I draw; one cast with mana does not; a free alt-cost
+>   cast is stamped and fires; Satoru's own entry fires; a token never; two entries before a flush leave ONE pending trigger
+>   and one draw, a third after the flush draws again; the predicate is null without an entering permanent. Mutants: the
+>   unstamped rider, an always-drop discard, the arm, a self-excluding scope, the dedupe, an always-true predicate, the
+>   unthreaded and the unstamped no-mana flag, the singular-only splitter and the dispatcher's missing memo.
+> · **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+> · **🏁 BELIEVE IT! 83 → 85 — AT THE BAR (85/100). ALL THREE POD-SIM DECKS AT 85: Killer Turts 85 · Kinnan 85 · Believe it! 85.** Shalai 84. (Full suite: the saboteur witness's Hacker guard graduated; every other file green.) Next: Colton's second order — the three decks' Arbiter leftovers to Omnath's nuance queue; then Shalai's last card.
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · BI-4: FLARE OF MALICE + CONTAGION — a greatest-MV edict and per-axis counters · **+7** · corpus 14484 / 34,245
 > Suite **1501/16165** green; lint 0. Flip-diff **+7, zero LOST** — five unplanned twins audited whole-card: Soul Shatter
 > (Flare's exact sentence), Elven Rite and Splendid Agony (two +1/+1 / two -1/-1 among one or two target creatures), Abzan

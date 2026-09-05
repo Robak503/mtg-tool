@@ -66,7 +66,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kinnan Mana Overload | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Joe | Believe it! | 83 | 2 | 7 | ⬜ Phase 2 (cEDH — LAST) |
+| Joe | Believe it! | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kellan of the west | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Halfshell heroes | 67 | 18 | 23 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**7 decks below 85 · 84 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**6 decks below 85 · 82 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — POD-SIM THREE · BI-5 Moon-Circuit Hacker + Satoru (Believe it!) ✅ +2 corpus (the unless-entered-this-turn rider on the optional draw-then-discard; a self-or-other batched enter watcher deduped ONCE PER BATCH with the not-cast-or-no-mana predicate off new arrival stamps; the trigger splitter learned the plural "enter") · 10/10 killed · suite 1502/16171 · **🏁 BELIEVE IT! 83 → 85 — AT THE BAR (85/100). ALL THREE POD-SIM DECKS AT 85: Killer Turts 85 · Kinnan 85 · Believe it! 85.** Shalai 84. (Full suite: the saboteur witness's Hacker guard graduated; every other file green.) Next: Colton's second order — the three decks' Arbiter leftovers to Omnath's nuance queue; then Shalai's last card.
 
 - 2026-09-05 — POD-SIM THREE · BI-4 Flare of Malice + Contagion (Believe it!) ✅ +7 corpus (a greatest-mana-value edict over creatures and planeswalkers; PER-AXIS counter deltas so -2/-1 counters are real, the distribute arm widened to any P/T counter on any creatures with a side-aware fallback) · 10/10 killed · suite 1501/16165 · **Believe it! 81 → 83 (needs 2)** · Killer Turts 85 ✅ · Kinnan 85 ✅ · Shalai 84. (Full suite: three guards graduated — the distribute parks, Biogenic Upgrade's first sentence, and the simplified Flytrap fixture; the PRINTED Flytrap still parks on its doubling sentence and is now pinned as such.) Next: BI-5 Moon-Circuit Hacker + Satoru — the last two slots.
 

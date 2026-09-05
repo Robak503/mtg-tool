@@ -800,6 +800,7 @@ function applyCastSpell(state, action) {
     // rider can read it. Always a number on a cast (0 for a free/alt-cost cast); a permanent that arrives
     // any other way never reaches this line and stays unstamped.
     params.colorsSpent = colorsSpent;
+    params.manaSpent = manaSpent; // SATORU (BI-5): whether ANY mana was spent — a free / alt-cost cast stamps `castForNoMana`
     payload = { resolver: RESOLVER_KEYS.PERMANENT_ETB, params };
   } else {
     payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: castCard.name, reason: "instant-or-sorcery (no recognized effect)" } };

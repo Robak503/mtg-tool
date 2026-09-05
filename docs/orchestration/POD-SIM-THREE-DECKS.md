@@ -19,7 +19,7 @@
 |---|---|---|---|---|
 | Killer Turts | ✅ **85/100** (2026-09-05; was 70) | 15 | **0** | extra-combat red-green aggro-storm |
 | Kinnan Mana Overload | ✅ **85/100** (2026-09-05; was 75) | 15 | **0** | cEDH big-mana / copy / Thoracle |
-| Believe it! | 83/100 | 17 | **2** | cEDH ninjas + Thoracle-Consultation |
+| Believe it! | ✅ **85/100** (2026-09-05; was 75) | 15 | **0** | cEDH ninjas + Thoracle-Consultation |
 
 **35 slots across the three.** Shared cards: Thassa's Oracle (Kinnan + Believe it!), Mindbreak Trap (both),
 Misdirection (both), Gemstone Caverns (all three — PARKED, pregame), Veil of Summer (Turts + Kinnan), Sink into
@@ -100,7 +100,7 @@ Real cards probed for their live tier, standing in for whole families:
    15 on their own; the counters (S-F), Port Razer's second line, City of Traitors and Carpet of Flowers fill it.
 2. ✅ **Kinnan to 85** — DONE 2026-09-05 (85/100; needed 10) — S-A (Thoracle) and S-C (copy widening, four cards) first; Treasure Vault,
    Moonsilver Key, Cephalid Coliseum, Wan Shi Tong, Nezahal's fourth line, Hullbreaker Horror fill it.
-3. **Believe it! to 85** (needs 10) — S-A lands Thoracle for free (built in step 2); S-G (Consultation + Pact)
+3. ✅ **Believe it! to 85** — DONE 2026-09-05 (85/100; needed 10) — S-A lands Thoracle for free (built in step 2); S-G (Consultation + Pact)
    completes the WIN; then Sea Gate Restoration's front, Force of Despair, Flare of Malice, S-B (Subtlety),
    Satoru, Moon-Circuit Hacker, Thousand-Faced Shadow, Roaming Throne, Ingenious Prodigy.
 4. **Then:** the Omnath arbiter list (§5), then Shalai's last card (Solitude rides S-B), then the §5 SHELF order.

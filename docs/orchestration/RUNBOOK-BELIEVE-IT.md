@@ -1,4 +1,4 @@
-# RUNBOOK — BELIEVE IT! to 85 (75/100 · 25 non-native · needs 10)
+# RUNBOOK — BELIEVE IT! to 85 — ✅ AT THE BAR 2026-09-05 (85/100 · was 75/100 · 25 non-native · needed 10; the remaining non-native go to Omnath's Arbiter list now that all three decks are at the bar)
 
 > Umbrella: [POD-SIM-THREE-DECKS.md](POD-SIM-THREE-DECKS.md). cEDH by Colton's word (Satoru Umezawa ninjas,
 > Thoracle-Consultation win). Measured 2026-09-05; every card below dumped with its REAL oracle and live tier;
@@ -38,9 +38,9 @@ protects the combo turn. Ninjutsu itself is ALREADY native (Ninja of the Deep Ho
 
 | # | Card | Oracle gist | Blocker (probed) | Size | CREED note |
 |---|---|---|---|---|---|
-| B8 | **Moon-Circuit Hacker** | ninjutsu {U} (native); combat damage → may draw; if you do, discard unless it entered this turn | the "discard unless this creature entered this turn" rider (entered-this-turn stamp exists) on an optional draw | **S/M** | |
+| B8 | **Moon-Circuit Hacker** | ✅ DONE 2026-09-05 (BI-5): the optional draw-then-discard arm accepts an "unless this creature entered this turn" tail; the resolver reads the source's entered-this-turn stamp at resolution and raises the draw alone for a fresh ninja | **S/M** | pinned: a Hacker that entered this turn pauses on the draw alone; one that entered earlier pauses on draw-then-discard |
 | B9 | **Thousand-Faced Shadow** | ninjutsu (native); flying; ETB from hand while attacking → token copy of another attacking creature, tapped and attacking | an ETB with a from-zone + attacking intervening-if, minting a token copy that enters ATTACKING (the token-copy-of-creature atom + an enters-attacking rider) | **M** | the token must actually be attacking the same player |
-| B10 | **Satoru, the Infiltrator** | menace; whenever Satoru and/or other nontoken creatures enter, if none were cast or no mana was spent → draw | a batched ETB watcher with a "not cast / no mana spent" predicate (ninjutsu puts creatures in uncast — the castFromZone / manaSpent threads exist on cast triggers; ETB needs the same memo) | **M** | the deck's card-draw engine — plan-adjacent |
+| B10 | **Satoru, the Infiltrator** | ✅ DONE 2026-09-05 (BI-5): a `selfOrOtherCreatureYouControl` enter scope (nontoken) deduped ONCE PER BATCH against the unflushed pending triggers (Satoru prints no once-per-turn rider, so the batch approximation every "one or more … enter" watcher uses was refused by design); the predicate "none of them were cast or no mana was spent to cast them" reads the ENTERING permanent's arrival stamps — `wasCast` (already there) and a new `castForNoMana` threaded from the dispatcher's payment plan through the entry resolver; the trigger splitter did not know the plural "enter" as an event verb and split inside the intervening-if ("…were cast" read as a cast event) — fixed | **M** | pinned: a creature PUT from hand fires it (the ninjutsu shape), a creature cast with mana does not, a free alt-cost cast is stamped and fires; Satoru's own entry fires; a token never; two entries before a flush leave ONE pending trigger and one draw, a third after the flush draws again; the predicate is null with no entering permanent |
 | B11 | **Roaming Throne** | ward 2; choose a creature type; is that type; triggered abilities of OTHER creatures of that type trigger an additional time | a trigger multiplier scoped by chosen type (etb/attack/dies multipliers exist per event — a general "triggers an additional time" scoped by subtype) | **M** | |
 | B12 | **Ingenious Prodigy** | skulk; enters with X counters (native); upkeep: if it has a counter, may remove one → draw | the optional remove-a-counter-then-draw upkeep (an optional cost-then-effect pause) | **M** | |
 | B13 | **Subtlety** | flash flying; ETB: up to one target creature or planeswalker SPELL → its owner puts it on top or bottom of their library; Evoke—Exile a blue card | a spell-targeting ETB that tucks a STACK OBJECT (owner's choice top/bottom) + S-B card-exile evoke | **M** | the evoke composition (S-B) pays Endurance + Solitude too |
@@ -72,7 +72,7 @@ protects the combo turn. Ninjutsu itself is ALREADY native (Ninja of the Deep Ho
 | BI-2 | Demonic Consultation · Tainted Pact | S-G exile-until-named — THE WIN | ✅ +3 | 3 |
 | BI-3 | Force of Despair · Sea Gate Restoration | entered-this-turn mass destroy + the not-your-turn pitch gate; hand-count draw + the no-max-hand-size flag | ✅ +3 | 5 |
 | BI-4 | Flare of Malice · Contagion | greatest-MV edict + sac alt cost; distribute-counters split | ✅ +7 | 7 |
-| BI-5 | Moon-Circuit Hacker · Satoru | optional draw with a conditional discard rider; the uncast/no-mana batched ETB watcher | +2 | 9 |
+| BI-5 | Moon-Circuit Hacker · Satoru | optional draw with a conditional discard rider; the uncast/no-mana batched ETB watcher | ✅ +2 | 9 |
 | BI-6 | Subtlety (S-B) or Thousand-Faced Shadow or Roaming Throne or Ingenious Prodigy | whichever lands cleanest | +1 | **10** |
 
 Stop the deck at ≥85. Below the line → the Omnath arbiter list (Misdirection, Commandeer, Mindbreak Trap,

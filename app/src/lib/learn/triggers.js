@@ -681,7 +681,9 @@ function splitTriggerSentence(inner) {
   // "dealt" (ENRAGE / DAMAGE-RECEIVED: "this creature is dealt damage") is a CONDITION verb — without it
   // the advance-past-name-commas loop would skip the real "…is dealt damage," boundary and swallow the
   // first effect sentence into the condition. (Distinct from "deals" — that's the SOURCE-side event.)
-  const hasEventVerb = (s) => /\b(?:enters|dies|attacks|blocks|deals|dealt|casts?|sacrifice[sd]?|gain(?:s)? life|draws? (?:a|your)|beginning|milled|mills)\b/.test(s);
+  const hasEventVerb = (s) => /\b(?:enters?|dies|attacks|blocks|deals|dealt|casts?|sacrifice[sd]?|gain(?:s)? life|draws? (?:a|your)|beginning|milled|mills)\b/.test(s);
+  // ^ `enters?` — the PLURAL "…creatures you control enter" (a batched subject — Satoru, BI-5) is an event verb too; without
+  //   it the first comma was passed over and the split landed inside the intervening-if ("…were cast" read as a cast event).
   let splitIdx = inner.indexOf(",");
   if (splitIdx === -1) return null;
   if (!hasEventVerb(inner.slice(0, splitIdx))) {
@@ -1203,6 +1205,20 @@ function classifyCondition(condRaw, cardName, cardType) {
   // Excludes scope "self" (a source's own entry is not a batch of others) and any inner descriptor that
   // already carries a once-per-turn demand of its own.
   {
+    // SATORU, THE INFILTRATOR (POD-SIM THREE · BI-5, 2026-09-05): "~ and/or one or more other nontoken creatures you control
+    // enter" — the batched enter watcher that ALSO fires for its own entry (the self half is the ninjutsu line). Satoru
+    // prints NO once-per-turn rider, so the once-per-turn approximation below is not available; instead `oncePerBatch`:
+    // checkEnterTriggers drops a second firing while an UNFLUSHED pending trigger from the same watcher and descriptor
+    // already waits — simultaneous entries (one resolution) fire once, separate resolutions fire separately (CR 603.2c
+    // in effect). The nontoken filter is real.
+    {
+      const sob = c.match(/^(.+?) and\/or one or more other nontoken creatures you control enter$/);
+      const nm = cardName ? String(cardName).toLowerCase().trim() : "";
+      const selfNames = new Set(["~", "this creature", "this permanent", ...(nm ? [nm, nm.split(",")[0].trim()] : [])]); // the condition keeps the printed short name ("satoru")
+      if (sob && selfNames.has(sob[1].trim())) {
+        return { event: "etb", scope: "selfOrOtherCreatureYouControl", whose: "any", nontokenFilter: true, oncePerBatch: true };
+      }
+    }
     const oomEtb = c.match(/^one or more (.+) enter$/);
     const singularSubject = oomEtb ? singularizeBatchSubject(oomEtb[1]) : null;
     if (singularSubject) {
@@ -3523,7 +3539,7 @@ const SOURCE_ONLY_REFERENT_SCOPES = new Set([
   "self", "you", "castWatcher", "gyWatcher", "youDiscard", "opponentDraw", "opponentDiscard", "lifeLost", "milled", "anyPlayerSac",
 ]);
 const ETB_ENTERING_CREATURE_SCOPES = new Set([
-  "creatureYouControl", "otherCreatureYouControl", "subtypeYouControl",
+  "creatureYouControl", "otherCreatureYouControl", "subtypeYouControl", "selfOrOtherCreatureYouControl", // + Satoru (BI-5)
   "eachCreature", "eachOtherCreature", "creatureOpponentControls",
   "creatureYouControlKeyword",  // KEYWORD-FILTER ETB (Waterkin Shaman counter-on-it; Dragon Tempest "it gains haste")
 ]);
@@ -5207,6 +5223,7 @@ export function detectTriggers(card) {
         destroyThatCreature: cls.destroyThatCreature, // GLOBAL SUBTYPE combat-damage-to-CREATURE only (Toxin) — "destroy that creature"
         tapLockThatCreature: cls.tapLockThatCreature, // SELF combat-damage-to-CREATURE tap-and-lock (Kashi-Tribe family) — "tap that creature and it doesn't untap…". ⚠️ Unlisted here = dropped = the rewrite below never fires, the clause stays an unbindable "tap that creature and…" → LOW, and the card silently parks while the detector looks correct.
         exileThatCreature: cls.exileThatCreature, // SELF combat-damage-to-CREATURE exile (CAP4 — Kaldra Compleat's granted trigger). Same ⚠️ as its twins: unlisted = dropped = the rewrite never fires.
+        oncePerBatch: cls.oncePerBatch,        // ONCE-PER-BATCH enter watcher (Satoru, BI-5) — deduped against the unflushed pending triggers
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
         legendaryFilter: cls.legendaryFilter, // H6 (Yoshimaru) — "another legendary permanent/creature enters": scopeMatches gates on the supertype
         legendaryCreatureOnly: cls.legendaryCreatureOnly, // H6 — the creature form of the above
@@ -6081,6 +6098,8 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
         && isCreaturePerm(triggeringPermanent)
         && triggeringPermanent.controller === sourcePermanent.controller
         && !!triggeringPermanent.card?.isCommander;
+    case "selfOrOtherCreatureYouControl": // SATORU (BI-5): itself OR another creature it controls
+      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller === sourcePermanent.controller;
     case "otherCreatureYouControl":
       return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller === sourcePermanent.controller;
     case "creatureOrPwYouControl":
@@ -6599,7 +6618,14 @@ export function checkEnterTriggers(state, enteredPerm) {
   // controls. The filter is tested against the entering card, which is why the counter is closed over it
   // rather than taking only a controller like its two siblings.
   fired = multiplyTriggers(s, fired, (st, ctrl) => etbTriggerMultiplierCount(st, ctrl, enteredPerm.card));
-  return { ...s, pendingTriggers: [...(s.pendingTriggers || []), ...fired] };
+  // ONCE-PER-BATCH (Satoru, BI-5): a watcher whose descriptor is once-per-batch fires at most once per unflushed batch —
+  // a second entering permanent in the same resolution finds the first firing still pending and is dropped.
+  const pending = s.pendingTriggers || [];
+  const srcOf = (t) => t.sourcePermanentId ?? t.context?.sourcePermanentId ?? null;
+  const kept = fired.filter((t) => !t.descriptor?.oncePerBatch
+    || !pending.some((q) => q.descriptor?.oncePerBatch && srcOf(q) === srcOf(t) && q.descriptor?.sourceText === t.descriptor?.sourceText));
+  if (!kept.length) return s;
+  return { ...s, pendingTriggers: [...pending, ...kept] };
 }
 
 /**
