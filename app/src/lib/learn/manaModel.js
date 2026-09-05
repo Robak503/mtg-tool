@@ -919,7 +919,7 @@ const MAX_SPEED_PREFIX = /^\s*max speed\s*[—–-]\s*/i;
  * counter-removal rider fails the anchor on purpose: its single-line product would silently drop the rider
  * (a painless painland tap), the forbidden direction. Never the main line itself. Memoized per card object.
  */
-const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Pay \d life: Add one mana of any color\.|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)? spells?(?: or (?:to )?activate an ability of an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)?(?: source)?)?\.|\{T\}: Add one mana of any color among legendary permanents you control\.)$/i; // + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory); + SHELF-85 S17: the fixed-type restricted any-colour line (Mech Hangar "Spend this mana only to cast a Pilot or Vehicle spell.") — the per-line product carries its restriction (restrictedManaProduction), never a free colour
+const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Pay \d life: Add one mana of any color\.|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?(?: or (?:to )?activate an ability of an? (?:[a-z]+ )?source of the chosen type)?\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)? spells?(?: or (?:to )?activate an ability of an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)?(?: source)?)?\.|\{T\}: Add one mana of any color among legendary permanents you control\.)$/i; // + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory); + SHELF-85 S17: the fixed-type restricted any-colour line (Mech Hangar "Spend this mana only to cast a Pilot or Vehicle spell.") — the per-line product carries its restriction (restrictedManaProduction), never a free colour
 // A PLAIN tap line: complete, ungated, no sacrifice — the line a multi-line card can always tap for.
 const PLAIN_MANA_LINE_RE = /^\{T\}: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.$/i;
 
@@ -1186,12 +1186,16 @@ export function parseSpendRestriction(oracle) {
     // permanent never chose. The "can't be countered" tail rides as `uncounterableIfSpent`, which the payment
     // plan carries to the cast site (a spell that spent this mana is stamped uncounterable).
     {
-      const ct = /^to cast an? ([a-z]+) spell of the chosen type(, and that spell can't be countered)?$/.exec(clause.trim());
+      // + the ABILITY tail on the chosen-type form (QUARTET Phase 4 step 3, 2026-09-06 — Secluded Courtyard "… or activate an
+      // ability of a creature source of the chosen type"): abilityOf carries the "@chosenType" placeholder, which
+      // resolveSourceRestriction swaps for the land's chosen word so the activation branch matches the source's type line.
+      const ct = /^to cast an? ([a-z]+) spell of the chosen type(, and that spell can't be countered)?( or (?:to )?activate an ability of an? (?:[a-z]+ )?source of the chosen type)?$/.exec(clause.trim());
       if (ct) {
         if (!SPEND_CAST_TYPE_WORDS.has(ct[1])) return null;
         types.add(ct[1]);
         chosenType = true;
         if (ct[2]) uncounterableIfSpent = true;
+        if (ct[3]) abilityOf.push("@chosenType");
         continue;
       }
     }
@@ -1258,8 +1262,10 @@ export function parseSpendRestriction(oracle) {
 export function resolveSourceRestriction(restriction, perm) {
   if (!restriction || !restriction.chosenType) return restriction;
   const chosen = String(perm?.chosenType || "").trim().toLowerCase();
-  if (!chosen) return { ...restriction, castTypes: [], unresolvedChosenType: true };
-  return { ...restriction, castTypes: (restriction.castTypes || []).map((w) => `${chosen} ${w}`) };
+  if (!chosen) return { ...restriction, castTypes: [], ...(restriction.abilityOf ? { abilityOf: [] } : {}), unresolvedChosenType: true };
+  return { ...restriction, castTypes: (restriction.castTypes || []).map((w) => `${chosen} ${w}`),
+    // the chosen-type ABILITY tail (Secluded Courtyard, 2026-09-06): the placeholder becomes the chosen word itself
+    ...(restriction.abilityOf ? { abilityOf: restriction.abilityOf.map((w) => (w === "@chosenType" ? chosen : w)) } : {}) };
 }
 
 /** Does `card` satisfy a spend restriction? Used by the payment planner via its spend context. */

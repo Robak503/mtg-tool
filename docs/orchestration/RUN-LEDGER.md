@@ -16,6 +16,21 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-06 (cron) — QUARTET Phase 4 step 3 · SECLUDED COURTYARD — the chosen-type form with its ability tail · **+1** · corpus 14,761 (43.1%) / 34,245
+> Suite **1583 files / 16423 tests** green; lint 0. Flip-diff **+1, zero LOST** (every unplanned gain audited whole-card). **mutants 4/4 killed.**
+> · The last named carrier class but one: the chosen-type spend form (Cavern of Souls / Unclaimed Territory — live since CAP-CAVERN)
+>   with the ABILITY tail the Cavern slice had refused ("… or activate an ability of a creature source of the chosen type"). The
+>   parse records an "@chosenType" placeholder in abilityOf; resolveSourceRestriction swaps it for the land's chosen word beside
+>   the cast types it already prefixed, so the activation branch matches the activating source's type line; an unresolved
+>   choice empties BOTH halves (pays nothing — pinned); the extra-mana-line regex admits the tail.
+> · **Pins:** the parse (castTypes [creature], abilityOf [@chosenType], chosenType); Secluded Courtyard → land. RUNTIME through
+>   manaSources + canAfford with a chosen Dinosaur: pays a Dinosaur creature spell and a Dinosaur source's ability, never a
+>   Bear's; unchosen pays nothing. Mutants: the tail ignored, the chosen word not swapped in, the regex refusing the tail (dead
+>   mana), an unresolved choice keeping its ability half (the FP) — mutants 4/4 killed.
+> · **Whole-card:** flip-diff exactly Secluded Courtyard; zero LOST, zero retiered
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Jurassic Ramp 86 → 87**; Cap 87 unchanged (Secluded Courtyard was already credited there through Cavern's lane — its ability half is now real at runtime)
+
 > ## 🎯 2026-09-06 (cron) — QUARTET Phase 4 step 3 · THE NEGATIVE SPEND FORM + THE POWERSTONE TOKEN (Koilos Roc / Stone Retrieval Unit …) · **+18** · corpus 14,760 (43.1%) / 34,245
 > Suite **1582 files / 16421 tests** green; lint 0. Flip-diff **+18, zero LOST** (every unplanned gain audited whole-card). **mutants 4/4 killed.**
 > · The carrier class the residue census had banked twice: the Powerstone token was kept out of the registry ON PURPOSE because

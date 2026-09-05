@@ -66,12 +66,12 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Captain America Shoot your Shot | 87 | 0 | 3 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
 | Joe | Hulk Smash | 89 | 0 | 1 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
 | Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
-| Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Joe | Jurassic Ramp | 87 | 0 | 3 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
 | Joe | Kinnan Mana Overload | 86 | 0 | 4 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
 | Joe | Believe it! | 85 | 0 | 5 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
 | Joe | Kellan of the west | 85 | 0 | 5 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
 | Joe | Halfshell heroes | 84 | 1 | 6 | ⬜ Phase 2 |
-| Test | Slivers | 99 | — | — | ✅ at the bar |
+| Test | Slivers | 100 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 92 | — | — | ✅ at the bar |
 | Test | Teval, the Balanced Scale Test | 86 | 0 | 4 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
@@ -488,6 +488,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-06 — **QUARTET Phase 4 step 3 — the chosen-type form WITH its ability tail** · Secluded Courtyard ✅ ("… or activate an ability of a creature source of the chosen type": an @chosenType placeholder resolved to the land's chosen word at the source) · +1 corpus · mutants 4/4 killed · suite 1583 files / 16423 tests · **Jurassic Ramp 86 → 87**; Cap 87 unchanged (Secluded Courtyard was already credited there through Cavern's lane — its ability half is now real at runtime)
 
 - 2026-09-06 — **QUARTET Phase 4 step 3 — the NEGATIVE spend form + the Powerstone token** · "This mana can't be spent to cast a nonartifact spell" = artifact casts + every ability; the token joins the registry with its printed text; "create a tapped Powerstone token" parses · +18 corpus · mutants 4/4 killed · suite 1582 files / 16421 tests · **Brago Blink 85 → 86** (Static Net); Halfshell 84, Cap 87 unchanged
 

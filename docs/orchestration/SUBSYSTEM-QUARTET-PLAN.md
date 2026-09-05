@@ -106,6 +106,10 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
+- 2026-09-06 — **PHASE 4 step 3 — the chosen-type form WITH its ability tail** (Secluded Courtyard; +1 corpus). An @chosenType
+  placeholder in abilityOf, swapped for the land's chosen word at the source; an unresolved choice pays nothing. mutants 4/4 killed.
+  Remaining step-3 class: colour words ("colorless spells") — two carriers, a colour predicate on both purposes.
+
 - 2026-09-06 — **PHASE 4 step 3 — the NEGATIVE form + the Powerstone token** (+18 corpus). "This mana can't be spent to cast a
   nonartifact spell" reads as artifact casts + every ability (abilityOf "@any"); the token joins NAMED_TOKENS; "create a tapped
   Powerstone token" parses. mutants 4/4 killed. Remaining step-3 classes: colour words ("colorless spells"), the chosen-type-plus-tail.

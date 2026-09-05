@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-06 (cron) — **QUARTET Phase 4 step 3 · Secluded Courtyard, the chosen-type form with its ability tail (+1)** · suite **1583 files / 16423 tests** green · corpus 14,761 (43.1%) / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
+
+> **Runnable next:** Phase 4 step 3's last named class — colour words in the cast filter ("colorless spells" / "colorless Eldrazi spells or activate abilities of colorless Eldrazi": Shrine of the Forsaken Gods, Eldrazi Temple — a colour predicate on the cast card AND on the activating source; two carriers, sized M). Then re-run the residue census. **Jurassic Ramp 86 → 87**; Cap 87 unchanged (Secluded Courtyard was already credited there through Cavern's lane — its ability half is now real at runtime)
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-06 (cron) — **QUARTET Phase 4 step 3 · the negative spend form + the Powerstone token (+18)** · suite **1582 files / 16421 tests** green · corpus 14,760 (43.1%) / 34,245 · flip-diff +18 / 0 lost · mutants 4/4 killed
 
 > **Runnable next:** Phase 4 step 3's last named classes — colour words in the cast filter ("colorless spells" / "colorless Eldrazi spells": Shrine of the Forsaken Gods, Eldrazi Temple — a colour predicate on the cast card beside the type words) · Secluded Courtyard's chosen-type-plus-tail. Then re-run the residue census (the Powerstone rows are gone from it). **Brago Blink 85 → 86** (Static Net); Halfshell 84, Cap 87 unchanged
