@@ -3179,6 +3179,14 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ castLimit: 1 });
     return;
   }
+  // ── NONCREATURE CAST-LIMIT (SHELF-85 · Light-Paws L5 Deafening Silence, 2026-09-05): "Each player can't cast more than
+  // one noncreature spell each turn." The same marker pattern with `noncreatureOnly`; the RUNTIME gate lives in legalChoices
+  // (a post-filter over every cast-family action, keyed on the player's noncreatureSpellsCastThisTurn — the counter the cast
+  // chokepoint already stamps for Esper Sentinel), reading the SAME line via noncreatureCastsPerTurnLimitOf — one parser, no drift.
+  if (/^each player can't cast more than one noncreature spell each turn$/.test(c)) {
+    out.push({ castLimit: 1, noncreatureOnly: true });
+    return;
+  }
 
   // ── ARTIFACT-ACTIVATION LOCK (BLITZ NR-1 — Null Rod / Stony Silence / Collector Ouphe, CR 604.2):
   // "Activated abilities of artifacts can't be activated." Emitted as a coverage MARKER (the castLimit
@@ -6473,6 +6481,13 @@ export function isAttachedNoUntapLine(line) {
 export function castsPerTurnLimitOf(card) {
   const o = String(card?.oracle || card?.oracle_text || "");
   return /(?:^|[\n.;])\s*each player can't cast more than one spell each turn\s*(?:\.|$)/i.test(o) ? 1 : null;
+}
+
+/** NONCREATURE CAST-LIMIT (Deafening Silence, 2026-09-05) — does this card print the exact symmetric one-NONCREATURE-spell-
+ * per-turn line? Returns 1 or null. The legalChoices post-filter and the parseStaticAbilities marker both key on this reader. */
+export function noncreatureCastsPerTurnLimitOf(card) {
+  const o = String(card?.oracle || card?.oracle_text || "");
+  return /(?:^|[\n.;])\s*each player can't cast more than one noncreature spell each turn\s*(?:\.|$)/i.test(o) ? 1 : null;
 }
 
 // ── ARTIFACT-ACTIVATION LOCK (BLITZ NR-1 — Null Rod / Stony Silence / Collector Ouphe) ──────────────

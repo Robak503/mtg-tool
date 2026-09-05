@@ -16,6 +16,27 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · L5: DEAFENING SILENCE — the noncreature cast limit · **+1** · corpus 14,608 (42.7%) / 34,245
+> Suite **1554 files / 16,346** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · "Each player can't cast more than one noncreature spell each turn." Rule of Law's marker and gate existed (castLimit;
+>   spellsCastThisTurn ≥ 1 suppresses every cast lane), and so did the noncreature subset counter (Esper Sentinel's
+>   noncreatureSpellsCastThisTurn — the same cast chokepoint, the same untap reset). Missing: the marker's `noncreatureOnly`
+>   reading (its own exact-line reader beside castsPerTurnLimitOf — one parser, no drift) and a gate that limits NONCREATURE
+>   casts while leaving creature spells offered. Every cast lane emits kind "cast-spell" (the dispatcher's single cast
+>   handler), so ONE post-filter after the cast block covers hand / command / graveyard / exile / adventure / split casts
+>   alike. The spell's type is the FACE being cast when the action carries one (an adventure's sorcery half is noncreature
+>   though the card's front is a creature — CR 715.3), else the card resolved from the player's zones by id; an
+>   unresolvable card is withheld (fail closed — a safe under-offer, never a second noncreature spell).
+> · **Pins:** the marker, both readers, Rule of Law byte-identical, both native-static. RUNTIME through the real offer: a
+>   fresh turn offers bear + instant + sorcery; after the instant is REALLY cast and resolved (the counter reads 1) only the
+>   bear is offered; the same board without the static keeps offering the sorcery; an adventurer in hand — fresh: both halves
+>   offered; after a noncreature cast: the CREATURE half stays, the sorcery half is withheld; Rule of Law withholds everything.
+>   Mutants: the marker gone, the reader blind, the filter withholding creatures too, the filter judging the card instead of
+>   the face — mutants 4/4 killed.
+> · **Whole-card:** no unplanned gains — the noncreature form prints on Deafening Silence alone; Rule of Law, Arcane Laboratory, Eidolon of Rhetoric, Archon of Emeria and High Noon keep their own arm untouched (pinned byte-identical).
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Light-Paws 71 → **72** (72/100; 13 to the bar). Next Light-Paws M row: Drannith Magistrate (the cast-from-hand-only lock on opponents — the same post-filter shape, keyed on fromZone).
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · Q4: ENDLESS FOOT ASSAULT — per-opponent attacking tokens · **+1** · corpus 14,607 (42.7%) / 34,245
 > Suite **1553 files / 16,343** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · "Whenever you attack, for each opponent, create a 1/1 black Ninja creature token that's tapped and attacking that

@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Deafening Silence** — one noncreature spell per player per turn, creatures unaffected
 - **Endless Foot Assault** — every attack sends a tapped Ninja at each opponent
 - **Fast Forward** — cheaper for every opponent you swung at this turn, then goads every creature they control
 - **Mole Module** — its combat hit mills four and can drop a milled permanent straight onto the battlefield
