@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-4a: Geosurge (+2)** · suite **1483 files / 16,085 tests** green · corpus 14,434 (42.1%) / 34,245 · flip-diff +2 / 0 lost · 6/6 killed
+
+> Restricted spend on a spell's pip pool — the splitter fold that stops the add from parsing alone as unrestricted mana. **Killer Turts 75 → 76** (76/100; needs 9). Unplanned gain audited: Abstract Paintmage (a first-main-phase trigger whose effect is the same pip-pool restricted add, instant-and-sorcery restriction). Next: KT-4b Open the Omenpaths, then KT-5 City of Traitors.
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-3: Irencrag Feat + Rite of Flame (+3)** · suite **1482 files / 16,083 tests** green · corpus 14,432 (42.1%) / 34,245 · flip-diff +3 / 0 lost · 10/10 killed
 
 > The word-number ritual, the self cast limit, and the every-graveyard name count. **Killer Turts 73 → 75** (75/100; needs 10). Unplanned gain audited: The Flux (a Saga whose chapter VI is 'Add six {R}' — every other chapter was already native). Next: KT-4 Geosurge + Open the Omenpaths (restricted spend on a spell's add-mana).

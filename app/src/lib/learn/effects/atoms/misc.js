@@ -453,6 +453,19 @@ export function miscClauseParser(clause) {
   // clause LOW → Arbiter. No hold flag: the mana empties as steps end (CR 500.4) like any pool.
   // (CR 605.1a — a loyalty "Add" is NOT a mana ability, so this atom resolving via the stack is the
   // correct fidelity for its Sarkhan carrier, not a shortcut.)
+  // GEOSURGE (POD-SIM THREE · KT-4, 2026-09-05): "Add {R}{R}{R}{R}{R}{R}{R}. Spend this mana only to cast artifact or creature
+  // spells." — the pip-pool twin of the any-combination restricted add below: an EXPLICIT pool (a spell has no source
+  // permanent to colour from), the same parsed restriction, the same tagged player.restrictedMana entry the planner
+  // honours. Unrestricted mana here would be the laundering FP the QUARTET lane forbids.
+  const restrictedPips = t.match(/^add ((?:\{[wubrgc]\})+)\. (spend this mana only to cast [a-z][a-z ]*? spells)$/);
+  if (restrictedPips) {
+    const restriction = parseSpendRestriction(`${restrictedPips[2]}.`);
+    if (restriction) {
+      const pool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+      for (const sym of restrictedPips[1].match(/\{([wubrgc])\}/g)) pool[sym.replace(/[{}]/g, "").toUpperCase()]++;
+      return { op: "add-restricted-mana", pool, restriction, targetType: null };
+    }
+  }
   const restrictedAdd = t.match(/^add (one|two|three|four|five) mana in any combination of colors\. (spend this mana only to cast [a-z][a-z ]*? spells)$/);
   if (restrictedAdd) {
     const restriction = parseSpendRestriction(`${restrictedAdd[2]}.`);
@@ -791,6 +804,15 @@ export function applyLureThisTurn(state, atom, ctx) {
  * planner treats the entry's colors as generic-payable too, and the mana can never exceed X (CREED).
  */
 function applyAddRestrictedMana(state, atom, ctx) {
+  if (atom.pool) { // GEOSURGE (KT-4): an explicit pip pool — no colour policy, the printed pips exactly
+    const player = state.players[ctx.controller];
+    if (!player) return state;
+    const total = Object.values(atom.pool).reduce((a, b) => a + (b || 0), 0);
+    if (total === 0) return logEvent(state, { kind: "spell-effect", effect: "add-restricted-mana", controller: ctx.controller, amount: 0 });
+    const entry = { pool: { ...atom.pool }, restriction: atom.restriction, ...(atom.holdUntilEndOfTurn ? { holdUntilEndOfTurn: true } : {}) };
+    const next = { ...state, players: { ...state.players, [ctx.controller]: { ...player, restrictedMana: [...(player.restrictedMana || []), entry] } } };
+    return logEvent(next, { kind: "spell-effect", effect: "add-restricted-mana", controller: ctx.controller, amount: total, pool: entry.pool });
+  }
   // A FIXED amount (Sarkhan Fireblood's "Add two mana …") reads atom.amount directly; the count-derived
   // form (Klauth's X) keeps its countForSpec read byte-identically.
   const x = atom.amount != null ? Math.max(0, atom.amount) : Math.max(0, countForSpec(state, ctx, atom.amountCount) || 0);

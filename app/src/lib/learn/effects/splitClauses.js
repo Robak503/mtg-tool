@@ -297,7 +297,7 @@ export function splitClauses(oracle) {
       // UNRESTRICTED mana. The continuation folds only onto the exact fixed-amount any-combination lead
       // (the word-set guard on the atom arm keeps unknown type phrases LOW → Arbiter).
       || (/^spend this mana only to cast [a-z][a-z ]*? spells$/i.test(sentence)
-          && /^add (?:one|two|three|four|five) mana in any combination of colors$/i.test(prev))
+          && /^add (?:(?:one|two|three|four|five) mana in any combination of colors|(?:\{[wubrgc]\})+)$/i.test(prev)) // + the pip-pool lead (Geosurge, KT-4)
       // RIVAZ RIDER (2026-08-15) — the quoted dies-exile grant's period sits INSIDE the quotes, so the
       // sentence split strands the closing quote as its own "clause". Fold it back onto the exact lead
       // (anchored-fold discipline: this can only ever reassemble the one quoted grant the arm claims).

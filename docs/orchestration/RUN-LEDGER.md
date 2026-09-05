@@ -3,6 +3,19 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-4a: GEOSURGE — restricted spend on a spell's pips · **+2** · corpus 14,434 (42.1%) / 34,245
+> Suite **1483 files / 16,085 tests** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **6/6 killed.**
+> · "Add {R}{R}{R}{R}{R}{R}{R}. Spend this mana only to cast artifact or creature spells." The QUARTET's restricted-spend lane had
+>   the ABILITY side (Klauth) and a word-count any-combination spell form (Sarkhan); a pip-pool spell had no arm and — worse —
+>   its two sentences split, so the add could have parsed ALONE as unrestricted mana (the laundering FP). The splitter now
+>   folds the spend rider onto the pip lead; the atom carries an EXPLICIT pool (a spell has no source permanent to colour
+>   from) plus the parsed restriction; the resolver mints the same tagged `restrictedMana` entry the payment planner honours.
+> · **Pins:** nothing unrestricted enters the pool; the entry pays a creature spell through the real planner and the real
+>   offer, and never an instant; an unvetted rider leaves the clause unparsed. Six mutants — the parse-side and the
+>   runtime-side "unrestricted" mutants among them — all died.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Killer Turts 75 → 76** (76/100; needs 9). Unplanned gain audited: Abstract Paintmage (a first-main-phase trigger whose effect is the same pip-pool restricted add, instant-and-sorcery restriction). Next: KT-4b Open the Omenpaths, then KT-5 City of Traitors.
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-3: IRENCRAG FEAT + RITE OF FLAME — the ritual riders · **+3** · corpus 14,432 (42.1%) / 34,245
 > Suite **1482 files / 16,083 tests** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **10/10 killed.**
 > · **Irencrag Feat** "Add seven {R}. You can cast only one more spell this turn.": the word-number pip form (the pip form

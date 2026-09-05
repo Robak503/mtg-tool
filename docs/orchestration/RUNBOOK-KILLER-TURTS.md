@@ -39,7 +39,7 @@ Legend: **S** one arm on an existing seam · **M** a new arm plus a runtime seam
 |---|---|---|---|---|---|
 | R1 | **Rite of Flame** | add {R}{R}, then {R} for each card named Rite of Flame in each graveyard | ✅ DONE 2026-09-05 (KT-3): a per-count add-mana over the `cardsNamedInAllGraveyards` count kind (every seat's graveyard), read at resolution — the resolving Rite itself is not yet in the graveyard (CR 608.2m) | **S/M** | pinned: yours + an opponent's copy = +2; the mutant that read only your graveyard died |
 | R2 | **Irencrag Feat** | add seven {R}; you can cast only one more spell this turn | ✅ DONE 2026-09-05 (KT-3): the word-number pip form + a SELF cast limit (`castLocksThisTurn[you].spellLimit`, keyed on spellsCastThisTurn at resolution, self-expiring with the turn; the caster only) | **S** | pinned: exactly one more spell offered, then none; next turn free; the opponent never locked; the from-zero mutant (no spells at all) died |
-| R3 | **Geosurge** | add {R}×7, spend only on artifact or creature spells | restricted spend on a SPELL's add-mana (the ability-side seam exists — Klauth) | **M** | unrestricted mana here is the laundering FP the QUARTET lane forbids |
+| R3 | **Geosurge** | add {R}×7, spend only on artifact or creature spells | ✅ DONE 2026-09-05 (KT-4a): the pip-pool twin of the any-combination restricted add — the splitter folds the rider onto the pip lead; an EXPLICIT pool + the parsed restriction; the same tagged `restrictedMana` entry the planner honours | **M** | pinned: the entry pays a creature and never an instant; the unrestricted mutants (parse-side and runtime-side) both died |
 | R4 | **Open the Omenpaths** | modal: two mana of one colour + two of another, spend only on creature/enchantment spells / team +1/+0 | mode 2 parses; mode 1 = a two-colour choice + restricted spend | **M** | rides R3's restriction |
 
 ### 1c. Counters and protection (5 cards)
@@ -92,7 +92,7 @@ Ordered by plan-criticality, then cost. Running total assumes each slice lands w
 | KT-1 | Port Razer (line 2) | attacked-players memo at declare-attackers | ✅ +1 | 1 |
 | KT-2 | Guttural Response · Pyroblast | S-F two-filter counters + the "if it's blue" mode | ✅ +3 (Hydroblast too) | 3 |
 | KT-3 | Irencrag Feat · Rite of Flame | S-E word-number pips + cast-lock rider; all-graveyards name count | ✅ +3 | 5 |
-| KT-4 | Geosurge · Open the Omenpaths | S-E restricted spend on a spell's add-mana (+ two-colour choice) | +2 | 7 |
+| KT-4 | Geosurge · Open the Omenpaths | S-E restricted spend on a spell's add-mana (+ two-colour choice) | ✅ Geosurge +2 · Omenpaths ⬜ (its two-colour choice mode is next) | 6 |
 | KT-5 | City of Traitors | land-play watcher on a land | +1 | 8 |
 | KT-6 | Savage Beating | combat-only timing restriction (+ entwine honoured) | +1 | 9 |
 | KT-7 | Overpowering Attack · Full Throttle · World at War | S-D: attacked-this-turn untap, two additional combats, delayed per-combat untap, after-second-main insertion; rebound + freerunning sized on approach | +2 to +3 | 11–12 |
