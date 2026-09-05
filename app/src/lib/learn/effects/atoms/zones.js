@@ -3,7 +3,7 @@
  * reanimate). Also hosts the shared enterCardFromZone helper (reanimation + library ramp).
  */
 
-import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf, shuffleSeededLibrary } from "../../gameState.js"; // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
+import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone, recordGraveyardEvents, addCounter, opponentsOf, shuffleSeededLibrary, planeswalkerEntryLoyalty } from "../../gameState.js"; // T7: opponentsOf — the opponent's-choice return aims its pause at the controller's first opponent
 import { impositionEntersTapped } from "../../staticAbilityParser.js"; // KM-1 (CR 614.1c) — Kismet taxes non-cast entries too (leaf-safe: staticAbilityParser imports only keywords.js)
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
@@ -323,6 +323,11 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   // CONTROLLER's battlefield (playerId). Build both player updates from s2 so a same-player move (the
   // common case, fromPlayerId === playerId) composes into one object and a cross-player move (reanimation
   // from an opponent's graveyard) updates the two distinct players without clobbering either.
+  // STARTING LOYALTY (CR 306.5b — SHELF-85 · Atraxa A3 Deploy the Gatewatch, 2026-09-05): this non-cast path mirrored
+  // enterPermanent's setup but never stamped a planeswalker's loyalty — a dug / reanimated walker entered with NO
+  // loyalty key, so nothing could attack it and the 0-loyalty SBA could never kill it. The one reader both paths share.
+  const entryLoyalty = planeswalkerEntryLoyalty(s2, playerId, card);
+  if (entryLoyalty != null) perm.counters = { ...perm.counters, loyalty: entryLoyalty };
   const srcZoneList = (s2.players[fromPlayerId][fromZone] || []).filter((c) => c.id !== cardId);
   const ctrlBattlefield = [...s2.players[playerId].battlefield, perm];
   const playersPatch = fromPlayerId === playerId

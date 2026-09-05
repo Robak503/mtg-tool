@@ -31,7 +31,7 @@ import { permanentPower, permanentToughness, permanentBasePower, permanentHasKey
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
 import { applyCounterDoubling, millMultiplier, playerCounterAdditive, applyLifeGainReplacement } from "./replacementEffects.js"; // Wave-3 counter-doubler + MILL-DOUBLER (Bruvac, M2) + PLAYER-COUNTER additive (Constrictor) replacements (leaf, no cycle)
-import { auraHasTotemArmor } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.116) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
+import { auraHasTotemArmor, othersEnterWithCounters } from "./staticAbilityParser.js"; // TOTEM ARMOR (CR 702.116) destruction-replacement detector (staticAbilityParser is a leaf on keywords.js; gameState already depends on it via layers.js — no new cycle)
 import { applyControlAuraAttach, revertControlAura } from "./controlAura.js"; // CR 613.1b control Auras — a ZERO-IMPORT leaf, so this lowest-layer module can call it without a cycle
 import { moveControl } from "./controlMove.js"; // THE one control move, shared by the control Auras and the gain-control atom; controlMove imports nothing, so this stays acyclic
 
@@ -296,6 +296,30 @@ export function adjustLoyalty(state, { permanentId, delta }) {
     ...p,
     counters: { ...p.counters, loyalty: (p.counters?.loyalty || 0) + delta },
   }));
+}
+
+/**
+ * The loyalty a planeswalker ENTERS with (CR 306.5b + 614.1c) — its printed starting loyalty plus every "each
+ * planeswalker you control enters with an additional loyalty counter" static its controller has out (Oath of Gideon —
+ * read through the same reader coverage credits, othersEnterWithCounters subject "planeswalker"), the sum then run
+ * through the controller's counter doublers ONCE (both are enters-with replacements the controller orders, CR 616.1 —
+ * Doubling Season gives 2 × (N + 1)). ONE reader for EVERY entry path — the cast entry (resolvers.enterPermanent) and
+ * the non-cast entry from a library or graveyard (zones.enterCardFromZone: a dug / reanimated walker — SHELF-85 ·
+ * Atraxa A3 Deploy the Gatewatch, 2026-09-05, where the second path was found stamping NO loyalty at all: a walker
+ * nobody could attack or kill). `state` is PRE-entry (the permanent never doubles its own entry counters). Returns
+ * null for a non-planeswalker or a non-finite printed loyalty (an "X" walker never gets a key, so the 0-loyalty SBA
+ * can never insta-kill it).
+ */
+export function planeswalkerEntryLoyalty(state, controller, card) {
+  if (!castsAsPlaneswalker(card)) return null;
+  const loy = startingLoyalty(card);
+  if (loy == null) return null;
+  let extra = 0;
+  for (const p of state?.players?.[controller]?.battlefield || []) {
+    const d = p ? othersEnterWithCounters(p.card) : null;
+    if (d && d.subject === "planeswalker") extra += Math.max(0, d.fixed);
+  }
+  return applyCounterDoubling(state, controller, "loyalty", loy + extra);
 }
 
 /**

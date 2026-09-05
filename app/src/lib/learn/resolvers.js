@@ -20,7 +20,7 @@
  * PR-2 and the cast path emits these payloads in PR-3.
  */
 
-import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, startingLoyalty, opponentsOf, moveCardToZone, tapPermanent, recordGraveyardEvents, updatePermanentSafe, loseLife } from "./gameState.js";
+import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, planeswalkerEntryLoyalty, opponentsOf, moveCardToZone, tapPermanent, recordGraveyardEvents, updatePermanentSafe, loseLife } from "./gameState.js";
 import { queueEvokeSacrifice, checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkSagaChapterTriggers, modularKeywordValues } from "./triggers.js";
 import { parseSagaChapters } from "./saga.js"; // SAGA (CR 714 — Vault 12, SHELF S7): entry lore counter + sagaFinal stamp; a pure leaf
 import { markPendingArbiter } from "./pendingArbiter.js";
@@ -203,24 +203,7 @@ function othersEnterWithCountersFor(state, controller, card) {
   return n;
 }
 
-/**
- * The extra LOYALTY counters OTHER permanents' "each planeswalker you control enters with an additional loyalty counter"
- * statics (Oath of Gideon — SHELF-85 · Atraxa A2, 2026-09-05) add to a planeswalker as it enters. Read through the SAME
- * reader coverage credits (othersEnterWithCounters, subject "planeswalker"); the creature/+1/+1 shape is skipped here
- * exactly as the loyalty shape is skipped in othersEnterWithCountersFor. Two Oaths stack (each is its own replacement).
- */
-function othersEnterWithLoyaltyFor(state, controller, card) {
-  if (!card) return 0;
-  let n = 0;
-  for (const p of state?.players?.[controller]?.battlefield || []) {
-    if (!p) continue;
-    const d = othersEnterWithCounters(p.card);
-    if (!d) continue;
-    if (d.subject !== "planeswalker") continue;
-    n += Math.max(0, d.fixed);
-  }
-  return n;
-}
+// (The Oath of Gideon loyalty helper moved to gameState.planeswalkerEntryLoyalty so the non-cast entry path shares it.)
 
 function grantedRiotCount(state, controller, card) {
   if (!card || card.token) return 0;
@@ -345,10 +328,10 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // OWN entry counters, CR 616 — the replacement must already exist). Recipient = the entering permanent's
   // controller. A "+1/+1"-only doubler is skipped for loyalty/fade; Doubling Season (any counter) doubles them.
   if (castsAsPlaneswalker(card)) {
-    const loy = startingLoyalty(card);
-    // OTHERS-ENTER-WITH LOYALTY (Oath of Gideon): the extra counter joins the printed starting loyalty BEFORE the doubler —
-    // both are enters-with replacements and the controller orders them (CR 616.1), so Doubling Season gives 2 × (N + 1).
-    if (loy != null) perm.counters = { ...perm.counters, loyalty: applyCounterDoubling(state, controller, "loyalty", loy + othersEnterWithLoyaltyFor(state, controller, card)) };
+    // ONE reader for every entry path (gameState.planeswalkerEntryLoyalty): the printed loyalty + Oath of Gideon's extra
+    // counter, doubled once — the non-cast entry (zones.enterCardFromZone) reads the same helper.
+    const loy = planeswalkerEntryLoyalty(state, controller, card);
+    if (loy != null) perm.counters = { ...perm.counters, loyalty: loy };
   }
   // CLONE CONDITIONAL ENTERS-WITH-COUNTER (Spark Double, CR 707.9a + 614.1c + 122.6a) — an ADDITIONAL counter
   // the clone-resolution path resolved against the copy's type (+1/+1 for a creature copy, loyalty for a

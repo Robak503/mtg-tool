@@ -16,6 +16,27 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · A3: DEPLOY THE GATEWATCH — the counted dig onto the battlefield · **+1** · corpus 14,549 / 34,245
+> Suite **1532 files / 16,276** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
+> · "Look at the top seven cards of your library. Put up to two planeswalker cards from among them onto the battlefield.
+>   Put the rest on the bottom of your library in a random order." The dig-to-battlefield frame (④-C — Kinnan's
+>   "you may put a non-Human creature card … onto the battlefield") read ONE pick; the impulse-dig settler already
+>   re-raises the choice until `keep` cards are picked and enters each one (a decline ends the picking — exactly
+>   "up to"). The new arm is that frame with a keep count read from the up-to-N word table, the type through the
+>   same tutor filter (an unlisted word parks), and the land printing yielding to the dig-land lane as before.
+> · **Pins:** the atom (seven looked at, keep two, planeswalker filter, battlefield, random rest); "widget cards"
+>   refused; Deploy native; RUNTIME — two walkers among the top seven both enter with their printed loyalty and the
+>   other five go to the bottom; declining after one enters one; a top seven with no walker bottoms all seven.
+> · **HOLLOW CLOSED on the way:** the runtime pin found the dug walkers entering with NO loyalty key — the non-cast entry
+>   path (zones.enterCardFromZone, shared by reanimation and ramp) mirrored enterPermanent's setup but never stamped a
+>   planeswalker's starting loyalty, so any dug or reanimated walker sat unattackable and unkillable. Both paths now read
+>   ONE helper (gameState.planeswalkerEntryLoyalty: printed loyalty + Oath of Gideon's extra, doubled once); the private
+>   Oath helper in resolvers moved there. Pinned: a walker dug under Oath enters with 5.
+>   Mutants: the arm gone, the keep count dropped (one pick), the filter unchecked, the non-cast stamp dropped, the shared
+>   reader forgetting Oath — mutants 5/5 killed.
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Atraxa 69 → **70** (15 to the bar); Arena Rector, Ashiok, Mutational Advantage sized in the A3 row
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · A4: TEFERI, HERO OF DOMINARIA — the positional tuck · **+6** · corpus 14,548 / 34,245
 > Suite **1531 files / 16,271** green; lint 0. Flip-diff **+6, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed (one survivor deleted as dead).**
 > · "−3: Put target nonland permanent into its owner's library third from the top." The +1 (draw, then the delayed

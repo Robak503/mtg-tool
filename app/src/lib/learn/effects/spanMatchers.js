@@ -21,7 +21,7 @@
  * rider paths (parseControllerRider / matchRemovalControllerRider).
  */
 import { stripReminder } from "./textNormalize.js";
-import { parseTutorFilter, parseTokenKeywords, NUM_WORD } from "./parseHelpers.js";
+import { parseTutorFilter, parseTokenKeywords, NUM_WORD, UP_TO_N_WORD } from "./parseHelpers.js";
 import { destroyExileClauseParser } from "./atoms/removal.js";
 import { counterClauseParser } from "./atoms/stack.js";
 
@@ -481,6 +481,22 @@ export function matchImpulseDig(oracle) {
     if (rb[3]) filter.notSubtype = rb[3].toLowerCase();
     const label = `${rb[2] ? rb[2].toLowerCase() + " " : ""}${rb[4].trim().toLowerCase()} card`;
     return { atom: { op: "impulse-dig", amount, restTo: "bottom", filter, filterLabel: label, chosenTo: "battlefield", restOrder: "random" }, rest: oracle.slice(rb[0].length).trim() };
+  }
+  // (2c) COUNTED DIG-TO-BATTLEFIELD (SHELF-85 · Atraxa A3 — Deploy the Gatewatch, 2026-09-05): "Look at the top seven cards
+  // of your library. Put up to two planeswalker cards from among them onto the battlefield. Put the rest on the bottom of
+  // your library in a random order." — the (2b) frame with a KEEP COUNT: the settler (resolveImpulseDigChoice) already
+  // re-raises the pick until `keep` cards are chosen and enters each one, and a decline ends the picking — exactly "up
+  // to". The type goes through the same tutor filter (an unlisted word parks) and the land printing yields to the
+  // dig-land lane exactly as (2b) does.
+  const rc = String(oracle).match(
+    /^look at the top (\w+) cards? of your library\. put up to (two|three) ([a-z][a-z ]*?) cards from among them onto the battlefield\. put the rest on the bottom of your library in a random order\.?/i,
+  );
+  if (rc) {
+    if (rc[3].trim().toLowerCase() === "land") return null;
+    const amount = DIG_NUM[rc[1].toLowerCase()];
+    const filter = parseTutorFilter(rc[3].trim().toLowerCase());
+    if (!amount || !filter) return null;
+    return { atom: { op: "impulse-dig", amount, restTo: "bottom", filter, filterLabel: `${rc[3].trim().toLowerCase()} card`, chosenTo: "battlefield", restOrder: "random", keep: UP_TO_N_WORD[rc[2].toLowerCase()] }, rest: oracle.slice(rc[0].length).trim() };
   }
   // (3) MALEVOLENT RUMBLE (2026-08-14) — the REVEALED filtered keep with a GRAVEYARD rest: "Reveal the
   // top N cards of your library. You may put a <type> card from among them into your hand. Put the rest
