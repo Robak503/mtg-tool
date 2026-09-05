@@ -402,6 +402,11 @@ function parseSelfCountSource(phrase) {
   // (actionDispatcher — the defender of every attacker declared this turn) and the untap reset clears beside the Raid
   // flag; countForSpec counts the distinct OPPONENTS among them (a planeswalker defender is not a player — it never counts).
   if (/^opponents? you attacked this turn$/.test(p)) return { kind: "opponentsAttackedThisTurn" };
+  // DOMAIN (residue census 2026-09-06 — Stratadon "Domain — This spell costs {1} less to cast for each basic land type among
+  // lands you control"): the number of DISTINCT basic land types among the controller's lands, read at the cast off the
+  // front-face type lines (countForSpec "domain"). A basic type GRANTED by Urborg / Yavimaya is not counted — a documented
+  // under-read, the safe direction.
+  if (/^basic land types? among lands you control$/.test(p)) return { kind: "domain" };
   if ((m = p.match(/^(creatures?|artifacts?|lands?|enchantments?) you control$/))) return { kind: "permanentsYouControl", cardType: SELF_COUNT_CARDTYPE[m[1]] };
   if ((m = p.match(/^(plains|islands?|swamps?|mountains?|forests?) you control$/))) return { kind: "permanentsYouControl", subtype: SELF_COUNT_BASIC[m[1]] };
   // NON-BASIC SUBTYPE you control — "+1/+1 for each Equipment you control" (Swordsman's Steel, Improvised
@@ -1235,7 +1240,7 @@ export function selfCostReductionMetric(card) {
     // MORBID (POD-SIM THREE · KT-8, 2026-09-05 — Grim Reaper's Sprint "Morbid — This spell costs {3} less to cast if a
     // creature died this turn."): the ability-word label comes off (CR 207.2c, flavour) so the bare sentence reaches the
     // table; the metric is a FIXED amount gated on any creature having died this turn (every seat's count, CR 700.4).
-    const s = sentence.trim().toLowerCase().replace(/^morbid\s*[—–-]\s*/, "").replace(/\.\s*$/, "");
+    const s = sentence.trim().toLowerCase().replace(/^(?:morbid|domain)\s*[—–-]\s*/, "").replace(/\.\s*$/, ""); // + the Domain label (2026-09-06)
     if (!s.startsWith("this spell costs") && !s.startsWith("if your life total is less than your starting life total, this spell costs")) continue;
     const morbid = s.match(/^this spell costs \{(\d+)\} less to cast if a creature died this turn$/);
     if (morbid) return { kind: "creatureDiedThisTurn", amount: Number(morbid[1]) };

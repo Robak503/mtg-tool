@@ -373,7 +373,7 @@ export function extractAltCost(oracle) {
 // legalChoices.selfCostReductionForSpell (which reads the raw card oracle, not this program), so stripping it
 // here cannot drop a modeled reduction. An UNmodeled reduction metric simply isn't applied at cast (the engine
 // pays full price — a SAFE limitation), but the effect now resolves natively instead of routing to the Arbiter.
-const SELF_COST_REDUCTION_SENTENCE_RE = /this spell costs \{[^}]+\} less to cast[^.]*\.\s*/gi;
+const SELF_COST_REDUCTION_SENTENCE_RE = /(?:(?:morbid|domain)\s*[—–-]\s*)?this spell costs \{[^}]+\} less to cast[^.]*\.\s*/gi; // + the Morbid / Domain label ahead of the sentence (Stratadon, 2026-09-06) — the metric parser strips the same labels
 export function stripSelfCostReduction(oracle) {
   return String(oracle || "").replace(SELF_COST_REDUCTION_SENTENCE_RE, " ").trim();
 }

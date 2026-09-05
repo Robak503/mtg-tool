@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-06 (cron) — **RESIDUE GRIND RG-9 · the domain count (+6)** · suite **1584 files / 16426 tests** green · corpus 14,767 (43.1%) / 34,245 · flip-diff +6 / 0 lost · mutants 5/5 killed
+
+> **Runnable next:** ② the tap-a-creature alternative cost ("If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost": Ramosian Rally, Angelic Favor — a new alt kind `tapCreature` with an untapped-creature enumeration and a tap at dispatch; the condition parser already reads "you control a Plains"; M-small) · ③ colour words in a spend restriction (Shrine of the Forsaken Gods, Eldrazi Temple; M).
+> Stratadon's domain reduction counts distinct basic land types at the cast.
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-06 (cron) — **QUARTET Phase 4 step 3 · Secluded Courtyard, the chosen-type form with its ability tail (+1)** · suite **1583 files / 16423 tests** green · corpus 14,761 (43.1%) / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
 
 > **Runnable next (census re-run 2026-09-06 ~04:20Z — 34,245 scanned · 19,540 non-native · 10,631 sole-blocker cards; the top is still the banked sub-game / choice classes):** three scoped S/M rows with existing machinery, in order — ① **the DOMAIN count** ("Domain — This spell costs {1} less to cast for each basic land type among lands you control": Stratadon, Draco …; the self cost-reduction "for each" arm exists, only the count kind is missing — a distinct-basic-types-among-your-lands count in countForSpec/parseCountSource, granted types included; S) · ② **the tap-a-creature alternative cost** ("If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost": Ramosian Rally, Angelic Favor …; the alt lane's condition parser already reads "you control a Plains" — a new kind `tapCreature` with an untapped-creature enumeration and a tap at dispatch; M-small) · ③ **colour words in a spend restriction** ("colorless spells" / "colorless Eldrazi": Shrine of the Forsaken Gods, Eldrazi Temple — a colour predicate on the cast card and the activating source; two carriers, M — the quartet's Phase 4 step 3 closes with it). **Jurassic Ramp 86 → 87**; Cap 87 unchanged (Secluded Courtyard was already credited there through Cavern's lane — its ability half is now real at runtime)

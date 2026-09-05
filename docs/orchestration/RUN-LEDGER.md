@@ -16,6 +16,26 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-06 (cron) — RESIDUE GRIND RG-9 · THE DOMAIN COUNT (Stratadon and kin) · **+6** · corpus 14,767 (43.1%) / 34,245
+> Suite **1584 files / 16426 tests** green; lint 0. Flip-diff **+6, zero LOST** (every unplanned gain audited whole-card). **mutants 5/5 killed.**
+> · The first of the three rows the 04:20Z census left with existing machinery: "Domain — This spell costs {1} less to cast for
+>   each basic land type among lands you control." The self cost-reduction lane's "for each" arm existed; its own count parser
+>   (parseSelfCountSource) lacked the domain count and the sentence walker stripped only Morbid's label. Now: {kind:"domain"}
+>   → countForSpec counts the DISTINCT basic land types among the controller's lands off the front-face type lines; the Domain
+>   label is stripped like Morbid's. Granted basic types (Urborg / Yavimaya) are not counted — a documented under-read.
+> · ⛔ THE FLIP-DIFF AUDIT CAUGHT A HOLLOW BEFORE COMMIT: the count also unparked the ATTACHED per-count bonus lane (Strength of
+>   Unity, Exotic Curse, Manaforce Mace — "gets +1/+1 for each basic land type among lands you control") — and a runtime probe
+>   showed the Aura classifying native while the layer engine read NO bonus. The layer engine keeps its OWN count evaluator
+>   (layers.countForSpec) beside effects/atoms/shared's, and only the latter had learned "domain". Fixed at the root: ONE
+>   exported helper (layers.domainCount) that both evaluators call, so a layer bonus and a cast reduction can never disagree
+>   about domain again; the Aura is pinned (a Bear under Strength of Unity with two basic types among three lands is a 4/4).
+> · **Pins:** Stratadon native; the Aura's layer read. RUNTIME through the real cast offer: five basics of five types turn {10}
+>   into {5} and the five lands cast it; five basics of FOUR types leave {6} and it is not offered. Mutants: the arm gone,
+>   the count as LANDS rather than types (the over-read), the layer evaluator forgetting the kind (the hollow), the label not
+>   stripped (parser and classifier) — mutants 5/5 killed.
+> · **Whole-card:** six flips, each read whole-card: Stratadon, Yavimaya Sojourner and Leyline Binding (the cost line; Binding's exile-until ETB was modeled), Strength of Unity, Exotic Curse and Manaforce Mace (the attached per-count bonus — the layer read pinned after the hollow); Draco stays parked on its domain-reduced upkeep payment; zero LOST, zero retiered
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 > ## 🎯 2026-09-06 (cron) — QUARTET Phase 4 step 3 · SECLUDED COURTYARD — the chosen-type form with its ability tail · **+1** · corpus 14,761 (43.1%) / 34,245
 > Suite **1583 files / 16423 tests** green; lint 0. Flip-diff **+1, zero LOST** (every unplanned gain audited whole-card). **mutants 4/4 killed.**
 > · The last named carrier class but one: the chosen-type spend form (Cavern of Souls / Unclaimed Territory — live since CAP-CAVERN)

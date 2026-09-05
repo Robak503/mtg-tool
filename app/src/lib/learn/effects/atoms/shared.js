@@ -8,7 +8,7 @@
 
 import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
 import { MASS_WIPE_SCOPES } from "../../targetTypes.js"; // leaf module (pure strings) — no cycle; feeds the atomTargets drift guard below
-import { permanentIsCreature } from "../../layers.js"; // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import)
+import { permanentIsCreature, domainCount } from "../../layers.js"; // + domainCount (2026-09-06): ONE domain evaluator for the cast reduction and the layer bonus // LAYER-AWARE creature check (layers.js is a lower leaf — no cycle back into shared.js; combat.js uses the same import)
 import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the SHARED 16-kind restriction satisfier (leaf: gameState + layers + keywords only — every one of those edges already exists above, so no cycle)
 import { evaluateInterveningIf } from "../../interveningIf.js"; // INSTEAD-AMOUNT (BLITZ INST-1) — the shared board-condition readers for a condition-gated amountUpgrade; interveningIf → gameState is a leaf edge (gameState imports neither shared.js nor interveningIf), so no cycle
 
@@ -902,6 +902,9 @@ export function countForSpec(state, ctx, spec) {
   // source id is whichever the call path threads (ctx.sourceId for a trigger/activated ability, ctx.source for
   // the mana path) — see isExcludedSelf. A plain spell threads neither → nothing excluded (no "other" referent);
   // the cardsInHand / experience kinds have no per-permanent identity, so the flag is a safe no-op there.
+  // DOMAIN (2026-09-06 — Stratadon's self cost reduction): the number of DISTINCT basic land types among the controller's
+  // lands, off the front-face type line (CR 712.4a). Granted basic types are not counted — a documented under-read.
+  if (spec.kind === "domain") return domainCount(state, ctx?.controller);
   if (spec.kind === "permanentsYouControl") {
     // POWER-QUALIFIED ("creatures you control with power N or greater" — The Boulder): a power threshold is
     // LAYER-AWARE (counters + anthems count), so it's applied here against creaturePower read at resolution
