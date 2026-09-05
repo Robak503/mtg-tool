@@ -183,7 +183,9 @@ export function doublerProfile(card) {
     // named kind (Food — a MODELED named token). Applied once per event at the token-enter chokepoint
     // (tokens.fireTokenEnterTriggers via tokenExtraKinds); the minted Food is part of the same event and never
     // re-enters the replacement (CR 614.5). Exact template; the "you" scope is intrinsic ("under YOUR control").
-    const extraM = s.match(/^if one or more tokens would be created under your control, those tokens plus an additional (food) token are created instead$/);
+    // (+ the MUTAGEN printing — SHELF-85 · Halfshell Q4 Donatello, the Brains, 2026-09-05: "those tokens plus a Mutagen token";
+    // the same profile, the second registered named kind; both printed articles, nothing else.)
+    const extraM = s.match(/^if one or more tokens would be created under your control, those tokens plus (?:an additional |a |an )(food|mutagen) token are created instead$/);
     if (extraM) {
       tokenExtra = { kind: extraM[1], scope: "you" };
     }
@@ -268,7 +270,7 @@ export function isModeledDoublerSentence(s, shortName = null) {
   if (/if you would create one or more treasure tokens?,? instead create those tokens plus an additional treasure token/.test(s)) return true;
   // TOKEN-EXTRA-KIND (SG-10, Peregrin Took) — the exact passive "+1 additional Food" replacement the runtime applies
   // (tokenExtraKinds at the token-enter chokepoint). Food only — the one modeled named kind this template prints.
-  if (/^if one or more tokens would be created under your control, those tokens plus an additional food token are created instead\.?$/.test(s)) return true;
+  if (/^if one or more tokens would be created under your control, those tokens plus (?:an additional |a |an )(?:food|mutagen) token are created instead\.?$/.test(s)) return true; // + Donatello's Mutagen printing
   if (/^if you would create a clue, food, or treasure token, instead create one of each\.?$/.test(s)) return true; // Academy Manufactor (F4)
   // MILL-DOUBLER (Bruvac, SHELF M2) — the exact opponent-mill doubling the runtime applies (millMultiplier).
   if (/^if an opponent would mill one or more cards, they mill twice that many cards instead\.?$/.test(s)) return true;

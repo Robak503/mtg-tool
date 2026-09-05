@@ -16,6 +16,21 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · Q4: DONATELLO, THE BRAINS — the Took replacement's Mutagen printing · **+1** · corpus 14,580 / 34,245
+> Suite **1542 files / 16,307** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
+> · "If one or more tokens would be created under your control, those tokens plus a Mutagen token are created instead."
+>   Peregrin Took's profile (SG-10 — "those tokens plus an additional Food token") already models this replacement at
+>   the mint chokepoint: one extra named token per creation event, never re-entering the replacement (CR 614.5). The
+>   reader and its strip predicate anchored on the Food printing's exact article ("an additional Food"); Donatello
+>   prints "a Mutagen" — the Mutagen token is already a registered named token (Shellshock's reminder text). Both
+>   anchors admit the two printed articles and the two modelled kinds, and nothing else (an unregistered kind stays
+>   refused — the mint would have nothing to mint).
+> · **Pins:** the profile for both printings; an unregistered kind refused; Donatello native; RUNTIME — a Treasure made
+>   under Donatello arrives with a Mutagen beside it, two Donatellos make two Mutagens, a token made by an opponent gets
+>   none. Mutants: the reader's widening gone, the strip predicate not widened, the reader admitting any word — mutants 3/3 killed.
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Halfshell 76 → **78** across this and the Big Apple slice (7 to the bar); the shared suite run covers both
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · Q4: SWIFT DEMISE — the opponent-creature mass destroy · **+1** · corpus 14,576 / 34,245
 > Suite **1540 files / 16303** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · "Swift Demise deals 1 damage to target creature. Then destroy each creature you don't control that was dealt damage

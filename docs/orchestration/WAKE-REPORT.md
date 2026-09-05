@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · Q4: Donatello, the Brains (+1)** · suite **1542 files / 16,307** green · corpus 14,580 / 34,245 · flip-diff +1 / 0 lost · mutants 3/3 killed
+
+> The Took extra-token replacement learned its Mutagen printing — every token batch you make brings a Mutagen along, once per event at the mint chokepoint. Halfshell 76 → **78** across this and the Big Apple slice (7 to the bar); the shared suite run covers both
+> **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · Q4: Swift Demise (+1)** · suite **1540 files / 16303** green · corpus 14,576 / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
 
 > The mass destroy learned the opponent-creature scope the bounce family already had; with the shared dealt-damage restriction, Swift Demise's second sentence takes exactly the opponent's damaged creatures. Halfshell 75 → **76** (9 to the bar); a resolution gap closed on the way — the opponent-creature sweep ignored the atom's restrictions
