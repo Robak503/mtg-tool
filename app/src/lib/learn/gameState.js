@@ -2497,8 +2497,12 @@ export function resetAttackedThisTurnAllPlayers(state) {
       attackedThisTurn: false,
       // BOAST's per-permanent history clears HERE, beside the seat flag, so the two can never drift.
       // Only rewrite the permanents that actually carry the flag — the common case allocates nothing.
-      battlefield: (state.players[id].battlefield || []).some((p) => p.attackedThisTurn)
-        ? state.players[id].battlefield.map((p) => (p.attackedThisTurn ? { ...p, attackedThisTurn: false } : p))
+      battlefield: (state.players[id].battlefield || []).some((p) => p.attackedThisTurn || p.attackedPlayersThisTurn)
+        ? state.players[id].battlefield.map((p) => {
+          if (!p.attackedThisTurn && !p.attackedPlayersThisTurn) return p;
+          const { attackedPlayersThisTurn: _dropMemo, ...rest } = p; // PORT RAZER's memo (KT-1) clears beside the flag
+          return { ...rest, attackedThisTurn: false };
+        })
         : state.players[id].battlefield,
     };
   }

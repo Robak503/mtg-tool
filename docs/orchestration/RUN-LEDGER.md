@@ -3,6 +3,22 @@
 > **The work queue lives in [NEXT-QUEUE.md](NEXT-QUEUE.md)** — roadmap v2 is cleared, and that file is its
 > successor. It is sequenced so risky work happens while sharp and mechanical work is available late.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-1: PORT RAZER — the attacked-players memo · **+1** · corpus 14,426 (42.1%) / 34,245
+> Suite **1480 files / 16,075 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **7/7 killed.**
+> · **The order this serves:** Colton (mid-cron, 2026-09-05) — Killer Turts → Kinnan → Believe it! to 85, accurate for a pod
+>   sim; runbooks on master (POD-SIM-THREE-DECKS.md + three deck files). This is the first slice of that queue.
+> · **The card:** Port Razer's trigger line was already native; "This creature can't attack a player it has already attacked
+>   this turn" is the extra-combat deck's OWN restriction and was unmodeled — a Razer that attacks the same player in the
+>   second combat it just made is exactly the over-attack THE CREED forbids. It is now a defender requirement
+>   (`notAlreadyAttacked`) on the existing "can't attack unless defending player …" reader, keyed on a per-permanent memo
+>   `attackedPlayersThisTurn` stamped at declare-attacker beside `attackedThisTurn` and cleared with it at untap. The
+>   enumeration threads the attacking permanent into the evaluator; without it the check fails CLOSED (an unthreaded caller
+>   never over-attacks — the mutant that failed open was killed).
+> · **Pins:** first combat both creatures offered and the memo records the defender; second combat the same turn Razer is not
+>   offered, the bear is; after the untap reset Razer is offered again and the memo is gone; a bear never carries the memo.
+> · **Killer Turts 70 → 71** (71/100; needs 14). Next: KT-2 Guttural Response + Pyroblast (the two-filter counter; the 'if it's blue' mode form mapped to its restricted twin — an honest under-offer).
+> · **CI:** GREEN on the runbooks push (run 33931510748); this slice pushes and is watched
+
 > ## 🎯 2026-09-04 (day cron) — Phase 2 · H12: CHAOS WARP — the owner-tuck-reveal-put compound · **+1** · corpus 14,425 (42.1%) / 34,245
 > Suite **1479 files / 16,071 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **6/6 killed (two survivors on the mixed library killed by a seed-driven pin: the shuffle is real, the permanent gate holds).**
 > · **The shape:** "The owner of target permanent shuffles it into their library, then reveals the top card of their library.

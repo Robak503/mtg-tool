@@ -25,7 +25,7 @@ Legend: **S** one arm on an existing seam · **M** a new arm plus a runtime seam
 
 | # | Card | Oracle gist | Blocker (probed) | Size | CREED note |
 |---|---|---|---|---|---|
-| T1 | **Port Razer** | combat damage → untap each creature you control + additional combat; can't attack a player it already attacked this turn | trigger line is ALREADY native; line 2 "can't attack a player it has already attacked this turn" is an unmodeled attack restriction | **S** | the restriction must be ENFORCED at declare-attackers (a per-permanent attacked-players-this-turn memo), or the card over-attacks — forbidden |
+| T1 | **Port Razer** | combat damage → untap each creature you control + additional combat; can't attack a player it already attacked this turn | ✅ DONE 2026-09-05 (KT-1): a `notAlreadyAttacked` defender requirement keyed on the attacker's `attackedPlayersThisTurn` memo (stamped at declare-attacker, cleared at untap); fails closed without the memo | **S** | pinned: not offered in the second combat against the same player; a plain bear still is; offered again after untap |
 | T2 | **Savage Beating** | cast only during combat on your turn; modes: double strike / untap + extra combat; entwine | both modes parse natively; the miss is the TIMING restriction "Cast this spell only during combat on your turn" (+ entwine must be honoured) | **S/M** | offering it outside combat = an illegal cast → forbidden; the restriction gates the offer |
 | T3 | **Full Throttle** | after this main phase, TWO additional combat phases; at the beginning of each combat this turn, untap all creatures that attacked this turn | "two additional" count + a DELAYED per-combat untap trigger | **M** | the delayed untap fires at each combat's beginning, not once |
 | T4 | **World at War** | after the SECOND main phase, an additional combat + main; at that combat's beginning untap attackers; Rebound | "after the second main phase" insertion point + the delayed untap + rebound | **M** | rebound must actually re-offer the cast next upkeep or stay unmodeled for that line |
@@ -89,7 +89,7 @@ Ordered by plan-criticality, then cost. Running total assumes each slice lands w
 
 | Slice | Cards | Seam | Expected | Running |
 |---|---|---|---|---|
-| KT-1 | Port Razer (line 2) | attacked-players memo at declare-attackers | +1 | 1 |
+| KT-1 | Port Razer (line 2) | attacked-players memo at declare-attackers | ✅ +1 | 1 |
 | KT-2 | Guttural Response · Pyroblast | S-F two-filter counters + the "if it's blue" mode | +2 | 3 |
 | KT-3 | Irencrag Feat · Rite of Flame | S-E word-number pips + cast-lock rider; all-graveyards name count | +2 | 5 |
 | KT-4 | Geosurge · Open the Omenpaths | S-E restricted spend on a spell's add-mana (+ two-colour choice) | +2 | 7 |

@@ -754,6 +754,10 @@ export function mustAttackUnlessOf(card) {
 //   is poisoned                                → { kind:"poisoned" }               (Chained Throatseeker)
 //   is the monarch                             → { kind:"monarch" }                (Crown-Hunter Hireling)
 export function parseAttackDefenderRequirementClause(clause) {
+  // PORT RAZER (POD-SIM THREE · KT-1, 2026-09-05): "This creature can't attack a player it has already attacked this
+  // turn." A defender requirement keyed on the ATTACKER's own per-turn memo (attackedPlayersThisTurn, stamped at
+  // declare-attacker, cleared at untap) — the extra-combat deck's own restriction; fails closed without the memo.
+  if (/^(?:this creature |it )?can't attack a player it has already attacked this turn$/.test(String(clause || ""))) return { kind: "notAlreadyAttacked" };
   const m = String(clause || "").match(/^(?:this creature |it )?can't attack unless defending player (.+)$/);
   if (!m) return null;
   const rest = m[1].trim();
@@ -769,14 +773,16 @@ export function parseAttackDefenderRequirementClause(clause) {
   if (what === "enchantment or an enchanted permanent") return { kind: "enchantmentOrEnchanted" };
   return null; // unvetted defender predicate → fail closed (safe FN)
 }
-const reAttackDefenderSentence = /(?:^|[\n.;])\s*((?:this creature|it) can't attack unless defending player [^.;\n]+?)\s*(?:\.|$)/;
+const reAttackDefenderSentence = /(?:^|[\n.;])\s*((?:this creature|it) can't attack (?:unless defending player [^.;\n]+?|a player it has already attacked this turn))\s*(?:\.|$)/;
 export function attackDefenderRequirementOf(card) {
   const m = selfOracle(card).match(reAttackDefenderSentence);
   return m ? parseAttackDefenderRequirementClause(m[1]) : null;
 }
 /** Does `defenderId` meet a parsed defender requirement? Layer-aware; live per enumeration. */
-export function defenderMeetsAttackRequirement(state, defenderId, req) {
+export function defenderMeetsAttackRequirement(state, defenderId, req, attackerPerm = null) {
   if (!req) return true;
+  // PORT RAZER (KT-1): the attacker's own memo decides — no memo (an unthreaded caller) → fail closed, never an over-attack.
+  if (req.kind === "notAlreadyAttacked") return !!attackerPerm && !(attackerPerm.attackedPlayersThisTurn || []).includes(defenderId);
   const bf = state.players?.[defenderId]?.battlefield || [];
   if (req.kind === "land") return defenderControlsLandType(state, defenderId, req.subtype);
   if (req.kind === "colorPermanent") return bf.some((p) => permColorSet(state, p.id).has(req.color));

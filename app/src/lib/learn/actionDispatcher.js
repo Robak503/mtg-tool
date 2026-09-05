@@ -1817,7 +1817,9 @@ function applyDeclareAttacker(state, action) {
         // attacked, which is a different and much looser card. Stamped at the same sole chokepoint, and
         // cleared beside the seat flag at untap so the two can never drift out of step.
         battlefield: (next.players[action.playerId].battlefield || []).map((pm) =>
-          pm.id === action.permanentId ? { ...pm, attackedThisTurn: true } : pm),
+          pm.id === action.permanentId
+            ? { ...pm, attackedThisTurn: true, attackedPlayersThisTurn: [...(pm.attackedPlayersThisTurn || []), defender] } // + PORT RAZER's memo (KT-1)
+            : pm),
       },
     },
     combat: {

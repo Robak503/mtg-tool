@@ -57,7 +57,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Colton | Veyran Cantrips | 91 | — | — | ✅ at the bar (④-BD) |
 | Colton | The Unbeatable Squirrel Girl | 90 | — | — | ✅ at the bar |
 | Colton | cdh | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
-| Colton | Killer Turts | 70 | 15 | 20 | ⬜ Phase 2 |
+| Colton | Killer Turts | 71 | 14 | 19 | ⬜ Phase 2 |
 | Joe | Did you say Dragons? | 91 | — | — | ✅ at the bar |
 | Joe | Earth Bent | 91 | — | — | ✅ at the bar (④-BE) |
 | Joe | Mothman Cometh | 89 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**9 decks below 85 · 118 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**9 decks below 85 · 117 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — POD-SIM THREE · KT-1 Port Razer (Killer Turts) ✅ +1 corpus · 7/7 killed · suite 1480 files / 16,075 tests · corpus 14,426 (42.1%) · shelf refreshed in §1 · CI: GREEN on the runbooks push (run 33931510748); this slice pushes and is watched.
 
 - 2026-09-04 — Phase 2 · H12 Chaos Warp (Shalai; Nekusar N13 shared) ✅ +1 corpus · 6/6 killed (two survivors on the mixed library killed by a seed-driven pin: the shuffle is real, the permanent gate holds) · suite 1479 files / 16,071 tests · corpus 14,425 (42.1%) · shelf refreshed in §1 · CI: GREEN on Kami (run 33930303799); this slice pushes and is watched.
 

@@ -3563,7 +3563,7 @@ function actionsDeclareAttacker(state, playerId) {
     const req = attackDefenderRequirementOf(p.card);
     return targets.filter((t) =>
       canPayAttackTax(p, t.defenderId)
-      && (!req || defenderMeetsAttackRequirement(state, t.defenderId, req)));
+      && (!req || defenderMeetsAttackRequirement(state, t.defenderId, req, p)));
   };
 
   // Standard fast path (a lone opponent, no enemy planeswalkers → exactly one target): the
