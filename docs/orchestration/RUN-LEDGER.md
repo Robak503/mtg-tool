@@ -16,6 +16,22 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-06 (cron) — QUARTET Phase 4 step 3 · TURTLE LAIR — the restricted-spend vocabulary admits CR creature types · **+9** · corpus 14,742 (43.1%) / 34,245
+> Suite **1580 files / 16415 tests** green; lint 0. Flip-diff **+9, zero LOST** (every unplanned gain audited whole-card). **mutants 2/2 killed.**
+> · With the overnight plan's stages met and the residue census dry, the seat took the QUARTET's first open item that the plan
+>   allows as an interleave: Phase 4 (restricted-spend mana) step 3 — the printed forms per carrier class. Its core has been
+>   live since 2026-08-15 (Klauth, Rivaz, Cavern); SHELF-85 sized Turtle Lair SUBSYSTEM-L on the assumption the lane was
+>   missing — the probe showed the lane present and only the VOCABULARY refusing: "Spend this mana only to cast a Ninja or
+>   Turtle spell" failed the curated word list. parseSpendRestriction now admits any CR creature type (the same closed
+>   vocabulary the subtype target-noun peel uses) beside that list; spendRestrictionAllows already matched type-line words
+>   at payment, so the parse and the planner agree by construction. Sliver Hive's mana line parses the same way.
+> · **Pins:** Turtle Lair → land. RUNTIME through manaSources + canAfford: the any-colour record carries castTypes [ninja,
+>   turtle]; it pays {U} for a Ninja and never for a Bear. Mutants: the admission gone, the planner ignoring the type (the
+>   laundering FP) — mutants 2/2 killed.
+> · **Whole-card:** nine flips, each read whole-card: Turtle Lair, Sliver Hive, Ally Encampment, Tournament Grounds (its three-way {R}, {W}, or {B} line was already read), Brotherhood Headquarters, Base Camp, A-Base Camp, Villainous Hideout, Jasmine Dragon Tea Shop. ⚠️ DOCUMENTED UNDER-READ on four of them: the '… or to activate an ability of a <Subtype> source' tail (and Headquarters' 'a spell that has freerunning') is DROPPED by the clause walk — the restriction records the cast types only, and spendRestrictionAllows refuses every ability spend on a castTypes-only record, so the seat never spends that mana on an ability it could legally pay: the strictly conservative direction (CREED). The ability tail is the next Phase 4 carrier class. sarkhanFireblood.test.js's vocabulary guard GRADUATED ('Elephant' is a CR type now admitted) — its negative moved to a non-type word; the first suite showed it red, the rerun is the green of record; zero LOST, zero retiered
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Halfshell heroes 83 → 84** (its ceiling note stands — one to the bar, the rest L)
+
 > ## 🅿 2026-09-06 (cron) — RESIDUE GRIND · the vein is dry at this census — two more families scoped and BANKED
 > · **Buyback (all forms)** — the census prints it as five rows (mana, sacrifice a land, discard N, pay N life, and compounds). The
 >   mana form is deliberately NOT stripped as a vacuous keyword: its return-to-hand changes the resolution (textNormalize's

@@ -57,10 +57,11 @@ describe("SARKHAN FIREBLOOD — parse: the fixed-amount restricted add, guarded 
   });
 
   it("seen-to-fail: an out-of-vocabulary type word keeps the clause LOW (the planner's own word-set guard)", () => {
-    // "Elephant" is not in SPEND_CAST_TYPE_WORDS — parseSpendRestriction refuses it, so the arm must not
-    // fire and the clause stays low → Arbiter. A vocabulary bypass here would mint mana the spender
-    // then refuses to spend — dead mana forever, or worse if the guard drifted looser.
-    const p = parseEffectProgram({ type: "Instant", oracle: "Add two mana in any combination of colors. Spend this mana only to cast Elephant spells." });
+    // 2026-09-06 (QUARTET Phase 4 step 3): "Elephant" GRADUATED — parseSpendRestriction now admits every CR creature type
+    // beside its curated list (the closed vocabulary), and the planner's type-line match already spent it. The guard's
+    // negative moves to a word that is no type at all: a vocabulary bypass would still mint mana the spender then refuses
+    // to spend — dead mana forever, or worse if the guard drifted looser.
+    const p = parseEffectProgram({ type: "Instant", oracle: "Add two mana in any combination of colors. Spend this mana only to cast Blorb spells." });
     expect(programConfidence(p)).toBe("low");
   });
 

@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-06 (cron) — **QUARTET Phase 4 step 3 · Turtle Lair (+9)** · suite **1580 files / 16415 tests** green · corpus 14,742 (43.1%) / 34,245 · flip-diff +9 / 0 lost · mutants 2/2 killed
+
+> **Runnable next:** the quartet's Phase 4 step 3 continues per carrier class — Avengers Tower / Jasmine Dragon Tea Shop / Base Camp ("… or to activate an ability of a <Subtype> source": abilityOf knows only "creature" — a subtype-scoped ability filter at the activation payment) · Eldrazi Temple / Shrine of the Forsaken Gods ("colorless spells" — a colour word in the cast filter) · the Powerstone token (the negative "can't be spent to cast a nonartifact spell"). Each is one carrier class; each unparks shelf rows. **Halfshell heroes 83 → 84** (its ceiling note stands — one to the bar, the rest L)
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-06 (cron) — **RESIDUE GRIND RG-8 · the Bringers' own five-pip alternative cost (+3)** · suite **1579 files / 16413 tests** green · corpus 14,733 (43.0%) / 34,245 · flip-diff +3 / 0 lost · mutants 5/5 killed
 
 > **Runnable next — the residue vein is DRY at this census (2026-09-06 ~00:30Z).** Scoped and BANKED with verdicts: **buyback** in every form (the mana form is deliberately NOT stripped — its return-to-hand changes the resolution, textNormalize's madness note; "Buyback—Sacrifice a land" needs the same build: an optional additional cost + a resolution finalizer that hands the card back — new zone behaviour, a subsystem-class slice; Spell Burst / Constant Mists / Pegasus Stampede / Reaping the Rewards wait on it) · the **Clockwork** family (a delayed end-of-combat counter removal — the delayed-trigger lane) · everything above them is sub-game or CHOICE machinery (initiative, double team, attractions, specialize, stickers, contraptions, the Ring, planechase, incubate, manifest dread, exert, "of your choice"). A booting seat should take the **QUARTET** (Colton's ordered subsystems — `docs/orchestration/SUBSYSTEM-QUARTET-PLAN.md`: choice-eval · decision log · auditor+replay · restricted-spend mana), which is also what unparks the choice rows and the Powerstone token; re-run the census after it lands.

@@ -106,6 +106,13 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
+- 2026-09-06 — **PHASE 4 step 3 — a carrier class: CR creature types in the spend vocabulary** (Turtle Lair, Sliver Hive; +9
+  corpus). The SHELF-85 runbook had sized Turtle Lair SUBSYSTEM-L; the probe found the core present and only the curated word
+  list refusing "a Ninja or Turtle spell". parseSpendRestriction admits any CR creature type; the planner's type-line match was
+  already generic. Witnessed end to end (the restricted record pays a Ninja, never a Bear); mutants 2/2 killed. Remaining step-3 classes:
+  the "or to activate an ability of a <Subtype> source" tail (abilityOf is creature-only), colour words ("colorless spells"),
+  the Powerstone's negative form.
+
 - 2026-08-15 — **🏁 PHASE 3 COMPLETE — its gate met in full.** Slice 2: replay.js (canonicalState —
   explicit field order, platform-stable; stateHash FNV-1a) + the withStateHash runner option; the
   determinism CONTRACT witnessed (a full game replays hash-identical on identical args; the

@@ -70,7 +70,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Kinnan Mana Overload | 86 | 0 | 4 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
 | Joe | Believe it! | 85 | 0 | 5 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
 | Joe | Kellan of the west | 85 | 0 | 5 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
-| Joe | Halfshell heroes | 83 | 2 | 7 | ⬜ Phase 2 |
+| Joe | Halfshell heroes | 84 | 1 | 6 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 92 | — | — | ✅ at the bar |
@@ -84,7 +84,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 82 | 3 | 8 | ⬜ Phase 2 |
 
-**3 decks below 85 · 16 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**3 decks below 85 · 15 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -419,7 +419,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | Q2 | Arcade Cabinet · Path of Ancestry | | V8 / V11 | | ✅ |
 | Q3 | Casey Jones ✅ (+1 — the active counters-placed damage payoff) · Ray Fillet ✅ (+1 — the with-a-counter dealer filter) · Together Forever · Tokka & Rahzar ✅ (+1 — the nontoken leaves scope; Splinter, the Mentor rode along on its self-inclusive union) · Baxter ✅ (+1 — the counter-filtered group grant) · Heroes in a Half Shell · Coin of Mastery · Raphael, the Muscle (sized L — a counters-filtered DAMAGE DOUBLER; no damage-doubling machinery exists; ⚠️ the deck's Raphael is NOT Fiendish Savior — sk100 read the bare name wrong and landed Fiendish Savior as a corpus gain) | counters-matter triggers and statics | S / S / M / S / S / M / M / M | Casey Jones = a counters-placed batch event (exists: countersPlaced) + damage; Ray Fillet = combat damage by a creature with a counter → draw; Raphael = a damage doubler filtered by "with counters" | ⬜ |
 | Q4 | Big Apple ✅ (+3 — the opponent count; Inspired Sphinx and Chittering Witch rode along) · Big Mother Mouser ✅ · Shellshock · Swift Demise ✅ (+1 — the opponent-creature mass destroy) · Wave Goodbye · Continue? · Exploding Barrel ✅ (+4 — the per-counter activation discount rider) · Everything Pizza · Endless Foot Assault ✅ (+1 — per-opponent tapped-and-attacking tokens) · Splinter ✅ (rode along with Q3's nontoken leaves) · Foot Chopper (sized L — an optional sacrifice with no if-you-do lane) · Mole Module ✅ (+2 — the milled-pick's battlefield destination) · Bebop (sized L — the same if-you-do lane) · Tempestra · Irma · Dimension X Pizzasaur · Donatello ✅ (+1 — the Took extra-token replacement, Mutagen printing) | | S–M | Shredder's per-opponent copies = M; Irma's combat-start copy = M; Donatello's Mutagen replacement shares F4's seam | ⬜ |
-| Q5 | COMPOSITE | Fast Forward · Rat King ✅ (rode along with Q3's nontoken leaves) · Lita ✅ (+1 — the period-form mode-memory lead) · Turtle Lair · Special Move · Vigor · Krang | size on approach | | 🔶 |
+| Q5 | COMPOSITE | Fast Forward · Rat King ✅ (rode along with Q3's nontoken leaves) · Lita ✅ (+1 — the period-form mode-memory lead) · Turtle Lair ✅ (+9 — the quartet's restricted-spend vocabulary, 2026-09-06) · Special Move · Vigor · Krang | size on approach | | 🔶 |
 
 ### 5.11 Killer Turts — 64% · needs 21 · extra turns / storm-ish red deck (23 arbiter-spells)
 
@@ -488,6 +488,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-06 — **QUARTET Phase 4 step 3 (an interleave card-slice into a ceiling deck)** · Turtle Lair ✅ +9 corpus (the restricted-spend parser admits any CR creature type — "only to cast a Ninja or Turtle spell"; the core had been live since 08-15, only the vocabulary refused) · mutants 2/2 killed · suite 1580 files / 16415 tests · **Halfshell heroes 83 → 84** (its ceiling note stands — one to the bar, the rest L)
 
 - 2026-09-05 — **🏁 PHASE 3 CLOSED · PHASE 4 POSTED** · the hand-off list (291 parked slots, 27 non-ceiling decks; 29 cards in 2+ decks) → `SHELF-85-OMNATH-HANDOFF.md` + COMMS [Q-SHELF-85-OMNATH] + the vault · the §1 table at its end state in the wake report · corpus 14,696 (42.9%)
 
