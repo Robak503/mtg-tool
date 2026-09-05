@@ -16,6 +16,17 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — RESIDUE GRIND RG-3 · THE GRAVEYARD-CAST REDUCER (Patrician Geist / Gravebreaker Lamia / …) · **+2** · corpus 14,704 (42.9%) / 34,245
+> Suite **1574 files / 16401 tests** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 2/2 killed.**
+> · The census's next buildable family: "Spells you cast from your graveyard cost {1} less to cast." — three sole blockers, one
+>   sentence. The zone-keyed reducer already existed for Doc Aurlock's two-zone printing (castFromZones) and both cast sites
+>   already pass the spell's origin zone to costReductionForSpell; only the single-zone sentence had no arm. One regex →
+>   castFromZones:["graveyard"] (never castFromNotHand — an exile or library-top cast is NOT in the printed list; pinned).
+> · **Pins:** the carriers native. RUNTIME through collectCostReducers + costReductionForSpell: a graveyard cast is {1} cheaper,
+>   a hand cast and an exile cast are not. Mutants: the arm gone, the zone list widened to every non-hand zone — mutants 2/2 killed.
+> · **Whole-card:** flip-diff exactly Patrician Geist + Gravebreaker Lamia (the census's third example carries another blocker); zero LOST, zero retiered
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 > ## 🎯 2026-09-05 (cron) — RESIDUE GRIND RG-2 · TORPOR ORB (Torpor Orb / Hushwing Gryff / Tocatli Honor Guard) · **+3** · corpus 14,702 (42.9%) / 34,245
 > Suite **1573 files / 16,399 tests** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
 > · The census's next buildable family by BLEND: "Creatures entering don't cause abilities to trigger." — three sole blockers,

@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-05 (cron) — **RESIDUE GRIND RG-3 · the graveyard-cast reducer (+2)** · suite **1574 files / 16401 tests** green · corpus 14,704 (42.9%) / 34,245 · flip-diff +2 / 0 lost · mutants 2/2 killed
+
+> **Runnable next:** the residue grind continues from the 2026-09-05 census — Fist of Suns / Jodah (a board-granted WUBRG alternative cost for every spell: the cast enumeration's alt-cost lane reads only the spell's own text today — sized M) · "skip your draw step" (4 sole + 10 co — a turn-structure static, sized M).
+> Patrician Geist and Gravebreaker Lamia make flashback and escape casts cheaper — the reducer is keyed to the graveyard alone.
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **RESIDUE GRIND RG-2 · Torpor Orb (+3)** · suite **1573 files / 16,399 tests** green · corpus 14,702 (42.9%) / 34,245 · flip-diff +3 / 0 lost · mutants 3/3 killed
 
 > **Runnable next:** the residue grind continues from the 2026-09-05 census — Fist of Suns / Jodah (the WUBRG alternative cost, 3 sole, popular) · "spells you cast from your graveyard cost {1} less" (3 sole, popular) · "skip your draw step" (4 sole + 10 co).

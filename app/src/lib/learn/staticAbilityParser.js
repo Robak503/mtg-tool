@@ -2453,6 +2453,14 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ costReduction: { castFromZones: ["graveyard", "exile"], amount: parseInt(crZonesM[1], 10) } });
     return;
   }
+  // GRAVEYARD-ONLY CAST ZONE (residue grind RG-3, 2026-09-05 — Patrician Geist / Gravebreaker Lamia "Spells you cast from
+  // your graveyard cost {1} less to cast"): the single-zone printing of the same zone-keyed reducer. The list is exactly
+  // ["graveyard"] — never castFromNotHand, which would also discount an exile or library-top cast the card does not name.
+  const crGyM = c.match(/^spells you cast from your graveyard cost \{(\d+)\} less to cast$/);
+  if (crGyM) {
+    out.push({ costReduction: { castFromZones: ["graveyard"], amount: parseInt(crGyM[1], 10) } });
+    return;
+  }
   // PLOT-COST REDUCER (K9 — Doc Aurlock "Plotting cards from your hand costs {2} less"): a marker the plot special action
   // reads at the OFFER (legalChoices.actionsPlotFromHand); the dispatcher pays the action's carried cost, so the two agree.
   const plotCrM = c.match(/^plotting cards from your hand costs \{(\d+)\} less$/);
