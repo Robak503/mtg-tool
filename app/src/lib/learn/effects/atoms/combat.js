@@ -3,7 +3,7 @@
  * regenerate). Hosts applyTapEffect (tap/untap).
  */
 
-import { addContinuousEffect, permanentIsCreature, permanentHasKeyword, permanentTypes } from "../../layers.js"; // permanentTypes — BLACKSMITH'S SKILL (O9): the "if it's an artifact creature" rider reads the LAYER-4 types (an animated artifact counts)
+import { addContinuousEffect, permanentIsCreature, permanentHasKeyword, permanentTypes, hasAuraAttached } from "../../layers.js"; // hasAuraAttached — KARAMETRA'S BLESSING's "enchanted creature" condition // permanentTypes — BLACKSMITH'S SKILL (O9): the "if it's an artifact creature" rider reads the LAYER-4 types (an animated artifact counts)
 import { applyDamageEffect } from "../../spellEffects.js"; // TRAMPLE-EXCESS (Ram Through) — the shared player-damage path (removal.js precedent; call-time binding, cycle-safe)
 import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, creatureToughness, markCombatDamage, setDoesNotUntapNext, updatePermanentSafe, addPreventionShield, addMana } from "../../gameState.js";
 import { checkDiesTriggers, checkUntapTriggers } from "../../triggers.js";
@@ -335,6 +335,13 @@ export function applyPumpEffect(state, atom, ctx) {
     if (atom.ifBoundTypes?.length) {
       const have = new Set((permanentTypes(next, target.id)?.types || []).map((x) => String(x).toLowerCase()));
       if (!atom.ifBoundTypes.every((ty) => have.has(String(ty).toLowerCase()))) continue;
+    }
+    // ENCHANTED-OR-ENCHANTMENT-CREATURE rider (Karametra's Blessing): the grant lands only when the target wears an Aura
+    // (any controller's) OR is an enchantment creature after layer 4 — read at resolution (CR 608.2); otherwise skipped.
+    if (atom.ifBoundEnchantedOrEnchantmentCreature) {
+      const have = new Set((permanentTypes(next, target.id)?.types || []).map((x) => String(x).toLowerCase()));
+      const enchCreature = have.has("enchantment") && have.has("creature");
+      if (!enchCreature && !hasAuraAttached(next, findPermanent(next, target.id)?.permanent)) continue;
     }
     // DOUBLE-P/T (Unnatural Growth / Reckless Amplimancer / Tifa Lockhart) — "double the power [and toughness]"
     // is a PER-TARGET one-shot doubling (CR 701.10b — the bonus modifies, doesn't set; X = the creature's power/
@@ -1961,6 +1968,17 @@ export function pumpClauseParser(clause) {
   pg = t.match(/^if it's an? ((?:artifact|creature|enchantment|land|planeswalker|battle)(?: (?:artifact|creature|enchantment|land|planeswalker|battle))?), it gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (pg) {
     return { op: "pump", ptDelta: { p: parseInt(pg[2], 10), t: parseInt(pg[3], 10) }, grantKeywords: [], bindPreviousTargets: true, ifBoundTypes: pg[1].split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)) };
+  }
+  // BOUND REFERENT, ENCHANTED-OR-ENCHANTMENT-CREATURE KEYWORD RIDER (SHELF-85 · Light-Paws L5 Karametra's Blessing,
+  // 2026-09-05) — "If it's an enchanted creature or enchantment creature, it also gains hexproof and indestructible until
+  // end of turn." The same bound shape as the type-conditional pump above, granting KEYWORDS under an OR condition:
+  // applyPumpEffect reads, at resolution (CR 608.2), whether the previous atom's target wears an Aura (hasAuraAttached —
+  // the predicate Winds of Rath and Greater Auramancy read) or carries both Enchantment and Creature after layer 4, and
+  // skips the grant otherwise. Keywords through the shared parseGrantedKeywords vocabulary (an unknown word nulls the arm).
+  pg = t.match(/^if it's an enchanted creature or enchantment creature, it also gains (.+) until end of turn$/);
+  if (pg) {
+    const kws = parseGrantedKeywords(pg[1]);
+    return kws ? { op: "pump", ptDelta: { p: 0, t: 0 }, grantKeywords: kws, bindPreviousTargets: true, ifBoundEnchantedOrEnchantmentCreature: true } : null;
   }
   // ⭐ BOUND REFERENT, PLAYER form — "Destroy target creature. ITS CONTROLLER discards a card." (Nature's
   // Claim, Assassin's Strike) and "… THAT PLAYER loses 2 life." The permanent-referent arms above bind to

@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · L5: Karametra's Blessing (+1)** · suite **1556 files / 16,353** green · corpus 14,610 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 5/5 killed
+
+> A bound rider can now grant keywords under an "enchanted creature or enchantment creature" condition — the Aura-attached predicate or the layer-4 types, read as the spell resolves. Light-Paws 73 → **74** (74/100; 11 to the bar). Next: Face of Divinity + Shardmage's Rescue in ONE slice (the conditional attached-bonus gate — the during-your-turn arm's shape with two new gate kinds).
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · L5: Drannith Magistrate (+1)** · suite **1555 files / 16,349** green · corpus 14,609 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
 
 > Opponents of a Drannith Magistrate can cast only from their hands — one post-filter over every non-hand cast lane, the command zone included. Light-Paws 72 → **73** (73/100; 12 to the bar). Next Light-Paws M row: Karametra's Blessing (a bound keyword rider under the enchanted-or-enchantment-creature condition — the Blacksmith's Skill shape).

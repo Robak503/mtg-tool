@@ -16,6 +16,28 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · L5: KARAMETRA'S BLESSING — the enchanted-or-enchantment-creature rider · **+1** · corpus 14,610 (42.7%) / 34,245
+> Suite **1556 files / 16,353** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
+> · "Target creature gets +2/+2 until end of turn. If it's an enchanted creature or enchantment creature, it also gains
+>   hexproof and indestructible until end of turn." The bound type-conditional pump existed (Blacksmith's Skill's "If it's
+>   an artifact creature, it gets +2/+2" — the recipient is the previous atom's target, the condition read at resolution);
+>   this rider is a KEYWORD grant under an OR condition. One arm beside it: the granted keywords through the shared
+>   parseGrantedKeywords vocabulary, the condition as `ifBoundEnchantedOrEnchantmentCreature`; applyPumpEffect reads it at
+>   resolution (CR 608.2) — the target has an Aura attached (hasAuraAttached, the same predicate Winds of Rath and Greater
+>   Auramancy read) OR carries both Enchantment and Creature after layer 4 — and skips the grant otherwise, the +2/+2 having
+>   already landed from the first atom. ⭐ THE SPLITTER WAS THE SECOND SEAM: the first cut parsed LOW whole-card while the
+>   arm matched in isolation — splitClauses shattered "gains hexproof and indestructible" on its internal " and " inside the
+>   leading-if sentence (the keep-whole guards were anchored on "target …"/pronoun subjects). One more keep-whole guard for
+>   this exact sentence shape; the Tamiyo's Safekeeping note in that file names the same lesson — when a parser works alone
+>   but not through its driver, the driver is doing something to the input.
+> · **Pins:** two atoms (the targeted pump; the bound rider with both keywords and the flag); native-spell. RUNTIME through
+>   the real cast on three targets: a creature wearing an Aura → 5/5 with hexproof + indestructible; an enchantment
+>   creature → 4/4 with both; a plain creature → 4/4 and NO keywords. Mutants: the arm gone, the condition gate gone, the
+>   enchantment-creature branch gone, the Aura branch gone, the splitter guard gone — mutants 5/5 killed.
+> · **Whole-card:** no unplanned gains — the rider prints on Karametra's Blessing alone.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Light-Paws 73 → **74** (74/100; 11 to the bar). Next: Face of Divinity + Shardmage's Rescue in ONE slice (the conditional attached-bonus gate — the during-your-turn arm's shape with two new gate kinds).
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · L5: DRANNITH MAGISTRATE — the cast-from-hand-only lock · **+1** · corpus 14,609 (42.7%) / 34,245
 > Suite **1555 files / 16,349** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · "Your opponents can't cast spells from anywhere other than their hands." The existing opponents-can't-cast lock (Grand

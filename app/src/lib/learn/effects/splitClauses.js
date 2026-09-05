@@ -437,6 +437,11 @@ export function splitClauses(oracle) {
     // subject, so the sentence would shatter on " and " and never reach the anotherPt pump matcher. Keep it whole
     // so the pump + grant bind to the SAME excluded-source own target. POSITIVE deltas only (matches the matcher).
     if (/^another target creature you control gets \+\d+\/\+\d+ and gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // BOUND-REFERENT, ENCHANTED-OR-ENCHANTMENT-CREATURE keyword rider (SHELF-85 · Light-Paws L5 Karametra's Blessing,
+    // 2026-09-05 — "If it's an enchanted creature or enchantment creature, it also gains hexproof and indestructible until
+    // end of turn."): the SAME internal " and " binding as the rules above, under a leading per-object condition the
+    // spell-condition peel steps aside from. Kept whole so the pump parser's rider arm sees the full keyword list.
+    if (/^if it's an enchanted creature or enchantment creature, it also gains [a-z ,]+ until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // BOUND-REFERENT keyword grant (CR 608.2) — "They gain flying and double strike until end of turn."
     // (Flying Crane Technique), "They gain hexproof and indestructible …" (Join Shields). Same internal
     // " and " binding as the two rules above, with a PRONOUN subject the "^target creature" anchor cannot
