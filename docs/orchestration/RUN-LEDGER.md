@@ -16,6 +16,24 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · O10: STAFF OF THE STORYTELLER — the batched creature-token event · **+1** · corpus 14507 / 34,245
+> Suite **1512 files / 16,206** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 6/6 killed.**
+> · "Whenever you create one or more creature tokens, put a story counter on this artifact." The ETB Spirit and the
+>   "{W}, {T}, Remove a story counter: Draw a card" line were already native; the row had been sized "no tokens-created
+>   event exists" — wrong: a tokenChange/onCreate event (Mirkwood Bats) fires per minted token from the mint tail. The
+>   new arm is the BATCHED CREATURE form: a once-per-batch descriptor (one firing per create event however many
+>   tokens, CR 603.2d — deduped across the mint tail's per-token calls by the Satoru mechanism) gated to a CREATURE
+>   token, which the checker can now see because the mint tail hands it the minted token's card (a Treasure fires
+>   nothing; a legacy caller passing no card never fires the creature form — FN-safe).
+> · A pin I wrote wrong: the activation's text is its EFFECT ("Draw a card."), not its cost; the honest pin is that the
+>   line is offered with a story counter on the Staff and not offered without one.
+> · **Pins:** the arm carries oncePerBatch + creatureTokensOnly, native-mixed; two Soldier tokens in one batch → ONE
+>   trigger → one story counter; a Treasure → nothing; the draw line offered with the counter, not without. Mutants:
+>   the arm, the missing batch flag, the unlisted gate, the checker ignoring the gate, the cross-call dedupe, the mint
+>   tail's dropped card — mutants 6/6 killed.
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Otharri 84 → **85 — AT THE BAR** (the deck is done for Phase 2; the remaining rows stay ⬜ for Phase 3)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · O10: INTI — the batched discard + the next-end-step window · **+3** · corpus 14506 / 34,245
 > Suite **1511 files / 16,203** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 9/9 killed (the splitter-fold survivor became the Haste Magic pin).**
 > · "Whenever you discard one or more cards, exile the top card of your library. You may play that card until your next

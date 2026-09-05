@@ -2127,6 +2127,11 @@ function classifyCondition(condRaw, cardName, cardType) {
   // can't faithfully scope which tokens count). "you" subject only (the controller's own create/sac).
   if (/^you create or sacrifice a token$/.test(c)) return { event: "tokenChange", scope: "you", whose: "any", onCreate: true, onSacrifice: true };
   if (/^you create a token$/.test(c)) return { event: "tokenChange", scope: "you", whose: "any", onCreate: true, onSacrifice: false };
+  // BATCHED CREATURE-TOKEN CREATION (SHELF-85 · Otharri O10 Staff of the Storyteller, 2026-09-05 — "Whenever you create
+  // one or more creature tokens"): ONE firing per create event however many tokens it minted (CR 603.2d), and only
+  // when the minted token is a creature. The mint tail calls checkTokenCreatedTriggers once per token with the
+  // token's card; the once-per-batch dedupe (the Satoru mechanism) collapses the per-token calls of one batch.
+  if (/^you create one or more creature tokens$/.test(c)) return { event: "tokenChange", scope: "you", whose: "any", onCreate: true, onSacrifice: false, oncePerBatch: true, creatureTokensOnly: true };
   if (/^you sacrifice a token$/.test(c)) return { event: "tokenChange", scope: "you", whose: "any", onCreate: false, onSacrifice: true };
   // ===== CLASH (STAGE ④-2, 2026-09-03 — CR 701.22) ===== "Whenever you clash [and win]" (Sylvan Echoes;
   // Entangling Trap / Rebellion of the Flamekin carry the same condition with parked riders). BOTH clashing
@@ -5268,6 +5273,7 @@ export function detectTriggers(card) {
         sacSubtype: cls.sacSubtype,           // TRIG-SACRIFICE SUBTYPE: capitalized subtype (e.g. "Treasure") — type-line scan
         sacAnother: cls.sacAnother,           // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
         onCreate: cls.onCreate,               // TOKEN-CHANGE: responds to a token being created (Mirkwood Bats)
+        creatureTokensOnly: cls.creatureTokensOnly, // TOKEN-CHANGE (Staff of the Storyteller): fires only for a CREATURE token — unlisted = dropped = fires for a Treasure
         winOnly: cls.winOnly,                 // CLASH (STAGE ④-2): "whenever you clash AND WIN" fires only for the clash's winner
         tappedFilter: cls.tappedFilter,       // TAPPED-FOR-MANA (④-D): "a land" — checkTapForManaTriggers matches it against the tapped permanent's type line. ⚠️ Unlisted = dropped = Vorinclex locks a tapped CREATURE too.
         activatedTypeFilter: cls.activatedTypeFilter, // ABILITY-ACTIVATED (CAP-BRACERS): "of an artifact or creature" / "of a creature" / "of an <Subtype>" — checkAbilityActivatedTriggers matches it against the ACTIVATED permanent's type line. ⚠️ Unlisted here = dropped = Crackdown Construct fires on a LAND's ability too (an over-fire), with the detector looking correct.
@@ -8285,17 +8291,29 @@ export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
  * ONCE PER token. Scans ONLY the creating player's watchers (the "you create" subject). Pure — appends to
  * pendingTriggers. A 0 / missing count is a clean no-op.
  */
-export function checkTokenCreatedTriggers(state, creatingPlayerId, numCreated = 1) {
+export function checkTokenCreatedTriggers(state, creatingPlayerId, numCreated = 1, createdCard = null) {
   if (!creatingPlayerId || !(numCreated > 0) || !state.players?.[creatingPlayerId]) return state;
+  // CREATURE-TOKEN gate (Staff of the Storyteller, 2026-09-05): a creatureTokensOnly descriptor needs the minted token's
+  // card and a Creature type line; a legacy caller passing no card never fires it (FN-safe — never a Treasure firing).
+  const isCreatureToken = !!createdCard && /\bCreature\b/.test(String(createdCard.type || createdCard.type_line || ""));
   let fired = [];
   for (const watcher of triggerSourcesOf(state, creatingPlayerId)) {
-    const descriptors = detectTriggers(watcher.card).filter((x) => x.event === "tokenChange" && x.onCreate);
+    const descriptors = detectTriggers(watcher.card).filter((x) => x.event === "tokenChange" && x.onCreate && (!x.creatureTokensOnly || isCreatureToken));
     for (const d of descriptors) {
-      for (let i = 0; i < numCreated; i++) fired.push(makePendingTrigger(d, watcher, watcher, {}));
+      const n = d.oncePerBatch ? 1 : numCreated; // ONE firing per create event for the batched form (CR 603.2d)
+      for (let i = 0; i < n; i++) fired.push(makePendingTrigger(d, watcher, watcher, {}));
     }
   }
   if (!fired.length) return state;
-  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+  // ONCE-PER-BATCH across the per-token calls of one mint (the Satoru mechanism): an unflushed pending firing from the
+  // same once-per-batch source drops the repeat. (Two separate create events in one resolution are collapsed too —
+  // the documented approximation, and the safe direction.)
+  const pending = state.pendingTriggers || [];
+  const srcOf = (t) => t.sourcePermanentId ?? t.context?.sourcePermanentId ?? null;
+  const kept = fired.filter((t) => !t.descriptor?.oncePerBatch
+    || !pending.some((q) => q.descriptor?.oncePerBatch && srcOf(q) === srcOf(t) && q.descriptor?.sourceText === t.descriptor?.sourceText));
+  if (!kept.length) return state;
+  return { ...state, pendingTriggers: [...pending, ...kept] };
 }
 
 /**

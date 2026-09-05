@@ -77,12 +77,12 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Nekusar Wheels | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shalai and Hallar Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Otharri Test | 84 | 1 | 6 | ⬜ Phase 2 |
+| Test | Otharri Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Bumble Flower Combo | 70 | 15 | 20 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**5 decks below 85 · 72 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**4 decks below 85 · 71 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -374,7 +374,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | O7 | Minas Tirith | {1}{W},{T}: draw; activate only if you attacked with two or more creatures this turn | S | an attackers-this-turn count condition (the RAID flag generalized to a count) | ✅ (+1 — the count arm on the intervening-if evaluator reads the per-permanent attacked-this-turn memo over the controller's board; a lower bound when an attacker has left; the tapped-unless static and the mana line were already whole; pinned: two attackers → offered and draws, one attacker with bystanders → not offered) |
 | O8 | Tithe | tutor a Plains; a second if target opponent controls more lands | M | a targeted-opponent compare rider on the tutor's pick count | ✅ (+1 — ONE tutor atom: a Plains hand fetch, targeted at an opponent, with `extraIfTargetControlsMore`; applyTutor reads the chosen opponent's tally against the controller's at resolution (CR 608.2) and adds the pick when STRICTLY greater; the "you may" is the chain's own find-optionality; the splitter folds the three sentences; the target intent is enemy (opponents-only pool); pinned: ahead 2 picks, ahead-but-declined 1, equal 1) |
 | O9 | Blacksmith's Skill | target permanent gains hexproof + indestructible; if it's an artifact creature +2/+2 | M | permanent-scoped grant + a type-conditional rider | ✅ (+2 — the creature grant arm's PERMANENT twin (the splitter's keep-whole was nailed to "target permanent you control"); the rider is a bound-referent pump carrying `ifBoundTypes`, which applyPumpEffect checks against the target's LAYER-4 types at resolution — a plain creature and a non-creature artifact get the grant only, an artifact creature and an ANIMATED artifact get +2/+2; the loop's creature gate opened for the bound rider (the permanent pool tags every pick "permanent"); pinned all four) |
-| O10 | Zack Fair · Staff of the Storyteller · Inti · Diamond City · Patrolling Peacemaker · Otharri (self-reanimate) | | M+ (LKI counters + Equipment reattach) / M+ (no tokens-created event exists) / ✅ Inti (+3 — the batched discard event + the next-end-step window) / M+ (a land entering with a shield counter, a move-counter op, and an entered-count condition — none exist; sized up 2026-09-05) / 🅿 (crime) / ✅ Otharri's self-return (+2 with Purple Pentapus — the tap-an-untapped cost on the graveyard recursion arm) | | ⬜ (the rest sized up on probe, 2026-09-05 — Reroute Systems, the one S in this deck's tail, shipped under O11's composite) |
+| O10 | Zack Fair · Staff of the Storyteller · Inti · Diamond City · Patrolling Peacemaker · Otharri (self-reanimate) | | M+ (LKI counters + Equipment reattach) / ✅ Staff (+1 — the batched creature-token event) / ✅ Inti (+3 — the batched discard event + the next-end-step window) / M+ (a land entering with a shield counter, a move-counter op, and an entered-count condition — none exist; sized up 2026-09-05) / 🅿 (crime) / ✅ Otharri's self-return (+2 with Purple Pentapus — the tap-an-untapped cost on the graveyard recursion arm) | | ⬜ (the rest sized up on probe, 2026-09-05 — Reroute Systems, the one S in this deck's tail, shipped under O11's composite) |
 | O11 | COMPOSITE | Everflowing Chalice · Solitude ✅ · Hour of Reckoning ✅ (+1 — nontoken wipe) · Reroute Systems ✅ (+2 with Loran's Escape — the artifact-or-creature grant) · Neyali · Galadriel's Dismissal · Ocelot Pride · Talon Gates · Crumb and Get It · Divine Resilience · Windcrag Siege · Cloud's Limit Break · Reroute Systems · Clever Concealment | size on approach | | ⬜ |
 
 ### 5.8 Bumble Flower Combo — 64% · needs 21 · Food/tokens deck
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · O10 Staff of the Storyteller (Otharri) ✅ +1 corpus (the batched CREATURE-token creation event — once per create event, creature tokens only; the mint tail hands the token's card to the checker) · mutants 6/6 killed · suite 1512 files / 16,206 · Otharri 84 → **85 — AT THE BAR** (the deck is done for Phase 2; the remaining rows stay ⬜ for Phase 3)
 
 - 2026-09-05 — Phase 2 · O10 Inti (Otharri) ✅ +3 corpus (the BATCHED discard event — once per discard event, deduped in-call and across calls; the NEXT-END-STEP impulse window decided at resolution) · mutants 9/9 killed (the splitter-fold survivor became the Haste Magic pin) · suite 1511 files / 16,203 · Otharri 83 → **84** (1 to the bar); Dying to Serve the second unplanned gain, audited whole-card (batched discard → tapped Zombie, once each turn — all modelled)
 

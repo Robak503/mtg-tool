@@ -100,7 +100,7 @@ export function fireTokenEnterTriggers(state, mintedIds) {
     if (!found?.permanent) continue;
     next = checkEnterTriggers(next, found.permanent);
     next = checkPermanentEntersTriggers(next, found.permanent);
-    next = checkTokenCreatedTriggers(next, found.permanent.controller, 1);
+    next = checkTokenCreatedTriggers(next, found.permanent.controller, 1, found.permanent.card); // + the token's card (Staff of the Storyteller's creature gate)
   }
   return next;
 }
