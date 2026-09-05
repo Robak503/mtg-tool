@@ -397,6 +397,11 @@ const SELF_COUNT_BASIC = { plains: "Plains", island: "Island", islands: "Island"
 function parseSelfCountSource(phrase) {
   const p = phrase.toLowerCase().trim().replace(/\.\s*$/, "");
   let m;
+  // OPPONENTS YOU ATTACKED THIS TURN (SHELF-85 · Halfshell Q4 Fast Forward, 2026-09-05 — "This spell costs {1} less to
+  // cast for each opponent you attacked this turn"): a SEAT-level look-back the declare-attacker chokepoint stamps
+  // (actionDispatcher — the defender of every attacker declared this turn) and the untap reset clears beside the Raid
+  // flag; countForSpec counts the distinct OPPONENTS among them (a planeswalker defender is not a player — it never counts).
+  if (/^opponents? you attacked this turn$/.test(p)) return { kind: "opponentsAttackedThisTurn" };
   if ((m = p.match(/^(creatures?|artifacts?|lands?|enchantments?) you control$/))) return { kind: "permanentsYouControl", cardType: SELF_COUNT_CARDTYPE[m[1]] };
   if ((m = p.match(/^(plains|islands?|swamps?|mountains?|forests?) you control$/))) return { kind: "permanentsYouControl", subtype: SELF_COUNT_BASIC[m[1]] };
   // NON-BASIC SUBTYPE you control — "+1/+1 for each Equipment you control" (Swordsman's Steel, Improvised

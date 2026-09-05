@@ -68,7 +68,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Kinnan Mana Overload | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Believe it! | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kellan of the west | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Joe | Halfshell heroes | 81 | 4 | 9 | ⬜ Phase 2 |
+| Joe | Halfshell heroes | 82 | 3 | 8 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 91 | — | — | ✅ at the bar |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 71 | 14 | 19 | ⬜ Phase 2 |
 
-**3 decks below 85 · 29 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**3 decks below 85 · 28 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -481,6 +481,8 @@ note and the Omnath list, and the run takes the next row.
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
 
+- 2026-09-05 — Phase 2 · Halfshell Fast Forward ✅ +10 corpus (two arms: the MASS goad — "goad all creatures your opponents control" on the every-opponent-creature scope — and the per-opponent-attacked cast discount — a seat-level defender memo stamped at declare-attackers, cleared at untap, counted as distinct live opponents) · mutants 6/6 killed (the stripper mutant survived its first run and got its test — the Ghoultree pin) · suite 1552 files / 16,340 · Halfshell 81 → **82** (82/100; 3 to the bar). Remaining Halfshell: Endless Foot Assault (M+ — per-opponent tokens each attacking THAT opponent; next), the rest L.
+
 - 2026-09-05 — Phase 2 · Q4 Mole Module (Halfshell) ✅ +2 corpus (the milled-pick's BATTLEFIELD destination — "mill four cards. You may put a permanent card from among them onto the battlefield" — the hand form's stamp ∩ live-graveyard pick, entering via enterCardFromZone; permanent gate CR 110.4a; Auras withheld CR 303.4f) · mutants 5/5 killed · suite 1551 files / 16,336 · Halfshell 80 → **81** (81/100; 4 to the bar). Remaining Halfshell rows: Fast Forward (M — a MASS goad arm + a per-opponent-attacked cast discount: two arms, next), Endless Foot Assault (M+ — per-opponent tokens each attacking THAT opponent), the rest L (Coin of Mastery, Special Move, Everything Pizza, Turtle Lair, Heroes in a Half Shell, Together Forever, Shellshock, Raphael the Muscle, Bebop, Tempestra, Double Jump).
 
 - 2026-09-05 — Phase 2 · Q3 Raphael, Fiendish Savior (CORPUS — mis-aimed: the Halfshell row's bare Raphael is Raphael, the Muscle) ✅ +2 corpus (the from-anywhere graveyard LOOK-BACK — "if a creature card was put into your graveyard from anywhere this turn" — a per-player turn stamp at the graveyard chokepoint, cards only (CR 111.1), plus one condition reader) · mutants 4/4 killed · suite 1550 files / 16,332 · Halfshell UNCHANGED at 80 — ⚠️ MIS-AIMED ROW: the Q3 row's bare 'Raphael' is Raphael, the Muscle (a Mutant Ninja Turtle: a counters-filtered damage doubler — sized L, no doubling machinery — + a Mutagen ETB + Partner—Character select); I read it as Fiendish Savior. The +2 is corpus-only. Lesson: resolve a bare name against the deck's leftovers dump BEFORE sizing (the runbook row now names the Muscle in full). Next Halfshell M row = Mole Module (the milled-pick's battlefield destination — the hand form's machinery exists).
@@ -497,7 +499,7 @@ note and the Omnath list, and the run takes the next row.
 
 - 2026-09-05 — Phase 2 · L5 Winds of Rath (Light-Paws) ✅ +1 corpus (the ENCHANTED predicate — a creature with an Aura attached, whoever controls the Aura (CR 303.4) — as a restriction kind, negated on the every-creature wipe; the regeneration rider already stamped) · mutants 4/4 killed (one survivor got its missing test) · suite 1544 files / 16,311 · Light-Paws 68 → **69** (16 to the bar)
 
-- 2026-09-05 — Phase 2 · Q3 Baxter, Fly in the Ointment (Halfshell) ✅ +1 corpus (the COUNTER-FILTERED group keyword grant — "each creature you control with a counter on it gains <kw> until end of turn" — the existing group grant with its counter filter widened to any kind) · mutants 3/3 killed · suite 1543 files / 16309 · Halfshell 78 → **79** (6 to the bar) — HALFSHELL CEILING for Phase 2: every remaining row sizes M+ (Turtle Lair's subtype-union unblockable + spend words, Endless Foot Assault's per-opponent attacking tokens, Exploding Barrel, Mole Module, Coin of Mastery, Raphael, Special Move's two low modes) or L (Heroes in a Half Shell's plural subject list + batch referent, Foot Chopper / Bebop / Together Forever / Dimension X's if-you-do and reflexive lanes, Vigor, Krang, Shredder, Irma, Tempestra, Fast Forward, Shellshock, Double Jump); per §2.4 the order moves to Light-Paws (68)
+- 2026-09-05 — Phase 2 · Q3 Baxter, Fly in the Ointment (Halfshell) ✅ +1 corpus (the COUNTER-FILTERED group keyword grant — "each creature you control with a counter on it gains <kw> until end of turn" — the existing group grant with its counter filter widened to any kind) · mutants 3/3 killed · suite 1543 files / 16309 · Halfshell 78 → **79** (6 to the bar) — HALFSHELL CEILING for Phase 2: every remaining row sizes M+ (Turtle Lair's subtype-union unblockable + spend words, Endless Foot Assault's per-opponent attacking tokens, Exploding Barrel, Mole Module, Coin of Mastery, Raphael, Special Move's two low modes) or L (Heroes in a Half Shell's plural subject list + batch referent, Foot Chopper / Bebop / Together Forever / Dimension X's if-you-do and reflexive lanes, Vigor, Krang, Shredder, Irma, Tempestra, Fast Forward ✅ (+10, sk102 — mass goad + the attacked-opponents discount), Shellshock, Double Jump); per §2.4 the order moves to Light-Paws (68)
 
 - 2026-09-05 — Phase 2 · Q4 Big Apple, 3 a.m. (Halfshell) ✅ +3 corpus (the OPPONENT COUNT as a count source — "for each opponent you have" — read live off the seat's opponents; every for-each consumer inherits it) · mutants 3/3 killed · suite 1542 files / 16,307 · Halfshell 76 → **78** across this and the Donatello slice (7 to the bar); Inspired Sphinx and Chittering Witch the unplanned gains, audited whole-card
 

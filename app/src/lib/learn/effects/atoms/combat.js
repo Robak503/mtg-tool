@@ -1222,6 +1222,10 @@ export function goadClauseParser(clause) {
   // parser's referentBindingOk gate → LOW → Arbiter.
   const b = t.match(/^goad (?:it|that creature|them)$/);
   if (b) return { op: "goad", bindPreviousTargets: true };
+  // MASS GOAD (SHELF-85 · Halfshell Q4 Fast Forward, 2026-09-05; Taunt from the Rampart, Kaima): "Goad all creatures your
+  // opponents control" — the MASS-DEBUFF scope every opponent's creatures resolve under (atomTargets enumerates
+  // eachOpponentCreature at resolution, CR 608.2h); applyGoad's per-target loop and duration are untouched.
+  if (/^goad (?:all|each) creatures? your opponents control$/.test(t)) return { op: "goad", targetType: "eachOpponentCreature" };
   const m = t.match(/^goad (up to one )?target creature( an opponent controls| you don't control)?$/);
   if (!m) return null;
   return {

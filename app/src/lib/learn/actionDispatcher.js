@@ -1839,6 +1839,10 @@ function applyDeclareAttacker(state, action) {
       [action.playerId]: {
         ...next.players[action.playerId],
         attackedThisTurn: true,
+        // OPPONENTS YOU ATTACKED THIS TURN (Fast Forward, 2026-09-05) — the SEAT-level memo of every defender attacked this
+        // turn (distinct), stamped at this same sole chokepoint and cleared beside the Raid flag at untap. countForSpec's
+        // opponentsAttackedThisTurn reads it, filtering to live opponents (a planeswalker defender id never counts).
+        attackedPlayersThisTurn: [...new Set([...(next.players[action.playerId].attackedPlayersThisTurn || []), defender])],
         // BOAST (CR 702.135b) needs PER-PERMANENT attack history, not per-player: "only if THIS CREATURE
         // attacked this turn". Reading the seat flag would offer boast whenever ANY of your creatures
         // attacked, which is a different and much looser card. Stamped at the same sole chokepoint, and

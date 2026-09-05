@@ -2564,6 +2564,7 @@ export function resetAttackedThisTurnAllPlayers(state) {
     players[id] = {
       ...state.players[id],
       attackedThisTurn: false,
+      attackedPlayersThisTurn: [], // the seat-level defender memo (Fast Forward) clears beside the Raid flag
       // BOAST's per-permanent history clears HERE, beside the seat flag, so the two can never drift.
       // Only rewrite the permanents that actually carry the flag — the common case allocates nothing.
       battlefield: (state.players[id].battlefield || []).some((p) => p.attackedThisTurn || p.attackedPlayersThisTurn)

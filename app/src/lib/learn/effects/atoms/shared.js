@@ -568,6 +568,15 @@ function chosenTypePermanentsCount(player) {
   return best;
 }
 export function countForSpec(state, ctx, spec) {
+  // OPPONENTS YOU ATTACKED THIS TURN (Fast Forward, 2026-09-05): the distinct OPPONENTS among the seat's stamped defenders
+  // (actionDispatcher.applyDeclareAttacker writes `attackedPlayersThisTurn`; the untap reset clears it). A planeswalker
+  // defender id is not a player and never counts; an eliminated player is no longer an opponent and never counts.
+  if (spec.kind === "opponentsAttackedThisTurn") {
+    const me = ctx?.controller;
+    if (!me || !state?.players?.[me]) return 0;
+    const opps = new Set(opponentsOf(state, me));
+    return [...new Set(state.players[me].attackedPlayersThisTurn || [])].filter((id) => opps.has(id)).length;
+  }
   if (spec.kind === "basicTypeLandsOfTargetOpponent") { // Carpet of Flowers (KT-10a): the TARGET opponent's lands of a basic land type
     const pt = (ctx?.targets || []).find((t) => t.type === "player" && state?.players?.[t.id]);
     if (!pt) return 0;

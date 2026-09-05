@@ -4438,7 +4438,9 @@ registerCoverageClassifier((card) => classifyChosenTypeAnthemDig(card));
 // classification, but the runtime STILL reduces their cast — a safe FN on the flip, a true win at the table).
 // A targeted single-mechanism flip via the additive seam: returns null unless the metric parses AND no residue
 // remains, so it can never cause collateral. Mechanism-keyed (any future self-metric + keyword card flips too).
-const SELF_COST_SENTENCE_RE = /(?:if your life total is less than your starting life total, )?this spell costs \{x\} less to cast,? where x is [^.]*\.?|(?:morbid\s*[—–-]\s*)?this spell costs \{\d+\} less to cast if a creature died this turn\.?/i; // + MORBID (KT-8)
+// + the PER-EACH form ("this spell costs {1} less to cast for each opponent you attacked this turn" — Fast Forward, 2026-09-05):
+// every use site is gated on selfCostReductionMetric(card) parsing, so an unmodeled per-each count never strips.
+const SELF_COST_SENTENCE_RE = /(?:if your life total is less than your starting life total, )?this spell costs \{x\} less to cast,? where x is [^.]*\.?|(?:morbid\s*[—–-]\s*)?this spell costs \{\d+\} less to cast if a creature died this turn\.?|this spell costs \{\d+\} less to cast for each [^.]*\.?/i; // + MORBID (KT-8)
 function classifySelfCostReduction(card) {
   if (!selfCostReductionMetric(card)) return null; // no MODELED self-metric clause
   // Strip reminder + the self-cost sentence; the remainder must be keyword-only (Trample) with no other ability.

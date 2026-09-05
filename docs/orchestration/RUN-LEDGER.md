@@ -16,6 +16,31 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · Halfshell: FAST FORWARD — mass goad + the attacked-opponents discount · **+10** · corpus 14,606 (42.7%) / 34,245
+> Suite **1552 files / 16,340** green; lint 0. Flip-diff **+10, zero LOST** (any unplanned gains audited whole-card). **mutants 6/6 killed (the stripper mutant survived its first run and got its test — the Ghoultree pin).**
+> · "This spell costs {1} less to cast for each opponent you attacked this turn. Goad all creatures your opponents control."
+>   Two arms. (1) MASS GOAD: goad knew a target and a bound pronoun, never the mass form — one arm on the every-opponent-
+>   creature scope (atomTargets enumerates it at resolution, CR 608.2h); applyGoad's per-target loop and its
+>   until-your-next-turn duration are untouched (Taunt from the Rampart and Kaima print the same sentence). (2) THE COUNT:
+>   "opponents you attacked this turn" is a SEAT-level look-back — the declare-attacker chokepoint (the one place an attack
+>   is declared; the Raid flag and Boast's per-permanent memo already live there) now stamps the seat's distinct defenders,
+>   the untap reset clears the memo beside the Raid flag, and countForSpec counts the DISTINCT LIVE OPPONENTS among them
+>   (a planeswalker defender id is not a player and never counts; two attackers into the same opponent count once). The
+>   per-each self-cost metric reuses parseSelfCountSource — one vocabulary, one evaluator — and the coverage stripper's
+>   self-cost sentence learned the per-each frame, gated (as every use is) on the metric parsing.
+> · **Pins:** the mass goad atom; the metric { perEachCount, per 1, opponentsAttackedThisTurn }; Fast Forward native-spell;
+>   Taunt from the Rampart still parked (its "can't block" sentence); GHOULTREE native-body — a permanent whose only text is a
+>   per-each self-cost sentence, the coverage-side half (this pin was ADDED after the stripper mutant SURVIVED its first
+>   run: a spell is credited through castModifiers' own strip, so only a permanent can see the classifier's frame).
+>   RUNTIME — cast-price through the real offer: two attackers declared into the same opponent → the seat memo holds that
+>   opponent once, the cast costs {3}{R} (one distinct opponent), a planeswalker defender stamped beside it adds nothing;
+>   no attack → {4}{R}; after the untap reset → {4}{R} again. Resolving goads every opponent creature (goaded + mustAttack
+>   through the layer reader) and none of the caster's own. Mutants: the mass arm gone, the count arm gone, the evaluator
+>   counting every stamp, the chokepoint stamp dropped, the untap reset dropped, the coverage stripper reverted — mutants 6/6 killed (the stripper mutant survived its first run and got its test — the Ghoultree pin).
+> · **Whole-card:** nine unplanned PERMANENT gains, all the Karador family — a per-each self-cost sentence the cast path has priced since Karador, parked only because the classifier's stripper had no per-each frame: Ghoultree and Cryptic Serpent (the sentence alone), Writhing Necromass (+ deathtouch), Tolarian Terror (+ ward), Ore-Scale Guardian (+ flying, haste), Bedlam Reveler (+ prowess + the discard-hand-draw ETB), Rumbleweed (+ the team pump ETB), Cinderslash Ravager (its 'permanent you control with oil counters' count + the ETB ping), Cyan (+ double strike + the leave-graveyard counter trigger) — each other line native before today. Taunt from the Rampart and Kaima print the mass goad too and stay parked on their own second sentences.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Halfshell 81 → **82** (82/100; 3 to the bar). Remaining Halfshell: Endless Foot Assault (M+ — per-opponent tokens each attacking THAT opponent; next), the rest L.
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · Q4: MOLE MODULE — the milled-pick's battlefield destination · **+2** · corpus 14,596 (42.6%) / 34,245
 > Suite **1551 files / 16,336** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
 > · "Whenever this Vehicle deals combat damage to a player, mill four cards. You may put a permanent card from among them

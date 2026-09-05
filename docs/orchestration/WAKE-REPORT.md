@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · Halfshell: Fast Forward (+10)** · suite **1552 files / 16,340** green · corpus 14,606 (42.7%) / 34,245 · flip-diff +10 / 0 lost · mutants 6/6 killed (the stripper mutant survived its first run and got its test — the Ghoultree pin)
+
+> Goad learned its mass form, and the cast-cost lane learned "for each opponent you attacked this turn" — a seat-level defender memo stamped where attacks are declared and cleared at untap. Halfshell 81 → **82** (82/100; 3 to the bar). Remaining Halfshell: Endless Foot Assault (M+ — per-opponent tokens each attacking THAT opponent; next), the rest L.
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · Q4: Mole Module (+2)** · suite **1551 files / 16,336** green · corpus 14,596 (42.6%) / 34,245 · flip-diff +2 / 0 lost · mutants 5/5 killed
 
 > The milled-referent pick learned the BATTLEFIELD destination — a permanent card from among the milled cards enters through enterCardFromZone; Auras are withheld (an un-cast Aura would land unattached). Halfshell 80 → **81** (81/100; 4 to the bar). Remaining Halfshell rows: Fast Forward (M — a MASS goad arm + a per-opponent-attacked cast discount: two arms, next), Endless Foot Assault (M+ — per-opponent tokens each attacking THAT opponent), the rest L (Coin of Mastery, Special Move, Everything Pizza, Turtle Lair, Heroes in a Half Shell, Together Forever, Shellshock, Raphael the Muscle, Bebop, Tempestra, Double Jump).
