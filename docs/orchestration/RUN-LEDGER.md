@@ -16,6 +16,27 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · L4: SHIELDED BY FAITH + BRILLIANT WINGS — attach-on-enter Auras · **+4** · corpus 14,616 (42.7%) / 34,245
+> Suite **1558 files / 16,360** green; lint 0. Flip-diff **+4, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · "Whenever a creature enters, you may attach this Aura to that creature." / "Whenever a creature you control enters, you
+>   may pay {1}. If you do, attach this Aura to that creature." The attach family had self-attach, attach-to-self and
+>   attach-pair; none moved the SOURCE Aura onto the TRIGGERING creature. One atom (attach-source-to-triggering) reads
+>   ctx.triggeringPermanentId at resolution (CR 608.2): the source must still be on the battlefield, the creature too, and
+>   the creature must satisfy the Aura's OWN Enchant line (auraEnchantHostSpec + the shared restriction satisfier — CR
+>   303.4: an "Enchant creature you control" Aura never lands on an opponent's creature even when its trigger fired on
+>   it). The "you may" pauses on the existing optional-effect choice; the pay-{1} form rides the optional-mana-payment
+>   lane untouched. The Aura-own trigger validator vouches for both lines through permanentTriggersCovered, so the bonus
+>   parse skips them and the runtime fires them off the Aura.
+> · **Pins:** both payoffs (the atom under `optional`; the optional-mana-payment wrapper); both cards native. RUNTIME
+>   through checkEnterTriggers + flush: Shielded by Faith fires on your creature AND an opponent's (accept → the Aura sits
+>   on the newcomer, the old host's attachments emptied; decline → it stays); the synthetic "Enchant creature you control"
+>   twin fires on an opponent's creature but accepting moves NOTHING (the restriction refuses); Brilliant Wings fires only
+>   on your creature, paying {1} taps the Island and moves it, declining leaves it. Mutants: the arm gone, the restriction
+>   ignored, the target swapped for the host, the resolver unregistered — mutants 4/4 killed.
+> · **Whole-card:** two unplanned gains audited whole-card — Illusory Gains (the control-Aura line + the same watcher scoped to an opponent's creature, MANDATORY: the atom without the optional wrapper) and Prison Term (the pacifism-plus-activation-lock line + the optional form) — each other line native before today. A CREED park guard GRADUATED: flashAuraAndCondUnblock.test.js had pinned Illusory Gains as the 'flash + unmodeled clause still parks' example; it is the positive half now and the negative keeps a REAL unmodeled subject (Pariah's damage redirection — no redirection-to-permanent replacement exists).
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Light-Paws 76 → **78** (78/100; 7 to the bar). Next: Enter the Avatar State (the becomes-a-subtype-and-gains pump; the arm is built, the splitter needs its keep-whole guard), then Daybreak Coronet (S — the with-another-Aura Enchant restriction), then Sentinel's Mark (M — the Addendum main-phase look-back).
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · L4: FACE OF DIVINITY + SHARDMAGE'S RESCUE — the conditional attached bonus · **+2** · corpus 14,612 (42.7%) / 34,245
 > Suite **1557 files / 16,356** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 6/6 killed.**
 > · "As long as another Aura is attached to enchanted creature, it has first strike and lifelink." / "As long as this Aura

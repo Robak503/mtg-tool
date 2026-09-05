@@ -80,9 +80,9 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Otharri Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Bumble Flower Combo | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Test | Atraxa Superfriends | 74 | 11 | 16 | ⬜ Phase 2 |
-| Test | Light-Paws Voltron | 76 | 9 | 14 | ⬜ Phase 2 |
+| Test | Light-Paws Voltron | 78 | 7 | 12 | ⬜ Phase 2 |
 
-**3 decks below 85 · 22 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**3 decks below 85 · 20 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -436,9 +436,9 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | L1 | Ishgard, the Holy See | MDFC | V1 | | ⬜ |
 | L2 | Chains of Custody ×2 · Sheltered by Ghosts ×2 · Detainment Spell ×2 | | V15 | |✅ |
 | L3 | Light-Paws, Emperor's Voice | aura you cast enters → tutor an Aura with lesser MV onto the battlefield attached | M | the deck's engine; an aura-cast watcher + tutor-to-battlefield-attached | ⬜ |
-| L4 | Face of Divinity ✅ (sk107 — the another-Aura gate) · Solid Footing (sized M — an "as long as … has vigilance" conditional) · Gauntlets of Light ✅ (+2 — the toughness-assigns attached grant; Treefolk Umbra rode along) · Greater Auramancy ✅ (+1 — the enchanted-creatures selector) · Umbra Mystic · Shielded by Faith 🔄 (sk108, 2026-09-05 — attach this Aura to the entering creature) · Brilliant Wings 🔄 (sk108 — the same, behind "you may pay {1}") · Sentinel's Mark · Shardmage's Rescue ✅ (sk107 — the entered-this-turn gate) · Celestial Mantle · With Great Power · Mantle of the Ancients | aura statics and triggers | S–M | Gauntlets/Solid Footing = "assigns combat damage equal to its toughness" (the layer op EXISTS: assignsCombatDamageWithToughness — S); Greater Auramancy = team shroud on enchanted creatures (S); Shielded by Faith / Brilliant Wings = a re-attach on ETB (M) | ⬜ |
-| L5 | Winds of Rath ✅ (+1 — the enchanted predicate) · Karametra's Blessing ✅ (+1 — the enchanted-or-enchantment-creature keyword rider) · Enter the Avatar State · Deafening Silence ✅ (+1 — the noncreature cast limit) · Drannith Magistrate ✅ (+1 — the cast-from-hand-only lock) | spells and statics | S / M / M / M / M | | 🔶 |
-| L6 | COMPOSITE | Angelic Destiny · Benevolent Blessing · Darksteel Mutation · Daybreak Coronet · Galadriel's Dismissal · On Thin Ice · Pariah · Pearl-Ear · Plaza of Heroes · Restoration Magic · Reverent Mantra · Silent Arbiter · Spectra Ward · Spirit Mantle · Swift Reconfiguration · Trouble in Pairs | size on approach | | ⬜ |
+| L4 | Face of Divinity ✅ (sk107 — the another-Aura gate) · Solid Footing (sized M — an "as long as … has vigilance" conditional) · Gauntlets of Light ✅ (+2 — the toughness-assigns attached grant; Treefolk Umbra rode along) · Greater Auramancy ✅ (+1 — the enchanted-creatures selector) · Umbra Mystic · Shielded by Faith ✅ (sk108 — attach to the entering creature) · Brilliant Wings ✅ (sk108 — the same behind "you may pay {1}") · Sentinel's Mark 🔄 (sk111 — the Addendum: a main-phase cast look-back on the Aura's own ETB) · Shardmage's Rescue ✅ (sk107 — the entered-this-turn gate) · Celestial Mantle · With Great Power · Mantle of the Ancients | aura statics and triggers | S–M | Gauntlets/Solid Footing = "assigns combat damage equal to its toughness" (the layer op EXISTS: assignsCombatDamageWithToughness — S); Greater Auramancy = team shroud on enchanted creatures (S); Shielded by Faith / Brilliant Wings = a re-attach on ETB (M) | ⬜ |
+| L5 | Winds of Rath ✅ (+1 — the enchanted predicate) · Karametra's Blessing ✅ (+1 — the enchanted-or-enchantment-creature keyword rider) · Enter the Avatar State 🔄 (sk109, 2026-09-05 — the becomes-a-subtype-and-gains pump) · Deafening Silence ✅ (+1 — the noncreature cast limit) · Drannith Magistrate ✅ (+1 — the cast-from-hand-only lock) | spells and statics | S / M / M / M / M | | 🔶 |
+| L6 | COMPOSITE | Angelic Destiny · Benevolent Blessing · Darksteel Mutation (L — a base-P/T + type-set Aura) · Daybreak Coronet 🔄 (sk110, 2026-09-05 — the "with another Aura attached" Enchant restriction) · Galadriel's Dismissal (L — phasing) · On Thin Ice · Pariah · Pearl-Ear · Plaza of Heroes · Restoration Magic · Reverent Mantra · Silent Arbiter · Spectra Ward · Spirit Mantle · Swift Reconfiguration · Trouble in Pairs | size on approach | | ⬜ |
 
 ### 5.13 Kinnan Mana Overload — 72% · needs 13 · cEDH (NEXT after Killer Turts — Colton 09-05 override)
 
@@ -482,6 +482,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · L4 Shielded by Faith + Brilliant Wings (Light-Paws) ✅ +4 corpus (ATTACH-ON-ENTER Auras — "you may attach this Aura to that creature" on a creature-enters watcher — one atom moving the SOURCE Aura onto the TRIGGERING creature, honouring the Aura's own Enchant line at the move; the pay-{1} form rides the optional-mana-payment lane) · mutants 4/4 killed · suite 1558 files / 16,360 · Light-Paws 76 → **78** (78/100; 7 to the bar). Next: Enter the Avatar State (the becomes-a-subtype-and-gains pump; the arm is built, the splitter needs its keep-whole guard), then Daybreak Coronet (S — the with-another-Aura Enchant restriction), then Sentinel's Mark (M — the Addendum main-phase look-back).
 
 - 2026-09-05 — Phase 2 · L4 Face of Divinity + Shardmage's Rescue (Light-Paws) ✅ +2 corpus (the CONDITIONAL attached bonus — "as long as another Aura is attached to enchanted creature" / "as long as this Aura entered this turn" — the during-your-turn arm's shape with two SOURCE-aware layer gates, the Aura's id stamped where its bonus is fixed to the host) · mutants 6/6 killed · suite 1557 files / 16,356 · Light-Paws 74 → **76** (76/100; 9 to the bar). Next: Shielded by Faith + Brilliant Wings in ONE slice (attach-on-enter Auras — the source Aura moves onto the triggering creature).
 

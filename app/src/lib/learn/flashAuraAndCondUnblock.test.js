@@ -30,11 +30,16 @@ describe("FA-1 — flash auras", () => {
     // alternation was widened past creature|permanent; zoneOptionKeywords.test.js holds the positive pin).
     expect(classifyCard({ id: "sw", name: "Shimmering Wings", type: "Enchantment — Aura", mana: "{U}",
       oracle: "Flash\nEnchant creature\nEnchanted creature has flying.\n{U}: Return this Aura to its owner's hand." })).toMatch(/^native/);
-    // …and the "unmodeled clause still parks" half of this guard keeps a REAL unmodeled subject: a
-    // control-change aura ("You control enchanted creature" — Illusory Gains / Spirit Away, still a live
-    // 7-sole-blocker census cluster). Swapped in deliberately so the negative can't rot into a tautology.
+    // NOTE (2026-09-05): Illusory Gains GRADUATED — the control line was modeled by the control-aura lane and its
+    // attach-on-enter trigger by the attach-source-to-triggering atom (attachOnEnterAura.test.js holds the runtime
+    // pins), so it is now the POSITIVE half here…
     expect(classifyCard({ id: "ig", name: "Illusory Gains", type: "Enchantment — Aura", mana: "{2}{U}{U}",
-      oracle: "Flash\nEnchant creature\nYou control enchanted creature.\nWhenever a creature enters, attach this Aura to that creature." })).toBe("body-only");
+      oracle: "Flash\nEnchant creature\nYou control enchanted creature.\nWhenever a creature enters, attach this Aura to that creature." })).toMatch(/^native/);
+    // …and the "unmodeled clause still parks" half keeps a REAL unmodeled subject: a damage-REDIRECTION aura
+    // ("All damage that would be dealt to you is dealt to enchanted creature instead" — Pariah's line, no
+    // redirection-to-permanent replacement exists). Swapped in deliberately so the negative can't rot into a tautology.
+    expect(classifyCard({ id: "par", name: "Pariah (flash probe)", type: "Enchantment — Aura", mana: "{2}{W}",
+      oracle: "Flash\nEnchant creature\nAll damage that would be dealt to you is dealt to enchanted creature instead." })).toBe("body-only");
   });
 });
 

@@ -15,6 +15,8 @@ import { snapshotCopiedCard } from "../../cloneCopy.js"; // COPY-A-CREATURE-SPEL
 import { checkCopyTriggers } from "../../triggers.js"; // MAGECRAFT COPY HALF (BLITZ MC-1, CR 707.10): fire "cast or copy" watchers at the copy-creation site. Cycle-safe — triggers.js's import closure (targeting→spellEffects→triggers, layers, keywords, saga, triggerScheduler) never reaches atoms/stack.js, so this edge adds no cycle; checkCopyTriggers is called only at runtime.
 import { applyScheduleDelayed } from "./delayedTrigger.js"; // MANA DRAIN: schedule the delayed {C} payout on the CR 603.7 queue (leaf module — imports only gameState, cycle-free)
 import { applyZoneMove } from "./zones.js"; // VENSER: the permanent half of the spell-or-permanent bounce. Layering {tokens,library,zones} <- removal <- stack sanctions this edge (zones' closure never reaches stack)
+import { auraEnchantHostSpec } from "../../staticAbilityParser.js"; // ATTACH-ON-ENTER AURAS (Shielded by Faith): the Aura's own Enchant line, honoured at the move (counters.js / zones.js already import this module — cycle-safe)
+import { creatureSatisfiesRestrictions } from "../../creatureRestrictions.js"; // the shared restriction satisfier (leaf), for the Enchant line's "you control"
 import { evaluateInterveningIf } from "../../interveningIf.js"; // FEROCIOUS HARD-COUNTER (Stubborn Denial): the resolution-time condition read. interveningIf imports only gameState — leaf edge, cycle-free.
 
 /**
@@ -296,6 +298,27 @@ function applyAttachToSelf(state, atom, ctx) {
  * attachPermanent also detaches from any PREVIOUS host, which is the printed behaviour and the whole point
  * of the card — moving an Equipment that is already attached elsewhere is what this ability is for.
  */
+/**
+ * ATTACH-SOURCE-TO-TRIGGERING (Shielded by Faith / Brilliant Wings, 2026-09-05) — move the SOURCE Aura onto the creature
+ * whose entering fired the trigger. Read at resolution (CR 608.2): the source must still be on the battlefield, the
+ * creature too (and be a creature right now — CR 613), and the creature must satisfy the Aura's OWN Enchant line
+ * (auraEnchantHostSpec: a "creature" subject, its restrictions through the shared satisfier — CR 303.4: an "Enchant
+ * creature you control" Aura never lands on an opponent's creature even when its any-creature trigger fired on it). Any
+ * other Enchant subject (an Aura that enchants artifacts, permanents…) is a clean no-op — never a fabricated attach.
+ * A departed source or newcomer is a clean no-op (CR 608.2b). Logged.
+ */
+function applyAttachSourceToTriggering(state, atom, ctx) {
+  const src = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  const tgt = ctx.triggeringPermanentId ? findPermanent(state, ctx.triggeringPermanentId) : null;
+  if (!src || !tgt || src.permanent.id === tgt.permanent.id) return state;
+  if (!permanentIsCreature(state, tgt.permanent.id)) return state;
+  const spec = auraEnchantHostSpec(src.permanent.card);
+  if (!spec || spec.targetType !== "creature") return state;
+  if ((spec.restrictions || []).length && !creatureSatisfiesRestrictions(state, tgt.permanent, tgt.controller, ctx.controller, spec.restrictions)) return state;
+  const next = attachPermanent(state, { equipId: src.permanent.id, targetId: tgt.permanent.id });
+  return logEvent(next, { kind: "spell-effect", effect: "aura-attach-to-triggering", auraId: src.permanent.id, targetId: tgt.permanent.id, controller: ctx.controller });
+}
+
 function applyAttachPair(state, atom, ctx) {
   const ts = ctx.targets || [];
   let attachT = ts.find((t) => t?.role === "attachment");
@@ -346,6 +369,11 @@ export function attachClauseParser(clause) {
   //
   // Anchored whole ($) — a count ("attach two target …"), an "up to", or an unqualified subject fails and
   // falls through to the later parsers, keeping the all-or-nothing gate (a safe FN → Arbiter).
+  // ATTACH-SOURCE-TO-TRIGGERING (SHELF-85 · Light-Paws L4 Shielded by Faith "Whenever a creature enters, you may attach this
+  // Aura to that creature"; Brilliant Wings behind "you may pay {1}", 2026-09-05): the FOURTH member of the attach family —
+  // the SOURCE Aura moves onto the TRIGGERING creature (ctx.triggeringPermanentId, threaded by the enters watcher). No
+  // chosen target; the Aura's own Enchant line is honoured at the move (CR 303.4) in the resolver.
+  if (t === "attach this aura to that creature") return { op: "attach-source-to-triggering", targetType: null };
   if (/^attach target aura or equipment you control to target creature you control$/.test(t)) {
     return {
       op: "attach-pair",
@@ -2093,5 +2121,6 @@ export const stackResolvers = {
   },
   "self-attach": applySelfAttach, // ETB-EQUIP-ATTACH — auto-attach an Equipment to a creature you control
   "attach-to-self": applyAttachToSelf, // EQUIP-AUTO-ATTACH — attach a chosen Equipment you control onto the source creature
+  "attach-source-to-triggering": applyAttachSourceToTriggering, // ATTACH-ON-ENTER AURAS — the source Aura onto the creature whose entering fired the trigger
   "attach-pair": applyAttachPair, // ATTACH-PAIR (CAP16) — attach a chosen Aura/Equipment onto a chosen creature (neither is the source)
 };

@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · L4: Shielded by Faith + Brilliant Wings (+4)** · suite **1558 files / 16,360** green · corpus 14,616 (42.7%) / 34,245 · flip-diff +4 / 0 lost · mutants 4/4 killed
+
+> An Aura can now jump onto a creature as it enters — the source Aura moves to the triggering creature, its own Enchant line honoured at the move. Light-Paws 76 → **78** (78/100; 7 to the bar). Next: Enter the Avatar State (the becomes-a-subtype-and-gains pump; the arm is built, the splitter needs its keep-whole guard), then Daybreak Coronet (S — the with-another-Aura Enchant restriction), then Sentinel's Mark (M — the Addendum main-phase look-back).
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · L4: Face of Divinity + Shardmage's Rescue (+2)** · suite **1557 files / 16,356** green · corpus 14,612 (42.7%) / 34,245 · flip-diff +2 / 0 lost · mutants 6/6 killed
 
 > An Aura's bonus line can now sit under a condition about the Aura itself — another Aura on the host, or this Aura having entered this turn — as a source-aware layer gate. Light-Paws 74 → **76** (76/100; 9 to the bar). Next: Shielded by Faith + Brilliant Wings in ONE slice (attach-on-enter Auras — the source Aura moves onto the triggering creature).
