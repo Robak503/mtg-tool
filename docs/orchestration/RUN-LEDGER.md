@@ -16,6 +16,23 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · F6: SAM, LOYAL ATTENDANT — Foods cost {1} less to activate · **+2** · corpus 14539 / 34,245
+> Suite **1525 files / 16,245** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
+> · "Activated abilities of Foods you control cost {1} less to activate." The partner line and the combat-begin Food
+>   were native. The Training Grounds family's marker knew two subjects (creatures, artifacts); it now knows three
+>   more, each its OWN descriptor with its own runtime gate — the family's standing lesson is that a reducer credited
+>   under the wrong gate discounts the wrong ability, a wrong PRICE the coverage tier can't see: "lands" (the card type
+>   — Blossoming Tortoise), "artifact tokens" (an artifact that is a token — Mutagen Man), and a SUBTYPE plural
+>   depluralized through the same helper the anthem parser uses and validated against the closed creature vocabulary
+>   or the curated non-creature set ("Foods" → Food; "widgets" stays body-only). The gate matches the subtype
+>   word-bounded on the permanent's front face.
+> · **Pins:** the three subjects parse to their own descriptors and a non-subtype word stays unmodelled; Sam
+>   native-mixed; with Sam out a Food's own ability costs {1} while a non-Food artifact's still costs {2}, and
+>   without Sam the Food costs {2}. Mutants: the arm, any word admitted, the descriptor collapsed to the creature
+>   default, the gate matching every artifact, the gate gone — mutants 5/5 killed.
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Bumble Flower 83 → **84** (1 to the bar); Blossoming Tortoise the unplanned gain (the 'lands' subject; its other lines were already required modelled by the whole-card check); one suite guard graduated — artifactActivatedCostReduction had pinned 'lands you control' as refused by name
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · F5: KWAIN — each player may draw · **+1** · corpus 14537 / 34,245
 > Suite **1524 files / 16,242** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 6/6 killed.**
 > · "{T}: Each player may draw a card, then each player who drew a card this way gains 1 life." The per-seat "may" pause

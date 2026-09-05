@@ -2240,7 +2240,10 @@ function actionsActivateAbility(state, playerId) {
           r.equipOnly ? !!ab.isEquipAbility
             : r.powerUpOnly ? (!!ab.powerUp && isCreaturePerm && (!r.excludeSelf || r._sourceId !== perm.id)) // Gamma Goliath — power-up abilities of OTHER creatures
               : r.subject === "artifact" ? isArtifact(perm.card)
-                : isCreaturePerm));
+                : r.subject === "land" ? isLand(perm.card) // Blossoming Tortoise (2026-09-05)
+                  : r.subject === "artifactToken" ? (isArtifact(perm.card) && !!perm.card?.token) // Mutagen Man (2026-09-05)
+                    : r.subject === "subtype" ? new RegExp(`\\b${String(r.subtype).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(String(typeLineOf(perm.card)).split(" // ")[0]) // Sam's Foods (2026-09-05) — word-bounded on the front face
+                      : isCreaturePerm));
         if (applicable.length) cost = activatedCostReductionForCost(applicable, cost);
       }
       // EQUIP-COST OVERRIDE (SHELF CAP12 — Puresteel Paladin "Equipment you control have equip {0} as long

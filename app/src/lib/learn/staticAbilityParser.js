@@ -2640,6 +2640,23 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ activatedCostReduction: { amount: parseInt(aacrM[2], 10), ...(aacrM[1] === "artifacts" ? { subject: "artifact" } : {}) } });
     return;
   }
+  // ⭐ THE SUBJECT GROWS (SHELF-85 · Bumble F6 Sam, Loyal Attendant, 2026-09-05 — "Activated abilities of Foods you control
+  // cost {1} less to activate."; Blossoming Tortoise "lands", Mutagen Man "artifact tokens"): three more subject
+  // classes on the SAME marker, each its own descriptor so the runtime gate can never discount the wrong ability
+  // (the Forensic Gadgeteer lesson — a wrong PRICE, not a missing effect). "lands" = the card type; "artifact
+  // tokens" = an artifact that is a token; a SUBTYPE plural is depluralized through normalizeSubtype and must be a
+  // real subtype (the closed creature vocabulary or the curated non-creature set) — any other word stays body-only.
+  const aacrS = c.match(/^activated abilities of (lands|artifact tokens|([a-z]+)) you control cost \{(\d+)\} less to activate$/);
+  if (aacrS) {
+    const amount = parseInt(aacrS[3], 10);
+    if (aacrS[1] === "lands") { out.push({ activatedCostReduction: { amount, subject: "land" } }); return; }
+    if (aacrS[1] === "artifact tokens") { out.push({ activatedCostReduction: { amount, subject: "artifactToken" } }); return; }
+    const sub = normalizeSubtype(aacrS[2]);
+    if (sub && (CR_CREATURE_TYPES.has(sub) || NON_CREATURE_SUBTYPES.has(sub.toLowerCase()))) {
+      out.push({ activatedCostReduction: { amount, subject: "subtype", subtype: sub } });
+      return;
+    }
+  }
   // TARGET-LIFE-TAX (Terror of the Peaks — "Spells your opponents cast that target this creature cost an
   // additional 3 life to cast.", 2026-08-14): a MANDATORY cast cost (CR 601.2f), NOT ward's optional
   // pay-or-be-countered — modeling it as ward would let a caster cast-then-decline, a wrong mechanism.

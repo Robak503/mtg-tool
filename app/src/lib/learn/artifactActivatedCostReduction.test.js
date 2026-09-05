@@ -63,8 +63,11 @@ describe("the parser — the subject rides the descriptor", () => {
       .toEqual({ amount: 2 });   // creatures stays the unmarked default — every existing descriptor unchanged
   });
 
-  it("CREED — an unmodeled subject is still refused (Blossoming Tortoise's 'lands you control')", () => {
+  it("GRADUATED 2026-09-05 (samLoyalAttendant.test.js): 'lands you control' is a modeled subject now — its OWN descriptor with its own runtime gate; an unmodeled subject word is still refused", () => {
     expect(parseStaticAbilities({ oracle: "Activated abilities of lands you control cost {1} less to activate." })
+      .find((d) => d.activatedCostReduction).activatedCostReduction).toEqual({ amount: 1, subject: "land" });
+    // CREED — the refusal class lives on: a word that is neither a card type nor a real subtype stays body-only
+    expect(parseStaticAbilities({ oracle: "Activated abilities of widgets you control cost {1} less to activate." })
       .find((d) => d.activatedCostReduction)).toBeUndefined();
   });
 });
