@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · Dueling Grounds (+3)** · suite **1534 files / 16,287** green · corpus 14,553 / 34,245 · flip-diff +3 / 0 lost · mutants 4/4 killed
+
+> A combat learned a headcount: one attacker, one blocker, read off every battlefield and enforced where the declarations are offered. Atraxa 71 → **72** (13 to the bar); Silent Arbiter and Caverns of Despair the unplanned gains, audited whole-card
+> **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · A2: Norn's Annex (+1)** · suite **1533 files / 16,282** green · corpus 14,550 / 34,245 · flip-diff +1 / 0 lost · mutants 5/5 killed
 
 > The attack tax learned the Phyrexian pip: {W} when the mana is there, 2 life when it is not, and no attack at all from a life total under 2 with no white. Atraxa 70 → **71** (14 to the bar)

@@ -34,7 +34,7 @@ import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapMan
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor, crewCostWithOverrides } from "./layers.js";
-import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
+import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
 import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksOf, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund (+ the Phyrexian life lane, Norn's Annex)
@@ -3545,6 +3545,10 @@ function actionsDeclareAttacker(state, playerId) {
   // attack already excludes most, but a Vigilance attacker stays untapped —
   // this set is what stops it (and any future no-tap attacker) from looping.
   const declared = new Set((state.combat?.attackers || []).map(a => a.permanentId));
+  // COMBAT CAP (Dueling Grounds / Silent Arbiter, CR 508.1a): once the lowest "no more than N creatures can attack each
+  // combat" on any battlefield is met, no further attacker is offered — sequential declaration makes the cap exact.
+  const attackCap = combatCapFor(state, "attack");
+  if (attackCap != null && declared.size >= attackCap) return [];
   const player = state.players[playerId];
   const attackers = player.battlefield
     // Layer-aware (WALT-ANIMATE): a permanent granted the Creature type — an animated
@@ -3699,6 +3703,10 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
   // in eligibleByAttacker below); at cap it is excluded exactly like the old assigned-set rule
   // (maxBlocks 1 ⇔ the previous `!assigned.has(p.id)` filter, byte-identical for normal creatures).
   const assigned = new Set((state.combat?.blockers || []).map(b => b.blockerId));
+  // COMBAT CAP (Dueling Grounds / Silent Arbiter, CR 509.1a): once the lowest "no more than N creatures can block each
+  // combat" on any battlefield is met (N distinct blocking creatures), no further blocker is offered.
+  const blockCap = combatCapFor(state, "block");
+  if (blockCap != null && assigned.size >= blockCap) return [];
   const blocksDeclaredBy = {};
   for (const b of state.combat?.blockers || []) blocksDeclaredBy[b.blockerId] = (blocksDeclaredBy[b.blockerId] || 0) + 1;
   const blockedPairs = new Set((state.combat?.blockers || []).map(b => `${b.blockerId}::${b.attackerId}`));

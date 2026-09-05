@@ -2874,6 +2874,17 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ attackTax: parseAttackTax({ oracle: c }) || { generic: 0 } }); // { generic } or { countSource } (Sphere of Safety's counted {X})
     return;
   }
+  // COMBAT CAP (SHELF-85 · Atraxa — Dueling Grounds / Silent Arbiter, 2026-09-05): "No more than one creature can attack
+  // each combat." / "… can block each combat." — a GLOBAL headcount on the whole combat (CR 508.1a / 509.1a), whoever
+  // controls the source. legalChoices' attacker and blocker enumerations stop at the LOWEST cap of that kind on any
+  // battlefield (combatCapFor), so the (N+1)th declaration is never offered — sequential declaration makes it exact.
+  // The defender-scoped "No more than two creatures can attack YOU each combat" (Crawlspace) is a different
+  // restriction and does not match.
+  const cap = c.match(/^no more than (one|two) creatures? can (attack|block) each combat$/);
+  if (cap) {
+    out.push({ combatCap: { kind: cap[2], max: cap[1] === "one" ? 1 : 2 } });
+    return;
+  }
   // CONTROLLER-SCOPE (Chimil, the Inner Sun — "Spells you control can't be countered"): a board static that
   // protects EVERY spell its controller casts (CR 701.6a), not filtered by subtype. Emitted as a coverage +
   // enforcement marker; spellEffects.addStackSpells excludes such a controller's stack spells from counter
@@ -7190,6 +7201,23 @@ export function isNativeManaGrantAura(card) {
  * which subtracts trigger + activated clauses itself before checking the static residue —
  * so it needs the per-clause static test + the leveler guard, not the whole-card wrapper.
  */
+/**
+ * COMBAT CAP reader (Dueling Grounds / Silent Arbiter): the LOWEST "no more than N creatures can <kind> each combat" on
+ * ANY battlefield — the statics are symmetric restrictions on the whole combat, so every seat's board is read. `kind`
+ * is "attack" or "block". Null when no cap is out (the overwhelmingly common case).
+ */
+export function combatCapFor(state, kind) {
+  let cap = null;
+  for (const pl of Object.values(state?.players || {})) {
+    for (const perm of pl?.battlefield || []) {
+      for (const d of parseStaticAbilities(perm?.card)) {
+        if (d?.combatCap?.kind === kind && (cap == null || d.combatCap.max < cap)) cap = d.combatCap.max;
+      }
+    }
+  }
+  return cap;
+}
+
 export function clauseProducesStatic(clause) {
   if (parseLieutenantStatic(String(clause || ""))) return true; // LIEUTENANT (CR 903) — a commander-gated compound handled outside parseClause
   const out = [];

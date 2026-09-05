@@ -16,6 +16,29 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · DUELING GROUNDS — the global combat cap · **+3** · corpus 14,553 / 34,245
+> Suite **1534 files / 16,287** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · "No more than one creature can attack each combat. / No more than one creature can block each combat." Nothing in
+>   the engine capped a combat's headcount. The static parser now reads the sentence to a `combatCap` descriptor
+>   (one or two; attack or block — the four printed forms: Dueling Grounds and Silent Arbiter at one, one card at two);
+>   a board reader takes the LOWEST cap of its kind across every battlefield (the statics are symmetric — CR 508.1a /
+>   509.1a restrictions on the whole combat, whoever controls the source); the attacker enumeration returns nothing
+>   once that many attackers stand declared, the blocker enumeration once that many creatures block. Sequential
+>   declaration makes the cap exact — the (N+1)th declare is never offered. The defender-scoped "No more than two
+>   creatures can attack YOU each combat" (Crawlspace) is a different restriction and stays refused.
+> · **Pins:** the descriptors for one/two × attack/block; Crawlspace's scoped form refused; Dueling Grounds and Silent
+>   Arbiter native; RUNTIME — two ready creatures under Dueling Grounds: two declares offered, none after the first
+>   lands; without it the second is still offered; two ready blockers: one block, then none; a one-cap beside a two-cap
+>   reads one. Mutants: the arm gone, the attack gate dropped, the block gate dropped, the reader taking the highest
+>   cap — mutants 4/4 killed.
+> · **Unplanned gains audited whole-card:** Silent Arbiter (the same two lines on a 1/5 body) and Caverns of Despair (the
+>   two-cap printing — a WORLD enchantment; the world rule, CR 704.5m, is a state-based action the engine does not
+>   model for ANY world permanent, Concordant Crossroads included — a standing, pre-existing limitation of the tier
+>   noted here rather than introduced by this slice; two world permanents on one board is a corner the shelf never
+>   reaches).
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Atraxa 71 → **72** (13 to the bar); Silent Arbiter and Caverns of Despair the unplanned gains, audited whole-card
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · A2: NORN'S ANNEX — the Phyrexian attack tax · **+1** · corpus 14,550 / 34,245
 > Suite **1533 files / 16,282** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
 > · "Creatures can't attack you or planeswalkers you control unless their controller pays {W/P} for each of those
