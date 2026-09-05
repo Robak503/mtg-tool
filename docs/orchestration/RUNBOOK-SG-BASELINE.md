@@ -30,7 +30,7 @@ Gate: all three ≥ 85. Then the full table:
 ```bash
 node deck-hollow-census.mjs "The Unbeatable Squirrel Girl" "Killer Turts" "Kinnan Mana Overload" "Believe it!" \
   "Omnath, Locus of Mana" "Vihaan, Goldwaker" "Veyran Cantrips" "cdh" "Did you say Dragons?" "Kellan of the west" \
-  "Wolverine, claws out!" --out runs/census-$(date +%F)
+  "Wolverine, claws out!" "Slivers" "Mothman Cometh" "Earth Bent" --out runs/census-$(date +%F)
 ```
 Check `orders/arbiter-nuance-queue.md` carries the "Pod-sim three" batch. Read each of the three decks' non-native list
 and write it into the program doc §9 as EXPECTED hollow cards.
@@ -38,21 +38,31 @@ and write it into the program doc §9 as EXPECTED hollow cards.
 Dry run (resolves names, prints the schedule head + census, runs zero games):
 ```bash
 node anchor-pod.mjs --anchor "The Unbeatable Squirrel Girl" \
-  --pool "Killer Turts,Kinnan Mana Overload,Believe it!,Omnath, Locus of Mana,Vihaan, Goldwaker,Veyran Cantrips,cdh,Did you say Dragons?,Kellan of the west,Wolverine, claws out!" \
-  --games 400 --seed 1 --tag sg-baseline-v0 --dry
+  --pool "Killer Turts,Kinnan Mana Overload,Believe it!,Omnath, Locus of Mana,Vihaan, Goldwaker,Veyran Cantrips,cdh,Did you say Dragons?,Kellan of the west,Wolverine, claws out!,Slivers,Mothman Cometh,Earth Bent" \
+  --games 10000 --seed 1 --tag sg-baseline-v0 --dry
 ```
 A name with a comma works (the parser retries joins); an ambiguous or missing name errors with the shelf listed.
 
-## 2. P2: the baseline
+## 2. P2: the baseline (N = 10,000, four lanes)
 
+The pool (thirteen): `Killer Turts,Kinnan Mana Overload,Believe it!,Omnath, Locus of Mana,Vihaan, Goldwaker,Veyran Cantrips,cdh,Did you say Dragons?,Kellan of the west,Wolverine, claws out!,Slivers,Mothman Cometh,Earth Bent`
+
+Four terminals (or four background processes), identical args except the lane:
 ```bash
-node anchor-pod.mjs --anchor "The Unbeatable Squirrel Girl" \
-  --pool "<the ten>" --games 400 --seed 1 --tag sg-baseline-v0 --hints on --arbiter off
+node anchor-pod.mjs --anchor "The Unbeatable Squirrel Girl" --pool "<the thirteen>" --games 10000 --seed 1 --tag sg-baseline-v0 --hints on --arbiter off --rows golden --rows-sample 200 --lane 0/4
+node anchor-pod.mjs ... --lane 1/4
+node anchor-pod.mjs ... --lane 2/4
+node anchor-pod.mjs ... --lane 3/4
+node anchor-merge.mjs runs/sg-baseline-v0          # after all four finish → root games.jsonl, trajectories, summary, REPORT
 ```
-- ~10–20 min. Progress prints one line per game with the running win rate. Interrupted? `--resume` (same args).
-- Overnight cap: `--max-elapsed-min 90` stops cleanly; resume later.
-- Outputs in `runs/sg-baseline-v0/`: `manifest.json` · `games.jsonl` · `trajectories.all.jsonl` · `trajectories.golden.jsonl`
-  · `census.json` · `summary.json` · `REPORT.md`.
+- ~2.5 s per game per lane → ~2 h on four lanes (7 h single-lane). A lane prints one line per game with its running win rate.
+  Interrupted? re-run the same lane with `--resume`. Overnight cap: `--max-elapsed-min`.
+- Rows: `--rows golden` writes decision rows only for trust-gate-clean games (the learning feed) plus the first 200 games
+  of every lane regardless (forensics on rejected games). Gzip, multi-member: ≈ 2–3 GB at 10k. `--rows all` for a small
+  run you want fully explainable.
+- Outputs in `runs/sg-baseline-v0/`: `manifest.json` (shared, full schedule) · `lane-k/` (games.jsonl · trajectories.*.jsonl.gz ·
+  summary · REPORT) · after merge: root `games.jsonl` · `trajectories.all.jsonl.gz` · `trajectories.golden.jsonl.gz` · `census.json`
+  · `summary.json` · `REPORT.md`.
 
 Then forensics:
 ```bash
@@ -65,26 +75,27 @@ node anchor-forensics.mjs runs/sg-baseline-v0      # → FORENSICS.md + forensic
 ## 3. P3: the learning pass (writes `runs/<tag>/LEARNING.md` by hand — over-capture)
 
 ```bash
-node lab.mjs ingest runs/sg-baseline-v0/trajectories.golden.jsonl      # GOLDEN only → the ONE case store
+node lab.mjs ingest runs/sg-baseline-v0/trajectories.golden.jsonl.gz   # GOLDEN only → the ONE case store
 node lab.mjs distill                                                    # invariants vs mode-conditional
-node export-training.mjs --store runs/sg-baseline-v0 --out training-sg-v0   # (grind-store shape; see note)
-node train-eval-net.mjs --data training-sg-v0 --out eval-net-v1.json
+node anchor-to-store.mjs runs/sg-baseline-v0                            # golden games → a grind-store-shaped dir (runs/<tag>/store)
+node export-training.mjs --store=runs/sg-baseline-v0/store --out=training-sg-v0 --max-games=100000   # NOTE: key=value flags
+node train-eval-net.mjs --data=training-sg-v0 --out=eval-net-v1.json
+OMNATH_PILOT_STORE=memory-store node ingest-grind-store.mjs --store=runs/sg-baseline-v0/store --out-store=memory-store --max-games=100000 --holdout=500
 ```
-Note: `export-training.mjs` reads the exe grind-store shard shape. If it does not accept a run directory, the run's
-`trajectories.golden.jsonl` rows carry the same `features` vector + finish-rank labels via `games.jsonl`
-(`anchorRank`, `seats`) — a small adapter is the next tool to write, not a reason to skip the step. Record in LEARNING.md:
+`anchor-to-store.mjs` writes the golden games in the exe grind's shard shape (header + rows) so BOTH existing consumers
+(`export-training`, `ingest-grind-store`) read a run unchanged. Record in LEARNING.md:
 ingest counts · invariants verbatim · mode-conditional count · net holdout MSE / Pearson r / calibration table ·
 the recall snapshot size.
 
-Persona pack v5: rebuild the recall snapshot from the store, drop `eval-net-v1.json` into the pack as the eval-net
-weights, bump `pilotPackV` in `exe-persona.mjs`, run `node test-all.mjs` again.
+Persona pack v6: rebuild the recall snapshot from the store, drop `eval-net-v1.json` into the pack as the eval-net
+weights, bump `pilotPackV` in `exe-persona.mjs`, run `node test-all.mjs` again. (v5 = v4 + deck plans, the baseline pack.)
 
-## 4. P4: persona A/B (same schedule, pack v5 with recall + eval-net ON)
+## 4. P4: persona A/B (same schedule, pack v6 with recall + eval-net ON)
 
 ```bash
-node anchor-pod.mjs --anchor "The Unbeatable Squirrel Girl" --pool "<the ten>" --games 400 --seed 1 \
-  --tag sg-persona-v5 --hints on --recall on --eval-net on
-node ab-compare.mjs runs/sg-baseline-v0 runs/sg-persona-v5 --label-a "pack v4" --label-b "pack v5"
+node anchor-pod.mjs --anchor "The Unbeatable Squirrel Girl" --pool "<the thirteen>" --games 10000 --seed 1 \
+  --tag sg-persona-v6 --hints on --recall on --eval-net on --rows golden --lane k/4     # x4 lanes, then anchor-merge
+node ab-compare.mjs runs/sg-baseline-v0 runs/sg-persona-v6 --label-a "pack v5" --label-b "pack v6"
 ```
 The AB report states the delta, the minimal detectable delta, the paired disagreement table and the exact sign test.
 One line of verdict goes into the program doc §0. If the engine version changed between runs, the report says so — rerun
@@ -96,7 +107,7 @@ v0 on the new engine before believing anything.
    `decks.local.json`). Name it clearly (e.g. `SG v1 — cut X for Y`).
 2. Run the variant on the same schedule with the WINNING persona pack frozen:
    ```bash
-   node anchor-pod.mjs --anchor "SG v1 — cut X for Y" --pool "<the ten>" --games 400 --seed 1 --tag sg-v1-cut-x [same flags as the reference]
+   node anchor-pod.mjs --anchor "SG v1 — cut X for Y" --pool "<the thirteen>" --games 10000 --seed 1 --tag sg-v1-cut-x [same flags + lanes as the reference]
    node ab-compare.mjs runs/<reference> runs/sg-v1-cut-x --label-a baseline --label-b "cut X for Y"
    ```
 3. Read: MDD → sign test → per-opponent deltas → `anchor-forensics` on both and diff the tempo table.
@@ -110,7 +121,7 @@ numbers say, what they cannot say (the three axes), the next cut.
 
 ## 7. Reading the numbers honestly
 
-- A rate without its interval is not a number. At N=400 decisive the interval is about ±4 points around 25%.
+- A rate without its interval is not a number. At N=10,000 decisive the interval is about ±0.85 points around 25% (±4 at N=400).
 - Rejected games are in the REPORT but NOT in the learning feed. Never "top up" golden with rejected games.
 - Per-opponent rows with `faced < 60` are indicative only.
 - Seat skew: if her win rate by seat spreads more than the intervals allow, that is an engine positional property
@@ -125,3 +136,5 @@ numbers say, what they cannot say (the three axes), the next cut.
 - Commander-online turn is the engine's own-turn index; the row-derived global turn is a cross-check only.
 - `export-training.mjs` speaks grind-store shape (adapter pending — §3).
 - The exe grind cannot see the hints ledger or personas yet (program §9.5, §9.7).
+- Deck plans (pack v5) change play for planned decks only (Squirrel Girl). To replay a v4-era seed: `OMNATH_DECK_PLANS=off node anchor-pod.mjs ...`.
+- Forensics "offered" is a lower bound (rows carry castScores only when the engine's own scorer ran).

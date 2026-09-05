@@ -20,10 +20,11 @@
 | | |
 |---|---|
 | Phase | **P0 — WAITING on the pod-sim three** (Killer Turts 71 · Kinnan 75 · Believe it! 75, each needs 85) + their nuance batch |
-| Machine | **BUILT + PROVEN 2026-09-05** on three witness runs (1, 2, 3 games) against the real shelf; full pilots gate green |
-| Engine / persona at build | engine v0.150.0 · persona pack v4 (`exe-persona.mjs`) · play-hints ledger 1,640 entries · Arbiter verdict cache EMPTY |
-| Squirrel Girl | 90/100 native (gate parity confirmed) · commander native · deck id `deck_squirrel_girl_02h46dkh` on Colton's profile · no Archidekt URL |
-| Next call | Colton: confirm the 7 free pool picks (§3) and the baseline size (§7); then wait for Cindy's 85s |
+| Machine | **BUILT + PROVEN 2026-09-05** on four witness runs (9 real games) against the real shelf; full pilots gate green; lanes + gzip rows for the 10k scale |
+| Engine / persona at build | engine v0.150.0 · **persona pack v5 = v4 + DECK PLANS** (`exe-persona.mjs`) · play-hints ledger 1,640 entries · Arbiter verdict cache EMPTY |
+| Squirrel Girl | 90/100 native (gate parity confirmed) · commander native · deck id `deck_squirrel_girl_02h46dkh` on Colton's profile · no Archidekt URL (later, per Colton) |
+| **Colton's calls (2026-09-05)** | ① the seven picks approved **+ three more → a 13-deck pool** (§3) · ② **≥ 10,000 games** (§7) · ③ URL later · ④ **the persona must know the deck's goal: commander out as fast as possible, go infinite as fast as possible; mulliganing to 6 is fine** → §2b |
+| Next call | wait for Cindy's 85s; meanwhile the export-training adapter (§6 step 4) |
 
 ---
 
@@ -73,7 +74,32 @@ Deck memory: `memory/deck_squirrel_girl.md` (the list, the shape, the coverage h
   witness: mana up by own T4.5, offered by the cast scorer at T4 (2 of 3 games), cast at T6; passed with mana up in
   0 of 77 windows. So the engine offers her late-ish and the persona casts her later still — a persona-side A/B
   candidate (§6), not an engine block. Measure at baseline size before touching anything.
-- **Open:** no Archidekt URL captured (ask Colton, register in `reference_deck_sources`); the list is the pasted 100.
+- **Open:** no Archidekt URL captured (Colton: later); the list is the pasted 100.
+
+### 2b. THE DECK PLAN — how the persona knows what this list is for (Colton's call ④, built 2026-09-05)
+
+`omnath-tools/pilots/deck-plans.mjs`. A playbook is the archetype's gameplan; a **deck plan** is THIS list's: its
+commander, the exact infinite lines, the outlets, the tutors, the accel it mulligans for. It rides in the persona's BASE
+score (competence, weight 1.0 — a plan is what the deck IS, not an attitude) through `deps.deckPlan`, and supplies the
+seat's `decideMulligan`. Absent ⇒ byte-identical v4 play; `OMNATH_DECK_PLANS=off` replays v4.
+
+- **Grounded, not remembered:** every line comes from `engine.mjs combo "The Unbeatable Squirrel Girl" --json`
+  filtered to pieces fully in the list — **12 of Spellbook's 30**: two 2-card lines (SG + Phyrexian Altar; SG +
+  Earthcraft) and ten 3-card lines (SG + a haste enabler {Concordant Crossroads | Shang-Chi} + a token-mana source
+  {Cryptolith Rite | Enduring Vitality | Jaheira | Springleaf Parade | Elven Chorus}). Outlets: Craterhoof, Finale,
+  Ballista, Altar of Dementia, Blasting Station, Altar of the Brood, Staff of Domination, Genesis Wave.
+- **The bias:** cast the commander whenever castable (+2.5, dominant) · a combo piece +1.0, +1.8 when it COMPLETES a
+  line on this board · an outlet +2.0 once assembled, −0.3 before (hold Craterhoof) · tutors +1.2 when one card short ·
+  accel +0.4 before the commander is out · the commander's own activation +2.2 when assembled · passing with the line
+  assembled −0.6.
+- **The mulligan ("to 6 is not bad"):** keep a 7 only if it casts her by own T3–T4 on GREEN mana (2–5 lands, ≥3 green
+  sources, ≥4 sources; Ancient Tomb / Cradle / Urza's Saga and the colourless utility lands don't count as green; the
+  modal enchantment isn't a land); keep a 6 on a workable hand (2–5 lands, ≥2 green, ≥3 sources); never below 5.
+- **Witnessed (same three seeds as the pre-plan run):** commander cast in 2 of 3 games at **own T3** (pre-plan: 1 of
+  3 at T6); the plan mulligan shipped 1 / 2 / 0 times. Seed 700000, which STALLED under pack v4, finished as a Squirrel
+  Girl win under v5 — the stall is decision-path dependent (Cindy's replay must run with `OMNATH_DECK_PLANS=off`).
+- Selftested (80 checks): plan matching, every bias rule, the mulligan reads on the tricky lands, and a decide.mjs
+  integration mutation (removing the plan lowers the commander's base score).
 
 ---
 
@@ -101,17 +127,18 @@ prefer decks he actually sits across from. Candidates at ≥85 on 2026-09-04's t
 | Mothman Cometh | Joe | 89 | aristocrats | Joe's aristocrats |
 | Wolverine / Cap America | Joe | 88 / 86 | voltron | commander-damage pressure |
 
-**Proposed seven (Omnath's pick, for Colton's yes/no):** Omnath · Vihaan · Veyran · cdh · Did you say Dragons? ·
-Kellan of the west · Wolverine, claws out!. Reasoning: two ramp mirrors (one his, one Joe's), one aristocrats, one
-spellslinger, one combo, one value-control, one voltron — seven playbooks, both owners, nothing hollow. Slivers and
-Zaxara are held back only because three green ramp decks already sit in the pool; swap freely.
+**APPROVED (Colton, 2026-09-05) — the seven:** Omnath · Vihaan · Veyran · cdh · Did you say Dragons? · Kellan of the
+west · Wolverine, claws out!. **Plus three more (Omnath's pick on Colton's "pick 3 more"):** **Slivers** (go-wide —
+the one playbook the pool lacked, 99 native), **Mothman Cometh** (Joe's aristocrats, 89 — a second aristocrats seat
+from the other owner), **Earth Bent** (Joe's real deck, 91 — the second Joe ramp mirror). **The pool is THIRTEEN.**
+Zaxara held back (a third green ramp mirror from Colton's own shelf); swap freely.
 
 **Pool tags:** `selfPlayDecks.poolOfDeck` marks a deck cEDH only by two dead ids or `memory.pool`; today Kinnan and
 Believe it! read `mixed`. The anchor harness ignores pools by design (Colton wants them at her table), but the exe grind
 would happily seat them in mixed pods too — a tag ask for Cindy (§9).
 
-**"10 decks, 3 of the 7"** — the order said both numbers; this program reads it as ten opponents with three mandated and
-seven free. If Colton meant seven total, drop the last three of the proposed list.
+Pool of thirteen → at 10,000 games each opponent is faced ~2,300 times and each (seat, lead) pair ~625 times;
+compositions never repeat within four games.
 
 ---
 
@@ -158,17 +185,17 @@ decisions per game across four seats; a 200-game run ≈ 10–20 minutes.
 The claim under test: *games → gated trajectories → mined cases → distilled invariants + a retrained eval net → a new
 persona pack → measurably better play on the SAME schedule.* Each arrow is a step with its own file and its own gate.
 
-1. **Baseline v0** — `anchor-pod` at N games (§7), persona pack v4, hints ON, arbiter off. Outputs the v0 REPORT +
-   FORENSICS + the golden feed.
+1. **Baseline v0** — `anchor-pod` at N = 10,000 (§7), persona pack **v5** (deck plans), hints ON, arbiter off. Outputs
+   the v0 REPORT + FORENSICS + the golden feed.
 2. **Ingest** — `node lab.mjs ingest runs/<tag>/trajectories.golden.jsonl` (golden ONLY; the `.all` file is forensics).
    Record the ingest counts (games, rows, seat-trajectories, cases written) in the run's `LEARNING.md`.
 3. **Distill** — `node lab.mjs distill` → cross-mode invariants vs mode-conditional. Copy the new invariants verbatim into
    `LEARNING.md`; they are the legible half of what was learned.
 4. **Eval net** — `export-training` over the run's rows → `train-eval-net` → holdout correlation is the gate (a net that
    cannot rank positions does not ship). Record MSE / Pearson r / calibration.
-5. **Persona pack v5** — recall snapshot rebuilt from the store, eval-net weights refreshed, `pilotPackV` bumped. The
+5. **Persona pack v6** — recall snapshot rebuilt from the store, eval-net weights refreshed, `pilotPackV` bumped. The
    pack is the deliverable; it is what the exe should be running.
-6. **Persona A/B** — `anchor-pod` again on the SAME base seed/pool/N with flags `--recall on --eval-net on` (pack v5) →
+6. **Persona A/B** — `anchor-pod` again on the SAME base seed/pool/N with flags `--recall on --eval-net on` (pack v6) →
    `ab-compare` v0 vs v1. The sign test on the disagreements and the minimal-detectable-delta line decide whether
    anything was learned. **This is the improvement system's pass/fail.**
 7. **Then deck A/B** (§8) with the persona frozen at whichever pack won.
@@ -182,15 +209,16 @@ reviews the learning, not just the win rate.
 |---|---|---|---|
 | **P0 WAIT** | Cindy grinds Killer Turts → Kinnan → Believe it! to 85; nuance batch filed to `orders/arbiter-nuance-queue.md` | the three read ≥85 on `deck-hollow-census`; the batch is in the queue | Cindy / Omnath |
 | **P1 READY** | `--dry` on the final pool; census on all 11; pool picks confirmed; the pod-sim three's hollow lists reviewed | census.json committed to the run; every pool deck ≥85; the anchor's 10 hollow cards listed | Omnath + Colton |
-| **P2 BASELINE v0** | `anchor-pod` N=400 (base seed 1) — 100 per anchor seat, 25 per (seat, lead) pair; Wilson half-width ≈ ±4.5 pts at 400 decisive | ≥85% golden; zero engine halts unexplained (any halt → seed to Cindy, game excluded from the learning feed but kept in the report) | Omnath |
+| **P2 BASELINE v0** | `anchor-pod` **N = 10,000** (Colton's floor; base seed 1) — 2,500 per anchor seat, 625 per (seat, lead) pair; Wilson half-width ≈ **±0.85 pts**; run as 4 lanes (`--lane k/4`) ≈ 2 h, merged by `anchor-merge`; rows golden-only + a 200-game sample (gzip) ≈ 2–3 GB | ≥85% golden; every halt named with its seed (excluded from the learning feed, kept in the report) | Omnath |
 | **P3 LEARNING PASS** | §6 steps 2–5 | holdout r reported; invariants written; pack v5 built | Omnath |
 | **P4 PERSONA A/B** | §6 step 6 | AB report with sign test + MDD; a verdict in one line | Omnath |
 | **P5 DECK A/B** | §8 | per variant an AB report; only ONE list change per variant | Omnath + Colton |
 | **P6 REVIEW** | the packet: REPORT v0, FORENSICS, LEARNING, AB reports, CENSUS, the hollow list, the asks | Colton reads; decides the next cut | Colton |
 
-Baseline size reasoning: at 25% base rate the 95% interval half-width is ±4.2 pts at N=400 and ±6 at N=200. A deck
-change worth making moves the win rate by more than that; a persona change might not — the A/B pairs games and uses the
-sign test on disagreements, which is far more sensitive than two unpaired intervals.
+Size reasoning: at 25% base rate the 95% half-width is ±4.2 pts at N=400 and **±0.85 pts at N=10,000**. At Colton's
+floor the interval is tighter than any deck change worth making, so an A/B on the same schedule can resolve a two-point
+move; the paired sign test on disagreements is sharper still. Cost: ~2.5 s per game single-lane (7 h), ~2 h on four
+lanes; the two stalls seen so far took 4–38 s each.
 
 ## 8. DECK A/B PROTOCOL
 
@@ -204,16 +232,18 @@ sign test on disagreements, which is far more sensitive than two unpaired interv
 
 ## 9. FINDINGS SO FAR (2026-09-05, witness runs)
 
-1. **Engine stalls (two, replayable)** — `engine-stuck: turn stall (2001 ticks in a single turn — non-terminating
-   loop)`: seed **4200000** (Squirrel Girl user / Believe it! ai1 / Kinnan ai2 / Killer Turts ai3, lead user, T33) and
-   seed **700000** (Squirrel Girl user / Kinnan ai1 / Killer Turts ai2 / Believe it! ai3, lead user, T26). Both pods
-   hold all three pod-sim decks; a normal game in the same pool ends in 2–5 s. → Cindy, with both seeds.
+1. **Engine stalls (FOUR in 13 witness games, replayable)** — `engine-stuck: turn stall (2001 ticks in a single turn —
+   non-terminating loop)`: seed **4200000** (SG user / Believe it! ai1 / Kinnan ai2 / Killer Turts ai3, lead user,
+   T33) · **700000** (SG user / Kinnan / Killer Turts / Believe it!, lead user, T26; does NOT stall under pack v5) ·
+   **900002** (SG ai2 / Omnath user / Killer Turts ai1 / Believe it! ai3, lead ai2, T43, 80 s) · **900003** (SG ai3 /
+   Kinnan user / Believe it! ai1 / Omnath ai2, lead ai2, T34). **Believe it! sits in every stalled pod**; pods without
+   it have not stalled. Replay under pack v4 semantics: `OMNATH_DECK_PLANS=off`. → Cindy, with all four seeds.
 2. **Pod-sim three no-ops, as expected:** Untimely Malfunction ×3, Rite of Flame, Avoid Fate, Grim Reaper's Sprint,
    Veil of Summer (Killer Turts) · Lim-Dûl's Vault, Tainted Pact, Force of Despair ×2, Misdirection (Believe it!) ·
    Tezzeret the Seeker (Kinnan). Every witness game was rejected by the trust gate on these — the concrete reason the
    sim waits. **Squirrel Girl's own hollow cast so far: Tezzeret, Cruel Captain** (one of her ten non-native).
-3. **Squirrel Girl commander tempo** — cast in 2 of 6 witness games (own T6); offered T4, mana up T4.5. Persona A/B
-   candidate #1; measure via FORENSICS at baseline size before touching anything.
+3. **Squirrel Girl commander tempo** — pre-plan: cast in 2 of 6 witness games (own T6). **With the deck plan (pack v5):
+   2 of 3 at own T3 on the same seeds.** The baseline runs on v5; the learning pass then builds v6 on top.
 4. **Census parity bug** (fixed) — the pilots' old census fed classifyCard the raw index shape and over-credited every
    deck by ~8 points (Squirrel Girl read 98). The new census reproduces the gate exactly (90 / 70 / 75 / 75 / 94).
 5. **Personas are not deployed on the real disk** — `%APPDATA%/com.colton.mtg-tool/pilots/` does not exist. The exe's
@@ -230,8 +260,10 @@ sign test on disagreements, which is far more sensitive than two unpaired interv
   08-16 ask, still open); (c) `memory.pool: "cedh"` on Kinnan and Believe it! (or ids for the CEDH_DEFAULT_IDS set);
   (d) when the three hit 85, a COMMS line naming the residue so the baseline's hollow list is expected, not discovered;
   (e) eventually: `policy.playHints` + `resolveArbiter` reachable from `/api/grind` so the exe sim sees the nuance work.
-- **Colton:** the 7 pool picks (§3); N (400 proposed); the Archidekt URL for Squirrel Girl; confirm hints ON is the
-  baseline (it is the app's intended state for the nuance notes) — or run both and pay the extra 10 minutes.
+- **Colton (answered 2026-09-05):** pool = the seven + three more (thirteen) ✅ · N ≥ 10,000 ✅ · URL later ✅ · the deck
+  plan built ✅. Still open: hints ON as the baseline (assumed yes — the app's intended state for the nuance notes).
+- **Cindy (added):** the stall seeds were recorded under persona pack v4 — replay with `OMNATH_DECK_PLANS=off` (v5 with
+  plans off is v4-identical); under v5 seed 700000 no longer stalls, so the loop is decision-path dependent.
 
 ---
 
