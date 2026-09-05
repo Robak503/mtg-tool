@@ -227,6 +227,23 @@ export function parseGraveyardSelfRecursion(card) {
     // SELF IS ALWAYS EXCLUDED as a victim, for "a/an" as well as "another": the card being returned is
     // itself sitting in this graveyard, and paying the cost with it would exile the very object the ability
     // returns. Excluding it is both the sane line and the one that can't produce a self-referential paradox.
+    // TAP-AN-UNTAPPED cost (SHELF-85 · Otharri O10, 2026-09-05 — Otharri "{2}{R}{W}, Tap an untapped Rebel you control:
+    // Return this card from your graveyard to the battlefield tapped."; Purple Pentapus "… an untapped creature you
+    // control …"). CR 602.1b — tapping ANOTHER permanent you control is a cost the source itself never pays, so
+    // summoning sickness does not apply to the tapped creature (CR 302.6 restricts only {T}/{Q} of the creature's OWN
+    // abilities). "creature" = any untapped creature (layer-aware); any other word = a word-bounded type-line match
+    // (Rebel). An unknown word simply yields an empty pool — the ability is never offered (FN-safe, never mis-tapped).
+    const tu = line.trim().match(/^((?:\{[^}]+\})+), tap an untapped ([a-z]+) you control: return this card from your graveyard to (your hand|the battlefield)( tapped)?\.?$/i);
+    if (tu) {
+      return {
+        manaPips: tu[1],
+        discardCards: 0,
+        tapUntapped: { subtype: tu[2].toLowerCase() === "creature" ? null : tu[2] },
+        dest: tu[3].toLowerCase() === "your hand" ? "hand" : "battlefield",
+        entersTapped: !!tu[4],
+        raw: line.trim(),
+      };
+    }
     const ex = line.trim().match(/^((?:\{[^}]+\})+), exile (?:a|an|another) (creature|artifact|land|enchantment|instant or sorcery) card from your graveyard: return this card from your graveyard to (your hand|the battlefield)( tapped)?\.?$/i);
     if (ex) {
       return {

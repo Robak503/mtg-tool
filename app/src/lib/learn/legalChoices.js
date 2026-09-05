@@ -3045,13 +3045,25 @@ function actionsActivateGraveyardRecursion(state, playerId) {
       if (victims.length < rec.exileFromGy.count) continue;
       exileGyIds = victims.slice(0, rec.exileFromGy.count).map((g) => g.id);
     }
-    out.push({
+    const base = {
       kind: "activate-gy-recursion", playerId, cardId: card.id, name: card.name,
       cost, cmc: totalCmc(cost), dest: rec.dest, entersTapped: rec.entersTapped,
       ...(discardIds ? { discardIds } : {}),
       ...(exileGyIds ? { exileGyIds } : {}),
       abilityText: rec.raw,
-    });
+    };
+    // TAP-AN-UNTAPPED cost (Otharri / Purple Pentapus, 2026-09-05): one action per eligible UNTAPPED permanent you
+    // control — "creature" reads layer-aware (an animated land counts, a summoning-sick creature counts: CR 302.6
+    // restricts only the creature's OWN {T} abilities), a subtype word is a word-bounded type-line match. No
+    // candidate → the ability is not offered (the cost can't be paid).
+    if (rec.tapUntapped) {
+      const sub = rec.tapUntapped.subtype;
+      const subRe = sub ? new RegExp(`\\b${String(sub).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i") : null;
+      const pool = (player.battlefield || []).filter((p) => !p.tapped && (subRe ? subRe.test(String(p.card?.type || "")) : permanentIsCreature(state, p.id)));
+      for (const p of pool) out.push({ ...base, tapIds: [p.id], tapName: p.card?.name });
+      continue;
+    }
+    out.push(base);
   }
   return out;
 }

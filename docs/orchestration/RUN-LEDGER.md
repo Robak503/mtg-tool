@@ -16,6 +16,25 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · O10: OTHARRI'S SELF-RETURN — the tap-an-untapped cost · **+2** · corpus 14503 / 34,245
+> Suite **1510 files / 16,197** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
+> · "{2}{R}{W}, Tap an untapped Rebel you control: Return this card from your graveyard to the battlefield tapped." The
+>   deck's COMMANDER: its attack trigger (experience counter + tapped-and-attacking Rebels) was already native; only
+>   this line parked. The graveyard self-recursion arm (GY-1) knew mana, discard and exile-from-graveyard costs — it
+>   now carries a TAP-AN-UNTAPPED-<X>-YOU-CONTROL component (CR 602.1b: tapping ANOTHER permanent, so the tapped
+>   creature's summoning sickness is irrelevant — CR 302.6 restricts only its own {T}). Legal choices offer ONE action
+>   per eligible untapped permanent ("creature" reads layer-aware; a subtype word is a word-bounded type-line match);
+>   the dispatcher re-verifies the victim against the live board and taps it before the ability stacks. Purple Pentapus
+>   ("… an untapped creature you control …") is the second printed carrier.
+> · Coverage keys on the same parse (parseGraveyardSelfRecursion), so the classifier followed for free — Otharri
+>   reads native-mixed (a native trigger AND a native activated line), Pentapus native-activated.
+> · **Pins:** the parse carries the component for both cards; offered once per UNTAPPED Rebel (a tapped Rebel and a
+>   non-Rebel are not candidates); activating taps the chosen Rebel and Otharri returns tapped with the graveyard
+>   empty; no untapped Rebel → not offered; Pentapus accepts a summoning-sick creature. Mutants: the arm, the dropped
+>   component, the subtype ignored, a tapped candidate admitted, the tap never paid — mutants 5/5 killed.
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Otharri 82 → **83** (2 to the bar); Purple Pentapus the second carrier, audited whole-card (surveil ETB + the return, both modelled); one suite guard graduated — the O1 tapped-attacking witness had pinned Otharri body-only ON this very line
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · O8: TITHE — the targeted-opponent compare on a tutor's count · **+1** · corpus 14501 / 34,245
 > Suite **1509 files / 16,193** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 6/6 killed (a 7th, the intent arm, survived and was deleted as dead).**
 > · "Search your library for a Plains card. If target opponent controls more lands than you, you may search your

@@ -1113,6 +1113,13 @@ function applyActivateGyRecursion(state, action) {
     if (!inGy) throw new DispatcherError(`Exile victim ${xid} not in graveyard`, "COST_UNPAYABLE");
     working = moveCardToZone(working, { playerId: action.playerId, fromZone: "graveyard", toZone: "exile", cardId: xid });
   }
+  // TAP-AN-UNTAPPED cost (Otharri / Purple Pentapus, 2026-09-05 — CR 602.1b): tap the chosen permanent as part of the
+  // cost, re-verified against the live board (it must still be an UNTAPPED permanent this player controls).
+  for (const tid of action.tapIds || []) {
+    const found = findPermanent(working, tid);
+    if (!found || found.permanent.controller !== action.playerId || found.permanent.tapped) throw new DispatcherError(`Tap-cost victim ${tid} is not an untapped permanent you control`, "COST_UNPAYABLE");
+    working = tapPermanent(working, tid);
+  }
   const { id: stkId, state: working2 } = mintId(working, "stk");
   const stackObject = createStackObject({
     id: stkId,

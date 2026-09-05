@@ -44,10 +44,12 @@ describe("O1 — split guard + parse + classify", () => {
     expect(programConfidence(p)).toBe("high");
     expect(p.atoms[0]).toMatchObject({ op: "create-token", tapped: true, entersAttacking: true, countFor: { kind: "cardsInGraveyard", cardType: "creature" } });
   });
-  it("Kessig Cagebreakers classifies native-trigger; Otharri's SAME trigger routes but she parks on her GY-reanimate", () => {
+  it("Kessig Cagebreakers classifies native-trigger; Otharri's SAME trigger routes — and since the tap-an-untapped recursion cost (2026-09-05) she is native-mixed, no longer parked on her GY-reanimate", () => {
     expect(classifyCard({ name: "Kessig Cagebreakers", type: "Creature — Human Rogue", power: 2, toughness: 2, oracle: "Whenever this creature attacks, create a 2/2 green Wolf creature token that's tapped and attacking for each creature card in your graveyard." })).toBe("native-trigger");
-    // Otharri: the trigger is modeled but the {2}{R}{W},Tap-a-Rebel graveyard-reanimate keeps her body-only.
-    expect(classifyCard({ name: "Otharri, Suns' Glory", type: "Legendary Creature — Bird Rebel", power: 3, toughness: 3, oracle: "Flying, lifelink, haste\nWhenever Otharri attacks, you get an experience counter. Then create a 2/2 red Rebel creature token that's tapped and attacking for each experience counter you have.\n{2}{R}{W}, Tap an untapped Rebel you control: Return this card from your graveyard to the battlefield tapped." })).toBe("body-only");
+    // Otharri: the trigger is modeled AND the {2}{R}{W},Tap-a-Rebel graveyard-reanimate is now a modeled cost
+    // (parseGraveyardSelfRecursion's tapUntapped component — otharriSelfReturn.test.js pins the runtime), so the
+    // card reads native-mixed. This guard used to pin body-only; graduated the day the line flipped.
+    expect(classifyCard({ name: "Otharri, Suns' Glory", type: "Legendary Creature — Bird Rebel", power: 3, toughness: 3, oracle: "Flying, lifelink, haste\nWhenever Otharri attacks, you get an experience counter. Then create a 2/2 red Rebel creature token that's tapped and attacking for each experience counter you have.\n{2}{R}{W}, Tap an untapped Rebel you control: Return this card from your graveyard to the battlefield tapped." })).toBe("native-mixed");
   });
 });
 
