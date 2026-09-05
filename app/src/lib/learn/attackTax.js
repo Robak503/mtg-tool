@@ -32,8 +32,11 @@
  * reads.
  */
 
+import { parseCountSource } from "./effects/parseHelpers.js"; // the shared "for each <X> you control" count-source reader (parseHelpers imports only keywords.js — no cycle)
+
 /**
  * The per-attacking-creature generic tax this card imposes on attacks against its controller, or null.
+ * Either `{ generic }` (a fixed digit) or `{ countSource }` (a counted {X} — resolved live by attackTaxToDeclare).
  * ONE parser, shared by the coverage marker (staticAbilityParser) and the runtime (legalChoices +
  * actionDispatcher), so the metric and the game can never disagree about which cards tax.
  */
@@ -44,14 +47,38 @@ export function parseAttackTax(card) {
   // at them or at their planeswalker (defenderPlaneswalkerId rides beside it), so attackTaxToDeclare already charges
   // both. Read from the same regex as the Ghostly Prison wording, so the metric and the runtime cannot drift.
   const m = oracle.match(/(?:^|[\n.])\s*creatures can't attack you(?: or planeswalkers you control)? unless their controller pays \{(\d+)\} for each (?:of those creatures|creature they control that's attacking you)\s*(?:\.|$)/i);
-  if (!m) return null;
-  const generic = parseInt(m[1], 10);
-  return generic > 0 ? { generic } : null;
+  if (m) {
+    const generic = parseInt(m[1], 10);
+    return generic > 0 ? { generic } : null;
+  }
+  // COUNTED TAX (SHELF-85 · Atraxa A2 — Sphere of Safety, 2026-09-05): "… pays {X} for each of those creatures, where X is
+  // the number of enchantments you control." The one corpus carrier of a tax whose X is a plain controller-scoped
+  // permanent count. The phrase is read through the SAME count-source parser every "for each <X> you control" effect
+  // uses (parseCountSource → { kind:"permanentsYouControl", cardType }), and attackTaxToDeclare resolves it against the
+  // DEFENDER's live battlefield at every declaration — the Sphere counts itself, as printed. Exactly this sentence:
+  // Collective Restraint's domain {X} and every other "where X is …" stay refused (a mis-read amount is a mis-charge).
+  const mx = oracle.match(/(?:^|[\n.])\s*creatures can't attack you(?: or planeswalkers you control)? unless their controller pays \{x\} for each of those creatures, where x is the number of (enchantments you control)\s*(?:\.|$)/i);
+  if (!mx) return null;
+  const countSource = parseCountSource(mx[1].toLowerCase());
+  return countSource && countSource.kind === "permanentsYouControl" && countSource.cardType && !countSource.who ? { countSource } : null;
+}
+
+/**
+ * The live amount of a COUNTED tax for `defenderId` — the defender's battlefield permanents whose front-face type line
+ * carries the counted card type (the same type-line read the shared count evaluator's countMatches makes; this module
+ * is a pure leaf and cannot import that evaluator without closing a cycle through gameState → staticAbilityParser).
+ * parseAttackTax admits exactly one spec shape, so this resolver has exactly one shape to resolve.
+ */
+function countedTaxAmount(state, defenderId, spec) {
+  const word = String(spec?.cardType || "");
+  if (!word) throw new Error("attack tax: a counted tax without a card type"); // unreachable by construction — never a free attack
+  const re = new RegExp(`\\b${word.charAt(0).toUpperCase()}${word.slice(1)}\\b`);
+  return (state?.players?.[defenderId]?.battlefield || []).filter((perm) => re.test(String(perm?.card?.type ?? perm?.card?.type_line ?? ""))).length;
 }
 
 /** True iff this exact clause (lowercased, whole) is the modeled attack tax — the coverage-side gate. */
 export function isAttackTaxClause(clause) {
-  return /^creatures can't attack you(?: or planeswalkers you control)? unless their controller pays \{\d+\} for each (?:of those creatures|creature they control that's attacking you)$/i.test(String(clause || "").trim());
+  return /^creatures can't attack you(?: or planeswalkers you control)? unless their controller pays (?:\{\d+\} for each (?:of those creatures|creature they control that's attacking you)|\{x\} for each of those creatures, where x is the number of enchantments you control)$/i.test(String(clause || "").trim());
 }
 
 /**
@@ -64,7 +91,8 @@ export function attackTaxToDeclare(state, defenderId) {
   let total = 0;
   for (const perm of state?.players?.[defenderId]?.battlefield || []) {
     const tax = parseAttackTax(perm?.card);
-    if (tax) total += tax.generic;
+    if (!tax) continue;
+    total += tax.generic != null ? tax.generic : countedTaxAmount(state, defenderId, tax.countSource);
   }
   return total;
 }

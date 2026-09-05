@@ -16,6 +16,25 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · A2: SPHERE OF SAFETY — the counted attack tax · **+1** · corpus 14,541 / 34,245
+> Suite **1529 files / 16,261** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · "Creatures can't attack you or planeswalkers you control unless their controller pays {X} for each of those
+>   creatures, where X is the number of enchantments you control." The attack-tax module (Propaganda / Ghostly Prison /
+>   Baird) read a FIXED digit only and refused every {X} on purpose — a mis-read amount is a mis-charge, the forbidden
+>   direction. This one carrier's X is a count the shared count-source parser already reads ("enchantments you
+>   control" → the controller-scoped enchantment count), so the parser returns a `countSource` descriptor instead of a
+>   `generic`, and attackTaxToDeclare — the ONE gatherer legalChoices withholds on and the dispatcher pays through —
+>   resolves it with countForSpec against the DEFENDER's live battlefield (the Sphere counts itself, as printed) at
+>   every declaration. The coverage gate admits exactly that sentence; the domain {X} (Collective Restraint) stays
+>   refused, pinned as before.
+> · **Pins:** the parser's descriptor and the fixed forms unchanged; the clause gate admits the Sphere sentence and
+>   still refuses the domain form; Sphere native; RUNTIME — Sphere + two other enchantments taxes {3} per attacker,
+>   the Sphere alone {1}; the ATTACKER's own enchantments never count; the attack is withheld on two lands and
+>   offered on three, and dispatching it taps all three. Mutants: the counted arm gone, the Sphere excluded from its
+>   own count, the count keyed on the attacker's seat, the clause gate not widened — mutants 4/4 killed.
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Atraxa 66 → **67** (18 to the bar); one suite guard graduated — attackTaxPlaneswalkers had pinned Sphere of Safety as refused by name (the life-payment and domain refusals stay pinned)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · A4: GARRUK, UNLEASHED — the self-named loyalty counter · **+1** · corpus 14,540 / 34,245
 > Suite **1528 files / 16,255** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · Atraxa opens (65, needs 20). The deck's sixteen non-walker leftovers cannot reach the bar alone, so the walkers

@@ -42,10 +42,12 @@ describe("the parser — the second printing reads as the same tax", () => {
     expect(parseAttackTax(ARCHON)).toEqual({ generic: 1 });
     expect(isAttackTaxClause("Creatures can't attack you or planeswalkers you control unless their controller pays {1} for each of those creatures.".replace(/\.$/, ""))).toBe(true);
   });
-  it("CREED — the {X} form and the life-payment form are NOT claimed", () => {
-    expect(parseAttackTax(SPHERE)).toBeNull();
+  it("GRADUATED 2026-09-05 (sphereOfSafety.test.js): the counted {X} form is a modelled countSource now — resolved live against the defender's board; the life-payment form is still NOT claimed", () => {
+    expect(parseAttackTax(SPHERE)).toEqual({ countSource: { kind: "permanentsYouControl", cardType: "enchantment" } });
+    expect(classifyCard(SPHERE)).toMatch(/^native/);
+    // CREED — the refusal class lives on: a tax paid in LIFE has no payment lane, and a domain {X} is not a plain permanent count
     expect(parseAttackTax({ oracle: SIVITRI_LINE })).toBeNull();
-    expect(classifyCard(SPHERE)).not.toMatch(/^native/);
+    expect(parseAttackTax({ oracle: "Creatures can't attack you unless their controller pays {X} for each creature they control that's attacking you, where X is the number of basic land types among lands you control." })).toBeNull();
   });
   it("the tiers", () => {
     expect(classifyCard(BAIRD)).toBe("native-static");

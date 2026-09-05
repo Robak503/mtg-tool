@@ -2862,7 +2862,7 @@ function parseClause(clause, out, selfName, selfType) {
   // claim a card the runtime doesn't charge for. Emitting the marker WITHOUT that pair would be the worst
   // outcome available: a card that classifies native and lets the attacker swing for free.
   if (isAttackTaxClause(c)) {
-    out.push({ attackTax: { generic: parseAttackTax({ oracle: c })?.generic ?? 0 } });
+    out.push({ attackTax: parseAttackTax({ oracle: c }) || { generic: 0 } }); // { generic } or { countSource } (Sphere of Safety's counted {X})
     return;
   }
   // CONTROLLER-SCOPE (Chimil, the Inner Sun — "Spells you control can't be countered"): a board static that

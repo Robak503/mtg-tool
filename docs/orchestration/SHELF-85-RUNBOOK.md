@@ -79,10 +79,10 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Shalai and Hallar Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Otharri Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Bumble Flower Combo | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Atraxa Superfriends | 66 | 19 | 24 | ⬜ Phase 2 |
+| Test | Atraxa Superfriends | 67 | 18 | 23 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**3 decks below 85 · 53 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**3 decks below 85 · 52 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -395,7 +395,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | A1 | Maze of Ith ×2 | | V13 | |✅ |
-| A2 | Interplanar Beacon (sized UP — "planeswalker" sits in the cast filter's denylist AND the {1},{T} two-different-colours line is a paid production the mana model has no field for) · Oath of Gideon · Sphere of Safety · Norn's Annex | cast-planeswalker lifegain / extra loyalty / attack tax | L / S / S / M | Sphere of Safety's tax is the ④-AK attack-tax family with a count-of-enchantments amount; Norn's Annex taxes {W/P} (life-or-mana) | ⬜ |
+| A2 | Interplanar Beacon (sized UP — "planeswalker" sits in the cast filter's denylist AND the {1},{T} two-different-colours line is a paid production the mana model has no field for) · Oath of Gideon · Sphere of Safety ✅ (+1 — the counted tax) · Norn's Annex (sized M — a Phyrexian {W/P} tax is a per-creature pay-mana-or-2-life choice the payment path has no lane for) | cast-planeswalker lifegain / extra loyalty / attack tax | L / S / S / M | Sphere of Safety's tax is the ④-AK attack-tax family with a count-of-enchantments amount; Norn's Annex taxes {W/P} (life-or-mana) | ⬜ |
 | A3 | Arena Rector · Deploy the Gatewatch · Ashiok · Mutational Advantage | | M / M / M / S | | ⬜ |
 | A4 | Garruk, Unleashed ✅ (+1 — the self-named loyalty counter) · Kiora, the Crashing Wave (sized M — a to-AND-by damage shield on a permanent until your next turn) · Teferi, Hero of Dominaria (sized M — a positional "third from the top" tuck; the zone mover has no library index) | single loyalty lines | S / M / M | the loyalty-ability parser reads per line; each is one arm | 🔶 |
 | A5 | COMPOSITE (the planeswalkers) | Ajani Steadfast · Dovin Baan · Elspeth Resplendent · Kaya · Narset Transcendent · Narset, Parter of Veils · Oko · Sorin Markov · Sorin, Grim Nemesis · Tamiyo · Teferi, Master of Time · Teferi, Time Raveler · The Eternal Wanderer · Ugin · Vraska the Unseen · Carth · Astral Cornucopia · Avatar's Wrath · Dueling Grounds · Innkeeper's Talent · Oath of Nissa · Oath of Teferi · Primevals' Glorious Rebirth · Urza's Ruinous Blast | **L — "the loyalty vocabulary sweep"** | one slice: probe every loyalty line in the deck, build the missing arms as a family (emblems, static PW abilities, +1 team buffs, ultimates that need a subsystem get 🅿) | ⬜ |
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · A2 Sphere of Safety (Atraxa) ✅ +1 corpus (the attack tax's COUNTED amount — "{X} … where X is the number of enchantments you control" — read through the shared count source and resolved against the DEFENDER's live board at every declaration; the restriction and the payment still ship together) · mutants 4/4 killed · suite 1529 files / 16,261 · Atraxa 66 → **67** (18 to the bar); one suite guard graduated — attackTaxPlaneswalkers had pinned Sphere of Safety as refused by name (the life-payment and domain refusals stay pinned)
 
 - 2026-09-05 — Phase 2 · A4 Garruk, Unleashed (Atraxa) ✅ +1 corpus (a walker naming ITSELF as the loyalty counter's recipient — the loyalty parser rewrites the fixed-count "put a loyalty counter on <own name>" tail to the self noun; the named-counter atom lands on the loyalty key) · mutants 4/4 killed · suite 1528 files / 16,255 · Atraxa 65 → **66** (19 to the bar); Kiora and Teferi Hero sized M in the A4 row; Interplanar Beacon sized L in A2
 

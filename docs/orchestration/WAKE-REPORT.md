@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · A2: Sphere of Safety (+1)** · suite **1529 files / 16,261** green · corpus 14,541 / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
+
+> The attack tax learned a COUNTED amount: {X} = the defender's enchantments, resolved live at every declaration through the shared count source; restriction and payment still ship together. Atraxa 66 → **67** (18 to the bar); one suite guard graduated — attackTaxPlaneswalkers had pinned Sphere of Safety as refused by name (the life-payment and domain refusals stay pinned)
+> **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · A4: Garruk, Unleashed (+1)** · suite **1528 files / 16,255** green · corpus 14,540 / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
 
 > Atraxa opens. A walker naming itself as the loyalty counter's recipient now reads as the self noun in the loyalty parser; the counter lands on the loyalty key through the real lane, doubled by Doubling Season and never as a cost. Atraxa 65 → **66** (19 to the bar); Kiora and Teferi Hero sized M in the A4 row; Interplanar Beacon sized L in A2
