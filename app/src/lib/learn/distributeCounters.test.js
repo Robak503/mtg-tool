@@ -35,8 +35,10 @@ describe("distribute-counters — parser", () => {
       .toMatchObject({ op: "distribute-counters", amount: 3, maxTargets: 3 });
   });
   it("MUST DROP TO LOW: wrong kind / no 'you control' / wrong count-shape / over-target / rider → Arbiter", () => {
-    expect(conf("Distribute two -1/-1 counters among one or two target creatures you control.")).toBe("low");   // wrong kind
-    expect(conf("Distribute two +1/+1 counters among one or two target creatures.")).toBe("low");                // no "you control"
+    // GRADUATED (POD-SIM THREE · BI-4, 2026-09-05): any P/T counter kind and any-controller creatures are modelled now
+    // (Contagion / Splendid Agony / Elven Rite) — the two former parks below read HIGH; the counter deltas are per-axis.
+    expect(conf("Distribute two -1/-1 counters among one or two target creatures you control.")).toBe("high");
+    expect(conf("Distribute two +1/+1 counters among one or two target creatures.")).toBe("high");
     expect(conf("Distribute two +1/+1 counters among any number of target creatures you control.")).toBe("low"); // wrong count-shape
     expect(conf("Distribute two +1/+1 counters among up to two target creatures you control.")).toBe("low");     // up-to-N
     expect(distributeCountersClauseParser("Distribute four +1/+1 counters among one, two, or three target creatures you control.")).toBeNull(); // amount>maxTargets

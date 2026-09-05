@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Flare of Malice, Contagion** — each opponent sacrifices their biggest creature or planeswalker; -2/-1 counters now shrink creatures properly (every P/T counter counts per axis)
 - **Force of Despair, Sea Gate Restoration** — destroy only what entered this turn; draw your hand plus one and keep every card at cleanup for the rest of the game
 - **Demonic Consultation, Tainted Pact** — name a card (or none) and dig until it; exile-until-named with the take-or-continue loop and the duplicate-name stop
 - **Wan Shi Tong, Librarian** — enters for X with X counters and half-X cards, and grows whenever an opponent searches their library

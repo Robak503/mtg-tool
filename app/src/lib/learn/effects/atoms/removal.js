@@ -267,7 +267,7 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
  * creature-land for a "land" edict. An unknown `what` falls back to the creature pool (defensive — the parser
  * only ever emits the five known values, so this is never reached at runtime). Pure type-line read (leaf).
  */
-const SACRIFICE_POOLS = new Set(["creature", "permanent", "land", "artifact", "enchantment", "artifactOrEnchantment", "artifactCreatureOrLand", "nonbasicLand", "nontokenCreature", "creatureToken", "planeswalker"]);
+const SACRIFICE_POOLS = new Set(["creature", "permanent", "land", "artifact", "enchantment", "artifactOrEnchantment", "artifactCreatureOrLand", "nonbasicLand", "nontokenCreature", "creatureToken", "planeswalker", "creatureOrPlaneswalker"]);
 // NAMED-TOKEN pool (CR 701.16) — "Sacrifice a Food token." The generic nouns above have always worked; the
 // named-token nouns had no pool, so the clause produced no atom at all. Carried as a `token:<name>` string
 // rather than one enum entry per kind, validated against NAMED_TOKENS — the SAME registry the mint side
@@ -304,6 +304,7 @@ export function sacrificePoolMatch(what, card) {
     // PLANESWALKER pool (Sheoldred's Edict's third mode, Angrath's Rampage). Word-anchored on the type line
     // like every sibling predicate, so a creature-planeswalker DFC face qualifies via its live type line.
     case "planeswalker": return /\bPlaneswalker\b/i.test(card?.type || card?.type_line || "");
+    case "creatureOrPlaneswalker": return isCreatureCard(card) || /\bPlaneswalker\b/i.test(card?.type || card?.type_line || ""); // Flare of Malice (BI-4)
     case "land": return isLandCard(card);
     case "artifact": return isArtifactCard(card);
     case "enchantment": return isEnchantmentCard(card);
@@ -349,9 +350,14 @@ export function advanceSacrificeChain(state, { queue, sourceName = null }) {
     // it IS an artifact, CR 305.4). The chooser is their controller and every candidate is public, so any pool
     // is hidden-info-safe. sacrificeCreatureEffect already sacrifices ANY permanent correctly (it gates
     // dies-triggers on isCreatureCard, fires sacrifice-triggers for all), so only the pool the chooser sees changes.
-    const candidates = (player.battlefield || [])
+    const poolAll = (player.battlefield || [])
       .filter((p) => sacrificePoolMatch(head.what, p.card))
-      .filter((p) => !(head.excludeId && p.id === head.excludeId)) // "another" — the source is never a victim
+      .filter((p) => !(head.excludeId && p.id === head.excludeId)); // "another" — the source is never a victim
+    // FLARE OF MALICE (BI-4): narrow to the sacrificer's GREATEST mana value (tokens are 0, CR 202.3); ties stay a choice.
+    const mvOf = (c) => { let mv = 0; for (const x of String(c?.mana || c?.mana_cost || "").matchAll(/\{([^}]+)\}/g)) { const pip = x[1].trim().toUpperCase(); mv += /^\d+$/.test(pip) ? parseInt(pip, 10) : (/^[XYZ]$/.test(pip) ? 0 : 1); } return mv; };
+    const topMv = head.greatestMv && poolAll.length ? Math.max(...poolAll.map((p) => mvOf(p.card))) : null;
+    const candidates = poolAll
+      .filter((p) => topMv == null || mvOf(p.card) === topMv)
       .map((p) => ({ id: p.id, name: p.card?.name }));
     if (candidates.length === 0) { q = q.slice(1); continue; } // nothing to sacrifice → can't → skip
     if (candidates.length === 1) {
@@ -439,7 +445,7 @@ function applySacrifice(state, atom, ctx) {
   // excludeSource ("sacrifice ANOTHER permanent" — Korvold): the source is never a legal victim. Threaded
   // per head so a resolveSacrificeChoice re-entry (queue.slice(1)) preserves it, like `what`.
   const excludeId = atom.excludeSource ? (ctx.sourceId ?? null) : null;
-  return advanceSacrificeChain(state, { queue: sacrificers.map((pid) => ({ playerId: pid, what, ...(excludeId ? { excludeId } : {}) })), sourceName: ctx.cardName });
+  return advanceSacrificeChain(state, { queue: sacrificers.map((pid) => ({ playerId: pid, what, ...(excludeId ? { excludeId } : {}), ...(atom.greatestMv ? { greatestMv: true } : {}) })), sourceName: ctx.cardName }); // + greatestMv (Flare of Malice, BI-4)
 }
 
 /**
@@ -530,6 +536,12 @@ export function sacrificeEdictClauseParser(clause) {
   if (m) return { op: "sacrifice", who: "eachPlayer", what: EDICT_POOL[m[1]] };
   m = t.match(new RegExp(`^each (?:opponent|other player) sacrifices a ${EDICT_NOUN}${CHOICE}$`));
   if (m) return { op: "sacrifice", who: "eachOpponent", what: EDICT_POOL[m[1]] };
+  // FLARE OF MALICE (POD-SIM THREE · BI-4, 2026-09-05): "Each opponent sacrifices a creature or planeswalker with the greatest
+  // mana value among creatures and planeswalkers they control." — the edict over a creature-or-planeswalker pool, narrowed
+  // PER SACRIFICER to their greatest mana value (ties: the sacrificer chooses among them, CR 701.16 — the pause).
+  if (/^each opponent sacrifices a creature or planeswalker with the greatest mana value among creatures and planeswalkers they control$/.test(t)) {
+    return { op: "sacrifice", who: "eachOpponent", what: "creatureOrPlaneswalker", greatestMv: true };
+  }
   // PERMANENT-EDICT (CR 701.16) — "sacrifices a permanent of their choice" (Silverclad Ferocidons, Martyr's
   // Bond, Possessed Portal, the Rishadan pirates, Crack the Earth). The SACRIFICING player chooses ANY
   // permanent they control, not just a creature — so the victim pool is broadened to ALL their permanents in

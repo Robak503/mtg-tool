@@ -31,7 +31,8 @@
 import {
   printedPower,
   printedToughness,
-  counterPtDelta,
+  counterPowerDelta,
+  counterToughnessDelta,
 } from "./ptPrimitive.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { parseStaticAbilities, parseAttachedBonus, parseAuraGrantedManaAbility, parseSoulbondBond } from "./staticAbilityParser.js";
@@ -1362,9 +1363,8 @@ function applyLayer7(state, perm, l7Effects) {
   let toughness = baseToughness;
 
   // 7c — modifications (counters + anthems + dynamic). All additive ⇒ commute.
-  const delta = counterPtDelta(perm);
-  power += delta;
-  toughness += delta;
+  power += counterPowerDelta(perm); // per-axis (Contagion's -2/-1, BI-4)
+  toughness += counterToughnessDelta(perm);
   for (const e of l7Effects.filter(e => e.sublayer === "7c")) {
     if (e.op.layerOp === "ptModify") {
       power += e.op.power || 0;
@@ -1520,11 +1520,10 @@ export function deriveCharacteristics(state, permanentId) {
   let result;
   if (selfEffects.length === 0 && !copySource) {
     // Fast path — no continuous effects touch this permanent. Printed + counters.
-    const delta = counterPtDelta(perm);
     result = {
       permanentId,
-      power: printedPower(permBase) + delta,
-      toughness: printedToughness(permBase) + delta,
+      power: printedPower(permBase) + counterPowerDelta(perm), // per-axis (BI-4)
+      toughness: printedToughness(permBase) + counterToughnessDelta(perm),
       basePower: printedPower(permBase),
       baseToughness: printedToughness(permBase),
       keywords: keywordSet(permBase, []),

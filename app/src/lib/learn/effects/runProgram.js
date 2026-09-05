@@ -955,7 +955,14 @@ export function autoPickDistributeCounters(state, pc) {
     if (own.length === 0 || amount <= 0) return [];
     return [{ id: own[0].c.id, type: "creature", amount }];
   }
-  const pool = (pc.candidates || [])
+  // CONTAGION (BI-4): a NEGATIVE counter (its power or toughness part below zero) belongs on the opponents' creatures —
+  // the fallback prefers them whenever any are offered (the pilot still decides in the sim).
+  const ptm = /^([+-]\d+)\/([+-]\d+)$/.exec(String(pc.counterType || ""));
+  const harmful = !!ptm && (parseInt(ptm[1], 10) < 0 || parseInt(ptm[2], 10) < 0);
+  const offered = harmful && (pc.candidates || []).some((c) => c.controller !== pc.controller)
+    ? (pc.candidates || []).filter((c) => c.controller !== pc.controller)
+    : (pc.candidates || []);
+  const pool = offered
     .map((c) => ({ c, p: creaturePower(findPermanent(state, c.id)?.permanent, state) || 0 }))
     .sort((a, b) => b.p - a.p || (a.c.id < b.c.id ? -1 : 1));
   if (pool.length === 0 || amount <= 0) return [];

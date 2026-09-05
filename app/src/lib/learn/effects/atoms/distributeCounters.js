@@ -31,10 +31,15 @@ export function applyDistributeCounters(state, atom, ctx) {
   const counterType = atom.counterType || "+1/+1";
   if (amount <= 0) return logEvent(state, { kind: "spell-effect", effect: "distribute-counters", controller: ctx.controller, amount: 0 });
   const candidates = [];
-  const player = state.players?.[ctx.controller];
-  if (player) {
+  // CONTAGION (POD-SIM THREE · BI-4, 2026-09-05): group "creatures" = EVERY player's creatures (the any-creature recipient the
+  // Court of Garenbrig arm already declared but this resolver never honoured — it offered the controller's own only, a
+  // hollow group); "creaturesYouControl" (the default) stays the controller's own.
+  const seats = atom.group === "creatures" ? Object.keys(state.players || {}) : [ctx.controller];
+  for (const pid of seats) {
+    const player = state.players?.[pid];
+    if (!player) continue;
     for (const perm of player.battlefield) {
-      if (isCreatureCard(perm.card)) candidates.push({ id: perm.id, name: perm.card?.name, type: "creature", controller: ctx.controller });
+      if (isCreatureCard(perm.card)) candidates.push({ id: perm.id, name: perm.card?.name, type: "creature", controller: pid });
     }
   }
   if (candidates.length === 0) return logEvent(state, { kind: "spell-effect", effect: "distribute-counters", controller: ctx.controller, amount, candidates: 0 });
@@ -138,12 +143,14 @@ const DISTRIBUTE_SMALL_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, f
 
 export function distributeCountersClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "");
-  const m = t.match(/^distribute (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? among (one or two|one, two, or three) target creatures you control$/);
+  // + CONTAGION (POD-SIM THREE · BI-4, 2026-09-05): ANY P/T counter ("-2/-1") among one or two target creatures of ANY
+  // controller (the "you control" tail optional → group:"creatures"); the per-axis counter deltas make -2/-1 real.
+  const m = t.match(/^distribute (a|an|one|two|three|four|five|\d+) ([+-]\d+\/[+-]\d+) counters? among (one or two|one, two, or three) target creatures( you control)?$/);
   if (m) {
     const amount = DISTRIBUTE_SMALL_NUM[m[1]] ?? parseInt(m[1], 10);
-    const maxTargets = m[2] === "one or two" ? 2 : 3;
+    const maxTargets = m[3] === "one or two" ? 2 : 3;
     if (!amount || amount > maxTargets) return null;               // over-targeting / unparsed N → LOW (mirror divide-bounded)
-    return { op: "distribute-counters", counterType: "+1/+1", amount, maxTargets, group: "creaturesYouControl" };
+    return { op: "distribute-counters", counterType: m[2], amount, maxTargets, group: m[4] ? "creaturesYouControl" : "creatures" };
   }
   // UP-TO-N ANY-CREATURE (Court of Garenbrig — SHELF-TAIL SH8): "distribute N +1/+1 counters among UP TO M
   // target creatures" — the fast-follow the header names. Two widenings from the you-control arm above: the

@@ -1117,7 +1117,6 @@ const MUST_DROP_TO_LOW = [
   "Put a +1/+1 counter on up to one target creature an opponent controls.", // opponent-controlled filter
   // NOTE: "Put a +1/+1 counter on each of up to two target creatures" is now NATIVE (MULTI-COUNT slice C — real
   // runtime via targeting.expandAtoms subset enumeration + applyAddCounter's per-target loop). Pinned in multiCountTarget.test.js.
-  "Distribute three +1/+1 counters among one, two, or three target creatures.", // Biogenic Upgrade — distribute (deferred)
   "Distribute four +1/+1 counters among any number of target creatures.",   // Blessings of Nature — distribute (deferred)
   // ===== EDICTS ===== — sacrifice-as-effect variants OUTSIDE the exact "target player/opponent
   // sacrifices a creature [of their choice]" template route to the Arbiter (a count, a filtered victim,

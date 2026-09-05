@@ -216,8 +216,13 @@ describe("GATED-GY-EXTENDED — FP regressions", () => {
     // modelled. So the pin's protective intent still holds for the actual card; only the simplified shape
     // above changed. Worth stating, because "the pin's card flipped" and "the pin's FIXTURE flipped" are
     // very different claims and the fixture is the one that moved.
+    // GRADUATED (POD-SIM THREE · BI-4, 2026-09-05): the distribute-among-any-creatures shape IS modelled now, so this
+    // one-sentence fixture flips. The PRINTED card carries a second sentence ("Then if there are six or more card types…,
+    // double the number of +1/+1 counters on those creatures") that is NOT modelled — the true text below still parks.
     const REAL = "Delirium — Whenever this creature enters or attacks, if there are four or more card types among cards in your graveyard, distribute two +1/+1 counters among one or two target creatures.";
-    expect(tier("Omnivorous Flytrap", REAL)).toBe("body-only");
+    expect(tier("Omnivorous Flytrap", REAL)).toBe("native-trigger");
+    const PRINTED = "Delirium — Whenever this creature enters or attacks, if there are four or more card types among cards in your graveyard, distribute two +1/+1 counters among one or two target creatures. Then if there are six or more card types among cards in your graveyard, double the number of +1/+1 counters on those creatures.";
+    expect(tier("Omnivorous Flytrap", PRINTED)).toBe("body-only");
   });
 
   it("hand-count gate flips native (park LIFTED by BLITZ CA-2's cardsInHand atLeast band)", () => {

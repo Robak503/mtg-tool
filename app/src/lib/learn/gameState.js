@@ -26,7 +26,7 @@
  *   - Everything else — pure read, returns a value
  */
 
-import { printedPower, printedToughness, counterPtDelta } from "./ptPrimitive.js";
+import { printedPower, printedToughness, counterPowerDelta, counterToughnessDelta } from "./ptPrimitive.js"; // per-axis counter deltas (Contagion, BI-4)
 import { permanentPower, permanentToughness, permanentBasePower, permanentHasKeyword, permanentIsCreature, permanentTypes, playerCantGainLife, playerEmptyDrawWins, legendRuleExemptFor, PERMANENT_TYPE_RE } from "./layers.js";
 import { groupNoUntapFiltersOf, groupNoUntapMatches, groupNoUntapFilterNeedsPower } from "./groupNoUntap.js"; // GROUP NO-UNTAP static (UT-1: Winter-Orb / Meekstone / Choke lock family) — leaf module, no cycle
 import { hasKeyword } from "./keywords.js";
@@ -187,14 +187,14 @@ export function creaturePower(permanent, state = null) {
   if (state && permanent.id != null && findPermanent(state, permanent.id)) {
     return permanentPower(state, permanent.id);
   }
-  return printedPower(permanent) + counterPtDelta(permanent);
+  return printedPower(permanent) + counterPowerDelta(permanent);
 }
 export function creatureToughness(permanent, state = null) {
   if (!permanent?.card) return 0;
   if (state && permanent.id != null && findPermanent(state, permanent.id)) {
     return permanentToughness(state, permanent.id);
   }
-  return printedToughness(permanent) + counterPtDelta(permanent);
+  return printedToughness(permanent) + counterToughnessDelta(permanent);
 }
 
 /**

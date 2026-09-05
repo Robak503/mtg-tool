@@ -44,14 +44,36 @@ export function counterPtDelta(permanent) {
   return plus - minus;
 }
 
+/** CONTAGION (POD-SIM THREE · BI-4, 2026-09-05) — PER-AXIS counter deltas: every counter whose name is a P/T pair
+ *  ("+1/+1", "-1/-1", "-2/-1", "+1/+0", "+2/+2"…) contributes its power part × count to power and its toughness part ×
+ *  count to toughness (CR 122.1a / 613.4c). `counterPtDelta` stays the legacy ±1/±1 net for any caller that still
+ *  wants the symmetric value. */
+const PT_COUNTER_RE = /^([+-]\d+)\/([+-]\d+)$/;
+export function counterPowerDelta(permanent) {
+  let d = 0;
+  for (const [name, n] of Object.entries(permanent?.counters || {})) {
+    const m = PT_COUNTER_RE.exec(name);
+    if (m) d += parseInt(m[1], 10) * (Number(n) || 0);
+  }
+  return d;
+}
+export function counterToughnessDelta(permanent) {
+  let d = 0;
+  for (const [name, n] of Object.entries(permanent?.counters || {})) {
+    const m = PT_COUNTER_RE.exec(name);
+    if (m) d += parseInt(m[2], 10) * (Number(n) || 0);
+  }
+  return d;
+}
+
 /** Printed power + counter delta — the "no continuous effects" power value. */
 export function printedPowerWithCounters(permanent) {
-  return printedPower(permanent) + counterPtDelta(permanent);
+  return printedPower(permanent) + counterPowerDelta(permanent);
 }
 
 /** Printed toughness + counter delta — the "no continuous effects" toughness value. */
 export function printedToughnessWithCounters(permanent) {
-  return printedToughness(permanent) + counterPtDelta(permanent);
+  return printedToughness(permanent) + counterToughnessDelta(permanent);
 }
 
 /** Does the permanent carry any P/T-altering (+1/+1 or -1/-1) counters? */

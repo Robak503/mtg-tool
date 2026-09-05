@@ -16,6 +16,36 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · BI-4: FLARE OF MALICE + CONTAGION — a greatest-MV edict and per-axis counters · **+7** · corpus 14484 / 34,245
+> Suite **1501/16165** green; lint 0. Flip-diff **+7, zero LOST** — five unplanned twins audited whole-card: Soul Shatter
+> (Flare's exact sentence), Elven Rite and Splendid Agony (two +1/+1 / two -1/-1 among one or two target creatures), Abzan
+> Charm (its third mode) and Wurmskin Forger (three among one, two, or three). **10/10 killed.**
+> · ⚠️ **HOLLOW GROUP CLOSED:** the general distribute resolver built its candidates from the CONTROLLER's creatures only,
+>   whatever the atom's `group` said — the any-creature group the Court of Garenbrig arm declared in August never reached
+>   the pause. Every "distribute … among target creatures" now offers every player's creatures (pinned: their Bear and
+>   Ogre and my Bear are all candidates; the hollow form was seen to fail).
+> · Flare of Malice — "Each opponent sacrifices a creature or planeswalker with the greatest mana value among creatures and
+>   planeswalkers they control." A creature-or-planeswalker sacrifice pool and a `greatestMv` flag that rides each queue
+>   entry into the sacrifice chain, which narrows the sacrificer's pool to their top mana value before the forced-or-pause
+>   choice (tokens are 0, CR 202.3; a tie stays the sacrificer's choice). The clause splitter cut the sentence at the "and"
+>   inside the selector — kept whole. The sacrifice-a-nontoken-black-creature alt cost was already modeled.
+> · Contagion — "Distribute two -2/-1 counters among one or two target creatures." Two misses: the distribute arm knew only
+>   +1/+1 among creatures YOU control; and the engine's counter delta knew only ±1/±1 — a -2/-1 counter would have sat on a
+>   creature changing nothing (an FP waiting to happen). Counter deltas are PER AXIS now: every "±a/±b" counter contributes
+>   a×n to power and b×n to toughness, at all five sites (the printed-with-counters pair, the two layer paths, the game-state
+>   pair). The distribute fallback prefers the opponents' creatures when the counter is harmful. The pay-1-life-and-exile-a-
+>   black-card pitch composes.
+> · **Pins:** two -2/-1 on their 4/4 = 0/2; one on each of two creatures; the fallback never picks my own creature for a
+>   harmful counter; the pitch offered with no mana. Flare: Ogre (4) and Jace (4) tied above a Bear (2) → the pause offers
+>   exactly those two; a lone greatest is forced; the alt cost offered with no mana and a black nontoken creature. Mutants:
+>   the +1/+1-only arm, forced you-control, a power delta reading the toughness part, the legacy symmetric layer delta, a
+>   fallback that harms my own, the Flare arm, the dropped narrowing, a pool without planeswalkers, the re-split sentence and
+>   the hollow group — all died. Two first SURVIVED as witness gaps, not dead code: the layered path only runs when a
+>   continuous effect touches the creature (pinned under their own anthem: 1/3), and the side-aware fallback was never
+>   forced while my creature was not the biggest (pinned with a 5/5 of my own).
+> · **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+> · **Believe it! 81 → 83 (needs 2)** · Killer Turts 85 ✅ · Kinnan 85 ✅ · Shalai 84. (Full suite: three guards graduated — the distribute parks, Biogenic Upgrade's first sentence, and the simplified Flytrap fixture; the PRINTED Flytrap still parks on its doubling sentence and is now pinned as such.) Next: BI-5 Moon-Circuit Hacker + Satoru — the last two slots.
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · BI-3: FORCE OF DESPAIR + SEA GATE RESTORATION — two fills · **+3** · corpus 14477 / 34,245
 > Suite **1500/16160** green; lint 0. Flip-diff **+3, zero LOST** — one unplanned twin audited whole-card: Praetor's Counsel
 > (return all from graveyard + exile itself + the same rest-of-game rider, now the flag atom behind its self-exile). **7/7 killed.**

@@ -19,7 +19,7 @@
 |---|---|---|---|---|
 | Killer Turts | ✅ **85/100** (2026-09-05; was 70) | 15 | **0** | extra-combat red-green aggro-storm |
 | Kinnan Mana Overload | ✅ **85/100** (2026-09-05; was 75) | 15 | **0** | cEDH big-mana / copy / Thoracle |
-| Believe it! | 81/100 | 19 | **4** | cEDH ninjas + Thoracle-Consultation |
+| Believe it! | 83/100 | 17 | **2** | cEDH ninjas + Thoracle-Consultation |
 
 **35 slots across the three.** Shared cards: Thassa's Oracle (Kinnan + Believe it!), Mindbreak Trap (both),
 Misdirection (both), Gemstone Caverns (all three — PARKED, pregame), Veil of Summer (Turts + Kinnan), Sink into
