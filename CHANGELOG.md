@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Desert** — pings an attacker, but only in the end of combat step as printed
 - **Endurance** — its arrival tucks a player's whole graveyard to the bottom of their library
 - **Sentinel's Mark** — its Addendum lifelink lands only when you cast it in your main phase
 - **Daybreak Coronet** — only a creature already wearing an Aura can take it

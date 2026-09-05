@@ -71,6 +71,12 @@ function stripReminder(text) {
  * all, so it must stay parked rather than be credited into a window the card forbids.
  */
 const PRECOMBAT_RIDER = /\.?\s*Activate (?:this ability )?only (?:during your turn, )?before attackers are declared\.?\s*$/i;
+// COMBAT-STEP RIDER (SHELF-85 Phase 3 · Desert, 2026-09-05 — "{T}: This land deals 1 damage to target attacking creature.
+// Activate only during the end of combat step."): a WHEN restriction naming one combat step. Peeled into `combatStepOnly`
+// (the engine's step key — "end-of-combat", "declare-blockers" …) and enforced by actionsActivateAbility inside ④-AE's
+// combat window, so the ability is offered in EXACTLY that step. Stripped only because it is enforced (the ONCE-1 /
+// precombat riders' discipline); any other step word fails the anchor and the rider stays in the effect text → parked.
+const COMBAT_STEP_RIDER = /\.?\s*Activate (?:this ability )?only during the (beginning of combat|declare attackers|declare blockers|combat damage|end of combat) step\.?\s*$/i;
 /**
  * CONDITION rider (census slice, 2026-07-28) — "Activate only if <board condition>." (CR 602.5d). 62 corpus
  * cards where this rider is the SOLE blocker.
@@ -1300,7 +1306,11 @@ export function parseActivatedAbilities(card) {
     // still finds its own end anchor. `reduction` rides the ability to the offer (legalChoices prices it live).
     const redM = PER_COUNTER_REDUCTION_RIDER.exec(afterConditionRaw);
     const reduction = redM ? { perCounterOnSelf: { kind: redM[3].toLowerCase(), amount: parseInt(redM[2], 10) } } : null;
-    const afterCondition = reduction ? afterConditionRaw.replace(PER_COUNTER_REDUCTION_RIDER, (m, dot) => (dot ? "." : "")).trim() : afterConditionRaw;
+    const afterReduction = reduction ? afterConditionRaw.replace(PER_COUNTER_REDUCTION_RIDER, (m, dot) => (dot ? "." : "")).trim() : afterConditionRaw;
+    // COMBAT-STEP rider (Desert) — peeled here, before the limit / precombat riders, mapped to the engine's step key.
+    const stepM = COMBAT_STEP_RIDER.exec(afterReduction);
+    const combatStepOnly = stepM ? stepM[1].toLowerCase().replace(/ /g, "-") : null;
+    const afterCondition = stepM ? afterReduction.replace(COMBAT_STEP_RIDER, "").trim() : afterReduction;
     const limitM = afterCondition.match(LIMIT_RIDER);
     // A matched count word is always a LIMIT_WORDS key (the alternation is built from it), but fall back to
     // "no limit, don't strip" rather than NaN if that ever drifts — a safe false negative.
@@ -1404,6 +1414,7 @@ export function parseActivatedAbilities(card) {
       ...(isPowerUp || isExhaust || onceEver ? { activationLimitScope: "game" } : {}), // POWER-UP / EXHAUST / the bare "Activate only once." (LANDS-14b) — never re-armed by a new turn
       ...(isPowerUp ? { powerUp: true } : {}), // the powerUpOnly cost reducer (Hulk, Gamma Goliath) gates on this — Exhaust must NOT ride it
       preCombatOnly, // "before attackers are declared" — legalChoices narrows the window to the PRECOMBAT main
+      combatStepOnly, // COMBAT-STEP RIDER (Desert) — "Activate only during the <step> step": legalChoices offers it in exactly that step, or null
       sorceryOnly,   // CR 602.5i "Activate only as a sorcery" — legalChoices adds the EMPTY-STACK half the generic main-step gate does not cover
 
       boast: isBoast, // CR 702.135 — offer gate requires perm.attackedThisTurn (per-permanent, not per-seat)

@@ -2201,6 +2201,10 @@ function actionsActivateAbility(state, playerId) {
       // activate the ability in a window the card forbids. Narrowing to the precombat main can only ever
       // under-offer, which is the safe direction.
       if (ab.preCombatOnly && state.phase !== "precombat-main") continue;
+      // COMBAT-STEP RIDER (SHELF-85 Phase 3 · Desert, 2026-09-05 — "Activate only during the end of combat step"): open in
+      // EXACTLY the printed step of the combat window (the defender holds priority there on the attacker's turn, CR 602.2);
+      // never the main phase, never another combat step.
+      if (ab.combatStepOnly && state.step !== ab.combatStepOnly) continue;
       // BOAST (CR 702.135b) — "only if THIS CREATURE attacked this turn". Read off the PERMANENT, never the
       // seat: the seat-level attackedThisTurn (Raid) would offer boast whenever ANY of your creatures
       // attacked, which is a materially different card. The other half of the reminder — once each turn —

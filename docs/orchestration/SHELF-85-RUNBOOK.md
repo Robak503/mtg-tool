@@ -62,7 +62,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Earth Bent | 91 | — | — | ✅ at the bar (④-BE) |
 | Joe | Mothman Cometh | 90 | — | — | ✅ at the bar |
 | Joe | Captain America Shoot your Shot | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
-| Joe | Hulk Smash | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
+| Joe | Hulk Smash | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kinnan Mana Overload | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
@@ -484,6 +484,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — **Phase 3** (§4.3 step 2, Hulk 87 → 90 sweep) · Desert ✅ +1 corpus (the COMBAT-STEP activation rider — "Activate only during the end of combat step" — peeled into the engine's step key and enforced at the offer inside ④-AE's combat window) · mutants 3/3 killed · suite 1563 files / 16,373 · Hulk 87 → **88** (88/100; 2 to 90). Next Hulk row: Xenagos, God of Revels (the power-to-both pump — staged), then Fire Nation Palace (firebending — a keyword lane question) / Moonmist / Arena / Balduvian Trading Post (L).
 
 - 2026-09-05 — **Phase 3** (§4.3 step 3, the one-line-away probe) · Endurance (4 decks) ✅ +1 corpus (a chosen player's WHOLE graveyard to the BOTTOM of their library in a seeded random order — not a shuffle; "up to one" on the player; enemy intent for the trigger chooser) · mutants 5/5 killed · suite 1562 files / 16,371 · Shalai 85 → **86** · Kinnan 85 → **86** (Rashmi and Squirrel Girl carry it too). Next Phase 3 rows: Desert (Hulk 87 → the combat-step activation rider, S), then Wheel and Deal (Nekusar — a player-side any-number wrapper + a bound draw, M), Treebeard / Xenagos / Molten Psyche / Iron Man (M+).
 

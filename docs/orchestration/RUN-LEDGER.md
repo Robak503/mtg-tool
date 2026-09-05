@@ -16,6 +16,23 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — PHASE 3 · DESERT — the combat-step activation rider · **+1** · corpus 14,622 (42.7%) / 34,245
+> Suite **1563 files / 16,373** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
+> · Phase 3 step 2 — Hulk Smash sits at 87 with three rows to 90; Desert is the cheapest: "{T}: This land deals 1 damage to
+>   target attacking creature. Activate only during the end of combat step." The combat-role target (④-AE's window) and the
+>   ping existed; the trailing timing rider sat in the effect text and dragged it LOW. The ability parser peels "Activate only
+>   during the <beginning of combat|declare attackers|declare blockers|combat damage|end of combat> step" into
+>   `combatStepOnly` — the engine's own step key — and actionsActivateAbility opens such an ability in EXACTLY that step of
+>   the combat window (the defender holds priority there on the attacker's turn, CR 602.2), never the main phase and never
+>   another combat step. Stripped only because it is enforced (the ONCE-1 / precombat riders' discipline).
+> · **Pins:** two abilities, the ping carrying `combatStepOnly: "end-of-combat"` with a clean effect and modeled; Desert
+>   native. RUNTIME through the real offer: in the end of combat step the ping is offered against the attacker and resolving
+>   it kills the 2/1; in declare blockers, combat damage, and the defender's own main phase nothing is offered. Mutants: the
+>   rider never peeled, the step gate dropped, the step key left unmapped — mutants 3/3 killed.
+> · **Whole-card:** no unplanned gains — the only corpus carrier of an end-of-combat activation rider in the shelf; the other four step words are admitted by the same anchor and stay parked until a carrier arrives.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Hulk 87 → **88** (88/100; 2 to 90). Next Hulk row: Xenagos, God of Revels (the power-to-both pump — staged), then Fire Nation Palace (firebending — a keyword lane question) / Moonmist / Arena / Balduvian Trading Post (L).
+
 > ## 🎯 2026-09-05 (cron) — PHASE 3 · ENDURANCE — a chosen player's graveyard to the bottom of their library · **+1** · corpus 14,621 (42.7%) / 34,245
 > Suite **1562 files / 16,371** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
 > · Phase 2 closed with every open deck at its ceiling; Phase 3 (§4.3) opened on the runbook's own gate. Step 3's one-line-away

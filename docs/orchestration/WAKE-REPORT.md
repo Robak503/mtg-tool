@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **PHASE 3 · Desert (+1)** · suite **1563 files / 16,373** green · corpus 14,622 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 3/3 killed
+
+> An activated ability can now print "Activate only during the <step> step" — peeled into the engine's step key and offered only there, inside the combat window. Hulk 87 → **88** (88/100; 2 to 90). Next Hulk row: Xenagos, God of Revels (the power-to-both pump — staged), then Fire Nation Palace (firebending — a keyword lane question) / Moonmist / Arena / Balduvian Trading Post (L).
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **PHASE 3 · Endurance (+1)** · suite **1562 files / 16,371** green · corpus 14,621 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 5/5 killed
 
 > Phase 3 opened (every open deck at its ceiling). A chosen player's whole graveyard can now go to the bottom of their library in a seeded random order — Endurance, one line from native in four shelf decks. Shalai 85 → **86** · Kinnan 85 → **86** (Rashmi and Squirrel Girl carry it too). Next Phase 3 rows: Desert (Hulk 87 → the combat-step activation rider, S), then Wheel and Deal (Nekusar — a player-side any-number wrapper + a bound draw, M), Treebeard / Xenagos / Molten Psyche / Iron Man (M+).
