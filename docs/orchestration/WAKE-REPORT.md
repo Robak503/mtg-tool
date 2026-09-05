@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **HARDENING: the Flashback line strip's rider swallow (+0, a hollow closed)** · suite **1521 files / 16,233** green · flip-diff 0 / 0 · mutants 3/3 killed
+
+> A trailing sentence on a Flashback line is dropped only when it modifies the flashback cast itself ("this way" — a cast the engine never offers); anything else now parks the card. Zero corpus impact.
+> **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · F5: Study the Classics (+5)** · suite **1520 files / 16,232** green · corpus 14531 / 34,245 · flip-diff +5 / 0 lost · mutants 6/6 killed
 
 > The bound "double the +1/+1 counters on it" and a bound-target +1/+1 count feeding the life arm — three atoms, two bound to the first's target. Bumble Flower 79 → **80** (5 to the bar); four unplanned gains audited — Growth Curve, Invigorating Surge, Sage of the Fang (the same shape), Visions of Dominance (its flashback line's 'costs {X} less this way' rider modifies only a flashback cast the engine never offers — FN-safe, the same basis as the flashback strip; the line strip's swallow of ANY trailing sentence is a hollow closed in the next commit)

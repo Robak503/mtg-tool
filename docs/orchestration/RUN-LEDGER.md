@@ -16,6 +16,25 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — HARDENING: the Flashback line strip's rider swallow · **+0** (a hollow closed) · corpus 14531 / 34,245
+> Suite **1521 files / 16,233** green; lint 0. Flip-diff **0 / 0** — the guard changes NO printed card. **mutants 3/3 killed.**
+> · Surfaced by the Study the Classics flip-diff: Visions of Dominance flipped native, and its Flashback line carries
+>   "This spell costs {X} less to cast this way, where X is …" — a rider no arm models. The card was honest anyway (the
+>   engine never offers a flashback cast, so a rider on the flashback cost is a safe FN) — but the reason it classified
+>   was worse than that: the cast-keyword line strip removes a Flashback line WHOLE (`[^\n]*$`), so ANY trailing sentence
+>   vanished. Probed: a made-up "Flashback {3}{G}. When you cast this spell, you win the game." classified
+>   native-spell. A modelled-looking card with an unmodelled ability — the forbidden direction, for text the corpus
+>   has not printed yet.
+> · The guard: a Flashback line whose trailing text (reminder-stripped) is neither empty nor "this way"-scoped is
+>   fenced behind a prefix the keyword regex cannot match, stays as residue, and the card parks. Every printed
+>   trailing sentence today IS "this way"-scoped (the Visions cycle ×5, Light Up the Night) — zero corpus impact.
+> · Caught on the first run: my first fence began "flashback-rider…", and the keyword regex accepts "flashback" + a
+>   dash — the fence was eaten by the very strip it was dodging. Renamed; the mutant that reintroduces it dies.
+> · **Pins:** a bare line, a reminder line, the Visions rider and the Light Up the Night rider all still classify
+>   native-spell; a "you win the game" rider and a "whenever you cast a spell, draw" rider park. Mutants: the guard
+>   gone, the guard fencing every rider, the colliding fence name — mutants 3/3 killed.
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · F5: STUDY THE CLASSICS — the bound double and the bound count · **+5** · corpus 14531 / 34,245
 > Suite **1520 files / 16,232** green; lint 0. Flip-diff **+5, zero LOST** (any unplanned gains audited whole-card). **mutants 6/6 killed.**
 > · "Put a +1/+1 counter on target creature, then double the number of +1/+1 counters on it. You gain life equal to the

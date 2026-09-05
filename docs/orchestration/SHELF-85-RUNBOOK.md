@@ -478,6 +478,8 @@ note and the Omnath list, and the run takes the next row.
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
 
+- 2026-09-05 — HARDENING · the Flashback line strip's rider swallow (a hollow surfaced by Visions of Dominance's flip): a trailing sentence on a Flashback line is now honest to drop only when it modifies the flashback cast itself ("this way"); anything else is fenced and the card parks · zero corpus impact · mutants 3/3 killed · suite 1521 files / 16,233
+
 - 2026-09-05 — Phase 2 · F5 Study the Classics (Bumble Flower) ✅ +5 corpus (the BOUND "double the +1/+1 counters on it" and a bound-target +1/+1 count for the life arm) · mutants 6/6 killed · suite 1520 files / 16,232 · Bumble Flower 79 → **80** (5 to the bar); four unplanned gains audited — Growth Curve, Invigorating Surge, Sage of the Fang (the same shape), Visions of Dominance (its flashback line's 'costs {X} less this way' rider modifies only a flashback cast the engine never offers — FN-safe, the same basis as the flashback strip; the line strip's swallow of ANY trailing sentence is a hollow closed in the next commit)
 
 - 2026-09-05 — Phase 2 · F6 Samwise Gamgee (Bumble Flower) ✅ +2 corpus ("historic" joins the graveyard filter vocabulary — an artifact, a legendary, or a Saga off the front face) · mutants 4/4 killed · suite 1519 files / 16,229 · Bumble Flower 78 → **79** (6 to the bar); Layla Hassan the unplanned gain, audited whole-card (first strike + a compound ETB/combat-damage head returning a historic card); one suite guard graduated — gyRecursion had listed 'historic' as unmodelled by name

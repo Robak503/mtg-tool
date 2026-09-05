@@ -290,6 +290,18 @@ const CAST_ONLY_DECLARE_ATTACKERS_LINE =
   /(?:^|[\n.;])[ \t]*cast this spell only during the declare attackers step and only if you(?:'|’)ve been attacked this step[ \t]*\.?[ \t]*$/gim;
 export function stripCastKeywordLines(text) {
   return String(text || "")
+    // FLASHBACK RIDER GUARD (hollow closed 2026-09-05, surfaced by Visions of Dominance's flip): CAST_KEYWORD_LINE strips a
+    // Flashback line WHOLE. A trailing sentence is honest to drop only when it modifies the flashback cast itself — "This
+    // spell costs {X} less to cast THIS WAY" / "If you cast this spell THIS WAY, …" — because the engine never offers a
+    // flashback cast (a safe FN). Any OTHER trailing sentence is an ability the classifier would silently credit, so the
+    // line is fenced behind a prefix the keyword regex cannot match; it stays as residue and the card parks (CREED).
+    // Every printed Flashback trailing sentence today is "this way"-scoped (Visions cycle, Light Up the Night) — zero
+    // corpus impact; the guard exists for the shape the corpus has not printed yet.
+    .replace(/^([ \t]*flashback\s*(?:\{[^}]+\})+)(\s*\([^)]*\))?\.\s*([^\n]*\S)[ \t]*$/gim, (m, head, reminder, rest) => {
+      const tail = String(rest).replace(/\([^)]*\)/g, " ").trim();
+      if (!tail || /\bthis way\b/i.test(tail)) return m;
+      return `unmodeled rider on ${head.trim()}. ${rest}`; // the fence must not itself start with "flashback" + a dash (the keyword regex accepts that)
+    })
     .replace(CAST_KEYWORD_LINE, " ")
     .replace(MADNESS_LINE, " ")
     .replace(SPLIT_SECOND_LINE, " ")
