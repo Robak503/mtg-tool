@@ -53,7 +53,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 |---|---|---|---|---|---|
 | Colton | Omnath, Locus of Mana | 94 | — | — | ✅ at the bar |
 | Colton | Vihaan, Goldwaker | 95 | — | — | ✅ at the bar |
-| Colton | Zaxara kinda X'ish | 94 | — | — | ✅ at the bar |
+| Colton | Zaxara kinda X'ish | 95 | — | — | ✅ at the bar |
 | Colton | Veyran Cantrips | 91 | — | — | ✅ at the bar (④-BD) |
 | Colton | The Unbeatable Squirrel Girl | 91 | — | — | ✅ at the bar |
 | Colton | cdh | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
@@ -76,7 +76,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Nekusar Wheels | 90 | — | — | ✅ at the bar |
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
-| Test | Shalai and Hallar Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
+| Test | Shalai and Hallar Test | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Test | Otharri Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Bumble Flower Combo | 90 | — | — | ✅ at the bar |
 | Test | Atraxa Superfriends | 74 | 11 | 16 | ⬜ Phase 2 |
@@ -484,6 +484,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — **Phase 3** (§4.3 step 3, the LAST multi-deck S/M row — Shalai + Zaxara) · Incubation Druid ✅ +2 corpus ("one mana of any type that a land you control could produce" — a live land-derived type set in manaSources, the Plaza of Heroes discipline; the counter-gated triple stays a documented under-read) · mutants 4/4 killed · suite 1571 files / 16395 tests · **Shalai and Hallar 86 → 87 · Zaxara 94 → 95.** Phase 3 step 5 now holds: no S/M row touches two decks, and every 85–89 deck is at 90 or carries only L / 🅿 / composite rows — PHASE 3 CLOSES; Phase 4 (the Omnath hand-off list) is next
 
 - 2026-09-05 — **Phase 3** (§4.3 step 2 + step 3, Bumble → 90 AND a corpus vein) · Treebeard, Gracious Host ✅ +66 corpus (the SUBTYPE TARGET NOUN — "target Halfling or Treefolk", "Destroy target Elf": a closed-vocabulary peel to "target creature" + a union-aware subtype restriction the enumerator and resolver both enforce; plus the lifegain "that many" counters on a TARGET) · mutants 6/6 killed · suite 1570 files / 16393 tests · **Bumble Flower Combo 89 → 90 — AT THE BAR** (with Nekusar 90: two decks crossed 90 this Phase 3). Hulk stays 89 (L rows only); Wolverine 88 / cdh 88 / Cap 87 carry only composites, L, 🅿 or a subsystem — §4.3 step 5 closes them. The re-run one-line-away instrument shows ONE multi-deck S/M row left: Incubation Druid (Shalai + Zaxara) — next, then Phase 3 closes
 

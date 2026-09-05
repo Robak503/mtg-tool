@@ -16,6 +16,25 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — PHASE 3 · INCUBATION DRUID — the type a land you control could produce · **+2** · corpus 14,696 (42.9%) / 34,245
+> Suite **1571 files / 16395 tests** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · Phase 3 step 3 — the re-run one-line-away instrument (after the subtype-noun vein) showed exactly ONE S/M row touching two
+>   decks: Incubation Druid (Shalai and Hallar · Zaxara) — "{T}: Add one mana of any type that a land you control could
+>   produce. If this creature has a +1/+1 counter on it, add three mana of that type instead." The adapt line was native; the
+>   mana line had no arm — the Exotic Orchard / Reflecting Pool family, read on the controller's side. manaProduction gains
+>   the arm as a board-derived colour set (colorsAmongSpec "landsYouControlCouldProduce" — the Plaza of Heroes discipline,
+>   never the free any-colour arm); manaSources resolves it LIVE as the union of each controlled land's own production
+>   (basics through CR 305.6; a land whose own set is board-derived is skipped — no recursion) and its granted basic types
+>   (Urborg / Yavimaya). Colourless is a type. No land that makes anything → the source is not offered.
+> · ⚠️ DOCUMENTED UNDER-READ: the counter-gated "add three … instead" is read as the base amount — the same under-read the
+>   any-colour + instead forms already carry (the runtime produces 1 where the card would make 3: the safe direction).
+> · **Pins:** native-mana. RUNTIME through manaSources: Forest + Island → the Druid offers exactly {G, U}; no lands → the
+>   Druid is not offered; an Urborg'd board offers the granted Swamp. Mutants: the arm gone, the lands ignored (every type —
+>   the laundering FP), an empty land set still offered, granted types ignored — mutants 4/4 killed.
+> · **Whole-card:** one unplanned gain, audited whole-card: Naga Vitalist — its ONLY line is the same sentence ("{T}: Add one mana of any type that a land you control could produce")
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Shalai and Hallar 86 → 87 · Zaxara 94 → 95.** Phase 3 step 5 now holds: no S/M row touches two decks, and every 85–89 deck is at 90 or carries only L / 🅿 / composite rows — PHASE 3 CLOSES; Phase 4 (the Omnath hand-off list) is next
+
 > ## 🎯 2026-09-05 (cron) — PHASE 3 · TREEBEARD, GRACIOUS HOST — the SUBTYPE TARGET NOUN (a corpus vein) + lifegain counters on a target · **+66** · corpus 14,694 (42.9%) / 34,245
 > Suite **1570 files / 16393 tests** green; lint 0. Flip-diff **+66, zero LOST** (every unplanned gain audited whole-card — see below). **mutants 6/6 killed.**
 > · Phase 3 step 2 (Bumble Flower's last row to the bar) that turned out to be step 3 material: "Whenever you gain life, put

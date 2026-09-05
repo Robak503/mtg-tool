@@ -349,6 +349,15 @@ function parseAddClause(oracle, card) {
   if (/\badd one mana of any color among legendary permanents you control\b/i.test(oracle)) {
     return { colors: ["W", "U", "B", "R", "G"], amount: 1, colorsAmongSpec: { kind: "legendaryPermanentsYouControl" } };
   }
+  // SHELF-85 Phase 3 (2026-09-05 — Incubation Druid "{T}: Add one mana of any type that a land you control could produce"):
+  // ONE mana whose type is drawn from what the controller's LANDS can make right now (the Exotic Orchard / Reflecting Pool
+  // family, read on the controller's own side). Same discipline as Plaza's arm: a colour set resolved LIVE in manaSources
+  // (each land's own production ∪ its granted basic types), never the free any-colour arm — no land that makes a type means
+  // the source is not offered. The card's "If this creature has a +1/+1 counter on it, add three mana of that type instead"
+  // rider is read as its base amount (1) — the same documented under-read the any-colour + instead forms already carry.
+  if (/\badd one mana of any type that a land you control could produce\b/i.test(oracle)) {
+    return { colors: ["W", "U", "B", "R", "G", "C"], amount: 1, colorsAmongSpec: { kind: "landsYouControlCouldProduce" } };
+  }
   let any = oracle.match(/add\b[^.]*?\b(\S+)\s+mana of any(?: one)? color/i);
   if (any) {
     const n = parseFixedQuantity(any[1]);
@@ -1890,6 +1899,21 @@ export function manaSources(state, playerId) {
       const among = [...new Set((player.battlefield || []).filter((p) => /\bLegendary\b/i.test(String(p.card?.type || p.card?.type_line || "").split(" // ")[0])).flatMap((p) => colorsOf(p.card)))].filter((c) => c !== "C");
       if (among.length) prod = { ...prod, colors: among };
       else dropMain = true;
+    }
+    // Incubation Druid (2026-09-05) — ONE mana of any TYPE a LAND the controller controls could produce: the live union of
+    // each land's own production (manaProduction — basics included via CR 305.6; a land whose own set is board-derived is
+    // skipped, no recursion) and the basic types it was granted (Urborg / Yavimaya). Colourless counts as a type. No land
+    // that makes anything → the main record is not offered (a produce-nothing source, never a fabricated type).
+    if (prod.colorsAmongSpec?.kind === "landsYouControlCouldProduce") {
+      const landTypes = new Set();
+      for (const p of player.battlefield || []) {
+        if (!/\bLand\b/i.test(String(p.card?.type || p.card?.type_line || "").split(" // ")[0])) continue;
+        const lp = manaProduction(p.card);
+        if (lp && !lp.colorsAmongSpec) for (const c of lp.colors || []) landTypes.add(c);
+        for (const c of grantedBasicTypeColors(state, p)) landTypes.add(c);
+      }
+      if (landTypes.size) prod = { ...prod, colors: [...landTypes] };
+      else dropMain = true; // no land makes a type
     }
     const fixed = dynFixed || (prod.fixed ? Object.fromEntries(Object.entries(prod.fixed).map(([c, n]) => [c, n * scale])) : null);
     // A bundle's TOTAL is its own tally — for the printed karoo family this equals `amount` exactly (two

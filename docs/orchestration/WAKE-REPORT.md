@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **PHASE 3 · Incubation Druid (+2)** · suite **1571 files / 16395 tests** green · corpus 14,696 (42.9%) / 34,245 · flip-diff +2 / 0 lost · mutants 4/4 killed
+
+> "One mana of any type that a land you control could produce" now reads the controller's lands live — the last S/M row that touched two shelf decks. **Shalai and Hallar 86 → 87 · Zaxara 94 → 95.** Phase 3 step 5 now holds: no S/M row touches two decks, and every 85–89 deck is at 90 or carries only L / 🅿 / composite rows — PHASE 3 CLOSES; Phase 4 (the Omnath hand-off list) is next
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **PHASE 3 · Treebeard + the SUBTYPE TARGET NOUN (+66)** · suite **1570 files / 16393 tests** green · corpus 14,694 (42.9%) / 34,245 · flip-diff +66 / 0 lost · mutants 6/6 killed
 
 > "Destroy target Elf", "Tap target Merfolk", "target Wolf or Werewolf gets +2/+2" — a bare creature-subtype noun as a target now peels to "target creature" with a subtype restriction the engine enforces at the offer and at resolution (closed CR vocabulary). Treebeard's lifegain counters ride it. **Bumble Flower Combo 89 → 90 — AT THE BAR** (with Nekusar 90: two decks crossed 90 this Phase 3). Hulk stays 89 (L rows only); Wolverine 88 / cdh 88 / Cap 87 carry only composites, L, 🅿 or a subsystem — §4.3 step 5 closes them. The re-run one-line-away instrument shows ONE multi-deck S/M row left: Incubation Druid (Shalai + Zaxara) — next, then Phase 3 closes
