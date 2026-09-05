@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **PHASE 3 · Razorkin Needlehead (+1)** · suite **1568 files / 16389 tests** green · corpus 14,627 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 3/3 killed
+
+> Two spellings the engine already ran: a your-turn keyword with the gate at the tail, and "deals damage to them" on a draw trigger aimed at the drawer. **Nekusar Wheels 89 → 90 — AT THE BAR.** Hulk stays 89 with only L rows (Arena, Balduvian Trading Post, Moonmist, Fire Nation Palace's until-end-of-combat mana, Mjölnir, Thunderclap's behold, World War Hulk, Avengers Tower, Earth's Mightiest Heroes) — §4.3 step 5 closes it at 89
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **PHASE 3 · Solid Footing (+1)** · suite **1567 files / 16,385 tests** green · corpus 14,626 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 6/6 killed
 
 > An Aura's bonus line can now switch on a printed keyword of its host — the third condition on the conditional attached-bonus lane, read without re-entering the layer derive. **Light-Paws Voltron 81 → 82** (ceiling stands — every other row L; the Phase 4 list already names the rest). Sai (Shorikai) probed: its "Sacrifice two artifacts" cost is a non-fungible CHOICE the auto-pick refuses by design → 🅿 CHOICE-EVAL (the quartet), not an S row

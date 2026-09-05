@@ -3673,7 +3673,9 @@ function parseClause(clause, out, selfName, selfType) {
       }
       return; // handled, or intentionally dropped to body-only on a non-keyword inner parse
     }
-    const dtk = c.match(/^during your turn, (?:this creature|it) (?:has|have) (.+)$/);
+    // The SUFFIX form ("This creature has first strike during your turn." — Razorkin Needlehead, SHELF-85 Phase 3,
+    // 2026-09-05) is the same grant with the time gate at the tail; it takes the identical yourTurn-gated descriptor.
+    const dtk = c.match(/^during your turn, (?:this creature|it) (?:has|have) (.+)$/) || c.match(/^(?:this creature|it) (?:has|have) (.+) during your turn$/);
     if (dtk) {
       const segs = dtk[1].split(/,|\band\b/).map((s) => s.trim().replace(/[^a-z ]/g, "").trim()).filter(Boolean);
       if (segs.length && segs.every((s) => GRANTABLE_KEYWORDS.has(s))) {

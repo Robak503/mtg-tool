@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Razorkin Needlehead** — first strike on your turn; an opponent's draw costs them 1
 - **Solid Footing** — a vigilant enchanted creature hits with its toughness
 - **Molten Psyche** — everyone wheels; with metalcraft each opponent takes damage equal to their own draws this turn
 - **Wheel and Deal** — pick any opponents to discard their hands and draw seven; you draw one

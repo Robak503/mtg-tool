@@ -4633,6 +4633,12 @@ export function detectTriggers(card) {
         // re-agrees), so no other "they" anywhere in a longer clause is touched — an unresolved pronoun elsewhere
         // still parks the clause as before.
         effectClause = effectClause.replace(/^they lose (\d+) life$/i, "the drawing player loses $1 life");
+        // SHELF-85 Phase 3 (2026-09-05 — Razorkin Needlehead "Whenever an opponent draws a card, this creature deals 1
+        // damage to them"): the OBJECT pronoun of the same referent, clause-final only ("… damage to them"), and only
+        // when the watched drawer can be another player — an ALLOWLIST on the SCOPE ("opponentDraw" / "anyDraw"; the own-draw
+        // scope "you" also carries whose:"any", so `whose` cannot be the discriminator). A "you draw … to them" has no
+        // antecedent and stays parked. Any other "them" in a longer clause is untouched and parks the clause as before.
+        if (cls.scope === "opponentDraw" || cls.scope === "anyDraw") effectClause = effectClause.replace(/\bdamage to them$/i, "damage to the drawing player");
       }
       // ⭐⭐ DAMAGED-PLAYER **CONTROLS** SENTINEL (DT-2, 2026-08-06 — Snapping Thragg, Skirk Commando,
       // Spark Mage: "you may have it deal N damage to target creature THAT PLAYER controls").

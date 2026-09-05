@@ -74,7 +74,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Test Rashmi | 92 | — | — | ✅ at the bar |
 | Test | Teval, the Balanced Scale Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Nekusar Wheels | 89 | 0 | 1 | ✅ at 85 · Phase 3 candidate |
+| Test | Nekusar Wheels | 90 | — | — | ✅ at the bar |
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shalai and Hallar Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Otharri Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
@@ -484,6 +484,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — **Phase 3** (§4.3 step 2, Nekusar → 90) · Razorkin Needlehead ✅ +1 corpus (the SUFFIX-form your-turn self keyword — "has first strike during your turn" — and the clause-final object pronoun on the card-drawn referent — "deals 1 damage to them" → the drawing player, scope opponentDraw/anyDraw only) · mutants 3/3 killed · suite 1568 files / 16389 tests · **Nekusar Wheels 89 → 90 — AT THE BAR.** Hulk stays 89 with only L rows (Arena, Balduvian Trading Post, Moonmist, Fire Nation Palace's until-end-of-combat mana, Mjölnir, Thunderclap's behold, World War Hulk, Avengers Tower, Earth's Mightiest Heroes) — §4.3 step 5 closes it at 89
 
 - 2026-09-05 — **Phase 3** (§4.3 step 4, an S row left in Light-Paws) · Solid Footing ✅ +1 corpus (the conditional attached-bonus gate on a PRINTED host keyword — "as long as enchanted creature has vigilance, it assigns combat damage equal to its toughness" — the third condition kind on the Face of Divinity lane; a granted keyword is a documented under-read) · mutants 6/6 killed · suite 1567 files / 16,385 tests · **Light-Paws Voltron 81 → 82** (ceiling stands — every other row L; the Phase 4 list already names the rest). Sai (Shorikai) probed: its "Sacrifice two artifacts" cost is a non-fungible CHOICE the auto-pick refuses by design → 🅿 CHOICE-EVAL (the quartet), not an S row
 

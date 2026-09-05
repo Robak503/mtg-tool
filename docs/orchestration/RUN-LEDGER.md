@@ -16,6 +16,25 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — PHASE 3 · RAZORKIN NEEDLEHEAD — the suffix time gate + the object-pronoun draw referent · **+1** · corpus 14,627 (42.7%) / 34,245
+> Suite **1568 files / 16389 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
+> · Phase 3 step 2 — Nekusar Wheels at 89, one row from the bar: "This creature has first strike during your turn. / Whenever
+>   an opponent draws a card, this creature deals 1 damage to them." Both lines parked on ONE-WORD seams of native lanes:
+>   ① the your-turn self keyword grant read only the PREFIX form ("During your turn, this creature has …") — the suffix form
+>   now takes the identical yourTurn-gated descriptor (layers.gateMet re-reads activePlayer every derive); ② the card-drawn
+>   referent rewrite knew "that player" and the clause-leading "they lose N life" (Sheoldred) — the clause-FINAL object
+>   pronoun "… damage to them" now rewrites to the same drawing-player sentinel, on an ALLOWLIST of the trigger SCOPE
+>   (opponentDraw / anyDraw). ⛔ `whose` was the wrong discriminator: the own-draw scope "you" ALSO carries whose:"any", so a
+>   whose-guard let "Whenever you draw a card, … deals 1 damage to them" read as a self-ping — the witness's negative caught
+>   it on the first run (native-trigger), the guard moved to the scope. No new atom, no new gate.
+> · **Pins:** native; the trigger shape (cardDrawn / opponentDraw); the you-draw negative (parked). RUNTIME: first strike live on the
+>   controller's turn and absent on an opponent's; an opponent's draw costs THEM 1 life through the real trigger flush and
+>   stack, the controller's own draw fires nothing. Mutants: the suffix alternative gone, the pronoun rewrite gone, the whose
+>   guard gone — mutants 3/3 killed.
+> · **Whole-card:** no unplanned gains (flip-diff exactly Razorkin); the drawing-player sentinel's other readers (Fate Unraveler / Underworld Dreams / Sheoldred / Smothering Tithe) are unchanged — their suites green
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Nekusar Wheels 89 → 90 — AT THE BAR.** Hulk stays 89 with only L rows (Arena, Balduvian Trading Post, Moonmist, Fire Nation Palace's until-end-of-combat mana, Mjölnir, Thunderclap's behold, World War Hulk, Avengers Tower, Earth's Mightiest Heroes) — §4.3 step 5 closes it at 89
+
 > ## 🎯 2026-09-05 (cron) — PHASE 3 · SOLID FOOTING — the attached bonus gated on a printed host keyword · **+1** · corpus 14,626 (42.7%) / 34,245
 > Suite **1567 files / 16,385 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 6/6 killed.**
 > · Phase 3 step 4 — an S row left in a deck at its ceiling (Light-Paws): "As long as enchanted creature has vigilance, it
