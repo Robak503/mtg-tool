@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · F6: Lembas (+1)** · suite **1523 files / 16,239** green · corpus 14536 / 34,245 · flip-diff +1 / 0 lost · mutants 3/3 killed
+
+> One wording: "its owner shuffles it into their library" joins the shuffle-self op the leave event already routed. Bumble Flower 81 → **82** (3 to the bar)
+> **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · F6: Continue? (+4)** · suite **1522 files / 16,237** green · corpus 14535 / 34,245 · flip-diff +4 / 0 lost · mutants 7/7 killed
 
 > A per-card "put there from the battlefield this turn" stamp, its enumerator gate, and the "choose … return …" pair folded into a multi-count reanimate. Bumble Flower 80 → **81** (4 to the bar); Othelm, Salvager of Ruin, Brought Back the unplanned gains — the same choose-then-return pair with filters the arm reads, audited from their printed text

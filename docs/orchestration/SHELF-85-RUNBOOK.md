@@ -78,11 +78,11 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shalai and Hallar Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Otharri Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Bumble Flower Combo | 81 | 4 | 9 | ⬜ Phase 2 |
+| Test | Bumble Flower Combo | 82 | 3 | 8 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**4 decks below 85 · 58 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**4 decks below 85 · 57 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -386,7 +386,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | F3 | Ms. Bumbleflower | cast → target opponent draws; +1/+1 counter on target creature; it gains flying | S | | ⬜ |
 | F4 | Academy Manufactor | Clue/Food/Treasure → one of each | S | a token-minting replacement (the Donatello class shares the seam) | ✅ (+1 — `tokenOneOfEach` on the doubler profile (the Took extra-Food seam); at the mint chokepoint each Clue/Food/Treasure in the batch spawns the two missing kinds raw in the same event, one pass per Manufactor the creator controls (two → three of each, the printed ruling); NOT multiplied by a token doubler — with Anointed Procession one Food is two of each in either replacement order; pinned: one Manufactor 1/1/1, a Soldier untouched, the opponent's Manufactor inert, two Manufactors 3/3/3, doubler 2/2/2) |
 | F5 | Study the Classics ✅ · Treebeard (sized UP 2026-09-05: a subtype-union target pool + "halfling" in the allowlist + a lifegain that-many-on-TARGET sentinel — three seams, ~1 card; the bare subtype-target vein is 24 uses corpus-wide) · Wave Goodbye ✅ · Secret Rendezvous ✅ · Riot Control ✅ · Kwain | counters/lifegain/mass bounce/draw shapes | S each | Wave Goodbye = mass bounce with a no-counter filter | ⬜ |
-| F6 | Heaped Harvest ✅ (+2 — the compound head's second half "when you sacrifice it" + the self-sac cost guard exemption; Carrot Cake rode along) · Elanor Gardner ✅ · Lembas · Sam, Loyal Attendant · Samwise Gamgee ✅ · Samwise the Stouthearted · Hot Soup ✅ · Field-Tested Frying Pan · Night of the Sweets' Revenge ✅ · Feasting Hobbit · Campsite Cuisine · Shoreline Looter ✅ · Archway of Innovation · Continue? ✅ | | S–M | the Food family: "when you sacrifice it" (S), "if you sacrificed a Food this turn" (S), devour Food (M), improvise grant (M) | ⬜ |
+| F6 | Heaped Harvest ✅ (+2 — the compound head's second half "when you sacrifice it" + the self-sac cost guard exemption; Carrot Cake rode along) · Elanor Gardner ✅ · Lembas ✅ · Sam, Loyal Attendant · Samwise Gamgee ✅ · Samwise the Stouthearted · Hot Soup ✅ · Field-Tested Frying Pan · Night of the Sweets' Revenge ✅ · Feasting Hobbit · Campsite Cuisine · Shoreline Looter ✅ · Archway of Innovation · Continue? ✅ | | S–M | the Food family: "when you sacrifice it" (S), "if you sacrificed a Food this turn" (S), devour Food (M), improvise grant (M) | ⬜ |
 | F7 | Eriette's Tempting Apple | gain control | ⛔ THEFT | | ⛔ |
 | F8 | COMPOSITE | Innkeeper's Talent · Killer Service · Long River's Pull · Mechanized Production · Peerless Recycling · Wear Down · Wedding Ring · Tamiyo, Field Researcher | size on approach | | ⬜ |
 
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · F6 Lembas (Bumble Flower) ✅ +1 corpus (the owner-voiced "its owner shuffles it into their library" joins the shuffle-self op; the leave event and resolver already routed) · mutants 3/3 killed · suite 1523 files / 16,239 · Bumble Flower 81 → **82** (3 to the bar)
 
 - 2026-09-05 — Phase 2 · F6 Continue? (Bumble Flower) ✅ +4 corpus (a per-card FROM-BATTLEFIELD-THIS-TURN stamp at the zone mover, an enumerator gate on it, a splitter fold + zones arm for the "choose … return …" pair with a multi-count reanimate) · mutants 7/7 killed · suite 1522 files / 16,237 · Bumble Flower 80 → **81** (4 to the bar); Othelm, Salvager of Ruin, Brought Back the unplanned gains — the same choose-then-return pair with filters the arm reads, audited from their printed text
 

@@ -16,6 +16,19 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · F6: LEMBAS — its owner shuffles it into their library · **+1** · corpus 14536 / 34,245
+> Suite **1523 files / 16,239** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
+> · "When this artifact is put into a graveyard from the battlefield, its owner shuffles it into their library." The ETB
+>   scry-then-draw and the Food line were native; the third parked on its WORDING alone — the self-PiG leave event and
+>   the shuffle-self-into-library op already routed for "shuffle it into its owner's library" (Fblthp), and the resolver
+>   already finds a source that has left for the graveyard and moves it graveyard → library before shuffling. The
+>   owner-voiced printing joins the arm. Inferno Hellion prints the wording on a different (end-step) head and stays.
+> · **Pins:** the third line detects as the self leave event with the shuffle-self effect and ROUTES; Lembas
+>   native-mixed; cracking it for life fires the leave trigger, the life resolves to 23, the graveyard is empty and
+>   Lembas is in the library. Mutants: the wording gone, a different op, the resolver blind to the graveyard — mutants 3/3 killed.
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Bumble Flower 81 → **82** (3 to the bar)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · F6: CONTINUE? — put there from the battlefield this turn · **+4** · corpus 14535 / 34,245
 > Suite **1522 files / 16,237** green; lint 0. Flip-diff **+4, zero LOST** (any unplanned gains audited whole-card). **mutants 7/7 killed.**
 > · "Choose up to four target creature cards in your graveyard that were put there from the battlefield this turn.

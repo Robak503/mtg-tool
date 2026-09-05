@@ -1028,7 +1028,10 @@ export function graveyardReturnClauseParser(clause) {
   // library impulses ride), so legalChoices' impulse lane offers it from exile on any later turn.
   // SHUFFLE SELF INTO LIBRARY (SHELF-85 K9, 2026-09-04 — Fblthp "shuffle this creature into its owner's library"): the
   // source permanent leaves the battlefield for its OWNER's library, which is then shuffled (CR 701.24).
-  if (/^shuffle (?:this creature|this permanent|it) into its owner's library$/.test(t)) return { op: "shuffle-self-into-library", targetType: null };
+  // + the OWNER-VOICED printing (SHELF-85 · Bumble F6 Lembas, 2026-09-05 — "When this artifact is put into a graveyard from the
+  // battlefield, its owner shuffles it into their library."; Inferno Hellion): the same op — the resolver already finds a
+  // source that has left for the graveyard (the self-triggered look-back) and moves it graveyard → library, then shuffles.
+  if (/^(?:shuffle (?:this creature|this permanent|it) into its owner's library|its owner shuffles (?:it|this card) into their library)$/.test(t)) return { op: "shuffle-self-into-library", targetType: null };
   const gxPlayM = /^exile target (.*?)cards? from your graveyard and you may play (?:it|that card) for as long as it remains exiled$/.exec(t);
   if (gxPlayM) {
     const cardFilter = parseGraveyardFilter(gxPlayM[1]);
