@@ -1388,7 +1388,10 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         if (!affordable) continue; // R1.5 — same printed-cost re-check as payLife above
         const discardable = player.hand.filter(h => h.id !== card.id);
         if (discardable.length < addCost.count) continue;
-        if (addCost.count > 1) {
+        if (addCost.random) {
+          // RG-7 (2026-09-05 — Sonic Burst): ONE action; the dispatcher picks the pitch at payment with the seeded rng.
+          for (const ch of combos) emit(ch, { discardRandom: true, discardName: "discard a card at random" });
+        } else if (addCost.count > 1) {
           // AC-1 (count-of-N) — "discard two/three… cards" (Cathartic Reunion). Reuse the each-player discard
           // least-valuable policy (autoPickDiscardCandidate: lowest MV, then power, then name, then id) to pick
           // EXACTLY N and offer ONE cast per target combo (freezing the N ids on `discardIds`).
@@ -2612,6 +2615,9 @@ function actionsActivateAbility(state, playerId) {
           seenNames.add(k);
           return true;
         });
+        // RG-7 (2026-09-05): a RANDOM discard is not a choice — ONE pseudo-victim (the dispatcher picks the card at payment
+        // with the seeded rng); an empty hand still means the cost can't be paid.
+        if (ab.discardRandom) discardVictims = (player.hand || []).length ? [{ id: null, name: "a random card", random: true }] : [];
         if (discardVictims.length === 0) continue; // nothing to discard → the cost can't be paid
       }
 
@@ -2750,6 +2756,7 @@ function actionsActivateAbility(state, playerId) {
             unattachEquipmentName: unattachVictim?.card?.name ?? null,
             discardCardId: discardVictim?.id ?? null,    // γ1h (DC-1) — the chosen hand card to pitch (cost)
             discardCardName: discardVictim?.name ?? null,
+            ...(discardVictim?.random ? { discardRandom: true } : {}), // RG-7 — the dispatcher picks the pitch with the seeded rng
             ...(ab.discardCardFilter ? { discardCardFilter: ab.discardCardFilter } : {}), // γ1h-TYPED — the dispatcher re-validates the pitch's front-face type
             ...(exileGyIds ? { exileGyIds, exileGyCount: ab.exileGyCount } : {}), // LANDS-4 — the N graveyard cards to exile (cost); the dispatcher re-verifies each
             ...(ab.activationLimit ? { oncePerTurnKey: `${perm.id}:${ab.raw}` } : {}), // ONCE-1 ledger key

@@ -170,7 +170,10 @@ describe("⭐ WIRING COMPLETENESS — the invariant behavioural tests cannot rea
     // 12 → 13 on 2026-08-07: runProgram.resolveSacUnlessPayChoice's discard arm (SAC-UNLESS-DISCARD, the
     // Masticore cycle). Tripwire fired again; `unwired` stayed empty — the new site fires
     // checkDiscardTriggers one line below its move. Count moves, invariant holds.
-    expect(sites).toBe(13);      // if this changes, a discard site was added or removed — read the diff
+    // 13 → 14 on 2026-09-05 (RG-7): actionDispatcher.pitchRandomHandCard — the seeded random-discard COST (Frenetic Ogre's
+    // activated cost, Sonic Burst's additional cost). Tripwire fired; `unwired` stayed empty — the helper fires
+    // checkDiscardTriggers on the line after its move. Count moves, invariant holds.
+    expect(sites).toBe(14);      // if this changes, a discard site was added or removed — read the diff
     expect(unwired).toEqual([]);
   });
 });

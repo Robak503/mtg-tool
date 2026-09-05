@@ -54,6 +54,19 @@ import {
   findPermanent,
   unattachEquipment,
 } from "./gameState.js";
+import { deterministicRng, advanceRngSeed } from "./gameState.js"; // RG-7 (2026-09-05) — the seeded random-discard pick at payment
+
+/** RG-7 — pitch ONE card at random from `playerId`'s hand (never `excludeId`) with the game's seeded rng, advancing the seed
+ *  (the shuffle discipline — a replay reproduces the pick). Throws when nothing can be pitched (the offer gated on a hand). */
+function pitchRandomHandCard(working, playerId, excludeId, kind) {
+  const pool = (working.players[playerId]?.hand || []).filter((c) => c.id !== excludeId);
+  if (!pool.length) throw new DispatcherError(`${kind} requires a random discard but the hand is empty`, "ADDCOST_UNPAID");
+  const seed = (working.rngSeed ?? 0) >>> 0;
+  const pick = pool[Math.floor(deterministicRng(seed)() * pool.length)];
+  let next = { ...working, rngSeed: advanceRngSeed(seed) };
+  next = moveCardToZone(next, { playerId, fromZone: "hand", toZone: "graveyard", cardId: pick.id });
+  return checkDiscardTriggers(next, playerId, 1);
+}
 import { tutorManaValue } from "./effects/atoms/library.js"; // γ1i (CAP14) — the shared MV reader the tutor / free-cast paths use, so "mana value" means ONE thing engine-wide
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
 import { manaSources, planPayment, sourcesExcludingOneShotVictim, commitPaymentPlan, commitManaTap, payManaCost } from "./manaModel.js";
@@ -551,6 +564,8 @@ function applyCastSpell(state, action) {
         // codebase already assigned the result, which is what made the omission invisible.
         working = checkDiscardTriggers(working, action.playerId, 1);
       }
+    } else if (ac.kind === "discard" && action.discardRandom) {
+      working = pitchRandomHandCard(working, action.playerId, action.cardId, "Spell"); // RG-7 — never the spell itself (it is on the stack)
     } else if (ac.kind === "discard") {
       if (!action.discardCardId) throw new DispatcherError("Spell requires an additional discard cost but no card was chosen", "ADDCOST_UNPAID");
       if (!working.players[action.playerId]?.hand.some(c => c.id === action.discardCardId)) {
@@ -1356,6 +1371,7 @@ function applyActivateAbility(state, action) {
   // (CR 601.2h / 701.8 — a discard from a cost is still a discard; the graveyard-entry event records via
   // moveCardToZone's chokepoint). The card is re-resolved against the LIVE hand; a missing card is a hard
   // error so we never silently under-pay (CREED). Done BEFORE the ability goes on the stack.
+  if (action.discardRandom) working = pitchRandomHandCard(working, action.playerId, null, "Activated ability"); // RG-7
   if (action.discardCardId) {
     const pitched = (working.players[action.playerId]?.hand || []).find((c) => c.id === action.discardCardId);
     if (!pitched) throw new DispatcherError(`Discard-cost card ${action.discardCardId} not in hand`, "CARD_NOT_FOUND");

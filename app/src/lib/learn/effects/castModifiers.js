@@ -70,6 +70,7 @@ const PAYMANA_COST_RE = /^pay ((?:\{[^}]+\})+)$/i;
 const REVEAL_HAND_COST_RE = /^reveal an? ([A-Z][a-z]+) card from your hand$/;
 const DISCARD_COST_RE = /^discard (?:a|an|one) card$/i;            // ADDCOST-2 — the N=1 form
 const DISCARD_COUNT_COST_RE = /^discard (two|three|four|five) cards$/i; // AC-1 (count-of-N) — "discard two/three… cards" (Cathartic Reunion)
+const DISCARD_RANDOM_COST_RE = /^discard (?:a|an|one) card at random$/i; // RG-7 (2026-09-05) — Sonic Burst / Acceptable Losses / Sonic Seizure: the seeded-rng pitch at payment
 // ADDCOST-3 (census slice 33) — "exile a <type> card from your graveyard" (Makeshift Mauler, Stitched
 // Drake class). SINGULAR ONLY, exactly how the sacrifice lane started: the count-N forms ("exile two/three
 // creature cards") and every X form ("exile X cards from your graveyard") stay unmodeled → Arbiter, a safe
@@ -149,6 +150,8 @@ function parseOneAdditionalCost(phrase) {
   // read back; selfRef stays null like payLife/payMana.
   const reveal = REVEAL_HAND_COST_RE.exec(p);
   if (reveal) return { cost: { kind: "revealFromHand", subtype: reveal[1].toLowerCase() }, selfRef: null };
+  // (RG-7's random pitch lives ONLY in extractAdditionalCosts below — this compound-half parser has no printed carrier
+  // for it, and an unexercised arm here survived its mutant; deleted rather than left dead.)
   const disc = DISCARD_COST_RE.exec(p);
   if (disc) return { cost: { kind: "discard", count: 1 }, selfRef: /\bdiscarded\b/i };
   const discN = DISCARD_COUNT_COST_RE.exec(p);
@@ -172,6 +175,7 @@ export function extractAdditionalCosts(oracle) {
   const sacN = SAC_COUNT_COST_RE.exec(phrase);   // AC-1 count-of-N — tried only when the N=1 singular form misses
   const life = PAYLIFE_COST_RE.exec(phrase);
   const lifeX = PAYLIFE_X_COST_RE.exec(phrase);   // TOXIC DELUGE — pay X life (X chosen at cast, bound to the body's X)
+  const discR = DISCARD_RANDOM_COST_RE.exec(phrase); // RG-7 — the random pitch
   const disc = DISCARD_COST_RE.exec(phrase);
   const discN = DISCARD_COUNT_COST_RE.exec(phrase); // AC-1 count-of-N
   const exGy = EXILE_GY_COST_RE.exec(phrase);      // ADDCOST-3 — exile a typed card from your own graveyard
@@ -203,6 +207,7 @@ export function extractAdditionalCosts(oracle) {
   // path enumerates X bounded by the caster's LIFE (CR 119.4) and loseLife-charges it — gated by
   // SUPPORTED_ADDITIONAL_COST_KINDS until that enforcement exists.
   else if (lifeX) { cost = { kind: "payLifeX" }; }
+  else if (discR) { cost = { kind: "discard", count: 1, random: true }; selfRef = /\bdiscarded\b/i; } // RG-7 — the random pitch
   else if (disc) { cost = { kind: "discard", count: 1 }; selfRef = /\bdiscarded\b/i; } // N=1 — BYTE-IDENTICAL
   else if (discN) { cost = { kind: "discard", count: SMALL_NUM[discN[1].toLowerCase()] }; selfRef = /\bdiscarded\b/i; } // AC-1 N>1
   // ADDCOST-3: the paid card is EXILED, so an effect reading it back ("the exiled card") can't be fed the

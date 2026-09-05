@@ -431,6 +431,7 @@ export function parseAbilityCost(costStr, card = null) {
   let unattachEquipment = null; // γ1i — "Unattach an Equipment from <self>" (CAP14): a chosen attached Equipment
   let discardCard = 0;
   let discardCardFilter = null; // γ1h-TYPED — "Discard a creature card" (Tortured Existence)
+  let discardRandom = false;    // RG-7 (2026-09-05) — "Discard a card at random": no choice; the dispatcher picks with the seeded rng
   let exileGyCount = null;      // LANDS-4 — "Exile N [<type>] cards from your graveyard" (Mines of Moria, Grim Lavamancer)
   for (const item of items) {
     if (/^\{t\}$/i.test(item)) { tapSelf = true; continue; }
@@ -441,6 +442,10 @@ export function parseAbilityCost(costStr, card = null) {
     // hand → graveyard BEFORE the ability goes on the stack (CR 601.2h — never activate without paying).
     // Whole-item anchored ($): a COUNT ("discard two cards"), a filter ("discard a creature card"), or
     // "discard your hand" doesn't match → null (deferred, a safe FN).
+    // RANDOM DISCARD COST (residue grind RG-7, 2026-09-05 — Frenetic Ogre "{R}, Discard a card at random: …", Ogre Shaman,
+    // Pyromania, Stormbind, Amok, Coral Helm …): the same one-card pitch, but NOT a choice — legalChoices offers ONE action
+    // and the dispatcher picks the card at payment with the game's seeded rng (replay-stable). Whole-item anchored.
+    if (/^discard a card at random$/i.test(item)) { discardCard = 1; discardRandom = true; continue; }
     if (/^discard a card$/i.test(item)) { discardCard = 1; continue; }
     // γ1h-TYPED (Tortured Existence "{B}, Discard a creature card: …", 2026-08-15): the TYPED discard
     // cost — same choice shape, the hand pool narrowed to cards whose FRONT-FACE type line carries the
@@ -668,7 +673,7 @@ export function parseAbilityCost(costStr, card = null) {
     if (!pips.every(pipIsMana)) return null;                      // {X}{X}/{Q}/{E}/… → unmodeled ({S} IS mana, SN-1)
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
-  return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, unattachEquipment, discardCard, discardCardFilter, costX, exileGyCount };
+  return { manaPips, tapSelf, payLife, payEnergy, sacSelf, sacOther, sacCount, sacX, exileSelf, removeCounter, tapCreature, returnLand, unattachEquipment, discardCard, discardCardFilter, discardRandom, costX, exileGyCount };
 }
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
@@ -1435,6 +1440,7 @@ export function parseActivatedAbilities(card) {
       discardCard: cost?.discardCard ?? 0,     // γ1h — "Discard a card": legalChoices expands per distinct hand card (DC-1)
       exileGyCount: cost?.exileGyCount ?? null, // LANDS-4 — "Exile N [<type>] cards from your graveyard": legalChoices freezes N victims (exileGyIds)
       discardCardFilter: cost?.discardCardFilter ?? null, // γ1h-TYPED — "Discard a creature card" (Tortured Existence): the victim pool narrows to the front-face type
+      discardRandom: cost?.discardRandom ?? false,        // RG-7 — "Discard a card at random": ONE action; the dispatcher picks with the seeded rng
       returnLand: cost?.returnLand ?? null,    // γ1g — "Return a land you control to its owner's hand": legalChoices picks the land, dispatcher bounces it
       unattachEquipment: cost?.unattachEquipment ?? null, // γ1i (CAP14) — "Unattach an Equipment from <self>": legalChoices picks the Equipment, dispatcher unattaches it + threads its mana value
       costModeled: !!cost,

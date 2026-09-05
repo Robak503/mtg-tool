@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-05 (cron) — **RESIDUE GRIND RG-7 · discard a card at random (+16)** · suite **1578 files / 16411 tests** green · corpus 14,730 (43.0%) / 34,245 · flip-diff +16 / 0 lost · mutants 5/5 killed (one survivor resolved: the compound-half parser's copy of the arm had no printed carrier — deleted, not left dead)
+
+> **Runnable next:** re-run the census (seven slices have landed since 2026-09-05's), then its first buildable family. Still banked from this pass: the Powerstone token (the quartet's restricted-spend lane), "unless {G} was spent to cast it" (a payment stamp onto the entering permanent), "the color of your choice" (a choice), the ETB "sacrifice it unless you discard a card at random" (the sac-unless lane's cost payment — the same random pick, a follow-up).
+> A random discard is paid by the game's seeded rng at payment time — one action, no phantom choice, replay-stable.
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **RESIDUE GRIND RG-6 · becomes colorless (+3)** · suite **1577 files / 16407 tests** green · corpus 14,714 (43.0%) / 34,245 · flip-diff +3 / 0 lost · mutants 2/2 killed
 
 > **Runnable next:** the "discard a card at random" COST — one mechanism (a seeded random pick at payment) that pays across the census's additional-cost row (Sonic Burst family, 3 sole), the activated-cost rows ("{C}, discard a card at random: …" — Frenetic Ogre, Ogre Shaman, Pyromania, Stormbind, Amok, Coral Helm… ~10 sole across shapes) and the ETB "sacrifice it unless you discard a card at random" (3 sole). Banked this pass: the Powerstone token (the quartet's restricted-spend lane), "unless {G} was spent" (a new payment stamp), "the color of your choice" (a choice).

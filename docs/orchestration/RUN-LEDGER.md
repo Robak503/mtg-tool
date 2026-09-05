@@ -16,6 +16,23 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — RESIDUE GRIND RG-7 · DISCARD A CARD AT RANDOM (the cost — Frenetic Ogre / Ogre Shaman / Pyromania / Sonic Burst …) · **+16** · corpus 14,730 (43.0%) / 34,245
+> Suite **1578 files / 16411 tests** green; lint 0. Flip-diff **+16, zero LOST** (every unplanned gain audited whole-card). **mutants 5/5 killed (one survivor resolved: the compound-half parser's copy of the arm had no printed carrier — deleted, not left dead).**
+> · One mechanism the census printed as a dozen rows: "discard a card at random" as a COST — the activated form ("{R},
+>   Discard a card at random: …", ~10 sole blockers across shapes) and the additional-cost form ("As an additional cost to
+>   cast this spell, discard a card at random." — 3 sole). The chosen-discard cost already ran on both lanes (one action per
+>   hand card; the dispatcher pitches the chosen one). A random discard is NOT a choice: the offer is ONE action carrying
+>   `discardRandom`, and the dispatcher picks the card at PAYMENT with the game's seeded rng (deterministicRng off
+>   state.rngSeed, then the seed advances — the shuffle discipline, so a replay reproduces the pick; pinned). The spell
+>   being cast is never its own pitch. An empty hand offers nothing. Parsers: abilities.js (the cost item), castModifiers.js
+>   (both extract sites).
+> · **Pins:** the carriers native. RUNTIME: a three-card hand yields ONE activation; paying it pitches one card, advances the
+>   seed, replays identically, and the pump reaches the stack; Sonic Burst pitches one of the OTHER cards and goes to the
+>   stack. Mutants: the ability-cost arm gone, the additional-cost arm gone, the seed not advanced (the replay pin), the
+>   activated offer emitting per-card choices again — mutants 5/5 killed (one survivor resolved: the compound-half parser's copy of the arm had no printed carrier — deleted, not left dead).
+> · **Whole-card:** 16 flips, each read whole-card: the activated family (Frenetic Ogre, Ogre Shaman, Pyromania, Stormbind, Amok, Coral Helm, Mage il-Vec, Canyon Drake, Pardic Swordsmith, Pardic Lancer, Dwarven Strike Force, Hell-Bent Raider, Draconian Cylix) and the additional-cost family (Sonic Burst, Sonic Seizure, Acceptable Losses) — every other line on them was already modeled; zero LOST, zero retiered. discardTrigger.test.js's wiring tripwire fired (13 → 14 hand→graveyard sites) exactly as designed — the new site fires checkDiscardTriggers, the count moved, the invariant held; the rerun is the green of record
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 > ## 🎯 2026-09-05 (cron) — RESIDUE GRIND RG-6 · BECOMES COLORLESS (Raging Spirit / Ancient Kavu / Blazing Blade Askari) · **+3** · corpus 14,714 (43.0%) / 34,245
 > Suite **1577 files / 16407 tests** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 2/2 killed.**
 > · Scoped and BANKED before this one (the triage ledger, per RESIDUE-GRIND-RUNBOOK §3.5): the tapped Powerstone ETB (the
