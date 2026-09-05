@@ -16,6 +16,19 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🅿 2026-09-06 (cron) — RESIDUE GRIND · the vein is dry at this census — two more families scoped and BANKED
+> · **Buyback (all forms)** — the census prints it as five rows (mana, sacrifice a land, discard N, pay N life, and compounds). The
+>   mana form is deliberately NOT stripped as a vacuous keyword: its return-to-hand changes the resolution (textNormalize's
+>   madness note names exactly this FP). A real build = an OPTIONAL additional cost at the offer (mana merged into the cost, or a
+>   land sacrifice through the sac-a-permanent plumbing) + a `buyback` stamp on the stack object + a resolution finalizer that
+>   hands the card back instead of graveyarding it. New zone behaviour at resolution — subsystem-class, not a residue slice.
+> · **The Clockwork family** ("whenever this creature attacks or blocks, remove a +1/+1 counter from it at end of combat", 4 sole)
+>   — a delayed end-of-combat effect from a combat trigger: the delayed-trigger lane (Tempestra / Shredder's end-of-combat
+>   sacrifice was sized L on the shelf for the same reason).
+> · Everything above them in the census is sub-game or CHOICE machinery. Eight residue families shipped today after SHELF-85
+>   closed (+37 corpus, 14,696 → 14,733 · 43.0%); the vein at ≥3 sole blockers with existing machinery is exhausted. Next for
+>   a seat: the QUARTET (Colton's ordered subsystems), which is also what unparks the choice rows and the Powerstone token.
+
 > ## 🎯 2026-09-06 (cron) — RESIDUE GRIND RG-8 · THE BRINGERS' OWN FIVE-PIP ALTERNATIVE COST · **+3** · corpus 14,733 (43.0%) / 34,245
 > Suite **1579 files / 16413 tests** green; lint 0. Flip-diff **+3, zero LOST** (every unplanned gain audited whole-card). **mutants 5/5 killed.**
 > · The 21:30Z census's first buildable family: "You may pay {W}{U}{B}{R}{G} rather than pay this spell's mana cost." (the five

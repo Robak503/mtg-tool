@@ -9,7 +9,7 @@
 
 ## 🎯 2026-09-06 (cron) — **RESIDUE GRIND RG-8 · the Bringers' own five-pip alternative cost (+3)** · suite **1579 files / 16413 tests** green · corpus 14,733 (43.0%) / 34,245 · flip-diff +3 / 0 lost · mutants 5/5 killed
 
-> **Runnable next:** "Buyback—Sacrifice a land" (3 sole, popular — buyback with a non-mana cost) and the Clockwork family ("whenever this creature attacks or blocks, remove a +1/+1 counter from it at end of combat", 4 sole). Then re-run the census.
+> **Runnable next — the residue vein is DRY at this census (2026-09-06 ~00:30Z).** Scoped and BANKED with verdicts: **buyback** in every form (the mana form is deliberately NOT stripped — its return-to-hand changes the resolution, textNormalize's madness note; "Buyback—Sacrifice a land" needs the same build: an optional additional cost + a resolution finalizer that hands the card back — new zone behaviour, a subsystem-class slice; Spell Burst / Constant Mists / Pegasus Stampede / Reaping the Rewards wait on it) · the **Clockwork** family (a delayed end-of-combat counter removal — the delayed-trigger lane) · everything above them is sub-game or CHOICE machinery (initiative, double team, attractions, specialize, stickers, contraptions, the Ring, planechase, incubate, manifest dread, exert, "of your choice"). A booting seat should take the **QUARTET** (Colton's ordered subsystems — `docs/orchestration/SUBSYSTEM-QUARTET-PLAN.md`: choice-eval · decision log · auditor+replay · restricted-spend mana), which is also what unparks the choice rows and the Powerstone token; re-run the census after it lands.
 > The Bringers cast for {W}{U}{B}{R}{G} through a second cast action; Red Dawn stays parked on its gain-control upkeep.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
