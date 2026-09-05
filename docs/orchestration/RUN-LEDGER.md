@@ -16,6 +16,32 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · O10: INTI — the batched discard + the next-end-step window · **+3** · corpus 14506 / 34,245
+> Suite **1511 files / 16,203** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 9/9 killed (the splitter-fold survivor became the Haste Magic pin).**
+> · "Whenever you discard one or more cards, exile the top card of your library. You may play that card until your next
+>   end step." Inti's first line (the reflexive discard → counter + trample) was already native; the second parked on
+>   two phrases. (1) THE BATCHED DISCARD EVENT — 12 printings (Toluz, Dying to Serve, Cryptcaller Chariot, Rielle …):
+>   one firing per discard event however many cards (CR 603.2d). A once-per-batch descriptor; checkDiscardTriggers
+>   fires the per-card form `count` times and keeps the batch form on the first pass only, then dedupes against an
+>   unflushed pending firing from the same source (the Satoru mechanism), so a discard cost paid card by card still
+>   fires once. (2) THE NEXT-END-STEP WINDOW — 5 printings (Opera Love Song, Haste Magic, Dragonhawk …): CR 500.2 /
+>   118.10 — on the controller's own turn before the end step it is THIS turn's end step (the plain this-turn stamp);
+>   on any other turn, or during their own end step, it is their NEXT turn's (the extended owner-turn stamp). The
+>   matcher marks the flag "nextEndStep" and the resolver decides from the live turn — never from the parse.
+> · **A survivor that named its own pin:** the splitter's two-sentence fold was widened to the new window and its
+>   mutant SURVIVED on Inti — a trigger's effect text reaches the template whole, so the fold never ran for her. It
+>   runs for a SPELL: Haste Magic ("Target creature gets +3/+1 and gains haste … Exile the top card … You may play it
+>   until your next end step.") flipped native-spell on exactly that fold, and is now the pin that kills the mutant
+>   (audited whole-card: the pump, the haste, the impulse — all modelled). Opera Love Song / Aether Racing still park
+>   on their OTHER modes (a one-or-two target count; tiered team modes).
+> · **Pins:** the arm carries oncePerBatch, the matcher reads the window, Inti native-trigger; Haste Magic native-spell; a two-card discard fires
+>   once and a card-by-card pair fires once; own-turn main → the plain stamp; an opponent's turn → the extended
+>   owner stamp; own end step → the extended stamp. Mutants: the arm, the missing flag, the in-call dedupe, the
+>   cross-call dedupe, the matcher, the plain-extended emit, the this-turn-everywhere resolver, the end-step edge,
+>   the splitter fold — mutants 9/9 killed (the splitter-fold survivor became the Haste Magic pin).
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Otharri 83 → **84** (1 to the bar); Dying to Serve the second unplanned gain, audited whole-card (batched discard → tapped Zombie, once each turn — all modelled)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · O10: OTHARRI'S SELF-RETURN — the tap-an-untapped cost · **+2** · corpus 14503 / 34,245
 > Suite **1510 files / 16,197** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
 > · "{2}{R}{W}, Tap an untapped Rebel you control: Return this card from your graveyard to the battlefield tapped." The

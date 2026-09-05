@@ -1088,9 +1088,16 @@ export function applyImpulseExileAtom(state, atom, ctx) {
   // correct for BOTH castings and is why the owner is carried rather than a computed expiry turn:
   //   cast on YOUR turn T      → T's cleanup keeps it (stamp is not < T); your next turn's cleanup strips.
   //   cast on an OPPONENT's T  → T's cleanup skips it (wrong owner); your upcoming turn's cleanup strips.
+  // NEXT-END-STEP (Inti, 2026-09-05 — "until your next end step"): on the controller's OWN turn before the end step,
+  // the next end step is THIS turn's → the plain this-turn stamp (cleanup strips it); on any other turn, or during the
+  // controller's own end step, it is the end step of their NEXT turn → the extended stamp (the owner-turn lapse rule
+  // above). Decided here, at resolution, from the live turn — never from the parse.
+  const extended = atom?.extendedWindow === "nextEndStep"
+    ? !(state.activePlayer === controller && state.step !== "end" && state.step !== "cleanup")
+    : !!atom?.extendedWindow;
   const stamped = taken.map((c) => ({
     ...c, _impulse: true, _impulseTurn: state.turn,
-    ...(atom?.extendedWindow ? { _impulseExtended: true, _impulseOwner: controller } : {}),
+    ...(extended ? { _impulseExtended: true, _impulseOwner: controller } : {}),
   }));
   const next = {
     ...state,

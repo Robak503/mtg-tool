@@ -530,6 +530,17 @@ export function matchImpulseExilePlay(oracle) {
   // is why it needed its own flag rather than a bigger number: `state.turn` counts PLAYER turns, so "your
   // next turn" is not `turn + 1` in multiplayer. The expiry is decided at cleanup by the OWNER + stamp turn
   // (see applyImpulseExileAtom), never by arithmetic on the turn counter.
+  // NEXT-END-STEP WINDOW (SHELF-85 · Otharri O10 Inti, 2026-09-05 — "You may play that card until your next end step.";
+  // Opera Love Song / Now THIS Is Aether Racing / Haste Magic / Dragonhawk print the plural). CR 500.2 / 118.10: "your next
+  // end step" is THIS turn's end step when the permission is granted on your own turn before it, and the end step of
+  // your NEXT turn otherwise (an opponent's turn, or your own end step). The resolver decides which at resolution —
+  // the flag value "nextEndStep" (not `true`) tells it to.
+  const ne = s.match(/^exile the top (card|two cards|three cards|four cards|five cards) of your library\. you may play (?:that card|it|them|those cards) until your next end step$/);
+  if (ne) {
+    const neWord = ne[1] === "card" ? "one" : ne[1].split(" ")[0];
+    const neCount = NUM[neWord] || 1;
+    return { atom: { op: "impulse-exile", targetType: null, ...(neCount > 1 ? { count: neCount } : {}), extendedWindow: "nextEndStep" } };
+  }
   const e = s.match(/^exile the top (card|two cards|three cards|four cards|five cards) of your library\. (?:you may play (?:that card|it|them|those cards|cards exiled this way) until the end of your next turn|until the end of your next turn, you may play (?:that card|it|them|those cards))$/);
   if (!e) return null;
   const eWord = e[1] === "card" ? "one" : e[1].split(" ")[0];

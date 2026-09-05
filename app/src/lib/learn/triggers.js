@@ -2038,6 +2038,12 @@ function classifyCondition(condRaw, cardName, cardType) {
   // the battlefield and the discarded card is in hand, so "another" is satisfied by construction — there is
   // no case where the source could be the discarded card.
   if (/^you (?:cycle or discard|discard) (?:a|another) card$/.test(c)) return { event: "discarded", scope: "youDiscard", whose: "any" };
+  // BATCHED DISCARD (SHELF-85 · Otharri O10 Inti, 2026-09-05 — "Whenever you discard one or more cards"; 12 printings:
+  // Toluz, Dying to Serve, Cryptcaller Chariot, Rielle …): ONE firing per discard event however many cards it held
+  // (CR 603.2d). checkDiscardTriggers fires the per-card form `count` times; a once-per-batch descriptor fires on the
+  // first pass only, and is deduped against an unflushed pending firing from the same source (the Satoru mechanism)
+  // so a multi-card discard executed as several single-card calls still fires once.
+  if (/^you discard one or more cards$/.test(c)) return { event: "discarded", scope: "youDiscard", whose: "any", oncePerBatch: true };
   // TRIG-DRAW2 — "draw your second card each turn" (the draw-doubler payoff). Anchored to the BARE
   // second-card form (each/this turn); a different ordinal ("first/third"), scaled, or rider variant stays
   // UNDETECTED → Arbiter. Same whose:"any" + scan-only-the-drawer as cardDrawn; fires ONCE when the draw
@@ -8150,12 +8156,21 @@ export function checkDiscardTriggers(state, discardingPlayerId, count = 1) {
   // fire off its own controller's discard — two over-fires, in opposite directions, from one omission.
   for (const perm of triggerSourcesOf(state, discardingPlayerId)) {
     for (let i = 0; i < count; i++) {
-      fired = fired.concat(triggersForEvent(state, { event: "discarded", sourcePermanent: perm, triggeringContext: { discardingPlayerId },
-        scopeFilter: (s) => s === "youDiscard" }));
+      const batch = triggersForEvent(state, { event: "discarded", sourcePermanent: perm, triggeringContext: { discardingPlayerId },
+        scopeFilter: (s) => s === "youDiscard" });
+      // ONCE-PER-BATCH ("one or more cards" — Inti): the first pass carries it, later passes drop it (CR 603.2d).
+      fired = fired.concat(i === 0 ? batch : batch.filter((t) => !t?.descriptor?.oncePerBatch));
     }
   }
   if (!fired.length) return state;
-  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+  // ONCE-PER-BATCH across CALLS: a discard cost paid card by card (the gy-recursion handler loops per card) reaches this
+  // function once per card — an unflushed pending firing from the same once-per-batch source drops the repeat.
+  const pending = state.pendingTriggers || [];
+  const srcOf = (t) => t.sourcePermanentId ?? t.context?.sourcePermanentId ?? null;
+  const kept = fired.filter((t) => !t.descriptor?.oncePerBatch
+    || !pending.some((q) => q.descriptor?.oncePerBatch && srcOf(q) === srcOf(t) && q.descriptor?.sourceText === t.descriptor?.sourceText));
+  if (!kept.length) return state;
+  return { ...state, pendingTriggers: [...pending, ...kept] };
 }
 
 /**

@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Inti, Seneschal of the Sun** — a discard of any size fires once; the exiled card stays playable until your next end step
 - **Otharri, Suns' Glory** (the self-return), **Purple Pentapus** — "tap an untapped <X> you control" as a cost to return the card from the graveyard
 - **Tithe** — a second Plains when the targeted opponent controls more lands than you (declinable)
 - **Reroute Systems**, **Loran's Escape** — keyword grants on an artifact OR a creature (either side)

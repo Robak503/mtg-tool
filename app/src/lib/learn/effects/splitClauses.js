@@ -285,7 +285,7 @@ export function splitClauses(oracle) {
       // its power twice — the forbidden direction). Both halves anchored, so only this exact pair reassembles.
       || (/^if you do, this creature assigns no combat damage this turn$/i.test(sentence)
           && /^you may have it deal damage equal to its power to target creature$/i.test(prev))
-      || (/^(?:until the end of your next turn, you may play|you may play (?:that card|it|them|those cards|cards exiled this way) until the end of your next turn)/i.test(sentence)
+      || (/^(?:until the end of your next turn, you may play|you may play (?:that card|it|them|those cards|cards exiled this way) until (?:the end of your next turn|your next end step))/i.test(sentence) // + "until your next end step" (Inti, 2026-09-05)
           && /^exile the top (?:card|two cards|three cards|four cards|five cards) of your library$/i.test(prev))
       // CZ-COMMANDER-VISIT (Hellkite Courser, 2026-08-14) — the three-sentence ETB is ONE instruction
       // (fetch + haste + the delayed return); both continuations fold onto their exact leads, so this can
