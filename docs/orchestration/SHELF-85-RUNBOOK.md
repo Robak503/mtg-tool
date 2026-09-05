@@ -80,9 +80,9 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Otharri Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Bumble Flower Combo | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Test | Atraxa Superfriends | 72 | 13 | 18 | ⬜ Phase 2 |
-| Test | Light-Paws Voltron | 68 | 17 | 22 | ⬜ Phase 2 |
+| Test | Light-Paws Voltron | 69 | 16 | 21 | ⬜ Phase 2 |
 
-**3 decks below 85 · 36 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**3 decks below 85 · 35 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -433,7 +433,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | L2 | Chains of Custody ×2 · Sheltered by Ghosts ×2 · Detainment Spell ×2 | | V15 | |✅ |
 | L3 | Light-Paws, Emperor's Voice | aura you cast enters → tutor an Aura with lesser MV onto the battlefield attached | M | the deck's engine; an aura-cast watcher + tutor-to-battlefield-attached | ⬜ |
 | L4 | Face of Divinity · Solid Footing · Gauntlets of Light · Greater Auramancy · Umbra Mystic · Shielded by Faith · Brilliant Wings · Sentinel's Mark · Shardmage's Rescue · Celestial Mantle · With Great Power · Mantle of the Ancients | aura statics and triggers | S–M | Gauntlets/Solid Footing = "assigns combat damage equal to its toughness" (the layer op EXISTS: assignsCombatDamageWithToughness — S); Greater Auramancy = team shroud on enchanted creatures (S); Shielded by Faith / Brilliant Wings = a re-attach on ETB (M) | ⬜ |
-| L5 | Winds of Rath · Karametra's Blessing · Enter the Avatar State · Deafening Silence · Drannith Magistrate | spells and statics | S / S / M / M / M | | ⬜ |
+| L5 | Winds of Rath ✅ (+{GAIN} — the enchanted predicate) · Karametra's Blessing (sized M — an "enchanted creature or enchantment creature" bound rider) · Enter the Avatar State · Deafening Silence (sized M — a per-turn noncreature cast count) · Drannith Magistrate (sized M — a cast-zone lock) | spells and statics | S / M / M / M / M | | 🔶 |
 | L6 | COMPOSITE | Angelic Destiny · Benevolent Blessing · Darksteel Mutation · Daybreak Coronet · Galadriel's Dismissal · On Thin Ice · Pariah · Pearl-Ear · Plaza of Heroes · Restoration Magic · Reverent Mantra · Silent Arbiter · Spectra Ward · Spirit Mantle · Swift Reconfiguration · Trouble in Pairs | size on approach | | ⬜ |
 
 ### 5.13 Kinnan Mana Overload — 72% · needs 13 · cEDH (NEXT after Killer Turts — Colton 09-05 override)
@@ -478,6 +478,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · L5 Winds of Rath (Light-Paws) ✅ +1 corpus (the ENCHANTED predicate — a creature with an Aura attached, whoever controls the Aura (CR 303.4) — as a restriction kind, negated on the every-creature wipe; the regeneration rider already stamped) · mutants 4/4 killed (one survivor got its missing test) · suite 1544 files / 16,311 · Light-Paws 68 → **69** (16 to the bar)
 
 - 2026-09-05 — Phase 2 · Q3 Baxter, Fly in the Ointment (Halfshell) ✅ +1 corpus (the COUNTER-FILTERED group keyword grant — "each creature you control with a counter on it gains <kw> until end of turn" — the existing group grant with its counter filter widened to any kind) · mutants 3/3 killed · suite 1543 files / 16309 · Halfshell 78 → **79** (6 to the bar) — HALFSHELL CEILING for Phase 2: every remaining row sizes M+ (Turtle Lair's subtype-union unblockable + spend words, Endless Foot Assault's per-opponent attacking tokens, Exploding Barrel, Mole Module, Coin of Mastery, Raphael, Special Move's two low modes) or L (Heroes in a Half Shell's plural subject list + batch referent, Foot Chopper / Bebop / Together Forever / Dimension X's if-you-do and reflexive lanes, Vigor, Krang, Shredder, Irma, Tempestra, Fast Forward, Shellshock, Double Jump); per §2.4 the order moves to Light-Paws (68)
 

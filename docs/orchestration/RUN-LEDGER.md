@@ -16,6 +16,20 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · L5: WINDS OF RATH — the enchanted predicate · **+1** · corpus 14,582 / 34,245
+> Suite **1544 files / 16,311** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed (one survivor got its missing test).**
+> · Light-Paws opens (68, needs 17; the runbook's 61 was stale). "Destroy all creatures that aren't enchanted. They can't
+>   be regenerated." The every-creature wipe with a restriction already ships and the regeneration rider is stripped and
+>   stamped on the destroy atom; the PREDICATE was missing. ENCHANTED (CR 303.4) is a creature with an Aura attached —
+>   whoever controls the Aura, unlike MODIFIED (which wants the controller's own Aura, or a counter, or Equipment). One
+>   restriction kind reading the attached permanents for an Aura, negated here; one mass-destroy arm carrying it.
+> · **Pins:** the atom with its negated restriction and the regeneration stamp; the bare form without the stamp; Winds
+>   native; RUNTIME — through the real cast your enchanted creature AND the opponent's creature under YOUR Aura both
+>   live, the bare creatures on both sides die. Mutants: the arm gone, the negation dropped (the enchanted ones die),
+>   the kind restricted to the controller's own Aura, the kind counting any attachment (Equipment) — mutants 4/4 killed (one survivor got its missing test).
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Light-Paws 68 → **69** (16 to the bar)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · Q3: BAXTER, FLY IN THE OINTMENT — the counter-filtered group grant · **+1** · corpus 14,581 / 34,245
 > Suite **1543 files / 16309** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
 > · "Whenever Baxter enters or attacks, each creature you control with a counter on it gains flying until end of turn."

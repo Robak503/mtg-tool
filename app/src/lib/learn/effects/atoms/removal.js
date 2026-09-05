@@ -1040,6 +1040,10 @@ export function destroyExileClauseParser(clause) {
   // flag every token-creating path stamps). Sits BEFORE the subtype arm below, which would otherwise read the
   // word as "non" + "token" (it nulled safely — "token" is no curated subtype — but it must never CLAIM it).
   if (/^destroy all nontoken creatures$/.test(t)) return { op: "destroy", targetType: "eachCreature", restrictions: [{ kind: "token", negate: true }] };
+  // NOT-ENCHANTED wipe (SHELF-85 · Light-Paws L5 — Winds of Rath, 2026-09-05): "destroy all creatures that aren't enchanted"
+  // — the every-creature wipe with the ENCHANTED restriction negated (an Aura attached, whoever controls it — CR 303.4).
+  // The "They can't be regenerated." rider is stripped and stamped by the parser as on every other wipe.
+  if (/^destroy all creatures that aren't enchanted$/.test(t)) return { op: "destroy", targetType: "eachCreature", restrictions: [{ kind: "enchanted", negate: true }] };
   // OPPONENT-CREATURE MASS DESTROY (SHELF-85 · Halfshell Q4 — Swift Demise, 2026-09-05): "destroy each creature you don't
   // control [that was dealt damage this turn]" — the mass BOUNCE family's eachOpponentCreature scope on the destroy op
   // (an asymmetric sweep: never the caster's own creatures), with the optional dealt-damage rider as the shared

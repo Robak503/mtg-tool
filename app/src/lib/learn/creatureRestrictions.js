@@ -86,6 +86,18 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions,
       const has = r.counterType ? (counters[r.counterType] || 0) > 0 : Object.values(counters).some((n) => (n || 0) > 0);
       // H9 (Damning Verdict "with no counters on them"): the negated form — a creature WITH a counter is excluded.
       if (r.negate ? has : !has) return false;
+    } else if (r.kind === "enchanted") {
+      // ENCHANTED (CR 303.4 — SHELF-85 · Light-Paws L5 Winds of Rath "destroy all creatures that aren't enchanted",
+      // 2026-09-05): a creature with an Aura attached, WHOEVER controls the Aura — narrower than MODIFIED (which also
+      // takes a counter or Equipment, and wants the controller's own Aura). Read live off the attachments.
+      let enchanted = false;
+      for (const pid of Object.keys(state?.players || {})) {
+        for (const p of state.players[pid]?.battlefield || []) {
+          if (p.attachedTo === perm.id && /\baura\b/i.test(String(p.card?.type || p.card?.type_line || ""))) { enchanted = true; break; }
+        }
+        if (enchanted) break;
+      }
+      if (r.negate ? enchanted : !enchanted) return false;
     } else if (r.kind === "modified") {
       // MODIFIED (CR 701.48 — Lion Umbra's "Enchant modified creature"): has a counter / Equipment / an Aura
       // its controller controls. Layer-aware via layers.isModifiedPermanent (the same predicate Kodama's

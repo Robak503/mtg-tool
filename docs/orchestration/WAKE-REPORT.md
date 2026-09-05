@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · L5: Winds of Rath (+1)** · suite **1544 files / 16,311** green · corpus 14,582 / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed (one survivor got its missing test)
+
+> Light-Paws opens. The restriction vocabulary learned ENCHANTED — an Aura attached, whoever controls it — so the wipe spares exactly the enchanted creatures. Light-Paws 68 → **69** (16 to the bar)
+> **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · Q3: Baxter, Fly in the Ointment (+1)** · suite **1543 files / 16309** green · corpus 14,581 / 34,245 · flip-diff +1 / 0 lost · mutants 3/3 killed
 
 > The group keyword grant learned "with a counter on it" — any counter kind, read live at resolution — so Baxter's marked creatures fly. Halfshell 78 → **79** (6 to the bar) — HALFSHELL CEILING for Phase 2: every remaining row sizes M+ (Turtle Lair's subtype-union unblockable + spend words, Endless Foot Assault's per-opponent attacking tokens, Exploding Barrel, Mole Module, Coin of Mastery, Raphael, Special Move's two low modes) or L (Heroes in a Half Shell's plural subject list + batch referent, Foot Chopper / Bebop / Together Forever / Dimension X's if-you-do and reflexive lanes, Vigor, Krang, Shredder, Irma, Tempestra, Fast Forward, Shellshock, Double Jump); per §2.4 the order moves to Light-Paws (68)
