@@ -418,6 +418,11 @@ export function miscClauseParser(clause) {
   //  · the SELF cast limit — Irencrag Feat "You can cast only one more spell this turn": a castLocksThisTurn stamp on the
   //    controller keyed on their spellsCastThisTurn at resolution (the ritual itself was counted at its cast), read by the
   //    cast loop, self-expiring with the turn number. Spells only (CR 601) — abilities are never locked.
+  // CARPET OF FLOWERS (POD-SIM THREE · KT-10a, 2026-09-05): "add X mana of any one color, where X is the number of Islands
+  // target opponent controls" — one colour (the any-colour policy), X = the TARGET opponent's lands of that basic type,
+  // read at resolution.
+  const carpet = t.match(/^add x mana of any one color, where x is the number of (plains|islands|swamps|mountains|forests) target opponent controls$/);
+  if (carpet) return { op: "add-mana", anyColorCount: { kind: "basicTypeLandsOfTargetOpponent", subtype: carpet[1].charAt(0).toUpperCase() + carpet[1].slice(1, -1) }, targetType: "opponent" };
   const ritWord = t.match(/^add (one|two|three|four|five|six|seven|eight|nine|ten) \{([wubrgc])\}$/);
   if (ritWord) {
     const NUM = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
@@ -727,8 +732,25 @@ function anyColorChoice(state, ctx) {
   return pick || null;
 }
 
+/** CARPET OF FLOWERS (KT-10a): stamp "this ability added mana this turn" for the trigger's ability key — the latch the
+ *  intervening-if "if you haven't added mana with this ability this turn" reads. Unkeyed contexts (spells, unkeyed
+ *  abilities) stamp nothing. Cleared at untap with the other per-turn state. */
+function stampManaAddedByAbility(state, ctx) {
+  const key = ctx?.abilityKey;
+  if (!key) return state;
+  return { ...state, manaAddedByAbilityThisTurn: { ...(state.manaAddedByAbilityThisTurn || {}), [key]: { turn: state.turn || 0 } } };
+}
+
 export function applyAddMana(state, atom, ctx) {
   let next = state;
+  if (atom.anyColorCount) { // Carpet of Flowers (KT-10a): X of ONE colour, X = a count read at resolution; nothing on a zero count
+    const n = Math.max(0, countForSpec(state, ctx, atom.anyColorCount) || 0);
+    const color = n > 0 ? anyColorChoice(state, ctx) : null;
+    if (!color) return logEvent(next, { kind: "spell-effect", effect: "add-mana", controller: ctx.controller, mana: {} });
+    next = addMana(next, { playerId: ctx.controller, color, amount: n });
+    next = stampManaAddedByAbility(next, ctx); // the once-per-turn latch ("if you haven't added mana with this ability this turn")
+    return logEvent(next, { kind: "spell-effect", effect: "add-mana", controller: ctx.controller, mana: { [color]: n } });
+  }
   if (atom.manaPerCount) { // Rite of Flame (KT-3): {R} per card named X in EVERY graveyard, counted at resolution
     const n = Math.max(0, countForSpec(state, ctx, atom.countSpec) || 0);
     if (n > 0) next = addMana(next, { playerId: ctx.controller, color: atom.manaPerCount, amount: n });

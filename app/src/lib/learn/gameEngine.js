@@ -478,7 +478,7 @@ export function runStepActions(state) {
       next = resetAttackedThisTurnAllPlayers(next); // RAID: "you attacked this turn" — clear every seat's attack flag at untap
       next = resetBecameTargetThisTurnAllPlayers(next); // KIRA: "for the first time each turn" — clear every permanent's became-target flag at untap
       next = resetBecameTappedThisTurnAllPlayers(next); // CAP LIVING LEGEND: "first time that creature has become tapped this turn" — clear the per-permanent tap flag at untap
-      next = { ...next, onceTriggersFiredThisTurn: {} }; // ONCE-PER-TURN: clear per-source discover gates (Pantlaza, etc.)
+      next = { ...next, onceTriggersFiredThisTurn: {}, manaAddedByAbilityThisTurn: {} }; // ONCE-PER-TURN: clear per-source discover gates (Pantlaza, etc.) + the mana-added latch (Carpet of Flowers, KT-10a)
       // TEFERI'S PROTECTION (CR 702.26c / "until your next turn"): the active player's phased-out permanents phase
       // in BEFORE they untap (they return in the state they left, untapped by this same step if they were untapped),
       // and the player's shield expires at the same moment.
@@ -745,6 +745,8 @@ export function runStepActions(state) {
   // would go off before combat as well. Michelangelo, the Heart is the shelf card behind it.
   if (next.phase === "postcombat-main" && next.step === "main")
     next = checkStepTriggers(next, "secondMain");
+  if (next.step === "main" && (next.phase === "precombat-main" || next.phase === "postcombat-main"))
+    next = checkStepTriggers(next, "anyMain"); // CARPET OF FLOWERS (KT-10a): "each of your main phases" — every main, extra ones included
   if (next.step === "declare-blockers") {
     next = checkAttackTriggers(next);
     // NOTE (subsystem 2): block / becomes-blocked / bushido / rampage triggers do NOT fire here — at the

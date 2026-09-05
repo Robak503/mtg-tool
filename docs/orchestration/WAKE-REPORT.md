@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-10a: Carpet of Flowers (+8)** · suite **1491 files / 16,110 tests** green · corpus 14,452 (42.2%) / 34,245 · flip-diff +8 / 0 lost · 9/9 killed (the engine-hook mutant survived once → a stepping pin added → killed)
+
+> A both-mains event, a per-ability per-turn latch, an X-of-one-colour add over the target opponent's Islands, and opponent-targeted trigger effects admitted. **Killer Turts 83 → 84** (84/100; needs 1). Seven unplanned gains audited whole-card (opponent-targeted trigger effects: Ms. Bumbleflower, Farsight Adept, Soldevi Steam Beast, Persuasive Interrogators, Flumph, Sphinx of Enlightenment, Venerated Rotpriest — Sphinx and Bumbleflower runtime-checked). Next: the last Turts slot.
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-7b: Full Throttle (+1)** · suite **1490 files / 16,106 tests** green · corpus 14,444 (42.2%) / 34,245 · flip-diff +1 / 0 lost · 9/9 killed + 1 dead-code deletion (a re-entry drain the step-actions drain already covered); the 08 extraCombatAtom pin on the counted grant GRADUATED
 
 > Two extra combats and a repeating beginning-of-combat record that the extra-combat re-entry drains. **Killer Turts 82 → 83** (83/100; needs 2). Next: the last two — Carpet of Flowers / World War Hulk / Veil of Summer / Not of This World, cheapest first.

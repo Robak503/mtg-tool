@@ -560,6 +560,12 @@ function chosenTypePermanentsCount(player) {
   return best;
 }
 export function countForSpec(state, ctx, spec) {
+  if (spec.kind === "basicTypeLandsOfTargetOpponent") { // Carpet of Flowers (KT-10a): the TARGET opponent's lands of a basic land type
+    const pt = (ctx?.targets || []).find((t) => t.type === "player" && state?.players?.[t.id]);
+    if (!pt) return 0;
+    const re = new RegExp(`\\b${String(spec.subtype || "")}\\b`);
+    return (state.players[pt.id].battlefield || []).filter((perm) => /\bLand\b/.test(typeLineStr(perm.card)) && re.test(typeLineStr(perm.card))).length;
+  }
   if (spec.kind === "cardsNamedInAllGraveyards") { // Rite of Flame (KT-3): every player's graveyard, by name
     const want = String(spec.name || "").toLowerCase();
     if (!want) return 0;

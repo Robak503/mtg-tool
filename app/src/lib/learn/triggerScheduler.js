@@ -76,6 +76,11 @@ export function detectPhaseTrigger(condition /*, cardName, typeLine */) {
       || c === "beginning of your postcombat main phase") {
     return { event: "secondMain", scope: "you", whose: "yours" };
   }
+  // CARPET OF FLOWERS (POD-SIM THREE · KT-10a, 2026-09-05): "at the beginning of each of your main phases" — BOTH mains,
+  // yours only. A distinct event the engine fires at each main hook beside firstMain / secondMain.
+  if (c === "beginning of each of your main phases") {
+    return { event: "anyMain", scope: "you", whose: "yours" };
+  }
   if (c === "beginning of each opponent's upkeep") {
     return { event: "upkeep", scope: "you", whose: "opponents" };
   }

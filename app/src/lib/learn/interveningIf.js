@@ -1724,6 +1724,15 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // abilities (`abilityResolutionsThisTurn`, keyed by the ability key the flush stamps into the trigger context and bumped
   // AFTER each resolution), so during a resolution the count is the number of PRIOR resolutions: "second time" = exactly
   // one. No key in the context (a spell, the parse-time probe) → false — the printed base half runs, the FN-safe side.
+  // CARPET OF FLOWERS (POD-SIM THREE · KT-10a, 2026-09-05): "if you haven't added mana with this ability this turn" — a
+  // per-ability, per-turn latch. The add-mana resolver stamps `manaAddedByAbilityThisTurn[abilityKey] = turn` when it runs
+  // under a trigger context carrying the key; the stamp is cleared at untap. No key (an unkeyed caller) → false, fail closed.
+  if (/^you haven't added mana with this ability this turn$/.test(c)) {
+    const key = context?.abilityKey;
+    if (!key) return false;
+    const rec = state?.manaAddedByAbilityThisTurn?.[key];
+    return !(rec && rec.turn === state?.turn);
+  }
   if (/^this is the second time this ability has resolved this turn$/.test(c)) {
     const key = context?.abilityKey;
     if (!key) return false;

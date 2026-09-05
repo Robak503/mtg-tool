@@ -101,6 +101,9 @@ export function atomTargetIntent(atom) {
   if (!atom) return null;
   const tt = atom.targetType;
   if (!tt || isNonChosenTargetType(tt)) return null;
+  // CARPET OF FLOWERS (POD-SIM THREE · KT-10a, 2026-09-05): an atom that targets an OPPONENT is enemy-side whatever its op —
+  // the trigger chooser needs only the side; which opponent (the one with the most Islands) is a play-quality choice.
+  if (tt === "opponent") return "enemy";
   switch (atom.op) {
     case "conditional":
       // TARGETED CONDITIONAL (SHELF-85 V10 — Scythecat Cub): the branch node carries the BASE branch's chosen target;

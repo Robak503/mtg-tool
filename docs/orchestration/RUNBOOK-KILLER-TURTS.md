@@ -68,7 +68,7 @@ Legend: **S** one arm on an existing seam · **M** a new arm plus a runtime seam
 |---|---|---|---|---|
 | E1 | **City of Traitors** | ✅ DONE 2026-09-05 (KT-5): a landfall watcher with two new gates — `playedOnly` (the play-land dispatcher threads a `played` marker; the effect path does not, so a fetched or ramped land never fires it) and `landfallExcludeSelf` (never its own entry); both listed in the assembly | **S** | pinned: a played Mountain sacrifices City; an effect-placed Mountain does not; playing City itself does not |
 | E2 | **Jeweled Amulet** | note the mana TYPE spent on the charge; later add that type | **M** | the noted type is state on the permanent |
-| E3 | **Carpet of Flowers** | each main phase, once per turn, add X of one colour = target opponent's Islands | **M** | the once-per-turn latch + "Islands" = subtype count on an opponent's lands |
+| E3 | **Carpet of Flowers** | ✅ DONE 2026-09-05 (KT-10a): a BOTH-mains event (`anyMain`); a per-ability per-turn latch (the add-mana resolver stamps the trigger's ability key, the intervening-if reads it, untap clears it); an X-of-one-colour add over the TARGET opponent's lands of a basic type; opponent-targeted trigger effects admitted as enemy-side | **M** | pinned: three of one colour from three Islands (the Forest not counted); nothing at the second main the same turn; again next turn; nothing (and no stamp) with no Islands |
 | E4 | **Gemstone Caverns** | pregame | 🅿 | umbrella §6 |
 
 ### 1f. The rest (5 cards)
@@ -98,7 +98,7 @@ Ordered by plan-criticality, then cost. Running total assumes each slice lands w
 | KT-7 | Overpowering Attack · Full Throttle · World at War | S-D: attacked-this-turn untap, two additional combats, delayed per-combat untap, after-second-main insertion; rebound + freerunning sized on approach | ✅ Overpowering Attack +1 · ✅ Full Throttle +1 · World at War ⬜ (rebound unmodeled) | 13 |
 | KT-8 | Grim Reaper's Sprint | aura ETB extra combat + morbid reducer | ✅ +3 | 11 |
 | KT-9 | Avoid Fate · Not of This World | targets-a-permanent-you-control predicate | ✅ Avoid Fate +2 · Not of This World ⬜ (spell-OR-ability target union + a target-conditional reducer — M) | 12 |
-| KT-10 | Carpet of Flowers · Jeweled Amulet · Great Train Heist (spree) · World War Hulk | whichever lands cleanest | +1 to +3 | **≥15** |
+| KT-10 | Carpet of Flowers · Jeweled Amulet · Great Train Heist (spree) · World War Hulk | whichever lands cleanest | ✅ Carpet +8 · the rest ⬜ (Amulet L, Heist M/L, Hulk L — the Saga path credits no chapter) | 14 |
 
 Stop the deck at ≥85. Everything unbuilt below the line (redirects, Tezzeret, Invasion, Tibalt's Trickery,
 Scroll Rack, Last Night Together, Veil of Summer if unbuilt, Gemstone Caverns) → the Omnath arbiter list.

@@ -16,6 +16,23 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-10a: CARPET OF FLOWERS — four seams for one mana enchantment · **+8** · corpus 14,452 (42.2%) / 34,245
+> Suite **1491 files / 16,110 tests** green; lint 0. Flip-diff **+8, zero LOST** (any unplanned gains audited whole-card). **9/9 killed (the engine-hook mutant survived once → a stepping pin added → killed).**
+> · "At the beginning of each of your main phases, if you haven't added mana with this ability this turn, you may add X mana of
+>   any one color, where X is the number of Islands target opponent controls." Four misses, none of them the card's fault:
+>   (1) a BOTH-mains event — the scheduler knew first / second; `anyMain` now fires at every main of your turn, extra ones
+>   included; (2) the once-per-turn LATCH — a per-ability stamp the add-mana resolver writes under a keyed trigger context
+>   (the resolution memo counts resolutions even when the intervening-if fails, so it could not serve), read by the
+>   intervening-if (fails CLOSED without a key), cleared at untap; (3) an X-of-ONE-colour add over the TARGET opponent's
+>   lands of a basic type (a new count kind), read at resolution, nothing on zero; (4) opponent-targeted trigger EFFECTS
+>   were unresolvable for the trigger chooser — any opponent-targeted atom is now enemy-side (which opponent is a
+>   play-quality choice). Theft of Dreams' known draw arm was parked by (4) too and rides along.
+> · **Pins:** three of one colour from three Islands, the Forest uncounted; nothing at the second main the same turn; again
+>   next turn; nothing and no stamp with no Islands; the fail-open, never-stamp, turn-blind, all-lands, spread-colours and
+>   no-intent mutants all died.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Killer Turts 83 → 84** (84/100; needs 1). Seven unplanned gains audited whole-card (opponent-targeted trigger effects: Ms. Bumbleflower, Farsight Adept, Soldevi Steam Beast, Persuasive Interrogators, Flumph, Sphinx of Enlightenment, Venerated Rotpriest — Sphinx and Bumbleflower runtime-checked). Next: the last Turts slot.
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-7b: FULL THROTTLE — a count and a repeating delayed record · **+1** · corpus 14,444 (42.2%) / 34,245
 > Suite **1490 files / 16,106 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **9/9 killed + 1 dead-code deletion (a re-entry drain the step-actions drain already covered); the 08 extraCombatAtom pin on the counted grant GRADUATED.**
 > · "After this main phase, there are two additional combat phases." — the after-main extra combat with a COUNT; the resolver
