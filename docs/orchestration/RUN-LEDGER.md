@@ -16,6 +16,19 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · O7: MINAS TIRITH — the raid flag as a count · **+1** · corpus 14490 / 34,245
+> Suite **1504/16178** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **3/3 killed.**
+> · "{1}{W}, {T}: Draw a card. Activate only if you attacked with two or more creatures this turn." The activation gate
+>   already reads the shared intervening-if evaluator; it knew "you attacked this turn" (the raid flag) but not a COUNT. A
+>   count arm now reads the per-permanent attacked-this-turn memo (KT-1) over the controller's battlefield — a creature
+>   that attacked and left is not counted, the false-negative-safe side. The tapped-unless static and the mana line were
+>   already whole, so the land is whole.
+> · **Pins:** the evaluator says true with two attackers, false with one attacker beside three bystanders, false with none;
+>   the activation is offered after two attackers and draws, not after one. Mutants: the arm, strictly-more, and every-creature-
+>   counts — all died.
+> · **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+> · **Otharri 76 → 77 (needs 8)** · four decks at 85 (Killer Turts · Kinnan · Believe it! · Shalai). Next: O6 Glimmer Lens (the company condition), then O5 Anim Pakal, O9 Blacksmith's Skill, O8 Tithe.
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · H13b: SOLITUDE — the other-target qualifier and EVOKE · **+3** · corpus 14489 / 34,245
 > Suite **1503/16176** green; lint 0. Flip-diff **+3, zero LOST** — two unplanned twins audited whole-card: Grief (an
 > already-native ETB behind the same pitch-evoke line — it gains a REAL evoke cast) and White Orchid Phantom (an up-to-one

@@ -77,12 +77,12 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Nekusar Wheels | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shalai and Hallar Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Otharri Test | 76 | 9 | 14 | ⬜ Phase 2 |
+| Test | Otharri Test | 77 | 8 | 13 | ⬜ Phase 2 |
 | Test | Bumble Flower Combo | 70 | 15 | 20 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**5 decks below 85 · 80 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**5 decks below 85 · 79 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -371,7 +371,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | O4 | Rosie Cotton | | V7 | | ✅ |
 | O5 | Anim Pakal | attack with non-Gnomes → counter on Anim, then Gnome tokens = counters | S | | ⬜ |
 | O6 | Glimmer Lens | equipped creature and at least one other creature attack → draw | S | an attacks-with-company condition on the equipment trigger | ⬜ |
-| O7 | Minas Tirith | {1}{W},{T}: draw; activate only if you attacked with two or more creatures this turn | S | an attackers-this-turn count condition (the RAID flag generalized to a count) | ⬜ |
+| O7 | Minas Tirith | {1}{W},{T}: draw; activate only if you attacked with two or more creatures this turn | S | an attackers-this-turn count condition (the RAID flag generalized to a count) | ✅ (+1 — the count arm on the intervening-if evaluator reads the per-permanent attacked-this-turn memo over the controller's board; a lower bound when an attacker has left; the tapped-unless static and the mana line were already whole; pinned: two attackers → offered and draws, one attacker with bystanders → not offered) |
 | O8 | Tithe | tutor a Plains; a second if target opponent controls more lands | S | | ⬜ |
 | O9 | Blacksmith's Skill | hexproof + indestructible until EOT; +2/+2 if artifact or enchantment | S | | ⬜ |
 | O10 | Zack Fair · Staff of the Storyteller · Inti · Diamond City · Patrolling Peacemaker · Otharri (self-reanimate) | | S / M (token-created event, V7) / M / M / 🅿 (crime) / M | | ⬜ |
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · O7 Minas Tirith (Otharri) ✅ +1 corpus (the raid flag generalised to a count: "you attacked with N or more creatures this turn" read off the per-permanent attacked memo) · 3/3 killed · suite 1504/16178 · **Otharri 76 → 77 (needs 8)** · four decks at 85 (Killer Turts · Kinnan · Believe it! · Shalai). Next: O6 Glimmer Lens (the company condition), then O5 Anim Pakal, O9 Blacksmith's Skill, O8 Tithe.
 
 - 2026-09-05 — Phase 2 · H13b Solitude (Shalai) ✅ +3 corpus (the OTHER-target qualifier on targeted removal + the gain-life-power controller rider; EVOKE modelled end to end — the pitch alt cost rides the cast, the entering body is stamped and its sacrifice is queued UNDER its own ETB) · 10/10 killed · suite 1503/16176 · **🏁 SHALAI 84 → 85 — AT THE BAR (85/100).** Killer Turts 85 ✅ · Kinnan 85 ✅ · Believe it! 85 ✅. Next: the §5 shelf order.
 

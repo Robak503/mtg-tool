@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · O7: Minas Tirith (+1)** · suite **1504/16178** green · corpus 14490 / 34,245 · flip-diff +1 / 0 lost · 3/3 killed
+
+> The raid flag generalised to a count on the activation gate. **Otharri 76 → 77 (needs 8)** · four decks at 85 (Killer Turts · Kinnan · Believe it! · Shalai). Next: O6 Glimmer Lens (the company condition), then O5 Anim Pakal, O9 Blacksmith's Skill, O8 Tithe.
+> **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · H13b: Solitude (+3) — 🏁 SHALAI AT THE BAR** · suite **1503/16176** green · corpus 14489 / 34,245 · flip-diff +3 / 0 lost · 10/10 killed
 
 > The other-target qualifier on targeted removal with the gain-life-power rider, and EVOKE modelled end to end (the pitch alt cost, the evoked stamp, the sacrifice queued under the card's own ETB). **🏁 SHALAI 84 → 85 — AT THE BAR (85/100).** Killer Turts 85 ✅ · Kinnan 85 ✅ · Believe it! 85 ✅. Next: the §5 shelf order.

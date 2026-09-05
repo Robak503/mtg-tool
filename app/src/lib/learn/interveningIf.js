@@ -1723,6 +1723,16 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // reset for all seats at untap). A per-CREATURE variant ("this creature attacked this turn"), a "with a
   // creature" qualifier, or a negated form fails the anchor → null → Arbiter (CREED — never a mis-scoped Raid read).
   if (/^you attacked this turn$/.test(c)) return state?.players?.[controllerId]?.attackedThisTurn === true;
+  // MINAS TIRITH (SHELF-85 · Otharri O7, 2026-09-05): "you attacked with N or more creatures this turn" — the RAID flag
+  // generalised to a COUNT, read off the per-permanent attacked-this-turn memo (KT-1) over the controller's battlefield.
+  // A creature that attacked and left the battlefield is not counted — a lower bound, the false-negative-safe side.
+  m = c.match(new RegExp(`^you attacked with ${NUM_RE} or more creatures this turn$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    const attacked = (state?.players?.[controllerId]?.battlefield || []).filter((p) => p.attackedThisTurn === true).length;
+    return attacked >= n;
+  }
 
   // ===== YOUR FIRST THREE TURNS (V2, 2026-09-04 — Starting Town "This land enters tapped unless it's your first,
   // second, or third turn of the game") ===== read off the controller's own turn ordinal (player.turnsTaken, stamped at
