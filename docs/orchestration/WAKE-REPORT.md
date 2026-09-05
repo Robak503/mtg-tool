@@ -13,6 +13,8 @@
 > **State at the bank:** suite **1584 files / 16,426 tests** green · lint 0 · corpus **14,767 / 34,245 (43.1%)** · shelf 13 ≥90 · 14 at 85–89 · 3 ceilings · **111 commits held** (CI billing-blocked; push on the first green run; never flip visibility) · worktree CLEAN.
 > **Since the last handoff (the 09-02 plan's close):** SHELF-85 through Phase 4 (Nekusar and Bumble crossed 90; the Omnath hand-off posted), nine residue families (+56), the quartet's Phase 4 step 3 in four classes (+28), the domain count (+6). Every slice witnessed, mutation-checked, full-suite green; eleven CREED park guards graduated on their own evidence; two hollows caught by the flip-diff's runtime audit before commit.
 
+## ⏹ 2026-09-05 — **FULL STOP (Colton's order): cron killed; stack of 114 pushed to master (head 1a3cfb2c); CI billing-blocked (account, not visibility — the public flip reverted itself; do not flip again). Resume at OVERNIGHT-PLAN-2026-09-06.md stage ②.**
+
 ## 🎯 2026-09-06 (cron) — **QUARTET Phase 4 step 3 · colour words — the last class; step 3 CLOSES (+5)** · suite **1585 files / 16429 tests** green · corpus 14,772 (43.1%) / 34,245 · flip-diff +5 / 0 lost · mutants 5/5 killed
 
 > **Runnable next (the 09-06 plan's stage ②):** the tap-a-creature alternative cost (Ramosian Rally, Angelic Favor — a new alt kind `tapCreature`; M-small), then the party-count cost reducer (S/M). The 09-06 plan's stage ① DONE line is met.
