@@ -12,6 +12,10 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🏁 2026-09-05 (cron) — **OVERNIGHT CLOSE** · Bumble 70 → 88 · Atraxa 65 → 72 · Halfshell 69 → 79 · Light-Paws 68 → 71 · corpus **14,585 / 34,245 (42.6%)** · suite **1546 files / 16,315** · 67 local commits HELD (repo private, CI billing-blocked)
+
+> Every open §5 deck sits at its Phase 2 S-row ceiling; every remaining row is sized and noted in §5.9 / §5.10 / §5.12 (all M+ / L — the decks' engine seams). Two hollows closed (the self-ETB disjunction; the non-cast walker loyalty stamp) and two resolution gaps (the opponent-creature sweep's restrictions; the active/passive counter count fields). Question to Omnath in COMMS [Q-CEIL]: Phase 3 seam-first, or the pod-sim consumers first. **On resume:** check CI/billing → push the held stack on the first green run (never flip visibility) → then [Q-CEIL]'s answer, or absent one, Phase 3 seam #1 = the "you may <cost>. If you do, <effect>" lane.
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · L4: Gauntlets of Light (+2)** · suite **1546 files / 16,315** green · corpus 14,585 / 34,245 · flip-diff +2 / 0 lost · mutants 3/3 killed
 
 > An Aura can now hand its host the toughness-assigns op beside its pump — the same layer op the self and team printings emit, scoped to the host. Light-Paws 70 → **71** (14 to the bar) — LIGHT-PAWS' S ROWS DONE; every remaining row sizes M+ (Karametra's Blessing's enchanted-or-enchantment rider, Face of Divinity / Solid Footing's as-long-as conditionals, Deafening Silence's per-turn cast count, Drannith's cast-zone lock, Umbra Mystic's granted umbra armor, Shielded by Faith / Brilliant Wings' re-attach ETBs, Sentinel's Mark's addendum, Celestial Mantle's life doubling, Light-Paws itself) or L (Mantle of the Ancients, With Great Power, Enter the Avatar State, Ishgard, the L6 composite)
