@@ -6,7 +6,9 @@ function safeCode(value) {
 }
 
 function runtimeWitnesses(runtime) {
-  const checks = Array.isArray(runtime?.checks) ? runtime.checks : Array.isArray(runtime?.results) ? runtime.results : [];
+  const checks = Array.isArray(runtime?.checks) ? runtime.checks
+    : runtime?.checks && typeof runtime.checks === "object" ? Object.entries(runtime.checks).map(([id, passed]) => ({ id, passed }))
+    : Array.isArray(runtime?.results) ? runtime.results : [];
   const witnesses = checks
     .map(({ id, passed }) => ({ id: safeCode(id), passed: passed === true }))
     .filter(({ id }) => id);
@@ -21,7 +23,7 @@ export function buildDiagnosticReceipt({ runtime, knowledge, model, lastOutcome,
   return Object.freeze({
     schemaVersion: 1,
     generatedAt,
-    app: { version: APP_VERSION, product: "Omnath MTG Assistant", offlineOnly: true },
+    app: { version: APP_VERSION, product: "Omnath MTG Assistant", offlineOnly: true, build: typeof __OMNATH_BUILD__ === "undefined" ? "development" : __OMNATH_BUILD__ },
     runtime: {
       passed: runtime?.passed === true,
       witnesses: runtimeWitnesses(runtime),
@@ -33,6 +35,8 @@ export function buildDiagnosticReceipt({ runtime, knowledge, model, lastOutcome,
       packId: safeCode(knowledge?.packId),
       databaseBytes: Number(knowledge?.databaseBytes ?? 0),
       databaseSha256: safeCode(knowledge?.databaseSha256),
+      sourceDates: Object.fromEntries(Object.entries(knowledge?.sourceDates ?? {})
+        .filter(([key, value]) => ["oracle", "rulings"].includes(key) && /^\d{4}-\d{2}-\d{2}$/.test(String(value)))),
       error: knowledge?.error ? "unavailable" : null,
       art: {
         ready: knowledge?.artReady === true,

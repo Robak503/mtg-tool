@@ -2,6 +2,13 @@
 
 Last reconciled: 2026-09-04
 
+**2026-09-05 review:** `LOCAL-AI-REVIEW.md` now contains the complete audit,
+recovered July feature ideas, new companion proposals, and revised build order.
+Implementation from that pass is on `codex/omnath-local-companion-review`.
+The older APK/transfer checkpoint below is preserved for recovery. The new
+reading preferences and in-memory conversation foundation are implemented;
+long-term memory and a full conversational model remain planned.
+
 This is the short operational backlog for continuing the phone app on another
 computer. `TRANSFER.md` is the machine-setup and artifact handoff. The full
 decision and implementation record remains in

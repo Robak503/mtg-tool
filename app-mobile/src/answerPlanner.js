@@ -1,4 +1,5 @@
-import { deterministicIntent } from "./interpretationContract.js";
+import { deterministicIntent, isDirectRuleLookup } from "./interpretationContract.js";
+import { boundedOperation } from "./asyncOperation.js";
 
 const QUESTION_STOP_WORDS = new Set([
   "a",
@@ -69,6 +70,7 @@ function cardLookupName(question) {
     /^what does\s+(.+?)\s+do\s*[?.!]*$/iu,
     /^show(?: me)?\s+(?:the\s+)?oracle text(?:\s+(?:for|of))?\s+(.+?)\s*[?.!]*$/iu,
     /^oracle text(?:\s+(?:for|of))?\s+(.+?)\s*[?.!]*$/iu,
+    /^(?:what is|tell me about|show(?: me)?|read)\s+(.+?)\s*[?.!]*$/iu,
   ];
   for (const pattern of patterns) {
     const match = value.match(pattern);
@@ -111,8 +113,10 @@ function ruleAnswer(rules) {
     subheading: children.length ? rule.ruleText : undefined,
     message: children.length ? `CR ${primary.ruleNumber} — ${primary.ruleText}` : primary.ruleText,
     details: primary.examples,
+    detailLabel: "Rule examples",
   }, citations, {
     relatedRules: Object.freeze(relatedRules),
+    subject: Object.freeze({ kind: "rule", ruleNumber: rule.ruleNumber }),
   });
 }
 
@@ -134,6 +138,14 @@ function answerPlan(status, facts, citations = [], extra = {}) {
 
 export async function planOfflineAnswer(repository, rawQuestion, verifiedInterpretation = null) {
   const question = String(rawQuestion ?? "").trim();
+  const smallTalk = /^(?:(?:hi|hello|hey)(?:[ ,]+omnath)?|thanks|thank you|help|what can you do)\s*[!.?]*$/i;
+  if (smallTalk.test(question)) {
+    return answerPlan("conversation", {
+      heading: /^(?:thanks|thank you)/i.test(question) ? "Anytime." : "Hey — what’s on the table?",
+      message: "I can look up cards, show their artwork and rulings, and pull rules from the library on this phone. Ask another question, or say “its rulings” after we look at a card.",
+      followUp: "What card or situation are you thinking about?",
+    });
+  }
   if (!question) {
     return answerPlan("insufficient", {
       heading: "Ask Omnath a rules question",
@@ -142,16 +154,28 @@ export async function planOfflineAnswer(repository, rawQuestion, verifiedInterpr
     });
   }
 
+  const originalIntent = deterministicIntent(question);
   const ruleNumber = verifiedInterpretation?.rule?.ruleNumber
     ?? question.match(/\b(?:CR\s*)?(\d{3}\.\d+[a-z]?)\b/i)?.[1];
   if (ruleNumber) {
     const rule = verifiedInterpretation?.rule ?? await repository.getRuleExact(ruleNumber);
-    if (rule) {
+    if (rule && (isDirectRuleLookup(question) || (verifiedInterpretation?.intent === "rule_lookup" && originalIntent !== "interaction"))) {
       return ruleAnswer(await ruleSection(repository, rule));
     }
+    if (rule) {
+      return answerPlan("matches", {
+        heading: "Here’s the rule you mentioned",
+        message: "This is the local rule text. Applying it to your situation still needs the cards, timing, and choices involved.",
+        followUp: "Which cards are involved, and what is happening?",
+      }, [ruleCitation(rule)], { relatedRules: Object.freeze(await ruleSection(repository, rule)) });
+    }
+    return answerPlan("insufficient", {
+      heading: `I couldn’t find CR ${ruleNumber} in this pack`,
+      message: "Check the number and try again. This library may also need a newer rules pack.",
+    });
   }
 
-  const intent = verifiedInterpretation?.intent ?? deterministicIntent(question);
+  const intent = originalIntent === "interaction" ? "interaction" : verifiedInterpretation?.intent ?? originalIntent;
   const interpretedCards = verifiedInterpretation?.cards ?? [];
   const exact = interpretedCards[0] ?? await repository.findCardExact(cardLookupName(question));
   const terms = searchTerms(question);
@@ -162,21 +186,26 @@ export async function planOfflineAnswer(repository, rawQuestion, verifiedInterpr
       : [];
   const card = exact ?? candidates.find((candidate) => questionNamesCard(question, candidate));
 
-  if (card && intent === "card_lookup") {
-    const rulings = (await repository.getRulings(card.oracleId)).slice(0, 4);
+  if (card && (intent === "card_lookup" || (intent === "unknown" && exact))) {
+    const rulings = await repository.getRulings(card.oracleId);
     const faceIndex = Number.isInteger(card.matchedFaceIndex) ? card.matchedFaceIndex : -1;
     const cardArtDataUrl = typeof repository.getCardArt === "function"
-      ? await repository.getCardArt(card.oracleId, faceIndex)
+      ? await boundedOperation(() => repository.getCardArt(card.oracleId, faceIndex), { timeoutMs: 2000 }).catch(() => null)
       : null;
     return answerPlan("grounded", {
       heading: card.name,
-      subheading: [card.manaCost, card.typeLine].filter(Boolean).join(" · "),
+      subheading: [card.manaCost, card.typeLine,
+        card.power != null && card.toughness != null ? `${card.power}/${card.toughness}` : null,
+        card.loyalty != null ? `Loyalty ${card.loyalty}` : null,
+        card.defense != null ? `Defense ${card.defense}` : null,
+      ].filter(Boolean).join(" · "),
       message:
         card.oracleText ||
         card.faces
           .map((face) => [face.name, face.oracle_text].filter(Boolean).join(" — "))
           .join("\n\n"),
       details: rulings.map((ruling) => `${ruling.publishedAt}: ${ruling.comment}`),
+      detailLabel: "Official rulings",
     }, [
         cardCitation(card),
         ...rulings.map((ruling) => ({
@@ -186,6 +215,9 @@ export async function planOfflineAnswer(repository, rawQuestion, verifiedInterpr
         })),
       ], {
         cardArt: cardArtDataUrl ? Object.freeze({ dataUrl: cardArtDataUrl }) : null,
+        subject: Object.freeze({ kind: "card", name: card.name, oracleId: card.oracleId }),
+        followUps: Object.freeze((card.keywords ?? []).slice(0, 1).map((keyword) => ({ label: `About ${keyword}`, question: `Explain ${keyword}` }))),
+        cardFaces: Object.freeze((card.faces ?? []).map((face, index) => ({ name: face.name, index }))),
       });
   }
 
@@ -218,7 +250,7 @@ export async function planOfflineAnswer(repository, rawQuestion, verifiedInterpr
   const rules = terms ? await repository.searchRules(terms, 4) : [];
   if (rules.length) {
     const exactTitleRule = rules.find((rule) => comparable(rule.ruleText) === comparable(terms));
-    if (exactTitleRule) {
+    if (exactTitleRule && intent !== "interaction") {
       return ruleAnswer(await ruleSection(repository, exactTitleRule));
     }
     return answerPlan("matches", {

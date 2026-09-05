@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
@@ -71,7 +72,7 @@ class OmnathModelPlugin(private val activity: Activity) : Plugin(activity) {
                 conversation?.close(); engine?.close()
                 val next = Engine(EngineConfig(modelPath = model.path, backend = Backend.GPU(), cacheDir = activity.cacheDir.path))
                 next.initialize()
-                engine = next; conversation = next.createConversation(); lifecycle.finishLoad(id)
+                engine = next; conversation = null; lifecycle.finishLoad(id)
                 invoke.resolve(result("ready"))
             } catch (error: Throwable) { lifecycle.failLoad(id); invoke.reject(error.message ?: error.javaClass.simpleName) }
             finally { loading = null }
@@ -82,24 +83,39 @@ class OmnathModelPlugin(private val activity: Activity) : Plugin(activity) {
         val args = invoke.parseArgs(GenerateArgs::class.java)
         val requestId = args.requestId ?: return invoke.reject("requestId is required")
         val prompt = args.prompt?.takeIf { it.isNotBlank() } ?: return invoke.reject("prompt is required")
-        val active = conversation ?: return invoke.reject("Model is not loaded")
+        val loaded = engine ?: return invoke.reject("Model is not loaded")
         try { lifecycle.beginGeneration(requestId) } catch (error: IllegalStateException) { return invoke.reject(error.message ?: "Model is busy") }
         generation = scope.launch {
             val output = StringBuilder()
+            var requestConversation: Conversation? = null
             try {
+                // The current interface classifies a single request. Retaining a
+                // native conversation would mix old questions into later intent
+                // calls even after the player explicitly starts a new chat.
+                val active = loaded.createConversation()
+                requestConversation = active
+                conversation = active
                 active.sendMessageAsync(prompt).collect { message ->
                     val token = message.toString(); output.append(token)
+                    require(output.length <= 8192) { "Model response exceeded the local limit" }
                     trigger("token", JSObject().apply { put("requestId", requestId); put("token", token) })
                 }
                 invoke.resolve(JSObject().apply { put("requestId", requestId); put("text", output.toString()) })
             } catch (error: Throwable) { invoke.reject(error.message ?: error.javaClass.simpleName) }
-            finally { lifecycle.finishGeneration(requestId); generation = null }
+            finally {
+                if (conversation === requestConversation) conversation = null
+                runCatching { requestConversation?.close() }
+                lifecycle.finishGeneration(requestId)
+                if (generation === currentCoroutineContext()[Job]) generation = null
+            }
         }
     }
 
     @Command fun cancel(invoke: Invoke) {
         try { conversation?.javaClass?.methods?.firstOrNull { it.name == "cancelProcess" }?.invoke(conversation) } catch (_: Throwable) {}
-        generation?.cancel(); generation = null; lifecycle.cancelGeneration()
+        // The request owns the engine until its finally block has closed the
+        // conversation. A second generation must not race the cancelled one.
+        generation?.cancel()
         invoke.resolve(result(if (engine == null) "unloaded" else "ready"))
     }
 

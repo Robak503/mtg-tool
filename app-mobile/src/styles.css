@@ -174,7 +174,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .topbar {
   position: sticky;
   z-index: 4;
-  top: 0;
+  top: env(safe-area-inset-top, 0px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -263,6 +263,23 @@ button { -webkit-tap-highlight-color: transparent; }
 .quick-prompts button:disabled { opacity: .38; }
 
 .conversation { scroll-margin-top: 68px; }
+.conversation > .answer-card + .answer-card { margin-top: 18px; }
+.answer-card { scroll-margin-top: calc(76px + env(safe-area-inset-top)); overflow-wrap: anywhere; }
+.session-tools { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.reading-settings { flex: 1; min-width: 150px; color: var(--ley-text-dim); font-size: .8rem; }
+.reading-settings summary, .rulings-details summary, .citations summary { cursor: pointer; min-height: 48px; padding: 14px 2px; }
+.settings-panel { display: grid; padding: 8px 12px; border: 1px solid var(--ley-line); border-radius: 8px; background: var(--ley-surface-0); }
+.settings-panel label { display: flex; align-items: center; min-height: 48px; gap: 10px; }
+.settings-panel input { accent-color: var(--ley-green); width: 20px; height: 20px; }
+.session-note { color: var(--ley-text-dim); font-size: .72rem; line-height: 1.5; margin: 6px 0 16px; }
+.rulings-details { border-top: 1px solid var(--ley-line); margin-top: 16px; color: var(--ley-green-text); font-size: .8rem; }
+.context-label, .follow-up { color: var(--ley-green-text); font-size: .8rem; line-height: 1.5; }
+.face-controls { margin-top: 10px; }
+.face-controls button { flex-shrink: 1; }
+body.hide-card-art .card-art { display: none; }
+body.large-text .answer-message { font-size: 1.1rem; }
+body.large-text .rule-result p, body.large-text .detail-list li, body.large-text .asked-question { font-size: 1rem; }
+body.large-text .card-line { font-size: .95rem; }
 .answer-card {
   position: relative;
   overflow: hidden;
@@ -308,7 +325,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .rule-result p { margin: 6px 0 0; color: var(--ley-text-dim); font-size: .78rem; line-height: 1.5; }
 .suggestions { display: flex; flex-wrap: wrap; gap: 7px; }
 
-.citations { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px -16px -17px; padding: 12px 16px; border-top: 1px solid var(--ley-line); background: var(--ley-surface-0); }
+.citations { margin: 18px -16px 0; padding: 4px 16px; border-top: 1px solid var(--ley-line); background: var(--ley-surface-0); color: var(--ley-green-text); font-size: .75rem; }
+.citations small { display: block; width: fit-content; margin-bottom: 6px; }
 .citations span { width: 100%; color: var(--ley-text-faint); font: 700 .57rem/1.2 var(--font-mono); letter-spacing: .1em; text-transform: uppercase; }
 .citations small { padding: 5px 7px; border: 1px solid var(--ley-line); border-radius: 5px; color: var(--ley-green-text); background: var(--ley-green-faint); font: .6rem/1.2 var(--font-mono); }
 .diagnostic { overflow: auto; padding: 11px; border: 1px solid rgb(248 113 113 / 30%); border-radius: 6px; color: var(--ley-red); background: var(--ley-surface-0); font: .64rem/1.5 var(--font-mono); white-space: pre-wrap; }
@@ -344,7 +362,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .composer label { display: block; margin-bottom: 6px; color: var(--ley-green-text); font: 700 .61rem/1.2 var(--font-mono); letter-spacing: .09em; text-transform: uppercase; }
 .composer label span { color: var(--ley-text-faint); font-weight: 400; }
 .composer-row { display: flex; gap: 8px; align-items: flex-end; }
-.composer textarea { min-height: 48px; flex: 1; max-height: 110px; resize: none; padding: 12px 13px; border: 1px solid var(--ley-line); border-radius: 8px; outline: none; color: var(--ley-text); background: var(--ley-surface-0); line-height: 1.4; }
+.composer textarea { min-width: 0; min-height: 48px; flex: 1; max-height: 110px; resize: none; padding: 12px 13px; border: 1px solid var(--ley-line); border-radius: 8px; outline: none; color: var(--ley-text); background: var(--ley-surface-0); line-height: 1.4; }
 .composer textarea:focus { border-color: var(--ley-line-bright); box-shadow: 0 0 0 3px var(--ley-green-faint); }
 .composer textarea::placeholder { color: var(--ley-text-faint); }
 .composer textarea:disabled { opacity: .5; }
@@ -361,7 +379,7 @@ button { -webkit-tap-highlight-color: transparent; }
   .topbar { margin-inline: -24px; padding-inline: 24px; }
   .quick-prompts { margin-inline: -24px; padding-inline: 24px; }
   .answer-card { padding: 21px; }
-  .citations { margin-inline: -21px; margin-bottom: -21px; padding-inline: 21px; }
+  .citations { margin-inline: -21px; margin-bottom: 0; padding-inline: 21px; }
 }
 
 @media (max-width: 370px) {

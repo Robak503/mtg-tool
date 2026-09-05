@@ -39,6 +39,13 @@ const omnath = {
   faces: [],
 };
 
+test("greetings need no lookup or model and make no verified-ruling claim", async () => {
+  const answer = await planOfflineAnswer({}, "Hey Omnath!");
+  assert.equal(answer.status, "conversation");
+  assert.equal(answer.answerTrusted, false);
+  assert.equal(answer.citations.length, 0);
+});
+
 test("quotes exact card text and ruling receipts when the full card is named", async () => {
   const answer = await planOfflineAnswer(
     repository({
@@ -165,6 +172,36 @@ test("never fabricates a ruling when retrieval is empty", async () => {
   assert.equal(answer.answerTrusted, false);
   assert.equal(answer.citations.length, 0);
   assert.match(answer.facts.message, /won’t invent/i);
+});
+
+test("a cited rule or model reclassification cannot turn an interaction into a ruling", async () => {
+  const rule = { ruleNumber: "702.7", ruleText: "First Strike", examples: [] };
+  const repo = repository({ getRuleExact: async () => rule, findCardExact: async () => omnath });
+  const cited = await planOfflineAnswer(repo, "Does CR 702.7 mean my creature survives?");
+  assert.equal(cited.status, "matches");
+  assert.equal(cited.answerTrusted, false);
+  const model = await planOfflineAnswer(repo, "Can Omnath, Locus of Creation survive?", { intent: "card_lookup", cards: [omnath], rule: null });
+  assert.equal(model.answerTrusted, false);
+  const modelRule = await planOfflineAnswer(repo, "Can my creature survive?", { intent: "rule_lookup", cards: [], rule });
+  assert.equal(modelRule.answerTrusted, false);
+});
+
+test("bare card names work and optional art failures preserve all official rulings", async () => {
+  const rulings = Array.from({ length: 7 }, (_, i) => ({ publishedAt: "2026-01-01", comment: `Ruling ${i}` }));
+  const answer = await planOfflineAnswer(repository({
+    findCardExact: async () => omnath,
+    getRulings: async () => rulings,
+    getCardArt: async () => { throw new Error("art unavailable"); },
+  }), omnath.name);
+  assert.equal(answer.answerTrusted, true);
+  assert.equal(answer.cardArt, null);
+  assert.equal(answer.facts.details.length, 7);
+});
+
+test("unknown rule numbers fail explicitly rather than returning unrelated results", async () => {
+  const answer = await planOfflineAnswer(repository({ searchRules: async () => [{ ruleNumber: "702.7", ruleText: "First Strike" }] }), "Show CR 999.123");
+  assert.equal(answer.answerTrusted, false);
+  assert.match(answer.facts.heading, /couldn’t find CR 999\.123/);
 });
 
 test("does not mark a named interaction trusted without a deterministic verdict", async () => {

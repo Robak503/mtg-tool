@@ -166,13 +166,13 @@ export function createKnowledgeRepository(database, status, artDatabase = null) 
          FROM cr_rules
          WHERE rule_number = ?
          LIMIT 1`,
-        [String(ruleNumber ?? "").trim()],
+        [String(ruleNumber ?? "").trim().toLowerCase()],
       );
       return hydrateRule(row);
     },
 
     async getRuleSection(ruleNumber, limit = 12) {
-      const normalized = String(ruleNumber ?? "").trim();
+      const normalized = String(ruleNumber ?? "").trim().toLowerCase();
       const isSection = /^\d{3}\.\d+$/.test(normalized);
       const rows = await database.select(
         `SELECT rule_number AS ruleNumber, rule_text AS ruleText,
@@ -242,12 +242,19 @@ export async function openKnowledgeRepository(onProgress) {
     const database = await Database.load(status.databaseUrl);
     let artDatabase = null;
     let effectiveStatus = status;
+    try {
+      const dates = await database.select("SELECT key, value FROM metadata WHERE key IN ('oracle_updated_at', 'rulings_updated_at')");
+      const sourceDates = Object.fromEntries(dates
+        .filter(({ value }) => /^\d{4}-\d{2}-\d{2}T/.test(value))
+        .map(({ key, value }) => [key === "oracle_updated_at" ? "oracle" : "rulings", value.slice(0, 10)]));
+      effectiveStatus = { ...effectiveStatus, sourceDates };
+    } catch { /* Missing date metadata does not disable the verified pack. */ }
     if (status.artReady && status.artDatabaseUrl) {
       try {
         artDatabase = await Database.load(status.artDatabaseUrl);
       } catch (error) {
         effectiveStatus = {
-          ...status,
+          ...effectiveStatus,
           artReady: false,
           artError: `Unable to open indexed art: ${error instanceof Error ? error.message : String(error)}`,
         };

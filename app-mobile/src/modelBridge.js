@@ -1,6 +1,7 @@
 import { addPluginListener, invoke } from "@tauri-apps/api/core";
 import { interpretationPrompt, validateInterpretation } from "./interpretationContract.js";
 import { renderNarration } from "./narrationContract.js";
+import { boundedOperation } from "./asyncOperation.js";
 
 function settleWithin(promise, timeoutMs) {
   let timer;
@@ -16,6 +17,8 @@ export function createModelClient({
   invokeCommand = invoke,
   listen = addPluginListener,
   randomId = () => crypto.randomUUID(),
+  generationTimeoutMs = 12000,
+  listenerTimeoutMs = 1000,
 } = {}) {
   const command = (name, payload) =>
     invokeCommand(`plugin:omnath-model|${name}`, payload ? { payload } : undefined);
@@ -29,7 +32,7 @@ export function createModelClient({
     if (current.state === "ready") return current;
     let lastError;
     for (const candidate of [modelId, ...["base", "enhanced"].filter((id) => id !== modelId)]) {
-      try { return await command("load_model", { modelId: candidate }); }
+      try { return await boundedOperation(() => command("load_model", { modelId: candidate }), { timeoutMs: 120000 }); }
       catch (error) { lastError = error; }
     }
     return { state: "unavailable", error: lastError ? "model-load-failed" : "model-unavailable" };
@@ -38,15 +41,24 @@ export function createModelClient({
   async function generate(prompt, onToken) {
     const requestId = randomId();
     let tokenCount = 0;
-    const listener = onToken
-      ? await listen("omnath-model", "token", (event) => {
-          if (event.requestId === requestId) onToken(++tokenCount);
-        })
-      : null;
+    let listener = null;
+    let acceptingEvents = true;
+    const unregister = (handle) => { try { Promise.resolve(handle?.unregister()).catch(() => null); } catch { /* optional progress */ } };
+    if (onToken) {
+      const pending = Promise.resolve().then(() => listen("omnath-model", "token", (event) => {
+        if (acceptingEvents && event.requestId === requestId) onToken(++tokenCount);
+      }));
+      try { listener = await boundedOperation(() => pending, { timeoutMs: listenerTimeoutMs }); }
+      catch { pending.then(unregister).catch(() => null); }
+    }
     try {
-      return await command("generate", { requestId, prompt });
+      return await boundedOperation(() => command("generate", { requestId, prompt }), { timeoutMs: generationTimeoutMs });
+    } catch (error) {
+      void boundedOperation(() => command("cancel"), { timeoutMs: 1000 }).catch(() => null);
+      throw error;
     } finally {
-      listener?.unregister();
+      acceptingEvents = false;
+      unregister(listener);
     }
   }
 
@@ -78,8 +90,8 @@ export function createModelClient({
     prepareDefault,
     interpret,
     narrate,
-    cancel: () => command("cancel").catch(() => null),
-    unload: () => command("unload").catch(() => null),
+    cancel: () => boundedOperation(() => command("cancel"), { timeoutMs: 1000 }).catch(() => null),
+    unload: () => boundedOperation(() => command("unload"), { timeoutMs: 2000 }).catch(() => null),
     benchmark: () => command("benchmark").catch(() => ({ benchmark: "unavailable" })),
   });
 }

@@ -9,6 +9,15 @@ Continue product and device work from `NEXT-PC.md`. It is the concise ledger of
 locked decisions, completed features, the first Pixel smoke test, and the
 ordered alpha/pilot backlog.
 
+## Local companion review — 2026-09-05
+
+The newer improvement pass is on `codex/omnath-local-companion-review`.
+Read `LOCAL-AI-REVIEW.md` for implemented changes and the expanded idea catalog.
+Fetch and switch to that branch to continue the review version. The draft APK
+and hashes in the historical checkpoint below still identify the earlier build.
+Build the review APK with the existing scripts after restoring local inputs;
+install it as an update to preserve app data.
+
 ## Banked checkpoint — 2026-09-03
 
 - Private repository: `https://github.com/Robak503/mtg-tool`

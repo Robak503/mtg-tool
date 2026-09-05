@@ -1,5 +1,7 @@
 import { planOfflineAnswer } from "./answerPlanner.js";
 import { resolveInterpretation } from "./interpretationContract.js";
+import { boundedOperation, operationError } from "./asyncOperation.js";
+import { createConversationSession } from "./conversationSession.js";
 
 function publicState(state) {
   return Object.freeze({ ...state });
@@ -22,10 +24,12 @@ function safeFailedKnowledge(status) {
   });
 }
 
-export function createAssistantController({ verifyRuntime, openRepository, model }) {
+export function createAssistantController({ verifyRuntime, openRepository, model, requestTimeoutMs = 15000, modelTimeoutMs = 12000 }) {
   const listeners = new Set();
   let repository = null;
   let requestSequence = 0;
+  let activeRequest = null;
+  const session = createConversationSession();
   let modelSettled = Promise.resolve({ state: "unavailable" });
   let state = {
     phase: "booting",
@@ -55,7 +59,7 @@ export function createAssistantController({ verifyRuntime, openRepository, model
       if (!runtime?.passed) throw Object.assign(new Error("runtime failed"), { code: "runtime_failed" });
       repository = await openRepository(onKnowledgeProgress);
       emit({ phase: "ready", runtime, knowledge: repository.status, model: { state: "loading" } });
-      modelSettled = model.prepareDefault().then((result) => {
+      modelSettled = boundedOperation(() => model.prepareDefault(), { timeoutMs: 120000 }).then((result) => {
         emit({ model: result?.state === "ready" ? result : { state: "unavailable" } });
         return result;
       }).catch(() => {
@@ -72,51 +76,78 @@ export function createAssistantController({ verifyRuntime, openRepository, model
   }
 
   async function ask(rawQuestion, onActivity = () => {}) {
-    const question = String(rawQuestion ?? "").trim();
-    if (!repository || !question) return { cancelled: false, errorCode: "not_ready" };
+    const originalQuestion = String(rawQuestion ?? "").trim();
+    if (!repository || !originalQuestion) return { cancelled: false, errorCode: "not_ready" };
+    if (originalQuestion.length > 500) return { cancelled: false, errorCode: "question_too_long" };
+    // Keep a single native generation owner. The UI disables other submitters.
+    if (activeRequest) return { cancelled: false, errorCode: "busy" };
     const sequence = ++requestSequence;
+    const abort = new AbortController();
+    activeRequest = abort;
+    const { question, contextLabel } = session.resolve(originalQuestion);
+    const run = (work, timeoutMs = requestTimeoutMs) => boundedOperation(work, { signal: abort.signal, timeoutMs });
+    const activity = (value) => { if (sequence === requestSequence && !abort.signal.aborted) onActivity(value); };
     emit({ phase: "answering", errorCode: null });
     try {
-      onActivity({ phase: "retrieving", tokenCount: 0 });
-      let plan = await planOfflineAnswer(repository, question);
+      activity({ phase: "retrieving", tokenCount: 0 });
+      let plan = await run(() => planOfflineAnswer(repository, question));
       ensureCurrent(sequence);
-
-      const currentModel = await model.status();
-      if (!plan.answerTrusted && currentModel.state === "ready") {
-        onActivity({ phase: "interpreting", tokenCount: 0 });
-        const proposal = await model.interpret(question, (tokenCount) => onActivity({ phase: "interpreting", tokenCount }));
-        ensureCurrent(sequence);
-        if (proposal.valid) {
-          const resolved = await resolveInterpretation(repository, proposal.candidate);
+      let modelUsed = false;
+      let modelRejection = plan.answerTrusted || plan.status === "conversation" ? "not_needed" : "unavailable";
+      // Verbatim evidence needs no generation. The model only assists unresolved intent.
+      if (!plan.answerTrusted && plan.status !== "conversation") {
+        try {
+          const currentModel = await run(() => model.status(), 2000);
           ensureCurrent(sequence);
-          if (resolved.valid) plan = await planOfflineAnswer(repository, question, resolved.interpretation);
+          emit({ model: currentModel?.state === "ready" ? currentModel : state.model });
+          if (currentModel?.state === "ready") {
+            activity({ phase: "interpreting", tokenCount: 0 });
+            const proposal = await run(() => model.interpret(question, (tokenCount) => activity({ phase: "interpreting", tokenCount })), modelTimeoutMs);
+            ensureCurrent(sequence);
+            modelRejection = proposal.reason ?? "invalid_intent";
+            if (proposal.valid) {
+              const resolved = await run(() => resolveInterpretation(repository, proposal.candidate));
+              ensureCurrent(sequence);
+              if (resolved.valid) {
+                plan = await run(() => planOfflineAnswer(repository, question, resolved.interpretation));
+                modelUsed = true;
+                modelRejection = null;
+              } else modelRejection = resolved.reason;
+            }
+          }
+        } catch (error) {
+          ensureCurrent(sequence);
+          if (error?.code === "cancelled") throw error;
+          modelRejection = error?.code === "timeout" ? "timeout" : "generation_failed";
+          void boundedOperation(() => model.cancel(), { timeoutMs: 1000 }).catch(() => null);
         }
-      }
-
-      let narration = { text: plan.fallback, usedModel: false, rejection: "unavailable" };
-      if (currentModel.state === "ready") {
-        onActivity({ phase: "narrating", tokenCount: 0 });
-        narration = await model.narrate(plan, (tokenCount) => onActivity({ phase: "narrating", tokenCount }));
       }
       ensureCurrent(sequence);
       const outcome = Object.freeze({
         cancelled: false,
-        question,
-        answer: Object.freeze({ ...plan, facts: Object.freeze({ ...plan.facts, message: narration.text }) }),
-        model: Object.freeze({ used: narration.usedModel, rejection: narration.rejection }),
+        question: originalQuestion,
+        contextLabel,
+        answer: plan,
+        model: Object.freeze({ used: modelUsed, rejection: modelRejection }),
       });
-      emit({ phase: "ready", lastOutcome: { status: plan.status, modelRejection: narration.rejection }, errorCode: null });
+      session.remember(plan);
+      emit({ phase: "ready", lastOutcome: { status: plan.status, modelRejection }, errorCode: null });
       return outcome;
     } catch (error) {
-      if (error?.code === "cancelled") return { cancelled: true, errorCode: "cancelled" };
-      emit({ phase: "ready", errorCode: "answer_failed", lastOutcome: { status: "error", modelRejection: null } });
-      return { cancelled: false, errorCode: "answer_failed" };
+      if (error?.code === "cancelled" || sequence !== requestSequence) return { cancelled: true, errorCode: "cancelled" };
+      const errorCode = error?.code === "timeout" ? "answer_timeout" : "answer_failed";
+      emit({ phase: "ready", errorCode, lastOutcome: { status: "error", modelRejection: null } });
+      return { cancelled: false, errorCode };
+    } finally {
+      if (activeRequest === abort) activeRequest = null;
     }
   }
 
   async function cancel() {
     requestSequence += 1;
-    await model.cancel();
+    activeRequest?.abort(operationError("cancelled"));
+    activeRequest = null;
+    void boundedOperation(() => model.cancel(), { timeoutMs: 1000 }).catch(() => null);
     return emit({ phase: repository ? "ready" : state.phase, errorCode: "cancelled" });
   }
 
@@ -124,6 +155,8 @@ export function createAssistantController({ verifyRuntime, openRepository, model
     start,
     ask,
     cancel,
+    clearConversation() { session.clear(); },
+    getCardArt: (oracleId, faceIndex) => boundedOperation(() => repository?.getCardArt?.(oracleId, faceIndex), { timeoutMs: 2000 }).catch(() => null),
     whenModelSettled: () => modelSettled,
     subscribe(listener) {
       listeners.add(listener);

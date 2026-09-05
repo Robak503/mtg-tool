@@ -8,12 +8,17 @@ function invalid(reason) {
 
 export function deterministicIntent(question) {
   const value = String(question ?? "").trim();
-  if (/\b(?:CR\s*)?\d{3}\.\d+[a-z]?\b/i.test(value)) return "rule_lookup";
+  if (isDirectRuleLookup(value)) return "rule_lookup";
   if (/\b(?:combo|interaction|work together|interact|what happens|in response|target(?:s|ing)?|trigger(?:s|ed|ing)?)\b/i.test(value)) {
     return "interaction";
   }
-  if (/^\s*(?:what does|what is|show(?: me)?|read|oracle text|explain)\b/i.test(value)) return "card_lookup";
+  if (/^(?:can|does|do|would|will|if|why|how)\b/i.test(value)) return "interaction";
+  if (/^\s*(?:what does|what is|show(?: me)?|read|oracle text|explain|tell me about)\b/i.test(value)) return "card_lookup";
   return "unknown";
+}
+
+export function isDirectRuleLookup(question) {
+  return /^(?:(?:show|read|explain)(?: me)?\s+|what is\s+)?(?:(?:CR|rule)\s*)?\d{3}\.\d+[a-z]?\s*[?.!]*$/i.test(String(question ?? "").trim());
 }
 
 export function validateInterpretation(value, maxLength = 800) {
@@ -34,7 +39,8 @@ export function validateInterpretation(value, maxLength = 800) {
   if (!INTENTS.has(parsed.intent)) return invalid("intent");
   if (!Array.isArray(parsed.cardNames) || parsed.cardNames.length > 3) return invalid("card-names");
 
-  const cardNames = parsed.cardNames.map((name) => String(name ?? "").trim());
+  if (parsed.cardNames.some((name) => typeof name !== "string")) return invalid("card-name-type");
+  const cardNames = parsed.cardNames.map((name) => name.trim());
   if (cardNames.some((name) => name.length < 2 || name.length > 120)) return invalid("card-name-length");
   const unique = new Set(cardNames.map((name) => name.toLocaleLowerCase("en-US")));
   if (unique.size !== cardNames.length) return invalid("duplicate-card");

@@ -8,7 +8,10 @@ function repository(mode) {
   return {
     status: { ready: true, schemaVersion: 1, packId: "fixture-pack", databaseBytes: 1024, databaseSha256: "fixture-sha256" },
     async getRuleExact(number) { return mode === "grounded-rule" && number === "702.7" ? { ruleNumber: number, ruleText: "A fixture rule stored on this device.", examples: [] } : null; },
-    async findCardExact(name) { return name === omnath.name ? omnath : null; },
+    async findCardExact(name) {
+      if (mode === "slow-query" && name === "Hang") return new Promise(() => {});
+      return name === omnath.name ? omnath : null;
+    },
     async searchCards() { return mode === "insufficient" ? [] : [omnath]; },
     async getRulings() { return [{ publishedAt: "2026-01-01", comment: "Fixture official ruling." }]; },
     async searchRules() { return mode === "matches" ? [{ ruleNumber: "603.1", ruleText: "A triggered ability has a trigger condition.", examples: [] }] : []; },

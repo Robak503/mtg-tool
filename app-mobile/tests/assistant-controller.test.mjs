@@ -135,14 +135,94 @@ test("cancellation prevents a late generation from rendering", async () => {
     }),
     model: model({
       async status() { return { state: "ready" }; },
-      async narrate() { return generation; },
+      async interpret() { return generation; },
     }),
   });
   await controller.start();
-  const pending = controller.ask("What does Omnath, Locus of Creation do?");
+  const pending = controller.ask("What does the four-color Omnath do?");
   await new Promise((resolve) => setImmediate(resolve));
   await controller.cancel();
-  finish({ text: "late", usedModel: true, rejection: null });
+  finish({ valid: false, reason: "late", candidate: null });
   assert.equal((await pending).cancelled, true);
   assert.equal(controller.getState().errorCode, "cancelled");
+});
+
+test("Stop resolves a stuck lookup even when native cancellation never acknowledges", async () => {
+  const controller = createAssistantController({
+    verifyRuntime: async () => ({ passed: true }),
+    openRepository: async () => repository({ findCardExact: () => new Promise(() => {}) }),
+    model: model({ cancel: () => new Promise(() => {}) }),
+  });
+  await controller.start();
+  const pending = controller.ask("Omnath");
+  await new Promise((resolve) => setImmediate(resolve));
+  await controller.cancel();
+  assert.equal((await pending).cancelled, true);
+  assert.equal(controller.getState().phase, "ready");
+});
+
+test("late lookup errors cannot overwrite the outcome of a newer request", async () => {
+  let fail;
+  let calls = 0;
+  const controller = createAssistantController({
+    verifyRuntime: async () => ({ passed: true }),
+    openRepository: async () => repository({ findCardExact: () => ++calls === 1 ? new Promise((_, reject) => { fail = reject; }) : omnath }),
+    model: model(),
+  });
+  await controller.start();
+  const previous = controller.ask(omnath.name);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal((await controller.ask("another query")).errorCode, "busy");
+  await controller.cancel();
+  assert.equal((await controller.ask(omnath.name)).answer.status, "grounded");
+  fail(new Error("late private native error"));
+  assert.equal((await previous).cancelled, true);
+  assert.equal(controller.getState().lastOutcome.status, "grounded");
+  assert.equal(controller.getState().errorCode, null);
+});
+
+test("lookup timeout recovers and a model timeout keeps the retrieved evidence", async () => {
+  const controller = createAssistantController({
+    verifyRuntime: async () => ({ passed: true }),
+    openRepository: async () => repository({ findCardExact: () => new Promise(() => {}) }),
+    model: model(), requestTimeoutMs: 10,
+  });
+  await controller.start();
+  assert.equal((await controller.ask("Omnath")).errorCode, "answer_timeout");
+  assert.equal(controller.getState().phase, "ready");
+
+  const other = createAssistantController({
+    verifyRuntime: async () => ({ passed: true }), openRepository: async () => repository(),
+    model: model({ status: async () => ({ state: "ready" }), interpret: () => new Promise(() => {}) }), modelTimeoutMs: 10,
+  });
+  await other.start();
+  const result = await other.ask("What does four-color Omnath do?");
+  assert.equal(result.answer.status, "insufficient");
+  assert.equal(result.model.rejection, "timeout");
+});
+
+test("exact lookups bypass every model command after boot", async () => {
+  const controller = createAssistantController({
+    verifyRuntime: async () => ({ passed: true }), openRepository: async () => repository({ findCardExact: async () => omnath }),
+    model: model({ status() { throw new Error("must not probe model"); }, narrate() { throw new Error("must not narrate"); } }),
+  });
+  await controller.start();
+  const result = await controller.ask(omnath.name);
+  assert.equal(result.answer.answerTrusted, true);
+  assert.equal(result.model.rejection, "not_needed");
+});
+
+test("session follow-ups use only the last verified subject and clear explicitly", async () => {
+  const controller = createAssistantController({
+    verifyRuntime: async () => ({ passed: true }),
+    openRepository: async () => repository({ findCardExact: async (name) => name === omnath.name ? omnath : null }),
+    model: model(),
+  });
+  await controller.start();
+  await controller.ask(omnath.name);
+  const followUp = await controller.ask("its rulings");
+  assert.equal(followUp.answer.facts.heading, omnath.name);
+  assert.equal(followUp.contextLabel, omnath.name);
+  controller.clearConversation();
+  assert.equal((await controller.ask("its rulings")).answer.status, "insufficient");
 });

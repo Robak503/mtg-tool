@@ -22,7 +22,7 @@
       </div>
     </section>
 
-    <main id="app" data-state="loading" aria-busy="true">
+    <main id="app" data-state="loading" aria-busy="true" inert>
       <header class="topbar">
         <a class="brand" href="#top" aria-label="Omnath home">
           <span class="brand-mark" aria-hidden="true">O</span>
@@ -33,9 +33,23 @@
 
       <section id="top" class="agent-strip" aria-label="Active assistant">
         <span class="agent-mark" aria-hidden="true">Ω</span>
-        <span class="agent-copy"><strong>Omnath</strong><small>Offline rules specialist</small></span>
+        <span class="agent-copy"><strong>Omnath</strong><small>Your offline Magic companion</small></span>
         <span class="privacy-chip">No network</span>
       </section>
+
+      <section class="session-tools" aria-label="Conversation controls">
+        <button id="new-chat" type="button" class="feedback-button" disabled>New chat</button>
+        <details class="reading-settings">
+          <summary>Reading settings</summary>
+          <div class="settings-panel">
+            <label><input id="large-text" type="checkbox"> Larger text</label>
+            <label><input id="show-art" type="checkbox" checked> Show card art</label>
+            <label><input id="expand-rulings" type="checkbox"> Open rulings automatically</label>
+            <button id="reset-reading" type="button" class="feedback-button">Reset reading settings</button>
+          </div>
+        </details>
+      </section>
+      <p class="session-note">This chat stays in memory while the app is open. New chat clears it.</p>
 
       <section class="quick-prompts" aria-label="Example questions">
         <span class="quick-label">Try</span>
@@ -59,13 +73,14 @@
         <dl id="receipt">
           <div><dt>Rules runtime</dt><dd id="runtime-status">Checking</dd></div>
           <div><dt>Knowledge pack</dt><dd id="pack-status">Opening</dd></div>
+          <div><dt>Card data date</dt><dd id="source-date">Not recorded</dd></div>
           <div><dt>Local model</dt><dd id="model-status">Checking</dd></div>
           <div><dt>Network</dt><dd>Never required</dd></div>
         </dl>
       </details>
     </main>
 
-    <form id="ask-form" class="composer" aria-describedby="composer-privacy">
+    <form id="ask-form" class="composer" aria-describedby="composer-privacy" inert>
       <label for="question">Ask Omnath <span>· stays on this device</span></label>
       <div class="composer-row">
         <textarea id="question" name="question" rows="1" maxlength="500" placeholder="Name the cards and game state…" required disabled></textarea>

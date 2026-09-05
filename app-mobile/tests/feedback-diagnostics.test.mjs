@@ -18,6 +18,14 @@ test("feedback persists aggregates without accepting conversation text", () => {
   assert.equal(serialized.includes("private"), false);
 });
 
+test("diagnostics preserve named engine witnesses from the real WebView smoke shape", () => {
+  const receipt = buildDiagnosticReceipt({ runtime: { passed: true, checks: { classifier: true, plot: true, adventure: false } } });
+  assert.deepEqual(receipt.runtime.witnesses, [
+    { id: "classifier", passed: true }, { id: "plot", passed: true }, { id: "adventure", passed: false },
+  ]);
+  assert.equal(typeof receipt.app.build, "string");
+});
+
 test("diagnostic receipt whitelists receipts and excludes private fields", async () => {
   const receipt = buildDiagnosticReceipt({
     runtime: { passed: true, checks: [{ id: "combat", passed: true }], realm: { processAbsent: true }, private: "question" },

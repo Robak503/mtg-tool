@@ -4,6 +4,16 @@ The concise continuation queue is maintained in `../../app-mobile/NEXT-PC.md`.
 Use it for the next-PC order of operations; this document remains the complete
 architectural and implementation record.
 
+**2026-09-05 audit:** `../../app-mobile/LOCAL-AI-REVIEW.md` reconciles the full
+July idea inventory and the local companion direction. The review branch is
+`codex/omnath-local-companion-review`. It adds session conversation, bounded
+follow-ups, reading preferences, reliable cancellation, lookup trust fixes,
+native per-request intent isolation, and better diagnostics. Exact evidence
+lookups now bypass model narration. The portable engine is smoke-tested but
+is not yet invoked by the phone answer planner for arbitrary interaction
+verdicts. This distinction supersedes any broader readiness interpretation of
+the historical receipts below. No engine/corpus/harness source was changed.
+
 > **Purpose.** This is the coordination anchor for turning MTG Tool's existing
 > local rules and play systems into a friend-facing, offline Android assistant.
 > It defines what the phone-app lane may consume, what it owns, and what it must
