@@ -16,6 +16,27 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · A4: GARRUK, UNLEASHED — the self-named loyalty counter · **+1** · corpus 14,540 / 34,245
+> Suite **1528 files / 16,255** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · Atraxa opens (65, needs 20). The deck's sixteen non-walker leftovers cannot reach the bar alone, so the walkers
+>   one ability from native are the entry: Garruk (the −2), Kiora (the +1 shield), Teferi Hero (the −3 tuck). Garruk's
+>   −2 — "Create a 3/3 green Beast creature token. Then if an opponent controls more creatures than you, put a loyalty
+>   counter on Garruk." — parsed LOW on one thing: the walker naming ITSELF. The effect parser has no card in hand,
+>   so "Garruk" was never a self reference; with "this permanent" the whole line already parsed HIGH (the "then if"
+>   peel, the readable board condition, the named-counter-self atom). parseLoyaltyAbilities — the single source the
+>   runtime lane and the metric both read — now rewrites the fixed-count "put a loyalty counter on <own name>" tail
+>   (full or short name, word-bounded, END-anchored) to the self noun. The atom's resolver lands on the SAME
+>   `counters.loyalty` key the cost and the 0-loyalty SBA use, through addCounter — so Doubling Season doubles the
+>   effect's counter and never the cost (the ruling). Eight walkers name themselves this way; the counted tails
+>   ("for each …", "equal to …") are not rewritten and stay parked.
+> · **Pins:** the −2's clause and atoms (create-token, then add-named-counter-self loyalty ×1 under the condition);
+>   Huatli's counted tail untouched and unmodelled; Garruk native-planeswalker, Huatli not; RUNTIME through the real
+>   loyalty lane — opponent ahead on creatures: a Beast and 4−2+1 = 3; no opponent creatures: a Beast and 2; under
+>   Doubling Season: two Beasts and 4−2+2 = 4. Mutants: the rewrite gone, the short name dropped, the end anchor
+>   dropped, the wrong self noun — mutants 4/4 killed.
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Atraxa 65 → **66** (19 to the bar); Kiora and Teferi Hero sized M in the A4 row; Interplanar Beacon sized L in A2
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · F6: FEASTING HOBBIT — the typed devour · **+2** · corpus 14,539 / 34,245
 > Suite **1527 files / 16,249** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
 > · "Devour Food 3 (As this creature enters, you may sacrifice any number of Foods. It enters with three times that

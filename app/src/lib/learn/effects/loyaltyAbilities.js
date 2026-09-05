@@ -42,6 +42,31 @@ function oracleOf(card) {
 }
 
 /**
+ * SELF-LOYALTY COUNTER BY NAME (SHELF-85 · Atraxa A4 — Garruk, Unleashed, 2026-09-05): "put a loyalty counter on
+ * Garruk" — a walker naming ITSELF as the recipient of a fixed number of loyalty counters (8 corpus carriers name
+ * themselves this way; Garruk's and Grist's are the fixed-count form, the others count "for each …" / "equal to …").
+ * The effect parser has no card in hand, so the name never reads as a self reference there; the named-counter-self
+ * atom ("put a <name> counter on this permanent") is exactly this effect once the noun is the self noun, and its
+ * resolver lands on the SAME `counters.loyalty` key adjustLoyalty and the 0-loyalty SBA read (gameState) — placed
+ * through addCounter, so a counter doubler applies to the EFFECT's counters and never to a loyalty cost (CR 122.6 /
+ * the Doubling Season ruling). Anchored at the END of the clause on purpose: a counted tail ("… on Huatli for each
+ * creature you control", "… on Garruk the Slayer equal to that creature's toughness") is not rewritten, fails the
+ * atom's exact anchor as before, and keeps its walker parked (FN-safe). The name is the printed full name or its
+ * short form before the comma, word-bounded and case-insensitive; a walker whose name is a common word can't reach
+ * here (the line must literally read "loyalty counter(s) on <name>").
+ */
+function rewriteSelfLoyaltyCounter(effectClause, card) {
+  const full = String(card?.name || "").trim();
+  if (!full) return effectClause;
+  const short = full.split(",")[0].trim();
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const names = short && short !== full ? `${esc(full)}|${esc(short)}` : esc(full);
+  const re = new RegExp(`^(.*\\bput (?:a|an|one|two|three|four|five|\\d+) loyalty counters? on )(?:${names})(\\.?)$`, "i");
+  const m = effectClause.match(re);
+  return m ? `${m[1]}this permanent${m[2]}` : effectClause;
+}
+
+/**
  * All loyalty-ability lines on a planeswalker, as serializable descriptors. Each entry:
  *   { index, raw, costDelta, effectClause, program, modeled, needsTarget }
  * `costDelta` is the signed integer (+N / −N / 0). `modeled` is the gate the runtime offers on
@@ -58,7 +83,7 @@ export function parseLoyaltyAbilities(card) {
     const m = LOYALTY_LINE.exec(line);
     if (!m) continue;
     const costDelta = parseInt(m[1].replace("−", "-"), 10);
-    const effectClause = m[2].trim();
+    const effectClause = rewriteSelfLoyaltyCounter(m[2].trim(), card);
     // A loyalty ability's effect resolves exactly as a spell would; parse it as Instant text so
     // the spell-effect vocabulary (draw / damage / destroy / token / …) engages off a permanent.
     const program = parseEffectClause(effectClause, "Instant");

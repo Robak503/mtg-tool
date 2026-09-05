@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · A4: Garruk, Unleashed (+1)** · suite **1528 files / 16,255** green · corpus 14,540 / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
+
+> Atraxa opens. A walker naming itself as the loyalty counter's recipient now reads as the self noun in the loyalty parser; the counter lands on the loyalty key through the real lane, doubled by Doubling Season and never as a cost. Atraxa 65 → **66** (19 to the bar); Kiora and Teferi Hero sized M in the A4 row; Interplanar Beacon sized L in A2
+> **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · F6: Feasting Hobbit (+2)** · suite **1527 files / 16,249** green · corpus 14,539 / 34,245 · flip-diff +2 / 0 lost · mutants 3/3 killed
 
 > The typed devour ("Devour Food 3", artifact, land) joins the optional-mode credit on the family's own law — sacrificing zero is the printed creature; the type word is curated and the digit anchor holds. Bumble Flower 84 → **85, AT THE BAR**; Caprichrome the unplanned gain, audited whole-card (flash + vigilance + Devour artifact 1); Famished Worldsire stays parked on its own look-at-top-X ETB
