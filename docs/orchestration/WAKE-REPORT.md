@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · Q3: Tokka & Rahzar + Splinter (+3)** · suite **1536 files / 16,293** green · corpus 14,569 / 34,245 · flip-diff +3 / 0 lost · mutants 4/4 killed (one survivor got its missing test)
+
+> Halfshell opens. The leaves-the-battlefield family learned its nontoken scopes — "another nontoken creature you control" and the self-inclusive "<Name> or another nontoken creature you control" — a token gate on the leaving permanent. Halfshell 69 → **72** (13 to the bar); Rat King, Pale Piper the unplanned gain, audited whole-card (menace + the same self-inclusive union making a Rat + a native sacrifice-a-token draw)
+> **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · Gift on spells (+13)** · suite **1535 files / 16,290** green · corpus 14,566 / 34,245 · flip-diff +13 / 0 lost · mutants 3/3 killed
 
 > Gift joins the kicker family: a promise the engine never makes, so each spell resolves in its printed un-promised mode; the permanent carriers' promised triggers still park. CORRECTION: the trio is Bumble Flower's (85 → **88**); Atraxa is unchanged at 72 (10 to the bar). ATRAXA CEILING REACHED for Phase 2 without the planeswalker sweep — every remaining row sizes M+ (Kiora's all-damage to-and-by shield, Arena Rector's dies-may-exile reflexive with no if-you-do machinery, Urza's Ruinous Blast's nonland-nonlegendary mass exile + the legendary-sorcery cast gate, Astral Cornucopia's count-derived colour-choice tap, Mutational Advantage's counters-scoped grant) or L (the two-plus-ability walkers, Innkeeper's Talent, Interplanar Beacon, Wedding Ring, the Oaths, Carth, Avatar's Wrath, Mechanized Production); per §2.4 those are noted in §5.9 and the §5 order moves to Halfshell (69)

@@ -16,6 +16,25 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · Q3: TOKKA & RAHZAR + SPLINTER — the nontoken leaves scope · **+3** · corpus 14,569 / 34,245
+> Suite **1536 files / 16,293** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed (one survivor got its missing test).**
+> · Halfshell opens (69, needs 16). "Whenever another nontoken creature you control leaves the battlefield, put a +1/+1
+>   counter on Tokka & Rahzar and create a Treasure token. This ability triggers only once each turn." and Splinter's
+>   "Whenever Splinter or another nontoken creature you control leaves the battlefield, create a Mutagen token." The
+>   leaves family knew three subjects (a token you control / another creature you control / a creature you control);
+>   both payoffs, the once-each-turn rider and the Mutagen token were already modelled. Two scopes join it: the
+>   "another nontoken" form (the "another" arm with a token gate on the leaving permanent — card.token, the mirror of
+>   the token scope) and the SELF-INCLUSIVE union "<Name> or another nontoken creature you control" (the source's own
+>   leave arrives through the self look-back and fires it). The union's head must be the source — a stranger's name or
+>   any other rider leaves residue and parks.
+> · **Pins:** the descriptors for both shapes, a stranger-headed union refused; both cards native; RUNTIME — a nontoken
+>   creature leaving fires Tokka (a counter and a Treasure), a second leave the same turn does not (once each turn), a
+>   token leaving never does; Splinter's own bounce makes a Mutagen, a token leaving does not. Mutants: the "another
+>   nontoken" arm gone, the union head unchecked, the token gate dropped, the self-inclusive scope excluding the
+>   source — mutants 4/4 killed (one survivor got its missing test).
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Halfshell 69 → **72** (13 to the bar); Rat King, Pale Piper the unplanned gain, audited whole-card (menace + the same self-inclusive union making a Rat + a native sacrifice-a-token draw)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · GIFT ON SPELLS — the un-promised base mode · **+13** · corpus 14,566 / 34,245
 > Suite **1535 files / 16,290** green; lint 0. Flip-diff **+13, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
 > · "Gift a card (You may promise an opponent a gift as you cast this spell. If you do, they draw a card before its

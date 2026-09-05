@@ -1051,6 +1051,16 @@ function classifyCondition(condRaw, cardName, cardType) {
       }
     }
   }
+  // NONTOKEN LEAVES UNION (SHELF-85 · Halfshell Q3 — Splinter, the Mentor, 2026-09-05): "<Name | this creature> or another
+  // nontoken creature you control leaves the battlefield" — the SELF-INCLUSIVE form of the nontoken leaves scope (the
+  // source's own leave arrives through the self look-back and fires it; every other nontoken creature you control fires
+  // it too). Handled HERE because the generic "or another" refusal directly below runs before the leaves block. The
+  // head must be the source itself — a stranger's name leaves residue → the refusal below → Arbiter.
+  if (selfRef && /\bor another nontoken creature you control leaves the battlefield$/.test(c)) {
+    const head = c.replace(/\s+or another nontoken creature you control leaves the battlefield$/, "").trim();
+    if (head === "this creature" || (nameL && head === nameL) || (shortName && head === shortName))
+      return { event: "permanentLeaves", scope: "nontokenCreatureYouControlLeaves", whose: "any" };
+  }
   if (selfRef && /\bor another\b/.test(c)) return null;
 
   // ===== FIX-TRIG-CONDITION (Rod QA #1, CREED CLAUDE.md §1.2) ===== Reject conditions whose SUBJECT or
@@ -1906,6 +1916,16 @@ function classifyCondition(condRaw, cardName, cardType) {
     // HAD_ANY_COUNTERS, ctx.triggeringHadCounters threaded by checkLeavesTriggers).
     if (ltbSubj === "a creature you control")
       return { event: "permanentLeaves", scope: "creatureYouControlLeaves", whose: "any" };
+    // NONTOKEN (SHELF-85 · Halfshell Q3 — Tokka & Rahzar / Splinter, the Mentor, 2026-09-05): "another nontoken creature
+    // you control leaves the battlefield" and the self-inclusive union "<Name> or another nontoken creature you control
+    // leaves the battlefield" — the same any-exit event with a TOKEN gate on the leaving permanent (card.token, the
+    // token-factory convention — the mirror of tokenYouControlLeaves). The union names the source itself, so it is the
+    // bare self-inclusive scope: every nontoken creature you control, the source included (its own leave arrives via
+    // the self look-back). Any other rider on the subject leaves residue → UNDETECTED → Arbiter.
+    if (ltbSubj === "another nontoken creature you control")
+      return { event: "permanentLeaves", scope: "otherNontokenCreatureYouControlLeaves", whose: "any" };
+    // (the self-inclusive union "<Name> or another nontoken creature you control" is detected ABOVE the generic
+    // "or another" refusal — see the NONTOKEN LEAVES UNION arm.)
   }
   // "Leaves the battlefield" (LTB) for OTHER subjects is intentionally NOT detected here: a self-LTB / un-scoped
   // form whose effect the engine can't fire would be a false positive (the whole ability silently does nothing,
@@ -6242,6 +6262,19 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // "a creature you control leaves the battlefield" (The Ozolith, W2) — the bare form of the arm directly
       // above: NO self exclusion (the bare subject self-includes, the same convention as the bare PiG scopes).
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent)
+        && triggeringPermanent.controller === sourcePermanent.controller;
+    case "otherNontokenCreatureYouControlLeaves":
+      // Tokka & Rahzar — "another nontoken creature you control leaves the battlefield": the "another" arm above with
+      // a NONTOKEN gate on the leaving permanent (card.token — the token-factory convention; a token leaving never fires).
+      return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id
+        && !triggeringPermanent.card?.token
+        && isCreaturePerm(triggeringPermanent)
+        && triggeringPermanent.controller === sourcePermanent.controller;
+    case "nontokenCreatureYouControlLeaves":
+      // Splinter, the Mentor — "Splinter or another nontoken creature you control leaves the battlefield": self-inclusive
+      // (the source's own leave fires it), nontoken-gated like the arm above.
+      return !!triggeringPermanent && !triggeringPermanent.card?.token
+        && isCreaturePerm(triggeringPermanent)
         && triggeringPermanent.controller === sourcePermanent.controller;
     case "creatureOpponentControls":
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller !== sourcePermanent.controller;
