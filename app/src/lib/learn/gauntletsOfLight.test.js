@@ -5,7 +5,8 @@
  * The self and team printings of "assigns combat damage equal to its toughness" already emit a layer-6 op combat
  * resolution reads layer-aware; the Aura form had no attached-clause arm. One arm in the attached-clause core: the pump
  * plus the same op, both scoped to the host by the attached-bonus path (they arrive with the Aura and leave with it).
- * Whole-clause anchored — Solid Footing's conditional "as long as … has vigilance" form never matches.
+ * Whole-clause anchored. (Solid Footing's conditional "as long as … has vigilance" form graduated on 2026-09-05 — sk117 —
+ * through the conditional attached-bonus arm's printed-keyword gate; see solidFooting.test.js.)
  *
  * Mutation-checked: see the run ledger (docs-sk96).
  */
@@ -23,8 +24,11 @@ beforeEach(() => _resetIdsForTests());
 const GAUNTLETS = { id: "c-gol", name: "Gauntlets of Light", type: "Enchantment — Aura", mana: "{2}{W}", keywords: [],
   oracle: "Enchant creature\nEnchanted creature gets +0/+2 and assigns combat damage equal to its toughness rather than its power.\nEnchanted creature has \"{2}{W}: Untap this creature.\"" };
 const PLAIN = { id: "c-pa", name: "Plain Aura", type: "Enchantment — Aura", mana: "{W}", keywords: [], oracle: "Enchant creature\nEnchanted creature gets +0/+2." };
-const SOLID = { id: "c-sf", name: "Solid Footing", type: "Enchantment — Aura", mana: "{W}", keywords: [],
-  oracle: "Flash\nEnchant creature\nEnchanted creature gets +1/+1.\nAs long as enchanted creature has vigilance, it assigns combat damage equal to its toughness rather than its power." };
+// 2026-09-05 (sk117): Solid Footing GRADUATED — its conditional form now parses under the printed-keyword gate
+// (solidFooting.test.js holds the pins). The CREED negative moves to a still-real refusal: a P/T form under the same
+// condition, which the conditional attached-bonus arm refuses all-or-nothing (no gated P/T twin for Auras yet).
+const COND_PUMP = { id: "c-cp", name: "Conditional Pump", type: "Enchantment — Aura", mana: "{W}", keywords: [],
+  oracle: "Enchant creature\nAs long as enchanted creature has vigilance, it gets +2/+2." };
 
 function board(auraCard) {
   const s0 = createGameState({ userDeck: [], aiDeck: [] });
@@ -35,14 +39,14 @@ function board(auraCard) {
 }
 
 describe("the attached-clause arm and the classifier", () => {
-  it("Gauntlets reads to the pump plus the toughness-assigns op; the plain pump has no op; Solid Footing's conditional form stays unread; Gauntlets flips native", () => {
+  it("Gauntlets reads to the pump plus the toughness-assigns op; the plain pump has no op; a conditional P/T Aura form stays unread; Gauntlets flips native", () => {
     const g = parseAuraBonus(GAUNTLETS).map((e) => e.op?.layerOp);
     const p = parseAuraBonus(PLAIN).map((e) => e.op?.layerOp);
-    const row = { gauntlets: g, plain: p, solid: classifyCard(SOLID), tier: classifyCard(GAUNTLETS) };
+    const row = { gauntlets: g, plain: p, condPump: classifyCard(COND_PUMP), tier: classifyCard(GAUNTLETS) };
     console.log("  WITNESS gauntlets", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
     expect(g).toEqual(["ptModify", "assignsCombatDamageWithToughness"]);
     expect(p).toEqual(["ptModify"]);
-    expect(row.solid).not.toMatch(/^native/);
+    expect(row.condPump).not.toMatch(/^native/);
     expect(row.tier).toMatch(/^native/);
   });
 });

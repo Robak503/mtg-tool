@@ -31,7 +31,7 @@
 >   assigns its power. Mutants: the condition arm gone, the gate ignoring the keyword, the classifier allowance forgetting the
 >   condition, the toughness-assigns READER ignoring op.gate (the FP the whole slice hinges on — that reader had never seen a
 >   gated op), the bare attached form gone, the gateable set refusing the toughness op — mutants 6/6 killed.
-> · **Whole-card:** no unplanned gains (flip-diff exactly Solid Footing); Face of Divinity / Shardmage's Rescue keep their gates (the widened gateable set admits only the toughness op, whose reader now honours gates)
+> · **Whole-card:** no unplanned gains (flip-diff exactly Solid Footing); Face of Divinity / Shardmage's Rescue keep their gates (the widened gateable set admits only the toughness op, whose reader now honours gates). ⚠️ The FIRST full suite was RED by one: gauntletsOfLight.test.js pinned "Solid Footing stays unread" as its CREED negative — GRADUATED, the negative moved to a conditional P/T Aura form ("as long as enchanted creature has vigilance, it gets +2/+2" — refused all-or-nothing, body-only). The commit b58e453e landed before that rerun (a chain-ordering slip: the docs script ran off a grep that did not gate on the fail count); the follow-up commit carries the moved pin and the green suite of record.
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Light-Paws Voltron 81 → 82** (ceiling stands — every other row L; the Phase 4 list already names the rest). Sai (Shorikai) probed: its "Sacrifice two artifacts" cost is a non-fungible CHOICE the auto-pick refuses by design → 🅿 CHOICE-EVAL (the quartet), not an S row
 
