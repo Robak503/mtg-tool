@@ -315,6 +315,10 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false, all
   // "on this creature" — the explicit source self-reference (Red Hulk's reflexive via the gendered-pronoun
   // normalization, 2026-08-14): the SAME referent as "on it" in a source-scoped clause, same reader.
   if (/^\+1\/\+1 counters? on (?:it|this creature)$/.test(p)) return { kind: "plusCountersOnSource" };
+  // BOUND-TARGET count (Study the Classics "You gain life equal to the number of +1/+1 counters on that creature",
+  // 2026-09-05): "that creature" is the spell's previous target, never the source — the emitting arm stamps
+  // bindPreviousTargets so the count reads the bound slice at resolution (countForSpec plusCountersOnTarget).
+  if (/^\+1\/\+1 counters? on that creature$/.test(p)) return { kind: "plusCountersOnTarget" };
   // NAMED-COUNTERS-ON-SOURCE (THE ONE RING, SG-17, 2026-09-03): "for each burden counter on this creature/artifact/…"
   // — the source's own bag of a NAMED counter kind, read live at resolution (CR 608.2h) through the same
   // ctx.sourceId the +1/+1 form uses. The kind word is any lowercase counter name; the ±1/±1 spellings never

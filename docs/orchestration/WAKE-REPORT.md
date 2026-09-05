@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · F5: Study the Classics (+5)** · suite **1520 files / 16,232** green · corpus 14531 / 34,245 · flip-diff +5 / 0 lost · mutants 6/6 killed
+
+> The bound "double the +1/+1 counters on it" and a bound-target +1/+1 count feeding the life arm — three atoms, two bound to the first's target. Bumble Flower 79 → **80** (5 to the bar); four unplanned gains audited — Growth Curve, Invigorating Surge, Sage of the Fang (the same shape), Visions of Dominance (its flashback line's 'costs {X} less this way' rider modifies only a flashback cast the engine never offers — FN-safe, the same basis as the flashback strip; the line strip's swallow of ANY trailing sentence is a hollow closed in the next commit)
+> **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · F6: Samwise Gamgee (+2)** · suite **1519 files / 16,229** green · corpus 14526 / 34,245 · flip-diff +2 / 0 lost · mutants 4/4 killed
 
 > "historic" joins the graveyard filter vocabulary (an artifact, a legendary, or a Saga); Treebeard sized up and left for Phase 3. Bumble Flower 78 → **79** (6 to the bar); Layla Hassan the unplanned gain, audited whole-card (first strike + a compound ETB/combat-damage head returning a historic card); one suite guard graduated — gyRecursion had listed 'historic' as unmodelled by name

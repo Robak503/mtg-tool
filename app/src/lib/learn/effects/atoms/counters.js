@@ -538,6 +538,15 @@ export function addCounterClauseParser(clause) {
   if (/^double the number of \+1\/\+1 counters on the conditional's chosen creature$/.test(t)) {
     return { op: "add-counter", counterType: "+1/+1", perTargetDouble: "+1/+1", targetType: "creature", chosenByBranch: true };
   }
+  // ===== DOUBLE ON THE BOUND REFERENT (SHELF-85 · Bumble F5 Study the Classics, 2026-09-05 — "Put a +1/+1 counter on
+  // target creature, then double the number of +1/+1 counters on it."; 10 printings of the "it" form, 5 of "that
+  // creature") ===== the recipient is whatever the PRECEDING atom targeted (bindPreviousTargets — CR 608.2, the
+  // pronoun refers to the object already acted on; referentBindingOk forces the program LOW unless a targeting atom
+  // precedes it). perTargetDouble adds the creature's own current +1/+1 count again through addCounter (Doubling
+  // Season composes, CR 616). The conditional's sentinel above stays its own arm.
+  if (/^double the number of \+1\/\+1 counters on (?:it|that creature)$/.test(t)) {
+    return { op: "add-counter", counterType: "+1/+1", perTargetDouble: "+1/+1", bindPreviousTargets: true };
+  }
   // ===== ENRAGE / DAMAGE-RECEIVED self-scaled (CR 603.2) ===== "put that many +1/+1 counters on THIS CREATURE" —
   // the ENRAGE payoff (Hungering Hydra: "Whenever this creature is dealt damage, put that many +1/+1 counters on
   // it"). "that many" = the damage the creature just took, threaded by checkDealtDamageTriggers as

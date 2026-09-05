@@ -300,7 +300,8 @@ export function lifeClauseParser(clause) {
   mfe = t.match(/^(?:you )?gain life equal to the number of (.+)$/);
   if (mfe) {
     const src = parseCountSource(mfe[1]);
-    return src ? { op: "gain-life", amountCount: { ...src, per: 1 }, targetType: null } : null;
+    // a bound-target count ("+1/+1 counters on that creature" — Study the Classics) rides as a bound referent atom
+    return src ? { op: "gain-life", amountCount: { ...src, per: 1 }, targetType: null, ...(src.kind === "plusCountersOnTarget" ? { bindPreviousTargets: true } : {}) } : null;
   }
   mfe = t.match(/^each opponent loses (\d+) life for each (.+)$/);
   if (mfe) {

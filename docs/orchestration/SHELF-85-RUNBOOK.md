@@ -78,11 +78,11 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shalai and Hallar Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Otharri Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Bumble Flower Combo | 79 | 6 | 11 | ⬜ Phase 2 |
+| Test | Bumble Flower Combo | 80 | 5 | 10 | ⬜ Phase 2 |
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**4 decks below 85 · 61 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**4 decks below 85 · 60 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -385,7 +385,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | F2 | Rosie Cotton · Arcade Cabinet · Gingerbrute ×2 · Tough Cookie ×2 | | V7 / V8 / V14 | | ✅ |
 | F3 | Ms. Bumbleflower | cast → target opponent draws; +1/+1 counter on target creature; it gains flying | S | | ⬜ |
 | F4 | Academy Manufactor | Clue/Food/Treasure → one of each | S | a token-minting replacement (the Donatello class shares the seam) | ✅ (+1 — `tokenOneOfEach` on the doubler profile (the Took extra-Food seam); at the mint chokepoint each Clue/Food/Treasure in the batch spawns the two missing kinds raw in the same event, one pass per Manufactor the creator controls (two → three of each, the printed ruling); NOT multiplied by a token doubler — with Anointed Procession one Food is two of each in either replacement order; pinned: one Manufactor 1/1/1, a Soldier untouched, the opponent's Manufactor inert, two Manufactors 3/3/3, doubler 2/2/2) |
-| F5 | Study the Classics · Treebeard (sized UP 2026-09-05: a subtype-union target pool + "halfling" in the allowlist + a lifegain that-many-on-TARGET sentinel — three seams, ~1 card; the bare subtype-target vein is 24 uses corpus-wide) · Wave Goodbye ✅ · Secret Rendezvous ✅ · Riot Control ✅ · Kwain | counters/lifegain/mass bounce/draw shapes | S each | Wave Goodbye = mass bounce with a no-counter filter | ⬜ |
+| F5 | Study the Classics ✅ · Treebeard (sized UP 2026-09-05: a subtype-union target pool + "halfling" in the allowlist + a lifegain that-many-on-TARGET sentinel — three seams, ~1 card; the bare subtype-target vein is 24 uses corpus-wide) · Wave Goodbye ✅ · Secret Rendezvous ✅ · Riot Control ✅ · Kwain | counters/lifegain/mass bounce/draw shapes | S each | Wave Goodbye = mass bounce with a no-counter filter | ⬜ |
 | F6 | Heaped Harvest ✅ (+2 — the compound head's second half "when you sacrifice it" + the self-sac cost guard exemption; Carrot Cake rode along) · Elanor Gardner ✅ · Lembas · Sam, Loyal Attendant · Samwise Gamgee ✅ · Samwise the Stouthearted · Hot Soup ✅ · Field-Tested Frying Pan · Night of the Sweets' Revenge ✅ · Feasting Hobbit · Campsite Cuisine · Shoreline Looter ✅ · Archway of Innovation · Continue? | | S–M | the Food family: "when you sacrifice it" (S), "if you sacrificed a Food this turn" (S), devour Food (M), improvise grant (M) | ⬜ |
 | F7 | Eriette's Tempting Apple | gain control | ⛔ THEFT | | ⛔ |
 | F8 | COMPOSITE | Innkeeper's Talent · Killer Service · Long River's Pull · Mechanized Production · Peerless Recycling · Wear Down · Wedding Ring · Tamiyo, Field Researcher | size on approach | | ⬜ |
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · F5 Study the Classics (Bumble Flower) ✅ +5 corpus (the BOUND "double the +1/+1 counters on it" and a bound-target +1/+1 count for the life arm) · mutants 6/6 killed · suite 1520 files / 16,232 · Bumble Flower 79 → **80** (5 to the bar); four unplanned gains audited — Growth Curve, Invigorating Surge, Sage of the Fang (the same shape), Visions of Dominance (its flashback line's 'costs {X} less this way' rider modifies only a flashback cast the engine never offers — FN-safe, the same basis as the flashback strip; the line strip's swallow of ANY trailing sentence is a hollow closed in the next commit)
 
 - 2026-09-05 — Phase 2 · F6 Samwise Gamgee (Bumble Flower) ✅ +2 corpus ("historic" joins the graveyard filter vocabulary — an artifact, a legendary, or a Saga off the front face) · mutants 4/4 killed · suite 1519 files / 16,229 · Bumble Flower 78 → **79** (6 to the bar); Layla Hassan the unplanned gain, audited whole-card (first strike + a compound ETB/combat-damage head returning a historic card); one suite guard graduated — gyRecursion had listed 'historic' as unmodelled by name
 

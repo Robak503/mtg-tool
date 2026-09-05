@@ -796,6 +796,13 @@ export function countForSpec(state, ctx, spec) {
   // (Embalmed Brawler), where the permanent is still on the battlefield and the board IS the right answer.
   // ⓘ `!= null` rather than truthy: a creature that died with ZERO counters must read 0 from the look-back,
   // not fall through to a live lookup that would find nothing anyway — but would be the wrong reason.
+  // BOUND-TARGET +1/+1 count (Study the Classics, 2026-09-05): the bound slice's creature (ctx.targets — the previous
+  // atom's target, threaded by runProgram's referent binding). No bound creature → 0 (a clean no-op, never fabricated).
+  if (spec.kind === "plusCountersOnTarget") {
+    const t = (ctx?.targets || []).find((x) => x?.type === "creature" || x?.type === "permanent");
+    const lk = t ? findPermanent(state, t.id) : null;
+    return Math.max(0, lk?.permanent?.counters?.["+1/+1"] || 0);
+  }
   if (spec.kind === "plusCountersOnSource") {
     if (ctx?.triggeringPlusCounterCount != null) return Math.max(0, ctx.triggeringPlusCounterCount);
     const lk = ctx?.sourceId ? findPermanent(state, ctx.sourceId) : null;

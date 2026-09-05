@@ -16,6 +16,23 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · F5: STUDY THE CLASSICS — the bound double and the bound count · **+5** · corpus 14531 / 34,245
+> Suite **1520 files / 16,232** green; lint 0. Flip-diff **+5, zero LOST** (any unplanned gains audited whole-card). **mutants 6/6 killed.**
+> · "Put a +1/+1 counter on target creature, then double the number of +1/+1 counters on it. You gain life equal to the
+>   number of +1/+1 counters on that creature." Three atoms, the last two BOUND to the first's target (CR 608.2 — the
+>   pronoun is the object already acted on; referentBindingOk forces the program LOW without a targeting predecessor,
+>   and the referent chain walks back past consecutive bound atoms). (1) The bound double: the per-target double the
+>   conditional sentinel already used (Scythecat Cub), now on the previous atom's target — 10 printings of the "it"
+>   form, 5 of "that creature". (2) The life half: the count-source parser read "+1/+1 counters on it / this creature"
+>   as the SOURCE's count; "on that creature" is a spell anaphor for the bound target, never the source — a new
+>   bound-target count kind, read off the bound slice at resolution, and the gain-life arm binds when it carries it.
+> · **Pins:** the program parses HIGH as the three atoms with the two bound flags and the bound-target count kind,
+>   native-spell; a bare bear beside an untouched Giant goes 0 → 1 → 2 for 2 life with the Giant at 0; a bear
+>   carrying 2 goes 2 → 3 → 6 for 6 life. Mutants: the bound arm gone, its binding dropped, one counter instead of the
+>   double, the count read as the source, the count kind unknown, the life arm unbound — mutants 6/6 killed.
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Bumble Flower 79 → **80** (5 to the bar); four unplanned gains audited — Growth Curve, Invigorating Surge, Sage of the Fang (the same shape), Visions of Dominance (its flashback line's 'costs {X} less this way' rider modifies only a flashback cast the engine never offers — FN-safe, the same basis as the flashback strip; the line strip's swallow of ANY trailing sentence is a hollow closed in the next commit)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · F6: SAMWISE GAMGEE — "historic" · **+2** · corpus 14526 / 34,245
 > Suite **1519 files / 16,229** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · "Whenever another nontoken creature you control enters, create a Food token. / Sacrifice three Foods: Return target
