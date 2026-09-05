@@ -38,7 +38,7 @@ describe("detection + classification", () => {
       two: detectTriggers({ ...RAY, oracle: "Whenever a creature you control with two or more counters on it deals combat damage to a player, draw a card." }).filter((d) => d.event === "combatDamageToPlayer").length,
       tier: classifyCard(RAY) };
     console.log("  WITNESS rayFillet", JSON.stringify(row)); // vitest 4 needs --disable-console-intercept
-    expect(row.ray).toEqual([["creatureYouControl", true]]);
+    expect(row.ray).toEqual([["creatureYouControl", "any"]]);
     expect(row.two).toBe(0);
     expect(row.tier).toMatch(/^native/);
   });

@@ -68,7 +68,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Kinnan Mana Overload | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Believe it! | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kellan of the west | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Joe | Halfshell heroes | 72 | 13 | 18 | ⬜ Phase 2 |
+| Joe | Halfshell heroes | 73 | 12 | 17 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 91 | — | — | ✅ at the bar |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 72 | 13 | 18 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 68 | 17 | 22 | ⬜ Phase 2 |
 
-**3 decks below 85 · 43 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**3 decks below 85 · 42 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -409,7 +409,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 |---|---|---|---|---|---|
 | Q1 | Double Jump // Flying Kick | split | L (V1 slice 3) | | ⬜ |
 | Q2 | Arcade Cabinet · Path of Ancestry | | V8 / V11 | | ✅ |
-| Q3 | Casey Jones · Ray Fillet · Together Forever · Tokka & Rahzar ✅ (+1 — the nontoken leaves scope; Splinter, the Mentor rode along on its self-inclusive union) · Baxter (sized M — a with-a-counter team grant) · Heroes in a Half Shell · Coin of Mastery · Raphael | counters-matter triggers and statics | S / S / M / S / S / M / M / M | Casey Jones = a counters-placed batch event (exists: countersPlaced) + damage; Ray Fillet = combat damage by a creature with a counter → draw; Raphael = a damage doubler filtered by "with counters" | ⬜ |
+| Q3 | Casey Jones · Ray Fillet ✅ (+1 — the with-a-counter dealer filter) · Together Forever · Tokka & Rahzar ✅ (+1 — the nontoken leaves scope; Splinter, the Mentor rode along on its self-inclusive union) · Baxter (sized M — a with-a-counter team grant) · Heroes in a Half Shell · Coin of Mastery · Raphael | counters-matter triggers and statics | S / S / M / S / S / M / M / M | Casey Jones = a counters-placed batch event (exists: countersPlaced) + damage; Ray Fillet = combat damage by a creature with a counter → draw; Raphael = a damage doubler filtered by "with counters" | ⬜ |
 | Q4 | Big Apple · Big Mother Mouser · Shellshock · Swift Demise · Wave Goodbye · Continue? · Exploding Barrel · Everything Pizza · Endless Foot Assault · Splinter · Foot Chopper · Mole Module · Bebop · Tempestra · Irma · Dimension X Pizzasaur · Donatello | | S–M | Shredder's per-opponent copies = M; Irma's combat-start copy = M; Donatello's Mutagen replacement shares F4's seam | ⬜ |
 | Q5 | COMPOSITE | Fast Forward · Rat King · Lita · Turtle Lair · Special Move · Vigor · Krang | size on approach | | ⬜ |
 
@@ -478,6 +478,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · Q3 Ray Fillet, Wave Warrior (Halfshell) ✅ +3 corpus (the WITH-A-COUNTER dealer filter on the creature-you-control combat-damage scope — "a creature you control with a counter on it deals combat damage to a player": a live per-dealer read of any counter kind at the fire site) · mutants 4/4 killed · suite 1537 files / 16,296 · Halfshell 72 → **73** (12 to the bar); Yathan Tombguard and Venus, Torn Between Worlds the unplanned gains, audited whole-card
 
 - 2026-09-05 — Phase 2 · Q3 Tokka & Rahzar + Splinter, the Mentor (Halfshell) ✅ +3 corpus (the NONTOKEN leaves-the-battlefield scope — "another nontoken creature you control" and the self-inclusive "<Name> or another nontoken creature you control" — a token gate on the leaving permanent beside the existing creature-leaves scopes) · mutants 4/4 killed (one survivor got its missing test) · suite 1536 files / 16,293 · Halfshell 69 → **72** (13 to the bar); Rat King, Pale Piper the unplanned gain, audited whole-card (menace + the same self-inclusive union making a Rat + a native sacrifice-a-token draw)
 

@@ -16,6 +16,24 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · Q3: RAY FILLET, WAVE WARRIOR — the with-a-counter dealer filter · **+3** · corpus 14,572 / 34,245
+> Suite **1537 files / 16,296** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · "Whenever a creature you control with a counter on it deals combat damage to a player, draw a card." Flying and evolve
+>   were native; the trigger parked on the dealer's qualifier — the combat-damage family carves out precisely-checkable
+>   dealer filters (a keyword, power above base) before a generic "with …" reject. "With a counter on it" is one more:
+>   ANY counter kind, read LIVE off the dealing permanent at the fire site (the same per-dealer pass the power-above-base
+>   filter uses), so an unmarked attacker connecting never fires it. Anchored to exactly this subject and the bare
+>   player/opponent object.
+> · **Pins:** the descriptor; a "with two or more counters" variant refused; Ray Fillet native; RUNTIME — a marked
+>   attacker connecting fires the draw, an unmarked one connecting does not, a marked creature the opponent controls
+>   does not. Mutants: the arm gone, the flag not honoured at the fire site (every dealer fires), the flag read off the
+>   watcher instead of the dealer — mutants 4/4 killed.
+> · **Unplanned gains audited whole-card:** Yathan Tombguard (menace + the same trigger with a draw-and-lose-1 payoff) and
+>   Venus, Torn Between Worlds (an already-native dealt-damage-to-counters trigger + the same trigger with the modelled
+>   optional-pay "you may pay {U}. If you do, draw a card" payoff).
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Halfshell 72 → **73** (12 to the bar); Yathan Tombguard and Venus, Torn Between Worlds the unplanned gains, audited whole-card
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · Q3: TOKKA & RAHZAR + SPLINTER — the nontoken leaves scope · **+3** · corpus 14,569 / 34,245
 > Suite **1536 files / 16,293** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed (one survivor got its missing test).**
 > · Halfshell opens (69, needs 16). "Whenever another nontoken creature you control leaves the battlefield, put a +1/+1

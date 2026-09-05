@@ -260,6 +260,11 @@ function batchDealerMatches(descriptor, dealerPerm, state = null) {
   return true; // unfiltered bare batch — any connecting creature qualifies
 }
 
+/** Does this permanent carry at least one counter of ANY kind (a positive pile)? Pure. Ray Fillet's "with a counter on it". */
+function permanentHasAnyCounter(perm) {
+  return Object.values(perm?.counters || {}).some((n) => Number(n) > 0);
+}
+
 // QUALIFIED-ETB KEYWORD-FILTER (Dragon Tempest "a creature you control with flying enters"; Waterkin Shaman;
 // Arcades "with defender") — the SET of keywords the ETB filter may gate on. Restricted to keywords whose
 // presence on the entering creature is RELIABLY checkable via permanentHasKeyword (printed at an ability-word
@@ -1171,6 +1176,12 @@ function classifyCondition(condRaw, cardName, cardType) {
       if (cpm[1] === "a nontoken") desc.nontokenFilter = true;
       return desc;
     }
+    // WITH-A-COUNTER dealer, COMBAT DAMAGE (SHELF-85 · Halfshell Q3 — Ray Fillet, Wave Warrior, 2026-09-05): "a creature you
+    // control WITH A COUNTER ON IT deals combat damage to a player" — the carve-out above's combat-damage sibling for ANY
+    // counter kind, enforced by the same requiresCounter gate with the value "any" (at least one counter of any kind on the
+    // DEALING permanent, read live at the fire site). Carved out HERE, before the generic "with …" reject; exactly this
+    // subject and the bare player/opponent object — a counted variant ("with two or more counters") still falls to the reject.
+    if (/^a creature you control with a counter on it deals combat damage to (?:a player|an opponent)$/.test(c)) return { event: "combatDamageToPlayer", scope: "creatureYouControl", whose: "any", requiresCounter: "any" };
   }
   // ===== BATCHED ETB WITH A CHECKABLE FILTER (CR 603.1) ===== "Whenever ONE OR MORE [other] creatures you
   // control WITH POWER N OR LESS / WITH MANA VALUE N OR LESS enter" (Welcoming Vampire #428, Enduring
@@ -2641,6 +2652,8 @@ function classifyCondition(condRaw, cardName, cardType) {
     // the watcher and the trample grant can never disagree about what "modified" means. LIVE state read
     // on the connecting attacker (threaded by combatResolution), the CR 603.4-correct moment.
     if (/^a modified creature you control deals combat damage to (?:a player|an opponent)$/.test(c)) return { event: "combatDamageToPlayer", scope: "creatureYouControl", whose: "any", requiresModified: true };
+    // (the WITH-A-COUNTER dealer form — Ray Fillet — is carved out beside the CNT-1 counter-predicate arm, before the
+    // generic "with …" reject, which runs before this block.)
     if (/a creature you control/.test(c)) return { event: "combatDamageToPlayer", scope: "creatureYouControl", whose: "any" };
     // EQUIP-RIDER combat-damage (WAVE 4) — "Whenever EQUIPPED CREATURE deals combat damage to a player,
     // <effect>" (Goldvein Pick / The Reaver Cleaver Treasure riders, the Swords' combat-damage payloads).
@@ -6085,7 +6098,9 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   // threaded onto the dies look-back by checkDiesTriggers). Runs BEFORE the scope switch so it composes with
   // the creatureYouControl controller scope (mirrors nontokenFilter/attachedOnly). A triggering permanent
   // with 0 of the counter must NOT fire (the restriction the reject would otherwise drop).
-  if (descriptor.requiresCounter && !((triggeringPermanent?.counters?.[descriptor.requiresCounter] || 0) > 0)) return false;
+  // "any" (Ray Fillet — "with a counter on it", SHELF-85 · Halfshell Q3): at least one counter of ANY kind on the triggering
+  // (dealing) permanent; a kind string keeps the CNT-1 read of that one pile.
+  if (descriptor.requiresCounter && !(descriptor.requiresCounter === "any" ? permanentHasAnyCounter(triggeringPermanent) : (triggeringPermanent?.counters?.[descriptor.requiresCounter] || 0) > 0)) return false;
   // MODIFIED gate (Kodama, W3 — CR 700.9): the connecting attacker must be modified RIGHT NOW (live read —
   // counters / equipped / enchanted by its controller's own Aura), via layers' single shared definition.
   // Fails CLOSED on a missing state/permanent (never an over-fire on an unverifiable predicate).
