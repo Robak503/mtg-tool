@@ -16,6 +16,33 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — PHASE 3 · FIELD-TESTED FRYING PAN — the granted pump scaled by the life just gained · **+1** · corpus 14,628 (42.7%) / 34,245
+> Suite **1569 files / 16392 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
+> · Phase 3 step 2 — Bumble Flower Combo at 88, two rows from the bar; this is the first: the Equipment's ETB (Food + a
+>   Halfling token, auto-attach) and its equip line were native, and the granted body — "Whenever you gain life, this
+>   creature gets +X/+X until end of turn, where X is the amount of life you gained" — parked on its AMOUNT. The lifegain
+>   trigger already threads the gained amount (ctx.lifegainAmount — Sunbond's "that many" counters, Sanguine Bond's "that
+>   much" drain); the pump had no reader. The detector's lifegain rewrite gains the printed phrase → the unprintable "the
+>   lifegain amount" sentinel; the self-pump arm maps it to countContext:"lifegainAmount" (the routing pin already keeps that
+>   context on the lifegain event — no new pin); applyPumpEffect reads it into both pips through the existing `scaled` lane.
+>   The granted-trigger runtime (grantedTriggersForHost) carries it to the equipped creature unchanged.
+> · ⛔ THE SECOND SEAM THE PROBE HID: with the body fixed, the whole card STILL read body-only — the granted-trigger
+>   Aura/Equipment classifier gate (coverage.isNativeTriggerGrantAuraOrEquipment) refused ANY line beside the grant and the
+>   Equip cost, so the Pan's own ETB (Food + Halfling + self-attach — natively routed on its own) was residue. The gate now
+>   admits an own triggered line when that line ALONE detects as exactly one natively-routed trigger of the card — the
+>   same test the plain equipment lane applies to its own triggers, the same runtime (the normal trigger path). An unrouted
+>   own trigger still parks the card (pinned: "each opponent secretly chooses a number").
+> · **Retiered (same playability, not tallied):** Giant Inheritance native-aura → native-trigger, Infinity Formula
+>   native-equipment → native-trigger — each has an own natively-routed trigger beside a static+granted-trigger line, so the
+>   1c lane now claims them first; the layer engine applies their bonuses regardless of the label. Audited whole-card.
+> · **Pins:** the Equipment and the bare body native; the unrouted-own-trigger negative. RUNTIME: the controller gains 3 → the
+>   equipped 1/1 reads 4/4 through the real trigger flush and stack; an opponent's gain leaves it 1/1. Mutants: the arm gone,
+>   the pump ignoring the context, the detector's rewrite gone, the gate refusing the own line again, the allowance
+>   forgetting the routing check — mutants 5/5 killed.
+> · **Whole-card:** flip-diff exactly Field-Tested Frying Pan + two RETIERS (Giant Inheritance, Infinity Formula — same playability, audited whole-card above)
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Bumble Flower Combo 88 → 89** (one row to the bar: Treebeard — the lifegain "that many" counters on a SUBTYPE target, "target Halfling or Treefolk"; the probe shows "target <Subtype>" is unmodeled as a target noun everywhere — even "Destroy target Elf" is Arbiter — so that is the next slice, sized M, a corpus vein)
+
 > ## 🎯 2026-09-05 (cron) — PHASE 3 · RAZORKIN NEEDLEHEAD — the suffix time gate + the object-pronoun draw referent · **+1** · corpus 14,627 (42.7%) / 34,245
 > Suite **1568 files / 16389 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
 > · Phase 3 step 2 — Nekusar Wheels at 89, one row from the bar: "This creature has first strike during your turn. / Whenever

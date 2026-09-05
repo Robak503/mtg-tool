@@ -78,7 +78,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shalai and Hallar Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Otharri Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
-| Test | Bumble Flower Combo | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
+| Test | Bumble Flower Combo | 89 | 0 | 1 | ✅ at 85 · Phase 3 candidate |
 | Test | Atraxa Superfriends | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 82 | 3 | 8 | ⬜ Phase 2 |
 
@@ -484,6 +484,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — **Phase 3** (§4.3 step 2, Bumble → 90) · Field-Tested Frying Pan ✅ +1 corpus (the granted lifegain pump scaled by the life just gained — "+X/+X … where X is the amount of life you gained" → the lifegain-amount sentinel + countContext on the self pump) · mutants 5/5 killed · suite 1569 files / 16392 tests · **Bumble Flower Combo 88 → 89** (one row to the bar: Treebeard — the lifegain "that many" counters on a SUBTYPE target, "target Halfling or Treefolk"; the probe shows "target <Subtype>" is unmodeled as a target noun everywhere — even "Destroy target Elf" is Arbiter — so that is the next slice, sized M, a corpus vein)
 
 - 2026-09-05 — **Phase 3** (§4.3 step 2, Nekusar → 90) · Razorkin Needlehead ✅ +1 corpus (the SUFFIX-form your-turn self keyword — "has first strike during your turn" — and the clause-final object pronoun on the card-drawn referent — "deals 1 damage to them" → the drawing player, scope opponentDraw/anyDraw only) · mutants 3/3 killed · suite 1568 files / 16389 tests · **Nekusar Wheels 89 → 90 — AT THE BAR.** Hulk stays 89 with only L rows (Arena, Balduvian Trading Post, Moonmist, Fire Nation Palace's until-end-of-combat mana, Mjölnir, Thunderclap's behold, World War Hulk, Avengers Tower, Earth's Mightiest Heroes) — §4.3 step 5 closes it at 89
 

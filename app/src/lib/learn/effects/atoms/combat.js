@@ -277,7 +277,10 @@ export function applyPumpEffect(state, atom, ctx) {
   // away the sign the card printed. 19 cards print the negative form (Defile, Irradiate, Drag Down, Die
   // Young, Drown in Filth …), and the self-form matcher's own comment claimed negatives were "admitted
   // symmetrically" — they parsed, they just did nothing.
-  const scaled = atom.ptDeltaCount ? Math.max(0, countForSpec(state, ctx, atom.ptDeltaCount)) * (atom.ptDeltaCount.per ?? 1) : null;
+  // countContext:"lifegainAmount" (Field-Tested Frying Pan, 2026-09-05): the symmetric +X/+X reads the life just gained off
+  // the trigger's context — the same `scaled` lane as a board count, so both pips take it. An absent context reads 0.
+  const scaled = atom.ptDeltaCount ? Math.max(0, countForSpec(state, ctx, atom.ptDeltaCount)) * (atom.ptDeltaCount.per ?? 1)
+    : atom.countContext === "lifegainAmount" ? Math.max(0, ctx?.lifegainAmount || 0) : null;
   // amountX → the chosen X (ctx.xValue) scales the pump. amountXSlot ("p"/"t") marks WHICH stat is the
   // +X for an ASYMMETRIC X-pump ("+X/+0" → slot "p", "+0/+X" → slot "t"); the OTHER stat reads its
   // printed ptDelta. An absent slot = symmetric +X/+X (both stats = X) — the original behavior.
@@ -2335,6 +2338,14 @@ export function pumpClauseParser(clause) {
     const countSpec = parseCountSource(m[3]);
     return countSpec ? { op: "pump", target: "self", ptDeltaCount: { ...countSpec, per: parseInt(m[1], 10) } } : null;
   }
+  // LIFEGAIN-AMOUNT SELF PUMP (SHELF-85 Phase 3, 2026-09-05 — Field-Tested Frying Pan's granted "Whenever you gain life,
+  // this creature gets +X/+X until end of turn, where X is the amount of life you gained"): X = the life JUST gained
+  // (ctx.lifegainAmount, threaded per gain event by checkLifegainTriggers). The detector's lifegain rewrite turns the
+  // printed "the amount of life you gained" into the unprintable "the lifegain amount" sentinel, so only a lifegain-context
+  // clause reaches this arm; triggerRouting pins countContext:"lifegainAmount" to the lifegain event (the counters /
+  // drain discipline). Symmetric +X/+X only; whole-clause anchored — a rider → null → low → Arbiter.
+  m = t.match(/^(?:this creature|it) gets \+x\/\+x until end of turn, where x is the lifegain amount$/);
+  if (m) return { op: "pump", target: "self", countContext: "lifegainAmount" };
   // ⭐⭐ CP-1 (2026-08-06) — the TARGET-creature mirror of the self form directly above (Primal Bellow,
   // Might of the Masses, Hunger of the Nim, Confront the Unknown, Eastfarthing Farmer). Everything needed
   // already existed: `parseCountSource` models every count these cards use INCLUDING subtypes ("for each

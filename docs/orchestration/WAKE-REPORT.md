@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **PHASE 3 · Field-Tested Frying Pan (+1)** · suite **1569 files / 16392 tests** green · corpus 14,628 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 5/5 killed
+
+> A lifegain trigger's pump can now scale by the life just gained — the amount the counters and drain payoffs already read, now on the self pump. **Bumble Flower Combo 88 → 89** (one row to the bar: Treebeard — the lifegain "that many" counters on a SUBTYPE target, "target Halfling or Treefolk"; the probe shows "target <Subtype>" is unmodeled as a target noun everywhere — even "Destroy target Elf" is Arbiter — so that is the next slice, sized M, a corpus vein)
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **PHASE 3 · Razorkin Needlehead (+1)** · suite **1568 files / 16389 tests** green · corpus 14,627 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 3/3 killed
 
 > Two spellings the engine already ran: a your-turn keyword with the gate at the tail, and "deals damage to them" on a draw trigger aimed at the drawer. **Nekusar Wheels 89 → 90 — AT THE BAR.** Hulk stays 89 with only L rows (Arena, Balduvian Trading Post, Moonmist, Fire Nation Palace's until-end-of-combat mana, Mjölnir, Thunderclap's behold, World War Hulk, Avengers Tower, Earth's Mightiest Heroes) — §4.3 step 5 closes it at 89

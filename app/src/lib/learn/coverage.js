@@ -2961,6 +2961,15 @@ function isNativeTriggerGrantAuraOrEquipment(card) {
     if (/^enchant\b/i.test(t)) continue;                                                    // the Enchant keyword line
     if (/^equip\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i.test(t)) { sawEquip = true; continue; }    // a modeled Equip cost
     if (grantLineRe.test(t)) continue;                                                       // a granted-ability line
+    // OWN TRIGGERED LINE beside the grant (SHELF-85 Phase 3, 2026-09-05 — Field-Tested Frying Pan: an ETB that makes the
+    // Food and the Halfling and attaches itself, beside the granted lifegain body): admitted when that line ALONE detects as
+    // exactly ONE natively-routed trigger of this card — the same test the plain equipment lane applies to an Equipment's
+    // own triggers, and the same runtime (the normal trigger path fires it off the Equipment itself). Anything else stays
+    // residue → Arbiter.
+    if (/^(?:when|whenever|at)\b/i.test(t)) {
+      const own = detectTriggers({ ...card, oracle: t });
+      if (own.length === 1 && triggerRoutesNatively(own[0])) continue;
+    }
     return false;                                                                            // any other clause = residue
   }
   return sawEquip;

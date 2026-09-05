@@ -3536,6 +3536,11 @@ const COUNTERS_PUT_SELF_COUNTER_PAYOFF_RE = /^put that many [a-z]+ counters? on 
 // to the lifegain event (the counters-placed/milled discipline exactly). Whole-clause anchored — a rider
 // ("…, then you gain 2 life") leaves residue → no rewrite → LOW → Arbiter (a SAFE false-negative).
 const LIFEGAIN_SELF_COUNTER_PAYOFF_RE = /^put that many \+1\/\+1 counters? on this creature\.?$/i;
+// LIFEGAIN-AMOUNT SELF PUMP (SHELF-85 Phase 3, 2026-09-05 — Field-Tested Frying Pan's granted body "Whenever you gain life,
+// this creature gets +X/+X until end of turn, where X is the amount of life you gained"): the printed amount phrase is
+// rewritten to the unprintable "the lifegain amount" sentinel the self-pump arm (atoms/combat.js) maps to
+// countContext:"lifegainAmount"; the routing pin keeps it on the lifegain event. Whole-clause anchored.
+const LIFEGAIN_SELF_PUMP_X_RE = /^(?:this creature|it) gets \+x\/\+x until end of turn, where x is the amount of life you gained\.?$/i;
 
 // ===== THE DRAIN MIRROR (CR 118.4 / 119.3) — the two halves of Sanguine Bond ⇄ Exquisite Blood =====
 // LIFEGAIN → LOSS (Sanguine Bond, Vito, Enduring Tenacity, Defiant Bloodlord): "Whenever you gain life,
@@ -5159,6 +5164,9 @@ export function detectTriggers(card) {
         // lifegain event so no other event/spell can ever read an absent referent (the counters-placed
         // discipline exactly). Whole-clause anchored — a rider leaves residue → no rewrite → LOW → Arbiter.
         effectClause = "put that many lifegain +1/+1 counters on this creature";
+      } else if (cls.event === "lifegain" && LIFEGAIN_SELF_PUMP_X_RE.test(effectClause)) {
+        // ===== LIFEGAIN-AMOUNT SELF PUMP (Field-Tested Frying Pan, 2026-09-05) ===== see LIFEGAIN_SELF_PUMP_X_RE.
+        effectClause = "this creature gets +x/+x until end of turn, where x is the lifegain amount";
       } else if (cls.event === "lifegain" && LIFEGAIN_DRAIN_PAYOFF_RE.test(effectClause)) {
         // ===== DRAIN HALF 1 — LIFEGAIN → OPPONENT LOSS ===== Sanguine Bond / Vito / Enduring Tenacity /
         // Defiant Bloodlord. "that much" = ctx.lifegainAmount, threaded PER GAIN EVENT by
