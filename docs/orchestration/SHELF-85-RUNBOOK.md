@@ -47,6 +47,8 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 **The bar is per deck, not aggregate.** A slot is "native" only when the runtime actually plays the card
 (the CREED — false-negative safe, false-positive forbidden). Nothing is credited that the engine cannot play.
 
+> **🏁 PHASE 3 CLOSED · PHASE 4 POSTED (2026-09-05).** 13 decks at the bar, 14 at 85–89 with only L / 🅿 / composite rows (the §4.3 stop rule), 3 ceilings called. The Omnath hand-off list: `docs/orchestration/SHELF-85-OMNATH-HANDOFF.md` — COMMS **[Q-SHELF-85-OMNATH]** (the three ceiling decks went earlier as [Q-SHELF-85-OMNATH-A]). Cindy's lane on this runbook is done; the table below is its end state. Next: the overnight plan's stage list is exhausted on this seat (§1–§3 met; §4-END routed to SHELF-85, now done through Phase 4) — boot the corpus roadmap (`memory/orders/cindy-corpus-roadmap.md`, the BLEND ladder) unless Colton's next order lands; re-probe §6 parks that the subtype-noun peel may have unparked; and push the held stack the moment `gh run list` shows a green run
+
 ### 1.1 Live table (update in place after every slice; measured 2026-09-04 06:15Z)
 
 | Shelf | Deck | Native | Needs to 85 | Needs to 90 | Status |
@@ -56,28 +58,28 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Colton | Zaxara kinda X'ish | 95 | — | — | ✅ at the bar |
 | Colton | Veyran Cantrips | 91 | — | — | ✅ at the bar (④-BD) |
 | Colton | The Unbeatable Squirrel Girl | 91 | — | — | ✅ at the bar |
-| Colton | cdh | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
-| Colton | Killer Turts | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
+| Colton | cdh | 88 | 0 | 2 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Colton | Killer Turts | 85 | 0 | 5 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
 | Joe | Did you say Dragons? | 91 | — | — | ✅ at the bar |
 | Joe | Earth Bent | 91 | — | — | ✅ at the bar (④-BE) |
 | Joe | Mothman Cometh | 90 | — | — | ✅ at the bar |
-| Joe | Captain America Shoot your Shot | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
-| Joe | Hulk Smash | 89 | 0 | 1 | ✅ at 85 · Phase 3 candidate |
-| Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
-| Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
-| Joe | Kinnan Mana Overload | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
-| Joe | Believe it! | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Joe | Kellan of the west | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
+| Joe | Captain America Shoot your Shot | 87 | 0 | 3 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Joe | Hulk Smash | 89 | 0 | 1 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Joe | Kinnan Mana Overload | 86 | 0 | 4 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Joe | Believe it! | 85 | 0 | 5 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Joe | Kellan of the west | 85 | 0 | 5 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
 | Joe | Halfshell heroes | 83 | 2 | 7 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 92 | — | — | ✅ at the bar |
-| Test | Teval, the Balanced Scale Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
-| Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
+| Test | Teval, the Balanced Scale Test | 86 | 0 | 4 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Test | Brago Blink | 85 | 0 | 5 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
 | Test | Nekusar Wheels | 90 | — | — | ✅ at the bar |
-| Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
-| Test | Shalai and Hallar Test | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
-| Test | Otharri Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
+| Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Test | Shalai and Hallar Test | 87 | 0 | 3 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Test | Otharri Test | 86 | 0 | 4 | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
 | Test | Bumble Flower Combo | 90 | — | — | ✅ at the bar |
 | Test | Atraxa Superfriends | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 82 | 3 | 8 | ⬜ Phase 2 |
@@ -222,6 +224,8 @@ Order and the honest per-deck expectation after Phase 1's veins land (slots from
 5. Stop Phase 3 when no S/M row touches ≥2 decks and every 85–89 deck is either at 90 or has only L/🅿 rows left.
 
 ### 4.4 Phase 4 — the Omnath hand-off list
+
+> ✅ **DONE 2026-09-05** — the list: `docs/orchestration/SHELF-85-OMNATH-HANDOFF.md` (generated from a fresh per-deck dump + the one-line-away blockers + the §5 reasons) · COMMS `[Q-SHELF-85-OMNATH]` · vault mirror `orders/shelf-85-omnath-handoff.md` · the wake report carries the final table.
 
 1. Compile every 🅿 and ⛔ row from §4 and §5 into ONE list grouped by deck, each with the blocker line and the reason
    (CREED / THEFT / PREGAME / SUBSYSTEM-L / CEILING).
@@ -484,6 +488,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — **🏁 PHASE 3 CLOSED · PHASE 4 POSTED** · the hand-off list (291 parked slots, 27 non-ceiling decks; 29 cards in 2+ decks) → `SHELF-85-OMNATH-HANDOFF.md` + COMMS [Q-SHELF-85-OMNATH] + the vault · the §1 table at its end state in the wake report · corpus 14,696 (42.9%)
 
 - 2026-09-05 — **Phase 3** (§4.3 step 3, the LAST multi-deck S/M row — Shalai + Zaxara) · Incubation Druid ✅ +2 corpus ("one mana of any type that a land you control could produce" — a live land-derived type set in manaSources, the Plaza of Heroes discipline; the counter-gated triple stays a documented under-read) · mutants 4/4 killed · suite 1571 files / 16395 tests · **Shalai and Hallar 86 → 87 · Zaxara 94 → 95.** Phase 3 step 5 now holds: no S/M row touches two decks, and every 85–89 deck is at 90 or carries only L / 🅿 / composite rows — PHASE 3 CLOSES; Phase 4 (the Omnath hand-off list) is next
 

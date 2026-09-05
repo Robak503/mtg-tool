@@ -7,6 +7,47 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🏁 2026-09-05 (cron) — **SHELF-85 RUNBOOK: PHASE 3 CLOSED · PHASE 4 POSTED — Cindy's lane on this runbook is DONE** · corpus **14,696 (42.9%) / 34,245** · 94 slice commits (95 with this docs commit) commits held (CI billing-blocked)
+
+> **Runnable next for a booting seat:** the overnight plan's stage list is exhausted on this seat (§1–§3 met; §4-END routed to SHELF-85, now done through Phase 4) — boot the corpus roadmap (`memory/orders/cindy-corpus-roadmap.md`, the BLEND ladder) unless Colton's next order lands; re-probe §6 parks that the subtype-noun peel may have unparked; and push the held stack the moment `gh run list` shows a green run
+> **What closed today:** Phase 2 (every deck ≥85 or a written ceiling — 14:15Z), then Phase 3's ten slices (Endurance · Desert · Xenagos · Wheel and Deal · Molten Psyche · Solid Footing · Razorkin Needlehead · Field-Tested Frying Pan · Treebeard + the SUBTYPE TARGET NOUN vein (+66) · Incubation Druid): **Nekusar and Bumble Flower crossed 90**, Shalai 87, Zaxara 95; the §4.3 stop rule holds (no S/M row touches two decks; every 85–89 deck has only L / 🅿 / composite rows). Phase 4: the hand-off list is **`docs/orchestration/SHELF-85-OMNATH-HANDOFF.md`** (291 parked slots across the 27 non-ceiling decks, 29 cards in 2+ decks; the three ceiling decks' 62 went at 15:10Z) — posted to Omnath as **[Q-SHELF-85-OMNATH]** in COMMS and mirrored into the vault (`orders/shelf-85-omnath-handoff.md`).
+> **The shelf at its end state — 13 decks at the bar (≥90) · 14 at 85–89 · 3 ceilings:**
+
+| Deck | Native | Status |
+|---|---|---|
+| Slivers | 99 (99/100) | ✅ at the bar |
+| Vihaan, Goldwaker | 95 (95/100) | ✅ at the bar |
+| Zaxara kinda X'ish | 95 (95/100) | ✅ at the bar |
+| Omnath, Locus of Mana | 94 (94/100) | ✅ at the bar |
+| Test Rashmi | 92 (92/100) | ✅ at the bar |
+| Did you say Dragons? | 91 (91/100) | ✅ at the bar |
+| Earth Bent | 91 (91/100) | ✅ at the bar |
+| The Unbeatable Squirrel Girl | 91 (91/100) | ✅ at the bar |
+| Thrun Voltron | 91 (91/100) | ✅ at the bar |
+| Veyran Cantrips | 91 (91/100) | ✅ at the bar |
+| Bumble Flower Combo | 90 (90/100) | ✅ at the bar |
+| Mothman Cometh | 90 (88/98) | ✅ at the bar |
+| Nekusar Wheels | 90 (90/100) | ✅ at the bar |
+| Hulk Smash | 89 (89/100) | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Wolverine, claws out! | 88 (88/100) | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| cdh | 88 (88/100) | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Captain America Shoot your Shot | 87 (87/100) | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Shalai and Hallar Test | 87 (87/100) | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Jurassic Ramp | 86 (86/100) | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Kinnan Mana Overload | 86 (86/100) | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Otharri Test | 86 (86/100) | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Shorikai Vehicles | 86 (86/100) | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Teval, the Balanced Scale Test | 86 (86/100) | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Believe it! | 85 (85/100) | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Brago Blink | 85 (85/100) | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Kellan of the west | 85 (85/100) | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Killer Turts | 85 (85/100) | ✅ ≥85 · Phase 3 closed (L / 🅿 / composite rows only) |
+| Halfshell heroes | 83 (83/100) | ⛔ CEILING at 83 — every row L (restricted-spend / doublers / if-you-do) |
+| Light-Paws Voltron | 82 (82/100) | ⛔ CEILING at 82 — every row L (tutor-attached / redirection / type-set Auras) |
+| Atraxa Superfriends | 74 (74/100) | ⛔ CEILING at 74 — the loyalty-vocabulary sweep IS the deck (L) |
+
+> **CI:** BLOCKED (repo private → billing); every slice committed locally on the full gates — push the whole stack on the first green run [Q-CI2]. Never flip visibility.
+
 ## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-5: City of Traitors (+1)** · suite **1484 files / 16,089 tests** green · corpus 14,435 (42.2%) / 34,245 · flip-diff +1 / 0 lost · 7/7 killed
 
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.

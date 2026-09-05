@@ -16,6 +16,20 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🏁 2026-09-05 (cron) — SHELF-85 · PHASE 3 CLOSED · PHASE 4 POSTED — the Omnath hand-off list · corpus 14,696 / 34,245 (42.9%)
+> · Phase 3 ran ten slices after the 14:15Z Phase 2 close (Endurance, Desert, Xenagos, Wheel and Deal, Molten Psyche, Solid
+>   Footing, Razorkin Needlehead, Field-Tested Frying Pan, Treebeard + the subtype target-noun vein, Incubation Druid) —
+>   Nekusar 87 → 90 and Bumble Flower 88 → 90 crossed the bar; Hulk sits at 89 with L rows only; the re-run one-line-away
+>   instrument shows no S/M row touching two decks → §4.3 step 5 holds and Phase 3 closes.
+> · Phase 4 (§4.4): the list is generated, not hand-typed — a fresh dump of every shelf deck's parked cards, each joined to
+>   its one-line-away blocker (or marked composite) and its §5 reason (THEFT / PREGAME / SUBSYSTEM-L / CREED / the Phase 3
+>   stop rule) — `docs/orchestration/SHELF-85-OMNATH-HANDOFF.md` (291 parked slots across the 27 non-ceiling decks; 29 cards
+>   in 2+ decks; the three ceiling decks' 62 cards were posted at 15:10Z as [Q-SHELF-85-OMNATH-A]). Posted to Omnath as
+>   **[Q-SHELF-85-OMNATH]** and mirrored into the vault; the wake report carries the §1 table at its end state:
+>   13 decks ≥90 · 14 at 85–89 · 3 ceilings (Atraxa 74, Halfshell 83, Light-Paws 82).
+> · **CI:** BLOCKED (repo private → billing); 94 slice commits (95 with this docs commit) commits held on the full local gates [Q-CI2].
+> · Next for this seat: the overnight plan's stage list is exhausted on this seat (§1–§3 met; §4-END routed to SHELF-85, now done through Phase 4) — boot the corpus roadmap (`memory/orders/cindy-corpus-roadmap.md`, the BLEND ladder) unless Colton's next order lands; re-probe §6 parks that the subtype-noun peel may have unparked; and push the held stack the moment `gh run list` shows a green run
+
 > ## 🎯 2026-09-05 (cron) — PHASE 3 · INCUBATION DRUID — the type a land you control could produce · **+2** · corpus 14,696 (42.9%) / 34,245
 > Suite **1571 files / 16395 tests** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · Phase 3 step 3 — the re-run one-line-away instrument (after the subtype-noun vein) showed exactly ONE S/M row touching two
