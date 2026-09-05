@@ -16,6 +16,23 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · Q3: CASEY JONES, BACK ALLEY BRUTE — the active counters-placed damage payoff · **+1** · corpus 14,573 / 34,245
+> Suite **1538 files / 16,299** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
+> · "Whenever you put one or more +1/+1 counters on a creature you control, Casey Jones deals that much damage to target
+>   opponent." Menace and the attack trigger (a counter on target attacking creature) were native. The ACTIVE
+>   counters-placed event ("whenever YOU PUT …", magnitude = ctx.countersPlaced) knew two payoffs — draw that many, gain
+>   that much — while the damage payoff lived only on the PASSIVE event ("whenever one or more counters ARE PUT …",
+>   Shalai and Hallar, magnitude = ctx.countersPutCount). The two events stay distinct (the assembly's standing rule);
+>   the active event now rewrites the same printed payoff to its OWN unprintable sentinel ("counters-placed damage") and
+>   the deal-damage parser maps that sentinel to the placed count — a twin arm, never a shared one, so neither event
+>   can read the other's field and deal 0.
+> · **Pins:** the rewrite and the atom's count context; the passive form unchanged; Casey native; RUNTIME — two counters
+>   placed on a creature you control deal 2 to the targeted opponent, one counter deals 1, counters placed on an
+>   opponent's creature deal nothing. Mutants: the assembly branch gone, the parser twin gone, the twin bound to the
+>   passive count field (deals 0 on the active event) — mutants 3/3 killed.
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Halfshell 73 → **74** (11 to the bar); one suite guard graduated — countersPlaced had pinned Casey Jones as body-only by name (a ridered payoff stays pinned refused)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · Q3: RAY FILLET, WAVE WARRIOR — the with-a-counter dealer filter · **+3** · corpus 14,572 / 34,245
 > Suite **1537 files / 16,296** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · "Whenever a creature you control with a counter on it deals combat damage to a player, draw a card." Flying and evolve

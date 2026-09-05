@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Casey Jones, Back Alley Brute** — counters you place become that much damage to an opponent
 - **Ray Fillet, Wave Warrior** — a creature you control with a counter on it connecting draws a card
 - **Tokka & Rahzar, Unsupervised**, **Splinter, the Mentor** — "another nontoken creature you control leaves the battlefield" (and Splinter's own leave)
 - **Gift spells** — Long River's Pull, Peerless Recycling, Wear Down (and the other gift instants and sorceries) resolve in their un-promised mode

@@ -223,8 +223,10 @@ describe("runtime — applyAddCounter fires the countersPlaced trigger, which re
 
 // ─── CREED — a recognized event whose payoff is unmodeled routes the WHOLE card to the Arbiter ──
 describe("CREED — recognized event, unmodeled payoff → body-only (no partial)", () => {
-  it("Casey Jones ('deals that much damage to target opponent') stays body-only", () => {
-    expect(classifyCard({ name: "Casey Jones, Back Alley Brute", type: "Legendary Creature — Human Berserker", oracle: "Menace\nWhenever Casey Jones attacks, put a +1/+1 counter on target attacking creature.\nWhenever you put one or more +1/+1 counters on a creature you control, Casey Jones deals that much damage to target opponent." })).toBe("body-only");
+  it("GRADUATED 2026-09-05 (caseyJones.test.js): Casey Jones ('deals that much damage to target opponent') is the active event's damage payoff now — native; a payoff the event still can't read stays body-only", () => {
+    expect(classifyCard({ name: "Casey Jones, Back Alley Brute", type: "Legendary Creature — Human Berserker", oracle: "Menace\nWhenever Casey Jones attacks, put a +1/+1 counter on target attacking creature.\nWhenever you put one or more +1/+1 counters on a creature you control, Casey Jones deals that much damage to target opponent." })).toMatch(/^native/);
+    // CREED — the refusal class lives on: a "that much" payoff with a rider the sentinel never rewrites
+    expect(classifyCard({ name: "Rider Test", type: "Creature — Human", oracle: "Whenever you put one or more +1/+1 counters on a creature you control, this creature deals that much damage to target opponent and you gain that much life." })).toBe("body-only");
   });
   it("Stocking the Pantry flips native-mixed (SHELF S7: the named self-counter noun covers 'this enchantment'; the γ1c remove-counter draw was already modeled)", () => {
     expect(classifyCard({ name: "Stocking the Pantry", type: "Enchantment", oracle: "Whenever you put one or more +1/+1 counters on a creature you control, put a supply counter on this enchantment.\n{2}, Remove a supply counter from this enchantment: Draw a card." })).toBe("native-mixed");

@@ -432,6 +432,12 @@ export function cdmgPayoffClauseParser(clause) {
   // permanent (ctx.sourceId) automatically. Sentinel-only → never reached off the countersPut rewrite.
   const cpDmgM = t.match(/^this creature deals that much counters-put damage to target opponent$/);
   if (cpDmgM) return { op: "deal-damage", countContext: "countersPutCount", targetType: "player" };
+  // (cpd-dmg) counters-PLACED damage sentinel (Casey Jones, Back Alley Brute — SHELF-85 · Halfshell Q3, 2026-09-05): the
+  // ACTIVE event's twin of the arm above — "this creature deals that much counters-placed damage to target opponent" →
+  // the same deal-damage atom, amount swapped for countContext:"countersPlaced" (the counters YOU placed in the event,
+  // threaded by checkCounterPlacedTriggers). Sentinel-only → never reached off the countersPlaced rewrite.
+  const cpdDmgM = t.match(/^this creature deals that much counters-placed damage to target opponent$/);
+  if (cpdDmgM) return { op: "deal-damage", countContext: "countersPlaced", targetType: "player" };
   // (cp-self-ctr) counters-PUT self-counter accumulator (Simic Ascendancy — SH11): "put that many counters-put
   // <named> counters on this <permanent>" → the add-named-counter-self atom the fixed form emits, amount swapped
   // for countContext:"countersPutCount". Sentinel-only ("counters-put" is inserted by the countersPut rewrite) →

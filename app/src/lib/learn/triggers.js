@@ -5103,6 +5103,14 @@ export function detectTriggers(card) {
         effectClause = effectClause
           .replace(/\bdraw that many cards\b/i, "draw that many counters-placed cards")
           .replace(/\bgain that much life\b/i, "gain that much counters-placed life");
+      } else if (cls.event === "countersPlaced" && COUNTERS_PUT_DAMAGE_PAYOFF_RE.test(effectClause)) {
+        // ===== COUNTERS-PLACED "that much" DAMAGE (Casey Jones, Back Alley Brute — SHELF-85 · Halfshell Q3, 2026-09-05) =====
+        // the ACTIVE event ("whenever YOU PUT one or more +1/+1 counters on a creature you control") wearing the passive
+        // family's damage payoff: "this creature deals that much damage to target opponent", magnitude = ctx.countersPlaced
+        // (threaded by checkCounterPlacedTriggers). Rewritten to its OWN sentinel ("counters-placed damage") and mapped
+        // by a TWIN parser arm to countContext:"countersPlaced" — never the passive branch below, whose sentinel binds
+        // countersPutCount; the two events stay distinct so neither reads the other's field and deals 0.
+        effectClause = effectClause.replace(/\bdeals that much damage\b/i, "deals that much counters-placed damage");
       } else if (cls.event === "countersPut" && COUNTERS_PUT_DAMAGE_PAYOFF_RE.test(effectClause)) {
         // ===== COUNTERS-PUT "that much" DAMAGE (Shalai and Hallar — SH1) ===== the PASSIVE counters-put
         // form: "deals that much damage to target opponent", magnitude = ctx.countersPutCount (threaded by
