@@ -360,6 +360,17 @@ export const ENTERS_DONT_TRIGGER_RE = /(?:^|[\n.;])\s*creatures entering don't c
 export function entersDontTriggerOf(card) {
   return ENTERS_DONT_TRIGGER_RE.test(String(card?.oracle || card?.oracle_text || "").replace(/[’]/g, "'"));
 }
+// ── SKIP YOUR DRAW STEP (residue grind RG-4, 2026-09-05 — Wild Wasteland / Taigam, Sidisi's Hand / Null Profusion / Recycle):
+// CR 614.10 — the CONTROLLER's own draw step is skipped. Controller-scoped on purpose ("your"): an opponent's carrier never
+// skips yours. Read by the turn engine's draw-step case for the active player; the marker in parseStaticAbilities credits it.
+export const SKIP_DRAW_STEP_RE = /(?:^|[\n.;])\s*skip your draw step\s*(?:\.|$)/i;
+export function skipsDrawStepOf(card) {
+  return SKIP_DRAW_STEP_RE.test(String(card?.oracle || card?.oracle_text || ""));
+}
+export function skipsDrawStep(state, playerId) {
+  for (const perm of (state?.players?.[playerId]?.battlefield || [])) if (skipsDrawStepOf(perm.card)) return true;
+  return false;
+}
 export function creatureEntersSuppressed(state, enteredPerm) {
   // Only a CREATURE entering is silenced — read off the printed front-face type line at entry (an artifact, an enchantment,
   // a land entering still triggers everything). An animated-later permanent entered as whatever it was printed as.

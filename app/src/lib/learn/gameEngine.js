@@ -53,6 +53,7 @@ import {
 import { phaseInAndExpireShield, expireNameCastLocks } from "./gameState.js"; // TEFERI'S PROTECTION - phase in + shield expiry at the active player's untap; B4 — the name cast locks expire there too
 import { permanentValue, policyEvalEnabledFor } from "./boardEval.js"; // QUARTET PHASE 1 slice 3 — the shared evaluator (leaf-importing module, cycle-free)
 import { setPendingCleanupDiscardChoice } from "./pendingChoice.js";
+import { skipsDrawStep } from "./effects/textNormalize.js"; // SKIP YOUR DRAW STEP (RG-4, 2026-09-05) — a leaf reader, controller-scoped
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
@@ -519,7 +520,17 @@ export function runStepActions(state) {
       // of their first turn. CR 103.8c: MULTIPLAYER games don't skip — the 4-seat
       // Commander pod's starting player draws normally. Gate on turnOrder length
       // so only true 1v1 (Standard, or a 2-player duel) applies the skip.
-      if (
+      // SKIP YOUR DRAW STEP (CR 614.10 — RG-4, 2026-09-05): a static the ACTIVE player controls skips their own draw step —
+      // no turn-based draw, no draw-step draw watcher. Logged beside the first-turn skip so the record reads the same way.
+      if (skipsDrawStep(next, state.activePlayer)) {
+        next = logEvent(next, {
+          kind: "step",
+          phase: "beginning",
+          step: "draw",
+          player: state.activePlayer,
+          skipped: "static",
+        });
+      } else if (
         next.turn === 1 &&
         state.activePlayer === state.startingPlayer &&
         (state.turnOrder?.length || 0) === 2

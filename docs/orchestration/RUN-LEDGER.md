@@ -16,6 +16,22 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — RESIDUE GRIND RG-4 · SKIP YOUR DRAW STEP (Wild Wasteland / Yawgmoth's Bargain / Dragon Appeasement / Symbiotic Deployment) · **+4** · corpus 14,708 (43.0%) / 34,245
+> Suite **1575 files / 16403 tests** green; lint 0. Flip-diff **+4, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
+> · The census's next buildable family: "Skip your draw step." — four sole blockers (ten co-blockers), one sentence, one rule
+>   (CR 614.10: the step is skipped; nothing happens in it). A static marker in parseStaticAbilities credits the line; the
+>   reader lives in effects/textNormalize.js (a leaf) and is CONTROLLER-scoped — "your" draw step is the carrier's controller's,
+>   so an opponent's carrier never skips yours (pinned). The turn engine's draw-step case reads it for the ACTIVE player before
+>   the turn-based draw: the step is logged `skipped:"static"` beside the first-turn skip, no card is drawn, no draw-step draw
+>   watcher fires.
+> · **Whole-card of the four flips:** Wild Wasteland (the impulse upkeep was modeled), Symbiotic Deployment (the tap-two-creatures draw), Dragon Appeasement (the sacrifice-draw), Yawgmoth's Bargain (Pay 1 life: draw). The census's other examples stay parked on their OWN blockers — Recycle / Null Profusion print "whenever you PLAY a card" (not cast), Taigam its look-three pick and exile-X activation — pinned as negatives.
+> · **Pins:** Wasteland / Bargain / Appeasement native; Taigam and Recycle body-only. RUNTIME through nextStep: from
+>   the upkeep into the draw step with Wild Wasteland out → no card, the step logged skipped; without it → one card; with an
+>   OPPONENT's Wasteland → one card. Mutants: the marker gone, the engine ignoring the reader, the reader losing its controller
+>   scope — mutants 3/3 killed.
+> · **Whole-card:** flip-diff exactly the four (Wild Wasteland, Symbiotic Deployment, Dragon Appeasement, Yawgmoth's Bargain) — each audited above; zero LOST, zero retiered. The witness's first Recycle fixture was a made-up 'cast' variant; corrected to the real 'play a card' text and pinned as parked (the suite of record is the rerun with the corrected file)
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 > ## 🎯 2026-09-05 (cron) — RESIDUE GRIND RG-3 · THE GRAVEYARD-CAST REDUCER (Patrician Geist / Gravebreaker Lamia / …) · **+2** · corpus 14,704 (42.9%) / 34,245
 > Suite **1574 files / 16401 tests** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 2/2 killed.**
 > · The census's next buildable family: "Spells you cast from your graveyard cost {1} less to cast." — three sole blockers, one

@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-05 (cron) — **RESIDUE GRIND RG-4 · skip your draw step (+4)** · suite **1575 files / 16403 tests** green · corpus 14,708 (43.0%) / 34,245 · flip-diff +4 / 0 lost · mutants 3/3 killed
+
+> **Runnable next:** the residue grind continues from the 2026-09-05 census — Fist of Suns / Jodah (a board-granted WUBRG alternative cost for every spell — the cast enumeration's alt-cost lane reads only the spell's own text today; sized M), then the census's 3-sole rows with existing machinery (the "sacrifice it unless {C} was spent" ETB, the tapped Powerstone ETB, "{C}: this creature becomes the color of your choice") — re-run the census when six scoped candidates in a row are not slices.
+> Wild Wasteland, Yawgmoth's Bargain, Dragon Appeasement and Symbiotic Deployment skip their controller's draw step in the turn engine.
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **RESIDUE GRIND RG-3 · the graveyard-cast reducer (+2)** · suite **1574 files / 16401 tests** green · corpus 14,704 (42.9%) / 34,245 · flip-diff +2 / 0 lost · mutants 2/2 killed
 
 > **Runnable next:** the residue grind continues from the 2026-09-05 census — Fist of Suns / Jodah (a board-granted WUBRG alternative cost for every spell: the cast enumeration's alt-cost lane reads only the spell's own text today — sized M) · "skip your draw step" (4 sole + 10 co — a turn-structure static, sized M).

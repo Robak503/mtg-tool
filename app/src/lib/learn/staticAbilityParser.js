@@ -3229,6 +3229,13 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ entersDontTrigger: true });
     return;
   }
+  // ── SKIP YOUR DRAW STEP (residue grind RG-4, 2026-09-05 — Wild Wasteland / Taigam / Null Profusion / Recycle): CR 614.10.
+  // The marker credits the line; the turn engine reads the SAME sentence through effects/textNormalize.skipsDrawStep for the
+  // active player at its draw-step case. Exact line only — a variant leaves residue → body-only (a safe FN).
+  if (/^skip your draw step$/.test(c)) {
+    out.push({ skipDrawStep: true });
+    return;
+  }
 
   // ── MASS LAND ANIMATION (BLITZ NV-1 — Nature's Revolt "All lands are 2/2 creatures that are still
   // lands." / Living Plane "…1/1…"): TWO real layer descriptors on a dynamic selector over EVERY land,
