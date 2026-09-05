@@ -16,6 +16,23 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — RESIDUE GRIND RG-5 · FIST OF SUNS (Fist of Suns / Jodah, Archmage Eternal) · **+3** · corpus 14,711 (43.0%) / 34,245
+> Suite **1576 files / 16405 tests** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
+> · The census's next buildable family: "You may pay {W}{U}{B}{R}{G} rather than pay the mana cost for spells you cast." — a
+>   board-granted ALTERNATIVE cost (CR 118.9). The engine's alt-cost lane read only the SPELL's own text and paid its kinds
+>   (life, a pitch, a sacrifice, returned lands) in the dispatcher's no-mana branch — a five-pip alternative is MANA, so it
+>   goes the other way: the hand-cast enumeration offers a second cast VARIANT whose cost IS the five pips, and the ordinary
+>   payment path plans and pays it (never the altCost branch). The printed-cost action survives beside it only when it is
+>   itself payable — the caster picks one. Hand casts only; never a free cast; never an X spell (X would be 0 under an
+>   alternative cost — a different, unmodeled line); the five pips must be payable right now. Controller-scoped. Marker in
+>   parseStaticAbilities; the reader in effects/textNormalize.js (a leaf).
+> · **Pins:** the carriers native. RUNTIME through legalActionsForPlayer + dispatchAction: five basics + Fist → a six-drop is
+>   castable ONLY through the WUBRG variant (cost W/U/B/R/G, generic 0), dispatching it puts the spell on the stack and taps
+>   all five; no Fist → no cast; four basics → no cast. Mutants: the marker gone, the offer gone, the payability check gone (an
+>   unpayable promise), the variant keeping the printed cost — mutants 5/5 killed.
+> · **Whole-card:** flip-diff: Fist of Suns, Jodah + one unplanned gain audited whole-card — Leyline of Mutation (the same sentence beside the opening-hand Leyline line the classifier already pre-strips); zero LOST, zero retiered
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 > ## 🎯 2026-09-05 (cron) — RESIDUE GRIND RG-4 · SKIP YOUR DRAW STEP (Wild Wasteland / Yawgmoth's Bargain / Dragon Appeasement / Symbiotic Deployment) · **+4** · corpus 14,708 (43.0%) / 34,245
 > Suite **1575 files / 16403 tests** green; lint 0. Flip-diff **+4, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
 > · The census's next buildable family: "Skip your draw step." — four sole blockers (ten co-blockers), one sentence, one rule

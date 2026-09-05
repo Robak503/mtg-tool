@@ -3236,6 +3236,13 @@ function parseClause(clause, out, selfName, selfType) {
     out.push({ skipDrawStep: true });
     return;
   }
+  // ── FIST OF SUNS (residue grind RG-5, 2026-09-05 — Fist of Suns / Jodah): "You may pay {W}{U}{B}{R}{G} rather than pay the
+  // mana cost for spells you cast." CR 118.9. The marker credits the line; the hand-cast enumeration reads the SAME sentence
+  // through effects/textNormalize.grantsWubrgAltCost and offers the five-pip variant. Exact line only (a safe FN otherwise).
+  if (/^you may pay \{w\}\{u\}\{b\}\{r\}\{g\} rather than pay the mana cost for spells you cast$/.test(c)) {
+    out.push({ wubrgAltCost: true });
+    return;
+  }
 
   // ── MASS LAND ANIMATION (BLITZ NV-1 — Nature's Revolt "All lands are 2/2 creatures that are still
   // lands." / Living Plane "…1/1…"): TWO real layer descriptors on a dynamic selector over EVERY land,

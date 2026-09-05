@@ -35,6 +35,7 @@ import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: reso
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor, crewCostWithOverrides } from "./layers.js";
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
+import { grantsWubrgAltCost } from "./effects/textNormalize.js"; // FIST OF SUNS (RG-5, 2026-09-05) — the board-granted WUBRG alternative cost, a leaf reader
 import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksOf, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund (+ the Phyrexian life lane, Norn's Annex)
@@ -989,6 +990,13 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
   // Consumed by the twin post-pass below; empty on every non-carrier deck (the post-pass is then skipped
   // entirely, so the emitted action array is byte-identical to the pre-alt-cost behavior).
   const altSpecs = new Map();
+  // FIST OF SUNS (RG-5, 2026-09-05): a board-granted "pay {W}{U}{B}{R}{G} rather than the mana cost" for every hand cast of
+  // this player's. The variant's cost IS the five pips, so the normal payment path pays it (never the altCost branch, which
+  // pays no mana at all). Offered only when the five pips are payable right now; the printed-cost action survives beside it
+  // only when IT is payable (CR 118.9 — the caster picks one).
+  const wubrgAlt = grantsWubrgAltCost(state, playerId);
+  const WUBRG_COST = wubrgAlt ? parseManaCost("{W}{U}{B}{R}{G}") : null;
+  const wubrgSpecs = new Map();
 
   // STATIC-COST-REDUCTION: the subtype cost-reducers this player controls, gathered ONCE (each zone is
   // invariant across the loop). Skipped for a free-cast (it pays no mana). costReductionForSpell matches each
@@ -1128,6 +1136,11 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // "only to cast spells" is enforced by absence (the default-deny posture).
     const spendContext = { castCard: card, isCommander: fromZone === "command", restrictedEntries: player.restrictedMana || [] };
     const affordable = freeCast || canAfford(player.manaPool, manaSources(state, playerId), cost, spendContext);
+    // FIST OF SUNS (RG-5): the five-pip alternative — hand casts only, never a free cast, never an X spell (the X would be 0
+    // under an alternative cost — a different, unmodeled line), payable right now.
+    const wubrgAffordable = !!wubrgAlt && !freeCast && fromZone === "hand" && !cost.hasX
+      && canAfford(player.manaPool, manaSources(state, playerId), WUBRG_COST, spendContext);
+    if (wubrgAffordable) wubrgSpecs.set(card.id, { baseAffordable: affordable });
     // EMERGE (CR 702.97): the whole POINT of emerge is casting the Eldrazi when the FULL printed cost is out
     // of reach — sacrificing a creature cuts the cost by its mana value. So when the normal cast is NOT
     // affordable, do NOT skip the card outright (the old `if (!affordable) continue`): an emerge cast may
@@ -1158,7 +1171,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     const program = parseCastProgram(card); // S1.1 — stripped parse; matches the classifier + the dispatcher fallback
     const tcr = program?.targetConditionalReduction || null;
     const tcrAffordable = !!tcr && canAfford(player.manaPool, manaSources(state, playerId), { ...cost, generic: Math.max(0, (cost.generic || 0) - tcr.amount) }, spendContext);
-    if (!affordable && !emergeSpec && !altSpec && !tcrAffordable) continue;
+    if (!affordable && !emergeSpec && !altSpec && !tcrAffordable && !wubrgAffordable) continue;
 
     const effect = parseSpellEffect(card);
     // (`program` is bound above the affordability gate — the target-conditional reduction needs it there.)
@@ -1841,7 +1854,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // ALT-COST: an unaffordable alt-carrier still emits its normal-shaped actions here — the twin post-pass
     // below converts them to alt-payment casts and SPLICES OUT the unaffordable normal variant (it was
     // never offered pre-change, preserving byte-identity on non-carrier decks).
-    if (!affordable && !altSpec) continue;
+    // FIST OF SUNS (RG-5): the same twin-post-pass shape — an unaffordable printed cost still emits its normal-shaped actions
+    // here when the five-pip alternative is payable; the wubrg post-pass converts them and splices out the printed variant.
+    if (!affordable && !altSpec && !wubrgAffordable) continue;
 
     if (effectNeedsTarget(effect)) {
       // Targeted spell: one cast action per legal target (the action-expansion
@@ -1889,6 +1904,21 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
   // (`cost: {generic: 0}`; `cmc` stays the printed mana value, CR 202.3). Guards keep the twin to the plain
   // hand-cast shape only — alt carriers are instants/sorceries, so the emerge/bestow/kicked/X/additional-cost
   // shapes are naturally exclusive; the guards make that structural.
+  if (wubrgSpecs.size) {
+    // FIST OF SUNS (RG-5): duplicate each plain hand-cast action with the five-pip cost; drop the printed-cost action when it
+    // was not itself payable (it was admitted past the affordability gate only for this variant's sake).
+    const out = [];
+    for (const a of actions) {
+      const spec = (a.kind === "cast-spell" && a.fromZone === "hand" && !a.freeCast && !a.altCost && !a.faceCard
+        && !a.emerge && !a.bestow && a.kicked === undefined && a.xValue == null
+        && !a.sacCreatureId && !a.payLifeCost && !a.discardCardId) ? wubrgSpecs.get(a.cardId) : undefined;
+      if (!spec) { out.push(a); continue; }
+      if (spec.baseAffordable) out.push(a);
+      out.push({ ...a, cost: WUBRG_COST, altManaCost: "wubrg", altName: "pay {W}{U}{B}{R}{G} rather than its mana cost" });
+    }
+    actions.length = 0;
+    actions.push(...out);
+  }
   if (altSpecs.size) {
     const out = [];
     for (const a of actions) {

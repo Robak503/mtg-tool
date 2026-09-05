@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Fist of Suns, Jodah, Archmage Eternal** — cast any spell for {W}{U}{B}{R}{G}
 - **Wild Wasteland, Yawgmoth's Bargain, Dragon Appeasement, Symbiotic Deployment** — "Skip your draw step" skips it
 - **Patrician Geist, Gravebreaker Lamia** — spells cast from your graveyard cost {1} less
 - **Torpor Orb, Hushwing Gryff, Tocatli Honor Guard** — creatures entering trigger nothing

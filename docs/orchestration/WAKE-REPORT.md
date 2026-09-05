@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-05 (cron) — **RESIDUE GRIND RG-5 · Fist of Suns (+3)** · suite **1576 files / 16405 tests** green · corpus 14,711 (43.0%) / 34,245 · flip-diff +3 / 0 lost · mutants 5/5 killed
+
+> **Runnable next:** the residue grind continues from the 2026-09-05 census — the remaining 3-sole rows with existing machinery ("sacrifice it unless {C} was spent to cast it" ETB · the tapped Powerstone ETB · "{C}: this creature becomes the color of your choice") — or re-run the census (five slices have landed since it was taken).
+> Fist of Suns and Jodah let their controller cast anything for {W}{U}{B}{R}{G} — a second cast action beside the printed one.
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **RESIDUE GRIND RG-4 · skip your draw step (+4)** · suite **1575 files / 16403 tests** green · corpus 14,708 (43.0%) / 34,245 · flip-diff +4 / 0 lost · mutants 3/3 killed
 
 > **Runnable next:** the residue grind continues from the 2026-09-05 census — Fist of Suns / Jodah (a board-granted WUBRG alternative cost for every spell — the cast enumeration's alt-cost lane reads only the spell's own text today; sized M), then the census's 3-sole rows with existing machinery (the "sacrifice it unless {C} was spent" ETB, the tapped Powerstone ETB, "{C}: this creature becomes the color of your choice") — re-run the census when six scoped candidates in a row are not slices.

@@ -371,6 +371,19 @@ export function skipsDrawStep(state, playerId) {
   for (const perm of (state?.players?.[playerId]?.battlefield || [])) if (skipsDrawStepOf(perm.card)) return true;
   return false;
 }
+// ── FIST OF SUNS (residue grind RG-5, 2026-09-05 — Fist of Suns / Jodah, Archmage Eternal): "You may pay {W}{U}{B}{R}{G}
+// rather than pay the mana cost for spells you cast." CR 118.9 — a board-granted ALTERNATIVE cost for every spell the
+// carrier's controller casts. Controller-scoped ("spells YOU cast"). Read by the hand-cast enumeration (legalChoices), which
+// offers a second cast variant whose cost IS the five pips — the normal payment path pays it; the marker in
+// parseStaticAbilities credits the line.
+export const WUBRG_ALT_COST_RE = /(?:^|[\n.;])\s*you may pay \{W\}\{U\}\{B\}\{R\}\{G\} rather than pay the mana cost for spells you cast\s*(?:\.|$)/i;
+export function grantsWubrgAltCostOf(card) {
+  return WUBRG_ALT_COST_RE.test(String(card?.oracle || card?.oracle_text || ""));
+}
+export function grantsWubrgAltCost(state, playerId) {
+  for (const perm of (state?.players?.[playerId]?.battlefield || [])) if (grantsWubrgAltCostOf(perm.card)) return true;
+  return false;
+}
 export function creatureEntersSuppressed(state, enteredPerm) {
   // Only a CREATURE entering is silenced — read off the printed front-face type line at entry (an artifact, an enchantment,
   // a land entering still triggers everything). An animated-later permanent entered as whatever it was printed as.
