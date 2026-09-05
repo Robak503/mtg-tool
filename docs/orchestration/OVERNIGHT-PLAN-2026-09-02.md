@@ -1,5 +1,9 @@
 # OVERNIGHT PLAN — 2026-09-02 (Colton asleep; a 5-minute session cron keeps the seat working)
 
+> ## ⏩ CLOSED 2026-09-06 — every stage below is MET. A seat booting here goes to **`OVERNIGHT-PLAN-2026-09-06.md`** (the fresh
+> handoff Colton ordered at ~05:00Z: the quartet's last Phase 4 class, two scoped residue rows, the residue loop, then the
+> quartet's open phases). §5 and §6 of this file remain the law and the park list by reference.
+
 > **THE ORDER (Colton, 2026-09-02, verbatim intent):** "focus on 3 things: getting Cap with lands over
 > the 90 percent mark or damn close; getting the lands section done; getting as far on Squirrel Girl as
 > possible making her native" — then: "if you get Cap to basically 90, the lands fix, and SG to 90, then

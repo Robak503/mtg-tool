@@ -7,6 +7,12 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🏁 2026-09-06 (~05:00Z) — **BANKED · FRESH HANDOFF** — Colton: "safe pause and bank everything, then a new hand off so the next cindy grind command can start fresh"
+
+> **Boot the next seat from `docs/orchestration/OVERNIGHT-PLAN-2026-09-06.md`** (the 09-02 plan is CLOSED and redirects there). Its stages, in order: ① the quartet's Phase 4 step 3 last class — colour words in a spend restriction (Shrine of the Forsaken Gods, Eldrazi Temple; M) · ② the two scoped residue rows with existing machinery — the tap-a-creature alternative cost (Ramosian Rally, Angelic Favor; M-small) and the party-count cost reducer (S/M) · ③ the residue loop (census; the banked classes are listed so nobody re-scopes them) · ④ the quartet's open phases (Phase 2, the decision log).
+> **State at the bank:** suite **1584 files / 16,426 tests** green · lint 0 · corpus **14,767 / 34,245 (43.1%)** · shelf 13 ≥90 · 14 at 85–89 · 3 ceilings · **111 commits held** (CI billing-blocked; push on the first green run; never flip visibility) · worktree CLEAN.
+> **Since the last handoff (the 09-02 plan's close):** SHELF-85 through Phase 4 (Nekusar and Bumble crossed 90; the Omnath hand-off posted), nine residue families (+56), the quartet's Phase 4 step 3 in four classes (+28), the domain count (+6). Every slice witnessed, mutation-checked, full-suite green; eleven CREED park guards graduated on their own evidence; two hollows caught by the flip-diff's runtime audit before commit.
+
 ## 🎯 2026-09-06 (cron) — **RESIDUE GRIND RG-9 · the domain count (+6)** · suite **1584 files / 16426 tests** green · corpus 14,767 (43.1%) / 34,245 · flip-diff +6 / 0 lost · mutants 5/5 killed
 
 > **Runnable next:** ② the tap-a-creature alternative cost ("If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost": Ramosian Rally, Angelic Favor — a new alt kind `tapCreature` with an untapped-creature enumeration and a tap at dispatch; the condition parser already reads "you control a Plains"; M-small) · ③ colour words in a spend restriction (Shrine of the Forsaken Gods, Eldrazi Temple; M).
