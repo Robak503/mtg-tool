@@ -297,6 +297,11 @@ export function splitClauses(oracle) {
       // atom (the X add + its spend restriction + its until-end-of-turn hold are inseparable: splitting
       // would let the add parse alone and mint UNRESTRICTED mana — the laundering FP). Same anchored-fold
       // discipline: each continuation folds only onto its exact lead.
+      // CONTINUE? (SHELF-85 · Bumble F6, 2026-09-05) — "Choose up to four target creature cards in your graveyard that were
+      // put there from the battlefield this turn. Return them to the battlefield." is ONE instruction: the choice and the
+      // return (Brought Back, Othelm, Niambi, Grim Return, Salvager of Ruin print the same pair). Both halves anchored.
+      || (/^return (?:it|them) to (?:the battlefield(?: tapped)?|your hand)$/i.test(sentence)
+          && /^choose (?:up to (?:one|two|three|four|five) )?target [a-z][a-z ]*?cards? in your graveyard that (?:was|were) put there from the battlefield this turn$/i.test(prev))
       || (/^spend this mana only to cast spells$/i.test(sentence)
           && /add x mana in any combination of colors, where x is the total power of attacking creatures$/i.test(prev))
       || (/^until end of turn, you don't lose this mana as steps and phases end$/i.test(sentence)

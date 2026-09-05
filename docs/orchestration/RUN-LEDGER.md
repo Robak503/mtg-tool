@@ -16,6 +16,27 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · F6: CONTINUE? — put there from the battlefield this turn · **+4** · corpus 14535 / 34,245
+> Suite **1522 files / 16,237** green; lint 0. Flip-diff **+4, zero LOST** (any unplanned gains audited whole-card). **mutants 7/7 killed.**
+> · "Choose up to four target creature cards in your graveyard that were put there from the battlefield this turn.
+>   Return them to the battlefield." Three seams. (1) A per-card FROM-BATTLEFIELD-THIS-TURN stamp written by the zone
+>   mover on every battlefield → graveyard move — the milledThisTurn twin, compared to the live turn so it never needs a
+>   reset (23 printings of the qualifier). (2) An enumerator gate on it, threaded through targeting's graveyard-target
+>   projection — a WHITELIST: unlisted = dropped = the gate never reaches the enumerator. (3) The splitter folds the
+>   "choose … / return it|them …" pair into one clause and a zones arm parses it: the filter through the graveyard
+>   filter parser, "up to N" → the subset machinery, to the battlefield = reanimate (the resolver already loops every
+>   pick), to your hand = the return atom (Othelm, Niambi, Grim Return, Salvager of Ruin, Brought Back print the pair).
+> · **Two things caught by the first witness run:** the stamp keyed by the PERMANENT id while the graveyard entry carries
+>   the CARD id (the gate never matched), and the projection whitelist dropping the new flag (the old creature was
+>   offered). Both fixed; both have mutants.
+> · **Pins:** the folded pair parses to ONE reanimate with the gate and up-to-four targets, native-spell; the Othelm
+>   and Salvager sibling shapes parse; the zone mover stamps two creatures that died this turn and not the old one;
+>   the cast offers every subset of exactly those two — never the old creature or the instant — and the largest
+>   returns both; a new turn offers only the empty set. Mutants: the stamp gone, the wrong key, the gate gone, the
+>   projection dropping the flag, the fold gone, the arm without the gate, the arm without the count — mutants 7/7 killed.
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Bumble Flower 80 → **81** (4 to the bar); Othelm, Salvager of Ruin, Brought Back the unplanned gains — the same choose-then-return pair with filters the arm reads, audited from their printed text
+
 > ## 🎯 2026-09-05 (cron) — HARDENING: the Flashback line strip's rider swallow · **+0** (a hollow closed) · corpus 14531 / 34,245
 > Suite **1521 files / 16,233** green; lint 0. Flip-diff **0 / 0** — the guard changes NO printed card. **mutants 3/3 killed.**
 > · Surfaced by the Study the Classics flip-diff: Visions of Dominance flipped native, and its Flashback line carries

@@ -628,6 +628,24 @@ export function graveyardReturnClauseParser(clause) {
   // Ancestry, Walk with the Ancestors) is the N=1 member of the same family: singular "card", maxTargets:1,
   // minTargets:0 — the subset machinery (largest-first auto-pick) returns the one card or declines only
   // when the graveyard is empty. targeting.expandAtoms' gate admits the maxTargets:1 + minTargets:0 shape.
+  // ===== CHOOSE-THEN-RETURN with the FROM-BATTLEFIELD-THIS-TURN qualifier (SHELF-85 · Bumble F6 Continue?, 2026-09-05) =====
+  // "choose [up to N] target <filter> card(s) in your graveyard that was/were put there from the battlefield this turn.
+  // return it/them to the battlefield[ tapped] | your hand" — the splitter's fold hands the pair over whole. The filter
+  // rides the SAME graveyard filter parser; the qualifier becomes `fromBattlefieldThisTurnOnly` (the enumerator reads
+  // the per-card stamp the zone mover writes); "up to N" → maxTargets N / minTargets 0 (the subset machinery), a bare
+  // "target" → one required target. To the battlefield = reanimate (the resolver loops every pick); to your hand = the
+  // return-from-graveyard atom. A non-permanent filter to the battlefield → null (never a mis-reanimate).
+  const ctr = /^choose (?:up to (one|two|three|four|five) )?target (.*?)cards? in your graveyard that (?:was|were) put there from the battlefield this turn\. return (?:it|them) to (the battlefield( tapped)?|your hand)$/.exec(t);
+  if (ctr) {
+    const n = ctr[1] ? SMALL_NUM[ctr[1]] : null;
+    const word = ctr[2].trim();
+    const cardFilter = word === "creature" ? "creature" : parseGraveyardFilter(word);
+    if (!cardFilter || cardFilter === "any") return null;
+    const count = n ? { maxTargets: n, minTargets: 0 } : {};
+    if (ctr[3] === "your hand") return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter, fromBattlefieldThisTurnOnly: true, ...count };
+    if (cardFilter !== "creature" && !isPermanentReanimateFilter(cardFilter)) return null;
+    return { op: "reanimate", targetType: "graveyardCard", cardFilter: cardFilter === "creature" ? "creature" : { typeFilter: cardFilter }, fromBattlefieldThisTurnOnly: true, ...(ctr[4] ? { entersTapped: true } : {}), ...count };
+  }
   const multiM = /^return up to (one|two|three|four|five) target (.*?)cards? from your graveyard to your hand$/.exec(t);
   if (multiM) {
     const n = SMALL_NUM[multiM[1]];

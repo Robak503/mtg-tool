@@ -246,7 +246,7 @@ function atomTargetSpec(atom) {
   // (BLITZ SB-1 — "from that player's graveyard", Skullsnatcher / Zombie Cannibal) scopes it to the
   // just-combat-damaged player's graveyard (ctx.damagedPlayerId — absent referent → empty pool). Absent →
   // the caster's own graveyard (the default return-from-graveyard / own-graveyard reanimate).
-  if (tt === "graveyardCard") return { kind: "return-gy", targetType: "graveyardCard", cardFilter: atom.cardFilter || "any", anyGraveyard: atom.anyGraveyard, opponentGraveyard: atom.opponentGraveyard, ...(atom.damagedPlayerGraveyard && { damagedPlayerGraveyard: true }), ...(atom.milledThisTurnOnly && { milledThisTurnOnly: true }), ...(atom.excludeTriggeringCard && { excludeTriggeringCard: true }) };
+  if (tt === "graveyardCard") return { kind: "return-gy", targetType: "graveyardCard", cardFilter: atom.cardFilter || "any", anyGraveyard: atom.anyGraveyard, opponentGraveyard: atom.opponentGraveyard, ...(atom.damagedPlayerGraveyard && { damagedPlayerGraveyard: true }), ...(atom.milledThisTurnOnly && { milledThisTurnOnly: true }), ...(atom.fromBattlefieldThisTurnOnly && { fromBattlefieldThisTurnOnly: true }), ...(atom.excludeTriggeringCard && { excludeTriggeringCard: true }) }; // + fromBattlefieldThisTurnOnly (Continue?, 2026-09-05) — this projection is a WHITELIST: unlisted = dropped = the gate never reaches the enumerator (the first witness run offered the old creature)
   // A PLAYER-target atom — δ-1b hand disruption (opponent) and EDICTS sacrifice (player/opponent).
   // Enumerated purely by targetType ("opponent" → opponents, "player" → every player); the victim's
   // hand/creature is chosen at RESOLUTION, not enumeration, so the spec carries no extra filter. The

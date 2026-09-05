@@ -818,6 +818,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
         // this turn"): the card must appear in the millCards ledger stamped with the CURRENT turn (stale
         // entries are inert — the reader keys on state.turn, no cleanup pass needed).
         if (effect.milledThisTurnOnly && state.milledThisTurn?.[card.id] !== state.turn) continue;
+        if (effect.fromBattlefieldThisTurnOnly && state.fromBattlefieldThisTurn?.[card.id] !== state.turn) continue; // Continue? (2026-09-05)
         out.push({ type: "graveyardCard", id: card.id, controller: pid, name: card?.name });
       }
     }

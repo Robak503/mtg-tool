@@ -689,7 +689,14 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
   // Recursing with toZone "library" reuses every bit of this function's owner-routing and unwrapping rather
   // than duplicating it; the guard on toZone prevents any further recursion.
   if (toZone === "graveyard") {
+    // FROM-BATTLEFIELD-THIS-TURN (SHELF-85 · Bumble F6 Continue?, 2026-09-05 — "creature cards in your graveyard that were put
+    // there from the battlefield this turn"; 23 printings): a state-level per-card turn stamp, the milledThisTurn twin — the
+    // enumerator compares it to the live turn, so it never needs a reset. Stamped before the move so a shuffle-instead
+    // replacement (below) still leaves the honest record of a card that WAS put there from the battlefield.
     const moving = peekMovingCard(state, playerId, fromZone, cardId);
+    // ⛔ keyed by the CARD's id (what the graveyard entry carries), not the permanent's — the first witness run stamped
+    // "d1" while the graveyard held "c-d1" and the gate never matched.
+    if (fromZone === "battlefield") state = { ...state, fromBattlefieldThisTurn: { ...(state.fromBattlefieldThisTurn || {}), [moving?.id || cardId]: state.turn } };
     if (moving && shufflesIntoLibraryInsteadOfGraveyard(moving)) {
       const tucked = moveCardToZone(state, { playerId, fromZone, toZone: "library", cardId });
       // Shuffle the OWNER's library — the same destination routing the move just used, so a stolen

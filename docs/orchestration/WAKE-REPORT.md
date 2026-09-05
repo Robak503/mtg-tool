@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · F6: Continue? (+4)** · suite **1522 files / 16,237** green · corpus 14535 / 34,245 · flip-diff +4 / 0 lost · mutants 7/7 killed
+
+> A per-card "put there from the battlefield this turn" stamp, its enumerator gate, and the "choose … return …" pair folded into a multi-count reanimate. Bumble Flower 80 → **81** (4 to the bar); Othelm, Salvager of Ruin, Brought Back the unplanned gains — the same choose-then-return pair with filters the arm reads, audited from their printed text
+> **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **HARDENING: the Flashback line strip's rider swallow (+0, a hollow closed)** · suite **1521 files / 16,233** green · flip-diff 0 / 0 · mutants 3/3 killed
 
 > A trailing sentence on a Flashback line is dropped only when it modifies the flashback cast itself ("this way" — a cast the engine never offers); anything else now parks the card. Zero corpus impact.
