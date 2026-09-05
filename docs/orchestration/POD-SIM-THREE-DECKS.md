@@ -18,7 +18,7 @@
 | Deck | Native | Non-native | Needs for 85 | Role in the pod |
 |---|---|---|---|---|
 | Killer Turts | ✅ **85/100** (2026-09-05; was 70) | 15 | **0** | extra-combat red-green aggro-storm |
-| Kinnan Mana Overload | 80/100 | 20 | **5** | cEDH big-mana / copy / Thoracle |
+| Kinnan Mana Overload | 83/100 | 17 | **2** | cEDH big-mana / copy / Thoracle |
 | Believe it! | 76/100 | 24 | **9** | cEDH ninjas + Thoracle-Consultation |
 
 **35 slots across the three.** Shared cards: Thassa's Oracle (Kinnan + Believe it!), Mindbreak Trap (both),

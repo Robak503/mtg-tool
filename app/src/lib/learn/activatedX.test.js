@@ -52,7 +52,7 @@ describe("γ1f — cost + ability shape", () => {
     // one {X} beside real pips now reads as costX with the fixed pips alongside (Silklash Spider "{X}{G}{G}", Cinder
     // Elemental "{X}{R}", Kessig Wolf Run "{X}{R}{G}"); the activated lane's X expansion resolves it per chosen X.
     expect(parseAbilityCost("{2}{X}, {T}")).toMatchObject({ costX: true, manaPips: "{X}{2}", tapSelf: true });
-    expect(parseAbilityCost("{X}{X}, {T}")).toBeNull(); // a double-X activated cost is not split → unmodeled
+    expect(parseAbilityCost("{X}{X}, {T}")).toMatchObject({ costX: true, manaPips: "{X}{X}" }); // GRADUATED (POD-SIM THREE · KN-4, 2026-09-05): a run of X pips is modeled — the mana cost carries both pips, the lane owes 2X (Treasure Vault; kinnanFillsKn4.test.js)
   });
 
   it("the effect 'Untap X target lands.' parses HIGH with a targetCountX atom + xSpell", () => {

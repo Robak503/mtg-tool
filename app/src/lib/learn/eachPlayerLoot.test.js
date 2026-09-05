@@ -27,9 +27,10 @@ describe("the parse", () => {
     expect(p.atoms.map((a) => [a.op, a.who, a.amount])).toEqual([["draw", "eachPlayer", 1], ["discard", "eachPlayer", 1]]);
   });
 
-  it("⛔ 'target player draws …, then discards' is NOT rewritten (no who:target discard exists) — stays low", () => {
+  it("GRADUATED (POD-SIM THREE · KN-4, 2026-09-05): 'target player draws …, then discards' is ONE draw-then-discard atom for the same chosen player (Cephalid Coliseum; kinnanFillsKn4.test.js)", () => {
     const p = parseEffectClause("Target player draws a card, then discards a card.", "Instant");
-    expect(programConfidence(p)).toBe("low");
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms).toEqual([{ op: "draw-then-discard", drawAmount: 1, amount: 1, who: "target", targetType: "player" }]);
   });
 });
 

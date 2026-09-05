@@ -266,7 +266,7 @@ describe("parseEffectProgram — each-player / target-player draw", () => {
     low("Target player draws X cards.");                          // Stroke of Genius — variable count
     low("Each player draws X cards.");                            // Prosperity — variable count
     low("Each player draws a card for each creature card in their graveyard."); // dynamic count
-    low("Target player draws three cards, then discards three cards."); // bare "discards N" rider doesn't carry the subject → Arbiter
+    expect(parseEffectProgram(I("Target player draws three cards, then discards three cards.")).atoms).toEqual([{ op: "draw-then-discard", drawAmount: 3, amount: 3, who: "target", targetType: "player" }]); // GRADUATED (KN-4, 2026-09-05): one atom, the same player
   });
 });
 

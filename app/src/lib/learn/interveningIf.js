@@ -1506,6 +1506,14 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // "Artifact Creature — Golem" contributes TWO. Only the type line's head (before the em dash) is read, so
   // a SUBTYPE never counts as a type. Kindred and Tribal are the same card type under two printed names
   // (CR 205.2a), so they fold to one entry rather than double-counting a graveyard holding both.
+  // CEPHALID COLISEUM (KN-4): threshold — "Activate only if there are seven or more cards in your graveyard" (CR 702.x-era
+  // ability word; the count is YOUR graveyard, read at activation).
+  m = c.match(new RegExp(`^(?:there are )?${NUM_RE} or more cards in your graveyard$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    return (state.players?.[controllerId]?.graveyard || []).length >= n;
+  }
   m = c.match(new RegExp(`^(?:there are )?${NUM_RE} or more card types among cards in your graveyard$`));
   if (m) {
     const n = parseCount(m[1]);

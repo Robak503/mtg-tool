@@ -475,6 +475,7 @@ export function splitClauses(oracle) {
     // OPEN THE OMENPATHS (KT-4b): the two-colour lead is ONE add — its " and " is inside the sentence, not a clause boundary;
     // kept whole so the spend-rider fold below sees the full lead as `prev`.
     if (/^add two mana of any one color and two mana of any other color$/i.test(sentence)) { clauses.push(sentence); continue; }
+    if (/^target player draws (?:[a-z]+|[0-9]+) cards?, then discards (?:[a-z]+|[0-9]+) cards?$/i.test(sentence)) { clauses.push(sentence); continue; } // CEPHALID COLISEUM (KN-4): one atom, one player — the ", then" is NOT a clause seam here
     // COND-X TEAM PUMP (Finale of Devastation) — "If X is N or more, creatures you control get +X/+X and gain
     // KW until end of turn". The "If X is N or more, " prefix conditions the WHOLE team pump on the chosen X;
     // the " and gain …" is INTERNAL to that one pump instruction (same as the unconditional form above), NOT a

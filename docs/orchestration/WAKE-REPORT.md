@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KN-4: Treasure Vault + Moonsilver Key + Cephalid Coliseum (+7)** · suite **1496/16140** green · corpus 14468 / 34,245 · flip-diff +7 / 0 lost · 8/8 killed
+
+> A run of X pips in an activation cost, the artifact-with-a-mana-ability tutor filter, a graveyard-count threshold and one draw-then-discard atom for the same player. **Kinnan 80 → 83 (needs 2)** · Believe it! 76 · Killer Turts 85 ✅ · Shalai 84. (Full suite: three pre-existing guards asserted the double-X cost and the draw-then-discard sentence UNMODELED — graduated and re-run green; every other file green.) Next: KN-5/6 — the last two slots.
+> **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KN-3: Flash Photography + Imposter Mech (+3)** · suite **1495/16136** green · corpus 14461 / 34,245 · flip-diff +3 / 0 lost · 11/11 killed
 
 > A token copy of target permanent (Auras/Sagas never targets; the conditional flash line not honored — sorcery-speed, a documented FN) and the opponent-creature clone scope with a become-Vehicle rider. The Kinnan copy family is whole. **Kinnan 78 → 80 (needs 5)** · Believe it! 76 · Killer Turts 85 ✅ · Shalai 84. Next: KN-4 Treasure Vault · Moonsilver Key · Cephalid Coliseum.

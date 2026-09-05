@@ -599,6 +599,9 @@ export function createNamedTokenClauseParser(clause) {
   // anchors below bind, exactly as createTokenClauseParser already does for the vanilla-token family. Strictly
   // a PROMOTION (can only let an already-low clause parse) — never changes a token's owner.
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/^you create /, "create ");
+  // TREASURE VAULT (KN-4): "Create X Treasure tokens." with NO "where X is" — X is the activation's chosen X (ctx.xValue).
+  const bareX = t.match(/^create x (treasure|clue|food|gold|blood) tokens?$/);
+  if (bareX) return { op: "create-named-token", token: bareX[1], countX: true, targetType: null };
   let m = t.match(/^create x (treasure|clue|food|gold|blood) tokens,? where x is (?:equal to )?(?:the number of )?(.+)$/);
   if (m) {
     const countFor = parseCountSource(m[2], { allowScopes: true });

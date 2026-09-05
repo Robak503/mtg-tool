@@ -16,6 +16,30 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KN-4: TREASURE VAULT + MOONSILVER KEY + CEPHALID COLISEUM — three fills · **+7** · corpus 14468 / 34,245
+> Suite **1496/16140** green; lint 0. Flip-diff **+7, zero LOST** — four unplanned twins of the draw-then-discard fold
+> audited whole-card: Cephalid Broker (two/two), Cephalid Looter and Reckless Scholar (a card / a card), Wistful Thinking
+> (draws two, discards FOUR — the discard clamps to the hand as every discard does). **8/8 killed.**
+> · Treasure Vault — "{X}{X}, {T}, Sacrifice this land: Create X Treasure tokens." The activation-cost parser knew a
+>   single {X}; a RUN of X pips now carries every pip into the mana cost so the X lane owes 2X for the chosen X (CR 107.3),
+>   and the bare "Create X Treasure tokens" (no "where X is") reads X off the activation.
+> · Moonsilver Key — "an artifact card with a mana ability or a basic land card" → hand. A dedicated tutor arm whose
+>   artifact group carries a MANA-ABILITY demand: the matcher reads the card's own "…: Add …" line (a Sol Ring qualifies,
+>   Swiftfoot Boots does not; an odd phrasing simply does not qualify — FN-safe); the other group is basic land.
+> · Cephalid Coliseum — the mana line was already credited (the ping-land arm). Threshold: a new intervening-if arm,
+>   "N or more cards in your graveyard", read at activation through the same gate every conditional activation uses.
+>   "Target player draws three cards, then discards three cards" is ONE atom for the SAME chosen player — two atoms would
+>   each take their own target, and the "that player" pronoun path reads the damaged player; the sentence is kept whole
+>   past the comma-then splitter (its removal seen to fail).
+> · **Pins:** the Vault offers X = 1..3 at 2/4/6 with six in the pool and nothing with one; X = 2 makes two Treasures and
+>   sacrifices the land. The Key's pause offers Sol Ring + Island only (never Boots, Command Tower or a creature), the pick
+>   reaches hand, the Key is gone. The Coliseum is not offered at six graveyard cards and is at seven; aimed at the
+>   opponent, their library −3 / graveyard +3 / hand unchanged, the land sacrificed. Mutants: the pip-run arm, the bare-X
+>   count, draw-nothing, skip-the-discard, strict-threshold, the dropped mana demand, the blind matcher and the re-split
+>   sentence — all died.
+> · **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+> · **Kinnan 80 → 83 (needs 2)** · Believe it! 76 · Killer Turts 85 ✅ · Shalai 84. (Full suite: three pre-existing guards asserted the double-X cost and the draw-then-discard sentence UNMODELED — graduated and re-run green; every other file green.) Next: KN-5/6 — the last two slots.
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KN-3: FLASH PHOTOGRAPHY + IMPOSTER MECH — the copy family whole · **+3** · corpus 14461 / 34,245
 > Suite **1495/16136** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **11/11 killed.**
 > · Flash Photography — "Create a token that's a copy of target permanent." The token-copy atom knew "target creature you

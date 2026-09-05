@@ -337,6 +337,14 @@ export function discardClauseParser(clause) {
   // would be unset and the clause would silently drop.
   if ((rm = t.match(new RegExp(`^defending player discards ${RN} cards?( at random)?$`))))
     return { op: "discard", amount: NUM_WORD[rm[1]] ?? parseInt(rm[1], 10), who: "defendingPlayer", targetType: null, ...(rm[2] ? { atRandom: true } : {}) };
+  // CEPHALID COLISEUM (POD-SIM THREE · KN-4, 2026-09-05): "Target player draws three cards, then discards three cards." —
+  // ONE atom so the SAME chosen player draws and then discards (two atoms would each take their own target; the "that
+  // player" pronoun path reads the damaged player, not a chosen one).
+  const dd = t.match(/^target player draws (\d+|a|one|two|three|four|five|six|seven) cards?, then discards (\d+|a|one|two|three|four|five|six|seven) cards?$/);
+  if (dd) {
+    const num = (w) => (/^\d+$/.test(w) ? parseInt(w, 10) : (w === "a" ? 1 : NUM_WORD[w]));
+    return { op: "draw-then-discard", drawAmount: num(dd[1]), amount: num(dd[2]), who: "target", targetType: "player" };
+  }
   let m = t.match(/^target player discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
   // TARGET-OPPONENT discard (Ravenous Rats / Dirty Rat / Deadbridge Shaman ETB) — the same targeted discard as
@@ -514,6 +522,12 @@ export function lookAtHandClauseParser(clause) {
 }
 
 export const handResolvers = {
+  "draw-then-discard": (state, atom, ctx) => { // CEPHALID COLISEUM (KN-4): the chosen player draws N, then discards M (the discard pause / auto-policy as usual)
+    const pid = (ctx.targets || []).find((t) => t?.type === "player" && state.players?.[t.id])?.id || null;
+    if (!pid) return logEvent(state, { kind: "spell-effect", effect: "draw-then-discard", applied: false, reason: "no-player-target" });
+    const drawn = applyDrawEffect(state, { controller: pid, amount: Math.max(0, atom.drawAmount || 0) });
+    return applyDiscard(drawn, { op: "discard", amount: atom.amount, who: "target", targetType: "player" }, ctx);
+  },
   "discard-chosen": applyDiscardChosen,
   "hand-to-library-top": applyHandToLibraryTop, // Brainstorm put-back — top placement, NOT a discard
 

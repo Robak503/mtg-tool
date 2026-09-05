@@ -194,7 +194,14 @@ export function cardMatchesTutorFilter(card, filter) {
   // (CR 712.4a), but the enriched type line is the COMBINED "Front // Back" for an MDFC —
   // so a [artifact] tutor must NOT match a card whose FRONT is a land and back an artifact.
   const type = String(card?.type || card?.type_line || "").toLowerCase().split(" // ")[0];
-  return groups.some((group) => group.every((w) => new RegExp(`\\b${w}\\b`).test(type)));
+  return groups.some((group, i) => group.every((w) => new RegExp(`\\b${w}\\b`).test(type))
+    && (filter.manaAbilityGroup !== i || cardHasManaAbility(card))); // MOONSILVER KEY (KN-4): one group may demand a mana ability
+}
+/** KN-4 — does the card print a mana ability ("{T}: Add {C}{C}.", "{T}, Sacrifice …: Add one mana of any color.")? Reads the
+ *  oracle's own "…: Add …" line — the same shape manaModel credits; an unusual phrasing simply does not qualify (FN-safe). */
+export function cardHasManaAbility(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  return /(?:^|\n)[^\n]*:\s*add\s+(?:\{|one mana|two mana|three mana|an amount of mana|x mana|that much mana)/i.test(oracle);
 }
 // deterministicRng MOVED to gameState.js (the zone chokepoint needs it and cannot import this module).
 /**
@@ -2254,6 +2261,13 @@ export function tutorClauseParser(clause, ctx = {}) {
   // "power 2 or less" is the identical shape): the stat cap beside the mana-value cap — the SAME "N [or less]"
   // reader (parseTutorMv), stored under `toughness` / `power` and enforced in cardMatchesTutorFilter on the card's
   // PRINTED stat (CR 208.1; a "*" stat reads as unpriced and is never a candidate — a safe miss).
+  // MOONSILVER KEY (POD-SIM THREE · KN-4, 2026-09-05): "an artifact card with a mana ability or a basic land card" — the
+  // artifact group carries a MANA-ABILITY requirement (the matcher reads the card's own "…: Add …" line); a Sol Ring or a
+  // Mana Crypt qualifies, a Swiftfoot Boots does not; any basic land qualifies.
+  const mk = t.match(/^search your library for an artifact card with a mana ability or a basic land card,?(?: reveal (?:it|that card),?)? put (?:it|that card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  if (mk) {
+    return { op: "tutor", filter: { groups: [["artifact"], ["basic", "land"]], manaAbilityGroup: 0 }, filterLabel: "artifact card with a mana ability or basic land card", destination: "hand", targetType: null };
+  }
   const tm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?(?: with (mana value|toughness|power) (\d+(?: or less)?))?,?(?: reveal (?:it|that card|the card),?)?(?: and)? put (?:it|that card|the card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (tm) {
     const phrase = tm[1]; // undefined for an unfiltered "a card"

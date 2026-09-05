@@ -31,9 +31,9 @@ Mox Diamond, Mana Vault, Sol Ring, LED all native-mana; Mana Crypt is body-only 
 
 | # | Card | Oracle gist | Blocker (probed) | Size | CREED note |
 |---|---|---|---|---|---|
-| K7 | **Treasure Vault** | {X}{X},{T}, sacrifice: create X Treasures | an X-cost activated ability on a land with a sac cost (land-partial today: the mana line credited, the ability not) | **S** | X paid = {X}{X}, i.e. 2X mana for X Treasures |
-| K8 | **Moonsilver Key** | {1},{T}, sac: search for an artifact with a mana ability OR a basic land → hand | the tutor filter "artifact card with a mana ability" (the plain "artifact card" form also fails → the tutor-to-hand with an artifact-or-basic filter is the arm; "with a mana ability" = manaProduction(card) non-empty) | **S/M** | the filter must reject an artifact WITHOUT a mana ability |
-| K9 | **Cephalid Coliseum** | {T}: {U} + 1 damage to you; Threshold sac: target player draws 3 discards 3 | the ping-on-tap land + a threshold-gated sac ability | **S/M** | threshold = 7+ cards in YOUR graveyard, checked at activation |
+| K7 | **Treasure Vault** | ✅ DONE 2026-09-05 (KN-4): a run of X pips in an activation cost (`{X}{X}`) is modeled — the mana cost carries both pips so the activation lane owes 2X (CR 107.3); the bare "Create X Treasure tokens" reads X off the activation | **S** | pinned: six in the pool offers X = 1..3 at 2/4/6 (never X = 4); X = 2 makes two Treasures and the Vault is sacrificed; one mana funds no X |
+| K8 | **Moonsilver Key** | ✅ DONE 2026-09-05 (KN-4): a dedicated tutor-to-hand arm; the artifact group carries a MANA-ABILITY demand (the matcher reads the card's own "…: Add …" line — FN-safe on odd phrasings), the other group is basic land | **S/M** | pinned: the pause offers Sol Ring + Island only — never Swiftfoot Boots, Command Tower (nonbasic) or a creature; the pick lands in hand, the Key is sacrificed |
+| K9 | **Cephalid Coliseum** | ✅ DONE 2026-09-05 (KN-4): the mana line was already credited (the ping-land arm); threshold = a new intervening-if arm "N or more cards in your graveyard" read at activation; "Target player draws three cards, then discards three cards" is ONE atom (kept whole past the comma-then splitter) so the SAME chosen player draws and then discards | **S/M** | pinned: not offered at six cards in my graveyard, offered at seven; aimed at the opponent their library −3, graveyard +3, hand unchanged; the land is sacrificed |
 
 ### 1c. The bodies with one unmodeled line (M each)
 
@@ -70,7 +70,7 @@ Mox Diamond, Mana Vault, Sol Ring, LED all native-mana; Mana Crypt is body-only 
 | KN-1 | Thassa's Oracle | S-A devotion count + the look/order/win ETB | ✅ +1 (Kinnan +1, Believe it! +1) | 1 |
 | KN-2 | Clever Impersonator · Copy Enchantment | S-C clone widening to nonland permanents / enchantments | ✅ +2 (a copied anthem applies — witnessed) | 3 |
 | KN-3 | Flash Photography · Imposter Mech | S-C token-copy-of-permanent + the Vehicle "except" rider | ✅ +3 | 5 |
-| KN-4 | Treasure Vault · Moonsilver Key · Cephalid Coliseum | the three S fills (X-sac land ability; artifact-with-mana-ability tutor filter; threshold sac) | +3 | 8 |
+| KN-4 | Treasure Vault · Moonsilver Key · Cephalid Coliseum | the three S fills | ✅ +7 | 8 |
 | KN-5 | Nezahal (line 4) · Wan Shi Tong | discard-three blink with a delayed return; X-ETB derived draw + the search event | +2 | **10** |
 | KN-6 (reserve) | Hullbreaker Horror · Gilded Drake · Endurance (S-B) · Sink into Stupor | if any KN slice lands short | +1 each | |
 

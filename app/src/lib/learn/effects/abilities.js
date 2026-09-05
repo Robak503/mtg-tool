@@ -612,6 +612,9 @@ export function parseAbilityCost(costStr, card = null) {
     // into its own item, so it falls through to the multi-pip run below where `pipIsMana("X")` is false → null
     // (deferred, a safe false-negative). Recording costX lets parseActivatedAbilities require an X-scaled effect.
     if (/^\{x\}$/i.test(item)) { costX = true; manaPips += "{X}"; continue; }
+    // TREASURE VAULT (POD-SIM THREE · KN-4, 2026-09-05): "{X}{X}, {T}, Sacrifice this land" — a run of X pips; the mana
+    // cost carries every pip (xCount = 2) so the activation lane owes 2X for the chosen X (CR 107.3).
+    if (/^(?:\{x\})+$/i.test(item)) { costX = true; manaPips += "{X}".repeat((item.match(/\{x\}/gi) || []).length); continue; }
     const pips = [...item.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
     if (pips.length === 0) return null;                          // a wordy item we don't model → unmodeled
     if (item.replace(/\{[^}]+\}/g, "").trim() !== "") return null; // leftover text around the pips → unmodeled
