@@ -77,8 +77,8 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Nekusar Wheels | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shalai and Hallar Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Otharri Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Bumble Flower Combo | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
+| Test | Otharri Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
+| Test | Bumble Flower Combo | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Test | Atraxa Superfriends | 72 | 13 | 18 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 68 | 17 | 22 | ⬜ Phase 2 |
 
@@ -388,7 +388,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | F5 | Study the Classics ✅ · Treebeard (sized UP 2026-09-05: a subtype-union target pool + "halfling" in the allowlist + a lifegain that-many-on-TARGET sentinel — three seams, ~1 card; the bare subtype-target vein is 24 uses corpus-wide) · Wave Goodbye ✅ · Secret Rendezvous ✅ · Riot Control ✅ · Kwain ✅ | counters/lifegain/mass bounce/draw shapes | S each | Wave Goodbye = mass bounce with a no-counter filter | ⬜ |
 | F6 | Heaped Harvest ✅ (+2 — the compound head's second half "when you sacrifice it" + the self-sac cost guard exemption; Carrot Cake rode along) · Elanor Gardner ✅ · Lembas ✅ · Sam, Loyal Attendant ✅ · Samwise Gamgee ✅ · Samwise the Stouthearted (sized UP — the ETB is native since Continue?; "Then the Ring tempts you" is an unmodelled mechanic) · Hot Soup ✅ · Field-Tested Frying Pan · Night of the Sweets' Revenge ✅ · Feasting Hobbit ✅ · Campsite Cuisine (sized UP — the head is an unmodelled union scope AND the attack line is an optional X-sacrifice reflexive) · Shoreline Looter ✅ · Archway of Innovation · Continue? ✅ | | S–M | the Food family: "when you sacrifice it" (S), "if you sacrificed a Food this turn" (S), devour Food (M), improvise grant (M) | ⬜ |
 | F7 | Eriette's Tempting Apple | gain control | ⛔ THEFT | | ⛔ |
-| F8 | COMPOSITE | Innkeeper's Talent · Killer Service (sized L — the "number of opponents you have" token count is an unmodelled source AND the end step is an optional pay+sacrifice reflexive) · Long River's Pull · Mechanized Production · Peerless Recycling · Wear Down · Wedding Ring · Tamiyo, Field Researcher | size on approach | | ⬜ |
+| F8 | COMPOSITE | Innkeeper's Talent · Killer Service (sized L — the "number of opponents you have" token count is an unmodelled source AND the end step is an optional pay+sacrifice reflexive) · Long River's Pull ✅ (gift) · Mechanized Production · Peerless Recycling ✅ (gift) · Wear Down ✅ (gift) · Wedding Ring · Tamiyo, Field Researcher | size on approach | | ⬜ |
 
 ### 5.9 Atraxa Superfriends — 64% · needs 21 · planeswalker deck
 
@@ -478,6 +478,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · A8-adjacent GIFT on spells (Atraxa: Long River's Pull · Peerless Recycling · Wear Down) ✅ +13 corpus (the kicker precedent — "Gift a <X>" is an optional additional cost the engine never pays, so the un-promised text IS the printed base mode; the keyword line joins the cost-only strip and the "If the gift was promised, …" sentence is stripped at the spell-program site; the permanent carriers' promised triggers stay parked) · mutants 3/3 killed · suite 1535 files / 16,290 · Atraxa 72 → **75** (10 to the bar). ATRAXA CEILING REACHED for Phase 2 without the planeswalker sweep — every remaining row sizes M+ (Kiora's all-damage to-and-by shield, Arena Rector's dies-may-exile reflexive with no if-you-do machinery, Urza's Ruinous Blast's nonland-nonlegendary mass exile + the legendary-sorcery cast gate, Astral Cornucopia's count-derived colour-choice tap, Mutational Advantage's counters-scoped grant) or L (the two-plus-ability walkers, Innkeeper's Talent, Interplanar Beacon, Wedding Ring, the Oaths, Carth, Avatar's Wrath, Mechanized Production); per §2.4 those are noted in §5.9 and the §5 order moves to Halfshell (69)
 
 - 2026-09-05 — Phase 2 · A5-adjacent Dueling Grounds (Atraxa) ✅ +3 corpus (the GLOBAL combat cap — "No more than one creature can attack / block each combat": one static read off every battlefield, the attacker and blocker enumerations stop at the cap; the defender-scoped "attack you" printings stay refused) · mutants 4/4 killed · suite 1534 files / 16,287 · Atraxa 71 → **72** (13 to the bar); Silent Arbiter and Caverns of Despair the unplanned gains, audited whole-card
 

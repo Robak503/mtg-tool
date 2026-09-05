@@ -16,6 +16,32 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · GIFT ON SPELLS — the un-promised base mode · **+13** · corpus 14,566 / 34,245
+> Suite **1535 files / 16,290** green; lint 0. Flip-diff **+13, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
+> · "Gift a card (You may promise an opponent a gift as you cast this spell. If you do, they draw a card before its
+>   other effects.) / Counter target creature spell. If the gift was promised, instead counter target spell." (Long
+>   River's Pull; Peerless Recycling and Wear Down the same shape.) GIFT (CR 702.174) is an OPTIONAL ADDITIONAL COST —
+>   the kicker / offspring / squad family's exact reasoning: the engine never pays optional additional costs, so the
+>   printed un-promised text IS the complete, real mode the spell resolves in. The "Gift a <X>" keyword line joins the
+>   cost-only keyword strip, and the "If the gift was promised, …" sentence — a branch that can never be reached — is
+>   stripped at the spell-program site before any whole-oracle matcher sees the text (so the "instead" hint never
+>   routes it). Sentence-bounded: the sentence AFTER a promised rider survives. Twenty-four printed carriers; the
+>   PERMANENT carriers ("Gift a tapped Fish / When this creature enters, if the gift was promised, …") are untouched —
+>   their trigger's intervening-if is unreadable and parks, exactly as before.
+> · **Pins:** the three Atraxa spells parse to their base programs (counter creature spell / return one permanent card /
+>   destroy one artifact-or-enchantment) and classify native-spell; a following sentence survives the strip; a permanent
+>   gift carrier stays parked; RUNTIME — Wear Down's cast offers one target per artifact/enchantment and resolves the
+>   base destroy. Mutants: the keyword line not stripped, the promised strip gone, the strip eating the next sentence
+>   — mutants 3/3 killed.
+> · **Ten unplanned gains audited whole-card** (each: a modelled base line + an unreachable promised rider): Mind Spiral
+>   (target player draws three), Wildfire Howl (2 to each creature), Pool Resources (draw two; its keyword line prints
+>   without reminder text and strips the same), Perch Protection (four 2/2 fliers + the self-exile sentence), Blooming
+>   Blast (2 to target creature), Valley Rally (+2/+0 team), Starfall Invocation (destroy all creatures), Into the Flood
+>   Maw (bounce an opponent's creature), Crumb and Get It (+2/+2 to your creature), Sazacap's Brew (the discard
+>   additional cost + target player draws two).
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Atraxa 72 → **75** (10 to the bar). ATRAXA CEILING REACHED for Phase 2 without the planeswalker sweep — every remaining row sizes M+ (Kiora's all-damage to-and-by shield, Arena Rector's dies-may-exile reflexive with no if-you-do machinery, Urza's Ruinous Blast's nonland-nonlegendary mass exile + the legendary-sorcery cast gate, Astral Cornucopia's count-derived colour-choice tap, Mutational Advantage's counters-scoped grant) or L (the two-plus-ability walkers, Innkeeper's Talent, Interplanar Beacon, Wedding Ring, the Oaths, Carth, Avatar's Wrath, Mechanized Production); per §2.4 those are noted in §5.9 and the §5 order moves to Halfshell (69)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · DUELING GROUNDS — the global combat cap · **+3** · corpus 14,553 / 34,245
 > Suite **1534 files / 16,287** green; lint 0. Flip-diff **+3, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · "No more than one creature can attack each combat. / No more than one creature can block each combat." Nothing in

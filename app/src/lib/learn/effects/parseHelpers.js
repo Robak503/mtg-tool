@@ -71,7 +71,7 @@ export const NUM_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 
 //   mode; not offering the discard-for-counters is an under-offer, the safe direction. Read off the printed corpus:
 //   Break Ties / Fowl Strike / Hunting Triad / Earthbrawn each parked on this line ALONE. The em-dash is load-bearing
 //   (the printed form), so reinforce-REFERENCING prose never matches.
-const COST_ONLY_KEYWORD_LINE = /^(?:convoke|improvise|delve|fuse|assist|affinity for [a-z]+|casualty \d+|ripple \d+|replicate (?:\{[^}]+\})+|sneak (?:\{[^}]+\})+|flashback (?:\{[^}]+\})+|transmute (?:\{[^}]+\})+|reinforce \d+[—–-](?:\{[^}]+\})+)(?:\s*\([^)]*\))?\s*$/i;
+const COST_ONLY_KEYWORD_LINE = /^(?:convoke|improvise|delve|fuse|assist|affinity for [a-z]+|casualty \d+|ripple \d+|replicate (?:\{[^}]+\})+|sneak (?:\{[^}]+\})+|flashback (?:\{[^}]+\})+|transmute (?:\{[^}]+\})+|reinforce \d+[—–-](?:\{[^}]+\})+|gift an? [a-z][a-z ]*)(?:\s*\([^)]*\))?\s*$/i; // + GIFT (CR 702.174 — SHELF-85 · Atraxa, 2026-09-05): "Gift a card / a Food / a tapped Fish / an extra turn" — an OPTIONAL additional cost the engine never pays (the kicker / offspring / squad rationale); the "If the gift was promised, …" branch is stripped at the spell-program site (castModifiers.stripGiftPromise)
 
 /**
  * Strip standalone CONVOKE / AFFINITY cost-keyword lines from an oracle string (line-anchored). Returns the

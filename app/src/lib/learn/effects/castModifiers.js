@@ -369,6 +369,20 @@ export function stripSelfCostReduction(oracle) {
   return String(oracle || "").replace(SELF_COST_REDUCTION_SENTENCE_RE, " ").trim();
 }
 
+// GIFT (CR 702.174 — SHELF-85 · Atraxa: Long River's Pull / Peerless Recycling / Wear Down, 2026-09-05): "Gift a card (You
+// may promise an opponent a gift as you cast this spell. If you do, …) / <base effect>. If the gift was promised, instead
+// <upgraded effect>." Gift is an OPTIONAL ADDITIONAL COST — the kicker / offspring / squad family's exact reasoning: the
+// engine never pays optional additional costs, so the printed UN-promised text is the complete, real mode the spell
+// resolves in, and the "If the gift was promised, …" sentence is a branch that can never be reached. Strip it BEFORE any
+// whole-oracle matcher sees the text (the "instead" hint would otherwise try to route it). SENTENCE-BOUNDED on purpose:
+// the instruction after a promised rider survives. The keyword line itself is stripped by the cost-only keyword strip
+// (parseHelpers). Permanent carriers ("When this creature enters, if the gift was promised, …") never reach this spell
+// path — their trigger's intervening-if is unreadable and parks, as before.
+const GIFT_PROMISED_SENTENCE_RE = /(?:^|(?<=\s))if the gift was promised, [^.\n]*\.\s*/gi;
+export function stripGiftPromise(oracle) {
+  return String(oracle || "").replace(GIFT_PROMISED_SENTENCE_RE, " ").replace(/[ \t]{2,}/g, " ").trim();
+}
+
 // STORM (CR 702.40) — strip the whole "Storm (…reminder…)" KEYWORD line before parsing the spell's effect.
 // Storm is a TRIGGERED ability (its own copy-spell trigger, modeled in triggers/coverage), NOT part of the
 // spell's resolution effect — so the body (create-token / gain-life / …) must be parsed on its own. Without the
