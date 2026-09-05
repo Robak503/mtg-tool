@@ -37,7 +37,7 @@ import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSick
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
 import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksOf, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
-import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund
+import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund (+ the Phyrexian life lane, Norn's Annex)
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence, parseEffectClause, programNeedsChosenTarget } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js";
@@ -3622,15 +3622,19 @@ function actionsDeclareAttacker(state, playerId) {
   // stays untapped and genuinely can pay with itself, so it keeps its own source.
   const taxCache = new Map();
   const taxFor = (defenderId) => {
-    if (!taxCache.has(defenderId)) taxCache.set(defenderId, attackTaxToDeclare(state, defenderId));
+    if (!taxCache.has(defenderId)) taxCache.set(defenderId, attackTaxDetail(state, defenderId));
     return taxCache.get(defenderId);
   };
   const canPayAttackTax = (p, defenderId) => {
-    const generic = taxFor(defenderId);
-    if (generic <= 0) return true; // the overwhelmingly common case — one board scan, then out
+    const detail = taxFor(defenderId);
+    if (detail.generic <= 0 && detail.phyrexian.length === 0) return true; // the overwhelmingly common case — one board scan, then out
     const keepsSelf = permanentHasKeyword(state, p.id, "Vigilance");
     const sources = manaSources(state, playerId).filter((s) => keepsSelf || s.permanentId !== p.id);
-    return canAfford(state.players[playerId]?.manaPool, sources, { generic });
+    const pool = state.players[playerId]?.manaPool;
+    if (canAfford(pool, sources, attackTaxManaCost(detail))) return true;
+    // PHYREXIAN LIFE LANE (Norn's Annex, CR 107.4f + 119.4): the generic in mana, every pip in 2 life — payable only from
+    // a life total at least that large. The dispatcher pays exactly this way when the all-mana plan fails.
+    return detail.phyrexian.length > 0 && canAfford(pool, sources, { generic: detail.generic }) && (state.players[playerId]?.life ?? 0) >= detail.phyrexian.length * PHYREXIAN_LIFE_PER_PIP;
   };
 
   const allowedTargetsFor = (p) => {

@@ -79,10 +79,10 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Shalai and Hallar Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Otharri Test | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Test | Bumble Flower Combo | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Atraxa Superfriends | 70 | 15 | 20 | ⬜ Phase 2 |
+| Test | Atraxa Superfriends | 71 | 14 | 19 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**3 decks below 85 · 49 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**3 decks below 85 · 48 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -395,7 +395,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | A1 | Maze of Ith ×2 | | V13 | |✅ |
-| A2 | Interplanar Beacon (sized UP — "planeswalker" sits in the cast filter's denylist AND the {1},{T} two-different-colours line is a paid production the mana model has no field for) · Oath of Gideon ✅ (+1 — the extra loyalty on entry) · Sphere of Safety ✅ (+1 — the counted tax) · Norn's Annex (sized M — a Phyrexian {W/P} tax is a per-creature pay-mana-or-2-life choice the payment path has no lane for) | cast-planeswalker lifegain / extra loyalty / attack tax | L / S / S / M | Sphere of Safety's tax is the ④-AK attack-tax family with a count-of-enchantments amount; Norn's Annex taxes {W/P} (life-or-mana) | ⬜ |
+| A2 | Interplanar Beacon (sized UP — "planeswalker" sits in the cast filter's denylist AND the {1},{T} two-different-colours line is a paid production the mana model has no field for) · Oath of Gideon ✅ (+1 — the extra loyalty on entry) · Sphere of Safety ✅ (+1 — the counted tax) · Norn's Annex ✅ (+1 — the Phyrexian tax) | cast-planeswalker lifegain / extra loyalty / attack tax | L / S / S / M | Sphere of Safety's tax is the ④-AK attack-tax family with a count-of-enchantments amount; Norn's Annex taxes {W/P} (life-or-mana) | ⬜ |
 | A3 | Arena Rector (sized M — a dies-then-may-exile reflexive tutoring a walker onto the battlefield) · Deploy the Gatewatch ✅ (+1 — the counted dig) · Ashiok (sized L — a static that forbids opponents' searches) · Mutational Advantage (sized M — a counters-scoped team grant + a damage shield on those permanents + proliferate; no counters-scoped grant exists) | | M / S / L / M | | 🔶 |
 | A4 | Garruk, Unleashed ✅ (+1 — the self-named loyalty counter) · Kiora, the Crashing Wave (sized M — a to-AND-by damage shield on a permanent until your next turn) · Teferi, Hero of Dominaria ✅ (+1 — the positional tuck) | single loyalty lines | S / M / M | the loyalty-ability parser reads per line; each is one arm | 🔶 |
 | A5 | COMPOSITE (the planeswalkers) | Ajani Steadfast · Dovin Baan · Elspeth Resplendent · Kaya · Narset Transcendent · Narset, Parter of Veils · Oko · Sorin Markov · Sorin, Grim Nemesis · Tamiyo · Teferi, Master of Time · Teferi, Time Raveler · The Eternal Wanderer · Ugin · Vraska the Unseen · Carth · Astral Cornucopia · Avatar's Wrath · Dueling Grounds · Innkeeper's Talent · Oath of Nissa · Oath of Teferi · Primevals' Glorious Rebirth · Urza's Ruinous Blast | **L — "the loyalty vocabulary sweep"** | one slice: probe every loyalty line in the deck, build the missing arms as a family (emblems, static PW abilities, +1 team buffs, ultimates that need a subsystem get 🅿) | ⬜ |
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · A2 Norn's Annex (Atraxa) ✅ +1 corpus (the PHYREXIAN attack tax — "{W/P} for each of those creatures": a per-attacker pip the payment plan pays with {W} when it can and with 2 life otherwise; legality mirrors the same two lanes; the life leaves through the one life-loss chokepoint) · mutants 5/5 killed · suite 1533 files / 16,282 · Atraxa 70 → **71** (14 to the bar)
 
 - 2026-09-05 — Phase 2 · A3 Deploy the Gatewatch (Atraxa) ✅ +1 corpus (the COUNTED dig onto the battlefield — "Put up to two <type> cards from among them onto the battlefield" — the dig-to-battlefield frame with the keep count the settler already re-raises on) · mutants 5/5 killed · suite 1532 files / 16,276 · Atraxa 69 → **70** (15 to the bar); Arena Rector, Ashiok, Mutational Advantage sized in the A3 row
 

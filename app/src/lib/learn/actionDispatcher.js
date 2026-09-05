@@ -59,7 +59,7 @@ import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.
 import { manaSources, planPayment, sourcesExcludingOneShotVictim, commitPaymentPlan, commitManaTap, payManaCost } from "./manaModel.js";
 import { conditionalEntersTapped, paysLifeOrEntersTapped, revealLandEntersTapped } from "./landEntersTapped.js"; // LANDS-TIER — "enters tapped unless <condition>" + the shockland pay-life clause (a leaf over interveningIf; cycle-free)
 import { auditState } from "./audit.js"; // QUARTET PHASE 3 — the MTG_AUDIT dispatch hook (audit.js imports only the delayed-trigger leaf, cycle-free)
-import { attackTaxToDeclare } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half
+import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — the payment half; legalChoices holds the restriction half (+ the Phyrexian life lane, Norn's Annex)
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY are cost-only — strip before the cast-effect parse so the runtime resolves the body natively (matches the classifier; fixes a classifier↔runtime pendingArbiter mismatch)
 import { RESOLVER_KEYS, isPermanentSpell, autoPickManaColor, choosesCreatureTypeOnEnter } from "./resolvers.js"; // LANDS-12: the ONE color auto-pick both enter sites stamp with; + CAP-CAVERN: the chosen-type chooser for a land drop
@@ -1792,16 +1792,34 @@ function applyDeclareAttacker(state, action) {
   // board moved between enumeration and dispatch. That THROWS rather than declaring a free attack — an
   // unfunded attacker is exactly the false positive this whole slice exists to prevent, and swallowing it
   // would put it back.
-  const attackTax = attackTaxToDeclare(next, defender);
-  if (attackTax > 0) {
-    const { state: taxed, paid } = payManaCost(next, action.playerId, { generic: attackTax });
+  const detail = attackTaxDetail(next, defender);
+  if (detail.generic > 0 || detail.phyrexian.length > 0) {
+    // ALL-MANA first (the generic plus one coloured pip per Phyrexian entry); when that plan fails, the PHYREXIAN LIFE
+    // LANE (Norn's Annex, CR 107.4f + 119.4): the generic in mana and every pip in 2 life through the one life-loss
+    // chokepoint — the same primitive the pay-life mana lines use. All-mana or all-life per declaration (a house policy;
+    // both are exactly what the printed card allows). legalChoices withholds on the same two lanes.
+    let paid = false;
+    let lifePaid = 0;
+    const mana = payManaCost(next, action.playerId, attackTaxManaCost(detail));
+    if (mana.paid) {
+      next = mana.state;
+      paid = true;
+    } else if (detail.phyrexian.length > 0) {
+      const gen = payManaCost(next, action.playerId, { generic: detail.generic });
+      const lifeNeeded = detail.phyrexian.length * PHYREXIAN_LIFE_PER_PIP;
+      if (gen.paid && (next.players[action.playerId]?.life ?? 0) >= lifeNeeded) {
+        next = loseLife(gen.state, { playerId: action.playerId, amount: lifeNeeded });
+        lifePaid = lifeNeeded;
+        paid = true;
+      }
+    }
     if (!paid) {
       throw new DispatcherError(
-        `Can't declare ${creature.card?.name || action.permanentId} as an attacker: the {${attackTax}} attack tax is unpayable`,
+        `Can't declare ${creature.card?.name || action.permanentId} as an attacker: the {${detail.generic}}${detail.phyrexian.map((c) => `{${c}/P}`).join("")} attack tax is unpayable`,
         "ATTACK_TAX_UNPAID",
       );
     }
-    next = logEvent(taxed, { turn: state.turn, kind: "attack-tax-paid", attackerId: action.permanentId, playerId: action.playerId, generic: attackTax });
+    next = logEvent(next, { turn: state.turn, kind: "attack-tax-paid", attackerId: action.permanentId, playerId: action.playerId, generic: detail.generic, ...(detail.phyrexian.length ? { phyrexian: detail.phyrexian, lifePaid } : {}) });
   }
   const attackerEntry = {
     permanentId: action.permanentId,

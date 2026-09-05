@@ -51,6 +51,12 @@ export function parseAttackTax(card) {
     const generic = parseInt(m[1], 10);
     return generic > 0 ? { generic } : null;
   }
+  // PHYREXIAN TAX (SHELF-85 · Atraxa A2 — Norn's Annex, 2026-09-05): "… pays {W/P} for each of those creatures." — a
+  // per-attacker pip paid with {W} OR 2 life (CR 107.4f). The one corpus carrier. attackTaxDetail lists the pips; both
+  // consumers pay them with mana when the payment plan can and with life otherwise (CR 119.4 — only from a life total
+  // at least that large). Never folded into the generic sum: a {W/P} is not a {1}.
+  const mp = oracle.match(/(?:^|[\n.])\s*creatures can't attack you(?: or planeswalkers you control)? unless their controller pays \{([wubrg])\/p\} for each of those creatures\s*(?:\.|$)/i);
+  if (mp) return { phyrexian: mp[1].toUpperCase() };
   // COUNTED TAX (SHELF-85 · Atraxa A2 — Sphere of Safety, 2026-09-05): "… pays {X} for each of those creatures, where X is
   // the number of enchantments you control." The one corpus carrier of a tax whose X is a plain controller-scoped
   // permanent count. The phrase is read through the SAME count-source parser every "for each <X> you control" effect
@@ -78,7 +84,7 @@ function countedTaxAmount(state, defenderId, spec) {
 
 /** True iff this exact clause (lowercased, whole) is the modeled attack tax — the coverage-side gate. */
 export function isAttackTaxClause(clause) {
-  return /^creatures can't attack you(?: or planeswalkers you control)? unless their controller pays (?:\{\d+\} for each (?:of those creatures|creature they control that's attacking you)|\{x\} for each of those creatures, where x is the number of enchantments you control)$/i.test(String(clause || "").trim());
+  return /^creatures can't attack you(?: or planeswalkers you control)? unless their controller pays (?:\{\d+\} for each (?:of those creatures|creature they control that's attacking you)|\{x\} for each of those creatures, where x is the number of enchantments you control|\{[wubrg]\/p\} for each of those creatures)$/i.test(String(clause || "").trim());
 }
 
 /**
@@ -92,7 +98,33 @@ export function attackTaxToDeclare(state, defenderId) {
   for (const perm of state?.players?.[defenderId]?.battlefield || []) {
     const tax = parseAttackTax(perm?.card);
     if (!tax) continue;
-    total += tax.generic != null ? tax.generic : countedTaxAmount(state, defenderId, tax.countSource);
+    if (tax.generic != null) total += tax.generic;
+    else if (tax.countSource) total += countedTaxAmount(state, defenderId, tax.countSource);
+    // a Phyrexian pip is NOT generic — attackTaxDetail carries it (never a free attack: both consumers read the detail)
   }
   return total;
+}
+
+/** Life per Phyrexian pip when it is paid with life (CR 107.4f). */
+export const PHYREXIAN_LIFE_PER_PIP = 2;
+
+/**
+ * THE FULL TAX for one more attacker against `defenderId` — the generic total (attackTaxToDeclare) plus every Phyrexian pip
+ * the defender's taxers demand (Norn's Annex: one "W" per Annex). The two consumers (legalChoices' withhold and the
+ * dispatcher's payment) read THIS, so a pip-only board never reads as untaxed.
+ */
+export function attackTaxDetail(state, defenderId) {
+  const phyrexian = [];
+  for (const perm of state?.players?.[defenderId]?.battlefield || []) {
+    const tax = parseAttackTax(perm?.card);
+    if (tax?.phyrexian) phyrexian.push(tax.phyrexian);
+  }
+  return { generic: attackTaxToDeclare(state, defenderId), phyrexian };
+}
+
+/** The mana cost of a detail when every pip is paid with MANA — the generic plus one coloured pip per entry. */
+export function attackTaxManaCost(detail) {
+  const cost = { generic: detail?.generic || 0 };
+  for (const c of detail.phyrexian || []) cost[c] = (cost[c] || 0) + 1;
+  return cost;
 }

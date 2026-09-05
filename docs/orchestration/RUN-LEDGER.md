@@ -16,6 +16,26 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · A2: NORN'S ANNEX — the Phyrexian attack tax · **+1** · corpus 14,550 / 34,245
+> Suite **1533 files / 16,282** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
+> · "Creatures can't attack you or planeswalkers you control unless their controller pays {W/P} for each of those
+>   creatures." The tax module knew a generic digit and (since Sphere) a counted generic; a Phyrexian pip is a
+>   per-attacker CHOICE — {W} or 2 life (CR 107.4f). The parser returns `{ phyrexian: "W" }`; a DETAIL reader
+>   (attackTaxDetail — generic + the list of pips) sits beside the generic sum the existing pins read, and BOTH consumers
+>   switched to it: legalChoices withholds the declaration unless the generic plus the pips can be paid in mana OR the
+>   generic can be paid in mana and the attacker's controller has at least 2 life per pip (CR 119.4 — life can be paid
+>   only from a total at least that large); the dispatcher pays the pips with mana when the payment plan can, and
+>   otherwise pays the generic in mana and the pips in life through the one life-loss chokepoint (the same primitive the
+>   pay-life mana lines use). All-mana or all-life per declaration — a documented house policy, never a mis-charge:
+>   both are exactly what the printed card allows.
+> · **Pins:** the parser's descriptor and the clause gate; Norn's Annex native; RUNTIME — a Plains funds the attack and
+>   is tapped; no white source but 20 life: the attack is offered and costs 2 life; no source and 1 life: withheld;
+>   Annex + Propaganda: {2} in mana and the pip in life when only two colourless sources are up; the life payment is
+>   logged. Mutants: the pip arm gone, the life lane dropped (a mana-less attacker is refused), the life floor dropped
+>   (an attack at 1 life offered), the pip paid as generic — mutants 5/5 killed.
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Atraxa 70 → **71** (14 to the bar)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · A3: DEPLOY THE GATEWATCH — the counted dig onto the battlefield · **+1** · corpus 14,549 / 34,245
 > Suite **1532 files / 16,276** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
 > · "Look at the top seven cards of your library. Put up to two planeswalker cards from among them onto the battlefield.
