@@ -16,6 +16,24 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · L5: DRANNITH MAGISTRATE — the cast-from-hand-only lock · **+1** · corpus 14,609 (42.7%) / 34,245
+> Suite **1555 files / 16,349** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · "Your opponents can't cast spells from anywhere other than their hands." The existing opponents-can't-cast lock (Grand
+>   Abolisher's family) is a during-your-turn WINDOW on every cast; Drannith's is ALWAYS ON and ZONE-scoped. Same marker
+>   pattern (`castFromHandOnlyForOpponents`, its own exact-line reader beside castsPerTurnLimitOf — one parser, no drift),
+>   and ONE post-filter after the cast block: for a player who is an opponent of any seat whose BATTLEFIELD holds the lock
+>   (CR 113.6 — a commander carrying it imposes nothing from the command zone), every cast-family action whose `fromZone` is
+>   not "hand" is withheld — flashback and other graveyard casts, exile casts (adventure step 2, plot, suspend, impulse,
+>   discover), the COMMAND-zone commander cast (Drannith's famous bite), the library-top cast. Land plays are not casts and
+>   stay. The controller's own casts are untouched.
+> · **Pins:** the marker; the reader; Drannith native. RUNTIME through the real offer: a flashback instant in the opponent's
+>   graveyard is offered on a bare board and WITHHELD with the Magistrate on the other seat's battlefield, while the same
+>   player's hand cast stays offered; the Magistrate's own controller keeps the flashback. Mutants: the marker gone, the
+>   reader blind, the lock binding its own controller, the filter forgetting the zone — mutants 4/4 killed.
+> · **Whole-card:** no unplanned gains — the always-on hand-only line prints on Drannith alone (Avatar's Wrath prints a temporary form and stays parked).
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Light-Paws 72 → **73** (73/100; 12 to the bar). Next Light-Paws M row: Karametra's Blessing (a bound keyword rider under the enchanted-or-enchantment-creature condition — the Blacksmith's Skill shape).
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · L5: DEAFENING SILENCE — the noncreature cast limit · **+1** · corpus 14,608 (42.7%) / 34,245
 > Suite **1554 files / 16,346** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · "Each player can't cast more than one noncreature spell each turn." Rule of Law's marker and gate existed (castLimit;

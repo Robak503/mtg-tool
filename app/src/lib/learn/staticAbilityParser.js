@@ -2808,6 +2808,15 @@ function parseClause(clause, out, selfName, selfType) {
   //     -ability half (a CREED partial flip), so the descriptor must carry includeActivated and the gate
   //     must enforce it. The "during your turn" window is mandatory (a windowless "opponents can't cast"
   //     is a different, far rarer card — Teferi's Protection tier — and stays UNDETECTED here, safe FN).
+  // ── CAST-FROM-HAND-ONLY LOCK (SHELF-85 · Light-Paws L5 Drannith Magistrate, 2026-09-05): "Your opponents can't cast
+  // spells from anywhere other than their hands." ALWAYS ON (no turn window) and ZONE-scoped, unlike the during-your-turn
+  // lock below. A coverage MARKER (the castLimit pattern); the RUNTIME enforcement is legalChoices' post-filter over every
+  // cast-family action whose fromZone is not "hand", for the controller's opponents only, reading the SAME line via
+  // castFromHandOnlyLockOf — one parser, no drift. Avatar's Wrath prints a temporary form and stays parked.
+  if (/^your opponents can't cast spells from anywhere other than their hands$/.test(c)) {
+    out.push({ castFromHandOnlyForOpponents: true });
+    return;
+  }
   // ANCHORED ^…$ on the whole clause so any rider variant stays body-only (Arbiter).
   const cantActM = c.match(
     /^(?:during your turn,\s*)?your opponents can't cast spells(?: or activate abilities of artifacts, creatures,? (?:and|or) enchantments)?(?:\s+during your turn)?$/,
@@ -6488,6 +6497,13 @@ export function castsPerTurnLimitOf(card) {
 export function noncreatureCastsPerTurnLimitOf(card) {
   const o = String(card?.oracle || card?.oracle_text || "");
   return /(?:^|[\n.;])\s*each player can't cast more than one noncreature spell each turn\s*(?:\.|$)/i.test(o) ? 1 : null;
+}
+
+/** CAST-FROM-HAND-ONLY LOCK (Drannith Magistrate, 2026-09-05) — does this card print the exact always-on line? Returns true
+ * or null. The legalChoices post-filter and the parseStaticAbilities marker both key on this reader. */
+export function castFromHandOnlyLockOf(card) {
+  const o = String(card?.oracle || card?.oracle_text || "");
+  return /(?:^|[\n.;])\s*your opponents can't cast spells from anywhere other than their hands\s*(?:\.|$)/i.test(o) ? true : null;
 }
 
 // ── ARTIFACT-ACTIVATION LOCK (BLITZ NR-1 — Null Rod / Stony Silence / Collector Ouphe) ──────────────

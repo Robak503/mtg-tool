@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · L5: Drannith Magistrate (+1)** · suite **1555 files / 16,349** green · corpus 14,609 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
+
+> Opponents of a Drannith Magistrate can cast only from their hands — one post-filter over every non-hand cast lane, the command zone included. Light-Paws 72 → **73** (73/100; 12 to the bar). Next Light-Paws M row: Karametra's Blessing (a bound keyword rider under the enchanted-or-enchantment-creature condition — the Blacksmith's Skill shape).
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · L5: Deafening Silence (+1)** · suite **1554 files / 16,346** green · corpus 14,608 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
 
 > The one-spell-per-turn cast limit learned its NONCREATURE variant — one post-filter over every cast lane, judging the face being cast; creature spells stay offered. Light-Paws 71 → **72** (72/100; 13 to the bar). Next Light-Paws M row: Drannith Magistrate (the cast-from-hand-only lock on opponents — the same post-filter shape, keyed on fromZone).

@@ -35,7 +35,7 @@ import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: reso
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, permanentTypes, summoningSickNow, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor, crewCostWithOverrides } from "./layers.js";
 import { etbUsesX, castOwnTurnOnlyLock, abilitiesAsThoughHasteFor, castNoncreatureLockFor, combatCapFor } from "./staticAbilityParser.js"; // + ④-E (Nikya): the noncreature cast lock // + SG-18 (Shang-Chi): abilities as though haste // SG-8 (Dosan): the own-turn cast lock, one sentence read at the instant-speed gate
-import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, artifactActivationsLocked } from "./staticAbilityParser.js";
+import { collectCostReducers, playLandFromGraveyardPermission, costReductionForSpell, coloredPipReductionForSpell, collectCostTaxers, costTaxForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, flashCastPermissionsOf, spellMatchesFlashFilter, registerGroupActivatedBodyValidator, registerLevelerCardValidator, collectActivatedCostReducers, activatedCostReductionForCost, collectEquipCostOverrides, castsPerTurnLimitOf, noncreatureCastsPerTurnLimitOf, castFromHandOnlyLockOf, artifactActivationsLocked } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerMinBlockers, isBlockedByAtMostOne, attackDefenderRequirementOf, defenderMeetsAttackRequirement, attackControllerRequirementOf, controllerMeetsBoardPredicate, maxBlocksOf, cantAttackAlone, cantBlockAlone, selfCantAttackNow, selfCantBlockNow } from "./combatEvasion.js";
 import { attackTaxDetail, attackTaxManaCost, PHYREXIAN_LIFE_PER_PIP } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — withhold the attack the tax can't fund (+ the Phyrexian life lane, Norn's Annex)
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
@@ -3979,6 +3979,17 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     };
     for (let i = actions.length - 1; i >= 0; i--) {
       if (actions[i].kind === "cast-spell" && !isCreatureSpell(actions[i])) actions.splice(i, 1);
+    }
+  }
+  // CAST-FROM-HAND-ONLY LOCK (SHELF-85 · Light-Paws L5 Drannith Magistrate, 2026-09-05 — "Your opponents can't cast spells
+  // from anywhere other than their hands", CR 604.2): while any seat that counts this player as an OPPONENT holds the lock on
+  // its BATTLEFIELD (CR 113.6 — a commander carrying it imposes nothing from the command zone), every cast-family action whose
+  // fromZone is not "hand" is withheld: flashback and other graveyard casts, exile casts (adventure step 2, plot, suspend,
+  // impulse, discover), the COMMAND-zone commander cast, the library-top cast. Land plays are not casts and stay; the lock's
+  // own controller is untouched. Always on — no turn window (unlike the Grand Abolisher family above).
+  if (Object.keys(state.players).some((pid) => pid !== playerId && opponentsOf(state, pid).includes(playerId) && (state.players[pid].battlefield || []).some((perm) => castFromHandOnlyLockOf(perm.card) != null))) {
+    for (let i = actions.length - 1; i >= 0; i--) {
+      if (actions[i].kind === "cast-spell" && actions[i].fromZone !== "hand") actions.splice(i, 1);
     }
   }
   actions.push(...actionsCompanion(state, playerId));     // CMD-COMPANION: {3} → put the companion into hand (not a cast)
