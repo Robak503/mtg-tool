@@ -106,6 +106,12 @@ restricted-spend class (Dragons and Kinnan both qualify) — it is the most inde
 
 ## Status ledger (update per slice, newest first)
 
+- 2026-09-06 — **PHASE 4 step 3 — the ABILITY tail** ("… or to activate an ability of a <Subtype> source"; +0 corpus). abilityOf
+  now carries subtypes beside "creature"; spendRestrictionAllows matches the activating source's type line (every activation
+  site passes activatingTypeLine); the extra-mana-line regex admits the tail and comma lists — which also closed a dead-mana
+  gap: four lands credited `land` the same day had produced only their {C} line. mutants 5/5 killed (one survivor got its missing test — the end-to-end offer pin through legalActionsForPlayer). Remaining step-3 classes: colour
+  words ("colorless spells"), the Powerstone's negative form, the chosen-type-plus-tail (Secluded Courtyard).
+
 - 2026-09-06 — **PHASE 4 step 3 — a carrier class: CR creature types in the spend vocabulary** (Turtle Lair, Sliver Hive; +9
   corpus). The SHELF-85 runbook had sized Turtle Lair SUBSYSTEM-L; the probe found the core present and only the curated word
   list refusing "a Ninja or Turtle spell". parseSpendRestriction admits any CR creature type; the planner's type-line match was

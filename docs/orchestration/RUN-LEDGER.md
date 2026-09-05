@@ -16,6 +16,28 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-06 (cron) — QUARTET Phase 4 step 3 · THE ABILITY TAIL of a spend restriction (Avengers Tower's shape) · **+0** · corpus 14,742 (43.1%) / 34,245
+> Suite **1581 files / 16418 tests** green; lint 0. Flip-diff **+0, zero LOST** (every unplanned gain audited whole-card). **mutants 5/5 killed (one survivor got its missing test — the end-to-end offer pin through legalActionsForPlayer).**
+> · The carrier class named by the previous slice: "Spend this mana only to cast a Hero spell OR TO ACTIVATE AN ABILITY OF A
+>   HERO SOURCE" (Avengers Tower, Jasmine Dragon Tea Shop, Base Camp, Villainous Hideout, Brotherhood Headquarters). Three
+>   pieces, one seam: ① parseSpendRestriction records the tail's type words in abilityOf beside the cast types (both spellings —
+>   "to activate" / "activate"; comma lists; the closed vocabulary); ② spendRestrictionAllows's activation branch matches a
+>   SUBTYPE against the activating source's type line — every activation site (seven in legalChoices, one in the dispatcher)
+>   now passes activatingTypeLine beside the creature flag it already passed; a record with both halves pays either purpose;
+>   ③ the extra-mana-line regex admits the tail and comma lists.
+> · ⚠️ THE THIRD PIECE CLOSED A DEAD-MANA GAP THE PREVIOUS SLICE OPENED: Base Camp, Jasmine, Villainous Hideout and Brotherhood
+>   Headquarters flipped to `land` on 2026-09-06 through the classifier's land lane while manaSources emitted ONLY their {C}
+>   line — the any-colour restricted line produced nothing (an under-read, the safe direction, but a land credited native with
+>   a dead line). The extra-line regex was the refuser; it now admits the shape, and the record exists (pinned on the Tea Shop).
+> · **Pins:** the Tower's and the Tea Shop's parse (castTypes + abilityOf); the Tea Shop → land; the Tower stays land-partial (its
+>   Hero-tutor activation is its own blocker). RUNTIME through manaSources + canAfford: the restricted record pays an Ally's
+>   spell and an Ally source's ability, refuses a Bear's spell, a Bear source's ability, and a context-less spend. Mutants: the
+>   tail parse gone, the activation branch ignoring the source's type (the laundering FP), the regex refusing the tail (dead
+>   mana), the sites not passing the type line — mutants 5/5 killed (one survivor got its missing test — the end-to-end offer pin through legalActionsForPlayer).
+> · **Whole-card:** flip-diff +0 / 0 lost by design — the classifier had credited these lands the previous slice; this slice made their restricted lines REAL at runtime (records exist, tribal abilities payable, everything else refused)
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · no deck moves (a runtime correction: the four tribal lands' restricted lines now produce, and tribal abilities are payable); Cap 87 waits on Avengers Tower's tutor line
+
 > ## 🎯 2026-09-06 (cron) — QUARTET Phase 4 step 3 · TURTLE LAIR — the restricted-spend vocabulary admits CR creature types · **+9** · corpus 14,742 (43.1%) / 34,245
 > Suite **1580 files / 16415 tests** green; lint 0. Flip-diff **+9, zero LOST** (every unplanned gain audited whole-card). **mutants 2/2 killed.**
 > · With the overnight plan's stages met and the residue census dry, the seat took the QUARTET's first open item that the plan

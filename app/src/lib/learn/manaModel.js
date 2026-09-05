@@ -919,7 +919,7 @@ const MAX_SPEED_PREFIX = /^\s*max speed\s*[—–-]\s*/i;
  * counter-removal rider fails the anchor on purpose: its single-line product would silently drop the rider
  * (a painless painland tap), the forbidden direction. Never the main line itself. Memoized per card object.
  */
-const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Pay \d life: Add one mana of any color\.|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+(?: or [a-z]+)? spells?\.|\{T\}: Add one mana of any color among legendary permanents you control\.)$/i; // + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory); + SHELF-85 S17: the fixed-type restricted any-colour line (Mech Hangar "Spend this mana only to cast a Pilot or Vehicle spell.") — the per-line product carries its restriction (restrictedManaProduction), never a free colour
+const EXTRA_MANA_LINE_RE = /^(?:\{T\}(?:, Sacrifice this land)?: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.(?: Activate only if [^.]+\.)?|\{T\}, Pay \d life: Add one mana of any color\.|\{T\}, Remove any number of (?:storage|charge|oil|mining|ki) counters from this (?:land|artifact|creature): Add \{[WUBRGC]\}(?:, then add an additional \{[WUBRGC]\})? for each (?:storage|charge|oil|mining|ki) counters? removed this way\.|\{T\}: Add \{[WUBRGC]\} or \{[WUBRGC]\}\. This land doesn't untap during your next untap step\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+ spell of the chosen type(?:, and that spell can't be countered)?\.|\{T\}: Add one mana of any color\. Spend this mana only to cast an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)? spells?(?: or (?:to )?activate an ability of an? [a-z]+(?:, [a-z]+)*(?:,? or [a-z]+)?(?: source)?)?\.|\{T\}: Add one mana of any color among legendary permanents you control\.)$/i; // + STAGE ④-4: the tap-only counter-removal forms; + STAGE ④-5: the doesn't-untap duals; + CAP-CAVERN: the chosen-type any-colour line (Cavern of Souls, Unclaimed Territory); + SHELF-85 S17: the fixed-type restricted any-colour line (Mech Hangar "Spend this mana only to cast a Pilot or Vehicle spell.") — the per-line product carries its restriction (restrictedManaProduction), never a free colour
 // A PLAIN tap line: complete, ungated, no sacrifice — the line a multi-line card can always tap for.
 const PLAIN_MANA_LINE_RE = /^\{T\}: Add (?:(?:\{[WUBRGC]\})+|\{[WUBRGC]\} or \{[WUBRGC]\}|one mana of any color)\.$/i;
 
@@ -1193,6 +1193,19 @@ export function parseSpendRestriction(oracle) {
     // type line), so it gets its own token like @commander. spendRestrictionAllows honors it for any
     // castCard; the no-context default-deny still refuses ability payments (they thread no castCard).
     if (/^to cast spells$/.test(clause.trim())) { types.add("@any-spell"); continue; }
+    // QUARTET Phase 4 step 3 (2026-09-06 — Avengers Tower "… to cast a Hero spell or to activate an ability of a Hero source",
+    // Base Camp, Villainous Hideout, Jasmine Dragon Tea Shop, Brotherhood Headquarters): the ABILITY tail — the mana may also
+    // pay an ability of a source of the named type(s). Recorded in abilityOf beside the cast types; spendRestrictionAllows
+    // matches the ACTIVATING source's type line at payment (the sites pass activatingTypeLine). Closed vocabulary (the
+    // curated words + CR creature types); an unlisted word refuses the whole clause (a safe FN).
+    for (const am of clause.matchAll(/\b(?:to )?activate an ability of an? ([a-z, ]+?)(?: source)?(?=$|[,.]|\s+(?:or|and)\b)/g)) {
+      for (const w of am[1].split(/\s*(?:,|\bor\b|\band\b)\s*/)) {
+        const word = w.trim().replace(/^(?:a|an|the)\s+/, "").trim();
+        if (!word) continue;
+        if (!(SPEND_CAST_TYPE_WORDS.has(word) || CR_CREATURE_TYPES.has(word))) return null;
+        abilityOf.push(word);
+      }
+    }
     // Take only the "cast …" spans; anything after "or activate"/"or to activate"/"or pay" is a permission
     // this model deliberately declines to use.
     // ⛔ THE LOOKAHEAD IS THE ANTI-LOSSY GUARD, and omitting it was a live over-delivery caught by an
@@ -1244,9 +1257,15 @@ export function spendRestrictionAllows(restriction, castCard, opts = {}) {
   if (!restriction) return true;                       // unrestricted source
   // ACTIVATION-ONLY (SG-18): a cast never qualifies; an activation qualifies iff the site threaded the activating
   // permanent's creature-ness (true). Missing context → refuse (the default-deny posture).
-  if (Array.isArray(restriction.abilityOf) && restriction.abilityOf.length) {
-    if (castCard) return false;
-    return opts.activatingIsCreature === true && restriction.abilityOf.includes("creature");
+  // QUARTET Phase 4 step 3 (2026-09-06): an ACTIVATION (no castCard) is paid only by an abilityOf record — "creature" reads the
+  // layer-aware flag the sites already pass; a SUBTYPE (Hero, Ally, Villain, Assassin …) reads the activating source's type
+  // line (activatingTypeLine). A record with BOTH cast types and ability types (Avengers Tower) pays either purpose.
+  if (!castCard) {
+    for (const t of restriction.abilityOf || []) {
+      if (t === "creature") { if (opts.activatingIsCreature === true) return true; continue; }
+      if (opts.activatingTypeLine && new RegExp(`\\b${t}\\b`, "i").test(String(opts.activatingTypeLine))) return true;
+    }
+    return false;                                      // no context / no matching source ⇒ REFUSE (the default-deny posture)
   }
   if (!castCard) return false;                         // ⛔ NO CONTEXT ⇒ REFUSE (see planPayment)
   const typeLine = String(castCard.type || castCard.type_line || "").toLowerCase();
@@ -2058,7 +2077,7 @@ function planPaymentOnce(pool, sources, cost, spendContext = null) {
   const entrySpends = [];
   const rEntries = (spendContext?.restrictedEntries || [])
     .map((e, i) => ({ e, i }))
-    .filter(({ e }) => e && spendRestrictionAllows(e.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander, activatingIsCreature: spendContext?.activatingIsCreature === true }));
+    .filter(({ e }) => e && spendRestrictionAllows(e.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander, activatingIsCreature: spendContext?.activatingIsCreature === true, activatingTypeLine: spendContext?.activatingTypeLine || null }));
   if (rEntries.length) {
     let effCost = { ...cost };
     for (const { e, i } of rEntries) {
@@ -2135,7 +2154,7 @@ function planPaymentOnce(pool, sources, cost, spendContext = null) {
     // The bound is the cost's total pip count: generic + colored + hybrid.
     .filter(s => {
       if (!s.restriction) return true;
-      if (!spendRestrictionAllows(s.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander, activatingIsCreature: spendContext?.activatingIsCreature === true })) return false;
+      if (!spendRestrictionAllows(s.restriction, spendContext?.castCard, { isCommander: !!spendContext?.isCommander, activatingIsCreature: spendContext?.activatingIsCreature === true, activatingTypeLine: spendContext?.activatingTypeLine || null })) return false;
       const totalPips = (cost.generic || 0)
         + MANA_COLORS.reduce((n, col) => n + (cost[col] || 0), 0)
         + (Array.isArray(cost.hybrid) ? cost.hybrid.length : 0);

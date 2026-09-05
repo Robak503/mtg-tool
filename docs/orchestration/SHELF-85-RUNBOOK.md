@@ -489,6 +489,8 @@ note and the Omnath list, and the run takes the next row.
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
 
+- 2026-09-06 — **QUARTET Phase 4 step 3 — the ability tail** · "… or to activate an ability of a <Subtype> source" recorded in abilityOf and matched against the ACTIVATING source's type line at payment (every activation site passes it); the extra-mana-line regex admits the tail and comma lists, so Base Camp / Jasmine / Villainous / Brotherhood's any-colour lines now PRODUCE (they were credited land with a dead line) · +0 corpus · mutants 5/5 killed (one survivor got its missing test — the end-to-end offer pin through legalActionsForPlayer) · suite 1581 files / 16418 tests · no deck moves (a runtime correction: the four tribal lands' restricted lines now produce, and tribal abilities are payable); Cap 87 waits on Avengers Tower's tutor line
+
 - 2026-09-06 — **QUARTET Phase 4 step 3 (an interleave card-slice into a ceiling deck)** · Turtle Lair ✅ +9 corpus (the restricted-spend parser admits any CR creature type — "only to cast a Ninja or Turtle spell"; the core had been live since 08-15, only the vocabulary refused) · mutants 2/2 killed · suite 1580 files / 16415 tests · **Halfshell heroes 83 → 84** (its ceiling note stands — one to the bar, the rest L)
 
 - 2026-09-05 — **🏁 PHASE 3 CLOSED · PHASE 4 POSTED** · the hand-off list (291 parked slots, 27 non-ceiling decks; 29 cards in 2+ decks) → `SHELF-85-OMNATH-HANDOFF.md` + COMMS [Q-SHELF-85-OMNATH] + the vault · the §1 table at its end state in the wake report · corpus 14,696 (42.9%)

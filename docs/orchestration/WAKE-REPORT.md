@@ -7,6 +7,11 @@
 > decision that needed Colton's yes — a booting seat had nothing it could act on until it read to the
 > bottom. Do not lead with a question again.
 
+## 🎯 2026-09-06 (cron) — **QUARTET Phase 4 step 3 · the ability tail (+0)** · suite **1581 files / 16418 tests** green · corpus 14,742 (43.1%) / 34,245 · flip-diff +0 / 0 lost · mutants 5/5 killed (one survivor got its missing test — the end-to-end offer pin through legalActionsForPlayer)
+
+> **Runnable next:** Phase 4 step 3 continues per carrier class — colour words in the cast filter ("colorless spells": Eldrazi Temple, Shrine of the Forsaken Gods) · the Powerstone token's negative form ("can't be spent to cast a nonartifact spell" — Koilos Roc, Stone Retrieval Unit) · Secluded Courtyard's "of the chosen type or activate an ability of a source of the chosen type" (the chosen-type arm + the tail). Avengers Tower itself still waits on its Hero-tutor activation ("look at the top three, reveal a Hero card" — a typed impulse pick). no deck moves (a runtime correction: the four tribal lands' restricted lines now produce, and tribal abilities are payable); Cap 87 waits on Avengers Tower's tutor line
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-06 (cron) — **QUARTET Phase 4 step 3 · Turtle Lair (+9)** · suite **1580 files / 16415 tests** green · corpus 14,742 (43.1%) / 34,245 · flip-diff +9 / 0 lost · mutants 2/2 killed
 
 > **Runnable next:** the quartet's Phase 4 step 3 continues per carrier class — Avengers Tower / Jasmine Dragon Tea Shop / Base Camp ("… or to activate an ability of a <Subtype> source": abilityOf knows only "creature" — a subtype-scoped ability filter at the activation payment) · Eldrazi Temple / Shrine of the Forsaken Gods ("colorless spells" — a colour word in the cast filter) · the Powerstone token (the negative "can't be spent to cast a nonartifact spell"). Each is one carrier class; each unparks shelf rows. **Halfshell heroes 83 → 84** (its ceiling note stands — one to the bar, the rest L)

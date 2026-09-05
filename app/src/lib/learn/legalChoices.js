@@ -2358,7 +2358,7 @@ function actionsActivateAbility(state, playerId) {
         const ceiling = Math.min(poolTotal + sourceTotal, X_CHOICE_CAP);
         for (let x = 1; x <= ceiling; x++) {
           const xCost = xResolvedCost(cost, x); // generic += xCount * X (CR 107.3; xCount = 1 for a single {X})
-          if (!canAfford(player.manaPool, xSources, xCost, { activatingIsCreature: permanentIsCreature(state, perm.id) })) break; // monotonic in X → stop at the first shortfall (SG-18: activation spend context)
+          if (!canAfford(player.manaPool, xSources, xCost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || "") })) break; // monotonic in X → stop at the first shortfall (SG-18: activation spend context)
           // Per-X target enumeration: exactly X distinct legal lands (targetCountX → expandAtoms min=max=X). An X
           // with too few legal lands (fewer than X untappable targets exist) yields no combos → that X is skipped.
           const combos = expandCastChoices(state, playerId, ab.program, colorsOf(perm.card), { xValue: x });
@@ -2459,7 +2459,7 @@ function actionsActivateAbility(state, playerId) {
       // W3: a γ1b sacOther ability's affordability is PER-VICTIM (a one-shot mana victim can't also
       // be cracked for the {mana} part) — checked inside the victim loop below; non-sac abilities
       // keep this fast path.
-      if (!ab.sacOther && !canAfford(player.manaPool, sources, cost, { activatingIsCreature: permanentIsCreature(state, perm.id) })) continue; // SG-18: activation spend context
+      if (!ab.sacOther && !canAfford(player.manaPool, sources, cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || "") })) continue; // SG-18: activation spend context
 
       // Equip {cost}: target a creature YOU control (CR 702.6e). Equip is SORCERY-SPEED
       // (CR 702.6f) — unlike other activated abilities (instant-speed, conservatively
@@ -2633,21 +2633,21 @@ function actionsActivateAbility(state, playerId) {
       for (const victim of sacVictims) {
         // W3 (two-sites invariant): exclude a ONE-SHOT mana victim from the sources for THIS victim's
         // affordability — mirrors the dispatcher's payment filter exactly.
-        if (ab.sacOther && !canAfford(player.manaPool, sourcesExcludingOneShotVictim(sources, victim?.id), cost, { activatingIsCreature: permanentIsCreature(state, perm.id) })) continue;
+        if (ab.sacOther && !canAfford(player.manaPool, sourcesExcludingOneShotVictim(sources, victim?.id), cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || "") })) continue;
        for (const tapVictim of tapVictims) {
         // γ1f — a "Tap an untapped creature you control" cost: the chosen creature to tap can't ALSO tap for
         // mana (a mana-dork tapped for the cost is already tapped), so exclude it from THIS victim's mana
         // sources for the affordability check — mirrors the dispatcher's payment filter exactly. Earthcraft's
         // cost has no {mana} part, so this is trivially satisfied there, but the guard keeps a future
         // mana+tap-creature ability payable-only-when-truly-affordable (never an unpayable offer, CREED).
-        if (ab.tapCreature && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== tapVictim?.id && !tapCountSet?.has(s.permanentId)), cost, { activatingIsCreature: permanentIsCreature(state, perm.id) })) continue;
+        if (ab.tapCreature && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== tapVictim?.id && !tapCountSet?.has(s.permanentId)), cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || "") })) continue;
        for (const unattachVictim of unattachVictims) {
        for (const returnLandVictim of returnLandVictims) {
         // γ1g — a "Return a land you control to its owner's hand" cost: the land bounced for the cost can't ALSO
         // tap for mana (it's gone before the {mana} is paid), so exclude it from THIS action's mana sources for
         // the affordability check — mirrors the dispatcher's payment filter exactly. This is the real gate for
         // Oboro: bouncing the land that would have paid the {2} must not be counted as still available.
-        if (ab.returnLand && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== returnLandVictim?.id), cost, { activatingIsCreature: permanentIsCreature(state, perm.id) })) continue;
+        if (ab.returnLand && !canAfford(player.manaPool, sources.filter((s) => s.permanentId !== returnLandVictim?.id), cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || "") })) continue;
         for (const discardVictim of discardVictims) { // γ1h (DC-1) — one action per distinct hand card to pitch
         for (const ch of choices) {
           // Don't offer sacrificing the very permanent the effect targets — the victim is paid as a
@@ -2704,7 +2704,7 @@ function actionsActivateAbility(state, playerId) {
               const sourcesForX = manaSources(state, playerId).filter((s) =>
                 !((ab.tapSelf || ab.sacSelf || ab.exileSelf) && s.permanentId === perm.id) &&
                 !sacXExcluded.has(s.permanentId));
-              if (!canAfford(player.manaPool, sourcesForX, cost, { activatingIsCreature: permanentIsCreature(state, perm.id) })) continue; // this X starves the {mana} part
+              if (!canAfford(player.manaPool, sourcesForX, cost, { activatingIsCreature: permanentIsCreature(state, perm.id), activatingTypeLine: String(perm.card?.type || perm.card?.type_line || "") })) continue; // this X starves the {mana} part
               actions.push({
                 kind: "activate-ability",
                 playerId,

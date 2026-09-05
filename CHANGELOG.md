@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Jasmine Dragon Tea Shop, Base Camp, Villainous Hideout, Brotherhood Headquarters** — tribal mana also pays that tribe's abilities
 - **Turtle Lair, Sliver Hive** — mana that may only cast a creature type now pays for exactly that
 - **Bringer of the Blue / Green / White / Black Dawn** — cast for {W}{U}{B}{R}{G} instead of nine
 - **Frenetic Ogre, Ogre Shaman, Pyromania, Sonic Burst and kin** — "discard a card at random" as a cost
