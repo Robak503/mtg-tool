@@ -1542,7 +1542,9 @@ export function permanentTriggersCovered(card) {
     // parses HIGH via matchRadTargetOrTreasure — proven by allTriggerSentencesModeled). Anchored to
     // DIRECTLY follow the exact chosen-player rad clause (FN-safe).
     .replace(/(target player gets (?:a|an|one|two|three|four|five|\d+) rad counters?)\.\s*if that player is you, create a treasure token\b\.?\s*/gi, "$1. ")
-    .replace(/(?:^|[\n.;]\s*)(?:When|Whenever|At)\b[^\n]*?\bchoose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b\s*[—-][^\n]*(?:\n\s*•[^\n]*)+/gi, " ")
+    // (+ the mode-memory lead's PERIOD form — SHELF-85 · Halfshell Q5 Lita, 2026-09-05: "choose one that hasn't been chosen
+    // this turn." then the bullets; without it the bullets stayed as residue and a bullet's reminder text tripped the quote guard.)
+    .replace(/(?:^|[\n.;]\s*)(?:When|Whenever|At)\b[^\n]*?\bchoose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b(?: that hasn't been chosen this turn)?\s*(?:[—-]|\.)[^\n]*(?:\n\s*•[^\n]*)+/gi, " ")
     .replace(/[\s\S]*/, (all) => stripTriggerSentences(all, " ")) // QUOTE-AWARE (Codex fix #4): the shared scanner strips whole sentences (a quoted ability internal period no longer truncates)
     .replace(/\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b\.?/gi, " ")
     .replace(/\bDo this only once each turn\b\.?\s*/gi, " ")

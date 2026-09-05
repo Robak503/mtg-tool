@@ -1003,7 +1003,8 @@ function parseModal(cardType, oracle, hasX = false) {
   // single-pick modal whose per-turn mode exclusion is enforced at the flush chooser (the per-source
   // ledger in onceTriggersFiredThisTurn, recorded at resolution) and the modal carries modeMemoryPerTurn.
   // Its OWN anchored regex (the repeatable-lead discipline) so every existing modal is byte-identical.
-  const mem = (cb || rep) ? null : stripped.match(/^choose one that hasn't been chosen this turn\s*[—–-]\s*/i);
+  // (+ the PERIOD form — Lita, Little Orphan Amphibian, SHELF-85 · Halfshell Q5: the lead ends in "." with the bullets on the next lines.)
+  const mem = (cb || rep) ? null : stripped.match(/^choose one that hasn't been chosen this turn\s*(?:[—–-]|\.)\s*/i);
   const m = (cb || rep || mem) ? null : stripped.match(MODAL_RE);
   if (!cb && !rep && !mem && !m) return null;
   const REP_COUNT = { three: 3, four: 4, five: 5 };

@@ -16,6 +16,32 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · Q5: LITA, LITTLE ORPHAN AMPHIBIAN — the period-form mode-memory lead · **+2** · corpus 14,575 / 34,245
+> Suite **1539 files / 16,301** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
+> · "Alliance — Whenever another creature you control enters, choose one that hasn't been chosen this turn. / • Put a
+>   +1/+1 counter on Lita. / • Create a Food token. / • Scry 1." Every mode was modelled and the per-turn mode ledger
+>   (Teval's Judgment's MODE-MEMORY) already enforces "hasn't been chosen this turn" at the flush chooser. The card
+>   parked on PUNCTUATION: the printed lead ends in a PERIOD with the bullets on the following lines, and both the
+>   trigger's modal block extractor and the modal parser's mode-memory lead anchored on a DASH — the effect clause was
+>   cut at the period and the bullets dropped. The period joins the dash at the three anchors (the lead, the scan, the
+>   parser's memory lead). Three period-form carriers in the corpus beside nine dash-form ones. A SECOND seam surfaced
+>   behind it: the self-name INSIDE a bullet ("put a +1/+1 counter on Lita") — the self-name rewrite is an allowlist of
+>   whole-clause grammars (a global rename measured −25/−29 twice), so a modal block never met them. The assembly now
+>   rewrites each bullet's BODY through the same allowlist with its period peeled and restored — one bullet at a time,
+>   the same exact grammars, never a global rename. And a THIRD anchor on the metric side: coverage's own modal-block
+>   stripper anchored on the dash too, so the period-form bullets stayed as residue and the Food bullet's reminder text
+>   tripped the quote guard — widened the same way. Mutants: the lead, the scan, the parser's memory lead, the per-bullet
+>   self-name rewrite, the coverage stripper — each not widened / removed.
+> · **Pins:** the trigger's effect clause carries the whole bullet block; the program is a mode-memory modal with three
+>   modes; the dash form unchanged; Lita native; RUNTIME — through the real flush chooser two entries in one turn pick
+>   two different modes and a third entry has the last one. Mutants: the lead not widened, the scan not widened, the
+>   parser's memory lead not widened — mutants 5/5 killed.
+> · **Unplanned gain audited whole-card:** Titanium Man — a dash-form attack modal whose two bullets name the source
+>   ("Titanium Man gains flying until end of turn" / "Titanium Man deals 1 damage to any target"), unlocked by the
+>   per-bullet self-name rewrite alone.
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Halfshell 74 → **75** (10 to the bar); Titanium Man the unplanned gain, audited whole-card
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · Q3: CASEY JONES, BACK ALLEY BRUTE — the active counters-placed damage payoff · **+1** · corpus 14,573 / 34,245
 > Suite **1538 files / 16,299** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
 > · "Whenever you put one or more +1/+1 counters on a creature you control, Casey Jones deals that much damage to target

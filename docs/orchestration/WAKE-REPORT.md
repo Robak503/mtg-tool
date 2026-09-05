@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · Q5: Lita (+2)** · suite **1539 files / 16,301** green · corpus 14,575 / 34,245 · flip-diff +2 / 0 lost · mutants 5/5 killed
+
+> A modal lead that ends in a period instead of a dash — the mode-memory form Lita prints — now keeps its bullet block at both the trigger extractor and the modal parser. Halfshell 74 → **75** (10 to the bar); Titanium Man the unplanned gain, audited whole-card
+> **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · Q3: Casey Jones (+1)** · suite **1538 files / 16,299** green · corpus 14,573 / 34,245 · flip-diff +1 / 0 lost · mutants 3/3 killed
 
 > The active counters-placed event learned its damage payoff — that many counters, that much damage to the targeted opponent — on its own count field, the passive family's twin. Halfshell 73 → **74** (11 to the bar); one suite guard graduated — countersPlaced had pinned Casey Jones as body-only by name (a ridered payoff stays pinned refused)

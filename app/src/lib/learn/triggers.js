@@ -651,8 +651,13 @@ function reflexiveEffectAfterRoll(accumulatedEffect, sentence) {
  */
 // (the optional "that hasn't been chosen this turn" — Teval's Judgment's MODE-MEMORY lead, 2026-08-15;
 // the parser's parseModal owns the semantic flag, this extractor only needs the block kept whole.)
-const MODAL_LEAD_RE = /^choose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b(?: that hasn't been chosen this turn)?\s*[—-]/i;
-const MODAL_LEAD_SCAN_RE = /\bchoose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b(?: that hasn't been chosen this turn)?\s*[—-]/i;
+// (+ the PERIOD form — SHELF-85 · Halfshell Q5 Lita, Little Orphan Amphibian, 2026-09-05: "choose one that hasn't been chosen
+// this turn." with the bullets on the following lines — three corpus carriers beside the nine dash-form ones. The lead may
+// end in a dash OR a period; the block is the bullet lines either way. The naive effect clause arrives with its period
+// already consumed by the sentence split, so the clause-side lead also accepts the END of the clause; the scan below runs
+// on the raw oracle and sees the period itself.)
+const MODAL_LEAD_RE = /^choose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b(?: that hasn't been chosen this turn)?\s*(?:[—-]|\.|$)/i;
+const MODAL_LEAD_SCAN_RE = /\bchoose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b(?: that hasn't been chosen this turn)?\s*(?:[—-]|\.)/i;
 function extractModalEffectBlock(oracle, searchFrom, effectClause) {
   if (!MODAL_LEAD_RE.test(String(effectClause || "").trim())) return null;
   const tail = oracle.slice(searchFrom);
@@ -4453,6 +4458,18 @@ export function detectTriggers(card) {
             // strips labels itself either way.
             const body = t.replace(/^•\s*/, "").replace(/\.\s*$/, "").replace(/^[A-Z][\w'’!,. -]{0,30}?\s+—\s+(?=[A-Z])/, "");
             return l.replace(t.replace(/^•\s*/, "").replace(/\.\s*$/, ""), rewriteEtbEnteringPronoun(body));
+          }).join("\n");
+        }
+        // MODAL SELF-NAME, PER BULLET (SHELF-85 · Halfshell Q5 — Lita, Little Orphan Amphibian, 2026-09-05: "choose one that
+        // hasn't been chosen this turn. / • Put a +1/+1 counter on Lita. / • Create a Food token. / • Scry 1."): the self-name
+        // rewrite (rewriteSelfNameToThisCreature) is an allowlist of WHOLE-CLAUSE grammars — a global rename measured
+        // −25/−29 twice — so a self-name INSIDE a bullet never met them and the whole modal parked. Each bullet is its own
+        // clause: its BODY runs through the same allowlist with the period peeled and restored, one bullet at a time. A
+        // printed self-name is unambiguous for any scope (CR 201.4), so no event gate — the parser re-gates every mode.
+        if (/\n\s*•/.test(effectClause)) {
+          effectClause = effectClause.split("\n").map((line) => {
+            const bm = line.match(/^(\s*•\s*)(.+?)(\.?)\s*$/);
+            return bm ? `${bm[1]}${rewriteSelfNameToThisCreature(bm[2], card.name)}${bm[3]}` : line;
           }).join("\n");
         }
       } else {
