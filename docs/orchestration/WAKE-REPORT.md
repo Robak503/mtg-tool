@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · F6: Samwise Gamgee (+2)** · suite **1519 files / 16,229** green · corpus 14526 / 34,245 · flip-diff +2 / 0 lost · mutants 4/4 killed
+
+> "historic" joins the graveyard filter vocabulary (an artifact, a legendary, or a Saga); Treebeard sized up and left for Phase 3. Bumble Flower 78 → **79** (6 to the bar); Layla Hassan the unplanned gain, audited whole-card (first strike + a compound ETB/combat-damage head returning a historic card); one suite guard graduated — gyRecursion had listed 'historic' as unmodelled by name
+> **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · F6: Hot Soup (+1)** · suite **1518 files / 16,227** green · corpus 14524 / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed (one survivor got its missing test)
 
 > The equipped scope on the dealt-damage event, and "destroy it" bound to the damaged creature through the triggering-creature sentinel. Bumble Flower 77 → **78** (7 to the bar)

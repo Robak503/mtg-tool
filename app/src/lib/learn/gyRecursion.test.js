@@ -63,7 +63,9 @@ describe("parser — graveyard recursion is HIGH for modeled type filters; subty
     // GRADUATED 2026-08-15 (atzocanSeer.test.js): a single creature SUBTYPE ("goblin", "dinosaur") parses
     // HIGH now via the CR_CREATURE_TYPES-validated {subtype} structured filter. The guard class lives on:
     low("Return target green card from your graveyard to your hand.");               // color — unmodeled
-    low("Return target historic card from your graveyard to your hand.");            // "historic" (artifact/legendary/Saga) — unmodeled
+    // GRADUATED 2026-09-05 (samwiseGamgee.test.js): "historic" (artifact/legendary/Saga, CR 205.4h) is a whole filter
+    // token now, matched off the front face by any of its three words. The guard class lives on with the rest below.
+    expect(parseEffectProgram({ type: SORCERY, oracle: "Return target historic card from your graveyard to your hand." }).atoms).toEqual([{ op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "historic" }]);
     low("Return target nonland permanent card from your graveyard to your hand.");   // negation — unmodeled
     low("Return target artifact creature card from your graveyard to your hand.");   // INTERSECTION (both), not a union — unmodeled
     low("Return target creature card from a graveyard to your hand.");               // any graveyard, not "your"

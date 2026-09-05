@@ -16,6 +16,24 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · F6: SAMWISE GAMGEE — "historic" · **+2** · corpus 14526 / 34,245
+> Suite **1519 files / 16,229** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · "Whenever another nontoken creature you control enters, create a Food token. / Sacrifice three Foods: Return target
+>   historic card from your graveyard to your hand." The Food trigger and the sacrifice-three-Foods cost were already
+>   modelled (the same line with "creature card" classified native-activated); the return parked on ONE word.
+>   "historic" (CR 205.4h — an artifact, a legendary, or a Saga) joins the graveyard filter vocabulary as a WHOLE
+>   token, matched off the front-face type line by any of its three words. Five printings of the phrase.
+> · Sized UP on the way (noted in the F5 row): Treebeard's "put that many +1/+1 counters on target Halfling or
+>   Treefolk" needs a subtype-union target pool, "halfling" in the curated allowlist, and a lifegain that-many-on-TARGET
+>   sentinel — three seams for about one card (the bare "target <CreatureSubtype>" vein is 24 uses corpus-wide, all
+>   verbs). Left ⬜ for Phase 3.
+> · **Pins:** the token parses whole and matches the artifact, the legendary and the Saga but not the bear or the
+>   bolt; Samwise native-mixed; with three Foods the ability is offered ONLY at the historic cards, and activating at
+>   the Saga sacrifices the Foods and returns it to hand. Mutants: the word gone, the branch gone, artifact-only,
+>   any-card — mutants 4/4 killed.
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Bumble Flower 78 → **79** (6 to the bar); Layla Hassan the unplanned gain, audited whole-card (first strike + a compound ETB/combat-damage head returning a historic card); one suite guard graduated — gyRecursion had listed 'historic' as unmodelled by name
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · F6: HOT SOUP — the equipped creature is dealt damage · **+1** · corpus 14524 / 34,245
 > Suite **1518 files / 16,227** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed (one survivor got its missing test).**
 > · "Equipped creature can't be blocked. / Whenever equipped creature is dealt damage, destroy it. / Equip {3}". The

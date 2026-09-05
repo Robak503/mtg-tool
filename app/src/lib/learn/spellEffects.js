@@ -76,7 +76,7 @@ function isCreature(card) {
 // "nonland" (SHELF-85 T7, 2026-09-04 — Tasigur "return a nonland card of an opponent's choice") is the ONE negation the
 // vocabulary admits: matched in matchesGyTypeToken as "the front face is not a Land" (CR 205.2a — a card is a land
 // card iff its type line carries the type), never through GY_TYPE_WORD.
-const GY_FILTER_TYPES = new Set(["creature", "artifact", "enchantment", "land", "planeswalker", "battle", "instant", "sorcery", "nonland"]);
+const GY_FILTER_TYPES = new Set(["creature", "artifact", "enchantment", "land", "planeswalker", "battle", "instant", "sorcery", "nonland", "historic"]); // + historic (SHELF-85 · Bumble F6 Samwise Gamgee, 2026-09-05 — CR 205.4h: artifacts, legendaries, Sagas)
 const GY_TYPE_WORD = { creature: "Creature", artifact: "Artifact", enchantment: "Enchantment", land: "Land", planeswalker: "Planeswalker", battle: "Battle", instant: "Instant", sorcery: "Sorcery" };
 
 /**
@@ -110,6 +110,11 @@ export function parseGraveyardFilter(phrase) {
 function matchesGyTypeToken(front, token) {
   if (!token || token === "any") return true;
   if (token === "permanent") return /\b(?:Creature|Artifact|Enchantment|Land|Planeswalker|Battle)\b/.test(front);
+  // HISTORIC (CR 205.4h — Samwise Gamgee "Return target historic card from your graveyard to your hand", 2026-09-05):
+  // an artifact, a legendary, or a Saga — three type-line words, any one of which makes the card historic. Front
+  // face only, like every other token here. Admitted as a WHOLE token (not "|"-joined), so "historic or creature"
+  // is not a union this parser prints and stays null → Arbiter.
+  if (token === "historic") return /\bArtifact\b|\bLegendary\b|\bSaga\b/.test(front);
   return token.split("|").some((tok) => (tok === "nonland" ? !/\bLand\b/.test(front) : GY_TYPE_WORD[tok] && front.includes(GY_TYPE_WORD[tok])));
 }
 export function cardMatchesGraveyardFilter(card, cardFilter) {
