@@ -847,6 +847,14 @@ export function splitClauses(oracle) {
       clauses.push(sentence);
       continue;
     }
+    // EACH-PLAYER SHUFFLE-HAND-THEN-DRAW-THAT-MANY keep-whole (SHELF-85 Phase 3, 2026-09-05 — Molten Psyche's first
+    // sentence, Winds of Change's whole text): the same ", then draws that many cards" referent as Dark Deal's, severed
+    // by the split only when the sentence has company (Winds of Change is a one-sentence card and never met the
+    // splitter). Kept whole for the winds-of-change composite in hand.js.
+    if (/^each player shuffles the cards from their hand into their library, then draws that many cards\.?$/i.test(sentence)) {
+      clauses.push(sentence);
+      continue;
+    }
     // TWO-SEAT DRAW keep-whole (SHELF-85 B8, 2026-09-04 — Loran of the Third Path / Secret Rendezvous / Flumph: "You
     // and target opponent each draw N cards"): the " and " here joins two SUBJECTS of one verb, not two effects; the
     // split would orphan "You" and hand the whole draw to the opponent (the second half parses as "target opponent

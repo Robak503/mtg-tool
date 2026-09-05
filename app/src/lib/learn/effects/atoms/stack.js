@@ -482,6 +482,15 @@ export function dealDamageScaledClauseParser(clause) {
     return targetType ? { op: "deal-damage", targetType, amountCount: { kind: sacS[1] === "power" ? "sacrificedPower" : "sacrificedToughness", per: 1 } } : null;
   }
   // OLD word order: "<source> deals damage TO <target> equal to the number of <count>" (Massive Raid, Spitting Earth).
+  // PER-OPPONENT DRAWN-THIS-TURN damage (Molten Psyche, 2026-09-05 — SHELF-85 Phase 3, Nekusar): "deals damage to each
+  // opponent equal to the number of cards THAT PLAYER has drawn this turn" — the amount is read PER opponent at
+  // resolution (CR 608.2h), off each seat's own cardsDrawnThisTurn stamp; the resolver threads it as amountPerOpponent.
+  // Sits BEFORE the generic `mds` arm, which would otherwise claim the sentence and return null (parseCountSource has
+  // no per-player drawn count) — a null from a registered parser ends the clause's parse, it does not fall through.
+  // The prefix is COMMA-FREE on purpose: a lazy `.+?` would swallow an unpeeled "If you control …, " condition and
+  // hand back an UNCONDITIONAL damage atom (a FORBIDDEN false positive); the source-name reference never has a comma.
+  const mdo = t.match(/^[^,]+? deals? damage to each opponent equal to the number of cards that player has drawn this turn$/);
+  if (mdo) return { op: "deal-damage", targetType: "eachOpponent", amountPerOpponent: "cardsDrawnThisTurn" };
   const mds = t.match(/^.+? deals? damage to (.+?) equal to the number of (.+)$/);
   if (mds) return build(mds[1], mds[2]);
   // DMG-SCALE-2 — MODERN word order: "<source> deals damage equal to the number of <count> TO <target>"
@@ -2037,7 +2046,7 @@ export const stackResolvers = {
       // case for an unknown type, or its default changes, Megrim would silently deal 0. Declared beside its
       // siblings, this arm is correct by construction instead.
       : (atom.targetType === "defendingPlayer" || atom.targetType === "damagedPlayer" || atom.targetType === "discardingPlayer") ? "player" : atom.targetType;
-    let next = applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, targets, source: { id: ctx.sourceId }, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie });
+    let next = applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType, amountPerOpponent: atom.amountPerOpponent ?? null, targets, source: { id: ctx.sourceId }, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie });
     // LACCOLITH RIDER (④-AU — "If you do, this creature assigns no combat damage this turn"): the optional damage was
     // taken (a declined "may" never reaches this resolver), so the SOURCE is stamped for the current turn; the combat
     // damage step's dealsThisStep gate reads the stamp. A source already gone is a clean no-op (updatePermanentSafe).

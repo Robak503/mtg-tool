@@ -74,7 +74,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Test Rashmi | 92 | — | — | ✅ at the bar |
 | Test | Teval, the Balanced Scale Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Brago Blink | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Test | Nekusar Wheels | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
+| Test | Nekusar Wheels | 89 | 0 | 1 | ✅ at 85 · Phase 3 candidate |
 | Test | Shorikai Vehicles | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Shalai and Hallar Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Otharri Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
@@ -484,6 +484,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — **Phase 3** (§4.3 step 2, Nekusar → 90 sweep) · Molten Psyche ✅ +1 corpus (metalcraft damage to each opponent EQUAL TO THAT PLAYER'S OWN draws this turn — a per-opponent amount kind on the each-opponent damage, read after the wheel's redraw) · mutants 8/8 killed · suite 1566 files / 16,383 tests · **Nekusar Wheels 88 → 89** (Phase 3 step 2; the ≤3-row decks — Bumble 88 / Wolverine / Cap remain; Solid Footing next in Light-Paws)
 
 - 2026-09-05 — **Phase 3** (§4.3 step 2, Nekusar 87 → 90 sweep) · Wheel and Deal ✅ +1 corpus (ANY NUMBER of target OPPONENTS each discard their hands, then draw seven — the whole-hand discard on a player-target subset + a draw BOUND to the same players) · mutants 4/4 killed · suite 1565 files / 16,379 tests · **Nekusar Wheels 87 → 88** (Phase 3 step 2 — the ≤3-row decks; Molten Psyche next)
 

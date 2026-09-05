@@ -3582,6 +3582,11 @@ registerClauseParser(fightClauseParser);
 // branch matches before the legacyToAtom tail → the inline→CLAUSE_PARSERS move is behavior-identical.
 registerClauseParser(dealDamageScaledClauseParser);
 registerClauseParser(massFilteredDamageClauseParser); // MASS-FILTERED-DAMAGE — "deals N damage to each creature with/without flying"
+// WINDS-OF-CHANGE AS A CLAUSE (SHELF-85 Phase 3, 2026-09-05 — Molten Psyche): the whole-oracle matcher (matchWindsOfChange,
+// consulted in the template walk above) serves the one-sentence card. When the wheel sentence has company (Molten Psyche's
+// metalcraft tail) it reaches the splitter — which now keeps its ", then draws that many cards" whole — and lands here as
+// ONE clause → the same collapsed per-player atom. Whole-clause anchored, so any rider still leaves residue → low.
+registerClauseParser((clause) => matchWindsOfChange(clause)?.atoms?.[0] ?? null);
 registerClauseParser(cdmgMassToDamagedPlayerClauseParser); // CDMG-MASS-TO-DAMAGED-PLAYER (Balefire Dragon) — combat-damage trigger: "deals that much damage to each creature that player controls"
 registerClauseParser(playerInvestigateClauseParser); // INVESTIGATE for a NAMED player (CR 701.17a) — recipient via whoCreates, the field the mint actually reads
 registerClauseParser(poisonClauseParser); // POISON (CR 122) — the track existed since KW-POISON; no clause ever parsed to it

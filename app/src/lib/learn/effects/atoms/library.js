@@ -1908,9 +1908,9 @@ export function wheelOnePlayer(state, pid, draw = 7) {
   // GY-EVENT (SHELF S7): the player's graveyard cards LEAVE for the library in the fold.
   next = recordGraveyardEvents(next, (p.graveyard || []).map((card) => ({ dir: "leave", card, gyOwner: pid, zone: "library" })));
   next = shuffleControllerLibrary(next, pid);
-  const lib = next.players[pid].library || [];
-  const n = Math.min(draw, lib.length);
-  return { ...next, players: { ...next.players, [pid]: { ...next.players[pid], hand: lib.slice(0, n), library: lib.slice(n) } } };
+  // The seven-back is a DRAW (CR 121.1) — through the trigger-threading draw path, like Winds of Change below: the seat's
+  // cardsDrawnThisTurn climbs and the draw watchers fire per card. (2026-09-05, alongside Molten Psyche.)
+  return applyDrawEffect(next, { controller: pid, amount: Math.min(draw, (next.players[pid].library || []).length) });
 }
 
 export function applyTimetwisterWheel(state, atom, ctx) {
@@ -1961,9 +1961,11 @@ export function applyWindsOfChange(state, atom, ctx) {
     const pool = [...(p.library || []), ...(p.hand || [])]; // HAND only into library (graveyard untouched)
     next = { ...next, players: { ...next.players, [pid]: { ...p, library: pool, hand: [] } } };
     next = shuffleControllerLibrary(next, pid);
-    const lib = next.players[pid].library || [];
-    const n = Math.min(handCount, lib.length);
-    next = { ...next, players: { ...next.players, [pid]: { ...next.players[pid], hand: lib.slice(0, n), library: lib.slice(n) } } };
+    // The draw-back is a DRAW (CR 121.1): it goes through the trigger-threading draw path so each seat's
+    // cardsDrawnThisTurn climbs (Molten Psyche's metalcraft damage reads it — SHELF-85 Phase 3, 2026-09-05) and
+    // "whenever a player draws" watchers (Nekusar, the deck's commander) fire per card actually drawn. The former
+    // raw slice counted nothing and woke nobody.
+    next = applyDrawEffect(next, { controller: pid, amount: Math.min(handCount, (next.players[pid].library || []).length) });
   }
   return logEvent(next, { kind: "spell-effect", effect: "winds-of-change", controller: ctx.controller });
 }

@@ -1331,7 +1331,7 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
   return logEvent(next, { kind: "spell-effect", effect: "destroy", controller, targets: targets.map(t => t.id), prevented });
 }
 
-export function applyDamageEffect(state, { controller, amount: rawAmount, targetType, targets = [], source = null, restrictions = [], exileIfWouldDie = false }) {
+export function applyDamageEffect(state, { controller, amount: rawAmount, targetType, targets = [], source = null, restrictions = [], exileIfWouldDie = false, amountPerOpponent = null }) {
   let next = state;
   const amount = Math.max(0, rawAmount || 0);
   // DAMAGE-REPLACEMENT (CR 614 — Wolverine "double all damage", Furnace of Rath …). Finalize the per-target
@@ -1357,11 +1357,12 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   // zeroes every non-combat deal it makes (its ability pings included); the combat-only form binds
   // only at the combat funnel. Read once — the source is constant for the whole effect.
   const sourceBySilenced = source?.id ? attachedDamagePrevention(next, source.id).by === "all" : false;
-  const hitPlayer = (s, pid) => {
+  const hitPlayer = (s, pid, override = null) => {
     // DAMAGE-REPLACEMENT: double the magnitude per target. Infect still REPLACES life loss with poison —
     // the doubled magnitude becomes that many poison counters (CR 614 doubles the amount; CR 702.90a changes
-    // the form). 120.8: only deal if >0 after doubling.
-    let dealt = dmgConsult(amount, "player", pid);
+    // the form). 120.8: only deal if >0 after doubling. `override` = a PER-PLAYER amount (Molten Psyche reads each
+    // opponent's own cards-drawn count) — it replaces the shared `amount` for this one seat only.
+    let dealt = dmgConsult(override ?? amount, "player", pid);
     if (dealt <= 0) return s;
     // TEFERI'S PROTECTION — protection from everything prevents ALL damage to the player, from every source
     // including the player's own (CR 702.16b); the deal never happens, so no dealt-by tally either.
@@ -1467,9 +1468,11 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   // A 0-damage effect deals no damage (no marks, no counters, no poison — CR 120.8); guard so an infect
   // source can't stamp a stray "-1/-1": 0 counter. The lethal SBA + log below still run for parity.
   // AP-1: a by-silenced source deals nothing at all (every hit zeroed) — same parity flow as amount 0.
-  if (amount > 0 && !sourceBySilenced) {
+  if ((amount > 0 || amountPerOpponent) && !sourceBySilenced) {
     if (targetType === "eachOpponent") {
-      for (const opp of opponentsOf(next, controller)) if (next.players[opp]) next = hitPlayer(next, opp);
+      // amountPerOpponent === "cardsDrawnThisTurn": each opponent takes ITS OWN drawn count (Molten Psyche) — a seat
+      // that drew nothing takes nothing (CR 120.8 — zero damage is not dealt).
+      for (const opp of opponentsOf(next, controller)) if (next.players[opp]) next = hitPlayer(next, opp, amountPerOpponent === "cardsDrawnThisTurn" ? (next.players[opp].cardsDrawnThisTurn || 0) : null);
     } else if (targetType === "eachCreature") {
       // MASS-FILTERED-DAMAGE: `restrictions` (a hasKeyword flying filter from massFilteredDamageClauseParser)
       // narrows the wiped set — Gale Force hits only flyers, Tremor only non-flyers. An UNrestricted wipe

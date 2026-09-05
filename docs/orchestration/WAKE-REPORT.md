@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **PHASE 3 · Molten Psyche (+1)** · suite **1566 files / 16,383 tests** green · corpus 14,625 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 8/8 killed
+
+> Each-opponent damage can now scale per player — "equal to the number of cards that player has drawn this turn" — read after the wheel that precedes it. **Nekusar Wheels 88 → 89** (Phase 3 step 2; the ≤3-row decks — Bumble 88 / Wolverine / Cap remain; Solid Footing next in Light-Paws)
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **PHASE 3 · Wheel and Deal (+1)** · suite **1565 files / 16,379 tests** green · corpus 14,624 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
 
 > "Any number of target opponents" can now wheel — the whole-hand discard on a chosen opponent subset with the seven-card draw bound to the same players. **Nekusar Wheels 87 → 88** (Phase 3 step 2 — the ≤3-row decks; Molten Psyche next)

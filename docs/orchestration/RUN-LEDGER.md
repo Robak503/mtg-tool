@@ -16,6 +16,37 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — PHASE 3 · MOLTEN PSYCHE — per-opponent damage from each player's own draws · **+1** · corpus 14,625 (42.7%) / 34,245
+> Suite **1566 files / 16,383 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 8/8 killed.**
+> · Phase 3 step 2 — Nekusar Wheels' next row: "Each player shuffles the cards from their hand into their library, then
+>   draws that many cards. Metalcraft — If you control three or more artifacts, Molten Psyche deals damage to each opponent
+>   equal to the number of cards that player has drawn this turn." The wheel half was native and the metalcraft condition
+>   was already readable (the leading-if peel stamps it on a non-targeting atom); the damage half needed a PER-OPPONENT
+>   amount — each opponent's own cardsDrawnThisTurn — which the each-opponent damage atom had no field for (its amounts were
+>   one number for all). One arm (`amountPerOpponent: "cardsDrawnThisTurn"`), threaded by the deal-damage resolver into
+>   applyDamageEffect, whose each-opponent branch now hits each player with their own count (read at resolution, so the
+>   wheel's own redraw counts — CR 608.2c, the sentences in written order); the zero-amount guard admits the per-opponent
+>   kind. Every fixed-amount hit is byte-identical.
+> · ⛔ THREE SEAMS THE PROBE DID NOT SHOW (the whole card read low with every half green in isolation): ① the new arm had
+>   to sit BEFORE the generic "deals damage to X equal to the number of Y" arm — that arm claimed the sentence, its count
+>   parser knew no per-player drawn count, and a registered parser's null ENDS the clause (no fall-through); ② the wheel
+>   sentence with company — splitClauses severed ", then draws that many cards" (Winds of Change is a one-sentence card and
+>   never met the splitter; Dark Deal's keep-whole guard gained a sibling) and matchWindsOfChange was whole-oracle only (now
+>   also a clause parser); ③ the arm's prefix is COMMA-FREE: a lazy `.+?` swallowed an unpeeled "Metalcraft — If you control
+>   three or more artifacts, Molten Psyche" and returned UNCONDITIONAL damage — a FORBIDDEN FP caught by the probe and pinned.
+> · ⭐ RUNTIME CORRECTION (CR 121.1): Winds of Change AND the Timetwister wheel drew their cards back by RAW SLICE — no
+>   cardsDrawnThisTurn, no draw watchers. Both now route through applyDrawEffect: Molten Psyche reads the redraw, and a
+>   Nekusar wheel wakes Nekusar (the deck's commander never fired off its own wheels before). Hand/library counts identical.
+> · **Pins:** the whole card (the wheel atom + the conditioned per-opponent damage); native-spell; the unpeeled-label FP
+>   guard (low, never unconditional). RUNTIME through the real cast: three artifacts, an opponent who had drawn 3 with a
+>   2-card hand — they wheel to two and take 5 (3 + the 2 redrawn), the caster takes nothing; two artifacts — the wheel
+>   happens and no damage lands. Mutants: the arm gone, the per-opponent amount ignored, the zero-amount guard unwidened,
+>   the resolver not threading the kind, the wheel not a clause parser, the splitter severing the wheel, the comma-free
+>   prefix relaxed, the wheel's draw-back a raw slice again — mutants 8/8 killed.
+> · **Whole-card:** no unplanned gains (flip-diff exactly Molten Psyche); the wheel draw-back correction changes no hand or library count — windsOfChange / timetwisterWheel / darkDeal suites green unchanged
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · **Nekusar Wheels 88 → 89** (Phase 3 step 2; the ≤3-row decks — Bumble 88 / Wolverine / Cap remain; Solid Footing next in Light-Paws)
+
 > ## 🎯 2026-09-05 (cron) — PHASE 3 · WHEEL AND DEAL — any number of target opponents wheel · **+1** · corpus 14,624 (42.7%) / 34,245
 > Suite **1565 files / 16,379 tests** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · Phase 3 step 2 — Nekusar Wheels sits at 87 with three rows to 90; Wheel and Deal is the cheapest: "Any number of target
