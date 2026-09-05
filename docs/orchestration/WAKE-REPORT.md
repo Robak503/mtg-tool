@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · F6: Elanor Gardner (+2)** · suite **1517 files / 16,224** green · corpus 14523 / 34,245 · flip-diff +2 / 0 lost · mutants 5/5 killed
+
+> A per-player sacrificed-this-turn memo at the sacrifice chokepoint; "if you sacrificed a Food this turn" reads it word-bounded by type. Bumble Flower 76 → **77** (8 to the bar); Detective's Satchel the unplanned gain, audited whole-card (its activation condition 'you've sacrificed an artifact this turn' reads the new memo; investigate twice + the Thopter were already modelled)
+> **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · F6: Shoreline Looter + Night of the Sweets' Revenge (+8)** · suite **1516 files / 16,221** green · corpus 14521 / 34,245 · flip-diff +8 / 0 lost · mutants 6/6 killed (one survivor got its missing test)
 
 > The trailing rider's negated connective ("discard a card unless …", run only when the condition reads definitely false) and the keyword-less Overrun-X team pump with a count source. Bumble Flower 74 → **76** (9 to the bar); six unplanned gains audited whole-card — Chart a Course, Chakra Meditation, The Spot's Portal, Mindwrack Demon, Bellowing Saddlebrute (all 'unless' riders on conditions the reader already accepted under 'if'), Become the Avalanche (the bare Overrun-X with cards in hand)

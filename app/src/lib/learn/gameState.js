@@ -426,6 +426,7 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
     nextSpellUncounterable: false, // LANDS-6 (Mistrise Village): "The next spell you cast this turn can't be countered" — armed by the resolving ability, consumed (and cleared) by the next cast at the chokepoint, reset for all seats at untap
     noncreatureSpellsCastThisTurn: 0, // FIRST-NONCREATURE-EACH-TURN (CR 603.2, Esper Sentinel): the noncreature subset of the count above — same chokepoint, same per-seat reset
     creaturesDiedThisTurn: 0, // DEATHS-THIS-TURN (CR 700.4): creatures that DIED (battlefield→graveyard) under this player's control this turn — incremented at the death chokepoint (checkDiesTriggers via recordCreatureDeaths), reset for all seats at untap. Read by "for each creature that died [under your control] this turn" (Mahadi sums all seats / Body Count reads the controller) + the "if a creature died this turn" intervening-if.
+    sacrificedThisTurn: [], // SACRIFICED-THIS-TURN (SHELF-85 · Bumble F6 Elanor Gardner, 2026-09-05): the cards this player sacrificed this turn ({ name, type }) — stamped at the ONE sacrifice chokepoint (checkSacrificeTriggers), reset for ALL seats at turn start; read by "if you sacrificed a Food this turn"
     attackedThisTurn: false, // RAID (CR 508.1): set true when this player declares an attacker (actionDispatcher.applyDeclareAttacker), reset for ALL seats at untap. Read by the "you attacked this turn" intervening-if.
     hasMulliganed: false,
   };
@@ -1399,6 +1400,16 @@ export function addPreventionShield(state, { targetKind, targetId, amount, turn,
 
 /** Consume up to `amount` of matching shields. Returns { state, amount } — the unprevented remainder.
  * Fast path: no live shields → the same state object back (byte-identical for every ordinary hit). */
+/** SACRIFICED-THIS-TURN (Elanor Gardner, 2026-09-05) — record a sacrifice under its player for the "if you sacrificed a
+ *  <Type> this turn" readers. Name + type line only (a look-back — the permanent is already gone). Called from the one
+ *  sacrifice chokepoint (triggers.checkSacrificeTriggers), so every sacrifice path stamps it. */
+export function recordSacrificeThisTurn(state, playerId, card) {
+  const p = state?.players?.[playerId];
+  if (!p || !card) return state;
+  const entry = { name: String(card.name || ""), type: String(card.type || card.type_line || "") };
+  return { ...state, players: { ...state.players, [playerId]: { ...p, sacrificedThisTurn: [...(p.sacrificedThisTurn || []), entry] } } };
+}
+
 export function consumePreventionShields(state, { targetKind, targetId, amount }) {
   const live = preventionShieldsFor(state);
   if (!live.length || amount <= 0) return { state, amount };
@@ -2479,7 +2490,7 @@ export function resetCreatureDeathsAllPlayers(state) {
     // speedIncreasedThisTurn (KW-ENGINES, CR 702.179): the once-per-turn speed bump re-arms on the
     // same cadence as its sibling ledgers. `speed` itself PERSISTS — it is a player property, not a
     // this-turn tally.
-    players[id] = { ...state.players[id], creaturesDiedThisTurn: 0, lifeLostThisTurn: 0, lifeGainedThisTurn: 0, gyEnteredThisTurn: 0, descendedThisTurn: 0, damageTakenThisTurn: 0, speedIncreasedThisTurn: false };
+    players[id] = { ...state.players[id], creaturesDiedThisTurn: 0, lifeLostThisTurn: 0, lifeGainedThisTurn: 0, gyEnteredThisTurn: 0, descendedThisTurn: 0, damageTakenThisTurn: 0, speedIncreasedThisTurn: false, sacrificedThisTurn: [] }; // + sacrificedThisTurn (Elanor, 2026-09-05)
   }
   return { ...state, players };
 }

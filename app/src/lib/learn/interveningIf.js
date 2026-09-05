@@ -1723,6 +1723,18 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   // reset for all seats at untap). A per-CREATURE variant ("this creature attacked this turn"), a "with a
   // creature" qualifier, or a negated form fails the anchor → null → Arbiter (CREED — never a mis-scoped Raid read).
   if (/^you attacked this turn$/.test(c)) return state?.players?.[controllerId]?.attackedThisTurn === true;
+  // ===== SACRIFICED-THIS-TURN (SHELF-85 · Bumble F6 Elanor Gardner, 2026-09-05) ===== "you sacrificed a Food this turn" /
+  // "you've sacrificed a permanent this turn" — read off the controller's per-turn sacrifice memo (stamped at the
+  // sacrifice chokepoint, reset at turn start). A word is matched word-bounded against each sacrificed card's type
+  // line ("Food" on "Token Artifact — Food", "creature" on any creature); "permanent" = any sacrifice. An empty or
+  // absent memo reads FALSE (not null) — so the parseable probe admits the shape and an untouched turn is simply "no".
+  const sacM = c.match(/^you(?:'ve| have)? sacrificed (?:a|an|one or more) ([a-z]+?)s? this turn$/);
+  if (sacM) {
+    const list = state?.players?.[controllerId]?.sacrificedThisTurn || [];
+    if (sacM[1] === "permanent") return list.length > 0;
+    const re = new RegExp(`\\b${sacM[1]}\\b`, "i");
+    return list.some((e) => re.test(String(e?.type || "")));
+  }
   // MINAS TIRITH (SHELF-85 · Otharri O7, 2026-09-05): "you attacked with N or more creatures this turn" — the RAID flag
   // generalised to a COUNT, read off the per-permanent attacked-this-turn memo (KT-1) over the controller's battlefield.
   // A creature that attacked and left the battlefield is not counted — a lower bound, the false-negative-safe side.

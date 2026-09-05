@@ -16,6 +16,27 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · F6: ELANOR GARDNER — "if you sacrificed a Food this turn" · **+2** · corpus 14523 / 34,245
+> Suite **1517 files / 16,224** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
+> · "At the beginning of your end step, if you sacrificed a Food this turn, you may search your library for a basic land
+>   card, put that card onto the battlefield tapped, then shuffle." Swapping the condition for a known one classified
+>   the card native-trigger, so the memo was the only gap. A per-player SACRIFICED-THIS-TURN memo ({ name, type } per
+>   sacrifice) is stamped at the ONE sacrifice chokepoint every path calls (checkSacrificeTriggers — the effect/edict
+>   sac, the cost sac, the Treasure crack), reset for all seats with the other per-turn ledgers, and read word-bounded
+>   against each sacrificed card's type line ("Food" on "Token Artifact — Food"; "permanent" = any sacrifice; the
+>   contraction "you've" admitted). An empty memo reads FALSE, not null — the parseable probe admits the shape and an
+>   untouched turn is simply "no". Three printings of the phrase (Food / permanent / permanents).
+> · Read on the way, and pinned as the engine's convention: an intervening-if end-step trigger ENQUEUES either way and
+>   the condition is checked at RESOLUTION — the untouched turn resolves to nothing, the cracked-Food turn resolves into
+>   the printed "you may" pause.
+> · **Pins:** the descriptor carries the intervening-if, the condition is parseable, native-trigger; the reader is false
+>   before, true after the Food's own cost-sacrifice, true for "you've", false for "creature", true for "permanent", the
+>   memo holds the Food, the next turn's reset clears it; at the end step untouched → nothing, cracked → the pause.
+>   Mutants: the arm, the type word ignored, the chokepoint not stamping, the reset forgetting, the recorder dropping
+>   the type — mutants 5/5 killed.
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Bumble Flower 76 → **77** (8 to the bar); Detective's Satchel the unplanned gain, audited whole-card (its activation condition 'you've sacrificed an artifact this turn' reads the new memo; investigate twice + the Thopter were already modelled)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · F6: SHORELINE LOOTER + NIGHT OF THE SWEETS' REVENGE — "unless" and the bare Overrun-X · **+8** · corpus 14521 / 34,245
 > Suite **1516 files / 16,221** green; lint 0. Flip-diff **+8, zero LOST** (any unplanned gains audited whole-card). **mutants 6/6 killed (one survivor got its missing test).**
 > · **Shoreline Looter** — "Threshold — Whenever this creature deals combat damage to a player, draw a card. Then discard a

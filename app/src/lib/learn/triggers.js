@@ -22,6 +22,7 @@ import {
   recordCreatureDeaths,
   registerLifeLossWatcher, // LIFE-LOSS-ON-EVENT (SHELF M3) — the loseLife chokepoint's registry seam
   logEvent, // GRANTED DIES-EXILE (Rivaz) — the graveyard→exile move logs at the dies chokepoint
+  recordSacrificeThisTurn, // SACRIFICED-THIS-TURN (Elanor Gardner, 2026-09-05) — stamped at the sacrifice chokepoint below
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { grantedTriggeredQuotedFor, permanentHasKeyword, permanentPower, permanentBasePower, keywordInstanceCount, permanentColors, permanentTypes, diesTriggerMultiplierCount, attackTriggerMultiplierCount, etbTriggerMultiplierCount, castTriggerMultiplierCount, colorsOf, isModifiedPermanent } from "./layers.js"; // isModifiedPermanent — the requiresModified watcher gate (Kodama, W3) shares layers' one CR 700.9 definition
@@ -8228,6 +8229,9 @@ function sacScopeMatches(d, watcher, sacrificed) {
  */
 export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
   if (!sacrificed?.card || !state.players?.[sacrificingPlayerId]) return state;
+  // SACRIFICED-THIS-TURN memo (Elanor Gardner, 2026-09-05): this is the one chokepoint every sacrifice path calls, so
+  // the per-player look-back is stamped HERE, before any watcher fires (the memo must exist even when nothing triggers).
+  state = recordSacrificeThisTurn(state, sacrificingPlayerId, sacrificed.card);
   // TOKEN-CHANGE on-sacrifice (Mirkwood Bats) — a sacrificed TOKEN fires every tokenChange watcher with
   // onSacrifice. Checked at the SAME sac chokepoints as the type-scope sac triggers above (this function is
   // called from all four — the effect/edict sac, the cost sac, and the Treasure-crack-for-mana sac), so a
