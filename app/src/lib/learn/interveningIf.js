@@ -1574,6 +1574,14 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
   }
   m = c.match(/^(?:there is|there's) a card in your graveyard$/);
   if (m) return (state.players[controllerId].graveyard || []).length >= 1;
+  // CREATURE-CARD-TO-GRAVEYARD-THIS-TURN (SHELF-85 · Halfshell Q3 Raphael, Fiendish Savior, 2026-09-05): a LOOK-BACK, not a
+  // graveyard read — the card may have left the graveyard again (reanimated, exiled) and the condition still holds. Answered
+  // from the per-player turn stamp gameState.moveCardToZone writes at the graveyard chokepoint (cards only, CR 111.1 —
+  // a token creature dying never counts). "Your" = the controller's graveyard.
+  if (c === "a creature card was put into your graveyard from anywhere this turn") {
+    const stamp = state.players[controllerId]?.creatureCardToGraveyardTurn;
+    return stamp != null && stamp === state.turn;
+  }
 
   // ===== TWO-TYPE CONJUNCTION (2026-08-12 — Flow State "there is an instant card and a sorcery card in
   // your graveyard") ===== BOTH singular type checks must hold, each through the SAME word-anchored

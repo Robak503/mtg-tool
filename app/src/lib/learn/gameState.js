@@ -744,6 +744,19 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
       const shuffled = shuffleSeededLibrary(tucked, state.players[ownerPid] ? ownerPid : playerId);
       return logEvent(shuffled, { kind: "shuffle-instead-of-graveyard", playerId: ownerPid, cardName: moving?.name || null });
     }
+    // CREATURE-CARD-TO-GRAVEYARD-THIS-TURN (SHELF-85 · Halfshell Q3 Raphael, Fiendish Savior, 2026-09-05 — "if a creature card
+    // was put into your graveyard from anywhere this turn"; Macabre Reconstruction, Cloakwood Hermit): a per-PLAYER turn
+    // stamp on the graveyard's OWNER, written at this one chokepoint so every path (dies, discard, mill, countered
+    // creature spell) records it. A CARD only — a token is not a card (CR 111.1), so a token creature dying never stamps;
+    // the type line must carry Creature. Stamped AFTER the shuffle-instead replacement returned, so a card that never
+    // reached the graveyard leaves no record. The reader (interveningIf) compares the stamp to the live turn — no reset.
+    if (moving && !moving.token && /\bCreature\b/i.test(String(moving.type || moving.type_line || ""))) {
+      const gyOwner = (fromZone === "battlefield"
+        && state.players[playerId]?.battlefield?.find((p) => p.id === cardId)?.owner) || playerId;
+      if (state.players[gyOwner]) {
+        state = { ...state, players: { ...state.players, [gyOwner]: { ...state.players[gyOwner], creatureCardToGraveyardTurn: state.turn } } };
+      }
+    }
   }
 
   const player = state.players[playerId];

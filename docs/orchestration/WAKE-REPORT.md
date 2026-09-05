@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · Q3: Raphael, Fiendish Savior (+2)** · suite **1550 files / 16,332** green · corpus 14,594 (42.6%) / 34,245 · flip-diff +2 / 0 lost · mutants 4/4 killed
+
+> The condition reader learned "a creature card was put into your graveyard from anywhere this turn" — a per-player look-back stamped at the graveyard chokepoint (cards only, CR 111.1), read against the live turn. Halfshell UNCHANGED at 80 — ⚠️ MIS-AIMED ROW: the Q3 row's bare 'Raphael' is Raphael, the Muscle (a Mutant Ninja Turtle: a counters-filtered damage doubler — sized L, no doubling machinery — + a Mutagen ETB + Partner—Character select); I read it as Fiendish Savior. The +2 is corpus-only. Lesson: resolve a bare name against the deck's leftovers dump BEFORE sizing (the runbook row now names the Muscle in full). Next Halfshell M row = Mole Module (the milled-pick's battlefield destination — the hand form's machinery exists).
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · Q4: Exploding Barrel (+4)** · suite **1549 files / 16,328** green · corpus 14,592 (42.6%) / 34,245 · flip-diff +4 / 0 lost · mutants 4/4 killed
 
 > An activated ability can now print "costs {1} less to activate for each <kind> counter on this <noun>" — peeled as a cost modifier and priced live at the offer, floored at {0}. Halfshell 79 → **80** (80/100; 5 to the bar) — next Halfshell M row = Raphael, Fiendish Savior (a per-player 'creature card put into your graveyard this turn' flag + one condition reader; the payoff already parses).

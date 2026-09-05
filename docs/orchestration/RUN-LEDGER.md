@@ -16,6 +16,27 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · Q3: RAPHAEL, FIENDISH SAVIOR — the from-anywhere graveyard look-back · **+2** · corpus 14,594 (42.6%) / 34,245
+> Suite **1550 files / 16,332** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · "At the beginning of each end step, if a creature card was put into your graveyard from anywhere this turn, create a
+>   1/1 red Devil creature token with …" The payoff parsed; the trigger parked on its intervening-if, outside the reader's
+>   vocabulary. It is a LOOK-BACK, not a graveyard read — the card may have left the graveyard again (reanimated, exiled)
+>   and the condition still holds — so the fact is recorded where it happens: gameState.moveCardToZone stamps a per-PLAYER
+>   turn mark (`creatureCardToGraveyardTurn`) on the graveyard's OWNER at the one graveyard chokepoint, so every path
+>   (dies, discard, mill, a countered creature spell) records it. CARDS only — a token is not a card (CR 111.1) — whose type
+>   line carries Creature, and only after the shuffle-instead replacement has had its say (a card that never reached the
+>   graveyard leaves no record). The reader (interveningIf) compares the stamp to the live turn; no reset needed.
+> · **Pins:** the end-step descriptor carries the condition; interveningIfParseable reads it; Raphael native-mixed.
+>   RUNTIME — a creature card MILLED this turn stamps turn 4, the condition reads true, ONE end-step trigger fires and
+>   the Devil token is created; a creature card that DIED through the lethal pipeline stamps too, and the record survives
+>   the card being exiled out of the graveyard again (the Devil still comes); NO Devil on an untouched board, on a TOKEN
+>   creature dying (stamp stays null), on an INSTANT milled (stamp stays null), or on a stamp from the PREVIOUS turn — the
+>   trigger is queued and the flush withholds it (CR 603.4), stack empty after.
+>   Mutants: the reader arm gone, the token check dropped, the creature-type check dropped, the turn compare dropped — mutants 4/4 killed.
+> · **Whole-card:** Cloakwood Hermit (unplanned gain) — a Background granting commander creatures you own the SAME conditional end-step trigger (two tapped Squirrels) through the quoted-grant static lane; only the condition's readability changed, so it flips on this reader alone. Macabre Reconstruction prints the condition on a conditional cast discount and did not move (its tier was unchanged by this slice).
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Halfshell UNCHANGED at 80 — ⚠️ MIS-AIMED ROW: the Q3 row's bare 'Raphael' is Raphael, the Muscle (a Mutant Ninja Turtle: a counters-filtered damage doubler — sized L, no doubling machinery — + a Mutagen ETB + Partner—Character select); I read it as Fiendish Savior. The +2 is corpus-only. Lesson: resolve a bare name against the deck's leftovers dump BEFORE sizing (the runbook row now names the Muscle in full). Next Halfshell M row = Mole Module (the milled-pick's battlefield destination — the hand form's machinery exists).
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · Q4: EXPLODING BARREL — the per-counter activation discount · **+4** · corpus 14,592 (42.6%) / 34,245
 > Suite **1549 files / 16,328** green; lint 0. Flip-diff **+4, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · "{8}, {T}, Sacrifice this artifact: It deals 20 damage to target creature. This ability costs {1} less to activate for
