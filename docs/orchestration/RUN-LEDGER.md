@@ -16,6 +16,32 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · A4: TEFERI, HERO OF DOMINARIA — the positional tuck · **+6** · corpus 14,548 / 34,245
+> Suite **1531 files / 16,271** green; lint 0. Flip-diff **+6, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed (one survivor deleted as dead).**
+> · "−3: Put target nonland permanent into its owner's library third from the top." The +1 (draw, then the delayed
+>   two-land untap) and the −8 emblem already parsed HIGH; the −3 parked on the tuck parser's documented refusal of a
+>   positional "Nth from the top". The zone mover knew only top (prepend) and bottom (append); it now takes a library
+>   INDEX beside the top flag — index 0 is the top, so "third from the top" is index 2, clamped to the library's
+>   length (a one-card library puts it on the bottom, as the rules do). The tuck atom carries the third placement and
+>   the parser admits exactly the printed sentence on the same target words the top/bottom form reads.
+>   The arm reads the ordinal — second / third / fourth — so Chronostutter, Isolation at Orthanc and Synchronized
+>   Eviction ride the same placement; Lost to Legend's "historic" target word is not in the tuck vocabulary and parks.
+> · **Pins:** the parser's atoms for second and third; the top/bottom forms unchanged; "historic" and a "fifth from the
+>   top" refused; Teferi
+>   native-planeswalker; RUNTIME — through the real loyalty lane on a five-card library the permanent sits at index 2
+>   with the two cards above it untouched, and on a one-card library it sits on the bottom. Mutants: the arm gone, the
+>   ordinal one too high, the mover ignoring the index (bottom), the registration dropping it — mutants 4/4 killed (one survivor deleted as dead). One survivor
+>   resolved by deletion: an explicit clamp of the index to the library's length was unreachable because slice
+>   already clamps past the end — the line is gone and the comment says why.
+> · **Unplanned gains audited whole-card:** Bury in Books (its "costs {2} less if it targets an attacking creature" line is
+>   the standing self-cost-reduction class — the cast site reads the raw oracle and an unmodelled metric pays full
+>   price, a safe limitation) and Oust ("Its controller gains 3 life" is the player-referent projection playerReferent
+>   .test.js pins at runtime after a Vapor Snag bounce — the recipient is stamped at the bind, so the tucked creature
+>   having left the board changes nothing). One suite guard graduated — tuck.test.js had pinned the positional form as
+>   arbiter by name; the three-way union, a fifth-from-the-top, and the "historic" target word stay pinned refused.
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Atraxa 68 → **69** (16 to the bar); six flips — Teferi plus Chronostutter, Isolation at Orthanc, Synchronized Eviction (the same ordinal) and Bury in Books, Oust (audited whole-card)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · A2: OATH OF GIDEON — the extra loyalty on entry · **+1** · corpus 14,542 / 34,245
 > Suite **1530 files / 16,266** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · "When Oath of Gideon enters, create two 1/1 white Kor Ally creature tokens. / Each planeswalker you control enters

@@ -680,7 +680,21 @@ function peekMovingCard(state, playerId, fromZone, cardId) {
   return list.find((c) => c.id === cardId) || null;
 }
 
-export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, becomePermanent = false, toTop = false }) {
+/**
+ * LIBRARY PLACEMENT — index 0 is the TOP (drawCardEffect slices from the front). `toTop` prepends; a numeric
+ * `libraryIndex` (POSITIONAL TUCK — "into its owner's library third from the top", SHELF-85 · Atraxa A4 Teferi, Hero of
+ * Dominaria, 2026-09-05) splices the card in at that index, clamped to the library's length (a one-card library puts a
+ * "third from the top" card on the bottom, as the rules do); neither → append (the bottom).
+ */
+function placeInList(list, card, toTop, libraryIndex) {
+  if (Number.isInteger(libraryIndex) && libraryIndex >= 0) {
+    // slice clamps past the end on its own — an explicit Math.min here was unreachable under mutation and was deleted.
+    return [...list.slice(0, libraryIndex), card, ...list.slice(libraryIndex)];
+  }
+  return toTop ? [card, ...list] : [...list, card];
+}
+
+export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, becomePermanent = false, toTop = false, libraryIndex = null }) {
   assertPlayer(playerId);
   assertZone(fromZone);
   assertZone(toZone);
@@ -756,7 +770,7 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     } else {
       // Unwrapping: drop permanent state, keep the card. `toTop` (tuck-to-top-of-library) prepends
       // instead of appending — library index 0 is the TOP (drawCardEffect slices from the front).
-      nextDest = toTop ? [card, ...state.players[destPid][toZone]] : [...state.players[destPid][toZone], card];
+      nextDest = placeInList(state.players[destPid][toZone], card, toTop, toZone === "library" ? libraryIndex : null);
     }
     let result = destPid === playerId
       ? withPlayer(state, playerId, p => ({
@@ -815,7 +829,7 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     return gyEvent ? recordGraveyardEvents(moved, gyEvent) : moved;
   }
 
-  const nextDest = toTop ? [card, ...player[toZone]] : [...player[toZone], card];
+  const nextDest = placeInList(player[toZone], card, toTop, toZone === "library" ? libraryIndex : null);
   const moved = withPlayer(state, playerId, p => ({
     ...p,
     [fromZone]: nextSource,

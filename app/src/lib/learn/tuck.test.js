@@ -31,12 +31,15 @@ describe("TUCK-1 — classification", () => {
       expect(parseEffectProgram(I(oracle)).atoms).toEqual([atom]);
     }
   });
-  it("a 3-way union or a positional tuck MUST stay arbiter; the power-bound restriction flipped native with ④-AG (2026-09-03)", () => {
+  it("a 3-way union MUST stay arbiter; the power-bound restriction flipped native with ④-AG (2026-09-03); GRADUATED 2026-09-05 (teferiHeroTuck.test.js): the positional 'Nth from the top' is a library index on the zone mover now", () => {
     // Eternal Isolation — the bound rides the subject peel as a `power` restriction the enumeration enforces
     // (boundQualifierTarget.test.js pins the pool at runtime).
     expect(classifyCard(I("Put target creature with power 4 or greater on the bottom of its owner's library.", "Sorcery"))).toBe("native-spell");
     expect(classifyCard(I("Put target artifact, creature, or enchantment on top of its owner's library.", "Sorcery"))).toBe("arbiter-spell");
-    expect(classifyCard(I("Put target creature into its owner's library third from the top."))).toBe("arbiter-spell");
+    expect(classifyCard(I("Put target creature into its owner's library third from the top."))).toBe("native-spell");
+    // CREED — the refusal class lives on: an ordinal past the printed three, and a target word the tuck vocabulary lacks
+    expect(classifyCard(I("Put target creature into its owner's library fifth from the top."))).toBe("arbiter-spell");
+    expect(classifyCard(I("Put target nonland historic permanent into its owner's library fourth from the top."))).toBe("arbiter-spell");
   });
 });
 

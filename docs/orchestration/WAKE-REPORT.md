@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · A4: Teferi, Hero of Dominaria (+6)** · suite **1531 files / 16,271** green · corpus 14,548 / 34,245 · flip-diff +6 / 0 lost · mutants 4/4 killed (one survivor deleted as dead)
+
+> The tuck learned a POSITION: "third from the top" is a library index on the zone mover, clamped to the library's length. Teferi's −3 resolves natively and the walker is native whole. Atraxa 68 → **69** (16 to the bar); six flips — Teferi plus Chronostutter, Isolation at Orthanc, Synchronized Eviction (the same ordinal) and Bury in Books, Oust (audited whole-card)
+> **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · A2: Oath of Gideon (+1)** · suite **1530 files / 16,266** green · corpus 14,542 / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
 
 > The others-enter-with static learned its planeswalker printing: every walker you control enters with one more loyalty counter, added before a doubler as the controller would order it. Atraxa 67 → **68** (17 to the bar)

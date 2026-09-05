@@ -25,7 +25,7 @@ export function registerCzAddContinuousEffect(fn) { if (typeof fn === "function"
 
 /** Move creature(s) battlefield → hand (bounce), → exile, or → library (TUCK — top via toTop, else
  * bottom) — chosen targets, or ALL creatures for a mass `exile all creatures` (targetType "eachCreature"). */
-export function applyZoneMove(state, atom, ctx, toZone, toTop = false) {
+export function applyZoneMove(state, atom, ctx, toZone, toTop = false, libraryIndex = null) {
   let next = state;
   const targets = atomTargets(state, atom, ctx);
   for (const t of targets) {
@@ -37,7 +37,7 @@ export function applyZoneMove(state, atom, ctx, toZone, toTop = false) {
     if (lk) {
       // TUCK uses the card's controller as the owner proxy (consistent with bounce's "owner's hand");
       // toTop prepends to the library (top), else moveCardToZone appends (bottom).
-      next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone, cardId: t.id, toTop });
+      next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone, cardId: t.id, toTop, libraryIndex });
     }
   }
   // Exile is NOT "dies" (CR 700.4 — dies = to graveyard), so no dies triggers fire. Tuck → library.
@@ -537,6 +537,16 @@ export function tuckClauseParser(clause) {
   const combat = t.match(/^put target attacking or blocking creature on (top|the bottom) of its owner's library$/);
   if (combat) {
     return { op: "tuck", targetType: "creature", where: combat[1] === "top" ? "top" : "bottom", restrictions: [{ kind: "combat", value: "either" }] };
+  }
+  // ⭐ POSITIONAL TUCK (SHELF-85 · Atraxa A4 — Teferi, Hero of Dominaria's −3, 2026-09-05): "put target <X> into its owner's
+  // library (second|third|fourth) from the top" — the "Nth from the top" this parser refused above, on the SAME target words.
+  // The zone mover now takes a library index (0 = the top), clamped to the library's length. Five targeted printings:
+  // Chronostutter / Isolation at Orthanc (creature, second), Synchronized Eviction (nonland permanent, second), Teferi
+  // (nonland permanent, third); Lost to Legend's "nonland historic permanent" is not a tuck target word and parks.
+  const ORD = { second: 1, third: 2, fourth: 3 };
+  const pos = t.match(/^put target (creature or land|artifact or creature|nonland permanent|creature|permanent|land) into its owner's library (second|third|fourth) from the top$/);
+  if (pos) {
+    return { op: "tuck", targetType: TT[pos[1]], where: "fromTop", libraryIndex: ORD[pos[2]] };
   }
   return null;
 }
@@ -1775,7 +1785,7 @@ export const zoneResolvers = {
   "delayed-blink": applyDelayedBlink,          // DELAYED-RETURN BLINK (Otherworldly Journey / Long Road Home) — exile now, return at next end step
   "blink-return": applyBlinkReturn,            // its delayed half's sentinel (re-enter from exile + optional +1/+1)
   "bounce": (state, atom, ctx) => (atom.nameLockUntilNextTurn ? applyBounceWithNameLock(state, atom, ctx) : applyZoneMove(state, atom, ctx, "hand")), // B4 — Reflector Mage's rider
-  "tuck": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "library", atom.where === "top"),
+  "tuck": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "library", atom.where === "top", atom.where === "fromTop" ? atom.libraryIndex : null),
   "owner-tuck-reveal-put": applyOwnerTuckRevealPut, // CHAOS WARP (H12): owner tuck + shuffle → reveal top → permanent card onto the OWNER's battlefield
   "return-from-graveyard": applyReturnFromGraveyard,
   "return-from-graveyard-pick": applyReturnFromGraveyardPick, // ④-AA — the non-targeted "return a <filter> card" chosen at resolution
