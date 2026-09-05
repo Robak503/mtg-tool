@@ -16,6 +16,23 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · F6: HOT SOUP — the equipped creature is dealt damage · **+1** · corpus 14524 / 34,245
+> Suite **1518 files / 16,227** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed (one survivor got its missing test).**
+> · "Equipped creature can't be blocked. / Whenever equipped creature is dealt damage, destroy it. / Equip {3}". The
+>   unblockable grant and the Equip were already modelled. Two gaps on the trigger: the dealt-damage event had self and
+>   creature-you-control scopes but not the EQUIPPED one (a new condition arm — the checker already offers the attached
+>   Equipment as a watcher with the damaged creature as the triggering permanent, and scopeMatches' equippedCreature
+>   rule reads the attachment, CR 301.5); and "destroy it" had no road to the triggering-creature destroy sentinel on
+>   that scope (an exact-clause rewrite beside Toxin Sliver's "destroy that creature" — a rider stays unrewritten →
+>   LOW). Three printings of the head (Fiendlash, Blazing Sunsteel carry other payoffs).
+> · **Pins:** the descriptor detects on the equipped scope with the sentinel effect, native-equipment; damage to the
+>   equipped bear fires Hot Soup and the bear is destroyed with the Equipment staying; damage to the other bear fires
+>   nothing. A survivor got its missing test: the exact-clause anchor on the rewrite was unwitnessed, so a synthetic
+>   "destroy it. You gain 2 life." now pins that the rider survives the rewrite stage and the card parks (no partial).
+>   Mutants: the arm, the wrong scope, the rewrite gone, the rewrite widened past the exact clause — mutants 4/4 killed (one survivor got its missing test).
+> · **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+> · Bumble Flower 77 → **78** (7 to the bar)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · F6: ELANOR GARDNER — "if you sacrificed a Food this turn" · **+2** · corpus 14523 / 34,245
 > Suite **1517 files / 16,224** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
 > · "At the beginning of your end step, if you sacrificed a Food this turn, you may search your library for a basic land

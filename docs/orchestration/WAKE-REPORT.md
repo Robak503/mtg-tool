@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · F6: Hot Soup (+1)** · suite **1518 files / 16,227** green · corpus 14524 / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed (one survivor got its missing test)
+
+> The equipped scope on the dealt-damage event, and "destroy it" bound to the damaged creature through the triggering-creature sentinel. Bumble Flower 77 → **78** (7 to the bar)
+> **CI:** held (repo private, billing-blocked; push on first green — [Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · F6: Elanor Gardner (+2)** · suite **1517 files / 16,224** green · corpus 14523 / 34,245 · flip-diff +2 / 0 lost · mutants 5/5 killed
 
 > A per-player sacrificed-this-turn memo at the sacrifice chokepoint; "if you sacrificed a Food this turn" reads it word-bounded by type. Bumble Flower 76 → **77** (8 to the bar); Detective's Satchel the unplanned gain, audited whole-card (its activation condition 'you've sacrificed an artifact this turn' reads the new memo; investigate twice + the Thopter were already modelled)

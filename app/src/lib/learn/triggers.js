@@ -2741,6 +2741,12 @@ function classifyCondition(condRaw, cardName, cardType) {
   // effect's "it" / "that creature" → the triggering (damaged) creature via the ETB_ENTERING_PRONOUN rewrite
   // arm below (extended to dealtDamage). Whole-clause anchored ($) so a filtered/rider form stays Arbiter.
   if (/^a creature you control is dealt damage$/.test(c)) return { event: "dealtDamage", scope: "creatureYouControl", whose: "any" };
+  // EQUIPPED-SCOPE dealt-damage (SHELF-85 · Bumble F6 Hot Soup, 2026-09-05 — "Whenever equipped creature is dealt damage,
+  // destroy it."; Fiendlash / Blazing Sunsteel print the head with other payoffs): the watcher is the EQUIPMENT.
+  // checkDealtDamageTriggers already scans the damaged creature's controller's trigger sources (the attached Equipment
+  // among them) with triggeringPermanent = the damaged creature; scopeMatches' equippedCreature rule reads the
+  // attachment (CR 301.5). The effect's "destroy it" is rewritten to the triggering-creature destroy sentinel below.
+  if (/^equipped creature is dealt damage$/.test(c)) return { event: "dealtDamage", scope: "equippedCreature", whose: "any" };
 
   // HEROIC (CR 702.35) — "Whenever you cast a spell that targets this creature, <effect>".
   // Fires when the controller casts any spell that has this permanent as a chosen target. The
@@ -4865,6 +4871,11 @@ export function detectTriggers(card) {
         // triggering permanent; the removal.js exile sentinel binds it. The detector gates on the exact
         // whole-effect text, so no other clause can reach this branch.
         effectClause = "exile the triggering creature";
+      } else if (cls.event === "dealtDamage" && cls.scope === "equippedCreature" && /^destroy it\.?$/i.test(effectClause)) {
+        // HOT SOUP (Bumble F6, 2026-09-05) — "destroy it": on the equipped-scope dealt-damage event "it" is the damaged
+        // (equipped) creature, threaded as the triggering permanent by checkDealtDamageTriggers — the same referent
+        // guarantee Toxin Sliver's "destroy that creature" rides. Exact-clause gated: any rider stays unrewritten → LOW.
+        effectClause = "destroy the triggering creature";
       } else if (cls.event === "combatDamageToCreature" && cls.tapLockThatCreature) {
         // ⭐ SELF combat-damage TAP-AND-LOCK — the destroy twin's sibling rewrite, and identical in shape:
         // "that creature" is the DAMAGED creature, threaded by checkCombatDamageToCreatureTriggers as the
