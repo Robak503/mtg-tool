@@ -689,6 +689,7 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [],
   const addStackAbilities = (kinds) => {
     for (const obj of state.stack || []) {
       if (!kinds.has(obj.kind)) continue;
+      if (effect.targetsFilter && !spellTargetsMatchFilter(state, obj, effect.targetsFilter, controllerId)) continue; // NOT OF THIS WORLD (KT-9b): "ability that targets a permanent you control" — an ability's recorded targets are read the same way a spell's are
       out.push({ type: "stackAbility", id: obj.id, controller: obj.controller, name: obj.source?.name ? `${obj.source.name}'s ability` : "ability" });
     }
   };

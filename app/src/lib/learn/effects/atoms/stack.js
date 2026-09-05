@@ -604,6 +604,16 @@ export function counterClauseParser(clause) {
       if (f) return { op: "counter", spellFilter: "instantOrAura", targetType: "spell", targetsFilter: f };
       return null;
     }
+    // NOT OF THIS WORLD (POD-SIM THREE · KT-9b, 2026-09-05): "Counter target spell or ability that targets a permanent you
+    // control" — the SPELL-OR-ABILITY union with the same targets-what predicate; the enumerator offers stack objects of
+    // either kind whose recorded targets match, and the resolver counters a spell like `counter` and removes an ability
+    // like `counter-ability`.
+    const twUnion = /^counter target spell or ability that targets (.+)$/.exec(t);
+    if (twUnion) {
+      const f = parseSpellTargetsFilter(twUnion[1]);
+      if (f) return { op: "counter-spell-or-ability", targetType: "spellOrStackAbility", targetsFilter: f };
+      return null;
+    }
   }
   if (/^counter target spell$/.test(t)) return { op: "counter", spellFilter: "any", targetType: "spell" };
   // MANA DRAIN (2026-08-14) — the splitClauses MANA-DRAIN FOLD delivers the two printed sentences as
@@ -2046,6 +2056,19 @@ export const stackResolvers = {
   // an object that exists anywhere else, so removing the stack entry IS the whole effect.
   // The kind is re-verified at resolution (CR 608.2b): the targeted ability may have already resolved or
   // been countered in response, in which case this fizzles rather than removing some unrelated stack object.
+  "counter-spell-or-ability": (state, atom, ctx) => { // NOT OF THIS WORLD (KT-9b): dispatch on the chosen object's kind
+    let next = state;
+    for (const t of ctx.targets || []) {
+      const obj = (next.stack || []).find((o) => o.id === t.id);
+      if (!obj) { next = logEvent(next, { kind: "spell-effect", effect: "counter-fizzle", targetId: t.id }); continue; }
+      if (obj.kind === "spell") {
+        next = stackResolvers["counter"](next, { op: "counter", spellFilter: "any", targetType: "spell" }, { ...ctx, targets: [{ ...t, type: "spell" }] });
+      } else {
+        next = stackResolvers["counter-ability"](next, { op: "counter-ability", targetType: "stackAbility" }, { ...ctx, targets: [{ ...t, type: "stackAbility" }] });
+      }
+    }
+    return next;
+  },
   "counter-ability": (state, atom, ctx) => {
     let next = state;
     const kinds = new Set(atom.abilityKinds || ["activated-ability", "triggered-ability"]);

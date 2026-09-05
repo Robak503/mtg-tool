@@ -57,7 +57,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Colton | Veyran Cantrips | 91 | — | — | ✅ at the bar (④-BD) |
 | Colton | The Unbeatable Squirrel Girl | 90 | — | — | ✅ at the bar |
 | Colton | cdh | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
-| Colton | Killer Turts | 84 | 1 | 6 | ⬜ Phase 2 |
+| Colton | Killer Turts | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Did you say Dragons? | 91 | — | — | ✅ at the bar |
 | Joe | Earth Bent | 91 | — | — | ✅ at the bar (④-BE) |
 | Joe | Mothman Cometh | 89 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**9 decks below 85 · 103 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**8 decks below 85 · 102 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — POD-SIM THREE · KT-9b Not of This World (Killer Turts) ✅ +3 corpus (the spell-OR-ability counter union with the targets-what predicate + a TARGET-CONDITIONAL cost reduction settled per chosen target; twins Diplomatic Escort, Siren Stormtamer) · 8/8 killed · suite 1492/16,117 · **Killer Turts 84 → 85 — AT THE BAR (85/100), the first of the pod-sim three.** Kinnan 75 · Believe it! 75 · Shalai 84 (Solitude). Next: Kinnan per RUNBOOK-KINNAN (KN-1 Thassa's Oracle).
 
 - 2026-09-05 — POD-SIM THREE · KT-10a Carpet of Flowers (Killer Turts) ✅ +8 corpus · 9/9 killed (the engine-hook mutant survived once → a stepping pin added → killed) · suite 1491 files / 16,110 tests · corpus 14,452 (42.2%) · shelf refreshed in §1 · CI: BLOCKED (repo private → billing); LOCAL on the full gates.
 

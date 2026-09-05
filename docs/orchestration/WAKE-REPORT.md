@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-9b: Not of This World (+3)** · suite **1492/16,117** green · corpus 14,455 / 34,245 · flip-diff +3 / 0 lost · 8/8 killed
+
+> The spell-or-ability counter union with the targets-what predicate read off abilities too, and a target-conditional cost reduction settled per chosen target in the cast lane. **Killer Turts 84 → 85 — AT THE BAR (85/100), the first of the pod-sim three.** Kinnan 75 · Believe it! 75 · Shalai 84 (Solitude). Next: Kinnan per RUNBOOK-KINNAN (KN-1 Thassa's Oracle).
+> **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KT-10a: Carpet of Flowers (+8)** · suite **1491 files / 16,110 tests** green · corpus 14,452 (42.2%) / 34,245 · flip-diff +8 / 0 lost · 9/9 killed (the engine-hook mutant survived once → a stepping pin added → killed)
 
 > A both-mains event, a per-ability per-turn latch, an X-of-one-colour add over the target opponent's Islands, and opponent-targeted trigger effects admitted. **Killer Turts 83 → 84** (84/100; needs 1). Seven unplanned gains audited whole-card (opponent-targeted trigger effects: Ms. Bumbleflower, Farsight Adept, Soldevi Steam Beast, Persuasive Interrogators, Flumph, Sphinx of Enlightenment, Venerated Rotpriest — Sphinx and Bumbleflower runtime-checked). Next: the last Turts slot.

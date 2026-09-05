@@ -1313,11 +1313,20 @@ export function parseEffectProgram(card) {
   const CAST_WINDOW_RE = /^[ \t]*cast this spell only during combat on your turn\.?[ \t]*(?:\n|$)/im;
   const withStrive = strive ? destrived : stripped;
   const castTiming = CAST_WINDOW_RE.test(withStrive) ? { phase: "combat", yourTurn: true } : null;
-  const body = castTiming ? withStrive.replace(CAST_WINDOW_RE, "") : withStrive;
+  const afterWindow = castTiming ? withStrive.replace(CAST_WINDOW_RE, "") : withStrive;
+  // ⭐ TARGET-CONDITIONAL REDUCTION (NOT OF THIS WORLD — POD-SIM THREE · KT-9b, 2026-09-05): "This spell costs {7} less to
+  // cast if it targets a spell or ability that targets a creature you control with power 7 or greater." The reduction
+  // depends on the TARGET chosen at cast, so it is STAMPED on the program and applied per chosen target in the cast lane
+  // (the strive discipline, in the other direction). Peeled without stamping = a 7-mana counter forever (an under-offer,
+  // but the stamp is what makes the card the card — mutation-proven).
+  const TCR_RE = /^[ \t]*this spell costs \{(\d+)\} less to cast if it targets a spell or ability that targets a creature you control with power (\d+) or greater\.?[ \t]*(?:\n|$)/im;
+  const tcr = afterWindow.match(TCR_RE);
+  const targetConditionalReduction = tcr ? { amount: Number(tcr[1]), targetsCreatureYouControlPowerAtLeast: Number(tcr[2]) } : null;
+  const body = tcr ? afterWindow.replace(TCR_RE, "") : afterWindow;
   const subject = body === oracleOf(card) ? card : { ...card, oracle: body, oracle_text: body };
   const prog = parseEffectProgramWithSelfExileRetry(subject) ?? null;
   if (!prog) return prog;
-  return { ...prog, ...(strive ? { strivePerTarget: strive } : {}), ...(castTiming ? { castTiming } : {}) };
+  return { ...prog, ...(strive ? { strivePerTarget: strive } : {}), ...(castTiming ? { castTiming } : {}), ...(targetConditionalReduction ? { targetConditionalReduction } : {}) };
 }
 
 /**

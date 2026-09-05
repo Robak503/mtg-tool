@@ -16,6 +16,25 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-9b: NOT OF THIS WORLD — the spell-or-ability counter union + a TARGET-CONDITIONAL cost · **+3** · corpus 14,455 / 34,245
+> Suite **1492/16,117** green; lint 0. Flip-diff **+3, zero LOST** (twins Diplomatic Escort + Siren Stormtamer audited whole-card). **8/8 killed.**
+> · "Counter target spell or ability that targets a permanent you control. This spell costs {7} less to cast if it targets a
+>   spell or ability that targets a creature you control with power 7 or greater." Two seams: (1) the SPELL-OR-ABILITY
+>   union as a COUNTER — its own targeting-spec kind (the union's only prior kind was Deflecting Swat's retarget, which
+>   carries `notCounter`; a counter must not), `targetsFilter` threaded explicitly (unlisted = dropped = a counter that hits
+>   anything), and the targets-what predicate now applied to a stack ABILITY's recorded targets too; the resolver dispatches
+>   a spell down `counter` and an ability down `counter-ability`. (2) the reduction depends on the TARGET chosen at cast, so
+>   it is peeled and STAMPED on the program (the strive discipline in the other direction) and settled per chosen target in
+>   the cast lane — the affordability gate lets the card through on its best-case cost, each choice re-checks at its settled
+>   cost, MV stays printed (CR 202.3), power is layer-aware (counters count).
+> · **Pins:** {7} against a spell aimed at your 2/2 (not offered on an empty pool); {0} against one aimed at your 7-power
+>   creature, and at a 5/5 wearing two +1/+1 counters; a 6-power earns nothing; a spell is countered to its owner's
+>   graveyard, an ability leaves the stack, and neither is offered when aimed at the opponent's own permanent or at you as a
+>   player. Mutants: the arm, the spec fallback to retarget, the ability-side filter, the unstamped reduction, the gate, the
+>   boundary, the never-reduce and the mis-routed resolver — all died.
+> · **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+> · **Killer Turts 84 → 85 — AT THE BAR (85/100), the first of the pod-sim three.** Kinnan 75 · Believe it! 75 · Shalai 84 (Solitude). Next: Kinnan per RUNBOOK-KINNAN (KN-1 Thassa's Oracle).
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KT-10a: CARPET OF FLOWERS — four seams for one mana enchantment · **+8** · corpus 14,452 (42.2%) / 34,245
 > Suite **1491 files / 16,110 tests** green; lint 0. Flip-diff **+8, zero LOST** (any unplanned gains audited whole-card). **9/9 killed (the engine-hook mutant survived once → a stepping pin added → killed).**
 > · "At the beginning of each of your main phases, if you haven't added mana with this ability this turn, you may add X mana of

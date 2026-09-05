@@ -1,4 +1,4 @@
-# RUNBOOK — KILLER TURTS to 85 (70/100 · 30 non-native · needs 15)
+# RUNBOOK — KILLER TURTS to 85 — ✅ AT THE BAR 2026-09-05 (85/100 · was 70/100 · 30 non-native · needed 15; the remaining 15 non-native go to Omnath's Arbiter list once all three decks land)
 
 > Umbrella: [POD-SIM-THREE-DECKS.md](POD-SIM-THREE-DECKS.md) (the capability map, the shared seams, the order).
 > Deck memory: `memory/deck_raph_and_mikey.md` ("Killer Turts", Raph & Mikey's deck — verify live before deck talk).
@@ -49,7 +49,7 @@ Legend: **S** one arm on an existing seam · **M** a new arm plus a runtime seam
 | C1 | **Guttural Response** | counter target blue instant spell | ✅ DONE 2026-09-05 (KT-2): the two-filter counter atom; both filters enforced by the enumerator and the resolver | **S** | pinned: a red instant and a blue creature spell are never targets |
 | C2 | **Pyroblast** | modes: counter target spell if it's blue / destroy target permanent if it's blue | ✅ DONE 2026-09-05 (KT-2): the "if it's <colour>" mode form is read as its RESTRICTED twin (REB's printed wording) — an honest UNDER-offer; Hydroblast rides the same rewrite | **S** | the legal-but-idle cast at a non-blue object is NOT modelled rather than mis-modelled; the sim never wastes it |
 | C3 | **Avoid Fate** | counter target instant or Aura spell that targets a permanent you control | ✅ DONE 2026-09-05 (KT-9a): the targets-what predicate ALREADY existed ("a permanent you control"); the typed form adds a spell-type filter in front (`instantOrAura`, known to both evaluators) | **S** | pinned: an instant aimed at your creature is countered; a sorcery aimed at it and an instant aimed at the opponent's are never targets |
-| C4 | **Not of This World** | counter target spell or ability that targets a permanent you control; costs {7} less if the target targets your 7-power creature | the same predicate + an ability target + a conditional reducer | **M** | rides C3 |
+| C4 | **Not of This World** | ✅ DONE 2026-09-05 (KT-9b): the SPELL-OR-ABILITY counter union (`counter-spell-or-ability`, its own targeting-spec kind — a counter, so uncounterables drop out) with the targets-what predicate now read off an ABILITY's recorded targets too; the {7} reduction is STAMPED on the program (`targetConditionalReduction`) and settled PER CHOSEN TARGET in the cast lane — the gate lets the card through on its best-case cost, each choice re-checks affordability, MV stays printed (CR 202.3), power is layer-aware | **M** | pinned: {7} vs a spell at your 2/2 (not offered on an empty pool); {0} vs one at your 7-power creature and at a 5/5 with two counters; a 6-power does NOT earn it; counters a spell (to its owner's graveyard) and an ability (off the stack) aimed at your permanent, never one aimed at the opponent's own or at you as a player; twins Diplomatic Escort + Siren Stormtamer ("you or a creature you control") audited whole-card |
 | C5 | **Veil of Summer** | draw if an opponent cast blue/black this turn; your spells can't be countered this turn; you and your permanents gain hexproof from blue and black | three effects: a colour-cast-this-turn draw, an uncounterable-this-turn flag, colour-scoped hexproof (from-colour exists? probe) | **M/L** | shared with Kinnan; each of the three halves must be real |
 
 ### 1d. Redirects (5 cards · seam S-H · L · LAST)
@@ -97,7 +97,7 @@ Ordered by plan-criticality, then cost. Running total assumes each slice lands w
 | KT-6 | Savage Beating | combat-only timing restriction (+ entwine honoured) | ✅ +1 | 9 |
 | KT-7 | Overpowering Attack · Full Throttle · World at War | S-D: attacked-this-turn untap, two additional combats, delayed per-combat untap, after-second-main insertion; rebound + freerunning sized on approach | ✅ Overpowering Attack +1 · ✅ Full Throttle +1 · World at War ⬜ (rebound unmodeled) | 13 |
 | KT-8 | Grim Reaper's Sprint | aura ETB extra combat + morbid reducer | ✅ +3 | 11 |
-| KT-9 | Avoid Fate · Not of This World | targets-a-permanent-you-control predicate | ✅ Avoid Fate +2 · Not of This World ⬜ (spell-OR-ability target union + a target-conditional reducer — M) | 12 |
+| KT-9 | Avoid Fate · Not of This World | targets-a-permanent-you-control predicate | ✅ Avoid Fate +2 · ✅ Not of This World +3 | 12 |
 | KT-10 | Carpet of Flowers · Jeweled Amulet · Great Train Heist (spree) · World War Hulk | whichever lands cleanest | ✅ Carpet +8 · the rest ⬜ (Amulet L, Heist M/L, Hulk L — the Saga path credits no chapter) | 14 |
 
 Stop the deck at ≥85. Everything unbuilt below the line (redirects, Tezzeret, Invasion, Tibalt's Trickery,

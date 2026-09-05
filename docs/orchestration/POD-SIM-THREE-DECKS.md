@@ -17,7 +17,7 @@
 
 | Deck | Native | Non-native | Needs for 85 | Role in the pod |
 |---|---|---|---|---|
-| Killer Turts | 70/100 | 30 | **15** | extra-combat red-green aggro-storm |
+| Killer Turts | ✅ **85/100** (2026-09-05; was 70) | 15 | **0** | extra-combat red-green aggro-storm |
 | Kinnan Mana Overload | 75/100 | 25 | **10** | cEDH big-mana / copy / Thoracle |
 | Believe it! | 75/100 | 25 | **10** | cEDH ninjas + Thoracle-Consultation |
 
@@ -63,7 +63,7 @@ Real cards probed for their live tier, standing in for whole families:
 | Restricted-spend mana on a SPELL | **NO** | Geosurge / Open the Omenpaths = arbiter-spell (the Klauth restricted-mana seam exists for ABILITIES) | the spell-side twin of the QUARTET lane |
 | Cast lock "only one more spell this turn" | seam exists (castLocksThisTurn, Permission Denied) | Irencrag's rider unparsed | a rider on a ritual |
 | Counter with ONE filter | **YES** | Counterspell, Negate, Essence Scatter, Dispel, Flusterstorm, REB = native-spell; `colorFilter` + `spellFilter` | "blue instant" (two filters at once) unparsed; "if it's blue" (Pyroblast's mode form) unparsed |
-| Counter "that targets a permanent you control" | **NO** | Avoid Fate / Not of This World = arbiter | a target-of-target predicate on stack objects |
+| Counter "that targets a permanent you control" | **YES** (2026-09-05, KT-9a/9b) | Avoid Fate + Not of This World native; the predicate reads a spell's OR an ability's recorded targets | — |
 | Redirect ("change the target of target spell") | **NO** | Misdirection, Bolt Bend, Deflecting Palm = arbiter | an L seam: retargeting a stack object; 5 Turts cards + Misdirection ×2 + Hydroelectric |
 | Exile any number of target spells | **NO** | Mindbreak Trap = arbiter | any-number spell targets |
 | Clone (creature) | **YES** | Clone, Phantasmal Image, Spark Double = native-clone | widening "any nonland permanent" / "any enchantment" / token-copy-of-permanent = the copy seam |
@@ -96,7 +96,7 @@ Real cards probed for their live tier, standing in for whole families:
 
 ## 4. THE GLOBAL ORDER
 
-1. **Killer Turts to 85** (needs 15) — the deck's plan is the extra-combat family; S-D and S-E carry ~9 of the
+1. ✅ **Killer Turts to 85** — DONE 2026-09-05 (85/100; needed 15) — the deck's plan is the extra-combat family; S-D and S-E carry ~9 of the
    15 on their own; the counters (S-F), Port Razer's second line, City of Traitors and Carpet of Flowers fill it.
 2. **Kinnan to 85** (needs 10) — S-A (Thoracle) and S-C (copy widening, four cards) first; Treasure Vault,
    Moonsilver Key, Cephalid Coliseum, Wan Shi Tong, Nezahal's fourth line, Hullbreaker Horror fill it.

@@ -208,6 +208,10 @@ function atomTargetSpec(atom) {
   // RETARGET (Deflecting Swat, CR 115.7) — the STACK-WIDE union "target spell or ability". `notCounter`
   // MUST be threaded explicitly (same unlisted-=-dropped trap as the Venser arm above): retargeting is not
   // countering, so the CR 701.6a uncounterability exclusions never narrow Swat's legal pool.
+  // NOT OF THIS WORLD (POD-SIM THREE · KT-9b, 2026-09-05): the same union, COUNTERED — a counter, so no `notCounter`
+  // (uncounterable spells drop out, CR 701.6a), and `targetsFilter` MUST be threaded (unlisted = dropped = a counter
+  // that hits any stack object, an FP).
+  if (tt === "spellOrStackAbility" && atom.op === "counter-spell-or-ability") return { kind: "counter-spell-or-ability", targetType: tt, targetsFilter: atom.targetsFilter };
   if (tt === "spellOrStackAbility") return { kind: "retarget", targetType: tt, notCounter: true };
   // COPY TARGET ABILITY (SHELF-85 V6 — Peter Parker's Camera / Strionic Resonator): a stack ABILITY the activator
   // controls, of the printed kind(s). `abilityKinds` MUST be threaded explicitly (the generic tail drops unknown

@@ -59,6 +59,21 @@ function parseCastProgram(card) {
  * A stamped spell is offered ONLY when every named condition holds (CR 601.3 — a restriction on when the spell may be
  * cast); fails closed on an unreadable card.
  */
+// NOT OF THIS WORLD (KT-9b): does any chosen stack target itself target a creature YOU control with power ≥ N?
+// Reads the stack object's RECORDED targets (spell or ability alike); a target already gone fails closed.
+function targetConditionalReductionHits(state, playerId, targets, tcr) {
+  const need = tcr.targetsCreatureYouControlPowerAtLeast;
+  return (targets || []).some((t) => {
+    if (!t || (t.type !== "spell" && t.type !== "stackAbility")) return false;
+    const obj = (state.stack || []).find((o) => o.id === t.id);
+    return !!obj && (obj.targets || []).some((u) => {
+      if (!u || u.type === "player" || u.type === "spell" || u.type === "stackAbility") return false;
+      const lk = findPermanent(state, u.id);
+      if (!lk || lk.permanent.controller !== playerId || !permanentIsCreature(state, u.id)) return false;
+      return creaturePower(lk.permanent, state) >= need;
+    });
+  });
+}
 function castTimingAllows(state, playerId, card) {
   const ct = parseCastProgram(card)?.castTiming;
   if (!ct) return true;
@@ -1128,10 +1143,16 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // restriction credited as modeled would hand the engine a combat trick playable at any time, which is a
     // materially stronger card than the printed one.
     if (castOnlyWhenAttacked(card) && !hasBeenAttackedThisStep(state, playerId)) continue;
-    if (!affordable && !emergeSpec && !altSpec) continue;
+    // ⭐ TARGET-CONDITIONAL REDUCTION (NOT OF THIS WORLD — POD-SIM THREE · KT-9b, 2026-09-05): the printed {7} may fall
+    // to {0} depending on the TARGET chosen, so an unaffordable printed cost is not the last word — let the card
+    // through on its BEST-CASE cost and settle per chosen target below (each choice re-checks affordability).
+    const program = parseCastProgram(card); // S1.1 — stripped parse; matches the classifier + the dispatcher fallback
+    const tcr = program?.targetConditionalReduction || null;
+    const tcrAffordable = !!tcr && canAfford(player.manaPool, manaSources(state, playerId), { ...cost, generic: Math.max(0, (cost.generic || 0) - tcr.amount) }, spendContext);
+    if (!affordable && !emergeSpec && !altSpec && !tcrAffordable) continue;
 
     const effect = parseSpellEffect(card);
-    const program = parseCastProgram(card); // S1.1 — stripped parse; matches the classifier + the dispatcher fallback
+    // (`program` is bound above the affordability gate — the target-conditional reduction needs it there.)
     const base = {
       kind: "cast-spell",
       playerId,
@@ -1511,6 +1532,15 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         // cost plus N × (targets − 1), and a subset the player cannot fund is simply not offered — the printed card's
         // own limit. A one-target (or zero-target) cast pays the base cost, exactly as printed.
         let striven = common;
+        // TARGET-CONDITIONAL REDUCTION (KT-9b): the reduction bites only when the chosen target itself targets a
+        // creature you control with power ≥ N (layer-aware). MV stays PRINTED (CR 202.3 — a reduction never changes
+        // mana value); a subset the player cannot fund at its settled cost is not offered.
+        if (program.targetConditionalReduction) {
+          const hit = targetConditionalReductionHits(state, playerId, ch.targets, program.targetConditionalReduction);
+          const tcrCost = hit ? { ...base.cost, generic: Math.max(0, (base.cost.generic || 0) - program.targetConditionalReduction.amount) } : base.cost;
+          if (!freeCast && !canAfford(player.manaPool, manaSources(state, playerId), tcrCost, spendContext)) continue;
+          striven = { ...common, cost: tcrCost };
+        }
         if (program.strivePerTarget && ch.targets.length > 1) {
           const per = parseManaCost(program.strivePerTarget);
           let cost = base.cost;
