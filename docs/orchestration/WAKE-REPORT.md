@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KN-5b: Wan Shi Tong (+2) — 🏁 KINNAN AT THE BAR** · suite **1498/16148** green · corpus 14471 / 34,245 · flip-diff +2 / 0 lost · 7/8 killed + 1 documented survivor
+
+> The cast lane enumerates X for an X-reading ETB, the counters and half-X draw read it, and a library-search event fires from the two tutor sites only. **🏁 KINNAN 84 → 85 — AT THE BAR (85/100), the second of the pod-sim three.** Believe it! 77 (needs 8) · Killer Turts 85 ✅ · Shalai 84. (Full suite: the half-X witness parked Wan Shi Tong on the undetected search trigger — graduated; every other file green.) Next: RUNBOOK-BELIEVE-IT BI-2 Demonic Consultation + Tainted Pact — THE WIN.
+> **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KN-6a: Sink into Stupor (+1)** · suite **1497/16143** green · corpus 14469 / 34,245 · flip-diff +1 / 0 lost · 5/5 killed
 
 > The stack-or-battlefield bounce narrowed to an opponent's spell or an opponent's nonland permanent, threaded through the union's targeting spec. **Kinnan 83 → 84 (needs 1)** · Believe it! 76 · Killer Turts 85 ✅ · Shalai 84. (Full suite: the modal-land witness used Sink into Stupor as its 'unmodeled front' example — two tier guards graduated and its cast test rewritten into a positive pin; every other file green.) Next: KN-5b Wan Shi Tong — the last slot.

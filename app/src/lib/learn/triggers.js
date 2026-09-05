@@ -2110,6 +2110,11 @@ function classifyCondition(condRaw, cardName, cardType) {
   // AFTER the clash ends (the printed reminder). Bare forms only; any rider on the condition → UNDETECTED.
   if (/^you clash$/.test(c)) return { event: "clash", scope: "you", whose: "any" };
   if (/^you clash and win$/.test(c)) return { event: "clash", scope: "you", whose: "any", winOnly: true };
+  // ===== LIBRARY SEARCH (POD-SIM THREE · KN-5b, 2026-09-05 — CR 701.19) ===== "Whenever an opponent searches their
+  // library" (Wan Shi Tong; Ob Nixilis / Aven Mindcensor-family twins). Emitted by the TWO tutor sites only — the
+  // no-pause tutor path and the tutor-pause settle — never by the shuffle chokepoint (plain shuffles, wheels and scry
+  // shuffles are not searches). Bare opponent form only; a rider → UNDETECTED.
+  if (/^an opponent searches (?:their|his or her) library$/.test(c)) return { event: "librarySearch", scope: "opponent", whose: "any" };
   // ===== TAPPED FOR MANA (CORPUS ④-D, 2026-09-03 night — CR 605.3 / 603.2) ===== "Whenever you tap this creature for
   // mana, …" (Zhur-Taa Druid — scope self: the tapped permanent IS the watcher) / "Whenever you tap a land for mana"
   // (a land-filtered watcher, whose:"you") / "Whenever an opponent taps a land for mana" (Vorinclex — whose:"opponent").
@@ -8226,6 +8231,23 @@ export function checkTokenCreatedTriggers(state, creatingPlayerId, numCreated = 
  * Called by the clash applier AFTER the stamp (the printed "triggers after the clash ends"). Context carries
  * `clashWon` for a payoff that reads it.
  */
+/** LIBRARY SEARCH (KN-5b): `searcherId` just searched their library — fire every opponent's "whenever an opponent
+ *  searches their library" watcher (scope opponent = a watcher NOT controlled by the searcher). */
+export function checkLibrarySearchTriggers(state, searcherId) {
+  if (!searcherId || !state?.players?.[searcherId]) return state;
+  const fired = [];
+  for (const pid of Object.keys(state.players)) {
+    if (pid === searcherId) continue;
+    for (const watcher of triggerSourcesOf(state, pid)) {
+      for (const d of detectTriggers(watcher.card).filter((x) => x.event === "librarySearch" && x.scope === "opponent")) {
+        fired.push(makePendingTrigger(d, watcher, watcher, { searcherId }));
+      }
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
 export function checkClashTriggers(state, clashers) {
   let fired = [];
   for (const { id, won } of clashers || []) {

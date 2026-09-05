@@ -1027,6 +1027,13 @@ export function convergeEntersCounters(card) {
   return null;
 }
 
+/** WAN SHI TONG (KN-5b): an ETB trigger that READS the cast's X ("When ~ enters, put X +1/+1 counters on him…") — the
+ *  cast lane must enumerate X for it exactly as for an enters-with-X body (the X reaches the trigger as etbSelfContext). */
+export function etbUsesX(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  return /\bwhen [^.\n]*?\benters, put x \+1\/\+1 counters? on (?:it|him|her|them|this creature|[^.]+?)\b/i.test(oracle);
+}
+
 export function entersWithXCounters(card) {
   const rawOracle = String(card?.oracle || card?.oracle_text || "");
   // KW-RAVENOUS (Edge of Eternities / Warhammer 40k — CR keyword) — the keyword's enters-with-X mechanic

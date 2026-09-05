@@ -297,10 +297,8 @@ describe("HALF-X-CREATE-TOKENS — CREED: a bystander 'whenever a creature enter
 // ── CREED anti-FP pins — every PARKED half-X card stays non-native on its own blocker ──
 describe("HALF-X — PARKED: the other 'half X' cards stay non-native (the build can't fabricate a flip)", () => {
   const parked = {
-    "Wan Shi Tong, Librarian (opponent-search trigger undetected)": {
-      name: "Wan Shi Tong, Librarian", type: "Legendary Creature — Bird Spirit", mana: "{X}{U}{U}", power: 0, toughness: 0,
-      oracle: "Flash\nFlying, vigilance\nWhen Wan Shi Tong enters, put X +1/+1 counters on him. Then draw half X cards, rounded down.\nWhenever an opponent searches their library, put a +1/+1 counter on Wan Shi Tong and draw a card.",
-    },
+    // Wan Shi Tong, Librarian — GRADUATED (POD-SIM THREE · KN-5b, 2026-09-05): the opponent-search trigger is detected and
+    // fires from the two tutor sites; the X-reading ETB is cast for X — wanShiTong.test.js carries the runtime pins.
     "Banshee (activated {X} cost unmodeled)": {
       name: "Banshee", type: "Creature — Spirit", mana: "{2}{B}{B}", power: 0, toughness: 1,
       oracle: "{X}, {T}: This creature deals half X damage, rounded down, to any target, and half X damage, rounded up, to you.",

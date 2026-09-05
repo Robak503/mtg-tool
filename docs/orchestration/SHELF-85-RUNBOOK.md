@@ -53,10 +53,10 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 |---|---|---|---|---|---|
 | Colton | Omnath, Locus of Mana | 94 | — | — | ✅ at the bar |
 | Colton | Vihaan, Goldwaker | 95 | — | — | ✅ at the bar |
-| Colton | Zaxara kinda X'ish | 93 | — | — | ✅ at the bar |
+| Colton | Zaxara kinda X'ish | 94 | — | — | ✅ at the bar |
 | Colton | Veyran Cantrips | 91 | — | — | ✅ at the bar (④-BD) |
 | Colton | The Unbeatable Squirrel Girl | 90 | — | — | ✅ at the bar |
-| Colton | cdh | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
+| Colton | cdh | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Colton | Killer Turts | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Did you say Dragons? | 91 | — | — | ✅ at the bar |
 | Joe | Earth Bent | 91 | — | — | ✅ at the bar (④-BE) |
@@ -65,7 +65,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Hulk Smash | 87 | 0 | 3 | ✅ at 85 · Phase 3 candidate |
 | Joe | Wolverine, claws out! | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Joe | Jurassic Ramp | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
-| Joe | Kinnan Mana Overload | 84 | 1 | 6 | ⬜ Phase 2 (cEDH — LAST) |
+| Joe | Kinnan Mana Overload | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Believe it! | 77 | 8 | 13 | ⬜ Phase 2 (cEDH — LAST) |
 | Joe | Kellan of the west | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Halfshell heroes | 67 | 18 | 23 | ⬜ Phase 2 |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 65 | 20 | 25 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 67 | 18 | 23 | ⬜ Phase 2 |
 
-**8 decks below 85 · 91 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**7 decks below 85 · 90 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -477,6 +477,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — POD-SIM THREE · KN-5b Wan Shi Tong (Kinnan) ✅ +2 corpus (the cast lane enumerates X for an X-reading ETB; "put X counters" + "draw half X rounded down" off the context's X; a LIBRARY-SEARCH event from the two tutor sites only) · 7/8 killed + 1 documented survivor · suite 1498/16148 · **🏁 KINNAN 84 → 85 — AT THE BAR (85/100), the second of the pod-sim three.** Believe it! 77 (needs 8) · Killer Turts 85 ✅ · Shalai 84. (Full suite: the half-X witness parked Wan Shi Tong on the undetected search trigger — graduated; every other file green.) Next: RUNBOOK-BELIEVE-IT BI-2 Demonic Consultation + Tainted Pact — THE WIN.
 
 - 2026-09-05 — POD-SIM THREE · KN-6a Sink into Stupor (Kinnan) ✅ +1 corpus (the Venser stack-or-battlefield bounce narrowed to an opponent's spell / an opponent's nonland permanent — the modal card's only park; the land back was whole) · 5/5 killed · suite 1497/16143 · **Kinnan 83 → 84 (needs 1)** · Believe it! 76 · Killer Turts 85 ✅ · Shalai 84. (Full suite: the modal-land witness used Sink into Stupor as its 'unmodeled front' example — two tier guards graduated and its cast test rewritten into a positive pin; every other file green.) Next: KN-5b Wan Shi Tong — the last slot.
 

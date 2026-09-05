@@ -18,7 +18,7 @@
 | Deck | Native | Non-native | Needs for 85 | Role in the pod |
 |---|---|---|---|---|
 | Killer Turts | ✅ **85/100** (2026-09-05; was 70) | 15 | **0** | extra-combat red-green aggro-storm |
-| Kinnan Mana Overload | 84/100 | 16 | **1** | cEDH big-mana / copy / Thoracle |
+| Kinnan Mana Overload | ✅ **85/100** (2026-09-05; was 75) | 15 | **0** | cEDH big-mana / copy / Thoracle |
 | Believe it! | 76/100 | 24 | **9** | cEDH ninjas + Thoracle-Consultation |
 
 **35 slots across the three.** Shared cards: Thassa's Oracle (Kinnan + Believe it!), Mindbreak Trap (both),
@@ -98,7 +98,7 @@ Real cards probed for their live tier, standing in for whole families:
 
 1. ✅ **Killer Turts to 85** — DONE 2026-09-05 (85/100; needed 15) — the deck's plan is the extra-combat family; S-D and S-E carry ~9 of the
    15 on their own; the counters (S-F), Port Razer's second line, City of Traitors and Carpet of Flowers fill it.
-2. **Kinnan to 85** (needs 10) — S-A (Thoracle) and S-C (copy widening, four cards) first; Treasure Vault,
+2. ✅ **Kinnan to 85** — DONE 2026-09-05 (85/100; needed 10) — S-A (Thoracle) and S-C (copy widening, four cards) first; Treasure Vault,
    Moonsilver Key, Cephalid Coliseum, Wan Shi Tong, Nezahal's fourth line, Hullbreaker Horror fill it.
 3. **Believe it! to 85** (needs 10) — S-A lands Thoracle for free (built in step 2); S-G (Consultation + Pact)
    completes the WIN; then Sea Gate Restoration's front, Force of Despair, Flare of Malice, S-B (Subtlety),

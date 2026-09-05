@@ -1,4 +1,4 @@
-# RUNBOOK — KINNAN MANA OVERLOAD to 85 (75/100 · 25 non-native · needs 10)
+# RUNBOOK — KINNAN to 85 — ✅ AT THE BAR 2026-09-05 (85/100 · was 75/100 · 25 non-native · needed 10; the remaining 15 non-native go to Omnath's Arbiter list once Believe it! lands)
 
 > Umbrella: [POD-SIM-THREE-DECKS.md](POD-SIM-THREE-DECKS.md). cEDH by the code's CEDH_DEFAULT_IDS. Measured
 > 2026-09-05; every card below dumped with its REAL oracle and live tier; every sizing probed the same day.
@@ -40,7 +40,7 @@ Mox Diamond, Mana Vault, Sol Ring, LED all native-mana; Mana Crypt is body-only 
 | # | Card | Oracle gist | Blocker (probed) | Size | CREED note |
 |---|---|---|---|---|---|
 | K10 | **Nezahal, Primal Tide** | lines 1–3 native-mixed; line 4: discard three cards: exile, return tapped at next end step | a discard-three activated cost + a self-blink with a delayed return | **M** | the return is at the NEXT end step (a delayed trigger), not immediate |
-| K11 | **Wan Shi Tong, Librarian** | ETB X counters then draw half X (rounded down); opponent searches → counter + draw | an X-ETB with a derived draw; an "opponent searches their library" event (does the tutor path emit one? probe) | **M** | the search event must fire from every tutor atom, or the trigger under-fires (safe) but the card should then NOT be credited for that line |
+| K11 | **Wan Shi Tong, Librarian** | ✅ DONE 2026-09-05 (KN-5b): the cast lane now enumerates X for an ETB that READS X (not only an enters-with-X body — `etbUsesX`); "put X +1/+1 counters on this creature" and "draw half X cards, rounded down" read the context's X through the shared scaled-amount reader (the self-counter resolver's second path learned `amountX`); a new LIBRARY-SEARCH event ("whenever an opponent searches their library") emitted by the TWO tutor sites only — the no-pause path and the tutor-pause settle — never by the shuffle chokepoint (plain shuffles, wheels and scry shuffles are not searches) | **M** | pinned: X = 1..5 offered (never 0); X = 3 enters with three counters and draws one, X = 4 draws two; an opponent's tutor (pause then settle) fires +1 counter and a draw; a FRUITLESS opponent search (declined pause) still fires; my own search never fires it |
 | K12 | **The Unagi of Kyoshi Island** | Ward—Waterbend {4}; opponent draws second card each turn → you draw two | the draw-two-on-second-draw line is ALREADY native; the miss is Ward—Waterbend (a ward whose payment can tap artifacts/creatures) | **M** | waterbend as a ward cost — probe whether the bend costs exist for wards |
 | K13 | **Hullbreaker Horror** | flash; can't be countered; cast trigger: choose up to one — bounce target spell you don't control / bounce target nonland permanent | a cast-trigger with a "choose up to one" modal whose first mode targets a SPELL on the stack (return spell to hand) | **M** | bouncing a spell = removing a stack object to hand |
 | K14 | **Gilded Drake** | ETB exchange control with up to one target opponent's creature; sacrifice if no exchange; resolves even if the target is illegal | control exchange (the control seam exists for one-way steals) + the sac-if-not clause + the illegal-target override | **M** | the "still resolves if illegal" line means the sac happens even when the target is gone |
@@ -71,7 +71,7 @@ Mox Diamond, Mana Vault, Sol Ring, LED all native-mana; Mana Crypt is body-only 
 | KN-2 | Clever Impersonator · Copy Enchantment | S-C clone widening to nonland permanents / enchantments | ✅ +2 (a copied anthem applies — witnessed) | 3 |
 | KN-3 | Flash Photography · Imposter Mech | S-C token-copy-of-permanent + the Vehicle "except" rider | ✅ +3 | 5 |
 | KN-4 | Treasure Vault · Moonsilver Key · Cephalid Coliseum | the three S fills | ✅ +7 | 8 |
-| KN-5 | Nezahal (line 4) · Wan Shi Tong | discard-three blink with a delayed return; X-ETB derived draw + the search event | +2 | **10** |
+| KN-5 | Nezahal (line 4) · Wan Shi Tong | discard-three blink with a delayed return; X-ETB derived draw + the search event | ✅ Wan Shi Tong +2 · Nezahal line 4 ⬜ (a discard-THREE activation cost = a three-card hand choice — M+, deferred: the deck is at the bar) | **10** |
 | KN-6 (reserve) | Hullbreaker Horror · Gilded Drake · Endurance (S-B) · Sink into Stupor | if any KN slice lands short | ✅ Sink into Stupor +1 (KN-6a: the Venser union narrowed by spell controller + nonland/opponent restrictions — threaded through the targeting spec, unlisted = dropped) · the rest ⬜ (Hullbreaker M/L modal cast trigger · Gilded Drake L control exchange · Endurance M+ evoke composition) | |
 
 Stop the deck at ≥85. Below the line → the Omnath arbiter list (Tezzeret, Transmute Artifact, Mindbreak Trap,

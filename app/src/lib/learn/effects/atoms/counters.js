@@ -126,7 +126,7 @@ export function applyAddCounter(state, atom, ctx) {
   // put three … instead if a creature died this turn") routes through the SHARED resolveScaledAmount too, which
   // reads the board condition at RESOLUTION and swaps to the upgraded count when it holds (the base count
   // otherwise). New field only the INSTEAD matcher emits, so every other add-counter is byte-identical.
-  const amount = atom.countContext || atom.amountUpgrade ? Math.max(0, resolveScaledAmount(state, atom, ctx) || 0)
+  const amount = atom.countContext || atom.amountUpgrade || atom.amountX ? Math.max(0, resolveScaledAmount(state, atom, ctx) || 0) // + amountX (Wan Shi Tong, KN-5b): the context's X
     : atom.countFor ? Math.max(0, countForSpec(state, ctx, atom.countFor))
     : (atom.amount || 1);
   // PER-TARGET-DOUBLE (CR 121 — board-wide "double the number of +1/+1 counters on EACH creature you control":
@@ -719,6 +719,10 @@ export function addCounterClauseParser(clause) {
   }
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on this creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), target: "self" };
+  // WAN SHI TONG (POD-SIM THREE · KN-5b, 2026-09-05): "put X +1/+1 counters on this creature" — X is the context's X (the
+  // cast's chosen X threaded to the ETB, or an activation's), read through the shared scaled-amount reader.
+  m = t.match(/^put x ([+-]1\/[+-]1) counters? on this creature$/);
+  if (m) return { op: "add-counter", counterType: m[1], amountX: true, target: "self" };
   // MONSTROSITY (CR 701.32) — the "Monstrosity N" activated keyword action: if the source ISN'T monstrous, put N
   // +1/+1 counters on it and it becomes monstrous. A ONE-SHOT latch — re-activating a monstrous creature does
   // nothing — so it needs its own atom (applyMonstrosity gates on the monstrous flag + fires the "becomes

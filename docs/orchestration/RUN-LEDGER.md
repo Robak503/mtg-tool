@@ -16,6 +16,27 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KN-5b: WAN SHI TONG — an X-reading ETB + the library-search event · **+2** · corpus 14471 / 34,245
+> Suite **1498/16148** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **7/8 killed + 1 documented survivor.**
+> · "When Wan Shi Tong enters, put X +1/+1 counters on him. Then draw half X cards, rounded down. / Whenever an opponent
+>   searches their library, put a +1/+1 counter on Wan Shi Tong and draw a card." Three seams: (1) the cast lane only
+>   enumerated X for an enters-with-X body or a clone; an ETB that READS X now qualifies too (the chosen X already reached
+>   the trigger as its self context — nobody was choosing it); (2) "put X +1/+1 counters on this creature" and "draw half
+>   X cards, rounded down" read the context's X through the shared scaled-amount reader — the self-counter resolver's
+>   second path scaled only for a count context and silently put ONE counter for any X (seen to fail, fixed);
+>   (3) a LIBRARY-SEARCH event. The shuffle chokepoint could not carry it — plain shuffles, wheels and scry shuffles all
+>   pass through it and are not searches — so the event is emitted by the two tutor sites only: the no-pause tutor path
+>   and the tutor-pause settle (a fruitless search that declines its pause is still a search, CR 701.19b).
+> · **Pins:** X = 1..5 offered with two blue and five colourless (never 0); X = 3 enters with three counters and draws one,
+>   X = 4 draws two; the opponent's tutor fires +1 and a draw at the settle; a fruitless opponent search fires; my own search
+>   never does. Mutants: the X arm, the rounding, the amountX-blind resolver, the descriptor, the own-seat leak, the settle's
+>   emission and the X gate — all died. ONE DOCUMENTED SURVIVOR: the no-pause tutor path's emission — that branch is the
+>   count-zero dynamic tutor (a "search for up to X" with X = 0), which no witness reaches; every tutor in the witness set
+>   raises the pause (a fruitless search included) and is caught at the settle. The emission there mirrors the settle's
+>   line for line. Twin audited whole-card: Archivist of Oghma (Flash; the same bare trigger, gain 1 and draw).
+> · **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+> · **🏁 KINNAN 84 → 85 — AT THE BAR (85/100), the second of the pod-sim three.** Believe it! 77 (needs 8) · Killer Turts 85 ✅ · Shalai 84. (Full suite: the half-X witness parked Wan Shi Tong on the undetected search trigger — graduated; every other file green.) Next: RUNBOOK-BELIEVE-IT BI-2 Demonic Consultation + Tainted Pact — THE WIN.
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KN-6a: SINK INTO STUPOR — the union bounce narrowed · **+1** · corpus 14469 / 34,245
 > Suite **1497/16143** green; lint 0. Flip-diff **+1, zero LOST**. **5/5 killed.**
 > · "Return target spell or nonland permanent an opponent controls to its owner's hand." (the modal card's instant face —

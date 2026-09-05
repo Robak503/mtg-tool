@@ -13,7 +13,7 @@ import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_
 // "milled" trigger bind. checkDiesTriggers is imported by sibling atoms (counters/combat/manifest) without
 // a cycle, so importing checkMilledTriggers from the same leaf triggers.js module is equally safe (the
 // atoms barrel must NOT import effects/parser.js — that's the TDZ hazard; triggers.js is fine).
-import { checkMilledTriggers, checkUntapTriggers, checkClashTriggers } from "../../triggers.js"; // + STAGE ④-2: "whenever you clash" fires after the clash ends
+import { checkMilledTriggers, checkUntapTriggers, checkClashTriggers, checkLibrarySearchTriggers } from "../../triggers.js"; // + STAGE ④-2: "whenever you clash" fires after the clash ends
 import { millMultiplier } from "../../replacementEffects.js"; // MILL-DOUBLER (Bruvac, SHELF M2) — leaf, cycle-free
 // GENESIS-WAVE — the mass reveal-top-X → put-permanents-onto-battlefield atom reuses the shared
 // enterCardFromZone helper (fires ETB / landfall / permanent-enters exactly like reanimation + library ramp),
@@ -274,7 +274,7 @@ export function applyTutor(state, atom, ctx) {
   // (bfxg) shuffles too. A from-hand / graveyard-only search never touches the library.
   const searchesLibrary = sourceZones ? sourceZones.includes("library") : sourceZone === "library";
   if (dynCount === 0) {
-    const shuffled = searchesLibrary ? shuffleControllerLibrary(state, controller) : state;
+    const shuffled = searchesLibrary ? checkLibrarySearchTriggers(shuffleControllerLibrary(state, controller), controller) : state; // LIBRARY SEARCH (KN-5b): a fruitless search is still a search
     return logEvent(shuffled, { kind: "spell-effect", effect: "tutor", found: false, destination: atom.destination || "hand", controller });
   }
   // Gather candidates. MULTI-ZONE (bfxg) — pull from every source zone, tagging each with its zone so the

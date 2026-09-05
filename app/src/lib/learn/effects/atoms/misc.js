@@ -572,6 +572,9 @@ export function drawEachPlayerClauseParser(clause) {
   // safe direction (reusing "player" would let the card be pointed at its own controller).
   m = t.match(/^target (player|opponent) draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "draw", amount: NUM_WORD[m[2]] ?? parseInt(m[2], 10), who: "target", targetType: m[1] };
+  // WAN SHI TONG (KN-5b): "draw half X cards, rounded down" — the context's X halved by the shared reader (floor/ceil).
+  m = t.match(/^draw half x cards?, rounded (down|up)$/);
+  if (m) return { op: "draw", amountX: true, halve: m[1] === "down" ? "floor" : "ceil", targetType: null };
   // ⭐ TWO-SEAT DRAW (SHELF-85 B8, 2026-09-04 — Loran of the Third Path "{T}: You and target opponent each draw a card";
   // Secret Rendezvous / Flumph / Sky Crier / Farsight Adept / Teyo — 10 corpus carriers): the controller AND the
   // targeted opponent each draw N. who:"controllerAndTarget" — applyDrawAtom draws for ctx.controller and then for
