@@ -80,9 +80,9 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Otharri Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Bumble Flower Combo | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Test | Atraxa Superfriends | 74 | 11 | 16 | ⬜ Phase 2 |
-| Test | Light-Paws Voltron | 80 | 5 | 10 | ⬜ Phase 2 |
+| Test | Light-Paws Voltron | 81 | 4 | 9 | ⬜ Phase 2 |
 
-**3 decks below 85 · 18 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**3 decks below 85 · 17 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -431,12 +431,14 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 
 ### 5.12 Light-Paws Voltron — 61% · needs 24 · Aura deck
 
+> ⛔ **LIGHT-PAWS CEILING at 81 (2026-09-05, 4 to the bar):** every remaining row sizes L — Light-Paws, Emperor's Voice (a conditional Aura tutor onto the battlefield attached, with a name filter), With Great Power (a per-attachment pump + damage redirection), Umbra Mystic (a group umbra-armor grant), Celestial Mantle (double a life total), Mantle of the Ancients (reattach any number), Angelic Destiny (an Aura-own dies-return trigger beside a subtype-adding bonus), Darksteel Mutation / Swift Reconfiguration (base-P/T + type-set Auras), Pariah / Spectra Ward / Benevolent Blessing / Reverent Mantra / Restoration Magic / Galadriel's Dismissal / Trouble in Pairs. Phase 3 material.
+
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | L1 | Ishgard, the Holy See | MDFC | V1 | | ⬜ |
 | L2 | Chains of Custody ×2 · Sheltered by Ghosts ×2 · Detainment Spell ×2 | | V15 | |✅ |
 | L3 | Light-Paws, Emperor's Voice | aura you cast enters → tutor an Aura with lesser MV onto the battlefield attached | M | the deck's engine; an aura-cast watcher + tutor-to-battlefield-attached | ⬜ |
-| L4 | Face of Divinity ✅ (sk107 — the another-Aura gate) · Solid Footing (sized M — an "as long as … has vigilance" conditional) · Gauntlets of Light ✅ (+2 — the toughness-assigns attached grant; Treefolk Umbra rode along) · Greater Auramancy ✅ (+1 — the enchanted-creatures selector) · Umbra Mystic · Shielded by Faith ✅ (sk108 — attach to the entering creature) · Brilliant Wings ✅ (sk108 — the same behind "you may pay {1}") · Sentinel's Mark 🔄 (sk111 — the Addendum: a main-phase cast look-back on the Aura's own ETB) · Shardmage's Rescue ✅ (sk107 — the entered-this-turn gate) · Celestial Mantle · With Great Power · Mantle of the Ancients | aura statics and triggers | S–M | Gauntlets/Solid Footing = "assigns combat damage equal to its toughness" (the layer op EXISTS: assignsCombatDamageWithToughness — S); Greater Auramancy = team shroud on enchanted creatures (S); Shielded by Faith / Brilliant Wings = a re-attach on ETB (M) | ⬜ |
+| L4 | Face of Divinity ✅ (sk107 — the another-Aura gate) · Solid Footing (sized M — an "as long as … has vigilance" conditional) · Gauntlets of Light ✅ (+2 — the toughness-assigns attached grant; Treefolk Umbra rode along) · Greater Auramancy ✅ (+1 — the enchanted-creatures selector) · Umbra Mystic · Shielded by Faith ✅ (sk108 — attach to the entering creature) · Brilliant Wings ✅ (sk108 — the same behind "you may pay {1}") · Sentinel's Mark ✅ (+2 — the Addendum main-phase look-back) · Shardmage's Rescue ✅ (sk107 — the entered-this-turn gate) · Celestial Mantle · With Great Power · Mantle of the Ancients | aura statics and triggers | S–M | Gauntlets/Solid Footing = "assigns combat damage equal to its toughness" (the layer op EXISTS: assignsCombatDamageWithToughness — S); Greater Auramancy = team shroud on enchanted creatures (S); Shielded by Faith / Brilliant Wings = a re-attach on ETB (M) | ⬜ |
 | L5 | Winds of Rath ✅ (+1 — the enchanted predicate) · Karametra's Blessing ✅ (+1 — the enchanted-or-enchantment-creature keyword rider) · Enter the Avatar State ✅ (+1 — the becomes-a-subtype-and-gains pump) · Deafening Silence ✅ (+1 — the noncreature cast limit) · Drannith Magistrate ✅ (+1 — the cast-from-hand-only lock) | spells and statics | S / M / M / M / M | | 🔶 |
 | L6 | COMPOSITE | Angelic Destiny · Benevolent Blessing · Darksteel Mutation (L — a base-P/T + type-set Aura) · Daybreak Coronet ✅ (+1 — the with-another-Aura Enchant restriction) · Galadriel's Dismissal (L — phasing) · On Thin Ice · Pariah · Pearl-Ear · Plaza of Heroes · Restoration Magic · Reverent Mantra · Silent Arbiter · Spectra Ward · Spirit Mantle · Swift Reconfiguration · Trouble in Pairs | size on approach | | ⬜ |
 
@@ -482,6 +484,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · L4 Sentinel's Mark (Light-Paws) ✅ +2 corpus (the ADDENDUM look-back — "if you cast it during your main phase" — a main-phase stamp at the cast chokepoint, carried onto the entering Aura beside castFromZone, read by one condition arm) · mutants 5/5 killed · suite 1561 files / 16,367 · Light-Paws 80 → **81** (81/100; 4 to the bar) — LIGHT-PAWS CEILING for Phase 2 (noted in §5.12): every remaining row sizes L. Every open §5 deck now carries a ceiling (Atraxa 74 · Halfshell 83 · Light-Paws 81 · Bumble 88) → Phase 3 (§4.3, the hard-wins sweep) opens: instruments re-run, the 85–89 decks ≤3 rows from 90, the one-line-away probe for multi-deck S/M rows.
 
 - 2026-09-05 — Phase 2 · L6 Daybreak Coronet (Light-Paws) ✅ +1 corpus (the "creature with another Aura attached to it" ENCHANT restriction → the existing enchanted restriction kind, honoured by the cast-target enumeration) · mutants 2/2 killed · suite 1560 files / 16,364 · Light-Paws 79 → **80** (80/100; 5 to the bar). Next: Sentinel's Mark (the Addendum main-phase look-back — the stamp, the reader and the Aura resolver are built; the CR 207.2c label strip in the Aura walks is the last piece). After it every remaining Light-Paws row sizes L (the commander's conditional Aura tutor-attached, With Great Power's per-attachment pump + redirection, Umbra Mystic's group umbra armor, Celestial Mantle, Mantle of the Ancients, the rest of L6).
 

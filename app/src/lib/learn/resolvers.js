@@ -293,6 +293,10 @@ export function enterPermanent(state, card, controller, opts = {}) {
     // unset, so the condition reads false and the trigger correctly does not fire. Mirrors `wasKicked`
     // exactly: a per-permanent fact about the cast, durable on the object, JSON-serializable.
     ...(opts.wasCast ? { wasCast: true } : {}),
+    // CAST-DURING-MAIN-PHASE (SHELF-85 · Light-Paws L4 Sentinel's Mark, 2026-09-05 — the Addendum "if you cast it during your
+    // main phase"): stamped by the cast chokepoint beside castFromZone, carried here by the two CAST resolvers; every other
+    // entry route leaves it unset, so the look-back reads false.
+    ...(opts.castDuringMainPhase ? { castDuringMainPhase: true } : {}),
     ...(opts.castForNoMana ? { castForNoMana: true } : {}), // SATORU (BI-5): cast, but for no mana (free / pitch / alt cost)
     ...(opts.evoked ? { evoked: true } : {}), // EVOKE (Solitude): its evoke cost was paid — the sacrifice trigger is queued as it enters
     // CAST-FROM-ZONE (CR 601.2 / 400.7) — WHICH zone this permanent's spell was cast from, for the
@@ -846,7 +850,7 @@ export const RESOLVERS = Object.freeze({
   [RESOLVER_KEYS.PERMANENT_ETB]: (state, obj) => {
     // `printedCard` (V1 slice 3): the REAL two-face card behind a modal-DFC FACE cast — stamped on the entering permanent
     // so every zone move restores the whole card (moveCardToZone reads printedCard; the clone precedent).
-    const { card, controller, xValue, kicked, castFromZone, colorsSpent, grantDiesExile, printedCard, manaSpent, evoked } = obj.payload?.params || {}; // + manaSpent (Satoru, BI-5) + evoked (Solitude)
+    const { card, controller, xValue, kicked, castFromZone, colorsSpent, grantDiesExile, printedCard, manaSpent, evoked, castDuringMainPhase } = obj.payload?.params || {}; // + manaSpent (Satoru, BI-5) + evoked (Solitude) + castDuringMainPhase (Sentinel's Mark)
     if (!card || !controller) return resolveManual(state, obj);
     // Clone (CR 707.9): the permanent enters AS A COPY of a creature chosen as it enters. Suspend
     // on a resolution-time choice (the player picks which creature; Expert/AI auto-pick) — the
@@ -878,7 +882,7 @@ export const RESOLVERS = Object.freeze({
       const lethal = destroyLethalCreatures(entered);
       return checkDiesTriggers(lethal.state, lethal.dead);
     }
-    return enterPermanent(state, card, controller, { xValue, kicked, wasCast: true, castFromZone, colorsSpent, grantDiesExile, castForNoMana: manaSpent === false, evoked: !!evoked, ...(printedCard ? { printedCard } : {}) });
+    return enterPermanent(state, card, controller, { xValue, kicked, wasCast: true, castFromZone, castDuringMainPhase: !!castDuringMainPhase, colorsSpent, grantDiesExile, castForNoMana: manaSpent === false, evoked: !!evoked, ...(printedCard ? { printedCard } : {}) });
   },
 
   // Aura spell resolving (CR 303.4f): the Aura enters the battlefield attached to the
@@ -887,7 +891,7 @@ export const RESOLVERS = Object.freeze({
   // resolve — it's put into its owner's graveyard by game rules (CR 608.3b) and never
   // enters (logged, never fabricated). The targetId is a battlefield permanent id.
   [RESOLVER_KEYS.AURA_ETB]: (state, obj) => {
-    const { card, controller, targetId, bestowed, enchantsPlayer, hostType, kicked, printedCard } = obj.payload?.params || {}; // printedCard: V1 slice 3 (a modal-DFC Aura front — Glasswing Grace)
+    const { card, controller, targetId, bestowed, enchantsPlayer, hostType, kicked, printedCard, castDuringMainPhase } = obj.payload?.params || {}; // printedCard: V1 slice 3 (a modal-DFC Aura front — Glasswing Grace); castDuringMainPhase: Sentinel's Mark's Addendum look-back
     if (!card || !controller) return resolveManual(state, obj);
     // PLAYER-AURA (Fraying Sanity / the Curse class — SHELF S7, CR 303.4): the target is a PLAYER.
     // Re-check at resolution (CR 608.2b — the player may have been eliminated); gone → the Aura card
@@ -942,7 +946,9 @@ export const RESOLVERS = Object.freeze({
     // attached + the falls-off SBA exemption). A printed Aura passes bestowed=undefined → identical path.
     // ④-J KICKER (CR 702.33b/e): a kicked Aura cast stamps wasKicked on the entering Aura (enterPermanent), so
     // its own "When this Aura enters, if it was kicked, …" trigger fires (Bubble Snare taps the host).
-    return enterPermanent(state, card, controller, { attachTo: targetId, bestowed, ...(kicked ? { kicked: true } : {}), ...(printedCard ? { printedCard } : {}) });
+    // wasCast + castDuringMainPhase (Sentinel's Mark, 2026-09-05): an Aura spell resolving IS a cast (CR 303.4f) — stamp it like
+    // the permanent resolver does, so the Aura's own ETB look-backs can read how and when it arrived.
+    return enterPermanent(state, card, controller, { attachTo: targetId, bestowed, wasCast: true, ...(castDuringMainPhase ? { castDuringMainPhase: true } : {}), ...(kicked ? { kicked: true } : {}), ...(printedCard ? { printedCard } : {}) });
   },
 
   // P2.1: a recognized-but-unparseable instant/sorcery. No longer a silent

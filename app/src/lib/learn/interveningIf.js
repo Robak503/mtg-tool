@@ -1117,6 +1117,18 @@ function evaluateSingleCondition(state, condition, controllerId, context = null)
     if (!entering) return null;
     return entering.wasCast === true && entering.castFromZone === "hand";
   }
+  // CAST DURING YOUR MAIN PHASE (SHELF-85 · Light-Paws L4 Sentinel's Mark, 2026-09-05 — the Addendum: "When this Aura
+  // enters, if you cast it during your main phase, …"): the triggering permanent's `castDuringMainPhase` stamp, written at
+  // the cast chokepoint (the caster is the active player and the phase is a main phase, CR 505.1) and carried onto the
+  // entering permanent by the cast resolvers. A permanent that arrived any other way carries no stamp and reads false.
+  if (/^you cast (?:it|this creature|this permanent|this aura) during your main phase$/.test(c)) {
+    const triggeringId = context?.triggeringPermanentId;
+    if (!triggeringId) return null;
+    const board = controllerBoard(state, controllerId);
+    const entering = board.find((p) => p.id === triggeringId);
+    if (!entering) return null;
+    return entering.wasCast === true && entering.castDuringMainPhase === true;
+  }
   // ⭐ ENTERED-OR-CAST FROM THE LIBRARY (SHELF-85 K9, 2026-09-04 — Fblthp "If it entered from your library or was cast from
   // your library, draw two cards instead"): the entering permanent's two stamps — `castFromZone` (the cast lane's zone,
   // "library" for the play-from-top lane) and `enteredFromZone` (enterCardFromZone's, for a put-onto-battlefield). A

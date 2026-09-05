@@ -16,6 +16,32 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · L4: SENTINEL'S MARK — the Addendum main-phase look-back · **+2** · corpus 14,620 (42.7%) / 34,245
+> Suite **1561 files / 16,367** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 5/5 killed.**
+> · "Addendum — When this Aura enters, if you cast it during your main phase, enchanted creature gains lifelink until end
+>   of turn." The Aura's own ETB parked on its intervening-if: no per-spell record of WHEN it was cast existed. The cast
+>   chokepoint (actionDispatcher, where castFromZone and the colours spent are already threaded) now stamps
+>   `castDuringMainPhase` — the caster is the active player and the phase is a main phase (CR 505.1; the stack may hold
+>   other objects — "during" is the phase, not an empty stack) — the Aura cast resolver carries it, and `wasCast`, onto
+>   the entering Aura (the permanent resolver stamped both for creatures already), and one interveningIf arm answers "you
+>   cast it during your main phase" from the triggering Aura's stamps — the same triggering lookup the cast-from-hand
+>   reader uses. A permanent that arrived any other way carries no stamp and reads false. THE LABEL WAS THE SECOND SEAM:
+>   "Addendum —" is a CR 207.2c ability word with no rules meaning, but the Aura lanes (parseAttachedBonus's clause loop and
+>   the two residue walks) saw "addendum — when this aura enters …" and no longer recognised the trigger line, so it
+>   poisoned the whole bonus parse to [] — the card stayed body-only with the reader in place. The three Aura walks now
+>   strip the CR 207.2c label off the oracle first (textNormalize's stripAbilityWordLabel — the same list the spell lane
+>   uses), so an ability-worded Aura trigger reads as the trigger it is.
+> · **Pins:** the ETB descriptor's condition; the reader; native-aura. RUNTIME through the real cast: in your precombat main
+>   the Aura enters stamped (wasCast too), the host reads 3/4 with vigilance AND lifelink after the ETB resolves. ⚠️ THE
+>   FALSE BRANCH IS PINNED AT THE READER, NOT FAKED THROUGH A CAST: the offer never casts an Aura outside its main-phase
+>   window (the Flash speed goes unused — a standing, documented under-offer), so a flash-in during combat or on the
+>   opponent's turn is unreachable today; castDuringMainPhaseNow is exported and pinned directly (own main / own postcombat
+>   main → true; own combat → false; the opponent's main → false). Mutants: the stamp always false, the stamp ignoring
+>   whose turn it is, the Aura resolver dropping it, the reader arm gone, the Addendum label strip gone — mutants 5/5 killed.
+> · **Whole-card:** Aboshan's Desire (unplanned gain) — "Threshold — Enchanted creature has shroud as long as there are seven or more cards in your graveyard": the same CR 207.2c label strip let its trigger-free bonus lines read; the shroud carries the existing graveyard-count gate (cardsInGraveyard ≥ 7, gateOn source), audited in the parse — never an ungated shroud.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Light-Paws 80 → **81** (81/100; 4 to the bar) — LIGHT-PAWS CEILING for Phase 2 (noted in §5.12): every remaining row sizes L. Every open §5 deck now carries a ceiling (Atraxa 74 · Halfshell 83 · Light-Paws 81 · Bumble 88) → Phase 3 (§4.3, the hard-wins sweep) opens: instruments re-run, the 85–89 decks ≤3 rows from 90, the one-line-away probe for multi-deck S/M rows.
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · L6: DAYBREAK CORONET — the with-another-Aura Enchant restriction · **+1** · corpus 14,618 (42.7%) / 34,245
 > Suite **1560 files / 16,364** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 2/2 killed.**
 > · "Enchant creature with another Aura attached to it / Enchanted creature gets +3/+3 and has first strike, vigilance, and

@@ -21,7 +21,7 @@
  * Pure; imports only the keyword vocabulary. Returns plain JSON descriptors.
  */
 
-import { stripFlashPermissionLine } from "./effects/textNormalize.js"; // leaf module, no cycle — shared self-flash strip
+import { stripFlashPermissionLine, stripAbilityWordLabel } from "./effects/textNormalize.js"; // leaf module, no cycle — shared self-flash strip; + the CR 207.2c ability-word label strip (Sentinel's Mark's "Addendum —")
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword, hasKeyword } from "./keywords.js";
 import { isLevelerFrame } from "./leveler.js"; // LV-1 — the leveler frame detector (leaf module, no cycle)
 import { isAttackTaxClause, parseAttackTax } from "./attackTax.js"; // ATTACK TAX (CR 508.1g) — a pure leaf, shared with the runtime so metric and game agree
@@ -6003,7 +6003,10 @@ export function attachedBodyNoun(card, subject = "enchanted") {
  * the card uses. Pure.
  */
 export function parseAttachedBonus(card, subjectOverride) {
-  const oracle = String(card?.oracle || card?.oracle_text || "");
+  // ADDENDUM (SHELF-85 · Light-Paws L4 Sentinel's Mark, 2026-09-05): a CR 207.2c ability-word label ("Addendum — When this
+  // Aura enters, …") has no rules meaning, but left in place it hid the trigger line from the when/whenever/at skip below
+  // and poisoned the whole bonus parse to []. Stripped first — the same list the spell lane uses.
+  const oracle = stripAbilityWordLabel(String(card?.oracle || card?.oracle_text || ""));
   // AN-1: the sniff reads the SUBJECT off any modeled body noun. Before this it tested only
   // "enchanted creature", so an Aura whose body says "Enchanted permanent …" (Ice Over) fell through to
   // "equipped" and was parsed as an EQUIPMENT — a latent misfile that was inert only because every such
@@ -6294,7 +6297,7 @@ function auraResidueClauses(card) {
   // and the flash speed simply goes unused. Board-verified rather than assumed (see FLASH_PERMISSION_LINE in
   // textNormalize.js). It must go as a LINE, not a clause: the sacrifice rider is a second sentence with its
   // own commas, so abilityClauses would shred it into fragments that no clause pattern could ever admit.
-  const oracle = stripFlashPermissionLine(String(card?.oracle || card?.oracle_text || ""));
+  const oracle = stripAbilityWordLabel(stripFlashPermissionLine(String(card?.oracle || card?.oracle_text || ""))); // + ADDENDUM — the CR 207.2c label strip (Sentinel's Mark)
   const out = [];
   // MORBID (POD-SIM THREE · KT-8, 2026-09-05 — Grim Reaper's Sprint): a self cost-reduction sentence the same reader the
   // cast lane honours has MODELED is not residue (the runtime reduces the cast; the Aura still does its printed thing).
@@ -6724,7 +6727,7 @@ function auraHasModeledOwnTrigger(card) {
 const AURA_CONTROL_CLAUSE_RE = /^you control enchanted creature\.?$/i;
 
 function auraTouchClausesAllModeled(card) {
-  const oracle = String(card?.oracle || card?.oracle_text || "");
+  const oracle = stripAbilityWordLabel(String(card?.oracle || card?.oracle_text || "")); // ADDENDUM — the CR 207.2c label strip (Sentinel's Mark)
   for (const clause of abilityClauses(oracle)) {
     const c = clause.toLowerCase().trim();
     if (/^enchant\b/.test(c)) continue;

@@ -294,6 +294,13 @@ function applyPlayLand(state, action) {
   };
 }
 
+/** CAST-DURING-MAIN-PHASE (Sentinel's Mark's Addendum, 2026-09-05): is this cast happening during the caster's OWN main
+ *  phase? CR 505.1 — "during" is the phase itself; the stack may hold other objects. False for a Flash cast in combat or on
+ *  another player's turn. One reader for every cast branch (permanent spells and Auras alike), so they can never disagree. */
+export function castDuringMainPhaseNow(state, playerId) {
+  return state.activePlayer === playerId && /main/i.test(String(state.phase || ""));
+}
+
 function applyCastSpell(state, action) {
   // CMD-CAST: a commander is cast FROM the command zone (action.fromZone === "command"); default "hand".
   const fromZone = action.fromZone || "hand";
@@ -702,7 +709,7 @@ function applyCastSpell(state, action) {
     // ④-J (Bubble Snare): a KICKED aura cast threads the was-kicked flag exactly like the permanent lane below
     // (PERMANENT_ETB) — the resolver hands it to enterPermanent, which stamps wasKicked for the "it was kicked"
     // intervening-if. A normal cast leaves it unset.
-    payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId, ...(hostSpec && { hostType: hostSpec.targetType }), ...(action.kicked ? { kicked: true } : {}) } };
+    payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId, castDuringMainPhase: castDuringMainPhaseNow(state, action.playerId), ...(hostSpec && { hostType: hostSpec.targetType }), ...(action.kicked ? { kicked: true } : {}) } };
   } else if (action.enchantsPlayer && isPlayerAuraCard(castCard)) {
     // PLAYER-AURA (Fraying Sanity / the Curse class — SHELF S7, CR 303.4): the target is a PLAYER id;
     // AURA_ETB's player branch re-checks the player is still in the game at resolution and enters the
@@ -795,6 +802,11 @@ function applyCastSpell(state, action) {
     // has a source zone. A permanent that arrives any other way never reaches this line at all, so it
     // stays unstamped and the rider reads false.
     params.castFromZone = action.fromZone || "hand";
+    // CAST-DURING-MAIN-PHASE (SHELF-85 · Light-Paws L4 Sentinel's Mark, 2026-09-05 — the Addendum "if you cast it during your
+    // main phase"): the caster is the active player AND the phase is one of their main phases (CR 505.1 — "during" is the
+    // phase itself; the stack may hold other objects). Threaded like castFromZone; the cast resolvers stamp it onto the
+    // entering permanent, where the Aura's own ETB look-back reads it. False for a Flash cast in combat or on another turn.
+    params.castDuringMainPhase = castDuringMainPhaseNow(state, action.playerId);
     // ⭐ COLOURS SPENT — the sunburst / converge count, captured off the payment plan above and threaded the
     // same way castFromZone is. resolvers.enterPermanent stamps it onto the entering permanent so an ETB
     // rider can read it. Always a number on a cast (0 for a free/alt-cost cast); a permanent that arrives
