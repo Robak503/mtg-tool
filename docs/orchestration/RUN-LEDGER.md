@@ -16,6 +16,24 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KN-2: CLEVER IMPERSONATOR + COPY ENCHANTMENT — the clone family widened · **+2** · corpus 14,458 / 34,245
+> Suite **1494/16129** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **6/6 killed.**
+> · "You may have this creature enter as a copy of any nonland permanent on the battlefield." / "…this enchantment enter as
+>   a copy of any enchantment on the battlefield." The native-clone head knew creatures, artifacts and Equipment; it now
+>   admits the NONLAND scope and the ENCHANTMENT scope through ONE shared copiability reader used by both the enumerator
+>   and the settle (the settle re-checks the pick — a wrong id enters the clone as itself, never as the wrong thing).
+>   Auras and Sagas are never offered under either scope: an Aura copy needs an attach choice the entry path does not
+>   raise (CR 303.4f) and a Saga copy needs its lore counter on entry (CR 714.2) — both unmodeled, so the pool is
+>   narrower than printed (false-negative safe) rather than a copy that enters wrong (an FP). A copied static APPLIES —
+>   the runbook's bar — because the copy snapshots the whole card and the static layer reads it like any other permanent.
+> · **Pins:** the enchantment pool is exactly the anthem; the nonland pool is anthem + bear + Sol Ring + planeswalker (no
+>   Aura, no Saga, no land); Copy Enchantment as Glorious Anthem makes MY bear 3/3, declining leaves it 2/2, the Aura pick
+>   is refused; Clever Impersonator as a Sol Ring becomes an ARTIFACT, as the anthem pumps my bear, and the land pick enters
+>   it as a 0/0 that dies. The pre-existing CREED guard test graduated from "parked" to "native". Mutants: the head regex,
+>   the scope map, the Aura/Saga exclusion, the settle's re-check, the clone gate and the enumerator's reader — all died.
+> · **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+> · **Kinnan 76 → 78 (needs 7)** · Believe it! 76 · Killer Turts 85 ✅ · Shalai 84. Next: KN-3 Flash Photography + Imposter Mech. (Full suite: one pre-existing clone guard asserted the enchantment scope PARKED — graduated to native and re-run green; every other file green.)
+
 > ## 🎯 2026-09-05 (cron) — POD-SIM THREE · KN-1: THASSA'S ORACLE — one atom, X read live · **+1** · corpus 14,456 / 34,245
 > Suite **1493/16,124** green; lint 0. Flip-diff **+1, zero LOST**. **8/8 killed.**
 > · "When this creature enters, look at the top X cards of your library, where X is your devotion to blue. Put up to one of

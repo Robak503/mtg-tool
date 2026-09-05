@@ -341,7 +341,7 @@ export function parseCloneSpec(card) {
   // artifact/Equipment scopes are runtime-safe; enchantment / nonland-permanent scopes are NOT modeled yet →
   // they don't match here → PARK (Copy Enchantment, Clever Impersonator stay Arbiter, a safe false-negative).
   const m = t.match(
-    /^(?:you may have (?:~|this (?:creature|artifact|equipment|enchantment)) enter|(?:~|this (?:creature|artifact|equipment|enchantment)) enters?)(?: the battlefield)? as a copy of (any creature on the battlefield|any artifact or creature on the battlefield|any artifact on the battlefield|any equipment on the battlefield|a creature you control|another creature you control|a creature or planeswalker you control)( with mana value less than or equal to the amount of mana spent to cast this creature)?(?:, except (.+?))?\.?$/,
+    /^(?:you may have (?:~|this (?:creature|artifact|equipment|enchantment)) enter|(?:~|this (?:creature|artifact|equipment|enchantment)) enters?)(?: the battlefield)? as a copy of (any creature on the battlefield|any artifact or creature on the battlefield|any artifact on the battlefield|any equipment on the battlefield|any nonland permanent on the battlefield|any enchantment on the battlefield|a creature you control|another creature you control|a creature or planeswalker you control)( with mana value less than or equal to the amount of mana spent to cast this creature)?(?:, except (.+?))?\.?$/,
   );
   if (!m) return null;
 
@@ -377,7 +377,13 @@ export function parseCloneSpec(card) {
         : m[1] === "any artifact or creature on the battlefield" ? "anyArtifactOrCreature"
           : m[1] === "any artifact on the battlefield" ? "anyArtifact"
             : m[1] === "any equipment on the battlefield" ? "anyEquipment"
-              : "any",
+              // CLONE WIDENING (POD-SIM THREE · KN-2, 2026-09-05): Clever Impersonator ("any nonland permanent") and Copy
+              // Enchantment ("any enchantment"). Auras and Sagas are NOT offered under either scope (an Aura copy needs an
+              // attach choice the entry path does not raise — CR 303.4f; a Saga copy needs its lore counter on entry —
+              // CR 714.2, unmodeled): a narrower pool is a false negative, a copy that enters wrong is an FP.
+              : m[1] === "any nonland permanent on the battlefield" ? "anyNonlandPermanent"
+                : m[1] === "any enchantment on the battlefield" ? "anyEnchantment"
+                  : "any",
     mvLimit: !!m[2],
     riders,
   };
@@ -467,7 +473,9 @@ export function isCloneCard(card) {
   // Artifact — Equipment) is native ONLY for the runtime-proven artifact/Equipment copy scopes: it enters as a
   // snapshot of an artifact (the anyArtifactOrCreature runtime already copies artifacts; enterPermanent handles a
   // non-creature card). A creature-copy scope on a non-creature card would become a creature — not modeled → PARK.
-  return spec.scope === "anyArtifact" || spec.scope === "anyEquipment";
+  // + KN-2 (POD-SIM THREE, 2026-09-05): the ENCHANTMENT scope (Copy Enchantment — an enchantment copying an enchantment stays
+  // an enchantment) and the NONLAND scope on a non-creature card (none on the shelf; Auras/Sagas never offered).
+  return spec.scope === "anyArtifact" || spec.scope === "anyEquipment" || spec.scope === "anyEnchantment" || spec.scope === "anyNonlandPermanent";
 }
 
 /** Mana value of a mana-cost string (CR 202.3): each `{N}` digit pip adds N; `{X}`/`{Y}`/`{Z}`
@@ -524,10 +532,14 @@ export function cloneCandidates(state, controller, scope, mvCap = null) {
   // artifact creature IS an artifact and stays a legal source; Equipment is the "Equipment" artifact subtype.
   const artifactOnly = scope === "anyArtifact";
   const equipmentOnly = scope === "anyEquipment";
+  const nonlandAny = scope === "anyNonlandPermanent"; // KN-2 (Clever Impersonator)
+  const enchantmentOnly = scope === "anyEnchantment"; // KN-2 (Copy Enchantment)
   for (const pid of Object.keys(state.players)) {
     if (youControlOnly && pid !== controller) continue;
     for (const perm of state.players[pid].battlefield) {
-      const copiable = (artifactOnly || equipmentOnly)
+      const copiable = (nonlandAny || enchantmentOnly)
+        ? cloneWidenedCopiable(perm.card, scope)
+        : (artifactOnly || equipmentOnly)
         ? (isArtifactCard(perm.card) && (!equipmentOnly || /\bEquipment\b/i.test(typeLine(perm.card))))
         : (isCreatureCard(perm.card) || (allowPw && isPlaneswalkerCard(perm.card)) || (allowArtifact && isArtifactCard(perm.card)));
       if (!copiable) continue;
@@ -540,6 +552,17 @@ export function cloneCandidates(state, controller, scope, mvCap = null) {
 
 /** Append a creature SUBtype to a type line "in addition to its other types" (CR 707.9). Inserts a
  *  "— Subtypes" section if there's no dash, else appends (idempotent — never duplicates). */
+/** KN-2 — the widened scopes' copiability, shared by the enumerator and the settle: nonland (Impersonator) / enchantment
+ * (Copy Enchantment), never an Aura or a Saga (see parseCloneSpec). Reads the FRONT face's type line. */
+export function cloneWidenedCopiable(card, scope) {
+  const tl = String(card?.type || card?.type_line || "").split(" // ")[0];
+  if (/\bLand\b/.test(tl)) return false;
+  if (/\bAura\b/.test(tl) || /\bSaga\b/.test(tl)) return false;
+  if (scope === "anyEnchantment") return /\bEnchantment\b/.test(tl);
+  if (scope === "anyNonlandPermanent") return /\b(Creature|Artifact|Enchantment|Planeswalker|Battle)\b/.test(tl);
+  return false;
+}
+
 function addSubtypeToLine(line, subtype) {
   const l = String(line || "");
   const re = new RegExp("\\b" + escapeRegex(subtype) + "\\b", "i");

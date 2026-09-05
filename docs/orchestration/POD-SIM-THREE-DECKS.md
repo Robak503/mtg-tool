@@ -18,7 +18,7 @@
 | Deck | Native | Non-native | Needs for 85 | Role in the pod |
 |---|---|---|---|---|
 | Killer Turts | ✅ **85/100** (2026-09-05; was 70) | 15 | **0** | extra-combat red-green aggro-storm |
-| Kinnan Mana Overload | 76/100 | 24 | **9** | cEDH big-mana / copy / Thoracle |
+| Kinnan Mana Overload | 78/100 | 22 | **7** | cEDH big-mana / copy / Thoracle |
 | Believe it! | 76/100 | 24 | **9** | cEDH ninjas + Thoracle-Consultation |
 
 **35 slots across the three.** Shared cards: Thassa's Oracle (Kinnan + Believe it!), Mindbreak Trap (both),
@@ -84,7 +84,7 @@ Real cards probed for their live tier, standing in for whole families:
 |---|---|---|---|
 | **S-A Devotion count + Thassa's Oracle ETB** | ✅ DONE 2026-09-05 (KN-1) — the devotion count already existed (the Gods); the ETB is one `devotion-dig-win` atom (live X, win-if, else a keep-one-on-top dig pause) | — | Thoracle native in both decks |
 | **S-B Card-exile evoke composition** | Subtlety (Believe it!), Endurance (Kinnan), Solitude (Shalai), Fury/Grief corpus | M | an alternative cost "exile a <colour> card from your hand" at cast + sac-on-ETB when evoked; the mana-evoke option-cost line becomes offerable by the same rule |
-| **S-C Copy widening** | Clever Impersonator, Copy Enchantment, Imposter Mech, Flash Photography (all Kinnan); Mirrormade corpus | M | the native-clone seam admits "any nonland permanent" / "any enchantment"; the token-copy atom admits "target permanent"; Imposter Mech's "except it's a Vehicle artifact with crew 3" rider is its own arm |
+| **S-C Copy widening** | ✅ HALF DONE 2026-09-05 (KN-2): Clever Impersonator + Copy Enchantment native (the clone head + one shared copiability reader; Auras/Sagas never offered). ⬜ Imposter Mech (the Vehicle "except" rider) · Flash Photography (token copy of target permanent + the flash-if clause) = KN-3 | M | — |
 | **S-D Extra-combat forms** | Full Throttle, Overpowering Attack, World at War, Grim Reaper's Sprint, Great Train Heist mode, Savage Beating mode (Turts) | M | `extra-combat` exists; the arms: "untap all creatures you control THAT ATTACKED THIS TURN", "two additional combat phases", "at the beginning of each combat this turn, untap all creatures that attacked" (a delayed trigger), "if it's your main phase" conditional, "followed by an additional main phase" |
 | **S-E Ritual riders** | Rite of Flame, Irencrag Feat, Geosurge, Open the Omenpaths (Turts) | S+S+M+M | the word-number pip form; the cast-lock rider; restricted spend on a spell's add-mana |
 | **S-F Two-filter counters** | Guttural Response, Pyroblast (Turts), REB-family corpus | S | `colorFilter` AND `spellFilter` together; the "if it's blue" mode form |

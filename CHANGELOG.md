@@ -12,6 +12,7 @@ summarizes the notable changes.
 - **Strive works** — Rouse the Mob, Blinding Flare, Aerial Formation, Phalanx Formation, Cruel Feeding, Desperate Stand, Ajani's Presence, Colossal Heroics, Harness by Force, Consign to Dust and Kiora's Dismissal
 - **The Laccolith cycle plays** — "you may have it deal damage equal to its power to target creature; if you do, it assigns no combat damage this turn" (Laccolith Titan / Whelp / Grunt / Warrior), plus Flametongue Yearling's ETB and Sinstriker's Will's granted tap ability
 - **City of Traitors** — sacrifices itself when you play another land, and only when you play one
+- **Clever Impersonator, Copy Enchantment** — clones may now enter as a copy of any nonland permanent or any enchantment, and a copied anthem pumps your team
 - **Thassa's Oracle** — the Kinnan / Believe it! win: devotion read as it resolves, the win checked against the library, otherwise a keep-one-on-top look
 - **Not of This World** — counters a spell or an ability aimed at your permanent, free when that target is your 7-power creature (also Diplomatic Escort, Siren Stormtamer)
 - **Carpet of Flowers** — adds mana once a turn at either main phase, counting the targeted opponent's Islands

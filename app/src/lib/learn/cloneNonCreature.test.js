@@ -38,11 +38,13 @@ describe("non-creature artifact clones — classify + spec", () => {
     expect(parseCloneSpec(MASTERWORK).scope).toBe("anyEquipment");
     expect(parseCloneSpec(COPY_ARTIFACT).riders.map((r) => r.kind)).toContain("addCardType");
   });
-  it("CREED guard: enchantment / nonland-permanent scopes stay PARKED (Copy Enchantment, Clever Impersonator)", () => {
-    expect(isCloneCard(COPY_ENCHANT)).toBe(false);
-    expect(classifyCard(COPY_ENCHANT)).not.toMatch(/^native/);
-    expect(isCloneCard(CLEVER)).toBe(false); // "any nonland permanent" scope unmodeled
-    expect(classifyCard(CLEVER)).not.toMatch(/^native/);
+  it("GRADUATED (POD-SIM THREE · KN-2, 2026-09-05): enchantment / nonland-permanent scopes are modeled — Copy Enchantment + Clever Impersonator native-clone (runtime: cloneWidened.test.js)", () => {
+    expect(isCloneCard(COPY_ENCHANT)).toBe(true);
+    expect(parseCloneSpec(COPY_ENCHANT).scope).toBe("anyEnchantment");
+    expect(classifyCard(COPY_ENCHANT)).toBe("native-clone");
+    expect(isCloneCard(CLEVER)).toBe(true);
+    expect(parseCloneSpec(CLEVER).scope).toBe("anyNonlandPermanent");
+    expect(classifyCard(CLEVER)).toBe("native-clone");
   });
 });
 

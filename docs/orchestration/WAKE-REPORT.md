@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KN-2: Clever Impersonator + Copy Enchantment (+2)** · suite **1494/16129** green · corpus 14,458 / 34,245 · flip-diff +2 / 0 lost · 6/6 killed
+
+> The clone family widened to any nonland permanent and any enchantment through one shared copiability reader; a copied anthem applies; Auras and Sagas never offered. **Kinnan 76 → 78 (needs 7)** · Believe it! 76 · Killer Turts 85 ✅ · Shalai 84. Next: KN-3 Flash Photography + Imposter Mech. (Full suite: one pre-existing clone guard asserted the enchantment scope PARKED — graduated to native and re-run green; every other file green.)
+> **CI:** blocked — repo PRIVATE (billing), zero-step failures; committed locally on full gates, push on the first green run ([Q-CI2])
+
 ## 🎯 2026-09-05 (cron) — **POD-SIM THREE · KN-1: Thassa's Oracle (+1)** · suite **1493/16,124** green · corpus 14,456 / 34,245 · flip-diff +1 / 0 lost · 8/8 killed
 
 > One atom for the three sentences: X = live devotion at resolution, win if X ≥ library (an empty library at X = 0 still wins), else a keep-one-on-top dig pause with a decline. **Kinnan 75 → 76 (needs 9) · Believe it! 75 → 76 (needs 9)** — Thoracle native in both. Killer Turts 85 ✅ · Shalai 84. Next: KN-2 Clever Impersonator + Copy Enchantment (clone scope widening).

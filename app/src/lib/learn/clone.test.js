@@ -59,7 +59,7 @@ describe("classifier — pure creature clones only", () => {
     // A SUBTYPE filter ("any Ally creature") is deferred — not a pure clone.
     expect(isCloneCard({ name: "Jwari Shapeshifter", type: "Creature — Shapeshifter Ally", oracle: "You may have this creature enter as a copy of any Ally creature on the battlefield." })).toBe(false);
     // A non-creature copy (Copy Enchantment) and a vanilla creature are not clones.
-    expect(isCloneCard({ name: "Copy Enchantment", type: "Enchantment", oracle: "You may have this creature enter as a copy of any enchantment on the battlefield." })).toBe(false);
+    expect(isCloneCard({ name: "Copy Enchantment", type: "Enchantment", oracle: "You may have this creature enter as a copy of any enchantment on the battlefield." })).toBe(true); // GRADUATED (KN-2, 2026-09-05): the enchantment scope is modeled — cloneWidened.test.js
     expect(isCloneCard(creature("Grizzly Bears", 2, 2))).toBe(false);
   });
 });
