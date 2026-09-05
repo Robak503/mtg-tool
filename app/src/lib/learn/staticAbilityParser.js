@@ -5653,6 +5653,19 @@ function parseAttachedClauseCore(c, subject, noun = "creature") {
     }
   }
   // BLOCK-COUNT CAP grant (Meltstrider's Resolve, W7 — CR 509.1c, the menace-inverse as an ATTACHED bonus):
+  // TOUGHNESS-ASSIGNS attached grant (SHELF-85 · Light-Paws L4 — Gauntlets of Light "gets +0/+2 and assigns combat damage equal
+  // to its toughness rather than its power", 2026-09-05): the pump plus the SAME layer-6 op the printed self / team forms emit
+  // (assignsCombatDamageWithToughness — combat resolution reads it layer-aware), both fixed to the host by the attached-bonus
+  // path (they arrive with the Aura and leave with it). Whole-clause anchored ($): Solid Footing's conditional "as long as
+  // enchanted creature has vigilance, it assigns …" never matches — it falls through → the bonus drops → the card parks.
+  {
+    const tPt = rest.match(/^gets ([+-]\d+)\/([+-]\d+) and assigns combat damage equal to its toughness rather than its power\.?$/);
+    if (tPt) {
+      out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModify", power: signed(tPt[1]), toughness: signed(tPt[2]) }, duration: { kind: "permanent" } });
+      out.push({ layer: 6, op: { layerOp: "assignsCombatDamageWithToughness" }, duration: { kind: "permanent" } });
+      return out;
+    }
+  }
   // "gets +0/+2 and can't be blocked by more than one creature" (+ the bare cap form). A layer-6 grant of
   // the `blockCapOne` pseudo-keyword — the cantAttack/mustAttack convention: scoped to the host by
   // staticEffectsOf, lifted the instant the attachment leaves, and enforced at the SAME block-declaration

@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · L4: Gauntlets of Light (+2)** · suite **1546 files / 16,315** green · corpus 14,585 / 34,245 · flip-diff +2 / 0 lost · mutants 3/3 killed
+
+> An Aura can now hand its host the toughness-assigns op beside its pump — the same layer op the self and team printings emit, scoped to the host. Light-Paws 70 → **71** (14 to the bar) — LIGHT-PAWS' S ROWS DONE; every remaining row sizes M+ (Karametra's Blessing's enchanted-or-enchantment rider, Face of Divinity / Solid Footing's as-long-as conditionals, Deafening Silence's per-turn cast count, Drannith's cast-zone lock, Umbra Mystic's granted umbra armor, Shielded by Faith / Brilliant Wings' re-attach ETBs, Sentinel's Mark's addendum, Celestial Mantle's life doubling, Light-Paws itself) or L (Mantle of the Ancients, With Great Power, Enter the Avatar State, Ishgard, the L6 composite)
+> **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · L4: Greater Auramancy (+1)** · suite **1545 files / 16,313** green · corpus 14,583 / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
 
 > The layer engine learned an ENCHANTED selector — the same Aura-attached predicate as Winds of Rath, live — so Greater Auramancy's shroud rides exactly the enchanted creatures. Light-Paws 69 → **70** (15 to the bar)

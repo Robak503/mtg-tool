@@ -16,6 +16,24 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · L4: GAUNTLETS OF LIGHT — the toughness-assigns attached grant · **+2** · corpus 14,585 / 34,245
+> Suite **1546 files / 16,315** green; lint 0. Flip-diff **+2, zero LOST** (any unplanned gains audited whole-card). **mutants 3/3 killed.**
+> · "Enchanted creature gets +0/+2 and assigns combat damage equal to its toughness rather than its power." The self and
+>   team printings of the toughness-assigns sentence already emit a layer-6 op combat resolution reads layer-aware
+>   (assignsCombatDamageWithToughness); the AURA form had no attached-clause arm, so the Aura's whole bonus dropped and
+>   the card parked. One arm in the attached-clause core (the capped-blockers arm's shape): the pump plus the same op,
+>   both fixed to the host by the attached-bonus path — they arrive with the Aura and leave with it. Whole-clause
+>   anchored: Solid Footing's conditional "as long as enchanted creature has vigilance" form never matches.
+> · **Pins:** the two-effect bonus; the plain +0/+2 Aura's single effect; Solid Footing still parked; Gauntlets native;
+>   RUNTIME — a 1/3 under Gauntlets reads toughness 5 and assigns 5 through the layer engine; under a plain +0/+2 Aura it
+>   reads 5 and assigns its power. Mutants: the arm gone, the op dropped, the pump dropped — mutants 3/3 killed.
+> · **Whole-card:** the printed Gauntlets carries a THIRD line — Enchanted creature has "{2}{W}: Untap this creature." —
+>   the activated-grant Aura lane already covers it, so the card lands native-activated (the lane's tier), all three lines
+>   modelled. **Unplanned gain audited whole-card:** Treefolk Umbra — the same pump-plus-op line beside umbra armor (the
+>   modelled totem-armor replacement).
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Light-Paws 70 → **71** (14 to the bar) — LIGHT-PAWS' S ROWS DONE; every remaining row sizes M+ (Karametra's Blessing's enchanted-or-enchantment rider, Face of Divinity / Solid Footing's as-long-as conditionals, Deafening Silence's per-turn cast count, Drannith's cast-zone lock, Umbra Mystic's granted umbra armor, Shielded by Faith / Brilliant Wings' re-attach ETBs, Sentinel's Mark's addendum, Celestial Mantle's life doubling, Light-Paws itself) or L (Mantle of the Ancients, With Great Power, Enter the Avatar State, Ishgard, the L6 composite)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · L4: GREATER AURAMANCY — the enchanted-creatures selector · **+1** · corpus 14,583 / 34,245
 > Suite **1545 files / 16,313** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
 > · "Enchanted creatures you control have shroud." The team shield static knew four permanent-type subjects (artifacts /
