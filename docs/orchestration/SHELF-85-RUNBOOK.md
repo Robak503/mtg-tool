@@ -68,7 +68,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Joe | Kinnan Mana Overload | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Believe it! | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
 | Joe | Kellan of the west | 85 | 0 | 5 | ✅ at 85 · Phase 3 candidate |
-| Joe | Halfshell heroes | 82 | 3 | 8 | ⬜ Phase 2 |
+| Joe | Halfshell heroes | 83 | 2 | 7 | ⬜ Phase 2 |
 | Test | Slivers | 99 | — | — | ✅ at the bar |
 | Test | Thrun Voltron | 91 | — | — | ✅ at the bar |
 | Test | Test Rashmi | 91 | — | — | ✅ at the bar |
@@ -82,7 +82,7 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Atraxa Superfriends | 74 | 11 | 16 | ⬜ Phase 2 |
 | Test | Light-Paws Voltron | 71 | 14 | 19 | ⬜ Phase 2 |
 
-**3 decks below 85 · 28 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**3 decks below 85 · 27 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -407,12 +407,14 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 
 ### 5.10 Halfshell heroes — 64% · needs 21 · counters/Turtles deck
 
+> ⛔ **HALFSHELL CEILING at 83 (2026-09-05, 2 to the bar):** every remaining row sizes L — Turtle Lair (restricted-spend mana, the quartet subsystem), Coin of Mastery (mana-source tracking), Special Move (a two-target mode), Everything Pizza (four sentences, three target kinds), Heroes in a Half Shell (plural subject + batch referent), Together Forever (a delayed trigger from an activation), Shellshock (per-opponent up-to-one targets), Raphael the Muscle (a counters-filtered damage doubler), Bebop (the if-you-do lane), Tempestra (copy-token + haste + delayed sacrifice), Double Jump (split/fuse). Phase 3 material; the §5 order moved on to Light-Paws.
+
 | Row | Card | Blocker | Size | Note | Status |
 |---|---|---|---|---|---|
 | Q1 | Double Jump // Flying Kick | split | L (V1 slice 3) | | ⬜ |
 | Q2 | Arcade Cabinet · Path of Ancestry | | V8 / V11 | | ✅ |
-| Q3 | Casey Jones ✅ (+1 — the active counters-placed damage payoff) · Ray Fillet ✅ (+1 — the with-a-counter dealer filter) · Together Forever · Tokka & Rahzar ✅ (+1 — the nontoken leaves scope; Splinter, the Mentor rode along on its self-inclusive union) · Baxter ✅ (+{GAIN} — the counter-filtered group grant) · Heroes in a Half Shell · Coin of Mastery · Raphael, the Muscle (sized L — a counters-filtered DAMAGE DOUBLER; no damage-doubling machinery exists; ⚠️ the deck's Raphael is NOT Fiendish Savior — sk100 read the bare name wrong and landed Fiendish Savior as a corpus gain) | counters-matter triggers and statics | S / S / M / S / S / M / M / M | Casey Jones = a counters-placed batch event (exists: countersPlaced) + damage; Ray Fillet = combat damage by a creature with a counter → draw; Raphael = a damage doubler filtered by "with counters" | ⬜ |
-| Q4 | Big Apple ✅ (+3 — the opponent count; Inspired Sphinx and Chittering Witch rode along) · Big Mother Mouser ✅ · Shellshock · Swift Demise ✅ (+1 — the opponent-creature mass destroy) · Wave Goodbye · Continue? · Exploding Barrel ✅ (+4 — the per-counter activation discount rider) · Everything Pizza · Endless Foot Assault · Splinter ✅ (rode along with Q3's nontoken leaves) · Foot Chopper (sized L — an optional sacrifice with no if-you-do lane) · Mole Module ✅ (+2 — the milled-pick's battlefield destination) · Bebop (sized L — the same if-you-do lane) · Tempestra · Irma · Dimension X Pizzasaur · Donatello ✅ (+{GAIN} — the Took extra-token replacement, Mutagen printing) | | S–M | Shredder's per-opponent copies = M; Irma's combat-start copy = M; Donatello's Mutagen replacement shares F4's seam | ⬜ |
+| Q3 | Casey Jones ✅ (+1 — the active counters-placed damage payoff) · Ray Fillet ✅ (+1 — the with-a-counter dealer filter) · Together Forever · Tokka & Rahzar ✅ (+1 — the nontoken leaves scope; Splinter, the Mentor rode along on its self-inclusive union) · Baxter ✅ (+1 — the counter-filtered group grant) · Heroes in a Half Shell · Coin of Mastery · Raphael, the Muscle (sized L — a counters-filtered DAMAGE DOUBLER; no damage-doubling machinery exists; ⚠️ the deck's Raphael is NOT Fiendish Savior — sk100 read the bare name wrong and landed Fiendish Savior as a corpus gain) | counters-matter triggers and statics | S / S / M / S / S / M / M / M | Casey Jones = a counters-placed batch event (exists: countersPlaced) + damage; Ray Fillet = combat damage by a creature with a counter → draw; Raphael = a damage doubler filtered by "with counters" | ⬜ |
+| Q4 | Big Apple ✅ (+3 — the opponent count; Inspired Sphinx and Chittering Witch rode along) · Big Mother Mouser ✅ · Shellshock · Swift Demise ✅ (+1 — the opponent-creature mass destroy) · Wave Goodbye · Continue? · Exploding Barrel ✅ (+4 — the per-counter activation discount rider) · Everything Pizza · Endless Foot Assault ✅ (+1 — per-opponent tapped-and-attacking tokens) · Splinter ✅ (rode along with Q3's nontoken leaves) · Foot Chopper (sized L — an optional sacrifice with no if-you-do lane) · Mole Module ✅ (+2 — the milled-pick's battlefield destination) · Bebop (sized L — the same if-you-do lane) · Tempestra · Irma · Dimension X Pizzasaur · Donatello ✅ (+1 — the Took extra-token replacement, Mutagen printing) | | S–M | Shredder's per-opponent copies = M; Irma's combat-start copy = M; Donatello's Mutagen replacement shares F4's seam | ⬜ |
 | Q5 | COMPOSITE | Fast Forward · Rat King ✅ (rode along with Q3's nontoken leaves) · Lita ✅ (+1 — the period-form mode-memory lead) · Turtle Lair · Special Move · Vigor · Krang | size on approach | | 🔶 |
 
 ### 5.11 Killer Turts — 64% · needs 21 · extra turns / storm-ish red deck (23 arbiter-spells)
@@ -434,8 +436,8 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | L1 | Ishgard, the Holy See | MDFC | V1 | | ⬜ |
 | L2 | Chains of Custody ×2 · Sheltered by Ghosts ×2 · Detainment Spell ×2 | | V15 | |✅ |
 | L3 | Light-Paws, Emperor's Voice | aura you cast enters → tutor an Aura with lesser MV onto the battlefield attached | M | the deck's engine; an aura-cast watcher + tutor-to-battlefield-attached | ⬜ |
-| L4 | Face of Divinity (sized M — an "as long as another Aura is attached" conditional) · Solid Footing (sized M — an "as long as … has vigilance" conditional) · Gauntlets of Light ✅ (+{GAIN} — the toughness-assigns attached grant) · Greater Auramancy ✅ (+{GAIN} — the enchanted-creatures selector) · Umbra Mystic · Shielded by Faith · Brilliant Wings · Sentinel's Mark · Shardmage's Rescue · Celestial Mantle · With Great Power · Mantle of the Ancients | aura statics and triggers | S–M | Gauntlets/Solid Footing = "assigns combat damage equal to its toughness" (the layer op EXISTS: assignsCombatDamageWithToughness — S); Greater Auramancy = team shroud on enchanted creatures (S); Shielded by Faith / Brilliant Wings = a re-attach on ETB (M) | ⬜ |
-| L5 | Winds of Rath ✅ (+{GAIN} — the enchanted predicate) · Karametra's Blessing (sized M — an "enchanted creature or enchantment creature" bound rider) · Enter the Avatar State · Deafening Silence (sized M — a per-turn noncreature cast count) · Drannith Magistrate (sized M — a cast-zone lock) | spells and statics | S / M / M / M / M | | 🔶 |
+| L4 | Face of Divinity (sized M — an "as long as another Aura is attached" conditional) · Solid Footing (sized M — an "as long as … has vigilance" conditional) · Gauntlets of Light ✅ (+2 — the toughness-assigns attached grant; Treefolk Umbra rode along) · Greater Auramancy ✅ (+1 — the enchanted-creatures selector) · Umbra Mystic · Shielded by Faith · Brilliant Wings · Sentinel's Mark · Shardmage's Rescue · Celestial Mantle · With Great Power · Mantle of the Ancients | aura statics and triggers | S–M | Gauntlets/Solid Footing = "assigns combat damage equal to its toughness" (the layer op EXISTS: assignsCombatDamageWithToughness — S); Greater Auramancy = team shroud on enchanted creatures (S); Shielded by Faith / Brilliant Wings = a re-attach on ETB (M) | ⬜ |
+| L5 | Winds of Rath ✅ (+1 — the enchanted predicate) · Karametra's Blessing (sized M — an "enchanted creature or enchantment creature" bound rider) · Enter the Avatar State · Deafening Silence (sized M — a per-turn noncreature cast count) · Drannith Magistrate (sized M — a cast-zone lock) | spells and statics | S / M / M / M / M | | 🔶 |
 | L6 | COMPOSITE | Angelic Destiny · Benevolent Blessing · Darksteel Mutation · Daybreak Coronet · Galadriel's Dismissal · On Thin Ice · Pariah · Pearl-Ear · Plaza of Heroes · Restoration Magic · Reverent Mantra · Silent Arbiter · Spectra Ward · Spirit Mantle · Swift Reconfiguration · Trouble in Pairs | size on approach | | ⬜ |
 
 ### 5.13 Kinnan Mana Overload — 72% · needs 13 · cEDH (NEXT after Killer Turts — Colton 09-05 override)
@@ -480,6 +482,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · Q4 Endless Foot Assault (Halfshell) ✅ +1 corpus (PER-OPPONENT tapped-and-attacking tokens — "for each opponent, create a 1/1 black Ninja creature token that's tapped and attacking that player" — one token per live opponent, each joining combat against ITS opponent) · mutants 4/4 killed · suite 1553 files / 16,343 · Halfshell 82 → **83** (83/100; 2 to the bar) — HALFSHELL CEILING for Phase 2: every remaining row sizes L (noted in §5.10). The §5 order moves to Light-Paws (71; every row M+): Deafening Silence first (the noncreature variant of the Rule of Law cast limit — the per-player noncreature cast count already exists).
 
 - 2026-09-05 — Phase 2 · Halfshell Fast Forward ✅ +10 corpus (two arms: the MASS goad — "goad all creatures your opponents control" on the every-opponent-creature scope — and the per-opponent-attacked cast discount — a seat-level defender memo stamped at declare-attackers, cleared at untap, counted as distinct live opponents) · mutants 6/6 killed (the stripper mutant survived its first run and got its test — the Ghoultree pin) · suite 1552 files / 16,340 · Halfshell 81 → **82** (82/100; 3 to the bar). Remaining Halfshell: Endless Foot Assault (M+ — per-opponent tokens each attacking THAT opponent; next), the rest L.
 

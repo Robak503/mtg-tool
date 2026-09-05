@@ -2,7 +2,7 @@
  * effects/atoms/tokens.js — token-minting atoms (create-token, create-named-token).
  */
 
-import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintId, attachPermanent, moveCardToZone } from "../../gameState.js";
+import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintId, attachPermanent, moveCardToZone, opponentsOf } from "../../gameState.js"; // opponentsOf — PER-OPPONENT tokens (Endless Foot Assault)
 import { tokenMultiplier, tokenAdditive, tokenExtraKinds, tokenOneOfEachPasses, applyCounterDoubling } from "../../replacementEffects.js"; // + tokenOneOfEachPasses — Academy Manufactor (Bumble F4) // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter; Xorn additive Treasure bonus
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
@@ -188,7 +188,10 @@ export function applyCreateToken(state, atom, ctx) {
   // MILLED-COUNT (Screeching Scorchbeast — "create that many … tokens" on a milled trigger, SHELF M1b):
   // countContext reads a TRIGGER-context magnitude (ctx.nonlandMilledCount / ctx.milledCount, threaded by
   // checkMilledTriggers). An absent context → 0 tokens — a clean under-fire, never a fabricated count.
-  const baseCount = atom.countContext ? Math.max(0, ctx[atom.countContext] || 0)
+  // PER-OPPONENT (Endless Foot Assault): one token per LIVE opponent at resolution (CR 608.2h); zero opponents → zero tokens.
+  const perOpponentIds = atom.perOpponent ? opponentsOf(next, tokenCreatorId) : null;
+  const baseCount = atom.perOpponent ? perOpponentIds.length
+    : atom.countContext ? Math.max(0, ctx[atom.countContext] || 0)
     : atom.countFor
     ? Math.max(0, countForSpec(next, ctx, atom.countFor))
     : atom.countX ? Math.max(0, ctx.xValue || 0) : Math.max(1, atom.count || 1);
@@ -234,7 +237,12 @@ export function applyCreateToken(state, atom, ctx) {
   // flush). It was NEVER declared as an attacker, so no attack triggers fire for it (CR 508.4). A missing
   // defender (a non-attack resolution path) leaves the tokens tapped but un-joined — FN-safe, never a
   // fabricated combat entry (the Raph & Mikey convention).
-  if (atom.entersAttacking && ctx.defenderId && mintedIds.length) {
+  if (atom.perOpponent && perOpponentIds && perOpponentIds.length && mintedIds.length) {
+    // PER-OPPONENT — the i-th minted token attacks the i-th opponent ("attacking THAT player"), round-robin under a doubler.
+    // No trigger defender is consulted: the printed card names each token's own defender.
+    const entries = mintedIds.map((id, i) => ({ permanentId: id, attackingPlayer: ctx.controller, defender: perOpponentIds[i % perOpponentIds.length] }));
+    next = { ...next, combat: { ...(next.combat || { attackers: [], blockers: [] }), attackers: [...(next.combat?.attackers || []), ...entries] } };
+  } else if (atom.entersAttacking && ctx.defenderId && mintedIds.length) {
     const entries = mintedIds.map((id) => ({ permanentId: id, attackingPlayer: ctx.controller, defender: ctx.defenderId }));
     next = { ...next, combat: { ...(next.combat || { attackers: [], blockers: [] }), attackers: [...(next.combat?.attackers || []), ...entries] } };
   }
@@ -869,6 +877,20 @@ function createTokenClauseParserCore(clause) {
   // disposition-carrying variant never reaches it. tapped + entersAttacking are COMBAT STATE (per the
   // dead-field warning above) — a type-add descriptor is still forbidden here (a Rebel/Warrior subtype is
   // fine; the parser's non-land descriptor gate keeps it clean).
+  // ===== PER-OPPONENT TAPPED-AND-ATTACKING (SHELF-85 · Halfshell Q4 Endless Foot Assault, 2026-09-05; Ainok Strike
+  // Leader) ===== "for each opponent, create a <P>/<T> <desc> creature token that's tapped and attacking THAT PLAYER": one
+  // token per opponent, EACH joining combat against ITS opponent (not the trigger's single defender). `perOpponent` sets the
+  // count to the live opponent count at resolution and applyCreateToken assigns the i-th minted token to the i-th opponent
+  // (round-robin under a token doubler — every copy still attacks a player). Adeline's "that player or a planeswalker that
+  // player controls" is a CHOICE this arm does not read — it falls through and parks (CREED).
+  const mpo = t.match(/^for each opponent, create (?:a|an|one) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens? that's tapped and attacking that player$/);
+  if (mpo) {
+    const toughness = parseInt(mpo[2], 10);
+    if (toughness < 1) return null;
+    const landMana = landTokenManaOracle(mpo[3]);
+    if (!landMana.ok || landMana.oracle) return null; // a land token minting tapped-and-attacking is unprinted → park (CREED)
+    return { op: "create-token", power: parseInt(mpo[1], 10), toughness, descriptor: mpo[3].trim(), perOpponent: true, tapped: true, entersAttacking: true, targetType: null };
+  }
   const mta = t.match(/^create (?:a|an|one) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens? that's tapped and attacking for each (.+)$/);
   if (mta) {
     const toughness = parseInt(mta[2], 10);

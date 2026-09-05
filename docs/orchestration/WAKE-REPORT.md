@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · Q4: Endless Foot Assault (+1)** · suite **1553 files / 16,343** green · corpus 14,607 (42.7%) / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
+
+> Tapped-and-attacking tokens learned to attack EACH opponent — one token per live opponent, each against its own player, never the trigger's single defender. Halfshell 82 → **83** (83/100; 2 to the bar) — HALFSHELL CEILING for Phase 2: every remaining row sizes L (noted in §5.10). The §5 order moves to Light-Paws (71; every row M+): Deafening Silence first (the noncreature variant of the Rule of Law cast limit — the per-player noncreature cast count already exists).
+> **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · Halfshell: Fast Forward (+10)** · suite **1552 files / 16,340** green · corpus 14,606 (42.7%) / 34,245 · flip-diff +10 / 0 lost · mutants 6/6 killed (the stripper mutant survived its first run and got its test — the Ghoultree pin)
 
 > Goad learned its mass form, and the cast-cost lane learned "for each opponent you attacked this turn" — a seat-level defender memo stamped where attacks are declared and cleared at untap. Halfshell 81 → **82** (82/100; 3 to the bar). Remaining Halfshell: Endless Foot Assault (M+ — per-opponent tokens each attacking THAT opponent; next), the rest L.

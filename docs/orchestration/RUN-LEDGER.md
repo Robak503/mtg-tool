@@ -16,6 +16,25 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · Q4: ENDLESS FOOT ASSAULT — per-opponent attacking tokens · **+1** · corpus 14,607 (42.7%) / 34,245
+> Suite **1553 files / 16,343** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · "Whenever you attack, for each opponent, create a 1/1 black Ninja creature token that's tapped and attacking that
+>   player." The tapped-and-attacking token existed on a COUNT (Otharri's mobilize shape) but every minted token joined
+>   combat against the TRIGGER's single defender; this card names each token's OWN defender. One parser arm
+>   (`perOpponent`) and two runtime reads in applyCreateToken: the count is the live opponent count at resolution
+>   (CR 608.2h — zero opponents, zero tokens), and the i-th minted token is appended to combat.attackers against the i-th
+>   opponent (round-robin under a token doubler, so every copy still attacks a player). The trigger's defender is never
+>   consulted for this shape. Adeline's "that player or a planeswalker that player controls" is a CHOICE the arm does not
+>   read — it parks (CREED); Ainok Strike Leader's "attack with this creature and/or your commander" event stays parked on
+>   its own trigger.
+> · **Pins:** the atom (perOpponent, tapped, entersAttacking); Endless Foot Assault native-trigger (Squad already native).
+>   RUNTIME — a THREE-seat table: the you-attack trigger mints two Ninjas, one tapped token in combat.attackers against
+>   EACH opponent (distinct defenders), neither against the caster; a TWO-seat table mints one. Mutants: the arm gone, the
+>   count fixed at one, every token sent at the first opponent, the tokens untapped — mutants 4/4 killed.
+> · **Whole-card:** no unplanned gains. Adeline, Resplendent Cathar (the planeswalker-choice form) and Ainok Strike Leader (an 'attack with this creature and/or your commander' event) print the same token sentence and stay parked on their own seams.
+> · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
+> · Halfshell 82 → **83** (83/100; 2 to the bar) — HALFSHELL CEILING for Phase 2: every remaining row sizes L (noted in §5.10). The §5 order moves to Light-Paws (71; every row M+): Deafening Silence first (the noncreature variant of the Rule of Law cast limit — the per-player noncreature cast count already exists).
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · Halfshell: FAST FORWARD — mass goad + the attacked-opponents discount · **+10** · corpus 14,606 (42.7%) / 34,245
 > Suite **1552 files / 16,340** green; lint 0. Flip-diff **+10, zero LOST** (any unplanned gains audited whole-card). **mutants 6/6 killed (the stripper mutant survived its first run and got its test — the Ghoultree pin).**
 > · "This spell costs {1} less to cast for each opponent you attacked this turn. Goad all creatures your opponents control."
