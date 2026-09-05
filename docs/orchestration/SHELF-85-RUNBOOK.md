@@ -80,9 +80,9 @@ After that, Phase 3 (§4) sweeps the remaining hard wins, and Phase 4 compiles t
 | Test | Otharri Test | 86 | 0 | 4 | ✅ at 85 · Phase 3 candidate |
 | Test | Bumble Flower Combo | 88 | 0 | 2 | ✅ at 85 · Phase 3 candidate |
 | Test | Atraxa Superfriends | 72 | 13 | 18 | ⬜ Phase 2 |
-| Test | Light-Paws Voltron | 69 | 16 | 21 | ⬜ Phase 2 |
+| Test | Light-Paws Voltron | 70 | 15 | 20 | ⬜ Phase 2 |
 
-**3 decks below 85 · 35 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
+**3 decks below 85 · 34 slots short.** Cross-deck sharing (§4 Phase 1) pays several slots per build; the honest
 expectation is 8–12 sessions of slices for Phase 2 on top of Phase 1, with the two cEDH decks and Light-Paws carrying the
 most unbuildable-class residue (§5 marks it).
 
@@ -432,7 +432,7 @@ or write the ceiling and move on. The runbook's default: build it — it is the 
 | L1 | Ishgard, the Holy See | MDFC | V1 | | ⬜ |
 | L2 | Chains of Custody ×2 · Sheltered by Ghosts ×2 · Detainment Spell ×2 | | V15 | |✅ |
 | L3 | Light-Paws, Emperor's Voice | aura you cast enters → tutor an Aura with lesser MV onto the battlefield attached | M | the deck's engine; an aura-cast watcher + tutor-to-battlefield-attached | ⬜ |
-| L4 | Face of Divinity · Solid Footing · Gauntlets of Light · Greater Auramancy · Umbra Mystic · Shielded by Faith · Brilliant Wings · Sentinel's Mark · Shardmage's Rescue · Celestial Mantle · With Great Power · Mantle of the Ancients | aura statics and triggers | S–M | Gauntlets/Solid Footing = "assigns combat damage equal to its toughness" (the layer op EXISTS: assignsCombatDamageWithToughness — S); Greater Auramancy = team shroud on enchanted creatures (S); Shielded by Faith / Brilliant Wings = a re-attach on ETB (M) | ⬜ |
+| L4 | Face of Divinity · Solid Footing · Gauntlets of Light · Greater Auramancy ✅ (+{GAIN} — the enchanted-creatures selector) · Umbra Mystic · Shielded by Faith · Brilliant Wings · Sentinel's Mark · Shardmage's Rescue · Celestial Mantle · With Great Power · Mantle of the Ancients | aura statics and triggers | S–M | Gauntlets/Solid Footing = "assigns combat damage equal to its toughness" (the layer op EXISTS: assignsCombatDamageWithToughness — S); Greater Auramancy = team shroud on enchanted creatures (S); Shielded by Faith / Brilliant Wings = a re-attach on ETB (M) | ⬜ |
 | L5 | Winds of Rath ✅ (+{GAIN} — the enchanted predicate) · Karametra's Blessing (sized M — an "enchanted creature or enchantment creature" bound rider) · Enter the Avatar State · Deafening Silence (sized M — a per-turn noncreature cast count) · Drannith Magistrate (sized M — a cast-zone lock) | spells and statics | S / M / M / M / M | | 🔶 |
 | L6 | COMPOSITE | Angelic Destiny · Benevolent Blessing · Darksteel Mutation · Daybreak Coronet · Galadriel's Dismissal · On Thin Ice · Pariah · Pearl-Ear · Plaza of Heroes · Restoration Magic · Reverent Mantra · Silent Arbiter · Spectra Ward · Spirit Mantle · Swift Reconfiguration · Trouble in Pairs | size on approach | | ⬜ |
 
@@ -478,6 +478,8 @@ note and the Omnath list, and the run takes the next row.
 ---
 
 ## 7. THE RUNNING LOG (newest first — one line per slice)
+
+- 2026-09-05 — Phase 2 · L4 Greater Auramancy (Light-Paws) ✅ +1 corpus (the team shield static's ENCHANTED-CREATURES subject — "enchanted creatures you control have shroud" — a layer selector gate reading an attached Aura, live) · mutants 4/4 killed · suite 1545 files / 16,313 · Light-Paws 69 → **70** (15 to the bar)
 
 - 2026-09-05 — Phase 2 · L5 Winds of Rath (Light-Paws) ✅ +1 corpus (the ENCHANTED predicate — a creature with an Aura attached, whoever controls the Aura (CR 303.4) — as a restriction kind, negated on the every-creature wipe; the regeneration rider already stamped) · mutants 4/4 killed (one survivor got its missing test) · suite 1544 files / 16,311 · Light-Paws 68 → **69** (16 to the bar)
 

@@ -999,6 +999,17 @@ export function isModifiedPermanent(state, perm) {
   return false;
 }
 
+/** ENCHANTED (CR 303.4): does any Aura — any controller — sit attached to `perm`? Live off the attachments. */
+export function hasAuraAttached(state, perm) {
+  if (!perm) return false;
+  for (const pid of Object.keys(state?.players || {})) {
+    for (const p of state.players[pid]?.battlefield || []) {
+      if (p.attachedTo === perm.id && /\baura\b/i.test(String(p.card?.type || p.card?.type_line || ""))) return true;
+    }
+  }
+  return false;
+}
+
 function matchesSelector(selector, candidate, sourcePerm, state) {
   if (!selector) return false;
   const srcController = sourcePerm?.controller;
@@ -1094,6 +1105,9 @@ function matchesSelector(selector, candidate, sourcePerm, state) {
   // MODIFIED gate (CR 700.9 — Kodama of the West Tree, Artillery Enthusiast, Invigorating Hot Spring …).
   // Delegates to isModifiedPermanent above so the three-clause definition lives in exactly one place.
   if (selector.modified && !isModifiedPermanent(state, candidate)) return false;
+  // ENCHANTED gate (CR 303.4 — Greater Auramancy "Enchanted creatures you control have shroud", SHELF-85 · Light-Paws L4):
+  // an Aura attached, WHOEVER controls it — narrower than modified (no counter, no Equipment, any Aura controller).
+  if (selector.enchanted && !hasAuraAttached(state, candidate)) return false;
   // TAP-STATE gates (BLITZ SF-1 — Builder's Blessing / Castle "Untapped creatures you control get +0/+2";
   // Saryth "Other untapped creatures you control have hexproof" / "Other tapped creatures you control have
   // deathtouch"; Adept Watershaper "Other tapped creatures you control have indestructible"). Reads the LIVE

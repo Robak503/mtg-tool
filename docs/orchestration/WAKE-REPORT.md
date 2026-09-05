@@ -12,6 +12,11 @@
 > Landfall learns the difference between a land PLAYED and a land put onto the battlefield. **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 > **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 
+## 🎯 2026-09-05 (cron) — **Phase 2 · L4: Greater Auramancy (+1)** · suite **1545 files / 16,313** green · corpus 14,583 / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed
+
+> The layer engine learned an ENCHANTED selector — the same Aura-attached predicate as Winds of Rath, live — so Greater Auramancy's shroud rides exactly the enchanted creatures. Light-Paws 69 → **70** (15 to the bar)
+> **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+
 ## 🎯 2026-09-05 (cron) — **Phase 2 · L5: Winds of Rath (+1)** · suite **1544 files / 16,311** green · corpus 14,582 / 34,245 · flip-diff +1 / 0 lost · mutants 4/4 killed (one survivor got its missing test)
 
 > Light-Paws opens. The restriction vocabulary learned ENCHANTED — an Aura attached, whoever controls it — so the wipe spares exactly the enchanted creatures. Light-Paws 68 → **69** (16 to the bar)

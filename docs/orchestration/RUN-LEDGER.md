@@ -16,6 +16,21 @@
 > · **CI:** BLOCKED (repo private → billing); LOCAL on the full gates
 > · **Killer Turts 76 → 77** (77/100; needs 8). Next: KT-4b Open the Omenpaths (its two-colour mode), then KT-6 Savage Beating.
 
+> ## 🎯 2026-09-05 (cron) — Phase 2 · L4: GREATER AURAMANCY — the enchanted-creatures selector · **+1** · corpus 14,583 / 34,245
+> Suite **1545 files / 16,313** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed.**
+> · "Enchanted creatures you control have shroud." The team shield static knew four permanent-type subjects (artifacts /
+>   enchantments / lands / planeswalkers you control have hexproof or shroud); this one is the creature subject with the
+>   ENCHANTED qualifier — the same predicate Winds of Rath's restriction reads (an Aura attached, whoever controls it,
+>   CR 303.4), here as a LAYER SELECTOR gate beside the modified gate, re-evaluated live by the layer engine so the
+>   shroud arrives with the Aura and leaves with it. Only hexproof and shroud, as before.
+> · **Pins:** the descriptor's selector; the plain "creatures you control have shroud" form untouched (it has its own
+>   lane); Greater Auramancy native; RUNTIME — your enchanted creature reads shroud, your bare creature and your equipped
+>   creature do not, an opponent's enchanted creature does not; attaching an Aura mid-board turns the shroud on.
+>   Mutants: the arm gone, the selector losing its gate, the layer ignoring the gate, the layer read counting any
+>   attachment — mutants 4/4 killed.
+> · **CI:** held — repo private, billing-blocked (zero-step failures); committed locally on the full local gates, pushes wait for the first green run
+> · Light-Paws 69 → **70** (15 to the bar)
+
 > ## 🎯 2026-09-05 (cron) — Phase 2 · L5: WINDS OF RATH — the enchanted predicate · **+1** · corpus 14,582 / 34,245
 > Suite **1544 files / 16,311** green; lint 0. Flip-diff **+1, zero LOST** (any unplanned gains audited whole-card). **mutants 4/4 killed (one survivor got its missing test).**
 > · Light-Paws opens (68, needs 17; the runbook's 61 was stale). "Destroy all creatures that aren't enchanted. They can't

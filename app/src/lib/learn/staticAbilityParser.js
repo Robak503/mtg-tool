@@ -1972,6 +1972,15 @@ function parseClause(clause, out, selfName, selfType) {
   // the two keywords that DO bite on any permanent: canBeTargetedBy reads permanentHasKeyword, which the layer-6 derive
   // answers for every permanent. So the selector is the bare card type — no Creature gate. Only those two keywords are
   // admitted (an indestructible grant would need the destroy paths audited for noncreature reads first — CREED).
+  // ENCHANTED CREATURES (SHELF-85 · Light-Paws L4 — Greater Auramancy "Enchanted creatures you control have shroud", 2026-09-05):
+  // the creature subject with the ENCHANTED qualifier — an Aura attached, whoever controls it (CR 303.4; the predicate
+  // Winds of Rath's restriction reads) — as a LAYER SELECTOR gate (selector.enchanted, beside selector.modified),
+  // re-evaluated live by the layer engine so the keyword arrives with the Aura and leaves with it. Only hexproof / shroud.
+  const encShield = String(clause || "").match(/^enchanted creatures you control have (hexproof|shroud)\.?$/i);
+  if (encShield) {
+    out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: encShield[1].toLowerCase() }, affects: { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], enchanted: true } }, duration: { kind: "permanent" } });
+    return;
+  }
   const shield = String(clause || "").match(/^(artifacts|enchantments|lands|planeswalkers) you control have (hexproof|shroud)\.?$/i);
   if (shield) {
     const type = shield[1][0].toUpperCase() + shield[1].slice(1, -1).toLowerCase();
