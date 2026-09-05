@@ -1,5 +1,9 @@
 # OMNATH PHONE APP — ownership boundary and build scaffold
 
+The concise continuation queue is maintained in `../../app-mobile/NEXT-PC.md`.
+Use it for the next-PC order of operations; this document remains the complete
+architectural and implementation record.
+
 > **Purpose.** This is the coordination anchor for turning MTG Tool's existing
 > local rules and play systems into a friend-facing, offline Android assistant.
 > It defines what the phone-app lane may consume, what it owns, and what it must

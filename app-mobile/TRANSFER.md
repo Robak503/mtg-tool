@@ -5,6 +5,10 @@ offline-only Omnath MTG Assistant APK. Generated databases, art downloads,
 models, APKs, credentials, signing material, SDK paths, dependencies, and build
 caches are deliberately excluded from Git.
 
+Continue product and device work from `NEXT-PC.md`. It is the concise ledger of
+locked decisions, completed features, the first Pixel smoke test, and the
+ordered alpha/pilot backlog.
+
 ## Banked checkpoint — 2026-09-03
 
 - Private repository: `https://github.com/Robak503/mtg-tool`
