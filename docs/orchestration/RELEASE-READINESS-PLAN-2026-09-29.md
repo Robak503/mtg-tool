@@ -66,7 +66,8 @@ curated entries. Build a committed, tested merger that parses all three note for
 ones as `source: "curated"`, and reports the count. Run it against the real ledger; verify the write landed on the
 REAL disk (not the MSIX mirror) by reading it back through the app (`/api` or the live file's mtime/content).
 
-**DONE R3:** merged count reported to Omnath in COMMS (expected: +5 curated, 10 replaced).
+**DONE R3:** merged count reported to Omnath in COMMS (expected: +5 curated, 10 replaced). ✅ **MET 2026-09-30T02:14Z**
+— +5 curated, 10 replaced, curated 486 → 491, verified on re-read, real disk (tool: 76f65fab; RUN-LEDGER R3 entry).
 
 ## §4 R4 — release pipeline safety
 

@@ -10,9 +10,9 @@
 ## 🌅 2026-09-29 — **RESUMED after the month-long pause · state re-verified · CI GREEN again (repo PUBLIC, stays public)** — runnable: the 09-06 plan's stage ②
 
 > **Runnable next:** [RELEASE-READINESS-PLAN-2026-09-29.md](RELEASE-READINESS-PLAN-2026-09-29.md) (Colton's go,
-> 2026-09-29) — R1 ✅ (reference data freshness) · R2 ✅ (the engine build stamp) — suite 1588 / 16,461; next **R3**
-> (Omnath's batch 19) → R4 (release pipeline) → R5 (CHANGELOG) → R6 (docs QoL) → R7 (tag v0.161.0 on/after
-> 2026-10-02). Then [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ② — the tap-a-creature
+> 2026-09-29) — R1 ✅ (reference data freshness) · R2 ✅ (the engine build stamp) · R3 ✅ (batch 19 merged: curated
+> 486 → 491) — suite 1589 / 16,475; next **R4** (release pipeline) → R5 (CHANGELOG) → R6 (docs QoL) → R7 (tag
+> v0.161.0 on/after 2026-10-02). Then [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ② — the tap-a-creature
 > alternative cost (Ramosian Rally, Angelic Favor; M-small), then the party-count cost reducer (S/M).
 > **State (measured 2026-09-29 at 5df810d2, Opus 5.5 seat):** suite **1585 files / 16,429 tests** green (1 skipped; 172 s;
 > `VITEST_TIMEOUT_MS=900000 npm test`) · lint 0 · corpus **14,772 / 34,245 (43.1%)** · 30 decks, **88%** aggregate

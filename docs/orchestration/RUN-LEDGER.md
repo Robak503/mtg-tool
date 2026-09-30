@@ -5,13 +5,35 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ②. [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **344 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **346 commits**, corpus
 > 38.6% → **43.1% (14,772)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > ⚠️ **Read the first ~150 lines only.** Lines ~7,254–23,322 of this file are a byte-identical duplicate of lines
 > ~23,327–39,395. Commit 26645a2a (2026-08-06) added 16,079 lines and deleted none (16,105 → 32,184); the line where the
 > copy begins is cut exactly at `'\.md` — consistent with a scripted `String.replace` whose replacement held `$'`. Repair
 > is queued. Every grep over the whole file double-counts until then.
+
+> ## 🔧 2026-09-29 — RELEASE-READINESS R3 · Omnath's batch 19 merged into the play-hints ledger (a committed, tested merger) · corpus unchanged 14,772 (43.1%)
+> Suite **1589 files / 16,475 tests** green (1 skipped); lint 0. **Mutants 12/12 killed** (restore byte-identical).
+> · The gap: the 2026-08-16 merge was a one-off parser; nothing committed could land a later batch, and the queue's
+>   contract pointed at a warm script that only PRESERVES curated entries. Batch 19 (2026-09-05: 5 new notes + 10
+>   REFRESH blocks — Omnath's header says nine; the block holds ten) waited 24 days. The live ledger still carried the
+>   corrected errors, e.g. Lim-Dûl's Vault as "no-shuffle" (the rulings say the rest IS shuffled).
+> · Built (76f65fab): `src/lib/learn/playHintsBatch.js` (parse one batch in the bullet / REFRESH / inline forms,
+>   bullets joined in the ledger's "LABEL: text · LABEL: text" register; apply by EXACT key — double-faced cards are
+>   keyed "Front // Back" — keeping tier / parked; unknown names reported, never invented; input never mutated) +
+>   `scripts/merge-play-hints-batch.mjs` (refuses on a missing card; backup → temp + rename → re-read verify).
+> · **Merged 2026-09-30T02:14:33Z** into the live ledger (`%APPDATA%\com.colton.mtg-tool\data\card-play-hints.json`,
+>   real disk — the MSIX mirror has no `com.colton.mtg-tool` folder; a probe write confirmed it first): **+5 curated**
+>   (Gemstone Caverns · Hydroelectric Specimen // Hydroelectric Laboratory · Agadeem's Awakening // Agadeem, the
+>   Undercrypt · The Mycosynth Gardens · Last Night Together), **10 replaced** (Nezahal · World at War · Tibalt's
+>   Trickery · Transmute Artifact · Lim-Dûl's Vault · Great Train Heist · Emrakul, the Promised End · Tezzeret the
+>   Seeker · Kaito, Bane of Nightmares · Roaming Throne); curated 486 → **491**; 1,640 entries unchanged; every
+>   other entry byte-identical (the CLI's re-read verify). Backup: `card-play-hints.json.pre-batch19-2026-09-30T02-14-33-073Z.bak`.
+> · **Mutants:** wrong bullet register · wrapped continuation dropped · the section never ends · a batch runs into the
+>   next · duplicates allowed · empty note allowed · tier / parked dropped · unknown card invented · input mutated ·
+>   added / replaced swapped · REFRESH-of-uncurated not flagged · inline form not read. A redundant header-skip
+>   survived its mutant and was deleted.
 
 > ## 🔧 2026-09-29 — RELEASE-READINESS R2 · an honest engine build stamp (`engineBuild.js`) · corpus unchanged 14,772 (43.1%)
 > Suite **1588 files / 16,461 tests** green (1 skipped); lint 0. **Mutants 9/9 killed** (restore byte-identical).
