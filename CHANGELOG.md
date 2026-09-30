@@ -9,6 +9,7 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"When you cycle this card" triggers** — Agonasaur Rex, Krosan Tusker, Titanoth Rex, Splendor Mare, the Sojourners and more can now be cycled, and their trigger resolves before you draw
 - **Ascend and the city's blessing** — control ten or more permanents with an Ascend card out and you get the blessing for the rest of the game; Arch of Orazca, Wayward Swordtooth, Skymarcher Aspirant, Dusk Charger and ten more now play
 - **Vibrance, Catharsis, Emptiness, Wistfulness, Gruul Scrapper, Steamcore Weird and three more** — "if {R}{R} was spent to cast it" enter triggers now check the mana you actually paid
 - **Ragavan, Nimble Pilferer** — when it connects, you get the Treasure and can cast the card it exiles from your opponent's library that turn; the card stays theirs and goes back to their graveyard
@@ -391,6 +392,7 @@ summarizes the notable changes.
   Phasing is a new engine subsystem; the shield and the phase-out expire together at your next untap step.
 
 ### Fixed
+- **Seven-Tail Mentor, Grafted Growth, Light the Way, Perilous Snare** — their +1/+1 counter on a creature or Vehicle now actually lands
 - **Temur Elevator** now costs you 1 life when you tap it without the city's blessing
 - **Curses respect a protected player** — Fraying Sanity and the other "Enchant player" Auras can no longer be cast
   at a player with hexproof (Leyline of Sanctity), shroud or Teferi's Protection

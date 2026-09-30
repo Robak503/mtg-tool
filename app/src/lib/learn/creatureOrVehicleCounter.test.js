@@ -38,6 +38,8 @@ import { classifyCard } from "./coverage.js";
 import { enumerateTargets } from "./spellEffects.js";
 import { parseEffectClause } from "./effects/parser.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
+import { flushTriggers, resolveTopOfStack, chooseTriggerTargets } from "./gameEngine.js";
+import { enterCardFromZone } from "./effects/atoms/zones.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -53,6 +55,21 @@ describe("the carriers", () => {
     for (const c of [SEVEN_TAIL_MENTOR, GRAFTED_GROWTH, LIGHT_THE_WAY]) {
       expect(classifyCard(c), c.name).toMatch(/^native/);
     }
+  });
+
+  // ⛔ THE PRIOR TESTS PROVED THE POOL AND NEVER RESOLVED — and the resolver dropped every pick: the union enumerates through
+  // addPermanents, which tags a pick type:"permanent", and applyAddCounter placed counters only on type:"creature". These
+  // cards classified native and put no counter anywhere until shelf D6 (2026-09-30). This row resolves.
+  it("⭐⭐ the counter LANDS — Seven-Tail Mentor enters and a +1/+1 counter is placed on a creature or Vehicle you control", () => {
+    const s0 = createGameState({ userDeck: [], aiDeck: [] });
+    const vehicle = createPermanent({ id: "veh", controller: "user", summoningSick: false, card: { id: "c-veh", name: "Test Vehicle", type: "Artifact — Vehicle", power: 3, toughness: 3, oracle: "", colors: [] } });
+    const st = { ...s0, turn: 5, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", stack: [], pendingTriggers: [],
+      players: { ...s0.players, user: { ...s0.players.user, battlefield: [vehicle], graveyard: [{ ...SEVEN_TAIL_MENTOR, id: "stm" }] } } };
+    let { state } = enterCardFromZone(st, { playerId: "user", cardId: "stm", fromZone: "graveyard" });
+    state = flushTriggers(state, { chooseTargets: chooseTriggerTargets });
+    for (let i = 0; i < 5 && state.stack.length; i++) state = resolveTopOfStack(state);
+    const placed = state.players.user.battlefield.reduce((n, p) => n + (p.counters?.["+1/+1"] || 0), 0);
+    expect(placed).toBe(1);
   });
 
   it("⭐⭐ the parsed atoms — the union, its scope, the rider, and the UNCHANGED incumbents", () => {

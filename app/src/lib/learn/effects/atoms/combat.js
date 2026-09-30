@@ -333,7 +333,10 @@ export function applyPumpEffect(state, atom, ctx) {
     // previous PERMANENT-scoped atom's, whose enumerator tags every pick type:"permanent" — an artifact creature
     // included — so the printed-type gate below is the real guard there (Blacksmith's Skill's golem stayed 3/3 on
     // the first witness run because this line dropped it before the type check ever ran).
-    if ((!PUMP_PERMANENT_SCOPES.has(atom?.targetType) && !atom?.ifBoundTypes?.length && target.type !== "creature") || !findPermanent(next, target.id)) continue;
+    // A BOUND pump ("It gains trample and indestructible until end of turn" after "…on up to one target creature or
+    // Vehicle" — Agonasaur Rex, shelf D6) follows its antecedent: that atom's enumerator already scoped the pick, and it
+    // tags a creature-or-Vehicle pick type:"permanent" — dropping it here granted nothing while the counters landed.
+    if ((!PUMP_PERMANENT_SCOPES.has(atom?.targetType) && !atom?.ifBoundTypes?.length && !atom?.bindPreviousTargets && target.type !== "creature") || !findPermanent(next, target.id)) continue;
     // TYPE-CONDITIONAL bound pump (Blacksmith's Skill — "If it's an artifact creature, it gets +2/+2"): the pump lands
     // only when the target carries EVERY listed card type after layer 4 (an animated artifact counts; a plain creature
     // does not). Read at resolution (CR 608.2). A target missing any type is skipped — no P/T, no grant — exactly as

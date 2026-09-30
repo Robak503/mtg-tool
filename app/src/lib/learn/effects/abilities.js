@@ -871,8 +871,13 @@ export function removeCounterCostCannotLeave(rc) {
  * drop it (THE CREED). TYPEcycling (Plainscycling/Landcycling, CR 702.29e) is excluded by the
  * line-start anchor — its library search needs the tutor atom, so it routes to the Arbiter until covered.
  */
-export function parseCyclingCost(card) {
-  const oracle = String(card?.oracle || card?.oracle_text || "");
+export function parseCyclingCost(card, { cycleSelfModeled = false } = {}) {
+  let oracle = String(card?.oracle || card?.oracle_text || "");
+  // CYCLE-SELF (shelf D6, 2026-09-30): a "When you cycle this card, …" line the caller has VOUCHED for
+  // (triggerRouting.cycleSelfTriggersModeled — detected, routing natively, fired by actionDispatcher.applyCycle) is not
+  // the unmodeled trigger this gate exists to refuse. Only those lines come out; any other cycle/discard trigger on the
+  // card still refuses it below.
+  if (cycleSelfModeled) oracle = oracle.replace(/(?:^|\n)[ \t]*When you cycle [^,\n]+,[^\n]*/gi, "\n");
   // ANY "When/Whenever … cycle[d]" trigger within a single clause (until the period) is an unmodeled
   // cycle trigger — gate the whole card. BROAD on purpose (a false-negative is safe): catches the
   // bare "When you cycle this card …" AND the split form "When you cast OR cycle ~, create a token …"

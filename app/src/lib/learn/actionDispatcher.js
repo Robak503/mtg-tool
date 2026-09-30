@@ -87,7 +87,7 @@ import { landDropAllowance, reduceDiscardAbilityCost, parseManaCost } from "./le
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword, permanentIsCreature, addContinuousEffect, colorsOf, crewCostWithOverrides, permanentColors } from "./layers.js"; // + permanentColors (2026-09-06): the activating source's colours for colourless-only spend restrictions
 import { parseCrewCost, crewPowerBonus, parseDiscardCostAbility } from "./effects/abilities.js"; // CREW (VH-1) — re-verified from the live card at dispatch; S8 — the Pilot's crew boost
-import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers, checkBecomesCrewedTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers; S7 — becomes-crewed
+import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLeavesTriggers, checkBecomesTargetTriggers, checkDiscardTriggers, checkAbilityActivatedTriggers, checkBecomesCrewedTriggers, checkCycleSelfTriggers } from "./triggers.js"; // + CAP-BRACERS: ability-activated watchers; S7 — becomes-crewed
 import { setPendingSoftCounterChoice, setPendingOptionalLifePaymentChoice } from "./pendingChoice.js"; // setPendingOptionalLifePaymentChoice — the shockland pause (LANDS-TIER slice 2), raised from the play-land path
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
 import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js";
@@ -1693,6 +1693,13 @@ function applyCycle(state, action) {
   });
   let next = { ...working2, stack: [...working2.stack, stackObject] };
   next = logEvent(next, { kind: "cycle", playerId: action.playerId, cardName: card.name });
+  // CYCLE-SELF (shelf D6, CR 702.29c): "When you cycle this card, …" triggered on this activation — it goes on the stack
+  // ABOVE the draw (flushed here, with the discard watchers the cost already fired), so it resolves first. legalChoices
+  // offers cycling for such a card only when the trigger is modeled (triggerRouting.cycleSelfTriggersModeled).
+  // Flushed only when one fired, so a plain cycle is byte-identical (its discard watchers wait for the next checkpoint,
+  // as before); when one did, the discard watchers go up with it (APNAP, CR 603.3b) — all of them above the draw.
+  const withCycleSelf = checkCycleSelfTriggers(next, card, action.playerId);
+  if (withCycleSelf !== next) next = flushTriggers(withCycleSelf, { chooseTargets: chooseTriggerTargets });
   // Cycling uses the stack — the CYCLER retains priority (CR 117.3c, B4), like any activated ability.
   return { ...next, priorityHolder: action.playerId, consecutivePasses: 0 };
 }

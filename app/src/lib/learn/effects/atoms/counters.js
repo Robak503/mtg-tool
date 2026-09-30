@@ -163,8 +163,14 @@ export function applyAddCounter(state, atom, ctx) {
   for (const t of targets) {
     const lk = findPermanent(next, t.id);
     const addAmt = lk ? amountForTarget(lk.permanent) : 0;
-    if (addAmt > 0 && t.type === "creature" && lk) {
-      if (atom.counterType === "+1/+1") {
+    // ⛔ A `t.type === "creature"` GATE, AGAIN (shelf D6, 2026-09-30 — the pump's comment counts the earlier ones). The
+    // "creature or Vehicle" union (CV-2: Seven-Tail Mentor, Grafted Growth, Light the Way, Perilous Snare; Agonasaur Rex)
+    // enumerates through addPermanents, which tags EVERY pick type:"permanent" — a creature included — and this line
+    // dropped them all: those cards classified native while their counter never landed (the CV-2 test checked the pool
+    // and never resolved). A permanent target is a legal recipient; the "+1/+1 counters on a creature" watchers below
+    // still count only a recipient that IS a creature (an uncrewed Vehicle is not, CR 301.7).
+    if (addAmt > 0 && (t.type === "creature" || t.type === "permanent") && lk) {
+      if (atom.counterType === "+1/+1" && (t.type === "creature" || permanentIsCreature(next, t.id))) {
         // Mirror the ACTUAL placed amount for the watcher — thread t.id so a self-excluding "another creature
         // you control" replacement (CR 109.5) skips the recipient when it IS its own source (matches addCounter).
         const placed = applyCounterDoubling(next, t.controller, "+1/+1", addAmt, t.id);
@@ -638,6 +644,10 @@ export function addCounterClauseParser(clause) {
   // opponent's Vehicle as the excluded permanent for exactly this reason.
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature or vehicle$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureOrVehicle" };
+  // "UP TO ONE" (shelf D6, 2026-09-30 — Agonasaur Rex's cycle trigger): the same union, the target optional — the
+  // `optionalTarget` flag the plain creature arm already carries for "up to one target creature".
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on up to one target creature or vehicle$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureOrVehicle", optionalTarget: true };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature or vehicle you control$/);
   if (m) {
     return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10),

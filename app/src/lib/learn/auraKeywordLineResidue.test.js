@@ -72,8 +72,12 @@ describe("recognition — FN guards (CREED: the admits are line-anchored and nev
   it("Lingering Mirage (cycling + an unmodeled type-change) stays body-only — the cycling admit lifts only its own line", () => {
     expect(classifyCard(LINGERING_MIRAGE)).toBe("body-only");
   });
-  it("a 'when you cycle' TRIGGER is its own residue line → the card stays body-only", () => {
-    expect(classifyCard(OBLIVION_CROWN_TRIGGER_TWIST)).toBe("body-only");
+  // GRADUATED (shelf D6, 2026-09-30): "When you cycle this card, draw a card." is a MODELED trigger now (cycleSelf — fired by
+  // applyCycle, cycling offered only when it routes), so the plain twist is honestly native; the residue guard moves to a
+  // cycle trigger that is still unmodeled ("cycle OR DISCARD" is not the cycleSelf event).
+  it("a 'when you cycle or discard' TRIGGER is its own residue line → the card stays body-only", () => {
+    expect(classifyCard({ ...OBLIVION_CROWN_TRIGGER_TWIST, oracle: OBLIVION_CROWN_TRIGGER_TWIST.oracle.replace("When you cycle this card,", "When you cycle or discard this card,") })).toBe("body-only");
+    expect(classifyCard(OBLIVION_CROWN_TRIGGER_TWIST)).toMatch(/^native/);
   });
   it("typecycling is NOT the plain form → residue → body-only", () => {
     expect(classifyCard({ ...SAVAGE_HUNGER, name: "Typecycler", oracle: SAVAGE_HUNGER.oracle.replace(/Cycling \{2\}[^\n]*/, "Islandcycling {2}") })).toBe("body-only");

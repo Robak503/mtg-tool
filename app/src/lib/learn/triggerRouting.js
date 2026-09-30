@@ -157,6 +157,21 @@ export function combatDamageReferentSatisfied(program, event) {
  * The single source of truth for `permanentTriggersCovered`, the composite classifier, AND the
  * runtime group-triggered-grant validator, so the trigger-routing rule can't drift between them.
  */
+/**
+ * CYCLE-SELF, MODELED (shelf D6, 2026-09-30 — CR 702.29c): every printed "When you cycle <this card>, …" line is DETECTED as a
+ * cycleSelf trigger (the bare self form — a compound like the Sojourners' "… and when this creature dies" is not) AND
+ * routes natively. The cycling OFFER reads this (abilities.parseCyclingCost's `cycleSelfModeled`), so cycling is offered
+ * for such a card exactly when its trigger will really fire and resolve — the classifier's trigger reconciliation holds
+ * the card to the same two facts. False for a card with no such line.
+ */
+export function cycleSelfTriggersModeled(card) {
+  const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
+  const printed = (oracle.match(/(?:^|\n)[ \t]*When you cycle [^,\n]+,/gi) || []).length;
+  if (printed === 0) return false;
+  const detected = detectTriggers(card).filter((d) => d.event === "cycleSelf");
+  return detected.length === printed && detected.every((d) => triggerRoutesNatively(d));
+}
+
 export function triggerRoutesNatively(d) {
   if (!d.effectClause) return false;
   if (d.interveningIf) {

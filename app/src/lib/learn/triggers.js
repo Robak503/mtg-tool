@@ -875,6 +875,14 @@ function classifyCondition(condRaw, cardName, cardType) {
   const firstWordRef = firstWord.length >= (theEpithetName ? 3 : 4) && firstWord !== nameL && !FIRST_WORD_SELF_STOPWORDS.has(firstWord)
     && new RegExp(`\\b${firstWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(c);
   const selfRef = /\bthis\b/.test(c) || (nameL && c.includes(nameL)) || shortNameRef || firstWordRef;
+  // ===== CYCLE-SELF (shelf D6, 2026-09-30 — CR 702.29c) ===== "When you cycle this card, …". It triggers as the cycling
+  // ability is activated: actionDispatcher.applyCycle fires checkCycleSelfTriggers once the draw is on the stack, so the
+  // flush puts it ABOVE the draw — it resolves first ("do this before you draw"). The bare self form ONLY: "When you cast
+  // or cycle ~" and every "a player cycles" watcher stay undetected → parked. (The trigger splitter hands over each half of
+  // the Sojourners' "When you cycle this card and when this creature dies" separately, so that compound arrives here as
+  // this exact text — its dies half fires on its own event.) The one current printing that names the card instead —
+  // Radiant Smite, behind an unmodeled "if you weren't the starting player" — is not admitted.
+  if (c === "you cycle this card") return { event: "cycleSelf", scope: "self", whose: "any" };
 
   // ===== DEALT-BY LIFEGAIN LINK (BLITZ SL-1 — Zebra Unicorn / Sunhome Enforcer) ===== the SELF forms
   // "this creature deals [combat] damage" (payoff "you gain that much life"). COVERAGE-ONLY like rampage:
@@ -9040,6 +9048,21 @@ export function checkEvolvesTriggers(state, permanentId) {
   const fired = detectTriggers(lk.permanent.card)
     .filter((d) => d.event === "evolves")
     .map((d) => makePendingTrigger(d, lk.permanent, lk.permanent, {}));
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * CYCLE-SELF triggers (shelf D6, CR 702.29c — they trigger from the zone the card ends up in): fire the cycled card's own "When you cycle this card, …" watchers. Called by
+ * actionDispatcher.applyCycle after the cycling cost is paid (the card is already in its owner's graveyard) and the draw
+ * is on the stack, so the flush puts these ABOVE it — they resolve before the draw. The source is the card itself, off
+ * the battlefield — the self-dies look-back shape ({ id, card, controller }), so the effect's controller is the cycler.
+ */
+export function checkCycleSelfTriggers(state, card, playerId) {
+  const src = { id: card.id, card, controller: playerId };
+  const fired = detectTriggers(card)
+    .filter((d) => d.event === "cycleSelf")
+    .map((d) => makePendingTrigger(d, src, src, {}));
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }

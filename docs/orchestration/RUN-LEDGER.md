@@ -5,7 +5,7 @@
 > [OVERNIGHT-PLAN-2026-09-06.md](OVERNIGHT-PLAN-2026-09-06.md) stage ③ (② MET 2026-09-30). [NEXT-QUEUE.md](NEXT-QUEUE.md) is spent
 > (fallback §B/§D only).
 >
-> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **418 commits**, corpus
+> **Release batch (CLAUDE.md §7.2):** unreleased since **v0.160.0** (tagged 2026-08-16): **419 commits**, corpus
 > 38.6% → **43.7% (14,958)** — roughly +1,500 cards. A release is owed. Update this line when a slice lands or a tag cuts.
 >
 > **Read the first ~150 lines** (entries through 2026-09-04 are archived — see the footer). **Repaired 2026-09-30:** commit 26645a2a (2026-08-06)
@@ -13,6 +13,31 @@
 > replacement held `grep -v '\.md$'`, where JS expands `$'` to "the rest of the string". The copy is gone and the cut
 > line rejoined; the repair was proven on 26645a2a itself (repaired = its parent + one contiguous 9-line insertion,
 > the note that was meant). The lesson (gotchas): pass a replacer FUNCTION to `String.replace`, never a string.
+
+> ## 🃏 2026-09-30 — SHELF DECKS · D6: "When you cycle this card" — Agonasaur Rex takes **Jurassic Ramp to 90%** · **+13** · corpus 15,034 (43.9%) / 34,245
+> Suite **1650 files / 17,048 tests** green (1 skipped); lint 0; decks 89% (2,658 → **2,659** / 2,998). CI GREEN on D5 (run 36751156199). Flip-diff **+13,
+> zero LOST, zero RETIERED** (tier snapshots at a6ad2b00 → the change). **Mutants 14/14 killed on assertions** (restore byte-identical).
+> · **The card:** Jurassic needed one; Agonasaur Rex's cycle trigger was the cheapest — and cycling was REFUSED outright for any
+>   card printing a cycle trigger (parseCyclingCost's blanket gate). 55 corpus cards print the self form; all parked.
+> · **Build:** `cycleSelf` detection ("you cycle this card" exactly; "cast or cycle" and "a player cycles" stay undetected;
+>   the Sojourners' "… and when this creature dies" arrives split, each half on its own event) · `checkCycleSelfTriggers`
+>   (the card as source — CR 702.29c: it triggers from the zone the card ends up in) · fired + flushed in `applyCycle`
+>   after the draw is stacked, so it resolves first (CR 603.3 / 405.5) · `triggerRouting.cycleSelfTriggersModeled` — every
+>   printed line detected AND routing — read by the cycling offer (only vouched lines leave parseCyclingCost's gate) ·
+>   the "up to one target creature or Vehicle" counters arm.
+> · ⚠️ **A shipped false positive, fixed:** applyAddCounter placed counters only on a target typed "creature", and the
+>   creature-or-Vehicle union tags EVERY pick "permanent" — creatures included. Seven-Tail Mentor, Grafted Growth, Light the
+>   Way, Perilous Snare (CV-2, 2026-08-06) classified native with no counter ever landing; their test proved the POOL and
+>   never resolved (it now resolves). The "counters on a creature" watchers still count only creatures (an uncrewed Vehicle
+>   is not one). Same class in the bound pump ("It gains …" after a permanent-scoped pick granted nothing) — fixed too.
+> · **Runtime:** `WITNESS agonasaurCycle {"offered":true,"triggerAboveDraw":true,"bears":"4/4","handBeforeDraw":0,"trample":true,
+>   "indestructible":true,"drew":["lib-top"],"rexInGraveyard":true}` · an uncrewed Vehicle takes the counters, and they don't
+>   fire Terrasymbiosis (on a creature they do) · no target, still draws · Krosan Tusker's land before the draw · Quakefoot
+>   stops a blocker · Bant Sojourners' Soldier on cycling AND on dying · Esper Sojourners (unmodeled) parked, not offered.
+>   Witness `app/src/lib/learn/cycleSelfTrigger.test.js` (9) + creatureOrVehicleCounter.test.js (+1 resolution row).
+> · **Graduated:** auraKeywordLineResidue's "when you cycle" residue pin — the plain form is native now; the guard stands on
+>   "cycle or discard". applyCycle flushes only when a cycle-self trigger fired, so a plain cycle is byte-identical (G14).
+> · **Next:** Shalai 88 · Wolverine 88 · Captain America 87 · Otharri 86.
 
 > ## 🃏 2026-09-30 — SHELF DECKS · D5: Ascend and the city's blessing — Arch of Orazca + Wayward Swordtooth (**Jurassic Ramp 87 → 89**) · **+14** · corpus 15,021 (43.9%) / 34,245
 > Suite **1649 files / 17,038 tests** green (1 skipped); lint 0; decks 89% (2,656 → **2,658** / 2,998). CI GREEN on D4 (run 36747426857). Flip-diff **+14,

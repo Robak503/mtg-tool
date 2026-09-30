@@ -91,6 +91,7 @@ import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDrops
 // cards flip natively (no duplicated native-determination to drift). coverage.js does NOT import legalChoices
 // (verified — metric-only, zero runtime consumers), so this import introduces no cycle.
 import { classifyCard, isNativeTier, isNativeBestow, isKeywordOnly, isNativeOrdealAura, grantAuraCastHostType } from "./coverage.js";
+import { cycleSelfTriggersModeled } from "./triggerRouting.js"; // shelf D6 — the cycling offer and the classifier read the same vouch
 import { parseKickerCounterCreature, parseKickerEtbCreature, parseKickerCost } from "./kicker.js"; // KICKER (CR 702.33) — emit a normal + a kicked cast (kicker mana folded into the cost) when the kicker is affordable; ETB-trigger payoff variant (creatures) + kicked-SPELL-effect (instants/sorceries) too
 import { registerGrantActivatedBodyValidator } from "./effects/atoms/grantUntilEot.js"; // TG-1 — the until-EOT quoted-grant activated-body gate
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — emit a normal hard-cast + an emerge cast per legal sacrifice victim (cost reduced by the victim's MV)
@@ -2897,7 +2898,8 @@ function actionsCycleFromHand(state, playerId) {
   const player = state.players[playerId];
   const actions = [];
   for (const card of player.hand) {
-    const costStr = parseCyclingCost(card);
+    // shelf D6 — a card whose "When you cycle this card" trigger is modeled (detected, routing, fired by applyCycle) may cycle.
+    const costStr = parseCyclingCost(card, { cycleSelfModeled: cycleSelfTriggersModeled(card) });
     if (costStr) {
       const cost = parseManaCost(costStr);
       if (cost.hasX) continue; // an X cycling cost would need the X-choice expansion (none in the corpus)
